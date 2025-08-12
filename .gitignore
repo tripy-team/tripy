@@ -28,6 +28,7 @@ yarn-error.log*
 *.swn
 .idea/
 .vscode/
+.env
 
 # === Build Artifacts ===
 dist/
