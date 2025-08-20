@@ -7,6 +7,7 @@ from amadeus import Client, Location, ResponseError
 import allcities
 from serpapi import GoogleSearch
 from classes import Flight, Airport
+from openai import OpenAI
 
 
 def lambda_handler(index, context):
