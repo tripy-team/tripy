@@ -1,6 +1,6 @@
 import * as cognito from "aws-cdk-lib/aws-cognito";
 import * as iam from "aws-cdk-lib/aws-iam";
-import * as lambda from "aws-cdk-lib/aws-lambda"
+import * as lambda from "aws-cdk-lib/aws-lambda";
 import { Stack, StackProps } from "aws-cdk-lib/core";
 import { Construct } from "constructs";
 
@@ -14,7 +14,9 @@ export class authCognitoStack extends Stack {
       required: true,
       mutable: true,
     };
-    const userpool = new cognito.UserPool(this, `${id}-userpool`, {
+
+
+    const tripyUserpool = new cognito.UserPool(this, `${id}-userpool`, {
       userPoolName: "tripy-userpool",
       signInCaseSensitive: true,
 
@@ -56,19 +58,34 @@ export class authCognitoStack extends Stack {
       accountRecovery: cognito.AccountRecovery.EMAIL_AND_PHONE_WITHOUT_MFA,
 
       //account security
-      standardThreatProtectionMode: cognito.StandardThreatProtectionMode.FULL_FUNCTION,
+      standardThreatProtectionMode:
+        cognito.StandardThreatProtectionMode.FULL_FUNCTION,
 
       //device tracking
-      deviceTracking:{
+      deviceTracking: {
         challengeRequiredOnNewDevice: true,
-        deviceOnlyRememberedOnUserPrompt: true
+        deviceOnlyRememberedOnUserPrompt: true,
       },
-      
-      //read about lambda triggers section
-    });
-    const lambdaTriggerRole = new iam.Role(this, "lambdaTrigger", {
-      assumedBy: new iam.ServicePrincipal("lambda.amazonaws.com"),
-    });
-    userpool.grant(lambdaTriggerRole, "cognito-idp:AdminCreateUser");
+
+      //lambda triggers
+      lambdaTriggers: {},
+    })
+
+    //multi source sign in
+    const googleProvider = new cognito.UserPoolIdentityProviderGoogle(this, 'Google',{
+      clientId: "<insert>",
+      clientSecret: "<insert>",
+      userPool: tripyUserpool
+    })
+    const appleProvider = new cognito.UserPoolIdentityProviderApple(this, "Apple",{
+      clientId: "<insert>",
+      teamId: "<insert>",
+      keyId: "<insert>",
+      userPool: tripyUserpool
+    })
+    // const lambdaTriggerRole = new iam.Role(this, "lambdaTrigger", {
+    //   assumedBy: new iam.ServicePrincipal("lambda.amazonaws.com"),
+    // });
+    // userpool.grant(lambdaTriggerRole, "cognito-idp:AdminCreateUser");
   }
 }

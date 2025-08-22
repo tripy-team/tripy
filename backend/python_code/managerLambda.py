@@ -8,6 +8,8 @@ import allcities
 from serpapi import GoogleSearch
 from classes import Flight, Airport
 from openai import OpenAI
+from pydantic import BaseModel
+from datetime import date
 
 
 def lambda_handler(index, context):
@@ -28,11 +30,88 @@ def get_airport_data_from_city(city, countryCode):
     return city_airport_data_list
 
 
+class Suggestions(BaseModel):
+    country: str
+    city: str
+    places = [(city, country)]
+
+
+def ask_open_ai():
+    load_dotenv()
+    filters = create_flight_filters()
+    outbound_date = filters["outbound_date"]
+    return_date = filters["return_date"]
+    client = OpenAI(api_key=os.getenv("OPENAI_ADMIN_KEY"))
+    response = client.chat.completions.create(
+        model="gpt-5",
+        messages=[
+            {
+                "roles": "system",
+                "content": f"You are a helpful travel agent, looking to suggest places to visit during with outbound date {outbound_date} and return date {return_date}",
+            },
+            {
+                "role": "user",
+                "content": f"what cities and their corresponding countries are best to travel with outbound date {outbound_date} and return date {return_date}",
+            },
+        ],
+        response_format=Suggestions,
+    )
+    print(response.choices[0].message.content)
+    return response
+
+
+def create_flight_filters():
+    filters = {
+        "start_city": None,
+        "start_city_country_code": None,
+        "end_city": None,
+        "end_city_country_code": None,
+        "type": None,
+        "outbound_date": None,
+        "return_date": None,
+        "travel_class": None,
+        "multi_city_json": None,
+        "passengers": {
+            "adults": 0,
+            "childern": 0,
+            "infants_in_seat": 0,
+            "infants_on_lap": 0,
+        },
+        "stops": 0,
+        "exclude_airlines": None,
+        "include_airlines": None,
+        "bags": 0,
+        "max_price": None,
+        "outbound_times": None,
+        "emissions": None,
+        "layover_duration": None,
+        "exclude_conns": None,
+        "max_duration": None,
+    }
+    return filters
+
+
+def create_hotel_filters():
+    pass
+
+
 def get_flights_between_cities(
-    start_city, start_city_countryCode, end_city, end_city_countryCode, filters=None
+    start_city,
+    start_city_countryCode,
+    end_city=None,
+    end_city_countryCode=None,
+    filters=None,
 ):
     start_airport_data = get_airport_data_from_city(start_city, start_city_countryCode)
-    end_airport_data = get_airport_data_from_city(end_city, end_city_countryCode)
+    if not ((end_city is None) == (end_city_countryCode is None)):
+        assert "end_city and end_city_countryCode must either be a string or both none"
+    else:
+        if end_city and end_city_countryCode is None:
+            end_airport_data = None
+        else:
+            end_airport_data = get_airport_data_from_city(
+                end_city, end_city_countryCode
+            )
     flights_price_dict = {}
 
     for start_airport in start_airport_data:
@@ -57,6 +136,10 @@ def get_flights_between_cities(
             except:
                 continue
     print(flights_price_dict)
+
+
+def explore_destinations():
+    pass
 
 
 def get_flights_cost_in_points():
