@@ -1,5 +1,6 @@
 import * as cognito from "aws-cdk-lib/aws-cognito";
 import * as iam from "aws-cdk-lib/aws-iam";
+import * as lambda from "aws-cdk-lib/aws-lambda"
 import { Stack, StackProps } from "aws-cdk-lib/core";
 import { Construct } from "constructs";
 
@@ -54,8 +55,8 @@ export class authCognitoStack extends Stack {
       //account recovery
       accountRecovery: cognito.AccountRecovery.EMAIL_AND_PHONE_WITHOUT_MFA,
 
-      //account security https://docs.aws.amazon.com/cognito/latest/developerguide/cognito-user-pool-settings-threat-protection.html
-
+      //account security
+      standardThreatProtectionMode: cognito.StandardThreatProtectionMode.FULL_FUNCTION,
 
       //device tracking
       deviceTracking:{
