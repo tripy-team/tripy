@@ -62,6 +62,7 @@ def ask_open_ai():
 
 def create_flight_filters():
     filters = {
+        "deep_search": True,
         "start_city": None,
         "start_city_country_code": None,
         "end_city": None,

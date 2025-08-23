@@ -15,7 +15,7 @@ export class lambdaStack extends Stack{
             functionName: id,
             code: lambda.Code.fromAsset(code_path),
             runtime: lambda.Runtime.PYTHON_3_13,
-            handler: `${code_path}.index_handler`,
+            handler: `${code_path}.lambda_handler`,
             timeout: Duration.minutes(15)
         })
     }
