@@ -1,6 +1,9 @@
 import boto3
 from dotenv import load_dotenv
 import os
+from phone_number_validator.validator import PhoneNumberValidator
+from email_validator import validate_email, EmailNotValidError
+import uuid
 
 
 class UserPool:
@@ -62,8 +65,25 @@ class CognitoSDK:
         self.password = password
         self.birthdate = birthdate
         self.gender = gender
+        self.referral_code = uuid.uuid4()
+
+    def validate_user_info(self, check_deliverability=False):
+        load_dotenv()
+        user_email = self.email
+        phone_number = self.phone
+        try:
+            email_info = validate_email(user_email, check_deliverability)
+            email = email_info.normalized
+        except EmailNotValidError as e:
+            assert f"Email {user_email} is not valid"
+        phone_validator = PhoneNumberValidator(api_key=os.getenv("NUMLOOKUP_API_KEY"))
+        assert (
+            phone_validator.validate(phone_number) == True
+        ), f"{phone_number} is not valid"
+        return {"success": True, "response": {"email": email, "phone": phone_number}}
 
     def register_user(self):
+        assert self.validate_user_info(True)["success"] == False
         response = self.cognito_client.sign_up(
             ClientId=self.client_id,
             Username=self.email,
@@ -76,7 +96,7 @@ class CognitoSDK:
                 {"Name": "gender", "Value": self.gender},
             ],
         )
-        # create database
+        # create database and include sync syncing functionality
         return {"success": True, "response": response}
 
     def confirm_registration(self, confirmation_code):

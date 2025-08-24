@@ -97,6 +97,7 @@ daal4py==2021.6.0
 dask @ file:///private/var/folders/sy/f16zz6x50xz3113nwtb9bvq00000gp/T/abs_625ab4ad-a7aa-46be-859b-eb7a32fc37bc46adm9wx/croots/recipe/dask-core_1658513219136/work
 datashader @ file:///private/var/folders/sy/f16zz6x50xz3113nwtb9bvq00000gp/T/abs_543d57cxkz/croots/recipe/datashader_1659349048901/work
 datashape==0.5.4
+date-validator==0.1.0
 debugpy @ file:///opt/concourse/worker/volumes/live/fb0af3c0-b0a4-42c5-46e7-6ce9c84da602/volume/debugpy_1637091827531/work
 decorator==4.4.2
 defusedxml @ file:///tmp/build/80754af9/defusedxml_1615228127516/work
@@ -111,12 +112,14 @@ django-haystack==2.4.1
 django-hitcounter==0.1.1
 django-revproxy==0.10.0
 django-taggit==0.22.2
+dnspython==2.7.0
 docopt==0.6.2
 docutils @ file:///private/var/folders/sy/f16zz6x50xz3113nwtb9bvq00000gp/T/abs_10cfb287-0327-45ef-a38e-53dffd30cef1nwpvy20e/croots/recipe/docutils_1657175439973/work
 dotenv==0.9.9
 durationpy==0.9
 echo==0.8.0
 ECHO_modules @ git+https://github.com/edgi-govdata-archiving/ECHO_modules@1e1b87bbd45c15cc279bc562892ec10f4dfb261f
+email_validator==2.2.0
 entrypoints @ file:///opt/concourse/worker/volumes/live/78b2c4ae-da17-4aa7-7fdc-138f840abf07/volume/entrypoints_1649926486598/work
 essentia==2.1b6.dev1110
 et-xmlfile==1.1.0
@@ -285,6 +288,7 @@ pbxproj==4.0.0
 peewee==3.17.5
 pep8==1.7.1
 pexpect @ file:///tmp/build/80754af9/pexpect_1605563209008/work
+phone-number-validator==1.0.2
 pickleshare @ file:///tmp/build/80754af9/pickleshare_1606932040724/work
 Pillow==9.4.0
 pkginfo @ file:///tmp/build/80754af9/pkginfo_1643162084911/work
