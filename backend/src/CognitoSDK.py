@@ -76,6 +76,7 @@ class CognitoSDK:
                 {"Name": "gender", "Value": self.gender},
             ],
         )
+        # create database
         return {"success": True, "response": response}
 
     def confirm_registration(self, confirmation_code):

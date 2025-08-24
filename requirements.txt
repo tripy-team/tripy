@@ -2,6 +2,7 @@ aiohappyeyeballs==2.6.1
 aiohttp==3.12.15
 aiosignal==1.4.0
 alabaster @ file:///home/ktietz/src/ci/alabaster_1611921544520/work
+allcities==1.0.3
 altair==5.1.1
 amadeus==12.0.0
 amplify==1.2.0
@@ -151,6 +152,7 @@ google-cloud-firestore==2.14.0
 google-cloud-storage==2.14.0
 google-crc32c==1.5.0
 google-resumable-media==2.7.0
+google_search_results==2.4.2
 googleapis-common-protos==1.62.0
 greenlet @ file:///opt/concourse/worker/volumes/live/b27b4e9e-4697-4d57-403b-f82d36a391ca/volume/greenlet_1628888146890/work
 grpcio==1.60.1
@@ -304,6 +306,7 @@ protobuf==4.24.3
 psutil @ file:///private/var/folders/sy/f16zz6x50xz3113nwtb9bvq00000gp/T/abs_c9b604bf-685f-47f6-8304-238e4e70557e1o7mmsot/croots/recipe/psutil_1656431274701/work
 ptyprocess @ file:///tmp/build/80754af9/ptyprocess_1609355006118/work/dist/ptyprocess-0.7.0-py2.py3-none-any.whl
 publication==0.0.3
+PuLP==3.2.2
 py @ file:///opt/conda/conda-bld/py_1644396412707/work
 pyarrow==13.0.0
 pyasn1 @ file:///Users/ktietz/demo/mc3/conda-bld/pyasn1_1629708007385/work
@@ -629,6 +632,7 @@ xyzservices==2023.2.0
 yapf @ file:///tmp/build/80754af9/yapf_1615749224965/work
 yarl==1.20.1
 yfinance==0.2.40
+yodlee==0.1.8
 zappa==0.59.0
 zict==2.1.0
 zipp @ file:///private/var/folders/sy/f16zz6x50xz3113nwtb9bvq00000gp/T/abs_b279673d-f037-44c7-8773-c5a6b6f51037d3wfr9cq/croots/recipe/zipp_1652341773612/work

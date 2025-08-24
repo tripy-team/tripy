@@ -30,36 +30,6 @@ def get_airport_data_from_city(city, countryCode):
     return city_airport_data_list
 
 
-class Suggestions(BaseModel):
-    country: str
-    city: str
-    places = [(city, country)]
-
-
-def ask_open_ai():
-    load_dotenv()
-    filters = create_flight_filters()
-    outbound_date = filters["outbound_date"]
-    return_date = filters["return_date"]
-    client = OpenAI(api_key=os.getenv("OPENAI_ADMIN_KEY"))
-    response = client.chat.completions.create(
-        model="gpt-5",
-        messages=[
-            {
-                "roles": "system",
-                "content": f"You are a helpful travel agent, looking to suggest places to visit during with outbound date {outbound_date} and return date {return_date}",
-            },
-            {
-                "role": "user",
-                "content": f"what cities and their corresponding countries are best to travel with outbound date {outbound_date} and return date {return_date}",
-            },
-        ],
-        response_format=Suggestions,
-    )
-    print(response.choices[0].message.content)
-    return response
-
-
 def create_flight_filters():
     filters = {
         "deep_search": True,
