@@ -79,3 +79,7 @@ class GroupTrip:
     def __init__(self, users: list[User]):
         self.users = users
         self.trip_id = uuid.uuid3()
+
+
+class Trip:
+    pass
