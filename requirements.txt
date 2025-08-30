@@ -11,7 +11,7 @@ anaconda-client==1.11.0
 anaconda-navigator==2.3.2
 anaconda-project @ file:///private/var/folders/sy/f16zz6x50xz3113nwtb9bvq00000gp/T/abs_52iciqycjz/croots/recipe/anaconda-project_1660339902500/work
 annotated-types==0.6.0
-anyio @ file:///opt/concourse/worker/volumes/live/485b0f52-1188-482a-6285-65a36c8fa8a6/volume/anyio_1644481714856/work/dist
+anyio==4.10.0
 appdirs==1.4.4
 applaunchservices @ file:///private/var/folders/sy/f16zz6x50xz3113nwtb9bvq00000gp/T/abs_96v71vcny2/croots/recipe/applaunchservices_1661854626389/work
 appnope @ file:///opt/concourse/worker/volumes/live/6ca6f098-d773-4461-5c91-a24a17435bda/volume/appnope_1606859448531/work
@@ -97,6 +97,7 @@ daal4py==2021.6.0
 dask @ file:///private/var/folders/sy/f16zz6x50xz3113nwtb9bvq00000gp/T/abs_625ab4ad-a7aa-46be-859b-eb7a32fc37bc46adm9wx/croots/recipe/dask-core_1658513219136/work
 datashader @ file:///private/var/folders/sy/f16zz6x50xz3113nwtb9bvq00000gp/T/abs_543d57cxkz/croots/recipe/datashader_1659349048901/work
 datashape==0.5.4
+date-validator==0.1.0
 debugpy @ file:///opt/concourse/worker/volumes/live/fb0af3c0-b0a4-42c5-46e7-6ce9c84da602/volume/debugpy_1637091827531/work
 decorator==4.4.2
 defusedxml @ file:///tmp/build/80754af9/defusedxml_1615228127516/work
@@ -111,18 +112,21 @@ django-haystack==2.4.1
 django-hitcounter==0.1.1
 django-revproxy==0.10.0
 django-taggit==0.22.2
+dnspython==2.7.0
 docopt==0.6.2
 docutils @ file:///private/var/folders/sy/f16zz6x50xz3113nwtb9bvq00000gp/T/abs_10cfb287-0327-45ef-a38e-53dffd30cef1nwpvy20e/croots/recipe/docutils_1657175439973/work
 dotenv==0.9.9
 durationpy==0.9
 echo==0.8.0
 ECHO_modules @ git+https://github.com/edgi-govdata-archiving/ECHO_modules@1e1b87bbd45c15cc279bc562892ec10f4dfb261f
+email_validator==2.2.0
 entrypoints @ file:///opt/concourse/worker/volumes/live/78b2c4ae-da17-4aa7-7fdc-138f840abf07/volume/entrypoints_1649926486598/work
 essentia==2.1b6.dev1110
 et-xmlfile==1.1.0
 etiquetando==0.1
 exceptiongroup==1.2.2
 fake-bpy-module-latest==20240215
+fastapi==0.116.1
 fastjsonschema @ file:///private/var/folders/sy/f16zz6x50xz3113nwtb9bvq00000gp/T/abs_b5c1gee32t/croots/recipe/python-fastjsonschema_1661368622875/work
 filelock @ file:///opt/conda/conda-bld/filelock_1647002191454/work
 Fiona==1.9.1
@@ -154,7 +158,7 @@ google-crc32c==1.5.0
 google-resumable-media==2.7.0
 google_search_results==2.4.2
 googleapis-common-protos==1.62.0
-greenlet @ file:///opt/concourse/worker/volumes/live/b27b4e9e-4697-4d57-403b-f82d36a391ca/volume/greenlet_1628888146890/work
+greenlet==3.2.4
 grpcio==1.60.1
 grpcio-status==1.60.1
 h11==0.14.0
@@ -166,6 +170,7 @@ html2text==2020.1.16
 html5lib==1.1
 httpcore==1.0.3
 httplib2==0.22.0
+httptools==0.6.4
 httpx==0.26.0
 human-body-prior==0.8.5.0
 hvplot @ file:///private/var/folders/sy/f16zz6x50xz3113nwtb9bvq00000gp/T/abs_20gh5adwn_/croots/recipe/hvplot_1659026499732/work
@@ -285,11 +290,13 @@ pbxproj==4.0.0
 peewee==3.17.5
 pep8==1.7.1
 pexpect @ file:///tmp/build/80754af9/pexpect_1605563209008/work
+phone-number-validator==1.0.2
 pickleshare @ file:///tmp/build/80754af9/pickleshare_1606932040724/work
 Pillow==9.4.0
 pkginfo @ file:///tmp/build/80754af9/pkginfo_1643162084911/work
 placebo==0.9.0
 platformdirs @ file:///private/var/folders/sy/f16zz6x50xz3113nwtb9bvq00000gp/T/abs_7fs8_2xgrm/croots/recipe/platformdirs_1662711383474/work
+playwright==1.55.0
 plotly @ file:///private/var/folders/sy/f16zz6x50xz3113nwtb9bvq00000gp/T/abs_b7601a7c-071f-4424-ad46-f00f32c1766ccwgx0ywh/croots/recipe/plotly_1658160061089/work
 pluggy @ file:///opt/concourse/worker/volumes/live/42ef51ae-f79c-40e0-6d26-eb6fe9d8ba6e/volume/pluggy_1648042596777/work
 ply==3.11
@@ -322,6 +329,7 @@ pydeck==0.8.1b0
 PyDispatcher==2.0.5
 pydocstyle @ file:///tmp/build/80754af9/pydocstyle_1621600989141/work
 pydub==0.25.1
+pyee==13.0.0
 pyerfa @ file:///opt/concourse/worker/volumes/live/fef1f482-1dec-42b9-4439-b8031d24ea69/volume/pyerfa_1621560786048/work
 pyflakes @ file:///tmp/build/80754af9/pyflakes_1636644436481/work
 pygame==2.5.2
@@ -563,6 +571,7 @@ sphinxcontrib-serializinghtml @ file:///tmp/build/80754af9/sphinxcontrib-seriali
 spyder @ file:///private/var/folders/sy/f16zz6x50xz3113nwtb9bvq00000gp/T/abs_97gv8v17po/croots/recipe/spyder_1663056808858/work
 spyder-kernels @ file:///private/var/folders/sy/f16zz6x50xz3113nwtb9bvq00000gp/T/abs_1c7pyd81si/croots/recipe/spyder-kernels_1662457889999/work
 SQLAlchemy @ file:///private/var/folders/sy/f16zz6x50xz3113nwtb9bvq00000gp/T/abs_47054e44-1f88-4a8b-9ca4-67b36ce38181xyx8z2m5/croots/recipe/sqlalchemy_1657867866169/work
+starlette==0.47.3
 statsmodels @ file:///opt/concourse/worker/volumes/live/90a089a9-fdd6-4c7e-631b-5fdf9cf55d62/volume/statsmodels_1648033311105/work
 stemming==1.0.1
 streamlit==1.27.1
@@ -601,21 +610,25 @@ troposphere==4.8.3
 ttkbootstrap==1.10.1
 Twisted @ file:///private/var/folders/sy/f16zz6x50xz3113nwtb9bvq00000gp/T/abs_daykstm3mh/croots/recipe/twisted_1659592770155/work
 typeguard==2.13.3
-typing_extensions==4.9.0
+typing_extensions==4.15.0
 tzdata==2025.2
 tzlocal==5.0.1
 ujson @ file:///private/var/folders/sy/f16zz6x50xz3113nwtb9bvq00000gp/T/abs_cf44fbd5-5db0-48cf-86c4-c8d4e74d1cbbwhgckc99/croots/recipe/ujson_1657544919410/work
 Unidecode @ file:///tmp/build/80754af9/unidecode_1614712377438/work
 uritemplate==4.1.1
 urllib3==1.26.20
+uvicorn==0.35.0
+uvloop==0.21.0
 validators==0.22.0
 vine==5.0.0
 virtualenv==20.17.1
 w3lib @ file:///Users/ktietz/demo/mc3/conda-bld/w3lib_1629359764703/work
 watchdog @ file:///opt/concourse/worker/volumes/live/bc34f9ce-893b-443f-56fb-9256c33ecf2a/volume/watchdog_1638367303330/work
+watchfiles==1.1.0
 wcwidth @ file:///Users/ktietz/demo/mc3/conda-bld/wcwidth_1629357192024/work
 webencodings==0.5.1
 websocket-client==1.8.0
+websockets==15.0.1
 Werkzeug @ file:///opt/conda/conda-bld/werkzeug_1645628268370/work
 whatthepatch @ file:///private/var/folders/sy/f16zz6x50xz3113nwtb9bvq00000gp/T/abs_0aabmq0ph3/croots/recipe/whatthepatch_1661795995892/work
 Whoosh==2.7.4
@@ -632,6 +645,7 @@ xyzservices==2023.2.0
 yapf @ file:///tmp/build/80754af9/yapf_1615749224965/work
 yarl==1.20.1
 yfinance==0.2.40
+yodlee==0.1.8
 zappa==0.59.0
 zict==2.1.0
 zipp @ file:///private/var/folders/sy/f16zz6x50xz3113nwtb9bvq00000gp/T/abs_b279673d-f037-44c7-8773-c5a6b6f51037d3wfr9cq/croots/recipe/zipp_1652341773612/work
