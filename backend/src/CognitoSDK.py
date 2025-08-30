@@ -404,7 +404,7 @@ class Cognito:
 class CognitoAuthMiddleware:
     """Middleware for token validation in web applications"""
 
-    def __init__(self, cognito_sdk: CognitoSDK):
+    def __init__(self, cognito_sdk: Cognito):
         self.cognito_sdk = cognito_sdk
 
     def validate_request(self, headers: Dict[str, str]) -> Dict[str, Any]:
@@ -434,7 +434,7 @@ class CognitoAuthMiddleware:
 # Usage example
 if __name__ == "__main__":
     # Initialize SDK
-    cognito = CognitoSDK(
+    cognito = Cognito(
         user_pool_id="us-east-1_XXXXXXXXX",
         client_id="your-client-id",
         client_secret="your-client-secret",  # Optional

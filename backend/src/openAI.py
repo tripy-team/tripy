@@ -6,7 +6,7 @@ from openai import OpenAI
 from pydantic import BaseModel
 from enum import Enum
 from datetime import date
-from flightsLambda import create_flight_filters
+from backend.src.flights import create_flight_filters
 
 
 class Suggestions(BaseModel):
@@ -106,3 +106,7 @@ def ai_image_generator(city, country, destination_start_date, destination_end_da
         Body=img_bytes,
         ContentType="image/png",
     )
+
+
+def get_how_long_I_should_stay_at_a_destination():
+    pass

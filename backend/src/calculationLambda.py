@@ -1,5 +1,5 @@
 import json
-from backend.python_code.classes import User, Airport, Trip, City, Flight
+from classes import User, Airport, Trip, City, Flight
 import networkx as nx
 from itertools import permutations
 import serpapi

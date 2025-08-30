@@ -19,6 +19,8 @@ def create_trips_table(email, session):
             {"AttributeName": "end_date", "AttributeType": "S"},
             {"AttributeName": "destinations", "AttributeType": "S"},
             {"AttributeName": "flights", "AttributeType": "S"},
+            {"AttributeName": "trip_name", "Attribute": "S"},
+            {"AttributeName": "parties_joining", "Attribute": "S"},
         ],
         KeySchema=[
             {"AttributeName": "trip_uuid", "AttributeType": "HASH"},
