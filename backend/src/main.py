@@ -1,6 +1,11 @@
 # ----------------------------
 # Minimal example incl. Traveler C with native UA miles
 # ----------------------------
+import pulp as pl
+from typing import Dict, List, Tuple, Set
+from planTrip import plan_non_pooled_multi_itineraries_with_native
+
+Edge = Tuple[str, str, str]  # (origin, dest, flight_id)
 if __name__ == "__main__":
     travelers = ["A", "B", "C"]
     start_city = {"A": "SEA", "B": "SFO", "C": "LAX"}

@@ -33,3 +33,47 @@ yarn-error.log*
 # === Build Artifacts ===
 dist/
 build/
+
+
+# Node / Next.js
+node_modules/
+.next/
+out/
+.turbo/
+.vercel/
+npm-debug.log*
+yarn.lock
+pnpm-lock.yaml
+
+# Env files
+.env
+.env.*.local
+.env.local
+
+# Frontend caches
+frontend/node_modules/
+frontend/.next/
+
+# Python
+__pycache__/
+*.pyc
+*.pyo
+*.pyd
+.pytest_cache/
+.mypy_cache/
+.ruff_cache/
+.venv/
+venv/
+env/
+pip-wheel-metadata/
+
+# Backend virtual envs & build
+backend/__pycache__/
+backend/.venv/
+backend/venv/
+build/
+dist/
+*.egg-info/
+
+
+package.json
