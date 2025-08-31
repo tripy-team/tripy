@@ -1,6 +1,6 @@
 export async function POST(req: Request) {
   const body = await req.text();
-  const upstream = await fetch(`${process.env.BACKEND_URL}`, {
+  const upstream = await fetch(`${process.env.BACKEND_URL}/ingest`, {
     method: "POST",
     headers: { "Content-Type": "application/json" },
     body,
