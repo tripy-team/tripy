@@ -15,7 +15,7 @@ def health():
 async def ingest(req: Request):
     data = await req.json()
     print("payload:", data)
-    return {"ok": True}
+    return {"payload": data}
 
 
 def start():
