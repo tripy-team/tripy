@@ -2,8 +2,6 @@ import boto3
 import os
 from dotenv import load_dotenv
 from fastapi import FastAPI, Request
-from fastapi.encoders import jsonable_encoder
-from fastapi.responses import JSONResponse
 from main import demo
 
 app = FastAPI()
@@ -16,10 +14,9 @@ def health():
 
 @app.post("/ingest")
 async def ingest(req: Request):
-    # data = await req.json()
-    # print("payload:", data)
-    result = demo()
-    return result
+    data = await req.json()
+    print("payload:", data)
+    return demo()
 
 
 def start():

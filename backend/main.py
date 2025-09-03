@@ -332,6 +332,7 @@ def demo():
 
     pprint(sol)
     print(type(sol))
+    return sol
 
 
 if __name__ == "__main__":
