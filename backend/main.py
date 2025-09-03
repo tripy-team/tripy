@@ -26,24 +26,19 @@ def test():
     ]
 
     time_cost = {
-        ("SEA", "JFK", "UA123"): 5.7,
-        ("SEA", "JFK", "DL456"): 5.5,
-        ("SFO", "JFK", "UA789"): 5.2,
-        ("LAX", "JFK", "UA345"): 5.1,
-        ("JFK", "CDG", "AF020"): 7.0,
-        ("JFK", "CDG", "DL020"): 7.3,
-        ("CDG", "AMS", "AF030"): 1.2,
-        ("CDG", "AMS", "KL030"): 1.3,
+        "SEA": {"JFK": {"UA123": 5.7, "DL456": 5.5}},
+        "SFO": {"JFK": {"UA789": 5.2}},
+        "LAX": {"JFK": {"UA345": 5.1}},
+        "JFK": {"CDG": {"AF020": 7.0, "DL020": 7.3}},
+        "CDG": {"AMS": {"AF030": 1.2, "KL030": 1.3}},
     }
+
     cash_cost = {
-        ("SEA", "JFK", "UA123"): 320,
-        ("SEA", "JFK", "DL456"): 300,
-        ("SFO", "JFK", "UA789"): 280,
-        ("LAX", "JFK", "UA345"): 310,
-        ("JFK", "CDG", "AF020"): 200,
-        ("JFK", "CDG", "DL020"): 190,
-        ("CDG", "AMS", "AF030"): 90,
-        ("CDG", "AMS", "KL030"): 95,
+        "SEA": {"JFK": {"UA123": 320, "DL456": 300}},
+        "SFO": {"JFK": {"UA789": 280}},
+        "LAX": {"JFK": {"UA345": 310}},
+        "JFK": {"CDG": {"AF020": 200, "DL020": 190}},
+        "CDG": {"AMS": {"AF030": 90, "KL030": 95}},
     }
 
     airlines = ["UA", "AF", "DL", "KL"]
@@ -331,8 +326,7 @@ def demo():
     from pprint import pprint
 
     pprint(sol)
-    print(type(sol))
-    return sol
+    type(sol)
 
 
 if __name__ == "__main__":
