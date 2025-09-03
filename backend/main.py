@@ -177,6 +177,7 @@ def test():
     from pprint import pprint
 
     pprint(sol)
+    return sol
 
 
 if __name__ == "__main__":
