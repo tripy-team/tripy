@@ -331,7 +331,7 @@ def demo():
     from pprint import pprint
 
     pprint(sol)
-    return sol
+    print(type(sol))
 
 
 if __name__ == "__main__":
