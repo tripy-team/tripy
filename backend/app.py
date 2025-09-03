@@ -18,45 +18,8 @@ def health():
 async def ingest(req: Request):
     # data = await req.json()
     # print("payload:", data)
-    result = demo()  # or await demo()
-    return {
-        "edges": {
-            "A": [
-                ("SEA", "JFK", "DL456"),
-                ("JFK", "CDG", "DL020"),
-                ("CDG", "AMS", "KL030"),
-            ]
-        },
-        "path": {"A": ["SEA", "JFK", "CDG", "AMS"]},
-        "pay_mode": {
-            "A": {
-                ("CDG", "AMS", "KL030"): ("points", "A", ("MR", "KL"), 9000.0, 28.0),
-                ("JFK", "CDG", "DL020"): ("points", "A", ("UR", "DL"), 24000.0, 70.0),
-                ("SEA", "JFK", "DL456"): ("points", "A", ("UR", "DL"), 15500.0, 6.0),
-            }
-        },
-        "status": "Optimal",
-        "totals": {
-            "airline_points": 48500.0,
-            "cash": 104.0,
-            "native_used": {"A": {}},
-            "time": 14.100000000000001,
-            "transfers": {
-                "A": {
-                    ("MR", "KL"): {
-                        "blocks": 9,
-                        "delivered_airline_points": 9000.0,
-                        "source_points": 9000,
-                    },
-                    ("UR", "DL"): {
-                        "blocks": 40,
-                        "delivered_airline_points": 40000.0,
-                        "source_points": 40000,
-                    },
-                }
-            },
-        },
-    }
+    result = demo()
+    return result
 
 
 def start():
