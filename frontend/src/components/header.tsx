@@ -4,7 +4,7 @@ import { useState } from "react";
 
 export default function Header() {
 	const [isOpen, setIsOpen] = useState(false);
-	const [loggedIn, setLoggedIn] = useState(true);
+	const [loggedIn] = useState(true);
 
 	return (
 		<header className="relative flex items-center justify-between bg-slate-950 px-6 py-6 text-white">
