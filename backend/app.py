@@ -17,8 +17,7 @@ def health():
 async def ingest(req: Request):
     data = await req.json()
     print("payload:", data)
-    print(get_trip_info_from_frontend(data))
-    return {"status": "running"}
+    return data
 
 
 def start():
