@@ -1,6 +1,7 @@
 # everything about getting things from the frontend
 # calculate all cominations of dates with each being a different combination of dates
-def get_trip_info_from_frontend():
+def get_trip_info_from_frontend(data):
+    return data
     return {
         "traveler": {"ezhong0211@gmail.com": "eric"},
         "cities": ["SEA", "JFK", "CDG", "AMS"],

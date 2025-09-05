@@ -1,8 +1,9 @@
 import boto3
 import os
 from dotenv import load_dotenv
-from fastapi import FastAPI, Request, Response
-from main import demo
+from fastapi import FastAPI, Request
+from connections import get_trip_info_from_frontend
+
 
 app = FastAPI()
 
@@ -21,7 +22,8 @@ def root_head():
 async def ingest(req: Request):
     data = await req.json()
     print("payload:", data)
-    return demo()
+    print(get_trip_info_from_frontend(data))
+    return {"status": "running"}
 
 
 def start():
