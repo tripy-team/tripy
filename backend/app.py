@@ -1,7 +1,7 @@
 import boto3
 import os
 from dotenv import load_dotenv
-from fastapi import FastAPI, Request
+from fastapi import FastAPI, Request, Response
 from main import demo
 
 app = FastAPI()
@@ -10,6 +10,11 @@ app = FastAPI()
 @app.get("/health")
 def health():
     return {"ok": True}
+
+
+@app.head("/", include_in_schema=False)
+def root_head():
+    return Response(status_code=204)
 
 
 @app.post("/ingest")
