@@ -19,6 +19,7 @@ def get_trip_info_from_frontend(data):
     }
 
 
+# get this from awardtool api
 def get_award_points_dict(airlines, edges_dict):
     award_points = {}
     for airline in airlines:

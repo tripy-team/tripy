@@ -6,8 +6,28 @@ from planTrip import plan_non_pooled_multi_itineraries_with_native
 import pulp as pl
 from connections import get_trip_info_from_frontend
 from typing import Dict, List, Tuple, Set
+from connections import get_trip_info_from_frontend
 
 Edge = Tuple[str, str, str]  # (origin, dest, flight_id)
+
+
+# return {
+#     "traveler": {"ezhong0211@gmail.com": "eric"},
+#     "cities": ["SEA", "JFK", "CDG", "AMS"],
+#     "start": "SEA",
+#     "end": "AMS",
+#     "start_date": "start_date",
+#     "dates_departing": ["dates", "date"],
+#     "end_date": "end_date",
+#     "num_people": {"adults": 1, "children": 0},
+#     "loyalty_points": {
+#         "credit_card": {"amex": 100},
+#         "hotel": {"hilton": 100},
+#         "airline": {"delta": 100},
+#     },
+# }
+def get_results_for_date():
+    user_info = get_trip_info_from_frontend()
 
 
 # [("seattle", "US")]
