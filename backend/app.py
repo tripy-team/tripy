@@ -13,11 +13,6 @@ def health():
     return {"ok": True}
 
 
-@app.head("/", include_in_schema=False)
-def root_head():
-    return Response(status_code=204)
-
-
 @app.post("/ingest")
 async def ingest(req: Request):
     data = await req.json()
