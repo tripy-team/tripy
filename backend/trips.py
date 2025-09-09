@@ -1,260 +1,48 @@
-from connections import get_trip_info_from_frontend
-import pulp as pl
+# backend/trips.py  (updated lightly)
+from typing import List, Tuple, Dict, Any
+from itertools import product
 from flights import get_flights_between_cities, get_airport_codes
-import pytest
-from planTrip import plan_non_pooled_multi_itineraries_with_native
-import pulp as pl
-from connections import get_trip_info_from_frontend
-from typing import Dict, List, Tuple, Set
-from connections import get_trip_info_from_frontend
-
-Edge = Tuple[str, str, str]  # (origin, dest, flight_id)
 
 
-# return {
-#     "traveler": {"ezhong0211@gmail.com": "eric"},
-#     "cities": ["SEA", "JFK", "CDG", "AMS"],
-#     "start": "SEA",
-#     "end": "AMS",
-#     "start_date": "start_date",
-#     "dates_departing": ["dates", "date"],
-#     "end_date": "end_date",
-#     "num_people": {"adults": 1, "children": 0},
-#     "loyalty_points": {
-#         "credit_card": {"amex": 100},
-#         "hotel": {"hilton": 100},
-#         "airline": {"delta": 100},
-#     },
-# }
-def get_results_for_date():
-    user_info = get_trip_info_from_frontend()
-
-
-# [("seattle", "US")]
-# in the case both the city and the airport code is put, calculate the broadest
 def create_city_pairs(cities):
-    cities_iata_codes = [
-        get_airport_codes(city, country_code) for city, country_code in cities
-    ]
-    num_cities = len(cities_iata_codes)
-    city_pairs = []
-    for indx1 in range(num_cities):
-        for indx2 in range(num_cities):
-            if cities[indx1] == cities[indx2]:
-                continue
-            else:
-                city_pairs.append((cities[indx1], cities[indx2]))
-    return city_pairs
+    """
+    cities: list of (city_name, country_code)
+    Returns pairs between every distinct pair of groups (i < j),
+    includes both directions, skips (x, x).
+    """
+    cities_iata_codes = [get_airport_codes(city, cc) for city, cc in cities]
+
+    pairs = []
+    for i in range(len(cities_iata_codes)):
+        for j in range(i + 1, len(cities_iata_codes)):
+            A, B = cities_iata_codes[i], cities_iata_codes[j]
+            pairs.extend([(a, b) for a, b in product(A, B) if a != b])  # A -> B
+            pairs.extend([(b, a) for b, a in product(B, A) if b != a])  # B -> A
+    return pairs
 
 
-def get_edge_dictionaires(cities, filters=None):
-    cash_cost = {}
-    time_cost = {}
-    points_cost = {}
-    edges = []
-    city_pairs = create_city_pairs(cities)
-    for start_city_iata, end_city_iata in city_pairs:
-        flight_details = get_flights_between_cities(
-            start_city_iata, end_city_iata, filters
-        )
-        _, _, flight_num = flight_details.keys()
-        cash_cost = cash_cost | {
-            (start_city_iata, end_city_iata, flight_num): flight_details["price"]
-        }
-        time_cost = time_cost | {
-            (start_city_iata, end_city_iata, flight_num): flight_details["time_cost"]
-        }
-        points_cost = points_cost | {
-            (start_city_iata, end_city_iata, flight_num): flight_details["points_cost"]
-        }
-        edges.append((start_city_iata, end_city_iata, flight_num))
+def get_edge_dictionaries(
+    cities: List[List[str]], filters: Dict[str, Any] = None
+) -> Dict[str, Any]:
+    cash_cost: Dict[tuple, Any] = {}
+    time_cost: Dict[tuple, Any] = {}
+    points_cost: Dict[str, Dict[tuple, Any]] = {}
+    edges: List[tuple] = []
+    for start_iata, end_iata in create_city_pairs(cities):
+        flight_details = get_flights_between_cities(start_iata, end_iata, filters)
+        for edge, details in flight_details.items():
+            edges.append(edge)
+            cash_cost[edge] = details.get("cash_cost")
+            time_cost[edge] = details.get("time_cost")
+            airline_code = (edge[2] or "")[:2] if len(edge) > 2 else ""
+            if airline_code:
+                points_cost.setdefault(airline_code, {})[edge] = (
+                    details.get("points") or {}
+                ).get("raw")
+
     return {
         "edges": edges,
         "cash_costs": cash_cost,
         "time_costs": time_cost,
         "points_costs": points_cost,
     }
-
-
-def get_airlines_from_edges_dictioary(edges_dictionary):
-    airlines = set()
-    edges = edges_dictionary["edges"]
-    for edge in edges:
-        _, _, flight_num = edge
-        airline = flight_num[:2]
-        airlines.add(airline)
-    return list(airlines)
-
-
-# ----------------------------
-# Minimal example incl. Traveler C with native UA miles
-# ----------------------------
-if __name__ == "__main__":
-    travelers = ["A", "B", "C"]
-    start_city = {"A": "SEA", "B": "SFO", "C": "LAX"}
-    end_city = {"A": "AMS", "B": "AMS", "C": "AMS"}
-    cities = ["SEA", "SFO", "LAX", "JFK", "CDG", "AMS"]
-
-    edges: List[Edge] = [
-        ("SEA", "JFK", "UA123"),
-        ("SEA", "JFK", "DL456"),
-        ("SFO", "JFK", "UA789"),
-        ("LAX", "JFK", "UA345"),
-        ("JFK", "CDG", "AF020"),
-        ("JFK", "CDG", "DL020"),
-        ("CDG", "AMS", "AF030"),
-        ("CDG", "AMS", "KL030"),
-    ]
-
-    time_cost = {
-        ("SEA", "JFK", "UA123"): 5.7,
-        ("SEA", "JFK", "DL456"): 5.5,
-        ("SFO", "JFK", "UA789"): 5.2,
-        ("LAX", "JFK", "UA345"): 5.1,
-        ("JFK", "CDG", "AF020"): 7.0,
-        ("JFK", "CDG", "DL020"): 7.3,
-        ("CDG", "AMS", "AF030"): 1.2,
-        ("CDG", "AMS", "KL030"): 1.3,
-    }
-    cash_cost = {
-        ("SEA", "JFK", "UA123"): 320,
-        ("SEA", "JFK", "DL456"): 300,
-        ("SFO", "JFK", "UA789"): 280,
-        ("LAX", "JFK", "UA345"): 310,
-        ("JFK", "CDG", "AF020"): 200,
-        ("JFK", "CDG", "DL020"): 190,
-        ("CDG", "AMS", "AF030"): 90,
-        ("CDG", "AMS", "KL030"): 95,
-    }
-
-    airlines = ["UA", "AF", "DL", "KL"]
-    INF = 10**9
-    award_points = {
-        "UA": {
-            ("SEA", "JFK", "UA123"): 15000,
-            ("SFO", "JFK", "UA789"): 13000,
-            ("LAX", "JFK", "UA345"): 14000,
-        },
-        "AF": {
-            ("JFK", "CDG", "AF020"): 20000,
-            ("CDG", "AMS", "AF030"): 8000,
-        },
-        "DL": {
-            ("SEA", "JFK", "DL456"): 15500,
-            ("JFK", "CDG", "DL020"): 24000,
-        },
-        "KL": {("CDG", "AMS", "KL030"): 9000},
-    }
-    cash_surcharge = {
-        "UA": {
-            ("SEA", "JFK", "UA123"): 5.6,
-            ("SFO", "JFK", "UA789"): 5.6,
-            ("LAX", "JFK", "UA345"): 5.6,
-        },
-        "AF": {("JFK", "CDG", "AF020"): 60.0, ("CDG", "AMS", "AF030"): 25.0},
-        "DL": {("SEA", "JFK", "DL456"): 6.0, ("JFK", "CDG", "DL020"): 70.0},
-        "KL": {("CDG", "AMS", "KL030"): 28.0},
-    }
-    allowed_award_edge = {
-        "UA": {
-            ("SEA", "JFK", "UA123"): 1,
-            ("SFO", "JFK", "UA789"): 1,
-            ("LAX", "JFK", "UA345"): 1,
-        },
-        "AF": {("JFK", "CDG", "AF020"): 1, ("CDG", "AMS", "AF030"): 1},
-        "DL": {("SEA", "JFK", "DL456"): 1, ("JFK", "CDG", "DL020"): 1},
-        "KL": {("CDG", "AMS", "KL030"): 1},
-    }
-
-    # Sources & balances (bank points)
-    sources_by_trav = {"A": ["UR", "MR"], "B": ["UR"], "C": []}  # C has NO bank sources
-    source_balances = {("A", "UR"): 40000, ("A", "MR"): 60000, ("B", "UR"): 25000}
-
-    allowed_sa = {("UR", "UA"), ("UR", "DL"), ("MR", "AF"), ("MR", "KL")}
-    ratio = {("UR", "UA"): 1.0, ("UR", "DL"): 1.0, ("MR", "AF"): 1.0, ("MR", "KL"): 1.0}
-    bonus = {
-        ("UR", "UA"): 1.0,
-        ("UR", "DL"): 1.0,
-        ("MR", "AF"): 1.25,
-        ("MR", "KL"): 1.0,
-    }
-    inc_source = {
-        ("UR", "UA"): 1000,
-        ("UR", "DL"): 1000,
-        ("MR", "AF"): 1000,
-        ("MR", "KL"): 1000,
-    }
-
-    # NEW: Traveler C has 25,000 UA miles (native), but no bank points
-    miles_balance = {("C", "UA"): 250000}
-
-    # Eligibility (payer must own the airline account)
-    link_ok = {
-        ("A", "UA"): 1,
-        ("A", "AF"): 1,
-        ("A", "DL"): 1,
-        ("A", "KL"): 1,
-        ("B", "UA"): 1,
-        ("B", "AF"): 0,
-        ("B", "DL"): 1,
-        ("B", "KL"): 1,
-        ("C", "UA"): 1,
-        ("C", "AF"): 0,
-        ("C", "DL"): 0,
-        ("C", "KL"): 0,
-    }
-
-    budget_cash = {"A": 800.0, "B": 600.0, "C": 400.0}
-
-    # Who can pay for whom
-    can_pay_for = {
-        ("A", "A"): 1,
-        ("A", "B"): 1,
-        ("A", "C"): 1,
-        ("B", "A"): 0,
-        ("B", "B"): 1,
-        ("B", "C"): 0,
-        ("C", "A"): 1,
-        ("C", "B"): 1,
-        ("C", "C"): 1,
-    }
-
-    # Optional capacities (omit or set big if unknown)
-    total_cash_seats = {}
-    award_seats = {}
-
-    meetup_cities = ["JFK", "CDG"]  # force same-date arrivals at JFK & CDG
-
-    sol = plan_non_pooled_multi_itineraries_with_native(
-        travelers,
-        start_city,
-        end_city,
-        cities,
-        edges,
-        time_cost,
-        cash_cost,
-        airlines,
-        award_points,
-        cash_surcharge,
-        allowed_award_edge,
-        sources_by_trav,
-        source_balances,
-        allowed_sa,
-        ratio,
-        bonus,
-        inc_source,
-        miles_balance,
-        link_ok,
-        budget_cash,
-        can_pay_for,
-        total_cash_seats,
-        award_seats,
-        meetup_cities,
-        W1=10**6,
-        W2=10**3,
-        W3=1.0,
-    )
-
-    from pprint import pprint
-
-    pprint(sol)
