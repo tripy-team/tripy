@@ -28,10 +28,3 @@ def get_award_points_dict(airlines, edges_dict):
             if airline in flight:
                 pass
     pass
-
-
-def get_award_points_cost(edge):
-    flights_points_dict = {}
-    for edge in edges_dict:
-        flights_points_dict[edge] = 1000
-    return flights_points_dict
