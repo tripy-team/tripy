@@ -1,7 +1,7 @@
 from dotenv import load_dotenv
 import requests
 import json
-import requests, certifi, json
+import requests, json
 import os
 
 load_dotenv()
@@ -9,10 +9,10 @@ from trips import get_edge_dictionaries
 from flights import get_flights_between_cities, get_airport_codes
 
 if __name__ == "__main__":
-    cities = [("seattle", "US"), ("paris", "FR")]
-    print(get_edge_dictionaries(cities))
-    print(get_airport_codes("Paris", "FR"))
-    print(get_flights_between_cities("SEA", "CDG"), "\n")
+    # cities = [("seattle", "US"), ("paris", "FR")]
+    # print(get_edge_dictionaries(cities))
+    # print(get_airport_codes("Paris", "FR"))
+    # print(get_flights_between_cities("SEA", "CDG"), "\n")
     url = "https://www.awardtool-api.com/search_real_time"
 
     payload = json.dumps(
@@ -33,6 +33,8 @@ if __name__ == "__main__":
 
     response = requests.request("POST", url, headers=headers, data=payload)
 
-    print(response.text)
+    x = json.loads(response.text)["data"]
+    print(x[0])
+
 
 # If using truststore (mac keychain):
