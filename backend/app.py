@@ -7,20 +7,10 @@ from connections import get_trip_info_from_frontend
 
 
 ALLOWED_ORIGINS = [
-    "https://main.d3imalb2l6m5ju.amplifyapp.com",
-    "https://traveltripy.com",
-    "https://www.traveltripy.com",
+    "https://testing.d2p22adloz2lev.amplifyapp.com",
 ]
 
 app = FastAPI()
-
-app.add_middleware(
-    CORSMiddleware,
-    allow_origins=ALLOWED_ORIGINS,
-    allow_credentials=True,
-    allow_methods=["GET", "POST", "PUT", "DELETE", "OPTIONS"],
-    allow_headers=["Authorization", "Content-Type"],
-)
 
 
 @app.get("/health")
