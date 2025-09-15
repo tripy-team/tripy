@@ -12,7 +12,6 @@ run:
   pre-run:
     - . .venv/bin/activate
     - python -V
-    - pip show boto3 botocore s3transfer || true
   command: ./.venv/bin/uvicorn app:app --host 0.0.0.0 --port $PORT
   network:
     port: 8080
