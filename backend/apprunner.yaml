@@ -12,6 +12,7 @@ run:
   pre-run:
     - . .venv/bin/activate
     - python -V
+    - pwd && ls -la
   command: ./.venv/bin/uvicorn app:app --host 0.0.0.0 --port $PORT
   network:
     port: 8080
