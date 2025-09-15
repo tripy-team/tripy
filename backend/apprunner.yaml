@@ -1,16 +1,13 @@
 version: 1.0
-runtime: python3
+runtime: python311
 build:
   commands:
     build:
-      - python -V
-      - python -m venv .venv
-      - . .venv/bin/activate
-      - pip install --upgrade pip
-      - pip install -r requirements.txt
+      - echo "Using 3.11; deps install in pre-run"
 run:
   pre-run:
-    - . .venv/bin/activate
-    - python -V
-    - pip show boto3 botocore s3transfer || true
-  command: ./.venv/bin/uvicorn app:app --host 0.0.0.0 --port 8080
+    - pip3 install --upgrade pip
+    - pip3 install -r requirements.txt
+  command: uvicorn app:app --host 0.0.0.0 --port 8080
+  network:
+    port: 8080
