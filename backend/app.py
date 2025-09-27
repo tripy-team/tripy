@@ -3,7 +3,6 @@ import os
 from dotenv import load_dotenv
 from fastapi import FastAPI, Request, HTTPException
 from fastapi.middleware.cors import CORSMiddleware
-from connections import get_trip_info_from_frontend
 
 
 ALLOWED_ORIGINS = [
