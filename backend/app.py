@@ -1,12 +1,25 @@
 import boto3
 import os
 from dotenv import load_dotenv
-from fastapi import FastAPI, Request
+from fastapi import FastAPI, Request, HTTPException
+from fastapi.middleware.cors import CORSMiddleware
+
+
+ALLOWED_ORIGINS = [
+    "https://testing.d2p22adloz2lev.amplifyapp.com",
+]
 
 app = FastAPI()
+app.add_middleware(
+    CORSMiddleware,
+    allow_origins=ALLOWED_ORIGINS,
+    allow_credentials=True,
+    allow_methods=["*"],
+    allow_headers=["*"],
+)
 
 
-@app.get("/health")
+@app.get("/healthz")
 def health():
     return {"ok": True}
 
@@ -15,7 +28,7 @@ def health():
 async def ingest(req: Request):
     data = await req.json()
     print("payload:", data)
-    return {"ok": True}
+    return data
 
 
 def start():

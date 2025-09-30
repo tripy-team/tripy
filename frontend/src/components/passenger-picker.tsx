@@ -21,7 +21,7 @@ export default function PassengerPicker() {
 	const [tempInfantsSeat, setTempInfantsSeat] = useState(infantsSeat);
 	const [tempInfantsLap, setTempInfantsLap] = useState(infantsLap);
 
-	const totalPassengers = adults + children + infantsSeat + infantsLap;
+	// const totalPassengers = adults + children + infantsSeat + infantsLap;
 
 	const CounterRow = ({
 		label,

@@ -70,7 +70,7 @@ export default function Page() {
     setStatus("sending");
     setServerReply(null);
     try {
-      const res = await fetch("/api/ingest", {
+      const res = await fetch(`${process.env.NEXT_PUBLIC_API_URL}/ingest`, {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify(payload), // send compact JSON

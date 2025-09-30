@@ -2,7 +2,6 @@
 
 import { useState } from "react";
 
-import Header from "@/components/header";
 import LocationSwapBox from "@/components/location-swap-box";
 import DateRangePickerCustom from "@/components/date-range-picker";
 import DatePickerCustom from "@/components/date-picker";
@@ -143,8 +142,6 @@ export default function Home() {
 
 	return (
 		<main className="min-h-screen bg-white text-gray-900">
-			<Header />
-
 			{/* Hero Section */}
 			<section className="relative overflow-hidden bg-blue-950 px-6 py-16 text-white">
 				<div className="mx-auto flex max-w-6xl flex-col items-center justify-between gap-12 md:flex-row">

@@ -1,18 +1,7 @@
-# ------------------------------------------------------------
-# non_pooled_multi_itineraries_with_native_and_yN.py
-# ------------------------------------------------------------
-# Multiple travelers, different starts/ends, optional same-date meetups.
-# No pooling of bank points: each payer has their own sources & budgets.
-# Any payer can pay any passenger (if permitted via can_pay_for).
-# Native airline balances (miles) can be used directly (y_native variables).
-# Safe normalization for award maps and surcharges.
-#
-# pip install pulp
-# ------------------------------------------------------------
+from typing import List, Dict, Tuple, Set
 import pulp as pl
-from typing import Dict, List, Tuple, Set
 
-Edge = Tuple[str, str, str]  # (origin, dest, flight_id)
+Edge = Tuple[str, str, str]
 
 
 def plan_non_pooled_multi_itineraries_with_native(
@@ -57,23 +46,27 @@ def plan_non_pooled_multi_itineraries_with_native(
     W3: float = 1.0,
 ):
     """
-    Returns:
+    JSON-safe return structure (no tuple/list dict keys):
       {
         "status": ...,
-        "path": {passenger: [city...]},
-        "edges": {passenger: [Edge...]},
+        "path": {passenger: [city, ...]},
+        "edges": {passenger: [[i,j,k], ...]},
         "pay_mode": {
-            passenger: {
-              Edge: ("cash", payer, fare) OR
-                    ("points", payer, (source,air) OR ("NATIVE",air), miles, surcharge)
-            }
+          passenger: [
+            {"edge":[i,j,k], "type":"cash", "payer": q, "fare": float} |
+            {"edge":[i,j,k], "type":"points", "payer": q,
+             "via":{"source": s, "airline": a} or {"native": a},
+             "miles": float, "surcharge": float}
+          ]
         },
         "totals": {
-           "airline_points": total miles redeemed,
-           "cash": total cash,
-           "time": total time,
-           "transfers": {payer: {(source,air): {"blocks": int,"source_points": int,"delivered_airline_points": float}}},
-           "native_used": {payer: {airline: miles_used}}
+          "airline_points": float,
+          "cash": float,
+          "time": float,
+          "transfers": {payer: {source: {airline: {"blocks": int,
+                                                   "source_points": int,
+                                                   "delivered_airline_points": float}}}},
+          "native_used": {payer: {airline: float}}
         }
       }
     """
@@ -144,7 +137,7 @@ def plan_non_pooled_multi_itineraries_with_native(
         for q in T
         for p in T
     }
-    # Native miles redemption variables (do not require a bank source)
+    # Native airline redemption variables (do not require a bank source)
     y_native = {
         (q, p): {
             a: pl.LpVariable.dicts(f"yN_{q}_{a}_for_{p}", edges, 0, 1, cat="Binary")
@@ -358,7 +351,7 @@ def plan_non_pooled_multi_itineraries_with_native(
         for a in A
         for e in edges
     )
-    total_cash = (
+    total_cash_expr = (
         pl.lpSum(
             z[(q, p)][e] * cash_cost.get(e, 0.0) for q in T for p in T for e in edges
         )
@@ -377,25 +370,29 @@ def plan_non_pooled_multi_itineraries_with_native(
             for e in edges
         )
     )
-    total_time = pl.lpSum(x[p][e] * time_cost.get(e, 0.0) for p in T for e in edges)
+    total_time_expr = pl.lpSum(
+        x[p][e] * time_cost.get(e, 0.0) for p in T for e in edges
+    )
 
-    m += W1 * total_points - W2 * total_cash - W3 * total_time
+    m += W1 * total_points - W2 * total_cash_expr - W3 * total_time_expr
 
     # Solve
     m.solve(pl.PULP_CBC_CMD(msg=False))
 
-    # Extract
+    # ---------------------------
+    # Extract (JSON-safe)
+    # ---------------------------
     sol = {
         "status": pl.LpStatus[m.status],
         "path": {p: [] for p in T},
-        "edges": {p: [] for p in T},
-        "pay_mode": {p: {} for p in T},
+        "edges": {p: [] for p in T},  # edges as lists
+        "pay_mode": {p: [] for p in T},  # list of payment records
         "totals": {
             "airline_points": 0.0,
             "cash": 0.0,
             "time": 0.0,
-            "transfers": {q: {} for q in T},
-            "native_used": {q: {} for q in T},
+            "transfers": {q: {} for q in T},  # transfers[q][source][airline] = {...}
+            "native_used": {q: {} for q in T},  # native_used[q][airline] = miles
         },
     }
     if pl.LpStatus[m.status] != "Optimal":
@@ -404,7 +401,7 @@ def plan_non_pooled_multi_itineraries_with_native(
     # Paths per passenger
     for p in T:
         chosen = [e for e in edges if pl.value(x[p][e]) > 0.5]
-        sol["edges"][p] = chosen
+        sol["edges"][p] = [[e[0], e[1], e[2]] for e in chosen]  # JSON-safe edges
         nxt = {}
         for i, j, k in chosen:
             nxt[i] = j
@@ -420,54 +417,81 @@ def plan_non_pooled_multi_itineraries_with_native(
     tot_cash_val = 0.0
     tot_time = 0.0
     for p in T:
-        for e in sol["edges"][p]:
+        for e in [tuple(edge) for edge in sol["edges"][p]]:  # back to tuple for lookups
             tot_time += time_cost.get(e, 0.0)
             paid = False
+            # cash?
             for q in T:
-                # cash
                 if pl.value(z[(q, p)][e]) > 0.5:
-                    fare = cash_cost.get(e, 0.0)
+                    fare = float(cash_cost.get(e, 0.0))
                     tot_cash_val += fare
-                    sol["pay_mode"][p][e] = ("cash", q, fare)
+                    sol["pay_mode"][p].append(
+                        {
+                            "edge": [e[0], e[1], e[2]],
+                            "type": "cash",
+                            "payer": q,
+                            "fare": fare,
+                        }
+                    )
                     paid = True
                     break
-                # bank-source points
+                # bank-source points?
                 for s, a in y[(q, p)].keys():
                     if pl.value(y[(q, p)][(s, a)][e]) > 0.5:
-                        miles = get_miles(a, e)
-                        sur = get_tax(a, e)
+                        miles = float(get_miles(a, e))
+                        sur = float(get_tax(a, e))
                         tot_pts += miles
                         tot_cash_val += sur
-                        sol["pay_mode"][p][e] = ("points", q, (s, a), miles, sur)
+                        sol["pay_mode"][p].append(
+                            {
+                                "edge": [e[0], e[1], e[2]],
+                                "type": "points",
+                                "payer": q,
+                                "via": {"source": s, "airline": a},
+                                "miles": miles,
+                                "surcharge": sur,
+                            }
+                        )
                         paid = True
                         break
                 if paid:
                     break
-                # native points
+                # native points?
                 for a in A:
                     if pl.value(y_native[(q, p)][a][e]) > 0.5:
-                        miles = get_miles(a, e)
-                        sur = get_tax(a, e)
+                        miles = float(get_miles(a, e))
+                        sur = float(get_tax(a, e))
                         tot_pts += miles
                         tot_cash_val += sur
-                        sol["pay_mode"][p][e] = ("points", q, ("NATIVE", a), miles, sur)
+                        sol["pay_mode"][p].append(
+                            {
+                                "edge": [e[0], e[1], e[2]],
+                                "type": "points",
+                                "payer": q,
+                                "via": {"native": a},
+                                "miles": miles,
+                                "surcharge": sur,
+                            }
+                        )
                         paid = True
                         break
                 if paid:
                     break
 
-    # Transfers & native usage
+    # Transfers & native usage (nested string-key dicts)
     for q in T:
+        # transfers from bank sources
         for s, a in t_blocks[q].keys():
             blocks = int(round(pl.value(t_blocks[q][(s, a)]) or 0))
             if blocks > 0:
-                sp = blocks * inc_source[(s, a)]
-                delivered = sp * ratio[(s, a)] * bonus[(s, a)]
-                sol["totals"]["transfers"][q][(s, a)] = {
+                sp = int(blocks * inc_source[(s, a)])
+                delivered = float(sp * ratio[(s, a)] * bonus[(s, a)])
+                sol["totals"]["transfers"].setdefault(q, {}).setdefault(s, {})[a] = {
                     "blocks": blocks,
                     "source_points": sp,
                     "delivered_airline_points": delivered,
                 }
+        # native usage caps reported
         for a in A:
             used = float(pl.value(native_use[q][a]) or 0.0)
             if used > 0:

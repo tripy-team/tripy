@@ -11,6 +11,31 @@ const compat = new FlatCompat({
 
 const eslintConfig = [
   ...compat.extends("next/core-web-vitals", "next/typescript"),
+
+  {
+    files: ["**/*.{ts,tsx}"],
+    rules: {
+      "@typescript-eslint/ban-types": [
+        "error",
+        {
+          extendDefaults: true,
+          types: {
+            Function: false,
+          },
+        },
+      ],
+
+      // Ignore a specific unused var name (boxClass). Still catch others.
+      "@typescript-eslint/no-unused-vars": [
+        "error",
+        {
+          varsIgnorePattern: "^(?:_|boxClass)$",
+          argsIgnorePattern: "^_",
+          caughtErrorsIgnorePattern: "^_",
+        },
+      ],
+    },
+  },
 ];
 
 export default eslintConfig;

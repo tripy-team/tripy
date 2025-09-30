@@ -6,7 +6,6 @@ import {
 	DateRangePicker,
 	DateSegment,
 	Dialog,
-	Group,
 	Label,
 	Popover,
 	RangeCalendar,
