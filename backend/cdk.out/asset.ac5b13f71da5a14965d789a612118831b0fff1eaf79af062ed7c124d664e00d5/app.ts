@@ -16,7 +16,6 @@ new dbStack(app, 'DbStack');
 
 new lambdaStack(app, 'LambdaStack', 'airport_filter.py');
 
-
-new s3Stack(app, "imagesTableStack", "images-table")
+new s3Stack(app, 's3Stack', 'name')
 
 app.synth();

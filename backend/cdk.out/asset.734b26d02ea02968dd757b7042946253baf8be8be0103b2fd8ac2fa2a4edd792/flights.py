@@ -3,7 +3,7 @@ import os, re, json, math, asyncio
 import httpx
 from dotenv import load_dotenv
 
-from backend.domain.awards.award_calendar import (
+from backend.bin.award_calendar import (
     get_calendar_matrix,
     best_dates_by_cabin,
 )

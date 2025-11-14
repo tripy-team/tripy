@@ -6,7 +6,7 @@ from openai import OpenAI
 from pydantic import BaseModel
 from enum import Enum
 from datetime import date
-from backend.src.flights import create_flight_filters
+from backend.bin.flights import create_flight_filters
 
 
 class Suggestions(BaseModel):
