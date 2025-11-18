@@ -71,7 +71,7 @@ export class authStack extends Stack {
                 tempPasswordValidity: Duration.days(1),
             },
             accountRecovery: cognito.AccountRecovery.PHONE_AND_EMAIL,
-            // standardThreatProtectionMode: cognito.StandardThreatProtectionMode.FULL_FUNCTION,
+            standardThreatProtectionMode: cognito.StandardThreatProtectionMode.FULL_FUNCTION,
             email: cognito.UserPoolEmail.withSES({
                 fromEmail: 'noreply@traveltripy.com',
                 fromName: 'tripy',

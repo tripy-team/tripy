@@ -1,6 +1,6 @@
 {
  "Resources": {
-  "DbStackBE19CDA3": {
+  "usersInfoTableStack38328365": {
    "Type": "AWS::DynamoDB::GlobalTable",
    "Properties": {
     "AttributeDefinitions": [
@@ -29,7 +29,46 @@
    "UpdateReplacePolicy": "Retain",
    "DeletionPolicy": "Retain",
    "Metadata": {
-    "aws:cdk:path": "DbStack/DbStack/Resource"
+    "aws:cdk:path": "DbStack/usersInfoTableStack/Resource"
+   }
+  },
+  "usersTripTableStack1A674B24": {
+   "Type": "AWS::DynamoDB::GlobalTable",
+   "Properties": {
+    "AttributeDefinitions": [
+     {
+      "AttributeName": "email",
+      "AttributeType": "S"
+     },
+     {
+      "AttributeName": "tripNumber",
+      "AttributeType": "N"
+     }
+    ],
+    "BillingMode": "PAY_PER_REQUEST",
+    "KeySchema": [
+     {
+      "AttributeName": "email",
+      "KeyType": "HASH"
+     },
+     {
+      "AttributeName": "tripNumber",
+      "KeyType": "RANGE"
+     }
+    ],
+    "Replicas": [
+     {
+      "Region": {
+       "Ref": "AWS::Region"
+      }
+     }
+    ],
+    "TableName": "usersTripTable"
+   },
+   "UpdateReplacePolicy": "Retain",
+   "DeletionPolicy": "Retain",
+   "Metadata": {
+    "aws:cdk:path": "DbStack/usersTripTableStack/Resource"
    }
   },
   "CDKMetadata": {

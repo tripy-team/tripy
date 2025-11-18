@@ -59,35 +59,8 @@
      "ChallengeRequiredOnNewDevice": true,
      "DeviceOnlyRememberedOnUserPrompt": true
     },
-    "EmailConfiguration": {
-     "EmailSendingAccount": "DEVELOPER",
-     "From": "tripy <noreply@traveltripy.com>",
-     "ReplyToEmailAddress": "support@traveltripy.com",
-     "SourceArn": {
-      "Fn::Join": [
-       "",
-       [
-        "arn:",
-        {
-         "Ref": "AWS::Partition"
-        },
-        ":ses:us-east-1:",
-        {
-         "Ref": "AWS::AccountId"
-        },
-        ":identity/noreply@traveltripy.com"
-       ]
-      ]
-     }
-    },
     "EmailVerificationMessage": "Hello {username}, thank you for joining Tripy. Your one time code is {####}!",
     "EmailVerificationSubject": "Embark with Tripy",
-    "EnabledMfas": [
-     "SMS_MFA",
-     "SOFTWARE_TOKEN_MFA",
-     "EMAIL_OTP"
-    ],
-    "MfaConfiguration": "ON",
     "Policies": {
      "PasswordPolicy": {
       "MinimumLength": 12,

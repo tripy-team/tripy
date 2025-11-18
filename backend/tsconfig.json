@@ -1,21 +1,22 @@
 {
   "compilerOptions": {
-    "target": "ES2020",                       // Modern JS target
-    "module": "CommonJS",                     // Required for Node/CDK
-    "lib": ["ES2020"],                        // Available language features
-    "declaration": true,                      // Emits .d.ts types
-    "sourceMap": true,                        // Enable source maps for debugging
-    "outDir": "dist",                         // Output directory
-    "strict": true,                           // Enable strict type checking
-    "noImplicitAny": true,                    // Catch unsafe typings
-    "moduleResolution": "node",               // Node-style imports
-    "esModuleInterop": true,                  // Allow default imports from CommonJS modules
-    "resolveJsonModule": true,                // Allow importing .json files
-    "skipLibCheck": true,                     // Speeds up build, safe for CDK
-    "forceConsistentCasingInFileNames": true  // Prevent case mismatches across OSs
+    "target": "ES2020",
+    "module": "CommonJS",
+    "lib": ["ES2020"],
+    "outDir": "dist",
+    "strict": true,
+    "moduleResolution": "node",
+    "esModuleInterop": true,
+    "resolveJsonModule": true,
+    "skipLibCheck": true,
+    "forceConsistentCasingInFileNames": true
   },
-  "include": [
-    "bin/**/*.ts",
-    "lib/**/*.ts"
+  "include": ["bin/**/*.ts", "lib/**/*.ts"],
+  "exclude": [
+    "**/node_modules/**",
+    "../**/node_modules/**",
+    "../frontend/**",
+    "**/.venv/**", "*/venv/**", "**/__pycache__/**",
+    ".git", "cdk.out"
   ]
 }

@@ -8,8 +8,10 @@
   },
   "scripts": {
     "test": "echo \"Error: no test specified\" && exit 1",
-    "cb": "npx cdk synth -v && npx cdk deploy --all -v --require-approval never",
-    "send": "npx cdk bootstrap && npx cdk synth && npx cdk deploy --all --require-approval never"
+    "bootstrap": "npx cdk bootstrap",
+    "synth": "npx cdk synth -v",
+    "deploy": "npx cdk deploy --all -v --require-approval never",
+    "send": "npm run synth && npm run deploy"
   },
   "keywords": [],
   "author": "",
