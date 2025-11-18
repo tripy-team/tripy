@@ -1,18 +1,26 @@
-# --- web service ---
-fastapi==0.115.0
-uvicorn[standard]==0.30.6
-httpx==0.27.2
-python-dotenv==1.0.1
-boto3==1.35.23
-
-# --- data sources / scraping ---
-requests==2.32.3
-beautifulsoup4==4.12.3
-serpapi==0.1.5
-
-# --- cache (prefer redis client; see Step 3) ---
-redis==5.0.8
-
-# --- optional / experimental (comment these in only if you use them) ---
-pulp==2.7.0            # ILP demos (flightGraph, planTrip)
-# amadeus==8.0.0         # only if you wire Amadeus SDK in experimental
+awscli==1.19.112
+botocore==1.20.112
+certifi==2021.10.8
+chardet==4.0.0
+colorama==0.4.3
+contextlib2==0.6.0.post1
+docutils==0.15.2
+futures==3.4.0
+idna==2.10
+importlib-resources==3.3.1
+jmespath==0.10.0
+openai==0.6.4
+pathlib2==2.3.7.post1
+pyasn1==0.5.1
+python-dateutil==2.9.0.post0
+PyYAML==5.4.1
+requests==2.27.1
+rsa==4.5
+s3transfer==0.4.2
+scandir==1.10.0
+singledispatch==3.7.0
+six==1.17.0
+tqdm==4.64.1
+typing==3.10.0.0
+urllib3==1.26.20
+zipp==1.2.0

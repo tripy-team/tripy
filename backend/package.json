@@ -1,0 +1,30 @@
+{
+  "name": "backend",
+  "version": "1.0.0",
+  "description": "",
+  "main": "index.js",
+  "directories": {
+    "lib": "lib"
+  },
+  "scripts": {
+    "test": "echo \"Error: no test specified\" && exit 1",
+    "bootstrap": "npx cdk bootstrap",
+    "synth": "npx cdk synth -v",
+    "deploy": "npx cdk deploy --all -v --require-approval never",
+    "send": "npm run synth && npm run deploy"
+  },
+  "keywords": [],
+  "author": "",
+  "license": "ISC",
+  "type": "commonjs",
+  "dependencies": {
+    "aws-cdk-lib": "^2.224.0",
+    "constructs": "^10.4.3"
+  },
+  "devDependencies": {
+    "@types/node": "^24.10.1",
+    "aws-cdk": "^2.1031.2",
+    "ts-node": "^10.9.2",
+    "typescript": "^5.9.3"
+  }
+}
