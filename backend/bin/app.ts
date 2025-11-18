@@ -14,8 +14,7 @@ new authStack(app, 'AuthStack');
 
 new dbStack(app, 'DbStack');
 
-new lambdaStack(app, 'LambdaStack', 'airport_filter.py');
-
+new lambdaStack(app, 'LambdaStack', 'airport_filter');
 
 new s3Stack(app, "imagesTableStack", "images-table")
 

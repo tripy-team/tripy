@@ -8,10 +8,10 @@ export class lambdaStack extends Stack {
     constructor(scope: Construct, id: string, functionName: string, props?: StackProps) {
         super(scope, id, props)
 
-        this.fn = new lambda.Function(this, id, {
+        this.fn = new lambda.Function(this, `${functionName}Stack`, {
             code: lambda.Code.fromAsset(path.join(__dirname, '../bin')),
             runtime: lambda.Runtime.PYTHON_3_12,
-            handler: "index.handler",
+            handler: `${functionName}.handler`,
             timeout: Duration.minutes(15)
         })
     }

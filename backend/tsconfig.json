@@ -1,12 +1,21 @@
 {
   "compilerOptions": {
-    "target": "ES2020",
-    "module": "CommonJS",
-    "moduleResolution": "Node",
-    "esModuleInterop": true,
-    "strict": true,
-    "resolveJsonModule": true,
-    "skipLibCheck": true
+    "target": "ES2020",                       // Modern JS target
+    "module": "CommonJS",                     // Required for Node/CDK
+    "lib": ["ES2020"],                        // Available language features
+    "declaration": true,                      // Emits .d.ts types
+    "sourceMap": true,                        // Enable source maps for debugging
+    "outDir": "dist",                         // Output directory
+    "strict": true,                           // Enable strict type checking
+    "noImplicitAny": true,                    // Catch unsafe typings
+    "moduleResolution": "node",               // Node-style imports
+    "esModuleInterop": true,                  // Allow default imports from CommonJS modules
+    "resolveJsonModule": true,                // Allow importing .json files
+    "skipLibCheck": true,                     // Speeds up build, safe for CDK
+    "forceConsistentCasingInFileNames": true  // Prevent case mismatches across OSs
   },
-  "include": ["bin/**/*", "lib/**/*"]
+  "include": [
+    "bin/**/*.ts",
+    "lib/**/*.ts"
+  ]
 }
