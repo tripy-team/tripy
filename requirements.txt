@@ -7,6 +7,7 @@ contextlib2==0.6.0.post1
 docutils==0.15.2
 futures==3.4.0
 idna==2.10
+httpx
 importlib-resources==3.3.1
 jmespath==0.10.0
 openai==0.6.4
