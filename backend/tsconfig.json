@@ -11,12 +11,15 @@
     "skipLibCheck": true,
     "forceConsistentCasingInFileNames": true
   },
-  "include": ["bin/**/*.ts", "lib/**/*.ts"],
+  "include": ["bin/**/*.ts", "lib/**/*.ts", "src/handlers/app.ts"],
   "exclude": [
     "**/node_modules/**",
     "../**/node_modules/**",
     "../frontend/**",
-    "**/.venv/**", "*/venv/**", "**/__pycache__/**",
-    ".git", "cdk.out"
+    "**/.venv/**",
+    "*/venv/**",
+    "**/__pycache__/**",
+    ".git",
+    "cdk.out"
   ]
 }
