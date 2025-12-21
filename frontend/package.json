@@ -1,7 +1,6 @@
 {
 	"name": "tripy-frontend",
 	"version": "0.1.0",
-	"description": "AI-powered travel planning frontend for maximizing credit card points",
 	"private": true,
 	"scripts": {
 		"dev": "next dev --turbopack",
