@@ -15,16 +15,6 @@ const eslintConfig = [
   {
     files: ["**/*.{ts,tsx}"],
     rules: {
-      "@typescript-eslint/ban-types": [
-        "error",
-        {
-          extendDefaults: true,
-          types: {
-            Function: false,
-          },
-        },
-      ],
-
       // Ignore a specific unused var name (boxClass). Still catch others.
       "@typescript-eslint/no-unused-vars": [
         "error",

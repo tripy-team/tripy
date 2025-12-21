@@ -2,7 +2,7 @@
 
 import { useState } from 'react';
 import { useRouter } from 'next/navigation';
-import { Users, MapPin, Calendar, Copy, Check, Plus, X } from 'lucide-react';
+import { Users, MapPin, Copy, Check, Plus, X } from 'lucide-react';
 
 export default function GroupTripSetup() {
     const router = useRouter();

@@ -2,7 +2,7 @@
 
 import { useState } from 'react';
 import { useRouter } from 'next/navigation';
-import { MapPin, DollarSign, Clock, Users, GripVertical, CheckCircle, ArrowRight, ArrowUp, ArrowDown } from 'lucide-react';
+import { MapPin, DollarSign, Clock, Users, CheckCircle, ArrowRight, ArrowUp, ArrowDown } from 'lucide-react';
 
 interface Itinerary {
     id: string;

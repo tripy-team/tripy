@@ -1,7 +1,5 @@
 'use client';
 
-import { MapPin } from 'lucide-react';
-
 interface RouteMapProps {
     cities: string[];
 }

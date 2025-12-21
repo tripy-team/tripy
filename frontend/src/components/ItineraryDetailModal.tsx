@@ -1,6 +1,6 @@
 'use client';
 
-import { X, DollarSign, Zap, Clock, TrendingUp, Calendar } from 'lucide-react';
+import { X, DollarSign, Zap, Clock, TrendingUp } from 'lucide-react';
 import { RouteMap } from '@/components/RouteMap';
 
 interface ItineraryDetailModalProps {

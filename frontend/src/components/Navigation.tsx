@@ -2,7 +2,7 @@
 
 import Link from 'next/link';
 import { usePathname } from 'next/navigation';
-import { Home, Plane, ChevronRight, ChevronLeft } from 'lucide-react';
+import { Home, Plane, LayoutDashboard, ChevronRight, ChevronLeft } from 'lucide-react';
 import { useState } from 'react';
 
 export function Navigation() {
@@ -30,6 +30,16 @@ export function Navigation() {
                             }`}
                     >
                         <Home className="w-5 h-5 flex-shrink-0" />
+                    </Link>
+
+                    <Link
+                        href="/dashboard"
+                        className={`rounded-xl flex items-center transition-all w-12 h-12 justify-center ${pathname === '/dashboard'
+                            ? 'bg-blue-600 text-white shadow-lg shadow-blue-600/20'
+                            : 'text-slate-400 hover:bg-blue-50 hover:text-blue-600'
+                            }`}
+                    >
+                        <LayoutDashboard className="w-5 h-5 flex-shrink-0" />
                     </Link>
                 </div>
 
