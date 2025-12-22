@@ -22,15 +22,6 @@ export function Navigation() {
                 </div>
 
                 <div className="flex flex-col gap-2 items-center">
-                    <Link
-                        href="/"
-                        className={`rounded-xl flex items-center transition-all w-12 h-12 justify-center ${pathname === '/'
-                            ? 'bg-blue-600 text-white shadow-lg shadow-blue-600/20'
-                            : 'text-slate-400 hover:bg-blue-50 hover:text-blue-600'
-                            }`}
-                    >
-                        <Home className="w-5 h-5 flex-shrink-0" />
-                    </Link>
 
                     <Link
                         href="/dashboard"
