@@ -32,7 +32,6 @@ export class ApiStack extends Stack {
                     DESTINATION_VOTES_TABLE: props.tables.destinationVotes.tableName,
                     ITINERARY_TABLE: props.tables.itinerary.tableName,
                     USER_POOL_ID: props.userPool.userPoolId,
-                    AWS_REGION: Stack.of(this).region,
                 },
             });
 
