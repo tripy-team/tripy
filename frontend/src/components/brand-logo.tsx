@@ -32,6 +32,7 @@ export default function BrandLogo({
 				className="logo-group pointer-events-auto z-10"
 				aria-label={`${alt} home`}
 			>
+				{/* eslint-disable-next-line @next/next/no-img-element */}
 				<img src={imgSrc} alt={alt} className={imgClassName} />
 			</Link>
 		</div>

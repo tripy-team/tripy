@@ -1,36 +1,101 @@
-This is a [Next.js](https://nextjs.org) project bootstrapped with [`create-next-app`](https://nextjs.org/docs/app/api-reference/cli/create-next-app).
+# Tripy Frontend
+
+AI-powered travel planning application that helps you maximize credit card points for flights and hotels.
+
+## Tech Stack
+
+- **Framework**: Next.js 15 (App Router)
+- **Language**: TypeScript
+- **Styling**: Tailwind CSS v4
+- **UI Components**: React Aria Components, Lucide Icons
+- **Maps**: Leaflet + React-Leaflet (OpenStreetMap)
+- **Build**: Turbopack (dev), Next.js (production)
 
 ## Getting Started
 
-First, run the development server:
+### Prerequisites
+
+- Node.js 18+
+- npm, yarn, pnpm, or bun
+
+### Installation
 
 ```bash
+# Install dependencies
+npm install
+
+# Copy environment variables (if needed)
+cp .env.example .env.local
+
+# Start development server
 npm run dev
-# or
-yarn dev
-# or
-pnpm dev
-# or
-bun dev
 ```
 
-Open [http://localhost:3000](http://localhost:3000) with your browser to see the result.
+Open [http://localhost:3000](http://localhost:3000) in your browser.
 
-You can start editing the page by modifying `app/page.tsx`. The page auto-updates as you edit the file.
+## Project Structure
 
-This project uses [`next/font`](https://nextjs.org/docs/app/building-your-application/optimizing/fonts) to automatically optimize and load [Geist](https://vercel.com/font), a new font family for Vercel.
+```
+src/
+├── app/                    # Next.js App Router
+│   ├── (app)/              # Main app layout (with navigation)
+│   │   ├── dashboard/      # User dashboard
+│   │   ├── explore/        # Explore destinations map
+│   │   ├── solo/           # Solo trip planning flow
+│   │   │   ├── setup/      # Configure trip
+│   │   │   ├── results/    # View itineraries
+│   │   │   └── comparison/ # Compare itineraries
+│   │   └── group/          # Group trip planning flow
+│   │       ├── setup/      # Create group trip
+│   │       ├── dashboard/  # Admin dashboard
+│   │       ├── join/       # Member join page
+│   │       ├── voting/     # Vote on itineraries
+│   │       ├── results/    # View results
+│   │       ├── comparison/ # Compare options
+│   │       ├── winner/     # Winning itinerary
+│   │       └── points-strategy/ # Points allocation
+│   ├── api/                # API routes
+│   ├── globals.css         # Global styles + Tailwind
+│   └── layout.tsx          # Root layout
+└── components/             # Reusable components
+    ├── Navigation.tsx      # Sidebar navigation
+    ├── TopBar.tsx          # Top bar with user info
+    ├── TripCard.tsx        # Trip display card
+    ├── ExploreMap.tsx      # Interactive world map
+    ├── RouteMap.tsx        # Trip route visualization
+    └── ...                 # Other UI components
+```
 
-## Learn More
+## Key Features
 
-To learn more about Next.js, take a look at the following resources:
+- **Solo Trip Planning**: Configure budget, dates, destinations and get AI-optimized itineraries
+- **Group Trip Planning**: Collaborative planning with voting and points pooling
+- **Interactive Map**: Explore 15+ destinations with real-time filtering
+- **Points Optimization**: Maximize credit card points for travel rewards
 
-- [Next.js Documentation](https://nextjs.org/docs) - learn about Next.js features and API.
-- [Learn Next.js](https://nextjs.org/learn) - an interactive Next.js tutorial.
+## Available Scripts
 
-You can check out [the Next.js GitHub repository](https://github.com/vercel/next.js) - your feedback and contributions are welcome!
+```bash
+npm run dev      # Start dev server (Turbopack)
+npm run build    # Build for production
+npm run start    # Start production server
+npm run lint     # Run ESLint
+```
 
-## Deploy on Vercel
+## Environment Variables
 
-The easiest way to deploy your Next.js app is to use the [Vercel Platform](https://vercel.com/new?utm_medium=default-template&filter=next.js&utm_source=create-next-app&utm_campaign=create-next-app-readme) from the creators of Next.js.
+See `.env.example` for required environment variables.
 
-Check out our [Next.js deployment documentation](https://nextjs.org/docs/app/building-your-application/deploying) for more details.
+## Contributing
+
+1. Create a feature branch from `main`
+2. Make your changes
+3. Run `npm run lint` and `npm run build` to verify
+4. Submit a pull request
+
+## Architecture Notes
+
+- **Route Groups**: `(app)` provides shared navigation layout
+- **Client Components**: Pages with interactivity use `'use client'`
+- **Image Handling**: External images use `<img>` with eslint-disable (Unsplash URLs)
+- **Map SSR**: Leaflet is dynamically imported to avoid SSR issues
