@@ -17,6 +17,7 @@ const db = new DbStack(app, "TripyDbStack", { env });
 new ApiStack(app, "TripyApiStack", {
     env,
     userPool: auth.userPool,
+    userPoolClient: auth.userPoolClient,
     tables: db.tables,
 });
 
