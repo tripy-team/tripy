@@ -1,0 +1,12 @@
+import os
+
+USERS_TABLE = os.environ["USERS_TABLE"]
+TRIPS_TABLE = os.environ["TRIPS_TABLE"]
+TRIP_MEMBERS_TABLE = os.environ["TRIP_MEMBERS_TABLE"]
+POINTS_TABLE = os.environ["POINTS_TABLE"]
+DESTINATIONS_TABLE = os.environ["DESTINATIONS_TABLE"]
+DESTINATION_VOTES_TABLE = os.environ["DESTINATION_VOTES_TABLE"]
+ITINERARY_TABLE = os.environ["ITINERARY_TABLE"]
+
+USER_POOL_ID = os.environ.get("USER_POOL_ID", "")
+AWS_REGION = os.environ.get("AWS_REGION", "us-west-2")

@@ -76,3 +76,5 @@ dist/
 *.egg-info/
 
 
+# Infra
+infra/cdk*
