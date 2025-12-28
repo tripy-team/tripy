@@ -16,10 +16,10 @@ class Suggestions(BaseModel):
 
 
 class Seasons(Enum):
-    winter = "winter"
-    spring = "spring"
-    summer = "summer"
-    fall = "fall"
+    WINTER = "winter"
+    SPRING = "spring"
+    SUMMER = "summer"
+    FALL = "fall"
 
 
 def ai_flight_suggestions():

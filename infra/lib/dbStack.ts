@@ -10,6 +10,7 @@ export type TripyTables = {
     destinations: dynamodb.Table;
     destinationVotes: dynamodb.Table;
     itinerary: dynamodb.Table;
+    invites: dynamodb.Table;
 };
 
 export class DbStack extends Stack {
@@ -97,7 +98,14 @@ export class DbStack extends Stack {
             removalPolicy,
         });
 
-        this.tables = { users, trips, tripMembers, points, destinations, destinationVotes, itinerary };
+        const invites = new dynamodb.Table(this, "InvitesTable", {
+            tableName: "tripy-invites",
+            partitionKey: { name: "inviteCode", type: dynamodb.AttributeType.STRING },
+            billingMode: dynamodb.BillingMode.PAY_PER_REQUEST,
+            removalPolicy,
+        });
+
+        this.tables = { users, trips, tripMembers, points, destinations, destinationVotes, itinerary, invites };
 
         // Outputs
         new CfnOutput(this, "USERS_TABLE", { value: users.tableName });
