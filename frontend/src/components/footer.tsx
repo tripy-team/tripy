@@ -11,21 +11,33 @@ export default function Footer() {
 					© {new Date().getFullYear()} Tripy. All rights reserved.
 				</p>
 
-				{/* Right: Links */}
-				<div className="flex items-center gap-6">
-					<Link
-						href="/terms"
-						className="transition hover:text-slate-900 hover:underline"
-					>
-						Terms
-					</Link>
-					<Link
-						href="/privacy"
-						className="transition hover:text-slate-900 hover:underline"
-					>
-						Privacy Policy
-					</Link>
-				</div>
+			{/* Right: Links */}
+			<div className="flex items-center gap-6 flex-wrap justify-center">
+				<Link
+					href="/about"
+					className="transition hover:text-slate-900 hover:underline"
+				>
+					About
+				</Link>
+				<Link
+					href="/contact"
+					className="transition hover:text-slate-900 hover:underline"
+				>
+					Contact
+				</Link>
+				<Link
+					href="/terms"
+					className="transition hover:text-slate-900 hover:underline"
+				>
+					Terms
+				</Link>
+				<Link
+					href="/privacy"
+					className="transition hover:text-slate-900 hover:underline"
+				>
+					Privacy Policy
+				</Link>
+			</div>
 			</div>
 		</footer>
 	);

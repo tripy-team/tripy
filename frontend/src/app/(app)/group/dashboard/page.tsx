@@ -6,6 +6,12 @@ import { Users, DollarSign, Zap, MapPin, CheckCircle, Clock, Sparkles } from 'lu
 export default function GroupDashboard() {
     const router = useRouter();
 
+    // TODO: Fetch trip details, members, destinations, and points summary
+    // Endpoints:
+    // - POST /trips/get - Get trip details (trip_id from URL or context)
+    // - POST /trips/members - Get all members
+    // - POST /destinations/list - Get destinations
+    // - POST /points/summary - Get aggregated points data
     const members = [
         { id: 1, name: 'Sarah Chen', initials: 'SC', budget: 5000, points: 120000, airport: 'JFK', status: 'complete' },
         { id: 2, name: 'Michael Rodriguez', initials: 'MR', budget: 4500, points: 95000, airport: 'LAX', status: 'complete' },
@@ -131,6 +137,7 @@ export default function GroupDashboard() {
                         <div className="bg-white border border-slate-200 rounded-2xl p-6 shadow-sm">
                             <h3 className="text-lg mb-4 text-slate-900 font-semibold">Destinations</h3>
                             <div className="space-y-2">
+                                {/* TODO: Replace with destinations from API */}
                                 {['Paris', 'Barcelona', 'Rome', 'Amsterdam'].map((city) => (
                                     <div key={city} className="flex items-center gap-2 text-slate-600">
                                         <MapPin className="w-4 h-4 text-blue-600" />
@@ -150,7 +157,13 @@ export default function GroupDashboard() {
                                     All members have completed their profiles. Generate optimized itineraries for your group!
                                 </p>
                                 <button
-                                    onClick={() => router.push('/group/results')}
+                                    onClick={async () => {
+                                        // TODO: Generate itineraries before navigating
+                                        // Endpoint: POST /itinerary/generate
+                                        // Data: trip_id (from URL or context)
+                                        // Then navigate to /group/results
+                                        router.push('/group/results');
+                                    }}
                                     className="w-full px-6 py-3 bg-yellow-400 text-slate-900 rounded-xl hover:bg-yellow-500 transition-colors mb-3 shadow-lg shadow-yellow-400/20 font-semibold"
                                 >
                                     Generate Itineraries

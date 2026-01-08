@@ -16,10 +16,10 @@ export default function SoloTripSetup() {
     const [creditCards, setCreditCards] = useState<CreditCardEntry[]>([
         { id: '1', program: 'Chase Sapphire Reserve', points: 150000 }
     ]);
-    const [duration, setDuration] = useState(14);
+    const [startDate, setStartDate] = useState('');
+    const [endDate, setEndDate] = useState('');
     const [cities, setCities] = useState<string[]>(['Paris', 'Barcelona']);
     const [newCity, setNewCity] = useState('');
-    const [startDate, setStartDate] = useState('');
     const [estimatedCost, setEstimatedCost] = useState(0);
     const [estimatedPoints, setEstimatedPoints] = useState(0);
 
@@ -31,14 +31,27 @@ export default function SoloTripSetup() {
     // Calculate total points from all cards
     const totalPoints = creditCards.reduce((sum, card) => sum + card.points, 0);
 
+    // Calculate duration from dates
+    const calculateDuration = () => {
+        if (startDate && endDate) {
+            const start = new Date(startDate);
+            const end = new Date(endDate);
+            const diffTime = Math.abs(end.getTime() - start.getTime());
+            const diffDays = Math.ceil(diffTime / (1000 * 60 * 60 * 24)) + 1; // +1 to include both start and end days
+            return diffDays;
+        }
+        return 0;
+    };
+
     // Real-time cost calculation
     useEffect(() => {
+        const duration = calculateDuration();
         const baseCostPerDay = 200;
         const baseCostPerCity = 300;
         const estimated = (duration * baseCostPerDay) + (cities.length * baseCostPerCity);
         setEstimatedCost(Math.min(estimated, budget));
         setEstimatedPoints(Math.floor(estimated * 25)); // Rough points calculation
-    }, [budget, duration, cities.length]);
+    }, [budget, startDate, endDate, cities.length]);
 
     const addCity = () => {
         if (newCity.trim() && !cities.includes(newCity.trim())) {
@@ -51,7 +64,22 @@ export default function SoloTripSetup() {
         setCities(cities.filter(c => c !== city));
     };
 
-    const handleGenerate = () => {
+    const handleGenerate = async () => {
+        // TODO: Implement backend integration:
+        // 1. POST /trips - Create trip with auto-generated title "Solo Trip to [first city]"
+        //    - start_date: startDate
+        //    - end_date: endDate
+        // 2. For each city in cities array: POST /destinations/add
+        //    - trip_id: from step 1
+        //    - name: city name
+        //    - must_include: false, excluded: false
+        // 3. For each credit card: POST /points/upsert
+        //    - trip_id: from step 1
+        //    - program: card.program
+        //    - balance: card.points
+        // 4. POST /itinerary/generate - Generate itineraries
+        //    - trip_id: from step 1
+        // 5. Navigate to /solo/results with trip_id
         router.push('/solo/results');
     };
 
@@ -214,32 +242,27 @@ export default function SoloTripSetup() {
                                 <div className="w-10 h-10 bg-blue-100 rounded-xl flex items-center justify-center">
                                     <Calendar className="w-5 h-5 text-blue-600" />
                                 </div>
-                                <h2 className="text-2xl text-slate-900">Duration &amp; Dates</h2>
+                                <h2 className="text-2xl text-slate-900">Dates</h2>
                             </div>
 
                             <div className="grid md:grid-cols-2 gap-6">
                                 <div>
-                                    <label className="block text-sm text-slate-600 mb-3 font-medium">Trip Duration</label>
-                                    <div className="flex items-baseline gap-2 mb-3">
-                                        <span className="text-3xl text-slate-900">{duration}</span>
-                                        <span className="text-slate-500">days</span>
-                                    </div>
-                                    <input
-                                        type="range"
-                                        min="3"
-                                        max="30"
-                                        value={duration}
-                                        onChange={(e) => setDuration(Number(e.target.value))}
-                                        className="w-full h-2 bg-slate-200 rounded-full appearance-none cursor-pointer accent-blue-600"
-                                    />
-                                </div>
-
-                                <div>
-                                    <label className="block text-sm text-slate-600 mb-3 font-medium">Start Date (optional)</label>
+                                    <label className="block text-sm text-slate-600 mb-3 font-medium">Start Date</label>
                                     <input
                                         type="date"
                                         value={startDate}
                                         onChange={(e) => setStartDate(e.target.value)}
+                                        className="w-full px-4 py-3 bg-white border border-slate-200 rounded-xl focus:outline-none focus:ring-2 focus:ring-blue-600 focus:border-transparent"
+                                    />
+                                </div>
+
+                                <div>
+                                    <label className="block text-sm text-slate-600 mb-3 font-medium">End Date</label>
+                                    <input
+                                        type="date"
+                                        value={endDate}
+                                        onChange={(e) => setEndDate(e.target.value)}
+                                        min={startDate || undefined}
                                         className="w-full px-4 py-3 bg-white border border-slate-200 rounded-xl focus:outline-none focus:ring-2 focus:ring-blue-600 focus:border-transparent"
                                     />
                                 </div>
@@ -322,10 +345,12 @@ export default function SoloTripSetup() {
                                     <div className="pt-6 border-t border-blue-500/30">
                                         <div className="text-sm text-blue-100 mb-2">Your Configuration</div>
                                         <div className="space-y-2 text-sm">
-                                            <div className="flex justify-between">
-                                                <span className="text-blue-100">Duration</span>
-                                                <span>{duration} days</span>
-                                            </div>
+                                            {startDate && endDate && (
+                                                <div className="flex justify-between">
+                                                    <span className="text-blue-100">Duration</span>
+                                                    <span>{calculateDuration()} days</span>
+                                                </div>
+                                            )}
                                             <div className="flex justify-between">
                                                 <span className="text-blue-100">Cities</span>
                                                 <span>{cities.length}</span>
