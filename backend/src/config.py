@@ -1,4 +1,8 @@
 import os
+from dotenv import load_dotenv
+
+# Load environment variables from .env file
+load_dotenv()
 
 USERS_TABLE = os.environ["USERS_TABLE"]
 TRIPS_TABLE = os.environ["TRIPS_TABLE"]

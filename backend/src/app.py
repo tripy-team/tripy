@@ -1,6 +1,10 @@
 import boto3
 import os
 from dotenv import load_dotenv
+
+# Load environment variables from .env file early
+load_dotenv()
+
 from fastapi import FastAPI, Request, HTTPException
 from fastapi.middleware.cors import CORSMiddleware
 from pydantic import BaseModel
@@ -13,6 +17,14 @@ from services import (
     points_service,
     itinerary_service,
     route_service,
+    user_service,
+    city_service,
+)
+from utils.analytics import (
+    track_user_login,
+    track_trip_created,
+    track_destination_added,
+    track_itinerary_generated,
 )
 
 
@@ -63,6 +75,16 @@ class GenerateItineraryRequest(BaseModel):
     trip_id: str
 
 
+class LoginRequest(BaseModel):
+    email: str
+    user_id: Optional[str] = None  # If not provided, will use email as user_id for MVP
+
+
+class CitySearchRequest(BaseModel):
+    query: str
+    max_results: Optional[int] = 10
+
+
 @app.get("/healthz")
 def health():
     return {"ok": True}
@@ -75,6 +97,29 @@ async def ingest(req: Request):
     return data
 
 
+# Auth endpoints
+@app.post("/auth/login")
+async def login(request: LoginRequest):
+    """Login endpoint - creates or updates user record"""
+    try:
+        # For MVP, use email as user_id if not provided
+        user_id = request.user_id or request.email
+
+        # Ensure user exists in database
+        user = user_service.ensure_user_exists(user_id, request.email)
+
+        # Track login event for analytics
+        track_user_login(user_id, request.email)
+
+        return {
+            "user_id": user_id,
+            "email": request.email,
+            "user": user,
+        }
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=str(e))
+
+
 # Trip endpoints
 @app.post("/trips")
 async def create_trip(request: CreateTripRequest):
@@ -82,6 +127,14 @@ async def create_trip(request: CreateTripRequest):
     try:
         trip = trip_service.create_trip(
             request.user_id, request.title, request.start_date, request.end_date
+        )
+        # Track trip creation for analytics
+        track_trip_created(
+            request.user_id,
+            trip["tripId"],
+            request.title,
+            request.start_date,
+            request.end_date,
         )
         return trip
     except Exception as e:
@@ -128,6 +181,8 @@ async def add_destination(request: AddDestinationRequest):
             request.must_include,
             request.excluded,
         )
+        # Track destination addition for analytics
+        track_destination_added(request.user_id, request.trip_id, request.name)
         return destination
     except Exception as e:
         raise HTTPException(status_code=500, detail=str(e))
@@ -172,12 +227,26 @@ async def get_points_summary(request: TripIdRequest):
 async def generate_itinerary(request: GenerateItineraryRequest):
     """Generate itineraries for a trip"""
     try:
+        # Get trip to get user_id
+        trip = trip_service.get_trip(request.trip_id)
+        if not trip:
+            raise HTTPException(status_code=404, detail="Trip not found")
+
+        user_id = trip.get("createdBy", "default_user")
+
+        # Get destinations
         destinations = destination_service.list_destinations(request.trip_id)
         routes = route_service.generate_routes(destinations)
         saved = itinerary_service.save_itinerary(
             request.trip_id, routes[0] if routes else []
         )
+
+        # Track itinerary generation for analytics
+        track_itinerary_generated(user_id, request.trip_id, len(routes))
+
         return {"routes": routes, "saved": saved}
+    except HTTPException:
+        raise
     except Exception as e:
         raise HTTPException(status_code=500, detail=str(e))
 
@@ -192,12 +261,32 @@ async def get_itinerary(request: TripIdRequest):
         raise HTTPException(status_code=500, detail=str(e))
 
 
+# City search endpoints
+@app.post("/cities/search")
+async def search_cities(request: CitySearchRequest):
+    """Search for cities/airports using Amadeus API"""
+    try:
+        results = city_service.search_cities(request.query, request.max_results or 10)
+        return {"cities": results}
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=str(e))
+
+
+@app.get("/cities/search")
+async def search_cities_get(query: str, max_results: Optional[int] = 10):
+    """Search for cities/airports using Amadeus API (GET endpoint)"""
+    try:
+        results = city_service.search_cities(query, max_results or 10)
+        return {"cities": results}
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=str(e))
+
+
 def start():
-    load_dotenv()
-    session = boto3.Session(
-        aws_access_key_id=os.getenv("AWS_ACCESS_KEY_ID"),
-        aws_secret_access_key=os.getenv("AWS_SECRET_ACCESS_KEY"),
-    )
+    # Environment variables are already loaded at module level
+    # boto3 will automatically use AWS_ACCESS_KEY_ID and AWS_SECRET_ACCESS_KEY
+    # from environment variables if they are set
+    pass
 
 
 # a lot of lambdas

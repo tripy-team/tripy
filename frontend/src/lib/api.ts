@@ -183,3 +183,48 @@ export async function getItinerary(tripId: string): Promise<GetItineraryResponse
     body: JSON.stringify({ trip_id: tripId }),
   });
 }
+
+// Auth endpoints
+export interface LoginRequest {
+  email: string;
+  user_id?: string;
+}
+
+export interface LoginResponse {
+  user_id: string;
+  email: string;
+  user: {
+    userId: string;
+    email: string;
+    name: string;
+    createdAt: string;
+  };
+}
+
+export async function login(request: LoginRequest): Promise<LoginResponse> {
+  return apiRequest<LoginResponse>('/auth/login', {
+    method: 'POST',
+    body: JSON.stringify(request),
+  });
+}
+
+// City search endpoints
+export interface CitySearchResult {
+  id: string;
+  name: string;
+  iataCode: string;
+  type: string;
+  cityName?: string;
+  countryName?: string;
+  regionCode?: string;
+}
+
+export interface CitySearchResponse {
+  cities: CitySearchResult[];
+}
+
+export async function searchCities(query: string, maxResults: number = 10): Promise<CitySearchResponse> {
+  return apiRequest<CitySearchResponse>(`/cities/search?query=${encodeURIComponent(query)}&max_results=${maxResults}`, {
+    method: 'GET',
+  });
+}
