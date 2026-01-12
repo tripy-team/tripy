@@ -5,6 +5,9 @@ class LoyaltyProgram(Enum):
     AF = "Air France/KLM"
 
 
+#  There should be a list of all the loyalty programs that we support
+
+
 def get_budget_from_frontend():
     pass
 
