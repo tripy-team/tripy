@@ -3,6 +3,7 @@
 import { useState } from 'react';
 import { useRouter } from 'next/navigation';
 import { Users, MapPin, Copy, Check, Plus, X } from 'lucide-react';
+import { createTrip, addDestination, getInviteCode } from '@/lib/api';
 
 export default function GroupTripSetup() {
     const router = useRouter();
@@ -12,23 +13,53 @@ export default function GroupTripSetup() {
     const [newCity, setNewCity] = useState('');
     const [inviteLink, setInviteLink] = useState('');
     const [copied, setCopied] = useState(false);
+    const [isGenerating, setIsGenerating] = useState(false);
+    const [error, setError] = useState<string | null>(null);
 
     const generateInvite = async () => {
-        // TODO: Implement backend integration:
-        // 1. POST /trips - Create trip with auto-generated title "Group Trip to [first city]"
-        //    - start_date: startDate
-        //    - end_date: endDate
-        // 2. For each city in cities array: POST /destinations/add
-        //    - trip_id: from step 1
-        //    - name: city name
-        //    - must_include: false, excluded: false
-        // 3. POST /trips/invite - Get invite code for the trip
-        //    - trip_id: from step 1
-        //    Returns: { inviteCode }
-        // 4. Set inviteLink with the returned invite code
-        //    Format: `${FRONTEND_URL}/group/join/${inviteCode}`
-        const code = Math.random().toString(36).substring(2, 8).toUpperCase();
-        setInviteLink(`tripy.app/group/join/${code}`);
+        if (cities.length < 2 || !startDate || !endDate) {
+            setError('Please fill in all required fields (dates and at least 2 cities)');
+            return;
+        }
+
+        setIsGenerating(true);
+        setError(null);
+
+        try {
+            // 1. Create trip
+            const tripTitle = cities.length > 0 
+                ? `Group Trip to ${cities[0]}` 
+                : 'Group Trip';
+            const trip = await createTrip({
+                title: tripTitle,
+                start_date: startDate,
+                end_date: endDate,
+            });
+
+            // 2. Add destinations
+            for (const city of cities) {
+                await addDestination({
+                    trip_id: trip.tripId,
+                    name: city,
+                    must_include: false,
+                    excluded: false,
+                });
+            }
+
+            // 3. Get invite code
+            const inviteResponse = await getInviteCode(trip.tripId);
+            
+            // 4. Set invite link (using relative URL for now, can be made configurable)
+            const frontendUrl = typeof window !== 'undefined' 
+                ? window.location.origin 
+                : 'tripy.app';
+            setInviteLink(`${frontendUrl}/group/join/${inviteResponse.inviteCode}`);
+        } catch (err) {
+            console.error('Error generating invite:', err);
+            setError(err instanceof Error ? err.message : 'Failed to generate invite link. Please try again.');
+        } finally {
+            setIsGenerating(false);
+        }
     };
 
     const copyInvite = () => {
@@ -147,13 +178,20 @@ export default function GroupTripSetup() {
                         <h2 className="text-2xl mb-6 text-slate-900 font-semibold">Invite Members</h2>
 
                         {!inviteLink ? (
-                            <button
-                                onClick={generateInvite}
-                                disabled={cities.length < 2}
-                                className="w-full px-6 py-4 bg-blue-600 text-white rounded-xl hover:bg-blue-700 transition-colors disabled:opacity-50 disabled:cursor-not-allowed shadow-sm font-medium"
-                            >
-                                Generate Invite Link
-                            </button>
+                            <>
+                                <button
+                                    onClick={generateInvite}
+                                    disabled={cities.length < 2 || !startDate || !endDate || isGenerating}
+                                    className="w-full px-6 py-4 bg-blue-600 text-white rounded-xl hover:bg-blue-700 transition-colors disabled:opacity-50 disabled:cursor-not-allowed shadow-sm font-medium"
+                                >
+                                    {isGenerating ? 'Generating...' : 'Generate Invite Link'}
+                                </button>
+                                {error && (
+                                    <div className="mt-4 bg-red-50 border border-red-200 text-red-700 px-4 py-3 rounded-xl text-sm">
+                                        {error}
+                                    </div>
+                                )}
+                            </>
                         ) : (
                             <div className="space-y-4">
                                 <div className="flex gap-2">
