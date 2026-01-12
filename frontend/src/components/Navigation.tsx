@@ -2,7 +2,7 @@
 
 import Link from 'next/link';
 import { usePathname } from 'next/navigation';
-import { Home, Plane, LayoutDashboard, ChevronRight, ChevronLeft } from 'lucide-react';
+import { Plane, LayoutDashboard, ChevronRight, ChevronLeft } from 'lucide-react';
 import { useState } from 'react';
 
 export function Navigation() {

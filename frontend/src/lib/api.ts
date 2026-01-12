@@ -147,9 +147,16 @@ export interface GenerateItineraryRequest {
   trip_id: string;
 }
 
+export interface SavedItineraryItem {
+  tripId: string;
+  itemId: string;
+  type: string;
+  route: string[];
+}
+
 export interface GenerateItineraryResponse {
   routes: string[][];
-  saved: any;
+  saved: SavedItineraryItem;
 }
 
 export async function generateItinerary(tripId: string): Promise<GenerateItineraryResponse> {
@@ -159,8 +166,15 @@ export async function generateItinerary(tripId: string): Promise<GenerateItinera
   });
 }
 
+export interface ItineraryItem {
+  tripId: string;
+  itemId: string;
+  type: string;
+  [key: string]: unknown;
+}
+
 export interface GetItineraryResponse {
-  items: any[];
+  items: ItineraryItem[];
 }
 
 export async function getItinerary(tripId: string): Promise<GetItineraryResponse> {

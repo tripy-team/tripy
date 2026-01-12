@@ -6,7 +6,7 @@ export default function ContactPage() {
 					Contact Us
 				</h1>
 				<p className="mb-8 text-lg text-slate-600 leading-relaxed">
-					Have questions or feedback? We'd love to hear from you.
+					Have questions or feedback? We&apos;d love to hear from you.
 				</p>
 
 				<div className="space-y-12 mt-12">

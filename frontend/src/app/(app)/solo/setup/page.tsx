@@ -34,21 +34,17 @@ export default function SoloTripSetup() {
     // Calculate total points from all cards
     const totalPoints = creditCards.reduce((sum, card) => sum + card.points, 0);
 
-    // Calculate duration from dates
-    const calculateDuration = () => {
+    // Real-time cost calculation
+    useEffect(() => {
+        // Calculate duration from dates
+        let duration = 0;
         if (startDate && endDate) {
             const start = new Date(startDate);
             const end = new Date(endDate);
             const diffTime = Math.abs(end.getTime() - start.getTime());
-            const diffDays = Math.ceil(diffTime / (1000 * 60 * 60 * 24)) + 1; // +1 to include both start and end days
-            return diffDays;
+            duration = Math.ceil(diffTime / (1000 * 60 * 60 * 24)) + 1; // +1 to include both start and end days
         }
-        return 0;
-    };
-
-    // Real-time cost calculation
-    useEffect(() => {
-        const duration = calculateDuration();
+        
         const baseCostPerDay = 200;
         const baseCostPerCity = 300;
         const estimated = (duration * baseCostPerDay) + (cities.length * baseCostPerCity);
@@ -380,12 +376,18 @@ export default function SoloTripSetup() {
                                     <div className="pt-6 border-t border-blue-500/30">
                                         <div className="text-sm text-blue-100 mb-2">Your Configuration</div>
                                         <div className="space-y-2 text-sm">
-                                            {startDate && endDate && (
-                                                <div className="flex justify-between">
-                                                    <span className="text-blue-100">Duration</span>
-                                                    <span>{calculateDuration()} days</span>
-                                                </div>
-                                            )}
+                                            {startDate && endDate && (() => {
+                                                const start = new Date(startDate);
+                                                const end = new Date(endDate);
+                                                const diffTime = Math.abs(end.getTime() - start.getTime());
+                                                const duration = Math.ceil(diffTime / (1000 * 60 * 60 * 24)) + 1;
+                                                return (
+                                                    <div className="flex justify-between">
+                                                        <span className="text-blue-100">Duration</span>
+                                                        <span>{duration} days</span>
+                                                    </div>
+                                                );
+                                            })()}
                                             <div className="flex justify-between">
                                                 <span className="text-blue-100">Cities</span>
                                                 <span>{cities.length}</span>
