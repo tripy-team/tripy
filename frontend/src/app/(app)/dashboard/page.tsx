@@ -9,6 +9,9 @@ import { ExploreMap } from '@/components/ExploreMap';
 export default function Dashboard() {
     const [viewMode, setViewMode] = useState<'trips' | 'explore'>('trips');
 
+    // TODO: Replace with API call to fetch user's trips
+    // Endpoint needed: GET /trips (list user trips) or POST /trips/get for each trip
+    // Also fetch user profile: GET /users/me
     // Mock trip data
     const trips = [
         {

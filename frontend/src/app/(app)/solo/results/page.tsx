@@ -22,6 +22,9 @@ export default function SoloResults() {
     const [comparing, setComparing] = useState<number[]>([]);
     const [loading, setLoading] = useState(true);
 
+    // TODO: Fetch itineraries from backend
+    // Endpoint: POST /itinerary/get
+    // Data needed: trip_id (from URL params or context)
     // Generate itineraries
     useEffect(() => {
         setTimeout(() => {
@@ -266,7 +269,12 @@ export default function SoloResults() {
 
                                     {/* Select Button */}
                                     <button
-                                        onClick={() => setSelectedId(itinerary.id)}
+                                        onClick={async () => {
+                                            setSelectedId(itinerary.id);
+                                            // TODO: Save selected itinerary to backend
+                                            // Endpoint: POST /itinerary/save (may need to be added)
+                                            // Data: trip_id, itinerary_id/route_id
+                                        }}
                                         className={`w-full mt-4 px-6 py-3 rounded-xl transition-all font-medium ${selectedId === itinerary.id
                                             ? 'bg-blue-600 text-white shadow-sm'
                                             : 'bg-slate-100 text-slate-900 hover:bg-slate-200'

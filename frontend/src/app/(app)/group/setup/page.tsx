@@ -6,15 +6,27 @@ import { Users, MapPin, Copy, Check, Plus, X } from 'lucide-react';
 
 export default function GroupTripSetup() {
     const router = useRouter();
-    const [tripName, setTripName] = useState('');
-    const [duration, setDuration] = useState(14);
     const [startDate, setStartDate] = useState('');
+    const [endDate, setEndDate] = useState('');
     const [cities, setCities] = useState<string[]>([]);
     const [newCity, setNewCity] = useState('');
     const [inviteLink, setInviteLink] = useState('');
     const [copied, setCopied] = useState(false);
 
-    const generateInvite = () => {
+    const generateInvite = async () => {
+        // TODO: Implement backend integration:
+        // 1. POST /trips - Create trip with auto-generated title "Group Trip to [first city]"
+        //    - start_date: startDate
+        //    - end_date: endDate
+        // 2. For each city in cities array: POST /destinations/add
+        //    - trip_id: from step 1
+        //    - name: city name
+        //    - must_include: false, excluded: false
+        // 3. POST /trips/invite - Get invite code for the trip
+        //    - trip_id: from step 1
+        //    Returns: { inviteCode }
+        // 4. Set inviteLink with the returned invite code
+        //    Format: `${FRONTEND_URL}/group/join/${inviteCode}`
         const code = Math.random().toString(36).substring(2, 8).toUpperCase();
         setInviteLink(`tripy.app/group/join/${code}`);
     };
@@ -50,48 +62,30 @@ export default function GroupTripSetup() {
                 </div>
 
                 <div className="space-y-6">
-                    {/* Trip Name */}
+                    {/* Trip Dates */}
                     <div className="bg-white border border-slate-200 rounded-2xl p-8 shadow-sm">
                         <h2 className="text-2xl mb-6 text-slate-900 font-semibold">Trip Details</h2>
 
-                        <div className="space-y-6">
+                        <div className="grid md:grid-cols-2 gap-6">
                             <div>
-                                <label className="block text-sm text-slate-600 mb-3 font-medium">Trip Name</label>
+                                <label className="block text-sm text-slate-600 mb-3 font-medium">Start Date</label>
                                 <input
-                                    type="text"
-                                    value={tripName}
-                                    onChange={(e) => setTripName(e.target.value)}
-                                    placeholder="e.g., European Adventure 2025"
+                                    type="date"
+                                    value={startDate}
+                                    onChange={(e) => setStartDate(e.target.value)}
                                     className="w-full px-4 py-3 bg-white border border-slate-200 rounded-xl focus:outline-none focus:ring-2 focus:ring-blue-600 focus:border-transparent"
                                 />
                             </div>
 
-                            <div className="grid md:grid-cols-2 gap-6">
-                                <div>
-                                    <label className="block text-sm text-slate-600 mb-3 font-medium">Duration</label>
-                                    <div className="flex items-baseline gap-2 mb-3">
-                                        <span className="text-3xl text-slate-900">{duration}</span>
-                                        <span className="text-slate-500">days</span>
-                                    </div>
-                                    <input
-                                        type="range"
-                                        min="3"
-                                        max="30"
-                                        value={duration}
-                                        onChange={(e) => setDuration(Number(e.target.value))}
-                                        className="w-full h-2 bg-slate-200 rounded-full appearance-none cursor-pointer accent-blue-600"
-                                    />
-                                </div>
-
-                                <div>
-                                    <label className="block text-sm text-slate-600 mb-3 font-medium">Start Date</label>
-                                    <input
-                                        type="date"
-                                        value={startDate}
-                                        onChange={(e) => setStartDate(e.target.value)}
-                                        className="w-full px-4 py-3 bg-white border border-slate-200 rounded-xl focus:outline-none focus:ring-2 focus:ring-blue-600 focus:border-transparent"
-                                    />
-                                </div>
+                            <div>
+                                <label className="block text-sm text-slate-600 mb-3 font-medium">End Date</label>
+                                <input
+                                    type="date"
+                                    value={endDate}
+                                    onChange={(e) => setEndDate(e.target.value)}
+                                    min={startDate || undefined}
+                                    className="w-full px-4 py-3 bg-white border border-slate-200 rounded-xl focus:outline-none focus:ring-2 focus:ring-blue-600 focus:border-transparent"
+                                />
                             </div>
                         </div>
                     </div>
@@ -155,7 +149,7 @@ export default function GroupTripSetup() {
                         {!inviteLink ? (
                             <button
                                 onClick={generateInvite}
-                                disabled={!tripName || cities.length < 2}
+                                disabled={cities.length < 2}
                                 className="w-full px-6 py-4 bg-blue-600 text-white rounded-xl hover:bg-blue-700 transition-colors disabled:opacity-50 disabled:cursor-not-allowed shadow-sm font-medium"
                             >
                                 Generate Invite Link

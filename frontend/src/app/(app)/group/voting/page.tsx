@@ -17,6 +17,9 @@ export default function GroupVoting() {
     const router = useRouter();
     const groupSize = 4;
 
+    // TODO: Fetch itineraries from backend on mount
+    // Endpoint: POST /itinerary/get
+    // Data needed: trip_id (from URL or context)
     const [rankedItineraries, setRankedItineraries] = useState<Itinerary[]>([
         {
             id: '1',
@@ -60,6 +63,9 @@ export default function GroupVoting() {
 
     const [submitted, setSubmitted] = useState(false);
 
+    // TODO: Fetch members and their voting status
+    // Endpoint: POST /trips/members
+    // May need separate endpoint for voting status or extend members response
     // Voting status for all members
     const members = [
         { id: 1, name: 'Sarah Chen', initials: 'SC', voted: false },
@@ -82,7 +88,11 @@ export default function GroupVoting() {
         setRankedItineraries(newItems);
     };
 
-    const handleSubmit = () => {
+    const handleSubmit = async () => {
+        // TODO: Submit ranking to backend
+        // Endpoint: POST /itinerary/rank (may need to be added) or use destination voting
+        // Data: trip_id, ranked itinerary IDs in order
+        // For each itinerary, may need to vote on destinations or create ranking endpoint
         setSubmitted(true);
         // Navigate to results after a delay
         setTimeout(() => {

@@ -11,6 +11,9 @@ export default function GroupMemberJoin({ params }: { params: Promise<{ inviteCo
     const [points, setPoints] = useState(100000);
     const [airport, setAirport] = useState('');
 
+    // TODO: Fetch trip info on mount using invite code
+    // Endpoint: POST /trips/join (validates invite and returns trip info)
+    // Data needed: trip name, admin name, cities, dates, member count
     // Mock trip data
     const tripInfo = {
         name: 'European Adventure 2025',
@@ -21,7 +24,18 @@ export default function GroupMemberJoin({ params }: { params: Promise<{ inviteCo
         currentMembers: 2,
     };
 
-    const handleJoin = () => {
+    const handleJoin = async () => {
+        // TODO: Implement backend integration:
+        // 1. POST /trips/join - Join trip with invite code
+        //    - invite_code: inviteCode from URL
+        //    Returns: { trip_id, trip details }
+        // 2. POST /points/upsert - Save user's points (if provided)
+        //    - trip_id: from step 1
+        //    - program: "User Points" or similar
+        //    - balance: points value
+        // 3. Update user profile with airport: PUT /users/profile
+        //    - default_home_airport: airport value
+        // 4. Navigate to /group/dashboard with trip_id
         router.push('/group/dashboard');
     };
 

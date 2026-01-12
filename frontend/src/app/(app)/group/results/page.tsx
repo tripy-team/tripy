@@ -19,8 +19,13 @@ export default function GroupResults() {
     const [selectedId, setSelectedId] = useState<number | null>(null);
     const [loading, setLoading] = useState(true);
 
+    // TODO: Fetch actual group size from backend
+    // Endpoint: POST /trips/members (count members)
     const groupSize = 4;
 
+    // TODO: Fetch itineraries from backend
+    // Endpoint: POST /itinerary/get
+    // Data needed: trip_id (from URL params or context)
     useEffect(() => {
         setTimeout(() => {
             const generated: Itinerary[] = [
