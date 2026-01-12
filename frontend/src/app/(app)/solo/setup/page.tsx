@@ -3,6 +3,7 @@
 import { useState, useEffect } from 'react';
 import { useRouter } from 'next/navigation';
 import { X, Plus, Calendar, DollarSign, Zap, MapPin, Sparkles, CreditCard } from 'lucide-react';
+import { createTrip, addDestination, upsertPoints, generateItinerary } from '@/lib/api';
 
 interface CreditCardEntry {
     id: string;
@@ -22,6 +23,8 @@ export default function SoloTripSetup() {
     const [newCity, setNewCity] = useState('');
     const [estimatedCost, setEstimatedCost] = useState(0);
     const [estimatedPoints, setEstimatedPoints] = useState(0);
+    const [isGenerating, setIsGenerating] = useState(false);
+    const [error, setError] = useState<string | null>(null);
 
     // Add card modal state
     const [showAddCard, setShowAddCard] = useState(false);
@@ -65,22 +68,54 @@ export default function SoloTripSetup() {
     };
 
     const handleGenerate = async () => {
-        // TODO: Implement backend integration:
-        // 1. POST /trips - Create trip with auto-generated title "Solo Trip to [first city]"
-        //    - start_date: startDate
-        //    - end_date: endDate
-        // 2. For each city in cities array: POST /destinations/add
-        //    - trip_id: from step 1
-        //    - name: city name
-        //    - must_include: false, excluded: false
-        // 3. For each credit card: POST /points/upsert
-        //    - trip_id: from step 1
-        //    - program: card.program
-        //    - balance: card.points
-        // 4. POST /itinerary/generate - Generate itineraries
-        //    - trip_id: from step 1
-        // 5. Navigate to /solo/results with trip_id
-        router.push('/solo/results');
+        if (cities.length < 2 || !startDate || !endDate) {
+            setError('Please fill in all required fields (dates and at least 2 cities)');
+            return;
+        }
+
+        setIsGenerating(true);
+        setError(null);
+
+        try {
+            // 1. Create trip
+            const tripTitle = cities.length > 0 
+                ? `Solo Trip to ${cities[0]}` 
+                : 'Solo Trip';
+            const trip = await createTrip({
+                title: tripTitle,
+                start_date: startDate,
+                end_date: endDate,
+            });
+
+            // 2. Add destinations
+            for (const city of cities) {
+                await addDestination({
+                    trip_id: trip.tripId,
+                    name: city,
+                    must_include: false,
+                    excluded: false,
+                });
+            }
+
+            // 3. Add credit card points
+            for (const card of creditCards) {
+                await upsertPoints({
+                    trip_id: trip.tripId,
+                    program: card.program,
+                    balance: card.points,
+                });
+            }
+
+            // 4. Generate itinerary
+            await generateItinerary(trip.tripId);
+
+            // 5. Navigate to results page with trip_id
+            router.push(`/solo/results?tripId=${trip.tripId}`);
+        } catch (err) {
+            console.error('Error generating itinerary:', err);
+            setError(err instanceof Error ? err.message : 'Failed to generate itinerary. Please try again.');
+            setIsGenerating(false);
+        }
     };
 
     const addCreditCard = () => {
@@ -371,12 +406,18 @@ export default function SoloTripSetup() {
                             {/* Generate Button */}
                             <button
                                 onClick={handleGenerate}
-                                disabled={cities.length < 2}
+                                disabled={cities.length < 2 || !startDate || !endDate || isGenerating}
                                 className="w-full px-6 py-4 bg-yellow-400 text-slate-900 rounded-xl hover:bg-yellow-500 transition-all disabled:opacity-50 disabled:cursor-not-allowed flex items-center justify-center gap-2 text-lg shadow-lg shadow-yellow-400/20 font-semibold"
                             >
                                 <Zap className="w-5 h-5" />
-                                <span>Generate Itineraries</span>
+                                <span>{isGenerating ? 'Generating...' : 'Generate Itineraries'}</span>
                             </button>
+
+                            {error && (
+                                <div className="bg-red-50 border border-red-200 text-red-700 px-4 py-3 rounded-xl text-sm">
+                                    {error}
+                                </div>
+                            )}
 
                             <p className="text-sm text-slate-500 text-center">
                                 We&apos;ll generate 3-5 optimized routes based on your preferences
