@@ -29,7 +29,7 @@ export default function ForgotPasswordPage() {
 			// Example: await fetch("/api/auth/forgot-password", { method: "POST", body: JSON.stringify({ email }) })
 			//   .then(r => r.json());
 			setSent(true);
-		} catch (err) {
+		} catch (_err) {
 			setErrors({ general: "Something went wrong. Please try again." });
 		} finally {
 			setSubmitting(false);
@@ -46,7 +46,7 @@ export default function ForgotPasswordPage() {
 						Forgot your password?
 					</h1>
 					<p className="mb-8 text-lg text-slate-600">
-						Enter the email associated with your account. If it exists, we'll
+						Enter the email associated with your account. If it exists, we&apos;ll
 						send a link to reset your password.
 					</p>
 					<div className="rounded-2xl bg-blue-50 p-6 border border-blue-100">
@@ -92,7 +92,7 @@ export default function ForgotPasswordPage() {
 								<span className="font-medium">{email}</span>, a password reset
 								link has been sent.
 								<div className="mt-2">
-									Didn't get it? Check spam or{" "}
+									Didn&apos;t get it? Check spam or{" "}
 									<button
 										type="button"
 										onClick={() => setSent(false)}

@@ -60,7 +60,7 @@ export default function RegisterPage() {
 			// On success: Store auth token, then redirect to dashboard
 			// Example: await fetch("/api/auth/register", { method: "POST", body: JSON.stringify({ ... }) })
 			alert("Registered! (wire this to your backend)");
-		} catch (err) {
+		} catch (_err) {
 			setErrors({ general: "Registration failed. Please try again." });
 		} finally {
 			setSubmitting(false);

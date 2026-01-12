@@ -49,7 +49,7 @@ export default function LoginPage() {
 			// On success: Store auth token, then redirect
 			// Example: await fetch("/api/auth/login", { method: "POST", body: JSON.stringify({ email: form.email, password: form.password }) })
 			router.push("/dashboard");
-		} catch (err) {
+		} catch (_err) {
 			setErrors({ general: "Invalid email or password." });
 		} finally {
 			setSubmitting(false);
