@@ -1,3 +1,10 @@
+from enum import Enum
+
+
+class LoyaltyProgram(Enum):
+    AF = "Air France/KLM"
+
+
 def get_budget_from_frontend():
     pass
 

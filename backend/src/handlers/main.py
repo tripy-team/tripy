@@ -4,8 +4,8 @@
 #  - ilp_adapter.run_ilp_from_edges (adapter with meetup_cities support)
 #  - planTrip.plan_non_pooled_multi_itineraries_with_native (your ILP)
 
-from backend.domain.optimize.flights import get_flights_award_first_with_points
-from domain.optimize.ilp_adapter import run_ilp_from_edges  # <- fixed import
+from flights import get_flights_award_first_with_points
+from ilp_adapter import run_ilp_from_edges  # <- fixed import
 from planTrip import plan_non_pooled_multi_itineraries_with_native
 
 # -----------------------------

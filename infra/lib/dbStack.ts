@@ -7,8 +7,6 @@ export type TripyTables = {
     trips: dynamodb.Table;
     tripMembers: dynamodb.Table;
     points: dynamodb.Table;
-    destinations: dynamodb.Table;
-    destinationVotes: dynamodb.Table;
     itinerary: dynamodb.Table;
     invites: dynamodb.Table;
 };
@@ -71,23 +69,6 @@ export class DbStack extends Stack {
             removalPolicy,
         });
 
-        // DESTINATIONS (trip-scoped)
-        const destinations = new dynamodb.Table(this, "DestinationsTable", {
-            tableName: "tripy-destinations",
-            partitionKey: { name: "tripId", type: dynamodb.AttributeType.STRING },
-            sortKey: { name: "destinationId", type: dynamodb.AttributeType.STRING },
-            billingMode: dynamodb.BillingMode.PAY_PER_REQUEST,
-            removalPolicy,
-        });
-
-        // DESTINATION VOTES (trip-scoped)
-        const destinationVotes = new dynamodb.Table(this, "DestinationVotesTable", {
-            tableName: "tripy-destination-votes",
-            partitionKey: { name: "tripId", type: dynamodb.AttributeType.STRING },
-            sortKey: { name: "destinationUser", type: dynamodb.AttributeType.STRING }, // destinationId#userId
-            billingMode: dynamodb.BillingMode.PAY_PER_REQUEST,
-            removalPolicy,
-        });
 
         // ITINERARY (trip-scoped; store items)
         const itinerary = new dynamodb.Table(this, "ItineraryTable", {
@@ -105,15 +86,13 @@ export class DbStack extends Stack {
             removalPolicy,
         });
 
-        this.tables = { users, trips, tripMembers, points, destinations, destinationVotes, itinerary, invites };
+        this.tables = { users, trips, tripMembers, points, itinerary, invites };
 
         // Outputs
         new CfnOutput(this, "USERS_TABLE", { value: users.tableName });
         new CfnOutput(this, "TRIPS_TABLE", { value: trips.tableName });
         new CfnOutput(this, "TRIP_MEMBERS_TABLE", { value: tripMembers.tableName });
         new CfnOutput(this, "POINTS_TABLE", { value: points.tableName });
-        new CfnOutput(this, "DESTINATIONS_TABLE", { value: destinations.tableName });
-        new CfnOutput(this, "DESTINATION_VOTES_TABLE", { value: destinationVotes.tableName });
         new CfnOutput(this, "ITINERARY_TABLE", { value: itinerary.tableName });
     }
 }
