@@ -5,8 +5,18 @@ from ..repos import user_repo
 def ensure_user_exists(user_id: str, email: str | None = None) -> Dict[str, Any]:
     u = user_repo.get_user_by_id(user_id)
     if u:
+        # Update email if provided and different
+        if email and u.get("email") != email:
+            update_profile(user_id, {"email": email})
+            u["email"] = email
         return u
-    new_user = {"userId": user_id, "email": email or "", "name": "", "createdAt": "now"}
+    from datetime import datetime
+    new_user = {
+        "userId": user_id,
+        "email": email or "",
+        "name": "",
+        "createdAt": datetime.utcnow().isoformat(),
+    }
     user_repo.create_user(new_user)
     return new_user
 

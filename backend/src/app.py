@@ -19,6 +19,7 @@ from services import (
     route_service,
     user_service,
     city_service,
+    auth_service,
 )
 from utils.analytics import (
     track_user_login,
@@ -77,7 +78,19 @@ class GenerateItineraryRequest(BaseModel):
 
 class LoginRequest(BaseModel):
     email: str
-    user_id: Optional[str] = None  # If not provided, will use email as user_id for MVP
+    password: str
+
+
+class SignUpRequest(BaseModel):
+    email: str
+    password: str
+    firstName: Optional[str] = None
+    lastName: Optional[str] = None
+
+
+class ConfirmSignUpRequest(BaseModel):
+    email: str
+    confirmation_code: str
 
 
 class CitySearchRequest(BaseModel):
@@ -100,13 +113,21 @@ async def ingest(req: Request):
 # Auth endpoints
 @app.post("/auth/login")
 async def login(request: LoginRequest):
-    """Login endpoint - creates or updates user record"""
+    """Login endpoint - authenticates with Cognito and creates/updates user record in DB"""
     try:
-        # For MVP, use email as user_id if not provided
-        user_id = request.user_id or request.email
+        # Authenticate with Cognito
+        auth_result = auth_service.authenticate_user(request.email, request.password)
 
-        # Ensure user exists in database
-        user = user_service.ensure_user_exists(user_id, request.email)
+        # Get user info from Cognito token
+        cognito_user = auth_service.get_user_from_token(auth_result["AccessToken"])
+        user_id = cognito_user["sub"]  # Use Cognito sub as user_id
+
+        # Ensure user exists in database (create if not exists, update if exists)
+        db_user = user_service.ensure_user_exists(user_id, request.email)
+
+        # Update user record with Cognito info if needed
+        if not db_user.get("email") or db_user.get("email") != request.email:
+            user_service.update_profile(user_id, {"email": request.email})
 
         # Track login event for analytics
         track_user_login(user_id, request.email)
@@ -114,10 +135,75 @@ async def login(request: LoginRequest):
         return {
             "user_id": user_id,
             "email": request.email,
-            "user": user,
+            "user": db_user,
+            "tokens": {
+                "access_token": auth_result["AccessToken"],
+                "id_token": auth_result["IdToken"],
+                "refresh_token": auth_result["RefreshToken"],
+                "expires_in": auth_result["ExpiresIn"],
+            },
         }
+    except ValueError as e:
+        raise HTTPException(status_code=400, detail=str(e))
     except Exception as e:
-        raise HTTPException(status_code=500, detail=str(e))
+        raise HTTPException(status_code=401, detail=str(e))
+
+
+@app.post("/auth/signup")
+async def signup(request: SignUpRequest):
+    """Sign up endpoint - creates user in Cognito and database"""
+    try:
+        # Sign up user in Cognito
+        signup_result = auth_service.sign_up_user(
+            request.email,
+            request.password,
+            attributes=(
+                {
+                    "given_name": request.firstName or "",
+                    "family_name": request.lastName or "",
+                }
+                if request.firstName or request.lastName
+                else None
+            ),
+        )
+
+        user_id = signup_result["UserSub"]
+
+        # Create user record in database
+        user = user_service.ensure_user_exists(
+            user_id,
+            request.email,
+        )
+
+        # Update user name if provided
+        if request.firstName or request.lastName:
+            name = f"{request.firstName or ''} {request.lastName or ''}".strip()
+            user_service.update_profile(user_id, {"name": name})
+            user["name"] = name
+
+        return {
+            "user_id": user_id,
+            "email": request.email,
+            "user": user,
+            "confirmation_required": not signup_result["UserConfirmed"],
+            "code_delivery_details": signup_result.get("CodeDeliveryDetails"),
+        }
+    except ValueError as e:
+        raise HTTPException(status_code=400, detail=str(e))
+    except Exception as e:
+        raise HTTPException(status_code=400, detail=str(e))
+
+
+@app.post("/auth/confirm")
+async def confirm_signup(request: ConfirmSignUpRequest):
+    """Confirm sign up endpoint - confirms user email with verification code"""
+    try:
+        auth_service.confirm_sign_up(request.email, request.confirmation_code)
+        return {"message": "User confirmed successfully"}
+    except ValueError as e:
+        raise HTTPException(status_code=400, detail=str(e))
+    except Exception as e:
+        raise HTTPException(status_code=400, detail=str(e))
 
 
 # Trip endpoints

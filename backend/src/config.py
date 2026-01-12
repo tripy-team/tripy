@@ -13,6 +13,7 @@ DESTINATION_VOTES_TABLE = os.environ["DESTINATION_VOTES_TABLE"]
 ITINERARY_TABLE = os.environ["ITINERARY_TABLE"]
 
 USER_POOL_ID = os.environ.get("USER_POOL_ID", "")
+USER_POOL_CLIENT_ID = os.environ.get("USER_POOL_CLIENT_ID", "")
 AWS_REGION = os.environ.get("AWS_REGION", "us-west-2")
 
 SERP_API_KEY = os.environ.get("SERP_API_KEY", "")

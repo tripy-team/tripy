@@ -187,7 +187,7 @@ export async function getItinerary(tripId: string): Promise<GetItineraryResponse
 // Auth endpoints
 export interface LoginRequest {
   email: string;
-  user_id?: string;
+  password: string;
 }
 
 export interface LoginResponse {
@@ -199,10 +199,68 @@ export interface LoginResponse {
     name: string;
     createdAt: string;
   };
+  tokens: {
+    access_token: string;
+    id_token: string;
+    refresh_token: string;
+    expires_in: number;
+  };
+}
+
+export interface SignUpRequest {
+  email: string;
+  password: string;
+  firstName?: string;
+  lastName?: string;
+}
+
+export interface SignUpResponse {
+  user_id: string;
+  email: string;
+  user: {
+    userId: string;
+    email: string;
+    name: string;
+    createdAt: string;
+  };
+  confirmation_required: boolean;
+  code_delivery_details?: {
+    Destination?: string;
+    DeliveryMedium?: string;
+    AttributeName?: string;
+  };
+}
+
+export interface ConfirmSignUpRequest {
+  email: string;
+  confirmation_code: string;
 }
 
 export async function login(request: LoginRequest): Promise<LoginResponse> {
-  return apiRequest<LoginResponse>('/auth/login', {
+  const response = await apiRequest<LoginResponse>('/auth/login', {
+    method: 'POST',
+    body: JSON.stringify(request),
+  });
+  
+  // Store tokens in localStorage (or use a more secure method in production)
+  if (typeof window !== 'undefined' && response.tokens) {
+    localStorage.setItem('access_token', response.tokens.access_token);
+    localStorage.setItem('id_token', response.tokens.id_token);
+    localStorage.setItem('refresh_token', response.tokens.refresh_token);
+  }
+  
+  return response;
+}
+
+export async function signup(request: SignUpRequest): Promise<SignUpResponse> {
+  return apiRequest<SignUpResponse>('/auth/signup', {
+    method: 'POST',
+    body: JSON.stringify(request),
+  });
+}
+
+export async function confirmSignup(request: ConfirmSignUpRequest): Promise<{ message: string }> {
+  return apiRequest<{ message: string }>('/auth/confirm', {
     method: 'POST',
     body: JSON.stringify(request),
   });
