@@ -7,26 +7,92 @@
 
 const BACKEND_URL = process.env.NEXT_PUBLIC_BACKEND_URL || 'http://localhost:8000';
 
+/**
+ * Get access token from storage (checks sessionStorage first, then localStorage)
+ */
+function getAccessToken(): string | null {
+  if (typeof window === 'undefined') return null;
+  // Check sessionStorage first (more secure), fallback to localStorage
+  return sessionStorage.getItem('access_token') || localStorage.getItem('access_token');
+}
+
+/**
+ * Check if token is expired (simple check - in production, decode and check exp claim)
+ */
+function isTokenExpired(): boolean {
+  // For MVP, we'll rely on the backend to reject expired tokens
+  // In production, decode JWT and check exp claim
+  return false;
+}
+
+/**
+ * Make API request with authentication and error handling
+ */
 async function apiRequest<T>(
   endpoint: string,
-  options: RequestInit = {}
+  options: RequestInit = {},
+  requireAuth: boolean = true
 ): Promise<T> {
   const url = `${BACKEND_URL.replace(/\/$/, '')}${endpoint}`;
   
-  const response = await fetch(url, {
-    ...options,
-    headers: {
-      'Content-Type': 'application/json',
-      ...options.headers,
-    },
-  });
+  // Build headers
+  const headers: HeadersInit = {
+    'Content-Type': 'application/json',
+    ...options.headers,
+  };
 
-  if (!response.ok) {
-    const error = await response.json().catch(() => ({ detail: 'Unknown error' }));
-    throw new Error(error.detail || error.message || `HTTP ${response.status}`);
+  // Add Authorization header if auth is required
+  if (requireAuth) {
+    const token = getAccessToken();
+    if (token && !isTokenExpired()) {
+      headers['Authorization'] = `Bearer ${token}`;
+    } else if (token) {
+      // Token expired - could implement refresh logic here
+      if (typeof window !== 'undefined') {
+        localStorage.removeItem('access_token');
+        localStorage.removeItem('id_token');
+        localStorage.removeItem('refresh_token');
+      }
+      throw new Error('Session expired. Please log in again.');
+    } else {
+      throw new Error('Authentication required. Please log in.');
+    }
   }
+  
+  try {
+    const response = await fetch(url, {
+      ...options,
+      headers,
+    });
 
-  return response.json();
+    // Handle 401 Unauthorized - token might be invalid
+    if (response.status === 401 && requireAuth) {
+      if (typeof window !== 'undefined') {
+        localStorage.removeItem('access_token');
+        localStorage.removeItem('id_token');
+        localStorage.removeItem('refresh_token');
+        // Redirect to login if we're in the browser
+        if (window.location.pathname !== '/login') {
+          window.location.href = '/login';
+        }
+      }
+      throw new Error('Authentication failed. Please log in again.');
+    }
+
+    if (!response.ok) {
+      const error = await response.json().catch(() => ({ detail: 'Unknown error' }));
+      throw new Error(error.detail || error.message || `HTTP ${response.status}`);
+    }
+
+    return response.json();
+  } catch (error) {
+    // Handle network errors
+    if (error instanceof TypeError && error.message.includes('fetch')) {
+      throw new Error('Network error. Please check your connection and try again.');
+    }
+    // Re-throw other errors
+    throw error;
+  }
 }
 
 // Trip endpoints
@@ -34,7 +100,6 @@ export interface CreateTripRequest {
   title: string;
   start_date: string;
   end_date: string;
-  user_id?: string;
 }
 
 export interface Trip {
@@ -74,7 +139,6 @@ export interface AddDestinationRequest {
   name: string;
   must_include?: boolean;
   excluded?: boolean;
-  user_id?: string;
 }
 
 export interface Destination {
@@ -110,7 +174,6 @@ export interface UpsertPointsRequest {
   trip_id: string;
   program: string;
   balance: number;
-  user_id?: string;
 }
 
 export interface Points {
@@ -237,13 +300,19 @@ export interface ConfirmSignUpRequest {
 }
 
 export async function login(request: LoginRequest): Promise<LoginResponse> {
+  // Login endpoint doesn't require auth
   const response = await apiRequest<LoginResponse>('/auth/login', {
     method: 'POST',
     body: JSON.stringify(request),
-  });
+  }, false); // requireAuth = false for login
   
-  // Store tokens in localStorage (or use a more secure method in production)
+  // Store tokens in sessionStorage (more secure than localStorage - cleared on tab close)
+  // Note: For production, consider using httpOnly cookies set by the backend
   if (typeof window !== 'undefined' && response.tokens) {
+    sessionStorage.setItem('access_token', response.tokens.access_token);
+    sessionStorage.setItem('id_token', response.tokens.id_token);
+    sessionStorage.setItem('refresh_token', response.tokens.refresh_token);
+    // Also store in localStorage for persistence (can be removed if using sessionStorage only)
     localStorage.setItem('access_token', response.tokens.access_token);
     localStorage.setItem('id_token', response.tokens.id_token);
     localStorage.setItem('refresh_token', response.tokens.refresh_token);

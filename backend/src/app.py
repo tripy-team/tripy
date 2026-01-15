@@ -1,13 +1,22 @@
-import boto3
 import os
+import logging
+from datetime import datetime
 from dotenv import load_dotenv
+from json import JSONDecodeError
 
 # Load environment variables from .env file early
 load_dotenv()
 
-from fastapi import FastAPI, Request, HTTPException
+# Configure logging
+logging.basicConfig(
+    level=logging.INFO,
+    format="%(asctime)s - %(name)s - %(levelname)s - %(message)s"
+)
+logger = logging.getLogger(__name__)
+
+from fastapi import FastAPI, Request, HTTPException, Depends
 from fastapi.middleware.cors import CORSMiddleware
-from pydantic import BaseModel
+from pydantic import BaseModel, Field, EmailStr, validator
 from typing import Optional, List, Dict, Any
 
 # Import services
@@ -27,15 +36,22 @@ from utils.analytics import (
     track_destination_added,
     track_itinerary_generated,
 )
+from utils.jwt_auth import get_current_user_id
 
+# Get CORS origins from environment variable
+CORS_ORIGINS_ENV = os.environ.get("CORS_ORIGINS", "")
+if CORS_ORIGINS_ENV:
+    ALLOWED_ORIGINS = [origin.strip() for origin in CORS_ORIGINS_ENV.split(",")]
+else:
+    # Fallback to default origins
+    ALLOWED_ORIGINS = [
+        "https://testing.d2p22adloz2lev.amplifyapp.com",
+        "http://localhost:3000",
+        "http://127.0.0.1:3000",
+    ]
 
-ALLOWED_ORIGINS = [
-    "https://testing.d2p22adloz2lev.amplifyapp.com",
-    "http://localhost:3000",
-    "http://127.0.0.1:3000",
-]
+app = FastAPI(title="Tripy API", version="1.0.0")
 
-app = FastAPI()
 app.add_middleware(
     CORSMiddleware,
     allow_origins=ALLOWED_ORIGINS,
@@ -45,57 +61,74 @@ app.add_middleware(
 )
 
 
-# Request models
+# Request models with validation
 class CreateTripRequest(BaseModel):
-    title: str
-    start_date: str
-    end_date: str
-    user_id: Optional[str] = "default_user"  # For MVP, use default
+    title: str = Field(..., min_length=1, max_length=200)
+    start_date: str = Field(..., description="Start date in ISO format (YYYY-MM-DD)")
+    end_date: str = Field(..., description="End date in ISO format (YYYY-MM-DD)")
+
+    @validator("start_date", "end_date")
+    def validate_date(cls, v):
+        try:
+            datetime.fromisoformat(v.replace("Z", "+00:00"))
+            return v
+        except ValueError:
+            raise ValueError("Date must be in ISO format (YYYY-MM-DD)")
+
+    @validator("end_date")
+    def validate_end_after_start(cls, v, values):
+        if "start_date" in values:
+            try:
+                start = datetime.fromisoformat(values["start_date"].replace("Z", "+00:00"))
+                end = datetime.fromisoformat(v.replace("Z", "+00:00"))
+                if end < start:
+                    raise ValueError("End date must be after start date")
+            except ValueError:
+                pass  # Date format validation will catch this
+        return v
 
 
 class TripIdRequest(BaseModel):
-    trip_id: str
+    trip_id: str = Field(..., min_length=1)
 
 
 class AddDestinationRequest(BaseModel):
-    trip_id: str
-    name: str
+    trip_id: str = Field(..., min_length=1)
+    name: str = Field(..., min_length=1, max_length=200)
     must_include: bool = False
     excluded: bool = False
-    user_id: Optional[str] = "default_user"
 
 
 class UpsertPointsRequest(BaseModel):
-    trip_id: str
-    program: str
-    balance: int
-    user_id: Optional[str] = "default_user"
+    trip_id: str = Field(..., min_length=1)
+    program: str = Field(..., min_length=1, max_length=100)
+    balance: int = Field(..., ge=0, description="Points balance must be non-negative")
 
 
 class GenerateItineraryRequest(BaseModel):
-    trip_id: str
+    trip_id: str = Field(..., min_length=1)
 
 
 class LoginRequest(BaseModel):
-    email: str
-    password: str
+    email: EmailStr
+    password: str = Field(..., min_length=8, max_length=128)
 
 
 class SignUpRequest(BaseModel):
-    email: str
-    password: str
-    firstName: Optional[str] = None
-    lastName: Optional[str] = None
+    email: EmailStr
+    password: str = Field(..., min_length=8, max_length=128)
+    firstName: Optional[str] = Field(None, max_length=100)
+    lastName: Optional[str] = Field(None, max_length=100)
 
 
 class ConfirmSignUpRequest(BaseModel):
-    email: str
-    confirmation_code: str
+    email: EmailStr
+    confirmation_code: str = Field(..., min_length=6, max_length=6)
 
 
 class CitySearchRequest(BaseModel):
-    query: str
-    max_results: Optional[int] = 10
+    query: str = Field(..., min_length=1, max_length=100)
+    max_results: Optional[int] = Field(10, ge=1, le=50)
 
 
 @app.get("/healthz")
@@ -105,12 +138,20 @@ def health():
 
 @app.post("/ingest")
 async def ingest(req: Request):
-    data = await req.json()
-    print("payload:", data)
-    return data
+    """Ingest endpoint with proper JSON error handling"""
+    try:
+        data = await req.json()
+        logger.info(f"Ingest payload received: {type(data)}")
+        return data
+    except JSONDecodeError as e:
+        logger.error(f"Invalid JSON in ingest request: {str(e)}")
+        raise HTTPException(status_code=400, detail="Invalid JSON in request body")
+    except Exception as e:
+        logger.error(f"Error processing ingest request: {str(e)}")
+        raise HTTPException(status_code=500, detail="Error processing request")
 
 
-# Auth endpoints
+# Auth endpoints (no authentication required)
 @app.post("/auth/login")
 async def login(request: LoginRequest):
     """Login endpoint - authenticates with Cognito and creates/updates user record in DB"""
@@ -144,8 +185,10 @@ async def login(request: LoginRequest):
             },
         }
     except ValueError as e:
+        logger.warning(f"Login validation error: {str(e)}")
         raise HTTPException(status_code=400, detail=str(e))
     except Exception as e:
+        logger.error(f"Login error: {str(e)}")
         raise HTTPException(status_code=401, detail=str(e))
 
 
@@ -189,8 +232,10 @@ async def signup(request: SignUpRequest):
             "code_delivery_details": signup_result.get("CodeDeliveryDetails"),
         }
     except ValueError as e:
+        logger.warning(f"Signup validation error: {str(e)}")
         raise HTTPException(status_code=400, detail=str(e))
     except Exception as e:
+        logger.error(f"Signup error: {str(e)}")
         raise HTTPException(status_code=400, detail=str(e))
 
 
@@ -201,124 +246,208 @@ async def confirm_signup(request: ConfirmSignUpRequest):
         auth_service.confirm_sign_up(request.email, request.confirmation_code)
         return {"message": "User confirmed successfully"}
     except ValueError as e:
+        logger.warning(f"Confirm signup validation error: {str(e)}")
         raise HTTPException(status_code=400, detail=str(e))
     except Exception as e:
+        logger.error(f"Confirm signup error: {str(e)}")
         raise HTTPException(status_code=400, detail=str(e))
 
 
-# Trip endpoints
+# Trip endpoints (require authentication)
 @app.post("/trips")
-async def create_trip(request: CreateTripRequest):
+async def create_trip(
+    request: CreateTripRequest,
+    user_id: str = Depends(get_current_user_id)
+):
     """Create a new trip"""
     try:
         trip = trip_service.create_trip(
-            request.user_id, request.title, request.start_date, request.end_date
+            user_id, request.title, request.start_date, request.end_date
         )
         # Track trip creation for analytics
         track_trip_created(
-            request.user_id,
+            user_id,
             trip["tripId"],
             request.title,
             request.start_date,
             request.end_date,
         )
         return trip
+    except HTTPException:
+        raise
     except Exception as e:
+        logger.error(f"Error creating trip: {str(e)}")
         raise HTTPException(status_code=500, detail=str(e))
 
 
 @app.post("/trips/get")
-async def get_trip(request: TripIdRequest):
+async def get_trip(
+    request: TripIdRequest,
+    user_id: str = Depends(get_current_user_id)
+):
     """Get trip by ID"""
     try:
         trip = trip_service.get_trip(request.trip_id)
         if not trip:
             raise HTTPException(status_code=404, detail="Trip not found")
+        
+        # Verify user has access to this trip
+        # TODO: Add trip member check for group trips
+        if trip.get("createdBy") != user_id:
+            raise HTTPException(status_code=403, detail="Access denied")
+        
         return trip
     except HTTPException:
         raise
     except Exception as e:
+        logger.error(f"Error getting trip: {str(e)}")
         raise HTTPException(status_code=500, detail=str(e))
 
 
 @app.post("/trips/invite")
-async def get_invite_code(request: TripIdRequest):
+async def get_invite_code(
+    request: TripIdRequest,
+    user_id: str = Depends(get_current_user_id)
+):
     """Get invite code for a trip"""
     try:
         trip = trip_service.get_trip(request.trip_id)
         if not trip:
             raise HTTPException(status_code=404, detail="Trip not found")
+        
+        # Verify user has access to this trip
+        if trip.get("createdBy") != user_id:
+            raise HTTPException(status_code=403, detail="Access denied")
+        
         return {"inviteCode": trip.get("inviteCode")}
     except HTTPException:
         raise
     except Exception as e:
+        logger.error(f"Error getting invite code: {str(e)}")
         raise HTTPException(status_code=500, detail=str(e))
 
 
-# Destination endpoints
+# Destination endpoints (require authentication)
 @app.post("/destinations/add")
-async def add_destination(request: AddDestinationRequest):
+async def add_destination(
+    request: AddDestinationRequest,
+    user_id: str = Depends(get_current_user_id)
+):
     """Add a destination to a trip"""
     try:
+        # Verify user has access to this trip
+        trip = trip_service.get_trip(request.trip_id)
+        if not trip:
+            raise HTTPException(status_code=404, detail="Trip not found")
+        if trip.get("createdBy") != user_id:
+            raise HTTPException(status_code=403, detail="Access denied")
+        
         destination = destination_service.add_destination(
             request.trip_id,
-            request.user_id,
+            user_id,
             request.name,
             request.must_include,
             request.excluded,
         )
         # Track destination addition for analytics
-        track_destination_added(request.user_id, request.trip_id, request.name)
+        track_destination_added(user_id, request.trip_id, request.name)
         return destination
+    except HTTPException:
+        raise
     except Exception as e:
+        logger.error(f"Error adding destination: {str(e)}")
         raise HTTPException(status_code=500, detail=str(e))
 
 
 @app.post("/destinations/list")
-async def list_destinations(request: TripIdRequest):
+async def list_destinations(
+    request: TripIdRequest,
+    user_id: str = Depends(get_current_user_id)
+):
     """List all destinations for a trip"""
     try:
+        # Verify user has access to this trip
+        trip = trip_service.get_trip(request.trip_id)
+        if not trip:
+            raise HTTPException(status_code=404, detail="Trip not found")
+        if trip.get("createdBy") != user_id:
+            raise HTTPException(status_code=403, detail="Access denied")
+        
         destinations = destination_service.list_destinations(request.trip_id)
         scores = destination_service.scores(request.trip_id)
         return {"destinations": destinations, "scores": scores.get("scores", {})}
+    except HTTPException:
+        raise
     except Exception as e:
+        logger.error(f"Error listing destinations: {str(e)}")
         raise HTTPException(status_code=500, detail=str(e))
 
 
-# Points endpoints
+# Points endpoints (require authentication)
 @app.post("/points/upsert")
-async def upsert_points(request: UpsertPointsRequest):
+async def upsert_points(
+    request: UpsertPointsRequest,
+    user_id: str = Depends(get_current_user_id)
+):
     """Add or update points for a user's program in a trip"""
     try:
+        # Verify user has access to this trip
+        trip = trip_service.get_trip(request.trip_id)
+        if not trip:
+            raise HTTPException(status_code=404, detail="Trip not found")
+        if trip.get("createdBy") != user_id:
+            raise HTTPException(status_code=403, detail="Access denied")
+        
         points = points_service.upsert_points(
-            request.trip_id, request.user_id, request.program, request.balance
+            request.trip_id, user_id, request.program, request.balance
         )
         return points
+    except HTTPException:
+        raise
     except Exception as e:
+        logger.error(f"Error upserting points: {str(e)}")
         raise HTTPException(status_code=500, detail=str(e))
 
 
 @app.post("/points/summary")
-async def get_points_summary(request: TripIdRequest):
+async def get_points_summary(
+    request: TripIdRequest,
+    user_id: str = Depends(get_current_user_id)
+):
     """Get points summary for a trip"""
     try:
-        summary = points_service.trip_points_summary(request.trip_id)
-        return summary
-    except Exception as e:
-        raise HTTPException(status_code=500, detail=str(e))
-
-
-# Itinerary endpoints
-@app.post("/itinerary/generate")
-async def generate_itinerary(request: GenerateItineraryRequest):
-    """Generate itineraries for a trip"""
-    try:
-        # Get trip to get user_id
+        # Verify user has access to this trip
         trip = trip_service.get_trip(request.trip_id)
         if not trip:
             raise HTTPException(status_code=404, detail="Trip not found")
+        if trip.get("createdBy") != user_id:
+            raise HTTPException(status_code=403, detail="Access denied")
+        
+        summary = points_service.trip_points_summary(request.trip_id)
+        return summary
+    except HTTPException:
+        raise
+    except Exception as e:
+        logger.error(f"Error getting points summary: {str(e)}")
+        raise HTTPException(status_code=500, detail=str(e))
 
-        user_id = trip.get("createdBy", "default_user")
+
+# Itinerary endpoints (require authentication)
+@app.post("/itinerary/generate")
+async def generate_itinerary(
+    request: GenerateItineraryRequest,
+    user_id: str = Depends(get_current_user_id)
+):
+    """Generate itineraries for a trip"""
+    try:
+        # Get trip to verify access
+        trip = trip_service.get_trip(request.trip_id)
+        if not trip:
+            raise HTTPException(status_code=404, detail="Trip not found")
+        
+        # Verify user has access to this trip
+        if trip.get("createdBy") != user_id:
+            raise HTTPException(status_code=403, detail="Access denied")
 
         # Get destinations
         destinations = destination_service.list_destinations(request.trip_id)
@@ -334,20 +463,34 @@ async def generate_itinerary(request: GenerateItineraryRequest):
     except HTTPException:
         raise
     except Exception as e:
+        logger.error(f"Error generating itinerary: {str(e)}")
         raise HTTPException(status_code=500, detail=str(e))
 
 
 @app.post("/itinerary/get")
-async def get_itinerary(request: TripIdRequest):
+async def get_itinerary(
+    request: TripIdRequest,
+    user_id: str = Depends(get_current_user_id)
+):
     """Get itinerary for a trip"""
     try:
+        # Verify user has access to this trip
+        trip = trip_service.get_trip(request.trip_id)
+        if not trip:
+            raise HTTPException(status_code=404, detail="Trip not found")
+        if trip.get("createdBy") != user_id:
+            raise HTTPException(status_code=403, detail="Access denied")
+        
         items = itinerary_service.get_itinerary(request.trip_id)
         return {"items": items}
+    except HTTPException:
+        raise
     except Exception as e:
+        logger.error(f"Error getting itinerary: {str(e)}")
         raise HTTPException(status_code=500, detail=str(e))
 
 
-# City search endpoints
+# City search endpoints (public, no authentication required)
 @app.post("/cities/search")
 async def search_cities(request: CitySearchRequest):
     """Search for cities/airports using Amadeus API"""
@@ -355,6 +498,7 @@ async def search_cities(request: CitySearchRequest):
         results = city_service.search_cities(request.query, request.max_results or 10)
         return {"cities": results}
     except Exception as e:
+        logger.error(f"Error searching cities: {str(e)}")
         raise HTTPException(status_code=500, detail=str(e))
 
 
@@ -362,17 +506,15 @@ async def search_cities(request: CitySearchRequest):
 async def search_cities_get(query: str, max_results: Optional[int] = 10):
     """Search for cities/airports using Amadeus API (GET endpoint)"""
     try:
+        if not query or len(query) < 1:
+            raise HTTPException(status_code=400, detail="Query parameter is required")
+        if max_results and (max_results < 1 or max_results > 50):
+            raise HTTPException(status_code=400, detail="max_results must be between 1 and 50")
+        
         results = city_service.search_cities(query, max_results or 10)
         return {"cities": results}
+    except HTTPException:
+        raise
     except Exception as e:
+        logger.error(f"Error searching cities: {str(e)}")
         raise HTTPException(status_code=500, detail=str(e))
-
-
-def start():
-    # Environment variables are already loaded at module level
-    # boto3 will automatically use AWS_ACCESS_KEY_ID and AWS_SECRET_ACCESS_KEY
-    # from environment variables if they are set
-    pass
-
-
-# a lot of lambdas

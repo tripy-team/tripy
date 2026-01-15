@@ -4,6 +4,7 @@ import Link from "next/link";
 import { useState } from "react";
 import { useRouter } from "next/navigation";
 import { Eye, EyeOff } from "lucide-react";
+import { login } from "@/lib/api";
 
 export default function LoginPage() {
 	const router = useRouter();
@@ -42,15 +43,21 @@ export default function LoginPage() {
 		e.preventDefault();
 		if (!validate()) return;
 		setSubmitting(true);
+		setErrors({}); // Clear previous errors
+		
 		try {
-			// TODO: Implement login API call
-			// Endpoint needed: POST /auth/login (needs to be added to backend)
-			// Data to send: { email: form.email, password: form.password }
-			// On success: Store auth token, then redirect
-			// Example: await fetch("/api/auth/login", { method: "POST", body: JSON.stringify({ email: form.email, password: form.password }) })
+			// Call login API
+			await login({
+				email: form.email,
+				password: form.password,
+			});
+			
+			// On success, redirect to dashboard
 			router.push("/dashboard");
-		} catch (_err) {
-			setErrors({ general: "Invalid email or password." });
+		} catch (err) {
+			// Handle different error types
+			const errorMessage = err instanceof Error ? err.message : "Invalid email or password.";
+			setErrors({ general: errorMessage });
 		} finally {
 			setSubmitting(false);
 		}

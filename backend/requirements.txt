@@ -6,3 +6,5 @@ python-dotenv==1.0.0
 amadeus
 fastapi
 uvicorn
+PyJWT==2.8.0
+cryptography>=3.4.8

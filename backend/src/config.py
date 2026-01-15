@@ -4,14 +4,54 @@ from dotenv import load_dotenv
 # Load environment variables from .env file
 load_dotenv()
 
-USERS_TABLE = os.environ["USERS_TABLE"]
-TRIPS_TABLE = os.environ["TRIPS_TABLE"]
-TRIP_MEMBERS_TABLE = os.environ["TRIP_MEMBERS_TABLE"]
-POINTS_TABLE = os.environ["POINTS_TABLE"]
-DESTINATIONS_TABLE = os.environ["DESTINATIONS_TABLE"]
-DESTINATION_VOTES_TABLE = os.environ["DESTINATION_VOTES_TABLE"]
-ITINERARY_TABLE = os.environ["ITINERARY_TABLE"]
 
+def _get_required_env(key: str) -> str:
+    """Get required environment variable, raise clear error if missing"""
+    value = os.environ.get(key)
+    if not value:
+        raise ValueError(
+            f"Required environment variable '{key}' is not set. "
+            f"Please set it in your .env file or environment."
+        )
+    return value
+
+
+def _validate_env_vars():
+    """Validate all required environment variables at startup"""
+    required_vars = [
+        "USERS_TABLE",
+        "TRIPS_TABLE",
+        "TRIP_MEMBERS_TABLE",
+        "POINTS_TABLE",
+        "DESTINATIONS_TABLE",
+        "DESTINATION_VOTES_TABLE",
+        "ITINERARY_TABLE",
+    ]
+    missing = []
+    for var in required_vars:
+        if not os.environ.get(var):
+            missing.append(var)
+    
+    if missing:
+        raise ValueError(
+            f"Missing required environment variables: {', '.join(missing)}. "
+            f"Please set them in your .env file or environment."
+        )
+
+
+# Validate required environment variables
+_validate_env_vars()
+
+# Required database tables
+USERS_TABLE = _get_required_env("USERS_TABLE")
+TRIPS_TABLE = _get_required_env("TRIPS_TABLE")
+TRIP_MEMBERS_TABLE = _get_required_env("TRIP_MEMBERS_TABLE")
+POINTS_TABLE = _get_required_env("POINTS_TABLE")
+DESTINATIONS_TABLE = _get_required_env("DESTINATIONS_TABLE")
+DESTINATION_VOTES_TABLE = _get_required_env("DESTINATION_VOTES_TABLE")
+ITINERARY_TABLE = _get_required_env("ITINERARY_TABLE")
+
+# Optional configuration
 USER_POOL_ID = os.environ.get("USER_POOL_ID", "")
 USER_POOL_CLIENT_ID = os.environ.get("USER_POOL_CLIENT_ID", "")
 AWS_REGION = os.environ.get("AWS_REGION", "us-west-2")

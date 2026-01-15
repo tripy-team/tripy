@@ -7,6 +7,10 @@ import boto3
 from datetime import datetime
 from typing import Dict, Any, Optional
 from dotenv import load_dotenv
+import logging
+
+# Configure logging
+logger = logging.getLogger(__name__)
 
 # Load environment variables
 load_dotenv()
@@ -48,9 +52,11 @@ def track_event(event_type: str, user_id: Optional[str], data: Dict[str, Any]) -
             Record={"Data": json.dumps(event) + "\n"},
         )
     except Exception as e:
-        # Fail silently to not break application flow
-        # In production, you might want to log this
-        print(f"Analytics tracking failed: {e}")
+        # Log error but don't break application flow
+        logger.error(
+            f"Analytics tracking failed for event '{event_type}': {str(e)}",
+            extra={"event_type": event_type, "user_id": user_id, "error": str(e)}
+        )
 
 
 def track_user_login(user_id: str, email: str, metadata: Optional[Dict[str, Any]] = None) -> None:

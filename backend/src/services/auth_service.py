@@ -51,12 +51,27 @@ def authenticate_user(email: str, password: str) -> Dict[str, Any]:
         
         authentication_result = response.get("AuthenticationResult", {})
         
+        # Validate that all required tokens are present
+        access_token = authentication_result.get("AccessToken")
+        id_token = authentication_result.get("IdToken")
+        refresh_token = authentication_result.get("RefreshToken")
+        expires_in = authentication_result.get("ExpiresIn")
+        
+        if not access_token:
+            raise Exception("Authentication failed: Access token not received")
+        if not id_token:
+            raise Exception("Authentication failed: ID token not received")
+        if not refresh_token:
+            raise Exception("Authentication failed: Refresh token not received")
+        if not expires_in:
+            raise Exception("Authentication failed: Token expiration not received")
+        
         return {
-            "AccessToken": authentication_result.get("AccessToken"),
-            "IdToken": authentication_result.get("IdToken"),
-            "RefreshToken": authentication_result.get("RefreshToken"),
-            "ExpiresIn": authentication_result.get("ExpiresIn"),
-            "TokenType": authentication_result.get("TokenType"),
+            "AccessToken": access_token,
+            "IdToken": id_token,
+            "RefreshToken": refresh_token,
+            "ExpiresIn": expires_in,
+            "TokenType": authentication_result.get("TokenType", "Bearer"),
         }
     except ClientError as e:
         error_code = e.response.get("Error", {}).get("Code", "")
