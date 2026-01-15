@@ -35,11 +35,25 @@ async function apiRequest<T>(
 ): Promise<T> {
   const url = `${BACKEND_URL.replace(/\/$/, '')}${endpoint}`;
   
-  // Build headers
-  const headers: HeadersInit = {
+  // Build headers as a Record to allow dynamic assignment
+  const headers: Record<string, string> = {
     'Content-Type': 'application/json',
-    ...options.headers,
   };
+
+  // Merge existing headers if they're a plain object
+  if (options.headers) {
+    if (options.headers instanceof Headers) {
+      options.headers.forEach((value, key) => {
+        headers[key] = value;
+      });
+    } else if (Array.isArray(options.headers)) {
+      options.headers.forEach(([key, value]) => {
+        headers[key] = value;
+      });
+    } else {
+      Object.assign(headers, options.headers);
+    }
+  }
 
   // Add Authorization header if auth is required
   if (requireAuth) {
@@ -62,7 +76,7 @@ async function apiRequest<T>(
   try {
     const response = await fetch(url, {
       ...options,
-      headers,
+      headers: headers as HeadersInit,
     });
 
     // Handle 401 Unauthorized - token might be invalid
