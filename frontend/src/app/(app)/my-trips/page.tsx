@@ -1,8 +1,8 @@
 'use client';
 
 import { Plane, Calendar, MapPin, CreditCard, Users, User } from 'lucide-react';
-import { useRouter } from 'next/navigation';
 import Link from 'next/link';
+import Image from 'next/image';
 
 interface Trip {
   id: string;
@@ -18,7 +18,6 @@ interface Trip {
 }
 
 export default function MyTripsPage() {
-  const router = useRouter();
 
   // TODO: Replace with API call to fetch user's trips
   // Endpoint: GET /trips (list user trips)
@@ -80,10 +79,12 @@ export default function MyTripsPage() {
     <div className="group flex overflow-hidden border border-slate-200 rounded-xl hover:shadow-lg transition-all duration-300 bg-white">
       {/* Image Section - Smaller width */}
       <div className="relative w-32 sm:w-40 shrink-0 bg-slate-100">
-        <img 
+        <Image 
           src={trip.image} 
           alt={trip.destination} 
-          className="absolute inset-0 w-full h-full object-cover"
+          fill
+          className="object-cover"
+          sizes="(max-width: 640px) 128px, 160px"
         />
         <div className="absolute inset-0 bg-black/0 group-hover:bg-black/5 transition-colors" />
       </div>

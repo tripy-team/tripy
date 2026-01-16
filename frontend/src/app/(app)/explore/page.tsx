@@ -2,6 +2,7 @@
 
 import { Search, Globe, CreditCard } from 'lucide-react';
 import { useState } from 'react';
+import Image from 'next/image';
 
 export default function ExplorePage() {
   const [searchTerm, setSearchTerm] = useState('');
@@ -61,10 +62,12 @@ export default function ExplorePage() {
         {destinations.map((dest) => (
           <div key={dest.city} className="group cursor-pointer">
             <div className="relative aspect-[4/5] rounded-2xl overflow-hidden mb-4">
-              <img
+              <Image
                 src={dest.image}
                 alt={dest.city}
-                className="w-full h-full object-cover group-hover:scale-105 transition-transform duration-500"
+                fill
+                className="object-cover group-hover:scale-105 transition-transform duration-500"
+                sizes="(max-width: 768px) 100vw, (max-width: 1200px) 50vw, 25vw"
               />
               <div className="absolute inset-0 bg-gradient-to-t from-black/60 to-transparent"></div>
               <div className="absolute bottom-4 left-4 text-white">
