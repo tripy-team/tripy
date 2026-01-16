@@ -2,7 +2,7 @@
 
 import { useState, useEffect } from 'react';
 import { useRouter } from 'next/navigation';
-import { X, Plus, Calendar, DollarSign, Zap, MapPin, Sparkles, CreditCard, ArrowRight } from 'lucide-react';
+import { X, Plus, Calendar, DollarSign, Zap, MapPin, Sparkles, CreditCard } from 'lucide-react';
 import { createTrip, addDestination, upsertPoints, generateItinerary } from '@/lib/api';
 
 interface CreditCardEntry {

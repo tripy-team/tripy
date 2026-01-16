@@ -13,9 +13,6 @@ interface CreditCardEntry {
 
 export default function GroupTripSetup() {
   const router = useRouter();
-
-  // Trip Details State
-  const [tripName, setTripName] = useState('My Group Trip');
   
   // Budget State
   const [minBudget, setMinBudget] = useState(1000);
