@@ -247,10 +247,10 @@ export const auth = {
 
 // Trips API
 export const trips = {
-  create: async (title: string, start_date: string, end_date: string): Promise<Trip> => {
+  create: async (params: { title: string; start_date: string; end_date: string }): Promise<Trip> => {
     return apiRequest<Trip>('/trips', {
       method: 'POST',
-      body: JSON.stringify({ title, start_date, end_date }),
+      body: JSON.stringify(params),
     });
   },
 
@@ -271,10 +271,15 @@ export const trips = {
 
 // Destinations API
 export const destinations = {
-  add: async (trip_id: string, name: string, must_include = false, excluded = false): Promise<Destination> => {
+  add: async (params: { trip_id: string; name: string; must_include?: boolean; excluded?: boolean }): Promise<Destination> => {
     return apiRequest<Destination>('/destinations/add', {
       method: 'POST',
-      body: JSON.stringify({ trip_id, name, must_include, excluded }),
+      body: JSON.stringify({
+        trip_id: params.trip_id,
+        name: params.name,
+        must_include: params.must_include ?? false,
+        excluded: params.excluded ?? false,
+      }),
     });
   },
 
@@ -288,10 +293,10 @@ export const destinations = {
 
 // Points API
 export const points = {
-  upsert: async (trip_id: string, program: string, balance: number) => {
+  upsert: async (params: { trip_id: string; program: string; balance: number }) => {
     return apiRequest('/points/upsert', {
       method: 'POST',
-      body: JSON.stringify({ trip_id, program, balance }),
+      body: JSON.stringify(params),
     });
   },
 
