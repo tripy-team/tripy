@@ -198,10 +198,10 @@ export interface CitySearchResult {
 
 // Auth API
 export const auth = {
-  login: async (email: string, password: string): Promise<LoginResponse> => {
+  login: async (params: { email: string; password: string }): Promise<LoginResponse> => {
     const response = await apiRequest<LoginResponse>('/auth/login', {
       method: 'POST',
-      body: JSON.stringify({ email, password }),
+      body: JSON.stringify(params),
     }, false); // requireAuth = false for login
 
     // Store tokens in sessionStorage (more secure than localStorage)
@@ -339,6 +339,10 @@ export const cities = {
 };
 
 // Named exports for backward compatibility
+export const login = auth.login;
+export const signup = auth.signup;
+export const confirmSignup = auth.confirmSignup;
+export const logout = auth.logout;
 export const createTrip = trips.create;
 export const getTrip = trips.get;
 export const getInviteCode = trips.invite;
