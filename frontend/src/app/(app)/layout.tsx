@@ -1,6 +1,6 @@
 'use client';
 
-import { TopBar } from '@/components/top-bar';
+import { Navigation } from '@/components/navigation';
 
 export default function AppLayout({
     children,
@@ -9,8 +9,8 @@ export default function AppLayout({
 }) {
     return (
         <div className="flex flex-col min-h-screen bg-slate-50">
-            <TopBar />
-            <main className="flex-1">
+            <Navigation />
+            <main className="flex-1 overflow-y-auto">
                 {children}
             </main>
         </div>
