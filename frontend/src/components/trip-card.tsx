@@ -1,7 +1,7 @@
 'use client';
 
 import Link from 'next/link';
-import { MapPin, Calendar, CreditCard, Users, Plane, Hotel, ArrowRight } from 'lucide-react';
+import { MapPin, Calendar, CreditCard, Users, Plane, Hotel, ArrowRight, TrendingUp } from 'lucide-react';
 
 interface Trip {
     id: string;
@@ -11,7 +11,7 @@ interface Trip {
     status: 'upcoming' | 'planning' | 'completed';
     type: 'solo' | 'group';
     pointsUsed: number;
-    cashSpent: number;
+    cashSaved?: number;
     thumbnail: string;
     members: number;
     hotel: string;
@@ -102,10 +102,10 @@ export function TripCard({ trip }: TripCardProps) {
 
                     <div className="flex items-center justify-between text-sm">
                         <div className="flex items-center gap-2 text-slate-600">
-                            <span className="text-green-600 font-semibold">$</span>
-                            <span>Cash Spent</span>
+                            <TrendingUp className="w-4 h-4 text-green-600" />
+                            <span>Cash Saved</span>
                         </div>
-                        <span className="text-slate-900 font-medium">${trip.cashSpent}</span>
+                        <span className="text-green-600 font-medium">${trip.cashSaved?.toLocaleString() || 0}</span>
                     </div>
 
                     <div className="flex items-center justify-between text-sm">
