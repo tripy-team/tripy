@@ -6,7 +6,7 @@ import Link from 'next/link';
 import { Plus, Calendar, CreditCard, Users, Plane, TrendingUp } from 'lucide-react';
 import { TripCard } from '@/components/trip-card';
 import { ExploreMap } from '@/components/explore-map';
-import { Trip, TripStatus } from '@/types';
+import { Trip } from '@/types';
 
 export default function Dashboard() {
     const router = useRouter();
