@@ -6,6 +6,7 @@ import Link from 'next/link';
 import { Plus, Calendar, CreditCard, Users, Plane, TrendingUp } from 'lucide-react';
 import { TripCard } from '@/components/trip-card';
 import { ExploreMap } from '@/components/explore-map';
+import { Trip, TripStatus } from '@/types';
 
 export default function Dashboard() {
     const router = useRouter();
@@ -38,7 +39,7 @@ export default function Dashboard() {
     // Endpoint needed: GET /trips (list user trips) or POST /trips/get for each trip
     // Also fetch user profile: GET /users/me
     // Mock trip data
-    const trips = [
+    const trips: Trip[] = [
         {
             id: '1',
             name: 'Tokyo Adventure',
@@ -113,7 +114,7 @@ export default function Dashboard() {
 
     const completedTrips = trips.filter(t => t.status === 'completed');
     const upcomingTrips = trips.filter(t => t.status === 'upcoming');
-    const confirmedTrips = trips.filter(t => t.status === 'upcoming' || t.status === 'planning');
+    const confirmedTrips = trips.filter(t => (t.status === 'upcoming' || t.status === 'planning') as boolean);
 
     // Calculate stats
     const totalCompletedTrips = completedTrips.length;
