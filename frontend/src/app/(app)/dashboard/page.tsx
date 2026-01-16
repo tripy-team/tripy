@@ -181,8 +181,8 @@ export default function Dashboard() {
                 <div className="bg-gradient-to-r from-green-50 to-emerald-50 rounded-2xl p-6 mb-8 border border-green-200">
                     <div className="flex items-center justify-between">
                         <div>
-                            <h3 className="text-lg font-semibold text-slate-900 mb-1">You're maximizing your points!</h3>
-                            <p className="text-slate-600">You've saved <span className="font-bold text-green-600">${totalCashSaved.toLocaleString()}</span> by using {totalPointsUsed.toLocaleString()} points instead of cash</p>
+                            <h3 className="text-lg font-semibold text-slate-900 mb-1">You&apos;re maximizing your points!</h3>
+                            <p className="text-slate-600">You&apos;ve saved <span className="font-bold text-green-600">${totalCashSaved.toLocaleString()}</span> by using {totalPointsUsed.toLocaleString()} points instead of cash</p>
                         </div>
                         <div className="hidden md:block">
                             <div className="w-16 h-16 bg-green-500 rounded-full flex items-center justify-center">

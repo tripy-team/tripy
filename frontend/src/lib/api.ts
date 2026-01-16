@@ -313,7 +313,7 @@ export const itineraries = {
   },
 
   get: async (trip_id: string) => {
-    return apiRequest<{ items: any[] }>('/itinerary/get', {
+    return apiRequest<{ items: Array<Record<string, unknown>> }>('/itinerary/get', {
       method: 'POST',
       body: JSON.stringify({ trip_id }),
     });
