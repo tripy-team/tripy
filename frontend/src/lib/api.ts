@@ -219,17 +219,17 @@ export const auth = {
     return response;
   },
 
-  signup: async (email: string, password: string, firstName?: string, lastName?: string): Promise<SignUpResponse> => {
+  signup: async (params: { email: string; password: string; firstName?: string; lastName?: string }): Promise<SignUpResponse> => {
     return apiRequest<SignUpResponse>('/auth/signup', {
       method: 'POST',
-      body: JSON.stringify({ email, password, firstName, lastName }),
+      body: JSON.stringify(params),
     }, false); // requireAuth = false for signup
   },
 
-  confirmSignup: async (email: string, confirmation_code: string): Promise<{ message: string }> => {
+  confirmSignup: async (params: { email: string; confirmation_code: string }): Promise<{ message: string }> => {
     return apiRequest<{ message: string }>('/auth/confirm', {
       method: 'POST',
-      body: JSON.stringify({ email, confirmation_code }),
+      body: JSON.stringify(params),
     }, false); // requireAuth = false for confirmation
   },
 
