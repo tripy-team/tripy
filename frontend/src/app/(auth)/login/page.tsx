@@ -44,17 +44,46 @@ export default function LoginPage() {
 		setErrors({}); // Clear previous errors
 		
 		try {
-			// Call login API
-			await login({
+			// Call login API - this authenticates with Cognito via backend
+			const response = await login({
 				email: form.email,
 				password: form.password,
 			});
 			
-			// On success, redirect to dashboard
-			router.push("/dashboard");
+			// Store user info in localStorage for navigation component
+			if (typeof window !== 'undefined' && response.user) {
+				localStorage.setItem('user', JSON.stringify({
+					name: response.user.name || form.email.split('@')[0],
+					email: response.user.email,
+					userId: response.user.userId,
+				}));
+				// Dispatch event to notify other components of auth change
+				window.dispatchEvent(new Event('tripy_auth_change'));
+			}
+			
+			// On success, redirect to points setup page (where users can add their points/loyalty programs)
+			router.push("/points-setup");
 		} catch (err) {
-			// Handle different error types
-			const errorMessage = err instanceof Error ? err.message : "Invalid email or password.";
+			// Handle different error types from Cognito
+			let errorMessage = "Invalid email or password.";
+			
+			if (err instanceof Error) {
+				const msg = err.message.toLowerCase();
+				
+				// Map common Cognito errors to user-friendly messages
+				if (msg.includes('not confirmed') || msg.includes('confirmation')) {
+					errorMessage = "Your account is not confirmed. Please check your email for a verification code.";
+				} else if (msg.includes('not found') || msg.includes('does not exist')) {
+					errorMessage = "No account found with this email address.";
+				} else if (msg.includes('password') || msg.includes('not authorized')) {
+					errorMessage = "Invalid email or password.";
+				} else if (msg.includes('too many')) {
+					errorMessage = "Too many login attempts. Please try again later.";
+				} else {
+					errorMessage = err.message;
+				}
+			}
+			
 			setErrors({ general: errorMessage });
 		} finally {
 			setSubmitting(false);
