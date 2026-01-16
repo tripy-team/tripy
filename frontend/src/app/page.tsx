@@ -1,9 +1,30 @@
 'use client';
 
+import { useEffect, useState } from 'react';
+import { useRouter } from 'next/navigation';
 import Link from 'next/link';
 import { Plane, CreditCard, Users, Sparkles, Search } from 'lucide-react';
 
-export default function Home() {
+export default function LandingPage() {
+    const router = useRouter();
+    const [loading, setLoading] = useState(true);
+
+    useEffect(() => {
+        // Check if user is logged in
+        const token = localStorage.getItem('auth_token');
+        if (token) {
+            // User is logged in, redirect to dashboard
+            router.push('/dashboard');
+        } else {
+            setLoading(false);
+        }
+    }, [router]);
+
+    // Show loading state while checking auth
+    if (loading) {
+        return <div className="min-h-screen flex items-center justify-center">Loading...</div>;
+    }
+
     return (
         <div className="min-h-full bg-gradient-to-br from-white via-blue-50/30 to-white">
             {/* Hero Section */}
@@ -20,19 +41,30 @@ export default function Home() {
                             AI-powered flight & hotel recommendations using your credit-card points.
                         </p>
                         <div className="flex gap-4">
-                            <Link
-                                href="/dashboard"
+                            <button
+                                onClick={() => {
+                                    // Set demo token to access dashboard
+                                    localStorage.setItem('auth_token', 'demo-token');
+                                    localStorage.setItem('user', JSON.stringify({
+                                        name: 'Demo User',
+                                        email: 'demo@tripy.com'
+                                    }));
+                                    router.push('/dashboard');
+                                }}
                                 className="px-8 py-4 bg-blue-600 text-white rounded-2xl hover:bg-blue-700 transition-all shadow-lg shadow-blue-600/20 hover:shadow-xl hover:shadow-blue-600/30 font-medium"
                             >
-                                Get Early Access
-                            </Link>
+                                Try Demo
+                            </button>
                             <Link
-                                href="/solo/setup"
+                                href="/register"
                                 className="px-8 py-4 bg-white text-slate-900 border-2 border-slate-200 rounded-2xl hover:border-slate-300 transition-all font-medium"
                             >
-                                Try Demo
+                                Sign Up
                             </Link>
                         </div>
+                        <p className="text-sm text-slate-500 mt-4">
+                            No signup required for demo • Full access to all features
+                        </p>
                     </div>
 
                     {/* Right Column - Illustration */}
@@ -180,17 +212,25 @@ export default function Home() {
                         Join thousands of travelers optimizing their points and saving money
                     </p>
                     <div className="flex gap-4 justify-center">
-                        <Link
-                            href="/solo/setup"
+                        <button
+                            onClick={() => {
+                                // Set demo token to access dashboard
+                                localStorage.setItem('auth_token', 'demo-token');
+                                localStorage.setItem('user', JSON.stringify({
+                                    name: 'Demo User',
+                                    email: 'demo@tripy.com'
+                                }));
+                                router.push('/dashboard');
+                            }}
                             className="px-8 py-4 bg-yellow-400 text-slate-900 rounded-2xl hover:bg-yellow-300 transition-all shadow-lg hover:shadow-xl font-medium"
                         >
-                            Plan Solo Trip
-                        </Link>
+                            Try Demo
+                        </button>
                         <Link
-                            href="/group/setup"
+                            href="/register"
                             className="px-8 py-4 bg-white text-blue-600 rounded-2xl hover:bg-blue-50 transition-all shadow-lg hover:shadow-xl font-medium"
                         >
-                            Plan Group Trip
+                            Sign Up
                         </Link>
                     </div>
                 </div>

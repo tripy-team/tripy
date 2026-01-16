@@ -1,101 +1,108 @@
 # Tripy Frontend
 
-AI-powered travel planning application that helps you maximize credit card points for flights and hotels.
+AI-powered flight & hotel recommendations using credit-card points.
 
-## Tech Stack
-
-- **Framework**: Next.js 15 (App Router)
-- **Language**: TypeScript
-- **Styling**: Tailwind CSS v4
-- **UI Components**: React Aria Components, Lucide Icons
-- **Maps**: Leaflet + React-Leaflet (OpenStreetMap)
-- **Build**: Turbopack (dev), Next.js (production)
-
-## Getting Started
-
-### Prerequisites
-
-- Node.js 18+
-- npm, yarn, pnpm, or bun
-
-### Installation
+## Quick Start
 
 ```bash
-# Install dependencies
 npm install
-
-# Copy environment variables (if needed)
-cp .env.example .env.local
-
-# Start development server
 npm run dev
+# Open http://localhost:3000
 ```
-
-Open [http://localhost:3000](http://localhost:3000) in your browser.
 
 ## Project Structure
 
 ```
 src/
-├── app/                    # Next.js App Router
-│   ├── (app)/              # Main app layout (with navigation)
-│   │   ├── dashboard/      # User dashboard
-│   │   ├── explore/        # Explore destinations map
-│   │   ├── solo/           # Solo trip planning flow
-│   │   │   ├── setup/      # Configure trip
-│   │   │   ├── results/    # View itineraries
-│   │   │   └── comparison/ # Compare itineraries
-│   │   └── group/          # Group trip planning flow
-│   │       ├── setup/      # Create group trip
-│   │       ├── dashboard/  # Admin dashboard
-│   │       ├── join/       # Member join page
-│   │       ├── voting/     # Vote on itineraries
-│   │       ├── results/    # View results
-│   │       ├── comparison/ # Compare options
-│   │       ├── winner/     # Winning itinerary
-│   │       └── points-strategy/ # Points allocation
-│   ├── api/                # API routes
-│   ├── globals.css         # Global styles + Tailwind
-│   └── layout.tsx          # Root layout
-└── components/             # Reusable components
-    ├── Navigation.tsx      # Sidebar navigation
-    ├── TopBar.tsx          # Top bar with user info
-    ├── TripCard.tsx        # Trip display card
-    ├── ExploreMap.tsx      # Interactive world map
-    ├── RouteMap.tsx        # Trip route visualization
-    └── ...                 # Other UI components
+├── app/           # Next.js pages
+├── components/    # All React components (flat)
+├── lib/
+│   ├── api.ts    # API client (all endpoints)
+│   └── utils.ts  # Helper functions
+└── types.ts      # TypeScript types
 ```
 
-## Key Features
+## Key Files
 
-- **Solo Trip Planning**: Configure budget, dates, destinations and get AI-optimized itineraries
-- **Group Trip Planning**: Collaborative planning with voting and points pooling
-- **Interactive Map**: Explore 15+ destinations with real-time filtering
-- **Points Optimization**: Maximize credit card points for travel rewards
+- **`/src/lib/api.ts`** - All API endpoints
+- **`/src/lib/utils.ts`** - Validation & formatting helpers
+- **`/src/types.ts`** - All TypeScript types
+- **`/src/components/`** - All components (no nesting)
 
-## Available Scripts
+## Usage
 
-```bash
-npm run dev      # Start dev server (Turbopack)
-npm run build    # Build for production
-npm run start    # Start production server
-npm run lint     # Run ESLint
+### API Calls
+
+```typescript
+import { auth, trips, destinations } from '@/lib/api';
+
+// Login
+await auth.login(email, password);
+
+// Create trip
+await trips.create(title, start_date, end_date);
+
+// Add destination
+await destinations.add(trip_id, city_name);
 ```
+
+### Types
+
+```typescript
+import { Trip, Itinerary, User } from '@/types';
+```
+
+### Utils
+
+```typescript
+import { validateEmail, formatCurrency, formatPoints } from '@/lib/utils';
+```
+
+## Adding Features
+
+1. Add types to `/src/types.ts`
+2. Add API methods to `/src/lib/api.ts`
+3. Create component in `/src/components/`
+4. Create page in `/src/app/`
+
+See [ARCHITECTURE.md](./ARCHITECTURE.md) for detailed examples.
 
 ## Environment Variables
 
-See `.env.example` for required environment variables.
+```env
+NEXT_PUBLIC_API_URL=https://api.tripy.com
+```
 
-## Contributing
+## Tech Stack
 
-1. Create a feature branch from `main`
-2. Make your changes
-3. Run `npm run lint` and `npm run build` to verify
-4. Submit a pull request
+- Next.js 15.3.5 (App Router)
+- React 19.0.0
+- TypeScript 5.9.2
+- Tailwind CSS 4.1.11
+- React Aria Components
+- Leaflet & React Leaflet
 
-## Architecture Notes
+## Scripts
 
-- **Route Groups**: `(app)` provides shared navigation layout
-- **Client Components**: Pages with interactivity use `'use client'`
-- **Image Handling**: External images use `<img>` with eslint-disable (Unsplash URLs)
-- **Map SSR**: Leaflet is dynamically imported to avoid SSR issues
+```bash
+npm run dev      # Development server
+npm run build    # Production build
+npm run start    # Start production server
+npm run lint     # Lint code
+```
+
+## Documentation
+
+- **[ARCHITECTURE.md](./ARCHITECTURE.md)** - Architecture & patterns
+- **[BACKEND_INTEGRATION_TODOS.md](./BACKEND_INTEGRATION_TODOS.md)** - Backend integration checklist
+
+## Design Philosophy
+
+**Simple and straightforward.**
+
+- Flat component structure
+- One file for API, utils, types
+- No over-abstraction
+- Easy to understand and modify
+
+See [ARCHITECTURE.md](./ARCHITECTURE.md) for details.

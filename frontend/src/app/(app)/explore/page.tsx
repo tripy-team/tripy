@@ -1,6 +1,6 @@
 'use client';
 
-import { ExploreMap } from '@/components/ExploreMap';
+import { ExploreMap } from '@/components/explore-map';
 
 export default function ExplorePage() {
     return (

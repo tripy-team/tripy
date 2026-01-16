@@ -1,13 +1,38 @@
 'use client';
 
-import { useState } from 'react';
+import { useState, useEffect } from 'react';
+import { useRouter } from 'next/navigation';
 import Link from 'next/link';
 import { Plus, Calendar, CreditCard, Users, Plane, TrendingUp } from 'lucide-react';
-import { TripCard } from '@/components/TripCard';
-import { ExploreMap } from '@/components/ExploreMap';
+import { TripCard } from '@/components/trip-card';
+import { ExploreMap } from '@/components/explore-map';
 
 export default function Dashboard() {
+    const router = useRouter();
     const [viewMode, setViewMode] = useState<'trips' | 'explore'>('trips');
+    const [loading, setLoading] = useState(true);
+
+    useEffect(() => {
+        // Check if user is logged in
+        const token = localStorage.getItem('auth_token');
+        if (!token) {
+            // User is not logged in, redirect to landing page
+            router.push('/');
+        } else {
+            setLoading(false);
+        }
+    }, [router]);
+
+    // Show loading state while checking auth
+    if (loading) {
+        return (
+            <div className="min-h-screen flex items-center justify-center">
+                <div className="text-center">
+                    <div className="text-slate-600">Loading...</div>
+                </div>
+            </div>
+        );
+    }
 
     // TODO: Replace with API call to fetch user's trips
     // Endpoint needed: GET /trips (list user trips) or POST /trips/get for each trip
@@ -19,10 +44,10 @@ export default function Dashboard() {
             name: 'Tokyo Adventure',
             destination: 'Tokyo, Japan',
             dates: 'Dec 20 - Dec 28, 2024',
-            status: 'upcoming' as const,
+            status: 'completed' as const,
             type: 'solo' as const,
             pointsUsed: 85000,
-            cashSpent: 450,
+            cashSaved: 1200,
             thumbnail: 'https://images.unsplash.com/photo-1540959733332-eab4deabeeaf?w=800&q=80',
             members: 1,
             hotel: 'Park Hyatt Tokyo',
@@ -33,10 +58,10 @@ export default function Dashboard() {
             name: 'European Summer',
             destination: 'Paris, France',
             dates: 'Jun 15 - Jun 25, 2025',
-            status: 'planning' as const,
+            status: 'upcoming' as const,
             type: 'group' as const,
             pointsUsed: 120000,
-            cashSpent: 890,
+            cashSaved: 2400,
             thumbnail: 'https://images.unsplash.com/photo-1502602898657-3e91760cbb34?w=800&q=80',
             members: 4,
             hotel: 'Hôtel Plaza Athénée',
@@ -50,7 +75,7 @@ export default function Dashboard() {
             status: 'upcoming' as const,
             type: 'solo' as const,
             pointsUsed: 65000,
-            cashSpent: 320,
+            cashSaved: 850,
             thumbnail: 'https://images.unsplash.com/photo-1537996194471-e657df975ab4?w=800&q=80',
             members: 1,
             hotel: 'Four Seasons Resort Bali',
@@ -58,26 +83,43 @@ export default function Dashboard() {
         },
         {
             id: '4',
-            name: 'NYC Business Trip',
-            destination: 'New York, USA',
-            dates: 'Feb 5 - Feb 8, 2025',
-            status: 'planning' as const,
+            name: 'Iceland Northern Lights',
+            destination: 'Reykjavik, Iceland',
+            dates: 'Nov 12 - Nov 18, 2024',
+            status: 'completed' as const,
             type: 'solo' as const,
-            pointsUsed: 45000,
-            cashSpent: 200,
-            thumbnail: 'https://images.unsplash.com/photo-1496442226666-8d4d0e62e6e9?w=800&q=80',
+            pointsUsed: 75000,
+            cashSaved: 950,
+            thumbnail: 'https://images.unsplash.com/photo-1504829857797-ddff29c27927?w=800&q=80',
             members: 1,
-            hotel: 'The St. Regis New York',
-            flightClass: 'First Class'
+            hotel: 'ION Adventure Hotel',
+            flightClass: 'Economy'
+        },
+        {
+            id: '5',
+            name: 'Santorini Escape',
+            destination: 'Santorini, Greece',
+            dates: 'Sep 5 - Sep 12, 2024',
+            status: 'completed' as const,
+            type: 'group' as const,
+            pointsUsed: 95000,
+            cashSaved: 1600,
+            thumbnail: 'https://images.unsplash.com/photo-1613395877344-13d4a8e0d49e?w=800&q=80',
+            members: 2,
+            hotel: 'Katikies Hotel',
+            flightClass: 'Business'
         }
     ];
 
+    const completedTrips = trips.filter(t => t.status === 'completed');
     const upcomingTrips = trips.filter(t => t.status === 'upcoming');
-    const planningTrips = trips.filter(t => t.status === 'planning');
+    const confirmedTrips = trips.filter(t => t.status === 'upcoming' || t.status === 'planning');
 
     // Calculate stats
+    const totalCompletedTrips = completedTrips.length;
+    const totalUpcomingAndConfirmed = confirmedTrips.length;
     const totalPointsUsed = trips.reduce((sum, trip) => sum + trip.pointsUsed, 0);
-    const totalCashSpent = trips.reduce((sum, trip) => sum + trip.cashSpent, 0);
+    const totalCashSaved = trips.reduce((sum, trip) => sum + trip.cashSaved, 0);
 
     return (
         <div className="min-h-full bg-gradient-to-br from-white via-blue-50/30 to-white">
@@ -90,14 +132,26 @@ export default function Dashboard() {
 
                 {/* Stats Overview */}
                 <div className="grid grid-cols-1 md:grid-cols-4 gap-4 mb-8">
+                    <div className="bg-gradient-to-br from-blue-500 to-blue-600 rounded-2xl p-6 shadow-lg">
+                        <div className="flex items-center gap-3 mb-2">
+                            <div className="w-10 h-10 bg-white/20 rounded-xl flex items-center justify-center">
+                                <Plane className="w-5 h-5 text-white" />
+                            </div>
+                            <div className="text-sm text-blue-100">Completed Trips</div>
+                        </div>
+                        <div className="text-4xl text-white font-bold">{totalCompletedTrips}</div>
+                        <div className="text-sm text-blue-100 mt-1">total completed</div>
+                    </div>
+
                     <div className="bg-white rounded-2xl p-6 border border-slate-200 shadow-sm">
                         <div className="flex items-center gap-3 mb-2">
-                            <div className="w-10 h-10 bg-blue-100 rounded-xl flex items-center justify-center">
-                                <Plane className="w-5 h-5 text-blue-600" />
+                            <div className="w-10 h-10 bg-purple-100 rounded-xl flex items-center justify-center">
+                                <Calendar className="w-5 h-5 text-purple-600" />
                             </div>
-                            <div className="text-sm text-slate-600">Total Trips</div>
+                            <div className="text-sm text-slate-600">Upcoming + Confirmed</div>
                         </div>
-                        <div className="text-3xl text-slate-900 font-semibold">{trips.length}</div>
+                        <div className="text-3xl text-slate-900 font-semibold">{totalUpcomingAndConfirmed}</div>
+                        <div className="text-sm text-slate-500 mt-1">trips planned</div>
                     </div>
 
                     <div className="bg-white rounded-2xl p-6 border border-slate-200 shadow-sm">
@@ -108,6 +162,7 @@ export default function Dashboard() {
                             <div className="text-sm text-slate-600">Points Used</div>
                         </div>
                         <div className="text-3xl text-slate-900 font-semibold">{totalPointsUsed.toLocaleString()}</div>
+                        <div className="text-sm text-slate-500 mt-1">across all trips</div>
                     </div>
 
                     <div className="bg-white rounded-2xl p-6 border border-slate-200 shadow-sm">
@@ -115,19 +170,25 @@ export default function Dashboard() {
                             <div className="w-10 h-10 bg-green-100 rounded-xl flex items-center justify-center">
                                 <TrendingUp className="w-5 h-5 text-green-600" />
                             </div>
-                            <div className="text-sm text-slate-600">Cash Spent</div>
+                            <div className="text-sm text-slate-600">Cash Saved</div>
                         </div>
-                        <div className="text-3xl text-slate-900 font-semibold">${totalCashSpent}</div>
+                        <div className="text-3xl text-green-600 font-semibold">${totalCashSaved.toLocaleString()}</div>
+                        <div className="text-sm text-slate-500 mt-1">vs paying cash</div>
                     </div>
+                </div>
 
-                    <div className="bg-white rounded-2xl p-6 border border-slate-200 shadow-sm">
-                        <div className="flex items-center gap-3 mb-2">
-                            <div className="w-10 h-10 bg-purple-100 rounded-xl flex items-center justify-center">
-                                <Calendar className="w-5 h-5 text-purple-600" />
-                            </div>
-                            <div className="text-sm text-slate-600">Upcoming</div>
+                {/* Value Proposition Banner */}
+                <div className="bg-gradient-to-r from-green-50 to-emerald-50 rounded-2xl p-6 mb-8 border border-green-200">
+                    <div className="flex items-center justify-between">
+                        <div>
+                            <h3 className="text-lg font-semibold text-slate-900 mb-1">You're maximizing your points!</h3>
+                            <p className="text-slate-600">You've saved <span className="font-bold text-green-600">${totalCashSaved.toLocaleString()}</span> by using {totalPointsUsed.toLocaleString()} points instead of cash</p>
                         </div>
-                        <div className="text-3xl text-slate-900 font-semibold">{upcomingTrips.length}</div>
+                        <div className="hidden md:block">
+                            <div className="w-16 h-16 bg-green-500 rounded-full flex items-center justify-center">
+                                <TrendingUp className="w-8 h-8 text-white" />
+                            </div>
+                        </div>
                     </div>
                 </div>
 
@@ -203,12 +264,12 @@ export default function Dashboard() {
                             </div>
                         )}
 
-                        {/* Planning Trips */}
-                        {planningTrips.length > 0 && (
+                        {/* Completed Trips */}
+                        {completedTrips.length > 0 && (
                             <div>
-                                <h2 className="text-2xl mb-4 text-slate-900 font-semibold">In Planning</h2>
+                                <h2 className="text-2xl mb-4 text-slate-900 font-semibold">Completed Trips</h2>
                                 <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
-                                    {planningTrips.map(trip => (
+                                    {completedTrips.map(trip => (
                                         <TripCard key={trip.id} trip={trip} />
                                     ))}
                                 </div>
