@@ -52,7 +52,7 @@ export default function RegisterPage() {
 			const firstName = nameParts[0] || '';
 			const lastName = nameParts.slice(1).join(' ') || '';
 
-			// Call signup API
+			// Call signup API - this creates user in Cognito and database
 			const response = await signup({
 				email: form.email,
 				password: form.password,
@@ -60,7 +60,7 @@ export default function RegisterPage() {
 				lastName: lastName || undefined,
 			});
 
-			// Store user info
+			// Store user info in localStorage
 			if (typeof window !== 'undefined') {
 				localStorage.setItem('user', JSON.stringify({
 					name: form.name,
@@ -72,14 +72,30 @@ export default function RegisterPage() {
 
 			// If confirmation is required, redirect to confirmation page
 			if (response.confirmation_required) {
-				router.push(`/register/confirm?email=${encodeURIComponent(form.email)}`);
+				router.push(`/auth/confirm-signup?email=${encodeURIComponent(form.email)}`);
 			} else {
-				// Auto-login and redirect to dashboard
-				router.push("/dashboard");
+				// User is auto-confirmed - redirect to points setup (same as login flow)
+				router.push("/points-setup");
 			}
 		} catch (err) {
-			// Handle different error types
-			const errorMessage = err instanceof Error ? err.message : "Registration failed. Please try again.";
+			// Handle different error types from Cognito
+			let errorMessage = "Registration failed. Please try again.";
+			
+			if (err instanceof Error) {
+				const msg = err.message.toLowerCase();
+				
+				// Map common Cognito errors to user-friendly messages
+				if (msg.includes('already exists') || msg.includes('username exists')) {
+					errorMessage = "An account with this email already exists. Please sign in instead.";
+				} else if (msg.includes('password') && (msg.includes('policy') || msg.includes('requirement'))) {
+					errorMessage = "Password does not meet requirements. Please use at least 8 characters with uppercase, lowercase, numbers, and special characters.";
+				} else if (msg.includes('invalid') && msg.includes('email')) {
+					errorMessage = "Please enter a valid email address.";
+				} else {
+					errorMessage = err.message;
+				}
+			}
+			
 			setErrors({ general: errorMessage });
 		} finally {
 			setSubmitting(false);
