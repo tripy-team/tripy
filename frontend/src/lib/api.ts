@@ -332,3 +332,15 @@ export const cities = {
     );
   },
 };
+
+// Named exports for backward compatibility
+export const createTrip = trips.create;
+export const getTrip = trips.get;
+export const getInviteCode = trips.invite;
+export const addDestination = destinations.add;
+export const listDestinations = destinations.list;
+export const upsertPoints = points.upsert;
+export const getPointsSummary = points.summary;
+export const generateItinerary = itineraries.generate;
+export const getItinerary = itineraries.get;
+export const searchCities = cities.search;

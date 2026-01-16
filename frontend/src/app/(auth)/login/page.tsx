@@ -3,7 +3,7 @@
 import Link from "next/link";
 import { useState } from "react";
 import { useRouter } from "next/navigation";
-import { Eye, EyeOff } from "lucide-react";
+import { Plane, Mail, Lock, ArrowRight } from "lucide-react";
 import { login } from "@/lib/api";
 
 export default function LoginPage() {
@@ -11,17 +11,15 @@ export default function LoginPage() {
 	const [form, setForm] = useState({
 		email: "",
 		password: "",
-		remember: true,
 	});
 	const [errors, setErrors] = useState<Record<string, string>>({});
 	const [submitting, setSubmitting] = useState(false);
-	const [showPw, setShowPw] = useState(false);
 
 	const onChange = (
 		e: React.ChangeEvent<HTMLInputElement | HTMLSelectElement>,
 	) => {
-		const { name, value, type, checked } = e.target as HTMLInputElement;
-		setForm((f) => ({ ...f, [name]: type === "checkbox" ? checked : value }));
+		const { name, value } = e.target;
+		setForm((f) => ({ ...f, [name]: value }));
 	};
 
 	const validate = () => {
@@ -64,140 +62,124 @@ export default function LoginPage() {
 	};
 
 	return (
-		<main className="min-h-screen bg-gradient-to-br from-white via-blue-50/30 to-white text-slate-900">
-			{/* Content */}
-			<section className="mx-auto grid max-w-6xl grid-cols-1 gap-10 px-8 py-12 md:grid-cols-2 md:py-16">
-				{/* Left: copy / benefits */}
-				<div className="order-2 md:order-1">
-					<h1 className="mb-4 text-5xl font-bold text-slate-900 tracking-tight">
-						Welcome back
-					</h1>
-					<p className="mb-8 text-lg text-slate-600">
-						Log in to access your saved searches, fare alerts, and itineraries.
-					</p>
-					<div className="rounded-2xl bg-blue-50 p-6 border border-blue-100">
-						<ul className="list-disc space-y-2 pl-6 text-slate-700">
-							<li>Sync trips across devices</li>
-							<li>Faster checkout with saved travelers</li>
-							<li>Share plans with friends and family</li>
-						</ul>
+		<div className="min-h-full bg-white flex">
+			{/* Left Column - Form */}
+			<div className="flex-1 flex flex-col justify-center px-8 sm:px-12 lg:px-20 xl:px-24 py-12 bg-white">
+				<div className="w-full max-w-sm mx-auto">
+					{/* Logo */}
+					<div className="flex items-center gap-2 mb-10">
+						<div className="w-10 h-10 bg-blue-600 rounded-xl flex items-center justify-center shadow-lg shadow-blue-600/20">
+							<Plane className="w-5 h-5 text-white" />
+						</div>
+						<span className="text-xl font-bold text-slate-900">Tripy</span>
 					</div>
-				</div>
 
-				{/* Right: form */}
-				<div className="order-1 md:order-2">
-					<form
-						onSubmit={onSubmit}
-						noValidate
-						className="rounded-2xl border border-slate-200 p-8 shadow-sm bg-white"
-					>
-						{errors.general && (
-							<div className="mb-4 rounded-md bg-red-50 p-3 text-sm text-red-700">
-								{errors.general}
-							</div>
-						)}
+					<div className="mb-8">
+						<h1 className="text-3xl font-bold text-slate-900 mb-3">Welcome back</h1>
+						<p className="text-slate-600">
+							Continue your travel planning journey.
+						</p>
+					</div>
 
-						<div className="mt-0">
-							<label
-								htmlFor="email"
-								className="block text-sm font-medium text-slate-700"
-							>
-								Email
+					{errors.general && (
+						<div className="mb-4 rounded-md bg-red-50 p-3 text-sm text-red-700">
+							{errors.general}
+						</div>
+					)}
+
+					<form onSubmit={onSubmit} className="space-y-5">
+						<div>
+							<label className="block text-sm font-medium text-slate-700 mb-1.5">
+								Email Address
 							</label>
-							<input
-								id="email"
-								name="email"
-								type="email"
-								autoComplete="email"
-								value={form.email}
-								onChange={onChange}
-								className={`mt-1 w-full rounded-xl border px-3 py-2 outline-none focus:ring-2 focus:ring-blue-600 focus:border-transparent ${
-									errors.email ? "border-red-500" : "border-slate-200"
-								}`}
-								placeholder="you@example.com"
-							/>
+							<div className="relative">
+								<div className="absolute inset-y-0 left-0 pl-3 flex items-center pointer-events-none">
+									<Mail className="h-5 w-5 text-slate-400" />
+								</div>
+								<input
+									type="email"
+									name="email"
+									required
+									value={form.email}
+									onChange={onChange}
+									className={`block w-full pl-10 pr-3 py-2.5 border rounded-xl text-slate-900 placeholder:text-slate-400 focus:outline-none focus:ring-2 focus:ring-blue-600 focus:border-transparent transition-all ${
+										errors.email ? "border-red-500" : "border-slate-200"
+									}`}
+									placeholder="you@example.com"
+								/>
+							</div>
 							{errors.email && (
 								<p className="mt-1 text-xs text-red-600">{errors.email}</p>
 							)}
 						</div>
 
-						<div className="mt-4">
-							<label
-								htmlFor="password"
-								className="block text-sm font-medium text-slate-700"
-							>
-								Password
-							</label>
-							<div className="relative mt-1">
+						<div>
+							<div className="flex items-center justify-between mb-1.5">
+								<label className="block text-sm font-medium text-slate-700">
+									Password
+								</label>
+								<Link href="/forgot-password" className="text-sm text-blue-600 hover:text-blue-700 font-medium">
+									Forgot password?
+								</Link>
+							</div>
+							<div className="relative">
+								<div className="absolute inset-y-0 left-0 pl-3 flex items-center pointer-events-none">
+									<Lock className="h-5 w-5 text-slate-400" />
+								</div>
 								<input
-									id="password"
+									type="password"
 									name="password"
-									type={showPw ? "text" : "password"}
-									autoComplete="current-password"
+									required
 									value={form.password}
 									onChange={onChange}
-									className={`w-full rounded-xl border px-3 py-2 pr-10 outline-none focus:ring-2 focus:ring-blue-600 focus:border-transparent ${
+									className={`block w-full pl-10 pr-3 py-2.5 border rounded-xl text-slate-900 placeholder:text-slate-400 focus:outline-none focus:ring-2 focus:ring-blue-600 focus:border-transparent transition-all ${
 										errors.password ? "border-red-500" : "border-slate-200"
 									}`}
-									placeholder="Enter your password"
+									placeholder="••••••••"
 								/>
-								<button
-									type="button"
-									onClick={() => setShowPw((s) => !s)}
-									className="absolute top-1/2 right-2 -translate-y-1/2 text-slate-500 hover:text-slate-700"
-									aria-label={showPw ? "Hide password" : "Show password"}
-								>
-									{showPw ? (
-										<EyeOff className="h-4 w-4" />
-									) : (
-										<Eye className="h-4 w-4" />
-									)}
-								</button>
 							</div>
 							{errors.password && (
 								<p className="mt-1 text-xs text-red-600">{errors.password}</p>
 							)}
 						</div>
 
-						<div className="mt-5 flex items-center justify-between">
-							<label className="flex items-center gap-2 text-sm text-slate-700">
-								<input
-									type="checkbox"
-									name="remember"
-									checked={form.remember}
-									onChange={onChange}
-									className="h-4 w-4 rounded border border-slate-400 accent-slate-900"
-								/>
-								Remember me
-							</label>
-							<Link
-								href="/forgot-password"
-								className="text-sm font-medium text-slate-900 underline"
-							>
-								Forgot password?
-							</Link>
-						</div>
-
 						<button
 							type="submit"
 							disabled={submitting}
-							className="mt-6 w-full rounded-xl bg-blue-600 px-4 py-3 font-semibold text-white transition hover:bg-blue-700 disabled:cursor-not-allowed disabled:opacity-60 shadow-sm"
+							className="w-full flex items-center justify-center gap-2 py-3 px-4 bg-blue-600 text-white rounded-xl hover:bg-blue-700 focus:outline-none focus:ring-2 focus:ring-blue-600 focus:ring-offset-2 transition-all shadow-lg shadow-blue-600/20 disabled:opacity-70 disabled:cursor-not-allowed font-medium"
 						>
-							{submitting ? "Signing in..." : "Log in"}
+							{submitting ? (
+								'Signing in...'
+							) : (
+								<>
+									Sign In <ArrowRight className="w-4 h-4" />
+								</>
+							)}
 						</button>
+					</form>
 
-						<p className="mt-4 text-center text-sm text-slate-600">
-							New to Tripy?{" "}
-							<Link
-								href="/register"
-								className="font-medium text-slate-900 underline"
-							>
-								Create an account
+					<div className="mt-8 pt-8 border-t border-slate-100 text-center">
+						<p className="text-sm text-slate-600">
+							Don&apos;t have an account?{' '}
+							<Link href="/register" className="text-blue-600 font-medium hover:text-blue-700">
+								Sign up
 							</Link>
 						</p>
-					</form>
+					</div>
 				</div>
-			</section>
-		</main>
+			</div>
+
+			{/* Right Column - Image */}
+			<div className="hidden lg:block flex-1 bg-slate-50 relative overflow-hidden">
+				<div className="absolute inset-0 bg-gradient-to-br from-blue-600/90 to-blue-800/90 mix-blend-multiply z-10"></div>
+				<div className="absolute inset-0 bg-[url('https://images.unsplash.com/photo-1488646953014-85cb44e25828?q=80&w=2070&auto=format&fit=crop')] bg-cover bg-center"></div>
+				<div className="relative z-20 flex items-center justify-center h-full text-white text-center px-12">
+					<div>
+						<h2 className="text-4xl font-bold mb-4">Welcome back to Tripy</h2>
+						<p className="text-xl text-blue-100">Your next adventure awaits.</p>
+					</div>
+				</div>
+			</div>
+		</div>
 	);
 }
