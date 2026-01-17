@@ -10,9 +10,9 @@ cd /app/backend || {
     exit 1
 }
 
-# Set PYTHONPATH to include src directory
-# This allows both absolute imports (from services) and relative imports (from ..repos) to work
-export PYTHONPATH=/app/backend/src:$PYTHONPATH
+# Set PYTHONPATH to include backend directory (parent of src)
+# This allows imports like "from src.repos import ..." to work
+export PYTHONPATH=/app/backend:$PYTHONPATH
 
 # Verify src/app.py exists
 if [ ! -f "src/app.py" ]; then
@@ -39,8 +39,7 @@ ls -la src/services || echo "ERROR: src/services not found"
 
 # Start uvicorn using src.app:app module path
 # Running from /app/backend with src.app:app means:
-# - src is the top-level package
+# - PYTHONPATH includes /app/backend, so Python can find "src" as a top-level package
 # - src.app is the app module
-# - src.services.trip_service can use "from ..repos" (relative import)
-# - src.app can use "from services import" because PYTHONPATH includes /app/backend/src
+# - All imports using "from src.repos import ..." will work correctly
 exec python -m uvicorn src.app:app --host 0.0.0.0 --port 8000
