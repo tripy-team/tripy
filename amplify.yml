@@ -9,6 +9,10 @@ applications:
         build:
           commands:
             - npm run build
+          env:
+            # Backend URL - override in Amplify Console if needed
+            - name: NEXT_PUBLIC_BACKEND_URL
+              value: https://xezfenhu6t.us-east-1.awsapprunner.com
       artifacts:
         baseDirectory: .next
         files:

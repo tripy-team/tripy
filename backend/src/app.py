@@ -135,7 +135,8 @@ class CitySearchRequest(BaseModel):
 
 @app.get("/healthz")
 def health():
-    return {"ok": True}
+    """Health check endpoint"""
+    return {"status": "ok"}
 
 
 @app.post("/ingest")
