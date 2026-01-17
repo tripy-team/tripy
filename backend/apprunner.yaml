@@ -7,11 +7,9 @@ build:
       - pip install --upgrade pip
       - pip install -r requirements.txt
 run:
-  command: cd backend && export PYTHONPATH=/app/backend/src:$PYTHONPATH && python -m uvicorn src.app:app --host 0.0.0.0 --port 8000
+  command: cd backend && python -m uvicorn app:app --app-dir /app/backend/src --host 0.0.0.0 --port 8000
   network:
     port: 8000
   env:
     - name: AWS_REGION
       value: us-east-1
-    - name: PYTHONPATH
-      value: /app/backend/src

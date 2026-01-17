@@ -1,27 +1,13 @@
-awscli==1.19.112
-botocore==1.20.112
-certifi==2021.10.8
-chardet==4.0.0
-colorama==0.4.3
-contextlib2==0.6.0.post1
-docutils==0.15.2
-futures==3.4.0
-idna==2.10
-httpx
-importlib-resources==3.3.1
-jmespath==0.10.0
-openai==0.6.4
-pathlib2==2.3.7.post1
-pyasn1==0.5.1
-python-dateutil==2.9.0.post0
-PyYAML==5.4.1
-requests==2.27.1
-rsa==4.5
-s3transfer==0.4.2
-scandir==1.10.0
-singledispatch==3.7.0
-six==1.17.0
-tqdm==4.64.1
-typing==3.10.0.0
-urllib3==1.26.20
-zipp==1.2.0
+# Legacy root requirements.txt - DEPRECATED
+# This file is kept for compatibility but should not be used for new deployments
+# Use backend/requirements.txt instead for backend dependencies
+
+# Note: Some packages here (futures, typing, pathlib2, scandir) are Python 2 compatibility packages
+# and should not be installed for Python 3.9+ projects
+
+# If App Runner or other services need to use this file, update it to remove:
+# - futures (not needed for Python 3)
+# - typing (built into Python 3.5+)
+# - pathlib2 (pathlib is built into Python 3.4+)
+# - scandir (built into Python 3.5+ as os.scandir)
+# - singledispatch (backport for Python 3.3, not needed for 3.4+)
