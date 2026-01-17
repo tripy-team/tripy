@@ -45,10 +45,18 @@ npm-debug.log*
 yarn.lock
 pnpm-lock.yaml
 
-# Env files
+# Env files - CRITICAL: Never commit these!
 .env
-.env.*.local
+.env.*
 .env.local
+.env.development
+.env.production
+.env.development.local
+.env.production.local
+.env.test.local
+frontend/.env*
+backend/.env*
+*.env
 
 # Frontend caches
 frontend/node_modules/

@@ -57,14 +57,12 @@ This is **critical** - you need to set environment variables in Amplify Console:
 ### Required Environment Variables:
 
 ```
-NEXT_PUBLIC_BACKEND_URL=https://your-backend-api.com
+NEXT_PUBLIC_BACKEND_URL=https://xezfenhu6t.us-east-1.awsapprunner.com
 ```
 
-**Replace** `https://your-backend-api.com` with your actual backend URL:
-- If using AWS App Runner: `https://xxxxx.us-east-1.awsapprunner.com`
-- If using Elastic Beanstalk: `https://xxxxx.elasticbeanstalk.com`
-- If using EC2/ALB: `https://your-domain.com`
-- If using API Gateway + Lambda: `https://xxxxx.execute-api.us-east-1.amazonaws.com`
+**Current Production Backend**: `https://xezfenhu6t.us-east-1.awsapprunner.com`
+
+**Note**: This is your App Runner backend URL. If you change your backend URL, update this variable.
 
 ### Optional Environment Variables:
 
