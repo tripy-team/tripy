@@ -19,7 +19,7 @@ from pydantic import BaseModel, Field, EmailStr, validator
 from typing import Optional, List, Dict, Any
 
 # Import services
-from services import (
+from .services import (
     trip_service,
     destination_service,
     points_service,
@@ -29,13 +29,13 @@ from services import (
     city_service,
     auth_service,
 )
-from utils.analytics import (
+from .utils.analytics import (
     track_user_login,
     track_trip_created,
     track_destination_added,
     track_itinerary_generated,
 )
-from utils.jwt_auth import get_current_user_id
+from .utils.jwt_auth import get_current_user_id
 
 # Get CORS origins from environment variable
 CORS_ORIGINS_ENV = os.environ.get("CORS_ORIGINS", "")
