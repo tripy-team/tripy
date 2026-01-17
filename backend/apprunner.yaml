@@ -7,7 +7,7 @@ build:
       - pip install -r requirements.txt
       - chmod +x start.sh
 run:
-  command: bash /app/backend/start.sh
+  command: /bin/bash /app/backend/start.sh
   network:
     port: 8000
   env:
