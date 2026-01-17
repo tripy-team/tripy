@@ -1,5 +1,15 @@
 {
+  "name": "tripy",
+  "version": "0.1.0",
+  "private": true,
   "scripts": {
-    "start": "cd backend && source tripyvenv/bin/activate && aws configure"
-}
+    "dev": "./start_dev.sh",
+    "dev:all": "concurrently --names \"BACKEND,FRONTEND\" --prefix-colors \"blue,green\" \"cd backend && ./start_server.sh\" \"cd frontend && npm run dev\"",
+    "backend": "cd backend && ./start_server.sh",
+    "frontend": "cd frontend && npm run dev",
+    "install:all": "cd backend && pip install -r requirements.txt && cd ../frontend && npm install"
+  },
+  "devDependencies": {
+    "concurrently": "^8.2.2"
+  }
 }
