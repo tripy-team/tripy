@@ -1,29 +1,14 @@
 'use client';
 
-import { useEffect, useState } from 'react';
 import { useRouter } from 'next/navigation';
 import Link from 'next/link';
 import { Plane, CreditCard, Users, Sparkles, Search } from 'lucide-react';
 
 export default function LandingPage() {
     const router = useRouter();
-    const [loading, setLoading] = useState(true);
-
-    useEffect(() => {
-        // Check if user is logged in
-        const token = localStorage.getItem('access_token') || localStorage.getItem('auth_token');
-        if (token) {
-            // User is logged in, redirect to dashboard
-            router.push('/dashboard');
-        } else {
-            setLoading(false);
-        }
-    }, [router]);
-
-    // Show loading state while checking auth
-    if (loading) {
-        return <div className="min-h-screen flex items-center justify-center">Loading...</div>;
-    }
+    
+    // Landing page - always shown as the first page
+    // Users can navigate to login/register from here
 
     return (
         <div className="min-h-full bg-gradient-to-br from-white via-blue-50/30 to-white">
