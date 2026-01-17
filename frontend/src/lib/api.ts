@@ -2,10 +2,15 @@
  * API Client for Tripy Backend
  * 
  * This client handles communication with the backend FastAPI server.
- * In development, set BACKEND_URL in your .env.local file (e.g., http://localhost:8000)
+ * In development, set NEXT_PUBLIC_BACKEND_URL in your .env.local file (e.g., http://localhost:8000)
  */
 
 const BACKEND_URL = process.env.NEXT_PUBLIC_BACKEND_URL || 'http://localhost:8000';
+
+// Log backend URL in development for debugging
+if (typeof window !== 'undefined' && process.env.NODE_ENV === 'development') {
+  console.log('Backend URL:', BACKEND_URL);
+}
 
 /**
  * Get access token from storage (checks sessionStorage first, then localStorage)
@@ -110,9 +115,14 @@ async function apiRequest<T>(
 
     return response.json();
   } catch (error) {
-    // Handle network errors
-    if (error instanceof TypeError && error.message.includes('fetch')) {
-      throw new Error('Network error. Please check your connection and try again.');
+    // Handle network errors with more specific messages
+    if (error instanceof TypeError) {
+      if (error.message.includes('fetch') || error.message === 'Failed to fetch') {
+        // Network error - backend might not be running or URL is wrong
+        const backendUrl = BACKEND_URL;
+        console.error('Network error - Backend URL:', backendUrl);
+        throw new Error(`Cannot connect to backend server at ${backendUrl}. Please ensure the backend is running.`);
+      }
     }
     // Re-throw other errors
     throw error;

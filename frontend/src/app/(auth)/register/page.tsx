@@ -85,7 +85,9 @@ export default function RegisterPage() {
 				const msg = err.message.toLowerCase();
 				
 				// Map common Cognito errors to user-friendly messages
-				if (msg.includes('already exists') || msg.includes('username exists')) {
+				if (msg.includes('cannot connect') || msg.includes('network')) {
+					errorMessage = err.message; // Show the specific network error message
+				} else if (msg.includes('already exists') || msg.includes('username exists')) {
 					errorMessage = "An account with this email already exists. Please sign in instead.";
 				} else if (msg.includes('password') && (msg.includes('policy') || msg.includes('requirement'))) {
 					errorMessage = "Password does not meet requirements. Please use at least 8 characters with uppercase, lowercase, numbers, and special characters.";
@@ -94,6 +96,9 @@ export default function RegisterPage() {
 				} else {
 					errorMessage = err.message;
 				}
+				
+				// Log error for debugging
+				console.error('Signup error:', err);
 			}
 			
 			setErrors({ general: errorMessage });
