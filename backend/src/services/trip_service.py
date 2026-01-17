@@ -1,5 +1,5 @@
 import uuid
-from typing import Dict, Any
+from typing import Dict, Any, Optional
 from src.repos import trip_repo, trip_member_repo
 
 
@@ -32,9 +32,9 @@ def create_trip(
     return trip
 
 
-def get_trip(trip_id: str) -> Dict[str, Any] | None:
+def get_trip(trip_id: str) -> Optional[Dict[str, Any]]:
     return trip_repo.get_trip(trip_id)
 
 
-def get_trip_by_invite(invite_code: str) -> Dict[str, Any] | None:
+def get_trip_by_invite(invite_code: str) -> Optional[Dict[str, Any]]:
     return trip_repo.get_trip_by_invite_code(invite_code)

@@ -1,4 +1,4 @@
-from typing import Dict, Any
+from typing import Dict, Any, Optional
 from src.repos import user_repo
 from botocore.exceptions import ClientError
 import logging
@@ -6,7 +6,7 @@ import logging
 logger = logging.getLogger(__name__)
 
 
-def ensure_user_exists(user_id: str, email: str | None = None) -> Dict[str, Any]:
+def ensure_user_exists(user_id: str, email: Optional[str] = None) -> Dict[str, Any]:
     """
     Ensure user exists in database. Uses conditional write to prevent race conditions.
     """
