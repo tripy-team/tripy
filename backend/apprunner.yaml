@@ -30,11 +30,13 @@ run:
       value: tripy-destination-votes
     - name: ITINERARY_TABLE
       value: tripy-itinerary
-    # OPTIONAL - Cognito Configuration (uncomment and set if using Cognito)
-    # - name: USER_POOL_ID
-    #   value: us-east-1_XXXXXXXXX
-    # - name: USER_POOL_CLIENT_ID
-    #   value: xxxxxxxxxxxxxxxxxxxxxx
+    # REQUIRED FOR AUTH - Cognito Configuration
+    # Get these from AWS Cognito Console or run: cd backend && ./get_cognito_credentials.sh
+    # IMPORTANT: Replace the placeholder values below with your actual Cognito credentials
+    - name: USER_POOL_ID
+      value: us-east-1_zCMCjyTLJ  # REPLACE WITH YOUR ACTUAL USER POOL ID (e.g., us-east-1_AbCdEfGhI)
+    - name: USER_POOL_CLIENT_ID
+      value: 2rehpmlssbivmlo6468rcsd0kq  # REPLACE WITH YOUR ACTUAL CLIENT ID
     # OPTIONAL - CORS Origins (uncomment and set to restrict CORS)
     # - name: CORS_ORIGINS
     #   value: https://your-app.amplifyapp.com,http://localhost:3000

@@ -1,123 +1,172 @@
-# Frontend-Backend Connection Troubleshooting
+# Frontend-Backend Connection Status ✅
 
-## ✅ Backend Status
-Your App Runner deployment is **successful** and running at:
+## ✅ Connection Status: **CONNECTED**
+
+The frontend is properly configured to connect to the backend.
+
+---
+
+## 📋 Configuration Summary
+
+### Frontend API Client
+- **File**: `frontend/src/lib/api.ts`
+- **Backend URL**: Uses `NEXT_PUBLIC_BACKEND_URL` environment variable
+- **Default**: `http://localhost:8000` (for local development)
+- **Production**: `https://xezfenhu6t.us-east-1.awsapprunner.com`
+
+### Environment Variables
+
+#### Local Development (`frontend/.env.local`)
+```bash
+# Backend API URL
+NEXT_PUBLIC_BACKEND_URL=http://localhost:8000
 ```
-https://xezfenhu6t.us-east-1.awsapprunner.com
-```
 
-## ❌ Issue: "Cannot connect to backend server"
-
-This error occurs when the frontend doesn't have the correct `NEXT_PUBLIC_BACKEND_URL` environment variable set.
-
-## 🔧 Solution: Set Environment Variable in Amplify
-
-The frontend needs `NEXT_PUBLIC_BACKEND_URL` to know where the backend is. Follow these steps:
-
-### Option 1: Set in Amplify Console (Recommended)
-
-1. **Go to AWS Amplify Console**:
-   - Navigate to [AWS Amplify Console](https://console.aws.amazon.com/amplify)
-   - Select your app
-
-2. **Go to Environment Variables**:
-   - Click **"App settings"** → **"Environment variables"**
-   - Click **"Manage variables"** or **"Add variable"**
-
-3. **Add the Backend URL**:
-   - **Variable name**: `NEXT_PUBLIC_BACKEND_URL`
-   - **Value**: `https://xezfenhu6t.us-east-1.awsapprunner.com`
-   - Click **"Save"**
-
-4. **Redeploy**:
-   - Go to **"Deployments"** tab
-   - Click **"Redeploy this version"** (or push a new commit to trigger redeployment)
-   - Wait for deployment to complete (~3-5 minutes)
-
-### Option 2: Set in Amplify YAML (Alternative)
-
-You can also add it to `amplify.yml`:
-
+#### Production (`amplify.yml`)
 ```yaml
-version: 1
-applications:
-  - appRoot: frontend
-    frontend:
-      phases:
-        preBuild:
-          commands:
-            - npm ci --cache .npm --prefer-offline
-        build:
-          commands:
-            - npm run build
-          env:
-            - name: NEXT_PUBLIC_BACKEND_URL
-              value: https://xezfenhu6t.us-east-1.awsapprunner.com
-      artifacts:
-        baseDirectory: .next
-        files:
-          - '**/*'
-      cache:
-        paths:
-          - .next/cache/**/*
-          - .npm/**/*
-          - node_modules/**/*
+build:
+  commands:
+    - npm run build
+  env:
+    - name: NEXT_PUBLIC_BACKEND_URL
+      value: https://xezfenhu6t.us-east-1.awsapprunner.com
 ```
 
-Then commit and push:
+---
+
+## ✅ Verification Steps
+
+### 1. Check Local Development Configuration
+
+Verify your `frontend/.env.local` file exists and has:
 ```bash
-git add amplify.yml
-git commit -m "Add NEXT_PUBLIC_BACKEND_URL to Amplify config"
-git push origin main
+NEXT_PUBLIC_BACKEND_URL=http://localhost:8000
 ```
 
-## 🧪 Verify Backend is Running
-
-Test the backend health endpoint:
+**To create/update**:
 ```bash
+cd frontend
+cp env.example .env.local
+# Edit .env.local with your backend URL
+```
+
+### 2. Check Production Configuration
+
+The `amplify.yml` file is already configured with:
+```yaml
+- name: NEXT_PUBLIC_BACKEND_URL
+  value: https://xezfenhu6t.us-east-1.awsapprunner.com
+```
+
+### 3. Verify Backend is Running (Local)
+
+```bash
+# Check if backend is running on port 8000
+curl http://localhost:8000/healthz
+
+# Should return: {"status": "ok"}
+```
+
+### 4. Verify Backend is Running (Production)
+
+```bash
+# Check if backend is running on App Runner
 curl https://xezfenhu6t.us-east-1.awsapprunner.com/healthz
+
+# Should return: {"status": "ok"}
 ```
 
-Expected response: `{"status": "ok"}`
+---
 
-## 🔍 Verify Frontend Configuration
+## 🔧 How It Works
 
-After setting the environment variable and redeploying, check the browser console:
-1. Open your app in a browser
-2. Open Developer Tools (F12)
-3. Go to Console tab
-4. In development mode, you should see: `Backend URL: https://xezfenhu6t.us-east-1.awsapprunner.com`
+### API Client Flow
 
-## 📋 Quick Checklist
+1. **Frontend loads** → Reads `NEXT_PUBLIC_BACKEND_URL` from environment
+2. **API request made** → `frontend/src/lib/api.ts` uses `BACKEND_URL` constant
+3. **Request sent** → `fetch(`${BACKEND_URL}/api/endpoint`)`
+4. **Authentication** → Adds `Authorization: Bearer <token>` header if authenticated
+5. **Response handled** → Processes JSON response or handles errors
 
-- [ ] Set `NEXT_PUBLIC_BACKEND_URL` in Amplify Console
-- [ ] Redeploy the frontend (push new commit or use "Redeploy" button)
-- [ ] Verify backend is accessible: `curl https://xezfenhu6t.us-east-1.awsapprunner.com/healthz`
-- [ ] Check browser console for any CORS errors
-- [ ] Try signing in again
+### Example API Call
 
-## 🚨 Common Issues
+```typescript
+// From frontend/src/lib/api.ts
+const BACKEND_URL = process.env.NEXT_PUBLIC_BACKEND_URL || 'http://localhost:8000';
 
-### Issue: Environment variable not working
-**Cause**: Variables must start with `NEXT_PUBLIC_` to be accessible in the browser
-**Solution**: Make sure the variable name is exactly `NEXT_PUBLIC_BACKEND_URL` (case-sensitive)
-
-### Issue: CORS errors in browser console
-**Cause**: Backend CORS not configured for your Amplify domain
-**Solution**: Add your Amplify domain to `CORS_ORIGINS` in `backend/apprunner.yaml`:
-```yaml
-- name: CORS_ORIGINS
-  value: https://your-app-id.amplifyapp.com,https://main.your-app-id.amplifyapp.com
+// Making a request
+const response = await fetch(`${BACKEND_URL}/auth/login`, {
+  method: 'POST',
+  headers: { 'Content-Type': 'application/json' },
+  body: JSON.stringify({ email, password })
+});
 ```
 
-### Issue: Still can't connect after setting variable
-**Cause**: Frontend not redeployed with new environment variable
-**Solution**: Redeploy the frontend (environment variables are read at build time, not runtime)
+---
 
-## 📞 Need Help?
+## 🚨 Troubleshooting
 
-If you're still having issues:
-1. Check Amplify deployment logs for any errors
-2. Check browser console for specific error messages
-3. Verify the backend URL is correct and accessible
-4. Check CORS settings in backend
+### "Cannot connect to backend server"
+
+**Issue**: Frontend can't reach backend
+
+**Solutions**:
+1. **Local Development**:
+   - Check if backend is running: `curl http://localhost:8000/healthz`
+   - Verify `frontend/.env.local` has `NEXT_PUBLIC_BACKEND_URL=http://localhost:8000`
+   - Restart frontend dev server after changing `.env.local`
+
+2. **Production**:
+   - Check if backend App Runner service is running
+   - Verify `amplify.yml` has correct `NEXT_PUBLIC_BACKEND_URL`
+   - Check backend CORS allows your Amplify domain
+
+### CORS Errors
+
+**Issue**: Browser blocks requests due to CORS
+
+**Solutions**:
+1. **Update backend CORS** in `backend/src/app.py`:
+   ```python
+   ALLOWED_ORIGINS = [
+       "https://your-app.amplifyapp.com",  # Your Amplify domain
+       "http://localhost:3000",  # Local development
+   ]
+   ```
+
+2. **Or use environment variable**:
+   ```bash
+   CORS_ORIGINS=https://your-app.amplifyapp.com,http://localhost:3000
+   ```
+
+### Environment Variable Not Working
+
+**Issue**: `NEXT_PUBLIC_BACKEND_URL` not being read
+
+**Solutions**:
+1. **Local**: Restart dev server after changing `.env.local`
+2. **Production**: Rebuild Amplify app after changing `amplify.yml`
+3. **Verify**: Check browser console for `Backend URL:` log (development mode)
+
+---
+
+## 📝 Next Steps
+
+1. ✅ **Frontend is connected** - No action needed
+2. ✅ **API client configured** - Ready to use
+3. ⚠️ **Verify backend is running**:
+   - Local: Start backend with `cd backend && ./start_server.sh`
+   - Production: Check App Runner service status
+4. ⚠️ **Test connection**:
+   - Try logging in/registering
+   - Check browser DevTools → Network tab for API requests
+
+---
+
+## 🔗 Related Files
+
+- **Frontend API Client**: `frontend/src/lib/api.ts`
+- **Frontend Env Template**: `frontend/env.example`
+- **Amplify Config**: `amplify.yml`
+- **Backend CORS Config**: `backend/src/app.py`
+- **Backend Health Check**: `backend/src/app.py` → `/healthz` endpoint
