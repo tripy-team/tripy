@@ -40,14 +40,15 @@ from utils.jwt_auth import get_current_user_id
 # Get CORS origins from environment variable
 CORS_ORIGINS_ENV = os.environ.get("CORS_ORIGINS", "")
 if CORS_ORIGINS_ENV:
-    ALLOWED_ORIGINS = [origin.strip() for origin in CORS_ORIGINS_ENV.split(",")]
-else:
-    # Fallback to default origins
+    # If CORS_ORIGINS is set, use it (split by comma)
     ALLOWED_ORIGINS = [
-        "https://testing.d2p22adloz2lev.amplifyapp.com",
-        "http://localhost:3000",
-        "http://127.0.0.1:3000",
+        origin.strip() for origin in CORS_ORIGINS_ENV.split(",") if origin.strip()
     ]
+else:
+    # Fallback: Allow all origins for development
+    # In production, ALWAYS set CORS_ORIGINS environment variable in App Runner
+    # For security, restrict to specific domains in production
+    ALLOWED_ORIGINS = ["*"]  # Allow all origins - set CORS_ORIGINS in production
 
 app = FastAPI(title="Tripy API", version="1.0.0")
 

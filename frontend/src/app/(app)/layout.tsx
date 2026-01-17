@@ -18,12 +18,60 @@ export default function AppLayout({
             const accessToken = localStorage.getItem('access_token') || sessionStorage.getItem('access_token');
             const authToken = localStorage.getItem('auth_token');
             
+            // Must have both token AND user data to be considered authenticated
+            const storedUser = localStorage.getItem('user');
+            
             if (!accessToken && !authToken) {
-                // User is not authenticated, redirect to login
+                // No tokens - user is not authenticated
                 router.push('/login');
                 return;
             }
             
+            // Check if user data exists and is valid
+            if (!storedUser) {
+                // Token exists but no user data - clear tokens and redirect
+                localStorage.removeItem('access_token');
+                localStorage.removeItem('id_token');
+                localStorage.removeItem('refresh_token');
+                localStorage.removeItem('auth_token');
+                sessionStorage.removeItem('access_token');
+                sessionStorage.removeItem('id_token');
+                sessionStorage.removeItem('refresh_token');
+                router.push('/login');
+                return;
+            }
+            
+            // Validate user data
+            try {
+                const parsedUser = JSON.parse(storedUser);
+                if (!parsedUser || (!parsedUser.name && !parsedUser.email)) {
+                    // Invalid user data - clear everything and redirect
+                    localStorage.removeItem('access_token');
+                    localStorage.removeItem('id_token');
+                    localStorage.removeItem('refresh_token');
+                    localStorage.removeItem('auth_token');
+                    localStorage.removeItem('user');
+                    sessionStorage.removeItem('access_token');
+                    sessionStorage.removeItem('id_token');
+                    sessionStorage.removeItem('refresh_token');
+                    router.push('/login');
+                    return;
+                }
+            } catch (e) {
+                // Invalid user data - clear everything and redirect
+                localStorage.removeItem('access_token');
+                localStorage.removeItem('id_token');
+                localStorage.removeItem('refresh_token');
+                localStorage.removeItem('auth_token');
+                localStorage.removeItem('user');
+                sessionStorage.removeItem('access_token');
+                sessionStorage.removeItem('id_token');
+                sessionStorage.removeItem('refresh_token');
+                router.push('/login');
+                return;
+            }
+            
+            // User is authenticated with valid token and user data
             setIsChecking(false);
         };
 

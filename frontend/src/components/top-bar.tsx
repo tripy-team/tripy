@@ -24,27 +24,53 @@ export function TopBar() {
       const authToken = localStorage.getItem('auth_token');
       
       if (accessToken || authToken) {
-        // Try to get user from localStorage
+        // Only set user if we have actual user data stored
         const storedUser = localStorage.getItem('user');
         if (storedUser) {
           try {
-            setUser(JSON.parse(storedUser));
+            const parsedUser = JSON.parse(storedUser);
+            // Validate that user data exists and has required fields
+            if (parsedUser && (parsedUser.name || parsedUser.email)) {
+              setUser(parsedUser);
+            } else {
+              // Invalid user data, clear everything and sign out
+              setUser(null);
+              localStorage.removeItem('access_token');
+              localStorage.removeItem('id_token');
+              localStorage.removeItem('refresh_token');
+              localStorage.removeItem('auth_token');
+              localStorage.removeItem('user');
+              sessionStorage.removeItem('access_token');
+              sessionStorage.removeItem('id_token');
+              sessionStorage.removeItem('refresh_token');
+            }
           } catch (e) {
             console.error('Failed to parse user', e);
-            // Create default user from token
-            setUser({
-              name: 'User',
-              email: 'user@tripy.com'
-            });
+            // Invalid user data, clear everything and sign out
+            setUser(null);
+            localStorage.removeItem('access_token');
+            localStorage.removeItem('id_token');
+            localStorage.removeItem('refresh_token');
+            localStorage.removeItem('auth_token');
+            localStorage.removeItem('user');
+            sessionStorage.removeItem('access_token');
+            sessionStorage.removeItem('id_token');
+            sessionStorage.removeItem('refresh_token');
           }
         } else {
-          // Create default user
-          setUser({
-            name: 'User',
-            email: 'user@tripy.com'
-          });
+          // Token exists but no user data - treat as not authenticated
+          setUser(null);
+          // Clear invalid tokens
+          localStorage.removeItem('access_token');
+          localStorage.removeItem('id_token');
+          localStorage.removeItem('refresh_token');
+          localStorage.removeItem('auth_token');
+          sessionStorage.removeItem('access_token');
+          sessionStorage.removeItem('id_token');
+          sessionStorage.removeItem('refresh_token');
         }
       } else {
+        // No tokens - user is not signed in
         setUser(null);
       }
     };
