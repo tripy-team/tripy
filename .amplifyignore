@@ -1,0 +1,58 @@
+# Files and directories to ignore during Amplify build
+# This reduces build time and deployment size
+
+# Backend code (not needed for frontend build)
+backend/
+infra/
+
+# Development files
+start_dev.sh
+check_backend.sh
+*.sh
+
+# Documentation (not needed in build)
+*.md
+!README.md
+
+# Environment files (use Amplify Console env vars instead)
+.env
+.env.local
+.env.*.local
+
+# Node modules (will be installed fresh)
+node_modules/
+
+# Git files
+.git/
+.gitignore
+
+# IDE files
+.vscode/
+.idea/
+*.swp
+*.swo
+
+# Python virtual environments
+venv/
+.venv/
+__pycache__/
+*.pyc
+
+# Build artifacts (will be generated)
+.next/
+dist/
+build/
+
+# Logs
+*.log
+logs/
+
+# Test files
+*.test.*
+*.spec.*
+__tests__/
+coverage/
+
+# Misc
+.DS_Store
+*.pem
