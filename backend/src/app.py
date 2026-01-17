@@ -9,8 +9,7 @@ load_dotenv()
 
 # Configure logging
 logging.basicConfig(
-    level=logging.INFO,
-    format="%(asctime)s - %(name)s - %(levelname)s - %(message)s"
+    level=logging.INFO, format="%(asctime)s - %(name)s - %(levelname)s - %(message)s"
 )
 logger = logging.getLogger(__name__)
 
@@ -79,7 +78,9 @@ class CreateTripRequest(BaseModel):
     def validate_end_after_start(cls, v, values):
         if "start_date" in values:
             try:
-                start = datetime.fromisoformat(values["start_date"].replace("Z", "+00:00"))
+                start = datetime.fromisoformat(
+                    values["start_date"].replace("Z", "+00:00")
+                )
                 end = datetime.fromisoformat(v.replace("Z", "+00:00"))
                 if end < start:
                     raise ValueError("End date must be after start date")
@@ -256,8 +257,7 @@ async def confirm_signup(request: ConfirmSignUpRequest):
 # Trip endpoints (require authentication)
 @app.post("/trips")
 async def create_trip(
-    request: CreateTripRequest,
-    user_id: str = Depends(get_current_user_id)
+    request: CreateTripRequest, user_id: str = Depends(get_current_user_id)
 ):
     """Create a new trip"""
     try:
@@ -281,21 +281,18 @@ async def create_trip(
 
 
 @app.post("/trips/get")
-async def get_trip(
-    request: TripIdRequest,
-    user_id: str = Depends(get_current_user_id)
-):
+async def get_trip(request: TripIdRequest, user_id: str = Depends(get_current_user_id)):
     """Get trip by ID"""
     try:
         trip = trip_service.get_trip(request.trip_id)
         if not trip:
             raise HTTPException(status_code=404, detail="Trip not found")
-        
+
         # Verify user has access to this trip
         # TODO: Add trip member check for group trips
         if trip.get("createdBy") != user_id:
             raise HTTPException(status_code=403, detail="Access denied")
-        
+
         return trip
     except HTTPException:
         raise
@@ -306,19 +303,18 @@ async def get_trip(
 
 @app.post("/trips/invite")
 async def get_invite_code(
-    request: TripIdRequest,
-    user_id: str = Depends(get_current_user_id)
+    request: TripIdRequest, user_id: str = Depends(get_current_user_id)
 ):
     """Get invite code for a trip"""
     try:
         trip = trip_service.get_trip(request.trip_id)
         if not trip:
             raise HTTPException(status_code=404, detail="Trip not found")
-        
+
         # Verify user has access to this trip
         if trip.get("createdBy") != user_id:
             raise HTTPException(status_code=403, detail="Access denied")
-        
+
         return {"inviteCode": trip.get("inviteCode")}
     except HTTPException:
         raise
@@ -330,8 +326,7 @@ async def get_invite_code(
 # Destination endpoints (require authentication)
 @app.post("/destinations/add")
 async def add_destination(
-    request: AddDestinationRequest,
-    user_id: str = Depends(get_current_user_id)
+    request: AddDestinationRequest, user_id: str = Depends(get_current_user_id)
 ):
     """Add a destination to a trip"""
     try:
@@ -341,7 +336,7 @@ async def add_destination(
             raise HTTPException(status_code=404, detail="Trip not found")
         if trip.get("createdBy") != user_id:
             raise HTTPException(status_code=403, detail="Access denied")
-        
+
         destination = destination_service.add_destination(
             request.trip_id,
             user_id,
@@ -361,8 +356,7 @@ async def add_destination(
 
 @app.post("/destinations/list")
 async def list_destinations(
-    request: TripIdRequest,
-    user_id: str = Depends(get_current_user_id)
+    request: TripIdRequest, user_id: str = Depends(get_current_user_id)
 ):
     """List all destinations for a trip"""
     try:
@@ -372,7 +366,7 @@ async def list_destinations(
             raise HTTPException(status_code=404, detail="Trip not found")
         if trip.get("createdBy") != user_id:
             raise HTTPException(status_code=403, detail="Access denied")
-        
+
         destinations = destination_service.list_destinations(request.trip_id)
         scores = destination_service.scores(request.trip_id)
         return {"destinations": destinations, "scores": scores.get("scores", {})}
@@ -386,8 +380,7 @@ async def list_destinations(
 # Points endpoints (require authentication)
 @app.post("/points/upsert")
 async def upsert_points(
-    request: UpsertPointsRequest,
-    user_id: str = Depends(get_current_user_id)
+    request: UpsertPointsRequest, user_id: str = Depends(get_current_user_id)
 ):
     """Add or update points for a user's program in a trip"""
     try:
@@ -397,7 +390,7 @@ async def upsert_points(
             raise HTTPException(status_code=404, detail="Trip not found")
         if trip.get("createdBy") != user_id:
             raise HTTPException(status_code=403, detail="Access denied")
-        
+
         points = points_service.upsert_points(
             request.trip_id, user_id, request.program, request.balance
         )
@@ -411,8 +404,7 @@ async def upsert_points(
 
 @app.post("/points/summary")
 async def get_points_summary(
-    request: TripIdRequest,
-    user_id: str = Depends(get_current_user_id)
+    request: TripIdRequest, user_id: str = Depends(get_current_user_id)
 ):
     """Get points summary for a trip"""
     try:
@@ -422,7 +414,7 @@ async def get_points_summary(
             raise HTTPException(status_code=404, detail="Trip not found")
         if trip.get("createdBy") != user_id:
             raise HTTPException(status_code=403, detail="Access denied")
-        
+
         summary = points_service.trip_points_summary(request.trip_id)
         return summary
     except HTTPException:
@@ -435,8 +427,7 @@ async def get_points_summary(
 # Itinerary endpoints (require authentication)
 @app.post("/itinerary/generate")
 async def generate_itinerary(
-    request: GenerateItineraryRequest,
-    user_id: str = Depends(get_current_user_id)
+    request: GenerateItineraryRequest, user_id: str = Depends(get_current_user_id)
 ):
     """Generate itineraries for a trip"""
     try:
@@ -444,7 +435,7 @@ async def generate_itinerary(
         trip = trip_service.get_trip(request.trip_id)
         if not trip:
             raise HTTPException(status_code=404, detail="Trip not found")
-        
+
         # Verify user has access to this trip
         if trip.get("createdBy") != user_id:
             raise HTTPException(status_code=403, detail="Access denied")
@@ -469,8 +460,7 @@ async def generate_itinerary(
 
 @app.post("/itinerary/get")
 async def get_itinerary(
-    request: TripIdRequest,
-    user_id: str = Depends(get_current_user_id)
+    request: TripIdRequest, user_id: str = Depends(get_current_user_id)
 ):
     """Get itinerary for a trip"""
     try:
@@ -480,7 +470,7 @@ async def get_itinerary(
             raise HTTPException(status_code=404, detail="Trip not found")
         if trip.get("createdBy") != user_id:
             raise HTTPException(status_code=403, detail="Access denied")
-        
+
         items = itinerary_service.get_itinerary(request.trip_id)
         return {"items": items}
     except HTTPException:
@@ -509,8 +499,10 @@ async def search_cities_get(query: str, max_results: Optional[int] = 10):
         if not query or len(query) < 1:
             raise HTTPException(status_code=400, detail="Query parameter is required")
         if max_results and (max_results < 1 or max_results > 50):
-            raise HTTPException(status_code=400, detail="max_results must be between 1 and 50")
-        
+            raise HTTPException(
+                status_code=400, detail="max_results must be between 1 and 50"
+            )
+
         results = city_service.search_cities(query, max_results or 10)
         return {"cities": results}
     except HTTPException:
