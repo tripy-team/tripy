@@ -17,10 +17,4 @@ run:
     # CORS_ORIGINS: Set this in App Runner Console → Environment variables
     # Example: https://your-app.amplifyapp.com,http://localhost:3000
     # Leave unset to allow all origins (not recommended for production)
-healthCheck:
-  protocol: HTTP
-  path: /healthz
-  interval: 10
-  timeout: 5
-  healthyThreshold: 1
-  unhealthyThreshold: 5
+    # Note: Health check is configured in App Runner Console, not in this file
