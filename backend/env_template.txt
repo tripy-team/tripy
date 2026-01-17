@@ -1,0 +1,35 @@
+# ============================================
+# REQUIRED - DynamoDB Table Names
+# ============================================
+USERS_TABLE=tripy-users
+TRIPS_TABLE=tripy-trips
+TRIP_MEMBERS_TABLE=tripy-trip-members
+POINTS_TABLE=tripy-points
+DESTINATIONS_TABLE=tripy-destinations
+DESTINATION_VOTES_TABLE=tripy-destination-votes
+ITINERARY_TABLE=tripy-itinerary
+
+# ============================================
+# REQUIRED FOR AUTH - AWS Cognito Configuration
+# ============================================
+USER_POOL_ID=
+USER_POOL_CLIENT_ID=
+AWS_REGION=us-west-2
+
+# ============================================
+# OPTIONAL - Analytics (Kinesis Firehose)
+# ============================================
+ANALYTICS_FIREHOSE_STREAM=tripy-analytics
+
+# ============================================
+# OPTIONAL - Third-party APIs
+# ============================================
+# AMADEUS_CLIENT_ID=
+# AMADEUS_CLIENT_SECRET=
+# SERP_API_KEY=
+# AWARDTOOL_API_KEY=
+
+# ============================================
+# OPTIONAL - CORS Origins
+# ============================================
+# CORS_ORIGINS=http://localhost:3000,http://127.0.0.1:3000
