@@ -248,9 +248,13 @@ export const auth = {
       localStorage.removeItem('access_token');
       localStorage.removeItem('id_token');
       localStorage.removeItem('refresh_token');
+      localStorage.removeItem('auth_token');
+      localStorage.removeItem('user');
       sessionStorage.removeItem('access_token');
       sessionStorage.removeItem('id_token');
       sessionStorage.removeItem('refresh_token');
+      // Trigger auth change event for components to update
+      window.dispatchEvent(new Event('tripy_auth_change'));
     }
   },
 };

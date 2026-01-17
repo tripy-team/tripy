@@ -81,6 +81,7 @@ export function Navigation() {
       localStorage.removeItem('access_token');
       localStorage.removeItem('id_token');
       localStorage.removeItem('refresh_token');
+      localStorage.removeItem('auth_token');
       localStorage.removeItem('user');
       sessionStorage.removeItem('access_token');
       sessionStorage.removeItem('id_token');
@@ -88,7 +89,7 @@ export function Navigation() {
     }
     setUser(null);
     window.dispatchEvent(new Event('tripy_auth_change'));
-    router.push('/login');
+    router.push('/');
   };
 
   const getInitials = (name: string) => {

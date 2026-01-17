@@ -1,5 +1,6 @@
 'use client';
 
+import { useEffect, useState } from 'react';
 import { useRouter } from 'next/navigation';
 import Link from 'next/link';
 import { Plane, CreditCard, Users, Sparkles, Search } from 'lucide-react';
@@ -7,9 +8,44 @@ import { Navigation } from '@/components/navigation';
 
 export default function LandingPage() {
     const router = useRouter();
+    const [isChecking, setIsChecking] = useState(true);
     
-    // Landing page - always shown as the first page
-    // Users can navigate to login/register from here
+    useEffect(() => {
+        // Check if user is logged in
+        const checkAuth = () => {
+            const accessToken = localStorage.getItem('access_token') || sessionStorage.getItem('access_token');
+            const authToken = localStorage.getItem('auth_token');
+            
+            if (accessToken || authToken) {
+                // User is logged in, redirect to dashboard
+                router.push('/dashboard');
+                return;
+            }
+            
+            // User is not logged in, show landing page
+            setIsChecking(false);
+        };
+
+        checkAuth();
+    }, [router]);
+
+    // Show loading state while checking authentication
+    if (isChecking) {
+        return (
+            <div className="min-h-full bg-gradient-to-br from-white via-blue-50/30 to-white">
+                <Navigation />
+                <div className="flex items-center justify-center min-h-screen">
+                    <div className="text-center">
+                        <div className="inline-block animate-spin rounded-full h-8 w-8 border-b-2 border-blue-600"></div>
+                        <p className="mt-4 text-slate-600">Loading...</p>
+                    </div>
+                </div>
+            </div>
+        );
+    }
+
+    // Landing page - shown when user is NOT logged in
+    // All buttons lead to login or signup pages
 
     return (
         <div className="min-h-full bg-gradient-to-br from-white via-blue-50/30 to-white">
@@ -36,20 +72,12 @@ export default function LandingPage() {
                             >
                                 Get Early Access
                             </Link>
-                            <button 
-                                onClick={() => {
-                                    // Set demo token to access dashboard
-                                    localStorage.setItem('auth_token', 'demo-token');
-                                    localStorage.setItem('user', JSON.stringify({
-                                        name: 'Demo User',
-                                        email: 'demo@tripy.com'
-                                    }));
-                                    router.push('/dashboard');
-                                }}
+                            <Link
+                                href="/register"
                                 className="px-8 py-4 bg-white text-slate-900 border-2 border-slate-200 rounded-2xl hover:border-slate-300 transition-all font-medium"
                             >
-                                Try Demo
-                            </button>
+                                Sign Up
+                            </Link>
                         </div>
                     </div>
 
@@ -199,16 +227,16 @@ export default function LandingPage() {
                     </p>
                     <div className="flex gap-4 justify-center">
                         <Link
-                            href="/solo/setup"
+                            href="/login"
                             className="px-8 py-4 bg-yellow-400 text-slate-900 rounded-2xl hover:bg-yellow-300 transition-all shadow-lg hover:shadow-xl font-medium"
                         >
-                            Plan Solo Trip
+                            Get Started
                         </Link>
                         <Link
-                            href="/group/setup"
+                            href="/register"
                             className="px-8 py-4 bg-white text-blue-600 rounded-2xl hover:bg-blue-50 transition-all shadow-lg hover:shadow-xl font-medium"
                         >
-                            Plan Group Trip
+                            Sign Up Free
                         </Link>
                     </div>
                 </div>
