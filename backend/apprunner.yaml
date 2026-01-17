@@ -5,15 +5,16 @@ build:
     build:
       - pip install --upgrade pip
       - pip install -r requirements.txt
+      - chmod +x start.sh
 run:
-  command: sh -c "cd /app/backend/src && PYTHONPATH=/app/backend/src python -m uvicorn app:app --host 0.0.0.0 --port 8000"
+  command: bash /app/backend/start.sh
   network:
     port: 8000
   env:
     - name: AWS_REGION
       value: us-east-1
     - name: PYTHONPATH
-      value: /app/backend/src
+      value: /app/backend
     # CORS_ORIGINS: Set this in App Runner Console → Environment variables
     # Example: https://your-app.amplifyapp.com,http://localhost:3000
     # Leave unset to allow all origins (not recommended for production)
