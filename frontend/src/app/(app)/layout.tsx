@@ -57,7 +57,7 @@ export default function AppLayout({
                     router.push('/login');
                     return;
                 }
-            } catch (e) {
+            } catch (_e) {
                 // Invalid user data - clear everything and redirect
                 localStorage.removeItem('access_token');
                 localStorage.removeItem('id_token');
