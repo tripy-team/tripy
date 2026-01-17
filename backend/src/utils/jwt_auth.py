@@ -5,13 +5,14 @@ import jwt
 from typing import Optional, Dict, Any
 from fastapi import HTTPException, Security, Depends
 from fastapi.security import HTTPBearer, HTTPAuthorizationCredentials
-from src.config import USER_POOL_ID, AWS_REGION
+from src.config import USER_POOL_ID, USER_POOL_CLIENT_ID, AWS_REGION
 import boto3
 import logging
 
 logger = logging.getLogger(__name__)
 
 security = HTTPBearer()
+optional_security = HTTPBearer(auto_error=False)
 
 
 def get_jwks_url() -> str:
@@ -87,11 +88,13 @@ def verify_token(token: str) -> Dict[str, Any]:
             )
         
         # Verify and decode token
+        # Use USER_POOL_CLIENT_ID as audience if available, otherwise USER_POOL_ID
+        audience = USER_POOL_CLIENT_ID if USER_POOL_CLIENT_ID else USER_POOL_ID
         decoded = jwt.decode(
             token,
             key,
             algorithms=["RS256"],
-            audience=USER_POOL_ID,  # Verify audience
+            audience=audience,  # Verify audience
         )
         
         return decoded
@@ -143,7 +146,7 @@ def get_current_user_id(
 
 
 def get_optional_user_id(
-    credentials: Optional[HTTPAuthorizationCredentials] = Security(security, auto_error=False)
+    credentials: Optional[HTTPAuthorizationCredentials] = Depends(optional_security)
 ) -> Optional[str]:
     """
     Dependency to optionally get current user ID from JWT token.
