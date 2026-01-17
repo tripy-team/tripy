@@ -12,6 +12,30 @@ export default function LandingPage() {
 
     return (
         <div className="min-h-full bg-gradient-to-br from-white via-blue-50/30 to-white">
+            {/* Top Bar */}
+            <header className="bg-white border-b border-slate-200 px-8 py-4 flex items-center justify-between">
+                <Link href="/" className="flex items-center gap-2">
+                    <div className="w-10 h-10 bg-blue-600 rounded-xl flex items-center justify-center shadow-lg shadow-blue-600/20">
+                        <Plane className="w-5 h-5 text-white" />
+                    </div>
+                    <span className="text-xl font-bold text-slate-900">Tripy</span>
+                </Link>
+                <div className="flex items-center gap-3">
+                    <Link
+                        href="/login"
+                        className="px-4 py-2 text-slate-700 hover:text-slate-900 font-medium transition-colors"
+                    >
+                        Log in
+                    </Link>
+                    <Link
+                        href="/register"
+                        className="px-4 py-2 bg-blue-600 text-white rounded-xl hover:bg-blue-700 transition-colors font-medium shadow-sm"
+                    >
+                        Sign up
+                    </Link>
+                </div>
+            </header>
+
             {/* Hero Section */}
             <div className="max-w-7xl mx-auto px-8 pt-20 pb-32">
                 <div className="grid lg:grid-cols-2 gap-16 items-center">
@@ -27,7 +51,7 @@ export default function LandingPage() {
                         </p>
                         <div className="flex gap-4">
                             <Link
-                                href="/register"
+                                href="/login"
                                 className="px-8 py-4 bg-blue-600 text-white rounded-2xl hover:bg-blue-700 transition-all shadow-lg shadow-blue-600/20 hover:shadow-xl hover:shadow-blue-600/30 font-medium"
                             >
                                 Get Early Access

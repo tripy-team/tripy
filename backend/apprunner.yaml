@@ -3,11 +3,10 @@ runtime: python3
 build:
   commands:
     build:
-      - cd backend
-      - pip install --upgrade pip
-      - pip install -r requirements.txt
+      - cd backend && pip install --upgrade pip
+      - cd backend && pip install -r requirements.txt
 run:
-  command: cd backend/src && PYTHONPATH=/app/backend/src:$PYTHONPATH python -m uvicorn app:app --host 0.0.0.0 --port 8000
+  command: sh -c "cd /app/backend/src && export PYTHONPATH=/app/backend/src && python -m uvicorn app:app --host 0.0.0.0 --port 8000"
   network:
     port: 8000
   env:
@@ -15,3 +14,10 @@ run:
       value: us-east-1
     - name: PYTHONPATH
       value: /app/backend/src
+healthCheck:
+  protocol: HTTP
+  path: /healthz
+  interval: 10
+  timeout: 5
+  healthyThreshold: 1
+  unhealthyThreshold: 5
