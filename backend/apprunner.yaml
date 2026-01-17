@@ -15,7 +15,38 @@ run:
       value: us-east-1
     - name: PYTHONPATH
       value: /app/backend
-    # CORS_ORIGINS: Set this in App Runner Console → Environment variables
-    # Example: https://your-app.amplifyapp.com,http://localhost:3000
-    # Leave unset to allow all origins (not recommended for production)
+    # REQUIRED - DynamoDB Table Names (update these to match your actual table names)
+    - name: USERS_TABLE
+      value: tripy-users
+    - name: TRIPS_TABLE
+      value: tripy-trips
+    - name: TRIP_MEMBERS_TABLE
+      value: tripy-trip-members
+    - name: POINTS_TABLE
+      value: tripy-points
+    - name: DESTINATIONS_TABLE
+      value: tripy-destinations
+    - name: DESTINATION_VOTES_TABLE
+      value: tripy-destination-votes
+    - name: ITINERARY_TABLE
+      value: tripy-itinerary
+    # OPTIONAL - Cognito Configuration (uncomment and set if using Cognito)
+    # - name: USER_POOL_ID
+    #   value: us-east-1_XXXXXXXXX
+    # - name: USER_POOL_CLIENT_ID
+    #   value: xxxxxxxxxxxxxxxxxxxxxx
+    # OPTIONAL - CORS Origins (uncomment and set to restrict CORS)
+    # - name: CORS_ORIGINS
+    #   value: https://your-app.amplifyapp.com,http://localhost:3000
+    # OPTIONAL - Other API Keys
+    # - name: AMADEUS_CLIENT_ID
+    #   value: your_amadeus_client_id
+    # - name: AMADEUS_CLIENT_SECRET
+    #   value: your_amadeus_client_secret
+    # - name: SERP_API_KEY
+    #   value: your_serp_api_key
+    # - name: AWARDTOOL_API_KEY
+    #   value: your_awardtool_api_key
+    # - name: ANALYTICS_FIREHOSE_STREAM
+    #   value: tripy-analytics
     # Note: Health check is configured in App Runner Console, not in this file
