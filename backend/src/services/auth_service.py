@@ -4,7 +4,7 @@ AWS Cognito authentication service
 import boto3
 from typing import Dict, Any, Optional
 from botocore.exceptions import ClientError
-from ..config import USER_POOL_ID, USER_POOL_CLIENT_ID, AWS_REGION
+from src.config import USER_POOL_ID, USER_POOL_CLIENT_ID, AWS_REGION
 
 _cognito_client = None
 

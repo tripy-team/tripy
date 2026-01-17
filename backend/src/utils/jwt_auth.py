@@ -5,7 +5,7 @@ import jwt
 from typing import Optional, Dict, Any
 from fastapi import HTTPException, Security, Depends
 from fastapi.security import HTTPBearer, HTTPAuthorizationCredentials
-from ..config import USER_POOL_ID, AWS_REGION
+from src.config import USER_POOL_ID, AWS_REGION
 import boto3
 import logging
 

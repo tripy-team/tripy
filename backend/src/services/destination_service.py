@@ -1,6 +1,6 @@
 import uuid
 from typing import Dict, Any, List
-from ..repos import destination_repo, destination_vote_repo
+from src.repos import destination_repo, destination_vote_repo
 
 
 def add_destination(

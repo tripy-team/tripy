@@ -1,6 +1,6 @@
 from typing import Optional, Dict, Any
 from botocore.exceptions import ClientError
-from ..config import USERS_TABLE
+from src.config import USERS_TABLE
 from .ddb import table, get_item, put_item, query_gsi
 import logging
 

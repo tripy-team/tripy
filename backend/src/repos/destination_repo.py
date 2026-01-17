@@ -1,6 +1,6 @@
 from typing import Dict, Any, List
 from boto3.dynamodb.conditions import Key
-from ..config import DESTINATIONS_TABLE
+from src.config import DESTINATIONS_TABLE
 from .ddb import table
 
 t = table(DESTINATIONS_TABLE)

@@ -1,5 +1,5 @@
 from typing import Optional, Dict, Any, List
-from ..config import TRIPS_TABLE
+from src.config import TRIPS_TABLE
 from .ddb import table, get_item, put_item, query_gsi
 
 t = table(TRIPS_TABLE)

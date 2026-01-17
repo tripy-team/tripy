@@ -1,6 +1,6 @@
 import uuid
 from typing import Dict, Any
-from ..repos import trip_repo, trip_member_repo
+from src.repos import trip_repo, trip_member_repo
 
 
 def create_trip(

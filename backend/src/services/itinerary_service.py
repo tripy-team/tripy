@@ -1,6 +1,6 @@
 import uuid
 from typing import Dict, Any, List
-from ..repos import itinerary_repo
+from src.repos import itinerary_repo
 
 
 def save_itinerary(trip_id: str, route: List[str]) -> Dict[str, Any]:
