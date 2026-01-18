@@ -268,6 +268,12 @@ export const trips = {
     });
   },
 
+  list: async (): Promise<{ trips: Trip[] }> => {
+    return apiRequest<{ trips: Trip[] }>('/trips', {
+      method: 'GET',
+    });
+  },
+
   get: async (trip_id: string): Promise<Trip> => {
     return apiRequest<Trip>('/trips/get', {
       method: 'POST',

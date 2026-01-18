@@ -3,6 +3,8 @@
 import { Plane, Calendar, MapPin, CreditCard, Users, User } from 'lucide-react';
 import Link from 'next/link';
 import Image from 'next/image';
+import { useEffect, useState } from 'react';
+import { trips as tripsAPI } from '@/lib/api';
 
 interface Trip {
   id: string;
@@ -17,60 +19,93 @@ interface Trip {
   description: string;
 }
 
-export default function MyTripsPage() {
+interface ApiTrip {
+  tripId: string;
+  title: string;
+  startDate: string;
+  endDate: string;
+  status: string;
+  createdBy: string;
+  role?: string;
+  memberCount?: number;
+  destinations?: string[];
+  firstDestination?: string;
+}
 
-  // TODO: Replace with API call to fetch user's trips
-  // Endpoint: GET /trips (list user trips)
-  const trips: Trip[] = [
-    {
-      id: '1',
-      destination: 'Tokyo Adventure',
-      image: 'https://images.unsplash.com/photo-1730385835399-4d0f24898919?crop=entropy&cs=tinysrgb&fit=max&fm=jpg&ixid=M3w3Nzg4Nzd8MHwxfHNlYXJjaHwxfHxUb2t5byUyMGNpdHklMjBzdHJlZXQlMjBuaWdodCUyMG5lb258ZW58MXx8fHwxNzY4NTQ0MTQxfDA&ixlib=rb-4.1.0&q=80&w=1080',
-      dates: 'Oct 15 - Oct 22, 2024',
-      status: 'upcoming',
-      pointsRedeemed: '120,000',
-      type: 'Solo',
-      travelers: 1,
-      location: 'Tokyo, Japan',
-      description: 'Neon streets of Shinjuku, ancient temples in Asakusa, and the Tsukiji Outer Market.'
-    },
-    {
-      id: '2',
-      destination: 'Paris Weekend',
-      image: 'https://images.unsplash.com/photo-1637179515556-2ad0055eb4fb?crop=entropy&cs=tinysrgb&fit=max&fm=jpg&ixid=M3w3Nzg4Nzd8MHwxfHNlYXJjaHwxfHxQYXJpcyUyMEVpZmZlbCUyMFRvd2VyJTIwc3Vuc2V0fGVufDF8fHx8MTc2ODU0NDE0MXww&ixlib=rb-4.1.0&q=80&w=1080',
-      dates: 'Jun 10 - Jun 14, 2023',
-      status: 'completed',
-      pointsRedeemed: '85,000',
-      type: 'Group',
-      travelers: 4,
-      location: 'Paris, France',
-      description: 'Louvre museum tour, sunset views from Montmartre, and a day trip to Versailles.'
-    },
-    {
-      id: '3',
-      destination: 'New York City',
-      image: 'https://images.unsplash.com/photo-1648799545370-d8676f02e041?crop=entropy&cs=tinysrgb&fit=max&fm=jpg&ixid=M3w3Nzg4Nzd8MHwxfHNlYXJjaHwxfHxOZXclMjBZb3JrJTIwQ2l0eSUyMHNreWxpbmUlMjBkYXl8ZW58MXx8fHwxNzY4NTQ0MTQxfDA&ixlib=rb-4.1.0&q=80&w=1080',
-      dates: 'Mar 05 - Mar 08, 2023',
-      status: 'completed',
-      pointsRedeemed: '45,000',
-      type: 'Group',
-      travelers: 2,
-      location: 'New York, USA',
-      description: 'Broadway show, shopping in SoHo, and walking the Brooklyn Bridge.'
-    },
-    {
-      id: '4',
-      destination: 'London Fog',
-      image: 'https://images.unsplash.com/photo-1634440919887-e802e5446958?crop=entropy&cs=tinysrgb&fit=max&fm=jpg&ixid=M3w3Nzg4Nzd8MHwxfHNlYXJjaHwxfHxMb25kb24lMjBCaWclMjBCZW4lMjBicmlkZ2V8ZW58MXx8fHwxNzY4NTQ0MTQyfDA&ixlib=rb-4.1.0&q=80&w=1080',
-      dates: 'Nov 12 - Nov 18, 2022',
-      status: 'completed',
-      pointsRedeemed: '60,000',
-      type: 'Solo',
-      travelers: 1,
-      location: 'London, UK',
-      description: 'British Museum, afternoon tea at The Savoy, and the Tower of London.'
-    }
-  ];
+export default function MyTripsPage() {
+  const [trips, setTrips] = useState<Trip[]>([]);
+  const [isLoading, setIsLoading] = useState(true);
+  const [error, setError] = useState<string | null>(null);
+
+  useEffect(() => {
+    const fetchTrips = async () => {
+      try {
+        setIsLoading(true);
+        setError(null);
+        const response = await tripsAPI.list();
+        
+        // Transform API trips to display format
+        const transformedTrips: Trip[] = response.trips.map((trip: ApiTrip) => {
+          // Format dates
+          const startDate = trip.startDate ? new Date(trip.startDate) : null;
+          const endDate = trip.endDate ? new Date(trip.endDate) : null;
+          const now = new Date();
+          
+          let datesStr = 'TBD';
+          if (startDate && endDate) {
+            datesStr = `${startDate.toLocaleDateString('en-US', { month: 'short', day: 'numeric' })} - ${endDate.toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric' })}`;
+          } else if (startDate) {
+            datesStr = startDate.toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric' });
+          }
+          
+          // Determine status
+          const isCompleted = endDate ? endDate < now : false;
+          const status: 'upcoming' | 'completed' = isCompleted ? 'completed' : 'upcoming';
+          
+          // Determine trip type (group if multiple members, solo otherwise)
+          const memberCount = trip.memberCount || 1;
+          const tripType: 'Solo' | 'Group' = memberCount > 1 ? 'Group' : 'Solo';
+          
+          // Get destination name or use first destination
+          const destinationName = trip.firstDestination || trip.title || 'Trip';
+          const location = trip.firstDestination || 'Location TBD';
+          
+          // Generate image URL based on destination (using Unsplash)
+          const imageQuery = encodeURIComponent(destinationName);
+          const image = `https://images.unsplash.com/photo-1499856871958-5b9627545d1a?crop=entropy&cs=tinysrgb&fit=max&fm=jpg&ixid=M3w3Nzg4Nzd8MHwxfHNlYXJjaHwxfHx${imageQuery}JTIwY2l0eSUyMHN0cmVldCUyMG5pZ2h0JTIwbmlnaHR8ZW58MXx8fHwxNzY4NTQ0MTQxfDA&ixlib=rb-4.1.0&q=80&w=1080`;
+          
+          // Generate description from trip info
+          const description = trip.destinations && trip.destinations.length > 0
+            ? `Visiting ${trip.destinations.join(', ')}`
+            : `Your ${tripType.toLowerCase()} trip to ${destinationName}`;
+
+          return {
+            id: trip.tripId,
+            destination: trip.title || destinationName,
+            image: image,
+            dates: datesStr,
+            status: status,
+            pointsRedeemed: '0', // TODO: Calculate from points data
+            type: tripType,
+            travelers: memberCount,
+            location: location,
+            description: description,
+          };
+        });
+        
+        setTrips(transformedTrips);
+      } catch (err) {
+        console.error('Error fetching trips:', err);
+        setError(err instanceof Error ? err.message : 'Failed to load trips');
+        // Keep empty array on error (don't show dummy data)
+        setTrips([]);
+      } finally {
+        setIsLoading(false);
+      }
+    };
+
+    fetchTrips();
+  }, []);
 
   const upcomingTrips = trips.filter(t => t.status === 'upcoming');
   const pastTrips = trips.filter(t => t.status === 'completed');
@@ -178,12 +213,33 @@ export default function MyTripsPage() {
             <h2 className="text-xs font-bold text-slate-400 uppercase tracking-wider">Past Memories</h2>
             <div className="h-px flex-1 bg-slate-200"></div>
           </div>
-          <div className="grid md:grid-cols-2 gap-4">
-            {pastTrips.map(trip => (
-              <TripCard key={trip.id} trip={trip} />
-            ))}
-          </div>
+          {pastTrips.length > 0 ? (
+            <div className="grid md:grid-cols-2 gap-4">
+              {pastTrips.map(trip => (
+                <TripCard key={trip.id} trip={trip} />
+              ))}
+            </div>
+          ) : (
+            <div className="text-center py-12 text-slate-500">
+              <p>No past trips yet. Start planning your first adventure!</p>
+            </div>
+          )}
         </section>
+
+        {trips.length === 0 && !isLoading && (
+          <div className="text-center py-12">
+            <Plane className="w-16 h-16 text-slate-300 mx-auto mb-4" />
+            <h3 className="text-lg font-semibold text-slate-700 mb-2">No trips yet</h3>
+            <p className="text-slate-500 mb-6">Start planning your first adventure!</p>
+            <Link 
+              href="/solo/setup"
+              className="inline-flex items-center gap-2 bg-blue-600 text-white px-5 py-2 rounded-xl font-medium hover:bg-blue-700 transition-colors shadow-sm"
+            >
+              <Plane className="w-4 h-4" />
+              Plan New Trip
+            </Link>
+          </div>
+        )}
       </div>
     </div>
   );

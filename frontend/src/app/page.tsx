@@ -1,6 +1,6 @@
 'use client';
 
-import { useEffect, useState } from 'react';
+import { useEffect, useState, useRef } from 'react';
 import { useRouter } from 'next/navigation';
 import Link from 'next/link';
 import { Plane, CreditCard, Users, Sparkles, Search } from 'lucide-react';
@@ -9,17 +9,44 @@ import { Navigation } from '@/components/navigation';
 export default function LandingPage() {
     const router = useRouter();
     const [isChecking, setIsChecking] = useState(true);
+    const hasRedirectedRef = useRef(false);
     
     useEffect(() => {
-        // Check if user is logged in
+        // Check if user is logged in - only run once
         const checkAuth = () => {
+            // Prevent multiple redirects using ref
+            if (hasRedirectedRef.current) {
+                return;
+            }
+
             const accessToken = localStorage.getItem('access_token') || sessionStorage.getItem('access_token');
             const authToken = localStorage.getItem('auth_token');
             
-            if (accessToken || authToken) {
-                // User is logged in, redirect to dashboard
-                router.push('/dashboard');
-                return;
+            // Check if user data exists (required for authentication)
+            const storedUser = localStorage.getItem('user');
+            
+            // Only redirect if we have tokens AND user data
+            if ((accessToken || authToken) && storedUser) {
+                try {
+                    const parsedUser = JSON.parse(storedUser);
+                    if (parsedUser && (parsedUser.name || parsedUser.email)) {
+                        // User is logged in, redirect to dashboard
+                        // Use replace instead of push to avoid adding to history stack
+                        hasRedirectedRef.current = true;
+                        router.replace('/dashboard');
+                        return;
+                    }
+                } catch (e) {
+                    // Invalid user data, clear and continue
+                    localStorage.removeItem('access_token');
+                    localStorage.removeItem('id_token');
+                    localStorage.removeItem('refresh_token');
+                    localStorage.removeItem('auth_token');
+                    localStorage.removeItem('user');
+                    sessionStorage.removeItem('access_token');
+                    sessionStorage.removeItem('id_token');
+                    sessionStorage.removeItem('refresh_token');
+                }
             }
             
             // User is not logged in, show landing page
