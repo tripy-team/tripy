@@ -35,13 +35,11 @@ interface ApiTrip {
 export default function MyTripsPage() {
   const [trips, setTrips] = useState<Trip[]>([]);
   const [isLoading, setIsLoading] = useState(true);
-  const [error, setError] = useState<string | null>(null);
 
   useEffect(() => {
     const fetchTrips = async () => {
       try {
         setIsLoading(true);
-        setError(null);
         const response = await tripsAPI.list();
         
         // Transform API trips to display format
@@ -96,7 +94,6 @@ export default function MyTripsPage() {
         setTrips(transformedTrips);
       } catch (err) {
         console.error('Error fetching trips:', err);
-        setError(err instanceof Error ? err.message : 'Failed to load trips');
         // Keep empty array on error (don't show dummy data)
         setTrips([]);
       } finally {

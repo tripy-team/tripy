@@ -303,6 +303,19 @@ async def get_trip(request: TripIdRequest, user_id: str = Depends(get_current_us
         raise HTTPException(status_code=500, detail=str(e))
 
 
+@app.get("/trips")
+async def list_trips(user_id: str = Depends(get_current_user_id)):
+    """List all trips for the current user"""
+    try:
+        trips = trip_service.list_trips_for_user(user_id)
+        return {"trips": trips}
+    except HTTPException:
+        raise
+    except Exception as e:
+        logger.error(f"Error listing trips: {str(e)}")
+        raise HTTPException(status_code=500, detail=str(e))
+
+
 @app.post("/trips/invite")
 async def get_invite_code(
     request: TripIdRequest, user_id: str = Depends(get_current_user_id)

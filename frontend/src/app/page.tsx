@@ -36,7 +36,7 @@ export default function LandingPage() {
                         router.replace('/dashboard');
                         return;
                     }
-                } catch (e) {
+                } catch (_e) {
                     // Invalid user data, clear and continue
                     localStorage.removeItem('access_token');
                     localStorage.removeItem('id_token');
