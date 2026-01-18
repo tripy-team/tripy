@@ -1,7 +1,6 @@
 'use client';
 
-import { useState, useEffect } from 'react';
-import { useRouter } from 'next/navigation';
+import { useState } from 'react';
 import Link from 'next/link';
 import { Plus, Calendar, CreditCard, Users, Plane, TrendingUp } from 'lucide-react';
 import { TripCard } from '@/components/trip-card';
@@ -9,31 +8,8 @@ import { ExploreMap } from '@/components/explore-map';
 import { Trip } from '@/types';
 
 export default function Dashboard() {
-    const router = useRouter();
     const [viewMode, setViewMode] = useState<'trips' | 'explore'>('trips');
-    const [loading, setLoading] = useState(true);
-
-    useEffect(() => {
-        // Check if user is logged in
-        const token = localStorage.getItem('auth_token');
-        if (!token) {
-            // User is not logged in, redirect to landing page
-            router.push('/');
-        } else {
-            setLoading(false);
-        }
-    }, [router]);
-
-    // Show loading state while checking auth
-    if (loading) {
-        return (
-            <div className="min-h-screen flex items-center justify-center">
-                <div className="text-center">
-                    <div className="text-slate-600">Loading...</div>
-                </div>
-            </div>
-        );
-    }
+    // Note: Authentication is handled by the AppLayout component
 
     // TODO: Replace with API call to fetch user's trips
     // Endpoint needed: GET /trips (list user trips) or POST /trips/get for each trip
