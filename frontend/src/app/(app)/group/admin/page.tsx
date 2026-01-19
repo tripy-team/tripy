@@ -1,6 +1,6 @@
 'use client';
 
-import React, { useState, useEffect, useCallback } from 'react';
+import { useState, useEffect, useCallback } from 'react';
 import { useRouter, useSearchParams } from 'next/navigation';
 import { Users, Trash2, UserPlus, Copy, Check } from 'lucide-react';
 import { Navigation } from '@/components/navigation';
@@ -88,17 +88,17 @@ export default function GroupAdmin() {
 
   if (isLoading) {
     return (
-      <React.Fragment>
+      <>
         <Navigation />
         <div className="min-h-screen flex items-center justify-center bg-gradient-to-br from-white via-blue-50/20 to-white">
           <div className="text-slate-600">Loading...</div>
         </div>
-      </React.Fragment>
+      </>
     );
   }
 
   return (
-    <React.Fragment>
+    <>
       <Navigation />
       <div className="min-h-screen p-8 bg-gradient-to-br from-white via-blue-50/20 to-white">
         <div className="max-w-4xl mx-auto">
@@ -203,6 +203,6 @@ export default function GroupAdmin() {
           </div>
         </div>
       </div>
-    </React.Fragment>
+    </>
   );
 }
