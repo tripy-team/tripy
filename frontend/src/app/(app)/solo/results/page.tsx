@@ -1,8 +1,9 @@
 'use client';
 
 import { useState, useEffect } from 'react';
-import { useRouter } from 'next/navigation';
+import { useRouter, useSearchParams } from 'next/navigation';
 import { MapPin, DollarSign, Clock, Zap, Edit3, Check, Sparkles, TrendingUp } from 'lucide-react';
+import { itineraries as itinerariesAPI } from '@/lib/api';
 
 interface Itinerary {
     id: number;
@@ -15,6 +16,8 @@ interface Itinerary {
 
 export default function SoloResults() {
     const router = useRouter();
+    const searchParams = useSearchParams();
+    const tripId = searchParams?.get('trip_id') || '';
 
     const [itineraries, setItineraries] = useState<Itinerary[]>([]);
     const [selectedId, setSelectedId] = useState<number | null>(null);
@@ -22,58 +25,61 @@ export default function SoloResults() {
     const [comparing, setComparing] = useState<number[]>([]);
     const [loading, setLoading] = useState(true);
 
-    // TODO: Fetch itineraries from backend
-    // Endpoint: POST /itinerary/get
-    // Data needed: trip_id (from URL params or context)
-    // Generate itineraries
     useEffect(() => {
-        setTimeout(() => {
-            const generated: Itinerary[] = [
-                {
-                    id: 1,
-                    name: 'Balanced Route',
-                    cities: [
-                        { name: 'Paris', days: 4 },
-                        { name: 'Barcelona', days: 4 },
-                        { name: 'Rome', days: 3 },
-                        { name: 'Amsterdam', days: 3 },
-                    ],
-                    totalCost: 4200,
-                    pointsCost: 105000,
-                    score: 94,
-                },
-                {
-                    id: 2,
-                    name: 'Fast-Paced Explorer',
-                    cities: [
-                        { name: 'Paris', days: 3 },
-                        { name: 'Barcelona', days: 2 },
-                        { name: 'Rome', days: 3 },
-                        { name: 'Amsterdam', days: 2 },
-                        { name: 'Berlin', days: 2 },
-                        { name: 'Prague', days: 2 },
-                    ],
-                    totalCost: 3900,
-                    pointsCost: 97500,
-                    score: 89,
-                },
-                {
-                    id: 3,
-                    name: 'Deep Dive',
-                    cities: [
-                        { name: 'Paris', days: 7 },
-                        { name: 'Barcelona', days: 7 },
-                    ],
-                    totalCost: 3600,
-                    pointsCost: 90000,
-                    score: 92,
-                },
-            ];
-            setItineraries(generated);
-            setSelectedId(1);
-            setLoading(false);
-        }, 2000);
-    }, []);
+        const fetchItineraries = async () => {
+            if (!tripId) {
+                setLoading(false);
+                return;
+            }
+
+            try {
+                setLoading(true);
+                const response = await itinerariesAPI.get(tripId);
+                
+                // Transform API response to display format
+                // The API returns { items: [...] } where items contain itinerary data
+                if (response.items && Array.isArray(response.items) && response.items.length > 0) {
+                    const transformed: Itinerary[] = response.items.map((item: any, index: number) => {
+                        // Parse the route/cities from the item
+                        // The structure depends on how itinerary_service.save_itinerary stores data
+                        const route = item.route || item.cities || [];
+                        const cities = Array.isArray(route) 
+                            ? route.map((city: string | { name: string; days: number }, idx: number) => {
+                                if (typeof city === 'string') {
+                                    return { name: city, days: 3 }; // Default days
+                                }
+                                return city;
+                            })
+                            : [];
+                        
+                        return {
+                            id: index + 1,
+                            name: item.name || `Itinerary ${index + 1}`,
+                            cities: cities,
+                            totalCost: item.totalCost || item.cost || 0,
+                            pointsCost: item.pointsCost || item.points || 0,
+                            score: item.score || 85,
+                        };
+                    });
+                    
+                    setItineraries(transformed);
+                    if (transformed.length > 0) {
+                        setSelectedId(transformed[0].id);
+                    }
+                } else {
+                    // No itineraries found - show empty state
+                    setItineraries([]);
+                }
+            } catch (err) {
+                console.error('Error fetching itineraries:', err);
+                setItineraries([]);
+            } finally {
+                setLoading(false);
+            }
+        };
+
+        fetchItineraries();
+    }, [tripId]);
 
     const selectedItinerary = itineraries.find(i => i.id === selectedId);
 

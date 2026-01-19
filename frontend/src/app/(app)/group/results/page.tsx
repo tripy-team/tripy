@@ -1,8 +1,9 @@
 'use client';
 
 import { useState, useEffect } from 'react';
-import { useRouter } from 'next/navigation';
+import { useRouter, useSearchParams } from 'next/navigation';
 import { MapPin, DollarSign, Clock, Zap, Users, Sparkles, TrendingUp } from 'lucide-react';
+import { itineraries as itinerariesAPI, trips as tripsAPI } from '@/lib/api';
 
 interface Itinerary {
     id: number;
@@ -15,64 +16,71 @@ interface Itinerary {
 
 export default function GroupResults() {
     const router = useRouter();
+    const searchParams = useSearchParams();
+    const tripId = searchParams?.get('trip_id') || '';
+    
     const [itineraries, setItineraries] = useState<Itinerary[]>([]);
     const [selectedId, setSelectedId] = useState<number | null>(null);
     const [loading, setLoading] = useState(true);
+    const [groupSize, setGroupSize] = useState(4);
 
-    // TODO: Fetch actual group size from backend
-    // Endpoint: POST /trips/members (count members)
-    const groupSize = 4;
-
-    // TODO: Fetch itineraries from backend
-    // Endpoint: POST /itinerary/get
-    // Data needed: trip_id (from URL params or context)
     useEffect(() => {
-        setTimeout(() => {
-            const generated: Itinerary[] = [
-                {
-                    id: 1,
-                    name: 'Balanced Group Route',
-                    cities: [
-                        { name: 'Paris', days: 4 },
-                        { name: 'Barcelona', days: 3 },
-                        { name: 'Rome', days: 4 },
-                        { name: 'Amsterdam', days: 3 },
-                    ],
-                    totalCostPerPerson: 4800,
-                    pointsCost: 120000,
-                    score: 93,
-                },
-                {
-                    id: 2,
-                    name: 'Budget Friendly',
-                    cities: [
-                        { name: 'Paris', days: 3 },
-                        { name: 'Barcelona', days: 4 },
-                        { name: 'Rome', days: 3 },
-                    ],
-                    totalCostPerPerson: 3900,
-                    pointsCost: 97500,
-                    score: 88,
-                },
-                {
-                    id: 3,
-                    name: 'Extended Explorer',
-                    cities: [
-                        { name: 'Paris', days: 5 },
-                        { name: 'Barcelona', days: 4 },
-                        { name: 'Rome', days: 5 },
-                        { name: 'Amsterdam', days: 4 },
-                    ],
-                    totalCostPerPerson: 5600,
-                    pointsCost: 140000,
-                    score: 91,
-                },
-            ];
-            setItineraries(generated);
-            setSelectedId(1);
-            setLoading(false);
-        }, 2000);
-    }, []);
+        const fetchData = async () => {
+            if (!tripId) {
+                setLoading(false);
+                return;
+            }
+
+            try {
+                setLoading(true);
+                
+                // Fetch group size from trip members
+                const membersResponse = await tripsAPI.listMembers(tripId);
+                setGroupSize(membersResponse.members.length || 4);
+                
+                // Fetch itineraries
+                const response = await itinerariesAPI.get(tripId);
+                
+                // Transform API response to display format
+                if (response.items && Array.isArray(response.items) && response.items.length > 0) {
+                    const transformed: Itinerary[] = response.items.map((item: any, index: number) => {
+                        const route = item.route || item.cities || [];
+                        const cities = Array.isArray(route) 
+                            ? route.map((city: string | { name: string; days: number }, idx: number) => {
+                                if (typeof city === 'string') {
+                                    return { name: city, days: 3 };
+                                }
+                                return city;
+                            })
+                            : [];
+                        
+                        return {
+                            id: index + 1,
+                            name: item.name || `Itinerary ${index + 1}`,
+                            cities: cities,
+                            totalCostPerPerson: item.totalCostPerPerson || item.costPerPerson || (item.totalCost || 0) / groupSize,
+                            pointsCost: item.pointsCost || item.points || 0,
+                            score: item.score || 85,
+                        };
+                    });
+                    
+                    setItineraries(transformed);
+                    if (transformed.length > 0) {
+                        setSelectedId(transformed[0].id);
+                    }
+                } else {
+                    setItineraries([]);
+                }
+            } catch (err) {
+                console.error('Error fetching data:', err);
+                setItineraries([]);
+            } finally {
+                setLoading(false);
+            }
+        };
+
+        fetchData();
+    }, [tripId, groupSize]);
 
     const selectedItinerary = itineraries.find(i => i.id === selectedId);
 

@@ -1,7 +1,10 @@
 'use client';
 
 import Link from 'next/link';
+import Image from 'next/image';
 import { MapPin, Calendar, CreditCard, Users, Plane, Hotel, ArrowRight, TrendingUp } from 'lucide-react';
+import { getOptimizedImageUrl, getImageDimensions } from '@/lib/image-utils';
+import { useState, useEffect } from 'react';
 
 interface Trip {
     id: string;
@@ -23,6 +26,22 @@ interface TripCardProps {
 }
 
 export function TripCard({ trip }: TripCardProps) {
+    const [imageUrl, setImageUrl] = useState(trip.thumbnail);
+    const [isImageLoading, setIsImageLoading] = useState(true);
+    const { width, height } = getImageDimensions('thumbnail');
+
+    useEffect(() => {
+        // Load optimized image URL
+        getOptimizedImageUrl(trip.destination, 'thumbnail')
+            .then((url) => {
+                setImageUrl(url);
+            })
+            .catch(() => {
+                // Fallback to provided thumbnail if optimization fails
+                setImageUrl(trip.thumbnail);
+            });
+    }, [trip.destination, trip.thumbnail]);
+
     const getStatusColor = (status: string) => {
         switch (status) {
             case 'upcoming':
@@ -43,13 +62,24 @@ export function TripCard({ trip }: TripCardProps) {
     return (
         <div className="bg-white rounded-2xl border border-slate-200 shadow-sm hover:shadow-xl transition-all duration-300 overflow-hidden group">
             {/* Thumbnail */}
-            <div className="relative h-48 overflow-hidden">
-                {/* eslint-disable-next-line @next/next/no-img-element */}
-                <img
-                    src={trip.thumbnail}
+            <div className="relative h-48 overflow-hidden bg-slate-200">
+                <Image
+                    src={imageUrl}
                     alt={trip.destination}
+                    width={width}
+                    height={height}
                     className="w-full h-full object-cover group-hover:scale-110 transition-transform duration-500"
+                    loading="lazy"
+                    onLoad={() => setIsImageLoading(false)}
+                    onError={() => {
+                        // Fallback to original thumbnail on error
+                        setImageUrl(trip.thumbnail);
+                        setIsImageLoading(false);
+                    }}
                 />
+                {isImageLoading && (
+                    <div className="absolute inset-0 bg-slate-200 animate-pulse" />
+                )}
                 <div className="absolute inset-0 bg-gradient-to-t from-black/60 via-black/20 to-transparent"></div>
 
                 {/* Status Badge */}

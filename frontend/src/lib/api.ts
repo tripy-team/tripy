@@ -404,6 +404,26 @@ export const trips = {
     });
   },
 
+  getByInvite: async (invite_code: string): Promise<Trip> => {
+    return apiRequest<Trip>(`/trips/by-invite/${invite_code}`, {
+      method: 'GET',
+    }, false); // requireAuth = false for public invite access
+  },
+
+  join: async (invite_code: string): Promise<{ tripId: string }> => {
+    return apiRequest<{ tripId: string }>('/trips/join', {
+      method: 'POST',
+      body: JSON.stringify({ invite_code }),
+    });
+  },
+
+  listMembers: async (trip_id: string): Promise<{ members: Array<{ userId: string; role: string; status: string }> }> => {
+    return apiRequest<{ members: Array<{ userId: string; role: string; status: string }> }>('/trips/members', {
+      method: 'POST',
+      body: JSON.stringify({ trip_id }),
+    });
+  },
+
   invite: async (trip_id: string): Promise<{ inviteCode: string }> => {
     return apiRequest<{ inviteCode: string }>('/trips/invite', {
       method: 'POST',

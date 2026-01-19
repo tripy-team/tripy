@@ -1,7 +1,9 @@
 'use client';
 
-import { useRouter } from 'next/navigation';
+import { useRouter, useSearchParams } from 'next/navigation';
+import { useState, useEffect } from 'react';
 import { MapPin, DollarSign, Clock, Zap, TrendingUp, ArrowLeft, Check } from 'lucide-react';
+import { itineraries as itinerariesAPI } from '@/lib/api';
 
 interface Itinerary {
     id: number;
@@ -14,38 +16,75 @@ interface Itinerary {
 
 export default function SoloComparison() {
     const router = useRouter();
+    const searchParams = useSearchParams();
+    const tripId = searchParams?.get('trip_id') || '';
+    
+    const [itineraries, setItineraries] = useState<Itinerary[]>([]);
+    const [isLoading, setIsLoading] = useState(true);
 
-    // Default mock data for comparison
-    const itineraries: Itinerary[] = [
-        {
-            id: 1,
-            name: 'Balanced Route',
-            cities: [
-                { name: 'Paris', days: 4 },
-                { name: 'Barcelona', days: 4 },
-                { name: 'Rome', days: 3 },
-                { name: 'Amsterdam', days: 3 },
-            ],
-            totalCost: 4200,
-            pointsCost: 105000,
-            score: 94,
-        },
-        {
-            id: 2,
-            name: 'Fast-Paced Explorer',
-            cities: [
-                { name: 'Paris', days: 3 },
-                { name: 'Barcelona', days: 2 },
-                { name: 'Rome', days: 3 },
-                { name: 'Amsterdam', days: 2 },
-                { name: 'Berlin', days: 2 },
-                { name: 'Prague', days: 2 },
-            ],
-            totalCost: 3900,
-            pointsCost: 97500,
-            score: 89,
-        },
-    ];
+    useEffect(() => {
+        const fetchItineraries = async () => {
+            if (!tripId) {
+                setIsLoading(false);
+                return;
+            }
+
+            try {
+                setIsLoading(true);
+                const response = await itinerariesAPI.get(tripId);
+                
+                // Transform API response to display format
+                if (response.items && Array.isArray(response.items) && response.items.length > 0) {
+                    const transformed: Itinerary[] = response.items.map((item: any, index: number) => {
+                        const route = item.route || item.cities || [];
+                        const cities = Array.isArray(route) 
+                            ? route.map((city: string | { name: string; days: number }, idx: number) => {
+                                if (typeof city === 'string') {
+                                    return { name: city, days: 3 };
+                                }
+                                return city;
+                            })
+                            : [];
+                        
+                        return {
+                            id: index + 1,
+                            name: item.name || `Itinerary ${index + 1}`,
+                            cities: cities,
+                            totalCost: item.totalCost || item.cost || 0,
+                            pointsCost: item.pointsCost || item.points || 0,
+                            score: item.score || 85,
+                        };
+                    });
+                    
+                    setItineraries(transformed);
+                } else {
+                    setItineraries([]);
+                }
+            } catch (err) {
+                console.error('Error fetching itineraries:', err);
+                setItineraries([]);
+            } finally {
+                setIsLoading(false);
+            }
+        };
+
+        fetchItineraries();
+    }, [tripId]);
+
+    if (isLoading) {
+        return (
+            <div className="min-h-full p-8 bg-neutral-50">
+                <div className="max-w-6xl mx-auto">
+                    <div className="flex items-center justify-center min-h-[400px]">
+                        <div className="text-center">
+                            <div className="inline-block animate-spin rounded-full h-8 w-8 border-b-2 border-blue-600"></div>
+                            <p className="mt-4 text-neutral-600">Loading itineraries...</p>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        );
+    }
 
     return (
         <div className="min-h-full p-8 bg-neutral-50">

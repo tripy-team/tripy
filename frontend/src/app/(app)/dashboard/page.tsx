@@ -1,92 +1,95 @@
 'use client';
 
-import { useState } from 'react';
+import { useState, useEffect } from 'react';
 import Link from 'next/link';
 import { Plus, Calendar, CreditCard, Users, Plane, TrendingUp } from 'lucide-react';
 import { TripCard } from '@/components/trip-card';
 import { ExploreMap } from '@/components/explore-map';
 import { Trip } from '@/types';
+import { trips as tripsAPI } from '@/lib/api';
+
+interface ApiTrip {
+  tripId: string;
+  title: string;
+  startDate: string;
+  endDate: string;
+  status: string;
+  createdBy: string;
+  role?: string;
+  memberCount?: number;
+  destinations?: string[];
+  firstDestination?: string;
+}
 
 export default function Dashboard() {
     const [viewMode, setViewMode] = useState<'trips' | 'explore'>('trips');
+    const [trips, setTrips] = useState<Trip[]>([]);
+    const [isLoading, setIsLoading] = useState(true);
     // Note: Authentication is handled by the AppLayout component
 
-    // TODO: Replace with API call to fetch user's trips
-    // Endpoint needed: GET /trips (list user trips) or POST /trips/get for each trip
-    // Also fetch user profile: GET /users/me
-    // Mock trip data
-    const trips: Trip[] = [
-        {
-            id: '1',
-            name: 'Tokyo Adventure',
-            destination: 'Tokyo, Japan',
-            dates: 'Dec 20 - Dec 28, 2024',
-            status: 'completed' as const,
-            type: 'solo' as const,
-            pointsUsed: 85000,
-            cashSaved: 1200,
-            thumbnail: 'https://images.unsplash.com/photo-1540959733332-eab4deabeeaf?w=800&q=80',
-            members: 1,
-            hotel: 'Park Hyatt Tokyo',
-            flightClass: 'Business'
-        },
-        {
-            id: '2',
-            name: 'European Summer',
-            destination: 'Paris, France',
-            dates: 'Jun 15 - Jun 25, 2025',
-            status: 'upcoming' as const,
-            type: 'group' as const,
-            pointsUsed: 120000,
-            cashSaved: 2400,
-            thumbnail: 'https://images.unsplash.com/photo-1502602898657-3e91760cbb34?w=800&q=80',
-            members: 4,
-            hotel: 'Hôtel Plaza Athénée',
-            flightClass: 'Economy'
-        },
-        {
-            id: '3',
-            name: 'Bali Retreat',
-            destination: 'Bali, Indonesia',
-            dates: 'Mar 10 - Mar 20, 2025',
-            status: 'upcoming' as const,
-            type: 'solo' as const,
-            pointsUsed: 65000,
-            cashSaved: 850,
-            thumbnail: 'https://images.unsplash.com/photo-1537996194471-e657df975ab4?w=800&q=80',
-            members: 1,
-            hotel: 'Four Seasons Resort Bali',
-            flightClass: 'Economy'
-        },
-        {
-            id: '4',
-            name: 'Iceland Northern Lights',
-            destination: 'Reykjavik, Iceland',
-            dates: 'Nov 12 - Nov 18, 2024',
-            status: 'completed' as const,
-            type: 'solo' as const,
-            pointsUsed: 75000,
-            cashSaved: 950,
-            thumbnail: 'https://images.unsplash.com/photo-1504829857797-ddff29c27927?w=800&q=80',
-            members: 1,
-            hotel: 'ION Adventure Hotel',
-            flightClass: 'Economy'
-        },
-        {
-            id: '5',
-            name: 'Santorini Escape',
-            destination: 'Santorini, Greece',
-            dates: 'Sep 5 - Sep 12, 2024',
-            status: 'completed' as const,
-            type: 'group' as const,
-            pointsUsed: 95000,
-            cashSaved: 1600,
-            thumbnail: 'https://images.unsplash.com/photo-1613395877344-13d4a8e0d49e?w=800&q=80',
-            members: 2,
-            hotel: 'Katikies Hotel',
-            flightClass: 'Business'
-        }
-    ];
+    useEffect(() => {
+        const fetchTrips = async () => {
+            try {
+                setIsLoading(true);
+                const response = await tripsAPI.list();
+                
+                // Transform API trips to display format
+                const transformedTrips: Trip[] = response.trips.map((trip: ApiTrip) => {
+                    // Format dates
+                    const startDate = trip.startDate ? new Date(trip.startDate) : null;
+                    const endDate = trip.endDate ? new Date(trip.endDate) : null;
+                    const now = new Date();
+                    
+                    let datesStr = 'TBD';
+                    if (startDate && endDate) {
+                        datesStr = `${startDate.toLocaleDateString('en-US', { month: 'short', day: 'numeric' })} - ${endDate.toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric' })}`;
+                    } else if (startDate) {
+                        datesStr = startDate.toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric' });
+                    }
+                    
+                    // Determine status
+                    const isCompleted = endDate ? endDate < now : false;
+                    const status: 'completed' | 'upcoming' | 'planning' = isCompleted ? 'completed' : (trip.status === 'active' ? 'upcoming' : 'planning');
+                    
+                    // Determine trip type (group if multiple members, solo otherwise)
+                    const memberCount = trip.memberCount || 1;
+                    const tripType: 'solo' | 'group' = memberCount > 1 ? 'group' : 'solo';
+                    
+                    // Get destination name or use first destination
+                    const destinationName = trip.firstDestination || trip.title || 'Trip';
+                    
+                    // Generate optimized image URL (will be loaded via image-utils)
+                    // For now, use a placeholder that will be optimized by the component
+                    const thumbnail = `https://source.unsplash.com/400x300/?${encodeURIComponent(destinationName)}`;
+                    
+                    return {
+                        id: trip.tripId,
+                        name: trip.title || destinationName,
+                        destination: destinationName,
+                        dates: datesStr,
+                        status: status,
+                        type: tripType,
+                        pointsUsed: 0, // TODO: Calculate from points data
+                        cashSaved: 0, // TODO: Calculate from points data
+                        thumbnail: thumbnail,
+                        members: memberCount,
+                        hotel: '', // TODO: Get from itinerary data
+                        flightClass: '' // TODO: Get from itinerary data
+                    };
+                });
+                
+                setTrips(transformedTrips);
+            } catch (err) {
+                console.error('Error fetching trips:', err);
+                // Keep empty array on error (don't show dummy data)
+                setTrips([]);
+            } finally {
+                setIsLoading(false);
+            }
+        };
+
+        fetchTrips();
+    }, []);
 
     const completedTrips = trips.filter(t => t.status === 'completed');
     const upcomingTrips = trips.filter(t => t.status === 'upcoming');
@@ -97,6 +100,21 @@ export default function Dashboard() {
     const totalUpcomingAndConfirmed = confirmedTrips.length;
     const totalPointsUsed = trips.reduce((sum, trip) => sum + trip.pointsUsed, 0);
     const totalCashSaved = trips.reduce((sum, trip) => sum + trip.cashSaved, 0);
+
+    if (isLoading) {
+        return (
+            <div className="min-h-full bg-gradient-to-br from-white via-blue-50/30 to-white">
+                <div className="max-w-7xl mx-auto px-8 py-8">
+                    <div className="flex items-center justify-center min-h-[400px]">
+                        <div className="text-center">
+                            <div className="inline-block animate-spin rounded-full h-8 w-8 border-b-2 border-blue-600"></div>
+                            <p className="mt-4 text-slate-600">Loading trips...</p>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        );
+    }
 
     return (
         <div className="min-h-full bg-gradient-to-br from-white via-blue-50/30 to-white">

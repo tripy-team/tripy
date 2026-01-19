@@ -1,8 +1,18 @@
 'use client';
 
-import { useState, use } from 'react';
+import { useState, use, useEffect } from 'react';
 import { useRouter } from 'next/navigation';
 import { DollarSign, Zap, MapPin, Users, Calendar } from 'lucide-react';
+import { trips as tripsAPI, points as pointsAPI } from '@/lib/api';
+
+interface TripInfo {
+    name: string;
+    admin: string;
+    cities: string[];
+    duration: number;
+    startDate: string;
+    currentMembers: number;
+}
 
 export default function GroupMemberJoin({ params }: { params: Promise<{ inviteCode: string }> }) {
     const { inviteCode } = use(params);
@@ -10,34 +20,110 @@ export default function GroupMemberJoin({ params }: { params: Promise<{ inviteCo
     const [budget, setBudget] = useState(5000);
     const [points, setPoints] = useState(100000);
     const [airport, setAirport] = useState('');
+    const [tripInfo, setTripInfo] = useState<TripInfo | null>(null);
+    const [isLoading, setIsLoading] = useState(true);
+    const [isJoining, setIsJoining] = useState(false);
 
-    // TODO: Fetch trip info on mount using invite code
-    // Endpoint: POST /trips/join (validates invite and returns trip info)
-    // Data needed: trip name, admin name, cities, dates, member count
-    // Mock trip data
-    const tripInfo = {
-        name: 'European Adventure 2025',
-        admin: 'Sarah Chen',
-        cities: ['Paris', 'Barcelona', 'Rome', 'Amsterdam'],
-        duration: 14,
-        startDate: 'June 15, 2025',
-        currentMembers: 2,
-    };
+    useEffect(() => {
+        const fetchTripInfo = async () => {
+            try {
+                setIsLoading(true);
+                const trip = await tripsAPI.getByInvite(inviteCode);
+                
+                // Calculate duration
+                const startDate = trip.startDate ? new Date(trip.startDate) : null;
+                const endDate = trip.endDate ? new Date(trip.endDate) : null;
+                const duration = startDate && endDate 
+                    ? Math.ceil((endDate.getTime() - startDate.getTime()) / (1000 * 60 * 60 * 24))
+                    : 0;
+                
+                // Format start date
+                const startDateStr = startDate 
+                    ? startDate.toLocaleDateString('en-US', { month: 'long', day: 'numeric', year: 'numeric' })
+                    : 'TBD';
+                
+                // Get destinations
+                const cities = (trip.destinations || []) as string[];
+                
+                // Get admin name (for now, use createdBy or a placeholder)
+                const admin = 'Trip Organizer'; // TODO: Get actual admin name from user service
+                
+                setTripInfo({
+                    name: trip.title || 'Group Trip',
+                    admin: admin,
+                    cities: cities,
+                    duration: duration,
+                    startDate: startDateStr,
+                    currentMembers: trip.memberCount || 1,
+                });
+            } catch (err) {
+                console.error('Error fetching trip info:', err);
+                // Show error or redirect
+            } finally {
+                setIsLoading(false);
+            }
+        };
+
+        fetchTripInfo();
+    }, [inviteCode]);
 
     const handleJoin = async () => {
-        // TODO: Implement backend integration:
-        // 1. POST /trips/join - Join trip with invite code
-        //    - invite_code: inviteCode from URL
-        //    Returns: { trip_id, trip details }
-        // 2. POST /points/upsert - Save user's points (if provided)
-        //    - trip_id: from step 1
-        //    - program: "User Points" or similar
-        //    - balance: points value
-        // 3. Update user profile with airport: PUT /users/profile
-        //    - default_home_airport: airport value
-        // 4. Navigate to /group/dashboard with trip_id
-        router.push('/group/dashboard');
+        try {
+            setIsJoining(true);
+            
+            // 1. Join trip with invite code
+            const joinResult = await tripsAPI.join(inviteCode);
+            const tripId = joinResult.tripId;
+            
+            // 2. Save user's points if provided
+            if (points > 0) {
+                await pointsAPI.upsert({
+                    trip_id: tripId,
+                    program: 'User Points',
+                    balance: points,
+                });
+            }
+            
+            // 3. TODO: Update user profile with airport (when endpoint is available)
+            // await userAPI.updateProfile({ default_home_airport: airport });
+            
+            // 4. Navigate to group dashboard with trip_id
+            router.push(`/group/dashboard?trip_id=${tripId}`);
+        } catch (err) {
+            console.error('Error joining trip:', err);
+            alert('Failed to join trip. Please try again.');
+        } finally {
+            setIsJoining(false);
+        }
     };
+
+    if (isLoading) {
+        return (
+            <div className="min-h-full p-8 bg-gradient-to-br from-white via-blue-50/20 to-white">
+                <div className="max-w-4xl mx-auto">
+                    <div className="flex items-center justify-center min-h-[400px]">
+                        <div className="text-center">
+                            <div className="inline-block animate-spin rounded-full h-8 w-8 border-b-2 border-blue-600"></div>
+                            <p className="mt-4 text-slate-600">Loading trip information...</p>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        );
+    }
+
+    if (!tripInfo) {
+        return (
+            <div className="min-h-full p-8 bg-gradient-to-br from-white via-blue-50/20 to-white">
+                <div className="max-w-4xl mx-auto">
+                    <div className="text-center py-16">
+                        <h1 className="text-2xl mb-4 text-slate-900 font-bold">Invalid Invite Code</h1>
+                        <p className="text-slate-600">The invite code you provided is not valid.</p>
+                    </div>
+                </div>
+            </div>
+        );
+    }
 
     return (
         <div className="min-h-full p-8 bg-gradient-to-br from-white via-blue-50/20 to-white">
@@ -166,10 +252,10 @@ export default function GroupMemberJoin({ params }: { params: Promise<{ inviteCo
 
                         <button
                             onClick={handleJoin}
-                            disabled={!airport}
+                            disabled={!airport || isJoining}
                             className="w-full px-6 py-4 bg-yellow-400 text-slate-900 rounded-xl hover:bg-yellow-500 transition-colors disabled:opacity-50 disabled:cursor-not-allowed shadow-lg shadow-yellow-400/20 font-semibold text-lg"
                         >
-                            Join Trip
+                            {isJoining ? 'Joining...' : 'Join Trip'}
                         </button>
                     </div>
                 </div>

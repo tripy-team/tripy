@@ -28,6 +28,7 @@ from .services import (
     user_service,
     city_service,
     auth_service,
+    trip_member_service,
 )
 from .utils.analytics import (
     track_user_login,
@@ -145,6 +146,10 @@ class ConfirmForgotPasswordRequest(BaseModel):
 class CitySearchRequest(BaseModel):
     query: str = Field(..., min_length=1, max_length=100)
     max_results: Optional[int] = Field(10, ge=1, le=50)
+
+
+class JoinTripRequest(BaseModel):
+    invite_code: str = Field(..., min_length=1)
 
 
 @app.get("/healthz")
@@ -402,6 +407,79 @@ async def get_invite_code(
         raise
     except Exception as e:
         logger.error(f"Error getting invite code: {str(e)}")
+        raise HTTPException(status_code=500, detail=str(e))
+
+
+@app.get("/trips/by-invite/{invite_code}")
+async def get_trip_by_invite(invite_code: str):
+    """Get trip information by invite code (public endpoint for joining)"""
+    try:
+        trip = trip_service.get_trip_by_invite(invite_code)
+        if not trip:
+            raise HTTPException(status_code=404, detail="Invalid invite code")
+        
+        # Get member count and destinations for display
+        from .services.destination_service import list_destinations
+        from .services.trip_member_service import list_members
+        
+        members = list_members(trip["tripId"])
+        trip["memberCount"] = len(members) if members else 1
+        
+        destinations = list_destinations(trip["tripId"])
+        if destinations:
+            trip["destinations"] = [d.get("name") for d in destinations]
+            trip["firstDestination"] = destinations[0].get("name", "")
+        else:
+            trip["destinations"] = []
+            trip["firstDestination"] = ""
+        
+        return trip
+    except HTTPException:
+        raise
+    except Exception as e:
+        logger.error(f"Error getting trip by invite code: {str(e)}")
+        raise HTTPException(status_code=500, detail=str(e))
+
+
+@app.post("/trips/join")
+async def join_trip(
+    request: JoinTripRequest, user_id: str = Depends(get_current_user_id)
+):
+    """Join a trip using an invite code"""
+    try:
+        result = trip_member_service.join_trip(user_id, request.invite_code)
+        if result.get("error"):
+            raise HTTPException(status_code=404, detail=result["error"])
+        return result
+    except HTTPException:
+        raise
+    except Exception as e:
+        logger.error(f"Error joining trip: {str(e)}")
+        raise HTTPException(status_code=500, detail=str(e))
+
+
+@app.post("/trips/members")
+async def list_trip_members(
+    request: TripIdRequest, user_id: str = Depends(get_current_user_id)
+):
+    """List all members of a trip"""
+    try:
+        # Verify user has access to this trip
+        trip = trip_service.get_trip(request.trip_id)
+        if not trip:
+            raise HTTPException(status_code=404, detail="Trip not found")
+        
+        # Check if user is a member of the trip
+        members = trip_member_service.list_members(request.trip_id)
+        is_member = any(m.get("userId") == user_id for m in members)
+        if not is_member and trip.get("createdBy") != user_id:
+            raise HTTPException(status_code=403, detail="Access denied")
+        
+        return {"members": members}
+    except HTTPException:
+        raise
+    except Exception as e:
+        logger.error(f"Error listing trip members: {str(e)}")
         raise HTTPException(status_code=500, detail=str(e))
 
 
