@@ -4,6 +4,8 @@ import { useState, useEffect } from 'react';
 import { useRouter } from 'next/navigation';
 import { X, Plus, Calendar, DollarSign, Zap, MapPin, Sparkles, CreditCard } from 'lucide-react';
 import { createTrip, addDestination, upsertPoints, generateItinerary } from '@/lib/api';
+import TripChatbot from '@/components/trip-chatbot';
+import { ExtractedTripInfo } from '@/lib/trip-extractor';
 
 interface CreditCardEntry {
   id: string;
@@ -39,9 +41,54 @@ export default function SoloTripSetup() {
   const [durationDays, setDurationDays] = useState(0);
   const [isGenerating, setIsGenerating] = useState(false);
   const [error, setError] = useState<string | null>(null);
+  const [isChatbotOpen, setIsChatbotOpen] = useState(false);
 
   // Calculate total points from all cards
   const totalPoints = creditCards.reduce((sum, card) => sum + card.points, 0);
+
+  // Handle extracted trip info from chatbot
+  const handleExtract = (info: ExtractedTripInfo) => {
+    // Extract cities
+    if (info.cities && info.cities.length > 0) {
+      const newCities = info.cities.filter(city => !cities.includes(city));
+      if (newCities.length > 0) {
+        setCities([...cities, ...newCities]);
+      }
+    }
+
+    // Extract dates
+    if (info.startDate) {
+      setStartDate(info.startDate);
+    }
+    if (info.endDate) {
+      setEndDate(info.endDate);
+    }
+    if (info.duration && !info.startDate && !info.endDate) {
+      setIsFlexible(true);
+      setFlexibleDuration(info.duration);
+    }
+    if (info.isFlexible !== undefined) {
+      setIsFlexible(info.isFlexible);
+    }
+
+    // Extract budget
+    if (info.minBudget) {
+      setMinBudget(info.minBudget);
+    }
+    if (info.maxBudget) {
+      setMaxBudget(info.maxBudget);
+    }
+
+    // Extract credit cards
+    if (info.creditCards && info.creditCards.length > 0) {
+      const newCards = info.creditCards.map((card, index) => ({
+        id: `extracted-${Date.now()}-${index}`,
+        program: card.program,
+        points: card.points,
+      }));
+      setCreditCards([...creditCards, ...newCards]);
+    }
+  };
 
   // Calculate Duration
   useEffect(() => {
@@ -410,6 +457,13 @@ export default function SoloTripSetup() {
           </div>
         </div>
       </div>
+
+      {/* Chatbot */}
+      <TripChatbot
+        isOpen={isChatbotOpen}
+        onToggle={() => setIsChatbotOpen(!isChatbotOpen)}
+        onExtract={handleExtract}
+      />
     </div>
   );
 }

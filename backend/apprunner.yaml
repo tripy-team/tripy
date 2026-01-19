@@ -36,7 +36,13 @@ run:
     - name: USER_POOL_ID
       value: us-east-1_zCMCjyTLJ  # REPLACE WITH YOUR ACTUAL USER POOL ID (e.g., us-east-1_AbCdEfGhI)
     - name: USER_POOL_CLIENT_ID
-      value: 2rehpmlssbivmlo6468rcsd0kq  # REPLACE WITH YOUR ACTUAL CLIENT ID
+      value: 2rehpmlssbivmlo6468rcsd0kq 
+    - name: UNSPLASH_ACCESS_KEY
+      value: tkiTc7RqbC_mwvmZDj_HMUSzwTy9oQOGufeeymucQKg # REPLACE WITH YOUR ACTUAL CLIENT ID
+    - name: UNSPLASH_SECRET_KEY
+      value: JWtLVAqUDIwO0viNemEGIRqXYXWIwrB6re5nj1p4RTU # REPLACE WITH YOUR ACTUAL CLIENT ID
+    - name: PEXELS_API_KEY
+      value: ikXdXWCXUlLsyr1VbbmdG0TzRsQrQTMrem9ANyIoiJcwTDG64pXhxXRM # REPLACE WITH YOUR ACTUAL CLIENT ID
     # OPTIONAL - CORS Origins (uncomment and set to restrict CORS)
     # - name: CORS_ORIGINS
     #   value: https://your-app.amplifyapp.com,http://localhost:3000

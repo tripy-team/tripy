@@ -16,128 +16,127 @@ export const IMAGE_SIZES = {
   full: { width: 1920, height: 1080 },    // Full-width banners
 } as const;
 
-// CDN configuration
-const CDN_DOMAIN = process.env.NEXT_PUBLIC_CDN_DOMAIN || '';
-const USE_CDN = Boolean(CDN_DOMAIN);
+// Backend API URL
+const BACKEND_URL = process.env.NEXT_PUBLIC_BACKEND_URL || 'http://localhost:8000';
 
 /**
- * Generate optimized Unsplash image URL
+ * Get curated city image from backend (S3 + CloudFront)
  * 
- * Benefits:
- * - Free, high-quality images
- * - Built-in CDN (Unsplash uses Fastly)
- * - Automatic optimization via query params
- * - No API key required for basic usage
+ * This is the primary method - uses pre-curated images stored in S3.
  * 
- * @param query - Search query (city name, destination, etc.)
- * @param size - Image size preset
- * @param options - Additional options
+ * @param city - City name
+ * @param size - Image size (400, 800, 1600)
+ * @param index - Which image to use (0-4, default 0 for hero)
  */
-export function getUnsplashImageUrl(
-  query: string,
-  size: keyof typeof IMAGE_SIZES = 'thumbnail',
-  options: {
-    quality?: number;
-    format?: 'jpg' | 'webp';
-    orientation?: 'landscape' | 'portrait' | 'squarish';
-  } = {}
-): string {
-  const { width, height } = IMAGE_SIZES[size];
-  const {
-    quality = 80,
-    format = 'webp', // WebP is ~30% smaller than JPEG
-    orientation = 'landscape',
-  } = options;
-
-  // Unsplash Source API - free, no API key needed
-  // Uses their CDN (Fastly) for fast delivery
-  const baseUrl = 'https://source.unsplash.com';
-  
-  // Encode query for URL
-  const encodedQuery = encodeURIComponent(query);
-  
-  // Build URL with optimization params
-  const url = `${baseUrl}/${width}x${height}/?${encodedQuery}&orientation=${orientation}&q=${quality}`;
-  
-  // If using custom CDN, proxy through it
-  if (USE_CDN) {
-    return `${CDN_DOMAIN}/unsplash/${width}x${height}/${encodedQuery}?orientation=${orientation}&q=${quality}`;
+export async function getCityImageUrl(
+  city: string,
+  size: '400' | '800' | '1600' = '800',
+  index: number = 0
+): Promise<{ url: string | null; isComingSoon: boolean }> {
+  try {
+    const response = await fetch(`${BACKEND_URL}/images/city/${encodeURIComponent(city)}?size=${size}`);
+    
+    if (!response.ok) {
+      // Fallback to hero image endpoint
+      const heroResponse = await fetch(`${BACKEND_URL}/images/city/${encodeURIComponent(city)}/hero?size=${size}`);
+      if (heroResponse.ok) {
+        const data = await heroResponse.json();
+        return {
+          url: data.url,
+          isComingSoon: data.is_coming_soon || false
+        };
+      }
+      return { url: null, isComingSoon: false };
+    }
+    
+    const data = await response.json();
+    const url = data.images[index] || data.images[0] || null;
+    return {
+      url: url,
+      isComingSoon: data.is_coming_soon || false
+    };
+  } catch (error) {
+    console.error('Error fetching city image:', error);
+    return { url: null, isComingSoon: false };
   }
-  
-  return url;
 }
 
-/**
- * Generate Pexels image URL (alternative to Unsplash)
- * 
- * Benefits:
- * - Free, high-quality images
- * - Good variety of travel photos
- * - Requires API key for search (but free tier is generous)
- * 
- * Note: For production, you'd want to cache search results server-side
- */
-export function getPexelsImageUrl(
-  query: string,
-  size: keyof typeof IMAGE_SIZES = 'thumbnail',
-  photoId?: string
-): string {
-  const { width, height } = IMAGE_SIZES[size];
-  
-  // If you have a cached photo ID, use direct URL
-  if (photoId) {
-    return `https://images.pexels.com/photos/${photoId}/pexels-photo-${photoId}.jpeg?auto=compress&cs=tinysrgb&w=${width}&h=${height}&fit=crop`;
-  }
-  
-  // Otherwise, use placeholder or search API (requires backend)
-  // For now, fallback to Unsplash
-  return getUnsplashImageUrl(query, size);
-}
 
 /**
  * Get optimized image URL with caching strategy
  * 
  * This function:
- * 1. Checks local cache (IndexedDB/localStorage)
- * 2. Uses CDN if configured
- * 3. Falls back to direct API
- * 4. Implements smart caching headers
+ * 1. Checks local cache (localStorage)
+ * 2. Fetches from backend (S3 + CloudFront)
+ * 3. Caches the result
+ * 4. Returns "coming soon" placeholder if city not yet curated
  */
 export async function getOptimizedImageUrl(
   destination: string,
   size: keyof typeof IMAGE_SIZES = 'thumbnail'
 ): Promise<string> {
-  // For now, use Unsplash directly
-  // In production, you'd:
-  // 1. Check cache first
-  // 2. Use your CDN
-  // 3. Fallback to source API
+  // Map size preset to actual size
+  const sizeMap: Record<keyof typeof IMAGE_SIZES, '400' | '800' | '1600'> = {
+    thumbnail: '400',
+    medium: '800',
+    large: '1600',
+    full: '1600',
+  };
   
-  return getUnsplashImageUrl(destination, size);
+  const actualSize = sizeMap[size];
+  
+  // Check cache first
+  const cached = getCachedImageUrl(destination, size);
+  if (cached) {
+    return cached;
+  }
+  
+  // Fetch from backend
+  const result = await getCityImageUrl(destination, actualSize, 0);
+  
+  if (result.url) {
+    // Cache the result (even if coming soon, cache it for a shorter time)
+    cacheImageUrl(destination, size, result.url);
+    
+    // Log if coming soon (for debugging)
+    if (result.isComingSoon) {
+      console.log(`City ${destination} is being curated - showing coming soon placeholder`);
+    }
+    
+    return result.url;
+  }
+  
+  // Fallback: return placeholder or empty
+  return '';
 }
 
 /**
- * Generate srcSet for responsive images
+ * Get responsive image srcset for a city
  * 
- * Provides multiple image sizes for different screen densities
+ * Fetches srcset data from backend (includes src, srcset, sizes)
  */
-export function getImageSrcSet(
-  query: string,
-  baseSize: keyof typeof IMAGE_SIZES = 'thumbnail'
-): string {
-  const sizes = [
-    { size: 'thumbnail', multiplier: 1 },
-    { size: 'medium', multiplier: 2 },
-    { size: 'large', multiplier: 3 },
-  ];
-  
-  return sizes
-    .map(({ size, multiplier }) => {
-      const url = getUnsplashImageUrl(query, size as keyof typeof IMAGE_SIZES);
-      const { width } = IMAGE_SIZES[size as keyof typeof IMAGE_SIZES];
-      return `${url} ${width * multiplier}w`;
-    })
-    .join(', ');
+export async function getCityImageSrcSet(city: string): Promise<{
+  src: string;
+  srcset: string;
+  sizes: string;
+} | null> {
+  try {
+    const response = await fetch(`${BACKEND_URL}/images/city/${encodeURIComponent(city)}/srcset`);
+    
+    if (!response.ok) {
+      return null;
+    }
+    
+    const data = await response.json();
+    return {
+      src: data.src,
+      srcset: data.srcset,
+      sizes: data.sizes,
+    };
+  } catch (error) {
+    console.error('Error fetching city image srcset:', error);
+    return null;
+  }
 }
 
 /**

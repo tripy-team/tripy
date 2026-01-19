@@ -2,7 +2,16 @@
 import * as cdk from "aws-cdk-lib";
 import { AuthStack } from "../lib/authStack";
 import { DbStack } from "../lib/dbStack";
-import { ApiStack } from "../lib/apiStack";
+
+// Check if we should use Lambda stack
+const useLambda = process.env.USE_LAMBDA === 'true' || process.argv.includes('--lambda');
+
+let ApiStack;
+if (useLambda) {
+    ApiStack = require("../lib/apiStackLambda").ApiStackLambda;
+} else {
+    ApiStack = require("../lib/apiStack").ApiStack;
+}
 
 const app = new cdk.App();
 

@@ -13,7 +13,7 @@ logging.basicConfig(
 )
 logger = logging.getLogger(__name__)
 
-from fastapi import FastAPI, Request, HTTPException, Depends
+from fastapi import FastAPI, Request, HTTPException, Depends, BackgroundTasks
 from fastapi.middleware.cors import CORSMiddleware
 from pydantic import BaseModel, Field, EmailStr, validator
 from typing import Optional, List, Dict, Any
@@ -29,6 +29,7 @@ from .services import (
     city_service,
     auth_service,
     trip_member_service,
+    image_service,
 )
 from .utils.analytics import (
     track_user_login,
@@ -669,4 +670,131 @@ async def search_cities_get(query: str, max_results: Optional[int] = 10):
         raise
     except Exception as e:
         logger.error(f"Error searching cities: {str(e)}")
+        raise HTTPException(status_code=500, detail=str(e))
+
+
+# Image endpoints (public, no authentication required for viewing)
+class CityImageRequest(BaseModel):
+    city: str = Field(..., min_length=1, max_length=200)
+
+
+@app.get("/images/city/{city_name}")
+async def get_city_images(
+    city_name: str, 
+    size: Optional[str] = "800",
+    background_tasks: BackgroundTasks = None
+):
+    """
+    Get curated image URLs for a city.
+    
+    If city doesn't exist:
+    - Returns "coming soon" placeholder image
+    - Triggers background task to curate images
+    - Adds city to cities.json
+    
+    Returns 3-5 pre-selected images from S3/CloudFront, along with city metadata.
+    """
+    try:
+        # Check if city exists first
+        from backend.src.repos import city_image_repo
+        city_data = city_image_repo.get_city_images(city_name.lower().strip())
+        city_exists = city_data is not None
+        
+        # Get images (will return coming soon if not exists)
+        urls = image_service.get_city_image_urls(city_name, size or "800", trigger_background=True)
+        
+        if not urls:
+            raise HTTPException(status_code=404, detail=f"No images found for city: {city_name}")
+        
+        # Check if this is a "coming soon" placeholder
+        is_coming_soon = any("coming_soon" in url.lower() for url in urls)
+        
+        response = {
+            "city": city_name,
+            "images": urls,
+            "count": len(urls),
+            "is_coming_soon": is_coming_soon,
+            "status": "coming_soon" if is_coming_soon else "curated"
+        }
+        
+        # Add metadata if available
+        if city_data:
+            if "country" in city_data:
+                response["country"] = city_data["country"]
+            if "region" in city_data:
+                response["region"] = city_data["region"]
+        
+        return response
+    except HTTPException:
+        raise
+    except Exception as e:
+        logger.error(f"Error getting city images: {str(e)}")
+        raise HTTPException(status_code=500, detail=str(e))
+
+
+@app.get("/images/city/{city_name}/hero")
+async def get_city_hero_image(
+    city_name: str, 
+    size: Optional[str] = "800",
+    background_tasks: BackgroundTasks = None
+):
+    """
+    Get the primary/hero image for a city.
+    
+    If city doesn't exist, returns "coming soon" placeholder and triggers background curation.
+    """
+    try:
+        # Get images (will return coming soon if not exists)
+        urls = image_service.get_city_image_urls(city_name, size or "800", trigger_background=True)
+        url = urls[0] if urls else None
+        
+        if not url:
+            raise HTTPException(status_code=404, detail=f"No hero image found for city: {city_name}")
+        
+        is_coming_soon = "coming_soon" in url.lower()
+        
+        return {
+            "city": city_name,
+            "url": url,
+            "size": size,
+            "is_coming_soon": is_coming_soon,
+            "status": "coming_soon" if is_coming_soon else "curated"
+        }
+    except HTTPException:
+        raise
+    except Exception as e:
+        logger.error(f"Error getting city hero image: {str(e)}")
+        raise HTTPException(status_code=500, detail=str(e))
+
+
+@app.get("/images/city/{city_name}/srcset")
+async def get_city_image_srcset(city_name: str):
+    """
+    Get responsive image srcset for a city.
+    
+    If city doesn't exist, returns "coming soon" placeholder and triggers background curation.
+    
+    Returns src, srcset, and sizes attributes for responsive images.
+    """
+    try:
+        srcset_data = image_service.get_city_image_srcset(city_name)
+        if not srcset_data:
+            raise HTTPException(status_code=404, detail=f"No images found for city: {city_name}")
+        
+        # Check if this is a "coming soon" placeholder
+        is_coming_soon = "coming_soon" in srcset_data.get("src", "").lower()
+        
+        response = {"city": city_name, **srcset_data}
+        if is_coming_soon:
+            response["is_coming_soon"] = True
+            response["status"] = "coming_soon"
+        else:
+            response["is_coming_soon"] = False
+            response["status"] = "curated"
+        
+        return response
+    except HTTPException:
+        raise
+    except Exception as e:
+        logger.error(f"Error getting city image srcset: {str(e)}")
         raise HTTPException(status_code=500, detail=str(e))
