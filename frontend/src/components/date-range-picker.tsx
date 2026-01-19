@@ -74,6 +74,8 @@ export default function DateRangePicker({
     }
   };
 
+  const [isOpen, setIsOpen] = useState(false);
+
   return (
     <div className="relative w-full">
       <AriaDateRangePicker
@@ -81,11 +83,19 @@ export default function DateRangePicker({
         onChange={handleChange}
         isDisabled={disabled}
         minValue={today(getLocalTimeZone())}
+        isOpen={isOpen}
+        onOpenChange={setIsOpen}
         className="flex w-full flex-col"
       >
         <div className="grid grid-cols-2 gap-4">
           {/* Start Date Box */}
-          <Group ref={leftDateRef} className="flex w-full items-center justify-between px-4 py-3 bg-white border border-slate-200 rounded-xl focus-within:ring-2 focus-within:ring-blue-600 focus-within:border-transparent cursor-pointer">
+          <Group 
+            ref={leftDateRef}
+            className="flex w-full items-center justify-between px-4 py-3 bg-white border border-slate-200 rounded-xl focus-within:ring-2 focus-within:ring-blue-600 focus-within:border-transparent cursor-pointer"
+            onPress={() => {
+              setIsOpen(true);
+            }}
+          >
             <div className="flex items-center gap-3 flex-1 min-w-0">
               <CalendarIcon className="w-5 h-5 text-slate-400 flex-shrink-0" />
               <div className="flex-1 min-w-0">
@@ -110,7 +120,12 @@ export default function DateRangePicker({
           </Group>
 
           {/* End Date Box */}
-          <Group className="flex w-full items-center justify-between px-4 py-3 bg-white border border-slate-200 rounded-xl focus-within:ring-2 focus-within:ring-blue-600 focus-within:border-transparent cursor-pointer">
+          <Group 
+            className="flex w-full items-center justify-between px-4 py-3 bg-white border border-slate-200 rounded-xl focus-within:ring-2 focus-within:ring-blue-600 focus-within:border-transparent cursor-pointer"
+            onPress={() => {
+              setIsOpen(true);
+            }}
+          >
             <div className="flex items-center gap-3 flex-1 min-w-0">
               <CalendarIcon className="w-5 h-5 text-slate-400 flex-shrink-0" />
               <div className="flex-1 min-w-0">

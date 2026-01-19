@@ -50,6 +50,13 @@ export default function CityAutocomplete({
         // Search with the query - backend handles fuzzy matching
         const response = await citiesAPI.search(value, 12);
         
+        if (!response || !response.cities) {
+          console.warn('Invalid response from cities API:', response);
+          setSuggestions([]);
+          setShowSuggestions(false);
+          return;
+        }
+        
         // Sort results to prioritize exact matches and city name matches
         const sortedResults = response.cities.sort((a, b) => {
           const queryLower = value.toLowerCase();
@@ -77,10 +84,16 @@ export default function CityAutocomplete({
           return 0;
         });
         
-        setSuggestions(sortedResults.slice(0, 10));
-        setShowSuggestions(sortedResults.length > 0);
+        const finalResults = sortedResults.slice(0, 10);
+        setSuggestions(finalResults);
+        setShowSuggestions(finalResults.length > 0);
       } catch (error) {
         console.error('Error searching cities:', error);
+        // Log more details about the error
+        if (error instanceof Error) {
+          console.error('Error message:', error.message);
+          console.error('Error stack:', error.stack);
+        }
         setSuggestions([]);
         setShowSuggestions(false);
       } finally {
@@ -93,9 +106,10 @@ export default function CityAutocomplete({
 
   const handleSelect = (city: CitySearchResult) => {
     const cityName = city.name || city.cityName || '';
-    onChange(cityName);
     onSelect(cityName);
     setShowSuggestions(false);
+    // Clear the input after selection
+    onChange('');
   };
 
   const handleKeyDown = (e: React.KeyboardEvent) => {
@@ -116,6 +130,18 @@ export default function CityAutocomplete({
           onChange={(e) => onChange(e.target.value)}
           onKeyDown={handleKeyDown}
           onFocus={() => value.length >= 1 && suggestions.length > 0 && setShowSuggestions(true)}
+          onBlur={() => {
+            // Clear input if user clicks away without selecting from dropdown
+            // Use setTimeout to allow onClick on suggestions to fire first
+            setTimeout(() => {
+              if (value && !suggestions.some(s => {
+                const cityName = (s.name || s.cityName || '').toLowerCase();
+                return cityName === value.toLowerCase();
+              })) {
+                onChange('');
+              }
+            }, 200);
+          }}
           placeholder={placeholder}
           disabled={disabled}
           className="w-full px-4 py-3 bg-white border border-slate-200 rounded-xl focus:outline-none focus:ring-2 focus:ring-blue-600 focus:border-transparent disabled:opacity-50 disabled:cursor-not-allowed"

@@ -33,8 +33,16 @@ export default function SoloTripSetup() {
   const [flexibleDuration, setFlexibleDuration] = useState(7); // Default days if flexible
 
   // Cities State
-  const [cities, setCities] = useState<string[]>(['Paris', 'Barcelona']);
+  const [cities, setCities] = useState<string[]>([]);
   const [newCity, setNewCity] = useState('');
+  
+  // Start and End Destination State
+  const [startDestination, setStartDestination] = useState('');
+  const [endDestination, setEndDestination] = useState('');
+  
+  // Start and End Destination State
+  const [startDestination, setStartDestination] = useState('');
+  const [endDestination, setEndDestination] = useState('');
 
   // Estimates
   const [estimatedCost, setEstimatedCost] = useState(0);
@@ -184,8 +192,8 @@ export default function SoloTripSetup() {
   };
 
   const handleGenerate = async () => {
-    if (cities.length < 2 || (!isFlexible && (!startDate || !endDate))) {
-      setError('Please fill in all required fields (dates and at least 2 cities)');
+    if (cities.length < 1 || (!isFlexible && (!startDate || !endDate))) {
+      setError('Please fill in all required fields (dates and at least 1 city)');
       return;
     }
 
@@ -203,7 +211,27 @@ export default function SoloTripSetup() {
         end_date: isFlexible ? '' : endDate,
       });
 
-      // 2. Add destinations
+      // 2. Add start destination if provided
+      if (startDestination) {
+        await addDestination({
+          trip_id: trip.tripId,
+          name: startDestination,
+          must_include: true, // Start destination should be included
+          excluded: false,
+        });
+      }
+
+      // 3. Add end destination if provided
+      if (endDestination) {
+        await addDestination({
+          trip_id: trip.tripId,
+          name: endDestination,
+          must_include: true, // End destination should be included
+          excluded: false,
+        });
+      }
+
+      // 4. Add other destinations
       for (const city of cities) {
         await addDestination({
           trip_id: trip.tripId,
@@ -213,7 +241,7 @@ export default function SoloTripSetup() {
         });
       }
 
-      // 3. Add credit card points
+      // 5. Add credit card points
       for (const card of creditCards) {
         await upsertPoints({
           trip_id: trip.tripId,
@@ -222,10 +250,10 @@ export default function SoloTripSetup() {
         });
       }
 
-      // 4. Generate itinerary
+      // 6. Generate itinerary
       await generateItinerary(trip.tripId);
 
-      // 5. Navigate to results page with trip_id
+      // 7. Navigate to results page with trip_id
       router.push(`/solo/results?tripId=${trip.tripId}`);
     } catch (err) {
       console.error('Error generating itinerary:', err);
@@ -377,6 +405,48 @@ export default function SoloTripSetup() {
               </div>
             </div>
 
+            {/* Start and End Destinations */}
+            <div className="bg-white border border-slate-200 rounded-2xl p-8 shadow-sm mb-6">
+              <div className="flex items-center gap-3 mb-6">
+                <div className="w-10 h-10 bg-blue-100 rounded-xl flex items-center justify-center">
+                  <MapPin className="w-5 h-5 text-blue-600" />
+                </div>
+                <h2 className="text-2xl text-slate-900">Route</h2>
+              </div>
+              
+              <div className="grid grid-cols-2 gap-4">
+                {/* Start Destination */}
+                <div>
+                  <label className="block text-sm text-slate-600 mb-2 font-medium">
+                    Start Destination
+                  </label>
+                  <CityAutocomplete
+                    value={startDestination}
+                    onChange={setStartDestination}
+                    onSelect={(city) => {
+                      setStartDestination(city);
+                    }}
+                    placeholder="Select starting city..."
+                  />
+                </div>
+                
+                {/* End Destination */}
+                <div>
+                  <label className="block text-sm text-slate-600 mb-2 font-medium">
+                    End Destination
+                  </label>
+                  <CityAutocomplete
+                    value={endDestination}
+                    onChange={setEndDestination}
+                    onSelect={(city) => {
+                      setEndDestination(city);
+                    }}
+                    placeholder="Select ending city..."
+                  />
+                </div>
+              </div>
+            </div>
+
             {/* Cities */}
             <div className="bg-white border border-slate-200 rounded-2xl p-8 shadow-sm">
               <div className="flex items-center gap-3 mb-6">
@@ -397,14 +467,8 @@ export default function SoloTripSetup() {
                         setNewCity('');
                       }
                     }}
-                    placeholder="Add a city..."
+                    placeholder="Search and select a city..."
                   />
-                  <button
-                    onClick={addCity}
-                    className="px-6 py-3 bg-blue-600 text-white rounded-xl hover:bg-blue-700 transition-colors shadow-sm"
-                  >
-                    <Plus className="w-5 h-5" />
-                  </button>
                 </div>
 
                 <div className="flex flex-wrap gap-2">
@@ -425,8 +489,8 @@ export default function SoloTripSetup() {
                   ))}
                 </div>
 
-                {cities.length < 2 && (
-                  <p className="text-sm text-slate-500">Add at least 2 cities to generate routes</p>
+                {cities.length < 1 && (
+                  <p className="text-sm text-slate-500">Add at least 1 city to generate routes</p>
                 )}
               </div>
             </div>
@@ -500,7 +564,7 @@ export default function SoloTripSetup() {
               {/* Generate Button */}
               <button
                 onClick={handleGenerate}
-                disabled={cities.length < 2 || (!isFlexible && (!startDate || !endDate)) || isGenerating}
+                disabled={cities.length < 1 || (!isFlexible && (!startDate || !endDate)) || isGenerating}
                 className="w-full px-6 py-4 bg-yellow-400 text-slate-900 rounded-xl hover:bg-yellow-500 transition-all disabled:opacity-50 disabled:cursor-not-allowed flex items-center justify-center gap-2 text-lg shadow-lg shadow-yellow-400/20 font-semibold"
               >
                 <Zap className="w-5 h-5" />

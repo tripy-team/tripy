@@ -1,8 +1,9 @@
 'use client';
 
-import { useState } from 'react';
+import { useState, useEffect } from 'react';
 import { useRouter } from 'next/navigation';
 import { CreditCard, Plus, X, Zap, TrendingUp, ArrowRight, Sparkles } from 'lucide-react';
+import { users as usersAPI } from '@/lib/api';
 
 interface LoyaltyCard {
   id: string;
@@ -31,13 +32,72 @@ export default function PointsSetup() {
   const [newProgram, setNewProgram] = useState('');
   const [newPoints, setNewPoints] = useState('');
   const [newCategory, setNewCategory] = useState<'credit' | 'hotel' | 'airline'>('credit');
+  const [isLoading, setIsLoading] = useState(true);
+  const [isSaving, setIsSaving] = useState(false);
 
   const totalPoints = cards.reduce((sum, card) => sum + card.points, 0);
+
+  // Load user profile on mount
+  useEffect(() => {
+    const loadUserProfile = async () => {
+      try {
+        setIsLoading(true);
+        const profile = await usersAPI.getProfile();
+        
+        if (profile.credit_cards && profile.credit_cards.length > 0) {
+          // Convert backend format to frontend format
+          // Backend doesn't have category, so we'll default to 'credit'
+          const loadedCards: LoyaltyCard[] = profile.credit_cards.map(card => ({
+            id: card.id,
+            program: card.program,
+            points: card.points,
+            category: 'credit' as const, // Default to credit since backend doesn't store category
+          }));
+          setCards(loadedCards);
+        }
+      } catch (err) {
+        console.error('Error loading user profile:', err);
+      } finally {
+        setIsLoading(false);
+      }
+    };
+
+    loadUserProfile();
+  }, []);
+
+  // Save credit cards to user profile when they change
+  useEffect(() => {
+    if (!isLoading && !isSaving) {
+      const saveProfile = async () => {
+        try {
+          setIsSaving(true);
+          // Convert to backend format (remove category as it's not stored)
+          const cardsToSave = cards.map(card => ({
+            id: card.id,
+            program: card.program,
+            points: card.points,
+          }));
+          
+          await usersAPI.updateProfile({
+            credit_cards: cardsToSave,
+          });
+        } catch (err) {
+          console.error('Error saving user profile:', err);
+        } finally {
+          setIsSaving(false);
+        }
+      };
+
+      // Debounce saves to avoid too many API calls
+      const timeoutId = setTimeout(saveProfile, 1000);
+      return () => clearTimeout(timeoutId);
+    }
+  }, [cards, isLoading, isSaving]);
 
   const addCard = () => {
     if (newProgram.trim() && newPoints.trim()) {
       const card: LoyaltyCard = {
-        id: String(Date.now()),
+        id: `card-${Date.now()}-${Math.random().toString(36).substr(2, 9)}`,
         program: newProgram.trim(),
         points: Number(newPoints.trim()),
         category: newCategory,
