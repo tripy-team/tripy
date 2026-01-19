@@ -1,10 +1,8 @@
 'use client';
 
-import { useEffect, useState } from 'react';
+import { useEffect, useState, useRef } from 'react';
 import { useRouter } from 'next/navigation';
 import { Navigation } from '@/components/navigation';
-
-const AUTH_CHECK_KEY = 'tripy_auth_checked';
 
 export default function AppLayout({
     children,
@@ -13,75 +11,47 @@ export default function AppLayout({
 }) {
     const router = useRouter();
     const [isChecking, setIsChecking] = useState(true);
+    const hasCheckedRef = useRef(false);
 
     useEffect(() => {
-        // Check if we've already validated auth this session (prevents double checks)
-        const alreadyChecked = sessionStorage.getItem(AUTH_CHECK_KEY) === 'true';
-        if (alreadyChecked) {
-            // Already checked - just verify tokens still exist
-            const accessToken = localStorage.getItem('access_token') || sessionStorage.getItem('access_token');
-            const authToken = localStorage.getItem('auth_token');
-            const storedUser = localStorage.getItem('user');
-            
-            if (accessToken || authToken) {
-                if (storedUser) {
-                    // User is still authenticated
-                    setIsChecking(false);
-                    return;
-                }
-            }
-            // Tokens cleared since last check - need to re-check
-            sessionStorage.removeItem(AUTH_CHECK_KEY);
+        // Only check auth once - use ref to persist across re-renders
+        if (hasCheckedRef.current) {
+            return;
         }
 
-        // Check if user is authenticated
-        const checkAuth = () => {
-            const accessToken = localStorage.getItem('access_token') || sessionStorage.getItem('access_token');
-            const authToken = localStorage.getItem('auth_token');
-            
-            // Must have both token AND user data to be considered authenticated
-            const storedUser = localStorage.getItem('user');
-            
-            if (!accessToken && !authToken) {
-                // No tokens - user is not authenticated
-                sessionStorage.setItem(AUTH_CHECK_KEY, 'true');
-                router.replace('/login');
-                return;
-            }
-            
-            // Check if user data exists and is valid
-            if (!storedUser) {
-                // Token exists but no user data - clear tokens and redirect
-                localStorage.removeItem('access_token');
-                localStorage.removeItem('id_token');
-                localStorage.removeItem('refresh_token');
-                localStorage.removeItem('auth_token');
-                sessionStorage.removeItem('access_token');
-                sessionStorage.removeItem('id_token');
-                sessionStorage.removeItem('refresh_token');
-                sessionStorage.setItem(AUTH_CHECK_KEY, 'true');
-                router.replace('/login');
-                return;
-            }
-            
-            // Validate user data
-            try {
-                const parsedUser = JSON.parse(storedUser);
-                if (!parsedUser || (!parsedUser.name && !parsedUser.email)) {
-                    // Invalid user data - clear everything and redirect
-                    localStorage.removeItem('access_token');
-                    localStorage.removeItem('id_token');
-                    localStorage.removeItem('refresh_token');
-                    localStorage.removeItem('auth_token');
-                    localStorage.removeItem('user');
-                    sessionStorage.removeItem('access_token');
-                    sessionStorage.removeItem('id_token');
-                    sessionStorage.removeItem('refresh_token');
-                    sessionStorage.setItem(AUTH_CHECK_KEY, 'true');
-                    router.replace('/login');
-                    return;
-                }
-            } catch (_e) {
+        // Simple auth check - just verify tokens and user data exist
+        const accessToken = localStorage.getItem('access_token') || sessionStorage.getItem('access_token');
+        const authToken = localStorage.getItem('auth_token');
+        const storedUser = localStorage.getItem('user');
+        
+        // Must have both token AND user data to be considered authenticated
+        if (!accessToken && !authToken) {
+            // No tokens - user is not authenticated
+            hasCheckedRef.current = true;
+            setIsChecking(false);
+            router.replace('/login');
+            return;
+        }
+        
+        if (!storedUser) {
+            // Token exists but no user data - clear tokens and redirect
+            localStorage.removeItem('access_token');
+            localStorage.removeItem('id_token');
+            localStorage.removeItem('refresh_token');
+            localStorage.removeItem('auth_token');
+            sessionStorage.removeItem('access_token');
+            sessionStorage.removeItem('id_token');
+            sessionStorage.removeItem('refresh_token');
+            hasCheckedRef.current = true;
+            setIsChecking(false);
+            router.replace('/login');
+            return;
+        }
+        
+        // Validate user data
+        try {
+            const parsedUser = JSON.parse(storedUser);
+            if (!parsedUser || (!parsedUser.name && !parsedUser.email)) {
                 // Invalid user data - clear everything and redirect
                 localStorage.removeItem('access_token');
                 localStorage.removeItem('id_token');
@@ -91,18 +61,31 @@ export default function AppLayout({
                 sessionStorage.removeItem('access_token');
                 sessionStorage.removeItem('id_token');
                 sessionStorage.removeItem('refresh_token');
-                sessionStorage.setItem(AUTH_CHECK_KEY, 'true');
+                hasCheckedRef.current = true;
+                setIsChecking(false);
                 router.replace('/login');
                 return;
             }
-            
-            // User is authenticated with valid token and user data
-            sessionStorage.setItem(AUTH_CHECK_KEY, 'true');
+        } catch (_e) {
+            // Invalid user data - clear everything and redirect
+            localStorage.removeItem('access_token');
+            localStorage.removeItem('id_token');
+            localStorage.removeItem('refresh_token');
+            localStorage.removeItem('auth_token');
+            localStorage.removeItem('user');
+            sessionStorage.removeItem('access_token');
+            sessionStorage.removeItem('id_token');
+            sessionStorage.removeItem('refresh_token');
+            hasCheckedRef.current = true;
             setIsChecking(false);
-        };
-
-        checkAuth();
-    }, []); // Only run once on mount - don't re-run on route changes
+            router.replace('/login');
+            return;
+        }
+        
+        // User is authenticated - allow access
+        hasCheckedRef.current = true;
+        setIsChecking(false);
+    }, []); // Only run once on mount
 
     // Show loading state while checking authentication
     if (isChecking) {
