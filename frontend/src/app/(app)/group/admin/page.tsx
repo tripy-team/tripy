@@ -86,21 +86,15 @@ export default function GroupAdmin() {
     }
   };
 
-  if (isLoading) {
-    return (
-      <>
-        <Navigation />
-        <div className="min-h-screen flex items-center justify-center bg-gradient-to-br from-white via-blue-50/20 to-white">
-          <div className="text-slate-600">Loading...</div>
-        </div>
-      </>
-    );
-  }
-
   return (
     <>
       <Navigation />
-      <div className="min-h-screen p-8 bg-gradient-to-br from-white via-blue-50/20 to-white">
+      {isLoading ? (
+        <div className="min-h-screen flex items-center justify-center bg-gradient-to-br from-white via-blue-50/20 to-white">
+          <div className="text-slate-600">Loading...</div>
+        </div>
+      ) : (
+        <div className="min-h-screen p-8 bg-gradient-to-br from-white via-blue-50/20 to-white">
         <div className="max-w-4xl mx-auto">
           {/* Header */}
           <div className="flex justify-between items-start mb-12">
@@ -202,7 +196,8 @@ export default function GroupAdmin() {
             </div>
           </div>
         </div>
-      </div>
+        </div>
+      )}
     </>
   );
 }
