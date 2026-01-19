@@ -67,7 +67,8 @@ export default function AppLayout({
         // Mark as checked in sessionStorage so we don't check again this session
         sessionStorage.setItem(AUTH_CHECKED_KEY, 'true');
         setIsChecking(false);
-    }, []); // Only run once on mount
+        // eslint-disable-next-line react-hooks/exhaustive-deps
+    }, []); // Only run once on mount - router is stable and doesn't need to be in deps
 
     // Show loading state while checking authentication
     if (isChecking) {
