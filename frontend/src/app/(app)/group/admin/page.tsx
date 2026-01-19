@@ -4,7 +4,6 @@ import { useState, useEffect, useCallback } from 'react';
 import { useRouter, useSearchParams } from 'next/navigation';
 import { Users, Trash2, UserPlus, Copy, Check } from 'lucide-react';
 import { Navigation } from '@/components/navigation';
-import { trips as tripsAPI } from '@/lib/api';
 
 interface Member {
   id: string;
@@ -23,7 +22,7 @@ export default function GroupAdmin() {
   const [members, setMembers] = useState<Member[]>([]);
   const [isLoading, setIsLoading] = useState(true);
 
-  const fetchTripData = useCallback(async (id: string) => {
+  const fetchTripData = useCallback(async (_id: string) => {
     try {
       setIsLoading(true);
       // TODO: Fetch trip details and members from API
