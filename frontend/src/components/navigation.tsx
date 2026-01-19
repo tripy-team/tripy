@@ -1,6 +1,6 @@
 'use client';
 
-import { Bell, LogOut, Settings, User, Plane, Menu, X, Users } from 'lucide-react';
+import { Bell, LogOut, Settings, User, Menu, X, Users } from 'lucide-react';
 import { useEffect, useState } from 'react';
 import Link from 'next/link';
 import { usePathname, useRouter } from 'next/navigation';
