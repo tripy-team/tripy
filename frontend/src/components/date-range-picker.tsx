@@ -73,12 +73,6 @@ export default function DateRangePicker({
     }
   };
 
-  const formatDisplayDate = (dateValue: DateValue | null): string => {
-    if (!dateValue) return '';
-    const date = dateValue.toDate(getLocalTimeZone());
-    return date.toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric' });
-  };
-
   return (
     <div className="relative w-full">
       <AriaDateRangePicker
