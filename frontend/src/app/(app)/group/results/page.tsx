@@ -43,10 +43,10 @@ export default function GroupResults() {
                 
                 // Transform API response to display format
                 if (response.items && Array.isArray(response.items) && response.items.length > 0) {
-                    const transformed: Itinerary[] = response.items.map((item: any, index: number) => {
+                    const transformed: Itinerary[] = response.items.map((item: { route?: unknown; cities?: unknown; name?: string; cost?: number; points?: number; score?: number }, index: number) => {
                         const route = item.route || item.cities || [];
                         const cities = Array.isArray(route) 
-                            ? route.map((city: string | { name: string; days: number }, idx: number) => {
+                            ? route.map((city: string | { name: string; days: number }) => {
                                 if (typeof city === 'string') {
                                     return { name: city, days: 3 };
                                 }

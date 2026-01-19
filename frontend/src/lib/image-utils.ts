@@ -35,7 +35,7 @@ export async function getCityImageUrl(
 ): Promise<{ url: string | null; isComingSoon: boolean }> {
   try {
     const response = await fetch(`${BACKEND_URL}/images/city/${encodeURIComponent(city)}?size=${size}`);
-    
+
     if (!response.ok) {
       // Fallback to hero image endpoint
       const heroResponse = await fetch(`${BACKEND_URL}/images/city/${encodeURIComponent(city)}/hero?size=${size}`);
@@ -48,7 +48,7 @@ export async function getCityImageUrl(
       }
       return { url: null, isComingSoon: false };
     }
-    
+
     const data = await response.json();
     const url = data.images[index] || data.images[0] || null;
     return {
@@ -82,30 +82,30 @@ export async function getOptimizedImageUrl(
     large: '1600',
     full: '1600',
   };
-  
+
   const actualSize = sizeMap[size];
-  
+
   // Check cache first
   const cached = getCachedImageUrl(destination, size);
   if (cached) {
     return cached;
   }
-  
+
   // Fetch from backend
   const result = await getCityImageUrl(destination, actualSize, 0);
-  
+
   if (result.url) {
     // Cache the result (even if coming soon, cache it for a shorter time)
     cacheImageUrl(destination, size, result.url);
-    
+
     // Log if coming soon (for debugging)
     if (result.isComingSoon) {
       console.log(`City ${destination} is being curated - showing coming soon placeholder`);
     }
-    
+
     return result.url;
   }
-  
+
   // Fallback: return placeholder or empty
   return '';
 }
@@ -122,11 +122,11 @@ export async function getCityImageSrcSet(city: string): Promise<{
 } | null> {
   try {
     const response = await fetch(`${BACKEND_URL}/images/city/${encodeURIComponent(city)}/srcset`);
-    
+
     if (!response.ok) {
       return null;
     }
-    
+
     const data = await response.json();
     return {
       src: data.src,
@@ -162,7 +162,7 @@ export function cacheImageUrl(
   url: string
 ): void {
   if (typeof window === 'undefined') return;
-  
+
   try {
     const key = getImageCacheKey(destination, size);
     localStorage.setItem(key, url);
@@ -182,25 +182,25 @@ export function getCachedImageUrl(
   size: keyof typeof IMAGE_SIZES
 ): string | null {
   if (typeof window === 'undefined') return null;
-  
+
   try {
     const key = getImageCacheKey(destination, size);
     const expiresKey = `${key}_expires`;
-    
+
     const url = localStorage.getItem(key);
     const expires = localStorage.getItem(expiresKey);
-    
+
     if (!url || !expires) return null;
-    
+
     // Check if expired
     if (Date.now() > Number(expires)) {
       localStorage.removeItem(key);
       localStorage.removeItem(expiresKey);
       return null;
     }
-    
+
     return url;
-  } catch (e) {
+  } catch (_e) {
     return null;
   }
 }

@@ -39,12 +39,12 @@ export default function SoloResults() {
                 // Transform API response to display format
                 // The API returns { items: [...] } where items contain itinerary data
                 if (response.items && Array.isArray(response.items) && response.items.length > 0) {
-                    const transformed: Itinerary[] = response.items.map((item: any, index: number) => {
+                    const transformed: Itinerary[] = response.items.map((item: { route?: unknown; cities?: unknown; name?: string; cost?: number; points?: number; score?: number }, index: number) => {
                         // Parse the route/cities from the item
                         // The structure depends on how itinerary_service.save_itinerary stores data
                         const route = item.route || item.cities || [];
                         const cities = Array.isArray(route) 
-                            ? route.map((city: string | { name: string; days: number }, idx: number) => {
+                            ? route.map((city: string | { name: string; days: number }) => {
                                 if (typeof city === 'string') {
                                     return { name: city, days: 3 }; // Default days
                                 }
