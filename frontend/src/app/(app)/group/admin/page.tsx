@@ -88,17 +88,17 @@ export default function GroupAdmin() {
 
   if (isLoading) {
     return (
-      <>
+      <div>
         <Navigation />
         <div className="min-h-screen flex items-center justify-center bg-gradient-to-br from-white via-blue-50/20 to-white">
           <div className="text-slate-600">Loading...</div>
         </div>
-      </>
+      </div>
     );
   }
 
   return (
-    <>
+    <div>
       <Navigation />
       <div className="min-h-screen p-8 bg-gradient-to-br from-white via-blue-50/20 to-white">
         <div className="max-w-4xl mx-auto">
@@ -203,6 +203,6 @@ export default function GroupAdmin() {
           </div>
         </div>
       </div>
-    </>
+    </div>
   );
 }
