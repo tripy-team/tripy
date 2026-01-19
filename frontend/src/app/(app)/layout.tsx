@@ -1,6 +1,6 @@
 'use client';
 
-import { useEffect, useState } from 'react';
+import { useEffect, useState, useRef } from 'react';
 import { useRouter } from 'next/navigation';
 import { Navigation } from '@/components/navigation';
 
@@ -11,8 +11,14 @@ export default function AppLayout({
 }) {
     const router = useRouter();
     const [isChecking, setIsChecking] = useState(true);
+    const hasCheckedRef = useRef(false);
 
     useEffect(() => {
+        // Only check auth once per mount, not on every pathname change
+        if (hasCheckedRef.current) {
+            return;
+        }
+
         // Check if user is authenticated
         const checkAuth = () => {
             const accessToken = localStorage.getItem('access_token') || sessionStorage.getItem('access_token');
@@ -23,7 +29,8 @@ export default function AppLayout({
             
             if (!accessToken && !authToken) {
                 // No tokens - user is not authenticated
-                router.push('/login');
+                hasCheckedRef.current = true;
+                router.replace('/login');
                 return;
             }
             
@@ -37,7 +44,8 @@ export default function AppLayout({
                 sessionStorage.removeItem('access_token');
                 sessionStorage.removeItem('id_token');
                 sessionStorage.removeItem('refresh_token');
-                router.push('/login');
+                hasCheckedRef.current = true;
+                router.replace('/login');
                 return;
             }
             
@@ -54,7 +62,8 @@ export default function AppLayout({
                     sessionStorage.removeItem('access_token');
                     sessionStorage.removeItem('id_token');
                     sessionStorage.removeItem('refresh_token');
-                    router.push('/login');
+                    hasCheckedRef.current = true;
+                    router.replace('/login');
                     return;
                 }
             } catch (_e) {
@@ -67,16 +76,18 @@ export default function AppLayout({
                 sessionStorage.removeItem('access_token');
                 sessionStorage.removeItem('id_token');
                 sessionStorage.removeItem('refresh_token');
-                router.push('/login');
+                hasCheckedRef.current = true;
+                router.replace('/login');
                 return;
             }
             
             // User is authenticated with valid token and user data
+            hasCheckedRef.current = true;
             setIsChecking(false);
         };
 
         checkAuth();
-    }, [router]);
+    }, []); // Only run once on mount - don't re-run on route changes
 
     // Show loading state while checking authentication
     if (isChecking) {
