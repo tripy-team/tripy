@@ -1,7 +1,7 @@
 'use client';
 
 import { useState, useRef, useEffect } from 'react';
-import { Sparkles, Send, MessageCircle } from 'lucide-react';
+import { Send, MessageCircle } from 'lucide-react';
 import { extractTripInfo, ExtractedTripInfo } from '@/lib/trip-extractor';
 
 interface Message {
@@ -117,7 +117,7 @@ export default function TripChatbotBox({ onExtract }: TripChatbotBoxProps) {
         </div>
         <div>
           <h2 className="text-2xl text-slate-900">Trip Assistant</h2>
-          <p className="text-sm text-slate-600">Tell me about your trip and I'll help fill out the form</p>
+          <p className="text-sm text-slate-600">Tell me about your trip and I&apos;ll help fill out the form</p>
         </div>
       </div>
 

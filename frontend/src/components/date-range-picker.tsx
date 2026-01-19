@@ -73,21 +73,6 @@ export default function DateRangePicker({
     }
   };
 
-  const formatDisplayDate = (dateValue: DateValue | null): string => {
-    if (!dateValue) return '';
-    const date = dateValue.toDate(getLocalTimeZone());
-    return date.toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric' });
-  };
-
-  const getDisplayText = () => {
-    if (range.start && range.end) {
-      return `${formatDisplayDate(range.start)} - ${formatDisplayDate(range.end)}`;
-    }
-    if (range.start) {
-      return `From ${formatDisplayDate(range.start)}`;
-    }
-    return 'Select date range';
-  };
 
   return (
     <div className="relative w-full">

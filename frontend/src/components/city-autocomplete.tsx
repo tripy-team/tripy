@@ -1,7 +1,7 @@
 'use client';
 
 import { useState, useEffect, useRef } from 'react';
-import { MapPin, X } from 'lucide-react';
+import { MapPin } from 'lucide-react';
 import { cities as citiesAPI, CitySearchResult } from '@/lib/api';
 
 interface CityAutocompleteProps {

@@ -1,7 +1,7 @@
 'use client';
 
 import { useState, useRef, useEffect } from 'react';
-import { MessageCircle, Send, Sparkles } from 'lucide-react';
+import { Send } from 'lucide-react';
 import { extractTripInfo, ExtractedTripInfo } from '@/lib/trip-extractor';
 
 interface Message {
