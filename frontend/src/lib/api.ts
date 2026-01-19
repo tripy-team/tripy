@@ -93,11 +93,15 @@ async function apiRequest<T>(
         localStorage.removeItem('access_token');
         localStorage.removeItem('id_token');
         localStorage.removeItem('refresh_token');
+        localStorage.removeItem('auth_token');
+        localStorage.removeItem('user');
         sessionStorage.removeItem('access_token');
         sessionStorage.removeItem('id_token');
         sessionStorage.removeItem('refresh_token');
-        // Redirect to login if we're in the browser
-        if (window.location.pathname !== '/login') {
+        sessionStorage.removeItem('tripy_auth_checked_session'); // Clear auth check flag
+        // Only redirect if we're not already on login/auth pages
+        const currentPath = window.location.pathname;
+        if (!currentPath.startsWith('/login') && !currentPath.startsWith('/register') && !currentPath.startsWith('/auth')) {
           window.location.href = '/login';
         }
       }

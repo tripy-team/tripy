@@ -1,8 +1,10 @@
 'use client';
 
-import { useEffect, useState, useRef } from 'react';
+import { useEffect, useState } from 'react';
 import { useRouter } from 'next/navigation';
 import { Navigation } from '@/components/navigation';
+
+const AUTH_CHECKED_KEY = 'tripy_auth_checked_session';
 
 export default function AppLayout({
     children,
@@ -11,34 +13,59 @@ export default function AppLayout({
 }) {
     const router = useRouter();
     const [isChecking, setIsChecking] = useState(true);
-    const hasCheckedRef = useRef(false);
 
     useEffect(() => {
-        // Only check auth once - use ref to persist across re-renders
-        if (hasCheckedRef.current) {
-            // Already checked - allow access (auth persists across route changes)
+        // Ensure we're in the browser
+        if (typeof window === 'undefined') {
             setIsChecking(false);
             return;
         }
 
+        // Check if we've already validated auth this session (persists across remounts)
+        const alreadyChecked = sessionStorage.getItem(AUTH_CHECKED_KEY) === 'true';
+        
+        if (alreadyChecked) {
+            // Already checked - verify tokens still exist quickly
+            const accessToken = localStorage.getItem('access_token') || sessionStorage.getItem('access_token');
+            const idToken = localStorage.getItem('id_token') || sessionStorage.getItem('id_token');
+            
+            if (accessToken || idToken) {
+                // Tokens still exist - allow access immediately
+                setIsChecking(false);
+                return;
+            }
+            // Tokens cleared - remove flag and re-check below
+            sessionStorage.removeItem(AUTH_CHECKED_KEY);
+        }
+
+        // First time check or tokens were cleared
         // Simple auth check - only verify access_token exists (this is what login sets)
-        // Don't require user data - having a token is enough to access protected routes
         const accessToken = localStorage.getItem('access_token') || sessionStorage.getItem('access_token');
         const idToken = localStorage.getItem('id_token') || sessionStorage.getItem('id_token');
+        
+        // Debug logging (remove in production)
+        if (process.env.NODE_ENV === 'development') {
+            console.log('[AppLayout] Auth check:', {
+                alreadyChecked,
+                hasAccessToken: !!accessToken,
+                hasIdToken: !!idToken,
+                pathname: window.location.pathname
+            });
+        }
         
         // Only redirect if we have NO tokens at all
         // Having access_token OR id_token means user is authenticated
         if (!accessToken && !idToken) {
             // No tokens - user is not authenticated
-            hasCheckedRef.current = true;
+            sessionStorage.setItem(AUTH_CHECKED_KEY, 'true');
             setIsChecking(false);
             router.replace('/login');
             return;
         }
         
         // User has a token - allow access (they're authenticated)
-        // We don't require user data here because tokens are the source of truth
-        hasCheckedRef.current = true;
+        // Mark as checked in sessionStorage so we don't check again this session
+        sessionStorage.setItem(AUTH_CHECKED_KEY, 'true');
         setIsChecking(false);
     }, []); // Only run once on mount
 
