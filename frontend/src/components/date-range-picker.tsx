@@ -1,6 +1,6 @@
 'use client';
 
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useRef } from 'react';
 import {
   Button,
   CalendarCell,
@@ -50,6 +50,7 @@ export default function DateRangePicker({
   const [range, setRange] = useState<{ start: DateValue | null; end: DateValue | null }>(() => 
     getDateValue()
   );
+  const leftDateRef = useRef<HTMLDivElement>(null);
 
   // Update range when props change
   useEffect(() => {
@@ -84,7 +85,7 @@ export default function DateRangePicker({
       >
         <div className="grid grid-cols-2 gap-4">
           {/* Start Date Box */}
-          <Group className="flex w-full items-center justify-between px-4 py-3 bg-white border border-slate-200 rounded-xl focus-within:ring-2 focus-within:ring-blue-600 focus-within:border-transparent cursor-pointer">
+          <Group ref={leftDateRef} className="flex w-full items-center justify-between px-4 py-3 bg-white border border-slate-200 rounded-xl focus-within:ring-2 focus-within:ring-blue-600 focus-within:border-transparent cursor-pointer">
             <div className="flex items-center gap-3 flex-1 min-w-0">
               <CalendarIcon className="w-5 h-5 text-slate-400 flex-shrink-0" />
               <div className="flex-1 min-w-0">
@@ -134,7 +135,10 @@ export default function DateRangePicker({
           </Group>
         </div>
 
-        <MyPopover>
+        <MyPopover 
+          placement="bottom start" 
+          offset={8}
+        >
           <Dialog className="p-4 text-slate-950">
             <RangeCalendar>
               <header className="flex w-full items-center gap-1 px-1 pb-4">
@@ -190,7 +194,7 @@ function MyPopover(props: PopoverProps) {
     <Popover
       {...props}
       className={({ isEntering, isExiting }) =>
-        `rounded-xl bg-white border border-slate-200 shadow-lg ${
+        `rounded-xl bg-white border border-slate-200 shadow-lg [&[data-placement^=bottom]]:left-0 [&[data-placement^=bottom]]:right-auto ${
           isEntering
             ? 'animate-in fade-in placement-bottom:slide-in-from-top-1 placement-top:slide-in-from-bottom-1 duration-200 ease-out'
             : ''

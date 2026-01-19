@@ -19,8 +19,8 @@ export default function SoloTripSetup() {
   const router = useRouter();
   
   // Budget State
-  const [minBudget, setMinBudget] = useState(1000);
-  const [maxBudget, setMaxBudget] = useState(5000);
+  const [minBudget, setMinBudget] = useState<number | ''>('');
+  const [maxBudget, setMaxBudget] = useState<number | ''>('');
   const [isLoadingProfile, setIsLoadingProfile] = useState(true);
 
   // Credit Card State
@@ -53,10 +53,10 @@ export default function SoloTripSetup() {
         setIsLoadingProfile(true);
         const profile = await usersAPI.getProfile();
         
-        if (profile.min_budget !== undefined) {
+        if (profile.min_budget !== undefined && profile.min_budget !== null) {
           setMinBudget(profile.min_budget);
         }
-        if (profile.max_budget !== undefined) {
+        if (profile.max_budget !== undefined && profile.max_budget !== null) {
           setMaxBudget(profile.max_budget);
         }
         if (profile.credit_cards && profile.credit_cards.length > 0) {
@@ -83,8 +83,8 @@ export default function SoloTripSetup() {
       const saveProfile = async () => {
         try {
           await usersAPI.updateProfile({
-            min_budget: minBudget,
-            max_budget: maxBudget,
+            min_budget: minBudget === '' ? undefined : minBudget,
+            max_budget: maxBudget === '' ? undefined : maxBudget,
             credit_cards: creditCards,
           });
         } catch (err) {
@@ -265,7 +265,7 @@ export default function SoloTripSetup() {
                       <input
                         type="number"
                         value={minBudget}
-                        onChange={(e) => setMinBudget(Number(e.target.value))}
+                        onChange={(e) => setMinBudget(e.target.value ? Number(e.target.value) : '')}
                         placeholder="Min"
                         className="w-full pl-8 pr-4 py-3 bg-slate-50 border border-slate-200 rounded-xl focus:outline-none focus:ring-2 focus:ring-blue-600 focus:border-transparent font-medium text-slate-900"
                       />
@@ -276,7 +276,7 @@ export default function SoloTripSetup() {
                       <input
                         type="number"
                         value={maxBudget}
-                        onChange={(e) => setMaxBudget(Number(e.target.value))}
+                        onChange={(e) => setMaxBudget(e.target.value ? Number(e.target.value) : '')}
                         placeholder="Max"
                         className="w-full pl-8 pr-4 py-3 bg-slate-50 border border-slate-200 rounded-xl focus:outline-none focus:ring-2 focus:ring-blue-600 focus:border-transparent font-medium text-slate-900"
                       />
@@ -481,7 +481,12 @@ export default function SoloTripSetup() {
                       </div>
                       <div className="flex justify-between">
                         <span className="text-blue-100">Budget</span>
-                        <span>${minBudget.toLocaleString()} - ${maxBudget.toLocaleString()}</span>
+                        <span>
+                          {minBudget !== '' && maxBudget !== '' 
+                            ? `$${typeof minBudget === 'number' ? minBudget.toLocaleString() : minBudget} - $${typeof maxBudget === 'number' ? maxBudget.toLocaleString() : maxBudget}`
+                            : 'Not set'
+                          }
+                        </span>
                       </div>
                       <div className="flex justify-between">
                         <span className="text-blue-100">Total Points</span>

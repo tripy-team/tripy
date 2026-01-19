@@ -36,9 +36,9 @@ export default function CityAutocomplete({
     return () => document.removeEventListener('mousedown', handleClickOutside);
   }, []);
 
-  // Debounced search
+  // Debounced search with fuzzy matching
   useEffect(() => {
-    if (!value.trim() || value.length < 2) {
+    if (!value.trim() || value.length < 1) {
       setSuggestions([]);
       setShowSuggestions(false);
       return;
@@ -47,9 +47,38 @@ export default function CityAutocomplete({
     const timeoutId = setTimeout(async () => {
       setIsLoading(true);
       try {
-        const response = await citiesAPI.search(value, 8);
-        setSuggestions(response.cities);
-        setShowSuggestions(response.cities.length > 0);
+        // Search with the query - backend handles fuzzy matching
+        const response = await citiesAPI.search(value, 12);
+        
+        // Sort results to prioritize exact matches and city name matches
+        const sortedResults = response.cities.sort((a, b) => {
+          const queryLower = value.toLowerCase();
+          const aName = (a.name || a.cityName || '').toLowerCase();
+          const bName = (b.name || b.cityName || '').toLowerCase();
+          const aCountry = (a.countryName || '').toLowerCase();
+          const bCountry = (b.countryName || '').toLowerCase();
+          
+          // Exact match in city name gets highest priority
+          if (aName === queryLower && bName !== queryLower) return -1;
+          if (bName === queryLower && aName !== queryLower) return 1;
+          
+          // Starts with query gets second priority
+          if (aName.startsWith(queryLower) && !bName.startsWith(queryLower)) return -1;
+          if (bName.startsWith(queryLower) && !aName.startsWith(queryLower)) return 1;
+          
+          // City name contains query gets third priority
+          if (aName.includes(queryLower) && !bName.includes(queryLower)) return -1;
+          if (bName.includes(queryLower) && !aName.includes(queryLower)) return 1;
+          
+          // Country match gets fourth priority
+          if (aCountry.includes(queryLower) && !bCountry.includes(queryLower)) return -1;
+          if (bCountry.includes(queryLower) && !aCountry.includes(queryLower)) return 1;
+          
+          return 0;
+        });
+        
+        setSuggestions(sortedResults.slice(0, 10));
+        setShowSuggestions(sortedResults.length > 0);
       } catch (error) {
         console.error('Error searching cities:', error);
         setSuggestions([]);
@@ -57,7 +86,7 @@ export default function CityAutocomplete({
       } finally {
         setIsLoading(false);
       }
-    }, 300); // 300ms debounce
+    }, 200); // Reduced debounce for faster response
 
     return () => clearTimeout(timeoutId);
   }, [value]);
@@ -86,7 +115,7 @@ export default function CityAutocomplete({
           value={value}
           onChange={(e) => onChange(e.target.value)}
           onKeyDown={handleKeyDown}
-          onFocus={() => value.length >= 2 && suggestions.length > 0 && setShowSuggestions(true)}
+          onFocus={() => value.length >= 1 && suggestions.length > 0 && setShowSuggestions(true)}
           placeholder={placeholder}
           disabled={disabled}
           className="w-full px-4 py-3 bg-white border border-slate-200 rounded-xl focus:outline-none focus:ring-2 focus:ring-blue-600 focus:border-transparent disabled:opacity-50 disabled:cursor-not-allowed"
@@ -104,6 +133,28 @@ export default function CityAutocomplete({
             const cityName = city.name || city.cityName || '';
             const country = city.countryName || '';
             const region = city.regionCode || '';
+            const queryLower = value.toLowerCase();
+            
+            // Highlight matching text
+            const highlightText = (text: string, query: string): React.ReactNode => {
+              if (!text || !query) return text;
+              const lowerText = text.toLowerCase();
+              const index = lowerText.indexOf(query.toLowerCase());
+              if (index === -1) return text;
+              
+              const before = text.substring(0, index);
+              const match = text.substring(index, index + query.length);
+              const after = text.substring(index + query.length);
+              
+              return (
+                <>
+                  {before}
+                  <span className="font-semibold bg-yellow-100">{match}</span>
+                  {after}
+                </>
+              );
+            };
+            
             return (
               <button
                 key={`${city.id || cityName}-${index}`}
@@ -113,11 +164,11 @@ export default function CityAutocomplete({
                 <MapPin className="w-4 h-4 text-blue-600 flex-shrink-0" />
                 <div className="flex-1 min-w-0">
                   <div className="text-sm font-medium text-slate-900 truncate">
-                    {cityName}
+                    {highlightText(cityName, value)}
                   </div>
                   {(country || region) && (
                     <div className="text-xs text-slate-500 truncate">
-                      {country} {region ? `· ${region}` : ''}
+                      {highlightText(country, value)} {region ? `· ${region}` : ''}
                     </div>
                   )}
                 </div>
