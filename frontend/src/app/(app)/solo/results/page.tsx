@@ -196,13 +196,14 @@ export default function SoloResults() {
                                                 )}
                                             </button>
 
-                                            <label className="flex items-center gap-2 cursor-pointer">
+                                            <label className="flex items-center gap-2 cursor-pointer group">
                                                 <input
                                                     type="checkbox"
                                                     checked={comparing.includes(itinerary.id)}
                                                     onChange={() => toggleCompare(itinerary.id)}
-                                                    className="w-5 h-5 rounded border-slate-300 text-blue-600 focus:ring-blue-600"
+                                                    className="w-5 h-5"
                                                 />
+                                                <span className="text-sm text-slate-600 group-hover:text-slate-900">Compare</span>
                                             </label>
                                         </div>
                                     </div>
