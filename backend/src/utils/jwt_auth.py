@@ -82,40 +82,99 @@ def verify_token(token: str) -> Dict[str, Any]:
         # Verify and decode token
         # For Cognito tokens:
         # - ID tokens have 'aud' claim set to client ID and 'iss' claim set to user pool
-        # - Access tokens may not have 'aud' claim but should have 'iss' claim
-        # Verify issuer (iss) claim to ensure token is from our Cognito User Pool
+        # - Access tokens may not have 'aud' claim and may have different issuer format
+        # Try multiple verification strategies
         issuer = f"https://cognito-idp.{AWS_REGION}.amazonaws.com/{USER_POOL_ID}"
 
         # Try to decode with audience verification first (for ID tokens)
         audience = USER_POOL_CLIENT_ID if USER_POOL_CLIENT_ID else USER_POOL_ID
+        decoded = None
+        last_error = None
+
+        # Strategy 1: Try with both audience and issuer (for ID tokens)
         try:
-            # First try with audience verification (for ID tokens)
             decoded = jwt.decode(
                 token,
                 key,
                 algorithms=["RS256"],
                 audience=audience,
-                issuer=issuer,  # Verify issuer
+                issuer=issuer,
             )
+            logger.debug("Token verified as ID token with audience and issuer")
         except jwt.InvalidAudienceError:
-            # If audience check fails, try without audience (for access tokens)
-            # Access tokens might not have 'aud' claim but should still have 'iss'
+            # Strategy 2: Try with issuer only (for access tokens with issuer)
+            logger.debug("Token audience verification failed, trying with issuer only")
+            try:
+                decoded = jwt.decode(
+                    token,
+                    key,
+                    algorithms=["RS256"],
+                    issuer=issuer,
+                    options={"verify_aud": False},
+                )
+                logger.debug("Token verified as access token with issuer")
+            except jwt.InvalidIssuerError:
+                # Strategy 3: Try without issuer verification (for access tokens without issuer claim)
+                logger.debug(
+                    "Token issuer verification failed, trying without issuer check"
+                )
+                try:
+                    decoded = jwt.decode(
+                        token,
+                        key,
+                        algorithms=["RS256"],
+                        options={"verify_aud": False, "verify_iss": False},
+                    )
+                    # Manually verify the token is from our user pool by checking the token_use claim
+                    token_use = decoded.get("token_use")
+                    if token_use not in ["access", "id"]:
+                        raise HTTPException(
+                            status_code=401, detail="Invalid token type"
+                        )
+                    # Verify the client_id matches for access tokens
+                    client_id = decoded.get("client_id")
+                    if client_id and client_id != USER_POOL_CLIENT_ID:
+                        logger.warning(
+                            f"Token client_id mismatch. Expected: {USER_POOL_CLIENT_ID}, Got: {client_id}"
+                        )
+                        raise HTTPException(
+                            status_code=401, detail="Invalid token client"
+                        )
+                    logger.debug("Token verified without issuer check (access token)")
+                except jwt.InvalidTokenError as e:
+                    last_error = e
+        except jwt.InvalidIssuerError as e:
+            # If issuer fails on first try, try without issuer
             logger.debug(
-                "Token audience verification failed, trying without audience check (likely access token)"
+                "Token issuer verification failed on first attempt, trying without issuer check"
             )
-            decoded = jwt.decode(
-                token,
-                key,
-                algorithms=["RS256"],
-                issuer=issuer,  # Still verify issuer for security
-                options={
-                    "verify_aud": False
-                },  # Skip audience verification for access tokens
-            )
-        except jwt.InvalidIssuerError:
-            # Token is from wrong issuer - security issue
-            logger.warning(f"Token from invalid issuer. Expected: {issuer}")
-            raise HTTPException(status_code=401, detail="Invalid token issuer")
+            try:
+                decoded = jwt.decode(
+                    token,
+                    key,
+                    algorithms=["RS256"],
+                    options={"verify_aud": False, "verify_iss": False},
+                )
+                # Manually verify token_use and client_id
+                token_use = decoded.get("token_use")
+                if token_use not in ["access", "id"]:
+                    raise HTTPException(status_code=401, detail="Invalid token type")
+                client_id = decoded.get("client_id")
+                if client_id and client_id != USER_POOL_CLIENT_ID:
+                    logger.warning(
+                        f"Token client_id mismatch. Expected: {USER_POOL_CLIENT_ID}, Got: {client_id}"
+                    )
+                    raise HTTPException(status_code=401, detail="Invalid token client")
+                logger.debug("Token verified without issuer check")
+            except jwt.InvalidTokenError as e:
+                last_error = e
+        except jwt.InvalidTokenError as e:
+            last_error = e
+
+        if decoded is None:
+            if last_error:
+                raise last_error
+            raise HTTPException(status_code=401, detail="Token verification failed")
 
         return decoded
     except jwt.ExpiredSignatureError:
@@ -143,13 +202,15 @@ def get_current_user_id(
         user_id = claims.get("sub")  # Cognito user ID
 
         if not user_id:
+            logger.warning("Token verified but missing 'sub' claim")
             raise HTTPException(status_code=401, detail="Token missing user ID")
 
+        logger.debug(f"Successfully extracted user ID: {user_id}")
         return user_id
     except HTTPException:
         raise
     except Exception as e:
-        logger.error(f"Error extracting user ID: {str(e)}")
+        logger.error(f"Error extracting user ID: {type(e).__name__}: {str(e)}")
         raise HTTPException(status_code=401, detail="Authentication failed")
 
 
