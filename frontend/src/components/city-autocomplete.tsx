@@ -133,7 +133,6 @@ export default function CityAutocomplete({
             const cityName = city.name || city.cityName || '';
             const country = city.countryName || '';
             const region = city.regionCode || '';
-            const queryLower = value.toLowerCase();
             
             // Highlight matching text
             const highlightText = (text: string, query: string): React.ReactNode => {
