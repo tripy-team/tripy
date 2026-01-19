@@ -40,7 +40,7 @@ export default function ForgotPasswordPage() {
 
 	return (
 		<main className="min-h-screen bg-gradient-to-br from-white via-blue-50/30 to-white text-slate-900">
-			{/* The (auth)/layout renders TopBar + Footer; this page only renders content */}
+			{/* The (auth)/layout renders Navigation + Footer; this page only renders content */}
 			<section className="mx-auto grid max-w-6xl grid-cols-1 gap-10 px-8 py-12 md:grid-cols-2 md:py-16">
 				{/* Left: copy */}
 				<div className="order-2 md:order-1">

@@ -89,3 +89,4 @@ infra/cdk*
 
 # Documentation files (markdown)
 *.md
+data/

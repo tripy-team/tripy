@@ -15,7 +15,7 @@ logger = logging.getLogger(__name__)
 
 from fastapi import FastAPI, Request, HTTPException, Depends, BackgroundTasks
 from fastapi.middleware.cors import CORSMiddleware
-from pydantic import BaseModel, Field, EmailStr, validator
+from pydantic import BaseModel, Field
 from typing import Optional, List, Dict, Any
 
 # Import services
@@ -38,6 +38,7 @@ from .utils.analytics import (
     track_itinerary_generated,
 )
 from .utils.jwt_auth import get_current_user_id
+from .utils.loyalty_programs import validate_program
 
 # Get CORS origins from environment variable
 CORS_ORIGINS_ENV = os.environ.get("CORS_ORIGINS", "")
@@ -412,11 +413,35 @@ async def get_invite_code(
         if trip.get("createdBy") != user_id:
             raise HTTPException(status_code=403, detail="Access denied")
 
-        return {"inviteCode": trip.get("inviteCode")}
+        invite_code = trip.get("inviteCode")
+        if not invite_code:
+            # Generate invite code if it doesn't exist (backward compatibility)
+            invite_code = trip_service.regenerate_invite_code(request.trip_id, user_id)["inviteCode"]
+        
+        return {"inviteCode": invite_code}
     except HTTPException:
         raise
+    except ValueError as e:
+        logger.warning(f"Invite code validation error: {str(e)}")
+        raise HTTPException(status_code=403, detail=str(e))
     except Exception as e:
         logger.error(f"Error getting invite code: {str(e)}")
+        raise HTTPException(status_code=500, detail=str(e))
+
+
+@app.post("/trips/invite/regenerate")
+async def regenerate_invite_code_endpoint(
+    request: TripIdRequest, user_id: str = Depends(get_current_user_id)
+):
+    """Regenerate invite code for a trip (admin only)"""
+    try:
+        result = trip_service.regenerate_invite_code(request.trip_id, user_id)
+        return result
+    except ValueError as e:
+        logger.warning(f"Invite code regeneration error: {str(e)}")
+        raise HTTPException(status_code=403, detail=str(e))
+    except Exception as e:
+        logger.error(f"Error regenerating invite code: {str(e)}")
         raise HTTPException(status_code=500, detail=str(e))
 
 
@@ -561,8 +586,16 @@ async def upsert_points(
         if trip.get("createdBy") != user_id:
             raise HTTPException(status_code=403, detail="Access denied")
 
+        # Validate program is in the enum
+        validated_program = validate_program(request.program)
+        if not validated_program:
+            raise HTTPException(
+                status_code=400,
+                detail=f"Invalid loyalty program: {request.program}. Please select from the supported programs list."
+            )
+        
         points = points_service.upsert_points(
-            request.trip_id, user_id, request.program, request.balance
+            request.trip_id, user_id, validated_program, request.balance
         )
         return points
     except HTTPException:
@@ -806,7 +839,21 @@ async def update_user_profile(
         if request.max_budget is not None:
             updates["max_budget"] = request.max_budget
         if request.credit_cards is not None:
-            updates["credit_cards"] = request.credit_cards
+            # Validate all programs are in the enum
+            validated_cards = []
+            for card in request.credit_cards:
+                program = card.get("program", "")
+                validated_program = validate_program(program)
+                if not validated_program:
+                    raise HTTPException(
+                        status_code=400,
+                        detail=f"Invalid loyalty program: {program}. Please select from the supported programs list."
+                    )
+                # Use validated program name
+                validated_card = card.copy()
+                validated_card["program"] = validated_program
+                validated_cards.append(validated_card)
+            updates["credit_cards"] = validated_cards
         
         if updates:
             user_service.update_profile(user_id, updates)

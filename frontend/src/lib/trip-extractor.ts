@@ -52,13 +52,54 @@ const COMMON_CITIES = [
     'ballinskelligs', 'portmagee', 'valentia island', 'knightstown'
 ];
 
-// Credit card program names
+import { ALL_LOYALTY_PROGRAMS, LoyaltyProgram, getProgramInfo } from './loyalty-programs';
+
+// Create a map of common aliases to enum values for matching
+const PROGRAM_ALIASES: { [key: string]: string } = {
+    // Credit cards
+    'chase sapphire': LoyaltyProgram.CHASE_ULTIMATE_REWARDS,
+    'chase ultimate rewards': LoyaltyProgram.CHASE_ULTIMATE_REWARDS,
+    'amex platinum': LoyaltyProgram.AMEX_MEMBERSHIP_REWARDS,
+    'amex gold': LoyaltyProgram.AMEX_MEMBERSHIP_REWARDS,
+    'amex membership rewards': LoyaltyProgram.AMEX_MEMBERSHIP_REWARDS,
+    'citi prestige': LoyaltyProgram.CITI_THANKYOU_POINTS,
+    'citi thankyou': LoyaltyProgram.CITI_THANKYOU_POINTS,
+    'capital one': LoyaltyProgram.CAPITAL_ONE_MILES,
+    // Hotels
+    'marriott': LoyaltyProgram.MARRIOTT_BONVOY,
+    'marriott bonvoy': LoyaltyProgram.MARRIOTT_BONVOY,
+    'hilton': LoyaltyProgram.HILTON_HONORS,
+    'hilton honors': LoyaltyProgram.HILTON_HONORS,
+    'hyatt': LoyaltyProgram.HYATT_WORLD_OF_HYATT,
+    'ihg': LoyaltyProgram.IHG_REWARDS,
+    // Airlines
+    'united': LoyaltyProgram.UNITED_MILEAGEPLUS,
+    'united mileageplus': LoyaltyProgram.UNITED_MILEAGEPLUS,
+    'delta': LoyaltyProgram.DELTA_SKYMILES,
+    'delta skymiles': LoyaltyProgram.DELTA_SKYMILES,
+    'american airlines': LoyaltyProgram.AMERICAN_AIRLINES_AADVANTAGE,
+    'aa advantage': LoyaltyProgram.AMERICAN_AIRLINES_AADVANTAGE,
+    'southwest': LoyaltyProgram.SOUTHWEST_RAPID_REWARDS,
+    'jetblue': LoyaltyProgram.JETBLUE_TRUEBLUE,
+    'alaska': LoyaltyProgram.ALASKA_MILEAGE_PLAN,
+    'british airways': LoyaltyProgram.BRITISH_AIRWAYS_AVIOS,
+    'air france': LoyaltyProgram.AIR_FRANCE_KLM_FLYING_BLUE,
+    'klm': LoyaltyProgram.AIR_FRANCE_KLM_FLYING_BLUE,
+    'lufthansa': LoyaltyProgram.LUFTHANSA_MILES_MORE,
+    'aeroplan': LoyaltyProgram.AEROPLAN,
+    'singapore airlines': LoyaltyProgram.SINGAPORE_AIRLINES_KRISFLYER,
+    'qantas': LoyaltyProgram.QANTAS_FREQUENT_FLYER,
+    'emirates': LoyaltyProgram.EMIRATES_SKYWARDS,
+    'cathay pacific': LoyaltyProgram.CATHAY_PACIFIC_ASIA_MILES,
+    'ana': LoyaltyProgram.ALL_NIPPON_AIRWAYS_MILEAGE_CLUB,
+    'jal': LoyaltyProgram.JAPAN_AIRLINES_MILEAGE_BANK,
+    'virgin atlantic': LoyaltyProgram.VIRGIN_ATLANTIC_FLYING_CLUB,
+};
+
+// All valid program names (enum values + aliases)
 const CREDIT_CARD_PROGRAMS = [
-    'chase sapphire', 'amex platinum', 'amex gold', 'citi prestige',
-    'marriott bonvoy', 'hilton honors', 'hyatt', 'ihg', 'radisson',
-    'united', 'delta', 'american airlines', 'southwest', 'jetblue',
-    'alaska', 'virgin atlantic', 'british airways', 'lufthansa', 'air france',
-    'klm', 'qantas', 'cathay pacific', 'singapore airlines', 'ana', 'jal'
+    ...ALL_LOYALTY_PROGRAMS.map(p => p.value),
+    ...Object.keys(PROGRAM_ALIASES)
 ];
 
 /**
@@ -307,19 +348,32 @@ function extractBudget(text: string): { minBudget?: number; maxBudget?: number }
  */
 function extractCreditCards(text: string): Array<{ program: string; points: number }> {
     const cards: Array<{ program: string; points: number }> = [];
+    const foundPrograms = new Set<string>(); // Track found programs to avoid duplicates
 
-    // Look for credit card programs
+    // Look for loyalty programs (all categories)
     for (const program of CREDIT_CARD_PROGRAMS) {
-        const regex = new RegExp(`\\b${program.replace(/\s+/g, '\\s+')}\\b`, 'i');
-        if (regex.test(text)) {
+        const programLower = program.toLowerCase();
+        const regex = new RegExp(`\\b${programLower.replace(/\s+/g, '\\s+')}\\b`, 'i');
+        
+        if (regex.test(text) && !foundPrograms.has(programLower)) {
+            foundPrograms.add(programLower);
+            
             // Try to find points amount nearby
-            const pointsMatch = text.match(new RegExp(`${program}[^.]*?(\\d{1,3}(?:,\\d{3})*)\\s*(?:points?|pts)`, 'i'));
+            const pointsMatch = text.match(new RegExp(`${programLower}[^.]*?(\\d{1,3}(?:,\\d{3})*)\\s*(?:points?|pts)`, 'i'));
             const points = pointsMatch ? parseInt(pointsMatch[1].replace(/,/g, '')) : 0;
 
-            cards.push({
-                program: program.split(' ').map(w => w.charAt(0).toUpperCase() + w.slice(1)).join(' '),
-                points: points || 0,
-            });
+            // Map alias to enum value if needed
+            const enumValue = PROGRAM_ALIASES[programLower] || program;
+            const programInfo = getProgramInfo(enumValue);
+            const finalProgram = programInfo?.value || enumValue;
+
+            // Only add if it's a valid program
+            if (getProgramInfo(finalProgram)) {
+                cards.push({
+                    program: finalProgram,
+                    points: points || 0,
+                });
+            }
         }
     }
 

@@ -122,18 +122,28 @@ export default function CityAutocomplete({
   };
 
   return (
-    <div ref={wrapperRef} className="relative flex-1">
+    <div ref={wrapperRef} className="relative flex-1" style={{ zIndex: showSuggestions ? 1000 : 'auto' }}>
       <div className="relative">
         <input
           type="text"
           value={value}
           onChange={(e) => onChange(e.target.value)}
           onKeyDown={handleKeyDown}
-          onFocus={() => value.length >= 1 && suggestions.length > 0 && setShowSuggestions(true)}
-          onBlur={() => {
-            // Clear input if user clicks away without selecting from dropdown
+          onFocus={() => {
+            // Show suggestions if we have any, regardless of value length
+            if (suggestions.length > 0) {
+              setShowSuggestions(true);
+            }
+          }}
+          onBlur={(e) => {
+            // Don't hide if clicking inside the dropdown
+            if (wrapperRef.current?.contains(e.relatedTarget as Node)) {
+              return;
+            }
             // Use setTimeout to allow onClick on suggestions to fire first
             setTimeout(() => {
+              setShowSuggestions(false);
+              // Clear input if user clicks away without selecting from dropdown
               if (value && !suggestions.some(s => {
                 const cityName = (s.name || s.cityName || '').toLowerCase();
                 return cityName === value.toLowerCase();
@@ -147,14 +157,20 @@ export default function CityAutocomplete({
           className="w-full px-4 py-3 bg-white border border-slate-200 rounded-xl focus:outline-none focus:ring-2 focus:ring-blue-600 focus:border-transparent disabled:opacity-50 disabled:cursor-not-allowed"
         />
         {isLoading && (
-          <div className="absolute right-4 top-1/2 -translate-y-1/2">
+          <div className="absolute right-4 top-1/2 -translate-y-1/2 pointer-events-none">
             <div className="w-4 h-4 border-2 border-blue-600 border-t-transparent rounded-full animate-spin" />
           </div>
         )}
       </div>
 
       {showSuggestions && suggestions.length > 0 && (
-        <div className="absolute z-50 w-full mt-1 bg-white border border-slate-200 rounded-xl shadow-lg max-h-64 overflow-y-auto">
+        <div 
+          className="absolute top-full left-0 right-0 mt-1 bg-white border border-slate-200 rounded-xl shadow-lg max-h-64 overflow-y-auto z-[1000]"
+          onMouseDown={(e) => {
+            // Prevent blur event when clicking inside dropdown
+            e.preventDefault();
+          }}
+        >
           {suggestions.map((city, index) => {
             const cityName = city.name || city.cityName || '';
             const country = city.countryName || '';
@@ -164,7 +180,8 @@ export default function CityAutocomplete({
             const highlightText = (text: string, query: string): React.ReactNode => {
               if (!text || !query) return text;
               const lowerText = text.toLowerCase();
-              const index = lowerText.indexOf(query.toLowerCase());
+              const queryLower = query.toLowerCase();
+              const index = lowerText.indexOf(queryLower);
               if (index === -1) return text;
               
               const before = text.substring(0, index);
@@ -183,8 +200,13 @@ export default function CityAutocomplete({
             return (
               <button
                 key={`${city.id || cityName}-${index}`}
-                onClick={() => handleSelect(city)}
-                className="w-full px-4 py-3 text-left hover:bg-blue-50 transition-colors flex items-center gap-3 border-b border-slate-100 last:border-b-0"
+                type="button"
+                onClick={(e) => {
+                  e.preventDefault();
+                  e.stopPropagation();
+                  handleSelect(city);
+                }}
+                className="w-full px-4 py-3 text-left hover:bg-blue-50 transition-colors flex items-center gap-3 border-b border-slate-100 last:border-b-0 cursor-pointer"
               >
                 <MapPin className="w-4 h-4 text-blue-600 flex-shrink-0" />
                 <div className="flex-1 min-w-0">

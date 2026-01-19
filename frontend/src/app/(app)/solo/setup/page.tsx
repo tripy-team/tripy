@@ -39,6 +39,7 @@ export default function SoloTripSetup() {
   // Start and End Destination State
   const [startDestination, setStartDestination] = useState('');
   const [endDestination, setEndDestination] = useState('');
+  const [isRoundTrip, setIsRoundTrip] = useState(false);
 
   // Estimates
   const [estimatedCost, setEstimatedCost] = useState(0);
@@ -49,6 +50,25 @@ export default function SoloTripSetup() {
 
   // Calculate total points from all cards
   const totalPoints = creditCards.reduce((sum, card) => sum + card.points, 0);
+
+  // Scroll to top on mount and keep it at top
+  useEffect(() => {
+    // Immediate scroll
+    window.scrollTo(0, 0);
+    // Also scroll after a brief delay to ensure it stays at top
+    const timeoutId = setTimeout(() => {
+      window.scrollTo(0, 0);
+    }, 100);
+    // And one more after components are fully rendered
+    const timeoutId2 = setTimeout(() => {
+      window.scrollTo(0, 0);
+    }, 500);
+    
+    return () => {
+      clearTimeout(timeoutId);
+      clearTimeout(timeoutId2);
+    };
+  }, []);
 
   // Load user profile on mount
   useEffect(() => {
@@ -101,6 +121,13 @@ export default function SoloTripSetup() {
       return () => clearTimeout(timeoutId);
     }
   }, [minBudget, maxBudget, creditCards, isLoadingProfile]);
+
+  // Sync end destination with start destination if round trip
+  useEffect(() => {
+    if (isRoundTrip && startDestination) {
+      setEndDestination(startDestination);
+    }
+  }, [startDestination, isRoundTrip]);
 
   // Handle extracted trip info from chatbot
   const handleExtract = (info: ExtractedTripInfo) => {
@@ -181,8 +208,17 @@ export default function SoloTripSetup() {
   };
 
   const handleGenerate = async () => {
-    if (cities.length < 1 || (!isFlexible && (!startDate || !endDate))) {
-      setError('Please fill in all required fields (dates and at least 1 city)');
+    // Validate required fields
+    if (!startDestination || !endDestination) {
+      setError('Please fill in both start and end destinations');
+      return;
+    }
+    if (cities.length < 1) {
+      setError('Please add at least 1 destination city');
+      return;
+    }
+    if (!isFlexible && (!startDate || !endDate)) {
+      setError('Please select travel dates');
       return;
     }
 
@@ -348,29 +384,20 @@ export default function SoloTripSetup() {
               </div>
 
               <div className="space-y-6">
-                <div className="flex items-center justify-between">
-                  <label className="text-sm text-slate-600 font-medium">Travel Dates</label>
-                  <button
-                    onClick={() => setIsFlexible(!isFlexible)}
-                    className={`text-sm px-3 py-1.5 rounded-lg transition-colors border ${
-                      isFlexible 
-                        ? 'bg-blue-600 text-white border-blue-600' 
-                        : 'bg-white text-slate-600 border-slate-200 hover:border-blue-400'
-                    }`}
-                  >
-                    Flexible Dates
-                  </button>
-                </div>
-
                 {!isFlexible ? (
                   <div>
-                    <label className="block text-xs text-slate-500 mb-1.5 uppercase font-bold tracking-wider">Travel Dates</label>
+                    <label className="block text-xs text-slate-500 mb-1.5 uppercase font-bold tracking-wider">
+                      Travel Dates <span className="text-red-500">*</span>
+                    </label>
                     <DateRangePicker
                       startDate={startDate}
                       endDate={endDate}
                       onStartDateChange={setStartDate}
                       onEndDateChange={setEndDate}
                     />
+                    {(!startDate || !endDate) && (
+                      <p className="text-xs text-red-500 mt-1">Required</p>
+                    )}
                   </div>
                 ) : (
                   <div>
@@ -407,7 +434,7 @@ export default function SoloTripSetup() {
                 {/* Start Destination */}
                 <div>
                   <label className="block text-sm text-slate-600 mb-2 font-medium">
-                    Start Destination
+                    Start Destination <span className="text-red-500">*</span>
                   </label>
                   <CityAutocomplete
                     value={startDestination}
@@ -417,12 +444,15 @@ export default function SoloTripSetup() {
                     }}
                     placeholder="Select starting city..."
                   />
+                  {!startDestination && (
+                    <p className="text-xs text-red-500 mt-1">Required</p>
+                  )}
                 </div>
                 
                 {/* End Destination */}
                 <div>
                   <label className="block text-sm text-slate-600 mb-2 font-medium">
-                    End Destination
+                    End Destination <span className="text-red-500">*</span>
                   </label>
                   <CityAutocomplete
                     value={endDestination}
@@ -431,7 +461,28 @@ export default function SoloTripSetup() {
                       setEndDestination(city);
                     }}
                     placeholder="Select ending city..."
+                    disabled={isRoundTrip}
                   />
+                  {!endDestination && (
+                    <p className="text-xs text-red-500 mt-1">Required</p>
+                  )}
+                </div>
+
+                <div className="flex items-center justify-end pt-2">
+                  <label className="flex items-center gap-2 cursor-pointer select-none group inline-flex">
+                    <input
+                      type="checkbox"
+                      checked={isRoundTrip}
+                      onChange={(e) => {
+                        setIsRoundTrip(e.target.checked);
+                        if (e.target.checked) {
+                          setEndDestination(startDestination);
+                        }
+                      }}
+                      className="w-4 h-4"
+                    />
+                    <span className="text-sm text-slate-600 group-hover:text-slate-900 transition-colors">Start and end at same location</span>
+                  </label>
                 </div>
               </div>
             </div>
@@ -442,7 +493,7 @@ export default function SoloTripSetup() {
                 <div className="w-10 h-10 bg-blue-100 rounded-xl flex items-center justify-center">
                   <MapPin className="w-5 h-5 text-blue-600" />
                 </div>
-                <h2 className="text-2xl text-slate-900">Destinations</h2>
+                <h2 className="text-2xl text-slate-900">Destinations <span className="text-red-500">*</span></h2>
               </div>
 
               <div className="space-y-4">
@@ -553,7 +604,7 @@ export default function SoloTripSetup() {
               {/* Generate Button */}
               <button
                 onClick={handleGenerate}
-                disabled={cities.length < 1 || (!isFlexible && (!startDate || !endDate)) || isGenerating}
+                disabled={!startDestination || !endDestination || cities.length < 1 || (!isFlexible && (!startDate || !endDate)) || isGenerating}
                 className="w-full px-6 py-4 bg-yellow-400 text-slate-900 rounded-xl hover:bg-yellow-500 transition-all disabled:opacity-50 disabled:cursor-not-allowed flex items-center justify-center gap-2 text-lg shadow-lg shadow-yellow-400/20 font-semibold"
               >
                 <Zap className="w-5 h-5" />

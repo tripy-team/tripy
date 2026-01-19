@@ -40,6 +40,26 @@ def get_trip_by_invite(invite_code: str) -> Optional[Dict[str, Any]]:
     return trip_repo.get_trip_by_invite_code(invite_code)
 
 
+def regenerate_invite_code(trip_id: str, user_id: str) -> Dict[str, Any]:
+    """Regenerate invite code for a trip (admin only)"""
+    trip = get_trip(trip_id)
+    if not trip:
+        raise ValueError("Trip not found")
+    
+    # Verify user is the trip creator
+    if trip.get("createdBy") != user_id:
+        raise ValueError("Only trip creator can regenerate invite code")
+    
+    # Generate new invite code
+    new_invite_code = str(uuid.uuid4())[:8]
+    
+    # Update trip with new invite code
+    trip["inviteCode"] = new_invite_code
+    trip_repo.put_trip(trip)
+    
+    return {"inviteCode": new_invite_code}
+
+
 def list_trips_for_user(user_id: str) -> List[Dict[str, Any]]:
     """List all trips for a user (both owned and joined)"""
     from .destination_service import list_destinations

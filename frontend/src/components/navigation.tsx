@@ -4,6 +4,7 @@ import { Bell, LogOut, Settings, User, Plane, Menu, X, Users } from 'lucide-reac
 import { useEffect, useState } from 'react';
 import Link from 'next/link';
 import { usePathname, useRouter } from 'next/navigation';
+import { TripyLogo } from '@/components/tripy-logo';
 import {
   DropdownMenu,
   DropdownMenuContent,
@@ -139,12 +140,10 @@ export function Navigation() {
           {/* Logo and Desktop Nav */}
           <div className="flex">
             <div className="flex-shrink-0 flex items-center mr-6">
-              <Link href="/about" className="flex items-center gap-3">
-                <div className="w-10 h-10 bg-blue-600 rounded-xl flex items-center justify-center shadow-lg shadow-blue-600/20">
-                  <Plane className="w-5 h-5 text-white" />
-                </div>
-                <span className="text-xl font-bold text-slate-900 hidden sm:block">Tripy</span>
-              </Link>
+              <TripyLogo href="/" showText={false} className="sm:hidden" />
+              <div className="hidden sm:block">
+                <TripyLogo href="/" />
+              </div>
             </div>
             
             {/* Desktop Navigation Menu */}
@@ -210,9 +209,17 @@ export function Navigation() {
                   </NavigationMenuItem>
 
                   <NavigationMenuItem>
-                    <NavigationMenuLink asChild className={cn(navigationMenuTriggerStyle(), isActive('/explore') && "bg-slate-100 text-slate-900")}>
-                      <Link href="/explore">
-                        Explore
+                    <NavigationMenuLink asChild className={cn(navigationMenuTriggerStyle(), isActive('/my-trips') && "bg-slate-100 text-slate-900")}>
+                      <Link href="/my-trips">
+                        My Trips
+                      </Link>
+                    </NavigationMenuLink>
+                  </NavigationMenuItem>
+
+                  <NavigationMenuItem>
+                    <NavigationMenuLink asChild className={cn(navigationMenuTriggerStyle(), isActive('/join') && "bg-slate-100 text-slate-900")}>
+                      <Link href="/join">
+                        Join a Trip
                       </Link>
                     </NavigationMenuLink>
                   </NavigationMenuItem>
@@ -357,15 +364,15 @@ export function Navigation() {
               My Trips
             </Link>
             <Link
-              href="/explore"
+              href="/join"
               onClick={() => setMobileMenuOpen(false)}
               className={`block pl-3 pr-4 py-2 border-l-4 text-base font-medium ${
-                isActive('/explore')
+                isActive('/join')
                   ? 'bg-blue-50 border-blue-500 text-blue-700'
                   : 'border-transparent text-slate-500 hover:bg-slate-50 hover:border-slate-300 hover:text-slate-700'
               }`}
             >
-              Explore
+              Join a Trip
             </Link>
             <Link
               href="/points-setup"

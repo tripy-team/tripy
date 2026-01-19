@@ -30,13 +30,24 @@ export default function TripChatbotInline({ onExtract }: TripChatbotInlineProps)
   const inputRef = useRef<HTMLInputElement>(null);
 
   useEffect(() => {
-    if (inputRef.current) {
-      inputRef.current.focus();
-    }
+    // Delay focus to prevent page scroll
+    const timeoutId = setTimeout(() => {
+      if (inputRef.current) {
+        inputRef.current.focus();
+      }
+    }, 600); // Wait for page scroll-to-top to complete
+    
+    return () => clearTimeout(timeoutId);
   }, []);
 
   useEffect(() => {
-    messagesEndRef.current?.scrollIntoView({ behavior: 'smooth' });
+    // Only scroll within the messages container, not the whole page
+    if (messagesEndRef.current) {
+      const container = messagesEndRef.current.closest('.overflow-y-auto');
+      if (container) {
+        messagesEndRef.current.scrollIntoView({ behavior: 'smooth', block: 'nearest' });
+      }
+    }
   }, [messages]);
 
   const handleSend = async () => {

@@ -448,6 +448,12 @@ export const trips = {
       body: JSON.stringify({ trip_id }),
     });
   },
+  regenerateInvite: async (trip_id: string): Promise<{ inviteCode: string }> => {
+    return apiRequest<{ inviteCode: string }>('/trips/invite/regenerate', {
+      method: 'POST',
+      body: JSON.stringify({ trip_id }),
+    });
+  },
 };
 
 // Destinations API

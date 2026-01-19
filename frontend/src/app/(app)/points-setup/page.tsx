@@ -1,9 +1,10 @@
 'use client';
 
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useMemo } from 'react';
 import { useRouter } from 'next/navigation';
-import { CreditCard, Plus, X, Zap, TrendingUp, ArrowRight, Sparkles } from 'lucide-react';
+import { CreditCard, Plus, X, Zap, TrendingUp, ArrowRight, Sparkles, ChevronDown } from 'lucide-react';
 import { users as usersAPI } from '@/lib/api';
+import { ALL_LOYALTY_PROGRAMS, getProgramCategory, isValidProgram, type ProgramCategory } from '@/lib/loyalty-programs';
 
 interface LoyaltyCard {
   id: string;
@@ -12,17 +13,18 @@ interface LoyaltyCard {
   category: 'credit' | 'hotel' | 'airline';
 }
 
+// Popular programs for quick selection
 const POPULAR_PROGRAMS = [
-  { name: 'Chase Ultimate Rewards', category: 'credit' as const },
-  { name: 'Amex Membership Rewards', category: 'credit' as const },
-  { name: 'Citi ThankYou Points', category: 'credit' as const },
-  { name: 'Capital One Miles', category: 'credit' as const },
-  { name: 'Marriott Bonvoy', category: 'hotel' as const },
-  { name: 'Hilton Honors', category: 'hotel' as const },
-  { name: 'Hyatt World of Hyatt', category: 'hotel' as const },
-  { name: 'Delta SkyMiles', category: 'airline' as const },
-  { name: 'United MileagePlus', category: 'airline' as const },
-  { name: 'American Airlines AAdvantage', category: 'airline' as const },
+  'Chase Ultimate Rewards',
+  'Amex Membership Rewards',
+  'Citi ThankYou Points',
+  'Capital One Miles',
+  'Marriott Bonvoy',
+  'Hilton Honors',
+  'Hyatt World of Hyatt',
+  'Delta SkyMiles',
+  'United MileagePlus',
+  'American Airlines AAdvantage',
 ];
 
 export default function PointsSetup() {
@@ -31,9 +33,44 @@ export default function PointsSetup() {
   const [showAddModal, setShowAddModal] = useState(false);
   const [newProgram, setNewProgram] = useState('');
   const [newPoints, setNewPoints] = useState('');
-  const [newCategory, setNewCategory] = useState<'credit' | 'hotel' | 'airline'>('credit');
+  const [newCategory, setNewCategory] = useState<ProgramCategory>('credit');
+  const [showProgramDropdown, setShowProgramDropdown] = useState(false);
+  const [programSearchQuery, setProgramSearchQuery] = useState('');
   const [isLoading, setIsLoading] = useState(true);
   const [isSaving, setIsSaving] = useState(false);
+  
+  // Close dropdown when clicking outside
+  useEffect(() => {
+    const handleClickOutside = () => {
+      setShowProgramDropdown(false);
+    };
+    if (showProgramDropdown) {
+      document.addEventListener('click', handleClickOutside);
+      return () => document.removeEventListener('click', handleClickOutside);
+    }
+  }, [showProgramDropdown]);
+
+  // Filter programs by category and search query
+  const filteredPrograms = useMemo(() => {
+    return ALL_LOYALTY_PROGRAMS.filter(p => {
+      const matchesCategory = p.category === newCategory;
+      const matchesSearch = !programSearchQuery || 
+        p.label.toLowerCase().includes(programSearchQuery.toLowerCase()) ||
+        p.value.toLowerCase().includes(programSearchQuery.toLowerCase());
+      return matchesCategory && matchesSearch;
+    });
+  }, [newCategory, programSearchQuery]);
+
+  // Update category when program is selected
+  const handleProgramSelect = (program: string) => {
+    const programInfo = ALL_LOYALTY_PROGRAMS.find(p => p.value === program || p.label === program);
+    if (programInfo) {
+      setNewProgram(programInfo.value);
+      setNewCategory(programInfo.category);
+      setShowProgramDropdown(false);
+      setProgramSearchQuery('');
+    }
+  };
 
   const totalPoints = cards.reduce((sum, card) => sum + card.points, 0);
 
@@ -46,13 +83,16 @@ export default function PointsSetup() {
         
         if (profile.credit_cards && profile.credit_cards.length > 0) {
           // Convert backend format to frontend format
-          // Backend doesn't have category, so we'll default to 'credit'
-          const loadedCards: LoyaltyCard[] = profile.credit_cards.map(card => ({
-            id: card.id,
-            program: card.program,
-            points: card.points,
-            category: 'credit' as const, // Default to credit since backend doesn't store category
-          }));
+          // Determine category from program name
+          const loadedCards: LoyaltyCard[] = profile.credit_cards.map(card => {
+            const category = getProgramCategory(card.program) || 'credit';
+            return {
+              id: card.id,
+              program: card.program,
+              points: card.points,
+              category: category as 'credit' | 'hotel' | 'airline',
+            };
+          });
           setCards(loadedCards);
         }
       } catch (err) {
@@ -95,12 +135,13 @@ export default function PointsSetup() {
   }, [cards, isLoading, isSaving]);
 
   const addCard = () => {
-    if (newProgram.trim() && newPoints.trim()) {
+    if (newProgram.trim() && newPoints.trim() && isValidProgram(newProgram)) {
+      const programInfo = ALL_LOYALTY_PROGRAMS.find(p => p.value === newProgram || p.label === newProgram);
       const card: LoyaltyCard = {
         id: `card-${Date.now()}-${Math.random().toString(36).substr(2, 9)}`,
-        program: newProgram.trim(),
+        program: programInfo?.value || newProgram.trim(),
         points: Number(newPoints.trim()),
-        category: newCategory,
+        category: programInfo?.category || newCategory,
       };
       setCards([...cards, card]);
       setNewProgram('');
@@ -230,22 +271,26 @@ export default function PointsSetup() {
                 Quickly add commonly used loyalty programs
               </p>
               <div className="grid grid-cols-2 gap-3">
-                {POPULAR_PROGRAMS.map(program => (
-                  <button
-                    key={program.name}
-                    onClick={() => {
-                      setNewProgram(program.name);
-                      setNewCategory(program.category);
-                      setShowAddModal(true);
-                    }}
-                    className="flex items-center gap-3 px-4 py-3 bg-slate-50 border border-slate-200 rounded-xl hover:bg-blue-50 hover:border-blue-200 transition-all text-left"
-                  >
-                    <div className={`w-8 h-8 rounded-lg flex items-center justify-center ${getCategoryColor(program.category)}`}>
-                      {getCategoryIcon(program.category)}
-                    </div>
-                    <span className="text-sm text-slate-900">{program.name}</span>
-                  </button>
-                ))}
+                {POPULAR_PROGRAMS.map(programName => {
+                  const programInfo = ALL_LOYALTY_PROGRAMS.find(p => p.value === programName || p.label === programName);
+                  if (!programInfo) return null;
+                  return (
+                    <button
+                      key={programInfo.value}
+                      onClick={() => {
+                        setNewProgram(programInfo.value);
+                        setNewCategory(programInfo.category);
+                        setShowAddModal(true);
+                      }}
+                      className="flex items-center gap-3 px-4 py-3 bg-slate-50 border border-slate-200 rounded-xl hover:bg-blue-50 hover:border-blue-200 transition-all text-left"
+                    >
+                      <div className={`w-8 h-8 rounded-lg flex items-center justify-center ${getCategoryColor(programInfo.category)}`}>
+                        {getCategoryIcon(programInfo.category)}
+                      </div>
+                      <span className="text-sm text-slate-900">{programInfo.label}</span>
+                    </button>
+                  );
+                })}
               </div>
             </div>
           </div>
@@ -342,6 +387,8 @@ export default function PointsSetup() {
                   setNewProgram('');
                   setNewPoints('');
                   setNewCategory('credit');
+                  setProgramSearchQuery('');
+                  setShowProgramDropdown(false);
                 }}
                 className="p-2 hover:bg-slate-100 rounded-lg transition-colors"
               >
@@ -352,15 +399,81 @@ export default function PointsSetup() {
             <div className="space-y-5">
               <div>
                 <label className="block text-sm text-slate-600 mb-2 font-medium">
-                  Program Name
+                  Category
                 </label>
-                <input
-                  type="text"
-                  value={newProgram}
-                  onChange={(e) => setNewProgram(e.target.value)}
-                  placeholder="e.g., Chase Ultimate Rewards"
-                  className="w-full px-4 py-3 bg-white border border-slate-200 rounded-xl focus:outline-none focus:ring-2 focus:ring-blue-600 focus:border-transparent"
-                />
+                <div className="grid grid-cols-3 gap-2">
+                  {[
+                    { value: 'credit', label: 'Credit Card', icon: CreditCard },
+                    { value: 'hotel', label: 'Hotel', icon: Sparkles },
+                    { value: 'airline', label: 'Airline', icon: TrendingUp },
+                  ].map(({ value, label, icon: Icon }) => (
+                    <button
+                      key={value}
+                      onClick={() => {
+                        setNewCategory(value as ProgramCategory);
+                        setNewProgram('');
+                        setProgramSearchQuery('');
+                      }}
+                      className={`px-4 py-3 rounded-xl border-2 transition-all flex flex-col items-center gap-2 ${
+                        newCategory === value
+                          ? 'border-blue-600 bg-blue-50'
+                          : 'border-slate-200 bg-white hover:border-slate-300'
+                      }`}
+                    >
+                      <Icon className={`w-5 h-5 ${newCategory === value ? 'text-blue-600' : 'text-slate-600'}`} />
+                      <span className={`text-xs font-medium ${newCategory === value ? 'text-blue-600' : 'text-slate-600'}`}>
+                        {label}
+                      </span>
+                    </button>
+                  ))}
+                </div>
+              </div>
+
+              <div className="relative">
+                <label className="block text-sm text-slate-600 mb-2 font-medium">
+                  Program Name <span className="text-red-500">*</span>
+                </label>
+                <div className="relative">
+                  <input
+                    type="text"
+                    value={programSearchQuery || newProgram}
+                    onChange={(e) => {
+                      setProgramSearchQuery(e.target.value);
+                      setShowProgramDropdown(true);
+                      // Auto-select if exact match
+                      const match = ALL_LOYALTY_PROGRAMS.find(
+                        p => p.category === newCategory && 
+                        (p.label.toLowerCase() === e.target.value.toLowerCase() || 
+                         p.value.toLowerCase() === e.target.value.toLowerCase())
+                      );
+                      if (match) {
+                        handleProgramSelect(match.value);
+                      }
+                    }}
+                    onFocus={() => setShowProgramDropdown(true)}
+                    placeholder="Search or select a program..."
+                    className="w-full px-4 py-3 bg-white border border-slate-200 rounded-xl focus:outline-none focus:ring-2 focus:ring-blue-600 focus:border-transparent pr-10"
+                  />
+                  <ChevronDown className="absolute right-3 top-1/2 -translate-y-1/2 w-5 h-5 text-slate-400 pointer-events-none" />
+                  
+                  {showProgramDropdown && filteredPrograms.length > 0 && (
+                    <div className="absolute z-50 w-full mt-1 bg-white border border-slate-200 rounded-xl shadow-lg max-h-64 overflow-y-auto">
+                      {filteredPrograms.map(program => (
+                        <button
+                          key={program.value}
+                          type="button"
+                          onClick={() => handleProgramSelect(program.value)}
+                          className="w-full px-4 py-3 text-left hover:bg-blue-50 transition-colors border-b border-slate-100 last:border-b-0"
+                        >
+                          <div className="text-sm font-medium text-slate-900">{program.label}</div>
+                        </button>
+                      ))}
+                    </div>
+                  )}
+                </div>
+                {newProgram && !isValidProgram(newProgram) && (
+                  <p className="text-xs text-red-500 mt-1">Please select a valid program from the list</p>
+                )}
               </div>
 
               <div>
@@ -376,33 +489,6 @@ export default function PointsSetup() {
                 />
               </div>
 
-              <div>
-                <label className="block text-sm text-slate-600 mb-2 font-medium">
-                  Category
-                </label>
-                <div className="grid grid-cols-3 gap-2">
-                  {[
-                    { value: 'credit', label: 'Credit Card', icon: CreditCard },
-                    { value: 'hotel', label: 'Hotel', icon: Sparkles },
-                    { value: 'airline', label: 'Airline', icon: TrendingUp },
-                  ].map(({ value, label, icon: Icon }) => (
-                    <button
-                      key={value}
-                      onClick={() => setNewCategory(value as 'credit' | 'hotel' | 'airline')}
-                      className={`px-4 py-3 rounded-xl border-2 transition-all flex flex-col items-center gap-2 ${
-                        newCategory === value
-                          ? 'border-blue-600 bg-blue-50'
-                          : 'border-slate-200 bg-white hover:border-slate-300'
-                      }`}
-                    >
-                      <Icon className={`w-5 h-5 ${newCategory === value ? 'text-blue-600' : 'text-slate-600'}`} />
-                      <span className={`text-xs font-medium ${newCategory === value ? 'text-blue-600' : 'text-slate-600'}`}>
-                        {label}
-                      </span>
-                    </button>
-                  ))}
-                </div>
-              </div>
             </div>
 
             <div className="flex gap-3 mt-8">
@@ -412,6 +498,8 @@ export default function PointsSetup() {
                   setNewProgram('');
                   setNewPoints('');
                   setNewCategory('credit');
+                  setProgramSearchQuery('');
+                  setShowProgramDropdown(false);
                 }}
                 className="flex-1 px-4 py-3 bg-white border-2 border-slate-200 text-slate-900 rounded-xl hover:bg-slate-50 transition-colors"
               >
@@ -419,7 +507,7 @@ export default function PointsSetup() {
               </button>
               <button
                 onClick={addCard}
-                disabled={!newProgram.trim() || !newPoints.trim()}
+                disabled={!newProgram.trim() || !newPoints.trim() || !isValidProgram(newProgram)}
                 className="flex-1 px-4 py-3 bg-blue-600 text-white rounded-xl hover:bg-blue-700 transition-colors shadow-sm disabled:opacity-50 disabled:cursor-not-allowed"
               >
                 Add Program

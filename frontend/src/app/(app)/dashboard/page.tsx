@@ -4,7 +4,6 @@ import { useState, useEffect } from 'react';
 import Link from 'next/link';
 import { Plus, Calendar, CreditCard, Users, Plane, TrendingUp } from 'lucide-react';
 import { TripCard } from '@/components/trip-card';
-import { ExploreMap } from '@/components/explore-map';
 import { Trip } from '@/types';
 import { trips as tripsAPI } from '@/lib/api';
 
@@ -297,7 +296,9 @@ export default function Dashboard() {
                         )}
                     </div>
                 ) : (
-                    <ExploreMap />
+                    <div className="flex items-center justify-center h-64 text-slate-400">
+                        <p>No trips yet. Create your first trip to get started!</p>
+                    </div>
                 )}
             </div>
         </div>

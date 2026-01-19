@@ -2,8 +2,8 @@
 
 import { useState, useEffect } from 'react';
 import { useRouter } from 'next/navigation';
-import { Users, MapPin, Calendar, DollarSign, Zap, Sparkles, CreditCard, X, Copy, Check, ArrowRight, MessageCircle } from 'lucide-react';
-import { createTrip, addDestination, getInviteCode, users as usersAPI } from '@/lib/api';
+import { Users, MapPin, Calendar, DollarSign, Zap, Sparkles, CreditCard, X, Copy, Check, ArrowRight, MessageCircle, RefreshCw } from 'lucide-react';
+import { createTrip, addDestination, users as usersAPI, trips as tripsAPI } from '@/lib/api';
 import TripChatbotInline from '@/components/trip-chatbot-inline';
 import { ExtractedTripInfo } from '@/lib/trip-extractor';
 import CityAutocomplete from '@/components/city-autocomplete';
@@ -40,11 +40,15 @@ export default function GroupTripSetup() {
   // Start and End Destination State
   const [startDestination, setStartDestination] = useState('');
   const [endDestination, setEndDestination] = useState('');
+  const [isRoundTrip, setIsRoundTrip] = useState(false);
 
   // Invite State
+  const [currentTripId, setCurrentTripId] = useState<string | null>(null);
+  const [inviteCode, setInviteCode] = useState('');
   const [inviteLink, setInviteLink] = useState('');
   const [copied, setCopied] = useState(false);
   const [showInviteModal, setShowInviteModal] = useState(false);
+  const [isRegenerating, setIsRegenerating] = useState(false);
 
   // Estimates
   const [estimatedCost, setEstimatedCost] = useState(0);
@@ -54,6 +58,32 @@ export default function GroupTripSetup() {
 
   // Calculate total points
   const totalPoints = creditCards.reduce((sum, card) => sum + card.points, 0);
+
+  // Scroll to top on mount and keep it at top
+  useEffect(() => {
+    // Immediate scroll
+    window.scrollTo(0, 0);
+    // Also scroll after a brief delay to ensure it stays at top
+    const timeoutId = setTimeout(() => {
+      window.scrollTo(0, 0);
+    }, 100);
+    // And one more after components are fully rendered
+    const timeoutId2 = setTimeout(() => {
+      window.scrollTo(0, 0);
+    }, 500);
+    
+    return () => {
+      clearTimeout(timeoutId);
+      clearTimeout(timeoutId2);
+    };
+  }, []);
+
+  // Sync end destination with start destination if round trip
+  useEffect(() => {
+    if (isRoundTrip && startDestination) {
+      setEndDestination(startDestination);
+    }
+  }, [startDestination, isRoundTrip]);
 
   // Load user profile on mount
   useEffect(() => {
@@ -186,8 +216,17 @@ export default function GroupTripSetup() {
   };
 
   const handleCreateTrip = async () => {
-    if (cities.length < 1 || (!isFlexible && (!startDate || !endDate))) {
-      setError('Please fill in all required fields (dates and at least 1 city)');
+    // Validate required fields
+    if (!startDestination || !endDestination) {
+      setError('Please fill in both start and end destinations');
+      return;
+    }
+    if (cities.length < 1) {
+      setError('Please add at least 1 destination city');
+      return;
+    }
+    if (!isFlexible && (!startDate || !endDate)) {
+      setError('Please select travel dates');
       return;
     }
 
@@ -236,13 +275,18 @@ export default function GroupTripSetup() {
       }
 
       // 5. Get invite code
-      const inviteResponse = await getInviteCode(trip.tripId);
+      const inviteResponse = await tripsAPI.invite(trip.tripId);
       
-      // 4. Set invite link
+      // Store trip ID and invite info
+      setCurrentTripId(trip.tripId);
+      setInviteCode(inviteResponse.inviteCode);
+      
+      // Set invite link
       const frontendUrl = typeof window !== 'undefined' 
         ? window.location.origin 
         : 'tripy.app';
-      setInviteLink(`${frontendUrl}/group/join/${inviteResponse.inviteCode}`);
+      const link = `${frontendUrl}/group/join/${inviteResponse.inviteCode}`;
+      setInviteLink(link);
       setShowInviteModal(true);
     } catch (err) {
       console.error('Error creating trip:', err);
@@ -256,6 +300,28 @@ export default function GroupTripSetup() {
     navigator.clipboard.writeText(inviteLink);
     setCopied(true);
     setTimeout(() => setCopied(false), 2000);
+  };
+
+  const handleRegenerateInvite = async () => {
+    if (!currentTripId) return;
+    
+    setIsRegenerating(true);
+    try {
+      const response = await tripsAPI.regenerateInvite(currentTripId);
+      setInviteCode(response.inviteCode);
+      
+      const frontendUrl = typeof window !== 'undefined' 
+        ? window.location.origin 
+        : 'tripy.app';
+      const newLink = `${frontendUrl}/group/join/${response.inviteCode}`;
+      setInviteLink(newLink);
+      setCopied(false); // Reset copied state
+    } catch (err) {
+      console.error('Error regenerating invite code:', err);
+      setError(err instanceof Error ? err.message : 'Failed to regenerate invite code');
+    } finally {
+      setIsRegenerating(false);
+    }
   };
 
   const handleContinue = () => {
@@ -365,29 +431,20 @@ export default function GroupTripSetup() {
               </div>
 
               <div className="space-y-6">
-                <div className="flex items-center justify-between">
-                  <label className="text-sm text-slate-600 font-medium">Travel Dates</label>
-                  <button
-                    onClick={() => setIsFlexible(!isFlexible)}
-                    className={`text-sm px-3 py-1.5 rounded-lg transition-colors border ${
-                      isFlexible 
-                        ? 'bg-blue-600 text-white border-blue-600' 
-                        : 'bg-white text-slate-600 border-slate-200 hover:border-blue-400'
-                    }`}
-                  >
-                    Flexible Dates
-                  </button>
-                </div>
-
                 {!isFlexible ? (
                   <div>
-                    <label className="block text-xs text-slate-500 mb-1.5 uppercase font-bold tracking-wider">Travel Dates</label>
+                    <label className="block text-xs text-slate-500 mb-1.5 uppercase font-bold tracking-wider">
+                      Travel Dates <span className="text-red-500">*</span>
+                    </label>
                     <DateRangePicker
                       startDate={startDate}
                       endDate={endDate}
                       onStartDateChange={setStartDate}
                       onEndDateChange={setEndDate}
                     />
+                    {(!startDate || !endDate) && (
+                      <p className="text-xs text-red-500 mt-1">Required</p>
+                    )}
                   </div>
                 ) : (
                   <div>
@@ -424,7 +481,7 @@ export default function GroupTripSetup() {
                 {/* Start Destination */}
                 <div>
                   <label className="block text-sm text-slate-600 mb-2 font-medium">
-                    Start Destination
+                    Start Destination <span className="text-red-500">*</span>
                   </label>
                   <CityAutocomplete
                     value={startDestination}
@@ -434,12 +491,15 @@ export default function GroupTripSetup() {
                     }}
                     placeholder="Select starting city..."
                   />
+                  {!startDestination && (
+                    <p className="text-xs text-red-500 mt-1">Required</p>
+                  )}
                 </div>
                 
                 {/* End Destination */}
                 <div>
                   <label className="block text-sm text-slate-600 mb-2 font-medium">
-                    End Destination
+                    End Destination <span className="text-red-500">*</span>
                   </label>
                   <CityAutocomplete
                     value={endDestination}
@@ -448,49 +508,28 @@ export default function GroupTripSetup() {
                       setEndDestination(city);
                     }}
                     placeholder="Select ending city..."
+                    disabled={isRoundTrip}
                   />
+                  {!endDestination && (
+                    <p className="text-xs text-red-500 mt-1">Required</p>
+                  )}
                 </div>
-              </div>
-            </div>
 
-            {/* Start and End Destinations */}
-            <div className="bg-white border border-slate-200 rounded-2xl p-8 shadow-sm mb-6">
-              <div className="flex items-center gap-3 mb-6">
-                <div className="w-10 h-10 bg-blue-100 rounded-xl flex items-center justify-center">
-                  <MapPin className="w-5 h-5 text-blue-600" />
-                </div>
-                <h2 className="text-2xl text-slate-900">Route</h2>
-              </div>
-              
-              <div className="grid grid-cols-2 gap-4">
-                {/* Start Destination */}
-                <div>
-                  <label className="block text-sm text-slate-600 mb-2 font-medium">
-                    Start Destination
+                <div className="flex items-center justify-end pt-2">
+                  <label className="flex items-center gap-2 cursor-pointer select-none group inline-flex">
+                    <input
+                      type="checkbox"
+                      checked={isRoundTrip}
+                      onChange={(e) => {
+                        setIsRoundTrip(e.target.checked);
+                        if (e.target.checked) {
+                          setEndDestination(startDestination);
+                        }
+                      }}
+                      className="w-4 h-4"
+                    />
+                    <span className="text-sm text-slate-600 group-hover:text-slate-900 transition-colors">Start and end at same location</span>
                   </label>
-                  <CityAutocomplete
-                    value={startDestination}
-                    onChange={setStartDestination}
-                    onSelect={(city) => {
-                      setStartDestination(city);
-                    }}
-                    placeholder="Select starting city..."
-                  />
-                </div>
-                
-                {/* End Destination */}
-                <div>
-                  <label className="block text-sm text-slate-600 mb-2 font-medium">
-                    End Destination
-                  </label>
-                  <CityAutocomplete
-                    value={endDestination}
-                    onChange={setEndDestination}
-                    onSelect={(city) => {
-                      setEndDestination(city);
-                    }}
-                    placeholder="Select ending city..."
-                  />
                 </div>
               </div>
             </div>
@@ -501,7 +540,7 @@ export default function GroupTripSetup() {
                 <div className="w-10 h-10 bg-blue-100 rounded-xl flex items-center justify-center">
                   <MapPin className="w-5 h-5 text-blue-600" />
                 </div>
-                <h2 className="text-2xl text-slate-900">Destinations</h2>
+                <h2 className="text-2xl text-slate-900">Destinations <span className="text-red-500">*</span></h2>
               </div>
 
               <div className="space-y-4">
@@ -636,20 +675,57 @@ export default function GroupTripSetup() {
                     <p className="text-slate-600">Your group trip is ready. Share this link to invite members.</p>
                 </div>
 
-                <div className="flex gap-2 mb-6">
-                    <input
-                        type="text"
-                        value={inviteLink}
-                        readOnly
-                        className="flex-1 px-4 py-3 bg-slate-50 border border-slate-200 rounded-xl text-slate-600 font-mono text-sm"
-                    />
-                    <button
-                        onClick={copyInvite}
-                        className="px-4 py-3 bg-slate-100 hover:bg-slate-200 text-slate-900 rounded-xl transition-colors font-medium flex items-center gap-2"
-                    >
-                        {copied ? <Check className="w-4 h-4" /> : <Copy className="w-4 h-4" />}
-                        {copied ? 'Copied' : 'Copy'}
-                    </button>
+                <div className="space-y-4 mb-6">
+                    {/* Invite Code */}
+                    <div>
+                        <label className="block text-sm text-slate-600 mb-2 font-medium">Invite Code</label>
+                        <div className="flex gap-2">
+                            <input
+                                type="text"
+                                value={inviteCode}
+                                readOnly
+                                className="flex-1 px-4 py-3 bg-slate-50 border border-slate-200 rounded-xl text-slate-900 font-mono text-lg font-bold text-center"
+                            />
+                            <button
+                                onClick={handleRegenerateInvite}
+                                disabled={isRegenerating}
+                                className="px-4 py-3 bg-slate-100 hover:bg-slate-200 text-slate-900 rounded-xl transition-colors font-medium text-sm disabled:opacity-50 disabled:cursor-not-allowed flex items-center gap-2"
+                                title="Generate new invite code"
+                            >
+                                {isRegenerating ? (
+                                  <>
+                                    <RefreshCw className="w-4 h-4 animate-spin" />
+                                    <span>Generating...</span>
+                                  </>
+                                ) : (
+                                  <>
+                                    <RefreshCw className="w-4 h-4" />
+                                    <span>New Code</span>
+                                  </>
+                                )}
+                            </button>
+                        </div>
+                    </div>
+
+                    {/* Invite Link */}
+                    <div>
+                        <label className="block text-sm text-slate-600 mb-2 font-medium">Invite Link</label>
+                        <div className="flex gap-2">
+                            <input
+                                type="text"
+                                value={inviteLink}
+                                readOnly
+                                className="flex-1 px-4 py-3 bg-slate-50 border border-slate-200 rounded-xl text-slate-600 font-mono text-sm"
+                            />
+                            <button
+                                onClick={copyInvite}
+                                className="px-4 py-3 bg-blue-600 hover:bg-blue-700 text-white rounded-xl transition-colors font-medium flex items-center gap-2"
+                            >
+                                {copied ? <Check className="w-4 h-4" /> : <Copy className="w-4 h-4" />}
+                                {copied ? 'Copied' : 'Copy'}
+                            </button>
+                        </div>
+                    </div>
                 </div>
 
                 <button
