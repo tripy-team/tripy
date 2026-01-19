@@ -86,15 +86,21 @@ export default function GroupAdmin() {
     }
   };
 
-  return (
-    <div>
-      <Navigation />
-      {isLoading ? (
+  if (isLoading) {
+    return (
+      <div>
+        <Navigation />
         <div className="min-h-screen flex items-center justify-center bg-gradient-to-br from-white via-blue-50/20 to-white">
           <div className="text-slate-600">Loading...</div>
         </div>
-      ) : (
-        <div className="min-h-screen p-8 bg-gradient-to-br from-white via-blue-50/20 to-white">
+      </div>
+    );
+  }
+
+  return (
+    <div>
+      <Navigation />
+      <div className="min-h-screen p-8 bg-gradient-to-br from-white via-blue-50/20 to-white">
         <div className="max-w-4xl mx-auto">
           {/* Header */}
           <div className="flex justify-between items-start mb-12">
@@ -187,7 +193,7 @@ export default function GroupAdmin() {
                         </button>
                       )}
                       {member.role === 'Admin' && (
-                        <div className="w-9 h-9"></div> {/* Spacer to align with remove button */}
+                        <div className="w-9 h-9"></div>
                       )}
                     </div>
                   </div>
@@ -196,8 +202,7 @@ export default function GroupAdmin() {
             </div>
           </div>
         </div>
-        </div>
-      )}
+      </div>
     </div>
   );
 }
