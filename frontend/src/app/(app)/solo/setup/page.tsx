@@ -2,7 +2,7 @@
 
 import { useState, useEffect } from 'react';
 import { useRouter } from 'next/navigation';
-import { X, Plus, Calendar, DollarSign, Zap, MapPin, Sparkles, CreditCard, MessageCircle } from 'lucide-react';
+import { X, Calendar, DollarSign, Zap, MapPin, Sparkles, CreditCard, MessageCircle } from 'lucide-react';
 import { createTrip, addDestination, upsertPoints, generateItinerary, users as usersAPI } from '@/lib/api';
 import TripChatbotInline from '@/components/trip-chatbot-inline';
 import { ExtractedTripInfo } from '@/lib/trip-extractor';
@@ -171,13 +171,6 @@ export default function SoloTripSetup() {
     setEstimatedCost(estimated);
     setEstimatedPoints(Math.floor(estimated * 25)); // Rough points calculation
   }, [durationDays, cities.length]);
-
-  const addCity = () => {
-    if (newCity.trim() && !cities.includes(newCity.trim())) {
-      setCities([...cities, newCity.trim()]);
-      setNewCity('');
-    }
-  };
 
   const removeCity = (city: string) => {
     setCities(cities.filter(c => c !== city));

@@ -2,7 +2,7 @@
 
 import { useState, useEffect } from 'react';
 import { useRouter } from 'next/navigation';
-import { Users, MapPin, Calendar, DollarSign, Zap, Sparkles, CreditCard, Plus, X, Copy, Check, ArrowRight, MessageCircle } from 'lucide-react';
+import { Users, MapPin, Calendar, DollarSign, Zap, Sparkles, CreditCard, X, Copy, Check, ArrowRight, MessageCircle } from 'lucide-react';
 import { createTrip, addDestination, getInviteCode, users as usersAPI } from '@/lib/api';
 import TripChatbotInline from '@/components/trip-chatbot-inline';
 import { ExtractedTripInfo } from '@/lib/trip-extractor';
@@ -176,13 +176,6 @@ export default function GroupTripSetup() {
     setEstimatedCost(estimated);
     setEstimatedPoints(Math.floor(estimated * 25));
   }, [durationDays, cities.length]);
-
-  const addCity = () => {
-    if (newCity.trim() && !cities.includes(newCity.trim())) {
-      setCities([...cities, newCity.trim()]);
-      setNewCity('');
-    }
-  };
 
   const removeCity = (city: string) => {
     setCities(cities.filter(c => c !== city));
