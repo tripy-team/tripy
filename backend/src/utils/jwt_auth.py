@@ -101,9 +101,12 @@ def verify_token(token: str) -> Dict[str, Any]:
                 issuer=issuer,
             )
             logger.debug("Token verified as ID token with audience and issuer")
-        except jwt.InvalidAudienceError:
+        except (jwt.InvalidAudienceError, jwt.InvalidTokenError) as e:
+            # Audience-related problem (e.g. missing or mismatched aud claim) - treat as access token
+            logger.debug(
+                f"Token audience verification failed or aud missing, trying access-token strategies: {str(e)}"
+            )
             # Strategy 2: Try with issuer only (for access tokens with issuer)
-            logger.debug("Token audience verification failed, trying with issuer only")
             try:
                 decoded = jwt.decode(
                     token,
@@ -141,8 +144,8 @@ def verify_token(token: str) -> Dict[str, Any]:
                             status_code=401, detail="Invalid token client"
                         )
                     logger.debug("Token verified without issuer check (access token)")
-                except jwt.InvalidTokenError as e:
-                    last_error = e
+                except jwt.InvalidTokenError as e_inner:
+                    last_error = e_inner
         except jwt.InvalidIssuerError as e:
             # If issuer fails on first try, try without issuer
             logger.debug(
@@ -166,10 +169,8 @@ def verify_token(token: str) -> Dict[str, Any]:
                     )
                     raise HTTPException(status_code=401, detail="Invalid token client")
                 logger.debug("Token verified without issuer check")
-            except jwt.InvalidTokenError as e:
-                last_error = e
-        except jwt.InvalidTokenError as e:
-            last_error = e
+            except jwt.InvalidTokenError as e_inner:
+                last_error = e_inner
 
         if decoded is None:
             if last_error:
