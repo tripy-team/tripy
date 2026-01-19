@@ -537,6 +537,51 @@ export const cities = {
   },
 };
 
+// User Profile API
+export interface UserProfile {
+  userId: string;
+  email?: string;
+  name?: string;
+  default_home_airport?: string;
+  timezone?: string;
+  min_budget?: number;
+  max_budget?: number;
+  credit_cards?: Array<{
+    id: string;
+    program: string;
+    points: number;
+  }>;
+  createdAt?: string;
+}
+
+export interface UpdateProfileRequest {
+  name?: string;
+  default_home_airport?: string;
+  timezone?: string;
+  min_budget?: number;
+  max_budget?: number;
+  credit_cards?: Array<{
+    id: string;
+    program: string;
+    points: number;
+  }>;
+}
+
+export const users = {
+  getProfile: async (): Promise<UserProfile> => {
+    return apiRequest<UserProfile>('/users/me', {
+      method: 'GET',
+    });
+  },
+
+  updateProfile: async (updates: UpdateProfileRequest): Promise<{ ok: boolean }> => {
+    return apiRequest<{ ok: boolean }>('/users/profile', {
+      method: 'PUT',
+      body: JSON.stringify(updates),
+    });
+  },
+};
+
 // Named exports for backward compatibility
 export const login = auth.login;
 export const signup = auth.signup;

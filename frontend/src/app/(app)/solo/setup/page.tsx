@@ -3,7 +3,7 @@
 import { useState, useEffect } from 'react';
 import { useRouter } from 'next/navigation';
 import { X, Plus, Calendar, DollarSign, Zap, MapPin, Sparkles, CreditCard, MessageCircle } from 'lucide-react';
-import { createTrip, addDestination, upsertPoints, generateItinerary } from '@/lib/api';
+import { createTrip, addDestination, upsertPoints, generateItinerary, users as usersAPI } from '@/lib/api';
 import TripChatbotInline from '@/components/trip-chatbot-inline';
 import { ExtractedTripInfo } from '@/lib/trip-extractor';
 import CityAutocomplete from '@/components/city-autocomplete';
@@ -21,11 +21,10 @@ export default function SoloTripSetup() {
   // Budget State
   const [minBudget, setMinBudget] = useState(1000);
   const [maxBudget, setMaxBudget] = useState(5000);
+  const [isLoadingProfile, setIsLoadingProfile] = useState(true);
 
   // Credit Card State
-  const [creditCards, setCreditCards] = useState<CreditCardEntry[]>([
-    { id: '1', program: 'Chase Sapphire Reserve', points: 150000 }
-  ]);
+  const [creditCards, setCreditCards] = useState<CreditCardEntry[]>([]);
 
   // Date & Duration State
   const [isFlexible, setIsFlexible] = useState(false);
@@ -46,6 +45,58 @@ export default function SoloTripSetup() {
 
   // Calculate total points from all cards
   const totalPoints = creditCards.reduce((sum, card) => sum + card.points, 0);
+
+  // Load user profile on mount
+  useEffect(() => {
+    const loadUserProfile = async () => {
+      try {
+        setIsLoadingProfile(true);
+        const profile = await usersAPI.getProfile();
+        
+        if (profile.min_budget !== undefined) {
+          setMinBudget(profile.min_budget);
+        }
+        if (profile.max_budget !== undefined) {
+          setMaxBudget(profile.max_budget);
+        }
+        if (profile.credit_cards && profile.credit_cards.length > 0) {
+          setCreditCards(profile.credit_cards.map(card => ({
+            id: card.id,
+            program: card.program,
+            points: card.points,
+          })));
+        }
+      } catch (err) {
+        console.error('Error loading user profile:', err);
+        // Use defaults if profile load fails
+      } finally {
+        setIsLoadingProfile(false);
+      }
+    };
+
+    loadUserProfile();
+  }, []);
+
+  // Save budget and credit cards when they change
+  useEffect(() => {
+    if (!isLoadingProfile) {
+      const saveProfile = async () => {
+        try {
+          await usersAPI.updateProfile({
+            min_budget: minBudget,
+            max_budget: maxBudget,
+            credit_cards: creditCards,
+          });
+        } catch (err) {
+          console.error('Error saving user profile:', err);
+        }
+      };
+
+      // Debounce saves to avoid too many API calls
+      const timeoutId = setTimeout(saveProfile, 1000);
+      return () => clearTimeout(timeoutId);
+    }
+  }, [minBudget, maxBudget, creditCards, isLoadingProfile]);
 
   // Handle extracted trip info from chatbot
   const handleExtract = (info: ExtractedTripInfo) => {
@@ -270,13 +321,13 @@ export default function SoloTripSetup() {
               </div>
             </div>
 
-            {/* Duration & Dates */}
+            {/* Dates */}
             <div className="bg-white border border-slate-200 rounded-2xl p-8 shadow-sm">
               <div className="flex items-center gap-3 mb-6">
                 <div className="w-10 h-10 bg-blue-100 rounded-xl flex items-center justify-center">
                   <Calendar className="w-5 h-5 text-blue-600" />
                 </div>
-                <h2 className="text-2xl text-slate-900">Duration &amp; Dates</h2>
+                <h2 className="text-2xl text-slate-900">Dates</h2>
               </div>
 
               <div className="space-y-6">
