@@ -2,6 +2,7 @@
 
 import Link from "next/link";
 import { useState } from "react";
+import { auth } from "@/lib/api";
 
 export default function ForgotPasswordPage() {
 	const [email, setEmail] = useState("");
@@ -22,15 +23,16 @@ export default function ForgotPasswordPage() {
 		e.preventDefault();
 		if (!validate()) return;
 		setSubmitting(true);
+		setErrors({});
 		try {
-			// TODO: Implement password reset API call
-			// Endpoint needed: POST /auth/forgot-password (needs to be added to backend)
-			// Data to send: { email }
-			// Example: await fetch("/api/auth/forgot-password", { method: "POST", body: JSON.stringify({ email }) })
-			//   .then(r => r.json());
+			await auth.forgotPassword(email);
 			setSent(true);
-		} catch (_err) {
-			setErrors({ general: "Something went wrong. Please try again." });
+		} catch (err) {
+			let errorMessage = "Something went wrong. Please try again.";
+			if (err instanceof Error) {
+				errorMessage = err.message;
+			}
+			setErrors({ general: errorMessage });
 		} finally {
 			setSubmitting(false);
 		}

@@ -22,12 +22,71 @@ function getAccessToken(): string | null {
 }
 
 /**
- * Check if token is expired (simple check - in production, decode and check exp claim)
+ * Check if token is expired by decoding JWT and checking exp claim
  */
-function isTokenExpired(): boolean {
-  // For MVP, we'll rely on the backend to reject expired tokens
-  // In production, decode JWT and check exp claim
-  return false;
+function isTokenExpired(token: string | null): boolean {
+  if (!token) return true;
+  
+  try {
+    // Decode JWT without verification (we just need the exp claim)
+    const parts = token.split('.');
+    if (parts.length !== 3) return true;
+    
+    const payload = JSON.parse(atob(parts[1]));
+    const exp = payload.exp;
+    
+    if (!exp) return false; // No expiration claim, assume valid
+    
+    // Check if token expires in less than 60 seconds (refresh before it expires)
+    const now = Math.floor(Date.now() / 1000);
+    return exp - now < 60;
+  } catch {
+    // If we can't decode, assume expired to be safe
+    return true;
+  }
+}
+
+/**
+ * Refresh access and ID tokens using refresh token
+ */
+async function refreshAccessToken(): Promise<boolean> {
+  const refreshToken = localStorage.getItem('refresh_token') || sessionStorage.getItem('refresh_token');
+  
+  if (!refreshToken) {
+    return false;
+  }
+  
+  try {
+    const response = await fetch(`${BACKEND_URL}/auth/refresh`, {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json',
+      },
+      body: JSON.stringify({ refresh_token: refreshToken }),
+    });
+    
+    if (!response.ok) {
+      return false;
+    }
+    
+    const data = await response.json();
+    
+    // Store new tokens
+    if (typeof window !== 'undefined' && data.tokens) {
+      if (data.tokens.access_token) {
+        localStorage.setItem('access_token', data.tokens.access_token);
+        sessionStorage.setItem('access_token', data.tokens.access_token);
+      }
+      if (data.tokens.id_token) {
+        localStorage.setItem('id_token', data.tokens.id_token);
+        sessionStorage.setItem('id_token', data.tokens.id_token);
+      }
+    }
+    
+    return true;
+  } catch {
+    return false;
+  }
 }
 
 /**
@@ -62,20 +121,30 @@ async function apiRequest<T>(
 
   // Add Authorization header if auth is required
   if (requireAuth) {
-    const token = getAccessToken();
-    if (token && !isTokenExpired()) {
-      headers['Authorization'] = `Bearer ${token}`;
-    } else if (token) {
-      // Token expired - could implement refresh logic here
-      if (typeof window !== 'undefined') {
-        localStorage.removeItem('access_token');
-        localStorage.removeItem('id_token');
-        localStorage.removeItem('refresh_token');
-        sessionStorage.removeItem('access_token');
-        sessionStorage.removeItem('id_token');
-        sessionStorage.removeItem('refresh_token');
+    let token = getAccessToken();
+    
+    // Check if token is expired and try to refresh
+    if (token && isTokenExpired(token)) {
+      const refreshed = await refreshAccessToken();
+      if (refreshed) {
+        token = getAccessToken(); // Get the new token
+      } else {
+        // Refresh failed - clear tokens
+        if (typeof window !== 'undefined') {
+          localStorage.removeItem('access_token');
+          localStorage.removeItem('id_token');
+          localStorage.removeItem('refresh_token');
+          sessionStorage.removeItem('access_token');
+          sessionStorage.removeItem('id_token');
+          sessionStorage.removeItem('refresh_token');
+          sessionStorage.removeItem('tripy_auth_checked_session');
+        }
+        throw new Error('Session expired. Please log in again.');
       }
-      throw new Error('Session expired. Please log in again.');
+    }
+    
+    if (token) {
+      headers['Authorization'] = `Bearer ${token}`;
     } else {
       throw new Error('Authentication required. Please log in.');
     }
@@ -87,9 +156,30 @@ async function apiRequest<T>(
       headers: headers as HeadersInit,
     });
 
-    // Handle 401 Unauthorized - token might be invalid
+    // Handle 401 Unauthorized - token might be invalid or expired
     if (response.status === 401 && requireAuth) {
+      // Try to refresh token once before giving up
+      const refreshed = await refreshAccessToken();
+      
+      if (refreshed) {
+        // Retry the request with new token
+        const newToken = getAccessToken();
+        if (newToken) {
+          headers['Authorization'] = `Bearer ${newToken}`;
+          const retryResponse = await fetch(url, {
+            ...options,
+            headers: headers as HeadersInit,
+          });
+          
+          if (retryResponse.ok) {
+            return retryResponse.json() as T;
+          }
+        }
+      }
+      
+      // Refresh failed or retry failed - clear tokens and redirect
       if (typeof window !== 'undefined') {
+        // Clear tokens
         localStorage.removeItem('access_token');
         localStorage.removeItem('id_token');
         localStorage.removeItem('refresh_token');
@@ -99,9 +189,16 @@ async function apiRequest<T>(
         sessionStorage.removeItem('id_token');
         sessionStorage.removeItem('refresh_token');
         sessionStorage.removeItem('tripy_auth_checked_session'); // Clear auth check flag
+        
         // Only redirect if we're not already on login/auth pages
         const currentPath = window.location.pathname;
-        if (!currentPath.startsWith('/login') && !currentPath.startsWith('/register') && !currentPath.startsWith('/auth')) {
+        const isAuthPage = currentPath.startsWith('/login') || 
+                          currentPath.startsWith('/register') || 
+                          currentPath.startsWith('/auth') ||
+                          currentPath === '/';
+        
+        if (!isAuthPage) {
+          // Redirect to login
           window.location.href = '/login';
         }
       }
@@ -245,6 +342,27 @@ export const auth = {
       method: 'POST',
       body: JSON.stringify(params),
     }, false); // requireAuth = false for confirmation
+  },
+
+  refreshToken: async (refresh_token: string): Promise<{ tokens: { access_token: string; id_token: string; expires_in: number } }> => {
+    return apiRequest<{ tokens: { access_token: string; id_token: string; expires_in: number } }>('/auth/refresh', {
+      method: 'POST',
+      body: JSON.stringify({ refresh_token }),
+    }, false); // requireAuth = false for token refresh
+  },
+
+  forgotPassword: async (email: string): Promise<{ message: string; code_delivery_details?: any }> => {
+    return apiRequest<{ message: string; code_delivery_details?: any }>('/auth/forgot-password', {
+      method: 'POST',
+      body: JSON.stringify({ email }),
+    }, false); // requireAuth = false for forgot password
+  },
+
+  confirmForgotPassword: async (params: { email: string; confirmation_code: string; new_password: string }): Promise<{ message: string }> => {
+    return apiRequest<{ message: string }>('/auth/confirm-forgot-password', {
+      method: 'POST',
+      body: JSON.stringify(params),
+    }, false); // requireAuth = false for password reset
   },
 
   logout: () => {

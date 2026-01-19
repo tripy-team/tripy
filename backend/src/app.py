@@ -128,6 +128,20 @@ class ConfirmSignUpRequest(BaseModel):
     confirmation_code: str = Field(..., min_length=6, max_length=6)
 
 
+class RefreshTokenRequest(BaseModel):
+    refresh_token: str = Field(..., min_length=1)
+
+
+class ForgotPasswordRequest(BaseModel):
+    email: EmailStr
+
+
+class ConfirmForgotPasswordRequest(BaseModel):
+    email: EmailStr
+    confirmation_code: str = Field(..., min_length=6, max_length=6)
+    new_password: str = Field(..., min_length=8, max_length=128)
+
+
 class CitySearchRequest(BaseModel):
     query: str = Field(..., min_length=1, max_length=100)
     max_results: Optional[int] = Field(10, ge=1, le=50)
@@ -253,6 +267,59 @@ async def confirm_signup(request: ConfirmSignUpRequest):
         raise HTTPException(status_code=400, detail=str(e))
     except Exception as e:
         logger.error(f"Confirm signup error: {str(e)}")
+        raise HTTPException(status_code=400, detail=str(e))
+
+
+@app.post("/auth/refresh")
+async def refresh_token(request: RefreshTokenRequest):
+    """Refresh access and ID tokens using refresh token"""
+    try:
+        auth_result = auth_service.refresh_tokens(request.refresh_token)
+        return {
+            "tokens": {
+                "access_token": auth_result["AccessToken"],
+                "id_token": auth_result["IdToken"],
+                "expires_in": auth_result["ExpiresIn"],
+            },
+        }
+    except ValueError as e:
+        logger.warning(f"Token refresh validation error: {str(e)}")
+        raise HTTPException(status_code=400, detail=str(e))
+    except Exception as e:
+        logger.error(f"Token refresh error: {str(e)}")
+        raise HTTPException(status_code=401, detail=str(e))
+
+
+@app.post("/auth/forgot-password")
+async def forgot_password(request: ForgotPasswordRequest):
+    """Initiate password reset - sends verification code to user's email"""
+    try:
+        result = auth_service.forgot_password(request.email)
+        return {
+            "message": "If an account exists with this email, a password reset code has been sent.",
+            "code_delivery_details": result.get("CodeDeliveryDetails"),
+        }
+    except ValueError as e:
+        logger.warning(f"Forgot password validation error: {str(e)}")
+        raise HTTPException(status_code=400, detail=str(e))
+    except Exception as e:
+        logger.error(f"Forgot password error: {str(e)}")
+        raise HTTPException(status_code=400, detail=str(e))
+
+
+@app.post("/auth/confirm-forgot-password")
+async def confirm_forgot_password(request: ConfirmForgotPasswordRequest):
+    """Confirm password reset with verification code"""
+    try:
+        auth_service.confirm_forgot_password(
+            request.email, request.confirmation_code, request.new_password
+        )
+        return {"message": "Password reset successfully"}
+    except ValueError as e:
+        logger.warning(f"Confirm forgot password validation error: {str(e)}")
+        raise HTTPException(status_code=400, detail=str(e))
+    except Exception as e:
+        logger.error(f"Confirm forgot password error: {str(e)}")
         raise HTTPException(status_code=400, detail=str(e))
 
 
