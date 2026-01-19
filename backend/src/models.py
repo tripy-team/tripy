@@ -6,6 +6,9 @@ class UpdateProfileRequest(BaseModel):
     name: Optional[str] = None
     default_home_airport: Optional[str] = None
     timezone: Optional[str] = None
+    min_budget: Optional[int] = None
+    max_budget: Optional[int] = None
+    credit_cards: Optional[List[Dict[str, Any]]] = None
 
 
 class CreateTripRequest(BaseModel):

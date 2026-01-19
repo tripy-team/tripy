@@ -113,6 +113,15 @@ class GenerateItineraryRequest(BaseModel):
     trip_id: str = Field(..., min_length=1)
 
 
+class UpdateProfileRequest(BaseModel):
+    name: Optional[str] = None
+    default_home_airport: Optional[str] = None
+    timezone: Optional[str] = None
+    min_budget: Optional[int] = Field(None, ge=0)
+    max_budget: Optional[int] = Field(None, ge=0)
+    credit_cards: Optional[List[Dict[str, Any]]] = None
+
+
 class LoginRequest(BaseModel):
     email: EmailStr
     password: str = Field(..., min_length=8, max_length=128)
@@ -764,6 +773,47 @@ async def get_city_hero_image(
         raise
     except Exception as e:
         logger.error(f"Error getting city hero image: {str(e)}")
+        raise HTTPException(status_code=500, detail=str(e))
+
+
+@app.get("/users/me")
+async def get_user_profile(user_id: str = Depends(get_current_user_id)):
+    """Get current user's profile"""
+    try:
+        user = user_service.ensure_user_exists(user_id)
+        return user
+    except Exception as e:
+        logger.error(f"Error getting user profile: {str(e)}")
+        raise HTTPException(status_code=500, detail=str(e))
+
+
+@app.put("/users/profile")
+async def update_user_profile(
+    request: UpdateProfileRequest,
+    user_id: str = Depends(get_current_user_id),
+):
+    """Update user profile"""
+    try:
+        updates = {}
+        if request.name is not None:
+            updates["name"] = request.name
+        if request.default_home_airport is not None:
+            updates["default_home_airport"] = request.default_home_airport
+        if request.timezone is not None:
+            updates["timezone"] = request.timezone
+        if request.min_budget is not None:
+            updates["min_budget"] = request.min_budget
+        if request.max_budget is not None:
+            updates["max_budget"] = request.max_budget
+        if request.credit_cards is not None:
+            updates["credit_cards"] = request.credit_cards
+        
+        if updates:
+            user_service.update_profile(user_id, updates)
+        
+        return {"ok": True}
+    except Exception as e:
+        logger.error(f"Error updating user profile: {str(e)}")
         raise HTTPException(status_code=500, detail=str(e))
 
 

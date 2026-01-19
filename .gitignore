@@ -86,3 +86,6 @@ dist/
 
 # Infra
 infra/cdk*
+
+# Documentation files (markdown)
+*.md
