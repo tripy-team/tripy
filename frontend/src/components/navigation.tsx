@@ -114,6 +114,7 @@ export function Navigation() {
       sessionStorage.removeItem('access_token');
       sessionStorage.removeItem('id_token');
       sessionStorage.removeItem('refresh_token');
+      sessionStorage.removeItem('tripy_auth_checked'); // Clear auth check flag
     }
     setUser(null);
     window.dispatchEvent(new Event('tripy_auth_change'));

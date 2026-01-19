@@ -1,8 +1,10 @@
 'use client';
 
-import { useEffect, useState, useRef } from 'react';
+import { useEffect, useState } from 'react';
 import { useRouter } from 'next/navigation';
 import { Navigation } from '@/components/navigation';
+
+const AUTH_CHECK_KEY = 'tripy_auth_checked';
 
 export default function AppLayout({
     children,
@@ -11,12 +13,25 @@ export default function AppLayout({
 }) {
     const router = useRouter();
     const [isChecking, setIsChecking] = useState(true);
-    const hasCheckedRef = useRef(false);
 
     useEffect(() => {
-        // Only check auth once per mount, not on every pathname change
-        if (hasCheckedRef.current) {
-            return;
+        // Check if we've already validated auth this session (prevents double checks)
+        const alreadyChecked = sessionStorage.getItem(AUTH_CHECK_KEY) === 'true';
+        if (alreadyChecked) {
+            // Already checked - just verify tokens still exist
+            const accessToken = localStorage.getItem('access_token') || sessionStorage.getItem('access_token');
+            const authToken = localStorage.getItem('auth_token');
+            const storedUser = localStorage.getItem('user');
+            
+            if (accessToken || authToken) {
+                if (storedUser) {
+                    // User is still authenticated
+                    setIsChecking(false);
+                    return;
+                }
+            }
+            // Tokens cleared since last check - need to re-check
+            sessionStorage.removeItem(AUTH_CHECK_KEY);
         }
 
         // Check if user is authenticated
@@ -29,7 +44,7 @@ export default function AppLayout({
             
             if (!accessToken && !authToken) {
                 // No tokens - user is not authenticated
-                hasCheckedRef.current = true;
+                sessionStorage.setItem(AUTH_CHECK_KEY, 'true');
                 router.replace('/login');
                 return;
             }
@@ -44,7 +59,7 @@ export default function AppLayout({
                 sessionStorage.removeItem('access_token');
                 sessionStorage.removeItem('id_token');
                 sessionStorage.removeItem('refresh_token');
-                hasCheckedRef.current = true;
+                sessionStorage.setItem(AUTH_CHECK_KEY, 'true');
                 router.replace('/login');
                 return;
             }
@@ -62,7 +77,7 @@ export default function AppLayout({
                     sessionStorage.removeItem('access_token');
                     sessionStorage.removeItem('id_token');
                     sessionStorage.removeItem('refresh_token');
-                    hasCheckedRef.current = true;
+                    sessionStorage.setItem(AUTH_CHECK_KEY, 'true');
                     router.replace('/login');
                     return;
                 }
@@ -76,13 +91,13 @@ export default function AppLayout({
                 sessionStorage.removeItem('access_token');
                 sessionStorage.removeItem('id_token');
                 sessionStorage.removeItem('refresh_token');
-                hasCheckedRef.current = true;
+                sessionStorage.setItem(AUTH_CHECK_KEY, 'true');
                 router.replace('/login');
                 return;
             }
             
             // User is authenticated with valid token and user data
-            hasCheckedRef.current = true;
+            sessionStorage.setItem(AUTH_CHECK_KEY, 'true');
             setIsChecking(false);
         };
 

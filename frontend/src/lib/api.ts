@@ -253,6 +253,7 @@ export const auth = {
       sessionStorage.removeItem('access_token');
       sessionStorage.removeItem('id_token');
       sessionStorage.removeItem('refresh_token');
+      sessionStorage.removeItem('tripy_auth_checked'); // Clear auth check flag
       // Trigger auth change event for components to update
       window.dispatchEvent(new Event('tripy_auth_change'));
     }
