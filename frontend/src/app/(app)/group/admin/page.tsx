@@ -87,7 +87,7 @@ export default function GroupAdmin() {
   };
 
   return (
-    <>
+    <div>
       <Navigation />
       {isLoading ? (
         <div className="min-h-screen flex items-center justify-center bg-gradient-to-br from-white via-blue-50/20 to-white">
@@ -198,6 +198,6 @@ export default function GroupAdmin() {
         </div>
         </div>
       )}
-    </>
+    </div>
   );
 }
