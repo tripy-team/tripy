@@ -23,20 +23,7 @@ export default function GroupAdmin() {
   const [members, setMembers] = useState<Member[]>([]);
   const [isLoading, setIsLoading] = useState(true);
 
-  useEffect(() => {
-    // Get trip ID from URL query params
-    const id = searchParams?.get('trip_id') || searchParams?.get('tripId');
-    
-    if (id) {
-      setTripId(id);
-      fetchTripData(id);
-    } else {
-      // If no trip ID, redirect to dashboard
-      router.push('/group/dashboard');
-    }
-  }, [router, searchParams]);
-
-  const fetchTripData = async (id: string) => {
+  const fetchTripData = useCallback(async (id: string) => {
     try {
       setIsLoading(true);
       // TODO: Fetch trip details and members from API
@@ -63,7 +50,20 @@ export default function GroupAdmin() {
     } finally {
       setIsLoading(false);
     }
-  };
+  }, []);
+
+  useEffect(() => {
+    // Get trip ID from URL query params
+    const id = searchParams?.get('trip_id') || searchParams?.get('tripId');
+    
+    if (id) {
+      setTripId(id);
+      fetchTripData(id);
+    } else {
+      // If no trip ID, redirect to dashboard
+      router.push('/group/dashboard');
+    }
+  }, [router, searchParams, fetchTripData]);
 
   const removeMember = async (id: string) => {
     if (!tripId) return;
