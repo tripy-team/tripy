@@ -39,10 +39,6 @@ export default function SoloTripSetup() {
   // Start and End Destination State
   const [startDestination, setStartDestination] = useState('');
   const [endDestination, setEndDestination] = useState('');
-  
-  // Start and End Destination State
-  const [startDestination, setStartDestination] = useState('');
-  const [endDestination, setEndDestination] = useState('');
 
   // Estimates
   const [estimatedCost, setEstimatedCost] = useState(0);
