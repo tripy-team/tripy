@@ -1,160 +1,197 @@
-"use client";
+'use client';
 
+import { useState, useEffect } from 'react';
 import {
-	Button,
-	DateInput,
-	DateRangePicker,
-	DateSegment,
-	Dialog,
-	Label,
-	Popover,
-	RangeCalendar,
-	CalendarCell,
-	CalendarGrid,
-	CalendarGridBody,
-	CalendarGridHeader,
-	CalendarHeaderCell,
-	Heading,
-} from "react-aria-components";
-import type { ButtonProps, PopoverProps } from "react-aria-components";
-import { CalendarIcon, ChevronLeftIcon, ChevronRightIcon } from "lucide-react";
-import { parseDate, type CalendarDate } from "@internationalized/date";
-import type { RangeValue } from "@react-types/shared";
-import { useState } from "react";
+  Button,
+  CalendarCell,
+  CalendarGrid,
+  CalendarGridBody,
+  CalendarGridHeader,
+  CalendarHeaderCell,
+  DateInput,
+  DateRangePicker as AriaDateRangePicker,
+  DateSegment,
+  Dialog,
+  Group,
+  Heading,
+  Popover,
+  RangeCalendar,
+} from 'react-aria-components';
+import type { ButtonProps, PopoverProps } from 'react-aria-components';
+import { CalendarIcon, ChevronLeftIcon, ChevronRightIcon } from 'lucide-react';
+import { parseDate, today, getLocalTimeZone, type DateValue } from '@internationalized/date';
 
-export default function DatePickerCustom() {
-	const [range, setRange] = useState<RangeValue<CalendarDate> | null>({
-		start: parseDate("2025-07-17"),
-		end: parseDate("2025-07-21"),
-	});
-	const [activeField, setActiveField] = useState<"start" | "end" | null>(null);
+interface DateRangePickerProps {
+  startDate: string;
+  endDate: string;
+  onStartDateChange: (date: string) => void;
+  onEndDateChange: (date: string) => void;
+  disabled?: boolean;
+}
 
-	return (
-		<DateRangePicker value={range} onChange={setRange} className="w-full">
-			<div className="flex gap-3">
-				{/* Departure Date */}
-				<div className="flex w-full flex-col justify-center rounded-md border border-gray-300">
-					<Label className="block px-3 pt-3 text-xs text-gray-400">
-						Departure Date
-					</Label>
-					<div
-						className="flex w-full items-center justify-between px-3 pb-3 font-semibold"
-						onPointerDown={() => setActiveField("start")}
-					>
-						<DateInput
-							slot="start"
-							className={`flex flex-1 flex-wrap rounded-md bg-white ${
-								activeField === "start" ? "ring-2 ring-blue-950" : ""
-							}`}
-						>
-							{(segment) => (
-								<DateSegment
-									segment={segment}
-									className="px-0.5 text-sm text-slate-950 tabular-nums"
-								/>
-							)}
-						</DateInput>
-						<Button className="rounded-md p-1 text-slate-950 hover:bg-gray-100">
-							<CalendarIcon className="h-4 w-4" />
-						</Button>
-					</div>
-				</div>
+export default function DateRangePicker({
+  startDate,
+  endDate,
+  onStartDateChange,
+  onEndDateChange,
+  disabled = false,
+}: DateRangePickerProps) {
+  // Convert string dates to DateValue or null
+  const getDateValue = (): { start: DateValue | null; end: DateValue | null } => {
+    try {
+      const start = startDate ? parseDate(startDate) : null;
+      const end = endDate ? parseDate(endDate) : null;
+      return { start, end };
+    } catch {
+      return { start: null, end: null };
+    }
+  };
 
-				{/* Arrival Date */}
-				<div className="flex w-full flex-col justify-center rounded-md border border-gray-300">
-					<Label className="block px-3 pt-3 text-xs text-gray-400">
-						Arrival Date
-					</Label>
-					<div
-						className="flex w-full items-center justify-between px-3 pb-3 font-semibold"
-						onPointerDown={() => setActiveField("end")}
-					>
-						<DateInput
-							slot="end"
-							className={`flex flex-1 flex-wrap rounded-md bg-white ${
-								activeField === "end" ? "ring-2 ring-blue-950" : ""
-							}`}
-						>
-							{(segment) => (
-								<DateSegment
-									segment={segment}
-									className="px-0.5 text-sm text-slate-950 tabular-nums"
-								/>
-							)}
-						</DateInput>
-						<Button className="rounded-md p-1 text-slate-950 hover:bg-gray-100">
-							<CalendarIcon className="h-4 w-4" />
-						</Button>
-					</div>
-				</div>
-			</div>
+  const [range, setRange] = useState<{ start: DateValue | null; end: DateValue | null }>(() => 
+    getDateValue()
+  );
 
-			<MyPopover>
-				<Dialog className="p-3 text-slate-950">
-					<RangeCalendar value={range} onChange={setRange}>
-						<header className="flex w-full items-center gap-1 px-1 pb-4">
-							<Heading className="ml-2 flex-1 font-semibold" />
-							<RoundButton slot="previous">
-								<ChevronLeftIcon className="h-4 w-4 text-slate-950" />
-							</RoundButton>
-							<RoundButton slot="next">
-								<ChevronRightIcon className="h-4 w-4 text-slate-950" />
-							</RoundButton>
-						</header>
-						<CalendarGrid className="border-separate border-spacing-1">
-							<CalendarGridHeader>
-								{(day) => (
-									<CalendarHeaderCell className="text-xs font-semibold text-gray-400">
-										{day}
-									</CalendarHeaderCell>
-								)}
-							</CalendarGridHeader>
-							<CalendarGridBody>
-								{(date) => (
-									<CalendarCell
-										date={date}
-										className={({ isSelected, isFocused, isOutsideMonth }) =>
-											`flex h-9 w-9 items-center justify-center rounded-full ${
-												isSelected ? "bg-slate-950 text-white" : ""
-											} ${isFocused ? "ring-2 ring-slate-400" : ""} ${
-												isOutsideMonth ? "text-slate-300" : "text-slate-900"
-											} hover:bg-gray-100`
-										}
-									/>
-								)}
-							</CalendarGridBody>
-						</CalendarGrid>
-					</RangeCalendar>
-				</Dialog>
-			</MyPopover>
-		</DateRangePicker>
-	);
+  // Update range when props change
+  useEffect(() => {
+    setRange(getDateValue());
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [startDate, endDate]);
+
+  const handleChange = (value: { start: DateValue | null; end: DateValue | null } | null) => {
+    if (value) {
+      setRange(value);
+      if (value.start) {
+        onStartDateChange(value.start.toString());
+      }
+      if (value.end) {
+        onEndDateChange(value.end.toString());
+      }
+    } else {
+      setRange({ start: null, end: null });
+      onStartDateChange('');
+      onEndDateChange('');
+    }
+  };
+
+  const formatDisplayDate = (dateValue: DateValue | null): string => {
+    if (!dateValue) return '';
+    const date = dateValue.toDate(getLocalTimeZone());
+    return date.toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric' });
+  };
+
+  const getDisplayText = () => {
+    if (range.start && range.end) {
+      return `${formatDisplayDate(range.start)} - ${formatDisplayDate(range.end)}`;
+    }
+    if (range.start) {
+      return `From ${formatDisplayDate(range.start)}`;
+    }
+    return 'Select date range';
+  };
+
+  return (
+    <div className="relative w-full">
+      <AriaDateRangePicker
+        value={range.start && range.end ? { start: range.start, end: range.end } : null}
+        onChange={handleChange}
+        isDisabled={disabled}
+        minValue={today(getLocalTimeZone())}
+        className="flex w-full flex-col"
+      >
+        <Group className="flex w-full items-center justify-between px-4 py-3 bg-white border border-slate-200 rounded-xl focus-within:ring-2 focus-within:ring-blue-600 focus-within:border-transparent">
+          <div className="flex items-center gap-3 flex-1 min-w-0">
+            <CalendarIcon className="w-5 h-5 text-slate-400 flex-shrink-0" />
+            <DateInput className="flex flex-1 flex-wrap min-w-0">
+              {(segment) => (
+                <DateSegment
+                  segment={segment}
+                  className={`px-0.5 text-sm tabular-nums outline-none rounded focus:bg-blue-100 focus:text-blue-900 ${
+                    range.start && range.end ? 'text-slate-900' : 'text-slate-400'
+                  }`}
+                />
+              )}
+            </DateInput>
+          </div>
+          <Button className="flex items-center rounded-md p-1 text-slate-400 hover:text-slate-600 hover:bg-slate-100 transition-colors">
+            <CalendarIcon className="h-5 w-5" />
+          </Button>
+        </Group>
+
+        <MyPopover>
+          <Dialog className="p-4 text-slate-950">
+            <RangeCalendar>
+              <header className="flex w-full items-center gap-1 px-1 pb-4">
+                <Heading className="ml-2 flex-1 font-semibold text-slate-900" />
+                <RoundButton slot="previous">
+                  <ChevronLeftIcon className="h-4 w-4 text-slate-900" />
+                </RoundButton>
+                <RoundButton slot="next">
+                  <ChevronRightIcon className="h-4 w-4 text-slate-900" />
+                </RoundButton>
+              </header>
+              <CalendarGrid className="border-separate border-spacing-1">
+                <CalendarGridHeader>
+                  {(day) => (
+                    <CalendarHeaderCell className="text-xs font-semibold text-slate-500 py-2">
+                      {day}
+                    </CalendarHeaderCell>
+                  )}
+                </CalendarGridHeader>
+                <CalendarGridBody>
+                  {(date) => (
+                    <CalendarCell
+                      date={date}
+                      className={({ isSelected, isFocused, isSelectionStart, isSelectionEnd, isOutsideMonth }) =>
+                        `flex h-9 w-9 items-center justify-center rounded-md text-sm transition-colors ${
+                          isSelected
+                            ? isSelectionStart || isSelectionEnd
+                              ? 'bg-blue-600 text-white font-semibold'
+                              : 'bg-blue-100 text-blue-900'
+                            : ''
+                        } ${
+                          isFocused ? 'ring-2 ring-blue-600 ring-offset-1' : ''
+                        } ${
+                          isOutsideMonth ? 'text-slate-300' : 'text-slate-900'
+                        } hover:bg-blue-50 ${
+                          !isSelected && !isFocused ? 'hover:bg-slate-100' : ''
+                        }`
+                      }
+                    />
+                  )}
+                </CalendarGridBody>
+              </CalendarGrid>
+            </RangeCalendar>
+          </Dialog>
+        </MyPopover>
+      </AriaDateRangePicker>
+    </div>
+  );
 }
 
 function RoundButton(props: ButtonProps) {
-	return (
-		<Button
-			{...props}
-			className="flex h-8 w-8 items-center justify-center rounded-full hover:bg-gray-100"
-		/>
-	);
+  return (
+    <Button
+      {...props}
+      className="flex h-8 w-8 items-center justify-center rounded-full hover:bg-slate-100 transition-colors"
+    />
+  );
 }
 
 function MyPopover(props: PopoverProps) {
-	return (
-		<Popover
-			{...props}
-			className={({ isEntering, isExiting }) =>
-				`rounded-lg bg-white drop-shadow-lg ${
-					isEntering
-						? "animate-in fade-in placement-bottom:slide-in-from-top-1 placement-top:slide-in-from-bottom-1 duration-200 ease-out"
-						: ""
-				} ${
-					isExiting
-						? "animate-out fade-out placement-bottom:slide-out-to-top-1 placement-top:slide-out-to-bottom-1 duration-150 ease-in"
-						: ""
-				}`
-			}
-		/>
-	);
+  return (
+    <Popover
+      {...props}
+      className={({ isEntering, isExiting }) =>
+        `rounded-xl bg-white border border-slate-200 shadow-lg ${
+          isEntering
+            ? 'animate-in fade-in placement-bottom:slide-in-from-top-1 placement-top:slide-in-from-bottom-1 duration-200 ease-out'
+            : ''
+        } ${
+          isExiting
+            ? 'animate-out fade-out placement-bottom:slide-out-to-top-1 placement-top:slide-out-to-bottom-1 duration-150 ease-in'
+            : ''
+        }`
+      }
+    />
+  );
 }

@@ -2,10 +2,12 @@
 
 import { useState, useEffect } from 'react';
 import { useRouter } from 'next/navigation';
-import { Users, MapPin, Calendar, DollarSign, Zap, Sparkles, CreditCard, Plus, X, Copy, Check, ArrowRight } from 'lucide-react';
+import { Users, MapPin, Calendar, DollarSign, Zap, Sparkles, CreditCard, Plus, X, Copy, Check, ArrowRight, MessageCircle } from 'lucide-react';
 import { createTrip, addDestination, getInviteCode } from '@/lib/api';
-import TripChatbot from '@/components/trip-chatbot';
+import TripChatbotInline from '@/components/trip-chatbot-inline';
 import { ExtractedTripInfo } from '@/lib/trip-extractor';
+import CityAutocomplete from '@/components/city-autocomplete';
+import DateRangePicker from '@/components/date-range-picker';
 
 interface CreditCardEntry {
   id: string;
@@ -46,7 +48,6 @@ export default function GroupTripSetup() {
   const [estimatedPoints, setEstimatedPoints] = useState(0);
   const [isGenerating, setIsGenerating] = useState(false);
   const [error, setError] = useState<string | null>(null);
-  const [isChatbotOpen, setIsChatbotOpen] = useState(false);
 
   // Calculate total points
   const totalPoints = creditCards.reduce((sum, card) => sum + card.points, 0);
@@ -311,26 +312,14 @@ export default function GroupTripSetup() {
                 </div>
 
                 {!isFlexible ? (
-                  <div className="grid md:grid-cols-2 gap-6">
-                    <div>
-                      <label className="block text-xs text-slate-500 mb-1.5 uppercase font-bold tracking-wider">Start Date</label>
-                      <input
-                        type="date"
-                        value={startDate}
-                        onChange={(e) => setStartDate(e.target.value)}
-                        className="w-full px-4 py-3 bg-white border border-slate-200 rounded-xl focus:outline-none focus:ring-2 focus:ring-blue-600 focus:border-transparent"
-                      />
-                    </div>
-                    <div>
-                      <label className="block text-xs text-slate-500 mb-1.5 uppercase font-bold tracking-wider">End Date</label>
-                      <input
-                        type="date"
-                        value={endDate}
-                        min={startDate}
-                        onChange={(e) => setEndDate(e.target.value)}
-                        className="w-full px-4 py-3 bg-white border border-slate-200 rounded-xl focus:outline-none focus:ring-2 focus:ring-blue-600 focus:border-transparent"
-                      />
-                    </div>
+                  <div>
+                    <label className="block text-xs text-slate-500 mb-1.5 uppercase font-bold tracking-wider">Travel Dates</label>
+                    <DateRangePicker
+                      startDate={startDate}
+                      endDate={endDate}
+                      onStartDateChange={setStartDate}
+                      onEndDateChange={setEndDate}
+                    />
                   </div>
                 ) : (
                   <div>
@@ -365,13 +354,16 @@ export default function GroupTripSetup() {
 
               <div className="space-y-4">
                 <div className="flex gap-2">
-                  <input
-                    type="text"
+                  <CityAutocomplete
                     value={newCity}
-                    onChange={(e) => setNewCity(e.target.value)}
-                    onKeyPress={(e) => e.key === 'Enter' && addCity()}
+                    onChange={setNewCity}
+                    onSelect={(city) => {
+                      if (city && !cities.includes(city)) {
+                        setCities([...cities, city]);
+                        setNewCity('');
+                      }
+                    }}
                     placeholder="Add a city..."
-                    className="flex-1 px-4 py-3 bg-white border border-slate-200 rounded-xl focus:outline-none focus:ring-2 focus:ring-blue-600 focus:border-transparent"
                   />
                   <button
                     onClick={addCity}
@@ -403,6 +395,21 @@ export default function GroupTripSetup() {
                     <p className="text-sm text-slate-500">Add at least 2 cities to get started</p>
                 )}
               </div>
+            </div>
+
+            {/* Trip Assistant */}
+            <div className="bg-white border border-slate-200 rounded-2xl p-8 shadow-sm">
+              <div className="flex items-center gap-3 mb-6">
+                <div className="w-10 h-10 bg-blue-100 rounded-xl flex items-center justify-center">
+                  <MessageCircle className="w-5 h-5 text-blue-600" />
+                </div>
+                <div>
+                  <h2 className="text-2xl text-slate-900">Trip Assistant</h2>
+                  <p className="text-sm text-slate-600">Tell me about your trip and I&apos;ll help fill out the form</p>
+                </div>
+              </div>
+
+              <TripChatbotInline onExtract={handleExtract} />
             </div>
           </div>
 
@@ -509,13 +516,6 @@ export default function GroupTripSetup() {
             </div>
         </div>
       )}
-
-      {/* Chatbot */}
-      <TripChatbot
-        isOpen={isChatbotOpen}
-        onToggle={() => setIsChatbotOpen(!isChatbotOpen)}
-        onExtract={handleExtract}
-      />
     </div>
   );
 }
