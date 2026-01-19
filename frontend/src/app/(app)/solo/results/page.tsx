@@ -3,7 +3,7 @@
 import { useState, useEffect } from 'react';
 import { useRouter, useSearchParams } from 'next/navigation';
 import { MapPin, DollarSign, Clock, Zap, Edit3, Check, Sparkles, TrendingUp } from 'lucide-react';
-import { itineraries as itinerariesAPI } from '@/lib/api';
+import { itineraries as itinerariesAPI, ItineraryItem } from '@/lib/api';
 
 interface Itinerary {
     id: number;
@@ -39,7 +39,7 @@ export default function SoloResults() {
                 // Transform API response to display format
                 // The API returns { items: [...] } where items contain itinerary data
                 if (response.items && Array.isArray(response.items) && response.items.length > 0) {
-                    const transformed: Itinerary[] = response.items.map((item: { route?: unknown; cities?: unknown; name?: string; cost?: number; points?: number; score?: number }, index: number) => {
+                    const transformed: Itinerary[] = response.items.map((item: ItineraryItem, index: number) => {
                         // Parse the route/cities from the item
                         // The structure depends on how itinerary_service.save_itinerary stores data
                         const route = item.route || item.cities || [];

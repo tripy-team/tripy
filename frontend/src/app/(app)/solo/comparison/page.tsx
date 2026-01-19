@@ -3,7 +3,7 @@
 import { useRouter, useSearchParams } from 'next/navigation';
 import { useState, useEffect } from 'react';
 import { MapPin, DollarSign, Clock, Zap, TrendingUp, ArrowLeft, Check } from 'lucide-react';
-import { itineraries as itinerariesAPI } from '@/lib/api';
+import { itineraries as itinerariesAPI, ItineraryItem } from '@/lib/api';
 
 interface Itinerary {
     id: number;
@@ -35,7 +35,7 @@ export default function SoloComparison() {
                 
                 // Transform API response to display format
                 if (response.items && Array.isArray(response.items) && response.items.length > 0) {
-                    const transformed: Itinerary[] = response.items.map((item: { route?: unknown; cities?: unknown; name?: string; cost?: number; points?: number; score?: number }, index: number) => {
+                    const transformed: Itinerary[] = response.items.map((item: ItineraryItem, index: number) => {
                         const route = item.route || item.cities || [];
                         const cities = Array.isArray(route) 
                             ? route.map((city: string | { name: string; days: number }) => {

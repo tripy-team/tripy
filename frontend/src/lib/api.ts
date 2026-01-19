@@ -26,17 +26,17 @@ function getAccessToken(): string | null {
  */
 function isTokenExpired(token: string | null): boolean {
   if (!token) return true;
-  
+
   try {
     // Decode JWT without verification (we just need the exp claim)
     const parts = token.split('.');
     if (parts.length !== 3) return true;
-    
+
     const payload = JSON.parse(atob(parts[1]));
     const exp = payload.exp;
-    
+
     if (!exp) return false; // No expiration claim, assume valid
-    
+
     // Check if token expires in less than 60 seconds (refresh before it expires)
     const now = Math.floor(Date.now() / 1000);
     return exp - now < 60;
@@ -51,11 +51,11 @@ function isTokenExpired(token: string | null): boolean {
  */
 async function refreshAccessToken(): Promise<boolean> {
   const refreshToken = localStorage.getItem('refresh_token') || sessionStorage.getItem('refresh_token');
-  
+
   if (!refreshToken) {
     return false;
   }
-  
+
   try {
     const response = await fetch(`${BACKEND_URL}/auth/refresh`, {
       method: 'POST',
@@ -64,13 +64,13 @@ async function refreshAccessToken(): Promise<boolean> {
       },
       body: JSON.stringify({ refresh_token: refreshToken }),
     });
-    
+
     if (!response.ok) {
       return false;
     }
-    
+
     const data = await response.json();
-    
+
     // Store new tokens
     if (typeof window !== 'undefined' && data.tokens) {
       if (data.tokens.access_token) {
@@ -82,7 +82,7 @@ async function refreshAccessToken(): Promise<boolean> {
         sessionStorage.setItem('id_token', data.tokens.id_token);
       }
     }
-    
+
     return true;
   } catch {
     return false;
@@ -122,7 +122,7 @@ async function apiRequest<T>(
   // Add Authorization header if auth is required
   if (requireAuth) {
     let token = getAccessToken();
-    
+
     // Check if token is expired and try to refresh
     if (token && isTokenExpired(token)) {
       const refreshed = await refreshAccessToken();
@@ -142,7 +142,7 @@ async function apiRequest<T>(
         throw new Error('Session expired. Please log in again.');
       }
     }
-    
+
     if (token) {
       headers['Authorization'] = `Bearer ${token}`;
     } else {
@@ -160,7 +160,7 @@ async function apiRequest<T>(
     if (response.status === 401 && requireAuth) {
       // Try to refresh token once before giving up
       const refreshed = await refreshAccessToken();
-      
+
       if (refreshed) {
         // Retry the request with new token
         const newToken = getAccessToken();
@@ -170,13 +170,13 @@ async function apiRequest<T>(
             ...options,
             headers: headers as HeadersInit,
           });
-          
+
           if (retryResponse.ok) {
             return retryResponse.json() as T;
           }
         }
       }
-      
+
       // Refresh failed or retry failed - clear tokens and redirect
       if (typeof window !== 'undefined') {
         // Clear tokens
@@ -189,14 +189,14 @@ async function apiRequest<T>(
         sessionStorage.removeItem('id_token');
         sessionStorage.removeItem('refresh_token');
         sessionStorage.removeItem('tripy_auth_checked_session'); // Clear auth check flag
-        
+
         // Only redirect if we're not already on login/auth pages
         const currentPath = window.location.pathname;
-        const isAuthPage = currentPath.startsWith('/login') || 
-                          currentPath.startsWith('/register') || 
-                          currentPath.startsWith('/auth') ||
-                          currentPath === '/';
-        
+        const isAuthPage = currentPath.startsWith('/login') ||
+          currentPath.startsWith('/register') ||
+          currentPath.startsWith('/auth') ||
+          currentPath === '/';
+
         if (!isAuthPage) {
           // Redirect to login
           window.location.href = '/login';
@@ -280,6 +280,24 @@ export interface Trip {
   endDate: string;
   inviteCode: string;
   status: string;
+  // Optional fields that may be included in API responses
+  destinations?: string[];
+  firstDestination?: string;
+  memberCount?: number;
+}
+
+export interface PointsSummaryItem {
+  userId?: string;
+  program?: string;
+  balance?: number;
+  tripId?: string;
+  [key: string]: unknown; // Allow other fields from DynamoDB
+}
+
+export interface PointsSummary {
+  tripId: string;
+  totalPoints: number;
+  items: PointsSummaryItem[];
 }
 
 export interface CreateTripRequest {
@@ -463,8 +481,8 @@ export const points = {
     });
   },
 
-  summary: async (trip_id: string) => {
-    return apiRequest('/points/summary', {
+  summary: async (trip_id: string): Promise<PointsSummary> => {
+    return apiRequest<PointsSummary>('/points/summary', {
       method: 'POST',
       body: JSON.stringify({ trip_id }),
     });
@@ -472,6 +490,24 @@ export const points = {
 };
 
 // Itineraries API
+export interface ItineraryItem {
+  route?: string[] | Array<{ name: string; days: number }>;
+  cities?: string[] | Array<{ name: string; days: number }>;
+  name?: string;
+  cost?: number;
+  totalCost?: number;
+  totalCostPerPerson?: number;
+  costPerPerson?: number;
+  points?: number;
+  pointsCost?: number;
+  score?: number;
+  [key: string]: unknown; // Allow other fields from DynamoDB
+}
+
+export interface ItineraryResponse {
+  items: ItineraryItem[];
+}
+
 export const itineraries = {
   generate: async (trip_id: string) => {
     return apiRequest('/itinerary/generate', {
@@ -480,8 +516,8 @@ export const itineraries = {
     });
   },
 
-  get: async (trip_id: string) => {
-    return apiRequest<{ items: Array<Record<string, unknown>> }>('/itinerary/get', {
+  get: async (trip_id: string): Promise<ItineraryResponse> => {
+    return apiRequest<ItineraryResponse>('/itinerary/get', {
       method: 'POST',
       body: JSON.stringify({ trip_id }),
     });

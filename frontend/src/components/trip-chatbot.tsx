@@ -202,7 +202,7 @@ export default function TripChatbot({ onExtract, isOpen, onToggle }: TripChatbot
           </button>
         </div>
         <p className="text-xs text-slate-500 mt-2">
-          Try: "Paris and London in March, $3000 budget"
+          Try: &quot;Paris and London in March, $3000 budget&quot;
         </p>
       </div>
     </div>

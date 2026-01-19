@@ -66,8 +66,7 @@ const CREDIT_CARD_PROGRAMS = [
  */
 function extractCities(text: string): string[] {
     const cities: string[] = [];
-    const lowerText = text.toLowerCase();
-
+    
     // Look for common patterns
     const patterns = [
         // "to Paris, London, and Tokyo"
@@ -129,8 +128,6 @@ function extractDates(text: string): {
         duration?: number;
         isFlexible?: boolean;
     } = {};
-
-    const lowerText = text.toLowerCase();
 
     // Check for flexible dates
     if (/(flexible|anytime|whenever|open|no specific|don't care|doesn't matter).*date/i.test(text)) {
@@ -226,7 +223,7 @@ function extractDates(text: string): {
                         }
                     }
                 }
-            } catch (e) {
+            } catch (_e) {
                 // Ignore parsing errors, continue to next pattern
             }
         }
