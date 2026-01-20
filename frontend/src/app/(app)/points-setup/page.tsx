@@ -2,7 +2,7 @@
 
 import { useState, useEffect, useMemo } from 'react';
 import { useRouter } from 'next/navigation';
-import { CreditCard, Plus, X, Zap, TrendingUp, ArrowRight, Sparkles, ChevronDown } from 'lucide-react';
+import { CreditCard, Plus, X, Zap, TrendingUp, ArrowRight, Sparkles, ChevronDown, Building2, Plane, AlertTriangle } from 'lucide-react';
 import { users as usersAPI } from '@/lib/api';
 import { ALL_LOYALTY_PROGRAMS, getProgramCategory, isValidProgram, type ProgramCategory } from '@/lib/loyalty-programs';
 
@@ -41,12 +41,17 @@ export default function PointsSetup() {
   
   // Close dropdown when clicking outside
   useEffect(() => {
-    const handleClickOutside = () => {
-      setShowProgramDropdown(false);
+    const handleClickOutside = (event: MouseEvent) => {
+      const target = event.target as HTMLElement;
+      // Don't close if clicking inside the dropdown or input
+      if (!target.closest('[data-program-dropdown]') && !target.closest('[data-program-input]')) {
+        setShowProgramDropdown(false);
+      }
     };
     if (showProgramDropdown) {
-      document.addEventListener('click', handleClickOutside);
-      return () => document.removeEventListener('click', handleClickOutside);
+      // Use mousedown to prevent closing before click handlers fire
+      document.addEventListener('mousedown', handleClickOutside);
+      return () => document.removeEventListener('mousedown', handleClickOutside);
     }
   }, [showProgramDropdown]);
 
@@ -167,8 +172,8 @@ export default function PointsSetup() {
   const getCategoryIcon = (category: string) => {
     switch (category) {
       case 'credit': return <CreditCard className="w-4 h-4" />;
-      case 'hotel': return <Sparkles className="w-4 h-4" />;
-      case 'airline': return <TrendingUp className="w-4 h-4" />;
+      case 'hotel': return <Building2 className="w-4 h-4" />;
+      case 'airline': return <Plane className="w-4 h-4" />;
       default: return <CreditCard className="w-4 h-4" />;
     }
   };
@@ -188,6 +193,18 @@ export default function PointsSetup() {
           <p className="text-lg text-slate-600">
             Add your credit card points and loyalty programs to get personalized travel recommendations
           </p>
+        </div>
+
+        <div className="mb-8 p-4 bg-amber-50 border border-amber-200 rounded-xl flex items-start gap-3">
+          <AlertTriangle className="w-5 h-5 text-amber-600 flex-shrink-0 mt-0.5" />
+          <div>
+            <h3 className="text-sm font-semibold text-amber-900 mb-1">Manual Entry Required</h3>
+            <p className="text-sm text-amber-700 leading-relaxed">
+              Tripy is currently working on a fix to automatically sync loyalty points, but right now you will have to input your points manually. 
+              <br/>
+              Thanks for your patience as we improve your experience!
+            </p>
+          </div>
         </div>
 
         <div className="grid lg:grid-cols-3 gap-8">
@@ -404,8 +421,8 @@ export default function PointsSetup() {
                 <div className="grid grid-cols-3 gap-2">
                   {[
                     { value: 'credit', label: 'Credit Card', icon: CreditCard },
-                    { value: 'hotel', label: 'Hotel', icon: Sparkles },
-                    { value: 'airline', label: 'Airline', icon: TrendingUp },
+                    { value: 'hotel', label: 'Hotel', icon: Building2 },
+                    { value: 'airline', label: 'Airline', icon: Plane },
                   ].map(({ value, label, icon: Icon }) => (
                     <button
                       key={value}
@@ -433,13 +450,18 @@ export default function PointsSetup() {
                 <label className="block text-sm text-slate-600 mb-2 font-medium">
                   Program Name <span className="text-red-500">*</span>
                 </label>
-                <div className="relative">
+                <div className="relative" data-program-dropdown>
                   <input
                     type="text"
+                    data-program-input
                     value={programSearchQuery || newProgram}
                     onChange={(e) => {
                       setProgramSearchQuery(e.target.value);
                       setShowProgramDropdown(true);
+                      // Clear selected program when user types
+                      if (e.target.value !== newProgram) {
+                        setNewProgram('');
+                      }
                       // Auto-select if exact match
                       const match = ALL_LOYALTY_PROGRAMS.find(
                         p => p.category === newCategory && 
@@ -457,17 +479,31 @@ export default function PointsSetup() {
                   <ChevronDown className="absolute right-3 top-1/2 -translate-y-1/2 w-5 h-5 text-slate-400 pointer-events-none" />
                   
                   {showProgramDropdown && filteredPrograms.length > 0 && (
-                    <div className="absolute z-50 w-full mt-1 bg-white border border-slate-200 rounded-xl shadow-lg max-h-64 overflow-y-auto">
-                      {filteredPrograms.map(program => (
-                        <button
-                          key={program.value}
-                          type="button"
-                          onClick={() => handleProgramSelect(program.value)}
-                          className="w-full px-4 py-3 text-left hover:bg-blue-50 transition-colors border-b border-slate-100 last:border-b-0"
-                        >
-                          <div className="text-sm font-medium text-slate-900">{program.label}</div>
-                        </button>
-                      ))}
+                    <div 
+                      className="absolute z-50 w-full mt-1 bg-white border border-slate-200 rounded-xl shadow-lg max-h-64 overflow-y-auto"
+                      onMouseDown={(e) => e.preventDefault()} // Prevent blur when clicking dropdown
+                    >
+                      {filteredPrograms.map(program => {
+                        const programInfo = ALL_LOYALTY_PROGRAMS.find(p => p.value === program.value || p.label === program.label);
+                        return (
+                          <button
+                            key={program.value}
+                            type="button"
+                            onClick={(e) => {
+                              e.stopPropagation();
+                              handleProgramSelect(program.value);
+                            }}
+                            className="w-full px-4 py-3 text-left hover:bg-blue-50 transition-colors border-b border-slate-100 last:border-b-0 flex items-center gap-3"
+                          >
+                            {programInfo && (
+                              <div className={`w-6 h-6 rounded-lg flex items-center justify-center ${getCategoryColor(programInfo.category)}`}>
+                                {getCategoryIcon(programInfo.category)}
+                              </div>
+                            )}
+                            <div className="text-sm font-medium text-slate-900">{program.label}</div>
+                          </button>
+                        );
+                      })}
                     </div>
                   )}
                 </div>

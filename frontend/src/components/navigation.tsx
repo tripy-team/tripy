@@ -146,102 +146,98 @@ export function Navigation() {
               </div>
             </div>
             
-            {/* Desktop Navigation Menu */}
-            <div className="hidden md:flex items-center">
-              <NavigationMenu>
-                <NavigationMenuList>
-                  <NavigationMenuItem>
-                    <NavigationMenuLink asChild className={cn(navigationMenuTriggerStyle(), isActive('/') && "bg-slate-100 text-slate-900")}>
-                      <Link href="/">
-                        Home
-                      </Link>
-                    </NavigationMenuLink>
-                  </NavigationMenuItem>
+            {/* Desktop Navigation Menu - Only show when logged in */}
+            {user && (
+              <div className="hidden md:flex items-center">
+                <NavigationMenu>
+                  <NavigationMenuList>
+                    <NavigationMenuItem>
+                      <NavigationMenuLink asChild className={cn(navigationMenuTriggerStyle(), isActive('/') && "bg-slate-100 text-slate-900")}>
+                        <Link href="/">
+                          Home
+                        </Link>
+                      </NavigationMenuLink>
+                    </NavigationMenuItem>
 
-                  <NavigationMenuItem>
-                    <NavigationMenuTrigger className={cn((pathname.startsWith('/solo') || pathname.startsWith('/group')) && "bg-slate-100 text-slate-900")}>
-                      Plan a Trip
-                    </NavigationMenuTrigger>
-                    <NavigationMenuContent>
-                      <ul className="grid gap-3 p-4 w-[400px]">
-                        <li>
-                          <NavigationMenuLink asChild>
-                            <Link
-                              href="/solo/setup"
-                              className="block select-none space-y-1 rounded-md p-3 leading-none no-underline outline-none transition-colors hover:bg-slate-100 focus:bg-slate-100"
-                            >
-                              <div className="flex items-center gap-2 text-sm font-medium leading-none text-slate-900">
-                                <User className="h-4 w-4 text-blue-600" />
-                                Solo Trip
-                              </div>
-                              <p className="line-clamp-2 text-sm leading-snug text-slate-500 mt-1">
-                                Plan a personal getaway optimized for your points.
-                              </p>
-                            </Link>
-                          </NavigationMenuLink>
-                        </li>
-                        <li>
-                          <NavigationMenuLink asChild>
-                            <Link
-                              href="/group/setup"
-                              className="block select-none space-y-1 rounded-md p-3 leading-none no-underline outline-none transition-colors hover:bg-slate-100 focus:bg-slate-100"
-                            >
-                              <div className="flex items-center gap-2 text-sm font-medium leading-none text-slate-900">
-                                <Users className="h-4 w-4 text-blue-600" />
-                                Group Trip
-                              </div>
-                              <p className="line-clamp-2 text-sm leading-snug text-slate-500 mt-1">
-                                Collaborate with friends, vote on options, and split costs.
-                              </p>
-                            </Link>
-                          </NavigationMenuLink>
-                        </li>
-                      </ul>
-                    </NavigationMenuContent>
-                  </NavigationMenuItem>
+                    <NavigationMenuItem>
+                      <NavigationMenuTrigger className={cn((pathname.startsWith('/solo') || pathname.startsWith('/group')) && "bg-slate-100 text-slate-900")}>
+                        Plan a Trip
+                      </NavigationMenuTrigger>
+                      <NavigationMenuContent>
+                        <ul className="grid gap-3 p-4 w-[400px]">
+                          <li>
+                            <NavigationMenuLink asChild>
+                              <Link
+                                href="/solo/setup"
+                                className="block select-none space-y-1 rounded-md p-3 leading-none no-underline outline-none transition-colors hover:bg-slate-100 focus:bg-slate-100"
+                              >
+                                <div className="flex items-center gap-2 text-sm font-medium leading-none text-slate-900">
+                                  <User className="h-4 w-4 text-blue-600" />
+                                  Solo Trip
+                                </div>
+                                <p className="line-clamp-2 text-sm leading-snug text-slate-500 mt-1">
+                                  Plan a personal getaway optimized for your points.
+                                </p>
+                              </Link>
+                            </NavigationMenuLink>
+                          </li>
+                          <li>
+                            <NavigationMenuLink asChild>
+                              <Link
+                                href="/group/setup"
+                                className="block select-none space-y-1 rounded-md p-3 leading-none no-underline outline-none transition-colors hover:bg-slate-100 focus:bg-slate-100"
+                              >
+                                <div className="flex items-center gap-2 text-sm font-medium leading-none text-slate-900">
+                                  <Users className="h-4 w-4 text-blue-600" />
+                                  Group Trip
+                                </div>
+                                <p className="line-clamp-2 text-sm leading-snug text-slate-500 mt-1">
+                                  Collaborate with friends, vote on options, and split costs.
+                                </p>
+                              </Link>
+                            </NavigationMenuLink>
+                          </li>
+                        </ul>
+                      </NavigationMenuContent>
+                    </NavigationMenuItem>
 
-                  <NavigationMenuItem>
-                    <NavigationMenuLink asChild className={cn(navigationMenuTriggerStyle(), isActive('/my-trips') && "bg-slate-100 text-slate-900")}>
-                      <Link href="/my-trips">
-                        My Trips
-                      </Link>
-                    </NavigationMenuLink>
-                  </NavigationMenuItem>
+                    <NavigationMenuItem>
+                      <NavigationMenuLink asChild className={cn(navigationMenuTriggerStyle(), isActive('/my-trips') && "bg-slate-100 text-slate-900")}>
+                        <Link href="/my-trips">
+                          My Trips
+                        </Link>
+                      </NavigationMenuLink>
+                    </NavigationMenuItem>
 
-                  <NavigationMenuItem>
-                    <NavigationMenuLink asChild className={cn(navigationMenuTriggerStyle(), isActive('/my-trips') && "bg-slate-100 text-slate-900")}>
-                      <Link href="/my-trips">
-                        My Trips
-                      </Link>
-                    </NavigationMenuLink>
-                  </NavigationMenuItem>
+                    <NavigationMenuItem>
+                      <NavigationMenuLink asChild className={cn(navigationMenuTriggerStyle(), isActive('/join') && "bg-slate-100 text-slate-900")}>
+                        <Link href="/join">
+                          Join a Trip
+                        </Link>
+                      </NavigationMenuLink>
+                    </NavigationMenuItem>
 
-                  <NavigationMenuItem>
-                    <NavigationMenuLink asChild className={cn(navigationMenuTriggerStyle(), isActive('/join') && "bg-slate-100 text-slate-900")}>
-                      <Link href="/join">
-                        Join a Trip
-                      </Link>
-                    </NavigationMenuLink>
-                  </NavigationMenuItem>
-
-                  <NavigationMenuItem>
-                    <NavigationMenuLink asChild className={cn(navigationMenuTriggerStyle(), isActive('/points-setup') && "bg-slate-100 text-slate-900")}>
-                      <Link href="/points-setup">
-                        My Points
-                      </Link>
-                    </NavigationMenuLink>
-                  </NavigationMenuItem>
-                </NavigationMenuList>
-              </NavigationMenu>
-            </div>
+                    <NavigationMenuItem>
+                      <NavigationMenuLink asChild className={cn(navigationMenuTriggerStyle(), isActive('/points-setup') && "bg-slate-100 text-slate-900")}>
+                        <Link href="/points-setup">
+                          My Points
+                        </Link>
+                      </NavigationMenuLink>
+                    </NavigationMenuItem>
+                  </NavigationMenuList>
+                </NavigationMenu>
+              </div>
+            )}
           </div>
 
           {/* Right Side Actions */}
           <div className="hidden md:ml-6 md:flex md:items-center md:space-x-4">
-            <button className="relative p-2 hover:bg-slate-100 rounded-xl transition-colors text-slate-500 hover:text-slate-700">
-              <Bell className="w-5 h-5" />
-              <span className="absolute top-2 right-2 w-2 h-2 bg-red-500 rounded-full border-2 border-white"></span>
-            </button>
+            {user && (
+              <button className="relative p-2 hover:bg-slate-100 rounded-xl transition-colors text-slate-500 hover:text-slate-700">
+                <Bell className="w-5 h-5" />
+                <span className="absolute top-2 right-2 w-2 h-2 bg-red-500 rounded-full border-2 border-white"></span>
+              </button>
+            )}
 
             {user ? (
               <DropdownMenu>
@@ -313,79 +309,82 @@ export function Navigation() {
       {/* Mobile menu */}
       {mobileMenuOpen && (
         <div className="md:hidden border-t border-slate-200 bg-white max-h-[calc(100vh-5rem)] overflow-y-auto">
-          <div className="pt-2 pb-3 space-y-1 px-2">
-            <Link
-              href="/"
-              onClick={() => setMobileMenuOpen(false)}
-              className={`block pl-3 pr-4 py-2 border-l-4 text-base font-medium ${
-                isActive('/')
-                  ? 'bg-blue-50 border-blue-500 text-blue-700'
-                  : 'border-transparent text-slate-500 hover:bg-slate-50 hover:border-slate-300 hover:text-slate-700'
-              }`}
-            >
-              Home
-            </Link>
-            
-            <div className="px-3 py-2 text-xs font-semibold text-slate-400 uppercase tracking-wider">
-              Plan a Trip
+          {/* Mobile Navigation Items - Only show when logged in */}
+          {user && (
+            <div className="pt-2 pb-3 space-y-1 px-2">
+              <Link
+                href="/"
+                onClick={() => setMobileMenuOpen(false)}
+                className={`block pl-3 pr-4 py-2 border-l-4 text-base font-medium ${
+                  isActive('/')
+                    ? 'bg-blue-50 border-blue-500 text-blue-700'
+                    : 'border-transparent text-slate-500 hover:bg-slate-50 hover:border-slate-300 hover:text-slate-700'
+                }`}
+              >
+                Home
+              </Link>
+              
+              <div className="px-3 py-2 text-xs font-semibold text-slate-400 uppercase tracking-wider">
+                Plan a Trip
+              </div>
+              <Link
+                href="/solo/setup"
+                onClick={() => setMobileMenuOpen(false)}
+                className={`block pl-6 pr-4 py-2 border-l-4 text-base font-medium ${
+                  pathname.includes('/solo')
+                    ? 'bg-blue-50 border-blue-500 text-blue-700'
+                    : 'border-transparent text-slate-500 hover:bg-slate-50 hover:border-slate-300 hover:text-slate-700'
+                }`}
+              >
+                Solo Trip
+              </Link>
+              <Link
+                href="/group/setup"
+                onClick={() => setMobileMenuOpen(false)}
+                className={`block pl-6 pr-4 py-2 border-l-4 text-base font-medium ${
+                  pathname.includes('/group')
+                    ? 'bg-blue-50 border-blue-500 text-blue-700'
+                    : 'border-transparent text-slate-500 hover:bg-slate-50 hover:border-slate-300 hover:text-slate-700'
+                }`}
+              >
+                Group Trip
+              </Link>
+              
+              <Link
+                href="/my-trips"
+                onClick={() => setMobileMenuOpen(false)}
+                className={`block pl-3 pr-4 py-2 border-l-4 text-base font-medium ${
+                  isActive('/my-trips')
+                    ? 'bg-blue-50 border-blue-500 text-blue-700'
+                    : 'border-transparent text-slate-500 hover:bg-slate-50 hover:border-slate-300 hover:text-slate-700'
+                }`}
+              >
+                My Trips
+              </Link>
+              <Link
+                href="/join"
+                onClick={() => setMobileMenuOpen(false)}
+                className={`block pl-3 pr-4 py-2 border-l-4 text-base font-medium ${
+                  isActive('/join')
+                    ? 'bg-blue-50 border-blue-500 text-blue-700'
+                    : 'border-transparent text-slate-500 hover:bg-slate-50 hover:border-slate-300 hover:text-slate-700'
+                }`}
+              >
+                Join a Trip
+              </Link>
+              <Link
+                href="/points-setup"
+                onClick={() => setMobileMenuOpen(false)}
+                className={`block pl-3 pr-4 py-2 border-l-4 text-base font-medium ${
+                  isActive('/points-setup')
+                    ? 'bg-blue-50 border-blue-500 text-blue-700'
+                    : 'border-transparent text-slate-500 hover:bg-slate-50 hover:border-slate-300 hover:text-slate-700'
+                }`}
+              >
+                My Points
+              </Link>
             </div>
-            <Link
-              href="/solo/setup"
-              onClick={() => setMobileMenuOpen(false)}
-              className={`block pl-6 pr-4 py-2 border-l-4 text-base font-medium ${
-                pathname.includes('/solo')
-                  ? 'bg-blue-50 border-blue-500 text-blue-700'
-                  : 'border-transparent text-slate-500 hover:bg-slate-50 hover:border-slate-300 hover:text-slate-700'
-              }`}
-            >
-              Solo Trip
-            </Link>
-            <Link
-              href="/group/setup"
-              onClick={() => setMobileMenuOpen(false)}
-              className={`block pl-6 pr-4 py-2 border-l-4 text-base font-medium ${
-                pathname.includes('/group')
-                  ? 'bg-blue-50 border-blue-500 text-blue-700'
-                  : 'border-transparent text-slate-500 hover:bg-slate-50 hover:border-slate-300 hover:text-slate-700'
-              }`}
-            >
-              Group Trip
-            </Link>
-            
-            <Link
-              href="/my-trips"
-              onClick={() => setMobileMenuOpen(false)}
-              className={`block pl-3 pr-4 py-2 border-l-4 text-base font-medium ${
-                isActive('/my-trips')
-                  ? 'bg-blue-50 border-blue-500 text-blue-700'
-                  : 'border-transparent text-slate-500 hover:bg-slate-50 hover:border-slate-300 hover:text-slate-700'
-              }`}
-            >
-              My Trips
-            </Link>
-            <Link
-              href="/join"
-              onClick={() => setMobileMenuOpen(false)}
-              className={`block pl-3 pr-4 py-2 border-l-4 text-base font-medium ${
-                isActive('/join')
-                  ? 'bg-blue-50 border-blue-500 text-blue-700'
-                  : 'border-transparent text-slate-500 hover:bg-slate-50 hover:border-slate-300 hover:text-slate-700'
-              }`}
-            >
-              Join a Trip
-            </Link>
-            <Link
-              href="/points-setup"
-              onClick={() => setMobileMenuOpen(false)}
-              className={`block pl-3 pr-4 py-2 border-l-4 text-base font-medium ${
-                isActive('/points-setup')
-                  ? 'bg-blue-50 border-blue-500 text-blue-700'
-                  : 'border-transparent text-slate-500 hover:bg-slate-50 hover:border-slate-300 hover:text-slate-700'
-              }`}
-            >
-              My Points
-            </Link>
-          </div>
+          )}
           <div className="pt-4 pb-4 border-t border-slate-200">
             {user ? (
               <div className="px-4">

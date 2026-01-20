@@ -3,7 +3,6 @@
 import { useState } from 'react';
 import { useRouter } from 'next/navigation';
 import { Link2, ArrowRight } from 'lucide-react';
-import { Navigation } from '@/components/navigation';
 
 export default function JoinTrip() {
   const router = useRouter();
@@ -19,9 +18,7 @@ export default function JoinTrip() {
   };
 
   return (
-    <>
-      <Navigation />
-      <div className="min-h-screen flex items-center justify-center p-4 bg-gradient-to-br from-white via-blue-50/30 to-white">
+    <div className="min-h-screen flex items-center justify-center p-4 bg-gradient-to-br from-white via-blue-50/30 to-white">
         <div className="max-w-md w-full">
           <div className="text-center mb-10">
             <div className="w-16 h-16 bg-blue-600 rounded-2xl flex items-center justify-center mx-auto mb-6 shadow-lg shadow-blue-600/20">
@@ -74,6 +71,5 @@ export default function JoinTrip() {
           </div>
         </div>
       </div>
-    </>
   );
 }

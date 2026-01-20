@@ -30,12 +30,34 @@ export default function TripChatbotInline({ onExtract }: TripChatbotInlineProps)
   const inputRef = useRef<HTMLInputElement>(null);
 
   useEffect(() => {
-    // Delay focus to prevent page scroll
+    // Delay focus to prevent page scroll and ensure page stays at top
     const timeoutId = setTimeout(() => {
-      if (inputRef.current) {
-        inputRef.current.focus();
+      // Ensure page is still at top before focusing
+      window.scrollTo({ top: 0, left: 0, behavior: 'instant' });
+      if (typeof window !== 'undefined' && window.document) {
+        window.document.documentElement.scrollTop = 0;
+        window.document.body.scrollTop = 0;
       }
-    }, 600); // Wait for page scroll-to-top to complete
+      
+      // Focus input without scrolling the page
+      if (inputRef.current) {
+        // Temporarily disable scroll restoration
+        const originalScrollBehavior = window.getComputedStyle(document.documentElement).scrollBehavior;
+        document.documentElement.style.scrollBehavior = 'auto';
+        
+        inputRef.current.focus({ preventScroll: true });
+        
+        // Restore scroll behavior after focus
+        requestAnimationFrame(() => {
+          document.documentElement.style.scrollBehavior = originalScrollBehavior;
+        });
+        
+        // Ensure page stays at top after focus
+        requestAnimationFrame(() => {
+          window.scrollTo({ top: 0, left: 0, behavior: 'instant' });
+        });
+      }
+    }, 700); // Wait longer for page scroll-to-top to complete
     
     return () => clearTimeout(timeoutId);
   }, []);

@@ -61,15 +61,30 @@ export default function GroupTripSetup() {
 
   // Scroll to top on mount and keep it at top
   useEffect(() => {
-    // Immediate scroll
-    window.scrollTo(0, 0);
-    // Also scroll after a brief delay to ensure it stays at top
+    // Immediate scroll with smooth behavior disabled for instant effect
+    window.scrollTo({ top: 0, left: 0, behavior: 'instant' });
+    // Also use scrollTo with instant behavior
+    if (typeof window !== 'undefined' && window.document) {
+      window.document.documentElement.scrollTop = 0;
+      window.document.body.scrollTop = 0;
+    }
+    
+    // Scroll again after a brief delay to ensure it stays at top
     const timeoutId = setTimeout(() => {
-      window.scrollTo(0, 0);
+      window.scrollTo({ top: 0, left: 0, behavior: 'instant' });
+      if (typeof window !== 'undefined' && window.document) {
+        window.document.documentElement.scrollTop = 0;
+        window.document.body.scrollTop = 0;
+      }
     }, 100);
-    // And one more after components are fully rendered
+    
+    // And one more after components are fully rendered (before chatbot focus)
     const timeoutId2 = setTimeout(() => {
-      window.scrollTo(0, 0);
+      window.scrollTo({ top: 0, left: 0, behavior: 'instant' });
+      if (typeof window !== 'undefined' && window.document) {
+        window.document.documentElement.scrollTop = 0;
+        window.document.body.scrollTop = 0;
+      }
     }, 500);
     
     return () => {
@@ -481,7 +496,7 @@ export default function GroupTripSetup() {
                 {/* Start Destination */}
                 <div>
                   <label className="block text-sm text-slate-600 mb-2 font-medium">
-                    Start Destination <span className="text-red-500">*</span>
+                    Start Destination
                   </label>
                   <CityAutocomplete
                     value={startDestination}
@@ -491,15 +506,12 @@ export default function GroupTripSetup() {
                     }}
                     placeholder="Select starting city..."
                   />
-                  {!startDestination && (
-                    <p className="text-xs text-red-500 mt-1">Required</p>
-                  )}
                 </div>
                 
                 {/* End Destination */}
                 <div>
                   <label className="block text-sm text-slate-600 mb-2 font-medium">
-                    End Destination <span className="text-red-500">*</span>
+                    End Destination
                   </label>
                   <CityAutocomplete
                     value={endDestination}
@@ -510,9 +522,6 @@ export default function GroupTripSetup() {
                     placeholder="Select ending city..."
                     disabled={isRoundTrip}
                   />
-                  {!endDestination && (
-                    <p className="text-xs text-red-500 mt-1">Required</p>
-                  )}
                 </div>
 
                 <div className="flex items-center justify-end pt-2">
@@ -540,7 +549,7 @@ export default function GroupTripSetup() {
                 <div className="w-10 h-10 bg-blue-100 rounded-xl flex items-center justify-center">
                   <MapPin className="w-5 h-5 text-blue-600" />
                 </div>
-                <h2 className="text-2xl text-slate-900">Destinations <span className="text-red-500">*</span></h2>
+                <h2 className="text-2xl text-slate-900">Destinations</h2>
               </div>
 
               <div className="space-y-4">
