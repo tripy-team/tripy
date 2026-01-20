@@ -416,8 +416,10 @@ async def get_invite_code(
         invite_code = trip.get("inviteCode")
         if not invite_code:
             # Generate invite code if it doesn't exist (backward compatibility)
-            invite_code = trip_service.regenerate_invite_code(request.trip_id, user_id)["inviteCode"]
-        
+            invite_code = trip_service.regenerate_invite_code(request.trip_id, user_id)[
+                "inviteCode"
+            ]
+
         return {"inviteCode": invite_code}
     except HTTPException:
         raise
@@ -452,14 +454,14 @@ async def get_trip_by_invite(invite_code: str):
         trip = trip_service.get_trip_by_invite(invite_code)
         if not trip:
             raise HTTPException(status_code=404, detail="Invalid invite code")
-        
+
         # Get member count and destinations for display
         from .services.destination_service import list_destinations
         from .services.trip_member_service import list_members
-        
+
         members = list_members(trip["tripId"])
         trip["memberCount"] = len(members) if members else 1
-        
+
         destinations = list_destinations(trip["tripId"])
         if destinations:
             trip["destinations"] = [d.get("name") for d in destinations]
@@ -467,7 +469,7 @@ async def get_trip_by_invite(invite_code: str):
         else:
             trip["destinations"] = []
             trip["firstDestination"] = ""
-        
+
         return trip
     except HTTPException:
         raise
@@ -503,13 +505,13 @@ async def list_trip_members(
         trip = trip_service.get_trip(request.trip_id)
         if not trip:
             raise HTTPException(status_code=404, detail="Trip not found")
-        
+
         # Check if user is a member of the trip
         members = trip_member_service.list_members(request.trip_id)
         is_member = any(m.get("userId") == user_id for m in members)
         if not is_member and trip.get("createdBy") != user_id:
             raise HTTPException(status_code=403, detail="Access denied")
-        
+
         return {"members": members}
     except HTTPException:
         raise
@@ -591,9 +593,9 @@ async def upsert_points(
         if not validated_program:
             raise HTTPException(
                 status_code=400,
-                detail=f"Invalid loyalty program: {request.program}. Please select from the supported programs list."
+                detail=f"Invalid loyalty program: {request.program}. Please select from the supported programs list.",
             )
-        
+
         points = points_service.upsert_points(
             request.trip_id, user_id, validated_program, request.balance
         )
@@ -632,7 +634,7 @@ async def get_points_summary(
 async def generate_itinerary(
     request: GenerateItineraryRequest, user_id: str = Depends(get_current_user_id)
 ):
-    """Generate itineraries for a trip"""
+    """Generate optimized itineraries for a trip using points maximization"""
     try:
         # Get trip to verify access
         trip = trip_service.get_trip(request.trip_id)
@@ -643,17 +645,21 @@ async def generate_itinerary(
         if trip.get("createdBy") != user_id:
             raise HTTPException(status_code=403, detail="Access denied")
 
-        # Get destinations
-        destinations = destination_service.list_destinations(request.trip_id)
-        routes = route_service.generate_routes(destinations)
-        saved = itinerary_service.save_itinerary(
-            request.trip_id, routes[0] if routes else []
-        )
+        # Generate optimized itinerary using points maximization
+        result = itinerary_service.generate_optimized_itinerary(request.trip_id)
 
         # Track itinerary generation for analytics
-        track_itinerary_generated(user_id, request.trip_id, len(routes))
+        route_count = len(result.get("solution", {}).get("path", {}))
+        track_itinerary_generated(user_id, request.trip_id, route_count)
 
-        return {"routes": routes, "saved": saved}
+        return {
+            "status": result.get("status", "Unknown"),
+            "solution": result.get("solution", {}),
+            "items": result.get("items", []),
+        }
+    except ValueError as e:
+        logger.warning(f"Validation error generating itinerary: {str(e)}")
+        raise HTTPException(status_code=400, detail=str(e))
     except HTTPException:
         raise
     except Exception as e:
@@ -722,50 +728,55 @@ class CityImageRequest(BaseModel):
 
 @app.get("/images/city/{city_name}")
 async def get_city_images(
-    city_name: str, 
+    city_name: str,
     size: Optional[str] = "800",
-    background_tasks: BackgroundTasks = None
+    background_tasks: BackgroundTasks = None,
 ):
     """
     Get curated image URLs for a city.
-    
+
     If city doesn't exist:
     - Returns "coming soon" placeholder image
     - Triggers background task to curate images
     - Adds city to cities.json
-    
+
     Returns 3-5 pre-selected images from S3/CloudFront, along with city metadata.
     """
     try:
         # Check if city exists first
         from backend.src.repos import city_image_repo
+
         city_data = city_image_repo.get_city_images(city_name.lower().strip())
         city_exists = city_data is not None
-        
+
         # Get images (will return coming soon if not exists)
-        urls = image_service.get_city_image_urls(city_name, size or "800", trigger_background=True)
-        
+        urls = image_service.get_city_image_urls(
+            city_name, size or "800", trigger_background=True
+        )
+
         if not urls:
-            raise HTTPException(status_code=404, detail=f"No images found for city: {city_name}")
-        
+            raise HTTPException(
+                status_code=404, detail=f"No images found for city: {city_name}"
+            )
+
         # Check if this is a "coming soon" placeholder
         is_coming_soon = any("coming_soon" in url.lower() for url in urls)
-        
+
         response = {
             "city": city_name,
             "images": urls,
             "count": len(urls),
             "is_coming_soon": is_coming_soon,
-            "status": "coming_soon" if is_coming_soon else "curated"
+            "status": "coming_soon" if is_coming_soon else "curated",
         }
-        
+
         # Add metadata if available
         if city_data:
             if "country" in city_data:
                 response["country"] = city_data["country"]
             if "region" in city_data:
                 response["region"] = city_data["region"]
-        
+
         return response
     except HTTPException:
         raise
@@ -776,31 +787,35 @@ async def get_city_images(
 
 @app.get("/images/city/{city_name}/hero")
 async def get_city_hero_image(
-    city_name: str, 
+    city_name: str,
     size: Optional[str] = "800",
-    background_tasks: BackgroundTasks = None
+    background_tasks: BackgroundTasks = None,
 ):
     """
     Get the primary/hero image for a city.
-    
+
     If city doesn't exist, returns "coming soon" placeholder and triggers background curation.
     """
     try:
         # Get images (will return coming soon if not exists)
-        urls = image_service.get_city_image_urls(city_name, size or "800", trigger_background=True)
+        urls = image_service.get_city_image_urls(
+            city_name, size or "800", trigger_background=True
+        )
         url = urls[0] if urls else None
-        
+
         if not url:
-            raise HTTPException(status_code=404, detail=f"No hero image found for city: {city_name}")
-        
+            raise HTTPException(
+                status_code=404, detail=f"No hero image found for city: {city_name}"
+            )
+
         is_coming_soon = "coming_soon" in url.lower()
-        
+
         return {
             "city": city_name,
             "url": url,
             "size": size,
             "is_coming_soon": is_coming_soon,
-            "status": "coming_soon" if is_coming_soon else "curated"
+            "status": "coming_soon" if is_coming_soon else "curated",
         }
     except HTTPException:
         raise
@@ -847,17 +862,17 @@ async def update_user_profile(
                 if not validated_program:
                     raise HTTPException(
                         status_code=400,
-                        detail=f"Invalid loyalty program: {program}. Please select from the supported programs list."
+                        detail=f"Invalid loyalty program: {program}. Please select from the supported programs list.",
                     )
                 # Use validated program name
                 validated_card = card.copy()
                 validated_card["program"] = validated_program
                 validated_cards.append(validated_card)
             updates["credit_cards"] = validated_cards
-        
+
         if updates:
             user_service.update_profile(user_id, updates)
-        
+
         return {"ok": True}
     except Exception as e:
         logger.error(f"Error updating user profile: {str(e)}")
@@ -868,19 +883,21 @@ async def update_user_profile(
 async def get_city_image_srcset(city_name: str):
     """
     Get responsive image srcset for a city.
-    
+
     If city doesn't exist, returns "coming soon" placeholder and triggers background curation.
-    
+
     Returns src, srcset, and sizes attributes for responsive images.
     """
     try:
         srcset_data = image_service.get_city_image_srcset(city_name)
         if not srcset_data:
-            raise HTTPException(status_code=404, detail=f"No images found for city: {city_name}")
-        
+            raise HTTPException(
+                status_code=404, detail=f"No images found for city: {city_name}"
+            )
+
         # Check if this is a "coming soon" placeholder
         is_coming_soon = "coming_soon" in srcset_data.get("src", "").lower()
-        
+
         response = {"city": city_name, **srcset_data}
         if is_coming_soon:
             response["is_coming_soon"] = True
@@ -888,7 +905,7 @@ async def get_city_image_srcset(city_name: str):
         else:
             response["is_coming_soon"] = False
             response["status"] = "curated"
-        
+
         return response
     except HTTPException:
         raise

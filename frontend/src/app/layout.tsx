@@ -5,13 +5,9 @@ export const metadata: Metadata = {
 	title: "Tripy",
 	description: "Plan and maximize your vacation",
 	icons: {
-		icon: [
-			{ url: "/icon.svg", type: "image/svg+xml" },
-			{ url: "/favicon.ico", sizes: "any" },
-		],
-		apple: [
-			{ url: "/icon.svg", type: "image/svg+xml" },
-		],
+		icon: "/icon.svg",
+		apple: "/icon.svg",
+		shortcut: "/favicon.ico",
 	},
 };
 

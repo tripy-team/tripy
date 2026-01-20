@@ -1,7 +1,7 @@
 'use client';
 
 import { useState, useEffect, useRef } from 'react';
-import { MapPin } from 'lucide-react';
+import { Plane } from 'lucide-react';
 import { cities as citiesAPI, CitySearchResult } from '@/lib/api';
 
 interface CityAutocompleteProps {
@@ -172,14 +172,7 @@ export default function CityAutocomplete({
 
       {showSuggestions && suggestions.length > 0 && (
         <div 
-          className="absolute top-full left-0 right-0 mt-1 bg-white border border-slate-200 rounded-xl shadow-xl max-h-64 overflow-y-auto"
-          style={{ 
-            zIndex: 9999,
-            position: 'absolute',
-            marginTop: '0.25rem',
-            width: '100%',
-            boxShadow: '0 10px 15px -3px rgba(0, 0, 0, 0.1), 0 4px 6px -2px rgba(0, 0, 0, 0.05)'
-          }}
+          className="absolute z-50 w-full mt-2 bg-white rounded-xl shadow-xl border border-slate-100 max-h-60 overflow-y-auto"
           onMouseDown={(e) => {
             // Prevent blur event when clicking inside dropdown
             e.preventDefault();
@@ -230,16 +223,18 @@ export default function CityAutocomplete({
                   e.stopPropagation();
                   handleSelect(city);
                 }}
-                className="w-full px-4 py-3 text-left hover:bg-blue-50 active:bg-blue-100 transition-colors flex items-center gap-3 border-b border-slate-100 last:border-b-0 cursor-pointer"
+                className="w-full px-4 py-3 text-left hover:bg-slate-50 active:bg-slate-100 transition-colors flex items-center gap-3 border-b last:border-0 border-slate-50 cursor-pointer"
               >
-                <MapPin className="w-4 h-4 text-blue-600 flex-shrink-0" />
+                <div className="w-8 h-8 rounded-lg bg-blue-50 flex items-center justify-center flex-shrink-0 text-blue-600">
+                  <Plane className="w-4 h-4" />
+                </div>
                 <div className="flex-1 min-w-0">
-                  <div className="text-sm font-medium text-slate-900 truncate">
+                  <div className="font-medium text-slate-900 truncate">
                     {highlightText(cityName, value)}
                   </div>
                   {(country || region) && (
                     <div className="text-xs text-slate-500 truncate">
-                      {highlightText(country, value)} {region ? `· ${region}` : ''}
+                      {highlightText(country, value)} {region ? `• ${region}` : ''}
                     </div>
                   )}
                 </div>
