@@ -38,6 +38,7 @@ export default function CityAutocomplete({
 
   // Debounced search with fuzzy matching
   useEffect(() => {
+    // Only search if user has typed at least 1 character
     if (!value.trim() || value.length < 1) {
       setSuggestions([]);
       setShowSuggestions(false);
@@ -54,6 +55,7 @@ export default function CityAutocomplete({
           console.warn('Invalid response from cities API:', response);
           setSuggestions([]);
           setShowSuggestions(false);
+          setIsLoading(false);
           return;
         }
         
@@ -86,7 +88,10 @@ export default function CityAutocomplete({
         
         const finalResults = sortedResults.slice(0, 10);
         setSuggestions(finalResults);
-        setShowSuggestions(finalResults.length > 0);
+        // Always show suggestions if we have results
+        if (finalResults.length > 0) {
+          setShowSuggestions(true);
+        }
       } catch (error) {
         console.error('Error searching cities:', error);
         // Log more details about the error
@@ -107,9 +112,8 @@ export default function CityAutocomplete({
   const handleSelect = (city: CitySearchResult) => {
     const cityName = city.name || city.cityName || '';
     onSelect(cityName);
+    onChange(cityName); // Set the input value to the selected city
     setShowSuggestions(false);
-    // Clear the input after selection
-    onChange('');
   };
 
   const handleKeyDown = (e: React.KeyboardEvent) => {
@@ -122,35 +126,36 @@ export default function CityAutocomplete({
   };
 
   return (
-    <div ref={wrapperRef} className="relative flex-1" style={{ zIndex: showSuggestions ? 1000 : 'auto' }}>
+    <div ref={wrapperRef} className="relative flex-1" style={{ zIndex: showSuggestions ? 1000 : 'auto', position: 'relative' }}>
       <div className="relative">
         <input
           type="text"
           value={value}
-          onChange={(e) => onChange(e.target.value)}
+          onChange={(e) => {
+            onChange(e.target.value);
+            // Immediately show suggestions when user types (will be filtered by the useEffect)
+            if (e.target.value.trim().length >= 1) {
+              setShowSuggestions(true);
+            }
+          }}
           onKeyDown={handleKeyDown}
           onFocus={() => {
-            // Show suggestions if we have any, regardless of value length
-            if (suggestions.length > 0) {
+            // Show suggestions if we have any and user has typed something
+            if (value.trim().length >= 1 && suggestions.length > 0) {
               setShowSuggestions(true);
             }
           }}
           onBlur={(e) => {
             // Don't hide if clicking inside the dropdown
-            if (wrapperRef.current?.contains(e.relatedTarget as Node)) {
+            const relatedTarget = e.relatedTarget as Node;
+            if (wrapperRef.current?.contains(relatedTarget)) {
               return;
             }
             // Use setTimeout to allow onClick on suggestions to fire first
+            // Increased timeout to ensure dropdown clicks register
             setTimeout(() => {
               setShowSuggestions(false);
-              // Clear input if user clicks away without selecting from dropdown
-              if (value && !suggestions.some(s => {
-                const cityName = (s.name || s.cityName || '').toLowerCase();
-                return cityName === value.toLowerCase();
-              })) {
-                onChange('');
-              }
-            }, 200);
+            }, 300);
           }}
           placeholder={placeholder}
           disabled={disabled}
@@ -166,9 +171,14 @@ export default function CityAutocomplete({
       {showSuggestions && suggestions.length > 0 && (
         <div 
           className="absolute top-full left-0 right-0 mt-1 bg-white border border-slate-200 rounded-xl shadow-lg max-h-64 overflow-y-auto z-[1000]"
+          style={{ zIndex: 1000 }}
           onMouseDown={(e) => {
             // Prevent blur event when clicking inside dropdown
             e.preventDefault();
+          }}
+          onClick={(e) => {
+            // Prevent input blur when clicking in dropdown
+            e.stopPropagation();
           }}
         >
           {suggestions.map((city, index) => {

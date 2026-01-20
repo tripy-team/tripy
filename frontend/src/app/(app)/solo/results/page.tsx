@@ -289,6 +289,18 @@ export default function SoloResults() {
                                     >
                                         {selectedId === itinerary.id ? 'Selected' : 'Select This Route'}
                                     </button>
+
+                                    {/* Book Button - Show when selected */}
+                                    {selectedId === itinerary.id && (
+                                        <button
+                                            onClick={() => {
+                                                router.push(`/solo/booking${tripId ? `?trip_id=${tripId}` : ''}`);
+                                            }}
+                                            className="w-full mt-3 px-6 py-3 bg-yellow-400 text-slate-900 rounded-xl hover:bg-yellow-500 transition-colors shadow-lg shadow-yellow-400/20 font-semibold"
+                                        >
+                                            Book This Trip
+                                        </button>
+                                    )}
                                 </div>
                             </div>
                         ))}

@@ -480,6 +480,19 @@ export default function GroupTripSetup() {
                      <p className="text-xs text-slate-500 mt-2">We&apos;ll find the best dates for a {flexibleDuration}-day trip.</p>
                   </div>
                 )}
+
+                {/* Flexible Dates Checkbox */}
+                <div className="flex items-center justify-start pt-2">
+                  <label className="flex items-center gap-2 cursor-pointer select-none group inline-flex">
+                    <input
+                      type="checkbox"
+                      checked={isFlexible}
+                      onChange={(e) => setIsFlexible(e.target.checked)}
+                      className="w-4 h-4"
+                    />
+                    <span className="text-sm text-slate-600 group-hover:text-slate-900 transition-colors">Flexible dates</span>
+                  </label>
+                </div>
               </div>
             </div>
 
@@ -524,7 +537,7 @@ export default function GroupTripSetup() {
                   />
                 </div>
 
-                <div className="flex items-center justify-end pt-2">
+                <div className="flex items-center justify-start pt-2">
                   <label className="flex items-center gap-2 cursor-pointer select-none group inline-flex">
                     <input
                       type="checkbox"

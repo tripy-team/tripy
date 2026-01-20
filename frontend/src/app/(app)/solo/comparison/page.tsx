@@ -270,7 +270,10 @@ export default function SoloComparison() {
                     </button>
 
                     <button
-                        onClick={() => {/* Navigate to booking */ }}
+                        onClick={() => {
+                            const tripId = searchParams?.get('trip_id') || '';
+                            router.push(`/solo/booking${tripId ? `?trip_id=${tripId}` : ''}`);
+                        }}
                         className="px-6 py-3 bg-neutral-900 text-white rounded-xl hover:bg-neutral-800 transition-colors"
                     >
                         Select & Book
