@@ -144,9 +144,25 @@ export function DestinationAutocomplete({
   };
 
   const handleKeyDownInternal = (e: React.KeyboardEvent<HTMLInputElement>) => {
-    if (e.key === 'Enter' && suggestions.length > 0) {
-      e.preventDefault();
-      handleSelect(suggestions[0]);
+    if (e.key === 'Enter') {
+      // If we have suggestions, select the first one
+      if (suggestions.length > 0) {
+        e.preventDefault();
+        handleSelect(suggestions[0]);
+        return;
+      }
+
+      // If no suggestions but user typed something, accept free text
+      const trimmed = value.trim();
+      if (trimmed.length > 0) {
+        e.preventDefault();
+        onChange(trimmed);
+        if (onSelect) {
+          onSelect(trimmed);
+        }
+        setShowSuggestions(false);
+        return;
+      }
     } else if (e.key === 'Escape') {
       setShowSuggestions(false);
     }
