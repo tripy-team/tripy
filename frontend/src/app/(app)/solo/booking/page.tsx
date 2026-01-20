@@ -1,7 +1,6 @@
 'use client';
 
 import { useState, Suspense } from 'react';
-import { useSearchParams } from 'next/navigation';
 import { 
   Shield, 
   CheckCircle, 
@@ -15,8 +14,6 @@ import {
 } from 'lucide-react';
 
 function SoloBookingContent() {
-  const searchParams = useSearchParams();
-  
   const [isPaid, setIsPaid] = useState(false);
   const [isProcessing, setIsProcessing] = useState(false);
 

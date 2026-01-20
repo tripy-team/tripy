@@ -3,6 +3,7 @@
 import Link from "next/link";
 import { Plane } from "lucide-react";
 import Footer from "@/components/footer";
+import { ScrollToTop } from "@/components/scroll-to-top";
 
 export default function LegalLayout({
 	children,
@@ -11,6 +12,7 @@ export default function LegalLayout({
 }) {
 	return (
 		<>
+			<ScrollToTop />
 			<header className="bg-white border-b border-slate-200 px-8 py-4 flex items-center justify-between">
 				<div className="flex flex-shrink-0 items-center gap-4">
 					<Link href="/" className="flex items-center gap-3">

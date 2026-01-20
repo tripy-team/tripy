@@ -1,5 +1,7 @@
 "use client";
 
+import { ScrollToTop } from "@/components/scroll-to-top";
+
 export default function AboutLayout({
 	children,
 }: {
@@ -7,5 +9,10 @@ export default function AboutLayout({
 }) {
 	// Navigation is now included in the page component itself
 	// Footer can be added if needed
-	return <>{children}</>;
+	return (
+		<>
+			<ScrollToTop />
+			{children}
+		</>
+	);
 }

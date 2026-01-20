@@ -3,6 +3,7 @@
 import { useEffect, useState } from 'react';
 import { useRouter } from 'next/navigation';
 import { Navigation } from '@/components/navigation';
+import { ScrollToTop } from '@/components/scroll-to-top';
 
 const AUTH_CHECKED_KEY = 'tripy_auth_checked_session';
 
@@ -87,6 +88,7 @@ export default function AppLayout({
 
     return (
         <div className="flex flex-col min-h-screen bg-slate-50">
+            <ScrollToTop />
             <Navigation />
             <main className="flex-1 overflow-y-auto">
                 {children}
