@@ -434,6 +434,106 @@ export default function SoloTripSetup() {
               </div>
             </div>
 
+            {/* Travel Style */}
+            <div className="bg-white border border-slate-200 rounded-2xl p-8 shadow-sm">
+              <div className="flex items-center gap-3 mb-8">
+                <div className="w-10 h-10 bg-blue-100 rounded-xl flex items-center justify-center">
+                  <Plane className="w-5 h-5 text-blue-600" />
+                </div>
+                <div>
+                  <h2 className="text-2xl text-slate-900 font-semibold">Travel Style</h2>
+                  <p className="text-sm text-slate-500">Customize your comfort level</p>
+                </div>
+              </div>
+
+              <div className="space-y-8">
+                {/* Flight Class */}
+                <div>
+                  <label className="block text-sm text-slate-600 mb-4 font-medium uppercase tracking-wider">Flight Preference</label>
+                  <div className="grid grid-cols-2 md:grid-cols-3 xl:grid-cols-5 gap-6">
+                    {[
+                      { value: 'basic_economy', label: 'Basic Econ', desc: 'No Carry-on', icon: Backpack },
+                      { value: 'economy', label: 'Economy', desc: 'Best Value', icon: Armchair },
+                      { value: 'premium', label: 'Premium', desc: 'Extra Legroom', icon: Coffee },
+                      { value: 'business', label: 'Business', desc: 'Lie-flat Seats', icon: Wine },
+                      { value: 'first', label: 'First', desc: 'Luxury Suite', icon: Crown },
+                    ].map((option) => {
+                      const Icon = option.icon;
+                      const isSelected = flightClass === option.value;
+                      return (
+                        <button
+                          key={option.value}
+                          onClick={() => setFlightClass(option.value)}
+                          className={`relative p-5 rounded-2xl border-2 transition-all text-left flex flex-col gap-3 group h-full ${
+                            isSelected 
+                              ? 'border-blue-600 bg-blue-50/50 shadow-sm' 
+                              : 'border-slate-100 hover:border-blue-200 bg-white hover:bg-slate-50'
+                          }`}
+                        >
+                          <div className={`w-12 h-12 rounded-xl flex items-center justify-center transition-colors ${
+                            isSelected ? 'bg-blue-600 text-white' : 'bg-slate-100 text-slate-500 group-hover:bg-blue-100 group-hover:text-blue-600'
+                          }`}>
+                            <Icon className="w-6 h-6" />
+                          </div>
+                          <div>
+                            <div className={`font-semibold text-lg ${isSelected ? 'text-blue-900' : 'text-slate-900'}`}>
+                              {option.label}
+                            </div>
+                            <div className="text-sm text-slate-500 mt-1">{option.desc}</div>
+                          </div>
+                          {isSelected && (
+                            <div className="absolute top-4 right-4 w-2 h-2 rounded-full bg-blue-600 animate-pulse" />
+                          )}
+                        </button>
+                      );
+                    })}
+                  </div>
+                </div>
+
+                {/* Hotel Class */}
+                <div>
+                  <label className="block text-sm text-slate-600 mb-4 font-medium uppercase tracking-wider">Accommodation Level</label>
+                  <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+                    {[
+                      { value: '3', label: 'Standard', desc: 'Clean, comfortable bases', stars: 3 },
+                      { value: '4', label: 'Upscale', desc: 'Amenities & great locations', stars: 4 },
+                      { value: '5', label: 'Luxury', desc: 'Top-tier service & design', stars: 5 },
+                    ].map((option) => {
+                      const isSelected = hotelClass === option.value;
+                      return (
+                        <button
+                          key={option.value}
+                          onClick={() => setHotelClass(option.value)}
+                          className={`relative p-4 rounded-2xl border-2 transition-all text-left flex items-start gap-4 group ${
+                            isSelected 
+                              ? 'border-blue-600 bg-blue-50/50 shadow-sm' 
+                              : 'border-slate-100 hover:border-blue-200 bg-white hover:bg-slate-50'
+                          }`}
+                        >
+                          <div className={`w-12 h-12 rounded-xl flex-shrink-0 flex items-center justify-center transition-colors ${
+                            isSelected ? 'bg-blue-600 text-white' : 'bg-slate-100 text-slate-500 group-hover:bg-blue-100 group-hover:text-blue-600'
+                          }`}>
+                            {option.value === '5' ? <Crown className="w-6 h-6" /> : <BedDouble className="w-6 h-6" />}
+                          </div>
+                          <div className="flex-1">
+                            <div className="flex items-center gap-1 mb-1">
+                              {Array.from({ length: option.stars }).map((_, i) => (
+                                <Star key={i} className={`w-3 h-3 fill-current ${isSelected ? 'text-yellow-500' : 'text-yellow-400'}`} />
+                              ))}
+                            </div>
+                            <div className={`font-semibold mb-0.5 ${isSelected ? 'text-blue-900' : 'text-slate-900'}`}>
+                              {option.label}
+                            </div>
+                            <div className="text-xs text-slate-500 leading-relaxed">{option.desc}</div>
+                          </div>
+                        </button>
+                      );
+                    })}
+                  </div>
+                </div>
+              </div>
+            </div>
+
             {/* Dates */}
             <div className="bg-white border border-slate-200 rounded-2xl p-8 shadow-sm">
               <div className="flex items-center gap-3 mb-6">

@@ -429,7 +429,6 @@ function extractCreditCards(text: string): Array<{ program: string; points: numb
  */
 function extractTravelStyle(text: string): { flightClass?: string; hotelClass?: string } {
     const result: { flightClass?: string; hotelClass?: string } = {};
-    const lowerText = text.toLowerCase();
 
     // Flight class patterns
     const flightPatterns = [
