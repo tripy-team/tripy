@@ -2,7 +2,7 @@
 
 import { useState, useEffect } from 'react';
 import { useRouter } from 'next/navigation';
-import { X, Calendar, DollarSign, Zap, MapPin, Sparkles, CreditCard, MessageCircle } from 'lucide-react';
+import { X, Calendar, DollarSign, Zap, MapPin, Sparkles, CreditCard, MessageCircle, Plane, Backpack, Armchair, Coffee, Wine, Crown, BedDouble, Star } from 'lucide-react';
 import { createTrip, addDestination, upsertPoints, generateItinerary, users as usersAPI } from '@/lib/api';
 import TripChatbotInline from '@/components/trip-chatbot-inline';
 import { ExtractedTripInfo } from '@/lib/trip-extractor';
@@ -41,6 +41,10 @@ export default function SoloTripSetup() {
   const [startDestination, setStartDestination] = useState('');
   const [endDestination, setEndDestination] = useState('');
   const [isRoundTrip, setIsRoundTrip] = useState(false);
+
+  // Travel Style State
+  const [flightClass, setFlightClass] = useState('economy');
+  const [hotelClass, setHotelClass] = useState('4');
 
   // Estimates
   const [estimatedCost, setEstimatedCost] = useState(0);
@@ -218,6 +222,14 @@ export default function SoloTripSetup() {
         points: card.points,
       }));
       setCreditCards([...creditCards, ...newCards]);
+    }
+
+    // Extract travel style preferences
+    if (info.flightClass) {
+      setFlightClass(info.flightClass);
+    }
+    if (info.hotelClass) {
+      setHotelClass(info.hotelClass);
     }
   };
 

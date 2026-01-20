@@ -19,6 +19,8 @@ export interface ExtractedTripInfo {
     minBudget?: number;
     maxBudget?: number;
     creditCards?: Array<{ program: string; points: number }>;
+    flightClass?: string;
+    hotelClass?: string;
 }
 
 // Common city names for validation
@@ -423,6 +425,46 @@ function extractCreditCards(text: string): Array<{ program: string; points: numb
 }
 
 /**
+ * Extract travel style preferences (flight class and hotel class)
+ */
+function extractTravelStyle(text: string): { flightClass?: string; hotelClass?: string } {
+    const result: { flightClass?: string; hotelClass?: string } = {};
+    const lowerText = text.toLowerCase();
+
+    // Flight class patterns
+    const flightPatterns = [
+        { pattern: /\b(basic\s*economy|basic\s*econ)\b/i, value: 'basic_economy' },
+        { pattern: /\b(economy|coach)\b/i, value: 'economy' },
+        { pattern: /\b(premium\s*economy|premium)\b/i, value: 'premium' },
+        { pattern: /\b(business\s*class|business)\b/i, value: 'business' },
+        { pattern: /\b(first\s*class|first)\b/i, value: 'first' },
+    ];
+
+    for (const { pattern, value } of flightPatterns) {
+        if (pattern.test(text)) {
+            result.flightClass = value;
+            break;
+        }
+    }
+
+    // Hotel class patterns
+    const hotelPatterns = [
+        { pattern: /\b(3\s*star|standard|budget)\b/i, value: '3' },
+        { pattern: /\b(4\s*star|upscale|mid[- ]?range)\b/i, value: '4' },
+        { pattern: /\b(5\s*star|luxury|high[- ]?end)\b/i, value: '5' },
+    ];
+
+    for (const { pattern, value } of hotelPatterns) {
+        if (pattern.test(text)) {
+            result.hotelClass = value;
+            break;
+        }
+    }
+
+    return result;
+}
+
+/**
  * Main extraction function
  */
 export function extractTripInfo(text: string): ExtractedTripInfo {
@@ -430,6 +472,7 @@ export function extractTripInfo(text: string): ExtractedTripInfo {
     const dates = extractDates(text);
     const budget = extractBudget(text);
     const creditCards = extractCreditCards(text);
+    const travelStyle = extractTravelStyle(text);
 
     return {
         cities: cityData.cities,
@@ -438,5 +481,6 @@ export function extractTripInfo(text: string): ExtractedTripInfo {
         ...dates,
         ...budget,
         creditCards: creditCards.length > 0 ? creditCards : undefined,
+        ...travelStyle,
     };
 }

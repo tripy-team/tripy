@@ -2,7 +2,7 @@
 
 import { useState, useEffect } from 'react';
 import { useRouter } from 'next/navigation';
-import { Users, MapPin, Calendar, DollarSign, Zap, Sparkles, CreditCard, X, Copy, Check, ArrowRight, MessageCircle, RefreshCw, Baby, User, Info } from 'lucide-react';
+import { Users, MapPin, Calendar, DollarSign, Zap, Sparkles, CreditCard, X, Copy, Check, ArrowRight, MessageCircle, RefreshCw, Baby, User, Info, Plane, Backpack, Armchair, Coffee, Wine, Crown, BedDouble, Star } from 'lucide-react';
 import { createTrip, addDestination, users as usersAPI, trips as tripsAPI } from '@/lib/api';
 import TripChatbotInline from '@/components/trip-chatbot-inline';
 import { ExtractedTripInfo } from '@/lib/trip-extractor';
@@ -42,6 +42,10 @@ export default function GroupTripSetup() {
   const [startDestination, setStartDestination] = useState('');
   const [endDestination, setEndDestination] = useState('');
   const [isRoundTrip, setIsRoundTrip] = useState(false);
+
+  // Travel Style State
+  const [flightClass, setFlightClass] = useState('economy');
+  const [hotelClass, setHotelClass] = useState('4');
 
   // Party Size State
   const [adults, setAdults] = useState(1);
@@ -230,6 +234,14 @@ export default function GroupTripSetup() {
         points: card.points,
       }));
       setCreditCards([...creditCards, ...newCards]);
+    }
+
+    // Extract travel style preferences
+    if (info.flightClass) {
+      setFlightClass(info.flightClass);
+    }
+    if (info.hotelClass) {
+      setHotelClass(info.hotelClass);
     }
   };
 
