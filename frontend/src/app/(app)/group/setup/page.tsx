@@ -8,6 +8,7 @@ import TripChatbotInline from '@/components/trip-chatbot-inline';
 import { ExtractedTripInfo } from '@/lib/trip-extractor';
 import CityAutocomplete from '@/components/city-autocomplete';
 import DateRangePicker from '@/components/date-range-picker';
+import { searchAndFormatCity, searchAndFormatCities } from '@/lib/city-formatter';
 
 interface CreditCardEntry {
   id: string;
@@ -157,22 +158,44 @@ export default function GroupTripSetup() {
   }, [minBudget, maxBudget, creditCards, isLoadingProfile]);
 
   // Handle extracted trip info from chatbot
-  const handleExtract = (info: ExtractedTripInfo) => {
-    // Extract start destination
+  const handleExtract = async (info: ExtractedTripInfo) => {
+    // Extract and format start destination with airport code
     if (info.startDestination) {
-      setStartDestination(info.startDestination);
+      try {
+        const formatted = await searchAndFormatCity(info.startDestination);
+        setStartDestination(formatted);
+      } catch (error) {
+        console.error('Error formatting start destination:', error);
+        setStartDestination(info.startDestination);
+      }
     }
 
-    // Extract end destination
+    // Extract and format end destination with airport code
     if (info.endDestination) {
-      setEndDestination(info.endDestination);
+      try {
+        const formatted = await searchAndFormatCity(info.endDestination);
+        setEndDestination(formatted);
+      } catch (error) {
+        console.error('Error formatting end destination:', error);
+        setEndDestination(info.endDestination);
+      }
     }
 
-    // Extract cities (destinations) - add to destinations list
+    // Extract cities (destinations) - search and format with airport codes
     if (info.cities && info.cities.length > 0) {
-      const newCities = info.cities.filter(city => !cities.includes(city));
-      if (newCities.length > 0) {
-        setCities([...cities, ...newCities]);
+      try {
+        const formattedCities = await searchAndFormatCities(info.cities);
+        const newCities = formattedCities.filter(city => !cities.includes(city));
+        if (newCities.length > 0) {
+          setCities([...cities, ...newCities]);
+        }
+      } catch (error) {
+        console.error('Error formatting cities:', error);
+        // Fallback to unformatted cities
+        const newCities = info.cities.filter(city => !cities.includes(city));
+        if (newCities.length > 0) {
+          setCities([...cities, ...newCities]);
+        }
       }
     }
 

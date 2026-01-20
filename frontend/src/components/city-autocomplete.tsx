@@ -113,8 +113,15 @@ export default function CityAutocomplete({
 
   const handleSelect = (city: CitySearchResult) => {
     const cityName = city.name || city.cityName || '';
-    onSelect(cityName);
-    onChange(cityName); // Set the input value to the selected city
+    const iataCode = city.iataCode || city.id || '';
+    
+    // Format as "City (Code)" like Figma design, or just city name if no code
+    const formattedValue = iataCode && iataCode.length === 3 
+      ? `${cityName} (${iataCode.toUpperCase()})`
+      : cityName;
+    
+    onSelect(formattedValue);
+    onChange(formattedValue); // Set the input value to the formatted city
     setShowSuggestions(false);
   };
 
@@ -210,6 +217,9 @@ export default function CityAutocomplete({
               );
             };
             
+            const iataCode = city.iataCode || city.id || '';
+            const displayCode = iataCode && iataCode.length === 3 ? iataCode.toUpperCase() : '';
+            
             return (
               <button
                 key={`${city.id || cityName}-${index}`}
@@ -232,11 +242,9 @@ export default function CityAutocomplete({
                   <div className="font-medium text-slate-900 truncate">
                     {highlightText(cityName, value)}
                   </div>
-                  {(country || region) && (
-                    <div className="text-xs text-slate-500 truncate">
-                      {highlightText(country, value)} {region ? `• ${region}` : ''}
-                    </div>
-                  )}
+                  <div className="text-xs text-slate-500 truncate">
+                    {country} {displayCode ? `• ${displayCode}` : ''} {region ? `• ${region}` : ''}
+                  </div>
                 </div>
               </button>
             );
