@@ -90,7 +90,8 @@ export default function AppLayout({
         <div className="flex flex-col min-h-screen bg-slate-50">
             <ScrollToTop />
             <Navigation />
-            <main className="flex-1 overflow-y-auto">
+            {/* Remove overflow-y-auto so dropdowns and popovers (like autocomplete) aren't clipped */}
+            <main className="flex-1">
                 {children}
             </main>
         </div>
