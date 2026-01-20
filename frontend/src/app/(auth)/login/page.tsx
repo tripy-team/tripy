@@ -3,7 +3,7 @@
 import Link from "next/link";
 import { useState } from "react";
 import { useRouter } from "next/navigation";
-import { Plane, Mail, Lock, ArrowRight } from "lucide-react";
+import { Plane, Mail, Lock, ArrowRight, Eye, EyeOff } from "lucide-react";
 import { login } from "@/lib/api";
 
 export default function LoginPage() {
@@ -14,6 +14,7 @@ export default function LoginPage() {
 	});
 	const [errors, setErrors] = useState<Record<string, string>>({});
 	const [submitting, setSubmitting] = useState(false);
+	const [showPassword, setShowPassword] = useState(false);
 
 	const onChange = (
 		e: React.ChangeEvent<HTMLInputElement | HTMLSelectElement>,
@@ -156,16 +157,23 @@ export default function LoginPage() {
 									<Lock className="h-5 w-5 text-slate-400" />
 								</div>
 								<input
-									type="password"
+									type={showPassword ? "text" : "password"}
 									name="password"
 									required
 									value={form.password}
 									onChange={onChange}
-									className={`block w-full pl-10 pr-3 py-2.5 border rounded-xl text-slate-900 placeholder:text-slate-400 focus:outline-none focus:ring-2 focus:ring-blue-600 focus:border-transparent transition-all ${
+									className={`block w-full pl-10 pr-10 py-2.5 border rounded-xl text-slate-900 placeholder:text-slate-400 focus:outline-none focus:ring-2 focus:ring-blue-600 focus:border-transparent transition-all ${
 										errors.password ? "border-red-500" : "border-slate-200"
 									}`}
 									placeholder="••••••••"
 								/>
+								<button
+									type="button"
+									onClick={() => setShowPassword(!showPassword)}
+									className="absolute inset-y-0 right-0 pr-3 flex items-center text-slate-400 hover:text-slate-600"
+								>
+									{showPassword ? <EyeOff className="h-5 w-5" /> : <Eye className="h-5 w-5" />}
+								</button>
 							</div>
 							{errors.password && (
 								<p className="mt-1 text-xs text-red-600">{errors.password}</p>

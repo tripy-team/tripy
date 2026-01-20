@@ -20,7 +20,6 @@ export default function SoloTripSetup() {
   const router = useRouter();
   
   // Budget State
-  const [minBudget, setMinBudget] = useState<number | ''>('');
   const [maxBudget, setMaxBudget] = useState<number | ''>('');
   const [isLoadingProfile, setIsLoadingProfile] = useState(true);
 
@@ -97,9 +96,6 @@ export default function SoloTripSetup() {
         setIsLoadingProfile(true);
         const profile = await usersAPI.getProfile();
         
-        if (profile.min_budget !== undefined && profile.min_budget !== null) {
-          setMinBudget(profile.min_budget);
-        }
         if (profile.max_budget !== undefined && profile.max_budget !== null) {
           setMaxBudget(profile.max_budget);
         }
@@ -127,9 +123,10 @@ export default function SoloTripSetup() {
       const saveProfile = async () => {
         try {
           await usersAPI.updateProfile({
-            min_budget: minBudget === '' ? undefined : minBudget,
             max_budget: maxBudget === '' ? undefined : maxBudget,
             credit_cards: creditCards,
+            flight_class: flightClass,
+            hotel_class: hotelClass,
           });
         } catch (err) {
           console.error('Error saving user profile:', err);
@@ -140,7 +137,7 @@ export default function SoloTripSetup() {
       const timeoutId = setTimeout(saveProfile, 1000);
       return () => clearTimeout(timeoutId);
     }
-  }, [minBudget, maxBudget, creditCards, isLoadingProfile]);
+  }, [maxBudget, creditCards, isLoadingProfile, flightClass, hotelClass]);
 
   // Sync end destination with start destination if round trip
   useEffect(() => {
@@ -207,12 +204,9 @@ export default function SoloTripSetup() {
     }
 
     // Extract budget - populate budget section
-    if (info.minBudget !== undefined) {
-      setMinBudget(info.minBudget);
-    }
-    if (info.maxBudget !== undefined) {
-      setMaxBudget(info.maxBudget);
-    }
+          if (info.maxBudget !== undefined) {
+            setMaxBudget(info.maxBudget);
+          }
 
     // Extract credit cards - populate credit cards section
     if (info.creditCards && info.creditCards.length > 0) {
@@ -373,29 +367,16 @@ export default function SoloTripSetup() {
 
               <div className="space-y-6">
                 <div>
-                  <label className="block text-sm text-slate-600 mb-3 font-medium">Total Budget Range</label>
-                  <div className="flex items-center gap-4">
-                    <div className="relative flex-1">
-                      <span className="absolute left-4 top-1/2 -translate-y-1/2 text-slate-400">$</span>
-                      <input
-                        type="number"
-                        value={minBudget}
-                        onChange={(e) => setMinBudget(e.target.value ? Number(e.target.value) : '')}
-                        placeholder="Min"
-                        className="w-full pl-8 pr-4 py-3 bg-slate-50 border border-slate-200 rounded-xl focus:outline-none focus:ring-2 focus:ring-blue-600 focus:border-transparent font-medium text-slate-900"
-                      />
-                    </div>
-                    <div className="text-slate-400">to</div>
-                    <div className="relative flex-1">
-                      <span className="absolute left-4 top-1/2 -translate-y-1/2 text-slate-400">$</span>
-                      <input
-                        type="number"
-                        value={maxBudget}
-                        onChange={(e) => setMaxBudget(e.target.value ? Number(e.target.value) : '')}
-                        placeholder="Max"
-                        className="w-full pl-8 pr-4 py-3 bg-slate-50 border border-slate-200 rounded-xl focus:outline-none focus:ring-2 focus:ring-blue-600 focus:border-transparent font-medium text-slate-900"
-                      />
-                    </div>
+                  <label className="block text-sm text-slate-600 mb-3 font-medium">Maximum Budget</label>
+                  <div className="relative">
+                    <span className="absolute left-4 top-1/2 -translate-y-1/2 text-slate-400">$</span>
+                    <input
+                      type="number"
+                      value={maxBudget}
+                      onChange={(e) => setMaxBudget(e.target.value ? Number(e.target.value) : '')}
+                      placeholder="Enter maximum budget"
+                      className="w-full pl-8 pr-4 py-3 bg-slate-50 border border-slate-200 rounded-xl focus:outline-none focus:ring-2 focus:ring-blue-600 focus:border-transparent font-medium text-slate-900"
+                    />
                   </div>
                 </div>
 
@@ -754,15 +735,15 @@ export default function SoloTripSetup() {
                         <span className="text-blue-100">Cities</span>
                         <span>{cities.length}</span>
                       </div>
-                      <div className="flex justify-between">
-                        <span className="text-blue-100">Budget</span>
-                        <span>
-                          {minBudget !== '' && maxBudget !== '' 
-                            ? `$${typeof minBudget === 'number' ? minBudget.toLocaleString() : minBudget} - $${typeof maxBudget === 'number' ? maxBudget.toLocaleString() : maxBudget}`
-                            : 'Not set'
-                          }
-                        </span>
-                      </div>
+                            <div className="flex justify-between">
+                              <span className="text-blue-100">Budget</span>
+                              <span>
+                                {maxBudget !== '' 
+                                  ? `Up to $${typeof maxBudget === 'number' ? maxBudget.toLocaleString() : maxBudget}`
+                                  : 'Not set'
+                                }
+                              </span>
+                            </div>
                       <div className="flex justify-between">
                         <span className="text-blue-100">Total Points</span>
                         <span>{totalPoints.toLocaleString()}</span>

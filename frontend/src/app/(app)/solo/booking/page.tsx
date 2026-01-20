@@ -1,8 +1,7 @@
 'use client';
 
 import { useState } from 'react';
-// useRouter and useSearchParams will be needed for backend integration
-// import { useRouter, useSearchParams } from 'next/navigation';
+import { useRouter, useSearchParams } from 'next/navigation';
 import { 
   Shield, 
   CheckCircle, 
@@ -14,7 +13,6 @@ import {
   ChevronRight,
   Wallet
 } from 'lucide-react';
-import { useRouter, useSearchParams } from 'next/navigation';
 
 export default function SoloBooking() {
   const router = useRouter();

@@ -58,7 +58,7 @@ export default function GroupMemberJoin({ params }: { params: Promise<{ inviteCo
                 });
             } catch (err) {
                 console.error('Error fetching trip info:', err);
-                // Show error or redirect
+                setTripInfo(null); // Set to null to show error message
             } finally {
                 setIsLoading(false);
             }

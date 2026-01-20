@@ -7,13 +7,31 @@ import { Link2, ArrowRight } from 'lucide-react';
 export default function JoinTrip() {
   const router = useRouter();
   const [inviteCode, setInviteCode] = useState('');
+  const [error, setError] = useState('');
 
-  const handleJoin = (e: React.FormEvent) => {
+  const handleJoin = async (e: React.FormEvent) => {
     e.preventDefault();
-    if (inviteCode.trim()) {
+    setError('');
+    
+    if (!inviteCode.trim()) {
+      setError('Please enter an invite code');
+      return;
+    }
+
+    try {
       // Extract code from URL if full URL is pasted, or use the code directly
       const code = inviteCode.split('/').pop() || inviteCode;
+      
+      // Try to validate the code by fetching trip info
+      const { trips } = await import('@/lib/api');
+      await trips.getByInvite(code.trim());
+      
+      // If successful, navigate
       router.push(`/group/join/${code.trim()}`);
+    } catch (err) {
+      // Show error message instead of redirecting
+      setError('Invalid invite code. Please check the code and try again.');
+      console.error('Error validating invite code:', err);
     }
   };
 
@@ -40,11 +58,19 @@ export default function JoinTrip() {
                   id="invite-code"
                   type="text"
                   value={inviteCode}
-                  onChange={(e) => setInviteCode(e.target.value)}
+                  onChange={(e) => {
+                    setInviteCode(e.target.value);
+                    setError(''); // Clear error when user types
+                  }}
                   placeholder="tripy.app/group/join/xyz... or just the code"
-                  className="w-full px-4 py-3 bg-slate-50 border border-slate-200 rounded-xl focus:bg-white focus:outline-none focus:ring-2 focus:ring-blue-600 focus:border-transparent transition-all"
+                  className={`w-full px-4 py-3 bg-slate-50 border rounded-xl focus:bg-white focus:outline-none focus:ring-2 focus:ring-blue-600 focus:border-transparent transition-all ${
+                    error ? 'border-red-500' : 'border-slate-200'
+                  }`}
                   autoFocus
                 />
+                {error && (
+                  <p className="mt-2 text-sm text-red-600">{error}</p>
+                )}
               </div>
 
               <button

@@ -1,10 +1,33 @@
 'use client';
 
 import Link from 'next/link';
+import { useState, useEffect } from 'react';
 import { Plane, CreditCard, Users, Sparkles, Search, Zap, MapPin, Calendar } from 'lucide-react';
 import { Navigation } from '@/components/navigation';
 
 export default function AboutPage() {
+	const [user, setUser] = useState<any>(null);
+
+	useEffect(() => {
+		const checkUser = () => {
+			const storedUser = localStorage.getItem('user');
+			if (storedUser) {
+				try {
+					const parsedUser = JSON.parse(storedUser);
+					if (parsedUser && (parsedUser.name || parsedUser.email)) {
+						setUser(parsedUser);
+					}
+				} catch (e) {
+					console.error('Failed to parse user', e);
+				}
+			}
+		};
+
+		checkUser();
+		window.addEventListener('tripy_auth_change', checkUser);
+		return () => window.removeEventListener('tripy_auth_change', checkUser);
+	}, []);
+
 	return (
 		<div className="min-h-full bg-gradient-to-br from-white via-blue-50/30 to-white">
 			{/* Consistent Navigation */}
@@ -23,20 +46,37 @@ export default function AboutPage() {
 						<p className="text-xl text-slate-600 mb-8 leading-relaxed max-w-lg">
 							AI-powered flight & hotel recommendations using your credit-card points.
 						</p>
-						<div className="flex gap-4">
-							<Link
-								href="/login"
-								className="px-8 py-4 bg-blue-600 text-white rounded-2xl hover:bg-blue-700 transition-all shadow-lg shadow-blue-600/20 hover:shadow-xl hover:shadow-blue-600/30 font-medium"
-							>
-								Get Started
-							</Link>
-							<Link
-								href="/register"
-								className="px-8 py-4 bg-white text-slate-900 border-2 border-slate-200 rounded-2xl hover:border-slate-300 transition-all font-medium"
-							>
-								Sign Up
-							</Link>
-						</div>
+						{user ? (
+							<div className="flex gap-4">
+								<Link
+									href="/solo/setup"
+									className="px-8 py-4 bg-blue-600 text-white rounded-2xl hover:bg-blue-700 transition-all shadow-lg shadow-blue-600/20 hover:shadow-xl hover:shadow-blue-600/30 font-medium"
+								>
+									Plan a Trip
+								</Link>
+								<Link
+									href="/my-trips"
+									className="px-8 py-4 bg-white text-slate-900 border-2 border-slate-200 rounded-2xl hover:border-slate-300 transition-all font-medium"
+								>
+									My Trips
+								</Link>
+							</div>
+						) : (
+							<div className="flex gap-4">
+								<Link
+									href="/login"
+									className="px-8 py-4 bg-blue-600 text-white rounded-2xl hover:bg-blue-700 transition-all shadow-lg shadow-blue-600/20 hover:shadow-xl hover:shadow-blue-600/30 font-medium"
+								>
+									Get Started
+								</Link>
+								<Link
+									href="/register"
+									className="px-8 py-4 bg-white text-slate-900 border-2 border-slate-200 rounded-2xl hover:border-slate-300 transition-all font-medium"
+								>
+									Sign Up
+								</Link>
+							</div>
+						)}
 					</div>
 
 					{/* Right Column - Illustration */}

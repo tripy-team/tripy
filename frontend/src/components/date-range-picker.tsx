@@ -60,17 +60,35 @@ export default function DateRangePicker({
 
   const handleChange = (value: { start: DateValue | null; end: DateValue | null } | null) => {
     if (value) {
-      setRange(value);
-      if (value.start) {
-        onStartDateChange(value.start.toString());
+      // Ensure end date is not before start date
+      if (value.start && value.end && value.end.compare(value.start) < 0) {
+        // If end is before start, swap them
+        const temp = value.start;
+        value.start = value.end;
+        value.end = temp;
       }
+      
+      setRange(value);
+      
+      // Only update start date if it actually changed
+      if (value.start) {
+        const newStartStr = value.start.toString();
+        if (newStartStr !== startDate) {
+          onStartDateChange(newStartStr);
+        }
+      }
+      
+      // Only update end date if it actually changed
       if (value.end) {
-        onEndDateChange(value.end.toString());
+        const newEndStr = value.end.toString();
+        if (newEndStr !== endDate) {
+          onEndDateChange(newEndStr);
+        }
       }
     } else {
       setRange({ start: null, end: null });
-      onStartDateChange('');
-      onEndDateChange('');
+      if (startDate) onStartDateChange('');
+      if (endDate) onEndDateChange('');
     }
   };
 
@@ -79,7 +97,7 @@ export default function DateRangePicker({
   return (
     <div className="relative w-full">
       <AriaDateRangePicker
-        value={range.start && range.end ? { start: range.start, end: range.end } : null}
+        value={range.start && range.end ? { start: range.start, end: range.end } : (range.start ? { start: range.start, end: range.start } : null)}
         onChange={handleChange}
         isDisabled={disabled}
         minValue={today(getLocalTimeZone())}

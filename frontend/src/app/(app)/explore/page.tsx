@@ -43,7 +43,7 @@ export default function ExplorePage() {
       <div className="text-center mb-12">
         <h1 className="text-4xl font-bold text-slate-900 mb-4">Explore the World with Points</h1>
         <p className="text-lg text-slate-600 max-w-2xl mx-auto">
-          Discover how far your credit card points can take you. We analyze award availability across major airline alliances.
+          Discover how far your credit card points can take you. Browse popular destinations and see estimated point costs for flights and hotels.
         </p>
       </div>
 

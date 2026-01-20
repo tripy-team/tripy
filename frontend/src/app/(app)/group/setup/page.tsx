@@ -20,7 +20,6 @@ export default function GroupTripSetup() {
   const router = useRouter();
   
   // Budget State
-  const [minBudget, setMinBudget] = useState<number | ''>('');
   const [maxBudget, setMaxBudget] = useState<number | ''>('');
   const [isLoadingProfile, setIsLoadingProfile] = useState(true);
 
@@ -116,9 +115,6 @@ export default function GroupTripSetup() {
         setIsLoadingProfile(true);
         const profile = await usersAPI.getProfile();
         
-        if (profile.min_budget !== undefined && profile.min_budget !== null) {
-          setMinBudget(profile.min_budget);
-        }
         if (profile.max_budget !== undefined && profile.max_budget !== null) {
           setMaxBudget(profile.max_budget);
         }
@@ -146,9 +142,10 @@ export default function GroupTripSetup() {
       const saveProfile = async () => {
         try {
           await usersAPI.updateProfile({
-            min_budget: minBudget === '' ? undefined : minBudget,
             max_budget: maxBudget === '' ? undefined : maxBudget,
             credit_cards: creditCards,
+            flight_class: flightClass,
+            hotel_class: hotelClass,
           });
         } catch (err) {
           console.error('Error saving user profile:', err);
@@ -159,7 +156,7 @@ export default function GroupTripSetup() {
       const timeoutId = setTimeout(saveProfile, 1000);
       return () => clearTimeout(timeoutId);
     }
-  }, [minBudget, maxBudget, creditCards, isLoadingProfile]);
+  }, [maxBudget, creditCards, isLoadingProfile, flightClass, hotelClass]);
 
   // Handle extracted trip info from chatbot
   const handleExtract = async (info: ExtractedTripInfo) => {
@@ -219,12 +216,9 @@ export default function GroupTripSetup() {
     }
 
     // Extract budget - populate budget section
-    if (info.minBudget !== undefined) {
-      setMinBudget(info.minBudget);
-    }
-    if (info.maxBudget !== undefined) {
-      setMaxBudget(info.maxBudget);
-    }
+          if (info.maxBudget !== undefined) {
+            setMaxBudget(info.maxBudget);
+          }
 
     // Extract credit cards - populate credit cards section
     if (info.creditCards && info.creditCards.length > 0) {
@@ -539,29 +533,16 @@ export default function GroupTripSetup() {
 
               <div className="space-y-6">
                 <div>
-                  <label className="block text-sm text-slate-600 mb-3 font-medium">Target Budget per Person</label>
-                  <div className="flex items-center gap-4">
-                    <div className="relative flex-1">
-                      <span className="absolute left-4 top-1/2 -translate-y-1/2 text-slate-400">$</span>
-                      <input
-                        type="number"
-                        value={minBudget}
-                        onChange={(e) => setMinBudget(e.target.value ? Number(e.target.value) : '')}
-                        placeholder="Min"
-                        className="w-full pl-8 pr-4 py-3 bg-slate-50 border border-slate-200 rounded-xl focus:outline-none focus:ring-2 focus:ring-blue-600 focus:border-transparent font-medium text-slate-900"
-                      />
-                    </div>
-                    <div className="text-slate-400">to</div>
-                    <div className="relative flex-1">
-                      <span className="absolute left-4 top-1/2 -translate-y-1/2 text-slate-400">$</span>
-                      <input
-                        type="number"
-                        value={maxBudget}
-                        onChange={(e) => setMaxBudget(e.target.value ? Number(e.target.value) : '')}
-                        placeholder="Max"
-                        className="w-full pl-8 pr-4 py-3 bg-slate-50 border border-slate-200 rounded-xl focus:outline-none focus:ring-2 focus:ring-blue-600 focus:border-transparent font-medium text-slate-900"
-                      />
-                    </div>
+                  <label className="block text-sm text-slate-600 mb-3 font-medium">Maximum Budget per Person</label>
+                  <div className="relative">
+                    <span className="absolute left-4 top-1/2 -translate-y-1/2 text-slate-400">$</span>
+                    <input
+                      type="number"
+                      value={maxBudget}
+                      onChange={(e) => setMaxBudget(e.target.value ? Number(e.target.value) : '')}
+                      placeholder="Enter maximum budget"
+                      className="w-full pl-8 pr-4 py-3 bg-slate-50 border border-slate-200 rounded-xl focus:outline-none focus:ring-2 focus:ring-blue-600 focus:border-transparent font-medium text-slate-900"
+                    />
                   </div>
                 </div>
 
