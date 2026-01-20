@@ -4,22 +4,17 @@ import { useState, useEffect } from 'react';
 import { useRouter } from 'next/navigation';
 import { 
   User, 
-  Settings as SettingsIcon, 
   CreditCard, 
   Bell, 
   Shield, 
   LogOut, 
   Camera,
-  Mail,
-  Phone,
-  MapPin,
   Globe,
-  Briefcase,
   Save,
   Check
 } from 'lucide-react';
 import { Navigation } from '@/components/navigation';
-import { users as usersAPI, UserProfile, UpdateProfileRequest } from '@/lib/api';
+import { users as usersAPI, UpdateProfileRequest } from '@/lib/api';
 import CityAutocomplete from '@/components/city-autocomplete';
 
 export default function SettingsPage() {
