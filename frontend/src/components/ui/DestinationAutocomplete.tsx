@@ -34,7 +34,7 @@ export function DestinationAutocomplete({
   value,
   onChange,
   placeholder = 'Add a city...',
-  label,
+  label: _label, // Intentionally unused - handled by external UI
   disabled = false,
   className = '',
   onSelect,

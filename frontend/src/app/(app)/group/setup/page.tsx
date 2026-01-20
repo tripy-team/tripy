@@ -394,7 +394,11 @@ export default function GroupTripSetup() {
   };
 
   const handleContinue = () => {
-    router.push('/group/dashboard');
+    if (currentTripId) {
+      router.push(`/group/payment?tripId=${currentTripId}`);
+    } else {
+      router.push('/group/dashboard');
+    }
   };
 
   return (
@@ -483,11 +487,42 @@ export default function GroupTripSetup() {
               </div>
 
               {adults > 1 && (
-                <div className="mt-6 p-4 bg-amber-50 border border-amber-200 rounded-xl flex items-start gap-3 animate-in fade-in slide-in-from-top-2">
-                  <Info className="w-5 h-5 text-amber-600 flex-shrink-0 mt-0.5" />
-                  <div className="text-sm text-amber-900">
-                    <span className="font-semibold block mb-1">Are they contributing points?</span>
-                    Additional adults added here are considered part of your booking. This means that <strong>they do not have points to contribute</strong>. If they do, they should join using an invite link.
+                <div className="mt-6 space-y-4 animate-in fade-in slide-in-from-top-2">
+                  <div className="p-4 bg-amber-50 border border-amber-200 rounded-xl flex items-start gap-3">
+                    <Info className="w-5 h-5 text-amber-600 flex-shrink-0 mt-0.5" />
+                    <div className="text-sm text-amber-900">
+                      <span className="font-semibold block mb-1">Are they contributing points?</span>
+                      Additional adults added here are considered part of your booking. This means that <strong>they do not have points to contribute</strong>. If they do, they should join using an invite link.
+                    </div>
+                  </div>
+
+                  <div className="space-y-3">
+                    <h3 className="text-sm font-medium text-slate-900 pl-1">Additional Traveler Details</h3>
+                    {Array.from({ length: adults - 1 }).map((_, index) => (
+                      <div key={index} className="p-4 bg-slate-50 rounded-xl border border-slate-200 space-y-3">
+                        <div className="flex items-center justify-between">
+                          <div className="text-xs font-bold text-slate-500 uppercase tracking-wider">Adult {index + 2}</div>
+                        </div>
+                        <div className="grid md:grid-cols-2 gap-4">
+                          <div>
+                            <label className="block text-xs text-slate-500 mb-1.5 font-medium">Full Name</label>
+                            <input 
+                              type="text" 
+                              placeholder="e.g. John Doe"
+                              className="w-full px-3 py-2 bg-white border border-slate-200 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-600 focus:border-transparent text-sm" 
+                            />
+                          </div>
+                          <div>
+                            <label className="block text-xs text-slate-500 mb-1.5 font-medium">Email Address</label>
+                            <input 
+                              type="email" 
+                              placeholder="e.g. john@example.com"
+                              className="w-full px-3 py-2 bg-white border border-slate-200 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-600 focus:border-transparent text-sm" 
+                            />
+                          </div>
+                        </div>
+                      </div>
+                    ))}
                   </div>
                 </div>
               )}

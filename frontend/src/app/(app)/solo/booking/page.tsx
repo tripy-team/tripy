@@ -14,13 +14,12 @@ import {
   ChevronRight,
   Wallet
 } from 'lucide-react';
-import { Navigation } from '@/components/navigation';
+import { useRouter, useSearchParams } from 'next/navigation';
 
 export default function SoloBooking() {
-  // TODO: Integrate with backend to fetch trip data using trip_id from searchParams
-  // const router = useRouter();
-  // const searchParams = useSearchParams();
-  // const tripId = searchParams?.get('trip_id') || '';
+  const router = useRouter();
+  const searchParams = useSearchParams();
+  const tripId = searchParams?.get('trip_id') || '';
   
   const [isPaid, setIsPaid] = useState(false);
   const [isProcessing, setIsProcessing] = useState(false);
@@ -35,9 +34,7 @@ export default function SoloBooking() {
   };
 
   return (
-    <div>
-      <Navigation />
-      <div className="min-h-screen bg-slate-50 pb-20">
+    <div className="min-h-screen bg-slate-50 pb-20">
         {/* Header */}
         <div className="bg-white border-b border-slate-200">
           <div className="max-w-4xl mx-auto px-6 py-8">

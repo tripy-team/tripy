@@ -340,11 +340,8 @@ export default function SoloTripSetup() {
         });
       }
 
-      // 6. Generate itinerary
-      await generateItinerary(trip.tripId);
-
-      // 7. Navigate to results page with trip_id
-      router.push(`/solo/results?tripId=${trip.tripId}`);
+      // 6. Navigate to payment page with trip_id
+      router.push(`/solo/payment?tripId=${trip.tripId}`);
     } catch (err) {
       console.error('Error generating itinerary:', err);
       setError(err instanceof Error ? err.message : 'Failed to generate itinerary. Please try again.');
