@@ -87,11 +87,18 @@ export default function CityAutocomplete({
         });
         
         const finalResults = sortedResults.slice(0, 10);
+        console.log('[CityAutocomplete] API response:', {
+          query: value,
+          resultsCount: finalResults.length,
+          results: finalResults.map(r => ({ name: r.name || r.cityName, code: r.iataCode }))
+        });
         setSuggestions(finalResults);
         // Always show suggestions if we have results
         if (finalResults.length > 0) {
+          console.log('[CityAutocomplete] Showing suggestions:', finalResults.length, 'results');
           setShowSuggestions(true);
         } else {
+          console.log('[CityAutocomplete] No suggestions found for:', value);
           setShowSuggestions(false);
         }
       } catch (error) {
@@ -135,16 +142,20 @@ export default function CityAutocomplete({
   };
 
   return (
-    <div ref={wrapperRef} className="relative w-full" style={{ position: 'relative' }}>
-      <div className="relative">
+    <div ref={wrapperRef} className="relative w-full" style={{ position: 'relative', zIndex: 1 }}>
+      <div className="relative" style={{ position: 'relative', zIndex: 1 }}>
         <input
           type="text"
           value={value}
           onChange={(e) => {
-            onChange(e.target.value);
+            const newValue = e.target.value;
+            onChange(newValue);
             // Immediately show suggestions when user types (will be filtered by the useEffect)
-            if (e.target.value.trim().length >= 1) {
+            if (newValue.trim().length >= 1) {
+              console.log('[CityAutocomplete] User typing, showing suggestions for:', newValue);
               setShowSuggestions(true);
+            } else {
+              setShowSuggestions(false);
             }
           }}
           onKeyDown={handleKeyDown}
@@ -179,7 +190,16 @@ export default function CityAutocomplete({
 
       {showSuggestions && suggestions.length > 0 && (
         <div 
-          className="absolute z-50 w-full mt-2 bg-white rounded-xl shadow-xl border border-slate-100 max-h-60 overflow-y-auto"
+          className="absolute w-full mt-2 bg-white rounded-xl shadow-xl border border-slate-100 max-h-60 overflow-y-auto"
+          style={{ 
+            position: 'absolute',
+            top: '100%',
+            left: 0,
+            right: 0,
+            zIndex: 9999,
+            marginTop: '0.5rem',
+            boxShadow: '0 10px 15px -3px rgba(0, 0, 0, 0.1), 0 4px 6px -2px rgba(0, 0, 0, 0.05)'
+          }}
           onMouseDown={(e) => {
             // Prevent blur event when clicking inside dropdown
             e.preventDefault();
