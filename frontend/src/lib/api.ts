@@ -557,6 +557,8 @@ export interface UserProfile {
     program: string;
     points: number;
   }>;
+  flight_class?: string;
+  hotel_class?: string;
   createdAt?: string;
 }
 
@@ -571,6 +573,8 @@ export interface UpdateProfileRequest {
     program: string;
     points: number;
   }>;
+  flight_class?: string;
+  hotel_class?: string;
 }
 
 export const users = {
