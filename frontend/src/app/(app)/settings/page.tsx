@@ -13,7 +13,6 @@ import {
   Save,
   Check
 } from 'lucide-react';
-import { Navigation } from '@/components/navigation';
 import { users as usersAPI, UpdateProfileRequest } from '@/lib/api';
 import CityAutocomplete from '@/components/city-autocomplete';
 
@@ -113,8 +112,6 @@ export default function SettingsPage() {
 
   return (
     <div className="min-h-screen bg-gradient-to-br from-white via-blue-50/20 to-white">
-      <Navigation />
-      
       <div className="max-w-6xl mx-auto px-4 py-8">
         <div className="mb-8">
           <h1 className="text-3xl font-bold text-slate-900">Account Settings</h1>
@@ -215,10 +212,23 @@ export default function SettingsPage() {
                       <div className="space-y-6">
                         <div className="flex items-center gap-6">
                           <div className="relative group">
-                            <div className="w-24 h-24 rounded-full bg-blue-100 flex items-center justify-center border-4 border-white shadow-md">
-                              <User className="w-12 h-12 text-blue-600" />
+                            <div className="w-24 h-24 rounded-full bg-blue-100 flex items-center justify-center border-4 border-white shadow-md overflow-hidden">
+                              {email ? (
+                                <div className="w-full h-full bg-gradient-to-br from-blue-500 to-blue-600 flex items-center justify-center text-white text-2xl font-semibold">
+                                  {name ? name.split(' ').map(n => n[0]).join('').toUpperCase().slice(0, 2) : email[0].toUpperCase()}
+                                </div>
+                              ) : (
+                                <User className="w-12 h-12 text-blue-600" />
+                              )}
                             </div>
-                            <button className="absolute bottom-0 right-0 bg-white p-2 rounded-full shadow-lg border border-slate-200 text-slate-600 hover:text-blue-600 hover:border-blue-200 transition-all">
+                            <button 
+                              type="button"
+                              className="absolute bottom-0 right-0 bg-white p-2 rounded-full shadow-lg border border-slate-200 text-slate-600 hover:text-blue-600 hover:border-blue-200 transition-all"
+                              onClick={() => {
+                                // TODO: Implement photo upload
+                                alert('Photo upload coming soon!');
+                              }}
+                            >
                               <Camera className="w-4 h-4" />
                             </button>
                           </div>

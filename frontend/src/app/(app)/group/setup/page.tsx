@@ -189,17 +189,17 @@ export default function GroupTripSetup() {
     if (info.cities && info.cities.length > 0) {
       try {
         const formattedCities = await searchAndFormatCities(info.cities);
-        const newCities = formattedCities.filter(city => !cities.includes(city));
-        if (newCities.length > 0) {
-          setCities([...cities, ...newCities]);
-        }
+        setCities(prevCities => {
+          const newCities = formattedCities.filter(city => !prevCities.includes(city));
+          return newCities.length > 0 ? [...prevCities, ...newCities] : prevCities;
+        });
       } catch (error) {
         console.error('Error formatting cities:', error);
         // Fallback to unformatted cities
-        const newCities = info.cities.filter(city => !cities.includes(city));
-        if (newCities.length > 0) {
-          setCities([...cities, ...newCities]);
-        }
+        setCities(prevCities => {
+          const newCities = info.cities.filter(city => !prevCities.includes(city));
+          return newCities.length > 0 ? [...prevCities, ...newCities] : prevCities;
+        });
       }
     }
 
@@ -228,12 +228,17 @@ export default function GroupTripSetup() {
 
     // Extract credit cards - populate credit cards section
     if (info.creditCards && info.creditCards.length > 0) {
-      const newCards = info.creditCards.map((card, index) => ({
-        id: `extracted-${Date.now()}-${index}`,
-        program: card.program,
-        points: card.points,
-      }));
-      setCreditCards([...creditCards, ...newCards]);
+      setCreditCards(prevCards => {
+        const newCards = info.creditCards!.map((card, index) => ({
+          id: `extracted-${Date.now()}-${index}`,
+          program: card.program,
+          points: card.points,
+        }));
+        // Filter out duplicates based on program name
+        const existingPrograms = new Set(prevCards.map(c => c.program));
+        const uniqueNewCards = newCards.filter(c => !existingPrograms.has(c.program));
+        return uniqueNewCards.length > 0 ? [...prevCards, ...uniqueNewCards] : prevCards;
+      });
     }
 
     // Extract travel style preferences

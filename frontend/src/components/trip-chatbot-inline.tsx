@@ -113,16 +113,24 @@ export default function TripChatbotInline({ onExtract }: TripChatbotInlineProps)
     if (extracted.creditCards && extracted.creditCards.length > 0) {
       extractedItems.push(`💳 Credit cards: ${extracted.creditCards.map(c => `${c.program} (${c.points.toLocaleString()} pts)`).join(', ')}`);
     }
+    if (extracted.flightClass) {
+      extractedItems.push(`✈️ Flight Class: ${extracted.flightClass.replace(/_/g, ' ')}`);
+    }
+    if (extracted.hotelClass) {
+      extractedItems.push(`🏨 Hotel Class: ${extracted.hotelClass} Star`);
+    }
 
     if (extractedItems.length > 0) {
       botResponse = `Great! I found:\n\n${extractedItems.join('\n')}\n\nI've updated the form for you! Feel free to tell me more or make changes.`;
       
       // Apply extracted information (handle both sync and async callbacks)
-      const result = onExtract(extracted);
-      if (result instanceof Promise) {
-        result.catch(error => {
-          console.error('Error in onExtract callback:', error);
-        });
+      try {
+        const result = onExtract(extracted);
+        if (result instanceof Promise) {
+          await result;
+        }
+      } catch (error) {
+        console.error('Error in onExtract callback:', error);
       }
     } else {
       botResponse = "I'm having trouble understanding that. Try saying something like:\n\n• \"I want to visit Paris and London in March\"\n• \"Trip to Tokyo for 7 days with a $3000 budget\"\n• \"Flexible dates, going to Barcelona and Madrid\"";
