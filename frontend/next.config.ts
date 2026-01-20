@@ -21,6 +21,12 @@ const remotePatterns: Array<{
     hostname: 'images.pexels.com',
     pathname: '/**',
   },
+  // Allow direct access to the Tripy S3 bucket used for curated city images
+  {
+    protocol: 'https',
+    hostname: 'tripy-city-images.s3.us-east-1.amazonaws.com',
+    pathname: '/**',
+  },
 ];
 
 // Add CDN domain if configured
