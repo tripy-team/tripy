@@ -146,7 +146,17 @@ export default function SoloTripSetup() {
 
   // Handle extracted trip info from chatbot
   const handleExtract = (info: ExtractedTripInfo) => {
-    // Extract cities
+    // Extract start destination
+    if (info.startDestination) {
+      setStartDestination(info.startDestination);
+    }
+
+    // Extract end destination
+    if (info.endDestination) {
+      setEndDestination(info.endDestination);
+    }
+
+    // Extract cities (destinations) - add to destinations list
     if (info.cities && info.cities.length > 0) {
       const newCities = info.cities.filter(city => !cities.includes(city));
       if (newCities.length > 0) {
@@ -154,7 +164,7 @@ export default function SoloTripSetup() {
       }
     }
 
-    // Extract dates
+    // Extract dates - populate dates section
     if (info.startDate) {
       setStartDate(info.startDate);
     }
@@ -169,15 +179,15 @@ export default function SoloTripSetup() {
       setIsFlexible(info.isFlexible);
     }
 
-    // Extract budget
-    if (info.minBudget) {
+    // Extract budget - populate budget section
+    if (info.minBudget !== undefined) {
       setMinBudget(info.minBudget);
     }
-    if (info.maxBudget) {
+    if (info.maxBudget !== undefined) {
       setMaxBudget(info.maxBudget);
     }
 
-    // Extract credit cards
+    // Extract credit cards - populate credit cards section
     if (info.creditCards && info.creditCards.length > 0) {
       const newCards = info.creditCards.map((card, index) => ({
         id: `extracted-${Date.now()}-${index}`,
@@ -399,20 +409,35 @@ export default function SoloTripSetup() {
               </div>
 
               <div className="space-y-6">
-                {!isFlexible ? (
-                  <div>
-                    <label className="block text-xs text-slate-500 mb-1.5 uppercase font-bold tracking-wider">
-                      Travel Dates
-                    </label>
-                    <DateRangePicker
-                      startDate={startDate}
-                      endDate={endDate}
-                      onStartDateChange={setStartDate}
-                      onEndDateChange={setEndDate}
+                {/* Travel Dates - Always visible */}
+                <div>
+                  <label className="block text-xs text-slate-500 mb-1.5 uppercase font-bold tracking-wider">
+                    Travel Dates
+                  </label>
+                  <DateRangePicker
+                    startDate={startDate}
+                    endDate={endDate}
+                    onStartDateChange={setStartDate}
+                    onEndDateChange={setEndDate}
+                  />
+                </div>
+
+                {/* Flexible Dates Checkbox */}
+                <div className="flex items-center justify-start pt-2">
+                  <label className="flex items-center gap-2 cursor-pointer select-none group inline-flex">
+                    <input
+                      type="checkbox"
+                      checked={isFlexible}
+                      onChange={(e) => setIsFlexible(e.target.checked)}
+                      className="w-4 h-4"
                     />
-                  </div>
-                ) : (
-                  <div>
+                    <span className="text-sm text-slate-600 group-hover:text-slate-900 transition-colors">Flexible dates</span>
+                  </label>
+                </div>
+
+                {/* Duration Slider - Shown when flexible dates is checked */}
+                {isFlexible && (
+                  <div className="pt-4 border-t border-slate-100 animate-in fade-in slide-in-from-top-2">
                      <label className="block text-xs text-slate-500 mb-1.5 uppercase font-bold tracking-wider">Approximate Duration (Days)</label>
                      <div className="flex items-center gap-4">
                         <input
@@ -430,19 +455,6 @@ export default function SoloTripSetup() {
                      <p className="text-xs text-slate-500 mt-2">We&apos;ll find the best dates for a {flexibleDuration}-day trip.</p>
                   </div>
                 )}
-
-                {/* Flexible Dates Checkbox */}
-                <div className="flex items-center justify-start pt-2">
-                  <label className="flex items-center gap-2 cursor-pointer select-none group inline-flex">
-                    <input
-                      type="checkbox"
-                      checked={isFlexible}
-                      onChange={(e) => setIsFlexible(e.target.checked)}
-                      className="w-4 h-4"
-                    />
-                    <span className="text-sm text-slate-600 group-hover:text-slate-900 transition-colors">Flexible dates</span>
-                  </label>
-                </div>
               </div>
             </div>
 

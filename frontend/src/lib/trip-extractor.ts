@@ -10,6 +10,8 @@
 
 export interface ExtractedTripInfo {
     cities: string[];
+    startDestination?: string;
+    endDestination?: string;
     startDate?: string;
     endDate?: string;
     duration?: number;
@@ -103,12 +105,39 @@ const CREDIT_CARD_PROGRAMS = [
 ];
 
 /**
- * Extract cities from text
+ * Extract cities and start/end destinations from text
  */
-function extractCities(text: string): string[] {
+function extractCities(text: string): { cities: string[]; startDestination?: string; endDestination?: string } {
     const cities: string[] = [];
+    let startDestination: string | undefined;
+    let endDestination: string | undefined;
     
-    // Look for common patterns
+    // Look for start/end destination patterns
+    // "from New York to Paris" or "starting in New York, ending in London"
+    const startEndPatterns = [
+        /(?:from|starting in|start in|departing from|leaving from)\s+([A-Z][a-z]+(?:\s+[A-Z][a-z]+)*)\s+(?:to|ending in|end in|arriving in|going to)\s+([A-Z][a-z]+(?:\s+[A-Z][a-z]+)*)/gi,
+        /(?:from|starting|start|departing|leaving)\s+([A-Z][a-z]+(?:\s+[A-Z][a-z]+)*)\s+(?:to|ending|end|arriving|going to)\s+([A-Z][a-z]+(?:\s+[A-Z][a-z]+)*)/gi,
+    ];
+    
+    for (const pattern of startEndPatterns) {
+        const match = text.match(pattern);
+        if (match) {
+            const fullMatch = match[0];
+            const startMatch = fullMatch.match(/(?:from|starting in|start in|departing from|leaving from|from|starting|start|departing|leaving)\s+([A-Z][a-z]+(?:\s+[A-Z][a-z]+)*)/i);
+            const endMatch = fullMatch.match(/(?:to|ending in|end in|arriving in|going to|to|ending|end|arriving|going to)\s+([A-Z][a-z]+(?:\s+[A-Z][a-z]+)*)/i);
+            if (startMatch && startMatch[1]) {
+                startDestination = startMatch[1].trim();
+            }
+            if (endMatch && endMatch[1]) {
+                endDestination = endMatch[1].trim();
+            }
+            // Remove start/end destinations from text to avoid double extraction
+            text = text.replace(pattern, '');
+            break;
+        }
+    }
+    
+    // Look for common patterns for cities/destinations
     const patterns = [
         // "to Paris, London, and Tokyo"
         /(?:to|visit|going to|travel to|trip to|destinations?|cities?)[\s:]+([A-Z][a-z]+(?:\s+[A-Z][a-z]+)*(?:\s*,\s*[A-Z][a-z]+(?:\s+[A-Z][a-z]+)*)*)/gi,
@@ -130,7 +159,10 @@ function extractCities(text: string): string[] {
                     const city = match[i].trim();
                     // Validate it's a reasonable city name (2+ chars, starts with capital)
                     if (city.length >= 2 && /^[A-Z]/.test(city)) {
-                        cities.push(city);
+                        // Don't add if it's already a start/end destination
+                        if (city !== startDestination && city !== endDestination) {
+                            cities.push(city);
+                        }
                     }
                 }
             }
@@ -145,13 +177,23 @@ function extractCities(text: string): string[] {
             const capitalized = city.split(' ').map(w =>
                 w.charAt(0).toUpperCase() + w.slice(1)
             ).join(' ');
-            cities.push(capitalized);
+            
+            // Don't add if it's already a start/end destination
+            if (capitalized !== startDestination && capitalized !== endDestination) {
+                cities.push(capitalized);
+            }
         }
     }
 
     // Remove duplicates and normalize
-    return Array.from(new Set(cities.map(c => c.trim())))
+    const uniqueCities = Array.from(new Set(cities.map(c => c.trim())))
         .filter(c => c.length > 0);
+
+    return {
+        cities: uniqueCities,
+        startDestination: startDestination?.trim(),
+        endDestination: endDestination?.trim(),
+    };
 }
 
 /**
@@ -384,13 +426,15 @@ function extractCreditCards(text: string): Array<{ program: string; points: numb
  * Main extraction function
  */
 export function extractTripInfo(text: string): ExtractedTripInfo {
-    const cities = extractCities(text);
+    const cityData = extractCities(text);
     const dates = extractDates(text);
     const budget = extractBudget(text);
     const creditCards = extractCreditCards(text);
 
     return {
-        cities,
+        cities: cityData.cities,
+        startDestination: cityData.startDestination,
+        endDestination: cityData.endDestination,
         ...dates,
         ...budget,
         creditCards: creditCards.length > 0 ? creditCards : undefined,

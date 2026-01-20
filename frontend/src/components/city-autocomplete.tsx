@@ -49,7 +49,7 @@ export default function CityAutocomplete({
       setIsLoading(true);
       try {
         // Search with the query - backend handles fuzzy matching
-        const response = await citiesAPI.search(value, 12);
+        const response = await citiesAPI.search(value.trim(), 12);
         
         if (!response || !response.cities) {
           console.warn('Invalid response from cities API:', response);
@@ -61,7 +61,7 @@ export default function CityAutocomplete({
         
         // Sort results to prioritize exact matches and city name matches
         const sortedResults = response.cities.sort((a, b) => {
-          const queryLower = value.toLowerCase();
+          const queryLower = value.toLowerCase().trim();
           const aName = (a.name || a.cityName || '').toLowerCase();
           const bName = (b.name || b.cityName || '').toLowerCase();
           const aCountry = (a.countryName || '').toLowerCase();
@@ -91,6 +91,8 @@ export default function CityAutocomplete({
         // Always show suggestions if we have results
         if (finalResults.length > 0) {
           setShowSuggestions(true);
+        } else {
+          setShowSuggestions(false);
         }
       } catch (error) {
         console.error('Error searching cities:', error);
@@ -104,7 +106,7 @@ export default function CityAutocomplete({
       } finally {
         setIsLoading(false);
       }
-    }, 200); // Reduced debounce for faster response
+    }, 300); // Debounce for API calls
 
     return () => clearTimeout(timeoutId);
   }, [value]);
@@ -126,7 +128,7 @@ export default function CityAutocomplete({
   };
 
   return (
-    <div ref={wrapperRef} className="relative flex-1" style={{ zIndex: showSuggestions ? 1000 : 'auto', position: 'relative' }}>
+    <div ref={wrapperRef} className="relative w-full" style={{ position: 'relative' }}>
       <div className="relative">
         <input
           type="text"
@@ -155,7 +157,7 @@ export default function CityAutocomplete({
             // Increased timeout to ensure dropdown clicks register
             setTimeout(() => {
               setShowSuggestions(false);
-            }, 300);
+            }, 250);
           }}
           placeholder={placeholder}
           disabled={disabled}
@@ -170,14 +172,22 @@ export default function CityAutocomplete({
 
       {showSuggestions && suggestions.length > 0 && (
         <div 
-          className="absolute top-full left-0 right-0 mt-1 bg-white border border-slate-200 rounded-xl shadow-lg max-h-64 overflow-y-auto z-[1000]"
-          style={{ zIndex: 1000 }}
+          className="absolute top-full left-0 right-0 mt-1 bg-white border border-slate-200 rounded-xl shadow-xl max-h-64 overflow-y-auto"
+          style={{ 
+            zIndex: 9999,
+            position: 'absolute',
+            marginTop: '0.25rem',
+            width: '100%',
+            boxShadow: '0 10px 15px -3px rgba(0, 0, 0, 0.1), 0 4px 6px -2px rgba(0, 0, 0, 0.05)'
+          }}
           onMouseDown={(e) => {
             // Prevent blur event when clicking inside dropdown
             e.preventDefault();
+            e.stopPropagation();
           }}
           onClick={(e) => {
             // Prevent input blur when clicking in dropdown
+            e.preventDefault();
             e.stopPropagation();
           }}
         >
@@ -211,12 +221,16 @@ export default function CityAutocomplete({
               <button
                 key={`${city.id || cityName}-${index}`}
                 type="button"
+                onMouseDown={(e) => {
+                  e.preventDefault();
+                  e.stopPropagation();
+                }}
                 onClick={(e) => {
                   e.preventDefault();
                   e.stopPropagation();
                   handleSelect(city);
                 }}
-                className="w-full px-4 py-3 text-left hover:bg-blue-50 transition-colors flex items-center gap-3 border-b border-slate-100 last:border-b-0 cursor-pointer"
+                className="w-full px-4 py-3 text-left hover:bg-blue-50 active:bg-blue-100 transition-colors flex items-center gap-3 border-b border-slate-100 last:border-b-0 cursor-pointer"
               >
                 <MapPin className="w-4 h-4 text-blue-600 flex-shrink-0" />
                 <div className="flex-1 min-w-0">

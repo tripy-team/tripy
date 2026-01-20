@@ -2,7 +2,7 @@
 
 import { useState, useEffect } from 'react';
 import { useRouter } from 'next/navigation';
-import { Users, MapPin, Calendar, DollarSign, Zap, Sparkles, CreditCard, X, Copy, Check, ArrowRight, MessageCircle, RefreshCw } from 'lucide-react';
+import { Users, MapPin, Calendar, DollarSign, Zap, Sparkles, CreditCard, X, Copy, Check, ArrowRight, MessageCircle, RefreshCw, Baby, User, Info } from 'lucide-react';
 import { createTrip, addDestination, users as usersAPI, trips as tripsAPI } from '@/lib/api';
 import TripChatbotInline from '@/components/trip-chatbot-inline';
 import { ExtractedTripInfo } from '@/lib/trip-extractor';
@@ -41,6 +41,10 @@ export default function GroupTripSetup() {
   const [startDestination, setStartDestination] = useState('');
   const [endDestination, setEndDestination] = useState('');
   const [isRoundTrip, setIsRoundTrip] = useState(false);
+
+  // Party Size State
+  const [adults, setAdults] = useState(1);
+  const [children, setChildren] = useState(0);
 
   // Invite State
   const [currentTripId, setCurrentTripId] = useState<string | null>(null);
@@ -154,7 +158,17 @@ export default function GroupTripSetup() {
 
   // Handle extracted trip info from chatbot
   const handleExtract = (info: ExtractedTripInfo) => {
-    // Extract cities
+    // Extract start destination
+    if (info.startDestination) {
+      setStartDestination(info.startDestination);
+    }
+
+    // Extract end destination
+    if (info.endDestination) {
+      setEndDestination(info.endDestination);
+    }
+
+    // Extract cities (destinations) - add to destinations list
     if (info.cities && info.cities.length > 0) {
       const newCities = info.cities.filter(city => !cities.includes(city));
       if (newCities.length > 0) {
@@ -162,7 +176,7 @@ export default function GroupTripSetup() {
       }
     }
 
-    // Extract dates
+    // Extract dates - populate dates section
     if (info.startDate) {
       setStartDate(info.startDate);
     }
@@ -177,15 +191,15 @@ export default function GroupTripSetup() {
       setIsFlexible(info.isFlexible);
     }
 
-    // Extract budget
-    if (info.minBudget) {
+    // Extract budget - populate budget section
+    if (info.minBudget !== undefined) {
       setMinBudget(info.minBudget);
     }
-    if (info.maxBudget) {
+    if (info.maxBudget !== undefined) {
       setMaxBudget(info.maxBudget);
     }
 
-    // Extract credit cards
+    // Extract credit cards - populate credit cards section
     if (info.creditCards && info.creditCards.length > 0) {
       const newCards = info.creditCards.map((card, index) => ({
         id: `extracted-${Date.now()}-${index}`,
@@ -360,6 +374,85 @@ export default function GroupTripSetup() {
           {/* Left Column - Inputs */}
           <div className="lg:col-span-2 space-y-6">
             
+            {/* Party Size */}
+            <div className="bg-white border border-slate-200 rounded-2xl p-8 shadow-sm">
+              <div className="flex items-center gap-3 mb-6">
+                <div className="w-10 h-10 bg-blue-100 rounded-xl flex items-center justify-center">
+                  <Users className="w-5 h-5 text-blue-600" />
+                </div>
+                <div>
+                  <h2 className="text-2xl text-slate-900 font-semibold">Your Travel Party</h2>
+                  <p className="text-sm text-slate-500">Who is traveling with you?</p>
+                </div>
+              </div>
+
+              <div className="grid md:grid-cols-2 gap-8">
+                <div className="flex items-center justify-between p-4 bg-slate-50 rounded-xl border border-slate-200">
+                  <div className="flex items-center gap-3">
+                    <div className="w-10 h-10 bg-white rounded-full flex items-center justify-center border border-slate-200 text-slate-600">
+                      <User className="w-5 h-5" />
+                    </div>
+                    <div>
+                      <div className="font-semibold text-slate-900">Adults</div>
+                      <div className="text-xs text-slate-500">Age 13+</div>
+                    </div>
+                  </div>
+                  <div className="flex items-center gap-3">
+                    <button 
+                      onClick={() => setAdults(Math.max(1, adults - 1))}
+                      className="w-8 h-8 rounded-lg bg-white border border-slate-200 flex items-center justify-center hover:bg-slate-50 text-slate-600 transition-colors shadow-sm"
+                    >
+                      -
+                    </button>
+                    <span className="w-4 text-center font-semibold text-slate-900">{adults}</span>
+                    <button 
+                      onClick={() => setAdults(adults + 1)}
+                      className="w-8 h-8 rounded-lg bg-white border border-slate-200 flex items-center justify-center hover:bg-slate-50 text-slate-600 transition-colors shadow-sm"
+                    >
+                      +
+                    </button>
+                  </div>
+                </div>
+
+                <div className="flex items-center justify-between p-4 bg-slate-50 rounded-xl border border-slate-200">
+                  <div className="flex items-center gap-3">
+                    <div className="w-10 h-10 bg-white rounded-full flex items-center justify-center border border-slate-200 text-slate-600">
+                      <Baby className="w-5 h-5" />
+                    </div>
+                    <div>
+                      <div className="font-semibold text-slate-900">Children</div>
+                      <div className="text-xs text-slate-500">Ages 0-12</div>
+                    </div>
+                  </div>
+                  <div className="flex items-center gap-3">
+                    <button 
+                      onClick={() => setChildren(Math.max(0, children - 1))}
+                      className="w-8 h-8 rounded-lg bg-white border border-slate-200 flex items-center justify-center hover:bg-slate-50 text-slate-600 transition-colors shadow-sm"
+                    >
+                      -
+                    </button>
+                    <span className="w-4 text-center font-semibold text-slate-900">{children}</span>
+                    <button 
+                      onClick={() => setChildren(children + 1)}
+                      className="w-8 h-8 rounded-lg bg-white border border-slate-200 flex items-center justify-center hover:bg-slate-50 text-slate-600 transition-colors shadow-sm"
+                    >
+                      +
+                    </button>
+                  </div>
+                </div>
+              </div>
+
+              {adults > 1 && (
+                <div className="mt-6 p-4 bg-amber-50 border border-amber-200 rounded-xl flex items-start gap-3 animate-in fade-in slide-in-from-top-2">
+                  <Info className="w-5 h-5 text-amber-600 flex-shrink-0 mt-0.5" />
+                  <div className="text-sm text-amber-900">
+                    <span className="font-semibold block mb-1">Are they contributing points?</span>
+                    Additional adults added here are considered part of your booking. This means that <strong>they do not have points to contribute</strong>. If they do, they should join using an invite link.
+                  </div>
+                </div>
+              )}
+            </div>
+            
             {/* Budget */}
             <div className="bg-white border border-slate-200 rounded-2xl p-8 shadow-sm">
               <div className="flex items-center gap-3 mb-6">
@@ -446,23 +539,35 @@ export default function GroupTripSetup() {
               </div>
 
               <div className="space-y-6">
-                {!isFlexible ? (
-                  <div>
-                    <label className="block text-xs text-slate-500 mb-1.5 uppercase font-bold tracking-wider">
-                      Travel Dates <span className="text-red-500">*</span>
-                    </label>
-                    <DateRangePicker
-                      startDate={startDate}
-                      endDate={endDate}
-                      onStartDateChange={setStartDate}
-                      onEndDateChange={setEndDate}
+                {/* Travel Dates - Always visible */}
+                <div>
+                  <label className="block text-xs text-slate-500 mb-1.5 uppercase font-bold tracking-wider">
+                    Travel Dates
+                  </label>
+                  <DateRangePicker
+                    startDate={startDate}
+                    endDate={endDate}
+                    onStartDateChange={setStartDate}
+                    onEndDateChange={setEndDate}
+                  />
+                </div>
+
+                {/* Flexible Dates Checkbox */}
+                <div className="flex items-center justify-start pt-2">
+                  <label className="flex items-center gap-2 cursor-pointer select-none group inline-flex">
+                    <input
+                      type="checkbox"
+                      checked={isFlexible}
+                      onChange={(e) => setIsFlexible(e.target.checked)}
+                      className="w-4 h-4"
                     />
-                    {(!startDate || !endDate) && (
-                      <p className="text-xs text-red-500 mt-1">Required</p>
-                    )}
-                  </div>
-                ) : (
-                  <div>
+                    <span className="text-sm text-slate-600 group-hover:text-slate-900 transition-colors">Flexible dates</span>
+                  </label>
+                </div>
+
+                {/* Duration Slider - Shown when flexible dates is checked */}
+                {isFlexible && (
+                  <div className="pt-4 border-t border-slate-100 animate-in fade-in slide-in-from-top-2">
                      <label className="block text-xs text-slate-500 mb-1.5 uppercase font-bold tracking-wider">Approximate Duration (Days)</label>
                      <div className="flex items-center gap-4">
                         <input
@@ -480,19 +585,6 @@ export default function GroupTripSetup() {
                      <p className="text-xs text-slate-500 mt-2">We&apos;ll find the best dates for a {flexibleDuration}-day trip.</p>
                   </div>
                 )}
-
-                {/* Flexible Dates Checkbox */}
-                <div className="flex items-center justify-start pt-2">
-                  <label className="flex items-center gap-2 cursor-pointer select-none group inline-flex">
-                    <input
-                      type="checkbox"
-                      checked={isFlexible}
-                      onChange={(e) => setIsFlexible(e.target.checked)}
-                      className="w-4 h-4"
-                    />
-                    <span className="text-sm text-slate-600 group-hover:text-slate-900 transition-colors">Flexible dates</span>
-                  </label>
-                </div>
               </div>
             </div>
 
