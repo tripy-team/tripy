@@ -1,7 +1,8 @@
 'use client';
 
 import { useState } from 'react';
-import { useRouter, useSearchParams } from 'next/navigation';
+// useRouter and useSearchParams will be needed for backend integration
+// import { useRouter, useSearchParams } from 'next/navigation';
 import { 
   Shield, 
   CheckCircle, 
@@ -9,7 +10,6 @@ import {
   CreditCard, 
   ArrowRight, 
   Plane, 
-  Building2, 
   Sparkles,
   ChevronRight,
   Wallet
@@ -17,9 +17,11 @@ import {
 import { Navigation } from '@/components/navigation';
 
 export default function SoloBooking() {
-  const router = useRouter();
-  const searchParams = useSearchParams();
-  const tripId = searchParams?.get('trip_id') || '';
+  // TODO: Integrate with backend to fetch trip data using trip_id from searchParams
+  // const router = useRouter();
+  // const searchParams = useSearchParams();
+  // const tripId = searchParams?.get('trip_id') || '';
+  
   const [isPaid, setIsPaid] = useState(false);
   const [isProcessing, setIsProcessing] = useState(false);
 
