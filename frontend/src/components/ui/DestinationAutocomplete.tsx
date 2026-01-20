@@ -28,6 +28,9 @@ interface DestinationAutocompleteProps {
   
   // Optional keyboard event handler (e.g., for handling 'Enter')
   onKeyDown?: (e: React.KeyboardEvent<HTMLInputElement>) => void;
+
+  // Autofocus the input on mount
+  autoFocus?: boolean;
 }
 
 export function DestinationAutocomplete({
@@ -39,6 +42,7 @@ export function DestinationAutocomplete({
   className = '',
   onSelect,
   onKeyDown,
+  autoFocus = false,
 }: DestinationAutocompleteProps) {
   const [suggestions, setSuggestions] = useState<CitySearchResult[]>([]);
   const [showSuggestions, setShowSuggestions] = useState(false);
@@ -179,6 +183,7 @@ export function DestinationAutocomplete({
         <input
           type="text"
           value={value}
+          autoFocus={autoFocus}
           onChange={(e) => {
             const newValue = e.target.value;
             onChange(newValue);

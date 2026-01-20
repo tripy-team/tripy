@@ -650,6 +650,7 @@ export default function SoloTripSetup() {
                   <DestinationAutocomplete
                     value={newCity}
                     onChange={setNewCity}
+                    autoFocus
                     onSelect={(city) => {
                       if (city && !cities.includes(city)) {
                         setCities(prevCities => {
