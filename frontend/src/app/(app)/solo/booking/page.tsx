@@ -1,7 +1,7 @@
 'use client';
 
 import { useState, Suspense } from 'react';
-import { useRouter, useSearchParams } from 'next/navigation';
+import { useSearchParams } from 'next/navigation';
 import { 
   Shield, 
   CheckCircle, 
@@ -15,9 +15,7 @@ import {
 } from 'lucide-react';
 
 function SoloBookingContent() {
-  const router = useRouter();
   const searchParams = useSearchParams();
-  const tripId = searchParams?.get('trip_id') || '';
   
   const [isPaid, setIsPaid] = useState(false);
   const [isProcessing, setIsProcessing] = useState(false);

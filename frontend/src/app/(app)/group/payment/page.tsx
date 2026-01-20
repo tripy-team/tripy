@@ -6,8 +6,7 @@ import {
   Shield, 
   CheckCircle, 
   CreditCard, 
-  Sparkles,
-  Users
+  Sparkles
 } from 'lucide-react';
 import { generateItinerary } from '@/lib/api';
 
@@ -65,7 +64,7 @@ export default function GroupPayment() {
       <div className="bg-white border-b border-slate-200">
         <div className="max-w-4xl mx-auto px-6 py-8">
           <h1 className="text-3xl font-bold text-slate-900">Finalize Group Trip</h1>
-          <p className="text-slate-500 mt-2">Secure your group's optimization strategy and booking details.</p>
+          <p className="text-slate-500 mt-2">Secure your group&apos;s optimization strategy and booking details.</p>
         </div>
       </div>
 

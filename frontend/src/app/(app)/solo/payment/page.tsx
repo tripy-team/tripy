@@ -3,7 +3,6 @@
 import { useState } from 'react';
 import { useRouter, useSearchParams } from 'next/navigation';
 import { 
-  Shield, 
   CheckCircle, 
   CreditCard, 
   Sparkles,

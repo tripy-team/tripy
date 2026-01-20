@@ -5,8 +5,13 @@ import { useState, useEffect } from 'react';
 import { Plane, CreditCard, Users, Sparkles, Search, Zap, MapPin, Calendar } from 'lucide-react';
 import { Navigation } from '@/components/navigation';
 
+interface UserData {
+  name?: string;
+  email?: string;
+}
+
 export default function AboutPage() {
-	const [user, setUser] = useState<any>(null);
+	const [user, setUser] = useState<UserData | null>(null);
 
 	useEffect(() => {
 		const checkUser = () => {

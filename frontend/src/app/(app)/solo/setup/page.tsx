@@ -3,7 +3,7 @@
 import { useState, useEffect } from 'react';
 import { useRouter } from 'next/navigation';
 import { X, Calendar, DollarSign, Zap, MapPin, Sparkles, CreditCard, MessageCircle, Plane, Backpack, Armchair, Coffee, Wine, Crown, BedDouble, Star } from 'lucide-react';
-import { createTrip, addDestination, upsertPoints, generateItinerary, users as usersAPI } from '@/lib/api';
+import { createTrip, addDestination, upsertPoints, users as usersAPI } from '@/lib/api';
 import TripChatbotInline from '@/components/trip-chatbot-inline';
 import { ExtractedTripInfo } from '@/lib/trip-extractor';
 import { DestinationAutocomplete } from '@/components/ui/DestinationAutocomplete';
