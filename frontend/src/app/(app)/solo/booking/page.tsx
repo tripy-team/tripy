@@ -1,6 +1,6 @@
 'use client';
 
-import { useState } from 'react';
+import { useState, Suspense } from 'react';
 import { useRouter, useSearchParams } from 'next/navigation';
 import { 
   Shield, 
@@ -14,7 +14,7 @@ import {
   Wallet
 } from 'lucide-react';
 
-export default function SoloBooking() {
+function SoloBookingContent() {
   const router = useRouter();
   const searchParams = useSearchParams();
   const tripId = searchParams?.get('trip_id') || '';
@@ -224,5 +224,13 @@ export default function SoloBooking() {
         </div>
       </div>
     </div>
+  );
+}
+
+export default function SoloBooking() {
+  return (
+    <Suspense fallback={<div className="min-h-screen bg-slate-50 flex items-center justify-center">Loading...</div>}>
+      <SoloBookingContent />
+    </Suspense>
   );
 }
