@@ -6,7 +6,7 @@ import { Users, MapPin, Calendar, DollarSign, Zap, Sparkles, CreditCard, X, Copy
 import { createTrip, addDestination, users as usersAPI, trips as tripsAPI } from '@/lib/api';
 import TripChatbotInline from '@/components/trip-chatbot-inline';
 import { ExtractedTripInfo } from '@/lib/trip-extractor';
-import CityAutocomplete from '@/components/city-autocomplete';
+import { DestinationAutocomplete } from '@/components/ui/DestinationAutocomplete';
 import DateRangePicker from '@/components/date-range-picker';
 import { searchAndFormatCity, searchAndFormatCities } from '@/lib/city-formatter';
 
@@ -743,7 +743,7 @@ export default function GroupTripSetup() {
                   <label className="block text-sm text-slate-600 mb-2 font-medium">
                     Start Destination
                   </label>
-                  <CityAutocomplete
+                  <DestinationAutocomplete
                     value={startDestination}
                     onChange={setStartDestination}
                     onSelect={(city) => {
@@ -758,7 +758,7 @@ export default function GroupTripSetup() {
                   <label className="block text-sm text-slate-600 mb-2 font-medium">
                     End Destination
                   </label>
-                  <CityAutocomplete
+                  <DestinationAutocomplete
                     value={endDestination}
                     onChange={setEndDestination}
                     onSelect={(city) => {
@@ -799,12 +799,15 @@ export default function GroupTripSetup() {
 
               <div className="space-y-4">
                 <div className="flex gap-2">
-                  <CityAutocomplete
+                  <DestinationAutocomplete
                     value={newCity}
                     onChange={setNewCity}
                     onSelect={(city) => {
                       if (city && !cities.includes(city)) {
-                        setCities([...cities, city]);
+                        setCities(prevCities => {
+                          const newCities = [city].filter(c => !prevCities.includes(c));
+                          return newCities.length > 0 ? [...prevCities, ...newCities] : prevCities;
+                        });
                         setNewCity('');
                       }
                     }}
@@ -854,7 +857,7 @@ export default function GroupTripSetup() {
 
           {/* Right Column - Summary */}
           <div className="lg:col-span-1">
-            <div className="sticky top-8 space-y-6">
+            <div className="sticky top-8 space-y-6 self-start">
               {/* Live Summary */}
               <div className="bg-gradient-to-br from-blue-600 to-blue-700 text-white rounded-2xl p-8 shadow-xl shadow-blue-600/20">
                 <div className="flex items-center gap-2 mb-6">

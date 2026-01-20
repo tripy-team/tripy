@@ -6,7 +6,7 @@ import { X, Calendar, DollarSign, Zap, MapPin, Sparkles, CreditCard, MessageCirc
 import { createTrip, addDestination, upsertPoints, generateItinerary, users as usersAPI } from '@/lib/api';
 import TripChatbotInline from '@/components/trip-chatbot-inline';
 import { ExtractedTripInfo } from '@/lib/trip-extractor';
-import CityAutocomplete from '@/components/city-autocomplete';
+import { DestinationAutocomplete } from '@/components/ui/DestinationAutocomplete';
 import { searchAndFormatCity, searchAndFormatCities } from '@/lib/city-formatter';
 import DateRangePicker from '@/components/date-range-picker';
 
@@ -613,14 +613,14 @@ export default function SoloTripSetup() {
                   <label className="block text-sm text-slate-600 mb-2 font-medium">
                     Start Destination
                   </label>
-                  <CityAutocomplete
-                    value={startDestination}
-                    onChange={setStartDestination}
-                    onSelect={(city) => {
-                      setStartDestination(city);
-                    }}
-                    placeholder="Select starting city..."
-                  />
+                        <DestinationAutocomplete
+                          value={startDestination}
+                          onChange={setStartDestination}
+                          onSelect={(city) => {
+                            setStartDestination(city);
+                          }}
+                          placeholder="Select starting city..."
+                        />
                 </div>
                 
                 {/* End Destination */}
@@ -628,15 +628,15 @@ export default function SoloTripSetup() {
                   <label className="block text-sm text-slate-600 mb-2 font-medium">
                     End Destination
                   </label>
-                  <CityAutocomplete
-                    value={endDestination}
-                    onChange={setEndDestination}
-                    onSelect={(city) => {
-                      setEndDestination(city);
-                    }}
-                    placeholder="Select ending city..."
-                    disabled={isRoundTrip}
-                  />
+                        <DestinationAutocomplete
+                          value={endDestination}
+                          onChange={setEndDestination}
+                          onSelect={(city) => {
+                            setEndDestination(city);
+                          }}
+                          placeholder="Select ending city..."
+                          disabled={isRoundTrip}
+                        />
                 </div>
 
                 <div className="flex items-center justify-start pt-2">
@@ -669,12 +669,15 @@ export default function SoloTripSetup() {
 
               <div className="space-y-4">
                 <div className="flex gap-2">
-                  <CityAutocomplete
+                  <DestinationAutocomplete
                     value={newCity}
                     onChange={setNewCity}
                     onSelect={(city) => {
                       if (city && !cities.includes(city)) {
-                        setCities([...cities, city]);
+                        setCities(prevCities => {
+                          const newCities = [city].filter(c => !prevCities.includes(c));
+                          return newCities.length > 0 ? [...prevCities, ...newCities] : prevCities;
+                        });
                         setNewCity('');
                       }
                     }}
@@ -724,7 +727,7 @@ export default function SoloTripSetup() {
 
           {/* Right Column - Summary */}
           <div className="lg:col-span-1">
-            <div className="sticky top-8 space-y-6">
+            <div className="sticky top-8 space-y-6 self-start">
               {/* Live Summary */}
               <div className="bg-gradient-to-br from-blue-600 to-blue-700 text-white rounded-2xl p-8 shadow-xl shadow-blue-600/20">
                 <div className="flex items-center gap-2 mb-6">
