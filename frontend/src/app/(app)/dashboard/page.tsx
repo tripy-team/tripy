@@ -57,9 +57,9 @@ export default function Dashboard() {
                     // Get destination name or use first destination
                     const destinationName = trip.firstDestination || trip.title || 'Trip';
                     
-                    // Generate optimized image URL (will be loaded via image-utils)
-                    // For now, use a placeholder that will be optimized by the component
-                    const thumbnail = `https://source.unsplash.com/400x300/?${encodeURIComponent(destinationName)}`;
+                    // Use empty string as placeholder - TripCard component will load optimized image
+                    // via getOptimizedImageUrl which has proper fallback handling
+                    const thumbnail = '';
                     
                     return {
                         id: trip.tripId,

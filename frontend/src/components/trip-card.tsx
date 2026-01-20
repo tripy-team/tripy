@@ -25,8 +25,11 @@ interface TripCardProps {
     trip: Trip;
 }
 
+// Placeholder gradient image (blue gradient SVG)
+const PLACEHOLDER_IMAGE = 'data:image/svg+xml;base64,PHN2ZyB3aWR0aD0iNDAwIiBoZWlnaHQ9IjMwMCIgeG1sbnM9Imh0dHA6Ly93d3cudzMub3JnLzIwMDAvc3ZnIj48ZGVmcz48bGluZWFyR3JhZGllbnQgaWQ9ImEiIHgxPSIwJSIgeTE9IjAlIiB4Mj0iMTAwJSIgeTI9IjEwMCUiPjxzdG9wIG9mZnNldD0iMCUiIHN0b3AtY29sb3I9IiM2MzY2RjEiLz48c3RvcCBvZmZzZXQ9IjEwMCUiIHN0b3AtY29sb3I9IiM0NzU1OTkiLz48L2xpbmVhckdyYWRpZW50PjwvZGVmcz48cmVjdCB3aWR0aD0iMTAwJSIgaGVpZ2h0PSIxMDAlIiBmaWxsPSJ1cmwoI2EpIi8+PC9zdmc+';
+
 export function TripCard({ trip }: TripCardProps) {
-    const [imageUrl, setImageUrl] = useState(trip.thumbnail);
+    const [imageUrl, setImageUrl] = useState(trip.thumbnail || PLACEHOLDER_IMAGE);
     const [isImageLoading, setIsImageLoading] = useState(true);
     const { width, height } = getImageDimensions('thumbnail');
 
@@ -34,11 +37,17 @@ export function TripCard({ trip }: TripCardProps) {
         // Load optimized image URL
         getOptimizedImageUrl(trip.destination, 'thumbnail')
             .then((url) => {
-                setImageUrl(url);
+                // Only update if we got a valid URL
+                if (url && url.trim() !== '') {
+                    setImageUrl(url);
+                } else {
+                    // Keep placeholder if no URL returned
+                    setImageUrl(PLACEHOLDER_IMAGE);
+                }
             })
             .catch(() => {
-                // Fallback to provided thumbnail if optimization fails
-                setImageUrl(trip.thumbnail);
+                // Fallback to placeholder if optimization fails
+                setImageUrl(PLACEHOLDER_IMAGE);
             });
     }, [trip.destination, trip.thumbnail]);
 
@@ -72,8 +81,8 @@ export function TripCard({ trip }: TripCardProps) {
                     loading="lazy"
                     onLoad={() => setIsImageLoading(false)}
                     onError={() => {
-                        // Fallback to original thumbnail on error
-                        setImageUrl(trip.thumbnail);
+                        // Fallback to placeholder on error
+                        setImageUrl(PLACEHOLDER_IMAGE);
                         setIsImageLoading(false);
                     }}
                 />
