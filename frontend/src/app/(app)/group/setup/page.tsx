@@ -905,7 +905,11 @@ export default function GroupTripSetup() {
                       </div>
                       <div className="flex justify-between">
                         <span className="text-blue-100">Budget</span>
-                        <span>${minBudget.toLocaleString()} - ${maxBudget.toLocaleString()}</span>
+                        <span>
+                          {maxBudget
+                            ? `Up to $${Number(maxBudget).toLocaleString()}`
+                            : 'Not set'}
+                        </span>
                       </div>
                     </div>
                   </div>
