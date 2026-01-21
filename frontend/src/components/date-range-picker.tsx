@@ -36,6 +36,14 @@ interface DateRangePickerProps {
 
 type DateRangeValue = { start: DateValue | null; end: DateValue | null };
 
+// react-aria DateInput render prop receives a DateSegment-like object.
+// The type exported by react-aria may not include `isPlaceholder` in your version,
+// so we use a safe type guard without `any`.
+type SegmentWithOptionalPlaceholder = { isPlaceholder?: boolean };
+function hasIsPlaceholder(x: unknown): x is SegmentWithOptionalPlaceholder {
+  return typeof x === 'object' && x !== null && 'isPlaceholder' in x;
+}
+
 export default function DateRangePicker({
   startDate,
   endDate,
@@ -57,7 +65,7 @@ export default function DateRangePicker({
   const [range, setRange] = useState<DateRangeValue>(() => getDateValue());
   const [isOpen, setIsOpen] = useState(false);
 
-  // We anchor the popover under whichever box was last clicked.
+  // Anchor the popover under whichever box was last clicked.
   const startDateRef = useRef<HTMLDivElement>(null);
   const endDateRef = useRef<HTMLDivElement>(null);
   const [activeTrigger, setActiveTrigger] = useState<'start' | 'end'>('start');
@@ -94,6 +102,23 @@ export default function DateRangePicker({
     }
   };
 
+  const renderSegment = (segment: unknown) => {
+    const isPlaceholder = hasIsPlaceholder(segment) ? !!segment.isPlaceholder : false;
+
+    return (
+      <DateSegment
+        // DateSegment expects the same segment object passed by DateInput.
+        // The lib typing may be broader than we need; passing `unknown` here is fine
+        // because it's the exact runtime shape from react-aria-components.
+        // eslint-disable-next-line @typescript-eslint/consistent-type-assertions
+        segment={segment as never}
+        className={`px-0.5 text-sm tabular-nums outline-none rounded min-h-[20px] focus:bg-blue-100 focus:text-blue-900 cursor-pointer ${
+          isPlaceholder ? 'text-slate-400' : 'text-slate-900'
+        }`}
+      />
+    );
+  };
+
   return (
     <div className="relative w-full">
       <AriaDateRangePicker
@@ -106,7 +131,7 @@ export default function DateRangePicker({
         className="flex w-full flex-col"
       >
         <div className="grid grid-cols-2 gap-4">
-          {/* Start Date Box (anchor) */}
+          {/* Start Date Box */}
           <div
             ref={startDateRef}
             className="cursor-pointer w-full"
@@ -125,28 +150,14 @@ export default function DateRangePicker({
                   </label>
 
                   <DateInput slot="start" className="flex flex-wrap min-w-0 cursor-pointer">
-                    {(segment) => {
-                      const isPlaceholder =
-                        typeof (segment as any)?.isPlaceholder === 'boolean'
-                          ? (segment as any).isPlaceholder
-                          : false;
-
-                      return (
-                        <DateSegment
-                          segment={segment}
-                          className={`px-0.5 text-sm tabular-nums outline-none rounded min-h-[20px] focus:bg-blue-100 focus:text-blue-900 ${
-                            isPlaceholder ? 'text-slate-400' : 'text-slate-900'
-                          }`}
-                        />
-                      );
-                    }}
+                    {(segment) => renderSegment(segment)}
                   </DateInput>
                 </div>
               </div>
             </Group>
           </div>
 
-          {/* End Date Box (anchor) */}
+          {/* End Date Box */}
           <div
             ref={endDateRef}
             className="cursor-pointer w-full"
@@ -165,21 +176,7 @@ export default function DateRangePicker({
                   </label>
 
                   <DateInput slot="end" className="flex flex-wrap min-w-0 cursor-pointer">
-                    {(segment) => {
-                      const isPlaceholder =
-                        typeof (segment as any)?.isPlaceholder === 'boolean'
-                          ? (segment as any).isPlaceholder
-                          : false;
-
-                      return (
-                        <DateSegment
-                          segment={segment}
-                          className={`px-0.5 text-sm tabular-nums outline-none rounded min-h-[20px] focus:bg-blue-100 focus:text-blue-900 ${
-                            isPlaceholder ? 'text-slate-400' : 'text-slate-900'
-                          }`}
-                        />
-                      );
-                    }}
+                    {(segment) => renderSegment(segment)}
                   </DateInput>
                 </div>
               </div>
@@ -189,7 +186,6 @@ export default function DateRangePicker({
 
         {/* Popover: always mounted; react-aria controls visibility via isOpen/onOpenChange */}
         <MyPopover
-          // Force a remount when switching between Start/End so positioning recalculates
           key={activeTrigger}
           triggerRef={activeTrigger === 'end' ? endDateRef : startDateRef}
           placement={activeTrigger === 'end' ? 'bottom end' : 'bottom start'}
