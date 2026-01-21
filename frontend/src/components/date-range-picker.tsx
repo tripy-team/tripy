@@ -264,9 +264,7 @@ export default function DateRangePicker({
   );
 }
 
-interface MyPopoverProps extends PopoverProps {}
-
-function MyPopover({ placement, ...props }: MyPopoverProps) {
+function MyPopover({ placement, ...props }: PopoverProps) {
   const placementStr = placement as string | undefined;
   return (
     <Popover
