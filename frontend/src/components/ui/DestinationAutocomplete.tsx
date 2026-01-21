@@ -74,10 +74,12 @@ export function DestinationAutocomplete({
       setIsLoading(true);
       try {
         // Search with the query - backend handles fuzzy matching
+        console.log('[DestinationAutocomplete] Searching for:', value.trim());
         const response = await citiesAPI.search(value.trim(), 12);
+        console.log('[DestinationAutocomplete] API response:', response);
         
         if (!response || !response.cities) {
-          console.warn('Invalid response from cities API:', response);
+          console.warn('[DestinationAutocomplete] Invalid response from cities API:', response);
           setSuggestions([]);
           setShowSuggestions(false);
           setIsLoading(false);
@@ -112,15 +114,22 @@ export function DestinationAutocomplete({
         });
         
         const finalResults = sortedResults.slice(0, 10);
+        console.log('[DestinationAutocomplete] Final results:', finalResults.length, finalResults);
         setSuggestions(finalResults);
         // Always show suggestions if we have results
         if (finalResults.length > 0) {
+          console.log('[DestinationAutocomplete] Showing suggestions:', finalResults.length);
           setShowSuggestions(true);
         } else {
+          console.log('[DestinationAutocomplete] No results, hiding suggestions');
           setShowSuggestions(false);
         }
       } catch (error) {
-        console.error('Error searching cities:', error);
+        console.error('[DestinationAutocomplete] Error searching cities:', error);
+        if (error instanceof Error) {
+          console.error('[DestinationAutocomplete] Error message:', error.message);
+          console.error('[DestinationAutocomplete] Error stack:', error.stack);
+        }
         setSuggestions([]);
         setShowSuggestions(false);
       } finally {
@@ -179,7 +188,7 @@ export function DestinationAutocomplete({
 
   return (
     <div ref={wrapperRef} className={`relative w-full ${className}`} style={{ position: 'relative', zIndex: 1 }}>
-      <div className="relative" style={{ position: 'relative', zIndex: 1 }}>
+      <div className="relative" style={{ position: 'relative', zIndex: 10 }}>
         <input
           type="text"
           value={value}
@@ -225,14 +234,15 @@ export function DestinationAutocomplete({
 
       {showSuggestions && suggestions.length > 0 && (
         <div 
-          className="absolute z-[9999] w-full mt-2 bg-white rounded-xl shadow-xl border border-slate-100 max-h-60 overflow-y-auto"
+          className="absolute w-full mt-2 bg-white rounded-xl shadow-xl border border-slate-100 max-h-60 overflow-y-auto"
           style={{ 
             position: 'absolute',
             top: '100%',
             left: 0,
             right: 0,
-            zIndex: 9999,
-            marginTop: '0.5rem'
+            zIndex: 99999,
+            marginTop: '0.5rem',
+            boxShadow: '0 10px 15px -3px rgba(0, 0, 0, 0.1), 0 4px 6px -2px rgba(0, 0, 0, 0.05)'
           }}
           onMouseDown={(e) => {
             // Prevent blur event when clicking inside dropdown
