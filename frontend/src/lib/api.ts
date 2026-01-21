@@ -325,6 +325,23 @@ export interface CitySearchResult {
   regionCode?: string;
 }
 
+export interface CitySuggestion {
+  city_id: string;
+  name: string;
+  region?: string;
+  country?: string;
+  lat?: number | null;
+  lng?: number | null;
+}
+
+export interface NearbyAirport {
+  iata: string;
+  name: string;
+  lat?: number | null;
+  lng?: number | null;
+  distance_km?: number | null;
+}
+
 // Auth API
 export const auth = {
   login: async (params: { email: string; password: string }): Promise<LoginResponse> => {
@@ -539,6 +556,28 @@ export const cities = {
         method: 'GET',
       },
       false // requireAuth = false for city search
+    );
+  },
+};
+
+export const locations = {
+  autocomplete: async (q: string, limit: number = 10): Promise<{ cities: CitySuggestion[] }> => {
+    return apiRequest<{ cities: CitySuggestion[] }>(
+      `/api/locations/autocomplete?q=${encodeURIComponent(q)}&limit=${limit}`,
+      {
+        method: 'GET',
+      },
+      false
+    );
+  },
+
+  getAirports: async (cityId: string, limit: number = 3): Promise<{ airports: NearbyAirport[] }> => {
+    return apiRequest<{ airports: NearbyAirport[] }>(
+      `/api/locations/${encodeURIComponent(cityId)}/airports?limit=${limit}`,
+      {
+        method: 'GET',
+      },
+      false
     );
   },
 };

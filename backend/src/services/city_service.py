@@ -458,3 +458,120 @@ def search_cities(query: str, max_results: int = 10) -> List[Dict[str, Any]]:
         # Use fallback cities on error instead of returning empty list
         logger.info(f"Using fallback cities due to error for query '{query}'")
         return _filter_fallback_cities(query, max_results)
+
+
+def _normalize_city_key(city_name: str, country_name: str) -> str:
+    """Create a stable city_id from city and country."""
+    city = (city_name or "").strip()
+    country = (country_name or "").strip()
+    return f"{city},{country}" if city and country else city
+
+
+def search_cities_for_autocomplete(
+    query: str, max_results: int = 10
+) -> List[Dict[str, Any]]:
+    """
+    Return city suggestions for autocomplete:
+    [{ city_id, name, region, country, lat, lng }]
+
+    This wraps search_cities() and groups results by city.
+    """
+    raw = search_cities(query, max_results * 3)
+    if not raw:
+        return []
+
+    suggestions: Dict[str, Dict[str, Any]] = {}
+    for item in raw:
+        city_name = item.get("cityName") or item.get("name") or ""
+        country = item.get("countryName") or ""
+        region = item.get("regionCode") or ""
+        if not city_name:
+            continue
+
+        key = _normalize_city_key(city_name, country)
+        if key in suggestions:
+            continue
+
+        suggestions[key] = {
+            "city_id": key,
+            "name": city_name,
+            "region": region,
+            "country": country,
+            "lat": None,
+            "lng": None,
+        }
+
+        if len(suggestions) >= max_results:
+            break
+
+    return list(suggestions.values())
+
+
+def get_nearby_airports(city_id: str, limit: int = 3) -> List[Dict[str, Any]]:
+    """
+    Return nearby airports for a city:
+    [{ iata, name, lat, lng, distance_km }]
+
+    For now we approximate by:
+    - Parsing city_id as 'City,Country'
+    - Taking airports from search_cities() whose cityName matches the city.
+    """
+    if not city_id:
+        return []
+
+    if "," in city_id:
+        city_name, _country = [part.strip() for part in city_id.split(",", 1)]
+    else:
+        city_name = city_id.strip()
+
+    if not city_name:
+        return []
+
+    raw = search_cities(city_name, max_results=50)
+    if not raw:
+        return []
+
+    airports: List[Dict[str, Any]] = []
+    city_lower = city_name.lower()
+
+    for item in raw:
+        if item.get("type", "").upper() != "AIRPORT":
+            continue
+
+        iata = item.get("iataCode") or item.get("id", "")
+        if not iata or len(iata) != 3:
+            continue
+
+        item_city = (item.get("cityName") or "").strip().lower()
+        if item_city and item_city != city_lower:
+            continue
+
+        airports.append(
+            {
+                "iata": iata,
+                "name": item.get("name", ""),
+                "lat": None,
+                "lng": None,
+                "distance_km": None,
+            }
+        )
+
+    # Fallback to airports from fallback list if none matched
+    if not airports:
+        for item in FALLBACK_CITIES:
+            if (item.get("cityName") or "").strip().lower() != city_lower:
+                continue
+            iata = item.get("iataCode") or item.get("id", "")
+            if not iata or len(iata) != 3:
+                continue
+            airports.append(
+                {
+                    "iata": iata,
+                    "name": item.get("name", ""),
+                    "lat": None,
+                    "lng": None,
+                    "distance_km": None,
+                }
+            )
+
+    return airports[:limit]

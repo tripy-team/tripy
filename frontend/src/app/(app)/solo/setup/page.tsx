@@ -7,6 +7,7 @@ import { createTrip, addDestination, upsertPoints, users as usersAPI } from '@/l
 import TripChatbotInline from '@/components/trip-chatbot-inline';
 import { ExtractedTripInfo } from '@/lib/trip-extractor';
 import { DestinationAutocomplete } from '@/components/ui/DestinationAutocomplete';
+import { CityAutocomplete } from '@/components/CityAutocomplete';
 import { searchAndFormatCity, searchAndFormatCities } from '@/lib/city-formatter';
 import DateRangePicker from '@/components/date-range-picker';
 
@@ -591,14 +592,14 @@ export default function SoloTripSetup() {
                   <label className="block text-sm text-slate-600 mb-2 font-medium">
                     Start Destination
                   </label>
-                        <DestinationAutocomplete
-                          value={startDestination}
-                          onChange={setStartDestination}
-                          onSelect={(city) => {
-                            setStartDestination(city);
-                          }}
-                          placeholder="Select starting city..."
-                        />
+                  <CityAutocomplete
+                    value={startDestination}
+                    onChange={setStartDestination}
+                    placeholder="Select starting city..."
+                    onSelect={(city) => {
+                      setStartDestination(city.name);
+                    }}
+                  />
                 </div>
                 
                 {/* End Destination */}
@@ -606,15 +607,15 @@ export default function SoloTripSetup() {
                   <label className="block text-sm text-slate-600 mb-2 font-medium">
                     End Destination
                   </label>
-                        <DestinationAutocomplete
-                          value={endDestination}
-                          onChange={setEndDestination}
-                          onSelect={(city) => {
-                            setEndDestination(city);
-                          }}
-                          placeholder="Select ending city..."
-                          disabled={isRoundTrip}
-                        />
+                  <CityAutocomplete
+                    value={endDestination}
+                    onChange={setEndDestination}
+                    placeholder="Select ending city..."
+                    disabled={isRoundTrip}
+                    onSelect={(city) => {
+                      setEndDestination(city.name);
+                    }}
+                  />
                 </div>
 
                 <div className="flex items-center justify-start pt-2">

@@ -7,6 +7,7 @@ import { createTrip, addDestination, users as usersAPI, trips as tripsAPI } from
 import TripChatbotInline from '@/components/trip-chatbot-inline';
 import { ExtractedTripInfo } from '@/lib/trip-extractor';
 import { DestinationAutocomplete } from '@/components/ui/DestinationAutocomplete';
+import { CityAutocomplete } from '@/components/CityAutocomplete';
 import DateRangePicker from '@/components/date-range-picker';
 import { searchAndFormatCity, searchAndFormatCities } from '@/lib/city-formatter';
 
@@ -759,13 +760,13 @@ export default function GroupTripSetup() {
                   <label className="block text-sm text-slate-600 mb-2 font-medium">
                     Start Destination
                   </label>
-                  <DestinationAutocomplete
+                  <CityAutocomplete
                     value={startDestination}
                     onChange={setStartDestination}
-                    onSelect={(city) => {
-                      setStartDestination(city);
-                    }}
                     placeholder="Select starting city..."
+                    onSelect={(city) => {
+                      setStartDestination(city.name);
+                    }}
                   />
                 </div>
                 
@@ -774,14 +775,14 @@ export default function GroupTripSetup() {
                   <label className="block text-sm text-slate-600 mb-2 font-medium">
                     End Destination
                   </label>
-                  <DestinationAutocomplete
+                  <CityAutocomplete
                     value={endDestination}
                     onChange={setEndDestination}
-                    onSelect={(city) => {
-                      setEndDestination(city);
-                    }}
                     placeholder="Select ending city..."
                     disabled={isRoundTrip}
+                    onSelect={(city) => {
+                      setEndDestination(city.name);
+                    }}
                   />
                 </div>
 

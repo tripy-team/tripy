@@ -13,7 +13,7 @@ logging.basicConfig(
 )
 logger = logging.getLogger(__name__)
 
-from fastapi import FastAPI, Request, HTTPException, Depends, BackgroundTasks
+from fastapi import FastAPI, Request, HTTPException, Depends, BackgroundTasks, Query
 from fastapi.middleware.cors import CORSMiddleware
 from pydantic import BaseModel, Field
 from typing import Optional, List, Dict, Any
@@ -91,6 +91,23 @@ class CreateTripRequest(BaseModel):
             except ValueError:
                 pass  # Date format validation will catch this
         return v
+
+
+class CityAutocompleteResponse(BaseModel):
+    city_id: str
+    name: str
+    region: Optional[str] = None
+    country: Optional[str] = None
+    lat: Optional[float] = None
+    lng: Optional[float] = None
+
+
+class NearbyAirportResponse(BaseModel):
+    iata: str
+    name: str
+    lat: Optional[float] = None
+    lng: Optional[float] = None
+    distance_km: Optional[float] = None
 
 
 class TripIdRequest(BaseModel):
@@ -734,6 +751,42 @@ async def search_cities_get(query: str, max_results: Optional[int] = 10):
     except Exception as e:
         logger.error(f"Error searching cities: {str(e)}")
         raise HTTPException(status_code=500, detail=str(e))
+
+
+@app.get("/api/locations/autocomplete")
+async def locations_autocomplete(
+    q: str = Query(..., min_length=1),
+    limit: int = Query(10, ge=1, le=20),
+):
+    """
+    Return city suggestions for autocomplete:
+    [{ city_id, name, region, country, lat, lng }]
+    """
+    try:
+        cities = city_service.search_cities_for_autocomplete(q, max_results=limit)
+        return {"cities": cities}
+    except Exception as e:
+        logger.error(f"Error in locations_autocomplete for q='{q}': {e}", exc_info=True)
+        raise HTTPException(status_code=500, detail="Failed to search locations")
+
+
+@app.get("/api/locations/{city_id}/airports")
+async def locations_airports(
+    city_id: str,
+    limit: int = Query(3, ge=1, le=10),
+):
+    """
+    Return nearby airports for a city:
+    [{ iata, name, lat, lng, distance_km }]
+    """
+    try:
+        airports = city_service.get_nearby_airports(city_id, limit=limit)
+        return {"airports": airports}
+    except Exception as e:
+        logger.error(
+            f"Error in locations_airports for city_id='{city_id}': {e}", exc_info=True
+        )
+        raise HTTPException(status_code=500, detail="Failed to fetch nearby airports")
 
 
 # Image endpoints (public, no authentication required for viewing)
