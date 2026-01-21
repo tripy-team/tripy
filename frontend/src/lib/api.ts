@@ -562,23 +562,31 @@ export const cities = {
 
 export const locations = {
   autocomplete: async (q: string, limit: number = 10): Promise<{ cities: CitySuggestion[] }> => {
-    return apiRequest<{ cities: CitySuggestion[] }>(
-      `/api/locations/autocomplete?q=${encodeURIComponent(q)}&limit=${limit}`,
-      {
-        method: 'GET',
-      },
-      false
-    );
+    const url = `/api/locations/autocomplete?q=${encodeURIComponent(q)}&limit=${limit}`;
+    // Debug log to confirm URL and origin
+    if (typeof window !== 'undefined') {
+      // Browser
+      // eslint-disable-next-line no-console
+      console.log('[locations.autocomplete] GET', url);
+    }
+    const res = await fetch(url, { method: 'GET' });
+    if (!res.ok) {
+      throw new Error(`locations.autocomplete failed: ${res.status}`);
+    }
+    return res.json();
   },
 
   getAirports: async (cityId: string, limit: number = 3): Promise<{ airports: NearbyAirport[] }> => {
-    return apiRequest<{ airports: NearbyAirport[] }>(
-      `/api/locations/${encodeURIComponent(cityId)}/airports?limit=${limit}`,
-      {
-        method: 'GET',
-      },
-      false
-    );
+    const url = `/api/locations/${encodeURIComponent(cityId)}/airports?limit=${limit}`;
+    if (typeof window !== 'undefined') {
+      // eslint-disable-next-line no-console
+      console.log('[locations.getAirports] GET', url);
+    }
+    const res = await fetch(url, { method: 'GET' });
+    if (!res.ok) {
+      throw new Error(`locations.getAirports failed: ${res.status}`);
+    }
+    return res.json();
   },
 };
 
