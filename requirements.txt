@@ -1,13 +1,28 @@
-# Legacy root requirements.txt - DEPRECATED
-# This file is kept for compatibility but should not be used for new deployments
-# Use backend/requirements.txt instead for backend dependencies
+#
+# Tripy root Python requirements
+# ------------------------------
+# This file is intended for environments that install dependencies from the
+# repository root (e.g. some CI/CD or container build setups).
+#
+# It combines backend dependencies (from backend/requirements.txt) and
+# additional libraries used by scripts like scripts/curate_city_images.py.
+#
 
-# Note: Some packages here (futures, typing, pathlib2, scandir) are Python 2 compatibility packages
-# and should not be installed for Python 3.9+ projects
+amadeus
+fastapi
+uvicorn
 
-# If App Runner or other services need to use this file, update it to remove:
-# - futures (not needed for Python 3)
-# - typing (built into Python 3.5+)
-# - pathlib2 (pathlib is built into Python 3.4+)
-# - scandir (built into Python 3.5+ as os.scandir)
-# - singledispatch (backport for Python 3.3, not needed for 3.4+)
+boto3==1.35.0
+httpx==0.27.0
+pydantic[email]==2.8.2
+python-dateutil==2.9.0.post0
+python-dotenv==1.0.0
+
+PyJWT==2.8.0
+cryptography>=3.4.8
+mangum>=0.17.0
+
+# Imaging & city image curation
+Pillow>=10.0.0
+requests>=2.0.0
+

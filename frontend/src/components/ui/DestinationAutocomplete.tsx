@@ -2,7 +2,7 @@
 
 import { useState, useEffect, useRef } from 'react';
 import { Plane } from 'lucide-react';
-import { cities as citiesAPI, CitySearchResult } from '@/lib/api';
+import { locations, CitySuggestion } from '@/lib/api';
 
 interface DestinationAutocompleteProps {
   // The current text value of the input (controlled component)
@@ -44,7 +44,7 @@ export function DestinationAutocomplete({
   onKeyDown,
   autoFocus = false,
 }: DestinationAutocompleteProps) {
-  const [suggestions, setSuggestions] = useState<CitySearchResult[]>([]);
+  const [suggestions, setSuggestions] = useState<CitySuggestion[]>([]);
   const [showSuggestions, setShowSuggestions] = useState(false);
   const [isLoading, setIsLoading] = useState(false);
   const wrapperRef = useRef<HTMLDivElement>(null);
@@ -73,52 +73,16 @@ export function DestinationAutocomplete({
     const timeoutId = setTimeout(async () => {
       setIsLoading(true);
       try {
-        // Search with the query - backend handles fuzzy matching
+        // Search with the query - backed by /api/locations/autocomplete
         console.log('[DestinationAutocomplete] Searching for:', value.trim());
-        const response = await citiesAPI.search(value.trim(), 12);
+        const response = await locations.autocomplete(value.trim(), 12);
         console.log('[DestinationAutocomplete] API response:', response);
-        
-        if (!response || !response.cities) {
-          console.warn('[DestinationAutocomplete] Invalid response from cities API:', response);
-          setSuggestions([]);
-          setShowSuggestions(false);
-          setIsLoading(false);
-          return;
-        }
-        
-        // Sort results to prioritize exact matches and city name matches
-        const sortedResults = response.cities.sort((a, b) => {
-          const queryLower = value.toLowerCase().trim();
-          const aName = (a.name || a.cityName || '').toLowerCase();
-          const bName = (b.name || b.cityName || '').toLowerCase();
-          const aCountry = (a.countryName || '').toLowerCase();
-          const bCountry = (b.countryName || '').toLowerCase();
-          
-          // Exact match in city name gets highest priority
-          if (aName === queryLower && bName !== queryLower) return -1;
-          if (bName === queryLower && aName !== queryLower) return 1;
-          
-          // Starts with query gets second priority
-          if (aName.startsWith(queryLower) && !bName.startsWith(queryLower)) return -1;
-          if (bName.startsWith(queryLower) && !aName.startsWith(queryLower)) return 1;
-          
-          // City name contains query gets third priority
-          if (aName.includes(queryLower) && !bName.includes(queryLower)) return -1;
-          if (bName.includes(queryLower) && !aName.includes(queryLower)) return 1;
-          
-          // Country match gets fourth priority
-          if (aCountry.includes(queryLower) && !bCountry.includes(queryLower)) return -1;
-          if (bCountry.includes(queryLower) && !aCountry.includes(queryLower)) return 1;
-          
-          return 0;
-        });
-        
-        const finalResults = sortedResults.slice(0, 10);
-        console.log('[DestinationAutocomplete] Final results:', finalResults.length, finalResults);
-        setSuggestions(finalResults);
+
+        const cities = response?.cities ?? [];
+        setSuggestions(cities);
         // Always show suggestions if we have results
-        if (finalResults.length > 0) {
-          console.log('[DestinationAutocomplete] Showing suggestions:', finalResults.length);
+        if (cities.length > 0) {
+          console.log('[DestinationAutocomplete] Showing suggestions:', cities.length);
           setShowSuggestions(true);
         } else {
           console.log('[DestinationAutocomplete] No results, hiding suggestions');
@@ -140,14 +104,10 @@ export function DestinationAutocomplete({
     return () => clearTimeout(timeoutId);
   }, [value]);
 
-  const handleSelect = (city: CitySearchResult) => {
-    const cityName = city.name || city.cityName || '';
-    const iataCode = city.iataCode || city.id || '';
-    
-    // Format as "City (Code)" like Figma design, or just city name if no code
-    const formattedValue = iataCode && iataCode.length === 3 
-      ? `${cityName} (${iataCode.toUpperCase()})`
-      : cityName;
+  const handleSelect = (city: CitySuggestion) => {
+    const cityName = city.name;
+    const country = city.country ? `, ${city.country}` : '';
+    const formattedValue = `${cityName}${country}`;
     
     onChange(formattedValue);
     if (onSelect) {
@@ -256,33 +216,9 @@ export function DestinationAutocomplete({
           }}
         >
           {suggestions.map((city, index) => {
-            const cityName = city.name || city.cityName || '';
-            const country = city.countryName || '';
-            const region = city.regionCode || '';
-            
-            // Highlight matching text
-            const highlightText = (text: string, query: string): React.ReactNode => {
-              if (!text || !query) return text;
-              const lowerText = text.toLowerCase();
-              const queryLower = query.toLowerCase();
-              const index = lowerText.indexOf(queryLower);
-              if (index === -1) return text;
-              
-              const before = text.substring(0, index);
-              const match = text.substring(index, index + query.length);
-              const after = text.substring(index + query.length);
-              
-              return (
-                <>
-                  {before}
-                  <span className="font-semibold bg-yellow-100">{match}</span>
-                  {after}
-                </>
-              );
-            };
-            
-            const iataCode = city.iataCode || city.id || '';
-            const displayCode = iataCode && iataCode.length === 3 ? iataCode.toUpperCase() : '';
+            const cityName = city.name;
+            const country = city.country || '';
+            const region = city.region || '';
             
             return (
               <button
@@ -304,10 +240,10 @@ export function DestinationAutocomplete({
                 </div>
                 <div className="flex-1 min-w-0">
                   <div className="font-medium text-slate-900 truncate">
-                    {highlightText(cityName, value)}
+                           {cityName}
                   </div>
                   <div className="text-xs text-slate-500 truncate">
-                    {country} {displayCode ? `• ${displayCode}` : ''} {region ? `• ${region}` : ''}
+                    {country} {region ? `• ${region}` : ''}
                   </div>
                 </div>
               </button>

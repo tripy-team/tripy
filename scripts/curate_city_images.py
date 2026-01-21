@@ -18,15 +18,27 @@ Usage:
 import argparse
 import os
 import sys
-import requests
 from pathlib import Path
-from PIL import Image
-import boto3
 from typing import List, Dict
 import json
 
-# Add parent directory to path
-sys.path.insert(0, str(Path(__file__).parent.parent))
+import requests
+from PIL import Image
+import boto3
+from dotenv import load_dotenv
+
+# Ensure both the repo root and backend package are on sys.path so that
+# imports like `backend.src...` and `src...` work regardless of CWD.
+ROOT_DIR = Path(__file__).resolve().parent.parent
+BACKEND_ROOT = ROOT_DIR / "backend"
+
+if str(ROOT_DIR) not in sys.path:
+    sys.path.insert(0, str(ROOT_DIR))
+if str(BACKEND_ROOT) not in sys.path:
+    sys.path.insert(0, str(BACKEND_ROOT))
+
+# Load environment variables from a .env file at the repo root (if present)
+load_dotenv(ROOT_DIR / ".env")
 
 from backend.src.services.image_service import upload_image_to_s3, add_city_images
 from backend.src.repos.city_image_repo import put_city_images
