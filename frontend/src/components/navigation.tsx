@@ -256,7 +256,7 @@ export function Navigation() {
                     </div>
                   </DropdownMenuLabel>
                   <DropdownMenuSeparator />
-                  <DropdownMenuItem onClick={() => router.push('/points-setup')}>
+                  <DropdownMenuItem onClick={() => router.push('/profile')}>
                     <User className="mr-2 h-4 w-4" />
                     <span>Profile</span>
                   </DropdownMenuItem>
@@ -402,7 +402,7 @@ export function Navigation() {
                 <div className="mt-3 space-y-1">
                   <button
                     onClick={() => {
-                      router.push('/points-setup');
+                      router.push('/profile');
                       setMobileMenuOpen(false);
                     }}
                     className="block w-full text-left px-4 py-2 text-base font-medium text-slate-500 hover:text-slate-800 hover:bg-slate-100 rounded-md"

@@ -135,13 +135,18 @@ export default function DateRangePicker({
           <div
             ref={startDateRef}
             className="cursor-pointer w-full"
-            onMouseDown={(e) => {
-              e.preventDefault();
+            onClick={() => {
               setActiveTrigger('start');
               setIsOpen(true);
             }}
           >
-            <Group className="flex w-full items-center px-4 py-3 bg-white border border-slate-200 rounded-xl focus-within:ring-2 focus-within:ring-blue-600 focus-within:border-transparent hover:border-slate-300 transition-colors">
+            <Group
+              className="flex w-full items-center px-4 py-3 bg-white border border-slate-200 rounded-xl focus-within:ring-2 focus-within:ring-blue-600 focus-within:border-transparent hover:border-slate-300 transition-colors"
+              onFocusCapture={() => {
+                setActiveTrigger('start');
+                setIsOpen(true);
+              }}
+            >
               <div className="flex items-center gap-3 flex-1 min-w-0">
                 <CalendarIcon className="w-5 h-5 text-slate-400 flex-shrink-0 pointer-events-none" />
                 <div className="flex-1 min-w-0">
@@ -161,13 +166,18 @@ export default function DateRangePicker({
           <div
             ref={endDateRef}
             className="cursor-pointer w-full"
-            onMouseDown={(e) => {
-              e.preventDefault();
+            onClick={() => {
               setActiveTrigger('end');
               setIsOpen(true);
             }}
           >
-            <Group className="flex w-full items-center px-4 py-3 bg-white border border-slate-200 rounded-xl focus-within:ring-2 focus-within:ring-blue-600 focus-within:border-transparent hover:border-slate-300 transition-colors">
+            <Group
+              className="flex w-full items-center px-4 py-3 bg-white border border-slate-200 rounded-xl focus-within:ring-2 focus-within:ring-blue-600 focus-within:border-transparent hover:border-slate-300 transition-colors"
+              onFocusCapture={() => {
+                setActiveTrigger('end');
+                setIsOpen(true);
+              }}
+            >
               <div className="flex items-center gap-3 flex-1 min-w-0">
                 <CalendarIcon className="w-5 h-5 text-slate-400 flex-shrink-0 pointer-events-none" />
                 <div className="flex-1 min-w-0">
