@@ -118,6 +118,7 @@ export default function DateRangePicker({
                   target.closest('label') || 
                   target.classList.contains('calendar-icon-wrapper') ||
                   (!target.closest('[data-slot]') && !target.closest('[role="spinbutton"]'))) {
+                e.stopPropagation();
                 setActiveTrigger('start');
                 setIsOpen(true);
               }
@@ -150,6 +151,10 @@ export default function DateRangePicker({
                         className={`px-0.5 text-sm tabular-nums outline-none rounded focus:bg-blue-100 focus:text-blue-900 cursor-text ${
                           range.start ? 'text-slate-900' : 'text-slate-400'
                         }`}
+                        onFocus={() => {
+                          setActiveTrigger('start');
+                          setIsOpen(true);
+                        }}
                       />
                     )}
                   </DateInput>
@@ -168,6 +173,7 @@ export default function DateRangePicker({
                   target.closest('label') || 
                   target.classList.contains('calendar-icon-wrapper') ||
                   (!target.closest('[data-slot]') && !target.closest('[role="spinbutton"]'))) {
+                e.stopPropagation();
                 setActiveTrigger('end');
                 setIsOpen(true);
               }
@@ -200,6 +206,10 @@ export default function DateRangePicker({
                         className={`px-0.5 text-sm tabular-nums outline-none rounded focus:bg-blue-100 focus:text-blue-900 cursor-text ${
                           range.end ? 'text-slate-900' : 'text-slate-400'
                         }`}
+                        onFocus={() => {
+                          setActiveTrigger('end');
+                          setIsOpen(true);
+                        }}
                       />
                     )}
                   </DateInput>
@@ -212,7 +222,6 @@ export default function DateRangePicker({
         <MyPopover 
           placement={activeTrigger === 'end' ? 'bottom end' : 'bottom start'}
           offset={8}
-          triggerRef={activeTrigger === 'end' ? endDateRef : startDateRef}
         >
           <Dialog className="p-4 text-slate-950">
             <RangeCalendar>
