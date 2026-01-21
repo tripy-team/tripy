@@ -41,6 +41,197 @@ def get_amadeus_client():
         raise
 
 
+# Fallback popular cities/airports if Amadeus API is unavailable
+FALLBACK_CITIES = [
+    {
+        "id": "JFK",
+        "name": "New York (JFK)",
+        "iataCode": "JFK",
+        "type": "AIRPORT",
+        "cityName": "New York",
+        "countryName": "United States",
+    },
+    {
+        "id": "LGA",
+        "name": "New York (LGA)",
+        "iataCode": "LGA",
+        "type": "AIRPORT",
+        "cityName": "New York",
+        "countryName": "United States",
+    },
+    {
+        "id": "CDG",
+        "name": "Paris (CDG)",
+        "iataCode": "CDG",
+        "type": "AIRPORT",
+        "cityName": "Paris",
+        "countryName": "France",
+    },
+    {
+        "id": "ORY",
+        "name": "Paris (ORY)",
+        "iataCode": "ORY",
+        "type": "AIRPORT",
+        "cityName": "Paris",
+        "countryName": "France",
+    },
+    {
+        "id": "LHR",
+        "name": "London (LHR)",
+        "iataCode": "LHR",
+        "type": "AIRPORT",
+        "cityName": "London",
+        "countryName": "United Kingdom",
+    },
+    {
+        "id": "LGW",
+        "name": "London (LGW)",
+        "iataCode": "LGW",
+        "type": "AIRPORT",
+        "cityName": "London",
+        "countryName": "United Kingdom",
+    },
+    {
+        "id": "LAX",
+        "name": "Los Angeles (LAX)",
+        "iataCode": "LAX",
+        "type": "AIRPORT",
+        "cityName": "Los Angeles",
+        "countryName": "United States",
+    },
+    {
+        "id": "SFO",
+        "name": "San Francisco (SFO)",
+        "iataCode": "SFO",
+        "type": "AIRPORT",
+        "cityName": "San Francisco",
+        "countryName": "United States",
+    },
+    {
+        "id": "NRT",
+        "name": "Tokyo (NRT)",
+        "iataCode": "NRT",
+        "type": "AIRPORT",
+        "cityName": "Tokyo",
+        "countryName": "Japan",
+    },
+    {
+        "id": "HND",
+        "name": "Tokyo (HND)",
+        "iataCode": "HND",
+        "type": "AIRPORT",
+        "cityName": "Tokyo",
+        "countryName": "Japan",
+    },
+    {
+        "id": "DXB",
+        "name": "Dubai (DXB)",
+        "iataCode": "DXB",
+        "type": "AIRPORT",
+        "cityName": "Dubai",
+        "countryName": "United Arab Emirates",
+    },
+    {
+        "id": "FCO",
+        "name": "Rome (FCO)",
+        "iataCode": "FCO",
+        "type": "AIRPORT",
+        "cityName": "Rome",
+        "countryName": "Italy",
+    },
+    {
+        "id": "BCN",
+        "name": "Barcelona (BCN)",
+        "iataCode": "BCN",
+        "type": "AIRPORT",
+        "cityName": "Barcelona",
+        "countryName": "Spain",
+    },
+    {
+        "id": "MAD",
+        "name": "Madrid (MAD)",
+        "iataCode": "MAD",
+        "type": "AIRPORT",
+        "cityName": "Madrid",
+        "countryName": "Spain",
+    },
+    {
+        "id": "AMS",
+        "name": "Amsterdam (AMS)",
+        "iataCode": "AMS",
+        "type": "AIRPORT",
+        "cityName": "Amsterdam",
+        "countryName": "Netherlands",
+    },
+    {
+        "id": "FRA",
+        "name": "Frankfurt (FRA)",
+        "iataCode": "FRA",
+        "type": "AIRPORT",
+        "cityName": "Frankfurt",
+        "countryName": "Germany",
+    },
+    {
+        "id": "MUC",
+        "name": "Munich (MUC)",
+        "iataCode": "MUC",
+        "type": "AIRPORT",
+        "cityName": "Munich",
+        "countryName": "Germany",
+    },
+    {
+        "id": "IST",
+        "name": "Istanbul (IST)",
+        "iataCode": "IST",
+        "type": "AIRPORT",
+        "cityName": "Istanbul",
+        "countryName": "Turkey",
+    },
+    {
+        "id": "SYD",
+        "name": "Sydney (SYD)",
+        "iataCode": "SYD",
+        "type": "AIRPORT",
+        "cityName": "Sydney",
+        "countryName": "Australia",
+    },
+    {
+        "id": "SIN",
+        "name": "Singapore (SIN)",
+        "iataCode": "SIN",
+        "type": "AIRPORT",
+        "cityName": "Singapore",
+        "countryName": "Singapore",
+    },
+]
+
+
+def _filter_fallback_cities(query: str, max_results: int = 10) -> List[Dict[str, Any]]:
+    """Filter fallback cities by query (for when Amadeus API is unavailable)"""
+    query_lower = query.lower().strip()
+    if not query_lower:
+        return []
+
+    results = []
+    for city in FALLBACK_CITIES:
+        city_name = city.get("cityName", "").lower()
+        country_name = city.get("countryName", "").lower()
+        iata_code = city.get("iataCode", "").lower()
+        display_name = city.get("name", "").lower()
+
+        if (
+            query_lower in city_name
+            or query_lower in country_name
+            or query_lower in iata_code
+            or query_lower in display_name
+        ):
+            results.append(city.copy())
+            if len(results) >= max_results:
+                break
+
+    return results
+
+
 def search_cities(query: str, max_results: int = 10) -> List[Dict[str, Any]]:
     """
     Search for cities/airports using Amadeus Airport & City Search API
@@ -57,8 +248,11 @@ def search_cities(query: str, max_results: int = 10) -> List[Dict[str, Any]]:
     try:
         amadeus = get_amadeus_client()
         if not amadeus:
-            # Graceful degradation - return empty list if Amadeus not configured
-            return []
+            # Graceful degradation - use fallback cities if Amadeus not configured
+            logger.info(
+                f"Amadeus not configured, using fallback cities for query '{query}'"
+            )
+            return _filter_fallback_cities(query, max_results)
 
         # Increase the API call limit to get more results, then filter/group
         # Amadeus API allows up to 100 results
@@ -84,12 +278,16 @@ def search_cities(query: str, max_results: int = 10) -> List[Dict[str, Any]]:
                     max=api_max,
                 )
             except Exception as e2:
-                logger.error(f"Amadeus API call failed: {e2}")
-                return []
+                logger.error(f"Amadeus API call failed: {e2}, using fallback cities")
+                # Use fallback if API fails
+                return _filter_fallback_cities(query, max_results)
 
         if not response.data:
-            logger.warning(f"Amadeus API returned no data for query '{query}'")
-            return []
+            logger.warning(
+                f"Amadeus API returned no data for query '{query}', using fallback cities"
+            )
+            # Use fallback if API returns no data
+            return _filter_fallback_cities(query, max_results)
 
         # Import airport filter to validate commercial airports
         # Note: Loading this on every request can be slow - consider caching in production
@@ -245,10 +443,18 @@ def search_cities(query: str, max_results: int = 10) -> List[Dict[str, Any]]:
 
                 results.append(formatted)
 
+        # Final fallback: If still no results, use fallback cities
+        if not results:
+            logger.info(
+                f"No results from Amadeus API for query '{query}', using fallback cities"
+            )
+            return _filter_fallback_cities(query, max_results)
+
         return results[:max_results]
 
     except Exception as e:
         # Log error details for debugging
         logger.error(f"City search error for query '{query}': {e}", exc_info=True)
-        # Return empty list on error to allow graceful degradation
-        return []
+        # Use fallback cities on error instead of returning empty list
+        logger.info(f"Using fallback cities due to error for query '{query}'")
+        return _filter_fallback_cities(query, max_results)
