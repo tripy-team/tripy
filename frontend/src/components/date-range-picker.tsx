@@ -128,19 +128,21 @@ export default function DateRangePicker({
                   <label className="block text-xs text-slate-500 mb-1 uppercase font-bold tracking-wider cursor-pointer">
                     Start Date
                   </label>
-                  <DateInput
-                    slot="start"
-                    className="flex flex-wrap min-w-0 cursor-pointer"
-                  >
-                    {(segment) => (
-                      <DateSegment
-                        segment={segment}
-                        className={`px-0.5 text-sm tabular-nums outline-none rounded focus:bg-blue-100 focus:text-blue-900 cursor-pointer ${
-                          range.start ? 'text-slate-900' : 'text-slate-400'
-                        }`}
-                      />
-                    )}
-                  </DateInput>
+                  {range.start == null ? (
+                    <div className="text-sm text-slate-400">Select date</div>
+                  ) : (
+                    <DateInput
+                      slot="start"
+                      className="flex flex-wrap min-w-0 cursor-pointer text-slate-900"
+                    >
+                      {(segment) => (
+                        <DateSegment
+                          segment={segment}
+                          className="px-0.5 text-sm tabular-nums outline-none rounded min-h-[20px] focus:bg-blue-100 focus:text-blue-900"
+                        />
+                      )}
+                    </DateInput>
+                  )}
                 </div>
               </div>
             </Group>
@@ -165,19 +167,21 @@ export default function DateRangePicker({
                   <label className="block text-xs text-slate-500 mb-1 uppercase font-bold tracking-wider cursor-pointer">
                     End Date
                   </label>
-                  <DateInput
-                    slot="end"
-                    className="flex flex-wrap min-w-0 cursor-pointer"
-                  >
-                    {(segment) => (
-                      <DateSegment
-                        segment={segment}
-                        className={`px-0.5 text-sm tabular-nums outline-none rounded focus:bg-blue-100 focus:text-blue-900 cursor-pointer ${
-                          range.end ? 'text-slate-900' : 'text-slate-400'
-                        }`}
-                      />
-                    )}
-                  </DateInput>
+                  {range.end == null ? (
+                    <div className="text-sm text-slate-400">Select date</div>
+                  ) : (
+                    <DateInput
+                      slot="end"
+                      className="flex flex-wrap min-w-0 cursor-pointer text-slate-900"
+                    >
+                      {(segment) => (
+                        <DateSegment
+                          segment={segment}
+                          className="px-0.5 text-sm tabular-nums outline-none rounded min-h-[20px] focus:bg-blue-100 focus:text-blue-900"
+                        />
+                      )}
+                    </DateInput>
+                  )}
                 </div>
               </div>
             </Group>
