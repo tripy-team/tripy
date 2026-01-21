@@ -558,6 +558,21 @@ async def add_destination(
             request.must_include,
             request.excluded,
         )
+
+        # Trigger city image curation in the background for this destination.
+        # This will return any existing curated URLs or a "coming soon" placeholder
+        # and will kick off the background curation workflow if the city is new.
+        try:
+            # We don't care about the return value here, only that the side‑effect runs.
+            image_service.get_city_image_urls(
+                request.name,
+                size="800",
+                trigger_background=True,
+            )
+        except Exception as img_err:
+            logger.warning(
+                f"Failed to trigger image curation for destination '{request.name}': {img_err}"
+            )
         # Track destination addition for analytics
         track_destination_added(user_id, request.trip_id, request.name)
         return destination
