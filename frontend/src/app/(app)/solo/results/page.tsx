@@ -3,7 +3,7 @@
 import { useState, useEffect } from 'react';
 import { useRouter, useSearchParams } from 'next/navigation';
 import { MapPin, DollarSign, Clock, Zap, Edit3, Check, Sparkles, TrendingUp } from 'lucide-react';
-import { itineraries as itinerariesAPI, ItineraryItem } from '@/lib/api';
+import { itineraries as itinerariesAPI, ItineraryItem, destinations } from '@/lib/api';
 
 interface Itinerary {
     id: number;
@@ -36,6 +36,13 @@ export default function SoloResults() {
                 setLoading(true);
                 const response = await itinerariesAPI.get(tripId);
                 
+                // Fetch destinations to map UUIDs to names
+                const destinationsResponse = await destinations.list(tripId);
+                const destinationMap = new Map<string, string>();
+                destinationsResponse.destinations.forEach((dest: { id: string; name: string }) => {
+                    destinationMap.set(dest.id, dest.name);
+                });
+                
                 // Transform API response to display format
                 // The API returns { items: [...] } where items contain itinerary data
                 if (response.items && Array.isArray(response.items) && response.items.length > 0) {
@@ -46,7 +53,17 @@ export default function SoloResults() {
                         const cities = Array.isArray(route) 
                             ? route.map((city: string | { name: string; days: number }) => {
                                 if (typeof city === 'string') {
-                                    return { name: city, days: 3 }; // Default days
+                                    // Check if it's a UUID and map to destination name
+                                    const isUUID = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i.test(city);
+                                    const cityName = isUUID && destinationMap.has(city) 
+                                        ? destinationMap.get(city)! 
+                                        : (isUUID ? city : city); // Keep UUID if not found, otherwise use as-is
+                                    return { name: cityName, days: 3 }; // Default days
+                                }
+                                // If it's an object but name is a UUID, resolve it
+                                if (city.name && /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i.test(city.name)) {
+                                    const resolvedName = destinationMap.get(city.name) || city.name;
+                                    return { name: resolvedName, days: city.days || 3 };
                                 }
                                 return city;
                             })

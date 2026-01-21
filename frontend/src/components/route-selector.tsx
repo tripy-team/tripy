@@ -104,7 +104,13 @@ export default function RouteSelector({
                         </span>
                       </div>
                       <div className="text-xs text-slate-500">
-                        {route.cities.map(c => c.name).join(' → ')}
+                        {route.cities.map(c => {
+                          // Handle case where city name might be a UUID or missing
+                          const cityName = typeof c === 'string' ? c : (c.name || 'Unknown City');
+                          // If it looks like a UUID, show a placeholder instead
+                          const isUUID = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i.test(cityName);
+                          return isUUID ? 'City (Resolving...)' : cityName;
+                        }).join(' → ')}
                       </div>
                     </div>
                   </div>

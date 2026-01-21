@@ -111,17 +111,9 @@ export default function DateRangePicker({
           {/* Start Date Box */}
           <div
             ref={startDateRef}
-            onClick={(e) => {
-              // Open if clicking on the container or label, but allow DateInput to handle its own clicks
-              const target = e.target as HTMLElement;
-              if (target === e.currentTarget || 
-                  target.closest('label') || 
-                  target.classList.contains('calendar-icon-wrapper') ||
-                  (!target.closest('[data-slot]') && !target.closest('[role="spinbutton"]'))) {
-                e.stopPropagation();
-                setActiveTrigger('start');
-                setIsOpen(true);
-              }
+            onClick={() => {
+              setActiveTrigger('start');
+              setIsOpen(true);
             }}
             className="cursor-pointer"
           >
@@ -129,15 +121,8 @@ export default function DateRangePicker({
               className="flex w-full items-center px-4 py-3 bg-white border border-slate-200 rounded-xl focus-within:ring-2 focus-within:ring-blue-600 focus-within:border-transparent hover:border-slate-300 transition-colors"
             >
               <div className="flex items-center gap-3 flex-1 min-w-0">
-                <div className="calendar-icon-wrapper cursor-pointer" onClick={() => { setActiveTrigger('start'); setIsOpen(true); }}>
-                  <CalendarIcon className="w-5 h-5 text-slate-400 flex-shrink-0 pointer-events-none" />
-                </div>
-                <div className="flex-1 min-w-0" onClick={(e) => { 
-                  if (!(e.target as HTMLElement).closest('[role="spinbutton"]')) {
-                    setActiveTrigger('start');
-                    setIsOpen(true);
-                  }
-                }}>
+                <CalendarIcon className="w-5 h-5 text-slate-400 flex-shrink-0 pointer-events-none" />
+                <div className="flex-1 min-w-0">
                   <label className="block text-xs text-slate-500 mb-1 uppercase font-bold tracking-wider pointer-events-none cursor-pointer">
                     Start Date
                   </label>
@@ -162,17 +147,9 @@ export default function DateRangePicker({
           {/* End Date Box */}
           <div
             ref={endDateRef}
-            onClick={(e) => {
-              // Open if clicking on the container or label, but allow DateInput to handle its own clicks
-              const target = e.target as HTMLElement;
-              if (target === e.currentTarget || 
-                  target.closest('label') || 
-                  target.classList.contains('calendar-icon-wrapper') ||
-                  (!target.closest('[data-slot]') && !target.closest('[role="spinbutton"]'))) {
-                e.stopPropagation();
-                setActiveTrigger('end');
-                setIsOpen(true);
-              }
+            onClick={() => {
+              setActiveTrigger('end');
+              setIsOpen(true);
             }}
             className="cursor-pointer"
           >
@@ -180,15 +157,8 @@ export default function DateRangePicker({
               className="flex w-full items-center px-4 py-3 bg-white border border-slate-200 rounded-xl focus-within:ring-2 focus-within:ring-blue-600 focus-within:border-transparent hover:border-slate-300 transition-colors"
             >
               <div className="flex items-center gap-3 flex-1 min-w-0">
-                <div className="calendar-icon-wrapper cursor-pointer" onClick={() => { setActiveTrigger('end'); setIsOpen(true); }}>
-                  <CalendarIcon className="w-5 h-5 text-slate-400 flex-shrink-0 pointer-events-none" />
-                </div>
-                <div className="flex-1 min-w-0" onClick={(e) => { 
-                  if (!(e.target as HTMLElement).closest('[role="spinbutton"]')) {
-                    setActiveTrigger('end');
-                    setIsOpen(true);
-                  }
-                }}>
+                <CalendarIcon className="w-5 h-5 text-slate-400 flex-shrink-0 pointer-events-none" />
+                <div className="flex-1 min-w-0">
                   <label className="block text-xs text-slate-500 mb-1 uppercase font-bold tracking-wider pointer-events-none cursor-pointer">
                     End Date
                   </label>
