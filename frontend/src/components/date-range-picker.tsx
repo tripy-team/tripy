@@ -194,73 +194,75 @@ export default function DateRangePicker({
           </div>
         </div>
 
-        {/* Popover: always mounted; react-aria controls visibility via isOpen/onOpenChange */}
-        <MyPopover
-          key={activeTrigger}
-          triggerRef={activeTrigger === 'end' ? endDateRef : startDateRef}
-          placement={activeTrigger === 'end' ? 'bottom end' : 'bottom start'}
-          offset={8}
-        >
-          <Dialog className="p-4 text-slate-950">
-            <RangeCalendar>
-              <header className="flex w-full items-center gap-1 px-1 pb-4">
-                <Heading className="ml-2 flex-1 font-semibold text-slate-900" />
-                <Button
-                  slot="previous"
-                  className="flex h-8 w-8 items-center justify-center rounded-full hover:bg-slate-100 transition-colors"
-                >
-                  <ChevronLeftIcon className="h-4 w-4 text-slate-900" />
-                </Button>
-                <Button
-                  slot="next"
-                  className="flex h-8 w-8 items-center justify-center rounded-full hover:bg-slate-100 transition-colors"
-                >
-                  <ChevronRightIcon className="h-4 w-4 text-slate-900" />
-                </Button>
-              </header>
+        {/* Popover: only render while open so clicking outside hides the calendar */}
+        {isOpen && (
+          <MyPopover
+            key={activeTrigger}
+            triggerRef={activeTrigger === 'end' ? endDateRef : startDateRef}
+            placement={activeTrigger === 'end' ? 'bottom end' : 'bottom start'}
+            offset={8}
+          >
+            <Dialog className="p-4 text-slate-950">
+              <RangeCalendar>
+                <header className="flex w-full items-center gap-1 px-1 pb-4">
+                  <Heading className="ml-2 flex-1 font-semibold text-slate-900" />
+                  <Button
+                    slot="previous"
+                    className="flex h-8 w-8 items-center justify-center rounded-full hover:bg-slate-100 transition-colors"
+                  >
+                    <ChevronLeftIcon className="h-4 w-4 text-slate-900" />
+                  </Button>
+                  <Button
+                    slot="next"
+                    className="flex h-8 w-8 items-center justify-center rounded-full hover:bg-slate-100 transition-colors"
+                  >
+                    <ChevronRightIcon className="h-4 w-4 text-slate-900" />
+                  </Button>
+                </header>
 
-              <CalendarGrid className="border-separate border-spacing-1">
-                <CalendarGridHeader>
-                  {(day) => (
-                    <CalendarHeaderCell className="text-xs font-semibold text-slate-500 py-2">
-                      {day}
-                    </CalendarHeaderCell>
-                  )}
-                </CalendarGridHeader>
+                <CalendarGrid className="border-separate border-spacing-1">
+                  <CalendarGridHeader>
+                    {(day) => (
+                      <CalendarHeaderCell className="text-xs font-semibold text-slate-500 py-2">
+                        {day}
+                      </CalendarHeaderCell>
+                    )}
+                  </CalendarGridHeader>
 
-                <CalendarGridBody>
-                  {(date) => (
-                    <CalendarCell
-                      date={date}
-                      className={({
-                        isSelected,
-                        isFocused,
-                        isSelectionStart,
-                        isSelectionEnd,
-                        isOutsideMonth,
-                      }) =>
-                        [
-                          'flex h-9 w-9 items-center justify-center rounded-md text-sm transition-colors',
-                          isSelected
-                            ? isSelectionStart || isSelectionEnd
-                              ? 'bg-blue-600 text-white font-semibold'
-                              : 'bg-blue-100 text-blue-900'
-                            : '',
-                          isFocused ? 'ring-2 ring-blue-600 ring-offset-1' : '',
-                          isOutsideMonth ? 'text-slate-300' : 'text-slate-900',
-                          'hover:bg-blue-50',
-                          !isSelected && !isFocused ? 'hover:bg-slate-100' : '',
-                        ]
-                          .filter(Boolean)
-                          .join(' ')
-                      }
-                    />
-                  )}
-                </CalendarGridBody>
-              </CalendarGrid>
-            </RangeCalendar>
-          </Dialog>
-        </MyPopover>
+                  <CalendarGridBody>
+                    {(date) => (
+                      <CalendarCell
+                        date={date}
+                        className={({
+                          isSelected,
+                          isFocused,
+                          isSelectionStart,
+                          isSelectionEnd,
+                          isOutsideMonth,
+                        }) =>
+                          [
+                            'flex h-9 w-9 items-center justify-center rounded-md text-sm transition-colors',
+                            isSelected
+                              ? isSelectionStart || isSelectionEnd
+                                ? 'bg-blue-600 text-white font-semibold'
+                                : 'bg-blue-100 text-blue-900'
+                              : '',
+                            isFocused ? 'ring-2 ring-blue-600 ring-offset-1' : '',
+                            isOutsideMonth ? 'text-slate-300' : 'text-slate-900',
+                            'hover:bg-blue-50',
+                            !isSelected && !isFocused ? 'hover:bg-slate-100' : '',
+                          ]
+                            .filter(Boolean)
+                            .join(' ')
+                        }
+                      />
+                    )}
+                  </CalendarGridBody>
+                </CalendarGrid>
+              </RangeCalendar>
+            </Dialog>
+          </MyPopover>
+        )}
       </AriaDateRangePicker>
     </div>
   );
