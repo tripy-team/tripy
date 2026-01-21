@@ -52,7 +52,6 @@ export default function DateRangePicker({
   );
   const startDateRef = useRef<HTMLDivElement>(null);
   const endDateRef = useRef<HTMLDivElement>(null);
-  const [activeTrigger, setActiveTrigger] = useState<'start' | 'end' | null>(null);
 
   // Update range when props change
   useEffect(() => {
@@ -112,7 +111,6 @@ export default function DateRangePicker({
           <div
             ref={startDateRef}
             onClick={() => {
-              setActiveTrigger('start');
               setIsOpen(true);
             }}
             className="cursor-pointer"
@@ -121,7 +119,6 @@ export default function DateRangePicker({
               className="flex w-full items-center px-4 py-3 bg-white border border-slate-200 rounded-xl focus-within:ring-2 focus-within:ring-blue-600 focus-within:border-transparent hover:border-slate-300 transition-colors"
             >
               <div className="flex items-center gap-3 flex-1 min-w-0" onClick={() => {
-                setActiveTrigger('start');
                 setIsOpen(true);
               }}>
                 <CalendarIcon className="w-5 h-5 text-slate-400 flex-shrink-0 pointer-events-none" />
@@ -134,7 +131,6 @@ export default function DateRangePicker({
                     className="flex flex-wrap min-w-0 cursor-pointer"
                     onClick={(e) => {
                       e.stopPropagation();
-                      setActiveTrigger('start');
                       setIsOpen(true);
                     }}
                   >
@@ -156,7 +152,6 @@ export default function DateRangePicker({
           <div
             ref={endDateRef}
             onClick={() => {
-              setActiveTrigger('end');
               setIsOpen(true);
             }}
             className="cursor-pointer"
@@ -165,7 +160,6 @@ export default function DateRangePicker({
               className="flex w-full items-center px-4 py-3 bg-white border border-slate-200 rounded-xl focus-within:ring-2 focus-within:ring-blue-600 focus-within:border-transparent hover:border-slate-300 transition-colors"
             >
               <div className="flex items-center gap-3 flex-1 min-w-0" onClick={() => {
-                setActiveTrigger('end');
                 setIsOpen(true);
               }}>
                 <CalendarIcon className="w-5 h-5 text-slate-400 flex-shrink-0 pointer-events-none" />
@@ -178,7 +172,6 @@ export default function DateRangePicker({
                     className="flex flex-wrap min-w-0 cursor-pointer"
                     onClick={(e) => {
                       e.stopPropagation();
-                      setActiveTrigger('end');
                       setIsOpen(true);
                     }}
                   >
