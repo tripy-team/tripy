@@ -39,8 +39,8 @@ export default function SoloResults() {
                 // Fetch destinations to map UUIDs to names
                 const destinationsResponse = await destinations.list(tripId);
                 const destinationMap = new Map<string, string>();
-                destinationsResponse.destinations.forEach((dest: { id: string; name: string }) => {
-                    destinationMap.set(dest.id, dest.name);
+                destinationsResponse.destinations.forEach((dest) => {
+                    destinationMap.set(dest.destinationId, dest.name);
                 });
                 
                 // Transform API response to display format
