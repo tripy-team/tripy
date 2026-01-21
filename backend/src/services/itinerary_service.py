@@ -7,9 +7,37 @@ from src.repos import itinerary_repo
 from src.handlers.flights import get_flights_award_first_with_points
 from src.handlers.ilp_adapter import run_ilp_from_edges
 from src.handlers.planTrip import plan_non_pooled_multi_itineraries_with_native
-from src.services import destination_service, trip_service, points_service, trip_member_service, city_service
+from src.services import (
+    destination_service,
+    trip_service,
+    points_service,
+    trip_member_service,
+    city_service,
+)
 
 logger = logging.getLogger(__name__)
+
+
+def _parse_trip_duration_days(trip: Dict[str, Any]) -> int:
+    """
+    Best‑effort calculation of trip duration (in days) from start/end dates.
+    Falls back to a sensible default if dates are missing or invalid.
+    """
+    start_date = (trip or {}).get("startDate") or ""
+    end_date = (trip or {}).get("endDate") or ""
+
+    try:
+        if start_date and end_date:
+            start_dt = datetime.strptime(start_date.strip(), "%Y-%m-%d")
+            end_dt = datetime.strptime(end_date.strip(), "%Y-%m-%d")
+            days = (end_dt.date() - start_dt.date()).days or 1
+            return max(days, 1)
+    except Exception:
+        # If parsing fails, ignore and use default below
+        pass
+
+    # Default duration if we can't infer it from dates
+    return 7
 
 
 def save_itinerary(trip_id: str, route: List[str]) -> Dict[str, Any]:
@@ -22,6 +50,155 @@ def save_itinerary(trip_id: str, route: List[str]) -> Dict[str, Any]:
 
 def get_itinerary(trip_id: str) -> List[Dict[str, Any]]:
     return itinerary_repo.list_items(trip_id)
+
+
+def generate_simple_itineraries(trip_id: str) -> List[Dict[str, Any]]:
+    """
+    Lightweight, dependency‑free itinerary generator.
+
+    This is purposely simple and avoids external flight vendors (Amadeus, etc.).
+    It:
+      - Reads the trip and its destinations
+      - Builds a few reasonable city routes
+      - Computes rough cost / points / score heuristics
+      - Saves itineraries to DynamoDB via itinerary_repo
+
+    The frontend then treats these as "routes" for display and comparison.
+    """
+    # Load trip + destinations
+    trip = trip_service.get_trip(trip_id)
+    if not trip:
+        raise ValueError(f"Trip {trip_id} not found")
+
+    destinations = destination_service.list_destinations(trip_id)
+    if not destinations:
+        raise ValueError("No destinations found for trip. Please add at least one destination.")
+
+    # Filter out excluded destinations while preserving original order
+    valid_dests: List[Dict[str, Any]] = [d for d in destinations if not d.get("excluded", False)]
+    if not valid_dests:
+        raise ValueError("All destinations are excluded. Please add at least one active destination.")
+
+    # Determine start / end (mustInclude = True treated as anchors)
+    must_include = [d for d in valid_dests if d.get("mustInclude", False)]
+    if must_include:
+        start_dest = must_include[0]
+        end_dest = must_include[-1]
+    else:
+        start_dest = valid_dests[0]
+        end_dest = valid_dests[-1] if len(valid_dests) > 1 else valid_dests[0]
+
+    def _city_name(d: Dict[str, Any]) -> str:
+        # Use stored name; if missing, fall back to ID
+        return (d.get("name") or d.get("destinationId") or "").strip()
+
+    # Build a base ordered list of cities (by display name) and IDs
+    # Keep any intermediate cities in original order between the anchors.
+    start_id = start_dest.get("destinationId")
+    end_id = end_dest.get("destinationId")
+
+    # Preserve input order; simply map to display objects
+    ordered_dests = valid_dests
+
+    ordered_city_names = [_city_name(d) for d in ordered_dests]
+    ordered_city_ids = [d.get("destinationId") for d in ordered_dests]
+
+    # If we only have one city, create a trivial "out and back" representation.
+    if len(ordered_city_names) == 1:
+        ordered_city_names = [ordered_city_names[0]]
+        ordered_city_ids = [ordered_city_ids[0]]
+
+    # Compute a coarse duration and derive per‑city "stay" in days
+    total_days = _parse_trip_duration_days(trip)
+    num_stops = max(len(ordered_city_names), 1)
+    # At least 2 days per stop; spread remaining days roughly evenly
+    base_days = max(total_days // num_stops, 2)
+
+    def _build_city_objects(names: List[str]) -> List[Dict[str, Any]]:
+        return [{"name": n, "days": base_days} for n in names if n]
+
+    # Construct a couple of simple route variants for user choice
+    routes: List[Dict[str, Any]] = []
+
+    # Route 1: forward order (start → ... → end)
+    routes.append(
+        {
+            "label": "Balanced route",
+            "route_ids": ordered_city_ids,
+            "cities": _build_city_objects(ordered_city_names),
+            "weight_factor": 1.0,
+        }
+    )
+
+    # Route 2: reverse order if it meaningfully differs
+    if len(ordered_city_names) > 1:
+        rev_names = list(reversed(ordered_city_names))
+        rev_ids = list(reversed(ordered_city_ids))
+        if rev_ids != ordered_city_ids:
+            routes.append(
+                {
+                    "label": "Reverse route",
+                    "route_ids": rev_ids,
+                    "cities": _build_city_objects(rev_names),
+                    "weight_factor": 0.95,  # slightly different score
+                }
+            )
+
+    # Basic cost / points heuristics consistent with frontend expectations
+    base_cost_per_day = 200
+    base_cost_per_city = 300
+
+    items: List[Dict[str, Any]] = []
+    existing_items = itinerary_repo.list_items(trip_id) or []
+    existing_ids = {i.get("itemId") for i in existing_items}
+
+    def _next_item_id(idx: int) -> str:
+        candidate = f"itinerary_{idx}"
+        # Avoid collisions with any existing saved itineraries
+        n = idx
+        while candidate in existing_ids:
+            n += 1
+            candidate = f"itinerary_{n}"
+        existing_ids.add(candidate)
+        return candidate
+
+    for idx, r in enumerate(routes, start=1):
+        city_objs = r["cities"]
+        total_stay_days = sum(c["days"] for c in city_objs) or total_days
+
+        total_cost = int(total_stay_days * base_cost_per_day + len(city_objs) * base_cost_per_city)
+        points_cost = int(total_cost * 25)  # rough valuation used elsewhere in the app
+
+        # Simple score heuristic: favor more cities up to a point, and penalize very long trips
+        score = 88
+        if len(city_objs) >= 4:
+            score += 4
+        elif len(city_objs) >= 2:
+            score += 2
+        score = int(score * r.get("weight_factor", 1.0))
+        score = max(75, min(score, 99))
+
+        item = {
+            "tripId": trip_id,
+            "itemId": _next_item_id(idx),
+            "type": "itinerary",
+            "name": r["label"],
+            # Keep both raw IDs and rich city objects so frontend can map either way
+            "route": r["route_ids"],
+            "cities": city_objs,
+            "totalCost": total_cost,
+            "pointsCost": points_cost,
+            "score": score,
+        }
+        itinerary_repo.put_item(item)
+        items.append(item)
+
+    logger.info(
+        f"Generated {len(items)} simple itineraries for trip {trip_id} "
+        f"with destinations {[c['name'] for c in _build_city_objects(ordered_city_names)]}"
+    )
+
+    return items
 
 
 def _is_airport_code(name: str) -> bool:

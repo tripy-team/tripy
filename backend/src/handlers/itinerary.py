@@ -13,12 +13,11 @@ def handler(event, context):
 
         if path.endswith("/itinerary/generate") and method == "POST":
             trip_id = body["trip_id"]
-            destinations = destination_service.list_destinations(trip_id)
-            routes = route_service.generate_routes(destinations)
-            saved = itinerary_service.save_itinerary(
-                trip_id, routes[0] if routes else []
-            )
-            return response(200, {"routes": routes, "saved": saved})
+            # Lightweight, dependency‑free generator. This avoids any external
+            # flight vendors and simply builds reasonable routes from the
+            # existing destinations so the frontend can always show options.
+            items = itinerary_service.generate_simple_itineraries(trip_id)
+            return response(200, {"items": items})
 
         if path.endswith("/itinerary/get") and method == "POST":
             items = itinerary_service.get_itinerary(body["trip_id"])
