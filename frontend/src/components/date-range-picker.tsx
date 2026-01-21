@@ -52,7 +52,7 @@ export default function DateRangePicker({
   );
   const startDateRef = useRef<HTMLDivElement>(null);
   const endDateRef = useRef<HTMLDivElement>(null);
-  const [activeTrigger, setActiveTrigger] = useState<'start' | 'end' | null>(null);
+  const [activeTrigger, setActiveTrigger] = useState<'start' | 'end'>('start');
 
   // Update range when props change
   useEffect(() => {
@@ -99,7 +99,7 @@ export default function DateRangePicker({
   return (
     <div className="relative w-full">
       <AriaDateRangePicker
-        value={range.start && range.end ? { start: range.start, end: range.end } : (range.start ? { start: range.start, end: range.start } : null)}
+        value={range.start && range.end ? { start: range.start, end: range.end } : null}
         onChange={handleChange}
         isDisabled={disabled}
         minValue={today(getLocalTimeZone())}
@@ -116,7 +116,7 @@ export default function DateRangePicker({
               setActiveTrigger('start');
               setIsOpen(true);
             }}
-            className="cursor-pointer"
+            className="cursor-pointer w-full"
           >
             <Group 
               className="flex w-full items-center px-4 py-3 bg-white border border-slate-200 rounded-xl focus-within:ring-2 focus-within:ring-blue-600 focus-within:border-transparent hover:border-slate-300 transition-colors"
@@ -153,7 +153,7 @@ export default function DateRangePicker({
               setActiveTrigger('end');
               setIsOpen(true);
             }}
-            className="cursor-pointer"
+            className="cursor-pointer w-full"
           >
             <Group 
               className="flex w-full items-center px-4 py-3 bg-white border border-slate-200 rounded-xl focus-within:ring-2 focus-within:ring-blue-600 focus-within:border-transparent hover:border-slate-300 transition-colors"
@@ -183,56 +183,59 @@ export default function DateRangePicker({
           </div>
         </div>
 
-        <MyPopover
-          placement={activeTrigger === 'end' ? 'bottom end' : 'bottom start'}
-          offset={8}
-          triggerRef={activeTrigger === 'end' ? endDateRef : startDateRef}
-        >
-          <Dialog className="p-4 text-slate-950">
-            <RangeCalendar>
-              <header className="flex w-full items-center gap-1 px-1 pb-4">
-                <Heading className="ml-2 flex-1 font-semibold text-slate-900" />
-                <Button slot="previous" className="flex h-8 w-8 items-center justify-center rounded-full hover:bg-slate-100 transition-colors">
-                  <ChevronLeftIcon className="h-4 w-4 text-slate-900" />
-                </Button>
-                <Button slot="next" className="flex h-8 w-8 items-center justify-center rounded-full hover:bg-slate-100 transition-colors">
-                  <ChevronRightIcon className="h-4 w-4 text-slate-900" />
-                </Button>
-              </header>
-              <CalendarGrid className="border-separate border-spacing-1">
-                <CalendarGridHeader>
-                  {(day) => (
-                    <CalendarHeaderCell className="text-xs font-semibold text-slate-500 py-2">
-                      {day}
-                    </CalendarHeaderCell>
-                  )}
-                </CalendarGridHeader>
-                <CalendarGridBody>
-                  {(date) => (
-                    <CalendarCell
-                      date={date}
-                      className={({ isSelected, isFocused, isSelectionStart, isSelectionEnd, isOutsideMonth }) =>
-                        `flex h-9 w-9 items-center justify-center rounded-md text-sm transition-colors ${
-                          isSelected
-                            ? isSelectionStart || isSelectionEnd
-                              ? 'bg-blue-600 text-white font-semibold'
-                              : 'bg-blue-100 text-blue-900'
-                            : ''
-                        } ${
-                          isFocused ? 'ring-2 ring-blue-600 ring-offset-1' : ''
-                        } ${
-                          isOutsideMonth ? 'text-slate-300' : 'text-slate-900'
-                        } hover:bg-blue-50 ${
-                          !isSelected && !isFocused ? 'hover:bg-slate-100' : ''
-                        }`
-                      }
-                    />
-                  )}
-                </CalendarGridBody>
-              </CalendarGrid>
-            </RangeCalendar>
-          </Dialog>
-        </MyPopover>
+        {isOpen && (
+          <MyPopover
+            key={activeTrigger ?? 'start'}
+            placement={activeTrigger === 'end' ? 'bottom end' : 'bottom start'}
+            offset={8}
+            triggerRef={activeTrigger === 'end' ? endDateRef : startDateRef}
+          >
+            <Dialog className="p-4 text-slate-950">
+              <RangeCalendar>
+                <header className="flex w-full items-center gap-1 px-1 pb-4">
+                  <Heading className="ml-2 flex-1 font-semibold text-slate-900" />
+                  <Button slot="previous" className="flex h-8 w-8 items-center justify-center rounded-full hover:bg-slate-100 transition-colors">
+                    <ChevronLeftIcon className="h-4 w-4 text-slate-900" />
+                  </Button>
+                  <Button slot="next" className="flex h-8 w-8 items-center justify-center rounded-full hover:bg-slate-100 transition-colors">
+                    <ChevronRightIcon className="h-4 w-4 text-slate-900" />
+                  </Button>
+                </header>
+                <CalendarGrid className="border-separate border-spacing-1">
+                  <CalendarGridHeader>
+                    {(day) => (
+                      <CalendarHeaderCell className="text-xs font-semibold text-slate-500 py-2">
+                        {day}
+                      </CalendarHeaderCell>
+                    )}
+                  </CalendarGridHeader>
+                  <CalendarGridBody>
+                    {(date) => (
+                      <CalendarCell
+                        date={date}
+                        className={({ isSelected, isFocused, isSelectionStart, isSelectionEnd, isOutsideMonth }) =>
+                          `flex h-9 w-9 items-center justify-center rounded-md text-sm transition-colors ${
+                            isSelected
+                              ? isSelectionStart || isSelectionEnd
+                                ? 'bg-blue-600 text-white font-semibold'
+                                : 'bg-blue-100 text-blue-900'
+                              : ''
+                          } ${
+                            isFocused ? 'ring-2 ring-blue-600 ring-offset-1' : ''
+                          } ${
+                            isOutsideMonth ? 'text-slate-300' : 'text-slate-900'
+                          } hover:bg-blue-50 ${
+                            !isSelected && !isFocused ? 'hover:bg-slate-100' : ''
+                          }`
+                        }
+                      />
+                    )}
+                  </CalendarGridBody>
+                </CalendarGrid>
+              </RangeCalendar>
+            </Dialog>
+          </MyPopover>
+        )}
       </AriaDateRangePicker>
     </div>
   );
