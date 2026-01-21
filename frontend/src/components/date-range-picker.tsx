@@ -97,7 +97,8 @@ export default function DateRangePicker({
   const [isOpen, setIsOpen] = useState(false);
 
   return (
-    <div className="relative w-full">
+    <div className="relative w-full border border-red-500 p-2">
+      <div className="text-red-600 text-xs font-bold mb-1">DATE PICKER MOUNTED</div>
       <AriaDateRangePicker
         value={range.start && range.end ? { start: range.start, end: range.end } : null}
         onChange={handleChange}
