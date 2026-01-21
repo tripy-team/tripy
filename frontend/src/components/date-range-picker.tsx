@@ -273,10 +273,10 @@ export default function DateRangePicker({
 }
 
 interface MyPopoverProps extends PopoverProps {
-  triggerRef?: React.RefObject<HTMLElement>;
+  placement?: string;
 }
 
-function MyPopover({ triggerRef, placement, ...props }: MyPopoverProps) {
+function MyPopover({ placement, ...props }: MyPopoverProps) {
   return (
     <Popover
       {...props}
