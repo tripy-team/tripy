@@ -18,14 +18,15 @@ const AIRPORTS_BY_CITY: Record<string, { iata: string; name: string; distance_km
   ],
 };
 
-export async function GET(
-  req: Request,
-  context: { params: { cityId: string } }
-) {
+export async function GET(req: Request) {
   const { searchParams } = new URL(req.url);
   const limitParam = searchParams.get("limit") ?? "3";
   const limit = Number(limitParam);
-  const { cityId } = context.params;
+  // For routes like /api/locations/[cityId]/airports, the path ends with /{cityId}/airports
+  const pathname = new URL(req.url).pathname;
+  const segments = pathname.split("/").filter(Boolean);
+  // e.g. ["api", "locations", "{cityId}", "airports"]
+  const cityId = segments.length >= 4 ? decodeURIComponent(segments[segments.length - 2]) : "";
 
   const allAirports = AIRPORTS_BY_CITY[cityId] ?? [];
   const max = Number.isFinite(limit) && limit > 0 ? limit : 3;
