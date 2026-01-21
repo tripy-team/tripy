@@ -206,6 +206,7 @@ export default function DateRangePicker({
         <MyPopover
           placement={activeTrigger === 'end' ? 'bottom end' : 'bottom start'}
           offset={8}
+          triggerRef={activeTrigger === 'end' ? endDateRef : startDateRef}
         >
           <Dialog className="p-4 text-slate-950">
             <RangeCalendar>
@@ -257,11 +258,12 @@ export default function DateRangePicker({
   );
 }
 
-function MyPopover({ placement, ...props }: PopoverProps) {
+function MyPopover({ placement, triggerRef, ...props }: PopoverProps) {
   const placementStr = placement as string | undefined;
   return (
     <Popover
       {...props}
+      triggerRef={triggerRef}
       placement={placement}
       className={({ isEntering, isExiting }) =>
         `rounded-xl bg-white border border-slate-200 shadow-lg ${
