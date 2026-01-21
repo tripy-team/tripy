@@ -264,18 +264,17 @@ export default function DateRangePicker({
   );
 }
 
-interface MyPopoverProps extends PopoverProps {
-  placement?: string;
-}
+interface MyPopoverProps extends PopoverProps {}
 
 function MyPopover({ placement, ...props }: MyPopoverProps) {
+  const placementStr = placement as string | undefined;
   return (
     <Popover
       {...props}
       placement={placement}
       className={({ isEntering, isExiting }) =>
         `rounded-xl bg-white border border-slate-200 shadow-lg ${
-          placement?.includes('end') 
+          placementStr?.includes('end') 
             ? '[&[data-placement^=bottom]]:!right-0 [&[data-placement^=bottom]]:!left-auto' 
             : '[&[data-placement^=bottom]]:!left-0 [&[data-placement^=bottom]]:!right-auto'
         } ${
