@@ -111,7 +111,8 @@ export default function DateRangePicker({
           {/* Start Date Box */}
           <div
             ref={startDateRef}
-            onClick={() => {
+            onMouseDown={(e) => {
+              e.preventDefault();
               setActiveTrigger('start');
               setIsOpen(true);
             }}
@@ -120,26 +121,15 @@ export default function DateRangePicker({
             <Group 
               className="flex w-full items-center px-4 py-3 bg-white border border-slate-200 rounded-xl focus-within:ring-2 focus-within:ring-blue-600 focus-within:border-transparent hover:border-slate-300 transition-colors"
             >
-              <div
-                className="flex items-center gap-3 flex-1 min-w-0"
-                onClick={() => {
-                  setActiveTrigger('start');
-                  setIsOpen(true);
-                }}
-              >
+              <div className="flex items-center gap-3 flex-1 min-w-0">
                 <CalendarIcon className="w-5 h-5 text-slate-400 flex-shrink-0 pointer-events-none" />
                 <div className="flex-1 min-w-0">
-                  <label className="block text-xs text-slate-500 mb-1 uppercase font-bold tracking-wider cursor-pointer" onClick={(e) => e.stopPropagation()}>
+                  <label className="block text-xs text-slate-500 mb-1 uppercase font-bold tracking-wider cursor-pointer">
                     Start Date
                   </label>
                   <DateInput
                     slot="start"
                     className="flex flex-wrap min-w-0 cursor-pointer"
-                    onClick={(e) => {
-                      e.stopPropagation();
-                      setActiveTrigger('start');
-                      setIsOpen(true);
-                    }}
                   >
                     {(segment) => (
                       <DateSegment
@@ -158,7 +148,8 @@ export default function DateRangePicker({
           {/* End Date Box */}
           <div
             ref={endDateRef}
-            onClick={() => {
+            onMouseDown={(e) => {
+              e.preventDefault();
               setActiveTrigger('end');
               setIsOpen(true);
             }}
@@ -167,26 +158,15 @@ export default function DateRangePicker({
             <Group 
               className="flex w-full items-center px-4 py-3 bg-white border border-slate-200 rounded-xl focus-within:ring-2 focus-within:ring-blue-600 focus-within:border-transparent hover:border-slate-300 transition-colors"
             >
-              <div
-                className="flex items-center gap-3 flex-1 min-w-0"
-                onClick={() => {
-                  setActiveTrigger('end');
-                  setIsOpen(true);
-                }}
-              >
+              <div className="flex items-center gap-3 flex-1 min-w-0">
                 <CalendarIcon className="w-5 h-5 text-slate-400 flex-shrink-0 pointer-events-none" />
                 <div className="flex-1 min-w-0">
-                  <label className="block text-xs text-slate-500 mb-1 uppercase font-bold tracking-wider cursor-pointer" onClick={(e) => e.stopPropagation()}>
+                  <label className="block text-xs text-slate-500 mb-1 uppercase font-bold tracking-wider cursor-pointer">
                     End Date
                   </label>
                   <DateInput
                     slot="end"
                     className="flex flex-wrap min-w-0 cursor-pointer"
-                    onClick={(e) => {
-                      e.stopPropagation();
-                      setActiveTrigger('end');
-                      setIsOpen(true);
-                    }}
                   >
                     {(segment) => (
                       <DateSegment
@@ -259,18 +239,13 @@ export default function DateRangePicker({
 }
 
 function MyPopover({ placement, triggerRef, ...props }: PopoverProps) {
-  const placementStr = placement as string | undefined;
   return (
     <Popover
       {...props}
       triggerRef={triggerRef}
       placement={placement}
       className={({ isEntering, isExiting }) =>
-        `rounded-xl bg-white border border-slate-200 shadow-lg ${
-          placementStr?.includes('end')
-            ? '[&[data-placement^=bottom]]:!right-0 [&[data-placement^=bottom]]:!left-auto'
-            : '[&[data-placement^=bottom]]:!left-0 [&[data-placement^=bottom]]:!right-auto'
-        } ${
+        `z-50 rounded-xl bg-white border border-slate-200 shadow-lg ${
           isEntering
             ? 'animate-in fade-in placement-bottom:slide-in-from-top-1 placement-top:slide-in-from-bottom-1 duration-200 ease-out'
             : ''
