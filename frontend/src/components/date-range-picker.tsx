@@ -151,10 +151,6 @@ export default function DateRangePicker({
                         className={`px-0.5 text-sm tabular-nums outline-none rounded focus:bg-blue-100 focus:text-blue-900 cursor-text ${
                           range.start ? 'text-slate-900' : 'text-slate-400'
                         }`}
-                        onFocus={() => {
-                          setActiveTrigger('start');
-                          setIsOpen(true);
-                        }}
                       />
                     )}
                   </DateInput>
@@ -206,10 +202,6 @@ export default function DateRangePicker({
                         className={`px-0.5 text-sm tabular-nums outline-none rounded focus:bg-blue-100 focus:text-blue-900 cursor-text ${
                           range.end ? 'text-slate-900' : 'text-slate-400'
                         }`}
-                        onFocus={() => {
-                          setActiveTrigger('end');
-                          setIsOpen(true);
-                        }}
                       />
                     )}
                   </DateInput>
