@@ -143,10 +143,6 @@ export default function DateRangePicker({
                   <DateInput 
                     slot="start" 
                     className="flex flex-wrap min-w-0 cursor-text"
-                    onFocus={() => {
-                      setActiveTrigger('start');
-                      setIsOpen(true);
-                    }}
                   >
                     {(segment) => (
                       <DateSegment
@@ -197,10 +193,6 @@ export default function DateRangePicker({
                   <DateInput 
                     slot="end" 
                     className="flex flex-wrap min-w-0 cursor-text"
-                    onFocus={() => {
-                      setActiveTrigger('end');
-                      setIsOpen(true);
-                    }}
                   >
                     {(segment) => (
                       <DateSegment
