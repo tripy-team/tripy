@@ -561,22 +561,50 @@ export const cities = {
 };
 
 export const locations = {
-  autocomplete: async (q: string, limit: number = 10): Promise<{ cities: CitySuggestion[] }> => {
-    const endpoint = `/api/locations/autocomplete?q=${encodeURIComponent(q)}&limit=${limit}`;
+  // These hit Next.js route handlers on the same origin as the frontend,
+  // not the FastAPI backend. We use relative URLs instead of BACKEND_URL.
+  autocomplete: async (
+    q: string,
+    limit: number = 10
+  ): Promise<{ cities: CitySuggestion[] }> => {
+    const endpoint = `/api/locations/autocomplete?q=${encodeURIComponent(
+      q
+    )}&limit=${limit}`;
+
     if (typeof window !== 'undefined') {
-      const fullUrl = `${BACKEND_URL.replace(/\/$/, '')}${endpoint}`;
-      console.log('[locations.autocomplete] GET', fullUrl);
+      console.log('[locations.autocomplete] GET', endpoint);
     }
-    return apiRequest<{ cities: CitySuggestion[] }>(endpoint, { method: 'GET' }, false);
+
+    const res = await fetch(endpoint, {
+      method: 'GET',
+      headers: { 'Content-Type': 'application/json' },
+    });
+    if (!res.ok) {
+      throw new Error(res.statusText || 'Failed to fetch city suggestions');
+    }
+    return res.json();
   },
 
-  getAirports: async (cityId: string, limit: number = 3): Promise<{ airports: NearbyAirport[] }> => {
-    const endpoint = `/api/locations/${encodeURIComponent(cityId)}/airports?limit=${limit}`;
+  getAirports: async (
+    cityId: string,
+    limit: number = 3
+  ): Promise<{ airports: NearbyAirport[] }> => {
+    const endpoint = `/api/locations/${encodeURIComponent(
+      cityId
+    )}/airports?limit=${limit}`;
+
     if (typeof window !== 'undefined') {
-      const fullUrl = `${BACKEND_URL.replace(/\/$/, '')}${endpoint}`;
-      console.log('[locations.getAirports] GET', fullUrl);
+      console.log('[locations.getAirports] GET', endpoint);
     }
-    return apiRequest<{ airports: NearbyAirport[] }>(endpoint, { method: 'GET' }, false);
+
+    const res = await fetch(endpoint, {
+      method: 'GET',
+      headers: { 'Content-Type': 'application/json' },
+    });
+    if (!res.ok) {
+      throw new Error(res.statusText || 'Failed to fetch nearby airports');
+    }
+    return res.json();
   },
 };
 
