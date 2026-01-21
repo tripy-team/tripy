@@ -73,29 +73,42 @@ def search_cities(query: str, max_results: int = 10) -> List[Dict[str, Any]]:
                 max=api_max,
                 subType="AIRPORT,CITY",  # Explicitly request both airports and cities
             )
-        except Exception:
-            # Fallback if subType is not supported
-            response = amadeus.reference_data.locations.get(
-                keyword=query,
-                max=api_max,
+        except Exception as e:
+            logger.warning(
+                f"Amadeus API call with subType failed: {e}, trying without subType"
             )
+            # Fallback if subType is not supported
+            try:
+                response = amadeus.reference_data.locations.get(
+                    keyword=query,
+                    max=api_max,
+                )
+            except Exception as e2:
+                logger.error(f"Amadeus API call failed: {e2}")
+                return []
 
         if not response.data:
+            logger.warning(f"Amadeus API returned no data for query '{query}'")
             return []
 
         # Import airport filter to validate commercial airports
+        # Note: Loading this on every request can be slow - consider caching in production
+        commercial_set = None
         try:
             from ..handlers.airport_filter import (
                 is_commercial_airport,
                 load_commercial_iata_set_from_web,
             )
 
-            commercial_set = load_commercial_iata_set_from_web()
-        except Exception:
+            # Only load commercial set if we have results to filter
+            # This avoids slow web requests if API returns no data
+            if response.data:
+                commercial_set = load_commercial_iata_set_from_web()
+        except Exception as e:
             # If airport filter fails, continue without filtering
             commercial_set = None
             logger.warning(
-                "Could not load commercial airport filter, showing all airports"
+                f"Could not load commercial airport filter, showing all airports: {e}"
             )
 
         # Group results by city name to collect all airports per city
@@ -150,45 +163,49 @@ def search_cities(query: str, max_results: int = 10) -> List[Dict[str, Any]]:
         results = []
         seen_cities = set()
 
-        # Prioritize: airports grouped by city first, then cities, then standalone airports
-        # Group airports by city and format as "City Name (AIRPORT)"
-        for city_name_lower, airports in city_groups.items():
-            if city_name_lower not in seen_cities:
-                seen_cities.add(city_name_lower)
+        # If we have grouped airports, process them
+        if city_groups:
+            # Prioritize: airports grouped by city first, then cities, then standalone airports
+            # Group airports by city and format as "City Name (AIRPORT)"
+            for city_name_lower, airports in city_groups.items():
+                if city_name_lower not in seen_cities:
+                    seen_cities.add(city_name_lower)
 
-                # Get the city name from first airport (they should all have same city)
-                city_name = airports[0].get("cityName", city_name_lower.title())
-                country = airports[0].get("countryName", "")
+                    # Get the city name from first airport (they should all have same city)
+                    city_name = airports[0].get("cityName", city_name_lower.title())
+                    country = airports[0].get("countryName", "")
 
-                # Sort airports by IATA code
-                airports_sorted = sorted(airports, key=lambda x: x.get("iataCode", ""))
-
-                # Add each airport as a separate result with city name prefix
-                for airport in airports_sorted:
-                    iata = airport.get("iataCode", "")
-                    airport_name = airport.get("name", "")
-
-                    # Format as "City Name (IATA)" for display
-                    display_name = f"{city_name} ({iata})" if iata else city_name
-
-                    results.append(
-                        {
-                            "id": iata or airport.get("id", ""),
-                            "name": display_name,
-                            "iataCode": iata,
-                            "type": "AIRPORT",
-                            "cityName": city_name,
-                            "countryName": country,
-                            "regionCode": airport.get("regionCode", ""),
-                            "originalName": airport_name,  # Keep original airport name for reference
-                        }
+                    # Sort airports by IATA code
+                    airports_sorted = sorted(
+                        airports, key=lambda x: x.get("iataCode", "")
                     )
+
+                    # Add each airport as a separate result with city name prefix
+                    for airport in airports_sorted:
+                        iata = airport.get("iataCode", "")
+                        airport_name = airport.get("name", "")
+
+                        # Format as "City Name (IATA)" for display
+                        display_name = f"{city_name} ({iata})" if iata else city_name
+
+                        results.append(
+                            {
+                                "id": iata or airport.get("id", ""),
+                                "name": display_name,
+                                "iataCode": iata,
+                                "type": "AIRPORT",
+                                "cityName": city_name,
+                                "countryName": country,
+                                "regionCode": airport.get("regionCode", ""),
+                                "originalName": airport_name,  # Keep original airport name for reference
+                            }
+                        )
+
+                        if len(results) >= max_results:
+                            break
 
                     if len(results) >= max_results:
                         break
-
-                if len(results) >= max_results:
-                    break
 
         # Add city results if we haven't hit the limit
         for city in city_results:
@@ -204,6 +221,29 @@ def search_cities(query: str, max_results: int = 10) -> List[Dict[str, Any]]:
             if len(results) >= max_results:
                 break
             results.append(airport)
+
+        # Fallback: If we have no grouped results but have raw response data,
+        # format it simply without grouping (original behavior)
+        if not results and response.data:
+            logger.warning(
+                f"Grouping produced no results, falling back to simple formatting for query '{query}'"
+            )
+            for item in response.data[:max_results]:
+                iata_code = item.get("iataCode", "")
+                formatted = {
+                    "id": iata_code or item.get("id", ""),
+                    "name": item.get("name", ""),
+                    "iataCode": iata_code,
+                    "type": item.get("type", "location"),
+                }
+
+                if "address" in item:
+                    address = item["address"]
+                    formatted["cityName"] = address.get("cityName", "")
+                    formatted["countryName"] = address.get("countryName", "")
+                    formatted["regionCode"] = address.get("regionCode", "")
+
+                results.append(formatted)
 
         return results[:max_results]
 

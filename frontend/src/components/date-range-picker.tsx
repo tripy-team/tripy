@@ -198,7 +198,7 @@ export default function DateRangePicker({
         </div>
 
         <MyPopover 
-          placement={activeTrigger === 'end' ? 'bottom end' : 'bottom start'}
+          placement="bottom"
           offset={8}
         >
           <Dialog className="p-4 text-slate-950">
@@ -252,17 +252,12 @@ export default function DateRangePicker({
 }
 
 function MyPopover({ placement, ...props }: PopoverProps) {
-  const placementStr = placement as string | undefined;
   return (
     <Popover
       {...props}
-      placement={placement}
+      placement={placement || 'bottom'}
       className={({ isEntering, isExiting }) =>
         `rounded-xl bg-white border border-slate-200 shadow-lg ${
-          placementStr?.includes('end') 
-            ? '[&[data-placement^=bottom]]:!right-0 [&[data-placement^=bottom]]:!left-auto' 
-            : '[&[data-placement^=bottom]]:!left-0 [&[data-placement^=bottom]]:!right-auto'
-        } ${
           isEntering
             ? 'animate-in fade-in placement-bottom:slide-in-from-top-1 placement-top:slide-in-from-bottom-1 duration-200 ease-out'
             : ''
