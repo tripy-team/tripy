@@ -120,20 +120,28 @@ export default function DateRangePicker({
             <Group 
               className="flex w-full items-center px-4 py-3 bg-white border border-slate-200 rounded-xl focus-within:ring-2 focus-within:ring-blue-600 focus-within:border-transparent hover:border-slate-300 transition-colors"
             >
-              <div className="flex items-center gap-3 flex-1 min-w-0">
+              <div className="flex items-center gap-3 flex-1 min-w-0" onClick={() => {
+                setActiveTrigger('start');
+                setIsOpen(true);
+              }}>
                 <CalendarIcon className="w-5 h-5 text-slate-400 flex-shrink-0 pointer-events-none" />
                 <div className="flex-1 min-w-0">
-                  <label className="block text-xs text-slate-500 mb-1 uppercase font-bold tracking-wider pointer-events-none cursor-pointer">
+                  <label className="block text-xs text-slate-500 mb-1 uppercase font-bold tracking-wider cursor-pointer" onClick={(e) => e.stopPropagation()}>
                     Start Date
                   </label>
                   <DateInput 
                     slot="start" 
-                    className="flex flex-wrap min-w-0 cursor-text"
+                    className="flex flex-wrap min-w-0 cursor-pointer"
+                    onClick={(e) => {
+                      e.stopPropagation();
+                      setActiveTrigger('start');
+                      setIsOpen(true);
+                    }}
                   >
                     {(segment) => (
                       <DateSegment
                         segment={segment}
-                        className={`px-0.5 text-sm tabular-nums outline-none rounded focus:bg-blue-100 focus:text-blue-900 cursor-text ${
+                        className={`px-0.5 text-sm tabular-nums outline-none rounded focus:bg-blue-100 focus:text-blue-900 cursor-pointer ${
                           range.start ? 'text-slate-900' : 'text-slate-400'
                         }`}
                       />
@@ -156,20 +164,28 @@ export default function DateRangePicker({
             <Group 
               className="flex w-full items-center px-4 py-3 bg-white border border-slate-200 rounded-xl focus-within:ring-2 focus-within:ring-blue-600 focus-within:border-transparent hover:border-slate-300 transition-colors"
             >
-              <div className="flex items-center gap-3 flex-1 min-w-0">
+              <div className="flex items-center gap-3 flex-1 min-w-0" onClick={() => {
+                setActiveTrigger('end');
+                setIsOpen(true);
+              }}>
                 <CalendarIcon className="w-5 h-5 text-slate-400 flex-shrink-0 pointer-events-none" />
                 <div className="flex-1 min-w-0">
-                  <label className="block text-xs text-slate-500 mb-1 uppercase font-bold tracking-wider pointer-events-none cursor-pointer">
+                  <label className="block text-xs text-slate-500 mb-1 uppercase font-bold tracking-wider cursor-pointer" onClick={(e) => e.stopPropagation()}>
                     End Date
                   </label>
                   <DateInput 
                     slot="end" 
-                    className="flex flex-wrap min-w-0 cursor-text"
+                    className="flex flex-wrap min-w-0 cursor-pointer"
+                    onClick={(e) => {
+                      e.stopPropagation();
+                      setActiveTrigger('end');
+                      setIsOpen(true);
+                    }}
                   >
                     {(segment) => (
                       <DateSegment
                         segment={segment}
-                        className={`px-0.5 text-sm tabular-nums outline-none rounded focus:bg-blue-100 focus:text-blue-900 cursor-text ${
+                        className={`px-0.5 text-sm tabular-nums outline-none rounded focus:bg-blue-100 focus:text-blue-900 cursor-pointer ${
                           range.end ? 'text-slate-900' : 'text-slate-400'
                         }`}
                       />
