@@ -222,7 +222,7 @@ export function DestinationAutocomplete({
             
             return (
               <button
-                key={`${city.id || cityName}-${index}`}
+                key={`${city.city_id || cityName}-${index}`}
                 type="button"
                 onMouseDown={(e) => {
                   e.preventDefault();
