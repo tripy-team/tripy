@@ -694,10 +694,19 @@ async def get_itinerary(
 async def search_cities(request: CitySearchRequest):
     """Search for cities/airports using Amadeus API"""
     try:
+        logger.info(
+            f"City search request - query: '{request.query}', max_results: {request.max_results or 10}"
+        )
         results = city_service.search_cities(request.query, request.max_results or 10)
+        logger.info(
+            f"City search returned {len(results)} results for query '{request.query}'"
+        )
         return {"cities": results}
     except Exception as e:
-        logger.error(f"Error searching cities: {str(e)}")
+        logger.error(
+            f"Error searching cities for query '{request.query}': {str(e)}",
+            exc_info=True,
+        )
         raise HTTPException(status_code=500, detail=str(e))
 
 
@@ -712,7 +721,13 @@ async def search_cities_get(query: str, max_results: Optional[int] = 10):
                 status_code=400, detail="max_results must be between 1 and 50"
             )
 
+        logger.info(
+            f"City search GET request - query: '{query}', max_results: {max_results or 10}"
+        )
         results = city_service.search_cities(query, max_results or 10)
+        logger.info(
+            f"City search GET returned {len(results)} results for query '{query}'"
+        )
         return {"cities": results}
     except HTTPException:
         raise

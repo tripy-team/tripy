@@ -2,10 +2,14 @@
 City/Airport search and suggestions using Amadeus API
 """
 import os
+import logging
 from typing import List, Dict, Any, Optional
 from dotenv import load_dotenv
 
 load_dotenv()
+
+# Configure logger
+logger = logging.getLogger(__name__)
 
 
 def get_amadeus_client():
@@ -13,6 +17,7 @@ def get_amadeus_client():
     try:
         from amadeus import Client as Amadeus
     except ImportError:
+        logger.error("amadeus package not installed. Install with: pip install amadeus")
         raise ImportError("amadeus package not installed. Install with: pip install amadeus")
     
     client_id = os.getenv("AMADEUS_CLIENT_ID")
@@ -20,9 +25,14 @@ def get_amadeus_client():
     
     if not client_id or not client_secret:
         # Return None if credentials not available - allow graceful degradation
+        logger.warning("AMADEUS_CLIENT_ID or AMADEUS_CLIENT_SECRET not set in environment variables")
         return None
     
-    return Amadeus(client_id=client_id, client_secret=client_secret)
+    try:
+        return Amadeus(client_id=client_id, client_secret=client_secret)
+    except Exception as e:
+        logger.error(f"Failed to create Amadeus client: {e}")
+        raise
 
 
 def search_cities(query: str, max_results: int = 10) -> List[Dict[str, Any]]:
@@ -74,6 +84,7 @@ def search_cities(query: str, max_results: int = 10) -> List[Dict[str, Any]]:
         return results
     
     except Exception as e:
-        # Fallback: return empty list on error
-        print(f"City search error: {e}")
+        # Log error details for debugging
+        logger.error(f"City search error for query '{query}': {e}", exc_info=True)
+        # Return empty list on error to allow graceful degradation
         return []
