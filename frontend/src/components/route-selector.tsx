@@ -1,7 +1,7 @@
 'use client';
 
 import { useState, useRef } from 'react';
-import { Popover, Dialog, Button } from 'react-aria-components';
+import { Popover, Dialog } from 'react-aria-components';
 import { ChevronDown, MapPin, Zap, TrendingUp } from 'lucide-react';
 
 interface Route {
