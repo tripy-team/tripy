@@ -18,11 +18,14 @@ const AIRPORTS_BY_CITY: Record<string, { iata: string; name: string; distance_km
   ],
 };
 
-export async function GET(req: Request, { params }: { params: { cityId: string } }) {
+export async function GET(
+  req: Request,
+  context: { params: { cityId: string } }
+) {
   const { searchParams } = new URL(req.url);
   const limitParam = searchParams.get("limit") ?? "3";
   const limit = Number(limitParam);
-  const cityId = params.cityId;
+  const { cityId } = context.params;
 
   const allAirports = AIRPORTS_BY_CITY[cityId] ?? [];
   const max = Number.isFinite(limit) && limit > 0 ? limit : 3;
