@@ -154,7 +154,13 @@ export default function DateRangePicker({
   return (
     <div className="relative w-full">
       <AriaDateRangePicker
-        value={range.start || range.end ? { start: range.start, end: range.end } : null}
+        value={
+          range.start && range.end
+            ? { start: range.start, end: range.end }
+            : range.start
+              ? { start: range.start, end: range.start }
+              : null
+        }
         onChange={handleChange}
         isDisabled={disabled}
         minValue={today(getLocalTimeZone())}
