@@ -6,6 +6,7 @@ import Image from 'next/image';
 import { useRouter } from 'next/navigation';
 import { useEffect, useState } from 'react';
 import { trips as tripsAPI } from '@/lib/api';
+import { getOptimizedImageUrl } from '@/lib/image-utils';
 
 interface Trip {
   id: string;
