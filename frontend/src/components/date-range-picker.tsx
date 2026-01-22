@@ -32,7 +32,11 @@ interface DateRangePickerProps {
   isOneWay?: boolean;
 }
 
-type DateRangeValue = { start: DateValue | null; end: DateValue | null };
+type DateRangeValue = {
+  start: DateValue;
+  end: DateValue;
+} | null;
+
 
 // react-aria DateInput render prop receives a DateSegment-like object.
 // Some versions don't type `isPlaceholder`, so guard safely.
@@ -226,12 +230,10 @@ function RoundTripDateRangePicker({
   const endRef = useRef<HTMLDivElement>(null);
   const [activeTrigger, setActiveTrigger] = useState<'start' | 'end'>('start');
 
-  const controlledValue = useMemo(() => {
+  const controlledValue: DateRangeValue = useMemo(() => {
     try {
       if (!startDate || !endDate) return null;
-      const start = parseDate(startDate);
-      const end = parseDate(endDate);
-      return { start, end };
+      return { start: parseDate(startDate), end: parseDate(endDate) };
     } catch {
       return null;
     }

@@ -1,11 +1,36 @@
 /**
  * City Formatter Utility
- * 
+ *
  * Helper functions to format city names with airport codes
- * and search for cities to get their codes for autopopulation
+ * and search for cities to get their codes for autopopulation.
  */
 
 import { cities as citiesAPI, CitySearchResult } from './api';
+
+function isFormattedCity(s: string) {
+  return /^.+ \([A-Za-z]{3}\)$/.test(s.trim());
+}
+
+function normalizeCityKey(s: string) {
+  // For dedupe: strip code suffix, lower-case, trim spaces
+  return s
+    .trim()
+    .replace(/\s*\([A-Za-z]{3}\)\s*$/, '')
+    .toLowerCase();
+}
+
+function extractCitiesFromResponse(resp: any): CitySearchResult[] {
+  // Support common shapes:
+  // { cities: [...] }, { data: { cities: [...] } }, { results: [...] }, [...]
+  if (!resp) return [];
+
+  if (Array.isArray(resp)) return resp as CitySearchResult[];
+  if (Array.isArray(resp.cities)) return resp.cities as CitySearchResult[];
+  if (resp.data && Array.isArray(resp.data.cities)) return resp.data.cities as CitySearchResult[];
+  if (Array.isArray(resp.results)) return resp.results as CitySearchResult[];
+
+  return [];
+}
 
 /**
  * Format a city name with its airport code
@@ -13,21 +38,20 @@ import { cities as citiesAPI, CitySearchResult } from './api';
  */
 export function formatCityWithCode(city: CitySearchResult | string): string {
   if (typeof city === 'string') {
+    const s = city.trim();
+    if (!s) return '';
     // If it's already formatted as "City (CODE)", return as-is
-    if (/^.+ \(\w{3}\)$/.test(city)) {
-      return city;
-    }
-    // Otherwise, return the string as-is (will be formatted when searched)
-    return city;
+    if (isFormattedCity(s)) return s;
+    return s;
   }
-  
-  const cityName = city.name || city.cityName || '';
-  const iataCode = city.iataCode || city.id || '';
-  
+
+  const cityName = (city.name || (city as any).cityName || '').trim();
+  const iataCode = (city.iataCode || (city as any).id || '').toString().trim();
+
   if (iataCode && iataCode.length === 3) {
-    return `${cityName} (${iataCode.toUpperCase()})`;
+    return `${cityName} (${iataCode.toUpperCase()})`.trim();
   }
-  
+
   return cityName;
 }
 
@@ -36,46 +60,88 @@ export function formatCityWithCode(city: CitySearchResult | string): string {
  * Used for autopopulation from chatbot
  */
 export async function searchAndFormatCity(cityName: string): Promise<string> {
-  if (!cityName || !cityName.trim()) {
-    return cityName;
-  }
-  
+  const input = (cityName || '').trim();
+  if (!input) return '';
+
   // If already formatted, return as-is
-  if (/^.+ \(\w{3}\)$/.test(cityName.trim())) {
-    return cityName.trim();
-  }
-  
+  if (isFormattedCity(input)) return input;
+
   try {
-    // Search for the city
-    const response = await citiesAPI.search(cityName.trim(), 5);
-    
-    if (response && response.cities && response.cities.length > 0) {
-      // Get the best match (first result, which should be sorted by relevance)
-      const bestMatch = response.cities[0];
-      return formatCityWithCode(bestMatch);
+    const resp = await citiesAPI.search(input, 5);
+    const results = extractCitiesFromResponse(resp);
+
+    if (results.length > 0) {
+      const bestMatch = results[0];
+      const formatted = formatCityWithCode(bestMatch);
+      return formatted || input;
     }
-    
-    // If no match found, return the original city name
-    return cityName.trim();
+
+    return input;
   } catch (error) {
     console.error('Error searching for city:', error);
-    // Return original name if search fails
-    return cityName.trim();
+    return input;
   }
 }
 
 /**
+ * Concurrency-limited mapper (prevents 10+ parallel calls spiking the UI / API)
+ */
+async function mapLimit<T, R>(
+  items: T[],
+  limit: number,
+  fn: (item: T, idx: number) => Promise<R>
+): Promise<R[]> {
+  const out: R[] = new Array(items.length) as any;
+  let i = 0;
+
+  const workers = new Array(Math.min(limit, items.length)).fill(0).map(async () => {
+    while (i < items.length) {
+      const idx = i++;
+      out[idx] = await fn(items[idx], idx);
+    }
+  });
+
+  await Promise.all(workers);
+  return out;
+}
+
+/**
  * Search and format multiple cities
+ * - trims
+ * - drops empty
+ * - dedupes by base city (ignores "(CODE)")
  */
 export async function searchAndFormatCities(cityNames: string[]): Promise<string[]> {
-  if (!cityNames || cityNames.length === 0) {
-    return [];
+  if (!cityNames || cityNames.length === 0) return [];
+
+  const cleaned = cityNames.map((c) => (c || '').trim()).filter(Boolean);
+  if (cleaned.length === 0) return [];
+
+  // Deduplicate inputs first to avoid redundant API calls
+  const seen = new Set<string>();
+  const uniqueInputs: string[] = [];
+  for (const c of cleaned) {
+    const key = normalizeCityKey(c);
+    if (!seen.has(key)) {
+      seen.add(key);
+      uniqueInputs.push(c);
+    }
   }
-  
-  // Search all cities in parallel
-  const formatted = await Promise.all(
-    cityNames.map(city => searchAndFormatCity(city))
-  );
-  
-  return formatted;
+
+  const formatted = await mapLimit(uniqueInputs, 4, async (city) => searchAndFormatCity(city));
+
+  // Final pass: remove empties + dedupe again (now that codes may exist)
+  const finalSeen = new Set<string>();
+  const final: string[] = [];
+  for (const c of formatted) {
+    const s = (c || '').trim();
+    if (!s) continue;
+    const key = normalizeCityKey(s);
+    if (!finalSeen.has(key)) {
+      finalSeen.add(key);
+      final.push(s);
+    }
+  }
+
+  return final;
 }
