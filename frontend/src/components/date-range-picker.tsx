@@ -32,6 +32,7 @@ interface DateRangePickerProps {
   onStartDateChange: (date: string) => void;
   onEndDateChange: (date: string) => void;
   disabled?: boolean;
+  isOneWay?: boolean;
 }
 
 type DateRangeValue = { start: DateValue | null; end: DateValue | null };
@@ -50,6 +51,7 @@ export default function DateRangePicker({
   onStartDateChange,
   onEndDateChange,
   disabled = false,
+  isOneWay = false,
 }: DateRangePickerProps) {
   const getDateValue = (): DateRangeValue => {
     try {
@@ -101,8 +103,12 @@ export default function DateRangePicker({
       if (newEndStr !== endDate) onEndDateChange(newEndStr);
     }
 
-    // Close popover when both start and end dates are selected
-    if (value.start && value.end) {
+    // Close popover when:
+    // 1. Both start and end dates are selected (round trip)
+    // 2. Start date is selected and it's a one-way trip
+    if (isOneWay && value.start) {
+      setIsOpen(false);
+    } else if (!isOneWay && value.start && value.end) {
       setIsOpen(false);
     }
   };
@@ -170,17 +176,23 @@ export default function DateRangePicker({
           {/* End Date Box */}
           <div
             ref={endDateRef}
-            className="cursor-pointer w-full"
+            className={`w-full ${isOneWay ? 'opacity-50 cursor-not-allowed' : 'cursor-pointer'}`}
             onClick={() => {
-              setActiveTrigger('end');
-              setIsOpen(true);
+              if (!isOneWay) {
+                setActiveTrigger('end');
+                setIsOpen(true);
+              }
             }}
           >
             <Group
-              className="flex w-full items-center px-4 py-3 bg-white border border-slate-200 rounded-xl focus-within:ring-2 focus-within:ring-blue-600 focus-within:border-transparent hover:border-slate-300 transition-colors"
+              className={`flex w-full items-center px-4 py-3 bg-white border border-slate-200 rounded-xl focus-within:ring-2 focus-within:ring-blue-600 focus-within:border-transparent transition-colors ${
+                isOneWay ? 'cursor-not-allowed' : 'hover:border-slate-300'
+              }`}
               onFocusCapture={() => {
-                setActiveTrigger('end');
-                setIsOpen(true);
+                if (!isOneWay) {
+                  setActiveTrigger('end');
+                  setIsOpen(true);
+                }
               }}
             >
               <div className="flex items-center gap-3 flex-1 min-w-0">
@@ -190,22 +202,28 @@ export default function DateRangePicker({
                     End Date
                   </label>
 
-                  <DateInput slot="end" className="flex flex-wrap min-w-0 cursor-pointer">
-                    {(segment) => renderSegment(segment)}
-                  </DateInput>
+                  {isOneWay ? (
+                    <div className="text-sm text-slate-400 italic">One-way trip</div>
+                  ) : (
+                    <DateInput slot="end" className="flex flex-wrap min-w-0 cursor-pointer">
+                      {(segment) => renderSegment(segment)}
+                    </DateInput>
+                  )}
                 </div>
               </div>
             </Group>
           </div>
         </div>
 
-        {/* Popover: only render while open so clicking outside hides the calendar */}
+        {/* Popover: conditionally render and handle click-outside */}
         {isOpen && (
           <MyPopover
             key={activeTrigger}
             triggerRef={activeTrigger === 'end' ? endDateRef : startDateRef}
             placement={activeTrigger === 'end' ? 'bottom end' : 'bottom start'}
             offset={8}
+            isOpen={isOpen}
+            onOpenChange={setIsOpen}
           >
             <Dialog className="p-4 text-slate-950">
               <RangeCalendar>
@@ -273,13 +291,15 @@ export default function DateRangePicker({
   );
 }
 
-function MyPopover({ triggerRef, placement, ...props }: PopoverProps) {
+function MyPopover({ triggerRef, placement, isOpen, onOpenChange, ...props }: PopoverProps & { isOpen?: boolean; onOpenChange?: (isOpen: boolean) => void }) {
   return (
     <Popover
       {...props}
       triggerRef={triggerRef}
       placement={placement}
       shouldFlip={false}
+      isOpen={isOpen}
+      onOpenChange={onOpenChange}
       className={({ isEntering, isExiting }) =>
         [
           'z-50 rounded-xl bg-white border border-slate-200 shadow-lg',

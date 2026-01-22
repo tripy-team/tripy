@@ -3,9 +3,8 @@
 import { useState, useEffect } from 'react';
 import { useRouter } from 'next/navigation';
 import { X, Calendar, DollarSign, Zap, MapPin, Sparkles, CreditCard, MessageCircle, Plane, Backpack, Armchair, Coffee, Wine, Crown, BedDouble, Star } from 'lucide-react';
-import { createTrip, addDestination, upsertPoints, users as usersAPI } from '@/lib/api';
+import { createTrip, addDestination, upsertPoints, users as usersAPI, ExtractedTripInfo } from '@/lib/api';
 import TripChatbotInline from '@/components/trip-chatbot-inline';
-import { ExtractedTripInfo } from '@/lib/trip-extractor';
 import { DestinationAutocomplete } from '@/components/ui/DestinationAutocomplete';
 import { CityAutocomplete } from '@/components/CityAutocomplete';
 import { searchAndFormatCity, searchAndFormatCities } from '@/lib/city-formatter';
@@ -31,6 +30,7 @@ export default function SoloTripSetup() {
   const [isFlexible, setIsFlexible] = useState(false);
   const [startDate, setStartDate] = useState('');
   const [endDate, setEndDate] = useState('');
+  const [isOneWay, setIsOneWay] = useState(false);
   const [flexibleDuration, setFlexibleDuration] = useState(7); // Default days if flexible
 
   // Cities State
@@ -277,8 +277,12 @@ export default function SoloTripSetup() {
       setError('Please add at least 1 destination city');
       return;
     }
-    if (!isFlexible && (!startDate || !endDate)) {
-      setError('Please select travel dates');
+    if (!isFlexible && !startDate) {
+      setError('Please select a start date');
+      return;
+    }
+    if (!isFlexible && !isOneWay && !endDate) {
+      setError('Please select an end date');
       return;
     }
 
@@ -293,7 +297,7 @@ export default function SoloTripSetup() {
       const trip = await createTrip({
         title: tripTitle,
         start_date: isFlexible ? '' : startDate,
-        end_date: isFlexible ? '' : endDate,
+        end_date: isFlexible || isOneWay ? '' : endDate,
       });
 
       // 2. Add start destination if provided
@@ -538,11 +542,12 @@ export default function SoloTripSetup() {
                     endDate={endDate}
                     onStartDateChange={setStartDate}
                     onEndDateChange={setEndDate}
+                    isOneWay={isOneWay}
                   />
                 </div>
 
-                {/* Flexible Dates Checkbox */}
-                <div className="flex items-center justify-start pt-2">
+                {/* Flexible Dates and One-way Trip Checkboxes */}
+                <div className="flex flex-wrap items-center gap-6 pt-2">
                   <label className="flex items-center gap-2 cursor-pointer select-none group inline-flex">
                     <input
                       type="checkbox"
@@ -551,6 +556,21 @@ export default function SoloTripSetup() {
                       className="w-4 h-4"
                     />
                     <span className="text-sm text-slate-600 group-hover:text-slate-900 transition-colors">Flexible dates</span>
+                  </label>
+
+                  <label className="flex items-center gap-2 cursor-pointer select-none group inline-flex">
+                    <input
+                      type="checkbox"
+                      checked={isOneWay}
+                      onChange={(e) => {
+                        setIsOneWay(e.target.checked);
+                        if (e.target.checked) {
+                          setEndDate('');
+                        }
+                      }}
+                      className="w-4 h-4"
+                    />
+                    <span className="text-sm text-slate-600 group-hover:text-slate-900 transition-colors">One-way trip</span>
                   </label>
                 </div>
 
@@ -758,7 +778,7 @@ export default function SoloTripSetup() {
               {/* Generate Button */}
               <button
                 onClick={handleGenerate}
-                disabled={!startDestination || !endDestination || cities.length < 1 || (!isFlexible && (!startDate || !endDate)) || isGenerating}
+                disabled={!startDestination || !endDestination || cities.length < 1 || (!isFlexible && (!startDate || (!isOneWay && !endDate))) || isGenerating}
                 className="w-full px-6 py-4 bg-yellow-400 text-slate-900 rounded-xl hover:bg-yellow-500 transition-all disabled:opacity-50 disabled:cursor-not-allowed flex items-center justify-center gap-2 text-lg shadow-lg shadow-yellow-400/20 font-semibold"
               >
                 <Zap className="w-5 h-5" />

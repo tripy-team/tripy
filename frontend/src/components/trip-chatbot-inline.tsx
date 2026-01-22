@@ -2,7 +2,7 @@
 
 import { useState, useRef, useEffect } from 'react';
 import { Send } from 'lucide-react';
-import { extractTripInfo, ExtractedTripInfo } from '@/lib/trip-extractor';
+import { tripExtraction, ExtractedTripInfo } from '@/lib/api';
 
 interface Message {
   id: string;
@@ -89,14 +89,34 @@ export default function TripChatbotInline({ onExtract }: TripChatbotInlineProps)
     // Simulate bot thinking
     await new Promise(resolve => setTimeout(resolve, 500));
 
-    // Extract information
-    const extracted = extractTripInfo(userMessage.text);
+    // Extract information using OpenAI
+    let extracted: ExtractedTripInfo;
+    try {
+      extracted = await tripExtraction.extract(userMessage.text);
+    } catch (error) {
+      console.error('Error extracting trip info:', error);
+      // Fallback to empty extraction on error
+      extracted = {
+        cities: [],
+        startDestination: null,
+        endDestination: null,
+        startDate: null,
+        endDate: null,
+        duration: null,
+        isFlexible: null,
+        minBudget: null,
+        maxBudget: null,
+        creditCards: null,
+        flightClass: null,
+        hotelClass: null,
+      };
+    }
 
     // Generate bot response
     let botResponse = '';
     const extractedItems: string[] = [];
 
-    if (extracted.cities.length > 0) {
+    if (extracted.cities && extracted.cities.length > 0) {
       extractedItems.push(`📍 Cities: ${extracted.cities.join(', ')}`);
     }
     if (extracted.startDate && extracted.endDate) {

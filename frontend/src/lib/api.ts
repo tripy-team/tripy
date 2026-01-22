@@ -672,3 +672,28 @@ export const getPointsSummary = points.summary;
 export const generateItinerary = itineraries.generate;
 export const getItinerary = itineraries.get;
 export const searchCities = cities.search;
+
+// Trip Information Extraction API (public, no auth required)
+export interface ExtractedTripInfo {
+  cities: string[];
+  startDestination?: string | null;
+  endDestination?: string | null;
+  startDate?: string | null;
+  endDate?: string | null;
+  duration?: number | null;
+  isFlexible?: boolean | null;
+  minBudget?: number | null;
+  maxBudget?: number | null;
+  creditCards?: Array<{ program: string; points: number }> | null;
+  flightClass?: string | null;
+  hotelClass?: string | null;
+}
+
+export const tripExtraction = {
+  extract: async (text: string): Promise<ExtractedTripInfo> => {
+    return apiRequest<ExtractedTripInfo>('/extract-trip-info', {
+      method: 'POST',
+      body: JSON.stringify({ text }),
+    }, false); // requireAuth = false for trip extraction
+  },
+};

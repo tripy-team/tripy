@@ -3,9 +3,8 @@
 import { useState, useEffect } from 'react';
 import { useRouter } from 'next/navigation';
 import { Users, MapPin, Calendar, DollarSign, Zap, Sparkles, CreditCard, X, Copy, Check, ArrowRight, MessageCircle, RefreshCw, Baby, User, Info, Plane, Backpack, Armchair, Coffee, Wine, Crown, BedDouble, Star } from 'lucide-react';
-import { createTrip, addDestination, users as usersAPI, trips as tripsAPI } from '@/lib/api';
+import { createTrip, addDestination, users as usersAPI, trips as tripsAPI, ExtractedTripInfo } from '@/lib/api';
 import TripChatbotInline from '@/components/trip-chatbot-inline';
-import { ExtractedTripInfo } from '@/lib/trip-extractor';
 import { DestinationAutocomplete } from '@/components/ui/DestinationAutocomplete';
 import { CityAutocomplete } from '@/components/CityAutocomplete';
 import DateRangePicker from '@/components/date-range-picker';

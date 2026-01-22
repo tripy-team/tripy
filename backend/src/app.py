@@ -39,6 +39,7 @@ from .utils.analytics import (
 )
 from .utils.jwt_auth import get_current_user_id
 from .utils.loyalty_programs import validate_program
+from .handlers.openAI import extract_trip_info_with_openai
 
 # Get CORS origins from environment variable
 CORS_ORIGINS_ENV = os.environ.get("CORS_ORIGINS", "")
@@ -180,6 +181,10 @@ class JoinTripRequest(BaseModel):
     invite_code: str = Field(..., min_length=1)
 
 
+class ExtractTripInfoRequest(BaseModel):
+    text: str = Field(..., min_length=1, description="Natural language text describing the trip")
+
+
 @app.get("/healthz")
 def health():
     """Health check endpoint"""
@@ -199,6 +204,23 @@ async def ingest(req: Request):
     except Exception as e:
         logger.error(f"Error processing ingest request: {str(e)}")
         raise HTTPException(status_code=500, detail="Error processing request")
+
+
+@app.post("/extract-trip-info")
+async def extract_trip_info(request: ExtractTripInfoRequest):
+    """Extract trip information from natural language using OpenAI"""
+    try:
+        extracted = extract_trip_info_with_openai(request.text)
+        # FastAPI automatically serializes Pydantic models to JSON
+        # Use model_dump() for explicit conversion (Pydantic v2)
+        try:
+            return extracted.model_dump()
+        except AttributeError:
+            # Fallback for Pydantic v1 compatibility
+            return extracted.dict()
+    except Exception as e:
+        logger.error(f"Error extracting trip info: {str(e)}")
+        raise HTTPException(status_code=500, detail=f"Error extracting trip information: {str(e)}")
 
 
 # Auth endpoints (no authentication required)
