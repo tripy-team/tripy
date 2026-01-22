@@ -77,6 +77,21 @@ export default function DateRangePicker({
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [startDate, endDate]);
 
+  // Close popover when dates are complete
+  useEffect(() => {
+    if (isOpen) {
+      const currentRange = getDateValue();
+      if (isOneWay && currentRange.start) {
+        // Close for one-way trips when start date is set
+        setIsOpen(false);
+      } else if (!isOneWay && currentRange.start && currentRange.end) {
+        // Close for round trips when both dates are set
+        setIsOpen(false);
+      }
+    }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [startDate, endDate, isOneWay, isOpen]);
+
   // Handle click outside and Escape key to close popover
   useEffect(() => {
     if (!isOpen) return;
@@ -148,14 +163,8 @@ export default function DateRangePicker({
       if (newEndStr !== endDate) onEndDateChange(newEndStr);
     }
 
-    // Close popover when:
-    // 1. Both start and end dates are selected (round trip)
-    // 2. Start date is selected and it's a one-way trip
-    if (isOneWay && value.start) {
-      setIsOpen(false);
-    } else if (!isOneWay && value.start && value.end) {
-      setIsOpen(false);
-    }
+    // Note: Closing is handled by useEffect watching startDate/endDate
+    // This ensures the popover closes after state updates complete
   };
 
   const renderSegment = (segment: unknown) => {
