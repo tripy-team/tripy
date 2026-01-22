@@ -4,7 +4,7 @@ import { useState, use, useEffect } from 'react';
 import { useRouter } from 'next/navigation';
 import { DollarSign, Zap, Users, Calendar, Plane, MessageSquare, Bed, Backpack, Armchair, Coffee, Wine, Crown, BedDouble, Star, User, Baby, Info, Copy, ChevronDown } from 'lucide-react';
 import { trips as tripsAPI, points as pointsAPI } from '@/lib/api';
-import { AirportAutocomplete } from '@/components/ui/AirportAutocomplete';
+import AirportAutocomplete from '@/components/ui/AirportAutocomplete';
 
 interface TripInfo {
     name: string;

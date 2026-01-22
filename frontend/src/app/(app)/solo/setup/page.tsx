@@ -6,7 +6,7 @@ import { X, Calendar, DollarSign, Zap, MapPin, Sparkles, CreditCard, MessageCirc
 import { createTrip, addDestination, upsertPoints, users as usersAPI, ExtractedTripInfo } from '@/lib/api';
 import TripChatbotInline from '@/components/trip-chatbot-inline';
 import { DestinationAutocomplete } from '@/components/ui/DestinationAutocomplete';
-import { AirportAutocomplete } from '@/components/ui/AirportAutocomplete';
+import AirportAutocomplete from '@/components/ui/AirportAutocomplete';
 import { searchAndFormatCities } from '@/lib/city-formatter';
 import { searchAndFormatAirport } from '@/lib/airport-formatter';
 import DateRangePicker from '@/components/date-range-picker';

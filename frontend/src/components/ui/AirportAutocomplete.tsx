@@ -1,298 +1,247 @@
-'use client';
+"use client";
 
-import { useState, useEffect, useRef } from 'react';
-import { Plane } from 'lucide-react';
-import { locations, type AirportSuggestion } from '@/lib/api';
+import React, { useEffect, useMemo, useRef, useState } from "react";
+import type { Airport } from "@/data/airports";
+import { AIRPORTS, METRO_MAPPINGS } from "@/data/airports";
+import { searchAirports, highlightMatch } from "@/lib/locationSearch";
 
-interface AirportAutocompleteProps {
-  // The current text value of the input (controlled component)
+type Props = {
   value: string;
-  
-  // Callback when the input value changes or an airport is selected
   onChange: (value: string) => void;
-  
-  // Optional placeholder text
   placeholder?: string;
-  
-  // Optional label (though typically handled by external UI)
-  label?: string;
-  
-  // Disables the input
   disabled?: boolean;
-  
-  // Additional CSS classes
   className?: string;
-  
-  // Optional callback specifically when a user clicks a suggestion
   onSelect?: (value: string) => void;
-  
-  // Optional keyboard event handler (e.g., for handling 'Enter')
   onKeyDown?: (e: React.KeyboardEvent<HTMLInputElement>) => void;
-
-  // Autofocus the input on mount
   autoFocus?: boolean;
+  recentKey?: string; // localStorage key
+};
+
+type RecentItem = { iata: string; ts: number };
+
+function formatLabel(a: Airport) {
+  const region = [a.city, a.state].filter(Boolean).join(", ");
+  return `${a.iata} – ${region}, ${a.country}`;
 }
 
-export function AirportAutocomplete({
+function saveRecent(key: string, iata: string) {
+  try {
+    const raw = localStorage.getItem(key);
+    const prev: RecentItem[] = raw ? JSON.parse(raw) : [];
+    const next = [
+      { iata, ts: Date.now() },
+      ...prev.filter((x) => x.iata !== iata),
+    ].slice(0, 6);
+    localStorage.setItem(key, JSON.stringify(next));
+  } catch {}
+}
+
+function loadRecent(key: string): RecentItem[] {
+  try {
+    const raw = localStorage.getItem(key);
+    return raw ? (JSON.parse(raw) as RecentItem[]) : [];
+  } catch {
+    return [];
+  }
+}
+
+export default function AirportAutocomplete({
   value,
   onChange,
-  placeholder = 'Search airports...',
-  label: _label, // Intentionally unused - handled by external UI
+  placeholder = "City or airport",
   disabled = false,
-  className = '',
+  className = "",
   onSelect,
   onKeyDown,
   autoFocus = false,
-}: AirportAutocompleteProps) {
-  const [suggestions, setSuggestions] = useState<AirportSuggestion[]>([]);
-  const [showSuggestions, setShowSuggestions] = useState(false);
-  const [isLoading, setIsLoading] = useState(false);
-  const [highlightIndex, setHighlightIndex] = useState(-1);
-  const wrapperRef = useRef<HTMLDivElement>(null);
+  recentKey = "recent_airports",
+}: Props) {
+  const [open, setOpen] = useState(false);
+  const [activeIdx, setActiveIdx] = useState(0);
+  const [recent, setRecent] = useState<RecentItem[]>([]);
+  const wrapperRef = useRef<HTMLDivElement | null>(null);
+  const inputRef = useRef<HTMLInputElement | null>(null);
 
-  // Close suggestions when clicking outside
+  // load recent once
   useEffect(() => {
-    function handleClickOutside(event: MouseEvent) {
-      if (wrapperRef.current && !wrapperRef.current.contains(event.target as Node)) {
-        setShowSuggestions(false);
-      }
-    }
+    setRecent(loadRecent(recentKey));
+  }, [recentKey]);
 
-    document.addEventListener('mousedown', handleClickOutside);
-    return () => document.removeEventListener('mousedown', handleClickOutside);
+  // close on outside click
+  useEffect(() => {
+    function onDocClick(e: MouseEvent) {
+      if (!wrapperRef.current) return;
+      if (!wrapperRef.current.contains(e.target as Node)) setOpen(false);
+    }
+    document.addEventListener("mousedown", onDocClick);
+    return () => document.removeEventListener("mousedown", onDocClick);
   }, []);
 
-  // OpenAI-powered airport search
+  // debounced query for smoother typing
+  const [debounced, setDebounced] = useState(value);
   useEffect(() => {
-    // Only search if user has typed at least 1 character
-    if (!value.trim() || value.length < 1) {
-      setSuggestions([]);
-      setShowSuggestions(false);
-      return;
-    }
-
-    const timeoutId = setTimeout(async () => {
-      setIsLoading(true);
-      try {
-        // Use OpenAI API for airport search - handles codes, names, cities, and variations
-        const response = await locations.airportsAutocomplete(value.trim(), 12);
-        const airports = response?.airports ?? [];
-        
-        setSuggestions(airports);
-        // Always show suggestions if we have results
-        if (airports.length > 0) {
-          setShowSuggestions(true);
-          setHighlightIndex(0);
-        } else {
-          setShowSuggestions(false);
-          setHighlightIndex(-1);
-        }
-      } catch (error) {
-        console.error('[AirportAutocomplete] Error searching airports:', error);
-        setSuggestions([]);
-        setShowSuggestions(false);
-        setHighlightIndex(-1);
-      } finally {
-        setIsLoading(false);
-      }
-    }, 300); // Debounce for API calls
-
-    return () => clearTimeout(timeoutId);
+    const t = setTimeout(() => setDebounced(value), 80);
+    return () => clearTimeout(t);
   }, [value]);
 
-  const handleSelect = (airport: AirportSuggestion) => {
-    // Use IATA code as the value (e.g., "JFK")
-    const formattedValue = airport.iata_code;
-    
+  const recentAirports = useMemo(() => {
+    const map = new Map(AIRPORTS.map((a) => [a.iata.toUpperCase(), a]));
+    return recent
+      .map((r) => map.get(r.iata.toUpperCase()))
+      .filter(Boolean) as Airport[];
+  }, [recent]);
+
+  const results = useMemo(() => {
+    const q = debounced.trim();
+    if (!q) return [];
+    return searchAirports(AIRPORTS, q, 10);
+  }, [debounced]);
+
+  // display list: if empty query, show recents; else show results
+  const list: Airport[] = useMemo(() => {
+    if (debounced.trim().length === 0) return recentAirports;
+    return results;
+  }, [debounced, recentAirports, results]);
+
+  const showRecents = debounced.trim().length === 0 && recentAirports.length > 0;
+
+  function commitSelect(a: Airport) {
+    saveRecent(recentKey, a.iata);
+    setRecent(loadRecent(recentKey));
+    const formattedValue = a.iata; // Use IATA code as value
     onChange(formattedValue);
     if (onSelect) {
       onSelect(formattedValue);
     }
-    setShowSuggestions(false);
-    setHighlightIndex(-1);
-  };
+    setOpen(false);
+  }
 
-  const handleKeyDownInternal = (e: React.KeyboardEvent<HTMLInputElement>) => {
-    if (!showSuggestions || suggestions.length === 0) {
-      // If no suggestions, handle Enter and Escape normally
-      if (e.key === 'Enter') {
-        const trimmed = value.trim();
-        if (trimmed.length > 0) {
-          e.preventDefault();
-          onChange(trimmed);
-          if (onSelect) {
-            onSelect(trimmed);
-          }
-          setShowSuggestions(false);
-          return;
-        }
-      } else if (e.key === 'Escape') {
-        setShowSuggestions(false);
-        setHighlightIndex(-1);
-      }
-      
-      // Call external onKeyDown if provided
-      if (onKeyDown) {
-        onKeyDown(e);
-      }
+  function onKeyDownInternal(e: React.KeyboardEvent<HTMLInputElement>) {
+    if (!open && (e.key === "ArrowDown" || e.key === "Enter")) {
+      setOpen(true);
+      return;
+    }
+    if (!open) {
+      if (onKeyDown) onKeyDown(e);
       return;
     }
 
-    // Handle arrow keys for navigation
-    if (e.key === 'ArrowDown') {
+    if (e.key === "ArrowDown") {
       e.preventDefault();
-      setHighlightIndex((prev) => (prev + 1) % suggestions.length);
-    } else if (e.key === 'ArrowUp') {
+      setActiveIdx((i) => Math.min(i + 1, list.length - 1));
+    } else if (e.key === "ArrowUp") {
       e.preventDefault();
-      setHighlightIndex((prev) =>
-        prev <= 0 ? suggestions.length - 1 : prev - 1,
-      );
-    } else if (e.key === 'Enter') {
+      setActiveIdx((i) => Math.max(i - 1, 0));
+    } else if (e.key === "Enter") {
       e.preventDefault();
-      const index = highlightIndex >= 0 ? highlightIndex : 0;
-      const airport = suggestions[index];
-      if (airport) {
-        handleSelect(airport);
-      }
-    } else if (e.key === 'Escape') {
-      setShowSuggestions(false);
-      setHighlightIndex(-1);
-    }
-    
-    // Call external onKeyDown if provided
-    if (onKeyDown) {
+      const pick = list[activeIdx];
+      if (pick) commitSelect(pick);
+    } else if (e.key === "Escape") {
+      e.preventDefault();
+      setOpen(false);
+    } else if (onKeyDown) {
       onKeyDown(e);
     }
-  };
+  }
+
+  useEffect(() => {
+    // reset highlighted item on list changes
+    setActiveIdx(0);
+  }, [debounced]);
+
+  // Check if query matches a metro code
+  const isMetroCode = useMemo(() => {
+    const q = debounced.trim().toUpperCase();
+    return q in METRO_MAPPINGS;
+  }, [debounced]);
 
   return (
-    <div ref={wrapperRef} className={`relative w-full ${className}`} style={{ position: 'relative', zIndex: 1 }}>
-      <div className="relative" style={{ position: 'relative', zIndex: 10 }}>
-        <input
-          type="text"
-          value={value}
-          autoFocus={autoFocus}
-          onChange={(e) => {
-            const newValue = e.target.value;
-            onChange(newValue);
-            // Immediately show suggestions when user types (will be filtered by the useEffect)
-            if (newValue.trim().length >= 1) {
-              setShowSuggestions(true);
-            } else {
-              setShowSuggestions(false);
-            }
-          }}
-          onKeyDown={handleKeyDownInternal}
-          onFocus={() => {
-            // Show suggestions if we have any and user has typed something
-            if (value.trim().length >= 1 && suggestions.length > 0) {
-              setShowSuggestions(true);
-            }
-          }}
-          onBlur={(e) => {
-            // Don't hide if clicking inside the dropdown
-            const relatedTarget = e.relatedTarget as Node;
-            if (wrapperRef.current?.contains(relatedTarget)) {
-              return;
-            }
-            // Use setTimeout to allow onClick on suggestions to fire first
-            setTimeout(() => {
-              setShowSuggestions(false);
-            }, 250);
-          }}
-          placeholder={placeholder}
-          disabled={disabled}
-          className="w-full px-4 py-3 bg-white border border-slate-200 rounded-xl focus:outline-none focus:ring-2 focus:ring-blue-600 focus:border-transparent disabled:opacity-50 disabled:cursor-not-allowed"
-        />
-        {isLoading && (
-          <div className="absolute right-4 top-1/2 -translate-y-1/2 pointer-events-none">
-            <div className="w-4 h-4 border-2 border-blue-600 border-t-transparent rounded-full animate-spin" />
-          </div>
-        )}
-      </div>
+    <div ref={wrapperRef} className={`relative w-full ${className}`}>
+      <input
+        ref={inputRef}
+        value={value}
+        placeholder={placeholder}
+        disabled={disabled}
+        autoFocus={autoFocus}
+        onFocus={() => setOpen(true)}
+        onChange={(e) => {
+          onChange(e.target.value);
+          setOpen(true);
+        }}
+        onKeyDown={onKeyDownInternal}
+        onBlur={(e) => {
+          // Don't hide if clicking inside the dropdown
+          const relatedTarget = e.relatedTarget as Node;
+          if (wrapperRef.current?.contains(relatedTarget)) {
+            return;
+          }
+          // Use setTimeout to allow onClick on suggestions to fire first
+          setTimeout(() => {
+            setOpen(false);
+          }, 250);
+        }}
+        className="w-full px-4 py-3 bg-white border border-slate-200 rounded-xl focus:outline-none focus:ring-2 focus:ring-blue-600 focus:border-transparent disabled:opacity-50 disabled:cursor-not-allowed text-sm"
+      />
 
-      {showSuggestions && suggestions.length > 0 && (
-        <div 
-          className="absolute w-full mt-2 bg-white rounded-xl shadow-xl border border-slate-100 max-h-60 overflow-y-auto"
-          style={{ 
-            position: 'absolute',
-            top: '100%',
-            left: 0,
-            right: 0,
-            zIndex: 99999,
-            marginTop: '0.5rem',
-            boxShadow: '0 10px 15px -3px rgba(0, 0, 0, 0.1), 0 4px 6px -2px rgba(0, 0, 0, 0.05)'
-          }}
-          onMouseDown={(e) => {
-            // Prevent blur event when clicking inside dropdown
-            e.preventDefault();
-            e.stopPropagation();
-          }}
-          onClick={(e) => {
-            // Prevent input blur when clicking in dropdown
-            e.preventDefault();
-            e.stopPropagation();
-          }}
-        >
-          {suggestions.map((airport, index) => {
-            const isActive = index === highlightIndex;
-            
-            // Highlight matching text in airport code and name
-            const highlightText = (text: string, query: string): React.ReactNode => {
-              if (!text || !query) return text;
-              const lowerText = text.toLowerCase();
-              const queryLower = query.toLowerCase();
-              const matchIndex = lowerText.indexOf(queryLower);
-              if (matchIndex === -1) return text;
-              
-              const before = text.substring(0, matchIndex);
-              const match = text.substring(matchIndex, matchIndex + query.length);
-              const after = text.substring(matchIndex + query.length);
-              
+      {open && list.length > 0 && (
+        <div className="absolute z-50 mt-2 w-full overflow-hidden rounded-xl border border-slate-200 bg-white shadow-lg">
+          {showRecents && (
+            <div className="px-4 py-2 text-xs font-medium text-slate-500 border-b border-slate-100">
+              Recent
+            </div>
+          )}
+
+          {!showRecents && debounced.trim().length > 0 && (
+            <div className="px-4 py-2 text-xs font-medium text-slate-500 border-b border-slate-100">
+              {isMetroCode ? "Metro Area" : "Suggestions"}
+            </div>
+          )}
+
+          <ul className="max-h-80 overflow-auto">
+            {list.map((a, idx) => {
+              const active = idx === activeIdx;
               return (
-                <>
-                  {before}
-                  <span className="font-semibold bg-blue-100 text-blue-900">{match}</span>
-                  {after}
-                </>
+                <li
+                  key={`${a.iata}-${a.airport}`}
+                  onMouseEnter={() => setActiveIdx(idx)}
+                  onMouseDown={(e) => {
+                    // prevent blur before click
+                    e.preventDefault();
+                    commitSelect(a);
+                  }}
+                  className={[
+                    "flex cursor-pointer items-center gap-3 px-4 py-3 transition-colors",
+                    active ? "bg-blue-50" : "bg-white hover:bg-slate-50",
+                  ].join(" ")}
+                >
+                  <div className="min-w-[44px] rounded-lg border border-slate-200 bg-blue-50 px-2 py-1 text-center text-xs font-semibold text-blue-900">
+                    {a.iata.toUpperCase()}
+                  </div>
+
+                  <div className="flex-1 min-w-0">
+                    <div className="text-sm font-medium text-slate-900">
+                      {highlightMatch(a.city, debounced.trim())}
+                      {a.state ? `, ${a.state}` : ""} • {a.country}
+                    </div>
+                    <div className="text-xs text-slate-500 truncate">
+                      {highlightMatch(a.airport, debounced.trim())}
+                    </div>
+                  </div>
+                </li>
               );
-            };
-            
-            return (
-              <button
-                key={`${airport.airport_id}-${index}`}
-                type="button"
-                onMouseDown={(e) => {
-                  e.preventDefault();
-                  e.stopPropagation();
-                }}
-                onClick={(e) => {
-                  e.preventDefault();
-                  e.stopPropagation();
-                  handleSelect(airport);
-                }}
-                onMouseEnter={() => setHighlightIndex(index)}
-                className={`w-full px-4 py-3 text-left transition-colors flex items-center gap-3 border-b last:border-0 border-slate-50 cursor-pointer ${
-                  isActive ? 'bg-slate-100' : 'hover:bg-slate-50 active:bg-slate-100'
-                }`}
-              >
-                <div className="w-8 h-8 rounded-lg bg-blue-50 flex items-center justify-center flex-shrink-0 text-blue-600">
-                  <Plane className="w-4 h-4" />
-                </div>
-                <div className="flex-1 min-w-0">
-                  <div className="font-medium text-slate-900 truncate flex items-center gap-2">
-                    <span className="font-bold text-blue-600">{airport.iata_code}</span>
-                    <span className="text-slate-400">-</span>
-                    <span>{highlightText(airport.airport_name, value.trim())}</span>
-                  </div>
-                  <div className="text-xs text-slate-500 truncate">
-                    {airport.city}{airport.country ? `, ${airport.country}` : ''}
-                    {airport.region ? ` • ${airport.region}` : ''}
-                  </div>
-                </div>
-              </button>
-            );
-          })}
+            })}
+          </ul>
+        </div>
+      )}
+
+      {open && debounced.trim().length > 0 && list.length === 0 && (
+        <div className="absolute z-50 mt-2 w-full rounded-xl border border-slate-200 bg-white px-4 py-3 text-sm text-slate-600 shadow-lg">
+          No matches. Try an airport code (e.g., "SEA") or a city name.{" "}
+          {debounced.trim().length === 3 && (
+            <span className="text-slate-400">
+              Did you mean a metro code like NYC, LON, or PAR?
+            </span>
+          )}
         </div>
       )}
     </div>

@@ -1,0 +1,249 @@
+"use client";
+
+import React, { useEffect, useMemo, useRef, useState } from "react";
+import type { Airport } from "@/data/airports";
+import { AIRPORTS, METRO_MAPPINGS } from "@/data/airports";
+import { searchAirports, highlightMatch } from "@/lib/locationSearch";
+
+type Props = {
+  value: string;
+  onChange: (value: string) => void;
+  placeholder?: string;
+  disabled?: boolean;
+  className?: string;
+  onSelect?: (value: string) => void;
+  onKeyDown?: (e: React.KeyboardEvent<HTMLInputElement>) => void;
+  autoFocus?: boolean;
+  recentKey?: string; // localStorage key
+};
+
+type RecentItem = { iata: string; ts: number };
+
+function formatLabel(a: Airport) {
+  const region = [a.city, a.state].filter(Boolean).join(", ");
+  return `${a.iata} – ${region}, ${a.country}`;
+}
+
+function saveRecent(key: string, iata: string) {
+  try {
+    const raw = localStorage.getItem(key);
+    const prev: RecentItem[] = raw ? JSON.parse(raw) : [];
+    const next = [
+      { iata, ts: Date.now() },
+      ...prev.filter((x) => x.iata !== iata),
+    ].slice(0, 6);
+    localStorage.setItem(key, JSON.stringify(next));
+  } catch {}
+}
+
+function loadRecent(key: string): RecentItem[] {
+  try {
+    const raw = localStorage.getItem(key);
+    return raw ? (JSON.parse(raw) as RecentItem[]) : [];
+  } catch {
+    return [];
+  }
+}
+
+export default function AirportAutocompleteV2({
+  value,
+  onChange,
+  placeholder = "City or airport",
+  disabled = false,
+  className = "",
+  onSelect,
+  onKeyDown,
+  autoFocus = false,
+  recentKey = "recent_airports",
+}: Props) {
+  const [open, setOpen] = useState(false);
+  const [activeIdx, setActiveIdx] = useState(0);
+  const [recent, setRecent] = useState<RecentItem[]>([]);
+  const wrapperRef = useRef<HTMLDivElement | null>(null);
+  const inputRef = useRef<HTMLInputElement | null>(null);
+
+  // load recent once
+  useEffect(() => {
+    setRecent(loadRecent(recentKey));
+  }, [recentKey]);
+
+  // close on outside click
+  useEffect(() => {
+    function onDocClick(e: MouseEvent) {
+      if (!wrapperRef.current) return;
+      if (!wrapperRef.current.contains(e.target as Node)) setOpen(false);
+    }
+    document.addEventListener("mousedown", onDocClick);
+    return () => document.removeEventListener("mousedown", onDocClick);
+  }, []);
+
+  // debounced query for smoother typing
+  const [debounced, setDebounced] = useState(value);
+  useEffect(() => {
+    const t = setTimeout(() => setDebounced(value), 80);
+    return () => clearTimeout(t);
+  }, [value]);
+
+  const recentAirports = useMemo(() => {
+    const map = new Map(AIRPORTS.map((a) => [a.iata.toUpperCase(), a]));
+    return recent
+      .map((r) => map.get(r.iata.toUpperCase()))
+      .filter(Boolean) as Airport[];
+  }, [recent]);
+
+  const results = useMemo(() => {
+    const q = debounced.trim();
+    if (!q) return [];
+    return searchAirports(AIRPORTS, q, 10);
+  }, [debounced]);
+
+  // display list: if empty query, show recents; else show results
+  const list: Airport[] = useMemo(() => {
+    if (debounced.trim().length === 0) return recentAirports;
+    return results;
+  }, [debounced, recentAirports, results]);
+
+  const showRecents = debounced.trim().length === 0 && recentAirports.length > 0;
+
+  function commitSelect(a: Airport) {
+    saveRecent(recentKey, a.iata);
+    setRecent(loadRecent(recentKey));
+    const formattedValue = a.iata; // Use IATA code as value
+    onChange(formattedValue);
+    if (onSelect) {
+      onSelect(formattedValue);
+    }
+    setOpen(false);
+  }
+
+  function onKeyDownInternal(e: React.KeyboardEvent<HTMLInputElement>) {
+    if (!open && (e.key === "ArrowDown" || e.key === "Enter")) {
+      setOpen(true);
+      return;
+    }
+    if (!open) {
+      if (onKeyDown) onKeyDown(e);
+      return;
+    }
+
+    if (e.key === "ArrowDown") {
+      e.preventDefault();
+      setActiveIdx((i) => Math.min(i + 1, list.length - 1));
+    } else if (e.key === "ArrowUp") {
+      e.preventDefault();
+      setActiveIdx((i) => Math.max(i - 1, 0));
+    } else if (e.key === "Enter") {
+      e.preventDefault();
+      const pick = list[activeIdx];
+      if (pick) commitSelect(pick);
+    } else if (e.key === "Escape") {
+      e.preventDefault();
+      setOpen(false);
+    } else if (onKeyDown) {
+      onKeyDown(e);
+    }
+  }
+
+  useEffect(() => {
+    // reset highlighted item on list changes
+    setActiveIdx(0);
+  }, [debounced]);
+
+  // Check if query matches a metro code
+  const isMetroCode = useMemo(() => {
+    const q = debounced.trim().toUpperCase();
+    return q in METRO_MAPPINGS;
+  }, [debounced]);
+
+  return (
+    <div ref={wrapperRef} className={`relative w-full ${className}`}>
+      <input
+        ref={inputRef}
+        value={value}
+        placeholder={placeholder}
+        disabled={disabled}
+        autoFocus={autoFocus}
+        onFocus={() => setOpen(true)}
+        onChange={(e) => {
+          onChange(e.target.value);
+          setOpen(true);
+        }}
+        onKeyDown={onKeyDownInternal}
+        onBlur={(e) => {
+          // Don't hide if clicking inside the dropdown
+          const relatedTarget = e.relatedTarget as Node;
+          if (wrapperRef.current?.contains(relatedTarget)) {
+            return;
+          }
+          // Use setTimeout to allow onClick on suggestions to fire first
+          setTimeout(() => {
+            setOpen(false);
+          }, 250);
+        }}
+        className="w-full px-4 py-3 bg-white border border-slate-200 rounded-xl focus:outline-none focus:ring-2 focus:ring-blue-600 focus:border-transparent disabled:opacity-50 disabled:cursor-not-allowed text-sm"
+      />
+
+      {open && list.length > 0 && (
+        <div className="absolute z-50 mt-2 w-full overflow-hidden rounded-xl border border-slate-200 bg-white shadow-lg">
+          {showRecents && (
+            <div className="px-4 py-2 text-xs font-medium text-slate-500 border-b border-slate-100">
+              Recent
+            </div>
+          )}
+
+          {!showRecents && debounced.trim().length > 0 && (
+            <div className="px-4 py-2 text-xs font-medium text-slate-500 border-b border-slate-100">
+              {isMetroCode ? "Metro Area" : "Suggestions"}
+            </div>
+          )}
+
+          <ul className="max-h-80 overflow-auto">
+            {list.map((a, idx) => {
+              const active = idx === activeIdx;
+              return (
+                <li
+                  key={`${a.iata}-${a.airport}`}
+                  onMouseEnter={() => setActiveIdx(idx)}
+                  onMouseDown={(e) => {
+                    // prevent blur before click
+                    e.preventDefault();
+                    commitSelect(a);
+                  }}
+                  className={[
+                    "flex cursor-pointer items-center gap-3 px-4 py-3 transition-colors",
+                    active ? "bg-blue-50" : "bg-white hover:bg-slate-50",
+                  ].join(" ")}
+                >
+                  <div className="min-w-[44px] rounded-lg border border-slate-200 bg-blue-50 px-2 py-1 text-center text-xs font-semibold text-blue-900">
+                    {a.iata.toUpperCase()}
+                  </div>
+
+                  <div className="flex-1 min-w-0">
+                    <div className="text-sm font-medium text-slate-900">
+                      {highlightMatch(a.city, debounced.trim())}
+                      {a.state ? `, ${a.state}` : ""} • {a.country}
+                    </div>
+                    <div className="text-xs text-slate-500 truncate">
+                      {highlightMatch(a.airport, debounced.trim())}
+                    </div>
+                  </div>
+                </li>
+              );
+            })}
+          </ul>
+        </div>
+      )}
+
+      {open && debounced.trim().length > 0 && list.length === 0 && (
+        <div className="absolute z-50 mt-2 w-full rounded-xl border border-slate-200 bg-white px-4 py-3 text-sm text-slate-600 shadow-lg">
+          No matches. Try an airport code (e.g., "SEA") or a city name.{" "}
+          {debounced.trim().length === 3 && (
+            <span className="text-slate-400">
+              Did you mean a metro code like NYC, LON, or PAR?
+            </span>
+          )}
+        </div>
+      )}
+    </div>
+  );
+}
