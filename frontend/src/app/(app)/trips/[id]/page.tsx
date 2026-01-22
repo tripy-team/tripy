@@ -1,0 +1,404 @@
+'use client';
+
+import { useParams, useRouter } from 'next/navigation';
+import { useState, useEffect } from 'react';
+import Image from 'next/image';
+import { ArrowLeft, Calendar, MapPin, CreditCard, Users, User, Plane, Hotel, Copy, CheckCircle, AlertCircle } from 'lucide-react';
+import { trips as tripsAPI } from '@/lib/api';
+
+interface Trip {
+    id: string;
+    destination: string;
+    image: string;
+    dates: string;
+    status: 'upcoming' | 'completed';
+    pointsRedeemed: string;
+    type: 'Solo' | 'Group';
+    travelers: number;
+    location: string;
+    description: string;
+}
+
+interface ApiTrip {
+    tripId: string;
+    title: string;
+    startDate: string;
+    endDate: string;
+    status: string;
+    createdBy: string;
+    role?: string;
+    memberCount?: number;
+    destinations?: string[];
+    firstDestination?: string;
+}
+
+interface TransferStep {
+    id: string;
+    title: string;
+    program: string;
+    partner: string;
+    amount: string;
+    icon: typeof Plane;
+    instructions: string[];
+}
+
+export default function TripDetails() {
+    const params = useParams();
+    const router = useRouter();
+    const tripId = params.id as string;
+    const [copiedId, setCopiedId] = useState<string | null>(null);
+    const [trip, setTrip] = useState<Trip | null>(null);
+    const [isLoading, setIsLoading] = useState(true);
+
+    useEffect(() => {
+        const fetchTrip = async () => {
+            try {
+                setIsLoading(true);
+                const response = await tripsAPI.list();
+                const apiTrip = response.trips.find((t: ApiTrip) => t.tripId === tripId);
+
+                if (!apiTrip) {
+                    setTrip(null);
+                    return;
+                }
+
+                const startDate = apiTrip.startDate ? new Date(apiTrip.startDate) : null;
+                const endDate = apiTrip.endDate ? new Date(apiTrip.endDate) : null;
+                const now = new Date();
+
+                let datesStr = 'TBD';
+                if (startDate && endDate) {
+                    datesStr = `${startDate.toLocaleDateString('en-US', { month: 'short', day: 'numeric' })} - ${endDate.toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric' })}`;
+                } else if (startDate) {
+                    datesStr = startDate.toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric' });
+                }
+
+                const isCompleted = endDate ? endDate < now : false;
+                const status: 'upcoming' | 'completed' = isCompleted ? 'completed' : 'upcoming';
+
+                const memberCount = apiTrip.memberCount || 1;
+                const tripType: 'Solo' | 'Group' = memberCount > 1 ? 'Group' : 'Solo';
+
+                const destinationName = apiTrip.firstDestination || apiTrip.title || 'Trip';
+                const location = apiTrip.firstDestination || 'Location TBD';
+
+                const imageQuery = encodeURIComponent(destinationName);
+                const image = `https://images.unsplash.com/photo-1499856871958-5b9627545d1a?crop=entropy&cs=tinysrgb&fit=max&fm=jpg&ixid=M3w3Nzg4Nzd8MHwxfHNlYXJjaHwxfHx${imageQuery}JTIwY2l0eSUyMHN0cmVldCUyMG5pZ2h0JTIwbmlnaHR8ZW58MXx8fHwxNzY4NTQ0MTQxfDA&ixlib=rb-4.1.0&q=80&w=1080`;
+
+                const description = apiTrip.destinations && apiTrip.destinations.length > 0
+                    ? `Visiting ${apiTrip.destinations.join(', ')}`
+                    : `Your ${tripType.toLowerCase()} trip to ${destinationName}`;
+
+                setTrip({
+                    id: apiTrip.tripId,
+                    destination: apiTrip.title || destinationName,
+                    image: image,
+                    dates: datesStr,
+                    status: status,
+                    pointsRedeemed: '0', // TODO: Calculate from points data
+                    type: tripType,
+                    travelers: memberCount,
+                    location: location,
+                    description: description,
+                });
+            } catch (err) {
+                console.error('Error fetching trip:', err);
+                setTrip(null);
+            } finally {
+                setIsLoading(false);
+            }
+        };
+
+        if (tripId) {
+            fetchTrip();
+        }
+    }, [tripId]);
+
+    const copyToClipboard = async (text: string, id: string) => {
+        try {
+            await navigator.clipboard.writeText(text);
+            setCopiedId(id);
+            setTimeout(() => setCopiedId(null), 2000);
+        } catch (err) {
+            console.error('Copy failed', err);
+        }
+    };
+
+    if (isLoading) {
+        return (
+            <div className="min-h-screen flex items-center justify-center bg-slate-50">
+                <div className="text-center">
+                    <div className="inline-block animate-spin rounded-full h-8 w-8 border-b-2 border-blue-600"></div>
+                    <p className="mt-4 text-slate-600">Loading trip details...</p>
+                </div>
+            </div>
+        );
+    }
+
+    if (!trip) {
+        return (
+            <div className="min-h-screen flex items-center justify-center bg-slate-50">
+                <div className="text-center">
+                    <h2 className="text-2xl font-bold text-slate-900 mb-4">Trip Not Found</h2>
+                    <button
+                        onClick={() => router.push('/my-trips')}
+                        className="text-blue-600 hover:underline"
+                    >
+                        Back to My Trips
+                    </button>
+                </div>
+            </div>
+        );
+    }
+
+    // Mock Transfer Instructions based on type
+    const transferSteps: TransferStep[] = trip.type === 'Solo' ? [
+        {
+            id: 's1',
+            title: 'Transfer to Airline',
+            program: 'Chase Ultimate Rewards',
+            partner: 'Virgin Atlantic',
+            amount: '45,000',
+            icon: Plane,
+            instructions: [
+                'Log in to Chase Ultimate Rewards',
+                'Select "Transfer to Travel Partners"',
+                'Choose Virgin Atlantic Flying Club',
+                'Enter Member ID (create account if needed)',
+                'Transfer 45,000 points (Instant)'
+            ]
+        },
+        {
+            id: 's2',
+            title: 'Book Flight',
+            program: 'Virgin Atlantic',
+            partner: 'ANA First Class',
+            amount: 'Cash Taxes: ~$200',
+            icon: Plane,
+            instructions: [
+                'Log in to Virgin Atlantic',
+                'Search for round-trip Tokyo (HND/NRT)',
+                'Select "Pay with Points"',
+                'Find availability for ANA First/Business',
+                'Book using transferred points'
+            ]
+        }
+    ] : [
+        {
+            id: 'g1',
+            title: 'Sarah: Flight Transfer',
+            program: 'Amex Membership Rewards',
+            partner: 'Air France / KLM',
+            amount: '50,000',
+            icon: Plane,
+            instructions: [
+                'Log in to Amex',
+                'Transfer 50k points to Flying Blue',
+                'Confirm transfer is instant',
+                'Book Flight AF1234'
+            ]
+        },
+        {
+            id: 'g2',
+            title: 'David: Hotel Booking',
+            program: 'Chase UR',
+            partner: 'World of Hyatt',
+            amount: '35,000',
+            icon: Hotel,
+            instructions: [
+                'Transfer 35k points to Hyatt',
+                'Book Park Hyatt for 3 nights',
+                'Add guest names to reservation'
+            ]
+        }
+    ];
+
+    return (
+        <div className="min-h-screen bg-slate-50 pb-20">
+            {/* Hero Header */}
+            <div className="relative h-64 md:h-80 bg-slate-900">
+                <Image
+                    src={trip.image}
+                    alt={trip.destination}
+                    fill
+                    className="object-cover opacity-60"
+                />
+                <div className="absolute inset-0 bg-gradient-to-t from-slate-900/90 via-slate-900/40 to-transparent" />
+
+                <div className="absolute top-6 left-6 z-10">
+                    <button
+                        onClick={() => router.push('/my-trips')}
+                        className="flex items-center gap-2 text-white/90 hover:text-white bg-black/20 hover:bg-black/40 backdrop-blur-sm px-4 py-2 rounded-full transition-all text-sm font-medium"
+                    >
+                        <ArrowLeft className="w-4 h-4" />
+                        Back to Trips
+                    </button>
+                </div>
+
+                <div className="absolute bottom-0 left-0 right-0 p-6 md:p-8 max-w-5xl mx-auto">
+                    <div className="flex flex-col md:flex-row md:items-end justify-between gap-4">
+                        <div>
+                            <div className="flex items-center gap-2 mb-2">
+                                <span className={`px-2.5 py-0.5 rounded-full text-xs font-bold uppercase tracking-wider ${
+                                    trip.status === 'upcoming' ? 'bg-blue-500 text-white' : 'bg-slate-600 text-slate-200'
+                                }`}>
+                                    {trip.status}
+                                </span>
+                                <span className="flex items-center gap-1 text-slate-300 text-sm">
+                                    {trip.type === 'Solo' ? <User className="w-3.5 h-3.5" /> : <Users className="w-3.5 h-3.5" />}
+                                    {trip.type} Trip
+                                </span>
+                            </div>
+                            <h1 className="text-3xl md:text-4xl font-bold text-white mb-2">{trip.destination}</h1>
+                            <div className="flex flex-wrap items-center gap-4 text-slate-300 text-sm">
+                                <span className="flex items-center gap-1.5">
+                                    <MapPin className="w-4 h-4 text-slate-400" />
+                                    {trip.location}
+                                </span>
+                                <span className="flex items-center gap-1.5">
+                                    <Calendar className="w-4 h-4 text-slate-400" />
+                                    {trip.dates}
+                                </span>
+                            </div>
+                        </div>
+
+                        <div className="bg-white/10 backdrop-blur-md border border-white/20 rounded-xl p-4 min-w-[140px]">
+                            <div className="text-xs text-slate-300 uppercase tracking-wider font-semibold mb-1">Total Points</div>
+                            <div className="flex items-center gap-2 text-2xl font-bold text-white">
+                                <CreditCard className="w-6 h-6 text-emerald-400" />
+                                {trip.pointsRedeemed}
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+
+            <div className="max-w-5xl mx-auto px-4 md:px-6 -mt-8 relative z-10">
+                <div className="grid lg:grid-cols-3 gap-8">
+                    {/* Main Content: Transfer Instructions */}
+                    <div className="lg:col-span-2 space-y-6">
+                        <div className="bg-white rounded-2xl shadow-sm border border-slate-200 overflow-hidden">
+                            <div className="p-6 border-b border-slate-100 flex items-center justify-between">
+                                <div>
+                                    <h2 className="text-xl font-bold text-slate-900">Transfer Instructions</h2>
+                                    <p className="text-sm text-slate-500 mt-1">Follow these steps to complete your booking</p>
+                                </div>
+                                <div className="w-10 h-10 bg-blue-50 rounded-full flex items-center justify-center">
+                                    <Plane className="w-5 h-5 text-blue-600" />
+                                </div>
+                            </div>
+
+                            {/* Warning Banner */}
+                            <div className="p-4 bg-amber-50 border-b border-amber-100 flex items-start gap-3">
+                                <AlertCircle className="w-5 h-5 text-amber-600 flex-shrink-0 mt-0.5" />
+                                <div className="text-sm text-amber-900">
+                                    <span className="font-semibold block mb-1">Important: Transfers are irreversible</span>
+                                    Once you transfer credit card points, you cannot move them back. Ensure availability before transferring.
+                                </div>
+                            </div>
+
+                            <div className="divide-y divide-slate-100">
+                                {transferSteps.map((step, idx) => {
+                                    const Icon = step.icon;
+                                    return (
+                                        <div key={step.id} className="p-6 hover:bg-slate-50/50 transition-colors">
+                                            <div className="flex items-start gap-4">
+                                                <div className="flex-shrink-0 w-8 h-8 rounded-full bg-slate-900 text-white flex items-center justify-center font-bold text-sm">
+                                                    {idx + 1}
+                                                </div>
+                                                <div className="flex-1">
+                                                    <h3 className="text-lg font-semibold text-slate-900 mb-1">{step.title}</h3>
+                                                    <div className="flex flex-wrap gap-2 mb-4">
+                                                        <span className="px-2 py-1 bg-slate-100 text-slate-600 text-xs rounded-md font-medium border border-slate-200">
+                                                            {step.program}
+                                                        </span>
+                                                        <span className="text-slate-300">→</span>
+                                                        <span className="px-2 py-1 bg-blue-50 text-blue-700 text-xs rounded-md font-medium border border-blue-100 flex items-center gap-1">
+                                                            {step.partner}
+                                                            <button
+                                                                onClick={() => copyToClipboard(step.partner, `${step.id}-partner`)}
+                                                                title="Copy partner name"
+                                                                className="hover:opacity-100"
+                                                            >
+                                                                {copiedId === `${step.id}-partner` ? (
+                                                                    <CheckCircle className="w-3 h-3 text-green-600" />
+                                                                ) : (
+                                                                    <Copy className="w-3 h-3 opacity-50" />
+                                                                )}
+                                                            </button>
+                                                        </span>
+                                                    </div>
+
+                                                    <div className="space-y-3 pl-4 border-l-2 border-slate-100">
+                                                        {step.instructions.map((inst, i) => (
+                                                            <p key={i} className="text-sm text-slate-600 leading-relaxed">
+                                                                {inst}
+                                                            </p>
+                                                        ))}
+                                                    </div>
+
+                                                    <div className="mt-4 pt-4 border-t border-slate-100/50 flex justify-between items-center">
+                                                        <span className="text-xs font-semibold text-slate-500 uppercase tracking-wider">Amount Required</span>
+                                                        <span className="text-sm font-bold text-slate-900">{step.amount} {step.amount.includes('$') ? '' : 'points'}</span>
+                                                    </div>
+                                                </div>
+                                            </div>
+                                        </div>
+                                    );
+                                })}
+                            </div>
+                        </div>
+                    </div>
+
+                    {/* Sidebar: Trip Info */}
+                    <div className="lg:col-span-1 space-y-6">
+                        <div className="bg-white rounded-2xl shadow-sm border border-slate-200 p-6">
+                            <h3 className="font-bold text-slate-900 mb-4">Trip Details</h3>
+                            <p className="text-sm text-slate-600 mb-6 leading-relaxed">
+                                {trip.description}
+                            </p>
+
+                            <div className="space-y-4">
+                                <div className="flex items-center gap-3 text-sm">
+                                    <div className="w-8 h-8 rounded-lg bg-indigo-50 flex items-center justify-center">
+                                        <Users className="w-4 h-4 text-indigo-600" />
+                                    </div>
+                                    <div>
+                                        <div className="text-slate-500 text-xs">Travelers</div>
+                                        <div className="font-medium text-slate-900">{trip.travelers} People</div>
+                                    </div>
+                                </div>
+                                <div className="flex items-center gap-3 text-sm">
+                                    <div className="w-8 h-8 rounded-lg bg-emerald-50 flex items-center justify-center">
+                                        <CreditCard className="w-4 h-4 text-emerald-600" />
+                                    </div>
+                                    <div>
+                                        <div className="text-slate-500 text-xs">Total Points</div>
+                                        <div className="font-medium text-slate-900">{trip.pointsRedeemed}</div>
+                                    </div>
+                                </div>
+                            </div>
+
+                            <div className="mt-6 pt-6 border-t border-slate-100">
+                                <button className="w-full py-2.5 bg-slate-900 text-white rounded-xl font-medium text-sm hover:bg-slate-800 transition-colors">
+                                    Edit Trip Details
+                                </button>
+                            </div>
+                        </div>
+
+                        <div className="bg-blue-600 rounded-2xl shadow-lg shadow-blue-600/20 p-6 text-white overflow-hidden relative">
+                            <div className="absolute top-0 right-0 w-32 h-32 bg-white/10 rounded-full -mr-16 -mt-16 blur-2xl"></div>
+                            <h3 className="font-bold mb-2 relative z-10">Need Help?</h3>
+                            <p className="text-blue-100 text-sm mb-4 relative z-10">
+                                Having trouble with your transfer? Check out our guide on how to troubleshoot common issues.
+                            </p>
+                            <button className="text-xs font-bold bg-white text-blue-600 px-3 py-2 rounded-lg hover:bg-blue-50 transition-colors relative z-10">
+                                View Help Guide
+                            </button>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+    );
+}

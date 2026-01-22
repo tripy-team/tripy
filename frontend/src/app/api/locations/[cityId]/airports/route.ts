@@ -2,16 +2,14 @@ import { NextResponse } from "next/server";
 
 export async function GET(
   req: Request,
-  context: { params: Promise<{ cityId: string }> | { cityId: string } }
+  context: { params: Promise<{ cityId: string }> }
 ) {
   const { searchParams } = new URL(req.url);
   const limitParam = searchParams.get("limit") ?? "3";
   const limit = Number(limitParam);
   
-  // Handle both Promise and direct params (Next.js 15 compatibility)
-  const resolvedParams = context.params instanceof Promise 
-    ? await context.params 
-    : context.params;
+  // Await the params Promise (Next.js 15 requirement)
+  const resolvedParams = await context.params;
   const cityId = resolvedParams.cityId;
 
   if (!cityId) {

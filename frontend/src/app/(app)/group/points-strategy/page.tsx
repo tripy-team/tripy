@@ -342,12 +342,20 @@ export default function GroupPointsStrategy() {
                         Back
                     </button>
 
-                    <button
-                        onClick={() => {/* Export or share strategy */ }}
-                        className="px-6 py-3 bg-neutral-900 text-white rounded-xl hover:bg-neutral-800 transition-colors"
-                    >
-                        Share Strategy
-                    </button>
+                    <div className="flex gap-3">
+                        <button
+                            onClick={() => router.push(`/group/transfer-instructions?trip_id=${tripId}`)}
+                            className="px-6 py-3 bg-blue-600 text-white rounded-xl hover:bg-blue-700 transition-colors"
+                        >
+                            View Transfer Instructions
+                        </button>
+                        <button
+                            onClick={() => {/* Export or share strategy */ }}
+                            className="px-6 py-3 bg-neutral-900 text-white rounded-xl hover:bg-neutral-800 transition-colors"
+                        >
+                            Share Strategy
+                        </button>
+                    </div>
                 </div>
             </div>
         </div>

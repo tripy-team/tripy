@@ -2,6 +2,7 @@
 
 import Link from 'next/link';
 import Image from 'next/image';
+import { useRouter } from 'next/navigation';
 import { MapPin, Calendar, CreditCard, Users, Plane, Hotel, ArrowRight, TrendingUp } from 'lucide-react';
 import { getOptimizedImageUrl, getImageDimensions } from '@/lib/image-utils';
 import { useState, useEffect } from 'react';
@@ -29,6 +30,7 @@ interface TripCardProps {
 const PLACEHOLDER_IMAGE = 'data:image/svg+xml;base64,PHN2ZyB3aWR0aD0iNDAwIiBoZWlnaHQ9IjMwMCIgeG1sbnM9Imh0dHA6Ly93d3cudzMub3JnLzIwMDAvc3ZnIj48ZGVmcz48bGluZWFyR3JhZGllbnQgaWQ9ImEiIHgxPSIwJSIgeTE9IjAlIiB4Mj0iMTAwJSIgeTI9IjEwMCUiPjxzdG9wIG9mZnNldD0iMCUiIHN0b3AtY29sb3I9IiM2MzY2RjEiLz48c3RvcCBvZmZzZXQ9IjEwMCUiIHN0b3AtY29sb3I9IiM0NzU1OTkiLz48L2xpbmVhckdyYWRpZW50PjwvZGVmcz48cmVjdCB3aWR0aD0iMTAwJSIgaGVpZ2h0PSIxMDAlIiBmaWxsPSJ1cmwoI2EpIi8+PC9zdmc+';
 
 export function TripCard({ trip }: TripCardProps) {
+    const router = useRouter();
     const [imageUrl, setImageUrl] = useState(trip.thumbnail || PLACEHOLDER_IMAGE);
     const [isImageLoading, setIsImageLoading] = useState(true);
     const { width, height } = getImageDimensions('thumbnail');
@@ -69,7 +71,10 @@ export function TripCard({ trip }: TripCardProps) {
     };
 
     return (
-        <div className="bg-white rounded-2xl border border-slate-200 shadow-sm hover:shadow-xl transition-all duration-300 overflow-hidden group">
+        <div
+            onClick={() => router.push(`/trips/${trip.id}`)}
+            className="bg-white rounded-2xl border border-slate-200 shadow-sm hover:shadow-xl transition-all duration-300 overflow-hidden group cursor-pointer"
+        >
             {/* Thumbnail */}
             <div className="relative h-48 overflow-hidden bg-slate-200">
                 <Image
@@ -175,13 +180,16 @@ export function TripCard({ trip }: TripCardProps) {
                 </div>
 
                 {/* Action Button */}
-                <Link
-                    href={getResultsLink()}
+                <button
+                    onClick={(e) => {
+                        e.stopPropagation();
+                        router.push(`/trips/${trip.id}`);
+                    }}
                     className="w-full flex items-center justify-center gap-2 px-4 py-3 bg-blue-600 text-white rounded-xl hover:bg-blue-700 transition-all group/btn font-medium"
                 >
                     <span>View Details</span>
                     <ArrowRight className="w-4 h-4 group-hover/btn:translate-x-1 transition-transform" />
-                </Link>
+                </button>
             </div>
         </div>
     );

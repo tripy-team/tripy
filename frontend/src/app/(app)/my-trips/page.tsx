@@ -3,6 +3,7 @@
 import { Plane, Calendar, MapPin, CreditCard, Users, User } from 'lucide-react';
 import Link from 'next/link';
 import Image from 'next/image';
+import { useRouter } from 'next/navigation';
 import { useEffect, useState } from 'react';
 import { trips as tripsAPI } from '@/lib/api';
 
@@ -33,6 +34,7 @@ interface ApiTrip {
 }
 
 export default function MyTripsPage() {
+  const router = useRouter();
   const [trips, setTrips] = useState<Trip[]>([]);
   const [isLoading, setIsLoading] = useState(true);
 
@@ -108,7 +110,10 @@ export default function MyTripsPage() {
   const pastTrips = trips.filter(t => t.status === 'completed');
 
   const TripCard = ({ trip }: { trip: Trip }) => (
-    <div className="group flex overflow-hidden border border-slate-200 rounded-xl hover:shadow-lg transition-all duration-300 bg-white">
+    <div
+      onClick={() => router.push(`/trips/${trip.id}`)}
+      className="group flex overflow-hidden border border-slate-200 rounded-xl hover:shadow-lg transition-all duration-300 bg-white cursor-pointer"
+    >
       {/* Image Section - Smaller width */}
       <div className="relative w-32 sm:w-40 shrink-0 bg-slate-100">
         <Image 
