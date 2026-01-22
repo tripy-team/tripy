@@ -39,7 +39,7 @@ from .utils.analytics import (
 )
 from .utils.jwt_auth import get_current_user_id
 from .utils.loyalty_programs import validate_program
-from .handlers.openAI import extract_trip_info_with_openai
+from .handlers.openAI import extract_trip_info_with_openai, search_cities_with_openai
 
 # Get CORS origins from environment variable
 CORS_ORIGINS_ENV = os.environ.get("CORS_ORIGINS", "")
@@ -796,15 +796,22 @@ async def locations_autocomplete(
     limit: int = Query(10, ge=1, le=20),
 ):
     """
-    Return city suggestions for autocomplete:
-    [{ city_id, name, region, country, lat, lng }]
+    Return city suggestions for autocomplete using OpenAI:
+    [{ city_id, name, region, country, airport_code }]
     """
     try:
-        cities = city_service.search_cities_for_autocomplete(q, max_results=limit)
+        # Use OpenAI for city search - handles all cities, typos, and variations
+        cities = search_cities_with_openai(q, max_results=limit)
         return {"cities": cities}
     except Exception as e:
         logger.error(f"Error in locations_autocomplete for q='{q}': {e}", exc_info=True)
-        raise HTTPException(status_code=500, detail="Failed to search locations")
+        # Fallback to city_service if OpenAI fails
+        try:
+            cities = city_service.search_cities_for_autocomplete(q, max_results=limit)
+            return {"cities": cities}
+        except Exception as fallback_error:
+            logger.error(f"Fallback city search also failed: {fallback_error}", exc_info=True)
+            raise HTTPException(status_code=500, detail="Failed to search locations")
 
 
 @app.get("/api/locations/{city_id}/airports")

@@ -7,7 +7,7 @@ from openai import OpenAI
 from pydantic import BaseModel
 from enum import Enum
 from datetime import date
-from typing import Optional, List
+from typing import Optional, List, Dict, Any
 from backend.bin.flights import create_flight_filters
 
 
@@ -128,6 +128,109 @@ class ExtractedTripInfo(BaseModel):
     creditCards: Optional[List[dict]] = None  # List of {program: str, points: int}
     flightClass: Optional[str] = None
     hotelClass: Optional[str] = None
+
+
+class CitySuggestion(BaseModel):
+    """Structured response for city suggestions"""
+    city: str
+    country: str
+    airport_code: Optional[str] = None
+    region: Optional[str] = None
+
+
+class CitySuggestionsResponse(BaseModel):
+    """Response containing list of city suggestions"""
+    cities: List[CitySuggestion]
+
+
+def search_cities_with_openai(query: str, max_results: int = 10) -> List[Dict[str, Any]]:
+    """
+    Search for cities using OpenAI. This can handle typos, partial names, and variations.
+    Returns a list of city suggestions with airport codes when available.
+    """
+    load_dotenv()
+    client = OpenAI(api_key=os.getenv("OPENAI_ADMIN_KEY"))
+    
+    system_prompt = """You are a travel assistant that helps users find cities and airports around the world.
+    
+Your task is to suggest cities that match the user's query. The query might be:
+- A city name (e.g., "Paris", "New York")
+- A partial city name (e.g., "Par", "NY")
+- A typo or variation (e.g., "Parris", "NYC")
+- An airport code (e.g., "JFK", "CDG")
+- A country name (e.g., "France", "Japan")
+
+For each city, provide:
+- The official city name
+- The country name
+- The primary airport code (IATA code) if available (e.g., JFK, CDG, LHR)
+- The region/continent (e.g., Europe, Asia, North America)
+
+Return results as a JSON array of city objects. Prioritize:
+1. Exact matches
+2. Popular tourist destinations
+3. Major cities with airports
+4. Cities that sound similar to the query"""
+
+    user_prompt = f"""Find up to {max_results} cities that match the query: "{query}"
+
+Return a JSON array with this structure:
+[
+  {{
+    "city": "City Name",
+    "country": "Country Name",
+    "airport_code": "IATA_CODE",
+    "region": "Region/Continent"
+  }}
+]
+
+Include airport codes for major cities. If the query is an airport code, return the city that airport serves."""
+
+    try:
+        response = client.chat.completions.create(
+            model="gpt-4o-mini",
+            messages=[
+                {"role": "system", "content": system_prompt},
+                {"role": "user", "content": user_prompt}
+            ],
+            response_format={"type": "json_object"},
+            temperature=0.3,  # Lower temperature for more consistent results
+        )
+        
+        import json
+        content = response.choices[0].message.content
+        parsed_data = json.loads(content)
+        
+        # Handle both array and object with cities key
+        cities_list = parsed_data.get("cities", []) if isinstance(parsed_data, dict) else parsed_data
+        
+        # Convert to the format expected by the frontend
+        results = []
+        for city_data in cities_list:
+            city_name = city_data.get("city", "")
+            country = city_data.get("country", "")
+            airport_code = city_data.get("airport_code", "")
+            region = city_data.get("region", "")
+            
+            # Format city name with airport code if available
+            display_name = city_name
+            if airport_code:
+                display_name = f"{city_name} ({airport_code})"
+            
+            results.append({
+                "city_id": f"{city_name},{country}",
+                "name": city_name,
+                "country": country,
+                "region": region,
+                "airport_code": airport_code,
+            })
+        
+        return results[:max_results]
+    except Exception as e:
+        logger = logging.getLogger(__name__)
+        logger.error(f"Error searching cities with OpenAI: {str(e)}")
+        # Return empty list on error
+        return []
 
 
 def extract_trip_info_with_openai(text: str) -> ExtractedTripInfo:

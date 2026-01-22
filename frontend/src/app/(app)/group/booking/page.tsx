@@ -12,40 +12,51 @@ import {
   Building2,
   Sparkles,
   ChevronRight,
-  Wallet
+  Wallet,
+  Users
 } from 'lucide-react';
-import { itineraries as itinerariesAPI } from '@/lib/api';
+import { itineraries as itinerariesAPI, trips as tripsAPI } from '@/lib/api';
 
-function SoloBookingContent() {
+function GroupBookingContent() {
   const router = useRouter();
   const searchParams = useSearchParams();
   const tripId = searchParams?.get('trip_id') || '';
   
   const [isPaid, setIsPaid] = useState(false);
   const [isProcessing, setIsProcessing] = useState(false);
+  const [groupSize, setGroupSize] = useState(4);
   const [itineraryData, setItineraryData] = useState<any>(null);
   const [loading, setLoading] = useState(true);
 
   useEffect(() => {
-    const fetchItinerary = async () => {
+    const fetchData = async () => {
       if (!tripId) {
         setLoading(false);
         return;
       }
 
       try {
-        const response = await itinerariesAPI.get(tripId);
-        if (response.items && response.items.length > 0) {
-          setItineraryData(response.items[0]);
+        // Fetch group size
+        const membersResponse = await tripsAPI.listMembers(tripId);
+        setGroupSize(membersResponse.members.length || 4);
+
+        // Fetch selected itinerary if available
+        try {
+          const itineraryResponse = await itinerariesAPI.get(tripId);
+          if (itineraryResponse.items && itineraryResponse.items.length > 0) {
+            setItineraryData(itineraryResponse.items[0]);
+          }
+        } catch (err) {
+          console.log('No itinerary data available yet');
         }
       } catch (err) {
-        console.log('No itinerary data available yet');
+        console.error('Error fetching booking data:', err);
       } finally {
         setLoading(false);
       }
     };
 
-    fetchItinerary();
+    fetchData();
   }, [tripId]);
 
   const handlePayment = () => {
@@ -67,19 +78,19 @@ function SoloBookingContent() {
     );
   }
 
-  // Calculate savings from itinerary data if available
-  const cashPrice = itineraryData?.totalCost || 1850;
-  const pointsCost = itineraryData?.pointsCost || 60000;
-  const taxes = 50;
-  const savings = cashPrice - (pointsCost / 1000 * 2 + taxes);
+  // Calculate savings (mock data for now)
+  const cashPrice = 1850 * groupSize;
+  const pointsCost = 60000;
+  const taxes = 50 * groupSize;
+  const savings = cashPrice - (pointsCost / 1000 * 2 + taxes); // Rough estimate
 
   return (
     <div className="min-h-screen bg-slate-50 pb-20">
       {/* Header */}
       <div className="bg-white border-b border-slate-200">
         <div className="max-w-4xl mx-auto px-6 py-8">
-          <h1 className="text-3xl font-bold text-slate-900">Secure Your Booking</h1>
-          <p className="text-slate-500 mt-2">Complete your payment to unlock step-by-step transfer instructions.</p>
+          <h1 className="text-3xl font-bold text-slate-900">Secure Your Group Booking</h1>
+          <p className="text-slate-500 mt-2">Complete your payment to unlock step-by-step transfer instructions for all {groupSize} travelers.</p>
         </div>
       </div>
 
@@ -94,20 +105,20 @@ function SoloBookingContent() {
             <div className="relative z-10">
               <div className="flex items-center gap-2 text-blue-100 mb-1">
                 <Sparkles className="w-5 h-5" />
-                <span className="font-medium">Total Savings</span>
+                <span className="font-medium">Total Group Savings</span>
               </div>
               <div className="flex items-baseline gap-2 mb-4">
-                <span className="text-5xl font-bold">${Math.max(0, Math.round(savings)).toLocaleString()}</span>
+                <span className="text-5xl font-bold">${savings.toLocaleString()}</span>
                 <span className="text-blue-200">saved vs cash price</span>
               </div>
               <div className="grid grid-cols-2 gap-4 bg-white/10 rounded-xl p-4 border border-white/10">
                 <div>
-                  <div className="text-blue-200 text-sm">Cash Price</div>
+                  <div className="text-blue-200 text-sm">Cash Price ({groupSize} travelers)</div>
                   <div className="text-xl font-semibold line-through opacity-70">${cashPrice.toLocaleString()}</div>
                 </div>
                 <div>
                   <div className="text-blue-200 text-sm">Your Cost</div>
-                  <div className="text-xl font-semibold text-green-300">{(pointsCost / 1000).toFixed(0)}k pts + ${taxes}</div>
+                  <div className="text-xl font-semibold text-green-300">{pointsCost.toLocaleString()} pts + ${taxes}</div>
                 </div>
               </div>
             </div>
@@ -139,7 +150,7 @@ function SoloBookingContent() {
                   </div>
                   <h3 className="text-lg font-bold text-slate-900 mb-2">Instructions Hidden</h3>
                   <p className="text-slate-600 max-w-sm mb-6">
-                    Pay the service fee to reveal the exact transfer partners, flight numbers, and step-by-step booking guide.
+                    Pay the service fee to reveal the exact transfer partners, flight numbers, and step-by-step booking guide for all group members.
                   </p>
                   <button 
                     onClick={() => document.getElementById('payment-section')?.scrollIntoView({ behavior: 'smooth' })}
@@ -151,68 +162,93 @@ function SoloBookingContent() {
               )}
 
               <div className={`p-8 space-y-8 ${!isPaid ? 'opacity-20 select-none' : ''}`}>
-                {/* Step 1 */}
+                {/* Step 1 - Group Flight Transfer */}
                 <div className="flex gap-4">
                   <div className="flex-shrink-0 w-8 h-8 rounded-full bg-blue-100 text-blue-600 flex items-center justify-center font-bold">1</div>
-                  <div>
-                    <h3 className="font-semibold text-slate-900 mb-2">Transfer Points to Virgin Atlantic</h3>
+                  <div className="flex-1">
+                    <h3 className="font-semibold text-slate-900 mb-2 flex items-center gap-2">
+                      <Users className="w-4 h-4" />
+                      Group Flight Points Transfer
+                    </h3>
                     <p className="text-slate-600 mb-4">
-                      Log in to your Chase Ultimate Rewards account and transfer <span className="font-bold text-slate-900">45,000 points</span> to Virgin Atlantic Flying Club. Transfers are usually instant.
+                      Each group member should transfer points to their assigned airline partner. Total: <span className="font-bold text-slate-900">45,000 points per person</span>.
                     </p>
-                    <div className="p-4 bg-slate-50 rounded-xl border border-slate-200 text-sm font-mono text-slate-600">
-                      Partner: Virgin Atlantic<br/>
-                      Account: 123456789 (Your ID)<br/>
-                      Amount: 45,000
-                    </div>
-                  </div>
-                </div>
-
-                {/* Step 2 */}
-                <div className="flex gap-4">
-                  <div className="flex-shrink-0 w-8 h-8 rounded-full bg-blue-100 text-blue-600 flex items-center justify-center font-bold">2</div>
-                  <div>
-                    <h3 className="font-semibold text-slate-900 mb-2">Book Flight VS-102</h3>
-                    <p className="text-slate-600 mb-4">
-                      Go to virginatlantic.com and search for rewards flights from JFK to LHR on June 12. Select Flight VS-102 in Upper Class.
-                    </p>
-                    <div className="flex items-center gap-4 p-4 bg-slate-50 rounded-xl border border-slate-200">
-                      <Plane className="w-5 h-5 text-slate-400" />
-                      <div>
-                        <div className="font-semibold text-slate-900">JFK <ArrowRight className="w-4 h-4 inline mx-1" /> LHR</div>
-                        <div className="text-xs text-slate-500">June 12 • 08:30 PM</div>
+                    <div className="space-y-3">
+                      <div className="p-4 bg-slate-50 rounded-xl border border-slate-200 text-sm">
+                        <div className="font-semibold text-slate-900 mb-2">Member 1 (Sarah)</div>
+                        <div className="text-slate-600 font-mono">
+                          Partner: Virgin Atlantic<br/>
+                          Account: 123456789<br/>
+                          Amount: 45,000 pts
+                        </div>
+                      </div>
+                      <div className="p-4 bg-slate-50 rounded-xl border border-slate-200 text-sm">
+                        <div className="font-semibold text-slate-900 mb-2">Member 2 (John)</div>
+                        <div className="text-slate-600 font-mono">
+                          Partner: Air France / KLM<br/>
+                          Account: 987654321<br/>
+                          Amount: 45,000 pts
+                        </div>
                       </div>
                     </div>
                   </div>
                 </div>
 
-                {/* Step 3 - Hotel Transfer */}
+                {/* Step 2 - Group Flight Booking */}
                 <div className="flex gap-4">
-                  <div className="flex-shrink-0 w-8 h-8 rounded-full bg-blue-100 text-blue-600 flex items-center justify-center font-bold">3</div>
+                  <div className="flex-shrink-0 w-8 h-8 rounded-full bg-blue-100 text-blue-600 flex items-center justify-center font-bold">2</div>
                   <div>
-                    <h3 className="font-semibold text-slate-900 mb-2">Transfer Points for Hotel</h3>
+                    <h3 className="font-semibold text-slate-900 mb-2">Book Group Flights</h3>
                     <p className="text-slate-600 mb-4">
-                      Log in to your Amex Membership Rewards account and transfer <span className="font-bold text-slate-900">15,000 points</span> to Marriott Bonvoy. Transfers typically take 24-48 hours.
+                      Each member books their assigned flight using their transferred points. Coordinate booking times to ensure group availability.
                     </p>
-                    <div className="p-4 bg-slate-50 rounded-xl border border-slate-200 text-sm font-mono text-slate-600">
-                      Partner: Marriott Bonvoy<br/>
-                      Account: 987654321 (Your ID)<br/>
-                      Amount: 15,000
+                    <div className="space-y-3">
+                      <div className="flex items-center gap-4 p-4 bg-slate-50 rounded-xl border border-slate-200">
+                        <Plane className="w-5 h-5 text-slate-400" />
+                        <div className="flex-1">
+                          <div className="font-semibold text-slate-900">JFK <ArrowRight className="w-4 h-4 inline mx-1" /> LHR</div>
+                          <div className="text-xs text-slate-500">June 12 • 08:30 PM • VS-102</div>
+                        </div>
+                      </div>
+                      <div className="flex items-center gap-4 p-4 bg-slate-50 rounded-xl border border-slate-200">
+                        <Plane className="w-5 h-5 text-slate-400" />
+                        <div className="flex-1">
+                          <div className="font-semibold text-slate-900">SFO <ArrowRight className="w-4 h-4 inline mx-1" /> CDG</div>
+                          <div className="text-xs text-slate-500">June 12 • 10:15 AM • AF-1234</div>
+                        </div>
+                      </div>
                     </div>
                   </div>
                 </div>
 
-                {/* Step 4 - Hotel Booking */}
+                {/* Step 3 - Group Hotel Transfer */}
+                <div className="flex gap-4">
+                  <div className="flex-shrink-0 w-8 h-8 rounded-full bg-blue-100 text-blue-600 flex items-center justify-center font-bold">3</div>
+                  <div>
+                    <h3 className="font-semibold text-slate-900 mb-2">Transfer Points for Group Hotel</h3>
+                    <p className="text-slate-600 mb-4">
+                      Pool hotel points from group members. Total: <span className="font-bold text-slate-900">120,000 points</span> needed for {groupSize} rooms.
+                    </p>
+                    <div className="p-4 bg-slate-50 rounded-xl border border-slate-200 text-sm font-mono text-slate-600">
+                      Partner: Marriott Bonvoy<br/>
+                      Account: 555666777 (Group Account)<br/>
+                      Amount: 120,000 pts (30k per person)
+                    </div>
+                  </div>
+                </div>
+
+                {/* Step 4 - Group Hotel Booking */}
                 <div className="flex gap-4">
                   <div className="flex-shrink-0 w-8 h-8 rounded-full bg-blue-100 text-blue-600 flex items-center justify-center font-bold">4</div>
                   <div>
-                    <h3 className="font-semibold text-slate-900 mb-2">Book Hotel at Marriott</h3>
+                    <h3 className="font-semibold text-slate-900 mb-2">Book Group Hotel</h3>
                     <p className="text-slate-600 mb-4">
-                      Go to marriott.com and search for hotels in London. Use your Bonvoy points to book. Recommended: The London EDITION (50,000 points/night) or The Ritz-Carlton London (70,000 points/night).
+                      Book {groupSize} rooms at the Marriott property using pooled points. Contact hotel directly for group booking discounts.
                     </p>
                     <div className="flex items-center gap-4 p-4 bg-slate-50 rounded-xl border border-slate-200">
                       <Building2 className="w-5 h-5 text-slate-400" />
                       <div>
-                        <div className="font-semibold text-slate-900">London, UK</div>
+                        <div className="font-semibold text-slate-900">London, UK • {groupSize} Rooms</div>
                         <div className="text-xs text-slate-500">Check-in: June 12 • Check-out: June 18</div>
                       </div>
                     </div>
@@ -233,7 +269,7 @@ function SoloBookingContent() {
             <div className="p-6 space-y-6">
               <div className="space-y-3">
                 <div className="flex justify-between text-slate-600">
-                  <span>Itinerary Value</span>
+                  <span>Itinerary Value ({groupSize} travelers)</span>
                   <span className="line-through">${cashPrice.toLocaleString()}.00</span>
                 </div>
                 <div className="flex justify-between text-slate-600">
@@ -242,11 +278,11 @@ function SoloBookingContent() {
                 </div>
                 <div className="flex justify-between text-slate-600">
                   <span>Taxes & Fees (Airline)</span>
-                  <span className="font-medium text-slate-900">~$50.00</span>
+                  <span className="font-medium text-slate-900">~${taxes}.00</span>
                 </div>
                 <div className="border-t border-slate-100 my-4 pt-4 flex justify-between items-center">
                   <span className="font-semibold text-slate-900">Tripy Service Fee</span>
-                  <span className="text-xl font-bold text-slate-900">$29.00</span>
+                  <span className="text-xl font-bold text-slate-900">$49.00</span>
                 </div>
               </div>
 
@@ -302,10 +338,10 @@ function SoloBookingContent() {
   );
 }
 
-export default function SoloBooking() {
+export default function GroupBooking() {
   return (
     <Suspense fallback={<div className="min-h-screen bg-slate-50 flex items-center justify-center">Loading...</div>}>
-      <SoloBookingContent />
+      <GroupBookingContent />
     </Suspense>
   );
 }

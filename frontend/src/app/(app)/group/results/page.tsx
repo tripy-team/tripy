@@ -303,12 +303,21 @@ export default function GroupResults() {
                                     <p className="text-sm text-blue-100 mb-6">
                                         Proceed with this itinerary and see how to maximize your group&apos;s points.
                                     </p>
-                                    <button
-                                        onClick={() => router.push(`/group/points-strategy?trip_id=${tripId}`)}
-                                        className="w-full px-6 py-3 bg-yellow-400 text-slate-900 rounded-xl hover:bg-yellow-500 transition-colors shadow-lg shadow-yellow-400/20 font-semibold"
-                                    >
-                                        Select & Optimize
-                                    </button>
+                                    {selectedId ? (
+                                        <button
+                                            onClick={() => router.push(`/group/booking?trip_id=${tripId}`)}
+                                            className="w-full px-6 py-3 bg-yellow-400 text-slate-900 rounded-xl hover:bg-yellow-500 transition-colors shadow-lg shadow-yellow-400/20 font-semibold"
+                                        >
+                                            Book This Trip
+                                        </button>
+                                    ) : (
+                                        <button
+                                            onClick={() => router.push(`/group/points-strategy?trip_id=${tripId}`)}
+                                            className="w-full px-6 py-3 bg-yellow-400 text-slate-900 rounded-xl hover:bg-yellow-500 transition-colors shadow-lg shadow-yellow-400/20 font-semibold"
+                                        >
+                                            Select & Optimize
+                                        </button>
+                                    )}
                                 </div>
                             </div>
                         </div>

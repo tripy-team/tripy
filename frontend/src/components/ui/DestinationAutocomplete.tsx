@@ -2,17 +2,7 @@
 
 import { useState, useEffect, useRef } from 'react';
 import { Plane } from 'lucide-react';
-import { searchCities, formatCityWithAirport, type CityData } from '@/lib/cities-data';
-
-// Map CityData to CitySuggestion format for compatibility
-interface CitySuggestion {
-  city_id: string;
-  name: string;
-  region: string;
-  country: string;
-  lat?: number;
-  lng?: number;
-}
+import { locations, type CitySuggestion } from '@/lib/api';
 
 interface DestinationAutocompleteProps {
   // The current text value of the input (controlled component)
@@ -72,7 +62,7 @@ export function DestinationAutocomplete({
     return () => document.removeEventListener('mousedown', handleClickOutside);
   }, []);
 
-  // Client-side search (replaces Amadeus API)
+  // OpenAI-powered city search
   useEffect(() => {
     // Only search if user has typed at least 1 character
     if (!value.trim() || value.length < 1) {
@@ -81,23 +71,16 @@ export function DestinationAutocomplete({
       return;
     }
 
-    const timeoutId = setTimeout(() => {
+    const timeoutId = setTimeout(async () => {
       setIsLoading(true);
       try {
-        // Use client-side search instead of API
-        const cityResults = searchCities(value.trim(), 12);
+        // Use OpenAI API for city search - handles all cities, typos, and variations
+        const response = await locations.autocomplete(value.trim(), 12);
+        const cities = response?.cities ?? [];
         
-        // Convert CityData to CitySuggestion format
-        const suggestions: CitySuggestion[] = cityResults.map((city) => ({
-          city_id: `${city.city},${city.country}`,
-          name: city.city,
-          region: city.region,
-          country: city.country,
-        }));
-
-        setSuggestions(suggestions);
+        setSuggestions(cities);
         // Always show suggestions if we have results
-        if (suggestions.length > 0) {
+        if (cities.length > 0) {
           setShowSuggestions(true);
           setHighlightIndex(0);
         } else {
@@ -112,18 +95,17 @@ export function DestinationAutocomplete({
       } finally {
         setIsLoading(false);
       }
-    }, 200); // Reduced debounce since it's client-side
+    }, 300); // Debounce for API calls
 
     return () => clearTimeout(timeoutId);
   }, [value]);
 
   const handleSelect = (city: CitySuggestion) => {
     // Format with airport code if available
-    const formattedValue = formatCityWithAirport({
-      city: city.name,
-      country: city.country,
-      region: city.region,
-    });
+    let formattedValue = city.name;
+    if (city.airport_code) {
+      formattedValue = `${city.name} (${city.airport_code})`;
+    }
     
     onChange(formattedValue);
     if (onSelect) {
