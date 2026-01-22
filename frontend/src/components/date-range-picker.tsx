@@ -100,6 +100,11 @@ export default function DateRangePicker({
       const newEndStr = value.end.toString();
       if (newEndStr !== endDate) onEndDateChange(newEndStr);
     }
+
+    // Close popover when both start and end dates are selected
+    if (value.start && value.end) {
+      setIsOpen(false);
+    }
   };
 
   const renderSegment = (segment: unknown) => {
@@ -274,6 +279,7 @@ function MyPopover({ triggerRef, placement, ...props }: PopoverProps) {
       {...props}
       triggerRef={triggerRef}
       placement={placement}
+      shouldFlip={false}
       className={({ isEntering, isExiting }) =>
         [
           'z-50 rounded-xl bg-white border border-slate-200 shadow-lg',
