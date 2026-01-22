@@ -1,6 +1,5 @@
 import React from "react";
-import type { Airport } from "@/data/airports";
-import { METRO_MAPPINGS } from "@/data/airports";
+import type { Airport } from "../data/airports";
 
 const normalize = (s: string) =>
   s
