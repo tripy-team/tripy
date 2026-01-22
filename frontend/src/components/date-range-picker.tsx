@@ -95,7 +95,10 @@ export default function DateRangePicker({
     }
   }, [startDate, endDate]);
 
-  const [activeField, setActiveField] = useState<'start' | 'end' | null>(null);
+  const [activeField, setActiveField] = useState<'start' | 'end'>('start');
+  const startRef = useRef<HTMLDivElement>(null);
+  const endRef = useRef<HTMLDivElement>(null);
+  const [isOpen, setIsOpen] = useState(false);
 
   // ---- ONE WAY: use DatePicker (single date) ----
   if (isOneWay) {
@@ -197,26 +200,38 @@ export default function DateRangePicker({
 
           if (sStr !== startDate) onStartDateChange(sStr);
           if (eStr !== endDate) onEndDateChange(eStr);
+          
+          // Close popover when both dates are selected
+          if (s && e) {
+            setTimeout(() => setIsOpen(false), 100);
+          }
         }}
         isDisabled={disabled}
         minValue={minValue}
+        isOpen={isOpen}
+        onOpenChange={setIsOpen}
         className="w-full"
       >
         <div className="grid grid-cols-2 gap-4">
           {/* Start Date */}
-          <div className="flex w-full flex-col justify-center rounded-xl border border-slate-200 bg-white">
+          <div
+            ref={startRef}
+            className="flex w-full flex-col justify-center rounded-xl border border-slate-200 bg-white cursor-pointer"
+            onPointerDown={(e) => {
+              if (!disabled) {
+                e.preventDefault();
+                setActiveField('start');
+                setIsOpen(true);
+              }
+            }}
+          >
             <Label className="block px-4 pt-3 text-xs text-slate-500 uppercase font-bold tracking-wider">
               Start Date
             </Label>
-            <div
-              className="flex w-full items-center justify-between px-4 pb-3 font-semibold"
-              onPointerDown={() => !disabled && setActiveField('start')}
-            >
+            <div className="flex w-full items-center justify-between px-4 pb-3 font-semibold">
               <DateInput
                 slot="start"
-                className={`flex flex-1 flex-wrap rounded-md bg-white ${
-                  activeField === 'start' ? 'ring-2 ring-blue-600' : ''
-                }`}
+                className="flex flex-1 flex-wrap rounded-md bg-white"
               >
                 {(segment) => (
                   <DateSegment
@@ -232,19 +247,24 @@ export default function DateRangePicker({
           </div>
 
           {/* End Date */}
-          <div className="flex w-full flex-col justify-center rounded-xl border border-slate-200 bg-white">
+          <div
+            ref={endRef}
+            className="flex w-full flex-col justify-center rounded-xl border border-slate-200 bg-white cursor-pointer"
+            onPointerDown={(e) => {
+              if (!disabled) {
+                e.preventDefault();
+                setActiveField('end');
+                setIsOpen(true);
+              }
+            }}
+          >
             <Label className="block px-4 pt-3 text-xs text-slate-500 uppercase font-bold tracking-wider">
               End Date
             </Label>
-            <div
-              className="flex w-full items-center justify-between px-4 pb-3 font-semibold"
-              onPointerDown={() => !disabled && setActiveField('end')}
-            >
+            <div className="flex w-full items-center justify-between px-4 pb-3 font-semibold">
               <DateInput
                 slot="end"
-                className={`flex flex-1 flex-wrap rounded-md bg-white ${
-                  activeField === 'end' ? 'ring-2 ring-blue-600' : ''
-                }`}
+                className="flex flex-1 flex-wrap rounded-md bg-white"
               >
                 {(segment) => (
                   <DateSegment
@@ -260,7 +280,15 @@ export default function DateRangePicker({
           </div>
         </div>
 
-        <MyPopover>
+        {isOpen && (
+          <MyPopover
+            triggerRef={activeField === 'end' ? endRef : startRef}
+            placement={activeField === 'end' ? 'bottom end' : 'bottom start'}
+            offset={8}
+            shouldFlip={false}
+            isOpen={isOpen}
+            onOpenChange={setIsOpen}
+          >
           <Dialog className="p-4 text-slate-950">
             <RangeCalendar>
               <header className="flex w-full items-center gap-1 px-1 pb-4">
@@ -306,6 +334,7 @@ export default function DateRangePicker({
             </RangeCalendar>
           </Dialog>
         </MyPopover>
+        )}
       </AriaDateRangePicker>
     </div>
   );
