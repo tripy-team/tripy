@@ -119,7 +119,7 @@ export default function GroupMemberJoin({ params }: { params: Promise<{ inviteCo
                         // Transform members for the dropdown
                         // Note: We'll need to fetch member preferences separately or from trip member data
                         // For now, using mock structure that matches Figma
-                        setExistingMembers(membersResponse.members.map((m: any, idx: number) => ({
+                        setExistingMembers(membersResponse.members.map((m: { userId?: string; name?: string; role?: string }, idx: number) => ({
                             id: m.userId || `m${idx}`,
                             name: m.name || `Member ${idx + 1}`,
                             role: m.role || 'Member',
