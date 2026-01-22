@@ -1,42 +1,52 @@
 'use client';
 
 import { Search, Globe, CreditCard } from 'lucide-react';
-import { useState } from 'react';
+import { useState, useEffect } from 'react';
 import Image from 'next/image';
+import { getOptimizedImageUrl } from '@/lib/image-utils';
+
+interface Destination {
+  city: string;
+  country: string;
+  points: string;
+  airline: string;
+  image: string;
+}
 
 export default function ExplorePage() {
   const [searchTerm, setSearchTerm] = useState('');
+  const [destinations, setDestinations] = useState<Destination[]>([]);
 
-  const destinations = [
-    {
-      city: 'Paris',
-      country: 'France',
-      points: '45,000',
-      airline: 'Air France',
-      image: 'https://images.unsplash.com/photo-1502602898657-3e91760cbb34?q=80&w=2073&auto=format&fit=crop'
-    },
-    {
-      city: 'Tokyo',
-      country: 'Japan',
-      points: '75,000',
-      airline: 'JAL / ANA',
-      image: 'https://images.unsplash.com/photo-1503899036084-c55cdd92da26?q=80&w=2070&auto=format&fit=crop'
-    },
-    {
-      city: 'Maldives',
-      country: 'Maldives',
-      points: '90,000',
-      airline: 'Qatar Airways',
-      image: 'https://images.unsplash.com/photo-1514282401047-d79a71a590e8?q=80&w=2065&auto=format&fit=crop'
-    },
-    {
-      city: 'Santorini',
-      country: 'Greece',
-      points: '60,000',
-      airline: 'Aegean / Lufthansa',
-      image: 'https://images.unsplash.com/photo-1613395877344-13d4c79e4284?q=80&w=2074&auto=format&fit=crop'
-    }
-  ];
+  useEffect(() => {
+    const loadDestinations = async () => {
+      const dests = [
+        { city: 'Paris', country: 'France', points: '45,000', airline: 'Air France' },
+        { city: 'Tokyo', country: 'Japan', points: '75,000', airline: 'JAL / ANA' },
+        { city: 'Maldives', country: 'Maldives', points: '90,000', airline: 'Qatar Airways' },
+        { city: 'Santorini', country: 'Greece', points: '60,000', airline: 'Aegean / Lufthansa' }
+      ];
+
+      // Load images for each destination
+      const destinationsWithImages = await Promise.all(
+        dests.map(async (dest) => {
+          let imageUrl = '';
+          try {
+            imageUrl = await getOptimizedImageUrl(dest.city, 'medium');
+          } catch (err) {
+            console.error('Error loading image for', dest.city, err);
+          }
+          return {
+            ...dest,
+            image: imageUrl || '/placeholder-trip.jpg'
+          };
+        })
+      );
+
+      setDestinations(destinationsWithImages);
+    };
+
+    loadDestinations();
+  }, []);
 
   return (
     <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-12">

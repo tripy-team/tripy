@@ -143,6 +143,110 @@ class CitySuggestionsResponse(BaseModel):
     cities: List[CitySuggestion]
 
 
+def search_airports_with_openai(query: str, max_results: int = 10) -> List[Dict[str, Any]]:
+    """
+    Search for airports using OpenAI. This can handle airport codes, airport names, city names, and variations.
+    Returns a list of airport suggestions with IATA codes, names, and city information.
+    """
+    load_dotenv()
+    client = OpenAI(api_key=os.getenv("OPENAI_ADMIN_KEY"))
+    
+    system_prompt = """You are a travel assistant that helps users find airports around the world.
+    
+Your task is to suggest airports that match the user's query. The query might be:
+- An airport code (e.g., "JFK", "CDG", "LHR")
+- An airport name (e.g., "John F. Kennedy", "Charles de Gaulle")
+- A city name (e.g., "New York", "Paris", "London")
+- A partial airport code (e.g., "JF", "CD")
+- A typo or variation (e.g., "JFK Airport", "Paris CDG")
+
+For each airport, provide:
+- The IATA airport code (3 letters, e.g., JFK, CDG, LHR) - REQUIRED
+- The full airport name (e.g., "John F. Kennedy International Airport")
+- The city name where the airport is located
+- The country name
+- The region/continent (e.g., Europe, Asia, North America)
+
+Return results as a JSON array of airport objects. Prioritize:
+1. Exact airport code matches
+2. Airports matching the query text
+3. Major international airports
+4. Airports in cities matching the query"""
+
+    user_prompt = f"""Find up to {max_results} airports that match the query: "{query}"
+
+Return a JSON array with this structure:
+[
+  {{
+    "iata_code": "JFK",
+    "airport_name": "John F. Kennedy International Airport",
+    "city": "New York",
+    "country": "United States",
+    "region": "North America"
+  }}
+]
+
+IMPORTANT:
+- Always include the IATA code (3-letter airport code)
+- If the query is an airport code (3 letters), return that specific airport
+- If the query is a city name, return the main airports for that city
+- If the query is an airport name, return matching airports
+- Include both the airport name and the city it serves"""
+
+    try:
+        response = client.chat.completions.create(
+            model="gpt-4o-mini",
+            messages=[
+                {"role": "system", "content": system_prompt},
+                {"role": "user", "content": user_prompt}
+            ],
+            response_format={"type": "json_object"},
+            temperature=0.3,  # Lower temperature for more consistent results
+        )
+        
+        import json
+        content = response.choices[0].message.content
+        parsed_data = json.loads(content)
+        
+        # Handle both array and object with airports key
+        airports_list = parsed_data.get("airports", []) if isinstance(parsed_data, dict) else parsed_data
+        
+        # Convert to the format expected by the frontend
+        results = []
+        for airport_data in airports_list:
+            iata_code = airport_data.get("iata_code", "").upper().strip()
+            airport_name = airport_data.get("airport_name", "")
+            city = airport_data.get("city", "")
+            country = airport_data.get("country", "")
+            region = airport_data.get("region", "")
+            
+            # Skip if no IATA code
+            if not iata_code or len(iata_code) != 3:
+                continue
+            
+            # Format display name
+            display_name = f"{iata_code} - {airport_name}" if airport_name else iata_code
+            if city:
+                display_name += f" ({city})"
+            
+            results.append({
+                "airport_id": f"{iata_code},{city},{country}",
+                "iata_code": iata_code,
+                "airport_name": airport_name,
+                "city": city,
+                "country": country,
+                "region": region,
+                "display_name": display_name,
+            })
+        
+        return results[:max_results]
+    except Exception as e:
+        logger = logging.getLogger(__name__)
+        logger.error(f"Error searching airports with OpenAI: {str(e)}")
+        # Return empty list on error
+        return []
+
+
 def search_cities_with_openai(query: str, max_results: int = 10) -> List[Dict[str, Any]]:
     """
     Search for cities using OpenAI. This can handle typos, partial names, and variations.

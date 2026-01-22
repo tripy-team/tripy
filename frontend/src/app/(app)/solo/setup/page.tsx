@@ -6,8 +6,9 @@ import { X, Calendar, DollarSign, Zap, MapPin, Sparkles, CreditCard, MessageCirc
 import { createTrip, addDestination, upsertPoints, users as usersAPI, ExtractedTripInfo } from '@/lib/api';
 import TripChatbotInline from '@/components/trip-chatbot-inline';
 import { DestinationAutocomplete } from '@/components/ui/DestinationAutocomplete';
-import { CityAutocomplete } from '@/components/CityAutocomplete';
+import { AirportAutocomplete } from '@/components/ui/AirportAutocomplete';
 import { searchAndFormatCity, searchAndFormatCities } from '@/lib/city-formatter';
+import { searchAndFormatAirport } from '@/lib/airport-formatter';
 import DateRangePicker from '@/components/date-range-picker';
 
 interface CreditCardEntry {
@@ -149,22 +150,22 @@ export default function SoloTripSetup() {
 
   // Handle extracted trip info from chatbot
   const handleExtract = async (info: ExtractedTripInfo) => {
-    // Extract and format start destination with airport code
+    // Extract and format start destination as airport code
     if (info.startDestination) {
       try {
-        const formatted = await searchAndFormatCity(info.startDestination);
-        setStartDestination(formatted);
+        const airportCode = await searchAndFormatAirport(info.startDestination);
+        setStartDestination(airportCode);
       } catch (error) {
         console.error('Error formatting start destination:', error);
         setStartDestination(info.startDestination);
       }
     }
 
-    // Extract and format end destination with airport code
+    // Extract and format end destination as airport code
     if (info.endDestination) {
       try {
-        const formatted = await searchAndFormatCity(info.endDestination);
-        setEndDestination(formatted);
+        const airportCode = await searchAndFormatAirport(info.endDestination);
+        setEndDestination(airportCode);
       } catch (error) {
         console.error('Error formatting end destination:', error);
         setEndDestination(info.endDestination);
@@ -610,14 +611,14 @@ export default function SoloTripSetup() {
                 {/* Start Destination */}
                 <div>
                   <label className="block text-sm text-slate-600 mb-2 font-medium">
-                    Start Destination
+                    Start Airport
                   </label>
-                  <CityAutocomplete
+                  <AirportAutocomplete
                     value={startDestination}
                     onChange={setStartDestination}
-                    placeholder="Select starting city..."
-                    onSelect={(city) => {
-                      setStartDestination(city.name);
+                    placeholder="Search airports (e.g., JFK, LAX, or airport name)..."
+                    onSelect={(airportCode) => {
+                      setStartDestination(airportCode);
                     }}
                   />
                 </div>
@@ -625,15 +626,15 @@ export default function SoloTripSetup() {
                 {/* End Destination */}
                 <div>
                   <label className="block text-sm text-slate-600 mb-2 font-medium">
-                    End Destination
+                    End Airport
                   </label>
-                  <CityAutocomplete
+                  <AirportAutocomplete
                     value={endDestination}
                     onChange={setEndDestination}
-                    placeholder="Select ending city..."
+                    placeholder="Search airports (e.g., CDG, LHR, or airport name)..."
                     disabled={isRoundTrip}
-                    onSelect={(city) => {
-                      setEndDestination(city.name);
+                    onSelect={(airportCode) => {
+                      setEndDestination(airportCode);
                     }}
                   />
                 </div>

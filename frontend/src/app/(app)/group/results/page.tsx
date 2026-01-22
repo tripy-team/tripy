@@ -3,7 +3,7 @@
 import { useState, useEffect } from 'react';
 import { useRouter, useSearchParams } from 'next/navigation';
 import { MapPin, DollarSign, Clock, Zap, Users, Sparkles, TrendingUp } from 'lucide-react';
-import { itineraries as itinerariesAPI, trips as tripsAPI, ItineraryItem } from '@/lib/api';
+import { itineraries as itinerariesAPI, trips as tripsAPI, points as pointsAPI, ItineraryItem } from '@/lib/api';
 
 interface Itinerary {
     id: number;
@@ -23,6 +23,7 @@ export default function GroupResults() {
     const [selectedId, setSelectedId] = useState<number | null>(null);
     const [loading, setLoading] = useState(true);
     const [groupSize, setGroupSize] = useState(4);
+    const [members, setMembers] = useState<Array<{ id: string; name: string; initials: string; totalPoints: number; color: string }>>([]);
 
     useEffect(() => {
         const fetchData = async () => {
@@ -34,9 +35,34 @@ export default function GroupResults() {
             try {
                 setLoading(true);
                 
-                // Fetch group size from trip members
+                // Fetch group size and members from trip members
                 const membersResponse = await tripsAPI.listMembers(tripId);
-                setGroupSize(membersResponse.members.length || 4);
+                const memberCount = membersResponse.members.length || 4;
+                setGroupSize(memberCount);
+                
+                // Fetch points summary to get points per user
+                const pointsResponse = await pointsAPI.summary(tripId);
+                
+                // Transform members data with points
+                const colorClasses = ['bg-blue-600', 'bg-purple-600', 'bg-green-600', 'bg-orange-600', 'bg-pink-600', 'bg-indigo-600'];
+                const transformedMembers = membersResponse.members.map((member, index) => {
+                    const userId = member.userId || '';
+                    const name = member.name || `Member ${index + 1}`;
+                    const initials = name.split(' ').map(n => n[0]).join('').toUpperCase().substring(0, 2) || userId.substring(0, 2).toUpperCase();
+                    
+                    // Get points for this user from points summary
+                    const userPoints = pointsResponse.items?.filter((item: { userId?: string }) => item.userId === userId) || [];
+                    const totalPoints = userPoints.reduce((sum: number, item: { balance?: number }) => sum + (item.balance || 0), 0);
+                    
+                    return {
+                        id: userId,
+                        name: name,
+                        initials: initials,
+                        totalPoints: totalPoints,
+                        color: colorClasses[index % colorClasses.length],
+                    };
+                });
+                setMembers(transformedMembers);
                 
                 // Fetch itineraries
                 const response = await itinerariesAPI.get(tripId);
@@ -80,7 +106,7 @@ export default function GroupResults() {
         };
 
         fetchData();
-    }, [tripId, groupSize]);
+    }, [tripId]);
 
     const selectedItinerary = itineraries.find(i => i.id === selectedId);
 
@@ -224,15 +250,9 @@ export default function GroupResults() {
                                     <h3 className="text-xl mb-6 text-slate-900 font-semibold">Individual Cost Breakdown</h3>
 
                                     <div className="space-y-4">
-                                        {/* Mock members - TODO: Fetch from API */}
-                                        {[
-                                            { name: 'Sarah', points: 120000, initials: 'SC', color: 'bg-blue-600' },
-                                            { name: 'Michael', points: 95000, initials: 'MR', color: 'bg-purple-600' },
-                                            { name: 'Emma', points: 0, initials: 'ET', color: 'bg-green-600' },
-                                            { name: 'David', points: 100000, initials: 'DK', color: 'bg-orange-600' },
-                                        ].map((member, idx) => {
+                                        {members.map((member, idx) => {
                                             const baseCost = selectedItinerary.totalCostPerPerson;
-                                            const savings = Math.min(baseCost, member.points * 0.012);
+                                            const savings = Math.min(baseCost, member.totalPoints * 0.012);
                                             const finalCost = baseCost - savings;
 
                                             return (
@@ -267,13 +287,8 @@ export default function GroupResults() {
                                             <div className="flex justify-between items-center mb-1">
                                                 <span className="text-sm text-slate-600">Total Group Cash</span>
                                                 <span className="text-xl text-slate-900 font-bold">
-                                                    ${[
-                                                        { points: 120000 },
-                                                        { points: 95000 },
-                                                        { points: 0 },
-                                                        { points: 100000 },
-                                                    ].reduce((acc, member) => {
-                                                        const savings = Math.min(selectedItinerary.totalCostPerPerson, member.points * 0.012);
+                                                    ${members.reduce((acc, member) => {
+                                                        const savings = Math.min(selectedItinerary.totalCostPerPerson, member.totalPoints * 0.012);
                                                         return acc + (selectedItinerary.totalCostPerPerson - savings);
                                                     }, 0).toLocaleString()}
                                                 </span>
@@ -281,13 +296,8 @@ export default function GroupResults() {
                                             <div className="flex justify-between items-center text-xs text-green-600">
                                                 <span>Total Savings</span>
                                                 <span>
-                                                    -${[
-                                                        { points: 120000 },
-                                                        { points: 95000 },
-                                                        { points: 0 },
-                                                        { points: 100000 },
-                                                    ].reduce((acc, member) => {
-                                                        return acc + Math.min(selectedItinerary.totalCostPerPerson, member.points * 0.012);
+                                                    -${members.reduce((acc, member) => {
+                                                        return acc + Math.min(selectedItinerary.totalCostPerPerson, member.totalPoints * 0.012);
                                                     }, 0).toLocaleString()}
                                                 </span>
                                             </div>

@@ -561,6 +561,16 @@ export const cities = {
   },
 };
 
+export interface AirportSuggestion {
+  airport_id: string;
+  iata_code: string;
+  airport_name: string;
+  city: string;
+  country: string;
+  region?: string;
+  display_name: string;
+}
+
 export const locations = {
   // These hit Next.js route handlers on the same origin as the frontend,
   // not the FastAPI backend. We use relative URLs instead of BACKEND_URL.
@@ -582,6 +592,29 @@ export const locations = {
     });
     if (!res.ok) {
       throw new Error(res.statusText || 'Failed to fetch city suggestions');
+    }
+    return res.json();
+  },
+
+  airportsAutocomplete: async (
+    q: string,
+    limit: number = 10
+  ): Promise<{ airports: AirportSuggestion[] }> => {
+    // Use Next.js route handler (same origin as frontend)
+    const endpoint = `/api/airports/autocomplete?q=${encodeURIComponent(
+      q
+    )}&limit=${limit}`;
+
+    if (typeof window !== 'undefined') {
+      console.log('[locations.airportsAutocomplete] GET', endpoint);
+    }
+
+    const res = await fetch(endpoint, {
+      method: 'GET',
+      headers: { 'Content-Type': 'application/json' },
+    });
+    if (!res.ok) {
+      throw new Error(res.statusText || 'Failed to fetch airport suggestions');
     }
     return res.json();
   },

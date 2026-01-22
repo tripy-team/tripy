@@ -55,6 +55,8 @@ run:
     #   value: your_serp_api_key
     # - name: AWARDTOOL_API_KEY
     #   value: your_awardtool_api_key
+     - name: OPENAI_ADMIN_KEY
+       value: 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
     # - name: ANALYTICS_FIREHOSE_STREAM
     #   value: tripy-analytics
     # Note: Health check is configured in App Runner Console, not in this file

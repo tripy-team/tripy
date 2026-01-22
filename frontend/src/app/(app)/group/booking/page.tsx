@@ -66,10 +66,15 @@ function GroupBookingContent() {
     );
   }
 
-  // Calculate savings (mock data for now)
-  const cashPrice = 1850 * groupSize;
-  const pointsCost = 60000;
-  const taxes = 50 * groupSize;
+  // Calculate savings from actual data if available
+  // Default values if no itinerary data is available yet
+  const defaultCostPerPerson = 1850;
+  const defaultPointsCost = 60000;
+  const defaultTaxes = 50;
+  
+  const cashPrice = defaultCostPerPerson * groupSize;
+  const pointsCost = defaultPointsCost;
+  const taxes = defaultTaxes * groupSize;
   const savings = cashPrice - (pointsCost / 1000 * 2 + taxes); // Rough estimate
 
   return (

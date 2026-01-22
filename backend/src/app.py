@@ -39,7 +39,7 @@ from .utils.analytics import (
 )
 from .utils.jwt_auth import get_current_user_id
 from .utils.loyalty_programs import validate_program
-from .handlers.openAI import extract_trip_info_with_openai, search_cities_with_openai
+from .handlers.openAI import extract_trip_info_with_openai, search_cities_with_openai, search_airports_with_openai
 
 # Get CORS origins from environment variable
 CORS_ORIGINS_ENV = os.environ.get("CORS_ORIGINS", "")
@@ -812,6 +812,24 @@ async def locations_autocomplete(
         except Exception as fallback_error:
             logger.error(f"Fallback city search also failed: {fallback_error}", exc_info=True)
             raise HTTPException(status_code=500, detail="Failed to search locations")
+
+
+@app.get("/api/airports/autocomplete")
+async def airports_autocomplete(
+    q: str = Query(..., min_length=1),
+    limit: int = Query(10, ge=1, le=20),
+):
+    """
+    Return airport suggestions for autocomplete using OpenAI:
+    [{ airport_id, iata_code, airport_name, city, country, region, display_name }]
+    """
+    try:
+        # Use OpenAI for airport search - handles airport codes, names, cities, and variations
+        airports = search_airports_with_openai(q, max_results=limit)
+        return {"airports": airports}
+    except Exception as e:
+        logger.error(f"Error in airports_autocomplete for q='{q}': {e}", exc_info=True)
+        raise HTTPException(status_code=500, detail="Failed to search airports")
 
 
 @app.get("/api/locations/{city_id}/airports")

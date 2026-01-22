@@ -4,7 +4,7 @@ import { useState, use, useEffect } from 'react';
 import { useRouter } from 'next/navigation';
 import { DollarSign, Zap, Users, Calendar, Plane, MessageSquare, Bed, Backpack, Armchair, Coffee, Wine, Crown, BedDouble, Star, User, Baby, Info, Copy, ChevronDown } from 'lucide-react';
 import { trips as tripsAPI, points as pointsAPI } from '@/lib/api';
-import { DestinationAutocomplete } from '@/components/ui/DestinationAutocomplete';
+import { AirportAutocomplete } from '@/components/ui/AirportAutocomplete';
 
 interface TripInfo {
     name: string;
@@ -447,24 +447,24 @@ export default function GroupMemberJoin({ params }: { params: Promise<{ inviteCo
                                 <div className="grid md:grid-cols-2 gap-6">
                                     <div>
                                         <label className="block text-xs text-slate-500 mb-1.5 uppercase font-bold tracking-wider">Departure Airport</label>
-                                        <DestinationAutocomplete
+                                        <AirportAutocomplete
                                             value={startAirport}
                                             onChange={(val) => {
                                                 setStartAirport(val);
                                                 setFlightMatchId('');
                                             }}
-                                            placeholder="e.g., JFK, LAX (Origin)"
+                                            placeholder="e.g., JFK, LAX, or search by airport name"
                                         />
                                     </div>
                                     <div>
                                         <label className="block text-xs text-slate-500 mb-1.5 uppercase font-bold tracking-wider">Preferred Arrival Airport</label>
-                                        <DestinationAutocomplete
+                                        <AirportAutocomplete
                                             value={endAirport}
                                             onChange={(val) => {
                                                 setEndAirport(val);
                                                 setFlightMatchId('');
                                             }}
-                                            placeholder="e.g., CDG, LHR (Destination)"
+                                            placeholder="e.g., CDG, LHR, or search by airport name"
                                         />
                                     </div>
                                 </div>

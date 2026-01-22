@@ -44,8 +44,9 @@ export default function MyTripsPage() {
         setIsLoading(true);
         const response = await tripsAPI.list();
         
-        // Transform API trips to display format
-        const transformedTrips: Trip[] = response.trips.map((trip: ApiTrip) => {
+        // Transform API trips to display format (with async image loading)
+        const transformedTrips: Trip[] = await Promise.all(
+          response.trips.map(async (trip: ApiTrip) => {
           // Format dates
           const startDate = trip.startDate ? new Date(trip.startDate) : null;
           const endDate = trip.endDate ? new Date(trip.endDate) : null;
@@ -70,9 +71,13 @@ export default function MyTripsPage() {
           const destinationName = trip.firstDestination || trip.title || 'Trip';
           const location = trip.firstDestination || 'Location TBD';
           
-          // Generate image URL based on destination (using Unsplash)
-          const imageQuery = encodeURIComponent(destinationName);
-          const image = `https://images.unsplash.com/photo-1499856871958-5b9627545d1a?crop=entropy&cs=tinysrgb&fit=max&fm=jpg&ixid=M3w3Nzg4Nzd8MHwxfHNlYXJjaHwxfHx${imageQuery}JTIwY2l0eSUyMHN0cmVldCUyMG5pZ2h0JTIwbmlnaHR8ZW58MXx8fHwxNzY4NTQ0MTQxfDA&ixlib=rb-4.1.0&q=80&w=1080`;
+          // Fetch city-specific image
+          let imageUrl = '';
+          try {
+            imageUrl = await getOptimizedImageUrl(destinationName, 'thumbnail');
+          } catch (err) {
+            console.error('Error loading image for', destinationName, err);
+          }
           
           // Generate description from trip info
           const description = trip.destinations && trip.destinations.length > 0
@@ -82,7 +87,7 @@ export default function MyTripsPage() {
           return {
             id: trip.tripId,
             destination: trip.title || destinationName,
-            image: image,
+            image: imageUrl || '/placeholder-trip.jpg',
             dates: datesStr,
             status: status,
             pointsRedeemed: '0', // TODO: Calculate from points data
@@ -91,7 +96,8 @@ export default function MyTripsPage() {
             location: location,
             description: description,
           };
-        });
+          })
+        );
         
         setTrips(transformedTrips);
       } catch (err) {

@@ -5,6 +5,7 @@ import { useState, useEffect } from 'react';
 import Image from 'next/image';
 import { ArrowLeft, Calendar, MapPin, CreditCard, Users, User, Plane, Hotel, Copy, CheckCircle, AlertCircle } from 'lucide-react';
 import { trips as tripsAPI } from '@/lib/api';
+import { getOptimizedImageUrl } from '@/lib/image-utils';
 
 interface Trip {
     id: string;
@@ -82,8 +83,13 @@ export default function TripDetails() {
                 const destinationName = apiTrip.firstDestination || apiTrip.title || 'Trip';
                 const location = apiTrip.firstDestination || 'Location TBD';
 
-                const imageQuery = encodeURIComponent(destinationName);
-                const image = `https://images.unsplash.com/photo-1499856871958-5b9627545d1a?crop=entropy&cs=tinysrgb&fit=max&fm=jpg&ixid=M3w3Nzg4Nzd8MHwxfHNlYXJjaHwxfHx${imageQuery}JTIwY2l0eSUyMHN0cmVldCUyMG5pZ2h0JTIwbmlnaHR8ZW58MXx8fHwxNzY4NTQ0MTQxfDA&ixlib=rb-4.1.0&q=80&w=1080`;
+                // Fetch city-specific image
+                let imageUrl = '';
+                try {
+                    imageUrl = await getOptimizedImageUrl(destinationName, 'large');
+                } catch (err) {
+                    console.error('Error loading image for', destinationName, err);
+                }
 
                 const description = apiTrip.destinations && apiTrip.destinations.length > 0
                     ? `Visiting ${apiTrip.destinations.join(', ')}`
@@ -92,7 +98,7 @@ export default function TripDetails() {
                 setTrip({
                     id: apiTrip.tripId,
                     destination: apiTrip.title || destinationName,
-                    image: image,
+                    image: imageUrl || '/placeholder-trip.jpg',
                     dates: datesStr,
                     status: status,
                     pointsRedeemed: '0', // TODO: Calculate from points data
