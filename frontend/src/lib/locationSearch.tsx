@@ -1,6 +1,6 @@
 import React from "react";
-import type { Airport } from "../data/airports";
-import { METRO_MAPPINGS } from "../data/airports";
+import type { Airport } from "@/data/airports";
+import { METRO_MAPPINGS } from "@/data/airports";
 
 const normalize = (s: string) =>
   s
@@ -114,9 +114,9 @@ export function scoreAirport(a: Airport, query: string): number {
 /**
  * Check if query matches a metro code (NYC, LON, PAR, etc.)
  */
-export function getMetroAirports(query: string): Airport[] {
+export function getMetroAirports(query: string, metroMappings: Record<string, string[]>): string[] {
   const q = normalize(query).toUpperCase();
-  const metroCodes = METRO_MAPPINGS[q];
+  const metroCodes = metroMappings[q];
   return metroCodes || [];
 }
 
@@ -126,13 +126,14 @@ export function getMetroAirports(query: string): Airport[] {
 export function searchAirports(
   airports: Airport[],
   query: string,
-  limit = 10
+  limit = 10,
+  metroMappings: Record<string, string[]> = {}
 ): Airport[] {
   const q = query.trim();
   if (!q) return [];
 
   // Check for metro code match first
-  const metroCodes = getMetroAirports(q);
+  const metroCodes = getMetroAirports(q, metroMappings);
   if (metroCodes.length > 0) {
     // Return airports matching the metro code
     const metroSet = new Set(metroCodes);
