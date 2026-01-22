@@ -106,7 +106,7 @@ export default function DateRangePicker({
     }
 
     // Normalize: if both exist and end < start, swap.
-    let normalizedValue = { ...value };
+    const normalizedValue = { ...value };
     if (normalizedValue.start && normalizedValue.end && normalizedValue.end.compare(normalizedValue.start) < 0) {
       const tmp = normalizedValue.start;
       normalizedValue.start = normalizedValue.end;
