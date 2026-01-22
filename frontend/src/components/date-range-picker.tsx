@@ -77,65 +77,25 @@ export default function DateRangePicker({
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [startDate, endDate]);
 
-  // Close popover when dates are complete
-  useEffect(() => {
-    if (isOpen) {
-      const currentRange = getDateValue();
-      if (isOneWay && currentRange.start) {
-        // Close for one-way trips when start date is set
-        setIsOpen(false);
-      } else if (!isOneWay && currentRange.start && currentRange.end) {
-        // Close for round trips when both dates are set
-        setIsOpen(false);
-      }
-    }
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [startDate, endDate, isOneWay, isOpen]);
-
-  // Handle click outside and Escape key to close popover
+  // Close popover when dates are complete (with delay to allow state updates)
   useEffect(() => {
     if (!isOpen) return;
-
-    const handleClickOutside = (event: MouseEvent) => {
-      const target = event.target as Node;
-      const startBox = startDateRef.current;
-      const endBox = endDateRef.current;
+    
+    const currentRange = getDateValue();
+    const shouldClose = isOneWay 
+      ? currentRange.start !== null
+      : currentRange.start !== null && currentRange.end !== null;
+    
+    if (shouldClose) {
+      // Use setTimeout to allow the calendar to finish its state updates
+      const timeoutId = setTimeout(() => {
+        setIsOpen(false);
+      }, 150);
       
-      // Find the popover/dialog element (React Aria renders it in a portal)
-      // Try multiple selectors to find the popover
-      const dialogElement = document.querySelector('[role="dialog"]');
-      const popoverContainer = dialogElement?.closest('[class*="z-50"]') || 
-                              dialogElement?.parentElement ||
-                              document.querySelector('[data-react-aria-popover]');
-
-      // Check if click is outside both date boxes and the popover
-      const clickedStartBox = startBox?.contains(target);
-      const clickedEndBox = endBox?.contains(target);
-      const clickedPopover = popoverContainer?.contains(target);
-
-      if (!clickedStartBox && !clickedEndBox && !clickedPopover) {
-        setIsOpen(false);
-      }
-    };
-
-    const handleEscape = (event: KeyboardEvent) => {
-      if (event.key === 'Escape') {
-        setIsOpen(false);
-      }
-    };
-
-    // Add event listeners with a small delay to avoid immediate closure
-    const timeoutId = setTimeout(() => {
-      document.addEventListener('mousedown', handleClickOutside, true);
-      document.addEventListener('keydown', handleEscape);
-    }, 100);
-
-    return () => {
-      clearTimeout(timeoutId);
-      document.removeEventListener('mousedown', handleClickOutside, true);
-      document.removeEventListener('keydown', handleEscape);
-    };
-  }, [isOpen]);
+      return () => clearTimeout(timeoutId);
+    }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [startDate, endDate, isOneWay]);
 
   const handleChange = (value: DateRangeValue | null) => {
     if (!value) {
@@ -146,25 +106,33 @@ export default function DateRangePicker({
     }
 
     // Normalize: if both exist and end < start, swap.
-    if (value.start && value.end && value.end.compare(value.start) < 0) {
-      const tmp = value.start;
-      value.start = value.end;
-      value.end = tmp;
+    let normalizedValue = { ...value };
+    if (normalizedValue.start && normalizedValue.end && normalizedValue.end.compare(normalizedValue.start) < 0) {
+      const tmp = normalizedValue.start;
+      normalizedValue.start = normalizedValue.end;
+      normalizedValue.end = tmp;
     }
 
-    setRange(value);
+    setRange(normalizedValue);
 
-    if (value.start) {
-      const newStartStr = value.start.toString();
-      if (newStartStr !== startDate) onStartDateChange(newStartStr);
+    // Update parent state only if values actually changed
+    if (normalizedValue.start) {
+      const newStartStr = normalizedValue.start.toString();
+      if (newStartStr !== startDate) {
+        onStartDateChange(newStartStr);
+      }
+    } else if (startDate) {
+      onStartDateChange('');
     }
-    if (value.end) {
-      const newEndStr = value.end.toString();
-      if (newEndStr !== endDate) onEndDateChange(newEndStr);
+    
+    if (normalizedValue.end) {
+      const newEndStr = normalizedValue.end.toString();
+      if (newEndStr !== endDate) {
+        onEndDateChange(newEndStr);
+      }
+    } else if (endDate && !isOneWay) {
+      onEndDateChange('');
     }
-
-    // Note: Closing is handled by useEffect watching startDate/endDate
-    // This ensures the popover closes after state updates complete
   };
 
   const renderSegment = (segment: unknown) => {
@@ -186,7 +154,7 @@ export default function DateRangePicker({
   return (
     <div className="relative w-full">
       <AriaDateRangePicker
-        value={range.start && range.end ? { start: range.start, end: range.end } : null}
+        value={range.start || range.end ? { start: range.start, end: range.end } : null}
         onChange={handleChange}
         isDisabled={disabled}
         minValue={today(getLocalTimeZone())}
@@ -317,7 +285,7 @@ export default function DateRangePicker({
                           isOutsideMonth,
                         }) =>
                           [
-                            'flex h-9 w-9 items-center justify-center rounded-md text-sm transition-colors',
+                            'flex h-9 w-9 items-center justify-center rounded-md text-sm transition-colors cursor-pointer',
                             isSelected
                               ? isSelectionStart || isSelectionEnd
                                 ? 'bg-blue-600 text-white font-semibold'

@@ -84,7 +84,7 @@ export default function GroupResults() {
                             id: index + 1,
                             name: item.name || `Itinerary ${index + 1}`,
                             cities: cities,
-                            totalCostPerPerson: item.totalCostPerPerson || item.costPerPerson || (item.totalCost || 0) / groupSize,
+                            totalCostPerPerson: item.totalCostPerPerson || item.costPerPerson || (item.totalCost || 0) / memberCount,
                             pointsCost: item.pointsCost || item.points || 0,
                             score: item.score || 85,
                         };

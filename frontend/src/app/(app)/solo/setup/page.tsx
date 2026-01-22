@@ -7,7 +7,7 @@ import { createTrip, addDestination, upsertPoints, users as usersAPI, ExtractedT
 import TripChatbotInline from '@/components/trip-chatbot-inline';
 import { DestinationAutocomplete } from '@/components/ui/DestinationAutocomplete';
 import { AirportAutocomplete } from '@/components/ui/AirportAutocomplete';
-import { searchAndFormatCity, searchAndFormatCities } from '@/lib/city-formatter';
+import { searchAndFormatCities } from '@/lib/city-formatter';
 import { searchAndFormatAirport } from '@/lib/airport-formatter';
 import DateRangePicker from '@/components/date-range-picker';
 
