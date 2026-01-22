@@ -19,15 +19,30 @@ function normalizeCityKey(s: string) {
     .toLowerCase();
 }
 
-function extractCitiesFromResponse(resp: any): CitySearchResult[] {
+function isRecord(v: unknown): v is Record<string, unknown> {
+  return typeof v === 'object' && v !== null;
+}
+
+function extractCitiesFromResponse(resp: unknown): CitySearchResult[] {
   // Support common shapes:
   // { cities: [...] }, { data: { cities: [...] } }, { results: [...] }, [...]
   if (!resp) return [];
 
   if (Array.isArray(resp)) return resp as CitySearchResult[];
-  if (Array.isArray(resp.cities)) return resp.cities as CitySearchResult[];
-  if (resp.data && Array.isArray(resp.data.cities)) return resp.data.cities as CitySearchResult[];
-  if (Array.isArray(resp.results)) return resp.results as CitySearchResult[];
+
+  if (!isRecord(resp)) return [];
+
+  const citiesVal = resp['cities'];
+  if (Array.isArray(citiesVal)) return citiesVal as CitySearchResult[];
+
+  const dataVal = resp['data'];
+  if (isRecord(dataVal)) {
+    const dataCitiesVal = dataVal['cities'];
+    if (Array.isArray(dataCitiesVal)) return dataCitiesVal as CitySearchResult[];
+  }
+
+  const resultsVal = resp['results'];
+  if (Array.isArray(resultsVal)) return resultsVal as CitySearchResult[];
 
   return [];
 }
@@ -45,8 +60,19 @@ export function formatCityWithCode(city: CitySearchResult | string): string {
     return s;
   }
 
-  const cityName = (city.name || (city as any).cityName || '').trim();
-  const iataCode = (city.iataCode || (city as any).id || '').toString().trim();
+  // Some backends may use cityName / id; keep it type-safe with narrowing
+  const raw = city as unknown as Record<string, unknown>;
+
+  const name =
+    (typeof raw['name'] === 'string' ? raw['name'] : '') ||
+    (typeof raw['cityName'] === 'string' ? raw['cityName'] : '');
+
+  const iata =
+    (typeof raw['iataCode'] === 'string' ? raw['iataCode'] : '') ||
+    (typeof raw['id'] === 'string' ? raw['id'] : '');
+
+  const cityName = name.trim();
+  const iataCode = iata.trim();
 
   if (iataCode && iataCode.length === 3) {
     return `${cityName} (${iataCode.toUpperCase()})`.trim();
@@ -67,7 +93,7 @@ export async function searchAndFormatCity(cityName: string): Promise<string> {
   if (isFormattedCity(input)) return input;
 
   try {
-    const resp = await citiesAPI.search(input, 5);
+    const resp: unknown = await citiesAPI.search(input, 5);
     const results = extractCitiesFromResponse(resp);
 
     if (results.length > 0) {
@@ -91,7 +117,7 @@ async function mapLimit<T, R>(
   limit: number,
   fn: (item: T, idx: number) => Promise<R>
 ): Promise<R[]> {
-  const out: R[] = new Array(items.length) as any;
+  const out: R[] = new Array(items.length) as unknown as R[];
   let i = 0;
 
   const workers = new Array(Math.min(limit, items.length)).fill(0).map(async () => {
