@@ -2,9 +2,9 @@
 
 import { useState, use, useEffect } from 'react';
 import { useRouter } from 'next/navigation';
-import { DollarSign, Zap, Users, Calendar, Plane, MessageSquare, Bed, Backpack, Armchair, Coffee, Wine, Crown, BedDouble, Star, User, Baby, Info } from 'lucide-react';
+import { DollarSign, Zap, Users, Calendar, Plane, MessageSquare, Bed, Backpack, Armchair, Coffee, Wine, Crown, BedDouble, Star, User, Baby, Info, Copy, ChevronDown } from 'lucide-react';
 import { trips as tripsAPI, points as pointsAPI } from '@/lib/api';
-import { CityAutocomplete } from '@/components/CityAutocomplete';
+import { DestinationAutocomplete } from '@/components/ui/DestinationAutocomplete';
 
 interface TripInfo {
     name: string;
@@ -70,6 +70,19 @@ export default function GroupMemberJoin({ params }: { params: Promise<{ inviteCo
     const [tripInfo, setTripInfo] = useState<TripInfo | null>(null);
     const [isLoading, setIsLoading] = useState(true);
     const [isJoining, setIsJoining] = useState(false);
+    const [existingMembers, setExistingMembers] = useState<Array<{
+        id: string;
+        name: string;
+        role: string;
+        flights?: { start: string; end: string; roundTrip: boolean; flightClass: string };
+        accommodation?: { hotelClass: string; occupancy: number };
+        dates?: { start: string; end: string };
+    }>>([]);
+
+    // Match State Tracking
+    const [flightMatchId, setFlightMatchId] = useState('');
+    const [accommodationMatchId, setAccommodationMatchId] = useState('');
+    const [datesMatchId, setDatesMatchId] = useState('');
 
     useEffect(() => {
         const fetchTripInfo = async () => {
@@ -98,6 +111,28 @@ export default function GroupMemberJoin({ params }: { params: Promise<{ inviteCo
                     startDate: startDateStr,
                     currentMembers: trip.memberCount || 1,
                 });
+
+                // Fetch existing members if trip has tripId
+                if (trip.tripId) {
+                    try {
+                        const membersResponse = await tripsAPI.listMembers(trip.tripId);
+                        // Transform members for the dropdown
+                        // Note: We'll need to fetch member preferences separately or from trip member data
+                        // For now, using mock structure that matches Figma
+                        setExistingMembers(membersResponse.members.map((m: any, idx: number) => ({
+                            id: m.userId || `m${idx}`,
+                            name: m.name || `Member ${idx + 1}`,
+                            role: m.role || 'Member',
+                            // TODO: Fetch actual preferences from member data
+                            flights: { start: 'JFK', end: 'CDG', roundTrip: true, flightClass: 'economy' },
+                            accommodation: { hotelClass: '4', occupancy: 1 },
+                            dates: { start: trip.startDate || '', end: trip.endDate || '' },
+                        })));
+                    } catch (err) {
+                        console.error('Error fetching members:', err);
+                        // Continue without member data
+                    }
+                }
             } catch (err) {
                 console.error('Error fetching trip info:', err);
                 setTripInfo(null);
@@ -108,6 +143,35 @@ export default function GroupMemberJoin({ params }: { params: Promise<{ inviteCo
 
         fetchTripInfo();
     }, [inviteCode]);
+
+    const handleCopyFlights = (memberId: string) => {
+        const member = existingMembers.find(m => m.id === memberId);
+        if (member && member.flights) {
+            setStartAirport(member.flights.start);
+            setEndAirport(member.flights.end);
+            setIsRoundTrip(member.flights.roundTrip);
+            setFlightClass(member.flights.flightClass);
+            setFlightMatchId(memberId);
+        }
+    };
+
+    const handleCopyAccommodation = (memberId: string) => {
+        const member = existingMembers.find(m => m.id === memberId);
+        if (member && member.accommodation) {
+            setHotelClass(member.accommodation.hotelClass);
+            setRoomOccupancy(member.accommodation.occupancy);
+            setAccommodationMatchId(memberId);
+        }
+    };
+
+    const handleCopyDates = (memberId: string) => {
+        const member = existingMembers.find(m => m.id === memberId);
+        if (member && member.dates) {
+            setStartDate(member.dates.start);
+            setEndDate(member.dates.end);
+            setDatesMatchId(memberId);
+        }
+    };
 
     const handleJoin = async () => {
         try {
@@ -354,21 +418,52 @@ export default function GroupMemberJoin({ params }: { params: Promise<{ inviteCo
                                 </div>
                             </div>
 
+                            {existingMembers.length > 0 && (
+                                <div className="mb-8 flex flex-col sm:flex-row items-center gap-3 p-3 bg-blue-50/50 border border-blue-100 rounded-xl">
+                                    <div className="hidden sm:flex flex-shrink-0 w-10 h-10 bg-blue-100 rounded-lg items-center justify-center">
+                                        <Copy className="w-5 h-5 text-blue-600" />
+                                    </div>
+                                    <div className="flex-1 min-w-0 text-center sm:text-left">
+                                        <div className="text-xs font-semibold text-blue-700 uppercase tracking-wider mb-0.5">Same as friend?</div>
+                                        <div className="text-xs text-slate-500 truncate">Copy flight details from another traveler</div>
+                                    </div>
+                                    <div className="relative w-full sm:w-[220px]">
+                                        <select
+                                            className="w-full appearance-none pl-3 pr-8 py-2 bg-white border border-blue-200 rounded-lg text-sm text-slate-700 focus:outline-none focus:ring-2 focus:ring-blue-600 focus:border-transparent cursor-pointer hover:border-blue-300 transition-colors"
+                                            onChange={(e) => handleCopyFlights(e.target.value)}
+                                            value={flightMatchId}
+                                        >
+                                            <option value="">Select member...</option>
+                                            {existingMembers.map(m => (
+                                                <option key={m.id} value={m.id}>{m.name} ({m.role})</option>
+                                            ))}
+                                        </select>
+                                        <ChevronDown className="absolute right-3 top-1/2 -translate-y-1/2 w-4 h-4 text-slate-400 pointer-events-none" />
+                                    </div>
+                                </div>
+                            )}
+
                             <div className="space-y-6">
                                 <div className="grid md:grid-cols-2 gap-6">
                                     <div>
                                         <label className="block text-xs text-slate-500 mb-1.5 uppercase font-bold tracking-wider">Departure Airport</label>
-                                        <CityAutocomplete
+                                        <DestinationAutocomplete
                                             value={startAirport}
-                                            onChange={setStartAirport}
+                                            onChange={(val) => {
+                                                setStartAirport(val);
+                                                setFlightMatchId('');
+                                            }}
                                             placeholder="e.g., JFK, LAX (Origin)"
                                         />
                                     </div>
                                     <div>
                                         <label className="block text-xs text-slate-500 mb-1.5 uppercase font-bold tracking-wider">Preferred Arrival Airport</label>
-                                        <CityAutocomplete
+                                        <DestinationAutocomplete
                                             value={endAirport}
-                                            onChange={setEndAirport}
+                                            onChange={(val) => {
+                                                setEndAirport(val);
+                                                setFlightMatchId('');
+                                            }}
                                             placeholder="e.g., CDG, LHR (Destination)"
                                         />
                                     </div>
@@ -379,7 +474,10 @@ export default function GroupMemberJoin({ params }: { params: Promise<{ inviteCo
                                         <input
                                             type="checkbox"
                                             checked={isRoundTrip}
-                                            onChange={(e) => setIsRoundTrip(e.target.checked)}
+                                            onChange={(e) => {
+                                                setIsRoundTrip(e.target.checked);
+                                                setFlightMatchId('');
+                                            }}
                                             className="w-4 h-4 text-blue-600 bg-white rounded border-blue-400 focus:ring-blue-600 focus:ring-offset-0"
                                         />
                                         <span className="text-sm text-slate-600 group-hover:text-slate-900 transition-colors">Round Trip</span>
@@ -402,7 +500,10 @@ export default function GroupMemberJoin({ params }: { params: Promise<{ inviteCo
                                             return (
                                                 <button
                                                     key={option.value}
-                                                    onClick={() => setFlightClass(option.value)}
+                                                    onClick={() => {
+                                                        setFlightClass(option.value);
+                                                        setFlightMatchId('');
+                                                    }}
                                                     className={`relative p-3 rounded-2xl border-2 transition-all text-left flex flex-col gap-2 group h-full ${
                                                         isSelected
                                                             ? 'border-blue-600 bg-blue-50/50 shadow-sm'
@@ -440,6 +541,31 @@ export default function GroupMemberJoin({ params }: { params: Promise<{ inviteCo
                                 <h2 className="text-2xl text-slate-900 font-semibold">Accommodation</h2>
                             </div>
 
+                            {existingMembers.length > 0 && (
+                                <div className="mb-8 flex flex-col sm:flex-row items-center gap-3 p-3 bg-blue-50/50 border border-blue-100 rounded-xl">
+                                    <div className="hidden sm:flex flex-shrink-0 w-10 h-10 bg-blue-100 rounded-lg items-center justify-center">
+                                        <Copy className="w-5 h-5 text-blue-600" />
+                                    </div>
+                                    <div className="flex-1 min-w-0 text-center sm:text-left">
+                                        <div className="text-xs font-semibold text-blue-700 uppercase tracking-wider mb-0.5">Same as friend?</div>
+                                        <div className="text-xs text-slate-500 truncate">Copy hotel preferences from another traveler</div>
+                                    </div>
+                                    <div className="relative w-full sm:w-[220px]">
+                                        <select
+                                            className="w-full appearance-none pl-3 pr-8 py-2 bg-white border border-blue-200 rounded-lg text-sm text-slate-700 focus:outline-none focus:ring-2 focus:ring-blue-600 focus:border-transparent cursor-pointer hover:border-blue-300 transition-colors"
+                                            onChange={(e) => handleCopyAccommodation(e.target.value)}
+                                            value={accommodationMatchId}
+                                        >
+                                            <option value="">Select member...</option>
+                                            {existingMembers.map(m => (
+                                                <option key={m.id} value={m.id}>{m.name} ({m.role})</option>
+                                            ))}
+                                        </select>
+                                        <ChevronDown className="absolute right-3 top-1/2 -translate-y-1/2 w-4 h-4 text-slate-400 pointer-events-none" />
+                                    </div>
+                                </div>
+                            )}
+
                             <div className="space-y-8">
                                 {/* Hotel Class */}
                                 <div>
@@ -454,7 +580,10 @@ export default function GroupMemberJoin({ params }: { params: Promise<{ inviteCo
                                             return (
                                                 <button
                                                     key={option.value}
-                                                    onClick={() => setHotelClass(option.value)}
+                                                    onClick={() => {
+                                                        setHotelClass(option.value);
+                                                        setAccommodationMatchId('');
+                                                    }}
                                                     className={`relative p-4 rounded-2xl border-2 transition-all text-left flex items-start gap-4 group ${
                                                         isSelected
                                                             ? 'border-blue-600 bg-blue-50/50 shadow-sm'
@@ -492,7 +621,10 @@ export default function GroupMemberJoin({ params }: { params: Promise<{ inviteCo
                                         </div>
                                         <div className="flex items-center gap-4">
                                             <button
-                                                onClick={() => setRoomOccupancy(Math.max(1, roomOccupancy - 1))}
+                                                onClick={() => {
+                                                    setRoomOccupancy(Math.max(1, roomOccupancy - 1));
+                                                    setAccommodationMatchId('');
+                                                }}
                                                 className="w-8 h-8 rounded-lg bg-white border border-slate-200 flex items-center justify-center hover:bg-slate-50 text-slate-600 transition-colors shadow-sm"
                                             >
                                                 -
@@ -501,7 +633,10 @@ export default function GroupMemberJoin({ params }: { params: Promise<{ inviteCo
                                                 {roomOccupancy}
                                             </div>
                                             <button
-                                                onClick={() => setRoomOccupancy(Math.min(4, roomOccupancy + 1))}
+                                                onClick={() => {
+                                                    setRoomOccupancy(Math.min(4, roomOccupancy + 1));
+                                                    setAccommodationMatchId('');
+                                                }}
                                                 className="w-8 h-8 rounded-lg bg-white border border-slate-200 flex items-center justify-center hover:bg-slate-50 text-slate-600 transition-colors shadow-sm"
                                             >
                                                 +
@@ -521,13 +656,41 @@ export default function GroupMemberJoin({ params }: { params: Promise<{ inviteCo
                                 <h2 className="text-2xl text-slate-900 font-semibold">Travel Dates</h2>
                             </div>
 
+                            {existingMembers.length > 0 && (
+                                <div className="mb-8 flex flex-col sm:flex-row items-center gap-3 p-3 bg-blue-50/50 border border-blue-100 rounded-xl">
+                                    <div className="hidden sm:flex flex-shrink-0 w-10 h-10 bg-blue-100 rounded-lg items-center justify-center">
+                                        <Copy className="w-5 h-5 text-blue-600" />
+                                    </div>
+                                    <div className="flex-1 min-w-0 text-center sm:text-left">
+                                        <div className="text-xs font-semibold text-blue-700 uppercase tracking-wider mb-0.5">Same as friend?</div>
+                                        <div className="text-xs text-slate-500 truncate">Copy dates from another traveler</div>
+                                    </div>
+                                    <div className="relative w-full sm:w-[220px]">
+                                        <select
+                                            className="w-full appearance-none pl-3 pr-8 py-2 bg-white border border-blue-200 rounded-lg text-sm text-slate-700 focus:outline-none focus:ring-2 focus:ring-blue-600 focus:border-transparent cursor-pointer hover:border-blue-300 transition-colors"
+                                            onChange={(e) => handleCopyDates(e.target.value)}
+                                            value={datesMatchId}
+                                        >
+                                            <option value="">Select member...</option>
+                                            {existingMembers.map(m => (
+                                                <option key={m.id} value={m.id}>{m.name} ({m.role})</option>
+                                            ))}
+                                        </select>
+                                        <ChevronDown className="absolute right-3 top-1/2 -translate-y-1/2 w-4 h-4 text-slate-400 pointer-events-none" />
+                                    </div>
+                                </div>
+                            )}
+
                             <div className="grid md:grid-cols-2 gap-6 mb-4">
                                 <div>
                                     <label className="block text-xs text-slate-500 mb-1.5 uppercase font-bold tracking-wider">Start Date</label>
                                     <input
                                         type="date"
                                         value={startDate}
-                                        onChange={(e) => setStartDate(e.target.value)}
+                                        onChange={(e) => {
+                                            setStartDate(e.target.value);
+                                            setDatesMatchId('');
+                                        }}
                                         className="w-full px-4 py-3 bg-white border border-slate-200 rounded-xl focus:outline-none focus:ring-2 focus:ring-blue-600 focus:border-transparent"
                                     />
                                 </div>
@@ -536,7 +699,10 @@ export default function GroupMemberJoin({ params }: { params: Promise<{ inviteCo
                                     <input
                                         type="date"
                                         value={endDate}
-                                        onChange={(e) => setEndDate(e.target.value)}
+                                        onChange={(e) => {
+                                            setEndDate(e.target.value);
+                                            setDatesMatchId('');
+                                        }}
                                         min={startDate}
                                         className="w-full px-4 py-3 bg-white border border-slate-200 rounded-xl focus:outline-none focus:ring-2 focus:ring-blue-600 focus:border-transparent"
                                     />

@@ -70,7 +70,6 @@ export default function DateRangePicker({
   // Anchor the popover under whichever box was last clicked.
   const startDateRef = useRef<HTMLDivElement>(null);
   const endDateRef = useRef<HTMLDivElement>(null);
-  const popoverRef = useRef<HTMLDivElement>(null);
   const [activeTrigger, setActiveTrigger] = useState<'start' | 'end'>('start');
 
   useEffect(() => {
@@ -269,7 +268,6 @@ export default function DateRangePicker({
             offset={8}
             isOpen={isOpen}
             onOpenChange={setIsOpen}
-            popoverRef={popoverRef}
           >
             <Dialog className="p-4 text-slate-950">
               <RangeCalendar>
@@ -337,30 +335,28 @@ export default function DateRangePicker({
   );
 }
 
-function MyPopover({ triggerRef, placement, isOpen, onOpenChange, popoverRef, ...props }: PopoverProps & { isOpen?: boolean; onOpenChange?: (isOpen: boolean) => void; popoverRef?: React.RefObject<HTMLDivElement> }) {
+function MyPopover({ triggerRef, placement, isOpen, onOpenChange, ...props }: PopoverProps & { isOpen?: boolean; onOpenChange?: (isOpen: boolean) => void }) {
   return (
-    <div ref={popoverRef}>
-      <Popover
-        {...props}
-        triggerRef={triggerRef}
-        placement={placement}
-        shouldFlip={false}
-        isOpen={isOpen}
-        onOpenChange={onOpenChange}
-        className={({ isEntering, isExiting }) =>
-          [
-            'z-50 rounded-xl bg-white border border-slate-200 shadow-lg',
-            isEntering
-              ? 'animate-in fade-in placement-bottom:slide-in-from-top-1 placement-top:slide-in-from-bottom-1 duration-200 ease-out'
-              : '',
-            isExiting
-              ? 'animate-out fade-out placement-bottom:slide-out-to-top-1 placement-top:slide-out-to-bottom-1 duration-150 ease-in'
-              : '',
-          ]
-            .filter(Boolean)
-            .join(' ')
-        }
-      />
-    </div>
+    <Popover
+      {...props}
+      triggerRef={triggerRef}
+      placement={placement}
+      shouldFlip={false}
+      isOpen={isOpen}
+      onOpenChange={onOpenChange}
+      className={({ isEntering, isExiting }) =>
+        [
+          'z-50 rounded-xl bg-white border border-slate-200 shadow-lg',
+          isEntering
+            ? 'animate-in fade-in placement-bottom:slide-in-from-top-1 placement-top:slide-in-from-bottom-1 duration-200 ease-out'
+            : '',
+          isExiting
+            ? 'animate-out fade-out placement-bottom:slide-out-to-top-1 placement-top:slide-out-to-bottom-1 duration-150 ease-in'
+            : '',
+        ]
+          .filter(Boolean)
+          .join(' ')
+      }
+    />
   );
 }
