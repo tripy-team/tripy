@@ -200,7 +200,7 @@ export default function SoloTripSetup() {
       setIsFlexible(true);
       setFlexibleDuration(info.duration);
     }
-    if (info.isFlexible !== undefined) {
+    if (info.isFlexible !== undefined && info.isFlexible !== null) {
       setIsFlexible(info.isFlexible);
     }
 

@@ -121,7 +121,6 @@ export default function DateRangePicker({
         // DateSegment expects the same segment object passed by DateInput.
         // The lib typing may be broader than we need; passing `unknown` here is fine
         // because it's the exact runtime shape from react-aria-components.
-        // eslint-disable-next-line @typescript-eslint/consistent-type-assertions
         segment={segment as never}
         className={`px-0.5 text-sm tabular-nums outline-none rounded min-h-[20px] focus:bg-blue-100 focus:text-blue-900 cursor-pointer ${
           isPlaceholder ? 'text-slate-400' : 'text-slate-900'
