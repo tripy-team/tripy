@@ -196,7 +196,7 @@ export default function SoloTripSetup() {
     if (info.endDate) {
       setEndDate(info.endDate);
     }
-    if (info.duration && !info.startDate && !info.endDate) {
+    if (info.duration !== undefined && info.duration !== null && !info.startDate && !info.endDate) {
       setIsFlexible(true);
       setFlexibleDuration(info.duration);
     }
@@ -205,7 +205,7 @@ export default function SoloTripSetup() {
     }
 
     // Extract budget - populate budget section
-          if (info.maxBudget !== undefined) {
+          if (info.maxBudget !== undefined && info.maxBudget !== null) {
             setMaxBudget(info.maxBudget);
           }
 

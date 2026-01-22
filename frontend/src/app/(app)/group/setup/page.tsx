@@ -30,6 +30,7 @@ export default function GroupTripSetup() {
   const [isFlexible, setIsFlexible] = useState(false);
   const [startDate, setStartDate] = useState('');
   const [endDate, setEndDate] = useState('');
+  const [isOneWay, setIsOneWay] = useState(false);
   const [flexibleDuration, setFlexibleDuration] = useState(7);
   const [durationDays, setDurationDays] = useState(0);
 
@@ -207,7 +208,7 @@ export default function GroupTripSetup() {
     if (info.endDate) {
       setEndDate(info.endDate);
     }
-    if (info.duration && !info.startDate && !info.endDate) {
+    if (info.duration !== undefined && info.duration !== null && !info.startDate && !info.endDate) {
       setIsFlexible(true);
       setFlexibleDuration(info.duration);
     }
@@ -216,7 +217,7 @@ export default function GroupTripSetup() {
     }
 
     // Extract budget - populate budget section
-          if (info.maxBudget !== undefined) {
+          if (info.maxBudget !== undefined && info.maxBudget !== null) {
             setMaxBudget(info.maxBudget);
           }
 
@@ -280,16 +281,24 @@ export default function GroupTripSetup() {
 
   const handleCreateTrip = async () => {
     // Validate required fields
-    if (!startDestination || !endDestination) {
-      setError('Please fill in both start and end destinations');
+    if (!startDestination) {
+      setError('Please fill in the start destination');
+      return;
+    }
+    if (!isOneWay && !endDestination) {
+      setError('Please fill in the end destination');
       return;
     }
     if (cities.length < 1) {
       setError('Please add at least 1 destination city');
       return;
     }
-    if (!isFlexible && (!startDate || !endDate)) {
-      setError('Please select travel dates');
+    if (!isFlexible && !startDate) {
+      setError('Please select a start date');
+      return;
+    }
+    if (!isFlexible && !isOneWay && !endDate) {
+      setError('Please select an end date');
       return;
     }
 
@@ -304,7 +313,7 @@ export default function GroupTripSetup() {
       const trip = await createTrip({
         title: tripTitle,
         start_date: isFlexible ? '' : startDate,
-        end_date: isFlexible ? '' : endDate,
+        end_date: isFlexible || isOneWay ? '' : endDate,
       });
 
       // 2. Add start destination if provided
@@ -705,11 +714,12 @@ export default function GroupTripSetup() {
                     endDate={endDate}
                     onStartDateChange={setStartDate}
                     onEndDateChange={setEndDate}
+                    isOneWay={isOneWay}
                   />
                 </div>
 
-                {/* Flexible Dates Checkbox */}
-                <div className="flex items-center justify-start pt-2">
+                {/* Flexible Dates and One-way Trip Checkboxes */}
+                <div className="flex flex-wrap items-center gap-6 pt-2">
                   <label className="flex items-center gap-2 cursor-pointer select-none group inline-flex">
                     <input
                       type="checkbox"
@@ -718,6 +728,21 @@ export default function GroupTripSetup() {
                       className="w-4 h-4"
                     />
                     <span className="text-sm text-slate-600 group-hover:text-slate-900 transition-colors">Flexible dates</span>
+                  </label>
+
+                  <label className="flex items-center gap-2 cursor-pointer select-none group inline-flex">
+                    <input
+                      type="checkbox"
+                      checked={isOneWay}
+                      onChange={(e) => {
+                        setIsOneWay(e.target.checked);
+                        if (e.target.checked) {
+                          setEndDate('');
+                        }
+                      }}
+                      className="w-4 h-4"
+                    />
+                    <span className="text-sm text-slate-600 group-hover:text-slate-900 transition-colors">One-way trip</span>
                   </label>
                 </div>
 
@@ -778,7 +803,7 @@ export default function GroupTripSetup() {
                     value={endDestination}
                     onChange={setEndDestination}
                     placeholder="Select ending city..."
-                    disabled={isRoundTrip}
+                    disabled={isRoundTrip || isOneWay}
                     onSelect={(city) => {
                       setEndDestination(city.name);
                     }}
@@ -919,7 +944,7 @@ export default function GroupTripSetup() {
               {/* Generate/Invite Button */}
               <button
                 onClick={handleCreateTrip}
-                disabled={cities.length < 1 || (!isFlexible && (!startDate || !endDate)) || isGenerating}
+                disabled={cities.length < 1 || (!isFlexible && (!startDate || (!isOneWay && !endDate))) || isGenerating}
                 className="w-full px-6 py-4 bg-yellow-400 text-slate-900 rounded-xl hover:bg-yellow-500 transition-all disabled:opacity-50 disabled:cursor-not-allowed flex items-center justify-center gap-2 text-lg shadow-lg shadow-yellow-400/20 font-semibold"
               >
                 <Users className="w-5 h-5" />
