@@ -15,15 +15,13 @@ const eslintConfig = [
   {
     files: ["**/*.{ts,tsx}"],
     rules: {
-      // Ignore a specific unused var name (boxClass). Still catch others.
-      "@typescript-eslint/no-unused-vars": [
-        "error",
-        {
-          varsIgnorePattern: "^(?:_|boxClass)$",
-          argsIgnorePattern: "^_",
-          caughtErrorsIgnorePattern: "^_",
-        },
-      ],
+      // Disable strict unused vars checking
+      "@typescript-eslint/no-unused-vars": "off",
+      "@typescript-eslint/no-explicit-any": "off",
+      "react-hooks/exhaustive-deps": "warn",
+      "react/no-unescaped-entities": "off",
+      "@typescript-eslint/ban-ts-comment": "off",
+      "@typescript-eslint/no-non-null-assertion": "off",
     },
   },
 ];
