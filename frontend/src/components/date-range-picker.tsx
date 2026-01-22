@@ -1,6 +1,6 @@
 'use client';
 
-import { useEffect, useRef, useState } from 'react';
+import { useEffect, useMemo, useRef, useState } from 'react';
 import {
   Button,
   CalendarCell,
@@ -9,6 +9,7 @@ import {
   CalendarGridHeader,
   CalendarHeaderCell,
   DateInput,
+  DatePicker as AriaDatePicker,
   DateRangePicker as AriaDateRangePicker,
   DateSegment,
   Dialog,
@@ -16,19 +17,15 @@ import {
   Heading,
   Popover,
   RangeCalendar,
+  Calendar,
 } from 'react-aria-components';
 import type { PopoverProps } from 'react-aria-components';
 import { CalendarIcon, ChevronLeftIcon, ChevronRightIcon } from 'lucide-react';
-import {
-  getLocalTimeZone,
-  parseDate,
-  today,
-  type DateValue,
-} from '@internationalized/date';
+import { getLocalTimeZone, parseDate, today, type DateValue } from '@internationalized/date';
 
 interface DateRangePickerProps {
-  startDate: string;
-  endDate: string;
+  startDate: string; // "YYYY-MM-DD"
+  endDate: string; // "YYYY-MM-DD"
   onStartDateChange: (date: string) => void;
   onEndDateChange: (date: string) => void;
   disabled?: boolean;
@@ -38,11 +35,24 @@ interface DateRangePickerProps {
 type DateRangeValue = { start: DateValue | null; end: DateValue | null };
 
 // react-aria DateInput render prop receives a DateSegment-like object.
-// The type exported by react-aria may not include `isPlaceholder` in your version,
-// so we use a safe type guard without `any`.
+// Some versions don't type `isPlaceholder`, so guard safely.
 type SegmentWithOptionalPlaceholder = { isPlaceholder?: boolean };
 function hasIsPlaceholder(x: unknown): x is SegmentWithOptionalPlaceholder {
   return typeof x === 'object' && x !== null && 'isPlaceholder' in x;
+}
+
+function renderSegment(segment: unknown) {
+  const isPlaceholder = hasIsPlaceholder(segment) ? !!segment.isPlaceholder : false;
+  return (
+    <DateSegment
+      segment={segment as never}
+      className={[
+        'px-0.5 text-sm tabular-nums outline-none rounded min-h-[20px] cursor-pointer',
+        'focus:bg-blue-100 focus:text-blue-900',
+        isPlaceholder ? 'text-slate-400' : 'text-slate-900',
+      ].join(' ')}
+    />
+  );
 }
 
 export default function DateRangePicker({
@@ -53,162 +63,232 @@ export default function DateRangePicker({
   disabled = false,
   isOneWay = false,
 }: DateRangePickerProps) {
-  const getDateValue = (): DateRangeValue => {
-    try {
-      return {
-        start: startDate ? parseDate(startDate) : null,
-        end: endDate ? parseDate(endDate) : null,
-      };
-    } catch {
-      return { start: null, end: null };
-    }
-  };
+  const minValue = useMemo(() => today(getLocalTimeZone()), []);
 
-  const [range, setRange] = useState<DateRangeValue>(() => getDateValue());
-  const [isOpen, setIsOpen] = useState(false);
-
-  // Anchor the popover under whichever box was last clicked.
-  const startDateRef = useRef<HTMLDivElement>(null);
-  const endDateRef = useRef<HTMLDivElement>(null);
-  const [activeTrigger, setActiveTrigger] = useState<'start' | 'end'>('start');
-
-  useEffect(() => {
-    setRange(getDateValue());
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [startDate, endDate]);
-
-  // Close popover when dates are complete (with delay to allow state updates)
-  // Only close after user has finished selecting (both dates for round trip, start for one-way)
-  // Use a ref to track if we're currently updating to prevent premature closing
-  const isUpdatingRef = useRef(false);
-  
-  useEffect(() => {
-    if (!isOpen || isUpdatingRef.current) return;
-    
-    const currentRange = getDateValue();
-    const shouldClose = isOneWay 
-      ? currentRange.start !== null
-      : currentRange.start !== null && currentRange.end !== null;
-    
-    if (shouldClose) {
-      // Use a longer delay to ensure calendar state updates complete and user can see their selection
-      const timeoutId = setTimeout(() => {
-        if (!isUpdatingRef.current) {
-          setIsOpen(false);
-        }
-      }, 600);
-      
-      return () => clearTimeout(timeoutId);
-    }
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [startDate, endDate, isOneWay]);
-
-  const handleChange = (value: DateRangeValue | null) => {
-    if (!value) {
-      setRange({ start: null, end: null });
-      if (startDate) onStartDateChange('');
-      if (endDate) onEndDateChange('');
-      return;
-    }
-
-    // Normalize: if both exist and end < start, swap.
-    const normalizedValue = { ...value };
-    if (normalizedValue.start && normalizedValue.end && normalizedValue.end.compare(normalizedValue.start) < 0) {
-      const tmp = normalizedValue.start;
-      normalizedValue.start = normalizedValue.end;
-      normalizedValue.end = tmp;
-    }
-
-    // Update local state immediately for responsive UI
-    setRange(normalizedValue);
-
-    // Mark that we're updating to prevent premature popover closing
-    isUpdatingRef.current = true;
-
-    // Update parent state - use setTimeout to avoid blocking calendar interactions
-    setTimeout(() => {
-      if (normalizedValue.start) {
-        const newStartStr = normalizedValue.start.toString();
-        if (newStartStr !== startDate) {
-          onStartDateChange(newStartStr);
-        }
-      } else if (startDate) {
-        onStartDateChange('');
-      }
-      
-      if (normalizedValue.end) {
-        const newEndStr = normalizedValue.end.toString();
-        if (newEndStr !== endDate) {
-          onEndDateChange(newEndStr);
-        }
-      } else if (endDate && !isOneWay) {
-        onEndDateChange('');
-      }
-      
-      // Reset updating flag after a short delay
-      setTimeout(() => {
-        isUpdatingRef.current = false;
-      }, 100);
-    }, 0);
-  };
-
-  const renderSegment = (segment: unknown) => {
-    const isPlaceholder = hasIsPlaceholder(segment) ? !!segment.isPlaceholder : false;
-
+  // ---- ONE WAY: use DatePicker (single date) ----
+  if (isOneWay) {
     return (
-      <DateSegment
-        // DateSegment expects the same segment object passed by DateInput.
-        // The lib typing may be broader than we need; passing `unknown` here is fine
-        // because it's the exact runtime shape from react-aria-components.
-        segment={segment as never}
-        className={`px-0.5 text-sm tabular-nums outline-none rounded min-h-[20px] focus:bg-blue-100 focus:text-blue-900 cursor-pointer ${
-          isPlaceholder ? 'text-slate-400' : 'text-slate-900'
-        }`}
+      <OneWayDatePicker
+        date={startDate}
+        onChange={(d) => onStartDateChange(d)}
+        disabled={disabled}
+        minValue={minValue}
       />
     );
-  };
+  }
+
+  // ---- ROUND TRIP: use DateRangePicker ----
+  return (
+    <RoundTripDateRangePicker
+      startDate={startDate}
+      endDate={endDate}
+      onStartDateChange={onStartDateChange}
+      onEndDateChange={onEndDateChange}
+      disabled={disabled}
+      minValue={minValue}
+    />
+  );
+}
+
+function OneWayDatePicker({
+  date,
+  onChange,
+  disabled,
+  minValue,
+}: {
+  date: string;
+  onChange: (date: string) => void;
+  disabled: boolean;
+  minValue: DateValue;
+}) {
+  const [isOpen, setIsOpen] = useState(false);
+  const triggerRef = useRef<HTMLDivElement>(null);
+
+  const value = useMemo(() => {
+    try {
+      return date ? parseDate(date) : null;
+    } catch {
+      return null;
+    }
+  }, [date]);
+
+  return (
+    <div className="relative w-full">
+      <AriaDatePicker
+        value={value}
+        onChange={(v) => onChange(v ? v.toString() : '')}
+        isDisabled={disabled}
+        minValue={minValue}
+        isOpen={isOpen}
+        onOpenChange={setIsOpen}
+        className="flex w-full flex-col"
+      >
+        <div
+          ref={triggerRef}
+          className="cursor-pointer w-full"
+          onMouseDown={(e) => {
+            // prevent focus thrash and keep click snappy
+            e.preventDefault();
+            if (!disabled) setIsOpen(true);
+          }}
+        >
+          <Group className="flex w-full items-center px-4 py-3 bg-white border border-slate-200 rounded-xl focus-within:ring-2 focus-within:ring-blue-600 focus-within:border-transparent hover:border-slate-300 transition-colors">
+            <div className="flex items-center gap-3 flex-1 min-w-0">
+              <CalendarIcon className="w-5 h-5 text-slate-400 flex-shrink-0 pointer-events-none" />
+              <div className="flex-1 min-w-0">
+                <label className="block text-xs text-slate-500 mb-1 uppercase font-bold tracking-wider cursor-pointer">
+                  Start Date
+                </label>
+                <DateInput className="flex flex-wrap min-w-0 cursor-pointer">
+                  {(segment) => renderSegment(segment)}
+                </DateInput>
+              </div>
+            </div>
+          </Group>
+        </div>
+
+        {isOpen && (
+          <MyPopover triggerRef={triggerRef} placement="bottom start" offset={8} isOpen={isOpen} onOpenChange={setIsOpen}>
+            <Dialog className="p-4 text-slate-950">
+              <Calendar>
+                <header className="flex w-full items-center gap-1 px-1 pb-4">
+                  <Heading className="ml-2 flex-1 font-semibold text-slate-900" />
+                  <Button
+                    slot="previous"
+                    className="flex h-8 w-8 items-center justify-center rounded-full hover:bg-slate-100 transition-colors"
+                  >
+                    <ChevronLeftIcon className="h-4 w-4 text-slate-900" />
+                  </Button>
+                  <Button
+                    slot="next"
+                    className="flex h-8 w-8 items-center justify-center rounded-full hover:bg-slate-100 transition-colors"
+                  >
+                    <ChevronRightIcon className="h-4 w-4 text-slate-900" />
+                  </Button>
+                </header>
+
+                <CalendarGrid className="border-separate border-spacing-1">
+                  <CalendarGridHeader>
+                    {(day) => (
+                      <CalendarHeaderCell className="text-xs font-semibold text-slate-500 py-2">
+                        {day}
+                      </CalendarHeaderCell>
+                    )}
+                  </CalendarGridHeader>
+
+                  <CalendarGridBody>
+                    {(d) => (
+                      <CalendarCell
+                        date={d}
+                        className={({ isSelected, isFocused, isOutsideMonth }) =>
+                          [
+                            'flex h-9 w-9 items-center justify-center rounded-md text-sm transition-colors cursor-pointer',
+                            isSelected ? 'bg-blue-600 text-white font-semibold' : '',
+                            isFocused ? 'ring-2 ring-blue-600 ring-offset-1' : '',
+                            isOutsideMonth ? 'text-slate-300' : 'text-slate-900',
+                            !isSelected && !isFocused ? 'hover:bg-slate-100' : '',
+                          ]
+                            .filter(Boolean)
+                            .join(' ')
+                        }
+                      />
+                    )}
+                  </CalendarGridBody>
+                </CalendarGrid>
+              </Calendar>
+            </Dialog>
+          </MyPopover>
+        )}
+      </AriaDatePicker>
+    </div>
+  );
+}
+
+function RoundTripDateRangePicker({
+  startDate,
+  endDate,
+  onStartDateChange,
+  onEndDateChange,
+  disabled,
+  minValue,
+}: {
+  startDate: string;
+  endDate: string;
+  onStartDateChange: (date: string) => void;
+  onEndDateChange: (date: string) => void;
+  disabled: boolean;
+  minValue: DateValue;
+}) {
+  const [isOpen, setIsOpen] = useState(false);
+
+  // Anchor under the box you click
+  const startRef = useRef<HTMLDivElement>(null);
+  const endRef = useRef<HTMLDivElement>(null);
+  const [activeTrigger, setActiveTrigger] = useState<'start' | 'end'>('start');
+
+  const controlledValue = useMemo(() => {
+    try {
+      if (!startDate || !endDate) return null;
+      const start = parseDate(startDate);
+      const end = parseDate(endDate);
+      return { start, end };
+    } catch {
+      return null;
+    }
+  }, [startDate, endDate]);
 
   return (
     <div className="relative w-full">
       <AriaDateRangePicker
-        value={
-          range.start && range.end
-            ? { start: range.start, end: range.end }
-            : range.start
-              ? { start: range.start, end: range.start }
-              : null
-        }
-        onChange={handleChange}
+        value={controlledValue}
+        onChange={(val) => {
+          if (!val) {
+            if (startDate) onStartDateChange('');
+            if (endDate) onEndDateChange('');
+            return;
+          }
+
+          // Normalize in case end < start
+          let s = val.start;
+          let e = val.end;
+          if (s && e && e.compare(s) < 0) [s, e] = [e, s];
+
+          const sStr = s?.toString() ?? '';
+          const eStr = e?.toString() ?? '';
+
+          // Write-through to parent state (no timeouts)
+          if (sStr !== startDate) onStartDateChange(sStr);
+          if (eStr !== endDate) onEndDateChange(eStr);
+
+          // Close only when both picked
+          if (s && e) setIsOpen(false);
+        }}
         isDisabled={disabled}
-        minValue={today(getLocalTimeZone())}
+        minValue={minValue}
         isOpen={isOpen}
         onOpenChange={setIsOpen}
         className="flex w-full flex-col"
       >
         <div className="grid grid-cols-2 gap-4">
-          {/* Start Date Box */}
+          {/* Start */}
           <div
-            ref={startDateRef}
+            ref={startRef}
             className="cursor-pointer w-full"
-            onClick={() => {
-              setActiveTrigger('start');
-              setIsOpen(true);
-            }}
-          >
-            <Group
-              className="flex w-full items-center px-4 py-3 bg-white border border-slate-200 rounded-xl focus-within:ring-2 focus-within:ring-blue-600 focus-within:border-transparent hover:border-slate-300 transition-colors"
-              onFocusCapture={() => {
+            onMouseDown={(e) => {
+              e.preventDefault();
+              if (!disabled) {
                 setActiveTrigger('start');
                 setIsOpen(true);
-              }}
-            >
+              }
+            }}
+          >
+            <Group className="flex w-full items-center px-4 py-3 bg-white border border-slate-200 rounded-xl focus-within:ring-2 focus-within:ring-blue-600 focus-within:border-transparent hover:border-slate-300 transition-colors">
               <div className="flex items-center gap-3 flex-1 min-w-0">
                 <CalendarIcon className="w-5 h-5 text-slate-400 flex-shrink-0 pointer-events-none" />
                 <div className="flex-1 min-w-0">
                   <label className="block text-xs text-slate-500 mb-1 uppercase font-bold tracking-wider cursor-pointer">
                     Start Date
                   </label>
-
                   <DateInput slot="start" className="flex flex-wrap min-w-0 cursor-pointer">
                     {(segment) => renderSegment(segment)}
                   </DateInput>
@@ -217,53 +297,38 @@ export default function DateRangePicker({
             </Group>
           </div>
 
-          {/* End Date Box */}
+          {/* End */}
           <div
-            ref={endDateRef}
-            className={`w-full ${isOneWay ? 'opacity-50 cursor-not-allowed' : 'cursor-pointer'}`}
-            onClick={() => {
-              if (!isOneWay) {
+            ref={endRef}
+            className="cursor-pointer w-full"
+            onMouseDown={(e) => {
+              e.preventDefault();
+              if (!disabled) {
                 setActiveTrigger('end');
                 setIsOpen(true);
               }
             }}
           >
-            <Group
-              className={`flex w-full items-center px-4 py-3 bg-white border border-slate-200 rounded-xl focus-within:ring-2 focus-within:ring-blue-600 focus-within:border-transparent transition-colors ${
-                isOneWay ? 'cursor-not-allowed' : 'hover:border-slate-300'
-              }`}
-              onFocusCapture={() => {
-                if (!isOneWay) {
-                  setActiveTrigger('end');
-                  setIsOpen(true);
-                }
-              }}
-            >
+            <Group className="flex w-full items-center px-4 py-3 bg-white border border-slate-200 rounded-xl focus-within:ring-2 focus-within:ring-blue-600 focus-within:border-transparent hover:border-slate-300 transition-colors">
               <div className="flex items-center gap-3 flex-1 min-w-0">
                 <CalendarIcon className="w-5 h-5 text-slate-400 flex-shrink-0 pointer-events-none" />
                 <div className="flex-1 min-w-0">
                   <label className="block text-xs text-slate-500 mb-1 uppercase font-bold tracking-wider cursor-pointer">
                     End Date
                   </label>
-
-                  {isOneWay ? (
-                    <div className="text-sm text-slate-400 italic">One-way trip</div>
-                  ) : (
-                    <DateInput slot="end" className="flex flex-wrap min-w-0 cursor-pointer">
-                      {(segment) => renderSegment(segment)}
-                    </DateInput>
-                  )}
+                  <DateInput slot="end" className="flex flex-wrap min-w-0 cursor-pointer">
+                    {(segment) => renderSegment(segment)}
+                  </DateInput>
                 </div>
               </div>
             </Group>
           </div>
         </div>
 
-        {/* Popover: React Aria handles click-outside automatically */}
         {isOpen && (
           <MyPopover
             key={activeTrigger}
-            triggerRef={activeTrigger === 'end' ? endDateRef : startDateRef}
+            triggerRef={activeTrigger === 'end' ? endRef : startRef}
             placement={activeTrigger === 'end' ? 'bottom end' : 'bottom start'}
             offset={8}
             isOpen={isOpen}
@@ -297,16 +362,10 @@ export default function DateRangePicker({
                   </CalendarGridHeader>
 
                   <CalendarGridBody>
-                    {(date) => (
+                    {(d) => (
                       <CalendarCell
-                        date={date}
-                        className={({
-                          isSelected,
-                          isFocused,
-                          isSelectionStart,
-                          isSelectionEnd,
-                          isOutsideMonth,
-                        }) =>
+                        date={d}
+                        className={({ isSelected, isFocused, isSelectionStart, isSelectionEnd, isOutsideMonth }) =>
                           [
                             'flex h-9 w-9 items-center justify-center rounded-md text-sm transition-colors cursor-pointer',
                             isSelected
@@ -316,7 +375,6 @@ export default function DateRangePicker({
                               : '',
                             isFocused ? 'ring-2 ring-blue-600 ring-offset-1' : '',
                             isOutsideMonth ? 'text-slate-300' : 'text-slate-900',
-                            'hover:bg-blue-50',
                             !isSelected && !isFocused ? 'hover:bg-slate-100' : '',
                           ]
                             .filter(Boolean)
@@ -335,7 +393,13 @@ export default function DateRangePicker({
   );
 }
 
-function MyPopover({ triggerRef, placement, isOpen, onOpenChange, ...props }: PopoverProps & { isOpen?: boolean; onOpenChange?: (isOpen: boolean) => void }) {
+function MyPopover({
+  triggerRef,
+  placement,
+  isOpen,
+  onOpenChange,
+  ...props
+}: PopoverProps & { isOpen?: boolean; onOpenChange?: (isOpen: boolean) => void }) {
   return (
     <Popover
       {...props}
