@@ -247,11 +247,115 @@ IMPORTANT:
         return []
 
 
-def search_cities_with_openai(query: str, max_results: int = 10) -> List[Dict[str, Any]]:
+def _search_static_cities(query: str, max_results: int = 10) -> List[Dict[str, Any]]:
     """
-    Search for cities using OpenAI. This can handle typos, partial names, and variations.
+    Search static cities.json file first (no API calls, no tokens).
+    Returns a list of city suggestions.
+    """
+    try:
+        import json
+        from pathlib import Path
+        
+        # Try to find cities.json
+        project_root = Path(__file__).parent.parent.parent
+        cities_file = project_root / "scripts" / "cities.json"
+        
+        if not cities_file.exists():
+            return []
+        
+        with open(cities_file, "r", encoding="utf-8") as f:
+            cities_data = json.load(f)
+        
+        query_lower = query.lower().strip()
+        if not query_lower:
+            return []
+        
+        results = []
+        for city_entry in cities_data:
+            if not isinstance(city_entry, dict):
+                continue
+            
+            city_name = city_entry.get("city", "").lower()
+            country = city_entry.get("country", "").lower()
+            region = city_entry.get("region", "").lower()
+            
+            # Match if query appears in city name, country, or region
+            if (query_lower in city_name or 
+                query_lower in country or 
+                query_lower in region or
+                city_name.startswith(query_lower)):
+                
+                results.append({
+                    "city_id": f"{city_entry.get('city', '')},{city_entry.get('country', '')}",
+                    "name": city_entry.get("city", ""),
+                    "country": city_entry.get("country", ""),
+                    "region": city_entry.get("region", ""),
+                    "airport_code": "",  # Static data doesn't have airport codes
+                })
+                
+                if len(results) >= max_results:
+                    break
+        
+        return results
+    except Exception as e:
+        logger = logging.getLogger(__name__)
+        logger.warning(f"Error searching static cities: {str(e)}")
+        return []
+
+
+def search_cities_with_openai(query: str, max_results: int = 10, use_cache: bool = True) -> List[Dict[str, Any]]:
+    """
+    Search for cities using a hybrid approach to save tokens:
+    1. First try static cities.json (no tokens)
+    2. Then try city_service (Amadeus/fallback, no tokens)
+    3. Only use OpenAI if needed (for typos, unusual queries, or insufficient results)
+    
     Returns a list of city suggestions with airport codes when available.
     """
+    from ..utils.cache_layer import get_json, set_json
+    
+    # Step 1: Try static cities first (no tokens, instant)
+    static_results = _search_static_cities(query, max_results)
+    if len(static_results) >= max_results:
+        return static_results
+    
+    # Step 2: Try city_service (Amadeus or fallback, no tokens)
+    try:
+        from ..services import city_service
+        service_results = city_service.search_cities_for_autocomplete(query, max_results=max_results)
+        
+        # Merge with static results, avoiding duplicates
+        seen_ids = {r["city_id"] for r in static_results}
+        for result in service_results:
+            if result.get("city_id") not in seen_ids:
+                static_results.append({
+                    "city_id": result.get("city_id", ""),
+                    "name": result.get("name", ""),
+                    "country": result.get("country", ""),
+                    "region": result.get("region", ""),
+                    "airport_code": "",  # city_service doesn't return airport_code in this format
+                })
+                seen_ids.add(result.get("city_id", ""))
+                if len(static_results) >= max_results:
+                    break
+        
+        # If we have enough results, return early (saves tokens!)
+        if len(static_results) >= max_results:
+            return static_results[:max_results]
+    except Exception as e:
+        logger = logging.getLogger(__name__)
+        logger.warning(f"Error in city_service search: {str(e)}")
+    
+    # Step 3: Only use OpenAI if we don't have enough results
+    # This handles typos, unusual queries, or when static data is insufficient
+    
+    # Check cache first (saves tokens for repeated queries)
+    cache_key = f"city_search:{query.lower().strip()}:{max_results}"
+    if use_cache:
+        cached = get_json(cache_key)
+        if cached is not None:
+            return cached
+    
     load_dotenv()
     client = OpenAI(api_key=os.getenv("OPENAI_ADMIN_KEY"))
     
@@ -270,7 +374,7 @@ For each city, provide:
 - The primary airport code (IATA code) if available (e.g., JFK, CDG, LHR)
 - The region/continent (e.g., Europe, Asia, North America)
 
-Return results as a JSON array of city objects. Prioritize:
+Return results as a JSON object with a "cities" key containing an array of city objects. Prioritize:
 1. Exact matches
 2. Popular tourist destinations
 3. Major cities with airports
@@ -278,15 +382,17 @@ Return results as a JSON array of city objects. Prioritize:
 
     user_prompt = f"""Find up to {max_results} cities that match the query: "{query}"
 
-Return a JSON array with this structure:
-[
-  {{
-    "city": "City Name",
-    "country": "Country Name",
-    "airport_code": "IATA_CODE",
-    "region": "Region/Continent"
-  }}
-]
+Return a JSON object with a "cities" key containing an array with this structure:
+{{
+  "cities": [
+    {{
+      "city": "City Name",
+      "country": "Country Name",
+      "airport_code": "IATA_CODE",
+      "region": "Region/Continent"
+    }}
+  ]
+}}
 
 Include airport codes for major cities. If the query is an airport code, return the city that airport serves."""
 
@@ -305,8 +411,10 @@ Include airport codes for major cities. If the query is an airport code, return 
         content = response.choices[0].message.content
         parsed_data = json.loads(content)
         
-        # Handle both array and object with cities key
-        cities_list = parsed_data.get("cities", []) if isinstance(parsed_data, dict) else parsed_data
+        # Extract cities array from the JSON object
+        cities_list = parsed_data.get("cities", [])
+        if not isinstance(cities_list, list):
+            cities_list = []
         
         # Convert to the format expected by the frontend
         results = []
@@ -329,12 +437,28 @@ Include airport codes for major cities. If the query is an airport code, return 
                 "airport_code": airport_code,
             })
         
-        return results[:max_results]
+        results = results[:max_results]
+        
+        # Merge OpenAI results with static results, avoiding duplicates
+        seen_ids = {r["city_id"] for r in static_results}
+        for result in results:
+            if result.get("city_id") not in seen_ids:
+                static_results.append(result)
+                if len(static_results) >= max_results:
+                    break
+        
+        final_results = static_results[:max_results]
+        
+        # Cache the OpenAI results for 24 hours (saves tokens on repeated queries)
+        if use_cache:
+            set_json(cache_key, final_results, ttl=86400)  # 24 hours
+        
+        return final_results
     except Exception as e:
         logger = logging.getLogger(__name__)
         logger.error(f"Error searching cities with OpenAI: {str(e)}")
-        # Return empty list on error
-        return []
+        # Return static results even if OpenAI fails
+        return static_results if static_results else []
 
 
 def extract_trip_info_with_openai(text: str) -> ExtractedTripInfo:
