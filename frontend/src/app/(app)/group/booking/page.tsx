@@ -37,14 +37,6 @@ function GroupBookingContent() {
         // Fetch group size
         const membersResponse = await tripsAPI.listMembers(tripId);
         setGroupSize(membersResponse.members.length || 4);
-
-        // Fetch selected itinerary if available (for future use)
-        try {
-          await itinerariesAPI.get(tripId);
-          // Itinerary data can be used here in the future for dynamic pricing
-        } catch (_err) {
-          console.log('No itinerary data available yet');
-        }
       } catch (_err) {
         console.error('Error fetching booking data:', _err);
       } finally {
