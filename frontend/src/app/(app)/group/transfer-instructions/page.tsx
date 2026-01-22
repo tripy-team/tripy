@@ -1,9 +1,8 @@
 'use client';
 
-import { useRouter, useSearchParams } from 'next/navigation';
+import { useRouter } from 'next/navigation';
 import { useState } from 'react';
 import { ArrowLeft, CheckCircle, ExternalLink, AlertCircle, Copy, Plane, Hotel, Activity, Info } from 'lucide-react';
-import { trips as tripsAPI, points as pointsAPI } from '@/lib/api';
 
 interface TransferStep {
     id: string;
@@ -21,8 +20,6 @@ interface TransferStep {
 
 export default function GroupTransferInstructions() {
     const router = useRouter();
-    const searchParams = useSearchParams();
-    const tripId = searchParams?.get('trip_id') || '';
     const [copiedId, setCopiedId] = useState<string | null>(null);
 
     const copyToClipboard = async (text: string, id: string) => {
@@ -30,7 +27,7 @@ export default function GroupTransferInstructions() {
             await navigator.clipboard.writeText(text);
             setCopiedId(id);
             setTimeout(() => setCopiedId(null), 2000);
-        } catch (err) {
+        } catch (_err) {
             try {
                 const textArea = document.createElement('textarea');
                 textArea.value = text;

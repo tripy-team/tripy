@@ -149,7 +149,7 @@ export default function GroupPayment() {
 
                 {/* Promo Code Input */}
                 <div className="pt-2">
-                  <div className="flex gap-2">
+                  <div className="relative">
                     <input
                       type="text"
                       value={promoCode}
@@ -158,14 +158,14 @@ export default function GroupPayment() {
                         setPromoMessage('');
                       }}
                       placeholder="Promo Code"
-                      className="flex-1 px-3 py-2 bg-slate-50 border border-slate-200 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-blue-600 focus:border-transparent uppercase placeholder:normal-case"
+                      className="w-full pl-3 pr-24 py-3 bg-slate-50 border border-slate-200 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-blue-600 focus:border-transparent uppercase placeholder:normal-case"
                     />
                     <button
                       onClick={handleApplyPromo}
                       disabled={!promoCode}
-                      className="px-6 py-2 bg-slate-900 text-white text-sm font-semibold rounded-lg hover:bg-slate-800 transition-all shadow-md disabled:opacity-50 disabled:cursor-not-allowed disabled:shadow-none"
+                      className="absolute right-1.5 top-1.5 bottom-1.5 px-4 bg-slate-900 text-white text-xs font-bold rounded-md hover:bg-slate-800 transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
                     >
-                      Apply
+                      APPLY
                     </button>
                   </div>
                   {promoMessage && (

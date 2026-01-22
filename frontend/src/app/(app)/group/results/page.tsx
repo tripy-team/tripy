@@ -105,7 +105,7 @@ export default function GroupResults() {
                 <div className="mb-8">
                     <div className="inline-flex items-center gap-2 px-3 py-1 bg-blue-100 rounded-full text-sm text-blue-700 mb-4 font-medium">
                         <Users className="w-4 h-4" />
-                        <span>Group Trip · 4 members</span>
+                        <span>Group Trip · {groupSize} members</span>
                     </div>
                     <h1 className="text-4xl mb-2 tracking-tight text-slate-900 font-bold">Group Itineraries</h1>
                     <p className="text-slate-600">We generated {itineraries.length} optimized routes for your group</p>
@@ -221,52 +221,93 @@ export default function GroupResults() {
                         <div className="lg:col-span-1">
                             <div className="sticky top-8 space-y-6">
                                 <div className="bg-white border border-slate-200 rounded-2xl p-6 shadow-sm">
-                                    <h3 className="text-xl mb-6 text-slate-900 font-semibold">Cost Breakdown</h3>
+                                    <h3 className="text-xl mb-6 text-slate-900 font-semibold">Individual Cost Breakdown</h3>
 
                                     <div className="space-y-4">
-                                        <div>
-                                            <div className="text-sm text-slate-600 mb-3 font-medium">Per Person</div>
-                                            <div className="space-y-2 text-sm">
-                                                <div className="flex justify-between">
-                                                    <span className="text-slate-600">Flights</span>
-                                                    <span className="text-slate-900 font-medium">${Math.floor(selectedItinerary.totalCostPerPerson * 0.4).toLocaleString()}</span>
-                                                </div>
-                                                <div className="flex justify-between">
-                                                    <span className="text-slate-600">Hotels</span>
-                                                    <span className="text-slate-900 font-medium">${Math.floor(selectedItinerary.totalCostPerPerson * 0.35).toLocaleString()}</span>
-                                                </div>
-                                                <div className="flex justify-between">
-                                                    <span className="text-slate-600">Activities</span>
-                                                    <span className="text-slate-900 font-medium">${Math.floor(selectedItinerary.totalCostPerPerson * 0.25).toLocaleString()}</span>
-                                                </div>
-                                                <div className="pt-2 border-t border-slate-200 flex justify-between font-semibold">
-                                                    <span className="text-slate-900">Total</span>
-                                                    <span className="text-slate-900">${selectedItinerary.totalCostPerPerson.toLocaleString()}</span>
-                                                </div>
-                                            </div>
-                                        </div>
+                                        {/* Mock members - TODO: Fetch from API */}
+                                        {[
+                                            { name: 'Sarah', points: 120000, initials: 'SC', color: 'bg-blue-600' },
+                                            { name: 'Michael', points: 95000, initials: 'MR', color: 'bg-purple-600' },
+                                            { name: 'Emma', points: 0, initials: 'ET', color: 'bg-green-600' },
+                                            { name: 'David', points: 100000, initials: 'DK', color: 'bg-orange-600' },
+                                        ].map((member, idx) => {
+                                            const baseCost = selectedItinerary.totalCostPerPerson;
+                                            const savings = Math.min(baseCost, member.points * 0.012);
+                                            const finalCost = baseCost - savings;
 
-                                        <div className="pt-4 border-t border-slate-200">
-                                            <div className="text-sm text-slate-600 mb-2 font-medium">Group Total</div>
-                                            <div className="text-3xl text-slate-900 font-semibold">${(selectedItinerary.totalCostPerPerson * groupSize).toLocaleString()}</div>
-                                            <div className="text-sm text-slate-600 mt-1">for {groupSize} people</div>
+                                            return (
+                                                <div key={idx} className="flex items-center justify-between pb-4 border-b border-slate-100 last:border-0 last:pb-0">
+                                                    <div className="flex items-center gap-3">
+                                                        <div className={`w-8 h-8 ${member.color} rounded-full flex items-center justify-center text-white text-xs font-bold`}>
+                                                            {member.initials}
+                                                        </div>
+                                                        <div>
+                                                            <div className="text-sm font-medium text-slate-900">{member.name}</div>
+                                                            {savings > 0 ? (
+                                                                <div className="text-xs text-green-600 flex items-center gap-1">
+                                                                    <Zap className="w-3 h-3" />
+                                                                    Save ${Math.round(savings).toLocaleString()}
+                                                                </div>
+                                                            ) : (
+                                                                <div className="text-xs text-slate-500">No points applied</div>
+                                                            )}
+                                                        </div>
+                                                    </div>
+                                                    <div className="text-right">
+                                                        <div className="text-sm font-bold text-slate-900">${Math.round(finalCost).toLocaleString()}</div>
+                                                        {savings > 0 && (
+                                                            <div className="text-xs text-slate-400 line-through">${baseCost.toLocaleString()}</div>
+                                                        )}
+                                                    </div>
+                                                </div>
+                                            );
+                                        })}
+
+                                        <div className="pt-4 border-t border-slate-200 mt-2">
+                                            <div className="flex justify-between items-center mb-1">
+                                                <span className="text-sm text-slate-600">Total Group Cash</span>
+                                                <span className="text-xl text-slate-900 font-bold">
+                                                    ${[
+                                                        { points: 120000 },
+                                                        { points: 95000 },
+                                                        { points: 0 },
+                                                        { points: 100000 },
+                                                    ].reduce((acc, member) => {
+                                                        const savings = Math.min(selectedItinerary.totalCostPerPerson, member.points * 0.012);
+                                                        return acc + (selectedItinerary.totalCostPerPerson - savings);
+                                                    }, 0).toLocaleString()}
+                                                </span>
+                                            </div>
+                                            <div className="flex justify-between items-center text-xs text-green-600">
+                                                <span>Total Savings</span>
+                                                <span>
+                                                    -${[
+                                                        { points: 120000 },
+                                                        { points: 95000 },
+                                                        { points: 0 },
+                                                        { points: 100000 },
+                                                    ].reduce((acc, member) => {
+                                                        return acc + Math.min(selectedItinerary.totalCostPerPerson, member.points * 0.012);
+                                                    }, 0).toLocaleString()}
+                                                </span>
+                                            </div>
                                         </div>
                                     </div>
                                 </div>
 
                                 <div className="bg-gradient-to-br from-blue-600 to-blue-700 text-white rounded-2xl p-6 shadow-xl shadow-blue-600/20">
                                     <div className="flex items-center gap-2 mb-4">
-                                        <Users className="w-5 h-5" />
-                                        <h3 className="text-lg font-semibold">Ready to Vote?</h3>
+                                        <Zap className="w-5 h-5" />
+                                        <h3 className="text-lg font-semibold">Ready to Book?</h3>
                                     </div>
                                     <p className="text-sm text-blue-100 mb-6">
-                                        Let your group members rank these itineraries to find the perfect match
+                                        Proceed with this itinerary and see how to maximize your group&apos;s points.
                                     </p>
                                     <button
-                                        onClick={() => router.push('/group/voting')}
+                                        onClick={() => router.push(`/group/points-strategy?trip_id=${tripId}`)}
                                         className="w-full px-6 py-3 bg-yellow-400 text-slate-900 rounded-xl hover:bg-yellow-500 transition-colors shadow-lg shadow-yellow-400/20 font-semibold"
                                     >
-                                        Start Group Voting
+                                        Select & Optimize
                                     </button>
                                 </div>
                             </div>

@@ -299,7 +299,6 @@ export default function TripDetails() {
 
                             <div className="divide-y divide-slate-100">
                                 {transferSteps.map((step, idx) => {
-                                    const Icon = step.icon;
                                     return (
                                         <div key={step.id} className="p-6 hover:bg-slate-50/50 transition-colors">
                                             <div className="flex items-start gap-4">

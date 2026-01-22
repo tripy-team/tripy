@@ -1,6 +1,5 @@
 'use client';
 
-import Link from 'next/link';
 import Image from 'next/image';
 import { useRouter } from 'next/navigation';
 import { MapPin, Calendar, CreditCard, Users, Plane, Hotel, ArrowRight, TrendingUp } from 'lucide-react';
@@ -64,10 +63,6 @@ export function TripCard({ trip }: TripCardProps) {
             default:
                 return 'bg-slate-100 text-slate-700 border-slate-200';
         }
-    };
-
-    const getResultsLink = () => {
-        return trip.type === 'solo' ? '/solo/results' : '/group/results';
     };
 
     return (

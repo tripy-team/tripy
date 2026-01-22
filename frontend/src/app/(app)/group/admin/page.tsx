@@ -117,7 +117,7 @@ export default function GroupAdmin() {
               onClick={() => router.push('/group/dashboard')}
               className="text-slate-500 hover:text-slate-900 font-medium"
             >
-              Back to Dashboard
+              Back to Trip Console
             </button>
           </div>
 
@@ -132,8 +132,8 @@ export default function GroupAdmin() {
               Share this link with friends to let them join your trip automatically.
             </p>
             
-            <div className="flex gap-4 mb-6">
-              <div className="flex-1 flex items-center bg-slate-50 border border-slate-200 rounded-xl px-4 py-3 text-slate-600 font-mono text-sm overflow-x-auto">
+            <div className="flex gap-4">
+              <div className="flex-1 flex items-center bg-slate-50 border border-slate-200 rounded-xl px-4 py-3 text-slate-600 font-mono text-sm">
                 {inviteLink || 'Generating invite link...'}
               </div>
               <button
@@ -144,68 +144,6 @@ export default function GroupAdmin() {
                 {copied ? <Check className="w-4 h-4" /> : <Copy className="w-4 h-4" />}
                 {copied ? 'Copied!' : 'Copy Link'}
               </button>
-            </div>
-
-            {/* Add Member Manually */}
-            <div className="border-t border-slate-200 pt-6">
-              <h3 className="text-lg font-semibold text-slate-900 mb-4">Add Member Manually</h3>
-              <form
-                onSubmit={(e) => {
-                  e.preventDefault();
-                  const formData = new FormData(e.currentTarget);
-                  const name = formData.get('memberName') as string;
-                  const email = formData.get('memberEmail') as string;
-                  
-                  if (name && email) {
-                    const newMember: Member = {
-                      id: Date.now().toString(),
-                      name: name.trim(),
-                      email: email.trim(),
-                      role: 'Member',
-                      status: 'Pending',
-                    };
-                    setMembers([...members, newMember]);
-                    e.currentTarget.reset();
-                    // TODO: Call API to add member
-                  }
-                }}
-                className="grid grid-cols-1 md:grid-cols-3 gap-4"
-              >
-                <div className="space-y-2">
-                  <label htmlFor="memberName" className="block text-sm font-medium text-slate-700">
-                    Name
-                  </label>
-                  <input
-                    id="memberName"
-                    name="memberName"
-                    type="text"
-                    required
-                    className="w-full px-4 py-3 bg-white border border-slate-200 rounded-xl focus:outline-none focus:ring-2 focus:ring-blue-600 focus:border-transparent"
-                    placeholder="Enter name"
-                  />
-                </div>
-                <div className="space-y-2">
-                  <label htmlFor="memberEmail" className="block text-sm font-medium text-slate-700">
-                    Email
-                  </label>
-                  <input
-                    id="memberEmail"
-                    name="memberEmail"
-                    type="email"
-                    required
-                    className="w-full px-4 py-3 bg-white border border-slate-200 rounded-xl focus:outline-none focus:ring-2 focus:ring-blue-600 focus:border-transparent"
-                    placeholder="Enter email"
-                  />
-                </div>
-                <div className="flex items-end">
-                  <button
-                    type="submit"
-                    className="w-full px-6 py-3 bg-blue-600 text-white rounded-xl hover:bg-blue-700 transition-colors font-medium"
-                  >
-                    Add Member
-                  </button>
-                </div>
-              </form>
             </div>
           </div>
 
