@@ -1,10 +1,24 @@
 'use client';
 
+import { useState } from 'react';
 import { useRouter } from 'next/navigation';
-import { Users, DollarSign, Zap, MapPin, CheckCircle, Clock, Sparkles } from 'lucide-react';
+import { Users, DollarSign, Zap, MapPin, CheckCircle, Clock, Sparkles, Plus, X } from 'lucide-react';
 
 export default function GroupDashboard() {
     const router = useRouter();
+    const [destinations, setDestinations] = useState<string[]>(['Paris', 'Barcelona', 'Rome', 'Amsterdam']);
+    const [newDestination, setNewDestination] = useState('');
+
+    const addDestination = () => {
+        if (newDestination.trim() && !destinations.includes(newDestination.trim())) {
+            setDestinations([...destinations, newDestination.trim()]);
+            setNewDestination('');
+        }
+    };
+
+    const removeDestination = (index: number) => {
+        setDestinations(destinations.filter((_, i) => i !== index));
+    };
 
     // TODO: Fetch trip details, members, destinations, and points summary
     // Endpoints:
@@ -144,14 +158,40 @@ export default function GroupDashboard() {
                     <div className="lg:col-span-1 space-y-6">
                         <div className="bg-white border border-slate-200 rounded-2xl p-6 shadow-sm">
                             <h3 className="text-lg mb-4 text-slate-900 font-semibold">Destinations</h3>
-                            <div className="space-y-2">
-                                {/* TODO: Replace with destinations from API */}
-                                {['Paris', 'Barcelona', 'Rome', 'Amsterdam'].map((city) => (
-                                    <div key={city} className="flex items-center gap-2 text-slate-600">
-                                        <MapPin className="w-4 h-4 text-blue-600" />
-                                        <span>{city}</span>
+                            <div className="space-y-3 mb-4">
+                                {destinations.map((city, index) => (
+                                    <div key={index} className="flex items-center justify-between group">
+                                        <div className="flex items-center gap-2 text-slate-600">
+                                            <MapPin className="w-4 h-4 text-blue-600" />
+                                            <span>{city}</span>
+                                        </div>
+                                        <button
+                                            onClick={() => removeDestination(index)}
+                                            className="text-slate-400 hover:text-red-500 opacity-0 group-hover:opacity-100 transition-all p-1"
+                                            aria-label="Remove destination"
+                                        >
+                                            <X className="w-4 h-4" />
+                                        </button>
                                     </div>
                                 ))}
+                            </div>
+
+                            <div className="flex gap-2">
+                                <input
+                                    type="text"
+                                    value={newDestination}
+                                    onChange={(e) => setNewDestination(e.target.value)}
+                                    onKeyDown={(e) => e.key === 'Enter' && addDestination()}
+                                    placeholder="Add city..."
+                                    className="flex-1 px-3 py-2 bg-slate-50 border border-slate-200 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-blue-500/20 focus:border-blue-500"
+                                />
+                                <button
+                                    onClick={addDestination}
+                                    disabled={!newDestination.trim()}
+                                    className="p-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 disabled:opacity-50 disabled:cursor-not-allowed transition-colors"
+                                >
+                                    <Plus className="w-4 h-4" />
+                                </button>
                             </div>
                         </div>
 

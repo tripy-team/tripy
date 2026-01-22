@@ -183,6 +183,28 @@ export function CityAutocomplete({
         >
           {suggestions.map((city, index) => {
             const isActive = index === highlightIndex;
+            
+            // Highlight matching text in city name
+            const highlightText = (text: string, query: string): React.ReactNode => {
+              if (!text || !query) return text;
+              const lowerText = text.toLowerCase();
+              const queryLower = query.toLowerCase();
+              const matchIndex = lowerText.indexOf(queryLower);
+              if (matchIndex === -1) return text;
+              
+              const before = text.substring(0, matchIndex);
+              const match = text.substring(matchIndex, matchIndex + query.length);
+              const after = text.substring(matchIndex + query.length);
+              
+              return (
+                <>
+                  {before}
+                  <span className="font-semibold bg-blue-100 text-blue-900">{match}</span>
+                  {after}
+                </>
+              );
+            };
+            
             return (
               <button
                 key={city.city_id}
@@ -192,6 +214,7 @@ export function CityAutocomplete({
                   e.stopPropagation();
                   void handleSelectCity(city);
                 }}
+                onMouseEnter={() => setHighlightIndex(index)}
                 className={`w-full px-4 py-3 text-left flex items-center gap-3 border-b last:border-0 border-slate-50 cursor-pointer transition-colors ${
                   isActive ? 'bg-slate-100' : 'hover:bg-slate-50'
                 }`}
@@ -201,7 +224,7 @@ export function CityAutocomplete({
                 </div>
                 <div className="flex-1 min-w-0">
                   <div className="font-medium text-slate-900 truncate">
-                    {city.name}
+                    {highlightText(city.name, value.trim())}
                   </div>
                   <div className="text-xs text-slate-500 truncate">
                     {renderSecondary(city)}

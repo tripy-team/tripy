@@ -1,42 +1,5 @@
 import { NextResponse } from "next/server";
 
-// Simple in-memory mock data for city suggestions.
-// This is a stub to prove wiring works; replace with real backend or DB later.
-const MOCK_CITIES = [
-  {
-    city_id: "nyc_us",
-    name: "New York City",
-    region: "NY",
-    country: "United States",
-    lat: 40.7128,
-    lng: -74.006,
-  },
-  {
-    city_id: "par_fr",
-    name: "Paris",
-    region: "Île-de-France",
-    country: "France",
-    lat: 48.8566,
-    lng: 2.3522,
-  },
-  {
-    city_id: "lhr_gb",
-    name: "London",
-    region: "England",
-    country: "United Kingdom",
-    lat: 51.5074,
-    lng: -0.1278,
-  },
-  {
-    city_id: "sfo_us",
-    name: "San Francisco",
-    region: "CA",
-    country: "United States",
-    lat: 37.7749,
-    lng: -122.4194,
-  },
-];
-
 export async function GET(req: Request) {
   const { searchParams } = new URL(req.url);
   const q = (searchParams.get("q") ?? "").trim();
@@ -47,13 +10,27 @@ export async function GET(req: Request) {
     return NextResponse.json({ cities: [] }, { status: 200 });
   }
 
-  const needle = q.toLowerCase();
-  const max = Number.isFinite(limit) && limit > 0 ? limit : 10;
+  const backendUrl = process.env.NEXT_PUBLIC_BACKEND_URL || 'http://localhost:8000';
+  const url = `${backendUrl.replace(/\/$/, "")}/api/locations/autocomplete?q=${encodeURIComponent(q)}&limit=${limit}`;
 
-  const cities = MOCK_CITIES.filter((c) =>
-    `${c.name} ${c.region ?? ""} ${c.country ?? ""}`.toLowerCase().includes(needle),
-  ).slice(0, max);
+  try {
+    const response = await fetch(url, {
+      method: 'GET',
+      headers: { 'Content-Type': 'application/json' },
+    });
 
-  return NextResponse.json({ cities }, { status: 200 });
+    if (!response.ok) {
+      console.error(`Backend API error: ${response.status} ${response.statusText}`);
+      // Return empty results on error rather than failing
+      return NextResponse.json({ cities: [] }, { status: 200 });
+    }
+
+    const data = await response.json();
+    return NextResponse.json(data, { status: 200 });
+  } catch (error) {
+    console.error('Error fetching city autocomplete from backend:', error);
+    // Return empty results on error rather than failing
+    return NextResponse.json({ cities: [] }, { status: 200 });
+  }
 }
 

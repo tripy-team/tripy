@@ -47,6 +47,7 @@ export function DestinationAutocomplete({
   const [suggestions, setSuggestions] = useState<CitySuggestion[]>([]);
   const [showSuggestions, setShowSuggestions] = useState(false);
   const [isLoading, setIsLoading] = useState(false);
+  const [highlightIndex, setHighlightIndex] = useState(-1);
   const wrapperRef = useRef<HTMLDivElement>(null);
 
   // Close suggestions when clicking outside
@@ -84,9 +85,11 @@ export function DestinationAutocomplete({
         if (cities.length > 0) {
           console.log('[DestinationAutocomplete] Showing suggestions:', cities.length);
           setShowSuggestions(true);
+          setHighlightIndex(0);
         } else {
           console.log('[DestinationAutocomplete] No results, hiding suggestions');
           setShowSuggestions(false);
+          setHighlightIndex(-1);
         }
       } catch (error) {
         console.error('[DestinationAutocomplete] Error searching cities:', error);
@@ -96,6 +99,7 @@ export function DestinationAutocomplete({
         }
         setSuggestions([]);
         setShowSuggestions(false);
+        setHighlightIndex(-1);
       } finally {
         setIsLoading(false);
       }
@@ -117,27 +121,50 @@ export function DestinationAutocomplete({
   };
 
   const handleKeyDownInternal = (e: React.KeyboardEvent<HTMLInputElement>) => {
-    if (e.key === 'Enter') {
-      // If we have suggestions, select the first one
-      if (suggestions.length > 0) {
-        e.preventDefault();
-        handleSelect(suggestions[0]);
-        return;
-      }
-
-      // If no suggestions but user typed something, accept free text
-      const trimmed = value.trim();
-      if (trimmed.length > 0) {
-        e.preventDefault();
-        onChange(trimmed);
-        if (onSelect) {
-          onSelect(trimmed);
+    if (!showSuggestions || suggestions.length === 0) {
+      // If no suggestions, handle Enter and Escape normally
+      if (e.key === 'Enter') {
+        const trimmed = value.trim();
+        if (trimmed.length > 0) {
+          e.preventDefault();
+          onChange(trimmed);
+          if (onSelect) {
+            onSelect(trimmed);
+          }
+          setShowSuggestions(false);
+          return;
         }
+      } else if (e.key === 'Escape') {
         setShowSuggestions(false);
-        return;
+        setHighlightIndex(-1);
+      }
+      
+      // Call external onKeyDown if provided
+      if (onKeyDown) {
+        onKeyDown(e);
+      }
+      return;
+    }
+
+    // Handle arrow keys for navigation
+    if (e.key === 'ArrowDown') {
+      e.preventDefault();
+      setHighlightIndex((prev) => (prev + 1) % suggestions.length);
+    } else if (e.key === 'ArrowUp') {
+      e.preventDefault();
+      setHighlightIndex((prev) =>
+        prev <= 0 ? suggestions.length - 1 : prev - 1,
+      );
+    } else if (e.key === 'Enter') {
+      e.preventDefault();
+      const index = highlightIndex >= 0 ? highlightIndex : 0;
+      const city = suggestions[index];
+      if (city) {
+        handleSelect(city);
       }
     } else if (e.key === 'Escape') {
       setShowSuggestions(false);
+      setHighlightIndex(-1);
     }
     
     // Call external onKeyDown if provided
@@ -219,6 +246,28 @@ export function DestinationAutocomplete({
             const cityName = city.name;
             const country = city.country || '';
             const region = city.region || '';
+            const isActive = index === highlightIndex;
+            
+            // Highlight matching text in city name
+            const highlightText = (text: string, query: string): React.ReactNode => {
+              if (!text || !query) return text;
+              const lowerText = text.toLowerCase();
+              const queryLower = query.toLowerCase();
+              const matchIndex = lowerText.indexOf(queryLower);
+              if (matchIndex === -1) return text;
+              
+              const before = text.substring(0, matchIndex);
+              const match = text.substring(matchIndex, matchIndex + query.length);
+              const after = text.substring(matchIndex + query.length);
+              
+              return (
+                <>
+                  {before}
+                  <span className="font-semibold bg-blue-100 text-blue-900">{match}</span>
+                  {after}
+                </>
+              );
+            };
             
             return (
               <button
@@ -233,14 +282,17 @@ export function DestinationAutocomplete({
                   e.stopPropagation();
                   handleSelect(city);
                 }}
-                className="w-full px-4 py-3 text-left hover:bg-slate-50 active:bg-slate-100 transition-colors flex items-center gap-3 border-b last:border-0 border-slate-50 cursor-pointer"
+                onMouseEnter={() => setHighlightIndex(index)}
+                className={`w-full px-4 py-3 text-left transition-colors flex items-center gap-3 border-b last:border-0 border-slate-50 cursor-pointer ${
+                  isActive ? 'bg-slate-100' : 'hover:bg-slate-50 active:bg-slate-100'
+                }`}
               >
                 <div className="w-8 h-8 rounded-lg bg-blue-50 flex items-center justify-center flex-shrink-0 text-blue-600">
                   <Plane className="w-4 h-4" />
                 </div>
                 <div className="flex-1 min-w-0">
                   <div className="font-medium text-slate-900 truncate">
-                           {cityName}
+                    {highlightText(cityName, value.trim())}
                   </div>
                   <div className="text-xs text-slate-500 truncate">
                     {country} {region ? `• ${region}` : ''}

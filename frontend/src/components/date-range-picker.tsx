@@ -70,12 +70,58 @@ export default function DateRangePicker({
   // Anchor the popover under whichever box was last clicked.
   const startDateRef = useRef<HTMLDivElement>(null);
   const endDateRef = useRef<HTMLDivElement>(null);
+  const popoverRef = useRef<HTMLDivElement>(null);
   const [activeTrigger, setActiveTrigger] = useState<'start' | 'end'>('start');
 
   useEffect(() => {
     setRange(getDateValue());
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [startDate, endDate]);
+
+  // Handle click outside and Escape key to close popover
+  useEffect(() => {
+    if (!isOpen) return;
+
+    const handleClickOutside = (event: MouseEvent) => {
+      const target = event.target as Node;
+      const startBox = startDateRef.current;
+      const endBox = endDateRef.current;
+      
+      // Find the popover/dialog element (React Aria renders it in a portal)
+      // Try multiple selectors to find the popover
+      const dialogElement = document.querySelector('[role="dialog"]');
+      const popoverContainer = dialogElement?.closest('[class*="z-50"]') || 
+                              dialogElement?.parentElement ||
+                              document.querySelector('[data-react-aria-popover]');
+
+      // Check if click is outside both date boxes and the popover
+      const clickedStartBox = startBox?.contains(target);
+      const clickedEndBox = endBox?.contains(target);
+      const clickedPopover = popoverContainer?.contains(target);
+
+      if (!clickedStartBox && !clickedEndBox && !clickedPopover) {
+        setIsOpen(false);
+      }
+    };
+
+    const handleEscape = (event: KeyboardEvent) => {
+      if (event.key === 'Escape') {
+        setIsOpen(false);
+      }
+    };
+
+    // Add event listeners with a small delay to avoid immediate closure
+    const timeoutId = setTimeout(() => {
+      document.addEventListener('mousedown', handleClickOutside, true);
+      document.addEventListener('keydown', handleEscape);
+    }, 100);
+
+    return () => {
+      clearTimeout(timeoutId);
+      document.removeEventListener('mousedown', handleClickOutside, true);
+      document.removeEventListener('keydown', handleEscape);
+    };
+  }, [isOpen]);
 
   const handleChange = (value: DateRangeValue | null) => {
     if (!value) {
@@ -214,7 +260,7 @@ export default function DateRangePicker({
           </div>
         </div>
 
-        {/* Popover: conditionally render and handle click-outside */}
+        {/* Popover: React Aria handles click-outside automatically */}
         {isOpen && (
           <MyPopover
             key={activeTrigger}
@@ -223,6 +269,7 @@ export default function DateRangePicker({
             offset={8}
             isOpen={isOpen}
             onOpenChange={setIsOpen}
+            popoverRef={popoverRef}
           >
             <Dialog className="p-4 text-slate-950">
               <RangeCalendar>
@@ -290,28 +337,30 @@ export default function DateRangePicker({
   );
 }
 
-function MyPopover({ triggerRef, placement, isOpen, onOpenChange, ...props }: PopoverProps & { isOpen?: boolean; onOpenChange?: (isOpen: boolean) => void }) {
+function MyPopover({ triggerRef, placement, isOpen, onOpenChange, popoverRef, ...props }: PopoverProps & { isOpen?: boolean; onOpenChange?: (isOpen: boolean) => void; popoverRef?: React.RefObject<HTMLDivElement> }) {
   return (
-    <Popover
-      {...props}
-      triggerRef={triggerRef}
-      placement={placement}
-      shouldFlip={false}
-      isOpen={isOpen}
-      onOpenChange={onOpenChange}
-      className={({ isEntering, isExiting }) =>
-        [
-          'z-50 rounded-xl bg-white border border-slate-200 shadow-lg',
-          isEntering
-            ? 'animate-in fade-in placement-bottom:slide-in-from-top-1 placement-top:slide-in-from-bottom-1 duration-200 ease-out'
-            : '',
-          isExiting
-            ? 'animate-out fade-out placement-bottom:slide-out-to-top-1 placement-top:slide-out-to-bottom-1 duration-150 ease-in'
-            : '',
-        ]
-          .filter(Boolean)
-          .join(' ')
-      }
-    />
+    <div ref={popoverRef}>
+      <Popover
+        {...props}
+        triggerRef={triggerRef}
+        placement={placement}
+        shouldFlip={false}
+        isOpen={isOpen}
+        onOpenChange={onOpenChange}
+        className={({ isEntering, isExiting }) =>
+          [
+            'z-50 rounded-xl bg-white border border-slate-200 shadow-lg',
+            isEntering
+              ? 'animate-in fade-in placement-bottom:slide-in-from-top-1 placement-top:slide-in-from-bottom-1 duration-200 ease-out'
+              : '',
+            isExiting
+              ? 'animate-out fade-out placement-bottom:slide-out-to-top-1 placement-top:slide-out-to-bottom-1 duration-150 ease-in'
+              : '',
+          ]
+            .filter(Boolean)
+            .join(' ')
+        }
+      />
+    </div>
   );
 }
