@@ -1,6 +1,6 @@
 'use client';
 
-import { useMemo, useRef, useState } from 'react';
+import { useMemo, useRef, useState, useEffect } from 'react';
 import {
   Button,
   CalendarCell,
@@ -99,6 +99,17 @@ export default function DateRangePicker({
   const startRef = useRef<HTMLDivElement>(null);
   const endRef = useRef<HTMLDivElement>(null);
   const [isOpen, setIsOpen] = useState(false);
+
+  // Allow scrolling when popover is open
+  useEffect(() => {
+    if (isOpen) {
+      // Prevent body scroll lock by allowing scroll
+      document.body.style.overflow = 'auto';
+      return () => {
+        document.body.style.overflow = '';
+      };
+    }
+  }, [isOpen]);
 
   // ---- ONE WAY: use DatePicker (single date) ----
   if (isOneWay) {
@@ -289,8 +300,8 @@ export default function DateRangePicker({
             isOpen={isOpen}
             onOpenChange={setIsOpen}
           >
-          <Dialog className="p-4 text-slate-950">
-            <RangeCalendar>
+            <Dialog className="p-4 text-slate-950">
+              <RangeCalendar>
               <header className="flex w-full items-center gap-1 px-1 pb-4">
                 <Heading className="ml-2 flex-1 font-semibold text-slate-900" />
                 <RoundButton slot="previous">
