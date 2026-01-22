@@ -15,7 +15,7 @@ import {
   Wallet,
   Users
 } from 'lucide-react';
-import { itineraries as itinerariesAPI, trips as tripsAPI, type ItineraryItem } from '@/lib/api';
+import { trips as tripsAPI } from '@/lib/api';
 
 function GroupBookingContent() {
   const searchParams = useSearchParams();
@@ -24,7 +24,6 @@ function GroupBookingContent() {
   const [isPaid, setIsPaid] = useState(false);
   const [isProcessing, setIsProcessing] = useState(false);
   const [groupSize, setGroupSize] = useState(4);
-  const [_itineraryData, setItineraryData] = useState<ItineraryItem | null>(null);
   const [loading, setLoading] = useState(true);
 
   useEffect(() => {
@@ -39,12 +38,10 @@ function GroupBookingContent() {
         const membersResponse = await tripsAPI.listMembers(tripId);
         setGroupSize(membersResponse.members.length || 4);
 
-        // Fetch selected itinerary if available
+        // Fetch selected itinerary if available (for future use)
         try {
-          const itineraryResponse = await itinerariesAPI.get(tripId);
-          if (itineraryResponse.items && itineraryResponse.items.length > 0) {
-            setItineraryData(itineraryResponse.items[0]);
-          }
+          await itinerariesAPI.get(tripId);
+          // Itinerary data can be used here in the future for dynamic pricing
         } catch (_err) {
           console.log('No itinerary data available yet');
         }
