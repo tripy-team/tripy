@@ -1,7 +1,7 @@
 'use client';
 
 import { useState, Suspense, useEffect } from 'react';
-import { useRouter, useSearchParams } from 'next/navigation';
+import { useSearchParams } from 'next/navigation';
 import { 
   Shield, 
   CheckCircle, 
@@ -15,17 +15,16 @@ import {
   Wallet,
   Users
 } from 'lucide-react';
-import { itineraries as itinerariesAPI, trips as tripsAPI } from '@/lib/api';
+import { itineraries as itinerariesAPI, trips as tripsAPI, type ItineraryItem } from '@/lib/api';
 
 function GroupBookingContent() {
-  const router = useRouter();
   const searchParams = useSearchParams();
   const tripId = searchParams?.get('trip_id') || '';
   
   const [isPaid, setIsPaid] = useState(false);
   const [isProcessing, setIsProcessing] = useState(false);
   const [groupSize, setGroupSize] = useState(4);
-  const [itineraryData, setItineraryData] = useState<any>(null);
+  const [_itineraryData, setItineraryData] = useState<ItineraryItem | null>(null);
   const [loading, setLoading] = useState(true);
 
   useEffect(() => {
@@ -46,11 +45,11 @@ function GroupBookingContent() {
           if (itineraryResponse.items && itineraryResponse.items.length > 0) {
             setItineraryData(itineraryResponse.items[0]);
           }
-        } catch (err) {
+        } catch (_err) {
           console.log('No itinerary data available yet');
         }
-      } catch (err) {
-        console.error('Error fetching booking data:', err);
+      } catch (_err) {
+        console.error('Error fetching booking data:', _err);
       } finally {
         setLoading(false);
       }

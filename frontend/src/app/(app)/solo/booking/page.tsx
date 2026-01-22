@@ -1,7 +1,7 @@
 'use client';
 
 import { useState, Suspense, useEffect } from 'react';
-import { useRouter, useSearchParams } from 'next/navigation';
+import { useSearchParams } from 'next/navigation';
 import { 
   Shield, 
   CheckCircle, 
@@ -14,16 +14,15 @@ import {
   ChevronRight,
   Wallet
 } from 'lucide-react';
-import { itineraries as itinerariesAPI } from '@/lib/api';
+import { itineraries as itinerariesAPI, type ItineraryItem } from '@/lib/api';
 
 function SoloBookingContent() {
-  const router = useRouter();
   const searchParams = useSearchParams();
   const tripId = searchParams?.get('trip_id') || '';
   
   const [isPaid, setIsPaid] = useState(false);
   const [isProcessing, setIsProcessing] = useState(false);
-  const [itineraryData, setItineraryData] = useState<any>(null);
+  const [itineraryData, setItineraryData] = useState<ItineraryItem | null>(null);
   const [loading, setLoading] = useState(true);
 
   useEffect(() => {
@@ -38,7 +37,7 @@ function SoloBookingContent() {
         if (response.items && response.items.length > 0) {
           setItineraryData(response.items[0]);
         }
-      } catch (err) {
+      } catch (_err) {
         console.log('No itinerary data available yet');
       } finally {
         setLoading(false);
