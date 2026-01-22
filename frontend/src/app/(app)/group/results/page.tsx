@@ -47,6 +47,7 @@ export default function GroupResults() {
                 const colorClasses = ['bg-blue-600', 'bg-purple-600', 'bg-green-600', 'bg-orange-600', 'bg-pink-600', 'bg-indigo-600'];
                 const transformedMembers = membersResponse.members.map((member, index) => {
                     const userId = member.userId || '';
+                    // API may not return name, so use a fallback
                     const name = member.name || `Member ${index + 1}`;
                     const initials = name.split(' ').map(n => n[0]).join('').toUpperCase().substring(0, 2) || userId.substring(0, 2).toUpperCase();
                     

@@ -453,8 +453,8 @@ export const trips = {
     });
   },
 
-  listMembers: async (trip_id: string): Promise<{ members: Array<{ userId: string; role: string; status: string }> }> => {
-    return apiRequest<{ members: Array<{ userId: string; role: string; status: string }> }>('/trips/members', {
+  listMembers: async (trip_id: string): Promise<{ members: Array<{ userId: string; role: string; status: string; name?: string }> }> => {
+    return apiRequest<{ members: Array<{ userId: string; role: string; status: string; name?: string }> }>('/trips/members', {
       method: 'POST',
       body: JSON.stringify({ trip_id }),
     });
