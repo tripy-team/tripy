@@ -330,6 +330,7 @@ export interface CitySuggestion {
   name: string;
   region?: string;
   country?: string;
+  airport_code?: string;
   lat?: number | null;
   lng?: number | null;
 }
