@@ -72,22 +72,37 @@ export default function DateRangePicker({
   disabled = false,
   isOneWay = false,
 }: DateRangePickerProps) {
+  // All hooks must be called unconditionally at the top
   const minValue = useMemo(() => today(getLocalTimeZone()), []);
+  
+  const oneWayValue = useMemo(() => {
+    try {
+      return startDate ? parseDate(startDate) : null;
+    } catch {
+      return null;
+    }
+  }, [startDate]);
+
+  const range = useMemo<RangeValue<CalendarDate> | null>(() => {
+    try {
+      if (!startDate || !endDate) return null;
+      return {
+        start: parseDate(startDate),
+        end: parseDate(endDate),
+      };
+    } catch {
+      return null;
+    }
+  }, [startDate, endDate]);
+
+  const [activeField, setActiveField] = useState<'start' | 'end' | null>(null);
 
   // ---- ONE WAY: use DatePicker (single date) ----
   if (isOneWay) {
-    const value = useMemo(() => {
-      try {
-        return startDate ? parseDate(startDate) : null;
-      } catch {
-        return null;
-      }
-    }, [startDate]);
-
     return (
       <div className="relative w-full">
         <AriaDatePicker
-          value={value}
+          value={oneWayValue}
           onChange={(v) => onStartDateChange(v ? v.toString() : '')}
           isDisabled={disabled}
           minValue={minValue}
@@ -160,19 +175,6 @@ export default function DateRangePicker({
   }
 
   // ---- ROUND TRIP: use DateRangePicker ----
-  const range = useMemo<RangeValue<CalendarDate> | null>(() => {
-    try {
-      if (!startDate || !endDate) return null;
-      return {
-        start: parseDate(startDate),
-        end: parseDate(endDate),
-      };
-    } catch {
-      return null;
-    }
-  }, [startDate, endDate]);
-
-  const [activeField, setActiveField] = useState<'start' | 'end' | null>(null);
 
   return (
     <div className="relative w-full">
