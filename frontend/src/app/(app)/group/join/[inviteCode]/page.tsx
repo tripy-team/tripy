@@ -2,7 +2,7 @@
 
 import { useState, use, useEffect } from 'react';
 import { useRouter } from 'next/navigation';
-import { DollarSign, Zap, MapPin, Users, Calendar, Plane, MessageSquare, Bed, Backpack, Armchair, Coffee, Wine, Crown, BedDouble, Star, User, Baby, Info } from 'lucide-react';
+import { DollarSign, Zap, Users, Calendar, Plane, MessageSquare, Bed, Backpack, Armchair, Coffee, Wine, Crown, BedDouble, Star, User, Baby, Info } from 'lucide-react';
 import { trips as tripsAPI, points as pointsAPI } from '@/lib/api';
 import { CityAutocomplete } from '@/components/CityAutocomplete';
 
@@ -559,7 +559,7 @@ export default function GroupMemberJoin({ params }: { params: Promise<{ inviteCo
 
                             <div className="space-y-4">
                                 <p className="text-slate-600 text-sm">
-                                    Let the group know when you'll be joining them and any specific meetup plans.
+                                    Let the group know when you&apos;ll be joining them and any specific meetup plans.
                                 </p>
                                 <textarea
                                     value={meetupNote}
