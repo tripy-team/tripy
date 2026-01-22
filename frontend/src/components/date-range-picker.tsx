@@ -78,8 +78,12 @@ export default function DateRangePicker({
   }, [startDate, endDate]);
 
   // Close popover when dates are complete (with delay to allow state updates)
+  // Only close after user has finished selecting (both dates for round trip, start for one-way)
+  // Use a ref to track if we're currently updating to prevent premature closing
+  const isUpdatingRef = useRef(false);
+  
   useEffect(() => {
-    if (!isOpen) return;
+    if (!isOpen || isUpdatingRef.current) return;
     
     const currentRange = getDateValue();
     const shouldClose = isOneWay 
@@ -87,10 +91,12 @@ export default function DateRangePicker({
       : currentRange.start !== null && currentRange.end !== null;
     
     if (shouldClose) {
-      // Use setTimeout to allow the calendar to finish its state updates
+      // Use a longer delay to ensure calendar state updates complete and user can see their selection
       const timeoutId = setTimeout(() => {
-        setIsOpen(false);
-      }, 150);
+        if (!isUpdatingRef.current) {
+          setIsOpen(false);
+        }
+      }, 600);
       
       return () => clearTimeout(timeoutId);
     }
@@ -113,26 +119,37 @@ export default function DateRangePicker({
       normalizedValue.end = tmp;
     }
 
+    // Update local state immediately for responsive UI
     setRange(normalizedValue);
 
-    // Update parent state only if values actually changed
-    if (normalizedValue.start) {
-      const newStartStr = normalizedValue.start.toString();
-      if (newStartStr !== startDate) {
-        onStartDateChange(newStartStr);
+    // Mark that we're updating to prevent premature popover closing
+    isUpdatingRef.current = true;
+
+    // Update parent state - use setTimeout to avoid blocking calendar interactions
+    setTimeout(() => {
+      if (normalizedValue.start) {
+        const newStartStr = normalizedValue.start.toString();
+        if (newStartStr !== startDate) {
+          onStartDateChange(newStartStr);
+        }
+      } else if (startDate) {
+        onStartDateChange('');
       }
-    } else if (startDate) {
-      onStartDateChange('');
-    }
-    
-    if (normalizedValue.end) {
-      const newEndStr = normalizedValue.end.toString();
-      if (newEndStr !== endDate) {
-        onEndDateChange(newEndStr);
+      
+      if (normalizedValue.end) {
+        const newEndStr = normalizedValue.end.toString();
+        if (newEndStr !== endDate) {
+          onEndDateChange(newEndStr);
+        }
+      } else if (endDate && !isOneWay) {
+        onEndDateChange('');
       }
-    } else if (endDate && !isOneWay) {
-      onEndDateChange('');
-    }
+      
+      // Reset updating flag after a short delay
+      setTimeout(() => {
+        isUpdatingRef.current = false;
+      }, 100);
+    }, 0);
   };
 
   const renderSegment = (segment: unknown) => {

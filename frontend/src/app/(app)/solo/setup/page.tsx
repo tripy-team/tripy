@@ -176,15 +176,23 @@ export default function SoloTripSetup() {
     if (info.cities && info.cities.length > 0) {
       try {
         const formattedCities = await searchAndFormatCities(info.cities);
-        setCities(prevCities => {
-          const newCities = formattedCities.filter(city => !prevCities.includes(city));
-          return newCities.length > 0 ? [...prevCities, ...newCities] : prevCities;
-        });
+        if (formattedCities && formattedCities.length > 0) {
+          setCities(prevCities => {
+            const newCities = formattedCities.filter(city => city && !prevCities.includes(city));
+            return newCities.length > 0 ? [...prevCities, ...newCities] : prevCities;
+          });
+        } else {
+          // If formatting returns empty, use original cities
+          setCities(prevCities => {
+            const newCities = info.cities.filter(city => city && !prevCities.includes(city));
+            return newCities.length > 0 ? [...prevCities, ...newCities] : prevCities;
+          });
+        }
       } catch (error) {
         console.error('Error formatting cities:', error);
-        // Fallback to unformatted cities
+        // Fallback to unformatted cities - ensure they're added
         setCities(prevCities => {
-          const newCities = info.cities.filter(city => !prevCities.includes(city));
+          const newCities = info.cities.filter(city => city && !prevCities.includes(city));
           return newCities.length > 0 ? [...prevCities, ...newCities] : prevCities;
         });
       }
