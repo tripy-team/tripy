@@ -2,7 +2,7 @@
 
 import React, { useEffect, useMemo, useRef, useState } from "react";
 import type { Airport } from "@/data/airports";
-import { loadAirportsData } from "@/data/airports";
+import { AIRPORTS, METRO_MAPPINGS } from "@/data/airports";
 import { searchAirports, highlightMatch } from "@/lib/locationSearch";
 
 type Props = {
@@ -59,20 +59,8 @@ export default function AirportAutocomplete({
   const [open, setOpen] = useState(false);
   const [activeIdx, setActiveIdx] = useState(0);
   const [recent, setRecent] = useState<RecentItem[]>([]);
-  const [airports, setAirports] = useState<Airport[]>([]);
-  const [metroMappings, setMetroMappings] = useState<Record<string, string[]>>({});
-  const [isLoadingData, setIsLoadingData] = useState(true);
   const wrapperRef = useRef<HTMLDivElement | null>(null);
   const inputRef = useRef<HTMLInputElement | null>(null);
-
-  // Load airports data on mount
-  useEffect(() => {
-    loadAirportsData().then(({ airports: loadedAirports, metroMappings: loadedMappings }) => {
-      setAirports(loadedAirports);
-      setMetroMappings(loadedMappings);
-      setIsLoadingData(false);
-    });
-  }, []);
 
   // load recent once
   useEffect(() => {
@@ -97,19 +85,17 @@ export default function AirportAutocomplete({
   }, [value]);
 
   const recentAirports = useMemo(() => {
-    if (airports.length === 0) return [];
-    const map = new Map(airports.map((a) => [a.iata.toUpperCase(), a]));
+    const map = new Map(AIRPORTS.map((a) => [a.iata.toUpperCase(), a]));
     return recent
       .map((r) => map.get(r.iata.toUpperCase()))
       .filter(Boolean) as Airport[];
-  }, [recent, airports]);
+  }, [recent]);
 
   const results = useMemo(() => {
-    if (airports.length === 0) return [];
     const q = debounced.trim();
     if (!q) return [];
-    return searchAirports(airports, q, 10, metroMappings);
-  }, [debounced, airports, metroMappings]);
+    return searchAirports(AIRPORTS, q, 10, METRO_MAPPINGS);
+  }, [debounced]);
 
   // display list: if empty query, show recents; else show results
   const list: Airport[] = useMemo(() => {
@@ -166,22 +152,8 @@ export default function AirportAutocomplete({
   // Check if query matches a metro code
   const isMetroCode = useMemo(() => {
     const q = debounced.trim().toUpperCase();
-    return q in metroMappings;
-  }, [debounced, metroMappings]);
-
-  // Show loading state while data loads
-  if (isLoadingData) {
-    return (
-      <div className={`relative w-full ${className}`}>
-        <input
-          value={value}
-          placeholder={placeholder}
-          disabled={true}
-          className="w-full px-4 py-3 bg-white border border-slate-200 rounded-xl focus:outline-none focus:ring-2 focus:ring-blue-600 focus:border-transparent disabled:opacity-50 disabled:cursor-not-allowed text-sm"
-        />
-      </div>
-    );
-  }
+    return q in METRO_MAPPINGS;
+  }, [debounced]);
 
   return (
     <div ref={wrapperRef} className={`relative w-full ${className}`}>
