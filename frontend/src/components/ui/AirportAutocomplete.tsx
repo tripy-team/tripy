@@ -1,9 +1,39 @@
 "use client";
 
 import React, { useEffect, useMemo, useRef, useState } from "react";
-import type { Airport } from "@/data";
-import { loadAirportsData } from "@/data";
+import type { Airport } from "@/data/airports";
 import { searchAirports, highlightMatch } from "@/lib/locationSearch";
+
+// Cache for loaded data
+let airportsCache: Airport[] | null = null;
+let metroMappingsCache: Record<string, string[]> | null = null;
+
+// Load airports data dynamically
+async function loadAirportsData(): Promise<{
+  airports: Airport[];
+  metroMappings: Record<string, string[]>;
+}> {
+  if (airportsCache && metroMappingsCache) {
+    return {
+      airports: airportsCache,
+      metroMappings: metroMappingsCache,
+    };
+  }
+
+  // Dynamic import - webpack will code-split this
+  const airportsData = await import(
+    /* webpackChunkName: "airports-data" */
+    '@/data/airports.json'
+  );
+  
+  airportsCache = airportsData.airports as Airport[];
+  metroMappingsCache = airportsData.metro_mappings as Record<string, string[]>;
+  
+  return {
+    airports: airportsCache,
+    metroMappings: metroMappingsCache,
+  };
+}
 
 type Props = {
   value: string;

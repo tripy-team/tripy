@@ -68,6 +68,14 @@ const nextConfig: NextConfig = {
     // Minimum quality (1-100)
     minimumCacheTTL: 60 * 60 * 24 * 7, // 7 days
   },
+  webpack: (config, { isServer }) => {
+    // Ensure JSON files can be imported dynamically
+    config.resolve.extensionAlias = {
+      '.js': ['.ts', '.tsx', '.js', '.jsx'],
+      '.json': ['.json'],
+    };
+    return config;
+  },
 };
 
 export default nextConfig;
