@@ -20,21 +20,23 @@ async function loadAirportsData(): Promise<{
     };
   }
 
-  // Dynamic import - webpack will code-split this
-  // NOTE: Webpack requires relative paths for dynamic imports to enable code splitting
-  // The @ alias does not work in dynamic imports because webpack needs to statically analyze the path
-  // Relative path from src/components/ui/ to src/data/airports.json
-  const mod = await import(
-    /* webpackChunkName: "airports-data" */
-    /* webpackMode: "lazy" */
-    '../../data/airports.json'
-  );
-  
-  // Handle JSON import - Next.js/webpack may wrap it in .default
-  const airportsData = (mod.default ?? mod) as any;
-  
-  airportsCache = airportsData.airports as Airport[];
-  metroMappingsCache = airportsData.metro_mappings as Record<string, string[]>;
+  // Fetch from public directory - works reliably in client components
+  // No webpack path resolution issues, works in dev + prod + Amplify
+  const res = await fetch("/data/airports.json", {
+    cache: "force-cache",
+  });
+
+  if (!res.ok) {
+    throw new Error(`Failed to load airports.json: ${res.status}`);
+  }
+
+  const json = (await res.json()) as {
+    airports: Airport[];
+    metro_mappings: Record<string, string[]>;
+  };
+
+  airportsCache = json.airports;
+  metroMappingsCache = json.metro_mappings;
   
   return {
     airports: airportsCache,
@@ -44,12 +46,12 @@ async function loadAirportsData(): Promise<{
 
 type Props = {
   value: string;
-  onChange: (value: string) => void;
+  onValueChange: (value: string) => void;
   placeholder?: string;
   disabled?: boolean;
   className?: string;
   onSelect?: (value: string) => void;
-  onKeyDown?: (e: React.KeyboardEvent<HTMLInputElement>) => void;
+  onKeyDownHandler?: (e: React.KeyboardEvent<HTMLInputElement>) => void;
   autoFocus?: boolean;
   recentKey?: string; // localStorage key
 };
@@ -84,12 +86,12 @@ function loadRecent(key: string): RecentItem[] {
 
 export default function AirportAutocomplete({
   value,
-  onChange,
+  onValueChange,
   placeholder = "City or airport",
   disabled = false,
   className = "",
   onSelect,
-  onKeyDown,
+  onKeyDownHandler,
   autoFocus = false,
   recentKey = "recent_airports",
 }: Props) {
@@ -160,7 +162,7 @@ export default function AirportAutocomplete({
     saveRecent(recentKey, a.iata);
     setRecent(loadRecent(recentKey));
     const formattedValue = a.iata; // Use IATA code as value
-    onChange(formattedValue);
+    onValueChange(formattedValue);
     if (onSelect) {
       onSelect(formattedValue);
     }
@@ -173,7 +175,7 @@ export default function AirportAutocomplete({
       return;
     }
     if (!open) {
-      if (onKeyDown) onKeyDown(e);
+      if (onKeyDownHandler) onKeyDownHandler(e);
       return;
     }
 
@@ -190,8 +192,8 @@ export default function AirportAutocomplete({
     } else if (e.key === "Escape") {
       e.preventDefault();
       setOpen(false);
-    } else if (onKeyDown) {
-      onKeyDown(e);
+    } else if (onKeyDownHandler) {
+      onKeyDownHandler(e);
     }
   }
 
@@ -230,7 +232,7 @@ export default function AirportAutocomplete({
         autoFocus={autoFocus}
         onFocus={() => setOpen(true)}
         onChange={(e) => {
-          onChange(e.target.value);
+          onValueChange(e.target.value);
           setOpen(true);
         }}
         onKeyDown={onKeyDownInternal}

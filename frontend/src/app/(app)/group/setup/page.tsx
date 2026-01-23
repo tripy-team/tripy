@@ -795,7 +795,7 @@ export default function GroupTripSetup() {
                   </label>
                   <AirportAutocomplete
                     value={startDestination}
-                    onChange={setStartDestination}
+                    onValueChange={setStartDestination}
                     placeholder="Search airports (e.g., JFK, LAX, or airport name)..."
                     onSelect={(airportCode) => {
                       setStartDestination(airportCode);
@@ -810,7 +810,7 @@ export default function GroupTripSetup() {
                   </label>
                   <AirportAutocomplete
                     value={endDestination}
-                    onChange={setEndDestination}
+                    onValueChange={setEndDestination}
                     placeholder="Search airports (e.g., CDG, LHR, or airport name)..."
                     disabled={isRoundTrip || isOneWay}
                     onSelect={(airportCode) => {

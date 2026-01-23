@@ -449,7 +449,7 @@ export default function GroupMemberJoin({ params }: { params: Promise<{ inviteCo
                                         <label className="block text-xs text-slate-500 mb-1.5 uppercase font-bold tracking-wider">Departure Airport</label>
                                         <AirportAutocomplete
                                             value={startAirport}
-                                            onChange={(val) => {
+                                            onValueChange={(val) => {
                                                 setStartAirport(val);
                                                 setFlightMatchId('');
                                             }}
@@ -460,7 +460,7 @@ export default function GroupMemberJoin({ params }: { params: Promise<{ inviteCo
                                         <label className="block text-xs text-slate-500 mb-1.5 uppercase font-bold tracking-wider">Preferred Arrival Airport</label>
                                         <AirportAutocomplete
                                             value={endAirport}
-                                            onChange={(val) => {
+                                            onValueChange={(val) => {
                                                 setEndAirport(val);
                                                 setFlightMatchId('');
                                             }}
