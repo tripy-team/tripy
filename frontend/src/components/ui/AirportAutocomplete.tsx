@@ -243,15 +243,25 @@ export default function AirportAutocomplete({
             return;
           }
           // Use setTimeout to allow onClick on suggestions to fire first
+          // Increased timeout to ensure clicks register properly
           setTimeout(() => {
-            setOpen(false);
-          }, 250);
+            // Double-check that we're not clicking inside before closing
+            if (!wrapperRef.current?.contains(document.activeElement)) {
+              setOpen(false);
+            }
+          }, 300);
         }}
         className="w-full px-4 py-3 bg-white border border-slate-200 rounded-xl focus:outline-none focus:ring-2 focus:ring-blue-600 focus:border-transparent disabled:opacity-50 disabled:cursor-not-allowed text-sm"
       />
 
       {open && list.length > 0 && (
-        <div className="absolute z-50 mt-2 w-full overflow-hidden rounded-xl border border-slate-200 bg-white shadow-lg">
+        <div 
+          className="absolute z-50 mt-2 w-full overflow-hidden rounded-xl border border-slate-200 bg-white shadow-lg"
+          onMouseDown={(e) => {
+            // Prevent input blur when clicking in dropdown
+            e.preventDefault();
+          }}
+        >
           {showRecents && (
             <div className="px-4 py-2 text-xs font-medium text-slate-500 border-b border-slate-100">
               Recent
@@ -274,6 +284,12 @@ export default function AirportAutocomplete({
                   onMouseDown={(e) => {
                     // prevent blur before click
                     e.preventDefault();
+                    commitSelect(a);
+                  }}
+                  onClick={(e) => {
+                    // Ensure click works
+                    e.preventDefault();
+                    e.stopPropagation();
                     commitSelect(a);
                   }}
                   className={[

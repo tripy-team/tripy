@@ -62,14 +62,21 @@ export default function RouteSelector({
           placement="bottom start"
           offset={8}
           triggerRef={triggerRef}
-          className="rounded-xl bg-white border border-slate-200 shadow-lg max-h-96 overflow-y-auto w-full"
+          className="z-50 rounded-xl bg-white border border-slate-200 shadow-lg max-h-96 overflow-y-auto w-full"
         >
           <Dialog className="p-2">
             <div className="space-y-1">
               {routes.map((route) => (
                 <button
                   key={route.id}
-                  onClick={() => {
+                  type="button"
+                  onMouseDown={(e) => {
+                    // Prevent blur/close before click registers
+                    e.preventDefault();
+                  }}
+                  onClick={(e) => {
+                    e.preventDefault();
+                    e.stopPropagation();
                     onSelectRoute(route);
                     setIsOpen(false);
                   }}
