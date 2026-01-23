@@ -1,48 +1,27 @@
 "use client";
 
 import React, { useEffect, useMemo, useRef, useState } from "react";
-import type { Airport } from "@/lib/locationSearch";
-import { searchAirports, highlightMatch } from "@/lib/locationSearch";
+import { locations } from "@/lib/api";
 
-// Cache for loaded data
-let airportsCache: Airport[] | null = null;
-let metroMappingsCache: Record<string, string[]> | null = null;
+// Airport type matching API response
+type AirportSuggestion = {
+  airport_id: string;
+  iata_code: string;
+  airport_name: string;
+  city: string;
+  country: string;
+  region?: string;
+  display_name: string;
+};
 
-// Load airports data dynamically
-async function loadAirportsData(): Promise<{
-  airports: Airport[];
-  metroMappings: Record<string, string[]>;
-}> {
-  if (airportsCache && metroMappingsCache) {
-    return {
-      airports: airportsCache,
-      metroMappings: metroMappingsCache,
-    };
-  }
-
-  // Fetch from public directory - works reliably in client components
-  // No webpack path resolution issues, works in dev + prod + Amplify
-  const res = await fetch("/data/airports.json", {
-    cache: "force-cache",
-  });
-
-  if (!res.ok) {
-    throw new Error(`Failed to load airports.json: ${res.status}`);
-  }
-
-  const json = (await res.json()) as {
-    airports: Airport[];
-    metro_mappings: Record<string, string[]>;
-  };
-
-  airportsCache = json.airports;
-  metroMappingsCache = json.metro_mappings;
-  
-  return {
-    airports: airportsCache,
-    metroMappings: metroMappingsCache,
-  };
-}
+// Convert API response to Airport format for compatibility
+type Airport = {
+  iata: string;
+  city: string;
+  country: string;
+  airport: string;
+  state?: string;
+};
 
 type Props = {
   value: string;
@@ -58,9 +37,33 @@ type Props = {
 
 type RecentItem = { iata: string; ts: number };
 
-function formatLabel(a: Airport) {
-  const region = [a.city, a.state].filter(Boolean).join(", ");
-  return `${a.iata} – ${region}, ${a.country}`;
+function formatLabel(a: AirportSuggestion) {
+  const region = [a.city, a.region].filter(Boolean).join(", ");
+  return `${a.iata_code} – ${region}, ${a.country}`;
+}
+
+function highlightMatch(text: string, query: string): React.ReactNode {
+  if (!text || !query) return text;
+  
+  const lowerText = text.toLowerCase();
+  const queryLower = query.toLowerCase();
+  const matchIndex = lowerText.indexOf(queryLower);
+  
+  if (matchIndex === -1) {
+    return text;
+  }
+  
+  const before = text.substring(0, matchIndex);
+  const match = text.substring(matchIndex, matchIndex + query.length);
+  const after = text.substring(matchIndex + query.length);
+  
+  return (
+    <>
+      {before}
+      <span className="font-semibold bg-blue-100 text-blue-900">{match}</span>
+      {after}
+    </>
+  );
 }
 
 function saveRecent(key: string, iata: string) {
@@ -98,35 +101,10 @@ export default function AirportAutocomplete({
   const [open, setOpen] = useState(false);
   const [activeIdx, setActiveIdx] = useState(0);
   const [recent, setRecent] = useState<RecentItem[]>([]);
-  const [airports, setAirports] = useState<Airport[]>([]);
-  const [metroMappings, setMetroMappings] = useState<Record<string, string[]>>({});
-  const [isLoadingData, setIsLoadingData] = useState(true);
+  const [suggestions, setSuggestions] = useState<AirportSuggestion[]>([]);
+  const [isLoading, setIsLoading] = useState(false);
   const wrapperRef = useRef<HTMLDivElement | null>(null);
   const inputRef = useRef<HTMLInputElement | null>(null);
-
-  // Load airports data on mount
-  useEffect(() => {
-    // Set a timeout to ensure we don't stay disabled forever if loading fails
-    const timeoutId = setTimeout(() => {
-      setIsLoadingData(false);
-    }, 5000); // 5 second timeout
-
-    loadAirportsData()
-      .then(({ airports: loadedAirports, metroMappings: loadedMappings }) => {
-        setAirports(loadedAirports);
-        setMetroMappings(loadedMappings);
-        setIsLoadingData(false);
-        clearTimeout(timeoutId);
-      })
-      .catch((error) => {
-        console.error('Error loading airports data:', error);
-        // Even if loading fails, enable the input so users can still type
-        setIsLoadingData(false);
-        clearTimeout(timeoutId);
-      });
-
-    return () => clearTimeout(timeoutId);
-  }, []);
 
   // load recent once
   useEffect(() => {
@@ -150,33 +128,25 @@ export default function AirportAutocomplete({
     return () => clearTimeout(t);
   }, [value]);
 
+  // Load recent airports (we'll need to store full airport data for this)
   const recentAirports = useMemo(() => {
-    if (airports.length === 0) return [];
-    const map = new Map(airports.map((a) => [a.iata.toUpperCase(), a]));
-    return recent
-      .map((r) => map.get(r.iata.toUpperCase()))
-      .filter(Boolean) as Airport[];
-  }, [recent, airports]);
+    // For now, just return empty - we'd need to store full airport data in localStorage
+    // to show recent airports properly
+    return [];
+  }, [recent]);
 
-  const results = useMemo(() => {
-    if (airports.length === 0) return [];
-    const q = debounced.trim();
-    if (!q) return [];
-    return searchAirports(airports, q, 10, metroMappings);
-  }, [debounced, airports, metroMappings]);
-
-  // display list: if empty query, show recents; else show results
-  const list: Airport[] = useMemo(() => {
+  // Display list: if empty query, show recents; else show suggestions
+  const list: AirportSuggestion[] = useMemo(() => {
     if (debounced.trim().length === 0) return recentAirports;
-    return results;
-  }, [debounced, recentAirports, results]);
+    return suggestions;
+  }, [debounced, recentAirports, suggestions]);
 
   const showRecents = debounced.trim().length === 0 && recentAirports.length > 0;
 
-  function commitSelect(a: Airport) {
-    saveRecent(recentKey, a.iata);
+  function commitSelect(a: AirportSuggestion) {
+    saveRecent(recentKey, a.iata_code);
     setRecent(loadRecent(recentKey));
-    const formattedValue = a.iata; // Use IATA code as value
+    const formattedValue = a.iata_code; // Use IATA code as value
     onValueChange(formattedValue);
     if (onSelect) {
       onSelect(formattedValue);
@@ -215,35 +185,36 @@ export default function AirportAutocomplete({
   useEffect(() => {
     // reset highlighted item on list changes
     setActiveIdx(0);
+  }, [debounced, suggestions]);
+
+  // Search airports via API when query changes
+  useEffect(() => {
+    const query = debounced.trim();
+    
+    if (!query || query.length < 1) {
+      setSuggestions([]);
+      return;
+    }
+
+    setIsLoading(true);
+    const timeoutId = setTimeout(async () => {
+      try {
+        const response = await locations.airportsAutocomplete(query, 10);
+        setSuggestions(response.airports || []);
+      } catch (error) {
+        console.error('Error fetching airport suggestions:', error);
+        setSuggestions([]);
+      } finally {
+        setIsLoading(false);
+      }
+    }, 200);
+
+    return () => {
+      clearTimeout(timeoutId);
+      setIsLoading(false);
+    };
   }, [debounced]);
 
-  // Check if query matches a metro code
-  const isMetroCode = useMemo(() => {
-    const q = debounced.trim().toUpperCase();
-    return q in metroMappings;
-  }, [debounced, metroMappings]);
-
-  // Show loading state while data loads, but allow input to work
-  // Only disable if explicitly disabled via prop
-  if (isLoadingData && airports.length === 0 && !disabled) {
-    // Show a loading indicator but keep input enabled
-    return (
-      <div className={`relative w-full ${className}`} style={{ position: 'relative', zIndex: 1 }}>
-        <input
-          value={value}
-          placeholder={placeholder}
-          disabled={disabled}
-          onChange={(e) => {
-            onValueChange(e.target.value);
-          }}
-          className="w-full px-4 py-3 bg-white border border-slate-200 rounded-xl focus:outline-none focus:ring-2 focus:ring-blue-600 focus:border-transparent disabled:opacity-50 disabled:cursor-not-allowed text-sm"
-        />
-        <div className="absolute right-4 top-1/2 -translate-y-1/2 pointer-events-none">
-          <div className="w-4 h-4 border-2 border-blue-600 border-t-transparent rounded-full animate-spin" />
-        </div>
-      </div>
-    );
-  }
 
   return (
     <div ref={wrapperRef} className={`relative w-full ${className}`} style={{ position: 'relative', zIndex: 1 }}>
@@ -281,7 +252,7 @@ export default function AirportAutocomplete({
         className="w-full px-4 py-3 bg-white border border-slate-200 rounded-xl focus:outline-none focus:ring-2 focus:ring-blue-600 focus:border-transparent disabled:opacity-50 disabled:cursor-not-allowed text-sm"
       />
 
-      {open && list.length > 0 && (
+      {open && (list.length > 0 || isLoading) && (
         <div 
           className="absolute z-50 mt-2 w-full overflow-hidden rounded-xl border border-slate-200 bg-white shadow-lg"
           onMouseDown={(e) => {
@@ -307,78 +278,79 @@ export default function AirportAutocomplete({
 
           {!showRecents && debounced.trim().length > 0 && (
             <div className="px-4 py-2 text-xs font-medium text-slate-500 border-b border-slate-100">
-              {isMetroCode ? "Metro Area" : "Suggestions"}
+              {isLoading ? "Searching..." : "Suggestions"}
             </div>
           )}
 
-          <ul className="max-h-80 overflow-auto">
-            {list.map((a, idx) => {
-              const active = idx === activeIdx;
-              return (
-                <li
-                  key={`${a.iata}-${a.airport}`}
-                  onMouseEnter={() => setActiveIdx(idx)}
-                  onPointerDown={(e) => {
-                    // Use pointer events for better touch/mouse support
-                    e.preventDefault();
-                    e.stopPropagation();
-                    // Clear blur timeout
-                    if (inputRef.current && (inputRef.current as any)._blurTimeout) {
-                      clearTimeout((inputRef.current as any)._blurTimeout);
-                      (inputRef.current as any)._blurTimeout = null;
-                    }
-                    commitSelect(a);
-                  }}
-                  onMouseDown={(e) => {
-                    // prevent blur before click
-                    e.preventDefault();
-                    e.stopPropagation();
-                    // Clear blur timeout
-                    if (inputRef.current && (inputRef.current as any)._blurTimeout) {
-                      clearTimeout((inputRef.current as any)._blurTimeout);
-                      (inputRef.current as any)._blurTimeout = null;
-                    }
-                    commitSelect(a);
-                  }}
-                  onClick={(e) => {
-                    // Ensure click works as backup
-                    e.preventDefault();
-                    e.stopPropagation();
-                    commitSelect(a);
-                  }}
-                  className={[
-                    "flex cursor-pointer items-center gap-3 px-4 py-3 transition-colors",
-                    active ? "bg-blue-50" : "bg-white hover:bg-slate-50",
-                  ].join(" ")}
-                >
-                  <div className="min-w-[44px] rounded-lg border border-slate-200 bg-blue-50 px-2 py-1 text-center text-xs font-semibold text-blue-900">
-                    {a.iata.toUpperCase()}
-                  </div>
+          {isLoading ? (
+            <div className="px-4 py-8 text-center">
+              <div className="inline-block w-6 h-6 border-2 border-blue-600 border-t-transparent rounded-full animate-spin" />
+            </div>
+          ) : (
+            <ul className="max-h-80 overflow-auto">
+              {list.map((a, idx) => {
+                const active = idx === activeIdx;
+                return (
+                  <li
+                    key={a.airport_id || `${a.iata_code}-${idx}`}
+                    onMouseEnter={() => setActiveIdx(idx)}
+                    onPointerDown={(e) => {
+                      // Use pointer events for better touch/mouse support
+                      e.preventDefault();
+                      e.stopPropagation();
+                      // Clear blur timeout
+                      if (inputRef.current && (inputRef.current as any)._blurTimeout) {
+                        clearTimeout((inputRef.current as any)._blurTimeout);
+                        (inputRef.current as any)._blurTimeout = null;
+                      }
+                      commitSelect(a);
+                    }}
+                    onMouseDown={(e) => {
+                      // prevent blur before click
+                      e.preventDefault();
+                      e.stopPropagation();
+                      // Clear blur timeout
+                      if (inputRef.current && (inputRef.current as any)._blurTimeout) {
+                        clearTimeout((inputRef.current as any)._blurTimeout);
+                        (inputRef.current as any)._blurTimeout = null;
+                      }
+                      commitSelect(a);
+                    }}
+                    onClick={(e) => {
+                      // Ensure click works as backup
+                      e.preventDefault();
+                      e.stopPropagation();
+                      commitSelect(a);
+                    }}
+                    className={[
+                      "flex cursor-pointer items-center gap-3 px-4 py-3 transition-colors",
+                      active ? "bg-blue-50" : "bg-white hover:bg-slate-50",
+                    ].join(" ")}
+                  >
+                    <div className="min-w-[44px] rounded-lg border border-slate-200 bg-blue-50 px-2 py-1 text-center text-xs font-semibold text-blue-900">
+                      {a.iata_code.toUpperCase()}
+                    </div>
 
-                  <div className="flex-1 min-w-0">
-                    <div className="text-sm font-medium text-slate-900">
-                      {highlightMatch(a.city, debounced.trim())}
-                      {a.state ? `, ${a.state}` : ""} • {a.country}
+                    <div className="flex-1 min-w-0">
+                      <div className="text-sm font-medium text-slate-900">
+                        {highlightMatch(a.city, debounced.trim())}
+                        {a.region ? `, ${a.region}` : ""} • {a.country}
+                      </div>
+                      <div className="text-xs text-slate-500 truncate">
+                        {highlightMatch(a.airport_name, debounced.trim())}
+                      </div>
                     </div>
-                    <div className="text-xs text-slate-500 truncate">
-                      {highlightMatch(a.airport, debounced.trim())}
-                    </div>
-                  </div>
-                </li>
-              );
-            })}
-          </ul>
+                  </li>
+                );
+              })}
+            </ul>
+          )}
         </div>
       )}
 
-      {open && debounced.trim().length > 0 && list.length === 0 && (
+      {open && debounced.trim().length > 0 && !isLoading && list.length === 0 && (
         <div className="absolute z-50 mt-2 w-full rounded-xl border border-slate-200 bg-white px-4 py-3 text-sm text-slate-600 shadow-lg">
-          No matches. Try an airport code (e.g., "SEA") or a city name.{" "}
-          {debounced.trim().length === 3 && (
-            <span className="text-slate-400">
-              Did you mean a metro code like NYC, LON, or PAR?
-            </span>
-          )}
+          No matches. Try an airport code (e.g., "SEA") or a city name.
         </div>
       )}
     </div>

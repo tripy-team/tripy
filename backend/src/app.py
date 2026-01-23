@@ -820,16 +820,24 @@ async def airports_autocomplete(
     limit: int = Query(10, ge=1, le=20),
 ):
     """
-    Return airport suggestions for autocomplete using OpenAI:
+    Return airport suggestions for autocomplete using CSV data:
     [{ airport_id, iata_code, airport_name, city, country, region, display_name }]
     """
     try:
-        # Use OpenAI for airport search - handles airport codes, names, cities, and variations
-        airports = search_airports_with_openai(q, max_results=limit)
+        from .services.airport_service import search_airports
+        
+        # Use CSV-based airport search
+        airports = search_airports(q, max_results=limit)
         return {"airports": airports}
     except Exception as e:
         logger.error(f"Error in airports_autocomplete for q='{q}': {e}", exc_info=True)
-        raise HTTPException(status_code=500, detail="Failed to search airports")
+        # Fallback to OpenAI if CSV search fails
+        try:
+            airports = search_airports_with_openai(q, max_results=limit)
+            return {"airports": airports}
+        except Exception as fallback_error:
+            logger.error(f"Fallback OpenAI search also failed: {fallback_error}", exc_info=True)
+            raise HTTPException(status_code=500, detail="Failed to search airports")
 
 
 @app.get("/api/locations/{city_id}/airports")
