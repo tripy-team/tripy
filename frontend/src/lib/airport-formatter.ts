@@ -23,10 +23,12 @@ export async function searchAndFormatAirport(query: string): Promise<string> {
     return trimmed;
   }
   
-  // If already formatted as "City (CODE)", extract the code
-  const codeMatch = trimmed.match(/\(([A-Z]{3})\)/);
+  // If already formatted as "City (CODE)" or "City (CODE1,CODE2,CODE3)", extract the first code
+  const codeMatch = trimmed.match(/\(([A-Z]{3}(?:,[A-Z]{3})*)\)/);
   if (codeMatch) {
-    return codeMatch[1];
+    // Extract first airport code from comma-separated list
+    const codes = codeMatch[1].split(',');
+    return codes[0].trim();
   }
   
   try {

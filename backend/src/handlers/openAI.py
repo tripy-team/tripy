@@ -160,6 +160,127 @@ class CitySuggestionsResponse(BaseModel):
     cities: List[CitySuggestion]
 
 
+def find_commercial_airports_for_city(city_query: str, max_results: int = 10) -> List[Dict[str, Any]]:
+    """
+    Find commercial airports for a city using OpenAI.
+    For example, "nyc" or "New York" returns JFK, LGA, EWR.
+    Only returns commercial airports (with scheduled service).
+    """
+    if OpenAI is None:
+        raise ImportError("openai package is not installed. Install it with: pip install openai")
+    
+    # Load commercial airport set for filtering
+    try:
+        from .airport_filter import load_commercial_iata_set_from_web, is_commercial_airport
+        commercial_set = load_commercial_iata_set_from_web()
+    except Exception as e:
+        logging.getLogger(__name__).warning(f"Could not load commercial airport set: {e}")
+        commercial_set = set()
+    
+    load_dotenv()
+    client = OpenAI(api_key=os.getenv("OPENAI_ADMIN_KEY"))
+    
+    system_prompt = """You are a travel assistant that finds commercial airports for cities.
+
+Your task is to find ALL major commercial airports that serve a given city or metropolitan area.
+For example:
+- "New York" or "NYC" should return: JFK, LGA, EWR
+- "London" should return: LHR, LGW, STN, LTN
+- "Paris" should return: CDG, ORY
+- "Los Angeles" or "LA" should return: LAX, BUR, SNA, LGB, ONT
+
+IMPORTANT:
+- Only return COMMERCIAL airports with scheduled passenger service
+- Include ALL major airports serving the city/metro area
+- Return airports as a JSON array with IATA codes, names, cities, countries
+- Use the exact city name from the query when possible"""
+
+    user_prompt = f"""Find all commercial airports that serve the city/metro area: "{city_query}"
+
+Return a JSON object with this structure:
+{{
+  "city": "New York",
+  "airports": [
+    {{
+      "iata_code": "JFK",
+      "airport_name": "John F. Kennedy International Airport",
+      "city": "New York",
+      "state": "NY",
+      "country": "United States",
+      "region": "North America"
+    }},
+    {{
+      "iata_code": "LGA",
+      "airport_name": "LaGuardia Airport",
+      "city": "New York",
+      "state": "NY",
+      "country": "United States",
+      "region": "North America"
+    }}
+  ]
+}}
+
+Return ALL major commercial airports for this city/metro area (up to {max_results})."""
+
+    try:
+        response = client.chat.completions.create(
+            model="gpt-4o-mini",
+            messages=[
+                {"role": "system", "content": system_prompt},
+                {"role": "user", "content": user_prompt}
+            ],
+            response_format={"type": "json_object"},
+            temperature=0.2,  # Low temperature for consistent results
+        )
+        
+        import json
+        content = response.choices[0].message.content
+        parsed_data = json.loads(content)
+        
+        airports_list = parsed_data.get("airports", [])
+        city_name = parsed_data.get("city", city_query)
+        
+        # Filter to only commercial airports and format results
+        results = []
+        for airport_data in airports_list:
+            iata_code = airport_data.get("iata_code", "").upper().strip()
+            
+            # Skip if no valid IATA code
+            if not iata_code or len(iata_code) != 3:
+                continue
+            
+            # Filter for commercial airports only
+            if commercial_set and not is_commercial_airport(iata_code, commercial_set):
+                continue
+            
+            airport_name = airport_data.get("airport_name", "")
+            city = airport_data.get("city", city_name)
+            state = airport_data.get("state", "")
+            country = airport_data.get("country", "")
+            region = airport_data.get("region", "")
+            
+            # Format display name
+            display_name = f"{iata_code} - {airport_name}" if airport_name else iata_code
+            if city:
+                display_name += f" ({city})"
+            
+            results.append({
+                "airport_id": f"{iata_code},{city},{country}",
+                "iata_code": iata_code,
+                "airport_name": airport_name,
+                "city": city,
+                "state": state,
+                "country": country,
+                "region": region,
+                "display_name": display_name,
+            })
+        
+        return results[:max_results]
+    except Exception as e:
+        logging.getLogger(__name__).error(f"Error finding airports for city '{city_query}': {e}", exc_info=True)
+        return []
+
+
 def search_airports_with_openai(query: str, max_results: int = 10) -> List[Dict[str, Any]]:
     """
     Search for airports using OpenAI. This can handle airport codes, airport names, city names, and variations.

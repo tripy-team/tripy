@@ -219,6 +219,10 @@ def _normalize_city_to_code(city_name: str) -> Optional[str]:
     """
     Convert city name to airport code.
     If already a code, return it. Otherwise, try to find the primary airport.
+    Handles formats like:
+    - "JFK" -> "JFK"
+    - "New York" -> searches for airport
+    - "New York (JFK,LGA,EWR)" -> extracts "JFK" (first code)
     """
     city_name = city_name.strip()
     
@@ -226,9 +230,22 @@ def _normalize_city_to_code(city_name: str) -> Optional[str]:
     if _is_airport_code(city_name):
         return city_name.upper()
     
+    # Check if it's in format "City (CODE1,CODE2,CODE3)" and extract first code
+    import re
+    code_match = re.search(r'\(([A-Z]{3}(?:,[A-Z]{3})*)\)', city_name.upper())
+    if code_match:
+        # Extract first airport code from comma-separated list
+        codes = code_match.group(1).split(',')
+        first_code = codes[0].strip()
+        if _is_airport_code(first_code):
+            return first_code.upper()
+    
     # Try to find airport code using city search
+    # Remove the airport codes part if present for searching
+    search_name = re.sub(r'\s*\([A-Z]{3}(?:,[A-Z]{3})*\)', '', city_name).strip()
+    
     try:
-        results = city_service.search_cities(city_name, max_results=5)
+        results = city_service.search_cities(search_name, max_results=5)
         if results:
             # Prefer airport type results
             for result in results:
@@ -244,10 +261,15 @@ def _normalize_city_to_code(city_name: str) -> Optional[str]:
     except Exception as e:
         logger.warning(f"Error searching for airport code for {city_name}: {e}")
     
-    # If search fails, try to extract code from name (e.g., "New York (JFK)")
-    match = re.search(r'\(([A-Z]{3})\)', city_name.upper())
+    # If search fails, try to extract code from name (e.g., "New York (JFK)" or "New York (JFK,LGA,EWR)")
+    # Handle both single code and multiple codes
+    match = re.search(r'\(([A-Z]{3}(?:,[A-Z]{3})*)\)', city_name.upper())
     if match:
-        return match.group(1)
+        # Extract first airport code from comma-separated list
+        codes = match.group(1).split(',')
+        first_code = codes[0].strip()
+        if _is_airport_code(first_code):
+            return first_code.upper()
     
     return None
 
@@ -368,14 +390,14 @@ def generate_optimized_itinerary(trip_id: str) -> Dict[str, Any]:
     if not start_dest_code:
         raise ValueError(
             f"Could not find airport code for start destination '{start_dest_name}'. "
-            f"Please use airport codes (e.g., 'JFK', 'CDG') or city names with codes (e.g., 'New York (JFK)')."
+            f"Please use airport codes (e.g., 'JFK', 'CDG') or city names with codes (e.g., 'New York (JFK,LGA,EWR)')."
         )
     
     end_dest_code = _normalize_city_to_code(end_dest_name) if end_dest_name else start_dest_code
     if not end_dest_code:
         raise ValueError(
             f"Could not find airport code for end destination '{end_dest_name}'. "
-            f"Please use airport codes (e.g., 'JFK', 'CDG') or city names with codes (e.g., 'New York (JFK)')."
+            f"Please use airport codes (e.g., 'JFK', 'CDG') or city names with codes (e.g., 'New York (JFK,LGA,EWR)')."
         )
     
     # Convert intermediate cities

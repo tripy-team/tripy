@@ -953,7 +953,13 @@ export default function GroupTripSetup() {
               {/* Generate/Invite Button */}
               <button
                 onClick={handleCreateTrip}
-                disabled={cities.length < 1 || (!isFlexible && (!startDate || (!isOneWay && !endDate))) || isGenerating}
+                disabled={
+                  !startDestination || 
+                  (!isOneWay && !endDestination) || 
+                  cities.length < 1 || 
+                  (!isFlexible && (!startDate || (!isOneWay && !endDate))) || 
+                  isGenerating
+                }
                 className="w-full px-6 py-4 bg-yellow-400 text-slate-900 rounded-xl hover:bg-yellow-500 transition-all disabled:opacity-50 disabled:cursor-not-allowed flex items-center justify-center gap-2 text-lg shadow-lg shadow-yellow-400/20 font-semibold"
               >
                 <Users className="w-5 h-5" />
