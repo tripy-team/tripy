@@ -74,12 +74,17 @@ const nextConfig: NextConfig = {
       '.js': ['.ts', '.tsx', '.js', '.jsx'],
       '.json': ['.json'],
     };
-    // Add src to modules for absolute path resolution
+    // Configure alias for absolute paths - ensure it works for dynamic imports
     const path = require('path');
-    config.resolve.modules = [
-      ...(config.resolve.modules || []),
-      path.resolve(__dirname, 'src'),
-    ];
+    if (!config.resolve.alias) {
+      config.resolve.alias = {};
+    }
+    config.resolve.alias['@'] = path.resolve(__dirname, 'src');
+    // Also add to modules for better resolution
+    if (!config.resolve.modules) {
+      config.resolve.modules = [];
+    }
+    config.resolve.modules.push(path.resolve(__dirname, 'src'));
     return config;
   },
 };

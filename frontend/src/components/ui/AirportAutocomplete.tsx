@@ -21,11 +21,12 @@ async function loadAirportsData(): Promise<{
   }
 
   // Dynamic import - webpack will code-split this
-  // Use absolute path from src directory (configured in webpack)
+  // Use absolute path from src directory
+  // Webpack needs a static string for code splitting, so we use the @ alias
   const airportsData = await import(
     /* webpackChunkName: "airports-data" */
     /* webpackMode: "lazy" */
-    'data/airports.json'
+    '@/data/airports.json'
   );
   
   airportsCache = airportsData.airports as Airport[];
