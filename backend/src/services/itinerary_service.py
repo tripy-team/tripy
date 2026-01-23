@@ -6,7 +6,16 @@ from typing import Dict, Any, List, Optional, Tuple
 from src.repos import itinerary_repo
 from src.handlers.flights import get_flights_award_first_with_points
 from src.handlers.ilp_adapter import run_ilp_from_edges
-from src.handlers.planTrip import plan_non_pooled_multi_itineraries_with_native
+try:
+    from src.handlers.planTrip import plan_non_pooled_multi_itineraries_with_native
+except ModuleNotFoundError:
+    # Optional dependency (pulp) not installed; advanced ILP optimization will be unavailable
+    plan_non_pooled_multi_itineraries_with_native = None  # type: ignore
+    logger = logging.getLogger(__name__)
+    logger.warning(
+        "pulp / planTrip not available. Advanced optimized itineraries will be disabled. "
+        "Install 'pulp' and ensure 'src.handlers.planTrip' is importable to enable it."
+    )
 from src.services import (
     destination_service,
     trip_service,
@@ -281,6 +290,12 @@ def generate_optimized_itinerary(trip_id: str) -> Dict[str, Any]:
     Raises:
         ValueError: If trip data is invalid, missing required fields, or optimization fails
     """
+    if plan_non_pooled_multi_itineraries_with_native is None:
+        raise ValueError(
+            "Optimized itineraries are not available in this environment because the "
+            "'pulp' dependency (used by planTrip) is not installed. "
+            "You can still use the basic itinerary generator."
+        )
     # 1. Get trip data with validation
     trip = trip_service.get_trip(trip_id)
     if not trip:

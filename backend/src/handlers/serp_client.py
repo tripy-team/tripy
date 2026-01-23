@@ -1,10 +1,16 @@
 # backend/serp_client.py
 from itertools import chain
 from typing import List, Optional, Dict, Any
-from serpapi import GoogleSearch
+
+try:
+    from serpapi import GoogleSearch
+except ImportError:
+    GoogleSearch = None
 
 
 def search(params: Dict[str, Any]) -> Dict[str, Any]:
+    if GoogleSearch is None:
+        raise ImportError("serpapi package is not installed. Install it with: pip install google-search-results")
     return GoogleSearch(params).get_dict()
 
 

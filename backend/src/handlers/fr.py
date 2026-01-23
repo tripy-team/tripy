@@ -1,6 +1,9 @@
 import os, requests, json
-import Failure
 from dotenv import load_dotenv
+
+# Failure class stub - original import doesn't exist
+class Failure(Exception):
+    pass
 
 load_dotenv()
 

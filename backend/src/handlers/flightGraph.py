@@ -1,9 +1,22 @@
 import os
-import pulp
-from amadeus import Client as Amadeus
-from serpapi import GoogleSearch
 from typing import List, Dict, Tuple
 from dotenv import load_dotenv
+
+# Optional dependencies
+try:
+    import pulp
+except ModuleNotFoundError:
+    pulp = None
+
+try:
+    from amadeus import Client as Amadeus
+except ImportError:
+    Amadeus = None
+
+try:
+    from serpapi import GoogleSearch
+except ImportError:
+    GoogleSearch = None
 
 
 # ----- Data classes -----
@@ -97,6 +110,9 @@ def optimize_itinerary(
     budget_points: Dict[str, float],
     objective: str = "min_cash",
 ) -> Dict:
+    if pulp is None:
+        raise ImportError("pulp package is not installed. Install it with: pip install pulp")
+    
     prob = pulp.LpProblem(
         "itinerary_opt", pulp.LpMinimize if objective == "min_cash" else pulp.LpMaximize
     )

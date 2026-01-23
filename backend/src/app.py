@@ -826,18 +826,21 @@ async def airports_autocomplete(
     try:
         from .services.airport_service import search_airports
         
+        logger.info(f"Airport autocomplete request: q='{q}', limit={limit}")
         # Use CSV-based airport search
         airports = search_airports(q, max_results=limit)
+        logger.info(f"Returning {len(airports)} airports for query '{q}'")
         return {"airports": airports}
     except Exception as e:
         logger.error(f"Error in airports_autocomplete for q='{q}': {e}", exc_info=True)
         # Fallback to OpenAI if CSV search fails
         try:
+            logger.warning(f"Falling back to OpenAI search for query '{q}'")
             airports = search_airports_with_openai(q, max_results=limit)
             return {"airports": airports}
         except Exception as fallback_error:
             logger.error(f"Fallback OpenAI search also failed: {fallback_error}", exc_info=True)
-            raise HTTPException(status_code=500, detail="Failed to search airports")
+            raise HTTPException(status_code=500, detail=f"Failed to search airports: {str(e)}")
 
 
 @app.get("/api/locations/{city_id}/airports")
@@ -882,7 +885,7 @@ async def get_city_images(
     """
     try:
         # Check if city exists first
-        from backend.src.repos import city_image_repo
+        from src.repos import city_image_repo
 
         city_data = city_image_repo.get_city_images(city_name.lower().strip())
         city_exists = city_data is not None

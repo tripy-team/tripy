@@ -6,7 +6,11 @@ by selecting itineraries that provide the best redemption rates (cents per point
 """
 
 from typing import List, Dict, Tuple, Set
-import pulp as pl
+
+try:
+    import pulp as pl
+except ModuleNotFoundError:
+    pl = None
 
 Edge = Tuple[str, str, str]
 
@@ -61,6 +65,9 @@ def plan_maximize_points_value(
     This represents the cash value saved by using points instead of paying cash.
     
     Returns same structure as plan_non_pooled_multi_itineraries_with_native
+    """
+    if pl is None:
+        raise ImportError("pulp package is not installed. Install it with: pip install pulp")
     """
     if total_cash_seats is None:
         total_cash_seats = {}

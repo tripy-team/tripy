@@ -1,5 +1,9 @@
 from typing import List, Dict, Tuple, Set
-import pulp as pl
+
+try:
+    import pulp as pl
+except ModuleNotFoundError:
+    pl = None
 
 Edge = Tuple[str, str, str]
 
@@ -70,6 +74,9 @@ def plan_non_pooled_multi_itineraries_with_native(
         }
       }
     """
+    if pl is None:
+        raise ImportError("pulp package is not installed. Install it with: pip install pulp")
+    
     if total_cash_seats is None:
         total_cash_seats = {}
     if award_seats is None:

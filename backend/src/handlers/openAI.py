@@ -3,12 +3,23 @@ import logging
 from dotenv import load_dotenv
 import os
 import boto3
-from openai import OpenAI
 from pydantic import BaseModel
 from enum import Enum
 from datetime import date
 from typing import Optional, List, Dict, Any
-from backend.bin.flights import create_flight_filters
+
+# Optional dependency - OpenAI
+try:
+    from openai import OpenAI
+except ImportError:
+    OpenAI = None
+# from backend.bin.flights import create_flight_filters  # Module doesn't exist
+def create_flight_filters():
+    """Stub function - returns default filters"""
+    return {
+        "outbound_date": "2026-06-01",
+        "return_date": "2026-06-15",
+    }
 
 
 class Suggestions(BaseModel):
@@ -25,6 +36,8 @@ class Seasons(Enum):
 
 
 def ai_flight_suggestions():
+    if OpenAI is None:
+        raise ImportError("openai package is not installed. Install it with: pip install openai")
     load_dotenv()
     filters = create_flight_filters()
     outbound_date = filters["outbound_date"]
@@ -49,6 +62,8 @@ def ai_flight_suggestions():
 
 
 def get_season_between_dates(start_date, end_date):
+    if OpenAI is None:
+        raise ImportError("openai package is not installed. Install it with: pip install openai")
     client = OpenAI(api_key=os.getenv("OPENAI_ADMIN_KEY"))
     what_season_response = client.chat.completions.create(
         model="gpt-5",
@@ -68,6 +83,8 @@ def get_season_between_dates(start_date, end_date):
 
 
 def ai_image_generator(city, country, destination_start_date, destination_end_date):
+    if OpenAI is None:
+        raise ImportError("openai package is not installed. Install it with: pip install openai")
     load_dotenv()
     session = boto3.Session(
         aws_access_key_id=os.getenv("AWS_ACCESS_KEY_ID"),
@@ -148,6 +165,8 @@ def search_airports_with_openai(query: str, max_results: int = 10) -> List[Dict[
     Search for airports using OpenAI. This can handle airport codes, airport names, city names, and variations.
     Returns a list of airport suggestions with IATA codes, names, and city information.
     """
+    if OpenAI is None:
+        raise ImportError("openai package is not installed. Install it with: pip install openai")
     load_dotenv()
     client = OpenAI(api_key=os.getenv("OPENAI_ADMIN_KEY"))
     
@@ -356,6 +375,12 @@ def search_cities_with_openai(query: str, max_results: int = 10, use_cache: bool
         if cached is not None:
             return cached
     
+    if OpenAI is None:
+        # If OpenAI not available, return what we have so far
+        logger = logging.getLogger(__name__)
+        logger.warning("OpenAI not available, returning partial results")
+        return static_results[:max_results]
+    
     load_dotenv()
     client = OpenAI(api_key=os.getenv("OPENAI_ADMIN_KEY"))
     
@@ -466,6 +491,8 @@ def extract_trip_info_with_openai(text: str) -> ExtractedTripInfo:
     Extract trip information from natural language using OpenAI.
     Uses structured output to ensure accurate extraction and avoid extracting months as cities.
     """
+    if OpenAI is None:
+        raise ImportError("openai package is not installed. Install it with: pip install openai")
     load_dotenv()
     client = OpenAI(api_key=os.getenv("OPENAI_ADMIN_KEY"))
     

@@ -36,6 +36,9 @@ def load_airports_from_csv() -> List[Dict[str, Any]]:
     
     if not AIRPORTS_CSV_PATH.exists():
         logger.error(f"Airports CSV file not found at {AIRPORTS_CSV_PATH}")
+        logger.error(f"Current working directory: {os.getcwd()}")
+        logger.error(f"__file__ location: {__file__}")
+        logger.error(f"Resolved path: {AIRPORTS_CSV_PATH.resolve()}")
         return []
     
     try:
@@ -65,7 +68,9 @@ def load_airports_from_csv() -> List[Dict[str, Any]]:
                 }
                 airports.append(airport)
         
-        logger.info(f"Loaded {len(airports)} airports from CSV")
+        logger.info(f"Loaded {len(airports)} airports from CSV at {AIRPORTS_CSV_PATH}")
+        if len(airports) == 0:
+            logger.warning("No airports loaded from CSV - check file format and filters")
         _airports_cache = airports
         return airports
     
@@ -191,11 +196,15 @@ def search_airports(query: str, max_results: int = 10) -> List[Dict[str, Any]]:
     Returns list of airport dictionaries matching the query
     """
     if not query or not query.strip():
+        logger.debug(f"Empty query provided to search_airports")
         return []
     
     airports = load_airports_from_csv()
     if not airports:
+        logger.warning(f"No airports loaded from CSV for query: {query}")
         return []
+    
+    logger.debug(f"Searching {len(airports)} airports for query: {query}")
     
     query_normalized = normalize_query(query)
     
@@ -225,4 +234,5 @@ def search_airports(query: str, max_results: int = 10) -> List[Dict[str, Any]]:
             result["display_name"] += f" ({airport['city']})"
         results.append(result)
     
+    logger.info(f"Found {len(results)} airports matching query '{query}' (from {len(scored_airports)} scored)")
     return results

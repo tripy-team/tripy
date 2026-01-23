@@ -4,9 +4,12 @@
 #  - ilp_adapter.run_ilp_from_edges (adapter with meetup_cities support)
 #  - planTrip.plan_non_pooled_multi_itineraries_with_native (your ILP)
 
-from flights import get_flights_award_first_with_points
-from ilp_adapter import run_ilp_from_edges  # <- fixed import
-from planTrip import plan_non_pooled_multi_itineraries_with_native
+from .flights import get_flights_award_first_with_points
+from .ilp_adapter import run_ilp_from_edges
+try:
+    from .planTrip import plan_non_pooled_multi_itineraries_with_native
+except ModuleNotFoundError:
+    plan_non_pooled_multi_itineraries_with_native = None
 
 # -----------------------------
 # Travelers, endpoints, dates

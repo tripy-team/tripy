@@ -24,6 +24,10 @@ if ! python -c "import uvicorn" 2>/dev/null; then
     pip install -r requirements.txt
 fi
 
+# Set PYTHONPATH to include backend directory (parent of src)
+# This allows imports like "from src.repos import ..." to work
+export PYTHONPATH="$(pwd):$PYTHONPATH"
+
 # Start the server
 echo "Starting FastAPI server on http://localhost:8000"
 echo "API docs available at http://localhost:8000/docs"
