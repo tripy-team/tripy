@@ -27,16 +27,38 @@ export async function GET(req: Request) {
     });
 
     if (!response.ok) {
-      console.error(`Backend API error: ${response.status} ${response.statusText}`);
-      // Return empty results on error rather than failing
-      return NextResponse.json({ airports: [] }, { status: 200 });
+      const errorText = await response.text().catch(() => 'Unknown error');
+      console.error(`Backend API error: ${response.status} ${response.statusText}`, errorText);
+      // Return error details for debugging
+      return NextResponse.json(
+        { 
+          airports: [], 
+          error: `Backend error: ${response.status} ${response.statusText}`,
+          backendUrl: url 
+        }, 
+        { status: 200 }
+      );
     }
 
     const data = await response.json();
+    
+    // Log if we get empty results for debugging
+    if (!data.airports || data.airports.length === 0) {
+      console.warn(`Backend returned empty airports array for query: "${q}"`);
+    }
+    
     return NextResponse.json(data, { status: 200 });
   } catch (error) {
-    console.error('Error fetching airports from backend:', error);
-    // Return empty results on error rather than failing
-    return NextResponse.json({ airports: [] }, { status: 200 });
+    const errorMessage = error instanceof Error ? error.message : String(error);
+    console.error('Error fetching airports from backend:', errorMessage, 'URL:', url);
+    // Return error details for debugging
+    return NextResponse.json(
+      { 
+        airports: [], 
+        error: `Network error: ${errorMessage}`,
+        backendUrl: url 
+      }, 
+      { status: 200 }
+    );
   }
 }
