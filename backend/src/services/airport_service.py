@@ -16,6 +16,9 @@ AIRPORTS_CSV_PATH = Path(__file__).parent.parent.parent / "files" / "airports.cs
 # Cache for loaded airports
 _airports_cache: Optional[List[Dict[str, Any]]] = None
 
+# Cache for commercial airport set
+_commercial_airport_set: Optional[set] = None
+
 
 def normalize_query(query: str) -> str:
     """Normalize search query for matching"""
@@ -190,10 +193,33 @@ def score_airport(airport: Dict[str, Any], query: str) -> float:
     return score
 
 
+def _get_commercial_airport_set() -> set:
+    """
+    Load and cache the set of commercial airport IATA codes.
+    Uses the airport_filter module to determine commercial airports.
+    """
+    global _commercial_airport_set
+    
+    if _commercial_airport_set is not None:
+        return _commercial_airport_set
+    
+    try:
+        from ..handlers.airport_filter import load_commercial_iata_set_from_web
+        _commercial_airport_set = load_commercial_iata_set_from_web()
+        logger.info(f"Loaded {len(_commercial_airport_set)} commercial airports")
+        return _commercial_airport_set
+    except Exception as e:
+        logger.warning(f"Failed to load commercial airport set: {e}. Showing all airports.")
+        # Return empty set to disable filtering if loading fails
+        _commercial_airport_set = set()
+        return _commercial_airport_set
+
+
 def search_airports(query: str, max_results: int = 10) -> List[Dict[str, Any]]:
     """
     Search airports based on query string
     Returns list of airport dictionaries matching the query
+    Only includes commercial airports (with scheduled service)
     """
     if not query or not query.strip():
         logger.debug(f"Empty query provided to search_airports")
@@ -204,13 +230,23 @@ def search_airports(query: str, max_results: int = 10) -> List[Dict[str, Any]]:
         logger.warning(f"No airports loaded from CSV for query: {query}")
         return []
     
+    # Get commercial airport set for filtering
+    commercial_set = _get_commercial_airport_set()
+    
     logger.debug(f"Searching {len(airports)} airports for query: {query}")
     
     query_normalized = normalize_query(query)
     
-    # Score and sort airports
+    # Score and sort airports, filtering for commercial airports only
     scored_airports = []
     for airport in airports:
+        iata_code = airport.get("iata_code", "")
+        
+        # Filter: only include commercial airports if we have the set
+        # If commercial_set is empty (loading failed), show all airports
+        if commercial_set and iata_code not in commercial_set:
+            continue
+        
         score = score_airport(airport, query_normalized)
         if score > 0:
             scored_airports.append((score, airport))
@@ -234,5 +270,5 @@ def search_airports(query: str, max_results: int = 10) -> List[Dict[str, Any]]:
             result["display_name"] += f" ({airport['city']})"
         results.append(result)
     
-    logger.info(f"Found {len(results)} airports matching query '{query}' (from {len(scored_airports)} scored)")
+    logger.info(f"Found {len(results)} commercial airports matching query '{query}' (from {len(scored_airports)} scored)")
     return results
