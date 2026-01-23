@@ -6,7 +6,7 @@ import boto3
 from pydantic import BaseModel
 from enum import Enum
 from datetime import date
-from typing import Optional, List, Dict, Any
+from typing import Optional, List, Dict, Any, Tuple
 
 # Optional dependency - OpenAI
 try:
@@ -25,7 +25,7 @@ def create_flight_filters():
 class Suggestions(BaseModel):
     country: str
     city: str
-    places = [(city, country)]
+    places: List[Tuple[str, str]] = []
 
 
 class Seasons(Enum):

@@ -15,7 +15,7 @@ logger = logging.getLogger(__name__)
 
 from fastapi import FastAPI, Request, HTTPException, Depends, BackgroundTasks, Query
 from fastapi.middleware.cors import CORSMiddleware
-from pydantic import BaseModel, Field
+from pydantic import BaseModel, Field, validator, EmailStr
 from typing import Optional, List, Dict, Any
 
 # Import services
