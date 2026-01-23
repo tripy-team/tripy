@@ -217,7 +217,7 @@ export default function AirportAutocomplete({
 
 
   return (
-    <div ref={wrapperRef} className={`relative w-full ${className}`} style={{ position: 'relative', zIndex: 1 }}>
+    <div ref={wrapperRef} className={`relative w-full ${className}`} style={{ position: 'relative', zIndex: 9999 }}>
       <input
         ref={inputRef}
         value={value}
@@ -254,7 +254,8 @@ export default function AirportAutocomplete({
 
       {open && (list.length > 0 || isLoading) && (
         <div 
-          className="absolute z-50 mt-2 w-full overflow-hidden rounded-xl border border-slate-200 bg-white shadow-lg"
+          className="absolute mt-2 w-full overflow-hidden rounded-xl border border-slate-200 bg-white shadow-lg"
+          style={{ zIndex: 10000 }}
           onMouseDown={(e) => {
             // Prevent input blur when clicking in dropdown
             e.preventDefault();
@@ -349,7 +350,10 @@ export default function AirportAutocomplete({
       )}
 
       {open && debounced.trim().length > 0 && !isLoading && list.length === 0 && (
-        <div className="absolute z-50 mt-2 w-full rounded-xl border border-slate-200 bg-white px-4 py-3 text-sm text-slate-600 shadow-lg">
+        <div 
+          className="absolute mt-2 w-full rounded-xl border border-slate-200 bg-white px-4 py-3 text-sm text-slate-600 shadow-lg"
+          style={{ zIndex: 10000 }}
+        >
           No matches. Try an airport code (e.g., "SEA") or a city name.
         </div>
       )}

@@ -62,7 +62,8 @@ export default function RouteSelector({
           placement="bottom start"
           offset={8}
           triggerRef={triggerRef}
-          className="z-50 rounded-xl bg-white border border-slate-200 shadow-lg max-h-96 overflow-y-auto w-full"
+          className="rounded-xl bg-white border border-slate-200 shadow-lg max-h-96 overflow-y-auto w-full"
+          style={{ zIndex: 10003 }}
         >
           <div className="p-2">
             <div className="space-y-1">

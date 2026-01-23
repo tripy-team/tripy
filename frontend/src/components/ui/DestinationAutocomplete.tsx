@@ -169,8 +169,8 @@ export function DestinationAutocomplete({
   };
 
   return (
-    <div ref={wrapperRef} className={`relative w-full ${className}`} style={{ position: 'relative', zIndex: 1 }}>
-      <div className="relative" style={{ position: 'relative', zIndex: 10 }}>
+    <div ref={wrapperRef} className={`relative w-full ${className}`} style={{ position: 'relative', zIndex: 10001 }}>
+      <div className="relative" style={{ position: 'relative', zIndex: 10001 }}>
         <input
           type="text"
           value={value}
@@ -222,7 +222,7 @@ export function DestinationAutocomplete({
             top: '100%',
             left: 0,
             right: 0,
-            zIndex: 99999,
+            zIndex: 10002,
             marginTop: '0.5rem',
             boxShadow: '0 10px 15px -3px rgba(0, 0, 0, 0.1), 0 4px 6px -2px rgba(0, 0, 0, 0.05)'
           }}
