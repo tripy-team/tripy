@@ -1,9 +1,9 @@
 "use client";
 
 import React, { useEffect, useMemo, useRef, useState } from "react";
-import type { Airport } from "../../data/airports";
-import { loadAirportsData } from "../../data/airports";
-import { searchAirports, highlightMatch } from "../../lib/locationSearch";
+import type { Airport } from "@/data";
+import { loadAirportsData } from "@/data";
+import { searchAirports, highlightMatch } from "@/lib/locationSearch";
 
 type Props = {
   value: string;
