@@ -1,7 +1,7 @@
 'use client';
 
 import { useState, useRef } from 'react';
-import { Popover, Dialog } from 'react-aria-components';
+import { Popover } from 'react-aria-components';
 import { ChevronDown, MapPin, Zap, TrendingUp } from 'lucide-react';
 
 interface Route {
@@ -64,7 +64,7 @@ export default function RouteSelector({
           triggerRef={triggerRef}
           className="z-50 rounded-xl bg-white border border-slate-200 shadow-lg max-h-96 overflow-y-auto w-full"
         >
-          <Dialog className="p-2">
+          <div className="p-2">
             <div className="space-y-1">
               {routes.map((route) => (
                 <button
@@ -73,6 +73,7 @@ export default function RouteSelector({
                   onMouseDown={(e) => {
                     // Prevent blur/close before click registers
                     e.preventDefault();
+                    e.stopPropagation();
                   }}
                   onClick={(e) => {
                     e.preventDefault();
@@ -132,7 +133,7 @@ export default function RouteSelector({
                 </button>
               ))}
             </div>
-          </Dialog>
+          </div>
         </Popover>
       )}
     </div>

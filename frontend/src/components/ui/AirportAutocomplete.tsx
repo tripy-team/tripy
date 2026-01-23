@@ -223,7 +223,7 @@ export default function AirportAutocomplete({
   }
 
   return (
-    <div ref={wrapperRef} className={`relative w-full ${className}`}>
+    <div ref={wrapperRef} className={`relative w-full ${className}`} style={{ position: 'relative', zIndex: 1 }}>
       <input
         ref={inputRef}
         value={value}
@@ -244,12 +244,14 @@ export default function AirportAutocomplete({
           }
           // Use setTimeout to allow onClick on suggestions to fire first
           // Increased timeout to ensure clicks register properly
-          setTimeout(() => {
+          const timeoutId = setTimeout(() => {
             // Double-check that we're not clicking inside before closing
             if (!wrapperRef.current?.contains(document.activeElement)) {
               setOpen(false);
             }
-          }, 300);
+          }, 200);
+          // Store timeout so we can clear it if needed
+          (inputRef.current as any)?._blurTimeout = timeoutId;
         }}
         className="w-full px-4 py-3 bg-white border border-slate-200 rounded-xl focus:outline-none focus:ring-2 focus:ring-blue-600 focus:border-transparent disabled:opacity-50 disabled:cursor-not-allowed text-sm"
       />
@@ -260,6 +262,16 @@ export default function AirportAutocomplete({
           onMouseDown={(e) => {
             // Prevent input blur when clicking in dropdown
             e.preventDefault();
+            e.stopPropagation();
+            // Clear any pending blur timeout
+            if ((inputRef.current as any)?._blurTimeout) {
+              clearTimeout((inputRef.current as any)?._blurTimeout);
+              (inputRef.current as any)?._blurTimeout = null;
+            }
+          }}
+          onClick={(e) => {
+            // Prevent any click propagation issues
+            e.stopPropagation();
           }}
         >
           {showRecents && (
@@ -281,13 +293,30 @@ export default function AirportAutocomplete({
                 <li
                   key={`${a.iata}-${a.airport}`}
                   onMouseEnter={() => setActiveIdx(idx)}
+                  onPointerDown={(e) => {
+                    // Use pointer events for better touch/mouse support
+                    e.preventDefault();
+                    e.stopPropagation();
+                    // Clear blur timeout
+                    if ((inputRef.current as any)?._blurTimeout) {
+                      clearTimeout((inputRef.current as any)?._blurTimeout);
+                      (inputRef.current as any)?._blurTimeout = null;
+                    }
+                    commitSelect(a);
+                  }}
                   onMouseDown={(e) => {
                     // prevent blur before click
                     e.preventDefault();
+                    e.stopPropagation();
+                    // Clear blur timeout
+                    if ((inputRef.current as any)?._blurTimeout) {
+                      clearTimeout((inputRef.current as any)?._blurTimeout);
+                      (inputRef.current as any)?._blurTimeout = null;
+                    }
                     commitSelect(a);
                   }}
                   onClick={(e) => {
-                    // Ensure click works
+                    // Ensure click works as backup
                     e.preventDefault();
                     e.stopPropagation();
                     commitSelect(a);
