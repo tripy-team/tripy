@@ -43,31 +43,27 @@ def load_airports_from_csv() -> List[Dict[str, Any]]:
             reader = csv.DictReader(f)
             for row in reader:
                 iata_code = (row.get("iata_code") or "").strip().upper()
-                
+
                 # Only include airports with valid IATA codes (3 letters)
                 if not iata_code or len(iata_code) != 3:
                     continue
-                
-                # Filter to commercial airports only
+
+                # Keep all airports with an IATA code – we'll rely on scoring
+                # to surface the most relevant ones rather than filtering here.
                 airport_type = (row.get("type") or "").strip().lower()
-                scheduled_service = (row.get("scheduled_service") or "").strip().lower()
-                
-                # Include large, medium airports, or small airports with scheduled service
-                if airport_type in ("large_airport", "medium_airport") or (
-                    airport_type == "small_airport" and scheduled_service == "yes"
-                ):
-                    airport = {
-                        "iata_code": iata_code,
-                        "airport_name": (row.get("name") or "").strip(),
-                        "city": (row.get("municipality") or "").strip(),
-                        "state": (row.get("iso_region") or "").strip().replace("US-", ""),
-                        "country": (row.get("iso_country") or "").strip(),
-                        "country_name": _get_country_name(row.get("iso_country") or ""),
-                        "latitude": _safe_float(row.get("latitude_deg")),
-                        "longitude": _safe_float(row.get("longitude_deg")),
-                        "type": airport_type,
-                    }
-                    airports.append(airport)
+
+                airport = {
+                    "iata_code": iata_code,
+                    "airport_name": (row.get("name") or "").strip(),
+                    "city": (row.get("municipality") or "").strip(),
+                    "state": (row.get("iso_region") or "").strip().replace("US-", ""),
+                    "country": (row.get("iso_country") or "").strip(),
+                    "country_name": _get_country_name(row.get("iso_country") or ""),
+                    "latitude": _safe_float(row.get("latitude_deg")),
+                    "longitude": _safe_float(row.get("longitude_deg")),
+                    "type": airport_type,
+                }
+                airports.append(airport)
         
         logger.info(f"Loaded {len(airports)} airports from CSV")
         _airports_cache = airports
