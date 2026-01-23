@@ -23,6 +23,7 @@ from src.services import (
     trip_member_service,
     city_service,
 )
+from src.handlers.airport_filter import is_commercial_airport, load_commercial_iata_set_from_web
 
 logger = logging.getLogger(__name__)
 
@@ -517,7 +518,8 @@ def generate_optimized_itinerary(trip_id: str) -> Dict[str, Any]:
         filters = {
             "outbound_date": start_date.strip(),
             "travel_class": "economy",
-            "stops": 1,
+            # Don't restrict stops - allow multistop flights from the start
+            # This allows nonstop, 1-stop, 2-stop, and more connections
             "bags": 1,
             "pax": len(travelers),  # Use actual number of travelers
             "award_programs": ["AF", "KL", "DL", "BA", "AA", "AS", "UA", "VS", "AC", "TK"],
@@ -537,26 +539,8 @@ def generate_optimized_itinerary(trip_id: str) -> Dict[str, Any]:
                     origin, dest, combined_points, filters
                 )
             
-            # If still no edges, try with relaxed filters (allow more stops)
-            if not edges:
-                logger.info(f"No edges from SERP-first, trying with relaxed filters for {origin} -> {dest}")
-                relaxed_filters = filters.copy()
-                relaxed_filters["stops"] = 2  # Allow up to 2 stops
-                edges = get_flights_award_first_with_points(
-                    origin, dest, combined_points, relaxed_filters
-                )
-            
-            # Strategy 4: Try with no stops restriction
-            if not edges:
-                logger.info(f"No edges with relaxed filters, trying no stops restriction for {origin} -> {dest}")
-                no_stops_filters = filters.copy()
-                no_stops_filters.pop("stops", None)  # Remove stops restriction
-                try:
-                    edges = get_flights_award_first_with_points(
-                        origin, dest, combined_points, no_stops_filters
-                    )
-                except Exception as e:
-                    logger.warning(f"No stops restriction strategy failed for {origin} -> {dest}: {e}")
+            # Note: We already allow multistop flights by default (no stops restriction in filters)
+            # If still no edges found, the route may not exist or dates may be invalid
             
             if edges:
                 edges_all.update(edges)

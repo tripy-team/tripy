@@ -37,7 +37,7 @@ user_meetups = ["CDG"]  # e.g., ["CDG"] or ["CDG","AMS"] or []
 filters_alice = {
     "outbound_date": "2026-02-11",
     "travel_class": "economy",
-    "stops": 1,
+    # Allow multistop flights (nonstop, 1-stop, 2-stop, etc.) - no stops restriction
     "bags": 1,
     "pax": 1,
     "award_programs": ["AF", "KL", "DL", "BA", "AA", "AS", "UA", "VS", "AC", "TK"],
@@ -45,7 +45,7 @@ filters_alice = {
 filters_bob = {
     "outbound_date": "2026-02-13",
     "travel_class": "economy",
-    "stops": 1,
+    # Allow multistop flights (nonstop, 1-stop, 2-stop, etc.) - no stops restriction
     "bags": 1,
     "pax": 1,
     "award_programs": ["AF", "KL", "DL", "BA", "AA", "AS", "UA", "VS", "AC", "TK"],
@@ -53,7 +53,7 @@ filters_bob = {
 filters_carol = {
     "outbound_date": "2026-02-12",
     "travel_class": "economy",
-    "stops": 1,
+    # Allow multistop flights (nonstop, 1-stop, 2-stop, etc.) - no stops restriction
     "bags": 1,
     "pax": 1,
     "award_programs": ["AF", "KL", "DL", "BA", "AA", "AS", "UA", "VS", "AC", "TK"],
@@ -62,7 +62,7 @@ filters_carol = {
 filters_cdgtorome = {
     "outbound_date": "2026-02-13",
     "travel_class": "economy",
-    "stops": 1,
+    # Allow multistop flights (nonstop, 1-stop, 2-stop, etc.) - no stops restriction
     "bags": 1,
     "pax": 1,
     "award_programs": ["AF", "KL", "DL", "BA", "AA", "AS", "UA", "VS", "AC", "TK"],
