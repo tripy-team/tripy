@@ -21,12 +21,13 @@ async function loadAirportsData(): Promise<{
   }
 
   // Dynamic import - webpack will code-split this
-  // Using path from src directory (configured in webpack resolve.modules)
-  // This is effectively an absolute path from the src root
+  // NOTE: Webpack requires relative paths for dynamic imports to enable code splitting
+  // The @ alias does not work in dynamic imports because webpack needs to statically analyze the path
+  // Relative path from src/components/ui/ to src/data/airports.json
   const airportsData = await import(
     /* webpackChunkName: "airports-data" */
     /* webpackMode: "lazy" */
-    'data/airports.json'
+    '../../data/airports.json'
   );
   
   airportsCache = airportsData.airports as Airport[];
