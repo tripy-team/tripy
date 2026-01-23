@@ -251,7 +251,9 @@ export default function AirportAutocomplete({
             }
           }, 200);
           // Store timeout so we can clear it if needed
-          (inputRef.current as any)?._blurTimeout = timeoutId;
+          if (inputRef.current) {
+            (inputRef.current as any)._blurTimeout = timeoutId;
+          }
         }}
         className="w-full px-4 py-3 bg-white border border-slate-200 rounded-xl focus:outline-none focus:ring-2 focus:ring-blue-600 focus:border-transparent disabled:opacity-50 disabled:cursor-not-allowed text-sm"
       />
@@ -264,9 +266,9 @@ export default function AirportAutocomplete({
             e.preventDefault();
             e.stopPropagation();
             // Clear any pending blur timeout
-            if ((inputRef.current as any)?._blurTimeout) {
-              clearTimeout((inputRef.current as any)?._blurTimeout);
-              (inputRef.current as any)?._blurTimeout = null;
+            if (inputRef.current && (inputRef.current as any)._blurTimeout) {
+              clearTimeout((inputRef.current as any)._blurTimeout);
+              (inputRef.current as any)._blurTimeout = null;
             }
           }}
           onClick={(e) => {
@@ -298,9 +300,9 @@ export default function AirportAutocomplete({
                     e.preventDefault();
                     e.stopPropagation();
                     // Clear blur timeout
-                    if ((inputRef.current as any)?._blurTimeout) {
-                      clearTimeout((inputRef.current as any)?._blurTimeout);
-                      (inputRef.current as any)?._blurTimeout = null;
+                    if (inputRef.current && (inputRef.current as any)._blurTimeout) {
+                      clearTimeout((inputRef.current as any)._blurTimeout);
+                      (inputRef.current as any)._blurTimeout = null;
                     }
                     commitSelect(a);
                   }}
@@ -309,9 +311,9 @@ export default function AirportAutocomplete({
                     e.preventDefault();
                     e.stopPropagation();
                     // Clear blur timeout
-                    if ((inputRef.current as any)?._blurTimeout) {
-                      clearTimeout((inputRef.current as any)?._blurTimeout);
-                      (inputRef.current as any)?._blurTimeout = null;
+                    if (inputRef.current && (inputRef.current as any)._blurTimeout) {
+                      clearTimeout((inputRef.current as any)._blurTimeout);
+                      (inputRef.current as any)._blurTimeout = null;
                     }
                     commitSelect(a);
                   }}
