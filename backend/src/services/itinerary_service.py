@@ -524,27 +524,73 @@ def generate_optimized_itinerary(trip_id: str) -> Dict[str, Any]:
         }
         
         try:
+            # Try award-first strategy first
             edges = get_flights_award_first_with_points(
                 origin, dest, combined_points, filters
             )
+            
+            # If no edges found, try SERP-first strategy as fallback
+            if not edges:
+                logger.info(f"No edges from award-first strategy, trying SERP-first for {origin} -> {dest}")
+                from src.handlers.flights import get_flights_serp_first_with_points
+                edges = get_flights_serp_first_with_points(
+                    origin, dest, combined_points, filters
+                )
+            
+            # If still no edges, try with relaxed filters (allow more stops)
+            if not edges:
+                logger.info(f"No edges from SERP-first, trying with relaxed filters for {origin} -> {dest}")
+                relaxed_filters = filters.copy()
+                relaxed_filters["stops"] = 2  # Allow up to 2 stops
+                edges = get_flights_award_first_with_points(
+                    origin, dest, combined_points, relaxed_filters
+                )
+            
+            # Strategy 4: Try with no stops restriction
+            if not edges:
+                logger.info(f"No edges with relaxed filters, trying no stops restriction for {origin} -> {dest}")
+                no_stops_filters = filters.copy()
+                no_stops_filters.pop("stops", None)  # Remove stops restriction
+                try:
+                    edges = get_flights_award_first_with_points(
+                        origin, dest, combined_points, no_stops_filters
+                    )
+                except Exception as e:
+                    logger.warning(f"No stops restriction strategy failed for {origin} -> {dest}: {e}")
+            
             if edges:
                 edges_all.update(edges)
                 successful_routes += 1
                 logger.info(f"Fetched {len(edges)} flight edges from {origin} to {dest}")
             else:
                 failed_routes.append(f"{origin} -> {dest}")
-                logger.warning(f"No flight edges found from {origin} to {dest}")
+                logger.warning(f"No flight edges found from {origin} to {dest} after trying all strategies")
         except Exception as e:
             failed_routes.append(f"{origin} -> {dest}")
             logger.warning(f"Error fetching flights from {origin} to {dest}: {e}", exc_info=True)
+            # Try SERP-first as fallback even on exception
+            try:
+                logger.info(f"Trying SERP-first fallback after exception for {origin} -> {dest}")
+                from src.handlers.flights import get_flights_serp_first_with_points
+                edges = get_flights_serp_first_with_points(
+                    origin, dest, combined_points, filters
+                )
+                if edges:
+                    edges_all.update(edges)
+                    successful_routes += 1
+                    logger.info(f"Fallback SERP-first succeeded: {len(edges)} edges from {origin} to {dest}")
+            except Exception as fallback_error:
+                logger.warning(f"Fallback SERP-first also failed for {origin} -> {dest}: {fallback_error}")
             continue
     
     if not edges_all:
+        # Provide more helpful error message with suggestions
         error_msg = (
             f"No flight edges found for any route. "
             f"Failed routes: {', '.join(failed_routes) if failed_routes else 'all routes'}. "
-            f"Please check: (1) Airport codes are valid (e.g., JFK, CDG), "
-            f"(2) Dates are in the future, (3) Routes exist between destinations."
+            f"Please check: (1) Airport codes are valid commercial airports (e.g., JFK, CDG, not ITH), "
+            f"(2) Dates are in the future, (3) Routes exist between destinations. "
+            f"If using a small airport, try a nearby major airport instead."
         )
         raise ValueError(error_msg)
     
@@ -552,7 +598,8 @@ def generate_optimized_itinerary(trip_id: str) -> Dict[str, Any]:
         raise ValueError(
             f"Failed to fetch flights for all routes. "
             f"Failed: {', '.join(failed_routes)}. "
-            f"Please verify airport codes and dates are correct."
+            f"Please verify airport codes are valid commercial airports and dates are correct. "
+            f"Small regional airports may not have international flights - try using a nearby major airport."
         )
     
     if failed_routes:
