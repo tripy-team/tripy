@@ -137,24 +137,40 @@ async def serp_route(origin, destination, date_str, filters, client):
 
 
 def serp_route_to_leg_map(route_json):
-    # Collects best cash per (dep,arr,flight_num) from SERP route
+    """
+    Collects best cash per (dep,arr,flight_num) from SERP route.
+    Handles multistop flights by extracting all individual legs from each route.
+    Supports small airports - extracts all connecting segments (e.g., ITH -> JFK -> CDG).
+    """
     by_leg = {}
-    for it in (route_json.get("best_flights") or []) + (
+    # Process both best_flights and other_flights to get comprehensive coverage
+    all_flight_options = (route_json.get("best_flights") or []) + (
         route_json.get("other_flights") or []
-    ):
+    )
+    
+    for it in all_flight_options:
         price = _to_number_price(it.get("price"))
         flights = it.get("flights") or []
+        
+        # For multistop flights, extract each leg separately
+        # Example: ITH -> JFK -> CDG becomes two legs: (ITH, JFK) and (JFK, CDG)
         for leg in flights:
             dep = leg.get("departure_airport", {}).get("id")
             arr = leg.get("arrival_airport", {}).get("id")
             fn = _normalize_flightnum(leg.get("flight_number"))
             dur = leg.get("duration_in_minutes") or leg.get("durationMinutes")
+            
             if dur is None:
                 txt = leg.get("duration") or ""
                 # if you have to_minutes, use it here; else keep None
                 # dur = to_minutes(txt) if txt else None
+            
+            # Skip if missing required fields
             if not dep or not arr or not fn:
                 continue
+            
+            # Use (dep, arr, fn) as key to uniquely identify each leg
+            # For multistop flights, this allows us to capture each segment
             prev = by_leg.get((dep, arr, fn))
             if prev is None or (
                 price is not None
@@ -166,6 +182,7 @@ def serp_route_to_leg_map(route_json):
                     "departure_time": leg.get("departure_airport", {}).get("time"),
                     "arrival_time": leg.get("arrival_airport", {}).get("time"),
                 }
+    
     return by_leg
 
 

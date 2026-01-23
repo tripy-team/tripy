@@ -568,13 +568,13 @@ def generate_optimized_itinerary(trip_id: str) -> Dict[str, Any]:
             continue
     
     if not edges_all:
-        # Provide more helpful error message with suggestions
+        # Provide helpful error message - small airports are supported by external APIs
         error_msg = (
             f"No flight edges found for any route. "
             f"Failed routes: {', '.join(failed_routes) if failed_routes else 'all routes'}. "
-            f"Please check: (1) Airport codes are valid commercial airports (e.g., JFK, CDG, not ITH), "
+            f"Please check: (1) Airport codes are valid IATA codes (e.g., JFK, CDG, ITH), "
             f"(2) Dates are in the future, (3) Routes exist between destinations. "
-            f"If using a small airport, try a nearby major airport instead."
+            f"Note: Small airports are supported - the search includes multistop flights which may connect through major hubs."
         )
         raise ValueError(error_msg)
     
@@ -582,8 +582,8 @@ def generate_optimized_itinerary(trip_id: str) -> Dict[str, Any]:
         raise ValueError(
             f"Failed to fetch flights for all routes. "
             f"Failed: {', '.join(failed_routes)}. "
-            f"Please verify airport codes are valid commercial airports and dates are correct. "
-            f"Small regional airports may not have international flights - try using a nearby major airport."
+            f"Please verify airport codes are valid IATA codes and dates are correct. "
+            f"Small airports are supported - multistop flights may be available through connecting hubs."
         )
     
     if failed_routes:
