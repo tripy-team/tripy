@@ -24,11 +24,14 @@ async function loadAirportsData(): Promise<{
   // NOTE: Webpack requires relative paths for dynamic imports to enable code splitting
   // The @ alias does not work in dynamic imports because webpack needs to statically analyze the path
   // Relative path from src/components/ui/ to src/data/airports.json
-  const airportsData = await import(
+  const mod = await import(
     /* webpackChunkName: "airports-data" */
     /* webpackMode: "lazy" */
     '../../data/airports.json'
   );
+  
+  // Handle JSON import - Next.js/webpack may wrap it in .default
+  const airportsData = (mod.default ?? mod) as any;
   
   airportsCache = airportsData.airports as Airport[];
   metroMappingsCache = airportsData.metro_mappings as Record<string, string[]>;
