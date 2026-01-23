@@ -74,6 +74,12 @@ const nextConfig: NextConfig = {
       '.js': ['.ts', '.tsx', '.js', '.jsx'],
       '.json': ['.json'],
     };
+    // Add src to modules for absolute path resolution
+    const path = require('path');
+    config.resolve.modules = [
+      ...(config.resolve.modules || []),
+      path.resolve(__dirname, 'src'),
+    ];
     return config;
   },
 };
