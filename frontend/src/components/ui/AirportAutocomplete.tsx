@@ -1,7 +1,7 @@
 "use client";
 
 import React, { useEffect, useMemo, useRef, useState } from "react";
-import type { Airport } from "../../data/airports";
+import type { Airport } from "@/lib/locationSearch";
 import { searchAirports, highlightMatch } from "@/lib/locationSearch";
 
 // Cache for loaded data

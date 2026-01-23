@@ -1,5 +1,16 @@
 import React from "react";
-import type { Airport } from "@/data/airports";
+
+export type Airport = {
+  iata: string;
+  city: string;
+  country: string;
+  airport: string;
+  state?: string;
+  lat?: number;
+  lon?: number;
+  continent?: string;
+  popularity: number;
+};
 
 const normalize = (s: string) =>
   s
