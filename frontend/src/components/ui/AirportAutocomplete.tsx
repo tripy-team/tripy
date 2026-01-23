@@ -106,11 +106,26 @@ export default function AirportAutocomplete({
 
   // Load airports data on mount
   useEffect(() => {
-    loadAirportsData().then(({ airports: loadedAirports, metroMappings: loadedMappings }) => {
-      setAirports(loadedAirports);
-      setMetroMappings(loadedMappings);
+    // Set a timeout to ensure we don't stay disabled forever if loading fails
+    const timeoutId = setTimeout(() => {
       setIsLoadingData(false);
-    });
+    }, 5000); // 5 second timeout
+
+    loadAirportsData()
+      .then(({ airports: loadedAirports, metroMappings: loadedMappings }) => {
+        setAirports(loadedAirports);
+        setMetroMappings(loadedMappings);
+        setIsLoadingData(false);
+        clearTimeout(timeoutId);
+      })
+      .catch((error) => {
+        console.error('Error loading airports data:', error);
+        // Even if loading fails, enable the input so users can still type
+        setIsLoadingData(false);
+        clearTimeout(timeoutId);
+      });
+
+    return () => clearTimeout(timeoutId);
   }, []);
 
   // load recent once
@@ -208,16 +223,24 @@ export default function AirportAutocomplete({
     return q in metroMappings;
   }, [debounced, metroMappings]);
 
-  // Show loading state while data loads
-  if (isLoadingData) {
+  // Show loading state while data loads, but allow input to work
+  // Only disable if explicitly disabled via prop
+  if (isLoadingData && airports.length === 0 && !disabled) {
+    // Show a loading indicator but keep input enabled
     return (
-      <div className={`relative w-full ${className}`}>
+      <div className={`relative w-full ${className}`} style={{ position: 'relative', zIndex: 1 }}>
         <input
           value={value}
           placeholder={placeholder}
-          disabled={true}
+          disabled={disabled}
+          onChange={(e) => {
+            onValueChange(e.target.value);
+          }}
           className="w-full px-4 py-3 bg-white border border-slate-200 rounded-xl focus:outline-none focus:ring-2 focus:ring-blue-600 focus:border-transparent disabled:opacity-50 disabled:cursor-not-allowed text-sm"
         />
+        <div className="absolute right-4 top-1/2 -translate-y-1/2 pointer-events-none">
+          <div className="w-4 h-4 border-2 border-blue-600 border-t-transparent rounded-full animate-spin" />
+        </div>
       </div>
     );
   }
