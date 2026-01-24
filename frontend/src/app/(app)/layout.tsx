@@ -8,7 +8,7 @@ import { ScrollToTop } from '@/components/scroll-to-top';
 const AUTH_CHECKED_KEY = 'tripy_auth_checked_session';
 
 // Set this to true to bypass authentication checks (for offline development)
-const SKIP_AUTH_CHECK = true;
+const SKIP_AUTH_CHECK = false;
 
 export default function AppLayout({
     children,

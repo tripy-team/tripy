@@ -8,7 +8,7 @@
 const BACKEND_URL = process.env.NEXT_PUBLIC_BACKEND_URL || 'http://localhost:8000';
 
 // Set this to true to bypass authentication for API calls (for offline development)
-const SKIP_API_AUTH = true;
+const SKIP_API_AUTH = false;
 
 // Log backend URL in development for debugging
 if (typeof window !== 'undefined' && process.env.NODE_ENV === 'development') {
