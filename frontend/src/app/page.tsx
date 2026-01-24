@@ -59,7 +59,7 @@ export default function LandingPage() {
     // Show loading state while checking authentication
     if (isChecking) {
         return (
-            <div className="min-h-full bg-gradient-to-br from-white via-blue-50/30 to-white">
+            <div data-testid="home-loading" data-slot="loading-spinner-wrapper" className="min-h-full bg-gradient-to-br from-white via-blue-50/30 to-white">
                 <Navigation />
                 <div className="flex items-center justify-center min-h-screen">
                     <div className="text-center">
@@ -75,7 +75,7 @@ export default function LandingPage() {
     // All buttons lead to login or signup pages
 
     return (
-        <div className="min-h-full bg-gradient-to-br from-white via-blue-50/30 to-white">
+        <div data-testid="home-page" data-slot="Home" className="min-h-full bg-gradient-to-br from-white via-blue-50/30 to-white">
             {/* Consistent Navigation */}
             <Navigation />
 

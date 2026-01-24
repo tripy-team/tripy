@@ -432,7 +432,7 @@ export default function GroupTripSetup() {
   };
 
   return (
-    <div className="min-h-full p-8 bg-gradient-to-br from-white via-blue-50/20 to-white">
+    <div data-testid="group-setup-page" data-slot="GroupTripSetup" className="min-h-full p-8 bg-gradient-to-br from-white via-blue-50/20 to-white">
       <div className="max-w-6xl mx-auto">
         {/* Header */}
         <div className="mb-12">

@@ -82,7 +82,7 @@ export default function SoloComparison() {
 
     if (isLoading) {
         return (
-            <div className="min-h-full p-8 bg-neutral-50">
+            <div data-testid="solo-comparison-loading" data-slot="loading-spinner-wrapper" className="min-h-full p-8 bg-neutral-50">
                 <div className="max-w-6xl mx-auto">
                     <div className="flex items-center justify-center min-h-[400px]">
                         <div className="text-center">
@@ -97,7 +97,7 @@ export default function SoloComparison() {
 
     if (itineraries.length === 0) {
         return (
-            <div className="min-h-full p-8 bg-neutral-50">
+            <div data-testid="solo-comparison-empty" data-slot="SoloComparison" className="min-h-full p-8 bg-neutral-50">
                 <div className="max-w-6xl mx-auto">
                     <button onClick={() => router.back()} className="flex items-center gap-2 text-neutral-600 hover:text-neutral-900 mb-6 transition-colors">
                         <ArrowLeft className="w-5 h-5" />
@@ -113,7 +113,7 @@ export default function SoloComparison() {
     }
 
     return (
-        <div className="min-h-full p-8 bg-neutral-50">
+        <div data-testid="solo-comparison-page" data-slot="SoloComparison" className="min-h-full p-8 bg-neutral-50">
             <div className="max-w-6xl mx-auto">
                 {/* Header */}
                 <div className="mb-8">

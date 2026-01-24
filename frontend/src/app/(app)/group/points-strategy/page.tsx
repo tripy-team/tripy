@@ -2,9 +2,10 @@
 
 import { useRouter, useSearchParams } from 'next/navigation';
 import { useState, useEffect } from 'react';
-import { ArrowLeft, CreditCard, Plane, Hotel, Activity, Zap, TrendingUp, DollarSign, Check, LucideIcon, Lock, ChevronRight } from 'lucide-react';
-import { trips as tripsAPI, points as pointsAPI } from '@/lib/api';
+import { ArrowLeft, ArrowRight, CreditCard, Plane, Hotel, Activity, Zap, TrendingUp, DollarSign, Check, LucideIcon, Lock, ChevronRight } from 'lucide-react';
+import { trips as tripsAPI, points as pointsAPI, itineraries } from '@/lib/api';
 import PointsAllocation from '@/components/PointsAllocation';
+import { buildTransferStepsFromItinerary, getTransferTipsFromItems, type TransferStepResult, type TransferTip } from '@/lib/transfer-instructions';
 
 interface Member {
     id: string;
@@ -36,6 +37,8 @@ export default function GroupPointsStrategy() {
     const [showAllocation, setShowAllocation] = useState(false);
     const [allocatedPoints, setAllocatedPoints] = useState<Record<string, Record<string, number>>>({}); // userId -> { program -> allocated }
     const [isPaid, setIsPaid] = useState(false); // TODO: fetch from API (trip payment status)
+    const [itineraryItems, setItineraryItems] = useState<Array<{ type?: string; [k: string]: unknown }>>([]);
+    const [membersForTransfers, setMembersForTransfers] = useState<Array<{ userId: string; name?: string }>>([]);
 
     useEffect(() => {
         const fetchMembers = async () => {
@@ -47,11 +50,14 @@ export default function GroupPointsStrategy() {
             try {
                 setIsLoading(true);
                 
-                // Fetch trip members
-                const membersResponse = await tripsAPI.listMembers(tripId);
+                const [membersResponse, pointsResponse, itinerariesRes] = await Promise.all([
+                    tripsAPI.listMembers(tripId),
+                    pointsAPI.summary(tripId),
+                    itineraries.get(tripId).catch(() => ({ items: [] as Array<{ type?: string; [k: string]: unknown }> })),
+                ]);
                 
-                // Fetch points summary to get points per user
-                const pointsResponse = await pointsAPI.summary(tripId);
+                setMembersForTransfers(membersResponse.members || []);
+                setItineraryItems(Array.isArray(itinerariesRes?.items) ? itinerariesRes.items : []);
                 
                 // Transform members data
                 // Note: We need user names, which might require a user lookup
@@ -144,6 +150,9 @@ export default function GroupPointsStrategy() {
             .reduce((sum, a) => sum + a.efficiency, 0) / assignments.filter(a => a.pointsUsed > 0).length
         : 0;
 
+    const transfers: TransferStepResult[] = buildTransferStepsFromItinerary(itineraryItems, membersForTransfers);
+    const { transfer_tips } = getTransferTipsFromItems(itineraryItems);
+
     if (isLoading) {
         return (
             <div className="min-h-full p-8 bg-neutral-50">
@@ -184,7 +193,7 @@ export default function GroupPointsStrategy() {
                         </div>
                         <h3 className="text-lg font-bold text-slate-900 mb-2">Pending Payment</h3>
                         <p className="text-neutral-600 max-w-md mx-auto mb-6">
-                            Complete payment to unlock who should book what, point allocations, and step-by-step transfer instructions.
+                            Complete payment to unlock your transfer plan: where to transfer, which programs to use, how many points per transfer, who books what, and step-by-step instructions.
                         </p>
                         <button
                             onClick={() => router.push(`/group/booking?trip_id=${tripId}`)}
@@ -222,6 +231,85 @@ export default function GroupPointsStrategy() {
                         </div>
                         <div className="text-3xl mb-1">{averageEfficiency.toFixed(2)}¢</div>
                         <div className="text-sm text-neutral-500">Per point redeemed</div>
+                    </div>
+                </div>
+
+                {/* Where to Transfer: What & How Many */}
+                <div className="bg-white border border-neutral-200 rounded-2xl overflow-hidden mb-8">
+                    <div className="p-6 border-b border-neutral-200">
+                        <h2 className="text-2xl">Where to Transfer: What & How Many</h2>
+                        <p className="text-sm text-neutral-600 mt-1">Exact source program, destination partner, and points for each transfer</p>
+                    </div>
+                    <div className="p-6">
+                        {transfers.length > 0 ? (
+                            <div className="space-y-4">
+                                {transfers.map((t) => {
+                                    const Icon = t.icon;
+                                    return (
+                                        <div key={t.id} className="flex flex-col sm:flex-row sm:items-center gap-4 p-4 rounded-xl bg-neutral-50 border border-neutral-200">
+                                            <div className="flex items-center gap-3">
+                                                <div className="w-10 h-10 bg-white border border-neutral-200 rounded-lg flex items-center justify-center flex-shrink-0">
+                                                    <Icon className="w-5 h-5 text-blue-600" />
+                                                </div>
+                                                <div>
+                                                    <div className="font-semibold text-slate-900">{t.member}</div>
+                                                    <div className="text-xs text-neutral-500">{t.category}</div>
+                                                </div>
+                                            </div>
+                                            <div className="flex-1 flex flex-wrap items-center gap-2 sm:gap-3 text-sm">
+                                                <span className="font-medium text-slate-700">{t.program}</span>
+                                                <ArrowRight className="w-4 h-4 text-neutral-400 flex-shrink-0" />
+                                                <span className="font-medium text-blue-700">{t.partner}</span>
+                                            </div>
+                                            <div className="text-right flex-shrink-0">
+                                                <div className="text-2xl font-bold text-slate-900">{t.amount.toLocaleString()}</div>
+                                                <div className="text-xs text-neutral-500">points</div>
+                                            </div>
+                                        </div>
+                                    );
+                                })}
+                                <div className="pt-2">
+                                    <button
+                                        onClick={() => router.push(`/group/transfer-instructions?trip_id=${tripId}`)}
+                                        className="text-blue-600 font-medium text-sm hover:text-blue-700 inline-flex items-center gap-1"
+                                    >
+                                        View step-by-step transfer guide <ChevronRight className="w-4 h-4" />
+                                    </button>
+                                </div>
+                            </div>
+                        ) : transfer_tips.length > 0 ? (
+                            <div className="space-y-4">
+                                <p className="text-neutral-600 text-sm">Suggested transfers for your trip. Generate an optimized itinerary from Results to get exact amounts per member.</p>
+                                {transfer_tips.map((tip: TransferTip, i: number) => (
+                                    <div key={i} className="p-4 rounded-xl bg-neutral-50 border border-neutral-200 flex flex-wrap items-center gap-2">
+                                        <span className="font-medium text-slate-700">{tip.from_program || 'Bank points'}</span>
+                                        <ArrowRight className="w-4 h-4 text-neutral-400" />
+                                        <span className="font-medium text-blue-700">{tip.to_program || 'Partner'}</span>
+                                        {typeof tip.points === 'number' && tip.points > 0 && (
+                                            <span className="ml-2 text-slate-600 font-semibold">{tip.points.toLocaleString()} pts</span>
+                                        )}
+                                        {tip.best_for && <span className="px-2 py-0.5 bg-blue-50 text-blue-700 text-xs rounded-full">{tip.best_for}</span>}
+                                        {tip.note && <p className="w-full mt-2 text-sm text-neutral-600">{tip.note}</p>}
+                                    </div>
+                                ))}
+                                <button
+                                    onClick={() => router.push(`/group/results?trip_id=${tripId}`)}
+                                    className="text-blue-600 font-medium text-sm hover:text-blue-700"
+                                >
+                                    Generate itinerary for exact amounts <ChevronRight className="w-4 h-4 inline" />
+                                </button>
+                            </div>
+                        ) : (
+                            <div className="text-center py-4">
+                                <p className="text-neutral-600 text-sm mb-4">Generate an optimized itinerary from the Results page to see exactly where to transfer, which programs to use, and how many points for each member.</p>
+                                <button
+                                    onClick={() => router.push(`/group/results?trip_id=${tripId}`)}
+                                    className="text-blue-600 font-medium text-sm hover:text-blue-700 inline-flex items-center gap-1"
+                                >
+                                    Go to Results <ChevronRight className="w-4 h-4" />
+                                </button>
+                            </div>
+                        )}
                     </div>
                 </div>
 

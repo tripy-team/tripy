@@ -430,7 +430,7 @@ export default function GroupResults() {
     if (loading) {
         return (
             <div
-                data-testid="results-loading"
+                data-testid="group-results-loading"
                 data-slot="loading-spinner-wrapper"
                 className="min-h-full flex items-center justify-center bg-gradient-to-br from-white via-blue-50/20 to-white"
             >
@@ -448,7 +448,7 @@ export default function GroupResults() {
     // AI-suggested routes for small/remote cities (no flight search data)
     if (isAiSuggested && aiSuggestions.length > 0) {
         return (
-            <div className="min-h-full p-8 bg-gradient-to-br from-white via-blue-50/20 to-white">
+            <div data-testid="group-results-ai-suggested" data-slot="GroupResults" className="min-h-full p-8 bg-gradient-to-br from-white via-blue-50/20 to-white">
                 <div className="max-w-4xl mx-auto">
                     <div className="mb-8">
                         <div className="inline-flex items-center gap-2 px-3 py-1 bg-amber-100 rounded-full text-sm text-amber-800 mb-4 font-medium">
@@ -492,7 +492,7 @@ export default function GroupResults() {
     }
 
     return (
-        <div className="min-h-full p-8 bg-gradient-to-br from-white via-blue-50/20 to-white">
+        <div data-testid="group-results-page" data-slot="GroupResults" className="min-h-full p-8 bg-gradient-to-br from-white via-blue-50/20 to-white">
             <div className="max-w-7xl mx-auto">
                 {/* Header */}
                 <div className="mb-8">

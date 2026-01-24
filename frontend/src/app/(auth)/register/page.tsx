@@ -109,7 +109,7 @@ export default function RegisterPage() {
 	};
 
 	return (
-		<div className="min-h-full bg-white flex">
+		<div data-testid="register-page" data-slot="Signup" className="min-h-full bg-white flex">
 			{/* Left Column - Form */}
 			<div className="flex-1 flex flex-col justify-center px-8 sm:px-12 lg:px-20 xl:px-24 py-12 bg-white">
 				<div className="w-full max-w-sm mx-auto">

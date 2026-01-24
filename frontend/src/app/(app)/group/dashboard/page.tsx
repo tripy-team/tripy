@@ -41,7 +41,7 @@ export default function GroupDashboard() {
     const isReady = completedMembers.length === members.length;
 
     return (
-        <div className="min-h-full p-8 bg-gradient-to-br from-white via-blue-50/20 to-white">
+        <div data-testid="group-dashboard-page" data-slot="GroupDashboard" className="min-h-full p-8 bg-gradient-to-br from-white via-blue-50/20 to-white">
             <div className="max-w-6xl mx-auto">
                 {/* Header */}
                 <div className="mb-12">

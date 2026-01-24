@@ -495,7 +495,7 @@ export default function SoloResults() {
     if (loading) {
         return (
             <div
-                data-testid="results-loading"
+                data-testid="solo-results-loading"
                 data-slot="loading-spinner-wrapper"
                 className="min-h-full flex items-center justify-center bg-gradient-to-br from-white via-blue-50/20 to-white"
             >
@@ -513,7 +513,7 @@ export default function SoloResults() {
     // AI-suggested routes for small/remote cities (no flight search data)
     if (isAiSuggested && aiSuggestions.length > 0) {
         return (
-            <div className="min-h-full p-8 bg-gradient-to-br from-white via-blue-50/20 to-white">
+            <div data-testid="solo-results-ai-suggested" data-slot="SoloResults" className="min-h-full p-8 bg-gradient-to-br from-white via-blue-50/20 to-white">
                 <div className="max-w-4xl mx-auto">
                     <div className="mb-8">
                         <div className="inline-flex items-center gap-2 px-3 py-1 bg-amber-100 rounded-full text-sm text-amber-800 mb-4 font-medium">
@@ -557,10 +557,10 @@ export default function SoloResults() {
     }
 
     return (
-        <div className="min-h-full p-8 bg-gradient-to-br from-white via-blue-50/20 to-white">
+        <div data-testid="solo-results-page" data-slot="SoloResults" className="min-h-full p-8 bg-gradient-to-br from-white via-blue-50/20 to-white">
             <div className="max-w-7xl mx-auto">
                 {/* Header */}
-                <div className="flex items-center justify-between mb-8">
+                <div data-testid="solo-results-header" className="flex items-center justify-between mb-8">
                     <div>
                         <h1 className="text-4xl mb-2 tracking-tight text-slate-900 font-bold">Your Routes</h1>
                         <p className="text-slate-600">
@@ -597,7 +597,7 @@ export default function SoloResults() {
 
                 {/* Empty state when no itineraries */}
                 {itineraries.length === 0 ? (
-                    <div className="bg-white border border-slate-200 rounded-2xl p-12 text-center">
+                    <div data-testid="solo-results-empty" data-slot="solo-results-empty" className="bg-white border border-slate-200 rounded-2xl p-12 text-center">
                         {tripId && trip && !isAiSuggested ? (
                             <>
                                 <MapPin className="w-14 h-14 text-slate-300 mx-auto mb-4" />
@@ -631,10 +631,12 @@ export default function SoloResults() {
                 ) : (
                 <div className="grid lg:grid-cols-3 gap-6">
                     {/* Itinerary Cards */}
-                    <div className="lg:col-span-2 space-y-6">
+                    <div data-testid="itinerary-list" data-slot="itinerary-list" className="lg:col-span-2 space-y-6">
                         {itineraries.map((itinerary) => (
                             <div
                                 key={itinerary.id}
+                                data-testid={`itinerary-card-${itinerary.id}`}
+                                data-slot="itinerary-card"
                                 role="button"
                                 tabIndex={0}
                                 onClick={() => setSelectedId(itinerary.id)}
@@ -811,7 +813,7 @@ export default function SoloResults() {
 
                     {/* Right Sidebar - Selected Details */}
                     {selectedItinerary && (
-                        <div className="lg:col-span-1">
+                        <div data-testid="selected-route-sidebar" data-slot="selected-route-sidebar" className="lg:col-span-1">
                             <div className="sticky top-8 bg-white border border-slate-200 rounded-2xl p-6 shadow-sm">
                                 <h3 className="text-xl mb-6 text-slate-900 font-semibold">Selected Route</h3>
 
