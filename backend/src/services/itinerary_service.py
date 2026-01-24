@@ -130,7 +130,7 @@ def generate_simple_itineraries(trip_id: str) -> List[Dict[str, Any]]:
     if not valid_dests:
         raise ValueError("All destinations are excluded. Please add at least one active destination.")
 
-    # Determine start / end (mustInclude = True treated as anchors)
+    # Determine start / end (mustInclude = True = departure/return airports; they are transit, not stays)
     must_include = [d for d in valid_dests if d.get("mustInclude", False)]
     if must_include:
         start_dest = must_include[0]
@@ -142,16 +142,23 @@ def generate_simple_itineraries(trip_id: str) -> List[Dict[str, Any]]:
     def _city_name(d: Dict[str, Any]) -> str:
         return (d.get("name") or d.get("destinationId") or "").strip()
 
-    ordered_dests = valid_dests
-    ordered_city_names = [_city_name(d) for d in ordered_dests]
-    ordered_city_ids = [d.get("destinationId") for d in ordered_dests]
+    # When must_include exists: Start/End are departure/return airports (transit only, no days).
+    # Stays = only "Destinations" (mustInclude: false). Route = start -> stays -> end.
+    # When no must_include: first/last are inferred; all dests are stays. Route = valid_dests order.
+    if must_include:
+        stay_dests = [d for d in valid_dests if not d.get("mustInclude", False)]
+        route_dests = [start_dest] + stay_dests + [end_dest]
+    else:
+        stay_dests = list(valid_dests)
+        route_dests = list(valid_dests)
 
-    if len(ordered_city_names) == 1:
-        ordered_city_names = [ordered_city_names[0]]
-        ordered_city_ids = [ordered_city_ids[0]]
+    stay_names = [_city_name(d) for d in stay_dests if _city_name(d)]
+    stay_ids = [d.get("destinationId") for d in stay_dests if _city_name(d)]
+    route_names = [_city_name(d) for d in route_dests if _city_name(d)]
+    route_ids = [d.get("destinationId") for d in route_dests if _city_name(d)]
 
     total_days = _parse_trip_duration_days(trip)
-    num_stops = max(len(ordered_city_names), 1)
+    num_stops = max(len(stay_names), 1)
     base_days = max(total_days // num_stops, 2)
 
     # Align with user's includeHotels: lower costs when hotels excluded (flights + activities only)
@@ -178,66 +185,54 @@ def generate_simple_itineraries(trip_id: str) -> List[Dict[str, Any]]:
     # ---- Build 1–5 route variants ----
     routes: List[Dict[str, Any]] = []
 
-    # 1. Balanced (forward order)
-    bal_cities = _build_city_objects(ordered_city_names, ordered_city_ids)
+    # 1. Balanced (forward order): route = start -> stays -> end; only stays get days
+    bal_cities = _build_city_objects(stay_names, stay_ids)
     routes.append({
         "label": "Balanced route",
-        "route_ids": ordered_city_ids,
+        "route_ids": route_ids,
         "cities": bal_cities,
         "weight_factor": 1.0,
     })
 
-    # 2. Reverse (if different)
-    if len(ordered_city_names) > 1:
-        rev_names = list(reversed(ordered_city_names))
-        rev_ids = list(reversed(ordered_city_ids))
-        if rev_ids != ordered_city_ids:
+    # 2. Reverse (if different): reverse only the stay order; start/end stay at path ends
+    if len(stay_names) > 1:
+        rev_route_ids = [route_ids[0]] + list(reversed(route_ids[1:-1])) + [route_ids[-1]]
+        if rev_route_ids != route_ids:
             routes.append({
                 "label": "Reverse route",
-                "route_ids": rev_ids,
-                "cities": _build_city_objects(rev_names, rev_ids),
+                "route_ids": rev_route_ids,
+                "cities": _build_city_objects(list(reversed(stay_names)), list(reversed(stay_ids))),
                 "weight_factor": 0.95,
             })
 
-    # 3. Budget: fewer cities and/or fewer days to fit max_budget
+    # 3. Budget: keep all user destinations; only reduce days to fit max_budget (stays only)
     if max_budget is not None and max_budget > 0:
-        # Use start, end, and at most one middle to reduce cost
-        if len(ordered_city_names) > 3:
-            budget_names = [ordered_city_names[0], ordered_city_names[len(ordered_city_names) // 2], ordered_city_names[-1]]
-            budget_ids = [ordered_city_ids[0], ordered_city_ids[len(ordered_city_ids) // 2], ordered_city_ids[-1]]
-        else:
-            budget_names, budget_ids = ordered_city_names, ordered_city_ids
-
-        # Reduce days so total_cost <= max_budget
-        n = max(len(budget_names), 1)
-        # total_cost = stay * base_cost_per_day + n * base_cost_per_city <= max_budget
-        # stay <= (max_budget - n * base_cost_per_city) / base_cost_per_day
+        n = max(len(stay_names), 1)
         room = max_budget - n * base_cost_per_city
         if room > 0:
             max_stay = room // base_cost_per_day
             budget_days = max(2, min(base_days, max_stay // n))
         else:
             budget_days = 2
-        budget_cities = _build_city_objects(budget_names, budget_ids, days_per=budget_days)
+        budget_cities = _build_city_objects(stay_names, stay_ids, days_per=budget_days)
         routes.append({
             "label": "Budget pick",
-            "route_ids": budget_ids,
+            "route_ids": route_ids,
             "cities": budget_cities,
             "weight_factor": 0.92,
         })
 
-    # 4. Explorer: more cities only if we're well under budget and have more destinations
+    # 4. Explorer: more cities only if we're well under budget and have more stay destinations
     bal_cost = _cost(routes[0]["cities"])
     if (
-        len(ordered_city_names) >= 3
+        len(stay_names) >= 3
         and (max_budget is None or bal_cost <= (max_budget * 0.7))
         and len(routes) < 5
     ):
-        # Keep full route; optionally slightly more days if under budget
-        expl_cities = _build_city_objects(ordered_city_names, ordered_city_ids)
+        expl_cities = _build_city_objects(stay_names, stay_ids)
         routes.append({
             "label": "Explorer",
-            "route_ids": ordered_city_ids,
+            "route_ids": route_ids,
             "cities": expl_cities,
             "weight_factor": 1.02,
         })
@@ -613,34 +608,30 @@ async def generate_optimized_itinerary(trip_id: str) -> Dict[str, Any]:
     if not valid_destinations:
         raise ValueError("All destinations are excluded. Please add at least one active destination.")
     
-    # Find start and end destinations (must_include=True destinations)
+    # Find start and end destinations (must_include=True destinations, or first/last if none)
     start_dest_name = None
     end_dest_name = None
-    cities = []
-    
-    for dest in valid_destinations:
-        name = dest.get("name", "").strip()
-        if not name:
-            continue
-        
-        if dest.get("mustInclude", False):
-            # First must_include is start, last is end
-            if start_dest_name is None:
-                start_dest_name = name
-            end_dest_name = name
-        else:
-            cities.append(name)
-    
-    # If no must_include destinations, use first and last
+
+    must_include = [d for d in valid_destinations if d.get("mustInclude", False)]
+    if must_include:
+        start_dest_name = must_include[0].get("name", "").strip()
+        end_dest_name = must_include[-1].get("name", "").strip()
     if start_dest_name is None and valid_destinations:
         start_dest_name = valid_destinations[0].get("name", "").strip()
-        if len(valid_destinations) > 1:
-            end_dest_name = valid_destinations[-1].get("name", "").strip()
-        else:
-            end_dest_name = start_dest_name
-    
+        end_dest_name = valid_destinations[-1].get("name", "").strip() if len(valid_destinations) > 1 else start_dest_name
+
     if not start_dest_name:
         raise ValueError("No valid start destination found")
+    if not end_dest_name:
+        end_dest_name = start_dest_name
+
+    # Cities = all destinations between start and end (in valid_destinations order).
+    # This includes middle must_include destinations so Paris->Amsterdam->Berlin all appear when all are requested.
+    cities = []
+    for d in valid_destinations:
+        name = (d.get("name") or "").strip()
+        if name and name not in (start_dest_name, end_dest_name):
+            cities.append(name)
     
     # Convert city names to airport codes
     logger.info(f"Converting city names to airport codes: start={start_dest_name}, end={end_dest_name}, cities={cities}")
@@ -795,26 +786,18 @@ async def generate_optimized_itinerary(trip_id: str) -> Dict[str, Any]:
             f"Found: {all_cities}. Please add more destinations or use different start/end locations."
         )
     
-    logger.info(f"Optimizing route: {' -> '.join(all_cities)}")
+    # Fetch edges for all O–D pairs so the optimizer can choose the cheapest ordering of
+    # destinations (start/end fixed; middle cities can reorder to reduce cost).
+    nodes = list(dict.fromkeys(all_cities))
+    logger.info(f"Optimizing route over {nodes} (start={start_dest_code}, end={end_dest_code}); order flexible for {len(city_codes)} cities")
     
     edges_all = {}
-    
-    # Transfer graph: which bank points can transfer to which airlines (all commercial airlines)
     transfer_graph = DEFAULT_TRANSFER_GRAPH
-    
-    # Fetch edges for all city pairs
     successful_routes = 0
     failed_routes = []
+    pairs = [(o, d) for o in nodes for d in nodes if o != d]
     
-    for i in range(len(all_cities) - 1):
-        origin = all_cities[i]
-        dest = all_cities[i + 1]
-        
-        # Skip if origin and dest are the same
-        if origin == dest:
-            logger.info(f"Skipping self-loop: {origin} -> {dest}")
-            continue
-        
+    for origin, dest in pairs:
         # Use combined points from all travelers for fetching
         combined_points = {}
         for user_id, points in user_points_by_trav.items():
@@ -1033,6 +1016,7 @@ async def generate_optimized_itinerary(trip_id: str) -> Dict[str, Any]:
             plan_maximize_points_value,  # Point optimization: max points value, min cash, min time
             meetup_cities=[],  # No meetup cities for now
             require_meetup_in_graph=False,
+            must_visit_cities=city_codes,  # Each visited exactly once; optimizer chooses order to reduce cost
             transfer_graph=transfer_graph,
             transfer_bonuses={},
             bank_block_size=1000,
@@ -1063,6 +1047,7 @@ async def generate_optimized_itinerary(trip_id: str) -> Dict[str, Any]:
                                 plan_maximize_points_value,
                                 meetup_cities=[],
                                 require_meetup_in_graph=False,
+                                must_visit_cities=city_codes,
                                 transfer_graph=transfer_graph,
                                 transfer_bonuses={},
                                 bank_block_size=1000,
@@ -1077,8 +1062,8 @@ async def generate_optimized_itinerary(trip_id: str) -> Dict[str, Any]:
                                 tot = sol_retry.get("totals", {}).get("cash", 0) or 0
                                 relaxed_message = (
                                     f"No feasible solution within your budget (${max_budget:,}). "
-                                    f"We relaxed the budget and found a route. Total cash: ${tot:,.0f}. "
-                                    "Consider increasing your budget or reducing destinations/days."
+                                    f"We relaxed the budget and found a route including all your destinations. Total cash: ${tot:,.0f}. "
+                                    "Consider increasing your budget or adding more points."
                                 )
                                 logger.info("Infeasible: found solution with relaxed budget %dx (try_budget=%s)", mult, try_budget)
                                 break

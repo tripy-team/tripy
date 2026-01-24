@@ -2,58 +2,104 @@
 
 import { useState, Suspense, useEffect } from 'react';
 import { useSearchParams } from 'next/navigation';
-import { 
-  Shield, 
-  CheckCircle, 
-  Lock, 
-  CreditCard, 
-  ArrowRight, 
-  Plane, 
+import {
+  Shield,
+  CheckCircle,
+  Lock,
+  CreditCard,
+  ArrowRight,
+  Plane,
   Building2,
   Sparkles,
   ChevronRight,
-  Wallet
+  Wallet,
+  Car,
+  Bus,
 } from 'lucide-react';
-import { itineraries as itinerariesAPI, type ItineraryItem } from '@/lib/api';
-import { calculateServiceFee, SERVICE_FEE_PERCENT } from '@/lib/utils';
+import { itineraries as itinerariesAPI, trips as tripsAPI, destinations as destinationsAPI, generateItinerary } from '@/lib/api';
+import { calculateServiceFee, SERVICE_FEE_PERCENT, formatDate, tripDurationDays } from '@/lib/utils';
+
+function humanizeProgram(code: string): string {
+  const m: Record<string, string> = {
+    chase: 'Chase Ultimate Rewards',
+    amex: 'Amex Membership Rewards',
+    citi: 'Citi ThankYou Rewards',
+    capital_one: 'Capital One Miles',
+  };
+  return m[String(code || '').toLowerCase()] || String(code || '').replace(/_/g, ' ').replace(/\b\w/g, c => c.toUpperCase());
+}
+
+function humanizeAirline(code: string): string {
+  const m: Record<string, string> = {
+    VS: 'Virgin Atlantic Flying Club',
+    AF: 'Air France / KLM Flying Blue',
+    BA: 'British Airways',
+    KLM: 'KLM Flying Blue',
+    UA: 'United MileagePlus',
+    AA: 'American AAdvantage',
+    DL: 'Delta SkyMiles',
+    B6: 'JetBlue TrueBlue',
+    WN: 'Southwest Rapid Rewards',
+  };
+  return m[String(code || '').toUpperCase()] || String(code || '').toUpperCase();
+}
+
+interface PaymentRec {
+  edge?: unknown[];
+  type?: string;
+  via?: { source?: string; airline?: string; native?: string };
+  miles?: number;
+  surcharge?: number;
+  mode?: string;
+}
 
 function SoloBookingContent() {
   const searchParams = useSearchParams();
   const tripId = searchParams?.get('trip_id') || '';
-  
+
   const [isPaid, setIsPaid] = useState(false);
   const [isProcessing, setIsProcessing] = useState(false);
-  const [itineraryData, setItineraryData] = useState<ItineraryItem | null>(null);
+  const [trip, setTrip] = useState<{ startDate?: string; endDate?: string; includeHotels?: boolean; destinations?: string[] } | null>(null);
+  const [items, setItems] = useState<Record<string, unknown>[]>([]);
+  const [destinationMap, setDestinationMap] = useState<Map<string, string>>(new Map());
   const [loading, setLoading] = useState(true);
 
   useEffect(() => {
-    const fetchItinerary = async () => {
+    const fetchData = async () => {
       if (!tripId) {
         setLoading(false);
         return;
       }
-
       try {
-        const response = await itinerariesAPI.get(tripId);
-        if (response.items && response.items.length > 0) {
-          setItineraryData(response.items[0]);
-        }
+        const [itineraryRes, tripData, destRes] = await Promise.all([
+          itinerariesAPI.get(tripId).catch(() => ({ items: [] })),
+          tripsAPI.get(tripId).catch(() => null),
+          destinationsAPI.list(tripId).catch(() => ({ destinations: [] })),
+        ]);
+        setTrip(tripData ?? null);
+        setItems(Array.isArray(itineraryRes?.items) ? itineraryRes.items : []);
+        const map = new Map<string, string>();
+        (destRes?.destinations || []).forEach((d: { destinationId?: string; name?: string }) => {
+          if (d?.destinationId && d?.name) map.set(d.destinationId, d.name);
+        });
+        setDestinationMap(map);
       } catch (_err) {
-        console.log('No itinerary data available yet');
+        console.log('Error fetching booking data');
       } finally {
         setLoading(false);
       }
     };
-
-    fetchItinerary();
+    fetchData();
   }, [tripId]);
 
-  const handlePayment = () => {
+  const handlePayment = async () => {
     setIsProcessing(true);
-    setTimeout(() => {
-      setIsProcessing(false);
-      setIsPaid(true);
-    }, 2000);
+    if (tripId) {
+      generateItinerary(tripId).catch(() => {});
+    }
+    await new Promise((r) => setTimeout(r, 2000));
+    setIsProcessing(false);
+    setIsPaid(true);
   };
 
   if (loading) {
@@ -67,12 +113,72 @@ function SoloBookingContent() {
     );
   }
 
-  // Calculate savings from itinerary data if available
-  const cashPrice = itineraryData?.totalCost || 1850;
-  const pointsCost = itineraryData?.pointsCost || 60000;
-  const taxes = 50;
+  const pathItem = items.find((i: Record<string, unknown>) => i.type === 'path') as Record<string, unknown> | undefined;
+  const itineraryItem = items.find((i: Record<string, unknown>) => {
+    if (i.type !== 'itinerary') return false;
+    const r = i.route || i.cities || (i as { path?: unknown }).path;
+    return Array.isArray(r) && r.length > 0;
+  }) as Record<string, unknown> | undefined;
+  const paymentsItem = items.find((i: Record<string, unknown>) => i.type === 'payments') as { payments?: PaymentRec[] } | undefined;
+  const totalsItem = items.find((i: Record<string, unknown>) => i.type === 'totals') as { totals?: { cash?: number; airline_points?: number } } | undefined;
+
+  const citiesFromItinerary = itineraryItem?.cities as Array<{ name?: string }> | undefined;
+  const rawRoute = (pathItem?.path || pathItem?.route || itineraryItem?.route || itineraryItem?.path) as string[] | Array<{ name?: string }> | undefined;
+  const routeLabels: string[] = Array.isArray(citiesFromItinerary) && citiesFromItinerary.length > 0
+    ? citiesFromItinerary.map((c) => c?.name).filter(Boolean) as string[]
+    : Array.isArray(rawRoute)
+      ? rawRoute.map((n: string | { name?: string }) => {
+          if (typeof n === 'object' && n?.name) return n.name;
+          if (typeof n === 'string' && /^[0-9a-f-]{36}$/i.test(n)) return destinationMap.get(n) || n;
+          return String(n || '');
+        }).filter(Boolean) as string[]
+      : [];
+
+  const duration = trip?.startDate && trip?.endDate ? (tripDurationDays(trip.startDate, trip.endDate) ?? 5) : 5;
+  const destCount = Math.max(1, (trip?.destinations && trip.destinations.length) || destinationMap.size || 1);
+  const estimatedCash = duration * 200 + destCount * 300;
+
+  const cashPrice = Number(pathItem?.totalCost ?? itineraryItem?.totalCost ?? totalsItem?.totals?.cash ?? estimatedCash) || estimatedCash;
+  const pointsCost = Number(pathItem?.pointsCost ?? itineraryItem?.pointsCost ?? totalsItem?.totals?.airline_points ?? Math.round(estimatedCash * 25)) || 60000;
+  const paymentRecs: PaymentRec[] = Array.isArray(paymentsItem?.payments) ? paymentsItem.payments : [];
+  const taxesFromPayments = paymentRecs.reduce((s, p) => s + (Number(p.surcharge) || 0), 0);
+  const taxes = taxesFromPayments > 0 ? Math.round(taxesFromPayments) : 50;
   const savings = cashPrice - (pointsCost / 1000 * 2 + taxes);
-  const serviceFee = calculateServiceFee(cashPrice); // cash = spent + saved
+  const serviceFee = calculateServiceFee(cashPrice);
+
+  const includeHotels = trip?.includeHotels !== false;
+  const startDate = trip?.startDate || '';
+  const endDate = trip?.endDate || '';
+  const primaryDestLabel = routeLabels[1] || routeLabels[0] || (trip?.destinations && trip.destinations[0]) || 'your destination';
+  const startLabel = startDate ? formatDate(startDate) : 'your travel dates';
+  const endLabel = endDate ? formatDate(endDate) : '';
+
+  type Step = { kind: 'transfer'; source: string; partner: string; amount: number } | { kind: 'segment'; mode: 'flight' | 'bus' | 'car'; orig: string; dest: string; via?: string[] } | { kind: 'hotel_transfer' } | { kind: 'hotel_book'; dest: string; start: string; end: string };
+  const steps: Step[] = [];
+
+  if (paymentRecs.length > 0) {
+    paymentRecs.forEach((p) => {
+      if (p.type === 'points' && (p.via?.source || p.via?.airline || p.via?.native) && (p.miles ?? 0) > 0) {
+        const partner = p.via?.airline ? humanizeAirline(p.via.airline) : p.via?.native ? humanizeAirline(p.via.native) : 'airline partner';
+        const source = p.via?.source ? humanizeProgram(p.via.source) : 'your points program';
+        steps.push({ kind: 'transfer', source, partner, amount: Math.round(Number(p.miles) || 0) });
+      }
+      const edge = Array.isArray(p.edge) ? p.edge : [];
+      const orig = String(edge[0] || '').toUpperCase();
+      const dest = String(edge[1] || '').toUpperCase();
+      const mode = (p.mode || 'flight') as 'flight' | 'bus' | 'car';
+      if (orig && dest) steps.push({ kind: 'segment', mode, orig, dest });
+    });
+  } else if (routeLabels.length >= 2) {
+    steps.push({ kind: 'segment', mode: 'flight', orig: routeLabels[0], dest: routeLabels[routeLabels.length - 1], via: routeLabels.slice(1, -1) });
+  }
+
+  if (includeHotels) {
+    steps.push({ kind: 'hotel_transfer' });
+    steps.push({ kind: 'hotel_book', dest: primaryDestLabel, start: startLabel, end: endLabel || startLabel });
+  }
+
+  const SegmentIcon = ({ mode }: { mode: 'flight' | 'bus' | 'car' }) => (mode === 'flight' ? <Plane className="w-5 h-5 text-slate-400" /> : mode === 'bus' ? <Bus className="w-5 h-5 text-slate-400" /> : <Car className="w-5 h-5 text-slate-400" />);
 
   return (
     <div className="min-h-screen bg-slate-50 pb-20">
@@ -152,73 +258,95 @@ function SoloBookingContent() {
               )}
 
               <div className={`p-8 space-y-8 ${!isPaid ? 'opacity-20 select-none' : ''}`}>
-                {/* Step 1 */}
-                <div className="flex gap-4">
-                  <div className="flex-shrink-0 w-8 h-8 rounded-full bg-blue-100 text-blue-600 flex items-center justify-center font-bold">1</div>
-                  <div>
-                    <h3 className="font-semibold text-slate-900 mb-2">Transfer Points to Virgin Atlantic</h3>
-                    <p className="text-slate-600 mb-4">
-                      Log in to your Chase Ultimate Rewards account and transfer <span className="font-bold text-slate-900">45,000 points</span> to Virgin Atlantic Flying Club. Transfers are usually instant.
-                    </p>
-                    <div className="p-4 bg-slate-50 rounded-xl border border-slate-200 text-sm font-mono text-slate-600">
-                      Partner: Virgin Atlantic<br/>
-                      Account: 123456789 (Your ID)<br/>
-                      Amount: 45,000
+                {steps.length > 0 ? (
+                  steps.map((step, idx) => {
+                    if (step.kind === 'transfer') {
+                      return (
+                        <div key={idx} className="flex gap-4">
+                          <div className="flex-shrink-0 w-8 h-8 rounded-full bg-blue-100 text-blue-600 flex items-center justify-center font-bold">{idx + 1}</div>
+                          <div>
+                            <h3 className="font-semibold text-slate-900 mb-2">Transfer points to {step.partner}</h3>
+                            <p className="text-slate-600 mb-4">
+                              Log in to your {step.source} account and transfer <span className="font-bold text-slate-900">{step.amount.toLocaleString()} points</span> to {step.partner}. Transfers are usually instant.
+                            </p>
+                            <div className="p-4 bg-slate-50 rounded-xl border border-slate-200 text-sm font-mono text-slate-600">
+                              Partner: {step.partner}<br />Amount: {step.amount.toLocaleString()}
+                            </div>
+                          </div>
+                        </div>
+                      );
+                    }
+                    if (step.kind === 'segment') {
+                      const modeLabel = step.mode === 'flight' ? 'flight' : step.mode === 'bus' ? 'bus' : 'car';
+                      const via = step.via?.length ? ` (via ${step.via.join(', ')})` : '';
+                      return (
+                        <div key={idx} className="flex gap-4">
+                          <div className="flex-shrink-0 w-8 h-8 rounded-full bg-blue-100 text-blue-600 flex items-center justify-center font-bold">{idx + 1}</div>
+                          <div>
+                            <h3 className="font-semibold text-slate-900 mb-2">Book {modeLabel} {step.orig} → {step.dest}</h3>
+                            <p className="text-slate-600 mb-4">
+                              Search for {modeLabel} rewards from {step.orig} to {step.dest}{via} on {startLabel}. Use the points you transferred to book.
+                            </p>
+                            <div className="flex items-center gap-4 p-4 bg-slate-50 rounded-xl border border-slate-200">
+                              <SegmentIcon mode={step.mode} />
+                              <div>
+                                <div className="font-semibold text-slate-900">{step.orig} <ArrowRight className="w-4 h-4 inline mx-1" /> {step.dest}</div>
+                                <div className="text-xs text-slate-500">{startLabel}</div>
+                              </div>
+                            </div>
+                          </div>
+                        </div>
+                      );
+                    }
+                    if (step.kind === 'hotel_transfer') {
+                      return (
+                        <div key={idx} className="flex gap-4">
+                          <div className="flex-shrink-0 w-8 h-8 rounded-full bg-blue-100 text-blue-600 flex items-center justify-center font-bold">{idx + 1}</div>
+                          <div>
+                            <h3 className="font-semibold text-slate-900 mb-2">Transfer points for hotel</h3>
+                            <p className="text-slate-600 mb-4">
+                              Use your preferred hotel program (e.g. Marriott Bonvoy, Hilton Honors, IHG) and transfer points if needed. Transfers typically take 24–48 hours.
+                            </p>
+                            <div className="p-4 bg-slate-50 rounded-xl border border-slate-200 text-sm font-mono text-slate-600">
+                              Hotel program • Amount based on your stay
+                            </div>
+                          </div>
+                        </div>
+                      );
+                    }
+                    if (step.kind === 'hotel_book') {
+                      return (
+                        <div key={idx} className="flex gap-4">
+                          <div className="flex-shrink-0 w-8 h-8 rounded-full bg-blue-100 text-blue-600 flex items-center justify-center font-bold">{idx + 1}</div>
+                          <div>
+                            <h3 className="font-semibold text-slate-900 mb-2">Book hotel at {step.dest}</h3>
+                            <p className="text-slate-600 mb-4">
+                              Search for hotels in {step.dest} and book with points or cash. Check in on {step.start} and check out on {step.end}.
+                            </p>
+                            <div className="flex items-center gap-4 p-4 bg-slate-50 rounded-xl border border-slate-200">
+                              <Building2 className="w-5 h-5 text-slate-400" />
+                              <div>
+                                <div className="font-semibold text-slate-900">{step.dest}</div>
+                                <div className="text-xs text-slate-500">Check-in: {step.start} • Check-out: {step.end}</div>
+                              </div>
+                            </div>
+                          </div>
+                        </div>
+                      );
+                    }
+                    return null;
+                  })
+                ) : (
+                  <div className="flex gap-4">
+                    <div className="flex-shrink-0 w-8 h-8 rounded-full bg-slate-100 text-slate-500 flex items-center justify-center font-bold">1</div>
+                    <div>
+                      <h3 className="font-semibold text-slate-900 mb-2">Book using your itinerary</h3>
+                      <p className="text-slate-600">
+                        Your costs are based on your trip preferences above. Use your preferred transfer partners and book flights (and hotels if included) for your dates. Re-run the planner from Results for optimized transfer instructions.
+                      </p>
                     </div>
                   </div>
-                </div>
-
-                {/* Step 2 */}
-                <div className="flex gap-4">
-                  <div className="flex-shrink-0 w-8 h-8 rounded-full bg-blue-100 text-blue-600 flex items-center justify-center font-bold">2</div>
-                  <div>
-                    <h3 className="font-semibold text-slate-900 mb-2">Book Flight VS-102</h3>
-                    <p className="text-slate-600 mb-4">
-                      Go to virginatlantic.com and search for rewards flights from JFK to LHR on June 12. Select Flight VS-102 in Upper Class.
-                    </p>
-                    <div className="flex items-center gap-4 p-4 bg-slate-50 rounded-xl border border-slate-200">
-                      <Plane className="w-5 h-5 text-slate-400" />
-                      <div>
-                        <div className="font-semibold text-slate-900">JFK <ArrowRight className="w-4 h-4 inline mx-1" /> LHR</div>
-                        <div className="text-xs text-slate-500">June 12 • 08:30 PM</div>
-                      </div>
-                    </div>
-                  </div>
-                </div>
-
-                {/* Step 3 - Hotel Transfer */}
-                <div className="flex gap-4">
-                  <div className="flex-shrink-0 w-8 h-8 rounded-full bg-blue-100 text-blue-600 flex items-center justify-center font-bold">3</div>
-                  <div>
-                    <h3 className="font-semibold text-slate-900 mb-2">Transfer Points for Hotel</h3>
-                    <p className="text-slate-600 mb-4">
-                      Log in to your Amex Membership Rewards account and transfer <span className="font-bold text-slate-900">15,000 points</span> to Marriott Bonvoy. Transfers typically take 24-48 hours.
-                    </p>
-                    <div className="p-4 bg-slate-50 rounded-xl border border-slate-200 text-sm font-mono text-slate-600">
-                      Partner: Marriott Bonvoy<br/>
-                      Account: 987654321 (Your ID)<br/>
-                      Amount: 15,000
-                    </div>
-                  </div>
-                </div>
-
-                {/* Step 4 - Hotel Booking */}
-                <div className="flex gap-4">
-                  <div className="flex-shrink-0 w-8 h-8 rounded-full bg-blue-100 text-blue-600 flex items-center justify-center font-bold">4</div>
-                  <div>
-                    <h3 className="font-semibold text-slate-900 mb-2">Book Hotel at Marriott</h3>
-                    <p className="text-slate-600 mb-4">
-                      Go to marriott.com and search for hotels in London. Use your Bonvoy points to book. Recommended: The London EDITION (50,000 points/night) or The Ritz-Carlton London (70,000 points/night).
-                    </p>
-                    <div className="flex items-center gap-4 p-4 bg-slate-50 rounded-xl border border-slate-200">
-                      <Building2 className="w-5 h-5 text-slate-400" />
-                      <div>
-                        <div className="font-semibold text-slate-900">London, UK</div>
-                        <div className="text-xs text-slate-500">Check-in: June 12 • Check-out: June 18</div>
-                      </div>
-                    </div>
-                  </div>
-                </div>
+                )}
               </div>
             </div>
           </div>
@@ -243,7 +371,7 @@ function SoloBookingContent() {
                 </div>
                 <div className="flex justify-between text-slate-600">
                   <span>Taxes & Fees (Airline)</span>
-                  <span className="font-medium text-slate-900">~$50.00</span>
+                  <span className="font-medium text-slate-900">~${taxes}.00</span>
                 </div>
                 <div className="border-t border-slate-100 my-4 pt-4 flex justify-between items-center">
                   <span className="font-semibold text-slate-900">Tripy Service Fee ({SERVICE_FEE_PERCENT}% of trip value)</span>
