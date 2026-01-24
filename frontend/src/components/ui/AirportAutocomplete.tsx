@@ -1,7 +1,7 @@
 "use client";
 
 import React, { useEffect, useMemo, useRef, useState } from "react";
-import { locations } from "@/lib/api";
+import { destinations } from "@/lib/api";
 
 // Airport type matching API response
 type AirportSuggestion = {
@@ -251,10 +251,10 @@ export default function AirportAutocomplete({
     setActiveIdx(0);
   }, [debounced, suggestions]);
 
-  // Search airports via API when query changes
+  // Search via destinations.autocomplete (SerpAPI + fuzzy), flatten to AirportSuggestion[]
   useEffect(() => {
     const query = debounced.trim();
-    
+
     if (!query || query.length < 1) {
       setSuggestions([]);
       return;
@@ -263,10 +263,28 @@ export default function AirportAutocomplete({
     setIsLoading(true);
     const timeoutId = setTimeout(async () => {
       try {
-        const response = await locations.airportsAutocomplete(query, 10);
-        setSuggestions(response.airports || []);
+        const response = await destinations.autocomplete(query, 10);
+        const raw = response?.suggestions ?? [];
+        const airports: AirportSuggestion[] = [];
+        for (const s of raw) {
+          const list = s.airports || [];
+          for (const a of list) {
+            const id = a.id?.trim();
+            if (!id) continue;
+            airports.push({
+              airport_id: id,
+              iata_code: id,
+              airport_name: a.name || id,
+              city: a.city || s.name || "",
+              country: s.description || "",
+              region: "",
+              display_name: `${id} – ${a.name || id}`,
+            });
+          }
+        }
+        setSuggestions(airports);
       } catch (error) {
-        console.error('Error fetching airport suggestions:', error);
+        console.error("Error fetching airport suggestions:", error);
         setSuggestions([]);
       } finally {
         setIsLoading(false);

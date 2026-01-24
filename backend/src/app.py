@@ -743,6 +743,8 @@ async def generate_itinerary(
         if result.get("ai_suggested_routes"):
             out["ai_suggested_routes"] = True
             out["suggestions"] = result.get("suggestions", [])
+        if result.get("out_of_pocket") is not None:
+            out["out_of_pocket"] = result.get("out_of_pocket")
         return out
     except ValueError as e:
         logger.warning(f"Validation error generating itinerary: {str(e)}")

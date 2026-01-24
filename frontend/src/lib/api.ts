@@ -476,8 +476,32 @@ export const trips = {
   },
 };
 
+// Destination autocomplete suggestion shape from /api/destinations/autocomplete (SerpAPI + fuzzy)
+export interface DestinationsAutocompleteSuggestion {
+  name: string;
+  type?: string;
+  description?: string;
+  id?: string;
+  airports?: Array<{ id?: string; name?: string; city?: string; city_id?: string; distance?: string }>;
+}
+
 // Destinations API
 export const destinations = {
+  autocomplete: async (
+    q: string,
+    limit: number = 10
+  ): Promise<{ suggestions: DestinationsAutocompleteSuggestion[] }> => {
+    const endpoint = `/api/destinations/autocomplete?q=${encodeURIComponent(q)}&limit=${limit}`;
+    const res = await fetch(endpoint, {
+      method: "GET",
+      headers: { "Content-Type": "application/json" },
+    });
+    if (!res.ok) {
+      throw new Error(res.statusText || "Failed to fetch destination suggestions");
+    }
+    return res.json();
+  },
+
   add: async (params: { trip_id: string; name: string; must_include?: boolean; excluded?: boolean }): Promise<Destination> => {
     return apiRequest<Destination>('/destinations/add', {
       method: 'POST',

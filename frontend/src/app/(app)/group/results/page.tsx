@@ -29,6 +29,63 @@ interface SmartTips {
 
 const emptySmartTips: SmartTips = { transfer_tips: [], sample_itineraries: [], holiday_advice: [], practical_tips: [] };
 
+interface OutOfPocketOption {
+    price?: number;
+    points?: number;
+    surcharge?: number;
+    out_of_pocket?: number;
+}
+
+interface OutOfPocketData {
+    best_by_cash?: OutOfPocketOption | null;
+    best_by_surcharge?: OutOfPocketOption | null;
+    best_overall?: OutOfPocketOption | null;
+    origin?: string;
+    destination?: string;
+    outbound_date?: string;
+    return_date?: string;
+}
+
+function OutOfPocketBlock({ data }: { data: OutOfPocketData }) {
+    const best = data.best_overall;
+    if (!best || (best.out_of_pocket == null && best.price == null && best.surcharge == null)) return null;
+    const oop = best.out_of_pocket ?? best.price ?? best.surcharge;
+    const isCash = oop != null && best.price != null && oop === best.price;
+    const isPoints = oop != null && best.surcharge != null && oop === best.surcharge;
+    return (
+        <div className="mb-8 p-6 bg-gradient-to-br from-emerald-50 to-teal-50 border border-emerald-200 rounded-2xl">
+            <h2 className="text-xl font-semibold text-slate-900 mb-3 flex items-center gap-2">
+                <DollarSign className="w-5 h-5 text-emerald-600" />
+                Best out-of-pocket
+            </h2>
+            <p className="text-sm text-slate-600 mb-3">
+                {data.origin} → {data.destination}
+                {data.outbound_date && data.return_date && (
+                    <span className="ml-2"> · {data.outbound_date} – {data.return_date}</span>
+                )}
+            </p>
+            <div className="flex flex-wrap items-baseline gap-3">
+                <span className="text-2xl font-bold text-slate-900">${Number(oop).toLocaleString()}</span>
+                <span className="text-sm text-slate-600">
+                    {isCash && '(cash)'}
+                    {isPoints && best.points != null && `(points + surcharge, ${(best.points / 1000).toFixed(0)}k pts)`}
+                    {!isCash && !isPoints && '(lowest of cash or points surcharge)'}
+                </span>
+            </div>
+            {(data.best_by_cash || data.best_by_surcharge) && (
+                <div className="mt-3 flex flex-wrap gap-4 text-sm text-slate-600">
+                    {data.best_by_cash?.price != null && (
+                        <span>Best cash: ${data.best_by_cash.price.toLocaleString()}</span>
+                    )}
+                    {data.best_by_surcharge?.surcharge != null && (
+                        <span>Best points: ${data.best_by_surcharge.surcharge.toLocaleString()} surcharge</span>
+                    )}
+                </div>
+            )}
+        </div>
+    );
+}
+
 function SmartTipsBlock({ tips }: { tips: SmartTips }) {
     const has = tips.transfer_tips.length > 0 || tips.sample_itineraries.length > 0 || tips.holiday_advice.length > 0 || tips.practical_tips.length > 0;
     if (!has) return null;
@@ -127,6 +184,7 @@ export default function GroupResults() {
     const [aiSuggestions, setAiSuggestions] = useState<AIRouteSuggestion[]>([]);
     const [isAiSuggested, setIsAiSuggested] = useState(false);
     const [smartTips, setSmartTips] = useState<SmartTips>(emptySmartTips);
+    const [outOfPocket, setOutOfPocket] = useState<OutOfPocketData | null>(null);
 
     const stepIcon = (method: string) => {
         const m = (method || '').toLowerCase();
@@ -149,6 +207,7 @@ export default function GroupResults() {
                 setAiSuggestions([]);
                 setIsAiSuggested(false);
                 setSmartTips(emptySmartTips);
+                setOutOfPocket(null);
 
                 // Fetch group size and members from trip members
                 const membersResponse = await tripsAPI.listMembers(tripId);
@@ -207,9 +266,18 @@ export default function GroupResults() {
                     });
                 }
 
-                // Transform API response (exclude ai_route_suggestions and itinerary_smart_tips)
+                // Out-of-pocket (simple A->B round-trip)
+                const oopItem = response.items?.find((i: ItineraryItem & { type?: string }) => i.type === 'out_of_pocket');
+                if (oopItem && typeof oopItem === 'object') {
+                    setOutOfPocket(oopItem as OutOfPocketData);
+                } else {
+                    setOutOfPocket(null);
+                }
+
+                // Transform API response (exclude ai_route_suggestions, itinerary_smart_tips, out_of_pocket)
                 const regularItems = (response.items || []).filter(
-                    (i: ItineraryItem & { type?: string }) => i.type !== 'ai_route_suggestions' && i.type !== 'itinerary_smart_tips'
+                    (i: ItineraryItem & { type?: string }) =>
+                        i.type !== 'ai_route_suggestions' && i.type !== 'itinerary_smart_tips' && i.type !== 'out_of_pocket'
                 );
                 if (regularItems.length > 0) {
                     const transformed: Itinerary[] = regularItems.map((item: ItineraryItem, index: number) => {
@@ -323,6 +391,8 @@ export default function GroupResults() {
                     <h1 className="text-4xl mb-2 tracking-tight text-slate-900 font-bold">Group Itineraries</h1>
                     <p className="text-slate-600">We generated {itineraries.length} optimized routes for your group</p>
                 </div>
+
+                {outOfPocket && <OutOfPocketBlock data={outOfPocket} />}
 
                 <div className="grid lg:grid-cols-3 gap-6">
                     {/* Itinerary Cards */}

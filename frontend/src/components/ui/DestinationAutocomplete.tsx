@@ -2,7 +2,7 @@
 
 import { useState, useEffect, useRef } from 'react';
 import { Plane, Bus, Car } from 'lucide-react';
-import { locations, type CitySuggestion } from '@/lib/api';
+import { destinations, type CitySuggestion } from '@/lib/api';
 
 interface DestinationAutocompleteProps {
   // The current text value of the input (controlled component)
@@ -71,15 +71,20 @@ export function DestinationAutocomplete({
       return;
     }
 
-    const timeoutId = setTimeout(async () => {
+        const timeoutId = setTimeout(async () => {
       setIsLoading(true);
       try {
-        // Use OpenAI API for city search - handles all cities, typos, and variations
-        const response = await locations.autocomplete(value.trim(), 12);
-        const cities = response?.cities ?? [];
-        
+        // destinations.autocomplete: SerpAPI google_flights_autocomplete + fuzzy CSV fallback
+        const response = await destinations.autocomplete(value.trim(), 12);
+        const raw = response?.suggestions ?? [];
+        const cities: CitySuggestion[] = raw.map((s) => ({
+          name: s.name || '',
+          city_id: s.id || s.airports?.[0]?.city_id || s.name || '',
+          country: s.description || '',
+          airport_code: s.airports?.[0]?.id || (s.airports?.length ? s.airports.map((a) => a.id).filter(Boolean).join(',') : undefined),
+          transport_modes: s.airports?.length ? ['flight'] : [],
+        }));
         setSuggestions(cities);
-        // Always show suggestions if we have results
         if (cities.length > 0) {
           setShowSuggestions(true);
           setHighlightIndex(0);

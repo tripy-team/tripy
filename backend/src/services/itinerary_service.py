@@ -504,7 +504,34 @@ def generate_optimized_itinerary(trip_id: str) -> Dict[str, Any]:
         raise ValueError("No active travelers found for optimization")
     
     logger.info(f"Found {len(travelers)} active travelers: {travelers}")
-    
+
+    # Out-of-pocket optimizer for simple A->B round-trips (SerpAPI cash + AwardTool points/surcharge)
+    oop_result: Optional[Dict[str, Any]] = None
+    if (
+        start_dest_code
+        and end_dest_code
+        and start_dest_code != end_dest_code
+        and not city_codes
+        and start_date
+        and end_date
+        and travelers
+    ):
+        try:
+            from src.services.serp_api_functions import optimize_itinerary_out_of_pocket
+
+            oop_result = optimize_itinerary_out_of_pocket(
+                origin=start_dest_code,
+                destination=end_dest_code,
+                outbound_date=start_date.strip(),
+                return_date=end_date.strip(),
+                programs=get_award_programs_for_api(),
+                cabins=["Economy"],
+                pax=len(travelers),
+            )
+        except Exception as e:
+            logger.warning("optimize_itinerary_out_of_pocket failed: %s", e)
+            oop_result = None
+
     # 4. Get points for all members with validation
     points_summary = points_service.trip_points_summary(trip_id)
     points_items = points_summary.get("items", [])
@@ -905,9 +932,31 @@ def generate_optimized_itinerary(trip_id: str) -> Dict[str, Any]:
     }
     itinerary_repo.put_item(tips_item)
     itinerary_items.append(tips_item)
-    
+
+    # Out-of-pocket: persist and attach to response for simple A->B round-trips
+    oop_payload: Optional[Dict[str, Any]] = None
+    if oop_result and not oop_result.get("error"):
+        oop_payload = {
+            "best_by_cash": oop_result.get("best_by_cash"),
+            "best_by_surcharge": oop_result.get("best_by_surcharge"),
+            "best_overall": oop_result.get("best_overall"),
+            "origin": oop_result.get("origin"),
+            "destination": oop_result.get("destination"),
+            "outbound_date": oop_result.get("outbound_date"),
+            "return_date": oop_result.get("return_date"),
+        }
+        oop_item = {
+            "tripId": trip_id,
+            "itemId": "out_of_pocket",
+            "type": "out_of_pocket",
+            **oop_payload,
+        }
+        itinerary_repo.put_item(oop_item)
+        itinerary_items.append(oop_item)
+
     return {
         "status": solution.get("status", "Unknown"),
         "solution": solution,
         "items": itinerary_items,
+        "out_of_pocket": oop_payload,
     }
