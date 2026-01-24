@@ -5,8 +5,8 @@ export const metadata: Metadata = {
 	title: "Tripy",
 	description: "Plan and maximize your vacation",
 	icons: {
-		icon: "/icon.svg",
-		apple: "/icon.svg",
+		icon: "/favicon.ico",
+		apple: "/favicon.ico",
 		shortcut: "/favicon.ico",
 	},
 };
