@@ -2,7 +2,12 @@
 import requests, re
 from typing import Dict, Optional
 from bs4 import BeautifulSoup
-from cache_ddb import get_tpg_cache
+try:
+    from ..utils.cache_layer import get_json as get_tpg_cache
+except ImportError:
+    # Fallback if cache_layer doesn't have get_json
+    def get_tpg_cache(key: str):
+        return None
 
 TPG_VALUATIONS_URL = "https://thepointsguy.com/loyalty-programs/monthly-valuations/"
 HEADERS_TPG = {"User-Agent": "Mozilla/5.0 (compatible; TripyBot/1.0)"}

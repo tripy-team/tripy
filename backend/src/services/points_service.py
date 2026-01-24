@@ -1,6 +1,6 @@
 from typing import Dict, Any
-from ..repos import points_repo
-from ..utils.normalize import normalize_program_name
+from src.repos import points_repo
+from src.utils.normalize import normalize_program_name
 
 
 def upsert_points(

@@ -1,13 +1,62 @@
 version: 1.0
-runtime: python311
+runtime: python3
 build:
   commands:
     build:
-      - echo "Using 3.11; deps install in pre-run"
+      - pip install --upgrade pip
+      - pip install -r requirements.txt
+      - chmod +x start.sh
 run:
-  pre-run:
-    - pip3 install --upgrade pip
-    - pip3 install -r requirements.txt
-  command: uvicorn app:app --host 0.0.0.0 --port 8080
+  command: /bin/bash /app/backend/start.sh
   network:
-    port: 8080
+    port: 8000
+  env:
+    - name: AWS_REGION
+      value: us-east-1
+    - name: PYTHONPATH
+      value: /app/backend
+    # REQUIRED - DynamoDB Table Names (update these to match your actual table names)
+    - name: USERS_TABLE
+      value: tripy-users
+    - name: TRIPS_TABLE
+      value: tripy-trips
+    - name: TRIP_MEMBERS_TABLE
+      value: tripy-trip-members
+    - name: POINTS_TABLE
+      value: tripy-points
+    - name: DESTINATIONS_TABLE
+      value: tripy-destinations
+    - name: DESTINATION_VOTES_TABLE
+      value: tripy-destination-votes
+    - name: ITINERARY_TABLE
+      value: tripy-itinerary
+    # REQUIRED FOR AUTH - Cognito Configuration
+    # Get these from AWS Cognito Console or run: cd backend && ./get_cognito_credentials.sh
+    # IMPORTANT: Replace the placeholder values below with your actual Cognito credentials
+    - name: USER_POOL_ID
+      value: us-east-1_zCMCjyTLJ  # REPLACE WITH YOUR ACTUAL USER POOL ID (e.g., us-east-1_AbCdEfGhI)
+    - name: USER_POOL_CLIENT_ID
+      value: 2rehpmlssbivmlo6468rcsd0kq 
+    - name: UNSPLASH_ACCESS_KEY
+      value: tkiTc7RqbC_mwvmZDj_HMUSzwTy9oQOGufeeymucQKg # REPLACE WITH YOUR ACTUAL CLIENT ID
+    - name: UNSPLASH_SECRET_KEY
+      value: JWtLVAqUDIwO0viNemEGIRqXYXWIwrB6re5nj1p4RTU # REPLACE WITH YOUR ACTUAL CLIENT ID
+    - name: PEXELS_API_KEY
+      value: ikXdXWCXUlLsyr1VbbmdG0TzRsQrQTMrem9ANyIoiJcwTDG64pXhxXRM # REPLACE WITH YOUR ACTUAL CLIENT ID
+    # OPTIONAL - CORS Origins (uncomment and set to restrict CORS)
+    # - name: CORS_ORIGINS
+    #   value: https://your-app.amplifyapp.com,http://localhost:3000
+    # OPTIONAL - Other API Keys
+    # - name: AMADEUS_CLIENT_ID
+    #   value: your_amadeus_client_id
+    # - name: AMADEUS_CLIENT_SECRET
+    #   value: your_amadeus_client_secret
+    - name: SERP_API_KEY
+      value: 760dbefc74bbc995a203fe6e043dca076eb2b15cac50fc6fdf77df9758764335
+    - name: AWARDTOOL_API_KEY
+      value: 0363cfd0-ba6a-4302-ba14-9f86186eb0c7
+    - name: OPENAI_ADMIN_KEY
+      value: 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
+    # - name: ANALYTICS_FIREHOSE_STREAM
+    #   value: tripy-analytics
+    # Note: Health check is configured in App Runner Console, not in this file

@@ -4,9 +4,13 @@
 #  - ilp_adapter.run_ilp_from_edges (adapter with meetup_cities support)
 #  - planTrip.plan_non_pooled_multi_itineraries_with_native (your ILP)
 
-from flights import get_flights_award_first_with_points
-from ilp_adapter import run_ilp_from_edges  # <- fixed import
-from planTrip import plan_non_pooled_multi_itineraries_with_native
+from .flights import get_flights_award_first_with_points
+from .ilp_adapter import run_ilp_from_edges
+from src.data.award_programs import DEFAULT_TRANSFER_GRAPH, get_award_programs_for_api
+try:
+    from .planTrip import plan_non_pooled_multi_itineraries_with_native
+except ModuleNotFoundError:
+    plan_non_pooled_multi_itineraries_with_native = None
 
 # -----------------------------
 # Travelers, endpoints, dates
@@ -34,35 +38,31 @@ user_meetups = ["CDG"]  # e.g., ["CDG"] or ["CDG","AMS"] or []
 filters_alice = {
     "outbound_date": "2026-02-11",
     "travel_class": "economy",
-    "stops": 1,
+    # Allow multistop flights (nonstop, 1-stop, 2-stop, etc.) - no stops restriction
     "bags": 1,
     "pax": 1,
-    "award_programs": ["AF", "KL", "DL", "BA", "AA", "AS", "UA", "VS", "AC", "TK"],
+    "award_programs": get_award_programs_for_api(),
 }
 filters_bob = {
     "outbound_date": "2026-02-13",
     "travel_class": "economy",
-    "stops": 1,
     "bags": 1,
     "pax": 1,
-    "award_programs": ["AF", "KL", "DL", "BA", "AA", "AS", "UA", "VS", "AC", "TK"],
+    "award_programs": get_award_programs_for_api(),
 }
 filters_carol = {
     "outbound_date": "2026-02-12",
     "travel_class": "economy",
-    "stops": 1,
     "bags": 1,
     "pax": 1,
-    "award_programs": ["AF", "KL", "DL", "BA", "AA", "AS", "UA", "VS", "AC", "TK"],
+    "award_programs": get_award_programs_for_api(),
 }
-# Optional: allow Carol to connect via Paris if useful (extra route/date)
 filters_cdgtorome = {
     "outbound_date": "2026-02-13",
     "travel_class": "economy",
-    "stops": 1,
     "bags": 1,
     "pax": 1,
-    "award_programs": ["AF", "KL", "DL", "BA", "AA", "AS", "UA", "VS", "AC", "TK"],
+    "award_programs": get_award_programs_for_api(),
 }
 
 # -----------------------------
@@ -97,33 +97,8 @@ user_points_by_trav = {
     },
 }
 
-# -----------------------------
-# Transfer graph & promos
-# -----------------------------
-transfer_graph = {
-    "amex": {
-        "AF": 1.0,
-        "KL": 1.0,
-        "DL": 1.0,
-        "BA": 1.0,
-        "VS": 1.0,
-        "AC": 1.0,
-        "TK": 1.0,
-    },
-    "chase": {"AF": 1.0, "KL": 1.0, "BA": 1.0, "VS": 1.0, "UA": 1.0, "AC": 1.0},
-    "citi": {"AF": 1.0, "KL": 1.0, "VS": 1.0, "TK": 1.0, "BA": 1.0},
-    "capitalone": {"AF": 1.0, "KL": 1.0, "BA": 1.0, "VS": 1.0, "TK": 1.0, "AC": 1.0},
-    "bilt": {
-        "AF": 1.0,
-        "KL": 1.0,
-        "BA": 1.0,
-        "AA": 1.0,
-        "UA": 1.0,
-        "AC": 1.0,
-        "TK": 1.0,
-        "VS": 1.0,
-    },
-}
+# Transfer graph: all commercial airlines (from src.data.award_programs)
+transfer_graph = DEFAULT_TRANSFER_GRAPH
 transfer_bonuses = {("amex", "AF"): 1.25}  # e.g., 25% Amex->AF promo
 
 # -----------------------------

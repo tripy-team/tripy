@@ -1,6 +1,6 @@
 from typing import Dict, Any, List
 from boto3.dynamodb.conditions import Key
-from ..config import TRIP_MEMBERS_TABLE
+from src.config import TRIP_MEMBERS_TABLE
 from .ddb import table
 
 t = table(TRIP_MEMBERS_TABLE)

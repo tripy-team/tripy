@@ -1,5 +1,5 @@
 from typing import Dict, Any, List
-from ..repos import trip_member_repo
+from src.repos import trip_member_repo
 from .trip_service import get_trip_by_invite
 
 

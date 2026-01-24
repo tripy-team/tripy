@@ -1,4 +1,7 @@
 # backend/ilp_adapter.py  (edges -> ILP inputs; user-selected meetup cities)
+from src.utils.card_benefits import build_edge_to_airline
+
+
 def _is_bank_key(k, transfer_graph):
     return (
         isinstance(k, str)
@@ -181,6 +184,9 @@ def run_ilp_from_edges(
     *,
     meetup_cities=None,
     require_meetup_in_graph=True,
+    benefit_airlines=None,
+    bag_fee=35.0,
+    W_benefit=1e4,
     **adapter_kwargs,
 ):
     ilp_in = build_ilp_inputs_from_edges(
@@ -193,6 +199,7 @@ def run_ilp_from_edges(
         require_meetup_in_graph=require_meetup_in_graph,
         **adapter_kwargs,
     )
+    edge_to_airline = build_edge_to_airline(edges_dict)
     return plan_fn(
         ilp_in["travelers"],
         ilp_in["start_city"],
@@ -218,4 +225,8 @@ def run_ilp_from_edges(
         ilp_in["total_cash_seats"],
         ilp_in["award_seats"],
         ilp_in["meetup_cities"],
+        benefit_airlines=benefit_airlines,
+        edge_to_airline=edge_to_airline,
+        bag_fee=bag_fee,
+        W_benefit=W_benefit,
     )

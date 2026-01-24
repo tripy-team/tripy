@@ -1,83 +1,119 @@
 'use client';
 
-import { useState } from 'react';
+import { useState, useEffect } from 'react';
 import Link from 'next/link';
 import { Plus, Calendar, CreditCard, Users, Plane, TrendingUp } from 'lucide-react';
-import { TripCard } from '@/components/TripCard';
-import { ExploreMap } from '@/components/ExploreMap';
+import { TripCard } from '@/components/trip-card';
+import { Trip } from '@/types';
+import { trips as tripsAPI } from '@/lib/api';
+
+interface ApiTrip {
+  tripId: string;
+  title: string;
+  startDate: string;
+  endDate: string;
+  status: string;
+  createdBy: string;
+  role?: string;
+  memberCount?: number;
+  destinations?: string[];
+  firstDestination?: string;
+}
 
 export default function Dashboard() {
     const [viewMode, setViewMode] = useState<'trips' | 'explore'>('trips');
+    const [trips, setTrips] = useState<Trip[]>([]);
+    const [isLoading, setIsLoading] = useState(true);
+    // Note: Authentication is handled by the AppLayout component
 
-    // TODO: Replace with API call to fetch user's trips
-    // Endpoint needed: GET /trips (list user trips) or POST /trips/get for each trip
-    // Also fetch user profile: GET /users/me
-    // Mock trip data
-    const trips = [
-        {
-            id: '1',
-            name: 'Tokyo Adventure',
-            destination: 'Tokyo, Japan',
-            dates: 'Dec 20 - Dec 28, 2024',
-            status: 'upcoming' as const,
-            type: 'solo' as const,
-            pointsUsed: 85000,
-            cashSpent: 450,
-            thumbnail: 'https://images.unsplash.com/photo-1540959733332-eab4deabeeaf?w=800&q=80',
-            members: 1,
-            hotel: 'Park Hyatt Tokyo',
-            flightClass: 'Business'
-        },
-        {
-            id: '2',
-            name: 'European Summer',
-            destination: 'Paris, France',
-            dates: 'Jun 15 - Jun 25, 2025',
-            status: 'planning' as const,
-            type: 'group' as const,
-            pointsUsed: 120000,
-            cashSpent: 890,
-            thumbnail: 'https://images.unsplash.com/photo-1502602898657-3e91760cbb34?w=800&q=80',
-            members: 4,
-            hotel: 'Hôtel Plaza Athénée',
-            flightClass: 'Economy'
-        },
-        {
-            id: '3',
-            name: 'Bali Retreat',
-            destination: 'Bali, Indonesia',
-            dates: 'Mar 10 - Mar 20, 2025',
-            status: 'upcoming' as const,
-            type: 'solo' as const,
-            pointsUsed: 65000,
-            cashSpent: 320,
-            thumbnail: 'https://images.unsplash.com/photo-1537996194471-e657df975ab4?w=800&q=80',
-            members: 1,
-            hotel: 'Four Seasons Resort Bali',
-            flightClass: 'Economy'
-        },
-        {
-            id: '4',
-            name: 'NYC Business Trip',
-            destination: 'New York, USA',
-            dates: 'Feb 5 - Feb 8, 2025',
-            status: 'planning' as const,
-            type: 'solo' as const,
-            pointsUsed: 45000,
-            cashSpent: 200,
-            thumbnail: 'https://images.unsplash.com/photo-1496442226666-8d4d0e62e6e9?w=800&q=80',
-            members: 1,
-            hotel: 'The St. Regis New York',
-            flightClass: 'First Class'
-        }
-    ];
+    useEffect(() => {
+        const fetchTrips = async () => {
+            try {
+                setIsLoading(true);
+                const response = await tripsAPI.list();
+                
+                // Transform API trips to display format
+                const transformedTrips: Trip[] = response.trips.map((trip: ApiTrip) => {
+                    // Format dates
+                    const startDate = trip.startDate ? new Date(trip.startDate) : null;
+                    const endDate = trip.endDate ? new Date(trip.endDate) : null;
+                    const now = new Date();
+                    
+                    let datesStr = 'TBD';
+                    if (startDate && endDate) {
+                        datesStr = `${startDate.toLocaleDateString('en-US', { month: 'short', day: 'numeric' })} - ${endDate.toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric' })}`;
+                    } else if (startDate) {
+                        datesStr = startDate.toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric' });
+                    }
+                    
+                    // Determine status
+                    const isCompleted = endDate ? endDate < now : false;
+                    const status: 'completed' | 'upcoming' | 'planning' = isCompleted ? 'completed' : (trip.status === 'active' ? 'upcoming' : 'planning');
+                    
+                    // Determine trip type (group if multiple members, solo otherwise)
+                    const memberCount = trip.memberCount || 1;
+                    const tripType: 'solo' | 'group' = memberCount > 1 ? 'group' : 'solo';
+                    
+                    // Get destination name or use first destination
+                    const destinationName = trip.firstDestination || trip.title || 'Trip';
+                    
+                    // Use empty string as placeholder - TripCard component will load optimized image
+                    // via getOptimizedImageUrl which has proper fallback handling
+                    const thumbnail = '';
+                    
+                    return {
+                        id: trip.tripId,
+                        name: trip.title || destinationName,
+                        destination: destinationName,
+                        dates: datesStr,
+                        status: status,
+                        type: tripType,
+                        pointsUsed: 0, // TODO: Calculate from points data
+                        cashSaved: 0, // TODO: Calculate from points data
+                        thumbnail: thumbnail,
+                        members: memberCount,
+                        hotel: '', // TODO: Get from itinerary data
+                        flightClass: '' // TODO: Get from itinerary data
+                    };
+                });
+                
+                setTrips(transformedTrips);
+            } catch (err) {
+                console.error('Error fetching trips:', err);
+                // Keep empty array on error (don't show dummy data)
+                setTrips([]);
+            } finally {
+                setIsLoading(false);
+            }
+        };
 
+        fetchTrips();
+    }, []);
+
+    const completedTrips = trips.filter(t => t.status === 'completed');
     const upcomingTrips = trips.filter(t => t.status === 'upcoming');
-    const planningTrips = trips.filter(t => t.status === 'planning');
+    const confirmedTrips = trips.filter(t => (t.status === 'upcoming' || t.status === 'planning') as boolean);
 
     // Calculate stats
+    const totalCompletedTrips = completedTrips.length;
+    const totalUpcomingAndConfirmed = confirmedTrips.length;
     const totalPointsUsed = trips.reduce((sum, trip) => sum + trip.pointsUsed, 0);
-    const totalCashSpent = trips.reduce((sum, trip) => sum + trip.cashSpent, 0);
+    const totalCashSaved = trips.reduce((sum, trip) => sum + trip.cashSaved, 0);
+
+    if (isLoading) {
+        return (
+            <div className="min-h-full bg-gradient-to-br from-white via-blue-50/30 to-white">
+                <div className="max-w-7xl mx-auto px-8 py-8">
+                    <div className="flex items-center justify-center min-h-[400px]">
+                        <div className="text-center">
+                            <div className="inline-block animate-spin rounded-full h-8 w-8 border-b-2 border-blue-600"></div>
+                            <p className="mt-4 text-slate-600">Loading trips...</p>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        );
+    }
 
     return (
         <div className="min-h-full bg-gradient-to-br from-white via-blue-50/30 to-white">
@@ -90,14 +126,26 @@ export default function Dashboard() {
 
                 {/* Stats Overview */}
                 <div className="grid grid-cols-1 md:grid-cols-4 gap-4 mb-8">
+                    <div className="bg-gradient-to-br from-blue-500 to-blue-600 rounded-2xl p-6 shadow-lg">
+                        <div className="flex items-center gap-3 mb-2">
+                            <div className="w-10 h-10 bg-white/20 rounded-xl flex items-center justify-center">
+                                <Plane className="w-5 h-5 text-white" />
+                            </div>
+                            <div className="text-sm text-blue-100">Completed Trips</div>
+                        </div>
+                        <div className="text-4xl text-white font-bold">{totalCompletedTrips}</div>
+                        <div className="text-sm text-blue-100 mt-1">total completed</div>
+                    </div>
+
                     <div className="bg-white rounded-2xl p-6 border border-slate-200 shadow-sm">
                         <div className="flex items-center gap-3 mb-2">
-                            <div className="w-10 h-10 bg-blue-100 rounded-xl flex items-center justify-center">
-                                <Plane className="w-5 h-5 text-blue-600" />
+                            <div className="w-10 h-10 bg-purple-100 rounded-xl flex items-center justify-center">
+                                <Calendar className="w-5 h-5 text-purple-600" />
                             </div>
-                            <div className="text-sm text-slate-600">Total Trips</div>
+                            <div className="text-sm text-slate-600">Upcoming + Confirmed</div>
                         </div>
-                        <div className="text-3xl text-slate-900 font-semibold">{trips.length}</div>
+                        <div className="text-3xl text-slate-900 font-semibold">{totalUpcomingAndConfirmed}</div>
+                        <div className="text-sm text-slate-500 mt-1">trips planned</div>
                     </div>
 
                     <div className="bg-white rounded-2xl p-6 border border-slate-200 shadow-sm">
@@ -108,6 +156,7 @@ export default function Dashboard() {
                             <div className="text-sm text-slate-600">Points Used</div>
                         </div>
                         <div className="text-3xl text-slate-900 font-semibold">{totalPointsUsed.toLocaleString()}</div>
+                        <div className="text-sm text-slate-500 mt-1">across all trips</div>
                     </div>
 
                     <div className="bg-white rounded-2xl p-6 border border-slate-200 shadow-sm">
@@ -115,19 +164,25 @@ export default function Dashboard() {
                             <div className="w-10 h-10 bg-green-100 rounded-xl flex items-center justify-center">
                                 <TrendingUp className="w-5 h-5 text-green-600" />
                             </div>
-                            <div className="text-sm text-slate-600">Cash Spent</div>
+                            <div className="text-sm text-slate-600">Cash Saved</div>
                         </div>
-                        <div className="text-3xl text-slate-900 font-semibold">${totalCashSpent}</div>
+                        <div className="text-3xl text-green-600 font-semibold">${totalCashSaved.toLocaleString()}</div>
+                        <div className="text-sm text-slate-500 mt-1">vs paying cash</div>
                     </div>
+                </div>
 
-                    <div className="bg-white rounded-2xl p-6 border border-slate-200 shadow-sm">
-                        <div className="flex items-center gap-3 mb-2">
-                            <div className="w-10 h-10 bg-purple-100 rounded-xl flex items-center justify-center">
-                                <Calendar className="w-5 h-5 text-purple-600" />
-                            </div>
-                            <div className="text-sm text-slate-600">Upcoming</div>
+                {/* Value Proposition Banner */}
+                <div className="bg-gradient-to-r from-green-50 to-emerald-50 rounded-2xl p-6 mb-8 border border-green-200">
+                    <div className="flex items-center justify-between">
+                        <div>
+                            <h3 className="text-lg font-semibold text-slate-900 mb-1">You&apos;re maximizing your points!</h3>
+                            <p className="text-slate-600">You&apos;ve saved <span className="font-bold text-green-600">${totalCashSaved.toLocaleString()}</span> by using {totalPointsUsed.toLocaleString()} points instead of cash</p>
                         </div>
-                        <div className="text-3xl text-slate-900 font-semibold">{upcomingTrips.length}</div>
+                        <div className="hidden md:block">
+                            <div className="w-16 h-16 bg-green-500 rounded-full flex items-center justify-center">
+                                <TrendingUp className="w-8 h-8 text-white" />
+                            </div>
+                        </div>
                     </div>
                 </div>
 
@@ -203,12 +258,12 @@ export default function Dashboard() {
                             </div>
                         )}
 
-                        {/* Planning Trips */}
-                        {planningTrips.length > 0 && (
+                        {/* Completed Trips */}
+                        {completedTrips.length > 0 && (
                             <div>
-                                <h2 className="text-2xl mb-4 text-slate-900 font-semibold">In Planning</h2>
+                                <h2 className="text-2xl mb-4 text-slate-900 font-semibold">Completed Trips</h2>
                                 <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
-                                    {planningTrips.map(trip => (
+                                    {completedTrips.map(trip => (
                                         <TripCard key={trip.id} trip={trip} />
                                     ))}
                                 </div>
@@ -241,7 +296,9 @@ export default function Dashboard() {
                         )}
                     </div>
                 ) : (
-                    <ExploreMap />
+                    <div className="flex items-center justify-center h-64 text-slate-400">
+                        <p>No trips yet. Create your first trip to get started!</p>
+                    </div>
                 )}
             </div>
         </div>

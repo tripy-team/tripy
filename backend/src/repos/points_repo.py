@@ -1,6 +1,6 @@
 from typing import Dict, Any, List
 from boto3.dynamodb.conditions import Key
-from ..config import POINTS_TABLE
+from src.config import POINTS_TABLE
 from .ddb import table
 
 t = table(POINTS_TABLE)

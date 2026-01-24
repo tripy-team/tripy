@@ -1,27 +1,28 @@
-awscli==1.19.112
-botocore==1.20.112
-certifi==2021.10.8
-chardet==4.0.0
-colorama==0.4.3
-contextlib2==0.6.0.post1
-docutils==0.15.2
-futures==3.4.0
-idna==2.10
-httpx
-importlib-resources==3.3.1
-jmespath==0.10.0
-openai==0.6.4
-pathlib2==2.3.7.post1
-pyasn1==0.5.1
+#
+# Tripy root Python requirements
+# ------------------------------
+# This file is intended for environments that install dependencies from the
+# repository root (e.g. some CI/CD or container build setups).
+#
+# It combines backend dependencies (from backend/requirements.txt) and
+# additional libraries used by scripts like scripts/curate_city_images.py.
+#
+
+amadeus
+fastapi
+uvicorn
+
+boto3==1.35.0
+httpx==0.27.0
+pydantic[email]==2.8.2
 python-dateutil==2.9.0.post0
-PyYAML==5.4.1
-requests==2.27.1
-rsa==4.5
-s3transfer==0.4.2
-scandir==1.10.0
-singledispatch==3.7.0
-six==1.17.0
-tqdm==4.64.1
-typing==3.10.0.0
-urllib3==1.26.20
-zipp==1.2.0
+python-dotenv==1.0.0
+
+PyJWT==2.8.0
+cryptography>=3.4.8
+mangum>=0.17.0
+
+# Imaging & city image curation
+Pillow>=10.0.0
+requests>=2.0.0
+

@@ -7,7 +7,8 @@ from dotenv import load_dotenv
 
 load_dotenv()
 
-AWARD_TOOL_API_KEY = os.getenv("AWARD_TOOL_API_KEY")
+# Support AWARD_TOOL_API_KEY (our convention) and AWARDTOOL_API_KEY (AwardTool docs)
+AWARD_TOOL_API_KEY = os.getenv("AWARD_TOOL_API_KEY") or os.getenv("AWARDTOOL_API_KEY")
 AWARD_CAL_URL = "https://www.awardtool-api.com/panorama/panorama_calendar_data"
 
 TIMEOUT = httpx.Timeout(connect=5.0, read=20.0, write=5.0, pool=5)

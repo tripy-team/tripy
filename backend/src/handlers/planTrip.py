@@ -1,5 +1,9 @@
 from typing import List, Dict, Tuple, Set
-import pulp as pl
+
+try:
+    import pulp as pl
+except ModuleNotFoundError:
+    pl = None
 
 Edge = Tuple[str, str, str]
 
@@ -70,6 +74,9 @@ def plan_non_pooled_multi_itineraries_with_native(
         }
       }
     """
+    if pl is None:
+        raise ImportError("pulp package is not installed. Install it with: pip install pulp")
+    
     if total_cash_seats is None:
         total_cash_seats = {}
     if award_seats is None:
@@ -337,20 +344,41 @@ def plan_non_pooled_multi_itineraries_with_native(
                     + pl.lpSum(y_native[(q, p)][a][e] for q in T for p in T)
                 ) <= cap
 
-    # Objective
-    total_points = pl.lpSum(
-        y[(q, p)][(s, a)][e] * get_miles(a, e)
+    # Objective: Maximize Points Value
+    # Points value = cash saved by using points instead of paying cash
+    # For each edge paid with points: value = (cash_cost - surcharge)
+    # This maximizes the value we get from our points
+    
+    def get_points_value(airline, edge):
+        """Calculate points value: (cash_cost - surcharge) when using points"""
+        miles = get_miles(airline, edge)
+        if miles <= 0 or miles >= INF:
+            return 0.0
+        cash = cash_cost.get(edge, 0.0)
+        sur = get_tax(airline, edge)
+        if sur >= INF:
+            sur = 0.0
+        cash_saved = cash - sur
+        return max(0.0, cash_saved)
+    
+    # Points value = cash saved by using points
+    points_value_expr = pl.lpSum(
+        y[(q, p)][(s, a)][e] * (cash_cost.get(e, 0.0) - get_tax(a, e))
         for q in T
         for p in T
         for (s, a) in y[(q, p)].keys()
         for e in edges
+        if get_points_value(a, e) > 0  # Only use if value > 0
     ) + pl.lpSum(
-        y_native[(q, p)][a][e] * get_miles(a, e)
+        y_native[(q, p)][a][e] * (cash_cost.get(e, 0.0) - get_tax(a, e))
         for q in T
         for p in T
         for a in A
         for e in edges
+        if get_points_value(a, e) > 0  # Only use if value > 0
     )
+    
+    # Actual cash paid (cash bookings + surcharges on points bookings)
     total_cash_expr = (
         pl.lpSum(
             z[(q, p)][e] * cash_cost.get(e, 0.0) for q in T for p in T for e in edges
@@ -374,7 +402,9 @@ def plan_non_pooled_multi_itineraries_with_native(
         x[p][e] * time_cost.get(e, 0.0) for p in T for e in edges
     )
 
-    m += W1 * total_points - W2 * total_cash_expr - W3 * total_time_expr
+    # Maximize: (points_value - cash_paid - time_penalty)
+    # This prioritizes using points where they have high value
+    m += W1 * points_value_expr - W2 * total_cash_expr - W3 * total_time_expr
 
     # Solve
     m.solve(pl.PULP_CBC_CMD(msg=False))
@@ -391,6 +421,7 @@ def plan_non_pooled_multi_itineraries_with_native(
             "airline_points": 0.0,
             "cash": 0.0,
             "time": 0.0,
+            "points_value": 0.0,  # Total cash value saved by using points
             "transfers": {q: {} for q in T},  # transfers[q][source][airline] = {...}
             "native_used": {q: {} for q in T},  # native_used[q][airline] = miles
         },
@@ -416,6 +447,7 @@ def plan_non_pooled_multi_itineraries_with_native(
     tot_pts = 0.0
     tot_cash_val = 0.0
     tot_time = 0.0
+    tot_points_value = 0.0
     for p in T:
         for e in [tuple(edge) for edge in sol["edges"][p]]:  # back to tuple for lookups
             tot_time += time_cost.get(e, 0.0)
@@ -440,8 +472,13 @@ def plan_non_pooled_multi_itineraries_with_native(
                     if pl.value(y[(q, p)][(s, a)][e]) > 0.5:
                         miles = float(get_miles(a, e))
                         sur = float(get_tax(a, e))
+                        cash_val = float(cash_cost.get(e, 0.0))
+                        points_value = max(0.0, cash_val - sur)
+                        
                         tot_pts += miles
                         tot_cash_val += sur
+                        tot_points_value += points_value
+                        
                         sol["pay_mode"][p].append(
                             {
                                 "edge": [e[0], e[1], e[2]],
@@ -450,6 +487,8 @@ def plan_non_pooled_multi_itineraries_with_native(
                                 "via": {"source": s, "airline": a},
                                 "miles": miles,
                                 "surcharge": sur,
+                                "points_value": points_value,
+                                "cents_per_point": (points_value * 100.0) / miles if miles > 0 else 0.0,
                             }
                         )
                         paid = True
@@ -461,8 +500,13 @@ def plan_non_pooled_multi_itineraries_with_native(
                     if pl.value(y_native[(q, p)][a][e]) > 0.5:
                         miles = float(get_miles(a, e))
                         sur = float(get_tax(a, e))
+                        cash_val = float(cash_cost.get(e, 0.0))
+                        points_value = max(0.0, cash_val - sur)
+                        
                         tot_pts += miles
                         tot_cash_val += sur
+                        tot_points_value += points_value
+                        
                         sol["pay_mode"][p].append(
                             {
                                 "edge": [e[0], e[1], e[2]],
@@ -471,6 +515,8 @@ def plan_non_pooled_multi_itineraries_with_native(
                                 "via": {"native": a},
                                 "miles": miles,
                                 "surcharge": sur,
+                                "points_value": points_value,
+                                "cents_per_point": (points_value * 100.0) / miles if miles > 0 else 0.0,
                             }
                         )
                         paid = True
@@ -500,4 +546,5 @@ def plan_non_pooled_multi_itineraries_with_native(
     sol["totals"]["airline_points"] = float(tot_pts)
     sol["totals"]["cash"] = float(tot_cash_val)
     sol["totals"]["time"] = float(tot_time)
+    sol["totals"]["points_value"] = float(tot_points_value)
     return sol

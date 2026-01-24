@@ -1,5 +1,12 @@
 boto3==1.35.0
 httpx==0.27.0
-pydantic==2.8.2
+pydantic[email]==2.8.2
 python-dateutil==2.9.0.post0
 python-dotenv==1.0.0
+amadeus
+fastapi
+uvicorn
+PyJWT==2.8.0
+cryptography>=3.4.8
+Pillow>=10.0.0
+mangum>=0.17.0
