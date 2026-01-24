@@ -501,6 +501,13 @@ export const trips = {
       body: JSON.stringify({ trip_id }),
     });
   },
+
+  delete: async (trip_id: string): Promise<{ ok: boolean }> => {
+    return apiRequest<{ ok: boolean }>('/trips/delete', {
+      method: 'DELETE',
+      body: JSON.stringify({ trip_id }),
+    });
+  },
 };
 
 // Destination autocomplete suggestion shape from /api/destinations/autocomplete (SerpAPI + fuzzy)

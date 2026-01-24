@@ -1,6 +1,6 @@
 'use client';
 
-import { Plane, Calendar, MapPin, CreditCard, Users, User } from 'lucide-react';
+import { Plane, Calendar, MapPin, CreditCard, Users, User, Trash2, MoreVertical, Edit } from 'lucide-react';
 import Link from 'next/link';
 import { useRouter } from 'next/navigation';
 import { useEffect, useState } from 'react';
@@ -35,6 +35,10 @@ export default function MyTripsPage() {
   const router = useRouter();
   const [trips, setTrips] = useState<Trip[]>([]);
   const [isLoading, setIsLoading] = useState(true);
+  const [deletingTripId, setDeletingTripId] = useState<string | null>(null);
+  const [showDeleteModal, setShowDeleteModal] = useState(false);
+  const [tripToDelete, setTripToDelete] = useState<Trip | null>(null);
+  const [openMenuId, setOpenMenuId] = useState<string | null>(null);
 
   useEffect(() => {
     const fetchTrips = async () => {
@@ -99,16 +103,95 @@ export default function MyTripsPage() {
     fetchTrips();
   }, []);
 
+  const handleDeleteClick = (trip: Trip, e: React.MouseEvent) => {
+    e.stopPropagation();
+    setTripToDelete(trip);
+    setShowDeleteModal(true);
+    setOpenMenuId(null);
+  };
+
+  const handleDeleteConfirm = async () => {
+    if (!tripToDelete) return;
+
+    try {
+      setDeletingTripId(tripToDelete.id);
+      await tripsAPI.delete(tripToDelete.id);
+      
+      // Remove trip from state
+      setTrips(trips.filter(t => t.id !== tripToDelete.id));
+      setShowDeleteModal(false);
+      setTripToDelete(null);
+    } catch (err) {
+      console.error('Error deleting trip:', err);
+      alert('Failed to delete trip. Please try again.');
+    } finally {
+      setDeletingTripId(null);
+    }
+  };
+
+  const handleDeleteCancel = () => {
+    setShowDeleteModal(false);
+    setTripToDelete(null);
+  };
+
+  const toggleMenu = (tripId: string, e: React.MouseEvent) => {
+    e.stopPropagation();
+    setOpenMenuId(openMenuId === tripId ? null : tripId);
+  };
+
+  // Close menu when clicking outside
+  useEffect(() => {
+    const handleClickOutside = () => setOpenMenuId(null);
+    if (openMenuId) {
+      document.addEventListener('click', handleClickOutside);
+      return () => document.removeEventListener('click', handleClickOutside);
+    }
+  }, [openMenuId]);
+
   const upcomingTrips = trips.filter(t => t.status === 'upcoming');
   const pastTrips = trips.filter(t => t.status === 'completed');
 
   const TripCard = ({ trip }: { trip: Trip }) => (
-    <div
-      onClick={() => router.push(`/trips/${trip.id}`)}
-      className="group overflow-hidden border border-slate-200 rounded-xl hover:shadow-lg transition-all duration-300 bg-white cursor-pointer"
-    >
+    <div className="group overflow-hidden border border-slate-200 rounded-xl hover:shadow-lg transition-all duration-300 bg-white relative">
+      {/* Actions Menu Button */}
+      <div className="absolute top-3 right-3 z-10">
+        <button
+          onClick={(e) => toggleMenu(trip.id, e)}
+          className="p-2 rounded-lg bg-white/90 hover:bg-white border border-slate-200 shadow-sm transition-all"
+        >
+          <MoreVertical className="w-4 h-4 text-slate-600" />
+        </button>
+        
+        {/* Dropdown Menu */}
+        {openMenuId === trip.id && (
+          <div className="absolute right-0 mt-2 w-48 bg-white rounded-lg shadow-lg border border-slate-200 py-1">
+            <button
+              onClick={(e) => {
+                e.stopPropagation();
+                setOpenMenuId(null);
+                router.push(`/trips/${trip.id}`);
+              }}
+              className="w-full px-4 py-2 text-left text-sm text-slate-700 hover:bg-slate-50 flex items-center gap-2"
+            >
+              <Edit className="w-4 h-4" />
+              View Details
+            </button>
+            <button
+              onClick={(e) => handleDeleteClick(trip, e)}
+              className="w-full px-4 py-2 text-left text-sm text-red-600 hover:bg-red-50 flex items-center gap-2"
+            >
+              <Trash2 className="w-4 h-4" />
+              Delete Trip
+            </button>
+          </div>
+        )}
+      </div>
+
       {/* Content Section */}
-      <div className="flex flex-col p-4 gap-2">
+      <div 
+        onClick={() => router.push(`/trips/${trip.id}`)}
+        className="flex flex-col p-4 gap-2 cursor-pointer"
+      >
         {/* Top: Header Info */}
         <div className="flex justify-between items-start gap-2">
           <div className="min-w-0">
@@ -224,6 +307,59 @@ export default function MyTripsPage() {
           </div>
         )}
       </div>
+
+      {/* Delete Confirmation Modal */}
+      {showDeleteModal && tripToDelete && (
+        <div className="fixed inset-0 bg-black/50 flex items-center justify-center z-50 p-4">
+          <div className="bg-white rounded-2xl max-w-md w-full p-6 shadow-xl">
+            <div className="flex items-center gap-3 mb-4">
+              <div className="w-12 h-12 bg-red-100 rounded-full flex items-center justify-center">
+                <Trash2 className="w-6 h-6 text-red-600" />
+              </div>
+              <div>
+                <h3 className="text-lg font-bold text-slate-900">Delete Trip</h3>
+                <p className="text-sm text-slate-500">This action cannot be undone</p>
+              </div>
+            </div>
+            
+            <div className="mb-6">
+              <p className="text-slate-700 mb-2">
+                Are you sure you want to delete <span className="font-semibold">{tripToDelete.destination}</span>?
+              </p>
+              <p className="text-sm text-slate-500">
+                All trip data, including destinations, itineraries, and points information will be permanently removed.
+              </p>
+            </div>
+
+            <div className="flex gap-3">
+              <button
+                onClick={handleDeleteCancel}
+                disabled={deletingTripId !== null}
+                className="flex-1 px-4 py-3 bg-slate-100 text-slate-700 rounded-xl font-medium hover:bg-slate-200 transition-colors disabled:opacity-50"
+              >
+                Cancel
+              </button>
+              <button
+                onClick={handleDeleteConfirm}
+                disabled={deletingTripId !== null}
+                className="flex-1 px-4 py-3 bg-red-600 text-white rounded-xl font-medium hover:bg-red-700 transition-colors disabled:opacity-50 flex items-center justify-center gap-2"
+              >
+                {deletingTripId ? (
+                  <>
+                    <div className="w-4 h-4 border-2 border-white border-t-transparent rounded-full animate-spin" />
+                    Deleting...
+                  </>
+                ) : (
+                  <>
+                    <Trash2 className="w-4 h-4" />
+                    Delete Trip
+                  </>
+                )}
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
     </div>
   );
 }
