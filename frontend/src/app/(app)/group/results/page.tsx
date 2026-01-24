@@ -2,7 +2,7 @@
 
 import { useState, useEffect } from 'react';
 import { useRouter, useSearchParams } from 'next/navigation';
-import { MapPin, DollarSign, Clock, Zap, Users, Sparkles, TrendingUp } from 'lucide-react';
+import { MapPin, DollarSign, Clock, Zap, Users, Sparkles, TrendingUp, Plane, Car, Bus, Train, Navigation, Calendar, Info } from 'lucide-react';
 import { itineraries as itinerariesAPI, trips as tripsAPI, points as pointsAPI, ItineraryItem } from '@/lib/api';
 
 interface Itinerary {
@@ -12,6 +12,106 @@ interface Itinerary {
     totalCostPerPerson: number;
     pointsCost: number;
     score: number;
+}
+
+interface AIRouteSuggestion {
+    title: string;
+    steps: Array<{ from_place: string; to_place: string; method: string; note: string }>;
+    summary: string;
+}
+
+interface SmartTips {
+    transfer_tips: Array<{ from_program?: string; to_program?: string; best_for?: string; note?: string }>;
+    sample_itineraries: Array<{ title?: string; description?: string; savings_estimate?: string; when_to_book?: string }>;
+    holiday_advice: Array<{ period?: string; advice?: string; avoid_or_prefer?: string }>;
+    practical_tips: Array<{ category?: string; tip?: string }>;
+}
+
+const emptySmartTips: SmartTips = { transfer_tips: [], sample_itineraries: [], holiday_advice: [], practical_tips: [] };
+
+function SmartTipsBlock({ tips }: { tips: SmartTips }) {
+    const has = tips.transfer_tips.length > 0 || tips.sample_itineraries.length > 0 || tips.holiday_advice.length > 0 || tips.practical_tips.length > 0;
+    if (!has) return null;
+    return (
+        <div className="mt-10 pt-8 border-t border-slate-200">
+            <h2 className="text-xl font-semibold text-slate-900 mb-4 flex items-center gap-2">
+                <Sparkles className="w-5 h-5 text-amber-500" />
+                Smart tips for your trip
+            </h2>
+            <div className="grid sm:grid-cols-2 gap-6">
+                {tips.transfer_tips.length > 0 && (
+                    <div className="bg-white border border-slate-200 rounded-xl p-4">
+                        <h3 className="font-medium text-slate-900 mb-2 flex items-center gap-2">
+                            <Zap className="w-4 h-4 text-blue-600" />
+                            Where to transfer points
+                        </h3>
+                        <ul className="space-y-2 text-sm text-slate-700">
+                            {tips.transfer_tips.map((t, i) => (
+                                <li key={i}>
+                                    <span className="font-medium">{t.from_program || 'Points'}</span>
+                                    <span className="text-slate-500 mx-1">→</span>
+                                    <span className="font-medium">{t.to_program}</span>
+                                    {t.best_for && <span className="text-slate-500"> ({t.best_for})</span>}
+                                    {t.note && <span className="block text-slate-600 mt-0.5">{t.note}</span>}
+                                </li>
+                            ))}
+                        </ul>
+                    </div>
+                )}
+                {tips.sample_itineraries.length > 0 && (
+                    <div className="bg-white border border-slate-200 rounded-xl p-4">
+                        <h3 className="font-medium text-slate-900 mb-2 flex items-center gap-2">
+                            <DollarSign className="w-4 h-4 text-green-600" />
+                            Sample itineraries to save
+                        </h3>
+                        <ul className="space-y-2 text-sm text-slate-700">
+                            {tips.sample_itineraries.map((s, i) => (
+                                <li key={i}>
+                                    <span className="font-medium">{s.title}</span>
+                                    <span className="block text-slate-600">{s.description}</span>
+                                    {s.savings_estimate && <span className="text-green-700 text-xs">~{s.savings_estimate}</span>}
+                                    {s.when_to_book && <span className="block text-slate-500 text-xs">{s.when_to_book}</span>}
+                                </li>
+                            ))}
+                        </ul>
+                    </div>
+                )}
+                {tips.holiday_advice.length > 0 && (
+                    <div className="bg-white border border-slate-200 rounded-xl p-4">
+                        <h3 className="font-medium text-slate-900 mb-2 flex items-center gap-2">
+                            <Calendar className="w-4 h-4 text-amber-600" />
+                            Holiday &amp; seasonal
+                        </h3>
+                        <ul className="space-y-2 text-sm text-slate-700">
+                            {tips.holiday_advice.map((h, i) => (
+                                <li key={i}>
+                                    <span className="font-medium">{h.period}</span>
+                                    {h.avoid_or_prefer && <span className="text-amber-700 text-xs ml-1">({h.avoid_or_prefer})</span>}
+                                    <span className="block text-slate-600">{h.advice}</span>
+                                </li>
+                            ))}
+                        </ul>
+                    </div>
+                )}
+                {tips.practical_tips.length > 0 && (
+                    <div className="bg-white border border-slate-200 rounded-xl p-4 sm:col-span-2">
+                        <h3 className="font-medium text-slate-900 mb-2 flex items-center gap-2">
+                            <Info className="w-4 h-4 text-slate-600" />
+                            Practical: transfer timing, closing hours
+                        </h3>
+                        <ul className="space-y-2 text-sm text-slate-700">
+                            {tips.practical_tips.map((p, i) => (
+                                <li key={i}>
+                                    {p.category && <span className="font-medium text-slate-800">{p.category}: </span>}
+                                    {p.tip}
+                                </li>
+                            ))}
+                        </ul>
+                    </div>
+                )}
+            </div>
+        </div>
+    );
 }
 
 export default function GroupResults() {
@@ -24,6 +124,18 @@ export default function GroupResults() {
     const [loading, setLoading] = useState(true);
     const [groupSize, setGroupSize] = useState(4);
     const [members, setMembers] = useState<Array<{ id: string; name: string; initials: string; totalPoints: number; color: string }>>([]);
+    const [aiSuggestions, setAiSuggestions] = useState<AIRouteSuggestion[]>([]);
+    const [isAiSuggested, setIsAiSuggested] = useState(false);
+    const [smartTips, setSmartTips] = useState<SmartTips>(emptySmartTips);
+
+    const stepIcon = (method: string) => {
+        const m = (method || '').toLowerCase();
+        if (m.includes('fly') || m.includes('flight')) return <Plane className="w-4 h-4 text-blue-600" />;
+        if (m.includes('drive') || m.includes('car')) return <Car className="w-4 h-4 text-amber-600" />;
+        if (m.includes('bus')) return <Bus className="w-4 h-4 text-green-600" />;
+        if (m.includes('train') || m.includes('rail')) return <Train className="w-4 h-4 text-slate-600" />;
+        return <Navigation className="w-4 h-4 text-slate-500" />;
+    };
 
     useEffect(() => {
         const fetchData = async () => {
@@ -34,27 +146,26 @@ export default function GroupResults() {
 
             try {
                 setLoading(true);
-                
+                setAiSuggestions([]);
+                setIsAiSuggested(false);
+                setSmartTips(emptySmartTips);
+
                 // Fetch group size and members from trip members
                 const membersResponse = await tripsAPI.listMembers(tripId);
                 const memberCount = membersResponse.members.length || 4;
                 setGroupSize(memberCount);
-                
+
                 // Fetch points summary to get points per user
                 const pointsResponse = await pointsAPI.summary(tripId);
-                
+
                 // Transform members data with points
                 const colorClasses = ['bg-blue-600', 'bg-purple-600', 'bg-green-600', 'bg-orange-600', 'bg-pink-600', 'bg-indigo-600'];
                 const transformedMembers = membersResponse.members.map((member, index) => {
                     const userId = member.userId || '';
-                    // API may not return name, so use a fallback
                     const name = member.name || `Member ${index + 1}`;
                     const initials = name.split(' ').map(n => n[0]).join('').toUpperCase().substring(0, 2) || userId.substring(0, 2).toUpperCase();
-                    
-                    // Get points for this user from points summary
                     const userPoints = pointsResponse.items?.filter((item: { userId?: string }) => item.userId === userId) || [];
                     const totalPoints = userPoints.reduce((sum: number, item: { balance?: number }) => sum + (item.balance || 0), 0);
-                    
                     return {
                         id: userId,
                         name: name,
@@ -64,23 +175,52 @@ export default function GroupResults() {
                     };
                 });
                 setMembers(transformedMembers);
-                
+
                 // Fetch itineraries
                 const response = await itinerariesAPI.get(tripId);
-                
-                // Transform API response to display format
-                if (response.items && Array.isArray(response.items) && response.items.length > 0) {
-                    const transformed: Itinerary[] = response.items.map((item: ItineraryItem, index: number) => {
+
+                // Check for AI route suggestions (small/remote cities with no flight data)
+                const aiItem = response.items?.find((i: ItineraryItem & { type?: string }) => i.type === 'ai_route_suggestions');
+                if (aiItem && (aiItem as { suggestions?: AIRouteSuggestion[] }).suggestions?.length) {
+                    setAiSuggestions((aiItem as { suggestions: AIRouteSuggestion[] }).suggestions);
+                    setSmartTips({
+                        transfer_tips: Array.isArray((aiItem as any).transfer_tips) ? (aiItem as any).transfer_tips : [],
+                        sample_itineraries: Array.isArray((aiItem as any).sample_itineraries) ? (aiItem as any).sample_itineraries : [],
+                        holiday_advice: Array.isArray((aiItem as any).holiday_advice) ? (aiItem as any).holiday_advice : [],
+                        practical_tips: Array.isArray((aiItem as any).practical_tips) ? (aiItem as any).practical_tips : [],
+                    });
+                    setIsAiSuggested(true);
+                    setItineraries([]);
+                    setLoading(false);
+                    return;
+                }
+
+                // Extract smart tips from itinerary_smart_tips item
+                const tipsItem = response.items?.find((i: ItineraryItem & { type?: string }) => i.type === 'itinerary_smart_tips');
+                if (tipsItem && typeof tipsItem === 'object') {
+                    const t = tipsItem as Record<string, unknown>;
+                    setSmartTips({
+                        transfer_tips: Array.isArray(t.transfer_tips) ? t.transfer_tips as SmartTips['transfer_tips'] : [],
+                        sample_itineraries: Array.isArray(t.sample_itineraries) ? t.sample_itineraries as SmartTips['sample_itineraries'] : [],
+                        holiday_advice: Array.isArray(t.holiday_advice) ? t.holiday_advice as SmartTips['holiday_advice'] : [],
+                        practical_tips: Array.isArray(t.practical_tips) ? t.practical_tips as SmartTips['practical_tips'] : [],
+                    });
+                }
+
+                // Transform API response (exclude ai_route_suggestions and itinerary_smart_tips)
+                const regularItems = (response.items || []).filter(
+                    (i: ItineraryItem & { type?: string }) => i.type !== 'ai_route_suggestions' && i.type !== 'itinerary_smart_tips'
+                );
+                if (regularItems.length > 0) {
+                    const transformed: Itinerary[] = regularItems.map((item: ItineraryItem, index: number) => {
                         const route = item.route || item.cities || [];
-                        const cities = Array.isArray(route) 
+                        const cities = Array.isArray(route)
                             ? route.map((city: string | { name: string; days: number }) => {
-                                if (typeof city === 'string') {
-                                    return { name: city, days: 3 };
-                                }
+                                if (typeof city === 'string') return { name: city, days: 3 };
                                 return city;
                             })
                             : [];
-                        
+
                         return {
                             id: index + 1,
                             name: item.name || `Itinerary ${index + 1}`,
@@ -90,7 +230,7 @@ export default function GroupResults() {
                             score: item.score || 85,
                         };
                     });
-                    
+
                     setItineraries(transformed);
                     if (transformed.length > 0) {
                         setSelectedId(transformed[0].id);
@@ -120,6 +260,52 @@ export default function GroupResults() {
                     </div>
                     <h2 className="text-2xl mb-2 text-slate-900 font-semibold">Generating group itineraries</h2>
                     <p className="text-slate-600">Combining budgets, optimizing points, finding best routes...</p>
+                </div>
+            </div>
+        );
+    }
+
+    // AI-suggested routes for small/remote cities (no flight search data)
+    if (isAiSuggested && aiSuggestions.length > 0) {
+        return (
+            <div className="min-h-full p-8 bg-gradient-to-br from-white via-blue-50/20 to-white">
+                <div className="max-w-4xl mx-auto">
+                    <div className="mb-8">
+                        <div className="inline-flex items-center gap-2 px-3 py-1 bg-amber-100 rounded-full text-sm text-amber-800 mb-4 font-medium">
+                            <Sparkles className="w-4 h-4" />
+                            Suggested routes for small or remote destinations
+                        </div>
+                        <h1 className="text-4xl mb-2 tracking-tight text-slate-900 font-bold">Route Suggestions</h1>
+                        <p className="text-slate-600">
+                            We don&apos;t have flight data for these destinations, so we used AI to suggest practical ways to get there.
+                        </p>
+                    </div>
+                    <div className="space-y-6">
+                        {aiSuggestions.map((s, idx) => (
+                            <div key={idx} className="bg-white border border-slate-200 rounded-2xl p-6 shadow-sm">
+                                <h3 className="text-xl text-slate-900 font-semibold mb-4">{s.title}</h3>
+                                <ul className="space-y-3 mb-4">
+                                    {s.steps.map((step, i) => (
+                                        <li key={i} className="flex items-start gap-3">
+                                            <span className="mt-0.5">{stepIcon(step.method)}</span>
+                                            <div>
+                                                <span className="font-medium text-slate-900">{step.from_place}</span>
+                                                <span className="text-slate-400 mx-2">→</span>
+                                                <span className="font-medium text-slate-900">{step.to_place}</span>
+                                                <span className="text-slate-500 text-sm ml-1">({step.method})</span>
+                                                {step.note && <p className="text-sm text-slate-600 mt-1">{step.note}</p>}
+                                            </div>
+                                        </li>
+                                    ))}
+                                </ul>
+                                {s.summary && <p className="text-slate-600 text-sm border-t border-slate-100 pt-4">{s.summary}</p>}
+                            </div>
+                        ))}
+                    </div>
+                    <SmartTipsBlock tips={smartTips} />
+                    <p className="mt-8 text-sm text-slate-500">
+                        Use these as a starting point. Book flights and ground transport separately. For the best fares, search from the suggested hubs on your preferred booking site.
+                    </p>
                 </div>
             </div>
         );
@@ -329,11 +515,20 @@ export default function GroupResults() {
                                             Select & Optimize
                                         </button>
                                     )}
+                                    {tripId && (
+                                        <button
+                                            onClick={() => router.push(`/group/itinerary?trip_id=${tripId}`)}
+                                            className="w-full mt-3 px-6 py-2.5 bg-white/10 text-white rounded-xl hover:bg-white/20 transition-colors text-sm font-medium"
+                                        >
+                                            View trip itinerary
+                                        </button>
+                                    )}
                                 </div>
                             </div>
                         </div>
                     )}
                 </div>
+                <SmartTipsBlock tips={smartTips} />
             </div>
         </div>
     );

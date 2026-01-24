@@ -331,6 +331,8 @@ export interface CitySuggestion {
   region?: string;
   country?: string;
   airport_code?: string;
+  /** When present: ["flight","bus","car"] or ["bus","car"] for ground-only (no airport) */
+  transport_modes?: string[];
   lat?: number | null;
   lng?: number | null;
 }
@@ -548,6 +550,43 @@ export const itineraries = {
   },
 };
 
+export interface HotelSearchResult {
+  hotel_id: string;
+  name: string;
+  brand: string;
+  program_code?: string | null;
+  cash_cost?: number | null;
+  points_cost?: number | null;
+  surcharge?: number | null;
+  star_rating?: unknown;
+  address?: string;
+}
+
+export interface HotelSearchParams {
+  destination: string;
+  check_in: string;
+  check_out: string;
+  programs?: string[] | null;
+  guests?: number;
+  hotel_class?: string | null;
+}
+
+export const hotels = {
+  search: async (params: HotelSearchParams): Promise<{ hotels: HotelSearchResult[] }> => {
+    return apiRequest<{ hotels: HotelSearchResult[] }>('/hotels/search', {
+      method: 'POST',
+      body: JSON.stringify({
+        destination: params.destination,
+        check_in: params.check_in,
+        check_out: params.check_out,
+        programs: params.programs ?? undefined,
+        guests: params.guests ?? 1,
+        hotel_class: params.hotel_class ?? undefined,
+      }),
+    });
+  },
+};
+
 // City Search API (public, no auth required)
 export const cities = {
   search: async (query: string, maxResults: number = 10): Promise<{ cities: CitySearchResult[] }> => {
@@ -655,6 +694,8 @@ export interface UserProfile {
     id: string;
     program: string;
     points: number;
+    /** Optional card product (e.g. "Delta SkyMiles Gold Amex") for benefit-aware optimization */
+    card_product?: string;
   }>;
   flight_class?: string;
   hotel_class?: string;
@@ -671,6 +712,7 @@ export interface UpdateProfileRequest {
     id: string;
     program: string;
     points: number;
+    card_product?: string;
   }>;
   flight_class?: string;
   hotel_class?: string;
@@ -705,6 +747,7 @@ export const upsertPoints = points.upsert;
 export const getPointsSummary = points.summary;
 export const generateItinerary = itineraries.generate;
 export const getItinerary = itineraries.get;
+export const searchHotels = hotels.search;
 export const searchCities = cities.search;
 
 // Trip Information Extraction API (public, no auth required)

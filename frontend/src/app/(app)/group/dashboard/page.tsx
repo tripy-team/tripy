@@ -1,11 +1,13 @@
 'use client';
 
 import { useState } from 'react';
-import { useRouter } from 'next/navigation';
+import { useRouter, useSearchParams } from 'next/navigation';
 import { Users, DollarSign, Zap, MapPin, CheckCircle, Clock, Sparkles, Plus, X } from 'lucide-react';
 
 export default function GroupDashboard() {
     const router = useRouter();
+    const searchParams = useSearchParams();
+    const tripId = searchParams?.get('trip_id') || '';
     const [destinations, setDestinations] = useState<string[]>(['Paris', 'Barcelona', 'Rome', 'Amsterdam']);
     const [newDestination, setNewDestination] = useState('');
 
@@ -217,16 +219,22 @@ export default function GroupDashboard() {
                                     Generate Itineraries
                                 </button>
                                 <p className="text-xs text-blue-100 text-center">Or jump to:</p>
-                                <div className="flex gap-2 mt-2">
+                                <div className="flex flex-wrap gap-2 mt-2">
+                                    <button
+                                        onClick={() => router.push(tripId ? `/group/itinerary?trip_id=${tripId}` : '/group/itinerary')}
+                                        className="flex-1 min-w-0 px-3 py-2 bg-white/10 rounded-lg hover:bg-white/20 transition-colors text-xs"
+                                    >
+                                        Itinerary
+                                    </button>
                                     <button
                                         onClick={() => router.push('/group/voting')}
-                                        className="flex-1 px-3 py-2 bg-white/10 rounded-lg hover:bg-white/20 transition-colors text-xs"
+                                        className="flex-1 min-w-0 px-3 py-2 bg-white/10 rounded-lg hover:bg-white/20 transition-colors text-xs"
                                     >
                                         Voting
                                     </button>
                                     <button
                                         onClick={() => router.push('/group/comparison')}
-                                        className="flex-1 px-3 py-2 bg-white/10 rounded-lg hover:bg-white/20 transition-colors text-xs"
+                                        className="flex-1 min-w-0 px-3 py-2 bg-white/10 rounded-lg hover:bg-white/20 transition-colors text-xs"
                                     >
                                         Compare
                                     </button>

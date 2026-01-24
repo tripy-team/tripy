@@ -2,7 +2,7 @@
 
 import { useState, use, useEffect } from 'react';
 import { useRouter } from 'next/navigation';
-import { DollarSign, Zap, Users, Calendar, Plane, MessageSquare, Bed, Backpack, Armchair, Coffee, Wine, Crown, BedDouble, Star, User, Baby, Info, Copy, ChevronDown } from 'lucide-react';
+import { DollarSign, Zap, Users, Calendar, Plane, MessageSquare, Bed, Backpack, Armchair, Coffee, Wine, Crown, BedDouble, Star, User, Baby, Info, Copy, ChevronDown, Luggage } from 'lucide-react';
 import { trips as tripsAPI, points as pointsAPI } from '@/lib/api';
 import AirportAutocomplete from '@/components/ui/AirportAutocomplete';
 
@@ -63,6 +63,7 @@ export default function GroupMemberJoin({ params }: { params: Promise<{ inviteCo
     const [flightClass, setFlightClass] = useState('economy');
     const [hotelClass, setHotelClass] = useState('4');
     const [roomOccupancy, setRoomOccupancy] = useState(1);
+    const [bags, setBags] = useState(1);
     const [startDate, setStartDate] = useState('');
     const [endDate, setEndDate] = useState('');
     const [meetupNote, setMeetupNote] = useState('');
@@ -527,6 +528,39 @@ export default function GroupMemberJoin({ params }: { params: Promise<{ inviteCo
                                                 </button>
                                             );
                                         })}
+                                    </div>
+                                </div>
+
+                                {/* Number of Bags */}
+                                <div>
+                                    <label className="block text-sm text-slate-600 mb-3 font-medium uppercase tracking-wider">Number of Bags</label>
+                                    <div className="flex items-center justify-between p-4 bg-slate-50 rounded-xl border border-slate-200 max-w-md">
+                                        <div className="flex items-center gap-3">
+                                            <div className="w-10 h-10 bg-white rounded-xl flex items-center justify-center border border-slate-200 text-slate-600">
+                                                <Luggage className="w-5 h-5" />
+                                            </div>
+                                            <div>
+                                                <div className="font-semibold text-slate-900">Checked bags</div>
+                                                <div className="text-xs text-slate-500">Total for your trip</div>
+                                            </div>
+                                        </div>
+                                        <div className="flex items-center gap-3">
+                                            <button
+                                                type="button"
+                                                onClick={() => setBags(Math.max(0, bags - 1))}
+                                                className="w-8 h-8 rounded-lg bg-white border border-slate-200 flex items-center justify-center hover:bg-slate-50 text-slate-600 transition-colors shadow-sm"
+                                            >
+                                                -
+                                            </button>
+                                            <span className="w-4 text-center font-semibold text-slate-900">{bags}</span>
+                                            <button
+                                                type="button"
+                                                onClick={() => setBags(Math.min(6, bags + 1))}
+                                                className="w-8 h-8 rounded-lg bg-white border border-slate-200 flex items-center justify-center hover:bg-slate-50 text-slate-600 transition-colors shadow-sm"
+                                            >
+                                                +
+                                            </button>
+                                        </div>
                                     </div>
                                 </div>
                             </div>

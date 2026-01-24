@@ -1,7 +1,7 @@
 'use client';
 
 import { useState, useEffect, useRef } from 'react';
-import { Plane } from 'lucide-react';
+import { Plane, Bus, Car } from 'lucide-react';
 import { locations, type CitySuggestion } from '@/lib/api';
 
 interface DestinationAutocompleteProps {
@@ -289,8 +289,21 @@ export function DestinationAutocomplete({
                   <div className="font-medium text-slate-900 truncate">
                     {highlightText(cityName, value.trim())}
                   </div>
-                  <div className="text-xs text-slate-500 truncate">
-                    {country} {region ? `• ${region}` : ''}
+                  <div className="text-xs text-slate-500 truncate flex items-center gap-1.5">
+                    <span>{country} {region ? `• ${region}` : ''}</span>
+                    {(() => {
+                      const modes = city.transport_modes || [];
+                      const hasFlight = modes.includes('flight');
+                      const hasGround = modes.includes('bus') || modes.includes('car');
+                      if (hasGround && !hasFlight) {
+                        return (
+                          <span className="inline-flex items-center gap-0.5 text-emerald-600" title="Reachable by bus or car">
+                            <Bus className="w-3 h-3" /><Car className="w-3 h-3" />
+                          </span>
+                        );
+                      }
+                      return null;
+                    })()}
                   </div>
                 </div>
               </button>

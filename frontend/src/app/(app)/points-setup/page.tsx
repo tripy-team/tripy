@@ -11,6 +11,8 @@ interface LoyaltyCard {
   program: string;
   points: number;
   category: 'credit' | 'hotel' | 'airline';
+  /** Optional card product (e.g. "Delta SkyMiles Gold Amex") for benefit-aware optimization (free bags, etc.) */
+  card_product?: string;
 }
 
 // Popular programs for quick selection
@@ -34,6 +36,7 @@ export default function PointsSetup() {
   const [newProgram, setNewProgram] = useState('');
   const [newPoints, setNewPoints] = useState('');
   const [newCategory, setNewCategory] = useState<ProgramCategory>('credit');
+  const [newCardProduct, setNewCardProduct] = useState('');
   const [showProgramDropdown, setShowProgramDropdown] = useState(false);
   const [programSearchQuery, setProgramSearchQuery] = useState('');
   const [isLoading, setIsLoading] = useState(true);
@@ -91,11 +94,13 @@ export default function PointsSetup() {
           // Determine category from program name
           const loadedCards: LoyaltyCard[] = profile.credit_cards.map(card => {
             const category = getProgramCategory(card.program) || 'credit';
+            const c = card as { card_product?: string; card_name?: string };
             return {
               id: card.id,
               program: card.program,
               points: card.points,
               category: category as 'credit' | 'hotel' | 'airline',
+              card_product: c.card_product || c.card_name,
             };
           });
           setCards(loadedCards);
@@ -121,6 +126,7 @@ export default function PointsSetup() {
             id: card.id,
             program: card.program,
             points: card.points,
+            ...(card.card_product ? { card_product: card.card_product } : {}),
           }));
           
           await usersAPI.updateProfile({
@@ -147,11 +153,13 @@ export default function PointsSetup() {
         program: programInfo?.value || newProgram.trim(),
         points: Number(newPoints.trim()),
         category: programInfo?.category || newCategory,
+        card_product: newCardProduct.trim() || undefined,
       };
       setCards([...cards, card]);
       setNewProgram('');
       setNewPoints('');
       setNewCategory('credit');
+      setNewCardProduct('');
       setShowAddModal(false);
     }
   };
@@ -261,11 +269,14 @@ export default function PointsSetup() {
                         </div>
                         <div>
                           <div className="text-slate-900 font-medium mb-0.5">{card.program}</div>
-                          <div className="flex items-center gap-2">
+                          <div className="flex items-center gap-2 flex-wrap">
                             <span className="text-sm text-slate-600">{card.points.toLocaleString()} points</span>
                             <span className={`text-xs px-2 py-0.5 rounded-full ${getCategoryColor(card.category)}`}>
                               {card.category}
                             </span>
+                            {card.card_product && (
+                              <span className="text-xs text-slate-500">• {card.card_product}</span>
+                            )}
                           </div>
                         </div>
                       </div>
@@ -404,6 +415,7 @@ export default function PointsSetup() {
                   setNewProgram('');
                   setNewPoints('');
                   setNewCategory('credit');
+                  setNewCardProduct('');
                   setProgramSearchQuery('');
                   setShowProgramDropdown(false);
                 }}
@@ -525,6 +537,22 @@ export default function PointsSetup() {
                 />
               </div>
 
+              <div>
+                <label className="block text-sm text-slate-600 mb-2 font-medium">
+                  Card product <span className="text-slate-400 font-normal">(optional)</span>
+                </label>
+                <input
+                  type="text"
+                  value={newCardProduct}
+                  onChange={(e) => setNewCardProduct(e.target.value)}
+                  placeholder="e.g., Delta SkyMiles Gold Amex"
+                  className="w-full px-4 py-3 bg-white border border-slate-200 rounded-xl focus:outline-none focus:ring-2 focus:ring-blue-600 focus:border-transparent"
+                />
+                <p className="text-xs text-slate-500 mt-1">
+                  Enables benefit-aware savings (e.g. free bags on Delta when you have Delta Gold)
+                </p>
+              </div>
+
             </div>
 
             <div className="flex gap-3 mt-8">
@@ -534,6 +562,7 @@ export default function PointsSetup() {
                   setNewProgram('');
                   setNewPoints('');
                   setNewCategory('credit');
+                  setNewCardProduct('');
                   setProgramSearchQuery('');
                   setShowProgramDropdown(false);
                 }}

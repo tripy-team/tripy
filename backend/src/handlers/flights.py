@@ -6,6 +6,7 @@ from dotenv import load_dotenv
 
 logger = logging.getLogger(__name__)
 from src.utils.cache_layer import get_json, set_json
+from src.utils.airline_utils import infer_airline_from_flight_number
 from src.data.award_programs import get_award_programs_for_api
 from .award_calendar import (
     get_calendar_matrix,
@@ -19,8 +20,9 @@ from .award_calendar import (
 # from amadeus import Client as AmadeusClient, Location
 
 load_dotenv()
-SERPAPI_KEY = os.getenv("SERPAPI_KEY")
-AWARD_TOOL_API_KEY = os.getenv("AWARD_TOOL_API_KEY")
+# Support both naming conventions (SERPAPI vs SERP_API; AWARD_TOOL vs AWARDTOOL)
+SERPAPI_KEY = os.getenv("SERPAPI_KEY") or os.getenv("SERP_API_KEY")
+AWARD_TOOL_API_KEY = os.getenv("AWARD_TOOL_API_KEY") or os.getenv("AWARDTOOL_API_KEY")
 
 # ==== HTTP clients ====
 TIMEOUT = httpx.Timeout(connect=5.0, read=25.0, write=5.0, pool=20)
@@ -354,6 +356,7 @@ async def get_flights_award_first_with_points_async(
             for key, info in award_edges.items():
                 dep, arr, fn = key
                 cash_blob = serp_map.get(key, {})
+                _al = (info.get("program_code") or "").strip().upper() or infer_airline_from_flight_number(fn)
                 edges[key] = {
                     "cash_cost": cash_blob.get("cash_cost"),
                     "time_cost": info.get("travel_minutes")
@@ -366,6 +369,7 @@ async def get_flights_award_first_with_points_async(
                     or cash_blob.get("departure_time"),
                     "arrival_time": info.get("arrival_time")
                     or cash_blob.get("arrival_time"),
+                    "operating_airline": _al[:2] if _al and len(_al) >= 2 else infer_airline_from_flight_number(fn),
                 }
             # add extra good cash-only legs (serp_map keys not in awards), cap count
             added = 0
@@ -374,6 +378,7 @@ async def get_flights_award_first_with_points_async(
                     continue
                 if added >= 12:
                     break
+                dep, arr, fn = key[0], key[1], key[2] if len(key) >= 3 else ""
                 edges[key] = {
                     "cash_cost": cash_blob.get("cash_cost"),
                     "time_cost": cash_blob.get("time_cost"),
@@ -383,6 +388,7 @@ async def get_flights_award_first_with_points_async(
                     "transfer_partners": [],
                     "departure_time": cash_blob.get("departure_time"),
                     "arrival_time": cash_blob.get("arrival_time"),
+                    "operating_airline": infer_airline_from_flight_number(fn),
                 }
                 added += 1
 
@@ -435,7 +441,9 @@ async def get_flights_serp_first_with_points_async(
         # add SERP legs, annotate with awards if available
         for key, cash_blob in serp_map.items():
             info = award_edges.get(key)
+            fn = key[2] if len(key) >= 3 else ""
             if info:
+                _al = (info.get("program_code") or "").strip().upper() or infer_airline_from_flight_number(fn)
                 edges[key] = {
                     "cash_cost": cash_blob.get("cash_cost"),
                     "time_cost": info.get("travel_minutes")
@@ -448,6 +456,7 @@ async def get_flights_serp_first_with_points_async(
                     or cash_blob.get("departure_time"),
                     "arrival_time": info.get("arrival_time")
                     or cash_blob.get("arrival_time"),
+                    "operating_airline": _al[:2] if _al and len(_al) >= 2 else infer_airline_from_flight_number(fn),
                 }
             else:
                 edges[key] = {
@@ -459,6 +468,7 @@ async def get_flights_serp_first_with_points_async(
                     "transfer_partners": [],
                     "departure_time": cash_blob.get("departure_time"),
                     "arrival_time": cash_blob.get("arrival_time"),
+                    "operating_airline": infer_airline_from_flight_number(fn),
                 }
         # add award-only if any remain
         added = 0
@@ -467,6 +477,8 @@ async def get_flights_serp_first_with_points_async(
                 continue
             if added >= 12:
                 break
+            fn = key[2] if len(key) >= 3 else ""
+            _al = (info.get("program_code") or "").strip().upper() or infer_airline_from_flight_number(fn)
             edges[key] = {
                 "cash_cost": None,
                 "time_cost": info.get("travel_minutes"),
@@ -476,6 +488,7 @@ async def get_flights_serp_first_with_points_async(
                 "transfer_partners": info.get("transfer_partners") or [],
                 "departure_time": info.get("departure_time"),
                 "arrival_time": info.get("arrival_time"),
+                "operating_airline": _al[:2] if _al and len(_al) >= 2 else infer_airline_from_flight_number(fn),
             }
             added += 1
         logger.info("flights [%s]->[%s] serp_first: total_edges=%d", origin, destination, len(edges))

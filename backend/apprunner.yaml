@@ -51,10 +51,10 @@ run:
     #   value: your_amadeus_client_id
     # - name: AMADEUS_CLIENT_SECRET
     #   value: your_amadeus_client_secret
-    # - name: SERP_API_KEY
-    #   value: your_serp_api_key
-    # - name: AWARDTOOL_API_KEY
-    #   value: your_awardtool_api_key
+    - name: SERP_API_KEY
+      value: 760dbefc74bbc995a203fe6e043dca076eb2b15cac50fc6fdf77df9758764335
+    - name: AWARDTOOL_API_KEY
+      value: 0363cfd0-ba6a-4302-ba14-9f86186eb0c7
     - name: OPENAI_ADMIN_KEY
       value: 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
     # - name: ANALYTICS_FIREHOSE_STREAM

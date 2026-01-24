@@ -387,6 +387,195 @@ IMPORTANT:
         return []
 
 
+def suggest_routes_for_remote_or_small_cities(
+    origin: str,
+    destination: str,
+    city_names: Optional[List[str]] = None,
+    start_date: Optional[str] = None,
+    end_date: Optional[str] = None,
+    failed_routes: Optional[List[str]] = None,
+) -> List[Dict[str, Any]]:
+    """
+    Use OpenAI to suggest practical routes when the user is traveling to/from
+    small cities or remote places where we don't have flight search data.
+
+    Returns a list of route suggestions, each with:
+      - title: short label for the route
+      - steps: list of { from_place, to_place, method, note }
+      - summary: brief explanation
+    """
+    if OpenAI is None:
+        logging.getLogger(__name__).warning("OpenAI not available; cannot suggest routes for remote/small cities")
+        return []
+
+    import json as _json
+    load_dotenv()
+    client = OpenAI(api_key=os.getenv("OPENAI_ADMIN_KEY"))
+    if not os.getenv("OPENAI_ADMIN_KEY"):
+        logging.getLogger(__name__).warning("OPENAI_ADMIN_KEY not set; cannot suggest routes")
+        return []
+
+    cities_str = ", ".join(city_names) if city_names else "none"
+    dates_str = f"{start_date or 'unknown'} to {end_date or 'unknown'}" if (start_date or end_date) else "not specified"
+    failed_str = "; ".join(failed_routes) if failed_routes else "none"
+
+    system_prompt = """You are a travel expert helping users reach small cities, towns, or remote destinations where direct flight search may not return results.
+
+Your task: suggest 2–4 practical route options to get from origin to destination. For small/regional airports, recommend:
+- Driving or ground transport to a nearby major hub, then flying
+- Connecting through well-served airports (e.g., for a small US city: nearby regional → hub like JFK/ORD/ATL → international)
+- Alternative nearby airports that might have better service
+- If the destination is very remote: fly to nearest city, then bus/train/ferry/car
+
+For each suggestion provide:
+- title: short, descriptive (e.g. "Via Syracuse and JFK", "Drive to Albany then fly")
+- steps: array of legs, each with from_place, to_place, method (e.g. "drive", "fly", "bus", "train"), and an optional note
+- summary: 1–2 sentence explanation of why this works and what to expect
+
+Use real airport codes (IATA) and city names when you know them. Be specific and actionable."""
+
+    user_prompt = f"""A traveler wants to go from **{origin}** to **{destination}**.
+- Other cities they want to visit (in order): {cities_str}
+- Travel dates: {dates_str}
+- Our flight search could not find bookable options for these route(s): {failed_str}
+
+Suggest 2–4 practical route options. Return a JSON object with a key "suggestions" containing an array of objects, each with: "title", "steps" (array of {{ "from_place", "to_place", "method", "note" }}), and "summary"."""
+
+    try:
+        response = client.chat.completions.create(
+            model="gpt-4o-mini",
+            messages=[
+                {"role": "system", "content": system_prompt},
+                {"role": "user", "content": user_prompt},
+            ],
+            response_format={"type": "json_object"},
+            temperature=0.4,
+        )
+        content = response.choices[0].message.content
+        parsed = _json.loads(content)
+        raw = parsed.get("suggestions") or parsed.get("routes") or []
+        if not isinstance(raw, list):
+            raw = [raw] if raw else []
+
+        suggestions = []
+        for s in raw[:4]:
+            if not isinstance(s, dict):
+                continue
+            title = s.get("title") or s.get("name") or "Route option"
+            steps = s.get("steps") or s.get("legs") or []
+            if not isinstance(steps, list):
+                steps = []
+            steps_clean = []
+            for st in steps:
+                if isinstance(st, dict) and (st.get("from_place") or st.get("to_place")):
+                    steps_clean.append({
+                        "from_place": st.get("from_place", ""),
+                        "to_place": st.get("to_place", ""),
+                        "method": st.get("method", "fly"),
+                        "note": st.get("note") or "",
+                    })
+            summary = s.get("summary") or s.get("description") or ""
+            suggestions.append({"title": title, "steps": steps_clean, "summary": summary})
+
+        return suggestions
+    except Exception as e:
+        logging.getLogger(__name__).error(
+            "Error getting OpenAI route suggestions for %s -> %s: %s", origin, destination, e, exc_info=True
+        )
+        return []
+
+
+def get_itinerary_smart_tips(
+    origin: str,
+    destination: str,
+    city_names: Optional[List[str]] = None,
+    start_date: Optional[str] = None,
+    end_date: Optional[str] = None,
+    points_programs: Optional[List[str]] = None,
+) -> Dict[str, Any]:
+    """
+    Use OpenAI to generate itinerary advice: where to transfer points, sample
+    money-saving itineraries, holiday/seasonal advice, and practical tips
+    (transfer timing, attraction closing hours, etc.).
+
+    Returns:
+      - transfer_tips: [ { from_program, to_program, best_for, note } ]
+      - sample_itineraries: [ { title, description, savings_estimate, when_to_book } ]
+      - holiday_advice: [ { period, advice, avoid_or_prefer } ]
+      - practical_tips: [ { category, tip } ]  (e.g. transfer_timing, attraction_hours, banking)
+    """
+    if OpenAI is None:
+        logging.getLogger(__name__).warning("OpenAI not available; cannot generate itinerary smart tips")
+        return _empty_smart_tips()
+
+    import json as _json
+    load_dotenv()
+    key = os.getenv("OPENAI_ADMIN_KEY")
+    if not key:
+        return _empty_smart_tips()
+    client = OpenAI(api_key=key)
+
+    cities_str = ", ".join(city_names) if city_names else "none"
+    dates_str = f"{start_date or '?'} to {end_date or '?'}" if (start_date or end_date) else "not specified"
+    programs_str = ", ".join(points_programs) if points_programs else "not specified (give general Chase Ultimate Rewards, Amex MR, Citi TYP, Capital One, etc.)"
+
+    system_prompt = """You are an expert travel and points advisor. For a user's trip, provide:
+
+1. transfer_tips: Where to transfer which points for best value. Each: from_program (e.g. Chase, Amex MR, Citi TYP), to_program (e.g. United, Delta, Flying Blue), best_for (this route / this region / flexible), note (e.g. "transfer 1:1, often has promos"). If user's programs are unknown, suggest 2-3 common strategies.
+
+2. sample_itineraries: 2-4 example strategies to SAVE MONEY. Each: title, description (concrete, e.g. "Fly out Tuesday return Thursday to avoid weekend premiums"), savings_estimate (e.g. "often 15-30% less") if possible, when_to_book or when_to_travel (e.g. "Book 6-8 weeks out for domestic", "Avoid Dec 22-30"). Include day-of-week, advance-booking, and routing tricks.
+
+3. holiday_advice: If their dates overlap expensive/blackout periods (Christmas, New Year, Thanksgiving, Spring Break, Easter, Labor Day, etc.), warn them. Each: period, advice, avoid_or_prefer ("avoid" / "prefer" / "book_early"). Also when to book for holiday travel.
+
+4. practical_tips: 3-6 practical items. Include:
+   - transfer_timing: Points transfer processing (e.g. Amex MR to Delta often 1-3 days; Chase to United can be instant; Capital One 1-2 days). Cutoff times for same-day (e.g. "many banks 5pm ET for same-day").
+   - attraction_hours: Remind to check closing days for museums/attractions in their destinations (e.g. "Louvre closed Tuesdays; many European museums closed Mondays"). Suggest checking official sites.
+   - banking: If transferring from a bank, typical cutoff times; anything that affects booking (e.g. "Amex same-day to Delta only if requested before 11pm ET").
+   - Any other relevant: lounge hours, visa/ESTA timing, etc.
+
+Return ONLY valid JSON with keys: transfer_tips, sample_itineraries, holiday_advice, practical_tips. Each value is an array of objects with the fields above."""
+
+    user_prompt = f"""Trip: **{origin}** → **{destination}**
+- Other cities (in order): {cities_str}
+- Dates: {dates_str}
+- User's points programs: {programs_str}
+
+Return JSON: {{ "transfer_tips": [...], "sample_itineraries": [...], "holiday_advice": [...], "practical_tips": [...] }}"""
+
+    try:
+        response = client.chat.completions.create(
+            model="gpt-4o-mini",
+            messages=[
+                {"role": "system", "content": system_prompt},
+                {"role": "user", "content": user_prompt},
+            ],
+            response_format={"type": "json_object"},
+            temperature=0.3,
+        )
+        content = response.choices[0].message.content
+        parsed = _json.loads(content)
+        out = _empty_smart_tips()
+        for key in out:
+            val = parsed.get(key)
+            if isinstance(val, list):
+                out[key] = [x for x in val if isinstance(x, dict)][:8]
+        return out
+    except Exception as e:
+        logging.getLogger(__name__).error(
+            "Error getting itinerary smart tips for %s -> %s: %s", origin, destination, e, exc_info=True
+        )
+        return _empty_smart_tips()
+
+
+def _empty_smart_tips() -> Dict[str, Any]:
+    return {
+        "transfer_tips": [],
+        "sample_itineraries": [],
+        "holiday_advice": [],
+        "practical_tips": [],
+    }
+
+
 def _search_static_cities(query: str, max_results: int = 10) -> List[Dict[str, Any]]:
     """
     Search static cities.json file first (no API calls, no tokens).
@@ -517,14 +706,15 @@ Your task is to suggest cities that match the user's query. The query might be:
 For each city, provide:
 - The official city name
 - The country name
-- The primary airport code (IATA code) if available (e.g., JFK, CDG, LHR)
+- The primary airport code (IATA code) if the city has commercial air service (e.g., JFK, CDG, LHR). For small towns, villages, or places without commercial airports, omit airport_code or leave it empty—they are still valid destinations reachable by bus or car.
 - The region/continent (e.g., Europe, Asia, North America)
 
 Return results as a JSON object with a "cities" key containing an array of city objects. Prioritize:
 1. Exact matches
 2. Popular tourist destinations
 3. Major cities with airports
-4. Cities that sound similar to the query"""
+4. Small towns and any populated place that matches (even without an airport)
+5. Cities that sound similar to the query"""
 
     user_prompt = f"""Find up to {max_results} cities that match the query: "{query}"
 
@@ -676,3 +866,118 @@ Return only valid information. Leave fields null/empty if not mentioned."""
         logger = logging.getLogger(__name__)
         logger.error(f"Error extracting trip info with OpenAI: {str(e)}")
         return ExtractedTripInfo()
+
+
+def _parse_card_benefits_response(parsed: dict) -> Dict[str, Any]:
+    airlines = parsed.get("free_bag_airlines")
+    if not isinstance(airlines, list):
+        airlines = []
+    out = []
+    for a in airlines:
+        s = str(a).strip().upper()
+        if len(s) >= 2:
+            out.append(s[:2])
+    return {
+        "free_bag_airlines": out,
+        "applies_to_reservation": bool(parsed.get("applies_to_reservation", False)),
+    }
+
+
+def extract_card_benefits_from_snippets(
+    card_product: str, snippets: List[Dict[str, str]]
+) -> Optional[Dict[str, Any]]:
+    """
+    Use OpenAI to extract structured card benefits from web search snippets.
+    Returns {"free_bag_airlines": ["DL",...], "applies_to_reservation": bool} or None.
+    Prefer this over get_card_benefits_openai when you have fresh SerpAPI snippets for up-to-date benefits.
+    """
+    if OpenAI is None or not snippets:
+        return None
+    load_dotenv()
+    key = os.getenv("OPENAI_ADMIN_KEY")
+    if not key:
+        return None
+    client = OpenAI(api_key=key)
+
+    block = "\n\n".join(
+        f"[{i+1}] {s.get('title', '')}\n{s.get('snippet', '')}" for i, s in enumerate(snippets[:8])
+    )
+
+    system_prompt = """You are an expert on US travel credit card benefits. You are given a card name and web search snippets about that card. Extract ONLY information explicitly stated:
+
+1. free_bag_airlines: array of IATA 2-letter codes for airlines where the snippets state this card gives a free first or checked bag (e.g. DL=Delta, UA=United, AA=American, WN=Southwest, B6=JetBlue, AS=Alaska, NK=Spirit, F9=Frontier, HA=Hawaiian). If the snippets do NOT clearly state free bags on a specific airline, use [].
+2. applies_to_reservation: true only if the snippets explicitly say the free bag applies to everyone on the reservation / all travelers on the same booking when the cardholder pays; false otherwise.
+
+Be conservative: only include an airline if a snippet clearly states this card grants a free checked bag on that airline. Do not infer from similar cards. Ignore lounge access, priority boarding, and other perks. Return valid JSON only."""
+
+    user_prompt = f"""Card: "{card_product}"
+
+Search snippets:
+{block}
+
+Return JSON: {{ "free_bag_airlines": ["XX", ...], "applies_to_reservation": true or false }}"""
+
+    try:
+        import json
+
+        response = client.chat.completions.create(
+            model="gpt-4o-mini",
+            messages=[
+                {"role": "system", "content": system_prompt},
+                {"role": "user", "content": user_prompt},
+            ],
+            response_format={"type": "json_object"},
+            temperature=0.0,
+        )
+        content = response.choices[0].message.content
+        parsed = json.loads(content)
+        return _parse_card_benefits_response(parsed)
+    except Exception as e:
+        logging.getLogger(__name__).debug(
+            "extract_card_benefits_from_snippets failed for %s: %s", card_product, e
+        )
+        return None
+
+
+def get_card_benefits_openai(card_product: str) -> Optional[Dict[str, Any]]:
+    """
+    Use OpenAI to infer travel benefits for a credit card from model knowledge.
+    Returns {"free_bag_airlines": ["DL","AA",...], "applies_to_reservation": bool} or None.
+    Prefer extract_card_benefits_from_snippets with SerpAPI results for up-to-date benefits;
+    use this as fallback when SerpAPI is unavailable or returns no snippets.
+    """
+    if OpenAI is None:
+        return None
+    load_dotenv()
+    if not os.getenv("OPENAI_ADMIN_KEY"):
+        return None
+    client = OpenAI(api_key=os.getenv("OPENAI_ADMIN_KEY"))
+
+    system_prompt = """You are an expert on US travel credit card benefits. Given a card name, return:
+1. free_bag_airlines: array of IATA 2-letter codes for airlines where this card gives a free first checked bag (e.g. ["DL"] for Delta, ["UA"] for United, ["AA"] for American). If the card does NOT give free bags on any specific airline, use [].
+2. applies_to_reservation: true if the free bag benefit applies to everyone on the same reservation when the cardholder pays; false if only the cardholder. Most US co‑branded airline cards (Delta Gold, United Explorer, etc.) apply to the whole reservation.
+
+Only include airlines where the card explicitly grants a free checked bag benefit. Do not include lounge access, priority boarding, or other perks in free_bag_airlines. Return only valid JSON."""
+
+    user_prompt = f"""Card: "{card_product}"
+
+Return JSON: {{ "free_bag_airlines": ["XX", ...], "applies_to_reservation": true or false }}"""
+
+    try:
+        import json
+
+        response = client.chat.completions.create(
+            model="gpt-4o-mini",
+            messages=[
+                {"role": "system", "content": system_prompt},
+                {"role": "user", "content": user_prompt},
+            ],
+            response_format={"type": "json_object"},
+            temperature=0.1,
+        )
+        content = response.choices[0].message.content
+        parsed = json.loads(content)
+        return _parse_card_benefits_response(parsed)
+    except Exception as e:
+        logging.getLogger(__name__).debug("get_card_benefits_openai failed for %s: %s", card_product, e)
+        return None

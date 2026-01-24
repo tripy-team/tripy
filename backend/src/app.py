@@ -1,8 +1,10 @@
 import os
 import logging
 from datetime import datetime
-from dotenv import load_dotenv
 from json import JSONDecodeError
+
+import httpx
+from dotenv import load_dotenv
 
 # Load environment variables from .env file early
 load_dotenv()
@@ -39,7 +41,12 @@ from .utils.analytics import (
 )
 from .utils.jwt_auth import get_current_user_id
 from .utils.loyalty_programs import validate_program
-from .handlers.openAI import extract_trip_info_with_openai, search_cities_with_openai, search_airports_with_openai
+from .handlers.openAI import (
+    extract_trip_info_with_openai,
+    search_cities_with_openai,
+    search_airports_with_openai,
+    search_destinations_for_autocomplete,
+)
 
 # Get CORS origins from environment variable
 CORS_ORIGINS_ENV = os.environ.get("CORS_ORIGINS", "")
@@ -183,6 +190,15 @@ class JoinTripRequest(BaseModel):
 
 class ExtractTripInfoRequest(BaseModel):
     text: str = Field(..., min_length=1, description="Natural language text describing the trip")
+
+
+class HotelSearchRequest(BaseModel):
+    destination: str = Field(..., min_length=1, max_length=200, description="City or location name")
+    check_in: str = Field(..., description="Check-in date YYYY-MM-DD")
+    check_out: str = Field(..., description="Check-out date YYYY-MM-DD")
+    programs: Optional[List[str]] = Field(None, description="Hotel programs e.g. HH, IHG, MAR, HYATT")
+    guests: int = Field(1, ge=1, le=10, description="Number of guests")
+    hotel_class: Optional[str] = Field(None, description="Star rating filter e.g. 3, 4, 5")
 
 
 @app.get("/healthz")
@@ -703,14 +719,21 @@ async def generate_itinerary(
         result = itinerary_service.generate_optimized_itinerary(request.trip_id)
 
         # Track itinerary generation for analytics
-        route_count = len(result.get("solution", {}).get("path", {}))
+        if result.get("ai_suggested_routes"):
+            route_count = len(result.get("suggestions", []))
+        else:
+            route_count = len(result.get("solution", {}).get("path", {}))
         track_itinerary_generated(user_id, request.trip_id, route_count)
 
-        return {
+        out = {
             "status": result.get("status", "Unknown"),
             "solution": result.get("solution", {}),
             "items": result.get("items", []),
         }
+        if result.get("ai_suggested_routes"):
+            out["ai_suggested_routes"] = True
+            out["suggestions"] = result.get("suggestions", [])
+        return out
     except ValueError as e:
         logger.warning(f"Validation error generating itinerary: {str(e)}")
         raise HTTPException(status_code=400, detail=str(e))
@@ -740,6 +763,35 @@ async def get_itinerary(
         raise
     except Exception as e:
         logger.error(f"Error getting itinerary: {str(e)}")
+        raise HTTPException(status_code=500, detail=str(e))
+
+
+# Hotel search (AwardTool Hotel API; requires authentication)
+@app.post("/hotels/search")
+async def search_hotels_endpoint(
+    request: HotelSearchRequest, user_id: str = Depends(get_current_user_id)
+):
+    """Search for award and cash hotel rates via AwardTool Hotel API"""
+    try:
+        from .handlers.hotels import search_hotels_async
+
+        hotels = await search_hotels_async(
+            destination=request.destination,
+            check_in=request.check_in,
+            check_out=request.check_out,
+            programs=request.programs,
+            guests=request.guests,
+            hotel_class=request.hotel_class,
+        )
+        return {"hotels": hotels}
+    except httpx.HTTPStatusError as e:
+        logger.warning(f"Hotel search API error: {e.response.status_code} {e.response.text[:200]}")
+        raise HTTPException(
+            status_code=502,
+            detail=f"Hotel search provider error: {e.response.status_code}. Check AWARDTOOL_API_KEY and AwardTool Hotel API availability.",
+        )
+    except Exception as e:
+        logger.error(f"Error searching hotels: {str(e)}", exc_info=True)
         raise HTTPException(status_code=500, detail=str(e))
 
 
@@ -796,12 +848,12 @@ async def locations_autocomplete(
     limit: int = Query(10, ge=1, le=20),
 ):
     """
-    Return city suggestions for autocomplete using OpenAI:
-    [{ city_id, name, region, country, airport_code }]
+    Unified destination autocomplete: any city (with/without airport) plus airports.
+    [{ city_id, name, region, country, airport_code, transport_modes }]
+    transport_modes: ["flight","bus","car"] or ["bus","car"] for ground-only.
     """
     try:
-        # Use OpenAI for city search - handles all cities, typos, and variations
-        cities = search_cities_with_openai(q, max_results=limit)
+        cities = search_destinations_for_autocomplete(q, max_results=limit)
         return {"cities": cities}
     except Exception as e:
         logger.error(f"Error in locations_autocomplete for q='{q}': {e}", exc_info=True)

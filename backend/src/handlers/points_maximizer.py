@@ -55,6 +55,12 @@ def plan_maximize_points_value(
     W3: float = 1.0,  # Weight for time
     # Minimum points value threshold (cents per point) - only use points if value >= threshold
     min_points_value_cpp: float = 1.0,  # Minimum 1 cent per point
+    # Card benefits: when payer has a card with free bags on the edge's airline, add bag_fee to the objective per passenger paid
+    *,
+    benefit_airlines: Dict[str, Set[str]] = None,  # {payer: set of IATA codes}
+    edge_to_airline: Dict[Edge, str] = None,  # edge -> IATA
+    bag_fee: float = 35.0,
+    W_benefit: float = 1e4,
 ):
     """
     Optimize itinerary to maximize points value (cash saved per point used).
@@ -75,6 +81,10 @@ def plan_maximize_points_value(
         award_seats = {}
     if meetup_cities is None:
         meetup_cities = []
+    if benefit_airlines is None:
+        benefit_airlines = {}
+    if edge_to_airline is None:
+        edge_to_airline = {}
 
     T = travelers
     A = airlines
@@ -356,9 +366,26 @@ def plan_maximize_points_value(
         x[p][e] * time_cost.get(e, 0.0) for p in T for e in edges
     )
 
-    # Maximize: (points_value - cash_paid - time_penalty)
-    # This prioritizes using points where they have high value
-    m += W1 * points_value_expr - W2 * total_cash_expr - W3 * total_time_expr
+    # Card benefits: when payer q has free bags on the edge's airline, add bag_fee per passenger q pays for on e
+    benefit_expr = pl.lpSum(
+        bag_fee
+        * (
+            pl.lpSum(z[(q, p)][e] for p in T)
+            + pl.lpSum(
+                y[(q, p)][(s, a)][e]
+                for p in T
+                for (s, a) in y[(q, p)].keys()
+            )
+            + pl.lpSum(y_native[(q, p)][a][e] for p in T for a in A)
+        )
+        for q in T
+        for e in edges
+        if edge_to_airline.get(e) in benefit_airlines.get(q, set())
+    )
+
+    # Maximize: (points_value - cash_paid - time_penalty) + card benefit savings
+    # This prioritizes using points where they have high value and favor payers whose cards reduce bag fees
+    m += W1 * points_value_expr - W2 * total_cash_expr - W3 * total_time_expr + W_benefit * benefit_expr
 
     # Solve
     m.solve(pl.PULP_CBC_CMD(msg=False))

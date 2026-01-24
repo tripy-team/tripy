@@ -13,7 +13,7 @@ def flights_with_points_between_cities(start_city, end_city):
     params = create_filters("insert here")
     params["origin"] = start_city
     params["destination"] = end_city
-    params["api_key"] = os.getenv("AWARD_TOOL_API_KEY")
+    params["api_key"] = os.getenv("AWARD_TOOL_API_KEY") or os.getenv("AWARDTOOL_API_KEY")
     url = "https://www.awardtool-api.com/search_real_time"
     headers = {
         "sec-ch-ua": '"Google Chrome";v="119", "Chromium";v="119", "Not?A_Brand";v="24"',

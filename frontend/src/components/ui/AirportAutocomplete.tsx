@@ -128,12 +128,9 @@ export default function AirportAutocomplete({
     return () => clearTimeout(t);
   }, [value]);
 
-  // Load recent airports (we'll need to store full airport data for this)
-  const recentAirports = useMemo(() => {
-    // For now, just return empty - we'd need to store full airport data in localStorage
-    // to show recent airports properly
-    return [];
-  }, [recent]);
+  // Load recent airports (we'd need to store full airport data in localStorage to show
+  // recent airports properly; for now always empty)
+  const recentAirports = useMemo(() => [], []);
 
   // Group airports by city
   const groupedAirports = useMemo(() => {

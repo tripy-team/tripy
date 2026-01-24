@@ -26,6 +26,8 @@ from src.services import (
 )
 from src.handlers.airport_filter import is_commercial_airport, load_commercial_iata_set_from_web
 from src.data.award_programs import DEFAULT_TRANSFER_GRAPH, get_award_programs_for_api
+from src.repos import user_repo
+from src.utils.card_benefits import build_benefit_airlines_for_travelers
 
 logger = logging.getLogger(__name__)
 
@@ -263,6 +265,17 @@ def _normalize_city_to_code(city_name: str) -> Optional[str]:
                     return iata_code.upper()
     except Exception as e:
         logger.warning(f"Error searching for airport code for {city_name}: {e}")
+
+    # Fallback: try OpenAI for small/remote cities not in our static/Amadeus data
+    try:
+        from src.handlers.openAI import find_commercial_airports_for_city
+        ai_airports = find_commercial_airports_for_city(search_name, max_results=3)
+        for a in ai_airports:
+            code = (a.get("iata_code") or "").upper().strip()
+            if code and _is_airport_code(code):
+                return code
+    except Exception as e:
+        logger.debug(f"OpenAI airport lookup for {city_name}: {e}")
     
     # If search fails, try to extract code from name (e.g., "New York (JFK)" or "New York (JFK,LGA,EWR)")
     # Handle both single code and multiple codes
@@ -298,6 +311,55 @@ def _validate_date(date_str: str, field_name: str = "date") -> None:
         if "must be today" in str(e) or "format is invalid" in str(e):
             raise
         raise ValueError(f"{field_name} format is invalid. Use YYYY-MM-DD format")
+
+
+def _save_and_return_ai_route_suggestions(
+    trip_id: str,
+    origin: str,
+    destination: str,
+    city_names: List[str],
+    start_date: str,
+    end_date: str,
+    failed_routes: Optional[List[str]] = None,
+    points_programs: Optional[List[str]] = None,
+) -> Dict[str, Any]:
+    """When flight search has no data (small/remote cities), use OpenAI to suggest routes and smart tips; return that instead of failing."""
+    from src.handlers.openAI import suggest_routes_for_remote_or_small_cities, get_itinerary_smart_tips
+
+    suggestions = suggest_routes_for_remote_or_small_cities(
+        origin=origin,
+        destination=destination,
+        city_names=city_names if city_names else None,
+        start_date=start_date or None,
+        end_date=end_date or None,
+        failed_routes=failed_routes,
+    )
+    tips = get_itinerary_smart_tips(
+        origin=origin,
+        destination=destination,
+        city_names=city_names if city_names else None,
+        start_date=start_date or None,
+        end_date=end_date or None,
+        points_programs=points_programs or None,
+    )
+    item = {
+        "tripId": trip_id,
+        "itemId": "ai_route_suggestions",
+        "type": "ai_route_suggestions",
+        "suggestions": suggestions,
+        "transfer_tips": tips.get("transfer_tips", []),
+        "sample_itineraries": tips.get("sample_itineraries", []),
+        "holiday_advice": tips.get("holiday_advice", []),
+        "practical_tips": tips.get("practical_tips", []),
+    }
+    itinerary_repo.put_item(item)
+    return {
+        "status": "ai_suggested",
+        "ai_suggested_routes": True,
+        "suggestions": suggestions,
+        "items": [item],
+        "solution": {},
+    }
 
 
 def generate_optimized_itinerary(trip_id: str) -> Dict[str, Any]:
@@ -391,16 +453,16 @@ def generate_optimized_itinerary(trip_id: str) -> Dict[str, Any]:
     
     start_dest_code = _normalize_city_to_code(start_dest_name)
     if not start_dest_code:
-        raise ValueError(
-            f"Could not find airport code for start destination '{start_dest_name}'. "
-            f"Please use airport codes (e.g., 'JFK', 'CDG') or city names with codes (e.g., 'New York (JFK,LGA,EWR)')."
+        logger.info(f"No airport code for start '{start_dest_name}'; using OpenAI to suggest routes for small/remote city")
+        return _save_and_return_ai_route_suggestions(
+            trip_id, start_dest_name, end_dest_name or start_dest_name, cities, start_date, end_date, failed_routes=None
         )
-    
+
     end_dest_code = _normalize_city_to_code(end_dest_name) if end_dest_name else start_dest_code
     if not end_dest_code:
-        raise ValueError(
-            f"Could not find airport code for end destination '{end_dest_name}'. "
-            f"Please use airport codes (e.g., 'JFK', 'CDG') or city names with codes (e.g., 'New York (JFK,LGA,EWR)')."
+        logger.info(f"No airport code for end '{end_dest_name}'; using OpenAI to suggest routes for small/remote city")
+        return _save_and_return_ai_route_suggestions(
+            trip_id, start_dest_name, end_dest_name or start_dest_name, cities, start_date, end_date, failed_routes=None
         )
     
     # Convert intermediate cities
@@ -526,8 +588,8 @@ def generate_optimized_itinerary(trip_id: str) -> Dict[str, Any]:
             "award_programs": get_award_programs_for_api(),
         }
 
-        serp_ok = "set" if os.getenv("SERPAPI_KEY") else "missing"
-        award_ok = "set" if os.getenv("AWARD_TOOL_API_KEY") else "missing"
+        serp_ok = "set" if (os.getenv("SERPAPI_KEY") or os.getenv("SERP_API_KEY")) else "missing"
+        award_ok = "set" if (os.getenv("AWARD_TOOL_API_KEY") or os.getenv("AWARDTOOL_API_KEY")) else "missing"
         logger.info("fetch_flights [%s]->[%s] date=%s pax=%s SERPAPI_KEY=%s AWARD_TOOL_API_KEY=%s", origin, dest, leg_date, len(travelers), serp_ok, award_ok)
 
         try:
@@ -550,7 +612,19 @@ def generate_optimized_itinerary(trip_id: str) -> Dict[str, Any]:
                 edges_all.update(edges)
                 successful_routes += 1
                 logger.info("Fetched %d flight edges from %s to %s", len(edges), origin, dest)
-            else:
+
+            # Add bus and car options for this segment (AI-rover style multi-modal)
+            try:
+                from src.handlers.ground_transport import get_bus_and_car_options, ground_options_to_edges
+                ground_opts = get_bus_and_car_options(origin, dest, date=leg_date)
+                ground_edges = ground_options_to_edges(origin, dest, ground_opts)
+                if ground_edges:
+                    edges_all.update(ground_edges)
+                    logger.info("Added %d ground edges (bus/car) from %s to %s", len(ground_edges), origin, dest)
+            except Exception as g:
+                logger.debug("Ground transport for [%s]->[%s]: %s", origin, dest, g)
+
+            if not edges:
                 failed_routes.append(f"{origin} -> {dest}")
                 logger.warning(
                     "No flight edges from %s to %s date=%s after award-first and SERP-first. "
@@ -577,38 +651,54 @@ def generate_optimized_itinerary(trip_id: str) -> Dict[str, Any]:
                     logger.info(f"Fallback SERP-first succeeded: {len(edges)} edges from {origin} to {dest}")
             except Exception as fallback_error:
                 logger.warning(f"Fallback SERP-first also failed for {origin} -> {dest}: {fallback_error}")
+            # Still add bus/car so the segment is not missing when flights fail
+            try:
+                from src.handlers.ground_transport import get_bus_and_car_options, ground_options_to_edges
+                ground_opts = get_bus_and_car_options(origin, dest, date=leg_date)
+                ground_edges = ground_options_to_edges(origin, dest, ground_opts)
+                if ground_edges:
+                    edges_all.update(ground_edges)
+            except Exception:
+                pass
             continue
     
     if not edges_all:
-        # Small airports (e.g. ITH) are supported; no results can be due to dates, route, or API.
-        error_msg = (
-            f"No flight edges found for any route. "
-            f"Failed routes: {', '.join(failed_routes) if failed_routes else 'all routes'}. "
-            f"Please check: (1) Airport codes are valid IATA (e.g. JFK, CDG, ITH), "
-            f"(2) Dates are in the future, (3) Routes exist. "
-            f"Small airports are supported (multistop via hubs). "
-            f"If you use a small airport (e.g. ITH), try a nearby major as departure instead (e.g. SYR or EWR) if you're flexible. "
-            f"If the problem continues, the flight search may be temporarily unavailable—try again later."
+        # No flight data for any route (small/remote cities or API limits). Use OpenAI to suggest routes.
+        logger.info(
+            f"No flight edges for any route (failed: {failed_routes}); using OpenAI to suggest routes for small/remote cities"
         )
-        raise ValueError(error_msg)
+        return _save_and_return_ai_route_suggestions(
+            trip_id,
+            start_dest_name or start_dest_code,
+            end_dest_name or end_dest_code,
+            cities,
+            start_date,
+            end_date,
+            failed_routes=failed_routes,
+            points_programs=list({p for u in user_points_by_trav.values() for p in u}),
+        )
     
     if successful_routes == 0:
-        raise ValueError(
-            f"Failed to fetch flights for all routes. "
-            f"Failed: {', '.join(failed_routes)}. "
-            f"Check airport codes (IATA, e.g. JFK, CDG, ITH), dates (future), and that routes exist. "
-            f"Small airports are supported. For a small airport, try a nearby major (e.g. SYR or EWR for Ithaca) if flexible. "
-            f"If it persists, the flight search may be unavailable—try again later."
+        logger.warning(
+            "No flight edges for any segment (failed: %s); optimizing with bus/car only where available.",
+            ", ".join(failed_routes) if failed_routes else "all",
         )
     
     if failed_routes:
         logger.warning(f"Some routes failed to fetch flights: {', '.join(failed_routes)}. Continuing with available routes.")
     
     logger.info(f"Running ILP optimization with {len(edges_all)} edges for {len(travelers)} travelers")
+
+    # Card benefits: travelers with cards that give free bags on specific airlines (e.g. Delta Gold) get lower effective cost
+    traveler_profiles = {t: (user_repo.get_user_by_id(t) or {}) for t in travelers}
+    benefit_airlines = build_benefit_airlines_for_travelers(traveler_profiles)
+    if benefit_airlines and any(benefit_airlines.values()):
+        logger.info("Card benefits for optimization: %s", {k: list(v) for k, v in benefit_airlines.items() if v})
     
     # 7. Run ILP optimization using points maximization
     # plan_maximize_points_value (points_maximizer.py): maximizes cash saved by using points.
     # Objective: W1*points_value - W2*cash_paid - W3*time (W1=10^6, W2=10^3, W3=1; min 1 cpp).
+    # When benefit_airlines is set, also adds W_benefit * bag_fee per passenger when payer's card gives free bags on that flight.
     try:
         solution = run_ilp_from_edges(
             edges_all,
@@ -625,6 +715,7 @@ def generate_optimized_itinerary(trip_id: str) -> Dict[str, Any]:
             allow_all_payers=True,
             default_cash_if_missing=1e7,
             default_time_if_missing=1e6,
+            benefit_airlines=benefit_airlines,
         )
         
         status = solution.get("status", "Unknown")
@@ -675,15 +766,22 @@ def generate_optimized_itinerary(trip_id: str) -> Dict[str, Any]:
             }
             itinerary_items.append(item)
     
-    # Save payment modes
+    # Save payment modes (add mode: flight|bus|car from edge[2] for frontend)
     for traveler_id, payments in solution.get("pay_mode", {}).items():
         if payments:
+            enriched = []
+            for rec in payments:
+                r = dict(rec)
+                edge = r.get("edge")
+                fn = edge[2] if isinstance(edge, (list, tuple)) and len(edge) >= 3 else None
+                r["mode"] = "bus" if fn == "BUS" else "car" if fn == "CAR" else "flight"
+                enriched.append(r)
             item = {
                 "tripId": trip_id,
                 "itemId": f"payments_{traveler_id}",
                 "type": "payments",
                 "travelerId": traveler_id,
-                "payments": payments,
+                "payments": enriched,
             }
             itinerary_items.append(item)
     
@@ -700,6 +798,29 @@ def generate_optimized_itinerary(trip_id: str) -> Dict[str, Any]:
     # Save all items
     for item in itinerary_items:
         itinerary_repo.put_item(item)
+
+    # AI smart tips: transfer strategy, sample money-saving itineraries, holiday advice, practical (closing hours, transfer timing)
+    from src.handlers.openAI import get_itinerary_smart_tips
+    points_programs = list({p for u in user_points_by_trav.values() for p in u})
+    tips = get_itinerary_smart_tips(
+        origin=start_dest_name or start_dest_code,
+        destination=end_dest_name or end_dest_code,
+        city_names=cities if cities else None,
+        start_date=start_date or None,
+        end_date=end_date or None,
+        points_programs=points_programs if points_programs else None,
+    )
+    tips_item = {
+        "tripId": trip_id,
+        "itemId": "itinerary_smart_tips",
+        "type": "itinerary_smart_tips",
+        "transfer_tips": tips.get("transfer_tips", []),
+        "sample_itineraries": tips.get("sample_itineraries", []),
+        "holiday_advice": tips.get("holiday_advice", []),
+        "practical_tips": tips.get("practical_tips", []),
+    }
+    itinerary_repo.put_item(tips_item)
+    itinerary_items.append(tips_item)
     
     return {
         "status": solution.get("status", "Unknown"),

@@ -2,7 +2,7 @@
 
 import { useState, useEffect } from 'react';
 import { useRouter } from 'next/navigation';
-import { Users, MapPin, Calendar, DollarSign, Zap, Sparkles, CreditCard, X, Copy, Check, ArrowRight, MessageCircle, RefreshCw, Baby, User, Info, Plane, Backpack, Armchair, Coffee, Wine, Crown, BedDouble, Star, SlidersHorizontal } from 'lucide-react';
+import { Users, MapPin, Calendar, DollarSign, Zap, Sparkles, CreditCard, X, Copy, Check, ArrowRight, MessageCircle, RefreshCw, Baby, User, Info, Plane, Backpack, Armchair, Coffee, Wine, Crown, BedDouble, Star, SlidersHorizontal, Luggage } from 'lucide-react';
 import { createTrip, addDestination, users as usersAPI, trips as tripsAPI, ExtractedTripInfo } from '@/lib/api';
 import TripChatbotInline from '@/components/trip-chatbot-inline';
 import PointsAllocation from '@/components/PointsAllocation';
@@ -50,6 +50,7 @@ export default function GroupTripSetup() {
   // Travel Style State
   const [flightClass, setFlightClass] = useState('economy');
   const [hotelClass, setHotelClass] = useState('4');
+  const [bags, setBags] = useState(1);
 
   // Party Size State
   const [adults, setAdults] = useState(1);
@@ -731,6 +732,39 @@ export default function GroupTripSetup() {
                     })}
                   </div>
                 </div>
+
+                {/* Number of Bags */}
+                <div>
+                  <label className="block text-sm text-slate-600 mb-4 font-medium uppercase tracking-wider">Number of Bags</label>
+                  <div className="flex items-center justify-between p-4 bg-slate-50 rounded-xl border border-slate-200 max-w-md">
+                    <div className="flex items-center gap-3">
+                      <div className="w-10 h-10 bg-white rounded-xl flex items-center justify-center border border-slate-200 text-slate-600">
+                        <Luggage className="w-5 h-5" />
+                      </div>
+                      <div>
+                        <div className="font-semibold text-slate-900">Checked bags</div>
+                        <div className="text-xs text-slate-500">Total for the group</div>
+                      </div>
+                    </div>
+                    <div className="flex items-center gap-3">
+                      <button
+                        type="button"
+                        onClick={() => setBags(Math.max(0, bags - 1))}
+                        className="w-8 h-8 rounded-lg bg-white border border-slate-200 flex items-center justify-center hover:bg-slate-50 text-slate-600 transition-colors shadow-sm"
+                      >
+                        -
+                      </button>
+                      <span className="w-4 text-center font-semibold text-slate-900">{bags}</span>
+                      <button
+                        type="button"
+                        onClick={() => setBags(Math.min(12, bags + 1))}
+                        className="w-8 h-8 rounded-lg bg-white border border-slate-200 flex items-center justify-center hover:bg-slate-50 text-slate-600 transition-colors shadow-sm"
+                      >
+                        +
+                      </button>
+                    </div>
+                  </div>
+                </div>
               </div>
             </div>
 
@@ -985,6 +1019,10 @@ export default function GroupTripSetup() {
                           <span>{totalPointsToUse.toLocaleString()}</span>
                         </div>
                       )}
+                      <div className="flex justify-between">
+                        <span className="text-blue-100">Bags</span>
+                        <span>{bags}</span>
+                      </div>
                     </div>
                   </div>
                 </div>

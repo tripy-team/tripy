@@ -80,15 +80,68 @@ def fetch_flight_options(
     )
 
 
+# Map common brand names to AwardTool hotel program codes
+_BRAND_TO_PROGRAM = {
+    "marriott": "MAR",
+    "hilton": "HH",
+    "hyatt": "HYATT",
+    "ihg": "IHG",
+}
+
+
+def _brands_to_programs(allowed_brands: List[str]) -> List[str]:
+    out = []
+    for b in (allowed_brands or []):
+        s = (b or "").strip()
+        if not s:
+            continue
+        upper = s.upper()
+        if 2 <= len(upper) <= 6 and s.isalpha():
+            # Already looks like a code (e.g. HH, MAR, IHG, HYATT)
+            out.append(upper)
+        else:
+            out.append(_BRAND_TO_PROGRAM.get(s.lower(), upper))
+    return out or ["HH", "IHG", "MAR", "HYATT"]
+
+
 def fetch_hotel_options(
     location: str, checkin: str, checkout: str, allowed_brands: List[str]
 ) -> List[HotelOption]:
     """
-    Replace this stub with your hotel provider API or web-scraping logic. Return a list of HotelOption.
+    Fetch hotel options from AwardTool Hotel API. Returns a list of HotelOption
+    with cash_cost, points_required, and brand. distance_to_center is set to 0
+    when not provided by the API.
     """
-    raise NotImplementedError(
-        "fetch_hotel_options must be implemented with your chosen hotel API"
+    try:
+        from .hotels import search_hotels, DEFAULT_HOTEL_PROGRAMS
+    except ImportError as e:
+        raise NotImplementedError(
+            "fetch_hotel_options requires src.handlers.hotels (AwardTool Hotel API)"
+        ) from e
+
+    programs = _brands_to_programs(allowed_brands) if allowed_brands else DEFAULT_HOTEL_PROGRAMS
+    rows = search_hotels(
+        destination=location,
+        check_in=checkin,
+        check_out=checkout,
+        programs=programs,
+        guests=1,
+        hotel_class=None,
     )
+    result: List[HotelOption] = []
+    for h in rows:
+        cash = h.get("cash_cost")
+        pts = h.get("points_cost")
+        result.append(
+            HotelOption(
+                id=str(h.get("hotel_id", "")),
+                cash_cost=float(cash) if cash is not None else 0.0,
+                points_required=float(pts) if pts is not None else 0.0,
+                brand=h.get("brand") or h.get("program_code") or "Unknown",
+                distance_to_center=0.0,
+            )
+        )
+    return result
 
 
 # ----- Transfer bonus lookup -----
