@@ -2,6 +2,9 @@
 """
 Quick test: get_flights_between_airports JFK -> CDG.
 
+This function is used in the itinerary workflow via flights.get_flights_serp_only
+(a SERP-only fallback when award-first and SERP-first return no edges).
+
 Run from backend with SERPAPI_KEY or SERP_API_KEY in .env:
 
   cd backend

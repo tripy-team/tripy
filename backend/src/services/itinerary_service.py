@@ -614,6 +614,11 @@ def generate_optimized_itinerary(trip_id: str) -> Dict[str, Any]:
                 edges = get_flights_serp_first_with_points(
                     origin, dest, combined_points, filters
                 )
+            # If still no edges, try sync serp_client.get_flights_between_airports (get_flights_serp_only)
+            if not edges:
+                logger.info(f"No edges from SERP-first, trying get_flights_serp_only (serp_client) for {origin} -> {dest}")
+                from src.handlers.flights import get_flights_serp_only
+                edges = get_flights_serp_only(origin, dest, leg_date, filters)
             
             # Note: We already allow multistop flights by default (no stops restriction in filters)
             # If still no edges found, the route may not exist or dates may be invalid
@@ -638,7 +643,7 @@ def generate_optimized_itinerary(trip_id: str) -> Dict[str, Any]:
                 # Try nearby major hub when origin is a small/regional airport (e.g. ITH, BGM)
                 hub_used = False
                 if origin in SMALL_AIRPORT_NEARBY_HUBS:
-                    from src.handlers.flights import get_flights_serp_first_with_points
+                    from src.handlers.flights import get_flights_serp_first_with_points, get_flights_serp_only
                     from src.handlers.ground_transport import get_bus_and_car_options, ground_options_to_edges
                     for hub in SMALL_AIRPORT_NEARBY_HUBS[origin]:
                         try:
@@ -649,6 +654,8 @@ def generate_optimized_itinerary(trip_id: str) -> Dict[str, Any]:
                                 hub_edges = get_flights_serp_first_with_points(
                                     hub, dest, combined_points, filters
                                 )
+                            if not hub_edges:
+                                hub_edges = get_flights_serp_only(hub, dest, leg_date, filters)
                             if hub_edges:
                                 ground_opts = get_bus_and_car_options(origin, hub, date=leg_date)
                                 ground_edges = ground_options_to_edges(origin, hub, ground_opts)
@@ -667,8 +674,8 @@ def generate_optimized_itinerary(trip_id: str) -> Dict[str, Any]:
                 if not hub_used:
                     failed_routes.append(f"{origin} -> {dest}")
                     logger.warning(
-                        "No flight edges from %s to %s date=%s after award-first, SERP-first, and nearby-hub fallback. "
-                        "Check flights.SERP and flights.AwardTool logs for response details.",
+                        "No flight edges from %s to %s date=%s after award-first, SERP-first, get_flights_serp_only, and nearby-hub (if applicable). "
+                        "Check SERPAPI_KEY, AWARD_TOOL_API_KEY, dates, and flights.SERP/AwardTool logs.",
                         origin, dest, leg_date,
                     )
         except Exception as e:
@@ -692,15 +699,27 @@ def generate_optimized_itinerary(trip_id: str) -> Dict[str, Any]:
                     logger.info(f"Fallback SERP-first succeeded: {len(edges)} edges from {origin} to {dest}")
             except Exception as fallback_error:
                 logger.warning(f"Fallback SERP-first also failed for {origin} -> {dest}: {fallback_error}")
+            if not edges:
+                try:
+                    from src.handlers.flights import get_flights_serp_only
+                    edges = get_flights_serp_only(origin, dest, leg_date, filters)
+                    if edges:
+                        edges_all.update(edges)
+                        successful_routes += 1
+                        logger.info(f"Fallback get_flights_serp_only succeeded: {len(edges)} edges from {origin} to {dest}")
+                except Exception as serp_only_err:
+                    logger.debug(f"get_flights_serp_only for {origin}->{dest}: {serp_only_err}")
             # If still no edges, try nearby hub for small/regional origin
             if not edges and origin in SMALL_AIRPORT_NEARBY_HUBS:
-                from src.handlers.flights import get_flights_serp_first_with_points
+                from src.handlers.flights import get_flights_serp_first_with_points, get_flights_serp_only
                 from src.handlers.ground_transport import get_bus_and_car_options, ground_options_to_edges
                 for hub in SMALL_AIRPORT_NEARBY_HUBS[origin]:
                     try:
                         hub_edges = get_flights_award_first_with_points(hub, dest, combined_points, filters)
                         if not hub_edges:
                             hub_edges = get_flights_serp_first_with_points(hub, dest, combined_points, filters)
+                        if not hub_edges:
+                            hub_edges = get_flights_serp_only(hub, dest, leg_date, filters)
                         if hub_edges:
                             ground_opts = get_bus_and_car_options(origin, hub, date=leg_date)
                             ground_edges = ground_options_to_edges(origin, hub, ground_opts)

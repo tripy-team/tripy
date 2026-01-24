@@ -12,6 +12,7 @@ from .award_calendar import (
     get_calendar_matrix,
     best_dates_by_cabin,
 )
+from .serp_client import get_flights_between_airports
 
 # Keep your existing helpers if you have them:
 # from serp_client import search as serp_search, collect_items, pick_cheapest
@@ -92,8 +93,8 @@ def key_pan(o, d):
     return f"pan:{o}:{d}"
 
 
-def key_serp(o, d, date, tclass, stops, bags):
-    return f"serp:{o}:{d}:{date}:{tclass}:{stops}:{bags}"
+def key_serp(o, d, date, tclass, stops, bags, typ=1):
+    return f"serp:{o}:{d}:{date}:{tclass}:{stops}:{bags}:t{typ}"
 
 
 TTL_AWARD = 6 * 3600  # 6h
@@ -104,10 +105,11 @@ TTL_SERP = 90 * 60  # 90m
 # ==== SERP route-level (single call) ====
 async def serp_route(origin, destination, date_str, filters, client):
     tclass = _normalize_travel_class_for_serp((filters or {}).get("travel_class"))
+    # Use type=1 (one-way) for segment fetch; we only have outbound_date, no return.
     params = {
         "engine": "google_flights",
         "api_key": SERPAPI_KEY,
-        "type": 2,
+        "type": 1,
         "currency": "USD",
         "deep_search": True,
         "departure_id": origin,
@@ -130,7 +132,7 @@ async def serp_route(origin, destination, date_str, filters, client):
         logger.warning("SERPAPI_KEY not set; SERP request for [%s]->[%s] may fail", origin, destination)
 
     k = key_serp(
-        origin, destination, date_str, tclass, params.get("stops"), params.get("bags")
+        origin, destination, date_str, tclass, params.get("stops"), params.get("bags"), params.get("type", 1)
     )
     cached = get_json(k)
     if cached:
@@ -505,6 +507,45 @@ def get_flights_serp_first_with_points(
             origin, destination, user_points, filters, award_programs
         )
     )
+
+
+def get_flights_serp_only(origin, destination, date_str, filters=None):
+    """
+    Sync SERP-only flight fetch using serp_client.get_flights_between_airports.
+    Returns edges dict compatible with the rest of the flight pipeline (ILP, etc.).
+    Used as a fallback when award-first and async SERP-first return no edges.
+    """
+    filt = dict(filters or {})
+    travel_class = _normalize_travel_class_for_serp(filt.get("travel_class"))
+    flights = get_flights_between_airports(
+        (origin or "").strip().upper(),
+        (destination or "").strip().upper(),
+        (date_str or "").strip(),
+        travel_class=travel_class,
+    )
+    if not flights:
+        return {}
+    body = {"best_flights": flights, "other_flights": []}
+    serp_map = serp_route_to_leg_map(body)
+    edges = {}
+    for key, cash_blob in serp_map.items():
+        fn = key[2] if len(key) >= 3 else ""
+        edges[key] = {
+            "cash_cost": cash_blob.get("cash_cost"),
+            "time_cost": cash_blob.get("time_cost"),
+            "points_cost": None,
+            "points_program": None,
+            "points_surcharge": None,
+            "transfer_partners": [],
+            "departure_time": cash_blob.get("departure_time"),
+            "arrival_time": cash_blob.get("arrival_time"),
+            "operating_airline": infer_airline_from_flight_number(fn),
+        }
+    logger.info(
+        "get_flights_serp_only [%s]->[%s] date=%s: %d edges from serp_client.get_flights_between_airports",
+        origin, destination, date_str, len(edges),
+    )
+    return edges
 
 
 def pick_strategy_and_search(

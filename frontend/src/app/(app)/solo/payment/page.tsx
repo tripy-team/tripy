@@ -203,7 +203,9 @@ export default function SoloPayment() {
                       <p className="text-sm text-red-800 font-medium">Could not generate itinerary</p>
                       <p className="text-sm text-red-700 mt-1">{error}</p>
                       <p className="text-xs text-red-600 mt-2">
-                        Try using a nearby major airport as your start (e.g. Syracuse SYR or New York JFK instead of a small regional).
+                        {/ITH|regional|small airport|try a nearby major/i.test(error)
+                          ? 'If you used a small regional airport, try a nearby major (e.g. Syracuse SYR or JFK).'
+                          : 'Check that travel dates are in the future and routes exist. For major hubs (e.g. JFK, AMS, CDG), the server needs SERPAPI_KEY and AWARD_TOOL_API_KEY configured.'}
                       </p>
                     </div>
                   )}
