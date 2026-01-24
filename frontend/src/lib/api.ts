@@ -489,9 +489,12 @@ export interface DestinationsAutocompleteSuggestion {
 export const destinations = {
   autocomplete: async (
     q: string,
-    limit: number = 10
+    limit: number = 10,
+    commercialOnly?: boolean
   ): Promise<{ suggestions: DestinationsAutocompleteSuggestion[] }> => {
-    const endpoint = `/api/destinations/autocomplete?q=${encodeURIComponent(q)}&limit=${limit}`;
+    const params = new URLSearchParams({ q, limit: String(limit) });
+    if (commercialOnly) params.set("commercial_only", "true");
+    const endpoint = `/api/destinations/autocomplete?${params.toString()}`;
     const res = await fetch(endpoint, {
       method: "GET",
       headers: { "Content-Type": "application/json" },

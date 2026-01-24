@@ -28,14 +28,26 @@ def _award_key() -> str:
 # --- Autocomplete (SerpAPI Google Flights Autocomplete) ---
 
 
+def _get_commercial_set():
+    from src.handlers.airport_filter import load_commercial_iata_set_from_web
+    return load_commercial_iata_set_from_web()
+
+
+def _is_commercial(iata: str, commercial_set: set) -> bool:
+    from src.handlers.airport_filter import is_commercial_airport
+    return is_commercial_airport(iata, commercial_set)
+
+
 def autocomplete_destinations(
     q: str,
     gl: str = "us",
     hl: str = "en",
     exclude_regions: bool = False,
+    commercial_only: bool = False,
 ) -> List[Dict[str, Any]]:
     """
     Destination autocomplete via SerpAPI google_flights_autocomplete.
+    If commercial_only=True, filters to commercial airports only (scheduled_service + large/medium/small).
     Returns: [{ name, type, description, id, airports: [{ id, name, city, city_id, distance }] }]
     """
     key = _serp_key()
@@ -56,15 +68,27 @@ def autocomplete_destinations(
         search = GoogleSearch(params)
         data = search.get_dict()
         raw = (data or {}).get("suggestions") or []
+        commercial_set: Optional[set] = None
+        if commercial_only:
+            try:
+                commercial_set = _get_commercial_set()
+            except Exception:
+                commercial_set = set()
+
         out: List[Dict[str, Any]] = []
         for s in raw:
+            ap = s.get("airports") or []
+            if commercial_only and commercial_set is not None:
+                ap = [
+                    a for a in ap
+                    if _is_commercial((a.get("id") or "").strip(), commercial_set)
+                ]
             entry: Dict[str, Any] = {
                 "name": s.get("name") or "",
                 "type": s.get("type") or "",
                 "description": s.get("description") or "",
                 "id": s.get("id") or "",
             }
-            ap = s.get("airports") or []
             entry["airports"] = [
                 {
                     "id": a.get("id") or "",
@@ -75,6 +99,11 @@ def autocomplete_destinations(
                 }
                 for a in ap
             ]
+            if commercial_only and commercial_set is not None:
+                sid = (s.get("id") or "").strip().upper()
+                stype = (s.get("type") or "").strip().lower()
+                if stype == "airport" and len(sid) == 3 and sid not in commercial_set:
+                    continue
             out.append(entry)
         return out
     except Exception:
@@ -90,14 +119,24 @@ def get_google_flights(
     outbound_date: str,
     return_date: Optional[str] = None,
     travel_class: Optional[int] = None,
+    commercial_only: bool = False,
 ) -> List[Dict[str, Any]]:
     """
     Round-trip (type=2) or one-way (type=1) via SerpAPI google_flights.
+    If commercial_only=True, returns [] when origin or destination is not a commercial airport.
     Returns: best_flights + other_flights (each with price, flights[], total_duration, etc.)
     """
     key = _serp_key()
     if not key or not origin or not destination or not outbound_date:
         return []
+
+    if commercial_only:
+        try:
+            commercial_set = _get_commercial_set()
+            if not _is_commercial((origin or "").strip(), commercial_set) or not _is_commercial((destination or "").strip(), commercial_set):
+                return []
+        except Exception:
+            pass
 
     params: Dict[str, Any] = {
         "engine": "google_flights",
@@ -185,17 +224,37 @@ def optimize_itinerary_out_of_pocket(
     cabins: Optional[List[str]] = None,
     pax: int = 1,
     top_per_leg: int = 10,
+    commercial_only: bool = False,
 ) -> Dict[str, Any]:
     """
     Round-trip: SerpAPI (cash) + AwardTool (points + surcharge). Rank by out-of-pocket.
+    If commercial_only=True, returns an error when origin or destination is not a commercial airport.
     Out-of-pocket: cash (if pay cash) or surcharge (if use points). We pick the lower for each option when both exist.
     Returns: { best_by_cash, best_by_surcharge, best_overall, options }
     """
     prog = programs or ["UA", "DL", "AA"]
     cab = cabins or ["Economy"]
 
+    if commercial_only:
+        try:
+            commercial_set = _get_commercial_set()
+            if not _is_commercial((origin or "").strip(), commercial_set) or not _is_commercial((destination or "").strip(), commercial_set):
+                return {
+                    "best_by_cash": None,
+                    "best_by_surcharge": None,
+                    "best_overall": None,
+                    "options": [],
+                    "error": "Origin and destination must be commercial airports (scheduled service).",
+                    "origin": (origin or "").strip().upper(),
+                    "destination": (destination or "").strip().upper(),
+                    "outbound_date": outbound_date,
+                    "return_date": return_date,
+                }
+        except Exception:
+            pass
+
     # 1) SerpAPI round-trip
-    serp_all = get_google_flights(origin, destination, outbound_date, return_date)
+    serp_all = get_google_flights(origin, destination, outbound_date, return_date, commercial_only=commercial_only)
     if not serp_all:
         return {
             "best_by_cash": None,
@@ -259,4 +318,205 @@ def optimize_itinerary_out_of_pocket(
         "best_by_surcharge": by_surcharge[0] if by_surcharge and (by_surcharge[0].get("surcharge") is not None) else None,
         "best_overall": by_oop[0] if by_oop else None,
         "options": options,
+    }
+
+
+# --- Google Hotels (SerpAPI) ---
+
+
+def get_google_hotels(
+    q: str,
+    check_in_date: str,
+    check_out_date: str,
+    adults: int = 2,
+    currency: str = "USD",
+    gl: str = "us",
+    hl: str = "en",
+    sort_by: int = 3,
+    limit: int = 20,
+) -> List[Dict[str, Any]]:
+    """
+    SerpAPI engine=google_hotels. sort_by=3 is lowest price.
+    Returns: [{ name, cash_total, cash_per_night, property_token, source }]
+    """
+    key = _serp_key()
+    if not key or not (q or "").strip() or not check_in_date or not check_out_date:
+        return []
+
+    params: Dict[str, Any] = {
+        "engine": "google_hotels",
+        "q": (q or "").strip(),
+        "check_in_date": (check_in_date or "").strip(),
+        "check_out_date": (check_out_date or "").strip(),
+        "adults": max(1, int(adults)) if adults is not None else 2,
+        "currency": (currency or "USD").strip(),
+        "gl": gl or "us",
+        "hl": hl or "en",
+        "sort_by": int(sort_by) if sort_by is not None else 3,
+        "api_key": key,
+    }
+
+    try:
+        search = GoogleSearch(params)
+        data = search.get_dict()
+        out: List[Dict[str, Any]] = []
+
+        def _extract(prop: Dict) -> None:
+            name = (prop.get("name") or "").strip()
+            if not name:
+                return
+            total = None
+            per_night = None
+            tr = prop.get("total_rate") or {}
+            if isinstance(tr, dict):
+                total = tr.get("extracted_lowest")
+            rpn = prop.get("rate_per_night") or {}
+            if isinstance(rpn, dict):
+                per_night = rpn.get("extracted_lowest")
+            cash = total if total is not None else per_night
+            if cash is None:
+                return
+            token = (prop.get("property_token") or "").strip()
+            out.append({
+                "name": name,
+                "cash_total": float(cash) if total is not None else None,
+                "cash_per_night": float(per_night) if per_night is not None else float(cash),
+                "property_token": token or None,
+                "source": "google_hotels",
+                "overall_rating": prop.get("overall_rating"),
+            })
+
+        for prop in (data or {}).get("properties") or []:
+            if isinstance(prop, dict):
+                _extract(prop)
+        for ad in (data or {}).get("ads") or []:
+            if isinstance(ad, dict):
+                pr = ad.get("extracted_price") or ad.get("price")
+                if pr is not None and isinstance(pr, (int, float)):
+                    out.append({
+                        "name": (ad.get("name") or "").strip() or "Hotel",
+                        "cash_total": None,
+                        "cash_per_night": float(pr),
+                        "property_token": (ad.get("property_token") or "").strip() or None,
+                        "source": "google_hotels",
+                        "overall_rating": ad.get("overall_rating"),
+                    })
+
+        return out[:limit]
+    except Exception:
+        return []
+
+
+# --- Hotels out-of-pocket: AwardTool (cash + points) + SerpAPI (cash) ---
+
+
+def optimize_hotels_out_of_pocket(
+    destination: str,
+    check_in: str,
+    check_out: str,
+    programs: Optional[List[str]] = None,
+    guests: int = 1,
+    hotel_class: Optional[str] = None,
+    top: int = 15,
+) -> Dict[str, Any]:
+    """
+    Minimize hotel out-of-pocket: AwardTool (cash + points + surcharge) and SerpAPI Google Hotels (cash).
+    Out-of-pocket = min(cash, surcharge) when points available, else cash.
+    Returns: { best_by_cash, best_by_points, best_overall, options, destination, check_in, check_out }
+    """
+    options: List[Dict[str, Any]] = []
+
+    # 1) AwardTool: cash, points, surcharge
+    try:
+        from src.handlers.hotels import search_hotels
+
+        award_rows = search_hotels(
+            destination=destination,
+            check_in=check_in,
+            check_out=check_out,
+            programs=programs,
+            guests=guests,
+            hotel_class=hotel_class,
+        )
+        for h in award_rows or []:
+            cash = h.get("cash_cost")
+            pts = h.get("points_cost")
+            sur = h.get("surcharge")
+            c = float(cash) if cash is not None else None
+            p = int(pts) if pts is not None else None
+            s = float(sur) if sur is not None else None
+            oop = None
+            if c is not None and s is not None and p is not None:
+                oop = min(c, s)
+            elif c is not None:
+                oop = c
+            elif s is not None:
+                oop = s
+            options.append({
+                "name": h.get("name") or "",
+                "cash": c,
+                "points": p,
+                "surcharge": s,
+                "out_of_pocket": oop,
+                "brand": h.get("brand") or h.get("program_code") or "",
+                "source": "awardtool",
+                "hotel_id": h.get("hotel_id"),
+            })
+    except Exception:
+        pass
+
+    # 2) SerpAPI Google Hotels: cash only
+    serp = get_google_hotels(
+        q=destination,
+        check_in_date=check_in,
+        check_out_date=check_out,
+        adults=guests,
+        sort_by=3,
+        limit=top,
+    )
+    for h in serp or []:
+        cash = h.get("cash_total") or h.get("cash_per_night")
+        if cash is None:
+            continue
+        c = float(cash)
+        options.append({
+            "name": h.get("name") or "",
+            "cash": c,
+            "points": None,
+            "surcharge": None,
+            "out_of_pocket": c,
+            "brand": "",
+            "source": "google_hotels",
+            "hotel_id": h.get("property_token"),
+        })
+
+    if not options:
+        return {
+            "best_by_cash": None,
+            "best_by_points": None,
+            "best_overall": None,
+            "options": [],
+            "destination": (destination or "").strip(),
+            "check_in": (check_in or "").strip(),
+            "check_out": (check_out or "").strip(),
+        }
+
+    by_cash = sorted(options, key=lambda x: (x["cash"] if x["cash"] is not None else 999999999, x["out_of_pocket"] or 999999999))
+    by_points = sorted(
+        options,
+        key=lambda x: (
+            x["surcharge"] if x["surcharge"] is not None else 999999999,
+            x["cash"] if x["cash"] is not None else 999999999,
+        ),
+    )
+    by_oop = sorted(options, key=lambda x: (x["out_of_pocket"] or 999999999, x["cash"] or 999999999))
+
+    return {
+        "best_by_cash": by_cash[0] if by_cash else None,
+        "best_by_points": by_points[0] if by_points and by_points[0].get("surcharge") is not None else None,
+        "best_overall": by_oop[0] if by_oop else None,
+        "options": options[:top],
+        "destination": (destination or "").strip(),
+        "check_in": (check_in or "").strip(),
+        "check_out": (check_out or "").strip(),
     }

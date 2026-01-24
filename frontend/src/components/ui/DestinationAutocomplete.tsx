@@ -2,8 +2,10 @@
 
 import { useState, useEffect, useRef } from 'react';
 import { Plane, Bus, Car } from 'lucide-react';
-import { destinations, type CitySuggestion } from '@/lib/api';
+import { destinations, locations, type CitySuggestion } from '@/lib/api';
 import { filterFallbackCities } from '@/lib/autocomplete-fallback-data';
+
+type DestSuggestion = CitySuggestion & { airports?: { id: string; name?: string; city?: string }[] };
 
 interface DestinationAutocompleteProps {
   // The current text value of the input (controlled component)
@@ -45,11 +47,21 @@ export function DestinationAutocomplete({
   onKeyDown,
   autoFocus = false,
 }: DestinationAutocompleteProps) {
-  const [suggestions, setSuggestions] = useState<CitySuggestion[]>([]);
+  const [suggestions, setSuggestions] = useState<DestSuggestion[]>([]);
   const [showSuggestions, setShowSuggestions] = useState(false);
   const [isLoading, setIsLoading] = useState(false);
   const [highlightIndex, setHighlightIndex] = useState(-1);
+  const [selectedCity, setSelectedCity] = useState<DestSuggestion | null>(null);
+  const [selectedAirports, setSelectedAirports] = useState<{ id: string; name?: string }[]>([]);
   const wrapperRef = useRef<HTMLDivElement>(null);
+
+  // Clear selection when value is cleared
+  useEffect(() => {
+    if (!value || !value.trim()) {
+      setSelectedCity(null);
+      setSelectedAirports([]);
+    }
+  }, [value]);
 
   // Close suggestions when clicking outside
   useEffect(() => {
@@ -77,32 +89,43 @@ export function DestinationAutocomplete({
       try {
         const response = await destinations.autocomplete(q, 12);
         const raw = response?.suggestions ?? [];
-        let cities: CitySuggestion[];
+        let cities: DestSuggestion[];
         if (raw.length > 0) {
           cities = raw
             .filter((s) => (s.name || '').trim())
-            .map((s) => ({
-              name: (s.name || '').trim(),
-              city_id: s.id || s.airports?.[0]?.city_id || s.name || '',
-              country: s.description || '',
-              airport_code: s.airports?.[0]?.id || (s.airports?.length ? s.airports.map((a) => a.id).filter(Boolean).join(',') : undefined),
-              transport_modes: s.airports?.length ? ['flight'] : [],
-            }));
+            .map((s) => {
+              const ap = (s.airports || []).map((a) => ({ id: (a.id || '').trim(), name: a.name, city: a.city })).filter((a) => a.id);
+              return {
+                name: (s.name || '').trim(),
+                city_id: s.id || s.airports?.[0]?.city_id || s.name || '',
+                country: s.description || '',
+                airport_code: s.airports?.[0]?.id || (s.airports?.length ? s.airports.map((a) => a.id).filter(Boolean).join(',') : undefined),
+                transport_modes: s.airports?.length ? ['flight'] : [],
+                airports: ap,
+              };
+            });
         } else {
           const fallbackRes = await destinations.fallbackDestinations(q, 12);
           const fallbackRaw = fallbackRes?.suggestions ?? [];
           if (fallbackRaw.length > 0) {
             cities = fallbackRaw
               .filter((s) => (s.name || '').trim())
-              .map((s) => ({
-                name: (s.name || '').trim(),
-                city_id: s.id || s.airports?.[0]?.city_id || s.name || '',
-                country: s.description || '',
-                airport_code: s.airports?.[0]?.id || (s.airports?.length ? s.airports.map((a) => a.id).filter(Boolean).join(',') : undefined),
-                transport_modes: s.airports?.length ? ['flight'] : [],
-              }));
+              .map((s) => {
+                const ap = (s.airports || []).map((a) => ({ id: (a.id || '').trim(), name: a.name, city: a.city })).filter((a) => a.id);
+                return {
+                  name: (s.name || '').trim(),
+                  city_id: s.id || s.airports?.[0]?.city_id || s.name || '',
+                  country: s.description || '',
+                  airport_code: s.airports?.[0]?.id || (s.airports?.length ? s.airports.map((a) => a.id).filter(Boolean).join(',') : undefined),
+                  transport_modes: s.airports?.length ? ['flight'] : [],
+                  airports: ap,
+                };
+              });
           } else {
-            cities = filterFallbackCities(q, 12);
+            cities = filterFallbackCities(q, 12).map((c) => ({
+              ...c,
+              airports: c.airport_code ? [{ id: c.airport_code }] : [],
+            }));
           }
         }
         setSuggestions(cities);
@@ -110,7 +133,10 @@ export function DestinationAutocomplete({
         setHighlightIndex(cities.length > 0 ? 0 : -1);
       } catch (error) {
         console.error('[DestinationAutocomplete] Error searching cities:', error);
-        const fallback = filterFallbackCities(q, 12);
+        const fallback = filterFallbackCities(q, 12).map((c) => ({
+          ...c,
+          airports: c.airport_code ? [{ id: c.airport_code }] : [],
+        }));
         setSuggestions(fallback);
         setShowSuggestions(true);
         setHighlightIndex(fallback.length > 0 ? 0 : -1);
@@ -122,19 +148,36 @@ export function DestinationAutocomplete({
     return () => clearTimeout(timeoutId);
   }, [value]);
 
-  const handleSelect = (city: CitySuggestion) => {
-    // Format with airport code if available
+  const handleSelect = async (city: DestSuggestion) => {
+    setSelectedCity(city);
+    setShowSuggestions(false);
+    setHighlightIndex(-1);
+
+    let airports: { id: string; name?: string }[] =
+      city.airports && city.airports.length > 0
+        ? city.airports.map((a) => ({ id: a.id, name: a.name }))
+        : city.airport_code
+          ? [{ id: city.airport_code }]
+          : [];
+
+    if (airports.length === 0 && city.city_id) {
+      try {
+        const res = await locations.getAirports(city.city_id, 6);
+        airports = (res?.airports ?? []).map((a) => ({ id: a.iata, name: a.name }));
+      } catch {
+        // ignore
+      }
+    }
+    setSelectedAirports(airports);
+
     let formattedValue = city.name;
     if (city.airport_code) {
       formattedValue = `${city.name} (${city.airport_code})`;
     }
-    
     onChange(formattedValue);
     if (onSelect) {
       onSelect(formattedValue);
     }
-    setShowSuggestions(false);
-    setHighlightIndex(-1);
   };
 
   const handleKeyDownInternal = (e: React.KeyboardEvent<HTMLInputElement>) => {
@@ -340,6 +383,24 @@ export function DestinationAutocomplete({
               No cities found. Try a different search (e.g. Paris, Tokyo, New York).
             </div>
           )}
+        </div>
+      )}
+
+      {/* Airport chips: show after selecting a city, like the routes input */}
+      {selectedCity && selectedAirports.length > 0 && !showSuggestions && (
+        <div className="mt-3 flex flex-wrap gap-2">
+          {selectedAirports.map((ap) => (
+            <span
+              key={ap.id}
+              className="inline-flex items-center gap-1 px-3 py-1.5 rounded-lg bg-blue-50 text-blue-700 text-sm font-medium border border-blue-100"
+            >
+              <Plane className="w-3.5 h-3.5 flex-shrink-0" />
+              <span className="font-semibold">{ap.id}</span>
+              {ap.name && ap.name !== ap.id && (
+                <span className="text-blue-600 truncate max-w-[120px]">{ap.name}</span>
+              )}
+            </span>
+          ))}
         </div>
       )}
     </div>

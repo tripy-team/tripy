@@ -8,13 +8,14 @@ export async function GET(req: Request) {
   const gl = searchParams.get("gl") ?? "us";
   const hl = searchParams.get("hl") ?? "en";
   const fuzzyFallback = searchParams.get("fuzzy_fallback") !== "false";
+  const commercialOnly = searchParams.get("commercial_only") === "true";
 
   if (!q || q.length < 1) {
     return NextResponse.json({ suggestions: [] }, { status: 200 });
   }
 
   const backendUrl = process.env.NEXT_PUBLIC_BACKEND_URL || "http://localhost:8000";
-  const url = `${backendUrl.replace(/\/$/, "")}/api/destinations/autocomplete?q=${encodeURIComponent(q)}&gl=${encodeURIComponent(gl)}&hl=${encodeURIComponent(hl)}&fuzzy_fallback=${fuzzyFallback}&limit=${limit}`;
+  const url = `${backendUrl.replace(/\/$/, "")}/api/destinations/autocomplete?q=${encodeURIComponent(q)}&gl=${encodeURIComponent(gl)}&hl=${encodeURIComponent(hl)}&fuzzy_fallback=${fuzzyFallback}&commercial_only=${commercialOnly}&limit=${limit}`;
 
   try {
     const response = await fetch(url, {

@@ -306,9 +306,10 @@ def search_airports(query: str, max_results: int = 10) -> List[Dict[str, Any]]:
         return results
 
 
-def fuzzy_search_destinations(query: str, max_results: int = 10) -> List[Dict[str, Any]]:
+def fuzzy_search_destinations(query: str, max_results: int = 10, commercial_only: bool = False) -> List[Dict[str, Any]]:
     """
     Fuzzy destination search over CSV airports. Use as fallback when SerpAPI autocomplete is empty.
+    If commercial_only=True, only returns airports in the commercial set (scheduled_service + large/medium/small).
     Returns: [{ name, type, id, city, country, airports: [{ id, name, city }] }]
     """
     q = (query or "").strip()
@@ -324,6 +325,14 @@ def fuzzy_search_destinations(query: str, max_results: int = 10) -> List[Dict[st
     if not airports:
         return []
 
+    commercial_set = None
+    if commercial_only:
+        try:
+            from ..handlers.airport_filter import load_commercial_iata_set_from_web
+            commercial_set = load_commercial_iata_set_from_web()
+        except Exception:
+            commercial_set = set()
+
     def choice_text(a: Dict) -> str:
         return " ".join(
             filter(None, [a.get("airport_name"), a.get("iata_code"), a.get("city"), a.get("country_name")])
@@ -333,15 +342,17 @@ def fuzzy_search_destinations(query: str, max_results: int = 10) -> List[Dict[st
     if not choices:
         return []
 
-    matches = process.extract(q, list(choices.keys()), scorer=fuzz.token_set_ratio, limit=max_results)
+    matches = process.extract(q, list(choices.keys()), scorer=fuzz.token_set_ratio, limit=max_results * 2)
     out: List[Dict[str, Any]] = []
     seen: set = set()
     for _text, score, _ in matches:
         if score < 40:
             continue
         a = choices[_text]
-        iata = a.get("iata_code") or ""
+        iata = (a.get("iata_code") or "").strip().upper()
         if iata in seen:
+            continue
+        if commercial_only and commercial_set is not None and iata not in commercial_set:
             continue
         seen.add(iata)
         out.append({
@@ -351,4 +362,6 @@ def fuzzy_search_destinations(query: str, max_results: int = 10) -> List[Dict[st
             "description": (a.get("city") or "") + ", " + (a.get("country_name") or ""),
             "airports": [{"id": iata, "name": a.get("airport_name") or "", "city": a.get("city") or ""}],
         })
+        if len(out) >= max_results:
+            break
     return out[:max_results]

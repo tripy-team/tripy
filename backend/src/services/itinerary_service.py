@@ -532,6 +532,30 @@ def generate_optimized_itinerary(trip_id: str) -> Dict[str, Any]:
             logger.warning("optimize_itinerary_out_of_pocket failed: %s", e)
             oop_result = None
 
+    # Hotel out-of-pocket: AwardTool (cash + points) + SerpAPI Google Hotels (cash) for simple trips
+    oop_hotels_result: Optional[Dict[str, Any]] = None
+    if (
+        (end_dest_name or end_dest_code)
+        and start_date
+        and end_date
+        and travelers
+        and not city_codes
+    ):
+        try:
+            from src.services.serp_api_functions import optimize_hotels_out_of_pocket
+
+            oop_hotels_result = optimize_hotels_out_of_pocket(
+                destination=(end_dest_name or end_dest_code or "").strip(),
+                check_in=start_date.strip(),
+                check_out=end_date.strip(),
+                programs=None,
+                guests=len(travelers),
+                hotel_class=None,
+            )
+        except Exception as e:
+            logger.warning("optimize_hotels_out_of_pocket failed: %s", e)
+            oop_hotels_result = None
+
     # 4. Get points for all members with validation
     points_summary = points_service.trip_points_summary(trip_id)
     points_items = points_summary.get("items", [])
@@ -954,9 +978,32 @@ def generate_optimized_itinerary(trip_id: str) -> Dict[str, Any]:
         itinerary_repo.put_item(oop_item)
         itinerary_items.append(oop_item)
 
-    return {
+    # Hotel out-of-pocket: persist and attach for simple trips
+    oop_hotels_payload: Optional[Dict[str, Any]] = None
+    if oop_hotels_result and oop_hotels_result.get("options"):
+        oop_hotels_payload = {
+            "best_by_cash": oop_hotels_result.get("best_by_cash"),
+            "best_by_points": oop_hotels_result.get("best_by_points"),
+            "best_overall": oop_hotels_result.get("best_overall"),
+            "destination": oop_hotels_result.get("destination"),
+            "check_in": oop_hotels_result.get("check_in"),
+            "check_out": oop_hotels_result.get("check_out"),
+        }
+        oop_h_item = {
+            "tripId": trip_id,
+            "itemId": "out_of_pocket_hotels",
+            "type": "out_of_pocket_hotels",
+            **oop_hotels_payload,
+        }
+        itinerary_repo.put_item(oop_h_item)
+        itinerary_items.append(oop_h_item)
+
+    out: Dict[str, Any] = {
         "status": solution.get("status", "Unknown"),
         "solution": solution,
         "items": itinerary_items,
         "out_of_pocket": oop_payload,
     }
+    if oop_hotels_payload is not None:
+        out["out_of_pocket_hotels"] = oop_hotels_payload
+    return out

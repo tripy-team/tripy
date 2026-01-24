@@ -200,9 +200,19 @@ class OptimizeOutOfPocketRequest(BaseModel):
     programs: Optional[List[str]] = Field(None, description="Award programs e.g. UA, DL, AA")
     cabins: Optional[List[str]] = Field(None, description="Cabins e.g. Economy, Business")
     pax: int = Field(1, ge=1, le=9, description="Number of passengers")
+    commercial_only: bool = Field(False, description="If True, origin and destination must be commercial airports")
 
 
 class HotelSearchRequest(BaseModel):
+    destination: str = Field(..., min_length=1, max_length=200, description="City or location name")
+    check_in: str = Field(..., description="Check-in date YYYY-MM-DD")
+    check_out: str = Field(..., description="Check-out date YYYY-MM-DD")
+    programs: Optional[List[str]] = Field(None, description="Hotel programs e.g. HH, IHG, MAR, HYATT")
+    guests: int = Field(1, ge=1, le=10, description="Number of guests")
+    hotel_class: Optional[str] = Field(None, description="Star rating filter e.g. 3, 4, 5")
+
+
+class OptimizeOutOfPocketHotelsRequest(BaseModel):
     destination: str = Field(..., min_length=1, max_length=200, description="City or location name")
     check_in: str = Field(..., description="Check-in date YYYY-MM-DD")
     check_out: str = Field(..., description="Check-out date YYYY-MM-DD")
@@ -745,6 +755,8 @@ async def generate_itinerary(
             out["suggestions"] = result.get("suggestions", [])
         if result.get("out_of_pocket") is not None:
             out["out_of_pocket"] = result.get("out_of_pocket")
+        if result.get("out_of_pocket_hotels") is not None:
+            out["out_of_pocket_hotels"] = result.get("out_of_pocket_hotels")
         return out
     except ValueError as e:
         logger.warning(f"Validation error generating itinerary: {str(e)}")
@@ -804,6 +816,30 @@ async def search_hotels_endpoint(
         )
     except Exception as e:
         logger.error(f"Error searching hotels: {str(e)}", exc_info=True)
+        raise HTTPException(status_code=500, detail=str(e))
+
+
+@app.post("/hotels/optimize-out-of-pocket")
+async def optimize_out_of_pocket_hotels(
+    body: OptimizeOutOfPocketHotelsRequest, user_id: str = Depends(get_current_user_id)
+):
+    """
+    Minimize hotel out-of-pocket: AwardTool (cash + points + surcharge) and SerpAPI Google Hotels (cash).
+    Returns: { best_by_cash, best_by_points, best_overall, options, destination, check_in, check_out }
+    """
+    try:
+        from .services.serp_api_functions import optimize_hotels_out_of_pocket
+
+        return optimize_hotels_out_of_pocket(
+            destination=body.destination,
+            check_in=body.check_in,
+            check_out=body.check_out,
+            programs=body.programs,
+            guests=body.guests,
+            hotel_class=body.hotel_class,
+        )
+    except Exception as e:
+        logger.error(f"optimize_out_of_pocket_hotels: {e}", exc_info=True)
         raise HTTPException(status_code=500, detail=str(e))
 
 
@@ -914,19 +950,21 @@ async def destinations_autocomplete(
     hl: str = Query("en", description="Language code"),
     exclude_regions: bool = Query(False, description="Exclude region-level suggestions"),
     fuzzy_fallback: bool = Query(True, description="Use fuzzy search on CSV when SerpAPI returns nothing"),
+    commercial_only: bool = Query(False, description="If True, only commercial airports (scheduled service)"),
     limit: int = Query(10, ge=1, le=20),
 ):
     """
     Destination autocomplete: SerpAPI google_flights_autocomplete, with optional fuzzy fallback over CSV.
+    If commercial_only=True, filters to commercial airports only.
     Returns: { suggestions: [{ name, type, description, id, airports: [{ id, name, city, city_id, distance }] }] }
     """
     try:
         from .services.serp_api_functions import autocomplete_destinations
         from .services.airport_service import fuzzy_search_destinations
 
-        suggestions = autocomplete_destinations(q, gl=gl, hl=hl, exclude_regions=exclude_regions)
+        suggestions = autocomplete_destinations(q, gl=gl, hl=hl, exclude_regions=exclude_regions, commercial_only=commercial_only)
         if not suggestions and fuzzy_fallback:
-            suggestions = fuzzy_search_destinations(q, max_results=limit)
+            suggestions = fuzzy_search_destinations(q, max_results=limit, commercial_only=commercial_only)
         return {"suggestions": (suggestions or [])[:limit]}
     except Exception as e:
         logger.error(f"destinations_autocomplete q='{q}': {e}", exc_info=True)
@@ -951,6 +989,7 @@ async def optimize_out_of_pocket(body: OptimizeOutOfPocketRequest):
             programs=body.programs,
             cabins=body.cabins,
             pax=body.pax,
+            commercial_only=body.commercial_only,
         )
         return result
     except Exception as e:

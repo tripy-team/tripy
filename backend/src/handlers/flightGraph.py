@@ -108,9 +108,8 @@ def fetch_hotel_options(
     location: str, checkin: str, checkout: str, allowed_brands: List[str]
 ) -> List[HotelOption]:
     """
-    Fetch hotel options from AwardTool Hotel API. Returns a list of HotelOption
-    with cash_cost, points_required, and brand. distance_to_center is set to 0
-    when not provided by the API.
+    Fetch hotel options from AwardTool Hotel API and SerpAPI Google Hotels (cash-only).
+    Returns a list of HotelOption with cash_cost, points_required, and brand.
     """
     try:
         from .hotels import search_hotels, DEFAULT_HOTEL_PROGRAMS
@@ -119,6 +118,7 @@ def fetch_hotel_options(
             "fetch_hotel_options requires src.handlers.hotels (AwardTool Hotel API)"
         ) from e
 
+    result: List[HotelOption] = []
     programs = _brands_to_programs(allowed_brands) if allowed_brands else DEFAULT_HOTEL_PROGRAMS
     rows = search_hotels(
         destination=location,
@@ -128,7 +128,6 @@ def fetch_hotel_options(
         guests=1,
         hotel_class=None,
     )
-    result: List[HotelOption] = []
     for h in rows:
         cash = h.get("cash_cost")
         pts = h.get("points_cost")
@@ -141,6 +140,36 @@ def fetch_hotel_options(
                 distance_to_center=0.0,
             )
         )
+
+    # SerpAPI Google Hotels: cash-only options to broaden choices and minimize out-of-pocket
+    try:
+        from src.services.serp_api_functions import get_google_hotels
+
+        serp = get_google_hotels(
+            q=location,
+            check_in_date=checkin,
+            check_out_date=checkout,
+            adults=1,
+            sort_by=3,
+            limit=10,
+        )
+        for h in serp or []:
+            cash = h.get("cash_total") or h.get("cash_per_night")
+            if cash is None:
+                continue
+            pid = (h.get("property_token") or "").strip() or (h.get("name") or "h").replace(" ", "_")[:32]
+            result.append(
+                HotelOption(
+                    id="serp_" + pid,
+                    cash_cost=float(cash),
+                    points_required=0.0,
+                    brand="",
+                    distance_to_center=0.0,
+                )
+            )
+    except Exception:
+        pass
+
     return result
 
 
