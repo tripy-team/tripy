@@ -6,7 +6,7 @@
 
 from .flights import get_flights_award_first_with_points
 from .ilp_adapter import run_ilp_from_edges
-from src.data.award_programs import DEFAULT_TRANSFER_GRAPH, get_award_programs_for_api
+from src.utils.award_programs import DEFAULT_TRANSFER_GRAPH, get_award_programs_for_api
 try:
     from .planTrip import plan_non_pooled_multi_itineraries_with_native
 except ModuleNotFoundError:
@@ -97,7 +97,7 @@ user_points_by_trav = {
     },
 }
 
-# Transfer graph: all commercial airlines (from src.data.award_programs)
+# Transfer graph: all commercial airlines (from src.utils.award_programs)
 transfer_graph = DEFAULT_TRANSFER_GRAPH
 transfer_bonuses = {("amex", "AF"): 1.25}  # e.g., 25% Amex->AF promo
 

@@ -7,7 +7,7 @@ from dotenv import load_dotenv
 logger = logging.getLogger(__name__)
 from src.utils.cache_layer import get_json, set_json
 from src.utils.airline_utils import infer_airline_from_flight_number
-from src.data.award_programs import get_award_programs_for_api
+from src.utils.award_programs import get_award_programs_for_api
 from .award_calendar import (
     get_calendar_matrix,
     best_dates_by_cabin,

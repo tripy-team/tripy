@@ -25,7 +25,7 @@ from src.services import (
     city_service,
 )
 from src.handlers.airport_filter import is_commercial_airport, load_commercial_iata_set_from_web
-from src.data.award_programs import DEFAULT_TRANSFER_GRAPH, get_award_programs_for_api
+from src.utils.award_programs import DEFAULT_TRANSFER_GRAPH, get_award_programs_for_api
 from src.repos import user_repo
 from src.utils.card_benefits import build_benefit_airlines_for_travelers
 
