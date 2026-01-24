@@ -385,7 +385,7 @@ export default function SoloTripSetup() {
                 <div className="w-10 h-10 bg-blue-100 rounded-xl flex items-center justify-center">
                   <DollarSign className="w-5 h-5 text-blue-600" />
                 </div>
-                <h2 className="text-2xl text-slate-900">Budget Range</h2>
+                <h2 className="text-2xl text-slate-900 font-semibold">Budget Range</h2>
               </div>
 
               <div className="space-y-6">
@@ -622,7 +622,7 @@ export default function SoloTripSetup() {
                 <div className="w-10 h-10 bg-blue-100 rounded-xl flex items-center justify-center">
                   <Calendar className="w-5 h-5 text-blue-600" />
                 </div>
-                <h2 className="text-2xl text-slate-900">Dates</h2>
+                <h2 className="text-2xl text-slate-900 font-semibold">Dates</h2>
               </div>
 
               <div className="space-y-6">
@@ -697,7 +697,10 @@ export default function SoloTripSetup() {
                 <div className="w-10 h-10 bg-blue-100 rounded-xl flex items-center justify-center">
                   <MapPin className="w-5 h-5 text-blue-600" />
                 </div>
-                <h2 className="text-2xl text-slate-900">Route</h2>
+                <div>
+                  <h2 className="text-2xl text-slate-900 font-semibold">Route</h2>
+                  <p className="text-sm text-slate-500">What airports are you flying in and out of?</p>
+                </div>
               </div>
               
               <div className="grid grid-cols-2 gap-4">
@@ -760,7 +763,10 @@ export default function SoloTripSetup() {
                 <div className="w-10 h-10 bg-blue-100 rounded-xl flex items-center justify-center">
                   <MapPin className="w-5 h-5 text-blue-600" />
                 </div>
-                <h2 className="text-2xl text-slate-900">Destinations</h2>
+                <div>
+                  <h2 className="text-2xl text-slate-900 font-semibold">Destinations</h2>
+                  <p className="text-sm text-slate-500">Which cities would you like to visit?</p>
+                </div>
               </div>
 
               <div className="space-y-4">
@@ -813,8 +819,8 @@ export default function SoloTripSetup() {
                   <MessageCircle className="w-5 h-5 text-blue-600" />
                 </div>
                 <div>
-                  <h2 className="text-2xl text-slate-900">Trip Assistant</h2>
-                  <p className="text-sm text-slate-600">Tell me about your trip and I&apos;ll help fill out the form</p>
+                  <h2 className="text-2xl text-slate-900 font-semibold">Trip Assistant</h2>
+                  <p className="text-sm text-slate-500">Tell me about your trip and I&apos;ll help fill out the form</p>
                 </div>
               </div>
 
