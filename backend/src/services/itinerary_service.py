@@ -598,11 +598,17 @@ def build_transfer_tips_from_solution(
                 "note": note,
                 "points": miles,
                 "surcharge": sur_val,
+                "booking_airline": booking_airline,
+                "booking_airline_name": _HUMANIZE_AIRLINE.get(booking_airline) or booking_airline,
             }
             if operating_airline and operating_airline != booking_airline:
                 tip["operating_carrier"] = operating_airline
                 op_name = _HUMANIZE_AIRLINE.get(operating_airline) or operating_airline
+                tip["operating_carrier_name"] = op_name
                 tip["segment_description"] = f"{op_name} (codeshare)"
+                tip["is_codeshare"] = True
+            else:
+                tip["is_codeshare"] = False
             out.append(tip)
 
     return out
@@ -1301,19 +1307,35 @@ async def generate_optimized_itinerary(trip_id: str) -> Dict[str, Any]:
     
     # Totals (needed for path item costs); solution["totals"] is populated by the optimizer
     totals_for_path = solution.get("totals", {})
+    
+    # NOTE: Day allocation logic:
+    # - Origin (path[0]) gets 0 days (departure only). Return-to-origin (path[-1]==path[0]) gets 0 days.
+    # - Stays = cities in path[1:] that are in city_codes OR the end when it's a real destination (path[-1]!=path[0]).
+    #   E.g. JFK→DOH→HKG with only HKG in city_codes: 9 days in HKG; Doha is transit (0 days).
+    # - Days are split evenly among stay cities, with remainder to the last.
+    # - To avoid splitting, only add destinations you actually want to stay in; connection cities will get 0 days.
 
     # Save paths for each traveler (include route, totalCost, pointsCost, name so frontend shows them as itineraries)
-    # Origin = where you depart on start date; end = where you arrive on end date (like an airline ticket). Neither get stay days.
-    # Stays = only the middle cities where you have overnight stays. Exception: A→B (2 nodes) — you stay at B.
     total_days = _parse_trip_duration_days(trip)
+    
+    # User’s chosen destinations (city_codes, case-normalized). Transit/connection stops (e.g. Doha on JFK–DOH–HKG) are not in this set.
+    _dest = set((c or "").upper() for c in (city_codes or []))
+    logger.info(
+        f"Allocating {total_days} days across destination cities: {list(_dest)}; start={start_dest_code}, end={end_dest_code}"
+    )
+
     for traveler_id, path in solution.get("path", {}).items():
         if path:
-            if len(path) > 2:
-                stays = path[1:-1]  # exclude origin and end; only middle cities get stay days
-            elif len(path) == 2:
-                stays = [path[1]]   # A→B: end is the only stop, you stay there for the whole trip
-            else:
-                stays = []
+            requested = set(_dest)
+            # When the end is a real destination (not return-to-origin), include it so it gets stay days (e.g. JFK→DOH→HKG: 9 days in HKG).
+            if len(path) >= 2 and (path[-1] or "").upper() != (path[0] or "").upper():
+                requested.add((path[-1] or "").upper())
+            # Stays = path nodes after origin that are in requested (path order). Transit stops are excluded.
+            stays = [c for c in path[1:] if (c or "").upper() in requested]
+            transit = [c for c in path[1:] if (c or "").upper() not in requested]
+            if transit:
+                logger.info(f"Route includes transit cities (0 days each): {transit}")
+
             if stays:
                 num = len(stays)
                 base = max(1, total_days // num)
@@ -1322,8 +1344,12 @@ async def generate_optimized_itinerary(trip_id: str) -> Dict[str, Any]:
                 if remainder:
                     day_list[-1] += remainder
                 city_objs = [{"name": c, "days": day_list[i]} for i, c in enumerate(stays)]
+                logger.info(
+                    f"Allocated days for traveler {traveler_id}: " + ", ".join([f"{c['name']}={c['days']}d" for c in city_objs])
+                )
             else:
                 city_objs = []
+                logger.warning(f"No overnight stays allocated for traveler {traveler_id} (path={path})")
             item = {
                 "tripId": trip_id,
                 "itemId": f"path_{traveler_id}",

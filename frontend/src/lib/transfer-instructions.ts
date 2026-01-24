@@ -57,6 +57,16 @@ export interface TransferTip {
   surcharge?: number;
   /** e.g. "Korean Air (codeshare)" from AwardTool operating carrier. */
   segment_description?: string;
+  /** Booking airline code (e.g., "DL" for Delta). */
+  booking_airline?: string;
+  /** Booking airline display name (e.g., "Delta SkyMiles"). */
+  booking_airline_name?: string;
+  /** Operating carrier code (e.g., "KE" for Korean Air on codeshare). */
+  operating_carrier?: string;
+  /** Operating carrier display name (e.g., "Korean Air"). */
+  operating_carrier_name?: string;
+  /** True if this is a codeshare flight. */
+  is_codeshare?: boolean;
 }
 
 export interface PracticalTip {
@@ -107,22 +117,22 @@ function buildSteps(
 ): string[] {
   const amountStr = amount.toLocaleString();
   const step1 = segmentDescription
-    ? `From ${program}, transfer ${amountStr} points to ${partner} to book ${segmentDescription}.`
-    : `From ${program}, transfer ${amountStr} points to ${partner}.`;
+    ? `Transfer ${amountStr} points from ${program} to ${partner} to book ${segmentDescription}.`
+    : `Transfer ${amountStr} points from ${program} to ${partner}.`;
   const steps: string[] = [
     step1,
-    `Log in to your ${program} account.`,
-    'Navigate to "Transfer to Travel Partners".',
-    `Select "${partner}" from the airline list.`,
-    `Enter your ${partner} membership number (create an account on the partner site if needed).`,
-    `In the transfer amount field, enter ${amountStr} points and complete the transfer to ${partner} (1:1 ratio). Transfers are usually instant.${note ? ` ${note}` : ''}`,
+    `Log in to your ${program} account online or via their mobile app.`,
+    'Find and navigate to "Transfer to Travel Partners" or "Transfer Points" section.',
+    `Select "${partner}" from the list of airline partners.`,
+    `Enter your ${partner} frequent flyer membership number. If you don't have one, create a free account on the ${partner} website first.`,
+    `Enter ${amountStr} in the transfer amount field. Confirm the transfer (typically 1:1 ratio, instant transfer).${note ? ` ${note}` : ''}`,
   ];
   if (transferTiming) {
-    steps.push(`Note: ${transferTiming}`);
+    steps.push(`⏱️ Transfer timing: ${transferTiming}`);
   } else {
     const lastStep = segmentDescription
-      ? `Once points appear in ${partner}, search for your ${segmentDescription} flight on their website and complete the booking.`
-      : `Once points appear in ${partner}, book your flight on their website.`;
+      ? `Once the points appear in your ${partner} account (usually instant), log in to ${partner}'s website, search for your ${segmentDescription} flight, and complete the award booking.`
+      : `Once the points appear in your ${partner} account, visit their website to search for and book your award flight.`;
     steps.push(lastStep);
   }
   return steps;

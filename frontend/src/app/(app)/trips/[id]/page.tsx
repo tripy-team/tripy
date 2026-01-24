@@ -310,49 +310,83 @@ export default function TripDetails() {
 
                                     {transferSteps.length > 0 ? (
                                         <div className="divide-y divide-slate-100">
-                                            {transferSteps.map((step, idx) => (
-                                                <div key={step.id} className="p-6 hover:bg-slate-50/50 transition-colors">
-                                                    <div className="flex items-start gap-4">
-                                                        <div className="flex-shrink-0 w-8 h-8 rounded-full bg-slate-900 text-white flex items-center justify-center font-bold text-sm">
-                                                            {idx + 1}
-                                                        </div>
-                                                        <div className="flex-1">
-                                                            <h3 className="text-lg font-semibold text-slate-900 mb-1">{step.title}</h3>
-                                                            <div className="flex flex-wrap gap-2 mb-4">
-                                                                <span className="px-2 py-1 bg-slate-100 text-slate-600 text-xs rounded-md font-medium border border-slate-200">
-                                                                    {step.program}
-                                                                </span>
-                                                                <span className="text-slate-300">→</span>
-                                                                <span className="px-2 py-1 bg-blue-50 text-blue-700 text-xs rounded-md font-medium border border-blue-100 flex items-center gap-1">
-                                                                    {step.partner}
-                                                                    <button
-                                                                        onClick={() => copyToClipboard(step.partner, `${step.id}-partner`)}
-                                                                        title="Copy partner name"
-                                                                        className="hover:opacity-100"
-                                                                    >
-                                                                        {copiedId === `${step.id}-partner` ? <CheckCircle className="w-3 h-3 text-green-600" /> : <Copy className="w-3 h-3 opacity-50" />}
-                                                                    </button>
-                                                                </span>
+                                            {transferSteps.map((step, idx) => {
+                                                // Find the corresponding transfer tip for codeshare info
+                                                const tip = transfer_tips.find(t => 
+                                                    t.to_program?.toLowerCase().includes(step.partner.toLowerCase()) ||
+                                                    step.partner.toLowerCase().includes(t.to_program?.toLowerCase() || '')
+                                                );
+                                                const isCodeshare = tip?.is_codeshare || false;
+                                                const operatingCarrier = tip?.operating_carrier_name;
+                                                const bookingAirline = tip?.booking_airline_name || step.partner;
+                                                const bestFor = tip?.best_for;
+
+                                                return (
+                                                    <div key={step.id} className="p-6 hover:bg-slate-50/50 transition-colors">
+                                                        <div className="flex items-start gap-4">
+                                                            <div className="flex-shrink-0 w-8 h-8 rounded-full bg-slate-900 text-white flex items-center justify-center font-bold text-sm">
+                                                                {idx + 1}
                                                             </div>
-                                                            <div className="space-y-3 pl-4 border-l-2 border-slate-100">
-                                                                {step.instructions.map((inst, i) => (
-                                                                    <p key={i} className="text-sm text-slate-600 leading-relaxed">{inst}</p>
-                                                                ))}
-                                                            </div>
-                                                            <div className="mt-4 pt-4 border-t border-slate-100/50 space-y-1">
-                                                                <div className="flex justify-between items-center">
-                                                                    <span className="text-xs font-semibold text-slate-500 uppercase tracking-wider">From this credit card</span>
-                                                                    <span className="text-sm font-bold text-slate-900">{step.program}</span>
+                                                            <div className="flex-1">
+                                                                <h3 className="text-lg font-semibold text-slate-900 mb-1">{step.title}</h3>
+                                                                
+                                                                {/* Transfer Summary Box */}
+                                                                <div className="mb-4 p-4 bg-gradient-to-br from-slate-50 to-blue-50/30 rounded-lg border border-slate-200">
+                                                                    <div className="grid grid-cols-1 sm:grid-cols-3 gap-3">
+                                                                        <div>
+                                                                            <div className="text-xs font-semibold text-slate-500 uppercase tracking-wider mb-1">From Credit Card</div>
+                                                                            <div className="text-sm font-bold text-slate-900">{step.program}</div>
+                                                                        </div>
+                                                                        <div>
+                                                                            <div className="text-xs font-semibold text-slate-500 uppercase tracking-wider mb-1">Transfer To</div>
+                                                                            <div className="text-sm font-bold text-blue-700 flex items-center gap-1">
+                                                                                {bookingAirline}
+                                                                                <button
+                                                                                    onClick={() => copyToClipboard(bookingAirline, `${step.id}-partner`)}
+                                                                                    title="Copy airline name"
+                                                                                    className="hover:opacity-100"
+                                                                                >
+                                                                                    {copiedId === `${step.id}-partner` ? <CheckCircle className="w-3 h-3 text-green-600" /> : <Copy className="w-3 h-3 opacity-50" />}
+                                                                                </button>
+                                                                            </div>
+                                                                        </div>
+                                                                        <div>
+                                                                            <div className="text-xs font-semibold text-slate-500 uppercase tracking-wider mb-1">Points Amount</div>
+                                                                            <div className="text-sm font-bold text-slate-900">{step.amount} points</div>
+                                                                        </div>
+                                                                    </div>
+                                                                    
+                                                                    {/* Codeshare Information */}
+                                                                    {isCodeshare && operatingCarrier && (
+                                                                        <div className="mt-3 pt-3 border-t border-slate-200">
+                                                                            <div className="flex items-start gap-2">
+                                                                                <Plane className="w-4 h-4 text-amber-600 mt-0.5 flex-shrink-0" />
+                                                                                <div className="text-xs text-slate-700">
+                                                                                    <span className="font-semibold text-amber-700">Codeshare Flight:</span> You'll book through {bookingAirline}, but fly on <span className="font-semibold">{operatingCarrier}</span>
+                                                                                </div>
+                                                                            </div>
+                                                                        </div>
+                                                                    )}
+                                                                    
+                                                                    {/* Flight Segment */}
+                                                                    {bestFor && (
+                                                                        <div className="mt-2 text-xs text-slate-600">
+                                                                            <span className="font-medium">For flight:</span> {bestFor}
+                                                                        </div>
+                                                                    )}
                                                                 </div>
-                                                                <div className="flex justify-between items-center">
-                                                                    <span className="text-xs font-semibold text-slate-500 uppercase tracking-wider">Points to transfer</span>
-                                                                    <span className="text-sm font-bold text-slate-900">{step.amount} {step.amount.includes('$') ? '' : 'points'} → {step.partner}</span>
+
+                                                                {/* Step-by-step Instructions */}
+                                                                <div className="space-y-3 pl-4 border-l-2 border-slate-200">
+                                                                    {step.instructions.map((inst, i) => (
+                                                                        <p key={i} className="text-sm text-slate-600 leading-relaxed">{inst}</p>
+                                                                    ))}
                                                                 </div>
                                                             </div>
                                                         </div>
                                                     </div>
-                                                </div>
-                                            ))}
+                                                );
+                                            })}
                                         </div>
                                     ) : transfer_tips.length > 0 ? (
                                         <div className="p-6">
