@@ -13,7 +13,13 @@ def handler(event, context):
 
         if path.endswith("/trips") and method == "POST":
             trip = trip_service.create_trip(
-                user_id, body["title"], body["start_date"], body["end_date"]
+                user_id,
+                body["title"],
+                body["start_date"],
+                body["end_date"],
+                include_hotels=body.get("include_hotels", True),
+                max_budget=body.get("max_budget"),
+                duration_days=body.get("duration_days"),
             )
             return response(200, trip)
 

@@ -49,22 +49,30 @@ SMALL_AIRPORT_NEARBY_HUBS: Dict[str, List[str]] = {
 def _parse_trip_duration_days(trip: Dict[str, Any]) -> int:
     """
     Best‑effort calculation of trip duration (in days) from start/end dates.
-    Falls back to a sensible default if dates are missing or invalid.
+    When dates are empty (flexible), uses trip.durationDays / duration_days from user input.
+    Falls back to 7 if missing.
     """
     start_date = (trip or {}).get("startDate") or ""
     end_date = (trip or {}).get("endDate") or ""
 
     try:
-        if start_date and end_date:
-            start_dt = datetime.strptime(start_date.strip(), "%Y-%m-%d")
-            end_dt = datetime.strptime(end_date.strip(), "%Y-%m-%d")
+        if start_date and end_date and str(start_date).strip() and str(end_date).strip():
+            start_dt = datetime.strptime(str(start_date).strip(), "%Y-%m-%d")
+            end_dt = datetime.strptime(str(end_date).strip(), "%Y-%m-%d")
             days = (end_dt.date() - start_dt.date()).days or 1
             return max(days, 1)
     except Exception:
-        # If parsing fails, ignore and use default below
         pass
 
-    # Default duration if we can't infer it from dates
+    # When dates are flexible/empty: use user-provided duration_days
+    d = (trip or {}).get("durationDays") or (trip or {}).get("duration_days")
+    if d is not None:
+        try:
+            n = int(d)
+            if 1 <= n <= 365:
+                return n
+        except (TypeError, ValueError):
+            pass
     return 7
 
 
@@ -84,19 +92,33 @@ def generate_simple_itineraries(trip_id: str) -> List[Dict[str, Any]]:
     """
     Lightweight, dependency‑free itinerary generator.
 
-    This is purposely simple and avoids external flight vendors (Amadeus, etc.).
-    It:
-      - Reads the trip and its destinations
-      - Builds a few reasonable city routes
-      - Computes rough cost / points / score heuristics
-      - Saves itineraries to DynamoDB via itinerary_repo
+    Generates 1–5 itineraries within budget and points constraints. It:
+      - Reads the trip (including maxBudget), destinations, and points summary
+      - Builds route variants: Balanced, Reverse, Budget (fits max_budget), Explorer (more cities if under budget)
+      - Ensures totalCost <= max_budget and pointsCost <= total_points when set
+      - Adds withinBudget and withinPoints to each item for UI badges
 
-    The frontend then treats these as "routes" for display and comparison.
+    The frontend treats these as "routes" for display and comparison.
     """
     # Load trip + destinations
     trip = trip_service.get_trip(trip_id)
     if not trip:
         raise ValueError(f"Trip {trip_id} not found")
+
+    max_budget = trip.get("maxBudget") or trip.get("max_budget")
+    if max_budget is not None:
+        try:
+            max_budget = int(max_budget)
+        except (TypeError, ValueError):
+            max_budget = None
+
+    # Total points available for the trip
+    total_points = 0
+    try:
+        summary = points_service.trip_points_summary(trip_id)
+        total_points = int(summary.get("totalPoints") or 0)
+    except Exception:
+        pass
 
     destinations = destination_service.list_destinations(trip_id)
     if not destinations:
@@ -117,72 +139,118 @@ def generate_simple_itineraries(trip_id: str) -> List[Dict[str, Any]]:
         end_dest = valid_dests[-1] if len(valid_dests) > 1 else valid_dests[0]
 
     def _city_name(d: Dict[str, Any]) -> str:
-        # Use stored name; if missing, fall back to ID
         return (d.get("name") or d.get("destinationId") or "").strip()
 
-    # Build a base ordered list of cities (by display name) and IDs
-    # Keep any intermediate cities in original order between the anchors.
-    start_id = start_dest.get("destinationId")
-    end_id = end_dest.get("destinationId")
-
-    # Preserve input order; simply map to display objects
     ordered_dests = valid_dests
-
     ordered_city_names = [_city_name(d) for d in ordered_dests]
     ordered_city_ids = [d.get("destinationId") for d in ordered_dests]
 
-    # If we only have one city, create a trivial "out and back" representation.
     if len(ordered_city_names) == 1:
         ordered_city_names = [ordered_city_names[0]]
         ordered_city_ids = [ordered_city_ids[0]]
 
-    # Compute a coarse duration and derive per‑city "stay" in days
     total_days = _parse_trip_duration_days(trip)
     num_stops = max(len(ordered_city_names), 1)
-    # At least 2 days per stop; spread remaining days roughly evenly
     base_days = max(total_days // num_stops, 2)
 
-    def _build_city_objects(names: List[str]) -> List[Dict[str, Any]]:
-        return [{"name": n, "days": base_days} for n in names if n]
+    # Align with user's includeHotels: lower costs when hotels excluded (flights + activities only)
+    include_hotels = trip.get("includeHotels", True) is not False
+    base_cost_per_day = 200 if include_hotels else 120
+    base_cost_per_city = 300 if include_hotels else 200
+    points_per_dollar = 25  # rough valuation
 
-    # Construct a couple of simple route variants for user choice
+    def _build_city_objects(
+        names: List[str],
+        ids: List[Any],
+        days_per: Optional[int] = None,
+    ) -> List[Dict[str, Any]]:
+        d = days_per if days_per is not None else base_days
+        return [{"name": n, "days": d} for n in names if n]
+
+    def _cost(city_objs: List[Dict[str, Any]]) -> int:
+        stay = sum(c.get("days", base_days) for c in city_objs) or total_days
+        return int(stay * base_cost_per_day + len(city_objs) * base_cost_per_city)
+
+    def _points(cost: int) -> int:
+        return int(cost * points_per_dollar)
+
+    # ---- Build 1–5 route variants ----
     routes: List[Dict[str, Any]] = []
 
-    # Route 1: forward order (start → ... → end)
-    routes.append(
-        {
-            "label": "Balanced route",
-            "route_ids": ordered_city_ids,
-            "cities": _build_city_objects(ordered_city_names),
-            "weight_factor": 1.0,
-        }
-    )
+    # 1. Balanced (forward order)
+    bal_cities = _build_city_objects(ordered_city_names, ordered_city_ids)
+    routes.append({
+        "label": "Balanced route",
+        "route_ids": ordered_city_ids,
+        "cities": bal_cities,
+        "weight_factor": 1.0,
+    })
 
-    # Route 2: reverse order if it meaningfully differs
+    # 2. Reverse (if different)
     if len(ordered_city_names) > 1:
         rev_names = list(reversed(ordered_city_names))
         rev_ids = list(reversed(ordered_city_ids))
         if rev_ids != ordered_city_ids:
-            routes.append(
-                {
-                    "label": "Reverse route",
-                    "route_ids": rev_ids,
-                    "cities": _build_city_objects(rev_names),
-                    "weight_factor": 0.95,  # slightly different score
-                }
-            )
+            routes.append({
+                "label": "Reverse route",
+                "route_ids": rev_ids,
+                "cities": _build_city_objects(rev_names, rev_ids),
+                "weight_factor": 0.95,
+            })
 
-    # Basic cost / points heuristics consistent with frontend expectations
-    base_cost_per_day = 200
-    base_cost_per_city = 300
+    # 3. Budget: fewer cities and/or fewer days to fit max_budget
+    if max_budget is not None and max_budget > 0:
+        # Use start, end, and at most one middle to reduce cost
+        if len(ordered_city_names) > 3:
+            budget_names = [ordered_city_names[0], ordered_city_names[len(ordered_city_names) // 2], ordered_city_names[-1]]
+            budget_ids = [ordered_city_ids[0], ordered_city_ids[len(ordered_city_ids) // 2], ordered_city_ids[-1]]
+        else:
+            budget_names, budget_ids = ordered_city_names, ordered_city_ids
 
+        # Reduce days so total_cost <= max_budget
+        n = max(len(budget_names), 1)
+        # total_cost = stay * base_cost_per_day + n * base_cost_per_city <= max_budget
+        # stay <= (max_budget - n * base_cost_per_city) / base_cost_per_day
+        room = max_budget - n * base_cost_per_city
+        if room > 0:
+            max_stay = room // base_cost_per_day
+            budget_days = max(2, min(base_days, max_stay // n))
+        else:
+            budget_days = 2
+        budget_cities = _build_city_objects(budget_names, budget_ids, days_per=budget_days)
+        routes.append({
+            "label": "Budget pick",
+            "route_ids": budget_ids,
+            "cities": budget_cities,
+            "weight_factor": 0.92,
+        })
+
+    # 4. Explorer: more cities only if we're well under budget and have more destinations
+    bal_cost = _cost(routes[0]["cities"])
+    if (
+        len(ordered_city_names) >= 3
+        and (max_budget is None or bal_cost <= (max_budget * 0.7))
+        and len(routes) < 5
+    ):
+        # Keep full route; optionally slightly more days if under budget
+        expl_cities = _build_city_objects(ordered_city_names, ordered_city_ids)
+        routes.append({
+            "label": "Explorer",
+            "route_ids": ordered_city_ids,
+            "cities": expl_cities,
+            "weight_factor": 1.02,
+        })
+
+    # Cap at 5
+    routes = routes[:5]
+
+    # ---- Build items with withinBudget / withinPoints ----
     items: List[Dict[str, Any]] = []
     existing_items = itinerary_repo.list_items(trip_id) or []
     existing_ids = {i.get("itemId") for i in existing_items}
 
     def _next_item_id(idx: int) -> str:
         candidate = f"itinerary_{idx}"
-        # Avoid collisions with any existing saved itineraries
         n = idx
         while candidate in existing_ids:
             n += 1
@@ -192,18 +260,20 @@ def generate_simple_itineraries(trip_id: str) -> List[Dict[str, Any]]:
 
     for idx, r in enumerate(routes, start=1):
         city_objs = r["cities"]
-        total_stay_days = sum(c["days"] for c in city_objs) or total_days
+        total_cost = _cost(city_objs)
+        points_cost = _points(total_cost)
 
-        total_cost = int(total_stay_days * base_cost_per_day + len(city_objs) * base_cost_per_city)
-        points_cost = int(total_cost * 25)  # rough valuation used elsewhere in the app
+        within_budget = max_budget is None or max_budget <= 0 or total_cost <= max_budget
+        within_points = total_points <= 0 or points_cost <= total_points
 
-        # Simple score heuristic: favor more cities up to a point, and penalize very long trips
         score = 88
         if len(city_objs) >= 4:
             score += 4
         elif len(city_objs) >= 2:
             score += 2
         score = int(score * r.get("weight_factor", 1.0))
+        if within_budget and within_points:
+            score = min(99, score + 3)
         score = max(75, min(score, 99))
 
         item = {
@@ -211,21 +281,22 @@ def generate_simple_itineraries(trip_id: str) -> List[Dict[str, Any]]:
             "itemId": _next_item_id(idx),
             "type": "itinerary",
             "name": r["label"],
-            # Keep both raw IDs and rich city objects so frontend can map either way
             "route": r["route_ids"],
             "cities": city_objs,
             "totalCost": total_cost,
             "pointsCost": points_cost,
             "score": score,
+            "withinBudget": within_budget,
+            "withinPoints": within_points,
         }
         itinerary_repo.put_item(item)
         items.append(item)
 
     logger.info(
         f"Generated {len(items)} simple itineraries for trip {trip_id} "
-        f"with destinations {[c['name'] for c in _build_city_objects(ordered_city_names)]}"
+        f"(max_budget={max_budget}, total_points={total_points}); "
+        f"destinations={[c['name'] for c in (routes[0]['cities'] if routes else [])}"
     )
-
     return items
 
 
@@ -830,6 +901,14 @@ async def generate_optimized_itinerary(trip_id: str) -> Dict[str, Any]:
     if benefit_airlines and any(benefit_airlines.values()):
         logger.info("Card benefits for optimization: %s", {k: list(v) for k, v in benefit_airlines.items() if v})
     
+    # Apply trip max_budget as cash constraint: per-traveler budget so total <= max_budget
+    max_budget = trip.get("maxBudget") or trip.get("max_budget")
+    try:
+        max_budget = int(max_budget) if max_budget is not None else None
+    except (TypeError, ValueError):
+        max_budget = None
+    default_cash_budget = (max_budget // len(travelers)) if (max_budget and len(travelers)) else 1e9
+
     # 7. Run ILP optimization using points maximization
     # plan_maximize_points_value (points_maximizer.py): maximizes cash saved by using points.
     # Objective: W1*points_value - W2*cash_paid - W3*time (W1=10^6, W2=10^3, W3=1; min 1 cpp).
@@ -850,6 +929,7 @@ async def generate_optimized_itinerary(trip_id: str) -> Dict[str, Any]:
             allow_all_payers=True,
             default_cash_if_missing=1e7,
             default_time_if_missing=1e6,
+            default_cash_budget=default_cash_budget,
             benefit_airlines=benefit_airlines,
         )
         

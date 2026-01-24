@@ -3,7 +3,7 @@
 import { useState, useEffect } from 'react';
 import { useRouter, useSearchParams } from 'next/navigation';
 import { MapPin, DollarSign, Clock, Zap, Edit3, Check, Sparkles, TrendingUp, Plane, Car, Bus, Train, Navigation, Calendar, Info } from 'lucide-react';
-import { itineraries as itinerariesAPI, trips as tripsAPI, ItineraryItem, destinations } from '@/lib/api';
+import { itineraries as itinerariesAPI, trips as tripsAPI, points as pointsAPI, ItineraryItem, destinations } from '@/lib/api';
 
 interface Itinerary {
     id: number;
@@ -12,6 +12,8 @@ interface Itinerary {
     totalCost: number;
     pointsCost: number;
     score: number;
+    withinBudget?: boolean;
+    withinPoints?: boolean;
 }
 
 interface AIRouteSuggestion {
@@ -197,6 +199,7 @@ export default function SoloResults() {
     const [outOfPocket, setOutOfPocket] = useState<OutOfPocketData | null>(null);
     const [outOfPocketHotels, setOutOfPocketHotels] = useState<OutOfPocketHotelsData | null>(null);
     const [includeHotels, setIncludeHotels] = useState(true);
+    const [userConstraints, setUserConstraints] = useState<{ maxBudget?: number; totalPoints: number; durationLabel: string; includeHotels: boolean } | null>(null);
 
     useEffect(() => {
         const fetchItineraries = async () => {
@@ -212,11 +215,35 @@ export default function SoloResults() {
                 setSmartTips(emptySmartTips);
                 setOutOfPocket(null);
                 setOutOfPocketHotels(null);
-                const [response, trip] = await Promise.all([
+                setUserConstraints(null);
+                const [response, trip, pointsRes] = await Promise.all([
                     itinerariesAPI.get(tripId),
                     tripsAPI.get(tripId).catch(() => null),
+                    pointsAPI.summary(tripId).catch(() => ({ totalPoints: 0, items: [] })),
                 ]);
-                setIncludeHotels((trip as { includeHotels?: boolean })?.includeHotels !== false);
+                const t = trip as { includeHotels?: boolean; maxBudget?: number; startDate?: string; endDate?: string; durationDays?: number } | null;
+                const incHotels = t?.includeHotels !== false;
+                setIncludeHotels(incHotels);
+
+                // Build duration label from user inputs: from dates, or durationDays (flexible), or "—"
+                let durationLabel = '—';
+                if (t?.startDate && t?.endDate) {
+                    const start = new Date(t.startDate);
+                    const end = new Date(t.endDate);
+                    if (!isNaN(start.getTime()) && !isNaN(end.getTime())) {
+                        const d = Math.round((end.getTime() - start.getTime()) / (24 * 60 * 60 * 1000)) + 1;
+                        if (d > 0) durationLabel = `${d} days`;
+                    }
+                } else if (t?.durationDays != null && t.durationDays > 0) {
+                    durationLabel = `${t.durationDays} days (flexible)`;
+                }
+
+                setUserConstraints({
+                    maxBudget: t?.maxBudget != null && t.maxBudget > 0 ? t.maxBudget : undefined,
+                    totalPoints: typeof (pointsRes as { totalPoints?: number })?.totalPoints === 'number' ? (pointsRes as { totalPoints: number }).totalPoints : 0,
+                    durationLabel,
+                    includeHotels: incHotels,
+                });
 
                 // Check for AI route suggestions (small/remote cities with no flight data)
                 const aiItem = response.items?.find((i: ItineraryItem & { type?: string }) => i.type === 'ai_route_suggestions');
@@ -269,13 +296,16 @@ export default function SoloResults() {
                     destinationMap.set(dest.destinationId, dest.name);
                 });
 
-                // Transform API response to display format (exclude ai_route_suggestions, itinerary_smart_tips, out_of_pocket, out_of_pocket_hotels)
+                // Transform API response (exclude non-itinerary types: ai_route_suggestions, itinerary_smart_tips, out_of_pocket, out_of_pocket_hotels, path, payments, totals)
                 const regularItems = (response.items || []).filter(
-                    (i: ItineraryItem & { type?: string }) =>
-                        i.type !== 'ai_route_suggestions' && i.type !== 'itinerary_smart_tips' && i.type !== 'out_of_pocket' && i.type !== 'out_of_pocket_hotels'
+                    (i: ItineraryItem & { type?: string }) => {
+                        if (['ai_route_suggestions', 'itinerary_smart_tips', 'out_of_pocket', 'out_of_pocket_hotels', 'path', 'payments', 'totals'].includes(i.type || '')) return false;
+                        const route = i.route || i.cities;
+                        return Array.isArray(route) && route.length > 0;
+                    }
                 );
                 if (regularItems.length > 0) {
-                    const transformed: Itinerary[] = regularItems.map((item: ItineraryItem, index: number) => {
+                    let transformed: Itinerary[] = regularItems.map((item: ItineraryItem, index: number) => {
                         const route = item.route || item.cities || [];
                         const cities = Array.isArray(route)
                             ? route.map((city: string | { name: string; days: number }) => {
@@ -301,7 +331,15 @@ export default function SoloResults() {
                             totalCost: item.totalCost || item.cost || 0,
                             pointsCost: item.pointsCost || item.points || 0,
                             score: item.score || 85,
+                            withinBudget: item.withinBudget !== false,
+                            withinPoints: item.withinPoints !== false,
                         };
+                    });
+                    // Sort: within budget and points first, then within budget, then rest
+                    transformed = transformed.sort((a, b) => {
+                        const sa = (a.withinBudget ? 2 : 0) + (a.withinPoints ? 1 : 0);
+                        const sb = (b.withinBudget ? 2 : 0) + (b.withinPoints ? 1 : 0);
+                        return sb - sa;
                     });
 
                     setItineraries(transformed);
@@ -339,9 +377,11 @@ export default function SoloResults() {
                 const newCities = [...itinerary.cities];
                 newCities[cityIndex] = { ...newCities[cityIndex], days };
 
-                // Recalculate costs
+                // Recalculate costs using same formula as backend (aligned with includeHotels)
                 const totalDays = newCities.reduce((sum, c) => sum + c.days, 0);
-                const newCost = Math.floor(totalDays * 200 + newCities.length * 300);
+                const perDay = includeHotels ? 200 : 120;
+                const perCity = includeHotels ? 300 : 200;
+                const newCost = Math.floor(totalDays * perDay + newCities.length * perCity);
 
                 return {
                     ...itinerary,
@@ -427,12 +467,47 @@ export default function SoloResults() {
                 <div className="flex items-center justify-between mb-8">
                     <div>
                         <h1 className="text-4xl mb-2 tracking-tight text-slate-900 font-bold">Your Routes</h1>
-                        <p className="text-slate-600">We generated {itineraries.length} optimized itineraries for you</p>
+                        <p className="text-slate-600">
+                            {itineraries.length === 0
+                                ? 'No itineraries match your budget and points. Try adjusting your limits or destinations.'
+                                : `We generated ${itineraries.length} itinerary option${itineraries.length === 1 ? '' : 's'} within your constraints`}
+                        </p>
                     </div>
                 </div>
 
+                {/* Your inputs — so "Within budget & points" is measured against these */}
+                {userConstraints && (
+                    <div className="mb-8 p-4 bg-slate-50 border border-slate-200 rounded-xl flex flex-wrap items-center gap-6 text-sm">
+                        <span className="font-medium text-slate-700">Based on your inputs:</span>
+                        {userConstraints.maxBudget != null && userConstraints.maxBudget > 0 && (
+                            <span className="text-slate-600">Budget: <strong className="text-slate-900">${userConstraints.maxBudget.toLocaleString()}</strong></span>
+                        )}
+                        {userConstraints.totalPoints > 0 && (
+                            <span className="text-slate-600">Points: <strong className="text-slate-900">{(userConstraints.totalPoints / 1000).toFixed(0)}k</strong></span>
+                        )}
+                        <span className="text-slate-600">Duration: <strong className="text-slate-900">{userConstraints.durationLabel}</strong></span>
+                        <span className="text-slate-600">Hotels: <strong className="text-slate-900">{userConstraints.includeHotels ? 'Included' : 'Not included'}</strong></span>
+                    </div>
+                )}
+
                 {outOfPocket && <OutOfPocketBlock data={outOfPocket} />}
 
+                {/* Empty state when no itineraries */}
+                {itineraries.length === 0 ? (
+                    <div className="bg-white border border-slate-200 rounded-2xl p-12 text-center">
+                        <MapPin className="w-14 h-14 text-slate-300 mx-auto mb-4" />
+                        <h2 className="text-xl font-semibold text-slate-900 mb-2">No routes yet</h2>
+                        <p className="text-slate-600 max-w-md mx-auto mb-6">
+                            We couldn&apos;t generate itineraries that fit your budget and points. Try increasing your budget, adding more points, or choosing different destinations.
+                        </p>
+                        <button
+                            onClick={() => router.push(`/solo/setup`)}
+                            className="px-6 py-3 bg-blue-600 text-white rounded-xl hover:bg-blue-700 transition-colors font-medium"
+                        >
+                            Back to setup
+                        </button>
+                    </div>
+                ) : (
                 <div className="grid lg:grid-cols-3 gap-6">
                     {/* Itinerary Cards */}
                     <div className="lg:col-span-2 space-y-6">
@@ -473,7 +548,17 @@ export default function SoloResults() {
                                             </div>
                                         </div>
 
-                                        <div className="flex gap-2">
+                                        <div className="flex flex-wrap items-center gap-2">
+                                            {/* Budget & points: show warnings when over, or a single "Fits" when both within */}
+                                            {itinerary.withinBudget === false && (
+                                                <span className="px-2.5 py-1 bg-amber-100 text-amber-800 rounded-full text-xs font-medium">Over budget</span>
+                                            )}
+                                            {itinerary.withinPoints === false && (
+                                                <span className="px-2.5 py-1 bg-amber-100 text-amber-800 rounded-full text-xs font-medium">Exceeds points</span>
+                                            )}
+                                            {itinerary.withinBudget === true && itinerary.withinPoints === true && (
+                                                <span className="px-2.5 py-1 bg-emerald-100 text-emerald-700 rounded-full text-xs font-medium">Within budget & points</span>
+                                            )}
                                             <button
                                                 onClick={() => setEditingId(editingId === itinerary.id ? null : itinerary.id)}
                                                 className="p-2 hover:bg-blue-50 rounded-lg transition-colors"
@@ -484,7 +569,6 @@ export default function SoloResults() {
                                                     <Edit3 className="w-5 h-5 text-slate-600" />
                                                 )}
                                             </button>
-
                                             <label className="flex items-center gap-2 cursor-pointer group">
                                                 <input
                                                     type="checkbox"
@@ -678,6 +762,7 @@ export default function SoloResults() {
                         </div>
                     )}
                 </div>
+                )}
                 <SmartTipsBlock tips={smartTips} />
             </div>
         </div>

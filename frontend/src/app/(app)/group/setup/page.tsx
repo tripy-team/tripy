@@ -3,7 +3,7 @@
 import { useState, useEffect } from 'react';
 import { useRouter } from 'next/navigation';
 import { Users, MapPin, Calendar, DollarSign, Zap, Sparkles, CreditCard, X, Copy, Check, ArrowRight, MessageCircle, RefreshCw, Baby, User, Info, Plane, Backpack, Armchair, Coffee, Wine, Crown, BedDouble, Star, SlidersHorizontal, Luggage } from 'lucide-react';
-import { createTrip, addDestination, users as usersAPI, trips as tripsAPI, ExtractedTripInfo } from '@/lib/api';
+import { createTrip, addDestination, upsertPoints, users as usersAPI, trips as tripsAPI, ExtractedTripInfo } from '@/lib/api';
 import TripChatbotInline from '@/components/trip-chatbot-inline';
 import PointsAllocation from '@/components/PointsAllocation';
 import { DestinationAutocomplete } from '@/components/ui/DestinationAutocomplete';
@@ -330,6 +330,8 @@ export default function GroupTripSetup() {
         start_date: isFlexible ? '' : startDate,
         end_date: isFlexible || isOneWay ? '' : endDate,
         include_hotels: includeHotels,
+        max_budget: maxBudget === '' ? undefined : (typeof maxBudget === 'number' ? maxBudget : undefined),
+        duration_days: isFlexible ? flexibleDuration : undefined,
       });
 
       // 2. Add start destination if provided
@@ -362,7 +364,16 @@ export default function GroupTripSetup() {
         });
       }
 
-      // 5. Get invite code
+      // 5. Add credit card points (use allocated amount, or all if not set)
+      for (const card of creditCards) {
+        await upsertPoints({
+          trip_id: trip.tripId,
+          program: card.program,
+          balance: pointsToUse[card.program] ?? card.points,
+        });
+      }
+
+      // 6. Get invite code
       const inviteResponse = await tripsAPI.invite(trip.tripId);
       
       // Store trip ID and invite info
@@ -938,6 +949,7 @@ export default function GroupTripSetup() {
                   <DestinationAutocomplete
                     value={newCity}
                     onChange={setNewCity}
+                    autoFocus
                     onSelect={(city) => {
                       if (city && !cities.includes(city)) {
                         setCities(prevCities => {

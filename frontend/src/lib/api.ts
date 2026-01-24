@@ -285,6 +285,8 @@ export interface Trip {
   firstDestination?: string;
   memberCount?: number;
   includeHotels?: boolean;
+  maxBudget?: number;
+  durationDays?: number;
 }
 
 export interface PointsSummaryItem {
@@ -307,6 +309,10 @@ export interface CreateTripRequest {
   end_date: string;
   /** Include hotel out-of-pocket in cost calculations (default true) */
   include_hotels?: boolean;
+  /** Maximum budget in dollars for itinerary generation */
+  max_budget?: number;
+  /** Trip length in days when dates are flexible (start/end empty) */
+  duration_days?: number;
 }
 
 export interface Destination {
@@ -425,7 +431,7 @@ export const auth = {
 
 // Trips API
 export const trips = {
-  create: async (params: { title: string; start_date: string; end_date: string; include_hotels?: boolean }): Promise<Trip> => {
+  create: async (params: { title: string; start_date: string; end_date: string; include_hotels?: boolean; max_budget?: number; duration_days?: number }): Promise<Trip> => {
     return apiRequest<Trip>('/trips', {
       method: 'POST',
       body: JSON.stringify(params),
@@ -574,6 +580,10 @@ export interface ItineraryItem {
   points?: number;
   pointsCost?: number;
   score?: number;
+  /** True when totalCost <= trip max_budget */
+  withinBudget?: boolean;
+  /** True when pointsCost <= trip total points */
+  withinPoints?: boolean;
   [key: string]: unknown; // Allow other fields from DynamoDB
 }
 

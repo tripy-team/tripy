@@ -1,8 +1,8 @@
 'use client';
 
-import { useRouter } from 'next/navigation';
+import { useRouter, useSearchParams } from 'next/navigation';
 import { useState } from 'react';
-import { ArrowLeft, CheckCircle, ExternalLink, AlertCircle, Copy, Plane, Hotel, Activity, Info } from 'lucide-react';
+import { ArrowLeft, CheckCircle, ExternalLink, AlertCircle, Copy, Plane, Hotel, Activity, Info, Lock, ChevronRight } from 'lucide-react';
 
 interface TransferStep {
     id: string;
@@ -20,7 +20,10 @@ interface TransferStep {
 
 export default function GroupTransferInstructions() {
     const router = useRouter();
+    const searchParams = useSearchParams();
+    const tripId = searchParams?.get('trip_id') || '';
     const [copiedId, setCopiedId] = useState<string | null>(null);
+    const [isPaid, setIsPaid] = useState(false); // TODO: fetch from API (trip payment status)
 
     const copyToClipboard = async (text: string, id: string) => {
         try {
@@ -137,6 +140,25 @@ export default function GroupTransferInstructions() {
                     </div>
                 </div>
 
+                {!isPaid ? (
+                    /* Pending Payment section — transfer strategy hidden until payment */
+                    <div className="bg-white border border-slate-200 rounded-2xl overflow-hidden p-8 md:p-12 text-center">
+                        <div className="bg-slate-100 p-4 rounded-full w-fit mx-auto mb-4">
+                            <Lock className="w-10 h-10 text-slate-500" />
+                        </div>
+                        <h3 className="text-lg font-bold text-slate-900 mb-2">Pending Payment</h3>
+                        <p className="text-slate-600 max-w-md mx-auto mb-6">
+                            Complete payment to unlock step-by-step transfer instructions for each member.
+                        </p>
+                        <button
+                            onClick={() => router.push(`/group/booking?trip_id=${tripId}`)}
+                            className="text-blue-600 font-semibold hover:text-blue-700 inline-flex items-center gap-1"
+                        >
+                            Complete Payment <ChevronRight className="w-4 h-4" />
+                        </button>
+                    </div>
+                ) : (
+                <>
                 {/* Transfer Cards */}
                 <div className="space-y-6">
                     {transfers.map((transfer) => {
@@ -232,6 +254,8 @@ export default function GroupTransferInstructions() {
                         Mark All as Completed
                     </button>
                 </div>
+                </>
+                )}
             </div>
         </div>
     );

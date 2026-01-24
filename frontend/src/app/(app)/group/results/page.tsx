@@ -2,8 +2,8 @@
 
 import { useState, useEffect } from 'react';
 import { useRouter, useSearchParams } from 'next/navigation';
-import { MapPin, DollarSign, Clock, Zap, Users, Sparkles, TrendingUp, Plane, Car, Bus, Train, Navigation, Calendar, Info } from 'lucide-react';
-import { itineraries as itinerariesAPI, trips as tripsAPI, points as pointsAPI, ItineraryItem } from '@/lib/api';
+import { MapPin, DollarSign, Clock, Zap, Users, Sparkles, TrendingUp, Plane, Car, Bus, Train, Navigation, Calendar, Info, Edit3, Check } from 'lucide-react';
+import { itineraries as itinerariesAPI, trips as tripsAPI, points as pointsAPI, destinations, ItineraryItem } from '@/lib/api';
 
 interface Itinerary {
     id: number;
@@ -12,6 +12,8 @@ interface Itinerary {
     totalCostPerPerson: number;
     pointsCost: number;
     score: number;
+    withinBudget?: boolean;
+    withinPoints?: boolean;
 }
 
 interface AIRouteSuggestion {
@@ -44,6 +46,16 @@ interface OutOfPocketData {
     destination?: string;
     outbound_date?: string;
     return_date?: string;
+}
+
+/** Hotel OOP from optimize_hotels_out_of_pocket: best_overall has out_of_pocket, cash, points, surcharge */
+interface OutOfPocketHotelsData {
+    best_by_cash?: { cash?: number; out_of_pocket?: number } | null;
+    best_by_points?: { surcharge?: number; out_of_pocket?: number } | null;
+    best_overall?: { out_of_pocket?: number; cash?: number; points?: number; surcharge?: number } | null;
+    destination?: string;
+    check_in?: string;
+    check_out?: string;
 }
 
 function OutOfPocketBlock({ data }: { data: OutOfPocketData }) {
@@ -178,6 +190,8 @@ export default function GroupResults() {
     
     const [itineraries, setItineraries] = useState<Itinerary[]>([]);
     const [selectedId, setSelectedId] = useState<number | null>(null);
+    const [editingId, setEditingId] = useState<number | null>(null);
+    const [comparing, setComparing] = useState<number[]>([]);
     const [loading, setLoading] = useState(true);
     const [groupSize, setGroupSize] = useState(4);
     const [members, setMembers] = useState<Array<{ id: string; name: string; initials: string; totalPoints: number; color: string }>>([]);
@@ -185,6 +199,9 @@ export default function GroupResults() {
     const [isAiSuggested, setIsAiSuggested] = useState(false);
     const [smartTips, setSmartTips] = useState<SmartTips>(emptySmartTips);
     const [outOfPocket, setOutOfPocket] = useState<OutOfPocketData | null>(null);
+    const [outOfPocketHotels, setOutOfPocketHotels] = useState<OutOfPocketHotelsData | null>(null);
+    const [includeHotels, setIncludeHotels] = useState(true);
+    const [userConstraints, setUserConstraints] = useState<{ maxBudget?: number; totalPoints: number; durationLabel: string; includeHotels: boolean } | null>(null);
 
     const stepIcon = (method: string) => {
         const m = (method || '').toLowerCase();
@@ -208,14 +225,41 @@ export default function GroupResults() {
                 setIsAiSuggested(false);
                 setSmartTips(emptySmartTips);
                 setOutOfPocket(null);
+                setOutOfPocketHotels(null);
+                setUserConstraints(null);
 
-                // Fetch group size and members from trip members
-                const membersResponse = await tripsAPI.listMembers(tripId);
+                // Fetch group size, members, itineraries, and trip in parallel
+                const [membersResponse, pointsResponse, itineraryResponse, trip] = await Promise.all([
+                    tripsAPI.listMembers(tripId),
+                    pointsAPI.summary(tripId),
+                    itinerariesAPI.get(tripId),
+                    tripsAPI.get(tripId).catch(() => null),
+                ]);
+                const t = trip as { includeHotels?: boolean; maxBudget?: number; startDate?: string; endDate?: string; durationDays?: number } | null;
+                const incHotels = t?.includeHotels !== false;
+                setIncludeHotels(incHotels);
+
+                let durationLabel = '—';
+                if (t?.startDate && t?.endDate) {
+                    const start = new Date(t.startDate);
+                    const end = new Date(t.endDate);
+                    if (!isNaN(start.getTime()) && !isNaN(end.getTime())) {
+                        const d = Math.round((end.getTime() - start.getTime()) / (24 * 60 * 60 * 1000)) + 1;
+                        if (d > 0) durationLabel = `${d} days`;
+                    }
+                } else if (t?.durationDays != null && t.durationDays > 0) {
+                    durationLabel = `${t.durationDays} days (flexible)`;
+                }
+                const totalPts = typeof (pointsResponse as { totalPoints?: number })?.totalPoints === 'number' ? (pointsResponse as { totalPoints: number }).totalPoints : 0;
+                setUserConstraints({
+                    maxBudget: t?.maxBudget != null && t.maxBudget > 0 ? t.maxBudget : undefined,
+                    totalPoints: totalPts,
+                    durationLabel,
+                    includeHotels: incHotels,
+                });
+
                 const memberCount = membersResponse.members.length || 4;
                 setGroupSize(memberCount);
-
-                // Fetch points summary to get points per user
-                const pointsResponse = await pointsAPI.summary(tripId);
 
                 // Transform members data with points
                 const colorClasses = ['bg-blue-600', 'bg-purple-600', 'bg-green-600', 'bg-orange-600', 'bg-pink-600', 'bg-indigo-600'];
@@ -235,11 +279,8 @@ export default function GroupResults() {
                 });
                 setMembers(transformedMembers);
 
-                // Fetch itineraries
-                const response = await itinerariesAPI.get(tripId);
-
                 // Check for AI route suggestions (small/remote cities with no flight data)
-                const aiItem = response.items?.find((i: ItineraryItem & { type?: string }) => i.type === 'ai_route_suggestions');
+                const aiItem = itineraryResponse.items?.find((i: ItineraryItem & { type?: string }) => i.type === 'ai_route_suggestions');
                 if (aiItem && (aiItem as { suggestions?: AIRouteSuggestion[] }).suggestions?.length) {
                     setAiSuggestions((aiItem as { suggestions: AIRouteSuggestion[] }).suggestions);
                     setSmartTips({
@@ -255,7 +296,7 @@ export default function GroupResults() {
                 }
 
                 // Extract smart tips from itinerary_smart_tips item
-                const tipsItem = response.items?.find((i: ItineraryItem & { type?: string }) => i.type === 'itinerary_smart_tips');
+                const tipsItem = itineraryResponse.items?.find((i: ItineraryItem & { type?: string }) => i.type === 'itinerary_smart_tips');
                 if (tipsItem && typeof tipsItem === 'object') {
                     const t = tipsItem as Record<string, unknown>;
                     setSmartTips({
@@ -267,24 +308,52 @@ export default function GroupResults() {
                 }
 
                 // Out-of-pocket (simple A->B round-trip)
-                const oopItem = response.items?.find((i: ItineraryItem & { type?: string }) => i.type === 'out_of_pocket');
+                const oopItem = itineraryResponse.items?.find((i: ItineraryItem & { type?: string }) => i.type === 'out_of_pocket');
                 if (oopItem && typeof oopItem === 'object') {
                     setOutOfPocket(oopItem as OutOfPocketData);
                 } else {
                     setOutOfPocket(null);
                 }
 
-                // Transform API response (exclude ai_route_suggestions, itinerary_smart_tips, out_of_pocket, out_of_pocket_hotels)
-                const regularItems = (response.items || []).filter(
-                    (i: ItineraryItem & { type?: string }) =>
-                        i.type !== 'ai_route_suggestions' && i.type !== 'itinerary_smart_tips' && i.type !== 'out_of_pocket' && i.type !== 'out_of_pocket_hotels'
+                // Hotel out-of-pocket (when trip has includeHotels)
+                const oopHotelsItem = itineraryResponse.items?.find((i: ItineraryItem & { type?: string }) => i.type === 'out_of_pocket_hotels');
+                if (oopHotelsItem && typeof oopHotelsItem === 'object') {
+                    setOutOfPocketHotels(oopHotelsItem as OutOfPocketHotelsData);
+                } else {
+                    setOutOfPocketHotels(null);
+                }
+
+                // Fetch destinations to map UUIDs to names
+                const destinationsResponse = await destinations.list(tripId);
+                const destinationMap = new Map<string, string>();
+                destinationsResponse.destinations.forEach((dest) => {
+                    destinationMap.set(dest.destinationId, dest.name);
+                });
+
+                // Filter to itinerary-style items (exclude path, payments, totals, etc.)
+                const regularItems = (itineraryResponse.items || []).filter(
+                    (i: ItineraryItem & { type?: string }) => {
+                        if (['ai_route_suggestions', 'itinerary_smart_tips', 'out_of_pocket', 'out_of_pocket_hotels', 'path', 'payments', 'totals'].includes(i.type || '')) return false;
+                        const route = i.route || i.cities;
+                        return Array.isArray(route) && route.length > 0;
+                    }
                 );
                 if (regularItems.length > 0) {
-                    const transformed: Itinerary[] = regularItems.map((item: ItineraryItem, index: number) => {
+                    let transformed: Itinerary[] = regularItems.map((item: ItineraryItem, index: number) => {
                         const route = item.route || item.cities || [];
                         const cities = Array.isArray(route)
                             ? route.map((city: string | { name: string; days: number }) => {
-                                if (typeof city === 'string') return { name: city, days: 3 };
+                                if (typeof city === 'string') {
+                                    const isUUID = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i.test(city);
+                                    const cityName = isUUID && destinationMap.has(city)
+                                        ? destinationMap.get(city)!
+                                        : (isUUID ? city : city);
+                                    return { name: cityName, days: 3 };
+                                }
+                                if (city.name && /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i.test(city.name)) {
+                                    const resolvedName = destinationMap.get(city.name) || city.name;
+                                    return { name: resolvedName, days: city.days || 3 };
+                                }
                                 return city;
                             })
                             : [];
@@ -296,7 +365,14 @@ export default function GroupResults() {
                             totalCostPerPerson: item.totalCostPerPerson || item.costPerPerson || (item.totalCost || 0) / memberCount,
                             pointsCost: item.pointsCost || item.points || 0,
                             score: item.score || 85,
+                            withinBudget: item.withinBudget !== false,
+                            withinPoints: item.withinPoints !== false,
                         };
+                    });
+                    transformed = transformed.sort((a, b) => {
+                        const sa = (a.withinBudget ? 2 : 0) + (a.withinPoints ? 1 : 0);
+                        const sb = (b.withinBudget ? 2 : 0) + (b.withinPoints ? 1 : 0);
+                        return sb - sa;
                     });
 
                     setItineraries(transformed);
@@ -318,6 +394,30 @@ export default function GroupResults() {
     }, [tripId]);
 
     const selectedItinerary = itineraries.find(i => i.id === selectedId);
+
+    const updateCityDays = (itineraryId: number, cityIndex: number, days: number) => {
+        setItineraries(prev => prev.map(itinerary => {
+            if (itinerary.id === itineraryId) {
+                const newCities = [...itinerary.cities];
+                newCities[cityIndex] = { ...newCities[cityIndex], days };
+                const totalDays = newCities.reduce((sum, c) => sum + c.days, 0);
+                const totalCost = Math.floor(totalDays * 200 + newCities.length * 300);
+                return {
+                    ...itinerary,
+                    cities: newCities,
+                    totalCostPerPerson: totalCost / groupSize,
+                    pointsCost: Math.floor(totalCost * 25),
+                };
+            }
+            return itinerary;
+        }));
+    };
+
+    const toggleCompare = (id: number) => {
+        setComparing(prev =>
+            prev.includes(id) ? prev.filter(i => i !== id) : [...prev, id]
+        );
+    };
 
     if (loading) {
         return (
@@ -392,6 +492,20 @@ export default function GroupResults() {
                     <p className="text-slate-600">We generated {itineraries.length} optimized routes for your group</p>
                 </div>
 
+                {userConstraints && (
+                    <div className="mb-8 p-4 bg-slate-50 border border-slate-200 rounded-xl flex flex-wrap items-center gap-6 text-sm">
+                        <span className="font-medium text-slate-700">Based on your inputs:</span>
+                        {userConstraints.maxBudget != null && userConstraints.maxBudget > 0 && (
+                            <span className="text-slate-600">Budget: <strong className="text-slate-900">${userConstraints.maxBudget.toLocaleString()}</strong></span>
+                        )}
+                        {userConstraints.totalPoints > 0 && (
+                            <span className="text-slate-600">Points: <strong className="text-slate-900">{(userConstraints.totalPoints / 1000).toFixed(0)}k</strong></span>
+                        )}
+                        <span className="text-slate-600">Duration: <strong className="text-slate-900">{userConstraints.durationLabel}</strong></span>
+                        <span className="text-slate-600">Hotels: <strong className="text-slate-900">{userConstraints.includeHotels ? 'Included' : 'Not included'}</strong></span>
+                    </div>
+                )}
+
                 {outOfPocket && <OutOfPocketBlock data={outOfPocket} />}
 
                 <div className="grid lg:grid-cols-3 gap-6">
@@ -433,6 +547,36 @@ export default function GroupResults() {
                                                 </span>
                                             </div>
                                         </div>
+                                        <div className="flex flex-wrap items-center gap-2">
+                                            {itinerary.withinBudget === false && (
+                                                <span className="px-2.5 py-1 bg-amber-100 text-amber-800 rounded-full text-xs font-medium">Over budget</span>
+                                            )}
+                                            {itinerary.withinPoints === false && (
+                                                <span className="px-2.5 py-1 bg-amber-100 text-amber-800 rounded-full text-xs font-medium">Exceeds points</span>
+                                            )}
+                                            {itinerary.withinBudget === true && itinerary.withinPoints === true && (
+                                                <span className="px-2.5 py-1 bg-emerald-100 text-emerald-700 rounded-full text-xs font-medium">Within budget &amp; points</span>
+                                            )}
+                                            <button
+                                                onClick={() => setEditingId(editingId === itinerary.id ? null : itinerary.id)}
+                                                className="p-2 hover:bg-blue-50 rounded-lg transition-colors"
+                                            >
+                                                {editingId === itinerary.id ? (
+                                                    <Check className="w-5 h-5 text-green-600" />
+                                                ) : (
+                                                    <Edit3 className="w-5 h-5 text-slate-600" />
+                                                )}
+                                            </button>
+                                            <label className="flex items-center gap-2 cursor-pointer group">
+                                                <input
+                                                    type="checkbox"
+                                                    checked={comparing.includes(itinerary.id)}
+                                                    onChange={() => toggleCompare(itinerary.id)}
+                                                    className="w-5 h-5"
+                                                />
+                                                <span className="text-sm text-slate-600 group-hover:text-slate-900">Compare</span>
+                                            </label>
+                                        </div>
                                     </div>
 
                                     {/* Cities */}
@@ -447,11 +591,28 @@ export default function GroupResults() {
                                                 </div>
 
                                                 <div className="flex-1">
-                                                    <div className="flex items-center gap-2 mb-1">
+                                                    <div className="flex items-center gap-2 mb-2">
                                                         <MapPin className="w-4 h-4 text-blue-600" />
                                                         <span className="font-semibold text-slate-900">{city.name}</span>
                                                     </div>
-                                                    <div className="text-sm text-slate-600">{city.days} days</div>
+
+                                                    {editingId === itinerary.id && (
+                                                        <div className="flex items-center gap-3">
+                                                            <input
+                                                                type="range"
+                                                                min="1"
+                                                                max="10"
+                                                                value={city.days}
+                                                                onChange={(e) => updateCityDays(itinerary.id, index, Number(e.target.value))}
+                                                                className="flex-1 h-2 bg-slate-200 rounded-full appearance-none cursor-pointer accent-blue-600"
+                                                            />
+                                                            <span className="text-sm text-slate-600 w-16 font-medium">{city.days} days</span>
+                                                        </div>
+                                                    )}
+
+                                                    {editingId !== itinerary.id && (
+                                                        <div className="text-sm text-slate-600">{city.days} days</div>
+                                                    )}
                                                 </div>
                                             </div>
                                         ))}
@@ -504,7 +665,52 @@ export default function GroupResults() {
                         <div className="lg:col-span-1">
                             <div className="sticky top-8 space-y-6">
                                 <div className="bg-white border border-slate-200 rounded-2xl p-6 shadow-sm">
-                                    <h3 className="text-xl mb-6 text-slate-900 font-semibold">Individual Cost Breakdown</h3>
+                                    <h3 className="text-xl mb-6 text-slate-900 font-semibold">Selected Route</h3>
+
+                                    <div className="mb-6">
+                                        <div className="text-sm text-slate-600 mb-3 font-medium">Cost Breakdown</div>
+                                        <div className="space-y-2 text-sm">
+                                            {(() => {
+                                                const totalCost = selectedItinerary.totalCostPerPerson * groupSize;
+                                                const flightsPart = totalCost * (includeHotels ? 0.4 : 0.65);
+                                                const hotelOop = includeHotels
+                                                    ? (outOfPocketHotels?.best_overall?.out_of_pocket ?? outOfPocketHotels?.best_overall?.cash)
+                                                    : null;
+                                                const hotelsPart = includeHotels
+                                                    ? (hotelOop ?? totalCost * 0.35)
+                                                    : 0;
+                                                const activitiesPart = totalCost * (includeHotels ? 0.25 : 0.35);
+                                                const sum = flightsPart + hotelsPart + activitiesPart;
+                                                return (
+                                                    <>
+                                                        <div className="flex justify-between">
+                                                            <span className="text-slate-600">Flights</span>
+                                                            <span className="text-slate-900 font-medium">${Math.round(flightsPart).toLocaleString()}</span>
+                                                        </div>
+                                                        {includeHotels && (
+                                                            <div className="flex justify-between">
+                                                                <span className="text-slate-600">Hotels</span>
+                                                                <span className="text-slate-900 font-medium">
+                                                                    ${Math.round(hotelsPart).toLocaleString()}
+                                                                    {hotelOop != null && <span className="text-emerald-600 text-xs ml-1">(live)</span>}
+                                                                </span>
+                                                            </div>
+                                                        )}
+                                                        <div className="flex justify-between">
+                                                            <span className="text-slate-600">Activities</span>
+                                                            <span className="text-slate-900 font-medium">${Math.round(activitiesPart).toLocaleString()}</span>
+                                                        </div>
+                                                        <div className="pt-2 border-t border-slate-200 flex justify-between font-semibold">
+                                                            <span className="text-slate-900">Total</span>
+                                                            <span className="text-slate-900">${Math.round(sum).toLocaleString()}</span>
+                                                        </div>
+                                                    </>
+                                                );
+                                            })()}
+                                        </div>
+                                    </div>
+
+                                    <h3 className="text-lg mb-4 text-slate-900 font-semibold">Individual Cost Breakdown</h3>
 
                                     <div className="space-y-4">
                                         {members.map((member, idx) => {
@@ -570,21 +776,23 @@ export default function GroupResults() {
                                     <p className="text-sm text-blue-100 mb-6">
                                         Proceed with this itinerary and see how to maximize your group&apos;s points.
                                     </p>
-                                    {selectedId ? (
-                                        <button
-                                            onClick={() => router.push(`/group/booking?trip_id=${tripId}`)}
-                                            className="w-full px-6 py-3 bg-yellow-400 text-slate-900 rounded-xl hover:bg-yellow-500 transition-colors shadow-lg shadow-yellow-400/20 font-semibold"
-                                        >
-                                            Book This Trip
-                                        </button>
-                                    ) : (
-                                        <button
-                                            onClick={() => router.push(`/group/points-strategy?trip_id=${tripId}`)}
-                                            className="w-full px-6 py-3 bg-yellow-400 text-slate-900 rounded-xl hover:bg-yellow-500 transition-colors shadow-lg shadow-yellow-400/20 font-semibold"
-                                        >
-                                            Select & Optimize
-                                        </button>
-                                    )}
+                                    <button
+                                        onClick={() => router.push(`/group/booking?trip_id=${tripId}`)}
+                                        className="w-full px-6 py-3 bg-yellow-400 text-slate-900 rounded-xl hover:bg-yellow-500 transition-colors shadow-lg shadow-yellow-400/20 font-semibold"
+                                    >
+                                        Book This Trip
+                                    </button>
+                                    <button
+                                        onClick={() => router.push(`/group/comparison?trip_id=${tripId}`)}
+                                        disabled={comparing.length === 0}
+                                        className={`w-full mt-3 px-6 py-2.5 rounded-xl transition-colors font-semibold ${
+                                            comparing.length > 0
+                                                ? 'bg-blue-500/90 text-white hover:bg-blue-500 shadow-sm'
+                                                : 'bg-white/10 text-white/60 cursor-not-allowed'
+                                        }`}
+                                    >
+                                        {comparing.length > 0 ? `Compare ${comparing.length} Routes` : 'Compare Routes'}
+                                    </button>
                                     {tripId && (
                                         <button
                                             onClick={() => router.push(`/group/itinerary?trip_id=${tripId}`)}

@@ -25,10 +25,30 @@ CLOUDFRONT_DOMAIN = os.environ.get("CLOUDFRONT_DOMAIN", "")  # e.g., d1234567890
 # DynamoDB table for city-image mappings
 CITY_IMAGES_TABLE = os.environ.get("CITY_IMAGES_TABLE", "tripy-city-images")
 
+# Presigned URL expiry: 24h to align with frontend cache. S3 buckets are typically private.
+PRESIGNED_EXPIRY = 86400  # seconds
+
 # Initialize AWS clients
 s3_client = boto3.client("s3", region_name=AWS_REGION)
 dynamodb = boto3.resource("dynamodb", region_name=AWS_REGION)
 city_images_table = dynamodb.Table(CITY_IMAGES_TABLE)
+
+
+def _get_s3_presigned_url(s3_key: str, expires_in: int = PRESIGNED_EXPIRY) -> str:
+    """
+    Generate a presigned URL for a private S3 object.
+    Use when CLOUDFRONT_DOMAIN is not set and the bucket blocks public access.
+    """
+    try:
+        return s3_client.generate_presigned_url(
+            "get_object",
+            Params={"Bucket": S3_BUCKET, "Key": s3_key},
+            ExpiresIn=expires_in,
+        )
+    except ClientError as e:
+        logger.error(f"Error generating presigned URL for {s3_key}: {e}")
+        # Fallback to direct URL (may 403 if bucket is private)
+        return f"https://{S3_BUCKET}.s3.{AWS_REGION}.amazonaws.com/{s3_key}"
 
 
 def get_city_image_urls(city_name: str, size: str = "800", trigger_background: bool = True) -> List[str]:
@@ -102,23 +122,23 @@ def get_city_image_urls(city_name: str, size: str = "800", trigger_background: b
         # Return metadata along with URLs (for future use)
         # Currently just returning URLs, but item also contains country, region if stored
         
-        # Build image URLs - use CloudFront if available, otherwise S3 direct
-        # S3 direct URLs are fast and work great for MVP/development
+        # Build image URLs: CloudFront if configured, otherwise presigned S3 (bucket is private)
         if CLOUDFRONT_DOMAIN:
             base_url = f"https://{CLOUDFRONT_DOMAIN}"
+            urls = []
+            for filename in image_filenames:
+                base_name = filename.rsplit(".", 1)[0]
+                s3_key = f"{base_name}_{size}.webp"
+                urls.append(f"{base_url}/{s3_key}")
+            return urls
         else:
-            # S3 direct URL - still fast, simpler setup, perfect for MVP
-            base_url = f"https://{S3_BUCKET}.s3.{AWS_REGION}.amazonaws.com"
-        
-        # Generate URLs for each image at requested size
-        urls = []
-        for filename in image_filenames:
-            # Remove extension and add size + webp
-            base_name = filename.rsplit(".", 1)[0]
-            url = f"{base_url}/{base_name}_{size}.webp"
-            urls.append(url)
-        
-        return urls
+            # Use presigned URLs for private S3 (BlockPublicAccess blocks direct URLs)
+            urls = []
+            for filename in image_filenames:
+                base_name = filename.rsplit(".", 1)[0]
+                s3_key = f"{base_name}_{size}.webp"
+                urls.append(_get_s3_presigned_url(s3_key))
+            return urls
     
     except ClientError as e:
         logger.error(f"Error fetching city images: {str(e)}")
@@ -141,25 +161,16 @@ def get_city_hero_image(city_name: str, size: str = "800", trigger_background: b
 def get_city_image_srcset(city_name: str) -> Dict[str, Any]:
     """
     Get responsive image srcset for a city.
-    
-    Returns:
-        {
-            "src": "url_800.webp",
-            "srcset": "url_400.webp 400w, url_800.webp 800w, url_1600.webp 1600w",
-            "sizes": "(max-width: 768px) 100vw, 50vw"
-        }
+    Uses per-size URLs so presigned S3 URLs work (they cannot be derived by string replace).
     """
-    hero_url = get_city_hero_image(city_name, "800")
-    
-    if not hero_url:
+    url_400 = get_city_hero_image(city_name, "400")
+    url_800 = get_city_hero_image(city_name, "800")
+    url_1600 = get_city_hero_image(city_name, "1600")
+    if not url_800:
         return {}
-    
-    # Generate srcset for different sizes
-    base_url = hero_url.replace("_800.webp", "")
-    srcset = f"{base_url}_400.webp 400w, {base_url}_800.webp 800w, {base_url}_1600.webp 1600w"
-    
+    srcset = f"{url_400} 400w, {url_800} 800w, {url_1600} 1600w"
     return {
-        "src": hero_url,
+        "src": url_800,
         "srcset": srcset,
         "sizes": "(max-width: 768px) 100vw, (max-width: 1200px) 50vw, 33vw",
     }

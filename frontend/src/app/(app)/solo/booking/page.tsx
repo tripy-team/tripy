@@ -138,7 +138,7 @@ function SoloBookingContent() {
                   <div className="bg-white p-4 rounded-full shadow-lg mb-4">
                     <Lock className="w-8 h-8 text-blue-600" />
                   </div>
-                  <h3 className="text-lg font-bold text-slate-900 mb-2">Instructions Hidden</h3>
+                  <h3 className="text-lg font-bold text-slate-900 mb-2">Pending Payment</h3>
                   <p className="text-slate-600 max-w-sm mb-6">
                     Pay the service fee to reveal the exact transfer partners, flight numbers, and step-by-step booking guide.
                   </p>

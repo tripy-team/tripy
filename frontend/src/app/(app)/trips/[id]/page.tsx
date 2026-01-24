@@ -3,7 +3,7 @@
 import { useParams, useRouter } from 'next/navigation';
 import { useState, useEffect } from 'react';
 import Image from 'next/image';
-import { ArrowLeft, Calendar, MapPin, CreditCard, Users, User, Plane, Hotel, Copy, CheckCircle, AlertCircle } from 'lucide-react';
+import { ArrowLeft, Calendar, MapPin, CreditCard, Users, User, Plane, Hotel, Copy, CheckCircle, AlertCircle, Lock, ChevronRight } from 'lucide-react';
 import { trips as tripsAPI } from '@/lib/api';
 import { getOptimizedImageUrl } from '@/lib/image-utils';
 
@@ -50,6 +50,7 @@ export default function TripDetails() {
     const [copiedId, setCopiedId] = useState<string | null>(null);
     const [trip, setTrip] = useState<Trip | null>(null);
     const [isLoading, setIsLoading] = useState(true);
+    const [isPaid, setIsPaid] = useState(false); // TODO: fetch from API (trip payment status)
 
     useEffect(() => {
         const fetchTrip = async () => {
@@ -289,22 +290,52 @@ export default function TripDetails() {
                                     <h2 className="text-xl font-bold text-slate-900">Transfer Instructions</h2>
                                     <p className="text-sm text-slate-500 mt-1">Follow these steps to complete your booking</p>
                                 </div>
-                                <div className="w-10 h-10 bg-blue-50 rounded-full flex items-center justify-center">
-                                    <Plane className="w-5 h-5 text-blue-600" />
+                                <div className="flex items-center gap-2">
+                                    <div className="w-10 h-10 bg-blue-50 rounded-full flex items-center justify-center">
+                                        <Plane className="w-5 h-5 text-blue-600" />
+                                    </div>
+                                    {isPaid ? (
+                                        <span className="px-3 py-1 bg-green-100 text-green-700 text-xs font-bold uppercase tracking-wide rounded-full flex items-center gap-1">
+                                            <CheckCircle className="w-3 h-3" /> Unlocked
+                                        </span>
+                                    ) : (
+                                        <span className="px-3 py-1 bg-amber-100 text-amber-700 text-xs font-bold uppercase tracking-wide rounded-full flex items-center gap-1">
+                                            <Lock className="w-3 h-3" /> Locked
+                                        </span>
+                                    )}
                                 </div>
                             </div>
 
-                            {/* Warning Banner */}
-                            <div className="p-4 bg-amber-50 border-b border-amber-100 flex items-start gap-3">
-                                <AlertCircle className="w-5 h-5 text-amber-600 flex-shrink-0 mt-0.5" />
-                                <div className="text-sm text-amber-900">
-                                    <span className="font-semibold block mb-1">Important: Transfers are irreversible</span>
-                                    Once you transfer credit card points, you cannot move them back. Ensure availability before transferring.
+                            {!isPaid ? (
+                                /* Pending Payment section — transfer strategy hidden until payment */
+                                <div className="p-8 md:p-12 text-center">
+                                    <div className="bg-slate-100 p-4 rounded-full w-fit mx-auto mb-4">
+                                        <Lock className="w-10 h-10 text-slate-500" />
+                                    </div>
+                                    <h3 className="text-lg font-bold text-slate-900 mb-2">Pending Payment</h3>
+                                    <p className="text-slate-600 max-w-md mx-auto mb-6">
+                                        Complete payment to unlock your transfer strategy, including which partners to use, amounts, and step-by-step booking instructions.
+                                    </p>
+                                    <button
+                                        onClick={() => router.push(trip.type === 'Group' ? `/group/booking?trip_id=${trip.id}` : `/solo/booking?trip_id=${trip.id}`)}
+                                        className="text-blue-600 font-semibold hover:text-blue-700 inline-flex items-center gap-1"
+                                    >
+                                        Complete Payment <ChevronRight className="w-4 h-4" />
+                                    </button>
                                 </div>
-                            </div>
+                            ) : (
+                                <>
+                                    {/* Warning Banner */}
+                                    <div className="p-4 bg-amber-50 border-b border-amber-100 flex items-start gap-3">
+                                        <AlertCircle className="w-5 h-5 text-amber-600 flex-shrink-0 mt-0.5" />
+                                        <div className="text-sm text-amber-900">
+                                            <span className="font-semibold block mb-1">Important: Transfers are irreversible</span>
+                                            Once you transfer credit card points, you cannot move them back. Ensure availability before transferring.
+                                        </div>
+                                    </div>
 
-                            <div className="divide-y divide-slate-100">
-                                {transferSteps.map((step, idx) => {
+                                    <div className="divide-y divide-slate-100">
+                                        {transferSteps.map((step, idx) => {
                                     return (
                                         <div key={step.id} className="p-6 hover:bg-slate-50/50 transition-colors">
                                             <div className="flex items-start gap-4">
@@ -351,7 +382,9 @@ export default function TripDetails() {
                                         </div>
                                     );
                                 })}
-                            </div>
+                                    </div>
+                                </>
+                            )}
                         </div>
                     </div>
 

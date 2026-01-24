@@ -12,6 +12,8 @@ interface Itinerary {
     totalCost: number;
     pointsCost: number;
     score: number;
+    withinBudget?: boolean;
+    withinPoints?: boolean;
 }
 
 export default function SoloComparison() {
@@ -33,9 +35,16 @@ export default function SoloComparison() {
                 setIsLoading(true);
                 const response = await itinerariesAPI.get(tripId);
                 
-                // Transform API response to display format
-                if (response.items && Array.isArray(response.items) && response.items.length > 0) {
-                    const transformed: Itinerary[] = response.items.map((item: ItineraryItem, index: number) => {
+                // Filter to itinerary-style items and transform
+                const regularItems = (response.items || []).filter(
+                    (i: ItineraryItem & { type?: string }) => {
+                        if (['ai_route_suggestions', 'itinerary_smart_tips', 'out_of_pocket', 'out_of_pocket_hotels', 'path', 'payments', 'totals'].includes(i.type || '')) return false;
+                        const route = i.route || i.cities;
+                        return Array.isArray(route) && route.length > 0;
+                    }
+                );
+                if (regularItems.length > 0) {
+                    const transformed: Itinerary[] = regularItems.map((item: ItineraryItem, index: number) => {
                         const route = item.route || item.cities || [];
                         const cities = Array.isArray(route) 
                             ? route.map((city: string | { name: string; days: number }) => {
@@ -45,7 +54,6 @@ export default function SoloComparison() {
                                 return city;
                             })
                             : [];
-                        
                         return {
                             id: index + 1,
                             name: item.name || `Itinerary ${index + 1}`,
@@ -53,9 +61,10 @@ export default function SoloComparison() {
                             totalCost: item.totalCost || item.cost || 0,
                             pointsCost: item.pointsCost || item.points || 0,
                             score: item.score || 85,
+                            withinBudget: item.withinBudget !== false,
+                            withinPoints: item.withinPoints !== false,
                         };
                     });
-                    
                     setItineraries(transformed);
                 } else {
                     setItineraries([]);
@@ -86,6 +95,23 @@ export default function SoloComparison() {
         );
     }
 
+    if (itineraries.length === 0) {
+        return (
+            <div className="min-h-full p-8 bg-neutral-50">
+                <div className="max-w-6xl mx-auto">
+                    <button onClick={() => router.back()} className="flex items-center gap-2 text-neutral-600 hover:text-neutral-900 mb-6 transition-colors">
+                        <ArrowLeft className="w-5 h-5" />
+                        <span>Back</span>
+                    </button>
+                    <div className="bg-white border border-neutral-200 rounded-2xl p-12 text-center">
+                        <p className="text-neutral-600 mb-4">No itineraries to compare. Select 2 or more on the results page, then choose Compare.</p>
+                        <button onClick={() => router.push(`/solo/results${tripId ? `?trip_id=${tripId}` : ''}`)} className="px-6 py-3 bg-neutral-900 text-white rounded-xl hover:bg-neutral-800">Go to Results</button>
+                    </div>
+                </div>
+            </div>
+        );
+    }
+
     return (
         <div className="min-h-full p-8 bg-neutral-50">
             <div className="max-w-6xl mx-auto">
@@ -100,7 +126,7 @@ export default function SoloComparison() {
                     </button>
 
                     <h1 className="text-4xl mb-3 tracking-tight">Compare Routes</h1>
-                    <p className="text-neutral-600">Side-by-side comparison of your selected itineraries</p>
+                    <p className="text-neutral-600">Side-by-side comparison of your itineraries • within budget &amp; points</p>
                 </div>
 
                 {/* Comparison Table */}
@@ -205,6 +231,27 @@ export default function SoloComparison() {
                             <div key={itinerary.id} className="border-b border-l border-neutral-200 p-6">
                                 <div className="text-2xl">{(itinerary.pointsCost / 1000).toFixed(0)}k</div>
                                 <div className="text-sm text-neutral-600 mt-1">{itinerary.pointsCost.toLocaleString()} pts</div>
+                            </div>
+                        ))}
+
+                        {/* Within constraints (budget & points) */}
+                        <div className="border-b border-neutral-200 p-6 bg-neutral-50">
+                            <div className="flex items-center gap-2 text-sm font-medium">
+                                <Check className="w-4 h-4 text-neutral-600" />
+                                <span>Within constraints</span>
+                            </div>
+                        </div>
+                        {itineraries.map((itinerary) => (
+                            <div key={itinerary.id} className="border-b border-l border-neutral-200 p-6">
+                                {itinerary.withinBudget !== false && itinerary.withinPoints !== false ? (
+                                    <span className="text-emerald-600 font-medium">Yes</span>
+                                ) : (
+                                    <span className="text-amber-600 text-sm">
+                                        {itinerary.withinBudget === false && itinerary.withinPoints === false && 'Over budget, exceeds points'}
+                                        {itinerary.withinBudget === false && itinerary.withinPoints !== false && 'Over budget'}
+                                        {itinerary.withinBudget !== false && itinerary.withinPoints === false && 'Exceeds points'}
+                                    </span>
+                                )}
                             </div>
                         ))}
 

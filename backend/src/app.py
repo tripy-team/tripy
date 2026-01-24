@@ -86,9 +86,13 @@ class CreateTripRequest(BaseModel):
     start_date: str = Field(..., description="Start date in ISO format (YYYY-MM-DD)")
     end_date: str = Field(..., description="End date in ISO format (YYYY-MM-DD)")
     include_hotels: Optional[bool] = True  # Include hotel out-of-pocket in cost calculations
+    max_budget: Optional[int] = Field(None, ge=0, description="Maximum budget in dollars for itinerary generation")
+    duration_days: Optional[int] = Field(None, ge=1, le=365, description="Trip length in days when dates are flexible (start/end empty)")
 
     @validator("start_date", "end_date")
     def validate_date(cls, v):
+        if not v or not str(v).strip():
+            return v
         try:
             datetime.fromisoformat(v.replace("Z", "+00:00"))
             return v
@@ -97,13 +101,14 @@ class CreateTripRequest(BaseModel):
 
     @validator("end_date")
     def validate_end_after_start(cls, v, values):
+        start = values.get("start_date") or ""
+        if not str(start).strip() or not str(v).strip():
+            return v
         if "start_date" in values:
             try:
-                start = datetime.fromisoformat(
-                    values["start_date"].replace("Z", "+00:00")
-                )
-                end = datetime.fromisoformat(v.replace("Z", "+00:00"))
-                if end < start:
+                start_dt = datetime.fromisoformat(str(start).replace("Z", "+00:00"))
+                end_dt = datetime.fromisoformat(str(v).replace("Z", "+00:00"))
+                if end_dt < start_dt:
                     raise ValueError("End date must be after start date")
             except ValueError:
                 pass  # Date format validation will catch this
@@ -436,6 +441,8 @@ async def create_trip(
             request.start_date,
             request.end_date,
             include_hotels=request.include_hotels,
+            max_budget=request.max_budget,
+            duration_days=request.duration_days,
         )
         # Track trip creation for analytics
         track_trip_created(
@@ -752,7 +759,7 @@ async def get_points_summary(
 async def generate_itinerary(
     request: GenerateItineraryRequest, user_id: str = Depends(get_current_user_id)
 ):
-    """Generate optimized itineraries for a trip using points maximization"""
+    """Generate optimized itineraries for a trip using points maximization. Falls back to simple generator (1-5 budget/points-aware routes) when optimization fails."""
     try:
         # Get trip to verify access
         trip = trip_service.get_trip(request.trip_id)
@@ -787,13 +794,27 @@ async def generate_itinerary(
             out["out_of_pocket_hotels"] = result.get("out_of_pocket_hotels")
         return out
     except ValueError as e:
-        logger.warning(f"Validation error generating itinerary: {str(e)}")
-        raise HTTPException(status_code=400, detail=str(e))
+        # Fallback to simple itineraries (1-5 routes within budget/points) when optimization fails
+        logger.warning(f"Optimization failed ({e}), falling back to simple itineraries")
+        try:
+            items = itinerary_service.generate_simple_itineraries(request.trip_id)
+            track_itinerary_generated(user_id, request.trip_id, len(items))
+            return {"status": "simple", "solution": {}, "items": items}
+        except Exception as fallback_err:
+            logger.error(f"Simple itinerary fallback failed: {fallback_err}")
+            raise HTTPException(status_code=400, detail=str(e))
     except HTTPException:
         raise
     except Exception as e:
         logger.error(f"Error generating itinerary: {str(e)}")
-        raise HTTPException(status_code=500, detail=str(e))
+        # Fallback to simple itineraries on any error
+        try:
+            items = itinerary_service.generate_simple_itineraries(request.trip_id)
+            track_itinerary_generated(user_id, request.trip_id, len(items))
+            return {"status": "simple", "solution": {}, "items": items}
+        except Exception as fallback_err:
+            logger.error(f"Simple itinerary fallback failed: {fallback_err}")
+            raise HTTPException(status_code=500, detail=str(e))
 
 
 @app.post("/itinerary/get")

@@ -314,6 +314,8 @@ export default function SoloTripSetup() {
         start_date: isFlexible ? '' : startDate,
         end_date: isFlexible || isOneWay ? '' : endDate,
         include_hotels: includeHotels,
+        max_budget: maxBudget === '' ? undefined : (typeof maxBudget === 'number' ? maxBudget : undefined),
+        duration_days: isFlexible ? flexibleDuration : undefined,
       });
 
       // 2. Add start destination if provided

@@ -3,29 +3,38 @@
 import { useState, Suspense, useEffect } from 'react';
 import { useSearchParams } from 'next/navigation';
 import { 
-  Shield, 
   CheckCircle, 
-  Lock, 
-  CreditCard, 
   ArrowRight, 
   Plane, 
   Building2,
   Sparkles,
-  ChevronRight,
   Wallet,
-  Users
+  Users,
+  Lock,
+  Shield,
+  CreditCard,
+  ChevronRight
 } from 'lucide-react';
-import { trips as tripsAPI } from '@/lib/api';
+import { trips as tripsAPI, itineraries as itinerariesAPI } from '@/lib/api';
 import { calculateServiceFee, SERVICE_FEE_PERCENT } from '@/lib/utils';
 
 function GroupBookingContent() {
   const searchParams = useSearchParams();
   const tripId = searchParams?.get('trip_id') || '';
   
-  const [isPaid, setIsPaid] = useState(false);
-  const [isProcessing, setIsProcessing] = useState(false);
   const [groupSize, setGroupSize] = useState(4);
   const [loading, setLoading] = useState(true);
+  const [isPaid, setIsPaid] = useState(false); // TODO: fetch from API (trip payment status)
+  const [isProcessing, setIsProcessing] = useState(false);
+  const [itineraryData, setItineraryData] = useState<{ totalCost?: number; totalCostPerPerson?: number; pointsCost?: number } | null>(null);
+
+  const handlePayment = () => {
+    setIsProcessing(true);
+    setTimeout(() => {
+      setIsProcessing(false);
+      setIsPaid(true);
+    }, 2000);
+  };
 
   useEffect(() => {
     const fetchData = async () => {
@@ -35,9 +44,27 @@ function GroupBookingContent() {
       }
 
       try {
-        // Fetch group size
-        const membersResponse = await tripsAPI.listMembers(tripId);
+        const [membersResponse, itineraryResponse] = await Promise.all([
+          tripsAPI.listMembers(tripId),
+          itinerariesAPI.get(tripId).catch(() => ({ items: [] })),
+        ]);
         setGroupSize(membersResponse.members.length || 4);
+        // Use first itinerary item for costs (exclude non-route types)
+        const routeItem = (itineraryResponse.items || []).find(
+          (i: { type?: string; route?: unknown; cities?: unknown }) => {
+            if (['ai_route_suggestions', 'itinerary_smart_tips', 'out_of_pocket', 'out_of_pocket_hotels', 'path', 'payments', 'totals'].includes(i.type || '')) return false;
+            const r = i.route || i.cities;
+            return Array.isArray(r) && r.length > 0;
+          }
+        );
+        if (routeItem && typeof routeItem === 'object') {
+          const r = routeItem as { totalCost?: number; totalCostPerPerson?: number; pointsCost?: number; points?: number };
+          setItineraryData({
+            totalCost: r.totalCost,
+            totalCostPerPerson: r.totalCostPerPerson,
+            pointsCost: r.pointsCost ?? r.points,
+          });
+        }
       } catch (_err) {
         console.error('Error fetching booking data:', _err);
       } finally {
@@ -47,14 +74,6 @@ function GroupBookingContent() {
 
     fetchData();
   }, [tripId]);
-
-  const handlePayment = () => {
-    setIsProcessing(true);
-    setTimeout(() => {
-      setIsProcessing(false);
-      setIsPaid(true);
-    }, 2000);
-  };
 
   if (loading) {
     return (
@@ -67,15 +86,11 @@ function GroupBookingContent() {
     );
   }
 
-  // Calculate savings from actual data if available
-  // Default values if no itinerary data is available yet
-  const defaultCostPerPerson = 1850;
-  const defaultPointsCost = 60000;
-  const defaultTaxes = 50;
-  
-  const cashPrice = defaultCostPerPerson * groupSize;
-  const pointsCost = defaultPointsCost;
-  const taxes = defaultTaxes * groupSize;
+  // Use itinerary data when available, else defaults
+  const costPerPerson = itineraryData?.totalCostPerPerson ?? itineraryData?.totalCost ?? 1850;
+  const cashPrice = itineraryData?.totalCost ?? (costPerPerson * groupSize);
+  const pointsCost = itineraryData?.pointsCost ?? 60000;
+  const taxes = 50 * groupSize;
   const savings = cashPrice - (pointsCost / 1000 * 2 + taxes); // Rough estimate
   const serviceFee = calculateServiceFee(cashPrice); // cash = spent + saved
 
@@ -84,8 +99,8 @@ function GroupBookingContent() {
       {/* Header */}
       <div className="bg-white border-b border-slate-200">
         <div className="max-w-4xl mx-auto px-6 py-8">
-          <h1 className="text-3xl font-bold text-slate-900">Secure Your Group Booking</h1>
-          <p className="text-slate-500 mt-2">Complete your payment to unlock step-by-step transfer instructions for all {groupSize} travelers.</p>
+          <h1 className="text-3xl font-bold text-slate-900">Group Transfer Instructions</h1>
+          <p className="text-slate-500 mt-2">Step-by-step transfer instructions for all {groupSize} travelers.</p>
         </div>
       </div>
 
@@ -119,7 +134,7 @@ function GroupBookingContent() {
             </div>
           </div>
 
-          {/* Transfer Instructions (Blurred until paid) */}
+          {/* Transfer Instructions — payment is completed on /group/payment (one payment per group trip) */}
           <div className="bg-white border border-slate-200 rounded-2xl overflow-hidden shadow-sm">
             <div className="p-6 border-b border-slate-100 flex justify-between items-center bg-slate-50/50">
               <h2 className="text-xl font-semibold text-slate-900 flex items-center gap-2">
@@ -143,11 +158,11 @@ function GroupBookingContent() {
                   <div className="bg-white p-4 rounded-full shadow-lg mb-4">
                     <Lock className="w-8 h-8 text-blue-600" />
                   </div>
-                  <h3 className="text-lg font-bold text-slate-900 mb-2">Instructions Hidden</h3>
+                  <h3 className="text-lg font-bold text-slate-900 mb-2">Pending Payment</h3>
                   <p className="text-slate-600 max-w-sm mb-6">
-                    Pay the service fee to reveal the exact transfer partners, flight numbers, and step-by-step booking guide for all group members.
+                    Pay the service fee to reveal the exact transfer partners, flight numbers, and step-by-step booking guide for your group.
                   </p>
-                  <button 
+                  <button
                     onClick={() => document.getElementById('payment-section')?.scrollIntoView({ behavior: 'smooth' })}
                     className="text-blue-600 font-semibold hover:text-blue-700 flex items-center gap-1"
                   >
@@ -254,7 +269,7 @@ function GroupBookingContent() {
           </div>
         </div>
 
-        {/* Right Column: Payment */}
+        {/* Right Column: Order Summary & Payment (pending payment section when !isPaid) */}
         <div className="lg:col-span-1" id="payment-section">
           <div className="bg-white border border-slate-200 rounded-2xl shadow-lg sticky top-8">
             <div className="p-6 border-b border-slate-100">

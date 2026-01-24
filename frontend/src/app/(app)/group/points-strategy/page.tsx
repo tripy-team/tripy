@@ -2,7 +2,7 @@
 
 import { useRouter, useSearchParams } from 'next/navigation';
 import { useState, useEffect } from 'react';
-import { ArrowLeft, CreditCard, Plane, Hotel, Activity, Zap, TrendingUp, DollarSign, Check, LucideIcon } from 'lucide-react';
+import { ArrowLeft, CreditCard, Plane, Hotel, Activity, Zap, TrendingUp, DollarSign, Check, LucideIcon, Lock, ChevronRight } from 'lucide-react';
 import { trips as tripsAPI, points as pointsAPI } from '@/lib/api';
 import PointsAllocation from '@/components/PointsAllocation';
 
@@ -34,6 +34,7 @@ export default function GroupPointsStrategy() {
     const [isLoading, setIsLoading] = useState(true);
     const [showAllocation, setShowAllocation] = useState(false);
     const [allocatedPoints, setAllocatedPoints] = useState<Record<string, Record<string, number>>>({}); // userId -> { program -> allocated }
+    const [isPaid, setIsPaid] = useState(false); // TODO: fetch from API (trip payment status)
 
     useEffect(() => {
         const fetchMembers = async () => {
@@ -159,17 +160,36 @@ export default function GroupPointsStrategy() {
                 {/* Header */}
                 <div className="mb-8">
                     <button
-                        onClick={() => router.back()}
+                        onClick={() => tripId ? router.push(`/group/results?trip_id=${tripId}`) : router.back()}
                         className="flex items-center gap-2 text-neutral-600 hover:text-neutral-900 mb-6 transition-colors"
                     >
                         <ArrowLeft className="w-5 h-5" />
-                        <span>Back to Winner</span>
+                        <span>Back to Results</span>
                     </button>
 
                     <h1 className="text-4xl mb-3 tracking-tight">Points Strategy</h1>
                     <p className="text-neutral-600">Optimized booking assignments to maximize credit card points value</p>
                 </div>
 
+                {!isPaid ? (
+                    /* Pending Payment section — transfer strategy hidden until payment */
+                    <div className="bg-white border border-neutral-200 rounded-2xl overflow-hidden p-8 md:p-12 text-center">
+                        <div className="bg-neutral-100 p-4 rounded-full w-fit mx-auto mb-4">
+                            <Lock className="w-10 h-10 text-neutral-500" />
+                        </div>
+                        <h3 className="text-lg font-bold text-slate-900 mb-2">Pending Payment</h3>
+                        <p className="text-neutral-600 max-w-md mx-auto mb-6">
+                            Complete payment to unlock who should book what, point allocations, and step-by-step transfer instructions.
+                        </p>
+                        <button
+                            onClick={() => router.push(`/group/booking?trip_id=${tripId}`)}
+                            className="text-blue-600 font-semibold hover:text-blue-700 inline-flex items-center gap-1"
+                        >
+                            Complete Payment <ChevronRight className="w-4 h-4" />
+                        </button>
+                    </div>
+                ) : (
+                <>
                 {/* Summary Cards */}
                 <div className="grid md:grid-cols-3 gap-6 mb-8">
                     <div className="bg-white border border-neutral-200 rounded-2xl p-6">
@@ -437,6 +457,8 @@ export default function GroupPointsStrategy() {
                         </button>
                     </div>
                 </div>
+                </>
+                )}
             </div>
         </div>
     );

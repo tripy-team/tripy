@@ -9,6 +9,8 @@ def create_trip(
     start_date: str,
     end_date: str,
     include_hotels: bool = True,
+    max_budget: Optional[int] = None,
+    duration_days: Optional[int] = None,
 ) -> Dict[str, Any]:
     trip_id = str(uuid.uuid4())
     invite_code = str(uuid.uuid4())[:8]
@@ -22,6 +24,8 @@ def create_trip(
         "inviteCode": invite_code,
         "status": "active",
         "includeHotels": include_hotels,
+        "maxBudget": max_budget,
+        "durationDays": duration_days,
     }
     trip_repo.put_trip(trip)
 

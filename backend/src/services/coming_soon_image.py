@@ -17,8 +17,22 @@ logger = logging.getLogger(__name__)
 AWS_REGION = os.environ.get("AWS_REGION", "us-east-1")
 S3_BUCKET = os.environ.get("CITY_IMAGES_BUCKET", "tripy-city-images")
 CLOUDFRONT_DOMAIN = os.environ.get("CLOUDFRONT_DOMAIN", "")
+PRESIGNED_EXPIRY = 86400  # 24h, aligns with frontend cache; bucket is typically private
 
 s3_client = boto3.client("s3", region_name=AWS_REGION)
+
+
+def _get_s3_presigned_url(s3_key: str, expires_in: int = PRESIGNED_EXPIRY) -> str:
+    """Generate presigned URL for private S3 when CloudFront is not used."""
+    try:
+        return s3_client.generate_presigned_url(
+            "get_object",
+            Params={"Bucket": S3_BUCKET, "Key": s3_key},
+            ExpiresIn=expires_in,
+        )
+    except ClientError as e:
+        logger.warning(f"Error generating presigned URL for {s3_key}: {e}")
+        return f"https://{S3_BUCKET}.s3.{AWS_REGION}.amazonaws.com/{s3_key}"
 
 
 def generate_coming_soon_image(
@@ -219,7 +233,7 @@ def get_coming_soon_image_url(city_name: str, size: str = "800", custom_text: Op
         if CLOUDFRONT_DOMAIN:
             url = f"https://{CLOUDFRONT_DOMAIN}/{s3_key}"
         else:
-            url = f"https://{S3_BUCKET}.s3.{AWS_REGION}.amazonaws.com/{s3_key}"
+            url = _get_s3_presigned_url(s3_key)
         return url
     
     # Image doesn't exist, generate with display_text (customizable)
@@ -234,7 +248,7 @@ def get_coming_soon_image_url(city_name: str, size: str = "800", custom_text: Op
     if CLOUDFRONT_DOMAIN:
         return f"https://{CLOUDFRONT_DOMAIN}/{s3_key}"
     else:
-        return f"https://{S3_BUCKET}.s3.{AWS_REGION}.amazonaws.com/{s3_key}"
+        return _get_s3_presigned_url(s3_key)
 
 
 def _upload_coming_soon_image_with_key(display_text: str, size: str, s3_key: str) -> Optional[str]:
@@ -276,11 +290,11 @@ def _upload_coming_soon_image_with_key(display_text: str, size: str, s3_key: str
             },
         )
         
-        # Build URL
+        # Build URL (presigned when bucket is private and CloudFront not used)
         if CLOUDFRONT_DOMAIN:
             url = f"https://{CLOUDFRONT_DOMAIN}/{s3_key}"
         else:
-            url = f"https://{S3_BUCKET}.s3.{AWS_REGION}.amazonaws.com/{s3_key}"
+            url = _get_s3_presigned_url(s3_key)
         
         logger.info(f"Generated and uploaded coming soon image: {s3_key} (text: {display_text})")
         return url

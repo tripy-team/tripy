@@ -227,13 +227,7 @@ export default function GroupDashboard() {
                                         Itinerary
                                     </button>
                                     <button
-                                        onClick={() => router.push('/group/voting')}
-                                        className="flex-1 min-w-0 px-3 py-2 bg-white/10 rounded-lg hover:bg-white/20 transition-colors text-xs"
-                                    >
-                                        Voting
-                                    </button>
-                                    <button
-                                        onClick={() => router.push('/group/comparison')}
+                                        onClick={() => router.push(tripId ? `/group/comparison?trip_id=${tripId}` : '/group/comparison')}
                                         className="flex-1 min-w-0 px-3 py-2 bg-white/10 rounded-lg hover:bg-white/20 transition-colors text-xs"
                                     >
                                         Compare

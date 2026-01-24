@@ -1,8 +1,9 @@
 'use client';
 
-import { useState } from 'react';
-import { useRouter } from 'next/navigation';
-import { MapPin, DollarSign, Clock, Users, Zap, TrendingUp, ArrowRight } from 'lucide-react';
+import { useState, useEffect } from 'react';
+import { useRouter, useSearchParams } from 'next/navigation';
+import { MapPin, DollarSign, Clock, Users, Zap, TrendingUp, ArrowLeft, Check } from 'lucide-react';
+import { itineraries as itinerariesAPI, trips as tripsAPI, destinations, ItineraryItem } from '@/lib/api';
 
 interface Itinerary {
     id: number;
@@ -11,134 +12,161 @@ interface Itinerary {
     totalCostPerPerson: number;
     pointsCost: number;
     score: number;
-    votes: Array<{ member: string; rank: number }>;
-    averageRank: number;
+    withinBudget?: boolean;
+    withinPoints?: boolean;
 }
 
 export default function GroupComparison() {
     const router = useRouter();
-    const groupSize = 4;
+    const searchParams = useSearchParams();
+    const tripId = searchParams?.get('trip_id') || '';
 
-    const itineraries: Itinerary[] = [
-        {
-            id: 1,
-            name: 'Balanced Group Route',
-            cities: [
-                { name: 'Paris', days: 4 },
-                { name: 'Barcelona', days: 3 },
-                { name: 'Rome', days: 4 },
-                { name: 'Amsterdam', days: 3 },
-            ],
-            totalCostPerPerson: 4800,
-            pointsCost: 120000,
-            score: 93,
-            votes: [
-                { member: 'Sarah Chen', rank: 1 },
-                { member: 'Michael Rodriguez', rank: 1 },
-                { member: 'Emma Thompson', rank: 2 },
-                { member: 'David Kim', rank: 1 },
-            ],
-            averageRank: 1.25,
-        },
-        {
-            id: 2,
-            name: 'Budget Friendly',
-            cities: [
-                { name: 'Paris', days: 3 },
-                { name: 'Barcelona', days: 4 },
-                { name: 'Rome', days: 3 },
-            ],
-            totalCostPerPerson: 3900,
-            pointsCost: 97500,
-            score: 88,
-            votes: [
-                { member: 'Sarah Chen', rank: 2 },
-                { member: 'Michael Rodriguez', rank: 3 },
-                { member: 'Emma Thompson', rank: 1 },
-                { member: 'David Kim', rank: 2 },
-            ],
-            averageRank: 2.0,
-        },
-        {
-            id: 3,
-            name: 'Extended Explorer',
-            cities: [
-                { name: 'Paris', days: 5 },
-                { name: 'Barcelona', days: 4 },
-                { name: 'Rome', days: 5 },
-                { name: 'Amsterdam', days: 4 },
-            ],
-            totalCostPerPerson: 5600,
-            pointsCost: 140000,
-            score: 91,
-            votes: [
-                { member: 'Sarah Chen', rank: 3 },
-                { member: 'Michael Rodriguez', rank: 2 },
-                { member: 'Emma Thompson', rank: 3 },
-                { member: 'David Kim', rank: 3 },
-            ],
-            averageRank: 2.75,
-        },
-    ];
+    const [itineraries, setItineraries] = useState<Itinerary[]>([]);
+    const [groupSize, setGroupSize] = useState(4);
+    const [selectedIds, setSelectedIds] = useState<number[]>([]);
+    const [isLoading, setIsLoading] = useState(true);
 
-    const sortedItineraries = [...itineraries].sort((a, b) => a.averageRank - b.averageRank);
-    const winner = sortedItineraries[0];
-    const [selectedIds, setSelectedIds] = useState<number[]>([1, 2]);
+    useEffect(() => {
+        const fetchData = async () => {
+            if (!tripId) {
+                setIsLoading(false);
+                return;
+            }
+
+            try {
+                setIsLoading(true);
+                const [itineraryResponse, membersResponse, destinationsResponse] = await Promise.all([
+                    itinerariesAPI.get(tripId),
+                    tripsAPI.listMembers(tripId),
+                    destinations.list(tripId),
+                ]);
+
+                const memberCount = membersResponse.members.length || 4;
+                setGroupSize(memberCount);
+
+                const destinationMap = new Map<string, string>();
+                destinationsResponse.destinations.forEach((dest) => {
+                    destinationMap.set(dest.destinationId, dest.name);
+                });
+
+                const regularItems = (itineraryResponse.items || []).filter(
+                    (i: ItineraryItem & { type?: string }) => {
+                        if (['ai_route_suggestions', 'itinerary_smart_tips', 'out_of_pocket', 'out_of_pocket_hotels', 'path', 'payments', 'totals'].includes(i.type || '')) return false;
+                        const route = i.route || i.cities;
+                        return Array.isArray(route) && route.length > 0;
+                    }
+                );
+
+                if (regularItems.length > 0) {
+                    let transformed: Itinerary[] = regularItems.map((item: ItineraryItem, index: number) => {
+                        const route = item.route || item.cities || [];
+                        const cities = Array.isArray(route)
+                            ? route.map((city: string | { name: string; days: number }) => {
+                                if (typeof city === 'string') {
+                                    const isUUID = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i.test(city);
+                                    const cityName = isUUID && destinationMap.has(city)
+                                        ? destinationMap.get(city)!
+                                        : (isUUID ? city : city);
+                                    return { name: cityName, days: 3 };
+                                }
+                                if (city.name && /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i.test(city.name)) {
+                                    return { name: destinationMap.get(city.name) || city.name, days: city.days || 3 };
+                                }
+                                return city;
+                            })
+                            : [];
+                        return {
+                            id: index + 1,
+                            name: (item.name as string) || `Itinerary ${index + 1}`,
+                            cities,
+                            totalCostPerPerson: (item.totalCostPerPerson as number) || (item.costPerPerson as number) || ((item.totalCost as number) || 0) / memberCount,
+                            pointsCost: (item.pointsCost as number) || (item.points as number) || 0,
+                            score: (item.score as number) || 85,
+                            withinBudget: (item.withinBudget as boolean) !== false,
+                            withinPoints: (item.withinPoints as boolean) !== false,
+                        };
+                    });
+                    transformed = transformed.sort((a, b) => {
+                        const sa = (a.withinBudget ? 2 : 0) + (a.withinPoints ? 1 : 0);
+                        const sb = (b.withinBudget ? 2 : 0) + (b.withinPoints ? 1 : 0);
+                        return sb - sa;
+                    });
+                    setItineraries(transformed);
+                    setSelectedIds(transformed.length >= 2 ? [transformed[0].id, transformed[1].id] : transformed.length === 1 ? [transformed[0].id] : []);
+                } else {
+                    setItineraries([]);
+                }
+            } catch (err) {
+                console.error('Error fetching comparison data:', err);
+                setItineraries([]);
+            } finally {
+                setIsLoading(false);
+            }
+        };
+
+        fetchData();
+    }, [tripId]);
 
     const toggleSelection = (id: number) => {
-        if (selectedIds.includes(id)) {
-            if (selectedIds.length > 1) {
-                setSelectedIds(selectedIds.filter(i => i !== id));
+        setSelectedIds(prev => {
+            if (prev.includes(id)) {
+                return prev.length > 1 ? prev.filter(i => i !== id) : prev;
             }
-        } else {
-            setSelectedIds([...selectedIds, id]);
-        }
+            return [...prev, id];
+        });
     };
 
     const selectedItineraries = itineraries.filter(i => selectedIds.includes(i.id));
+
+    if (isLoading) {
+        return (
+            <div className="min-h-full p-8 bg-neutral-50">
+                <div className="max-w-7xl mx-auto flex items-center justify-center min-h-[400px]">
+                    <div className="text-center">
+                        <div className="inline-block animate-spin rounded-full h-8 w-8 border-b-2 border-blue-600"></div>
+                        <p className="mt-4 text-neutral-600">Loading itineraries...</p>
+                    </div>
+                </div>
+            </div>
+        );
+    }
+
+    if (itineraries.length === 0) {
+        return (
+            <div className="min-h-full p-8 bg-neutral-50">
+                <div className="max-w-7xl mx-auto">
+                    <button onClick={() => router.back()} className="flex items-center gap-2 text-neutral-600 hover:text-neutral-900 mb-6 transition-colors">
+                        <ArrowLeft className="w-5 h-5" />
+                        <span>Back</span>
+                    </button>
+                    <div className="bg-white border border-neutral-200 rounded-2xl p-12 text-center">
+                        <p className="text-neutral-600 mb-4">No itineraries to compare. Select 2 or more on the results page, then choose Compare.</p>
+                        <button onClick={() => router.push(`/group/results${tripId ? `?trip_id=${tripId}` : ''}`)} className="px-6 py-3 bg-neutral-900 text-white rounded-xl hover:bg-neutral-800">Go to Results</button>
+                    </div>
+                </div>
+            </div>
+        );
+    }
 
     return (
         <div className="min-h-full p-8 bg-neutral-50">
             <div className="max-w-7xl mx-auto">
                 {/* Header */}
                 <div className="mb-8">
+                    <button
+                        onClick={() => router.push(`/group/results${tripId ? `?trip_id=${tripId}` : ''}`)}
+                        className="flex items-center gap-2 text-neutral-600 hover:text-neutral-900 mb-6 transition-colors"
+                    >
+                        <ArrowLeft className="w-5 h-5" />
+                        <span>Back to Results</span>
+                    </button>
+
                     <div className="inline-flex items-center gap-2 px-3 py-1 bg-white border border-neutral-200 rounded-full text-sm text-neutral-600 mb-4">
                         <Users className="w-4 h-4" />
-                        <span>Group Results · All votes in</span>
+                        <span>Group · {groupSize} members</span>
                     </div>
-                    <h1 className="text-4xl mb-3 tracking-tight">Compare Itineraries</h1>
-                    <p className="text-neutral-600">Side-by-side comparison of your group&apos;s options</p>
-                </div>
-
-                {/* Winner Announcement */}
-                <div className="bg-gradient-to-r from-neutral-900 to-neutral-700 text-white rounded-2xl p-8 mb-8">
-                    <div className="flex items-start justify-between">
-                        <div>
-                            <div className="inline-flex items-center gap-2 px-3 py-1 bg-white/20 rounded-full text-sm mb-4">
-                                <TrendingUp className="w-4 h-4" />
-                                <span>Group Winner</span>
-                            </div>
-                            <h2 className="text-3xl mb-2">{winner.name}</h2>
-                            <p className="text-neutral-300 mb-6">
-                                Average rank: {winner.averageRank.toFixed(2)} · {winner.cities.length} cities · {winner.cities.reduce((sum, c) => sum + c.days, 0)} days
-                            </p>
-
-                            <div className="flex items-center gap-4">
-                                <button
-                                    onClick={() => router.push('/group/winner')}
-                                    className="px-6 py-3 bg-white text-neutral-900 rounded-xl hover:bg-neutral-100 transition-colors flex items-center gap-2"
-                                >
-                                    <span>View Winner Details</span>
-                                    <ArrowRight className="w-5 h-5" />
-                                </button>
-                            </div>
-                        </div>
-
-                        <div className="text-right">
-                            <div className="text-5xl mb-2">${winner.totalCostPerPerson.toLocaleString()}</div>
-                            <div className="text-neutral-300">per person</div>
-                        </div>
-                    </div>
+                    <h1 className="text-4xl mb-3 tracking-tight">Compare Routes</h1>
+                    <p className="text-neutral-600">Side-by-side comparison of your itineraries · within budget &amp; points</p>
                 </div>
 
                 {/* Selection Controls */}
@@ -160,19 +188,22 @@ export default function GroupComparison() {
 
                 {/* Comparison Table */}
                 <div className="bg-white border border-neutral-200 rounded-2xl overflow-hidden">
-                    <div className="grid" style={{ gridTemplateColumns: `200px repeat(${selectedItineraries.length}, 1fr)` }}>
+                    <div className="grid" style={{ gridTemplateColumns: `200px repeat(${Math.max(selectedItineraries.length, 1)}, 1fr)` }}>
                         {/* Header Row */}
                         <div className="bg-neutral-50 border-b border-neutral-200 p-6"></div>
                         {selectedItineraries.map((itinerary) => (
                             <div key={itinerary.id} className="bg-neutral-50 border-b border-l border-neutral-200 p-6">
                                 <h3 className="text-lg mb-2">{itinerary.name}</h3>
-                                <div className="text-sm text-neutral-600">Avg rank: {itinerary.averageRank.toFixed(2)}</div>
+                                <div className="flex items-center gap-1.5 text-sm text-neutral-600">
+                                    <TrendingUp className="w-4 h-4" />
+                                    <span>Score: {itinerary.score}/100</span>
+                                </div>
                             </div>
                         ))}
 
                         {/* Cities */}
                         <div className="border-b border-neutral-200 p-6 bg-neutral-50">
-                            <div className="flex items-center gap-2 text-sm">
+                            <div className="flex items-center gap-2 text-sm font-medium">
                                 <MapPin className="w-4 h-4 text-neutral-600" />
                                 <span>Cities & Duration</span>
                             </div>
@@ -190,22 +221,9 @@ export default function GroupComparison() {
                             </div>
                         ))}
 
-                        {/* Total Days */}
-                        <div className="border-b border-neutral-200 p-6 bg-neutral-50">
-                            <div className="flex items-center gap-2 text-sm">
-                                <Clock className="w-4 h-4 text-neutral-600" />
-                                <span>Total Duration</span>
-                            </div>
-                        </div>
-                        {selectedItineraries.map((itinerary) => (
-                            <div key={itinerary.id} className="border-b border-l border-neutral-200 p-6">
-                                <div className="text-2xl">{itinerary.cities.reduce((sum, c) => sum + c.days, 0)} days</div>
-                            </div>
-                        ))}
-
                         {/* Cost Per Person */}
                         <div className="border-b border-neutral-200 p-6 bg-neutral-50">
-                            <div className="flex items-center gap-2 text-sm">
+                            <div className="flex items-center gap-2 text-sm font-medium">
                                 <DollarSign className="w-4 h-4 text-neutral-600" />
                                 <span>Cost Per Person</span>
                             </div>
@@ -216,9 +234,9 @@ export default function GroupComparison() {
                             </div>
                         ))}
 
-                        {/* Total Cost */}
+                        {/* Total Group Cost */}
                         <div className="border-b border-neutral-200 p-6 bg-neutral-50">
-                            <div className="flex items-center gap-2 text-sm">
+                            <div className="flex items-center gap-2 text-sm font-medium">
                                 <Users className="w-4 h-4 text-neutral-600" />
                                 <span>Total Group Cost</span>
                             </div>
@@ -232,7 +250,7 @@ export default function GroupComparison() {
 
                         {/* Points */}
                         <div className="border-b border-neutral-200 p-6 bg-neutral-50">
-                            <div className="flex items-center gap-2 text-sm">
+                            <div className="flex items-center gap-2 text-sm font-medium">
                                 <Zap className="w-4 h-4 text-neutral-600" />
                                 <span>Points Required</span>
                             </div>
@@ -240,62 +258,89 @@ export default function GroupComparison() {
                         {selectedItineraries.map((itinerary) => (
                             <div key={itinerary.id} className="border-b border-l border-neutral-200 p-6">
                                 <div className="text-2xl">{(itinerary.pointsCost / 1000).toFixed(0)}k</div>
+                                <div className="text-sm text-neutral-600 mt-1">{itinerary.pointsCost.toLocaleString()} pts</div>
+                            </div>
+                        ))}
+
+                        {/* Within constraints */}
+                        <div className="border-b border-neutral-200 p-6 bg-neutral-50">
+                            <div className="flex items-center gap-2 text-sm font-medium">
+                                <Check className="w-4 h-4 text-neutral-600" />
+                                <span>Within constraints</span>
+                            </div>
+                        </div>
+                        {selectedItineraries.map((itinerary) => (
+                            <div key={itinerary.id} className="border-b border-l border-neutral-200 p-6">
+                                {itinerary.withinBudget !== false && itinerary.withinPoints !== false ? (
+                                    <span className="text-emerald-600 font-medium">Yes</span>
+                                ) : (
+                                    <span className="text-amber-600 text-sm">
+                                        {itinerary.withinBudget === false && itinerary.withinPoints === false && 'Over budget, exceeds points'}
+                                        {itinerary.withinBudget === false && itinerary.withinPoints !== false && 'Over budget'}
+                                        {itinerary.withinBudget !== false && itinerary.withinPoints === false && 'Exceeds points'}
+                                    </span>
+                                )}
                             </div>
                         ))}
 
                         {/* Score */}
                         <div className="border-b border-neutral-200 p-6 bg-neutral-50">
-                            <div className="flex items-center gap-2 text-sm">
+                            <div className="flex items-center gap-2 text-sm font-medium">
                                 <TrendingUp className="w-4 h-4 text-neutral-600" />
-                                <span>AI Score</span>
+                                <span>AI Optimization Score</span>
                             </div>
                         </div>
                         {selectedItineraries.map((itinerary) => (
                             <div key={itinerary.id} className="border-b border-l border-neutral-200 p-6">
                                 <div className="text-2xl">{itinerary.score}/100</div>
-                            </div>
-                        ))}
-
-                        {/* Votes Breakdown */}
-                        <div className="p-6 bg-neutral-50">
-                            <div className="flex items-center gap-2 text-sm">
-                                <Users className="w-4 h-4 text-neutral-600" />
-                                <span>Member Rankings</span>
-                            </div>
-                        </div>
-                        {selectedItineraries.map((itinerary) => (
-                            <div key={itinerary.id} className="border-l border-neutral-200 p-6">
-                                <div className="space-y-2">
-                                    {itinerary.votes.map((vote, idx) => (
-                                        <div key={idx} className="flex items-center justify-between text-sm">
-                                            <span className="text-neutral-600">{vote.member}</span>
-                                            <span className={`px-2 py-0.5 rounded ${vote.rank === 1 ? 'bg-neutral-900 text-white' : 'bg-neutral-100 text-neutral-600'
-                                                }`}>
-                                                #{vote.rank}
-                                            </span>
-                                        </div>
-                                    ))}
+                                <div className="mt-2">
+                                    <div className="h-2 bg-neutral-100 rounded-full overflow-hidden">
+                                        <div className="h-full bg-neutral-900 transition-all" style={{ width: `${itinerary.score}%` }}></div>
+                                    </div>
                                 </div>
                             </div>
                         ))}
+
+                        {/* Best For */}
+                        <div className="p-6 bg-neutral-50">
+                            <div className="flex items-center gap-2 text-sm font-medium">
+                                <Check className="w-4 h-4 text-neutral-600" />
+                                <span>Best For</span>
+                            </div>
+                        </div>
+                        {selectedItineraries.map((itinerary) => {
+                            const totalDays = itinerary.cities.reduce((sum, c) => sum + c.days, 0);
+                            const costPerDay = totalDays > 0 ? Math.floor(itinerary.totalCostPerPerson / totalDays) : 0;
+                            let bestFor = '';
+                            if (itinerary.cities.length > 4) bestFor = 'Exploring many destinations';
+                            else if (costPerDay < 250) bestFor = 'Budget-conscious travelers';
+                            else if (itinerary.score >= 90) bestFor = 'Balanced experience';
+                            else bestFor = 'Flexibility and variety';
+
+                            return (
+                                <div key={itinerary.id} className="border-l border-neutral-200 p-6">
+                                    <div className="text-sm text-neutral-900">{bestFor}</div>
+                                </div>
+                            );
+                        })}
+
                     </div>
                 </div>
 
                 {/* Action Buttons */}
                 <div className="flex items-center justify-between mt-8">
                     <button
-                        onClick={() => router.push('/group/voting')}
+                        onClick={() => router.push(`/group/results${tripId ? `?trip_id=${tripId}` : ''}`)}
                         className="px-6 py-3 bg-white border border-neutral-200 text-neutral-900 rounded-xl hover:bg-neutral-50 transition-colors"
                     >
-                        Back to Voting
+                        Back to Results
                     </button>
 
                     <button
-                        onClick={() => router.push('/group/winner')}
-                        className="px-6 py-3 bg-neutral-900 text-white rounded-xl hover:bg-neutral-800 transition-colors flex items-center gap-2"
+                        onClick={() => router.push(`/group/booking${tripId ? `?trip_id=${tripId}` : ''}`)}
+                        className="px-6 py-3 bg-neutral-900 text-white rounded-xl hover:bg-neutral-800 transition-colors"
                     >
-                        <span>Proceed with Winner</span>
-                        <ArrowRight className="w-5 h-5" />
+                        Select & Book
                     </button>
                 </div>
             </div>
