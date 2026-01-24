@@ -12,4 +12,8 @@ def add_destination(item: Dict[str, Any]) -> None:
 
 def list_destinations(trip_id: str) -> List[Dict[str, Any]]:
     resp = t.query(KeyConditionExpression=Key("tripId").eq(trip_id))
-    return resp.get("Items", [])
+    items = resp.get("Items", [])
+    # Sort by createdAt so Start (added first), End (second), then waypoints
+    # follow insertion order. Items without createdAt sort first ("").
+    items.sort(key=lambda x: x.get("createdAt", ""))
+    return items

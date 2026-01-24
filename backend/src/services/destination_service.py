@@ -1,4 +1,5 @@
 import uuid
+from datetime import datetime
 from typing import Dict, Any, List
 from src.repos import destination_repo, destination_vote_repo
 
@@ -14,6 +15,7 @@ def add_destination(
         "mustInclude": must_include,
         "excluded": excluded,
         "createdBy": user_id,
+        "createdAt": datetime.utcnow().isoformat(),
     }
     destination_repo.add_destination(item)
     return item
