@@ -123,9 +123,9 @@ export default function GroupTripSetup() {
         setIsLoadingProfile(true);
         const profile = await usersAPI.getProfile();
         
-        if (profile.max_budget !== undefined && profile.max_budget !== null) {
-          setMaxBudget(profile.max_budget);
-        }
+        // Max budget is now per-trip, not stored in profile
+        // User will set it manually for each trip
+        
         if (profile.credit_cards && profile.credit_cards.length > 0) {
           setCreditCards(profile.credit_cards.map(card => ({
             id: card.id,
@@ -144,13 +144,13 @@ export default function GroupTripSetup() {
     loadUserProfile();
   }, []);
 
-  // Save budget and credit cards when they change
+  // Save credit cards and preferences when they change
   useEffect(() => {
     if (!isLoadingProfile) {
       const saveProfile = async () => {
         try {
           await usersAPI.updateProfile({
-            max_budget: maxBudget === '' ? undefined : maxBudget,
+            // max_budget is now per-trip, not saved in profile
             credit_cards: creditCards,
             flight_class: flightClass,
             hotel_class: hotelClass,
@@ -164,7 +164,7 @@ export default function GroupTripSetup() {
       const timeoutId = setTimeout(saveProfile, 1000);
       return () => clearTimeout(timeoutId);
     }
-  }, [maxBudget, creditCards, isLoadingProfile, flightClass, hotelClass]);
+  }, [creditCards, isLoadingProfile, flightClass, hotelClass]);
 
   // Handle extracted trip info from chatbot
   const handleExtract = async (info: ExtractedTripInfo) => {
