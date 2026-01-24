@@ -1,4 +1,13 @@
 import os
+import sys
+from pathlib import Path
+
+# Ensure backend root is on sys.path so "from src.xxx" and "src.utils.award_programs" resolve.
+# __file__ = .../backend/src/app.py -> parent.parent = .../backend
+_backend = Path(__file__).resolve().parent.parent
+if str(_backend) not in sys.path:
+    sys.path.insert(0, str(_backend))
+
 import logging
 from datetime import datetime
 from json import JSONDecodeError

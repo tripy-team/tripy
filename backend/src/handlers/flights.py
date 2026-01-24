@@ -7,7 +7,24 @@ from dotenv import load_dotenv
 logger = logging.getLogger(__name__)
 from src.utils.cache_layer import get_json, set_json
 from src.utils.airline_utils import infer_airline_from_flight_number
-from src.utils.award_programs import get_award_programs_for_api
+
+# award_programs: use src.utils (preferred) or load by path if package import fails
+try:
+    from src.utils.award_programs import get_award_programs_for_api
+except ModuleNotFoundError:
+    import importlib.util
+    from pathlib import Path
+    _ap = Path(__file__).resolve().parent.parent / "utils" / "award_programs.py"
+    if not _ap.exists():
+        raise ModuleNotFoundError(
+            "award_programs not found. Ensure backend/src/utils/award_programs.py exists. "
+            "The legacy src.data.award_programs module was removed."
+        ) from None
+    _spec = importlib.util.spec_from_file_location("_tripy_award_programs", _ap)
+    _mod = importlib.util.module_from_spec(_spec)
+    _spec.loader.exec_module(_mod)
+    get_award_programs_for_api = _mod.get_award_programs_for_api
+
 from .award_calendar import (
     get_calendar_matrix,
     best_dates_by_cabin,
