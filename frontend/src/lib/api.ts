@@ -7,9 +7,15 @@
 
 const BACKEND_URL = process.env.NEXT_PUBLIC_BACKEND_URL || 'http://localhost:8000';
 
+// Set this to true to bypass authentication for API calls (for offline development)
+const SKIP_API_AUTH = true;
+
 // Log backend URL in development for debugging
 if (typeof window !== 'undefined' && process.env.NODE_ENV === 'development') {
   console.log('Backend URL:', BACKEND_URL);
+  if (SKIP_API_AUTH) {
+    console.log('⚠️  API Authentication is DISABLED (offline mode)');
+  }
 }
 
 /**
@@ -121,32 +127,38 @@ async function apiRequest<T>(
 
   // Add Authorization header if auth is required
   if (requireAuth) {
-    let token = getAccessToken();
-
-    // Check if token is expired and try to refresh
-    if (token && isTokenExpired(token)) {
-      const refreshed = await refreshAccessToken();
-      if (refreshed) {
-        token = getAccessToken(); // Get the new token
-      } else {
-        // Refresh failed - clear tokens
-        if (typeof window !== 'undefined') {
-          localStorage.removeItem('access_token');
-          localStorage.removeItem('id_token');
-          localStorage.removeItem('refresh_token');
-          sessionStorage.removeItem('access_token');
-          sessionStorage.removeItem('id_token');
-          sessionStorage.removeItem('refresh_token');
-          sessionStorage.removeItem('tripy_auth_checked_session');
-        }
-        throw new Error('Session expired. Please log in again.');
-      }
-    }
-
-    if (token) {
-      headers['Authorization'] = `Bearer ${token}`;
+    // Skip auth check if SKIP_API_AUTH is enabled (offline mode)
+    if (SKIP_API_AUTH) {
+      // In offline mode, continue without auth header
+      // This allows the frontend to work without backend connectivity
     } else {
-      throw new Error('Authentication required. Please log in.');
+      let token = getAccessToken();
+
+      // Check if token is expired and try to refresh
+      if (token && isTokenExpired(token)) {
+        const refreshed = await refreshAccessToken();
+        if (refreshed) {
+          token = getAccessToken(); // Get the new token
+        } else {
+          // Refresh failed - clear tokens
+          if (typeof window !== 'undefined') {
+            localStorage.removeItem('access_token');
+            localStorage.removeItem('id_token');
+            localStorage.removeItem('refresh_token');
+            sessionStorage.removeItem('access_token');
+            sessionStorage.removeItem('id_token');
+            sessionStorage.removeItem('refresh_token');
+            sessionStorage.removeItem('tripy_auth_checked_session');
+          }
+          throw new Error('Session expired. Please log in again.');
+        }
+      }
+
+      if (token) {
+        headers['Authorization'] = `Bearer ${token}`;
+      } else {
+        throw new Error('Authentication required. Please log in.');
+      }
     }
   }
 

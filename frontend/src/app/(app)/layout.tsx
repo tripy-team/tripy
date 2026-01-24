@@ -7,6 +7,9 @@ import { ScrollToTop } from '@/components/scroll-to-top';
 
 const AUTH_CHECKED_KEY = 'tripy_auth_checked_session';
 
+// Set this to true to bypass authentication checks (for offline development)
+const SKIP_AUTH_CHECK = true;
+
 export default function AppLayout({
     children,
 }: {
@@ -16,6 +19,13 @@ export default function AppLayout({
     const [isChecking, setIsChecking] = useState(true);
 
     useEffect(() => {
+        // Skip authentication check if SKIP_AUTH_CHECK is enabled
+        if (SKIP_AUTH_CHECK) {
+            console.log('[AppLayout] Authentication check skipped (offline mode)');
+            setIsChecking(false);
+            return;
+        }
+
         // Ensure we're in the browser
         if (typeof window === 'undefined') {
             setIsChecking(false);

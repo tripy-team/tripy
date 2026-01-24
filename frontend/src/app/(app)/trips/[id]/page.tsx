@@ -254,7 +254,7 @@ export default function TripDetails() {
                 </div>
             </div>
 
-            <div className="max-w-5xl mx-auto px-4 md:px-6 -mt-8 relative z-10">
+            <div className="max-w-5xl mx-auto px-4 md:px-6 mt-8 relative z-10">
                 <div className="grid lg:grid-cols-3 gap-8">
                     {/* Main Content: Transfer Instructions */}
                     <div className="lg:col-span-2 space-y-6">
