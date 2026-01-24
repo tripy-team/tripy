@@ -13,6 +13,9 @@ def handler(event, context):
 
         if path.endswith("/users/me") and method == "GET":
             u = user_service.ensure_user_exists(user_id)
+            # Calculate and add cash_saved
+            cash_saved = user_service.calculate_cash_saved(user_id)
+            u["cash_saved"] = cash_saved
             return response(200, u)
 
         if path.endswith("/users/profile") and method == "PUT":

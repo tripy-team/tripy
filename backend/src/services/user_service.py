@@ -2,6 +2,10 @@ from typing import Dict, Any, Optional
 from src.repos import user_repo
 from botocore.exceptions import ClientError
 import logging
+import boto3
+from boto3.dynamodb.conditions import Key
+from src.config import TRIPS_TABLE, ITINERARY_TABLE
+import os
 
 logger = logging.getLogger(__name__)
 
@@ -59,3 +63,72 @@ def ensure_user_exists(user_id: str, email: Optional[str] = None) -> Dict[str, A
 def update_profile(user_id: str, updates: Dict[str, Any]) -> None:
     """Update user profile using atomic DynamoDB update"""
     user_repo.update_user(user_id, updates)
+
+
+def calculate_cash_saved(user_id: str) -> float:
+    """
+    Calculate total cash saved from using points across all user's trips.
+
+    Savings = Cash price - (Actual cash paid + Value of points used)
+    For simplicity, we consider points as "free" so: Savings = Cash price - Actual cash paid
+    """
+    try:
+        dynamodb = boto3.resource(
+            'dynamodb',
+            region_name=os.environ.get('AWS_REGION', 'us-west-2')
+        )
+
+        trips_table = dynamodb.Table(TRIPS_TABLE)
+        itinerary_table = dynamodb.Table(ITINERARY_TABLE)
+
+        # Get all trips created by this user
+        response = trips_table.scan(
+            FilterExpression='createdBy = :uid',
+            ExpressionAttributeValues={':uid': user_id}
+        )
+        trips = response.get('Items', [])
+
+        total_savings = 0.0
+
+        for trip in trips:
+            trip_id = trip.get('tripId', '')
+            if not trip_id:
+                continue
+
+            # Get itinerary items for this trip
+            itinerary_response = itinerary_table.query(
+                KeyConditionExpression=Key('tripId').eq(trip_id)
+            )
+            itinerary_items = itinerary_response.get('Items', [])
+
+            # Calculate savings for each itinerary item
+            for item in itinerary_items:
+                # Get cost information
+                cash_price = float(item.get('totalCost') or item.get('cost') or 0)
+                points_needed = int(item.get('pointsCost') or item.get('points') or 0)
+                actual_cash_paid = float(item.get('actualCashPaid') or 0)
+                surcharge = float(item.get('surcharge') or item.get('pointsSurcharge') or 0)
+
+                if cash_price == 0:
+                    continue  # Skip items with no cost data
+
+                # Calculate savings for this itinerary
+                if points_needed > 0:
+                    # Points were used
+                    # Actual cash paid = surcharges/fees (usually 5-10% of cash price)
+                    if actual_cash_paid > 0:
+                        cash_spent = actual_cash_paid
+                    else:
+                        # Estimate: surcharges are typically 5-10% of cash price
+                        cash_spent = surcharge if surcharge > 0 else (cash_price * 0.05)
+
+                    # Savings = cash price - actual cash paid
+                    # We consider points as "free" money (earned from credit cards)
+                    savings = cash_price - cash_spent
+                    total_savings += savings
+
+        return round(total_savings, 2)
+
+    except Exception as e:
+        logger.error(f"Error calculating cash saved for user {user_id}: {str(e)}")
+        return 0.0
