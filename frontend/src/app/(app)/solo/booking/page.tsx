@@ -15,6 +15,7 @@ import {
   Wallet
 } from 'lucide-react';
 import { itineraries as itinerariesAPI, type ItineraryItem } from '@/lib/api';
+import { calculateServiceFee, SERVICE_FEE_PERCENT } from '@/lib/utils';
 
 function SoloBookingContent() {
   const searchParams = useSearchParams();
@@ -71,6 +72,7 @@ function SoloBookingContent() {
   const pointsCost = itineraryData?.pointsCost || 60000;
   const taxes = 50;
   const savings = cashPrice - (pointsCost / 1000 * 2 + taxes);
+  const serviceFee = calculateServiceFee(cashPrice); // cash = spent + saved
 
   return (
     <div className="min-h-screen bg-slate-50 pb-20">
@@ -244,8 +246,8 @@ function SoloBookingContent() {
                   <span className="font-medium text-slate-900">~$50.00</span>
                 </div>
                 <div className="border-t border-slate-100 my-4 pt-4 flex justify-between items-center">
-                  <span className="font-semibold text-slate-900">Tripy Service Fee</span>
-                  <span className="text-xl font-bold text-slate-900">$29.00</span>
+                  <span className="font-semibold text-slate-900">Tripy Service Fee ({SERVICE_FEE_PERCENT}% of trip value)</span>
+                  <span className="text-xl font-bold text-slate-900">${serviceFee.toFixed(2)}</span>
                 </div>
               </div>
 

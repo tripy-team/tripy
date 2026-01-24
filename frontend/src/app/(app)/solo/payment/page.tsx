@@ -11,7 +11,7 @@ import {
   Zap
 } from 'lucide-react';
 import { generateItinerary, trips, type Trip } from '@/lib/api';
-import { formatDestinationsSummary, tripDurationDays } from '@/lib/utils';
+import { formatDestinationsSummary, tripDurationDays, calculateServiceFee, SERVICE_FEE_PERCENT } from '@/lib/utils';
 
 export default function SoloPayment() {
   const router = useRouter();
@@ -32,6 +32,16 @@ export default function SoloPayment() {
     if (!tripId) return;
     trips.get(tripId).then(setTrip).catch(() => setTrip(null));
   }, [tripId]);
+
+  // Amount spent + saved = estimated cash price (basis for % fee)
+  const estimatedCash =
+    trip && trip.startDate && trip.endDate && trip.destinations
+      ? (tripDurationDays(trip.startDate, trip.endDate) ?? 5) * 200 +
+        (trip.destinations.length || 1) * 300
+      : 5 * 200 + 1 * 300; // fallback
+  const serviceFee = calculateServiceFee(estimatedCash);
+  const estimatedSavings = Math.round(estimatedCash * 0.36); // ~36% typical points savings
+  const estimatedPointsValue = estimatedCash - estimatedSavings;
 
   const handleApplyPromo = () => {
     if (promoCode.toUpperCase() === 'TRIPY2025') {
@@ -94,17 +104,17 @@ export default function SoloPayment() {
                 <span className="font-medium">Estimated Savings</span>
               </div>
               <div className="flex items-baseline gap-2 mb-4">
-                <span className="text-5xl font-bold">$1,240</span>
+                <span className="text-5xl font-bold">${estimatedSavings.toLocaleString()}</span>
                 <span className="text-blue-200">saved vs cash</span>
               </div>
               <div className="grid grid-cols-2 gap-4 bg-white/10 rounded-xl p-4 border border-white/10">
                 <div>
                   <div className="text-blue-200 text-sm">Avg. Cash Price</div>
-                  <div className="text-xl font-semibold line-through opacity-70">$3,400</div>
+                  <div className="text-xl font-semibold line-through opacity-70">${estimatedCash.toLocaleString()}</div>
                 </div>
                 <div>
                   <div className="text-blue-200 text-sm">Your Points Value</div>
-                  <div className="text-xl font-semibold text-white">~ $2,160</div>
+                  <div className="text-xl font-semibold text-white">~ ${estimatedPointsValue.toLocaleString()}</div>
                 </div>
               </div>
               <p className="mt-4 text-sm text-blue-100 opacity-90">
@@ -168,8 +178,8 @@ export default function SoloPayment() {
             <div className="p-6 space-y-6">
               <div className="space-y-3">
                 <div className="flex justify-between text-slate-600">
-                  <span>Planning Fee</span>
-                  <span className="font-medium text-slate-900">$29.00</span>
+                  <span>Planning Fee ({SERVICE_FEE_PERCENT}% of trip value)</span>
+                  <span className="font-medium text-slate-900">${serviceFee.toFixed(2)}</span>
                 </div>
 
                 {/* Promo Code Input */}
@@ -208,7 +218,7 @@ export default function SoloPayment() {
 
                 <div className="border-t border-slate-100 my-4 pt-4 flex justify-between items-center">
                   <span className="font-semibold text-slate-900">Total Due</span>
-                  <span className="text-xl font-bold text-slate-900">${(29 - discount).toFixed(2)}</span>
+                  <span className="text-xl font-bold text-slate-900">${Math.max(0, serviceFee - discount).toFixed(2)}</span>
                 </div>
               </div>
 

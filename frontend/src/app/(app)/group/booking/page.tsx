@@ -16,6 +16,7 @@ import {
   Users
 } from 'lucide-react';
 import { trips as tripsAPI } from '@/lib/api';
+import { calculateServiceFee, SERVICE_FEE_PERCENT } from '@/lib/utils';
 
 function GroupBookingContent() {
   const searchParams = useSearchParams();
@@ -76,6 +77,7 @@ function GroupBookingContent() {
   const pointsCost = defaultPointsCost;
   const taxes = defaultTaxes * groupSize;
   const savings = cashPrice - (pointsCost / 1000 * 2 + taxes); // Rough estimate
+  const serviceFee = calculateServiceFee(cashPrice); // cash = spent + saved
 
   return (
     <div className="min-h-screen bg-slate-50 pb-20">
@@ -274,8 +276,8 @@ function GroupBookingContent() {
                   <span className="font-medium text-slate-900">~${taxes}.00</span>
                 </div>
                 <div className="border-t border-slate-100 my-4 pt-4 flex justify-between items-center">
-                  <span className="font-semibold text-slate-900">Tripy Service Fee</span>
-                  <span className="text-xl font-bold text-slate-900">$49.00</span>
+                  <span className="font-semibold text-slate-900">Tripy Service Fee ({SERVICE_FEE_PERCENT}% of trip value)</span>
+                  <span className="text-xl font-bold text-slate-900">${serviceFee.toFixed(2)}</span>
                 </div>
               </div>
 

@@ -79,3 +79,19 @@ export function tripDurationDays(startDate: string, endDate: string): number | n
   const days = Math.round(ms / (24 * 60 * 60 * 1000)) + 1;
   return days > 0 ? days : null;
 }
+
+/** Service fee as % of (amount spent + amount saved). Min/max in USD. */
+export const SERVICE_FEE_PERCENT = 2;
+const SERVICE_FEE_MIN = 15;
+const SERVICE_FEE_MAX = 99;
+
+/**
+ * Calculate the service/planning fee as a percentage of the total value
+ * (money spent + money saved using the service). Uses cash price as the base
+ * since: spent (out-of-pocket) + saved = cash price.
+ */
+export function calculateServiceFee(amountSpentAndSaved: number): number {
+  if (!Number.isFinite(amountSpentAndSaved) || amountSpentAndSaved <= 0) return SERVICE_FEE_MIN;
+  const raw = Math.round((amountSpentAndSaved * SERVICE_FEE_PERCENT) / 100);
+  return Math.max(SERVICE_FEE_MIN, Math.min(SERVICE_FEE_MAX, raw));
+}

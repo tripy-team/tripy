@@ -1,6 +1,6 @@
 'use client';
 
-import { useState } from 'react';
+import { useState, useEffect } from 'react';
 import { useRouter, useSearchParams } from 'next/navigation';
 import { 
   Shield, 
@@ -8,7 +8,8 @@ import {
   CreditCard, 
   Sparkles
 } from 'lucide-react';
-import { generateItinerary } from '@/lib/api';
+import { generateItinerary, trips } from '@/lib/api';
+import { tripDurationDays, calculateServiceFee, SERVICE_FEE_PERCENT } from '@/lib/utils';
 
 export default function GroupPayment() {
   const router = useRouter();
@@ -18,7 +19,24 @@ export default function GroupPayment() {
   const [isProcessing, setIsProcessing] = useState(false);
   const [isPaid, setIsPaid] = useState(false);
   const [error, setError] = useState<string | null>(null);
-  
+  const [trip, setTrip] = useState<{ startDate?: string; endDate?: string; destinations?: string[] } | null>(null);
+  const [groupSize, setGroupSize] = useState(4);
+
+  useEffect(() => {
+    if (!tripId) return;
+    trips.get(tripId).then(setTrip).catch(() => setTrip(null));
+    trips.listMembers(tripId).then((r) => setGroupSize(r.members?.length || 4)).catch(() => {});
+  }, [tripId]);
+
+  // Amount spent + saved = estimated total group cash price
+  const perPerson = (trip?.startDate && trip?.endDate && trip?.destinations
+    ? (tripDurationDays(trip.startDate, trip.endDate) ?? 5) * 200 + (trip.destinations.length || 1) * 300
+    : 5 * 200 + 1 * 300);
+  const estimatedCash = perPerson * groupSize;
+  const serviceFee = calculateServiceFee(estimatedCash);
+  const estimatedSavings = Math.round(estimatedCash * 0.3);
+  const estimatedOptimized = estimatedCash - estimatedSavings;
+
   // Promo Code State
   const [promoCode, setPromoCode] = useState('');
   const [discount, setDiscount] = useState(0);
@@ -85,17 +103,17 @@ export default function GroupPayment() {
                 <span className="font-medium">Estimated Group Savings</span>
               </div>
               <div className="flex items-baseline gap-2 mb-4">
-                <span className="text-5xl font-bold">$2,450</span>
+                <span className="text-5xl font-bold">${estimatedSavings.toLocaleString()}</span>
                 <span className="text-emerald-100">saved vs public rates</span>
               </div>
               <div className="grid grid-cols-2 gap-4 bg-white/10 rounded-xl p-4 border border-white/10">
                 <div>
                   <div className="text-emerald-100 text-sm">Standard Price</div>
-                  <div className="text-xl font-semibold line-through opacity-70">$8,200</div>
+                  <div className="text-xl font-semibold line-through opacity-70">${estimatedCash.toLocaleString()}</div>
                 </div>
                 <div>
                   <div className="text-emerald-100 text-sm">Optimized Price</div>
-                  <div className="text-xl font-semibold text-white">~ $5,750</div>
+                  <div className="text-xl font-semibold text-white">~ ${estimatedOptimized.toLocaleString()}</div>
                 </div>
               </div>
               <p className="mt-4 text-sm text-emerald-100 opacity-90">
@@ -143,11 +161,11 @@ export default function GroupPayment() {
               <div className="space-y-3">
                 <div className="flex justify-between text-slate-600">
                   <span>Group Size</span>
-                  <span className="font-medium text-slate-900">4 Travelers</span>
+                  <span className="font-medium text-slate-900">{groupSize} Travelers</span>
                 </div>
                 <div className="flex justify-between text-slate-600">
-                  <span>Optimization Fee</span>
-                  <span className="font-medium text-slate-900">$49.00</span>
+                  <span>Optimization Fee ({SERVICE_FEE_PERCENT}% of trip value)</span>
+                  <span className="font-medium text-slate-900">${serviceFee.toFixed(2)}</span>
                 </div>
 
                 {/* Promo Code Input */}
@@ -186,7 +204,7 @@ export default function GroupPayment() {
 
                 <div className="border-t border-slate-100 my-4 pt-4 flex justify-between items-center">
                   <span className="font-semibold text-slate-900">Total Due</span>
-                  <span className="text-xl font-bold text-slate-900">${(49 - discount).toFixed(2)}</span>
+                  <span className="text-xl font-bold text-slate-900">${Math.max(0, serviceFee - discount).toFixed(2)}</span>
                 </div>
               </div>
 
