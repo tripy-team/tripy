@@ -235,6 +235,12 @@ class OptimizeOutOfPocketHotelsRequest(BaseModel):
     hotel_class: Optional[str] = Field(None, description="Star rating filter e.g. 3, 4, 5")
 
 
+@app.get("/")
+def root_health():
+    """Root health check endpoint for AppRunner"""
+    return {"status": "ok", "service": "tripy-api"}
+
+
 @app.get("/healthz")
 def health():
     """Health check endpoint"""
