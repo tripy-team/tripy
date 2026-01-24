@@ -861,6 +861,7 @@ export interface ExtractedTripInfo {
   endDate?: string | null;
   duration?: number | null;
   isFlexible?: boolean | null;
+  minBudget?: number | null;
   maxBudget?: number | null;
   creditCards?: Array<{ program: string; points: number }> | null;
   flightClass?: string | null;
