@@ -304,3 +304,51 @@ def search_airports(query: str, max_results: int = 10) -> List[Dict[str, Any]]:
         
         logger.info(f"Found {len(results)} commercial airports matching query '{query}' (CSV fallback)")
         return results
+
+
+def fuzzy_search_destinations(query: str, max_results: int = 10) -> List[Dict[str, Any]]:
+    """
+    Fuzzy destination search over CSV airports. Use as fallback when SerpAPI autocomplete is empty.
+    Returns: [{ name, type, id, city, country, airports: [{ id, name, city }] }]
+    """
+    q = (query or "").strip()
+    if not q:
+        return []
+
+    try:
+        from rapidfuzz import fuzz, process
+    except ImportError:
+        return []
+
+    airports = load_airports_from_csv()
+    if not airports:
+        return []
+
+    def choice_text(a: Dict) -> str:
+        return " ".join(
+            filter(None, [a.get("airport_name"), a.get("iata_code"), a.get("city"), a.get("country_name")])
+        )
+
+    choices = {choice_text(a): a for a in airports if choice_text(a)}
+    if not choices:
+        return []
+
+    matches = process.extract(q, list(choices.keys()), scorer=fuzz.token_set_ratio, limit=max_results)
+    out: List[Dict[str, Any]] = []
+    seen: set = set()
+    for _text, score, _ in matches:
+        if score < 40:
+            continue
+        a = choices[_text]
+        iata = a.get("iata_code") or ""
+        if iata in seen:
+            continue
+        seen.add(iata)
+        out.append({
+            "name": a.get("airport_name") or "",
+            "type": "airport",
+            "id": iata,
+            "description": (a.get("city") or "") + ", " + (a.get("country_name") or ""),
+            "airports": [{"id": iata, "name": a.get("airport_name") or "", "city": a.get("city") or ""}],
+        })
+    return out[:max_results]

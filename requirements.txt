@@ -1,28 +1,39 @@
 #
 # Tripy root Python requirements
 # ------------------------------
-# This file is intended for environments that install dependencies from the
-# repository root (e.g. some CI/CD or container build setups).
-#
-# It combines backend dependencies (from backend/requirements.txt) and
-# additional libraries used by scripts like scripts/curate_city_images.py.
+# For environments that install from the repo root (CI/CD, containers, scripts).
+# Mirrors backend/requirements.txt plus any script-only deps.
 #
 
-amadeus
+# App & API
 fastapi
 uvicorn
-
-boto3==1.35.0
-httpx==0.27.0
-pydantic[email]==2.8.2
-python-dateutil==2.9.0.post0
-python-dotenv==1.0.0
-
-PyJWT==2.8.0
-cryptography>=3.4.8
 mangum>=0.17.0
 
-# Imaging & city image curation
-Pillow>=10.0.0
+# AWS & DynamoDB
+boto3==1.35.0
+
+# HTTP clients
+httpx==0.27.0
 requests>=2.0.0
+
+# Data validation & auth
+pydantic[email]==2.8.2
+PyJWT==2.8.0
+cryptography>=3.4.8
+
+# Config & env
+python-dotenv==1.0.0
+
+# Dates, flights, imaging
+python-dateutil==2.9.0.post0
+amadeus
+Pillow>=10.0.0
+
+# SerpAPI, OpenAI, scraping (serp_client, openAI, tpg_valuations, flightGraph)
+google-search-results
+openai
+SerpAPI
+beautifulsoup4
+rapidfuzz>=3.0.0
 

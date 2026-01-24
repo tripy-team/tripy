@@ -1,13 +1,30 @@
-boto3==1.35.0
-httpx==0.27.0
-pydantic[email]==2.8.2
-python-dateutil==2.9.0.post0
-python-dotenv==1.0.0
-amadeus
+# App & API
 fastapi
 uvicorn
+mangum>=0.17.0
+
+# AWS & DynamoDB
+boto3==1.35.0
+
+# HTTP clients
+httpx==0.27.0
+requests>=2.0.0
+
+# Data validation & auth
+pydantic[email]==2.8.2
 PyJWT==2.8.0
 cryptography>=3.4.8
+
+# Config & env
+python-dotenv==1.0.0
+
+# Dates, flights, imaging
+python-dateutil==2.9.0.post0
+amadeus
 Pillow>=10.0.0
-mangum>=0.17.0
-requests>=2.0.0
+
+# SerpAPI (Google Flights, organic search), OpenAI, scraping
+google-search-results
+openai
+beautifulsoup4
+rapidfuzz>=3.0.0

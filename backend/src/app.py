@@ -192,6 +192,16 @@ class ExtractTripInfoRequest(BaseModel):
     text: str = Field(..., min_length=1, description="Natural language text describing the trip")
 
 
+class OptimizeOutOfPocketRequest(BaseModel):
+    origin: str = Field(..., min_length=1, description="Origin airport IATA (e.g. JFK)")
+    destination: str = Field(..., min_length=1, description="Destination airport IATA (e.g. CDG)")
+    outbound_date: str = Field(..., description="Outbound date YYYY-MM-DD")
+    return_date: str = Field(..., description="Return date YYYY-MM-DD")
+    programs: Optional[List[str]] = Field(None, description="Award programs e.g. UA, DL, AA")
+    cabins: Optional[List[str]] = Field(None, description="Cabins e.g. Economy, Business")
+    pax: int = Field(1, ge=1, le=9, description="Number of passengers")
+
+
 class HotelSearchRequest(BaseModel):
     destination: str = Field(..., min_length=1, max_length=200, description="City or location name")
     check_in: str = Field(..., description="Check-in date YYYY-MM-DD")
@@ -893,6 +903,57 @@ async def airports_autocomplete(
         except Exception as fallback_error:
             logger.error(f"Fallback OpenAI search also failed: {fallback_error}", exc_info=True)
             raise HTTPException(status_code=500, detail=f"Failed to search airports: {str(e)}")
+
+
+@app.get("/api/destinations/autocomplete")
+async def destinations_autocomplete(
+    q: str = Query(..., min_length=1),
+    gl: str = Query("us", description="Country code for SerpAPI"),
+    hl: str = Query("en", description="Language code"),
+    exclude_regions: bool = Query(False, description="Exclude region-level suggestions"),
+    fuzzy_fallback: bool = Query(True, description="Use fuzzy search on CSV when SerpAPI returns nothing"),
+    limit: int = Query(10, ge=1, le=20),
+):
+    """
+    Destination autocomplete: SerpAPI google_flights_autocomplete, with optional fuzzy fallback over CSV.
+    Returns: { suggestions: [{ name, type, description, id, airports: [{ id, name, city, city_id, distance }] }] }
+    """
+    try:
+        from .services.serp_api_functions import autocomplete_destinations
+        from .services.airport_service import fuzzy_search_destinations
+
+        suggestions = autocomplete_destinations(q, gl=gl, hl=hl, exclude_regions=exclude_regions)
+        if not suggestions and fuzzy_fallback:
+            suggestions = fuzzy_search_destinations(q, max_results=limit)
+        return {"suggestions": (suggestions or [])[:limit]}
+    except Exception as e:
+        logger.error(f"destinations_autocomplete q='{q}': {e}", exc_info=True)
+        raise HTTPException(status_code=500, detail=str(e))
+
+
+@app.post("/api/itinerary/optimize-out-of-pocket")
+async def optimize_out_of_pocket(body: OptimizeOutOfPocketRequest):
+    """
+    Round-trip itinerary optimized for lowest out-of-pocket: min(cash price, award surcharge).
+    Uses SerpAPI Google Flights (cash) and AwardTool (points + surcharge).
+    Returns: { best_by_cash, best_by_surcharge, best_overall, options, origin, destination, outbound_date, return_date }
+    """
+    try:
+        from .services.serp_api_functions import optimize_itinerary_out_of_pocket
+
+        result = optimize_itinerary_out_of_pocket(
+            origin=body.origin,
+            destination=body.destination,
+            outbound_date=body.outbound_date,
+            return_date=body.return_date,
+            programs=body.programs,
+            cabins=body.cabins,
+            pax=body.pax,
+        )
+        return result
+    except Exception as e:
+        logger.error(f"optimize_out_of_pocket: {e}", exc_info=True)
+        raise HTTPException(status_code=500, detail=str(e))
 
 
 @app.get("/api/locations/{city_id}/airports")
