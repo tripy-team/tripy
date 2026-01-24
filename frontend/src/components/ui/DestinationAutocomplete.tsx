@@ -62,45 +62,40 @@ export function DestinationAutocomplete({
     return () => document.removeEventListener('mousedown', handleClickOutside);
   }, []);
 
-  // OpenAI-powered city search
+  // City search: SerpAPI + fuzzy fallback. Show dropdown as soon as user types 1+ char.
   useEffect(() => {
-    // Only search if user has typed at least 1 character
     if (!value.trim() || value.length < 1) {
       setSuggestions([]);
       setShowSuggestions(false);
       return;
     }
 
-        const timeoutId = setTimeout(async () => {
+    const timeoutId = setTimeout(async () => {
       setIsLoading(true);
       try {
-        // destinations.autocomplete: SerpAPI google_flights_autocomplete + fuzzy CSV fallback
         const response = await destinations.autocomplete(value.trim(), 12);
         const raw = response?.suggestions ?? [];
-        const cities: CitySuggestion[] = raw.map((s) => ({
-          name: s.name || '',
-          city_id: s.id || s.airports?.[0]?.city_id || s.name || '',
-          country: s.description || '',
-          airport_code: s.airports?.[0]?.id || (s.airports?.length ? s.airports.map((a) => a.id).filter(Boolean).join(',') : undefined),
-          transport_modes: s.airports?.length ? ['flight'] : [],
-        }));
+        const cities: CitySuggestion[] = raw
+          .filter((s) => (s.name || '').trim())
+          .map((s) => ({
+            name: (s.name || '').trim(),
+            city_id: s.id || s.airports?.[0]?.city_id || s.name || '',
+            country: s.description || '',
+            airport_code: s.airports?.[0]?.id || (s.airports?.length ? s.airports.map((a) => a.id).filter(Boolean).join(',') : undefined),
+            transport_modes: s.airports?.length ? ['flight'] : [],
+          }));
         setSuggestions(cities);
-        if (cities.length > 0) {
-          setShowSuggestions(true);
-          setHighlightIndex(0);
-        } else {
-          setShowSuggestions(false);
-          setHighlightIndex(-1);
-        }
+        setShowSuggestions(true); // keep open to show list or "No cities found"
+        setHighlightIndex(cities.length > 0 ? 0 : -1);
       } catch (error) {
         console.error('[DestinationAutocomplete] Error searching cities:', error);
         setSuggestions([]);
-        setShowSuggestions(false);
+        setShowSuggestions(true); // show "No cities found" / error state
         setHighlightIndex(-1);
       } finally {
         setIsLoading(false);
       }
-    }, 300); // Debounce for API calls
+    }, 300);
 
     return () => clearTimeout(timeoutId);
   }, [value]);
@@ -192,10 +187,7 @@ export function DestinationAutocomplete({
           }}
           onKeyDown={handleKeyDownInternal}
           onFocus={() => {
-            // Show suggestions if we have any and user has typed something
-            if (value.trim().length >= 1 && suggestions.length > 0) {
-              setShowSuggestions(true);
-            }
+            if (value.trim().length >= 1) setShowSuggestions(true);
           }}
           onBlur={(e) => {
             // Don't hide if clicking inside the dropdown
@@ -219,9 +211,10 @@ export function DestinationAutocomplete({
         )}
       </div>
 
-      {showSuggestions && suggestions.length > 0 && (
+      {/* Dropdown: show as soon as user types 1+ char — Searching, list, or No cities found */}
+      {showSuggestions && value.trim().length >= 1 && (
         <div 
-          className="absolute w-full mt-2 bg-white rounded-xl shadow-xl border border-slate-100 max-h-60 overflow-y-auto"
+          className="absolute w-full mt-2 bg-white rounded-xl shadow-xl border border-slate-200 max-h-60 overflow-y-auto"
           style={{ 
             position: 'absolute',
             top: '100%',
@@ -236,7 +229,13 @@ export function DestinationAutocomplete({
             e.stopPropagation();
           }}
         >
-          {suggestions.map((city, index) => {
+          {isLoading ? (
+            <div className="px-4 py-6 flex items-center justify-center gap-2 text-slate-600">
+              <div className="w-5 h-5 border-2 border-blue-600 border-t-transparent rounded-full animate-spin" />
+              <span>Searching...</span>
+            </div>
+          ) : suggestions.length > 0 ? (
+          suggestions.map((city, index) => {
             const cityName = city.name;
             const country = city.country || '';
             const region = city.region || '';
@@ -313,7 +312,12 @@ export function DestinationAutocomplete({
                 </div>
               </button>
             );
-          })}
+          })
+          ) : (
+            <div className="px-4 py-6 text-center text-slate-600">
+              No cities found. Try a different search (e.g. Paris, Tokyo, New York).
+            </div>
+          )}
         </div>
       )}
     </div>

@@ -257,10 +257,11 @@ export default function AirportAutocomplete({
 
     if (!query || query.length < 1) {
       setSuggestions([]);
+      setIsLoading(false);
       return;
     }
 
-    setIsLoading(true);
+    setIsLoading(true); // show "Searching..." in dropdown as soon as user has typed
     const timeoutId = setTimeout(async () => {
       try {
         const response = await destinations.autocomplete(query, 10);
@@ -271,6 +272,20 @@ export default function AirportAutocomplete({
           const fallbackId = (s.id && /^[A-Za-z]{3}$/.test(String(s.id).trim()) && list.length === 1)
             ? String(s.id).trim().toUpperCase()
             : null;
+          // Top-level airport with no airports[]: use s.id if it looks like IATA
+          if (list.length === 0 && s.id && /^[A-Za-z]{3}$/.test(String(s.id).trim())) {
+            const id = String(s.id).trim().toUpperCase();
+            airports.push({
+              airport_id: id,
+              iata_code: id,
+              airport_name: s.name || id,
+              city: s.name || "",
+              country: s.description || "",
+              region: "",
+              display_name: `${id} – ${s.name || id}`,
+            });
+            continue;
+          }
           for (const a of list) {
             let id = (a.id && String(a.id).trim()) || null;
             if (!id && fallbackId) id = fallbackId;
@@ -540,9 +555,10 @@ export default function AirportAutocomplete({
       {open && debounced.trim().length > 0 && !isLoading && list.length === 0 && (
         <div 
           className="absolute mt-2 w-full rounded-xl border border-slate-200 bg-white px-4 py-3 text-sm text-slate-600 shadow-lg"
-          style={{ zIndex: 10050 }}
+          style={{ zIndex: 10060 }}
+          onMouseDown={(e) => { e.preventDefault(); e.stopPropagation(); }}
         >
-          No matches. Try an airport code (e.g., "SEA") or a city name.
+          No matches. Try an airport code (e.g., SEA) or a city name.
         </div>
       )}
     </div>
