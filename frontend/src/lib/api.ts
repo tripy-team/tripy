@@ -504,7 +504,7 @@ export const trips = {
 
   delete: async (trip_id: string): Promise<{ ok: boolean }> => {
     return apiRequest<{ ok: boolean }>('/trips/delete', {
-      method: 'DELETE',
+      method: 'POST',
       body: JSON.stringify({ trip_id }),
     });
   },

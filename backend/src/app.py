@@ -622,7 +622,7 @@ async def list_trip_members(
         raise HTTPException(status_code=500, detail=str(e))
 
 
-@app.delete("/trips/delete")
+@app.post("/trips/delete")
 async def delete_trip(
     request: TripIdRequest, user_id: str = Depends(get_current_user_id)
 ):
