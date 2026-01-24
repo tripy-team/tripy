@@ -84,7 +84,7 @@ export default function AppLayout({
     // Show loading state while checking authentication
     if (isChecking) {
         return (
-            <div className="flex flex-col min-h-screen bg-slate-50">
+            <div data-testid="app-layout-loading" data-slot="loading-spinner-wrapper" className="flex flex-col min-h-screen bg-slate-50">
                 <Navigation />
                 <main className="flex-1 flex items-center justify-center pt-20">
                     <div className="text-center">
@@ -97,11 +97,11 @@ export default function AppLayout({
     }
 
     return (
-        <div className="flex flex-col min-h-screen bg-slate-50">
+        <div data-testid="app-layout" data-slot="MainLayout" className="flex flex-col min-h-screen bg-slate-50">
             <ScrollToTop />
             <Navigation />
             {/* pt-20 = navbar height (h-20) so content starts below the fixed nav */}
-            <main className="flex-1 pt-20">
+            <main data-testid="app-main" className="flex-1 pt-20">
                 {children}
             </main>
         </div>

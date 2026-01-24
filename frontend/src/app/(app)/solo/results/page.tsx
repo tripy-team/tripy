@@ -279,25 +279,22 @@ export default function SoloResults() {
                     });
                 }
 
+                // Helper: extract OOP/tips/relaxed from a response (get returns in items; generate can have top-level or in items)
+                const pickOop = (r: { items?: unknown[]; out_of_pocket?: OutOfPocketData }) =>
+                    (r.items?.find((i: unknown) => (i as { type?: string })?.type === 'out_of_pocket') as OutOfPocketData | undefined) || r.out_of_pocket || null;
+                const pickOopHotels = (r: { items?: unknown[]; out_of_pocket_hotels?: OutOfPocketHotelsData }) =>
+                    (r.items?.find((i: unknown) => (i as { type?: string })?.type === 'out_of_pocket_hotels') as OutOfPocketHotelsData | undefined) || r.out_of_pocket_hotels || null;
+                const pickRelaxed = (r: { items?: unknown[]; relaxed_message?: string }) => {
+                    const it = r.items?.find((i: unknown) => (i as { type?: string })?.type === 'itinerary_relaxed_info') as { message?: string } | undefined;
+                    return (it && typeof it.message === 'string' ? it.message : null) || r.relaxed_message || null;
+                };
+
                 // Out-of-pocket (simple A->B round-trip: best cash vs points+surcharge)
-                const oopItem = response.items?.find((i: ItineraryItem & { type?: string }) => i.type === 'out_of_pocket');
-                if (oopItem && typeof oopItem === 'object') {
-                    setOutOfPocket(oopItem as OutOfPocketData);
-                } else {
-                    setOutOfPocket(null);
-                }
-
+                setOutOfPocket(pickOop(response));
                 // Hotel out-of-pocket (when trip has includeHotels): best cash vs points+surcharge
-                const oopHotelsItem = response.items?.find((i: ItineraryItem & { type?: string }) => i.type === 'out_of_pocket_hotels');
-                if (oopHotelsItem && typeof oopHotelsItem === 'object') {
-                    setOutOfPocketHotels(oopHotelsItem as OutOfPocketHotelsData);
-                } else {
-                    setOutOfPocketHotels(null);
-                }
-
+                setOutOfPocketHotels(pickOopHotels(response));
                 // Relaxed-constraints banner (when no feasible solution; we show a similar route)
-                const relaxedItem = response.items?.find((i: ItineraryItem & { type?: string }) => i.type === 'itinerary_relaxed_info');
-                setRelaxedMessage(relaxedItem && typeof (relaxedItem as { message?: string }).message === 'string' ? (relaxedItem as { message: string }).message : null);
+                setRelaxedMessage(pickRelaxed(response));
 
                 // Fetch destinations to map UUIDs to names
                 const destinationsResponse = await destinations.list(tripId);
@@ -346,11 +343,12 @@ export default function SoloResults() {
                             withinPoints: item.withinPoints !== false,
                         };
                     });
-                    // Sort: within budget and points first, then within budget, then rest
+                    // Sort: within budget and points first, then by score (Figma: best match / 94/100 on top)
                     transformed = transformed.sort((a, b) => {
                         const sa = (a.withinBudget ? 2 : 0) + (a.withinPoints ? 1 : 0);
                         const sb = (b.withinBudget ? 2 : 0) + (b.withinPoints ? 1 : 0);
-                        return sb - sa;
+                        if (sb !== sa) return sb - sa;
+                        return (b.score || 0) - (a.score || 0);
                     });
 
                     setItineraries(transformed);
@@ -358,7 +356,90 @@ export default function SoloResults() {
                         setSelectedId(transformed[0].id);
                     }
                 } else {
-                    setItineraries([]);
+                    // No route-like items from get: trigger generation (solo setup does not call generate before navigating here)
+                    try {
+                        const gen = await itinerariesAPI.generate(tripId) as {
+                            items?: ItineraryItem[];
+                            ai_suggested_routes?: boolean;
+                            suggestions?: AIRouteSuggestion[];
+                            out_of_pocket?: OutOfPocketData;
+                            out_of_pocket_hotels?: OutOfPocketHotelsData;
+                            relaxed_message?: string;
+                        };
+                        if (gen.ai_suggested_routes && gen.suggestions?.length) {
+                            const aiItem = (gen.items || []).find((i: ItineraryItem & { type?: string }) => i.type === 'ai_route_suggestions') as Record<string, unknown> | undefined;
+                            setSmartTips({
+                                transfer_tips: Array.isArray(aiItem?.transfer_tips) ? aiItem.transfer_tips as SmartTips['transfer_tips'] : [],
+                                sample_itineraries: Array.isArray(aiItem?.sample_itineraries) ? aiItem.sample_itineraries as SmartTips['sample_itineraries'] : [],
+                                holiday_advice: Array.isArray(aiItem?.holiday_advice) ? aiItem.holiday_advice as SmartTips['holiday_advice'] : [],
+                                practical_tips: Array.isArray(aiItem?.practical_tips) ? aiItem.practical_tips as SmartTips['practical_tips'] : [],
+                            });
+                            setAiSuggestions(gen.suggestions);
+                            setIsAiSuggested(true);
+                            setItineraries([]);
+                        } else {
+                            setOutOfPocket(pickOop(gen));
+                            setOutOfPocketHotels(pickOopHotels(gen));
+                            setRelaxedMessage(pickRelaxed(gen));
+                            const genTips = (gen.items || []).find((i: ItineraryItem & { type?: string }) => i.type === 'itinerary_smart_tips') as Record<string, unknown> | undefined;
+                            if (genTips) {
+                                setSmartTips({
+                                    transfer_tips: Array.isArray(genTips.transfer_tips) ? genTips.transfer_tips as SmartTips['transfer_tips'] : [],
+                                    sample_itineraries: Array.isArray(genTips.sample_itineraries) ? genTips.sample_itineraries as SmartTips['sample_itineraries'] : [],
+                                    holiday_advice: Array.isArray(genTips.holiday_advice) ? genTips.holiday_advice as SmartTips['holiday_advice'] : [],
+                                    practical_tips: Array.isArray(genTips.practical_tips) ? genTips.practical_tips as SmartTips['practical_tips'] : [],
+                                });
+                            }
+                            const genRegular = (gen.items || []).filter(
+                                (i: ItineraryItem & { type?: string }) => {
+                                    if (['ai_route_suggestions', 'itinerary_smart_tips', 'itinerary_relaxed_info', 'out_of_pocket', 'out_of_pocket_hotels', 'payments', 'totals'].includes(i.type || '')) return false;
+                                    const route = i.route || i.cities || (i as { path?: unknown }).path;
+                                    return Array.isArray(route) && route.length > 0;
+                                }
+                            );
+                            if (genRegular.length > 0) {
+                                let tr: Itinerary[] = genRegular.map((item: ItineraryItem, index: number) => {
+                                    const route = item.route || item.cities || (item as { path?: unknown }).path || [];
+                                    const cities = Array.isArray(route)
+                                        ? route.map((city: string | { name: string; days: number }) => {
+                                            if (typeof city === 'string') {
+                                                const isUUID = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i.test(city);
+                                                const cityName = isUUID && destinationMap.has(city) ? destinationMap.get(city)! : (isUUID ? city : city);
+                                                return { name: cityName, days: 3 };
+                                            }
+                                            if (city.name && /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i.test(city.name)) {
+                                                return { name: destinationMap.get(city.name) || city.name, days: city.days || 3 };
+                                            }
+                                            return city;
+                                        })
+                                        : [];
+                                    return {
+                                        id: index + 1,
+                                        name: item.name || `Itinerary ${index + 1}`,
+                                        cities,
+                                        totalCost: item.totalCost || item.cost || 0,
+                                        pointsCost: item.pointsCost || item.points || 0,
+                                        score: item.score ?? 85,
+                                        withinBudget: item.withinBudget !== false,
+                                        withinPoints: item.withinPoints !== false,
+                                    };
+                                });
+                                tr = tr.sort((a, b) => {
+                                    const sa = (a.withinBudget ? 2 : 0) + (a.withinPoints ? 1 : 0);
+                                    const sb = (b.withinBudget ? 2 : 0) + (b.withinPoints ? 1 : 0);
+                                    if (sb !== sa) return sb - sa;
+                                    return (b.score || 0) - (a.score || 0);
+                                });
+                                setItineraries(tr);
+                                if (tr.length > 0) setSelectedId(tr[0].id);
+                            } else {
+                                setItineraries([]);
+                            }
+                        }
+                    } catch (genErr) {
+                        console.error('Error generating itineraries:', genErr);
+                        setItineraries([]);
+                    }
                 }
             } catch (err) {
                 console.error('Error fetching itineraries:', err);
@@ -413,7 +494,11 @@ export default function SoloResults() {
 
     if (loading) {
         return (
-            <div className="min-h-full flex items-center justify-center bg-gradient-to-br from-white via-blue-50/20 to-white">
+            <div
+                data-testid="solo-results-loading"
+                data-slot="loading-spinner-wrapper"
+                className="min-h-full flex items-center justify-center bg-gradient-to-br from-white via-blue-50/20 to-white"
+            >
                 <div className="text-center">
                     <div className="w-16 h-16 bg-gradient-to-br from-blue-600 to-blue-700 rounded-2xl flex items-center justify-center mx-auto mb-6 animate-pulse shadow-xl shadow-blue-600/20">
                         <Sparkles className="w-8 h-8 text-white" />
@@ -428,7 +513,7 @@ export default function SoloResults() {
     // AI-suggested routes for small/remote cities (no flight search data)
     if (isAiSuggested && aiSuggestions.length > 0) {
         return (
-            <div className="min-h-full p-8 bg-gradient-to-br from-white via-blue-50/20 to-white">
+            <div data-testid="solo-results-ai-suggested" data-slot="SoloResults" className="min-h-full p-8 bg-gradient-to-br from-white via-blue-50/20 to-white">
                 <div className="max-w-4xl mx-auto">
                     <div className="mb-8">
                         <div className="inline-flex items-center gap-2 px-3 py-1 bg-amber-100 rounded-full text-sm text-amber-800 mb-4 font-medium">
@@ -472,10 +557,10 @@ export default function SoloResults() {
     }
 
     return (
-        <div className="min-h-full p-8 bg-gradient-to-br from-white via-blue-50/20 to-white">
+        <div data-testid="solo-results-page" data-slot="SoloResults" className="min-h-full p-8 bg-gradient-to-br from-white via-blue-50/20 to-white">
             <div className="max-w-7xl mx-auto">
                 {/* Header */}
-                <div className="flex items-center justify-between mb-8">
+                <div data-testid="solo-results-header" className="flex items-center justify-between mb-8">
                     <div>
                         <h1 className="text-4xl mb-2 tracking-tight text-slate-900 font-bold">Your Routes</h1>
                         <p className="text-slate-600">
@@ -512,7 +597,7 @@ export default function SoloResults() {
 
                 {/* Empty state when no itineraries */}
                 {itineraries.length === 0 ? (
-                    <div className="bg-white border border-slate-200 rounded-2xl p-12 text-center">
+                    <div data-testid="solo-results-empty" data-slot="solo-results-empty" className="bg-white border border-slate-200 rounded-2xl p-12 text-center">
                         {tripId && trip && !isAiSuggested ? (
                             <>
                                 <MapPin className="w-14 h-14 text-slate-300 mx-auto mb-4" />
@@ -546,10 +631,12 @@ export default function SoloResults() {
                 ) : (
                 <div className="grid lg:grid-cols-3 gap-6">
                     {/* Itinerary Cards */}
-                    <div className="lg:col-span-2 space-y-6">
+                    <div data-testid="itinerary-list" data-slot="itinerary-list" className="lg:col-span-2 space-y-6">
                         {itineraries.map((itinerary) => (
                             <div
                                 key={itinerary.id}
+                                data-testid={`itinerary-card-${itinerary.id}`}
+                                data-slot="itinerary-card"
                                 role="button"
                                 tabIndex={0}
                                 onClick={() => setSelectedId(itinerary.id)}
@@ -726,7 +813,7 @@ export default function SoloResults() {
 
                     {/* Right Sidebar - Selected Details */}
                     {selectedItinerary && (
-                        <div className="lg:col-span-1">
+                        <div data-testid="selected-route-sidebar" data-slot="selected-route-sidebar" className="lg:col-span-1">
                             <div className="sticky top-8 bg-white border border-slate-200 rounded-2xl p-6 shadow-sm">
                                 <h3 className="text-xl mb-6 text-slate-900 font-semibold">Selected Route</h3>
 

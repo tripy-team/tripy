@@ -67,6 +67,8 @@ export function TripCard({ trip }: TripCardProps) {
 
     return (
         <div
+            data-testid={`trip-card-${trip.id}`}
+            data-slot="trip-card"
             onClick={() => router.push(`/trips/${trip.id}`)}
             className="bg-white rounded-2xl border border-slate-200 shadow-sm hover:shadow-xl transition-all duration-300 overflow-hidden group cursor-pointer"
         >

@@ -104,7 +104,7 @@ function SoloBookingContent() {
 
   if (loading) {
     return (
-      <div className="min-h-screen flex items-center justify-center bg-slate-50">
+      <div data-testid="solo-booking-loading" data-slot="loading-spinner-wrapper" className="min-h-screen flex items-center justify-center bg-slate-50">
         <div className="text-center">
           <div className="inline-block animate-spin rounded-full h-8 w-8 border-b-2 border-blue-600"></div>
           <p className="mt-4 text-slate-600">Loading booking details...</p>
@@ -181,7 +181,7 @@ function SoloBookingContent() {
   const SegmentIcon = ({ mode }: { mode: 'flight' | 'bus' | 'car' }) => (mode === 'flight' ? <Plane className="w-5 h-5 text-slate-400" /> : mode === 'bus' ? <Bus className="w-5 h-5 text-slate-400" /> : <Car className="w-5 h-5 text-slate-400" />);
 
   return (
-    <div className="min-h-screen bg-slate-50 pb-20">
+    <div data-testid="solo-booking-page" data-slot="SoloBooking" className="min-h-screen bg-slate-50 pb-20">
       {/* Header */}
       <div className="bg-white border-b border-slate-200">
         <div className="max-w-4xl mx-auto px-6 py-8">

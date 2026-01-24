@@ -116,7 +116,7 @@ export default function GroupTransferInstructions() {
                         </div>
                         <h3 className="text-lg font-bold text-slate-900 mb-2">Pending Payment</h3>
                         <p className="text-slate-600 max-w-md mx-auto mb-6">
-                            Complete payment to unlock step-by-step transfer instructions for each member.
+                            Complete payment to unlock where to transfer, which programs to use, how many points per transfer, and step-by-step instructions for each member.
                         </p>
                         <button
                             onClick={() => router.push(`/group/booking?trip_id=${tripId}`)}
