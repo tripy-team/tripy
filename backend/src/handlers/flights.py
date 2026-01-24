@@ -8,17 +8,18 @@ logger = logging.getLogger(__name__)
 from src.utils.cache_layer import get_json, set_json
 from src.utils.airline_utils import infer_airline_from_flight_number
 
-# award_programs: use src.utils (preferred) or load by path if package import fails
+# award_programs: use src.utils.award_programs (src.data.award_programs was removed)
 try:
     from src.utils.award_programs import get_award_programs_for_api
-except ModuleNotFoundError:
+except (ModuleNotFoundError, ImportError):
     import importlib.util
     from pathlib import Path
-    _ap = Path(__file__).resolve().parent.parent / "utils" / "award_programs.py"
+    # Resolve backend/src/utils/award_programs.py from .../src/handlers/flights.py
+    _ap = Path(__file__).resolve().parents[2] / "src" / "utils" / "award_programs.py"
     if not _ap.exists():
         raise ModuleNotFoundError(
             "award_programs not found. Ensure backend/src/utils/award_programs.py exists. "
-            "The legacy src.data.award_programs module was removed."
+            "Use src.utils.award_programs (src.data.award_programs was removed)."
         ) from None
     _spec = importlib.util.spec_from_file_location("_tripy_award_programs", _ap)
     _mod = importlib.util.module_from_spec(_spec)
