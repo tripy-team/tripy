@@ -41,6 +41,20 @@ export default function SettingsPage() {
   const [pushItineraryUpdates, setPushItineraryUpdates] = useState(true);
   const [pushChatMessages, setPushChatMessages] = useState(true);
 
+  // Billing & Payment state
+  const [paymentMethods, setPaymentMethods] = useState<Array<{
+    id: string;
+    brand: string;
+    last4: string;
+    expiry: string;
+  }>>([]);
+  const [billingHistory, setBillingHistory] = useState<Array<{
+    id: string;
+    description: string;
+    date: string;
+    amount: string;
+  }>>([]);
+
   // Security
   const [currentPassword, setCurrentPassword] = useState('');
   const [newPassword, setNewPassword] = useState('');
@@ -523,20 +537,32 @@ export default function SettingsPage() {
                       </div>
                       
                       <div className="space-y-6">
-                        <div className="bg-slate-50 p-4 rounded-xl border border-slate-200 flex items-center justify-between">
-                          <div className="flex items-center gap-4">
-                            <div className="w-12 h-8 bg-slate-900 rounded-md flex items-center justify-center text-white font-bold text-xs">
-                              VISA
-                            </div>
-                            <div>
-                              <p className="font-medium text-slate-900">Visa ending in 4242</p>
-                              <p className="text-sm text-slate-500">Expires 12/24</p>
-                            </div>
+                        {paymentMethods.length > 0 ? (
+                          <>
+                            {paymentMethods.map((method) => (
+                              <div key={method.id} className="bg-slate-50 p-4 rounded-xl border border-slate-200 flex items-center justify-between">
+                                <div className="flex items-center gap-4">
+                                  <div className="w-12 h-8 bg-slate-900 rounded-md flex items-center justify-center text-white font-bold text-xs">
+                                    {method.brand.toUpperCase()}
+                                  </div>
+                                  <div>
+                                    <p className="font-medium text-slate-900">{method.brand} ending in {method.last4}</p>
+                                    <p className="text-sm text-slate-500">Expires {method.expiry}</p>
+                                  </div>
+                                </div>
+                                <button className="px-4 py-2 bg-white border border-slate-200 rounded-xl hover:bg-slate-50 transition-colors text-sm font-medium">
+                                  Edit
+                                </button>
+                              </div>
+                            ))}
+                          </>
+                        ) : (
+                          <div className="bg-slate-50 p-8 rounded-xl border border-slate-200 text-center">
+                            <CreditCard className="w-12 h-12 text-slate-300 mx-auto mb-3" />
+                            <p className="text-slate-500 text-sm mb-2">No payment methods added yet</p>
+                            <p className="text-slate-400 text-xs">Add a payment method to manage your subscriptions</p>
                           </div>
-                          <button className="px-4 py-2 bg-white border border-slate-200 rounded-xl hover:bg-slate-50 transition-colors text-sm font-medium">
-                            Edit
-                          </button>
-                        </div>
+                        )}
 
                         <button className="w-full px-4 py-3 border-2 border-dashed border-slate-300 bg-transparent text-slate-600 hover:bg-slate-50 rounded-xl transition-colors font-medium">
                           + Add New Payment Method
@@ -551,20 +577,32 @@ export default function SettingsPage() {
                       </div>
                       
                       <div className="space-y-4">
-                        {[1, 2, 3].map((i) => (
-                          <div key={i} className="flex items-center justify-between py-3 border-b border-slate-100 last:border-0">
-                            <div className="flex flex-col">
-                              <span className="font-medium text-slate-900">Premium Subscription</span>
-                              <span className="text-sm text-slate-500">Oct {20 + i}, 2025</span>
+                        {billingHistory.length > 0 ? (
+                          <>
+                            {billingHistory.map((item) => (
+                              <div key={item.id} className="flex items-center justify-between py-3 border-b border-slate-100 last:border-0">
+                                <div className="flex flex-col">
+                                  <span className="font-medium text-slate-900">{item.description}</span>
+                                  <span className="text-sm text-slate-500">{item.date}</span>
+                                </div>
+                                <div className="flex items-center gap-4">
+                                  <span className="font-medium">{item.amount}</span>
+                                  <button className="px-3 py-1.5 text-sm text-blue-600 hover:text-blue-700 hover:bg-blue-50 rounded-lg transition-colors">
+                                    Download
+                                  </button>
+                                </div>
+                              </div>
+                            ))}
+                          </>
+                        ) : (
+                          <div className="bg-slate-50 p-8 rounded-xl border border-slate-200 text-center">
+                            <div className="w-12 h-12 bg-slate-100 rounded-full flex items-center justify-center mx-auto mb-3">
+                              <span className="text-2xl">📄</span>
                             </div>
-                            <div className="flex items-center gap-4">
-                              <span className="font-medium">$12.00</span>
-                              <button className="px-3 py-1.5 text-sm text-blue-600 hover:text-blue-700 hover:bg-blue-50 rounded-lg transition-colors">
-                                Download
-                              </button>
-                            </div>
+                            <p className="text-slate-500 text-sm mb-2">No billing history yet</p>
+                            <p className="text-slate-400 text-xs">Your past transactions and invoices will appear here</p>
                           </div>
-                        ))}
+                        )}
                       </div>
                     </div>
                   </div>
