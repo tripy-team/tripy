@@ -3,7 +3,7 @@
 import { useState, useEffect } from 'react';
 import { useRouter, useSearchParams } from 'next/navigation';
 import { MapPin, DollarSign, Clock, Zap, Edit3, Check, Sparkles, TrendingUp, Plane, Car, Bus, Train, Navigation, Calendar, Info } from 'lucide-react';
-import { itineraries as itinerariesAPI, ItineraryItem, destinations } from '@/lib/api';
+import { itineraries as itinerariesAPI, trips as tripsAPI, ItineraryItem, destinations } from '@/lib/api';
 
 interface Itinerary {
     id: number;
@@ -185,6 +185,7 @@ export default function SoloResults() {
     const [isAiSuggested, setIsAiSuggested] = useState(false);
     const [smartTips, setSmartTips] = useState<SmartTips>(emptySmartTips);
     const [outOfPocket, setOutOfPocket] = useState<OutOfPocketData | null>(null);
+    const [includeHotels, setIncludeHotels] = useState(true);
 
     useEffect(() => {
         const fetchItineraries = async () => {
@@ -199,7 +200,11 @@ export default function SoloResults() {
                 setIsAiSuggested(false);
                 setSmartTips(emptySmartTips);
                 setOutOfPocket(null);
-                const response = await itinerariesAPI.get(tripId);
+                const [response, trip] = await Promise.all([
+                    itinerariesAPI.get(tripId),
+                    tripsAPI.get(tripId).catch(() => null),
+                ]);
+                setIncludeHotels((trip as { includeHotels?: boolean })?.includeHotels !== false);
 
                 // Check for AI route suggestions (small/remote cities with no flight data)
                 const aiItem = response.items?.find((i: ItineraryItem & { type?: string }) => i.type === 'ai_route_suggestions');
@@ -244,10 +249,10 @@ export default function SoloResults() {
                     destinationMap.set(dest.destinationId, dest.name);
                 });
 
-                // Transform API response to display format (exclude ai_route_suggestions, itinerary_smart_tips, out_of_pocket)
+                // Transform API response to display format (exclude ai_route_suggestions, itinerary_smart_tips, out_of_pocket, out_of_pocket_hotels)
                 const regularItems = (response.items || []).filter(
                     (i: ItineraryItem & { type?: string }) =>
-                        i.type !== 'ai_route_suggestions' && i.type !== 'itinerary_smart_tips' && i.type !== 'out_of_pocket'
+                        i.type !== 'ai_route_suggestions' && i.type !== 'itinerary_smart_tips' && i.type !== 'out_of_pocket' && i.type !== 'out_of_pocket_hotels'
                 );
                 if (regularItems.length > 0) {
                     const transformed: Itinerary[] = regularItems.map((item: ItineraryItem, index: number) => {
@@ -592,15 +597,17 @@ export default function SoloResults() {
                                         <div className="space-y-2 text-sm">
                                             <div className="flex justify-between">
                                                 <span className="text-slate-600">Flights</span>
-                                                <span className="text-slate-900 font-medium">${Math.floor(selectedItinerary.totalCost * 0.4).toLocaleString()}</span>
+                                                <span className="text-slate-900 font-medium">${Math.floor(selectedItinerary.totalCost * (includeHotels ? 0.4 : 0.65)).toLocaleString()}</span>
                                             </div>
-                                            <div className="flex justify-between">
-                                                <span className="text-slate-600">Hotels</span>
-                                                <span className="text-slate-900 font-medium">${Math.floor(selectedItinerary.totalCost * 0.35).toLocaleString()}</span>
-                                            </div>
+                                            {includeHotels && (
+                                                <div className="flex justify-between">
+                                                    <span className="text-slate-600">Hotels</span>
+                                                    <span className="text-slate-900 font-medium">${Math.floor(selectedItinerary.totalCost * 0.35).toLocaleString()}</span>
+                                                </div>
+                                            )}
                                             <div className="flex justify-between">
                                                 <span className="text-slate-600">Activities</span>
-                                                <span className="text-slate-900 font-medium">${Math.floor(selectedItinerary.totalCost * 0.25).toLocaleString()}</span>
+                                                <span className="text-slate-900 font-medium">${Math.floor(selectedItinerary.totalCost * (includeHotels ? 0.25 : 0.35)).toLocaleString()}</span>
                                             </div>
                                             <div className="pt-2 border-t border-slate-200 flex justify-between font-semibold">
                                                 <span className="text-slate-900">Total</span>

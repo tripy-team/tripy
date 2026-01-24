@@ -274,10 +274,10 @@ export default function GroupResults() {
                     setOutOfPocket(null);
                 }
 
-                // Transform API response (exclude ai_route_suggestions, itinerary_smart_tips, out_of_pocket)
+                // Transform API response (exclude ai_route_suggestions, itinerary_smart_tips, out_of_pocket, out_of_pocket_hotels)
                 const regularItems = (response.items || []).filter(
                     (i: ItineraryItem & { type?: string }) =>
-                        i.type !== 'ai_route_suggestions' && i.type !== 'itinerary_smart_tips' && i.type !== 'out_of_pocket'
+                        i.type !== 'ai_route_suggestions' && i.type !== 'itinerary_smart_tips' && i.type !== 'out_of_pocket' && i.type !== 'out_of_pocket_hotels'
                 );
                 if (regularItems.length > 0) {
                     const transformed: Itinerary[] = regularItems.map((item: ItineraryItem, index: number) => {
