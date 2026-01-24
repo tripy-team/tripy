@@ -16,3 +16,13 @@ def put_trip(trip: Dict[str, Any]) -> None:
 def get_trip_by_invite_code(invite_code: str) -> Optional[Dict[str, Any]]:
     items = query_gsi(t, "inviteCode-index", "inviteCode", invite_code)
     return items[0] if items else None
+
+
+def delete_trip(trip_id: str) -> bool:
+    """Delete a trip by ID"""
+    try:
+        t.delete_item(Key={"tripId": trip_id})
+        return True
+    except Exception as e:
+        print(f"Error deleting trip {trip_id}: {e}")
+        return False

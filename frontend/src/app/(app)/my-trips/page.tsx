@@ -1,6 +1,6 @@
 'use client';
 
-import { Plane, Calendar, MapPin, CreditCard, Users, User, Trash2, MoreVertical, Edit } from 'lucide-react';
+import { Plane, Calendar, MapPin, CreditCard, Users, User, Trash2, X, Check } from 'lucide-react';
 import Link from 'next/link';
 import { useRouter } from 'next/navigation';
 import { useEffect, useState } from 'react';
@@ -35,10 +35,10 @@ export default function MyTripsPage() {
   const router = useRouter();
   const [trips, setTrips] = useState<Trip[]>([]);
   const [isLoading, setIsLoading] = useState(true);
-  const [deletingTripId, setDeletingTripId] = useState<string | null>(null);
+  const [isManageMode, setIsManageMode] = useState(false);
+  const [selectedTripIds, setSelectedTripIds] = useState<Set<string>>(new Set());
+  const [isDeleting, setIsDeleting] = useState(false);
   const [showDeleteModal, setShowDeleteModal] = useState(false);
-  const [tripToDelete, setTripToDelete] = useState<Trip | null>(null);
-  const [openMenuId, setOpenMenuId] = useState<string | null>(null);
 
   useEffect(() => {
     const fetchTrips = async () => {
@@ -103,145 +103,145 @@ export default function MyTripsPage() {
     fetchTrips();
   }, []);
 
-  const handleDeleteClick = (trip: Trip, e: React.MouseEvent) => {
-    e.stopPropagation();
-    setTripToDelete(trip);
+  const handleToggleManageMode = () => {
+    setIsManageMode(!isManageMode);
+    setSelectedTripIds(new Set());
+  };
+
+  const handleToggleSelectTrip = (tripId: string) => {
+    const newSelected = new Set(selectedTripIds);
+    if (newSelected.has(tripId)) {
+      newSelected.delete(tripId);
+    } else {
+      newSelected.add(tripId);
+    }
+    setSelectedTripIds(newSelected);
+  };
+
+  const handleDeleteSelected = () => {
+    if (selectedTripIds.size === 0) return;
     setShowDeleteModal(true);
-    setOpenMenuId(null);
   };
 
   const handleDeleteConfirm = async () => {
-    if (!tripToDelete) return;
+    if (selectedTripIds.size === 0) return;
 
     try {
-      setDeletingTripId(tripToDelete.id);
-      await tripsAPI.delete(tripToDelete.id);
+      setIsDeleting(true);
       
-      // Remove trip from state
-      setTrips(trips.filter(t => t.id !== tripToDelete.id));
+      // Delete all selected trips
+      const deletePromises = Array.from(selectedTripIds).map(tripId =>
+        tripsAPI.delete(tripId)
+      );
+      
+      await Promise.all(deletePromises);
+      
+      // Remove deleted trips from state
+      setTrips(trips.filter(t => !selectedTripIds.has(t.id)));
+      setSelectedTripIds(new Set());
       setShowDeleteModal(false);
-      setTripToDelete(null);
+      setIsManageMode(false);
     } catch (err) {
-      console.error('Error deleting trip:', err);
-      alert('Failed to delete trip. Please try again.');
+      console.error('Error deleting trips:', err);
+      alert('Failed to delete some trips. Please try again.');
     } finally {
-      setDeletingTripId(null);
+      setIsDeleting(false);
     }
   };
 
   const handleDeleteCancel = () => {
     setShowDeleteModal(false);
-    setTripToDelete(null);
   };
-
-  const toggleMenu = (tripId: string, e: React.MouseEvent) => {
-    e.stopPropagation();
-    setOpenMenuId(openMenuId === tripId ? null : tripId);
-  };
-
-  // Close menu when clicking outside
-  useEffect(() => {
-    const handleClickOutside = () => setOpenMenuId(null);
-    if (openMenuId) {
-      document.addEventListener('click', handleClickOutside);
-      return () => document.removeEventListener('click', handleClickOutside);
-    }
-  }, [openMenuId]);
 
   const upcomingTrips = trips.filter(t => t.status === 'upcoming');
   const pastTrips = trips.filter(t => t.status === 'completed');
 
-  const TripCard = ({ trip }: { trip: Trip }) => (
-    <div className="group overflow-hidden border border-slate-200 rounded-xl hover:shadow-lg transition-all duration-300 bg-white relative">
-      {/* Actions Menu Button */}
-      <div className="absolute top-3 right-3 z-10">
-        <button
-          onClick={(e) => toggleMenu(trip.id, e)}
-          className="p-2 rounded-lg bg-white/90 hover:bg-white border border-slate-200 shadow-sm transition-all"
-        >
-          <MoreVertical className="w-4 h-4 text-slate-600" />
-        </button>
-        
-        {/* Dropdown Menu */}
-        {openMenuId === trip.id && (
-          <div className="absolute right-0 mt-2 w-48 bg-white rounded-lg shadow-lg border border-slate-200 py-1">
-            <button
-              onClick={(e) => {
-                e.stopPropagation();
-                setOpenMenuId(null);
-                router.push(`/trips/${trip.id}`);
-              }}
-              className="w-full px-4 py-2 text-left text-sm text-slate-700 hover:bg-slate-50 flex items-center gap-2"
+  const TripCard = ({ trip }: { trip: Trip }) => {
+    const isSelected = selectedTripIds.has(trip.id);
+    
+    return (
+      <div
+        className={`group overflow-hidden border rounded-xl hover:shadow-lg transition-all duration-300 bg-white relative ${
+          isManageMode ? 'cursor-pointer' : ''
+        } ${
+          isSelected ? 'border-blue-500 ring-2 ring-blue-200' : 'border-slate-200'
+        }`}
+        onClick={() => {
+          if (isManageMode) {
+            handleToggleSelectTrip(trip.id);
+          } else {
+            router.push(`/trips/${trip.id}`);
+          }
+        }}
+      >
+        {/* Selection Checkbox in Manage Mode */}
+        {isManageMode && (
+          <div className="absolute top-3 left-3 z-10">
+            <div
+              className={`w-6 h-6 rounded-md border-2 flex items-center justify-center transition-all ${
+                isSelected
+                  ? 'bg-blue-600 border-blue-600'
+                  : 'bg-white border-slate-300 group-hover:border-blue-400'
+              }`}
             >
-              <Edit className="w-4 h-4" />
-              View Details
-            </button>
-            <button
-              onClick={(e) => handleDeleteClick(trip, e)}
-              className="w-full px-4 py-2 text-left text-sm text-red-600 hover:bg-red-50 flex items-center gap-2"
-            >
-              <Trash2 className="w-4 h-4" />
-              Delete Trip
-            </button>
+              {isSelected && <Check className="w-4 h-4 text-white" />}
+            </div>
           </div>
         )}
-      </div>
 
-      {/* Content Section */}
-      <div 
-        onClick={() => router.push(`/trips/${trip.id}`)}
-        className="flex flex-col p-4 gap-2 cursor-pointer"
-      >
-        {/* Top: Header Info */}
-        <div className="flex justify-between items-start gap-2">
-          <div className="min-w-0">
-            <h3 className="font-bold text-slate-900 leading-tight truncate text-base sm:text-lg">{trip.destination}</h3>
-            <div className="flex items-center gap-1.5 text-xs text-slate-500 mt-1">
-              <MapPin className="w-3.5 h-3.5 shrink-0" />
-              <span className="truncate">{trip.location}</span>
+        {/* Content Section */}
+        <div className={`flex flex-col p-4 gap-2 ${isManageMode ? 'pl-12' : ''}`}>
+          {/* Top: Header Info */}
+          <div className="flex justify-between items-start gap-2">
+            <div className="min-w-0">
+              <h3 className="font-bold text-slate-900 leading-tight truncate text-base sm:text-lg">{trip.destination}</h3>
+              <div className="flex items-center gap-1.5 text-xs text-slate-500 mt-1">
+                <MapPin className="w-3.5 h-3.5 shrink-0" />
+                <span className="truncate">{trip.location}</span>
+              </div>
             </div>
+            <span className={`shrink-0 text-[10px] px-2 h-5 font-medium rounded-full flex items-center ${
+              trip.status === 'upcoming' 
+                ? 'bg-blue-50 text-blue-700 hover:bg-blue-100' 
+                : 'bg-slate-100 text-slate-600 hover:bg-slate-200'
+            }`}>
+              {trip.status === 'upcoming' ? 'Upcoming' : 'Completed'}
+            </span>
           </div>
-          <span className={`shrink-0 text-[10px] px-2 h-5 font-medium rounded-full flex items-center ${
-            trip.status === 'upcoming' 
-              ? 'bg-blue-50 text-blue-700 hover:bg-blue-100' 
-              : 'bg-slate-100 text-slate-600 hover:bg-slate-200'
-          }`}>
-            {trip.status === 'upcoming' ? 'Upcoming' : 'Completed'}
-          </span>
-        </div>
 
-        {/* Middle: Description & Date */}
-        <div className="flex-1 flex flex-col gap-2">
-            <p className="text-xs text-slate-600 leading-relaxed line-clamp-2">
-                {trip.description}
-            </p>
-            <div className="flex items-center gap-1.5 text-xs text-slate-500 font-medium">
-                <Calendar className="w-3.5 h-3.5 text-slate-400" />
-                {trip.dates}
-            </div>
-        </div>
+          {/* Middle: Description & Date */}
+          <div className="flex-1 flex flex-col gap-2">
+              <p className="text-xs text-slate-600 leading-relaxed line-clamp-2">
+                  {trip.description}
+              </p>
+              <div className="flex items-center gap-1.5 text-xs text-slate-500 font-medium">
+                  <Calendar className="w-3.5 h-3.5 text-slate-400" />
+                  {trip.dates}
+              </div>
+          </div>
 
-        {/* Bottom: Metrics Grid */}
-        <div className="grid grid-cols-2 gap-4 mt-2 pt-2 border-t border-slate-100/50">
-            <div className="flex flex-col">
-                <span className="text-[10px] uppercase tracking-wider text-slate-400 font-bold mb-0.5">Points</span>
-                <div className="flex items-center gap-1.5 text-xs sm:text-sm font-semibold text-slate-700">
-                    <CreditCard className="w-3.5 h-3.5 text-emerald-500" />
-                    {trip.pointsRedeemed}
-                </div>
-            </div>
-            
-            <div className="flex flex-col">
-                <span className="text-[10px] uppercase tracking-wider text-slate-400 font-bold mb-0.5">Travelers</span>
-                <div className="flex items-center gap-1.5 text-xs sm:text-sm font-semibold text-slate-700">
-                    {trip.type === 'Solo' ? <User className="w-3.5 h-3.5 text-indigo-500" /> : <Users className="w-3.5 h-3.5 text-indigo-500" />}
-                    {trip.type === 'Solo' ? 'Solo' : `${trip.travelers} People`}
-                </div>
-            </div>
+          {/* Bottom: Metrics Grid */}
+          <div className="grid grid-cols-2 gap-4 mt-2 pt-2 border-t border-slate-100/50">
+              <div className="flex flex-col">
+                  <span className="text-[10px] uppercase tracking-wider text-slate-400 font-bold mb-0.5">Points</span>
+                  <div className="flex items-center gap-1.5 text-xs sm:text-sm font-semibold text-slate-700">
+                      <CreditCard className="w-3.5 h-3.5 text-emerald-500" />
+                      {trip.pointsRedeemed}
+                  </div>
+              </div>
+              
+              <div className="flex flex-col">
+                  <span className="text-[10px] uppercase tracking-wider text-slate-400 font-bold mb-0.5">Travelers</span>
+                  <div className="flex items-center gap-1.5 text-xs sm:text-sm font-semibold text-slate-700">
+                      {trip.type === 'Solo' ? <User className="w-3.5 h-3.5 text-indigo-500" /> : <Users className="w-3.5 h-3.5 text-indigo-500" />}
+                      {trip.type === 'Solo' ? 'Solo' : `${trip.travelers} People`}
+                  </div>
+              </div>
+          </div>
         </div>
       </div>
-    </div>
-  );
+    );
+  };
 
   return (
     <div className="min-h-screen bg-slate-50/50">
@@ -251,14 +251,53 @@ export default function MyTripsPage() {
             <h1 className="text-2xl font-bold text-slate-900">My Trips</h1>
             <p className="text-sm text-slate-500 mt-1">Track your points usage and travel history</p>
           </div>
-          <Link 
-            href="/solo/setup"
-            className="flex items-center gap-2 bg-blue-600 text-white px-5 py-2 rounded-xl font-medium hover:bg-blue-700 transition-colors shadow-sm text-sm"
-          >
-            <Plane className="w-4 h-4" />
-            Plan New Trip
-          </Link>
+          <div className="flex gap-3">
+            {!isManageMode ? (
+              <>
+                <button
+                  onClick={handleToggleManageMode}
+                  className="flex items-center gap-2 bg-slate-100 text-slate-700 px-5 py-2 rounded-xl font-medium hover:bg-slate-200 transition-colors text-sm"
+                >
+                  <Trash2 className="w-4 h-4" />
+                  Manage Trips
+                </button>
+                <Link 
+                  href="/solo/setup"
+                  className="flex items-center gap-2 bg-blue-600 text-white px-5 py-2 rounded-xl font-medium hover:bg-blue-700 transition-colors shadow-sm text-sm"
+                >
+                  <Plane className="w-4 h-4" />
+                  Plan New Trip
+                </Link>
+              </>
+            ) : (
+              <>
+                <button
+                  onClick={handleToggleManageMode}
+                  className="flex items-center gap-2 bg-slate-100 text-slate-700 px-5 py-2 rounded-xl font-medium hover:bg-slate-200 transition-colors text-sm"
+                >
+                  <X className="w-4 h-4" />
+                  Cancel
+                </button>
+                <button
+                  onClick={handleDeleteSelected}
+                  disabled={selectedTripIds.size === 0}
+                  className="flex items-center gap-2 bg-red-600 text-white px-5 py-2 rounded-xl font-medium hover:bg-red-700 transition-colors shadow-sm text-sm disabled:opacity-50 disabled:cursor-not-allowed"
+                >
+                  <Trash2 className="w-4 h-4" />
+                  Delete {selectedTripIds.size > 0 && `(${selectedTripIds.size})`}
+                </button>
+              </>
+            )}
+          </div>
         </div>
+
+        {isManageMode && (
+          <div className="mb-6 p-4 bg-blue-50 border border-blue-200 rounded-xl">
+            <p className="text-sm text-blue-800">
+              Select the trips you want to delete, then click the Delete button.
+            </p>
+          </div>
+        )}
 
         {upcomingTrips.length > 0 && (
           <section className="mb-8">
@@ -309,7 +348,7 @@ export default function MyTripsPage() {
       </div>
 
       {/* Delete Confirmation Modal */}
-      {showDeleteModal && tripToDelete && (
+      {showDeleteModal && (
         <div className="fixed inset-0 bg-black/50 flex items-center justify-center z-50 p-4">
           <div className="bg-white rounded-2xl max-w-md w-full p-6 shadow-xl">
             <div className="flex items-center gap-3 mb-4">
@@ -317,14 +356,14 @@ export default function MyTripsPage() {
                 <Trash2 className="w-6 h-6 text-red-600" />
               </div>
               <div>
-                <h3 className="text-lg font-bold text-slate-900">Delete Trip</h3>
+                <h3 className="text-lg font-bold text-slate-900">Delete {selectedTripIds.size} Trip{selectedTripIds.size > 1 ? 's' : ''}</h3>
                 <p className="text-sm text-slate-500">This action cannot be undone</p>
               </div>
             </div>
             
             <div className="mb-6">
               <p className="text-slate-700 mb-2">
-                Are you sure you want to delete <span className="font-semibold">{tripToDelete.destination}</span>?
+                Are you sure you want to delete {selectedTripIds.size} trip{selectedTripIds.size > 1 ? 's' : ''}?
               </p>
               <p className="text-sm text-slate-500">
                 All trip data, including destinations, itineraries, and points information will be permanently removed.
@@ -334,17 +373,17 @@ export default function MyTripsPage() {
             <div className="flex gap-3">
               <button
                 onClick={handleDeleteCancel}
-                disabled={deletingTripId !== null}
+                disabled={isDeleting}
                 className="flex-1 px-4 py-3 bg-slate-100 text-slate-700 rounded-xl font-medium hover:bg-slate-200 transition-colors disabled:opacity-50"
               >
                 Cancel
               </button>
               <button
                 onClick={handleDeleteConfirm}
-                disabled={deletingTripId !== null}
+                disabled={isDeleting}
                 className="flex-1 px-4 py-3 bg-red-600 text-white rounded-xl font-medium hover:bg-red-700 transition-colors disabled:opacity-50 flex items-center justify-center gap-2"
               >
-                {deletingTripId ? (
+                {isDeleting ? (
                   <>
                     <div className="w-4 h-4 border-2 border-white border-t-transparent rounded-full animate-spin" />
                     Deleting...
@@ -352,7 +391,7 @@ export default function MyTripsPage() {
                 ) : (
                   <>
                     <Trash2 className="w-4 h-4" />
-                    Delete Trip
+                    Delete Trip{selectedTripIds.size > 1 ? 's' : ''}
                   </>
                 )}
               </button>

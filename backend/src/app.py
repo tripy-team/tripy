@@ -622,6 +622,22 @@ async def list_trip_members(
         raise HTTPException(status_code=500, detail=str(e))
 
 
+@app.delete("/trips/delete")
+async def delete_trip(
+    request: TripIdRequest, user_id: str = Depends(get_current_user_id)
+):
+    """Delete a trip (owner only)"""
+    try:
+        success = trip_service.delete_trip(request.trip_id, user_id)
+        return {"ok": success}
+    except ValueError as e:
+        logger.warning(f"Trip deletion error: {str(e)}")
+        raise HTTPException(status_code=403, detail=str(e))
+    except Exception as e:
+        logger.error(f"Error deleting trip: {str(e)}")
+        raise HTTPException(status_code=500, detail=str(e))
+
+
 # Destination endpoints (require authentication)
 @app.post("/destinations/add")
 async def add_destination(

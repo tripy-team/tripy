@@ -102,3 +102,21 @@ def list_trips_for_user(user_id: str) -> List[Dict[str, Any]]:
     # Sort by startDate descending (most recent first)
     trips.sort(key=lambda x: x.get("startDate", ""), reverse=True)
     return trips
+
+
+def delete_trip(trip_id: str, user_id: str) -> bool:
+    """Delete a trip (owner only)"""
+    trip = get_trip(trip_id)
+    if not trip:
+        raise ValueError("Trip not found")
+    
+    # Verify user is the trip creator
+    if trip.get("createdBy") != user_id:
+        raise ValueError("Only trip creator can delete the trip")
+    
+    # Delete the trip
+    success = trip_repo.delete_trip(trip_id)
+    if not success:
+        raise ValueError("Failed to delete trip")
+    
+    return success
