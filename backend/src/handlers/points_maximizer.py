@@ -68,7 +68,7 @@ def plan_maximize_points_value(
     """
     if pl is None:
         raise ImportError("pulp package is not installed. Install it with: pip install pulp")
-    """
+
     if total_cash_seats is None:
         total_cash_seats = {}
     if award_seats is None:
@@ -205,7 +205,7 @@ def plan_maximize_points_value(
                     == pl.lpSum(x[p][e] for e in edges if e[1] == i)
                 )
 
-    # 2) Payment constraints
+    # 2) Payment constraints: exactly one payer (cash or points) per chosen edge
     for p in T:
         for e in edges:
             m += (
@@ -218,6 +218,16 @@ def plan_maximize_points_value(
                 + pl.lpSum(y_native[(q, p)][a][e] for q in T for a in A)
                 == x[p][e]
             )
+
+    # 2b) can_pay_for: restrict which payer q can pay for passenger p
+    for p in T:
+        for e in edges:
+            for q in T:
+                m += z[(q, p)][e] <= can_pay_for.get((q, p), 0)
+                for (s, a) in y[(q, p)].keys():
+                    m += y[(q, p)][(s, a)][e] <= can_pay_for.get((q, p), 0)
+                for a in A:
+                    m += y_native[(q, p)][a][e] <= can_pay_for.get((q, p), 0)
 
     # 3) Transfer constraints
     for q in T:
@@ -251,13 +261,14 @@ def plan_maximize_points_value(
                 <= miles_balance.get((q, a), 0.0)
             )
 
-    # 5) Eligibility constraints
+    # 5) Eligibility constraints (link_ok: payer–airline; can_price: airline can price edge)
     for q in T:
         for p in T:
-            for (s, a) in y[(q, p)].keys():
-                m += y[(q, p)][(s, a)][e] <= link_ok.get((q, a), 0) * can_price[a].get(e, 0)
-            for a in A:
-                m += y_native[(q, p)][a][e] <= link_ok.get((q, a), 0) * can_price[a].get(e, 0)
+            for e in edges:
+                for (s, a) in y[(q, p)].keys():
+                    m += y[(q, p)][(s, a)][e] <= link_ok.get((q, a), 0) * can_price[a].get(e, 0)
+                for a in A:
+                    m += y_native[(q, p)][a][e] <= link_ok.get((q, a), 0) * can_price[a].get(e, 0)
 
     # 6) Cash budget constraints
     for q in T:

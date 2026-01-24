@@ -3,6 +3,7 @@ import os, re, json, math, asyncio
 import httpx
 from dotenv import load_dotenv
 from src.utils.cache_layer import get_json, set_json
+from src.data.award_programs import get_award_programs_for_api
 from .award_calendar import (
     get_calendar_matrix,
     best_dates_by_cabin,
@@ -280,7 +281,7 @@ async def get_flights_award_first_with_points_async(
     programs = (
         award_programs
         or filt.get("award_programs")
-        or ["AF", "KL", "DL", "AA", "AS", "BA", "UA", "AC", "VS", "TK"]
+        or get_award_programs_for_api()
     )
 
     client = await _http_client()
@@ -381,7 +382,7 @@ async def get_flights_serp_first_with_points_async(
     programs = (
         award_programs
         or filt.get("award_programs")
-        or ["AF", "KL", "DL", "AA", "AS", "BA", "UA", "AC", "VS", "TK"]
+        or get_award_programs_for_api()
     )
 
     client = await _http_client()

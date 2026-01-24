@@ -7,14 +7,14 @@ from src.repos import itinerary_repo
 from src.handlers.flights import get_flights_award_first_with_points
 from src.handlers.ilp_adapter import run_ilp_from_edges
 try:
-    from src.handlers.planTrip import plan_non_pooled_multi_itineraries_with_native
-except ModuleNotFoundError:
+    from src.handlers.points_maximizer import plan_maximize_points_value
+except ImportError:
     # Optional dependency (pulp) not installed; advanced ILP optimization will be unavailable
-    plan_non_pooled_multi_itineraries_with_native = None  # type: ignore
+    plan_maximize_points_value = None  # type: ignore
     logger = logging.getLogger(__name__)
     logger.warning(
-        "pulp / planTrip not available. Advanced optimized itineraries will be disabled. "
-        "Install 'pulp' and ensure 'src.handlers.planTrip' is importable to enable it."
+        "pulp / points_maximizer not available. Advanced optimized itineraries will be disabled. "
+        "Install 'pulp' and ensure 'src.handlers.points_maximizer' is importable to enable it."
     )
 from src.services import (
     destination_service,
@@ -24,6 +24,7 @@ from src.services import (
     city_service,
 )
 from src.handlers.airport_filter import is_commercial_airport, load_commercial_iata_set_from_web
+from src.data.award_programs import DEFAULT_TRANSFER_GRAPH, get_award_programs_for_api
 
 logger = logging.getLogger(__name__)
 
@@ -313,10 +314,10 @@ def generate_optimized_itinerary(trip_id: str) -> Dict[str, Any]:
     Raises:
         ValueError: If trip data is invalid, missing required fields, or optimization fails
     """
-    if plan_non_pooled_multi_itineraries_with_native is None:
+    if plan_maximize_points_value is None:
         raise ValueError(
             "Optimized itineraries are not available in this environment because the "
-            "'pulp' dependency (used by planTrip) is not installed. "
+            "'pulp' dependency (used by points_maximizer) is not installed. "
             "You can still use the basic itinerary generator."
         )
     # 1. Get trip data with validation
@@ -488,14 +489,8 @@ def generate_optimized_itinerary(trip_id: str) -> Dict[str, Any]:
     
     edges_all = {}
     
-    # Default transfer graph (can be made configurable)
-    transfer_graph = {
-        "amex": {"AF": 1.0, "KL": 1.0, "DL": 1.0, "BA": 1.0, "VS": 1.0, "AC": 1.0, "TK": 1.0, "UA": 1.0},
-        "chase": {"AF": 1.0, "KL": 1.0, "BA": 1.0, "VS": 1.0, "UA": 1.0, "AC": 1.0},
-        "citi": {"AF": 1.0, "KL": 1.0, "VS": 1.0, "TK": 1.0, "BA": 1.0},
-        "capitalone": {"AF": 1.0, "KL": 1.0, "BA": 1.0, "VS": 1.0, "TK": 1.0, "AC": 1.0},
-        "bilt": {"AF": 1.0, "KL": 1.0, "BA": 1.0, "AA": 1.0, "UA": 1.0, "AC": 1.0, "TK": 1.0, "VS": 1.0},
-    }
+    # Transfer graph: which bank points can transfer to which airlines (all commercial airlines)
+    transfer_graph = DEFAULT_TRANSFER_GRAPH
     
     # Fetch edges for all city pairs
     successful_routes = 0
@@ -526,10 +521,9 @@ def generate_optimized_itinerary(trip_id: str) -> Dict[str, Any]:
             "outbound_date": leg_date,
             "travel_class": "economy",
             # Don't restrict stops - allow multistop flights from the start
-            # This allows nonstop, 1-stop, 2-stop, and more connections
             "bags": 1,
-            "pax": len(travelers),  # Use actual number of travelers
-            "award_programs": ["AF", "KL", "DL", "BA", "AA", "AS", "UA", "VS", "AC", "TK"],
+            "pax": len(travelers),
+            "award_programs": get_award_programs_for_api(),  # All commercial airlines
         }
         
         try:
@@ -599,11 +593,8 @@ def generate_optimized_itinerary(trip_id: str) -> Dict[str, Any]:
     logger.info(f"Running ILP optimization with {len(edges_all)} edges for {len(travelers)} travelers")
     
     # 7. Run ILP optimization using points maximization
-    # The function plan_non_pooled_multi_itineraries_with_native (from planTrip.py) 
-    # already includes points maximization logic (maximizes cash saved by using points)
-    # This is the same function used in main.py demo file
-    # It uses default weights: W1=10^6 (points value), W2=10^3 (cash), W3=1.0 (time)
-    # Objective: Maximize (points_value - cash_paid - time_penalty)
+    # plan_maximize_points_value (points_maximizer.py): maximizes cash saved by using points.
+    # Objective: W1*points_value - W2*cash_paid - W3*time (W1=10^6, W2=10^3, W3=1; min 1 cpp).
     try:
         solution = run_ilp_from_edges(
             edges_all,
@@ -611,7 +602,7 @@ def generate_optimized_itinerary(trip_id: str) -> Dict[str, Any]:
             start_city_by_trav,
             end_city_by_trav,
             user_points_by_trav,
-            plan_non_pooled_multi_itineraries_with_native,  # Uses points maximization (same as main.py)
+            plan_maximize_points_value,  # Point optimization: max points value, min cash, min time
             meetup_cities=[],  # No meetup cities for now
             require_meetup_in_graph=False,
             transfer_graph=transfer_graph,
