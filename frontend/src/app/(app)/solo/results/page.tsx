@@ -494,7 +494,11 @@ export default function SoloResults() {
 
     if (loading) {
         return (
-            <div className="min-h-full flex items-center justify-center bg-gradient-to-br from-white via-blue-50/20 to-white">
+            <div
+                data-testid="results-loading"
+                data-slot="loading-spinner-wrapper"
+                className="min-h-full flex items-center justify-center bg-gradient-to-br from-white via-blue-50/20 to-white"
+            >
                 <div className="text-center">
                     <div className="w-16 h-16 bg-gradient-to-br from-blue-600 to-blue-700 rounded-2xl flex items-center justify-center mx-auto mb-6 animate-pulse shadow-xl shadow-blue-600/20">
                         <Sparkles className="w-8 h-8 text-white" />
