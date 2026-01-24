@@ -1,7 +1,7 @@
 from typing import Optional, Dict, Any
 from botocore.exceptions import ClientError
 from src.config import USERS_TABLE
-from .ddb import table, get_item, put_item, query_gsi
+from .ddb import table, get_item, put_item, query_gsi, sanitize_for_dynamodb
 import logging
 
 logger = logging.getLogger(__name__)
@@ -29,7 +29,7 @@ def create_user(user: Dict[str, Any], condition_expression: Optional[str] = None
         if condition_expression:
             # Use conditional put_item
             t.put_item(
-                Item=user,
+                Item=sanitize_for_dynamodb(user),
                 ConditionExpression=condition_expression
             )
         else:
@@ -69,7 +69,7 @@ def update_user(user_id: str, updates: Dict[str, Any]) -> None:
             
             update_expr_parts.append(f"{attr_name} = {attr_value}")
             expr_attr_names[attr_name] = key
-            expr_attr_values[attr_value] = value
+            expr_attr_values[attr_value] = sanitize_for_dynamodb(value)
         
         if not update_expr_parts:
             return  # No updates to perform

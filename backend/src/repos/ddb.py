@@ -1,10 +1,27 @@
 import boto3
 from boto3.dynamodb.conditions import Key
 from botocore.exceptions import ClientError
+from decimal import Decimal
 from typing import Any, Dict, Optional, List
 import logging
 
 logger = logging.getLogger(__name__)
+
+
+def sanitize_for_dynamodb(obj: Any) -> Any:
+    """
+    Recursively convert floats to Decimal for DynamoDB compatibility.
+    DynamoDB does not accept Python float; use Decimal for numbers.
+    """
+    if isinstance(obj, dict):
+        return {k: sanitize_for_dynamodb(v) for k, v in obj.items()}
+    if isinstance(obj, list):
+        return [sanitize_for_dynamodb(v) for v in obj]
+    if isinstance(obj, set):
+        return {sanitize_for_dynamodb(v) for v in obj}
+    if isinstance(obj, float):
+        return Decimal(str(obj))
+    return obj
 
 # Configure boto3 session with connection pooling
 session = boto3.Session()
@@ -46,7 +63,7 @@ def get_item(t, key: Dict[str, Any]) -> Optional[Dict[str, Any]]:
 def put_item(t, item: Dict[str, Any]) -> None:
     """Put item in DynamoDB table with error handling"""
     try:
-        t.put_item(Item=item)
+        t.put_item(Item=sanitize_for_dynamodb(item))
     except ClientError as e:
         error_code = e.response.get("Error", {}).get("Code", "")
         error_message = e.response.get("Error", {}).get("Message", "")
