@@ -17,17 +17,19 @@ load_dotenv()
 
 
 def flights_with_points_between_cities(start_city, end_city):
-    flight_edges = {}
-    params = create_filters("insert here")
-    params["origin"] = start_city
-    params["destination"] = end_city
-    params["api_key"] = "0363cfd0-ba6a-4302-ba14-9f86186eb0c7"
+    filters = create_filters("insert here")
+    api_key = os.getenv("AWARD_TOOL_API_KEY") or os.getenv("AWARDTOOL_API_KEY")
+    payload = json.dumps({
+        "origin": start_city,
+        "destination": end_city,
+        "programs": filters.get("programs", ["DL"]),
+        "cabins": filters.get("cabins", ["Economy"]),
+        "date": filters.get("date", "2025-12-28"),
+        "pax": str(filters.get("pax", 1)),
+        "api_key": api_key or "",
+    })
     url = "https://www.awardtool-api.com/search_real_time"
-    headers = {
-        "sec-ch-ua": '"Google Chrome";v="119", "Chromium";v="119", "Not?A_Brand";v="24"',
-        "Content-Type": "application/json",
-    }
-    payload = json.dumps(params)
+    headers = {"Content-Type": "application/json"}
     response = requests.request("POST", url, headers=headers, data=payload)
 
     response = json.loads(response.text)
@@ -35,14 +37,14 @@ def flights_with_points_between_cities(start_city, end_city):
         # Fallback to serp_client.get_flights_between_airports when AwardTool fails
         try:
             from src.handlers.serp_client import get_flights_between_airports
-            date = params.get("date", "2026-02-18")
+            date = filters.get("date", "2025-12-28")
             flights = get_flights_between_airports(start_city, end_city, date)
             if flights:
                 return json.dumps({"status": 200, "source": "serp", "flights": flights})
         except Exception:
             pass
         raise Failure(
-            f"Failed to use awardtools to generate flights from {start_city} to {end_city} on {params.get('date', '')}"
+            f"Failed to use awardtools to generate flights from {start_city} to {end_city} on {filters.get('date', '')}"
         )
     data = response.get("data", [])
     for flight in data:
@@ -70,11 +72,13 @@ def process_cabin_prices(cabin):
 
 def create_filters(frontend_filter):
     return {
-        "pax": 2,
-        "programs": ["DL"],
+        "pax": 1,
+        "programs": ["UA"],
         "cabins": ["Economy"],
-        "date": "2026-02-18",
+        "date": "2025-12-28",
     }
+    
+    
 
 
 if __name__ == "__main__":
