@@ -3,9 +3,10 @@
 import { useParams, useRouter } from 'next/navigation';
 import { useState, useEffect } from 'react';
 import Image from 'next/image';
-import { ArrowLeft, Calendar, MapPin, CreditCard, Users, User, Plane, Hotel, Copy, CheckCircle, AlertCircle, Lock, ChevronRight } from 'lucide-react';
-import { trips as tripsAPI } from '@/lib/api';
+import { ArrowLeft, Calendar, MapPin, CreditCard, Users, User, Plane, Copy, CheckCircle, AlertCircle, Lock, ChevronRight, Lightbulb } from 'lucide-react';
+import { trips as tripsAPI, itineraries } from '@/lib/api';
 import { getOptimizedImageUrl } from '@/lib/image-utils';
+import { buildTransferStepsFromItinerary, getTransferTipsFromItems } from '@/lib/transfer-instructions';
 
 interface Trip {
     id: string;
@@ -51,6 +52,8 @@ export default function TripDetails() {
     const [trip, setTrip] = useState<Trip | null>(null);
     const [isLoading, setIsLoading] = useState(true);
     const [isPaid, setIsPaid] = useState(false); // TODO: fetch from API (trip payment status)
+    const [itineraryItems, setItineraryItems] = useState<Array<{ type?: string; [k: string]: unknown }>>([]);
+    const [members, setMembers] = useState<Array<{ userId: string; name?: string }>>([]);
 
     useEffect(() => {
         const fetchTrip = async () => {
@@ -121,6 +124,26 @@ export default function TripDetails() {
         }
     }, [tripId]);
 
+    useEffect(() => {
+        if (!tripId) return;
+        let cancelled = false;
+        Promise.all([
+            itineraries.get(tripId).then((r) => r.items || []),
+            tripsAPI.listMembers(tripId).then((r) => r.members || []),
+        ])
+            .then(([its, mems]) => {
+                if (cancelled) return;
+                setItineraryItems(Array.isArray(its) ? its : []);
+                setMembers(Array.isArray(mems) ? mems : []);
+            })
+            .catch(() => {
+                if (cancelled) return;
+                setItineraryItems([]);
+                setMembers([]);
+            });
+        return () => { cancelled = true; };
+    }, [tripId]);
+
     const copyToClipboard = async (text: string, id: string) => {
         try {
             await navigator.clipboard.writeText(text);
@@ -158,67 +181,18 @@ export default function TripDetails() {
         );
     }
 
-    // Mock Transfer Instructions based on type
-    const transferSteps: TransferStep[] = trip.type === 'Solo' ? [
-        {
-            id: 's1',
-            title: 'Transfer to Airline',
-            program: 'Chase Ultimate Rewards',
-            partner: 'Virgin Atlantic',
-            amount: '45,000',
-            icon: Plane,
-            instructions: [
-                'Log in to Chase Ultimate Rewards',
-                'Select "Transfer to Travel Partners"',
-                'Choose Virgin Atlantic Flying Club',
-                'Enter Member ID (create account if needed)',
-                'Transfer 45,000 points (Instant)'
-            ]
-        },
-        {
-            id: 's2',
-            title: 'Book Flight',
-            program: 'Virgin Atlantic',
-            partner: 'ANA First Class',
-            amount: 'Cash Taxes: ~$200',
-            icon: Plane,
-            instructions: [
-                'Log in to Virgin Atlantic',
-                'Search for round-trip Tokyo (HND/NRT)',
-                'Select "Pay with Points"',
-                'Find availability for ANA First/Business',
-                'Book using transferred points'
-            ]
-        }
-    ] : [
-        {
-            id: 'g1',
-            title: 'Sarah: Flight Transfer',
-            program: 'Amex Membership Rewards',
-            partner: 'Air France / KLM',
-            amount: '50,000',
-            icon: Plane,
-            instructions: [
-                'Log in to Amex',
-                'Transfer 50k points to Flying Blue',
-                'Confirm transfer is instant',
-                'Book Flight AF1234'
-            ]
-        },
-        {
-            id: 'g2',
-            title: 'David: Hotel Booking',
-            program: 'Chase UR',
-            partner: 'World of Hyatt',
-            amount: '35,000',
-            icon: Hotel,
-            instructions: [
-                'Transfer 35k points to Hyatt',
-                'Book Park Hyatt for 3 nights',
-                'Add guest names to reservation'
-            ]
-        }
-    ];
+    // Tailored transfer instructions from itinerary (totals.transfers) and smart tips
+    const rawSteps = buildTransferStepsFromItinerary(itineraryItems, members);
+    const { transfer_tips } = getTransferTipsFromItems(itineraryItems);
+    const transferSteps: TransferStep[] = rawSteps.map((t) => ({
+        id: t.id,
+        title: `${t.member}: ${t.category}`,
+        program: t.program,
+        partner: t.partner,
+        amount: t.amountStr,
+        icon: t.icon,
+        instructions: t.steps,
+    }));
 
     return (
         <div className="min-h-screen bg-slate-50 pb-20">
@@ -334,55 +308,73 @@ export default function TripDetails() {
                                         </div>
                                     </div>
 
-                                    <div className="divide-y divide-slate-100">
-                                        {transferSteps.map((step, idx) => {
-                                    return (
-                                        <div key={step.id} className="p-6 hover:bg-slate-50/50 transition-colors">
-                                            <div className="flex items-start gap-4">
-                                                <div className="flex-shrink-0 w-8 h-8 rounded-full bg-slate-900 text-white flex items-center justify-center font-bold text-sm">
-                                                    {idx + 1}
-                                                </div>
-                                                <div className="flex-1">
-                                                    <h3 className="text-lg font-semibold text-slate-900 mb-1">{step.title}</h3>
-                                                    <div className="flex flex-wrap gap-2 mb-4">
-                                                        <span className="px-2 py-1 bg-slate-100 text-slate-600 text-xs rounded-md font-medium border border-slate-200">
-                                                            {step.program}
-                                                        </span>
-                                                        <span className="text-slate-300">→</span>
-                                                        <span className="px-2 py-1 bg-blue-50 text-blue-700 text-xs rounded-md font-medium border border-blue-100 flex items-center gap-1">
-                                                            {step.partner}
-                                                            <button
-                                                                onClick={() => copyToClipboard(step.partner, `${step.id}-partner`)}
-                                                                title="Copy partner name"
-                                                                className="hover:opacity-100"
-                                                            >
-                                                                {copiedId === `${step.id}-partner` ? (
-                                                                    <CheckCircle className="w-3 h-3 text-green-600" />
-                                                                ) : (
-                                                                    <Copy className="w-3 h-3 opacity-50" />
-                                                                )}
-                                                            </button>
-                                                        </span>
-                                                    </div>
-
-                                                    <div className="space-y-3 pl-4 border-l-2 border-slate-100">
-                                                        {step.instructions.map((inst, i) => (
-                                                            <p key={i} className="text-sm text-slate-600 leading-relaxed">
-                                                                {inst}
-                                                            </p>
-                                                        ))}
-                                                    </div>
-
-                                                    <div className="mt-4 pt-4 border-t border-slate-100/50 flex justify-between items-center">
-                                                        <span className="text-xs font-semibold text-slate-500 uppercase tracking-wider">Amount Required</span>
-                                                        <span className="text-sm font-bold text-slate-900">{step.amount} {step.amount.includes('$') ? '' : 'points'}</span>
+                                    {transferSteps.length > 0 ? (
+                                        <div className="divide-y divide-slate-100">
+                                            {transferSteps.map((step, idx) => (
+                                                <div key={step.id} className="p-6 hover:bg-slate-50/50 transition-colors">
+                                                    <div className="flex items-start gap-4">
+                                                        <div className="flex-shrink-0 w-8 h-8 rounded-full bg-slate-900 text-white flex items-center justify-center font-bold text-sm">
+                                                            {idx + 1}
+                                                        </div>
+                                                        <div className="flex-1">
+                                                            <h3 className="text-lg font-semibold text-slate-900 mb-1">{step.title}</h3>
+                                                            <div className="flex flex-wrap gap-2 mb-4">
+                                                                <span className="px-2 py-1 bg-slate-100 text-slate-600 text-xs rounded-md font-medium border border-slate-200">
+                                                                    {step.program}
+                                                                </span>
+                                                                <span className="text-slate-300">→</span>
+                                                                <span className="px-2 py-1 bg-blue-50 text-blue-700 text-xs rounded-md font-medium border border-blue-100 flex items-center gap-1">
+                                                                    {step.partner}
+                                                                    <button
+                                                                        onClick={() => copyToClipboard(step.partner, `${step.id}-partner`)}
+                                                                        title="Copy partner name"
+                                                                        className="hover:opacity-100"
+                                                                    >
+                                                                        {copiedId === `${step.id}-partner` ? <CheckCircle className="w-3 h-3 text-green-600" /> : <Copy className="w-3 h-3 opacity-50" />}
+                                                                    </button>
+                                                                </span>
+                                                            </div>
+                                                            <div className="space-y-3 pl-4 border-l-2 border-slate-100">
+                                                                {step.instructions.map((inst, i) => (
+                                                                    <p key={i} className="text-sm text-slate-600 leading-relaxed">{inst}</p>
+                                                                ))}
+                                                            </div>
+                                                            <div className="mt-4 pt-4 border-t border-slate-100/50 flex justify-between items-center">
+                                                                <span className="text-xs font-semibold text-slate-500 uppercase tracking-wider">Amount Required</span>
+                                                                <span className="text-sm font-bold text-slate-900">{step.amount} {step.amount.includes('$') ? '' : 'points'}</span>
+                                                            </div>
+                                                        </div>
                                                     </div>
                                                 </div>
-                                            </div>
+                                            ))}
                                         </div>
-                                    );
-                                })}
-                                    </div>
+                                    ) : transfer_tips.length > 0 ? (
+                                        <div className="p-6">
+                                            <div className="flex items-center gap-2 text-amber-600 mb-3">
+                                                <Lightbulb className="w-5 h-5" />
+                                                <span className="font-semibold text-slate-900">Tailored strategies for your trip</span>
+                                            </div>
+                                            <p className="text-sm text-slate-600 mb-4">
+                                                Generate an optimized itinerary to get step-by-step instructions. For now, consider transferring: {transfer_tips.slice(0, 2).map((t) => `${t.from_program || 'bank'} → ${t.to_program || 'partner'}`).join('; ')}.
+                                            </p>
+                                            <button
+                                                onClick={() => router.push(trip.type === 'Group' ? `/group/results?trip_id=${trip.id}` : `/solo/results?trip_id=${trip.id}`)}
+                                                className="text-blue-600 font-medium text-sm hover:text-blue-700"
+                                            >
+                                                Generate itinerary <ChevronRight className="w-3 h-3 inline" />
+                                            </button>
+                                        </div>
+                                    ) : (
+                                        <div className="p-8 text-center">
+                                            <p className="text-slate-600 text-sm">Generate an itinerary for this trip to see your tailored transfer strategy and step-by-step instructions.</p>
+                                            <button
+                                                onClick={() => router.push(trip.type === 'Group' ? `/group/results?trip_id=${trip.id}` : `/solo/results?trip_id=${trip.id}`)}
+                                                className="mt-3 text-blue-600 font-medium text-sm hover:text-blue-700"
+                                            >
+                                                Go to Results <ChevronRight className="w-3 h-3 inline" />
+                                            </button>
+                                        </div>
+                                    )}
                                 </>
                             )}
                         </div>
