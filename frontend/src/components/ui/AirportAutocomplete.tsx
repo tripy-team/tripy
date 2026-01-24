@@ -2,6 +2,7 @@
 
 import React, { useEffect, useMemo, useRef, useState } from "react";
 import { destinations } from "@/lib/api";
+import { filterFallbackAirports } from "@/lib/autocomplete-fallback-data";
 
 // Airport type matching API response
 type AirportSuggestion = {
@@ -85,6 +86,53 @@ function loadRecent(key: string): RecentItem[] {
   } catch {
     return [];
   }
+}
+
+type SuggestionLike = {
+  name?: string;
+  id?: string;
+  description?: string;
+  airports?: Array<{ id?: string; name?: string; city?: string }>;
+};
+
+function flattenSuggestionsToAirports(raw: SuggestionLike[]): AirportSuggestion[] {
+  const out: AirportSuggestion[] = [];
+  for (const s of raw) {
+    const list = s.airports || [];
+    const fallbackId =
+      s.id && /^[A-Za-z]{3}$/.test(String(s.id).trim()) && list.length === 1
+        ? String(s.id).trim().toUpperCase()
+        : null;
+    if (list.length === 0 && s.id && /^[A-Za-z]{3}$/.test(String(s.id).trim())) {
+      const id = String(s.id).trim().toUpperCase();
+      out.push({
+        airport_id: id,
+        iata_code: id,
+        airport_name: s.name || id,
+        city: s.name || "",
+        country: s.description || "",
+        region: "",
+        display_name: `${id} – ${s.name || id}`,
+      });
+      continue;
+    }
+    for (const a of list) {
+      let id = (a.id && String(a.id).trim()) || null;
+      if (!id && fallbackId) id = fallbackId;
+      if (!id) continue;
+      id = id.toUpperCase();
+      out.push({
+        airport_id: id,
+        iata_code: id,
+        airport_name: a.name || id,
+        city: a.city || s.name || "",
+        country: s.description || "",
+        region: "",
+        display_name: `${id} – ${a.name || id}`,
+      });
+    }
+  }
+  return out;
 }
 
 export default function AirportAutocomplete({
@@ -261,51 +309,28 @@ export default function AirportAutocomplete({
       return;
     }
 
-    setIsLoading(true); // show "Searching..." in dropdown as soon as user has typed
+    setIsLoading(true);
     const timeoutId = setTimeout(async () => {
       try {
         const response = await destinations.autocomplete(query, 10);
         const raw = response?.suggestions ?? [];
-        const airports: AirportSuggestion[] = [];
-        for (const s of raw) {
-          const list = s.airports || [];
-          const fallbackId = (s.id && /^[A-Za-z]{3}$/.test(String(s.id).trim()) && list.length === 1)
-            ? String(s.id).trim().toUpperCase()
-            : null;
-          // Top-level airport with no airports[]: use s.id if it looks like IATA
-          if (list.length === 0 && s.id && /^[A-Za-z]{3}$/.test(String(s.id).trim())) {
-            const id = String(s.id).trim().toUpperCase();
-            airports.push({
-              airport_id: id,
-              iata_code: id,
-              airport_name: s.name || id,
-              city: s.name || "",
-              country: s.description || "",
-              region: "",
-              display_name: `${id} – ${s.name || id}`,
-            });
-            continue;
-          }
-          for (const a of list) {
-            let id = (a.id && String(a.id).trim()) || null;
-            if (!id && fallbackId) id = fallbackId;
-            if (!id) continue;
-            id = id.toUpperCase();
-            airports.push({
-              airport_id: id,
-              iata_code: id,
-              airport_name: a.name || id,
-              city: a.city || s.name || "",
-              country: s.description || "",
-              region: "",
-              display_name: `${id} – ${a.name || id}`,
-            });
-          }
+        let airports = flattenSuggestionsToAirports(raw);
+        if (airports.length === 0) {
+          const fallbackRes = await destinations.fallbackDestinations(query, 10);
+          airports = flattenSuggestionsToAirports(fallbackRes?.suggestions ?? []);
+          setSuggestions(airports.length > 0 ? airports : filterFallbackAirports(query, 10));
+        } else {
+          setSuggestions(airports);
         }
-        setSuggestions(airports);
       } catch (error) {
         console.error("Error fetching airport suggestions:", error);
-        setSuggestions([]);
+        try {
+          const fallbackRes = await destinations.fallbackDestinations(query, 10);
+          const fallbackAirports = flattenSuggestionsToAirports(fallbackRes?.suggestions ?? []);
+          setSuggestions(fallbackAirports.length > 0 ? fallbackAirports : filterFallbackAirports(query, 10));
+        } catch {
+          setSuggestions(filterFallbackAirports(query, 10));
+        }
       } finally {
         setIsLoading(false);
       }

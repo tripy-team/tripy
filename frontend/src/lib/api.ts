@@ -502,6 +502,20 @@ export const destinations = {
     return res.json();
   },
 
+  /** Fallback when autocomplete returns empty: uses backend/files (airports.csv, countries.csv). */
+  fallbackDestinations: async (
+    q: string,
+    limit: number = 10
+  ): Promise<{ suggestions: DestinationsAutocompleteSuggestion[] }> => {
+    const endpoint = `/api/fallback/destinations?q=${encodeURIComponent(q)}&limit=${limit}`;
+    const res = await fetch(endpoint, {
+      method: "GET",
+      headers: { "Content-Type": "application/json" },
+    });
+    if (!res.ok) return { suggestions: [] };
+    return res.json();
+  },
+
   add: async (params: { trip_id: string; name: string; must_include?: boolean; excluded?: boolean }): Promise<Destination> => {
     return apiRequest<Destination>('/destinations/add', {
       method: 'POST',

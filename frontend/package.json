@@ -25,6 +25,7 @@
 		"@types/leaflet": "^1.9.21",
 		"class-variance-authority": "^0.7.1",
 		"clsx": "^2.1.1",
+		"csv-parse": "^6.1.0",
 		"detect-node-es": "^1.1.0",
 		"get-nonce": "^1.0.1",
 		"leaflet": "^1.9.4",

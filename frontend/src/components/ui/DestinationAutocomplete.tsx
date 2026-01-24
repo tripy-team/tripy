@@ -3,6 +3,7 @@
 import { useState, useEffect, useRef } from 'react';
 import { Plane, Bus, Car } from 'lucide-react';
 import { destinations, type CitySuggestion } from '@/lib/api';
+import { filterFallbackCities } from '@/lib/autocomplete-fallback-data';
 
 interface DestinationAutocompleteProps {
   // The current text value of the input (controlled component)
@@ -72,26 +73,47 @@ export function DestinationAutocomplete({
 
     const timeoutId = setTimeout(async () => {
       setIsLoading(true);
+      const q = value.trim();
       try {
-        const response = await destinations.autocomplete(value.trim(), 12);
+        const response = await destinations.autocomplete(q, 12);
         const raw = response?.suggestions ?? [];
-        const cities: CitySuggestion[] = raw
-          .filter((s) => (s.name || '').trim())
-          .map((s) => ({
-            name: (s.name || '').trim(),
-            city_id: s.id || s.airports?.[0]?.city_id || s.name || '',
-            country: s.description || '',
-            airport_code: s.airports?.[0]?.id || (s.airports?.length ? s.airports.map((a) => a.id).filter(Boolean).join(',') : undefined),
-            transport_modes: s.airports?.length ? ['flight'] : [],
-          }));
+        let cities: CitySuggestion[];
+        if (raw.length > 0) {
+          cities = raw
+            .filter((s) => (s.name || '').trim())
+            .map((s) => ({
+              name: (s.name || '').trim(),
+              city_id: s.id || s.airports?.[0]?.city_id || s.name || '',
+              country: s.description || '',
+              airport_code: s.airports?.[0]?.id || (s.airports?.length ? s.airports.map((a) => a.id).filter(Boolean).join(',') : undefined),
+              transport_modes: s.airports?.length ? ['flight'] : [],
+            }));
+        } else {
+          const fallbackRes = await destinations.fallbackDestinations(q, 12);
+          const fallbackRaw = fallbackRes?.suggestions ?? [];
+          if (fallbackRaw.length > 0) {
+            cities = fallbackRaw
+              .filter((s) => (s.name || '').trim())
+              .map((s) => ({
+                name: (s.name || '').trim(),
+                city_id: s.id || s.airports?.[0]?.city_id || s.name || '',
+                country: s.description || '',
+                airport_code: s.airports?.[0]?.id || (s.airports?.length ? s.airports.map((a) => a.id).filter(Boolean).join(',') : undefined),
+                transport_modes: s.airports?.length ? ['flight'] : [],
+              }));
+          } else {
+            cities = filterFallbackCities(q, 12);
+          }
+        }
         setSuggestions(cities);
-        setShowSuggestions(true); // keep open to show list or "No cities found"
+        setShowSuggestions(true);
         setHighlightIndex(cities.length > 0 ? 0 : -1);
       } catch (error) {
         console.error('[DestinationAutocomplete] Error searching cities:', error);
-        setSuggestions([]);
-        setShowSuggestions(true); // show "No cities found" / error state
-        setHighlightIndex(-1);
+        const fallback = filterFallbackCities(q, 12);
+        setSuggestions(fallback);
+        setShowSuggestions(true);
+        setHighlightIndex(fallback.length > 0 ? 0 : -1);
       } finally {
         setIsLoading(false);
       }
