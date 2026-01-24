@@ -17,6 +17,7 @@ export default function GroupPayment() {
   
   const [isProcessing, setIsProcessing] = useState(false);
   const [isPaid, setIsPaid] = useState(false);
+  const [error, setError] = useState<string | null>(null);
   
   // Promo Code State
   const [promoCode, setPromoCode] = useState('');
@@ -35,6 +36,7 @@ export default function GroupPayment() {
 
   const handlePayment = async () => {
     setIsProcessing(true);
+    setError(null);
     try {
       // Simulate payment processing
       await new Promise(resolve => setTimeout(resolve, 2000));
@@ -54,7 +56,8 @@ export default function GroupPayment() {
     } catch (err) {
       console.error('Error processing payment:', err);
       setIsProcessing(false);
-      // Show error to user
+      const msg = err instanceof Error ? err.message : 'Failed to generate itinerary. Please try again.';
+      setError(msg);
     }
   };
 
@@ -189,6 +192,15 @@ export default function GroupPayment() {
 
               {!isPaid ? (
                 <div className="space-y-4">
+                  {error && (
+                    <div className="p-4 bg-red-50 border border-red-200 rounded-xl">
+                      <p className="text-sm text-red-800 font-medium">Could not generate itinerary</p>
+                      <p className="text-sm text-red-700 mt-1">{error}</p>
+                      <p className="text-xs text-red-600 mt-2">
+                        Try using a nearby major airport as your start (e.g. Syracuse SYR or New York JFK instead of a small regional).
+                      </p>
+                    </div>
+                  )}
                   <div className="p-4 bg-blue-50 border border-blue-100 rounded-xl">
                     <div className="flex items-center gap-2 mb-2 text-blue-800 font-semibold text-sm">
                       <Shield className="w-4 h-4" /> Secure Transaction

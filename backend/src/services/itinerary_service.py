@@ -31,6 +31,16 @@ from src.utils.card_benefits import build_benefit_airlines_for_travelers
 
 logger = logging.getLogger(__name__)
 
+# Small/regional airports that often lack direct long-haul flight data in SERP/AwardTool.
+# When flight search returns no edges for origin->dest, we try (origin->hub) ground + (hub->dest) flights.
+# Map: IATA -> list of nearby major hubs to try (closest first).
+SMALL_AIRPORT_NEARBY_HUBS: Dict[str, List[str]] = {
+    "ITH": ["SYR", "BUF", "ALB", "EWR", "JFK"],   # Ithaca, NY
+    "BGM": ["SYR", "ALB", "EWR", "JFK"],           # Binghamton, NY
+    "ELM": ["SYR", "ITH", "BGM", "EWR", "JFK"],   # Elmira, NY
+    "SYR": ["BUF", "ALB", "EWR", "JFK"],           # Syracuse (if no CDG etc.)
+}
+
 
 def _parse_trip_duration_days(trip: Dict[str, Any]) -> int:
     """
@@ -625,12 +635,42 @@ def generate_optimized_itinerary(trip_id: str) -> Dict[str, Any]:
                 logger.debug("Ground transport for [%s]->[%s]: %s", origin, dest, g)
 
             if not edges:
-                failed_routes.append(f"{origin} -> {dest}")
-                logger.warning(
-                    "No flight edges from %s to %s date=%s after award-first and SERP-first. "
-                    "Check flights.SERP and flights.AwardTool logs for response details.",
-                    origin, dest, leg_date,
-                )
+                # Try nearby major hub when origin is a small/regional airport (e.g. ITH, BGM)
+                hub_used = False
+                if origin in SMALL_AIRPORT_NEARBY_HUBS:
+                    from src.handlers.flights import get_flights_serp_first_with_points
+                    from src.handlers.ground_transport import get_bus_and_car_options, ground_options_to_edges
+                    for hub in SMALL_AIRPORT_NEARBY_HUBS[origin]:
+                        try:
+                            hub_edges = get_flights_award_first_with_points(
+                                hub, dest, combined_points, filters
+                            )
+                            if not hub_edges:
+                                hub_edges = get_flights_serp_first_with_points(
+                                    hub, dest, combined_points, filters
+                                )
+                            if hub_edges:
+                                ground_opts = get_bus_and_car_options(origin, hub, date=leg_date)
+                                ground_edges = ground_options_to_edges(origin, hub, ground_opts)
+                                if ground_edges:
+                                    edges_all.update(hub_edges)
+                                    edges_all.update(ground_edges)
+                                    successful_routes += 1
+                                    logger.info(
+                                        "Used nearby hub %s for %s->%s: %d flight + %d ground edges (drive/ride to hub first)",
+                                        hub, origin, dest, len(hub_edges), len(ground_edges),
+                                    )
+                                    hub_used = True
+                                    break
+                        except Exception as h:
+                            logger.debug("Hub %s fallback for %s->%s: %s", hub, origin, dest, h)
+                if not hub_used:
+                    failed_routes.append(f"{origin} -> {dest}")
+                    logger.warning(
+                        "No flight edges from %s to %s date=%s after award-first, SERP-first, and nearby-hub fallback. "
+                        "Check flights.SERP and flights.AwardTool logs for response details.",
+                        origin, dest, leg_date,
+                    )
         except Exception as e:
             failed_routes.append(f"{origin} -> {dest}")
             logger.warning(
@@ -639,6 +679,7 @@ def generate_optimized_itinerary(trip_id: str) -> Dict[str, Any]:
                 origin, dest, leg_date, e, exc_info=True,
             )
             # Try SERP-first as fallback even on exception
+            edges = {}
             try:
                 logger.info(f"Trying SERP-first fallback after exception for {origin} -> {dest}")
                 from src.handlers.flights import get_flights_serp_first_with_points
@@ -651,6 +692,30 @@ def generate_optimized_itinerary(trip_id: str) -> Dict[str, Any]:
                     logger.info(f"Fallback SERP-first succeeded: {len(edges)} edges from {origin} to {dest}")
             except Exception as fallback_error:
                 logger.warning(f"Fallback SERP-first also failed for {origin} -> {dest}: {fallback_error}")
+            # If still no edges, try nearby hub for small/regional origin
+            if not edges and origin in SMALL_AIRPORT_NEARBY_HUBS:
+                from src.handlers.flights import get_flights_serp_first_with_points
+                from src.handlers.ground_transport import get_bus_and_car_options, ground_options_to_edges
+                for hub in SMALL_AIRPORT_NEARBY_HUBS[origin]:
+                    try:
+                        hub_edges = get_flights_award_first_with_points(hub, dest, combined_points, filters)
+                        if not hub_edges:
+                            hub_edges = get_flights_serp_first_with_points(hub, dest, combined_points, filters)
+                        if hub_edges:
+                            ground_opts = get_bus_and_car_options(origin, hub, date=leg_date)
+                            ground_edges = ground_options_to_edges(origin, hub, ground_opts)
+                            if ground_edges:
+                                edges_all.update(hub_edges)
+                                edges_all.update(ground_edges)
+                                successful_routes += 1
+                                failed_routes.pop()  # remove the append we did above
+                                logger.info(
+                                    "Exception path: used nearby hub %s for %s->%s: %d flight + %d ground edges",
+                                    hub, origin, dest, len(hub_edges), len(ground_edges),
+                                )
+                                break
+                    except Exception as h:
+                        logger.debug("Hub %s fallback for %s->%s: %s", hub, origin, dest, h)
             # Still add bus/car so the segment is not missing when flights fail
             try:
                 from src.handlers.ground_transport import get_bus_and_car_options, ground_options_to_edges

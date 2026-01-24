@@ -76,7 +76,7 @@ export default function AppLayout({
         return (
             <div className="flex flex-col min-h-screen bg-slate-50">
                 <Navigation />
-                <main className="flex-1 flex items-center justify-center">
+                <main className="flex-1 flex items-center justify-center pt-20">
                     <div className="text-center">
                         <div className="inline-block animate-spin rounded-full h-8 w-8 border-b-2 border-blue-600"></div>
                         <p className="mt-4 text-slate-600">Loading...</p>
@@ -90,8 +90,8 @@ export default function AppLayout({
         <div className="flex flex-col min-h-screen bg-slate-50">
             <ScrollToTop />
             <Navigation />
-            {/* Remove overflow-y-auto so dropdowns and popovers (like autocomplete) aren't clipped */}
-            <main className="flex-1">
+            {/* pt-20 = navbar height (h-20) so content starts below the fixed nav */}
+            <main className="flex-1 pt-20">
                 {children}
             </main>
         </div>
