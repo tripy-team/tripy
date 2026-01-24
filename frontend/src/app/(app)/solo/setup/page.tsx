@@ -521,7 +521,22 @@ export default function SoloTripSetup() {
                   </div>
                 </div>
 
-                {/* Hotel Class */}
+                {/* Include hotels in calculations - when unchecked, hotel class is hidden */}
+                <label className="flex items-start gap-3 p-4 bg-slate-50 rounded-xl border border-slate-200 cursor-pointer select-none group">
+                  <input
+                    type="checkbox"
+                    checked={includeHotels}
+                    onChange={(e) => setIncludeHotels(e.target.checked)}
+                    className="mt-0.5 w-4 h-4 rounded border-slate-300 text-blue-600 focus:ring-blue-600"
+                  />
+                  <div>
+                    <div className="font-semibold text-slate-900 group-hover:text-slate-800">Include hotels in cost calculations</div>
+                    <div className="text-xs text-slate-500 mt-0.5">Show hotel out-of-pocket (cash & points) in trip totals</div>
+                  </div>
+                </label>
+
+                {/* Hotel Class - only shown when including hotels */}
+                {includeHotels && (
                 <div>
                   <label className="block text-sm text-slate-600 mb-4 font-medium uppercase tracking-wider">Accommodation Level</label>
                   <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
@@ -562,20 +577,7 @@ export default function SoloTripSetup() {
                     })}
                   </div>
                 </div>
-
-                {/* Include hotels in calculations */}
-                <label className="flex items-start gap-3 p-4 bg-slate-50 rounded-xl border border-slate-200 cursor-pointer select-none group">
-                  <input
-                    type="checkbox"
-                    checked={includeHotels}
-                    onChange={(e) => setIncludeHotels(e.target.checked)}
-                    className="mt-0.5 w-4 h-4 rounded border-slate-300 text-blue-600 focus:ring-blue-600"
-                  />
-                  <div>
-                    <div className="font-semibold text-slate-900 group-hover:text-slate-800">Include hotels in cost calculations</div>
-                    <div className="text-xs text-slate-500 mt-0.5">Show hotel out-of-pocket (cash & points) in trip totals</div>
-                  </div>
-                </label>
+                )}
 
                 {/* Number of Bags */}
                 <div>
@@ -687,8 +689,8 @@ export default function SoloTripSetup() {
               </div>
             </div>
 
-            {/* Start and End Destinations - z-50 so route autocomplete appears above Destinations section */}
-            <div className="relative z-50 bg-white border border-slate-200 rounded-2xl p-8 shadow-sm mb-6">
+            {/* Start and End Destinations - z-40 so autocomplete appears above Destinations (z-10) but below nav (z-50) when scrolling */}
+            <div className="relative z-40 bg-white border border-slate-200 rounded-2xl p-8 shadow-sm mb-6">
               <div className="flex items-center gap-3 mb-6">
                 <div className="w-10 h-10 bg-blue-100 rounded-xl flex items-center justify-center">
                   <MapPin className="w-5 h-5 text-blue-600" />
