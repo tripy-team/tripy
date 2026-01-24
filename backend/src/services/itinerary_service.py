@@ -53,6 +53,7 @@ _HUMANIZE_AIRLINE: Dict[str, str] = {
     "SQ": "Singapore KrisFlyer", "CX": "Cathay Asia Miles", "NH": "ANA Mileage Club", "JL": "JAL Mileage Bank",
     "EK": "Emirates Skywards", "QR": "Qatar Privilege Club", "EY": "Etihad Guest", "TK": "Turkish Miles&Smiles",
     "AV": "Avianca LifeMiles", "IB": "Iberia Avios", "QF": "Qantas Frequent Flyer", "VS": "Virgin Atlantic Flying Club",
+    "KE": "Korean Air", "OZ": "Asiana", "CI": "China Airlines", "BR": "EVA Air",
 }
 
 # Small/regional airports that often lack direct long-haul flight data in SERP/AwardTool.
@@ -528,10 +529,12 @@ def build_transfer_tips_from_solution(
     """
     Build transfer_tips from the optimized solution's pay_mode, using AwardTool-derived
     award_points and program. Each tip: where to transfer, how many points, for which segment.
+    When edges_all is provided, includes operating carrier (e.g. Korean Air codeshare via Delta).
     Replaces generic AI transfer advice with data-driven amounts and partners.
     """
     out: List[Dict[str, Any]] = []
     pay_mode = solution.get("pay_mode") or {}
+    edges_all = _edges_all or {}
 
     for _traveler, recs in pay_mode.items():
         for rec in (recs or []):
@@ -555,12 +558,25 @@ def build_transfer_tips_from_solution(
             else:
                 best_for = None
 
+            # Operating carrier from AwardTool (codeshare): e.g. KE when booking via DL
+            operating_airline = None
+            e_tuple = tuple(edge) if isinstance(edge, (list, tuple)) and len(edge) >= 3 else None
+            if e_tuple and e_tuple in edges_all:
+                op = (edges_all[e_tuple].get("operating_airline") or "").strip().upper()
+                if op and len(op) >= 2:
+                    operating_airline = op[:2]
+            booking_airline = (via.get("airline") or via.get("native") or "").upper().strip()
+            codeshare_suffix = ""
+            if operating_airline and operating_airline != booking_airline:
+                op_name = _HUMANIZE_AIRLINE.get(operating_airline) or operating_airline
+                codeshare_suffix = f" to book {op_name} (codeshare via {_HUMANIZE_AIRLINE.get(booking_airline) or booking_airline})."
+
             if "source" in via and "airline" in via:
                 src = (via.get("source") or "").lower().strip()
                 al = (via.get("airline") or "").upper().strip()
                 from_program = _HUMANIZE_BANK.get(src) or src or "Credit card points"
                 to_program = _HUMANIZE_AIRLINE.get(al) or al or "Travel partner"
-                note = f"Transfer {miles:,} points to {to_program}."
+                note = f"Transfer {miles:,} points to {to_program}{codeshare_suffix}"
                 if sur_val is not None and sur_val > 0:
                     note += f" Pay ~${sur_val:,.0f} in taxes and fees."
                 note += " From AwardTool award availability."
@@ -568,21 +584,26 @@ def build_transfer_tips_from_solution(
                 al = (via.get("native") or "").upper().strip()
                 to_program = _HUMANIZE_AIRLINE.get(al) or al or "Travel partner"
                 from_program = "Existing miles"
-                note = f"Use {miles:,} {to_program} miles (no transfer needed)."
+                note = f"Use {miles:,} {to_program} miles (no transfer needed){codeshare_suffix}"
                 if sur_val is not None and sur_val > 0:
                     note += f" Pay ~${sur_val:,.0f} in taxes and fees."
                 note += " From AwardTool award availability."
             else:
                 continue
 
-            out.append({
+            tip = {
                 "from_program": from_program,
                 "to_program": to_program,
                 "best_for": best_for,
                 "note": note,
                 "points": miles,
                 "surcharge": sur_val,
-            })
+            }
+            if operating_airline and operating_airline != booking_airline:
+                tip["operating_carrier"] = operating_airline
+                op_name = _HUMANIZE_AIRLINE.get(operating_airline) or operating_airline
+                tip["segment_description"] = f"{op_name} (codeshare)"
+            out.append(tip)
 
     return out
 
@@ -1316,8 +1337,41 @@ async def generate_optimized_itinerary(trip_id: str) -> Dict[str, Any]:
             }
             itinerary_items.append(item)
     
-    # Save totals
-    totals = totals_for_path
+    # Save totals (enrich transfers with operating_carriers and segment_description for codeshare details)
+    totals = dict(totals_for_path)
+    totals["transfers"] = dict(totals.get("transfers") or {})
+    for q, by_src in (totals_for_path.get("transfers") or {}).items():
+        totals["transfers"][q] = dict(by_src or {})
+        for s, by_al in (by_src or {}).items():
+            totals["transfers"][q][s] = dict(by_al or {})
+            for a, data in (by_al or {}).items():
+                data = dict(data)
+                edges_for_sa = []
+                for _p, recs in (solution.get("pay_mode") or {}).items():
+                    for rec in (recs or []):
+                        if rec.get("type") != "points" or rec.get("payer") != q:
+                            continue
+                        v = rec.get("via") or {}
+                        if (v.get("source") or "").lower().strip() != s or (v.get("airline") or "").upper().strip() != a:
+                            continue
+                        edge = rec.get("edge")
+                        if isinstance(edge, (list, tuple)) and len(edge) >= 3:
+                            edges_for_sa.append(tuple(edge))
+                op_carriers = []
+                for e in edges_for_sa:
+                    if e in edges_all:
+                        op = (edges_all[e].get("operating_airline") or "").strip().upper()
+                        if op and len(op) >= 2 and op[:2] not in op_carriers:
+                            op_carriers.append(op[:2])
+                data["operating_carriers"] = op_carriers
+                seg_desc = None
+                if op_carriers:
+                    diff = [c for c in op_carriers if c != a]
+                    if diff:
+                        names = [_HUMANIZE_AIRLINE.get(c) or c for c in diff]
+                        seg_desc = " and ".join(names) + (" (codeshare)" if len(names) == 1 else " (codeshares)")
+                data["segment_description"] = seg_desc
+                totals["transfers"][q][s][a] = data
     totals_item = {
         "tripId": trip_id,
         "itemId": "totals",

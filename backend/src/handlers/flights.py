@@ -289,6 +289,9 @@ def _merge_award_edges(rt_json):
             if not dep or not arr or not fn or pts is None:
                 skipped += 1
                 continue
+            # Operating carrier from AwardTool (e.g. KE for Delta-codeshare Korean Air); used for transfer instructions
+            op_raw = p.get("operating_carrier") or p.get("operating_airline") or p.get("carrier") or ""
+            op_al = str(op_raw).strip().upper()[:2] if op_raw and len(str(op_raw).strip()) >= 2 else None
             travel_minutes = p.get("travel_minutes") or fare.get("travel_minutes_total")
             dep_time = p.get("departure_time")
             arr_time = p.get("arrival_time")
@@ -300,6 +303,7 @@ def _merge_award_edges(rt_json):
                     "program_code": prog,
                     "surcharge": float(sur) if isinstance(sur, (int, float)) else None,
                     "transfer_partners": xfer,
+                    "operating_airline": op_al,
                     "travel_minutes": travel_minutes,
                     "departure_time": dep_time,
                     "arrival_time": arr_time,
@@ -377,7 +381,8 @@ async def get_flights_award_first_with_points_async(
             for key, info in award_edges.items():
                 dep, arr, fn = key
                 cash_blob = serp_map.get(key, {})
-                _al = (info.get("program_code") or "").strip().upper() or infer_airline_from_flight_number(fn)
+                # Prefer AwardTool operating_airline (codeshare); else program or infer from flight number
+                _al = (info.get("operating_airline") or info.get("program_code") or "").strip().upper() or infer_airline_from_flight_number(fn)
                 edges[key] = {
                     "cash_cost": cash_blob.get("cash_cost"),
                     "time_cost": info.get("travel_minutes")
@@ -464,7 +469,7 @@ async def get_flights_serp_first_with_points_async(
             info = award_edges.get(key)
             fn = key[2] if len(key) >= 3 else ""
             if info:
-                _al = (info.get("program_code") or "").strip().upper() or infer_airline_from_flight_number(fn)
+                _al = (info.get("operating_airline") or info.get("program_code") or "").strip().upper() or infer_airline_from_flight_number(fn)
                 edges[key] = {
                     "cash_cost": cash_blob.get("cash_cost"),
                     "time_cost": info.get("travel_minutes")
@@ -499,7 +504,7 @@ async def get_flights_serp_first_with_points_async(
             if added >= 12:
                 break
             fn = key[2] if len(key) >= 3 else ""
-            _al = (info.get("program_code") or "").strip().upper() or infer_airline_from_flight_number(fn)
+            _al = (info.get("operating_airline") or info.get("program_code") or "").strip().upper() or infer_airline_from_flight_number(fn)
             edges[key] = {
                 "cash_cost": None,
                 "time_cost": info.get("travel_minutes"),

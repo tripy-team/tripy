@@ -1,7 +1,32 @@
 import uuid
 from datetime import datetime
-from typing import Dict, Any, List
+from typing import Dict, Any, List, Tuple
 from src.repos import destination_repo, destination_vote_repo
+
+
+def get_display_destinations_for_trip(destinations: List[Dict[str, Any]]) -> Tuple[List[str], str]:
+    """
+    For trip display (firstDestination, "Visiting X, Y, Z"): exclude origin/departure (mustInclude).
+    Start and end are where the dates start/end—like booking an airline ticket (fly from A on
+    startDate, arrive at B on endDate). They are not "destinations" for the total trip.
+    - If there are middle cities (stays): use those only.
+    - If simple A→B (no middle): the place you visit is the end.
+    Returns (list of destination names for "Visiting", first destination name).
+    """
+    if not destinations:
+        return ([], "")
+    must_include = [d for d in destinations if d.get("mustInclude", False)]
+    stay_dests = [d for d in destinations if not d.get("mustInclude", False)]
+    end_dest = must_include[-1] if must_include else None
+    display = stay_dests if stay_dests else ([end_dest] if end_dest else [])
+    names = [
+        (d.get("name") or d.get("destinationId") or "").strip()
+        for d in display
+        if (d.get("name") or d.get("destinationId"))
+    ]
+    names = [n for n in names if n]
+    first = names[0] if names else ""
+    return (names, first)
 
 
 def add_destination(

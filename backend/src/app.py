@@ -474,16 +474,12 @@ async def get_trip(request: TripIdRequest, user_id: str = Depends(get_current_us
             raise HTTPException(status_code=403, detail="Access denied")
 
         # Enrich with destinations and member count for display (e.g. trip configuration summary)
-        from .services.destination_service import list_destinations
+        # Start/end are origin/return (like flight booking); only "visiting" destinations are shown.
+        from .services.destination_service import list_destinations, get_display_destinations_for_trip
         from .services.trip_member_service import list_members
 
         destinations = list_destinations(request.trip_id)
-        if destinations:
-            trip["destinations"] = [d.get("name") for d in destinations]
-            trip["firstDestination"] = destinations[0].get("name", "")
-        else:
-            trip["destinations"] = []
-            trip["firstDestination"] = ""
+        trip["destinations"], trip["firstDestination"] = get_display_destinations_for_trip(destinations or [])
 
         members = list_members(request.trip_id)
         trip["memberCount"] = len(members) if members else 1
@@ -566,19 +562,15 @@ async def get_trip_by_invite(invite_code: str):
             raise HTTPException(status_code=404, detail="Invalid invite code")
 
         # Get member count and destinations for display
-        from .services.destination_service import list_destinations
+        # Start/end are origin/return (like flight booking); only "visiting" destinations are shown.
+        from .services.destination_service import list_destinations, get_display_destinations_for_trip
         from .services.trip_member_service import list_members
 
         members = list_members(trip["tripId"])
         trip["memberCount"] = len(members) if members else 1
 
         destinations = list_destinations(trip["tripId"])
-        if destinations:
-            trip["destinations"] = [d.get("name") for d in destinations]
-            trip["firstDestination"] = destinations[0].get("name", "")
-        else:
-            trip["destinations"] = []
-            trip["firstDestination"] = ""
+        trip["destinations"], trip["firstDestination"] = get_display_destinations_for_trip(destinations or [])
 
         return trip
     except HTTPException:

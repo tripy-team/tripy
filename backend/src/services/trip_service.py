@@ -71,7 +71,7 @@ def regenerate_invite_code(trip_id: str, user_id: str) -> Dict[str, Any]:
 
 def list_trips_for_user(user_id: str) -> List[Dict[str, Any]]:
     """List all trips for a user (both owned and joined)"""
-    from .destination_service import list_destinations
+    from .destination_service import list_destinations, get_display_destinations_for_trip
     from .trip_member_service import list_members
     
     # Get trip memberships
@@ -92,15 +92,11 @@ def list_trips_for_user(user_id: str) -> List[Dict[str, Any]]:
                 members = list_members(trip_id)
                 trip["memberCount"] = len(members) if members else 1
                 
-                # Get destinations (first destination name for display)
+                # Get destinations (first destination name for display).
+                # Start/end are origin/return (like flight booking); only "visiting" destinations are shown.
                 destinations = list_destinations(trip_id)
-                if destinations:
-                    trip["destinations"] = [d.get("name") for d in destinations]
-                    trip["firstDestination"] = destinations[0].get("name", "")
-                else:
-                    trip["destinations"] = []
-                    trip["firstDestination"] = ""
-                
+                trip["destinations"], trip["firstDestination"] = get_display_destinations_for_trip(destinations or [])
+
                 trips.append(trip)
     
     # Sort by startDate descending (most recent first)

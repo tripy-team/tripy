@@ -40,6 +40,10 @@ export const AIRLINE_TO_DISPLAY: Record<string, string> = {
   IB: 'Iberia Avios',
   QF: 'Qantas Frequent Flyer',
   VS: 'Virgin Atlantic Flying Club',
+  KE: 'Korean Air',
+  OZ: 'Asiana',
+  CI: 'China Airlines',
+  BR: 'EVA Air',
 };
 
 export interface TransferTip {
@@ -51,6 +55,8 @@ export interface TransferTip {
   points?: number;
   /** Taxes/fees in dollars (from AwardTool). */
   surcharge?: number;
+  /** e.g. "Korean Air (codeshare)" from AwardTool operating carrier. */
+  segment_description?: string;
 }
 
 export interface PracticalTip {
@@ -96,11 +102,15 @@ function buildSteps(
   partner: string,
   amount: number,
   note?: string,
-  transferTiming?: string
+  transferTiming?: string,
+  segmentDescription?: string
 ): string[] {
   const amountStr = amount.toLocaleString();
+  const step1 = segmentDescription
+    ? `From ${program}, transfer ${amountStr} points to ${partner} to book ${segmentDescription}.`
+    : `From ${program}, transfer ${amountStr} points to ${partner}.`;
   const steps: string[] = [
-    `From ${program}, transfer ${amountStr} points to ${partner}.`,
+    step1,
     `Log in to your ${program} account.`,
     'Navigate to "Transfer to Travel Partners".',
     `Select "${partner}" from the airline list.`,
@@ -110,7 +120,10 @@ function buildSteps(
   if (transferTiming) {
     steps.push(`Note: ${transferTiming}`);
   } else {
-    steps.push(`Once points appear in ${partner}, book your flight on their website.`);
+    const lastStep = segmentDescription
+      ? `Once points appear in ${partner}, search for your ${segmentDescription} flight on their website and complete the booking.`
+      : `Once points appear in ${partner}, book your flight on their website.`;
+    steps.push(lastStep);
   }
   return steps;
 }
@@ -149,6 +162,20 @@ function findNote(transferTips: TransferTip[], program: string, partner: string)
   return undefined;
 }
 
+/** Find segment_description from a matching transfer_tip (e.g. "Korean Air (codeshare)"). */
+function findSegmentDescription(transferTips: TransferTip[], program: string, partner: string): string | undefined {
+  const p = (program || '').toLowerCase();
+  const r = (partner || '').toLowerCase();
+  for (const t of transferTips) {
+    const from = ((t.from_program || '') + '').toLowerCase();
+    const to = ((t.to_program || '') + '').toLowerCase();
+    const fromMatch = !from || p.includes(from) || from.includes(p);
+    const toMatch = !to || r.includes(to) || to.includes(r);
+    if (fromMatch && toMatch && t.segment_description) return t.segment_description;
+  }
+  return undefined;
+}
+
 /** Get transfer_timing tip from practical_tips. */
 function getTransferTimingTip(practicalTips: PracticalTip[]): string | undefined {
   const t = practicalTips.find((p) => (p.category || '').toLowerCase() === 'transfer_timing');
@@ -160,7 +187,7 @@ function getTransferTimingTip(practicalTips: PracticalTip[]): string | undefined
  * members: { userId, name? }[] from trips.listMembers.
  */
 export function buildTransferStepsFromItinerary(
-  items: Array<{ type?: string; totals?: { transfers?: Record<string, Record<string, Record<string, { source_points?: number }>>> }; [k: string]: unknown }>,
+  items: Array<{ type?: string; totals?: { transfers?: Record<string, Record<string, Record<string, { source_points?: number; segment_description?: string }>>> }; [k: string]: unknown }>,
   members: Array<{ userId: string; name?: string }>
 ): TransferStepResult[] {
   const result: TransferStepResult[] = [];
@@ -197,7 +224,9 @@ export function buildTransferStepsFromItinerary(
         const program = programDisplay(source);
         const partner = partnerDisplay(airline);
         const note = findNote(transfer_tips, program, partner);
-        const steps = buildSteps(program, partner, sp, note, timingTip);
+        const segmentDescription = (data as { segment_description?: string })?.segment_description
+          ?? findSegmentDescription(transfer_tips, program, partner);
+        const steps = buildSteps(program, partner, sp, note, timingTip, segmentDescription);
         const warning = [timingTip, note].filter(Boolean).join(' ').trim()
           || 'Double check availability on the airline website before transferring.';
 
