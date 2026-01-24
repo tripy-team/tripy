@@ -1,6 +1,6 @@
 from typing import Optional, Dict, Any, List
 from src.config import TRIPS_TABLE
-from .ddb import table, get_item, put_item, query_gsi
+from .ddb import table, get_item, put_item, query_gsi, delete_item
 
 t = table(TRIPS_TABLE)
 
@@ -21,7 +21,7 @@ def get_trip_by_invite_code(invite_code: str) -> Optional[Dict[str, Any]]:
 def delete_trip(trip_id: str) -> bool:
     """Delete a trip by ID"""
     try:
-        t.delete_item(Key={"tripId": trip_id})
+        delete_item(t, {"tripId": trip_id})
         return True
     except Exception as e:
         print(f"Error deleting trip {trip_id}: {e}")

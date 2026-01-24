@@ -105,3 +105,25 @@ def query_gsi(
     except Exception as e:
         logger.error(f"Unexpected error in query_gsi: {str(e)}")
         raise Exception(f"Database operation failed: {str(e)}")
+
+
+def delete_item(t, key: Dict[str, Any]) -> None:
+    """Delete item from DynamoDB table with error handling"""
+    try:
+        t.delete_item(Key=key)
+    except ClientError as e:
+        error_code = e.response.get("Error", {}).get("Code", "")
+        error_message = e.response.get("Error", {}).get("Message", "")
+        logger.error(f"DynamoDB delete_item error: {error_code} - {error_message}")
+        
+        if error_code == "ProvisionedThroughputExceededException":
+            raise Exception("Database temporarily unavailable. Please try again.")
+        elif error_code == "ResourceNotFoundException":
+            raise Exception(f"Database table not found: {t.table_name}")
+        elif error_code == "ConditionalCheckFailedException":
+            raise Exception("Operation failed: condition not met")
+        else:
+            raise Exception(f"Database error: {error_message}")
+    except Exception as e:
+        logger.error(f"Unexpected error in delete_item: {str(e)}")
+        raise Exception(f"Database operation failed: {str(e)}")
