@@ -765,7 +765,7 @@ async def generate_itinerary(
             raise HTTPException(status_code=403, detail="Access denied")
 
         # Generate optimized itinerary using points maximization
-        result = itinerary_service.generate_optimized_itinerary(request.trip_id)
+        result = await itinerary_service.generate_optimized_itinerary(request.trip_id)
 
         # Track itinerary generation for analytics
         if result.get("ai_suggested_routes"):

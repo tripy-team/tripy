@@ -5,7 +5,11 @@ import re
 from datetime import datetime
 from typing import Dict, Any, List, Optional, Tuple
 from src.repos import itinerary_repo
-from src.handlers.flights import get_flights_award_first_with_points
+from src.handlers.flights import (
+    get_flights_award_first_with_points_async,
+    get_flights_serp_first_with_points_async,
+    get_flights_serp_only,
+)
 from src.handlers.ilp_adapter import run_ilp_from_edges
 try:
     from src.handlers.points_maximizer import plan_maximize_points_value
@@ -372,7 +376,7 @@ def _save_and_return_ai_route_suggestions(
     }
 
 
-def generate_optimized_itinerary(trip_id: str) -> Dict[str, Any]:
+async def generate_optimized_itinerary(trip_id: str) -> Dict[str, Any]:
     """
     Generate optimized itinerary using points maximization algorithm.
     
@@ -656,21 +660,19 @@ def generate_optimized_itinerary(trip_id: str) -> Dict[str, Any]:
         logger.info("fetch_flights [%s]->[%s] date=%s pax=%s SERPAPI_KEY=%s AWARD_TOOL_API_KEY=%s", origin, dest, leg_date, len(travelers), serp_ok, award_ok)
 
         try:
-            edges = get_flights_award_first_with_points(
+            edges = await get_flights_award_first_with_points_async(
                 origin, dest, combined_points, filters
             )
             
             # If no edges found, try SERP-first strategy as fallback
             if not edges:
                 logger.info(f"No edges from award-first strategy, trying SERP-first for {origin} -> {dest}")
-                from src.handlers.flights import get_flights_serp_first_with_points
-                edges = get_flights_serp_first_with_points(
+                edges = await get_flights_serp_first_with_points_async(
                     origin, dest, combined_points, filters
                 )
             # If still no edges, try sync serp_client.get_flights_between_airports (get_flights_serp_only)
             if not edges:
                 logger.info(f"No edges from SERP-first, trying get_flights_serp_only (serp_client) for {origin} -> {dest}")
-                from src.handlers.flights import get_flights_serp_only
                 edges = get_flights_serp_only(origin, dest, leg_date, filters)
             
             # Note: We already allow multistop flights by default (no stops restriction in filters)
@@ -696,15 +698,14 @@ def generate_optimized_itinerary(trip_id: str) -> Dict[str, Any]:
                 # Try nearby major hub when origin is a small/regional airport (e.g. ITH, BGM)
                 hub_used = False
                 if origin in SMALL_AIRPORT_NEARBY_HUBS:
-                    from src.handlers.flights import get_flights_serp_first_with_points, get_flights_serp_only
                     from src.handlers.ground_transport import get_bus_and_car_options, ground_options_to_edges
                     for hub in SMALL_AIRPORT_NEARBY_HUBS[origin]:
                         try:
-                            hub_edges = get_flights_award_first_with_points(
+                            hub_edges = await get_flights_award_first_with_points_async(
                                 hub, dest, combined_points, filters
                             )
                             if not hub_edges:
-                                hub_edges = get_flights_serp_first_with_points(
+                                hub_edges = await get_flights_serp_first_with_points_async(
                                     hub, dest, combined_points, filters
                                 )
                             if not hub_edges:
@@ -742,8 +743,7 @@ def generate_optimized_itinerary(trip_id: str) -> Dict[str, Any]:
             edges = {}
             try:
                 logger.info(f"Trying SERP-first fallback after exception for {origin} -> {dest}")
-                from src.handlers.flights import get_flights_serp_first_with_points
-                edges = get_flights_serp_first_with_points(
+                edges = await get_flights_serp_first_with_points_async(
                     origin, dest, combined_points, filters
                 )
                 if edges:
@@ -754,7 +754,6 @@ def generate_optimized_itinerary(trip_id: str) -> Dict[str, Any]:
                 logger.warning(f"Fallback SERP-first also failed for {origin} -> {dest}: {fallback_error}")
             if not edges:
                 try:
-                    from src.handlers.flights import get_flights_serp_only
                     edges = get_flights_serp_only(origin, dest, leg_date, filters)
                     if edges:
                         edges_all.update(edges)
@@ -764,13 +763,12 @@ def generate_optimized_itinerary(trip_id: str) -> Dict[str, Any]:
                     logger.debug(f"get_flights_serp_only for {origin}->{dest}: {serp_only_err}")
             # If still no edges, try nearby hub for small/regional origin
             if not edges and origin in SMALL_AIRPORT_NEARBY_HUBS:
-                from src.handlers.flights import get_flights_serp_first_with_points, get_flights_serp_only
                 from src.handlers.ground_transport import get_bus_and_car_options, ground_options_to_edges
                 for hub in SMALL_AIRPORT_NEARBY_HUBS[origin]:
                     try:
-                        hub_edges = get_flights_award_first_with_points(hub, dest, combined_points, filters)
+                        hub_edges = await get_flights_award_first_with_points_async(hub, dest, combined_points, filters)
                         if not hub_edges:
-                            hub_edges = get_flights_serp_first_with_points(hub, dest, combined_points, filters)
+                            hub_edges = await get_flights_serp_first_with_points_async(hub, dest, combined_points, filters)
                         if not hub_edges:
                             hub_edges = get_flights_serp_only(hub, dest, leg_date, filters)
                         if hub_edges:
