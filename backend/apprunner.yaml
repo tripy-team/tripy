@@ -3,8 +3,6 @@ runtime: python3
 build:
   commands:
     build:
-      - pip install --upgrade pip
-      - pip install -r requirements.txt
       - chmod +x start.sh
 run:
   command: /bin/bash /app/backend/start.sh
@@ -34,9 +32,9 @@ run:
     # Get these from AWS Cognito Console or run: cd backend && ./get_cognito_credentials.sh
     # IMPORTANT: Replace the placeholder values below with your actual Cognito credentials
     - name: USER_POOL_ID
-      value: us-east-1_zCMCjyTLJ  # REPLACE WITH YOUR ACTUAL USER POOL ID (e.g., us-east-1_AbCdEfGhI)
+      value: us-east-1_zCMCjyTLJ # REPLACE WITH YOUR ACTUAL USER POOL ID (e.g., us-east-1_AbCdEfGhI)
     - name: USER_POOL_CLIENT_ID
-      value: 2rehpmlssbivmlo6468rcsd0kq 
+      value: 2rehpmlssbivmlo6468rcsd0kq
     - name: UNSPLASH_ACCESS_KEY
       value: tkiTc7RqbC_mwvmZDj_HMUSzwTy9oQOGufeeymucQKg # REPLACE WITH YOUR ACTUAL CLIENT ID
     - name: UNSPLASH_SECRET_KEY
