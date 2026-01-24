@@ -312,11 +312,11 @@ export default function AirportAutocomplete({
     setIsLoading(true);
     const timeoutId = setTimeout(async () => {
       try {
-        const response = await destinations.autocomplete(query, 10);
+        const response = await destinations.autocomplete(query, 10, true);
         const raw = response?.suggestions ?? [];
         let airports = flattenSuggestionsToAirports(raw);
         if (airports.length === 0) {
-          const fallbackRes = await destinations.fallbackDestinations(query, 10);
+          const fallbackRes = await destinations.fallbackDestinations(query, 10, true);
           airports = flattenSuggestionsToAirports(fallbackRes?.suggestions ?? []);
           setSuggestions(airports.length > 0 ? airports : filterFallbackAirports(query, 10));
         } else {
@@ -325,7 +325,7 @@ export default function AirportAutocomplete({
       } catch (error) {
         console.error("Error fetching airport suggestions:", error);
         try {
-          const fallbackRes = await destinations.fallbackDestinations(query, 10);
+          const fallbackRes = await destinations.fallbackDestinations(query, 10, true);
           const fallbackAirports = flattenSuggestionsToAirports(fallbackRes?.suggestions ?? []);
           setSuggestions(fallbackAirports.length > 0 ? fallbackAirports : filterFallbackAirports(query, 10));
         } catch {

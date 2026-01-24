@@ -556,13 +556,26 @@ def get_nearby_airports(city_id: str, limit: int = 3) -> List[Dict[str, Any]]:
             }
         )
 
-    # Fallback to airports from fallback list if none matched
+    # Fallback to airports from fallback list if none matched (commercial only)
     if not airports:
+        commercial_set = None
+        try:
+            from ..handlers.airport_filter import (
+                is_commercial_airport,
+                load_commercial_iata_set_from_web,
+            )
+            commercial_set = load_commercial_iata_set_from_web()
+        except Exception as e:
+            logger.warning(
+                f"Could not load commercial airport filter for get_nearby_airports fallback: {e}"
+            )
         for item in FALLBACK_CITIES:
             if (item.get("cityName") or "").strip().lower() != city_lower:
                 continue
             iata = item.get("iataCode") or item.get("id", "")
             if not iata or len(iata) != 3:
+                continue
+            if commercial_set is not None and not is_commercial_airport(iata, commercial_set):
                 continue
             airports.append(
                 {

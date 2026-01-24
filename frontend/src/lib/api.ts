@@ -505,12 +505,15 @@ export const destinations = {
     return res.json();
   },
 
-  /** Fallback when autocomplete returns empty: uses backend/files (airports.csv, countries.csv). */
+  /** Fallback when autocomplete returns empty: uses backend/files (airports.csv, countries.csv). If commercialOnly, filters to large/medium/small. */
   fallbackDestinations: async (
     q: string,
-    limit: number = 10
+    limit: number = 10,
+    commercialOnly?: boolean
   ): Promise<{ suggestions: DestinationsAutocompleteSuggestion[] }> => {
-    const endpoint = `/api/fallback/destinations?q=${encodeURIComponent(q)}&limit=${limit}`;
+    const params = new URLSearchParams({ q, limit: String(limit) });
+    if (commercialOnly) params.set("commercial_only", "true");
+    const endpoint = `/api/fallback/destinations?${params.toString()}`;
     const res = await fetch(endpoint, {
       method: "GET",
       headers: { "Content-Type": "application/json" },

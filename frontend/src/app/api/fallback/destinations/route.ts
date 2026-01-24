@@ -122,11 +122,14 @@ function score(airport: AirportRow, q: string): number {
   return s;
 }
 
+const COMMERCIAL_TYPES = ["large_airport", "medium_airport", "small_airport"];
+
 export async function GET(req: Request) {
   const { searchParams } = new URL(req.url);
   const q = (searchParams.get("q") ?? "").trim();
   const limitParam = searchParams.get("limit") ?? "10";
   const limit = Math.min(Math.max(Number(limitParam) || 10, 1), 50);
+  const commercialOnly = searchParams.get("commercial_only") === "true";
 
   if (!q || q.length < 1) {
     return NextResponse.json({ suggestions: [] }, { status: 200 });
@@ -137,7 +140,12 @@ export async function GET(req: Request) {
     return NextResponse.json({ suggestions: [] }, { status: 200 });
   }
 
-  const airports = loadAirports(dir);
+  let airports = loadAirports(dir);
+  if (commercialOnly) {
+    airports = airports.filter((a) =>
+      COMMERCIAL_TYPES.includes((a.type || "").toLowerCase())
+    );
+  }
   if (airports.length === 0) {
     return NextResponse.json({ suggestions: [] }, { status: 200 });
   }
