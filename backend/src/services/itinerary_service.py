@@ -1303,15 +1303,30 @@ async def generate_optimized_itinerary(trip_id: str) -> Dict[str, Any]:
     totals_for_path = solution.get("totals", {})
 
     # Save paths for each traveler (include route, totalCost, pointsCost, name so frontend shows them as itineraries)
+    # Start/end are where dates start/end (like an airline ticket); only "stays" get days. path = [origin, ...stays..., (maybe return)].
+    total_days = _parse_trip_duration_days(trip)
     for traveler_id, path in solution.get("path", {}).items():
         if path:
+            # Stays = path excluding origin. For round-trip (path[0]==path[-1]) also exclude the return to origin.
+            stays = path[1:-1] if (len(path) > 2 and path[0] == path[-1]) else path[1:]
+            if stays:
+                num = len(stays)
+                base = max(1, total_days // num)
+                remainder = total_days - base * num
+                day_list = [base] * num
+                if remainder:
+                    day_list[-1] += remainder
+                city_objs = [{"name": c, "days": day_list[i]} for i, c in enumerate(stays)]
+            else:
+                city_objs = []
             item = {
                 "tripId": trip_id,
                 "itemId": f"path_{traveler_id}",
                 "type": "path",
                 "travelerId": traveler_id,
                 "path": path,
-                "route": path,  # frontend uses route/cities for display
+                "route": path,  # full sequence for Route display (origin -> ... -> end)
+                "cities": city_objs,  # stays only, with days (origin/return get 0 days)
                 "totalCost": int(totals_for_path.get("cash") or 0),
                 "pointsCost": int(totals_for_path.get("airline_points") or 0),
                 "name": "Optimized route",

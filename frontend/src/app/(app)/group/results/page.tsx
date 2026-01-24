@@ -10,6 +10,8 @@ interface Itinerary {
     id: number;
     name: string;
     cities: Array<{ name: string; days: number }>;
+    /** Full path for Route display (origin → … → end). */
+    routeDisplay?: string[];
     totalCostPerPerson: number;
     pointsCost: number;
     score: number;
@@ -362,33 +364,62 @@ export default function GroupResults() {
 
                 if (regularItems.length > 0) {
                     let transformed: Itinerary[] = regularItems.map((item: ItineraryItem, index: number) => {
-                        const route = item.route || item.cities || (item as { path?: unknown }).path || [];
-                        const cities = Array.isArray(route)
-                            ? route.map((city: string | { name: string; days: number }) => {
-                                let rawName: string;
-                                let days: number;
-                                if (typeof city === 'string') {
-                                    const isUUID = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i.test(city);
-                                    rawName = isUUID && destinationMap.has(city)
-                                        ? destinationMap.get(city)!
-                                        : (isUUID ? city : city);
-                                    days = 3;
-                                } else if (city.name && /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i.test(city.name)) {
-                                    rawName = destinationMap.get(city.name) || city.name;
-                                    days = city.days || 3;
-                                } else {
-                                    rawName = city.name || '';
-                                    days = city.days || 3;
+                        const fullRoute = item.route || (item as { path?: unknown }).path || [];
+                        const routeDisplay: string[] = Array.isArray(fullRoute)
+                            ? fullRoute.map((el: string | { name?: string }) => {
+                                if (typeof el === 'string') {
+                                    if (/^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i.test(el))
+                                        return destinationMap.get(el) || el;
+                                    return formatAirportDisplay(el, codeToCity[el.trim().toUpperCase()]);
                                 }
-                                const name = formatAirportDisplay(rawName, codeToCity[rawName.trim().toUpperCase()]);
-                                return { name, days };
+                                if (el && typeof el === 'object' && 'name' in el) {
+                                    const n = (el as { name?: string }).name;
+                                    if (!n) return '';
+                                    if (/^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i.test(n))
+                                        return destinationMap.get(n) || n;
+                                    return formatAirportDisplay(n, codeToCity[n?.trim().toUpperCase()]);
+                                }
+                                return String(el);
                             })
                             : [];
+
+                        const hasStaysOnly = Array.isArray((item as { cities?: unknown }).cities)
+                            && (item as { cities: unknown[] }).cities.length > 0
+                            && (item as { cities: unknown[] }).cities.every((c: unknown) =>
+                                c != null && typeof c === 'object' && typeof (c as { name?: unknown }).name === 'string' && typeof (c as { days?: unknown }).days === 'number');
+                        let cities: Array<{ name: string; days: number }>;
+                        if (hasStaysOnly) {
+                            cities = ((item as { cities: Array<{ name: string; days: number }> }).cities).map((c) => ({
+                                name: formatAirportDisplay(c.name, codeToCity[c.name?.trim().toUpperCase()]),
+                                days: c.days,
+                            }));
+                        } else {
+                            const route = item.route || item.cities || (item as { path?: unknown }).path || [];
+                            cities = Array.isArray(route)
+                                ? route.map((city: string | { name: string; days: number }) => {
+                                    let rawName: string;
+                                    let days: number;
+                                    if (typeof city === 'string') {
+                                        const isUUID = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i.test(city);
+                                        rawName = isUUID && destinationMap.has(city) ? destinationMap.get(city)! : (isUUID ? city : city);
+                                        days = 3;
+                                    } else if (city.name && /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i.test(city.name)) {
+                                        rawName = destinationMap.get(city.name) || city.name;
+                                        days = city.days || 3;
+                                    } else {
+                                        rawName = city.name || '';
+                                        days = city.days || 3;
+                                    }
+                                    return { name: formatAirportDisplay(rawName, codeToCity[rawName.trim().toUpperCase()]), days };
+                                })
+                                : [];
+                        }
 
                         return {
                             id: index + 1,
                             name: item.name || `Itinerary ${index + 1}`,
-                            cities: cities,
+                            cities,
+                            routeDisplay: routeDisplay.length > 0 ? routeDisplay : undefined,
                             totalCostPerPerson: item.totalCostPerPerson || item.costPerPerson || (item.totalCost || 0) / memberCount,
                             pointsCost: item.pointsCost || item.points || 0,
                             score: item.score || 85,
@@ -704,6 +735,26 @@ export default function GroupResults() {
                             <div className="sticky top-8 space-y-6">
                                 <div className="bg-white border border-slate-200 rounded-2xl p-6 shadow-sm">
                                     <h3 className="text-xl mb-6 text-slate-900 font-semibold">Selected Route</h3>
+
+                                    {/* Full path (origin → … → end) when routeDisplay is set */}
+                                    {((selectedItinerary.routeDisplay?.length ?? 0) > 0 || selectedItinerary.cities.length > 0) && (
+                                        <div className="mb-6">
+                                            <div className="text-sm text-slate-600 mb-2 font-medium">Route</div>
+                                            <div className="flex flex-wrap items-center gap-1.5 text-sm text-slate-700">
+                                                {(selectedItinerary.routeDisplay && selectedItinerary.routeDisplay.length > 0
+                                                    ? selectedItinerary.routeDisplay
+                                                    : selectedItinerary.cities.map((c) => c.name)
+                                                ).map((label, i) => (
+                                                    <span key={i} className="flex items-center gap-1.5">
+                                                        <span>{label}</span>
+                                                        {i < (selectedItinerary.routeDisplay?.length ?? selectedItinerary.cities.length) - 1 && (
+                                                            <span className="text-slate-400">→</span>
+                                                        )}
+                                                    </span>
+                                                ))}
+                                            </div>
+                                        </div>
+                                    )}
 
                                     <div className="mb-6">
                                         <div className="text-sm text-slate-600 mb-3 font-medium">Cost Breakdown</div>
