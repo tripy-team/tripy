@@ -50,6 +50,7 @@ export default function GroupTripSetup() {
   // Travel Style State
   const [flightClass, setFlightClass] = useState('economy');
   const [hotelClass, setHotelClass] = useState('4');
+  const [includeHotels, setIncludeHotels] = useState(true);
   const [bags, setBags] = useState(1);
 
   // Party Size State
@@ -328,6 +329,7 @@ export default function GroupTripSetup() {
         title: tripTitle,
         start_date: isFlexible ? '' : startDate,
         end_date: isFlexible || isOneWay ? '' : endDate,
+        include_hotels: includeHotels,
       });
 
       // 2. Add start destination if provided
@@ -732,6 +734,20 @@ export default function GroupTripSetup() {
                     })}
                   </div>
                 </div>
+
+                {/* Include hotels in calculations */}
+                <label className="flex items-start gap-3 p-4 bg-slate-50 rounded-xl border border-slate-200 cursor-pointer select-none group">
+                  <input
+                    type="checkbox"
+                    checked={includeHotels}
+                    onChange={(e) => setIncludeHotels(e.target.checked)}
+                    className="mt-0.5 w-4 h-4 rounded border-slate-300 text-blue-600 focus:ring-blue-600"
+                  />
+                  <div>
+                    <div className="font-semibold text-slate-900 group-hover:text-slate-800">Include hotels in cost calculations</div>
+                    <div className="text-xs text-slate-500 mt-0.5">Show hotel out-of-pocket (cash & points) in trip totals</div>
+                  </div>
+                </label>
 
                 {/* Number of Bags */}
                 <div>

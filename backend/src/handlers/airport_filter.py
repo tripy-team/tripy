@@ -57,7 +57,7 @@ if __name__ == "__main__":
     commercial_set = load_commercial_iata_set_from_web()  # fetch once
     print("SEA:", is_commercial_airport("SEA", commercial_set))  # True
     print(
-        "PAE:", is_commercial_airport("PAE", commercial_set)
+        "PAE:", is_commercial_airport("FXE", commercial_set)
     )  # Likely False (seaplane base)
     print(
         "ITH:", is_commercial_airport("ITH", commercial_set)

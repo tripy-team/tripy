@@ -77,6 +77,7 @@ class CreateTripRequest(BaseModel):
     title: str = Field(..., min_length=1, max_length=200)
     start_date: str = Field(..., description="Start date in ISO format (YYYY-MM-DD)")
     end_date: str = Field(..., description="End date in ISO format (YYYY-MM-DD)")
+    include_hotels: Optional[bool] = True  # Include hotel out-of-pocket in cost calculations
 
     @validator("start_date", "end_date")
     def validate_date(cls, v):
@@ -422,7 +423,11 @@ async def create_trip(
     """Create a new trip"""
     try:
         trip = trip_service.create_trip(
-            user_id, request.title, request.start_date, request.end_date
+            user_id,
+            request.title,
+            request.start_date,
+            request.end_date,
+            include_hotels=request.include_hotels,
         )
         # Track trip creation for analytics
         track_trip_created(
@@ -452,6 +457,21 @@ async def get_trip(request: TripIdRequest, user_id: str = Depends(get_current_us
         # TODO: Add trip member check for group trips
         if trip.get("createdBy") != user_id:
             raise HTTPException(status_code=403, detail="Access denied")
+
+        # Enrich with destinations and member count for display (e.g. trip configuration summary)
+        from .services.destination_service import list_destinations
+        from .services.trip_member_service import list_members
+
+        destinations = list_destinations(request.trip_id)
+        if destinations:
+            trip["destinations"] = [d.get("name") for d in destinations]
+            trip["firstDestination"] = destinations[0].get("name", "")
+        else:
+            trip["destinations"] = []
+            trip["firstDestination"] = ""
+
+        members = list_members(request.trip_id)
+        trip["memberCount"] = len(members) if members else 1
 
         return trip
     except HTTPException:

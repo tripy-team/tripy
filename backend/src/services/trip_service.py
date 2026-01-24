@@ -4,7 +4,11 @@ from src.repos import trip_repo, trip_member_repo
 
 
 def create_trip(
-    user_id: str, title: str, start_date: str, end_date: str
+    user_id: str,
+    title: str,
+    start_date: str,
+    end_date: str,
+    include_hotels: bool = True,
 ) -> Dict[str, Any]:
     trip_id = str(uuid.uuid4())
     invite_code = str(uuid.uuid4())[:8]
@@ -17,6 +21,7 @@ def create_trip(
         "endDate": end_date,
         "inviteCode": invite_code,
         "status": "active",
+        "includeHotels": include_hotels,
     }
     trip_repo.put_trip(trip)
 

@@ -285,11 +285,20 @@ def search_airports_with_openai(query: str, max_results: int = 10) -> List[Dict[
     """
     Search for airports using OpenAI. This can handle airport codes, airport names, city names, and variations.
     Returns a list of airport suggestions with IATA codes, names, and city information.
+    Excludes non-commercial airports (e.g. FXL) via is_commercial_airport.
     """
     if OpenAI is None:
         raise ImportError("openai package is not installed. Install it with: pip install openai")
     load_dotenv()
     client = OpenAI(api_key=os.getenv("OPENAI_ADMIN_KEY"))
+
+    commercial_set = None
+    try:
+        from .airport_filter import load_commercial_iata_set_from_web, is_commercial_airport
+        commercial_set = load_commercial_iata_set_from_web()
+    except Exception as e:
+        logging.getLogger(__name__).warning(f"Could not load commercial airport set for search_airports_with_openai: {e}")
+        commercial_set = set()
     
     system_prompt = """You are a travel assistant that helps users find airports around the world.
     
@@ -362,6 +371,10 @@ IMPORTANT:
             
             # Skip if no IATA code
             if not iata_code or len(iata_code) != 3:
+                continue
+
+            # Exclude non-commercial airports (e.g. FXL) using is_commercial_airport
+            if commercial_set and not is_commercial_airport(iata_code, commercial_set):
                 continue
             
             # Format display name

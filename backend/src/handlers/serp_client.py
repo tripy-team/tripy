@@ -109,7 +109,7 @@ def get_flights_between_airports(
     *,
     travel_class: Optional[int] = None,
     currency: str = "USD",
-    trip_type: int = 1,
+    trip_type: int = 2,
     deep_search: bool = True,
 ) -> List[Dict[str, Any]]:
     """
@@ -119,7 +119,7 @@ def get_flights_between_airports(
     Each item in the list is a flight option (direct or multi-leg) with:
       - price: total price in the given currency
       - flights: list of legs, each with departure_airport, arrival_airport,
-        flight_number, duration_in_minutes, etc.
+        flight_number, duration, etc.
       - total_duration: total trip duration (when present)
       - extensions: any extra data from SerpAPI (e.g. carbon, amenities)
 
@@ -129,7 +129,8 @@ def get_flights_between_airports(
         date: Outbound date YYYY-MM-DD.
         travel_class: 1=Economy, 2=Premium economy, 3=Business, 4=First; None = default.
         currency: Currency code for prices (default USD).
-        trip_type: 1=one-way, 2=roundtrip (default one-way for a single outbound date).
+        trip_type: SerpAPI type: 1=Round trip (requires return_date), 2=One way (default).
+          Use 2 for single-segment fetches when only outbound_date is provided.
         deep_search: If True, SerpAPI may return more options (default True).
 
     Returns:

@@ -1,12 +1,15 @@
 """
 Airport Service - CSV-based airport search and autocomplete
-Reads from airports.csv file and provides search functionality
+Reads from airports.csv file and provides search functionality.
+Uses is_commercial_airport to exclude non-commercial airports (e.g. FXL).
 """
 import csv
 import os
 from typing import List, Dict, Any, Optional
 from pathlib import Path
 import logging
+
+from ..handlers.airport_filter import is_commercial_airport
 
 logger = logging.getLogger(__name__)
 
@@ -239,11 +242,12 @@ def search_airports(query: str, max_results: int = 10) -> List[Dict[str, Any]]:
         if is_airport_code:
             # Try direct airport code search
             airports = search_airports_with_openai(query_normalized.upper(), max_results=max_results)
-            # Do NOT filter by commercial_set for explicit IATA queries: SerpAPI and AwardTool
-            # support small/regional airports (e.g. ITH, BGM) with multistop and multi-airline;
-            # filtering here would hide them in autocomplete.
+            # Filter to commercial only (exclude e.g. FXL) using is_commercial_airport
+            commercial_set = _get_commercial_airport_set()
+            if commercial_set:
+                airports = [a for a in airports if is_commercial_airport(a.get("iata_code", ""), commercial_set)]
             if airports:
-                logger.info(f"Found {len(airports)} airports for code '{query_normalized}' (small airports allowed)")
+                logger.info(f"Found {len(airports)} commercial airports for code '{query_normalized}'")
                 return airports[:max_results]
         
         # For city queries, use the city-based search
@@ -277,8 +281,8 @@ def search_airports(query: str, max_results: int = 10) -> List[Dict[str, Any]]:
         scored_airports = []
         for airport in airports:
             iata_code = airport.get("iata_code", "")
-            # For explicit IATA queries, skip commercial filter so small airports (e.g. ITH) are findable
-            if commercial_set and not is_airport_code and iata_code not in commercial_set:
+            # Exclude non-commercial airports (e.g. FXL) using is_commercial_airport
+            if commercial_set and not is_commercial_airport(iata_code, commercial_set):
                 continue
 
             score = score_airport(airport, query_normalized_upper)
@@ -333,6 +337,9 @@ def fuzzy_search_destinations(query: str, max_results: int = 10, commercial_only
         except Exception:
             commercial_set = set()
 
+    def _is_commercial(iata: str) -> bool:
+        return bool(commercial_set and is_commercial_airport(iata, commercial_set))
+
     def choice_text(a: Dict) -> str:
         return " ".join(
             filter(None, [a.get("airport_name"), a.get("iata_code"), a.get("city"), a.get("country_name")])
@@ -352,7 +359,7 @@ def fuzzy_search_destinations(query: str, max_results: int = 10, commercial_only
         iata = (a.get("iata_code") or "").strip().upper()
         if iata in seen:
             continue
-        if commercial_only and commercial_set is not None and iata not in commercial_set:
+        if commercial_only and not _is_commercial(iata):
             continue
         seen.add(iata)
         out.append({

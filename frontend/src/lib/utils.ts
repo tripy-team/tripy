@@ -53,3 +53,29 @@ export function generateTripTitle(cities: string[], tripType: 'solo' | 'group'):
   if (cities.length === 2) return `${tripType === 'solo' ? 'Solo' : 'Group'} Trip to ${cities[0]} & ${cities[1]}`;
   return `${tripType === 'solo' ? 'Solo' : 'Group'} Trip to ${cities[0]} & ${cities.length - 1} more`;
 }
+
+/**
+ * Format a list of destinations into a short, readable summary (e.g. for trip configuration).
+ * Examples: "Paris", "Paris & Rome", "Paris, Rome & Barcelona", "Paris, Rome, Barcelona & 2 more"
+ */
+export function formatDestinationsSummary(destinations: string[]): string {
+  const d = (destinations || []).filter(Boolean).map((s) => String(s).trim()).filter(Boolean);
+  if (d.length === 0) return '—';
+  if (d.length === 1) return d[0];
+  if (d.length === 2) return `${d[0]} & ${d[1]}`;
+  if (d.length === 3) return `${d[0]}, ${d[1]} & ${d[2]}`;
+  return `${d[0]}, ${d[1]}, ${d[2]} & ${d.length - 3} more`;
+}
+
+/**
+ * Compute trip duration in days from start and end dates (YYYY-MM-DD). Returns null if invalid.
+ */
+export function tripDurationDays(startDate: string, endDate: string): number | null {
+  if (!startDate || !endDate) return null;
+  const start = new Date(startDate);
+  const end = new Date(endDate);
+  if (Number.isNaN(start.getTime()) || Number.isNaN(end.getTime())) return null;
+  const ms = end.getTime() - start.getTime();
+  const days = Math.round(ms / (24 * 60 * 60 * 1000)) + 1;
+  return days > 0 ? days : null;
+}

@@ -533,9 +533,11 @@ def generate_optimized_itinerary(trip_id: str) -> Dict[str, Any]:
             oop_result = None
 
     # Hotel out-of-pocket: AwardTool (cash + points) + SerpAPI Google Hotels (cash) for simple trips
+    # Only when trip has includeHotels=True (default); allows excluding hotels from calculations
     oop_hotels_result: Optional[Dict[str, Any]] = None
     if (
-        (end_dest_name or end_dest_code)
+        trip.get("includeHotels", True)
+        and (end_dest_name or end_dest_code)
         and start_date
         and end_date
         and travelers

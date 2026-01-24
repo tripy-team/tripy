@@ -284,6 +284,7 @@ export interface Trip {
   destinations?: string[];
   firstDestination?: string;
   memberCount?: number;
+  includeHotels?: boolean;
 }
 
 export interface PointsSummaryItem {
@@ -304,6 +305,8 @@ export interface CreateTripRequest {
   title: string;
   start_date: string;
   end_date: string;
+  /** Include hotel out-of-pocket in cost calculations (default true) */
+  include_hotels?: boolean;
 }
 
 export interface Destination {
@@ -422,7 +425,7 @@ export const auth = {
 
 // Trips API
 export const trips = {
-  create: async (params: { title: string; start_date: string; end_date: string }): Promise<Trip> => {
+  create: async (params: { title: string; start_date: string; end_date: string; include_hotels?: boolean }): Promise<Trip> => {
     return apiRequest<Trip>('/trips', {
       method: 'POST',
       body: JSON.stringify(params),

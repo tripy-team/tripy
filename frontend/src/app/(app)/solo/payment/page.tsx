@@ -1,6 +1,6 @@
 'use client';
 
-import { useState } from 'react';
+import { useState, useEffect } from 'react';
 import { useRouter, useSearchParams } from 'next/navigation';
 import { 
   CheckCircle, 
@@ -10,13 +10,15 @@ import {
   Calendar,
   Zap
 } from 'lucide-react';
-import { generateItinerary } from '@/lib/api';
+import { generateItinerary, trips, type Trip } from '@/lib/api';
+import { formatDestinationsSummary, tripDurationDays } from '@/lib/utils';
 
 export default function SoloPayment() {
   const router = useRouter();
   const searchParams = useSearchParams();
   const tripId = searchParams?.get('tripId') || '';
   
+  const [trip, setTrip] = useState<Trip | null>(null);
   const [isProcessing, setIsProcessing] = useState(false);
   const [isPaid, setIsPaid] = useState(false);
   const [error, setError] = useState<string | null>(null);
@@ -25,6 +27,11 @@ export default function SoloPayment() {
   const [promoCode, setPromoCode] = useState('');
   const [discount, setDiscount] = useState(0);
   const [promoMessage, setPromoMessage] = useState('');
+
+  useEffect(() => {
+    if (!tripId) return;
+    trips.get(tripId).then(setTrip).catch(() => setTrip(null));
+  }, [tripId]);
 
   const handleApplyPromo = () => {
     if (promoCode.toUpperCase() === 'TRIPY2025') {
@@ -115,7 +122,14 @@ export default function SoloPayment() {
                 </div>
                 <div>
                   <div className="font-medium text-slate-900">Duration</div>
-                  <div className="text-sm text-slate-600">7 Days</div>
+                  <div className="text-sm text-slate-600">
+                    {trip && trip.startDate && trip.endDate
+                      ? (() => {
+                          const d = tripDurationDays(trip.startDate, trip.endDate);
+                          return d != null ? `${d} days` : '—';
+                        })()
+                      : '—'}
+                  </div>
                 </div>
               </div>
               
@@ -124,8 +138,10 @@ export default function SoloPayment() {
                   <MapPin className="w-5 h-5 text-slate-600" />
                 </div>
                 <div>
-                  <div className="font-medium text-slate-900">Destinations</div>
-                  <div className="text-sm text-slate-600">Multiple Cities</div>
+                  <div className="font-medium text-slate-900">Where you&apos;re going</div>
+                  <div className="text-sm text-slate-600">
+                    {trip ? formatDestinationsSummary(trip.destinations ?? []) : '—'}
+                  </div>
                 </div>
               </div>
 

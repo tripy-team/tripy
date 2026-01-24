@@ -105,11 +105,12 @@ TTL_SERP = 90 * 60  # 90m
 # ==== SERP route-level (single call) ====
 async def serp_route(origin, destination, date_str, filters, client):
     tclass = _normalize_travel_class_for_serp((filters or {}).get("travel_class"))
-    # Use type=1 (one-way) for segment fetch; we only have outbound_date, no return.
+    # Use type=2 (one-way): SerpAPI type=1 is round-trip and requires return_date.
+    # Segment fetch only has outbound_date.
     params = {
         "engine": "google_flights",
         "api_key": SERPAPI_KEY,
-        "type": 1,
+        "type": 2,
         "currency": "USD",
         "deep_search": True,
         "departure_id": origin,
@@ -132,7 +133,7 @@ async def serp_route(origin, destination, date_str, filters, client):
         logger.warning("SERPAPI_KEY not set; SERP request for [%s]->[%s] may fail", origin, destination)
 
     k = key_serp(
-        origin, destination, date_str, tclass, params.get("stops"), params.get("bags"), params.get("type", 1)
+        origin, destination, date_str, tclass, params.get("stops"), params.get("bags"), params.get("type", 2)
     )
     cached = get_json(k)
     if cached:
@@ -184,7 +185,7 @@ def serp_route_to_leg_map(route_json):
             dep = leg.get("departure_airport", {}).get("id")
             arr = leg.get("arrival_airport", {}).get("id")
             fn = _normalize_flightnum(leg.get("flight_number"))
-            dur = leg.get("duration_in_minutes") or leg.get("durationMinutes")
+            dur = leg.get("duration_in_minutes") or leg.get("durationMinutes") or leg.get("duration")
 
             if not dep or not arr or not fn:
                 skipped += 1
@@ -517,11 +518,14 @@ def get_flights_serp_only(origin, destination, date_str, filters=None):
     """
     filt = dict(filters or {})
     travel_class = _normalize_travel_class_for_serp(filt.get("travel_class"))
+    # Use one-way (type=2): SerpAPI requires return_date for round-trip (type=1).
+    # Segment fetches only have outbound_date, so one-way is correct.
     flights = get_flights_between_airports(
         (origin or "").strip().upper(),
         (destination or "").strip().upper(),
         (date_str or "").strip(),
         travel_class=travel_class,
+        trip_type=2,
     )
     if not flights:
         return {}
