@@ -15,6 +15,7 @@ from . import city_service
 from . import trip_member_service
 from . import auth_service
 from . import image_service
+from . import itinerary_service
 
 __all__ = [
     "trip_service",
@@ -26,4 +27,5 @@ __all__ = [
     "trip_member_service",
     "auth_service",
     "image_service",
+    "itinerary_service",
 ]

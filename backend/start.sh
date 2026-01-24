@@ -1,18 +1,19 @@
 #!/bin/bash
 # Startup script for App Runner
-# This script ensures we're in the right directory and sets PYTHONPATH
+# With SourceDirectory=backend, App Runner places backend contents at /app.
+# This script finds its own directory so it works for /app or /app/backend.
 
 set -e  # Exit on error
 
-# Change to the backend directory (parent of src)
-cd /app/backend || {
-    echo "ERROR: Failed to change to /app/backend"
+# Use the directory containing this script as the app root (e.g. /app when run as /app/start.sh)
+SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
+cd "$SCRIPT_DIR" || {
+    echo "ERROR: Failed to change to $SCRIPT_DIR"
     exit 1
 }
 
-# Set PYTHONPATH to include backend directory (parent of src)
-# This allows imports like "from src.repos import ..." to work
-export PYTHONPATH=/app/backend:$PYTHONPATH
+# PYTHONPATH so "from src.xxx" and "import src" work
+export PYTHONPATH="$SCRIPT_DIR${PYTHONPATH:+:$PYTHONPATH}"
 
 # Verify src/app.py exists
 if [ ! -f "src/app.py" ]; then
