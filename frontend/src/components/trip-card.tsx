@@ -1,10 +1,7 @@
 'use client';
 
-import Image from 'next/image';
 import { useRouter } from 'next/navigation';
 import { MapPin, Calendar, CreditCard, Users, Plane, Hotel, ArrowRight, TrendingUp } from 'lucide-react';
-import { getOptimizedImageUrl, getImageDimensions } from '@/lib/image-utils';
-import { useState, useEffect } from 'react';
 
 interface Trip {
     id: string;
@@ -25,32 +22,24 @@ interface TripCardProps {
     trip: Trip;
 }
 
-// Placeholder gradient image (blue gradient SVG)
-const PLACEHOLDER_IMAGE = 'data:image/svg+xml;base64,PHN2ZyB3aWR0aD0iNDAwIiBoZWlnaHQ9IjMwMCIgeG1sbnM9Imh0dHA6Ly93d3cudzMub3JnLzIwMDAvc3ZnIj48ZGVmcz48bGluZWFyR3JhZGllbnQgaWQ9ImEiIHgxPSIwJSIgeTE9IjAlIiB4Mj0iMTAwJSIgeTI9IjEwMCUiPjxzdG9wIG9mZnNldD0iMCUiIHN0b3AtY29sb3I9IiM2MzY2RjEiLz48c3RvcCBvZmZzZXQ9IjEwMCUiIHN0b3AtY29sb3I9IiM0NzU1OTkiLz48L2xpbmVhckdyYWRpZW50PjwvZGVmcz48cmVjdCB3aWR0aD0iMTAwJSIgaGVpZ2h0PSIxMDAlIiBmaWxsPSJ1cmwoI2EpIi8+PC9zdmc+';
+// Generate gradient colors based on trip type and status
+const getGradientColors = (type: 'solo' | 'group', status: string) => {
+    if (type === 'solo') {
+        if (status === 'completed') {
+            return 'from-slate-500 to-slate-600';
+        }
+        return 'from-blue-500 to-indigo-600';
+    } else {
+        if (status === 'completed') {
+            return 'from-slate-500 to-slate-600';
+        }
+        return 'from-purple-500 to-pink-600';
+    }
+};
 
 export function TripCard({ trip }: TripCardProps) {
     const router = useRouter();
-    const [imageUrl, setImageUrl] = useState(trip.thumbnail || PLACEHOLDER_IMAGE);
-    const [isImageLoading, setIsImageLoading] = useState(true);
-    const { width, height } = getImageDimensions('thumbnail');
-
-    useEffect(() => {
-        // Load optimized image URL
-        getOptimizedImageUrl(trip.destination, 'thumbnail')
-            .then((url) => {
-                // Only update if we got a valid URL
-                if (url && url.trim() !== '') {
-                    setImageUrl(url);
-                } else {
-                    // Keep placeholder if no URL returned
-                    setImageUrl(PLACEHOLDER_IMAGE);
-                }
-            })
-            .catch(() => {
-                // Fallback to placeholder if optimization fails
-                setImageUrl(PLACEHOLDER_IMAGE);
-            });
-    }, [trip.destination, trip.thumbnail]);
+    const gradientColors = getGradientColors(trip.type, trip.status);
 
     const getStatusColor = (status: string) => {
         switch (status) {
@@ -72,27 +61,8 @@ export function TripCard({ trip }: TripCardProps) {
             onClick={() => router.push(`/trips/${trip.id}`)}
             className="bg-white rounded-2xl border border-slate-200 shadow-sm hover:shadow-xl transition-all duration-300 overflow-hidden group cursor-pointer"
         >
-            {/* Thumbnail */}
-            <div className="relative h-48 overflow-hidden bg-slate-200">
-                <Image
-                    src={imageUrl}
-                    alt={trip.destination}
-                    width={width}
-                    height={height}
-                    className="w-full h-full object-cover group-hover:scale-110 transition-transform duration-500"
-                    loading="lazy"
-                    onLoad={() => setIsImageLoading(false)}
-                    onError={() => {
-                        // Fallback to placeholder on error
-                        setImageUrl(PLACEHOLDER_IMAGE);
-                        setIsImageLoading(false);
-                    }}
-                />
-                {isImageLoading && (
-                    <div className="absolute inset-0 bg-slate-200 animate-pulse" />
-                )}
-                <div className="absolute inset-0 bg-gradient-to-t from-black/60 via-black/20 to-transparent"></div>
-
+            {/* Gradient Header */}
+            <div className={`relative bg-gradient-to-br ${gradientColors} p-6`}>
                 {/* Status Badge */}
                 <div className={`absolute top-4 right-4 px-3 py-1 rounded-full text-xs border ${getStatusColor(trip.status)} backdrop-blur-sm`}>
                     {trip.status.charAt(0).toUpperCase() + trip.status.slice(1)}
@@ -113,9 +83,9 @@ export function TripCard({ trip }: TripCardProps) {
                     )}
                 </div>
 
-                {/* Destination */}
-                <div className="absolute bottom-4 left-4 right-4">
-                    <h3 className="text-white text-xl mb-1 font-semibold">{trip.name}</h3>
+                {/* Destination - with more space at top */}
+                <div className="mt-8">
+                    <h3 className="text-white text-2xl mb-2 font-bold">{trip.name}</h3>
                     <div className="flex items-center gap-2 text-white/90 text-sm">
                         <MapPin className="w-4 h-4" />
                         {trip.destination}

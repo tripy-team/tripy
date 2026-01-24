@@ -2,16 +2,13 @@
 
 import { Plane, Calendar, MapPin, CreditCard, Users, User } from 'lucide-react';
 import Link from 'next/link';
-import Image from 'next/image';
 import { useRouter } from 'next/navigation';
 import { useEffect, useState } from 'react';
 import { trips as tripsAPI } from '@/lib/api';
-import { getOptimizedImageUrl } from '@/lib/image-utils';
 
 interface Trip {
   id: string;
   destination: string;
-  image: string;
   dates: string;
   status: 'upcoming' | 'completed';
   pointsRedeemed: string;
@@ -45,9 +42,8 @@ export default function MyTripsPage() {
         setIsLoading(true);
         const response = await tripsAPI.list();
         
-        // Transform API trips to display format (with async image loading)
-        const transformedTrips: Trip[] = await Promise.all(
-          response.trips.map(async (trip: ApiTrip) => {
+        // Transform API trips to display format
+        const transformedTrips: Trip[] = response.trips.map((trip: ApiTrip) => {
           // Format dates
           const startDate = trip.startDate ? new Date(trip.startDate) : null;
           const endDate = trip.endDate ? new Date(trip.endDate) : null;
@@ -72,14 +68,6 @@ export default function MyTripsPage() {
           const destinationName = trip.firstDestination || trip.title || 'Trip';
           const location = trip.firstDestination || 'Location TBD';
           
-          // Fetch city-specific image
-          let imageUrl = '';
-          try {
-            imageUrl = await getOptimizedImageUrl(destinationName, 'thumbnail');
-          } catch (err) {
-            console.error('Error loading image for', destinationName, err);
-          }
-          
           // Generate description from trip info
           const description = trip.destinations && trip.destinations.length > 0
             ? `Visiting ${trip.destinations.join(', ')}`
@@ -88,7 +76,6 @@ export default function MyTripsPage() {
           return {
             id: trip.tripId,
             destination: trip.title || destinationName,
-            image: imageUrl || '/placeholder-trip.jpg',
             dates: datesStr,
             status: status,
             pointsRedeemed: '0', // TODO: Calculate from points data
@@ -97,8 +84,7 @@ export default function MyTripsPage() {
             location: location,
             description: description,
           };
-          })
-        );
+        });
         
         setTrips(transformedTrips);
       } catch (err) {
@@ -119,22 +105,10 @@ export default function MyTripsPage() {
   const TripCard = ({ trip }: { trip: Trip }) => (
     <div
       onClick={() => router.push(`/trips/${trip.id}`)}
-      className="group flex overflow-hidden border border-slate-200 rounded-xl hover:shadow-lg transition-all duration-300 bg-white cursor-pointer"
+      className="group overflow-hidden border border-slate-200 rounded-xl hover:shadow-lg transition-all duration-300 bg-white cursor-pointer"
     >
-      {/* Image Section - Smaller width */}
-      <div className="relative w-32 sm:w-40 shrink-0 bg-slate-100">
-        <Image 
-          src={trip.image} 
-          alt={trip.destination} 
-          fill
-          className="object-cover"
-          sizes="(max-width: 640px) 128px, 160px"
-        />
-        <div className="absolute inset-0 bg-black/0 group-hover:bg-black/5 transition-colors" />
-      </div>
-      
       {/* Content Section */}
-      <div className="flex flex-col flex-1 p-3 sm:p-4 gap-2">
+      <div className="flex flex-col p-4 gap-2">
         {/* Top: Header Info */}
         <div className="flex justify-between items-start gap-2">
           <div className="min-w-0">
