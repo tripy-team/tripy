@@ -139,16 +139,17 @@ def _get_s3_key(city_name: str, size: str, text_hash: Optional[str] = None) -> s
         text_hash: Optional hash of custom text for caching different text variations
     
     Returns:
-        S3 key string
+        S3 key string in format: cityname_1_{size}.webp
     """
     # Normalize city name for consistent key generation
     base_name = city_name.lower().strip().replace(" ", "_").replace("/", "_")
     
+    # Use format: cityname_1_{size}.webp (1 is the default variant for coming soon)
     # If text_hash is provided, include it in the key for custom text variations
     if text_hash:
-        return f"coming_soon/{base_name}_{text_hash}_{size}.webp"
+        return f"{base_name}_{text_hash}_1_{size}.webp"
     else:
-        return f"coming_soon/{base_name}_{size}.webp"
+        return f"{base_name}_1_{size}.webp"
 
 
 def _image_exists_in_s3(s3_key: str) -> bool:
