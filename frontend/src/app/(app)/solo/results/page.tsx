@@ -662,14 +662,21 @@ export default function SoloResults() {
         <div data-testid="solo-results-page" data-slot="SoloResults" className="min-h-full p-8 bg-gradient-to-br from-white via-blue-50/20 to-white">
             <div className="max-w-7xl mx-auto">
                 {/* Header */}
-                <div data-testid="solo-results-header" className="flex items-center justify-between mb-8">
-                    <div>
-                        <h1 className="text-4xl mb-2 tracking-tight text-slate-900 font-bold">Your Routes</h1>
-                        <p className="text-slate-600">
-                            {itineraries.length === 0
-                                ? 'No itineraries match your budget and points. Try adjusting your limits or destinations.'
-                                : `We generated ${itineraries.length} itinerary option${itineraries.length === 1 ? '' : 's'} within your constraints`}
-                        </p>
+                <div data-testid="solo-results-header" className="mb-8">
+                    <div className="flex items-center gap-3 mb-3">
+                        <div className="w-12 h-12 bg-gradient-to-br from-blue-600 to-blue-700 rounded-xl flex items-center justify-center shadow-lg shadow-blue-600/20">
+                            <Sparkles className="w-6 h-6 text-white" />
+                        </div>
+                        <div>
+                            <h1 className="text-4xl tracking-tight text-slate-900 font-bold">Your Trip Options</h1>
+                            <p className="text-slate-600 mt-1">
+                                {itineraries.length === 0
+                                    ? 'No itineraries match your budget and points. Try adjusting your limits or destinations.'
+                                    : itineraries.length === 1
+                                    ? 'We generated 1 itinerary that fits your budget and points'
+                                    : `Choose from ${itineraries.length} personalized itineraries — each showing out-of-pocket costs and points needed`}
+                            </p>
+                        </div>
                     </div>
                 </div>
 
@@ -750,7 +757,7 @@ export default function SoloResults() {
                             >
                                 <div className="p-6">
                                     {/* Header */}
-                                    <div className="flex items-start justify-between mb-6">
+                                    <div className="flex items-start justify-between mb-4">
                                         <div className="flex-1">
                                             <div className="flex items-center gap-3 mb-2">
                                                 <h3 className="text-2xl text-slate-900 font-semibold">{itinerary.name}</h3>
@@ -810,6 +817,36 @@ export default function SoloResults() {
                                         </div>
                                     </div>
 
+                                    {/* Prominent Out-of-Pocket Summary */}
+                                    <div className="mb-6 grid grid-cols-3 gap-3 p-4 bg-gradient-to-br from-blue-50 to-slate-50 rounded-xl border border-blue-100">
+                                        <div>
+                                            <div className="flex items-center gap-1.5 text-slate-600 mb-1">
+                                                <DollarSign className="w-4 h-4" />
+                                                <span className="text-xs font-medium uppercase tracking-wider">Cost</span>
+                                            </div>
+                                            <div className="text-2xl font-bold text-slate-900">${itinerary.totalCost.toLocaleString()}</div>
+                                            <div className="text-xs text-slate-500 mt-0.5">Out-of-pocket</div>
+                                        </div>
+
+                                        <div>
+                                            <div className="flex items-center gap-1.5 text-slate-600 mb-1">
+                                                <Zap className="w-4 h-4" />
+                                                <span className="text-xs font-medium uppercase tracking-wider">Points</span>
+                                            </div>
+                                            <div className="text-2xl font-bold text-slate-900">{(itinerary.pointsCost / 1000).toFixed(0)}k</div>
+                                            <div className="text-xs text-slate-500 mt-0.5">To use</div>
+                                        </div>
+
+                                        <div>
+                                            <div className="flex items-center gap-1.5 text-slate-600 mb-1">
+                                                <TrendingUp className="w-4 h-4" />
+                                                <span className="text-xs font-medium uppercase tracking-wider">Score</span>
+                                            </div>
+                                            <div className="text-2xl font-bold text-slate-900">{itinerary.score}</div>
+                                            <div className="text-xs text-slate-500 mt-0.5">Match quality</div>
+                                        </div>
+                                    </div>
+
                                     {/* Cities */}
                                     <div className="space-y-3 mb-6">
                                         {itinerary.cities.map((city, index) => (
@@ -849,30 +886,18 @@ export default function SoloResults() {
                                         ))}
                                     </div>
 
-                                    {/* Stats */}
-                                    <div className="grid grid-cols-3 gap-4">
-                                        <div className="p-4 bg-slate-50 rounded-xl border border-slate-100">
-                                            <div className="flex items-center gap-2 text-slate-600 mb-1">
-                                                <DollarSign className="w-4 h-4" />
-                                                <span className="text-sm">Cost</span>
+                                    {/* Value Summary */}
+                                    <div className="p-4 bg-gradient-to-r from-emerald-50 to-teal-50 rounded-xl border border-emerald-200">
+                                        <div className="flex items-start justify-between">
+                                            <div className="flex-1">
+                                                <div className="text-sm font-medium text-emerald-900 mb-1">Estimated Savings</div>
+                                                <div className="text-xs text-emerald-700">
+                                                    Using points instead of cash could save you up to ${Math.round(itinerary.pointsCost * 0.015).toLocaleString()}
+                                                </div>
                                             </div>
-                                            <div className="text-xl text-slate-900 font-semibold">${itinerary.totalCost.toLocaleString()}</div>
-                                        </div>
-
-                                        <div className="p-4 bg-slate-50 rounded-xl border border-slate-100">
-                                            <div className="flex items-center gap-2 text-slate-600 mb-1">
-                                                <Zap className="w-4 h-4" />
-                                                <span className="text-sm">Points</span>
+                                            <div className="text-2xl font-bold text-emerald-700">
+                                                {Math.round((itinerary.pointsCost * 0.015 / (itinerary.totalCost + itinerary.pointsCost * 0.015)) * 100)}%
                                             </div>
-                                            <div className="text-xl text-slate-900 font-semibold">{(itinerary.pointsCost / 1000).toFixed(0)}k</div>
-                                        </div>
-
-                                        <div className="p-4 bg-slate-50 rounded-xl border border-slate-100">
-                                            <div className="flex items-center gap-2 text-slate-600 mb-1">
-                                                <TrendingUp className="w-4 h-4" />
-                                                <span className="text-sm">Score</span>
-                                            </div>
-                                            <div className="text-xl text-slate-900 font-semibold">{itinerary.score}</div>
                                         </div>
                                     </div>
 

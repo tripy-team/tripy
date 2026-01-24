@@ -67,6 +67,8 @@ export interface TransferTip {
   operating_carrier_name?: string;
   /** True if this is a codeshare flight. */
   is_codeshare?: boolean;
+  /** Strategy reasoning: why this transfer strategy was chosen (from backend). */
+  strategy_reason?: string;
 }
 
 export interface PracticalTip {
@@ -87,11 +89,25 @@ export interface TransferStepResult {
   steps: string[];
   warning?: string;
   status: 'pending' | 'completed';
+  // Additional transfer details
+  flightSegment?: string; // e.g., "SFO → HKG"
+  surcharge?: number; // Taxes/fees in dollars
+  isCodeshare?: boolean;
+  operatingCarrier?: string;
+  segmentDescription?: string;
 }
 
 export interface ExtractedTips {
   transfer_tips: TransferTip[];
   practical_tips: PracticalTip[];
+}
+
+export interface TransferStrategyOverview {
+  totalPointsByProgram: Map<string, number>; // e.g., "Chase Ultimate Rewards" -> 60000
+  transfersByProgram: Map<string, Array<{ partner: string; points: number; bestFor?: string }>>; // From -> To mapping
+  memberStrategies: Array<{ memberName: string; totalPoints: number; transfers: Array<{ from: string; to: string; points: number }> }>;
+  strategySummary: string; // Human-readable summary
+  strategyReason?: string; // Why this strategy was chosen (from backend)
 }
 
 /** Get display name for a bank source (backend key). */
@@ -240,6 +256,14 @@ export function buildTransferStepsFromItinerary(
         const warning = [timingTip, note].filter(Boolean).join(' ').trim()
           || 'Double check availability on the airline website before transferring.';
 
+        // Find matching transfer tip for additional details
+        const matchingTip = transfer_tips.find(t => 
+          (t.to_program?.toLowerCase().includes(partner.toLowerCase()) ||
+           partner.toLowerCase().includes(t.to_program?.toLowerCase() || '')) &&
+          (t.from_program?.toLowerCase().includes(program.toLowerCase()) ||
+           program.toLowerCase().includes(t.from_program?.toLowerCase() || ''))
+        );
+
         result.push({
           id: `t-${idx}`,
           member: memberName,
@@ -253,6 +277,12 @@ export function buildTransferStepsFromItinerary(
           steps,
           warning,
           status: 'pending',
+          // Additional details from transfer tips
+          flightSegment: matchingTip?.best_for,
+          surcharge: matchingTip?.surcharge,
+          isCodeshare: matchingTip?.is_codeshare,
+          operatingCarrier: matchingTip?.operating_carrier_name,
+          segmentDescription: matchingTip?.segment_description,
         });
         idx += 1;
       }
@@ -260,4 +290,92 @@ export function buildTransferStepsFromItinerary(
   }
 
   return result;
+}
+
+/**
+ * Build a high-level transfer strategy overview from itinerary data.
+ * This summarizes: which credit cards are used, total points from each, where they're transferred to.
+ */
+export function buildTransferStrategyOverview(
+  items: Array<{ type?: string; totals?: { transfers?: Record<string, Record<string, Record<string, { source_points?: number }>>> }; [k: string]: unknown }>,
+  members: Array<{ userId: string; name?: string }>
+): TransferStrategyOverview | null {
+  const totalsItem = items.find((i) => i.type === 'totals');
+  const transfers = totalsItem?.totals?.transfers;
+  if (!transfers || typeof transfers !== 'object') return null;
+
+  const totalPointsByProgram = new Map<string, number>();
+  const transfersByProgram = new Map<string, Array<{ partner: string; points: number; bestFor?: string }>>();
+  const memberStrategies: Array<{ memberName: string; totalPoints: number; transfers: Array<{ from: string; to: string; points: number }> }> = [];
+  
+  // Extract strategy reason from transfer_tips (if provided by backend)
+  const { transfer_tips } = getTransferTipsFromItems(items);
+  const strategyReason = transfer_tips.find(t => t.strategy_reason)?.strategy_reason;
+
+  const getName = (userId: string): string => {
+    const m = members.find((x) => x.userId === userId);
+    return (m?.name || `Traveler`).trim() || `User ${(userId || '').slice(0, 8)}`;
+  };
+
+  // First pass: aggregate totals by program and by member
+  for (const [userId, bySource] of Object.entries(transfers)) {
+    if (!bySource || typeof bySource !== 'object') continue;
+    const memberName = getName(userId);
+    let memberTotal = 0;
+    const memberTransfers: Array<{ from: string; to: string; points: number }> = [];
+
+    for (const [source, byAirline] of Object.entries(bySource)) {
+      if (!(byAirline && typeof byAirline === 'object')) continue;
+      const program = programDisplay(source);
+      
+      for (const [airline, data] of Object.entries(byAirline)) {
+        const sp = typeof data?.source_points === 'number' ? data.source_points : 0;
+        if (sp <= 0) continue;
+
+        const partner = partnerDisplay(airline);
+        
+        // Aggregate by program
+        totalPointsByProgram.set(program, (totalPointsByProgram.get(program) || 0) + sp);
+        
+        // Track transfers from this program
+        if (!transfersByProgram.has(program)) {
+          transfersByProgram.set(program, []);
+        }
+        transfersByProgram.get(program)!.push({ partner, points: sp });
+        
+        // Track member-specific transfers
+        memberTotal += sp;
+        memberTransfers.push({ from: program, to: partner, points: sp });
+      }
+    }
+
+    if (memberTotal > 0) {
+      memberStrategies.push({ memberName, totalPoints: memberTotal, transfers: memberTransfers });
+    }
+  }
+
+  // Build human-readable summary
+  const programSummaries: string[] = [];
+  for (const [program, total] of totalPointsByProgram) {
+    const destinations = transfersByProgram.get(program) || [];
+    const uniquePartners = [...new Set(destinations.map(d => d.partner))];
+    
+    if (uniquePartners.length === 1) {
+      programSummaries.push(`${total.toLocaleString()} points from ${program} to ${uniquePartners[0]}`);
+    } else if (uniquePartners.length > 1) {
+      programSummaries.push(`${total.toLocaleString()} points from ${program} to ${uniquePartners.length} partners`);
+    }
+  }
+
+  const strategySummary = programSummaries.length > 0
+    ? `You'll transfer a total of ${programSummaries.join(', ')}.`
+    : 'No transfers required for this itinerary.';
+
+  return {
+    totalPointsByProgram,
+    transfersByProgram,
+    memberStrategies,
+    strategySummary,
+    strategyReason,
+  };
 }

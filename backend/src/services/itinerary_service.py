@@ -202,7 +202,7 @@ def generate_simple_itineraries(trip_id: str) -> List[Dict[str, Any]]:
     def _points(cost: int) -> int:
         return int(cost * points_per_dollar)
 
-    # ---- Build 1–5 route variants ----
+    # ---- Build 1–10 route variants ----
     routes: List[Dict[str, Any]] = []
 
     # 1. Balanced (forward order): route = start -> stays -> end; only stays get days
@@ -242,12 +242,32 @@ def generate_simple_itineraries(trip_id: str) -> List[Dict[str, Any]]:
             "weight_factor": 0.92,
         })
 
-    # 4. Explorer: more cities only if we're well under budget and have more stay destinations
+    # 4. Extended stay: add more days to longest city (when budget allows)
+    if max_budget is None or max_budget > bal_cost * 1.3:
+        extended_cities = _build_city_objects(stay_names, stay_ids, days_per=base_days + 2)
+        routes.append({
+            "label": "Extended stay",
+            "route_ids": route_ids,
+            "cities": extended_cities,
+            "weight_factor": 0.98,
+        })
+
+    # 5. Quick trip: shorter days per city (minimum 2 days each)
+    if len(stay_names) >= 2:
+        quick_cities = _build_city_objects(stay_names, stay_ids, days_per=max(2, base_days - 1))
+        routes.append({
+            "label": "Quick trip",
+            "route_ids": route_ids,
+            "cities": quick_cities,
+            "weight_factor": 0.90,
+        })
+
+    # 6. Explorer: more cities only if we're well under budget and have more stay destinations
     bal_cost = _cost(routes[0]["cities"])
     if (
         len(stay_names) >= 3
         and (max_budget is None or bal_cost <= (max_budget * 0.7))
-        and len(routes) < 5
+        and len(routes) < 10
     ):
         expl_cities = _build_city_objects(stay_names, stay_ids)
         routes.append({
@@ -257,8 +277,56 @@ def generate_simple_itineraries(trip_id: str) -> List[Dict[str, Any]]:
             "weight_factor": 1.02,
         })
 
-    # Cap at 5
-    routes = routes[:5]
+    # 7-10. Variations with different day distributions (when we have 3+ destinations)
+    if len(stay_names) >= 3 and len(routes) < 10:
+        # Focus on first city
+        focus_first = _build_city_objects(stay_names, stay_ids)
+        if len(focus_first) >= 3:
+            focus_first[0]["days"] = base_days + 2
+            focus_first[-1]["days"] = max(2, base_days - 1)
+            routes.append({
+                "label": "Focus on arrival city",
+                "route_ids": route_ids,
+                "cities": focus_first,
+                "weight_factor": 0.93,
+            })
+        
+        # Focus on last city
+        focus_last = _build_city_objects(stay_names, stay_ids)
+        if len(focus_last) >= 3:
+            focus_last[0]["days"] = max(2, base_days - 1)
+            focus_last[-1]["days"] = base_days + 2
+            routes.append({
+                "label": "Focus on final city",
+                "route_ids": route_ids,
+                "cities": focus_last,
+                "weight_factor": 0.93,
+            })
+        
+        # Even split (all cities get equal days)
+        even_days = max(2, total_days // len(stay_names))
+        even_cities = _build_city_objects(stay_names, stay_ids, days_per=even_days)
+        routes.append({
+            "label": "Even split",
+            "route_ids": route_ids,
+            "cities": even_cities,
+            "weight_factor": 0.96,
+        })
+        
+        # Mixed pace (alternate between longer and shorter stays)
+        if len(stay_names) >= 4:
+            mixed_cities = _build_city_objects(stay_names, stay_ids)
+            for i in range(len(mixed_cities)):
+                mixed_cities[i]["days"] = (base_days + 1) if i % 2 == 0 else max(2, base_days - 1)
+            routes.append({
+                "label": "Mixed pace",
+                "route_ids": route_ids,
+                "cities": mixed_cities,
+                "weight_factor": 0.94,
+            })
+
+    # Cap at 10
+    routes = routes[:10]
 
     # ---- Build items with withinBudget / withinPoints ----
     items: List[Dict[str, Any]] = []
@@ -531,10 +599,17 @@ def build_transfer_tips_from_solution(
     award_points and program. Each tip: where to transfer, how many points, for which segment.
     When edges_all is provided, includes operating carrier (e.g. Korean Air codeshare via Delta).
     Replaces generic AI transfer advice with data-driven amounts and partners.
+    Also includes strategy_reason explaining why this transfer strategy was selected.
     """
     out: List[Dict[str, Any]] = []
     pay_mode = solution.get("pay_mode") or {}
     edges_all = _edges_all or {}
+    
+    # Build strategy reasoning from solution metadata
+    strategy_reasons = []
+    total_points = 0
+    programs_used = set()
+    partners_used = set()
 
     for _traveler, recs in pay_mode.items():
         for rec in (recs or []):
@@ -610,6 +685,30 @@ def build_transfer_tips_from_solution(
             else:
                 tip["is_codeshare"] = False
             out.append(tip)
+            
+            # Track for strategy summary
+            total_points += miles
+            if from_program and from_program != "Existing miles":
+                programs_used.add(from_program)
+            partners_used.add(to_program)
+
+    # Build strategy reasoning
+    if out:
+        if len(programs_used) == 1:
+            strategy_reasons.append(f"This strategy uses {list(programs_used)[0]} as your primary points source")
+        elif len(programs_used) > 1:
+            strategy_reasons.append(f"This strategy optimizes across {len(programs_used)} credit card programs")
+        
+        if len(partners_used) == 1:
+            strategy_reasons.append(f"transferring to {list(partners_used)[0]} for best award availability")
+        elif len(partners_used) > 1:
+            strategy_reasons.append(f"leveraging {len(partners_used)} airline partners for optimal routing and availability")
+        
+        strategy_reasons.append("based on live award availability from AwardTool")
+        
+        # Add strategy_reason to first tip (will be used for overview display)
+        if strategy_reasons and out:
+            out[0]["strategy_reason"] = ". ".join(s.capitalize() for s in strategy_reasons) + "."
 
     return out
 
