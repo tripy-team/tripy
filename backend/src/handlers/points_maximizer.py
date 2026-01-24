@@ -61,6 +61,7 @@ def plan_maximize_points_value(
     edge_to_airline: Dict[Edge, str] = None,  # edge -> IATA
     bag_fee: float = 35.0,
     W_benefit: float = 1e4,
+    must_visit_cities: List[str] = None,  # intermediates that must be visited exactly once; optimizer chooses order
 ):
     """
     Optimize itinerary to maximize points value (cash saved per point used).
@@ -81,6 +82,8 @@ def plan_maximize_points_value(
         award_seats = {}
     if meetup_cities is None:
         meetup_cities = []
+    if must_visit_cities is None:
+        must_visit_cities = []
     if benefit_airlines is None:
         benefit_airlines = {}
     if edge_to_airline is None:
@@ -214,6 +217,13 @@ def plan_maximize_points_value(
                     pl.lpSum(x[p][e] for e in edges if e[0] == i)
                     == pl.lpSum(x[p][e] for e in edges if e[1] == i)
                 )
+
+    # 1b) Must-visit: each city in must_visit_cities is visited exactly once (optimizer chooses order to reduce cost)
+    for c in must_visit_cities:
+        for p in T:
+            if c == start_city.get(p) or c == end_city.get(p):
+                continue
+            m += pl.lpSum(x[p][e] for e in edges if e[1] == c) == 1
 
     # 2) Payment constraints: exactly one payer (cash or points) per chosen edge
     for p in T:

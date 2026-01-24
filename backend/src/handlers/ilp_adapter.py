@@ -184,6 +184,7 @@ def run_ilp_from_edges(
     *,
     meetup_cities=None,
     require_meetup_in_graph=True,
+    must_visit_cities=None,
     benefit_airlines=None,
     bag_fee=35.0,
     W_benefit=1e4,
@@ -229,4 +230,5 @@ def run_ilp_from_edges(
         edge_to_airline=edge_to_airline,
         bag_fee=bag_fee,
         W_benefit=W_benefit,
+        must_visit_cities=must_visit_cities,
     )
