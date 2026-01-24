@@ -199,56 +199,8 @@ export function getCachedImageUrl(
       return null;
     }
 
-    // CACHE INVALIDATION: Check if URL contains old /coming_soon/ prefix format
-    // If so, clear the cache entry and return null to force a fresh fetch
-    if (url.includes('/coming_soon/')) {
-      console.log(`[getCachedImageUrl] Invalidating old cached URL format for ${destination}: ${url}`);
-      localStorage.removeItem(key);
-      localStorage.removeItem(expiresKey);
-      return null;
-    }
-
     return url;
   } catch (_e) {
     return null;
-  }
-}
-
-/**
- * Clear cached image URL for a specific destination and size
- */
-export function clearCachedImageUrl(
-  destination: string,
-  size: keyof typeof IMAGE_SIZES
-): void {
-  if (typeof window === 'undefined') return;
-
-  try {
-    const key = getImageCacheKey(destination, size);
-    const expiresKey = `${key}_expires`;
-    localStorage.removeItem(key);
-    localStorage.removeItem(expiresKey);
-  } catch (_e) {
-    console.warn('Failed to clear cached image URL:', _e);
-  }
-}
-
-/**
- * Clear all cached image URLs
- */
-export function clearAllCachedImages(): void {
-  if (typeof window === 'undefined') return;
-
-  try {
-    // Find all keys starting with 'tripy_image_'
-    const keys = Object.keys(localStorage);
-    for (const key of keys) {
-      if (key.startsWith('tripy_image_')) {
-        localStorage.removeItem(key);
-      }
-    }
-    console.log('Cleared all cached image URLs');
-  } catch (_e) {
-    console.warn('Failed to clear cached images:', _e);
   }
 }

@@ -288,7 +288,7 @@ export default function TripDetails() {
                                     </div>
                                     <h3 className="text-lg font-bold text-slate-900 mb-2">Pending Payment</h3>
                                     <p className="text-slate-600 max-w-md mx-auto mb-6">
-                                        Complete payment to unlock your transfer strategy: where to transfer, which programs to use, how many points, and step-by-step booking instructions.
+                                        Complete payment to unlock your transfer strategy, including which partners to use, amounts, and step-by-step booking instructions.
                                     </p>
                                     <button
                                         onClick={() => router.push(trip.type === 'Group' ? `/group/booking?trip_id=${trip.id}` : `/solo/booking?trip_id=${trip.id}`)}
