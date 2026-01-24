@@ -54,7 +54,6 @@ from .handlers.openAI import (
     extract_trip_info_with_openai,
     search_cities_with_openai,
     search_airports_with_openai,
-    search_destinations_for_autocomplete,
 )
 
 # Get CORS origins from environment variable
@@ -930,13 +929,19 @@ async def locations_autocomplete(
     transport_modes: ["flight","bus","car"] or ["bus","car"] for ground-only.
     """
     try:
-        cities = search_destinations_for_autocomplete(q, max_results=limit)
+        cities = search_cities_with_openai(q, max_results=limit)
+        for c in cities:
+            if "transport_modes" not in c:
+                c["transport_modes"] = ["flight", "bus", "car"] if c.get("airport_code") else ["bus", "car"]
         return {"cities": cities}
     except Exception as e:
         logger.error(f"Error in locations_autocomplete for q='{q}': {e}", exc_info=True)
         # Fallback to city_service if OpenAI fails
         try:
             cities = city_service.search_cities_for_autocomplete(q, max_results=limit)
+            for c in cities:
+                if "transport_modes" not in c:
+                    c["transport_modes"] = ["flight", "bus", "car"] if c.get("airport_code") else ["bus", "car"]
             return {"cities": cities}
         except Exception as fallback_error:
             logger.error(f"Fallback city search also failed: {fallback_error}", exc_info=True)
