@@ -281,11 +281,11 @@ export default function SoloResults() {
 
                 // Helper: extract OOP/tips/relaxed from a response (get returns in items; generate can have top-level or in items)
                 const pickOop = (r: { items?: unknown[]; out_of_pocket?: OutOfPocketData }) =>
-                    (r.items?.find((i: ItineraryItem & { type?: string }) => i.type === 'out_of_pocket') as OutOfPocketData) || r.out_of_pocket || null;
+                    (r.items?.find((i: unknown) => (i as { type?: string })?.type === 'out_of_pocket') as OutOfPocketData | undefined) || r.out_of_pocket || null;
                 const pickOopHotels = (r: { items?: unknown[]; out_of_pocket_hotels?: OutOfPocketHotelsData }) =>
-                    (r.items?.find((i: ItineraryItem & { type?: string }) => i.type === 'out_of_pocket_hotels') as OutOfPocketHotelsData) || r.out_of_pocket_hotels || null;
+                    (r.items?.find((i: unknown) => (i as { type?: string })?.type === 'out_of_pocket_hotels') as OutOfPocketHotelsData | undefined) || r.out_of_pocket_hotels || null;
                 const pickRelaxed = (r: { items?: unknown[]; relaxed_message?: string }) => {
-                    const it = r.items?.find((i: ItineraryItem & { type?: string }) => i.type === 'itinerary_relaxed_info') as { message?: string } | undefined;
+                    const it = r.items?.find((i: unknown) => (i as { type?: string })?.type === 'itinerary_relaxed_info') as { message?: string } | undefined;
                     return (it && typeof it.message === 'string' ? it.message : null) || r.relaxed_message || null;
                 };
 
