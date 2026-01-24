@@ -227,17 +227,11 @@ export function DestinationAutocomplete({
             top: '100%',
             left: 0,
             right: 0,
-            zIndex: 10051,
+            zIndex: 10060,
             marginTop: '0.5rem',
             boxShadow: '0 10px 15px -3px rgba(0, 0, 0, 0.1), 0 4px 6px -2px rgba(0, 0, 0, 0.05)'
           }}
           onMouseDown={(e) => {
-            // Prevent blur event when clicking inside dropdown
-            e.preventDefault();
-            e.stopPropagation();
-          }}
-          onClick={(e) => {
-            // Prevent input blur when clicking in dropdown
             e.preventDefault();
             e.stopPropagation();
           }}
@@ -276,6 +270,12 @@ export function DestinationAutocomplete({
                 onMouseDown={(e) => {
                   e.preventDefault();
                   e.stopPropagation();
+                  handleSelect(city);
+                }}
+                onPointerDown={(e) => {
+                  e.preventDefault();
+                  e.stopPropagation();
+                  handleSelect(city);
                 }}
                 onClick={(e) => {
                   e.preventDefault();

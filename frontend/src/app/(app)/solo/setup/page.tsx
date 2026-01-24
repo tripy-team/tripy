@@ -734,8 +734,8 @@ export default function SoloTripSetup() {
               </div>
             </div>
 
-            {/* Cities */}
-            <div className="bg-white border border-slate-200 rounded-2xl p-8 shadow-sm">
+            {/* Cities - relative z-10 so autocomplete dropdown appears above section below */}
+            <div className="relative z-10 bg-white border border-slate-200 rounded-2xl p-8 shadow-sm">
               <div className="flex items-center gap-3 mb-6">
                 <div className="w-10 h-10 bg-blue-100 rounded-xl flex items-center justify-center">
                   <MapPin className="w-5 h-5 text-blue-600" />

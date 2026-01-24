@@ -268,9 +268,14 @@ export default function AirportAutocomplete({
         const airports: AirportSuggestion[] = [];
         for (const s of raw) {
           const list = s.airports || [];
+          const fallbackId = (s.id && /^[A-Za-z]{3}$/.test(String(s.id).trim()) && list.length === 1)
+            ? String(s.id).trim().toUpperCase()
+            : null;
           for (const a of list) {
-            const id = a.id?.trim();
+            let id = (a.id && String(a.id).trim()) || null;
+            if (!id && fallbackId) id = fallbackId;
             if (!id) continue;
+            id = id.toUpperCase();
             airports.push({
               airport_id: id,
               iata_code: id,
@@ -337,20 +342,14 @@ export default function AirportAutocomplete({
       {open && (list.length > 0 || isLoading) && (
         <div 
           className="absolute mt-2 w-full overflow-hidden rounded-xl border border-slate-200 bg-white shadow-lg"
-          style={{ zIndex: 10050 }}
+          style={{ zIndex: 10060 }}
           onMouseDown={(e) => {
-            // Prevent input blur when clicking in dropdown
             e.preventDefault();
             e.stopPropagation();
-            // Clear any pending blur timeout
             if (inputRef.current && (inputRef.current as any)._blurTimeout) {
               clearTimeout((inputRef.current as any)._blurTimeout);
               (inputRef.current as any)._blurTimeout = null;
             }
-          }}
-          onClick={(e) => {
-            // Prevent any click propagation issues
-            e.stopPropagation();
           }}
         >
           {showRecents && (
