@@ -46,6 +46,16 @@ interface OutOfPocketData {
     return_date?: string;
 }
 
+/** Hotel OOP from optimize_hotels_out_of_pocket: best_overall has out_of_pocket, cash, points, surcharge */
+interface OutOfPocketHotelsData {
+    best_by_cash?: { cash?: number; out_of_pocket?: number } | null;
+    best_by_points?: { surcharge?: number; out_of_pocket?: number } | null;
+    best_overall?: { out_of_pocket?: number; cash?: number; points?: number; surcharge?: number } | null;
+    destination?: string;
+    check_in?: string;
+    check_out?: string;
+}
+
 function OutOfPocketBlock({ data }: { data: OutOfPocketData }) {
     const best = data.best_overall;
     if (!best || (best.out_of_pocket == null && best.price == null && best.surcharge == null)) return null;
@@ -185,6 +195,7 @@ export default function SoloResults() {
     const [isAiSuggested, setIsAiSuggested] = useState(false);
     const [smartTips, setSmartTips] = useState<SmartTips>(emptySmartTips);
     const [outOfPocket, setOutOfPocket] = useState<OutOfPocketData | null>(null);
+    const [outOfPocketHotels, setOutOfPocketHotels] = useState<OutOfPocketHotelsData | null>(null);
     const [includeHotels, setIncludeHotels] = useState(true);
 
     useEffect(() => {
@@ -200,6 +211,7 @@ export default function SoloResults() {
                 setIsAiSuggested(false);
                 setSmartTips(emptySmartTips);
                 setOutOfPocket(null);
+                setOutOfPocketHotels(null);
                 const [response, trip] = await Promise.all([
                     itinerariesAPI.get(tripId),
                     tripsAPI.get(tripId).catch(() => null),
@@ -240,6 +252,14 @@ export default function SoloResults() {
                     setOutOfPocket(oopItem as OutOfPocketData);
                 } else {
                     setOutOfPocket(null);
+                }
+
+                // Hotel out-of-pocket (when trip has includeHotels): best cash vs points+surcharge
+                const oopHotelsItem = response.items?.find((i: ItineraryItem & { type?: string }) => i.type === 'out_of_pocket_hotels');
+                if (oopHotelsItem && typeof oopHotelsItem === 'object') {
+                    setOutOfPocketHotels(oopHotelsItem as OutOfPocketHotelsData);
+                } else {
+                    setOutOfPocketHotels(null);
                 }
 
                 // Fetch destinations to map UUIDs to names
@@ -595,24 +615,42 @@ export default function SoloResults() {
                                     <div>
                                         <div className="text-sm text-slate-600 mb-3 font-medium">Cost Breakdown</div>
                                         <div className="space-y-2 text-sm">
-                                            <div className="flex justify-between">
-                                                <span className="text-slate-600">Flights</span>
-                                                <span className="text-slate-900 font-medium">${Math.floor(selectedItinerary.totalCost * (includeHotels ? 0.4 : 0.65)).toLocaleString()}</span>
-                                            </div>
-                                            {includeHotels && (
-                                                <div className="flex justify-between">
-                                                    <span className="text-slate-600">Hotels</span>
-                                                    <span className="text-slate-900 font-medium">${Math.floor(selectedItinerary.totalCost * 0.35).toLocaleString()}</span>
-                                                </div>
-                                            )}
-                                            <div className="flex justify-between">
-                                                <span className="text-slate-600">Activities</span>
-                                                <span className="text-slate-900 font-medium">${Math.floor(selectedItinerary.totalCost * (includeHotels ? 0.25 : 0.35)).toLocaleString()}</span>
-                                            </div>
-                                            <div className="pt-2 border-t border-slate-200 flex justify-between font-semibold">
-                                                <span className="text-slate-900">Total</span>
-                                                <span className="text-slate-900">${selectedItinerary.totalCost.toLocaleString()}</span>
-                                            </div>
+                                            {(() => {
+                                                const flightsPart = selectedItinerary.totalCost * (includeHotels ? 0.4 : 0.65);
+                                                const hotelOop = includeHotels
+                                                    ? (outOfPocketHotels?.best_overall?.out_of_pocket ?? outOfPocketHotels?.best_overall?.cash)
+                                                    : null;
+                                                const hotelsPart = includeHotels
+                                                    ? (hotelOop ?? selectedItinerary.totalCost * 0.35)
+                                                    : 0;
+                                                const activitiesPart = selectedItinerary.totalCost * (includeHotels ? 0.25 : 0.35);
+                                                const total = flightsPart + hotelsPart + activitiesPart;
+                                                return (
+                                                    <>
+                                                        <div className="flex justify-between">
+                                                            <span className="text-slate-600">Flights</span>
+                                                            <span className="text-slate-900 font-medium">${Math.round(flightsPart).toLocaleString()}</span>
+                                                        </div>
+                                                        {includeHotels && (
+                                                            <div className="flex justify-between">
+                                                                <span className="text-slate-600">Hotels</span>
+                                                                <span className="text-slate-900 font-medium">
+                                                                    ${Math.round(hotelsPart).toLocaleString()}
+                                                                    {hotelOop != null && <span className="text-emerald-600 text-xs ml-1">(live)</span>}
+                                                                </span>
+                                                            </div>
+                                                        )}
+                                                        <div className="flex justify-between">
+                                                            <span className="text-slate-600">Activities</span>
+                                                            <span className="text-slate-900 font-medium">${Math.round(activitiesPart).toLocaleString()}</span>
+                                                        </div>
+                                                        <div className="pt-2 border-t border-slate-200 flex justify-between font-semibold">
+                                                            <span className="text-slate-900">Total</span>
+                                                            <span className="text-slate-900">${Math.round(total).toLocaleString()}</span>
+                                                        </div>
+                                                    </>
+                                                );
+                                            })()}
                                         </div>
                                     </div>
 

@@ -23,6 +23,9 @@ python-dateutil==2.9.0.post0
 amadeus
 Pillow>=10.0.0
 
+# Optimization (itinerary ILP)
+pulp>=2.7.0
+
 # SerpAPI (Google Flights, organic search), OpenAI, scraping
 google-search-results
 openai
