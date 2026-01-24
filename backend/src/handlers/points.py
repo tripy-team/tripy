@@ -21,6 +21,11 @@ def handler(event, context):
             out = points_service.trip_points_summary(body["trip_id"])
             return response(200, out)
 
+        if path.endswith("/points/valuations") and method == "GET":
+            get_fn = getattr(points_service, "get_valuations", None)
+            vals = get_fn() if callable(get_fn) else {}
+            return response(200, vals)
+
         return response(404, {"error": "Not found"})
     except ApiError as e:
         return response(e.status_code, {"error": e.message})

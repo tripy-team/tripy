@@ -200,6 +200,7 @@ export default function SoloResults() {
     const [outOfPocketHotels, setOutOfPocketHotels] = useState<OutOfPocketHotelsData | null>(null);
     const [includeHotels, setIncludeHotels] = useState(true);
     const [userConstraints, setUserConstraints] = useState<{ maxBudget?: number; totalPoints: number; durationLabel: string; includeHotels: boolean } | null>(null);
+    const [relaxedMessage, setRelaxedMessage] = useState<string | null>(null);
 
     useEffect(() => {
         const fetchItineraries = async () => {
@@ -216,6 +217,7 @@ export default function SoloResults() {
                 setOutOfPocket(null);
                 setOutOfPocketHotels(null);
                 setUserConstraints(null);
+                setRelaxedMessage(null);
                 const [response, trip, pointsRes] = await Promise.all([
                     itinerariesAPI.get(tripId),
                     tripsAPI.get(tripId).catch(() => null),
@@ -289,6 +291,10 @@ export default function SoloResults() {
                     setOutOfPocketHotels(null);
                 }
 
+                // Relaxed-constraints banner (when no feasible solution; we show a similar route)
+                const relaxedItem = response.items?.find((i: ItineraryItem & { type?: string }) => i.type === 'itinerary_relaxed_info');
+                setRelaxedMessage(relaxedItem && typeof (relaxedItem as { message?: string }).message === 'string' ? (relaxedItem as { message: string }).message : null);
+
                 // Fetch destinations to map UUIDs to names
                 const destinationsResponse = await destinations.list(tripId);
                 const destinationMap = new Map<string, string>();
@@ -296,17 +302,18 @@ export default function SoloResults() {
                     destinationMap.set(dest.destinationId, dest.name);
                 });
 
-                // Transform API response (exclude non-itinerary types: ai_route_suggestions, itinerary_smart_tips, out_of_pocket, out_of_pocket_hotels, path, payments, totals)
+                // Transform API response (exclude non-itinerary types: ai_route_suggestions, itinerary_smart_tips, out_of_pocket, out_of_pocket_hotels, payments, totals)
+                // Include 'path' (optimized ILP routes) and 'itinerary' (simple generator); path has route/path with airport codes
                 const regularItems = (response.items || []).filter(
                     (i: ItineraryItem & { type?: string }) => {
-                        if (['ai_route_suggestions', 'itinerary_smart_tips', 'out_of_pocket', 'out_of_pocket_hotels', 'path', 'payments', 'totals'].includes(i.type || '')) return false;
-                        const route = i.route || i.cities;
+                        if (['ai_route_suggestions', 'itinerary_smart_tips', 'itinerary_relaxed_info', 'out_of_pocket', 'out_of_pocket_hotels', 'payments', 'totals'].includes(i.type || '')) return false;
+                        const route = i.route || i.cities || (i as { path?: unknown }).path;
                         return Array.isArray(route) && route.length > 0;
                     }
                 );
                 if (regularItems.length > 0) {
                     let transformed: Itinerary[] = regularItems.map((item: ItineraryItem, index: number) => {
-                        const route = item.route || item.cities || [];
+                        const route = item.route || item.cities || (item as { path?: unknown }).path || [];
                         const cities = Array.isArray(route)
                             ? route.map((city: string | { name: string; days: number }) => {
                                 if (typeof city === 'string') {
@@ -487,6 +494,13 @@ export default function SoloResults() {
                         )}
                         <span className="text-slate-600">Duration: <strong className="text-slate-900">{userConstraints.durationLabel}</strong></span>
                         <span className="text-slate-600">Hotels: <strong className="text-slate-900">{userConstraints.includeHotels ? 'Included' : 'Not included'}</strong></span>
+                    </div>
+                )}
+
+                {relaxedMessage && (
+                    <div className="mb-6 p-4 bg-amber-50 border border-amber-200 rounded-xl flex items-start gap-3">
+                        <Info className="w-5 h-5 text-amber-600 flex-shrink-0 mt-0.5" />
+                        <p className="text-sm text-amber-900">{relaxedMessage}</p>
                     </div>
                 )}
 

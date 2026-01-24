@@ -52,7 +52,7 @@ function GroupBookingContent() {
         // Use first itinerary item for costs (exclude non-route types)
         const routeItem = (itineraryResponse.items || []).find(
           (i: { type?: string; route?: unknown; cities?: unknown }) => {
-            if (['ai_route_suggestions', 'itinerary_smart_tips', 'out_of_pocket', 'out_of_pocket_hotels', 'path', 'payments', 'totals'].includes(i.type || '')) return false;
+            if (['ai_route_suggestions', 'itinerary_smart_tips', 'itinerary_relaxed_info', 'out_of_pocket', 'out_of_pocket_hotels', 'path', 'payments', 'totals'].includes(i.type || '')) return false;
             const r = i.route || i.cities;
             return Array.isArray(r) && r.length > 0;
           }

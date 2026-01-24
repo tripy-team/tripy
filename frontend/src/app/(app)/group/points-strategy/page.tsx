@@ -11,7 +11,8 @@ interface Member {
     name: string;
     initials: string;
     totalPoints: number;
-    cards: Array<{ program: string; points: number }>;
+    totalValue: number;
+    cards: Array<{ program: string; points: number; value?: number; centsPerPoint?: number }>;
     budget: number;
 }
 
@@ -59,12 +60,15 @@ export default function GroupPointsStrategy() {
                     const userId = member.userId;
                     const initials = userId.substring(0, 2).toUpperCase();
                     
-                    // Get points for this user from points summary
+                    // Get points for this user from points summary (includes value, centsPerPoint from TPG)
                     const userPoints = pointsResponse.items?.filter((item: { userId?: string }) => item.userId === userId) || [];
                     const totalPoints = userPoints.reduce((sum: number, item: { balance?: number }) => sum + (item.balance || 0), 0);
-                    const cards = userPoints.map((item: { program?: string; balance?: number }) => ({
+                    const totalValue = userPoints.reduce((sum: number, item: { value?: number | null }) => sum + (item.value ?? 0), 0);
+                    const cards = userPoints.map((item: { program?: string; balance?: number; value?: number | null; centsPerPoint?: number | null }) => ({
                         program: item.program || 'Unknown',
                         points: item.balance || 0,
+                        value: item.value ?? undefined,
+                        centsPerPoint: item.centsPerPoint ?? undefined,
                     }));
                     
                     return {
@@ -72,6 +76,7 @@ export default function GroupPointsStrategy() {
                         name: `User ${index + 1}`, // TODO: Get actual user name from user service
                         initials: initials,
                         totalPoints: totalPoints,
+                        totalValue,
                         cards: cards,
                         budget: 5000, // TODO: Get from user profile or trip settings
                     };
@@ -357,6 +362,9 @@ export default function GroupPointsStrategy() {
                                                 <h3 className="text-lg mb-1">{member.name}</h3>
                                                 <div className="text-sm text-neutral-600">
                                                     {member.totalPoints.toLocaleString()} total points
+                                                    {member.totalValue > 0 && (
+                                                        <span className="ml-1 text-neutral-500">(≈ ${member.totalValue.toLocaleString(undefined, { maximumFractionDigits: 0 })} at TPG rates)</span>
+                                                    )}
                                                 </div>
                                             </div>
                                         </div>
@@ -386,6 +394,9 @@ export default function GroupPointsStrategy() {
                                                             <div className="text-right">
                                                                 <div className="text-sm font-semibold text-neutral-900">
                                                                     {card.points.toLocaleString()} pts
+                                                                    {card.value != null && card.value > 0 && (
+                                                                        <span className="block text-xs font-normal text-neutral-500">≈ ${card.value.toLocaleString(undefined, { maximumFractionDigits: 0 })}</span>
+                                                                    )}
                                                                 </div>
                                                             </div>
                                                         </div>

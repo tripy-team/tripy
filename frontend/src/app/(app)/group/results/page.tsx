@@ -201,7 +201,8 @@ export default function GroupResults() {
     const [outOfPocket, setOutOfPocket] = useState<OutOfPocketData | null>(null);
     const [outOfPocketHotels, setOutOfPocketHotels] = useState<OutOfPocketHotelsData | null>(null);
     const [includeHotels, setIncludeHotels] = useState(true);
-    const [userConstraints, setUserConstraints] = useState<{ maxBudget?: number; totalPoints: number; durationLabel: string; includeHotels: boolean } | null>(null);
+    const [userConstraints, setUserConstraints] = useState<{ maxBudget?: number; totalPoints: number; totalValue?: number; durationLabel: string; includeHotels: boolean } | null>(null);
+    const [relaxedMessage, setRelaxedMessage] = useState<string | null>(null);
 
     const stepIcon = (method: string) => {
         const m = (method || '').toLowerCase();
@@ -227,6 +228,7 @@ export default function GroupResults() {
                 setOutOfPocket(null);
                 setOutOfPocketHotels(null);
                 setUserConstraints(null);
+                setRelaxedMessage(null);
 
                 // Fetch group size, members, itineraries, and trip in parallel
                 const [membersResponse, pointsResponse, itineraryResponse, trip] = await Promise.all([
@@ -251,9 +253,11 @@ export default function GroupResults() {
                     durationLabel = `${t.durationDays} days (flexible)`;
                 }
                 const totalPts = typeof (pointsResponse as { totalPoints?: number })?.totalPoints === 'number' ? (pointsResponse as { totalPoints: number }).totalPoints : 0;
+                const totalVal = typeof (pointsResponse as { totalValue?: number })?.totalValue === 'number' ? (pointsResponse as { totalValue: number }).totalValue : undefined;
                 setUserConstraints({
                     maxBudget: t?.maxBudget != null && t.maxBudget > 0 ? t.maxBudget : undefined,
                     totalPoints: totalPts,
+                    totalValue: totalVal,
                     durationLabel,
                     includeHotels: incHotels,
                 });
@@ -323,6 +327,10 @@ export default function GroupResults() {
                     setOutOfPocketHotels(null);
                 }
 
+                // Relaxed-constraints banner (when no feasible solution; we show a similar route)
+                const relaxedItem = itineraryResponse.items?.find((i: ItineraryItem & { type?: string }) => i.type === 'itinerary_relaxed_info');
+                setRelaxedMessage(relaxedItem && typeof (relaxedItem as { message?: string }).message === 'string' ? (relaxedItem as { message: string }).message : null);
+
                 // Fetch destinations to map UUIDs to names
                 const destinationsResponse = await destinations.list(tripId);
                 const destinationMap = new Map<string, string>();
@@ -330,17 +338,17 @@ export default function GroupResults() {
                     destinationMap.set(dest.destinationId, dest.name);
                 });
 
-                // Filter to itinerary-style items (exclude path, payments, totals, etc.)
+                // Filter to itinerary-style items (exclude payments, totals, etc.). Include 'path' (optimized ILP routes) and 'itinerary' (simple generator).
                 const regularItems = (itineraryResponse.items || []).filter(
                     (i: ItineraryItem & { type?: string }) => {
-                        if (['ai_route_suggestions', 'itinerary_smart_tips', 'out_of_pocket', 'out_of_pocket_hotels', 'path', 'payments', 'totals'].includes(i.type || '')) return false;
-                        const route = i.route || i.cities;
+                        if (['ai_route_suggestions', 'itinerary_smart_tips', 'itinerary_relaxed_info', 'out_of_pocket', 'out_of_pocket_hotels', 'payments', 'totals'].includes(i.type || '')) return false;
+                        const route = i.route || i.cities || (i as { path?: unknown }).path;
                         return Array.isArray(route) && route.length > 0;
                     }
                 );
                 if (regularItems.length > 0) {
                     let transformed: Itinerary[] = regularItems.map((item: ItineraryItem, index: number) => {
-                        const route = item.route || item.cities || [];
+                        const route = item.route || item.cities || (item as { path?: unknown }).path || [];
                         const cities = Array.isArray(route)
                             ? route.map((city: string | { name: string; days: number }) => {
                                 if (typeof city === 'string') {
@@ -503,6 +511,13 @@ export default function GroupResults() {
                         )}
                         <span className="text-slate-600">Duration: <strong className="text-slate-900">{userConstraints.durationLabel}</strong></span>
                         <span className="text-slate-600">Hotels: <strong className="text-slate-900">{userConstraints.includeHotels ? 'Included' : 'Not included'}</strong></span>
+                    </div>
+                )}
+
+                {relaxedMessage && (
+                    <div className="mb-6 p-4 bg-amber-50 border border-amber-200 rounded-xl flex items-start gap-3">
+                        <Info className="w-5 h-5 text-amber-600 flex-shrink-0 mt-0.5" />
+                        <p className="text-sm text-amber-900">{relaxedMessage}</p>
                     </div>
                 )}
 

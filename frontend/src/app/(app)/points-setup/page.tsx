@@ -3,7 +3,7 @@
 import { useState, useEffect, useMemo } from 'react';
 import { useRouter } from 'next/navigation';
 import { CreditCard, Plus, X, Zap, TrendingUp, ArrowRight, Sparkles, ChevronDown, Building2, Plane, AlertTriangle } from 'lucide-react';
-import { users as usersAPI } from '@/lib/api';
+import { users as usersAPI, points as pointsAPI } from '@/lib/api';
 import { ALL_LOYALTY_PROGRAMS, getProgramCategory, isValidProgram, type ProgramCategory } from '@/lib/loyalty-programs';
 
 interface LoyaltyCard {
@@ -41,7 +41,13 @@ export default function PointsSetup() {
   const [programSearchQuery, setProgramSearchQuery] = useState('');
   const [isLoading, setIsLoading] = useState(true);
   const [isSaving, setIsSaving] = useState(false);
-  
+  const [valuations, setValuations] = useState<Record<string, number>>({});
+
+  // Fetch TPG market-rate valuations (cents per point)
+  useEffect(() => {
+    pointsAPI.valuations().then(setValuations).catch(() => {});
+  }, []);
+
   // Close dropdown when clicking outside
   useEffect(() => {
     const handleClickOutside = (event: MouseEvent) => {
@@ -81,6 +87,9 @@ export default function PointsSetup() {
   };
 
   const totalPoints = cards.reduce((sum, card) => sum + card.points, 0);
+  const totalValue = cards.length > 0 && Object.keys(valuations).length > 0
+    ? cards.reduce((sum, card) => sum + (card.points * ((valuations[card.program] ?? 0) / 100)), 0)
+    : null;
 
   // Load user profile on mount
   useEffect(() => {
@@ -334,9 +343,12 @@ export default function PointsSetup() {
                 </div>
 
                 <div className="mb-8">
-                  <div className="text-sm text-blue-100 mb-2">Total Points Value</div>
+                  <div className="text-sm text-blue-100 mb-2">Total Points</div>
                   <div className="text-5xl font-bold mb-1">{totalPoints.toLocaleString()}</div>
                   <div className="text-sm text-blue-100">points across {cards.length} program{cards.length !== 1 ? 's' : ''}</div>
+                  {totalValue != null && totalValue > 0 && (
+                    <div className="mt-2 text-sm text-blue-100">≈ ${totalValue.toLocaleString(undefined, { maximumFractionDigits: 0 })} at TPG market rates</div>
+                  )}
                 </div>
 
                 {cards.length > 0 && (

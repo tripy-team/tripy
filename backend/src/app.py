@@ -754,6 +754,18 @@ async def get_points_summary(
         raise HTTPException(status_code=500, detail=str(e))
 
 
+@app.get("/points/valuations")
+async def get_points_valuations(user_id: str = Depends(get_current_user_id)):
+    """Get market-rate cents per point (TPG valuations) for all known programs."""
+    try:
+        get_valuations_fn = getattr(points_service, "get_valuations", None)
+        vals = get_valuations_fn() if callable(get_valuations_fn) else {}
+        return vals
+    except Exception as e:
+        logger.error(f"Error getting points valuations: {str(e)}")
+        raise HTTPException(status_code=500, detail=str(e))
+
+
 # Itinerary endpoints (require authentication)
 @app.post("/itinerary/generate")
 async def generate_itinerary(
@@ -792,6 +804,9 @@ async def generate_itinerary(
             out["out_of_pocket"] = result.get("out_of_pocket")
         if result.get("out_of_pocket_hotels") is not None:
             out["out_of_pocket_hotels"] = result.get("out_of_pocket_hotels")
+        if result.get("relaxed_constraints"):
+            out["relaxed_constraints"] = True
+            out["relaxed_message"] = result.get("relaxed_message", "")
         return out
     except ValueError as e:
         # Fallback to simple itineraries (1-5 routes within budget/points) when optimization fails

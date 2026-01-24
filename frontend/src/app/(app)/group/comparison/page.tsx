@@ -51,7 +51,7 @@ export default function GroupComparison() {
 
                 const regularItems = (itineraryResponse.items || []).filter(
                     (i: ItineraryItem & { type?: string }) => {
-                        if (['ai_route_suggestions', 'itinerary_smart_tips', 'out_of_pocket', 'out_of_pocket_hotels', 'path', 'payments', 'totals'].includes(i.type || '')) return false;
+                        if (['ai_route_suggestions', 'itinerary_smart_tips', 'itinerary_relaxed_info', 'out_of_pocket', 'out_of_pocket_hotels', 'path', 'payments', 'totals'].includes(i.type || '')) return false;
                         const route = i.route || i.cities;
                         return Array.isArray(route) && route.length > 0;
                     }

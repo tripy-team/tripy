@@ -145,6 +145,7 @@ export class ApiStack extends Stack {
         // Points
         addRoute({ path: "/points/upsert", methods: [apigwv2.HttpMethod.POST], fn: pointsFn, protected: true });
         addRoute({ path: "/points/summary", methods: [apigwv2.HttpMethod.POST], fn: pointsFn, protected: true });
+        addRoute({ path: "/points/valuations", methods: [apigwv2.HttpMethod.GET], fn: pointsFn, protected: true });
 
         // Destinations
         addRoute({ path: "/destinations/add", methods: [apigwv2.HttpMethod.POST], fn: destFn, protected: true });

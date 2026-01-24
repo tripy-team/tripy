@@ -1,3 +1,4 @@
+import heapq
 import os
 import uuid
 import logging
@@ -396,6 +397,114 @@ def _validate_date(date_str: str, field_name: str = "date") -> None:
         if "must be today" in str(e) or "format is invalid" in str(e):
             raise
         raise ValueError(f"{field_name} format is invalid. Use YYYY-MM-DD format")
+
+
+def _best_effort_path_from_edges(
+    edges_dict: Dict[Tuple[str, str, str], Dict[str, Any]],
+    start_city_by_trav: Dict[str, str],
+    end_city_by_trav: Dict[str, str],
+    travelers: List[str],
+) -> Tuple[Optional[Dict[str, Any]], Optional[str]]:
+    """
+    Find the minimum cash-cost path from start to end in the graph.
+    Returns (solution_dict, message) or (None, None) if no path exists.
+    Used when ILP is infeasible to suggest a route that may exceed budget/points.
+    """
+    if not travelers:
+        return (None, None)
+    start = start_city_by_trav.get(travelers[0]) or ""
+    end = end_city_by_trav.get(travelers[0]) or ""
+    if not start or not end:
+        return (None, None)
+
+    # For each (i,j) keep the edge with minimum cash_cost
+    best: Dict[Tuple[str, str], Tuple[Tuple[str, str, str], float]] = {}
+    for (i, j, k), d in edges_dict.items():
+        try:
+            cost = float(d.get("cash_cost") or 1e7)
+        except (TypeError, ValueError):
+            cost = 1e7
+        if (i, j) not in best or cost < best[(i, j)][1]:
+            best[(i, j)] = ((i, j, k), cost)
+
+    adj: Dict[str, List[Tuple[str, float, Tuple[str, str, str]]]] = {}
+    for (i, j), (edge, cost) in best.items():
+        adj.setdefault(i, []).append((j, cost, edge))
+
+    # Dijkstra
+    INF = 10 ** 9
+    dist: Dict[str, float] = {start: 0.0}
+    parent: Dict[str, Tuple[str, Tuple[str, str, str]]] = {}
+    heap: List[Tuple[float, str]] = [(0.0, start)]
+    while heap:
+        d, u = heapq.heappop(heap)
+        if u == end:
+            break
+        if d > dist.get(u, INF):
+            continue
+        for v, cost, edge in adj.get(u, []):
+            nd = d + cost
+            if nd < dist.get(v, INF):
+                dist[v] = nd
+                parent[v] = (u, edge)
+                heapq.heappush(heap, (nd, v))
+
+    if end not in parent:
+        return (None, None)
+
+    # Recover path edges
+    path_edges: List[Tuple[str, str, str]] = []
+    cur = end
+    while cur in parent:
+        u, e = parent[cur]
+        path_edges.append(e)
+        cur = u
+    path_edges.reverse()
+    path_nodes = [start] + [e[1] for e in path_edges]
+
+    # Build pay_mode (all cash) and totals
+    total_cash = 0.0
+    total_time = 0.0
+    payer = travelers[0]
+    pay_list: List[Dict[str, Any]] = []
+    for e in path_edges:
+        d = edges_dict.get(e, {})
+        try:
+            cash = float(d.get("cash_cost") or 0)
+        except (TypeError, ValueError):
+            cash = 0.0
+        try:
+            total_time += float(d.get("time_cost") or 0)
+        except (TypeError, ValueError):
+            pass
+        total_cash += cash
+        pay_list.append({
+            "edge": [e[0], e[1], e[2]],
+            "type": "cash",
+            "payer": payer,
+            "fare": cash,
+        })
+
+    solution: Dict[str, Any] = {
+        "status": "Optimal",
+        "path": {t: list(path_nodes) for t in travelers},
+        "edges": {t: [[e[0], e[1], e[2]] for e in path_edges] for t in travelers},
+        "pay_mode": {t: list(pay_list) for t in travelers},
+        "totals": {
+            "airline_points": 0.0,
+            "cash": total_cash,
+            "time": total_time,
+            "points_value": 0.0,
+            "transfers": {q: {} for q in travelers},
+            "native_used": {q: {} for q in travelers},
+        },
+    }
+    msg = (
+        "No feasible solution within your budget and points. "
+        "Shown below is the lowest-cost route we found; it may exceed your limits. "
+        "Consider increasing your budget, adding more points, or reducing destinations/days."
+    )
+    return (solution, msg)
 
 
 def _save_and_return_ai_route_suggestions(
@@ -913,6 +1022,7 @@ async def generate_optimized_itinerary(trip_id: str) -> Dict[str, Any]:
     # plan_maximize_points_value (points_maximizer.py): maximizes cash saved by using points.
     # Objective: W1*points_value - W2*cash_paid - W3*time (W1=10^6, W2=10^3, W3=1; min 1 cpp).
     # When benefit_airlines is set, also adds W_benefit * bag_fee per passenger when payer's card gives free bags on that flight.
+    relaxed_message: Optional[str] = None
     try:
         solution = run_ilp_from_edges(
             edges_all,
@@ -936,13 +1046,68 @@ async def generate_optimized_itinerary(trip_id: str) -> Dict[str, Any]:
         status = solution.get("status", "Unknown")
         if status != "Optimal":
             if status == "Infeasible":
-                raise ValueError(
-                    "Optimization found no feasible solution. This may be due to: "
-                    "(1) Insufficient points for available routes, "
-                    "(2) No valid routes between destinations, "
-                    "(3) Budget constraints too tight. "
-                    "Please check your destinations, dates, and points balances."
-                )
+                relaxed_solution: Optional[Dict[str, Any]] = None
+                # 1) Retry with relaxed budget (2x, 3x, 5x, 10x) when user had a real budget
+                if max_budget is not None and max_budget > 0 and len(travelers) > 0:
+                    for mult in [2, 3, 5, 10]:
+                        try_budget = min(int(1e9), (max_budget * mult) // len(travelers))
+                        if try_budget <= default_cash_budget:
+                            continue
+                        try:
+                            sol_retry = run_ilp_from_edges(
+                                edges_all,
+                                travelers,
+                                start_city_by_trav,
+                                end_city_by_trav,
+                                user_points_by_trav,
+                                plan_maximize_points_value,
+                                meetup_cities=[],
+                                require_meetup_in_graph=False,
+                                transfer_graph=transfer_graph,
+                                transfer_bonuses={},
+                                bank_block_size=1000,
+                                allow_all_payers=True,
+                                default_cash_if_missing=1e7,
+                                default_time_if_missing=1e6,
+                                default_cash_budget=try_budget,
+                                benefit_airlines=benefit_airlines,
+                            )
+                            if sol_retry.get("status") == "Optimal" and any((sol_retry.get("path") or {}).values()):
+                                relaxed_solution = sol_retry
+                                tot = sol_retry.get("totals", {}).get("cash", 0) or 0
+                                relaxed_message = (
+                                    f"No feasible solution within your budget (${max_budget:,}). "
+                                    f"We relaxed the budget and found a route. Total cash: ${tot:,.0f}. "
+                                    "Consider increasing your budget or reducing destinations/days."
+                                )
+                                logger.info("Infeasible: found solution with relaxed budget %dx (try_budget=%s)", mult, try_budget)
+                                break
+                        except Exception as retry_err:
+                            logger.debug("Relaxed budget retry (mult=%s) failed: %s", mult, retry_err)
+                # 2) Best-effort: minimum cash path from graph (may exceed budget/points)
+                if relaxed_solution is None:
+                    relaxed_solution, relaxed_message = _best_effort_path_from_edges(
+                        edges_all, start_city_by_trav, end_city_by_trav, travelers
+                    )
+                # 3) Use relaxed solution or fall back to AI route suggestions
+                if relaxed_solution and any((relaxed_solution.get("path") or {}).values()):
+                    solution = relaxed_solution
+                    logger.info("Using relaxed/best-effort solution: %s", relaxed_message[:80] if relaxed_message else "")
+                else:
+                    logger.info(
+                        "No feasible solution and no path in graph; returning AI route suggestions for %s -> %s",
+                        start_dest_name or start_dest_code, end_dest_name or end_dest_code,
+                    )
+                    return _save_and_return_ai_route_suggestions(
+                        trip_id,
+                        start_dest_name or start_dest_code,
+                        end_dest_name or end_dest_code,
+                        cities,
+                        start_date,
+                        end_date,
+                        failed_routes=failed_routes,
+                        points_programs=list({p for u in user_points_by_trav.values() for p in u}),
+                    )
             elif status == "Unbounded":
                 logger.warning("Optimization is unbounded - this should not happen with proper constraints")
             else:
@@ -969,7 +1134,10 @@ async def generate_optimized_itinerary(trip_id: str) -> Dict[str, Any]:
     # Convert solution to itinerary format
     itinerary_items = []
     
-    # Save paths for each traveler
+    # Totals (needed for path item costs); solution["totals"] is populated by the optimizer
+    totals_for_path = solution.get("totals", {})
+
+    # Save paths for each traveler (include route, totalCost, pointsCost, name so frontend shows them as itineraries)
     for traveler_id, path in solution.get("path", {}).items():
         if path:
             item = {
@@ -978,6 +1146,10 @@ async def generate_optimized_itinerary(trip_id: str) -> Dict[str, Any]:
                 "type": "path",
                 "travelerId": traveler_id,
                 "path": path,
+                "route": path,  # frontend uses route/cities for display
+                "totalCost": int(totals_for_path.get("cash") or 0),
+                "pointsCost": int(totals_for_path.get("airline_points") or 0),
+                "name": "Optimized route",
             }
             itinerary_items.append(item)
     
@@ -1001,7 +1173,7 @@ async def generate_optimized_itinerary(trip_id: str) -> Dict[str, Any]:
             itinerary_items.append(item)
     
     # Save totals
-    totals = solution.get("totals", {})
+    totals = totals_for_path
     totals_item = {
         "tripId": trip_id,
         "itemId": "totals",
@@ -1078,6 +1250,19 @@ async def generate_optimized_itinerary(trip_id: str) -> Dict[str, Any]:
         itinerary_repo.put_item(oop_h_item)
         itinerary_items.append(oop_h_item)
 
+    # When we used relaxed budget or best-effort path, add an info item and flag the response
+    if relaxed_message:
+        relaxed_info = {
+            "tripId": trip_id,
+            "itemId": "itinerary_relaxed_info",
+            "type": "itinerary_relaxed_info",
+            "message": relaxed_message,
+            "original_budget": max_budget,
+            "suggested_cash": solution.get("totals", {}).get("cash"),
+        }
+        itinerary_repo.put_item(relaxed_info)
+        itinerary_items.append(relaxed_info)
+
     out: Dict[str, Any] = {
         "status": solution.get("status", "Unknown"),
         "solution": solution,
@@ -1086,4 +1271,7 @@ async def generate_optimized_itinerary(trip_id: str) -> Dict[str, Any]:
     }
     if oop_hotels_payload is not None:
         out["out_of_pocket_hotels"] = oop_hotels_payload
+    if relaxed_message:
+        out["relaxed_constraints"] = True
+        out["relaxed_message"] = relaxed_message
     return out

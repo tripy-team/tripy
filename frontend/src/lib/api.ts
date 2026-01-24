@@ -294,12 +294,18 @@ export interface PointsSummaryItem {
   program?: string;
   balance?: number;
   tripId?: string;
+  /** Market-rate dollar value (TPG) when available */
+  value?: number | null;
+  /** Cents per point from TPG when available */
+  centsPerPoint?: number | null;
   [key: string]: unknown; // Allow other fields from DynamoDB
 }
 
 export interface PointsSummary {
   tripId: string;
   totalPoints: number;
+  /** Total market-rate dollar value (TPG) when available */
+  totalValue?: number;
   items: PointsSummaryItem[];
 }
 
@@ -565,6 +571,11 @@ export const points = {
       method: 'POST',
       body: JSON.stringify({ trip_id }),
     });
+  },
+
+  /** Market-rate cents per point (TPG) for supported programs */
+  valuations: async (): Promise<Record<string, number>> => {
+    return apiRequest<Record<string, number>>('/points/valuations', { method: 'GET' });
   },
 };
 
