@@ -2,9 +2,10 @@
 
 import { useState, useEffect } from 'react';
 import { useRouter } from 'next/navigation';
-import { Users, MapPin, Calendar, DollarSign, Zap, Sparkles, CreditCard, X, Copy, Check, ArrowRight, MessageCircle, RefreshCw, Baby, User, Info, Plane, Backpack, Armchair, Coffee, Wine, Crown, BedDouble, Star } from 'lucide-react';
+import { Users, MapPin, Calendar, DollarSign, Zap, Sparkles, CreditCard, X, Copy, Check, ArrowRight, MessageCircle, RefreshCw, Baby, User, Info, Plane, Backpack, Armchair, Coffee, Wine, Crown, BedDouble, Star, SlidersHorizontal } from 'lucide-react';
 import { createTrip, addDestination, users as usersAPI, trips as tripsAPI, ExtractedTripInfo } from '@/lib/api';
 import TripChatbotInline from '@/components/trip-chatbot-inline';
+import PointsAllocation from '@/components/PointsAllocation';
 import { DestinationAutocomplete } from '@/components/ui/DestinationAutocomplete';
 import AirportAutocomplete from '@/components/ui/AirportAutocomplete';
 import DateRangePicker from '@/components/date-range-picker';
@@ -26,6 +27,8 @@ export default function GroupTripSetup() {
 
   // Credit Card State
   const [creditCards, setCreditCards] = useState<CreditCardEntry[]>([]);
+  const [pointsToUse, setPointsToUse] = useState<Record<string, number>>({}); // program -> points to use for this trip
+  const [showPointsAllocationModal, setShowPointsAllocationModal] = useState(false);
   
   // Date & Duration State
   const [isFlexible, setIsFlexible] = useState(false);
@@ -66,8 +69,9 @@ export default function GroupTripSetup() {
   const [isGenerating, setIsGenerating] = useState(false);
   const [error, setError] = useState<string | null>(null);
 
-  // Calculate total points
+  // Calculate total points; total allocated for this trip
   const totalPoints = creditCards.reduce((sum, card) => sum + card.points, 0);
+  const totalPointsToUse = creditCards.reduce((sum, card) => sum + (pointsToUse[card.program] ?? card.points), 0);
 
   // Scroll to top on mount and keep it at top
   useEffect(() => {
@@ -565,37 +569,64 @@ export default function GroupTripSetup() {
                 </div>
 
                 <div>
-                  {/* Credit Card List - Read Only / Remove Only */}
+                  {/* Credit Card List - click to allocate points */}
                   {creditCards.length > 0 && (
                     <div className="mt-4 space-y-3">
                       <div className="flex items-center justify-between">
                         <h3 className="text-sm text-slate-600 font-medium">Your Cards (Admin)</h3>
-                        <div className="flex items-center gap-1.5 text-sm">
-                          <Zap className="w-4 h-4 text-blue-600" />
-                          <span className="text-slate-900 font-medium">{totalPoints.toLocaleString()} total pts</span>
+                        <div className="flex items-center gap-2 text-sm">
+                          <button
+                            type="button"
+                            onClick={() => setShowPointsAllocationModal(true)}
+                            className="flex items-center gap-1.5 text-blue-600 hover:text-blue-700 font-medium"
+                          >
+                            <SlidersHorizontal className="w-4 h-4" />
+                            Allocate points
+                          </button>
+                          <span className="text-slate-400">·</span>
+                          <div className="flex items-center gap-1.5">
+                            <Zap className="w-4 h-4 text-blue-600" />
+                            <span className="text-slate-900 font-medium">{totalPointsToUse.toLocaleString()} to use</span>
+                          </div>
                         </div>
                       </div>
                       <div className="space-y-2">
-                        {creditCards.map(card => (
-                          <div
-                            key={card.id}
-                            className="flex items-center justify-between px-4 py-3 bg-blue-50 border border-blue-200 rounded-xl group hover:bg-blue-100 transition-colors"
-                          >
-                            <div className="flex items-center gap-3">
-                              <CreditCard className="w-4 h-4 text-blue-600" />
-                              <div>
-                                <div className="text-sm text-slate-900 font-medium">{card.program}</div>
-                                <div className="text-xs text-slate-600">{card.points.toLocaleString()} points</div>
+                        {creditCards.map(card => {
+                          const toUse = pointsToUse[card.program] ?? card.points;
+                          const isCustom = toUse !== card.points;
+                          return (
+                            <div
+                              key={card.id}
+                              role="button"
+                              tabIndex={0}
+                              onClick={() => setShowPointsAllocationModal(true)}
+                              onKeyDown={(e) => e.key === 'Enter' && setShowPointsAllocationModal(true)}
+                              className="flex items-center justify-between px-4 py-3 bg-blue-50 border border-blue-200 rounded-xl group hover:bg-blue-100 transition-colors cursor-pointer"
+                            >
+                              <div className="flex items-center gap-3">
+                                <CreditCard className="w-4 h-4 text-blue-600" />
+                                <div>
+                                  <div className="text-sm text-slate-900 font-medium">{card.program}</div>
+                                  <div className="text-xs text-slate-600">
+                                    {isCustom
+                                      ? `${toUse.toLocaleString()} of ${card.points.toLocaleString()} to use`
+                                      : `${card.points.toLocaleString()} points`}
+                                  </div>
+                                </div>
+                              </div>
+                              <div className="flex items-center gap-1">
+                                <SlidersHorizontal className="w-3.5 h-3.5 text-slate-400 opacity-0 group-hover:opacity-100" />
+                                <button
+                                  type="button"
+                                  onClick={(e) => { e.stopPropagation(); removeCreditCard(card.id); }}
+                                  className="opacity-0 group-hover:opacity-100 transition-opacity p-1 -m-1"
+                                >
+                                  <X className="w-4 h-4 text-slate-600 hover:text-slate-900" />
+                                </button>
                               </div>
                             </div>
-                            <button
-                              onClick={() => removeCreditCard(card.id)}
-                              className="opacity-0 group-hover:opacity-100 transition-opacity"
-                            >
-                              <X className="w-4 h-4 text-slate-600 hover:text-slate-900" />
-                            </button>
-                          </div>
-                        ))}
+                          );
+                        })}
                       </div>
                     </div>
                   )}
@@ -778,8 +809,8 @@ export default function GroupTripSetup() {
               </div>
             </div>
 
-            {/* Start and End Destinations */}
-            <div className="bg-white border border-slate-200 rounded-2xl p-8 shadow-sm mb-6">
+            {/* Start and End Destinations - z-50 so route autocomplete appears above Destinations section */}
+            <div className="relative z-50 bg-white border border-slate-200 rounded-2xl p-8 shadow-sm mb-6">
               <div className="flex items-center gap-3 mb-6">
                 <div className="w-10 h-10 bg-blue-100 rounded-xl flex items-center justify-center">
                   <MapPin className="w-5 h-5 text-blue-600" />
@@ -835,6 +866,9 @@ export default function GroupTripSetup() {
                     <span className="text-sm text-slate-600 group-hover:text-slate-900 transition-colors">Start and end at same location</span>
                   </label>
                 </div>
+                <p className="col-span-2 text-xs text-slate-500">
+                  Small and regional airports (e.g. ITH, BGM) are supported. We include connecting flights and different airlines when needed.
+                </p>
               </div>
             </div>
 
@@ -945,6 +979,12 @@ export default function GroupTripSetup() {
                             : 'Not set'}
                         </span>
                       </div>
+                      {creditCards.length > 0 && (
+                        <div className="flex justify-between">
+                          <span className="text-blue-100">Points to use</span>
+                          <span>{totalPointsToUse.toLocaleString()}</span>
+                        </div>
+                      )}
                     </div>
                   </div>
                 </div>
@@ -1053,6 +1093,36 @@ export default function GroupTripSetup() {
                     <ArrowRight className="w-5 h-5" />
                 </button>
             </div>
+        </div>
+      )}
+
+      {/* Points Allocation Modal */}
+      {showPointsAllocationModal && creditCards.length > 0 && (
+        <div className="fixed inset-0 bg-black/60 backdrop-blur-sm flex items-center justify-center z-50 p-4" onClick={() => setShowPointsAllocationModal(false)}>
+          <div className="bg-white rounded-2xl shadow-2xl max-w-2xl w-full max-h-[90vh] flex flex-col animate-in fade-in zoom-in duration-200" onClick={(e) => e.stopPropagation()}>
+            <div className="p-6 border-b border-slate-200 flex-shrink-0">
+              <h2 className="text-xl font-bold text-slate-900">Allocate points for this trip</h2>
+              <p className="text-sm text-slate-600 mt-1">Choose how many points to use from each card. Default is use all.</p>
+            </div>
+            <div className="overflow-y-auto flex-1 p-6">
+              <PointsAllocation
+                availablePoints={creditCards.map(c => ({ program: c.program, points: c.points, id: c.id }))}
+                allocatedPoints={Object.fromEntries(creditCards.map(c => [c.program, pointsToUse[c.program] ?? c.points]))}
+                onAllocationChange={(allocations) => setPointsToUse(allocations)}
+                maxTotalPoints={estimatedPoints > 0 ? estimatedPoints : undefined}
+                showCategoryIcons
+              />
+            </div>
+            <div className="p-6 border-t border-slate-200 flex-shrink-0">
+              <button
+                type="button"
+                onClick={() => setShowPointsAllocationModal(false)}
+                className="w-full py-3 bg-blue-600 text-white rounded-xl hover:bg-blue-700 transition-colors font-semibold"
+              >
+                Done
+              </button>
+            </div>
+          </div>
         </div>
       )}
     </div>

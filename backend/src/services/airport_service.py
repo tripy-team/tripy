@@ -239,13 +239,11 @@ def search_airports(query: str, max_results: int = 10) -> List[Dict[str, Any]]:
         if is_airport_code:
             # Try direct airport code search
             airports = search_airports_with_openai(query_normalized.upper(), max_results=max_results)
-            # Filter for commercial airports
-            commercial_set = _get_commercial_airport_set()
-            if commercial_set:
-                airports = [a for a in airports if a.get("iata_code", "").upper() in commercial_set]
-            
+            # Do NOT filter by commercial_set for explicit IATA queries: SerpAPI and AwardTool
+            # support small/regional airports (e.g. ITH, BGM) with multistop and multi-airline;
+            # filtering here would hide them in autocomplete.
             if airports:
-                logger.info(f"Found {len(airports)} commercial airports for code '{query_normalized}'")
+                logger.info(f"Found {len(airports)} airports for code '{query_normalized}' (small airports allowed)")
                 return airports[:max_results]
         
         # For city queries, use the city-based search
@@ -279,9 +277,10 @@ def search_airports(query: str, max_results: int = 10) -> List[Dict[str, Any]]:
         scored_airports = []
         for airport in airports:
             iata_code = airport.get("iata_code", "")
-            if commercial_set and iata_code not in commercial_set:
+            # For explicit IATA queries, skip commercial filter so small airports (e.g. ITH) are findable
+            if commercial_set and not is_airport_code and iata_code not in commercial_set:
                 continue
-            
+
             score = score_airport(airport, query_normalized_upper)
             if score > 0:
                 scored_airports.append((score, airport))

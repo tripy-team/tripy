@@ -470,8 +470,13 @@ def generate_optimized_itinerary(trip_id: str) -> Dict[str, Any]:
     
     # 6. Fetch flight edges using airport codes
     # Build all possible routes: start -> city1 -> city2 -> ... -> end
-    all_cities = [start_dest_code] + city_codes + ([end_dest_code] if end_dest_code != start_dest_code else [])
-    all_cities = list(dict.fromkeys(all_cities))  # Remove duplicates while preserving order
+    # For round-trip (start==end with cities), include the return leg so we fetch e.g. ITH->CDG and CDG->ITH
+    all_cities = [start_dest_code] + city_codes
+    if end_dest_code != start_dest_code or city_codes:
+        all_cities = all_cities + [end_dest_code]
+    # Deduplicate only when not a round-trip (avoid collapsing ITH->CDG->ITH into ITH->CDG)
+    if not (len(all_cities) > 1 and all_cities[0] == all_cities[-1]):
+        all_cities = list(dict.fromkeys(all_cities))
     
     if len(all_cities) < 2:
         raise ValueError(
@@ -515,8 +520,10 @@ def generate_optimized_itinerary(trip_id: str) -> Dict[str, Any]:
         if not combined_points:
             combined_points = {}
         
+        # Use end_date for return legs (back to origin) so we search the correct date
+        leg_date = end_date.strip() if (dest == start_dest_code and end_date) else start_date.strip()
         filters = {
-            "outbound_date": start_date.strip(),
+            "outbound_date": leg_date,
             "travel_class": "economy",
             # Don't restrict stops - allow multistop flights from the start
             # This allows nonstop, 1-stop, 2-stop, and more connections
