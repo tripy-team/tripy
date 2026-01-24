@@ -758,6 +758,7 @@ export interface UserProfile {
   timezone?: string;
   min_budget?: number;
   max_budget?: number;
+  cash_saved?: number;
   credit_cards?: Array<{
     id: string;
     program: string;

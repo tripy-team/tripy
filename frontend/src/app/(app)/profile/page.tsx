@@ -19,7 +19,7 @@ interface ProfileSummary {
   email?: string;
   default_home_airport?: string;
   timezone?: string;
-  max_budget?: number | null;
+  cash_saved?: number | null;
 }
 
 export default function ProfilePage() {
@@ -37,7 +37,7 @@ export default function ProfilePage() {
           email: p.email,
           default_home_airport: p.default_home_airport,
           timezone: p.timezone,
-          max_budget: p.max_budget ?? null,
+          cash_saved: p.cash_saved ?? null,
         });
       } catch (e) {
         console.error('Error loading profile:', e);
@@ -134,12 +134,12 @@ export default function ProfilePage() {
                     </div>
                     <div>
                       <div className="text-xs font-semibold text-slate-500 uppercase tracking-wide">
-                        Max budget
+                        Cash saved
                       </div>
                       <div className="text-sm font-medium text-slate-900">
-                        {profile?.max_budget
-                          ? `$${profile.max_budget.toLocaleString()}`
-                          : 'Not set'}
+                        {profile?.cash_saved
+                          ? `$${profile.cash_saved.toLocaleString()}`
+                          : '$0'}
                       </div>
                     </div>
                   </div>
@@ -240,11 +240,11 @@ export default function ProfilePage() {
                     </span>
                   </li>
                   <li className="flex items-center justify-between">
-                    <span className="text-slate-500">Max budget</span>
+                    <span className="text-slate-500">Cash saved</span>
                     <span className="font-medium text-slate-900">
-                      {profile?.max_budget
-                        ? `$${profile.max_budget.toLocaleString()}`
-                        : 'Not set'}
+                      {profile?.cash_saved
+                        ? `$${profile.cash_saved.toLocaleString()}`
+                        : '$0'}
                     </span>
                   </li>
                 </ul>
@@ -258,8 +258,9 @@ export default function ProfilePage() {
                   </h3>
                 </div>
                 <p className="text-sm text-blue-50">
-                  Keep your home airport and budget up to date so Tripy can suggest the
-                  most realistic and valuable itineraries for you.
+                  Keep your home airport up to date so Tripy can suggest the
+                  most realistic and valuable itineraries. Track your cash saved by using
+                  points instead of paying full price!
                 </p>
               </div>
             </div>

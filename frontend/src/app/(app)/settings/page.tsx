@@ -28,8 +28,6 @@ export default function SettingsPage() {
   const [email, setEmail] = useState('');
   const [defaultHomeAirport, setDefaultHomeAirport] = useState('');
   const [timezone, setTimezone] = useState('America/Los_Angeles');
-  const [maxBudget, setMaxBudget] = useState<number | ''>('');
-  const [budgetError, setBudgetError] = useState('');
 
   // Travel preferences
   const [preferredCurrency, setPreferredCurrency] = useState('USD');
@@ -59,7 +57,6 @@ export default function SettingsPage() {
         setEmail(profile.email || '');
         setDefaultHomeAirport(profile.default_home_airport || '');
         setTimezone(profile.timezone || 'America/Los_Angeles');
-        setMaxBudget(profile.max_budget || '');
       } catch (error) {
         console.error('Error loading profile:', error);
       } finally {
@@ -71,13 +68,6 @@ export default function SettingsPage() {
   }, []);
 
   const handleSaveGeneral = async () => {
-    // Validate budget
-    setBudgetError('');
-    if (maxBudget !== '' && (typeof maxBudget !== 'number' || maxBudget < 0)) {
-      setBudgetError('Maximum budget must be a positive number');
-      return;
-    }
-
     try {
       setIsSaving(true);
       setSaveSuccess(false);
@@ -86,7 +76,6 @@ export default function SettingsPage() {
         name: name || undefined,
         default_home_airport: defaultHomeAirport || undefined,
         timezone: timezone || undefined,
-        max_budget: maxBudget === '' ? undefined : Number(maxBudget),
       };
 
       await usersAPI.updateProfile(updates);
@@ -293,30 +282,6 @@ export default function SettingsPage() {
                               <option value="Australia/Sydney">Sydney (AEDT)</option>
                             </select>
                           </div>
-                        </div>
-
-                        <div className="space-y-2">
-                          <label htmlFor="maxBudget" className="block text-sm font-medium text-slate-700">Maximum Budget ($)</label>
-                          <input
-                            id="maxBudget"
-                            type="number"
-                            value={maxBudget}
-                            onChange={(e) => {
-                              const val = e.target.value ? Number(e.target.value) : '';
-                              setMaxBudget(val);
-                              setBudgetError('');
-                              if (val !== '' && (typeof val !== 'number' || val < 0)) {
-                                setBudgetError('Maximum budget must be a positive number');
-                              }
-                            }}
-                            className={`w-full px-4 py-3 bg-white border rounded-xl focus:outline-none focus:ring-2 focus:ring-blue-600 focus:border-transparent ${
-                              budgetError ? 'border-red-500' : 'border-slate-200'
-                            }`}
-                            placeholder="0"
-                          />
-                          {budgetError && (
-                            <p className="mt-1 text-sm text-red-600">{budgetError}</p>
-                          )}
                         </div>
 
                         <div className="flex justify-end pt-4 gap-3">
