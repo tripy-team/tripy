@@ -2,7 +2,7 @@
 
 import { useState, useEffect } from 'react';
 import { useRouter, useSearchParams } from 'next/navigation';
-import { MapPin, DollarSign, Clock, Zap, Edit3, Check, Sparkles, TrendingUp, Plane, Car, Bus, Train, Navigation, Calendar, Info } from 'lucide-react';
+import { MapPin, DollarSign, Clock, Zap, Edit3, Check, Sparkles, TrendingUp, Plane, Car, Bus, Train, Navigation, Calendar, Info, Bed, ChevronRight, Lock } from 'lucide-react';
 import { itineraries as itinerariesAPI, trips as tripsAPI, points as pointsAPI, ItineraryItem, destinations, type Trip } from '@/lib/api';
 import { tripDurationDays } from '@/lib/utils';
 
@@ -550,8 +550,12 @@ export default function SoloResults() {
                         {itineraries.map((itinerary) => (
                             <div
                                 key={itinerary.id}
-                                className={`bg-white border-2 rounded-2xl overflow-hidden transition-all shadow-sm ${selectedId === itinerary.id
-                                    ? 'border-blue-600 shadow-lg shadow-blue-600/10'
+                                role="button"
+                                tabIndex={0}
+                                onClick={() => setSelectedId(itinerary.id)}
+                                onKeyDown={(e) => { if (e.key === 'Enter' || e.key === ' ') { e.preventDefault(); setSelectedId(itinerary.id); } }}
+                                className={`bg-white border-2 rounded-2xl overflow-hidden transition-all shadow-sm cursor-pointer ${selectedId === itinerary.id
+                                    ? 'border-blue-600 shadow-lg shadow-blue-600/10 ring-2 ring-blue-600/20'
                                     : 'border-slate-200 hover:border-blue-300'
                                     }`}
                             >
@@ -584,7 +588,7 @@ export default function SoloResults() {
                                             </div>
                                         </div>
 
-                                        <div className="flex flex-wrap items-center gap-2">
+                                        <div className="flex flex-wrap items-center gap-2" onClick={(e) => e.stopPropagation()}>
                                             {/* Budget & points: show warnings when over, or a single "Fits" when both within */}
                                             {itinerary.withinBudget === false && (
                                                 <span className="px-2.5 py-1 bg-amber-100 text-amber-800 rounded-full text-xs font-medium">Over budget</span>
@@ -635,7 +639,7 @@ export default function SoloResults() {
                                                     </div>
 
                                                     {editingId === itinerary.id && (
-                                                        <div className="flex items-center gap-3">
+                                                        <div className="flex items-center gap-3" onClick={(e) => e.stopPropagation()}>
                                                             <input
                                                                 type="range"
                                                                 min="1"
@@ -685,24 +689,29 @@ export default function SoloResults() {
 
                                     {/* Select Button */}
                                     <button
-                                        onClick={async () => {
+                                        onClick={(e) => {
+                                            e.stopPropagation();
                                             setSelectedId(itinerary.id);
-                                            // TODO: Save selected itinerary to backend
-                                            // Endpoint: POST /itinerary/save (may need to be added)
-                                            // Data: trip_id, itinerary_id/route_id
                                         }}
                                         className={`w-full mt-4 px-6 py-3 rounded-xl transition-all font-medium ${selectedId === itinerary.id
                                             ? 'bg-blue-600 text-white shadow-sm'
                                             : 'bg-slate-100 text-slate-900 hover:bg-slate-200'
                                             }`}
                                     >
-                                        {selectedId === itinerary.id ? 'Selected' : 'Select This Route'}
+                                        {selectedId === itinerary.id ? (
+                                            <span className="flex items-center justify-center gap-2">
+                                                <Check className="w-5 h-5" /> Selected
+                                            </span>
+                                        ) : (
+                                            'Select This Route'
+                                        )}
                                     </button>
 
                                     {/* Book Button - Show when selected */}
                                     {selectedId === itinerary.id && (
                                         <button
-                                            onClick={() => {
+                                            onClick={(e) => {
+                                                e.stopPropagation();
                                                 router.push(`/solo/booking${tripId ? `?trip_id=${tripId}` : ''}`);
                                             }}
                                             className="w-full mt-3 px-6 py-3 bg-yellow-400 text-slate-900 rounded-xl hover:bg-yellow-500 transition-colors shadow-lg shadow-yellow-400/20 font-semibold"
@@ -722,13 +731,46 @@ export default function SoloResults() {
                                 <h3 className="text-xl mb-6 text-slate-900 font-semibold">Selected Route</h3>
 
                                 <div className="space-y-6">
+                                    {/* Basic itinerary: where you'll stay (freemium teaser) */}
                                     <div>
-                                        <div className="text-sm text-slate-600 mb-3 font-medium">Route Visualization</div>
-                                        <div className="h-40 bg-blue-50 rounded-xl flex items-center justify-center border border-blue-100">
-                                            <div className="text-center text-blue-400">
-                                                <MapPin className="w-8 h-8 mx-auto mb-2" />
-                                                <p className="text-sm">Map visualization</p>
-                                            </div>
+                                        <div className="text-sm text-slate-600 mb-3 font-medium flex items-center gap-2">
+                                            <Bed className="w-4 h-4" />
+                                            Where you&apos;ll stay
+                                        </div>
+                                        <ul className="space-y-2">
+                                            {selectedItinerary.cities.map((city, i) => (
+                                                <li key={i} className="flex items-center gap-2 text-sm">
+                                                    <span className="w-6 h-6 rounded-full bg-blue-100 text-blue-700 flex items-center justify-center text-xs font-semibold flex-shrink-0">
+                                                        {i + 1}
+                                                    </span>
+                                                    <span className="text-slate-900 font-medium">{city.name}</span>
+                                                    <span className="text-slate-500">· {city.days} night{city.days !== 1 ? 's' : ''}</span>
+                                                    {includeHotels && (
+                                                        <span className="text-slate-400 text-xs ml-1">(accommodation included)</span>
+                                                    )}
+                                                </li>
+                                            ))}
+                                        </ul>
+                                        <div className="mt-3 flex items-start gap-2 p-2.5 bg-slate-50 rounded-lg border border-slate-100">
+                                            <Lock className="w-3.5 h-3.5 text-slate-400 flex-shrink-0 mt-0.5" />
+                                            <p className="text-xs text-slate-600">
+                                                Unlock day-by-day plan and hotel picks when you book.
+                                            </p>
+                                        </div>
+                                    </div>
+
+                                    {/* Route order */}
+                                    <div>
+                                        <div className="text-sm text-slate-600 mb-2 font-medium">Route</div>
+                                        <div className="flex flex-wrap items-center gap-1.5 text-sm text-slate-700">
+                                            {selectedItinerary.cities.map((c, i) => (
+                                                <span key={i} className="flex items-center gap-1.5">
+                                                    <span>{c.name}</span>
+                                                    {i < selectedItinerary.cities.length - 1 && (
+                                                        <ChevronRight className="w-4 h-4 text-slate-400" />
+                                                    )}
+                                                </span>
+                                            ))}
                                         </div>
                                     </div>
 
