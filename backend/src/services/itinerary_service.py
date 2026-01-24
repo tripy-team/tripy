@@ -1303,12 +1303,17 @@ async def generate_optimized_itinerary(trip_id: str) -> Dict[str, Any]:
     totals_for_path = solution.get("totals", {})
 
     # Save paths for each traveler (include route, totalCost, pointsCost, name so frontend shows them as itineraries)
-    # Start/end are where dates start/end (like an airline ticket); only "stays" get days. path = [origin, ...stays..., (maybe return)].
+    # Origin = where you depart on start date; end = where you arrive on end date (like an airline ticket). Neither get stay days.
+    # Stays = only the middle cities where you have overnight stays. Exception: A→B (2 nodes) — you stay at B.
     total_days = _parse_trip_duration_days(trip)
     for traveler_id, path in solution.get("path", {}).items():
         if path:
-            # Stays = path excluding origin. For round-trip (path[0]==path[-1]) also exclude the return to origin.
-            stays = path[1:-1] if (len(path) > 2 and path[0] == path[-1]) else path[1:]
+            if len(path) > 2:
+                stays = path[1:-1]  # exclude origin and end; only middle cities get stay days
+            elif len(path) == 2:
+                stays = [path[1]]   # A→B: end is the only stop, you stay there for the whole trip
+            else:
+                stays = []
             if stays:
                 num = len(stays)
                 base = max(1, total_days // num)
