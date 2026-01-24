@@ -1,3 +1,4 @@
+import os
 import uuid
 import logging
 import re
@@ -520,14 +521,16 @@ def generate_optimized_itinerary(trip_id: str) -> Dict[str, Any]:
         filters = {
             "outbound_date": leg_date,
             "travel_class": "economy",
-            # Don't restrict stops - allow multistop flights from the start
             "bags": 1,
             "pax": len(travelers),
-            "award_programs": get_award_programs_for_api(),  # All commercial airlines
+            "award_programs": get_award_programs_for_api(),
         }
-        
+
+        serp_ok = "set" if os.getenv("SERPAPI_KEY") else "missing"
+        award_ok = "set" if os.getenv("AWARD_TOOL_API_KEY") else "missing"
+        logger.info("fetch_flights [%s]->[%s] date=%s pax=%s SERPAPI_KEY=%s AWARD_TOOL_API_KEY=%s", origin, dest, leg_date, len(travelers), serp_ok, award_ok)
+
         try:
-            # Try award-first strategy first
             edges = get_flights_award_first_with_points(
                 origin, dest, combined_points, filters
             )
@@ -546,13 +549,21 @@ def generate_optimized_itinerary(trip_id: str) -> Dict[str, Any]:
             if edges:
                 edges_all.update(edges)
                 successful_routes += 1
-                logger.info(f"Fetched {len(edges)} flight edges from {origin} to {dest}")
+                logger.info("Fetched %d flight edges from %s to %s", len(edges), origin, dest)
             else:
                 failed_routes.append(f"{origin} -> {dest}")
-                logger.warning(f"No flight edges found from {origin} to {dest} after trying all strategies")
+                logger.warning(
+                    "No flight edges from %s to %s date=%s after award-first and SERP-first. "
+                    "Check flights.SERP and flights.AwardTool logs for response details.",
+                    origin, dest, leg_date,
+                )
         except Exception as e:
             failed_routes.append(f"{origin} -> {dest}")
-            logger.warning(f"Error fetching flights from {origin} to {dest}: {e}", exc_info=True)
+            logger.warning(
+                "Error fetching flights from %s to %s date=%s: %s. "
+                "Check flights.SERP and flights.AwardTool logs.",
+                origin, dest, leg_date, e, exc_info=True,
+            )
             # Try SERP-first as fallback even on exception
             try:
                 logger.info(f"Trying SERP-first fallback after exception for {origin} -> {dest}")
@@ -569,13 +580,15 @@ def generate_optimized_itinerary(trip_id: str) -> Dict[str, Any]:
             continue
     
     if not edges_all:
-        # Provide helpful error message - small airports are supported by external APIs
+        # Small airports (e.g. ITH) are supported; no results can be due to dates, route, or API.
         error_msg = (
             f"No flight edges found for any route. "
             f"Failed routes: {', '.join(failed_routes) if failed_routes else 'all routes'}. "
-            f"Please check: (1) Airport codes are valid IATA codes (e.g., JFK, CDG, ITH), "
-            f"(2) Dates are in the future, (3) Routes exist between destinations. "
-            f"Note: Small airports are supported - the search includes multistop flights which may connect through major hubs."
+            f"Please check: (1) Airport codes are valid IATA (e.g. JFK, CDG, ITH), "
+            f"(2) Dates are in the future, (3) Routes exist. "
+            f"Small airports are supported (multistop via hubs). "
+            f"If you use a small airport (e.g. ITH), try a nearby major as departure instead (e.g. SYR or EWR) if you're flexible. "
+            f"If the problem continues, the flight search may be temporarily unavailable—try again later."
         )
         raise ValueError(error_msg)
     
@@ -583,8 +596,9 @@ def generate_optimized_itinerary(trip_id: str) -> Dict[str, Any]:
         raise ValueError(
             f"Failed to fetch flights for all routes. "
             f"Failed: {', '.join(failed_routes)}. "
-            f"Please verify airport codes are valid IATA codes and dates are correct. "
-            f"Small airports are supported - multistop flights may be available through connecting hubs."
+            f"Check airport codes (IATA, e.g. JFK, CDG, ITH), dates (future), and that routes exist. "
+            f"Small airports are supported. For a small airport, try a nearby major (e.g. SYR or EWR for Ithaca) if flexible. "
+            f"If it persists, the flight search may be unavailable—try again later."
         )
     
     if failed_routes:

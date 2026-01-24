@@ -1,7 +1,10 @@
 # backend/flights.py  (fast path: Panorama prune → single RT AwardTool → single SERP route)
+import logging
 import os, re, json, math, asyncio
 import httpx
 from dotenv import load_dotenv
+
+logger = logging.getLogger(__name__)
 from src.utils.cache_layer import get_json, set_json
 from src.data.award_programs import get_award_programs_for_api
 from .award_calendar import (
@@ -121,18 +124,38 @@ async def serp_route(origin, destination, date_str, filters, client):
     if (filters or {}).get("max_price") is not None:
         params["max_price"] = filters["max_price"]
 
+    if not SERPAPI_KEY:
+        logger.warning("SERPAPI_KEY not set; SERP request for [%s]->[%s] may fail", origin, destination)
+
     k = key_serp(
         origin, destination, date_str, tclass, params.get("stops"), params.get("bags")
     )
     cached = get_json(k)
     if cached:
+        logger.debug("SERP [%s]->[%s] date=%s: cache hit", origin, destination, date_str)
         return cached
 
-    r = await client.get(
-        "https://serpapi.com/search.json", params=params, timeout=TIMEOUT
-    )
-    r.raise_for_status()
-    body = r.json()
+    logger.info("SERP [%s]->[%s] date=%s: requesting (type=%s, travel_class=%s)", origin, destination, date_str, params.get("type"), tclass)
+    try:
+        r = await client.get(
+            "https://serpapi.com/search.json", params=params, timeout=TIMEOUT
+        )
+        r.raise_for_status()
+        body = r.json()
+    except httpx.HTTPStatusError as e:
+        err_body = (e.response.text or "")[:500]
+        logger.warning("SERP [%s]->[%s] date=%s: HTTP %s, body=%s", origin, destination, date_str, e.response.status_code, err_body)
+        raise
+    except Exception as e:
+        logger.warning("SERP [%s]->[%s] date=%s: %s", origin, destination, date_str, e)
+        raise
+
+    meta = body.get("search_metadata") or {}
+    status = meta.get("status", "?")
+    best = body.get("best_flights") or []
+    other = body.get("other_flights") or []
+    err = body.get("error") or meta.get("error")
+    logger.info("SERP [%s]->[%s] date=%s: status=%s, best_flights=%d, other_flights=%d%s", origin, destination, date_str, status, len(best), len(other), f", error={err}" if err else "")
     set_json(k, body, TTL_SERP)
     return body
 
@@ -144,34 +167,25 @@ def serp_route_to_leg_map(route_json):
     Supports small airports - extracts all connecting segments (e.g., ITH -> JFK -> CDG).
     """
     by_leg = {}
-    # Process both best_flights and other_flights to get comprehensive coverage
+    skipped = 0
     all_flight_options = (route_json.get("best_flights") or []) + (
         route_json.get("other_flights") or []
     )
-    
+
     for it in all_flight_options:
         price = _to_number_price(it.get("price"))
         flights = it.get("flights") or []
-        
-        # For multistop flights, extract each leg separately
-        # Example: ITH -> JFK -> CDG becomes two legs: (ITH, JFK) and (JFK, CDG)
+
         for leg in flights:
             dep = leg.get("departure_airport", {}).get("id")
             arr = leg.get("arrival_airport", {}).get("id")
             fn = _normalize_flightnum(leg.get("flight_number"))
             dur = leg.get("duration_in_minutes") or leg.get("durationMinutes")
-            
-            if dur is None:
-                txt = leg.get("duration") or ""
-                # if you have to_minutes, use it here; else keep None
-                # dur = to_minutes(txt) if txt else None
-            
-            # Skip if missing required fields
+
             if not dep or not arr or not fn:
+                skipped += 1
                 continue
-            
-            # Use (dep, arr, fn) as key to uniquely identify each leg
-            # For multistop flights, this allows us to capture each segment
+
             prev = by_leg.get((dep, arr, fn))
             if prev is None or (
                 price is not None
@@ -183,7 +197,8 @@ def serp_route_to_leg_map(route_json):
                     "departure_time": leg.get("departure_airport", {}).get("time"),
                     "arrival_time": leg.get("arrival_airport", {}).get("time"),
                 }
-    
+
+    logger.debug("serp_route_to_leg_map: flight_options=%d, legs=%d, skipped=%d", len(all_flight_options), len(by_leg), skipped)
     return by_leg
 
 
@@ -191,11 +206,17 @@ def serp_route_to_leg_map(route_json):
 async def _awardtool_realtime(
     origin, destination, date_str, cabins, pax, programs, client
 ):
+    if not AWARD_TOOL_API_KEY:
+        logger.warning("AWARD_TOOL_API_KEY not set; AwardTool request for [%s]->[%s] may fail", origin, destination)
+
     k = key_award(origin, destination, date_str, cabins, pax, programs)
     cached = get_json(k)
     if cached:
+        logger.debug("AwardTool [%s]->[%s] date=%s: cache hit", origin, destination, date_str)
         return cached
 
+    n_prog = len(programs) if programs else 0
+    logger.info("AwardTool [%s]->[%s] date=%s: requesting (programs=%d, cabins=%s, pax=%s)", origin, destination, date_str, n_prog, cabins, pax)
     payload = {
         "origin": origin,
         "destination": destination,
@@ -205,11 +226,23 @@ async def _awardtool_realtime(
         "pax": str(pax),
         "api_key": AWARD_TOOL_API_KEY,
     }
-    r = await client.post(
-        "https://www.awardtool-api.com/search_real_time", json=payload, timeout=TIMEOUT
-    )
-    r.raise_for_status()
-    body = r.json()
+    try:
+        r = await client.post(
+            "https://www.awardtool-api.com/search_real_time", json=payload, timeout=TIMEOUT
+        )
+        r.raise_for_status()
+        body = r.json()
+    except httpx.HTTPStatusError as e:
+        err_body = (e.response.text or "")[:500]
+        logger.warning("AwardTool [%s]->[%s] date=%s: HTTP %s, body=%s", origin, destination, date_str, e.response.status_code, err_body)
+        raise
+    except Exception as e:
+        logger.warning("AwardTool [%s]->[%s] date=%s: %s", origin, destination, date_str, e)
+        raise
+
+    data = body.get("data", []) if isinstance(body, dict) else []
+    err = body.get("error") or body.get("message") if isinstance(body, dict) else None
+    logger.info("AwardTool [%s]->[%s] date=%s: data_items=%d%s", origin, destination, date_str, len(data), f", error={err}" if err else "")
     set_json(k, body, TTL_AWARD)
     return body
 
@@ -218,20 +251,20 @@ def _merge_award_edges(rt_json):
     # Returns dict (dep,arr,fn)-> award fields (cheapest per flight)
     data = rt_json.get("data", []) if isinstance(rt_json, dict) else []
     by_edge = {}
+    skipped = 0
     for item in data:
         fare = item.get("fare") or {}
         products = fare.get("products") or []
         pts = item.get("award_points")
         sur = item.get("surcharge")
         prog = (item.get("program_code") or item.get("airline_code") or "").upper()
-        xfer = (
-            item.get("transfer_options") or []
-        )  # [{program, points}, ...] when present
+        xfer = item.get("transfer_options") or []
         for p in products:
             dep = (p.get("origin") or "").upper()
             arr = (p.get("destination") or "").upper()
             fn = _normalize_flightnum(p.get("flight_number"))
             if not dep or not arr or not fn or pts is None:
+                skipped += 1
                 continue
             travel_minutes = p.get("travel_minutes") or fare.get("travel_minutes_total")
             dep_time = p.get("departure_time")
@@ -248,6 +281,7 @@ def _merge_award_edges(rt_json):
                     "departure_time": dep_time,
                     "arrival_time": arr_time,
                 }
+    logger.debug("_merge_award_edges: data_items=%d, edges=%d, skipped=%d", len(data), len(by_edge), skipped)
     return by_edge
 
 
@@ -307,13 +341,14 @@ async def get_flights_award_first_with_points_async(
             tasks.append(serp_route(origin, destination, d, filt, client))
 
         results = await asyncio.gather(*tasks)
-        # results alternates award, serp for each date
         edges = {}
         for i in range(0, len(results), 2):
+            d = dates[i // 2] if i // 2 < len(dates) else "?"
             aw = results[i]
             sr = results[i + 1]
             award_edges = _merge_award_edges(aw)
             serp_map = serp_route_to_leg_map(sr)
+            logger.info("flights [%s]->[%s] date=%s: award_edges=%d, serp_legs=%d", origin, destination, d, len(award_edges), len(serp_map))
 
             # merge (award-first)
             for key, info in award_edges.items():
@@ -351,6 +386,7 @@ async def get_flights_award_first_with_points_async(
                 }
                 added += 1
 
+        logger.info("flights [%s]->[%s] award_first: total_edges=%d", origin, destination, len(edges))
         return edges
     finally:
         await client.aclose()
@@ -393,6 +429,7 @@ async def get_flights_serp_first_with_points_async(
             origin, destination, date_str, cabins, pax, programs, client
         )
         award_edges = _merge_award_edges(aw)
+        logger.info("flights [%s]->[%s] date=%s serp_first: serp_legs=%d, award_edges=%d", origin, destination, date_str, len(serp_map), len(award_edges))
 
         edges = {}
         # add SERP legs, annotate with awards if available
@@ -441,6 +478,7 @@ async def get_flights_serp_first_with_points_async(
                 "arrival_time": info.get("arrival_time"),
             }
             added += 1
+        logger.info("flights [%s]->[%s] serp_first: total_edges=%d", origin, destination, len(edges))
         return edges
     finally:
         await client.aclose()
