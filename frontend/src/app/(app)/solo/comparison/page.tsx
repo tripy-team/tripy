@@ -4,6 +4,7 @@ import { useRouter, useSearchParams } from 'next/navigation';
 import { useState, useEffect } from 'react';
 import { MapPin, DollarSign, Clock, Zap, TrendingUp, ArrowLeft, Check } from 'lucide-react';
 import { itineraries as itinerariesAPI, ItineraryItem } from '@/lib/api';
+import { formatAirportDisplay, getCityMapForCodes, isLikelyAirportCode } from '@/lib/airport-formatter';
 
 interface Itinerary {
     id: number;
@@ -43,15 +44,28 @@ export default function SoloComparison() {
                         return Array.isArray(route) && route.length > 0;
                     }
                 );
+
+                const iataCodes: string[] = [];
+                for (const i of regularItems) {
+                    const r = (i.route || i.cities) as Array<string | { name?: string }> | undefined;
+                    if (Array.isArray(r)) {
+                        for (const c of r) {
+                            const n = typeof c === 'string' ? c : (c as { name?: string })?.name;
+                            if (n && isLikelyAirportCode(n)) iataCodes.push(n.trim().toUpperCase());
+                        }
+                    }
+                }
+                const codeToCity = await getCityMapForCodes(iataCodes);
+
                 if (regularItems.length > 0) {
                     const transformed: Itinerary[] = regularItems.map((item: ItineraryItem, index: number) => {
                         const route = item.route || item.cities || [];
                         const cities = Array.isArray(route) 
                             ? route.map((city: string | { name: string; days: number }) => {
-                                if (typeof city === 'string') {
-                                    return { name: city, days: 3 };
-                                }
-                                return city;
+                                const rawName = typeof city === 'string' ? city : (city?.name || '');
+                                const days = typeof city === 'string' ? 3 : (city?.days || 3);
+                                const name = formatAirportDisplay(rawName, codeToCity[rawName.trim().toUpperCase()]);
+                                return { name, days };
                             })
                             : [];
                         return {

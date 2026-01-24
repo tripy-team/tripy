@@ -95,7 +95,7 @@ export default function GroupTransferInstructions() {
                     </button>
 
                     <h1 className="text-3xl font-bold text-slate-900 mb-3">Transfer Instructions</h1>
-                    <p className="text-slate-600">Step-by-step guide for each member to move points and book.</p>
+                    <p className="text-slate-600">Step-by-step guide: from which credit card to transfer, how many points to transfer, and how to book.</p>
                 </div>
 
                 {/* Warning Banner */}
@@ -116,7 +116,7 @@ export default function GroupTransferInstructions() {
                         </div>
                         <h3 className="text-lg font-bold text-slate-900 mb-2">Pending Payment</h3>
                         <p className="text-slate-600 max-w-md mx-auto mb-6">
-                            Complete payment to unlock where to transfer, which programs to use, how many points per transfer, and step-by-step instructions for each member.
+                            Complete payment to unlock which credit card to transfer from, how many points to transfer to each partner, and step-by-step instructions for each member.
                         </p>
                         <button
                             onClick={() => router.push(`/group/booking?trip_id=${tripId}`)}
@@ -191,9 +191,11 @@ export default function GroupTransferInstructions() {
                                             </div>
                                         </div>
                                         <div className="text-right bg-white px-4 py-2 rounded-lg border border-slate-100 shadow-sm">
-                                            <div className="text-xs text-slate-500 uppercase tracking-wider font-semibold mb-0.5">Transfer Amount</div>
+                                            <div className="text-xs text-slate-500 uppercase tracking-wider font-semibold mb-0.5">From this credit card</div>
+                                            <div className="font-medium text-slate-900">{transfer.program}</div>
+                                            <div className="text-xs text-slate-500 uppercase tracking-wider font-semibold mt-1.5 mb-0.5">Points to transfer</div>
                                             <div className="text-2xl font-bold text-slate-900">
-                                                {transfer.amount.toLocaleString()} <span className="text-sm font-medium text-slate-500">pts</span>
+                                                {transfer.amount.toLocaleString()} <span className="text-sm font-medium text-slate-500">pts</span> → {transfer.partner}
                                             </div>
                                         </div>
                                     </div>

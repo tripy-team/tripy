@@ -262,7 +262,7 @@ export default function TripDetails() {
                             <div className="p-6 border-b border-slate-100 flex items-center justify-between">
                                 <div>
                                     <h2 className="text-xl font-bold text-slate-900">Transfer Instructions</h2>
-                                    <p className="text-sm text-slate-500 mt-1">Follow these steps to complete your booking</p>
+                                    <p className="text-sm text-slate-500 mt-1">From which credit card to transfer, how many points, and steps to complete your booking</p>
                                 </div>
                                 <div className="flex items-center gap-2">
                                     <div className="w-10 h-10 bg-blue-50 rounded-full flex items-center justify-center">
@@ -288,7 +288,11 @@ export default function TripDetails() {
                                     </div>
                                     <h3 className="text-lg font-bold text-slate-900 mb-2">Pending Payment</h3>
                                     <p className="text-slate-600 max-w-md mx-auto mb-6">
+<<<<<<< HEAD
                                         Complete payment to unlock your transfer strategy, including which partners to use, amounts, and step-by-step booking instructions.
+=======
+                                        Complete payment to unlock your transfer strategy: which credit card to transfer from, how many points to transfer to each partner, and step-by-step booking instructions.
+>>>>>>> 1723762 (testing)
                                     </p>
                                     <button
                                         onClick={() => router.push(trip.type === 'Group' ? `/group/booking?trip_id=${trip.id}` : `/solo/booking?trip_id=${trip.id}`)}
@@ -339,9 +343,15 @@ export default function TripDetails() {
                                                                     <p key={i} className="text-sm text-slate-600 leading-relaxed">{inst}</p>
                                                                 ))}
                                                             </div>
-                                                            <div className="mt-4 pt-4 border-t border-slate-100/50 flex justify-between items-center">
-                                                                <span className="text-xs font-semibold text-slate-500 uppercase tracking-wider">Amount Required</span>
-                                                                <span className="text-sm font-bold text-slate-900">{step.amount} {step.amount.includes('$') ? '' : 'points'}</span>
+                                                            <div className="mt-4 pt-4 border-t border-slate-100/50 space-y-1">
+                                                                <div className="flex justify-between items-center">
+                                                                    <span className="text-xs font-semibold text-slate-500 uppercase tracking-wider">From this credit card</span>
+                                                                    <span className="text-sm font-bold text-slate-900">{step.program}</span>
+                                                                </div>
+                                                                <div className="flex justify-between items-center">
+                                                                    <span className="text-xs font-semibold text-slate-500 uppercase tracking-wider">Points to transfer</span>
+                                                                    <span className="text-sm font-bold text-slate-900">{step.amount} {step.amount.includes('$') ? '' : 'points'} → {step.partner}</span>
+                                                                </div>
                                                             </div>
                                                         </div>
                                                     </div>

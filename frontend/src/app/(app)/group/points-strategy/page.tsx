@@ -193,7 +193,7 @@ export default function GroupPointsStrategy() {
                         </div>
                         <h3 className="text-lg font-bold text-slate-900 mb-2">Pending Payment</h3>
                         <p className="text-neutral-600 max-w-md mx-auto mb-6">
-                            Complete payment to unlock your transfer plan: where to transfer, which programs to use, how many points per transfer, who books what, and step-by-step instructions.
+                            Complete payment to unlock your transfer plan: which credit card to transfer from, how many points to transfer to each partner, who books what, and step-by-step instructions.
                         </p>
                         <button
                             onClick={() => router.push(`/group/booking?trip_id=${tripId}`)}
@@ -238,7 +238,7 @@ export default function GroupPointsStrategy() {
                 <div className="bg-white border border-neutral-200 rounded-2xl overflow-hidden mb-8">
                     <div className="p-6 border-b border-neutral-200">
                         <h2 className="text-2xl">Where to Transfer: What & How Many</h2>
-                        <p className="text-sm text-neutral-600 mt-1">Exact source program, destination partner, and points for each transfer</p>
+                        <p className="text-sm text-neutral-600 mt-1">From which credit card to transfer, how many points to transfer, and to which partner for each step</p>
                     </div>
                     <div className="p-6">
                         {transfers.length > 0 ? (
@@ -262,8 +262,9 @@ export default function GroupPointsStrategy() {
                                                 <span className="font-medium text-blue-700">{t.partner}</span>
                                             </div>
                                             <div className="text-right flex-shrink-0">
+                                                <div className="text-xs text-neutral-500">Points to transfer from {t.program}</div>
                                                 <div className="text-2xl font-bold text-slate-900">{t.amount.toLocaleString()}</div>
-                                                <div className="text-xs text-neutral-500">points</div>
+                                                <div className="text-xs text-neutral-500">pts → {t.partner}</div>
                                             </div>
                                         </div>
                                     );
@@ -279,7 +280,7 @@ export default function GroupPointsStrategy() {
                             </div>
                         ) : transfer_tips.length > 0 ? (
                             <div className="space-y-4">
-                                <p className="text-neutral-600 text-sm">Suggested transfers for your trip. Generate an optimized itinerary from Results to get exact amounts per member.</p>
+                                <p className="text-neutral-600 text-sm">Suggested transfers for your trip. Generate an optimized itinerary from Results to get which credit card to transfer from and how many points per member.</p>
                                 {transfer_tips.map((tip: TransferTip, i: number) => (
                                     <div key={i} className="p-4 rounded-xl bg-neutral-50 border border-neutral-200 flex flex-wrap items-center gap-2">
                                         <span className="font-medium text-slate-700">{tip.from_program || 'Bank points'}</span>
@@ -301,7 +302,7 @@ export default function GroupPointsStrategy() {
                             </div>
                         ) : (
                             <div className="text-center py-4">
-                                <p className="text-neutral-600 text-sm mb-4">Generate an optimized itinerary from the Results page to see exactly where to transfer, which programs to use, and how many points for each member.</p>
+                                <p className="text-neutral-600 text-sm mb-4">Generate an optimized itinerary from the Results page to see exactly which credit card to transfer from, how many points to transfer, and step-by-step instructions for each member.</p>
                                 <button
                                     onClick={() => router.push(`/group/results?trip_id=${tripId}`)}
                                     className="text-blue-600 font-medium text-sm hover:text-blue-700 inline-flex items-center gap-1"

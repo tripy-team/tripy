@@ -16,6 +16,7 @@ import {
   Sun,
 } from 'lucide-react';
 import { getItinerary, getTrip } from '@/lib/api';
+import { formatAirportDisplay, getCityMapForCodes, isLikelyAirportCode } from '@/lib/airport-formatter';
 
 type EventType = 'flight' | 'arrival' | 'hotel' | 'activity' | 'free';
 
@@ -39,13 +40,16 @@ interface Day {
 // Build a simple day-by-day timeline from itinerary route + trip dates, or return sample data
 function buildDaysFromItinerary(
   trip: { title?: string; startDate?: string; endDate?: string; start_date?: string; end_date?: string } | null,
-  itineraryItems: { route?: unknown; cities?: unknown; name?: string }[] | null
+  itineraryItems: { route?: unknown; cities?: unknown; name?: string }[] | null,
+  codeToCity?: Record<string, string>
 ): Day[] {
   const routeItem = itineraryItems?.find(
     (i) => (i.route && Array.isArray(i.route) && i.route.length > 0) || (i.cities && Array.isArray(i.cities) && i.cities.length > 0)
   );
   const route = (routeItem?.route || routeItem?.cities || []) as Array<string | { name: string; days?: number }>;
-  const cityNames = route.map((c) => (typeof c === 'string' ? c : c?.name || '')).filter(Boolean);
+  const cityNames = route
+    .map((c) => (typeof c === 'string' ? c : c?.name || '')).filter(Boolean)
+    .map((name) => formatAirportDisplay(name, codeToCity?.[name.trim().toUpperCase()]));
   const rawStart = (trip as Record<string, unknown>)?.start_date ?? trip?.startDate ?? (trip as Record<string, unknown>)?.end_date ?? trip?.endDate;
   const rawEnd = (trip as Record<string, unknown>)?.end_date ?? trip?.endDate ?? (trip as Record<string, unknown>)?.start_date ?? trip?.startDate;
 
@@ -274,7 +278,18 @@ export default function GroupItineraryPage() {
         const e = (t?.end_date ?? trip?.endDate ?? '') as string;
         if (s || e) setDateRange([s, e].filter(Boolean).join(' – '));
 
-        const built = buildDaysFromItinerary(trip, items);
+        const codes: string[] = [];
+        for (const i of items || []) {
+          const r = (i.route || i.cities || (i as { path?: unknown }).path) as Array<string | { name?: string }> | undefined;
+          if (Array.isArray(r)) {
+            for (const c of r) {
+              const n = typeof c === 'string' ? c : c?.name;
+              if (n && isLikelyAirportCode(n)) codes.push(n.trim().toUpperCase());
+            }
+          }
+        }
+        const codeToCity = await getCityMapForCodes(codes);
+        const built = buildDaysFromItinerary(trip, items, codeToCity);
         setDays(built);
         // If we have real itinerary items with route, consider it more "planned" than fully booked
         const hasRoute = items?.some(

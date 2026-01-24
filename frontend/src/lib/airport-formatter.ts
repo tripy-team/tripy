@@ -65,3 +65,51 @@ export async function searchAndFormatAirports(queries: string[]): Promise<string
   
   return formatted;
 }
+
+/** True if the string looks like an IATA airport code (3 letters). */
+export function isLikelyAirportCode(s: string): boolean {
+  return typeof s === 'string' && /^[A-Za-z]{3}$/.test(s.trim());
+}
+
+/**
+ * Resolve an IATA code to its city name via airports autocomplete.
+ * Returns null if not found or on error.
+ */
+export async function getCityForAirportCode(iata: string): Promise<string | null> {
+  const code = (iata || '').trim().toUpperCase();
+  if (!code || code.length !== 3) return null;
+  try {
+    const res = await locations.airportsAutocomplete(code, 5);
+    const list = res?.airports || [];
+    const match = list.find((a) => (a.iata_code || '').toUpperCase() === code);
+    return (match?.city || '').trim() || null;
+  } catch {
+    return null;
+  }
+}
+
+/**
+ * Batch-resolve IATA codes to city names. Returns a map code -> city.
+ * Deduplicates and skips non–3-letter strings.
+ */
+export async function getCityMapForCodes(codes: string[]): Promise<Record<string, string>> {
+  const unique = [...new Set((codes || []).map((c) => (c || '').trim().toUpperCase()).filter((c) => c.length === 3))];
+  const entries = await Promise.all(
+    unique.map(async (c) => {
+      const city = await getCityForAirportCode(c);
+      return [c, city] as const;
+    })
+  );
+  return Object.fromEntries(entries.filter(([, city]) => city != null)) as Record<string, string>;
+}
+
+/**
+ * Format an airport for display: if it looks like an IATA code and we have a city, show "CODE (City)".
+ * Otherwise return the original string.
+ */
+export function formatAirportDisplay(codeOrName: string, city?: string | null): string {
+  const s = (codeOrName || '').trim();
+  if (!s) return s;
+  if (city && isLikelyAirportCode(s)) return `${s.toUpperCase()} (${city})`;
+  return s;
+}

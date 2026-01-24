@@ -100,11 +100,12 @@ function buildSteps(
 ): string[] {
   const amountStr = amount.toLocaleString();
   const steps: string[] = [
+    `From ${program}, transfer ${amountStr} points to ${partner}.`,
     `Log in to your ${program} account.`,
     'Navigate to "Transfer to Travel Partners".',
     `Select "${partner}" from the airline list.`,
     `Enter your ${partner} membership number (create an account on the partner site if needed).`,
-    `Transfer ${amountStr} points (1:1 ratio). Transfers are usually instant.${note ? ` ${note}` : ''}`,
+    `In the transfer amount field, enter ${amountStr} points and complete the transfer to ${partner} (1:1 ratio). Transfers are usually instant.${note ? ` ${note}` : ''}`,
   ];
   if (transferTiming) {
     steps.push(`Note: ${transferTiming}`);

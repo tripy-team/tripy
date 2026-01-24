@@ -4,6 +4,7 @@ import { useState, useEffect } from 'react';
 import { useRouter, useSearchParams } from 'next/navigation';
 import { MapPin, DollarSign, Clock, Users, Zap, TrendingUp, ArrowLeft, Check } from 'lucide-react';
 import { itineraries as itinerariesAPI, trips as tripsAPI, destinations, ItineraryItem } from '@/lib/api';
+import { formatAirportDisplay, getCityMapForCodes, isLikelyAirportCode } from '@/lib/airport-formatter';
 
 interface Itinerary {
     id: number;
@@ -57,22 +58,40 @@ export default function GroupComparison() {
                     }
                 );
 
+                const iataCodes: string[] = [];
+                for (const i of regularItems) {
+                    const r = (i.route || i.cities) as Array<string | { name?: string }> | undefined;
+                    if (Array.isArray(r)) {
+                        for (const c of r) {
+                            const n = typeof c === 'string' ? c : (c as { name?: string })?.name;
+                            if (n && isLikelyAirportCode(n)) iataCodes.push(n.trim().toUpperCase());
+                        }
+                    }
+                }
+                const codeToCity = await getCityMapForCodes(iataCodes);
+
                 if (regularItems.length > 0) {
                     let transformed: Itinerary[] = regularItems.map((item: ItineraryItem, index: number) => {
                         const route = item.route || item.cities || [];
                         const cities = Array.isArray(route)
                             ? route.map((city: string | { name: string; days: number }) => {
+                                let rawName: string;
+                                let days: number;
                                 if (typeof city === 'string') {
                                     const isUUID = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i.test(city);
-                                    const cityName = isUUID && destinationMap.has(city)
+                                    rawName = isUUID && destinationMap.has(city)
                                         ? destinationMap.get(city)!
                                         : (isUUID ? city : city);
-                                    return { name: cityName, days: 3 };
+                                    days = 3;
+                                } else if (city.name && /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i.test(city.name)) {
+                                    rawName = destinationMap.get(city.name) || city.name;
+                                    days = city.days || 3;
+                                } else {
+                                    rawName = city.name || '';
+                                    days = city.days || 3;
                                 }
-                                if (city.name && /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i.test(city.name)) {
-                                    return { name: destinationMap.get(city.name) || city.name, days: city.days || 3 };
-                                }
-                                return city;
+                                const name = formatAirportDisplay(rawName, codeToCity[rawName.trim().toUpperCase()]);
+                                return { name, days };
                             })
                             : [];
                         return {
