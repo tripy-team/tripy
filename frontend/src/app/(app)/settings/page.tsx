@@ -28,6 +28,10 @@ export default function SettingsPage() {
   const [email, setEmail] = useState('');
   const [defaultHomeAirport, setDefaultHomeAirport] = useState('');
   const [timezone, setTimezone] = useState('America/Los_Angeles');
+<<<<<<< HEAD
+=======
+  const [totalSavings, setTotalSavings] = useState<number>(0);
+>>>>>>> 44b7911 (replace max budget on profile with total savings)
 
   // Travel preferences
   const [preferredCurrency, setPreferredCurrency] = useState('USD');
@@ -71,6 +75,18 @@ export default function SettingsPage() {
         setEmail(profile.email || '');
         setDefaultHomeAirport(profile.default_home_airport || '');
         setTimezone(profile.timezone || 'America/Los_Angeles');
+<<<<<<< HEAD
+=======
+        setTotalSavings(profile.total_savings || 0);
+
+        // Recalculate savings in the background
+        usersAPI.calculateSavings().then((result) => {
+          setTotalSavings(result.total_savings);
+        }).catch((err) => {
+          console.error('Error calculating savings:', err);
+          // Don't show error to user - just use cached value
+        });
+>>>>>>> 44b7911 (replace max budget on profile with total savings)
       } catch (error) {
         console.error('Error loading profile:', error);
       } finally {
@@ -82,6 +98,10 @@ export default function SettingsPage() {
   }, []);
 
   const handleSaveGeneral = async () => {
+<<<<<<< HEAD
+=======
+
+>>>>>>> 44b7911 (replace max budget on profile with total savings)
     try {
       setIsSaving(true);
       setSaveSuccess(false);
@@ -298,6 +318,19 @@ export default function SettingsPage() {
                           </div>
                         </div>
 
+<<<<<<< HEAD
+=======
+                        <div className="space-y-2">
+                          <label htmlFor="totalSavings" className="block text-sm font-medium text-slate-700">Total Money Saved</label>
+                          <div className="w-full px-4 py-3 bg-slate-50 border border-slate-200 rounded-xl text-slate-700">
+                            ${typeof totalSavings === 'number' ? totalSavings.toLocaleString() : '0'}
+                          </div>
+                          <p className="text-xs text-slate-500">
+                            This is calculated from all your completed trips
+                          </p>
+                        </div>
+
+>>>>>>> 44b7911 (replace max budget on profile with total savings)
                         <div className="flex justify-end pt-4 gap-3">
                           {saveSuccess && (
                             <div className="flex items-center gap-2 text-green-600">

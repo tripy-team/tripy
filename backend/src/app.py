@@ -157,8 +157,6 @@ class UpdateProfileRequest(BaseModel):
     name: Optional[str] = None
     default_home_airport: Optional[str] = None
     timezone: Optional[str] = None
-    min_budget: Optional[int] = Field(None, ge=0)
-    max_budget: Optional[int] = Field(None, ge=0)
     credit_cards: Optional[List[Dict[str, Any]]] = None
 
 
@@ -1214,6 +1212,37 @@ async def get_user_profile(user_id: str = Depends(get_current_user_id)):
         raise HTTPException(status_code=500, detail=str(e))
 
 
+@app.post("/users/me/savings/calculate")
+async def calculate_user_savings(user_id: str = Depends(get_current_user_id)):
+    """
+    Calculate and update total savings from all user's trips.
+    This will recalculate savings based on all trip itineraries and update the user profile.
+    """
+    try:
+        result = user_service.calculate_and_update_user_savings(user_id)
+        return result
+    except Exception as e:
+        logger.error(f"Error calculating user savings: {str(e)}")
+        raise HTTPException(status_code=500, detail=str(e))
+
+
+@app.get("/users/me/savings")
+async def get_user_savings(user_id: str = Depends(get_current_user_id)):
+    """
+    Get current total savings for the user.
+    Returns the cached value from the user profile.
+    """
+    try:
+        user = user_service.ensure_user_exists(user_id)
+        return {
+            "total_savings": user.get("total_savings", 0),
+            "user_id": user_id
+        }
+    except Exception as e:
+        logger.error(f"Error getting user savings: {str(e)}")
+        raise HTTPException(status_code=500, detail=str(e))
+
+
 @app.put("/users/profile")
 async def update_user_profile(
     request: UpdateProfileRequest,
@@ -1228,10 +1257,6 @@ async def update_user_profile(
             updates["default_home_airport"] = request.default_home_airport
         if request.timezone is not None:
             updates["timezone"] = request.timezone
-        if request.min_budget is not None:
-            updates["min_budget"] = request.min_budget
-        if request.max_budget is not None:
-            updates["max_budget"] = request.max_budget
         if request.credit_cards is not None:
             # Validate all programs are in the enum
             validated_cards = []

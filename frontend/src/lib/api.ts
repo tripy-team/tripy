@@ -775,9 +775,13 @@ export interface UserProfile {
   name?: string;
   default_home_airport?: string;
   timezone?: string;
+<<<<<<< HEAD
   min_budget?: number;
   max_budget?: number;
   cash_saved?: number;
+=======
+  total_savings?: number;
+>>>>>>> 44b7911 (replace max budget on profile with total savings)
   credit_cards?: Array<{
     id: string;
     program: string;
@@ -794,8 +798,6 @@ export interface UpdateProfileRequest {
   name?: string;
   default_home_airport?: string;
   timezone?: string;
-  min_budget?: number;
-  max_budget?: number;
   credit_cards?: Array<{
     id: string;
     program: string;
@@ -817,6 +819,18 @@ export const users = {
     return apiRequest<{ ok: boolean }>('/users/profile', {
       method: 'PUT',
       body: JSON.stringify(updates),
+    });
+  },
+
+  getSavings: async (): Promise<{ total_savings: number; user_id: string }> => {
+    return apiRequest<{ total_savings: number; user_id: string }>('/users/me/savings', {
+      method: 'GET',
+    });
+  },
+
+  calculateSavings: async (): Promise<{ total_savings: number; trips_count: number; trips_with_savings: number }> => {
+    return apiRequest<{ total_savings: number; trips_count: number; trips_with_savings: number }>('/users/me/savings/calculate', {
+      method: 'POST',
     });
   },
 };
@@ -847,7 +861,6 @@ export interface ExtractedTripInfo {
   endDate?: string | null;
   duration?: number | null;
   isFlexible?: boolean | null;
-  minBudget?: number | null;
   maxBudget?: number | null;
   creditCards?: Array<{ program: string; points: number }> | null;
   flightClass?: string | null;
