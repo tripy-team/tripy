@@ -47,6 +47,10 @@ export interface TransferTip {
   to_program?: string;
   best_for?: string;
   note?: string;
+  /** Points to transfer (from AwardTool); used when building step-by-step. */
+  points?: number;
+  /** Taxes/fees in dollars (from AwardTool). */
+  surcharge?: number;
 }
 
 export interface PracticalTip {

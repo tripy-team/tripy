@@ -36,6 +36,25 @@ from src.utils.card_benefits import build_benefit_airlines_for_travelers
 
 logger = logging.getLogger(__name__)
 
+# Display names for transfer_tips (aligned with frontend transfer-instructions.ts)
+_HUMANIZE_BANK: Dict[str, str] = {
+    "amex": "Amex Membership Rewards",
+    "chase": "Chase Ultimate Rewards",
+    "citi": "Citi ThankYou Points",
+    "capitalone": "Capital One Miles",
+    "bilt": "Bilt Rewards",
+}
+
+_HUMANIZE_AIRLINE: Dict[str, str] = {
+    "UA": "United MileagePlus", "AA": "American AAdvantage", "DL": "Delta SkyMiles",
+    "AS": "Alaska Mileage Plan", "B6": "JetBlue TrueBlue", "AC": "Aeroplan",
+    "BA": "British Airways Avios", "AF": "Air France / KLM Flying Blue", "KL": "KLM Flying Blue",
+    "LH": "Lufthansa Miles & More", "LX": "Swiss Miles & More",
+    "SQ": "Singapore KrisFlyer", "CX": "Cathay Asia Miles", "NH": "ANA Mileage Club", "JL": "JAL Mileage Bank",
+    "EK": "Emirates Skywards", "QR": "Qatar Privilege Club", "EY": "Etihad Guest", "TK": "Turkish Miles&Smiles",
+    "AV": "Avianca LifeMiles", "IB": "Iberia Avios", "QF": "Qantas Frequent Flyer", "VS": "Virgin Atlantic Flying Club",
+}
+
 # Small/regional airports that often lack direct long-haul flight data in SERP/AwardTool.
 # When flight search returns no edges for origin->dest, we try (origin->hub) ground + (hub->dest) flights.
 # Map: IATA -> list of nearby major hubs to try (closest first).
@@ -500,6 +519,146 @@ def _best_effort_path_from_edges(
         "Consider increasing your budget, adding more points, or reducing destinations/days."
     )
     return (solution, msg)
+
+
+def build_transfer_tips_from_solution(
+    solution: Dict[str, Any],
+    _edges_all: Optional[Dict[Any, Dict[str, Any]]] = None,
+) -> List[Dict[str, Any]]:
+    """
+    Build transfer_tips from the optimized solution's pay_mode, using AwardTool-derived
+    award_points and program. Each tip: where to transfer, how many points, for which segment.
+    Replaces generic AI transfer advice with data-driven amounts and partners.
+    """
+    out: List[Dict[str, Any]] = []
+    pay_mode = solution.get("pay_mode") or {}
+
+    for _traveler, recs in pay_mode.items():
+        for rec in (recs or []):
+            if rec.get("type") != "points":
+                continue
+            via = rec.get("via") or {}
+            miles = rec.get("miles")
+            if miles is None:
+                continue
+            miles = int(float(miles))
+            sur = rec.get("surcharge")
+            try:
+                sur_val = float(sur) if sur is not None else None
+            except (TypeError, ValueError):
+                sur_val = None
+
+            edge = rec.get("edge")
+            if isinstance(edge, (list, tuple)) and len(edge) >= 2:
+                dep, arr = str(edge[0] or "").upper(), str(edge[1] or "").upper()
+                best_for = f"{dep}→{arr}" if (dep and arr) else None
+            else:
+                best_for = None
+
+            if "source" in via and "airline" in via:
+                src = (via.get("source") or "").lower().strip()
+                al = (via.get("airline") or "").upper().strip()
+                from_program = _HUMANIZE_BANK.get(src) or src or "Credit card points"
+                to_program = _HUMANIZE_AIRLINE.get(al) or al or "Travel partner"
+                note = f"Transfer {miles:,} points to {to_program}."
+                if sur_val is not None and sur_val > 0:
+                    note += f" Pay ~${sur_val:,.0f} in taxes and fees."
+                note += " From AwardTool award availability."
+            elif "native" in via:
+                al = (via.get("native") or "").upper().strip()
+                to_program = _HUMANIZE_AIRLINE.get(al) or al or "Travel partner"
+                from_program = "Existing miles"
+                note = f"Use {miles:,} {to_program} miles (no transfer needed)."
+                if sur_val is not None and sur_val > 0:
+                    note += f" Pay ~${sur_val:,.0f} in taxes and fees."
+                note += " From AwardTool award availability."
+            else:
+                continue
+
+            out.append({
+                "from_program": from_program,
+                "to_program": to_program,
+                "best_for": best_for,
+                "note": note,
+                "points": miles,
+                "surcharge": sur_val,
+            })
+
+    return out
+
+
+async def _get_transfer_tips_from_panorama(
+    origin: str,
+    destination: str,
+    start_date: str,
+    end_date: str,
+    user_banks: List[str],
+) -> List[Dict[str, Any]]:
+    """
+    Fallback: use AwardTool Panorama (calendar) to get program + points for the route,
+    then suggest where to transfer. Used when the optimizer has no points bookings.
+    """
+    import httpx
+    api_key = os.getenv("AWARD_TOOL_API_KEY") or os.getenv("AWARDTOOL_API_KEY")
+    if not api_key or not origin or not destination:
+        return []
+
+    url = "https://www.awardtool-api.com/panorama/panorama_calendar_data"
+    payload = {"id": f"{str(origin).upper()}-{str(destination).upper()}", "api_key": api_key}
+    try:
+        async with httpx.AsyncClient(http2=True, timeout=httpx.Timeout(20.0)) as client:
+            r = await client.post(url, json=payload)
+            r.raise_for_status()
+            data = r.json().get("data") or []
+    except Exception as e:
+        logger.debug("Panorama calendar for transfer tips %s->%s: %s", origin, destination, e)
+        return []
+
+    banks_set = {b.lower().strip() for b in user_banks}
+    best_pts, best_prog = None, None
+    for row in data:
+        d = row.get("date") or ""
+        if start_date and d < start_date:
+            continue
+        if end_date and d > end_date:
+            continue
+        prog = (row.get("program") or "").upper()
+        if not prog:
+            continue
+        pts_obj = row.get("points") or {}
+        pts = pts_obj.get("y") if isinstance(pts_obj.get("y"), (int, float)) else None
+        if pts is None:
+            continue
+        if best_pts is None or pts < best_pts:
+            if DEFAULT_TRANSFER_GRAPH and any(
+                DEFAULT_TRANSFER_GRAPH.get(b, {}).get(prog) is not None
+                for b in banks_set
+            ):
+                best_pts, best_prog = int(pts), prog
+
+    if best_pts is None or best_prog is None:
+        return []
+
+    from_bank = None
+    for b in banks_set:
+        if DEFAULT_TRANSFER_GRAPH.get(b, {}).get(best_prog) is not None:
+            from_bank = b
+            break
+    if not from_bank:
+        return []
+
+    from_program = _HUMANIZE_BANK.get(from_bank) or from_bank
+    to_program = _HUMANIZE_AIRLINE.get(best_prog) or best_prog
+    best_for = f"{str(origin).upper()}→{str(destination).upper()}"
+    note = f"Transfer {best_pts:,} points to {to_program} (AwardTool Panorama economy for your dates)."
+    return [{
+        "from_program": from_program,
+        "to_program": to_program,
+        "best_for": best_for,
+        "note": note,
+        "points": best_pts,
+        "surcharge": None,
+    }]
 
 
 def _save_and_return_ai_route_suggestions(
@@ -1171,8 +1330,20 @@ async def generate_optimized_itinerary(trip_id: str) -> Dict[str, Any]:
     for item in itinerary_items:
         itinerary_repo.put_item(item)
 
-    # AI smart tips: transfer strategy, sample money-saving itineraries, holiday advice, practical (closing hours, transfer timing)
+    # Transfer strategy: AwardTool-driven (from solution pay_mode) or Panorama fallback; only use generic AI for the rest
     from src.handlers.openAI import get_itinerary_smart_tips
+
+    aw_tips = build_transfer_tips_from_solution(solution, edges_all)
+    if not aw_tips:
+        user_banks = list({k for u in user_points_by_trav.values() for k in (u or {}) if isinstance(k, str) and (k or "").lower() in (DEFAULT_TRANSFER_GRAPH or {})})
+        aw_tips = await _get_transfer_tips_from_panorama(
+            origin=start_dest_code,
+            destination=end_dest_code or start_dest_code,
+            start_date=(start_date or "").strip(),
+            end_date=(end_date or "").strip(),
+            user_banks=user_banks,
+        )
+
     points_programs = list({p for u in user_points_by_trav.values() for p in u})
     tips = get_itinerary_smart_tips(
         origin=start_dest_name or start_dest_code,
@@ -1182,6 +1353,10 @@ async def generate_optimized_itinerary(trip_id: str) -> Dict[str, Any]:
         end_date=end_date or None,
         points_programs=points_programs if points_programs else None,
     )
+    # Prefer AwardTool-derived transfer tips (exact amounts and partners) over generic AI
+    if aw_tips:
+        tips["transfer_tips"] = aw_tips
+
     tips_item = {
         "tripId": trip_id,
         "itemId": "itinerary_smart_tips",
