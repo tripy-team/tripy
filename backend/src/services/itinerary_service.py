@@ -1594,6 +1594,657 @@ async def _fetch_edges_for_route(
         return (collected, had_flight)
 
 
+# =============================================================================
+# EASTER EGG: Hardcoded NYC -> Doha -> Dubai -> NYC Trip (March 8-15, 2026)
+# =============================================================================
+
+def _check_easter_egg_conditions(
+    start_dest_name: str,
+    end_dest_name: str,
+    cities: List[str],
+    start_date: str,
+    end_date: str,
+) -> bool:
+    """
+    Check if this trip matches the Easter Egg conditions:
+    - Round trip starting and ending in New York City
+    - Stops in Doha and Dubai
+    - Dates: March 8-15, 2026
+    """
+    start_lower = (start_dest_name or "").lower()
+    end_lower = (end_dest_name or "").lower()
+    cities_lower = [c.lower() for c in (cities or [])]
+    
+    # Check NYC start and end
+    is_nyc_start = "new york" in start_lower or start_lower in ["nyc", "jfk", "ewr", "lga"]
+    is_nyc_end = "new york" in end_lower or end_lower in ["nyc", "jfk", "ewr", "lga"]
+    
+    # Check Doha and Dubai in stops
+    has_doha = any("doha" in c or c == "doh" for c in cities_lower)
+    has_dubai = any("dubai" in c or c == "dxb" for c in cities_lower)
+    
+    # Check exact dates
+    is_correct_dates = (
+        (start_date or "").strip() == "2026-03-08" and
+        (end_date or "").strip() == "2026-03-15"
+    )
+    
+    return is_nyc_start and is_nyc_end and has_doha and has_dubai and is_correct_dates
+
+
+def _generate_easter_egg_itinerary(trip_id: str) -> Dict[str, Any]:
+    """
+    Generate the hardcoded Easter Egg itinerary for the NYC-Doha-Dubai-NYC trip.
+    
+    Flights:
+    1. JFK → DOH: March 8, QR704, 11:20AM-6:40AM+1, 35k Chase → Qatar Airways
+    2. DOH → DXB: March 11, FZ2, 10:05AM-12:15PM, 36.1k Amex → Aeroplan + $67.35
+    3. DXB → EWR: March 15, UA163, 2:15AM-9:40AM, 40k Chase → United
+    
+    Hotels:
+    1. Hyatt Regency Oryx Doha: March 9-11, 7k Chase → Hyatt (2 nights)
+    2. Four Points by Sheraton Downtown Dubai: March 11-15, 84k Amex → Marriott (4 nights)
+    """
+    logger.info(f"🥚 Easter egg triggered for trip {trip_id}! Generating hardcoded NYC-Doha-Dubai-NYC itinerary.")
+    
+    # Build flight segments
+    flight1_segment = {
+        "segment_id": "seg_jfk_doh",
+        "origin": "JFK",
+        "destination": "DOH",
+        "date": "2026-03-08",
+        "airline": "QR",
+        "airline_name": "Qatar Airways",
+        "flight_number": "QR704",
+        "departure_time": "11:20",
+        "arrival_time": "06:40+1",
+        "duration_minutes": 760,  # ~12h 40m
+        "cash_cost": None,
+        "points_cost": 35000,
+        "points_program": "Qatar Airways Privilege Club",
+        "points_surcharge": 0.0,
+        "transfer_options": [{"from": "Chase Ultimate Rewards", "to": "Qatar Airways Privilege Club", "ratio": "1:1"}],
+        "booking_url": "https://www.qatarairways.com/",
+        "is_connecting": False,
+        "connecting_airports": [],
+    }
+    
+    flight2_segment = {
+        "segment_id": "seg_doh_dxb",
+        "origin": "DOH",
+        "destination": "DXB",
+        "date": "2026-03-11",
+        "airline": "FZ",
+        "airline_name": "Flydubai",
+        "flight_number": "FZ2",
+        "departure_time": "10:05",
+        "arrival_time": "12:15",
+        "duration_minutes": 70,  # 1h 10m
+        "cash_cost": 67.35,
+        "points_cost": 36100,
+        "points_program": "Aeroplan",
+        "points_surcharge": 67.35,
+        "transfer_options": [{"from": "Amex Membership Rewards", "to": "Aeroplan", "ratio": "1:1"}],
+        "booking_url": "https://www.aircanada.com/aeroplan/",
+        "is_connecting": False,
+        "connecting_airports": [],
+    }
+    
+    flight3_segment = {
+        "segment_id": "seg_dxb_ewr",
+        "origin": "DXB",
+        "destination": "EWR",
+        "date": "2026-03-15",
+        "airline": "UA",
+        "airline_name": "United Airlines",
+        "flight_number": "UA163",
+        "departure_time": "02:15",
+        "arrival_time": "09:40",
+        "duration_minutes": 865,  # ~14h 25m
+        "cash_cost": None,
+        "points_cost": 40000,
+        "points_program": "United MileagePlus",
+        "points_surcharge": 0.0,
+        "transfer_options": [{"from": "Chase Ultimate Rewards", "to": "United MileagePlus", "ratio": "1:1"}],
+        "booking_url": "https://www.united.com/",
+        "is_connecting": False,
+        "connecting_airports": [],
+    }
+    
+    # Build flight routes
+    flights = [
+        {
+            "route_id": "route_jfk_doh",
+            "origin": "JFK",
+            "destination": "DOH",
+            "segments": [flight1_segment],
+            "total_cash_cost": 0.0,
+            "total_points_cost": 35000,
+            "total_points_surcharge": 0.0,
+            "points_program": "Qatar Airways Privilege Club",
+            "total_duration_minutes": 760,
+            "num_stops": 0,
+            "has_points_option": True,
+            "has_cash_option": False,
+        },
+        {
+            "route_id": "route_doh_dxb",
+            "origin": "DOH",
+            "destination": "DXB",
+            "segments": [flight2_segment],
+            "total_cash_cost": 67.35,
+            "total_points_cost": 36100,
+            "total_points_surcharge": 67.35,
+            "points_program": "Aeroplan",
+            "total_duration_minutes": 70,
+            "num_stops": 0,
+            "has_points_option": True,
+            "has_cash_option": True,
+        },
+        {
+            "route_id": "route_dxb_ewr",
+            "origin": "DXB",
+            "destination": "EWR",
+            "segments": [flight3_segment],
+            "total_cash_cost": 0.0,
+            "total_points_cost": 40000,
+            "total_points_surcharge": 0.0,
+            "points_program": "United MileagePlus",
+            "total_duration_minutes": 865,
+            "num_stops": 0,
+            "has_points_option": True,
+            "has_cash_option": False,
+        },
+    ]
+    
+    # Build hotels
+    hotels = [
+        {
+            "hotel_id": "hotel_hyatt_doha",
+            "name": "Hyatt Regency Oryx Doha",
+            "location": "Doha, Qatar",
+            "check_in": "2026-03-09",
+            "check_out": "2026-03-11",
+            "nights": 2,
+            "cash_cost": 0.0,
+            "points_cost": 7000,
+            "points_program": "World of Hyatt",
+            "points_surcharge": 0.0,
+            "booking_url": "https://www.hyatt.com/",
+            "rating": 4.5,
+            "amenities": ["Pool", "Spa", "Fitness Center", "Restaurant"],
+            "transfer_source": "Chase Ultimate Rewards",
+        },
+        {
+            "hotel_id": "hotel_four_points_dubai",
+            "name": "Four Points by Sheraton Downtown Dubai",
+            "location": "Dubai, UAE",
+            "check_in": "2026-03-11",
+            "check_out": "2026-03-15",
+            "nights": 4,
+            "cash_cost": 0.0,
+            "points_cost": 84000,
+            "points_program": "Marriott Bonvoy",
+            "points_surcharge": 0.0,
+            "booking_url": "https://www.marriott.com/",
+            "rating": 4.0,
+            "amenities": ["Pool", "Fitness Center", "Restaurant", "Free WiFi"],
+            "transfer_source": "Amex Membership Rewards",
+        },
+    ]
+    
+    # Build booking instructions
+    booking_instructions = [
+        {
+            "step_number": 1,
+            "item_type": "transfer",
+            "action": "Transfer Points",
+            "description": "Transfer 35,000 Chase Ultimate Rewards points to Qatar Airways Privilege Club",
+            "from_program": "Chase Ultimate Rewards",
+            "to_program": "Qatar Airways Privilege Club",
+            "points_to_transfer": 35000,
+            "transfer_ratio": "1:1",
+            "transfer_time": "Instant",
+            "portal_url": "https://ultimaterewardspoints.chase.com/",
+            "booking_url": None,
+            "payment_type": None,
+            "cash_to_pay": None,
+            "points_to_use": None,
+            "flight_details": None,
+            "hotel_details": None,
+        },
+        {
+            "step_number": 2,
+            "item_type": "flight",
+            "action": "Book Flight",
+            "description": "Book JFK → DOH on Qatar Airways QR704 (March 8, 11:20 AM - 6:40 AM+1)",
+            "from_program": None,
+            "to_program": None,
+            "points_to_transfer": None,
+            "transfer_ratio": None,
+            "transfer_time": None,
+            "portal_url": None,
+            "booking_url": "https://www.qatarairways.com/",
+            "payment_type": "points",
+            "cash_to_pay": 0.0,
+            "points_to_use": 35000,
+            "flight_details": {
+                "flight_number": "QR704",
+                "airline": "Qatar Airways",
+                "origin": "JFK",
+                "destination": "DOH",
+                "date": "2026-03-08",
+                "departure": "11:20 AM",
+                "arrival": "6:40 AM +1",
+            },
+            "hotel_details": None,
+        },
+        {
+            "step_number": 3,
+            "item_type": "transfer",
+            "action": "Transfer Points",
+            "description": "Transfer 7,000 Chase Ultimate Rewards points to World of Hyatt",
+            "from_program": "Chase Ultimate Rewards",
+            "to_program": "World of Hyatt",
+            "points_to_transfer": 7000,
+            "transfer_ratio": "1:1",
+            "transfer_time": "Instant",
+            "portal_url": "https://ultimaterewardspoints.chase.com/",
+            "booking_url": None,
+            "payment_type": None,
+            "cash_to_pay": None,
+            "points_to_use": None,
+            "flight_details": None,
+            "hotel_details": None,
+        },
+        {
+            "step_number": 4,
+            "item_type": "hotel",
+            "action": "Book Hotel",
+            "description": "Book Hyatt Regency Oryx Doha (March 9-11, 2 nights)",
+            "from_program": None,
+            "to_program": None,
+            "points_to_transfer": None,
+            "transfer_ratio": None,
+            "transfer_time": None,
+            "portal_url": None,
+            "booking_url": "https://www.hyatt.com/",
+            "payment_type": "points",
+            "cash_to_pay": 0.0,
+            "points_to_use": 7000,
+            "flight_details": None,
+            "hotel_details": {
+                "name": "Hyatt Regency Oryx Doha",
+                "location": "Doha, Qatar",
+                "check_in": "2026-03-09",
+                "check_out": "2026-03-11",
+                "nights": 2,
+            },
+        },
+        {
+            "step_number": 5,
+            "item_type": "transfer",
+            "action": "Transfer Points",
+            "description": "Transfer 36,100 Amex Membership Rewards points to Aeroplan",
+            "from_program": "Amex Membership Rewards",
+            "to_program": "Aeroplan",
+            "points_to_transfer": 36100,
+            "transfer_ratio": "1:1",
+            "transfer_time": "Instant",
+            "portal_url": "https://www.americanexpress.com/en-us/rewards/membership-rewards/",
+            "booking_url": None,
+            "payment_type": None,
+            "cash_to_pay": None,
+            "points_to_use": None,
+            "flight_details": None,
+            "hotel_details": None,
+        },
+        {
+            "step_number": 6,
+            "item_type": "flight",
+            "action": "Book Flight",
+            "description": "Book DOH → DXB on Flydubai FZ2 via Aeroplan (March 11, 10:05 AM - 12:15 PM) + $67.35 surcharge",
+            "from_program": None,
+            "to_program": None,
+            "points_to_transfer": None,
+            "transfer_ratio": None,
+            "transfer_time": None,
+            "portal_url": None,
+            "booking_url": "https://www.aircanada.com/aeroplan/",
+            "payment_type": "points",
+            "cash_to_pay": 67.35,
+            "points_to_use": 36100,
+            "flight_details": {
+                "flight_number": "FZ2",
+                "airline": "Flydubai (via Aeroplan)",
+                "origin": "DOH",
+                "destination": "DXB",
+                "date": "2026-03-11",
+                "departure": "10:05 AM",
+                "arrival": "12:15 PM",
+            },
+            "hotel_details": None,
+        },
+        {
+            "step_number": 7,
+            "item_type": "transfer",
+            "action": "Transfer Points",
+            "description": "Transfer 84,000 Amex Membership Rewards points to Marriott Bonvoy",
+            "from_program": "Amex Membership Rewards",
+            "to_program": "Marriott Bonvoy",
+            "points_to_transfer": 84000,
+            "transfer_ratio": "1:1",
+            "transfer_time": "Instant",
+            "portal_url": "https://www.americanexpress.com/en-us/rewards/membership-rewards/",
+            "booking_url": None,
+            "payment_type": None,
+            "cash_to_pay": None,
+            "points_to_use": None,
+            "flight_details": None,
+            "hotel_details": None,
+        },
+        {
+            "step_number": 8,
+            "item_type": "hotel",
+            "action": "Book Hotel",
+            "description": "Book Four Points by Sheraton Downtown Dubai (March 11-15, 4 nights)",
+            "from_program": None,
+            "to_program": None,
+            "points_to_transfer": None,
+            "transfer_ratio": None,
+            "transfer_time": None,
+            "portal_url": None,
+            "booking_url": "https://www.marriott.com/",
+            "payment_type": "points",
+            "cash_to_pay": 0.0,
+            "points_to_use": 84000,
+            "flight_details": None,
+            "hotel_details": {
+                "name": "Four Points by Sheraton Downtown Dubai",
+                "location": "Dubai, UAE",
+                "check_in": "2026-03-11",
+                "check_out": "2026-03-15",
+                "nights": 4,
+            },
+        },
+        {
+            "step_number": 9,
+            "item_type": "transfer",
+            "action": "Transfer Points",
+            "description": "Transfer 40,000 Chase Ultimate Rewards points to United MileagePlus",
+            "from_program": "Chase Ultimate Rewards",
+            "to_program": "United MileagePlus",
+            "points_to_transfer": 40000,
+            "transfer_ratio": "1:1",
+            "transfer_time": "Instant",
+            "portal_url": "https://ultimaterewardspoints.chase.com/",
+            "booking_url": None,
+            "payment_type": None,
+            "cash_to_pay": None,
+            "points_to_use": None,
+            "flight_details": None,
+            "hotel_details": None,
+        },
+        {
+            "step_number": 10,
+            "item_type": "flight",
+            "action": "Book Flight",
+            "description": "Book DXB → EWR on United UA163 (March 15, 2:15 AM - 9:40 AM)",
+            "from_program": None,
+            "to_program": None,
+            "points_to_transfer": None,
+            "transfer_ratio": None,
+            "transfer_time": None,
+            "portal_url": None,
+            "booking_url": "https://www.united.com/",
+            "payment_type": "points",
+            "cash_to_pay": 0.0,
+            "points_to_use": 40000,
+            "flight_details": {
+                "flight_number": "UA163",
+                "airline": "United Airlines",
+                "origin": "DXB",
+                "destination": "EWR",
+                "date": "2026-03-15",
+                "departure": "2:15 AM",
+                "arrival": "9:40 AM",
+            },
+            "hotel_details": None,
+        },
+    ]
+    
+    # Build transfers summary
+    transfers = [
+        {
+            "from_program": "Chase Ultimate Rewards",
+            "to_program": "Qatar Airways Privilege Club",
+            "points": 35000,
+            "ratio": "1:1",
+            "timing": "Instant",
+        },
+        {
+            "from_program": "Chase Ultimate Rewards",
+            "to_program": "World of Hyatt",
+            "points": 7000,
+            "ratio": "1:1",
+            "timing": "Instant",
+        },
+        {
+            "from_program": "Amex Membership Rewards",
+            "to_program": "Aeroplan",
+            "points": 36100,
+            "ratio": "1:1",
+            "timing": "Instant",
+        },
+        {
+            "from_program": "Amex Membership Rewards",
+            "to_program": "Marriott Bonvoy",
+            "points": 84000,
+            "ratio": "1:1",
+            "timing": "Instant",
+        },
+        {
+            "from_program": "Chase Ultimate Rewards",
+            "to_program": "United MileagePlus",
+            "points": 40000,
+            "ratio": "1:1",
+            "timing": "Instant",
+        },
+    ]
+    
+    # Calculate totals
+    # Total points: 35k + 7k + 40k from Chase = 82k Chase, 36.1k + 84k from Amex = 120.1k Amex
+    # Total cash: $67.35 (FZ2 surcharge)
+    total_points_used = 35000 + 7000 + 36100 + 84000 + 40000  # 202,100
+    total_out_of_pocket = 67.35
+    
+    # Estimate all-cash cost (rough estimate for savings calculation)
+    all_cash_cost = 4500.0  # Estimated cash cost for similar flights + hotels
+    savings = all_cash_cost - total_out_of_pocket
+    savings_percentage = (savings / all_cash_cost) * 100 if all_cash_cost > 0 else 0
+    
+    points_breakdown = {
+        "Chase Ultimate Rewards": 82000,  # 35k + 7k + 40k
+        "Amex Membership Rewards": 120100,  # 36.1k + 84k
+    }
+    
+    # Build itinerary items for display
+    itinerary_items = [
+        {
+            "tripId": trip_id,
+            "itemId": "flight_jfk_doh",
+            "type": "flight",
+            "origin": "JFK",
+            "destination": "DOH",
+            "date": "2026-03-08",
+            "airline": "QR",
+            "airline_name": "Qatar Airways",
+            "flight_number": "QR704",
+            "departure_time": "11:20 AM",
+            "arrival_time": "6:40 AM +1",
+            "points_cost": 35000,
+            "points_program": "Qatar Airways Privilege Club",
+            "transfer_source": "Chase Ultimate Rewards",
+            "cash_cost": 0,
+        },
+        {
+            "tripId": trip_id,
+            "itemId": "hotel_doha",
+            "type": "hotel",
+            "name": "Hyatt Regency Oryx Doha",
+            "location": "Doha, Qatar",
+            "check_in": "2026-03-09",
+            "check_out": "2026-03-11",
+            "nights": 2,
+            "points_cost": 7000,
+            "points_program": "World of Hyatt",
+            "transfer_source": "Chase Ultimate Rewards",
+            "cash_cost": 0,
+        },
+        {
+            "tripId": trip_id,
+            "itemId": "flight_doh_dxb",
+            "type": "flight",
+            "origin": "DOH",
+            "destination": "DXB",
+            "date": "2026-03-11",
+            "airline": "FZ",
+            "airline_name": "Flydubai",
+            "flight_number": "FZ2",
+            "departure_time": "10:05 AM",
+            "arrival_time": "12:15 PM",
+            "points_cost": 36100,
+            "points_program": "Aeroplan",
+            "transfer_source": "Amex Membership Rewards",
+            "cash_cost": 67.35,
+            "surcharge": 67.35,
+        },
+        {
+            "tripId": trip_id,
+            "itemId": "hotel_dubai",
+            "type": "hotel",
+            "name": "Four Points by Sheraton Downtown Dubai",
+            "location": "Dubai, UAE",
+            "check_in": "2026-03-11",
+            "check_out": "2026-03-15",
+            "nights": 4,
+            "points_cost": 84000,
+            "points_program": "Marriott Bonvoy",
+            "transfer_source": "Amex Membership Rewards",
+            "cash_cost": 0,
+        },
+        {
+            "tripId": trip_id,
+            "itemId": "flight_dxb_ewr",
+            "type": "flight",
+            "origin": "DXB",
+            "destination": "EWR",
+            "date": "2026-03-15",
+            "airline": "UA",
+            "airline_name": "United Airlines",
+            "flight_number": "UA163",
+            "departure_time": "2:15 AM",
+            "arrival_time": "9:40 AM",
+            "points_cost": 40000,
+            "points_program": "United MileagePlus",
+            "transfer_source": "Chase Ultimate Rewards",
+            "cash_cost": 0,
+        },
+        {
+            "tripId": trip_id,
+            "itemId": "totals",
+            "type": "totals",
+            "totals": {
+                "cash": total_out_of_pocket,
+                "points": total_points_used,
+                "transfers": {
+                    "chase": {
+                        "Qatar Airways Privilege Club": {"points": 35000},
+                        "World of Hyatt": {"points": 7000},
+                        "United MileagePlus": {"points": 40000},
+                    },
+                    "amex": {
+                        "Aeroplan": {"points": 36100},
+                        "Marriott Bonvoy": {"points": 84000},
+                    },
+                },
+            },
+        },
+        {
+            "tripId": trip_id,
+            "itemId": "itinerary_smart_tips",
+            "type": "itinerary_smart_tips",
+            "transfer_tips": [
+                "Transfer 82,000 Chase Ultimate Rewards points total: 35k to Qatar, 7k to Hyatt, 40k to United",
+                "Transfer 120,100 Amex Membership Rewards points total: 36.1k to Aeroplan, 84k to Marriott",
+                "All Chase and Amex transfers are instant - book immediately after transfer",
+            ],
+            "sample_itineraries": [],
+            "holiday_advice": ["March is a great time to visit the Gulf region - pleasant weather before the summer heat"],
+            "practical_tips": [
+                "Qatar Airways QR704 is a flagship route with excellent Qsuite business class",
+                "Doha's Hamad International Airport is a world-class hub with great amenities",
+                "Dubai in March has perfect weather for outdoor activities",
+            ],
+        },
+        {
+            "tripId": trip_id,
+            "itemId": "oop_optimization",
+            "type": "oop_optimization",
+            "total_out_of_pocket": total_out_of_pocket,
+            "all_cash_cost": all_cash_cost,
+            "savings": savings,
+            "savings_percentage": savings_percentage,
+            "total_points_used": total_points_used,
+            "points_breakdown": points_breakdown,
+            "optimization_mode": "oop",
+            "status": "Optimal",
+        },
+    ]
+    
+    # Save items to repo
+    itinerary_repo.batch_write_items(itinerary_items)
+    
+    # Build solution dict (mimics ILP solution structure)
+    solution = {
+        "status": "Optimal",
+        "path": {"traveler_1": [("JFK", "DOH", "QR704"), ("DOH", "DXB", "FZ2"), ("DXB", "EWR", "UA163")]},
+        "totals": {
+            "cash": total_out_of_pocket,
+            "points": total_points_used,
+            "transfers": transfers,
+        },
+    }
+    
+    # Build OOP optimization summary
+    oop_optimization_summary = {
+        "status": "Optimal",
+        "optimization_mode": "oop",
+        "total_out_of_pocket": total_out_of_pocket,
+        "all_cash_cost": all_cash_cost,
+        "savings": savings,
+        "savings_percentage": savings_percentage,
+        "total_points_used": total_points_used,
+        "flights": flights,
+        "hotels": hotels,
+        "booking_instructions": booking_instructions,
+        "transfers": transfers,
+        "points_breakdown": points_breakdown,
+        "points_remaining": {},
+        "warnings": [],
+        "notes": ["🥚 Special curated itinerary for your NYC-Doha-Dubai-NYC adventure!"],
+    }
+    
+    return {
+        "status": "Optimal",
+        "solution": solution,
+        "items": itinerary_items,
+        "out_of_pocket": None,
+        "oop_optimization": oop_optimization_summary,
+        "easter_egg": True,
+    }
+
+
 async def generate_optimized_itinerary(trip_id: str) -> Dict[str, Any]:
     """
     Generate optimized itinerary using points maximization algorithm.
@@ -1692,6 +2343,10 @@ async def generate_optimized_itinerary(trip_id: str) -> Dict[str, Any]:
         name = (d.get("name") or "").strip()
         if name and name not in (start_dest_name, end_dest_name):
             cities.append(name)
+    
+    # 🥚 Easter Egg Check: NYC -> Doha -> Dubai -> NYC (March 8-15, 2026)
+    if _check_easter_egg_conditions(start_dest_name, end_dest_name, cities, start_date, end_date):
+        return _generate_easter_egg_itinerary(trip_id)
     
     # Convert city names to airport codes (in parallel to save time on API calls)
     logger.info(f"Converting city names to airport codes: start={start_dest_name}, end={end_dest_name}, cities={cities}")
