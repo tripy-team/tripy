@@ -44,6 +44,12 @@ def plan_non_pooled_multi_itineraries_with_native(
     award_seats: Dict[str, Dict[Edge, int]] = None,
     # Meetup synchronization (optional exact same-date arrival)
     meetup_cities: List[str] = None,
+    # Card benefits and other optional parameters
+    benefit_airlines: List[str] = None,
+    edge_to_airline: Dict[Edge, str] = None,
+    bag_fee: float = 35.0,
+    W_benefit: float = 1e4,
+    must_visit_cities: List[str] = None,
     # Objective weights (points >> cash >> time)
     W1: float = 10**6,
     W2: float = 10**3,
@@ -83,6 +89,12 @@ def plan_non_pooled_multi_itineraries_with_native(
         award_seats = {}
     if meetup_cities is None:
         meetup_cities = []
+    if must_visit_cities is None:
+        must_visit_cities = []
+    if benefit_airlines is None:
+        benefit_airlines = []
+    if edge_to_airline is None:
+        edge_to_airline = {}
 
     T = travelers
     A = airlines
@@ -234,7 +246,14 @@ def plan_non_pooled_multi_itineraries_with_native(
                 continue
             m += in_deg(p, c) == out_deg(p, c)  # optional pass-through
 
-    # 3) MTZ subtour elimination per passenger
+    # 3) Must-visit cities constraint
+    for p in T:
+        for city in must_visit_cities:
+            if city != start_city[p] and city != end_city[p]:
+                # Ensure passenger visits this city (at least one incoming edge)
+                m += in_deg(p, city) >= 1
+    
+    # 4) MTZ subtour elimination per passenger
     city_pairs = {(i, j) for (i, j, _) in edges if i != j}
     x_any = {
         p: {
@@ -256,7 +275,7 @@ def plan_non_pooled_multi_itineraries_with_native(
                         1 - x_any[p][(i, j)]
                     )
 
-    # 4) Cumulative arrival time propagation
+    # 5) Cumulative arrival time propagation
     BIGM = 10**6
     for p in T:
         m += arr[p][start_city[p]] == 0.0
@@ -265,13 +284,13 @@ def plan_non_pooled_multi_itineraries_with_native(
                 1 - x[p][(i, j, k)]
             )
 
-    # 5) Same-date meetups (optional)
+    # 6) Same-date meetups (optional)
     for c in meetup_cities:
         ref = T[0]
         for p in T[1:]:
             m += arr[p][c] == arr[ref][c]
 
-    # 6) Transfers & balances per PAYER (including native miles)
+    # 7) Transfers & balances per PAYER (including native miles)
     for q in T:
         # delivered from bank transfers for (s,a); may be augmented by native_use[q][a]
         for s, a in t_blocks[q].keys():
@@ -324,7 +343,7 @@ def plan_non_pooled_multi_itineraries_with_native(
         )
         m += cash_spend + sur_spend <= budget_cash[q]
 
-    # 7) Seat capacities (optional)
+    # 8) Seat capacities (optional)
     for e in edges:
         cap = total_cash_seats.get(e, 10**9)
         if cap < 10**9:

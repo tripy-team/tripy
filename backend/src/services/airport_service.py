@@ -149,49 +149,71 @@ def _get_country_name(country_code: str) -> str:
 
 def score_airport(airport: Dict[str, Any], query: str) -> float:
     """
-    Score an airport based on how well it matches the query
-    Higher score = better match
+    Score an airport based on how well it matches the query.
+    Higher score = better match.
+    Handles both city names and IATA codes with high sensitivity.
     """
     query_upper = normalize_query(query)
     iata = airport.get("iata_code", "").upper()
     airport_name = (airport.get("airport_name") or "").upper()
     city = (airport.get("city") or "").upper()
     country = (airport.get("country_name") or "").upper()
+    state = (airport.get("state") or "").upper()
     
     score = 0.0
     
     # Exact IATA code match (highest priority)
     if query_upper == iata:
-        score += 1000.0
+        score += 10000.0
     
-    # IATA code starts with query
-    elif iata.startswith(query_upper):
-        score += 700.0
+    # Exact city name match (very high priority)
+    elif query_upper == city:
+        score += 9000.0
+    
+    # IATA code starts with query (e.g., "JF" matches "JFK")
+    elif len(query_upper) >= 2 and iata.startswith(query_upper):
+        score += 8000.0
+    
+    # City name starts with query (e.g., "San Fr" matches "San Francisco")
+    elif city.startswith(query_upper):
+        score += 7000.0
     
     # Airport name starts with query
     elif airport_name.startswith(query_upper):
+        score += 6000.0
+    
+    # Query is contained in IATA code
+    if query_upper in iata and len(query_upper) >= 2:
         score += 500.0
     
-    # City name starts with query
-    elif city.startswith(query_upper):
-        score += 450.0
+    # Query is contained in city name (case-insensitive word boundary matching)
+    # This handles queries like "york" matching "New York"
+    if query_upper in city:
+        # Check if it's a word boundary match (more valuable)
+        city_words = city.split()
+        if any(word.startswith(query_upper) for word in city_words):
+            score += 400.0
+        else:
+            score += 300.0
     
-    # Contains matches
-    if query_upper in iata:
-        score += 300.0
+    # Query is contained in airport name
     if query_upper in airport_name:
         score += 250.0
-    if query_upper in city:
-        score += 200.0
-    if query_upper in country:
-        score += 150.0
     
-    # Boost for large airports (more popular)
+    # Query matches country or state
+    if query_upper in country:
+        score += 100.0
+    if query_upper in state:
+        score += 80.0
+    
+    # Boost for large airports (more popular/useful)
     airport_type = airport.get("type", "")
     if airport_type == "large_airport":
-        score += 50.0
+        score += 100.0
     elif airport_type == "medium_airport":
-        score += 25.0
+        score += 50.0
+    elif airport_type == "small_airport":
+        score += 20.0
     
     return score
 
@@ -220,9 +242,10 @@ def _get_commercial_airport_set() -> set:
 
 def search_airports(query: str, max_results: int = 10) -> List[Dict[str, Any]]:
     """
-    Search airports based on query string using OpenAI.
+    Search airports based on query string - handles both city names and IATA codes.
     Returns list of commercial airport dictionaries matching the query.
     For city queries (e.g., "nyc", "New York"), returns all airports for that city.
+    For IATA codes (e.g., "JFK", "CDG"), returns that specific airport.
     Only includes commercial airports (with scheduled service).
     """
     if not query or not query.strip():
@@ -230,41 +253,75 @@ def search_airports(query: str, max_results: int = 10) -> List[Dict[str, Any]]:
         return []
     
     query_normalized = query.strip()
+    query_upper = query_normalized.upper()
     
-    # Check if query looks like an airport code (3 letters, all caps or mixed)
-    is_airport_code = len(query_normalized) == 3 and query_normalized.replace(" ", "").isalpha()
+    # Check if query looks like an airport code (3 letters)
+    is_likely_airport_code = len(query_normalized) == 3 and query_normalized.replace(" ", "").isalpha()
+    
+    # Common city abbreviations/nicknames that should be treated as cities
+    city_nicknames = {
+        "NYC": "New York",
+        "LA": "Los Angeles",
+        "SF": "San Francisco",
+        "DC": "Washington",
+        "CHI": "Chicago",
+        "PHX": "Phoenix",
+        "PHI": "Philadelphia",
+        "BOS": "Boston",
+        "DFW": "Dallas",
+        "SEA": "Seattle",
+        "MIA": "Miami",
+        "ATL": "Atlanta",
+        "DEN": "Denver",
+        "MSP": "Minneapolis",
+        "DTW": "Detroit",
+        "PDX": "Portland",
+        "SAN": "San Diego",
+        "TPA": "Tampa",
+        "STL": "St. Louis",
+        "BAL": "Baltimore",
+        "LV": "Las Vegas",
+        "NOLA": "New Orleans",
+    }
     
     try:
+        # Load commercial airport set for filtering
+        commercial_set = _get_commercial_airport_set()
+        
         # Use OpenAI to find airports for the query
         from ..handlers.openAI import find_commercial_airports_for_city, search_airports_with_openai
         
-        # If it's a 3-letter code, try direct airport search first
-        if is_airport_code:
-            # Try direct airport code search
-            airports = search_airports_with_openai(query_normalized.upper(), max_results=max_results)
-            # Filter to commercial only (exclude e.g. FXL) using is_commercial_airport
-            commercial_set = _get_commercial_airport_set()
+        # Step 1: If it's a 3-letter code AND it's a valid commercial IATA code, prioritize exact match
+        if is_likely_airport_code and commercial_set and query_upper in commercial_set:
+            logger.info(f"Query '{query_normalized}' is a valid IATA code, searching for exact match")
+            airports = search_airports_with_openai(query_upper, max_results=max_results)
             if commercial_set:
                 airports = [a for a in airports if is_commercial_airport(a.get("iata_code", ""), commercial_set)]
             if airports:
-                logger.info(f"Found {len(airports)} commercial airports for code '{query_normalized}'")
+                logger.info(f"Found {len(airports)} commercial airports for IATA code '{query_normalized}'")
                 return airports[:max_results]
         
-        # For city queries, use the city-based search
+        # Step 2: Check if query is a known city nickname/abbreviation
+        if query_upper in city_nicknames:
+            city_name = city_nicknames[query_upper]
+            logger.info(f"Query '{query_normalized}' is a city nickname, searching for '{city_name}'")
+            airports = find_commercial_airports_for_city(city_name, max_results=max_results)
+            if airports:
+                return airports[:max_results]
+        
+        # Step 3: Try city-based search (handles full city names and partial matches)
         airports = find_commercial_airports_for_city(query_normalized, max_results=max_results)
+        if airports and len(airports) >= 1:
+            logger.info(f"Found {len(airports)} commercial airports for city query '{query_normalized}'")
+            return airports[:max_results]
+        
+        # Step 4: Fallback to general airport search (handles partial IATA codes, airport names, etc.)
+        airports = search_airports_with_openai(query_normalized, max_results=max_results)
+        if commercial_set:
+            airports = [a for a in airports if is_commercial_airport(a.get("iata_code", ""), commercial_set)]
         
         if airports:
-            logger.info(f"Found {len(airports)} commercial airports for city '{query_normalized}'")
-            return airports[:max_results]
-        else:
-            # Fallback to general airport search
-            airports = search_airports_with_openai(query_normalized, max_results=max_results)
-            # Filter for commercial airports
-            commercial_set = _get_commercial_airport_set()
-            if commercial_set:
-                airports = [a for a in airports if a.get("iata_code", "").upper() in commercial_set]
-            
-            logger.info(f"Found {len(airports)} commercial airports for query '{query_normalized}' (fallback)")
+            logger.info(f"Found {len(airports)} commercial airports for general query '{query_normalized}'")
             return airports[:max_results]
             
     except Exception as e:
@@ -278,6 +335,37 @@ def search_airports(query: str, max_results: int = 10) -> List[Dict[str, Any]]:
         commercial_set = _get_commercial_airport_set()
         query_normalized_upper = normalize_query(query)
         
+        # Expand common city nicknames for better CSV matching
+        city_nickname_expansions = {
+            "NYC": ["NEW YORK", "NEWARK"],
+            "LA": ["LOS ANGELES"],
+            "SF": ["SAN FRANCISCO"],
+            "DC": ["WASHINGTON"],
+            "CHI": ["CHICAGO"],
+            "PHX": ["PHOENIX"],
+            "PHI": ["PHILADELPHIA"],
+            "DFW": ["DALLAS", "FORT WORTH"],
+            "BOS": ["BOSTON"],
+            "SEA": ["SEATTLE"],
+            "MIA": ["MIAMI"],
+            "ATL": ["ATLANTA"],
+            "DEN": ["DENVER"],
+            "MSP": ["MINNEAPOLIS", "ST PAUL"],
+            "DTW": ["DETROIT"],
+            "PDX": ["PORTLAND"],
+            "SAN": ["SAN DIEGO"],
+            "TPA": ["TAMPA"],
+            "STL": ["ST LOUIS", "SAINT LOUIS"],
+            "BAL": ["BALTIMORE"],
+            "LV": ["LAS VEGAS"],
+            "NOLA": ["NEW ORLEANS"],
+        }
+        
+        # Determine search terms (original query + any nickname expansions)
+        search_terms = [query_normalized_upper]
+        if query_normalized_upper in city_nickname_expansions:
+            search_terms.extend(city_nickname_expansions[query_normalized_upper])
+        
         scored_airports = []
         for airport in airports:
             iata_code = airport.get("iata_code", "")
@@ -285,10 +373,16 @@ def search_airports(query: str, max_results: int = 10) -> List[Dict[str, Any]]:
             if commercial_set and not is_commercial_airport(iata_code, commercial_set):
                 continue
 
-            score = score_airport(airport, query_normalized_upper)
-            if score > 0:
-                scored_airports.append((score, airport))
+            # Score against all search terms and take the highest score
+            max_score = 0.0
+            for search_term in search_terms:
+                score = score_airport(airport, search_term)
+                max_score = max(max_score, score)
+            
+            if max_score > 0:
+                scored_airports.append((max_score, airport))
         
+        # Sort by score (descending), then by IATA code
         scored_airports.sort(key=lambda x: (-x[0], x[1]["iata_code"]))
         
         results = []
@@ -306,7 +400,7 @@ def search_airports(query: str, max_results: int = 10) -> List[Dict[str, Any]]:
                 result["display_name"] += f" ({airport['city']})"
             results.append(result)
         
-        logger.info(f"Found {len(results)} commercial airports matching query '{query}' (CSV fallback)")
+        logger.info(f"Found {len(results)} commercial airports matching query '{query}' (CSV fallback, score range: {scored_airports[0][0] if scored_airports else 0}-{scored_airports[-1][0] if scored_airports and len(scored_airports) > 0 else 0})")
         return results
 
 

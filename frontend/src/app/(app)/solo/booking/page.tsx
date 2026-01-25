@@ -153,23 +153,45 @@ function SoloBookingContent() {
   const startLabel = startDate ? formatDate(startDate) : 'your travel dates';
   const endLabel = endDate ? formatDate(endDate) : '';
 
-  type Step = { kind: 'transfer'; source: string; partner: string; amount: number } | { kind: 'segment'; mode: 'flight' | 'bus' | 'car'; orig: string; dest: string; via?: string[] } | { kind: 'hotel_transfer' } | { kind: 'hotel_book'; dest: string; start: string; end: string };
+  type Step = { kind: 'transfer'; source: string; partner: string; amount: number; surcharge?: number } | { kind: 'segment'; mode: 'flight' | 'bus' | 'car'; orig: string; dest: string; via?: string[]; flightNumber?: string; airline?: string; fare?: number } | { kind: 'hotel_transfer' } | { kind: 'hotel_book'; dest: string; start: string; end: string };
   const steps: Step[] = [];
 
   if (paymentRecs.length > 0) {
     paymentRecs.forEach((p) => {
+      // Add transfer step if this is a points booking
       if (p.type === 'points' && (p.via?.source || p.via?.airline || p.via?.native) && (p.miles ?? 0) > 0) {
         const partner = p.via?.airline ? humanizeAirline(p.via.airline) : p.via?.native ? humanizeAirline(p.via.native) : 'airline partner';
         const source = p.via?.source ? humanizeProgram(p.via.source) : 'your points program';
-        steps.push({ kind: 'transfer', source, partner, amount: Math.round(Number(p.miles) || 0) });
+        steps.push({ 
+          kind: 'transfer', 
+          source, 
+          partner, 
+          amount: Math.round(Number(p.miles) || 0),
+          surcharge: Number(p.surcharge) || undefined
+        });
       }
+      // Add segment step with detailed flight info
       const edge = Array.isArray(p.edge) ? p.edge : [];
       const orig = String(edge[0] || '').toUpperCase();
       const dest = String(edge[1] || '').toUpperCase();
+      const flightNumber = edge[2] ? String(edge[2]).toUpperCase() : undefined;
       const mode = (p.mode || 'flight') as 'flight' | 'bus' | 'car';
-      if (orig && dest) steps.push({ kind: 'segment', mode, orig, dest });
+      if (orig && dest) {
+        steps.push({ 
+          kind: 'segment', 
+          mode, 
+          orig, 
+          dest,
+          flightNumber: flightNumber !== 'BUS' && flightNumber !== 'CAR' ? flightNumber : undefined,
+          airline: p.type === 'points' 
+            ? (p.via?.airline ? humanizeAirline(p.via.airline) : p.via?.native ? humanizeAirline(p.via.native) : undefined)
+            : undefined,
+          fare: p.type === 'cash' ? Number(p.fare) : undefined
+        });
+      }
     });
   } else if (routeLabels.length >= 2) {
+    // Fallback when no payment data: show generic route
     steps.push({ kind: 'segment', mode: 'flight', orig: routeLabels[0], dest: routeLabels[routeLabels.length - 1], via: routeLabels.slice(1, -1) });
   }
 
@@ -264,13 +286,35 @@ function SoloBookingContent() {
                       return (
                         <div key={idx} className="flex gap-4">
                           <div className="flex-shrink-0 w-8 h-8 rounded-full bg-blue-100 text-blue-600 flex items-center justify-center font-bold">{idx + 1}</div>
-                          <div>
+                          <div className="flex-1">
                             <h3 className="font-semibold text-slate-900 mb-2">Transfer points to {step.partner}</h3>
                             <p className="text-slate-600 mb-4">
                               Log in to your {step.source} account and transfer <span className="font-bold text-slate-900">{step.amount.toLocaleString()} points</span> to {step.partner}. Transfers are usually instant.
+                              {step.surcharge && step.surcharge > 0 && (
+                                <> You'll also pay <span className="font-bold text-slate-900">${Math.round(step.surcharge)}</span> in taxes and fees when booking.</>
+                              )}
                             </p>
-                            <div className="p-4 bg-slate-50 rounded-xl border border-slate-200 text-sm font-mono text-slate-600">
-                              Partner: {step.partner}<br />Amount: {step.amount.toLocaleString()}
+                            <div className="p-4 bg-slate-50 rounded-xl border border-slate-200">
+                              <div className="grid grid-cols-2 gap-3">
+                                <div>
+                                  <div className="text-xs text-slate-500 mb-1">Transfer From</div>
+                                  <div className="text-sm font-semibold text-slate-900">{step.source}</div>
+                                </div>
+                                <div>
+                                  <div className="text-xs text-slate-500 mb-1">Transfer To</div>
+                                  <div className="text-sm font-semibold text-slate-900">{step.partner}</div>
+                                </div>
+                                <div>
+                                  <div className="text-xs text-slate-500 mb-1">Amount</div>
+                                  <div className="text-sm font-semibold text-slate-900">{step.amount.toLocaleString()} points</div>
+                                </div>
+                                {step.surcharge && step.surcharge > 0 && (
+                                  <div>
+                                    <div className="text-xs text-slate-500 mb-1">Taxes & Fees</div>
+                                    <div className="text-sm font-semibold text-slate-900">${Math.round(step.surcharge)}</div>
+                                  </div>
+                                )}
+                              </div>
                             </div>
                           </div>
                         </div>
@@ -279,19 +323,43 @@ function SoloBookingContent() {
                     if (step.kind === 'segment') {
                       const modeLabel = step.mode === 'flight' ? 'flight' : step.mode === 'bus' ? 'bus' : 'car';
                       const via = step.via?.length ? ` (via ${step.via.join(', ')})` : '';
+                      const flightInfo = step.flightNumber ? ` ${step.flightNumber}` : '';
+                      const airlineInfo = step.airline ? ` on ${step.airline}` : '';
+                      const fareInfo = step.fare ? ` (~$${Math.round(step.fare)})` : '';
                       return (
                         <div key={idx} className="flex gap-4">
                           <div className="flex-shrink-0 w-8 h-8 rounded-full bg-blue-100 text-blue-600 flex items-center justify-center font-bold">{idx + 1}</div>
-                          <div>
-                            <h3 className="font-semibold text-slate-900 mb-2">Book {modeLabel} {step.orig} → {step.dest}</h3>
+                          <div className="flex-1">
+                            <h3 className="font-semibold text-slate-900 mb-2">
+                              Book {modeLabel}{flightInfo} {step.orig} → {step.dest}
+                            </h3>
                             <p className="text-slate-600 mb-4">
-                              Search for {modeLabel} rewards from {step.orig} to {step.dest}{via} on {startLabel}. Use the points you transferred to book.
+                              {step.mode === 'flight' ? (
+                                <>
+                                  {step.airline ? (
+                                    <>Book {modeLabel}{flightInfo}{airlineInfo} from {step.orig} to {step.dest}{via}. Use the points you transferred above to complete the award booking.</>
+                                  ) : (
+                                    <>Search for {modeLabel} rewards from {step.orig} to {step.dest}{via} on {startLabel}. Use the points you transferred to book.</>
+                                  )}
+                                </>
+                              ) : (
+                                <>Book {modeLabel} from {step.orig} to {step.dest}{fareInfo}. This connecting segment fills gaps where flights aren't available.</>
+                              )}
                             </p>
                             <div className="flex items-center gap-4 p-4 bg-slate-50 rounded-xl border border-slate-200">
                               <SegmentIcon mode={step.mode} />
-                              <div>
-                                <div className="font-semibold text-slate-900">{step.orig} <ArrowRight className="w-4 h-4 inline mx-1" /> {step.dest}</div>
-                                <div className="text-xs text-slate-500">{startLabel}</div>
+                              <div className="flex-1">
+                                <div className="font-semibold text-slate-900">
+                                  {step.orig} <ArrowRight className="w-4 h-4 inline mx-1" /> {step.dest}
+                                  {step.flightNumber && <span className="ml-2 text-sm font-normal text-slate-600">Flight {step.flightNumber}</span>}
+                                </div>
+                                {step.airline && (
+                                  <div className="text-sm text-slate-600 mt-1">{step.airline}</div>
+                                )}
+                                {step.fare && (
+                                  <div className="text-xs text-slate-500 mt-1">Cash option: ${Math.round(step.fare)}</div>
+                                )}
+                                <div className="text-xs text-slate-500 mt-1">{startLabel}</div>
                               </div>
                             </div>
                           </div>
@@ -337,13 +405,40 @@ function SoloBookingContent() {
                     return null;
                   })
                 ) : (
-                  <div className="flex gap-4">
-                    <div className="flex-shrink-0 w-8 h-8 rounded-full bg-slate-100 text-slate-500 flex items-center justify-center font-bold">1</div>
-                    <div>
-                      <h3 className="font-semibold text-slate-900 mb-2">Book using your itinerary</h3>
-                      <p className="text-slate-600">
-                        Your costs are based on your trip preferences above. Use your preferred transfer partners and book flights (and hotels if included) for your dates. Re-run the planner from Results for optimized transfer instructions.
-                      </p>
+                  <div className="space-y-4">
+                    <div className="p-6 bg-amber-50 border border-amber-200 rounded-xl">
+                      <div className="flex items-start gap-3">
+                        <Info className="w-5 h-5 text-amber-600 flex-shrink-0 mt-0.5" />
+                        <div>
+                          <h3 className="font-semibold text-amber-900 mb-2">No detailed flight data available</h3>
+                          <p className="text-amber-800 text-sm mb-4">
+                            We couldn't find specific flight and transfer information for your trip. This usually happens when:
+                          </p>
+                          <ul className="text-amber-800 text-sm space-y-2 list-disc list-inside mb-4">
+                            <li>Flight search returned no results (small airports or no award availability)</li>
+                            <li>The trip planner used estimated costs instead of real flight data</li>
+                            <li>Trip dates or destinations need to be updated</li>
+                          </ul>
+                          <p className="text-amber-800 text-sm font-semibold">
+                            To get specific transfer instructions and flight numbers, please return to the Results page and ensure your trip has valid dates and major airports, then regenerate your itinerary.
+                          </p>
+                        </div>
+                      </div>
+                    </div>
+                    <div className="flex gap-4">
+                      <div className="flex-shrink-0 w-8 h-8 rounded-full bg-slate-100 text-slate-500 flex items-center justify-center font-bold">1</div>
+                      <div>
+                        <h3 className="font-semibold text-slate-900 mb-2">General booking guidance</h3>
+                        <p className="text-slate-600">
+                          Based on your itinerary ({routeLabels.length > 0 ? routeLabels.join(' → ') : 'your destinations'}), you should:
+                        </p>
+                        <ul className="text-slate-600 text-sm space-y-2 mt-3 list-disc list-inside">
+                          <li>Search for award flights on airline websites or aggregators</li>
+                          <li>Transfer points from flexible credit card programs (Chase, Amex, Citi) to airline partners with good availability</li>
+                          <li>Book as soon as you find availability, as award seats can disappear quickly</li>
+                          {includeHotels && <li>Book hotels separately using hotel points or cash</li>}
+                        </ul>
+                      </div>
                     </div>
                   </div>
                 )}

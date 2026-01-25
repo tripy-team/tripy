@@ -180,22 +180,32 @@ def find_commercial_airports_for_city(city_query: str, max_results: int = 10) ->
     load_dotenv()
     client = OpenAI(api_key=os.getenv("OPENAI_ADMIN_KEY"))
     
-    system_prompt = """You are a travel assistant that finds commercial airports for cities.
+    system_prompt = """You are a travel assistant that finds commercial airports for cities or airport codes.
 
-Your task is to find ALL major commercial airports that serve a given city or metropolitan area.
-For example:
-- "New York" or "NYC" should return: JFK, LGA, EWR
-- "London" should return: LHR, LGW, STN, LTN
-- "Paris" should return: CDG, ORY
-- "Los Angeles" or "LA" should return: LAX, BUR, SNA, LGB, ONT
+Your task is to find ALL major commercial airports based on the user's query, which could be:
+1. A city name (e.g., "New York", "Paris", "Tokyo")
+2. A city nickname/abbreviation (e.g., "NYC", "LA", "SF")  
+3. An airport code (e.g., "JFK", "CDG", "LHR")
+4. A partial city name (e.g., "San Fr" for San Francisco)
+
+Examples:
+- "New York" or "NYC" → JFK, LGA, EWR
+- "JFK" → JFK (John F. Kennedy International Airport)
+- "London" → LHR, LGW, STN, LTN, LCY
+- "Paris" or "CDG" → CDG, ORY
+- "Los Angeles" or "LA" or "LAX" → LAX, BUR, SNA, LGB, ONT
+- "San Francisco" or "SF" or "SFO" → SFO, OAK, SJC
 
 IMPORTANT:
 - Only return COMMERCIAL airports with scheduled passenger service
-- Include ALL major airports serving the city/metro area
+- For city queries: include ALL major airports serving the city/metro area
+- For airport code queries: return that specific airport PLUS other airports in the same metro area
 - Return airports as a JSON array with IATA codes, names, cities, countries
-- Use the exact city name from the query when possible"""
+- Prioritize exact matches (if query is "JFK", put JFK first)"""
 
-    user_prompt = f"""Find all commercial airports that serve the city/metro area: "{city_query}"
+    user_prompt = f"""Find all commercial airports for: "{city_query}"
+
+This could be a city name, city nickname (NYC, LA, SF), or an airport code (JFK, LAX).
 
 Return a JSON object with this structure:
 {{
@@ -220,7 +230,11 @@ Return a JSON object with this structure:
   ]
 }}
 
-Return ALL major commercial airports for this city/metro area (up to {max_results})."""
+Instructions:
+- If the query is an airport code (e.g., "JFK"), return that airport FIRST, then other airports in the same metro area
+- If the query is a city name, return ALL major commercial airports for that city/metro area
+- Return up to {max_results} airports
+- Only include commercial airports with scheduled service"""
 
     try:
         response = client.chat.completions.create(
@@ -230,7 +244,7 @@ Return ALL major commercial airports for this city/metro area (up to {max_result
                 {"role": "user", "content": user_prompt}
             ],
             response_format={"type": "json_object"},
-            temperature=0.2,  # Low temperature for consistent results
+            temperature=0.1,  # Very low temperature for highly consistent results
         )
         
         import json
@@ -300,47 +314,44 @@ def search_airports_with_openai(query: str, max_results: int = 10) -> List[Dict[
         logging.getLogger(__name__).warning(f"Could not load commercial airport set for search_airports_with_openai: {e}")
         commercial_set = set()
     
-    system_prompt = """You are a travel assistant that helps users find airports around the world.
-    
-Your task is to suggest airports that match the user's query. The query might be:
-- An airport code (e.g., "JFK", "CDG", "LHR")
-- An airport name (e.g., "John F. Kennedy", "Charles de Gaulle")
-- A city name (e.g., "New York", "Paris", "London")
-- A partial airport code (e.g., "JF", "CD")
-- A typo or variation (e.g., "JFK Airport", "Paris CDG")
+    system_prompt = (
+        "You are a travel assistant that helps users find airports based on any type of query. "
+        "Your task is to suggest airports that match the user's query. The query might be: "
+        "An IATA airport code (e.g., JFK, CDG, LHR, SFO), "
+        "a city name (e.g., New York, Paris, London, San Francisco), "
+        "a city nickname (e.g., NYC, LA, SF, Chi), "
+        "an airport name (e.g., John F. Kennedy, Charles de Gaulle, Heathrow), "
+        "a partial match (e.g., JF, San Fr, Lond), "
+        "or a typo or variation (e.g., Parris, Londun). "
+        "For each airport, provide: The IATA airport code (3 letters, e.g., JFK, CDG, LHR) - REQUIRED, "
+        "the full airport name (e.g., John F. Kennedy International Airport), "
+        "the city name where the airport is located, the country name, "
+        "and the region/continent (e.g., Europe, Asia, North America). "
+        "Return results as a JSON array of airport objects. Prioritize and be SENSITIVE to: "
+        "1. Exact IATA code matches (if query is JFK, prioritize JFK), "
+        "2. City name matches (if query is Paris or CDG, return Paris airports), "
+        "3. Partial matches (if query is San Fr, return San Francisco airports), "
+        "4. Airport name matches, 5. Major international airports for the city/region. "
+        "Be FLEXIBLE with matching - accept city nicknames, partial names, and typos."
+    )
 
-For each airport, provide:
-- The IATA airport code (3 letters, e.g., JFK, CDG, LHR) - REQUIRED
-- The full airport name (e.g., "John F. Kennedy International Airport")
-- The city name where the airport is located
-- The country name
-- The region/continent (e.g., Europe, Asia, North America)
-
-Return results as a JSON array of airport objects. Prioritize:
-1. Exact airport code matches
-2. Airports matching the query text
-3. Major international airports
-4. Airports in cities matching the query"""
-
-    user_prompt = f"""Find up to {max_results} airports that match the query: "{query}"
-
-Return a JSON array with this structure:
-[
-  {{
-    "iata_code": "JFK",
-    "airport_name": "John F. Kennedy International Airport",
-    "city": "New York",
-    "country": "United States",
-    "region": "North America"
-  }}
-]
-
-IMPORTANT:
-- Always include the IATA code (3-letter airport code)
-- If the query is an airport code (3 letters), return that specific airport
-- If the query is a city name, return the main airports for that city
-- If the query is an airport name, return matching airports
-- Include both the airport name and the city it serves"""
+    user_prompt = (
+        f"Find up to {max_results} airports that match the query: {query}. "
+        f"The query could be: an airport code (e.g., JFK returns JFK), "
+        f"a city name (e.g., New York returns JFK, LGA, EWR), "
+        f"a city nickname (e.g., NYC returns New York airports), "
+        f"a partial match (e.g., San Fr returns San Francisco airports), "
+        f"or an airport name (e.g., Kennedy returns JFK). "
+        f"Return a JSON array with this structure: "
+        f'[{{"iata_code": "JFK", "airport_name": "John F. Kennedy International Airport", '
+        f'"city": "New York", "country": "United States", "region": "North America"}}]. '
+        f"CRITICAL RULES: Always include the IATA code (3-letter airport code) - REQUIRED. "
+        f"Be SENSITIVE to the query type: If query matches an IATA code, prioritize that airport first; "
+        f"if query is a city name or nickname, return ALL major airports for that city; "
+        f"if query is partial, match cities/airports that start with that text. "
+        f"Include both the airport name and the city it serves. "
+        f"Order results by relevance (exact matches first, then close matches)."
+    )
 
     try:
         response = client.chat.completions.create(
@@ -350,7 +361,7 @@ IMPORTANT:
                 {"role": "user", "content": user_prompt}
             ],
             response_format={"type": "json_object"},
-            temperature=0.3,  # Lower temperature for more consistent results
+            temperature=0.1,  # Very low temperature for highly consistent and accurate results
         )
         
         import json

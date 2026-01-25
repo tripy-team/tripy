@@ -98,6 +98,79 @@ def _parse_trip_duration_days(trip: Dict[str, Any]) -> int:
     return 7
 
 
+def _calculate_minimum_budget(num_cities: int, total_days: int, include_hotels: bool = True) -> int:
+    """
+    Calculate the absolute minimum budget needed for a trip.
+    Used to provide realistic budget suggestions when user's budget is too low.
+    
+    Args:
+        num_cities: Number of cities to visit (stays, not including origin/transit)
+        total_days: Total trip duration in days
+        include_hotels: Whether hotels are included in the trip cost
+    
+    Returns:
+        Minimum budget in dollars
+    """
+    base_cost_per_day = 200 if include_hotels else 120
+    base_cost_per_city = 300 if include_hotels else 200
+    
+    # Minimum: 1 day per city
+    min_days = max(num_cities, total_days // 2)  # Use at least half the total days
+    min_budget = int(min_days * base_cost_per_day + num_cities * base_cost_per_city)
+    
+    # Add 20% buffer for flight costs and contingency
+    return int(min_budget * 1.2)
+
+
+def _generate_minimal_fallback_itinerary(trip_id: str, reason: str = "Unknown error") -> List[Dict[str, Any]]:
+    """
+    Generate a minimal fallback itinerary when all else fails.
+    This is the absolute last resort to ensure we always return something.
+    
+    Args:
+        trip_id: Trip ID
+        reason: Reason for fallback
+    
+    Returns:
+        List with one minimal itinerary item and a warning
+    """
+    logger.warning(f"Generating minimal fallback itinerary for trip {trip_id}: {reason}")
+    
+    items = [
+        {
+            "tripId": trip_id,
+            "itemId": "fallback_itinerary_1",
+            "type": "itinerary",
+            "name": "Basic route estimate",
+            "route": [],
+            "cities": [{"name": "Your destination", "days": 7}],
+            "totalCost": 3000,  # Reasonable default estimate
+            "pointsCost": 75000,  # Reasonable default estimate
+            "score": 75,
+            "withinBudget": False,  # Mark as uncertain
+            "withinPoints": False,
+        },
+        {
+            "tripId": trip_id,
+            "itemId": "fallback_warning",
+            "type": "fallback_warning",
+            "message": (
+                f"We encountered an issue generating your itinerary: {reason}. "
+                "Please ensure your trip has valid destinations, dates, and budget settings. "
+                "The estimate shown above is a placeholder."
+            ),
+        },
+    ]
+    
+    # Try to save to DB (but don't fail if this fails)
+    try:
+        itinerary_repo.batch_write_items(items)
+    except Exception as e:
+        logger.error(f"Failed to save fallback itinerary: {e}")
+    
+    return items
+
+
 def save_itinerary(trip_id: str, route: List[str]) -> Dict[str, Any]:
     # MVP: store one item that contains the chosen route as JSON
     item_id = "route"
@@ -110,7 +183,7 @@ def get_itinerary(trip_id: str) -> List[Dict[str, Any]]:
     return itinerary_repo.list_items(trip_id)
 
 
-def generate_simple_itineraries(trip_id: str) -> List[Dict[str, Any]]:
+def generate_simple_itineraries(trip_id: str, safe_mode: bool = False) -> List[Dict[str, Any]]:
     """
     Lightweight, dependency‑free itinerary generator.
 
@@ -121,10 +194,18 @@ def generate_simple_itineraries(trip_id: str) -> List[Dict[str, Any]]:
       - Adds withinBudget and withinPoints to each item for UI badges
 
     The frontend treats these as "routes" for display and comparison.
+    
+    Args:
+        trip_id: Trip ID to generate itineraries for
+        safe_mode: If True, returns a minimal default itinerary instead of raising errors
     """
     # Load trip + destinations
     trip = trip_service.get_trip(trip_id)
     if not trip:
+        if safe_mode:
+            # Return minimal default itinerary instead of failing
+            logger.warning(f"Trip {trip_id} not found in safe_mode; returning default itinerary")
+            return _generate_minimal_fallback_itinerary(trip_id, "Trip not found")
         raise ValueError(f"Trip {trip_id} not found")
 
     max_budget = trip.get("maxBudget") or trip.get("max_budget")
@@ -144,11 +225,17 @@ def generate_simple_itineraries(trip_id: str) -> List[Dict[str, Any]]:
 
     destinations = destination_service.list_destinations(trip_id)
     if not destinations:
+        if safe_mode:
+            logger.warning(f"No destinations for trip {trip_id} in safe_mode; returning default itinerary")
+            return _generate_minimal_fallback_itinerary(trip_id, "No destinations found")
         raise ValueError("No destinations found for trip. Please add at least one destination.")
 
     # Filter out excluded destinations while preserving original order
     valid_dests: List[Dict[str, Any]] = [d for d in destinations if not d.get("excluded", False)]
     if not valid_dests:
+        if safe_mode:
+            logger.warning(f"All destinations excluded for trip {trip_id} in safe_mode; returning default itinerary")
+            return _generate_minimal_fallback_itinerary(trip_id, "All destinations are excluded")
         raise ValueError("All destinations are excluded. Please add at least one active destination.")
 
     # Determine start / end. Prefer explicit isStart/isEnd so the route uses the correct
@@ -228,14 +315,16 @@ def generate_simple_itineraries(trip_id: str) -> List[Dict[str, Any]]:
             })
 
     # 3. Budget: keep all user destinations; only reduce days to fit max_budget (stays only)
+    # This variant always succeeds even with very low budgets (minimum 1 day per city)
     if max_budget is not None and max_budget > 0:
         n = max(len(stay_names), 1)
         room = max_budget - n * base_cost_per_city
         if room > 0:
             max_stay = room // base_cost_per_day
-            budget_days = max(2, min(base_days, max_stay // n))
+            budget_days = max(1, min(base_days, max(1, max_stay // n)))  # Minimum 1 day per city
         else:
-            budget_days = 2
+            # Even with zero room, create a minimal variant (1 day per city)
+            budget_days = 1
         budget_cities = _build_city_objects(stay_names, stay_ids, days_per=budget_days)
         routes.append({
             "label": "Budget pick",
@@ -344,6 +433,10 @@ def generate_simple_itineraries(trip_id: str) -> List[Dict[str, Any]]:
         existing_ids.add(candidate)
         return candidate
 
+    # Calculate minimum budget needed and check if user's budget is too low
+    min_budget_needed = _calculate_minimum_budget(len(stay_names), total_days, include_hotels)
+    budget_too_low = max_budget is not None and max_budget > 0 and max_budget < min_budget_needed
+    
     for idx, r in enumerate(routes, start=1):
         city_objs = r["cities"]
         total_cost = _cost(city_objs)
@@ -377,13 +470,30 @@ def generate_simple_itineraries(trip_id: str) -> List[Dict[str, Any]]:
         }
         items.append(item)
 
+    # Add budget warning item if user's budget is too low
+    if budget_too_low and max_budget is not None:
+        warning_item = {
+            "tripId": trip_id,
+            "itemId": "budget_warning",
+            "type": "budget_warning",
+            "message": (
+                f"Your budget of ${max_budget:,} may be too low for this trip. "
+                f"We recommend at least ${min_budget_needed:,} for {len(stay_names)} cities over {total_days} days "
+                f"({'with hotels' if include_hotels else 'without hotels'}). "
+                f"The itineraries shown above may exceed your budget."
+            ),
+            "user_budget": max_budget,
+            "recommended_budget": min_budget_needed,
+        }
+        items.append(warning_item)
+
     # Write all items in a single batch (more efficient than individual put_item calls)
     itinerary_repo.batch_write_items(items)
 
     dest_names = [c["name"] for c in (routes[0]["cities"] if routes else [])]
     logger.info(
         f"Generated {len(items)} simple itineraries for trip {trip_id} "
-        f"(max_budget={max_budget}, total_points={total_points}); "
+        f"(max_budget={max_budget}, total_points={total_points}, min_budget_needed={min_budget_needed}); "
         f"destinations={dest_names}"
     )
     return items
@@ -1363,11 +1473,47 @@ async def generate_optimized_itinerary(trip_id: str) -> Dict[str, Any]:
         if status != "Optimal":
             if status == "Infeasible":
                 relaxed_solution: Optional[Dict[str, Any]] = None
-                # 1) Retry with relaxed budget (2x, 3x, 5x, 10x) when user had a real budget
-                if max_budget is not None and max_budget > 0 and len(travelers) > 0:
-                    for mult in [2, 3, 5, 10]:
-                        try_budget = min(int(1e9), (max_budget * mult) // len(travelers))
-                        if try_budget <= default_cash_budget:
+                # Calculate smart budget based on actual route costs if we have edges
+                smart_budget: Optional[int] = None
+                if edges_all and max_budget is not None and max_budget > 0:
+                    # Find minimum cost path to estimate realistic budget
+                    min_route_cost = None
+                    for (i, j, k), d in edges_all.items():
+                        cost = d.get("cash_cost")
+                        if cost is not None:
+                            try:
+                                cost_val = float(cost)
+                                if min_route_cost is None or cost_val < min_route_cost:
+                                    min_route_cost = cost_val
+                            except (TypeError, ValueError):
+                                pass
+                    
+                    # Estimate based on number of segments (cities + 1)
+                    num_segments = len(city_codes) + 1 if city_codes else 2
+                    if min_route_cost is not None and min_route_cost < 1e6:
+                        estimated_total = int(min_route_cost * num_segments * 1.3)  # 30% buffer
+                        if estimated_total > max_budget:
+                            smart_budget = estimated_total
+                            logger.info(
+                                "Calculated smart budget: ${:,.0f} (user budget: ${:,.0f}, min flight: ${:.0f}, segments: {})".format(
+                                    smart_budget, max_budget, min_route_cost, num_segments
+                                )
+                            )
+                
+                # 1) Retry with smart budget first, then fallback to multipliers
+                budget_attempts = []
+                if smart_budget and smart_budget > max_budget:
+                    budget_attempts.append(("smart", smart_budget))
+                # Add multiplier attempts
+                for mult in [2, 3, 5, 10]:
+                    mult_budget = (max_budget * mult) if max_budget else None
+                    if mult_budget:
+                        budget_attempts.append((f"{mult}x", mult_budget))
+                
+                if len(travelers) > 0:
+                    for attempt_label, try_total_budget in budget_attempts:
+                        try_budget = min(int(1e9), int(try_total_budget) // len(travelers))
+                        if max_budget and try_budget <= (max_budget // len(travelers)):
                             continue
                         try:
                             sol_retry = run_ilp_from_edges(
@@ -1393,38 +1539,59 @@ async def generate_optimized_itinerary(trip_id: str) -> Dict[str, Any]:
                                 relaxed_solution = sol_retry
                                 tot = sol_retry.get("totals", {}).get("cash", 0) or 0
                                 relaxed_message = (
-                                    f"No feasible solution within your budget (${max_budget:,}). "
-                                    f"We relaxed the budget and found a route including all your destinations. Total cash: ${tot:,.0f}. "
-                                    "Consider increasing your budget or adding more points."
+                                    f"Your budget of ${max_budget:,} is too low for this trip. "
+                                    f"We found a route with a budget of ${int(try_total_budget):,} (total cash: ${tot:,.0f}). "
+                                    f"Consider increasing your budget to at least ${int(try_total_budget):,} or adding more points."
                                 )
-                                logger.info("Infeasible: found solution with relaxed budget %dx (try_budget=%s)", mult, try_budget)
+                                logger.info("Infeasible: found solution with %s budget (${:,.0f})", attempt_label, try_total_budget)
                                 break
                         except Exception as retry_err:
-                            logger.debug("Relaxed budget retry (mult=%s) failed: %s", mult, retry_err)
+                            logger.debug("Relaxed budget retry (%s, $%s) failed: %s", attempt_label, try_total_budget, retry_err)
+                
                 # 2) Best-effort: minimum cash path from graph (may exceed budget/points)
                 if relaxed_solution is None:
                     relaxed_solution, relaxed_message = _best_effort_path_from_edges(
                         edges_all, start_city_by_trav, end_city_by_trav, travelers
                     )
-                # 3) Use relaxed solution or fall back to AI route suggestions
+                    if relaxed_solution and relaxed_message and max_budget:
+                        # Enhance message with budget recommendation
+                        tot = relaxed_solution.get("totals", {}).get("cash", 0) or 0
+                        if tot > max_budget:
+                            relaxed_message = (
+                                f"Your budget of ${max_budget:,} is insufficient. "
+                                f"The lowest-cost route we found costs ${tot:,.0f}. "
+                                f"We recommend a budget of at least ${int(tot * 1.2):,}."
+                            )
+                
+                # 3) Use relaxed solution or fall back to simple generator with warning
                 if relaxed_solution and any((relaxed_solution.get("path") or {}).values()):
                     solution = relaxed_solution
                     logger.info("Using relaxed/best-effort solution: %s", relaxed_message[:80] if relaxed_message else "")
                 else:
+                    # Instead of AI suggestions, fall back to simple generator which always works
                     logger.info(
-                        "No feasible solution and no path in graph; returning AI route suggestions for %s -> %s",
-                        start_dest_name or start_dest_code, end_dest_name or end_dest_code,
+                        "No feasible optimized solution; falling back to simple itineraries with budget warning"
                     )
-                    return _save_and_return_ai_route_suggestions(
-                        trip_id,
-                        start_dest_name or start_dest_code,
-                        end_dest_name or end_dest_code,
-                        cities,
-                        start_date,
-                        end_date,
-                        failed_routes=failed_routes,
-                        points_programs=list({p for u in user_points_by_trav.values() for p in u}),
-                    )
+                    simple_items = generate_simple_itineraries(trip_id)
+                    # Add warning that optimization failed
+                    warning_item = {
+                        "tripId": trip_id,
+                        "itemId": "optimization_failed_warning",
+                        "type": "optimization_warning",
+                        "message": (
+                            "We couldn't optimize your itinerary with real flight data. "
+                            "This usually means your budget is too low or flights aren't available for your dates. "
+                            "The routes shown are estimates. Consider increasing your budget or choosing different dates/airports."
+                        ),
+                    }
+                    simple_items.append(warning_item)
+                    itinerary_repo.put_item(warning_item)
+                    return {
+                        "status": "simple_fallback",
+                        "solution": {},
+                        "items": simple_items,
+                        "fallback_reason": "infeasible",
+                    }
             elif status == "Unbounded":
                 logger.warning("Optimization is unbounded - this should not happen with proper constraints")
             else:

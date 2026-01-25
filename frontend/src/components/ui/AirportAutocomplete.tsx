@@ -138,7 +138,7 @@ function flattenSuggestionsToAirports(raw: SuggestionLike[]): AirportSuggestion[
 export default function AirportAutocomplete({
   value,
   onValueChange,
-  placeholder = "City or airport",
+  placeholder = "City or airport (e.g., NYC, London, JFK)",
   disabled = false,
   className = "",
   onSelect,
@@ -299,7 +299,7 @@ export default function AirportAutocomplete({
     setActiveIdx(0);
   }, [debounced, suggestions]);
 
-  // Search via destinations.autocomplete (SerpAPI + fuzzy), flatten to AirportSuggestion[]
+  // Search via airports autocomplete (OpenAI-powered with city-to-airports mapping)
   useEffect(() => {
     const query = debounced.trim();
 
@@ -312,21 +312,51 @@ export default function AirportAutocomplete({
     setIsLoading(true);
     const timeoutId = setTimeout(async () => {
       try {
-        const response = await destinations.autocomplete(query, 10, true);
-        const raw = response?.suggestions ?? [];
-        let airports = flattenSuggestionsToAirports(raw);
-        if (airports.length === 0) {
-          const fallbackRes = await destinations.fallbackDestinations(query, 10, true);
-          airports = flattenSuggestionsToAirports(fallbackRes?.suggestions ?? []);
-          setSuggestions(airports.length > 0 ? airports : filterFallbackAirports(query, 10));
-        } else {
+        // Use the dedicated /api/airports/autocomplete endpoint
+        // This uses OpenAI to find all airports for a city (e.g., "NYC" → JFK, LGA, EWR)
+        const response = await fetch(
+          `/api/airports/autocomplete?q=${encodeURIComponent(query)}&limit=10`,
+          {
+            method: 'GET',
+            headers: { 'Content-Type': 'application/json' },
+          }
+        );
+        
+        if (!response.ok) {
+          throw new Error('Failed to fetch airports');
+        }
+        
+        const data = await response.json();
+        const airports = data?.airports ?? [];
+        
+        if (airports.length > 0) {
           setSuggestions(airports);
+        } else {
+          // Fallback to destinations API (SerpAPI-based) if no results
+          const fallbackResponse = await destinations.autocomplete(query, 10, true);
+          const raw = fallbackResponse?.suggestions ?? [];
+          let fallbackAirports = flattenSuggestionsToAirports(raw);
+          
+          if (fallbackAirports.length === 0) {
+            const fallbackRes = await destinations.fallbackDestinations(query, 10, true);
+            fallbackAirports = flattenSuggestionsToAirports(fallbackRes?.suggestions ?? []);
+          }
+          
+          setSuggestions(fallbackAirports.length > 0 ? fallbackAirports : filterFallbackAirports(query, 10));
         }
       } catch (error) {
         console.error("Error fetching airport suggestions:", error);
         try {
-          const fallbackRes = await destinations.fallbackDestinations(query, 10, true);
-          const fallbackAirports = flattenSuggestionsToAirports(fallbackRes?.suggestions ?? []);
+          // Final fallback: try destinations API
+          const fallbackResponse = await destinations.autocomplete(query, 10, true);
+          const raw = fallbackResponse?.suggestions ?? [];
+          let fallbackAirports = flattenSuggestionsToAirports(raw);
+          
+          if (fallbackAirports.length === 0) {
+            const fallbackRes = await destinations.fallbackDestinations(query, 10, true);
+            fallbackAirports = flattenSuggestionsToAirports(fallbackRes?.suggestions ?? []);
+          }
+          
           setSuggestions(fallbackAirports.length > 0 ? fallbackAirports : filterFallbackAirports(query, 10));
         } catch {
           setSuggestions(filterFallbackAirports(query, 10));

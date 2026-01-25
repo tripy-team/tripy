@@ -826,26 +826,57 @@ async def generate_itinerary(
         return out
     except ValueError as e:
         # Fallback to simple itineraries (1-5 routes within budget/points) when optimization fails
-        logger.warning(f"Optimization failed ({e}), falling back to simple itineraries")
+        logger.warning(f"Optimization failed ({e}), falling back to simple itineraries with safe_mode")
         try:
-            items = itinerary_service.generate_simple_itineraries(request.trip_id)
+            items = itinerary_service.generate_simple_itineraries(request.trip_id, safe_mode=True)
             track_itinerary_generated(user_id, request.trip_id, len(items))
-            return {"status": "simple", "solution": {}, "items": items}
+            warning_msg = f"Optimization failed: {str(e)}"
+            return {
+                "status": "simple_fallback",
+                "solution": {},
+                "items": items,
+                "fallback_reason": "optimization_error",
+                "warning": warning_msg,
+            }
         except Exception as fallback_err:
             logger.error(f"Simple itinerary fallback failed: {fallback_err}")
-            raise HTTPException(status_code=400, detail=str(e))
+            # Last resort: return minimal fallback
+            fallback_items = itinerary_service._generate_minimal_fallback_itinerary(
+                request.trip_id, f"All generators failed: {str(fallback_err)}"
+            )
+            return {
+                "status": "minimal_fallback",
+                "solution": {},
+                "items": fallback_items,
+                "error": str(e),
+            }
     except HTTPException:
         raise
     except Exception as e:
         logger.error(f"Error generating itinerary: {str(e)}")
-        # Fallback to simple itineraries on any error
+        # Fallback to simple itineraries on any error (with safe_mode to guarantee success)
         try:
-            items = itinerary_service.generate_simple_itineraries(request.trip_id)
+            items = itinerary_service.generate_simple_itineraries(request.trip_id, safe_mode=True)
             track_itinerary_generated(user_id, request.trip_id, len(items))
-            return {"status": "simple", "solution": {}, "items": items}
+            return {
+                "status": "simple_fallback",
+                "solution": {},
+                "items": items,
+                "fallback_reason": "unexpected_error",
+                "warning": f"Unexpected error: {str(e)}",
+            }
         except Exception as fallback_err:
             logger.error(f"Simple itinerary fallback failed: {fallback_err}")
-            raise HTTPException(status_code=500, detail=str(e))
+            # Last resort: return minimal fallback
+            fallback_items = itinerary_service._generate_minimal_fallback_itinerary(
+                request.trip_id, f"All generators failed: {str(fallback_err)}"
+            )
+            return {
+                "status": "minimal_fallback",
+                "solution": {},
+                "items": fallback_items,
+                "error": str(e),
+            }
 
 
 @app.post("/itinerary/get")

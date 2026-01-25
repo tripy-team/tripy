@@ -207,6 +207,9 @@ export default function SoloResults() {
     const [relaxedMessage, setRelaxedMessage] = useState<string | null>(null);
     const [trip, setTrip] = useState<Trip | null>(null);
     const [refetchTrigger, setRefetchTrigger] = useState(0);
+    const [budgetWarning, setBudgetWarning] = useState<{ message?: string; user_budget?: number; recommended_budget?: number } | null>(null);
+    const [optimizationWarning, setOptimizationWarning] = useState<string | null>(null);
+    const [fallbackWarning, setFallbackWarning] = useState<string | null>(null);
 
     useEffect(() => {
         const fetchItineraries = async () => {
@@ -224,6 +227,9 @@ export default function SoloResults() {
                 setOutOfPocketHotels(null);
                 setUserConstraints(null);
                 setRelaxedMessage(null);
+                setBudgetWarning(null);
+                setOptimizationWarning(null);
+                setFallbackWarning(null);
                 const [response, trip, pointsRes] = await Promise.all([
                     itinerariesAPI.get(tripId),
                     tripsAPI.get(tripId).catch(() => null),
@@ -298,6 +304,16 @@ export default function SoloResults() {
                 setOutOfPocketHotels(pickOopHotels(response));
                 // Relaxed-constraints banner (when no feasible solution; we show a similar route)
                 setRelaxedMessage(pickRelaxed(response));
+                
+                // Extract warnings from response items
+                const budgetWarn = response.items?.find((i: ItineraryItem & { type?: string }) => i.type === 'budget_warning') as { message?: string; user_budget?: number; recommended_budget?: number } | undefined;
+                setBudgetWarning(budgetWarn || null);
+                
+                const optWarn = response.items?.find((i: ItineraryItem & { type?: string }) => i.type === 'optimization_warning') as { message?: string } | undefined;
+                setOptimizationWarning(optWarn?.message || null);
+                
+                const fallWarn = response.items?.find((i: ItineraryItem & { type?: string }) => i.type === 'fallback_warning') as { message?: string } | undefined;
+                setFallbackWarning(fallWarn?.message || null);
 
                 // Fetch destinations to map UUIDs to names
                 const destinationsResponse = await destinations.list(tripId);
@@ -306,11 +322,11 @@ export default function SoloResults() {
                     destinationMap.set(dest.destinationId, dest.name);
                 });
 
-                // Transform API response (exclude non-itinerary types: ai_route_suggestions, itinerary_smart_tips, out_of_pocket, out_of_pocket_hotels, payments, totals)
+                // Transform API response (exclude non-itinerary types: ai_route_suggestions, itinerary_smart_tips, out_of_pocket, out_of_pocket_hotels, payments, totals, warnings)
                 // Include 'path' (optimized ILP routes) and 'itinerary' (simple generator); path has route/path with airport codes
                 const regularItems = (response.items || []).filter(
                     (i: ItineraryItem & { type?: string }) => {
-                        if (['ai_route_suggestions', 'itinerary_smart_tips', 'itinerary_relaxed_info', 'out_of_pocket', 'out_of_pocket_hotels', 'payments', 'totals'].includes(i.type || '')) return false;
+                        if (['ai_route_suggestions', 'itinerary_smart_tips', 'itinerary_relaxed_info', 'out_of_pocket', 'out_of_pocket_hotels', 'payments', 'totals', 'budget_warning', 'optimization_warning', 'fallback_warning'].includes(i.type || '')) return false;
                         const route = i.route || i.cities || (i as { path?: unknown }).path;
                         return Array.isArray(route) && route.length > 0;
                     }
@@ -431,6 +447,15 @@ export default function SoloResults() {
                             setOutOfPocket(pickOop(gen));
                             setOutOfPocketHotels(pickOopHotels(gen));
                             setRelaxedMessage(pickRelaxed(gen));
+                            
+                            // Extract warnings from generated items
+                            const genBudgetWarn = (gen.items || []).find((i: ItineraryItem & { type?: string }) => i.type === 'budget_warning') as { message?: string; user_budget?: number; recommended_budget?: number } | undefined;
+                            setBudgetWarning(genBudgetWarn || null);
+                            const genOptWarn = (gen.items || []).find((i: ItineraryItem & { type?: string }) => i.type === 'optimization_warning') as { message?: string } | undefined;
+                            setOptimizationWarning(genOptWarn?.message || null);
+                            const genFallWarn = (gen.items || []).find((i: ItineraryItem & { type?: string }) => i.type === 'fallback_warning') as { message?: string } | undefined;
+                            setFallbackWarning(genFallWarn?.message || null);
+                            
                             const genTips = (gen.items || []).find((i: ItineraryItem & { type?: string }) => i.type === 'itinerary_smart_tips') as Record<string, unknown> | undefined;
                             if (genTips) {
                                 setSmartTips({
@@ -442,7 +467,7 @@ export default function SoloResults() {
                             }
                             const genRegular = (gen.items || []).filter(
                                 (i: ItineraryItem & { type?: string }) => {
-                                    if (['ai_route_suggestions', 'itinerary_smart_tips', 'itinerary_relaxed_info', 'out_of_pocket', 'out_of_pocket_hotels', 'payments', 'totals'].includes(i.type || '')) return false;
+                                    if (['ai_route_suggestions', 'itinerary_smart_tips', 'itinerary_relaxed_info', 'out_of_pocket', 'out_of_pocket_hotels', 'payments', 'totals', 'budget_warning', 'optimization_warning', 'fallback_warning'].includes(i.type || '')) return false;
                                     const route = i.route || i.cities || (i as { path?: unknown }).path;
                                     return Array.isArray(route) && route.length > 0;
                                 }
@@ -699,6 +724,53 @@ export default function SoloResults() {
                     <div className="mb-6 p-4 bg-amber-50 border border-amber-200 rounded-xl flex items-start gap-3">
                         <Info className="w-5 h-5 text-amber-600 flex-shrink-0 mt-0.5" />
                         <p className="text-sm text-amber-900">{relaxedMessage}</p>
+                    </div>
+                )}
+
+                {/* Budget Warning - shown when user's budget is too low */}
+                {budgetWarning && (
+                    <div className="mb-6 p-5 bg-red-50 border-2 border-red-300 rounded-xl">
+                        <div className="flex items-start gap-3 mb-3">
+                            <Info className="w-6 h-6 text-red-600 flex-shrink-0 mt-0.5" />
+                            <div>
+                                <h3 className="font-semibold text-red-900 mb-2">Budget Too Low</h3>
+                                <p className="text-sm text-red-800">{budgetWarning.message}</p>
+                            </div>
+                        </div>
+                        {budgetWarning.user_budget != null && budgetWarning.recommended_budget != null && (
+                            <div className="mt-3 pt-3 border-t border-red-200 grid grid-cols-2 gap-4 text-sm">
+                                <div>
+                                    <div className="text-red-600 font-medium">Your Budget</div>
+                                    <div className="text-lg font-bold text-red-900">${budgetWarning.user_budget.toLocaleString()}</div>
+                                </div>
+                                <div>
+                                    <div className="text-green-600 font-medium">Recommended</div>
+                                    <div className="text-lg font-bold text-green-900">${budgetWarning.recommended_budget.toLocaleString()}</div>
+                                </div>
+                            </div>
+                        )}
+                    </div>
+                )}
+
+                {/* Optimization Warning - shown when optimizer couldn't find flights */}
+                {optimizationWarning && (
+                    <div className="mb-6 p-4 bg-amber-50 border border-amber-300 rounded-xl flex items-start gap-3">
+                        <Info className="w-5 h-5 text-amber-600 flex-shrink-0 mt-0.5" />
+                        <div>
+                            <h3 className="font-semibold text-amber-900 mb-1">Estimated Routes</h3>
+                            <p className="text-sm text-amber-800">{optimizationWarning}</p>
+                        </div>
+                    </div>
+                )}
+
+                {/* Fallback Warning - shown as last resort */}
+                {fallbackWarning && (
+                    <div className="mb-6 p-4 bg-red-50 border border-red-300 rounded-xl flex items-start gap-3">
+                        <Info className="w-5 h-5 text-red-600 flex-shrink-0 mt-0.5" />
+                        <div>
+                            <h3 className="font-semibold text-red-900 mb-1">Unable to Generate Itinerary</h3>
+                            <p className="text-sm text-red-800">{fallbackWarning}</p>
+                        </div>
                     </div>
                 )}
 
