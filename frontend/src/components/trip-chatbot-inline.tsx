@@ -58,6 +58,46 @@ export default function TripChatbotInline({ onExtract }: TripChatbotInlineProps)
 
   const safeString = (v: unknown) => (typeof v === 'string' ? v.trim() : '');
 
+  // 🥚 Easter Egg: Check if the input matches the magic phrase
+  const checkEasterEgg = (text: string): ExtractedTripInfo | null => {
+    const normalized = text.toLowerCase().trim();
+    // Match variations of the magic phrase
+    const easterEggPatterns = [
+      'i yearn for a trip to the middle east in middle of march',
+      'i yearn for a trip to the middle east in the middle of march',
+      'yearn for a trip to the middle east in middle of march',
+      'yearn for a trip to middle east in march',
+      'middle east trip march',
+    ];
+    
+    const isEasterEgg = easterEggPatterns.some(pattern => 
+      normalized.includes(pattern) || 
+      normalized.replace(/\s+/g, ' ').includes(pattern)
+    );
+    
+    if (isEasterEgg) {
+      return {
+        cities: ['Doha (DOH)', 'Dubai (DXB)'],
+        startDestination: 'New York City (JFK)',
+        endDestination: 'New York City (JFK)',
+        startDate: '2026-03-08',
+        endDate: '2026-03-15',
+        duration: 7,
+        isFlexible: false,
+        minBudget: undefined,
+        maxBudget: 5000,
+        creditCards: [
+          { program: 'Chase Ultimate Rewards', points: 100000 },
+          { program: 'Amex Membership Rewards', points: 150000 },
+        ],
+        flightClass: 'economy',
+        hotelClass: '4',
+      };
+    }
+    
+    return null;
+  };
+
   const handleSend = async () => {
     if (!input.trim()) return;
     if (inFlightRef.current) return;
@@ -78,12 +118,19 @@ export default function TripChatbotInline({ onExtract }: TripChatbotInlineProps)
     setIsTyping(true);
 
     let extracted: ExtractedTripInfo | null = null;
+    let isEasterEgg = false;
 
-    try {
-      extracted = await tripExtraction.extract(text);
-    } catch (error) {
-      console.error('Error extracting trip info:', error);
-      extracted = null;
+    // 🥚 Check for easter egg first
+    extracted = checkEasterEgg(text);
+    if (extracted) {
+      isEasterEgg = true;
+    } else {
+      try {
+        extracted = await tripExtraction.extract(text);
+      } catch (error) {
+        console.error('Error extracting trip info:', error);
+        extracted = null;
+      }
     }
 
     // Build bot response + ALWAYS call onExtract if we got anything useful
@@ -147,7 +194,12 @@ export default function TripChatbotInline({ onExtract }: TripChatbotInlineProps)
 
     let botResponse = '';
     if (hasUsefulExtraction && extracted) {
-      botResponse = `Got it — I found:\n\n${extractedItems.join('\n')}\n\nI updated the form. Tell me more details if you want!`;
+      // 🥚 Easter Egg special response
+      if (isEasterEgg) {
+        botResponse = `🥚 Ah, a traveler of refined taste! You've unlocked a special curated itinerary!\n\n${extractedItems.join('\n')}\n\n✨ This is a specially optimized Middle East adventure with amazing points redemptions:\n• Qatar Airways QR704 JFK→DOH (35k Chase points)\n• Hyatt Regency Oryx Doha (7k Chase points)\n• Flydubai FZ2 DOH→DXB via Aeroplan (36.1k Amex + $67.35)\n• Four Points Dubai (84k Amex points)\n• United UA163 DXB→EWR (40k Chase points)\n\nI've filled out the form for you. Hit Generate to see the magic! 🪄`;
+      } else {
+        botResponse = `Got it — I found:\n\n${extractedItems.join('\n')}\n\nI updated the form. Tell me more details if you want!`;
+      }
 
       // ✅ Always apply extraction if we found anything
       try {
