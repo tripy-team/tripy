@@ -7,17 +7,10 @@
 
 const BACKEND_URL = process.env.NEXT_PUBLIC_BACKEND_URL || 'http://localhost:8000';
 
-// Import offline mode config (gitignored file, defaults to false if missing)
-// To enable: copy offline.config.example.ts to offline.config.ts and set ENABLE_OFFLINE_MODE = true
-let ENABLE_OFFLINE_MODE = false;
-try {
-  // Dynamic import for gitignored config file
-  // eslint-disable-next-line @typescript-eslint/no-var-requires
-  const offlineConfig = require('../../offline.config');
-  ENABLE_OFFLINE_MODE = offlineConfig?.ENABLE_OFFLINE_MODE === true;
-} catch {
-  // Config file doesn't exist - offline mode is disabled by default
-}
+// Offline mode toggle (defaults to false)
+// To enable offline mode locally: Set NEXT_PUBLIC_ENABLE_OFFLINE_MODE=true in .env.local
+// This avoids build-time module resolution issues with gitignored config files
+const ENABLE_OFFLINE_MODE = process.env.NEXT_PUBLIC_ENABLE_OFFLINE_MODE === 'true';
 
 /**
  * Convert snake_case keys to camelCase recursively
