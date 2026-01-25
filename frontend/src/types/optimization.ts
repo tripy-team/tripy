@@ -266,3 +266,128 @@ export interface CostBreakdown {
     worstRedemption?: { segment: string; cpp: number; program: string; note?: string };
   };
 }
+
+// =============================================================================
+// DYNAMIC ROUTE OPTIMIZATION (Multi-city)
+// =============================================================================
+
+export interface DynamicRouteRequest {
+  /** Fixed starting airport (IATA code) */
+  startCity: string;
+  /** Fixed ending airport (IATA code) */
+  endCity: string;
+  /** Cities to visit (order will be optimized) */
+  intermediateCities: string[];
+  /** User's points balances {program: balance} */
+  points: Record<string, number>;
+  /** Travel start date (YYYY-MM-DD) */
+  travelDate: string;
+  /** Cabin class for flights */
+  cabinClass?: string;
+}
+
+export interface DynamicRouteSegment {
+  segmentId: string;
+  origin: string;
+  destination: string;
+  cashPrice: number;
+  awardAvailable: boolean;
+  pointsCost: number;
+  pointsProgram?: string;
+  pointsProgramName?: string;
+  surcharge: number;
+  cashSaved: number;
+  cpp: number;
+  airline?: string;
+  flightNumber?: string;
+  durationMinutes: number;
+  departureTime?: string;
+  arrivalTime?: string;
+  isDirect: boolean;
+  numStops: number;
+  dataSource: string;
+  bookingLink?: string;
+}
+
+export interface DynamicRouteTransferStep {
+  stepNumber: number;
+  sourceProgram: string;
+  sourceProgramName: string;
+  targetProgram: string;
+  targetProgramName: string;
+  pointsToTransfer: number;
+  resultingPoints: number;
+  transferRatio: string;
+  transferTime: string;
+  portalUrl: string;
+  bookingUrl: string;
+  forSegment: string;
+  cppValue: number;
+  cashSaved: number;
+  instructions: string[];
+}
+
+export interface DynamicRouteOption {
+  routeId: string;
+  routeName: string;
+  path: string[];
+  pathDisplay: string;
+  segments: DynamicRouteSegment[];
+  totalCashPrice: number;
+  totalPoints: number;
+  totalSurcharges: number;
+  totalCashSaved: number;
+  averageCpp: number;
+  totalDurationMinutes: number;
+  totalDurationHours: number;
+  status: 'feasible' | 'exceeds_points' | 'exceeds_cash' | 'no_availability';
+  feasible: boolean;
+  pointsWithinBudget: boolean;
+  pointsBudget: number;
+  pointsOverBudget: number;
+}
+
+export interface DynamicRouteComparisonMetric {
+  metricName: string;
+  routeAValue: string | number;
+  routeBValue: string | number;
+  winner: 'route_a' | 'route_b' | 'tie';
+  winnerDisplay: string;
+}
+
+export interface DynamicRouteResult {
+  success: boolean;
+  startCity: string;
+  endCity: string;
+  intermediateCities: string[];
+  pointsBudget: number;
+  
+  /** All route options evaluated */
+  routeOptions: DynamicRouteOption[];
+  
+  /** Comparison matrix between routes */
+  comparisonMatrix: DynamicRouteComparisonMetric[];
+  
+  /** The recommended route */
+  recommendedRoute: DynamicRouteOption | null;
+  
+  /** Reasons for the recommendation */
+  recommendationReasons: string[];
+  
+  /** Transfer instructions for the recommended route */
+  transferSteps: DynamicRouteTransferStep[];
+  
+  /** Human-readable strategy summary */
+  strategySummary: string;
+  
+  /** Metrics for the recommended route */
+  totalPointsUsed: number;
+  remainingPoints: number;
+  totalCashSaved: number;
+  averageCpp: number;
+  totalSurcharges: number;
+  
+  /** Metadata */
+  computedAt?: string;
+  computationTimeMs: number;
+}

@@ -7,6 +7,34 @@
 
 const BACKEND_URL = process.env.NEXT_PUBLIC_BACKEND_URL || 'http://localhost:8000';
 
+/**
+ * Convert snake_case keys to camelCase recursively
+ */
+function snakeToCamel(str: string): string {
+  return str.replace(/_([a-z])/g, (_, letter) => letter.toUpperCase());
+}
+
+function transformKeys<T>(obj: unknown): T {
+  if (obj === null || obj === undefined) {
+    return obj as T;
+  }
+  
+  if (Array.isArray(obj)) {
+    return obj.map(item => transformKeys(item)) as T;
+  }
+  
+  if (typeof obj === 'object') {
+    const result: Record<string, unknown> = {};
+    for (const [key, value] of Object.entries(obj as Record<string, unknown>)) {
+      const camelKey = snakeToCamel(key);
+      result[camelKey] = transformKeys(value);
+    }
+    return result as T;
+  }
+  
+  return obj as T;
+}
+
 // Set this to true to bypass authentication for API calls (for offline development)
 const SKIP_API_AUTH = false;
 
@@ -1101,6 +1129,8 @@ import type {
   OptimizeGroupResponse,
   RankedItinerary,
   CostBreakdown,
+  DynamicRouteRequest,
+  DynamicRouteResult,
 } from '@/types/optimization';
 
 export interface OptimizeSoloRequest {
@@ -1183,5 +1213,39 @@ export const optimization = {
     return apiRequest(`/optimize/compare/${tripId}`, {
       method: 'GET',
     });
+  },
+
+  /**
+   * Optimize multi-city route ordering for minimum out-of-pocket cost.
+   * 
+   * Given fixed start/end cities and intermediate cities to visit,
+   * evaluates all route permutations and recommends the optimal order.
+   * 
+   * @example
+   * // FLL → [HND, CDG] → MCO
+   * // Evaluates: FLL → HND → CDG → MCO vs FLL → CDG → HND → MCO
+   * const result = await optimization.dynamicRoute({
+   *   startCity: 'FLL',
+   *   endCity: 'MCO',
+   *   intermediateCities: ['HND', 'CDG'],
+   *   points: { chase: 200000 },
+   *   travelDate: '2025-06-15'
+   * });
+   */
+  dynamicRoute: async (request: DynamicRouteRequest): Promise<DynamicRouteResult> => {
+    const response = await apiRequest<Record<string, unknown>>('/optimize/dynamic-route', {
+      method: 'POST',
+      body: JSON.stringify({
+        start_city: request.startCity,
+        end_city: request.endCity,
+        intermediate_cities: request.intermediateCities,
+        points: request.points,
+        travel_date: request.travelDate,
+        cabin_class: request.cabinClass || 'economy',
+      }),
+    });
+    
+    // Transform snake_case response to camelCase for frontend
+    return transformKeys<DynamicRouteResult>(response);
   },
 };

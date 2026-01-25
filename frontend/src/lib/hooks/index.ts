@@ -45,3 +45,14 @@ export {
   useMemberPointsUsed,
   useMemberSettlements,
 } from './useGroupAllocation';
+export { useDynamicRoute } from './useDynamicRoute';
+
+// Re-export dynamic route types from the main types file for convenience
+export type {
+  DynamicRouteRequest,
+  DynamicRouteResult,
+  DynamicRouteOption,
+  DynamicRouteSegment,
+  DynamicRouteTransferStep,
+  DynamicRouteComparisonMetric,
+} from '@/types/optimization';
