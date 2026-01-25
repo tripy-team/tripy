@@ -2,14 +2,11 @@
 
 import { useState, useEffect } from 'react';
 import { useRouter } from 'next/navigation';
-import { X, Calendar, DollarSign, Zap, MapPin, Sparkles, CreditCard, MessageCircle, Plane, Backpack, Armchair, Coffee, Wine, Crown, BedDouble, Star, SlidersHorizontal, Luggage } from 'lucide-react';
-import { createTrip, addDestination, upsertPoints, users as usersAPI, ExtractedTripInfo } from '@/lib/api';
-import TripChatbotInline from '@/components/trip-chatbot-inline';
+import { X, Calendar, DollarSign, Zap, MapPin, Sparkles, CreditCard, SlidersHorizontal } from 'lucide-react';
+import { createTrip, addDestination, upsertPoints, users as usersAPI } from '@/lib/api';
 import PointsAllocation from '@/components/PointsAllocation';
 import { DestinationAutocomplete } from '@/components/ui/DestinationAutocomplete';
 import AirportAutocomplete from '@/components/ui/AirportAutocomplete';
-import { searchAndFormatCities } from '@/lib/city-formatter';
-import { searchAndFormatAirport } from '@/lib/airport-formatter';
 import DateRangePicker from '@/components/date-range-picker';
 
 interface CreditCardEntry {
@@ -45,12 +42,6 @@ export default function SoloTripSetup() {
   const [startDestination, setStartDestination] = useState('');
   const [endDestination, setEndDestination] = useState('');
   const [isRoundTrip, setIsRoundTrip] = useState(false);
-
-  // Travel Style State
-  const [flightClass, setFlightClass] = useState('economy');
-  const [hotelClass, setHotelClass] = useState('4');
-  const [includeHotels, setIncludeHotels] = useState(true);
-  const [bags, setBags] = useState(1);
 
   // Estimates
   const [estimatedCost, setEstimatedCost] = useState(0);
@@ -125,16 +116,13 @@ export default function SoloTripSetup() {
     loadUserProfile();
   }, []);
 
-  // Save credit cards and preferences when they change
+  // Save credit cards when they change
   useEffect(() => {
     if (!isLoadingProfile) {
       const saveProfile = async () => {
         try {
           await usersAPI.updateProfile({
-            // max_budget is now per-trip, not saved in profile
             credit_cards: creditCards,
-            flight_class: flightClass,
-            hotel_class: hotelClass,
           });
         } catch (err) {
           console.error('Error saving user profile:', err);
@@ -145,7 +133,7 @@ export default function SoloTripSetup() {
       const timeoutId = setTimeout(saveProfile, 1000);
       return () => clearTimeout(timeoutId);
     }
-  }, [creditCards, isLoadingProfile, flightClass, hotelClass]);
+  }, [creditCards, isLoadingProfile]);
 
   // Sync end destination with start destination if round trip
   useEffect(() => {
@@ -153,100 +141,6 @@ export default function SoloTripSetup() {
       setEndDestination(startDestination);
     }
   }, [startDestination, isRoundTrip]);
-
-  // Handle extracted trip info from chatbot
-  const handleExtract = async (info: ExtractedTripInfo) => {
-    // Extract and format start destination as airport code
-    if (info.startDestination) {
-      try {
-        const airportCode = await searchAndFormatAirport(info.startDestination);
-        setStartDestination(airportCode);
-      } catch (error) {
-        console.error('Error formatting start destination:', error);
-        setStartDestination(info.startDestination);
-      }
-    }
-
-    // Extract and format end destination as airport code
-    if (info.endDestination) {
-      try {
-        const airportCode = await searchAndFormatAirport(info.endDestination);
-        setEndDestination(airportCode);
-      } catch (error) {
-        console.error('Error formatting end destination:', error);
-        setEndDestination(info.endDestination);
-      }
-    }
-
-    // Extract cities (destinations) - search and format with airport codes
-    if (info.cities && info.cities.length > 0) {
-      try {
-        const formattedCities = await searchAndFormatCities(info.cities);
-        if (formattedCities && formattedCities.length > 0) {
-          setCities(prevCities => {
-            const newCities = formattedCities.filter(city => city && !prevCities.includes(city));
-            return newCities.length > 0 ? [...prevCities, ...newCities] : prevCities;
-          });
-        } else {
-          // If formatting returns empty, use original cities
-          setCities(prevCities => {
-            const newCities = info.cities.filter(city => city && !prevCities.includes(city));
-            return newCities.length > 0 ? [...prevCities, ...newCities] : prevCities;
-          });
-        }
-      } catch (error) {
-        console.error('Error formatting cities:', error);
-        // Fallback to unformatted cities - ensure they're added
-        setCities(prevCities => {
-          const newCities = info.cities.filter(city => city && !prevCities.includes(city));
-          return newCities.length > 0 ? [...prevCities, ...newCities] : prevCities;
-        });
-      }
-    }
-
-    // Extract dates - populate dates section
-    if (info.startDate) {
-      setStartDate(info.startDate);
-    }
-    if (info.endDate) {
-      setEndDate(info.endDate);
-    }
-    if (info.duration !== undefined && info.duration !== null && !info.startDate && !info.endDate) {
-      setIsFlexible(true);
-      setFlexibleDuration(info.duration);
-    }
-    if (info.isFlexible !== undefined && info.isFlexible !== null) {
-      setIsFlexible(info.isFlexible);
-    }
-
-    // Extract budget - populate budget section
-          if (info.maxBudget !== undefined && info.maxBudget !== null) {
-            setMaxBudget(info.maxBudget);
-          }
-
-    // Extract credit cards - populate credit cards section
-    if (info.creditCards && info.creditCards.length > 0) {
-      setCreditCards(prevCards => {
-        const newCards = info.creditCards!.map((card, index) => ({
-          id: `extracted-${Date.now()}-${index}`,
-          program: card.program,
-          points: card.points,
-        }));
-        // Filter out duplicates based on program name
-        const existingPrograms = new Set(prevCards.map(c => c.program));
-        const uniqueNewCards = newCards.filter(c => !existingPrograms.has(c.program));
-        return uniqueNewCards.length > 0 ? [...prevCards, ...uniqueNewCards] : prevCards;
-      });
-    }
-
-    // Extract travel style preferences
-    if (info.flightClass) {
-      setFlightClass(info.flightClass);
-    }
-    if (info.hotelClass) {
-      setHotelClass(info.hotelClass);
-    }
-  };
 
   // Calculate Duration
   useEffect(() => {
@@ -313,7 +207,7 @@ export default function SoloTripSetup() {
         title: tripTitle,
         start_date: isFlexible ? '' : startDate,
         end_date: isFlexible || isOneWay ? '' : endDate,
-        include_hotels: includeHotels,
+        include_hotels: false,
         max_budget: maxBudget === '' ? undefined : (typeof maxBudget === 'number' ? maxBudget : undefined),
         duration_days: isFlexible ? flexibleDuration : undefined,
       });
@@ -468,155 +362,6 @@ export default function SoloTripSetup() {
                     </div>
                   </div>
                 )}
-              </div>
-            </div>
-
-            {/* Travel Style */}
-            <div className="bg-white border border-slate-200 rounded-2xl p-8 shadow-sm">
-              <div className="flex items-center gap-3 mb-8">
-                <div className="w-10 h-10 bg-blue-100 rounded-xl flex items-center justify-center">
-                  <Plane className="w-5 h-5 text-blue-600" />
-                </div>
-                <div>
-                  <h2 className="text-2xl text-slate-900 font-semibold">Travel Style</h2>
-                  <p className="text-sm text-slate-500">Customize your comfort level</p>
-                </div>
-              </div>
-
-              <div className="space-y-8">
-                {/* Flight Class */}
-                <div>
-                  <label className="block text-sm text-slate-600 mb-4 font-medium uppercase tracking-wider">Flight Preference</label>
-                  <div className="grid grid-cols-2 md:grid-cols-3 xl:grid-cols-5 gap-6">
-                    {[
-                      { value: 'basic_economy', label: 'Basic Econ', desc: 'No Carry-on', icon: Backpack },
-                      { value: 'economy', label: 'Economy', desc: 'Best Value', icon: Armchair },
-                      { value: 'premium', label: 'Premium', desc: 'Extra Legroom', icon: Coffee },
-                      { value: 'business', label: 'Business', desc: 'Lie-flat Seats', icon: Wine },
-                      { value: 'first', label: 'First', desc: 'Luxury Suite', icon: Crown },
-                    ].map((option) => {
-                      const Icon = option.icon;
-                      const isSelected = flightClass === option.value;
-                      return (
-                        <button
-                          key={option.value}
-                          onClick={() => setFlightClass(option.value)}
-                          className={`relative p-5 rounded-2xl border-2 transition-all text-left flex flex-col gap-3 group h-full ${
-                            isSelected 
-                              ? 'border-blue-600 bg-blue-50/50 shadow-sm' 
-                              : 'border-slate-100 hover:border-blue-200 bg-white hover:bg-slate-50'
-                          }`}
-                        >
-                          <div className={`w-12 h-12 rounded-xl flex items-center justify-center transition-colors ${
-                            isSelected ? 'bg-blue-600 text-white' : 'bg-slate-100 text-slate-500 group-hover:bg-blue-100 group-hover:text-blue-600'
-                          }`}>
-                            <Icon className="w-6 h-6" />
-                          </div>
-                          <div>
-                            <div className={`font-semibold text-lg ${isSelected ? 'text-blue-900' : 'text-slate-900'}`}>
-                              {option.label}
-                            </div>
-                            <div className="text-sm text-slate-500 mt-1">{option.desc}</div>
-                          </div>
-                          {isSelected && (
-                            <div className="absolute top-4 right-4 w-2 h-2 rounded-full bg-blue-600 animate-pulse" />
-                          )}
-                        </button>
-                      );
-                    })}
-                  </div>
-                </div>
-
-                {/* Include hotels in calculations - when unchecked, hotel class is hidden */}
-                <label className="flex items-start gap-3 p-4 bg-slate-50 rounded-xl border border-slate-200 cursor-pointer select-none group">
-                  <input
-                    type="checkbox"
-                    checked={includeHotels}
-                    onChange={(e) => setIncludeHotels(e.target.checked)}
-                    className="mt-0.5 w-4 h-4 rounded border-slate-300 text-blue-600 focus:ring-blue-600"
-                  />
-                  <div>
-                    <div className="font-semibold text-slate-900 group-hover:text-slate-800">Include hotels in cost calculations</div>
-                    <div className="text-xs text-slate-500 mt-0.5">Show hotel out-of-pocket (cash & points) in trip totals</div>
-                  </div>
-                </label>
-
-                {/* Hotel Class - only shown when including hotels */}
-                {includeHotels && (
-                <div>
-                  <label className="block text-sm text-slate-600 mb-4 font-medium uppercase tracking-wider">Accommodation Level</label>
-                  <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
-                    {[
-                      { value: '3', label: 'Standard', desc: 'Clean, comfortable bases', stars: 3 },
-                      { value: '4', label: 'Upscale', desc: 'Amenities & great locations', stars: 4 },
-                      { value: '5', label: 'Luxury', desc: 'Top-tier service & design', stars: 5 },
-                    ].map((option) => {
-                      const isSelected = hotelClass === option.value;
-                      return (
-                        <button
-                          key={option.value}
-                          onClick={() => setHotelClass(option.value)}
-                          className={`relative p-4 rounded-2xl border-2 transition-all text-left flex items-start gap-4 group ${
-                            isSelected 
-                              ? 'border-blue-600 bg-blue-50/50 shadow-sm' 
-                              : 'border-slate-100 hover:border-blue-200 bg-white hover:bg-slate-50'
-                          }`}
-                        >
-                          <div className={`w-12 h-12 rounded-xl flex-shrink-0 flex items-center justify-center transition-colors ${
-                            isSelected ? 'bg-blue-600 text-white' : 'bg-slate-100 text-slate-500 group-hover:bg-blue-100 group-hover:text-blue-600'
-                          }`}>
-                            {option.value === '5' ? <Crown className="w-6 h-6" /> : <BedDouble className="w-6 h-6" />}
-                          </div>
-                          <div className="flex-1">
-                            <div className="flex items-center gap-1 mb-1">
-                              {Array.from({ length: option.stars }).map((_, i) => (
-                                <Star key={i} className={`w-3 h-3 fill-current ${isSelected ? 'text-yellow-500' : 'text-yellow-400'}`} />
-                              ))}
-                            </div>
-                            <div className={`font-semibold mb-0.5 ${isSelected ? 'text-blue-900' : 'text-slate-900'}`}>
-                              {option.label}
-                            </div>
-                            <div className="text-xs text-slate-500 leading-relaxed">{option.desc}</div>
-                          </div>
-                        </button>
-                      );
-                    })}
-                  </div>
-                </div>
-                )}
-
-                {/* Number of Bags */}
-                <div>
-                  <label className="block text-sm text-slate-600 mb-4 font-medium uppercase tracking-wider">Number of Bags</label>
-                  <div className="flex items-center justify-between p-4 bg-slate-50 rounded-xl border border-slate-200 max-w-md">
-                    <div className="flex items-center gap-3">
-                      <div className="w-10 h-10 bg-white rounded-xl flex items-center justify-center border border-slate-200 text-slate-600">
-                        <Luggage className="w-5 h-5" />
-                      </div>
-                      <div>
-                        <div className="font-semibold text-slate-900">Checked bags</div>
-                        <div className="text-xs text-slate-500">Total for your trip</div>
-                      </div>
-                    </div>
-                    <div className="flex items-center gap-3">
-                      <button
-                        type="button"
-                        onClick={() => setBags(Math.max(0, bags - 1))}
-                        className="w-8 h-8 rounded-lg bg-white border border-slate-200 flex items-center justify-center hover:bg-slate-50 text-slate-600 transition-colors shadow-sm"
-                      >
-                        -
-                      </button>
-                      <span className="w-4 text-center font-semibold text-slate-900">{bags}</span>
-                      <button
-                        type="button"
-                        onClick={() => setBags(Math.min(6, bags + 1))}
-                        className="w-8 h-8 rounded-lg bg-white border border-slate-200 flex items-center justify-center hover:bg-slate-50 text-slate-600 transition-colors shadow-sm"
-                      >
-                        +
-                      </button>
-                    </div>
-                  </div>
-                </div>
               </div>
             </div>
 
@@ -816,20 +561,6 @@ export default function SoloTripSetup() {
               </div>
             </div>
 
-            {/* Trip Assistant */}
-            <div className="bg-white border border-slate-200 rounded-2xl p-8 shadow-sm">
-              <div className="flex items-center gap-3 mb-6">
-                <div className="w-10 h-10 bg-blue-100 rounded-xl flex items-center justify-center">
-                  <MessageCircle className="w-5 h-5 text-blue-600" />
-                </div>
-                <div>
-                  <h2 className="text-2xl text-slate-900 font-semibold">Trip Assistant</h2>
-                  <p className="text-sm text-slate-500">Tell me about your trip and I&apos;ll help fill out the form</p>
-                </div>
-              </div>
-
-              <TripChatbotInline onExtract={handleExtract} />
-            </div>
           </div>
 
           {/* Right Column - Summary */}
@@ -876,10 +607,6 @@ export default function SoloTripSetup() {
                       <div className="flex justify-between">
                         <span className="text-blue-100">Points to use</span>
                         <span>{totalPointsToUse.toLocaleString()}</span>
-                      </div>
-                      <div className="flex justify-between">
-                        <span className="text-blue-100">Bags</span>
-                        <span>{bags}</span>
                       </div>
                     </div>
                   </div>

@@ -802,28 +802,14 @@ async def generate_itinerary(
         result = await itinerary_service.generate_optimized_itinerary(request.trip_id)
 
         # Track itinerary generation for analytics
-        if result.get("ai_suggested_routes"):
-            route_count = len(result.get("suggestions", []))
-        else:
-            route_count = len(result.get("solution", {}).get("path", {}))
+        route_count = len(result.get("items", []))
         track_itinerary_generated(user_id, request.trip_id, route_count)
 
-        out = {
+        return {
             "status": result.get("status", "Unknown"),
             "solution": result.get("solution", {}),
             "items": result.get("items", []),
         }
-        if result.get("ai_suggested_routes"):
-            out["ai_suggested_routes"] = True
-            out["suggestions"] = result.get("suggestions", [])
-        if result.get("out_of_pocket") is not None:
-            out["out_of_pocket"] = result.get("out_of_pocket")
-        if result.get("out_of_pocket_hotels") is not None:
-            out["out_of_pocket_hotels"] = result.get("out_of_pocket_hotels")
-        if result.get("relaxed_constraints"):
-            out["relaxed_constraints"] = True
-            out["relaxed_message"] = result.get("relaxed_message", "")
-        return out
     except ValueError as e:
         # Fallback to simple itineraries (1-5 routes within budget/points) when optimization fails
         logger.warning(f"Optimization failed ({e}), falling back to simple itineraries with safe_mode")
