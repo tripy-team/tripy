@@ -7,6 +7,18 @@
 
 const BACKEND_URL = process.env.NEXT_PUBLIC_BACKEND_URL || 'http://localhost:8000';
 
+// Import offline mode config (gitignored file, defaults to false if missing)
+// To enable: copy offline.config.example.ts to offline.config.ts and set ENABLE_OFFLINE_MODE = true
+let ENABLE_OFFLINE_MODE = false;
+try {
+  // Dynamic import for gitignored config file
+  // eslint-disable-next-line @typescript-eslint/no-var-requires
+  const offlineConfig = require('../../offline.config');
+  ENABLE_OFFLINE_MODE = offlineConfig?.ENABLE_OFFLINE_MODE === true;
+} catch {
+  // Config file doesn't exist - offline mode is disabled by default
+}
+
 /**
  * Convert snake_case keys to camelCase recursively
  */
@@ -38,11 +50,14 @@ function transformKeys<T>(obj: unknown): T {
 // ============================================================================
 // OFFLINE MODE TOGGLE
 // ============================================================================
-// Set this to true to bypass authentication and use mock data (for offline development)
+// Controlled by offline.config.ts (gitignored, local only)
+// To enable offline mode: copy offline.config.example.ts to offline.config.ts
+// and set ENABLE_OFFLINE_MODE = true
+// 
 // When true: API calls skip auth, layout skips auth check, mock profile is returned
 // When false: Normal authentication required, real API calls made
 // ============================================================================
-export const SKIP_API_AUTH = false;
+export const SKIP_API_AUTH = ENABLE_OFFLINE_MODE;
 
 // Log backend URL in development for debugging
 if (typeof window !== 'undefined' && process.env.NODE_ENV === 'development') {

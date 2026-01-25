@@ -28,6 +28,9 @@ yarn-error.log*
 .env*.local
 .env
 
+# offline mode config (local only)
+offline.config.ts
+
 # vercel
 .vercel
 
