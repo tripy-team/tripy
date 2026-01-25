@@ -1,4 +1,4 @@
-from typing import Dict, Any, List
+from typing import Dict, Any, List, Tuple
 
 from src.repos import points_repo
 from src.utils.normalize import normalize_program_name
@@ -41,7 +41,7 @@ def upsert_points(
 
 def _enrich_with_valuations(
     items: List[Dict[str, Any]], tpg_vals: Dict[str, float]
-) -> tuple[List[Dict[str, Any]], float]:
+) -> Tuple[List[Dict[str, Any]], float]:
     """Add value and centsPerPoint to each item. Returns (enriched_items, total_value)."""
     total_value = 0.0
     out: List[Dict[str, Any]] = []
