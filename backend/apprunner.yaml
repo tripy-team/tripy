@@ -3,16 +3,18 @@ runtime: python3
 build:
   commands:
     build:
+      - pip install --upgrade pip
+      - pip install -r requirements.txt
       - chmod +x start.sh
 run:
-  command: /bin/bash /app/start.sh
+  command: /bin/bash /app/backend/start.sh
   network:
     port: 8000
   env:
     - name: AWS_REGION
       value: us-east-1
     - name: PYTHONPATH
-      value: /app
+      value: /app/backend
     # REQUIRED - DynamoDB Table Names (update these to match your actual table names)
     - name: USERS_TABLE
       value: tripy-users
