@@ -15,6 +15,7 @@ import {
   Wallet,
   Car,
   Bus,
+  Info,
 } from 'lucide-react';
 import { itineraries as itinerariesAPI, trips as tripsAPI, destinations as destinationsAPI, generateItinerary } from '@/lib/api';
 import { calculateServiceFee, SERVICE_FEE_PERCENT, formatDate, tripDurationDays } from '@/lib/utils';
