@@ -162,6 +162,11 @@ async function apiRequest<T>(
     }
   }
 
+  // Log itinerary requests in development
+  if (process.env.NODE_ENV === 'development' && endpoint.startsWith('/itinerary/')) {
+    console.log('[api]', options.method ?? 'GET', endpoint, { body: options.body });
+  }
+
   try {
     const response = await fetch(url, {
       ...options,
@@ -226,7 +231,20 @@ async function apiRequest<T>(
       return {} as T;
     }
 
-    return response.json();
+    const data = await response.json();
+    
+    // Log itinerary responses in development
+    if (process.env.NODE_ENV === 'development' && endpoint.startsWith('/itinerary/')) {
+      console.log('[api]', endpoint, 'response', {
+        status: (data as Record<string, unknown>)?.status,
+        items: Array.isArray((data as Record<string, unknown>)?.items) 
+          ? ((data as Record<string, unknown>).items as unknown[]).length 
+          : undefined,
+        relaxed_constraints: (data as Record<string, unknown>)?.relaxed_constraints,
+      });
+    }
+    
+    return data as T;
   } catch (error) {
     // Handle network errors with more specific messages
     if (error instanceof TypeError) {

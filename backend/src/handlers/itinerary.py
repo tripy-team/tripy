@@ -14,24 +14,30 @@ def handler(event, context):
         method = event.get("requestContext", {}).get("http", {}).get("method", "")
         _user_id = get_user_id_from_event(event)
         body = json.loads(event.get("body") or "{}")
+        headers = event.get("headers", {})
 
         if path.endswith("/itinerary/generate") and method == "POST":
             trip_id = body["trip_id"]
             
-            # Try optimized itinerary generation with real flight data from APIs
+            # Check for version override header (X-Itinerary-Version: v1 or v2)
+            version = headers.get("x-itinerary-version") or headers.get("X-Itinerary-Version")
+            
+            # Try v2 itinerary generation (default) with real flight data from APIs
             # (SERP for cash prices, AwardTool for points pricing)
-            # Falls back to simple generator if optimization fails
+            # Falls back to v1 then simple generator if optimization fails
             try:
                 result = asyncio.run(
-                    itinerary_service.generate_optimized_itinerary(trip_id)
+                    itinerary_service.generate_itinerary_with_version(trip_id, version=version)
                 )
-                return response(200, {
+                resp = {
                     "status": result.get("status", "Unknown"),
                     "solution": result.get("solution", {}),
                     "items": result.get("items", []),
-                    "relaxed_constraints": result.get("relaxed_constraints", False),
-                    "relaxed_message": result.get("relaxed_message"),
-                })
+                }
+                if result.get("relaxed_constraints"):
+                    resp["relaxed_constraints"] = True
+                    resp["relaxed_message"] = result.get("relaxed_message")
+                return response(200, resp)
             except ValueError as e:
                 # Optimization failed (missing data, infeasible, etc.)
                 # Fall back to simple itineraries with placeholder costs

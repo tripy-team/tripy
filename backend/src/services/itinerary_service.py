@@ -37,6 +37,9 @@ from src.utils.card_benefits import build_benefit_airlines_for_travelers
 
 logger = logging.getLogger(__name__)
 
+# Feature flag for v2 itinerary generation (can be overridden by env var or request header)
+ITINERARY_GENERATION_VERSION = os.getenv("ITINERARY_GENERATION_VERSION", "v2")
+
 # Display names for transfer_tips (aligned with frontend transfer-instructions.ts)
 _HUMANIZE_BANK: Dict[str, str] = {
     "amex": "Amex Membership Rewards",
@@ -1668,3 +1671,49 @@ async def generate_optimized_itinerary(trip_id: str) -> Dict[str, Any]:
         out["relaxed_constraints"] = True
         out["relaxed_message"] = relaxed_message
     return out
+
+
+async def generate_itinerary_v2(trip_id: str) -> Dict[str, Any]:
+    """
+    Generate an optimized itinerary using the v2 pipeline.
+    
+    This function wraps the v2 pipeline and provides the same interface
+    as generate_optimized_itinerary for easy swapping.
+    
+    Args:
+        trip_id: The trip ID to generate itinerary for
+        
+    Returns:
+        Dict with status, solution, and items
+    """
+    from src.system.itinerary_v2.pipeline import generate_itinerary_v2 as v2_pipeline
+    
+    logger.info(f"Starting v2 itinerary generation for trip {trip_id}")
+    return await v2_pipeline(trip_id)
+
+
+async def generate_itinerary_with_version(
+    trip_id: str,
+    version: Optional[str] = None,
+) -> Dict[str, Any]:
+    """
+    Generate itinerary using specified version (v1 or v2).
+    
+    Args:
+        trip_id: The trip ID to generate itinerary for
+        version: Version to use ("v1", "v2", or None for default)
+        
+    Returns:
+        Dict with status, solution, and items
+    """
+    use_version = (version or ITINERARY_GENERATION_VERSION).lower()
+    
+    if use_version == "v2":
+        try:
+            return await generate_itinerary_v2(trip_id)
+        except Exception as e:
+            logger.warning(f"v2 generation failed, falling back to v1: {e}")
+            # Fall through to v1
+    
+    # v1 or fallback
+    return await generate_optimized_itinerary(trip_id)

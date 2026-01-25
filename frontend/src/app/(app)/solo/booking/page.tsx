@@ -97,7 +97,25 @@ function SoloBookingContent() {
   const handlePayment = async () => {
     setIsProcessing(true);
     if (tripId) {
-      generateItinerary(tripId).catch(() => {});
+      try {
+        const result = await generateItinerary(tripId);
+        if (process.env.NODE_ENV === 'development') {
+          console.log('[SoloBooking] generateItinerary success', {
+            tripId,
+            status: (result as Record<string, unknown>)?.status,
+            itemCount: Array.isArray((result as Record<string, unknown>)?.items) 
+              ? ((result as Record<string, unknown>).items as unknown[]).length 
+              : 0,
+          });
+        }
+      } catch (err) {
+        if (process.env.NODE_ENV === 'development') {
+          console.error('[SoloBooking] generateItinerary failed', {
+            tripId,
+            error: err instanceof Error ? err.message : String(err),
+          });
+        }
+      }
     }
     await new Promise((r) => setTimeout(r, 2000));
     setIsProcessing(false);
