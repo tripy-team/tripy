@@ -517,6 +517,24 @@ export const auth = {
 // Trips API
 export const trips = {
   create: async (params: { title: string; start_date: string; end_date: string; include_hotels?: boolean; max_budget?: number; duration_days?: number }): Promise<Trip> => {
+    if (SKIP_API_AUTH) {
+      // Return a new mock trip based on params
+      const newTrip: Trip = {
+        tripId: `mock-trip-${Date.now()}`,
+        createdBy: MOCK_PROFILE.userId,
+        title: params.title,
+        startDate: params.start_date,
+        endDate: params.end_date,
+        inviteCode: `INV-${Math.random().toString(36).substring(2, 8).toUpperCase()}`,
+        status: 'active',
+        destinations: [],
+        memberCount: 1,
+        includeHotels: params.include_hotels ?? true,
+        maxBudget: params.max_budget,
+        durationDays: params.duration_days,
+      };
+      return newTrip;
+    }
     return apiRequest<Trip>('/trips', {
       method: 'POST',
       body: JSON.stringify(params),
@@ -524,12 +542,25 @@ export const trips = {
   },
 
   list: async (): Promise<{ trips: Trip[] }> => {
+    if (SKIP_API_AUTH) {
+      return { trips: [MOCK_GROUP_TRIP, MOCK_SOLO_TRIP] };
+    }
     return apiRequest<{ trips: Trip[] }>('/trips', {
       method: 'GET',
     });
   },
 
   get: async (trip_id: string): Promise<Trip> => {
+    if (SKIP_API_AUTH) {
+      // Return group trip for group trip ID, solo trip for solo trip ID, or default to group
+      if (trip_id === MOCK_GROUP_TRIP.tripId || trip_id.includes('group')) {
+        return MOCK_GROUP_TRIP;
+      }
+      if (trip_id === MOCK_SOLO_TRIP.tripId || trip_id.includes('solo')) {
+        return MOCK_SOLO_TRIP;
+      }
+      return MOCK_GROUP_TRIP; // Default fallback
+    }
     return apiRequest<Trip>('/trips/get', {
       method: 'POST',
       body: JSON.stringify({ trip_id }),
@@ -537,12 +568,33 @@ export const trips = {
   },
 
   getByInvite: async (invite_code: string): Promise<Trip> => {
+    if (SKIP_API_AUTH) {
+      // Match invite code to mock trips
+      if (invite_code === MOCK_GROUP_TRIP.inviteCode || invite_code.toUpperCase() === 'EUROPE2025') {
+        return MOCK_GROUP_TRIP;
+      }
+      if (invite_code === MOCK_SOLO_TRIP.inviteCode || invite_code.toUpperCase() === 'SOLO-TOKYO') {
+        return MOCK_SOLO_TRIP;
+      }
+      // Default: return group trip for any other invite code
+      return MOCK_GROUP_TRIP;
+    }
     return apiRequest<Trip>(`/trips/by-invite/${invite_code}`, {
       method: 'GET',
     }, false); // requireAuth = false for public invite access
   },
 
   join: async (invite_code: string): Promise<{ tripId: string }> => {
+    if (SKIP_API_AUTH) {
+      // Return the trip ID for the matching invite code
+      if (invite_code === MOCK_GROUP_TRIP.inviteCode || invite_code.toUpperCase() === 'EUROPE2025') {
+        return { tripId: MOCK_GROUP_TRIP.tripId };
+      }
+      if (invite_code === MOCK_SOLO_TRIP.inviteCode || invite_code.toUpperCase() === 'SOLO-TOKYO') {
+        return { tripId: MOCK_SOLO_TRIP.tripId };
+      }
+      return { tripId: MOCK_GROUP_TRIP.tripId }; // Default
+    }
     return apiRequest<{ tripId: string }>('/trips/join', {
       method: 'POST',
       body: JSON.stringify({ invite_code }),
@@ -550,6 +602,13 @@ export const trips = {
   },
 
   listMembers: async (trip_id: string): Promise<{ members: Array<{ userId: string; role: string; status: string; name?: string }> }> => {
+    if (SKIP_API_AUTH) {
+      // Return mock members for group trips, empty for solo trips
+      if (trip_id === MOCK_GROUP_TRIP.tripId || trip_id.includes('group')) {
+        return { members: MOCK_TRIP_MEMBERS };
+      }
+      return { members: [{ userId: MOCK_PROFILE.userId, role: 'owner', status: 'complete', name: MOCK_PROFILE.name }] };
+    }
     return apiRequest<{ members: Array<{ userId: string; role: string; status: string; name?: string }> }>('/trips/members', {
       method: 'POST',
       body: JSON.stringify({ trip_id }),
@@ -921,6 +980,44 @@ const MOCK_PROFILE: UserProfile = {
   hotel_class: undefined,
   createdAt: new Date().toISOString(),
 };
+
+// Mock trip data for offline development
+// Edit these objects to change the mock trips
+const MOCK_GROUP_TRIP: Trip = {
+  tripId: 'mock-group-trip-123',
+  createdBy: 'dev-user-john-doe',
+  title: 'European Adventure',
+  startDate: '2025-06-15',
+  endDate: '2025-06-30',
+  inviteCode: 'EUROPE2025',
+  status: 'active',
+  destinations: ['Paris', 'Rome', 'Barcelona'],
+  memberCount: 3,
+  includeHotels: true,
+  maxBudget: 5000,
+  durationDays: 15,
+};
+
+const MOCK_SOLO_TRIP: Trip = {
+  tripId: 'mock-solo-trip-456',
+  createdBy: 'dev-user-john-doe',
+  title: 'Solo Tokyo Exploration',
+  startDate: '2025-07-01',
+  endDate: '2025-07-10',
+  inviteCode: 'SOLO-TOKYO',
+  status: 'active',
+  destinations: ['Tokyo'],
+  memberCount: 1,
+  includeHotels: true,
+  maxBudget: 3000,
+  durationDays: 9,
+};
+
+const MOCK_TRIP_MEMBERS = [
+  { userId: 'dev-user-john-doe', role: 'owner', status: 'complete', name: 'John Doe' },
+  { userId: 'mock-member-1', role: 'member', status: 'complete', name: 'Sarah Johnson' },
+  { userId: 'mock-member-2', role: 'member', status: 'pending', name: 'Mike Chen' },
+];
 
 export const users = {
   getProfile: async (): Promise<UserProfile> => {
