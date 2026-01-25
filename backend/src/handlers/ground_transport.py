@@ -80,7 +80,10 @@ For each:
 - duration_minutes: typical duration in minutes.
 Use realistic 2024-2025 figures. If the route is not common by bus, use a nearby hub or "N/A" and you may omit bus.
 For car, always provide an estimate (driving or rental)."""
-        user = f"Estimate bus and car from {o} to {d}. Return JSON: {\"bus\": {\"price_usd\": number, \"duration_minutes\": number}, \"car\": {\"price_usd\": number, \"duration_minutes\": number}}."
+        user = (
+            f"Estimate bus and car from {o} to {d}. Return JSON: "
+            '{"bus": {"price_usd": number, "duration_minutes": number}, "car": {"price_usd": number, "duration_minutes": number}}.'
+        )
         # Prefer JSON mode if supported
         try:
             r = client.chat.completions.create(

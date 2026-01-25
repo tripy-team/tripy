@@ -376,10 +376,11 @@ def generate_simple_itineraries(trip_id: str) -> List[Dict[str, Any]]:
         itinerary_repo.put_item(item)
         items.append(item)
 
+    dest_names = [c["name"] for c in (routes[0]["cities"] if routes else [])]
     logger.info(
         f"Generated {len(items)} simple itineraries for trip {trip_id} "
         f"(max_budget={max_budget}, total_points={total_points}); "
-        f"destinations={[c['name'] for c in (routes[0]['cities'] if routes else [])}"
+        f"destinations={dest_names}"
     )
     return items
 

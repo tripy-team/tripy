@@ -1,3 +1,5 @@
+from __future__ import annotations
+
 from typing import Dict, Any, List, Tuple
 
 from src.repos import points_repo
