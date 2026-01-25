@@ -2,7 +2,7 @@
 
 import { useState, useEffect } from 'react';
 import { useRouter } from 'next/navigation';
-import { X, Calendar, DollarSign, Zap, MapPin, Sparkles, CreditCard, SlidersHorizontal } from 'lucide-react';
+import { X, Calendar, DollarSign, Zap, MapPin, Sparkles, CreditCard, SlidersHorizontal, Users, User, Baby, Info } from 'lucide-react';
 import { createTrip, addDestination, upsertPoints, users as usersAPI } from '@/lib/api';
 import PointsAllocation from '@/components/PointsAllocation';
 import { DestinationAutocomplete } from '@/components/ui/DestinationAutocomplete';
@@ -17,6 +17,10 @@ interface CreditCardEntry {
 
 export default function SoloTripSetup() {
   const router = useRouter();
+
+  // Party Size State
+  const [adults, setAdults] = useState(1);
+  const [children, setChildren] = useState(0);
   
   // Budget State
   const [maxBudget, setMaxBudget] = useState<number | ''>('');
@@ -276,6 +280,108 @@ export default function SoloTripSetup() {
         <div className="grid lg:grid-cols-3 gap-8">
           {/* Left Column - Inputs */}
           <div className="lg:col-span-2 space-y-6">
+
+            {/* Party Size */}
+            <div className="bg-white border border-slate-200 rounded-2xl p-8 shadow-sm">
+              <div className="flex items-center gap-3 mb-6">
+                <div className="w-10 h-10 bg-blue-100 rounded-xl flex items-center justify-center">
+                  <Users className="w-5 h-5 text-blue-600" />
+                </div>
+                <div>
+                  <h2 className="text-2xl text-slate-900 font-semibold">Your Travel Party</h2>
+                  <p className="text-sm text-slate-500">Who is traveling with you?</p>
+                </div>
+              </div>
+
+              <div className="grid md:grid-cols-2 gap-8">
+                <div className="flex items-center justify-between p-4 bg-slate-50 rounded-xl border border-slate-200">
+                  <div className="flex items-center gap-3">
+                    <div className="w-10 h-10 bg-white rounded-full flex items-center justify-center border border-slate-200 text-slate-600">
+                      <User className="w-5 h-5" />
+                    </div>
+                    <div>
+                      <div className="font-semibold text-slate-900">Adults</div>
+                      <div className="text-xs text-slate-500">Age 13+</div>
+                    </div>
+                  </div>
+                  <div className="flex items-center gap-3">
+                    <button 
+                      onClick={() => setAdults(Math.max(1, adults - 1))}
+                      className="w-8 h-8 rounded-lg bg-white border border-slate-200 flex items-center justify-center hover:bg-slate-50 text-slate-600 transition-colors shadow-sm"
+                    >
+                      -
+                    </button>
+                    <span className="w-4 text-center font-semibold text-slate-900">{adults}</span>
+                    <button 
+                      onClick={() => setAdults(adults + 1)}
+                      className="w-8 h-8 rounded-lg bg-white border border-slate-200 flex items-center justify-center hover:bg-slate-50 text-slate-600 transition-colors shadow-sm"
+                    >
+                      +
+                    </button>
+                  </div>
+                </div>
+
+                <div className="flex items-center justify-between p-4 bg-slate-50 rounded-xl border border-slate-200">
+                  <div className="flex items-center gap-3">
+                    <div className="w-10 h-10 bg-white rounded-full flex items-center justify-center border border-slate-200 text-slate-600">
+                      <Baby className="w-5 h-5" />
+                    </div>
+                    <div>
+                      <div className="font-semibold text-slate-900">Children</div>
+                      <div className="text-xs text-slate-500">Ages 0-12</div>
+                    </div>
+                  </div>
+                  <div className="flex items-center gap-3">
+                    <button 
+                      onClick={() => setChildren(Math.max(0, children - 1))}
+                      className="w-8 h-8 rounded-lg bg-white border border-slate-200 flex items-center justify-center hover:bg-slate-50 text-slate-600 transition-colors shadow-sm"
+                    >
+                      -
+                    </button>
+                    <span className="w-4 text-center font-semibold text-slate-900">{children}</span>
+                    <button 
+                      onClick={() => setChildren(children + 1)}
+                      className="w-8 h-8 rounded-lg bg-white border border-slate-200 flex items-center justify-center hover:bg-slate-50 text-slate-600 transition-colors shadow-sm"
+                    >
+                      +
+                    </button>
+                  </div>
+                </div>
+              </div>
+
+              {adults > 1 && (
+                <div className="mt-6 space-y-4 animate-in fade-in slide-in-from-top-2">
+                  <div className="space-y-3">
+                    <h3 className="text-sm font-medium text-slate-900 pl-1">Additional Traveler Details</h3>
+                    {Array.from({ length: adults - 1 }).map((_, index) => (
+                      <div key={index} className="p-4 bg-slate-50 rounded-xl border border-slate-200 space-y-3">
+                        <div className="flex items-center justify-between">
+                          <div className="text-xs font-bold text-slate-500 uppercase tracking-wider">Adult {index + 2}</div>
+                        </div>
+                        <div className="grid md:grid-cols-2 gap-4">
+                          <div>
+                            <label className="block text-xs text-slate-500 mb-1.5 font-medium">Full Name</label>
+                            <input 
+                              type="text" 
+                              placeholder="e.g. John Doe"
+                              className="w-full px-3 py-2 bg-white border border-slate-200 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-600 focus:border-transparent text-sm" 
+                            />
+                          </div>
+                          <div>
+                            <label className="block text-xs text-slate-500 mb-1.5 font-medium">Email Address (optional)</label>
+                            <input 
+                              type="email" 
+                              placeholder="e.g. john@example.com"
+                              className="w-full px-3 py-2 bg-white border border-slate-200 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-600 focus:border-transparent text-sm" 
+                            />
+                          </div>
+                        </div>
+                      </div>
+                    ))}
+                  </div>
+                </div>
+              )}
+            </div>
             
             {/* Budget */}
             <div className="bg-white border border-slate-200 rounded-2xl p-8 shadow-sm">
