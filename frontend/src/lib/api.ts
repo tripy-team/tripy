@@ -35,8 +35,14 @@ function transformKeys<T>(obj: unknown): T {
   return obj as T;
 }
 
-// Set this to true to bypass authentication for API calls (for offline development)
-const SKIP_API_AUTH = false;
+// ============================================================================
+// OFFLINE MODE TOGGLE
+// ============================================================================
+// Set this to true to bypass authentication and use mock data (for offline development)
+// When true: API calls skip auth, layout skips auth check, mock profile is returned
+// When false: Normal authentication required, real API calls made
+// ============================================================================
+export const SKIP_API_AUTH = true;
 
 // Log backend URL in development for debugging
 if (typeof window !== 'undefined' && process.env.NODE_ENV === 'development') {
@@ -155,10 +161,8 @@ async function apiRequest<T>(
 
   // Add Authorization header if auth is required
   if (requireAuth) {
-    // Skip auth check if SKIP_API_AUTH is enabled (offline mode)
     if (SKIP_API_AUTH) {
-      // In offline mode, continue without auth header
-      // This allows the frontend to work without backend connectivity
+      // Offline mode: skip auth header
     } else {
       let token = getAccessToken();
 
@@ -888,14 +892,37 @@ export interface UpdateProfileRequest {
   hotel_class?: string;
 }
 
+// Mock profile data for offline development
+// Edit this object to change the mock user profile
+const MOCK_PROFILE: UserProfile = {
+  userId: 'dev-user-john-doe',
+  name: 'John Doe',
+  email: 'johndoe@example.com',
+  default_home_airport: undefined,
+  timezone: 'America/New_York',
+  total_savings: 0,
+  credit_cards: [],
+  flight_class: undefined,
+  hotel_class: undefined,
+  createdAt: new Date().toISOString(),
+};
+
 export const users = {
   getProfile: async (): Promise<UserProfile> => {
+    if (SKIP_API_AUTH) {
+      return MOCK_PROFILE;
+    }
     return apiRequest<UserProfile>('/users/me', {
       method: 'GET',
     });
   },
 
   updateProfile: async (updates: UpdateProfileRequest): Promise<{ ok: boolean }> => {
+    if (SKIP_API_AUTH) {
+      // In offline mode, update the mock profile
+      Object.assign(MOCK_PROFILE, updates);
+      return { ok: true };
+    }
     return apiRequest<{ ok: boolean }>('/users/profile', {
       method: 'PUT',
       body: JSON.stringify(updates),
@@ -903,12 +930,18 @@ export const users = {
   },
 
   getSavings: async (): Promise<{ total_savings: number; user_id: string }> => {
+    if (SKIP_API_AUTH) {
+      return { total_savings: MOCK_PROFILE.total_savings || 0, user_id: MOCK_PROFILE.userId };
+    }
     return apiRequest<{ total_savings: number; user_id: string }>('/users/me/savings', {
       method: 'GET',
     });
   },
 
   calculateSavings: async (): Promise<{ total_savings: number; trips_count: number; trips_with_savings: number }> => {
+    if (SKIP_API_AUTH) {
+      return { total_savings: 0, trips_count: 0, trips_with_savings: 0 };
+    }
     return apiRequest<{ total_savings: number; trips_count: number; trips_with_savings: number }>('/users/me/savings/calculate', {
       method: 'POST',
     });

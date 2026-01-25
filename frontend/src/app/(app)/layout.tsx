@@ -4,11 +4,9 @@ import { useEffect, useState } from 'react';
 import { useRouter } from 'next/navigation';
 import { Navigation } from '@/components/navigation';
 import { ScrollToTop } from '@/components/scroll-to-top';
+import { SKIP_API_AUTH } from '@/lib/api';
 
 const AUTH_CHECKED_KEY = 'tripy_auth_checked_session';
-
-// Set this to true to bypass authentication checks (for offline development)
-const SKIP_AUTH_CHECK = false;
 
 export default function AppLayout({
     children,
@@ -19,8 +17,8 @@ export default function AppLayout({
     const [isChecking, setIsChecking] = useState(true);
 
     useEffect(() => {
-        // Skip authentication check if SKIP_AUTH_CHECK is enabled
-        if (SKIP_AUTH_CHECK) {
+        // Skip authentication check if offline mode is enabled
+        if (SKIP_API_AUTH) {
             console.log('[AppLayout] Authentication check skipped (offline mode)');
             setIsChecking(false);
             return;
