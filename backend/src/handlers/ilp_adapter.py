@@ -188,8 +188,16 @@ def run_ilp_from_edges(
     benefit_airlines=None,
     bag_fee=35.0,
     W_benefit=1e4,
+    optimization_mode="oop",  # NEW: "oop" (minimize out-of-pocket) or "cpp" (maximize CPP)
     **adapter_kwargs,
 ):
+    """
+    Run ILP optimization from edge dictionary.
+    
+    Args:
+        optimization_mode: "oop" to minimize out-of-pocket costs (default),
+                          "cpp" to maximize cents-per-point value (original behavior)
+    """
     ilp_in = build_ilp_inputs_from_edges(
         edges_dict,
         travelers,
@@ -231,4 +239,5 @@ def run_ilp_from_edges(
         bag_fee=bag_fee,
         W_benefit=W_benefit,
         must_visit_cities=must_visit_cities,
+        optimization_mode=optimization_mode,  # Pass optimization mode to ILP solver
     )

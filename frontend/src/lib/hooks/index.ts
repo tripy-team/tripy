@@ -26,3 +26,15 @@ export {
   type EnrichedPointsItem,
   type TransferRecommendation,
 } from './usePoints';
+export {
+  useTransferStrategy,
+  type UseTransferStrategyResult,
+  type TransferStrategySolution,
+  type TransferPlanItem,
+  type PaymentPlanItem,
+  type Expense,
+  type PointsOption,
+  type TransferPartner,
+  type TransferPartnersResponse,
+  type OptimizeParams,
+} from './useTransferStrategy';

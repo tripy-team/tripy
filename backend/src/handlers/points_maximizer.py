@@ -3,16 +3,54 @@ Points Maximization Algorithm
 
 This module provides optimization functions to maximize the value of travel points
 by selecting itineraries that provide the best redemption rates (cents per point).
+
+UPDATED: Now supports two optimization modes:
+- "cpp" (default): Maximize cents-per-point value (original behavior)
+- "oop": Minimize out-of-pocket costs (prioritizes reducing cash paid)
+
+ENHANCED with OOP Reduction Strategies:
+- Program-specific CPP thresholds (higher for premium programs, lower for domestic)
+- Surcharge-aware optimization (penalizes high-surcharge awards)
+- Surcharge caps (rejects awards where surcharge > 50% of cash price)
 """
 
-from typing import List, Dict, Tuple, Set
+from typing import List, Dict, Tuple, Set, Literal, Optional
 
 try:
     import pulp as pl
 except ModuleNotFoundError:
     pl = None
 
+# Import OOP optimization utilities
+try:
+    from src.utils.award_programs import get_cpp_threshold, is_high_surcharge_program
+except ImportError:
+    # Fallback if import fails
+    def get_cpp_threshold(program: str) -> float:
+        return 1.0
+    def is_high_surcharge_program(program: str) -> bool:
+        return program.upper() in {"BA", "LH", "LX", "QF", "SQ", "VS"}
+
 Edge = Tuple[str, str, str]
+
+# Optimization mode type
+OptimizationMode = Literal["cpp", "oop"]
+
+# =============================================================================
+# OOP REDUCTION CONFIGURATION
+# =============================================================================
+
+# Maximum surcharge as percentage of cash price (awards above this are rejected)
+MAX_SURCHARGE_CASH_RATIO = 0.50  # 50% of cash price
+
+# Maximum absolute surcharge per segment
+MAX_SURCHARGE_PER_SEGMENT = 300.0  # $300
+
+# Weight for surcharge penalty in OOP mode
+SURCHARGE_PENALTY_WEIGHT = 50.0
+
+# Minimum CPP for awards in OOP mode (lower than CPP mode since OOP prioritizes cash savings)
+MIN_CPP_OOP_MODE = 0.5
 
 
 def plan_maximize_points_value(
@@ -62,14 +100,20 @@ def plan_maximize_points_value(
     bag_fee: float = 35.0,
     W_benefit: float = 1e4,
     must_visit_cities: List[str] = None,  # intermediates that must be visited exactly once; optimizer chooses order
+    # NEW: Optimization mode - "cpp" (cents per point) or "oop" (out of pocket)
+    optimization_mode: OptimizationMode = "oop",  # Default to OOP (minimize cash)
 ):
     """
-    Optimize itinerary to maximize points value (cash saved per point used).
+    Optimize itinerary for flights.
     
-    Objective: Maximize (cash_value_of_points_redemption - actual_cash_paid - time_penalty)
+    Supports two optimization modes:
     
-    Points value = (cash_cost - cash_surcharge) when using points
-    This represents the cash value saved by using points instead of paying cash.
+    - "cpp" (Cents Per Point): Maximize points value, only use points if CPP >= threshold
+      Objective: Maximize (cash_value_of_points_redemption - actual_cash_paid - time_penalty)
+      
+    - "oop" (Out Of Pocket): Minimize total cash paid, use points whenever they reduce cash
+      Objective: Minimize (total_cash_paid + surcharges - time_bonus)
+      This mode prioritizes reducing out-of-pocket costs over getting "good CPP value"
     
     Returns same structure as plan_non_pooled_multi_itineraries_with_native
     """
@@ -136,6 +180,43 @@ def plan_maximize_points_value(
             return 0.0
         # Return cents per point
         return (cash_saved * 100.0) / miles
+
+    def should_reject_award(airline, edge) -> bool:
+        """
+        Determine if an award should be rejected due to excessive surcharges.
+        Used to filter out awards where paying cash would be more economical.
+        """
+        sur = get_tax(airline, edge)
+        if sur >= INF:
+            return True
+        cash = cash_cost.get(edge, 0.0)
+        if cash <= 0:
+            return False
+        # Reject if surcharge > MAX_SURCHARGE_CASH_RATIO of cash price
+        if sur > cash * MAX_SURCHARGE_CASH_RATIO:
+            return True
+        # Reject if surcharge > MAX_SURCHARGE_PER_SEGMENT
+        if sur > MAX_SURCHARGE_PER_SEGMENT:
+            return True
+        return False
+
+    def get_program_cpp_threshold(airline) -> float:
+        """Get program-specific CPP threshold."""
+        return get_cpp_threshold(airline)
+
+    def calculate_surcharge_penalty(airline, edge) -> float:
+        """
+        Calculate penalty for high surcharges in OOP mode.
+        Higher penalty for high-surcharge programs.
+        """
+        sur = get_tax(airline, edge)
+        if sur >= INF or sur <= 50:
+            return 0.0
+        base_penalty = max(0, sur - 50) * SURCHARGE_PENALTY_WEIGHT
+        # Extra penalty for high-surcharge programs
+        if is_high_surcharge_program(airline):
+            base_penalty *= 1.5
+        return base_penalty
 
     # ---------------------------
     # MODEL
@@ -329,29 +410,11 @@ def plan_maximize_points_value(
                 ) <= cap
 
     # ---------------------------
-    # OBJECTIVE: Maximize Points Value
+    # OBJECTIVE: Based on optimization_mode
     # ---------------------------
-    # Points value = cash saved by using points instead of paying cash
-    # For each edge paid with points: value = (cash_cost - surcharge)
-    # We want to maximize total points value while minimizing actual cash paid
-    
-    points_value_expr = pl.lpSum(
-        y[(q, p)][(s, a)][e] * (cash_cost.get(e, 0.0) - get_tax(a, e))
-        for q in T
-        for p in T
-        for (s, a) in y[(q, p)].keys()
-        for e in edges
-        if get_points_value(a, e) >= min_points_value_cpp  # Only use if value >= threshold
-    ) + pl.lpSum(
-        y_native[(q, p)][a][e] * (cash_cost.get(e, 0.0) - get_tax(a, e))
-        for q in T
-        for p in T
-        for a in A
-        for e in edges
-        if get_points_value(a, e) >= min_points_value_cpp  # Only use if value >= threshold
-    )
     
     # Actual cash paid (cash bookings + surcharges on points bookings)
+    # Used in both modes
     total_cash_expr = (
         pl.lpSum(
             z[(q, p)][e] * cash_cost.get(e, 0.0) for q in T for p in T for e in edges
@@ -393,9 +456,96 @@ def plan_maximize_points_value(
         if edge_to_airline.get(e) in benefit_airlines.get(q, set())
     )
 
-    # Maximize: (points_value - cash_paid - time_penalty) + card benefit savings
-    # This prioritizes using points where they have high value and favor payers whose cards reduce bag fees
-    m += W1 * points_value_expr - W2 * total_cash_expr - W3 * total_time_expr + W_benefit * benefit_expr
+    if optimization_mode == "oop":
+        # ---------------------------
+        # OOP MODE: Minimize Out-of-Pocket (Enhanced)
+        # ---------------------------
+        # Primary goal: Minimize total cash paid (cash bookings + surcharges)
+        # Secondary: Penalize high surcharges, consider time and benefits
+        # Key differences from CPP mode:
+        # 1. Lower CPP threshold (MIN_CPP_OOP_MODE) - use points even at lower value
+        # 2. Surcharge penalty - high surcharges reduce attractiveness of award
+        # 3. Reject awards where surcharge > 50% of cash price
+        
+        # Points savings expression with OOP-specific thresholds
+        # Only use points if:
+        # 1. Cash saved > 0 (points reduce OOP)
+        # 2. Award not rejected due to excessive surcharges
+        # 3. CPP >= MIN_CPP_OOP_MODE (very low threshold in OOP mode)
+        points_savings_expr = pl.lpSum(
+            y[(q, p)][(s, a)][e] * (cash_cost.get(e, 0.0) - get_tax(a, e))
+            for q in T
+            for p in T
+            for (s, a) in y[(q, p)].keys()
+            for e in edges
+            if (cash_cost.get(e, 0.0) > get_tax(a, e) and  # Points save money
+                not should_reject_award(a, e) and  # Not excessive surcharge
+                get_points_value(a, e) >= MIN_CPP_OOP_MODE)  # Minimum value threshold
+        ) + pl.lpSum(
+            y_native[(q, p)][a][e] * (cash_cost.get(e, 0.0) - get_tax(a, e))
+            for q in T
+            for p in T
+            for a in A
+            for e in edges
+            if (cash_cost.get(e, 0.0) > get_tax(a, e) and
+                not should_reject_award(a, e) and
+                get_points_value(a, e) >= MIN_CPP_OOP_MODE)
+        )
+        
+        # Surcharge penalty expression - penalize high surcharges even when using points
+        surcharge_penalty_expr = pl.lpSum(
+            y[(q, p)][(s, a)][e] * calculate_surcharge_penalty(a, e)
+            for q in T
+            for p in T
+            for (s, a) in y[(q, p)].keys()
+            for e in edges
+        ) + pl.lpSum(
+            y_native[(q, p)][a][e] * calculate_surcharge_penalty(a, e)
+            for q in T
+            for p in T
+            for a in A
+            for e in edges
+        )
+        
+        # OOP Objective: Minimize cash paid = Maximize (savings - cash - surcharge_penalty - time + benefits)
+        W_oop_savings = 10**7   # Very high weight to prioritize points usage
+        W_oop_cash = 10**6     # High weight on minimizing cash
+        W_oop_surcharge = 10**3  # Moderate weight on surcharge penalty
+        W_oop_time = 1.0       # Low weight on time
+        
+        m += (W_oop_savings * points_savings_expr 
+              - W_oop_cash * total_cash_expr 
+              - W_oop_surcharge * surcharge_penalty_expr
+              - W_oop_time * total_time_expr 
+              + W_benefit * benefit_expr)
+        
+    else:
+        # ---------------------------
+        # CPP MODE: Maximize Cents Per Point (Enhanced)
+        # ---------------------------
+        # Only use points if CPP >= program-specific threshold
+        # This prevents using points on low-value redemptions for premium programs
+        
+        points_value_expr = pl.lpSum(
+            y[(q, p)][(s, a)][e] * (cash_cost.get(e, 0.0) - get_tax(a, e))
+            for q in T
+            for p in T
+            for (s, a) in y[(q, p)].keys()
+            for e in edges
+            if (get_points_value(a, e) >= max(min_points_value_cpp, get_program_cpp_threshold(a)) and
+                not should_reject_award(a, e))  # Also reject excessive surcharges in CPP mode
+        ) + pl.lpSum(
+            y_native[(q, p)][a][e] * (cash_cost.get(e, 0.0) - get_tax(a, e))
+            for q in T
+            for p in T
+            for a in A
+            for e in edges
+            if (get_points_value(a, e) >= max(min_points_value_cpp, get_program_cpp_threshold(a)) and
+                not should_reject_award(a, e))
+        )
+        
+        # CPP Objective: Maximize points value while minimizing cash and time
+        m += W1 * points_value_expr - W2 * total_cash_expr - W3 * total_time_expr + W_benefit * benefit_expr
 
     # Solve
     m.solve(pl.PULP_CBC_CMD(msg=False))

@@ -1762,9 +1762,11 @@ async def generate_optimized_itinerary(trip_id: str) -> Dict[str, Any]:
         max_budget = None
     default_cash_budget = (max_budget // len(travelers)) if (max_budget and len(travelers)) else 1e9
 
-    # 7. Run ILP optimization using points maximization
-    # plan_maximize_points_value (points_maximizer.py): maximizes cash saved by using points.
-    # Objective: W1*points_value - W2*cash_paid - W3*time (W1=10^6, W2=10^3, W3=1; min 1 cpp).
+    # 7. Run ILP optimization using OOP (Out-Of-Pocket) mode
+    # plan_maximize_points_value (points_maximizer.py) with optimization_mode="oop":
+    # - Prioritizes minimizing total cash paid (cash bookings + surcharges)
+    # - Uses points whenever they reduce out-of-pocket costs (no CPP threshold)
+    # - Differs from "cpp" mode which only uses points if CPP >= 1.0 cent
     # When benefit_airlines is set, also adds W_benefit * bag_fee per passenger when payer's card gives free bags on that flight.
     relaxed_message: Optional[str] = None
     try:
@@ -1774,7 +1776,7 @@ async def generate_optimized_itinerary(trip_id: str) -> Dict[str, Any]:
             start_city_by_trav,
             end_city_by_trav,
             user_points_by_trav,
-            plan_maximize_points_value,  # Point optimization: max points value, min cash, min time
+            plan_maximize_points_value,  # OOP mode: minimize out-of-pocket, use points aggressively
             meetup_cities=[],  # No meetup cities for now
             require_meetup_in_graph=False,
             must_visit_cities=city_codes,  # Each visited exactly once; optimizer chooses order to reduce cost
@@ -1786,6 +1788,7 @@ async def generate_optimized_itinerary(trip_id: str) -> Dict[str, Any]:
             default_time_if_missing=1e6,
             default_cash_budget=default_cash_budget,
             benefit_airlines=benefit_airlines,
+            optimization_mode="oop",  # Minimize out-of-pocket (not CPP)
         )
         
         status = solution.get("status", "Unknown")
@@ -1853,6 +1856,7 @@ async def generate_optimized_itinerary(trip_id: str) -> Dict[str, Any]:
                                 default_time_if_missing=1e6,
                                 default_cash_budget=try_budget,
                                 benefit_airlines=benefit_airlines,
+                                optimization_mode="oop",  # Minimize out-of-pocket
                             )
                             if sol_retry.get("status") == "Optimal" and any((sol_retry.get("path") or {}).values()):
                                 relaxed_solution = sol_retry

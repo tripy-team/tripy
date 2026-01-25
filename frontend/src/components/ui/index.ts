@@ -31,6 +31,14 @@ export {
   TransferSummaryCompact,
 } from './TransferInstructions';
 
+export {
+  TransferStrategy,
+  TransferStrategySummary,
+  type TransferStrategySolution,
+  type TransferPlanItem,
+  type PaymentPlanItem,
+} from './TransferStrategy';
+
 // Loading states
 export {
   ItineraryLoadingState,
