@@ -1030,13 +1030,15 @@ async def generate_optimized_itinerary(trip_id: str) -> Dict[str, Any]:
     1. Gets trip data (dates, destinations, members)
     2. Gets points for all members
     3. Converts city names to airport codes
-    4. Fetches flight edges for all routes
+    4. Fetches flight edges for all routes (SERP for cash, AwardTool for points)
     5. Runs ILP optimization to maximize points value
     6. Saves and returns the optimized itinerary
     
     Raises:
         ValueError: If trip data is invalid, missing required fields, or optimization fails
     """
+    logger.info(f"Starting optimized itinerary generation for trip {trip_id}")
+    
     if plan_maximize_points_value is None:
         raise ValueError(
             "Optimized itineraries are not available in this environment because the "
@@ -1540,6 +1542,23 @@ async def generate_optimized_itinerary(trip_id: str) -> Dict[str, Any]:
             else:
                 city_objs = []
                 logger.warning(f"No overnight stays allocated for traveler {traveler_id} (path={path})")
+            # Calculate score based on optimization quality
+            # - Base: 90 (optimized with real data beats simple generator's 88)
+            # - Bonus for using points (+5 if points_value > 0)
+            # - Bonus for staying within budget (+3)
+            total_cash = int(totals_for_path.get("cash") or 0)
+            points_value = float(totals_for_path.get("points_value") or 0)
+            points_cost = int(totals_for_path.get("airline_points") or 0)
+            
+            score = 90
+            if points_value > 0:
+                score += 5  # Using points effectively
+            if max_budget and total_cash <= max_budget:
+                score += 3  # Within budget
+            score = min(99, score)
+            
+            within_budget = max_budget is None or max_budget <= 0 or total_cash <= max_budget
+            
             item = {
                 "tripId": trip_id,
                 "itemId": f"path_{traveler_id}",
@@ -1548,11 +1567,20 @@ async def generate_optimized_itinerary(trip_id: str) -> Dict[str, Any]:
                 "path": path,
                 "route": path,  # full sequence for Route display (origin -> ... -> end)
                 "cities": city_objs,  # stays only, with days (origin/return get 0 days)
-                "totalCost": int(totals_for_path.get("cash") or 0),
-                "pointsCost": int(totals_for_path.get("airline_points") or 0),
+                "totalCost": total_cash,
+                "pointsCost": points_cost,
+                "score": score,  # Quality score for UI display
+                "withinBudget": within_budget,
+                "withinPoints": True,  # Points are auto-allocated by optimizer
                 "name": "Optimized route",
             }
             itinerary_items.append(item)
+            
+            logger.info(
+                f"Created optimized itinerary for {traveler_id}: "
+                f"totalCost=${total_cash:,}, pointsCost={points_cost:,}, "
+                f"score={score}, path={' -> '.join(path)}"
+            )
     
     # Save payment modes (add mode: flight|bus|car from edge[2] for frontend)
     for traveler_id, payments in solution.get("pay_mode", {}).items():
