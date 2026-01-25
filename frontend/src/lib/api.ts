@@ -162,6 +162,11 @@ async function apiRequest<T>(
     }
   }
 
+  // Log itinerary requests in development
+  if (process.env.NODE_ENV === 'development' && endpoint.startsWith('/itinerary/')) {
+    console.log('[api]', options.method ?? 'GET', endpoint, { body: options.body });
+  }
+
   try {
     const response = await fetch(url, {
       ...options,
@@ -226,7 +231,20 @@ async function apiRequest<T>(
       return {} as T;
     }
 
-    return response.json();
+    const data = await response.json();
+    
+    // Log itinerary responses in development
+    if (process.env.NODE_ENV === 'development' && endpoint.startsWith('/itinerary/')) {
+      console.log('[api]', endpoint, 'response', {
+        status: (data as Record<string, unknown>)?.status,
+        items: Array.isArray((data as Record<string, unknown>)?.items) 
+          ? ((data as Record<string, unknown>).items as unknown[]).length 
+          : undefined,
+        relaxed_constraints: (data as Record<string, unknown>)?.relaxed_constraints,
+      });
+    }
+    
+    return data as T;
   } catch (error) {
     // Handle network errors with more specific messages
     if (error instanceof TypeError) {
@@ -618,6 +636,42 @@ export interface ItineraryItem {
   withinBudget?: boolean;
   /** True when pointsCost <= trip total points */
   withinPoints?: boolean;
+  
+  // Flight-specific fields from optimized itinerary
+  /** Item type: path, payments, totals, or itinerary */
+  type?: 'path' | 'payments' | 'totals' | 'itinerary' | string;
+  /** Traveler ID for path/payments items */
+  travelerId?: string;
+  /** Flight path as airport codes */
+  path?: string[];
+  /** Payment details per flight segment */
+  payments?: Array<{
+    edge: [string, string, string];  // [origin, dest, flight_number]
+    type: 'cash' | 'points';
+    payer: string;
+    fare?: number;  // cash only
+    via?: { source: string; airline: string } | { native: string };  // points only
+    miles?: number;
+    surcharge?: number;
+    points_value?: number;
+    cents_per_point?: number;
+    mode?: 'flight' | 'bus' | 'car';
+  }>;
+  /** Aggregated totals for the itinerary */
+  totals?: {
+    airline_points: number;
+    cash: number;
+    time: number;
+    points_value: number;
+    transfers: Record<string, Record<string, Record<string, {
+      blocks: number;
+      source_points: number;
+      delivered_airline_points: number;
+      operating_carriers?: string[];
+      segment_description?: string;
+    }>>>;
+    native_used: Record<string, Record<string, number>>;
+  };
   [key: string]: unknown; // Allow other fields from DynamoDB
 }
 

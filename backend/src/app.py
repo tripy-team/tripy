@@ -785,9 +785,11 @@ async def get_points_valuations(user_id: str = Depends(get_current_user_id)):
 # Itinerary endpoints (require authentication)
 @app.post("/itinerary/generate")
 async def generate_itinerary(
-    request: GenerateItineraryRequest, user_id: str = Depends(get_current_user_id)
+    request: GenerateItineraryRequest,
+    user_id: str = Depends(get_current_user_id),
+    req: Request = None,
 ):
-    """Generate optimized itineraries for a trip using points maximization. Falls back to simple generator (1-5 budget/points-aware routes) when optimization fails."""
+    """Generate optimized itineraries for a trip using v2 pipeline (default) or v1. Falls back to simple generator when optimization fails."""
     try:
         # Get trip to verify access
         trip = trip_service.get_trip(request.trip_id)
@@ -798,32 +800,31 @@ async def generate_itinerary(
         if trip.get("createdBy") != user_id:
             raise HTTPException(status_code=403, detail="Access denied")
 
-        # Generate optimized itinerary using points maximization
-        result = await itinerary_service.generate_optimized_itinerary(request.trip_id)
+        # Check for version override header (X-Itinerary-Version: v1 or v2)
+        version = None
+        if req:
+            version = req.headers.get("X-Itinerary-Version")
+
+        # Generate itinerary using v2 (default) or v1
+        result = await itinerary_service.generate_itinerary_with_version(
+            request.trip_id, version=version
+        )
 
         # Track itinerary generation for analytics
-        if result.get("ai_suggested_routes"):
-            route_count = len(result.get("suggestions", []))
-        else:
-            route_count = len(result.get("solution", {}).get("path", {}))
+        route_count = len(result.get("items", []))
         track_itinerary_generated(user_id, request.trip_id, route_count)
 
-        out = {
+        response = {
             "status": result.get("status", "Unknown"),
             "solution": result.get("solution", {}),
             "items": result.get("items", []),
         }
-        if result.get("ai_suggested_routes"):
-            out["ai_suggested_routes"] = True
-            out["suggestions"] = result.get("suggestions", [])
-        if result.get("out_of_pocket") is not None:
-            out["out_of_pocket"] = result.get("out_of_pocket")
-        if result.get("out_of_pocket_hotels") is not None:
-            out["out_of_pocket_hotels"] = result.get("out_of_pocket_hotels")
+        
         if result.get("relaxed_constraints"):
-            out["relaxed_constraints"] = True
-            out["relaxed_message"] = result.get("relaxed_message", "")
-        return out
+            response["relaxed_constraints"] = True
+            response["relaxed_message"] = result.get("relaxed_message")
+        
+        return response
     except ValueError as e:
         # Fallback to simple itineraries (1-5 routes within budget/points) when optimization fails
         logger.warning(f"Optimization failed ({e}), falling back to simple itineraries with safe_mode")

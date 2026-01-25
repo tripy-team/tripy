@@ -37,6 +37,9 @@ from src.utils.card_benefits import build_benefit_airlines_for_travelers
 
 logger = logging.getLogger(__name__)
 
+# Feature flag for v2 itinerary generation (can be overridden by env var or request header)
+ITINERARY_GENERATION_VERSION = os.getenv("ITINERARY_GENERATION_VERSION", "v2")
+
 # Display names for transfer_tips (aligned with frontend transfer-instructions.ts)
 _HUMANIZE_BANK: Dict[str, str] = {
     "amex": "Amex Membership Rewards",
@@ -297,7 +300,7 @@ def _parse_trip_duration_days(trip: Dict[str, Any]) -> int:
     return 7
 
 
-def _calculate_minimum_budget(num_cities: int, total_days: int, include_hotels: bool = True) -> int:
+def _calculate_minimum_budget(num_cities: int, total_days: int) -> int:
     """
     Calculate the absolute minimum budget needed for a trip.
     Used to provide realistic budget suggestions when user's budget is too low.
@@ -305,13 +308,13 @@ def _calculate_minimum_budget(num_cities: int, total_days: int, include_hotels: 
     Args:
         num_cities: Number of cities to visit (stays, not including origin/transit)
         total_days: Total trip duration in days
-        include_hotels: Whether hotels are included in the trip cost
     
     Returns:
         Minimum budget in dollars
     """
-    base_cost_per_day = 200 if include_hotels else 120
-    base_cost_per_city = 300 if include_hotels else 200
+    # Fixed costs (flights + activities only, no hotels)
+    base_cost_per_day = 120
+    base_cost_per_city = 200
     
     # Minimum: 1 day per city
     min_days = max(num_cities, total_days // 2)  # Use at least half the total days
@@ -469,10 +472,9 @@ def generate_simple_itineraries(trip_id: str, safe_mode: bool = False) -> List[D
     num_stops = max(len(stay_names), 1)
     base_days = max(total_days // num_stops, 2)
 
-    # Align with user's includeHotels: lower costs when hotels excluded (flights + activities only)
-    include_hotels = trip.get("includeHotels", True) is not False
-    base_cost_per_day = 200 if include_hotels else 120
-    base_cost_per_city = 300 if include_hotels else 200
+    # Fixed costs (flights + activities only, no hotels)
+    base_cost_per_day = 120
+    base_cost_per_city = 200
     points_per_dollar = 25  # rough valuation
 
     def _build_city_objects(
@@ -635,7 +637,7 @@ def generate_simple_itineraries(trip_id: str, safe_mode: bool = False) -> List[D
         return candidate
 
     # Calculate minimum budget needed and check if user's budget is too low
-    min_budget_needed = _calculate_minimum_budget(len(stay_names), total_days, include_hotels)
+    min_budget_needed = _calculate_minimum_budget(len(stay_names), total_days)
     budget_too_low = max_budget is not None and max_budget > 0 and max_budget < min_budget_needed
     
     for idx, r in enumerate(routes, start=1):
@@ -679,8 +681,7 @@ def generate_simple_itineraries(trip_id: str, safe_mode: bool = False) -> List[D
             "type": "budget_warning",
             "message": (
                 f"Your budget of ${max_budget:,} may be too low for this trip. "
-                f"We recommend at least ${min_budget_needed:,} for {len(stay_names)} cities over {total_days} days "
-                f"({'with hotels' if include_hotels else 'without hotels'}). "
+                f"We recommend at least ${min_budget_needed:,} for {len(stay_names)} cities over {total_days} days. "
                 f"The itineraries shown above may exceed your budget."
             ),
             "user_budget": max_budget,
@@ -906,368 +907,6 @@ def _best_effort_path_from_edges(
     return (solution, msg)
 
 
-def build_transfer_tips_from_solution(
-    solution: Dict[str, Any],
-    _edges_all: Optional[Dict[Any, Dict[str, Any]]] = None,
-) -> List[Dict[str, Any]]:
-    """
-    Build transfer_tips from the optimized solution's pay_mode, using AwardTool-derived
-    award_points and program. Each tip: where to transfer, how many points, for which segment.
-    When edges_all is provided, includes operating carrier (e.g. Korean Air codeshare via Delta).
-    Replaces generic AI transfer advice with data-driven amounts and partners.
-    Also includes strategy_reason explaining why this transfer strategy was selected.
-    Enhanced with detailed transfer instructions including portal URLs, timing, and booking steps.
-    """
-    out: List[Dict[str, Any]] = []
-    pay_mode = solution.get("pay_mode") or {}
-    edges_all = _edges_all or {}
-    
-    # Build strategy reasoning from solution metadata
-    strategy_reasons = []
-    total_points = 0
-    total_cash_saved = 0.0
-    programs_used = set()
-    partners_used = set()
-    route_segments = []
-
-    for _traveler, recs in pay_mode.items():
-        for rec in (recs or []):
-            if rec.get("type") != "points":
-                continue
-            via = rec.get("via") or {}
-            miles = rec.get("miles")
-            if miles is None:
-                continue
-            miles = int(float(miles))
-            sur = rec.get("surcharge")
-            try:
-                sur_val = float(sur) if sur is not None else None
-            except (TypeError, ValueError):
-                sur_val = None
-
-            # Calculate points value (cash saved)
-            points_value = rec.get("points_value", 0.0)
-            if points_value:
-                total_cash_saved += float(points_value)
-            
-            # Calculate cents per point value
-            cpp = rec.get("cents_per_point", 0.0)
-            if not cpp and points_value and miles > 0:
-                cpp = (float(points_value) * 100.0) / miles
-
-            edge = rec.get("edge")
-            dep, arr = None, None
-            if isinstance(edge, (list, tuple)) and len(edge) >= 2:
-                dep, arr = str(edge[0] or "").upper(), str(edge[1] or "").upper()
-                best_for = f"{dep}→{arr}" if (dep and arr) else None
-                if dep and arr:
-                    route_segments.append(f"{dep}→{arr}")
-            else:
-                best_for = None
-
-            # Operating carrier from AwardTool (codeshare): e.g. KE when booking via DL
-            operating_airline = None
-            e_tuple = tuple(edge) if isinstance(edge, (list, tuple)) and len(edge) >= 3 else None
-            if e_tuple and e_tuple in edges_all:
-                op = (edges_all[e_tuple].get("operating_airline") or "").strip().upper()
-                if op and len(op) >= 2:
-                    operating_airline = op[:2]
-            booking_airline = (via.get("airline") or via.get("native") or "").upper().strip()
-            
-            # Build detailed transfer instructions
-            src = None
-            al = None
-            from_program = None
-            to_program = None
-            transfer_needed = False
-            
-            if "source" in via and "airline" in via:
-                src = (via.get("source") or "").lower().strip()
-                al = (via.get("airline") or "").upper().strip()
-                from_program = _HUMANIZE_BANK.get(src) or src or "Credit card points"
-                to_program = _HUMANIZE_AIRLINE.get(al) or al or "Travel partner"
-                transfer_needed = True
-            elif "native" in via:
-                al = (via.get("native") or "").upper().strip()
-                to_program = _HUMANIZE_AIRLINE.get(al) or al or "Travel partner"
-                from_program = "Existing miles"
-                transfer_needed = False
-            else:
-                continue
-
-            # Build detailed note with transfer/booking instructions
-            note_parts = []
-            
-            # Codeshare information
-            codeshare_note = ""
-            if operating_airline and operating_airline != booking_airline:
-                op_name = _HUMANIZE_AIRLINE.get(operating_airline) or operating_airline
-                booking_name = _HUMANIZE_AIRLINE.get(booking_airline) or booking_airline
-                codeshare_note = f" You'll book through {booking_name} to fly on {op_name} metal (codeshare)."
-            
-            if transfer_needed:
-                # Transfer instructions
-                transfer_details = _TRANSFER_DETAILS.get(src, {})
-                transfer_time = transfer_details.get("transfer_time", "instant to 24 hours")
-                portal_url = transfer_details.get("portal_url", "")
-                min_transfer = transfer_details.get("min_transfer", "1,000 points")
-                
-                note_parts.append(f"Transfer {miles:,} points from {from_program} to {to_program}.")
-                note_parts.append(f"Transfer time: {transfer_time}. Minimum: {min_transfer}.")
-                
-                if portal_url:
-                    note_parts.append(f"Portal: {portal_url}")
-                
-                note_parts.append(f"Once transferred, book on {to_program}'s website.{codeshare_note}")
-            else:
-                # Native miles usage
-                note_parts.append(f"Use {miles:,} existing {to_program} miles (no transfer needed).{codeshare_note}")
-            
-            # Add booking URL
-            booking_url = _AIRLINE_BOOKING_URLS.get(al, "")
-            if booking_url:
-                note_parts.append(f"Book at: {booking_url}")
-            
-            # Add value information
-            if cpp > 0:
-                note_parts.append(f"Value: {cpp:.2f} cents per point.")
-            
-            # Add taxes/fees
-            if sur_val is not None and sur_val > 0:
-                note_parts.append(f"Pay ~${sur_val:,.0f} in taxes and fees.")
-            
-            note_parts.append("From AwardTool live award availability.")
-            
-            note = " ".join(note_parts)
-
-            tip = {
-                "from_program": from_program,
-                "to_program": to_program,
-                "best_for": best_for,
-                "route_segment": best_for,  # Explicit route segment field
-                "departure": dep,
-                "arrival": arr,
-                "note": note,
-                "points": miles,
-                "surcharge": sur_val,
-                "cents_per_point": round(cpp, 2) if cpp else None,
-                "points_value": round(points_value, 2) if points_value else None,
-                "booking_airline": booking_airline,
-                "booking_airline_name": _HUMANIZE_AIRLINE.get(booking_airline) or booking_airline,
-                "transfer_needed": transfer_needed,
-            }
-            
-            # Add transfer details
-            if transfer_needed and src:
-                transfer_details = _TRANSFER_DETAILS.get(src, {})
-                tip["transfer_portal_url"] = transfer_details.get("portal_url", "")
-                tip["transfer_time"] = transfer_details.get("transfer_time", "")
-                tip["transfer_ratio"] = transfer_details.get("ratio", "1:1")
-                tip["min_transfer"] = transfer_details.get("min_transfer", "")
-            
-            # Add booking URL
-            if al:
-                tip["booking_url"] = _AIRLINE_BOOKING_URLS.get(al, "")
-            
-            # Add codeshare details
-            if operating_airline and operating_airline != booking_airline:
-                tip["operating_carrier"] = operating_airline
-                op_name = _HUMANIZE_AIRLINE.get(operating_airline) or operating_airline
-                tip["operating_carrier_name"] = op_name
-                tip["segment_description"] = f"{op_name} (codeshare)"
-                tip["is_codeshare"] = True
-            else:
-                tip["is_codeshare"] = False
-            
-            # Add step-by-step transfer instructions
-            if transfer_needed:
-                tip["transfer_steps"] = [
-                    f"1. Visit {from_program} portal: {tip.get('transfer_portal_url', 'your account portal')}",
-                    f"2. Navigate to 'Transfer Points' or 'Transfer to Travel Partners' section",
-                    f"3. Select {to_program} from the list of airline partners",
-                    f"4. Enter your {to_program} frequent flyer number (create free account if needed)",
-                    f"5. Transfer {miles:,} points (usually 1:1 ratio, {transfer_details.get('transfer_time', 'instant')})",
-                    f"6. Once points arrive in {to_program} account, visit {tip.get('booking_url', 'airline website')}",
-                    f"7. Search for award flights from {dep} to {arr}",
-                    f"8. Book using {miles:,} miles + ~${sur_val:,.0f} in taxes/fees" if sur_val else f"8. Book using {miles:,} miles",
-                ]
-            else:
-                tip["transfer_steps"] = [
-                    f"1. Visit {to_program} booking portal: {tip.get('booking_url', 'airline website')}",
-                    f"2. Log in to your {to_program} account",
-                    f"3. Search for award flights from {dep} to {arr}",
-                    f"4. Book using {miles:,} existing miles + ~${sur_val:,.0f} in taxes/fees" if sur_val else f"4. Book using {miles:,} existing miles",
-                ]
-            
-            out.append(tip)
-            
-            # Track for strategy summary
-            total_points += miles
-            if from_program and from_program != "Existing miles":
-                programs_used.add(from_program)
-            partners_used.add(to_program)
-
-    # Build comprehensive strategy reasoning
-    if out:
-        # Route summary
-        unique_segments = list(dict.fromkeys(route_segments))
-        if len(unique_segments) == 1:
-            strategy_reasons.append(f"For your {unique_segments[0]} route")
-        elif len(unique_segments) > 1:
-            strategy_reasons.append(f"For your multi-city route ({' → '.join(unique_segments[:3])}{'...' if len(unique_segments) > 3 else ''})")
-        
-        # Program usage summary
-        if len(programs_used) == 1:
-            strategy_reasons.append(f"using {list(programs_used)[0]} as your primary points source")
-        elif len(programs_used) > 1:
-            strategy_reasons.append(f"optimizing across {len(programs_used)} credit card programs")
-        
-        # Partner summary
-        if len(partners_used) == 1:
-            strategy_reasons.append(f"transferring to {list(partners_used)[0]} for best award availability")
-        elif len(partners_used) > 1:
-            strategy_reasons.append(f"leveraging {len(partners_used)} airline partners for optimal routing")
-        
-        # Value summary
-        if total_cash_saved > 0:
-            avg_cpp = (total_cash_saved * 100.0) / total_points if total_points > 0 else 0
-            strategy_reasons.append(f"saving ${total_cash_saved:,.0f} ({avg_cpp:.2f} cpp)")
-        
-        strategy_reasons.append("based on live award availability from AwardTool")
-        
-        # Add strategy_reason to first tip (will be used for overview display)
-        if strategy_reasons and out:
-            out[0]["strategy_reason"] = ", ".join(strategy_reasons) + "."
-            out[0]["total_points_used"] = total_points
-            out[0]["total_cash_saved"] = round(total_cash_saved, 2)
-            out[0]["average_cpp"] = round((total_cash_saved * 100.0) / total_points, 2) if total_points > 0 else 0
-
-    return out
-
-
-async def _get_transfer_tips_from_panorama(
-    origin: str,
-    destination: str,
-    start_date: str,
-    end_date: str,
-    user_banks: List[str],
-) -> List[Dict[str, Any]]:
-    """
-    Fallback: use AwardTool Panorama (calendar) to get program + points for the route,
-    then suggest where to transfer. Used when the optimizer has no points bookings.
-    """
-    import httpx
-    api_key = os.getenv("AWARD_TOOL_API_KEY") or os.getenv("AWARDTOOL_API_KEY")
-    if not api_key or not origin or not destination:
-        return []
-
-    url = "https://www.awardtool-api.com/panorama/panorama_calendar_data"
-    payload = {"id": f"{str(origin).upper()}-{str(destination).upper()}", "api_key": api_key}
-    try:
-        async with httpx.AsyncClient(http2=True, timeout=httpx.Timeout(20.0)) as client:
-            r = await client.post(url, json=payload)
-            r.raise_for_status()
-            data = r.json().get("data") or []
-    except Exception as e:
-        logger.debug("Panorama calendar for transfer tips %s->%s: %s", origin, destination, e)
-        return []
-
-    banks_set = {b.lower().strip() for b in user_banks}
-    best_pts, best_prog = None, None
-    for row in data:
-        d = row.get("date") or ""
-        if start_date and d < start_date:
-            continue
-        if end_date and d > end_date:
-            continue
-        prog = (row.get("program") or "").upper()
-        if not prog:
-            continue
-        pts_obj = row.get("points") or {}
-        pts = pts_obj.get("y") if isinstance(pts_obj.get("y"), (int, float)) else None
-        if pts is None:
-            continue
-        if best_pts is None or pts < best_pts:
-            if DEFAULT_TRANSFER_GRAPH and any(
-                DEFAULT_TRANSFER_GRAPH.get(b, {}).get(prog) is not None
-                for b in banks_set
-            ):
-                best_pts, best_prog = int(pts), prog
-
-    if best_pts is None or best_prog is None:
-        return []
-
-    from_bank = None
-    for b in banks_set:
-        if DEFAULT_TRANSFER_GRAPH.get(b, {}).get(best_prog) is not None:
-            from_bank = b
-            break
-    if not from_bank:
-        return []
-
-    from_program = _HUMANIZE_BANK.get(from_bank) or from_bank
-    to_program = _HUMANIZE_AIRLINE.get(best_prog) or best_prog
-    best_for = f"{str(origin).upper()}→{str(destination).upper()}"
-    note = f"Transfer {best_pts:,} points to {to_program} (AwardTool Panorama economy for your dates)."
-    return [{
-        "from_program": from_program,
-        "to_program": to_program,
-        "best_for": best_for,
-        "note": note,
-        "points": best_pts,
-        "surcharge": None,
-    }]
-
-
-def _save_and_return_ai_route_suggestions(
-    trip_id: str,
-    origin: str,
-    destination: str,
-    city_names: List[str],
-    start_date: str,
-    end_date: str,
-    failed_routes: Optional[List[str]] = None,
-    points_programs: Optional[List[str]] = None,
-) -> Dict[str, Any]:
-    """When flight search has no data (small/remote cities), use OpenAI to suggest routes and smart tips; return that instead of failing."""
-    from src.handlers.openAI import suggest_routes_for_remote_or_small_cities, get_itinerary_smart_tips
-
-    suggestions = suggest_routes_for_remote_or_small_cities(
-        origin=origin,
-        destination=destination,
-        city_names=city_names if city_names else None,
-        start_date=start_date or None,
-        end_date=end_date or None,
-        failed_routes=failed_routes,
-    )
-    tips = get_itinerary_smart_tips(
-        origin=origin,
-        destination=destination,
-        city_names=city_names if city_names else None,
-        start_date=start_date or None,
-        end_date=end_date or None,
-        points_programs=points_programs or None,
-    )
-    item = {
-        "tripId": trip_id,
-        "itemId": "ai_route_suggestions",
-        "type": "ai_route_suggestions",
-        "suggestions": suggestions,
-        "transfer_tips": tips.get("transfer_tips", []),
-        "sample_itineraries": tips.get("sample_itineraries", []),
-        "holiday_advice": tips.get("holiday_advice", []),
-        "practical_tips": tips.get("practical_tips", []),
-    }
-    itinerary_repo.put_item(item)
-    return {
-        "status": "ai_suggested",
-        "ai_suggested_routes": True,
-        "suggestions": suggestions,
-        "items": [item],
-        "solution": {},
-    }
-
-
 async def _fetch_edges_for_route(
     origin: str,
     dest: str,
@@ -1394,13 +1033,15 @@ async def generate_optimized_itinerary(trip_id: str) -> Dict[str, Any]:
     1. Gets trip data (dates, destinations, members)
     2. Gets points for all members
     3. Converts city names to airport codes
-    4. Fetches flight edges for all routes
+    4. Fetches flight edges for all routes (SERP for cash, AwardTool for points)
     5. Runs ILP optimization to maximize points value
     6. Saves and returns the optimized itinerary
     
     Raises:
         ValueError: If trip data is invalid, missing required fields, or optimization fails
     """
+    logger.info(f"Starting optimized itinerary generation for trip {trip_id}")
+    
     if plan_maximize_points_value is None:
         raise ValueError(
             "Optimized itineraries are not available in this environment because the "
@@ -1523,15 +1164,9 @@ async def generate_optimized_itinerary(trip_id: str) -> Dict[str, Any]:
     
     # Validate start/end codes
     if not start_dest_code:
-        logger.info(f"No airport code for start '{start_dest_name}'; using OpenAI to suggest routes for small/remote city")
-        return _save_and_return_ai_route_suggestions(
-            trip_id, start_dest_name, end_dest_name or start_dest_name, cities, start_date, end_date, failed_routes=None
-        )
+        raise ValueError(f"Could not find airport code for start destination: {start_dest_name}")
     if not end_dest_code:
-        logger.info(f"No airport code for end '{end_dest_name}'; using OpenAI to suggest routes for small/remote city")
-        return _save_and_return_ai_route_suggestions(
-            trip_id, start_dest_name, end_dest_name or start_dest_name, cities, start_date, end_date, failed_routes=None
-        )
+        raise ValueError(f"Could not find airport code for end destination: {end_dest_name}")
     
     # For single destination trips, ensure we have at least start and end
     if not city_codes and start_dest_code == end_dest_code:
@@ -1553,52 +1188,6 @@ async def generate_optimized_itinerary(trip_id: str) -> Dict[str, Any]:
         raise ValueError("No active travelers found for optimization")
     
     logger.info(f"Found {len(travelers)} active travelers: {travelers}")
-
-    # Start OOP and hotels optimization as background tasks (run in parallel with flight fetch)
-    # Out-of-pocket optimizer for simple A->B round-trips (SerpAPI cash + AwardTool points/surcharge)
-    oop_task = None
-    if (
-        start_dest_code
-        and end_dest_code
-        and start_dest_code != end_dest_code
-        and not city_codes
-        and start_date
-        and end_date
-        and travelers
-    ):
-        from src.services.serp_api_functions import optimize_itinerary_out_of_pocket
-        oop_task = asyncio.create_task(asyncio.to_thread(
-            optimize_itinerary_out_of_pocket,
-            origin=start_dest_code,
-            destination=end_dest_code,
-            outbound_date=start_date.strip(),
-            return_date=end_date.strip(),
-            programs=get_award_programs_for_api(),
-            cabins=["Economy"],
-            pax=len(travelers),
-        ))
-
-    # Hotel out-of-pocket: AwardTool (cash + points) + SerpAPI Google Hotels (cash) for simple trips
-    # Only when trip has includeHotels=True (default); allows excluding hotels from calculations
-    oop_hotels_task = None
-    if (
-        trip.get("includeHotels", True)
-        and (end_dest_name or end_dest_code)
-        and start_date
-        and end_date
-        and travelers
-        and not city_codes
-    ):
-        from src.services.serp_api_functions import optimize_hotels_out_of_pocket
-        oop_hotels_task = asyncio.create_task(asyncio.to_thread(
-            optimize_hotels_out_of_pocket,
-            destination=(end_dest_name or end_dest_code or "").strip(),
-            check_in=start_date.strip(),
-            check_out=end_date.strip(),
-            programs=None,
-            guests=len(travelers),
-            hotel_class=None,
-        ))
 
     # 4. Get points for all members with validation
     points_summary = points_service.trip_points_summary(trip_id)
@@ -1704,37 +1293,11 @@ async def generate_optimized_itinerary(trip_id: str) -> Dict[str, Any]:
                 o, d,
             )
 
-    # Await OOP and hotels tasks (they ran in parallel with flight fetch)
-    oop_result: Optional[Dict[str, Any]] = None
-    if oop_task is not None:
-        try:
-            oop_result = await oop_task
-        except Exception as e:
-            logger.warning("optimize_itinerary_out_of_pocket failed: %s", e)
-            oop_result = None
-    
-    oop_hotels_result: Optional[Dict[str, Any]] = None
-    if oop_hotels_task is not None:
-        try:
-            oop_hotels_result = await oop_hotels_task
-        except Exception as e:
-            logger.warning("optimize_hotels_out_of_pocket failed: %s", e)
-            oop_hotels_result = None
-
     if not edges_all:
-        # No flight data for any route (small/remote cities or API limits). Use OpenAI to suggest routes.
-        logger.info(
-            f"No flight edges for any route (failed: {failed_routes}); using OpenAI to suggest routes for small/remote cities"
-        )
-        return _save_and_return_ai_route_suggestions(
-            trip_id,
-            start_dest_name or start_dest_code,
-            end_dest_name or end_dest_code,
-            cities,
-            start_date,
-            end_date,
-            failed_routes=failed_routes,
-            points_programs=list({p for u in user_points_by_trav.values() for p in u}),
+        # No flight data for any route (small/remote cities or API limits)
+        raise ValueError(
+            f"No flight data found for any route. Failed routes: {', '.join(failed_routes) if failed_routes else 'all'}. "
+            "Please try different airports or dates."
         )
     
     if successful_routes == 0:
@@ -1982,6 +1545,23 @@ async def generate_optimized_itinerary(trip_id: str) -> Dict[str, Any]:
             else:
                 city_objs = []
                 logger.warning(f"No overnight stays allocated for traveler {traveler_id} (path={path})")
+            # Calculate score based on optimization quality
+            # - Base: 90 (optimized with real data beats simple generator's 88)
+            # - Bonus for using points (+5 if points_value > 0)
+            # - Bonus for staying within budget (+3)
+            total_cash = int(totals_for_path.get("cash") or 0)
+            points_value = float(totals_for_path.get("points_value") or 0)
+            points_cost = int(totals_for_path.get("airline_points") or 0)
+            
+            score = 90
+            if points_value > 0:
+                score += 5  # Using points effectively
+            if max_budget and total_cash <= max_budget:
+                score += 3  # Within budget
+            score = min(99, score)
+            
+            within_budget = max_budget is None or max_budget <= 0 or total_cash <= max_budget
+            
             item = {
                 "tripId": trip_id,
                 "itemId": f"path_{traveler_id}",
@@ -1990,11 +1570,20 @@ async def generate_optimized_itinerary(trip_id: str) -> Dict[str, Any]:
                 "path": path,
                 "route": path,  # full sequence for Route display (origin -> ... -> end)
                 "cities": city_objs,  # stays only, with days (origin/return get 0 days)
-                "totalCost": int(totals_for_path.get("cash") or 0),
-                "pointsCost": int(totals_for_path.get("airline_points") or 0),
+                "totalCost": total_cash,
+                "pointsCost": points_cost,
+                "score": score,  # Quality score for UI display
+                "withinBudget": within_budget,
+                "withinPoints": True,  # Points are auto-allocated by optimizer
                 "name": "Optimized route",
             }
             itinerary_items.append(item)
+            
+            logger.info(
+                f"Created optimized itinerary for {traveler_id}: "
+                f"totalCost=${total_cash:,}, pointsCost={points_cost:,}, "
+                f"score={score}, path={' -> '.join(path)}"
+            )
     
     # Save payment modes (add mode: flight|bus|car from edge[2] for frontend)
     for traveler_id, payments in solution.get("pay_mode", {}).items():
@@ -2058,94 +1647,6 @@ async def generate_optimized_itinerary(trip_id: str) -> Dict[str, Any]:
     }
     itinerary_items.append(totals_item)
 
-    # Post-optimization: run transfer tips and smart tips in parallel (saves 5-15s)
-    from src.handlers.openAI import get_itinerary_smart_tips
-
-    aw_tips = build_transfer_tips_from_solution(solution, edges_all)
-    points_programs = list({p for u in user_points_by_trav.values() for p in u})
-    
-    # Start smart tips (always needed, runs in thread since it's sync OpenAI)
-    smart_tips_task = asyncio.create_task(asyncio.to_thread(
-        get_itinerary_smart_tips,
-        origin=start_dest_name or start_dest_code,
-        destination=end_dest_name or end_dest_code,
-        city_names=cities if cities else None,
-        start_date=start_date or None,
-        end_date=end_date or None,
-        points_programs=points_programs if points_programs else None,
-    ))
-    
-    # Start Panorama fallback if AwardTool tips are empty (runs async)
-    panorama_task = None
-    if not aw_tips:
-        user_banks = list({k for u in user_points_by_trav.values() for k in (u or {}) if isinstance(k, str) and (k or "").lower() in (DEFAULT_TRANSFER_GRAPH or {})})
-        panorama_task = asyncio.create_task(_get_transfer_tips_from_panorama(
-            origin=start_dest_code,
-            destination=end_dest_code or start_dest_code,
-            start_date=(start_date or "").strip(),
-            end_date=(end_date or "").strip(),
-            user_banks=user_banks,
-        ))
-    
-    # Await both tasks
-    tips = await smart_tips_task
-    if panorama_task is not None:
-        aw_tips = await panorama_task
-    
-    # Prefer AwardTool-derived transfer tips (exact amounts and partners) over generic AI
-    if aw_tips:
-        tips["transfer_tips"] = aw_tips
-
-    tips_item = {
-        "tripId": trip_id,
-        "itemId": "itinerary_smart_tips",
-        "type": "itinerary_smart_tips",
-        "transfer_tips": tips.get("transfer_tips", []),
-        "sample_itineraries": tips.get("sample_itineraries", []),
-        "holiday_advice": tips.get("holiday_advice", []),
-        "practical_tips": tips.get("practical_tips", []),
-    }
-    itinerary_items.append(tips_item)
-
-    # Out-of-pocket: persist and attach to response for simple A->B round-trips
-    oop_payload: Optional[Dict[str, Any]] = None
-    if oop_result and not oop_result.get("error"):
-        oop_payload = {
-            "best_by_cash": oop_result.get("best_by_cash"),
-            "best_by_surcharge": oop_result.get("best_by_surcharge"),
-            "best_overall": oop_result.get("best_overall"),
-            "origin": oop_result.get("origin"),
-            "destination": oop_result.get("destination"),
-            "outbound_date": oop_result.get("outbound_date"),
-            "return_date": oop_result.get("return_date"),
-        }
-        oop_item = {
-            "tripId": trip_id,
-            "itemId": "out_of_pocket",
-            "type": "out_of_pocket",
-            **oop_payload,
-        }
-        itinerary_items.append(oop_item)
-
-    # Hotel out-of-pocket: persist and attach for simple trips
-    oop_hotels_payload: Optional[Dict[str, Any]] = None
-    if oop_hotels_result and oop_hotels_result.get("options"):
-        oop_hotels_payload = {
-            "best_by_cash": oop_hotels_result.get("best_by_cash"),
-            "best_by_points": oop_hotels_result.get("best_by_points"),
-            "best_overall": oop_hotels_result.get("best_overall"),
-            "destination": oop_hotels_result.get("destination"),
-            "check_in": oop_hotels_result.get("check_in"),
-            "check_out": oop_hotels_result.get("check_out"),
-        }
-        oop_h_item = {
-            "tripId": trip_id,
-            "itemId": "out_of_pocket_hotels",
-            "type": "out_of_pocket_hotels",
-            **oop_hotels_payload,
-        }
-        itinerary_items.append(oop_h_item)
-
     # When we used relaxed budget or best-effort path, add an info item and flag the response
     if relaxed_message:
         relaxed_info = {
@@ -2165,11 +1666,54 @@ async def generate_optimized_itinerary(trip_id: str) -> Dict[str, Any]:
         "status": solution.get("status", "Unknown"),
         "solution": solution,
         "items": itinerary_items,
-        "out_of_pocket": oop_payload,
     }
-    if oop_hotels_payload is not None:
-        out["out_of_pocket_hotels"] = oop_hotels_payload
     if relaxed_message:
         out["relaxed_constraints"] = True
         out["relaxed_message"] = relaxed_message
     return out
+
+
+async def generate_itinerary_v2(trip_id: str) -> Dict[str, Any]:
+    """
+    Generate an optimized itinerary using the v2 pipeline.
+    
+    This function wraps the v2 pipeline and provides the same interface
+    as generate_optimized_itinerary for easy swapping.
+    
+    Args:
+        trip_id: The trip ID to generate itinerary for
+        
+    Returns:
+        Dict with status, solution, and items
+    """
+    from src.system.itinerary_v2.pipeline import generate_itinerary_v2 as v2_pipeline
+    
+    logger.info(f"Starting v2 itinerary generation for trip {trip_id}")
+    return await v2_pipeline(trip_id)
+
+
+async def generate_itinerary_with_version(
+    trip_id: str,
+    version: Optional[str] = None,
+) -> Dict[str, Any]:
+    """
+    Generate itinerary using specified version (v1 or v2).
+    
+    Args:
+        trip_id: The trip ID to generate itinerary for
+        version: Version to use ("v1", "v2", or None for default)
+        
+    Returns:
+        Dict with status, solution, and items
+    """
+    use_version = (version or ITINERARY_GENERATION_VERSION).lower()
+    
+    if use_version == "v2":
+        try:
+            return await generate_itinerary_v2(trip_id)
+        except Exception as e:
+            logger.warning(f"v2 generation failed, falling back to v1: {e}")
+            # Fall through to v1
+    
+    # v1 or fallback
+    return await generate_optimized_itinerary(trip_id)

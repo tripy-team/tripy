@@ -2,9 +2,8 @@
 
 import { useState, useEffect } from 'react';
 import { useRouter, useSearchParams } from 'next/navigation';
-import { MapPin, DollarSign, Clock, Zap, Edit3, Check, Sparkles, TrendingUp, Plane, Car, Bus, Train, Navigation, Calendar, Info, Bed, ChevronRight, Lock } from 'lucide-react';
+import { MapPin, DollarSign, Clock, Zap, Edit3, Check, Sparkles, TrendingUp, Plane, Car, Bus, Train, Navigation, Info, Bed, ChevronRight, Lock } from 'lucide-react';
 import { itineraries as itinerariesAPI, trips as tripsAPI, points as pointsAPI, ItineraryItem, destinations, type Trip } from '@/lib/api';
-import { tripDurationDays } from '@/lib/utils';
 import { formatAirportDisplay, getCityMapForCodes, isLikelyAirportCode } from '@/lib/airport-formatter';
 
 interface Itinerary {
@@ -26,14 +25,6 @@ interface AIRouteSuggestion {
     summary: string;
 }
 
-interface SmartTips {
-    transfer_tips: Array<{ from_program?: string; to_program?: string; best_for?: string; note?: string }>;
-    sample_itineraries: Array<{ title?: string; description?: string; savings_estimate?: string; when_to_book?: string }>;
-    holiday_advice: Array<{ period?: string; advice?: string; avoid_or_prefer?: string }>;
-    practical_tips: Array<{ category?: string; tip?: string }>;
-}
-
-const emptySmartTips: SmartTips = { transfer_tips: [], sample_itineraries: [], holiday_advice: [], practical_tips: [] };
 
 interface OutOfPocketOption {
     price?: number;
@@ -52,15 +43,6 @@ interface OutOfPocketData {
     return_date?: string;
 }
 
-/** Hotel OOP from optimize_hotels_out_of_pocket: best_overall has out_of_pocket, cash, points, surcharge */
-interface OutOfPocketHotelsData {
-    best_by_cash?: { cash?: number; out_of_pocket?: number } | null;
-    best_by_points?: { surcharge?: number; out_of_pocket?: number } | null;
-    best_overall?: { out_of_pocket?: number; cash?: number; points?: number; surcharge?: number } | null;
-    destination?: string;
-    check_in?: string;
-    check_out?: string;
-}
 
 function OutOfPocketBlock({ data }: { data: OutOfPocketData }) {
     const best = data.best_overall;
@@ -102,91 +84,6 @@ function OutOfPocketBlock({ data }: { data: OutOfPocketData }) {
     );
 }
 
-function SmartTipsBlock({ tips }: { tips: SmartTips }) {
-    const has = tips.transfer_tips.length > 0 || tips.sample_itineraries.length > 0 || tips.holiday_advice.length > 0 || tips.practical_tips.length > 0;
-    if (!has) return null;
-    return (
-        <div className="mt-10 pt-8 border-t border-slate-200">
-            <h2 className="text-xl font-semibold text-slate-900 mb-4 flex items-center gap-2">
-                <Sparkles className="w-5 h-5 text-amber-500" />
-                Smart tips for your trip
-            </h2>
-            <div className="grid sm:grid-cols-2 gap-6">
-                {tips.transfer_tips.length > 0 && (
-                    <div className="bg-white border border-slate-200 rounded-xl p-4">
-                        <h3 className="font-medium text-slate-900 mb-2 flex items-center gap-2">
-                            <Zap className="w-4 h-4 text-blue-600" />
-                            Where to transfer points
-                        </h3>
-                        <ul className="space-y-2 text-sm text-slate-700">
-                            {tips.transfer_tips.map((t, i) => (
-                                <li key={i}>
-                                    <span className="font-medium">{t.from_program || 'Points'}</span>
-                                    <span className="text-slate-500 mx-1">→</span>
-                                    <span className="font-medium">{t.to_program}</span>
-                                    {t.best_for && <span className="text-slate-500"> ({t.best_for})</span>}
-                                    {t.note && <span className="block text-slate-600 mt-0.5">{t.note}</span>}
-                                </li>
-                            ))}
-                        </ul>
-                    </div>
-                )}
-                {tips.sample_itineraries.length > 0 && (
-                    <div className="bg-white border border-slate-200 rounded-xl p-4">
-                        <h3 className="font-medium text-slate-900 mb-2 flex items-center gap-2">
-                            <DollarSign className="w-4 h-4 text-green-600" />
-                            Sample itineraries to save
-                        </h3>
-                        <ul className="space-y-2 text-sm text-slate-700">
-                            {tips.sample_itineraries.map((s, i) => (
-                                <li key={i}>
-                                    <span className="font-medium">{s.title}</span>
-                                    <span className="block text-slate-600">{s.description}</span>
-                                    {s.savings_estimate && <span className="text-green-700 text-xs">~{s.savings_estimate}</span>}
-                                    {s.when_to_book && <span className="block text-slate-500 text-xs">{s.when_to_book}</span>}
-                                </li>
-                            ))}
-                        </ul>
-                    </div>
-                )}
-                {tips.holiday_advice.length > 0 && (
-                    <div className="bg-white border border-slate-200 rounded-xl p-4">
-                        <h3 className="font-medium text-slate-900 mb-2 flex items-center gap-2">
-                            <Calendar className="w-4 h-4 text-amber-600" />
-                            Holiday &amp; seasonal
-                        </h3>
-                        <ul className="space-y-2 text-sm text-slate-700">
-                            {tips.holiday_advice.map((h, i) => (
-                                <li key={i}>
-                                    <span className="font-medium">{h.period}</span>
-                                    {h.avoid_or_prefer && <span className="text-amber-700 text-xs ml-1">({h.avoid_or_prefer})</span>}
-                                    <span className="block text-slate-600">{h.advice}</span>
-                                </li>
-                            ))}
-                        </ul>
-                    </div>
-                )}
-                {tips.practical_tips.length > 0 && (
-                    <div className="bg-white border border-slate-200 rounded-xl p-4 sm:col-span-2">
-                        <h3 className="font-medium text-slate-900 mb-2 flex items-center gap-2">
-                            <Info className="w-4 h-4 text-slate-600" />
-                            Practical: transfer timing, closing hours
-                        </h3>
-                        <ul className="space-y-2 text-sm text-slate-700">
-                            {tips.practical_tips.map((p, i) => (
-                                <li key={i}>
-                                    {p.category && <span className="font-medium text-slate-800">{p.category}: </span>}
-                                    {p.tip}
-                                </li>
-                            ))}
-                        </ul>
-                    </div>
-                )}
-            </div>
-        </div>
-    );
-}
-
 export default function SoloResults() {
     const router = useRouter();
     const searchParams = useSearchParams();
@@ -199,11 +96,8 @@ export default function SoloResults() {
     const [loading, setLoading] = useState(true);
     const [aiSuggestions, setAiSuggestions] = useState<AIRouteSuggestion[]>([]);
     const [isAiSuggested, setIsAiSuggested] = useState(false);
-    const [smartTips, setSmartTips] = useState<SmartTips>(emptySmartTips);
     const [outOfPocket, setOutOfPocket] = useState<OutOfPocketData | null>(null);
-    const [outOfPocketHotels, setOutOfPocketHotels] = useState<OutOfPocketHotelsData | null>(null);
-    const [includeHotels, setIncludeHotels] = useState(true);
-    const [userConstraints, setUserConstraints] = useState<{ maxBudget?: number; totalPoints: number; durationLabel: string; includeHotels: boolean } | null>(null);
+    const [userConstraints, setUserConstraints] = useState<{ maxBudget?: number; totalPoints: number; durationLabel: string } | null>(null);
     const [relaxedMessage, setRelaxedMessage] = useState<string | null>(null);
     const [trip, setTrip] = useState<Trip | null>(null);
     const [refetchTrigger, setRefetchTrigger] = useState(0);
@@ -222,9 +116,7 @@ export default function SoloResults() {
                 setLoading(true);
                 setAiSuggestions([]);
                 setIsAiSuggested(false);
-                setSmartTips(emptySmartTips);
                 setOutOfPocket(null);
-                setOutOfPocketHotels(null);
                 setUserConstraints(null);
                 setRelaxedMessage(null);
                 setBudgetWarning(null);
@@ -236,9 +128,7 @@ export default function SoloResults() {
                     pointsAPI.summary(tripId).catch(() => ({ totalPoints: 0, items: [] })),
                 ]);
                 setTrip((trip ?? null) as Trip | null);
-                const t = trip as { includeHotels?: boolean; maxBudget?: number; startDate?: string; endDate?: string; durationDays?: number } | null;
-                const incHotels = t?.includeHotels !== false;
-                setIncludeHotels(incHotels);
+                const t = trip as { maxBudget?: number; startDate?: string; endDate?: string; durationDays?: number } | null;
 
                 // Build duration label from user inputs: from dates, or durationDays (flexible), or "—"
                 let durationLabel = '—';
@@ -257,42 +147,21 @@ export default function SoloResults() {
                     maxBudget: t?.maxBudget != null && t.maxBudget > 0 ? t.maxBudget : undefined,
                     totalPoints: typeof (pointsRes as { totalPoints?: number })?.totalPoints === 'number' ? (pointsRes as { totalPoints: number }).totalPoints : 0,
                     durationLabel,
-                    includeHotels: incHotels,
                 });
 
                 // Check for AI route suggestions (small/remote cities with no flight data)
                 const aiItem = response.items?.find((i: ItineraryItem & { type?: string }) => i.type === 'ai_route_suggestions');
                 if (aiItem && (aiItem as { suggestions?: AIRouteSuggestion[] }).suggestions?.length) {
                     setAiSuggestions((aiItem as { suggestions: AIRouteSuggestion[] }).suggestions);
-                    setSmartTips({
-                        transfer_tips: Array.isArray((aiItem as any).transfer_tips) ? (aiItem as any).transfer_tips : [],
-                        sample_itineraries: Array.isArray((aiItem as any).sample_itineraries) ? (aiItem as any).sample_itineraries : [],
-                        holiday_advice: Array.isArray((aiItem as any).holiday_advice) ? (aiItem as any).holiday_advice : [],
-                        practical_tips: Array.isArray((aiItem as any).practical_tips) ? (aiItem as any).practical_tips : [],
-                    });
                     setIsAiSuggested(true);
                     setItineraries([]);
                     setLoading(false);
                     return;
                 }
 
-                // Extract smart tips from itinerary_smart_tips item (when we have optimized itineraries)
-                const tipsItem = response.items?.find((i: ItineraryItem & { type?: string }) => i.type === 'itinerary_smart_tips');
-                if (tipsItem && typeof tipsItem === 'object') {
-                    const t = tipsItem as Record<string, unknown>;
-                    setSmartTips({
-                        transfer_tips: Array.isArray(t.transfer_tips) ? t.transfer_tips as SmartTips['transfer_tips'] : [],
-                        sample_itineraries: Array.isArray(t.sample_itineraries) ? t.sample_itineraries as SmartTips['sample_itineraries'] : [],
-                        holiday_advice: Array.isArray(t.holiday_advice) ? t.holiday_advice as SmartTips['holiday_advice'] : [],
-                        practical_tips: Array.isArray(t.practical_tips) ? t.practical_tips as SmartTips['practical_tips'] : [],
-                    });
-                }
-
-                // Helper: extract OOP/tips/relaxed from a response (get returns in items; generate can have top-level or in items)
+                // Helper: extract OOP/relaxed from a response (get returns in items; generate can have top-level or in items)
                 const pickOop = (r: { items?: unknown[]; out_of_pocket?: OutOfPocketData }) =>
                     (r.items?.find((i: unknown) => (i as { type?: string })?.type === 'out_of_pocket') as OutOfPocketData | undefined) || r.out_of_pocket || null;
-                const pickOopHotels = (r: { items?: unknown[]; out_of_pocket_hotels?: OutOfPocketHotelsData }) =>
-                    (r.items?.find((i: unknown) => (i as { type?: string })?.type === 'out_of_pocket_hotels') as OutOfPocketHotelsData | undefined) || r.out_of_pocket_hotels || null;
                 const pickRelaxed = (r: { items?: unknown[]; relaxed_message?: string }) => {
                     const it = r.items?.find((i: unknown) => (i as { type?: string })?.type === 'itinerary_relaxed_info') as { message?: string } | undefined;
                     return (it && typeof it.message === 'string' ? it.message : null) || r.relaxed_message || null;
@@ -300,8 +169,6 @@ export default function SoloResults() {
 
                 // Out-of-pocket (simple A->B round-trip: best cash vs points+surcharge)
                 setOutOfPocket(pickOop(response));
-                // Hotel out-of-pocket (when trip has includeHotels): best cash vs points+surcharge
-                setOutOfPocketHotels(pickOopHotels(response));
                 // Relaxed-constraints banner (when no feasible solution; we show a similar route)
                 setRelaxedMessage(pickRelaxed(response));
                 
@@ -429,23 +296,14 @@ export default function SoloResults() {
                             ai_suggested_routes?: boolean;
                             suggestions?: AIRouteSuggestion[];
                             out_of_pocket?: OutOfPocketData;
-                            out_of_pocket_hotels?: OutOfPocketHotelsData;
                             relaxed_message?: string;
                         };
                         if (gen.ai_suggested_routes && gen.suggestions?.length) {
-                            const aiItem = (gen.items || []).find((i: ItineraryItem & { type?: string }) => i.type === 'ai_route_suggestions') as Record<string, unknown> | undefined;
-                            setSmartTips({
-                                transfer_tips: Array.isArray(aiItem?.transfer_tips) ? aiItem.transfer_tips as SmartTips['transfer_tips'] : [],
-                                sample_itineraries: Array.isArray(aiItem?.sample_itineraries) ? aiItem.sample_itineraries as SmartTips['sample_itineraries'] : [],
-                                holiday_advice: Array.isArray(aiItem?.holiday_advice) ? aiItem.holiday_advice as SmartTips['holiday_advice'] : [],
-                                practical_tips: Array.isArray(aiItem?.practical_tips) ? aiItem.practical_tips as SmartTips['practical_tips'] : [],
-                            });
                             setAiSuggestions(gen.suggestions);
                             setIsAiSuggested(true);
                             setItineraries([]);
                         } else {
                             setOutOfPocket(pickOop(gen));
-                            setOutOfPocketHotels(pickOopHotels(gen));
                             setRelaxedMessage(pickRelaxed(gen));
                             
                             // Extract warnings from generated items
@@ -456,15 +314,6 @@ export default function SoloResults() {
                             const genFallWarn = (gen.items || []).find((i: ItineraryItem & { type?: string }) => i.type === 'fallback_warning') as { message?: string } | undefined;
                             setFallbackWarning(genFallWarn?.message || null);
                             
-                            const genTips = (gen.items || []).find((i: ItineraryItem & { type?: string }) => i.type === 'itinerary_smart_tips') as Record<string, unknown> | undefined;
-                            if (genTips) {
-                                setSmartTips({
-                                    transfer_tips: Array.isArray(genTips.transfer_tips) ? genTips.transfer_tips as SmartTips['transfer_tips'] : [],
-                                    sample_itineraries: Array.isArray(genTips.sample_itineraries) ? genTips.sample_itineraries as SmartTips['sample_itineraries'] : [],
-                                    holiday_advice: Array.isArray(genTips.holiday_advice) ? genTips.holiday_advice as SmartTips['holiday_advice'] : [],
-                                    practical_tips: Array.isArray(genTips.practical_tips) ? genTips.practical_tips as SmartTips['practical_tips'] : [],
-                                });
-                            }
                             const genRegular = (gen.items || []).filter(
                                 (i: ItineraryItem & { type?: string }) => {
                                     if (['ai_route_suggestions', 'itinerary_smart_tips', 'itinerary_relaxed_info', 'out_of_pocket', 'out_of_pocket_hotels', 'payments', 'totals', 'budget_warning', 'optimization_warning', 'fallback_warning'].includes(i.type || '')) return false;
@@ -596,10 +445,10 @@ export default function SoloResults() {
                 const newCities = [...itinerary.cities];
                 newCities[cityIndex] = { ...newCities[cityIndex], days };
 
-                // Recalculate costs using same formula as backend (aligned with includeHotels)
+                // Recalculate costs using same formula as backend (flights + activities only)
                 const totalDays = newCities.reduce((sum, c) => sum + c.days, 0);
-                const perDay = includeHotels ? 200 : 120;
-                const perCity = includeHotels ? 300 : 200;
+                const perDay = 120;
+                const perCity = 200;
                 const newCost = Math.floor(totalDays * perDay + newCities.length * perCity);
 
                 return {
@@ -674,7 +523,6 @@ export default function SoloResults() {
                             </div>
                         ))}
                     </div>
-                    <SmartTipsBlock tips={smartTips} />
                     <p className="mt-8 text-sm text-slate-500">
                         Use these as a starting point. Book flights and ground transport separately. For the best fares, search from the suggested hubs on your preferred booking site.
                     </p>
@@ -716,7 +564,6 @@ export default function SoloResults() {
                             <span className="text-slate-600">Points: <strong className="text-slate-900">{(userConstraints.totalPoints / 1000).toFixed(0)}k</strong></span>
                         )}
                         <span className="text-slate-600">Duration: <strong className="text-slate-900">{userConstraints.durationLabel}</strong></span>
-                        <span className="text-slate-600">Hotels: <strong className="text-slate-900">{userConstraints.includeHotels ? 'Included' : 'Not included'}</strong></span>
                     </div>
                 )}
 
@@ -889,15 +736,15 @@ export default function SoloResults() {
                                         </div>
                                     </div>
 
-                                    {/* Prominent Out-of-Pocket Summary */}
+                                    {/* Flight Cost Summary */}
                                     <div className="mb-6 grid grid-cols-3 gap-3 p-4 bg-gradient-to-br from-blue-50 to-slate-50 rounded-xl border border-blue-100">
                                         <div>
                                             <div className="flex items-center gap-1.5 text-slate-600 mb-1">
-                                                <DollarSign className="w-4 h-4" />
-                                                <span className="text-xs font-medium uppercase tracking-wider">Cost</span>
+                                                <Plane className="w-4 h-4" />
+                                                <span className="text-xs font-medium uppercase tracking-wider">Flights</span>
                                             </div>
                                             <div className="text-2xl font-bold text-slate-900">${itinerary.totalCost.toLocaleString()}</div>
-                                            <div className="text-xs text-slate-500 mt-0.5">Out-of-pocket</div>
+                                            <div className="text-xs text-slate-500 mt-0.5">Cash cost</div>
                                         </div>
 
                                         <div>
@@ -1031,9 +878,6 @@ export default function SoloResults() {
                                                     </span>
                                                     <span className="text-slate-900 font-medium">{city.name}</span>
                                                     <span className="text-slate-500">· {city.days} night{city.days !== 1 ? 's' : ''}</span>
-                                                    {includeHotels && (
-                                                        <span className="text-slate-400 text-xs ml-1">(accommodation included)</span>
-                                                    )}
                                                 </li>
                                             ))}
                                         </ul>
@@ -1064,44 +908,18 @@ export default function SoloResults() {
                                     </div>
 
                                     <div>
-                                        <div className="text-sm text-slate-600 mb-3 font-medium">Cost Breakdown</div>
+                                        <div className="text-sm text-slate-600 mb-3 font-medium">Flight Cost</div>
                                         <div className="space-y-2 text-sm">
-                                            {(() => {
-                                                const flightsPart = selectedItinerary.totalCost * (includeHotels ? 0.4 : 0.65);
-                                                const hotelOop = includeHotels
-                                                    ? (outOfPocketHotels?.best_overall?.out_of_pocket ?? outOfPocketHotels?.best_overall?.cash)
-                                                    : null;
-                                                const hotelsPart = includeHotels
-                                                    ? (hotelOop ?? selectedItinerary.totalCost * 0.35)
-                                                    : 0;
-                                                const activitiesPart = selectedItinerary.totalCost * (includeHotels ? 0.25 : 0.35);
-                                                const total = flightsPart + hotelsPart + activitiesPart;
-                                                return (
-                                                    <>
-                                                        <div className="flex justify-between">
-                                                            <span className="text-slate-600">Flights</span>
-                                                            <span className="text-slate-900 font-medium">${Math.round(flightsPart).toLocaleString()}</span>
-                                                        </div>
-                                                        {includeHotels && (
-                                                            <div className="flex justify-between">
-                                                                <span className="text-slate-600">Hotels</span>
-                                                                <span className="text-slate-900 font-medium">
-                                                                    ${Math.round(hotelsPart).toLocaleString()}
-                                                                    {hotelOop != null && <span className="text-emerald-600 text-xs ml-1">(live)</span>}
-                                                                </span>
-                                                            </div>
-                                                        )}
-                                                        <div className="flex justify-between">
-                                                            <span className="text-slate-600">Activities</span>
-                                                            <span className="text-slate-900 font-medium">${Math.round(activitiesPart).toLocaleString()}</span>
-                                                        </div>
-                                                        <div className="pt-2 border-t border-slate-200 flex justify-between font-semibold">
-                                                            <span className="text-slate-900">Total</span>
-                                                            <span className="text-slate-900">${Math.round(total).toLocaleString()}</span>
-                                                        </div>
-                                                    </>
-                                                );
-                                            })()}
+                                            <div className="flex justify-between font-semibold">
+                                                <span className="text-slate-900">Total</span>
+                                                <span className="text-slate-900">${selectedItinerary.totalCost.toLocaleString()}</span>
+                                            </div>
+                                            {selectedItinerary.pointsCost > 0 && (
+                                                <div className="flex justify-between text-blue-600">
+                                                    <span>Points value</span>
+                                                    <span>{(selectedItinerary.pointsCost / 1000).toFixed(0)}k pts</span>
+                                                </div>
+                                            )}
                                         </div>
                                     </div>
 
@@ -1130,7 +948,6 @@ export default function SoloResults() {
                     )}
                 </div>
                 )}
-                <SmartTipsBlock tips={smartTips} />
             </div>
         </div>
     );

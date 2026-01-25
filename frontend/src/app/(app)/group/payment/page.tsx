@@ -61,7 +61,17 @@ export default function GroupPayment() {
       
       // Generate itinerary after payment
       if (tripId) {
-        await generateItinerary(tripId);
+        const result = await generateItinerary(tripId);
+        if (process.env.NODE_ENV === 'development') {
+          console.log('[GroupPayment] generateItinerary success', {
+            tripId,
+            status: (result as Record<string, unknown>)?.status,
+            itemCount: Array.isArray((result as Record<string, unknown>)?.items) 
+              ? ((result as Record<string, unknown>).items as unknown[]).length 
+              : 0,
+            relaxed: (result as Record<string, unknown>)?.relaxed_constraints,
+          });
+        }
       }
       
       setIsProcessing(false);
@@ -72,7 +82,12 @@ export default function GroupPayment() {
         router.push(`/group/results?trip_id=${tripId}`);
       }, 1500);
     } catch (err) {
-      console.error('Error processing payment:', err);
+      if (process.env.NODE_ENV === 'development') {
+        console.error('[GroupPayment] generateItinerary failed', {
+          tripId,
+          error: err instanceof Error ? err.message : String(err),
+        });
+      }
       setIsProcessing(false);
       const msg = err instanceof Error ? err.message : 'Failed to generate itinerary. Please try again.';
       setError(msg);

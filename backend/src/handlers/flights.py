@@ -43,6 +43,23 @@ load_dotenv()
 SERPAPI_KEY = os.getenv("SERPAPI_KEY") or os.getenv("SERP_API_KEY")
 AWARD_TOOL_API_KEY = os.getenv("AWARD_TOOL_API_KEY") or os.getenv("AWARDTOOL_API_KEY")
 
+# Log API key status at startup (helps debug missing keys)
+if not SERPAPI_KEY:
+    logger.warning(
+        "SERPAPI_KEY not set. Flight cash prices will not be available. "
+        "Set SERPAPI_KEY or SERP_API_KEY in your .env file."
+    )
+else:
+    logger.info("SERPAPI_KEY configured (length=%d)", len(SERPAPI_KEY))
+
+if not AWARD_TOOL_API_KEY:
+    logger.warning(
+        "AWARD_TOOL_API_KEY not set. Award/points pricing will not be available. "
+        "Set AWARD_TOOL_API_KEY or AWARDTOOL_API_KEY in your .env file."
+    )
+else:
+    logger.info("AWARD_TOOL_API_KEY configured (length=%d)", len(AWARD_TOOL_API_KEY))
+
 # ==== HTTP clients ====
 TIMEOUT = httpx.Timeout(connect=5.0, read=25.0, write=5.0, pool=20)
 
