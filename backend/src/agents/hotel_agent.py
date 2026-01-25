@@ -155,12 +155,22 @@ Return JSON with: {"programs": ["HYATT", "MAR", ...], "reasoning": "..."}"""
                 check_in=check_in,
                 check_out=check_out,
                 programs=programs,
+                star_ratings=star_ratings,
             )
+            
+            if not results:
+                logger.info(f"No award hotels found for {city}, using dummy data")
+                return self._get_dummy_award_hotels(city, check_in, check_out, programs, star_ratings)
             
             options = []
             for r in results:
                 star = r.get("star_rating", 4)
-                if star not in star_ratings:
+                try:
+                    star = int(star) if star else 4
+                except:
+                    star = 4
+                    
+                if star_ratings and star not in star_ratings:
                     continue
                 
                 option = HotelOption(
@@ -183,7 +193,11 @@ Return JSON with: {"programs": ["HYATT", "MAR", ...], "reasoning": "..."}"""
                 )
                 options.append(option)
             
+            logger.info(f"Found {len(options)} award hotel options for {city}")
             return options
+        except ImportError as e:
+            logger.error(f"Import error in award hotel search: {e}")
+            return self._get_dummy_award_hotels(city, check_in, check_out, programs, star_ratings)
         except Exception as e:
             logger.error(f"Award hotel search failed: {e}")
             return self._get_dummy_award_hotels(city, check_in, check_out, programs, star_ratings)

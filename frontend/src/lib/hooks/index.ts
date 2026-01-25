@@ -39,3 +39,9 @@ export {
   type OptimizeParams,
 } from './useTransferStrategy';
 export { useOOPOptimization } from './useOOPOptimization';
+export { 
+  useGroupAllocation,
+  useMemberUpfrontCost,
+  useMemberPointsUsed,
+  useMemberSettlements,
+} from './useGroupAllocation';

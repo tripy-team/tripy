@@ -5,10 +5,13 @@ These endpoints expose the agentic ILP optimization to the frontend.
 All results are ranked by out-of-pocket (OOP) expense - lowest first.
 """
 
-from fastapi import APIRouter, HTTPException
-from pydantic import BaseModel
+from fastapi import APIRouter, HTTPException, Depends
+from pydantic import BaseModel, Field, validator
 from typing import Optional, Literal, Any
 import logging
+import uuid
+import hashlib
+import json
 
 from ..agents.orchestrator import OrchestratorAgent
 from ..agents.cost_breakdown_agent import CostBreakdownAgent
@@ -17,6 +20,13 @@ from ..agents.models import (
     OptimizeGroupRequest, OptimizeGroupResponse,
     CostBreakdown, RankedItinerary,
 )
+from ..agents.group_models import (
+    MemberBookingCapability,
+    BookingAllocationStrategy,
+    GroupBookingPlan,
+)
+from ..utils.jwt_auth import get_current_user_id
+from ..utils.cache_layer import get_json, set_json
 
 logger = logging.getLogger(__name__)
 
@@ -47,12 +57,30 @@ def get_cost_agent() -> CostBreakdownAgent:
 
 class SoloOptimizeRequest(BaseModel):
     """Request body for solo trip optimization."""
-    trip_id: str
+    trip_id: str = Field(..., min_length=1, max_length=100)
     points: dict[str, int] = {}  # program -> balance
-    budget: float = 5000.0
+    budget: float = Field(default=5000.0, ge=0, le=1000000)
     cabin_classes: Optional[list[str]] = None
     hotel_stars: Optional[list[int]] = None
     include_hotels: Optional[bool] = True
+    
+    @validator('trip_id')
+    def validate_trip_id(cls, v):
+        # Basic validation - alphanumeric and dashes only
+        import re
+        if not re.match(r'^[a-zA-Z0-9\-_]+$', v):
+            raise ValueError('Invalid trip_id format')
+        return v
+    
+    @validator('points')
+    def validate_points(cls, v):
+        # Ensure all values are non-negative
+        for program, balance in v.items():
+            if balance < 0:
+                raise ValueError(f'Negative balance for {program}')
+            if balance > 10_000_000:  # 10M points max
+                raise ValueError(f'Balance too high for {program}')
+        return v
 
 
 class GroupOptimizeRequest(SoloOptimizeRequest):
@@ -62,12 +90,73 @@ class GroupOptimizeRequest(SoloOptimizeRequest):
     split_method: Optional[Literal["equal", "by_usage", "proportional"]] = "by_usage"
 
 
+class MemberCapabilityRequest(BaseModel):
+    """A member's booking capability for group allocation."""
+    member_id: str
+    member_name: str
+    points: dict[str, int] = {}  # program -> balance (THIS MEMBER's points only)
+    max_cash_budget: Optional[float] = None
+
+
+class AllocationStrategyRequest(BaseModel):
+    """Strategy for allocating bookings across group members."""
+    strategy_type: Literal["optimize", "by_segment_type", "by_direction", "manual"]
+    flight_booker: Optional[str] = None  # member_id for by_segment_type
+    hotel_booker: Optional[str] = None
+    outbound_booker: Optional[str] = None  # for by_direction
+    return_booker: Optional[str] = None
+    manual_assignments: dict[str, str] = {}  # segment_id -> member_id
+
+
+class GroupAllocationRequest(BaseModel):
+    """
+    Request body for group booking allocation.
+    
+    IMPORTANT: Points are per-member, NOT pooled!
+    Each member uses their OWN points for segments they book.
+    """
+    trip_id: str = Field(..., min_length=1, max_length=100)
+    members: list[MemberCapabilityRequest]
+    strategy: AllocationStrategyRequest
+    cabin_classes: Optional[list[str]] = None
+    hotel_stars: Optional[list[int]] = None
+    include_hotels: Optional[bool] = True
+    
+    @validator('trip_id')
+    def validate_trip_id(cls, v):
+        import re
+        if not re.match(r'^[a-zA-Z0-9\-_]+$', v):
+            raise ValueError('Invalid trip_id format')
+        return v
+
+
+# Cache TTL for optimization results (10 minutes)
+OPTIMIZATION_CACHE_TTL = 10 * 60
+
+
+def _cache_key(request: SoloOptimizeRequest, user_id: str) -> str:
+    """Generate cache key for optimization results."""
+    data = {
+        "trip_id": request.trip_id,
+        "points": request.points,
+        "budget": request.budget,
+        "cabin_classes": request.cabin_classes,
+        "hotel_stars": request.hotel_stars,
+        "include_hotels": request.include_hotels,
+        "user_id": user_id,
+    }
+    return f"opt:{hashlib.md5(json.dumps(data, sort_keys=True).encode()).hexdigest()}"
+
+
 # =============================================================================
 # ENDPOINTS
 # =============================================================================
 
 @router.post("/solo", response_model=None)
-async def optimize_solo_trip(request: SoloOptimizeRequest) -> dict:
+async def optimize_solo_trip(
+    request: SoloOptimizeRequest,
+    user_id: str = Depends(get_current_user_id),
+) -> dict:
     """
     Optimize a solo trip using the agentic architecture.
     
@@ -85,15 +174,33 @@ async def optimize_solo_trip(request: SoloOptimizeRequest) -> dict:
     4. Results ranked by lowest cash paid first
     5. Cost Breakdown Agent explains each decision
     """
-    logger.info(f"[/optimize/solo] Starting optimization for trip {request.trip_id}")
+    logger.info(f"[/optimize/solo] Starting optimization for trip {request.trip_id} by user {user_id}")
+    
+    # Check cache first
+    cache_key = _cache_key(request, user_id)
+    cached = get_json(cache_key)
+    if cached:
+        logger.info(f"[/optimize/solo] Cache hit for trip {request.trip_id}")
+        return cached
     
     try:
+        # Validate user has access to this trip
+        from ..services.trip_service import get_trip
+        trip = get_trip(request.trip_id)
+        if not trip:
+            raise HTTPException(status_code=404, detail="Trip not found")
+        if trip.get("createdBy") != user_id:
+            raise HTTPException(status_code=403, detail="Access denied")
+        
+        # Validate points against server-side data
+        validated_points = await _validate_and_get_points(request.trip_id, user_id, request.points)
+        
         orchestrator = get_orchestrator()
         
-        # Convert to internal model
+        # Convert to internal model with validated points
         internal_request = OptimizeSoloRequest(
             trip_id=request.trip_id,
-            points=request.points,
+            points=validated_points,
             budget=request.budget,
             cabin_classes=request.cabin_classes,
             hotel_stars=request.hotel_stars,
@@ -102,20 +209,67 @@ async def optimize_solo_trip(request: SoloOptimizeRequest) -> dict:
         
         result = await orchestrator.optimize_solo(internal_request)
         
-        # Convert to JSON-serializable dict
-        return {
+        # Convert to JSON-serializable dict with consistent camelCase
+        response = {
             "tripId": result.trip_id,
             "itineraries": [_serialize_itinerary(it) for it in result.itineraries],
             "bestOption": result.best_option,
             "warnings": result.warnings,
         }
+        
+        # Cache the result
+        set_json(cache_key, response, OPTIMIZATION_CACHE_TTL)
+        
+        return response
+    except HTTPException:
+        raise
     except Exception as e:
         logger.error(f"[/optimize/solo] Error: {e}", exc_info=True)
         raise HTTPException(status_code=500, detail=str(e))
 
 
+async def _validate_and_get_points(trip_id: str, user_id: str, client_points: dict) -> dict:
+    """
+    Validate points against server-side data.
+    
+    Uses server-side points as the source of truth, but allows
+    client to specify a subset of their available points.
+    """
+    try:
+        from ..services.points_service import trip_points_summary
+        
+        server_summary = trip_points_summary(trip_id)
+        server_points = {}
+        
+        for item in server_summary.get("items", []):
+            if item.get("userId") == user_id:
+                program = item.get("program")
+                balance = item.get("balance", 0)
+                if program and balance > 0:
+                    server_points[program] = balance
+        
+        # Use server points if available, otherwise trust client
+        # (for demo/testing purposes when no points are saved)
+        if server_points:
+            # Validate client doesn't claim more than they have
+            validated = {}
+            for program, client_balance in client_points.items():
+                server_balance = server_points.get(program, 0)
+                # Use the minimum of client claim and server balance
+                validated[program] = min(client_balance, server_balance) if server_balance else client_balance
+            return validated if validated else server_points
+        
+        return client_points
+    except Exception as e:
+        logger.warning(f"Points validation failed, using client points: {e}")
+        return client_points
+
+
 @router.post("/group", response_model=None)
-async def optimize_group_trip(request: GroupOptimizeRequest) -> dict:
+async def optimize_group_trip(
+    request: GroupOptimizeRequest,
+    user_id: str = Depends(get_current_user_id),
+) -> dict:
     """
     Optimize a group trip with cost splitting and settlements.
     
@@ -125,9 +279,23 @@ async def optimize_group_trip(request: GroupOptimizeRequest) -> dict:
     - Settlement calculations (who owes who)
     - Fair cost splitting based on split_method
     """
-    logger.info(f"[/optimize/group] Starting optimization for trip {request.trip_id}")
+    logger.info(f"[/optimize/group] Starting optimization for trip {request.trip_id} by user {user_id}")
     
     try:
+        # Validate user has access to this trip
+        from ..services.trip_service import get_trip
+        from ..services.trip_member_service import list_members
+        
+        trip = get_trip(request.trip_id)
+        if not trip:
+            raise HTTPException(status_code=404, detail="Trip not found")
+        
+        # Check if user is owner or member
+        members = list_members(request.trip_id)
+        is_member = any(m.get("userId") == user_id for m in members)
+        if trip.get("createdBy") != user_id and not is_member:
+            raise HTTPException(status_code=403, detail="Access denied")
+        
         orchestrator = get_orchestrator()
         
         internal_request = OptimizeGroupRequest(
@@ -151,13 +319,168 @@ async def optimize_group_trip(request: GroupOptimizeRequest) -> dict:
             "bestOption": result.best_option,
             "warnings": result.warnings,
         }
+    except HTTPException:
+        raise
     except Exception as e:
         logger.error(f"[/optimize/group] Error: {e}", exc_info=True)
         raise HTTPException(status_code=500, detail=str(e))
 
 
+@router.post("/group/allocate", response_model=None)
+async def allocate_group_bookings(
+    request: GroupAllocationRequest,
+    user_id: str = Depends(get_current_user_id),
+) -> dict:
+    """
+    Allocate booking responsibilities across group members.
+    
+    **CRITICAL: Points are per-member, NOT pooled!**
+    
+    Each member uses their OWN points for segments they book.
+    Example: Alice has 100k, Bob has 100k → each can only use their own 100k.
+    
+    Strategies:
+    - **optimize**: System finds best assignment based on who has best points
+    - **by_segment_type**: One person books all flights, another all hotels
+    - **by_direction**: One books outbound flights, another return flights
+    - **manual**: User specifies each segment assignment
+    
+    Returns:
+    - **assignments**: Who books each segment with payment details
+    - **memberSummaries**: Per-member breakdown of what they book/pay
+    - **settlements**: Who owes whom after all bookings
+    - **metrics**: Total group OOP and per-person cost
+    """
+    logger.info(f"[/optimize/group/allocate] Starting allocation for trip {request.trip_id}")
+    logger.info(f"[/optimize/group/allocate] Strategy: {request.strategy.strategy_type}")
+    logger.info(f"[/optimize/group/allocate] Members: {[m.member_id for m in request.members]}")
+    
+    try:
+        # Validate user has access to this trip
+        from ..services.trip_service import get_trip
+        from ..services.trip_member_service import list_members
+        
+        trip = get_trip(request.trip_id)
+        if not trip:
+            raise HTTPException(status_code=404, detail="Trip not found")
+        
+        # Check if user is owner or member
+        members = list_members(request.trip_id)
+        member_ids = [m.get("userId") for m in members]
+        if trip.get("createdBy") != user_id and user_id not in member_ids:
+            raise HTTPException(status_code=403, detail="Access denied")
+        
+        orchestrator = get_orchestrator()
+        
+        # Build internal request
+        member_points = {m.member_id: m.points for m in request.members}
+        member_budgets = {
+            m.member_id: m.max_cash_budget
+            for m in request.members
+            if m.max_cash_budget is not None
+        }
+        
+        internal_group_request = OptimizeGroupRequest(
+            trip_id=request.trip_id,
+            points={},  # Not used in allocation
+            budget=0,
+            cabin_classes=request.cabin_classes,
+            hotel_stars=request.hotel_stars,
+            include_hotels=request.include_hotels,
+            member_points=member_points,
+            member_budgets=member_budgets,
+        )
+        
+        # Build allocation strategy
+        strategy = BookingAllocationStrategy(
+            strategy_type=request.strategy.strategy_type,
+            flight_booker=request.strategy.flight_booker,
+            hotel_booker=request.strategy.hotel_booker,
+            outbound_booker=request.strategy.outbound_booker,
+            return_booker=request.strategy.return_booker,
+            manual_assignments=request.strategy.manual_assignments,
+        )
+        
+        # Run allocation with proper per-member handling
+        plan = await orchestrator.optimize_group_with_allocation(
+            request=internal_group_request,
+            strategy=strategy,
+        )
+        
+        # Serialize response with camelCase
+        return _serialize_group_booking_plan(plan)
+    
+    except HTTPException:
+        raise
+    except Exception as e:
+        logger.error(f"[/optimize/group/allocate] Error: {e}", exc_info=True)
+        raise HTTPException(status_code=500, detail=str(e))
+
+
+def _serialize_group_booking_plan(plan: GroupBookingPlan) -> dict:
+    """Serialize GroupBookingPlan with camelCase keys."""
+    return {
+        "tripId": plan.trip_id,
+        "strategyUsed": plan.strategy_used,
+        "assignments": [
+            {
+                "segmentId": a.segment_id,
+                "segmentType": a.segment_type,
+                "assignedTo": a.assigned_to,
+                "assignedToName": a.assigned_to_name,
+                "reason": a.reason,
+                "usesPoints": a.uses_points,
+                "pointsProgram": a.points_program,
+                "pointsUsed": a.points_used,
+                "cashAmount": a.cash_amount,
+                "segmentSummary": a.segment_summary,
+            }
+            for a in plan.assignments
+        ],
+        "memberSummaries": [
+            {
+                "memberId": s.member_id,
+                "memberName": s.member_name,
+                "segmentsToBook": s.segments_to_book,
+                "segmentCount": s.segment_count,
+                "totalCashUpfront": s.total_cash_upfront,
+                "totalPointsUsed": s.total_points_used,
+                "programsUsed": s.programs_used,
+                "fairShare": s.fair_share,
+                "settlementAmount": s.settlement_amount,
+                "finalCost": s.final_cost,
+            }
+            for s in plan.member_summaries
+        ],
+        "settlements": [
+            {
+                "fromMember": s.from_member,
+                "fromName": s.from_name,
+                "toMember": s.to_member,
+                "toName": s.to_name,
+                "amount": s.amount,
+                "reason": s.reason,
+            }
+            for s in plan.settlements
+        ],
+        "metrics": {
+            "totalGroupOOP": plan.total_group_oop,
+            "totalPointsUsed": plan.total_points_used,
+            "perPersonEffectiveCost": plan.per_person_effective_cost,
+        },
+        "validation": {
+            "allSegmentsAssigned": plan.all_segments_assigned,
+            "allMembersWithinBudget": plan.all_members_within_budget,
+            "allMembersWithinPoints": plan.all_members_within_points,
+        },
+    }
+
+
 @router.get("/breakdown/{itinerary_id}", response_model=None)
-async def get_cost_breakdown(itinerary_id: str) -> dict:
+async def get_cost_breakdown(
+    itinerary_id: str,
+    user_id: str = Depends(get_current_user_id),
+) -> dict:
     """
     Get detailed, AI-generated cost breakdown for an itinerary.
     
@@ -171,34 +494,143 @@ async def get_cost_breakdown(itinerary_id: str) -> dict:
     - paymentBreakdown: Cash payments and points used
     - valueAnalysis: Best/worst redemptions, average CPP
     """
-    # For now, return a mock breakdown
-    # In production, would fetch itinerary from DB and generate breakdown
+    # Validate itinerary_id format
+    try:
+        uuid.UUID(itinerary_id)
+    except ValueError:
+        raise HTTPException(status_code=400, detail="Invalid itinerary_id format")
+    
+    # Try to get from cache
+    cache_key = f"breakdown:{itinerary_id}"
+    cached = get_json(cache_key)
+    if cached:
+        return cached
+    
+    try:
+        # Try to get the itinerary from recent results in cache
+        # The itinerary is stored when optimization runs
+        itinerary_cache_key = f"itinerary:{itinerary_id}"
+        itinerary_data = get_json(itinerary_cache_key)
+        
+        if itinerary_data:
+            # Generate breakdown using Cost Breakdown Agent
+            cost_agent = get_cost_agent()
+            
+            # Reconstruct RankedItinerary from cached data
+            from ..agents.models import RankedItinerary, OOPMetrics, FlightSegment, HotelSegment, CashPayment, PointsPayment, TransferInstruction
+            
+            # Build segments from cached data
+            segments = []
+            for seg_data in itinerary_data.get("segments", []):
+                if seg_data.get("type") == "flight":
+                    payment_data = seg_data.get("payment", {})
+                    if payment_data.get("method") == "points":
+                        payment = PointsPayment(**payment_data)
+                    else:
+                        payment = CashPayment(**payment_data)
+                    segments.append(FlightSegment(**{**seg_data, "payment": payment}))
+                else:
+                    payment_data = seg_data.get("payment", {})
+                    if payment_data.get("method") == "points":
+                        payment = PointsPayment(**payment_data)
+                    else:
+                        payment = CashPayment(**payment_data)
+                    segments.append(HotelSegment(**{**seg_data, "payment": payment}))
+            
+            # Build transfers
+            transfers = [
+                TransferInstruction(**t) for t in itinerary_data.get("transfers", [])
+            ]
+            
+            # Build OOP metrics
+            metrics_data = itinerary_data.get("oopMetrics", {})
+            oop_metrics = OOPMetrics(
+                total_cash_price=metrics_data.get("totalCashPrice", 0),
+                total_out_of_pocket=metrics_data.get("totalOutOfPocket", 0),
+                total_points_used=metrics_data.get("totalPointsUsed", 0),
+                cash_saved=metrics_data.get("cashSaved", 0),
+                savings_percentage=metrics_data.get("savingsPercentage", 0),
+                average_cpp=metrics_data.get("averageCPP", 0),
+                points_breakdown=metrics_data.get("pointsBreakdown", {}),
+            )
+            
+            itinerary = RankedItinerary(
+                id=itinerary_data.get("id", itinerary_id),
+                rank=itinerary_data.get("rank", 1),
+                name=itinerary_data.get("name", "Itinerary"),
+                route=itinerary_data.get("route", []),
+                segments=segments,
+                oop_metrics=oop_metrics,
+                transfers=transfers,
+                within_budget=itinerary_data.get("withinBudget", True),
+                within_points=itinerary_data.get("withinPoints", True),
+                summary=itinerary_data.get("summary"),
+            )
+            
+            # Generate breakdown
+            breakdown_result = await cost_agent.execute(itinerary)
+            
+            # Serialize with camelCase
+            breakdown = {
+                "tripSummary": breakdown_result.trip_summary,
+                "segments": [
+                    {
+                        "segment": s.segment,
+                        "type": s.type,
+                        "cashPrice": s.cash_price,
+                        "paymentMethod": s.payment_method,
+                        "amount": s.amount,
+                        "program": s.program,
+                        "pointsUsed": s.points_used,
+                        "surcharge": s.surcharge,
+                        "cppAchieved": s.cpp_achieved,
+                        "reason": s.reason,
+                        "transfer": _serialize_transfer(s.transfer) if s.transfer else None,
+                    }
+                    for s in breakdown_result.segments
+                ],
+                "transferSummary": breakdown_result.transfer_summary,
+                "paymentBreakdown": breakdown_result.payment_breakdown,
+                "valueAnalysis": breakdown_result.value_analysis,
+                "status": "complete",
+            }
+            
+            # Cache the breakdown
+            set_json(cache_key, breakdown, OPTIMIZATION_CACHE_TTL)
+            
+            return breakdown
+    except Exception as e:
+        logger.warning(f"Failed to generate breakdown for {itinerary_id}: {e}")
+    
+    # Fallback: return placeholder
     return {
         "tripSummary": {
-            "route": "JFK → CDG → JFK",
-            "totalCashPrice": 2500,
-            "totalOutOfPocket": 450,
-            "totalSavings": 2050,
-            "savingsPercentage": 82,
+            "route": "Select an itinerary to see breakdown",
+            "totalCashPrice": 0,
+            "totalOutOfPocket": 0,
+            "totalSavings": 0,
+            "savingsPercentage": 0,
         },
         "segments": [],
         "transferSummary": {
-            "totalTransfers": 1,
+            "totalTransfers": 0,
             "bySource": {},
             "recommendedOrder": [],
-            "timingAdvice": "Complete transfers 2-3 days before booking.",
+            "timingAdvice": "Complete transfers 2-3 days before booking to ensure points post correctly.",
         },
         "paymentBreakdown": {
             "cashPayments": [],
-            "totalCash": 450,
+            "totalCash": 0,
             "pointsUsed": {},
-            "totalPoints": 60000,
+            "totalPoints": 0,
         },
         "valueAnalysis": {
-            "averageCPP": 3.4,
+            "averageCPP": 0,
             "bestRedemption": None,
             "worstRedemption": None,
         },
+        "status": "not_found",
+        "message": "Itinerary not found in cache. Please run optimization again.",
     }
 
 
@@ -246,22 +678,65 @@ async def compare_strategies(trip_id: str) -> dict:
 # HELPERS
 # =============================================================================
 
+def _to_camel_case(snake_str: str) -> str:
+    """Convert snake_case to camelCase."""
+    components = snake_str.split('_')
+    return components[0] + ''.join(x.title() for x in components[1:])
+
+
+def _serialize_payment(payment) -> dict:
+    """Serialize payment with camelCase keys."""
+    if not payment:
+        return {}
+    
+    raw = payment.model_dump() if hasattr(payment, 'model_dump') else dict(payment)
+    result = {}
+    
+    for key, value in raw.items():
+        camel_key = _to_camel_case(key)
+        
+        # Handle nested transfer
+        if key == 'transfer' and value:
+            value = _serialize_transfer(value)
+        
+        result[camel_key] = value
+    
+    return result
+
+
+def _serialize_transfer(transfer) -> dict:
+    """Serialize transfer instruction with camelCase keys."""
+    if not transfer:
+        return None
+    
+    raw = transfer.model_dump() if hasattr(transfer, 'model_dump') else dict(transfer)
+    return {_to_camel_case(k): v for k, v in raw.items()}
+
+
+def _serialize_segment(seg) -> dict:
+    """Serialize a segment with camelCase keys."""
+    raw = seg.model_dump() if hasattr(seg, 'model_dump') else dict(seg)
+    result = {}
+    
+    for key, value in raw.items():
+        camel_key = _to_camel_case(key)
+        
+        # Handle payment specially
+        if key == 'payment' and value:
+            value = _serialize_payment(seg.payment)
+        
+        result[camel_key] = value
+    
+    return result
+
+
 def _serialize_itinerary(itinerary: RankedItinerary) -> dict:
-    """Convert RankedItinerary to JSON-serializable dict."""
+    """Convert RankedItinerary to JSON-serializable dict with camelCase keys."""
     if not itinerary:
         return None
     
-    segments = []
-    for seg in itinerary.segments:
-        seg_dict = seg.model_dump()
-        # Ensure payment is serialized properly
-        if hasattr(seg.payment, 'model_dump'):
-            seg_dict['payment'] = seg.payment.model_dump()
-        segments.append(seg_dict)
-    
-    transfers = []
-    for t in itinerary.transfers:
-        transfers.append(t.model_dump())
+    segments = [_serialize_segment(seg) for seg in itinerary.segments]
+    transfers = [_serialize_transfer(t) for t in itinerary.transfers]
     
     return {
         "id": itinerary.id,

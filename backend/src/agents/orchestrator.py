@@ -31,6 +31,12 @@ from .config import (
     DEFAULT_OPTIMIZATION_MODE, OOP_CONFIG, 
     get_transfer_path, AIRLINE_PROGRAMS, HOTEL_PROGRAMS
 )
+from .group_allocator import GroupBookingAllocator, SegmentOption
+from .group_models import (
+    MemberBookingCapability,
+    BookingAllocationStrategy,
+    GroupBookingPlan,
+)
 
 logger = logging.getLogger(__name__)
 
@@ -45,6 +51,7 @@ class OrchestratorAgent(BaseAgent):
         self.flight_agent = FlightAgent()
         self.hotel_agent = HotelAgent()
         self.cost_agent = CostBreakdownAgent()
+        self.group_allocator = GroupBookingAllocator()
     
     @property
     def name(self) -> str:
@@ -124,13 +131,34 @@ class OrchestratorAgent(BaseAgent):
         # Get top 5
         top_results = optimized[:5]
         
-        # Generate cost breakdowns for top results
+        # Cache individual itineraries for breakdown endpoint
+        from ..utils.cache_layer import set_json
         for itinerary in top_results:
             try:
-                breakdown = await self.cost_agent.execute(itinerary)
-                # Could attach breakdown to itinerary if needed
+                # Cache the itinerary data
+                itinerary_data = {
+                    "id": itinerary.id,
+                    "rank": itinerary.rank,
+                    "name": itinerary.name,
+                    "route": itinerary.route,
+                    "segments": [seg.model_dump() for seg in itinerary.segments],
+                    "oopMetrics": {
+                        "totalCashPrice": itinerary.oop_metrics.total_cash_price,
+                        "totalOutOfPocket": itinerary.oop_metrics.total_out_of_pocket,
+                        "totalPointsUsed": itinerary.oop_metrics.total_points_used,
+                        "cashSaved": itinerary.oop_metrics.cash_saved,
+                        "savingsPercentage": itinerary.oop_metrics.savings_percentage,
+                        "averageCPP": itinerary.oop_metrics.average_cpp,
+                        "pointsBreakdown": itinerary.oop_metrics.points_breakdown,
+                    },
+                    "transfers": [t.model_dump() for t in itinerary.transfers],
+                    "withinBudget": itinerary.within_budget,
+                    "withinPoints": itinerary.within_points,
+                    "summary": itinerary.summary,
+                }
+                set_json(f"itinerary:{itinerary.id}", itinerary_data, 30 * 60)  # 30 min cache
             except Exception as e:
-                logger.warning(f"Cost breakdown failed: {e}")
+                logger.warning(f"Failed to cache itinerary {itinerary.id}: {e}")
         
         best = top_results[0] if top_results else None
         
@@ -151,8 +179,37 @@ class OrchestratorAgent(BaseAgent):
     ) -> OptimizeGroupResponse:
         """
         Optimize a group trip with cost splitting.
+        
+        IMPORTANT: Points are NOT poolable across members!
+        Each member can only use their OWN points for segments they book.
         """
-        # For now, delegate to solo optimization with combined points
+        # TODO: CRITICAL FIX NEEDED - Points should NOT be pooled!
+        # 
+        # ❌ CURRENT (WRONG): Pools all points together as if they're fungible
+        #    combined_points = alice.points + bob.points  # This is unrealistic!
+        #
+        # ✅ CORRECT APPROACH: Use GroupBookingAllocator to:
+        #    1. Assign each segment to a specific member
+        #    2. Each member uses THEIR OWN points for segments they book
+        #    3. Settlement calculation handles who owes whom
+        #
+        # See REMAINING_IMPLEMENTATION_PLAN.md Section 1: Group Booking Allocation
+        # for the correct implementation using per-member constraints.
+        #
+        # Example of why current approach is wrong:
+        #   Alice has 100k Chase UR, Bob has 100k Chase UR
+        #   Flight costs 150k Chase UR
+        #   Current code: "Group has 200k, can book with combined points" - WRONG!
+        #   Reality: Neither Alice nor Bob can book this flight alone with points
+        
+        logger.warning(
+            "GROUP OPTIMIZATION: Using temporary pooled approach. "
+            "This incorrectly assumes points can be combined across members. "
+            "See REMAINING_IMPLEMENTATION_PLAN.md for correct implementation."
+        )
+        
+        # TEMPORARY: Delegate to solo optimization with combined points
+        # This gives an overly optimistic result since it assumes point fungibility
         combined_points = {}
         for member_id, points in request.member_points.items():
             for program, balance in points.items():
@@ -172,64 +229,360 @@ class OrchestratorAgent(BaseAgent):
         solo_result = await self.optimize_solo(solo_request)
         
         # Convert to group response with cost splitting
+        # WARNING: This doesn't properly account for who books what
         return OptimizeGroupResponse(
             trip_id=request.trip_id,
             itineraries=solo_result.itineraries,
-            group_metrics=None,  # Would calculate actual group metrics
+            group_metrics=None,  # TODO: Calculate per-member metrics with booking assignments
             best_option={
                 "totalOutOfPocket": solo_result.best_option["outOfPocket"],
                 "perPersonAverage": solo_result.best_option["outOfPocket"] / max(len(request.member_budgets), 1),
                 "totalSavings": solo_result.best_option["outOfPocket"] * solo_result.best_option["savingsPercentage"] / 100,
             },
-            warnings=solo_result.warnings,
+            warnings=[
+                "⚠️ Group optimization currently uses a simplified model. "
+                "Actual booking requires assigning segments to specific members."
+            ] + solo_result.warnings,
         )
+    
+    async def optimize_group_with_allocation(
+        self,
+        request: OptimizeGroupRequest,
+        strategy: BookingAllocationStrategy,
+    ) -> GroupBookingPlan:
+        """
+        Optimize group trip with PROPER booking allocation.
+        
+        This is the CORRECT approach - it assigns each segment to a
+        specific member who will use their OWN points (not pooled).
+        
+        Args:
+            request: Group optimization request with member points
+            strategy: How to allocate bookings (optimize, by_type, by_direction, manual)
+        
+        Returns:
+            GroupBookingPlan with per-member assignments and settlements
+        """
+        logger.info(f"[Orchestrator] Starting group allocation for trip {request.trip_id}")
+        logger.info(f"[Orchestrator] Strategy: {strategy.strategy_type}")
+        logger.info(f"[Orchestrator] Members: {list(request.member_points.keys())}")
+        
+        # 1. Get trip data
+        trip_data = await self._get_trip_data(request.trip_id)
+        if not trip_data:
+            raise ValueError(f"Trip {request.trip_id} not found")
+        
+        # 2. Build trip segments from destinations
+        segments = self._build_trip_segments_from_data(trip_data)
+        logger.info(f"[Orchestrator] Built {len(segments)} segments")
+        
+        # 3. Search for flight/hotel options for each segment
+        segment_options = await self._search_segment_options(
+            segments=segments,
+            cabin_classes=request.cabin_classes or ["Economy", "Business"],
+            hotel_stars=request.hotel_stars or [4, 5],
+        )
+        logger.info(f"[Orchestrator] Found options for {len(segment_options)} segments")
+        
+        # 4. Build member capabilities from request
+        members = [
+            MemberBookingCapability(
+                member_id=member_id,
+                member_name=member_id,  # TODO: Get actual name from user service
+                points=points,
+                max_cash_budget=request.member_budgets.get(member_id) if request.member_budgets else None,
+            )
+            for member_id, points in request.member_points.items()
+        ]
+        
+        # 5. Run allocation (this properly handles per-member points!)
+        plan = self.group_allocator.allocate(
+            trip_id=request.trip_id,
+            segments=segment_options,
+            members=members,
+            strategy=strategy,
+        )
+        
+        logger.info(f"[Orchestrator] Allocation complete:")
+        logger.info(f"  - Total OOP: ${plan.total_group_oop:.2f}")
+        logger.info(f"  - Total points: {plan.total_points_used:,}")
+        logger.info(f"  - Settlements: {len(plan.settlements)}")
+        
+        return plan
+    
+    def _build_trip_segments_from_data(self, trip_data: dict) -> list[dict]:
+        """Build trip segments from trip data for allocation."""
+        segments = []
+        destinations = trip_data.get("destinations", [])
+        
+        # Home/origin city (assumed or from trip data)
+        origin = trip_data.get("origin", "JFK")
+        
+        prev_city = origin
+        for i, dest in enumerate(destinations):
+            city = dest.get("city", dest.get("destination", ""))
+            arrival_date = dest.get("arrivalDate", dest.get("arrival_date", ""))
+            departure_date = dest.get("departureDate", dest.get("departure_date", ""))
+            
+            if not city:
+                continue
+            
+            # Flight to this destination
+            segments.append({
+                "id": f"flight_{i}_to_{city}",
+                "type": "flight",
+                "origin": prev_city,
+                "destination": city,
+                "date": arrival_date,
+            })
+            
+            # Hotel at this destination (if dates available)
+            if arrival_date and departure_date and trip_data.get("include_hotels", True):
+                segments.append({
+                    "id": f"hotel_{i}_{city}",
+                    "type": "hotel",
+                    "city": city,
+                    "check_in": arrival_date,
+                    "check_out": departure_date,
+                })
+            
+            prev_city = city
+        
+        # Return flight to origin
+        if destinations and prev_city != origin:
+            segments.append({
+                "id": f"flight_return_to_{origin}",
+                "type": "flight",
+                "origin": prev_city,
+                "destination": origin,
+                "date": destinations[-1].get("departureDate", destinations[-1].get("departure_date", "")),
+            })
+        
+        return segments
+    
+    async def _search_segment_options(
+        self,
+        segments: list[dict],
+        cabin_classes: list[str],
+        hotel_stars: list[int],
+    ) -> list[list[SegmentOption]]:
+        """Search for booking options for each segment."""
+        all_options = []
+        
+        for segment in segments:
+            if segment["type"] == "flight":
+                options = await self._search_flight_options(
+                    origin=segment["origin"],
+                    destination=segment["destination"],
+                    date=segment["date"],
+                    cabin_classes=cabin_classes,
+                )
+            else:
+                options = await self._search_hotel_options(
+                    city=segment["city"],
+                    check_in=segment["check_in"],
+                    check_out=segment["check_out"],
+                    star_ratings=hotel_stars,
+                )
+            
+            # Convert to SegmentOption format
+            segment_options = []
+            for i, opt in enumerate(options):
+                segment_options.append(SegmentOption(
+                    segment_id=segment["id"],
+                    segment_type=segment["type"],
+                    option_id=f"{segment['id']}_opt_{i}",
+                    cash_price=opt.get("cash_price", opt.get("price", 0)) or 0,
+                    award_available=opt.get("award_available", False),
+                    award_program=opt.get("award_program", opt.get("program")),
+                    award_points=opt.get("award_points", opt.get("points")),
+                    award_surcharge=opt.get("award_surcharge", opt.get("surcharge", 0)) or 0,
+                    summary=opt.get("summary", self._build_option_summary(segment, opt)),
+                ))
+            
+            # Ensure at least one option exists (cash fallback)
+            if not segment_options:
+                segment_options.append(SegmentOption(
+                    segment_id=segment["id"],
+                    segment_type=segment["type"],
+                    option_id=f"{segment['id']}_cash",
+                    cash_price=500.0 if segment["type"] == "flight" else 200.0,  # Fallback prices
+                    award_available=False,
+                    summary=f"Cash booking for {segment['id']}",
+                ))
+            
+            all_options.append(segment_options)
+        
+        return all_options
+    
+    async def _search_flight_options(
+        self,
+        origin: str,
+        destination: str,
+        date: str,
+        cabin_classes: list[str],
+    ) -> list[dict]:
+        """Search flight options using FlightAgent."""
+        try:
+            request = FlightSearchRequest(
+                origin=origin,
+                destination=destination,
+                date=date,
+                cabin_classes=cabin_classes,
+            )
+            result = await self.flight_agent.execute(request)
+            
+            options = []
+            for flight in result.flights[:5]:  # Limit to top 5
+                options.append({
+                    "cash_price": flight.cash_price,
+                    "award_available": flight.award_price is not None,
+                    "award_program": flight.program if flight.award_price else None,
+                    "award_points": flight.award_price,
+                    "award_surcharge": flight.surcharge or 0,
+                    "summary": f"{origin}→{destination} on {flight.airline}",
+                })
+            
+            return options
+        except Exception as e:
+            logger.warning(f"Flight search failed: {e}")
+            return self._get_dummy_flight_options(origin, destination)
+    
+    async def _search_hotel_options(
+        self,
+        city: str,
+        check_in: str,
+        check_out: str,
+        star_ratings: list[int],
+    ) -> list[dict]:
+        """Search hotel options using HotelAgent."""
+        try:
+            request = HotelSearchRequest(
+                city=city,
+                check_in=check_in,
+                check_out=check_out,
+                star_ratings=star_ratings,
+            )
+            result = await self.hotel_agent.execute(request)
+            
+            options = []
+            for hotel in result.hotels[:5]:  # Limit to top 5
+                options.append({
+                    "cash_price": hotel.cash_price_total,
+                    "award_available": hotel.award_points is not None,
+                    "award_program": hotel.program if hotel.award_points else None,
+                    "award_points": hotel.award_points,
+                    "award_surcharge": 0,
+                    "summary": f"{hotel.name} in {city}",
+                })
+            
+            return options
+        except Exception as e:
+            logger.warning(f"Hotel search failed: {e}")
+            return self._get_dummy_hotel_options(city)
+    
+    def _get_dummy_flight_options(self, origin: str, destination: str) -> list[dict]:
+        """Get dummy flight options when search fails."""
+        return [
+            {
+                "cash_price": 450.0,
+                "award_available": True,
+                "award_program": "UA",
+                "award_points": 35000,
+                "award_surcharge": 25.0,
+                "summary": f"{origin}→{destination} on United",
+            },
+            {
+                "cash_price": 520.0,
+                "award_available": True,
+                "award_program": "AA",
+                "award_points": 30000,
+                "award_surcharge": 30.0,
+                "summary": f"{origin}→{destination} on American",
+            },
+            {
+                "cash_price": 380.0,
+                "award_available": False,
+                "summary": f"{origin}→{destination} budget carrier",
+            },
+        ]
+    
+    def _get_dummy_hotel_options(self, city: str) -> list[dict]:
+        """Get dummy hotel options when search fails."""
+        return [
+            {
+                "cash_price": 250.0,
+                "award_available": True,
+                "award_program": "HYATT",
+                "award_points": 15000,
+                "award_surcharge": 0,
+                "summary": f"Hyatt in {city}",
+            },
+            {
+                "cash_price": 180.0,
+                "award_available": True,
+                "award_program": "HH",
+                "award_points": 40000,
+                "award_surcharge": 0,
+                "summary": f"Hilton in {city}",
+            },
+            {
+                "cash_price": 150.0,
+                "award_available": False,
+                "summary": f"Budget hotel in {city}",
+            },
+        ]
+    
+    def _build_option_summary(self, segment: dict, option: dict) -> str:
+        """Build a summary string for an option."""
+        if segment["type"] == "flight":
+            return f"{segment['origin']}→{segment['destination']}"
+        else:
+            return f"Hotel in {segment['city']}"
     
     async def _get_trip_data(self, trip_id: str) -> Optional[dict]:
         """Get trip data from database."""
+        import asyncio
+        
         try:
-            from ..repos.trip_repo import TripRepo
-            from ..repos.destination_repo import DestinationRepo
+            # Use services which are synchronous
+            from ..services.trip_service import get_trip
+            from ..services.destination_service import list_destinations
             
-            trip_repo = TripRepo()
-            dest_repo = DestinationRepo()
+            # Run sync functions in thread pool to avoid blocking
+            loop = asyncio.get_event_loop()
             
-            trip = await trip_repo.get_trip(trip_id)
+            trip = await loop.run_in_executor(None, get_trip, trip_id)
             if not trip:
-                # Return dummy data for testing
-                return {
-                    "trip_id": trip_id,
-                    "start_date": "2026-03-01",
-                    "end_date": "2026-03-08",
-                    "destinations": [
-                        {"name": "JFK", "is_start": True, "is_end": True},
-                        {"name": "CDG", "must_include": True},
-                    ],
-                    "include_hotels": True,
-                }
+                logger.warning(f"Trip {trip_id} not found, using test data")
+                return self._get_test_trip_data(trip_id)
             
-            destinations = await dest_repo.list_destinations(trip_id)
+            destinations = await loop.run_in_executor(None, list_destinations, trip_id)
             
             return {
                 "trip_id": trip_id,
                 "start_date": trip.get("startDate"),
                 "end_date": trip.get("endDate"),
-                "destinations": destinations,
+                "destinations": destinations or [],
                 "include_hotels": trip.get("includeHotels", True),
                 "max_budget": trip.get("maxBudget"),
             }
         except Exception as e:
             logger.error(f"Failed to get trip data: {e}")
-            # Return dummy data
-            return {
-                "trip_id": trip_id,
-                "start_date": "2026-03-01",
-                "end_date": "2026-03-08",
-                "destinations": [
-                    {"name": "JFK", "is_start": True, "is_end": True},
-                    {"name": "CDG", "must_include": True},
-                ],
-                "include_hotels": True,
-            }
+            return self._get_test_trip_data(trip_id)
+    
+    def _get_test_trip_data(self, trip_id: str) -> dict:
+        """Return test trip data for development/testing."""
+        return {
+            "trip_id": trip_id,
+            "start_date": "2026-03-01",
+            "end_date": "2026-03-08",
+            "destinations": [
+                {"name": "JFK", "is_start": True, "is_end": True},
+                {"name": "CDG", "must_include": True},
+            ],
+            "include_hotels": True,
+        }
     
     def _build_trip_segments(self, trip_data: dict) -> list[dict]:
         """Build list of segments to search."""

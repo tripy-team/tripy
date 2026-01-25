@@ -39,6 +39,10 @@ export function OOPResults({
     selectedItinerary,
     setSelectedId,
     bestOption,
+    retry,
+    canRetry,
+    retryCount,
+    refetch,
   } = useOOPOptimization({
     tripId,
     tripType,
@@ -76,13 +80,53 @@ export function OOPResults({
         <div className="text-center max-w-md">
           <AlertCircle className="w-12 h-12 text-red-400 mx-auto mb-4" />
           <h2 className="text-xl font-semibold text-slate-900 mb-2">Optimization Failed</h2>
-          <p className="text-red-600 mb-6">{error}</p>
-          <button
-            onClick={() => router.push('/solo/setup')}
-            className="px-6 py-3 bg-blue-600 text-white rounded-xl hover:bg-blue-700"
-          >
-            Back to Setup
-          </button>
+          <p className="text-red-600 mb-4">{error}</p>
+          
+          {retryCount > 0 && (
+            <p className="text-sm text-slate-500 mb-4">
+              Attempt {retryCount} of 3 failed
+            </p>
+          )}
+          
+          <div className="flex gap-3 justify-center">
+            {canRetry && (
+              <button
+                onClick={retry}
+                disabled={loading}
+                className="px-6 py-3 bg-emerald-600 text-white rounded-xl hover:bg-emerald-700 disabled:opacity-50 flex items-center gap-2"
+              >
+                {loading ? (
+                  <>
+                    <Loader2 className="w-4 h-4 animate-spin" />
+                    Retrying...
+                  </>
+                ) : (
+                  'Try Again'
+                )}
+              </button>
+            )}
+            
+            <button
+              onClick={() => refetch()}
+              disabled={loading}
+              className="px-6 py-3 bg-blue-600 text-white rounded-xl hover:bg-blue-700 disabled:opacity-50"
+            >
+              Start Fresh
+            </button>
+            
+            <button
+              onClick={() => router.push('/solo/setup')}
+              className="px-6 py-3 border border-slate-300 text-slate-700 rounded-xl hover:bg-slate-50"
+            >
+              Back to Setup
+            </button>
+          </div>
+          
+          {!canRetry && (
+            <p className="mt-4 text-sm text-slate-500">
+              Maximum retries reached. Please try adjusting your trip settings.
+            </p>
+          )}
         </div>
       </div>
     );

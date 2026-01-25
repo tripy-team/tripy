@@ -727,3 +727,89 @@ def pick_strategy_and_search(
     return get_flights_award_first_with_points(
         origin, destination, user_points, filters, **kwargs
     )
+
+
+# ===========================================================================
+# AGENT-COMPATIBLE WRAPPER FUNCTIONS
+# ===========================================================================
+
+async def search_awardtool_flights(
+    origin: str,
+    destination: str,
+    date: str,
+    programs: list[str] = None,
+    cabins: list[str] = None,
+    pax: int = 1,
+) -> list[dict]:
+    """
+    Search for award flights using AwardTool API.
+    
+    This is the agent-compatible wrapper around _awardtool_realtime.
+    Returns a list of normalized flight options.
+    
+    Args:
+        origin: Origin airport IATA code
+        destination: Destination airport IATA code  
+        date: Date in YYYY-MM-DD format
+        programs: List of award programs (e.g., ["UA", "AA"])
+        cabins: List of cabin classes (e.g., ["Economy", "Business"])
+        pax: Number of passengers
+        
+    Returns:
+        List of flight options with standardized fields:
+        - airline, cabin, cash_price, program, points, surcharge, available
+        - departure_time, arrival_time, duration, stops, flight_numbers
+    """
+    cabins = cabins or ["Economy", "Business"]
+    programs = programs or get_award_programs_for_api()
+    
+    client = await _http_client()
+    try:
+        raw_result = await _awardtool_realtime(
+            origin, destination, date, cabins, pax, programs, client
+        )
+        
+        # Parse and normalize the results
+        data = raw_result.get("data", []) if isinstance(raw_result, dict) else []
+        results = []
+        
+        for item in data:
+            if not isinstance(item, dict):
+                continue
+                
+            fare = item.get("fare") or {}
+            products = fare.get("products") or []
+            
+            for product in products:
+                dep = (product.get("origin") or "").upper()
+                arr = (product.get("destination") or "").upper()
+                
+                # Only include if matches our route
+                if dep != origin.upper() or arr != destination.upper():
+                    continue
+                
+                prog = (item.get("program_code") or "").upper()
+                pts = item.get("award_points")
+                sur = item.get("surcharge")
+                cabin = product.get("cabin") or "Economy"
+                
+                results.append({
+                    "airline": prog,
+                    "cabin": cabin,
+                    "cash_price": None,  # AwardTool doesn't provide cash price
+                    "program": prog,
+                    "points": int(pts) if pts else None,
+                    "surcharge": float(sur) if sur else 0,
+                    "available": pts is not None,
+                    "departure_time": product.get("departure_time"),
+                    "arrival_time": product.get("arrival_time"),
+                    "duration": product.get("travel_minutes") or fare.get("travel_minutes_total"),
+                    "stops": len(products) - 1 if len(products) > 1 else 0,
+                    "flight_numbers": [product.get("flight_number")] if product.get("flight_number") else [],
+                })
+        
+        logger.info(f"search_awardtool_flights: {origin}->{destination} on {date}: {len(results)} options")
+        return results
+        
+    finally:
+        await client.aclose()

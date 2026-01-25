@@ -1,6 +1,6 @@
 'use client';
 
-import { useState, useEffect, useCallback } from 'react';
+import { useState, useEffect, useCallback, useRef } from 'react';
 import { 
   optimization,
   type OptimizeSoloRequest,
@@ -43,6 +43,12 @@ interface UseOOPOptimizationReturn {
   
   // Actions
   refetch: () => Promise<void>;
+  retry: () => Promise<void>;
+  clearError: () => void;
+  
+  // Retry state
+  retryCount: number;
+  canRetry: boolean;
   
   // Computed
   bestOption: {
@@ -52,6 +58,9 @@ interface UseOOPOptimizationReturn {
   } | null;
 }
 
+const MAX_RETRIES = 3;
+const RETRY_DELAY_MS = 2000;
+
 export function useOOPOptimization(options: UseOOPOptimizationOptions): UseOOPOptimizationReturn {
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
@@ -59,39 +68,50 @@ export function useOOPOptimization(options: UseOOPOptimizationOptions): UseOOPOp
   const [selectedId, setSelectedId] = useState<string | null>(null);
   const [costBreakdown, setCostBreakdown] = useState<CostBreakdown | null>(null);
   const [loadingBreakdown, setLoadingBreakdown] = useState(false);
+  const [retryCount, setRetryCount] = useState(0);
+  
+  // Use ref to track options without causing re-renders
+  const optionsRef = useRef(options);
+  optionsRef.current = options;
 
-  const fetchResults = useCallback(async () => {
-    if (!options.tripId) return;
+  const fetchResults = useCallback(async (isRetry = false) => {
+    const currentOptions = optionsRef.current;
+    if (!currentOptions.tripId) return;
 
     setLoading(true);
-    setError(null);
+    if (!isRetry) {
+      setError(null);
+      setRetryCount(0);
+    }
 
     try {
       let response: OptimizeSoloResponse | OptimizeGroupResponse;
 
-      if (options.tripType === 'solo') {
+      if (currentOptions.tripType === 'solo') {
         response = await optimization.solo({
-          tripId: options.tripId,
-          points: options.points,
-          budget: options.budget,
-          cabinClasses: options.cabinClasses,
-          hotelStars: options.hotelStars,
-          includeHotels: options.includeHotels,
+          tripId: currentOptions.tripId,
+          points: currentOptions.points,
+          budget: currentOptions.budget,
+          cabinClasses: currentOptions.cabinClasses,
+          hotelStars: currentOptions.hotelStars,
+          includeHotels: currentOptions.includeHotels,
         });
       } else {
         response = await optimization.group({
-          tripId: options.tripId,
-          points: options.points,
-          budget: options.budget,
-          memberPoints: options.memberPoints || {},
-          memberBudgets: options.memberBudgets || {},
-          cabinClasses: options.cabinClasses,
-          hotelStars: options.hotelStars,
-          includeHotels: options.includeHotels,
+          tripId: currentOptions.tripId,
+          points: currentOptions.points,
+          budget: currentOptions.budget,
+          memberPoints: currentOptions.memberPoints || {},
+          memberBudgets: currentOptions.memberBudgets || {},
+          cabinClasses: currentOptions.cabinClasses,
+          hotelStars: currentOptions.hotelStars,
+          includeHotels: currentOptions.includeHotels,
         });
       }
 
       setResults(response);
+      setError(null);
+      setRetryCount(0);
 
       // Auto-select best (first) itinerary
       if (response.itineraries.length > 0) {
@@ -99,21 +119,31 @@ export function useOOPOptimization(options: UseOOPOptimizationOptions): UseOOPOp
       }
     } catch (err) {
       console.error('OOP optimization error:', err);
-      setError(err instanceof Error ? err.message : 'Failed to optimize');
+      const errorMessage = err instanceof Error ? err.message : 'Failed to optimize';
+      setError(errorMessage);
+      
+      if (isRetry) {
+        setRetryCount(prev => prev + 1);
+      }
     } finally {
       setLoading(false);
     }
-  }, [
-    options.tripId,
-    options.tripType,
-    options.points,
-    options.budget,
-    options.cabinClasses,
-    options.hotelStars,
-    options.includeHotels,
-    options.memberPoints,
-    options.memberBudgets,
-  ]);
+  }, []);
+  
+  const retry = useCallback(async () => {
+    if (retryCount >= MAX_RETRIES) {
+      return;
+    }
+    
+    // Add delay before retry
+    await new Promise(resolve => setTimeout(resolve, RETRY_DELAY_MS));
+    await fetchResults(true);
+  }, [fetchResults, retryCount]);
+  
+  const clearError = useCallback(() => {
+    setError(null);
+    setRetryCount(0);
+  }, []);
 
   const fetchCostBreakdown = useCallback(async (itineraryId: string) => {
     setLoadingBreakdown(true);
@@ -156,6 +186,10 @@ export function useOOPOptimization(options: UseOOPOptimizationOptions): UseOOPOp
     loadingBreakdown,
     fetchCostBreakdown,
     refetch: fetchResults,
+    retry,
+    clearError,
+    retryCount,
+    canRetry: retryCount < MAX_RETRIES,
     bestOption,
   };
 }

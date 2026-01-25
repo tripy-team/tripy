@@ -176,6 +176,10 @@ Return JSON: {{"programs": ["UA", "AA", ...], "reasoning": "..."}}
                 cabins=cabins,
             )
             
+            if not results:
+                logger.info(f"No award flights found for {origin}->{destination}, using dummy data")
+                return self._get_dummy_award_flights(origin, destination, date, programs, cabins)
+            
             # Convert to FlightOption
             options = []
             for r in results:
@@ -199,7 +203,11 @@ Return JSON: {{"programs": ["UA", "AA", ...], "reasoning": "..."}}
                 )
                 options.append(option)
             
+            logger.info(f"Found {len(options)} award flight options for {origin}->{destination}")
             return options
+        except ImportError as e:
+            logger.error(f"Import error in award flight search: {e}")
+            return self._get_dummy_award_flights(origin, destination, date, programs, cabins)
         except Exception as e:
             logger.error(f"Award flight search failed: {e}")
             # Return dummy data for development
