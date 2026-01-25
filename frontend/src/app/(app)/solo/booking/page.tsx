@@ -188,7 +188,16 @@ function SoloBookingContent() {
   const paymentRecs: PaymentRec[] = Array.isArray(paymentsItem?.payments) ? paymentsItem.payments : [];
   const taxesFromPayments = paymentRecs.reduce((s, p) => s + (Number(p.surcharge) || 0), 0);
   const taxes = taxesFromPayments > 0 ? Math.round(taxesFromPayments) : 50;
-  const savings = cashPrice - (pointsCost / 1000 * 2 + taxes);
+  
+  // Only calculate savings if points are actually being used in payments
+  const hasPointsPayments = paymentRecs.some(p => p.type === 'points');
+  const actualPointsUsed = hasPointsPayments 
+    ? paymentRecs.filter(p => p.type === 'points').reduce((sum, p) => sum + (Number(p.miles) || 0), 0)
+    : 0;
+  // Only show savings when points are actually used (2 cents per point valuation)
+  const savings = hasPointsPayments && actualPointsUsed > 0
+    ? cashPrice - (actualPointsUsed / 1000 * 2 + taxes)
+    : 0;
   const serviceFee = calculateServiceFee(cashPrice);
   
   // Build transfer items for the new card component
@@ -265,30 +274,50 @@ function SoloBookingContent() {
         {/* Left Column: Trip Details & Savings */}
         <div className="lg:col-span-2 space-y-8">
           
-          {/* Savings Highlight */}
-          <div className="bg-gradient-to-br from-blue-600 to-indigo-700 rounded-2xl p-8 text-white shadow-xl shadow-blue-900/10 relative overflow-hidden">
-            <div className="absolute top-0 right-0 w-64 h-64 bg-white/10 rounded-full -mr-16 -mt-16 blur-3xl"></div>
-            <div className="relative z-10">
-              <div className="flex items-center gap-2 text-blue-100 mb-1">
-                <Sparkles className="w-5 h-5" />
-                <span className="font-medium">Total Savings</span>
-              </div>
-              <div className="flex items-baseline gap-2 mb-4">
-                <span className="text-5xl font-bold">${Math.max(0, Math.round(savings)).toLocaleString()}</span>
-                <span className="text-blue-200">saved vs cash price</span>
-              </div>
-              <div className="grid grid-cols-2 gap-4 bg-white/10 rounded-xl p-4 border border-white/10">
-                <div>
-                  <div className="text-blue-200 text-sm">Cash Price</div>
-                  <div className="text-xl font-semibold line-through opacity-70">${cashPrice.toLocaleString()}</div>
+          {/* Savings Highlight - only show when points are being used */}
+          {hasPointsPayments && savings > 0 ? (
+            <div className="bg-gradient-to-br from-blue-600 to-indigo-700 rounded-2xl p-8 text-white shadow-xl shadow-blue-900/10 relative overflow-hidden">
+              <div className="absolute top-0 right-0 w-64 h-64 bg-white/10 rounded-full -mr-16 -mt-16 blur-3xl"></div>
+              <div className="relative z-10">
+                <div className="flex items-center gap-2 text-blue-100 mb-1">
+                  <Sparkles className="w-5 h-5" />
+                  <span className="font-medium">Total Savings</span>
                 </div>
-                <div>
-                  <div className="text-blue-200 text-sm">Your Cost</div>
-                  <div className="text-xl font-semibold text-green-300">{(pointsCost / 1000).toFixed(0)}k pts + ${taxes}</div>
+                <div className="flex items-baseline gap-2 mb-4">
+                  <span className="text-5xl font-bold">${Math.max(0, Math.round(savings)).toLocaleString()}</span>
+                  <span className="text-blue-200">saved vs cash price</span>
+                </div>
+                <div className="grid grid-cols-2 gap-4 bg-white/10 rounded-xl p-4 border border-white/10">
+                  <div>
+                    <div className="text-blue-200 text-sm">Cash Price</div>
+                    <div className="text-xl font-semibold line-through opacity-70">${cashPrice.toLocaleString()}</div>
+                  </div>
+                  <div>
+                    <div className="text-blue-200 text-sm">Your Cost</div>
+                    <div className="text-xl font-semibold text-green-300">{(actualPointsUsed / 1000).toFixed(0)}k pts + ${taxes}</div>
+                  </div>
                 </div>
               </div>
             </div>
-          </div>
+          ) : (
+            <div className="bg-gradient-to-br from-slate-600 to-slate-700 rounded-2xl p-8 text-white shadow-xl shadow-slate-900/10 relative overflow-hidden">
+              <div className="absolute top-0 right-0 w-64 h-64 bg-white/10 rounded-full -mr-16 -mt-16 blur-3xl"></div>
+              <div className="relative z-10">
+                <div className="flex items-center gap-2 text-slate-300 mb-1">
+                  <CreditCard className="w-5 h-5" />
+                  <span className="font-medium">Cash Booking</span>
+                </div>
+                <div className="flex items-baseline gap-2 mb-4">
+                  <span className="text-5xl font-bold">${cashPrice.toLocaleString()}</span>
+                  <span className="text-slate-300">total cost</span>
+                </div>
+                <div className="bg-white/10 rounded-xl p-4 border border-white/10">
+                  <div className="text-slate-300 text-sm mb-1">No points redemption available for this itinerary</div>
+                  <div className="text-sm text-slate-400">This trip will be booked using cash. Points may be unavailable for these routes or you may not have sufficient points balance.</div>
+                </div>
+              </div>
+            </div>
+          )}
 
           {/* Transfer Instructions (Blurred until paid) */}
           <div className="bg-white border border-slate-200 rounded-2xl overflow-hidden shadow-sm">
@@ -521,16 +550,25 @@ function SoloBookingContent() {
               <div className="space-y-3">
                 <div className="flex justify-between text-slate-600">
                   <span>Itinerary Value</span>
-                  <span className="line-through">${cashPrice.toLocaleString()}.00</span>
+                  <span className={hasPointsPayments && savings > 0 ? "line-through" : ""}>${cashPrice.toLocaleString()}.00</span>
                 </div>
-                <div className="flex justify-between text-slate-600">
-                  <span>Points Cost</span>
-                  <span className="font-medium text-slate-900">{pointsCost.toLocaleString()} pts</span>
-                </div>
-                <div className="flex justify-between text-slate-600">
-                  <span>Taxes & Fees (Airline)</span>
-                  <span className="font-medium text-slate-900">~${taxes}.00</span>
-                </div>
+                {hasPointsPayments && actualPointsUsed > 0 ? (
+                  <>
+                    <div className="flex justify-between text-slate-600">
+                      <span>Points Cost</span>
+                      <span className="font-medium text-slate-900">{actualPointsUsed.toLocaleString()} pts</span>
+                    </div>
+                    <div className="flex justify-between text-slate-600">
+                      <span>Taxes & Fees (Airline)</span>
+                      <span className="font-medium text-slate-900">~${taxes}.00</span>
+                    </div>
+                  </>
+                ) : (
+                  <div className="flex justify-between text-slate-600">
+                    <span>Payment Method</span>
+                    <span className="font-medium text-slate-900">Cash</span>
+                  </div>
+                )}
                 <div className="border-t border-slate-100 my-4 pt-4 flex justify-between items-center">
                   <span className="font-semibold text-slate-900">Tripy Service Fee ({SERVICE_FEE_PERCENT}% of trip value)</span>
                   <span className="text-xl font-bold text-slate-900">${serviceFee.toFixed(2)}</span>

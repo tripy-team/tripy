@@ -2484,20 +2484,22 @@ async def generate_guaranteed_booking_plan(
                 prev_code = dest_code
         
         # Add final segment to end destination
+        # The route is: start -> intermediate(s) -> end
+        # For round trips, end == start, so we naturally return to origin
+        # For one-way trips ending elsewhere, we just end at the specified destination
         if prev_code != end_code:
+            # Use end_date for the final segment if it's a return leg (round trip)
+            # or start_date if it's part of the outbound journey
+            final_date = end_date if end_code == start_code and end_date else start_date
             segments.append({
                 "origin": prev_code,
                 "destination": end_code,
-                "date": start_date,
+                "date": final_date,
             })
         
-        # Add return segment if round-trip
-        if end_code != start_code:
-            segments.append({
-                "origin": end_code,
-                "destination": start_code,
-                "date": end_date,
-            })
+        # NOTE: No separate return segment needed.
+        # - If end_code == start_code (round trip), the final segment already returns to origin
+        # - If end_code != start_code (one-way ending elsewhere), user specified a different end airport
         
         # Get user points
         points_summary = points_service.trip_points_summary(trip_id)
