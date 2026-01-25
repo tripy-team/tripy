@@ -16,9 +16,11 @@ import {
   Car,
   Bus,
   Info,
+  Copy,
 } from 'lucide-react';
 import { itineraries as itinerariesAPI, trips as tripsAPI, destinations as destinationsAPI, generateItinerary } from '@/lib/api';
 import { calculateServiceFee, SERVICE_FEE_PERCENT, formatDate, tripDurationDays } from '@/lib/utils';
+import { TransferStrategyCard, type TransferItem } from '@/components/ui';
 
 function humanizeProgram(code: string): string {
   const m: Record<string, string> = {
@@ -53,6 +55,47 @@ interface PaymentRec {
   surcharge?: number;
   mode?: string;
   fare?: number;
+}
+
+// Bank transfer times for reference
+const BANK_TRANSFER_TIMES: Record<string, string> = {
+  amex: '1-2 business days',
+  chase: 'Instant',
+  citi: 'Instant to 24h',
+  capitalone: 'Instant to 2 days',
+  bilt: 'Instant',
+};
+
+// Transform payment records into TransferItem format for the card component
+function buildTransferItemsFromPayments(payments: PaymentRec[]): TransferItem[] {
+  const result: TransferItem[] = [];
+  
+  for (const p of payments) {
+    if (p.type === 'points' && (p.via?.source || p.via?.airline || p.via?.native) && (p.miles ?? 0) > 0) {
+      const sourceCode = (p.via?.source || '').toLowerCase();
+      const airlineCode = (p.via?.airline || p.via?.native || '').toUpperCase();
+      const edge = Array.isArray(p.edge) ? p.edge : [];
+      const origin = String(edge[0] || '').toUpperCase();
+      const destination = String(edge[1] || '').toUpperCase();
+      const flightNumber = edge[2] ? String(edge[2]).toUpperCase() : undefined;
+      
+      result.push({
+        type: 'flight',
+        fromBank: sourceCode,
+        fromBankName: humanizeProgram(sourceCode),
+        toProgram: airlineCode,
+        toProgramName: humanizeAirline(airlineCode),
+        pointsToTransfer: Math.round(Number(p.miles) || 0),
+        transferTime: BANK_TRANSFER_TIMES[sourceCode] || 'varies',
+        flightNumber: flightNumber && flightNumber !== 'BUS' && flightNumber !== 'CAR' ? flightNumber : undefined,
+        origin,
+        destination,
+        surcharge: Number(p.surcharge) || undefined,
+      });
+    }
+  }
+  
+  return result;
 }
 
 function SoloBookingContent() {
@@ -147,6 +190,9 @@ function SoloBookingContent() {
   const taxes = taxesFromPayments > 0 ? Math.round(taxesFromPayments) : 50;
   const savings = cashPrice - (pointsCost / 1000 * 2 + taxes);
   const serviceFee = calculateServiceFee(cashPrice);
+  
+  // Build transfer items for the new card component
+  const transferItems = buildTransferItemsFromPayments(paymentRecs);
 
   const includeHotels = trip?.includeHotels !== false;
   const startDate = trip?.startDate || '';
@@ -282,6 +328,21 @@ function SoloBookingContent() {
               )}
 
               <div className={`p-8 space-y-8 ${!isPaid ? 'opacity-20 select-none' : ''}`}>
+                {/* New Copy-Paste Ready Transfer Card */}
+                {transferItems.length > 0 && isPaid && (
+                  <div className="mb-6">
+                    <TransferStrategyCard
+                      transfers={transferItems}
+                      summary={{
+                        totalOutOfPocket: taxes,
+                        allCashCost: cashPrice,
+                        savings: Math.max(0, Math.round(savings)),
+                        savingsPercentage: cashPrice > 0 ? (savings / cashPrice) * 100 : 0,
+                      }}
+                    />
+                  </div>
+                )}
+                
                 {steps.length > 0 ? (
                   steps.map((step, idx) => {
                     if (step.kind === 'transfer') {

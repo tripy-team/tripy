@@ -2,20 +2,125 @@
 
 import { useRouter, useSearchParams } from 'next/navigation';
 import { useState, useEffect } from 'react';
-import { ArrowLeft, CheckCircle, ExternalLink, AlertCircle, Copy, Plane, Info, Lock, ChevronRight, Lightbulb, TrendingUp, ArrowRight } from 'lucide-react';
+import { ArrowLeft, CheckCircle, ExternalLink, AlertCircle, Copy, Plane, Info, Lock, ChevronRight, Lightbulb, TrendingUp, ArrowRight, Building2 } from 'lucide-react';
 import { itineraries, trips as tripsAPI } from '@/lib/api';
 import {
     buildTransferStepsFromItinerary,
     getTransferTipsFromItems,
     buildTransferStrategyOverview,
+    buildTransferActionsFromTips,
+    calculateTransferMetrics,
     type TransferStepResult,
     type TransferTip,
+    BANK_PORTAL_URLS,
+    BANK_TRANSFER_TIMES,
 } from '@/lib/transfer-instructions';
+import { TransferStrategyCard, type TransferItem } from '@/components/ui';
+
+// Transform transfer tips and payments into TransferItem format for the new card component
+function buildTransferItemsFromData(
+    items: Array<{ type?: string; [k: string]: unknown }>,
+    transferTips: TransferTip[]
+): TransferItem[] {
+    const result: TransferItem[] = [];
+    
+    // Try to get payment data from items
+    const paymentsItem = items.find((i) => i.type === 'payments') as { payments?: Array<{
+        type?: string;
+        via?: { source?: string; airline?: string; native?: string };
+        miles?: number;
+        surcharge?: number;
+        edge?: unknown[];
+        mode?: string;
+        fare?: number;
+    }> } | undefined;
+    
+    const payments = paymentsItem?.payments || [];
+    
+    // Map source codes to display names
+    const sourceToDisplay: Record<string, string> = {
+        amex: 'Amex Membership Rewards',
+        chase: 'Chase Ultimate Rewards',
+        citi: 'Citi ThankYou Points',
+        capitalone: 'Capital One Miles',
+        bilt: 'Bilt Rewards',
+    };
+    
+    const airlineToDisplay: Record<string, string> = {
+        UA: 'United MileagePlus',
+        AA: 'American AAdvantage',
+        DL: 'Delta SkyMiles',
+        AS: 'Alaska Mileage Plan',
+        B6: 'JetBlue TrueBlue',
+        AF: 'Air France Flying Blue',
+        BA: 'British Airways Avios',
+        VS: 'Virgin Atlantic Flying Club',
+        SQ: 'Singapore KrisFlyer',
+        NH: 'ANA Mileage Club',
+        EK: 'Emirates Skywards',
+        TK: 'Turkish Miles&Smiles',
+    };
+    
+    // Build from payments if available
+    for (const p of payments) {
+        if (p.type === 'points' && (p.via?.source || p.via?.airline || p.via?.native) && (p.miles ?? 0) > 0) {
+            const sourceCode = (p.via?.source || '').toLowerCase();
+            const airlineCode = (p.via?.airline || p.via?.native || '').toUpperCase();
+            const edge = Array.isArray(p.edge) ? p.edge : [];
+            const origin = String(edge[0] || '').toUpperCase();
+            const destination = String(edge[1] || '').toUpperCase();
+            const flightNumber = edge[2] ? String(edge[2]).toUpperCase() : undefined;
+            
+            result.push({
+                type: 'flight',
+                fromBank: sourceCode,
+                fromBankName: sourceToDisplay[sourceCode] || sourceCode,
+                toProgram: airlineCode,
+                toProgramName: airlineToDisplay[airlineCode] || airlineCode,
+                pointsToTransfer: Math.round(Number(p.miles) || 0),
+                transferTime: BANK_TRANSFER_TIMES[sourceCode],
+                flightNumber: flightNumber && flightNumber !== 'BUS' && flightNumber !== 'CAR' ? flightNumber : undefined,
+                origin,
+                destination,
+                surcharge: Number(p.surcharge) || undefined,
+            });
+        }
+    }
+    
+    // If no payments data, build from transfer tips
+    if (result.length === 0 && transferTips.length > 0) {
+        for (const tip of transferTips) {
+            if (!tip.points || tip.points <= 0) continue;
+            
+            const fromProgram = (tip.from_program || '').toLowerCase();
+            const bankCode = Object.keys(sourceToDisplay).find(k => 
+                fromProgram.includes(k) || sourceToDisplay[k].toLowerCase().includes(fromProgram)
+            ) || '';
+            
+            result.push({
+                type: 'flight',
+                fromBank: bankCode,
+                fromBankName: tip.from_program || 'Credit Card Points',
+                toProgram: tip.booking_airline || '',
+                toProgramName: tip.to_program || 'Airline Partner',
+                pointsToTransfer: tip.points,
+                transferTime: tip.transfer_time || BANK_TRANSFER_TIMES[bankCode],
+                transferRatio: tip.transfer_ratio,
+                flightNumber: undefined, // Could extract from route_segment if needed
+                origin: tip.departure,
+                destination: tip.arrival,
+                surcharge: tip.surcharge,
+            });
+        }
+    }
+    
+    return result;
+}
 
 export default function GroupTransferInstructions() {
     const router = useRouter();
     const searchParams = useSearchParams();
-    const tripId = searchParams?.get('trip_id') || '';
+    const tripId = searchParams?.get('tripId') || searchParams?.get('trip_id') || '';
     const [copiedId, setCopiedId] = useState<string | null>(null);
     const [isPaid, setIsPaid] = useState(false); // TODO: fetch from API (trip payment status)
     const [items, setItems] = useState<Array<{ type?: string; [k: string]: unknown }>>([]);
@@ -26,6 +131,10 @@ export default function GroupTransferInstructions() {
     const transfers: TransferStepResult[] = buildTransferStepsFromItinerary(items, members);
     const { transfer_tips } = getTransferTipsFromItems(items);
     const strategyOverview = buildTransferStrategyOverview(items, members);
+    
+    // Build transfer items for the new card component
+    const transferItems = buildTransferItemsFromData(items, transfer_tips);
+    const transferMetrics = calculateTransferMetrics(transfer_tips);
 
     useEffect(() => {
         if (!tripId) {
@@ -121,7 +230,7 @@ export default function GroupTransferInstructions() {
                             Complete payment to unlock which credit card to transfer from, how many points to transfer to each partner, and step-by-step instructions for each member.
                         </p>
                         <button
-                            onClick={() => router.push(`/group/booking?trip_id=${tripId}`)}
+                            onClick={() => router.push(`/group/booking?tripId=${tripId}`)}
                             className="text-blue-600 font-semibold hover:text-blue-700 inline-flex items-center gap-1"
                         >
                             Complete Payment <ChevronRight className="w-4 h-4" />
@@ -209,6 +318,23 @@ export default function GroupTransferInstructions() {
                                 </div>
                             )}
                         </div>
+                    </div>
+                )}
+
+                {/* New TransferStrategyCard with copy-paste ready instructions */}
+                {transferItems.length > 0 && (
+                    <div className="mb-8">
+                        <TransferStrategyCard
+                            transfers={transferItems}
+                            summary={transferMetrics.totalPoints > 0 ? {
+                                totalOutOfPocket: transferMetrics.totalSurcharges,
+                                allCashCost: transferMetrics.totalCashSaved + transferMetrics.totalSurcharges,
+                                savings: transferMetrics.totalCashSaved,
+                                savingsPercentage: transferMetrics.totalCashSaved > 0 
+                                    ? (transferMetrics.totalCashSaved / (transferMetrics.totalCashSaved + transferMetrics.totalSurcharges)) * 100 
+                                    : 0,
+                            } : undefined}
+                        />
                     </div>
                 )}
 
@@ -401,7 +527,7 @@ export default function GroupTransferInstructions() {
                         </p>
                         {tripId && (
                             <button
-                                onClick={() => router.push(`/group/results?trip_id=${tripId}`)}
+                                onClick={() => router.push(`/group/results?tripId=${tripId}`)}
                                 className="mt-4 text-blue-600 font-semibold hover:text-blue-700"
                             >
                                 Go to Results <ChevronRight className="w-4 h-4 inline" />

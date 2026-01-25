@@ -189,7 +189,7 @@ function SmartTipsBlock({ tips }: { tips: SmartTips }) {
 export default function GroupResults() {
     const router = useRouter();
     const searchParams = useSearchParams();
-    const tripId = searchParams?.get('trip_id') || '';
+    const tripId = searchParams?.get('tripId') || searchParams?.get('trip_id') || '';
     
     const [itineraries, setItineraries] = useState<Itinerary[]>([]);
     const [selectedId, setSelectedId] = useState<number | null>(null);
@@ -897,13 +897,13 @@ export default function GroupResults() {
                                         Proceed with this itinerary and see how to maximize your group&apos;s points.
                                     </p>
                                     <button
-                                        onClick={() => router.push(`/group/booking?trip_id=${tripId}`)}
+                                        onClick={() => router.push(`/group/points-strategy?tripId=${tripId}`)}
                                         className="w-full px-6 py-3 bg-yellow-400 text-slate-900 rounded-xl hover:bg-yellow-500 transition-colors shadow-lg shadow-yellow-400/20 font-semibold"
                                     >
-                                        Book This Trip
+                                        Select & Optimize Points
                                     </button>
                                     <button
-                                        onClick={() => router.push(`/group/comparison?trip_id=${tripId}`)}
+                                        onClick={() => router.push(`/group/comparison?tripId=${tripId}`)}
                                         disabled={comparing.length === 0}
                                         className={`w-full mt-3 px-6 py-2.5 rounded-xl transition-colors font-semibold ${
                                             comparing.length > 0
@@ -915,7 +915,7 @@ export default function GroupResults() {
                                     </button>
                                     {tripId && (
                                         <button
-                                            onClick={() => router.push(`/group/itinerary?trip_id=${tripId}`)}
+                                            onClick={() => router.push(`/group/itinerary?tripId=${tripId}`)}
                                             className="w-full mt-3 px-6 py-2.5 bg-white/10 text-white rounded-xl hover:bg-white/20 transition-colors text-sm font-medium"
                                         >
                                             View trip itinerary

@@ -39,6 +39,11 @@ export {
   type PaymentPlanItem,
 } from './TransferStrategy';
 
+export {
+  TransferStrategyCard,
+  type TransferItem,
+} from './TransferStrategyCard';
+
 // Loading states
 export {
   ItineraryLoadingState,

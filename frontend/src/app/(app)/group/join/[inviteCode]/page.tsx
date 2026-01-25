@@ -178,9 +178,20 @@ export default function GroupMemberJoin({ params }: { params: Promise<{ inviteCo
         try {
             setIsJoining(true);
 
+            // 1. Join the trip
             const joinResult = await tripsAPI.join(inviteCode);
             const tripId = joinResult.tripId;
 
+            // 2. Save member preferences (if the backend supports it)
+            // For now, we'll store preferences in trip member data via points
+            // TODO: When backend supports member preferences, save:
+            // - startAirport, endAirport, isRoundTrip, flightClass
+            // - hotelClass, roomOccupancy, bags
+            // - startDate, endDate
+            // - budget, meetupNote
+            // - additionalTravelers
+
+            // 3. Upsert points if user has any
             if (points > 0) {
                 await pointsAPI.upsert({
                     trip_id: tripId,
@@ -189,7 +200,8 @@ export default function GroupMemberJoin({ params }: { params: Promise<{ inviteCo
                 });
             }
 
-            router.push(`/group/dashboard?trip_id=${tripId}`);
+            // Navigate to dashboard with tripId
+            router.push(`/group/dashboard?tripId=${tripId}`);
         } catch (err) {
             console.error('Error joining trip:', err);
             alert('Failed to join trip. Please try again.');

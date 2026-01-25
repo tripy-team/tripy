@@ -30,7 +30,7 @@ interface Assignment {
 export default function GroupPointsStrategy() {
     const router = useRouter();
     const searchParams = useSearchParams();
-    const tripId = searchParams?.get('trip_id') || '';
+    const tripId = searchParams?.get('tripId') || searchParams?.get('trip_id') || '';
     
     const [members, setMembers] = useState<Member[]>([]);
     const [isLoading, setIsLoading] = useState(true);
@@ -174,7 +174,7 @@ export default function GroupPointsStrategy() {
                 {/* Header */}
                 <div className="mb-8">
                     <button
-                        onClick={() => tripId ? router.push(`/group/results?trip_id=${tripId}`) : router.back()}
+                        onClick={() => tripId ? router.push(`/group/results?tripId=${tripId}`) : router.back()}
                         className="flex items-center gap-2 text-neutral-600 hover:text-neutral-900 mb-6 transition-colors"
                     >
                         <ArrowLeft className="w-5 h-5" />
@@ -196,7 +196,7 @@ export default function GroupPointsStrategy() {
                             Complete payment to unlock your transfer plan: which credit card to transfer from, how many points to transfer to each partner, who books what, and step-by-step instructions.
                         </p>
                         <button
-                            onClick={() => router.push(`/group/booking?trip_id=${tripId}`)}
+                            onClick={() => router.push(`/group/booking?tripId=${tripId}`)}
                             className="text-blue-600 font-semibold hover:text-blue-700 inline-flex items-center gap-1"
                         >
                             Complete Payment <ChevronRight className="w-4 h-4" />
@@ -271,7 +271,7 @@ export default function GroupPointsStrategy() {
                                 })}
                                 <div className="pt-2">
                                     <button
-                                        onClick={() => router.push(`/group/transfer-instructions?trip_id=${tripId}`)}
+                                        onClick={() => router.push(`/group/transfer-instructions?tripId=${tripId}`)}
                                         className="text-blue-600 font-medium text-sm hover:text-blue-700 inline-flex items-center gap-1"
                                     >
                                         View step-by-step transfer guide <ChevronRight className="w-4 h-4" />
@@ -294,7 +294,7 @@ export default function GroupPointsStrategy() {
                                     </div>
                                 ))}
                                 <button
-                                    onClick={() => router.push(`/group/results?trip_id=${tripId}`)}
+                                    onClick={() => router.push(`/group/results?tripId=${tripId}`)}
                                     className="text-blue-600 font-medium text-sm hover:text-blue-700"
                                 >
                                     Generate itinerary for exact amounts <ChevronRight className="w-4 h-4 inline" />
@@ -304,7 +304,7 @@ export default function GroupPointsStrategy() {
                             <div className="text-center py-4">
                                 <p className="text-neutral-600 text-sm mb-4">Generate an optimized itinerary from the Results page to see exactly which credit card to transfer from, how many points to transfer, and step-by-step instructions for each member.</p>
                                 <button
-                                    onClick={() => router.push(`/group/results?trip_id=${tripId}`)}
+                                    onClick={() => router.push(`/group/results?tripId=${tripId}`)}
                                     className="text-blue-600 font-medium text-sm hover:text-blue-700 inline-flex items-center gap-1"
                                 >
                                     Go to Results <ChevronRight className="w-4 h-4" />
@@ -544,7 +544,7 @@ export default function GroupPointsStrategy() {
 
                     <div className="flex gap-3">
                         <button
-                            onClick={() => router.push(`/group/transfer-instructions?trip_id=${tripId}`)}
+                            onClick={() => router.push(`/group/transfer-instructions?tripId=${tripId}`)}
                             className="px-6 py-3 bg-blue-600 text-white rounded-xl hover:bg-blue-700 transition-colors"
                         >
                             View Transfer Instructions
