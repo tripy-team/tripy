@@ -7,6 +7,7 @@ from dotenv import load_dotenv
 logger = logging.getLogger(__name__)
 from src.utils.cache_layer import get_json, set_json
 from src.utils.airline_utils import infer_airline_from_flight_number
+from src.config import is_awardtool_dummy_mode
 
 # award_programs: use src.utils.award_programs (src.data.award_programs was removed)
 try:
@@ -273,7 +274,15 @@ async def _awardtool_realtime(
 
 
 async def _awardtool_request(origin, destination, date_str, cabins, pax, programs, client):
-    """Make a single AwardTool API request."""
+    """Make a single AwardTool API request (or return dummy data if enabled)."""
+    
+    # Check if dummy mode is enabled
+    if is_awardtool_dummy_mode():
+        from src.handlers.awardtool_dummy import generate_dummy_flight_data
+        logger.info("[DUMMY MODE] Returning dummy flight data for %s->%s on %s", origin, destination, date_str)
+        return generate_dummy_flight_data(origin, destination, date_str, cabins, programs, int(pax))
+    
+    # Live API request
     payload = {
         "origin": origin,
         "destination": destination,

@@ -51,5 +51,11 @@ AWS_REGION=us-east-1
 # AWARD_TOOL_API_KEY=your_awardtool_api_key
 # AWARDTOOL_API_KEY=your_awardtool_api_key
 
+# AwardTool Dummy Data Mode
+# Set to "true" to use realistic dummy data instead of live AwardTool API
+# Useful when API is unavailable, for testing, or development without API key
+# If no API key is set, dummy mode is automatically enabled
+USE_AWARDTOOL_DUMMY_DATA=false
+
 # Card-benefits extraction, AI features. Use OPENAI_ADMIN_KEY or OPENAI_API_KEY where noted.
 # OPENAI_ADMIN_KEY=your_openai_api_key

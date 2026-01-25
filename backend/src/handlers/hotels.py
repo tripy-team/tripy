@@ -12,6 +12,7 @@ import httpx
 from dotenv import load_dotenv
 
 from src.utils.cache_layer import get_json, set_json
+from src.config import is_awardtool_dummy_mode
 
 load_dotenv()
 
@@ -70,6 +71,12 @@ async def _awardtool_hotel_search(
     hotel_class: Optional[str],
     client: httpx.AsyncClient,
 ) -> Dict[str, Any]:
+    # Check if dummy mode is enabled
+    if is_awardtool_dummy_mode():
+        from src.handlers.awardtool_dummy import generate_dummy_hotel_data
+        logger.info("[DUMMY MODE] Returning dummy hotel data for %s (%s to %s)", destination, check_in, check_out)
+        return generate_dummy_hotel_data(destination, check_in, check_out, programs, guests, hotel_class)
+    
     if not AWARD_TOOL_API_KEY:
         logger.warning("AWARD_TOOL_API_KEY not set; AwardTool hotel request for destination=%s may fail", destination)
 

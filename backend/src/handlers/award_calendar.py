@@ -7,6 +7,8 @@ from dotenv import load_dotenv
 
 load_dotenv()
 
+from src.config import is_awardtool_dummy_mode
+
 # Support AWARD_TOOL_API_KEY (our convention) and AWARDTOOL_API_KEY (AwardTool docs)
 AWARD_TOOL_API_KEY = os.getenv("AWARD_TOOL_API_KEY") or os.getenv("AWARDTOOL_API_KEY")
 AWARD_CAL_URL = "https://www.awardtool-api.com/panorama/panorama_calendar_data"
@@ -33,6 +35,13 @@ async def _client():
 
 
 async def fetch_awardtool_calendar(origin, destination, api_key=None, client=None):
+    # Check if dummy mode is enabled
+    if is_awardtool_dummy_mode():
+        from src.handlers.awardtool_dummy import generate_dummy_calendar_data
+        import logging
+        logging.getLogger(__name__).info("[DUMMY MODE] Returning dummy calendar data for %s->%s", origin, destination)
+        return generate_dummy_calendar_data(origin, destination)
+    
     if api_key is None:
         api_key = AWARD_TOOL_API_KEY
     if not api_key:
