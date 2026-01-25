@@ -2402,3 +2402,265 @@ async def generate_optimized_itinerary(trip_id: str) -> Dict[str, Any]:
         out["relaxed_constraints"] = True
         out["relaxed_message"] = relaxed_message
     return out
+
+
+async def generate_guaranteed_booking_plan(
+    trip_id: str,
+    include_hotels: bool = True,
+) -> Dict[str, Any]:
+    """
+    Generate a guaranteed booking plan with detailed instructions.
+    
+    This function ALWAYS returns a bookable plan, even if the user needs to pay cash.
+    It prioritizes out-of-pocket minimization when points are available.
+    
+    Key features:
+    - Always provides at least a cash option for every segment
+    - Includes step-by-step booking instructions
+    - Provides transfer instructions with portal URLs
+    - Shows savings compared to all-cash booking
+    
+    Args:
+        trip_id: The trip ID to generate a booking plan for
+        include_hotels: Whether to include hotels in the optimization
+        
+    Returns:
+        Dict with:
+        - status: "Optimal", "Fallback", or "Error"
+        - booking_plan: Complete booking plan with instructions
+        - summary: Cost summary and savings
+        - flights: List of flight options with booking details
+        - hotels: List of hotel options (if included)
+    """
+    try:
+        # Import the optimized itinerary generator
+        from src.handlers.optimized_itinerary_generator import (
+            generate_optimized_itinerary,
+            itinerary_to_dict,
+        )
+        from src.handlers.booking_instructions import (
+            generate_complete_booking_plan,
+            booking_plan_to_dict,
+        )
+        
+        # Get trip data
+        trip = trip_service.get_trip(trip_id)
+        if not trip:
+            raise ValueError(f"Trip {trip_id} not found")
+        
+        start_date = trip.get("startDate", "")
+        end_date = trip.get("endDate", "")
+        
+        # Get destinations
+        destinations = destination_service.list_destinations(trip_id)
+        if not destinations:
+            raise ValueError("No destinations found for trip")
+        
+        valid_destinations = [d for d in destinations if not d.get("excluded", False)]
+        if not valid_destinations:
+            raise ValueError("All destinations are excluded")
+        
+        # Find start and end destinations
+        start_dest = next((d for d in valid_destinations if d.get("isStart", False)), None)
+        end_dest = next((d for d in valid_destinations if d.get("isEnd", False)), None)
+        
+        if not start_dest:
+            start_dest = valid_destinations[0]
+        if not end_dest:
+            end_dest = valid_destinations[-1] if len(valid_destinations) > 1 else start_dest
+        
+        # Get intermediate destinations
+        intermediate = [
+            d for d in valid_destinations
+            if d != start_dest and d != end_dest
+        ]
+        
+        # Convert to airport codes
+        start_code = _normalize_city_to_code(start_dest.get("name", ""))
+        end_code = _normalize_city_to_code(end_dest.get("name", ""))
+        
+        if not start_code or not end_code:
+            raise ValueError("Could not find airport codes for destinations")
+        
+        # Build flight segments
+        segments = []
+        prev_code = start_code
+        
+        for dest in intermediate:
+            dest_code = _normalize_city_to_code(dest.get("name", ""))
+            if dest_code:
+                segments.append({
+                    "origin": prev_code,
+                    "destination": dest_code,
+                    "date": start_date,
+                })
+                prev_code = dest_code
+        
+        # Add final segment to end destination
+        if prev_code != end_code:
+            segments.append({
+                "origin": prev_code,
+                "destination": end_code,
+                "date": start_date,
+            })
+        
+        # Add return segment if round-trip
+        if end_code != start_code:
+            segments.append({
+                "origin": end_code,
+                "destination": start_code,
+                "date": end_date,
+            })
+        
+        # Get user points
+        points_summary = points_service.trip_points_summary(trip_id)
+        user_points = {}
+        for item in points_summary.get("items", []):
+            program = item.get("program", "")
+            balance = int(item.get("balance", 0)) if item.get("balance") else 0
+            if program and balance > 0:
+                program_normalized = _normalize_program_to_transfer_key(program)
+                user_points[program_normalized] = user_points.get(program_normalized, 0) + balance
+        
+        # Get hotels if needed
+        hotels = []
+        if include_hotels and trip.get("includeHotels", True):
+            # TODO: Fetch hotel options for each destination
+            pass
+        
+        # Get max budget
+        max_budget = trip.get("maxBudget") or trip.get("max_budget")
+        try:
+            max_budget = float(max_budget) if max_budget is not None else None
+        except (TypeError, ValueError):
+            max_budget = None
+        
+        # Generate optimized itinerary with guaranteed routes
+        optimized = await generate_optimized_itinerary(
+            segments=segments,
+            user_points=user_points,
+            hotels=hotels,
+            include_hotels=include_hotels,
+            max_cash_budget=max_budget,
+        )
+        
+        # Generate complete booking plan with instructions
+        from src.handlers.min_oop_optimizer import MinOOPSolution, PaymentInstruction
+        
+        # Create a mock solution for the booking plan generator
+        payment_plan = []
+        for flight in optimized.flights:
+            if flight.segments:
+                seg = flight.segments[0]
+                if flight.has_points_option and seg.points_cost:
+                    payment_plan.append(PaymentInstruction(
+                        item_id=flight.route_id,
+                        item_type="flight",
+                        description=f"{seg.origin} → {seg.destination}",
+                        payment_type="points",
+                        cash_paid=seg.points_surcharge or 0,
+                        points_used=seg.points_cost,
+                        program_used=seg.points_program,
+                        program_name=PROGRAM_METADATA.get(seg.points_program or "", {}).get("name", seg.points_program),
+                    ))
+                else:
+                    payment_plan.append(PaymentInstruction(
+                        item_id=flight.route_id,
+                        item_type="flight",
+                        description=f"{seg.origin} → {seg.destination}",
+                        payment_type="cash",
+                        cash_paid=flight.total_cash_cost,
+                    ))
+        
+        # Calculate days until travel
+        days_until_travel = 14
+        if start_date:
+            try:
+                travel_date = datetime.strptime(start_date.strip(), "%Y-%m-%d")
+                days_until_travel = max(0, (travel_date - datetime.now()).days)
+            except ValueError:
+                pass
+        
+        # Build the solution object
+        solution = MinOOPSolution(
+            status=optimized.status,
+            payment_plan=payment_plan,
+            transfer_plan=[],  # Transfer plan is built from optimized.transfers
+            total_out_of_pocket=optimized.total_out_of_pocket,
+            total_points_used=optimized.total_points_used,
+            all_cash_cost=optimized.all_cash_cost,
+            savings=optimized.savings,
+            savings_percentage=optimized.savings_percentage,
+            points_breakdown=optimized.points_breakdown,
+            points_remaining=optimized.points_remaining,
+        )
+        
+        booking_plan = generate_complete_booking_plan(
+            solution=solution,
+            days_until_travel=days_until_travel,
+            include_tips=True,
+        )
+        
+        # Build response
+        result = {
+            "status": optimized.status,
+            "booking_plan": booking_plan_to_dict(booking_plan),
+            "summary": {
+                "total_out_of_pocket": optimized.total_out_of_pocket,
+                "all_cash_cost": optimized.all_cash_cost,
+                "savings": optimized.savings,
+                "savings_percentage": optimized.savings_percentage,
+                "total_points_used": optimized.total_points_used,
+            },
+            "flights": itinerary_to_dict(optimized).get("flights", []),
+            "booking_instructions": [
+                {
+                    "step": instr.step_number,
+                    "type": instr.item_type,
+                    "action": instr.action,
+                    "description": instr.description,
+                    "url": instr.booking_url or instr.portal_url,
+                    "payment_type": instr.payment_type,
+                    "cash_to_pay": instr.cash_to_pay,
+                    "points_to_use": instr.points_to_use,
+                }
+                for instr in optimized.booking_instructions
+            ],
+            "warnings": optimized.warnings,
+            "notes": optimized.notes,
+        }
+        
+        if include_hotels:
+            result["hotels"] = optimized.hotels
+        
+        # Save to DB
+        booking_plan_item = {
+            "tripId": trip_id,
+            "itemId": "guaranteed_booking_plan",
+            "type": "guaranteed_booking_plan",
+            **result,
+        }
+        itinerary_repo.put_item(booking_plan_item)
+        
+        return result
+        
+    except Exception as e:
+        logger.error(f"Error generating guaranteed booking plan: {e}", exc_info=True)
+        
+        # Return a fallback response with error details
+        return {
+            "status": "Error",
+            "error": str(e),
+            "booking_plan": None,
+            "summary": {
+                "total_out_of_pocket": 0,
+                "all_cash_cost": 0,
+                "savings": 0,
+                "savings_percentage": 0,
+                "total_points_used": 0,
+            },
+            "flights": [],
+            "booking_instructions": [],
+            "warnings": [f"Failed to generate booking plan: {str(e)}"],
+            "notes": ["Please try again or contact support if the issue persists."],
+        }

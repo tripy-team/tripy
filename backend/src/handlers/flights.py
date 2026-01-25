@@ -235,11 +235,45 @@ async def _awardtool_realtime(
     k = key_award(origin, destination, date_str, cabins, pax, programs)
     cached = get_json(k)
     if cached:
-        logger.debug("AwardTool [%s]->[%s] date=%s: cache hit", origin, destination, date_str)
-        return cached
+        # Only use cache if it has valid data (not an error response)
+        if cached.get("data") and not cached.get("error") and not cached.get("error_message"):
+            logger.debug("AwardTool [%s]->[%s] date=%s: cache hit (data_items=%d)", origin, destination, date_str, len(cached.get("data", [])))
+            return cached
+        else:
+            logger.debug("AwardTool [%s]->[%s] date=%s: cache contains error/empty, refetching", origin, destination, date_str)
 
     n_prog = len(programs) if programs else 0
     logger.info("AwardTool [%s]->[%s] date=%s: requesting (programs=%d, cabins=%s, pax=%s)", origin, destination, date_str, n_prog, cabins, pax)
+    
+    # Try with full program list first
+    body = await _awardtool_request(origin, destination, date_str, cabins, pax, programs, client)
+    
+    # If error or no data, retry with a smaller subset of common programs
+    data = body.get("data", []) if isinstance(body, dict) else []
+    err = body.get("error") or body.get("error_message") or body.get("message") if isinstance(body, dict) else None
+    
+    if (err or not data) and len(programs) > 10:
+        # Retry with most common programs only (these have the best availability)
+        common_programs = ["DL", "AA", "UA", "AS", "BA", "VS", "AF", "NH", "CX", "SQ"]
+        filtered_programs = [p for p in common_programs if p in programs] or common_programs[:5]
+        logger.info("AwardTool [%s]->[%s] date=%s: retrying with reduced programs: %s", origin, destination, date_str, filtered_programs)
+        body = await _awardtool_request(origin, destination, date_str, cabins, pax, filtered_programs, client)
+        data = body.get("data", []) if isinstance(body, dict) else []
+        err = body.get("error") or body.get("error_message") if isinstance(body, dict) else None
+
+    logger.info("AwardTool [%s]->[%s] date=%s: data_items=%d%s", origin, destination, date_str, len(data), f", error={err}" if err else "")
+    
+    # Only cache successful responses with data - don't cache errors!
+    if data and not err:
+        set_json(k, body, TTL_AWARD)
+    elif err:
+        logger.warning("AwardTool [%s]->[%s] date=%s: API error (not caching): %s", origin, destination, date_str, err)
+    
+    return body
+
+
+async def _awardtool_request(origin, destination, date_str, cabins, pax, programs, client):
+    """Make a single AwardTool API request."""
     payload = {
         "origin": origin,
         "destination": destination,
@@ -254,20 +288,14 @@ async def _awardtool_realtime(
             "https://www.awardtool-api.com/search_real_time", json=payload, timeout=TIMEOUT
         )
         r.raise_for_status()
-        body = r.json()
+        return r.json()
     except httpx.HTTPStatusError as e:
         err_body = (e.response.text or "")[:500]
         logger.warning("AwardTool [%s]->[%s] date=%s: HTTP %s, body=%s", origin, destination, date_str, e.response.status_code, err_body)
-        raise
+        return {"error": str(e), "data": []}
     except Exception as e:
         logger.warning("AwardTool [%s]->[%s] date=%s: %s", origin, destination, date_str, e)
-        raise
-
-    data = body.get("data", []) if isinstance(body, dict) else []
-    err = body.get("error") or body.get("message") if isinstance(body, dict) else None
-    logger.info("AwardTool [%s]->[%s] date=%s: data_items=%d%s", origin, destination, date_str, len(data), f", error={err}" if err else "")
-    set_json(k, body, TTL_AWARD)
-    return body
+        return {"error": str(e), "data": []}
 
 
 def _merge_award_edges(rt_json):
@@ -377,10 +405,39 @@ async def get_flights_award_first_with_points_async(
             serp_map = serp_route_to_leg_map(sr)
             logger.info("flights [%s]->[%s] date=%s: award_edges=%d, serp_legs=%d", origin, destination, d, len(award_edges), len(serp_map))
 
+            # Find best award options by O-D (ignoring flight number) for fallback
+            best_award_by_od = {}
+            for key, info in award_edges.items():
+                dep, arr, fn = key
+                od_key = (dep, arr)
+                pts = info.get("award_points")
+                if pts is None:
+                    continue
+                existing = best_award_by_od.get(od_key)
+                if existing is None or pts < existing.get("award_points", float("inf")):
+                    best_award_by_od[od_key] = info
+
+            # Find best cash option by O-D for fallback
+            best_cash_by_od = {}
+            for key, cash_blob in serp_map.items():
+                dep, arr = key[0], key[1]
+                od_key = (dep, arr)
+                cash = cash_blob.get("cash_cost")
+                if cash is None:
+                    continue
+                existing = best_cash_by_od.get(od_key)
+                if existing is None or cash < existing.get("cash_cost", float("inf")):
+                    best_cash_by_od[od_key] = cash_blob
+
             # merge (award-first)
             for key, info in award_edges.items():
                 dep, arr, fn = key
+                od_key = (dep, arr)
+                # First try exact flight number match
                 cash_blob = serp_map.get(key, {})
+                # If no exact match, use best cash option for this O-D pair
+                if not cash_blob.get("cash_cost") and od_key in best_cash_by_od:
+                    cash_blob = best_cash_by_od[od_key]
                 # Prefer AwardTool operating_airline (codeshare); else program or infer from flight number
                 _al = (info.get("operating_airline") or info.get("program_code") or "").strip().upper() or infer_airline_from_flight_number(fn)
                 edges[key] = {
@@ -398,23 +455,29 @@ async def get_flights_award_first_with_points_async(
                     "operating_airline": _al[:2] if _al and len(_al) >= 2 else infer_airline_from_flight_number(fn),
                 }
             # add extra good cash-only legs (serp_map keys not in awards), cap count
+            # Also attach best award option for the same O-D pair
             added = 0
             for key, cash_blob in serp_map.items():
                 if key in edges:
                     continue
                 if added >= 12:
                     break
-                dep, arr, fn = key[0], key[1], key[2] if len(key) >= 3 else ""
+                dep, arr = key[0], key[1]
+                fn = key[2] if len(key) >= 3 else ""
+                od_key = (dep, arr)
+                # Get best award option for this O-D pair (if available)
+                best_award = best_award_by_od.get(od_key, {})
                 edges[key] = {
                     "cash_cost": cash_blob.get("cash_cost"),
                     "time_cost": cash_blob.get("time_cost"),
-                    "points_cost": None,
-                    "points_program": None,
-                    "points_surcharge": None,
-                    "transfer_partners": [],
+                    "points_cost": best_award.get("award_points"),
+                    "points_program": best_award.get("program_code"),
+                    "points_surcharge": best_award.get("surcharge"),
+                    "transfer_partners": best_award.get("transfer_partners") or [],
                     "departure_time": cash_blob.get("departure_time"),
                     "arrival_time": cash_blob.get("arrival_time"),
                     "operating_airline": infer_airline_from_flight_number(fn),
+                    "award_from_different_flight": bool(best_award),  # Flag that award is from different flight
                 }
                 added += 1
 
@@ -463,11 +526,41 @@ async def get_flights_serp_first_with_points_async(
         award_edges = _merge_award_edges(aw)
         logger.info("flights [%s]->[%s] date=%s serp_first: serp_legs=%d, award_edges=%d", origin, destination, date_str, len(serp_map), len(award_edges))
 
+        # Find best award options by O-D (ignoring flight number) for fallback
+        best_award_by_od = {}
+        for key, info in award_edges.items():
+            dep, arr, fn = key
+            od_key = (dep, arr)
+            pts = info.get("award_points")
+            if pts is None:
+                continue
+            existing = best_award_by_od.get(od_key)
+            if existing is None or pts < existing.get("award_points", float("inf")):
+                best_award_by_od[od_key] = info
+
+        # Find best cash option by O-D for fallback
+        best_cash_by_od = {}
+        for key, cash_blob in serp_map.items():
+            dep, arr = key[0], key[1]
+            od_key = (dep, arr)
+            cash = cash_blob.get("cash_cost")
+            if cash is None:
+                continue
+            existing = best_cash_by_od.get(od_key)
+            if existing is None or cash < existing.get("cash_cost", float("inf")):
+                best_cash_by_od[od_key] = cash_blob
+
         edges = {}
         # add SERP legs, annotate with awards if available
         for key, cash_blob in serp_map.items():
-            info = award_edges.get(key)
+            dep, arr = key[0], key[1]
             fn = key[2] if len(key) >= 3 else ""
+            od_key = (dep, arr)
+            # First try exact flight number match for awards
+            info = award_edges.get(key)
+            # If no exact match, use best award option for this O-D pair
+            if not info and od_key in best_award_by_od:
+                info = best_award_by_od[od_key]
             if info:
                 _al = (info.get("operating_airline") or info.get("program_code") or "").strip().upper() or infer_airline_from_flight_number(fn)
                 edges[key] = {
@@ -483,6 +576,7 @@ async def get_flights_serp_first_with_points_async(
                     "arrival_time": info.get("arrival_time")
                     or cash_blob.get("arrival_time"),
                     "operating_airline": _al[:2] if _al and len(_al) >= 2 else infer_airline_from_flight_number(fn),
+                    "award_from_different_flight": key not in award_edges,
                 }
             else:
                 edges[key] = {
@@ -496,24 +590,28 @@ async def get_flights_serp_first_with_points_async(
                     "arrival_time": cash_blob.get("arrival_time"),
                     "operating_airline": infer_airline_from_flight_number(fn),
                 }
-        # add award-only if any remain
+        # add award-only if any remain (with best cash fallback for the O-D pair)
         added = 0
         for key, info in award_edges.items():
             if key in edges and edges[key].get("cash_cost") is not None:
                 continue
             if added >= 12:
                 break
+            dep, arr = key[0], key[1]
             fn = key[2] if len(key) >= 3 else ""
+            od_key = (dep, arr)
+            # Try to get cash cost from best cash option for this O-D
+            cash_blob = best_cash_by_od.get(od_key, {})
             _al = (info.get("operating_airline") or info.get("program_code") or "").strip().upper() or infer_airline_from_flight_number(fn)
             edges[key] = {
-                "cash_cost": None,
-                "time_cost": info.get("travel_minutes"),
+                "cash_cost": cash_blob.get("cash_cost"),
+                "time_cost": info.get("travel_minutes") or cash_blob.get("time_cost"),
                 "points_cost": info.get("award_points"),
                 "points_program": info.get("program_code"),
                 "points_surcharge": info.get("surcharge"),
                 "transfer_partners": info.get("transfer_partners") or [],
-                "departure_time": info.get("departure_time"),
-                "arrival_time": info.get("arrival_time"),
+                "departure_time": info.get("departure_time") or cash_blob.get("departure_time"),
+                "arrival_time": info.get("arrival_time") or cash_blob.get("arrival_time"),
                 "operating_airline": _al[:2] if _al and len(_al) >= 2 else infer_airline_from_flight_number(fn),
             }
             added += 1

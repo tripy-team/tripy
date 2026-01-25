@@ -143,12 +143,17 @@ def minimize_out_of_pocket(
     min_points_usage_pct: float = 0.0,  # 0 = use only if beneficial
     max_cash_budget: Optional[float] = None,
     prefer_points: bool = True,  # When OOP is equal, prefer using points
+    always_include_cash: bool = True,  # Always ensure cash option is available
 ) -> MinOOPSolution:
     """
     Solve ILP to minimize total out-of-pocket cost.
     
     This optimizer prioritizes reducing cash paid over maximizing CPP.
     It will use points even at "low" CPP values if it reduces total cash spent.
+    
+    IMPORTANT: This optimizer ALWAYS provides a valid solution. If points are
+    insufficient or unavailable, it will recommend paying cash for those items.
+    The 'always_include_cash' parameter ensures every item has a cash fallback.
     
     Args:
         items: All bookable items (flights + hotels)
@@ -157,6 +162,7 @@ def minimize_out_of_pocket(
         min_points_usage_pct: Force minimum point utilization (0-1)
         max_cash_budget: Optional hard budget constraint
         prefer_points: When cash vs points yields same OOP, prefer points (default True)
+        always_include_cash: Ensure every item has a cash option (default True)
         
     Returns:
         MinOOPSolution with optimal payment and transfer plan
@@ -176,8 +182,21 @@ def minimize_out_of_pocket(
         if v and v > 0:
             points[k.lower() if k.lower() in transfer_graph else k.upper()] = int(v)
     
-    # Calculate all-cash cost
-    all_cash_cost = sum(item.cash_cost for item in items)
+    # Calculate all-cash cost and ensure all items have valid cash costs
+    all_cash_cost = 0.0
+    for item in items:
+        if item.cash_cost is None or item.cash_cost <= 0:
+            if always_include_cash:
+                # Estimate cash cost from points if available
+                if item.points_options:
+                    # Use a conservative estimate: points_cost * 0.015 (1.5 cpp)
+                    best_points_opt = min(item.points_options, key=lambda x: x.points_required)
+                    item.cash_cost = best_points_opt.points_required * 0.015 + best_points_opt.surcharge
+                else:
+                    # Default fallback - should rarely happen
+                    item.cash_cost = 500.0  # Conservative estimate
+                logger.warning(f"Item {item.item_id} had no cash cost, estimated at ${item.cash_cost:.2f}")
+        all_cash_cost += item.cash_cost
     
     # Identify banks and programs
     banks = [k for k in points.keys() if k.lower() in transfer_graph]
@@ -337,9 +356,10 @@ def minimize_out_of_pocket(
     logger.info(f"MinOOP optimization status: {status}")
     
     if status != "Optimal":
-        # Return fallback solution (all cash)
+        # Return fallback solution (all cash) - still a valid booking plan!
+        logger.warning(f"ILP did not find optimal solution (status={status}), falling back to all-cash")
         return MinOOPSolution(
-            status=status,
+            status="Fallback",  # Mark as fallback rather than error status
             payment_plan=[
                 PaymentInstruction(
                     item_id=item.item_id,
@@ -527,6 +547,74 @@ def _build_transfer_steps(
 # =============================================================================
 # HELPER FUNCTIONS
 # =============================================================================
+
+def estimate_cash_cost_from_points(
+    points_cost: int,
+    surcharge: float = 0.0,
+    item_type: str = "flight",
+    cpp_estimate: float = 0.015,  # 1.5 cents per point default
+) -> float:
+    """
+    Estimate cash cost when only points price is available.
+    
+    This ensures we always have a cash fallback option for users who
+    don't have enough points or prefer to pay cash.
+    
+    Args:
+        points_cost: Number of points required
+        surcharge: Additional cash surcharge/fees
+        item_type: "flight" or "hotel" (affects estimation)
+        cpp_estimate: Estimated cents per point value
+        
+    Returns:
+        Estimated cash cost in dollars
+    """
+    # Different CPP estimates by item type
+    if item_type == "hotel":
+        cpp = 0.006  # Hotel points typically worth less (0.6 cpp)
+    elif item_type == "flight":
+        cpp = cpp_estimate  # 1.5 cpp is conservative for flights
+    else:
+        cpp = 0.01  # 1.0 cpp default
+    
+    estimated_cash = points_cost * cpp + surcharge
+    
+    # Add a buffer for booking fees and variability
+    estimated_cash *= 1.1
+    
+    return round(estimated_cash, 2)
+
+
+def ensure_cash_option(item: "TripCostItem") -> "TripCostItem":
+    """
+    Ensure a TripCostItem has a valid cash cost.
+    
+    If cash_cost is missing or zero, estimate from points options.
+    This guarantees the user always has a bookable option.
+    """
+    if item.cash_cost and item.cash_cost > 0:
+        return item
+    
+    if item.points_options:
+        # Estimate from best points option
+        best_opt = min(item.points_options, key=lambda x: x.points_required)
+        item.cash_cost = estimate_cash_cost_from_points(
+            best_opt.points_required,
+            best_opt.surcharge,
+            item.item_type,
+        )
+    else:
+        # Default fallback
+        if item.item_type == "flight":
+            item.cash_cost = 400.0  # Conservative flight estimate
+        elif item.item_type == "hotel":
+            nights = item.nights or 1
+            item.cash_cost = 150.0 * nights  # $150/night estimate
+        else:
+            item.cash_cost = 200.0  # Generic fallback
+    
+    return item
+
 
 def create_flight_cost_item(
     item_id: str,

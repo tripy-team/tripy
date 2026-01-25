@@ -400,4 +400,271 @@ export function TransferStrategySummary({ solution }: { solution: TransferStrate
   );
 }
 
+// Types for booking instructions
+export interface BookingInstruction {
+  step: number;
+  type: 'transfer' | 'flight' | 'hotel' | 'other';
+  action: string;
+  description: string;
+  url?: string;
+  payment_type?: 'cash' | 'points';
+  cash_to_pay?: number;
+  points_to_use?: number;
+}
+
+export interface GuaranteedBookingPlan {
+  status: string;
+  booking_plan: {
+    status: string;
+    summary: {
+      total_out_of_pocket: number;
+      all_cash_cost: number;
+      savings: number;
+      savings_percentage: number;
+      total_points_used: number;
+    };
+    transfer_steps: any[];
+    booking_steps: any[];
+    all_steps: any[];
+    transfer_wait_days: number;
+    recommended_order: string[];
+    general_notes: string[];
+    important_warnings: string[];
+  };
+  summary: {
+    total_out_of_pocket: number;
+    all_cash_cost: number;
+    savings: number;
+    savings_percentage: number;
+    total_points_used: number;
+  };
+  flights: any[];
+  booking_instructions: BookingInstruction[];
+  warnings: string[];
+  notes: string[];
+}
+
+interface GuaranteedBookingPlanProps {
+  plan: GuaranteedBookingPlan;
+  className?: string;
+}
+
+// Guaranteed booking plan component - always shows a bookable route
+export function GuaranteedBookingPlanView({ plan, className = '' }: GuaranteedBookingPlanProps) {
+  const [expandedSection, setExpandedSection] = useState<string | null>('summary');
+  
+  const formatCurrency = (amount: number) => {
+    return new Intl.NumberFormat('en-US', {
+      style: 'currency',
+      currency: 'USD',
+      minimumFractionDigits: 0,
+      maximumFractionDigits: 2,
+    }).format(amount);
+  };
+  
+  const { summary, booking_instructions, warnings, notes } = plan;
+  const isFallback = plan.status === 'Fallback' || plan.status === 'Error';
+  
+  return (
+    <div className={`space-y-4 ${className}`}>
+      {/* Status Banner for Fallback */}
+      {isFallback && (
+        <div className="bg-amber-50 border border-amber-200 rounded-xl p-4">
+          <div className="flex items-start gap-3">
+            <div className="bg-amber-100 rounded-full p-1">
+              <span className="text-amber-600">⚠️</span>
+            </div>
+            <div>
+              <h3 className="font-medium text-amber-900">Cash Booking Available</h3>
+              <p className="text-sm text-amber-700 mt-1">
+                Points optimization wasn&apos;t available for this route. Showing cash booking options instead.
+              </p>
+            </div>
+          </div>
+        </div>
+      )}
+      
+      {/* Warnings */}
+      {warnings && warnings.length > 0 && (
+        <div className="space-y-2">
+          {warnings.map((warning, idx) => (
+            <div key={idx} className="bg-amber-50 border border-amber-200 rounded-lg p-3 text-sm text-amber-700">
+              ⚠️ {warning}
+            </div>
+          ))}
+        </div>
+      )}
+      
+      {/* Summary Card */}
+      <div className={`rounded-2xl p-6 text-white ${isFallback ? 'bg-gradient-to-br from-slate-600 to-slate-700' : 'bg-gradient-to-br from-purple-600 to-indigo-700'}`}>
+        <div className="flex items-center gap-2 mb-4">
+          <Sparkles className="w-5 h-5" />
+          <h2 className="font-semibold text-lg">
+            {isFallback ? 'Booking Summary' : 'Your Optimized Booking Plan'}
+          </h2>
+        </div>
+        
+        <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
+          <div>
+            <div className="text-white/70 text-sm">You Pay</div>
+            <div className="text-2xl font-bold">{formatCurrency(summary.total_out_of_pocket)}</div>
+          </div>
+          {!isFallback && (
+            <>
+              <div>
+                <div className="text-white/70 text-sm">All Cash Would Be</div>
+                <div className="text-lg font-medium line-through opacity-75">
+                  {formatCurrency(summary.all_cash_cost)}
+                </div>
+              </div>
+              <div>
+                <div className="text-white/70 text-sm flex items-center gap-1">
+                  <TrendingDown className="w-4 h-4" />
+                  You Save
+                </div>
+                <div className="text-2xl font-bold text-green-300">
+                  {formatCurrency(summary.savings)}
+                </div>
+              </div>
+              <div>
+                <div className="text-white/70 text-sm">Points Used</div>
+                <div className="text-lg font-medium">{summary.total_points_used.toLocaleString()}</div>
+              </div>
+            </>
+          )}
+          {isFallback && (
+            <div className="col-span-2 md:col-span-3">
+              <div className="text-white/70 text-sm">Payment Method</div>
+              <div className="text-lg font-medium">💳 Cash / Credit Card</div>
+            </div>
+          )}
+        </div>
+        
+        {!isFallback && summary.savings > 0 && (
+          <div className="mt-4 bg-white/10 rounded-lg px-4 py-2 text-sm">
+            <span className="font-medium">💡 </span>
+            Save {summary.savings_percentage.toFixed(0)}% by using your points strategically
+          </div>
+        )}
+      </div>
+
+      {/* Booking Instructions */}
+      {booking_instructions && booking_instructions.length > 0 && (
+        <CollapsibleSection
+          title="Booking Steps"
+          subtitle={`${booking_instructions.length} step${booking_instructions.length > 1 ? 's' : ''} to complete`}
+          icon={<CreditCard className="w-5 h-5 text-green-600" />}
+          isExpanded={expandedSection === 'instructions'}
+          onToggle={() => setExpandedSection(expandedSection === 'instructions' ? null : 'instructions')}
+        >
+          <div className="space-y-3">
+            {booking_instructions.map((instruction, idx) => (
+              <BookingInstructionCard key={idx} instruction={instruction} />
+            ))}
+          </div>
+        </CollapsibleSection>
+      )}
+      
+      {/* Notes */}
+      {notes && notes.length > 0 && (
+        <div className="bg-blue-50 border border-blue-200 rounded-xl p-4">
+          <h3 className="font-medium text-blue-900 mb-2">💡 Tips</h3>
+          <ul className="space-y-1">
+            {notes.map((note, idx) => (
+              <li key={idx} className="text-sm text-blue-700 flex gap-2">
+                <span className="text-blue-400">•</span>
+                {note}
+              </li>
+            ))}
+          </ul>
+        </div>
+      )}
+    </div>
+  );
+}
+
+// Booking instruction card component
+function BookingInstructionCard({ instruction }: { instruction: BookingInstruction }) {
+  const formatCurrency = (amount: number) => {
+    return new Intl.NumberFormat('en-US', {
+      style: 'currency',
+      currency: 'USD',
+      minimumFractionDigits: 0,
+      maximumFractionDigits: 2,
+    }).format(amount);
+  };
+  
+  const getIcon = () => {
+    switch (instruction.type) {
+      case 'transfer':
+        return <ArrowRightLeft className="w-4 h-4" />;
+      case 'flight':
+        return <Plane className="w-4 h-4" />;
+      case 'hotel':
+        return <Hotel className="w-4 h-4" />;
+      default:
+        return <CreditCard className="w-4 h-4" />;
+    }
+  };
+  
+  const getIconBg = () => {
+    switch (instruction.type) {
+      case 'transfer':
+        return 'bg-purple-100 text-purple-600';
+      case 'flight':
+        return 'bg-blue-100 text-blue-600';
+      case 'hotel':
+        return 'bg-amber-100 text-amber-600';
+      default:
+        return 'bg-slate-100 text-slate-600';
+    }
+  };
+  
+  return (
+    <div className="bg-slate-50 rounded-xl p-4">
+      <div className="flex items-start gap-3">
+        <div className={`w-8 h-8 rounded-full flex items-center justify-center font-medium flex-shrink-0 ${getIconBg()}`}>
+          {instruction.step}
+        </div>
+        <div className="flex-1 min-w-0">
+          <div className="flex items-center gap-2">
+            <div className={`p-1.5 rounded-lg ${getIconBg()}`}>
+              {getIcon()}
+            </div>
+            <div className="font-medium text-slate-900">{instruction.action}</div>
+          </div>
+          <p className="text-sm text-slate-600 mt-1">{instruction.description}</p>
+          
+          {/* Payment info */}
+          {instruction.cash_to_pay !== undefined && instruction.cash_to_pay > 0 && (
+            <div className="mt-2 flex items-center gap-2 text-sm">
+              <span className={`font-medium ${instruction.payment_type === 'points' ? 'text-green-600' : 'text-slate-900'}`}>
+                {formatCurrency(instruction.cash_to_pay)}
+              </span>
+              {instruction.payment_type === 'points' && instruction.points_to_use && (
+                <span className="text-slate-500">
+                  + {instruction.points_to_use.toLocaleString()} points
+                </span>
+              )}
+            </div>
+          )}
+          
+          {/* Booking link */}
+          {instruction.url && (
+            <a
+              href={instruction.url}
+              target="_blank"
+              rel="noopener noreferrer"
+              className="mt-2 inline-flex items-center gap-1 text-sm text-blue-600 hover:text-blue-700 font-medium"
+            >
+              {instruction.type === 'transfer' ? 'Open transfer portal' : 'Book now'}
+              <ExternalLink className="w-3 h-3" />
+            </a>
+          )}
+        </div>
+      </div>
+    </div>
+  );
+}
+
 export default TransferStrategy;
