@@ -1,0 +1,887 @@
+{
+  "FLL->JFK (B61702)": {
+    "cash_cost": 64.0,
+    "time_cost": 171,
+    "points_cost": 3800,
+    "points_program": "B6",
+    "points_surcharge": 5.6,
+    "transfer_partners": [
+      {
+        "points": 4750,
+        "program": "amex"
+      },
+      {
+        "points": 4000,
+        "program": "chase"
+      },
+      {
+        "points": 4000,
+        "program": "citi"
+      }
+    ],
+    "departure_time": "2026-02-07T06:00:00",
+    "arrival_time": "2026-02-07T08:51:00",
+    "operating_airline": "B6"
+  },
+  "FLL->JFK (B61802)": {
+    "cash_cost": 264.0,
+    "time_cost": 170,
+    "points_cost": 20100,
+    "points_program": "B6",
+    "points_surcharge": 5.6,
+    "transfer_partners": [
+      {
+        "points": 25250,
+        "program": "amex"
+      },
+      {
+        "points": 20250,
+        "program": "chase"
+      },
+      {
+        "points": 21000,
+        "program": "citi"
+      }
+    ],
+    "departure_time": "2026-03-08T07:35:00",
+    "arrival_time": "2026-03-08T10:25:00",
+    "operating_airline": "B6"
+  },
+  "FLL->JFK (B61002)": {
+    "cash_cost": 64.0,
+    "time_cost": 174,
+    "points_cost": 3800,
+    "points_program": "B6",
+    "points_surcharge": 5.6,
+    "transfer_partners": [
+      {
+        "points": 4750,
+        "program": "amex"
+      },
+      {
+        "points": 4000,
+        "program": "chase"
+      },
+      {
+        "points": 4000,
+        "program": "citi"
+      }
+    ],
+    "departure_time": "2026-02-07T11:36:00",
+    "arrival_time": "2026-02-07T14:30:00",
+    "operating_airline": "B6"
+  },
+  "FLL->JFK (B6602)": {
+    "cash_cost": 127.0,
+    "time_cost": 174,
+    "points_cost": 8700,
+    "points_program": "B6",
+    "points_surcharge": 5.6,
+    "transfer_partners": [
+      {
+        "points": 11000,
+        "program": "amex"
+      },
+      {
+        "points": 8750,
+        "program": "chase"
+      },
+      {
+        "points": 9000,
+        "program": "citi"
+      }
+    ],
+    "departure_time": "2026-02-07T13:30:00",
+    "arrival_time": "2026-02-07T16:24:00",
+    "operating_airline": "B6"
+  },
+  "FLL->JFK (B62202)": {
+    "cash_cost": 134.0,
+    "time_cost": 176,
+    "points_cost": 9200,
+    "points_program": "B6",
+    "points_surcharge": 5.6,
+    "transfer_partners": [
+      {
+        "points": 11500,
+        "program": "amex"
+      },
+      {
+        "points": 9250,
+        "program": "chase"
+      },
+      {
+        "points": 10000,
+        "program": "citi"
+      }
+    ],
+    "departure_time": "2026-02-07T17:35:00",
+    "arrival_time": "2026-02-07T20:31:00",
+    "operating_airline": "B6"
+  },
+  "FLL->JFK (B62102)": {
+    "cash_cost": null,
+    "time_cost": 170,
+    "points_cost": 3800,
+    "points_program": "B6",
+    "points_surcharge": 5.6,
+    "transfer_partners": [
+      {
+        "points": 4750,
+        "program": "amex"
+      },
+      {
+        "points": 4000,
+        "program": "chase"
+      },
+      {
+        "points": 4000,
+        "program": "citi"
+      }
+    ],
+    "departure_time": "2026-02-07T07:25:00",
+    "arrival_time": "2026-02-07T10:15:00",
+    "operating_airline": "B6"
+  },
+  "FLL->JFK (B61502)": {
+    "cash_cost": null,
+    "time_cost": 176,
+    "points_cost": 34100,
+    "points_program": "B6",
+    "points_surcharge": 5.6,
+    "transfer_partners": [
+      {
+        "points": 42750,
+        "program": "amex"
+      },
+      {
+        "points": 34250,
+        "program": "chase"
+      },
+      {
+        "points": 35000,
+        "program": "citi"
+      }
+    ],
+    "departure_time": "2026-03-08T19:50:00",
+    "arrival_time": "2026-03-08T22:46:00",
+    "operating_airline": "B6"
+  },
+  "FLL->JFK (B61902)": {
+    "cash_cost": 127.0,
+    "time_cost": 174,
+    "points_cost": 8700,
+    "points_program": "B6",
+    "points_surcharge": 5.6,
+    "transfer_partners": [
+      {
+        "points": 11000,
+        "program": "amex"
+      },
+      {
+        "points": 8750,
+        "program": "chase"
+      },
+      {
+        "points": 9000,
+        "program": "citi"
+      }
+    ],
+    "departure_time": "2026-02-07T20:05:00",
+    "arrival_time": "2026-02-07T22:59:00",
+    "operating_airline": "B6"
+  },
+  "FLL->BOS (B6870)": {
+    "cash_cost": null,
+    "time_cost": 192,
+    "points_cost": 28000,
+    "points_program": "B6",
+    "points_surcharge": 5.6,
+    "transfer_partners": [
+      {
+        "points": 35000,
+        "program": "amex"
+      },
+      {
+        "points": 28000,
+        "program": "chase"
+      },
+      {
+        "points": 28000,
+        "program": "citi"
+      }
+    ],
+    "departure_time": "2026-03-08T06:00:00",
+    "arrival_time": "2026-03-08T09:12:00",
+    "operating_airline": "B6"
+  },
+  "BOS->JFK (B6417)": {
+    "cash_cost": null,
+    "time_cost": 80,
+    "points_cost": 28000,
+    "points_program": "B6",
+    "points_surcharge": 5.6,
+    "transfer_partners": [
+      {
+        "points": 35000,
+        "program": "amex"
+      },
+      {
+        "points": 28000,
+        "program": "chase"
+      },
+      {
+        "points": 28000,
+        "program": "citi"
+      }
+    ],
+    "departure_time": "2026-03-08T10:15:00",
+    "arrival_time": "2026-03-08T11:35:00",
+    "operating_airline": "B6"
+  },
+  "BOS->JFK (B6817)": {
+    "cash_cost": null,
+    "time_cost": 79,
+    "points_cost": 28000,
+    "points_program": "B6",
+    "points_surcharge": 5.6,
+    "transfer_partners": [
+      {
+        "points": 35000,
+        "program": "amex"
+      },
+      {
+        "points": 28000,
+        "program": "chase"
+      },
+      {
+        "points": 28000,
+        "program": "citi"
+      }
+    ],
+    "departure_time": "2026-03-08T11:40:00",
+    "arrival_time": "2026-03-08T12:59:00",
+    "operating_airline": "B6"
+  },
+  "FLL->BOS (B6670)": {
+    "cash_cost": null,
+    "time_cost": 194,
+    "points_cost": 28000,
+    "points_program": "B6",
+    "points_surcharge": 5.6,
+    "transfer_partners": [
+      {
+        "points": 35000,
+        "program": "amex"
+      },
+      {
+        "points": 28000,
+        "program": "chase"
+      },
+      {
+        "points": 28000,
+        "program": "citi"
+      }
+    ],
+    "departure_time": "2026-03-08T07:00:00",
+    "arrival_time": "2026-03-08T10:14:00",
+    "operating_airline": "B6"
+  },
+  "BOS->JFK (B6517)": {
+    "cash_cost": null,
+    "time_cost": 78,
+    "points_cost": 28000,
+    "points_program": "B6",
+    "points_surcharge": 11.2,
+    "transfer_partners": [
+      {
+        "points": 35000,
+        "program": "amex"
+      },
+      {
+        "points": 28000,
+        "program": "chase"
+      },
+      {
+        "points": 28000,
+        "program": "citi"
+      }
+    ],
+    "departure_time": "2026-03-08T14:16:00",
+    "arrival_time": "2026-03-08T15:34:00",
+    "operating_airline": "B6"
+  },
+  "FLL->BOS (B61070)": {
+    "cash_cost": null,
+    "time_cost": 197,
+    "points_cost": 28000,
+    "points_program": "B6",
+    "points_surcharge": 5.6,
+    "transfer_partners": [
+      {
+        "points": 35000,
+        "program": "amex"
+      },
+      {
+        "points": 28000,
+        "program": "chase"
+      },
+      {
+        "points": 28000,
+        "program": "citi"
+      }
+    ],
+    "departure_time": "2026-02-07T11:15:00",
+    "arrival_time": "2026-02-07T14:32:00",
+    "operating_airline": "B6"
+  },
+  "BOS->JFK (B6717)": {
+    "cash_cost": null,
+    "time_cost": 79,
+    "points_cost": 28000,
+    "points_program": "B6",
+    "points_surcharge": 5.6,
+    "transfer_partners": [
+      {
+        "points": 35000,
+        "program": "amex"
+      },
+      {
+        "points": 28000,
+        "program": "chase"
+      },
+      {
+        "points": 28000,
+        "program": "citi"
+      }
+    ],
+    "departure_time": "2026-02-07T16:10:00",
+    "arrival_time": "2026-02-07T17:29:00",
+    "operating_airline": "B6"
+  },
+  "FLL->BOS (B62170)": {
+    "cash_cost": null,
+    "time_cost": 199,
+    "points_cost": 54200,
+    "points_program": "B6",
+    "points_surcharge": 5.6,
+    "transfer_partners": [
+      {
+        "points": 67750,
+        "program": "amex"
+      },
+      {
+        "points": 54250,
+        "program": "chase"
+      },
+      {
+        "points": 55000,
+        "program": "citi"
+      }
+    ],
+    "departure_time": "2026-03-08T13:45:00",
+    "arrival_time": "2026-03-08T17:04:00",
+    "operating_airline": "B6"
+  },
+  "FLL->BUF (B62466)": {
+    "cash_cost": null,
+    "time_cost": 182,
+    "points_cost": 28000,
+    "points_program": "B6",
+    "points_surcharge": 11.2,
+    "transfer_partners": [
+      {
+        "points": 35000,
+        "program": "amex"
+      },
+      {
+        "points": 28000,
+        "program": "chase"
+      },
+      {
+        "points": 28000,
+        "program": "citi"
+      }
+    ],
+    "departure_time": "2026-02-07T12:40:00",
+    "arrival_time": "2026-02-07T15:42:00",
+    "operating_airline": "B6"
+  },
+  "BUF->JFK (B6501)": {
+    "cash_cost": null,
+    "time_cost": 93,
+    "points_cost": 28000,
+    "points_program": "B6",
+    "points_surcharge": 11.2,
+    "transfer_partners": [
+      {
+        "points": 35000,
+        "program": "amex"
+      },
+      {
+        "points": 28000,
+        "program": "chase"
+      },
+      {
+        "points": 28000,
+        "program": "citi"
+      }
+    ],
+    "departure_time": "2026-02-07T19:45:00",
+    "arrival_time": "2026-02-07T21:18:00",
+    "operating_airline": "B6"
+  },
+  "FLL->DCA (B62080)": {
+    "cash_cost": null,
+    "time_cost": 151,
+    "points_cost": 6000,
+    "points_program": "B6",
+    "points_surcharge": 11.2,
+    "transfer_partners": [
+      {
+        "points": 7500,
+        "program": "amex"
+      },
+      {
+        "points": 6000,
+        "program": "chase"
+      },
+      {
+        "points": 6000,
+        "program": "citi"
+      }
+    ],
+    "departure_time": "2026-02-07T20:00:00",
+    "arrival_time": "2026-02-07T22:31:00",
+    "operating_airline": "B6"
+  },
+  "DCA->JFK (B61888)": {
+    "cash_cost": null,
+    "time_cost": 74,
+    "points_cost": 6000,
+    "points_program": "B6",
+    "points_surcharge": 11.2,
+    "transfer_partners": [
+      {
+        "points": 7500,
+        "program": "amex"
+      },
+      {
+        "points": 6000,
+        "program": "chase"
+      },
+      {
+        "points": 6000,
+        "program": "citi"
+      }
+    ],
+    "departure_time": "2026-02-08T06:00:00",
+    "arrival_time": "2026-02-08T07:14:00",
+    "operating_airline": "B6"
+  },
+  "FLL->BOS (B6470)": {
+    "cash_cost": null,
+    "time_cost": 198,
+    "points_cost": 14900,
+    "points_program": "B6",
+    "points_surcharge": 11.2,
+    "transfer_partners": [
+      {
+        "points": 18750,
+        "program": "amex"
+      },
+      {
+        "points": 15000,
+        "program": "chase"
+      },
+      {
+        "points": 15000,
+        "program": "citi"
+      }
+    ],
+    "departure_time": "2026-02-07T20:30:00",
+    "arrival_time": "2026-02-07T23:48:00",
+    "operating_airline": "B6"
+  },
+  "BOS->JFK (B6117)": {
+    "cash_cost": null,
+    "time_cost": 78,
+    "points_cost": 17600,
+    "points_program": "B6",
+    "points_surcharge": 11.2,
+    "transfer_partners": [
+      {
+        "points": 22000,
+        "program": "amex"
+      },
+      {
+        "points": 17750,
+        "program": "chase"
+      },
+      {
+        "points": 18000,
+        "program": "citi"
+      }
+    ],
+    "departure_time": "2026-02-08T05:10:00",
+    "arrival_time": "2026-02-08T06:28:00",
+    "operating_airline": "B6"
+  },
+  "FLL->RDU (B62626)": {
+    "cash_cost": null,
+    "time_cost": 130,
+    "points_cost": 36900,
+    "points_program": "B6",
+    "points_surcharge": 11.2,
+    "transfer_partners": [
+      {
+        "points": 46250,
+        "program": "amex"
+      },
+      {
+        "points": 37000,
+        "program": "chase"
+      },
+      {
+        "points": 37000,
+        "program": "citi"
+      }
+    ],
+    "departure_time": "2026-03-08T20:10:00",
+    "arrival_time": "2026-03-08T22:20:00",
+    "operating_airline": "B6"
+  },
+  "RDU->JFK (B6386)": {
+    "cash_cost": null,
+    "time_cost": 101,
+    "points_cost": 36900,
+    "points_program": "B6",
+    "points_surcharge": 11.2,
+    "transfer_partners": [
+      {
+        "points": 46250,
+        "program": "amex"
+      },
+      {
+        "points": 37000,
+        "program": "chase"
+      },
+      {
+        "points": 37000,
+        "program": "citi"
+      }
+    ],
+    "departure_time": "2026-03-09T06:15:00",
+    "arrival_time": "2026-03-09T07:56:00",
+    "operating_airline": "B6"
+  },
+  "FLL->BUF (B6866)": {
+    "cash_cost": null,
+    "time_cost": 183,
+    "points_cost": 28000,
+    "points_program": "B6",
+    "points_surcharge": 11.2,
+    "transfer_partners": [
+      {
+        "points": 35000,
+        "program": "amex"
+      },
+      {
+        "points": 28000,
+        "program": "chase"
+      },
+      {
+        "points": 28000,
+        "program": "citi"
+      }
+    ],
+    "departure_time": "2026-03-08T20:35:00",
+    "arrival_time": "2026-03-08T23:38:00",
+    "operating_airline": "B6"
+  },
+  "BUF->JFK (B62001)": {
+    "cash_cost": null,
+    "time_cost": 91,
+    "points_cost": 28000,
+    "points_program": "B6",
+    "points_surcharge": 11.2,
+    "transfer_partners": [
+      {
+        "points": 35000,
+        "program": "amex"
+      },
+      {
+        "points": 28000,
+        "program": "chase"
+      },
+      {
+        "points": 28000,
+        "program": "citi"
+      }
+    ],
+    "departure_time": "2026-03-09T06:00:00",
+    "arrival_time": "2026-03-09T07:31:00",
+    "operating_airline": "B6"
+  },
+  "FLL->JFK (DL2165)": {
+    "cash_cost": 229.0,
+    "time_cost": 167,
+    "points_cost": null,
+    "points_program": null,
+    "points_surcharge": null,
+    "transfer_partners": [],
+    "departure_time": "2026-03-08 07:13",
+    "arrival_time": "2026-03-08 10:00",
+    "operating_airline": "DL"
+  },
+  "FLL->JFK (DL1419)": {
+    "cash_cost": 299.0,
+    "time_cost": 175,
+    "points_cost": null,
+    "points_program": null,
+    "points_surcharge": null,
+    "transfer_partners": [],
+    "departure_time": "2026-03-08 19:59",
+    "arrival_time": "2026-03-08 22:54",
+    "operating_airline": "DL"
+  },
+  "FLL->ATL (F93013)": {
+    "cash_cost": 204.0,
+    "time_cost": 135,
+    "points_cost": null,
+    "points_program": null,
+    "points_surcharge": null,
+    "transfer_partners": [],
+    "departure_time": "2026-03-08 22:30",
+    "arrival_time": "2026-03-09 00:45",
+    "operating_airline": "F9"
+  },
+  "ATL->JFK (F94732)": {
+    "cash_cost": 204.0,
+    "time_cost": 143,
+    "points_cost": null,
+    "points_program": null,
+    "points_surcharge": null,
+    "transfer_partners": [],
+    "departure_time": "2026-03-09 06:40",
+    "arrival_time": "2026-03-09 09:03",
+    "operating_airline": "F9"
+  },
+  "FLL->CLT (AA1982)": {
+    "cash_cost": 213.0,
+    "time_cost": 137,
+    "points_cost": null,
+    "points_program": null,
+    "points_surcharge": null,
+    "transfer_partners": [],
+    "departure_time": "2026-03-08 05:38",
+    "arrival_time": "2026-03-08 07:55",
+    "operating_airline": "AA"
+  },
+  "CLT->BOS (AA2776)": {
+    "cash_cost": 213.0,
+    "time_cost": 136,
+    "points_cost": null,
+    "points_program": null,
+    "points_surcharge": null,
+    "transfer_partners": [],
+    "departure_time": "2026-03-08 09:20",
+    "arrival_time": "2026-03-08 11:36",
+    "operating_airline": "AA"
+  },
+  "BOS->JFK (AA4388)": {
+    "cash_cost": 213.0,
+    "time_cost": 84,
+    "points_cost": null,
+    "points_program": null,
+    "points_surcharge": null,
+    "transfer_partners": [],
+    "departure_time": "2026-03-08 15:49",
+    "arrival_time": "2026-03-08 17:13",
+    "operating_airline": "AA"
+  },
+  "FLL->CLT (AA1869)": {
+    "cash_cost": 289.0,
+    "time_cost": 135,
+    "points_cost": null,
+    "points_program": null,
+    "points_surcharge": null,
+    "transfer_partners": [],
+    "departure_time": "2026-03-08 08:30",
+    "arrival_time": "2026-03-08 10:45",
+    "operating_airline": "AA"
+  },
+  "CLT->JFK (AA2624)": {
+    "cash_cost": 289.0,
+    "time_cost": 113,
+    "points_cost": null,
+    "points_program": null,
+    "points_surcharge": null,
+    "transfer_partners": [],
+    "departure_time": "2026-03-08 11:31",
+    "arrival_time": "2026-03-08 13:24",
+    "operating_airline": "AA"
+  },
+  "FLL->JFK (DL1327)": {
+    "cash_cost": 299.0,
+    "time_cost": 174,
+    "points_cost": null,
+    "points_program": null,
+    "points_surcharge": null,
+    "transfer_partners": [],
+    "departure_time": "2026-03-08 09:05",
+    "arrival_time": "2026-03-08 11:59",
+    "operating_airline": "DL"
+  },
+  "FLL->JFK (DL1422)": {
+    "cash_cost": 419.0,
+    "time_cost": 179,
+    "points_cost": null,
+    "points_program": null,
+    "points_surcharge": null,
+    "transfer_partners": [],
+    "departure_time": "2026-03-08 11:19",
+    "arrival_time": "2026-03-08 14:18",
+    "operating_airline": "DL"
+  },
+  "FLL->JFK (DL305)": {
+    "cash_cost": 419.0,
+    "time_cost": 188,
+    "points_cost": null,
+    "points_program": null,
+    "points_surcharge": null,
+    "transfer_partners": [],
+    "departure_time": "2026-03-08 15:30",
+    "arrival_time": "2026-03-08 18:38",
+    "operating_airline": "DL"
+  },
+  "FLL->BOS (B6170)": {
+    "cash_cost": null,
+    "time_cost": 199,
+    "points_cost": 27600,
+    "points_program": "B6",
+    "points_surcharge": 5.6,
+    "transfer_partners": [
+      {
+        "points": 34500,
+        "program": "amex"
+      },
+      {
+        "points": 27750,
+        "program": "chase"
+      },
+      {
+        "points": 28000,
+        "program": "citi"
+      }
+    ],
+    "departure_time": "2026-02-07T14:25:00",
+    "arrival_time": "2026-02-07T17:44:00",
+    "operating_airline": "B6"
+  },
+  "BOS->JFK (B61017)": {
+    "cash_cost": null,
+    "time_cost": 82,
+    "points_cost": 27600,
+    "points_program": "B6",
+    "points_surcharge": 5.6,
+    "transfer_partners": [
+      {
+        "points": 34500,
+        "program": "amex"
+      },
+      {
+        "points": 27750,
+        "program": "chase"
+      },
+      {
+        "points": 28000,
+        "program": "citi"
+      }
+    ],
+    "departure_time": "2026-02-07T20:08:00",
+    "arrival_time": "2026-02-07T21:30:00",
+    "operating_airline": "B6"
+  },
+  "FLL->BOS (B62370)": {
+    "cash_cost": null,
+    "time_cost": 199,
+    "points_cost": 27600,
+    "points_program": "B6",
+    "points_surcharge": 5.6,
+    "transfer_partners": [
+      {
+        "points": 34500,
+        "program": "amex"
+      },
+      {
+        "points": 27750,
+        "program": "chase"
+      },
+      {
+        "points": 28000,
+        "program": "citi"
+      }
+    ],
+    "departure_time": "2026-02-07T16:00:00",
+    "arrival_time": "2026-02-07T19:19:00",
+    "operating_airline": "B6"
+  },
+  "BOS->JFK (B6217)": {
+    "cash_cost": null,
+    "time_cost": 82,
+    "points_cost": 14900,
+    "points_program": "B6",
+    "points_surcharge": 11.2,
+    "transfer_partners": [
+      {
+        "points": 18750,
+        "program": "amex"
+      },
+      {
+        "points": 15000,
+        "program": "chase"
+      },
+      {
+        "points": 15000,
+        "program": "citi"
+      }
+    ],
+    "departure_time": "2026-02-08T07:08:00",
+    "arrival_time": "2026-02-08T08:30:00",
+    "operating_airline": "B6"
+  },
+  "FLL->CLT (AA2947)": {
+    "cash_cost": 85.0,
+    "time_cost": 126,
+    "points_cost": null,
+    "points_program": null,
+    "points_surcharge": null,
+    "transfer_partners": [],
+    "departure_time": "2026-02-07 09:19",
+    "arrival_time": "2026-02-07 11:25",
+    "operating_airline": "AA"
+  },
+  "CLT->BOS (AA2068)": {
+    "cash_cost": 85.0,
+    "time_cost": 131,
+    "points_cost": null,
+    "points_program": null,
+    "points_surcharge": null,
+    "transfer_partners": [],
+    "departure_time": "2026-02-07 13:45",
+    "arrival_time": "2026-02-07 15:56",
+    "operating_airline": "AA"
+  },
+  "BOS->JFK (AA4503)": {
+    "cash_cost": 85.0,
+    "time_cost": 85,
+    "points_cost": null,
+    "points_program": null,
+    "points_surcharge": null,
+    "transfer_partners": [],
+    "departure_time": "2026-02-07 19:34",
+    "arrival_time": "2026-02-07 20:59",
+    "operating_airline": "AA"
+  }
+}
