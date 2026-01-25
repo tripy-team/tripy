@@ -434,25 +434,49 @@ def suggest_routes_for_remote_or_small_cities(
 
     system_prompt = """You are a travel expert helping users reach small cities, towns, or remote destinations where direct flight search may not return results.
 
-Your task: suggest 2–4 practical route options to get from origin to destination. For small/regional airports, recommend:
-- Driving or ground transport to a nearby major hub, then flying
-- Connecting through well-served airports (e.g., for a small US city: nearby regional → hub like JFK/ORD/ATL → international)
-- Alternative nearby airports that might have better service
-- If the destination is very remote: fly to nearest city, then bus/train/ferry/car
+CRITICAL GEOGRAPHIC RULES:
+- NEVER suggest driving across oceans, seas, or between continents (e.g., can't drive from North America to Asia, Europe to Africa across Mediterranean, etc.)
+- NEVER suggest driving internationally unless there's a land border connection (e.g., US-Canada, US-Mexico, EU Schengen area)
+- For island nations (Japan, UK, Iceland, New Zealand, etc.), ONLY suggest: fly to major airport → domestic flight/ferry/train
+- For intercontinental travel, ALWAYS suggest: fly to major international hub in destination country → connect onward
+- Only suggest driving if: same country/region, reasonable distance (<300 miles for small cities), and practical roads exist
+
+Your task: suggest 2–4 practical, GEOGRAPHICALLY FEASIBLE route options to get from origin to destination.
+
+For small/regional airports within the SAME COUNTRY/REGION:
+- Drive/bus/train to nearby major airport hub (if <200 miles), then fly
+- Connect through major domestic hubs (e.g., US: ATL/ORD/JFK/DFW; Europe: LHR/CDG/FRA; Asia: HND/ICN/SIN)
+- Alternative nearby airports with better service
+
+For INTERNATIONAL travel to remote destinations:
+- Fly to major international airport in destination country → domestic connection
+- Fly to nearest international hub → ferry/train/bus to final destination
+- Multi-city routing through major hubs (e.g., NYC → Tokyo → regional Japan airport)
 
 For each suggestion provide:
-- title: short, descriptive (e.g. "Via Syracuse and JFK", "Drive to Albany then fly")
-- steps: array of legs, each with from_place, to_place, method (e.g. "drive", "fly", "bus", "train"), and an optional note
-- summary: 1–2 sentence explanation of why this works and what to expect
+- title: short, specific with city/airport names (e.g., "Fly to Tokyo (HND) then train to Takayama", "Via Charlotte (CLT) hub")
+- steps: array of legs with from_place (specific city/airport), to_place (specific city/airport), method ("fly", "train", "bus", "ferry", "drive"), and note with estimated time/distance
+- summary: specific explanation with actual airports, distances, and logistics (e.g., "Fly from JFK to Haneda Airport (HND), then take JR train from Tokyo (3 hours) to Takayama. This avoids multiple connections and uses Japan's efficient rail system.")
 
-Use real airport codes (IATA) and city names when you know them. Be specific and actionable."""
+Use real IATA airport codes, real city names, and actual transportation infrastructure. Be specific, realistic, and geographically accurate."""
 
     user_prompt = f"""A traveler wants to go from **{origin}** to **{destination}**.
 - Other cities they want to visit (in order): {cities_str}
 - Travel dates: {dates_str}
 - Our flight search could not find bookable options for these route(s): {failed_str}
 
-Suggest 2–4 practical route options. Return a JSON object with a key "suggestions" containing an array of objects, each with: "title", "steps" (array of {{ "from_place", "to_place", "method", "note" }}), and "summary"."""
+IMPORTANT: Consider the geography:
+- If origin and destination are on different continents or separated by ocean: suggest flying to major international airport, then onward connection
+- If destination is an island nation: suggest flying to main airport, then ferry/train/domestic flight
+- If both are in same country and <300 miles apart: driving/bus may be reasonable
+- Otherwise: suggest realistic flight connections through major hubs
+
+Suggest 2–4 GEOGRAPHICALLY REALISTIC route options with specific airports, cities, and transportation methods.
+
+Return a JSON object with a key "suggestions" containing an array of objects, each with:
+- "title": specific route with airport codes/cities (e.g., "NYC (JFK) → Tokyo (HND) → Train to Takayama")
+- "steps": array of {{ "from_place": "specific city/airport", "to_place": "specific city/airport", "method": "fly/train/bus/ferry/drive", "note": "details like '3hr train' or '45min flight'" }}
+- "summary": detailed explanation with real airports, estimated times, why this route works (e.g., "Fly from JFK to Tokyo Haneda (13hrs), then take JR Hida Limited Express train from Tokyo Station to Takayama (4.5hrs). This uses Japan's efficient rail network and avoids multiple flight connections.")"""
 
     try:
         response = client.chat.completions.create(
@@ -532,21 +556,33 @@ def get_itinerary_smart_tips(
     dates_str = f"{start_date or '?'} to {end_date or '?'}" if (start_date or end_date) else "not specified"
     programs_str = ", ".join(points_programs) if points_programs else "not specified (give general Chase Ultimate Rewards, Amex MR, Citi TYP, Capital One, etc.)"
 
-    system_prompt = """You are an expert travel and points advisor. For a user's trip, provide:
+    system_prompt = """You are an expert travel and points advisor. For a user's trip, provide SPECIFIC, ACTIONABLE advice (not vague suggestions).
 
-1. transfer_tips: Where to transfer which points for best value. Each: from_program (e.g. Chase, Amex MR, Citi TYP), to_program (e.g. United, Delta, Flying Blue), best_for (this route / this region / flexible), note (e.g. "transfer 1:1, often has promos"). If user's programs are unknown, suggest 2-3 common strategies.
+1. transfer_tips: Where to transfer which points for best value. Each: 
+   - from_program (specific: "Chase Ultimate Rewards", "Amex Membership Rewards", "Citi ThankYou Points", "Capital One Miles", "Bilt Points")
+   - to_program (specific airline/hotel: "United MileagePlus", "Delta SkyMiles", "Air France/KLM Flying Blue", "Virgin Atlantic", "Hyatt World of Hyatt")
+   - best_for (specific route/region: "US to Europe", "NYC to Tokyo", "Domestic US", "Asia-Pacific")
+   - note (specific transfer ratio and timing: "1:1 instant transfer", "1:1 transfer in 24-48hrs", "frequent 30% bonus promos", "sweet spot: 70k RT business class to Europe")
+   If user's programs unknown, suggest 2-3 most common/valuable strategies for their specific route.
 
-2. sample_itineraries: 2-4 example strategies to SAVE MONEY. Each: title, description (concrete, e.g. "Fly out Tuesday return Thursday to avoid weekend premiums"), savings_estimate (e.g. "often 15-30% less") if possible, when_to_book or when_to_travel (e.g. "Book 6-8 weeks out for domestic", "Avoid Dec 22-30"). Include day-of-week, advance-booking, and routing tricks.
+2. sample_itineraries: 2-4 SPECIFIC money-saving strategies with CONCRETE examples. Each:
+   - title: specific strategy name (e.g., "Midweek Departure Strategy", "Hidden City Routing", "Positioning Flight Savings")
+   - description: CONCRETE example with real numbers (e.g., "Fly out Tuesday morning (6am-9am) return Wednesday evening instead of Friday-Sunday. Example: NYC-Paris drops from $850 to $520 on Tuesdays in May.")
+   - savings_estimate: specific percentage or dollar amount (e.g., "Save $200-400 per ticket", "30-50% less than weekend travel")
+   - when_to_book: specific booking windows (e.g., "Book 8-12 weeks out for Europe summer", "Tuesday 3pm ET for domestic fare drops", "21 days before departure for international")
 
-3. holiday_advice: If their dates overlap expensive/blackout periods (Christmas, New Year, Thanksgiving, Spring Break, Easter, Labor Day, etc.), warn them. Each: period, advice, avoid_or_prefer ("avoid" / "prefer" / "book_early"). Also when to book for holiday travel.
+3. holiday_advice: If dates overlap expensive periods (Christmas: Dec 20-Jan 2, New Year: Dec 28-Jan 3, Thanksgiving: Wed-Sun around 4th Thu Nov, Spring Break: Mar 8-22, Easter week, Labor Day weekend, July 4 week), warn with specifics:
+   - period: exact dates (e.g., "December 20-27, 2026")
+   - advice: specific impact (e.g., "Expect 200-300% price increases; award seats often 2x points; book 4-6 months ahead")
+   - avoid_or_prefer: "avoid_these_dates" / "book_early_required" / "consider_shoulder_dates" with specific alternatives
 
-4. practical_tips: 3-6 practical items. Include:
-   - transfer_timing: Points transfer processing (e.g. Amex MR to Delta often 1-3 days; Chase to United can be instant; Capital One 1-2 days). Cutoff times for same-day (e.g. "many banks 5pm ET for same-day").
-   - attraction_hours: Remind to check closing days for museums/attractions in their destinations (e.g. "Louvre closed Tuesdays; many European museums closed Mondays"). Suggest checking official sites.
-   - banking: If transferring from a bank, typical cutoff times; anything that affects booking (e.g. "Amex same-day to Delta only if requested before 11pm ET").
-   - Any other relevant: lounge hours, visa/ESTA timing, etc.
+4. practical_tips: 3-6 SPECIFIC practical items with real details:
+   - transfer_timing: SPECIFIC transfer speeds (e.g., "Chase UR to United: instant (appears in 5-10 minutes)", "Amex MR to Delta: 24-72 hours average", "Capital One to Air France: 1-3 business days", "Citi TYP to Turkish: 48 hours", "Bilt to Hyatt: instant")
+   - attraction_hours: SPECIFIC closing days for major attractions in their destination (e.g., "Paris: Louvre closed Tuesdays, Versailles closed Mondays", "Tokyo: teamLab Borderless closed 2nd/4th Tuesday", "NYC: MoMA closed Tuesdays")
+   - banking: SPECIFIC cutoff times (e.g., "Chase: 5pm ET for same-day transfer to United", "Amex: 11pm ET same-day to Delta/Hilton", "Citi: 9pm ET for international partners")
+   - Other relevant: visa timing (e.g., "ESTA approval typically instant but apply 72hrs before", "Japan eVisa: 3-5 business days"), lounge hours, currency exchange, SIM cards
 
-Return ONLY valid JSON with keys: transfer_tips, sample_itineraries, holiday_advice, practical_tips. Each value is an array of objects with the fields above."""
+Return ONLY valid JSON with keys: transfer_tips, sample_itineraries, holiday_advice, practical_tips. Each value is an array of objects with the specific fields above. BE SPECIFIC, not vague."""
 
     user_prompt = f"""Trip: **{origin}** → **{destination}**
 - Other cities (in order): {cities_str}

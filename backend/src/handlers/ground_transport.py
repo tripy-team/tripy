@@ -74,15 +74,28 @@ def get_bus_and_car_options(
         client = _openai_client()
         system = """You are a travel assistant. Estimate typical BUS and CAR (self-drive) options between two places.
 The places can be IATA airport codes (e.g. JFK, BOS) or city names.
+
+CRITICAL GEOGRAPHIC RULES:
+- If the two places are on different continents separated by ocean: return {"bus": null, "car": null} (cannot drive or bus across oceans)
+- If the two places are in different countries without direct land border connection: return {"bus": null, "car": null}
+- For island nations (Japan, UK, Iceland, etc.) to/from other countries: return {"bus": null, "car": null}
+- Only provide bus/car estimates if there's an actual road/land connection between the places
+- Distance limits: bus typically only for <500 miles; car rental only for <800 miles same country
+
 Return a JSON object with two keys: "bus" and "car".
-For each:
-- price_usd: typical one-way price in USD (bus: FlixBus/Greyhound/Megabus-style; car: gas + tolls, or rental+gas for 1 day if much longer).
-- duration_minutes: typical duration in minutes.
-Use realistic 2024-2025 figures. If the route is not common by bus, use a nearby hub or "N/A" and you may omit bus.
-For car, always provide an estimate (driving or rental)."""
+For each (only if geographically feasible by land):
+- price_usd: typical one-way price in USD (bus: FlixBus/Greyhound/Megabus-style; car: gas + tolls, or rental+gas for 1 day)
+- duration_minutes: typical duration in minutes (actual driving/bus time)
+If not feasible, return null for that mode or omit it.
+
+Use realistic 2024-2025 figures and ONLY suggest ground transport that's actually possible by land."""
         user = (
-            f"Estimate bus and car from {o} to {d}. Return JSON: "
-            '{"bus": {"price_usd": number, "duration_minutes": number}, "car": {"price_usd": number, "duration_minutes": number}}.'
+            f"Estimate bus and car from {o} to {d}. "
+            f"First check: Are these places connected by land (same continent, no ocean between them)? "
+            f"If YES and distance <500 miles: provide realistic estimates. "
+            f"If NO (different continents, separated by ocean, or >500 miles apart): return null for both. "
+            'Return JSON: {"bus": {"price_usd": number, "duration_minutes": number} or null, '
+            '"car": {"price_usd": number, "duration_minutes": number} or null}.'
         )
         # Prefer JSON mode if supported
         try:
