@@ -42,7 +42,7 @@ function transformKeys<T>(obj: unknown): T {
 // When true: API calls skip auth, layout skips auth check, mock profile is returned
 // When false: Normal authentication required, real API calls made
 // ============================================================================
-export const SKIP_API_AUTH = true;
+export const SKIP_API_AUTH = false;
 
 // Log backend URL in development for debugging
 if (typeof window !== 'undefined' && process.env.NODE_ENV === 'development') {
