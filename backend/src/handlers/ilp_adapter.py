@@ -1,5 +1,8 @@
 # backend/ilp_adapter.py  (edges -> ILP inputs; user-selected meetup cities)
+import logging
 from src.utils.card_benefits import build_edge_to_airline
+
+logger = logging.getLogger(__name__)
 
 
 def _is_bank_key(k, transfer_graph):
@@ -74,15 +77,22 @@ def build_ilp_inputs_from_edges(
 
     time_cost = {}
     cash_cost = {}
+    excluded_edges = []
     for e, d in edges_dict.items():
         tval = d.get("time_cost")
         cval = d.get("cash_cost")
-        time_cost[e] = (
-            float(tval) if tval is not None else float(default_time_if_missing)
-        )
-        cash_cost[e] = (
-            float(cval) if cval is not None else float(default_cash_if_missing)
-        )
+        # Exclude edges missing critical pricing data instead of using fake infinities
+        if cval is None and d.get("points_cost") is None:
+            excluded_edges.append(e)
+            continue
+        time_cost[e] = float(tval) if tval is not None else 480.0  # Default 8 hours
+        cash_cost[e] = float(cval) if cval is not None else 1e7  # Only for cash-less award edges
+
+    if excluded_edges:
+        logger.warning(f"Excluded {len(excluded_edges)} edges missing pricing data")
+
+    # Filter edges to exclude those missing pricing data
+    edges = [e for e in edges_dict.keys() if e not in excluded_edges]
 
     award_points = {a: {} for a in airlines}
     cash_surcharge = {a: {} for a in airlines}

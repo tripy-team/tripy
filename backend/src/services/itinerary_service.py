@@ -1184,30 +1184,6 @@ async def generate_optimized_itinerary(trip_id: str) -> Dict[str, Any]:
     
     logger.info(f"Found {len(travelers)} active travelers: {travelers}")
 
-    # Start OOP and hotels optimization as background tasks (run in parallel with flight fetch)
-    # Out-of-pocket optimizer for simple A->B round-trips (SerpAPI cash + AwardTool points/surcharge)
-    oop_task = None
-    if (
-        start_dest_code
-        and end_dest_code
-        and start_dest_code != end_dest_code
-        and not city_codes
-        and start_date
-        and end_date
-        and travelers
-    ):
-        from src.services.serp_api_functions import optimize_itinerary_out_of_pocket
-        oop_task = asyncio.create_task(asyncio.to_thread(
-            optimize_itinerary_out_of_pocket,
-            origin=start_dest_code,
-            destination=end_dest_code,
-            outbound_date=start_date.strip(),
-            return_date=end_date.strip(),
-            programs=get_award_programs_for_api(),
-            cabins=["Economy"],
-            pax=len(travelers),
-        ))
-
     # 4. Get points for all members with validation
     points_summary = points_service.trip_points_summary(trip_id)
     points_items = points_summary.get("items", [])
@@ -1311,15 +1287,6 @@ async def generate_optimized_itinerary(trip_id: str) -> Dict[str, Any]:
                 "No flight edges from %s to %s after award-first, SERP-first, get_flights_serp_only, and nearby-hub (if applicable).",
                 o, d,
             )
-
-    # Await OOP task (ran in parallel with flight fetch)
-    oop_result: Optional[Dict[str, Any]] = None
-    if oop_task is not None:
-        try:
-            oop_result = await oop_task
-        except Exception as e:
-            logger.warning("optimize_itinerary_out_of_pocket failed: %s", e)
-            oop_result = None
 
     if not edges_all:
         # No flight data for any route (small/remote cities or API limits)
@@ -1649,26 +1616,6 @@ async def generate_optimized_itinerary(trip_id: str) -> Dict[str, Any]:
     }
     itinerary_items.append(totals_item)
 
-    # Out-of-pocket: persist and attach to response for simple A->B round-trips
-    oop_payload: Optional[Dict[str, Any]] = None
-    if oop_result and not oop_result.get("error"):
-        oop_payload = {
-            "best_by_cash": oop_result.get("best_by_cash"),
-            "best_by_surcharge": oop_result.get("best_by_surcharge"),
-            "best_overall": oop_result.get("best_overall"),
-            "origin": oop_result.get("origin"),
-            "destination": oop_result.get("destination"),
-            "outbound_date": oop_result.get("outbound_date"),
-            "return_date": oop_result.get("return_date"),
-        }
-        oop_item = {
-            "tripId": trip_id,
-            "itemId": "out_of_pocket",
-            "type": "out_of_pocket",
-            **oop_payload,
-        }
-        itinerary_items.append(oop_item)
-
     # When we used relaxed budget or best-effort path, add an info item and flag the response
     if relaxed_message:
         relaxed_info = {
@@ -1688,7 +1635,6 @@ async def generate_optimized_itinerary(trip_id: str) -> Dict[str, Any]:
         "status": solution.get("status", "Unknown"),
         "solution": solution,
         "items": itinerary_items,
-        "out_of_pocket": oop_payload,
     }
     if relaxed_message:
         out["relaxed_constraints"] = True

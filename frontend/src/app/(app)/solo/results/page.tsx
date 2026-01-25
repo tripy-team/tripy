@@ -736,15 +736,15 @@ export default function SoloResults() {
                                         </div>
                                     </div>
 
-                                    {/* Prominent Out-of-Pocket Summary */}
+                                    {/* Flight Cost Summary */}
                                     <div className="mb-6 grid grid-cols-3 gap-3 p-4 bg-gradient-to-br from-blue-50 to-slate-50 rounded-xl border border-blue-100">
                                         <div>
                                             <div className="flex items-center gap-1.5 text-slate-600 mb-1">
-                                                <DollarSign className="w-4 h-4" />
-                                                <span className="text-xs font-medium uppercase tracking-wider">Cost</span>
+                                                <Plane className="w-4 h-4" />
+                                                <span className="text-xs font-medium uppercase tracking-wider">Flights</span>
                                             </div>
                                             <div className="text-2xl font-bold text-slate-900">${itinerary.totalCost.toLocaleString()}</div>
-                                            <div className="text-xs text-slate-500 mt-0.5">Out-of-pocket</div>
+                                            <div className="text-xs text-slate-500 mt-0.5">Cash cost</div>
                                         </div>
 
                                         <div>
@@ -908,29 +908,18 @@ export default function SoloResults() {
                                     </div>
 
                                     <div>
-                                        <div className="text-sm text-slate-600 mb-3 font-medium">Cost Breakdown</div>
+                                        <div className="text-sm text-slate-600 mb-3 font-medium">Flight Cost</div>
                                         <div className="space-y-2 text-sm">
-                                            {(() => {
-                                                const flightsPart = selectedItinerary.totalCost * 0.65;
-                                                const activitiesPart = selectedItinerary.totalCost * 0.35;
-                                                const total = flightsPart + activitiesPart;
-                                                return (
-                                                    <>
-                                                        <div className="flex justify-between">
-                                                            <span className="text-slate-600">Flights</span>
-                                                            <span className="text-slate-900 font-medium">${Math.round(flightsPart).toLocaleString()}</span>
-                                                        </div>
-                                                        <div className="flex justify-between">
-                                                            <span className="text-slate-600">Activities</span>
-                                                            <span className="text-slate-900 font-medium">${Math.round(activitiesPart).toLocaleString()}</span>
-                                                        </div>
-                                                        <div className="pt-2 border-t border-slate-200 flex justify-between font-semibold">
-                                                            <span className="text-slate-900">Total</span>
-                                                            <span className="text-slate-900">${Math.round(total).toLocaleString()}</span>
-                                                        </div>
-                                                    </>
-                                                );
-                                            })()}
+                                            <div className="flex justify-between font-semibold">
+                                                <span className="text-slate-900">Total</span>
+                                                <span className="text-slate-900">${selectedItinerary.totalCost.toLocaleString()}</span>
+                                            </div>
+                                            {selectedItinerary.pointsCost > 0 && (
+                                                <div className="flex justify-between text-blue-600">
+                                                    <span>Points value</span>
+                                                    <span>{(selectedItinerary.pointsCost / 1000).toFixed(0)}k pts</span>
+                                                </div>
+                                            )}
                                         </div>
                                     </div>
 
