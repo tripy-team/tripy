@@ -1,7 +1,133 @@
 import uuid
+import re
+import logging
 from datetime import datetime
-from typing import Dict, Any, List, Tuple
+from typing import Dict, Any, List, Tuple, Optional
 from src.repos import destination_repo, destination_vote_repo
+
+logger = logging.getLogger(__name__)
+
+
+def _normalize_city_name(name: str) -> str:
+    """Extract just the city name, stripping airport codes if present."""
+    # Handle "Paris (CDG,ORY)" -> "Paris"
+    match = re.match(r'^([^(]+)', name)
+    if match:
+        return match.group(1).strip()
+    return name.strip()
+
+
+def _extract_airport_codes(name: str) -> List[str]:
+    """Extract airport codes from name like 'Tokyo (NRT, HND)'."""
+    match = re.search(r'\(([A-Z]{3}(?:,\s*[A-Z]{3})*)\)', name.upper())
+    if match:
+        return [code.strip() for code in match.group(1).split(',')]
+    return []
+
+
+def enrich_destination_with_display(dest: Dict[str, Any]) -> Dict[str, Any]:
+    """Add display fields to a destination for frontend consumption."""
+    enriched = dict(dest)
+    
+    name = dest.get("name", "")
+    city_name = _normalize_city_name(name)
+    airport_codes = _extract_airport_codes(name)
+    
+    # Display name: "Tokyo (NRT, HND)" or just "Paris"
+    if airport_codes:
+        enriched["displayName"] = f"{city_name} ({', '.join(airport_codes)})"
+    else:
+        enriched["displayName"] = city_name
+    
+    # Airports list
+    enriched["airports"] = [
+        {"iataCode": code, "isPrimary": i == 0}
+        for i, code in enumerate(airport_codes)
+    ]
+    
+    # City code (first 3 letters uppercase if no airport codes)
+    if airport_codes:
+        enriched["cityCode"] = airport_codes[0]
+    else:
+        enriched["cityCode"] = None
+    
+    return enriched
+
+
+def get_destinations_response(
+    trip_id: str,
+    destinations: List[Dict[str, Any]],
+) -> Dict[str, Any]:
+    """
+    Build a full destinations response with computed fields for frontend.
+    
+    Returns:
+    {
+        "tripId": str,
+        "destinations": [...],  # All destinations with display fields
+        "startDestination": {...} | null,  # Pre-computed start
+        "endDestination": {...} | null,    # Pre-computed end
+        "visitDestinations": [...],        # Excludes start/end
+        "totalCount": int,
+        "includedCount": int,
+        "excludedCount": int,
+    }
+    """
+    if not destinations:
+        return {
+            "tripId": trip_id,
+            "destinations": [],
+            "startDestination": None,
+            "endDestination": None,
+            "visitDestinations": [],
+            "totalCount": 0,
+            "includedCount": 0,
+            "excludedCount": 0,
+        }
+    
+    # Enrich all destinations with display fields
+    enriched = [enrich_destination_with_display(d) for d in destinations]
+    
+    # Find start and end
+    start_dest = next((d for d in enriched if d.get("isStart")), None)
+    end_dest = next((d for d in enriched if d.get("isEnd")), None)
+    
+    # Fallback: use mustInclude order
+    must_include = [d for d in enriched if d.get("mustInclude", False)]
+    if not start_dest and must_include:
+        start_dest = must_include[0]
+    if not end_dest and must_include:
+        end_dest = must_include[-1]
+    
+    # Final fallback: first and last destinations
+    if not start_dest and enriched:
+        start_dest = enriched[0]
+    if not end_dest and enriched:
+        end_dest = enriched[-1] if len(enriched) > 1 else enriched[0]
+    
+    # Visit destinations: all destinations that are not start/end
+    start_id = start_dest.get("destinationId") if start_dest else None
+    end_id = end_dest.get("destinationId") if end_dest else None
+    visit_dests = [
+        d for d in enriched
+        if d.get("destinationId") not in (start_id, end_id)
+        and not d.get("excluded", False)
+    ]
+    
+    # Counts
+    excluded_count = len([d for d in enriched if d.get("excluded", False)])
+    included_count = len(enriched) - excluded_count
+    
+    return {
+        "tripId": trip_id,
+        "destinations": enriched,
+        "startDestination": start_dest,
+        "endDestination": end_dest,
+        "visitDestinations": visit_dests,
+        "totalCount": len(enriched),
+        "includedCount": included_count,
+        "excludedCount": excluded_count,
+    }
 
 
 def get_display_destinations_for_trip(destinations: List[Dict[str, Any]]) -> Tuple[List[str], str]:

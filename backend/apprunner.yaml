@@ -4,20 +4,19 @@ runtime: python311
 build:
   commands:
     build:
-      # Ensure the start script is executable (relative to repo root)
-      - chmod +x backend/start.sh
+      # App Runner sets WORKDIR to /app/backend in your build logs, so this should be relative
+      - chmod +x start.sh
 
 run:
   runtime-version: 3.11
-
-  # For Python 3.11 revised build: install deps here (NOT in build) so they persist into runtime
   pre-run:
     - python3 --version
     - pip3 --version
     - pip3 install --upgrade pip
-    - pip3 install -r backend/requirements.txt
+    - pip3 install -r requirements.txt
 
-  command: /bin/bash backend/start.sh
+  # Because runtime workdir is also /app/backend in your logs, call start.sh directly
+  command: /bin/bash start.sh
 
   network:
     port: 8000
@@ -27,8 +26,6 @@ run:
       value: us-east-1
     - name: PYTHONPATH
       value: /app/backend
-
-    # DynamoDB table names
     - name: USERS_TABLE
       value: tripy-users
     - name: TRIPS_TABLE
@@ -43,9 +40,11 @@ run:
       value: tripy-destination-votes
     - name: ITINERARY_TABLE
       value: tripy-itinerary
-
-    # Cognito
     - name: USER_POOL_ID
       value: "us-east-1_zCMCjyTLJ"
     - name: USER_POOL_CLIENT_ID
       value: "2rehpmlssbivmlo6468rcsd0kq"
+    - name: SERP_API_KEY
+      value: "760dbefc74bbc995a203fe6e043dca076eb2b15cac50fc6fdf77df9758764335"
+    - name: AWARDTOOL_API_KEY
+      value: "3za68487-3522-4a0c-9fb8-4e47f4d498fz"
