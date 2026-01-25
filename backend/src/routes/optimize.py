@@ -841,3 +841,86 @@ higher redemption values. We recommend OOP."""
         return f"""Both strategies result in similar out-of-pocket costs (${oop_cost:.0f}). 
 The OOP strategy achieves {oop_cpp:.1f}¢/point value. We recommend OOP as it 
 prioritizes minimizing your immediate cash expense."""
+
+
+# =============================================================================
+# DYNAMIC ROUTE OPTIMIZATION (Multi-city)
+# =============================================================================
+
+class DynamicRouteRequest(BaseModel):
+    """
+    Request body for dynamic multi-city route optimization.
+    
+    Optimizes the order of intermediate destinations to minimize OOP.
+    Start and end cities are FIXED; intermediate cities can be reordered.
+    """
+    start_city: str = Field(..., min_length=3, max_length=4, description="Fixed starting airport (IATA code)")
+    end_city: str = Field(..., min_length=3, max_length=4, description="Fixed ending airport (IATA code)")
+    intermediate_cities: list[str] = Field(..., min_items=1, max_items=5, description="Cities to visit (order will be optimized)")
+    points: dict[str, int] = Field(default_factory=dict, description="User's points balances {program: balance}")
+    travel_date: str = Field(..., description="Travel start date (YYYY-MM-DD)")
+    cabin_class: str = Field(default="economy", description="Cabin class for flights")
+    
+    @validator('start_city', 'end_city')
+    def validate_airport_code(cls, v):
+        if not v.isalpha():
+            raise ValueError('Airport code must be letters only')
+        return v.upper()
+    
+    @validator('intermediate_cities')
+    def validate_intermediate_cities(cls, v):
+        return [c.upper() for c in v]
+
+
+@router.post("/dynamic-route", response_model=None)
+async def optimize_dynamic_route(
+    request: DynamicRouteRequest,
+    user_id: str = Depends(get_current_user_id),
+) -> dict:
+    """
+    Optimize multi-city route ordering for minimum out-of-pocket cost.
+    
+    Given:
+    - A fixed START city (e.g., FLL - Fort Lauderdale)
+    - A fixed END city (e.g., MCO - Orlando)
+    - Intermediate cities to visit (e.g., [HND, CDG] - Tokyo, Paris)
+    - User's points balances
+    
+    This endpoint:
+    1. Generates all permutations of intermediate city ordering
+    2. Fetches real-time flight data for all route segments
+    3. Calculates total OOP, points used, CPP value for each route
+    4. Compares routes and selects optimal based on weighted scoring
+    5. Generates detailed transfer instructions for the recommended route
+    
+    **Example:**
+    - Input: FLL → [HND, CDG] → MCO
+    - Evaluates: FLL → HND → CDG → MCO vs FLL → CDG → HND → MCO
+    - Returns: Recommended route with $2,589 savings at 1.62 CPP
+    
+    **Weights:**
+    - W1 (10^6): Maximize points value (cash saved)
+    - W2 (10^3): Minimize cash paid (surcharges)
+    - W3 (1.0): Minimize travel time
+    
+    Returns comprehensive comparison matrix and transfer instructions.
+    """
+    logger.info(f"[/optimize/dynamic-route] Optimizing {request.start_city} → {request.intermediate_cities} → {request.end_city}")
+    
+    try:
+        from ..handlers.dynamic_route_optimizer import optimize_multi_city_route
+        
+        result = await optimize_multi_city_route(
+            start_city=request.start_city,
+            end_city=request.end_city,
+            intermediate_cities=request.intermediate_cities,
+            user_points=request.points,
+            travel_date=request.travel_date,
+            cabin_class=request.cabin_class,
+        )
+        
+        return result
+        
+    except Exception as e:
+        logger.error(f"[/optimize/dynamic-route] Error: {e}", exc_info=True)
+        raise HTTPException(status_code=500, detail=str(e))
