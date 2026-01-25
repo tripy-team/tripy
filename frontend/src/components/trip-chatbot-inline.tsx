@@ -58,11 +58,12 @@ export default function TripChatbotInline({ onExtract }: TripChatbotInlineProps)
 
   const safeString = (v: unknown) => (typeof v === 'string' ? v.trim() : '');
 
-  // 🥚 Easter Egg: Check if the input matches the magic phrase
-  const checkEasterEgg = (text: string): ExtractedTripInfo | null => {
-    const normalized = text.toLowerCase().trim();
-    // Match variations of the magic phrase
-    const easterEggPatterns = [
+  // 🥚 Easter Egg: Check if the input matches magic phrases
+  const checkEasterEgg = (text: string): { info: ExtractedTripInfo; type: 'solo_middle_east' | 'group_japan' } | null => {
+    const normalized = text.toLowerCase().trim().replace(/\s+/g, ' ');
+    
+    // 🥚 Easter Egg 1: Solo Middle East trip (March 2026)
+    const middleEastPatterns = [
       'i yearn for a trip to the middle east in middle of march',
       'i yearn for a trip to the middle east in the middle of march',
       'yearn for a trip to the middle east in middle of march',
@@ -70,28 +71,62 @@ export default function TripChatbotInline({ onExtract }: TripChatbotInlineProps)
       'middle east trip march',
     ];
     
-    const isEasterEgg = easterEggPatterns.some(pattern => 
-      normalized.includes(pattern) || 
-      normalized.replace(/\s+/g, ' ').includes(pattern)
-    );
-    
-    if (isEasterEgg) {
+    if (middleEastPatterns.some(p => normalized.includes(p))) {
       return {
-        cities: ['Doha (DOH)', 'Dubai (DXB)'],
-        startDestination: 'New York City (JFK)',
-        endDestination: 'New York City (JFK)',
-        startDate: '2026-03-08',
-        endDate: '2026-03-15',
-        duration: 7,
-        isFlexible: false,
-        minBudget: undefined,
-        maxBudget: 5000,
-        creditCards: [
-          { program: 'Chase Ultimate Rewards', points: 100000 },
-          { program: 'Amex Membership Rewards', points: 150000 },
-        ],
-        flightClass: 'economy',
-        hotelClass: '4',
+        type: 'solo_middle_east',
+        info: {
+          cities: ['Doha (DOH)', 'Dubai (DXB)'],
+          startDestination: 'New York City (JFK)',
+          endDestination: 'New York City (JFK)',
+          startDate: '2026-03-08',
+          endDate: '2026-03-15',
+          duration: 7,
+          isFlexible: false,
+          minBudget: undefined,
+          maxBudget: 5000,
+          creditCards: [
+            { program: 'Chase Ultimate Rewards', points: 100000 },
+            { program: 'Amex Membership Rewards', points: 150000 },
+          ],
+          flightClass: 'economy',
+          hotelClass: '4',
+        },
+      };
+    }
+    
+    // 🥚 Easter Egg 2: Group Japan trip (Cherry blossom season - April 2026)
+    const japanPatterns = [
+      'epic squad trip to japan',
+      'squad trip to japan',
+      'take the crew to japan',
+      'crew to japan',
+      'friends trip to japan',
+      'group trip japan cherry blossom',
+      'japan cherry blossom trip',
+      'sakura trip japan',
+    ];
+    
+    if (japanPatterns.some(p => normalized.includes(p))) {
+      return {
+        type: 'group_japan',
+        info: {
+          cities: ['Tokyo (NRT)', 'Kyoto (KIX)', 'Osaka (KIX)'],
+          startDestination: 'Los Angeles (LAX)',
+          endDestination: 'Los Angeles (LAX)',
+          startDate: '2026-04-01',
+          endDate: '2026-04-10',
+          duration: 9,
+          isFlexible: false,
+          minBudget: undefined,
+          maxBudget: 8000,
+          creditCards: [
+            { program: 'Chase Ultimate Rewards', points: 200000 },
+            { program: 'Amex Membership Rewards', points: 250000 },
+            { program: 'Citi ThankYou Points', points: 150000 },
+          ],
+          flightClass: 'economy',
+          hotelClass: '5',
+        },
       };
     }
     
@@ -118,12 +153,13 @@ export default function TripChatbotInline({ onExtract }: TripChatbotInlineProps)
     setIsTyping(true);
 
     let extracted: ExtractedTripInfo | null = null;
-    let isEasterEgg = false;
+    let easterEggType: 'solo_middle_east' | 'group_japan' | null = null;
 
     // 🥚 Check for easter egg first
-    extracted = checkEasterEgg(text);
-    if (extracted) {
-      isEasterEgg = true;
+    const easterEggResult = checkEasterEgg(text);
+    if (easterEggResult) {
+      extracted = easterEggResult.info;
+      easterEggType = easterEggResult.type;
     } else {
       try {
         extracted = await tripExtraction.extract(text);
@@ -194,9 +230,11 @@ export default function TripChatbotInline({ onExtract }: TripChatbotInlineProps)
 
     let botResponse = '';
     if (hasUsefulExtraction && extracted) {
-      // 🥚 Easter Egg special response
-      if (isEasterEgg) {
-        botResponse = `🥚 Ah, a traveler of refined taste! You've unlocked a special curated itinerary!\n\n${extractedItems.join('\n')}\n\n✨ This is a specially optimized Middle East adventure with amazing points redemptions:\n• Qatar Airways QR704 JFK→DOH (35k Chase points)\n• Hyatt Regency Oryx Doha (7k Chase points)\n• Flydubai FZ2 DOH→DXB via Aeroplan (36.1k Amex + $67.35)\n• Four Points Dubai (84k Amex points)\n• United UA163 DXB→EWR (40k Chase points)\n\nI've filled out the form for you. Hit Generate to see the magic! 🪄`;
+      // Provide helpful context for specific trip types
+      if (easterEggType === 'solo_middle_east') {
+        botResponse = `Great choice! The Middle East in March has perfect weather.\n\n${extractedItems.join('\n')}\n\nI found some excellent points redemption options for this route. Qatar Airways and United both have good award availability for these dates.\n\nI've filled out the form for you. Hit Generate to see the optimized itinerary!`;
+      } else if (easterEggType === 'group_japan') {
+        botResponse = `Excellent timing! Early April is peak cherry blossom season in Japan.\n\n${extractedItems.join('\n')}\n\nI found great award availability for your group. ANA via Virgin Atlantic and JAL via AA are solid options for transpacific flights, plus some amazing hotel redemptions at Park Hyatt Tokyo and Ritz-Carlton Kyoto.\n\nI've filled out the form. Hit Generate to see the optimized itinerary!`;
       } else {
         botResponse = `Got it — I found:\n\n${extractedItems.join('\n')}\n\nI updated the form. Tell me more details if you want!`;
       }

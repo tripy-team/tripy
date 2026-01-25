@@ -184,6 +184,15 @@ export default function GroupTripSetup() {
       try {
         const airportCode = await searchAndFormatAirport(info.endDestination);
         setEndDestination(airportCode);
+        
+        // 🥚 Auto-detect round trip if start and end are the same
+        if (info.startDestination && info.endDestination) {
+          const startNorm = info.startDestination.toLowerCase().replace(/\s+/g, ' ').trim();
+          const endNorm = info.endDestination.toLowerCase().replace(/\s+/g, ' ').trim();
+          if (startNorm === endNorm) {
+            setIsRoundTrip(true);
+          }
+        }
       } catch (error) {
         console.error('Error formatting end destination:', error);
         setEndDestination(info.endDestination);

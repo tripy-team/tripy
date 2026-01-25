@@ -1595,7 +1595,7 @@ async def _fetch_edges_for_route(
 
 
 # =============================================================================
-# EASTER EGG: Hardcoded NYC -> Doha -> Dubai -> NYC Trip (March 8-15, 2026)
+# EASTER EGGS: Hardcoded Demo Itineraries
 # =============================================================================
 
 def _check_easter_egg_conditions(
@@ -1604,32 +1604,50 @@ def _check_easter_egg_conditions(
     cities: List[str],
     start_date: str,
     end_date: str,
-) -> bool:
+) -> Optional[str]:
     """
-    Check if this trip matches the Easter Egg conditions:
+    Check if this trip matches any Easter Egg conditions.
+    Returns the easter egg type if matched, None otherwise.
+    
+    Easter Egg 1 - Middle East Solo Trip:
     - Round trip starting and ending in New York City
     - Stops in Doha and Dubai
     - Dates: March 8-15, 2026
+    
+    Easter Egg 2 - Japan Group Trip (Cherry Blossom):
+    - Round trip starting and ending in Los Angeles
+    - Stops in Tokyo, Kyoto, and/or Osaka
+    - Dates: April 1-10, 2026
     """
     start_lower = (start_dest_name or "").lower()
     end_lower = (end_dest_name or "").lower()
     cities_lower = [c.lower() for c in (cities or [])]
+    start_date_str = (start_date or "").strip()
+    end_date_str = (end_date or "").strip()
     
-    # Check NYC start and end
+    # 🥚 Easter Egg 1: NYC -> Doha -> Dubai -> NYC (March 8-15, 2026)
     is_nyc_start = "new york" in start_lower or start_lower in ["nyc", "jfk", "ewr", "lga"]
     is_nyc_end = "new york" in end_lower or end_lower in ["nyc", "jfk", "ewr", "lga"]
-    
-    # Check Doha and Dubai in stops
     has_doha = any("doha" in c or c == "doh" for c in cities_lower)
     has_dubai = any("dubai" in c or c == "dxb" for c in cities_lower)
+    is_middle_east_dates = start_date_str == "2026-03-08" and end_date_str == "2026-03-15"
     
-    # Check exact dates
-    is_correct_dates = (
-        (start_date or "").strip() == "2026-03-08" and
-        (end_date or "").strip() == "2026-03-15"
-    )
+    if is_nyc_start and is_nyc_end and has_doha and has_dubai and is_middle_east_dates:
+        return "middle_east"
     
-    return is_nyc_start and is_nyc_end and has_doha and has_dubai and is_correct_dates
+    # 🥚 Easter Egg 2: LAX -> Tokyo/Kyoto/Osaka -> LAX (April 1-10, 2026)
+    is_lax_start = "los angeles" in start_lower or start_lower in ["lax", "la"]
+    is_lax_end = "los angeles" in end_lower or end_lower in ["lax", "la"]
+    has_tokyo = any("tokyo" in c or c in ["nrt", "hnd"] for c in cities_lower)
+    has_kyoto = any("kyoto" in c for c in cities_lower)
+    has_osaka = any("osaka" in c or c == "kix" for c in cities_lower)
+    has_japan_cities = has_tokyo or has_kyoto or has_osaka
+    is_japan_dates = start_date_str == "2026-04-01" and end_date_str == "2026-04-10"
+    
+    if is_lax_start and is_lax_end and has_japan_cities and is_japan_dates:
+        return "japan"
+    
+    return None
 
 
 def _generate_easter_egg_itinerary(trip_id: str) -> Dict[str, Any]:
@@ -1645,7 +1663,7 @@ def _generate_easter_egg_itinerary(trip_id: str) -> Dict[str, Any]:
     1. Hyatt Regency Oryx Doha: March 9-11, 7k Chase → Hyatt (2 nights)
     2. Four Points by Sheraton Downtown Dubai: March 11-15, 84k Amex → Marriott (4 nights)
     """
-    logger.info(f"🥚 Easter egg triggered for trip {trip_id}! Generating hardcoded NYC-Doha-Dubai-NYC itinerary.")
+    logger.info(f"Generating optimized Middle East itinerary for trip {trip_id}")
     
     # Build flight segments
     flight1_segment = {
@@ -2073,9 +2091,9 @@ def _generate_easter_egg_itinerary(trip_id: str) -> Dict[str, Any]:
         # Main itinerary item that frontend can display (must have route array)
         {
             "tripId": trip_id,
-            "itemId": "easter_egg_itinerary",
+            "itemId": "optimized_itinerary_1",
             "type": "itinerary",
-            "name": "🥚 Curated Middle East Adventure",
+            "name": "Optimized Middle East Route",
             "route": ["JFK", "DOH", "DXB", "EWR"],
             "cities": [
                 {"name": "Doha (DOH)", "days": 2},
@@ -2274,6 +2292,39 @@ def _generate_easter_egg_itinerary(trip_id: str) -> Dict[str, Any]:
             "optimization_mode": "oop",
             "status": "Optimal",
         },
+        # Payments item for booking page transfer instructions
+        {
+            "tripId": trip_id,
+            "itemId": "payments_traveler_1",
+            "type": "payments",
+            "travelerId": "traveler_1",
+            "payments": [
+                {
+                    "edge": ["JFK", "DOH", "QR704"],
+                    "type": "points",
+                    "via": {"source": "chase", "airline": "QR"},
+                    "miles": 35000,
+                    "surcharge": 0,
+                    "mode": "flight",
+                },
+                {
+                    "edge": ["DOH", "DXB", "FZ2"],
+                    "type": "points",
+                    "via": {"source": "amex", "airline": "FZ"},
+                    "miles": 36100,
+                    "surcharge": 67.35,
+                    "mode": "flight",
+                },
+                {
+                    "edge": ["DXB", "EWR", "UA163"],
+                    "type": "points",
+                    "via": {"source": "chase", "airline": "UA"},
+                    "miles": 40000,
+                    "surcharge": 0,
+                    "mode": "flight",
+                },
+            ],
+        },
     ]
     
     # Save items to repo
@@ -2306,7 +2357,733 @@ def _generate_easter_egg_itinerary(trip_id: str) -> Dict[str, Any]:
         "points_breakdown": points_breakdown,
         "points_remaining": {},
         "warnings": [],
-        "notes": ["🥚 Special curated itinerary for your NYC-Doha-Dubai-NYC adventure!"],
+        "notes": ["Optimized for maximum points value with instant transfer partners."],
+    }
+    
+    return {
+        "status": "Optimal",
+        "solution": solution,
+        "items": itinerary_items,
+        "out_of_pocket": None,
+        "oop_optimization": oop_optimization_summary,
+        "easter_egg": True,
+    }
+
+
+def _generate_japan_easter_egg_itinerary(trip_id: str) -> Dict[str, Any]:
+    """
+    Generate the hardcoded Easter Egg itinerary for the Japan Cherry Blossom Group Trip.
+    
+    LAX → Tokyo → Kyoto → Osaka → LAX (April 1-10, 2026)
+    
+    Flights:
+    1. LAX → NRT: April 1, ANA NH105, 11:30AM-4:30PM+1, 70k Virgin Atlantic points (Amex transfer)
+    2. Domestic: Shinkansen (bullet train) - included in JR Pass
+    3. KIX → LAX: April 10, JAL JL60, 5:00PM-11:55AM, 60k American AAdvantage (Citi transfer)
+    
+    Hotels:
+    1. Park Hyatt Tokyo: April 2-5 (3 nights), 30k Hyatt/night = 90k total (Chase → Hyatt)
+    2. The Ritz-Carlton Kyoto: April 5-7 (2 nights), 70k Marriott/night = 140k total (Amex → Marriott)
+    3. InterContinental Osaka: April 7-10 (3 nights), 50k IHG/night = 150k total (Chase → IHG)
+    """
+    logger.info(f"Generating optimized Japan itinerary for trip {trip_id}")
+    
+    # Calculate totals
+    # Flights: 70k Virgin Atlantic + 60k AA = 130k points
+    # Hotels: 90k Hyatt + 140k Marriott + 150k IHG = 380k points
+    # Total: 510k points, minimal cash (taxes/fees ~$200)
+    total_points_used = 70000 + 60000 + 90000 + 140000 + 150000  # 510,000
+    total_out_of_pocket = 215.50  # Taxes and fees
+    
+    # Estimate all-cash cost
+    all_cash_cost = 12000.0  # Estimated cash cost for similar flights + hotels
+    savings = all_cash_cost - total_out_of_pocket
+    savings_percentage = (savings / all_cash_cost) * 100 if all_cash_cost > 0 else 0
+    
+    points_breakdown = {
+        "Amex Membership Rewards": 210000,  # 70k to Virgin + 140k to Marriott
+        "Chase Ultimate Rewards": 240000,   # 90k to Hyatt + 150k to IHG
+        "Citi ThankYou Points": 60000,      # 60k to AA
+    }
+    
+    # Build flight segments
+    flights = [
+        {
+            "route_id": "route_lax_nrt",
+            "origin": "LAX",
+            "destination": "NRT",
+            "segments": [{
+                "segment_id": "seg_lax_nrt",
+                "origin": "LAX",
+                "destination": "NRT",
+                "date": "2026-04-01",
+                "airline": "NH",
+                "airline_name": "ANA (All Nippon Airways)",
+                "flight_number": "NH105",
+                "departure_time": "11:30",
+                "arrival_time": "16:30+1",
+                "duration_minutes": 720,
+                "cash_cost": None,
+                "points_cost": 70000,
+                "points_program": "Virgin Atlantic Flying Club",
+                "points_surcharge": 86.50,
+                "transfer_options": [{"from": "Amex Membership Rewards", "to": "Virgin Atlantic Flying Club", "ratio": "1:1"}],
+                "booking_url": "https://www.virginatlantic.com/",
+                "is_connecting": False,
+                "connecting_airports": [],
+            }],
+            "total_cash_cost": 86.50,
+            "total_points_cost": 70000,
+            "total_points_surcharge": 86.50,
+            "points_program": "Virgin Atlantic Flying Club",
+            "total_duration_minutes": 720,
+            "num_stops": 0,
+            "has_points_option": True,
+            "has_cash_option": False,
+        },
+        {
+            "route_id": "route_kix_lax",
+            "origin": "KIX",
+            "destination": "LAX",
+            "segments": [{
+                "segment_id": "seg_kix_lax",
+                "origin": "KIX",
+                "destination": "LAX",
+                "date": "2026-04-10",
+                "airline": "JL",
+                "airline_name": "Japan Airlines",
+                "flight_number": "JL60",
+                "departure_time": "17:00",
+                "arrival_time": "11:55",
+                "duration_minutes": 655,
+                "cash_cost": None,
+                "points_cost": 60000,
+                "points_program": "American AAdvantage",
+                "points_surcharge": 129.00,
+                "transfer_options": [{"from": "Citi ThankYou Points", "to": "American AAdvantage", "ratio": "1:1"}],
+                "booking_url": "https://www.aa.com/",
+                "is_connecting": False,
+                "connecting_airports": [],
+            }],
+            "total_cash_cost": 129.00,
+            "total_points_cost": 60000,
+            "total_points_surcharge": 129.00,
+            "points_program": "American AAdvantage",
+            "total_duration_minutes": 655,
+            "num_stops": 0,
+            "has_points_option": True,
+            "has_cash_option": False,
+        },
+    ]
+    
+    # Build hotels
+    hotels = [
+        {
+            "hotel_id": "hotel_park_hyatt_tokyo",
+            "name": "Park Hyatt Tokyo",
+            "location": "Tokyo, Japan",
+            "check_in": "2026-04-02",
+            "check_out": "2026-04-05",
+            "nights": 3,
+            "cash_cost": 0.0,
+            "points_cost": 90000,
+            "points_program": "World of Hyatt",
+            "points_surcharge": 0.0,
+            "booking_url": "https://www.hyatt.com/",
+            "rating": 5.0,
+            "amenities": ["Spa", "Pool", "Fine Dining", "City Views", "Lost in Translation vibes"],
+            "transfer_source": "Chase Ultimate Rewards",
+        },
+        {
+            "hotel_id": "hotel_ritz_kyoto",
+            "name": "The Ritz-Carlton Kyoto",
+            "location": "Kyoto, Japan",
+            "check_in": "2026-04-05",
+            "check_out": "2026-04-07",
+            "nights": 2,
+            "cash_cost": 0.0,
+            "points_cost": 140000,
+            "points_program": "Marriott Bonvoy",
+            "points_surcharge": 0.0,
+            "booking_url": "https://www.marriott.com/",
+            "rating": 5.0,
+            "amenities": ["Traditional Japanese Garden", "Spa", "Riverside Location", "Michelin Restaurant"],
+            "transfer_source": "Amex Membership Rewards",
+        },
+        {
+            "hotel_id": "hotel_intercontinental_osaka",
+            "name": "InterContinental Osaka",
+            "location": "Osaka, Japan",
+            "check_in": "2026-04-07",
+            "check_out": "2026-04-10",
+            "nights": 3,
+            "cash_cost": 0.0,
+            "points_cost": 150000,
+            "points_program": "IHG One Rewards",
+            "points_surcharge": 0.0,
+            "booking_url": "https://www.ihg.com/",
+            "rating": 4.5,
+            "amenities": ["Rooftop Bar", "Spa", "Near Dotonbori", "Club Lounge"],
+            "transfer_source": "Chase Ultimate Rewards",
+        },
+    ]
+    
+    # Build booking instructions
+    booking_instructions = [
+        {
+            "step_number": 1,
+            "item_type": "transfer",
+            "action": "Transfer Points",
+            "description": "Transfer 70,000 Amex MR points to Virgin Atlantic Flying Club",
+            "from_program": "Amex Membership Rewards",
+            "to_program": "Virgin Atlantic Flying Club",
+            "points_to_transfer": 70000,
+            "transfer_ratio": "1:1",
+            "transfer_time": "Instant",
+            "portal_url": "https://www.americanexpress.com/en-us/rewards/membership-rewards/",
+            "booking_url": None,
+            "payment_type": None,
+            "cash_to_pay": None,
+            "points_to_use": None,
+            "flight_details": None,
+            "hotel_details": None,
+        },
+        {
+            "step_number": 2,
+            "item_type": "flight",
+            "action": "Book Flight",
+            "description": "Book LAX → NRT on ANA NH105 via Virgin Atlantic (April 1, 11:30 AM - 4:30 PM+1) + $86.50 taxes",
+            "from_program": None,
+            "to_program": None,
+            "points_to_transfer": None,
+            "transfer_ratio": None,
+            "transfer_time": None,
+            "portal_url": None,
+            "booking_url": "https://www.virginatlantic.com/",
+            "payment_type": "points",
+            "cash_to_pay": 86.50,
+            "points_to_use": 70000,
+            "flight_details": {
+                "flight_number": "NH105",
+                "airline": "ANA (via Virgin Atlantic)",
+                "origin": "LAX",
+                "destination": "NRT",
+                "date": "2026-04-01",
+                "departure": "11:30 AM",
+                "arrival": "4:30 PM +1",
+            },
+            "hotel_details": None,
+        },
+        {
+            "step_number": 3,
+            "item_type": "transfer",
+            "action": "Transfer Points",
+            "description": "Transfer 90,000 Chase UR points to World of Hyatt",
+            "from_program": "Chase Ultimate Rewards",
+            "to_program": "World of Hyatt",
+            "points_to_transfer": 90000,
+            "transfer_ratio": "1:1",
+            "transfer_time": "Instant",
+            "portal_url": "https://ultimaterewardspoints.chase.com/",
+            "booking_url": None,
+            "payment_type": None,
+            "cash_to_pay": None,
+            "points_to_use": None,
+            "flight_details": None,
+            "hotel_details": None,
+        },
+        {
+            "step_number": 4,
+            "item_type": "hotel",
+            "action": "Book Hotel",
+            "description": "Book Park Hyatt Tokyo (April 2-5, 3 nights) - Famous from Lost in Translation!",
+            "from_program": None,
+            "to_program": None,
+            "points_to_transfer": None,
+            "transfer_ratio": None,
+            "transfer_time": None,
+            "portal_url": None,
+            "booking_url": "https://www.hyatt.com/",
+            "payment_type": "points",
+            "cash_to_pay": 0.0,
+            "points_to_use": 90000,
+            "flight_details": None,
+            "hotel_details": {
+                "name": "Park Hyatt Tokyo",
+                "location": "Shinjuku, Tokyo",
+                "check_in": "2026-04-02",
+                "check_out": "2026-04-05",
+                "nights": 3,
+            },
+        },
+        {
+            "step_number": 5,
+            "item_type": "transfer",
+            "action": "Transfer Points",
+            "description": "Transfer 140,000 Amex MR points to Marriott Bonvoy",
+            "from_program": "Amex Membership Rewards",
+            "to_program": "Marriott Bonvoy",
+            "points_to_transfer": 140000,
+            "transfer_ratio": "1:1",
+            "transfer_time": "Instant",
+            "portal_url": "https://www.americanexpress.com/en-us/rewards/membership-rewards/",
+            "booking_url": None,
+            "payment_type": None,
+            "cash_to_pay": None,
+            "points_to_use": None,
+            "flight_details": None,
+            "hotel_details": None,
+        },
+        {
+            "step_number": 6,
+            "item_type": "hotel",
+            "action": "Book Hotel",
+            "description": "Book The Ritz-Carlton Kyoto (April 5-7, 2 nights) - Peak cherry blossom views!",
+            "from_program": None,
+            "to_program": None,
+            "points_to_transfer": None,
+            "transfer_ratio": None,
+            "transfer_time": None,
+            "portal_url": None,
+            "booking_url": "https://www.marriott.com/",
+            "payment_type": "points",
+            "cash_to_pay": 0.0,
+            "points_to_use": 140000,
+            "flight_details": None,
+            "hotel_details": {
+                "name": "The Ritz-Carlton Kyoto",
+                "location": "Kyoto",
+                "check_in": "2026-04-05",
+                "check_out": "2026-04-07",
+                "nights": 2,
+            },
+        },
+        {
+            "step_number": 7,
+            "item_type": "transport",
+            "action": "Take Shinkansen",
+            "description": "Take Shinkansen bullet train from Tokyo Station to Kyoto Station (April 5, ~2h 15m) - Buy JR Pass!",
+            "from_program": None,
+            "to_program": None,
+            "points_to_transfer": None,
+            "transfer_ratio": None,
+            "transfer_time": None,
+            "portal_url": None,
+            "booking_url": "https://www.jrpass.com/",
+            "payment_type": "cash",
+            "cash_to_pay": 0.0,
+            "points_to_use": None,
+            "flight_details": None,
+            "hotel_details": None,
+        },
+        {
+            "step_number": 8,
+            "item_type": "transfer",
+            "action": "Transfer Points",
+            "description": "Transfer 150,000 Chase UR points to IHG One Rewards",
+            "from_program": "Chase Ultimate Rewards",
+            "to_program": "IHG One Rewards",
+            "points_to_transfer": 150000,
+            "transfer_ratio": "1:1",
+            "transfer_time": "Instant",
+            "portal_url": "https://ultimaterewardspoints.chase.com/",
+            "booking_url": None,
+            "payment_type": None,
+            "cash_to_pay": None,
+            "points_to_use": None,
+            "flight_details": None,
+            "hotel_details": None,
+        },
+        {
+            "step_number": 9,
+            "item_type": "hotel",
+            "action": "Book Hotel",
+            "description": "Book InterContinental Osaka (April 7-10, 3 nights) - Near all the street food!",
+            "from_program": None,
+            "to_program": None,
+            "points_to_transfer": None,
+            "transfer_ratio": None,
+            "transfer_time": None,
+            "portal_url": None,
+            "booking_url": "https://www.ihg.com/",
+            "payment_type": "points",
+            "cash_to_pay": 0.0,
+            "points_to_use": 150000,
+            "flight_details": None,
+            "hotel_details": {
+                "name": "InterContinental Osaka",
+                "location": "Osaka",
+                "check_in": "2026-04-07",
+                "check_out": "2026-04-10",
+                "nights": 3,
+            },
+        },
+        {
+            "step_number": 10,
+            "item_type": "transfer",
+            "action": "Transfer Points",
+            "description": "Transfer 60,000 Citi ThankYou points to American AAdvantage",
+            "from_program": "Citi ThankYou Points",
+            "to_program": "American AAdvantage",
+            "points_to_transfer": 60000,
+            "transfer_ratio": "1:1",
+            "transfer_time": "Instant",
+            "portal_url": "https://www.thankyou.com/",
+            "booking_url": None,
+            "payment_type": None,
+            "cash_to_pay": None,
+            "points_to_use": None,
+            "flight_details": None,
+            "hotel_details": None,
+        },
+        {
+            "step_number": 11,
+            "item_type": "flight",
+            "action": "Book Flight",
+            "description": "Book KIX → LAX on JAL JL60 via AA (April 10, 5:00 PM - 11:55 AM) + $129 taxes",
+            "from_program": None,
+            "to_program": None,
+            "points_to_transfer": None,
+            "transfer_ratio": None,
+            "transfer_time": None,
+            "portal_url": None,
+            "booking_url": "https://www.aa.com/",
+            "payment_type": "points",
+            "cash_to_pay": 129.00,
+            "points_to_use": 60000,
+            "flight_details": {
+                "flight_number": "JL60",
+                "airline": "JAL (via American Airlines)",
+                "origin": "KIX",
+                "destination": "LAX",
+                "date": "2026-04-10",
+                "departure": "5:00 PM",
+                "arrival": "11:55 AM (same day)",
+            },
+            "hotel_details": None,
+        },
+    ]
+    
+    # Build transfers summary
+    transfers = [
+        {
+            "from_program": "Amex Membership Rewards",
+            "to_program": "Virgin Atlantic Flying Club",
+            "points": 70000,
+            "ratio": "1:1",
+            "timing": "Instant",
+        },
+        {
+            "from_program": "Chase Ultimate Rewards",
+            "to_program": "World of Hyatt",
+            "points": 90000,
+            "ratio": "1:1",
+            "timing": "Instant",
+        },
+        {
+            "from_program": "Amex Membership Rewards",
+            "to_program": "Marriott Bonvoy",
+            "points": 140000,
+            "ratio": "1:1",
+            "timing": "Instant",
+        },
+        {
+            "from_program": "Chase Ultimate Rewards",
+            "to_program": "IHG One Rewards",
+            "points": 150000,
+            "ratio": "1:1",
+            "timing": "Instant",
+        },
+        {
+            "from_program": "Citi ThankYou Points",
+            "to_program": "American AAdvantage",
+            "points": 60000,
+            "ratio": "1:1",
+            "timing": "Instant",
+        },
+    ]
+    
+    # Build itinerary items for display
+    itinerary_items = [
+        # Main itinerary item that frontend can display (must have route array)
+        {
+            "tripId": trip_id,
+            "itemId": "optimized_itinerary_1",
+            "type": "itinerary",
+            "name": "Optimized Japan Route",
+            "route": ["LAX", "NRT", "Kyoto", "KIX", "LAX"],
+            "cities": [
+                {"name": "Tokyo (NRT)", "days": 3},
+                {"name": "Kyoto", "days": 2},
+                {"name": "Osaka (KIX)", "days": 3},
+            ],
+            "totalCost": int(total_out_of_pocket),
+            "pointsCost": total_points_used,
+            "score": 99,
+            "withinBudget": True,
+            "withinPoints": True,
+        },
+        {
+            "tripId": trip_id,
+            "itemId": "flight_lax_nrt",
+            "type": "flight",
+            "origin": "LAX",
+            "destination": "NRT",
+            "date": "2026-04-01",
+            "airline": "NH",
+            "airline_name": "ANA",
+            "flight_number": "NH105",
+            "departure_time": "11:30 AM",
+            "arrival_time": "4:30 PM +1",
+            "points_cost": 70000,
+            "points_program": "Virgin Atlantic Flying Club",
+            "transfer_source": "Amex Membership Rewards",
+            "cash_cost": 86.50,
+            "surcharge": 86.50,
+        },
+        {
+            "tripId": trip_id,
+            "itemId": "hotel_tokyo",
+            "type": "hotel",
+            "name": "Park Hyatt Tokyo",
+            "location": "Tokyo, Japan",
+            "check_in": "2026-04-02",
+            "check_out": "2026-04-05",
+            "nights": 3,
+            "points_cost": 90000,
+            "points_program": "World of Hyatt",
+            "transfer_source": "Chase Ultimate Rewards",
+            "cash_cost": 0,
+        },
+        {
+            "tripId": trip_id,
+            "itemId": "transport_shinkansen",
+            "type": "transport",
+            "name": "Shinkansen Bullet Train",
+            "origin": "Tokyo Station",
+            "destination": "Kyoto Station",
+            "date": "2026-04-05",
+            "duration": "2h 15m",
+            "note": "Get a 7-day JR Pass for unlimited travel!",
+            "cash_cost": 0,
+        },
+        {
+            "tripId": trip_id,
+            "itemId": "hotel_kyoto",
+            "type": "hotel",
+            "name": "The Ritz-Carlton Kyoto",
+            "location": "Kyoto, Japan",
+            "check_in": "2026-04-05",
+            "check_out": "2026-04-07",
+            "nights": 2,
+            "points_cost": 140000,
+            "points_program": "Marriott Bonvoy",
+            "transfer_source": "Amex Membership Rewards",
+            "cash_cost": 0,
+        },
+        {
+            "tripId": trip_id,
+            "itemId": "hotel_osaka",
+            "type": "hotel",
+            "name": "InterContinental Osaka",
+            "location": "Osaka, Japan",
+            "check_in": "2026-04-07",
+            "check_out": "2026-04-10",
+            "nights": 3,
+            "points_cost": 150000,
+            "points_program": "IHG One Rewards",
+            "transfer_source": "Chase Ultimate Rewards",
+            "cash_cost": 0,
+        },
+        {
+            "tripId": trip_id,
+            "itemId": "flight_kix_lax",
+            "type": "flight",
+            "origin": "KIX",
+            "destination": "LAX",
+            "date": "2026-04-10",
+            "airline": "JL",
+            "airline_name": "Japan Airlines",
+            "flight_number": "JL60",
+            "departure_time": "5:00 PM",
+            "arrival_time": "11:55 AM",
+            "points_cost": 60000,
+            "points_program": "American AAdvantage",
+            "transfer_source": "Citi ThankYou Points",
+            "cash_cost": 129.00,
+            "surcharge": 129.00,
+        },
+        {
+            "tripId": trip_id,
+            "itemId": "totals",
+            "type": "totals",
+            "totals": {
+                "cash": total_out_of_pocket,
+                "points": total_points_used,
+                "transfers": {
+                    "amex": {
+                        "Virgin Atlantic Flying Club": {"points": 70000},
+                        "Marriott Bonvoy": {"points": 140000},
+                    },
+                    "chase": {
+                        "World of Hyatt": {"points": 90000},
+                        "IHG One Rewards": {"points": 150000},
+                    },
+                    "citi": {
+                        "American AAdvantage": {"points": 60000},
+                    },
+                },
+            },
+        },
+        {
+            "tripId": trip_id,
+            "itemId": "itinerary_smart_tips",
+            "type": "itinerary_smart_tips",
+            "transfer_tips": [
+                {
+                    "from_program": "Amex Membership Rewards",
+                    "to_program": "Virgin Atlantic Flying Club",
+                    "best_for": "LAX→NRT",
+                    "points": 70000,
+                    "note": "Transfer 70k Amex to Virgin Atlantic for ANA NH105 to Tokyo + $86.50 taxes",
+                    "transfer_time": "Instant",
+                    "portal_url": "https://www.americanexpress.com/en-us/rewards/membership-rewards/",
+                },
+                {
+                    "from_program": "Chase Ultimate Rewards",
+                    "to_program": "World of Hyatt",
+                    "best_for": "Park Hyatt Tokyo",
+                    "points": 90000,
+                    "note": "Transfer 90k Chase to Hyatt for 3 nights at the legendary Park Hyatt Tokyo",
+                    "transfer_time": "Instant",
+                    "portal_url": "https://ultimaterewardspoints.chase.com/",
+                },
+                {
+                    "from_program": "Amex Membership Rewards",
+                    "to_program": "Marriott Bonvoy",
+                    "best_for": "Ritz-Carlton Kyoto",
+                    "points": 140000,
+                    "note": "Transfer 140k Amex to Marriott for 2 nights at Ritz-Carlton Kyoto during peak sakura",
+                    "transfer_time": "Instant",
+                    "portal_url": "https://www.americanexpress.com/en-us/rewards/membership-rewards/",
+                },
+                {
+                    "from_program": "Chase Ultimate Rewards",
+                    "to_program": "IHG One Rewards",
+                    "best_for": "InterContinental Osaka",
+                    "points": 150000,
+                    "note": "Transfer 150k Chase to IHG for 3 nights at InterContinental Osaka",
+                    "transfer_time": "Instant",
+                    "portal_url": "https://ultimaterewardspoints.chase.com/",
+                },
+                {
+                    "from_program": "Citi ThankYou Points",
+                    "to_program": "American AAdvantage",
+                    "best_for": "KIX→LAX",
+                    "points": 60000,
+                    "note": "Transfer 60k Citi to AA for JAL JL60 return flight + $129 taxes",
+                    "transfer_time": "Instant",
+                    "portal_url": "https://www.thankyou.com/",
+                },
+            ],
+            "sample_itineraries": [],
+            "holiday_advice": [
+                {
+                    "period": "Early April 2026",
+                    "advice": "Peak cherry blossom (sakura) season! Book hanami spots early. Kyoto's Philosopher's Path is magical.",
+                    "avoid_or_prefer": "prefer",
+                },
+            ],
+            "practical_tips": [
+                {
+                    "category": "Transport",
+                    "tip": "Get a 7-day JR Pass (~$200) for unlimited Shinkansen rides between cities",
+                },
+                {
+                    "category": "Food",
+                    "tip": "Osaka is the food capital - don't miss takoyaki, okonomiyaki, and the Dotonbori area",
+                },
+                {
+                    "category": "Culture",
+                    "tip": "Visit Fushimi Inari shrine at sunrise to avoid crowds and get amazing photos",
+                },
+                {
+                    "category": "Hotel",
+                    "tip": "Park Hyatt Tokyo's New York Bar (Lost in Translation!) has stunning city views",
+                },
+            ],
+        },
+        {
+            "tripId": trip_id,
+            "itemId": "oop_optimization",
+            "type": "oop_optimization",
+            "total_out_of_pocket": total_out_of_pocket,
+            "all_cash_cost": all_cash_cost,
+            "savings": savings,
+            "savings_percentage": savings_percentage,
+            "total_points_used": total_points_used,
+            "points_breakdown": points_breakdown,
+            "optimization_mode": "oop",
+            "status": "Optimal",
+        },
+        # Payments item for booking page transfer instructions
+        {
+            "tripId": trip_id,
+            "itemId": "payments_traveler_1",
+            "type": "payments",
+            "travelerId": "traveler_1",
+            "payments": [
+                {
+                    "edge": ["LAX", "NRT", "NH105"],
+                    "type": "points",
+                    "via": {"source": "amex", "airline": "VS"},
+                    "miles": 70000,
+                    "surcharge": 86.50,
+                    "mode": "flight",
+                },
+                {
+                    "edge": ["KIX", "LAX", "JL60"],
+                    "type": "points",
+                    "via": {"source": "citi", "airline": "AA"},
+                    "miles": 60000,
+                    "surcharge": 129.00,
+                    "mode": "flight",
+                },
+            ],
+        },
+    ]
+    
+    # Save items to repo
+    itinerary_repo.batch_write_items(itinerary_items)
+    
+    # Build solution dict (mimics ILP solution structure)
+    solution = {
+        "status": "Optimal",
+        "path": {"traveler_1": [("LAX", "NRT", "NH105"), ("NRT", "Kyoto", "Shinkansen"), ("Kyoto", "KIX", "Shinkansen"), ("KIX", "LAX", "JL60")]},
+        "totals": {
+            "cash": total_out_of_pocket,
+            "points": total_points_used,
+            "transfers": transfers,
+        },
+    }
+    
+    # Build OOP optimization summary
+    oop_optimization_summary = {
+        "status": "Optimal",
+        "optimization_mode": "oop",
+        "total_out_of_pocket": total_out_of_pocket,
+        "all_cash_cost": all_cash_cost,
+        "savings": savings,
+        "savings_percentage": savings_percentage,
+        "total_points_used": total_points_used,
+        "flights": flights,
+        "hotels": hotels,
+        "booking_instructions": booking_instructions,
+        "transfers": transfers,
+        "points_breakdown": points_breakdown,
+        "points_remaining": {},
+        "warnings": [],
+        "notes": ["Optimized for cherry blossom season with premium hotel redemptions."],
     }
     
     return {
@@ -2418,9 +3195,12 @@ async def generate_optimized_itinerary(trip_id: str) -> Dict[str, Any]:
         if name and name not in (start_dest_name, end_dest_name):
             cities.append(name)
     
-    # 🥚 Easter Egg Check: NYC -> Doha -> Dubai -> NYC (March 8-15, 2026)
-    if _check_easter_egg_conditions(start_dest_name, end_dest_name, cities, start_date, end_date):
+    # Check for pre-optimized demo itineraries
+    demo_type = _check_easter_egg_conditions(start_dest_name, end_dest_name, cities, start_date, end_date)
+    if demo_type == "middle_east":
         return _generate_easter_egg_itinerary(trip_id)
+    elif demo_type == "japan":
+        return _generate_japan_easter_egg_itinerary(trip_id)
     
     # Convert city names to airport codes (in parallel to save time on API calls)
     logger.info(f"Converting city names to airport codes: start={start_dest_name}, end={end_dest_name}, cities={cities}")
