@@ -98,6 +98,24 @@ export interface TransferTip {
   average_cpp?: number;
 }
 
+// Bank portal URLs for easy access
+export const BANK_PORTAL_URLS: Record<string, string> = {
+  amex: 'https://global.americanexpress.com/rewards',
+  chase: 'https://ultimaterewardspoints.chase.com',
+  citi: 'https://thankyou.citi.com',
+  capitalone: 'https://www.capitalone.com/credit-cards/benefits/travel/',
+  bilt: 'https://www.biltrewards.com',
+};
+
+// Transfer time estimates by bank
+export const BANK_TRANSFER_TIMES: Record<string, string> = {
+  amex: '1-2 business days',
+  chase: 'Instant',
+  citi: 'Instant to 24 hours',
+  capitalone: 'Instant to 2 days',
+  bilt: 'Instant',
+};
+
 export interface PracticalTip {
   category?: string;
   tip?: string;
@@ -122,6 +140,45 @@ export interface TransferStepResult {
   isCodeshare?: boolean;
   operatingCarrier?: string;
   segmentDescription?: string;
+  // Enhanced transfer details
+  transferPortalUrl?: string;
+  transferTime?: string;
+  transferRatio?: string;
+  bookingUrl?: string;
+  centsPerPoint?: number;
+  pointsValue?: number;
+}
+
+// Comprehensive transfer action for display
+export interface TransferAction {
+  id: string;
+  order: number;
+  type: 'transfer' | 'booking';
+  // Transfer details
+  fromProgram?: string;
+  fromProgramName?: string;
+  toProgram?: string;
+  toProgramName?: string;
+  pointsToTransfer?: number;
+  resultingPoints?: number;
+  transferRatio?: string;
+  transferTime?: string;
+  portalUrl?: string;
+  // Booking details
+  bookingUrl?: string;
+  flightSegment?: string;
+  surcharge?: number;
+  // Flight details
+  isCodeshare?: boolean;
+  operatingCarrier?: string;
+  operatingCarrierName?: string;
+  bookingAirline?: string;
+  bookingAirlineName?: string;
+  // Value metrics
+  centsPerPoint?: number;
+  cashSaved?: number;
+  // Step-by-step instructions
+  steps?: string[];
 }
 
 export interface ExtractedTips {
@@ -318,6 +375,11 @@ export function buildTransferStepsFromItinerary(
         const warning = warningParts.join('. ').trim()
           || 'Double check availability on the airline website before transferring.';
 
+        // Get bank code for portal URL lookup
+        const bankCode = source.toLowerCase();
+        const portalUrl = matchingTip?.transfer_portal_url || BANK_PORTAL_URLS[bankCode] || '';
+        const transferTime = matchingTip?.transfer_time || BANK_TRANSFER_TIMES[bankCode] || '';
+
         result.push({
           id: `t-${idx}`,
           member: memberName,
@@ -337,6 +399,13 @@ export function buildTransferStepsFromItinerary(
           isCodeshare: matchingTip?.is_codeshare,
           operatingCarrier: matchingTip?.operating_carrier_name,
           segmentDescription: matchingTip?.segment_description,
+          // Enhanced transfer details
+          transferPortalUrl: portalUrl,
+          transferTime: transferTime,
+          transferRatio: matchingTip?.transfer_ratio || '1:1',
+          bookingUrl: matchingTip?.booking_url,
+          centsPerPoint: matchingTip?.cents_per_point,
+          pointsValue: matchingTip?.points_value,
         });
         idx += 1;
       }
@@ -350,6 +419,130 @@ export function buildTransferStepsFromItinerary(
  * Build a high-level transfer strategy overview from itinerary data.
  * This summarizes: which credit cards are used, total points from each, where they're transferred to.
  */
+/**
+ * Build a list of transfer actions from transfer tips for a more detailed display.
+ * Each action represents either a transfer step or a booking step.
+ */
+export function buildTransferActionsFromTips(
+  transferTips: TransferTip[]
+): TransferAction[] {
+  const actions: TransferAction[] = [];
+  let order = 1;
+
+  // Group by from_program to consolidate transfers from the same bank
+  const transfersByBank = new Map<string, TransferTip[]>();
+  const nativeBookings: TransferTip[] = [];
+
+  for (const tip of transferTips) {
+    if (tip.transfer_needed === false) {
+      nativeBookings.push(tip);
+    } else {
+      const bank = (tip.from_program || 'unknown').toLowerCase();
+      if (!transfersByBank.has(bank)) {
+        transfersByBank.set(bank, []);
+      }
+      transfersByBank.get(bank)!.push(tip);
+    }
+  }
+
+  // Create transfer actions
+  for (const [, tips] of transfersByBank) {
+    for (const tip of tips) {
+      // Get bank code for portal URL
+      const bankKey = Object.keys(SOURCE_TO_DISPLAY).find(
+        k => SOURCE_TO_DISPLAY[k].toLowerCase().includes((tip.from_program || '').toLowerCase().split(' ')[0])
+      ) || '';
+
+      actions.push({
+        id: `transfer-${order}`,
+        order: order++,
+        type: 'transfer',
+        fromProgram: bankKey,
+        fromProgramName: tip.from_program,
+        toProgram: tip.booking_airline,
+        toProgramName: tip.to_program,
+        pointsToTransfer: tip.points,
+        resultingPoints: tip.points, // Assume 1:1 unless specified
+        transferRatio: tip.transfer_ratio || '1:1',
+        transferTime: tip.transfer_time || BANK_TRANSFER_TIMES[bankKey] || 'varies',
+        portalUrl: tip.transfer_portal_url || BANK_PORTAL_URLS[bankKey],
+        bookingUrl: tip.booking_url,
+        flightSegment: tip.route_segment || tip.best_for,
+        surcharge: tip.surcharge,
+        isCodeshare: tip.is_codeshare,
+        operatingCarrier: tip.operating_carrier,
+        operatingCarrierName: tip.operating_carrier_name,
+        bookingAirline: tip.booking_airline,
+        bookingAirlineName: tip.booking_airline_name,
+        centsPerPoint: tip.cents_per_point,
+        cashSaved: tip.points_value,
+        steps: tip.transfer_steps,
+      });
+    }
+  }
+
+  // Add native booking actions (no transfer needed)
+  for (const tip of nativeBookings) {
+    actions.push({
+      id: `booking-${order}`,
+      order: order++,
+      type: 'booking',
+      toProgramName: tip.to_program,
+      bookingUrl: tip.booking_url,
+      flightSegment: tip.route_segment || tip.best_for,
+      surcharge: tip.surcharge,
+      pointsToTransfer: tip.points,
+      isCodeshare: tip.is_codeshare,
+      operatingCarrier: tip.operating_carrier,
+      operatingCarrierName: tip.operating_carrier_name,
+      centsPerPoint: tip.cents_per_point,
+      cashSaved: tip.points_value,
+      steps: tip.transfer_steps,
+    });
+  }
+
+  return actions;
+}
+
+/**
+ * Calculate total savings and value metrics from transfer tips.
+ */
+export function calculateTransferMetrics(transferTips: TransferTip[]): {
+  totalPoints: number;
+  totalSurcharges: number;
+  totalCashSaved: number;
+  averageCpp: number;
+  transferCount: number;
+} {
+  let totalPoints = 0;
+  let totalSurcharges = 0;
+  let totalCashSaved = 0;
+  let transferCount = 0;
+
+  for (const tip of transferTips) {
+    if (tip.points) {
+      totalPoints += tip.points;
+      transferCount++;
+    }
+    if (tip.surcharge) {
+      totalSurcharges += tip.surcharge;
+    }
+    if (tip.points_value) {
+      totalCashSaved += tip.points_value;
+    }
+  }
+
+  const averageCpp = totalPoints > 0 ? (totalCashSaved * 100) / totalPoints : 0;
+
+  return {
+    totalPoints,
+    totalSurcharges,
+    totalCashSaved,
+    averageCpp,
+    transferCount,
+  };
+}
+
 export function buildTransferStrategyOverview(
   items: Array<{ type?: string; totals?: { transfers?: Record<string, Record<string, Record<string, { source_points?: number }>>> }; [k: string]: unknown }>,
   members: Array<{ userId: string; name?: string }>

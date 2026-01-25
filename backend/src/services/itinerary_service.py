@@ -34,6 +34,13 @@ from src.handlers.airport_filter import is_commercial_airport, load_commercial_i
 from src.utils.award_programs import DEFAULT_TRANSFER_GRAPH, get_award_programs_for_api
 from src.repos import user_repo
 from src.utils.card_benefits import build_benefit_airlines_for_travelers
+from src.handlers.transfer_strategy import (
+    BANK_METADATA,
+    PROGRAM_METADATA,
+    build_transfer_instruction,
+    get_program_name,
+    get_bank_name,
+)
 
 logger = logging.getLogger(__name__)
 
@@ -195,65 +202,81 @@ _HUMANIZE_AIRLINE: Dict[str, str] = {
 }
 
 # Transfer portal URLs and transfer details
+# Use the enhanced BANK_METADATA from transfer_strategy.py and supplement with additional details
 _TRANSFER_DETAILS: Dict[str, Dict[str, str]] = {
     "amex": {
-        "portal_url": "https://global.americanexpress.com/rewards/summary",
-        "transfer_time": "instant",
+        "portal_url": BANK_METADATA.get("amex", {}).get("portal_url", "https://global.americanexpress.com/rewards"),
+        "transfer_time": BANK_METADATA.get("amex", {}).get("default_transfer_time", "1-2 business days"),
         "ratio": "1:1",
         "min_transfer": "1,000 points",
+        "full_name": BANK_METADATA.get("amex", {}).get("name", "American Express Membership Rewards"),
     },
     "chase": {
-        "portal_url": "https://www.chase.com/ultimate-rewards",
-        "transfer_time": "instant",
+        "portal_url": BANK_METADATA.get("chase", {}).get("portal_url", "https://ultimaterewardspoints.chase.com"),
+        "transfer_time": BANK_METADATA.get("chase", {}).get("default_transfer_time", "instant"),
         "ratio": "1:1",
         "min_transfer": "1,000 points",
+        "full_name": BANK_METADATA.get("chase", {}).get("name", "Chase Ultimate Rewards"),
     },
     "citi": {
-        "portal_url": "https://www.thankyou.com/",
-        "transfer_time": "1-2 business days",
+        "portal_url": BANK_METADATA.get("citi", {}).get("portal_url", "https://thankyou.citi.com"),
+        "transfer_time": BANK_METADATA.get("citi", {}).get("default_transfer_time", "instant to 24 hours"),
         "ratio": "1:1",
         "min_transfer": "1,000 points",
+        "full_name": BANK_METADATA.get("citi", {}).get("name", "Citi ThankYou Points"),
     },
     "capitalone": {
-        "portal_url": "https://www.capitalone.com/bank/rewards",
-        "transfer_time": "instant to 24 hours",
-        "ratio": "varies by partner (typically 2:1.5)",
+        "portal_url": BANK_METADATA.get("capitalone", {}).get("portal_url", "https://www.capitalone.com/credit-cards/benefits/travel/"),
+        "transfer_time": BANK_METADATA.get("capitalone", {}).get("default_transfer_time", "instant to 2 days"),
+        "ratio": "varies by partner",
         "min_transfer": "100 miles",
+        "full_name": BANK_METADATA.get("capitalone", {}).get("name", "Capital One Miles"),
     },
     "bilt": {
-        "portal_url": "https://www.biltrewards.com/rewards",
-        "transfer_time": "instant",
+        "portal_url": BANK_METADATA.get("bilt", {}).get("portal_url", "https://www.biltrewards.com"),
+        "transfer_time": BANK_METADATA.get("bilt", {}).get("default_transfer_time", "instant"),
         "ratio": "1:1",
-        "min_transfer": "1,000 points (transfer day: 1st of month)",
+        "min_transfer": "1,000 points",
+        "full_name": BANK_METADATA.get("bilt", {}).get("name", "Bilt Rewards"),
+        "special_note": "Best value: Transfer on rent payment day (1st of month)",
     },
 }
 
-# Airline booking portal URLs
+# Airline booking portal URLs - use PROGRAM_METADATA from transfer_strategy.py
+def _get_airline_booking_url(airline_code: str) -> str:
+    """Get booking URL for an airline from PROGRAM_METADATA."""
+    meta = PROGRAM_METADATA.get(airline_code.upper(), {})
+    return meta.get("booking_url", "")
+
+# Fallback URLs for airlines not in PROGRAM_METADATA
 _AIRLINE_BOOKING_URLS: Dict[str, str] = {
-    "UA": "https://www.united.com/en/us/fsr/choose-flights",
-    "AA": "https://www.aa.com/booking/search",
-    "DL": "https://www.delta.com/flight-search/book-a-flight",
-    "AS": "https://www.alaskaair.com/booking/reservation/search",
-    "B6": "https://www.jetblue.com/booking/flights",
-    "AC": "https://www.aircanada.com/us/en/aco/home/book.html",
-    "BA": "https://www.britishairways.com/travel/book/public/en_us",
-    "AF": "https://www.airfrance.com/",
-    "KL": "https://www.klm.com/",
-    "LH": "https://www.lufthansa.com/",
-    "LX": "https://www.swiss.com/",
-    "SQ": "https://www.singaporeair.com/",
-    "CX": "https://www.cathaypacific.com/",
-    "NH": "https://www.ana.co.jp/",
-    "JL": "https://www.jal.co.jp/",
-    "EK": "https://www.emirates.com/",
-    "QR": "https://www.qatarairways.com/",
-    "EY": "https://www.etihad.com/",
-    "TK": "https://www.turkishairlines.com/",
-    "AV": "https://www.avianca.com/",
-    "IB": "https://www.iberia.com/",
-    "QF": "https://www.qantas.com/",
-    "VS": "https://www.virginatlantic.com/",
-    "KE": "https://www.koreanair.com/",
+    code: PROGRAM_METADATA.get(code, {}).get("booking_url", url)
+    for code, url in {
+        "UA": "https://www.united.com",
+        "AA": "https://www.aa.com",
+        "DL": "https://www.delta.com",
+        "AS": "https://www.alaskaair.com",
+        "B6": "https://www.jetblue.com",
+        "AC": "https://www.aircanada.com",
+        "BA": "https://www.britishairways.com",
+        "AF": "https://www.airfrance.com",
+        "KL": "https://www.klm.com",
+        "LH": "https://www.lufthansa.com",
+        "LX": "https://www.swiss.com",
+        "SQ": "https://www.singaporeair.com",
+        "CX": "https://www.cathaypacific.com",
+        "NH": "https://www.ana.co.jp",
+        "JL": "https://www.jal.co.jp",
+        "EK": "https://www.emirates.com",
+        "QR": "https://www.qatarairways.com",
+        "EY": "https://www.etihad.com",
+        "TK": "https://www.turkishairlines.com",
+        "AV": "https://www.lifemiles.com",
+        "IB": "https://www.iberia.com",
+        "QF": "https://www.qantas.com",
+        "VS": "https://www.virginatlantic.com",
+        "KE": "https://www.koreanair.com",
+    }.items()
 }
 
 # Small/regional airports that often lack direct long-haul flight data in SERP/AwardTool.
