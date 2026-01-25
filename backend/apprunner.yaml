@@ -4,21 +4,48 @@ runtime: python311
 build:
   commands:
     build:
-      - echo "Build phase (python311): skipping pip installs here"
+      # Ensure the start script is executable (relative to repo root)
+      - chmod +x backend/start.sh
 
 run:
   runtime-version: 3.11
+
+  # For Python 3.11 revised build: install deps here (NOT in build) so they persist into runtime
   pre-run:
     - python3 --version
     - pip3 --version
     - pip3 install --upgrade pip
     - pip3 install -r backend/requirements.txt
-    - chmod +x backend/start.sh
+
   command: /bin/bash backend/start.sh
+
   network:
     port: 8000
+
   env:
     - name: AWS_REGION
       value: us-east-1
     - name: PYTHONPATH
       value: /app/backend
+
+    # DynamoDB table names
+    - name: USERS_TABLE
+      value: tripy-users
+    - name: TRIPS_TABLE
+      value: tripy-trips
+    - name: TRIP_MEMBERS_TABLE
+      value: tripy-trip-members
+    - name: POINTS_TABLE
+      value: tripy-points
+    - name: DESTINATIONS_TABLE
+      value: tripy-destinations
+    - name: DESTINATION_VOTES_TABLE
+      value: tripy-destination-votes
+    - name: ITINERARY_TABLE
+      value: tripy-itinerary
+
+    # Cognito
+    - name: USER_POOL_ID
+      value: "us-east-1_zCMCjyTLJ"
+    - name: USER_POOL_CLIENT_ID
+      value: "2rehpmlssbivmlo6468rcsd0kq"
