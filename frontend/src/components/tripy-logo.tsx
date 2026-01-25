@@ -20,14 +20,9 @@ export function TripyLogo({
     <div className={`flex items-center gap-3 ${className}`}>
       <div className="relative group">
         <div className="absolute inset-0 bg-blue-600 rounded-xl blur opacity-25 group-hover:opacity-40 transition-opacity"></div>
-        <div className="relative w-10 h-10 bg-gradient-to-br from-blue-600 via-indigo-600 to-indigo-700 rounded-xl flex items-center justify-center shadow-lg shadow-blue-600/20 group-hover:scale-105 transition-transform duration-200 overflow-hidden">
-          {/* Background decoration */}
-          <div className="absolute top-0 right-0 w-6 h-6 bg-white/10 rounded-bl-2xl"></div>
-          <div className="absolute bottom-0 left-0 w-4 h-4 bg-white/10 rounded-tr-xl"></div>
-          
+        <div className="relative w-10 h-10 bg-blue-600 rounded-xl flex items-center justify-center shadow-lg shadow-blue-600/20 group-hover:scale-105 transition-transform duration-200 overflow-hidden">
           {/* Layered icons for complexity */}
           <div className="relative z-10 flex items-center justify-center">
-            <Map className="absolute w-6 h-6 text-white/20" />
             <Plane className={`${iconClassName} text-white -rotate-45 group-hover:-rotate-12 transition-transform duration-300 relative z-20`} fill="currentColor" />
           </div>
         </div>

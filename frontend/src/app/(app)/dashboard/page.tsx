@@ -186,120 +186,91 @@ export default function Dashboard() {
                     </div>
                 </div>
 
-                {/* View Toggle */}
-                <div className="flex gap-2 mb-6">
-                    <button
-                        onClick={() => setViewMode('trips')}
-                        className={`px-6 py-3 rounded-xl transition-all font-medium ${viewMode === 'trips'
-                            ? 'bg-blue-600 text-white shadow-lg shadow-blue-600/20'
-                            : 'bg-white text-slate-600 border border-slate-200 hover:border-blue-600 hover:text-blue-600'
-                            }`}
-                    >
-                        My Trips
-                    </button>
-                    <button
-                        onClick={() => setViewMode('explore')}
-                        className={`px-6 py-3 rounded-xl transition-all font-medium ${viewMode === 'explore'
-                            ? 'bg-blue-600 text-white shadow-lg shadow-blue-600/20'
-                            : 'bg-white text-slate-600 border border-slate-200 hover:border-blue-600 hover:text-blue-600'
-                            }`}
-                    >
-                        Explore Destinations
-                    </button>
-                </div>
-
-                {/* Content Area */}
-                {viewMode === 'trips' ? (
-                    <div>
-                        {/* Quick Actions */}
-                        <div className="mb-8 flex gap-4">
-                            <Link
-                                href="/solo/setup"
-                                className="flex-1 bg-gradient-to-br from-blue-600 to-blue-700 text-white rounded-2xl p-6 hover:shadow-xl transition-all group"
-                            >
-                                <div className="flex items-center justify-between">
-                                    <div>
-                                        <div className="flex items-center gap-2 mb-2">
-                                            <Plane className="w-6 h-6" />
-                                            <span className="text-xl font-semibold">Plan Solo Trip</span>
-                                        </div>
-                                        <p className="text-blue-100 text-sm">Optimize your points for a personal adventure</p>
+                <div>
+                    {/* Quick Actions */}
+                    <div className="mb-8 flex gap-4">
+                        <Link
+                            href="/solo/setup"
+                            className="flex-1 bg-gradient-to-br from-blue-600 to-blue-700 text-white rounded-2xl p-6 hover:shadow-xl transition-all group"
+                        >
+                            <div className="flex items-center justify-between">
+                                <div>
+                                    <div className="flex items-center gap-2 mb-2">
+                                        <Plane className="w-6 h-6" />
+                                        <span className="text-xl font-semibold">Plan Solo Trip</span>
                                     </div>
-                                    <Plus className="w-8 h-8 opacity-50 group-hover:opacity-100 transition-opacity" />
+                                    <p className="text-blue-100 text-sm">Optimize your points for a personal adventure</p>
                                 </div>
-                            </Link>
+                                <Plus className="w-8 h-8 opacity-50 group-hover:opacity-100 transition-opacity" />
+                            </div>
+                        </Link>
 
-                            <Link
-                                href="/group/setup"
-                                className="flex-1 bg-gradient-to-br from-yellow-400 to-yellow-500 text-slate-900 rounded-2xl p-6 hover:shadow-xl transition-all group"
-                            >
-                                <div className="flex items-center justify-between">
-                                    <div>
-                                        <div className="flex items-center gap-2 mb-2">
-                                            <Users className="w-6 h-6" />
-                                            <span className="text-xl font-semibold">Plan Group Trip</span>
-                                        </div>
-                                        <p className="text-slate-700 text-sm">Collaborate and vote on destinations together</p>
+                        <Link
+                            href="/group/setup"
+                            className="flex-1 bg-gradient-to-br from-yellow-400 to-yellow-500 text-slate-900 rounded-2xl p-6 hover:shadow-xl transition-all group"
+                        >
+                            <div className="flex items-center justify-between">
+                                <div>
+                                    <div className="flex items-center gap-2 mb-2">
+                                        <Users className="w-6 h-6" />
+                                        <span className="text-xl font-semibold">Plan Group Trip</span>
                                     </div>
-                                    <Plus className="w-8 h-8 opacity-50 group-hover:opacity-100 transition-opacity" />
+                                    <p className="text-slate-700 text-sm">Collaborate and vote on destinations together</p>
                                 </div>
-                            </Link>
+                                <Plus className="w-8 h-8 opacity-50 group-hover:opacity-100 transition-opacity" />
+                            </div>
+                        </Link>
+                    </div>
+
+                    {/* Upcoming Trips */}
+                    {upcomingTrips.length > 0 && (
+                        <div className="mb-8">
+                            <h2 className="text-2xl mb-4 text-slate-900 font-semibold">Upcoming Trips</h2>
+                            <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
+                                {upcomingTrips.map(trip => (
+                                    <TripCard key={trip.id} trip={trip} />
+                                ))}
+                            </div>
                         </div>
+                    )}
 
-                        {/* Upcoming Trips */}
-                        {upcomingTrips.length > 0 && (
-                            <div className="mb-8">
-                                <h2 className="text-2xl mb-4 text-slate-900 font-semibold">Upcoming Trips</h2>
-                                <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
-                                    {upcomingTrips.map(trip => (
-                                        <TripCard key={trip.id} trip={trip} />
-                                    ))}
-                                </div>
+                    {/* Completed Trips */}
+                    {completedTrips.length > 0 && (
+                        <div>
+                            <h2 className="text-2xl mb-4 text-slate-900 font-semibold">Completed Trips</h2>
+                            <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
+                                {completedTrips.map(trip => (
+                                    <TripCard key={trip.id} trip={trip} />
+                                ))}
                             </div>
-                        )}
+                        </div>
+                    )}
 
-                        {/* Completed Trips */}
-                        {completedTrips.length > 0 && (
-                            <div>
-                                <h2 className="text-2xl mb-4 text-slate-900 font-semibold">Completed Trips</h2>
-                                <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
-                                    {completedTrips.map(trip => (
-                                        <TripCard key={trip.id} trip={trip} />
-                                    ))}
-                                </div>
+                    {/* Empty State */}
+                    {trips.length === 0 && (
+                        <div className="text-center py-16">
+                            <div className="w-20 h-20 bg-blue-100 rounded-full flex items-center justify-center mx-auto mb-4">
+                                <Plane className="w-10 h-10 text-blue-600" />
                             </div>
-                        )}
-
-                        {/* Empty State */}
-                        {trips.length === 0 && (
-                            <div className="text-center py-16">
-                                <div className="w-20 h-20 bg-blue-100 rounded-full flex items-center justify-center mx-auto mb-4">
-                                    <Plane className="w-10 h-10 text-blue-600" />
-                                </div>
-                                <h3 className="text-2xl mb-2 text-slate-900 font-semibold">No trips yet</h3>
-                                <p className="text-slate-600 mb-6">Start planning your next adventure</p>
-                                <div className="flex gap-4 justify-center">
-                                    <Link
-                                        href="/solo/setup"
-                                        className="px-6 py-3 bg-blue-600 text-white rounded-xl hover:bg-blue-700 transition-all font-medium"
-                                    >
-                                        Plan Solo Trip
-                                    </Link>
-                                    <Link
-                                        href="/group/setup"
-                                        className="px-6 py-3 bg-white text-blue-600 border-2 border-blue-600 rounded-xl hover:bg-blue-50 transition-all font-medium"
-                                    >
-                                        Plan Group Trip
-                                    </Link>
-                                </div>
+                            <h3 className="text-2xl mb-2 text-slate-900 font-semibold">No trips yet</h3>
+                            <p className="text-slate-600 mb-6">Start planning your next adventure</p>
+                            <div className="flex gap-4 justify-center">
+                                <Link
+                                    href="/solo/setup"
+                                    className="px-6 py-3 bg-blue-600 text-white rounded-xl hover:bg-blue-700 transition-all font-medium"
+                                >
+                                    Plan Solo Trip
+                                </Link>
+                                <Link
+                                    href="/group/setup"
+                                    className="px-6 py-3 bg-white text-blue-600 border-2 border-blue-600 rounded-xl hover:bg-blue-50 transition-all font-medium"
+                                >
+                                    Plan Group Trip
+                                </Link>
                             </div>
-                        )}
-                    </div>
-                ) : (
-                    <div className="flex items-center justify-center h-64 text-slate-400">
-                        <p>No trips yet. Create your first trip to get started!</p>
-                    </div>
-                )}
+                        </div>
+                    )}
+                </div>
             </div>
         </div>
     );

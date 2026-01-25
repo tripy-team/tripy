@@ -133,7 +133,7 @@ export default function LandingPage() {
                             {/* Points Badge */}
                             <div className="absolute bottom-1/4 right-1/4 bg-white rounded-2xl shadow-2xl p-6 hover:scale-105 transition-transform">
                                 <div className="flex items-center gap-3 mb-2">
-                                    <Plane className="w-6 h-6 text-blue-600" />
+                                    <Plane className="w-6 h-6 text-blue-600"  />
                                     <div className="text-sm text-slate-600">A GO FOR POINTS</div>
                                 </div>
                                 <div className="text-4xl font-bold text-slate-900">90,000</div>
