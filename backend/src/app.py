@@ -55,6 +55,20 @@ from .handlers.openAI import (
     search_cities_with_openai,
     search_airports_with_openai,
 )
+from .handlers.group_api import (
+    handle_get_points_pool,
+    handle_optimize_oop,
+    handle_simulate_allocation,
+    handle_get_settlements,
+    handle_mark_settlement_paid,
+    handle_confirm_settlement,
+    handle_get_settlements_status,
+    OptimizeOOPRequest,
+    OptimizeOOPOptions,
+    SimulateAllocationRequest,
+    MarkSettlementPaidRequest,
+    ConfirmSettlementRequest,
+)
 
 # Get CORS origins from environment variable
 CORS_ORIGINS_ENV = os.environ.get("CORS_ORIGINS", "")
@@ -845,58 +859,59 @@ async def generate_itinerary(
             out["relaxed_message"] = result.get("relaxed_message", "")
         return out
     except ValueError as e:
-        # Fallback to simple itineraries (1-5 routes within budget/points) when optimization fails
-        logger.warning(f"Optimization failed ({e}), falling back to simple itineraries with safe_mode")
-        try:
-            items = itinerary_service.generate_simple_itineraries(request.trip_id, safe_mode=True)
-            track_itinerary_generated(user_id, request.trip_id, len(items))
-            warning_msg = f"Optimization failed: {str(e)}"
-            return {
-                "status": "simple_fallback",
-                "solution": {},
-                "items": items,
-                "fallback_reason": "optimization_error",
-                "warning": warning_msg,
-            }
-        except Exception as fallback_err:
-            logger.error(f"Simple itinerary fallback failed: {fallback_err}")
-            # Last resort: return minimal fallback
-            fallback_items = itinerary_service._generate_minimal_fallback_itinerary(
-                request.trip_id, f"All generators failed: {str(fallback_err)}"
-            )
-            return {
-                "status": "minimal_fallback",
-                "solution": {},
-                "items": fallback_items,
-                "error": str(e),
-            }
+        # NO FALLBACKS - Return explicit error with actionable guidance
+        logger.warning(f"Optimization failed: {e}")
+        error_response = {
+            "status": "error",
+            "error_code": "OPTIMIZATION_FAILED",
+            "message": str(e),
+            "user_actions": [
+                {
+                    "action_type": "change_dates",
+                    "title": "Try Different Dates",
+                    "description": "Flight availability varies by date",
+                    "button_text": "Change Dates"
+                },
+                {
+                    "action_type": "increase_budget",
+                    "title": "Increase Budget",
+                    "description": "Your budget may be too low for this route",
+                    "button_text": "Update Budget"
+                },
+                {
+                    "action_type": "modify_destinations",
+                    "title": "Modify Destinations",
+                    "description": "Some routes may not have available flights",
+                    "button_text": "Edit Destinations"
+                }
+            ]
+        }
+        return error_response
     except HTTPException:
         raise
     except Exception as e:
         logger.error(f"Error generating itinerary: {str(e)}")
-        # Fallback to simple itineraries on any error (with safe_mode to guarantee success)
-        try:
-            items = itinerary_service.generate_simple_itineraries(request.trip_id, safe_mode=True)
-            track_itinerary_generated(user_id, request.trip_id, len(items))
-            return {
-                "status": "simple_fallback",
-                "solution": {},
-                "items": items,
-                "fallback_reason": "unexpected_error",
-                "warning": f"Unexpected error: {str(e)}",
-            }
-        except Exception as fallback_err:
-            logger.error(f"Simple itinerary fallback failed: {fallback_err}")
-            # Last resort: return minimal fallback
-            fallback_items = itinerary_service._generate_minimal_fallback_itinerary(
-                request.trip_id, f"All generators failed: {str(fallback_err)}"
-            )
-            return {
-                "status": "minimal_fallback",
-                "solution": {},
-                "items": fallback_items,
-                "error": str(e),
-            }
+        # NO FALLBACKS - Return explicit error with actionable guidance
+        error_response = {
+            "status": "error",
+            "error_code": "UNEXPECTED_ERROR",
+            "message": f"An unexpected error occurred: {str(e)}",
+            "user_actions": [
+                {
+                    "action_type": "retry",
+                    "title": "Try Again",
+                    "description": "The issue may be temporary",
+                    "button_text": "Retry"
+                },
+                {
+                    "action_type": "simplify_trip",
+                    "title": "Simplify Trip",
+                    "description": "Try fewer destinations or more flexible dates",
+                    "button_text": "Edit Trip"
+                }
+            ]
+        }
+        return error_response
 
 
 @app.post("/itinerary/get")
@@ -1589,4 +1604,263 @@ async def get_city_image_srcset(city_name: str):
         raise
     except Exception as e:
         logger.error(f"Error getting city image srcset: {str(e)}")
+        raise HTTPException(status_code=500, detail=str(e))
+
+
+# =============================================================================
+# GROUP TRAVEL OOP OPTIMIZATION ENDPOINTS
+# =============================================================================
+
+@app.get("/group/{trip_id}/points-pool")
+async def get_group_points_pool(
+    trip_id: str,
+    user_id: str = Depends(get_current_user_id),
+):
+    """
+    Get aggregated points pool for a group trip.
+    
+    Returns combined points across all members, transfer potential,
+    and estimated values.
+    """
+    try:
+        # Get trip members
+        members_data = trip_member_service.get_trip_members(trip_id)
+        
+        if not members_data:
+            raise HTTPException(
+                status_code=404,
+                detail=f"No members found for trip {trip_id}"
+            )
+        
+        # Get each member's points
+        for member in members_data:
+            member_id = member.get("user_id")
+            if member_id:
+                points = points_service.get_user_points_for_trip(trip_id, member_id)
+                member["points"] = {p.get("program"): p.get("balance") for p in points if p.get("balance")}
+        
+        result = await handle_get_points_pool(trip_id, members_data)
+        return result
+        
+    except HTTPException:
+        raise
+    except Exception as e:
+        logger.error(f"Error getting group points pool: {str(e)}")
+        raise HTTPException(status_code=500, detail=str(e))
+
+
+@app.post("/group/{trip_id}/optimize-oop")
+async def optimize_group_oop(
+    trip_id: str,
+    request: Optional[OptimizeOOPRequest] = None,
+    user_id: str = Depends(get_current_user_id),
+):
+    """
+    Run group OOP optimization.
+    
+    This is the main endpoint for optimizing a group trip's out-of-pocket costs.
+    It searches for flights and hotels, runs the ILP optimizer, calculates
+    fair cost allocation, and generates settlement instructions.
+    """
+    try:
+        if request is None:
+            request = OptimizeOOPRequest()
+        
+        # Get trip details
+        trip = trip_service.get_trip(trip_id, user_id)
+        if not trip:
+            raise HTTPException(status_code=404, detail=f"Trip {trip_id} not found")
+        
+        # Get trip members
+        members_data = trip_member_service.get_trip_members(trip_id)
+        if not members_data:
+            raise HTTPException(
+                status_code=400,
+                detail="No members found for trip. Add members before optimizing."
+            )
+        
+        # Get each member's points
+        for member in members_data:
+            member_id = member.get("user_id")
+            if member_id:
+                points = points_service.get_user_points_for_trip(trip_id, member_id)
+                member["points"] = {p.get("program"): p.get("balance") for p in points if p.get("balance")}
+        
+        # Get destinations
+        destinations = destination_service.get_destinations(trip_id)
+        if not destinations:
+            raise HTTPException(
+                status_code=400,
+                detail="No destinations found for trip. Add destinations before optimizing."
+            )
+        
+        # TODO: Search for actual flight and hotel options
+        # For now, use placeholder booking items
+        # In production, this would call AwardTool API and SerpAPI
+        booking_items_data = []
+        
+        # Placeholder: Create sample booking items from destinations
+        # This should be replaced with actual flight/hotel search
+        for i, dest in enumerate(destinations):
+            dest_name = dest.get("name", "Unknown")
+            
+            # Sample flight item
+            booking_items_data.append({
+                "item_id": f"flight_{i}",
+                "type": "flight",
+                "member_id": members_data[0].get("user_id"),  # First member as example
+                "description": f"Flight to {dest_name}",
+                "cash_cost": 500.0,  # Placeholder
+                "points_options": [
+                    {"program_code": "UA", "points_required": 30000, "surcharge": 50},
+                    {"program_code": "AA", "points_required": 35000, "surcharge": 45},
+                ],
+            })
+        
+        result = await handle_optimize_oop(
+            trip_id=trip_id,
+            members_data=members_data,
+            booking_items_data=booking_items_data,
+            options=request.options,
+        )
+        
+        return result
+        
+    except HTTPException:
+        raise
+    except Exception as e:
+        logger.error(f"Error optimizing group OOP: {str(e)}")
+        raise HTTPException(status_code=500, detail=str(e))
+
+
+@app.post("/group/{trip_id}/simulate-allocation")
+async def simulate_group_allocation(
+    trip_id: str,
+    request: SimulateAllocationRequest,
+    user_id: str = Depends(get_current_user_id),
+):
+    """
+    Simulate cost allocation without full optimization.
+    
+    Provides a quick preview of expected settlements based on
+    members' points contributions.
+    """
+    try:
+        # Get trip members
+        members_data = trip_member_service.get_trip_members(trip_id)
+        if not members_data:
+            raise HTTPException(status_code=404, detail="No members found for trip")
+        
+        # Get each member's points
+        for member in members_data:
+            member_id = member.get("user_id")
+            if member_id:
+                points = points_service.get_user_points_for_trip(trip_id, member_id)
+                member["points"] = {p.get("program"): p.get("balance") for p in points if p.get("balance")}
+        
+        result = await handle_simulate_allocation(trip_id, members_data, request)
+        return result
+        
+    except HTTPException:
+        raise
+    except Exception as e:
+        logger.error(f"Error simulating allocation: {str(e)}")
+        raise HTTPException(status_code=500, detail=str(e))
+
+
+@app.get("/group/{trip_id}/settlements")
+async def get_group_settlements(
+    trip_id: str,
+    user_id: str = Depends(get_current_user_id),
+):
+    """
+    Get settlements for a group trip.
+    
+    Returns all settlement entries with payment instructions.
+    """
+    try:
+        # Get trip members
+        members_data = trip_member_service.get_trip_members(trip_id)
+        
+        # TODO: Get settlements from database
+        # For now, return empty list
+        settlements_data = []
+        
+        result = await handle_get_settlements(trip_id, settlements_data, members_data)
+        return result
+        
+    except HTTPException:
+        raise
+    except Exception as e:
+        logger.error(f"Error getting settlements: {str(e)}")
+        raise HTTPException(status_code=500, detail=str(e))
+
+
+@app.post("/group/{trip_id}/settlements/{settlement_id}/mark-paid")
+async def mark_settlement_paid(
+    trip_id: str,
+    settlement_id: str,
+    request: MarkSettlementPaidRequest,
+    user_id: str = Depends(get_current_user_id),
+):
+    """
+    Mark a settlement as paid by the debtor.
+    """
+    try:
+        result = await handle_mark_settlement_paid(
+            trip_id, settlement_id, request, user_id
+        )
+        return result
+        
+    except HTTPException:
+        raise
+    except Exception as e:
+        logger.error(f"Error marking settlement paid: {str(e)}")
+        raise HTTPException(status_code=500, detail=str(e))
+
+
+@app.post("/group/{trip_id}/settlements/{settlement_id}/confirm")
+async def confirm_settlement(
+    trip_id: str,
+    settlement_id: str,
+    request: ConfirmSettlementRequest,
+    user_id: str = Depends(get_current_user_id),
+):
+    """
+    Confirm settlement receipt by the creditor.
+    """
+    try:
+        result = await handle_confirm_settlement(
+            trip_id, settlement_id, request, user_id
+        )
+        return result
+        
+    except HTTPException:
+        raise
+    except Exception as e:
+        logger.error(f"Error confirming settlement: {str(e)}")
+        raise HTTPException(status_code=500, detail=str(e))
+
+
+@app.get("/group/{trip_id}/settlements/status")
+async def get_settlements_status(
+    trip_id: str,
+    user_id: str = Depends(get_current_user_id),
+):
+    """
+    Get overall settlement status for a trip.
+    
+    Returns summary of all settlements and their completion status.
+    """
+    try:
+        # TODO: Get settlements from database
+        settlements_data = []
+        
+        result = await handle_get_settlements_status(trip_id, settlements_data)
+        return result
+        
+    except HTTPException:
+        raise
+    except Exception as e:
+        logger.error(f"Error getting settlements status: {str(e)}")
         raise HTTPException(status_code=500, detail=str(e))

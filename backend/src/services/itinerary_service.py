@@ -2094,35 +2094,22 @@ async def generate_optimized_itinerary(trip_id: str) -> Dict[str, Any]:
                                 f"We recommend a budget of at least ${int(tot * 1.2):,}."
                             )
                 
-                # 3) Use relaxed solution or fall back to simple generator with warning
+                # 3) Use relaxed solution or raise explicit error (NO FALLBACKS)
                 if relaxed_solution and any((relaxed_solution.get("path") or {}).values()):
                     solution = relaxed_solution
                     logger.info("Using relaxed/best-effort solution: %s", relaxed_message[:80] if relaxed_message else "")
                 else:
-                    # Instead of AI suggestions, fall back to simple generator which always works
+                    # NO FALLBACK - Raise explicit error with actionable guidance
                     logger.info(
-                        "No feasible optimized solution; falling back to simple itineraries with budget warning"
+                        "No feasible optimized solution found - raising explicit error"
                     )
-                    simple_items = generate_simple_itineraries(trip_id)
-                    # Add warning that optimization failed
-                    warning_item = {
-                        "tripId": trip_id,
-                        "itemId": "optimization_failed_warning",
-                        "type": "optimization_warning",
-                        "message": (
-                            "We couldn't optimize your itinerary with real flight data. "
-                            "This usually means your budget is too low or flights aren't available for your dates. "
-                            "The routes shown are estimates. Consider increasing your budget or choosing different dates/airports."
-                        ),
-                    }
-                    simple_items.append(warning_item)
-                    itinerary_repo.put_item(warning_item)
-                    return {
-                        "status": "simple_fallback",
-                        "solution": {},
-                        "items": simple_items,
-                        "fallback_reason": "infeasible",
-                    }
+                    raise ValueError(
+                        "Unable to find a valid route with the given constraints. "
+                        "This may be because: (1) Your budget is too low for available flights, "
+                        "(2) No flights are available on your selected dates, or "
+                        "(3) No routes exist between your chosen destinations. "
+                        "Try increasing your budget, choosing different dates, or modifying your destinations."
+                    )
             elif status == "Unbounded":
                 logger.warning("Optimization is unbounded - this should not happen with proper constraints")
             else:
