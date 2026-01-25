@@ -52,6 +52,7 @@ interface PaymentRec {
   miles?: number;
   surcharge?: number;
   mode?: string;
+  fare?: number;
 }
 
 function SoloBookingContent() {
