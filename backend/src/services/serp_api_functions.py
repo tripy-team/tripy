@@ -126,6 +126,17 @@ def get_google_flights(
     If commercial_only=True, returns [] when origin or destination is not a commercial airport.
     Returns: best_flights + other_flights (each with price, flights[], total_duration, etc.)
     """
+    # Check if dummy mode is enabled
+    from src.config import is_awardtool_dummy_mode
+    if is_awardtool_dummy_mode():
+        from src.handlers.awardtool_dummy import generate_dummy_serp_data
+        import logging
+        logging.getLogger(__name__).info("[DUMMY MODE] Returning dummy Google Flights data for %s->%s", origin, destination)
+        body = generate_dummy_serp_data(origin, destination, outbound_date, travel_class)
+        best = body.get("best_flights") or []
+        other = body.get("other_flights") or []
+        return list(best) + list(other)
+    
     key = _serp_key()
     if not key or not origin or not destination or not outbound_date:
         return []
@@ -177,6 +188,21 @@ def fetch_awardtool(
     """
     AwardTool search_real_time. Returns { status, data: [{ award_points, surcharge, cabin_type, fare, products }] }.
     """
+    # Check if dummy mode is enabled
+    from src.config import is_awardtool_dummy_mode
+    if is_awardtool_dummy_mode():
+        from src.handlers.awardtool_dummy import generate_dummy_flight_data
+        import logging
+        logging.getLogger(__name__).info("[DUMMY MODE] Returning dummy AwardTool data for %s->%s", origin, destination)
+        return generate_dummy_flight_data(
+            (origin or "").strip().upper(),
+            (destination or "").strip().upper(),
+            (date or "").strip(),
+            cabins or ["Economy"],
+            programs or ["UA", "DL", "AA"],
+            int(pax) if pax is not None else 1
+        )
+    
     import requests
 
     key = _award_key()
@@ -339,6 +365,26 @@ def get_google_hotels(
     SerpAPI engine=google_hotels. sort_by=3 is lowest price.
     Returns: [{ name, cash_total, cash_per_night, property_token, source }]
     """
+    # Check if dummy mode is enabled
+    from src.config import is_awardtool_dummy_mode
+    if is_awardtool_dummy_mode():
+        from src.handlers.awardtool_dummy import generate_dummy_hotel_data
+        import logging
+        logging.getLogger(__name__).info("[DUMMY MODE] Returning dummy Google Hotels data for %s", q)
+        # Generate dummy hotel data and convert to Google Hotels format
+        dummy = generate_dummy_hotel_data(q, check_in_date, check_out_date, ["HH", "MAR", "HYATT", "IHG"], adults)
+        out = []
+        for h in (dummy.get("data") or [])[:limit]:
+            out.append({
+                "name": h.get("name", ""),
+                "cash_total": h.get("cash_cost"),
+                "cash_per_night": h.get("cash_cost") / max(1, (h.get("nights") or 1)) if h.get("cash_cost") else None,
+                "property_token": h.get("hotel_id"),
+                "source": "google_hotels_dummy",
+                "overall_rating": h.get("star_rating"),
+            })
+        return out
+    
     key = _serp_key()
     if not key or not (q or "").strip() or not check_in_date or not check_out_date:
         return []

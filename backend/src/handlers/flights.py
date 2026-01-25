@@ -124,6 +124,13 @@ TTL_SERP = 90 * 60  # 90m
 # ==== SERP route-level (single call) ====
 async def serp_route(origin, destination, date_str, filters, client):
     tclass = _normalize_travel_class_for_serp((filters or {}).get("travel_class"))
+    
+    # Check if dummy mode is enabled - return dummy SERP data
+    if is_awardtool_dummy_mode():
+        from src.handlers.awardtool_dummy import generate_dummy_serp_data
+        logger.info("[DUMMY MODE] Returning dummy SERP data for %s->%s on %s", origin, destination, date_str)
+        return generate_dummy_serp_data(origin, destination, date_str, tclass)
+    
     # Use type=2 (one-way): SerpAPI type=1 is round-trip and requires return_date.
     # Segment fetch only has outbound_date.
     params = {
@@ -646,6 +653,34 @@ def get_flights_serp_only(origin, destination, date_str, filters=None):
     Returns edges dict compatible with the rest of the flight pipeline (ILP, etc.).
     Used as a fallback when award-first and async SERP-first return no edges.
     """
+    # Check if dummy mode is enabled
+    if is_awardtool_dummy_mode():
+        from src.handlers.awardtool_dummy import generate_dummy_serp_data
+        logger.info("[DUMMY MODE] Returning dummy SERP-only data for %s->%s on %s", origin, destination, date_str)
+        filt = dict(filters or {})
+        travel_class = _normalize_travel_class_for_serp(filt.get("travel_class"))
+        body = generate_dummy_serp_data(origin, destination, date_str, travel_class)
+        serp_map = serp_route_to_leg_map(body)
+        edges = {}
+        for key, cash_blob in serp_map.items():
+            fn = key[2] if len(key) >= 3 else ""
+            edges[key] = {
+                "cash_cost": cash_blob.get("cash_cost"),
+                "time_cost": cash_blob.get("time_cost"),
+                "points_cost": None,
+                "points_program": None,
+                "points_surcharge": None,
+                "transfer_partners": [],
+                "departure_time": cash_blob.get("departure_time"),
+                "arrival_time": cash_blob.get("arrival_time"),
+                "operating_airline": infer_airline_from_flight_number(fn),
+            }
+        logger.info(
+            "[DUMMY MODE] get_flights_serp_only [%s]->[%s] date=%s: %d edges",
+            origin, destination, date_str, len(edges),
+        )
+        return edges
+    
     filt = dict(filters or {})
     travel_class = _normalize_travel_class_for_serp(filt.get("travel_class"))
     # Use one-way (type=2): SerpAPI requires return_date for round-trip (type=1).

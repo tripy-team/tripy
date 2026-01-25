@@ -1002,6 +1002,162 @@ def generate_dummy_calendar_data(
 
 
 # =============================================================================
+# SERP (GOOGLE FLIGHTS) DUMMY DATA
+# =============================================================================
+
+# Cash price ranges by route type (USD)
+CASH_PRICES = {
+    "domestic": {"Economy": (150, 450), "Premium Economy": (350, 700), "Business": (600, 1500), "First": (1200, 3000)},
+    "short_haul": {"Economy": (200, 600), "Premium Economy": (450, 900), "Business": (800, 2000), "First": (1500, 4000)},
+    "transatlantic": {"Economy": (400, 1200), "Premium Economy": (800, 2000), "Business": (2500, 6000), "First": (5000, 12000)},
+    "transpacific": {"Economy": (500, 1500), "Premium Economy": (1000, 2500), "Business": (3000, 8000), "First": (6000, 15000)},
+    "middleeast": {"Economy": (600, 1800), "Premium Economy": (1200, 3000), "Business": (3500, 9000), "First": (7000, 18000)},
+    "long_haul": {"Economy": (700, 2000), "Premium Economy": (1500, 3500), "Business": (4000, 10000), "First": (8000, 20000)},
+}
+
+
+def generate_dummy_serp_data(
+    origin: str,
+    destination: str,
+    date: str,
+    travel_class: Optional[int] = None,
+) -> Dict[str, Any]:
+    """
+    Generate dummy SerpAPI (Google Flights) response with cash prices.
+    
+    Args:
+        origin: Origin airport code
+        destination: Destination airport code
+        date: Date string (YYYY-MM-DD)
+        travel_class: 1=Economy, 2=Premium Economy, 3=Business, 4=First
+        
+    Returns:
+        Dict matching SerpAPI Google Flights response format
+    """
+    origin = origin.upper().strip()
+    destination = destination.upper().strip()
+    
+    logger.info(f"[DUMMY SERP] Generating cash flight data: {origin}->{destination} on {date}")
+    
+    route_type = _classify_route(origin, destination)
+    cash_pricing = CASH_PRICES.get(route_type, CASH_PRICES["transatlantic"])
+    duration_range = FLIGHT_DURATIONS.get(route_type, (360, 600))
+    
+    # Map travel_class to cabin name
+    cabin_map = {1: "Economy", 2: "Premium Economy", 3: "Business", 4: "First"}
+    cabin = cabin_map.get(travel_class, "Economy")
+    
+    # Get relevant programs for this route
+    all_programs = list(AIRLINE_PROGRAMS.keys())
+    relevant_programs = _get_relevant_programs(origin, destination, all_programs)
+    
+    best_flights = []
+    other_flights = []
+    
+    for program_code in relevant_programs[:6]:  # Limit to 6 airlines
+        if program_code not in AIRLINE_PROGRAMS:
+            continue
+            
+        program = AIRLINE_PROGRAMS[program_code]
+        
+        # Generate 1-3 flight options per airline
+        num_flights = random.randint(1, 3)
+        
+        for flight_idx in range(num_flights):
+            flight_num = _generate_flight_number(program_code, origin, destination)
+            if flight_idx > 0:
+                flight_num = f"{program_code}{int(flight_num[2:]) + flight_idx * 50}"
+            
+            # Calculate cash price
+            price_range = cash_pricing.get(cabin, cash_pricing["Economy"])
+            price = random.randint(*price_range)
+            
+            # Generate times
+            duration = random.randint(*duration_range)
+            dep_time = _generate_flight_time(date, route_type)
+            arr_time = _generate_arrival_time(dep_time, duration)
+            
+            # Extract just time portion for SERP format
+            dep_time_only = dep_time.split("T")[1][:5] if "T" in dep_time else "10:00"
+            arr_time_only = arr_time.split("T")[1][:5] if "T" in arr_time else "18:00"
+            
+            flight_option = {
+                "price": price,
+                "type": "One way",
+                "airline_logo": f"https://www.gstatic.com/flights/airline_logos/70px/{program_code}.png",
+                "flights": [
+                    {
+                        "departure_airport": {
+                            "name": f"{origin} International Airport",
+                            "id": origin,
+                            "time": dep_time_only,
+                        },
+                        "arrival_airport": {
+                            "name": f"{destination} International Airport",
+                            "id": destination,
+                            "time": arr_time_only,
+                        },
+                        "duration": duration,
+                        "airplane": "Boeing 777" if route_type in ("transpacific", "long_haul") else "Airbus A320",
+                        "airline": program["name"].split()[0],
+                        "airline_logo": f"https://www.gstatic.com/flights/airline_logos/70px/{program_code}.png",
+                        "travel_class": cabin,
+                        "flight_number": flight_num,
+                        "legroom": "32 in" if cabin == "Economy" else "38 in",
+                        "extensions": ["Wi-Fi", "Power outlet"],
+                    }
+                ],
+                "total_duration": duration,
+                "carbon_emissions": {
+                    "this_flight": random.randint(200, 800) * 1000,
+                    "typical_for_this_route": random.randint(250, 900) * 1000,
+                },
+            }
+            
+            # First few go to best_flights, rest to other_flights
+            if len(best_flights) < 5:
+                best_flights.append(flight_option)
+            else:
+                other_flights.append(flight_option)
+    
+    # Sort best flights by price
+    best_flights.sort(key=lambda x: x["price"])
+    other_flights.sort(key=lambda x: x["price"])
+    
+    logger.info(f"[DUMMY SERP] Generated {len(best_flights)} best + {len(other_flights)} other flights for {origin}->{destination}")
+    
+    return {
+        "search_metadata": {
+            "id": f"dummy_{origin}_{destination}_{date}",
+            "status": "Success",
+            "json_endpoint": "dummy",
+            "created_at": datetime.now().isoformat(),
+            "processed_at": datetime.now().isoformat(),
+            "google_flights_url": f"https://www.google.com/travel/flights?q={origin}+to+{destination}",
+            "raw_html_file": "dummy",
+            "prettify_html_file": "dummy",
+            "total_time_taken": 0.5,
+        },
+        "search_parameters": {
+            "engine": "google_flights",
+            "type": "2",
+            "departure_id": origin,
+            "arrival_id": destination,
+            "outbound_date": date,
+            "currency": "USD",
+            "hl": "en",
+        },
+        "best_flights": best_flights,
+        "other_flights": other_flights,
+        "price_insights": {
+            "lowest_price": min(f["price"] for f in best_flights) if best_flights else 0,
+            "price_level": "typical",
+        },
+        "_dummy": True,
+    }
+
+
+# =============================================================================
 # CONVENIENCE FUNCTIONS
 # =============================================================================
 
@@ -1010,6 +1166,11 @@ def get_dummy_flights(origin: str, destination: str, date: str, cabins: List[str
     cabins = cabins or ["Economy", "Business"]
     programs = programs or list(AIRLINE_PROGRAMS.keys())
     return generate_dummy_flight_data(origin, destination, date, cabins, programs)
+
+
+def get_dummy_serp(origin: str, destination: str, date: str, travel_class: int = 1) -> Dict[str, Any]:
+    """Convenience wrapper for SERP dummy data."""
+    return generate_dummy_serp_data(origin, destination, date, travel_class)
 
 
 def get_dummy_hotels(destination: str, check_in: str, check_out: str, programs: List[str] = None) -> Dict[str, Any]:
