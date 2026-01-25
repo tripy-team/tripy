@@ -141,6 +141,8 @@ class AddDestinationRequest(BaseModel):
     name: str = Field(..., min_length=1, max_length=200)
     must_include: bool = False
     excluded: bool = False
+    is_start: bool = False
+    is_end: bool = False
 
 
 class UpsertPointsRequest(BaseModel):
@@ -662,6 +664,8 @@ async def add_destination(
             request.name,
             request.must_include,
             request.excluded,
+            is_start=request.is_start,
+            is_end=request.is_end,
         )
 
         # Trigger city image curation in the background for this destination.

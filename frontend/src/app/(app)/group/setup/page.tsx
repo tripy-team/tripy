@@ -339,8 +339,10 @@ export default function GroupTripSetup() {
         await addDestination({
           trip_id: trip.tripId,
           name: startDestination,
-          must_include: true, // Start destination should be included
+          must_include: true,
           excluded: false,
+          is_start: true,
+          is_end: false,
         });
       }
 
@@ -349,8 +351,10 @@ export default function GroupTripSetup() {
         await addDestination({
           trip_id: trip.tripId,
           name: endDestination,
-          must_include: true, // End destination should be included
+          must_include: true,
           excluded: false,
+          is_start: false,
+          is_end: true,
         });
       }
 
@@ -879,8 +883,8 @@ export default function GroupTripSetup() {
                   <MapPin className="w-5 h-5 text-blue-600" />
                 </div>
                 <div>
-                  <h2 className="text-2xl text-slate-900 font-semibold">Route</h2>
-                  <p className="text-sm text-slate-500">What airports are you flying in and out of?</p>
+                  <h2 className="text-2xl text-slate-900 font-semibold">Departure & Arrival</h2>
+                  <p className="text-sm text-slate-500">Choose your starting and ending airports</p>
                 </div>
               </div>
               

@@ -339,6 +339,8 @@ export interface Destination {
   name: string;
   mustInclude: boolean;
   excluded: boolean;
+  isStart?: boolean;
+  isEnd?: boolean;
   createdBy: string;
 }
 
@@ -556,7 +558,7 @@ export const destinations = {
     return res.json();
   },
 
-  add: async (params: { trip_id: string; name: string; must_include?: boolean; excluded?: boolean }): Promise<Destination> => {
+  add: async (params: { trip_id: string; name: string; must_include?: boolean; excluded?: boolean; is_start?: boolean; is_end?: boolean }): Promise<Destination> => {
     return apiRequest<Destination>('/destinations/add', {
       method: 'POST',
       body: JSON.stringify({
@@ -564,6 +566,8 @@ export const destinations = {
         name: params.name,
         must_include: params.must_include ?? false,
         excluded: params.excluded ?? false,
+        is_start: params.is_start ?? false,
+        is_end: params.is_end ?? false,
       }),
     });
   },

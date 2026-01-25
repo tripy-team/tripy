@@ -34,6 +34,8 @@ class DestinationAddRequest(BaseModel):
     name: str
     must_include: bool = False
     excluded: bool = False
+    is_start: bool = False
+    is_end: bool = False
 
 
 class DestinationVoteRequest(BaseModel):

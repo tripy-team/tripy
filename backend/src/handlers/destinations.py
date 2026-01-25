@@ -18,6 +18,8 @@ def handler(event, context):
                 body["name"],
                 bool(body.get("must_include", False)),
                 bool(body.get("excluded", False)),
+                is_start=bool(body.get("is_start", False)),
+                is_end=bool(body.get("is_end", False)),
             )
             return response(200, item)
 

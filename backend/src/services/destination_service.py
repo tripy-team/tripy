@@ -30,7 +30,14 @@ def get_display_destinations_for_trip(destinations: List[Dict[str, Any]]) -> Tup
 
 
 def add_destination(
-    trip_id: str, user_id: str, name: str, must_include: bool, excluded: bool
+    trip_id: str,
+    user_id: str,
+    name: str,
+    must_include: bool,
+    excluded: bool,
+    *,
+    is_start: bool = False,
+    is_end: bool = False,
 ) -> Dict[str, Any]:
     dest_id = str(uuid.uuid4())
     item = {
@@ -39,6 +46,8 @@ def add_destination(
         "name": name,
         "mustInclude": must_include,
         "excluded": excluded,
+        "isStart": is_start,
+        "isEnd": is_end,
         "createdBy": user_id,
         "createdAt": datetime.utcnow().isoformat(),
     }
