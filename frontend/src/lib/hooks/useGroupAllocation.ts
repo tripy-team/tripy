@@ -11,6 +11,7 @@ import type {
   BookingAllocationStrategy,
   GroupBookingPlan,
   GroupAllocationRequest,
+  SettlementSplitMethod,
 } from '@/types/group-booking';
 
 interface UseGroupAllocationOptions {
@@ -37,6 +38,7 @@ interface UseGroupAllocationReturn {
       cabinClasses?: string[];
       hotelStars?: number[];
       includeHotels?: boolean;
+      splitMethod?: SettlementSplitMethod;
     }
   ) => Promise<GroupBookingPlan | null>;
   
@@ -74,6 +76,7 @@ export function useGroupAllocation(
       cabinClasses?: string[];
       hotelStars?: number[];
       includeHotels?: boolean;
+      splitMethod?: SettlementSplitMethod;
     };
   } | null>(null);
   
@@ -84,6 +87,7 @@ export function useGroupAllocation(
       cabinClasses?: string[];
       hotelStars?: number[];
       includeHotels?: boolean;
+      splitMethod?: SettlementSplitMethod;
     }
   ): Promise<GroupBookingPlan | null> => {
     // Store for retry
@@ -97,6 +101,7 @@ export function useGroupAllocation(
         tripId,
         members,
         strategy,
+        splitMethod: requestOptions?.splitMethod,
         cabinClasses: requestOptions?.cabinClasses,
         hotelStars: requestOptions?.hotelStars,
         includeHotels: requestOptions?.includeHotels ?? true,

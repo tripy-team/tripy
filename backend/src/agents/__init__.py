@@ -25,6 +25,11 @@ from .group_models import (
     MemberBookingSummary,
     BookingAllocationStrategy,
     GroupBookingPlan,
+    SettlementSplitMethod,
+    AllocationValidationResult,
+    MemberState,
+    TransferOption,
+    TripStructure,
 )
 
 __all__ = [
@@ -43,4 +48,9 @@ __all__ = [
     "MemberBookingSummary",
     "BookingAllocationStrategy",
     "GroupBookingPlan",
+    "SettlementSplitMethod",
+    "AllocationValidationResult",
+    "MemberState",
+    "TransferOption",
+    "TripStructure",
 ]

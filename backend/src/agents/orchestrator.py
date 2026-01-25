@@ -36,6 +36,7 @@ from .group_models import (
     MemberBookingCapability,
     BookingAllocationStrategy,
     GroupBookingPlan,
+    SettlementSplitMethod,
 )
 
 logger = logging.getLogger(__name__)
@@ -249,6 +250,8 @@ class OrchestratorAgent(BaseAgent):
         self,
         request: OptimizeGroupRequest,
         strategy: BookingAllocationStrategy,
+        split_method: str = "equal",
+        members_override: list[MemberBookingCapability] = None,
     ) -> GroupBookingPlan:
         """
         Optimize group trip with PROPER booking allocation.
@@ -259,13 +262,14 @@ class OrchestratorAgent(BaseAgent):
         Args:
             request: Group optimization request with member points
             strategy: How to allocate bookings (optimize, by_type, by_direction, manual)
+            split_method: How to split costs for settlement (equal, proportional_travelers, etc.)
+            members_override: Optional pre-built member capabilities (overrides request.member_points)
         
         Returns:
             GroupBookingPlan with per-member assignments and settlements
         """
         logger.info(f"[Orchestrator] Starting group allocation for trip {request.trip_id}")
         logger.info(f"[Orchestrator] Strategy: {strategy.strategy_type}")
-        logger.info(f"[Orchestrator] Members: {list(request.member_points.keys())}")
         
         # 1. Get trip data
         trip_data = await self._get_trip_data(request.trip_id)
@@ -284,23 +288,35 @@ class OrchestratorAgent(BaseAgent):
         )
         logger.info(f"[Orchestrator] Found options for {len(segment_options)} segments")
         
-        # 4. Build member capabilities from request
-        members = [
-            MemberBookingCapability(
-                member_id=member_id,
-                member_name=member_id,  # TODO: Get actual name from user service
-                points=points,
-                max_cash_budget=request.member_budgets.get(member_id) if request.member_budgets else None,
-            )
-            for member_id, points in request.member_points.items()
-        ]
+        # 4. Use override members or build from request
+        if members_override:
+            members = members_override
+        else:
+            members = [
+                MemberBookingCapability(
+                    member_id=member_id,
+                    member_name=member_id,  # TODO: Get actual name from user service
+                    points=points,
+                    max_cash_budget=request.member_budgets.get(member_id) if request.member_budgets else None,
+                )
+                for member_id, points in request.member_points.items()
+            ]
         
-        # 5. Run allocation (this properly handles per-member points!)
+        logger.info(f"[Orchestrator] Members: {[m.member_id for m in members]}")
+        
+        # 5. Convert split_method string to enum
+        try:
+            split_method_enum = SettlementSplitMethod(split_method)
+        except ValueError:
+            split_method_enum = SettlementSplitMethod.EQUAL
+        
+        # 6. Run allocation (this properly handles per-member points!)
         plan = self.group_allocator.allocate(
             trip_id=request.trip_id,
             segments=segment_options,
             members=members,
             strategy=strategy,
+            split_method=split_method_enum,
         )
         
         logger.info(f"[Orchestrator] Allocation complete:")

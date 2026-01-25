@@ -7,3 +7,5 @@
 
 export { BookingAllocationSelector } from './BookingAllocationSelector';
 export { BookingPlanView } from './BookingPlanView';
+export { SettlementSplitSelector } from './SettlementSplitSelector';
+export { TransferStrategySection } from './TransferStrategySection';

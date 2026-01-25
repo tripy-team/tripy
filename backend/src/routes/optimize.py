@@ -24,6 +24,7 @@ from ..agents.group_models import (
     MemberBookingCapability,
     BookingAllocationStrategy,
     GroupBookingPlan,
+    SettlementSplitMethod,
 )
 from ..utils.jwt_auth import get_current_user_id
 from ..utils.cache_layer import get_json, set_json
@@ -96,6 +97,8 @@ class MemberCapabilityRequest(BaseModel):
     member_name: str
     points: dict[str, int] = {}  # program -> balance (THIS MEMBER's points only)
     max_cash_budget: Optional[float] = None
+    traveler_count: int = 1  # How many people this member is booking for
+    custom_split_percentage: Optional[float] = None  # For custom settlement splits
 
 
 class AllocationStrategyRequest(BaseModel):
@@ -118,6 +121,7 @@ class GroupAllocationRequest(BaseModel):
     trip_id: str = Field(..., min_length=1, max_length=100)
     members: list[MemberCapabilityRequest]
     strategy: AllocationStrategyRequest
+    split_method: Literal["equal", "proportional_travelers", "proportional_points", "custom"] = "equal"
     cabin_classes: Optional[list[str]] = None
     hotel_stars: Optional[list[int]] = None
     include_hotels: Optional[bool] = True
@@ -372,7 +376,20 @@ async def allocate_group_bookings(
         
         orchestrator = get_orchestrator()
         
-        # Build internal request
+        # Build full MemberBookingCapability objects with all fields
+        member_capabilities = [
+            MemberBookingCapability(
+                member_id=m.member_id,
+                member_name=m.member_name,
+                points=m.points,
+                max_cash_budget=m.max_cash_budget,
+                traveler_count=m.traveler_count,
+                custom_split_percentage=m.custom_split_percentage,
+            )
+            for m in request.members
+        ]
+        
+        # Build internal request (for trip data lookup)
         member_points = {m.member_id: m.points for m in request.members}
         member_budgets = {
             m.member_id: m.max_cash_budget
@@ -405,6 +422,8 @@ async def allocate_group_bookings(
         plan = await orchestrator.optimize_group_with_allocation(
             request=internal_group_request,
             strategy=strategy,
+            split_method=request.split_method,
+            members_override=member_capabilities,
         )
         
         # Serialize response with camelCase
@@ -422,6 +441,9 @@ def _serialize_group_booking_plan(plan: GroupBookingPlan) -> dict:
     return {
         "tripId": plan.trip_id,
         "strategyUsed": plan.strategy_used,
+        "splitMethodUsed": plan.split_method_used,
+        
+        # Assignments with transfer details
         "assignments": [
             {
                 "segmentId": a.segment_id,
@@ -431,12 +453,47 @@ def _serialize_group_booking_plan(plan: GroupBookingPlan) -> dict:
                 "reason": a.reason,
                 "usesPoints": a.uses_points,
                 "pointsProgram": a.points_program,
+                "pointsProgramName": a.points_program_name,
                 "pointsUsed": a.points_used,
                 "cashAmount": a.cash_amount,
                 "segmentSummary": a.segment_summary,
+                # NEW transfer fields
+                "requiresTransfer": a.requires_transfer,
+                "transferFrom": a.transfer_from,
+                "transferFromName": a.transfer_from_name,
+                "transferPointsFromSource": a.transfer_points_from_source,
+                "transferRatio": a.transfer_ratio,
+                "transferRatioDisplay": a.transfer_ratio_display,
+                "transferTime": a.transfer_time,
+                "transferPortalUrl": a.transfer_portal_url,
+                "bookingUrl": a.booking_url,
             }
             for a in plan.assignments
         ],
+        
+        # NEW: Consolidated transfer instructions
+        "transfersNeeded": [
+            {
+                "memberId": t.member_id,
+                "memberName": t.member_name,
+                "fromProgram": t.from_program,
+                "fromProgramName": t.from_program_name,
+                "toProgram": t.to_program,
+                "toProgramName": t.to_program_name,
+                "toProgramType": t.to_program_type,
+                "totalSourcePoints": t.total_source_points,
+                "totalTargetPoints": t.total_target_points,
+                "ratio": t.ratio,
+                "ratioDisplay": t.ratio_display,
+                "transferTime": t.transfer_time,
+                "portalUrl": t.portal_url,
+                "bookingUrl": t.booking_url,
+                "steps": t.steps,
+                "coversSegments": t.covers_segments,
+            }
+            for t in plan.transfers_needed
+        ],
+        
         "memberSummaries": [
             {
                 "memberId": s.member_id,
@@ -467,12 +524,15 @@ def _serialize_group_booking_plan(plan: GroupBookingPlan) -> dict:
             "totalGroupOOP": plan.total_group_oop,
             "totalPointsUsed": plan.total_points_used,
             "perPersonEffectiveCost": plan.per_person_effective_cost,
+            "totalTransfersNeeded": plan.total_transfers_needed,  # NEW
+            "totalSourcePointsTransferred": plan.total_source_points_transferred,  # NEW
         },
         "validation": {
             "allSegmentsAssigned": plan.all_segments_assigned,
             "allMembersWithinBudget": plan.all_members_within_budget,
             "allMembersWithinPoints": plan.all_members_within_points,
         },
+        "warnings": plan.warnings,
     }
 
 

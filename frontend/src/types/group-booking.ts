@@ -9,6 +9,12 @@
 // MEMBER TYPES
 // =============================================================================
 
+export type SettlementSplitMethod = 
+  | 'equal'
+  | 'proportional_travelers'
+  | 'proportional_points'
+  | 'custom';
+
 export interface MemberBookingCapability {
   /** Unique member identifier */
   memberId: string;
@@ -24,6 +30,12 @@ export interface MemberBookingCapability {
   
   /** Credit cards this member has */
   creditCards?: string[];
+  
+  /** How many travelers this member is booking for (for proportional split) */
+  travelerCount?: number;
+  
+  /** Custom split percentage (for custom settlement method) */
+  customSplitPercentage?: number;
 }
 
 // =============================================================================
@@ -74,11 +86,59 @@ export interface BookingAssignment {
   /** Payment details (from THIS member's resources) */
   usesPoints: boolean;
   pointsProgram?: string;
+  pointsProgramName?: string;
   pointsUsed?: number;
   cashAmount: number;
   
   /** Display info */
   segmentSummary?: string;
+  
+  /** === NEW: Transfer details (if points come from bank transfer) === */
+  requiresTransfer?: boolean;
+  transferFrom?: string;           // Source bank: "Chase UR"
+  transferFromName?: string;       // "Chase Ultimate Rewards"
+  transferPointsFromSource?: number; // Bank points to transfer
+  transferRatio?: number;          // 1.0 or 2.0
+  transferRatioDisplay?: string;   // "1:1" or "1:2"
+  transferTime?: string;           // "Instant", "1-2 days"
+  transferPortalUrl?: string;      // URL to make transfer
+  bookingUrl?: string;             // URL to book after transfer
+}
+
+// =============================================================================
+// TRANSFER INFO (consolidated transfer instruction)
+// =============================================================================
+
+export interface TransferInfo {
+  /** Member who needs to make this transfer */
+  memberId: string;
+  memberName: string;
+  
+  /** Source bank */
+  fromProgram: string;           // "Chase UR"
+  fromProgramName: string;       // "Chase Ultimate Rewards"
+  
+  /** Target program */
+  toProgram: string;             // "UA"
+  toProgramName: string;         // "United MileagePlus"
+  toProgramType: 'airline' | 'hotel';
+  
+  /** Transfer details */
+  totalSourcePoints: number;     // Total bank points to transfer
+  totalTargetPoints: number;     // Total points received
+  ratio: number;
+  ratioDisplay: string;          // "1:1"
+  transferTime: string;          // "Instant"
+  
+  /** URLs for action */
+  portalUrl: string;
+  bookingUrl: string;
+  
+  /** Step-by-step instructions */
+  steps: string[];
+  
+  /** Which segments this transfer covers */
+  coversSegments: string[];
 }
 
 // =============================================================================
@@ -131,14 +191,18 @@ export interface MemberBookingSummary {
 export interface GroupBookingPlan {
   tripId: string;
   strategyUsed: string;
+  splitMethodUsed: string;
   
   /** All segment assignments */
   assignments: BookingAssignment[];
   
+  /** === NEW: Consolidated transfer instructions === */
+  transfersNeeded: TransferInfo[];
+  
   /** Per-member summaries */
   memberSummaries: MemberBookingSummary[];
   
-  /** Money transfers needed */
+  /** Money transfers needed (settlements between members) */
   settlements: GroupSettlement[];
   
   /** Overall metrics */
@@ -146,6 +210,8 @@ export interface GroupBookingPlan {
     totalGroupOOP: number;
     totalPointsUsed: number;
     perPersonEffectiveCost: number;
+    totalTransfersNeeded?: number;       // NEW
+    totalSourcePointsTransferred?: number; // NEW
   };
   
   /** Validation status */
@@ -154,6 +220,9 @@ export interface GroupBookingPlan {
     allMembersWithinBudget: boolean;
     allMembersWithinPoints: boolean;
   };
+  
+  /** Warnings from validation */
+  warnings: string[];
 }
 
 // =============================================================================
@@ -164,6 +233,7 @@ export interface GroupAllocationRequest {
   tripId: string;
   members: MemberBookingCapability[];
   strategy: BookingAllocationStrategy;
+  splitMethod?: SettlementSplitMethod;
   cabinClasses?: string[];
   hotelStars?: number[];
   includeHotels?: boolean;

@@ -2,7 +2,7 @@
 
 /**
  * Display component for group booking allocation results.
- * Shows who books what, settlements, and costs.
+ * Shows who books what, transfer strategy, settlements, and costs.
  */
 
 import React from 'react';
@@ -12,9 +12,12 @@ import {
   CreditCard, 
   Coins, 
   ArrowRight,
+  ArrowRightLeft,
   CheckCircle2,
   AlertCircle,
-  Users
+  Users,
+  Clock,
+  ExternalLink
 } from 'lucide-react';
 import type { 
   GroupBookingPlan, 
@@ -22,6 +25,7 @@ import type {
   MemberBookingSummary,
   GroupSettlement 
 } from '@/types/group-booking';
+import { TransferStrategySection } from './TransferStrategySection';
 
 interface BookingPlanViewProps {
   plan: GroupBookingPlan;
@@ -37,7 +41,7 @@ export function BookingPlanView({ plan }: BookingPlanViewProps) {
           <h2 className="text-lg font-semibold">Group Booking Plan</h2>
         </div>
         
-        <div className="grid grid-cols-3 gap-4">
+        <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
           <div>
             <p className="text-blue-100 text-sm">Total Group Cost</p>
             <p className="text-2xl font-bold">
@@ -51,11 +55,19 @@ export function BookingPlanView({ plan }: BookingPlanViewProps) {
             </p>
           </div>
           <div>
-            <p className="text-blue-100 text-sm">Total Points Used</p>
+            <p className="text-blue-100 text-sm">Points Used</p>
             <p className="text-2xl font-bold">
               {plan.metrics.totalPointsUsed.toLocaleString()}
             </p>
           </div>
+          {plan.metrics.totalTransfersNeeded !== undefined && plan.metrics.totalTransfersNeeded > 0 && (
+            <div>
+              <p className="text-blue-100 text-sm">Transfers Needed</p>
+              <p className="text-2xl font-bold">
+                {plan.metrics.totalTransfersNeeded}
+              </p>
+            </div>
+          )}
         </div>
         
         {/* Validation Status */}
@@ -74,6 +86,26 @@ export function BookingPlanView({ plan }: BookingPlanViewProps) {
           />
         </div>
       </div>
+      
+      {/* Warnings */}
+      {plan.warnings && plan.warnings.length > 0 && (
+        <div className="p-4 bg-yellow-50 border border-yellow-200 rounded-lg">
+          <div className="flex items-center gap-2 mb-2">
+            <AlertCircle className="w-5 h-5 text-yellow-600" />
+            <span className="font-medium text-yellow-800">Allocation Notes</span>
+          </div>
+          <ul className="text-sm text-yellow-700 space-y-1 ml-7">
+            {plan.warnings.map((warning, index) => (
+              <li key={index} className="list-disc">{warning}</li>
+            ))}
+          </ul>
+        </div>
+      )}
+      
+      {/* NEW: Transfer Strategy Section */}
+      {plan.transfersNeeded && plan.transfersNeeded.length > 0 && (
+        <TransferStrategySection transfers={plan.transfersNeeded} />
+      )}
       
       {/* Member Summaries */}
       <section>
@@ -198,47 +230,78 @@ function AssignmentRow({ assignment }: { assignment: BookingAssignment }) {
   const Icon = assignment.segmentType === 'flight' ? Plane : Building2;
   
   return (
-    <div className="flex items-center gap-4 p-3 bg-gray-50 rounded-lg">
-      {/* Segment type icon */}
-      <div className={`
-        p-2 rounded-lg
-        ${assignment.segmentType === 'flight' ? 'bg-blue-100 text-blue-600' : 'bg-purple-100 text-purple-600'}
-      `}>
-        <Icon className="w-5 h-5" />
-      </div>
-      
-      {/* Segment info */}
-      <div className="flex-1">
-        <p className="font-medium">
-          {assignment.segmentSummary || assignment.segmentId}
-        </p>
-        <p className="text-sm text-gray-500">
-          Booked by {assignment.assignedToName}
-        </p>
-      </div>
-      
-      {/* Payment info */}
-      <div className="text-right">
-        {assignment.usesPoints ? (
-          <div className="flex items-center gap-1">
-            <Coins className="w-4 h-4 text-amber-500" />
-            <span className="font-medium">
-              {assignment.pointsUsed?.toLocaleString()} {assignment.pointsProgram}
-            </span>
-          </div>
-        ) : (
-          <div className="flex items-center gap-1">
-            <CreditCard className="w-4 h-4 text-green-500" />
-            <span className="font-medium">${assignment.cashAmount.toFixed(2)}</span>
-          </div>
-        )}
+    <div className="p-3 bg-gray-50 rounded-lg">
+      <div className="flex items-center gap-4">
+        {/* Segment type icon */}
+        <div className={`
+          p-2 rounded-lg
+          ${assignment.segmentType === 'flight' ? 'bg-blue-100 text-blue-600' : 'bg-purple-100 text-purple-600'}
+        `}>
+          <Icon className="w-5 h-5" />
+        </div>
         
-        {assignment.usesPoints && assignment.cashAmount > 0 && (
-          <p className="text-xs text-gray-500">
-            + ${assignment.cashAmount.toFixed(2)} surcharge
+        {/* Segment info */}
+        <div className="flex-1">
+          <p className="font-medium">
+            {assignment.segmentSummary || assignment.segmentId}
           </p>
-        )}
+          <p className="text-sm text-gray-500">
+            Booked by {assignment.assignedToName}
+          </p>
+        </div>
+        
+        {/* Payment info */}
+        <div className="text-right">
+          {assignment.usesPoints ? (
+            <div className="flex items-center gap-1">
+              <Coins className="w-4 h-4 text-amber-500" />
+              <span className="font-medium">
+                {assignment.pointsUsed?.toLocaleString()} {assignment.pointsProgramName || assignment.pointsProgram}
+              </span>
+            </div>
+          ) : (
+            <div className="flex items-center gap-1">
+              <CreditCard className="w-4 h-4 text-green-500" />
+              <span className="font-medium">${assignment.cashAmount.toFixed(2)}</span>
+            </div>
+          )}
+          
+          {assignment.usesPoints && assignment.cashAmount > 0 && (
+            <p className="text-xs text-gray-500">
+              + ${assignment.cashAmount.toFixed(2)} surcharge
+            </p>
+          )}
+        </div>
       </div>
+      
+      {/* Transfer info (if applicable) */}
+      {assignment.requiresTransfer && assignment.transferFrom && (
+        <div className="mt-2 pt-2 border-t border-gray-200">
+          <div className="flex items-center gap-2 text-xs text-purple-600">
+            <ArrowRightLeft className="w-3 h-3" />
+            <span>
+              Transfer {assignment.transferPointsFromSource?.toLocaleString()} from {assignment.transferFromName || assignment.transferFrom}
+              {assignment.transferRatioDisplay && ` (${assignment.transferRatioDisplay})`}
+            </span>
+            {assignment.transferTime && (
+              <span className="flex items-center gap-1 text-gray-500">
+                <Clock className="w-3 h-3" />
+                {assignment.transferTime}
+              </span>
+            )}
+            {assignment.transferPortalUrl && (
+              <a 
+                href={assignment.transferPortalUrl}
+                target="_blank"
+                rel="noopener noreferrer"
+                className="ml-auto flex items-center gap-1 text-purple-600 hover:text-purple-700"
+              >
+                Transfer <ExternalLink className="w-3 h-3" />
+              </a>
+            )}
+          </div>
+        </div>
+      )}
     </div>
   );
 }
