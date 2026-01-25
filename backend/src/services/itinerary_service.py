@@ -364,6 +364,9 @@ def generate_simple_itineraries(trip_id: str, safe_mode: bool = False) -> List[D
         "cities": bal_cities,
         "weight_factor": 1.0,
     })
+    
+    # Calculate base cost from the balanced route (used for budget checks below)
+    bal_cost = _cost(routes[0]["cities"])
 
     # 2. Reverse (if different): reverse only the stay order; start/end stay at path ends
     if len(stay_names) > 1:
@@ -416,7 +419,6 @@ def generate_simple_itineraries(trip_id: str, safe_mode: bool = False) -> List[D
         })
 
     # 6. Explorer: more cities only if we're well under budget and have more stay destinations
-    bal_cost = _cost(routes[0]["cities"])
     if (
         len(stay_names) >= 3
         and (max_budget is None or bal_cost <= (max_budget * 0.7))
