@@ -4,39 +4,21 @@ runtime: python311
 build:
   commands:
     build:
-      - echo "Build phase: no pip installs for python311 revised build"
+      - echo "Build phase (python311): skipping pip installs here"
 
 run:
   runtime-version: 3.11
-
   pre-run:
     - python3 --version
     - pip3 --version
     - pip3 install --upgrade pip
     - pip3 install -r backend/requirements.txt
     - chmod +x backend/start.sh
-
   command: /bin/bash backend/start.sh
-
   network:
     port: 8000
-
   env:
     - name: AWS_REGION
       value: us-east-1
     - name: PYTHONPATH
       value: /app/backend
-    - name: USERS_TABLE
-      value: tripy-users
-    - name: TRIPS_TABLE
-      value: tripy-trips
-    - name: TRIP_MEMBERS_TABLE
-      value: tripy-trip-members
-    - name: POINTS_TABLE
-      value: tripy-points
-    - name: DESTINATIONS_TABLE
-      value: tripy-destinations
-    - name: DESTINATION_VOTES_TABLE
-      value: tripy-destination-votes
-    - name: ITINERARY_TABLE
-      value: tripy-itinerary
