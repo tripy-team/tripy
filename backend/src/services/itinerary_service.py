@@ -2070,6 +2070,23 @@ def _generate_easter_egg_itinerary(trip_id: str) -> Dict[str, Any]:
     
     # Build itinerary items for display
     itinerary_items = [
+        # Main itinerary item that frontend can display (must have route array)
+        {
+            "tripId": trip_id,
+            "itemId": "easter_egg_itinerary",
+            "type": "itinerary",
+            "name": "🥚 Curated Middle East Adventure",
+            "route": ["JFK", "DOH", "DXB", "EWR"],
+            "cities": [
+                {"name": "Doha (DOH)", "days": 2},
+                {"name": "Dubai (DXB)", "days": 4},
+            ],
+            "totalCost": int(total_out_of_pocket),
+            "pointsCost": total_points_used,
+            "score": 99,
+            "withinBudget": True,
+            "withinPoints": True,
+        },
         {
             "tripId": trip_id,
             "itemId": "flight_jfk_doh",
@@ -2175,16 +2192,73 @@ def _generate_easter_egg_itinerary(trip_id: str) -> Dict[str, Any]:
             "itemId": "itinerary_smart_tips",
             "type": "itinerary_smart_tips",
             "transfer_tips": [
-                "Transfer 82,000 Chase Ultimate Rewards points total: 35k to Qatar, 7k to Hyatt, 40k to United",
-                "Transfer 120,100 Amex Membership Rewards points total: 36.1k to Aeroplan, 84k to Marriott",
-                "All Chase and Amex transfers are instant - book immediately after transfer",
+                {
+                    "from_program": "Chase Ultimate Rewards",
+                    "to_program": "Qatar Airways Privilege Club",
+                    "best_for": "JFK→DOH",
+                    "points": 35000,
+                    "note": "Transfer 35,000 Chase points to Qatar Airways for QR704 flight on March 8",
+                    "transfer_time": "Instant",
+                    "portal_url": "https://ultimaterewardspoints.chase.com/",
+                },
+                {
+                    "from_program": "Chase Ultimate Rewards",
+                    "to_program": "World of Hyatt",
+                    "best_for": "Hyatt Regency Oryx Doha",
+                    "points": 7000,
+                    "note": "Transfer 7,000 Chase points to Hyatt for 2 nights in Doha (March 9-11)",
+                    "transfer_time": "Instant",
+                    "portal_url": "https://ultimaterewardspoints.chase.com/",
+                },
+                {
+                    "from_program": "Amex Membership Rewards",
+                    "to_program": "Aeroplan",
+                    "best_for": "DOH→DXB",
+                    "points": 36100,
+                    "note": "Transfer 36,100 Amex points to Aeroplan for FZ2 flight on March 11 + $67.35 surcharge",
+                    "transfer_time": "Instant",
+                    "portal_url": "https://www.americanexpress.com/en-us/rewards/membership-rewards/",
+                },
+                {
+                    "from_program": "Amex Membership Rewards",
+                    "to_program": "Marriott Bonvoy",
+                    "best_for": "Four Points Dubai",
+                    "points": 84000,
+                    "note": "Transfer 84,000 Amex points to Marriott for 4 nights in Dubai (March 11-15)",
+                    "transfer_time": "Instant",
+                    "portal_url": "https://www.americanexpress.com/en-us/rewards/membership-rewards/",
+                },
+                {
+                    "from_program": "Chase Ultimate Rewards",
+                    "to_program": "United MileagePlus",
+                    "best_for": "DXB→EWR",
+                    "points": 40000,
+                    "note": "Transfer 40,000 Chase points to United for UA163 flight on March 15",
+                    "transfer_time": "Instant",
+                    "portal_url": "https://ultimaterewardspoints.chase.com/",
+                },
             ],
             "sample_itineraries": [],
-            "holiday_advice": ["March is a great time to visit the Gulf region - pleasant weather before the summer heat"],
+            "holiday_advice": [
+                {
+                    "period": "March 2026",
+                    "advice": "Perfect weather in the Gulf region - pleasant before the summer heat",
+                    "avoid_or_prefer": "prefer",
+                },
+            ],
             "practical_tips": [
-                "Qatar Airways QR704 is a flagship route with excellent Qsuite business class",
-                "Doha's Hamad International Airport is a world-class hub with great amenities",
-                "Dubai in March has perfect weather for outdoor activities",
+                {
+                    "category": "Flight",
+                    "tip": "Qatar Airways QR704 is a flagship route with excellent Qsuite business class",
+                },
+                {
+                    "category": "Airport",
+                    "tip": "Doha's Hamad International Airport is a world-class hub with great amenities",
+                },
+                {
+                    "category": "Weather",
+                    "tip": "Dubai in March has perfect weather for outdoor activities",
+                },
             ],
         },
         {
