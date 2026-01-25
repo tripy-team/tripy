@@ -1,3 +1,4 @@
+import asyncio
 import heapq
 import os
 import uuid
@@ -150,14 +151,15 @@ def generate_simple_itineraries(trip_id: str) -> List[Dict[str, Any]]:
     if not valid_dests:
         raise ValueError("All destinations are excluded. Please add at least one active destination.")
 
-    # Determine start / end (mustInclude = True = departure/return airports; they are transit, not stays)
+    # Determine start / end. Prefer explicit isStart/isEnd so the route uses the correct
+    # start/end regardless of add order. Fallback: mustInclude order, then first/last.
     must_include = [d for d in valid_dests if d.get("mustInclude", False)]
-    if must_include:
-        start_dest = must_include[0]
-        end_dest = must_include[-1]
-    else:
-        start_dest = valid_dests[0]
-        end_dest = valid_dests[-1] if len(valid_dests) > 1 else valid_dests[0]
+    start_dest = next((d for d in valid_dests if d.get("isStart", False)), None)
+    end_dest = next((d for d in valid_dests if d.get("isEnd", False)), None)
+    if start_dest is None:
+        start_dest = must_include[0] if must_include else valid_dests[0]
+    if end_dest is None:
+        end_dest = must_include[-1] if must_include else (valid_dests[-1] if len(valid_dests) > 1 else valid_dests[0])
 
     def _city_name(d: Dict[str, Any]) -> str:
         return (d.get("name") or d.get("destinationId") or "").strip()
@@ -373,8 +375,10 @@ def generate_simple_itineraries(trip_id: str) -> List[Dict[str, Any]]:
             "withinBudget": within_budget,
             "withinPoints": within_points,
         }
-        itinerary_repo.put_item(item)
         items.append(item)
+
+    # Write all items in a single batch (more efficient than individual put_item calls)
+    itinerary_repo.batch_write_items(items)
 
     dest_names = [c["name"] for c in (routes[0]["cities"] if routes else [])]
     logger.info(
@@ -837,6 +841,124 @@ def _save_and_return_ai_route_suggestions(
     }
 
 
+async def _fetch_edges_for_route(
+    origin: str,
+    dest: str,
+    leg_date: str,
+    combined_points: Dict[str, int],
+    travelers: List[str],
+    start_dest_code: str,
+) -> Tuple[Dict[Tuple[str, str, str], Dict[str, Any]], bool]:
+    """
+    Fetch flight and ground edges for a single origin->dest pair.
+    Returns (edges_dict, had_any_flight_edges).
+    """
+    from src.handlers.ground_transport import get_bus_and_car_options, ground_options_to_edges
+
+    filters = {
+        "outbound_date": leg_date,
+        "travel_class": "economy",
+        "bags": 1,
+        "pax": len(travelers),
+        "award_programs": get_award_programs_for_api(),
+    }
+    collected: Dict[Tuple[str, str, str], Dict[str, Any]] = {}
+    had_flight = False
+
+    def _add_ground(o: str, d: str, date: str) -> None:
+        try:
+            opts = get_bus_and_car_options(o, d, date=date)
+            ge = ground_options_to_edges(o, d, opts)
+            if ge:
+                collected.update(ge)
+        except Exception as g:
+            logger.debug("Ground transport for [%s]->[%s]: %s", o, d, g)
+
+    try:
+        edges = await get_flights_award_first_with_points_async(
+            origin, dest, combined_points, filters
+        )
+        if not edges:
+            edges = await get_flights_serp_first_with_points_async(
+                origin, dest, combined_points, filters
+            )
+        if not edges:
+            edges = await asyncio.to_thread(
+                get_flights_serp_only, origin, dest, leg_date, filters
+            )
+        if edges:
+            collected.update(edges)
+            had_flight = True
+        _add_ground(origin, dest, leg_date)
+        if not had_flight and origin in SMALL_AIRPORT_NEARBY_HUBS:
+            for hub in SMALL_AIRPORT_NEARBY_HUBS[origin]:
+                try:
+                    hub_edges = await get_flights_award_first_with_points_async(
+                        hub, dest, combined_points, filters
+                    )
+                    if not hub_edges:
+                        hub_edges = await get_flights_serp_first_with_points_async(
+                            hub, dest, combined_points, filters
+                        )
+                    if not hub_edges:
+                        hub_edges = await asyncio.to_thread(
+                            get_flights_serp_only, hub, dest, leg_date, filters
+                        )
+                    if hub_edges:
+                        collected.update(hub_edges)
+                        _add_ground(origin, hub, leg_date)
+                        had_flight = True
+                        break
+                except Exception as h:
+                    logger.debug("Hub %s fallback for %s->%s: %s", hub, origin, dest, h)
+        return (collected, had_flight)
+    except Exception as e:
+        logger.warning(
+            "Error fetching flights from %s to %s date=%s: %s",
+            origin, dest, leg_date, e, exc_info=True,
+        )
+        edges = {}
+        try:
+            edges = await get_flights_serp_first_with_points_async(
+                origin, dest, combined_points, filters
+            )
+        except Exception as fe:
+            logger.warning("SERP-first fallback for %s -> %s: %s", origin, dest, fe)
+        if not edges:
+            try:
+                edges = await asyncio.to_thread(
+                    get_flights_serp_only, origin, dest, leg_date, filters
+                )
+            except Exception as se:
+                logger.debug("get_flights_serp_only for %s->%s: %s", origin, dest, se)
+        if edges:
+            collected.update(edges)
+            had_flight = True
+        _add_ground(origin, dest, leg_date)
+        if not had_flight and origin in SMALL_AIRPORT_NEARBY_HUBS:
+            for hub in SMALL_AIRPORT_NEARBY_HUBS[origin]:
+                try:
+                    hub_edges = await get_flights_award_first_with_points_async(
+                        hub, dest, combined_points, filters
+                    )
+                    if not hub_edges:
+                        hub_edges = await get_flights_serp_first_with_points_async(
+                            hub, dest, combined_points, filters
+                        )
+                    if not hub_edges:
+                        hub_edges = await asyncio.to_thread(
+                            get_flights_serp_only, hub, dest, leg_date, filters
+                        )
+                    if hub_edges:
+                        collected.update(hub_edges)
+                        _add_ground(origin, hub, leg_date)
+                        had_flight = True
+                        break
+                except Exception as h:
+                    logger.debug("Hub %s fallback for %s->%s: %s", hub, origin, dest, h)
+        return (collected, had_flight)
+
+
 async def generate_optimized_itinerary(trip_id: str) -> Dict[str, Any]:
     """
     Generate optimized itinerary using points maximization algorithm.
@@ -894,17 +1016,34 @@ async def generate_optimized_itinerary(trip_id: str) -> Dict[str, Any]:
     if not valid_destinations:
         raise ValueError("All destinations are excluded. Please add at least one active destination.")
     
-    # Find start and end destinations (must_include=True destinations, or first/last if none)
+    # Find start and end destinations. Prefer explicit isStart/isEnd so the route uses
+    # the correct start/end regardless of add order. Fallback: must_include order
+    # (first=start, last=end), then first/last of valid_destinations.
     start_dest_name = None
     end_dest_name = None
-
     must_include = [d for d in valid_destinations if d.get("mustInclude", False)]
-    if must_include:
-        start_dest_name = must_include[0].get("name", "").strip()
-        end_dest_name = must_include[-1].get("name", "").strip()
-    if start_dest_name is None and valid_destinations:
-        start_dest_name = valid_destinations[0].get("name", "").strip()
-        end_dest_name = valid_destinations[-1].get("name", "").strip() if len(valid_destinations) > 1 else start_dest_name
+
+    start_d = next((d for d in valid_destinations if d.get("isStart", False)), None)
+    end_d = next((d for d in valid_destinations if d.get("isEnd", False)), None)
+    if start_d:
+        start_dest_name = (start_d.get("name") or "").strip()
+    if end_d:
+        end_dest_name = (end_d.get("name") or "").strip()
+
+    if start_dest_name is None:
+        if must_include:
+            start_dest_name = must_include[0].get("name", "").strip()
+        if start_dest_name is None and valid_destinations:
+            start_dest_name = valid_destinations[0].get("name", "").strip()
+    if end_dest_name is None:
+        if must_include:
+            end_dest_name = must_include[-1].get("name", "").strip()
+        if end_dest_name is None and valid_destinations:
+            end_dest_name = (
+                valid_destinations[-1].get("name", "").strip()
+                if len(valid_destinations) > 1
+                else start_dest_name
+            )
 
     if not start_dest_name:
         raise ValueError("No valid start destination found")
@@ -919,31 +1058,53 @@ async def generate_optimized_itinerary(trip_id: str) -> Dict[str, Any]:
         if name and name not in (start_dest_name, end_dest_name):
             cities.append(name)
     
-    # Convert city names to airport codes
+    # Convert city names to airport codes (in parallel to save time on API calls)
     logger.info(f"Converting city names to airport codes: start={start_dest_name}, end={end_dest_name}, cities={cities}")
     
-    start_dest_code = _normalize_city_to_code(start_dest_name)
+    # Build list of all city names to resolve
+    names_to_resolve = [start_dest_name]
+    if end_dest_name and end_dest_name != start_dest_name:
+        names_to_resolve.append(end_dest_name)
+    names_to_resolve.extend(cities)
+    
+    # Resolve all in parallel (each _normalize_city_to_code can hit city_service or OpenAI)
+    code_results = await asyncio.gather(
+        *[asyncio.to_thread(_normalize_city_to_code, name) for name in names_to_resolve],
+        return_exceptions=True,
+    )
+    
+    # Map results back
+    idx = 0
+    start_dest_code = code_results[idx] if not isinstance(code_results[idx], Exception) else None
+    idx += 1
+    
+    if end_dest_name and end_dest_name != start_dest_name:
+        end_dest_code = code_results[idx] if not isinstance(code_results[idx], Exception) else None
+        idx += 1
+    else:
+        end_dest_code = start_dest_code
+    
+    city_codes = []
+    for i, city_name in enumerate(cities):
+        result = code_results[idx + i]
+        if isinstance(result, Exception):
+            logger.warning(f"Error resolving '{city_name}': {result}")
+        elif result:
+            city_codes.append(result)
+        else:
+            logger.warning(f"Could not find airport code for '{city_name}', skipping")
+    
+    # Validate start/end codes
     if not start_dest_code:
         logger.info(f"No airport code for start '{start_dest_name}'; using OpenAI to suggest routes for small/remote city")
         return _save_and_return_ai_route_suggestions(
             trip_id, start_dest_name, end_dest_name or start_dest_name, cities, start_date, end_date, failed_routes=None
         )
-
-    end_dest_code = _normalize_city_to_code(end_dest_name) if end_dest_name else start_dest_code
     if not end_dest_code:
         logger.info(f"No airport code for end '{end_dest_name}'; using OpenAI to suggest routes for small/remote city")
         return _save_and_return_ai_route_suggestions(
             trip_id, start_dest_name, end_dest_name or start_dest_name, cities, start_date, end_date, failed_routes=None
         )
-    
-    # Convert intermediate cities
-    city_codes = []
-    for city_name in cities:
-        city_code = _normalize_city_to_code(city_name)
-        if city_code:
-            city_codes.append(city_code)
-        else:
-            logger.warning(f"Could not find airport code for '{city_name}', skipping")
     
     # For single destination trips, ensure we have at least start and end
     if not city_codes and start_dest_code == end_dest_code:
@@ -966,8 +1127,9 @@ async def generate_optimized_itinerary(trip_id: str) -> Dict[str, Any]:
     
     logger.info(f"Found {len(travelers)} active travelers: {travelers}")
 
+    # Start OOP and hotels optimization as background tasks (run in parallel with flight fetch)
     # Out-of-pocket optimizer for simple A->B round-trips (SerpAPI cash + AwardTool points/surcharge)
-    oop_result: Optional[Dict[str, Any]] = None
+    oop_task = None
     if (
         start_dest_code
         and end_dest_code
@@ -977,25 +1139,21 @@ async def generate_optimized_itinerary(trip_id: str) -> Dict[str, Any]:
         and end_date
         and travelers
     ):
-        try:
-            from src.services.serp_api_functions import optimize_itinerary_out_of_pocket
-
-            oop_result = optimize_itinerary_out_of_pocket(
-                origin=start_dest_code,
-                destination=end_dest_code,
-                outbound_date=start_date.strip(),
-                return_date=end_date.strip(),
-                programs=get_award_programs_for_api(),
-                cabins=["Economy"],
-                pax=len(travelers),
-            )
-        except Exception as e:
-            logger.warning("optimize_itinerary_out_of_pocket failed: %s", e)
-            oop_result = None
+        from src.services.serp_api_functions import optimize_itinerary_out_of_pocket
+        oop_task = asyncio.create_task(asyncio.to_thread(
+            optimize_itinerary_out_of_pocket,
+            origin=start_dest_code,
+            destination=end_dest_code,
+            outbound_date=start_date.strip(),
+            return_date=end_date.strip(),
+            programs=get_award_programs_for_api(),
+            cabins=["Economy"],
+            pax=len(travelers),
+        ))
 
     # Hotel out-of-pocket: AwardTool (cash + points) + SerpAPI Google Hotels (cash) for simple trips
     # Only when trip has includeHotels=True (default); allows excluding hotels from calculations
-    oop_hotels_result: Optional[Dict[str, Any]] = None
+    oop_hotels_task = None
     if (
         trip.get("includeHotels", True)
         and (end_dest_name or end_dest_code)
@@ -1004,20 +1162,16 @@ async def generate_optimized_itinerary(trip_id: str) -> Dict[str, Any]:
         and travelers
         and not city_codes
     ):
-        try:
-            from src.services.serp_api_functions import optimize_hotels_out_of_pocket
-
-            oop_hotels_result = optimize_hotels_out_of_pocket(
-                destination=(end_dest_name or end_dest_code or "").strip(),
-                check_in=start_date.strip(),
-                check_out=end_date.strip(),
-                programs=None,
-                guests=len(travelers),
-                hotel_class=None,
-            )
-        except Exception as e:
-            logger.warning("optimize_hotels_out_of_pocket failed: %s", e)
-            oop_hotels_result = None
+        from src.services.serp_api_functions import optimize_hotels_out_of_pocket
+        oop_hotels_task = asyncio.create_task(asyncio.to_thread(
+            optimize_hotels_out_of_pocket,
+            destination=(end_dest_name or end_dest_code or "").strip(),
+            check_in=start_date.strip(),
+            check_out=end_date.strip(),
+            programs=None,
+            guests=len(travelers),
+            hotel_class=None,
+        ))
 
     # 4. Get points for all members with validation
     points_summary = points_service.trip_points_summary(trip_id)
@@ -1082,170 +1236,62 @@ async def generate_optimized_itinerary(trip_id: str) -> Dict[str, Any]:
     successful_routes = 0
     failed_routes = []
     pairs = [(o, d) for o in nodes for d in nodes if o != d]
-    
-    for origin, dest in pairs:
-        # Use combined points from all travelers for fetching
-        combined_points = {}
-        for user_id, points in user_points_by_trav.items():
-            for prog, bal in points.items():
-                combined_points[prog] = combined_points.get(prog, 0) + bal
-        
-        # If no points, use empty dict (will fetch cash options)
-        if not combined_points:
-            combined_points = {}
-        
-        # Use end_date for return legs (back to origin) so we search the correct date
-        leg_date = end_date.strip() if (dest == start_dest_code and end_date) else start_date.strip()
-        filters = {
-            "outbound_date": leg_date,
-            "travel_class": "economy",
-            "bags": 1,
-            "pax": len(travelers),
-            "award_programs": get_award_programs_for_api(),
-        }
 
-        serp_ok = "set" if (os.getenv("SERPAPI_KEY") or os.getenv("SERP_API_KEY")) else "missing"
-        award_ok = "set" if (os.getenv("AWARD_TOOL_API_KEY") or os.getenv("AWARDTOOL_API_KEY")) else "missing"
-        logger.info("fetch_flights [%s]->[%s] date=%s pax=%s SERPAPI_KEY=%s AWARD_TOOL_API_KEY=%s", origin, dest, leg_date, len(travelers), serp_ok, award_ok)
+    # Combined points from all travelers (same for every O-D pair)
+    combined_points = {}
+    for user_id, points in user_points_by_trav.items():
+        for prog, bal in points.items():
+            combined_points[prog] = combined_points.get(prog, 0) + bal
 
-        try:
-            edges = await get_flights_award_first_with_points_async(
-                origin, dest, combined_points, filters
+    # Fetch all O-D pairs in parallel to avoid sequential SERP/AwardTool latency
+    sem = asyncio.Semaphore(6)
+
+    async def _bounded_fetch(o: str, d: str) -> Tuple[Dict[Tuple[str, str, str], Dict[str, Any]], bool]:
+        async with sem:
+            leg_date = end_date.strip() if (d == start_dest_code and end_date) else start_date.strip()
+            return await _fetch_edges_for_route(
+                o, d, leg_date, combined_points, travelers, start_dest_code
             )
-            
-            # If no edges found, try SERP-first strategy as fallback
-            if not edges:
-                logger.info(f"No edges from award-first strategy, trying SERP-first for {origin} -> {dest}")
-                edges = await get_flights_serp_first_with_points_async(
-                    origin, dest, combined_points, filters
-                )
-            # If still no edges, try sync serp_client.get_flights_between_airports (get_flights_serp_only)
-            if not edges:
-                logger.info(f"No edges from SERP-first, trying get_flights_serp_only (serp_client) for {origin} -> {dest}")
-                edges = get_flights_serp_only(origin, dest, leg_date, filters)
-            
-            # Note: We already allow multistop flights by default (no stops restriction in filters)
-            # If still no edges found, the route may not exist or dates may be invalid
-            
-            if edges:
-                edges_all.update(edges)
-                successful_routes += 1
-                logger.info("Fetched %d flight edges from %s to %s", len(edges), origin, dest)
 
-            # Add bus and car options for this segment (AI-rover style multi-modal)
-            try:
-                from src.handlers.ground_transport import get_bus_and_car_options, ground_options_to_edges
-                ground_opts = get_bus_and_car_options(origin, dest, date=leg_date)
-                ground_edges = ground_options_to_edges(origin, dest, ground_opts)
-                if ground_edges:
-                    edges_all.update(ground_edges)
-                    logger.info("Added %d ground edges (bus/car) from %s to %s", len(ground_edges), origin, dest)
-            except Exception as g:
-                logger.debug("Ground transport for [%s]->[%s]: %s", origin, dest, g)
-
-            if not edges:
-                # Try nearby major hub when origin is a small/regional airport (e.g. ITH, BGM)
-                hub_used = False
-                if origin in SMALL_AIRPORT_NEARBY_HUBS:
-                    from src.handlers.ground_transport import get_bus_and_car_options, ground_options_to_edges
-                    for hub in SMALL_AIRPORT_NEARBY_HUBS[origin]:
-                        try:
-                            hub_edges = await get_flights_award_first_with_points_async(
-                                hub, dest, combined_points, filters
-                            )
-                            if not hub_edges:
-                                hub_edges = await get_flights_serp_first_with_points_async(
-                                    hub, dest, combined_points, filters
-                                )
-                            if not hub_edges:
-                                hub_edges = get_flights_serp_only(hub, dest, leg_date, filters)
-                            if hub_edges:
-                                ground_opts = get_bus_and_car_options(origin, hub, date=leg_date)
-                                ground_edges = ground_options_to_edges(origin, hub, ground_opts)
-                                if ground_edges:
-                                    edges_all.update(hub_edges)
-                                    edges_all.update(ground_edges)
-                                    successful_routes += 1
-                                    logger.info(
-                                        "Used nearby hub %s for %s->%s: %d flight + %d ground edges (drive/ride to hub first)",
-                                        hub, origin, dest, len(hub_edges), len(ground_edges),
-                                    )
-                                    hub_used = True
-                                    break
-                        except Exception as h:
-                            logger.debug("Hub %s fallback for %s->%s: %s", hub, origin, dest, h)
-                if not hub_used:
-                    failed_routes.append(f"{origin} -> {dest}")
-                    logger.warning(
-                        "No flight edges from %s to %s date=%s after award-first, SERP-first, get_flights_serp_only, and nearby-hub (if applicable). "
-                        "Check SERPAPI_KEY, AWARD_TOOL_API_KEY, dates, and flights.SERP/AwardTool logs.",
-                        origin, dest, leg_date,
-                    )
-        except Exception as e:
-            failed_routes.append(f"{origin} -> {dest}")
-            logger.warning(
-                "Error fetching flights from %s to %s date=%s: %s. "
-                "Check flights.SERP and flights.AwardTool logs.",
-                origin, dest, leg_date, e, exc_info=True,
-            )
-            # Try SERP-first as fallback even on exception
-            edges = {}
-            try:
-                logger.info(f"Trying SERP-first fallback after exception for {origin} -> {dest}")
-                edges = await get_flights_serp_first_with_points_async(
-                    origin, dest, combined_points, filters
-                )
-                if edges:
-                    edges_all.update(edges)
-                    successful_routes += 1
-                    logger.info(f"Fallback SERP-first succeeded: {len(edges)} edges from {origin} to {dest}")
-            except Exception as fallback_error:
-                logger.warning(f"Fallback SERP-first also failed for {origin} -> {dest}: {fallback_error}")
-            if not edges:
-                try:
-                    edges = get_flights_serp_only(origin, dest, leg_date, filters)
-                    if edges:
-                        edges_all.update(edges)
-                        successful_routes += 1
-                        logger.info(f"Fallback get_flights_serp_only succeeded: {len(edges)} edges from {origin} to {dest}")
-                except Exception as serp_only_err:
-                    logger.debug(f"get_flights_serp_only for {origin}->{dest}: {serp_only_err}")
-            # If still no edges, try nearby hub for small/regional origin
-            if not edges and origin in SMALL_AIRPORT_NEARBY_HUBS:
-                from src.handlers.ground_transport import get_bus_and_car_options, ground_options_to_edges
-                for hub in SMALL_AIRPORT_NEARBY_HUBS[origin]:
-                    try:
-                        hub_edges = await get_flights_award_first_with_points_async(hub, dest, combined_points, filters)
-                        if not hub_edges:
-                            hub_edges = await get_flights_serp_first_with_points_async(hub, dest, combined_points, filters)
-                        if not hub_edges:
-                            hub_edges = get_flights_serp_only(hub, dest, leg_date, filters)
-                        if hub_edges:
-                            ground_opts = get_bus_and_car_options(origin, hub, date=leg_date)
-                            ground_edges = ground_options_to_edges(origin, hub, ground_opts)
-                            if ground_edges:
-                                edges_all.update(hub_edges)
-                                edges_all.update(ground_edges)
-                                successful_routes += 1
-                                failed_routes.pop()  # remove the append we did above
-                                logger.info(
-                                    "Exception path: used nearby hub %s for %s->%s: %d flight + %d ground edges",
-                                    hub, origin, dest, len(hub_edges), len(ground_edges),
-                                )
-                                break
-                    except Exception as h:
-                        logger.debug("Hub %s fallback for %s->%s: %s", hub, origin, dest, h)
-            # Still add bus/car so the segment is not missing when flights fail
-            try:
-                from src.handlers.ground_transport import get_bus_and_car_options, ground_options_to_edges
-                ground_opts = get_bus_and_car_options(origin, dest, date=leg_date)
-                ground_edges = ground_options_to_edges(origin, dest, ground_opts)
-                if ground_edges:
-                    edges_all.update(ground_edges)
-            except Exception:
-                pass
+    logger.info("Fetching flight edges for %d O-D pairs in parallel", len(pairs))
+    results = await asyncio.gather(
+        *[_bounded_fetch(o, d) for o, d in pairs],
+        return_exceptions=True,
+    )
+    for i, r in enumerate(results):
+        o, d = pairs[i]
+        if isinstance(r, Exception):
+            logger.warning("fetch_edges_for_route %s -> %s failed: %s", o, d, r)
+            failed_routes.append(f"{o} -> {d}")
             continue
+        edges, had_flight = r
+        edges_all.update(edges)
+        if had_flight:
+            successful_routes += 1
+        else:
+            failed_routes.append(f"{o} -> {d}")
+            logger.warning(
+                "No flight edges from %s to %s after award-first, SERP-first, get_flights_serp_only, and nearby-hub (if applicable).",
+                o, d,
+            )
+
+    # Await OOP and hotels tasks (they ran in parallel with flight fetch)
+    oop_result: Optional[Dict[str, Any]] = None
+    if oop_task is not None:
+        try:
+            oop_result = await oop_task
+        except Exception as e:
+            logger.warning("optimize_itinerary_out_of_pocket failed: %s", e)
+            oop_result = None
     
+    oop_hotels_result: Optional[Dict[str, Any]] = None
+    if oop_hotels_task is not None:
+        try:
+            oop_hotels_result = await oop_hotels_task
+        except Exception as e:
+            logger.warning("optimize_hotels_out_of_pocket failed: %s", e)
+            oop_hotels_result = None
+
     if not edges_all:
         # No flight data for any route (small/remote cities or API limits). Use OpenAI to suggest routes.
         logger.info(
@@ -1525,34 +1571,41 @@ async def generate_optimized_itinerary(trip_id: str) -> Dict[str, Any]:
         "totals": totals,
     }
     itinerary_items.append(totals_item)
-    
-    # Save all items
-    for item in itinerary_items:
-        itinerary_repo.put_item(item)
 
-    # Transfer strategy: AwardTool-driven (from solution pay_mode) or Panorama fallback; only use generic AI for the rest
+    # Post-optimization: run transfer tips and smart tips in parallel (saves 5-15s)
     from src.handlers.openAI import get_itinerary_smart_tips
 
     aw_tips = build_transfer_tips_from_solution(solution, edges_all)
-    if not aw_tips:
-        user_banks = list({k for u in user_points_by_trav.values() for k in (u or {}) if isinstance(k, str) and (k or "").lower() in (DEFAULT_TRANSFER_GRAPH or {})})
-        aw_tips = await _get_transfer_tips_from_panorama(
-            origin=start_dest_code,
-            destination=end_dest_code or start_dest_code,
-            start_date=(start_date or "").strip(),
-            end_date=(end_date or "").strip(),
-            user_banks=user_banks,
-        )
-
     points_programs = list({p for u in user_points_by_trav.values() for p in u})
-    tips = get_itinerary_smart_tips(
+    
+    # Start smart tips (always needed, runs in thread since it's sync OpenAI)
+    smart_tips_task = asyncio.create_task(asyncio.to_thread(
+        get_itinerary_smart_tips,
         origin=start_dest_name or start_dest_code,
         destination=end_dest_name or end_dest_code,
         city_names=cities if cities else None,
         start_date=start_date or None,
         end_date=end_date or None,
         points_programs=points_programs if points_programs else None,
-    )
+    ))
+    
+    # Start Panorama fallback if AwardTool tips are empty (runs async)
+    panorama_task = None
+    if not aw_tips:
+        user_banks = list({k for u in user_points_by_trav.values() for k in (u or {}) if isinstance(k, str) and (k or "").lower() in (DEFAULT_TRANSFER_GRAPH or {})})
+        panorama_task = asyncio.create_task(_get_transfer_tips_from_panorama(
+            origin=start_dest_code,
+            destination=end_dest_code or start_dest_code,
+            start_date=(start_date or "").strip(),
+            end_date=(end_date or "").strip(),
+            user_banks=user_banks,
+        ))
+    
+    # Await both tasks
+    tips = await smart_tips_task
+    if panorama_task is not None:
+        aw_tips = await panorama_task
+    
     # Prefer AwardTool-derived transfer tips (exact amounts and partners) over generic AI
     if aw_tips:
         tips["transfer_tips"] = aw_tips
@@ -1566,7 +1619,6 @@ async def generate_optimized_itinerary(trip_id: str) -> Dict[str, Any]:
         "holiday_advice": tips.get("holiday_advice", []),
         "practical_tips": tips.get("practical_tips", []),
     }
-    itinerary_repo.put_item(tips_item)
     itinerary_items.append(tips_item)
 
     # Out-of-pocket: persist and attach to response for simple A->B round-trips
@@ -1587,7 +1639,6 @@ async def generate_optimized_itinerary(trip_id: str) -> Dict[str, Any]:
             "type": "out_of_pocket",
             **oop_payload,
         }
-        itinerary_repo.put_item(oop_item)
         itinerary_items.append(oop_item)
 
     # Hotel out-of-pocket: persist and attach for simple trips
@@ -1607,7 +1658,6 @@ async def generate_optimized_itinerary(trip_id: str) -> Dict[str, Any]:
             "type": "out_of_pocket_hotels",
             **oop_hotels_payload,
         }
-        itinerary_repo.put_item(oop_h_item)
         itinerary_items.append(oop_h_item)
 
     # When we used relaxed budget or best-effort path, add an info item and flag the response
@@ -1620,8 +1670,10 @@ async def generate_optimized_itinerary(trip_id: str) -> Dict[str, Any]:
             "original_budget": max_budget,
             "suggested_cash": solution.get("totals", {}).get("cash"),
         }
-        itinerary_repo.put_item(relaxed_info)
         itinerary_items.append(relaxed_info)
+
+    # Write all itinerary items in a single batch (more efficient than individual put_item calls)
+    itinerary_repo.batch_write_items(itinerary_items)
 
     out: Dict[str, Any] = {
         "status": solution.get("status", "Unknown"),
