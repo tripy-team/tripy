@@ -55,6 +55,23 @@ from .handlers.openAI import (
     search_cities_with_openai,
     search_airports_with_openai,
 )
+from .handlers.group_api import (
+    handle_get_points_pool,
+    handle_optimize_oop,
+    handle_simulate_allocation,
+    handle_get_settlements,
+    handle_mark_settlement_paid,
+    handle_confirm_settlement,
+    handle_get_settlements_status,
+    OptimizeOOPRequest,
+    OptimizeOOPOptions,
+    SimulateAllocationRequest,
+    MarkSettlementPaidRequest,
+    ConfirmSettlementRequest,
+)
+
+# Import agentic optimization router
+from .routes.optimize import router as optimize_router
 
 # Get CORS origins from environment variable
 CORS_ORIGINS_ENV = os.environ.get("CORS_ORIGINS", "")
@@ -78,6 +95,9 @@ app.add_middleware(
     allow_methods=["*"],
     allow_headers=["*"],
 )
+
+# Include agentic optimization routes
+app.include_router(optimize_router)
 
 
 # Request models with validation
@@ -233,6 +253,26 @@ class OptimizeOutOfPocketHotelsRequest(BaseModel):
     programs: Optional[List[str]] = Field(None, description="Hotel programs e.g. HH, IHG, MAR, HYATT")
     guests: int = Field(1, ge=1, le=10, description="Number of guests")
     hotel_class: Optional[str] = Field(None, description="Star rating filter e.g. 3, 4, 5")
+
+
+# === NEW: Transfer Strategy Optimizer Models ===
+
+class TransferStrategyRequest(BaseModel):
+    """Request for optimizing point transfers across flights and hotels."""
+    trip_id: Optional[str] = Field(None, description="Trip ID to optimize (if using saved trip)")
+    # OR provide expenses directly:
+    flights: Optional[List[Dict[str, Any]]] = Field(None, description="Flight options with cash and points costs")
+    hotels: Optional[List[Dict[str, Any]]] = Field(None, description="Hotel options with cash and points costs")
+    available_points: Dict[str, int] = Field(..., description="User's point balances by program (e.g., {'amex': 100000, 'chase': 50000, 'UA': 25000})")
+    include_hotels: bool = Field(True, description="Include hotels in optimization")
+    max_cash_budget: Optional[float] = Field(None, ge=0, description="Maximum cash to spend")
+    min_points_usage_pct: float = Field(0.0, ge=0, le=1, description="Force minimum point utilization (0-1)")
+
+
+class SimulateTransferRequest(BaseModel):
+    """Simulate optimal point allocation for given expenses (what-if scenario)."""
+    available_points: Dict[str, int] = Field(..., description="User's point balances")
+    expenses: List[Dict[str, Any]] = Field(..., description="List of expenses with cash and points options")
 
 
 @app.get("/")
@@ -826,58 +866,59 @@ async def generate_itinerary(
         
         return response
     except ValueError as e:
-        # Fallback to simple itineraries (1-5 routes within budget/points) when optimization fails
-        logger.warning(f"Optimization failed ({e}), falling back to simple itineraries with safe_mode")
-        try:
-            items = itinerary_service.generate_simple_itineraries(request.trip_id, safe_mode=True)
-            track_itinerary_generated(user_id, request.trip_id, len(items))
-            warning_msg = f"Optimization failed: {str(e)}"
-            return {
-                "status": "simple_fallback",
-                "solution": {},
-                "items": items,
-                "fallback_reason": "optimization_error",
-                "warning": warning_msg,
-            }
-        except Exception as fallback_err:
-            logger.error(f"Simple itinerary fallback failed: {fallback_err}")
-            # Last resort: return minimal fallback
-            fallback_items = itinerary_service._generate_minimal_fallback_itinerary(
-                request.trip_id, f"All generators failed: {str(fallback_err)}"
-            )
-            return {
-                "status": "minimal_fallback",
-                "solution": {},
-                "items": fallback_items,
-                "error": str(e),
-            }
+        # NO FALLBACKS - Return explicit error with actionable guidance
+        logger.warning(f"Optimization failed: {e}")
+        error_response = {
+            "status": "error",
+            "error_code": "OPTIMIZATION_FAILED",
+            "message": str(e),
+            "user_actions": [
+                {
+                    "action_type": "change_dates",
+                    "title": "Try Different Dates",
+                    "description": "Flight availability varies by date",
+                    "button_text": "Change Dates"
+                },
+                {
+                    "action_type": "increase_budget",
+                    "title": "Increase Budget",
+                    "description": "Your budget may be too low for this route",
+                    "button_text": "Update Budget"
+                },
+                {
+                    "action_type": "modify_destinations",
+                    "title": "Modify Destinations",
+                    "description": "Some routes may not have available flights",
+                    "button_text": "Edit Destinations"
+                }
+            ]
+        }
+        return error_response
     except HTTPException:
         raise
     except Exception as e:
         logger.error(f"Error generating itinerary: {str(e)}")
-        # Fallback to simple itineraries on any error (with safe_mode to guarantee success)
-        try:
-            items = itinerary_service.generate_simple_itineraries(request.trip_id, safe_mode=True)
-            track_itinerary_generated(user_id, request.trip_id, len(items))
-            return {
-                "status": "simple_fallback",
-                "solution": {},
-                "items": items,
-                "fallback_reason": "unexpected_error",
-                "warning": f"Unexpected error: {str(e)}",
-            }
-        except Exception as fallback_err:
-            logger.error(f"Simple itinerary fallback failed: {fallback_err}")
-            # Last resort: return minimal fallback
-            fallback_items = itinerary_service._generate_minimal_fallback_itinerary(
-                request.trip_id, f"All generators failed: {str(fallback_err)}"
-            )
-            return {
-                "status": "minimal_fallback",
-                "solution": {},
-                "items": fallback_items,
-                "error": str(e),
-            }
+        # NO FALLBACKS - Return explicit error with actionable guidance
+        error_response = {
+            "status": "error",
+            "error_code": "UNEXPECTED_ERROR",
+            "message": f"An unexpected error occurred: {str(e)}",
+            "user_actions": [
+                {
+                    "action_type": "retry",
+                    "title": "Try Again",
+                    "description": "The issue may be temporary",
+                    "button_text": "Retry"
+                },
+                {
+                    "action_type": "simplify_trip",
+                    "title": "Simplify Trip",
+                    "description": "Try fewer destinations or more flexible dates",
+                    "button_text": "Edit Trip"
+                }
+            ]
+        }
+        return error_response
 
 
 @app.post("/itinerary/get")
@@ -1141,6 +1182,199 @@ async def optimize_out_of_pocket(body: OptimizeOutOfPocketRequest):
         raise HTTPException(status_code=500, detail=str(e))
 
 
+# === NEW: Transfer Strategy Endpoints ===
+
+@app.post("/api/transfer-strategy/optimize")
+async def optimize_transfer_strategy(
+    body: TransferStrategyRequest,
+    user_id: str = Depends(get_current_user_id),
+):
+    """
+    Optimize point transfer strategy to minimize out-of-pocket costs.
+    
+    This endpoint analyzes all flights and hotels for a trip and determines:
+    1. Which items to pay with cash vs points
+    2. Which bank points to transfer to which programs
+    3. Step-by-step transfer instructions
+    
+    Key difference from /optimize-out-of-pocket:
+    - Considers ALL expenses (flights + hotels) together
+    - Provides explicit transfer instructions
+    - Prioritizes minimizing cash over CPP value
+    
+    Returns:
+    - total_out_of_pocket: Total cash you'll pay
+    - savings: Cash saved vs all-cash booking
+    - payment_plan: How to pay for each item
+    - transfer_plan: Which points to transfer where
+    - booking_order: Step-by-step instructions
+    """
+    try:
+        from .handlers.trip_cost_optimizer import (
+            optimize_trip_out_of_pocket,
+            build_oop_optimized_response,
+        )
+        
+        flights = body.flights or []
+        hotels = body.hotels if body.include_hotels else []
+        
+        # If trip_id provided, fetch trip data
+        if body.trip_id:
+            # TODO: Fetch trip's flights and hotels from itinerary service
+            pass
+        
+        solution = await optimize_trip_out_of_pocket(
+            flight_edges=flights,
+            hotel_options=hotels,
+            user_points=body.available_points,
+            include_hotels=body.include_hotels,
+            max_cash_budget=body.max_cash_budget,
+            min_points_usage_pct=body.min_points_usage_pct,
+        )
+        
+        return build_oop_optimized_response(solution)
+        
+    except Exception as e:
+        logger.error(f"optimize_transfer_strategy: {e}", exc_info=True)
+        raise HTTPException(status_code=500, detail=str(e))
+
+
+@app.post("/api/transfer-strategy/simulate")
+async def simulate_transfer_strategy(body: SimulateTransferRequest):
+    """
+    Simulate optimal point allocation for given expenses (no trip required).
+    
+    Useful for "what if" scenarios to see how points would be allocated
+    before creating a trip.
+    
+    Example request:
+    {
+        "available_points": {"amex": 1000000, "chase": 150000},
+        "expenses": [
+            {"type": "flight", "description": "JFK to CDG", "cash_cost": 800, 
+             "points_options": [{"program_code": "AF", "points_required": 60000, "surcharge": 150}]},
+            {"type": "hotel", "description": "Paris Hyatt 5 nights", "cash_cost": 1200,
+             "points_options": [{"program_code": "HYATT", "points_required": 100000, "surcharge": 0}]}
+        ]
+    }
+    
+    Returns optimal payment and transfer strategy.
+    """
+    try:
+        from .handlers.min_oop_optimizer import (
+            minimize_out_of_pocket,
+            TripCostItem,
+            PointsOption,
+            solution_to_dict,
+        )
+        from .handlers.transfer_strategy import EXTENDED_TRANSFER_GRAPH
+        
+        # Convert expenses to TripCostItems
+        items = []
+        for i, exp in enumerate(body.expenses):
+            points_opts = []
+            for opt in exp.get("points_options", []):
+                points_opts.append(PointsOption(
+                    program_code=opt.get("program_code", ""),
+                    program_type=opt.get("program_type", "airline" if exp.get("type") == "flight" else "hotel"),
+                    points_required=int(opt.get("points_required", 0)),
+                    surcharge=float(opt.get("surcharge", 0)),
+                ))
+            
+            items.append(TripCostItem(
+                item_id=f"{exp.get('type', 'item')}_{i}",
+                item_type=exp.get("type", "flight"),
+                description=exp.get("description", f"Item {i+1}"),
+                cash_cost=float(exp.get("cash_cost", 0)),
+                points_options=points_opts,
+            ))
+        
+        solution = minimize_out_of_pocket(
+            items=items,
+            available_points=body.available_points,
+            transfer_graph=EXTENDED_TRANSFER_GRAPH,
+        )
+        
+        result = solution_to_dict(solution)
+        
+        # Add summary
+        result["summary"] = {
+            "total_out_of_pocket": f"${solution.total_out_of_pocket:,.2f}",
+            "all_cash_would_cost": f"${solution.all_cash_cost:,.2f}",
+            "you_save": f"${solution.savings:,.2f}",
+            "savings_percentage": f"{solution.savings_percentage:.1f}%",
+        }
+        
+        return result
+        
+    except Exception as e:
+        logger.error(f"simulate_transfer_strategy: {e}", exc_info=True)
+        raise HTTPException(status_code=500, detail=str(e))
+
+
+@app.get("/api/transfer-partners")
+async def get_transfer_partners(
+    program: Optional[str] = Query(None, description="Bank program code (e.g., amex, chase)"),
+    program_type: Optional[str] = Query(None, description="Filter by 'airline' or 'hotel'"),
+):
+    """
+    Get available transfer partners for bank programs.
+    
+    If program is provided, returns partners for that specific bank.
+    Otherwise, returns all transfer partners organized by bank.
+    """
+    try:
+        from .handlers.transfer_strategy import (
+            EXTENDED_TRANSFER_GRAPH,
+            BANK_METADATA,
+            get_transfer_partners as get_partners,
+        )
+        
+        if program:
+            partners = get_partners(program.lower(), program_type)
+            bank_info = BANK_METADATA.get(program.lower(), {})
+            return {
+                "bank": program.lower(),
+                "bank_name": bank_info.get("name", program),
+                "partners": [
+                    {
+                        "code": p,
+                        "name": EXTENDED_TRANSFER_GRAPH.get(program.lower(), {}).get(p, {}).get("name", p),
+                        "type": EXTENDED_TRANSFER_GRAPH.get(program.lower(), {}).get(p, {}).get("type", "airline"),
+                        "ratio": EXTENDED_TRANSFER_GRAPH.get(program.lower(), {}).get(p, {}).get("ratio", 1.0),
+                    }
+                    for p in partners
+                    if not program_type or EXTENDED_TRANSFER_GRAPH.get(program.lower(), {}).get(p, {}).get("type") == program_type
+                ],
+            }
+        
+        # Return all banks and their partners
+        result = {}
+        for bank, partners in EXTENDED_TRANSFER_GRAPH.items():
+            bank_info = BANK_METADATA.get(bank, {})
+            partner_list = []
+            for code, info in partners.items():
+                if program_type and info.get("type") != program_type:
+                    continue
+                partner_list.append({
+                    "code": code,
+                    "name": info.get("name", code),
+                    "type": info.get("type", "airline"),
+                    "ratio": info.get("ratio", 1.0),
+                })
+            result[bank] = {
+                "bank_name": bank_info.get("name", bank),
+                "portal_url": bank_info.get("portal_url", ""),
+                "partners": partner_list,
+            }
+        
+        return {"transfer_graph": result}
+        
+    except Exception as e:
+        logger.error(f"get_transfer_partners: {e}", exc_info=True)
+        raise HTTPException(status_code=500, detail=str(e))
+
+
 @app.get("/api/locations/{city_id}/airports")
 async def locations_airports(
     city_id: str,
@@ -1377,4 +1611,263 @@ async def get_city_image_srcset(city_name: str):
         raise
     except Exception as e:
         logger.error(f"Error getting city image srcset: {str(e)}")
+        raise HTTPException(status_code=500, detail=str(e))
+
+
+# =============================================================================
+# GROUP TRAVEL OOP OPTIMIZATION ENDPOINTS
+# =============================================================================
+
+@app.get("/group/{trip_id}/points-pool")
+async def get_group_points_pool(
+    trip_id: str,
+    user_id: str = Depends(get_current_user_id),
+):
+    """
+    Get aggregated points pool for a group trip.
+    
+    Returns combined points across all members, transfer potential,
+    and estimated values.
+    """
+    try:
+        # Get trip members
+        members_data = trip_member_service.get_trip_members(trip_id)
+        
+        if not members_data:
+            raise HTTPException(
+                status_code=404,
+                detail=f"No members found for trip {trip_id}"
+            )
+        
+        # Get each member's points
+        for member in members_data:
+            member_id = member.get("user_id")
+            if member_id:
+                points = points_service.get_user_points_for_trip(trip_id, member_id)
+                member["points"] = {p.get("program"): p.get("balance") for p in points if p.get("balance")}
+        
+        result = await handle_get_points_pool(trip_id, members_data)
+        return result
+        
+    except HTTPException:
+        raise
+    except Exception as e:
+        logger.error(f"Error getting group points pool: {str(e)}")
+        raise HTTPException(status_code=500, detail=str(e))
+
+
+@app.post("/group/{trip_id}/optimize-oop")
+async def optimize_group_oop(
+    trip_id: str,
+    request: Optional[OptimizeOOPRequest] = None,
+    user_id: str = Depends(get_current_user_id),
+):
+    """
+    Run group OOP optimization.
+    
+    This is the main endpoint for optimizing a group trip's out-of-pocket costs.
+    It searches for flights and hotels, runs the ILP optimizer, calculates
+    fair cost allocation, and generates settlement instructions.
+    """
+    try:
+        if request is None:
+            request = OptimizeOOPRequest()
+        
+        # Get trip details
+        trip = trip_service.get_trip(trip_id, user_id)
+        if not trip:
+            raise HTTPException(status_code=404, detail=f"Trip {trip_id} not found")
+        
+        # Get trip members
+        members_data = trip_member_service.get_trip_members(trip_id)
+        if not members_data:
+            raise HTTPException(
+                status_code=400,
+                detail="No members found for trip. Add members before optimizing."
+            )
+        
+        # Get each member's points
+        for member in members_data:
+            member_id = member.get("user_id")
+            if member_id:
+                points = points_service.get_user_points_for_trip(trip_id, member_id)
+                member["points"] = {p.get("program"): p.get("balance") for p in points if p.get("balance")}
+        
+        # Get destinations
+        destinations = destination_service.get_destinations(trip_id)
+        if not destinations:
+            raise HTTPException(
+                status_code=400,
+                detail="No destinations found for trip. Add destinations before optimizing."
+            )
+        
+        # TODO: Search for actual flight and hotel options
+        # For now, use placeholder booking items
+        # In production, this would call AwardTool API and SerpAPI
+        booking_items_data = []
+        
+        # Placeholder: Create sample booking items from destinations
+        # This should be replaced with actual flight/hotel search
+        for i, dest in enumerate(destinations):
+            dest_name = dest.get("name", "Unknown")
+            
+            # Sample flight item
+            booking_items_data.append({
+                "item_id": f"flight_{i}",
+                "type": "flight",
+                "member_id": members_data[0].get("user_id"),  # First member as example
+                "description": f"Flight to {dest_name}",
+                "cash_cost": 500.0,  # Placeholder
+                "points_options": [
+                    {"program_code": "UA", "points_required": 30000, "surcharge": 50},
+                    {"program_code": "AA", "points_required": 35000, "surcharge": 45},
+                ],
+            })
+        
+        result = await handle_optimize_oop(
+            trip_id=trip_id,
+            members_data=members_data,
+            booking_items_data=booking_items_data,
+            options=request.options,
+        )
+        
+        return result
+        
+    except HTTPException:
+        raise
+    except Exception as e:
+        logger.error(f"Error optimizing group OOP: {str(e)}")
+        raise HTTPException(status_code=500, detail=str(e))
+
+
+@app.post("/group/{trip_id}/simulate-allocation")
+async def simulate_group_allocation(
+    trip_id: str,
+    request: SimulateAllocationRequest,
+    user_id: str = Depends(get_current_user_id),
+):
+    """
+    Simulate cost allocation without full optimization.
+    
+    Provides a quick preview of expected settlements based on
+    members' points contributions.
+    """
+    try:
+        # Get trip members
+        members_data = trip_member_service.get_trip_members(trip_id)
+        if not members_data:
+            raise HTTPException(status_code=404, detail="No members found for trip")
+        
+        # Get each member's points
+        for member in members_data:
+            member_id = member.get("user_id")
+            if member_id:
+                points = points_service.get_user_points_for_trip(trip_id, member_id)
+                member["points"] = {p.get("program"): p.get("balance") for p in points if p.get("balance")}
+        
+        result = await handle_simulate_allocation(trip_id, members_data, request)
+        return result
+        
+    except HTTPException:
+        raise
+    except Exception as e:
+        logger.error(f"Error simulating allocation: {str(e)}")
+        raise HTTPException(status_code=500, detail=str(e))
+
+
+@app.get("/group/{trip_id}/settlements")
+async def get_group_settlements(
+    trip_id: str,
+    user_id: str = Depends(get_current_user_id),
+):
+    """
+    Get settlements for a group trip.
+    
+    Returns all settlement entries with payment instructions.
+    """
+    try:
+        # Get trip members
+        members_data = trip_member_service.get_trip_members(trip_id)
+        
+        # TODO: Get settlements from database
+        # For now, return empty list
+        settlements_data = []
+        
+        result = await handle_get_settlements(trip_id, settlements_data, members_data)
+        return result
+        
+    except HTTPException:
+        raise
+    except Exception as e:
+        logger.error(f"Error getting settlements: {str(e)}")
+        raise HTTPException(status_code=500, detail=str(e))
+
+
+@app.post("/group/{trip_id}/settlements/{settlement_id}/mark-paid")
+async def mark_settlement_paid(
+    trip_id: str,
+    settlement_id: str,
+    request: MarkSettlementPaidRequest,
+    user_id: str = Depends(get_current_user_id),
+):
+    """
+    Mark a settlement as paid by the debtor.
+    """
+    try:
+        result = await handle_mark_settlement_paid(
+            trip_id, settlement_id, request, user_id
+        )
+        return result
+        
+    except HTTPException:
+        raise
+    except Exception as e:
+        logger.error(f"Error marking settlement paid: {str(e)}")
+        raise HTTPException(status_code=500, detail=str(e))
+
+
+@app.post("/group/{trip_id}/settlements/{settlement_id}/confirm")
+async def confirm_settlement(
+    trip_id: str,
+    settlement_id: str,
+    request: ConfirmSettlementRequest,
+    user_id: str = Depends(get_current_user_id),
+):
+    """
+    Confirm settlement receipt by the creditor.
+    """
+    try:
+        result = await handle_confirm_settlement(
+            trip_id, settlement_id, request, user_id
+        )
+        return result
+        
+    except HTTPException:
+        raise
+    except Exception as e:
+        logger.error(f"Error confirming settlement: {str(e)}")
+        raise HTTPException(status_code=500, detail=str(e))
+
+
+@app.get("/group/{trip_id}/settlements/status")
+async def get_settlements_status(
+    trip_id: str,
+    user_id: str = Depends(get_current_user_id),
+):
+    """
+    Get overall settlement status for a trip.
+    
+    Returns summary of all settlements and their completion status.
+    """
+    try:
+        # TODO: Get settlements from database
+        settlements_data = []
+        
+        result = await handle_get_settlements_status(trip_id, settlements_data)
+        return result
+        
+    except HTTPException:
+        raise
+    except Exception as e:
+        logger.error(f"Error getting settlements status: {str(e)}")
         raise HTTPException(status_code=500, detail=str(e))

@@ -34,6 +34,13 @@ from src.handlers.airport_filter import is_commercial_airport, load_commercial_i
 from src.utils.award_programs import DEFAULT_TRANSFER_GRAPH, get_award_programs_for_api
 from src.repos import user_repo
 from src.utils.card_benefits import build_benefit_airlines_for_travelers
+from src.handlers.transfer_strategy import (
+    BANK_METADATA,
+    PROGRAM_METADATA,
+    build_transfer_instruction,
+    get_program_name,
+    get_bank_name,
+)
 
 logger = logging.getLogger(__name__)
 
@@ -198,65 +205,81 @@ _HUMANIZE_AIRLINE: Dict[str, str] = {
 }
 
 # Transfer portal URLs and transfer details
+# Use the enhanced BANK_METADATA from transfer_strategy.py and supplement with additional details
 _TRANSFER_DETAILS: Dict[str, Dict[str, str]] = {
     "amex": {
-        "portal_url": "https://global.americanexpress.com/rewards/summary",
-        "transfer_time": "instant",
+        "portal_url": BANK_METADATA.get("amex", {}).get("portal_url", "https://global.americanexpress.com/rewards"),
+        "transfer_time": BANK_METADATA.get("amex", {}).get("default_transfer_time", "1-2 business days"),
         "ratio": "1:1",
         "min_transfer": "1,000 points",
+        "full_name": BANK_METADATA.get("amex", {}).get("name", "American Express Membership Rewards"),
     },
     "chase": {
-        "portal_url": "https://www.chase.com/ultimate-rewards",
-        "transfer_time": "instant",
+        "portal_url": BANK_METADATA.get("chase", {}).get("portal_url", "https://ultimaterewardspoints.chase.com"),
+        "transfer_time": BANK_METADATA.get("chase", {}).get("default_transfer_time", "instant"),
         "ratio": "1:1",
         "min_transfer": "1,000 points",
+        "full_name": BANK_METADATA.get("chase", {}).get("name", "Chase Ultimate Rewards"),
     },
     "citi": {
-        "portal_url": "https://www.thankyou.com/",
-        "transfer_time": "1-2 business days",
+        "portal_url": BANK_METADATA.get("citi", {}).get("portal_url", "https://thankyou.citi.com"),
+        "transfer_time": BANK_METADATA.get("citi", {}).get("default_transfer_time", "instant to 24 hours"),
         "ratio": "1:1",
         "min_transfer": "1,000 points",
+        "full_name": BANK_METADATA.get("citi", {}).get("name", "Citi ThankYou Points"),
     },
     "capitalone": {
-        "portal_url": "https://www.capitalone.com/bank/rewards",
-        "transfer_time": "instant to 24 hours",
-        "ratio": "varies by partner (typically 2:1.5)",
+        "portal_url": BANK_METADATA.get("capitalone", {}).get("portal_url", "https://www.capitalone.com/credit-cards/benefits/travel/"),
+        "transfer_time": BANK_METADATA.get("capitalone", {}).get("default_transfer_time", "instant to 2 days"),
+        "ratio": "varies by partner",
         "min_transfer": "100 miles",
+        "full_name": BANK_METADATA.get("capitalone", {}).get("name", "Capital One Miles"),
     },
     "bilt": {
-        "portal_url": "https://www.biltrewards.com/rewards",
-        "transfer_time": "instant",
+        "portal_url": BANK_METADATA.get("bilt", {}).get("portal_url", "https://www.biltrewards.com"),
+        "transfer_time": BANK_METADATA.get("bilt", {}).get("default_transfer_time", "instant"),
         "ratio": "1:1",
-        "min_transfer": "1,000 points (transfer day: 1st of month)",
+        "min_transfer": "1,000 points",
+        "full_name": BANK_METADATA.get("bilt", {}).get("name", "Bilt Rewards"),
+        "special_note": "Best value: Transfer on rent payment day (1st of month)",
     },
 }
 
-# Airline booking portal URLs
+# Airline booking portal URLs - use PROGRAM_METADATA from transfer_strategy.py
+def _get_airline_booking_url(airline_code: str) -> str:
+    """Get booking URL for an airline from PROGRAM_METADATA."""
+    meta = PROGRAM_METADATA.get(airline_code.upper(), {})
+    return meta.get("booking_url", "")
+
+# Fallback URLs for airlines not in PROGRAM_METADATA
 _AIRLINE_BOOKING_URLS: Dict[str, str] = {
-    "UA": "https://www.united.com/en/us/fsr/choose-flights",
-    "AA": "https://www.aa.com/booking/search",
-    "DL": "https://www.delta.com/flight-search/book-a-flight",
-    "AS": "https://www.alaskaair.com/booking/reservation/search",
-    "B6": "https://www.jetblue.com/booking/flights",
-    "AC": "https://www.aircanada.com/us/en/aco/home/book.html",
-    "BA": "https://www.britishairways.com/travel/book/public/en_us",
-    "AF": "https://www.airfrance.com/",
-    "KL": "https://www.klm.com/",
-    "LH": "https://www.lufthansa.com/",
-    "LX": "https://www.swiss.com/",
-    "SQ": "https://www.singaporeair.com/",
-    "CX": "https://www.cathaypacific.com/",
-    "NH": "https://www.ana.co.jp/",
-    "JL": "https://www.jal.co.jp/",
-    "EK": "https://www.emirates.com/",
-    "QR": "https://www.qatarairways.com/",
-    "EY": "https://www.etihad.com/",
-    "TK": "https://www.turkishairlines.com/",
-    "AV": "https://www.avianca.com/",
-    "IB": "https://www.iberia.com/",
-    "QF": "https://www.qantas.com/",
-    "VS": "https://www.virginatlantic.com/",
-    "KE": "https://www.koreanair.com/",
+    code: PROGRAM_METADATA.get(code, {}).get("booking_url", url)
+    for code, url in {
+        "UA": "https://www.united.com",
+        "AA": "https://www.aa.com",
+        "DL": "https://www.delta.com",
+        "AS": "https://www.alaskaair.com",
+        "B6": "https://www.jetblue.com",
+        "AC": "https://www.aircanada.com",
+        "BA": "https://www.britishairways.com",
+        "AF": "https://www.airfrance.com",
+        "KL": "https://www.klm.com",
+        "LH": "https://www.lufthansa.com",
+        "LX": "https://www.swiss.com",
+        "SQ": "https://www.singaporeair.com",
+        "CX": "https://www.cathaypacific.com",
+        "NH": "https://www.ana.co.jp",
+        "JL": "https://www.jal.co.jp",
+        "EK": "https://www.emirates.com",
+        "QR": "https://www.qatarairways.com",
+        "EY": "https://www.etihad.com",
+        "TK": "https://www.turkishairlines.com",
+        "AV": "https://www.lifemiles.com",
+        "IB": "https://www.iberia.com",
+        "QF": "https://www.qantas.com",
+        "VS": "https://www.virginatlantic.com",
+        "KE": "https://www.koreanair.com",
+    }.items()
 }
 
 # Small/regional airports that often lack direct long-haul flight data in SERP/AwardTool.
@@ -907,6 +930,368 @@ def _best_effort_path_from_edges(
     return (solution, msg)
 
 
+def build_transfer_tips_from_solution(
+    solution: Dict[str, Any],
+    _edges_all: Optional[Dict[Any, Dict[str, Any]]] = None,
+) -> List[Dict[str, Any]]:
+    """
+    Build transfer_tips from the optimized solution's pay_mode, using AwardTool-derived
+    award_points and program. Each tip: where to transfer, how many points, for which segment.
+    When edges_all is provided, includes operating carrier (e.g. Korean Air codeshare via Delta).
+    Replaces generic AI transfer advice with data-driven amounts and partners.
+    Also includes strategy_reason explaining why this transfer strategy was selected.
+    Enhanced with detailed transfer instructions including portal URLs, timing, and booking steps.
+    """
+    out: List[Dict[str, Any]] = []
+    pay_mode = solution.get("pay_mode") or {}
+    edges_all = _edges_all or {}
+    
+    # Build strategy reasoning from solution metadata
+    strategy_reasons = []
+    total_points = 0
+    total_cash_saved = 0.0
+    programs_used = set()
+    partners_used = set()
+    route_segments = []
+
+    for _traveler, recs in pay_mode.items():
+        for rec in (recs or []):
+            if rec.get("type") != "points":
+                continue
+            via = rec.get("via") or {}
+            miles = rec.get("miles")
+            if miles is None:
+                continue
+            miles = int(float(miles))
+            sur = rec.get("surcharge")
+            try:
+                sur_val = float(sur) if sur is not None else None
+            except (TypeError, ValueError):
+                sur_val = None
+
+            # Calculate points value (cash saved)
+            points_value = rec.get("points_value", 0.0)
+            if points_value:
+                total_cash_saved += float(points_value)
+            
+            # Calculate cents per point value
+            cpp = rec.get("cents_per_point", 0.0)
+            if not cpp and points_value and miles > 0:
+                cpp = (float(points_value) * 100.0) / miles
+
+            edge = rec.get("edge")
+            dep, arr = None, None
+            if isinstance(edge, (list, tuple)) and len(edge) >= 2:
+                dep, arr = str(edge[0] or "").upper(), str(edge[1] or "").upper()
+                best_for = f"{dep}→{arr}" if (dep and arr) else None
+                if dep and arr:
+                    route_segments.append(f"{dep}→{arr}")
+            else:
+                best_for = None
+
+            # Operating carrier from AwardTool (codeshare): e.g. KE when booking via DL
+            operating_airline = None
+            e_tuple = tuple(edge) if isinstance(edge, (list, tuple)) and len(edge) >= 3 else None
+            if e_tuple and e_tuple in edges_all:
+                op = (edges_all[e_tuple].get("operating_airline") or "").strip().upper()
+                if op and len(op) >= 2:
+                    operating_airline = op[:2]
+            booking_airline = (via.get("airline") or via.get("native") or "").upper().strip()
+            
+            # Build detailed transfer instructions
+            src = None
+            al = None
+            from_program = None
+            to_program = None
+            transfer_needed = False
+            
+            if "source" in via and "airline" in via:
+                src = (via.get("source") or "").lower().strip()
+                al = (via.get("airline") or "").upper().strip()
+                from_program = _HUMANIZE_BANK.get(src) or src or "Credit card points"
+                to_program = _HUMANIZE_AIRLINE.get(al) or al or "Travel partner"
+                transfer_needed = True
+            elif "native" in via:
+                al = (via.get("native") or "").upper().strip()
+                to_program = _HUMANIZE_AIRLINE.get(al) or al or "Travel partner"
+                from_program = "Existing miles"
+                transfer_needed = False
+            else:
+                continue
+
+            # Build detailed note with transfer/booking instructions
+            note_parts = []
+            
+            # Codeshare information
+            codeshare_note = ""
+            if operating_airline and operating_airline != booking_airline:
+                op_name = _HUMANIZE_AIRLINE.get(operating_airline) or operating_airline
+                booking_name = _HUMANIZE_AIRLINE.get(booking_airline) or booking_airline
+                codeshare_note = f" You'll book through {booking_name} to fly on {op_name} metal (codeshare)."
+            
+            if transfer_needed:
+                # Transfer instructions
+                transfer_details = _TRANSFER_DETAILS.get(src, {})
+                transfer_time = transfer_details.get("transfer_time", "instant to 24 hours")
+                portal_url = transfer_details.get("portal_url", "")
+                min_transfer = transfer_details.get("min_transfer", "1,000 points")
+                
+                note_parts.append(f"Transfer {miles:,} points from {from_program} to {to_program}.")
+                note_parts.append(f"Transfer time: {transfer_time}. Minimum: {min_transfer}.")
+                
+                if portal_url:
+                    note_parts.append(f"Portal: {portal_url}")
+                
+                note_parts.append(f"Once transferred, book on {to_program}'s website.{codeshare_note}")
+            else:
+                # Native miles usage
+                note_parts.append(f"Use {miles:,} existing {to_program} miles (no transfer needed).{codeshare_note}")
+            
+            # Add booking URL
+            booking_url = _AIRLINE_BOOKING_URLS.get(al, "")
+            if booking_url:
+                note_parts.append(f"Book at: {booking_url}")
+            
+            # Add value information
+            if cpp > 0:
+                note_parts.append(f"Value: {cpp:.2f} cents per point.")
+            
+            # Add taxes/fees
+            if sur_val is not None and sur_val > 0:
+                note_parts.append(f"Pay ~${sur_val:,.0f} in taxes and fees.")
+            
+            note_parts.append("From AwardTool live award availability.")
+            
+            note = " ".join(note_parts)
+
+            tip = {
+                "from_program": from_program,
+                "to_program": to_program,
+                "best_for": best_for,
+                "route_segment": best_for,  # Explicit route segment field
+                "departure": dep,
+                "arrival": arr,
+                "note": note,
+                "points": miles,
+                "surcharge": sur_val,
+                "cents_per_point": round(cpp, 2) if cpp else None,
+                "points_value": round(points_value, 2) if points_value else None,
+                "booking_airline": booking_airline,
+                "booking_airline_name": _HUMANIZE_AIRLINE.get(booking_airline) or booking_airline,
+                "transfer_needed": transfer_needed,
+            }
+            
+            # Add transfer details
+            if transfer_needed and src:
+                transfer_details = _TRANSFER_DETAILS.get(src, {})
+                tip["transfer_portal_url"] = transfer_details.get("portal_url", "")
+                tip["transfer_time"] = transfer_details.get("transfer_time", "")
+                tip["transfer_ratio"] = transfer_details.get("ratio", "1:1")
+                tip["min_transfer"] = transfer_details.get("min_transfer", "")
+            
+            # Add booking URL
+            if al:
+                tip["booking_url"] = _AIRLINE_BOOKING_URLS.get(al, "")
+            
+            # Add codeshare details
+            if operating_airline and operating_airline != booking_airline:
+                tip["operating_carrier"] = operating_airline
+                op_name = _HUMANIZE_AIRLINE.get(operating_airline) or operating_airline
+                tip["operating_carrier_name"] = op_name
+                tip["segment_description"] = f"{op_name} (codeshare)"
+                tip["is_codeshare"] = True
+            else:
+                tip["is_codeshare"] = False
+            
+            # Add step-by-step transfer instructions
+            if transfer_needed:
+                tip["transfer_steps"] = [
+                    f"1. Visit {from_program} portal: {tip.get('transfer_portal_url', 'your account portal')}",
+                    f"2. Navigate to 'Transfer Points' or 'Transfer to Travel Partners' section",
+                    f"3. Select {to_program} from the list of airline partners",
+                    f"4. Enter your {to_program} frequent flyer number (create free account if needed)",
+                    f"5. Transfer {miles:,} points (usually 1:1 ratio, {transfer_details.get('transfer_time', 'instant')})",
+                    f"6. Once points arrive in {to_program} account, visit {tip.get('booking_url', 'airline website')}",
+                    f"7. Search for award flights from {dep} to {arr}",
+                    f"8. Book using {miles:,} miles + ~${sur_val:,.0f} in taxes/fees" if sur_val else f"8. Book using {miles:,} miles",
+                ]
+            else:
+                tip["transfer_steps"] = [
+                    f"1. Visit {to_program} booking portal: {tip.get('booking_url', 'airline website')}",
+                    f"2. Log in to your {to_program} account",
+                    f"3. Search for award flights from {dep} to {arr}",
+                    f"4. Book using {miles:,} existing miles + ~${sur_val:,.0f} in taxes/fees" if sur_val else f"4. Book using {miles:,} existing miles",
+                ]
+            
+            out.append(tip)
+            
+            # Track for strategy summary
+            total_points += miles
+            if from_program and from_program != "Existing miles":
+                programs_used.add(from_program)
+            partners_used.add(to_program)
+
+    # Build comprehensive strategy reasoning
+    if out:
+        # Route summary
+        unique_segments = list(dict.fromkeys(route_segments))
+        if len(unique_segments) == 1:
+            strategy_reasons.append(f"For your {unique_segments[0]} route")
+        elif len(unique_segments) > 1:
+            strategy_reasons.append(f"For your multi-city route ({' → '.join(unique_segments[:3])}{'...' if len(unique_segments) > 3 else ''})")
+        
+        # Program usage summary
+        if len(programs_used) == 1:
+            strategy_reasons.append(f"using {list(programs_used)[0]} as your primary points source")
+        elif len(programs_used) > 1:
+            strategy_reasons.append(f"optimizing across {len(programs_used)} credit card programs")
+        
+        # Partner summary
+        if len(partners_used) == 1:
+            strategy_reasons.append(f"transferring to {list(partners_used)[0]} for best award availability")
+        elif len(partners_used) > 1:
+            strategy_reasons.append(f"leveraging {len(partners_used)} airline partners for optimal routing")
+        
+        # Value summary
+        if total_cash_saved > 0:
+            avg_cpp = (total_cash_saved * 100.0) / total_points if total_points > 0 else 0
+            strategy_reasons.append(f"saving ${total_cash_saved:,.0f} ({avg_cpp:.2f} cpp)")
+        
+        strategy_reasons.append("based on live award availability from AwardTool")
+        
+        # Add strategy_reason to first tip (will be used for overview display)
+        if strategy_reasons and out:
+            out[0]["strategy_reason"] = ", ".join(strategy_reasons) + "."
+            out[0]["total_points_used"] = total_points
+            out[0]["total_cash_saved"] = round(total_cash_saved, 2)
+            out[0]["average_cpp"] = round((total_cash_saved * 100.0) / total_points, 2) if total_points > 0 else 0
+
+    return out
+
+
+async def _get_transfer_tips_from_panorama(
+    origin: str,
+    destination: str,
+    start_date: str,
+    end_date: str,
+    user_banks: List[str],
+) -> List[Dict[str, Any]]:
+    """
+    Fallback: use AwardTool Panorama (calendar) to get program + points for the route,
+    then suggest where to transfer. Used when the optimizer has no points bookings.
+    """
+    import httpx
+    api_key = os.getenv("AWARD_TOOL_API_KEY") or os.getenv("AWARDTOOL_API_KEY")
+    if not api_key or not origin or not destination:
+        return []
+
+    url = "https://www.awardtool-api.com/panorama/panorama_calendar_data"
+    payload = {"id": f"{str(origin).upper()}-{str(destination).upper()}", "api_key": api_key}
+    try:
+        async with httpx.AsyncClient(http2=True, timeout=httpx.Timeout(20.0)) as client:
+            r = await client.post(url, json=payload)
+            r.raise_for_status()
+            data = r.json().get("data") or []
+    except Exception as e:
+        logger.debug("Panorama calendar for transfer tips %s->%s: %s", origin, destination, e)
+        return []
+
+    banks_set = {b.lower().strip() for b in user_banks}
+    best_pts, best_prog = None, None
+    for row in data:
+        d = row.get("date") or ""
+        if start_date and d < start_date:
+            continue
+        if end_date and d > end_date:
+            continue
+        prog = (row.get("program") or "").upper()
+        if not prog:
+            continue
+        pts_obj = row.get("points") or {}
+        pts = pts_obj.get("y") if isinstance(pts_obj.get("y"), (int, float)) else None
+        if pts is None:
+            continue
+        if best_pts is None or pts < best_pts:
+            if DEFAULT_TRANSFER_GRAPH and any(
+                DEFAULT_TRANSFER_GRAPH.get(b, {}).get(prog) is not None
+                for b in banks_set
+            ):
+                best_pts, best_prog = int(pts), prog
+
+    if best_pts is None or best_prog is None:
+        return []
+
+    from_bank = None
+    for b in banks_set:
+        if DEFAULT_TRANSFER_GRAPH.get(b, {}).get(best_prog) is not None:
+            from_bank = b
+            break
+    if not from_bank:
+        return []
+
+    from_program = _HUMANIZE_BANK.get(from_bank) or from_bank
+    to_program = _HUMANIZE_AIRLINE.get(best_prog) or best_prog
+    best_for = f"{str(origin).upper()}→{str(destination).upper()}"
+    note = f"Transfer {best_pts:,} points to {to_program} (AwardTool Panorama economy for your dates)."
+    return [{
+        "from_program": from_program,
+        "to_program": to_program,
+        "best_for": best_for,
+        "note": note,
+        "points": best_pts,
+        "surcharge": None,
+    }]
+
+
+def _save_and_return_ai_route_suggestions(
+    trip_id: str,
+    origin: str,
+    destination: str,
+    city_names: List[str],
+    start_date: str,
+    end_date: str,
+    failed_routes: Optional[List[str]] = None,
+    points_programs: Optional[List[str]] = None,
+) -> Dict[str, Any]:
+    """When flight search has no data (small/remote cities), use OpenAI to suggest routes and smart tips; return that instead of failing."""
+    from src.handlers.openAI import suggest_routes_for_remote_or_small_cities, get_itinerary_smart_tips
+
+    suggestions = suggest_routes_for_remote_or_small_cities(
+        origin=origin,
+        destination=destination,
+        city_names=city_names if city_names else None,
+        start_date=start_date or None,
+        end_date=end_date or None,
+        failed_routes=failed_routes,
+    )
+    tips = get_itinerary_smart_tips(
+        origin=origin,
+        destination=destination,
+        city_names=city_names if city_names else None,
+        start_date=start_date or None,
+        end_date=end_date or None,
+        points_programs=points_programs or None,
+    )
+    item = {
+        "tripId": trip_id,
+        "itemId": "ai_route_suggestions",
+        "type": "ai_route_suggestions",
+        "suggestions": suggestions,
+        "transfer_tips": tips.get("transfer_tips", []),
+        "sample_itineraries": tips.get("sample_itineraries", []),
+        "holiday_advice": tips.get("holiday_advice", []),
+        "practical_tips": tips.get("practical_tips", []),
+    }
+    itinerary_repo.put_item(item)
+    return {
+        "status": "ai_suggested",
+        "ai_suggested_routes": True,
+        "suggestions": suggestions,
+        "items": [item],
+        "solution": {},
+    }
+
+
 async def _fetch_edges_for_route(
     origin: str,
     dest: str,
@@ -1325,9 +1710,11 @@ async def generate_optimized_itinerary(trip_id: str) -> Dict[str, Any]:
         max_budget = None
     default_cash_budget = (max_budget // len(travelers)) if (max_budget and len(travelers)) else 1e9
 
-    # 7. Run ILP optimization using points maximization
-    # plan_maximize_points_value (points_maximizer.py): maximizes cash saved by using points.
-    # Objective: W1*points_value - W2*cash_paid - W3*time (W1=10^6, W2=10^3, W3=1; min 1 cpp).
+    # 7. Run ILP optimization using OOP (Out-Of-Pocket) mode
+    # plan_maximize_points_value (points_maximizer.py) with optimization_mode="oop":
+    # - Prioritizes minimizing total cash paid (cash bookings + surcharges)
+    # - Uses points whenever they reduce out-of-pocket costs (no CPP threshold)
+    # - Differs from "cpp" mode which only uses points if CPP >= 1.0 cent
     # When benefit_airlines is set, also adds W_benefit * bag_fee per passenger when payer's card gives free bags on that flight.
     relaxed_message: Optional[str] = None
     try:
@@ -1337,7 +1724,7 @@ async def generate_optimized_itinerary(trip_id: str) -> Dict[str, Any]:
             start_city_by_trav,
             end_city_by_trav,
             user_points_by_trav,
-            plan_maximize_points_value,  # Point optimization: max points value, min cash, min time
+            plan_maximize_points_value,  # OOP mode: minimize out-of-pocket, use points aggressively
             meetup_cities=[],  # No meetup cities for now
             require_meetup_in_graph=False,
             must_visit_cities=city_codes,  # Each visited exactly once; optimizer chooses order to reduce cost
@@ -1349,6 +1736,7 @@ async def generate_optimized_itinerary(trip_id: str) -> Dict[str, Any]:
             default_time_if_missing=1e6,
             default_cash_budget=default_cash_budget,
             benefit_airlines=benefit_airlines,
+            optimization_mode="oop",  # Minimize out-of-pocket (not CPP)
         )
         
         status = solution.get("status", "Unknown")
@@ -1416,6 +1804,7 @@ async def generate_optimized_itinerary(trip_id: str) -> Dict[str, Any]:
                                 default_time_if_missing=1e6,
                                 default_cash_budget=try_budget,
                                 benefit_airlines=benefit_airlines,
+                                optimization_mode="oop",  # Minimize out-of-pocket
                             )
                             if sol_retry.get("status") == "Optimal" and any((sol_retry.get("path") or {}).values()):
                                 relaxed_solution = sol_retry
@@ -1445,35 +1834,22 @@ async def generate_optimized_itinerary(trip_id: str) -> Dict[str, Any]:
                                 f"We recommend a budget of at least ${int(tot * 1.2):,}."
                             )
                 
-                # 3) Use relaxed solution or fall back to simple generator with warning
+                # 3) Use relaxed solution or raise explicit error (NO FALLBACKS)
                 if relaxed_solution and any((relaxed_solution.get("path") or {}).values()):
                     solution = relaxed_solution
                     logger.info("Using relaxed/best-effort solution: %s", relaxed_message[:80] if relaxed_message else "")
                 else:
-                    # Instead of AI suggestions, fall back to simple generator which always works
+                    # NO FALLBACK - Raise explicit error with actionable guidance
                     logger.info(
-                        "No feasible optimized solution; falling back to simple itineraries with budget warning"
+                        "No feasible optimized solution found - raising explicit error"
                     )
-                    simple_items = generate_simple_itineraries(trip_id)
-                    # Add warning that optimization failed
-                    warning_item = {
-                        "tripId": trip_id,
-                        "itemId": "optimization_failed_warning",
-                        "type": "optimization_warning",
-                        "message": (
-                            "We couldn't optimize your itinerary with real flight data. "
-                            "This usually means your budget is too low or flights aren't available for your dates. "
-                            "The routes shown are estimates. Consider increasing your budget or choosing different dates/airports."
-                        ),
-                    }
-                    simple_items.append(warning_item)
-                    itinerary_repo.put_item(warning_item)
-                    return {
-                        "status": "simple_fallback",
-                        "solution": {},
-                        "items": simple_items,
-                        "fallback_reason": "infeasible",
-                    }
+                    raise ValueError(
+                        "Unable to find a valid route with the given constraints. "
+                        "This may be because: (1) Your budget is too low for available flights, "
+                        "(2) No flights are available on your selected dates, or "
+                        "(3) No routes exist between your chosen destinations. "
+                        "Try increasing your budget, choosing different dates, or modifying your destinations."
+                    )
             elif status == "Unbounded":
                 logger.warning("Optimization is unbounded - this should not happen with proper constraints")
             else:
@@ -1662,58 +2038,29 @@ async def generate_optimized_itinerary(trip_id: str) -> Dict[str, Any]:
     # Write all itinerary items in a single batch (more efficient than individual put_item calls)
     itinerary_repo.batch_write_items(itinerary_items)
 
+    # Build enhanced OOP optimization summary from ILP solution
+    oop_optimization_summary = build_oop_optimization_summary(
+        solution=solution,
+        user_points={k: v for u in user_points_by_trav.values() for k, v in (u or {}).items()},
+    )
+    
+    # Add OOP optimization item to itinerary
+    oop_optimization_item = {
+        "tripId": trip_id,
+        "itemId": "oop_optimization",
+        "type": "oop_optimization",
+        **oop_optimization_summary,
+    }
+    itinerary_items.append(oop_optimization_item)
+    itinerary_repo.put_item(oop_optimization_item)
+
     out: Dict[str, Any] = {
         "status": solution.get("status", "Unknown"),
         "solution": solution,
         "items": itinerary_items,
+        "out_of_pocket": oop_payload,
     }
     if relaxed_message:
         out["relaxed_constraints"] = True
         out["relaxed_message"] = relaxed_message
     return out
-
-
-async def generate_itinerary_v2(trip_id: str) -> Dict[str, Any]:
-    """
-    Generate an optimized itinerary using the v2 pipeline.
-    
-    This function wraps the v2 pipeline and provides the same interface
-    as generate_optimized_itinerary for easy swapping.
-    
-    Args:
-        trip_id: The trip ID to generate itinerary for
-        
-    Returns:
-        Dict with status, solution, and items
-    """
-    from src.system.itinerary_v2.pipeline import generate_itinerary_v2 as v2_pipeline
-    
-    logger.info(f"Starting v2 itinerary generation for trip {trip_id}")
-    return await v2_pipeline(trip_id)
-
-
-async def generate_itinerary_with_version(
-    trip_id: str,
-    version: Optional[str] = None,
-) -> Dict[str, Any]:
-    """
-    Generate itinerary using specified version (v1 or v2).
-    
-    Args:
-        trip_id: The trip ID to generate itinerary for
-        version: Version to use ("v1", "v2", or None for default)
-        
-    Returns:
-        Dict with status, solution, and items
-    """
-    use_version = (version or ITINERARY_GENERATION_VERSION).lower()
-    
-    if use_version == "v2":
-        try:
-            return await generate_itinerary_v2(trip_id)
-        except Exception as e:
-            logger.warning(f"v2 generation failed, falling back to v1: {e}")
-            # Fall through to v1
-    
-    # v1 or fallback
-    return await generate_optimized_itinerary(trip_id)

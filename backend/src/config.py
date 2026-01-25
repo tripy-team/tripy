@@ -57,4 +57,24 @@ USER_POOL_CLIENT_ID = os.environ.get("USER_POOL_CLIENT_ID", "")
 AWS_REGION = os.environ.get("AWS_REGION", "us-west-2")
 
 SERP_API_KEY = os.environ.get("SERP_API_KEY", "")
-AWARDTOOL_API_KEY = os.environ.get("AWARDTOOL_API_KEY", "")
+AWARDTOOL_API_KEY = os.environ.get("AWARDTOOL_API_KEY", "") or os.environ.get("AWARD_TOOL_API_KEY", "")
+
+# AwardTool Dummy Data Mode
+# Set to "true" to use dummy data instead of live AwardTool API
+# Useful when API is unavailable or for testing
+USE_AWARDTOOL_DUMMY_DATA = os.environ.get("USE_AWARDTOOL_DUMMY_DATA", "false").lower() == "true"
+
+
+def is_awardtool_dummy_mode() -> bool:
+    """
+    Check if we should use dummy data instead of live AwardTool API.
+    Returns True if:
+    - USE_AWARDTOOL_DUMMY_DATA is explicitly set to "true", OR
+    - AWARDTOOL_API_KEY is not configured
+    """
+    if USE_AWARDTOOL_DUMMY_DATA:
+        return True
+    # Auto-enable dummy mode if no API key is configured
+    if not AWARDTOOL_API_KEY:
+        return True
+    return False

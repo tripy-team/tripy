@@ -1,35 +1,47 @@
 #!/bin/bash
-# Start the FastAPI backend server for Tripy
+# Start the FastAPI development server with automatic venv activation
 
-# Navigate to backend directory
+set -e
+
 cd "$(dirname "$0")"
 
-# Check if virtual environment exists
-if [ -d "venv" ]; then
-    echo "Activating virtual environment..."
-    source venv/bin/activate
-elif [ -d ".venv" ]; then
-    echo "Activating virtual environment..."
-    source .venv/bin/activate
+# Check if venv exists
+if [ ! -d "venv" ]; then
+    echo "❌ Virtual environment not found!"
+    echo ""
+    echo "Please run setup first:"
+    echo "  ./setup_venv.sh"
+    echo ""
+    exit 1
 fi
 
-# Check if .env file exists
+# Check if .env exists
 if [ ! -f ".env" ]; then
-    echo "Warning: .env file not found. You may need to create one with your configuration."
+    echo "⚠️  Warning: .env file not found"
+    echo ""
+    echo "Run './setup_env.sh' to create one, or continue without it."
+    read -p "Continue anyway? (y/N): " -n 1 -r
+    echo
+    if [[ ! $REPLY =~ ^[Yy]$ ]]; then
+        exit 0
+    fi
 fi
 
-# Check if uvicorn is installed
-if ! python -c "import uvicorn" 2>/dev/null; then
-    echo "Installing dependencies..."
-    pip install -r requirements.txt
-fi
+# Activate virtual environment
+source venv/bin/activate
 
-# Set PYTHONPATH to include backend directory (parent of src)
-# This allows imports like "from src.repos import ..." to work
-export PYTHONPATH="$(pwd):$PYTHONPATH"
+# Set PYTHONPATH
+export PYTHONPATH="$(pwd):${PYTHONPATH}"
 
-# Start the server
-echo "Starting FastAPI server on http://localhost:8000"
-echo "API docs available at http://localhost:8000/docs"
+echo "🚀 Starting FastAPI development server..."
+echo "📂 Working directory: $(pwd)"
+echo "🔧 PYTHONPATH: $PYTHONPATH"
 echo ""
-uvicorn src.app:app --reload --host 0.0.0.0 --port 8000
+echo "Server will be available at: http://localhost:8000"
+echo "API docs will be available at: http://localhost:8000/docs"
+echo ""
+echo "Press Ctrl+C to stop the server"
+echo ""
+
+# Start uvicorn with reload for development
+uvicorn src.app:app --host 0.0.0.0 --port 8000 --reload

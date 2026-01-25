@@ -7,6 +7,34 @@
 
 const BACKEND_URL = process.env.NEXT_PUBLIC_BACKEND_URL || 'http://localhost:8000';
 
+/**
+ * Convert snake_case keys to camelCase recursively
+ */
+function snakeToCamel(str: string): string {
+  return str.replace(/_([a-z])/g, (_, letter) => letter.toUpperCase());
+}
+
+function transformKeys<T>(obj: unknown): T {
+  if (obj === null || obj === undefined) {
+    return obj as T;
+  }
+  
+  if (Array.isArray(obj)) {
+    return obj.map(item => transformKeys(item)) as T;
+  }
+  
+  if (typeof obj === 'object') {
+    const result: Record<string, unknown> = {};
+    for (const [key, value] of Object.entries(obj as Record<string, unknown>)) {
+      const camelKey = snakeToCamel(key);
+      result[camelKey] = transformKeys(value);
+    }
+    return result as T;
+  }
+  
+  return obj as T;
+}
+
 // Set this to true to bypass authentication for API calls (for offline development)
 const SKIP_API_AUTH = false;
 
@@ -926,5 +954,352 @@ export const tripExtraction = {
       method: 'POST',
       body: JSON.stringify({ text }),
     }, false); // requireAuth = false for trip extraction
+  },
+};
+
+// ============================================================================
+// GROUP TRIP API
+// ============================================================================
+
+// Member preferences stored in trip_members table
+export interface MemberPreferences {
+  userId: string;
+  tripId: string;
+  role: 'owner' | 'member';
+  status: 'pending' | 'complete';
+  name?: string;
+  email?: string;
+  // Travel party
+  adults?: number;
+  children?: number;
+  bags?: number;
+  // Flight preferences
+  departureAirport?: string;
+  arrivalAirport?: string;
+  flightClass?: string;
+  isRoundTrip?: boolean;
+  // Accommodation preferences
+  hotelClass?: string;
+  roomOccupancy?: number;
+  // Dates
+  startDate?: string;
+  endDate?: string;
+  // Budget & Points
+  budget?: number;
+  availablePoints?: number;
+  // Notes
+  meetupNote?: string;
+}
+
+export interface GroupMember {
+  userId: string;
+  role: 'owner' | 'member';
+  status: 'pending' | 'complete';
+  name?: string;
+  email?: string;
+  // Aggregated data for dashboard display
+  budget?: number;
+  points?: number;
+  airport?: string;
+  preferences?: MemberPreferences;
+}
+
+// Points pool aggregation
+export interface PointsPoolItem {
+  program: string;
+  totalBalance: number;
+  memberContributions: Array<{
+    userId: string;
+    balance: number;
+  }>;
+}
+
+export interface PointsPoolResponse {
+  tripId: string;
+  totalPoints: number;
+  byProgram: PointsPoolItem[];
+}
+
+// OOP Optimization
+export interface OptimizeOOPRequest {
+  strategy?: 'minimize_cash' | 'minimize_points' | 'balanced';
+  include_hotels?: boolean;
+}
+
+export interface BookingAssignment {
+  category: 'flights' | 'hotels' | 'activities';
+  assignedToUserId: string;
+  assignedToName?: string;
+  pointsUsed: number;
+  cashValue: number;
+  efficiency: number; // cents per point
+  reason: string;
+  program?: string;
+}
+
+export interface MemberCostBreakdown {
+  userId: string;
+  name?: string;
+  initials?: string;
+  baseCost: number;
+  pointsSavings: number;
+  finalCost: number;
+  pointsUsed: number;
+}
+
+export interface OptimizeOOPResponse {
+  tripId: string;
+  strategy: string;
+  totalCashCost: number;
+  totalPointsUsed: number;
+  totalSavings: number;
+  bookingAssignments: BookingAssignment[];
+  memberBreakdowns: MemberCostBreakdown[];
+  averageEfficiency: number;
+}
+
+// Cost Allocation / Settlements
+export interface Settlement {
+  settlementId: string;
+  fromUserId: string;
+  fromUserName?: string;
+  toUserId: string;
+  toUserName?: string;
+  amount: number;
+  status: 'pending' | 'paid' | 'confirmed';
+  paidAt?: string;
+  confirmedAt?: string;
+}
+
+export interface SettlementsResponse {
+  tripId: string;
+  settlements: Settlement[];
+  totalOwed: number;
+  fullySettled: boolean;
+}
+
+export interface SettlementStatusResponse {
+  tripId: string;
+  totalSettlements: number;
+  pendingCount: number;
+  paidCount: number;
+  confirmedCount: number;
+  totalAmount: number;
+  settledAmount: number;
+}
+
+// Transfer instructions
+export interface TransferInstruction {
+  memberId: string;
+  memberName: string;
+  memberInitials: string;
+  program: string;
+  partner: string;
+  amount: number;
+  category: 'flights' | 'hotels' | 'activities';
+  steps: string[];
+  warning?: string;
+  status: 'pending' | 'completed';
+}
+
+// Group API
+export const group = {
+  // Get aggregated points pool for a trip
+  getPointsPool: async (tripId: string): Promise<PointsPoolResponse> => {
+    return apiRequest<PointsPoolResponse>(`/group/${tripId}/points-pool`, {
+      method: 'GET',
+    });
+  },
+
+  // Optimize out-of-pocket costs
+  optimizeOOP: async (tripId: string, options?: OptimizeOOPRequest): Promise<OptimizeOOPResponse> => {
+    return apiRequest<OptimizeOOPResponse>(`/group/${tripId}/optimize-oop`, {
+      method: 'POST',
+      body: JSON.stringify(options || {}),
+    });
+  },
+
+  // Simulate cost allocation without saving
+  simulateAllocation: async (tripId: string, request: { itineraryId?: string }): Promise<{ allocations: MemberCostBreakdown[] }> => {
+    return apiRequest<{ allocations: MemberCostBreakdown[] }>(`/group/${tripId}/simulate-allocation`, {
+      method: 'POST',
+      body: JSON.stringify(request),
+    });
+  },
+
+  // Get all settlements for a trip
+  getSettlements: async (tripId: string): Promise<SettlementsResponse> => {
+    return apiRequest<SettlementsResponse>(`/group/${tripId}/settlements`, {
+      method: 'GET',
+    });
+  },
+
+  // Mark a settlement as paid
+  markSettlementPaid: async (tripId: string, settlementId: string): Promise<{ ok: boolean }> => {
+    return apiRequest<{ ok: boolean }>(`/group/${tripId}/settlements/${settlementId}/mark-paid`, {
+      method: 'POST',
+    });
+  },
+
+  // Confirm a settlement (by payee)
+  confirmSettlement: async (tripId: string, settlementId: string): Promise<{ ok: boolean }> => {
+    return apiRequest<{ ok: boolean }>(`/group/${tripId}/settlements/${settlementId}/confirm`, {
+      method: 'POST',
+    });
+  },
+
+  // Get settlement status summary
+  getSettlementsStatus: async (tripId: string): Promise<SettlementStatusResponse> => {
+    return apiRequest<SettlementStatusResponse>(`/group/${tripId}/settlements/status`, {
+      method: 'GET',
+    });
+  },
+
+  // Update member preferences
+  updateMemberPreferences: async (tripId: string, preferences: Partial<MemberPreferences>): Promise<{ ok: boolean }> => {
+    return apiRequest<{ ok: boolean }>(`/trips/${tripId}/member/preferences`, {
+      method: 'PUT',
+      body: JSON.stringify(preferences),
+    });
+  },
+
+  // Get member preferences
+  getMemberPreferences: async (tripId: string, userId?: string): Promise<MemberPreferences> => {
+    const endpoint = userId 
+      ? `/trips/${tripId}/member/${userId}/preferences`
+      : `/trips/${tripId}/member/preferences`;
+    return apiRequest<MemberPreferences>(endpoint, {
+      method: 'GET',
+    });
+  },
+};
+
+// ============================================================================
+// AGENTIC OPTIMIZATION API (OOP-First)
+// ============================================================================
+
+import type {
+  OptimizeSoloResponse,
+  OptimizeGroupResponse,
+  RankedItinerary,
+  CostBreakdown,
+  DynamicRouteRequest,
+  DynamicRouteResult,
+} from '@/types/optimization';
+
+export interface OptimizeSoloRequest {
+  tripId: string;
+  points: Record<string, number>;
+  budget: number;
+  cabinClasses?: string[];
+  hotelStars?: number[];
+  includeHotels?: boolean;
+}
+
+export interface OptimizeGroupRequest extends OptimizeSoloRequest {
+  memberPoints: Record<string, Record<string, number>>;
+  memberBudgets: Record<string, number>;
+  splitMethod?: 'equal' | 'by_usage' | 'proportional';
+}
+
+export const optimization = {
+  /**
+   * Optimize solo trip - returns itineraries ranked by OOP (lowest first)
+   * 
+   * Uses agentic architecture:
+   * 1. Flight Agent searches AwardTool + SerpAPI
+   * 2. Hotel Agent searches hotel options
+   * 3. ILP optimizer minimizes out-of-pocket
+   * 4. Results ranked by lowest cash paid
+   */
+  solo: async (request: OptimizeSoloRequest): Promise<OptimizeSoloResponse> => {
+    return apiRequest<OptimizeSoloResponse>('/optimize/solo', {
+      method: 'POST',
+      body: JSON.stringify({
+        trip_id: request.tripId,
+        points: request.points,
+        budget: request.budget,
+        cabin_classes: request.cabinClasses,
+        hotel_stars: request.hotelStars,
+        include_hotels: request.includeHotels,
+      }),
+    });
+  },
+
+  /**
+   * Optimize group trip - returns itineraries with settlements
+   */
+  group: async (request: OptimizeGroupRequest): Promise<OptimizeGroupResponse> => {
+    return apiRequest<OptimizeGroupResponse>('/optimize/group', {
+      method: 'POST',
+      body: JSON.stringify({
+        trip_id: request.tripId,
+        points: request.points,
+        budget: request.budget,
+        cabin_classes: request.cabinClasses,
+        hotel_stars: request.hotelStars,
+        include_hotels: request.includeHotels,
+        member_points: request.memberPoints,
+        member_budgets: request.memberBudgets,
+        split_method: request.splitMethod,
+      }),
+    });
+  },
+
+  /**
+   * Get detailed cost breakdown for an itinerary (from Cost Breakdown Agent)
+   */
+  getCostBreakdown: async (itineraryId: string): Promise<CostBreakdown> => {
+    return apiRequest<CostBreakdown>(`/optimize/breakdown/${itineraryId}`, {
+      method: 'GET',
+    });
+  },
+
+  /**
+   * Compare OOP vs CPP optimization strategies
+   */
+  compareStrategies: async (tripId: string): Promise<{
+    oop: RankedItinerary | null;
+    cpp: RankedItinerary | null;
+    recommendation: 'oop' | 'cpp';
+    explanation: string;
+  }> => {
+    return apiRequest(`/optimize/compare/${tripId}`, {
+      method: 'GET',
+    });
+  },
+
+  /**
+   * Optimize multi-city route ordering for minimum out-of-pocket cost.
+   * 
+   * Given fixed start/end cities and intermediate cities to visit,
+   * evaluates all route permutations and recommends the optimal order.
+   * 
+   * @example
+   * // FLL → [HND, CDG] → MCO
+   * // Evaluates: FLL → HND → CDG → MCO vs FLL → CDG → HND → MCO
+   * const result = await optimization.dynamicRoute({
+   *   startCity: 'FLL',
+   *   endCity: 'MCO',
+   *   intermediateCities: ['HND', 'CDG'],
+   *   points: { chase: 200000 },
+   *   travelDate: '2025-06-15'
+   * });
+   */
+  dynamicRoute: async (request: DynamicRouteRequest): Promise<DynamicRouteResult> => {
+    const response = await apiRequest<Record<string, unknown>>('/optimize/dynamic-route', {
+      method: 'POST',
+      body: JSON.stringify({
+        start_city: request.startCity,
+        end_city: request.endCity,
+        intermediate_cities: request.intermediateCities,
+        points: request.points,
+        travel_date: request.travelDate,
+        cabin_class: request.cabinClass || 'economy',
+      }),
+    });
+    
+    // Transform snake_case response to camelCase for frontend
+    return transformKeys<DynamicRouteResult>(response);
   },
 };

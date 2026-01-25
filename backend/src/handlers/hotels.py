@@ -12,6 +12,7 @@ import httpx
 from dotenv import load_dotenv
 
 from src.utils.cache_layer import get_json, set_json
+from src.config import is_awardtool_dummy_mode
 
 load_dotenv()
 
@@ -70,6 +71,12 @@ async def _awardtool_hotel_search(
     hotel_class: Optional[str],
     client: httpx.AsyncClient,
 ) -> Dict[str, Any]:
+    # Check if dummy mode is enabled
+    if is_awardtool_dummy_mode():
+        from src.handlers.awardtool_dummy import generate_dummy_hotel_data
+        logger.info("[DUMMY MODE] Returning dummy hotel data for %s (%s to %s)", destination, check_in, check_out)
+        return generate_dummy_hotel_data(destination, check_in, check_out, programs, guests, hotel_class)
+    
     if not AWARD_TOOL_API_KEY:
         logger.warning("AWARD_TOOL_API_KEY not set; AwardTool hotel request for destination=%s may fail", destination)
 
@@ -203,3 +210,101 @@ def search_hotels(
     return asyncio.run(
         search_hotels_async(destination, check_in, check_out, programs, guests, hotel_class)
     )
+
+
+# ===========================================================================
+# AGENT-COMPATIBLE WRAPPER FUNCTIONS
+# ===========================================================================
+
+async def search_awardtool_hotels(
+    city: str,
+    check_in: str,
+    check_out: str,
+    programs: Optional[List[str]] = None,
+    star_ratings: Optional[List[int]] = None,
+    guests: int = 1,
+) -> List[Dict[str, Any]]:
+    """
+    Search for award hotels using AwardTool API.
+    
+    This is the agent-compatible wrapper around _awardtool_hotel_search.
+    Returns a list of normalized hotel options.
+    
+    Args:
+        city: City name or destination
+        check_in: Check-in date YYYY-MM-DD
+        check_out: Check-out date YYYY-MM-DD
+        programs: List of hotel programs (e.g., ["HH", "MAR", "HYATT"])
+        star_ratings: List of star ratings to filter (e.g., [4, 5])
+        guests: Number of guests
+        
+    Returns:
+        List of hotel options with standardized fields:
+        - name, brand, star_rating, cash_rate, cash_total
+        - program, points_per_night, points_total, surcharge, available
+    """
+    programs = programs or DEFAULT_HOTEL_PROGRAMS
+    
+    # Convert star_ratings to hotel_class parameter
+    hotel_class = None
+    if star_ratings and len(star_ratings) == 1:
+        hotel_class = str(star_ratings[0])
+    
+    client = await _http_client()
+    try:
+        raw_result = await _awardtool_hotel_search(
+            destination=city,
+            check_in=check_in,
+            check_out=check_out,
+            programs=programs,
+            guests=guests,
+            hotel_class=hotel_class,
+            client=client,
+        )
+        
+        # Parse results
+        parsed = _parse_hotel_results(raw_result)
+        
+        # Calculate nights
+        from datetime import datetime
+        try:
+            ci = datetime.strptime(check_in, "%Y-%m-%d")
+            co = datetime.strptime(check_out, "%Y-%m-%d")
+            nights = (co - ci).days
+        except:
+            nights = 1
+        
+        # Normalize for agent
+        results = []
+        for item in parsed:
+            # Filter by star rating if specified
+            star = item.get("star_rating")
+            if star_ratings and star:
+                try:
+                    if int(star) not in star_ratings:
+                        continue
+                except:
+                    pass
+            
+            cash_per_night = item.get("cash_cost")
+            points_per_night = item.get("points_cost")
+            
+            results.append({
+                "name": item.get("name"),
+                "brand": item.get("brand"),
+                "star_rating": star,
+                "program": item.get("program_code"),
+                "cash_rate": cash_per_night,
+                "cash_total": cash_per_night * nights if cash_per_night else None,
+                "points_per_night": int(points_per_night) if points_per_night else None,
+                "points_total": int(points_per_night * nights) if points_per_night else None,
+                "surcharge": item.get("surcharge") or 0,
+                "available": points_per_night is not None,
+                "address": item.get("address"),
+            })
+        
+        logger.info(f"search_awardtool_hotels: {city} ({check_in} to {check_out}): {len(results)} options")
+        return results
+        
+    finally:
+        await client.aclose()

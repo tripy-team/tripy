@@ -79,7 +79,7 @@ export default function GroupPayment() {
       
       // Redirect to results after success
       setTimeout(() => {
-        router.push(`/group/results?trip_id=${tripId}`);
+        router.push(`/group/results?tripId=${tripId}`);
       }, 1500);
     } catch (err) {
       if (process.env.NODE_ENV === 'development') {

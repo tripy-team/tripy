@@ -126,6 +126,17 @@ def get_google_flights(
     If commercial_only=True, returns [] when origin or destination is not a commercial airport.
     Returns: best_flights + other_flights (each with price, flights[], total_duration, etc.)
     """
+    # Check if dummy mode is enabled
+    from src.config import is_awardtool_dummy_mode
+    if is_awardtool_dummy_mode():
+        from src.handlers.awardtool_dummy import generate_dummy_serp_data
+        import logging
+        logging.getLogger(__name__).info("[DUMMY MODE] Returning dummy Google Flights data for %s->%s", origin, destination)
+        body = generate_dummy_serp_data(origin, destination, outbound_date, travel_class)
+        best = body.get("best_flights") or []
+        other = body.get("other_flights") or []
+        return list(best) + list(other)
+    
     key = _serp_key()
     if not key or not origin or not destination or not outbound_date:
         return []
@@ -177,6 +188,21 @@ def fetch_awardtool(
     """
     AwardTool search_real_time. Returns { status, data: [{ award_points, surcharge, cabin_type, fare, products }] }.
     """
+    # Check if dummy mode is enabled
+    from src.config import is_awardtool_dummy_mode
+    if is_awardtool_dummy_mode():
+        from src.handlers.awardtool_dummy import generate_dummy_flight_data
+        import logging
+        logging.getLogger(__name__).info("[DUMMY MODE] Returning dummy AwardTool data for %s->%s", origin, destination)
+        return generate_dummy_flight_data(
+            (origin or "").strip().upper(),
+            (destination or "").strip().upper(),
+            (date or "").strip(),
+            cabins or ["Economy"],
+            programs or ["UA", "DL", "AA"],
+            int(pax) if pax is not None else 1
+        )
+    
     import requests
 
     key = _award_key()
@@ -339,6 +365,26 @@ def get_google_hotels(
     SerpAPI engine=google_hotels. sort_by=3 is lowest price.
     Returns: [{ name, cash_total, cash_per_night, property_token, source }]
     """
+    # Check if dummy mode is enabled
+    from src.config import is_awardtool_dummy_mode
+    if is_awardtool_dummy_mode():
+        from src.handlers.awardtool_dummy import generate_dummy_hotel_data
+        import logging
+        logging.getLogger(__name__).info("[DUMMY MODE] Returning dummy Google Hotels data for %s", q)
+        # Generate dummy hotel data and convert to Google Hotels format
+        dummy = generate_dummy_hotel_data(q, check_in_date, check_out_date, ["HH", "MAR", "HYATT", "IHG"], adults)
+        out = []
+        for h in (dummy.get("data") or [])[:limit]:
+            out.append({
+                "name": h.get("name", ""),
+                "cash_total": h.get("cash_cost"),
+                "cash_per_night": h.get("cash_cost") / max(1, (h.get("nights") or 1)) if h.get("cash_cost") else None,
+                "property_token": h.get("hotel_id"),
+                "source": "google_hotels_dummy",
+                "overall_rating": h.get("star_rating"),
+            })
+        return out
+    
     key = _serp_key()
     if not key or not (q or "").strip() or not check_in_date or not check_out_date:
         return []
@@ -520,3 +566,107 @@ def optimize_hotels_out_of_pocket(
         "check_in": (check_in or "").strip(),
         "check_out": (check_out or "").strip(),
     }
+
+
+# --- Google Maps Directions (SerpAPI) - Route Validation ---
+
+
+def get_directions(
+    origin: str,
+    destination: str,
+    travel_mode: int = 0,
+    gl: str = "us",
+    hl: str = "en",
+) -> Optional[Dict[str, Any]]:
+    """
+    Check if a ground route exists between two locations using SerpAPI Google Maps Directions.
+    
+    Args:
+        origin: Starting point (airport code, city name, or address)
+        destination: Ending point (airport code, city name, or address)
+        travel_mode: 0=Driving (default), 3=Transit, 2=Walking, 1=Cycling
+        gl: Country code for localization
+        hl: Language code
+    
+    Returns:
+        Dict with route info if route exists, None if no route possible or on error.
+        Response includes: places_info, directions (list of route options), durations
+    """
+    import logging
+    logger = logging.getLogger(__name__)
+    
+    key = _serp_key()
+    if not key:
+        logger.warning("get_directions: No SERPAPI_KEY configured")
+        return None
+    
+    o = (origin or "").strip()
+    d = (destination or "").strip()
+    if not o or not d or o.upper() == d.upper():
+        return None
+    
+    # Convert IATA codes to more descriptive names for better Google Maps results
+    # e.g., "JFK" -> "JFK Airport, New York"
+    def _enhance_location(loc: str) -> str:
+        loc_upper = loc.upper()
+        # If it looks like an IATA code (3 uppercase letters), append "Airport"
+        if len(loc_upper) == 3 and loc_upper.isalpha():
+            return f"{loc_upper} Airport"
+        return loc
+    
+    origin_enhanced = _enhance_location(o)
+    destination_enhanced = _enhance_location(d)
+    
+    params: Dict[str, Any] = {
+        "engine": "google_maps_directions",
+        "start_addr": origin_enhanced,
+        "end_addr": destination_enhanced,
+        "travel_mode": str(travel_mode),
+        "gl": gl or "us",
+        "hl": hl or "en",
+        "api_key": key,
+    }
+    
+    try:
+        search = GoogleSearch(params)
+        data = search.get_dict()
+        
+        # Check if we got valid directions
+        if not data:
+            logger.debug("get_directions [%s]->[%s]: No data returned", o, d)
+            return None
+        
+        # Check for error in response
+        if data.get("error"):
+            logger.debug("get_directions [%s]->[%s]: API error: %s", o, d, data.get("error"))
+            return None
+        
+        # Check if directions array exists and has content
+        directions = data.get("directions") or []
+        if not directions:
+            logger.debug("get_directions [%s]->[%s]: No route found (empty directions)", o, d)
+            return None
+        
+        # Filter out flight-only directions (travel_mode == 4 is Flight)
+        # We only want ground routes (Driving, Transit, Walking, Cycling)
+        ground_directions = [
+            d for d in directions 
+            if d.get("travel_mode", "").lower() not in ("flight",)
+        ]
+        
+        if not ground_directions:
+            logger.debug("get_directions [%s]->[%s]: Only flight routes available (no ground route)", o, d)
+            return None
+        
+        logger.info("get_directions [%s]->[%s]: Found %d ground route(s)", o, d, len(ground_directions))
+        
+        return {
+            "places_info": data.get("places_info") or [],
+            "directions": ground_directions,
+            "durations": data.get("durations") or [],
+            "search_metadata": data.get("search_metadata") or {},
+        }
+        
+    except Exception as e:
+        logger.warning("get_directions [%s]->[%s]: Exception: %s", o, d, e)
+        return None
