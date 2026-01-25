@@ -19,11 +19,7 @@ interface ProfileSummary {
   email?: string;
   default_home_airport?: string;
   timezone?: string;
-<<<<<<< HEAD
-  cash_saved?: number | null;
-=======
   total_savings?: number | null;
->>>>>>> 44b7911 (replace max budget on profile with total savings)
 }
 
 export default function ProfilePage() {
@@ -41,9 +37,6 @@ export default function ProfilePage() {
           email: p.email,
           default_home_airport: p.default_home_airport,
           timezone: p.timezone,
-<<<<<<< HEAD
-          cash_saved: p.cash_saved ?? null,
-=======
           total_savings: p.total_savings ?? 0,
         });
 
@@ -58,7 +51,6 @@ export default function ProfilePage() {
         }).catch((err) => {
           console.error('Error calculating savings:', err);
           // Don't show error to user - just log it
->>>>>>> 44b7911 (replace max budget on profile with total savings)
         });
       } catch (e) {
         console.error('Error loading profile:', e);
@@ -155,19 +147,11 @@ export default function ProfilePage() {
                     </div>
                     <div>
                       <div className="text-xs font-semibold text-slate-500 uppercase tracking-wide">
-<<<<<<< HEAD
-                        Cash saved
-                      </div>
-                      <div className="text-sm font-medium text-slate-900">
-                        {profile?.cash_saved
-                          ? `$${profile.cash_saved.toLocaleString()}`
-=======
                         Total savings
                       </div>
                       <div className="text-sm font-medium text-slate-900">
                         {profile?.total_savings
                           ? `$${profile.total_savings.toLocaleString()}`
->>>>>>> 44b7911 (replace max budget on profile with total savings)
                           : '$0'}
                       </div>
                     </div>
@@ -269,17 +253,10 @@ export default function ProfilePage() {
                     </span>
                   </li>
                   <li className="flex items-center justify-between">
-<<<<<<< HEAD
-                    <span className="text-slate-500">Cash saved</span>
-                    <span className="font-medium text-slate-900">
-                      {profile?.cash_saved
-                        ? `$${profile.cash_saved.toLocaleString()}`
-=======
                     <span className="text-slate-500">Total savings</span>
                     <span className="font-medium text-slate-900">
                       {profile?.total_savings
                         ? `$${profile.total_savings.toLocaleString()}`
->>>>>>> 44b7911 (replace max budget on profile with total savings)
                         : '$0'}
                     </span>
                   </li>
@@ -294,14 +271,8 @@ export default function ProfilePage() {
                   </h3>
                 </div>
                 <p className="text-sm text-blue-50">
-<<<<<<< HEAD
-                  Keep your home airport up to date so Tripy can suggest the
-                  most realistic and valuable itineraries. Track your cash saved by using
-                  points instead of paying full price!
-=======
                   Keep your home airport up to date so Tripy can suggest the most realistic
                   and valuable itineraries. Your savings grow with every points redemption!
->>>>>>> 44b7911 (replace max budget on profile with total savings)
                 </p>
               </div>
             </div>

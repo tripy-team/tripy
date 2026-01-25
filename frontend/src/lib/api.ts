@@ -775,13 +775,7 @@ export interface UserProfile {
   name?: string;
   default_home_airport?: string;
   timezone?: string;
-<<<<<<< HEAD
-  min_budget?: number;
-  max_budget?: number;
-  cash_saved?: number;
-=======
   total_savings?: number;
->>>>>>> 44b7911 (replace max budget on profile with total savings)
   credit_cards?: Array<{
     id: string;
     program: string;
