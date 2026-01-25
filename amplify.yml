@@ -12,7 +12,7 @@ applications:
           env:
             # Backend URL - override in Amplify Console if needed
             - name: NEXT_PUBLIC_BACKEND_URL
-              value: https://xezfenhu6t.us-east-1.awsapprunner.com
+              value: https://p4vpzp2mjf.us-east-1.awsapprunner.com
       artifacts:
         baseDirectory: .next
         files:
