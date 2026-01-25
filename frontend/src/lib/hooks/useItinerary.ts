@@ -70,6 +70,7 @@ export interface TransportSegment {
   cashCost?: number | null;
   displayCashCost?: string | null;
   pointsUsed?: number | null;
+  displayPointsUsed?: string | null;
   pointsProgram?: string | null;
   pointsProgramCode?: string | null;
   surcharge?: number | null;
