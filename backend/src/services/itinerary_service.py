@@ -1168,6 +1168,191 @@ def build_transfer_tips_from_solution(
     return out
 
 
+def build_oop_optimization_summary(
+    solution: Dict[str, Any],
+    user_points: Dict[str, int],
+) -> Dict[str, Any]:
+    """
+    Build a comprehensive OOP optimization summary from the ILP solution.
+    
+    This provides:
+    - Total out-of-pocket cost breakdown
+    - Savings vs all-cash booking
+    - Transfer plan with timing estimates
+    - Step-by-step booking instructions
+    - Credit card recommendations
+    
+    Args:
+        solution: The ILP optimization solution
+        user_points: User's available point balances
+        
+    Returns:
+        Dict with comprehensive OOP optimization data
+    """
+    totals = solution.get("totals", {})
+    pay_mode = solution.get("pay_mode", {})
+    
+    # Extract OOP metrics
+    total_oop = totals.get("cash", 0.0)
+    cash_fares = totals.get("cash_fares", 0.0)
+    surcharges = totals.get("surcharges", 0.0)
+    all_cash_would_be = totals.get("all_cash_would_be", 0.0)
+    savings = totals.get("savings", 0.0)
+    savings_pct = totals.get("savings_percentage", 0.0)
+    total_points = totals.get("airline_points", 0)
+    optimization_mode = totals.get("optimization_mode", "oop")
+    
+    # Build transfer summary
+    transfers = totals.get("transfers", {})
+    transfer_summary = []
+    
+    for traveler, by_source in transfers.items():
+        for source, by_airline in (by_source or {}).items():
+            for airline, data in (by_airline or {}).items():
+                source_points = data.get("source_points", 0)
+                delivered_points = data.get("delivered_airline_points", 0)
+                
+                if source_points > 0:
+                    # Get bank metadata
+                    bank_name = _HUMANIZE_BANK.get(source.lower(), source)
+                    airline_name = _HUMANIZE_AIRLINE.get(airline.upper(), airline)
+                    
+                    transfer_summary.append({
+                        "from_bank": source.lower(),
+                        "from_bank_name": bank_name,
+                        "to_program": airline.upper(),
+                        "to_program_name": airline_name,
+                        "points_to_transfer": source_points,
+                        "points_received": int(delivered_points),
+                        "transfer_ratio": f"1:{int(delivered_points/source_points)}" if source_points else "1:1",
+                    })
+    
+    # Build payment breakdown
+    payment_breakdown = []
+    flights_with_points = 0
+    flights_with_cash = 0
+    
+    for traveler, payments in pay_mode.items():
+        for payment in (payments or []):
+            payment_type = payment.get("type", "unknown")
+            edge = payment.get("edge", [])
+            
+            if len(edge) >= 2:
+                origin = edge[0]
+                dest = edge[1]
+                
+                if payment_type == "cash":
+                    flights_with_cash += 1
+                    payment_breakdown.append({
+                        "segment": f"{origin} → {dest}",
+                        "payment_type": "cash",
+                        "cash_paid": payment.get("fare", 0),
+                        "points_used": 0,
+                    })
+                else:
+                    flights_with_points += 1
+                    via = payment.get("via", {})
+                    program = via.get("airline") or via.get("native", "")
+                    program_name = _HUMANIZE_AIRLINE.get(program.upper(), program)
+                    
+                    payment_breakdown.append({
+                        "segment": f"{origin} → {dest}",
+                        "payment_type": "points",
+                        "cash_paid": payment.get("surcharge", 0),
+                        "points_used": payment.get("miles", 0),
+                        "program": program.upper(),
+                        "program_name": program_name,
+                        "cpp_value": payment.get("cents_per_point", 0),
+                        "cash_alternative": payment.get("cash_alternative", 0),
+                    })
+    
+    # Generate booking order instructions
+    booking_order = []
+    step = 1
+    
+    # Step 1: Transfers (do first)
+    for xfer in transfer_summary:
+        booking_order.append({
+            "step": step,
+            "type": "transfer",
+            "action": f"Transfer {xfer['points_to_transfer']:,} points from {xfer['from_bank_name']} to {xfer['to_program_name']}",
+            "details": f"You'll receive {xfer['points_received']:,} {xfer['to_program_name']} points",
+            "timing": _get_transfer_timing(xfer['from_bank']),
+        })
+        step += 1
+    
+    # Step 2: Book flights
+    for payment in payment_breakdown:
+        if payment["payment_type"] == "points":
+            booking_order.append({
+                "step": step,
+                "type": "book_flight",
+                "action": f"Book {payment['segment']} with {payment['points_used']:,} {payment.get('program_name', '')} miles",
+                "details": f"Pay ${payment['cash_paid']:.2f} in taxes/fees",
+            })
+        else:
+            booking_order.append({
+                "step": step,
+                "type": "book_flight",
+                "action": f"Book {payment['segment']} with cash",
+                "details": f"Pay ${payment['cash_paid']:.2f}",
+            })
+        step += 1
+    
+    return {
+        "optimization_mode": optimization_mode,
+        "summary": {
+            "total_out_of_pocket": round(total_oop, 2),
+            "cash_fares": round(cash_fares, 2),
+            "surcharges": round(surcharges, 2),
+            "all_cash_would_be": round(all_cash_would_be, 2),
+            "savings": round(savings, 2),
+            "savings_percentage": round(savings_pct, 1),
+            "total_points_used": int(total_points),
+        },
+        "metrics": {
+            "flights_with_points": flights_with_points,
+            "flights_with_cash": flights_with_cash,
+            "points_usage_rate": flights_with_points / (flights_with_points + flights_with_cash) if (flights_with_points + flights_with_cash) > 0 else 0,
+        },
+        "transfer_summary": transfer_summary,
+        "payment_breakdown": payment_breakdown,
+        "booking_order": booking_order,
+        "user_points_remaining": _calculate_remaining_points(user_points, transfer_summary),
+    }
+
+
+def _get_transfer_timing(bank: str) -> str:
+    """Get transfer timing for a bank."""
+    TRANSFER_TIMES = {
+        "chase": "Instant",
+        "amex": "1-2 business days",
+        "citi": "Instant to 24 hours",
+        "capitalone": "Instant to 2 days",
+        "bilt": "Instant",
+    }
+    return TRANSFER_TIMES.get(bank.lower(), "1-2 business days")
+
+
+def _calculate_remaining_points(
+    user_points: Dict[str, int],
+    transfer_summary: List[Dict[str, Any]],
+) -> Dict[str, int]:
+    """Calculate remaining points after transfers."""
+    remaining = dict(user_points)
+    
+    for xfer in transfer_summary:
+        bank = xfer.get("from_bank", "")
+        points = xfer.get("points_to_transfer", 0)
+        
+        for key in [bank, bank.lower(), bank.upper()]:
+            if key in remaining:
+                remaining[key] = max(0, remaining[key] - points)
+                break
+    
+    return remaining
+
+
 async def _get_transfer_tips_from_panorama(
     origin: str,
     destination: str,
@@ -2188,11 +2373,28 @@ async def generate_optimized_itinerary(trip_id: str) -> Dict[str, Any]:
     # Write all itinerary items in a single batch (more efficient than individual put_item calls)
     itinerary_repo.batch_write_items(itinerary_items)
 
+    # Build enhanced OOP optimization summary from ILP solution
+    oop_optimization_summary = build_oop_optimization_summary(
+        solution=solution,
+        user_points={k: v for u in user_points_by_trav.values() for k, v in (u or {}).items()},
+    )
+    
+    # Add OOP optimization item to itinerary
+    oop_optimization_item = {
+        "tripId": trip_id,
+        "itemId": "oop_optimization",
+        "type": "oop_optimization",
+        **oop_optimization_summary,
+    }
+    itinerary_items.append(oop_optimization_item)
+    itinerary_repo.put_item(oop_optimization_item)
+
     out: Dict[str, Any] = {
         "status": solution.get("status", "Unknown"),
         "solution": solution,
         "items": itinerary_items,
         "out_of_pocket": oop_payload,
+        "oop_optimization": oop_optimization_summary,  # Enhanced OOP data
     }
     if oop_hotels_payload is not None:
         out["out_of_pocket_hotels"] = oop_hotels_payload

@@ -194,6 +194,125 @@ def get_partner_surcharge(operating_carrier: str, booking_program: str, default_
     return PARTNER_SURCHARGE_OVERRIDES.get(key, default_surcharge)
 
 
+@dataclass
+class BookingOption:
+    """Represents a way to book a flight (own program or via partner)."""
+    operating_carrier: str
+    booking_program: str
+    points_required: int
+    surcharge: float
+    out_of_pocket: float
+    is_partner_booking: bool
+    transfer_from: Optional[str] = None  # Bank to transfer from
+    transfer_points: int = 0  # Bank points needed
+    notes: str = ""
+
+
+def find_best_booking_option(
+    operating_carrier: str,
+    base_points: int,
+    base_surcharge: float,
+    available_programs: List[str],
+    transfer_graph: Optional[Dict[str, Dict[str, float]]] = None,
+) -> List[BookingOption]:
+    """
+    Find all booking options for a flight, sorted by out-of-pocket cost.
+    
+    This considers:
+    1. Direct booking with the operating carrier
+    2. Partner bookings with potentially lower surcharges
+    3. Transfer paths from banks
+    
+    Args:
+        operating_carrier: The airline operating the flight (e.g., "BA")
+        base_points: Points required if booking direct
+        base_surcharge: Surcharge if booking direct
+        available_programs: Programs user has points in or can transfer to
+        transfer_graph: Optional bank transfer graph
+        
+    Returns:
+        List of BookingOption sorted by out_of_pocket (lowest first)
+    """
+    options = []
+    
+    # Option 1: Direct booking
+    options.append(BookingOption(
+        operating_carrier=operating_carrier,
+        booking_program=operating_carrier,
+        points_required=base_points,
+        surcharge=base_surcharge,
+        out_of_pocket=base_surcharge,
+        is_partner_booking=False,
+        notes="Book directly with airline",
+    ))
+    
+    # Option 2: Partner bookings
+    partners = get_partner_programs(operating_carrier)
+    for partner in partners:
+        if partner == operating_carrier:
+            continue
+            
+        # Get partner surcharge (may be lower than direct)
+        partner_surcharge = get_partner_surcharge(operating_carrier, partner, base_surcharge)
+        
+        # Partner programs may have different point costs (usually similar or slightly higher)
+        # For simplicity, assume same points unless we have specific data
+        partner_points = base_points
+        
+        options.append(BookingOption(
+            operating_carrier=operating_carrier,
+            booking_program=partner,
+            points_required=partner_points,
+            surcharge=partner_surcharge,
+            out_of_pocket=partner_surcharge,
+            is_partner_booking=True,
+            notes=f"Book via {partner} (partner award)",
+        ))
+    
+    # Sort by out-of-pocket
+    options.sort(key=lambda x: (x.out_of_pocket, x.points_required))
+    
+    return options
+
+
+def get_best_booking_program_for_low_surcharge(
+    operating_carrier: str,
+    user_programs: List[str],
+) -> Tuple[str, float]:
+    """
+    Find the best program to book through to minimize surcharges.
+    
+    Args:
+        operating_carrier: The airline operating the flight
+        user_programs: Programs the user has points in
+        
+    Returns:
+        Tuple of (best_program, expected_surcharge_reduction_percentage)
+    """
+    # Known low-surcharge partner combinations
+    LOW_SURCHARGE_PARTNERS = {
+        "BA": [("AA", 0.9), ("AS", 0.9)],  # 90% reduction from BA's ~$600 to ~$60
+        "LH": [("UA", 0.95)],  # 95% reduction
+        "LX": [("UA", 0.95)],
+        "AF": [("DL", 0.85)],
+        "KL": [("DL", 0.85)],
+        "SQ": [("UA", 0.90), ("AC", 0.90)],
+        "QF": [("AA", 0.80)],
+    }
+    
+    carrier_upper = operating_carrier.upper()
+    if carrier_upper not in LOW_SURCHARGE_PARTNERS:
+        return (operating_carrier, 0.0)
+    
+    # Check if user has any of the low-surcharge partners
+    for partner, reduction in LOW_SURCHARGE_PARTNERS[carrier_upper]:
+        if partner in user_programs:
+            return (partner, reduction)
+    
+    # No available low-surcharge partner
+    return (operating_carrier, 0.0)
+
+
 # =============================================================================
 # STRATEGY 2: TRANSFER BONUSES
 # =============================================================================

@@ -469,3 +469,265 @@ def get_best_transfer_source(
                     best_ratio = ratio
     
     return best_option
+
+
+# =============================================================================
+# CREDIT CARD RECOMMENDATIONS
+# =============================================================================
+
+CREDIT_CARD_DETAILS: Dict[str, Dict[str, Any]] = {
+    "chase": {
+        "cards": [
+            {"name": "Chase Sapphire Reserve", "annual_fee": 550, "earn_rate": "3x travel/dining", "best_for": "Premium travel"},
+            {"name": "Chase Sapphire Preferred", "annual_fee": 95, "earn_rate": "2x travel/dining", "best_for": "Moderate travel"},
+            {"name": "Chase Ink Business Preferred", "annual_fee": 95, "earn_rate": "3x travel/shipping", "best_for": "Business travel"},
+        ],
+        "best_transfers": ["UA", "HYATT", "BA", "VS", "AF"],
+        "sweet_spots": [
+            "Chase → Hyatt: Best hotel value (1:1, points worth ~2¢ each)",
+            "Chase → United: No fuel surcharges, good availability",
+            "Chase → Virgin Atlantic: Book Delta or Air France with low surcharges",
+        ],
+    },
+    "amex": {
+        "cards": [
+            {"name": "Amex Platinum", "annual_fee": 695, "earn_rate": "5x flights/hotels", "best_for": "Premium travel"},
+            {"name": "Amex Gold", "annual_fee": 250, "earn_rate": "4x dining/groceries", "best_for": "Dining rewards"},
+            {"name": "Amex Business Platinum", "annual_fee": 695, "earn_rate": "5x flights/hotels", "best_for": "Business premium"},
+        ],
+        "best_transfers": ["DL", "NH", "HH", "VS", "SQ"],
+        "sweet_spots": [
+            "Amex → ANA: Excellent for Japan business class (75-95K RT)",
+            "Amex → Hilton: 1:2 ratio doubles your points!",
+            "Amex → Virgin Atlantic: Book Delta domestically or Air France to Europe",
+        ],
+    },
+    "citi": {
+        "cards": [
+            {"name": "Citi Premier", "annual_fee": 95, "earn_rate": "3x travel/dining", "best_for": "Balance transfer"},
+            {"name": "Citi Custom Cash", "annual_fee": 0, "earn_rate": "5% top category", "best_for": "Flexible rewards"},
+        ],
+        "best_transfers": ["AA", "TK", "SQ", "QR", "CX"],
+        "sweet_spots": [
+            "Citi → Turkish: Book Star Alliance with lower fees",
+            "Citi → Cathay: Great for Asia-Pacific travel",
+            "Citi → American: Direct AA flights domestically",
+        ],
+    },
+    "capitalone": {
+        "cards": [
+            {"name": "Capital One Venture X", "annual_fee": 395, "earn_rate": "2x everything", "best_for": "Simple rewards"},
+            {"name": "Capital One Venture", "annual_fee": 95, "earn_rate": "2x everything", "best_for": "No FTF travel"},
+        ],
+        "best_transfers": ["AF", "EK", "TK", "AV", "BA"],
+        "sweet_spots": [
+            "Capital One → Air France: Good for Europe",
+            "Capital One → Avianca: No fuel surcharges on Star Alliance",
+            "Capital One → Emirates: Premium cabin to Dubai/Asia",
+        ],
+    },
+    "bilt": {
+        "cards": [
+            {"name": "Bilt Mastercard", "annual_fee": 0, "earn_rate": "1x rent (no fee)", "best_for": "Rent rewards"},
+        ],
+        "best_transfers": ["UA", "AA", "HYATT", "IHG", "VS"],
+        "sweet_spots": [
+            "Bilt → United/AA: Both domestic giants at 1:1",
+            "Bilt → Hyatt: Best hotel value, same as Chase",
+            "Bilt → Virgin Atlantic: Sweet spots to Europe/Asia",
+        ],
+    },
+}
+
+
+def get_credit_card_recommendations(
+    available_points: Dict[str, int],
+    target_programs: List[str],
+) -> List[Dict[str, Any]]:
+    """
+    Get credit card recommendations based on user's points and travel goals.
+    
+    Args:
+        available_points: User's current point balances
+        target_programs: Programs user wants to use
+        
+    Returns:
+        List of card recommendations with reasons
+    """
+    recommendations = []
+    
+    for bank, balance in available_points.items():
+        if balance <= 0:
+            continue
+        bank_lower = bank.lower()
+        
+        if bank_lower in CREDIT_CARD_DETAILS:
+            details = CREDIT_CARD_DETAILS[bank_lower]
+            
+            # Check if any target programs are good transfers
+            matching_transfers = [
+                prog for prog in target_programs 
+                if prog in details.get("best_transfers", [])
+            ]
+            
+            if matching_transfers:
+                recommendations.append({
+                    "bank": bank_lower,
+                    "balance": balance,
+                    "cards": details["cards"],
+                    "relevant_transfers": matching_transfers,
+                    "sweet_spots": details["sweet_spots"],
+                    "reason": f"You have {balance:,} points that transfer well to {', '.join(matching_transfers)}",
+                })
+    
+    return recommendations
+
+
+def get_transfer_timing_advice(
+    bank: str,
+    days_until_travel: int,
+) -> Dict[str, Any]:
+    """
+    Get advice on transfer timing based on bank and travel date.
+    
+    Args:
+        bank: Bank code
+        days_until_travel: Days until departure
+        
+    Returns:
+        Dict with timing advice and warnings
+    """
+    TRANSFER_TIMES = {
+        "chase": {"typical_hours": 0, "display": "Instant", "safe_days": 0},
+        "amex": {"typical_hours": 48, "display": "1-2 business days", "safe_days": 3},
+        "citi": {"typical_hours": 24, "display": "Instant to 24 hours", "safe_days": 1},
+        "capitalone": {"typical_hours": 48, "display": "Instant to 2 days", "safe_days": 3},
+        "bilt": {"typical_hours": 0, "display": "Instant", "safe_days": 0},
+    }
+    
+    bank_lower = bank.lower()
+    timing = TRANSFER_TIMES.get(bank_lower, {"typical_hours": 72, "display": "Varies", "safe_days": 4})
+    
+    is_safe = days_until_travel >= timing["safe_days"]
+    
+    advice = {
+        "transfer_time": timing["display"],
+        "safe_days_needed": timing["safe_days"],
+        "is_safe_to_transfer": is_safe,
+        "recommendation": "",
+        "warning": None,
+    }
+    
+    if is_safe:
+        advice["recommendation"] = f"Safe to transfer! {timing['display']} is sufficient for your {days_until_travel}-day timeline."
+    else:
+        advice["warning"] = (
+            f"⚠️ Transfer may not complete in time! "
+            f"{bank_lower.title()} transfers take {timing['display']}, "
+            f"but you only have {days_until_travel} day(s) until travel."
+        )
+        advice["recommendation"] = (
+            "Consider: (1) Booking with cash and transferring points later for refund, "
+            "(2) Using a different bank with faster transfers, or "
+            "(3) Waiting to book until transfers complete."
+        )
+    
+    return advice
+
+
+def generate_complete_transfer_plan(
+    flight_awards: List[Dict[str, Any]],
+    hotel_awards: List[Dict[str, Any]],
+    available_points: Dict[str, int],
+    days_until_travel: int = 14,
+) -> Dict[str, Any]:
+    """
+    Generate a complete transfer plan with step-by-step instructions.
+    
+    Args:
+        flight_awards: List of flights to book with points
+        hotel_awards: List of hotels to book with points
+        available_points: User's point balances
+        days_until_travel: Days until first flight
+        
+    Returns:
+        Complete transfer plan with instructions, timing, and warnings
+    """
+    transfer_instructions = []
+    booking_steps = []
+    warnings = []
+    total_out_of_pocket = 0.0
+    
+    # Consolidate transfer needs by (bank, program)
+    transfer_needs: Dict[Tuple[str, str], int] = {}
+    
+    all_awards = flight_awards + hotel_awards
+    
+    for award in all_awards:
+        program = award.get("program", "").upper()
+        points_needed = award.get("points", 0)
+        surcharge = award.get("surcharge", 0)
+        
+        total_out_of_pocket += surcharge
+        
+        # Find best transfer source
+        source = get_best_transfer_source(available_points, program, points_needed)
+        
+        if source:
+            src_program, src_points, ratio = source
+            
+            if src_program.lower() in EXTENDED_TRANSFER_GRAPH:
+                # It's a bank transfer
+                key = (src_program.lower(), program)
+                transfer_needs[key] = transfer_needs.get(key, 0) + int(src_points)
+    
+    # Build transfer instructions
+    step_num = 1
+    for (bank, program), total_points in transfer_needs.items():
+        instruction = build_transfer_instruction(bank, program, total_points)
+        
+        # Add timing advice
+        timing = get_transfer_timing_advice(bank, days_until_travel)
+        if timing.get("warning"):
+            warnings.append(timing["warning"])
+        
+        transfer_instructions.append({
+            "step": step_num,
+            "instruction": instruction,
+            "timing_advice": timing,
+        })
+        step_num += 1
+    
+    # Build booking steps
+    for i, award in enumerate(flight_awards):
+        booking_steps.append({
+            "step": step_num + i,
+            "type": "flight",
+            "description": award.get("description", "Flight"),
+            "points": award.get("points", 0),
+            "surcharge": award.get("surcharge", 0),
+            "program": award.get("program", ""),
+            "booking_url": PROGRAM_METADATA.get(award.get("program", "").upper(), {}).get("booking_url", ""),
+        })
+    
+    for i, award in enumerate(hotel_awards):
+        booking_steps.append({
+            "step": step_num + len(flight_awards) + i,
+            "type": "hotel",
+            "description": award.get("description", "Hotel"),
+            "points": award.get("points", 0),
+            "surcharge": award.get("surcharge", 0),
+            "program": award.get("program", ""),
+            "booking_url": PROGRAM_METADATA.get(award.get("program", "").upper(), {}).get("booking_url", ""),
+        })
+    
+    return {
+        "transfer_instructions": transfer_instructions,
+        "booking_steps": booking_steps,
+        "total_out_of_pocket": total_out_of_pocket,
+        "warnings": warnings,
+        "credit_card_tips": get_credit_card_recommendations(
+            available_points, 
+            list(set([a.get("program", "").upper() for a in all_awards]))
+        ),
+    }

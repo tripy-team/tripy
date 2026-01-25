@@ -1,4 +1,5 @@
-from typing import List, Dict, Tuple, Set
+from typing import List, Dict, Tuple, Set, Literal
+import logging
 
 try:
     import pulp as pl
@@ -6,6 +7,38 @@ except ModuleNotFoundError:
     pl = None
 
 Edge = Tuple[str, str, str]
+logger = logging.getLogger(__name__)
+
+# =============================================================================
+# HIGH SURCHARGE PROGRAMS - These should be penalized or avoided
+# =============================================================================
+HIGH_SURCHARGE_PROGRAMS: Set[str] = {"BA", "LH", "LX", "QF", "SQ", "VS", "KL", "AF"}
+MAX_ACCEPTABLE_SURCHARGE = 200.0  # Surcharges above this get extra penalty
+
+# Surcharge penalty weight - higher values more aggressively avoid high surcharges
+SURCHARGE_PENALTY_WEIGHT = 100.0
+
+
+def _calculate_surcharge_penalty(surcharge: float, airline: str) -> float:
+    """
+    Calculate additional penalty for high surcharges.
+    Used to discourage selecting high-surcharge award options.
+    """
+    if surcharge <= 50:
+        return 0.0
+    
+    # Base penalty for surcharges above $50
+    base_penalty = max(0, surcharge - 50) * SURCHARGE_PENALTY_WEIGHT
+    
+    # Extra penalty for known high-surcharge programs
+    if airline.upper() in HIGH_SURCHARGE_PROGRAMS:
+        base_penalty *= 1.5
+    
+    # Extra penalty for surcharges above max acceptable
+    if surcharge > MAX_ACCEPTABLE_SURCHARGE:
+        base_penalty += (surcharge - MAX_ACCEPTABLE_SURCHARGE) * SURCHARGE_PENALTY_WEIGHT * 2
+    
+    return base_penalty
 
 
 def plan_non_pooled_multi_itineraries_with_native(
@@ -54,6 +87,8 @@ def plan_non_pooled_multi_itineraries_with_native(
     W1: float = 10**6,
     W2: float = 10**3,
     W3: float = 1.0,
+    # NEW: Optimization mode - "oop" minimizes out-of-pocket, "cpp" maximizes CPP
+    optimization_mode: Literal["oop", "cpp"] = "oop",
 ):
     """
     JSON-safe return structure (no tuple/list dict keys):
@@ -363,10 +398,11 @@ def plan_non_pooled_multi_itineraries_with_native(
                     + pl.lpSum(y_native[(q, p)][a][e] for q in T for p in T)
                 ) <= cap
 
-    # Objective: Maximize Points Value
-    # Points value = cash saved by using points instead of paying cash
-    # For each edge paid with points: value = (cash_cost - surcharge)
-    # This maximizes the value we get from our points
+    # =================================================================
+    # OBJECTIVE FUNCTION - Depends on optimization_mode
+    # =================================================================
+    # "oop" mode: Minimize out-of-pocket (cash + surcharges)
+    # "cpp" mode: Maximize cents-per-point value (original behavior)
     
     def get_points_value(airline, edge):
         """Calculate points value: (cash_cost - surcharge) when using points"""
@@ -380,50 +416,111 @@ def plan_non_pooled_multi_itineraries_with_native(
         cash_saved = cash - sur
         return max(0.0, cash_saved)
     
-    # Points value = cash saved by using points
-    points_value_expr = pl.lpSum(
-        y[(q, p)][(s, a)][e] * (cash_cost.get(e, 0.0) - get_tax(a, e))
+    # Total cash paid when paying cash for flights
+    cash_fares_expr = pl.lpSum(
+        z[(q, p)][e] * cash_cost.get(e, 0.0) for q in T for p in T for e in edges
+    )
+    
+    # Surcharges paid when using points (bank-source)
+    bank_surcharges_expr = pl.lpSum(
+        y[(q, p)][(s, a)][e] * get_tax(a, e)
         for q in T
         for p in T
         for (s, a) in y[(q, p)].keys()
         for e in edges
-        if get_points_value(a, e) > 0  # Only use if value > 0
-    ) + pl.lpSum(
-        y_native[(q, p)][a][e] * (cash_cost.get(e, 0.0) - get_tax(a, e))
+    )
+    
+    # Surcharges paid when using native miles
+    native_surcharges_expr = pl.lpSum(
+        y_native[(q, p)][a][e] * get_tax(a, e)
         for q in T
         for p in T
         for a in A
         for e in edges
-        if get_points_value(a, e) > 0  # Only use if value > 0
     )
     
-    # Actual cash paid (cash bookings + surcharges on points bookings)
-    total_cash_expr = (
-        pl.lpSum(
-            z[(q, p)][e] * cash_cost.get(e, 0.0) for q in T for p in T for e in edges
-        )
-        + pl.lpSum(
-            y[(q, p)][(s, a)][e] * get_tax(a, e)
+    # Total out-of-pocket = cash fares + all surcharges
+    total_oop_expr = cash_fares_expr + bank_surcharges_expr + native_surcharges_expr
+    
+    # Total time
+    total_time_expr = pl.lpSum(
+        x[p][e] * time_cost.get(e, 0.0) for p in T for e in edges
+    )
+    
+    # Surcharge penalty for high-surcharge programs (used in both modes)
+    surcharge_penalty_expr = pl.lpSum(
+        y[(q, p)][(s, a)][e] * _calculate_surcharge_penalty(get_tax(a, e), a)
+        for q in T
+        for p in T
+        for (s, a) in y[(q, p)].keys()
+        for e in edges
+    ) + pl.lpSum(
+        y_native[(q, p)][a][e] * _calculate_surcharge_penalty(get_tax(a, e), a)
+        for q in T
+        for p in T
+        for a in A
+        for e in edges
+    )
+    
+    if optimization_mode == "oop":
+        # =================================================================
+        # OOP MODE: Minimize total out-of-pocket cost
+        # =================================================================
+        # Objective: Minimize (cash_paid + surcharges + surcharge_penalty + time)
+        # 
+        # This mode will use points even if CPP is "low" as long as it reduces
+        # the total cash paid. It's more aggressive about using available points.
+        #
+        # Weights are adjusted to prioritize OOP reduction:
+        # - High weight on OOP reduction (negative = minimize)
+        # - Penalty for high surcharges to discourage bad redemptions
+        # - Small time penalty as tiebreaker
+        
+        # Tiny bonus for using points to prefer points when OOP is equal
+        points_usage_bonus = pl.lpSum(
+            y[(q, p)][(s, a)][e] * 0.001
             for q in T
             for p in T
             for (s, a) in y[(q, p)].keys()
             for e in edges
-        )
-        + pl.lpSum(
-            y_native[(q, p)][a][e] * get_tax(a, e)
+        ) + pl.lpSum(
+            y_native[(q, p)][a][e] * 0.001
             for q in T
             for p in T
             for a in A
             for e in edges
         )
-    )
-    total_time_expr = pl.lpSum(
-        x[p][e] * time_cost.get(e, 0.0) for p in T for e in edges
-    )
-
-    # Maximize: (points_value - cash_paid - time_penalty)
-    # This prioritizes using points where they have high value
-    m += W1 * points_value_expr - W2 * total_cash_expr - W3 * total_time_expr
+        
+        # Minimize: OOP + surcharge_penalty + time - points_bonus
+        # (Maximize the negative of this)
+        m += -W1 * total_oop_expr - surcharge_penalty_expr - W3 * total_time_expr + points_usage_bonus
+        
+        logger.info("Using OOP optimization mode: minimizing out-of-pocket costs")
+    else:
+        # =================================================================
+        # CPP MODE: Maximize cents-per-point value (original behavior)
+        # =================================================================
+        # Points value = cash saved by using points
+        points_value_expr = pl.lpSum(
+            y[(q, p)][(s, a)][e] * (cash_cost.get(e, 0.0) - get_tax(a, e))
+            for q in T
+            for p in T
+            for (s, a) in y[(q, p)].keys()
+            for e in edges
+            if get_points_value(a, e) > 0
+        ) + pl.lpSum(
+            y_native[(q, p)][a][e] * (cash_cost.get(e, 0.0) - get_tax(a, e))
+            for q in T
+            for p in T
+            for a in A
+            for e in edges
+            if get_points_value(a, e) > 0
+        )
+        
+        # Maximize: (points_value - cash_paid - time_penalty - surcharge_penalty)
+        m += W1 * points_value_expr - W2 * total_oop_expr - W3 * total_time_expr - surcharge_penalty_expr
+        
+        logger.info("Using CPP optimization mode: maximizing cents-per-point value")
 
     # Solve
     m.solve(pl.PULP_CBC_CMD(msg=False))
@@ -438,9 +535,12 @@ def plan_non_pooled_multi_itineraries_with_native(
         "pay_mode": {p: [] for p in T},  # list of payment records
         "totals": {
             "airline_points": 0.0,
-            "cash": 0.0,
+            "cash": 0.0,  # Total out-of-pocket (cash fares + surcharges)
+            "cash_fares": 0.0,  # Just cash fares (no points used)
+            "surcharges": 0.0,  # Just surcharges from points redemptions
             "time": 0.0,
             "points_value": 0.0,  # Total cash value saved by using points
+            "optimization_mode": optimization_mode,
             "transfers": {q: {} for q in T},  # transfers[q][source][airline] = {...}
             "native_used": {q: {} for q in T},  # native_used[q][airline] = miles
         },
@@ -464,18 +564,22 @@ def plan_non_pooled_multi_itineraries_with_native(
 
     # Payments & totals
     tot_pts = 0.0
-    tot_cash_val = 0.0
+    tot_cash_fares = 0.0  # Cash paid for flights (no points used)
+    tot_surcharges = 0.0  # Surcharges on points redemptions
     tot_time = 0.0
     tot_points_value = 0.0
+    tot_all_cash_would_be = 0.0  # What it would cost if paying all cash
+    
     for p in T:
         for e in [tuple(edge) for edge in sol["edges"][p]]:  # back to tuple for lookups
             tot_time += time_cost.get(e, 0.0)
+            tot_all_cash_would_be += cash_cost.get(e, 0.0)  # Track what cash would be
             paid = False
             # cash?
             for q in T:
                 if pl.value(z[(q, p)][e]) > 0.5:
                     fare = float(cash_cost.get(e, 0.0))
-                    tot_cash_val += fare
+                    tot_cash_fares += fare
                     sol["pay_mode"][p].append(
                         {
                             "edge": [e[0], e[1], e[2]],
@@ -495,7 +599,7 @@ def plan_non_pooled_multi_itineraries_with_native(
                         points_value = max(0.0, cash_val - sur)
                         
                         tot_pts += miles
-                        tot_cash_val += sur
+                        tot_surcharges += sur
                         tot_points_value += points_value
                         
                         sol["pay_mode"][p].append(
@@ -508,6 +612,7 @@ def plan_non_pooled_multi_itineraries_with_native(
                                 "surcharge": sur,
                                 "points_value": points_value,
                                 "cents_per_point": (points_value * 100.0) / miles if miles > 0 else 0.0,
+                                "cash_alternative": cash_val,  # What cash would have cost
                             }
                         )
                         paid = True
@@ -523,7 +628,7 @@ def plan_non_pooled_multi_itineraries_with_native(
                         points_value = max(0.0, cash_val - sur)
                         
                         tot_pts += miles
-                        tot_cash_val += sur
+                        tot_surcharges += sur
                         tot_points_value += points_value
                         
                         sol["pay_mode"][p].append(
@@ -536,6 +641,7 @@ def plan_non_pooled_multi_itineraries_with_native(
                                 "surcharge": sur,
                                 "points_value": points_value,
                                 "cents_per_point": (points_value * 100.0) / miles if miles > 0 else 0.0,
+                                "cash_alternative": cash_val,  # What cash would have cost
                             }
                         )
                         paid = True
@@ -562,8 +668,25 @@ def plan_non_pooled_multi_itineraries_with_native(
             if used > 0:
                 sol["totals"]["native_used"][q][a] = used
 
+    # Calculate total out-of-pocket (cash fares + surcharges)
+    total_oop = tot_cash_fares + tot_surcharges
+    savings = tot_all_cash_would_be - total_oop
+    savings_pct = (savings / tot_all_cash_would_be * 100) if tot_all_cash_would_be > 0 else 0.0
+    
     sol["totals"]["airline_points"] = float(tot_pts)
-    sol["totals"]["cash"] = float(tot_cash_val)
+    sol["totals"]["cash"] = float(total_oop)  # Total out-of-pocket
+    sol["totals"]["cash_fares"] = float(tot_cash_fares)
+    sol["totals"]["surcharges"] = float(tot_surcharges)
     sol["totals"]["time"] = float(tot_time)
     sol["totals"]["points_value"] = float(tot_points_value)
+    sol["totals"]["all_cash_would_be"] = float(tot_all_cash_would_be)
+    sol["totals"]["savings"] = float(savings)
+    sol["totals"]["savings_percentage"] = round(savings_pct, 1)
+    
+    logger.info(
+        f"Optimization complete (mode={optimization_mode}): "
+        f"OOP=${total_oop:.2f}, All-cash=${tot_all_cash_would_be:.2f}, "
+        f"Savings=${savings:.2f} ({savings_pct:.1f}%), Points={tot_pts:.0f}"
+    )
+    
     return sol

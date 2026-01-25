@@ -69,6 +69,9 @@ class TripCostItem:
     date: Optional[str] = None
     nights: Optional[int] = None      # For hotels
     hotel_name: Optional[str] = None  # For hotels
+    
+    # Extra data for connecting flights, etc.
+    extra_data: Optional[Dict[str, Any]] = None
 
 
 @dataclass

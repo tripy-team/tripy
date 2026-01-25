@@ -112,6 +112,10 @@ def _edge_to_cost_item(edge: Dict[str, Any], item_id: str) -> Optional[TripCostI
     if not isinstance(edge, dict):
         return None
     
+    # Check if this is a connecting flight
+    if _is_connecting_flight(edge):
+        return create_connecting_flight_cost_item(item_id, edge)
+    
     origin = edge.get("origin") or edge.get("departure") or ""
     dest = edge.get("destination") or edge.get("arrival") or ""
     
@@ -208,6 +212,164 @@ def _hotel_to_cost_item(hotel: Dict[str, Any], item_id: str) -> Optional[TripCos
         check_out=hotel.get("check_out") or hotel.get("checkout"),
         nights=hotel.get("nights"),
     )
+
+
+# =============================================================================
+# CONNECTING FLIGHT SUPPORT
+# =============================================================================
+
+def _is_connecting_flight(edge: Dict[str, Any]) -> bool:
+    """Check if an edge represents a connecting flight (multiple legs)."""
+    # Check for segments array (AwardTool format)
+    segments = edge.get("segments") or edge.get("legs") or edge.get("products") or []
+    if len(segments) > 1:
+        return True
+    
+    # Check for connection info
+    if edge.get("connection_airports") or edge.get("layovers"):
+        return True
+    
+    # Check for stops count
+    stops = edge.get("stops") or edge.get("num_stops") or 0
+    return stops > 0
+
+
+def _extract_connecting_flight_details(edge: Dict[str, Any]) -> Dict[str, Any]:
+    """Extract details for a connecting flight."""
+    segments = edge.get("segments") or edge.get("legs") or edge.get("products") or []
+    
+    if not segments:
+        # Not a multi-segment edge, return basic info
+        return {
+            "is_connecting": False,
+            "segments": [],
+            "connection_airports": [],
+            "total_duration": edge.get("time_cost") or edge.get("duration"),
+            "layover_times": [],
+        }
+    
+    connection_airports = []
+    layover_times = []
+    segment_details = []
+    total_duration = 0
+    
+    for i, seg in enumerate(segments):
+        origin = seg.get("origin") or seg.get("departure") or ""
+        dest = seg.get("destination") or seg.get("arrival") or ""
+        duration = seg.get("duration") or seg.get("travel_minutes") or 0
+        layover = seg.get("layover_time") or seg.get("layover") or 0
+        
+        segment_details.append({
+            "origin": origin,
+            "destination": dest,
+            "flight_number": seg.get("flight_number"),
+            "carrier": seg.get("carrier") or seg.get("operating_carrier"),
+            "duration": duration,
+        })
+        
+        total_duration += duration
+        
+        # If not the last segment, this destination is a connection
+        if i < len(segments) - 1:
+            connection_airports.append(dest)
+            layover_times.append(layover)
+            total_duration += layover
+    
+    return {
+        "is_connecting": len(segments) > 1,
+        "segments": segment_details,
+        "connection_airports": connection_airports,
+        "total_duration": total_duration,
+        "layover_times": layover_times,
+        "num_stops": len(connection_airports),
+    }
+
+
+def create_connecting_flight_cost_item(
+    item_id: str,
+    edge: Dict[str, Any],
+) -> Optional[TripCostItem]:
+    """
+    Create a TripCostItem for a connecting flight.
+    
+    Connecting flights are treated as a single item for optimization,
+    but include details about all segments.
+    """
+    connection_details = _extract_connecting_flight_details(edge)
+    
+    origin = edge.get("origin") or ""
+    destination = edge.get("destination") or ""
+    
+    # If we have segments, use first origin and last destination
+    if connection_details["segments"]:
+        origin = connection_details["segments"][0].get("origin", origin)
+        destination = connection_details["segments"][-1].get("destination", destination)
+    
+    if not origin or not destination:
+        return None
+    
+    # Build description
+    if connection_details["is_connecting"]:
+        via = ", ".join(connection_details["connection_airports"])
+        desc = f"{origin} → {destination} (via {via})"
+    else:
+        desc = f"{origin} → {destination}"
+    
+    airline = edge.get("airline") or edge.get("carrier") or edge.get("operating_carrier")
+    if airline:
+        desc += f" ({airline})"
+    
+    # Extract pricing
+    cash_cost = edge.get("cash_cost") or edge.get("price") or 0.0
+    
+    # Build points options
+    points_options = []
+    
+    points_cost = edge.get("points_cost") or edge.get("award_points")
+    if points_cost and points_cost > 0:
+        surcharge = edge.get("points_surcharge") or edge.get("surcharge") or 0.0
+        program = edge.get("points_program") or edge.get("program_code") or ""
+        
+        if program:
+            points_options.append({
+                "program_code": program.upper(),
+                "points_required": int(points_cost),
+                "surcharge": float(surcharge),
+            })
+    
+    # Check for award_options list
+    for opt in edge.get("award_options", []):
+        if opt.get("points") or opt.get("miles"):
+            points_options.append({
+                "program_code": (opt.get("program") or opt.get("airline") or "").upper(),
+                "points_required": int(opt.get("points") or opt.get("miles") or 0),
+                "surcharge": float(opt.get("surcharge") or opt.get("tax") or 0),
+            })
+    
+    item = create_flight_cost_item(
+        item_id=item_id,
+        origin=origin,
+        destination=destination,
+        cash_cost=float(cash_cost) if cash_cost else 0.0,
+        points_options=points_options,
+        date=edge.get("date") or edge.get("departure_date"),
+        airline=airline,
+        flight_number=edge.get("flight_number"),
+    )
+    
+    # Add connection details as extra metadata
+    if item:
+        # Store connection info for UI display
+        item.extra_data = {
+            "is_connecting": connection_details["is_connecting"],
+            "segments": connection_details["segments"],
+            "connection_airports": connection_details["connection_airports"],
+            "num_stops": connection_details.get("num_stops", 0),
+            "total_duration": connection_details["total_duration"],
+            "layover_times": connection_details["layover_times"],
+        }
+    
+    return item
 
 
 # =============================================================================
