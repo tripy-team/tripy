@@ -46,6 +46,143 @@ _HUMANIZE_BANK: Dict[str, str] = {
     "bilt": "Bilt Rewards",
 }
 
+def _normalize_program_to_transfer_key(program: str) -> str:
+    """
+    Normalize program name to transfer graph key.
+    Banks: "Chase Ultimate Rewards" -> "chase", "Amex Membership Rewards" -> "amex"
+    Airlines: "United MileagePlus" -> "UA", "Delta SkyMiles" -> "DL"
+    Hotels: "Marriott Bonvoy" -> "MAR", "Hilton Honors" -> "HH"
+    """
+    s = (program or "").strip().lower()
+    
+    # Bank mappings (lowercase short codes for transfer graph)
+    bank_mapping = {
+        "amex": "amex",
+        "amex membership rewards": "amex",
+        "membership rewards": "amex",
+        "chase": "chase",
+        "chase ultimate rewards": "chase",
+        "ultimate rewards": "chase",
+        "citi": "citi",
+        "citi thankyou": "citi",
+        "citi thankyou points": "citi",
+        "thankyou": "citi",
+        "thankyou points": "citi",
+        "capital one": "capitalone",
+        "capital one miles": "capitalone",
+        "capitalone": "capitalone",
+        "venture": "capitalone",
+        "bilt": "bilt",
+        "bilt rewards": "bilt",
+    }
+    
+    # Airline mappings (uppercase 2-letter codes)
+    airline_mapping = {
+        "united": "UA",
+        "united mileageplus": "UA",
+        "mileageplus": "UA",
+        "american": "AA",
+        "american airlines": "AA",
+        "american airlines aadvantage": "AA",
+        "aadvantage": "AA",
+        "american aadvantage": "AA",
+        "delta": "DL",
+        "delta skymiles": "DL",
+        "skymiles": "DL",
+        "alaska": "AS",
+        "alaska mileage plan": "AS",
+        "alaska mileage": "AS",
+        "mileage plan": "AS",
+        "jetblue": "B6",
+        "jetblue trueblue": "B6",
+        "trueblue": "B6",
+        "southwest": "WN",
+        "southwest rapid rewards": "WN",
+        "rapid rewards": "WN",
+        "air canada": "AC",
+        "aeroplan": "AC",
+        "british airways": "BA",
+        "avios": "BA",
+        "british airways avios": "BA",
+        "air france": "AF",
+        "air france-klm": "AF",
+        "air france / klm flying blue": "AF",
+        "flying blue": "AF",
+        "klm": "KL",
+        "lufthansa": "LH",
+        "lufthansa miles & more": "LH",
+        "miles & more": "LH",
+        "swiss": "LX",
+        "virgin atlantic": "VS",
+        "virgin atlantic flying club": "VS",
+        "singapore": "SQ",
+        "singapore airlines": "SQ",
+        "krisflyer": "SQ",
+        "cathay": "CX",
+        "cathay pacific": "CX",
+        "cathay pacific asia miles": "CX",
+        "asia miles": "CX",
+        "ana": "NH",
+        "all nippon airways": "NH",
+        "all nippon airways mileage club": "NH",
+        "jal": "JL",
+        "japan airlines": "JL",
+        "japan airlines mileage bank": "JL",
+        "emirates": "EK",
+        "emirates skywards": "EK",
+        "skywards": "EK",
+        "qatar": "QR",
+        "qatar privilege club": "QR",
+        "privilege club": "QR",
+        "etihad": "EY",
+        "etihad guest": "EY",
+        "turkish": "TK",
+        "turkish airlines": "TK",
+        "turkish airlines miles&smiles": "TK",
+        "avianca": "AV",
+        "avianca lifemiles": "AV",
+        "lifemiles": "AV",
+        "iberia": "IB",
+        "iberia avios": "IB",
+        "qantas": "QF",
+        "qantas frequent flyer": "QF",
+    }
+    
+    # Hotel mappings (uppercase program codes)
+    hotel_mapping = {
+        "marriott": "MAR",
+        "marriott bonvoy": "MAR",
+        "bonvoy": "MAR",
+        "hilton": "HH",
+        "hilton honors": "HH",
+        "hyatt": "HYATT",
+        "hyatt world of hyatt": "HYATT",
+        "world of hyatt": "HYATT",
+        "ihg": "IHG",
+        "ihg rewards": "IHG",
+        "ihg rewards club": "IHG",
+    }
+    
+    # Check mappings in order: bank, airline, hotel
+    if s in bank_mapping:
+        return bank_mapping[s]
+    if s in airline_mapping:
+        return airline_mapping[s]
+    if s in hotel_mapping:
+        return hotel_mapping[s]
+    
+    # Fallback: check if it's already a short code (2-3 letter airline code or lowercase bank)
+    original_stripped = program.strip()
+    if len(original_stripped) <= 3 and original_stripped.isupper():
+        # Likely an airline code like "UA", "AA", "DL"
+        return original_stripped
+    if len(original_stripped) <= 10 and original_stripped.islower():
+        # Likely a bank code like "amex", "chase"
+        return original_stripped
+    
+    # Last resort: return lowercase stripped (for unrecognized programs)
+    return s
+
 _HUMANIZE_AIRLINE: Dict[str, str] = {
     "UA": "United MileagePlus", "AA": "American AAdvantage", "DL": "Delta SkyMiles",
     "AS": "Alaska Mileage Plan", "B6": "JetBlue TrueBlue", "AC": "Aeroplan",
@@ -1482,9 +1619,11 @@ async def generate_optimized_itinerary(trip_id: str) -> Dict[str, Any]:
         if user_id and program and balance > 0:
             if user_id not in user_points_by_trav:
                 user_points_by_trav[user_id] = {}
-            # Normalize program name to lowercase for transfer graph matching
-            program_lower = program.lower().strip()
-            user_points_by_trav[user_id][program_lower] = balance
+            # Normalize program name to SHORT CODE for transfer graph matching
+            # Banks: "Chase Ultimate Rewards" -> "chase", "Amex Membership Rewards" -> "amex"
+            # Airlines: "United MileagePlus" -> "UA", "Delta SkyMiles" -> "DL"
+            program_normalized = _normalize_program_to_transfer_key(program)
+            user_points_by_trav[user_id][program_normalized] = balance
             total_points += balance
     
     # Warn if no points found, but don't fail (optimization can still work with cash)
