@@ -70,6 +70,9 @@ from .handlers.group_api import (
     ConfirmSettlementRequest,
 )
 
+# Import agentic optimization router
+from .routes.optimize import router as optimize_router
+
 # Get CORS origins from environment variable
 CORS_ORIGINS_ENV = os.environ.get("CORS_ORIGINS", "")
 if CORS_ORIGINS_ENV:
@@ -92,6 +95,9 @@ app.add_middleware(
     allow_methods=["*"],
     allow_headers=["*"],
 )
+
+# Include agentic optimization routes
+app.include_router(optimize_router)
 
 
 # Request models with validation

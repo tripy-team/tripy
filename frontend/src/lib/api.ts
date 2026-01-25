@@ -1091,3 +1091,97 @@ export const group = {
     });
   },
 };
+
+// ============================================================================
+// AGENTIC OPTIMIZATION API (OOP-First)
+// ============================================================================
+
+import type {
+  OptimizeSoloResponse,
+  OptimizeGroupResponse,
+  RankedItinerary,
+  CostBreakdown,
+} from '@/types/optimization';
+
+export interface OptimizeSoloRequest {
+  tripId: string;
+  points: Record<string, number>;
+  budget: number;
+  cabinClasses?: string[];
+  hotelStars?: number[];
+  includeHotels?: boolean;
+}
+
+export interface OptimizeGroupRequest extends OptimizeSoloRequest {
+  memberPoints: Record<string, Record<string, number>>;
+  memberBudgets: Record<string, number>;
+  splitMethod?: 'equal' | 'by_usage' | 'proportional';
+}
+
+export const optimization = {
+  /**
+   * Optimize solo trip - returns itineraries ranked by OOP (lowest first)
+   * 
+   * Uses agentic architecture:
+   * 1. Flight Agent searches AwardTool + SerpAPI
+   * 2. Hotel Agent searches hotel options
+   * 3. ILP optimizer minimizes out-of-pocket
+   * 4. Results ranked by lowest cash paid
+   */
+  solo: async (request: OptimizeSoloRequest): Promise<OptimizeSoloResponse> => {
+    return apiRequest<OptimizeSoloResponse>('/optimize/solo', {
+      method: 'POST',
+      body: JSON.stringify({
+        trip_id: request.tripId,
+        points: request.points,
+        budget: request.budget,
+        cabin_classes: request.cabinClasses,
+        hotel_stars: request.hotelStars,
+        include_hotels: request.includeHotels,
+      }),
+    });
+  },
+
+  /**
+   * Optimize group trip - returns itineraries with settlements
+   */
+  group: async (request: OptimizeGroupRequest): Promise<OptimizeGroupResponse> => {
+    return apiRequest<OptimizeGroupResponse>('/optimize/group', {
+      method: 'POST',
+      body: JSON.stringify({
+        trip_id: request.tripId,
+        points: request.points,
+        budget: request.budget,
+        cabin_classes: request.cabinClasses,
+        hotel_stars: request.hotelStars,
+        include_hotels: request.includeHotels,
+        member_points: request.memberPoints,
+        member_budgets: request.memberBudgets,
+        split_method: request.splitMethod,
+      }),
+    });
+  },
+
+  /**
+   * Get detailed cost breakdown for an itinerary (from Cost Breakdown Agent)
+   */
+  getCostBreakdown: async (itineraryId: string): Promise<CostBreakdown> => {
+    return apiRequest<CostBreakdown>(`/optimize/breakdown/${itineraryId}`, {
+      method: 'GET',
+    });
+  },
+
+  /**
+   * Compare OOP vs CPP optimization strategies
+   */
+  compareStrategies: async (tripId: string): Promise<{
+    oop: RankedItinerary | null;
+    cpp: RankedItinerary | null;
+    recommendation: 'oop' | 'cpp';
+    explanation: string;
+  }> => {
+    return apiRequest(`/optimize/compare/${tripId}`, {
+      method: 'GET',
+    });
+  },
+};

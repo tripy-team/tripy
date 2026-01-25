@@ -38,3 +38,4 @@ export {
   type TransferPartnersResponse,
   type OptimizeParams,
 } from './useTransferStrategy';
+export { useOOPOptimization } from './useOOPOptimization';

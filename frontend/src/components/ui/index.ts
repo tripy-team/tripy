@@ -50,3 +50,7 @@ export {
   ItineraryCardSkeleton,
   ItineraryListSkeleton,
 } from './ItineraryLoadingState';
+
+// OOP Optimization components
+export { OOPSummaryCard } from './OOPSummaryCard';
+export { SegmentBreakdown } from './SegmentBreakdown';
