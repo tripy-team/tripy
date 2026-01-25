@@ -50,11 +50,18 @@ export interface TransferTip {
   from_program?: string;
   to_program?: string;
   best_for?: string;
+  route_segment?: string; // Explicit route segment (e.g., "JFK→HND")
+  departure?: string; // Origin airport code
+  arrival?: string; // Destination airport code
   note?: string;
   /** Points to transfer (from AwardTool); used when building step-by-step. */
   points?: number;
   /** Taxes/fees in dollars (from AwardTool). */
   surcharge?: number;
+  /** Cents per point value for this redemption. */
+  cents_per_point?: number;
+  /** Total cash value saved by using points. */
+  points_value?: number;
   /** e.g. "Korean Air (codeshare)" from AwardTool operating carrier. */
   segment_description?: string;
   /** Booking airline code (e.g., "DL" for Delta). */
@@ -67,8 +74,28 @@ export interface TransferTip {
   operating_carrier_name?: string;
   /** True if this is a codeshare flight. */
   is_codeshare?: boolean;
+  /** True if transfer is needed (false if using existing miles). */
+  transfer_needed?: boolean;
+  /** Transfer portal URL (e.g., Chase UR portal). */
+  transfer_portal_url?: string;
+  /** Transfer timing (e.g., "instant", "1-2 business days"). */
+  transfer_time?: string;
+  /** Transfer ratio (e.g., "1:1"). */
+  transfer_ratio?: string;
+  /** Minimum transfer amount (e.g., "1,000 points"). */
+  min_transfer?: string;
+  /** Airline booking URL. */
+  booking_url?: string;
+  /** Step-by-step transfer instructions. */
+  transfer_steps?: string[];
   /** Strategy reasoning: why this transfer strategy was chosen (from backend). */
   strategy_reason?: string;
+  /** Total points used across all transfers. */
+  total_points_used?: number;
+  /** Total cash saved by using points. */
+  total_cash_saved?: number;
+  /** Average cents per point across all redemptions. */
+  average_cpp?: number;
 }
 
 export interface PracticalTip {
@@ -129,8 +156,15 @@ function buildSteps(
   amount: number,
   note?: string,
   transferTiming?: string,
-  segmentDescription?: string
+  segmentDescription?: string,
+  transferTip?: TransferTip
 ): string[] {
+  // If backend provided detailed transfer_steps, use those
+  if (transferTip?.transfer_steps && transferTip.transfer_steps.length > 0) {
+    return transferTip.transfer_steps;
+  }
+
+  // Otherwise, build generic steps
   const amountStr = amount.toLocaleString();
   const step1 = segmentDescription
     ? `Transfer ${amountStr} points from ${program} to ${partner} to book ${segmentDescription}.`
@@ -252,9 +286,6 @@ export function buildTransferStepsFromItinerary(
         const note = findNote(transfer_tips, program, partner);
         const segmentDescription = (data as { segment_description?: string })?.segment_description
           ?? findSegmentDescription(transfer_tips, program, partner);
-        const steps = buildSteps(program, partner, sp, note, timingTip, segmentDescription);
-        const warning = [timingTip, note].filter(Boolean).join(' ').trim()
-          || 'Double check availability on the airline website before transferring.';
 
         // Find matching transfer tip for additional details
         const matchingTip = transfer_tips.find(t => 
@@ -263,6 +294,29 @@ export function buildTransferStepsFromItinerary(
           (t.from_program?.toLowerCase().includes(program.toLowerCase()) ||
            program.toLowerCase().includes(t.from_program?.toLowerCase() || ''))
         );
+
+        // Use detailed steps from backend if available, otherwise build generic steps
+        const steps = buildSteps(program, partner, sp, note, timingTip, segmentDescription, matchingTip);
+        
+        // Build enhanced warning with transfer details
+        const warningParts: string[] = [];
+        if (matchingTip?.transfer_time) {
+          warningParts.push(`Transfer time: ${matchingTip.transfer_time}`);
+        }
+        if (matchingTip?.cents_per_point) {
+          warningParts.push(`Value: ${matchingTip.cents_per_point.toFixed(2)} cpp`);
+        }
+        if (matchingTip?.is_codeshare && matchingTip?.operating_carrier_name) {
+          warningParts.push(`Flying on ${matchingTip.operating_carrier_name} metal`);
+        }
+        if (timingTip) {
+          warningParts.push(timingTip);
+        }
+        if (note && !matchingTip?.transfer_steps) {
+          warningParts.push(note);
+        }
+        const warning = warningParts.join('. ').trim()
+          || 'Double check availability on the airline website before transferring.';
 
         result.push({
           id: `t-${idx}`,
@@ -278,7 +332,7 @@ export function buildTransferStepsFromItinerary(
           warning,
           status: 'pending',
           // Additional details from transfer tips
-          flightSegment: matchingTip?.best_for,
+          flightSegment: matchingTip?.route_segment || matchingTip?.best_for,
           surcharge: matchingTip?.surcharge,
           isCodeshare: matchingTip?.is_codeshare,
           operatingCarrier: matchingTip?.operating_carrier_name,

@@ -12,31 +12,40 @@ _ALLOWED_TYPES = {"large_airport", "medium_airport", "small_airport"}
 
 
 def load_commercial_iata_set_from_web(
-    url: str = RAW_AIRPORTS_CSV, timeout: int = 20
+    url: str = RAW_AIRPORTS_CSV, timeout: int = 10
 ) -> set:
     """
     Downloads the OurAirports CSV from GitHub and returns a set of IATA codes
     that are commercial (scheduled_service == 'yes' and type in allowed types).
+    
+    Note: Reduced timeout from 20s to 10s to prevent 504 errors on autocomplete endpoints.
     """
-    r = requests.get(url, timeout=timeout)
-    r.raise_for_status()
+    try:
+        r = requests.get(url, timeout=timeout)
+        r.raise_for_status()
 
-    commercial: set = set()
-    text_stream = io.StringIO(r.text)
-    reader = csv.DictReader(text_stream)
+        commercial: set = set()
+        text_stream = io.StringIO(r.text)
+        reader = csv.DictReader(text_stream)
 
-    for row in reader:
-        iata = (row.get("iata_code") or "").strip().upper()
-        if len(iata) != 3:  # skip blanks/non-IATA
-            continue
+        for row in reader:
+            iata = (row.get("iata_code") or "").strip().upper()
+            if len(iata) != 3:  # skip blanks/non-IATA
+                continue
 
-        scheduled = (row.get("scheduled_service") or "").strip().lower() == "yes"
-        typ = (row.get("type") or "").strip().lower()
+            scheduled = (row.get("scheduled_service") or "").strip().lower() == "yes"
+            typ = (row.get("type") or "").strip().lower()
 
-        if scheduled and typ in _ALLOWED_TYPES:
-            commercial.add(iata)
+            if scheduled and typ in _ALLOWED_TYPES:
+                commercial.add(iata)
 
-    return commercial
+        return commercial
+    except (requests.Timeout, requests.RequestException) as e:
+        # If loading fails due to timeout or network error, return empty set
+        # Autocomplete endpoints will still work but won't filter commercial airports
+        import logging
+        logging.getLogger(__name__).warning(f"Failed to load commercial airports from web (timeout): {e}")
+        return set()
 
 
 def is_commercial_airport(iata_code: str, commercial_set: set = None) -> bool:

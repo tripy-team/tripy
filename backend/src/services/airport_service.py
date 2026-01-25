@@ -284,55 +284,15 @@ def search_airports(query: str, max_results: int = 10) -> List[Dict[str, Any]]:
         "NOLA": "New Orleans",
     }
     
+    # PRIORITY 1: Try CSV-based search first (fast, free, no API costs)
     try:
-        # Load commercial airport set for filtering
+        logger.info(f"Step 1: Trying CSV search for query '{query_normalized}'")
         commercial_set = _get_commercial_airport_set()
-        
-        # Use OpenAI to find airports for the query
-        from ..handlers.openAI import find_commercial_airports_for_city, search_airports_with_openai
-        
-        # Step 1: If it's a 3-letter code AND it's a valid commercial IATA code, prioritize exact match
-        if is_likely_airport_code and commercial_set and query_upper in commercial_set:
-            logger.info(f"Query '{query_normalized}' is a valid IATA code, searching for exact match")
-            airports = search_airports_with_openai(query_upper, max_results=max_results)
-            if commercial_set:
-                airports = [a for a in airports if is_commercial_airport(a.get("iata_code", ""), commercial_set)]
-            if airports:
-                logger.info(f"Found {len(airports)} commercial airports for IATA code '{query_normalized}'")
-                return airports[:max_results]
-        
-        # Step 2: Check if query is a known city nickname/abbreviation
-        if query_upper in city_nicknames:
-            city_name = city_nicknames[query_upper]
-            logger.info(f"Query '{query_normalized}' is a city nickname, searching for '{city_name}'")
-            airports = find_commercial_airports_for_city(city_name, max_results=max_results)
-            if airports:
-                return airports[:max_results]
-        
-        # Step 3: Try city-based search (handles full city names and partial matches)
-        airports = find_commercial_airports_for_city(query_normalized, max_results=max_results)
-        if airports and len(airports) >= 1:
-            logger.info(f"Found {len(airports)} commercial airports for city query '{query_normalized}'")
-            return airports[:max_results]
-        
-        # Step 4: Fallback to general airport search (handles partial IATA codes, airport names, etc.)
-        airports = search_airports_with_openai(query_normalized, max_results=max_results)
-        if commercial_set:
-            airports = [a for a in airports if is_commercial_airport(a.get("iata_code", ""), commercial_set)]
-        
-        if airports:
-            logger.info(f"Found {len(airports)} commercial airports for general query '{query_normalized}'")
-            return airports[:max_results]
-            
-    except Exception as e:
-        logger.error(f"Error searching airports with OpenAI for query '{query}': {e}", exc_info=True)
-        # Fallback to CSV-based search if OpenAI fails
         airports = load_airports_from_csv()
         if not airports:
-            logger.warning(f"No airports loaded from CSV for query: {query}")
-            return []
+            logger.warning(f"No airports loaded from CSV")
+            raise ValueError("CSV not available")
         
-        commercial_set = _get_commercial_airport_set()
         query_normalized_upper = normalize_query(query)
         
         # Expand common city nicknames for better CSV matching
@@ -385,23 +345,81 @@ def search_airports(query: str, max_results: int = 10) -> List[Dict[str, Any]]:
         # Sort by score (descending), then by IATA code
         scored_airports.sort(key=lambda x: (-x[0], x[1]["iata_code"]))
         
-        results = []
-        for score, airport in scored_airports[:max_results]:
-            result = {
-                "airport_id": f"{airport['iata_code']},{airport.get('city', '')},{airport.get('country_name', '')}",
-                "iata_code": airport["iata_code"],
-                "airport_name": airport["airport_name"],
-                "city": airport["city"],
-                "country": airport["country_name"],
-                "region": airport.get("state") or airport.get("country", ""),
-                "display_name": f"{airport['iata_code']} - {airport['airport_name']}",
-            }
-            if airport.get("city"):
-                result["display_name"] += f" ({airport['city']})"
-            results.append(result)
+        # If CSV found good results, return them
+        if scored_airports:
+            results = []
+            for score, airport in scored_airports[:max_results]:
+                result = {
+                    "airport_id": f"{airport['iata_code']},{airport.get('city', '')},{airport.get('country_name', '')}",
+                    "iata_code": airport["iata_code"],
+                    "airport_name": airport["airport_name"],
+                    "city": airport["city"],
+                    "country": airport["country_name"],
+                    "region": airport.get("state") or airport.get("country", ""),
+                    "display_name": f"{airport['iata_code']} - {airport['airport_name']}",
+                }
+                if airport.get("city"):
+                    result["display_name"] += f" ({airport['city']})"
+                results.append(result)
+            
+            logger.info(f"Found {len(results)} airports via CSV (score range: {scored_airports[0][0]}-{scored_airports[-1][0] if len(scored_airports) > 1 else scored_airports[0][0]})")
+            return results
         
-        logger.info(f"Found {len(results)} commercial airports matching query '{query}' (CSV fallback, score range: {scored_airports[0][0] if scored_airports else 0}-{scored_airports[-1][0] if scored_airports and len(scored_airports) > 0 else 0})")
-        return results
+        # CSV search found no results, continue to fallback
+        logger.info(f"CSV search found no results for '{query_normalized}'")
+        
+    except Exception as e:
+        logger.warning(f"CSV search failed for query '{query}': {e}")
+    
+    # PRIORITY 2: Try SerpAPI if available (not implemented for airports, but placeholder for consistency)
+    # For now, we skip directly to OpenAI for airports. Destinations use SerpAPI.
+    
+    # PRIORITY 3: Try OpenAI as last resort (expensive, slow)
+    try:
+        logger.info(f"Step 2: Trying OpenAI search for query '{query_normalized}' (CSV had no results)")
+        from ..handlers.openAI import find_commercial_airports_for_city, search_airports_with_openai
+        
+        commercial_set = _get_commercial_airport_set()
+        
+        # If it's a 3-letter code AND it's a valid commercial IATA code, try exact match
+        if is_likely_airport_code and commercial_set and query_upper in commercial_set:
+            logger.info(f"Query '{query_normalized}' is a valid IATA code")
+            airports = search_airports_with_openai(query_upper, max_results=max_results)
+            if commercial_set:
+                airports = [a for a in airports if is_commercial_airport(a.get("iata_code", ""), commercial_set)]
+            if airports:
+                logger.info(f"Found {len(airports)} commercial airports for IATA code '{query_normalized}' via OpenAI")
+                return airports[:max_results]
+        
+        # Check if query is a known city nickname/abbreviation
+        if query_upper in city_nicknames:
+            city_name = city_nicknames[query_upper]
+            logger.info(f"Query '{query_normalized}' is a city nickname, searching for '{city_name}' via OpenAI")
+            airports = find_commercial_airports_for_city(city_name, max_results=max_results)
+            if airports:
+                return airports[:max_results]
+        
+        # Try city-based search
+        airports = find_commercial_airports_for_city(query_normalized, max_results=max_results)
+        if airports and len(airports) >= 1:
+            logger.info(f"Found {len(airports)} commercial airports for city query '{query_normalized}' via OpenAI")
+            return airports[:max_results]
+        
+        # Last resort: general airport search
+        airports = search_airports_with_openai(query_normalized, max_results=max_results)
+        if commercial_set:
+            airports = [a for a in airports if is_commercial_airport(a.get("iata_code", ""), commercial_set)]
+        
+        if airports:
+            logger.info(f"Found {len(airports)} commercial airports for general query '{query_normalized}' via OpenAI")
+            return airports[:max_results]
+        
+        logger.warning(f"OpenAI search found no results for '{query_normalized}'")
+        return []
+            
+    except Exception as e:
+        logger.error(f"OpenAI search failed for query '{query}': {e}", exc_info=True)
+        return []
 
 
 def fuzzy_search_destinations(query: str, max_results: int = 10, commercial_only: bool = False) -> List[Dict[str, Any]]:

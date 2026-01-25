@@ -1044,20 +1044,23 @@ async def airports_autocomplete(
         from .services.airport_service import search_airports
         
         logger.info(f"Airport autocomplete request: q='{q}', limit={limit}")
-        # Use CSV-based airport search
-        airports = search_airports(q, max_results=limit)
-        logger.info(f"Returning {len(airports)} airports for query '{q}'")
-        return {"airports": airports}
+        # Use CSV-based airport search with timeout protection
+        import asyncio
+        try:
+            # Wrap synchronous call with timeout to prevent hanging
+            airports = await asyncio.wait_for(
+                asyncio.to_thread(search_airports, q, max_results=limit),
+                timeout=8.0  # 8 second timeout (less than App Runner's 30s)
+            )
+            logger.info(f"Returning {len(airports)} airports for query '{q}'")
+            return {"airports": airports}
+        except asyncio.TimeoutError:
+            logger.warning(f"Airport search timed out for query '{q}', returning empty results")
+            return {"airports": []}
     except Exception as e:
         logger.error(f"Error in airports_autocomplete for q='{q}': {e}", exc_info=True)
-        # Fallback to OpenAI if CSV search fails
-        try:
-            logger.warning(f"Falling back to OpenAI search for query '{q}'")
-            airports = search_airports_with_openai(q, max_results=limit)
-            return {"airports": airports}
-        except Exception as fallback_error:
-            logger.error(f"Fallback OpenAI search also failed: {fallback_error}", exc_info=True)
-            raise HTTPException(status_code=500, detail=f"Failed to search airports: {str(e)}")
+        # Return empty results instead of failing completely
+        return {"airports": []}
 
 
 @app.get("/api/destinations/autocomplete")
@@ -1078,14 +1081,37 @@ async def destinations_autocomplete(
     try:
         from .services.serp_api_functions import autocomplete_destinations
         from .services.airport_service import fuzzy_search_destinations
-
-        suggestions = autocomplete_destinations(q, gl=gl, hl=hl, exclude_regions=exclude_regions, commercial_only=commercial_only)
-        if not suggestions and fuzzy_fallback:
-            suggestions = fuzzy_search_destinations(q, max_results=limit, commercial_only=commercial_only)
-        return {"suggestions": (suggestions or [])[:limit]}
+        
+        import asyncio
+        try:
+            # Wrap with timeout to prevent hanging
+            suggestions = await asyncio.wait_for(
+                asyncio.to_thread(
+                    autocomplete_destinations,
+                    q, gl=gl, hl=hl, exclude_regions=exclude_regions, commercial_only=commercial_only
+                ),
+                timeout=8.0  # 8 second timeout
+            )
+            
+            if not suggestions and fuzzy_fallback:
+                # Try fuzzy fallback with shorter timeout
+                try:
+                    suggestions = await asyncio.wait_for(
+                        asyncio.to_thread(fuzzy_search_destinations, q, max_results=limit, commercial_only=commercial_only),
+                        timeout=2.0  # 2 second timeout for fallback
+                    )
+                except asyncio.TimeoutError:
+                    logger.warning(f"Fuzzy search timed out for query '{q}'")
+                    suggestions = []
+            
+            return {"suggestions": (suggestions or [])[:limit]}
+        except asyncio.TimeoutError:
+            logger.warning(f"Destination autocomplete timed out for query '{q}', returning empty results")
+            return {"suggestions": []}
     except Exception as e:
         logger.error(f"destinations_autocomplete q='{q}': {e}", exc_info=True)
-        raise HTTPException(status_code=500, detail=str(e))
+        # Return empty results instead of failing completely
+        return {"suggestions": []}
 
 
 @app.post("/api/itinerary/optimize-out-of-pocket")

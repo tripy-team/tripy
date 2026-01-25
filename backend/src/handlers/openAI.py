@@ -3,6 +3,7 @@ import logging
 from dotenv import load_dotenv
 import os
 import boto3
+import httpx
 from pydantic import BaseModel
 from enum import Enum
 from datetime import date
@@ -42,7 +43,11 @@ def ai_flight_suggestions():
     filters = create_flight_filters()
     outbound_date = filters["outbound_date"]
     return_date = filters["return_date"]
-    client = OpenAI(api_key=os.getenv("OPENAI_ADMIN_KEY"))
+    client = OpenAI(
+        api_key=os.getenv("OPENAI_ADMIN_KEY"),
+        timeout=httpx.Timeout(15.0, connect=5.0),
+        max_retries=0
+    )
     response = client.chat.completions.create(
         model="gpt-5",
         messages=[
@@ -64,7 +69,11 @@ def ai_flight_suggestions():
 def get_season_between_dates(start_date, end_date):
     if OpenAI is None:
         raise ImportError("openai package is not installed. Install it with: pip install openai")
-    client = OpenAI(api_key=os.getenv("OPENAI_ADMIN_KEY"))
+    client = OpenAI(
+        api_key=os.getenv("OPENAI_ADMIN_KEY"),
+        timeout=httpx.Timeout(10.0, connect=5.0),
+        max_retries=0
+    )
     what_season_response = client.chat.completions.create(
         model="gpt-5",
         messages=[
@@ -90,7 +99,11 @@ def ai_image_generator(city, country, destination_start_date, destination_end_da
         aws_access_key_id=os.getenv("AWS_ACCESS_KEY_ID"),
         aws_secret_access_key=os.getenv("AWS_SECRET_ACCESS_KEY"),
     )
-    client = OpenAI(api_key=os.getenv("OPENAI_ADMIN_KEY"))
+    client = OpenAI(
+        api_key=os.getenv("OPENAI_ADMIN_KEY"),
+        timeout=httpx.Timeout(30.0, connect=5.0),  # Image generation may take longer
+        max_retries=0
+    )
     image_bucket_client = session.client("s3")
 
     destination_season = get_season_between_dates(
@@ -178,7 +191,12 @@ def find_commercial_airports_for_city(city_query: str, max_results: int = 10) ->
         commercial_set = set()
     
     load_dotenv()
-    client = OpenAI(api_key=os.getenv("OPENAI_ADMIN_KEY"))
+    # Add timeout to prevent 504 errors - OpenAI calls should complete within 10 seconds
+    client = OpenAI(
+        api_key=os.getenv("OPENAI_ADMIN_KEY"),
+        timeout=httpx.Timeout(10.0, connect=5.0),  # 10s total, 5s connect
+        max_retries=0  # Don't retry on timeout to fail fast
+    )
     
     system_prompt = """You are a travel assistant that finds commercial airports for cities or airport codes.
 
@@ -304,7 +322,12 @@ def search_airports_with_openai(query: str, max_results: int = 10) -> List[Dict[
     if OpenAI is None:
         raise ImportError("openai package is not installed. Install it with: pip install openai")
     load_dotenv()
-    client = OpenAI(api_key=os.getenv("OPENAI_ADMIN_KEY"))
+    # Add timeout to prevent 504 errors - OpenAI calls should complete within 10 seconds
+    client = OpenAI(
+        api_key=os.getenv("OPENAI_ADMIN_KEY"),
+        timeout=httpx.Timeout(10.0, connect=5.0),  # 10s total, 5s connect
+        max_retries=0  # Don't retry on timeout to fail fast
+    )
 
     commercial_set = None
     try:
@@ -434,10 +457,14 @@ def suggest_routes_for_remote_or_small_cities(
 
     import json as _json
     load_dotenv()
-    client = OpenAI(api_key=os.getenv("OPENAI_ADMIN_KEY"))
     if not os.getenv("OPENAI_ADMIN_KEY"):
         logging.getLogger(__name__).warning("OPENAI_ADMIN_KEY not set; cannot suggest routes")
         return []
+    client = OpenAI(
+        api_key=os.getenv("OPENAI_ADMIN_KEY"),
+        timeout=httpx.Timeout(15.0, connect=5.0),
+        max_retries=0
+    )
 
     cities_str = ", ".join(city_names) if city_names else "none"
     dates_str = f"{start_date or 'unknown'} to {end_date or 'unknown'}" if (start_date or end_date) else "not specified"
@@ -561,7 +588,11 @@ def get_itinerary_smart_tips(
     key = os.getenv("OPENAI_ADMIN_KEY")
     if not key:
         return _empty_smart_tips()
-    client = OpenAI(api_key=key)
+    client = OpenAI(
+        api_key=key,
+        timeout=httpx.Timeout(15.0, connect=5.0),
+        max_retries=0
+    )
 
     cities_str = ", ".join(city_names) if city_names else "none"
     dates_str = f"{start_date or '?'} to {end_date or '?'}" if (start_date or end_date) else "not specified"
@@ -752,7 +783,12 @@ def search_cities_with_openai(query: str, max_results: int = 10, use_cache: bool
         return static_results[:max_results]
     
     load_dotenv()
-    client = OpenAI(api_key=os.getenv("OPENAI_ADMIN_KEY"))
+    # Add timeout to prevent 504 errors - OpenAI calls should complete within 10 seconds
+    client = OpenAI(
+        api_key=os.getenv("OPENAI_ADMIN_KEY"),
+        timeout=httpx.Timeout(10.0, connect=5.0),  # 10s total, 5s connect
+        max_retries=0  # Don't retry on timeout to fail fast
+    )
     
     system_prompt = """You are a travel assistant that helps users find cities and airports around the world.
     
@@ -865,7 +901,11 @@ def extract_trip_info_with_openai(text: str) -> ExtractedTripInfo:
     if OpenAI is None:
         raise ImportError("openai package is not installed. Install it with: pip install openai")
     load_dotenv()
-    client = OpenAI(api_key=os.getenv("OPENAI_ADMIN_KEY"))
+    client = OpenAI(
+        api_key=os.getenv("OPENAI_ADMIN_KEY"),
+        timeout=httpx.Timeout(10.0, connect=5.0),
+        max_retries=0
+    )
     
     system_prompt = """You are a travel information extraction assistant. Extract trip details from user messages.
 
@@ -957,7 +997,11 @@ def extract_card_benefits_from_snippets(
     key = os.getenv("OPENAI_ADMIN_KEY")
     if not key:
         return None
-    client = OpenAI(api_key=key)
+    client = OpenAI(
+        api_key=key,
+        timeout=httpx.Timeout(10.0, connect=5.0),
+        max_retries=0
+    )
 
     block = "\n\n".join(
         f"[{i+1}] {s.get('title', '')}\n{s.get('snippet', '')}" for i, s in enumerate(snippets[:8])
@@ -1011,7 +1055,11 @@ def get_card_benefits_openai(card_product: str) -> Optional[Dict[str, Any]]:
     load_dotenv()
     if not os.getenv("OPENAI_ADMIN_KEY"):
         return None
-    client = OpenAI(api_key=os.getenv("OPENAI_ADMIN_KEY"))
+    client = OpenAI(
+        api_key=os.getenv("OPENAI_ADMIN_KEY"),
+        timeout=httpx.Timeout(10.0, connect=5.0),
+        max_retries=0
+    )
 
     system_prompt = """You are an expert on US travel credit card benefits. Given a card name, return:
 1. free_bag_airlines: array of IATA 2-letter codes for airlines where this card gives a free first checked bag (e.g. ["DL"] for Delta, ["UA"] for United, ["AA"] for American). If the card does NOT give free bags on any specific airline, use [].

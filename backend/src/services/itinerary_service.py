@@ -57,6 +57,68 @@ _HUMANIZE_AIRLINE: Dict[str, str] = {
     "KE": "Korean Air", "OZ": "Asiana", "CI": "China Airlines", "BR": "EVA Air",
 }
 
+# Transfer portal URLs and transfer details
+_TRANSFER_DETAILS: Dict[str, Dict[str, str]] = {
+    "amex": {
+        "portal_url": "https://global.americanexpress.com/rewards/summary",
+        "transfer_time": "instant",
+        "ratio": "1:1",
+        "min_transfer": "1,000 points",
+    },
+    "chase": {
+        "portal_url": "https://www.chase.com/ultimate-rewards",
+        "transfer_time": "instant",
+        "ratio": "1:1",
+        "min_transfer": "1,000 points",
+    },
+    "citi": {
+        "portal_url": "https://www.thankyou.com/",
+        "transfer_time": "1-2 business days",
+        "ratio": "1:1",
+        "min_transfer": "1,000 points",
+    },
+    "capitalone": {
+        "portal_url": "https://www.capitalone.com/bank/rewards",
+        "transfer_time": "instant to 24 hours",
+        "ratio": "varies by partner (typically 2:1.5)",
+        "min_transfer": "100 miles",
+    },
+    "bilt": {
+        "portal_url": "https://www.biltrewards.com/rewards",
+        "transfer_time": "instant",
+        "ratio": "1:1",
+        "min_transfer": "1,000 points (transfer day: 1st of month)",
+    },
+}
+
+# Airline booking portal URLs
+_AIRLINE_BOOKING_URLS: Dict[str, str] = {
+    "UA": "https://www.united.com/en/us/fsr/choose-flights",
+    "AA": "https://www.aa.com/booking/search",
+    "DL": "https://www.delta.com/flight-search/book-a-flight",
+    "AS": "https://www.alaskaair.com/booking/reservation/search",
+    "B6": "https://www.jetblue.com/booking/flights",
+    "AC": "https://www.aircanada.com/us/en/aco/home/book.html",
+    "BA": "https://www.britishairways.com/travel/book/public/en_us",
+    "AF": "https://www.airfrance.com/",
+    "KL": "https://www.klm.com/",
+    "LH": "https://www.lufthansa.com/",
+    "LX": "https://www.swiss.com/",
+    "SQ": "https://www.singaporeair.com/",
+    "CX": "https://www.cathaypacific.com/",
+    "NH": "https://www.ana.co.jp/",
+    "JL": "https://www.jal.co.jp/",
+    "EK": "https://www.emirates.com/",
+    "QR": "https://www.qatarairways.com/",
+    "EY": "https://www.etihad.com/",
+    "TK": "https://www.turkishairlines.com/",
+    "AV": "https://www.avianca.com/",
+    "IB": "https://www.iberia.com/",
+    "QF": "https://www.qantas.com/",
+    "VS": "https://www.virginatlantic.com/",
+    "KE": "https://www.koreanair.com/",
+}
+
 # Small/regional airports that often lack direct long-haul flight data in SERP/AwardTool.
 # When flight search returns no edges for origin->dest, we try (origin->hub) ground + (hub->dest) flights.
 # Map: IATA -> list of nearby major hubs to try (closest first).
@@ -715,6 +777,7 @@ def build_transfer_tips_from_solution(
     When edges_all is provided, includes operating carrier (e.g. Korean Air codeshare via Delta).
     Replaces generic AI transfer advice with data-driven amounts and partners.
     Also includes strategy_reason explaining why this transfer strategy was selected.
+    Enhanced with detailed transfer instructions including portal URLs, timing, and booking steps.
     """
     out: List[Dict[str, Any]] = []
     pay_mode = solution.get("pay_mode") or {}
@@ -723,8 +786,10 @@ def build_transfer_tips_from_solution(
     # Build strategy reasoning from solution metadata
     strategy_reasons = []
     total_points = 0
+    total_cash_saved = 0.0
     programs_used = set()
     partners_used = set()
+    route_segments = []
 
     for _traveler, recs in pay_mode.items():
         for rec in (recs or []):
@@ -741,10 +806,23 @@ def build_transfer_tips_from_solution(
             except (TypeError, ValueError):
                 sur_val = None
 
+            # Calculate points value (cash saved)
+            points_value = rec.get("points_value", 0.0)
+            if points_value:
+                total_cash_saved += float(points_value)
+            
+            # Calculate cents per point value
+            cpp = rec.get("cents_per_point", 0.0)
+            if not cpp and points_value and miles > 0:
+                cpp = (float(points_value) * 100.0) / miles
+
             edge = rec.get("edge")
+            dep, arr = None, None
             if isinstance(edge, (list, tuple)) and len(edge) >= 2:
                 dep, arr = str(edge[0] or "").upper(), str(edge[1] or "").upper()
                 best_for = f"{dep}→{arr}" if (dep and arr) else None
+                if dep and arr:
+                    route_segments.append(f"{dep}→{arr}")
             else:
                 best_for = None
 
@@ -756,41 +834,103 @@ def build_transfer_tips_from_solution(
                 if op and len(op) >= 2:
                     operating_airline = op[:2]
             booking_airline = (via.get("airline") or via.get("native") or "").upper().strip()
-            codeshare_suffix = ""
-            if operating_airline and operating_airline != booking_airline:
-                op_name = _HUMANIZE_AIRLINE.get(operating_airline) or operating_airline
-                codeshare_suffix = f" to book {op_name} (codeshare via {_HUMANIZE_AIRLINE.get(booking_airline) or booking_airline})."
-
+            
+            # Build detailed transfer instructions
+            src = None
+            al = None
+            from_program = None
+            to_program = None
+            transfer_needed = False
+            
             if "source" in via and "airline" in via:
                 src = (via.get("source") or "").lower().strip()
                 al = (via.get("airline") or "").upper().strip()
                 from_program = _HUMANIZE_BANK.get(src) or src or "Credit card points"
                 to_program = _HUMANIZE_AIRLINE.get(al) or al or "Travel partner"
-                note = f"Transfer {miles:,} points to {to_program}{codeshare_suffix}"
-                if sur_val is not None and sur_val > 0:
-                    note += f" Pay ~${sur_val:,.0f} in taxes and fees."
-                note += " From AwardTool award availability."
+                transfer_needed = True
             elif "native" in via:
                 al = (via.get("native") or "").upper().strip()
                 to_program = _HUMANIZE_AIRLINE.get(al) or al or "Travel partner"
                 from_program = "Existing miles"
-                note = f"Use {miles:,} {to_program} miles (no transfer needed){codeshare_suffix}"
-                if sur_val is not None and sur_val > 0:
-                    note += f" Pay ~${sur_val:,.0f} in taxes and fees."
-                note += " From AwardTool award availability."
+                transfer_needed = False
             else:
                 continue
+
+            # Build detailed note with transfer/booking instructions
+            note_parts = []
+            
+            # Codeshare information
+            codeshare_note = ""
+            if operating_airline and operating_airline != booking_airline:
+                op_name = _HUMANIZE_AIRLINE.get(operating_airline) or operating_airline
+                booking_name = _HUMANIZE_AIRLINE.get(booking_airline) or booking_airline
+                codeshare_note = f" You'll book through {booking_name} to fly on {op_name} metal (codeshare)."
+            
+            if transfer_needed:
+                # Transfer instructions
+                transfer_details = _TRANSFER_DETAILS.get(src, {})
+                transfer_time = transfer_details.get("transfer_time", "instant to 24 hours")
+                portal_url = transfer_details.get("portal_url", "")
+                min_transfer = transfer_details.get("min_transfer", "1,000 points")
+                
+                note_parts.append(f"Transfer {miles:,} points from {from_program} to {to_program}.")
+                note_parts.append(f"Transfer time: {transfer_time}. Minimum: {min_transfer}.")
+                
+                if portal_url:
+                    note_parts.append(f"Portal: {portal_url}")
+                
+                note_parts.append(f"Once transferred, book on {to_program}'s website.{codeshare_note}")
+            else:
+                # Native miles usage
+                note_parts.append(f"Use {miles:,} existing {to_program} miles (no transfer needed).{codeshare_note}")
+            
+            # Add booking URL
+            booking_url = _AIRLINE_BOOKING_URLS.get(al, "")
+            if booking_url:
+                note_parts.append(f"Book at: {booking_url}")
+            
+            # Add value information
+            if cpp > 0:
+                note_parts.append(f"Value: {cpp:.2f} cents per point.")
+            
+            # Add taxes/fees
+            if sur_val is not None and sur_val > 0:
+                note_parts.append(f"Pay ~${sur_val:,.0f} in taxes and fees.")
+            
+            note_parts.append("From AwardTool live award availability.")
+            
+            note = " ".join(note_parts)
 
             tip = {
                 "from_program": from_program,
                 "to_program": to_program,
                 "best_for": best_for,
+                "route_segment": best_for,  # Explicit route segment field
+                "departure": dep,
+                "arrival": arr,
                 "note": note,
                 "points": miles,
                 "surcharge": sur_val,
+                "cents_per_point": round(cpp, 2) if cpp else None,
+                "points_value": round(points_value, 2) if points_value else None,
                 "booking_airline": booking_airline,
                 "booking_airline_name": _HUMANIZE_AIRLINE.get(booking_airline) or booking_airline,
+                "transfer_needed": transfer_needed,
             }
+            
+            # Add transfer details
+            if transfer_needed and src:
+                transfer_details = _TRANSFER_DETAILS.get(src, {})
+                tip["transfer_portal_url"] = transfer_details.get("portal_url", "")
+                tip["transfer_time"] = transfer_details.get("transfer_time", "")
+                tip["transfer_ratio"] = transfer_details.get("ratio", "1:1")
+                tip["min_transfer"] = transfer_details.get("min_transfer", "")
+            
+            # Add booking URL
+            if al:
+                tip["booking_url"] = _AIRLINE_BOOKING_URLS.get(al, "")
+            
+            # Add codeshare details
             if operating_airline and operating_airline != booking_airline:
                 tip["operating_carrier"] = operating_airline
                 op_name = _HUMANIZE_AIRLINE.get(operating_airline) or operating_airline
@@ -799,6 +939,27 @@ def build_transfer_tips_from_solution(
                 tip["is_codeshare"] = True
             else:
                 tip["is_codeshare"] = False
+            
+            # Add step-by-step transfer instructions
+            if transfer_needed:
+                tip["transfer_steps"] = [
+                    f"1. Visit {from_program} portal: {tip.get('transfer_portal_url', 'your account portal')}",
+                    f"2. Navigate to 'Transfer Points' or 'Transfer to Travel Partners' section",
+                    f"3. Select {to_program} from the list of airline partners",
+                    f"4. Enter your {to_program} frequent flyer number (create free account if needed)",
+                    f"5. Transfer {miles:,} points (usually 1:1 ratio, {transfer_details.get('transfer_time', 'instant')})",
+                    f"6. Once points arrive in {to_program} account, visit {tip.get('booking_url', 'airline website')}",
+                    f"7. Search for award flights from {dep} to {arr}",
+                    f"8. Book using {miles:,} miles + ~${sur_val:,.0f} in taxes/fees" if sur_val else f"8. Book using {miles:,} miles",
+                ]
+            else:
+                tip["transfer_steps"] = [
+                    f"1. Visit {to_program} booking portal: {tip.get('booking_url', 'airline website')}",
+                    f"2. Log in to your {to_program} account",
+                    f"3. Search for award flights from {dep} to {arr}",
+                    f"4. Book using {miles:,} existing miles + ~${sur_val:,.0f} in taxes/fees" if sur_val else f"4. Book using {miles:,} existing miles",
+                ]
+            
             out.append(tip)
             
             # Track for strategy summary
@@ -807,23 +968,40 @@ def build_transfer_tips_from_solution(
                 programs_used.add(from_program)
             partners_used.add(to_program)
 
-    # Build strategy reasoning
+    # Build comprehensive strategy reasoning
     if out:
-        if len(programs_used) == 1:
-            strategy_reasons.append(f"This strategy uses {list(programs_used)[0]} as your primary points source")
-        elif len(programs_used) > 1:
-            strategy_reasons.append(f"This strategy optimizes across {len(programs_used)} credit card programs")
+        # Route summary
+        unique_segments = list(dict.fromkeys(route_segments))
+        if len(unique_segments) == 1:
+            strategy_reasons.append(f"For your {unique_segments[0]} route")
+        elif len(unique_segments) > 1:
+            strategy_reasons.append(f"For your multi-city route ({' → '.join(unique_segments[:3])}{'...' if len(unique_segments) > 3 else ''})")
         
+        # Program usage summary
+        if len(programs_used) == 1:
+            strategy_reasons.append(f"using {list(programs_used)[0]} as your primary points source")
+        elif len(programs_used) > 1:
+            strategy_reasons.append(f"optimizing across {len(programs_used)} credit card programs")
+        
+        # Partner summary
         if len(partners_used) == 1:
             strategy_reasons.append(f"transferring to {list(partners_used)[0]} for best award availability")
         elif len(partners_used) > 1:
-            strategy_reasons.append(f"leveraging {len(partners_used)} airline partners for optimal routing and availability")
+            strategy_reasons.append(f"leveraging {len(partners_used)} airline partners for optimal routing")
+        
+        # Value summary
+        if total_cash_saved > 0:
+            avg_cpp = (total_cash_saved * 100.0) / total_points if total_points > 0 else 0
+            strategy_reasons.append(f"saving ${total_cash_saved:,.0f} ({avg_cpp:.2f} cpp)")
         
         strategy_reasons.append("based on live award availability from AwardTool")
         
         # Add strategy_reason to first tip (will be used for overview display)
         if strategy_reasons and out:
-            out[0]["strategy_reason"] = ". ".join(s.capitalize() for s in strategy_reasons) + "."
+            out[0]["strategy_reason"] = ", ".join(strategy_reasons) + "."
+            out[0]["total_points_used"] = total_points
+            out[0]["total_cash_saved"] = round(total_cash_saved, 2)
+            out[0]["average_cpp"] = round((total_cash_saved * 100.0) / total_points, 2) if total_points > 0 else 0
 
     return out
 
