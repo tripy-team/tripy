@@ -246,9 +246,13 @@ async def _awardtool_realtime(
     
     Falls back to dummy data if AWARDTOOL_API_KEY is not set.
     """
+    print(f"[AwardTool] _awardtool_realtime called: {origin}->{destination} on {date_str}")
+    logger.info("[AwardTool] _awardtool_realtime called: %s->%s on %s", origin, destination, date_str)
+    
     # Use dummy data if in dummy mode (no API key or explicitly enabled)
     if is_awardtool_dummy_mode():
         from src.handlers.awardtool_dummy import generate_dummy_flight_data
+        print(f"[AwardTool] DUMMY MODE - returning dummy data for {origin}->{destination}")
         logger.info("[DUMMY MODE] Returning dummy flight data for %s->%s on %s", origin, destination, date_str)
         return generate_dummy_flight_data(origin, destination, date_str, cabins, programs, int(pax))
     

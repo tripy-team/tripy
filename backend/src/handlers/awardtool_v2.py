@@ -457,6 +457,9 @@ async def search_award_flights_v2(
     # Important: Billing is based on unique task_id
     task_id = str(uuid.uuid4())
     
+    print(f"[AwardTool v2] search_award_flights_v2 called: {origin}->{destination} date={date} programs={len(programs)}")
+    print(f"[AwardTool v2] API key present: {bool(api_key)}, task_id: {task_id[:8]}")
+    
     logger.info(
         "AwardTool v2 search start: %s->%s date=%s task_id=%s programs=%d",
         origin, destination, date, task_id[:8], len(programs)

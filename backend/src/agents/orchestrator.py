@@ -80,10 +80,15 @@ class OrchestratorAgent(BaseAgent):
         3. Run OOP optimization
         4. Rank and return results
         """
+        print(f"[Orchestrator] optimize_solo called for trip {request.trip_id}")
+        print(f"[Orchestrator] Points: {request.points}, Budget: {request.budget}")
         logger.info(f"[Orchestrator] Starting solo optimization for trip {request.trip_id}")
         
         # Get trip details
         trip_data = await self._get_trip_data(request.trip_id)
+        print(f"[Orchestrator] Trip data fetched: {bool(trip_data)}")
+        if trip_data:
+            print(f"[Orchestrator] Trip destinations: {trip_data.get('destinations', [])}")
         
         if not trip_data:
             return OptimizeSoloResponse(
@@ -95,6 +100,10 @@ class OrchestratorAgent(BaseAgent):
         
         # Build segments to search
         segments = self._build_trip_segments(trip_data)
+        print(f"[Orchestrator] Built {len(segments) if segments else 0} segments to search")
+        if segments:
+            for i, seg in enumerate(segments):
+                print(f"[Orchestrator] Segment {i+1}: {seg}")
         
         if not segments:
             return OptimizeSoloResponse(
@@ -105,6 +114,7 @@ class OrchestratorAgent(BaseAgent):
             )
         
         # Search flights and hotels in parallel
+        print(f"[Orchestrator] Starting search for {len(segments)} segments...")
         search_results = await self._search_all_segments(
             segments=segments,
             user_points=request.points,
@@ -112,6 +122,7 @@ class OrchestratorAgent(BaseAgent):
             hotel_stars=request.hotel_stars or [4, 5],
             include_hotels=request.include_hotels,
         )
+        print(f"[Orchestrator] Search completed, got {len(search_results) if search_results else 0} results")
         
         # Run OOP optimization
         optimized = await self._run_oop_optimization(
