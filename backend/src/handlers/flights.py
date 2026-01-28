@@ -233,84 +233,78 @@ def serp_route_to_leg_map(route_json):
     return by_leg
 
 
-# ==== AwardTool (Panorama prune → single multi-program realtime) ====
+# ==== AwardTool (priming + polling API) ====
 async def _awardtool_realtime(
     origin, destination, date_str, cabins, pax, programs, client
 ):
-    if not AWARD_TOOL_API_KEY:
-        logger.warning("AWARD_TOOL_API_KEY not set; AwardTool request for [%s]->[%s] may fail", origin, destination)
-
-    k = key_award(origin, destination, date_str, cabins, pax, programs)
-    cached = get_json(k)
-    if cached:
-        # Only use cache if it has valid data (not an error response)
-        if cached.get("data") and not cached.get("error") and not cached.get("error_message"):
-            logger.debug("AwardTool [%s]->[%s] date=%s: cache hit (data_items=%d)", origin, destination, date_str, len(cached.get("data", [])))
-            return cached
-        else:
-            logger.debug("AwardTool [%s]->[%s] date=%s: cache contains error/empty, refetching", origin, destination, date_str)
-
-    n_prog = len(programs) if programs else 0
-    logger.info("AwardTool [%s]->[%s] date=%s: requesting (programs=%d, cabins=%s, pax=%s)", origin, destination, date_str, n_prog, cabins, pax)
+    """
+    Fetch award flights using AwardTool API with priming + polling.
     
-    # Try with full program list first
-    body = await _awardtool_request(origin, destination, date_str, cabins, pax, programs, client)
+    Uses the two-phase architecture:
+    1. Priming: Initiates async search across airline programs
+    2. Polling: Retrieves incremental results until complete
     
-    # If error or no data, retry with a smaller subset of common programs
-    data = body.get("data", []) if isinstance(body, dict) else []
-    err = body.get("error") or body.get("error_message") or body.get("message") if isinstance(body, dict) else None
-    
-    if (err or not data) and len(programs) > 10:
-        # Retry with most common programs only (these have the best availability)
-        common_programs = ["DL", "AA", "UA", "AS", "BA", "VS", "AF", "NH", "CX", "SQ"]
-        filtered_programs = [p for p in common_programs if p in programs] or common_programs[:5]
-        logger.info("AwardTool [%s]->[%s] date=%s: retrying with reduced programs: %s", origin, destination, date_str, filtered_programs)
-        body = await _awardtool_request(origin, destination, date_str, cabins, pax, filtered_programs, client)
-        data = body.get("data", []) if isinstance(body, dict) else []
-        err = body.get("error") or body.get("error_message") if isinstance(body, dict) else None
-
-    logger.info("AwardTool [%s]->[%s] date=%s: data_items=%d%s", origin, destination, date_str, len(data), f", error={err}" if err else "")
-    
-    # Only cache successful responses with data - don't cache errors!
-    if data and not err:
-        set_json(k, body, TTL_AWARD)
-    elif err:
-        logger.warning("AwardTool [%s]->[%s] date=%s: API error (not caching): %s", origin, destination, date_str, err)
-    
-    return body
-
-
-async def _awardtool_request(origin, destination, date_str, cabins, pax, programs, client):
-    """Make a single AwardTool API request (or return dummy data if enabled)."""
-    
-    # Check if dummy mode is enabled
+    Falls back to dummy data if AWARDTOOL_API_KEY is not set.
+    """
+    # Use dummy data if in dummy mode (no API key or explicitly enabled)
     if is_awardtool_dummy_mode():
         from src.handlers.awardtool_dummy import generate_dummy_flight_data
         logger.info("[DUMMY MODE] Returning dummy flight data for %s->%s on %s", origin, destination, date_str)
         return generate_dummy_flight_data(origin, destination, date_str, cabins, programs, int(pax))
     
-    # Live API request
-    payload = {
-        "origin": origin,
-        "destination": destination,
-        "programs": [p.upper() for p in programs],
-        "cabins": cabins,
-        "date": date_str,
-        "pax": str(pax),
-        "api_key": AWARD_TOOL_API_KEY,
-    }
+    from src.handlers.awardtool_v2 import search_award_flights_v2, convert_v2_result_to_v1_format
+    
+    # Check cache first
+    k = key_award(origin, destination, date_str, cabins, pax, programs)
+    cached = get_json(k)
+    if cached:
+        if cached.get("data") and not cached.get("error") and not cached.get("error_message"):
+            logger.debug("AwardTool [%s]->[%s] date=%s: cache hit (data_items=%d)", origin, destination, date_str, len(cached.get("data", [])))
+            return cached
+        else:
+            logger.debug("AwardTool [%s]->[%s] date=%s: cache contains error/empty, refetching", origin, destination, date_str)
+    
+    n_prog = len(programs) if programs else 0
+    logger.info("AwardTool [%s]->[%s] date=%s: requesting (programs=%d, cabins=%s, pax=%s)", origin, destination, date_str, n_prog, cabins, pax)
+    
     try:
-        r = await client.post(
-            "https://www.awardtool-api.com/search_real_time", json=payload, timeout=TIMEOUT
+        # Execute search with priming + polling
+        # Config is read from env vars in awardtool_v2.py:
+        #   AWARDTOOL_POLL_INTERVAL (default: 5s)
+        #   AWARDTOOL_MAX_POLL_TIME (default: 60s)
+        #   AWARDTOOL_PROGRAM_BATCH_SIZE (default: 3)
+        result = await search_award_flights_v2(
+            origin=origin,
+            destination=destination,
+            date=date_str,
+            cabins=cabins,
+            pax=pax,
+            programs=programs,
+            api_key=AWARD_TOOL_API_KEY,
         )
-        r.raise_for_status()
-        return r.json()
-    except httpx.HTTPStatusError as e:
-        err_body = (e.response.text or "")[:500]
-        logger.warning("AwardTool [%s]->[%s] date=%s: HTTP %s, body=%s", origin, destination, date_str, e.response.status_code, err_body)
-        return {"error": str(e), "data": []}
+        
+        # Convert result format for compatibility with _merge_award_edges
+        body = convert_v2_result_to_v1_format(result)
+        
+        data = body.get("data", [])
+        err = result.error
+        
+        logger.info(
+            "AwardTool [%s]->[%s] date=%s: data_items=%d finished=%s polls=%d%s",
+            origin, destination, date_str, len(data), result.finished, result.total_polls,
+            f", error={err}" if err else ""
+        )
+        
+        # Cache successful responses with data
+        if data and not err:
+            set_json(k, body, TTL_AWARD)
+        elif err:
+            logger.warning("AwardTool [%s]->[%s] date=%s: API error (not caching): %s", origin, destination, date_str, err)
+        
+        return body
+        
     except Exception as e:
-        logger.warning("AwardTool [%s]->[%s] date=%s: %s", origin, destination, date_str, e)
+        logger.error("AwardTool [%s]->[%s] date=%s: exception: %s", origin, destination, date_str, str(e))
         return {"error": str(e), "data": []}
 
 
