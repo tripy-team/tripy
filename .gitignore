@@ -89,3 +89,7 @@ infra/cdk*
 
 # Data files
 data/
+.env
+
+# Test config (contains credentials)
+test-config.sh

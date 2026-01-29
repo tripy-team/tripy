@@ -272,10 +272,17 @@ def plan_non_pooled_multi_itineraries_with_native(
 
     for p in T:
         s0, t0 = start_city[p], end_city[p]
-        m += out_deg(p, s0) == 1
-        m += in_deg(p, s0) == 0
-        m += in_deg(p, t0) == 1
-        m += out_deg(p, t0) == 0
+        if s0 == t0:
+            # Round trip: start and end at same city
+            # Leave once, return once (flow balanced)
+            m += out_deg(p, s0) == 1
+            m += in_deg(p, s0) == 1
+        else:
+            # One-way trip: leave start, arrive at end
+            m += out_deg(p, s0) == 1
+            m += in_deg(p, s0) == 0
+            m += in_deg(p, t0) == 1
+            m += out_deg(p, t0) == 0
         for c in cities:
             if c in (s0, t0):
                 continue

@@ -4,7 +4,7 @@ import os
 import uuid
 import logging
 import re
-from datetime import datetime
+from datetime import datetime, timedelta
 from typing import Dict, Any, List, Optional, Tuple
 from src.repos import itinerary_repo
 from src.handlers.flights import (
@@ -63,24 +63,39 @@ def _normalize_program_to_transfer_key(program: str) -> str:
     s = (program or "").strip().lower()
     
     # Bank mappings (lowercase short codes for transfer graph)
+    # Include underscore variants for stored program names like "chase_ultimate_rewards"
     bank_mapping = {
         "amex": "amex",
         "amex membership rewards": "amex",
+        "amex_membership_rewards": "amex",
         "membership rewards": "amex",
+        "membership_rewards": "amex",
+        "amex_mr": "amex",
         "chase": "chase",
         "chase ultimate rewards": "chase",
+        "chase_ultimate_rewards": "chase",
         "ultimate rewards": "chase",
+        "ultimate_rewards": "chase",
+        "chase_ur": "chase",
         "citi": "citi",
         "citi thankyou": "citi",
+        "citi_thankyou": "citi",
         "citi thankyou points": "citi",
+        "citi_thankyou_points": "citi",
         "thankyou": "citi",
         "thankyou points": "citi",
+        "thankyou_points": "citi",
+        "citi_typ": "citi",
         "capital one": "capitalone",
         "capital one miles": "capitalone",
+        "capital_one": "capitalone",
+        "capital_one_miles": "capitalone",
         "capitalone": "capitalone",
         "venture": "capitalone",
+        "c1": "capitalone",
         "bilt": "bilt",
         "bilt rewards": "bilt",
+        "bilt_rewards": "bilt",
     }
     
     # Airline mappings (uppercase 2-letter codes)
@@ -736,6 +751,7 @@ def _normalize_city_to_code(city_name: str) -> Optional[str]:
     - "JFK" -> "JFK"
     - "New York" -> searches for airport
     - "New York (JFK,LGA,EWR)" -> extracts "JFK" (first code)
+    - "Seoul (GMP,ICN)" -> extracts "ICN" (prefers main international airport)
     """
     city_name = city_name.strip()
     
@@ -743,15 +759,55 @@ def _normalize_city_to_code(city_name: str) -> Optional[str]:
     if _is_airport_code(city_name):
         return city_name.upper()
     
-    # Check if it's in format "City (CODE1,CODE2,CODE3)" and extract first code
+    # Check if it's in format "City (CODE1,CODE2,CODE3)" and extract best code
     import re
     code_match = re.search(r'\(([A-Z]{3}(?:,[A-Z]{3})*)\)', city_name.upper())
     if code_match:
-        # Extract first airport code from comma-separated list
-        codes = code_match.group(1).split(',')
-        first_code = codes[0].strip()
-        if _is_airport_code(first_code):
-            return first_code.upper()
+        # Extract all airport codes from comma-separated list
+        codes = [c.strip() for c in code_match.group(1).split(',')]
+        
+        # Prefer main international airports over domestic/secondary
+        # This mapping helps select the best airport for international travel
+        PREFERRED_AIRPORTS = {
+            # Seoul: ICN (Incheon) is main international, GMP (Gimpo) is domestic
+            'ICN': 10, 'GMP': 1,
+            # Tokyo: NRT (Narita) and HND (Haneda) both international
+            'NRT': 10, 'HND': 9,
+            # London: LHR (Heathrow) is main, others secondary
+            'LHR': 10, 'LGW': 7, 'STN': 5, 'LTN': 4, 'SEN': 3,
+            # New York: JFK is main international
+            'JFK': 10, 'EWR': 8, 'LGA': 6,
+            # Paris: CDG is main international
+            'CDG': 10, 'ORY': 7,
+            # Dubai: DXB is main
+            'DXB': 10, 'DWC': 5,
+            # Shanghai: PVG is international, SHA is domestic
+            'PVG': 10, 'SHA': 5,
+            # Beijing: PEK and PKX both international
+            'PEK': 10, 'PKX': 9,
+            # San Francisco: SFO is main
+            'SFO': 10, 'OAK': 6, 'SJC': 5,
+            # Los Angeles: LAX is main
+            'LAX': 10, 'BUR': 5, 'SNA': 5, 'ONT': 4, 'LGB': 3,
+            # Chicago: ORD is main international
+            'ORD': 10, 'MDW': 6,
+            # Washington DC: IAD (Dulles) for international
+            'IAD': 10, 'DCA': 7, 'BWI': 6,
+            # Milan: MXP is main international
+            'MXP': 10, 'LIN': 5, 'BGY': 4,
+            # Rome: FCO is main
+            'FCO': 10, 'CIA': 4,
+        }
+        
+        # Sort by preference (highest first), then by original order for ties
+        def get_priority(code):
+            return (-PREFERRED_AIRPORTS.get(code, 5), codes.index(code))
+        
+        sorted_codes = sorted(codes, key=get_priority)
+        best_code = sorted_codes[0]
+        
+        if _is_airport_code(best_code):
+            return best_code.upper()
     
     # Try to find airport code using city search
     # Remove the airport codes part if present for searching
@@ -786,14 +842,23 @@ def _normalize_city_to_code(city_name: str) -> Optional[str]:
         logger.debug(f"OpenAI airport lookup for {city_name}: {e}")
     
     # If search fails, try to extract code from name (e.g., "New York (JFK)" or "New York (JFK,LGA,EWR)")
-    # Handle both single code and multiple codes
+    # Handle both single code and multiple codes - prefer main international airport
     match = re.search(r'\(([A-Z]{3}(?:,[A-Z]{3})*)\)', city_name.upper())
     if match:
-        # Extract first airport code from comma-separated list
-        codes = match.group(1).split(',')
-        first_code = codes[0].strip()
-        if _is_airport_code(first_code):
-            return first_code.upper()
+        codes = [c.strip() for c in match.group(1).split(',')]
+        # Use same preference logic as above
+        PREFERRED_AIRPORTS = {
+            'ICN': 10, 'GMP': 1, 'NRT': 10, 'HND': 9, 'LHR': 10, 'LGW': 7,
+            'JFK': 10, 'EWR': 8, 'LGA': 6, 'CDG': 10, 'ORY': 7,
+            'DXB': 10, 'DWC': 5, 'PVG': 10, 'SHA': 5, 'SFO': 10, 'OAK': 6,
+            'LAX': 10, 'ORD': 10, 'MDW': 6, 'IAD': 10, 'DCA': 7, 'MXP': 10,
+        }
+        def get_priority(code):
+            return (-PREFERRED_AIRPORTS.get(code, 5), codes.index(code))
+        sorted_codes = sorted(codes, key=get_priority)
+        best_code = sorted_codes[0]
+        if _is_airport_code(best_code):
+            return best_code.upper()
     
     return None
 
@@ -1202,9 +1267,41 @@ def build_oop_optimization_summary(
     total_points = totals.get("airline_points", 0)
     optimization_mode = totals.get("optimization_mode", "oop")
     
-    # Build transfer summary
+    # Build transfer summary with detailed instructions
     transfers = totals.get("transfers", {})
     transfer_summary = []
+    
+    # Bank portal URLs for detailed instructions
+    BANK_PORTAL_URLS = {
+        "chase": "https://ultimaterewardspoints.chase.com/",
+        "amex": "https://global.americanexpress.com/rewards",
+        "citi": "https://www.citi.com/rewards",
+        "capitalone": "https://www.capitalone.com/credit-cards/rewards/",
+        "bilt": "https://www.biltrewards.com/",
+    }
+    
+    # Airline booking URLs
+    AIRLINE_BOOKING_URLS = {
+        "UA": "https://www.united.com/en/us/book-flight/united-awards",
+        "AA": "https://www.aa.com/booking/find-flights",
+        "DL": "https://www.delta.com/flight-search/book-a-flight",
+        "EK": "https://www.emirates.com/us/english/book/",
+        "EY": "https://www.etihad.com/en-us/book/",
+        "SQ": "https://www.singaporeair.com/en_UK/us/plan-travel/your-booking/",
+        "QR": "https://www.qatarairways.com/en-us/book-trip/flights.html",
+        "AC": "https://www.aircanada.com/us/en/aco/home/aeroplan/book.html",
+        "AV": "https://www.avianca.com/us/en/lifemiles/",
+        "VS": "https://www.virginatlantic.com/us/en/book-manage/search-flights.html",
+    }
+    
+    # Transfer time estimates
+    TRANSFER_TIMES_DETAILED = {
+        "chase": {"time": "Instant", "note": "Points typically post within minutes"},
+        "amex": {"time": "1-2 business days", "note": "First-time transfers may take longer"},
+        "citi": {"time": "Instant to 24 hours", "note": "Most transfers are instant"},
+        "capitalone": {"time": "Instant to 2 days", "note": "Partner dependent"},
+        "bilt": {"time": "Instant", "note": "Points post immediately"},
+    }
     
     for traveler, by_source in transfers.items():
         for source, by_airline in (by_source or {}).items():
@@ -1216,15 +1313,53 @@ def build_oop_optimization_summary(
                     # Get bank metadata
                     bank_name = _HUMANIZE_BANK.get(source.lower(), source)
                     airline_name = _HUMANIZE_AIRLINE.get(airline.upper(), airline)
+                    bank_lower = source.lower()
+                    airline_upper = airline.upper()
+                    
+                    # Get URLs and timing
+                    portal_url = BANK_PORTAL_URLS.get(bank_lower, "")
+                    booking_url = AIRLINE_BOOKING_URLS.get(airline_upper, "")
+                    transfer_timing = TRANSFER_TIMES_DETAILED.get(bank_lower, {"time": "1-2 business days", "note": ""})
+                    
+                    # Calculate transfer ratio string
+                    if source_points > 0:
+                        ratio_val = delivered_points / source_points
+                        if abs(ratio_val - 1.0) < 0.01:
+                            ratio_str = "1:1"
+                        elif ratio_val >= 1.0:
+                            ratio_str = f"1:{ratio_val:.1f}" if ratio_val != int(ratio_val) else f"1:{int(ratio_val)}"
+                        else:
+                            ratio_str = f"{1/ratio_val:.1f}:1"
+                    else:
+                        ratio_str = "1:1"
+                    
+                    # Build step-by-step transfer instructions
+                    transfer_steps = [
+                        f"1. Log in to your {bank_name} account at {portal_url}" if portal_url else f"1. Log in to your {bank_name} account",
+                        f"2. Navigate to 'Transfer Points' or 'Transfer to Partners'",
+                        f"3. Select '{airline_name}' from the list of transfer partners",
+                        f"4. Enter your {airline_name} membership number (create a free account if you don't have one)",
+                        f"5. Enter {source_points:,} points to transfer",
+                        f"6. Confirm the transfer - you will receive {int(delivered_points):,} {airline_name} points ({ratio_str} ratio)",
+                        f"7. Wait for transfer to complete ({transfer_timing['time']})",
+                    ]
+                    if booking_url:
+                        transfer_steps.append(f"8. Once points arrive, book at {booking_url}")
                     
                     transfer_summary.append({
-                        "from_bank": source.lower(),
+                        "from_bank": bank_lower,
                         "from_bank_name": bank_name,
-                        "to_program": airline.upper(),
+                        "to_program": airline_upper,
                         "to_program_name": airline_name,
                         "points_to_transfer": source_points,
                         "points_received": int(delivered_points),
-                        "transfer_ratio": f"1:{int(delivered_points/source_points)}" if source_points else "1:1",
+                        "transfer_ratio": ratio_str,
+                        "portal_url": portal_url,
+                        "booking_url": booking_url,
+                        "transfer_time": transfer_timing["time"],
+                        "transfer_note": transfer_timing["note"],
+                        "transfer_steps": transfer_steps,
+                        "for_traveler": traveler,
                     })
     
     # Build payment breakdown
@@ -1266,38 +1401,200 @@ def build_oop_optimization_summary(
                         "cash_alternative": payment.get("cash_alternative", 0),
                     })
     
-    # Generate booking order instructions
+    # Generate booking order instructions with detailed steps
     booking_order = []
     step = 1
     
-    # Step 1: Transfers (do first)
-    for xfer in transfer_summary:
+    # Step 1: Transfers (do first, before booking flights)
+    if transfer_summary:
+        # Add a header explaining why transfers come first
         booking_order.append({
             "step": step,
-            "type": "transfer",
-            "action": f"Transfer {xfer['points_to_transfer']:,} points from {xfer['from_bank_name']} to {xfer['to_program_name']}",
-            "details": f"You'll receive {xfer['points_received']:,} {xfer['to_program_name']} points",
-            "timing": _get_transfer_timing(xfer['from_bank']),
+            "type": "header",
+            "action": "STEP 1: Transfer Points (do this first!)",
+            "details": f"Transfer points from your credit card programs to airline partners. Total: {sum(x['points_to_transfer'] for x in transfer_summary):,} points across {len(transfer_summary)} transfer(s).",
+            "timing": "Do this 1-2 days before booking to ensure points arrive",
         })
         step += 1
     
-    # Step 2: Book flights
+    for xfer in transfer_summary:
+        # Build detailed transfer instruction
+        points_to_transfer = xfer['points_to_transfer']
+        points_received = xfer['points_received']
+        bank_name = xfer['from_bank_name']
+        program_name = xfer['to_program_name']
+        ratio = xfer['transfer_ratio']
+        transfer_time = xfer.get('transfer_time', '1-2 business days')
+        portal_url = xfer.get('portal_url', '')
+        
+        booking_order.append({
+            "step": step,
+            "type": "transfer",
+            "action": f"Transfer {points_to_transfer:,} {bank_name} points → {points_received:,} {program_name} miles",
+            "details": f"Transfer ratio: {ratio}. Log in at {portal_url}" if portal_url else f"Transfer ratio: {ratio}",
+            "timing": transfer_time,
+            "transfer_steps": xfer.get('transfer_steps', []),
+            "points_summary": {
+                "source_program": bank_name,
+                "target_program": program_name,
+                "points_to_transfer": points_to_transfer,
+                "points_received": points_received,
+                "ratio": ratio,
+            }
+        })
+        step += 1
+    
+    # Add a header for flight bookings
+    if payment_breakdown:
+        booking_order.append({
+            "step": step,
+            "type": "header",
+            "action": "STEP 2: Book Flights",
+            "details": f"After transfers complete, book your {len(payment_breakdown)} flight segment(s).",
+            "timing": "After transfer points arrive in your account",
+        })
+        step += 1
+    
+    # Step 2: Book flights with detailed instructions
     for payment in payment_breakdown:
+        segment = payment['segment']
+        
         if payment["payment_type"] == "points":
+            points_used = payment['points_used']
+            program = payment.get('program', '')
+            program_name = payment.get('program_name', '')
+            cash_paid = payment['cash_paid']
+            cash_alternative = payment.get('cash_alternative', 0)
+            cpp_value = payment.get('cpp_value', 0)
+            
+            # Calculate value gained from using points
+            value_gained = cash_alternative - cash_paid if cash_alternative > cash_paid else 0
+            
             booking_order.append({
                 "step": step,
                 "type": "book_flight",
-                "action": f"Book {payment['segment']} with {payment['points_used']:,} {payment.get('program_name', '')} miles",
-                "details": f"Pay ${payment['cash_paid']:.2f} in taxes/fees",
+                "action": f"Book {segment} with {points_used:,} {program_name} miles + ${cash_paid:.2f} taxes",
+                "details": f"This would cost ${cash_alternative:.2f} in cash. You're saving ${value_gained:.2f} ({cpp_value:.2f} cents/point value)." if cash_alternative > 0 else f"Pay ${cash_paid:.2f} in taxes/fees",
+                "points_summary": {
+                    "miles_required": points_used,
+                    "program": program_name,
+                    "taxes_fees": round(cash_paid, 2),
+                    "cash_alternative": round(cash_alternative, 2),
+                    "savings": round(value_gained, 2),
+                    "cpp_value": round(cpp_value, 2),
+                }
             })
         else:
+            cash_paid = payment['cash_paid']
             booking_order.append({
                 "step": step,
                 "type": "book_flight",
-                "action": f"Book {payment['segment']} with cash",
-                "details": f"Pay ${payment['cash_paid']:.2f}",
+                "action": f"Book {segment} with cash: ${cash_paid:.2f}",
+                "details": f"Pay ${cash_paid:.2f} (cash booking was more cost-effective for this segment)",
             })
         step += 1
+    
+    # Build consolidated transfer plan with totals
+    transfer_plan = {
+        "total_transfers": len(transfer_summary),
+        "total_points_to_transfer": sum(x['points_to_transfer'] for x in transfer_summary),
+        "total_miles_received": sum(x['points_received'] for x in transfer_summary),
+        "by_source": {},  # Grouped by source bank
+        "estimated_total_time": "Instant" if all(
+            x.get('transfer_time', '').lower() == 'instant' for x in transfer_summary
+        ) else "1-2 business days",
+        "transfers": transfer_summary,
+    }
+    
+    # Group transfers by source bank for easy display
+    for xfer in transfer_summary:
+        bank = xfer['from_bank_name']
+        if bank not in transfer_plan['by_source']:
+            transfer_plan['by_source'][bank] = {
+                "total_points": 0,
+                "transfers_to": [],
+            }
+        transfer_plan['by_source'][bank]['total_points'] += xfer['points_to_transfer']
+        transfer_plan['by_source'][bank]['transfers_to'].append({
+            "program": xfer['to_program_name'],
+            "points": xfer['points_to_transfer'],
+            "miles_received": xfer['points_received'],
+            "ratio": xfer['transfer_ratio'],
+        })
+    
+    # Generate human-readable transfer strategy text
+    if transfer_summary:
+        strategy_parts = []
+        for bank, data in transfer_plan['by_source'].items():
+            transfers_desc = ", ".join([
+                f"{t['points']:,} → {t['program']} ({t['miles_received']:,} miles)" 
+                for t in data['transfers_to']
+            ])
+            strategy_parts.append(f"From {bank}: Transfer {data['total_points']:,} points ({transfers_desc})")
+        transfer_plan['strategy_text'] = " | ".join(strategy_parts)
+    else:
+        transfer_plan['strategy_text'] = "No transfers needed - using existing airline miles or cash only"
+    
+    # NEW: Build explicit transfer action items with credit card, points, and destination
+    transfer_action_items = []
+    for xfer in transfer_summary:
+        from_bank = xfer.get('from_bank', '')
+        from_bank_name = xfer.get('from_bank_name', from_bank)
+        to_program = xfer.get('to_program', '')
+        to_program_name = xfer.get('to_program_name', to_program)
+        pts = xfer.get('points_to_transfer', 0)
+        miles_received = xfer.get('points_received', 0)
+        ratio = xfer.get('transfer_ratio', '1:1')
+        portal_url = xfer.get('portal_url', '')
+        transfer_time = xfer.get('transfer_time', 'varies')
+        
+        # Determine if this is airline or hotel
+        program_type = "airline"
+        if to_program.upper() in ['HYATT', 'HH', 'MAR', 'IHG', 'ACC', 'WYNDHAM']:
+            program_type = "hotel"
+        
+        # Get credit card name suggestion
+        credit_card_suggestion = {
+            'chase': 'Chase Sapphire Preferred/Reserve or Chase Ink Preferred',
+            'amex': 'Amex Platinum, Amex Gold, or Amex Business Platinum',
+            'citi': 'Citi Premier or Citi Custom Cash',
+            'capitalone': 'Capital One Venture X or Venture',
+            'bilt': 'Bilt Mastercard',
+        }.get(from_bank.lower(), from_bank_name)
+        
+        transfer_action_items.append({
+            # Clear, explicit fields
+            "credit_card": credit_card_suggestion,
+            "bank_program": from_bank_name,
+            "points_to_transfer": pts,
+            "destination_program": to_program_name,
+            "destination_code": to_program.upper(),
+            "miles_received": miles_received,
+            "transfer_ratio": ratio,
+            "program_type": program_type,  # "airline" or "hotel"
+            "transfer_time": transfer_time,
+            "portal_url": portal_url,
+            # Human-readable summary
+            "action_text": f"Transfer {pts:,} points from {credit_card_suggestion} to {to_program_name}",
+            "details_text": f"You will receive {miles_received:,} {to_program_name} miles (ratio: {ratio}, time: {transfer_time})",
+        })
+    
+    # Build a consolidated transfer strategy summary text
+    if transfer_action_items:
+        transfer_strategy_detailed = []
+        for item in transfer_action_items:
+            transfer_strategy_detailed.append(
+                f"• {item['action_text']} ({item['transfer_ratio']} ratio, {item['transfer_time']})"
+            )
+        transfer_plan['detailed_strategy'] = "\n".join(transfer_strategy_detailed)
+        
+        # Grand total summary
+        total_pts = sum(x['points_to_transfer'] for x in transfer_action_items)
+        total_miles = sum(x['miles_received'] for x in transfer_action_items)
+        transfer_plan['grand_total_text'] = f"TOTAL: Transfer {total_pts:,} credit card points → Receive {total_miles:,} airline/hotel miles"
+    else:
+        transfer_plan['detailed_strategy'] = "No transfers needed"
+        transfer_plan['grand_total_text'] = "No point transfers required for this trip"
     
     return {
         "optimization_mode": optimization_mode,
@@ -1315,7 +1612,9 @@ def build_oop_optimization_summary(
             "flights_with_cash": flights_with_cash,
             "points_usage_rate": flights_with_points / (flights_with_points + flights_with_cash) if (flights_with_points + flights_with_cash) > 0 else 0,
         },
-        "transfer_summary": transfer_summary,
+        "transfer_plan": transfer_plan,  # Consolidated transfer plan
+        "transfer_action_items": transfer_action_items,  # NEW: Explicit transfer actions with credit card details
+        "transfer_summary": transfer_summary,  # Keep for backwards compatibility
         "payment_breakdown": payment_breakdown,
         "booking_order": booking_order,
         "user_points_remaining": _calculate_remaining_points(user_points, transfer_summary),
@@ -3096,7 +3395,10 @@ def _generate_japan_easter_egg_itinerary(trip_id: str) -> Dict[str, Any]:
     }
 
 
-async def generate_optimized_itinerary(trip_id: str) -> Dict[str, Any]:
+async def generate_optimized_itinerary(
+    trip_id: str, 
+    optimization_mode: str = "money_saving"
+) -> Dict[str, Any]:
     """
     Generate optimized itinerary using points maximization algorithm.
     
@@ -3108,9 +3410,22 @@ async def generate_optimized_itinerary(trip_id: str) -> Dict[str, Any]:
     5. Runs ILP optimization to maximize points value
     6. Saves and returns the optimized itinerary
     
+    Args:
+        trip_id: The trip ID to optimize
+        optimization_mode: One of:
+            - "cpp_focused": Only use points when cpp > 1.0 (above market value)
+            - "money_saving": Use points whenever cpp > 0 (prioritize cash reduction)
+            - "balanced": Optimize cpp adjusted by travel time and stops
+            - "oop": Legacy alias for "money_saving"
+            - "cpp": Legacy alias for "cpp_focused"
+    
     Raises:
         ValueError: If trip data is invalid, missing required fields, or optimization fails
     """
+    # Validate optimization mode
+    valid_modes = {"cpp_focused", "money_saving", "balanced", "oop", "cpp"}
+    if optimization_mode not in valid_modes:
+        raise ValueError(f"Invalid optimization_mode '{optimization_mode}'. Must be one of: {valid_modes}")
     if plan_maximize_points_value is None:
         raise ValueError(
             "Optimized itineraries are not available in this environment because the "
@@ -3479,11 +3794,11 @@ async def generate_optimized_itinerary(trip_id: str) -> Dict[str, Any]:
         max_budget = None
     default_cash_budget = (max_budget // len(travelers)) if (max_budget and len(travelers)) else 1e9
 
-    # 7. Run ILP optimization using OOP (Out-Of-Pocket) mode
-    # plan_maximize_points_value (points_maximizer.py) with optimization_mode="oop":
-    # - Prioritizes minimizing total cash paid (cash bookings + surcharges)
-    # - Uses points whenever they reduce out-of-pocket costs (no CPP threshold)
-    # - Differs from "cpp" mode which only uses points if CPP >= 1.0 cent
+    # 7. Run ILP optimization using the selected mode
+    # plan_maximize_points_value (points_maximizer.py) supports three strategies:
+    # - "cpp_focused": Only use points when cpp > 1.0 (above market value)
+    # - "money_saving": Use points whenever cpp > 0 (prioritize cash reduction)  
+    # - "balanced": Optimize cpp adjusted by travel time and stops
     # When benefit_airlines is set, also adds W_benefit * bag_fee per passenger when payer's card gives free bags on that flight.
     relaxed_message: Optional[str] = None
     try:
@@ -3493,7 +3808,7 @@ async def generate_optimized_itinerary(trip_id: str) -> Dict[str, Any]:
             start_city_by_trav,
             end_city_by_trav,
             user_points_by_trav,
-            plan_maximize_points_value,  # OOP mode: minimize out-of-pocket, use points aggressively
+            plan_maximize_points_value,
             meetup_cities=[],  # No meetup cities for now
             require_meetup_in_graph=False,
             must_visit_cities=city_codes,  # Each visited exactly once; optimizer chooses order to reduce cost
@@ -3505,7 +3820,7 @@ async def generate_optimized_itinerary(trip_id: str) -> Dict[str, Any]:
             default_time_if_missing=1e6,
             default_cash_budget=default_cash_budget,
             benefit_airlines=benefit_airlines,
-            optimization_mode="oop",  # Minimize out-of-pocket (not CPP)
+            optimization_mode=optimization_mode,  # User-selected optimization strategy
         )
         
         status = solution.get("status", "Unknown")
@@ -3573,7 +3888,7 @@ async def generate_optimized_itinerary(trip_id: str) -> Dict[str, Any]:
                                 default_time_if_missing=1e6,
                                 default_cash_budget=try_budget,
                                 benefit_airlines=benefit_airlines,
-                                optimization_mode="oop",  # Minimize out-of-pocket
+                                optimization_mode=optimization_mode,  # Use same mode
                             )
                             if sol_retry.get("status") == "Optimal" and any((sol_retry.get("path") or {}).values()):
                                 relaxed_solution = sol_retry
@@ -3583,7 +3898,7 @@ async def generate_optimized_itinerary(trip_id: str) -> Dict[str, Any]:
                                     f"We found a route with a budget of ${int(try_total_budget):,} (total cash: ${tot:,.0f}). "
                                     f"Consider increasing your budget to at least ${int(try_total_budget):,} or adding more points."
                                 )
-                                logger.info("Infeasible: found solution with %s budget (${:,.0f})", attempt_label, try_total_budget)
+                                logger.info(f"Infeasible: found solution with {attempt_label} budget (${try_total_budget:,.0f})")
                                 break
                         except Exception as retry_err:
                             logger.debug("Relaxed budget retry (%s, $%s) failed: %s", attempt_label, try_total_budget, retry_err)
@@ -3668,11 +3983,18 @@ async def generate_optimized_itinerary(trip_id: str) -> Dict[str, Any]:
         if path:
             requested = set(_dest)
             # When the end is a real destination (not return-to-origin), include it so it gets stay days (e.g. JFK→DOH→HKG: 9 days in HKG).
-            if len(path) >= 2 and (path[-1] or "").upper() != (path[0] or "").upper():
+            is_round_trip = len(path) >= 2 and (path[-1] or "").upper() == (path[0] or "").upper()
+            if len(path) >= 2 and not is_round_trip:
                 requested.add((path[-1] or "").upper())
+            
+            # For stay/transit calculation, exclude the return-to-origin in round trips
+            # path[1:] for one-way: all cities after start
+            # path[1:-1] for round trip: cities between start and return-to-start
+            cities_to_consider = path[1:-1] if is_round_trip and len(path) > 2 else path[1:]
+            
             # Stays = path nodes after origin that are in requested (path order). Transit stops are excluded.
-            stays = [c for c in path[1:] if (c or "").upper() in requested]
-            transit = [c for c in path[1:] if (c or "").upper() not in requested]
+            stays = [c for c in cities_to_consider if (c or "").upper() in requested]
+            transit = [c for c in cities_to_consider if (c or "").upper() not in requested]
             if transit:
                 logger.info(f"Route includes transit cities (0 days each): {transit}")
 
@@ -3854,6 +4176,77 @@ async def generate_optimized_itinerary(trip_id: str) -> Dict[str, Any]:
         }
         itinerary_items.append(oop_h_item)
 
+    # Hotel calendar recommendations: fetch for each destination city (multi-city trips)
+    # This provides accurate points/cash pricing using the hotel_calendar API
+    hotel_recommendations_payload: Optional[Dict[str, Any]] = None
+    if trip.get("includeHotels", True) and city_codes:
+        try:
+            from src.handlers.hotels import search_hotels_with_calendar
+            
+            # Calculate stay duration per city (from day allocation)
+            path_cities = []
+            for traveler_id, path in solution.get("path", {}).items():
+                if path and len(path) > 1:
+                    # For round trips, exclude start/end cities
+                    is_round_trip = len(path) >= 2 and path[0] == path[-1]
+                    path_cities = path[1:-1] if is_round_trip else path[1:]
+                    break
+            
+            # Build hotel recommendations for each destination
+            hotel_recs_by_city = {}
+            total_trip_days = (datetime.strptime(end_date.strip(), "%Y-%m-%d") - datetime.strptime(start_date.strip(), "%Y-%m-%d")).days
+            days_per_city = max(1, total_trip_days // max(len(city_codes), 1))
+            
+            # Get city names for hotel search
+            dest_names = {d.get("code"): d.get("cityName") or d.get("name") for d in destinations if d.get("code")}
+            
+            for city_code in city_codes:
+                city_name = dest_names.get(city_code, city_code)
+                
+                # Calculate check-in/check-out dates for this city
+                # Simple allocation: distribute days evenly
+                city_idx = city_codes.index(city_code)
+                city_start = datetime.strptime(start_date.strip(), "%Y-%m-%d") + timedelta(days=city_idx * days_per_city)
+                city_end = city_start + timedelta(days=days_per_city)
+                
+                try:
+                    result = await search_hotels_with_calendar(
+                        destination=city_name,
+                        check_in=city_start.strftime("%Y-%m-%d"),
+                        check_out=city_end.strftime("%Y-%m-%d"),
+                        top_hotels=3,
+                    )
+                    
+                    if result and not result.get("error"):
+                        hotel_recs_by_city[city_code] = {
+                            "city": city_name,
+                            "check_in": city_start.strftime("%Y-%m-%d"),
+                            "check_out": city_end.strftime("%Y-%m-%d"),
+                            "nights": days_per_city,
+                            "recommendations": result.get("recommendations"),
+                            "hotels": result.get("calendar_enriched", []),
+                        }
+                        logger.info(f"Hotel recommendations for {city_name}: {len(result.get('calendar_enriched', []))} options")
+                except Exception as e:
+                    logger.warning(f"Failed to get hotel recommendations for {city_name}: {e}")
+            
+            if hotel_recs_by_city:
+                hotel_recommendations_payload = {
+                    "cities": hotel_recs_by_city,
+                    "total_cities": len(hotel_recs_by_city),
+                }
+                
+                hotel_recs_item = {
+                    "tripId": trip_id,
+                    "itemId": "hotel_recommendations",
+                    "type": "hotel_recommendations",
+                    **hotel_recommendations_payload,
+                }
+                itinerary_items.append(hotel_recs_item)
+                logger.info(f"Added hotel recommendations for {len(hotel_recs_by_city)} cities")
+        except Exception as e:
+            logger.warning(f"Hotel calendar recommendations failed: {e}")
+
     # When we used relaxed budget or best-effort path, add an info item and flag the response
     if relaxed_message:
         relaxed_info = {
@@ -3894,6 +4287,8 @@ async def generate_optimized_itinerary(trip_id: str) -> Dict[str, Any]:
     }
     if oop_hotels_payload is not None:
         out["out_of_pocket_hotels"] = oop_hotels_payload
+    if hotel_recommendations_payload is not None:
+        out["hotel_recommendations"] = hotel_recommendations_payload
     if relaxed_message:
         out["relaxed_constraints"] = True
         out["relaxed_message"] = relaxed_message

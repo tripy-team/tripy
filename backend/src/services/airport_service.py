@@ -2,14 +2,20 @@
 Airport Service - CSV-based airport search and autocomplete
 Reads from airports.csv file and provides search functionality.
 Uses is_commercial_airport to exclude non-commercial airports (e.g. FXL).
+
+OPTIMIZED: Pre-built search indexes for fast prefix matching and response caching.
 """
 import csv
 import os
-from typing import List, Dict, Any, Optional
+import threading
+from collections import defaultdict
+from functools import lru_cache
+from typing import List, Dict, Any, Optional, Set, Tuple
 from pathlib import Path
 import logging
+import time
 
-from ..handlers.airport_filter import is_commercial_airport
+from ..handlers.airport_filter import is_commercial_airport, get_commercial_airport_set
 
 logger = logging.getLogger(__name__)
 
@@ -19,8 +25,16 @@ AIRPORTS_CSV_PATH = Path(__file__).parent.parent.parent / "files" / "airports.cs
 # Cache for loaded airports
 _airports_cache: Optional[List[Dict[str, Any]]] = None
 
-# Cache for commercial airport set
-_commercial_airport_set: Optional[set] = None
+# Optimized search indexes - built once at startup
+_iata_index: Dict[str, Dict[str, Any]] = {}  # IATA code -> airport
+_city_prefix_index: Dict[str, List[Dict[str, Any]]] = defaultdict(list)  # City prefix -> airports
+_airport_name_prefix_index: Dict[str, List[Dict[str, Any]]] = defaultdict(list)  # Airport name prefix -> airports
+_indexes_built = False
+_index_lock = threading.Lock()
+
+# Response cache with TTL
+_response_cache: Dict[str, Tuple[List[Dict[str, Any]], float]] = {}
+_CACHE_TTL_SECONDS = 300  # 5 minutes
 
 
 def normalize_query(query: str) -> str:
@@ -83,6 +97,97 @@ def load_airports_from_csv() -> List[Dict[str, Any]]:
     except Exception as e:
         logger.error(f"Error loading airports from CSV: {e}", exc_info=True)
         return []
+
+
+def _build_search_indexes():
+    """
+    Build optimized search indexes for fast prefix matching.
+    Called once at startup.
+    """
+    global _iata_index, _city_prefix_index, _airport_name_prefix_index, _indexes_built
+    
+    if _indexes_built:
+        return
+    
+    with _index_lock:
+        if _indexes_built:
+            return
+        
+        airports = load_airports_from_csv()
+        commercial_set = get_commercial_airport_set()
+        
+        start_time = time.time()
+        
+        for airport in airports:
+            iata = airport.get("iata_code", "").upper()
+            city = (airport.get("city") or "").upper()
+            airport_name = (airport.get("airport_name") or "").upper()
+            
+            # Skip non-commercial airports in index
+            if commercial_set and not is_commercial_airport(iata, commercial_set):
+                continue
+            
+            # Index by IATA code (exact lookup)
+            _iata_index[iata] = airport
+            
+            # Index by city prefixes (for fast prefix search)
+            for i in range(1, min(len(city) + 1, 8)):  # Index prefixes up to 7 chars
+                prefix = city[:i]
+                _city_prefix_index[prefix].append(airport)
+            
+            # Also index words within city names (e.g., "YORK" for "NEW YORK")
+            for word in city.split():
+                if len(word) >= 2:
+                    for i in range(1, min(len(word) + 1, 6)):
+                        prefix = word[:i]
+                        if prefix not in _city_prefix_index or airport not in _city_prefix_index[prefix]:
+                            _city_prefix_index[prefix].append(airport)
+            
+            # Index by airport name prefixes
+            for i in range(1, min(len(airport_name) + 1, 6)):
+                prefix = airport_name[:i]
+                _airport_name_prefix_index[prefix].append(airport)
+        
+        _indexes_built = True
+        elapsed = time.time() - start_time
+        logger.info(f"Built search indexes in {elapsed:.3f}s: {len(_iata_index)} airports, {len(_city_prefix_index)} city prefixes")
+
+
+def preload_airport_data():
+    """
+    Preload airport data and build search indexes.
+    Call this at app startup.
+    """
+    def _preload():
+        load_airports_from_csv()
+        _build_search_indexes()
+    
+    thread = threading.Thread(target=_preload, daemon=True)
+    thread.start()
+    logger.info("Started background preload of airport data")
+
+
+def _get_cached_response(cache_key: str) -> Optional[List[Dict[str, Any]]]:
+    """Get response from cache if not expired."""
+    if cache_key in _response_cache:
+        results, timestamp = _response_cache[cache_key]
+        if time.time() - timestamp < _CACHE_TTL_SECONDS:
+            return results
+        # Expired, remove from cache
+        del _response_cache[cache_key]
+    return None
+
+
+def _set_cached_response(cache_key: str, results: List[Dict[str, Any]]):
+    """Store response in cache with timestamp."""
+    # Limit cache size to prevent memory issues
+    if len(_response_cache) > 1000:
+        # Remove oldest entries
+        sorted_keys = sorted(_response_cache.keys(), key=lambda k: _response_cache[k][1])
+        for key in sorted_keys[:500]:
+            del _response_cache[key]
+    
+    _response_cache[cache_key] = (results, time.time())
 
 
 def _safe_float(value: Optional[str]) -> Optional[float]:
@@ -218,122 +323,202 @@ def score_airport(airport: Dict[str, Any], query: str) -> float:
     return score
 
 
-def _get_commercial_airport_set() -> set:
+# Common city abbreviations/nicknames mapped to city names
+CITY_NICKNAMES = {
+    "NYC": "New York",
+    "LA": "Los Angeles",
+    "SF": "San Francisco",
+    "DC": "Washington",
+    "CHI": "Chicago",
+    "PHX": "Phoenix",
+    "PHI": "Philadelphia",
+    "BOS": "Boston",
+    "DFW": "Dallas",
+    "SEA": "Seattle",
+    "MIA": "Miami",
+    "ATL": "Atlanta",
+    "DEN": "Denver",
+    "MSP": "Minneapolis",
+    "DTW": "Detroit",
+    "PDX": "Portland",
+    "SAN": "San Diego",
+    "TPA": "Tampa",
+    "STL": "St. Louis",
+    "BAL": "Baltimore",
+    "LV": "Las Vegas",
+    "NOLA": "New Orleans",
+}
+
+# City nickname expansions for multi-city searches
+CITY_NICKNAME_EXPANSIONS = {
+    "NYC": ["NEW YORK", "NEWARK"],
+    "LA": ["LOS ANGELES"],
+    "SF": ["SAN FRANCISCO"],
+    "DC": ["WASHINGTON"],
+    "CHI": ["CHICAGO"],
+    "PHX": ["PHOENIX"],
+    "PHI": ["PHILADELPHIA"],
+    "DFW": ["DALLAS", "FORT WORTH"],
+    "BOS": ["BOSTON"],
+    "SEA": ["SEATTLE"],
+    "MIA": ["MIAMI"],
+    "ATL": ["ATLANTA"],
+    "DEN": ["DENVER"],
+    "MSP": ["MINNEAPOLIS", "ST PAUL"],
+    "DTW": ["DETROIT"],
+    "PDX": ["PORTLAND"],
+    "SAN": ["SAN DIEGO"],
+    "TPA": ["TAMPA"],
+    "STL": ["ST LOUIS", "SAINT LOUIS"],
+    "BAL": ["BALTIMORE"],
+    "LV": ["LAS VEGAS"],
+    "NOLA": ["NEW ORLEANS"],
+}
+
+
+def _format_airport_result(airport: Dict[str, Any]) -> Dict[str, Any]:
+    """Format an airport dict into the standard result format."""
+    result = {
+        "airport_id": f"{airport['iata_code']},{airport.get('city', '')},{airport.get('country_name', '')}",
+        "iata_code": airport["iata_code"],
+        "airport_name": airport["airport_name"],
+        "city": airport["city"],
+        "country": airport["country_name"],
+        "region": airport.get("state") or airport.get("country", ""),
+        "display_name": f"{airport['iata_code']} - {airport['airport_name']}",
+    }
+    if airport.get("city"):
+        result["display_name"] += f" ({airport['city']})"
+    return result
+
+
+def _fast_search_with_indexes(query_upper: str, max_results: int) -> List[Dict[str, Any]]:
     """
-    Load and cache the set of commercial airport IATA codes.
-    Uses the airport_filter module to determine commercial airports.
+    FAST PATH: Use pre-built indexes for quick results.
+    Returns airports found via index lookup, scored and sorted.
     """
-    global _commercial_airport_set
+    # Ensure indexes are built
+    if not _indexes_built:
+        _build_search_indexes()
     
-    if _commercial_airport_set is not None:
-        return _commercial_airport_set
+    candidates: Set[str] = set()  # Track by IATA to avoid duplicates
+    candidate_airports: List[Dict[str, Any]] = []
     
-    try:
-        from ..handlers.airport_filter import load_commercial_iata_set_from_web
-        _commercial_airport_set = load_commercial_iata_set_from_web()
-        logger.info(f"Loaded {len(_commercial_airport_set)} commercial airports")
-        return _commercial_airport_set
-    except Exception as e:
-        logger.warning(f"Failed to load commercial airport set: {e}. Showing all airports.")
-        # Return empty set to disable filtering if loading fails
-        _commercial_airport_set = set()
-        return _commercial_airport_set
+    # 1. Exact IATA match (highest priority)
+    if query_upper in _iata_index:
+        candidate_airports.append(_iata_index[query_upper])
+        candidates.add(query_upper)
+    
+    # 2. IATA prefix match
+    for iata, airport in _iata_index.items():
+        if iata.startswith(query_upper) and iata not in candidates:
+            candidate_airports.append(airport)
+            candidates.add(iata)
+            if len(candidates) >= max_results * 2:
+                break
+    
+    # 3. City prefix match (expand nicknames first)
+    search_prefixes = [query_upper]
+    if query_upper in CITY_NICKNAME_EXPANSIONS:
+        search_prefixes.extend(CITY_NICKNAME_EXPANSIONS[query_upper])
+    
+    for prefix in search_prefixes:
+        if prefix in _city_prefix_index:
+            for airport in _city_prefix_index[prefix]:
+                iata = airport.get("iata_code", "")
+                if iata not in candidates:
+                    candidate_airports.append(airport)
+                    candidates.add(iata)
+                    if len(candidates) >= max_results * 3:
+                        break
+    
+    # 4. Airport name prefix match
+    if query_upper in _airport_name_prefix_index:
+        for airport in _airport_name_prefix_index[query_upper]:
+            iata = airport.get("iata_code", "")
+            if iata not in candidates:
+                candidate_airports.append(airport)
+                candidates.add(iata)
+                if len(candidates) >= max_results * 3:
+                    break
+    
+    return candidate_airports
 
 
 def search_airports(query: str, max_results: int = 10) -> List[Dict[str, Any]]:
     """
     Search airports based on query string - handles both city names and IATA codes.
     Returns list of commercial airport dictionaries matching the query.
-    For city queries (e.g., "nyc", "New York"), returns all airports for that city.
-    For IATA codes (e.g., "JFK", "CDG"), returns that specific airport.
-    Only includes commercial airports (with scheduled service).
+    
+    OPTIMIZED: Uses pre-built indexes and response caching for fast results.
     """
     if not query or not query.strip():
-        logger.debug(f"Empty query provided to search_airports")
         return []
     
     query_normalized = query.strip()
     query_upper = query_normalized.upper()
     
-    # Check if query looks like an airport code (3 letters)
-    is_likely_airport_code = len(query_normalized) == 3 and query_normalized.replace(" ", "").isalpha()
+    # Check response cache first
+    cache_key = f"search:{query_upper}:{max_results}"
+    cached = _get_cached_response(cache_key)
+    if cached is not None:
+        return cached
     
-    # Common city abbreviations/nicknames that should be treated as cities
-    city_nicknames = {
-        "NYC": "New York",
-        "LA": "Los Angeles",
-        "SF": "San Francisco",
-        "DC": "Washington",
-        "CHI": "Chicago",
-        "PHX": "Phoenix",
-        "PHI": "Philadelphia",
-        "BOS": "Boston",
-        "DFW": "Dallas",
-        "SEA": "Seattle",
-        "MIA": "Miami",
-        "ATL": "Atlanta",
-        "DEN": "Denver",
-        "MSP": "Minneapolis",
-        "DTW": "Detroit",
-        "PDX": "Portland",
-        "SAN": "San Diego",
-        "TPA": "Tampa",
-        "STL": "St. Louis",
-        "BAL": "Baltimore",
-        "LV": "Las Vegas",
-        "NOLA": "New Orleans",
-    }
+    start_time = time.time()
     
-    # PRIORITY 1: Try CSV-based search first (fast, free, no API costs)
+    # FAST PATH: Try index-based search first
     try:
-        logger.info(f"Step 1: Trying CSV search for query '{query_normalized}'")
-        commercial_set = _get_commercial_airport_set()
+        # Use fast index lookup to get candidates
+        candidate_airports = _fast_search_with_indexes(query_upper, max_results)
+        
+        if candidate_airports:
+            # Score and sort candidates
+            search_terms = [query_upper]
+            if query_upper in CITY_NICKNAME_EXPANSIONS:
+                search_terms.extend(CITY_NICKNAME_EXPANSIONS[query_upper])
+            
+            scored_airports = []
+            for airport in candidate_airports:
+                max_score = 0.0
+                for search_term in search_terms:
+                    score = score_airport(airport, search_term)
+                    max_score = max(max_score, score)
+                if max_score > 0:
+                    scored_airports.append((max_score, airport))
+            
+            # Sort by score (descending)
+            scored_airports.sort(key=lambda x: (-x[0], x[1]["iata_code"]))
+            
+            results = [_format_airport_result(airport) for _, airport in scored_airports[:max_results]]
+            
+            if results:
+                elapsed = time.time() - start_time
+                logger.info(f"Fast index search found {len(results)} airports in {elapsed*1000:.1f}ms for '{query_normalized}'")
+                _set_cached_response(cache_key, results)
+                return results
+    except Exception as e:
+        logger.warning(f"Fast index search failed: {e}")
+    
+    # FALLBACK: Full scan with scoring (slower but more thorough)
+    try:
+        commercial_set = get_commercial_airport_set()
         airports = load_airports_from_csv()
         if not airports:
             logger.warning(f"No airports loaded from CSV")
-            raise ValueError("CSV not available")
+            return []
         
-        query_normalized_upper = normalize_query(query)
-        
-        # Expand common city nicknames for better CSV matching
-        city_nickname_expansions = {
-            "NYC": ["NEW YORK", "NEWARK"],
-            "LA": ["LOS ANGELES"],
-            "SF": ["SAN FRANCISCO"],
-            "DC": ["WASHINGTON"],
-            "CHI": ["CHICAGO"],
-            "PHX": ["PHOENIX"],
-            "PHI": ["PHILADELPHIA"],
-            "DFW": ["DALLAS", "FORT WORTH"],
-            "BOS": ["BOSTON"],
-            "SEA": ["SEATTLE"],
-            "MIA": ["MIAMI"],
-            "ATL": ["ATLANTA"],
-            "DEN": ["DENVER"],
-            "MSP": ["MINNEAPOLIS", "ST PAUL"],
-            "DTW": ["DETROIT"],
-            "PDX": ["PORTLAND"],
-            "SAN": ["SAN DIEGO"],
-            "TPA": ["TAMPA"],
-            "STL": ["ST LOUIS", "SAINT LOUIS"],
-            "BAL": ["BALTIMORE"],
-            "LV": ["LAS VEGAS"],
-            "NOLA": ["NEW ORLEANS"],
-        }
-        
-        # Determine search terms (original query + any nickname expansions)
-        search_terms = [query_normalized_upper]
-        if query_normalized_upper in city_nickname_expansions:
-            search_terms.extend(city_nickname_expansions[query_normalized_upper])
+        search_terms = [query_upper]
+        if query_upper in CITY_NICKNAME_EXPANSIONS:
+            search_terms.extend(CITY_NICKNAME_EXPANSIONS[query_upper])
         
         scored_airports = []
         for airport in airports:
             iata_code = airport.get("iata_code", "")
-            # Exclude non-commercial airports (e.g. FXL) using is_commercial_airport
+            # Skip non-commercial airports
             if commercial_set and not is_commercial_airport(iata_code, commercial_set):
                 continue
 
-            # Score against all search terms and take the highest score
+            # Score against all search terms
             max_score = 0.0
             for search_term in search_terms:
                 score = score_airport(airport, search_term)
@@ -342,67 +527,41 @@ def search_airports(query: str, max_results: int = 10) -> List[Dict[str, Any]]:
             if max_score > 0:
                 scored_airports.append((max_score, airport))
         
-        # Sort by score (descending), then by IATA code
         scored_airports.sort(key=lambda x: (-x[0], x[1]["iata_code"]))
         
-        # If CSV found good results, return them
         if scored_airports:
-            results = []
-            for score, airport in scored_airports[:max_results]:
-                result = {
-                    "airport_id": f"{airport['iata_code']},{airport.get('city', '')},{airport.get('country_name', '')}",
-                    "iata_code": airport["iata_code"],
-                    "airport_name": airport["airport_name"],
-                    "city": airport["city"],
-                    "country": airport["country_name"],
-                    "region": airport.get("state") or airport.get("country", ""),
-                    "display_name": f"{airport['iata_code']} - {airport['airport_name']}",
-                }
-                if airport.get("city"):
-                    result["display_name"] += f" ({airport['city']})"
-                results.append(result)
-            
-            logger.info(f"Found {len(results)} airports via CSV (score range: {scored_airports[0][0]}-{scored_airports[-1][0] if len(scored_airports) > 1 else scored_airports[0][0]})")
+            results = [_format_airport_result(airport) for _, airport in scored_airports[:max_results]]
+            elapsed = time.time() - start_time
+            logger.info(f"Full scan found {len(results)} airports in {elapsed*1000:.1f}ms for '{query_normalized}'")
+            _set_cached_response(cache_key, results)
             return results
         
-        # CSV search found no results, continue to fallback
         logger.info(f"CSV search found no results for '{query_normalized}'")
         
     except Exception as e:
         logger.warning(f"CSV search failed for query '{query}': {e}")
     
-    # PRIORITY 2: Try SerpAPI if available (not implemented for airports, but placeholder for consistency)
-    # For now, we skip directly to OpenAI for airports. Destinations use SerpAPI.
+    # LAST RESORT: OpenAI fallback (expensive, slow - avoid if possible)
+    # Only use for truly obscure queries that CSV doesn't cover
+    is_likely_airport_code = len(query_normalized) == 3 and query_normalized.replace(" ", "").isalpha()
     
-    # PRIORITY 3: Try OpenAI as last resort (expensive, slow)
     try:
-        logger.info(f"Step 2: Trying OpenAI search for query '{query_normalized}' (CSV had no results)")
         from ..handlers.openAI import find_commercial_airports_for_city, search_airports_with_openai
         
-        commercial_set = _get_commercial_airport_set()
+        commercial_set = get_commercial_airport_set()
         
-        # If it's a 3-letter code AND it's a valid commercial IATA code, try exact match
-        if is_likely_airport_code and commercial_set and query_upper in commercial_set:
-            logger.info(f"Query '{query_normalized}' is a valid IATA code")
-            airports = search_airports_with_openai(query_upper, max_results=max_results)
-            if commercial_set:
-                airports = [a for a in airports if is_commercial_airport(a.get("iata_code", ""), commercial_set)]
-            if airports:
-                logger.info(f"Found {len(airports)} commercial airports for IATA code '{query_normalized}' via OpenAI")
-                return airports[:max_results]
-        
-        # Check if query is a known city nickname/abbreviation
-        if query_upper in city_nicknames:
-            city_name = city_nicknames[query_upper]
-            logger.info(f"Query '{query_normalized}' is a city nickname, searching for '{city_name}' via OpenAI")
+        # Check if query is a known city nickname
+        if query_upper in CITY_NICKNAMES:
+            city_name = CITY_NICKNAMES[query_upper]
             airports = find_commercial_airports_for_city(city_name, max_results=max_results)
             if airports:
+                _set_cached_response(cache_key, airports[:max_results])
                 return airports[:max_results]
         
         # Try city-based search
         airports = find_commercial_airports_for_city(query_normalized, max_results=max_results)
-        if airports and len(airports) >= 1:
-            logger.info(f"Found {len(airports)} commercial airports for city query '{query_normalized}' via OpenAI")
+        if airports:
+            _set_cached_response(cache_key, airports[:max_results])
             return airports[:max_results]
         
         # Last resort: general airport search
@@ -411,10 +570,9 @@ def search_airports(query: str, max_results: int = 10) -> List[Dict[str, Any]]:
             airports = [a for a in airports if is_commercial_airport(a.get("iata_code", ""), commercial_set)]
         
         if airports:
-            logger.info(f"Found {len(airports)} commercial airports for general query '{query_normalized}' via OpenAI")
+            _set_cached_response(cache_key, airports[:max_results])
             return airports[:max_results]
         
-        logger.warning(f"OpenAI search found no results for '{query_normalized}'")
         return []
             
     except Exception as e:

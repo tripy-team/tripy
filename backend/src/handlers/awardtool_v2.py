@@ -525,56 +525,39 @@ def convert_v2_result_to_v1_format(result: AwardSearchResult) -> Dict:
     """
     Convert v2 result format to v1 format for compatibility with existing code.
     
-    V2 returns flights directly, V1 expects {"data": [...]} with nested structure.
-    This allows the existing _merge_award_edges() function to work unchanged.
+    NOTE: The v2 API actually returns data in the SAME format as v1!
+    Each flight already has: program_code, award_points, surcharge, fare.products, etc.
+    So we just wrap the flights in {"data": [...]} without transformation.
     
     Args:
         result: AwardSearchResult from v2 search
     
     Returns:
-        Dict in v1 format: {"data": [...normalized items...]}
+        Dict in v1 format: {"data": [...flights...]}
     """
-    normalized_data = []
+    # The v2 API returns flights in v1 format already!
+    # Each flight has: program_code, award_points, surcharge, fare.products, transfer_options
+    # We just need to wrap them in the expected structure
     
-    for flight in result.flights:
-        # Handle both v2 field names and potential variations
-        origin = flight.get("origin") or flight.get("Origin") or ""
-        destination = flight.get("destination") or flight.get("Destination") or ""
-        program_code = flight.get("program_code") or flight.get("Program") or ""
-        award_points = flight.get("award_points") or flight.get("Miles")
-        surcharge = flight.get("surcharge") or flight.get("taxes_and_fees") or flight.get("TaxesAndFees")
-        flight_number = flight.get("flight_number") or flight.get("FlightNumber") or ""
-        departure_time = flight.get("departure_time") or flight.get("DepartureTime")
-        arrival_time = flight.get("arrival_time") or flight.get("ArrivalTime")
-        operating_carrier = flight.get("operating_carrier") or flight.get("OperatingCarrier") or ""
-        cabin = flight.get("cabin") or flight.get("Cabin") or "Economy"
-        duration = flight.get("duration") or flight.get("travel_minutes") or flight.get("Duration")
-        transfer_options = flight.get("transfer_options") or []
-        
-        # Build v1-compatible item structure
-        normalized_item = {
-            "program_code": program_code.upper() if program_code else "",
-            "award_points": int(award_points) if award_points else None,
-            "surcharge": float(surcharge) if surcharge else None,
-            "transfer_options": transfer_options,
-            "fare": {
-                "products": [{
-                    "origin": origin.upper() if origin else "",
-                    "destination": destination.upper() if destination else "",
-                    "flight_number": flight_number,
-                    "departure_time": departure_time,
-                    "arrival_time": arrival_time,
-                    "operating_carrier": operating_carrier,
-                    "travel_minutes": duration,
-                    "cabin": cabin,
-                }],
-                "travel_minutes_total": duration,
-            },
-        }
-        normalized_data.append(normalized_item)
+    if result.flights:
+        logger.info(
+            "convert_v2_result_to_v1_format: %d flights received, sample keys: %s",
+            len(result.flights), list(result.flights[0].keys())[:10]
+        )
+        # Log a sample to verify structure
+        sample = result.flights[0]
+        fare = sample.get("fare", {})
+        products = fare.get("products", [])
+        if products:
+            logger.debug(
+                "convert_v2_result_to_v1_format: sample product keys: %s",
+                list(products[0].keys()) if products else "none"
+            )
+    else:
+        logger.warning("convert_v2_result_to_v1_format: no flights received")
     
     return {
-        "data": normalized_data,
+        "data": result.flights,  # Already in v1 format!
         "task_id": result.task_id,
         "programs_done": result.programs_done,
         "finished": result.finished,

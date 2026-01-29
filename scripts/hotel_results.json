@@ -1,0 +1,50 @@
+{
+  "data": [
+    {
+      "hotel_id": "sample_1",
+      "name": "Hilton London Tower Bridge",
+      "brand": "Hilton",
+      "program_code": "HH",
+      "cash_rate": 289.0,
+      "points": 60000,
+      "surcharge": 45.0,
+      "star_rating": 4,
+      "address": "5 More London Place, London SE1 2BY"
+    },
+    {
+      "hotel_id": "sample_2",
+      "name": "London Marriott Hotel Park Lane",
+      "brand": "Marriott",
+      "program_code": "MAR",
+      "cash_rate": 450.0,
+      "points": 70000,
+      "surcharge": 55.0,
+      "star_rating": 5,
+      "address": "140 Park Lane, London W1K 7AA"
+    },
+    {
+      "hotel_id": "sample_3",
+      "name": "Hyatt Regency London - The Churchill",
+      "brand": "Hyatt",
+      "program_code": "HYATT",
+      "cash_rate": 375.0,
+      "points": 25000,
+      "surcharge": 40.0,
+      "star_rating": 5,
+      "address": "30 Portman Square, London W1H 7BH"
+    },
+    {
+      "hotel_id": "sample_4",
+      "name": "InterContinental London Park Lane",
+      "brand": "IHG",
+      "program_code": "IHG",
+      "cash_rate": 420.0,
+      "points": 55000,
+      "surcharge": 50.0,
+      "star_rating": 5,
+      "address": "One Hamilton Place, London W1J 7QY"
+    }
+  ],
+  "sample_data": true,
+  "note": "This is sample data. API is currently unavailable."
+}

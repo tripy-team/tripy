@@ -1,13 +1,15 @@
 "use client";
 
 import Link from "next/link";
-import { useState } from "react";
-import { useRouter } from "next/navigation";
+import { useState, useEffect } from "react";
+import { useRouter, useSearchParams } from "next/navigation";
 import { Plane, Mail, Lock, ArrowRight, Eye, EyeOff } from "lucide-react";
 import { login } from "@/lib/api";
 
 export default function LoginPage() {
 	const router = useRouter();
+	const searchParams = useSearchParams();
+	const redirectPath = searchParams.get('redirect');
 	const [form, setForm] = useState({
 		email: "",
 		password: "",
@@ -62,8 +64,9 @@ export default function LoginPage() {
 				window.dispatchEvent(new Event('tripy_auth_change'));
 			}
 			
-			// On success, redirect to points setup page (where users can add their points/loyalty programs)
-			router.push("/points-setup");
+			// On success, redirect to the specified page or default to points setup
+			const destination = redirectPath || "/points-setup";
+			router.push(destination);
 		} catch (err) {
 			// Handle different error types from Cognito
 			let errorMessage = "Invalid email or password.";

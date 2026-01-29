@@ -299,11 +299,14 @@ async def _awardtool_realtime(
             f", error={err}" if err else ""
         )
         
-        # Cache successful responses with data
-        if data and not err:
+        # Cache successful responses with data (only if we got actual data)
+        if data and len(data) > 0 and not err:
+            logger.info("AwardTool [%s]->[%s] date=%s: caching %d items", origin, destination, date_str, len(data))
             set_json(k, body, TTL_AWARD)
         elif err:
             logger.warning("AwardTool [%s]->[%s] date=%s: API error (not caching): %s", origin, destination, date_str, err)
+        elif not data or len(data) == 0:
+            logger.warning("AwardTool [%s]->[%s] date=%s: no data items returned (not caching)", origin, destination, date_str)
         
         return body
         
@@ -317,6 +320,11 @@ def _merge_award_edges(rt_json):
     data = rt_json.get("data", []) if isinstance(rt_json, dict) else []
     by_edge = {}
     skipped = 0
+    
+    # Debug: log sample data structure on first call with data
+    if data:
+        logger.debug("_merge_award_edges: processing %d items", len(data))
+    
     for item in data:
         fare = item.get("fare") or {}
         products = fare.get("products") or []
@@ -324,6 +332,11 @@ def _merge_award_edges(rt_json):
         sur = item.get("surcharge")
         prog = (item.get("program_code") or item.get("airline_code") or "").upper()
         xfer = item.get("transfer_options") or []
+        
+        if not products:
+            skipped += 1
+            continue
+            
         for p in products:
             dep = (p.get("origin") or "").upper()
             arr = (p.get("destination") or "").upper()
@@ -350,7 +363,8 @@ def _merge_award_edges(rt_json):
                     "departure_time": dep_time,
                     "arrival_time": arr_time,
                 }
-    logger.debug("_merge_award_edges: data_items=%d, edges=%d, skipped=%d", len(data), len(by_edge), skipped)
+    
+    logger.info("_merge_award_edges: data_items=%d, edges=%d, skipped=%d", len(data), len(by_edge), skipped)
     return by_edge
 
 

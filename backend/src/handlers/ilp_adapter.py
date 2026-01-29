@@ -1,30 +1,41 @@
 # backend/ilp_adapter.py  (edges -> ILP inputs; user-selected meetup cities)
+"""
+ILP Adapter Module
+
+This module transforms raw flight edge data into structured inputs
+for the ILP optimization solver.
+
+Refactored to use the optimization module for utilities and constants.
+"""
+
+import logging
+from typing import Dict, List, Optional, Set, Tuple, Any
+
 from src.utils.card_benefits import build_edge_to_airline
 
+# Import from the new optimization module
+from src.optimization.utils import (
+    is_bank_key as _is_bank_key,
+    normalize_bank_key as _normalize_bank_key,
+    normalize_airline_code as _as_airline_code,
+    split_balances,
+)
+from src.optimization.constants import (
+    DEFAULT_TRANSFER_GRAPH,
+    SOLVER_CONFIG,
+)
 
-def _is_bank_key(k, transfer_graph):
-    return (
-        isinstance(k, str)
-        and k.islower()
-        and (transfer_graph is None or k in transfer_graph)
-    )
+
+_ilp_logger = logging.getLogger(__name__)
 
 
-def _as_airline_code(k):
-    return str(k or "").strip().upper()
-
-
-def _split_balances_for_trav(user_points_one, transfer_graph):
-    banks, airlines = {}, {}
-    for k, v in (user_points_one or {}).items():
-        if _is_bank_key(k, transfer_graph):
-            banks[str(k).lower()] = float(v or 0)
-        else:
-            al = _as_airline_code(k)
-            if al:
-                airlines[al] = airlines.get(al, 0.0) + float(v or 0)
-    return banks, airlines
-
+def _split_balances_for_trav(user_points_one: Dict, transfer_graph: Dict) -> Tuple[Dict, Dict]:
+    """
+    Split user points into bank (transferable) and airline (native) balances.
+    
+    Wrapper around optimization.utils.split_balances for backward compatibility.
+    """
+    return split_balances(user_points_one, transfer_graph)
 
 def build_ilp_inputs_from_edges(
     edges_dict,
@@ -46,6 +57,14 @@ def build_ilp_inputs_from_edges(
 ):
     meetup_cities = list(meetup_cities or [])
     edges = list(edges_dict.keys())
+    
+    # Log what user points we received
+    _ilp_logger.info(f"ILP adapter: user_points_by_trav = {user_points_by_trav}")
+    
+    # Sample edge data to understand what we're working with
+    sample_edges = list(edges_dict.items())[:3]
+    for e, d in sample_edges:
+        _ilp_logger.info(f"ILP adapter: sample edge {e} -> points_program={d.get('points_program')}, points_cost={d.get('points_cost')}, cash_cost={d.get('cash_cost')}")
 
     city_set = set()
     for i, j, _ in edges:
@@ -74,6 +93,8 @@ def build_ilp_inputs_from_edges(
 
     time_cost = {}
     cash_cost = {}
+    departure_time = {}
+    arrival_time = {}
     for e, d in edges_dict.items():
         tval = d.get("time_cost")
         cval = d.get("cash_cost")
@@ -83,6 +104,11 @@ def build_ilp_inputs_from_edges(
         cash_cost[e] = (
             float(cval) if cval is not None else float(default_cash_if_missing)
         )
+        # Extract departure/arrival times for chronological ordering constraints
+        dep_str = d.get("departure_time")
+        arr_str = d.get("arrival_time")
+        departure_time[e] = dep_str
+        arrival_time[e] = arr_str
 
     award_points = {a: {} for a in airlines}
     cash_surcharge = {a: {} for a in airlines}
@@ -139,6 +165,14 @@ def build_ilp_inputs_from_edges(
                 link_ok[(trav, a)] = int(link_ok_overrides[(trav, a)])
             else:
                 link_ok[(trav, a)] = int(default_link)
+    
+    # Log link_ok calculation results
+    linked_pairs = [(t[-8:], a) for (t, a), ok in link_ok.items() if ok]
+    not_linked_pairs = [(t[-8:], a) for (t, a), ok in link_ok.items() if not ok]
+    _ilp_logger.info(f"ILP adapter: link_ok LINKED = {linked_pairs}")
+    _ilp_logger.info(f"ILP adapter: link_ok NOT linked (sample 10) = {not_linked_pairs[:10]}...")
+    _ilp_logger.info(f"ILP adapter: sources_by_trav = {sources_by_trav}")
+    _ilp_logger.info(f"ILP adapter: miles_balance with value = {[(k, v) for k, v in miles_balance.items() if v > 0]}")
 
     budget_cash = {trav: float(default_cash_budget) for trav in travelers}
     can_pay_for = {}
@@ -154,6 +188,8 @@ def build_ilp_inputs_from_edges(
         "edges": edges,
         "time_cost": time_cost,
         "cash_cost": cash_cost,
+        "departure_time": departure_time,
+        "arrival_time": arrival_time,
         "airlines": airlines,
         "award_points": award_points,
         "cash_surcharge": cash_surcharge,
@@ -239,5 +275,7 @@ def run_ilp_from_edges(
         bag_fee=bag_fee,
         W_benefit=W_benefit,
         must_visit_cities=must_visit_cities,
-        optimization_mode=optimization_mode,  # Pass optimization mode to ILP solver
+        optimization_mode=optimization_mode,
+        departure_time=ilp_in["departure_time"],
+        arrival_time=ilp_in["arrival_time"],
     )
