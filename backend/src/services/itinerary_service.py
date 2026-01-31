@@ -863,6 +863,91 @@ def _normalize_city_to_code(city_name: str) -> Optional[str]:
     return None
 
 
+def _get_all_airports_for_city(city_name: str) -> List[str]:
+    """
+    Get ALL airport codes for a city (not just the primary one).
+    This is used when the optimization should consider flights from multiple airports.
+    
+    Examples:
+    - "Seattle" -> ["SEA", "PAE"] (Seattle-Tacoma and Paine Field)
+    - "New York (JFK,LGA,EWR)" -> ["JFK", "LGA", "EWR"]
+    - "Paris (CDG,ORY)" -> ["CDG", "ORY"]
+    - "JFK" -> ["JFK"] (already a code)
+    
+    Returns list of airport codes, or empty list if none found.
+    """
+    import re
+    city_name = city_name.strip()
+    
+    # If it's already an airport code, return it as a list
+    if _is_airport_code(city_name):
+        return [city_name.upper()]
+    
+    # Check if it's in format "City (CODE1,CODE2,CODE3)"
+    code_match = re.search(r'\(([A-Z]{3}(?:,[A-Z]{3})*)\)', city_name.upper())
+    if code_match:
+        codes = [c.strip() for c in code_match.group(1).split(',') if c.strip()]
+        return [c for c in codes if _is_airport_code(c)]
+    
+    # For cities without codes in name, try to find airports via city service
+    search_name = re.sub(r'\s*\([A-Z]{3}(?:,[A-Z]{3})*\)', '', city_name).strip()
+    
+    # Known metro areas with multiple airports
+    METRO_AIRPORTS = {
+        "seattle": ["SEA", "PAE"],
+        "new york": ["JFK", "EWR", "LGA"],
+        "nyc": ["JFK", "EWR", "LGA"],
+        "los angeles": ["LAX", "BUR", "SNA", "ONT", "LGB"],
+        "la": ["LAX", "BUR", "SNA", "ONT", "LGB"],
+        "san francisco": ["SFO", "OAK", "SJC"],
+        "sf": ["SFO", "OAK", "SJC"],
+        "bay area": ["SFO", "OAK", "SJC"],
+        "chicago": ["ORD", "MDW"],
+        "washington": ["IAD", "DCA", "BWI"],
+        "washington dc": ["IAD", "DCA", "BWI"],
+        "dc": ["IAD", "DCA", "BWI"],
+        "london": ["LHR", "LGW", "STN", "LTN"],
+        "paris": ["CDG", "ORY"],
+        "tokyo": ["NRT", "HND"],
+        "seoul": ["ICN", "GMP"],
+        "miami": ["MIA", "FLL"],
+        "dallas": ["DFW", "DAL"],
+        "houston": ["IAH", "HOU"],
+        "boston": ["BOS", "PVD"],
+        "detroit": ["DTW", "FNT"],
+        "milan": ["MXP", "LIN", "BGY"],
+        "rome": ["FCO", "CIA"],
+        "shanghai": ["PVG", "SHA"],
+        "beijing": ["PEK", "PKX"],
+        "dubai": ["DXB", "DWC"],
+    }
+    
+    # Check known metro areas
+    search_lower = search_name.lower()
+    for metro, airports in METRO_AIRPORTS.items():
+        if metro in search_lower or search_lower in metro:
+            return airports
+    
+    # Try city service for single airport
+    try:
+        results = city_service.search_cities(search_name, max_results=10)
+        airports = []
+        for result in results:
+            iata_code = result.get("iataCode", "")
+            if iata_code and _is_airport_code(iata_code):
+                code = iata_code.upper()
+                if code not in airports:
+                    airports.append(code)
+        if airports:
+            return airports[:5]  # Return up to 5 airports
+    except Exception as e:
+        logger.debug(f"Error searching airports for {city_name}: {e}")
+    
+    # Fallback: return single code from normalize function
+    single = _normalize_city_to_code(city_name)
+    return [single] if single else []
+
+
 def _validate_date(date_str: str, field_name: str = "date") -> None:
     """Validate date format and ensure it's in the future"""
     if not date_str or not date_str.strip():
@@ -3518,6 +3603,7 @@ async def generate_optimized_itinerary(
         return _generate_japan_easter_egg_itinerary(trip_id)
     
     # Convert city names to airport codes (in parallel to save time on API calls)
+    # MULTI-AIRPORT SUPPORT: Get ALL airports for each city for comprehensive search
     logger.info(f"Converting city names to airport codes: start={start_dest_name}, end={end_dest_name}, cities={cities}")
     
     # Build list of all city names to resolve
@@ -3526,32 +3612,55 @@ async def generate_optimized_itinerary(
         names_to_resolve.append(end_dest_name)
     names_to_resolve.extend(cities)
     
-    # Resolve all in parallel (each _normalize_city_to_code can hit city_service or OpenAI)
+    # Resolve all in parallel - get BOTH primary code AND all airports
     code_results = await asyncio.gather(
         *[asyncio.to_thread(_normalize_city_to_code, name) for name in names_to_resolve],
+        return_exceptions=True,
+    )
+    all_airports_results = await asyncio.gather(
+        *[asyncio.to_thread(_get_all_airports_for_city, name) for name in names_to_resolve],
         return_exceptions=True,
     )
     
     # Map results back
     idx = 0
     start_dest_code = code_results[idx] if not isinstance(code_results[idx], Exception) else None
+    start_all_airports = all_airports_results[idx] if not isinstance(all_airports_results[idx], Exception) else []
     idx += 1
     
     if end_dest_name and end_dest_name != start_dest_name:
         end_dest_code = code_results[idx] if not isinstance(code_results[idx], Exception) else None
+        end_all_airports = all_airports_results[idx] if not isinstance(all_airports_results[idx], Exception) else []
         idx += 1
     else:
         end_dest_code = start_dest_code
+        end_all_airports = start_all_airports
+    
+    # Build mapping from primary code to all airports for multi-airport search
+    # This allows the optimizer to search from/to all airports for each city
+    city_to_all_airports: Dict[str, List[str]] = {}
+    if start_dest_code and start_all_airports:
+        city_to_all_airports[start_dest_code] = start_all_airports
+    if end_dest_code and end_all_airports:
+        city_to_all_airports[end_dest_code] = end_all_airports
     
     city_codes = []
     for i, city_name in enumerate(cities):
         result = code_results[idx + i]
+        all_airports = all_airports_results[idx + i] if not isinstance(all_airports_results[idx + i], Exception) else []
         if isinstance(result, Exception):
             logger.warning(f"Error resolving '{city_name}': {result}")
         elif result:
             city_codes.append(result)
+            if all_airports:
+                city_to_all_airports[result] = all_airports
         else:
             logger.warning(f"Could not find airport code for '{city_name}', skipping")
+    
+    # Log multi-airport mappings for debugging
+    multi_airport_cities = {k: v for k, v in city_to_all_airports.items() if len(v) > 1}
+    if multi_airport_cities:
+        logger.info(f"Multi-airport cities detected: {multi_airport_cities}")
     
     # Validate start/end codes
     if not start_dest_code:
@@ -3696,7 +3805,28 @@ async def generate_optimized_itinerary(
     transfer_graph = DEFAULT_TRANSFER_GRAPH
     successful_routes = 0
     failed_routes = []
-    pairs = [(o, d) for o in nodes for d in nodes if o != d]
+    
+    # MULTI-AIRPORT SUPPORT: Expand pairs to search all airport combinations
+    # For each city pair (O, D), search flights from all O airports to all D airports
+    pairs: List[Tuple[str, str]] = []
+    pair_to_city: Dict[Tuple[str, str], Tuple[str, str]] = {}  # Maps (actual_origin, actual_dest) -> (city_origin, city_dest)
+    
+    for o in nodes:
+        for d in nodes:
+            if o == d:
+                continue
+            # Get all airports for origin and destination cities
+            o_airports = city_to_all_airports.get(o, [o])
+            d_airports = city_to_all_airports.get(d, [d])
+            
+            # Add all combinations
+            for o_apt in o_airports:
+                for d_apt in d_airports:
+                    if (o_apt, d_apt) not in pair_to_city:
+                        pairs.append((o_apt, d_apt))
+                        pair_to_city[(o_apt, d_apt)] = (o, d)  # Track which city pair this serves
+    
+    logger.info(f"Multi-airport expansion: {len(nodes)} cities -> {len(pairs)} airport pairs")
 
     # Combined points from all travelers (same for every O-D pair)
     combined_points = {}
@@ -3705,11 +3835,14 @@ async def generate_optimized_itinerary(
             combined_points[prog] = combined_points.get(prog, 0) + bal
 
     # Fetch all O-D pairs in parallel to avoid sequential SERP/AwardTool latency
-    sem = asyncio.Semaphore(6)
+    sem = asyncio.Semaphore(8)  # Increased from 6 to handle more airport pairs
 
     async def _bounded_fetch(o: str, d: str) -> Tuple[Dict[Tuple[str, str, str], Dict[str, Any]], bool]:
         async with sem:
-            leg_date = end_date.strip() if (d == start_dest_code and end_date) else start_date.strip()
+            # Determine date: use end_date for return leg, start_date otherwise
+            # Check both the actual airport AND the city it represents
+            city_o, city_d = pair_to_city.get((o, d), (o, d))
+            leg_date = end_date.strip() if (city_d == start_dest_code and end_date) else start_date.strip()
             return await _fetch_edges_for_route(
                 o, d, leg_date, combined_points, travelers, start_dest_code
             )
@@ -4026,7 +4159,7 @@ async def generate_optimized_itinerary(
             }
             itinerary_items.append(item)
     
-    # Save payment modes (add mode: flight|bus|car from edge[2] for frontend)
+    # Save payment modes (add mode: flight|bus|car and flight times from edge[2] for frontend)
     for traveler_id, payments in solution.get("pay_mode", {}).items():
         if payments:
             enriched = []
@@ -4035,6 +4168,17 @@ async def generate_optimized_itinerary(
                 edge = r.get("edge")
                 fn = edge[2] if isinstance(edge, (list, tuple)) and len(edge) >= 3 else None
                 r["mode"] = "bus" if fn == "BUS" else "car" if fn == "CAR" else "flight"
+                # Add departure/arrival times from edges_all if available
+                if isinstance(edge, (list, tuple)) and len(edge) >= 3:
+                    edge_key = tuple(edge)
+                    edge_data = edges_all.get(edge_key, {})
+                    if edge_data.get("departure_time"):
+                        r["departure_time"] = edge_data["departure_time"]
+                    if edge_data.get("arrival_time"):
+                        r["arrival_time"] = edge_data["arrival_time"]
+                    # Also add operating airline for codeshare detection
+                    if edge_data.get("operating_airline"):
+                        r["operating_airline"] = edge_data["operating_airline"]
                 enriched.append(r)
             item = {
                 "tripId": trip_id,
@@ -4045,7 +4189,21 @@ async def generate_optimized_itinerary(
             }
             itinerary_items.append(item)
     
-    # Save totals (enrich transfers with operating_carriers and segment_description for codeshare details)
+    # Save totals (enrich transfers with operating_carriers, segment_description, route_segments, and hotel info)
+    # Hotel program codes for detecting hotel transfers
+    HOTEL_PROGRAMS = {"HYATT", "HH", "MAR", "IHG", "ACC", "WYNDHAM", "HILTON", "MARRIOTT", "BONVOY"}
+    _HUMANIZE_HOTEL = {
+        "HYATT": "World of Hyatt",
+        "HH": "Hilton Honors",
+        "MAR": "Marriott Bonvoy",
+        "MARRIOTT": "Marriott Bonvoy",
+        "BONVOY": "Marriott Bonvoy",
+        "IHG": "IHG One Rewards",
+        "HILTON": "Hilton Honors",
+        "ACC": "Accor Live Limitless",
+        "WYNDHAM": "Wyndham Rewards",
+    }
+    
     totals = dict(totals_for_path)
     totals["transfers"] = dict(totals.get("transfers") or {})
     for q, by_src in (totals_for_path.get("transfers") or {}).items():
@@ -4054,26 +4212,90 @@ async def generate_optimized_itinerary(
             totals["transfers"][q][s] = dict(by_al or {})
             for a, data in (by_al or {}).items():
                 data = dict(data)
+                
+                # Detect if this is a hotel program transfer
+                is_hotel = a.upper() in HOTEL_PROGRAMS or any(h in a.upper() for h in ["HYATT", "HILTON", "MARRIOTT", "IHG", "BONVOY"])
+                data["is_hotel"] = is_hotel
+                
                 edges_for_sa = []
+                hotel_names = []
+                hotel_cities = []
+                
                 for _p, recs in (solution.get("pay_mode") or {}).items():
                     for rec in (recs or []):
                         if rec.get("type") != "points" or rec.get("payer") != q:
                             continue
                         v = rec.get("via") or {}
-                        if (v.get("source") or "").lower().strip() != s or (v.get("airline") or "").upper().strip() != a:
+                        source_match = (v.get("source") or "").lower().strip() == s
+                        
+                        # Check for airline match (flights) or hotel match (hotels)
+                        airline_match = (v.get("airline") or "").upper().strip() == a
+                        hotel_match = (v.get("hotel") or "").upper().strip() == a
+                        
+                        if not source_match or not (airline_match or hotel_match):
                             continue
+                        
+                        # For flights: extract edge info
                         edge = rec.get("edge")
                         if isinstance(edge, (list, tuple)) and len(edge) >= 3:
                             edges_for_sa.append(tuple(edge))
+                        
+                        # For hotels: extract hotel name and city
+                        if hotel_match or is_hotel:
+                            h_name = rec.get("hotelName") or rec.get("hotel_name") or ""
+                            h_city = rec.get("hotelCity") or rec.get("hotel_city") or rec.get("location") or ""
+                            if h_name and h_name not in hotel_names:
+                                hotel_names.append(h_name)
+                            if h_city and h_city not in hotel_cities:
+                                hotel_cities.append(h_city)
+                
                 op_carriers = []
-                for e in edges_for_sa:
-                    if e in edges_all:
-                        op = (edges_all[e].get("operating_airline") or "").strip().upper()
-                        if op and len(op) >= 2 and op[:2] not in op_carriers:
-                            op_carriers.append(op[:2])
-                data["operating_carriers"] = op_carriers
+                route_segments = []
+                departures = []
+                arrivals = []
+                
+                if is_hotel:
+                    # Hotel transfer - add hotel-specific info
+                    data["hotel_names"] = hotel_names
+                    data["hotel_cities"] = hotel_cities
+                    if hotel_names:
+                        data["hotel_display"] = " + ".join(hotel_names)
+                    if hotel_cities:
+                        data["location_display"] = ", ".join(hotel_cities)
+                    # Humanize hotel program name
+                    data["partner_display"] = _HUMANIZE_HOTEL.get(a.upper(), a)
+                else:
+                    # Flight transfer - extract route segments
+                    for e in edges_for_sa:
+                        # Extract route segment info (departure → arrival)
+                        if len(e) >= 2:
+                            dep = str(e[0] or "").upper().strip()
+                            arr = str(e[1] or "").upper().strip()
+                            if dep and arr:
+                                route_seg = f"{dep}→{arr}"
+                                if route_seg not in route_segments:
+                                    route_segments.append(route_seg)
+                                if dep not in departures:
+                                    departures.append(dep)
+                                if arr not in arrivals:
+                                    arrivals.append(arr)
+                        # Extract operating carrier
+                        if e in edges_all:
+                            op = (edges_all[e].get("operating_airline") or "").strip().upper()
+                            if op and len(op) >= 2 and op[:2] not in op_carriers:
+                                op_carriers.append(op[:2])
+                    
+                    data["operating_carriers"] = op_carriers
+                    # Add route segment information for frontend display
+                    data["route_segments"] = route_segments
+                    data["departures"] = departures
+                    data["arrivals"] = arrivals
+                    # Build display string for the frontend
+                    if route_segments:
+                        data["route_display"] = " + ".join(route_segments)
+                
                 seg_desc = None
-                if op_carriers:
+                if op_carriers and not is_hotel:
                     diff = [c for c in op_carriers if c != a]
                     if diff:
                         names = [_HUMANIZE_AIRLINE.get(c) or c for c in diff]

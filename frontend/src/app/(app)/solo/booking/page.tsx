@@ -12,15 +12,20 @@ import {
   Building2,
   Sparkles,
   ChevronRight,
+  ChevronDown,
+  ChevronUp,
   Wallet,
   Car,
   Bus,
   Info,
+  Moon,
+  Clock,
+  ExternalLink,
   Copy,
+  Check,
 } from 'lucide-react';
 import { itineraries as itinerariesAPI, trips as tripsAPI, destinations as destinationsAPI, generateItinerary } from '@/lib/api';
 import { calculateServiceFee, SERVICE_FEE_PERCENT, formatDate, tripDurationDays } from '@/lib/utils';
-import { TransferStrategyCard, type TransferItem } from '@/components/ui';
 
 function humanizeProgram(code: string): string {
   const m: Record<string, string> = {
@@ -34,15 +39,104 @@ function humanizeProgram(code: string): string {
 
 function humanizeAirline(code: string): string {
   const m: Record<string, string> = {
-    VS: 'Virgin Atlantic Flying Club',
-    AF: 'Air France / KLM Flying Blue',
-    BA: 'British Airways',
-    KLM: 'KLM Flying Blue',
-    UA: 'United MileagePlus',
+    // US Airlines
     AA: 'American AAdvantage',
     DL: 'Delta SkyMiles',
-    B6: 'JetBlue TrueBlue',
+    UA: 'United MileagePlus',
     WN: 'Southwest Rapid Rewards',
+    B6: 'JetBlue TrueBlue',
+    AS: 'Alaska Mileage Plan',
+    HA: 'HawaiianMiles',
+    // European Airlines
+    VS: 'Virgin Atlantic Flying Club',
+    BA: 'British Airways Executive Club',
+    AF: 'Air France / KLM Flying Blue',
+    KL: 'Flying Blue',
+    KLM: 'Flying Blue',
+    LH: 'Miles & More',
+    LX: 'Miles & More',
+    IB: 'Iberia Plus',
+    AY: 'Finnair Plus',
+    TP: 'TAP Miles&Go',
+    EI: 'AerClub',
+    // Middle East
+    EK: 'Emirates Skywards',
+    QR: 'Qatar Airways Privilege Club',
+    EY: 'Etihad Guest',
+    TK: 'Miles&Smiles',
+    // Asia Pacific
+    NH: 'ANA Mileage Club',
+    JL: 'JAL Mileage Bank',
+    SQ: 'KrisFlyer',
+    CX: 'Asia Miles',
+    QF: 'Qantas Frequent Flyer',
+    NZ: 'Airpoints',
+    KE: 'SKYPASS',
+    OZ: 'Asiana Club',
+    // Americas
+    AC: 'Aeroplan',
+    AM: 'Club Premier',
+    AV: 'LifeMiles',
+  };
+  return m[String(code || '').toUpperCase()] || String(code || '').toUpperCase();
+}
+
+// Get the airline's actual name (not loyalty program)
+function getAirlineName(code: string): string {
+  const m: Record<string, string> = {
+    // US Airlines
+    AA: 'American Airlines',
+    DL: 'Delta Air Lines',
+    UA: 'United Airlines',
+    WN: 'Southwest Airlines',
+    B6: 'JetBlue Airways',
+    AS: 'Alaska Airlines',
+    NK: 'Spirit Airlines',
+    F9: 'Frontier Airlines',
+    G4: 'Allegiant Air',
+    HA: 'Hawaiian Airlines',
+    // European Airlines
+    VS: 'Virgin Atlantic',
+    BA: 'British Airways',
+    AF: 'Air France',
+    KL: 'KLM Royal Dutch Airlines',
+    KLM: 'KLM Royal Dutch Airlines',
+    LH: 'Lufthansa',
+    LX: 'Swiss International Air Lines',
+    OS: 'Austrian Airlines',
+    AZ: 'ITA Airways',
+    IB: 'Iberia',
+    SK: 'Scandinavian Airlines (SAS)',
+    AY: 'Finnair',
+    TP: 'TAP Air Portugal',
+    EI: 'Aer Lingus',
+    // Middle East & Africa
+    EK: 'Emirates',
+    QR: 'Qatar Airways',
+    EY: 'Etihad Airways',
+    TK: 'Turkish Airlines',
+    SA: 'South African Airways',
+    ET: 'Ethiopian Airlines',
+    // Asia Pacific
+    NH: 'All Nippon Airways (ANA)',
+    JL: 'Japan Airlines',
+    SQ: 'Singapore Airlines',
+    CX: 'Cathay Pacific',
+    QF: 'Qantas',
+    NZ: 'Air New Zealand',
+    TG: 'Thai Airways',
+    MH: 'Malaysia Airlines',
+    GA: 'Garuda Indonesia',
+    CI: 'China Airlines',
+    BR: 'EVA Air',
+    OZ: 'Asiana Airlines',
+    KE: 'Korean Air',
+    // Americas
+    AC: 'Air Canada',
+    AM: 'Aeromexico',
+    LA: 'LATAM Airlines',
+    AV: 'Avianca',
+    CM: 'Copa Airlines',
   };
   return m[String(code || '').toUpperCase()] || String(code || '').toUpperCase();
 }
@@ -50,52 +144,37 @@ function humanizeAirline(code: string): string {
 interface PaymentRec {
   edge?: unknown[];
   type?: string;
-  via?: { source?: string; airline?: string; native?: string };
+  via?: { source?: string; airline?: string; native?: string; hotel?: string };
   miles?: number;
   surcharge?: number;
   mode?: string;
   fare?: number;
+  // Flight time fields
+  departure_time?: string;
+  arrival_time?: string;
+  operating_airline?: string;
+  // Hotel-specific fields
+  segmentType?: 'flight' | 'hotel';
+  hotelName?: string;
+  hotelCity?: string;
+  checkIn?: string;
+  checkOut?: string;
+  nights?: number;
+  program?: string;
 }
 
-// Bank transfer times for reference
-const BANK_TRANSFER_TIMES: Record<string, string> = {
-  amex: '1-2 business days',
-  chase: 'Instant',
-  citi: 'Instant to 24h',
-  capitalone: 'Instant to 2 days',
-  bilt: 'Instant',
-};
-
-// Transform payment records into TransferItem format for the card component
-function buildTransferItemsFromPayments(payments: PaymentRec[]): TransferItem[] {
-  const result: TransferItem[] = [];
-  
-  for (const p of payments) {
-    if (p.type === 'points' && (p.via?.source || p.via?.airline || p.via?.native) && (p.miles ?? 0) > 0) {
-      const sourceCode = (p.via?.source || '').toLowerCase();
-      const airlineCode = (p.via?.airline || p.via?.native || '').toUpperCase();
-      const edge = Array.isArray(p.edge) ? p.edge : [];
-      const origin = String(edge[0] || '').toUpperCase();
-      const destination = String(edge[1] || '').toUpperCase();
-      const flightNumber = edge[2] ? String(edge[2]).toUpperCase() : undefined;
-      
-      result.push({
-        type: 'flight',
-        fromBank: sourceCode,
-        fromBankName: humanizeProgram(sourceCode),
-        toProgram: airlineCode,
-        toProgramName: humanizeAirline(airlineCode),
-        pointsToTransfer: Math.round(Number(p.miles) || 0),
-        transferTime: BANK_TRANSFER_TIMES[sourceCode] || 'varies',
-        flightNumber: flightNumber && flightNumber !== 'BUS' && flightNumber !== 'CAR' ? flightNumber : undefined,
-        origin,
-        destination,
-        surcharge: Number(p.surcharge) || undefined,
-      });
-    }
-  }
-  
-  return result;
+// Hotel program display names
+function humanizeHotelProgram(code: string): string {
+  const m: Record<string, string> = {
+    hyatt: 'World of Hyatt',
+    marriott: 'Marriott Bonvoy',
+    hilton: 'Hilton Honors',
+    ihg: 'IHG One Rewards',
+    wyndham: 'Wyndham Rewards',
+    choice: 'Choice Privileges',
+    accor: 'Accor Live Limitless',
+  };
+  return m[String(code || '').toLowerCase()] || String(code || '').replace(/_/g, ' ').replace(/\b\w/g, c => c.toUpperCase());
 }
 
 function SoloBookingContent() {
@@ -108,6 +187,8 @@ function SoloBookingContent() {
   const [items, setItems] = useState<Record<string, unknown>[]>([]);
   const [destinationMap, setDestinationMap] = useState<Map<string, string>>(new Map());
   const [loading, setLoading] = useState(true);
+  const [expandedFlightIdx, setExpandedFlightIdx] = useState<number | null>(null);
+  const [copiedText, setCopiedText] = useState<string | null>(null);
 
   useEffect(() => {
     const fetchData = async () => {
@@ -199,9 +280,6 @@ function SoloBookingContent() {
     ? cashPrice - (actualPointsUsed / 1000 * 2 + taxes)
     : 0;
   const serviceFee = calculateServiceFee(cashPrice);
-  
-  // Build transfer items for the new card component
-  const transferItems = buildTransferItemsFromPayments(paymentRecs);
 
   const includeHotels = trip?.includeHotels !== false;
   const startDate = trip?.startDate || '';
@@ -210,54 +288,316 @@ function SoloBookingContent() {
   const startLabel = startDate ? formatDate(startDate) : 'your travel dates';
   const endLabel = endDate ? formatDate(endDate) : '';
 
-  type Step = { kind: 'transfer'; source: string; partner: string; amount: number; surcharge?: number } | { kind: 'segment'; mode: 'flight' | 'bus' | 'car'; orig: string; dest: string; via?: string[]; flightNumber?: string; airline?: string; fare?: number } | { kind: 'hotel_transfer' } | { kind: 'hotel_book'; dest: string; start: string; end: string };
-  const steps: Step[] = [];
-
-  if (paymentRecs.length > 0) {
-    paymentRecs.forEach((p) => {
-      // Add transfer step if this is a points booking
-      if (p.type === 'points' && (p.via?.source || p.via?.airline || p.via?.native) && (p.miles ?? 0) > 0) {
-        const partner = p.via?.airline ? humanizeAirline(p.via.airline) : p.via?.native ? humanizeAirline(p.via.native) : 'airline partner';
-        const source = p.via?.source ? humanizeProgram(p.via.source) : 'your points program';
-        steps.push({ 
-          kind: 'transfer', 
-          source, 
-          partner, 
-          amount: Math.round(Number(p.miles) || 0),
-          surcharge: Number(p.surcharge) || undefined
+  // Build condensed transfer summary: group by source card
+  type TransferSummary = {
+    source: string;
+    sourceCode: string;
+    partner: string;
+    partnerCode: string;
+    totalPoints: number;
+    totalSurcharge: number;
+    isHotel: boolean;
+  };
+  
+  type FlightSegment = {
+    mode: 'flight' | 'bus' | 'car';
+    orig: string;
+    dest: string;
+    flightNumber?: string;
+    marketingAirline?: string;      // Loyalty program name (e.g., "Virgin Atlantic Flying Club")
+    marketingAirlineName?: string;  // Airline name (e.g., "Virgin Atlantic")
+    marketingCode?: string;         // Airline code (e.g., "VS")
+    operatingAirline?: string;      // Operating loyalty program
+    operatingAirlineName?: string;  // Operating airline name
+    operatingCode?: string;         // Operating airline code
+    isCodeshare: boolean;
+    fare?: number;
+    surcharge?: number;
+    miles?: number;             // Points required
+    departureDate?: string;     // Date string (e.g., "Jun 15, 2024")
+    departureTime?: string;
+    arrivalTime?: string;
+    isRedEye: boolean;      // Departs late night (10pm-5am)
+    isOvernight: boolean;   // Arrives next day
+    paymentType?: 'points' | 'cash';
+    sourceProgram?: string;     // e.g., "Chase Ultimate Rewards"
+  };
+  
+  const copyToClipboard = async (text: string) => {
+    try {
+      await navigator.clipboard.writeText(text);
+      setCopiedText(text);
+      setTimeout(() => setCopiedText(null), 2000);
+    } catch {
+      // Fallback
+      const textArea = document.createElement('textarea');
+      textArea.value = text;
+      textArea.style.position = 'fixed';
+      textArea.style.left = '-9999px';
+      document.body.appendChild(textArea);
+      textArea.select();
+      document.execCommand('copy');
+      document.body.removeChild(textArea);
+      setCopiedText(text);
+      setTimeout(() => setCopiedText(null), 2000);
+    }
+  };
+  
+  // Airline booking URLs
+  const AIRLINE_BOOKING_URLS: Record<string, string> = {
+    VS: 'virginatlantic.com',
+    AF: 'airfrance.com',
+    BA: 'britishairways.com',
+    UA: 'united.com',
+    AA: 'aa.com',
+    DL: 'delta.com',
+    B6: 'jetblue.com',
+    WN: 'southwest.com',
+    KL: 'klm.com',
+    NH: 'ana.co.jp',
+    SQ: 'singaporeair.com',
+  };
+  
+  // Helper to parse date from datetime string
+  const parseDateFromDateTime = (timeStr?: string): string | null => {
+    if (!timeStr) return null;
+    
+    // Try ISO format first (e.g., "2024-06-15T23:45:00")
+    if (timeStr.includes('T')) {
+      const date = new Date(timeStr);
+      if (!isNaN(date.getTime())) {
+        return date.toLocaleDateString('en-US', { 
+          weekday: 'short', 
+          month: 'short', 
+          day: 'numeric',
+          year: 'numeric'
         });
       }
-      // Add segment step with detailed flight info
-      const edge = Array.isArray(p.edge) ? p.edge : [];
-      const orig = String(edge[0] || '').toUpperCase();
-      const dest = String(edge[1] || '').toUpperCase();
-      const flightNumber = edge[2] ? String(edge[2]).toUpperCase() : undefined;
-      const mode = (p.mode || 'flight') as 'flight' | 'bus' | 'car';
-      if (orig && dest) {
-        steps.push({ 
-          kind: 'segment', 
-          mode, 
-          orig, 
-          dest,
-          flightNumber: flightNumber !== 'BUS' && flightNumber !== 'CAR' ? flightNumber : undefined,
-          airline: p.type === 'points' 
-            ? (p.via?.airline ? humanizeAirline(p.via.airline) : p.via?.native ? humanizeAirline(p.via.native) : undefined)
-            : undefined,
-          fare: p.type === 'cash' ? Number(p.fare) : undefined
+    }
+    
+    // Try date-only format (e.g., "2024-06-15")
+    const dateMatch = timeStr.match(/^(\d{4})-(\d{2})-(\d{2})/);
+    if (dateMatch) {
+      const date = new Date(parseInt(dateMatch[1]), parseInt(dateMatch[2]) - 1, parseInt(dateMatch[3]));
+      if (!isNaN(date.getTime())) {
+        return date.toLocaleDateString('en-US', { 
+          weekday: 'short', 
+          month: 'short', 
+          day: 'numeric',
+          year: 'numeric'
         });
+      }
+    }
+    
+    return null;
+  };
+  
+  // Helper to parse time and detect red-eye/overnight
+  const parseFlightTime = (timeStr?: string): { hour: number; minute: number; nextDay: boolean } | null => {
+    if (!timeStr) return null;
+    // Handle formats like "23:45", "2024-06-15T23:45:00", "11:30 PM", "06:40+1"
+    const nextDay = timeStr.includes('+1');
+    const cleaned = timeStr.replace('+1', '').trim();
+    
+    // Try ISO format first
+    if (cleaned.includes('T')) {
+      const date = new Date(cleaned);
+      if (!isNaN(date.getTime())) {
+        return { hour: date.getHours(), minute: date.getMinutes(), nextDay };
+      }
+    }
+    
+    // Try HH:MM format
+    const match24 = cleaned.match(/^(\d{1,2}):(\d{2})$/);
+    if (match24) {
+      return { hour: parseInt(match24[1]), minute: parseInt(match24[2]), nextDay };
+    }
+    
+    // Try 12-hour format (e.g., "11:30 PM")
+    const match12 = cleaned.match(/^(\d{1,2}):(\d{2})\s*(AM|PM)$/i);
+    if (match12) {
+      let hour = parseInt(match12[1]);
+      const isPM = match12[3].toUpperCase() === 'PM';
+      if (isPM && hour !== 12) hour += 12;
+      if (!isPM && hour === 12) hour = 0;
+      return { hour, minute: parseInt(match12[2]), nextDay };
+    }
+    
+    return null;
+  };
+  
+  const formatTime = (timeStr?: string): string => {
+    if (!timeStr) return '';
+    const parsed = parseFlightTime(timeStr);
+    if (!parsed) return timeStr;
+    const { hour, minute, nextDay } = parsed;
+    const ampm = hour >= 12 ? 'PM' : 'AM';
+    const hour12 = hour % 12 || 12;
+    const minStr = minute.toString().padStart(2, '0');
+    return `${hour12}:${minStr} ${ampm}${nextDay ? ' +1' : ''}`;
+  };
+  
+  const isRedEyeHour = (hour: number): boolean => hour >= 22 || hour < 5;
+
+  type HotelBooking = {
+    hotelName?: string;
+    hotelCity: string;
+    checkIn: string;
+    checkOut: string;
+    nights?: number;
+    pointsUsed?: number;
+    program?: string;
+  };
+
+  const transferSummaries: TransferSummary[] = [];
+  const flightSegments: FlightSegment[] = [];
+  const hotelBookings: HotelBooking[] = [];
+
+  // Process payment records to build condensed summaries
+  if (paymentRecs.length > 0) {
+    const transferMap = new Map<string, TransferSummary>();
+    
+    paymentRecs.forEach((p) => {
+      const isHotel = p.segmentType === 'hotel' || p.hotelName || p.via?.hotel;
+      
+      if (isHotel) {
+        // Process hotel
+        if (p.type === 'points' && (p.miles ?? 0) > 0) {
+          const sourceCode = (p.via?.source || '').toLowerCase();
+          const hotelProgram = (p.via?.hotel || p.program || '').toLowerCase();
+          const key = `${sourceCode}→${hotelProgram}→hotel`;
+          
+          const existing = transferMap.get(key);
+          if (existing) {
+            existing.totalPoints += Math.round(Number(p.miles) || 0);
+            existing.totalSurcharge += Number(p.surcharge) || 0;
+          } else {
+            transferMap.set(key, {
+              source: humanizeProgram(sourceCode),
+              sourceCode,
+              partner: humanizeHotelProgram(hotelProgram),
+              partnerCode: hotelProgram,
+              totalPoints: Math.round(Number(p.miles) || 0),
+              totalSurcharge: Number(p.surcharge) || 0,
+              isHotel: true,
+            });
+          }
+        }
+        // Add hotel booking
+        hotelBookings.push({
+          hotelName: p.hotelName,
+          hotelCity: p.hotelCity || primaryDestLabel,
+          checkIn: p.checkIn || startLabel,
+          checkOut: p.checkOut || (endLabel || startLabel),
+          nights: p.nights,
+          pointsUsed: p.type === 'points' ? Math.round(Number(p.miles) || 0) : undefined,
+          program: p.type === 'points' ? humanizeHotelProgram(p.via?.hotel || p.program || '') : undefined,
+        });
+      } else {
+        // Process flight/segment
+        if (p.type === 'points' && (p.via?.source || p.via?.airline || p.via?.native) && (p.miles ?? 0) > 0) {
+          const sourceCode = (p.via?.source || '').toLowerCase();
+          const partnerCode = (p.via?.airline || p.via?.native || '').toUpperCase();
+          const key = `${sourceCode}→${partnerCode}→flight`;
+          
+          const existing = transferMap.get(key);
+          if (existing) {
+            existing.totalPoints += Math.round(Number(p.miles) || 0);
+            existing.totalSurcharge += Number(p.surcharge) || 0;
+          } else {
+            transferMap.set(key, {
+              source: humanizeProgram(sourceCode),
+              sourceCode,
+              partner: humanizeAirline(partnerCode),
+              partnerCode,
+              totalPoints: Math.round(Number(p.miles) || 0),
+              totalSurcharge: Number(p.surcharge) || 0,
+              isHotel: false,
+            });
+          }
+        }
+        
+        // Add flight segment
+        const edge = Array.isArray(p.edge) ? p.edge : [];
+        const orig = String(edge[0] || '').toUpperCase();
+        const dest = String(edge[1] || '').toUpperCase();
+        const flightNumber = edge[2] ? String(edge[2]).toUpperCase() : undefined;
+        const mode = (p.mode || 'flight') as 'flight' | 'bus' | 'car';
+        
+        if (orig && dest) {
+          // Detect codeshare: marketing airline (via.airline) differs from operating airline (via.native)
+          // Also check operating_airline field from backend
+          const marketingCode = (p.via?.airline || '').toUpperCase();
+          const nativeCode = (p.via?.native || '').toUpperCase();
+          const operatingFromBackend = (p.operating_airline || '').toUpperCase();
+          const operatingCode = operatingFromBackend || nativeCode;
+          const isCodeshare = !!(marketingCode && operatingCode && marketingCode !== operatingCode);
+          
+          // For airline display, use marketingCode if available, otherwise use nativeCode
+          const displayAirlineCode = marketingCode || nativeCode;
+          
+          // Parse departure/arrival times for red-eye and overnight detection
+          const depParsed = parseFlightTime(p.departure_time);
+          const arrParsed = parseFlightTime(p.arrival_time);
+          const isRedEye = depParsed ? isRedEyeHour(depParsed.hour) : false;
+          const isOvernight = arrParsed?.nextDay || false;
+          
+          // Parse date from departure time (or use trip start date as fallback)
+          const departureDate = parseDateFromDateTime(p.departure_time) || startLabel;
+          
+          flightSegments.push({
+            mode,
+            orig,
+            dest,
+            flightNumber: flightNumber !== 'BUS' && flightNumber !== 'CAR' ? flightNumber : undefined,
+            marketingAirline: displayAirlineCode ? humanizeAirline(displayAirlineCode) : undefined,
+            marketingAirlineName: displayAirlineCode ? getAirlineName(displayAirlineCode) : undefined,
+            marketingCode: displayAirlineCode || undefined,
+            operatingAirline: isCodeshare ? humanizeAirline(operatingCode) : undefined,
+            operatingAirlineName: isCodeshare ? getAirlineName(operatingCode) : undefined,
+            operatingCode: isCodeshare ? operatingCode : undefined,
+            isCodeshare,
+            fare: p.type === 'cash' ? Number(p.fare) : undefined,
+            surcharge: p.type === 'points' ? Number(p.surcharge) : undefined,
+            miles: p.type === 'points' ? Number(p.miles) : undefined,
+            departureDate,
+            departureTime: p.departure_time,
+            arrivalTime: p.arrival_time,
+            isRedEye,
+            isOvernight,
+            paymentType: p.type as 'points' | 'cash' | undefined,
+            sourceProgram: p.type === 'points' && p.via?.source ? humanizeProgram(p.via.source) : undefined,
+          });
+        }
       }
     });
-  } else if (routeLabels.length >= 2) {
-    // Fallback when no payment data: show generic route
-    steps.push({ kind: 'segment', mode: 'flight', orig: routeLabels[0], dest: routeLabels[routeLabels.length - 1], via: routeLabels.slice(1, -1) });
+    
+    transferSummaries.push(...transferMap.values());
+  }
+  
+  // Add fallback hotel booking when includeHotels is true but no hotel payments exist
+  if (includeHotels && hotelBookings.length === 0 && (transferSummaries.length > 0 || flightSegments.length > 0)) {
+    hotelBookings.push({
+      hotelName: undefined,
+      hotelCity: primaryDestLabel,
+      checkIn: startLabel,
+      checkOut: endLabel || startLabel,
+      nights: duration > 0 ? duration : undefined,
+      pointsUsed: undefined,
+      program: undefined,
+    });
   }
 
-  if (includeHotels) {
-    steps.push({ kind: 'hotel_transfer' });
-    steps.push({ kind: 'hotel_book', dest: primaryDestLabel, start: startLabel, end: endLabel || startLabel });
-  }
+  // Fallback when no payment data
+  const hasData = transferSummaries.length > 0 || flightSegments.length > 0 || hotelBookings.length > 0;
 
-  const SegmentIcon = ({ mode }: { mode: 'flight' | 'bus' | 'car' }) => (mode === 'flight' ? <Plane className="w-5 h-5 text-slate-400" /> : mode === 'bus' ? <Bus className="w-5 h-5 text-slate-400" /> : <Car className="w-5 h-5 text-slate-400" />);
+  const SegmentIcon = ({ mode }: { mode: 'flight' | 'bus' | 'car' }) => (
+    mode === 'flight' 
+      ? <Plane className="w-5 h-5 text-blue-600" /> 
+      : mode === 'bus' 
+        ? <Bus className="w-5 h-5 text-green-600" /> 
+        : <Car className="w-5 h-5 text-orange-600" />
+  );
 
   return (
     <div data-testid="solo-booking-page" data-slot="SoloBooking" className="min-h-screen bg-slate-50 pb-20">
@@ -356,181 +696,437 @@ function SoloBookingContent() {
                 </div>
               )}
 
-              <div className={`p-8 space-y-8 ${!isPaid ? 'opacity-20 select-none' : ''}`}>
-                {/* New Copy-Paste Ready Transfer Card */}
-                {transferItems.length > 0 && isPaid && (
-                  <div className="mb-6">
-                    <TransferStrategyCard
-                      transfers={transferItems}
-                      summary={{
-                        totalOutOfPocket: taxes,
-                        allCashCost: cashPrice,
-                        savings: Math.max(0, Math.round(savings)),
-                        savingsPercentage: cashPrice > 0 ? (savings / cashPrice) * 100 : 0,
-                      }}
-                    />
-                  </div>
-                )}
-                
-                {steps.length > 0 ? (
-                  steps.map((step, idx) => {
-                    if (step.kind === 'transfer') {
-                      return (
-                        <div key={idx} className="flex gap-4">
-                          <div className="flex-shrink-0 w-8 h-8 rounded-full bg-blue-100 text-blue-600 flex items-center justify-center font-bold">{idx + 1}</div>
-                          <div className="flex-1">
-                            <h3 className="font-semibold text-slate-900 mb-2">Transfer points to {step.partner}</h3>
-                            <p className="text-slate-600 mb-4">
-                              Log in to your {step.source} account and transfer <span className="font-bold text-slate-900">{step.amount.toLocaleString()} points</span> to {step.partner}. Transfers are usually instant.
-                              {step.surcharge && step.surcharge > 0 && (
-                                <> You'll also pay <span className="font-bold text-slate-900">${Math.round(step.surcharge)}</span> in taxes and fees when booking.</>
-                              )}
-                            </p>
-                            <div className="p-4 bg-slate-50 rounded-xl border border-slate-200">
-                              <div className="grid grid-cols-2 gap-3">
-                                <div>
-                                  <div className="text-xs text-slate-500 mb-1">Transfer From</div>
-                                  <div className="text-sm font-semibold text-slate-900">{step.source}</div>
+              <div className={`p-6 space-y-6 ${!isPaid ? 'opacity-20 select-none' : ''}`}>
+                {hasData ? (
+                  <>
+                    {/* Step 1: Transfer Summary - Condensed view of all transfers by card */}
+                    {transferSummaries.length > 0 && (
+                      <div className="space-y-4">
+                        <div className="flex items-center gap-3">
+                          <div className="flex-shrink-0 w-8 h-8 rounded-full bg-gradient-to-br from-blue-500 to-blue-600 text-white flex items-center justify-center font-bold text-sm shadow-md">1</div>
+                          <div>
+                            <h3 className="font-semibold text-slate-900">Transfer Points</h3>
+                            <p className="text-xs text-slate-500">Move points from your credit cards to airline/hotel programs</p>
+                          </div>
+                        </div>
+                        
+                        <div className="ml-11 space-y-3">
+                          {transferSummaries.filter(t => !t.isHotel).map((transfer, idx) => (
+                            <div key={`flight-${idx}`} className="flex items-center justify-between p-4 bg-gradient-to-r from-blue-50 to-indigo-50 rounded-xl border border-blue-100 shadow-sm">
+                              <div className="flex items-center gap-4">
+                                <div className="p-2 bg-white rounded-lg shadow-sm">
+                                  <CreditCard className="w-5 h-5 text-blue-600" />
                                 </div>
                                 <div>
-                                  <div className="text-xs text-slate-500 mb-1">Transfer To</div>
-                                  <div className="text-sm font-semibold text-slate-900">{step.partner}</div>
+                                  <div className="font-semibold text-slate-900">{transfer.source}</div>
+                                  <div className="flex items-center gap-2 text-sm text-slate-600 mt-0.5">
+                                    <ArrowRight className="w-3 h-3" />
+                                    <span>{transfer.partner}</span>
+                                  </div>
+                                </div>
+                              </div>
+                              <div className="text-right">
+                                <div className="text-xl font-bold text-blue-700">{transfer.totalPoints.toLocaleString()}</div>
+                                <div className="text-xs text-slate-500">points to transfer</div>
+                                {transfer.totalSurcharge > 0 && (
+                                  <div className="text-xs text-slate-500 mt-1">+${Math.round(transfer.totalSurcharge)} fees</div>
+                                )}
+                              </div>
+                            </div>
+                          ))}
+                          
+                          {transferSummaries.filter(t => t.isHotel).map((transfer, idx) => (
+                            <div key={`hotel-${idx}`} className="flex items-center justify-between p-4 bg-gradient-to-r from-amber-50 to-orange-50 rounded-xl border border-amber-100 shadow-sm">
+                              <div className="flex items-center gap-4">
+                                <div className="p-2 bg-white rounded-lg shadow-sm">
+                                  <Building2 className="w-5 h-5 text-amber-600" />
                                 </div>
                                 <div>
-                                  <div className="text-xs text-slate-500 mb-1">Amount</div>
-                                  <div className="text-sm font-semibold text-slate-900">{step.amount.toLocaleString()} points</div>
+                                  <div className="font-semibold text-slate-900">{transfer.source}</div>
+                                  <div className="flex items-center gap-2 text-sm text-slate-600 mt-0.5">
+                                    <ArrowRight className="w-3 h-3" />
+                                    <span>{transfer.partner}</span>
+                                  </div>
                                 </div>
-                                {step.surcharge && step.surcharge > 0 && (
-                                  <div>
-                                    <div className="text-xs text-slate-500 mb-1">Taxes & Fees</div>
-                                    <div className="text-sm font-semibold text-slate-900">${Math.round(step.surcharge)}</div>
+                              </div>
+                              <div className="text-right">
+                                <div className="text-xl font-bold text-amber-700">{transfer.totalPoints.toLocaleString()}</div>
+                                <div className="text-xs text-slate-500">points to transfer</div>
+                                {transfer.totalSurcharge > 0 && (
+                                  <div className="text-xs text-slate-500 mt-1">+${Math.round(transfer.totalSurcharge)} fees</div>
+                                )}
+                              </div>
+                            </div>
+                          ))}
+                        </div>
+                      </div>
+                    )}
+
+                    {/* Step 2: Flights to Book - Condensed list */}
+                    {flightSegments.length > 0 && (
+                      <div className="space-y-4">
+                        <div className="flex items-center gap-3">
+                          <div className="flex-shrink-0 w-8 h-8 rounded-full bg-gradient-to-br from-blue-500 to-blue-600 text-white flex items-center justify-center font-bold text-sm shadow-md">
+                            {transferSummaries.length > 0 ? '2' : '1'}
+                          </div>
+                          <div>
+                            <h3 className="font-semibold text-slate-900">Book Your Flights</h3>
+                            <p className="text-xs text-slate-500">Use your transferred points to book these flights</p>
+                          </div>
+                        </div>
+                        
+                        <div className="ml-11 space-y-3">
+                          {flightSegments.map((segment, idx) => {
+                            const isExpanded = expandedFlightIdx === idx;
+                            const bookingUrl = segment.marketingCode ? AIRLINE_BOOKING_URLS[segment.marketingCode] : undefined;
+                            const dateStr = segment.departureDate || '';
+                            const timeStr = segment.departureTime ? formatTime(segment.departureTime) : '';
+                            const airlineName = segment.marketingAirlineName || segment.marketingAirline || 'airline';
+                            const bookingSummary = segment.flightNumber 
+                              ? `Book ${segment.flightNumber} (${segment.orig}→${segment.dest}) on ${dateStr}${timeStr ? ` at ${timeStr}` : ''} via ${airlineName}`
+                              : `Book ${segment.orig}→${segment.dest} on ${dateStr}${timeStr ? ` at ${timeStr}` : ''}`;
+                            
+                            return (
+                              <div key={idx} className={`rounded-xl border overflow-hidden shadow-sm transition-all ${isExpanded ? 'bg-white border-blue-200 shadow-md' : 'bg-white border-slate-200 hover:border-slate-300'}`}>
+                                {/* Clickable header */}
+                                <button
+                                  onClick={() => setExpandedFlightIdx(isExpanded ? null : idx)}
+                                  className="w-full flex items-start gap-4 p-4 text-left hover:bg-slate-50/50 transition-colors"
+                                >
+                                  <div className={`p-2 rounded-lg ${segment.mode === 'flight' ? 'bg-blue-50' : 'bg-slate-100'}`}>
+                                    <SegmentIcon mode={segment.mode} />
+                                  </div>
+                                  <div className="flex-1 min-w-0">
+                                    <div className="flex items-center gap-2 flex-wrap">
+                                      <span className="text-lg font-semibold text-slate-900">
+                                        {segment.orig} <ArrowRight className="w-4 h-4 inline mx-1 text-slate-400" /> {segment.dest}
+                                      </span>
+                                      {segment.flightNumber && (
+                                        <span className="px-2.5 py-1 bg-gradient-to-r from-blue-500 to-blue-600 text-white text-xs font-bold rounded-md shadow-sm">
+                                          {segment.flightNumber}
+                                        </span>
+                                      )}
+                                    </div>
+                                    {/* Airline name */}
+                                    {segment.marketingAirlineName && (
+                                      <div className="text-sm text-slate-600 mt-1 font-medium">
+                                        {segment.marketingAirlineName}
+                                        {segment.isCodeshare && segment.operatingAirlineName && (
+                                          <span className="text-purple-600 font-normal"> • Operated by {segment.operatingAirlineName}</span>
+                                        )}
+                                      </div>
+                                    )}
+                                    {/* Date and Flight times */}
+                                    <div className="flex items-center gap-4 mt-2 text-sm flex-wrap">
+                                      {segment.departureDate && (
+                                        <span className="flex items-center gap-1.5 text-slate-700">
+                                          <span className="w-1.5 h-1.5 rounded-full bg-blue-500"></span>
+                                          <span className="font-medium">{segment.departureDate}</span>
+                                        </span>
+                                      )}
+                                      {segment.departureTime && (
+                                        <span className="flex items-center gap-1.5 px-2 py-0.5 bg-slate-100 rounded-md text-slate-700">
+                                          <Clock className="w-3.5 h-3.5 text-slate-500" />
+                                          <span className="font-medium">{formatTime(segment.departureTime)}</span>
+                                          {segment.arrivalTime && (
+                                            <>
+                                              <ArrowRight className="w-3 h-3 text-slate-400" />
+                                              <span className="font-medium">{formatTime(segment.arrivalTime)}</span>
+                                            </>
+                                          )}
+                                        </span>
+                                      )}
+                                    </div>
+                                    {/* Tags */}
+                                    <div className="flex items-center gap-2 mt-2 flex-wrap">
+                                      {segment.isCodeshare && (
+                                        <span className="px-2 py-0.5 bg-purple-100 text-purple-700 text-xs font-medium rounded-full">
+                                          Codeshare
+                                        </span>
+                                      )}
+                                      {segment.isRedEye && (
+                                        <span className="px-2 py-0.5 bg-indigo-100 text-indigo-700 text-xs font-medium rounded-full flex items-center gap-1">
+                                          <Moon className="w-3 h-3" /> Red-eye
+                                        </span>
+                                      )}
+                                      {segment.isOvernight && (
+                                        <span className="px-2 py-0.5 bg-amber-100 text-amber-700 text-xs font-medium rounded-full">
+                                          Arrives +1 day
+                                        </span>
+                                      )}
+                                      {segment.surcharge !== undefined && segment.surcharge > 0 && (
+                                        <span className="px-2 py-0.5 bg-slate-100 text-slate-600 text-xs font-medium rounded-full">
+                                          ${Math.round(segment.surcharge)} fees
+                                        </span>
+                                      )}
+                                    </div>
+                                  </div>
+                                  <div className={`p-1 rounded-full transition-colors ${isExpanded ? 'bg-blue-100' : 'bg-slate-100'}`}>
+                                    {isExpanded ? (
+                                      <ChevronUp className={`w-5 h-5 ${isExpanded ? 'text-blue-600' : 'text-slate-400'}`} />
+                                    ) : (
+                                      <ChevronDown className="w-5 h-5 text-slate-400" />
+                                    )}
+                                  </div>
+                                </button>
+                                
+                                {/* Expanded details */}
+                                {isExpanded && (
+                                  <div className="border-t border-blue-100 bg-gradient-to-b from-blue-50/50 to-white">
+                                    {/* Copy-paste booking summary */}
+                                    <div className="p-4 border-b border-slate-100">
+                                      <button
+                                        onClick={() => copyToClipboard(bookingSummary)}
+                                        className="w-full p-4 bg-white rounded-xl border-2 border-dashed border-slate-200 text-left hover:border-blue-300 hover:bg-blue-50/30 transition-all group"
+                                      >
+                                        <div className="flex items-center justify-between mb-2">
+                                          <span className="text-xs font-semibold text-slate-500 uppercase tracking-wide">Booking Summary</span>
+                                          <span className={`flex items-center gap-1.5 text-xs font-medium ${copiedText === bookingSummary ? 'text-green-600' : 'text-blue-600'}`}>
+                                            {copiedText === bookingSummary ? (
+                                              <><Check className="w-3.5 h-3.5" /> Copied!</>
+                                            ) : (
+                                              <><Copy className="w-3.5 h-3.5" /> Click to copy</>
+                                            )}
+                                          </span>
+                                        </div>
+                                        <p className="text-slate-800 font-medium leading-relaxed">{bookingSummary}</p>
+                                      </button>
+                                    </div>
+                                    
+                                    {/* Flight details grid */}
+                                    <div className="p-4 grid grid-cols-2 md:grid-cols-3 gap-4">
+                                      <div className="p-3 bg-white rounded-lg border border-slate-100">
+                                        <div className="text-xs text-slate-500 mb-1 font-medium">Route</div>
+                                        <div className="font-semibold text-slate-900">{segment.orig} → {segment.dest}</div>
+                                      </div>
+                                      {segment.flightNumber && (
+                                        <div className="p-3 bg-white rounded-lg border border-slate-100">
+                                          <div className="text-xs text-slate-500 mb-1 font-medium">Flight</div>
+                                          <div className="font-semibold text-slate-900">{segment.flightNumber}</div>
+                                        </div>
+                                      )}
+                                      {segment.departureDate && (
+                                        <div className="p-3 bg-white rounded-lg border border-slate-100">
+                                          <div className="text-xs text-slate-500 mb-1 font-medium">Date</div>
+                                          <div className="font-semibold text-slate-900">{segment.departureDate}</div>
+                                        </div>
+                                      )}
+                                      {segment.departureTime && (
+                                        <div className="p-3 bg-white rounded-lg border border-slate-100">
+                                          <div className="text-xs text-slate-500 mb-1 font-medium">Departs</div>
+                                          <div className="font-semibold text-slate-900">{formatTime(segment.departureTime)}</div>
+                                        </div>
+                                      )}
+                                      {segment.arrivalTime && (
+                                        <div className="p-3 bg-white rounded-lg border border-slate-100">
+                                          <div className="text-xs text-slate-500 mb-1 font-medium">Arrives</div>
+                                          <div className="font-semibold text-slate-900">
+                                            {formatTime(segment.arrivalTime)}
+                                            {segment.isOvernight && <span className="text-amber-600 text-xs ml-1">(+1)</span>}
+                                          </div>
+                                        </div>
+                                      )}
+                                      {segment.marketingAirlineName && (
+                                        <div className="p-3 bg-white rounded-lg border border-slate-100">
+                                          <div className="text-xs text-slate-500 mb-1 font-medium">Airline</div>
+                                          <div className="font-semibold text-slate-900">{segment.marketingAirlineName}</div>
+                                        </div>
+                                      )}
+                                      {segment.isCodeshare && segment.operatingAirlineName && (
+                                        <div className="p-3 bg-purple-50 rounded-lg border border-purple-100">
+                                          <div className="text-xs text-purple-600 mb-1 font-medium">Operated By</div>
+                                          <div className="font-semibold text-purple-800">{segment.operatingAirlineName}</div>
+                                        </div>
+                                      )}
+                                      {segment.paymentType === 'points' && segment.miles && (
+                                        <div className="p-3 bg-blue-50 rounded-lg border border-blue-100">
+                                          <div className="text-xs text-blue-600 mb-1 font-medium">Points Required</div>
+                                          <div className="font-semibold text-blue-800">{segment.miles.toLocaleString()} pts</div>
+                                        </div>
+                                      )}
+                                      {segment.surcharge !== undefined && segment.surcharge > 0 && (
+                                        <div className="p-3 bg-white rounded-lg border border-slate-100">
+                                          <div className="text-xs text-slate-500 mb-1 font-medium">Taxes & Fees</div>
+                                          <div className="font-semibold text-slate-900">${Math.round(segment.surcharge)}</div>
+                                        </div>
+                                      )}
+                                      {segment.fare && (
+                                        <div className="p-3 bg-white rounded-lg border border-slate-100">
+                                          <div className="text-xs text-slate-500 mb-1 font-medium">Cash Fare</div>
+                                          <div className="font-semibold text-slate-900">${Math.round(segment.fare)}</div>
+                                        </div>
+                                      )}
+                                      {segment.marketingAirline && (
+                                        <div className="p-3 bg-slate-50 rounded-lg border border-slate-100 col-span-2 md:col-span-3">
+                                          <div className="text-xs text-slate-500 mb-1 font-medium">Loyalty Program</div>
+                                          <div className="font-semibold text-slate-700">{segment.marketingAirline}</div>
+                                        </div>
+                                      )}
+                                    </div>
+                                    
+                                    {/* Special notes */}
+                                    {(segment.isRedEye || segment.isOvernight || segment.isCodeshare) && (
+                                      <div className="px-4 pb-4">
+                                        <div className="p-4 bg-gradient-to-r from-amber-50 to-orange-50 rounded-xl border border-amber-200">
+                                          <div className="flex items-center gap-2 text-sm font-semibold text-amber-800 mb-2">
+                                            <Info className="w-4 h-4" />
+                                            Important Notes
+                                          </div>
+                                          <ul className="text-sm text-amber-700 space-y-1.5">
+                                            {segment.isRedEye && (
+                                              <li className="flex items-start gap-2">
+                                                <Moon className="w-4 h-4 mt-0.5 flex-shrink-0" />
+                                                <span><strong>Red-eye flight</strong> – Departs late night, plan for less sleep</span>
+                                              </li>
+                                            )}
+                                            {segment.isOvernight && (
+                                              <li className="flex items-start gap-2">
+                                                <Clock className="w-4 h-4 mt-0.5 flex-shrink-0" />
+                                                <span><strong>Overnight flight</strong> – Arrives the next calendar day</span>
+                                              </li>
+                                            )}
+                                            {segment.isCodeshare && (
+                                              <li className="flex items-start gap-2">
+                                                <Plane className="w-4 h-4 mt-0.5 flex-shrink-0" />
+                                                <span><strong>Codeshare</strong> – Booked via {segment.marketingAirlineName} but operated by {segment.operatingAirlineName}</span>
+                                              </li>
+                                            )}
+                                          </ul>
+                                        </div>
+                                      </div>
+                                    )}
+                                    
+                                    {/* Booking link */}
+                                    {bookingUrl && (
+                                      <div className="p-4 pt-0">
+                                        <a
+                                          href={`https://${bookingUrl}`}
+                                          target="_blank"
+                                          rel="noopener noreferrer"
+                                          className="flex items-center justify-center gap-3 w-full py-3.5 bg-gradient-to-r from-blue-600 to-blue-700 hover:from-blue-700 hover:to-blue-800 text-white rounded-xl font-semibold text-sm transition-all shadow-lg shadow-blue-500/20 hover:shadow-blue-500/30"
+                                        >
+                                          <Plane className="w-5 h-5" />
+                                          Book on {segment.marketingAirlineName || bookingUrl}
+                                          <ExternalLink className="w-4 h-4" />
+                                        </a>
+                                      </div>
+                                    )}
                                   </div>
                                 )}
                               </div>
-                            </div>
+                            );
+                          })}
+                        </div>
+                      </div>
+                    )}
+
+                    {/* Step 3: Hotels to Book - Condensed list */}
+                    {hotelBookings.length > 0 && (
+                      <div className="space-y-4">
+                        <div className="flex items-center gap-3">
+                          <div className="flex-shrink-0 w-8 h-8 rounded-full bg-gradient-to-br from-amber-500 to-orange-500 text-white flex items-center justify-center font-bold text-sm shadow-md">
+                            {(transferSummaries.length > 0 ? 1 : 0) + (flightSegments.length > 0 ? 1 : 0) + 1}
+                          </div>
+                          <div>
+                            <h3 className="font-semibold text-slate-900">Book Your Hotels</h3>
+                            <p className="text-xs text-slate-500">Reserve your accommodation at these destinations</p>
                           </div>
                         </div>
-                      );
-                    }
-                    if (step.kind === 'segment') {
-                      const modeLabel = step.mode === 'flight' ? 'flight' : step.mode === 'bus' ? 'bus' : 'car';
-                      const via = step.via?.length ? ` (via ${step.via.join(', ')})` : '';
-                      const flightInfo = step.flightNumber ? ` ${step.flightNumber}` : '';
-                      const airlineInfo = step.airline ? ` on ${step.airline}` : '';
-                      const fareInfo = step.fare ? ` (~$${Math.round(step.fare)})` : '';
-                      return (
-                        <div key={idx} className="flex gap-4">
-                          <div className="flex-shrink-0 w-8 h-8 rounded-full bg-blue-100 text-blue-600 flex items-center justify-center font-bold">{idx + 1}</div>
-                          <div className="flex-1">
-                            <h3 className="font-semibold text-slate-900 mb-2">
-                              Book {modeLabel}{flightInfo} {step.orig} → {step.dest}
-                            </h3>
-                            <p className="text-slate-600 mb-4">
-                              {step.mode === 'flight' ? (
-                                <>
-                                  {step.airline ? (
-                                    <>Book {modeLabel}{flightInfo}{airlineInfo} from {step.orig} to {step.dest}{via}. Use the points you transferred above to complete the award booking.</>
-                                  ) : (
-                                    <>Search for {modeLabel} rewards from {step.orig} to {step.dest}{via} on {startLabel}. Use the points you transferred to book.</>
-                                  )}
-                                </>
-                              ) : (
-                                <>Book {modeLabel} from {step.orig} to {step.dest}{fareInfo}. This connecting segment fills gaps where flights aren't available.</>
-                              )}
-                            </p>
-                            <div className="flex items-center gap-4 p-4 bg-slate-50 rounded-xl border border-slate-200">
-                              <SegmentIcon mode={step.mode} />
-                              <div className="flex-1">
-                                <div className="font-semibold text-slate-900">
-                                  {step.orig} <ArrowRight className="w-4 h-4 inline mx-1" /> {step.dest}
-                                  {step.flightNumber && <span className="ml-2 text-sm font-normal text-slate-600">Flight {step.flightNumber}</span>}
+                        
+                        <div className="ml-11 space-y-3">
+                          {hotelBookings.map((hotel, idx) => (
+                            <div key={idx} className="bg-white rounded-xl border border-slate-200 shadow-sm overflow-hidden">
+                              <div className="p-4">
+                                <div className="flex items-start gap-4">
+                                  <div className="p-2.5 bg-gradient-to-br from-amber-100 to-orange-100 rounded-lg">
+                                    <Building2 className="w-5 h-5 text-amber-600" />
+                                  </div>
+                                  <div className="flex-1 min-w-0">
+                                    <div className="text-lg font-semibold text-slate-900">
+                                      {hotel.hotelName || `Hotel in ${hotel.hotelCity}`}
+                                    </div>
+                                    {hotel.hotelName && hotel.hotelCity && (
+                                      <div className="text-sm text-slate-500 mt-0.5">{hotel.hotelCity}</div>
+                                    )}
+                                  </div>
                                 </div>
-                                {step.airline && (
-                                  <div className="text-sm text-slate-600 mt-1">{step.airline}</div>
+                                
+                                {/* Stay details */}
+                                <div className="mt-4 grid grid-cols-2 md:grid-cols-4 gap-3">
+                                  <div className="p-3 bg-slate-50 rounded-lg">
+                                    <div className="text-xs text-slate-500 font-medium mb-1">Check-in</div>
+                                    <div className="font-semibold text-slate-900 text-sm">{hotel.checkIn}</div>
+                                  </div>
+                                  <div className="p-3 bg-slate-50 rounded-lg">
+                                    <div className="text-xs text-slate-500 font-medium mb-1">Check-out</div>
+                                    <div className="font-semibold text-slate-900 text-sm">{hotel.checkOut}</div>
+                                  </div>
+                                  {hotel.nights && (
+                                    <div className="p-3 bg-slate-50 rounded-lg">
+                                      <div className="text-xs text-slate-500 font-medium mb-1">Duration</div>
+                                      <div className="font-semibold text-slate-900 text-sm">{hotel.nights} nights</div>
+                                    </div>
+                                  )}
+                                  {hotel.pointsUsed && hotel.program && (
+                                    <div className="p-3 bg-amber-50 rounded-lg">
+                                      <div className="text-xs text-amber-600 font-medium mb-1">Points</div>
+                                      <div className="font-semibold text-amber-800 text-sm">{hotel.pointsUsed.toLocaleString()}</div>
+                                    </div>
+                                  )}
+                                </div>
+                                
+                                {hotel.program && (
+                                  <div className="mt-3 flex items-center gap-2 text-sm text-slate-600">
+                                    <span className="w-1.5 h-1.5 rounded-full bg-amber-500"></span>
+                                    Book via <span className="font-medium text-amber-700">{hotel.program}</span>
+                                  </div>
                                 )}
-                                {step.fare && (
-                                  <div className="text-xs text-slate-500 mt-1">Cash option: ${Math.round(step.fare)}</div>
-                                )}
-                                <div className="text-xs text-slate-500 mt-1">{startLabel}</div>
                               </div>
+                              {!hotel.hotelName && (
+                                <div className="px-4 py-3 bg-gradient-to-r from-amber-50 to-orange-50 border-t border-amber-100">
+                                  <p className="text-sm text-amber-800">
+                                    Search for hotels in <strong>{hotel.hotelCity}</strong> using your preferred hotel program (Marriott Bonvoy, Hilton Honors, World of Hyatt, etc.)
+                                  </p>
+                                </div>
+                              )}
                             </div>
-                          </div>
+                          ))}
                         </div>
-                      );
-                    }
-                    if (step.kind === 'hotel_transfer') {
-                      return (
-                        <div key={idx} className="flex gap-4">
-                          <div className="flex-shrink-0 w-8 h-8 rounded-full bg-blue-100 text-blue-600 flex items-center justify-center font-bold">{idx + 1}</div>
-                          <div>
-                            <h3 className="font-semibold text-slate-900 mb-2">Transfer points for hotel</h3>
-                            <p className="text-slate-600 mb-4">
-                              Use your preferred hotel program (e.g. Marriott Bonvoy, Hilton Honors, IHG) and transfer points if needed. Transfers typically take 24–48 hours.
-                            </p>
-                            <div className="p-4 bg-slate-50 rounded-xl border border-slate-200 text-sm font-mono text-slate-600">
-                              Hotel program • Amount based on your stay
-                            </div>
-                          </div>
+                      </div>
+                    )}
+
+                    {/* Total Out-of-Pocket Summary */}
+                    {taxes > 0 && (
+                      <div className="mt-4 p-4 bg-slate-100 rounded-xl border border-slate-200">
+                        <div className="flex items-center justify-between">
+                          <span className="font-medium text-slate-700">Total Out-of-Pocket</span>
+                          <span className="text-lg font-bold text-slate-900">${taxes}</span>
                         </div>
-                      );
-                    }
-                    if (step.kind === 'hotel_book') {
-                      return (
-                        <div key={idx} className="flex gap-4">
-                          <div className="flex-shrink-0 w-8 h-8 rounded-full bg-blue-100 text-blue-600 flex items-center justify-center font-bold">{idx + 1}</div>
-                          <div>
-                            <h3 className="font-semibold text-slate-900 mb-2">Book hotel at {step.dest}</h3>
-                            <p className="text-slate-600 mb-4">
-                              Search for hotels in {step.dest} and book with points or cash. Check in on {step.start} and check out on {step.end}.
-                            </p>
-                            <div className="flex items-center gap-4 p-4 bg-slate-50 rounded-xl border border-slate-200">
-                              <Building2 className="w-5 h-5 text-slate-400" />
-                              <div>
-                                <div className="font-semibold text-slate-900">{step.dest}</div>
-                                <div className="text-xs text-slate-500">Check-in: {step.start} • Check-out: {step.end}</div>
-                              </div>
-                            </div>
-                          </div>
-                        </div>
-                      );
-                    }
-                    return null;
-                  })
+                        <p className="text-xs text-slate-500 mt-1">Taxes and fees payable when booking</p>
+                      </div>
+                    )}
+                  </>
                 ) : (
                   <div className="space-y-4">
-                    <div className="p-6 bg-amber-50 border border-amber-200 rounded-xl">
+                    <div className="p-5 bg-amber-50 border border-amber-200 rounded-xl">
                       <div className="flex items-start gap-3">
                         <Info className="w-5 h-5 text-amber-600 flex-shrink-0 mt-0.5" />
                         <div>
                           <h3 className="font-semibold text-amber-900 mb-2">No detailed flight data available</h3>
-                          <p className="text-amber-800 text-sm mb-4">
-                            We couldn't find specific flight and transfer information for your trip. This usually happens when:
-                          </p>
-                          <ul className="text-amber-800 text-sm space-y-2 list-disc list-inside mb-4">
-                            <li>Flight search returned no results (small airports or no award availability)</li>
-                            <li>The trip planner used estimated costs instead of real flight data</li>
-                            <li>Trip dates or destinations need to be updated</li>
-                          </ul>
-                          <p className="text-amber-800 text-sm font-semibold">
-                            To get specific transfer instructions and flight numbers, please return to the Results page and ensure your trip has valid dates and major airports, then regenerate your itinerary.
+                          <p className="text-amber-800 text-sm">
+                            We couldn't find specific flight and transfer information. Please return to the Results page to regenerate your itinerary with valid dates and major airports.
                           </p>
                         </div>
                       </div>
                     </div>
-                    <div className="flex gap-4">
-                      <div className="flex-shrink-0 w-8 h-8 rounded-full bg-slate-100 text-slate-500 flex items-center justify-center font-bold">1</div>
-                      <div>
-                        <h3 className="font-semibold text-slate-900 mb-2">General booking guidance</h3>
-                        <p className="text-slate-600">
-                          Based on your itinerary ({routeLabels.length > 0 ? routeLabels.join(' → ') : 'your destinations'}), you should:
-                        </p>
-                        <ul className="text-slate-600 text-sm space-y-2 mt-3 list-disc list-inside">
-                          <li>Search for award flights on airline websites or aggregators</li>
-                          <li>Transfer points from flexible credit card programs (Chase, Amex, Citi) to airline partners with good availability</li>
-                          <li>Book as soon as you find availability, as award seats can disappear quickly</li>
-                          {includeHotels && <li>Book hotels separately using hotel points or cash</li>}
-                        </ul>
-                      </div>
+                    <div className="p-4 bg-slate-50 rounded-xl">
+                      <h3 className="font-semibold text-slate-900 mb-2">General guidance</h3>
+                      <ul className="text-slate-600 text-sm space-y-1 list-disc list-inside">
+                        <li>Search for award flights on airline websites</li>
+                        <li>Transfer points from Chase, Amex, or Citi to airline partners</li>
+                        <li>Book quickly as award seats disappear fast</li>
+                        {includeHotels && <li>Book hotels separately using hotel points or cash</li>}
+                      </ul>
                     </div>
                   </div>
                 )}

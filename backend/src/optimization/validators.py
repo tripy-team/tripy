@@ -1,0 +1,381 @@
+"""
+Validators for V3/V4 optimization.
+
+CRITICAL:
+- Policy-driven connection protection enforcement
+- Date feasibility validation
+- Pre-check feasibility before MILP
+
+MVP Rules (STRICT_MVP_POLICY):
+- Direct flights: always OK
+- Connections require BOTH:
+  - connection_protection == AIRLINE_PROTECTED
+  - self_transfer_required == NO
+"""
+
+import logging
+from typing import List, Tuple, Dict, Optional
+from datetime import date
+
+from .trip_spec import TripPlanSpec, OrderedLeg, StaySegment
+from .models_v3 import FlightItineraryEdge, HotelOption
+from .enums import ConnectionProtection, SelfTransferRequired, TicketingType
+from .derivation import finalize_itinerary
+from .validation_policy import ValidationPolicy, STRICT_MVP_POLICY, ALLOW_ALL_POLICY
+
+logger = logging.getLogger(__name__)
+
+
+def validate_connection_eligibility(
+    flights: List[FlightItineraryEdge],
+    policy: Optional[ValidationPolicy] = None,
+    strict_mode: bool = True,  # Deprecated, use policy instead
+) -> Tuple[List[FlightItineraryEdge], List[str]]:
+    """
+    Validate that connections are safe to show to users.
+    
+    POLICY-DRIVEN RULES:
+    1. Direct flights: always OK
+    2. Connections must have:
+       - connection_protection ∈ policy.allowed_protection_levels
+       - self_transfer_required == NO (if policy.require_explicit_no_self_transfer)
+    3. Incomplete segments are allowed only if protection is confirmed
+       (and policy.allow_incomplete_with_protection)
+    
+    Transfer warnings are generated but don't affect eligibility.
+    
+    Args:
+        flights: List of flight edges to validate
+        policy: Validation policy (defaults to STRICT_MVP_POLICY)
+        strict_mode: Deprecated, use policy instead
+    
+    Returns:
+        (filtered_flights, drop_reasons)
+    """
+    
+    # Use policy if provided, otherwise derive from strict_mode for backwards compat
+    if policy is None:
+        policy = STRICT_MVP_POLICY if strict_mode else ALLOW_ALL_POLICY
+    
+    filtered = []
+    drop_reasons = []
+    
+    for edge in flights:
+        # Ensure edge is finalized
+        if not edge._finalized:
+            edge = finalize_itinerary(edge)
+        
+        # ═══════════════════════════════════════════════════════════════════
+        # RULE 1: Direct flights always pass
+        # ═══════════════════════════════════════════════════════════════════
+        
+        if edge.is_direct:
+            filtered.append(edge)
+            continue
+        
+        # ═══════════════════════════════════════════════════════════════════
+        # RULE 2: Check protection level against policy
+        # ═══════════════════════════════════════════════════════════════════
+        
+        protection_ok = edge.connection_protection in policy.allowed_protection_levels
+        
+        if not protection_ok:
+            # Sort allowed list for deterministic log/test output
+            allowed = sorted(p.value for p in policy.allowed_protection_levels)
+            reason = (
+                f"Dropped {edge.edge_id}: {edge.num_stops}-stop connection "
+                f"with protection={edge.connection_protection.value} "
+                f"(allowed: {allowed})"
+            )
+            drop_reasons.append(reason)
+            if policy.log_drops:
+                logger.info(reason)
+            continue
+        
+        # ═══════════════════════════════════════════════════════════════════
+        # RULE 3: Check self-transfer requirement
+        # ═══════════════════════════════════════════════════════════════════
+        
+        if policy.require_explicit_no_self_transfer:
+            if edge.self_transfer_required != SelfTransferRequired.NO:
+                reason = (
+                    f"Dropped {edge.edge_id}: {edge.num_stops}-stop connection "
+                    f"with self_transfer={edge.self_transfer_required.value} "
+                    f"(policy requires explicit NO)"
+                )
+                drop_reasons.append(reason)
+                if policy.log_drops:
+                    logger.info(reason)
+                continue
+        
+        # ═══════════════════════════════════════════════════════════════════
+        # RULE 4: Check incomplete segments
+        # ═══════════════════════════════════════════════════════════════════
+        
+        if edge.segments_incomplete:
+            if not policy.allow_incomplete_with_protection:
+                reason = f"Dropped {edge.edge_id}: incomplete segment data (policy disallows)"
+                drop_reasons.append(reason)
+                continue
+            
+            # Allow incomplete only if protection is in the allowed set (policy-driven!)
+            if edge.connection_protection not in policy.allowed_protection_levels:
+                allowed = sorted(p.value for p in policy.allowed_protection_levels)
+                reason = (
+                    f"Dropped {edge.edge_id}: incomplete segment data "
+                    f"with protection={edge.connection_protection.value} "
+                    f"(allowed for incomplete: {allowed})"
+                )
+                drop_reasons.append(reason)
+                if policy.log_drops:
+                    logger.info(reason)
+                continue
+        
+        # ═══════════════════════════════════════════════════════════════════
+        # PASSED ALL CHECKS
+        # ═══════════════════════════════════════════════════════════════════
+        
+        filtered.append(edge)
+    
+    return filtered, drop_reasons
+
+
+def filter_single_ticket_only(
+    flights: List[FlightItineraryEdge],
+) -> Tuple[List[FlightItineraryEdge], List[str]]:
+    """
+    DEPRECATED: Use validate_connection_eligibility with policy instead.
+    
+    This is kept for backwards compatibility but delegates to the new function.
+    """
+    return validate_connection_eligibility(flights, policy=STRICT_MVP_POLICY)
+
+
+def validate_date_feasibility(
+    flights: List[FlightItineraryEdge],
+    stay_segments: List[StaySegment],
+    legs: List[OrderedLeg],
+) -> Tuple[List[FlightItineraryEdge], List[str]]:
+    """
+    Filter flights that violate date constraints.
+    
+    CRITICAL: This ensures the MILP only sees feasible options.
+    
+    Rules:
+    - Flight for leg i must depart within leg's date window
+    - Flight for leg i must arrive by stay[i].check_in (if stay exists)
+    - Flight for leg i must depart on/after stay[i-1].check_out (if stay exists)
+    
+    Returns:
+        (filtered_flights, warnings)
+    """
+    
+    filtered = []
+    warnings = []
+    
+    # Build segment lookup
+    # seg_after_leg[i] = segment that comes after leg i (traveler arrives, then stays)
+    seg_after_leg: Dict[int, StaySegment] = {}
+    for i, seg in enumerate(stay_segments):
+        seg_after_leg[i] = seg
+    
+    # seg_before_leg[i] = segment that comes before leg i (traveler checks out, then departs)
+    seg_before_leg: Dict[int, StaySegment] = {}
+    for i, seg in enumerate(stay_segments):
+        seg_before_leg[i + 1] = seg
+    
+    leg_by_id = {leg.leg_id: leg for leg in legs}
+    
+    for f in flights:
+        # Ensure date fields are computed
+        f.compute_date_fields()
+        
+        leg = leg_by_id.get(f.leg_id)
+        
+        if not leg:
+            warnings.append(f"Flight {f.edge_id} has unknown leg_id {f.leg_id}")
+            continue
+        
+        is_feasible = True
+        reasons = []
+        
+        # Check 1: Departs within leg's date window
+        if f.departs_on_date and f.departs_on_date < leg.earliest_departure:
+            is_feasible = False
+            reasons.append(
+                f"departs {f.departs_on_date} before earliest {leg.earliest_departure}"
+            )
+        
+        if f.departs_on_date and f.departs_on_date > leg.latest_departure:
+            is_feasible = False
+            reasons.append(
+                f"departs {f.departs_on_date} after latest {leg.latest_departure}"
+            )
+        
+        # Check 2: Arrives by check-in of next stay (if exists)
+        if f.leg_id in seg_after_leg:
+            seg = seg_after_leg[f.leg_id]
+            if f.arrives_by_date and f.arrives_by_date > seg.check_in:
+                is_feasible = False
+                reasons.append(
+                    f"arrives {f.arrives_by_date} after check_in {seg.check_in}"
+                )
+        
+        # Check 3: Departs on/after check-out of previous stay (if exists)
+        if f.leg_id in seg_before_leg:
+            seg = seg_before_leg[f.leg_id]
+            if f.departs_on_date and f.departs_on_date < seg.check_out:
+                is_feasible = False
+                reasons.append(
+                    f"departs {f.departs_on_date} before check_out {seg.check_out}"
+                )
+        
+        if is_feasible:
+            filtered.append(f)
+        else:
+            reason_str = "; ".join(reasons)
+            warnings.append(
+                f"Dropped {f.edge_id}: date infeasible for leg {f.leg_id} ({reason_str})"
+            )
+    
+    return filtered, warnings
+
+
+def pre_check_feasibility(
+    spec: TripPlanSpec,
+    flights_by_leg: Dict[int, List[FlightItineraryEdge]],
+    hotels_by_segment: Dict[int, List[HotelOption]],
+) -> Tuple[bool, List[str]]:
+    """
+    Fast pre-check before building MILP.
+    
+    This catches obvious data problems before expensive MILP construction.
+    
+    Returns:
+        (is_feasible, issues)
+    """
+    
+    issues = []
+    
+    # Check each leg has at least one flight
+    for leg in spec.legs:
+        leg_flights = flights_by_leg.get(leg.leg_id, [])
+        if not leg_flights:
+            issues.append(
+                f"No flights for leg {leg.leg_id}: {leg.origin_city} → {leg.destination_city} "
+                f"({leg.earliest_departure} to {leg.latest_departure})"
+            )
+    
+    # Check each segment has at least one hotel
+    for seg in spec.stay_segments:
+        seg_hotels = hotels_by_segment.get(seg.segment_id, [])
+        if not seg_hotels:
+            issues.append(
+                f"No hotels for segment {seg.segment_id}: {seg.city} "
+                f"({seg.check_in} to {seg.check_out}, {seg.nights} nights)"
+            )
+    
+    # Check travelers have some usable points
+    has_any_points = False
+    for traveler in spec.travelers:
+        if traveler.has_usable_points():
+            has_any_points = True
+            break
+    
+    if not has_any_points:
+        issues.append(
+            "No travelers have usable points or bank balances - "
+            "all bookings will be cash-only"
+        )
+    
+    # Check traveler count vs minimum rooms
+    num_travelers = spec.num_travelers
+    for seg in spec.stay_segments:
+        if seg.min_rooms:
+            # Check that at least one hotel can accommodate
+            seg_hotels = hotels_by_segment.get(seg.segment_id, [])
+            can_accommodate = False
+            for h in seg_hotels:
+                total_capacity = sum(rt.capacity for rt in h.room_types)
+                if total_capacity >= num_travelers:
+                    can_accommodate = True
+                    break
+            
+            if seg_hotels and not can_accommodate:
+                issues.append(
+                    f"Segment {seg.segment_id}: no hotel can accommodate {num_travelers} travelers"
+                )
+    
+    return len(issues) == 0, issues
+
+
+def validate_connection_warnings(
+    flights: List[FlightItineraryEdge],
+) -> List[str]:
+    """
+    Generate warnings for connection issues (informational, not blocking).
+    
+    Returns list of warnings.
+    """
+    
+    warnings = []
+    
+    for f in flights:
+        # Run connection validation
+        conn_warnings = f.validate_connections()
+        warnings.extend(conn_warnings)
+        
+        # Check for short connections
+        if f.has_short_connection:
+            warnings.append(
+                f"Flight {f.edge_id}: has short connection (<60 min) - "
+                f"risk of missed connection"
+            )
+        
+        # Check for long layovers
+        if f.has_long_layover:
+            warnings.append(
+                f"Flight {f.edge_id}: has long layover (>4 hours)"
+            )
+        
+        # Check for redeye
+        if f.is_redeye:
+            warnings.append(
+                f"Flight {f.edge_id}: is a redeye flight"
+            )
+    
+    return warnings
+
+
+def validate_award_availability(
+    flights: List[FlightItineraryEdge],
+    hotels: List[HotelOption],
+    min_threshold: float = 0.3,
+) -> List[str]:
+    """
+    Warn about low-availability awards.
+    
+    Returns list of warnings.
+    """
+    
+    warnings = []
+    
+    for f in flights:
+        for opt in f.award_options:
+            if opt.availability_score < min_threshold:
+                warnings.append(
+                    f"Flight {f.edge_id} award {opt.option_id}: "
+                    f"low availability ({opt.availability_score:.0%}) - "
+                    f"may not be bookable"
+                )
+            if opt.is_waitlisted:
+                warnings.append(
+                    f"Flight {f.edge_id} award {opt.option_id}: waitlisted"
+                )
+    
+    for h in hotels:
+        for rt in h.room_types:
+            # If we had availability scores on room types, we'd check here
+            pass
+    
+    return warnings

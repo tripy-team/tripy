@@ -389,7 +389,12 @@ async def get_flights_award_first_with_points_async(
     panorama_top_k=2,
 ):
     filt = dict(filters or {})
-    date_str = filt.get("outbound_date", "2025-10-18")
+    date_str = filt.get("outbound_date")
+    if not date_str:
+        # Don't use hardcoded dates - this causes wrong search results
+        logger.error("get_flights_award_first_with_points_async: outbound_date missing from filters - using today")
+        from datetime import date
+        date_str = date.today().isoformat()
     pax = int(filt.get("pax") or 1)
     cabins = _normalize_cabin_for_award_api(filt.get("travel_class"))
     cabin_for_pan = (
@@ -535,7 +540,12 @@ async def get_flights_serp_first_with_points_async(
 ):
     # Broad SERP first (one call), then a single AwardTool call to match awards
     filt = dict(filters or {})
-    date_str = filt.get("outbound_date", "2025-10-18")
+    date_str = filt.get("outbound_date")
+    if not date_str:
+        # Don't use hardcoded dates - this causes wrong search results
+        logger.error("get_flights_serp_first_with_points_async: outbound_date missing from filters - using today")
+        from datetime import date
+        date_str = date.today().isoformat()
     pax = int(filt.get("pax") or 1)
     cabins = _normalize_cabin_for_award_api(filt.get("travel_class"))
     programs = (
