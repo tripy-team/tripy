@@ -806,49 +806,37 @@ def plan_maximize_points_value(
     
     if effective_mode == "money_saving":
         # ==========================================================================
-        # MONEY SAVING MODE: Use points whenever cpp > 0 (any positive savings)
+        # MONEY SAVING MODE: MINIMIZE TOTAL OUT-OF-POCKET COST
         # ==========================================================================
-        # Goal: Minimize total out-of-pocket cash spending
-        # Strategy: Use points aggressively to reduce cash, even at low cpp values
-        # Accepts: cpp > 0 (any positive value - if points save ANY money, use them)
+        # Goal: Find the CHEAPEST route (cash + surcharges), preferring fewer connections
+        # Strategy: 
+        #   1. MINIMIZE total cash spent (primary goal)
+        #   2. MINIMIZE number of connections (strong secondary goal)
+        #   3. Use points when they reduce cash (but don't chase points)
+        #
+        # KEY INSIGHT: We don't REWARD points usage - we simply allow points
+        # to REPLACE cash when cheaper. The objective minimizes cost, not maximizes points.
+        #
+        # total_cash_expr (defined above) = cash bookings + award surcharges
+        # This is the TRUE out-of-pocket cost.
         
-        MIN_CPP_MONEY_SAVING = 0.01  # Effectively any positive value
+        # Weights: MINIMIZE cost and connections
+        # The objective is: minimize(cost + connections penalty + time penalty)
+        W_cost = 10**10         # PRIMARY: Minimize out-of-pocket cost ($1 = 10^10 penalty)
+        W_conn = 10**12         # CRITICAL: Each extra connection = $100 equivalent penalty
+        W_time = 10**3          # MODERATE: Prefer shorter flights
+        W_surcharge = 10**8     # HIGH: Penalize high surcharges  
+        W_transfer = 10**2      # LOW: Minor penalty for transfers
         
-        # Points savings: Use points if they save ANY money (cpp > 0)
-        points_savings_expr = pl.lpSum(
-            y[(q, p)][(s, a)][e] * capped_savings(e, a)
-            for q in T
-            for p in T
-            for (s, a) in y[(q, p)].keys()
-            for e in edges
-            if (cash_cost.get(e, 0.0) > get_tax(a, e) and  # Points save money (cpp > 0)
-                not should_reject_award(a, e))  # Not excessive surcharge
-        ) + pl.lpSum(
-            y_native[(q, p)][a][e] * capped_savings(e, a)
-            for q in T
-            for p in T
-            for a in A
-            for e in edges
-            if (cash_cost.get(e, 0.0) > get_tax(a, e) and
-                not should_reject_award(a, e))
-        )
-        
-        # Weights: Heavily favor cash reduction over everything else
-        W_savings = 10**8       # VERY HIGH reward for using points to save cash
-        W_cash = 10**7          # HIGH penalty for cash spending
-        W_surcharge = 10**4     # Moderate penalty for surcharges
-        W_time = 10**1          # LOW penalty for time (accept longer flights to save money)
-        W_transfer = 1          # Minimal transfer penalty
-        W_conn_money = 10**6    # Lower connection penalty (accept more stops if cheaper)
-        
-        m += (W_savings * points_savings_expr 
-              - W_cash * total_cash_expr 
-              - W_surcharge * surcharge_penalty_expr
-              - W_time * total_time_expr 
-              + W_benefit * benefit_expr
-              - W_extra_city * extra_city_penalty_expr
-              - W_conn_money * extra_connections_expr
-              - W_transfer * transfer_penalty_expr)
+        # PuLP maximizes by default, so we negate everything we want to minimize
+        # Lower cost = better, fewer connections = better, shorter time = better
+        m += (- W_cost * total_cash_expr           # Minimize cash spent
+              - W_surcharge * surcharge_penalty_expr  # Minimize surcharges
+              - W_conn * extra_connections_expr    # HEAVILY penalize extra connections
+              - W_time * total_time_expr           # Prefer shorter routes
+              + W_benefit * benefit_expr           # Card benefits bonus
+              - W_extra_city * extra_city_penalty_expr  # Penalize non-hub cities
+              - W_transfer * transfer_penalty_expr)    # Minor transfer penalty
         
     elif effective_mode == "cpp_focused":
         # ==========================================================================
