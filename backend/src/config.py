@@ -31,7 +31,7 @@ def _validate_env_vars():
     for var in required_vars:
         if not os.environ.get(var):
             missing.append(var)
-    
+
     if missing:
         raise ValueError(
             f"Missing required environment variables: {', '.join(missing)}. "
@@ -57,12 +57,14 @@ USER_POOL_CLIENT_ID = os.environ.get("USER_POOL_CLIENT_ID", "")
 AWS_REGION = os.environ.get("AWS_REGION", "us-west-2")
 
 SERP_API_KEY = os.environ.get("SERP_API_KEY", "")
-AWARDTOOL_API_KEY = os.environ.get("AWARDTOOL_API_KEY", "") or os.environ.get("AWARD_TOOL_API_KEY", "")
+AWARDTOOL_API_KEY = os.environ.get("AWARDTOOL_API_KEY", "") or os.environ.get(
+    "AWARD_TOOL_API_KEY", ""
+)
 
-# AwardTool Dummy Data Mode
-# Set to "true" to use dummy data instead of live AwardTool API
-# Useful when API is unavailable or for testing
-USE_AWARDTOOL_DUMMY_DATA = os.environ.get("USE_AWARDTOOL_DUMMY_DATA", "false").lower() == "true"
+# AwardTool Dummy Data Mode - set USE_AWARDTOOL_DUMMY_DATA=true in .env to use dummy data
+USE_AWARDTOOL_DUMMY_DATA = (
+    os.environ.get("USE_AWARDTOOL_DUMMY_DATA", "false").lower() == "true"
+)
 
 
 def is_awardtool_dummy_mode() -> bool:

@@ -1,6 +1,6 @@
 "use client";
 
-import React, { useEffect, useMemo, useRef, useState } from "react";
+import React, { useEffect, useMemo, useRef, useState, useCallback } from "react";
 import { destinations } from "@/lib/api";
 import { filterFallbackAirports } from "@/lib/autocomplete-fallback-data";
 
@@ -14,6 +14,27 @@ type AirportSuggestion = {
   region?: string;
   display_name: string;
 };
+
+// Client-side response cache for fast repeat searches
+const airportCache = new Map<string, { data: AirportSuggestion[]; timestamp: number }>();
+const CACHE_TTL_MS = 5 * 60 * 1000; // 5 minutes
+
+function getCachedAirports(query: string): AirportSuggestion[] | null {
+  const cached = airportCache.get(query.toLowerCase());
+  if (cached && Date.now() - cached.timestamp < CACHE_TTL_MS) {
+    return cached.data;
+  }
+  return null;
+}
+
+function setCachedAirports(query: string, data: AirportSuggestion[]) {
+  // Limit cache size
+  if (airportCache.size > 100) {
+    const oldestKey = airportCache.keys().next().value;
+    if (oldestKey) airportCache.delete(oldestKey);
+  }
+  airportCache.set(query.toLowerCase(), { data, timestamp: Date.now() });
+}
 
 // Convert API response to Airport format for compatibility
 type Airport = {
@@ -169,10 +190,10 @@ export default function AirportAutocomplete({
     return () => document.removeEventListener("mousedown", onDocClick);
   }, []);
 
-  // debounced query for smoother typing
+  // debounced query for smoother typing (reduced from 80ms to 50ms for faster response)
   const [debounced, setDebounced] = useState(value);
   useEffect(() => {
-    const t = setTimeout(() => setDebounced(value), 80);
+    const t = setTimeout(() => setDebounced(value), 50);
     return () => clearTimeout(t);
   }, [value]);
 
@@ -299,7 +320,7 @@ export default function AirportAutocomplete({
     setActiveIdx(0);
   }, [debounced, suggestions]);
 
-  // Search via airports autocomplete (OpenAI-powered with city-to-airports mapping)
+  // Search via airports autocomplete (optimized with caching and instant fallback)
   useEffect(() => {
     const query = debounced.trim();
 
@@ -309,16 +330,34 @@ export default function AirportAutocomplete({
       return;
     }
 
+    // Check client-side cache first (instant response)
+    const cached = getCachedAirports(query);
+    if (cached) {
+      setSuggestions(cached);
+      setIsLoading(false);
+      return;
+    }
+
+    // Show instant fallback results while API is loading (eliminates perceived latency)
+    const instantFallback = filterFallbackAirports(query, 10);
+    if (instantFallback.length > 0) {
+      setSuggestions(instantFallback);
+    }
+    
     setIsLoading(true);
-    const timeoutId = setTimeout(async () => {
+    
+    // Reduced delay from 200ms to 0ms - debounce already handles rate limiting
+    const controller = new AbortController();
+    
+    (async () => {
       try {
         // Use the dedicated /api/airports/autocomplete endpoint
-        // This uses OpenAI to find all airports for a city (e.g., "NYC" → JFK, LGA, EWR)
         const response = await fetch(
           `/api/airports/autocomplete?q=${encodeURIComponent(query)}&limit=10`,
           {
             method: 'GET',
             headers: { 'Content-Type': 'application/json' },
+            signal: controller.signal,
           }
         );
         
@@ -331,8 +370,9 @@ export default function AirportAutocomplete({
         
         if (airports.length > 0) {
           setSuggestions(airports);
-        } else {
-          // Fallback to destinations API (SerpAPI-based) if no results
+          setCachedAirports(query, airports);
+        } else if (instantFallback.length === 0) {
+          // Only try secondary fallback if we don't have instant results
           const fallbackResponse = await destinations.autocomplete(query, 10, true);
           const raw = fallbackResponse?.suggestions ?? [];
           let fallbackAirports = flattenSuggestionsToAirports(raw);
@@ -342,33 +382,27 @@ export default function AirportAutocomplete({
             fallbackAirports = flattenSuggestionsToAirports(fallbackRes?.suggestions ?? []);
           }
           
-          setSuggestions(fallbackAirports.length > 0 ? fallbackAirports : filterFallbackAirports(query, 10));
+          const finalResults = fallbackAirports.length > 0 ? fallbackAirports : filterFallbackAirports(query, 10);
+          setSuggestions(finalResults);
+          if (finalResults.length > 0) {
+            setCachedAirports(query, finalResults);
+          }
         }
       } catch (error) {
+        if ((error as Error).name === 'AbortError') return;
+        
         console.error("Error fetching airport suggestions:", error);
-        try {
-          // Final fallback: try destinations API
-          const fallbackResponse = await destinations.autocomplete(query, 10, true);
-          const raw = fallbackResponse?.suggestions ?? [];
-          let fallbackAirports = flattenSuggestionsToAirports(raw);
-          
-          if (fallbackAirports.length === 0) {
-            const fallbackRes = await destinations.fallbackDestinations(query, 10, true);
-            fallbackAirports = flattenSuggestionsToAirports(fallbackRes?.suggestions ?? []);
-          }
-          
-          setSuggestions(fallbackAirports.length > 0 ? fallbackAirports : filterFallbackAirports(query, 10));
-        } catch {
+        // Keep showing instant fallback results on error
+        if (instantFallback.length === 0) {
           setSuggestions(filterFallbackAirports(query, 10));
         }
       } finally {
         setIsLoading(false);
       }
-    }, 200);
+    })();
 
     return () => {
-      clearTimeout(timeoutId);
-      setIsLoading(false);
+      controller.abort();
     };
   }, [debounced]);
 

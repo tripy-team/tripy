@@ -100,10 +100,10 @@ export default function LandingPage() {
                                 Get Early Access
                             </Link>
                             <Link
-                                href="/register"
+                                href="/demo/dynamic-route"
                                 className="px-8 py-4 bg-white text-slate-900 border-2 border-slate-200 rounded-2xl hover:border-slate-300 transition-all font-medium"
                             >
-                                Sign Up
+                                Try Demo
                             </Link>
                         </div>
                     </div>
@@ -260,10 +260,10 @@ export default function LandingPage() {
                             Get Started
                         </Link>
                         <Link
-                            href="/register"
+                            href="/demo/dynamic-route"
                             className="px-8 py-4 bg-white text-blue-600 rounded-2xl hover:bg-blue-50 transition-all shadow-lg hover:shadow-xl font-medium"
                         >
-                            Sign Up Free
+                            Try Demo
                         </Link>
                     </div>
                 </div>

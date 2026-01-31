@@ -151,7 +151,7 @@ class RouteGraphBuilder:
         Returns:
             List of (origin, destination, date) tuples
         """
-        # Get ordered list of all stops
+        # Get ordered list of all stops (preserving route order)
         stops = [trip_data.start_destination]
         
         for dest in trip_data.destinations:
@@ -160,24 +160,45 @@ class RouteGraphBuilder:
         
         stops.append(trip_data.end_destination)
         
-        # Remove duplicates while preserving order
+        # For segment generation, get unique intermediate stops
+        # but keep track if this is a round trip
+        is_round_trip = trip_data.start_destination == trip_data.end_destination
+        
+        # Get unique intermediate stops (destinations only, not start/end)
+        intermediate_stops = []
         seen = set()
-        unique_stops = []
-        for stop in stops:
-            if stop not in seen:
-                seen.add(stop)
-                unique_stops.append(stop)
+        for dest in trip_data.destinations:
+            if not dest.excluded and dest.airport_code not in seen:
+                seen.add(dest.airport_code)
+                intermediate_stops.append(dest.airport_code)
+        
+        # Build unique stops list for segment generation
+        unique_stops = [trip_data.start_destination] + intermediate_stops
+        if not is_round_trip:
+            # One-way trip: add end destination if different
+            if trip_data.end_destination not in seen:
+                unique_stops.append(trip_data.end_destination)
         
         # Generate required pairs (all combinations for flexibility)
         segments = []
         search_date = trip_data.start_date or date.today()
         
+        # Generate segments between all unique stops
         for i, origin in enumerate(unique_stops[:-1]):
             for destination in unique_stops[i+1:]:
                 if origin != destination:
                     segments.append((origin, destination, search_date))
         
-        logger.info(f"Required segments: {len(segments)}")
+        # For round trips, also need the return segments from each destination back to origin
+        if is_round_trip and intermediate_stops:
+            origin = trip_data.start_destination
+            for dest in intermediate_stops:
+                # Return segment: dest → origin
+                return_segment = (dest, origin, search_date)
+                if return_segment not in segments:
+                    segments.append(return_segment)
+        
+        logger.info(f"Required segments: {len(segments)} (round_trip={is_round_trip})")
         
         return segments
     

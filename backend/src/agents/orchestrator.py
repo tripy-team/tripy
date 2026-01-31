@@ -4,9 +4,15 @@ Orchestrator Agent - Coordinates the entire optimization pipeline.
 This is the main entry point that:
 1. Parses trip requirements
 2. Coordinates Flight and Hotel Agents
-3. Runs ILP optimization
+3. Runs ILP optimization (V3 solver)
 4. Ranks results by OOP
 5. Generates cost breakdowns
+
+NOTE: Updated to use V3 optimization solver for improved:
+- Three optimization modes (OOP, CPP, Balanced)
+- Hotel + flight joint optimization
+- Integer-safe transfers
+- Single-ticket enforcement for connections
 """
 
 import asyncio
@@ -38,6 +44,11 @@ from .group_models import (
     GroupBookingPlan,
     SettlementSplitMethod,
 )
+
+# V3 Optimization - lazy import to avoid slow startup
+def _get_v3_optimizer():
+    from ..optimization.adapter_v3 import run_v3_optimization
+    return run_v3_optimization
 
 logger = logging.getLogger(__name__)
 
@@ -80,10 +91,15 @@ class OrchestratorAgent(BaseAgent):
         3. Run OOP optimization
         4. Rank and return results
         """
+        print(f"[Orchestrator] optimize_solo called for trip {request.trip_id}")
+        print(f"[Orchestrator] Points: {request.points}, Budget: {request.budget}")
         logger.info(f"[Orchestrator] Starting solo optimization for trip {request.trip_id}")
         
         # Get trip details
         trip_data = await self._get_trip_data(request.trip_id)
+        print(f"[Orchestrator] Trip data fetched: {bool(trip_data)}")
+        if trip_data:
+            print(f"[Orchestrator] Trip destinations: {trip_data.get('destinations', [])}")
         
         if not trip_data:
             return OptimizeSoloResponse(
@@ -95,6 +111,10 @@ class OrchestratorAgent(BaseAgent):
         
         # Build segments to search
         segments = self._build_trip_segments(trip_data)
+        print(f"[Orchestrator] Built {len(segments) if segments else 0} segments to search")
+        if segments:
+            for i, seg in enumerate(segments):
+                print(f"[Orchestrator] Segment {i+1}: {seg}")
         
         if not segments:
             return OptimizeSoloResponse(
@@ -105,6 +125,7 @@ class OrchestratorAgent(BaseAgent):
             )
         
         # Search flights and hotels in parallel
+        print(f"[Orchestrator] Starting search for {len(segments)} segments...")
         search_results = await self._search_all_segments(
             segments=segments,
             user_points=request.points,
@@ -112,6 +133,7 @@ class OrchestratorAgent(BaseAgent):
             hotel_stars=request.hotel_stars or [4, 5],
             include_hotels=request.include_hotels,
         )
+        print(f"[Orchestrator] Search completed, got {len(search_results) if search_results else 0} results")
         
         # Run OOP optimization
         optimized = await self._run_oop_optimization(
@@ -331,47 +353,102 @@ class OrchestratorAgent(BaseAgent):
         segments = []
         destinations = trip_data.get("destinations", [])
         
-        # Home/origin city (assumed or from trip data)
-        origin = trip_data.get("origin", "JFK")
+        if not destinations:
+            logger.warning("[Orchestrator] No destinations found in trip data")
+            return segments
         
+        logger.info(f"[Orchestrator] Building segments from {len(destinations)} destinations")
+        
+        # Find start and end destinations from the list
+        start_dest = None
+        end_dest = None
+        intermediate = []
+        
+        for dest in destinations:
+            logger.debug(f"[Orchestrator] Processing destination: {dest}")
+            # Support both camelCase (from DB) and snake_case (from test data)
+            is_start = dest.get("isStart") or dest.get("is_start")
+            is_end = dest.get("isEnd") or dest.get("is_end")
+            name = dest.get("name", dest.get("city", dest.get("destination", "")))
+            
+            if is_start:
+                start_dest = name
+            if is_end:
+                end_dest = name
+            # Only add to intermediate if it's not start/end
+            if not is_start and not is_end and name:
+                intermediate.append(name)
+        
+        # Fallback if no explicit start/end markers
+        if not start_dest and destinations:
+            start_dest = destinations[0].get("name", "JFK")
+            logger.info(f"[Orchestrator] No explicit start, defaulting to first destination: {start_dest}")
+        if not end_dest:
+            end_dest = start_dest  # Round trip by default
+            logger.info(f"[Orchestrator] No explicit end, defaulting to start: {end_dest}")
+        
+        logger.info(f"[Orchestrator] Route: start={start_dest}, intermediate={intermediate}, end={end_dest}")
+        
+        origin = start_dest
         prev_city = origin
-        for i, dest in enumerate(destinations):
-            city = dest.get("city", dest.get("destination", ""))
-            arrival_date = dest.get("arrivalDate", dest.get("arrival_date", ""))
-            departure_date = dest.get("departureDate", dest.get("departure_date", ""))
-            
-            if not city:
-                continue
-            
+        
+        # Build route: start -> intermediate cities -> end
+        route_cities = intermediate
+        if end_dest and end_dest != start_dest:
+            route_cities = intermediate + [end_dest]
+        elif end_dest == start_dest and intermediate:
+            # Round trip: go through intermediates then back home
+            route_cities = intermediate
+        
+        start_date = trip_data.get("start_date", "2026-03-01")
+        end_date = trip_data.get("end_date", "2026-03-08")
+        include_hotels = trip_data.get("include_hotels", True)
+        
+        from datetime import datetime, timedelta
+        try:
+            current_date = datetime.strptime(start_date, "%Y-%m-%d")
+            end_dt = datetime.strptime(end_date, "%Y-%m-%d")
+            total_days = (end_dt - current_date).days
+            num_segments = len(route_cities) + 1 if end_dest == start_dest else len(route_cities)
+            days_per_city = max(1, total_days // max(num_segments, 1))
+        except:
+            current_date = datetime.now()
+            days_per_city = 3
+        
+        for i, city in enumerate(route_cities):
             # Flight to this destination
             segments.append({
                 "id": f"flight_{i}_to_{city}",
                 "type": "flight",
                 "origin": prev_city,
                 "destination": city,
-                "date": arrival_date,
+                "date": current_date.strftime("%Y-%m-%d"),
             })
             
-            # Hotel at this destination (if dates available)
-            if arrival_date and departure_date and trip_data.get("include_hotels", True):
+            # Hotel at this destination
+            if include_hotels:
+                check_out = current_date + timedelta(days=days_per_city)
                 segments.append({
                     "id": f"hotel_{i}_{city}",
                     "type": "hotel",
                     "city": city,
-                    "check_in": arrival_date,
-                    "check_out": departure_date,
+                    "check_in": current_date.strftime("%Y-%m-%d"),
+                    "check_out": check_out.strftime("%Y-%m-%d"),
                 })
+                current_date = check_out
+            else:
+                current_date += timedelta(days=days_per_city)
             
             prev_city = city
         
-        # Return flight to origin
-        if destinations and prev_city != origin:
+        # Return flight to origin (if round trip)
+        if prev_city != origin:
             segments.append({
                 "id": f"flight_return_to_{origin}",
                 "type": "flight",
                 "origin": prev_city,
                 "destination": origin,
-                "date": destinations[-1].get("departureDate", destinations[-1].get("departure_date", "")),
+                "date": current_date.strftime("%Y-%m-%d"),
             })
         
         return segments
@@ -614,11 +691,16 @@ class OrchestratorAgent(BaseAgent):
         
         for dest in destinations:
             name = dest.get("name", "")
-            if dest.get("is_start"):
+            # Support both camelCase (from DB) and snake_case (from test data)
+            is_start = dest.get("isStart") or dest.get("is_start")
+            is_end = dest.get("isEnd") or dest.get("is_end")
+            must_include = dest.get("mustInclude") or dest.get("must_include")
+            
+            if is_start:
                 start = name
-            if dest.get("is_end"):
+            if is_end:
                 end = name
-            if dest.get("must_include") and not dest.get("is_start") and not dest.get("is_end"):
+            if must_include and not is_start and not is_end:
                 intermediate.append(name)
         
         # Default to first destination as both start and end if not specified
@@ -724,11 +806,65 @@ class OrchestratorAgent(BaseAgent):
         user_points: dict,
         budget: float,
         trip_data: dict,
+        mode: str = "oop",
     ) -> list[RankedItinerary]:
         """
-        Run OOP optimization using the search results.
+        Run optimization using V3 ILP solver.
         
-        This is a simplified greedy algorithm that:
+        V3 improvements:
+        - Joint flight + hotel optimization
+        - Three modes: OOP, CPP, Balanced
+        - Integer-safe transfers
+        - Single-ticket enforcement for connections
+        - Proper group room allocation
+        
+        Falls back to greedy algorithm if V3 fails.
+        """
+        
+        logger.info(f"[Orchestrator] Running V3 optimization (mode={mode})")
+        
+        try:
+            # Try V3 solver first (lazy import)
+            run_v3_optimization = _get_v3_optimizer()
+            itineraries = await run_v3_optimization(
+                segments=segments,
+                search_results=search_results,
+                user_points=user_points,
+                budget=budget,
+                trip_data=trip_data,
+                mode=mode,
+            )
+            
+            if itineraries:
+                logger.info(f"[Orchestrator] V3 solver returned {len(itineraries)} itineraries")
+                return itineraries
+            else:
+                logger.warning("[Orchestrator] V3 solver returned no itineraries, falling back to greedy")
+        
+        except Exception as e:
+            logger.error(f"[Orchestrator] V3 solver failed: {e}, falling back to greedy")
+        
+        # Fallback to original greedy algorithm
+        return await self._run_greedy_optimization(
+            segments=segments,
+            search_results=search_results,
+            user_points=user_points,
+            budget=budget,
+            trip_data=trip_data,
+        )
+    
+    async def _run_greedy_optimization(
+        self,
+        segments: list[dict],
+        search_results: dict,
+        user_points: dict,
+        budget: float,
+        trip_data: dict,
+    ) -> list[RankedItinerary]:
+        """
+        Fallback greedy optimization algorithm.
+        
+        This is the original algorithm that:
         1. For each segment, picks the option with lowest OOP
         2. Respects points balance constraints
         3. Generates transfer instructions

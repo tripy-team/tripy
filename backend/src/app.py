@@ -99,6 +99,18 @@ app.add_middleware(
 # Include agentic optimization routes
 app.include_router(optimize_router)
 
+# Preload commercial airports and airport data at startup for fast autocomplete
+@app.on_event("startup")
+async def startup_preload_caches():
+    """Preload caches at startup for fast autocomplete responses."""
+    from .handlers.airport_filter import preload_commercial_airports
+    from .services.airport_service import preload_airport_data
+    
+    # Start preloading in background
+    preload_commercial_airports()
+    preload_airport_data()
+    logger.info("Started background preload of airport caches")
+
 
 # Request models with validation
 class CreateTripRequest(BaseModel):
@@ -173,6 +185,15 @@ class UpsertPointsRequest(BaseModel):
 
 class GenerateItineraryRequest(BaseModel):
     trip_id: str = Field(..., min_length=1)
+    optimization_mode: str = Field(
+        default="money_saving",
+        description=(
+            "Optimization strategy: "
+            "'cpp_focused' (only use points when cpp > 1.0), "
+            "'money_saving' (use points whenever cpp > 0), "
+            "'balanced' (optimize cpp adjusted by time/stops)"
+        )
+    )
 
 
 class UpdateProfileRequest(BaseModel):
@@ -253,6 +274,30 @@ class OptimizeOutOfPocketHotelsRequest(BaseModel):
     programs: Optional[List[str]] = Field(None, description="Hotel programs e.g. HH, IHG, MAR, HYATT")
     guests: int = Field(1, ge=1, le=10, description="Number of guests")
     hotel_class: Optional[str] = Field(None, description="Star rating filter e.g. 3, 4, 5")
+
+
+class HotelCalendarRequest(BaseModel):
+    hotel_id: str = Field(..., min_length=1, max_length=100, description="AwardTool hotel ID (e.g., hyatt_madel)")
+    check_in: Optional[str] = Field(None, description="Optional start date filter YYYY-MM-DD")
+    check_out: Optional[str] = Field(None, description="Optional end date filter YYYY-MM-DD")
+
+
+class HotelBestNightsRequest(BaseModel):
+    hotel_id: str = Field(..., min_length=1, max_length=100, description="AwardTool hotel ID")
+    num_nights: int = Field(..., ge=1, le=30, description="Number of nights needed")
+    start_date: Optional[str] = Field(None, description="Earliest possible check-in YYYY-MM-DD")
+    end_date: Optional[str] = Field(None, description="Latest possible check-out YYYY-MM-DD")
+    optimize_for: str = Field("points", description="Optimization: 'points', 'cpp', or 'cash'")
+
+
+class HotelSearchWithCalendarRequest(BaseModel):
+    destination: str = Field(..., min_length=1, max_length=200, description="City or destination name")
+    check_in: str = Field(..., description="Check-in date YYYY-MM-DD")
+    check_out: str = Field(..., description="Check-out date YYYY-MM-DD")
+    programs: Optional[List[str]] = Field(None, description="Hotel programs e.g. HH, IHG, MAR, HYATT")
+    guests: int = Field(1, ge=1, le=10, description="Number of guests")
+    hotel_class: Optional[str] = Field(None, description="Star rating filter e.g. 3, 4, 5")
+    top_hotels: int = Field(5, ge=1, le=10, description="Number of top hotels to enrich with calendar")
 
 
 # === NEW: Transfer Strategy Optimizer Models ===
@@ -840,14 +885,10 @@ async def generate_itinerary(
         if trip.get("createdBy") != user_id:
             raise HTTPException(status_code=403, detail="Access denied")
 
-        # Check for version override header (X-Itinerary-Version: v1 or v2)
-        version = None
-        if req:
-            version = req.headers.get("X-Itinerary-Version")
-
-        # Generate itinerary using v2 (default) or v1
-        result = await itinerary_service.generate_itinerary_with_version(
-            request.trip_id, version=version
+        # Generate optimized itinerary using points maximization
+        result = await itinerary_service.generate_optimized_itinerary(
+            request.trip_id, 
+            optimization_mode=request.optimization_mode
         )
 
         # Track itinerary generation for analytics
@@ -993,6 +1034,114 @@ async def optimize_out_of_pocket_hotels(
         )
     except Exception as e:
         logger.error(f"optimize_out_of_pocket_hotels: {e}", exc_info=True)
+        raise HTTPException(status_code=500, detail=str(e))
+
+
+# Hotel calendar endpoints - get availability calendar for specific hotels
+@app.post("/hotels/calendar")
+async def get_hotel_calendar_endpoint(
+    request: HotelCalendarRequest, user_id: str = Depends(get_current_user_id)
+):
+    """
+    Get availability calendar for a specific hotel.
+    
+    Returns points rates, cash prices, and CPP values for each available date.
+    Useful for finding the best redemption dates.
+    
+    Example hotel_ids: hyatt_madel, marriott_lonpk, hilton_london_tower
+    """
+    try:
+        from .handlers.hotels import get_hotel_calendar_async
+
+        result = await get_hotel_calendar_async(
+            hotel_id=request.hotel_id,
+            check_in=request.check_in,
+            check_out=request.check_out,
+        )
+        
+        if result.get("error"):
+            raise HTTPException(status_code=400, detail=result.get("error"))
+        
+        return result
+    except HTTPException:
+        raise
+    except Exception as e:
+        logger.error(f"get_hotel_calendar: {e}", exc_info=True)
+        raise HTTPException(status_code=500, detail=str(e))
+
+
+@app.post("/hotels/best-nights")
+async def get_best_hotel_nights_endpoint(
+    request: HotelBestNightsRequest, user_id: str = Depends(get_current_user_id)
+):
+    """
+    Find the best consecutive nights for a hotel stay.
+    
+    Optimizes for:
+    - 'points': Minimize total points needed
+    - 'cpp': Maximize cents-per-point value
+    - 'cash': Minimize cash price
+    
+    Returns ranked options with total points, cash, and CPP for each stay.
+    """
+    try:
+        from .handlers.hotels import get_best_hotel_nights
+
+        result = await get_best_hotel_nights(
+            hotel_id=request.hotel_id,
+            num_nights=request.num_nights,
+            start_date=request.start_date,
+            end_date=request.end_date,
+            optimize_for=request.optimize_for,
+        )
+        
+        if result.get("error"):
+            raise HTTPException(status_code=400, detail=result.get("error"))
+        
+        return result
+    except HTTPException:
+        raise
+    except Exception as e:
+        logger.error(f"get_best_hotel_nights: {e}", exc_info=True)
+        raise HTTPException(status_code=500, detail=str(e))
+
+
+@app.post("/hotels/search-with-calendar")
+async def search_hotels_with_calendar_endpoint(
+    request: HotelSearchWithCalendarRequest, user_id: str = Depends(get_current_user_id)
+):
+    """
+    Search for hotels AND enrich top results with calendar data.
+    
+    Combines hotel search with calendar API for accurate pricing:
+    - Searches for hotels in destination
+    - Fetches calendar data for top hotels
+    - Returns total points, cash, and CPP for the exact stay dates
+    - Provides recommendations: best by points, value (CPP), and cash
+    
+    This is more accurate than the basic search which may show nightly rates.
+    """
+    try:
+        from .handlers.hotels import search_hotels_with_calendar
+
+        result = await search_hotels_with_calendar(
+            destination=request.destination,
+            check_in=request.check_in,
+            check_out=request.check_out,
+            programs=request.programs,
+            guests=request.guests,
+            hotel_class=request.hotel_class,
+            top_hotels=request.top_hotels,
+        )
+        
+        if result.get("error") and not result.get("hotels"):
+            raise HTTPException(status_code=400, detail=result.get("error"))
+        
+        return result
+    except HTTPException:
+        raise
+    except Exception as e:
+        logger.error(f"search_hotels_with_calendar: {e}", exc_info=True)
         raise HTTPException(status_code=500, detail=str(e))
 
 

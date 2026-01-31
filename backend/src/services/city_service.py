@@ -1,10 +1,13 @@
 """
 City/Airport search and suggestions using Amadeus API
+
+OPTIMIZED: Added response caching to reduce Amadeus API calls.
 """
 
 import os
 import logging
-from typing import List, Dict, Any, Optional
+import time
+from typing import List, Dict, Any, Optional, Tuple
 from collections import defaultdict
 from dotenv import load_dotenv
 
@@ -12,6 +15,29 @@ load_dotenv()
 
 # Configure logger
 logger = logging.getLogger(__name__)
+
+# Response cache with TTL for city search results
+_city_search_cache: Dict[str, Tuple[List[Dict[str, Any]], float]] = {}
+_CITY_CACHE_TTL_SECONDS = 300  # 5 minutes
+
+
+def _get_cached_city_response(cache_key: str) -> Optional[List[Dict[str, Any]]]:
+    """Get city search response from cache if not expired."""
+    if cache_key in _city_search_cache:
+        results, timestamp = _city_search_cache[cache_key]
+        if time.time() - timestamp < _CITY_CACHE_TTL_SECONDS:
+            return results
+        del _city_search_cache[cache_key]
+    return None
+
+
+def _set_cached_city_response(cache_key: str, results: List[Dict[str, Any]]):
+    """Store city search response in cache."""
+    if len(_city_search_cache) > 500:
+        sorted_keys = sorted(_city_search_cache.keys(), key=lambda k: _city_search_cache[k][1])
+        for key in sorted_keys[:250]:
+            del _city_search_cache[key]
+    _city_search_cache[cache_key] = (results, time.time())
 
 
 def get_amadeus_client():
@@ -244,7 +270,16 @@ def search_cities(query: str, max_results: int = 10) -> List[Dict[str, Any]]:
     Returns:
         List of city/airport dictionaries with id, name, iataCode, etc.
         Grouped by city to show all airports for each city.
+        
+    OPTIMIZED: Results are cached for 5 minutes to reduce API calls.
     """
+    # Check cache first
+    cache_key = f"city:{query.lower().strip()}:{max_results}"
+    cached = _get_cached_city_response(cache_key)
+    if cached is not None:
+        logger.debug(f"Cache hit for city search: '{query}'")
+        return cached
+    
     try:
         amadeus = get_amadeus_client()
         if not amadeus:
@@ -290,18 +325,17 @@ def search_cities(query: str, max_results: int = 10) -> List[Dict[str, Any]]:
             return _filter_fallback_cities(query, max_results)
 
         # Import airport filter to validate commercial airports
-        # Note: Loading this on every request can be slow - consider caching in production
+        # OPTIMIZED: Uses cached commercial set instead of loading on every request
         commercial_set = None
         try:
             from ..handlers.airport_filter import (
                 is_commercial_airport,
-                load_commercial_iata_set_from_web,
+                get_commercial_airport_set,
             )
 
-            # Only load commercial set if we have results to filter
-            # This avoids slow web requests if API returns no data
+            # Use the cached commercial set (loaded once at startup)
             if response.data:
-                commercial_set = load_commercial_iata_set_from_web()
+                commercial_set = get_commercial_airport_set()
         except Exception as e:
             # If airport filter fails, continue without filtering
             commercial_set = None
@@ -448,16 +482,22 @@ def search_cities(query: str, max_results: int = 10) -> List[Dict[str, Any]]:
             logger.info(
                 f"No results from Amadeus API for query '{query}', using fallback cities"
             )
-            return _filter_fallback_cities(query, max_results)
+            fallback_results = _filter_fallback_cities(query, max_results)
+            _set_cached_city_response(cache_key, fallback_results)
+            return fallback_results
 
-        return results[:max_results]
+        final_results = results[:max_results]
+        _set_cached_city_response(cache_key, final_results)
+        return final_results
 
     except Exception as e:
         # Log error details for debugging
         logger.error(f"City search error for query '{query}': {e}", exc_info=True)
         # Use fallback cities on error instead of returning empty list
         logger.info(f"Using fallback cities due to error for query '{query}'")
-        return _filter_fallback_cities(query, max_results)
+        fallback_results = _filter_fallback_cities(query, max_results)
+        _set_cached_city_response(cache_key, fallback_results)
+        return fallback_results
 
 
 def _normalize_city_key(city_name: str, country_name: str) -> str:
@@ -562,9 +602,9 @@ def get_nearby_airports(city_id: str, limit: int = 3) -> List[Dict[str, Any]]:
         try:
             from ..handlers.airport_filter import (
                 is_commercial_airport,
-                load_commercial_iata_set_from_web,
+                get_commercial_airport_set,
             )
-            commercial_set = load_commercial_iata_set_from_web()
+            commercial_set = get_commercial_airport_set()
         except Exception as e:
             logger.warning(
                 f"Could not load commercial airport filter for get_nearby_airports fallback: {e}"

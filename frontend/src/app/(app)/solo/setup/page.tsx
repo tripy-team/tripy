@@ -2,8 +2,9 @@
 
 import { useState, useEffect } from 'react';
 import { useRouter } from 'next/navigation';
-import { X, Calendar, DollarSign, Zap, MapPin, Sparkles, CreditCard, SlidersHorizontal, Users, User, Baby, Info } from 'lucide-react';
-import { createTrip, addDestination, upsertPoints, users as usersAPI } from '@/lib/api';
+import { X, Calendar, DollarSign, Zap, MapPin, Sparkles, CreditCard, MessageCircle, Plane, Backpack, Armchair, Coffee, Wine, Crown, BedDouble, Star, SlidersHorizontal, Luggage, Target, TrendingUp, Scale, Clock, Sunrise, Sun, Sunset, Moon, Users, User, Baby, Info } from 'lucide-react';
+import { createTrip, addDestination, upsertPoints, users as usersAPI, ExtractedTripInfo } from '@/lib/api';
+import TripChatbotInline from '@/components/trip-chatbot-inline';
 import PointsAllocation from '@/components/PointsAllocation';
 import { DestinationAutocomplete } from '@/components/ui/DestinationAutocomplete';
 import AirportAutocomplete from '@/components/ui/AirportAutocomplete';
@@ -46,6 +47,19 @@ export default function SoloTripSetup() {
   const [startDestination, setStartDestination] = useState('');
   const [endDestination, setEndDestination] = useState('');
   const [isRoundTrip, setIsRoundTrip] = useState(false);
+
+  // Travel Style State
+  const [flightClass, setFlightClass] = useState('economy');
+  const [hotelClass, setHotelClass] = useState('4');
+  const [includeHotels, setIncludeHotels] = useState(true);
+  const [bags, setBags] = useState(1);
+
+  // Optimization Mode State
+  const [optimizationMode, setOptimizationMode] = useState<'oop' | 'cpp' | 'balanced'>('balanced');
+
+  // Flight Time Preferences
+  const [departureTimePreference, setDepartureTimePreference] = useState<'any' | 'morning' | 'afternoon' | 'evening' | 'night'>('any');
+  const [arrivalTimePreference, setArrivalTimePreference] = useState<'any' | 'morning' | 'afternoon' | 'evening' | 'night'>('any');
 
   // Estimates
   const [estimatedCost, setEstimatedCost] = useState(0);
@@ -140,11 +154,116 @@ export default function SoloTripSetup() {
   }, [creditCards, isLoadingProfile]);
 
   // Sync end destination with start destination if round trip
+  // This ensures end destination ALWAYS matches start when round trip is enabled
   useEffect(() => {
-    if (isRoundTrip && startDestination) {
+    if (isRoundTrip) {
+      // Always sync when round trip is enabled and start destination changes
       setEndDestination(startDestination);
     }
   }, [startDestination, isRoundTrip]);
+
+  // Handle extracted trip info from chatbot
+  const handleExtract = async (info: ExtractedTripInfo) => {
+    // Extract and format start destination as airport code
+    if (info.startDestination) {
+      try {
+        const airportCode = await searchAndFormatAirport(info.startDestination);
+        setStartDestination(airportCode);
+      } catch (error) {
+        console.error('Error formatting start destination:', error);
+        setStartDestination(info.startDestination);
+      }
+    }
+
+    // Extract and format end destination as airport code
+    if (info.endDestination) {
+      try {
+        const airportCode = await searchAndFormatAirport(info.endDestination);
+        setEndDestination(airportCode);
+        
+        // 🥚 Auto-detect round trip if start and end are the same
+        if (info.startDestination && info.endDestination) {
+          const startNorm = info.startDestination.toLowerCase().replace(/\s+/g, ' ').trim();
+          const endNorm = info.endDestination.toLowerCase().replace(/\s+/g, ' ').trim();
+          if (startNorm === endNorm) {
+            setIsRoundTrip(true);
+          }
+        }
+      } catch (error) {
+        console.error('Error formatting end destination:', error);
+        setEndDestination(info.endDestination);
+      }
+    }
+
+    // Extract cities (destinations) - search and format with airport codes
+    if (info.cities && info.cities.length > 0) {
+      try {
+        const formattedCities = await searchAndFormatCities(info.cities);
+        if (formattedCities && formattedCities.length > 0) {
+          setCities(prevCities => {
+            const newCities = formattedCities.filter(city => city && !prevCities.includes(city));
+            return newCities.length > 0 ? [...prevCities, ...newCities] : prevCities;
+          });
+        } else {
+          // If formatting returns empty, use original cities
+          setCities(prevCities => {
+            const newCities = info.cities.filter(city => city && !prevCities.includes(city));
+            return newCities.length > 0 ? [...prevCities, ...newCities] : prevCities;
+          });
+        }
+      } catch (error) {
+        console.error('Error formatting cities:', error);
+        // Fallback to unformatted cities - ensure they're added
+        setCities(prevCities => {
+          const newCities = info.cities.filter(city => city && !prevCities.includes(city));
+          return newCities.length > 0 ? [...prevCities, ...newCities] : prevCities;
+        });
+      }
+    }
+
+    // Extract dates - populate dates section
+    if (info.startDate) {
+      setStartDate(info.startDate);
+    }
+    if (info.endDate) {
+      setEndDate(info.endDate);
+    }
+    if (info.duration !== undefined && info.duration !== null && !info.startDate && !info.endDate) {
+      setIsFlexible(true);
+      setFlexibleDuration(info.duration);
+    }
+    if (info.isFlexible !== undefined && info.isFlexible !== null) {
+      setIsFlexible(info.isFlexible);
+    }
+
+    // Extract budget - populate budget section
+          if (info.maxBudget !== undefined && info.maxBudget !== null) {
+            setMaxBudget(info.maxBudget);
+          }
+
+    // Extract credit cards - populate credit cards section
+    if (info.creditCards && info.creditCards.length > 0) {
+      setCreditCards(prevCards => {
+        const newCards = info.creditCards!.map((card, index) => ({
+          id: `extracted-${Date.now()}-${index}`,
+          program: card.program,
+          points: card.points,
+        }));
+        // Filter out duplicates based on program name
+        const existingPrograms = new Set(prevCards.map(c => c.program));
+        const uniqueNewCards = newCards.filter(c => !existingPrograms.has(c.program));
+        return uniqueNewCards.length > 0 ? [...prevCards, ...uniqueNewCards] : prevCards;
+      });
+    }
+
+    // Extract travel style preferences
+    if (info.flightClass) {
+      setFlightClass(info.flightClass);
+    }
+    if (info.hotelClass) {
+      setHotelClass(info.hotelClass);
+    }
+  };
 
   // Calculate Duration
   useEffect(() => {
@@ -471,6 +590,113 @@ export default function SoloTripSetup() {
               </div>
             </div>
 
+            {/* Travel Style */}
+            <div className="bg-white border border-slate-200 rounded-2xl p-6 shadow-sm">
+              <div className="flex items-center gap-3 mb-5">
+                <div className="w-9 h-9 bg-blue-100 rounded-lg flex items-center justify-center">
+                  <Plane className="w-4 h-4 text-blue-600" />
+                </div>
+                <h2 className="text-xl text-slate-900 font-semibold">Travel Style</h2>
+              </div>
+
+              <div className="space-y-5">
+                {/* Flight Class - Compact pill buttons */}
+                <div>
+                  <label className="block text-xs text-slate-500 mb-2 font-medium uppercase tracking-wider">Flight Class</label>
+                  <div className="flex flex-wrap gap-2">
+                    {[
+                      { value: 'basic_economy', label: 'Basic', icon: Backpack },
+                      { value: 'economy', label: 'Economy', icon: Armchair },
+                      { value: 'premium', label: 'Premium', icon: Coffee },
+                      { value: 'business', label: 'Business', icon: Wine },
+                      { value: 'first', label: 'First', icon: Crown },
+                    ].map((option) => {
+                      const Icon = option.icon;
+                      const isSelected = flightClass === option.value;
+                      return (
+                        <button
+                          key={option.value}
+                          onClick={() => setFlightClass(option.value)}
+                          className={`inline-flex items-center gap-1.5 px-3 py-1.5 rounded-full text-sm font-medium transition-all ${
+                            isSelected 
+                              ? 'bg-blue-600 text-white shadow-sm' 
+                              : 'bg-slate-100 text-slate-700 hover:bg-slate-200'
+                          }`}
+                        >
+                          <Icon className="w-3.5 h-3.5" />
+                          {option.label}
+                        </button>
+                      );
+                    })}
+                  </div>
+                </div>
+
+                {/* Hotel toggle + class in one row */}
+                <div className="flex flex-wrap items-center gap-4">
+                  <label className="flex items-center gap-2 cursor-pointer select-none">
+                    <input
+                      type="checkbox"
+                      checked={includeHotels}
+                      onChange={(e) => setIncludeHotels(e.target.checked)}
+                      className="w-4 h-4 rounded border-slate-300 text-blue-600 focus:ring-blue-600"
+                    />
+                    <span className="text-sm text-slate-700 font-medium">Include hotels</span>
+                  </label>
+
+                  {/* Hotel Class - Compact pills, only when hotels enabled */}
+                  {includeHotels && (
+                    <div className="flex items-center gap-2 pl-4 border-l border-slate-200">
+                      {[
+                        { value: '3', label: '3★' },
+                        { value: '4', label: '4★' },
+                        { value: '5', label: '5★' },
+                      ].map((option) => {
+                        const isSelected = hotelClass === option.value;
+                        return (
+                          <button
+                            key={option.value}
+                            onClick={() => setHotelClass(option.value)}
+                            className={`px-3 py-1 rounded-full text-sm font-medium transition-all ${
+                              isSelected 
+                                ? 'bg-blue-600 text-white' 
+                                : 'bg-slate-100 text-slate-700 hover:bg-slate-200'
+                            }`}
+                          >
+                            {option.label}
+                          </button>
+                        );
+                      })}
+                    </div>
+                  )}
+                </div>
+
+                {/* Number of Bags - Compact inline */}
+                <div className="flex items-center gap-4">
+                  <div className="flex items-center gap-2">
+                    <Luggage className="w-4 h-4 text-slate-500" />
+                    <span className="text-sm text-slate-700 font-medium">Checked bags</span>
+                  </div>
+                  <div className="flex items-center gap-2">
+                    <button
+                      type="button"
+                      onClick={() => setBags(Math.max(0, bags - 1))}
+                      className="w-7 h-7 rounded-md bg-slate-100 flex items-center justify-center hover:bg-slate-200 text-slate-600 transition-colors text-sm font-medium"
+                    >
+                      −
+                    </button>
+                    <span className="w-5 text-center font-semibold text-slate-900 text-sm">{bags}</span>
+                    <button
+                      type="button"
+                      onClick={() => setBags(Math.min(6, bags + 1))}
+                      className="w-7 h-7 rounded-md bg-slate-100 flex items-center justify-center hover:bg-slate-200 text-slate-600 transition-colors text-sm font-medium"
+                    >
+                      +
+                    </button>
+                  </div>
+                </div>
+              </div>
+            </div>
+
             {/* Dates */}
             <div className="bg-white border border-slate-200 rounded-2xl p-8 shadow-sm">
               <div className="flex items-center gap-3 mb-6">
@@ -521,6 +747,77 @@ export default function SoloTripSetup() {
                     />
                     <span className="text-sm text-slate-600 group-hover:text-slate-900 transition-colors">One-way trip</span>
                   </label>
+                </div>
+
+                {/* Flight Time Preferences */}
+                <div className="pt-4 border-t border-slate-100 space-y-3">
+                  <div className="flex flex-wrap items-center gap-3">
+                    <div className="flex items-center gap-1.5 text-sm text-slate-600 min-w-[90px]">
+                      <Plane className="w-3.5 h-3.5" />
+                      <span>Depart</span>
+                    </div>
+                    <div className="flex flex-wrap gap-1.5">
+                      {[
+                        { value: 'any', label: 'Any', icon: Clock },
+                        { value: 'morning', label: 'Morning', icon: Sunrise, hint: '5a-12p' },
+                        { value: 'afternoon', label: 'Afternoon', icon: Sun, hint: '12p-5p' },
+                        { value: 'evening', label: 'Evening', icon: Sunset, hint: '5p-9p' },
+                        { value: 'night', label: 'Night', icon: Moon, hint: '9p-5a' },
+                      ].map((option) => {
+                        const Icon = option.icon;
+                        const isSelected = departureTimePreference === option.value;
+                        return (
+                          <button
+                            key={option.value}
+                            onClick={() => setDepartureTimePreference(option.value as typeof departureTimePreference)}
+                            title={option.hint}
+                            className={`inline-flex items-center gap-1 px-2.5 py-1 rounded-full text-xs font-medium transition-all ${
+                              isSelected
+                                ? 'bg-blue-600 text-white'
+                                : 'bg-slate-100 text-slate-600 hover:bg-slate-200'
+                            }`}
+                          >
+                            <Icon className="w-3 h-3" />
+                            {option.label}
+                          </button>
+                        );
+                      })}
+                    </div>
+                  </div>
+
+                  <div className="flex flex-wrap items-center gap-3">
+                    <div className="flex items-center gap-1.5 text-sm text-slate-600 min-w-[90px]">
+                      <MapPin className="w-3.5 h-3.5" />
+                      <span>Arrive</span>
+                    </div>
+                    <div className="flex flex-wrap gap-1.5">
+                      {[
+                        { value: 'any', label: 'Any', icon: Clock },
+                        { value: 'morning', label: 'Morning', icon: Sunrise, hint: '5a-12p' },
+                        { value: 'afternoon', label: 'Afternoon', icon: Sun, hint: '12p-5p' },
+                        { value: 'evening', label: 'Evening', icon: Sunset, hint: '5p-9p' },
+                        { value: 'night', label: 'Night', icon: Moon, hint: '9p-5a' },
+                      ].map((option) => {
+                        const Icon = option.icon;
+                        const isSelected = arrivalTimePreference === option.value;
+                        return (
+                          <button
+                            key={option.value}
+                            onClick={() => setArrivalTimePreference(option.value as typeof arrivalTimePreference)}
+                            title={option.hint}
+                            className={`inline-flex items-center gap-1 px-2.5 py-1 rounded-full text-xs font-medium transition-all ${
+                              isSelected
+                                ? 'bg-blue-600 text-white'
+                                : 'bg-slate-100 text-slate-600 hover:bg-slate-200'
+                            }`}
+                          >
+                            <Icon className="w-3 h-3" />
+                            {option.label}
+                          </button>
+                        );
+                      })}
+                    </div>
+                  </div>
                 </div>
 
                 {/* Duration Slider - Shown when flexible dates is checked */}
@@ -578,16 +875,26 @@ export default function SoloTripSetup() {
                 <div>
                   <label className="block text-sm text-slate-600 mb-2 font-medium">
                     End Airport
+                    {isRoundTrip && (
+                      <span className="text-xs text-blue-600 ml-2">(same as start)</span>
+                    )}
                   </label>
-                  <AirportAutocomplete
-                    value={endDestination}
-                    onValueChange={setEndDestination}
-                    placeholder="Search airports (e.g., CDG, LHR, or airport name)..."
-                    disabled={isRoundTrip}
-                    onSelect={(airportCode) => {
-                      setEndDestination(airportCode);
-                    }}
-                  />
+                  {isRoundTrip ? (
+                    // Show read-only display when round trip is enabled
+                    <div className="w-full px-4 py-3 bg-slate-100 border border-slate-200 rounded-xl text-sm text-slate-700 cursor-not-allowed">
+                      {startDestination || 'Set start airport first'}
+                    </div>
+                  ) : (
+                    <AirportAutocomplete
+                      value={endDestination}
+                      onValueChange={setEndDestination}
+                      placeholder="Search airports (e.g., CDG, LHR, or airport name)..."
+                      disabled={false}
+                      onSelect={(airportCode) => {
+                        setEndDestination(airportCode);
+                      }}
+                    />
+                  )}
                 </div>
 
                 <div className="flex items-center justify-start pt-2">
@@ -596,14 +903,18 @@ export default function SoloTripSetup() {
                       type="checkbox"
                       checked={isRoundTrip}
                       onChange={(e) => {
-                        setIsRoundTrip(e.target.checked);
-                        if (e.target.checked) {
+                        const checked = e.target.checked;
+                        setIsRoundTrip(checked);
+                        if (checked) {
+                          // Sync end destination with start destination
                           setEndDestination(startDestination);
                         }
+                        // When unchecking, keep the current end destination (which is the same as start)
+                        // User can then change it if they want
                       }}
                       className="w-4 h-4"
                     />
-                    <span className="text-sm text-slate-600 group-hover:text-slate-900 transition-colors">Start and end at same location</span>
+                    <span className="text-sm text-slate-600 group-hover:text-slate-900 transition-colors">Return to starting airport (round trip)</span>
                   </label>
                 </div>
                 <p className="col-span-2 text-xs text-slate-500">
@@ -719,11 +1030,45 @@ export default function SoloTripSetup() {
                 </div>
               </div>
 
+              {/* Optimization Mode Selector */}
+              <div className="bg-white border border-slate-200 rounded-xl p-4">
+                <div className="text-xs text-slate-500 mb-2 font-medium uppercase tracking-wider">Optimize for</div>
+                <div className="grid grid-cols-3 gap-1 p-1 bg-slate-100 rounded-lg">
+                  {[
+                    { value: 'oop', label: 'Min Cash', icon: DollarSign, desc: 'Lowest out-of-pocket' },
+                    { value: 'cpp', label: 'Max Value', icon: TrendingUp, desc: 'Best points value' },
+                    { value: 'balanced', label: 'Balanced', icon: Scale, desc: 'Best overall' },
+                  ].map((mode) => {
+                    const Icon = mode.icon;
+                    const isSelected = optimizationMode === mode.value;
+                    return (
+                      <button
+                        key={mode.value}
+                        onClick={() => setOptimizationMode(mode.value as 'oop' | 'cpp' | 'balanced')}
+                        className={`flex flex-col items-center gap-1 py-2 px-1 rounded-md text-xs font-medium transition-all ${
+                          isSelected
+                            ? 'bg-white text-blue-600 shadow-sm'
+                            : 'text-slate-600 hover:text-slate-900'
+                        }`}
+                      >
+                        <Icon className="w-4 h-4" />
+                        <span>{mode.label}</span>
+                      </button>
+                    );
+                  })}
+                </div>
+                <p className="text-xs text-slate-500 mt-2 text-center">
+                  {optimizationMode === 'oop' && 'Minimize your cash spending'}
+                  {optimizationMode === 'cpp' && 'Get the best cents-per-point value'}
+                  {optimizationMode === 'balanced' && 'Balance cost, time & convenience'}
+                </p>
+              </div>
+
               {/* Generate Button */}
               <button
                 onClick={handleGenerate}
                 disabled={!startDestination || !endDestination || cities.length < 1 || (!isFlexible && (!startDate || (!isOneWay && !endDate))) || isGenerating}
-                className="w-full px-6 py-4 bg-yellow-400 text-slate-900 rounded-xl hover:bg-yellow-500 transition-all disabled:opacity-50 disabled:cursor-not-allowed flex items-center justify-center gap-2 text-lg shadow-lg shadow-yellow-400/20 font-semibold"
+                className="w-full px-6 py-3 bg-yellow-400 text-slate-900 rounded-xl hover:bg-yellow-500 transition-all disabled:opacity-50 disabled:cursor-not-allowed flex items-center justify-center gap-2 text-base shadow-lg shadow-yellow-400/20 font-semibold"
               >
                 <Zap className="w-5 h-5" />
                 <span>{isGenerating ? 'Generating...' : 'Generate Itineraries'}</span>
@@ -734,10 +1079,6 @@ export default function SoloTripSetup() {
                   {error}
                 </div>
               )}
-
-              <p className="text-sm text-slate-500 text-center">
-                We&apos;ll generate 3-5 optimized routes based on your preferences
-              </p>
             </div>
           </div>
         </div>

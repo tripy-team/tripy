@@ -4,6 +4,27 @@ import { useState, useEffect, useRef } from 'react';
 import { Plane } from 'lucide-react';
 import { cities as citiesAPI, CitySearchResult } from '@/lib/api';
 
+// Client-side response cache for fast repeat searches
+const cityCache = new Map<string, { data: CitySearchResult[]; timestamp: number }>();
+const CACHE_TTL_MS = 5 * 60 * 1000; // 5 minutes
+
+function getCachedCities(query: string): CitySearchResult[] | null {
+  const cached = cityCache.get(query.toLowerCase());
+  if (cached && Date.now() - cached.timestamp < CACHE_TTL_MS) {
+    return cached.data;
+  }
+  return null;
+}
+
+function setCachedCities(query: string, data: CitySearchResult[]) {
+  // Limit cache size
+  if (cityCache.size > 100) {
+    const oldestKey = cityCache.keys().next().value;
+    if (oldestKey) cityCache.delete(oldestKey);
+  }
+  cityCache.set(query.toLowerCase(), { data, timestamp: Date.now() });
+}
+
 interface CityAutocompleteProps {
   value: string;
   onChange: (value: string) => void;
@@ -36,7 +57,7 @@ export default function CityAutocomplete({
     return () => document.removeEventListener('mousedown', handleClickOutside);
   }, []);
 
-  // Debounced search with fuzzy matching
+  // Optimized search with caching and reduced debounce
   useEffect(() => {
     // Only search if user has typed at least 1 character
     if (!value.trim() || value.length < 1) {
@@ -45,11 +66,23 @@ export default function CityAutocomplete({
       return;
     }
 
+    const query = value.trim();
+    
+    // Check client-side cache first (instant response)
+    const cached = getCachedCities(query);
+    if (cached) {
+      setSuggestions(cached);
+      setShowSuggestions(cached.length > 0);
+      setIsLoading(false);
+      return;
+    }
+
+    // Reduced debounce from 300ms to 100ms for faster response
     const timeoutId = setTimeout(async () => {
       setIsLoading(true);
       try {
         // Search with the query - backend handles fuzzy matching
-        const response = await citiesAPI.search(value.trim(), 12);
+        const response = await citiesAPI.search(query, 12);
         
         if (!response || !response.cities) {
           console.warn('Invalid response from cities API:', response);
@@ -61,7 +94,7 @@ export default function CityAutocomplete({
         
         // Sort results to prioritize exact matches and city name matches
         const sortedResults = response.cities.sort((a, b) => {
-          const queryLower = value.toLowerCase().trim();
+          const queryLower = query.toLowerCase();
           const aName = (a.name || a.cityName || '').toLowerCase();
           const bName = (b.name || b.cityName || '').toLowerCase();
           const aCountry = (a.countryName || '').toLowerCase();
@@ -87,33 +120,24 @@ export default function CityAutocomplete({
         });
         
         const finalResults = sortedResults.slice(0, 10);
-        console.log('[CityAutocomplete] API response:', {
-          query: value,
-          resultsCount: finalResults.length,
-          results: finalResults.map(r => ({ name: r.name || r.cityName, code: r.iataCode }))
-        });
         setSuggestions(finalResults);
+        // Cache the results for future searches
+        setCachedCities(query, finalResults);
+        
         // Always show suggestions if we have results
         if (finalResults.length > 0) {
-          console.log('[CityAutocomplete] Showing suggestions:', finalResults.length, 'results');
           setShowSuggestions(true);
         } else {
-          console.log('[CityAutocomplete] No suggestions found for:', value);
           setShowSuggestions(false);
         }
       } catch (error) {
         console.error('Error searching cities:', error);
-        // Log more details about the error
-        if (error instanceof Error) {
-          console.error('Error message:', error.message);
-          console.error('Error stack:', error.stack);
-        }
         setSuggestions([]);
         setShowSuggestions(false);
       } finally {
         setIsLoading(false);
       }
-    }, 300); // Debounce for API calls
+    }, 100); // Reduced from 300ms to 100ms
 
     return () => clearTimeout(timeoutId);
   }, [value]);

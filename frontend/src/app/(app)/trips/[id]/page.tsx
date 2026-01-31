@@ -3,7 +3,7 @@
 import { useParams, useRouter } from 'next/navigation';
 import { useState, useEffect } from 'react';
 import Image from 'next/image';
-import { ArrowLeft, Calendar, MapPin, CreditCard, Users, User, Plane, Copy, CheckCircle, AlertCircle, Lock, ChevronRight, Lightbulb, TrendingUp, ArrowRight } from 'lucide-react';
+import { ArrowLeft, Calendar, MapPin, CreditCard, Users, User, Plane, Building2, Copy, CheckCircle, AlertCircle, Lock, ChevronRight, Lightbulb, TrendingUp, ArrowRight } from 'lucide-react';
 import { trips as tripsAPI, itineraries } from '@/lib/api';
 import { getOptimizedImageUrl } from '@/lib/image-utils';
 import { 
@@ -49,11 +49,19 @@ interface TransferStep {
     amount: string;
     icon: typeof Plane;
     instructions: string[];
+    // Type indicator
+    isHotel?: boolean;
+    // Flight-specific
     flightSegment?: string;
     surcharge?: number;
     isCodeshare?: boolean;
     operatingCarrier?: string;
     segmentDescription?: string;
+    // Hotel-specific
+    hotelDisplay?: string;
+    locationDisplay?: string;
+    hotelNames?: string[];
+    hotelCities?: string[];
     // Enhanced fields
     transferPortalUrl?: string;
     transferTime?: string;
@@ -214,11 +222,19 @@ export default function TripDetails() {
         amount: t.amountStr,
         icon: t.icon,
         instructions: t.steps,
+        // Type indicator
+        isHotel: t.isHotel,
+        // Flight-specific
         flightSegment: t.flightSegment,
         surcharge: t.surcharge,
         isCodeshare: t.isCodeshare,
         operatingCarrier: t.operatingCarrier,
         segmentDescription: t.segmentDescription,
+        // Hotel-specific
+        hotelDisplay: t.hotelDisplay,
+        locationDisplay: t.locationDisplay,
+        hotelNames: t.hotelNames,
+        hotelCities: t.hotelCities,
         // Enhanced fields
         transferPortalUrl: t.transferPortalUrl,
         transferTime: t.transferTime,
@@ -437,10 +453,18 @@ export default function TripDetails() {
                                                     t.to_program?.toLowerCase().includes(step.partner.toLowerCase()) ||
                                                     step.partner.toLowerCase().includes(t.to_program?.toLowerCase() || '')
                                                 );
-                                                const isCodeshare = step.isCodeshare || tip?.is_codeshare || false;
-                                                const operatingCarrier = step.operatingCarrier || tip?.operating_carrier_name;
-                                                const bookingAirline = tip?.booking_airline_name || step.partner;
-                                                const flightSegment = step.flightSegment || tip?.best_for;
+                                                const isHotel = step.isHotel;
+                                                const isCodeshare = !isHotel && (step.isCodeshare || tip?.is_codeshare || false);
+                                                const operatingCarrier = !isHotel ? (step.operatingCarrier || tip?.operating_carrier_name) : undefined;
+                                                const partnerName = tip?.booking_airline_name || step.partner;
+                                                
+                                                // Flight-specific: route segment
+                                                const flightSegment = !isHotel ? (step.flightSegment || tip?.best_for) : undefined;
+                                                
+                                                // Hotel-specific: hotel name and location
+                                                const hotelDisplay = isHotel ? (step.hotelDisplay || tip?.best_for) : undefined;
+                                                const locationDisplay = isHotel ? step.locationDisplay : undefined;
+                                                
                                                 const surcharge = step.surcharge ?? tip?.surcharge;
 
                                                 return (
@@ -453,12 +477,16 @@ export default function TripDetails() {
                                                                 <h3 className="text-lg font-semibold text-slate-900 mb-3">{step.title}</h3>
                                                                 
                                                                 {/* Transfer Summary Box - Enhanced */}
-                                                                <div className="mb-4 p-5 bg-gradient-to-br from-blue-50 via-indigo-50/50 to-slate-50 rounded-xl border-2 border-blue-200 shadow-sm">
+                                                                <div className={`mb-4 p-5 rounded-xl border-2 shadow-sm ${
+                                                                    isHotel 
+                                                                        ? 'bg-gradient-to-br from-purple-50 via-fuchsia-50/50 to-slate-50 border-purple-200'
+                                                                        : 'bg-gradient-to-br from-blue-50 via-indigo-50/50 to-slate-50 border-blue-200'
+                                                                }`}>
                                                                     {/* Primary Transfer Info */}
-                                                                    <div className="flex items-center justify-between mb-4 pb-4 border-b border-blue-200">
+                                                                    <div className={`flex items-center justify-between mb-4 pb-4 border-b ${isHotel ? 'border-purple-200' : 'border-blue-200'}`}>
                                                                         <div className="flex items-center gap-3">
                                                                             <div className="w-12 h-12 bg-white rounded-lg shadow-sm flex items-center justify-center">
-                                                                                <CreditCard className="w-6 h-6 text-blue-600" />
+                                                                                <CreditCard className={`w-6 h-6 ${isHotel ? 'text-purple-600' : 'text-blue-600'}`} />
                                                                             </div>
                                                                             <div>
                                                                                 <div className="text-xs text-slate-500 font-medium">From</div>
@@ -468,21 +496,21 @@ export default function TripDetails() {
                                                                         <div className="flex items-center gap-2">
                                                                             <div className="text-right">
                                                                                 <div className="text-xs text-slate-500 font-medium">Transfer Amount</div>
-                                                                                <div className="text-2xl font-bold text-blue-700">{step.amount.toLocaleString()}</div>
+                                                                                <div className={`text-2xl font-bold ${isHotel ? 'text-purple-700' : 'text-blue-700'}`}>{step.amount.toLocaleString()}</div>
                                                                                 <div className="text-xs text-slate-600 font-medium">points</div>
                                                                             </div>
                                                                         </div>
                                                                     </div>
 
-                                                                    {/* Destination & Flight Info */}
+                                                                    {/* Destination & Flight/Hotel Info */}
                                                                     <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
-                                                                        <div className="bg-white rounded-lg p-3 border border-blue-100">
+                                                                        <div className={`bg-white rounded-lg p-3 border ${isHotel ? 'border-purple-100' : 'border-blue-100'}`}>
                                                                             <div className="text-xs font-semibold text-slate-500 uppercase tracking-wider mb-1">Transfer To</div>
-                                                                            <div className="text-sm font-bold text-blue-700 flex items-center gap-1">
-                                                                                {bookingAirline}
+                                                                            <div className={`text-sm font-bold flex items-center gap-1 ${isHotel ? 'text-purple-700' : 'text-blue-700'}`}>
+                                                                                {partnerName}
                                                                                 <button
-                                                                                    onClick={() => copyToClipboard(bookingAirline, `${step.id}-partner`)}
-                                                                                    title="Copy airline name"
+                                                                                    onClick={() => copyToClipboard(partnerName, `${step.id}-partner`)}
+                                                                                    title={isHotel ? "Copy hotel program name" : "Copy airline name"}
                                                                                     className="hover:opacity-100"
                                                                                 >
                                                                                     {copiedId === `${step.id}-partner` ? <CheckCircle className="w-3 h-3 text-green-600" /> : <Copy className="w-3 h-3 opacity-50" />}
@@ -490,13 +518,28 @@ export default function TripDetails() {
                                                                             </div>
                                                                         </div>
                                                                         
-                                                                        {flightSegment && (
+                                                                        {/* For Flights: Show route segment */}
+                                                                        {!isHotel && flightSegment && (
                                                                             <div className="bg-white rounded-lg p-3 border border-blue-100">
                                                                                 <div className="text-xs font-semibold text-slate-500 uppercase tracking-wider mb-1">For Flight</div>
                                                                                 <div className="text-sm font-bold text-slate-900 flex items-center gap-1">
                                                                                     <Plane className="w-3.5 h-3.5 text-slate-400" />
                                                                                     {flightSegment}
                                                                                 </div>
+                                                                            </div>
+                                                                        )}
+                                                                        
+                                                                        {/* For Hotels: Show hotel name and location */}
+                                                                        {isHotel && (hotelDisplay || locationDisplay) && (
+                                                                            <div className="bg-white rounded-lg p-3 border border-purple-100">
+                                                                                <div className="text-xs font-semibold text-slate-500 uppercase tracking-wider mb-1">For Hotel</div>
+                                                                                <div className="text-sm font-bold text-slate-900 flex items-center gap-1">
+                                                                                    <Building2 className="w-3.5 h-3.5 text-slate-400" />
+                                                                                    <span>{hotelDisplay || locationDisplay}</span>
+                                                                                </div>
+                                                                                {hotelDisplay && locationDisplay && (
+                                                                                    <div className="text-xs text-slate-500 mt-1 ml-5">{locationDisplay}</div>
+                                                                                )}
                                                                             </div>
                                                                         )}
                                                                     </div>

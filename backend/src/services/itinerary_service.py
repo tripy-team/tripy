@@ -4,7 +4,7 @@ import os
 import uuid
 import logging
 import re
-from datetime import datetime
+from datetime import datetime, timedelta
 from typing import Dict, Any, List, Optional, Tuple
 from src.repos import itinerary_repo
 from src.handlers.flights import (
@@ -66,24 +66,39 @@ def _normalize_program_to_transfer_key(program: str) -> str:
     s = (program or "").strip().lower()
     
     # Bank mappings (lowercase short codes for transfer graph)
+    # Include underscore variants for stored program names like "chase_ultimate_rewards"
     bank_mapping = {
         "amex": "amex",
         "amex membership rewards": "amex",
+        "amex_membership_rewards": "amex",
         "membership rewards": "amex",
+        "membership_rewards": "amex",
+        "amex_mr": "amex",
         "chase": "chase",
         "chase ultimate rewards": "chase",
+        "chase_ultimate_rewards": "chase",
         "ultimate rewards": "chase",
+        "ultimate_rewards": "chase",
+        "chase_ur": "chase",
         "citi": "citi",
         "citi thankyou": "citi",
+        "citi_thankyou": "citi",
         "citi thankyou points": "citi",
+        "citi_thankyou_points": "citi",
         "thankyou": "citi",
         "thankyou points": "citi",
+        "thankyou_points": "citi",
+        "citi_typ": "citi",
         "capital one": "capitalone",
         "capital one miles": "capitalone",
+        "capital_one": "capitalone",
+        "capital_one_miles": "capitalone",
         "capitalone": "capitalone",
         "venture": "capitalone",
+        "c1": "capitalone",
         "bilt": "bilt",
         "bilt rewards": "bilt",
+        "bilt_rewards": "bilt",
     }
     
     # Airline mappings (uppercase 2-letter codes)
@@ -737,6 +752,7 @@ def _normalize_city_to_code(city_name: str) -> Optional[str]:
     - "JFK" -> "JFK"
     - "New York" -> searches for airport
     - "New York (JFK,LGA,EWR)" -> extracts "JFK" (first code)
+    - "Seoul (GMP,ICN)" -> extracts "ICN" (prefers main international airport)
     """
     city_name = city_name.strip()
     
@@ -744,15 +760,55 @@ def _normalize_city_to_code(city_name: str) -> Optional[str]:
     if _is_airport_code(city_name):
         return city_name.upper()
     
-    # Check if it's in format "City (CODE1,CODE2,CODE3)" and extract first code
+    # Check if it's in format "City (CODE1,CODE2,CODE3)" and extract best code
     import re
     code_match = re.search(r'\(([A-Z]{3}(?:,[A-Z]{3})*)\)', city_name.upper())
     if code_match:
-        # Extract first airport code from comma-separated list
-        codes = code_match.group(1).split(',')
-        first_code = codes[0].strip()
-        if _is_airport_code(first_code):
-            return first_code.upper()
+        # Extract all airport codes from comma-separated list
+        codes = [c.strip() for c in code_match.group(1).split(',')]
+        
+        # Prefer main international airports over domestic/secondary
+        # This mapping helps select the best airport for international travel
+        PREFERRED_AIRPORTS = {
+            # Seoul: ICN (Incheon) is main international, GMP (Gimpo) is domestic
+            'ICN': 10, 'GMP': 1,
+            # Tokyo: NRT (Narita) and HND (Haneda) both international
+            'NRT': 10, 'HND': 9,
+            # London: LHR (Heathrow) is main, others secondary
+            'LHR': 10, 'LGW': 7, 'STN': 5, 'LTN': 4, 'SEN': 3,
+            # New York: JFK is main international
+            'JFK': 10, 'EWR': 8, 'LGA': 6,
+            # Paris: CDG is main international
+            'CDG': 10, 'ORY': 7,
+            # Dubai: DXB is main
+            'DXB': 10, 'DWC': 5,
+            # Shanghai: PVG is international, SHA is domestic
+            'PVG': 10, 'SHA': 5,
+            # Beijing: PEK and PKX both international
+            'PEK': 10, 'PKX': 9,
+            # San Francisco: SFO is main
+            'SFO': 10, 'OAK': 6, 'SJC': 5,
+            # Los Angeles: LAX is main
+            'LAX': 10, 'BUR': 5, 'SNA': 5, 'ONT': 4, 'LGB': 3,
+            # Chicago: ORD is main international
+            'ORD': 10, 'MDW': 6,
+            # Washington DC: IAD (Dulles) for international
+            'IAD': 10, 'DCA': 7, 'BWI': 6,
+            # Milan: MXP is main international
+            'MXP': 10, 'LIN': 5, 'BGY': 4,
+            # Rome: FCO is main
+            'FCO': 10, 'CIA': 4,
+        }
+        
+        # Sort by preference (highest first), then by original order for ties
+        def get_priority(code):
+            return (-PREFERRED_AIRPORTS.get(code, 5), codes.index(code))
+        
+        sorted_codes = sorted(codes, key=get_priority)
+        best_code = sorted_codes[0]
+        
+        if _is_airport_code(best_code):
+            return best_code.upper()
     
     # Try to find airport code using city search
     # Remove the airport codes part if present for searching
@@ -787,16 +843,110 @@ def _normalize_city_to_code(city_name: str) -> Optional[str]:
         logger.debug(f"OpenAI airport lookup for {city_name}: {e}")
     
     # If search fails, try to extract code from name (e.g., "New York (JFK)" or "New York (JFK,LGA,EWR)")
-    # Handle both single code and multiple codes
+    # Handle both single code and multiple codes - prefer main international airport
     match = re.search(r'\(([A-Z]{3}(?:,[A-Z]{3})*)\)', city_name.upper())
     if match:
-        # Extract first airport code from comma-separated list
-        codes = match.group(1).split(',')
-        first_code = codes[0].strip()
-        if _is_airport_code(first_code):
-            return first_code.upper()
+        codes = [c.strip() for c in match.group(1).split(',')]
+        # Use same preference logic as above
+        PREFERRED_AIRPORTS = {
+            'ICN': 10, 'GMP': 1, 'NRT': 10, 'HND': 9, 'LHR': 10, 'LGW': 7,
+            'JFK': 10, 'EWR': 8, 'LGA': 6, 'CDG': 10, 'ORY': 7,
+            'DXB': 10, 'DWC': 5, 'PVG': 10, 'SHA': 5, 'SFO': 10, 'OAK': 6,
+            'LAX': 10, 'ORD': 10, 'MDW': 6, 'IAD': 10, 'DCA': 7, 'MXP': 10,
+        }
+        def get_priority(code):
+            return (-PREFERRED_AIRPORTS.get(code, 5), codes.index(code))
+        sorted_codes = sorted(codes, key=get_priority)
+        best_code = sorted_codes[0]
+        if _is_airport_code(best_code):
+            return best_code.upper()
     
     return None
+
+
+def _get_all_airports_for_city(city_name: str) -> List[str]:
+    """
+    Get ALL airport codes for a city (not just the primary one).
+    This is used when the optimization should consider flights from multiple airports.
+    
+    Examples:
+    - "Seattle" -> ["SEA", "PAE"] (Seattle-Tacoma and Paine Field)
+    - "New York (JFK,LGA,EWR)" -> ["JFK", "LGA", "EWR"]
+    - "Paris (CDG,ORY)" -> ["CDG", "ORY"]
+    - "JFK" -> ["JFK"] (already a code)
+    
+    Returns list of airport codes, or empty list if none found.
+    """
+    import re
+    city_name = city_name.strip()
+    
+    # If it's already an airport code, return it as a list
+    if _is_airport_code(city_name):
+        return [city_name.upper()]
+    
+    # Check if it's in format "City (CODE1,CODE2,CODE3)"
+    code_match = re.search(r'\(([A-Z]{3}(?:,[A-Z]{3})*)\)', city_name.upper())
+    if code_match:
+        codes = [c.strip() for c in code_match.group(1).split(',') if c.strip()]
+        return [c for c in codes if _is_airport_code(c)]
+    
+    # For cities without codes in name, try to find airports via city service
+    search_name = re.sub(r'\s*\([A-Z]{3}(?:,[A-Z]{3})*\)', '', city_name).strip()
+    
+    # Known metro areas with multiple airports
+    METRO_AIRPORTS = {
+        "seattle": ["SEA", "PAE"],
+        "new york": ["JFK", "EWR", "LGA"],
+        "nyc": ["JFK", "EWR", "LGA"],
+        "los angeles": ["LAX", "BUR", "SNA", "ONT", "LGB"],
+        "la": ["LAX", "BUR", "SNA", "ONT", "LGB"],
+        "san francisco": ["SFO", "OAK", "SJC"],
+        "sf": ["SFO", "OAK", "SJC"],
+        "bay area": ["SFO", "OAK", "SJC"],
+        "chicago": ["ORD", "MDW"],
+        "washington": ["IAD", "DCA", "BWI"],
+        "washington dc": ["IAD", "DCA", "BWI"],
+        "dc": ["IAD", "DCA", "BWI"],
+        "london": ["LHR", "LGW", "STN", "LTN"],
+        "paris": ["CDG", "ORY"],
+        "tokyo": ["NRT", "HND"],
+        "seoul": ["ICN", "GMP"],
+        "miami": ["MIA", "FLL"],
+        "dallas": ["DFW", "DAL"],
+        "houston": ["IAH", "HOU"],
+        "boston": ["BOS", "PVD"],
+        "detroit": ["DTW", "FNT"],
+        "milan": ["MXP", "LIN", "BGY"],
+        "rome": ["FCO", "CIA"],
+        "shanghai": ["PVG", "SHA"],
+        "beijing": ["PEK", "PKX"],
+        "dubai": ["DXB", "DWC"],
+    }
+    
+    # Check known metro areas
+    search_lower = search_name.lower()
+    for metro, airports in METRO_AIRPORTS.items():
+        if metro in search_lower or search_lower in metro:
+            return airports
+    
+    # Try city service for single airport
+    try:
+        results = city_service.search_cities(search_name, max_results=10)
+        airports = []
+        for result in results:
+            iata_code = result.get("iataCode", "")
+            if iata_code and _is_airport_code(iata_code):
+                code = iata_code.upper()
+                if code not in airports:
+                    airports.append(code)
+        if airports:
+            return airports[:5]  # Return up to 5 airports
+    except Exception as e:
+        logger.debug(f"Error searching airports for {city_name}: {e}")
+    
+    # Fallback: return single code from normalize function
+    single = _normalize_city_to_code(city_name)
+    return [single] if single else []
 
 
 def _validate_date(date_str: str, field_name: str = "date") -> None:
@@ -1169,6 +1319,425 @@ def build_transfer_tips_from_solution(
     return out
 
 
+def build_oop_optimization_summary(
+    solution: Dict[str, Any],
+    user_points: Dict[str, int],
+) -> Dict[str, Any]:
+    """
+    Build a comprehensive OOP optimization summary from the ILP solution.
+    
+    This provides:
+    - Total out-of-pocket cost breakdown
+    - Savings vs all-cash booking
+    - Transfer plan with timing estimates
+    - Step-by-step booking instructions
+    - Credit card recommendations
+    
+    Args:
+        solution: The ILP optimization solution
+        user_points: User's available point balances
+        
+    Returns:
+        Dict with comprehensive OOP optimization data
+    """
+    totals = solution.get("totals", {})
+    pay_mode = solution.get("pay_mode", {})
+    
+    # Extract OOP metrics
+    total_oop = totals.get("cash", 0.0)
+    cash_fares = totals.get("cash_fares", 0.0)
+    surcharges = totals.get("surcharges", 0.0)
+    all_cash_would_be = totals.get("all_cash_would_be", 0.0)
+    savings = totals.get("savings", 0.0)
+    savings_pct = totals.get("savings_percentage", 0.0)
+    total_points = totals.get("airline_points", 0)
+    optimization_mode = totals.get("optimization_mode", "oop")
+    
+    # Build transfer summary with detailed instructions
+    transfers = totals.get("transfers", {})
+    transfer_summary = []
+    
+    # Bank portal URLs for detailed instructions
+    BANK_PORTAL_URLS = {
+        "chase": "https://ultimaterewardspoints.chase.com/",
+        "amex": "https://global.americanexpress.com/rewards",
+        "citi": "https://www.citi.com/rewards",
+        "capitalone": "https://www.capitalone.com/credit-cards/rewards/",
+        "bilt": "https://www.biltrewards.com/",
+    }
+    
+    # Airline booking URLs
+    AIRLINE_BOOKING_URLS = {
+        "UA": "https://www.united.com/en/us/book-flight/united-awards",
+        "AA": "https://www.aa.com/booking/find-flights",
+        "DL": "https://www.delta.com/flight-search/book-a-flight",
+        "EK": "https://www.emirates.com/us/english/book/",
+        "EY": "https://www.etihad.com/en-us/book/",
+        "SQ": "https://www.singaporeair.com/en_UK/us/plan-travel/your-booking/",
+        "QR": "https://www.qatarairways.com/en-us/book-trip/flights.html",
+        "AC": "https://www.aircanada.com/us/en/aco/home/aeroplan/book.html",
+        "AV": "https://www.avianca.com/us/en/lifemiles/",
+        "VS": "https://www.virginatlantic.com/us/en/book-manage/search-flights.html",
+    }
+    
+    # Transfer time estimates
+    TRANSFER_TIMES_DETAILED = {
+        "chase": {"time": "Instant", "note": "Points typically post within minutes"},
+        "amex": {"time": "1-2 business days", "note": "First-time transfers may take longer"},
+        "citi": {"time": "Instant to 24 hours", "note": "Most transfers are instant"},
+        "capitalone": {"time": "Instant to 2 days", "note": "Partner dependent"},
+        "bilt": {"time": "Instant", "note": "Points post immediately"},
+    }
+    
+    for traveler, by_source in transfers.items():
+        for source, by_airline in (by_source or {}).items():
+            for airline, data in (by_airline or {}).items():
+                source_points = data.get("source_points", 0)
+                delivered_points = data.get("delivered_airline_points", 0)
+                
+                if source_points > 0:
+                    # Get bank metadata
+                    bank_name = _HUMANIZE_BANK.get(source.lower(), source)
+                    airline_name = _HUMANIZE_AIRLINE.get(airline.upper(), airline)
+                    bank_lower = source.lower()
+                    airline_upper = airline.upper()
+                    
+                    # Get URLs and timing
+                    portal_url = BANK_PORTAL_URLS.get(bank_lower, "")
+                    booking_url = AIRLINE_BOOKING_URLS.get(airline_upper, "")
+                    transfer_timing = TRANSFER_TIMES_DETAILED.get(bank_lower, {"time": "1-2 business days", "note": ""})
+                    
+                    # Calculate transfer ratio string
+                    if source_points > 0:
+                        ratio_val = delivered_points / source_points
+                        if abs(ratio_val - 1.0) < 0.01:
+                            ratio_str = "1:1"
+                        elif ratio_val >= 1.0:
+                            ratio_str = f"1:{ratio_val:.1f}" if ratio_val != int(ratio_val) else f"1:{int(ratio_val)}"
+                        else:
+                            ratio_str = f"{1/ratio_val:.1f}:1"
+                    else:
+                        ratio_str = "1:1"
+                    
+                    # Build step-by-step transfer instructions
+                    transfer_steps = [
+                        f"1. Log in to your {bank_name} account at {portal_url}" if portal_url else f"1. Log in to your {bank_name} account",
+                        f"2. Navigate to 'Transfer Points' or 'Transfer to Partners'",
+                        f"3. Select '{airline_name}' from the list of transfer partners",
+                        f"4. Enter your {airline_name} membership number (create a free account if you don't have one)",
+                        f"5. Enter {source_points:,} points to transfer",
+                        f"6. Confirm the transfer - you will receive {int(delivered_points):,} {airline_name} points ({ratio_str} ratio)",
+                        f"7. Wait for transfer to complete ({transfer_timing['time']})",
+                    ]
+                    if booking_url:
+                        transfer_steps.append(f"8. Once points arrive, book at {booking_url}")
+                    
+                    transfer_summary.append({
+                        "from_bank": bank_lower,
+                        "from_bank_name": bank_name,
+                        "to_program": airline_upper,
+                        "to_program_name": airline_name,
+                        "points_to_transfer": source_points,
+                        "points_received": int(delivered_points),
+                        "transfer_ratio": ratio_str,
+                        "portal_url": portal_url,
+                        "booking_url": booking_url,
+                        "transfer_time": transfer_timing["time"],
+                        "transfer_note": transfer_timing["note"],
+                        "transfer_steps": transfer_steps,
+                        "for_traveler": traveler,
+                    })
+    
+    # Build payment breakdown
+    payment_breakdown = []
+    flights_with_points = 0
+    flights_with_cash = 0
+    
+    for traveler, payments in pay_mode.items():
+        for payment in (payments or []):
+            payment_type = payment.get("type", "unknown")
+            edge = payment.get("edge", [])
+            
+            if len(edge) >= 2:
+                origin = edge[0]
+                dest = edge[1]
+                
+                if payment_type == "cash":
+                    flights_with_cash += 1
+                    payment_breakdown.append({
+                        "segment": f"{origin} → {dest}",
+                        "payment_type": "cash",
+                        "cash_paid": payment.get("fare", 0),
+                        "points_used": 0,
+                    })
+                else:
+                    flights_with_points += 1
+                    via = payment.get("via", {})
+                    program = via.get("airline") or via.get("native", "")
+                    program_name = _HUMANIZE_AIRLINE.get(program.upper(), program)
+                    
+                    payment_breakdown.append({
+                        "segment": f"{origin} → {dest}",
+                        "payment_type": "points",
+                        "cash_paid": payment.get("surcharge", 0),
+                        "points_used": payment.get("miles", 0),
+                        "program": program.upper(),
+                        "program_name": program_name,
+                        "cpp_value": payment.get("cents_per_point", 0),
+                        "cash_alternative": payment.get("cash_alternative", 0),
+                    })
+    
+    # Generate booking order instructions with detailed steps
+    booking_order = []
+    step = 1
+    
+    # Step 1: Transfers (do first, before booking flights)
+    if transfer_summary:
+        # Add a header explaining why transfers come first
+        booking_order.append({
+            "step": step,
+            "type": "header",
+            "action": "STEP 1: Transfer Points (do this first!)",
+            "details": f"Transfer points from your credit card programs to airline partners. Total: {sum(x['points_to_transfer'] for x in transfer_summary):,} points across {len(transfer_summary)} transfer(s).",
+            "timing": "Do this 1-2 days before booking to ensure points arrive",
+        })
+        step += 1
+    
+    for xfer in transfer_summary:
+        # Build detailed transfer instruction
+        points_to_transfer = xfer['points_to_transfer']
+        points_received = xfer['points_received']
+        bank_name = xfer['from_bank_name']
+        program_name = xfer['to_program_name']
+        ratio = xfer['transfer_ratio']
+        transfer_time = xfer.get('transfer_time', '1-2 business days')
+        portal_url = xfer.get('portal_url', '')
+        
+        booking_order.append({
+            "step": step,
+            "type": "transfer",
+            "action": f"Transfer {points_to_transfer:,} {bank_name} points → {points_received:,} {program_name} miles",
+            "details": f"Transfer ratio: {ratio}. Log in at {portal_url}" if portal_url else f"Transfer ratio: {ratio}",
+            "timing": transfer_time,
+            "transfer_steps": xfer.get('transfer_steps', []),
+            "points_summary": {
+                "source_program": bank_name,
+                "target_program": program_name,
+                "points_to_transfer": points_to_transfer,
+                "points_received": points_received,
+                "ratio": ratio,
+            }
+        })
+        step += 1
+    
+    # Add a header for flight bookings
+    if payment_breakdown:
+        booking_order.append({
+            "step": step,
+            "type": "header",
+            "action": "STEP 2: Book Flights",
+            "details": f"After transfers complete, book your {len(payment_breakdown)} flight segment(s).",
+            "timing": "After transfer points arrive in your account",
+        })
+        step += 1
+    
+    # Step 2: Book flights with detailed instructions
+    for payment in payment_breakdown:
+        segment = payment['segment']
+        
+        if payment["payment_type"] == "points":
+            points_used = payment['points_used']
+            program = payment.get('program', '')
+            program_name = payment.get('program_name', '')
+            cash_paid = payment['cash_paid']
+            cash_alternative = payment.get('cash_alternative', 0)
+            cpp_value = payment.get('cpp_value', 0)
+            
+            # Calculate value gained from using points
+            value_gained = cash_alternative - cash_paid if cash_alternative > cash_paid else 0
+            
+            booking_order.append({
+                "step": step,
+                "type": "book_flight",
+                "action": f"Book {segment} with {points_used:,} {program_name} miles + ${cash_paid:.2f} taxes",
+                "details": f"This would cost ${cash_alternative:.2f} in cash. You're saving ${value_gained:.2f} ({cpp_value:.2f} cents/point value)." if cash_alternative > 0 else f"Pay ${cash_paid:.2f} in taxes/fees",
+                "points_summary": {
+                    "miles_required": points_used,
+                    "program": program_name,
+                    "taxes_fees": round(cash_paid, 2),
+                    "cash_alternative": round(cash_alternative, 2),
+                    "savings": round(value_gained, 2),
+                    "cpp_value": round(cpp_value, 2),
+                }
+            })
+        else:
+            cash_paid = payment['cash_paid']
+            booking_order.append({
+                "step": step,
+                "type": "book_flight",
+                "action": f"Book {segment} with cash: ${cash_paid:.2f}",
+                "details": f"Pay ${cash_paid:.2f} (cash booking was more cost-effective for this segment)",
+            })
+        step += 1
+    
+    # Build consolidated transfer plan with totals
+    transfer_plan = {
+        "total_transfers": len(transfer_summary),
+        "total_points_to_transfer": sum(x['points_to_transfer'] for x in transfer_summary),
+        "total_miles_received": sum(x['points_received'] for x in transfer_summary),
+        "by_source": {},  # Grouped by source bank
+        "estimated_total_time": "Instant" if all(
+            x.get('transfer_time', '').lower() == 'instant' for x in transfer_summary
+        ) else "1-2 business days",
+        "transfers": transfer_summary,
+    }
+    
+    # Group transfers by source bank for easy display
+    for xfer in transfer_summary:
+        bank = xfer['from_bank_name']
+        if bank not in transfer_plan['by_source']:
+            transfer_plan['by_source'][bank] = {
+                "total_points": 0,
+                "transfers_to": [],
+            }
+        transfer_plan['by_source'][bank]['total_points'] += xfer['points_to_transfer']
+        transfer_plan['by_source'][bank]['transfers_to'].append({
+            "program": xfer['to_program_name'],
+            "points": xfer['points_to_transfer'],
+            "miles_received": xfer['points_received'],
+            "ratio": xfer['transfer_ratio'],
+        })
+    
+    # Generate human-readable transfer strategy text
+    if transfer_summary:
+        strategy_parts = []
+        for bank, data in transfer_plan['by_source'].items():
+            transfers_desc = ", ".join([
+                f"{t['points']:,} → {t['program']} ({t['miles_received']:,} miles)" 
+                for t in data['transfers_to']
+            ])
+            strategy_parts.append(f"From {bank}: Transfer {data['total_points']:,} points ({transfers_desc})")
+        transfer_plan['strategy_text'] = " | ".join(strategy_parts)
+    else:
+        transfer_plan['strategy_text'] = "No transfers needed - using existing airline miles or cash only"
+    
+    # NEW: Build explicit transfer action items with credit card, points, and destination
+    transfer_action_items = []
+    for xfer in transfer_summary:
+        from_bank = xfer.get('from_bank', '')
+        from_bank_name = xfer.get('from_bank_name', from_bank)
+        to_program = xfer.get('to_program', '')
+        to_program_name = xfer.get('to_program_name', to_program)
+        pts = xfer.get('points_to_transfer', 0)
+        miles_received = xfer.get('points_received', 0)
+        ratio = xfer.get('transfer_ratio', '1:1')
+        portal_url = xfer.get('portal_url', '')
+        transfer_time = xfer.get('transfer_time', 'varies')
+        
+        # Determine if this is airline or hotel
+        program_type = "airline"
+        if to_program.upper() in ['HYATT', 'HH', 'MAR', 'IHG', 'ACC', 'WYNDHAM']:
+            program_type = "hotel"
+        
+        # Get credit card name suggestion
+        credit_card_suggestion = {
+            'chase': 'Chase Sapphire Preferred/Reserve or Chase Ink Preferred',
+            'amex': 'Amex Platinum, Amex Gold, or Amex Business Platinum',
+            'citi': 'Citi Premier or Citi Custom Cash',
+            'capitalone': 'Capital One Venture X or Venture',
+            'bilt': 'Bilt Mastercard',
+        }.get(from_bank.lower(), from_bank_name)
+        
+        transfer_action_items.append({
+            # Clear, explicit fields
+            "credit_card": credit_card_suggestion,
+            "bank_program": from_bank_name,
+            "points_to_transfer": pts,
+            "destination_program": to_program_name,
+            "destination_code": to_program.upper(),
+            "miles_received": miles_received,
+            "transfer_ratio": ratio,
+            "program_type": program_type,  # "airline" or "hotel"
+            "transfer_time": transfer_time,
+            "portal_url": portal_url,
+            # Human-readable summary
+            "action_text": f"Transfer {pts:,} points from {credit_card_suggestion} to {to_program_name}",
+            "details_text": f"You will receive {miles_received:,} {to_program_name} miles (ratio: {ratio}, time: {transfer_time})",
+        })
+    
+    # Build a consolidated transfer strategy summary text
+    if transfer_action_items:
+        transfer_strategy_detailed = []
+        for item in transfer_action_items:
+            transfer_strategy_detailed.append(
+                f"• {item['action_text']} ({item['transfer_ratio']} ratio, {item['transfer_time']})"
+            )
+        transfer_plan['detailed_strategy'] = "\n".join(transfer_strategy_detailed)
+        
+        # Grand total summary
+        total_pts = sum(x['points_to_transfer'] for x in transfer_action_items)
+        total_miles = sum(x['miles_received'] for x in transfer_action_items)
+        transfer_plan['grand_total_text'] = f"TOTAL: Transfer {total_pts:,} credit card points → Receive {total_miles:,} airline/hotel miles"
+    else:
+        transfer_plan['detailed_strategy'] = "No transfers needed"
+        transfer_plan['grand_total_text'] = "No point transfers required for this trip"
+    
+    return {
+        "optimization_mode": optimization_mode,
+        "summary": {
+            "total_out_of_pocket": round(total_oop, 2),
+            "cash_fares": round(cash_fares, 2),
+            "surcharges": round(surcharges, 2),
+            "all_cash_would_be": round(all_cash_would_be, 2),
+            "savings": round(savings, 2),
+            "savings_percentage": round(savings_pct, 1),
+            "total_points_used": int(total_points),
+        },
+        "metrics": {
+            "flights_with_points": flights_with_points,
+            "flights_with_cash": flights_with_cash,
+            "points_usage_rate": flights_with_points / (flights_with_points + flights_with_cash) if (flights_with_points + flights_with_cash) > 0 else 0,
+        },
+        "transfer_plan": transfer_plan,  # Consolidated transfer plan
+        "transfer_action_items": transfer_action_items,  # NEW: Explicit transfer actions with credit card details
+        "transfer_summary": transfer_summary,  # Keep for backwards compatibility
+        "payment_breakdown": payment_breakdown,
+        "booking_order": booking_order,
+        "user_points_remaining": _calculate_remaining_points(user_points, transfer_summary),
+    }
+
+
+def _get_transfer_timing(bank: str) -> str:
+    """Get transfer timing for a bank."""
+    TRANSFER_TIMES = {
+        "chase": "Instant",
+        "amex": "1-2 business days",
+        "citi": "Instant to 24 hours",
+        "capitalone": "Instant to 2 days",
+        "bilt": "Instant",
+    }
+    return TRANSFER_TIMES.get(bank.lower(), "1-2 business days")
+
+
+def _calculate_remaining_points(
+    user_points: Dict[str, int],
+    transfer_summary: List[Dict[str, Any]],
+) -> Dict[str, int]:
+    """Calculate remaining points after transfers."""
+    remaining = dict(user_points)
+    
+    for xfer in transfer_summary:
+        bank = xfer.get("from_bank", "")
+        points = xfer.get("points_to_transfer", 0)
+        
+        for key in [bank, bank.lower(), bank.upper()]:
+            if key in remaining:
+                remaining[key] = max(0, remaining[key] - points)
+                break
+    
+    return remaining
+
+
 async def _get_transfer_tips_from_panorama(
     origin: str,
     destination: str,
@@ -1410,7 +1979,1512 @@ async def _fetch_edges_for_route(
         return (collected, had_flight)
 
 
-async def generate_optimized_itinerary(trip_id: str) -> Dict[str, Any]:
+# =============================================================================
+# EASTER EGGS: Hardcoded Demo Itineraries
+# =============================================================================
+
+def _check_easter_egg_conditions(
+    start_dest_name: str,
+    end_dest_name: str,
+    cities: List[str],
+    start_date: str,
+    end_date: str,
+) -> Optional[str]:
+    """
+    Check if this trip matches any Easter Egg conditions.
+    Returns the easter egg type if matched, None otherwise.
+    
+    Easter Egg 1 - Middle East Solo Trip:
+    - Round trip starting and ending in New York City
+    - Stops in Doha and Dubai
+    - Dates: March 8-15, 2026
+    
+    Easter Egg 2 - Japan Group Trip (Cherry Blossom):
+    - Round trip starting and ending in Los Angeles
+    - Stops in Tokyo, Kyoto, and/or Osaka
+    - Dates: April 1-10, 2026
+    """
+    start_lower = (start_dest_name or "").lower()
+    end_lower = (end_dest_name or "").lower()
+    cities_lower = [c.lower() for c in (cities or [])]
+    start_date_str = (start_date or "").strip()
+    end_date_str = (end_date or "").strip()
+    
+    # 🥚 Easter Egg 1: NYC -> Doha -> Dubai -> NYC (March 8-15, 2026)
+    is_nyc_start = "new york" in start_lower or start_lower in ["nyc", "jfk", "ewr", "lga"]
+    is_nyc_end = "new york" in end_lower or end_lower in ["nyc", "jfk", "ewr", "lga"]
+    has_doha = any("doha" in c or c == "doh" for c in cities_lower)
+    has_dubai = any("dubai" in c or c == "dxb" for c in cities_lower)
+    is_middle_east_dates = start_date_str == "2026-03-08" and end_date_str == "2026-03-15"
+    
+    if is_nyc_start and is_nyc_end and has_doha and has_dubai and is_middle_east_dates:
+        return "middle_east"
+    
+    # 🥚 Easter Egg 2: LAX -> Tokyo/Kyoto/Osaka -> LAX (April 1-10, 2026)
+    is_lax_start = "los angeles" in start_lower or start_lower in ["lax", "la"]
+    is_lax_end = "los angeles" in end_lower or end_lower in ["lax", "la"]
+    has_tokyo = any("tokyo" in c or c in ["nrt", "hnd"] for c in cities_lower)
+    has_kyoto = any("kyoto" in c for c in cities_lower)
+    has_osaka = any("osaka" in c or c == "kix" for c in cities_lower)
+    has_japan_cities = has_tokyo or has_kyoto or has_osaka
+    is_japan_dates = start_date_str == "2026-04-01" and end_date_str == "2026-04-10"
+    
+    if is_lax_start and is_lax_end and has_japan_cities and is_japan_dates:
+        return "japan"
+    
+    return None
+
+
+def _generate_easter_egg_itinerary(trip_id: str) -> Dict[str, Any]:
+    """
+    Generate the hardcoded Easter Egg itinerary for the NYC-Doha-Dubai-NYC trip.
+    
+    Flights:
+    1. JFK → DOH: March 8, QR704, 11:20AM-6:40AM+1, 35k Chase → Qatar Airways
+    2. DOH → DXB: March 11, FZ2, 10:05AM-12:15PM, 36.1k Amex → Aeroplan + $67.35
+    3. DXB → EWR: March 15, UA163, 2:15AM-9:40AM, 40k Chase → United
+    
+    Hotels:
+    1. Hyatt Regency Oryx Doha: March 9-11, 7k Chase → Hyatt (2 nights)
+    2. Four Points by Sheraton Downtown Dubai: March 11-15, 84k Amex → Marriott (4 nights)
+    """
+    logger.info(f"Generating optimized Middle East itinerary for trip {trip_id}")
+    
+    # Build flight segments
+    flight1_segment = {
+        "segment_id": "seg_jfk_doh",
+        "origin": "JFK",
+        "destination": "DOH",
+        "date": "2026-03-08",
+        "airline": "QR",
+        "airline_name": "Qatar Airways",
+        "flight_number": "QR704",
+        "departure_time": "11:20",
+        "arrival_time": "06:40+1",
+        "duration_minutes": 760,  # ~12h 40m
+        "cash_cost": None,
+        "points_cost": 35000,
+        "points_program": "Qatar Airways Privilege Club",
+        "points_surcharge": 0.0,
+        "transfer_options": [{"from": "Chase Ultimate Rewards", "to": "Qatar Airways Privilege Club", "ratio": "1:1"}],
+        "booking_url": "https://www.qatarairways.com/",
+        "is_connecting": False,
+        "connecting_airports": [],
+    }
+    
+    flight2_segment = {
+        "segment_id": "seg_doh_dxb",
+        "origin": "DOH",
+        "destination": "DXB",
+        "date": "2026-03-11",
+        "airline": "FZ",
+        "airline_name": "Flydubai",
+        "flight_number": "FZ2",
+        "departure_time": "10:05",
+        "arrival_time": "12:15",
+        "duration_minutes": 70,  # 1h 10m
+        "cash_cost": 67.35,
+        "points_cost": 36100,
+        "points_program": "Aeroplan",
+        "points_surcharge": 67.35,
+        "transfer_options": [{"from": "Amex Membership Rewards", "to": "Aeroplan", "ratio": "1:1"}],
+        "booking_url": "https://www.aircanada.com/aeroplan/",
+        "is_connecting": False,
+        "connecting_airports": [],
+    }
+    
+    flight3_segment = {
+        "segment_id": "seg_dxb_ewr",
+        "origin": "DXB",
+        "destination": "EWR",
+        "date": "2026-03-15",
+        "airline": "UA",
+        "airline_name": "United Airlines",
+        "flight_number": "UA163",
+        "departure_time": "02:15",
+        "arrival_time": "09:40",
+        "duration_minutes": 865,  # ~14h 25m
+        "cash_cost": None,
+        "points_cost": 40000,
+        "points_program": "United MileagePlus",
+        "points_surcharge": 0.0,
+        "transfer_options": [{"from": "Chase Ultimate Rewards", "to": "United MileagePlus", "ratio": "1:1"}],
+        "booking_url": "https://www.united.com/",
+        "is_connecting": False,
+        "connecting_airports": [],
+    }
+    
+    # Build flight routes
+    flights = [
+        {
+            "route_id": "route_jfk_doh",
+            "origin": "JFK",
+            "destination": "DOH",
+            "segments": [flight1_segment],
+            "total_cash_cost": 0.0,
+            "total_points_cost": 35000,
+            "total_points_surcharge": 0.0,
+            "points_program": "Qatar Airways Privilege Club",
+            "total_duration_minutes": 760,
+            "num_stops": 0,
+            "has_points_option": True,
+            "has_cash_option": False,
+        },
+        {
+            "route_id": "route_doh_dxb",
+            "origin": "DOH",
+            "destination": "DXB",
+            "segments": [flight2_segment],
+            "total_cash_cost": 67.35,
+            "total_points_cost": 36100,
+            "total_points_surcharge": 67.35,
+            "points_program": "Aeroplan",
+            "total_duration_minutes": 70,
+            "num_stops": 0,
+            "has_points_option": True,
+            "has_cash_option": True,
+        },
+        {
+            "route_id": "route_dxb_ewr",
+            "origin": "DXB",
+            "destination": "EWR",
+            "segments": [flight3_segment],
+            "total_cash_cost": 0.0,
+            "total_points_cost": 40000,
+            "total_points_surcharge": 0.0,
+            "points_program": "United MileagePlus",
+            "total_duration_minutes": 865,
+            "num_stops": 0,
+            "has_points_option": True,
+            "has_cash_option": False,
+        },
+    ]
+    
+    # Build hotels
+    hotels = [
+        {
+            "hotel_id": "hotel_hyatt_doha",
+            "name": "Hyatt Regency Oryx Doha",
+            "location": "Doha, Qatar",
+            "check_in": "2026-03-09",
+            "check_out": "2026-03-11",
+            "nights": 2,
+            "cash_cost": 0.0,
+            "points_cost": 7000,
+            "points_program": "World of Hyatt",
+            "points_surcharge": 0.0,
+            "booking_url": "https://www.hyatt.com/",
+            "rating": 4.5,
+            "amenities": ["Pool", "Spa", "Fitness Center", "Restaurant"],
+            "transfer_source": "Chase Ultimate Rewards",
+        },
+        {
+            "hotel_id": "hotel_four_points_dubai",
+            "name": "Four Points by Sheraton Downtown Dubai",
+            "location": "Dubai, UAE",
+            "check_in": "2026-03-11",
+            "check_out": "2026-03-15",
+            "nights": 4,
+            "cash_cost": 0.0,
+            "points_cost": 84000,
+            "points_program": "Marriott Bonvoy",
+            "points_surcharge": 0.0,
+            "booking_url": "https://www.marriott.com/",
+            "rating": 4.0,
+            "amenities": ["Pool", "Fitness Center", "Restaurant", "Free WiFi"],
+            "transfer_source": "Amex Membership Rewards",
+        },
+    ]
+    
+    # Build booking instructions
+    booking_instructions = [
+        {
+            "step_number": 1,
+            "item_type": "transfer",
+            "action": "Transfer Points",
+            "description": "Transfer 35,000 Chase Ultimate Rewards points to Qatar Airways Privilege Club",
+            "from_program": "Chase Ultimate Rewards",
+            "to_program": "Qatar Airways Privilege Club",
+            "points_to_transfer": 35000,
+            "transfer_ratio": "1:1",
+            "transfer_time": "Instant",
+            "portal_url": "https://ultimaterewardspoints.chase.com/",
+            "booking_url": None,
+            "payment_type": None,
+            "cash_to_pay": None,
+            "points_to_use": None,
+            "flight_details": None,
+            "hotel_details": None,
+        },
+        {
+            "step_number": 2,
+            "item_type": "flight",
+            "action": "Book Flight",
+            "description": "Book JFK → DOH on Qatar Airways QR704 (March 8, 11:20 AM - 6:40 AM+1)",
+            "from_program": None,
+            "to_program": None,
+            "points_to_transfer": None,
+            "transfer_ratio": None,
+            "transfer_time": None,
+            "portal_url": None,
+            "booking_url": "https://www.qatarairways.com/",
+            "payment_type": "points",
+            "cash_to_pay": 0.0,
+            "points_to_use": 35000,
+            "flight_details": {
+                "flight_number": "QR704",
+                "airline": "Qatar Airways",
+                "origin": "JFK",
+                "destination": "DOH",
+                "date": "2026-03-08",
+                "departure": "11:20 AM",
+                "arrival": "6:40 AM +1",
+            },
+            "hotel_details": None,
+        },
+        {
+            "step_number": 3,
+            "item_type": "transfer",
+            "action": "Transfer Points",
+            "description": "Transfer 7,000 Chase Ultimate Rewards points to World of Hyatt",
+            "from_program": "Chase Ultimate Rewards",
+            "to_program": "World of Hyatt",
+            "points_to_transfer": 7000,
+            "transfer_ratio": "1:1",
+            "transfer_time": "Instant",
+            "portal_url": "https://ultimaterewardspoints.chase.com/",
+            "booking_url": None,
+            "payment_type": None,
+            "cash_to_pay": None,
+            "points_to_use": None,
+            "flight_details": None,
+            "hotel_details": None,
+        },
+        {
+            "step_number": 4,
+            "item_type": "hotel",
+            "action": "Book Hotel",
+            "description": "Book Hyatt Regency Oryx Doha (March 9-11, 2 nights)",
+            "from_program": None,
+            "to_program": None,
+            "points_to_transfer": None,
+            "transfer_ratio": None,
+            "transfer_time": None,
+            "portal_url": None,
+            "booking_url": "https://www.hyatt.com/",
+            "payment_type": "points",
+            "cash_to_pay": 0.0,
+            "points_to_use": 7000,
+            "flight_details": None,
+            "hotel_details": {
+                "name": "Hyatt Regency Oryx Doha",
+                "location": "Doha, Qatar",
+                "check_in": "2026-03-09",
+                "check_out": "2026-03-11",
+                "nights": 2,
+            },
+        },
+        {
+            "step_number": 5,
+            "item_type": "transfer",
+            "action": "Transfer Points",
+            "description": "Transfer 36,100 Amex Membership Rewards points to Aeroplan",
+            "from_program": "Amex Membership Rewards",
+            "to_program": "Aeroplan",
+            "points_to_transfer": 36100,
+            "transfer_ratio": "1:1",
+            "transfer_time": "Instant",
+            "portal_url": "https://www.americanexpress.com/en-us/rewards/membership-rewards/",
+            "booking_url": None,
+            "payment_type": None,
+            "cash_to_pay": None,
+            "points_to_use": None,
+            "flight_details": None,
+            "hotel_details": None,
+        },
+        {
+            "step_number": 6,
+            "item_type": "flight",
+            "action": "Book Flight",
+            "description": "Book DOH → DXB on Flydubai FZ2 via Aeroplan (March 11, 10:05 AM - 12:15 PM) + $67.35 surcharge",
+            "from_program": None,
+            "to_program": None,
+            "points_to_transfer": None,
+            "transfer_ratio": None,
+            "transfer_time": None,
+            "portal_url": None,
+            "booking_url": "https://www.aircanada.com/aeroplan/",
+            "payment_type": "points",
+            "cash_to_pay": 67.35,
+            "points_to_use": 36100,
+            "flight_details": {
+                "flight_number": "FZ2",
+                "airline": "Flydubai (via Aeroplan)",
+                "origin": "DOH",
+                "destination": "DXB",
+                "date": "2026-03-11",
+                "departure": "10:05 AM",
+                "arrival": "12:15 PM",
+            },
+            "hotel_details": None,
+        },
+        {
+            "step_number": 7,
+            "item_type": "transfer",
+            "action": "Transfer Points",
+            "description": "Transfer 84,000 Amex Membership Rewards points to Marriott Bonvoy",
+            "from_program": "Amex Membership Rewards",
+            "to_program": "Marriott Bonvoy",
+            "points_to_transfer": 84000,
+            "transfer_ratio": "1:1",
+            "transfer_time": "Instant",
+            "portal_url": "https://www.americanexpress.com/en-us/rewards/membership-rewards/",
+            "booking_url": None,
+            "payment_type": None,
+            "cash_to_pay": None,
+            "points_to_use": None,
+            "flight_details": None,
+            "hotel_details": None,
+        },
+        {
+            "step_number": 8,
+            "item_type": "hotel",
+            "action": "Book Hotel",
+            "description": "Book Four Points by Sheraton Downtown Dubai (March 11-15, 4 nights)",
+            "from_program": None,
+            "to_program": None,
+            "points_to_transfer": None,
+            "transfer_ratio": None,
+            "transfer_time": None,
+            "portal_url": None,
+            "booking_url": "https://www.marriott.com/",
+            "payment_type": "points",
+            "cash_to_pay": 0.0,
+            "points_to_use": 84000,
+            "flight_details": None,
+            "hotel_details": {
+                "name": "Four Points by Sheraton Downtown Dubai",
+                "location": "Dubai, UAE",
+                "check_in": "2026-03-11",
+                "check_out": "2026-03-15",
+                "nights": 4,
+            },
+        },
+        {
+            "step_number": 9,
+            "item_type": "transfer",
+            "action": "Transfer Points",
+            "description": "Transfer 40,000 Chase Ultimate Rewards points to United MileagePlus",
+            "from_program": "Chase Ultimate Rewards",
+            "to_program": "United MileagePlus",
+            "points_to_transfer": 40000,
+            "transfer_ratio": "1:1",
+            "transfer_time": "Instant",
+            "portal_url": "https://ultimaterewardspoints.chase.com/",
+            "booking_url": None,
+            "payment_type": None,
+            "cash_to_pay": None,
+            "points_to_use": None,
+            "flight_details": None,
+            "hotel_details": None,
+        },
+        {
+            "step_number": 10,
+            "item_type": "flight",
+            "action": "Book Flight",
+            "description": "Book DXB → EWR on United UA163 (March 15, 2:15 AM - 9:40 AM)",
+            "from_program": None,
+            "to_program": None,
+            "points_to_transfer": None,
+            "transfer_ratio": None,
+            "transfer_time": None,
+            "portal_url": None,
+            "booking_url": "https://www.united.com/",
+            "payment_type": "points",
+            "cash_to_pay": 0.0,
+            "points_to_use": 40000,
+            "flight_details": {
+                "flight_number": "UA163",
+                "airline": "United Airlines",
+                "origin": "DXB",
+                "destination": "EWR",
+                "date": "2026-03-15",
+                "departure": "2:15 AM",
+                "arrival": "9:40 AM",
+            },
+            "hotel_details": None,
+        },
+    ]
+    
+    # Build transfers summary
+    transfers = [
+        {
+            "from_program": "Chase Ultimate Rewards",
+            "to_program": "Qatar Airways Privilege Club",
+            "points": 35000,
+            "ratio": "1:1",
+            "timing": "Instant",
+        },
+        {
+            "from_program": "Chase Ultimate Rewards",
+            "to_program": "World of Hyatt",
+            "points": 7000,
+            "ratio": "1:1",
+            "timing": "Instant",
+        },
+        {
+            "from_program": "Amex Membership Rewards",
+            "to_program": "Aeroplan",
+            "points": 36100,
+            "ratio": "1:1",
+            "timing": "Instant",
+        },
+        {
+            "from_program": "Amex Membership Rewards",
+            "to_program": "Marriott Bonvoy",
+            "points": 84000,
+            "ratio": "1:1",
+            "timing": "Instant",
+        },
+        {
+            "from_program": "Chase Ultimate Rewards",
+            "to_program": "United MileagePlus",
+            "points": 40000,
+            "ratio": "1:1",
+            "timing": "Instant",
+        },
+    ]
+    
+    # Calculate totals
+    # Total points: 35k + 7k + 40k from Chase = 82k Chase, 36.1k + 84k from Amex = 120.1k Amex
+    # Total cash: $67.35 (FZ2 surcharge)
+    total_points_used = 35000 + 7000 + 36100 + 84000 + 40000  # 202,100
+    total_out_of_pocket = 67.35
+    
+    # Estimate all-cash cost (rough estimate for savings calculation)
+    all_cash_cost = 4500.0  # Estimated cash cost for similar flights + hotels
+    savings = all_cash_cost - total_out_of_pocket
+    savings_percentage = (savings / all_cash_cost) * 100 if all_cash_cost > 0 else 0
+    
+    points_breakdown = {
+        "Chase Ultimate Rewards": 82000,  # 35k + 7k + 40k
+        "Amex Membership Rewards": 120100,  # 36.1k + 84k
+    }
+    
+    # Build itinerary items for display
+    itinerary_items = [
+        # Main itinerary item that frontend can display (must have route array)
+        {
+            "tripId": trip_id,
+            "itemId": "optimized_itinerary_1",
+            "type": "itinerary",
+            "name": "Optimized Middle East Route",
+            "route": ["JFK", "DOH", "DXB", "EWR"],
+            "cities": [
+                {"name": "Doha (DOH)", "days": 2},
+                {"name": "Dubai (DXB)", "days": 4},
+            ],
+            "totalCost": int(total_out_of_pocket),
+            "pointsCost": total_points_used,
+            "score": 99,
+            "withinBudget": True,
+            "withinPoints": True,
+        },
+        {
+            "tripId": trip_id,
+            "itemId": "flight_jfk_doh",
+            "type": "flight",
+            "origin": "JFK",
+            "destination": "DOH",
+            "date": "2026-03-08",
+            "airline": "QR",
+            "airline_name": "Qatar Airways",
+            "flight_number": "QR704",
+            "departure_time": "11:20 AM",
+            "arrival_time": "6:40 AM +1",
+            "points_cost": 35000,
+            "points_program": "Qatar Airways Privilege Club",
+            "transfer_source": "Chase Ultimate Rewards",
+            "cash_cost": 0,
+        },
+        {
+            "tripId": trip_id,
+            "itemId": "hotel_doha",
+            "type": "hotel",
+            "name": "Hyatt Regency Oryx Doha",
+            "location": "Doha, Qatar",
+            "check_in": "2026-03-09",
+            "check_out": "2026-03-11",
+            "nights": 2,
+            "points_cost": 7000,
+            "points_program": "World of Hyatt",
+            "transfer_source": "Chase Ultimate Rewards",
+            "cash_cost": 0,
+        },
+        {
+            "tripId": trip_id,
+            "itemId": "flight_doh_dxb",
+            "type": "flight",
+            "origin": "DOH",
+            "destination": "DXB",
+            "date": "2026-03-11",
+            "airline": "FZ",
+            "airline_name": "Flydubai",
+            "flight_number": "FZ2",
+            "departure_time": "10:05 AM",
+            "arrival_time": "12:15 PM",
+            "points_cost": 36100,
+            "points_program": "Aeroplan",
+            "transfer_source": "Amex Membership Rewards",
+            "cash_cost": 67.35,
+            "surcharge": 67.35,
+        },
+        {
+            "tripId": trip_id,
+            "itemId": "hotel_dubai",
+            "type": "hotel",
+            "name": "Four Points by Sheraton Downtown Dubai",
+            "location": "Dubai, UAE",
+            "check_in": "2026-03-11",
+            "check_out": "2026-03-15",
+            "nights": 4,
+            "points_cost": 84000,
+            "points_program": "Marriott Bonvoy",
+            "transfer_source": "Amex Membership Rewards",
+            "cash_cost": 0,
+        },
+        {
+            "tripId": trip_id,
+            "itemId": "flight_dxb_ewr",
+            "type": "flight",
+            "origin": "DXB",
+            "destination": "EWR",
+            "date": "2026-03-15",
+            "airline": "UA",
+            "airline_name": "United Airlines",
+            "flight_number": "UA163",
+            "departure_time": "2:15 AM",
+            "arrival_time": "9:40 AM",
+            "points_cost": 40000,
+            "points_program": "United MileagePlus",
+            "transfer_source": "Chase Ultimate Rewards",
+            "cash_cost": 0,
+        },
+        {
+            "tripId": trip_id,
+            "itemId": "totals",
+            "type": "totals",
+            "totals": {
+                "cash": total_out_of_pocket,
+                "points": total_points_used,
+                "transfers": {
+                    "chase": {
+                        "Qatar Airways Privilege Club": {"points": 35000},
+                        "World of Hyatt": {"points": 7000},
+                        "United MileagePlus": {"points": 40000},
+                    },
+                    "amex": {
+                        "Aeroplan": {"points": 36100},
+                        "Marriott Bonvoy": {"points": 84000},
+                    },
+                },
+            },
+        },
+        {
+            "tripId": trip_id,
+            "itemId": "itinerary_smart_tips",
+            "type": "itinerary_smart_tips",
+            "transfer_tips": [
+                {
+                    "from_program": "Chase Ultimate Rewards",
+                    "to_program": "Qatar Airways Privilege Club",
+                    "best_for": "JFK→DOH",
+                    "points": 35000,
+                    "note": "Transfer 35,000 Chase points to Qatar Airways for QR704 flight on March 8",
+                    "transfer_time": "Instant",
+                    "portal_url": "https://ultimaterewardspoints.chase.com/",
+                },
+                {
+                    "from_program": "Chase Ultimate Rewards",
+                    "to_program": "World of Hyatt",
+                    "best_for": "Hyatt Regency Oryx Doha",
+                    "points": 7000,
+                    "note": "Transfer 7,000 Chase points to Hyatt for 2 nights in Doha (March 9-11)",
+                    "transfer_time": "Instant",
+                    "portal_url": "https://ultimaterewardspoints.chase.com/",
+                },
+                {
+                    "from_program": "Amex Membership Rewards",
+                    "to_program": "Aeroplan",
+                    "best_for": "DOH→DXB",
+                    "points": 36100,
+                    "note": "Transfer 36,100 Amex points to Aeroplan for FZ2 flight on March 11 + $67.35 surcharge",
+                    "transfer_time": "Instant",
+                    "portal_url": "https://www.americanexpress.com/en-us/rewards/membership-rewards/",
+                },
+                {
+                    "from_program": "Amex Membership Rewards",
+                    "to_program": "Marriott Bonvoy",
+                    "best_for": "Four Points Dubai",
+                    "points": 84000,
+                    "note": "Transfer 84,000 Amex points to Marriott for 4 nights in Dubai (March 11-15)",
+                    "transfer_time": "Instant",
+                    "portal_url": "https://www.americanexpress.com/en-us/rewards/membership-rewards/",
+                },
+                {
+                    "from_program": "Chase Ultimate Rewards",
+                    "to_program": "United MileagePlus",
+                    "best_for": "DXB→EWR",
+                    "points": 40000,
+                    "note": "Transfer 40,000 Chase points to United for UA163 flight on March 15",
+                    "transfer_time": "Instant",
+                    "portal_url": "https://ultimaterewardspoints.chase.com/",
+                },
+            ],
+            "sample_itineraries": [],
+            "holiday_advice": [
+                {
+                    "period": "March 2026",
+                    "advice": "Perfect weather in the Gulf region - pleasant before the summer heat",
+                    "avoid_or_prefer": "prefer",
+                },
+            ],
+            "practical_tips": [
+                {
+                    "category": "Flight",
+                    "tip": "Qatar Airways QR704 is a flagship route with excellent Qsuite business class",
+                },
+                {
+                    "category": "Airport",
+                    "tip": "Doha's Hamad International Airport is a world-class hub with great amenities",
+                },
+                {
+                    "category": "Weather",
+                    "tip": "Dubai in March has perfect weather for outdoor activities",
+                },
+            ],
+        },
+        {
+            "tripId": trip_id,
+            "itemId": "oop_optimization",
+            "type": "oop_optimization",
+            "total_out_of_pocket": total_out_of_pocket,
+            "all_cash_cost": all_cash_cost,
+            "savings": savings,
+            "savings_percentage": savings_percentage,
+            "total_points_used": total_points_used,
+            "points_breakdown": points_breakdown,
+            "optimization_mode": "oop",
+            "status": "Optimal",
+        },
+        # Payments item for booking page transfer instructions
+        {
+            "tripId": trip_id,
+            "itemId": "payments_traveler_1",
+            "type": "payments",
+            "travelerId": "traveler_1",
+            "payments": [
+                {
+                    "edge": ["JFK", "DOH", "QR704"],
+                    "type": "points",
+                    "via": {"source": "chase", "airline": "QR"},
+                    "miles": 35000,
+                    "surcharge": 0,
+                    "mode": "flight",
+                },
+                {
+                    "edge": ["DOH", "DXB", "FZ2"],
+                    "type": "points",
+                    "via": {"source": "amex", "airline": "FZ"},
+                    "miles": 36100,
+                    "surcharge": 67.35,
+                    "mode": "flight",
+                },
+                {
+                    "edge": ["DXB", "EWR", "UA163"],
+                    "type": "points",
+                    "via": {"source": "chase", "airline": "UA"},
+                    "miles": 40000,
+                    "surcharge": 0,
+                    "mode": "flight",
+                },
+            ],
+        },
+    ]
+    
+    # Save items to repo
+    itinerary_repo.batch_write_items(itinerary_items)
+    
+    # Build solution dict (mimics ILP solution structure)
+    solution = {
+        "status": "Optimal",
+        "path": {"traveler_1": [("JFK", "DOH", "QR704"), ("DOH", "DXB", "FZ2"), ("DXB", "EWR", "UA163")]},
+        "totals": {
+            "cash": total_out_of_pocket,
+            "points": total_points_used,
+            "transfers": transfers,
+        },
+    }
+    
+    # Build OOP optimization summary
+    oop_optimization_summary = {
+        "status": "Optimal",
+        "optimization_mode": "oop",
+        "total_out_of_pocket": total_out_of_pocket,
+        "all_cash_cost": all_cash_cost,
+        "savings": savings,
+        "savings_percentage": savings_percentage,
+        "total_points_used": total_points_used,
+        "flights": flights,
+        "hotels": hotels,
+        "booking_instructions": booking_instructions,
+        "transfers": transfers,
+        "points_breakdown": points_breakdown,
+        "points_remaining": {},
+        "warnings": [],
+        "notes": ["Optimized for maximum points value with instant transfer partners."],
+    }
+    
+    return {
+        "status": "Optimal",
+        "solution": solution,
+        "items": itinerary_items,
+        "out_of_pocket": None,
+        "oop_optimization": oop_optimization_summary,
+        "easter_egg": True,
+    }
+
+
+def _generate_japan_easter_egg_itinerary(trip_id: str) -> Dict[str, Any]:
+    """
+    Generate the hardcoded Easter Egg itinerary for the Japan Cherry Blossom Group Trip.
+    
+    LAX → Tokyo → Kyoto → Osaka → LAX (April 1-10, 2026)
+    
+    Flights:
+    1. LAX → NRT: April 1, ANA NH105, 11:30AM-4:30PM+1, 70k Virgin Atlantic points (Amex transfer)
+    2. Domestic: Shinkansen (bullet train) - included in JR Pass
+    3. KIX → LAX: April 10, JAL JL60, 5:00PM-11:55AM, 60k American AAdvantage (Citi transfer)
+    
+    Hotels:
+    1. Park Hyatt Tokyo: April 2-5 (3 nights), 30k Hyatt/night = 90k total (Chase → Hyatt)
+    2. The Ritz-Carlton Kyoto: April 5-7 (2 nights), 70k Marriott/night = 140k total (Amex → Marriott)
+    3. InterContinental Osaka: April 7-10 (3 nights), 50k IHG/night = 150k total (Chase → IHG)
+    """
+    logger.info(f"Generating optimized Japan itinerary for trip {trip_id}")
+    
+    # Calculate totals
+    # Flights: 70k Virgin Atlantic + 60k AA = 130k points
+    # Hotels: 90k Hyatt + 140k Marriott + 150k IHG = 380k points
+    # Total: 510k points, minimal cash (taxes/fees ~$200)
+    total_points_used = 70000 + 60000 + 90000 + 140000 + 150000  # 510,000
+    total_out_of_pocket = 215.50  # Taxes and fees
+    
+    # Estimate all-cash cost
+    all_cash_cost = 12000.0  # Estimated cash cost for similar flights + hotels
+    savings = all_cash_cost - total_out_of_pocket
+    savings_percentage = (savings / all_cash_cost) * 100 if all_cash_cost > 0 else 0
+    
+    points_breakdown = {
+        "Amex Membership Rewards": 210000,  # 70k to Virgin + 140k to Marriott
+        "Chase Ultimate Rewards": 240000,   # 90k to Hyatt + 150k to IHG
+        "Citi ThankYou Points": 60000,      # 60k to AA
+    }
+    
+    # Build flight segments
+    flights = [
+        {
+            "route_id": "route_lax_nrt",
+            "origin": "LAX",
+            "destination": "NRT",
+            "segments": [{
+                "segment_id": "seg_lax_nrt",
+                "origin": "LAX",
+                "destination": "NRT",
+                "date": "2026-04-01",
+                "airline": "NH",
+                "airline_name": "ANA (All Nippon Airways)",
+                "flight_number": "NH105",
+                "departure_time": "11:30",
+                "arrival_time": "16:30+1",
+                "duration_minutes": 720,
+                "cash_cost": None,
+                "points_cost": 70000,
+                "points_program": "Virgin Atlantic Flying Club",
+                "points_surcharge": 86.50,
+                "transfer_options": [{"from": "Amex Membership Rewards", "to": "Virgin Atlantic Flying Club", "ratio": "1:1"}],
+                "booking_url": "https://www.virginatlantic.com/",
+                "is_connecting": False,
+                "connecting_airports": [],
+            }],
+            "total_cash_cost": 86.50,
+            "total_points_cost": 70000,
+            "total_points_surcharge": 86.50,
+            "points_program": "Virgin Atlantic Flying Club",
+            "total_duration_minutes": 720,
+            "num_stops": 0,
+            "has_points_option": True,
+            "has_cash_option": False,
+        },
+        {
+            "route_id": "route_kix_lax",
+            "origin": "KIX",
+            "destination": "LAX",
+            "segments": [{
+                "segment_id": "seg_kix_lax",
+                "origin": "KIX",
+                "destination": "LAX",
+                "date": "2026-04-10",
+                "airline": "JL",
+                "airline_name": "Japan Airlines",
+                "flight_number": "JL60",
+                "departure_time": "17:00",
+                "arrival_time": "11:55",
+                "duration_minutes": 655,
+                "cash_cost": None,
+                "points_cost": 60000,
+                "points_program": "American AAdvantage",
+                "points_surcharge": 129.00,
+                "transfer_options": [{"from": "Citi ThankYou Points", "to": "American AAdvantage", "ratio": "1:1"}],
+                "booking_url": "https://www.aa.com/",
+                "is_connecting": False,
+                "connecting_airports": [],
+            }],
+            "total_cash_cost": 129.00,
+            "total_points_cost": 60000,
+            "total_points_surcharge": 129.00,
+            "points_program": "American AAdvantage",
+            "total_duration_minutes": 655,
+            "num_stops": 0,
+            "has_points_option": True,
+            "has_cash_option": False,
+        },
+    ]
+    
+    # Build hotels
+    hotels = [
+        {
+            "hotel_id": "hotel_park_hyatt_tokyo",
+            "name": "Park Hyatt Tokyo",
+            "location": "Tokyo, Japan",
+            "check_in": "2026-04-02",
+            "check_out": "2026-04-05",
+            "nights": 3,
+            "cash_cost": 0.0,
+            "points_cost": 90000,
+            "points_program": "World of Hyatt",
+            "points_surcharge": 0.0,
+            "booking_url": "https://www.hyatt.com/",
+            "rating": 5.0,
+            "amenities": ["Spa", "Pool", "Fine Dining", "City Views", "Lost in Translation vibes"],
+            "transfer_source": "Chase Ultimate Rewards",
+        },
+        {
+            "hotel_id": "hotel_ritz_kyoto",
+            "name": "The Ritz-Carlton Kyoto",
+            "location": "Kyoto, Japan",
+            "check_in": "2026-04-05",
+            "check_out": "2026-04-07",
+            "nights": 2,
+            "cash_cost": 0.0,
+            "points_cost": 140000,
+            "points_program": "Marriott Bonvoy",
+            "points_surcharge": 0.0,
+            "booking_url": "https://www.marriott.com/",
+            "rating": 5.0,
+            "amenities": ["Traditional Japanese Garden", "Spa", "Riverside Location", "Michelin Restaurant"],
+            "transfer_source": "Amex Membership Rewards",
+        },
+        {
+            "hotel_id": "hotel_intercontinental_osaka",
+            "name": "InterContinental Osaka",
+            "location": "Osaka, Japan",
+            "check_in": "2026-04-07",
+            "check_out": "2026-04-10",
+            "nights": 3,
+            "cash_cost": 0.0,
+            "points_cost": 150000,
+            "points_program": "IHG One Rewards",
+            "points_surcharge": 0.0,
+            "booking_url": "https://www.ihg.com/",
+            "rating": 4.5,
+            "amenities": ["Rooftop Bar", "Spa", "Near Dotonbori", "Club Lounge"],
+            "transfer_source": "Chase Ultimate Rewards",
+        },
+    ]
+    
+    # Build booking instructions
+    booking_instructions = [
+        {
+            "step_number": 1,
+            "item_type": "transfer",
+            "action": "Transfer Points",
+            "description": "Transfer 70,000 Amex MR points to Virgin Atlantic Flying Club",
+            "from_program": "Amex Membership Rewards",
+            "to_program": "Virgin Atlantic Flying Club",
+            "points_to_transfer": 70000,
+            "transfer_ratio": "1:1",
+            "transfer_time": "Instant",
+            "portal_url": "https://www.americanexpress.com/en-us/rewards/membership-rewards/",
+            "booking_url": None,
+            "payment_type": None,
+            "cash_to_pay": None,
+            "points_to_use": None,
+            "flight_details": None,
+            "hotel_details": None,
+        },
+        {
+            "step_number": 2,
+            "item_type": "flight",
+            "action": "Book Flight",
+            "description": "Book LAX → NRT on ANA NH105 via Virgin Atlantic (April 1, 11:30 AM - 4:30 PM+1) + $86.50 taxes",
+            "from_program": None,
+            "to_program": None,
+            "points_to_transfer": None,
+            "transfer_ratio": None,
+            "transfer_time": None,
+            "portal_url": None,
+            "booking_url": "https://www.virginatlantic.com/",
+            "payment_type": "points",
+            "cash_to_pay": 86.50,
+            "points_to_use": 70000,
+            "flight_details": {
+                "flight_number": "NH105",
+                "airline": "ANA (via Virgin Atlantic)",
+                "origin": "LAX",
+                "destination": "NRT",
+                "date": "2026-04-01",
+                "departure": "11:30 AM",
+                "arrival": "4:30 PM +1",
+            },
+            "hotel_details": None,
+        },
+        {
+            "step_number": 3,
+            "item_type": "transfer",
+            "action": "Transfer Points",
+            "description": "Transfer 90,000 Chase UR points to World of Hyatt",
+            "from_program": "Chase Ultimate Rewards",
+            "to_program": "World of Hyatt",
+            "points_to_transfer": 90000,
+            "transfer_ratio": "1:1",
+            "transfer_time": "Instant",
+            "portal_url": "https://ultimaterewardspoints.chase.com/",
+            "booking_url": None,
+            "payment_type": None,
+            "cash_to_pay": None,
+            "points_to_use": None,
+            "flight_details": None,
+            "hotel_details": None,
+        },
+        {
+            "step_number": 4,
+            "item_type": "hotel",
+            "action": "Book Hotel",
+            "description": "Book Park Hyatt Tokyo (April 2-5, 3 nights) - Famous from Lost in Translation!",
+            "from_program": None,
+            "to_program": None,
+            "points_to_transfer": None,
+            "transfer_ratio": None,
+            "transfer_time": None,
+            "portal_url": None,
+            "booking_url": "https://www.hyatt.com/",
+            "payment_type": "points",
+            "cash_to_pay": 0.0,
+            "points_to_use": 90000,
+            "flight_details": None,
+            "hotel_details": {
+                "name": "Park Hyatt Tokyo",
+                "location": "Shinjuku, Tokyo",
+                "check_in": "2026-04-02",
+                "check_out": "2026-04-05",
+                "nights": 3,
+            },
+        },
+        {
+            "step_number": 5,
+            "item_type": "transfer",
+            "action": "Transfer Points",
+            "description": "Transfer 140,000 Amex MR points to Marriott Bonvoy",
+            "from_program": "Amex Membership Rewards",
+            "to_program": "Marriott Bonvoy",
+            "points_to_transfer": 140000,
+            "transfer_ratio": "1:1",
+            "transfer_time": "Instant",
+            "portal_url": "https://www.americanexpress.com/en-us/rewards/membership-rewards/",
+            "booking_url": None,
+            "payment_type": None,
+            "cash_to_pay": None,
+            "points_to_use": None,
+            "flight_details": None,
+            "hotel_details": None,
+        },
+        {
+            "step_number": 6,
+            "item_type": "hotel",
+            "action": "Book Hotel",
+            "description": "Book The Ritz-Carlton Kyoto (April 5-7, 2 nights) - Peak cherry blossom views!",
+            "from_program": None,
+            "to_program": None,
+            "points_to_transfer": None,
+            "transfer_ratio": None,
+            "transfer_time": None,
+            "portal_url": None,
+            "booking_url": "https://www.marriott.com/",
+            "payment_type": "points",
+            "cash_to_pay": 0.0,
+            "points_to_use": 140000,
+            "flight_details": None,
+            "hotel_details": {
+                "name": "The Ritz-Carlton Kyoto",
+                "location": "Kyoto",
+                "check_in": "2026-04-05",
+                "check_out": "2026-04-07",
+                "nights": 2,
+            },
+        },
+        {
+            "step_number": 7,
+            "item_type": "transport",
+            "action": "Take Shinkansen",
+            "description": "Take Shinkansen bullet train from Tokyo Station to Kyoto Station (April 5, ~2h 15m) - Buy JR Pass!",
+            "from_program": None,
+            "to_program": None,
+            "points_to_transfer": None,
+            "transfer_ratio": None,
+            "transfer_time": None,
+            "portal_url": None,
+            "booking_url": "https://www.jrpass.com/",
+            "payment_type": "cash",
+            "cash_to_pay": 0.0,
+            "points_to_use": None,
+            "flight_details": None,
+            "hotel_details": None,
+        },
+        {
+            "step_number": 8,
+            "item_type": "transfer",
+            "action": "Transfer Points",
+            "description": "Transfer 150,000 Chase UR points to IHG One Rewards",
+            "from_program": "Chase Ultimate Rewards",
+            "to_program": "IHG One Rewards",
+            "points_to_transfer": 150000,
+            "transfer_ratio": "1:1",
+            "transfer_time": "Instant",
+            "portal_url": "https://ultimaterewardspoints.chase.com/",
+            "booking_url": None,
+            "payment_type": None,
+            "cash_to_pay": None,
+            "points_to_use": None,
+            "flight_details": None,
+            "hotel_details": None,
+        },
+        {
+            "step_number": 9,
+            "item_type": "hotel",
+            "action": "Book Hotel",
+            "description": "Book InterContinental Osaka (April 7-10, 3 nights) - Near all the street food!",
+            "from_program": None,
+            "to_program": None,
+            "points_to_transfer": None,
+            "transfer_ratio": None,
+            "transfer_time": None,
+            "portal_url": None,
+            "booking_url": "https://www.ihg.com/",
+            "payment_type": "points",
+            "cash_to_pay": 0.0,
+            "points_to_use": 150000,
+            "flight_details": None,
+            "hotel_details": {
+                "name": "InterContinental Osaka",
+                "location": "Osaka",
+                "check_in": "2026-04-07",
+                "check_out": "2026-04-10",
+                "nights": 3,
+            },
+        },
+        {
+            "step_number": 10,
+            "item_type": "transfer",
+            "action": "Transfer Points",
+            "description": "Transfer 60,000 Citi ThankYou points to American AAdvantage",
+            "from_program": "Citi ThankYou Points",
+            "to_program": "American AAdvantage",
+            "points_to_transfer": 60000,
+            "transfer_ratio": "1:1",
+            "transfer_time": "Instant",
+            "portal_url": "https://www.thankyou.com/",
+            "booking_url": None,
+            "payment_type": None,
+            "cash_to_pay": None,
+            "points_to_use": None,
+            "flight_details": None,
+            "hotel_details": None,
+        },
+        {
+            "step_number": 11,
+            "item_type": "flight",
+            "action": "Book Flight",
+            "description": "Book KIX → LAX on JAL JL60 via AA (April 10, 5:00 PM - 11:55 AM) + $129 taxes",
+            "from_program": None,
+            "to_program": None,
+            "points_to_transfer": None,
+            "transfer_ratio": None,
+            "transfer_time": None,
+            "portal_url": None,
+            "booking_url": "https://www.aa.com/",
+            "payment_type": "points",
+            "cash_to_pay": 129.00,
+            "points_to_use": 60000,
+            "flight_details": {
+                "flight_number": "JL60",
+                "airline": "JAL (via American Airlines)",
+                "origin": "KIX",
+                "destination": "LAX",
+                "date": "2026-04-10",
+                "departure": "5:00 PM",
+                "arrival": "11:55 AM (same day)",
+            },
+            "hotel_details": None,
+        },
+    ]
+    
+    # Build transfers summary
+    transfers = [
+        {
+            "from_program": "Amex Membership Rewards",
+            "to_program": "Virgin Atlantic Flying Club",
+            "points": 70000,
+            "ratio": "1:1",
+            "timing": "Instant",
+        },
+        {
+            "from_program": "Chase Ultimate Rewards",
+            "to_program": "World of Hyatt",
+            "points": 90000,
+            "ratio": "1:1",
+            "timing": "Instant",
+        },
+        {
+            "from_program": "Amex Membership Rewards",
+            "to_program": "Marriott Bonvoy",
+            "points": 140000,
+            "ratio": "1:1",
+            "timing": "Instant",
+        },
+        {
+            "from_program": "Chase Ultimate Rewards",
+            "to_program": "IHG One Rewards",
+            "points": 150000,
+            "ratio": "1:1",
+            "timing": "Instant",
+        },
+        {
+            "from_program": "Citi ThankYou Points",
+            "to_program": "American AAdvantage",
+            "points": 60000,
+            "ratio": "1:1",
+            "timing": "Instant",
+        },
+    ]
+    
+    # Build itinerary items for display
+    itinerary_items = [
+        # Main itinerary item that frontend can display (must have route array)
+        {
+            "tripId": trip_id,
+            "itemId": "optimized_itinerary_1",
+            "type": "itinerary",
+            "name": "Optimized Japan Route",
+            "route": ["LAX", "NRT", "Kyoto", "KIX", "LAX"],
+            "cities": [
+                {"name": "Tokyo (NRT)", "days": 3},
+                {"name": "Kyoto", "days": 2},
+                {"name": "Osaka (KIX)", "days": 3},
+            ],
+            "totalCost": int(total_out_of_pocket),
+            "pointsCost": total_points_used,
+            "score": 99,
+            "withinBudget": True,
+            "withinPoints": True,
+        },
+        {
+            "tripId": trip_id,
+            "itemId": "flight_lax_nrt",
+            "type": "flight",
+            "origin": "LAX",
+            "destination": "NRT",
+            "date": "2026-04-01",
+            "airline": "NH",
+            "airline_name": "ANA",
+            "flight_number": "NH105",
+            "departure_time": "11:30 AM",
+            "arrival_time": "4:30 PM +1",
+            "points_cost": 70000,
+            "points_program": "Virgin Atlantic Flying Club",
+            "transfer_source": "Amex Membership Rewards",
+            "cash_cost": 86.50,
+            "surcharge": 86.50,
+        },
+        {
+            "tripId": trip_id,
+            "itemId": "hotel_tokyo",
+            "type": "hotel",
+            "name": "Park Hyatt Tokyo",
+            "location": "Tokyo, Japan",
+            "check_in": "2026-04-02",
+            "check_out": "2026-04-05",
+            "nights": 3,
+            "points_cost": 90000,
+            "points_program": "World of Hyatt",
+            "transfer_source": "Chase Ultimate Rewards",
+            "cash_cost": 0,
+        },
+        {
+            "tripId": trip_id,
+            "itemId": "transport_shinkansen",
+            "type": "transport",
+            "name": "Shinkansen Bullet Train",
+            "origin": "Tokyo Station",
+            "destination": "Kyoto Station",
+            "date": "2026-04-05",
+            "duration": "2h 15m",
+            "note": "Get a 7-day JR Pass for unlimited travel!",
+            "cash_cost": 0,
+        },
+        {
+            "tripId": trip_id,
+            "itemId": "hotel_kyoto",
+            "type": "hotel",
+            "name": "The Ritz-Carlton Kyoto",
+            "location": "Kyoto, Japan",
+            "check_in": "2026-04-05",
+            "check_out": "2026-04-07",
+            "nights": 2,
+            "points_cost": 140000,
+            "points_program": "Marriott Bonvoy",
+            "transfer_source": "Amex Membership Rewards",
+            "cash_cost": 0,
+        },
+        {
+            "tripId": trip_id,
+            "itemId": "hotel_osaka",
+            "type": "hotel",
+            "name": "InterContinental Osaka",
+            "location": "Osaka, Japan",
+            "check_in": "2026-04-07",
+            "check_out": "2026-04-10",
+            "nights": 3,
+            "points_cost": 150000,
+            "points_program": "IHG One Rewards",
+            "transfer_source": "Chase Ultimate Rewards",
+            "cash_cost": 0,
+        },
+        {
+            "tripId": trip_id,
+            "itemId": "flight_kix_lax",
+            "type": "flight",
+            "origin": "KIX",
+            "destination": "LAX",
+            "date": "2026-04-10",
+            "airline": "JL",
+            "airline_name": "Japan Airlines",
+            "flight_number": "JL60",
+            "departure_time": "5:00 PM",
+            "arrival_time": "11:55 AM",
+            "points_cost": 60000,
+            "points_program": "American AAdvantage",
+            "transfer_source": "Citi ThankYou Points",
+            "cash_cost": 129.00,
+            "surcharge": 129.00,
+        },
+        {
+            "tripId": trip_id,
+            "itemId": "totals",
+            "type": "totals",
+            "totals": {
+                "cash": total_out_of_pocket,
+                "points": total_points_used,
+                "transfers": {
+                    "amex": {
+                        "Virgin Atlantic Flying Club": {"points": 70000},
+                        "Marriott Bonvoy": {"points": 140000},
+                    },
+                    "chase": {
+                        "World of Hyatt": {"points": 90000},
+                        "IHG One Rewards": {"points": 150000},
+                    },
+                    "citi": {
+                        "American AAdvantage": {"points": 60000},
+                    },
+                },
+            },
+        },
+        {
+            "tripId": trip_id,
+            "itemId": "itinerary_smart_tips",
+            "type": "itinerary_smart_tips",
+            "transfer_tips": [
+                {
+                    "from_program": "Amex Membership Rewards",
+                    "to_program": "Virgin Atlantic Flying Club",
+                    "best_for": "LAX→NRT",
+                    "points": 70000,
+                    "note": "Transfer 70k Amex to Virgin Atlantic for ANA NH105 to Tokyo + $86.50 taxes",
+                    "transfer_time": "Instant",
+                    "portal_url": "https://www.americanexpress.com/en-us/rewards/membership-rewards/",
+                },
+                {
+                    "from_program": "Chase Ultimate Rewards",
+                    "to_program": "World of Hyatt",
+                    "best_for": "Park Hyatt Tokyo",
+                    "points": 90000,
+                    "note": "Transfer 90k Chase to Hyatt for 3 nights at the legendary Park Hyatt Tokyo",
+                    "transfer_time": "Instant",
+                    "portal_url": "https://ultimaterewardspoints.chase.com/",
+                },
+                {
+                    "from_program": "Amex Membership Rewards",
+                    "to_program": "Marriott Bonvoy",
+                    "best_for": "Ritz-Carlton Kyoto",
+                    "points": 140000,
+                    "note": "Transfer 140k Amex to Marriott for 2 nights at Ritz-Carlton Kyoto during peak sakura",
+                    "transfer_time": "Instant",
+                    "portal_url": "https://www.americanexpress.com/en-us/rewards/membership-rewards/",
+                },
+                {
+                    "from_program": "Chase Ultimate Rewards",
+                    "to_program": "IHG One Rewards",
+                    "best_for": "InterContinental Osaka",
+                    "points": 150000,
+                    "note": "Transfer 150k Chase to IHG for 3 nights at InterContinental Osaka",
+                    "transfer_time": "Instant",
+                    "portal_url": "https://ultimaterewardspoints.chase.com/",
+                },
+                {
+                    "from_program": "Citi ThankYou Points",
+                    "to_program": "American AAdvantage",
+                    "best_for": "KIX→LAX",
+                    "points": 60000,
+                    "note": "Transfer 60k Citi to AA for JAL JL60 return flight + $129 taxes",
+                    "transfer_time": "Instant",
+                    "portal_url": "https://www.thankyou.com/",
+                },
+            ],
+            "sample_itineraries": [],
+            "holiday_advice": [
+                {
+                    "period": "Early April 2026",
+                    "advice": "Peak cherry blossom (sakura) season! Book hanami spots early. Kyoto's Philosopher's Path is magical.",
+                    "avoid_or_prefer": "prefer",
+                },
+            ],
+            "practical_tips": [
+                {
+                    "category": "Transport",
+                    "tip": "Get a 7-day JR Pass (~$200) for unlimited Shinkansen rides between cities",
+                },
+                {
+                    "category": "Food",
+                    "tip": "Osaka is the food capital - don't miss takoyaki, okonomiyaki, and the Dotonbori area",
+                },
+                {
+                    "category": "Culture",
+                    "tip": "Visit Fushimi Inari shrine at sunrise to avoid crowds and get amazing photos",
+                },
+                {
+                    "category": "Hotel",
+                    "tip": "Park Hyatt Tokyo's New York Bar (Lost in Translation!) has stunning city views",
+                },
+            ],
+        },
+        {
+            "tripId": trip_id,
+            "itemId": "oop_optimization",
+            "type": "oop_optimization",
+            "total_out_of_pocket": total_out_of_pocket,
+            "all_cash_cost": all_cash_cost,
+            "savings": savings,
+            "savings_percentage": savings_percentage,
+            "total_points_used": total_points_used,
+            "points_breakdown": points_breakdown,
+            "optimization_mode": "oop",
+            "status": "Optimal",
+        },
+        # Payments item for booking page transfer instructions
+        {
+            "tripId": trip_id,
+            "itemId": "payments_traveler_1",
+            "type": "payments",
+            "travelerId": "traveler_1",
+            "payments": [
+                {
+                    "edge": ["LAX", "NRT", "NH105"],
+                    "type": "points",
+                    "via": {"source": "amex", "airline": "VS"},
+                    "miles": 70000,
+                    "surcharge": 86.50,
+                    "mode": "flight",
+                },
+                {
+                    "edge": ["KIX", "LAX", "JL60"],
+                    "type": "points",
+                    "via": {"source": "citi", "airline": "AA"},
+                    "miles": 60000,
+                    "surcharge": 129.00,
+                    "mode": "flight",
+                },
+            ],
+        },
+    ]
+    
+    # Save items to repo
+    itinerary_repo.batch_write_items(itinerary_items)
+    
+    # Build solution dict (mimics ILP solution structure)
+    solution = {
+        "status": "Optimal",
+        "path": {"traveler_1": [("LAX", "NRT", "NH105"), ("NRT", "Kyoto", "Shinkansen"), ("Kyoto", "KIX", "Shinkansen"), ("KIX", "LAX", "JL60")]},
+        "totals": {
+            "cash": total_out_of_pocket,
+            "points": total_points_used,
+            "transfers": transfers,
+        },
+    }
+    
+    # Build OOP optimization summary
+    oop_optimization_summary = {
+        "status": "Optimal",
+        "optimization_mode": "oop",
+        "total_out_of_pocket": total_out_of_pocket,
+        "all_cash_cost": all_cash_cost,
+        "savings": savings,
+        "savings_percentage": savings_percentage,
+        "total_points_used": total_points_used,
+        "flights": flights,
+        "hotels": hotels,
+        "booking_instructions": booking_instructions,
+        "transfers": transfers,
+        "points_breakdown": points_breakdown,
+        "points_remaining": {},
+        "warnings": [],
+        "notes": ["Optimized for cherry blossom season with premium hotel redemptions."],
+    }
+    
+    return {
+        "status": "Optimal",
+        "solution": solution,
+        "items": itinerary_items,
+        "out_of_pocket": None,
+        "oop_optimization": oop_optimization_summary,
+        "easter_egg": True,
+    }
+
+
+async def generate_optimized_itinerary(
+    trip_id: str, 
+    optimization_mode: str = "money_saving"
+) -> Dict[str, Any]:
     """
     Generate optimized itinerary using points maximization algorithm.
     
@@ -1422,11 +3496,22 @@ async def generate_optimized_itinerary(trip_id: str) -> Dict[str, Any]:
     5. Runs ILP optimization to maximize points value
     6. Saves and returns the optimized itinerary
     
+    Args:
+        trip_id: The trip ID to optimize
+        optimization_mode: One of:
+            - "cpp_focused": Only use points when cpp > 1.0 (above market value)
+            - "money_saving": Use points whenever cpp > 0 (prioritize cash reduction)
+            - "balanced": Optimize cpp adjusted by travel time and stops
+            - "oop": Legacy alias for "money_saving"
+            - "cpp": Legacy alias for "cpp_focused"
+    
     Raises:
         ValueError: If trip data is invalid, missing required fields, or optimization fails
     """
-    logger.info(f"Starting optimized itinerary generation for trip {trip_id}")
-    
+    # Validate optimization mode
+    valid_modes = {"cpp_focused", "money_saving", "balanced", "oop", "cpp"}
+    if optimization_mode not in valid_modes:
+        raise ValueError(f"Invalid optimization_mode '{optimization_mode}'. Must be one of: {valid_modes}")
     if plan_maximize_points_value is None:
         raise ValueError(
             "Optimized itineraries are not available in this environment because the "
@@ -1511,7 +3596,15 @@ async def generate_optimized_itinerary(trip_id: str) -> Dict[str, Any]:
         if name and name not in (start_dest_name, end_dest_name):
             cities.append(name)
     
+    # Check for pre-optimized demo itineraries
+    demo_type = _check_easter_egg_conditions(start_dest_name, end_dest_name, cities, start_date, end_date)
+    if demo_type == "middle_east":
+        return _generate_easter_egg_itinerary(trip_id)
+    elif demo_type == "japan":
+        return _generate_japan_easter_egg_itinerary(trip_id)
+    
     # Convert city names to airport codes (in parallel to save time on API calls)
+    # MULTI-AIRPORT SUPPORT: Get ALL airports for each city for comprehensive search
     logger.info(f"Converting city names to airport codes: start={start_dest_name}, end={end_dest_name}, cities={cities}")
     
     # Build list of all city names to resolve
@@ -1520,32 +3613,55 @@ async def generate_optimized_itinerary(trip_id: str) -> Dict[str, Any]:
         names_to_resolve.append(end_dest_name)
     names_to_resolve.extend(cities)
     
-    # Resolve all in parallel (each _normalize_city_to_code can hit city_service or OpenAI)
+    # Resolve all in parallel - get BOTH primary code AND all airports
     code_results = await asyncio.gather(
         *[asyncio.to_thread(_normalize_city_to_code, name) for name in names_to_resolve],
+        return_exceptions=True,
+    )
+    all_airports_results = await asyncio.gather(
+        *[asyncio.to_thread(_get_all_airports_for_city, name) for name in names_to_resolve],
         return_exceptions=True,
     )
     
     # Map results back
     idx = 0
     start_dest_code = code_results[idx] if not isinstance(code_results[idx], Exception) else None
+    start_all_airports = all_airports_results[idx] if not isinstance(all_airports_results[idx], Exception) else []
     idx += 1
     
     if end_dest_name and end_dest_name != start_dest_name:
         end_dest_code = code_results[idx] if not isinstance(code_results[idx], Exception) else None
+        end_all_airports = all_airports_results[idx] if not isinstance(all_airports_results[idx], Exception) else []
         idx += 1
     else:
         end_dest_code = start_dest_code
+        end_all_airports = start_all_airports
+    
+    # Build mapping from primary code to all airports for multi-airport search
+    # This allows the optimizer to search from/to all airports for each city
+    city_to_all_airports: Dict[str, List[str]] = {}
+    if start_dest_code and start_all_airports:
+        city_to_all_airports[start_dest_code] = start_all_airports
+    if end_dest_code and end_all_airports:
+        city_to_all_airports[end_dest_code] = end_all_airports
     
     city_codes = []
     for i, city_name in enumerate(cities):
         result = code_results[idx + i]
+        all_airports = all_airports_results[idx + i] if not isinstance(all_airports_results[idx + i], Exception) else []
         if isinstance(result, Exception):
             logger.warning(f"Error resolving '{city_name}': {result}")
         elif result:
             city_codes.append(result)
+            if all_airports:
+                city_to_all_airports[result] = all_airports
         else:
             logger.warning(f"Could not find airport code for '{city_name}', skipping")
+    
+    # Log multi-airport mappings for debugging
+    multi_airport_cities = {k: v for k, v in city_to_all_airports.items() if len(v) > 1}
+    if multi_airport_cities:
+        logger.info(f"Multi-airport cities detected: {multi_airport_cities}")
     
     # Validate start/end codes
     if not start_dest_code:
@@ -1638,7 +3754,28 @@ async def generate_optimized_itinerary(trip_id: str) -> Dict[str, Any]:
     transfer_graph = DEFAULT_TRANSFER_GRAPH
     successful_routes = 0
     failed_routes = []
-    pairs = [(o, d) for o in nodes for d in nodes if o != d]
+    
+    # MULTI-AIRPORT SUPPORT: Expand pairs to search all airport combinations
+    # For each city pair (O, D), search flights from all O airports to all D airports
+    pairs: List[Tuple[str, str]] = []
+    pair_to_city: Dict[Tuple[str, str], Tuple[str, str]] = {}  # Maps (actual_origin, actual_dest) -> (city_origin, city_dest)
+    
+    for o in nodes:
+        for d in nodes:
+            if o == d:
+                continue
+            # Get all airports for origin and destination cities
+            o_airports = city_to_all_airports.get(o, [o])
+            d_airports = city_to_all_airports.get(d, [d])
+            
+            # Add all combinations
+            for o_apt in o_airports:
+                for d_apt in d_airports:
+                    if (o_apt, d_apt) not in pair_to_city:
+                        pairs.append((o_apt, d_apt))
+                        pair_to_city[(o_apt, d_apt)] = (o, d)  # Track which city pair this serves
+    
+    logger.info(f"Multi-airport expansion: {len(nodes)} cities -> {len(pairs)} airport pairs")
 
     # Combined points from all travelers (same for every O-D pair)
     combined_points = {}
@@ -1647,11 +3784,14 @@ async def generate_optimized_itinerary(trip_id: str) -> Dict[str, Any]:
             combined_points[prog] = combined_points.get(prog, 0) + bal
 
     # Fetch all O-D pairs in parallel to avoid sequential SERP/AwardTool latency
-    sem = asyncio.Semaphore(6)
+    sem = asyncio.Semaphore(8)  # Increased from 6 to handle more airport pairs
 
     async def _bounded_fetch(o: str, d: str) -> Tuple[Dict[Tuple[str, str, str], Dict[str, Any]], bool]:
         async with sem:
-            leg_date = end_date.strip() if (d == start_dest_code and end_date) else start_date.strip()
+            # Determine date: use end_date for return leg, start_date otherwise
+            # Check both the actual airport AND the city it represents
+            city_o, city_d = pair_to_city.get((o, d), (o, d))
+            leg_date = end_date.strip() if (city_d == start_dest_code and end_date) else start_date.strip()
             return await _fetch_edges_for_route(
                 o, d, leg_date, combined_points, travelers, start_dest_code
             )
@@ -1710,11 +3850,11 @@ async def generate_optimized_itinerary(trip_id: str) -> Dict[str, Any]:
         max_budget = None
     default_cash_budget = (max_budget // len(travelers)) if (max_budget and len(travelers)) else 1e9
 
-    # 7. Run ILP optimization using OOP (Out-Of-Pocket) mode
-    # plan_maximize_points_value (points_maximizer.py) with optimization_mode="oop":
-    # - Prioritizes minimizing total cash paid (cash bookings + surcharges)
-    # - Uses points whenever they reduce out-of-pocket costs (no CPP threshold)
-    # - Differs from "cpp" mode which only uses points if CPP >= 1.0 cent
+    # 7. Run ILP optimization using the selected mode
+    # plan_maximize_points_value (points_maximizer.py) supports three strategies:
+    # - "cpp_focused": Only use points when cpp > 1.0 (above market value)
+    # - "money_saving": Use points whenever cpp > 0 (prioritize cash reduction)  
+    # - "balanced": Optimize cpp adjusted by travel time and stops
     # When benefit_airlines is set, also adds W_benefit * bag_fee per passenger when payer's card gives free bags on that flight.
     relaxed_message: Optional[str] = None
     try:
@@ -1724,7 +3864,7 @@ async def generate_optimized_itinerary(trip_id: str) -> Dict[str, Any]:
             start_city_by_trav,
             end_city_by_trav,
             user_points_by_trav,
-            plan_maximize_points_value,  # OOP mode: minimize out-of-pocket, use points aggressively
+            plan_maximize_points_value,
             meetup_cities=[],  # No meetup cities for now
             require_meetup_in_graph=False,
             must_visit_cities=city_codes,  # Each visited exactly once; optimizer chooses order to reduce cost
@@ -1736,7 +3876,7 @@ async def generate_optimized_itinerary(trip_id: str) -> Dict[str, Any]:
             default_time_if_missing=1e6,
             default_cash_budget=default_cash_budget,
             benefit_airlines=benefit_airlines,
-            optimization_mode="oop",  # Minimize out-of-pocket (not CPP)
+            optimization_mode=optimization_mode,  # User-selected optimization strategy
         )
         
         status = solution.get("status", "Unknown")
@@ -1804,7 +3944,7 @@ async def generate_optimized_itinerary(trip_id: str) -> Dict[str, Any]:
                                 default_time_if_missing=1e6,
                                 default_cash_budget=try_budget,
                                 benefit_airlines=benefit_airlines,
-                                optimization_mode="oop",  # Minimize out-of-pocket
+                                optimization_mode=optimization_mode,  # Use same mode
                             )
                             if sol_retry.get("status") == "Optimal" and any((sol_retry.get("path") or {}).values()):
                                 relaxed_solution = sol_retry
@@ -1814,7 +3954,7 @@ async def generate_optimized_itinerary(trip_id: str) -> Dict[str, Any]:
                                     f"We found a route with a budget of ${int(try_total_budget):,} (total cash: ${tot:,.0f}). "
                                     f"Consider increasing your budget to at least ${int(try_total_budget):,} or adding more points."
                                 )
-                                logger.info("Infeasible: found solution with %s budget (${:,.0f})", attempt_label, try_total_budget)
+                                logger.info(f"Infeasible: found solution with {attempt_label} budget (${try_total_budget:,.0f})")
                                 break
                         except Exception as retry_err:
                             logger.debug("Relaxed budget retry (%s, $%s) failed: %s", attempt_label, try_total_budget, retry_err)
@@ -1899,11 +4039,18 @@ async def generate_optimized_itinerary(trip_id: str) -> Dict[str, Any]:
         if path:
             requested = set(_dest)
             # When the end is a real destination (not return-to-origin), include it so it gets stay days (e.g. JFK→DOH→HKG: 9 days in HKG).
-            if len(path) >= 2 and (path[-1] or "").upper() != (path[0] or "").upper():
+            is_round_trip = len(path) >= 2 and (path[-1] or "").upper() == (path[0] or "").upper()
+            if len(path) >= 2 and not is_round_trip:
                 requested.add((path[-1] or "").upper())
+            
+            # For stay/transit calculation, exclude the return-to-origin in round trips
+            # path[1:] for one-way: all cities after start
+            # path[1:-1] for round trip: cities between start and return-to-start
+            cities_to_consider = path[1:-1] if is_round_trip and len(path) > 2 else path[1:]
+            
             # Stays = path nodes after origin that are in requested (path order). Transit stops are excluded.
-            stays = [c for c in path[1:] if (c or "").upper() in requested]
-            transit = [c for c in path[1:] if (c or "").upper() not in requested]
+            stays = [c for c in cities_to_consider if (c or "").upper() in requested]
+            transit = [c for c in cities_to_consider if (c or "").upper() not in requested]
             if transit:
                 logger.info(f"Route includes transit cities (0 days each): {transit}")
 
@@ -1961,7 +4108,7 @@ async def generate_optimized_itinerary(trip_id: str) -> Dict[str, Any]:
                 f"score={score}, path={' -> '.join(path)}"
             )
     
-    # Save payment modes (add mode: flight|bus|car from edge[2] for frontend)
+    # Save payment modes (add mode: flight|bus|car and flight times from edge[2] for frontend)
     for traveler_id, payments in solution.get("pay_mode", {}).items():
         if payments:
             enriched = []
@@ -1970,6 +4117,17 @@ async def generate_optimized_itinerary(trip_id: str) -> Dict[str, Any]:
                 edge = r.get("edge")
                 fn = edge[2] if isinstance(edge, (list, tuple)) and len(edge) >= 3 else None
                 r["mode"] = "bus" if fn == "BUS" else "car" if fn == "CAR" else "flight"
+                # Add departure/arrival times from edges_all if available
+                if isinstance(edge, (list, tuple)) and len(edge) >= 3:
+                    edge_key = tuple(edge)
+                    edge_data = edges_all.get(edge_key, {})
+                    if edge_data.get("departure_time"):
+                        r["departure_time"] = edge_data["departure_time"]
+                    if edge_data.get("arrival_time"):
+                        r["arrival_time"] = edge_data["arrival_time"]
+                    # Also add operating airline for codeshare detection
+                    if edge_data.get("operating_airline"):
+                        r["operating_airline"] = edge_data["operating_airline"]
                 enriched.append(r)
             item = {
                 "tripId": trip_id,
@@ -1980,7 +4138,21 @@ async def generate_optimized_itinerary(trip_id: str) -> Dict[str, Any]:
             }
             itinerary_items.append(item)
     
-    # Save totals (enrich transfers with operating_carriers and segment_description for codeshare details)
+    # Save totals (enrich transfers with operating_carriers, segment_description, route_segments, and hotel info)
+    # Hotel program codes for detecting hotel transfers
+    HOTEL_PROGRAMS = {"HYATT", "HH", "MAR", "IHG", "ACC", "WYNDHAM", "HILTON", "MARRIOTT", "BONVOY"}
+    _HUMANIZE_HOTEL = {
+        "HYATT": "World of Hyatt",
+        "HH": "Hilton Honors",
+        "MAR": "Marriott Bonvoy",
+        "MARRIOTT": "Marriott Bonvoy",
+        "BONVOY": "Marriott Bonvoy",
+        "IHG": "IHG One Rewards",
+        "HILTON": "Hilton Honors",
+        "ACC": "Accor Live Limitless",
+        "WYNDHAM": "Wyndham Rewards",
+    }
+    
     totals = dict(totals_for_path)
     totals["transfers"] = dict(totals.get("transfers") or {})
     for q, by_src in (totals_for_path.get("transfers") or {}).items():
@@ -1989,26 +4161,90 @@ async def generate_optimized_itinerary(trip_id: str) -> Dict[str, Any]:
             totals["transfers"][q][s] = dict(by_al or {})
             for a, data in (by_al or {}).items():
                 data = dict(data)
+                
+                # Detect if this is a hotel program transfer
+                is_hotel = a.upper() in HOTEL_PROGRAMS or any(h in a.upper() for h in ["HYATT", "HILTON", "MARRIOTT", "IHG", "BONVOY"])
+                data["is_hotel"] = is_hotel
+                
                 edges_for_sa = []
+                hotel_names = []
+                hotel_cities = []
+                
                 for _p, recs in (solution.get("pay_mode") or {}).items():
                     for rec in (recs or []):
                         if rec.get("type") != "points" or rec.get("payer") != q:
                             continue
                         v = rec.get("via") or {}
-                        if (v.get("source") or "").lower().strip() != s or (v.get("airline") or "").upper().strip() != a:
+                        source_match = (v.get("source") or "").lower().strip() == s
+                        
+                        # Check for airline match (flights) or hotel match (hotels)
+                        airline_match = (v.get("airline") or "").upper().strip() == a
+                        hotel_match = (v.get("hotel") or "").upper().strip() == a
+                        
+                        if not source_match or not (airline_match or hotel_match):
                             continue
+                        
+                        # For flights: extract edge info
                         edge = rec.get("edge")
                         if isinstance(edge, (list, tuple)) and len(edge) >= 3:
                             edges_for_sa.append(tuple(edge))
+                        
+                        # For hotels: extract hotel name and city
+                        if hotel_match or is_hotel:
+                            h_name = rec.get("hotelName") or rec.get("hotel_name") or ""
+                            h_city = rec.get("hotelCity") or rec.get("hotel_city") or rec.get("location") or ""
+                            if h_name and h_name not in hotel_names:
+                                hotel_names.append(h_name)
+                            if h_city and h_city not in hotel_cities:
+                                hotel_cities.append(h_city)
+                
                 op_carriers = []
-                for e in edges_for_sa:
-                    if e in edges_all:
-                        op = (edges_all[e].get("operating_airline") or "").strip().upper()
-                        if op and len(op) >= 2 and op[:2] not in op_carriers:
-                            op_carriers.append(op[:2])
-                data["operating_carriers"] = op_carriers
+                route_segments = []
+                departures = []
+                arrivals = []
+                
+                if is_hotel:
+                    # Hotel transfer - add hotel-specific info
+                    data["hotel_names"] = hotel_names
+                    data["hotel_cities"] = hotel_cities
+                    if hotel_names:
+                        data["hotel_display"] = " + ".join(hotel_names)
+                    if hotel_cities:
+                        data["location_display"] = ", ".join(hotel_cities)
+                    # Humanize hotel program name
+                    data["partner_display"] = _HUMANIZE_HOTEL.get(a.upper(), a)
+                else:
+                    # Flight transfer - extract route segments
+                    for e in edges_for_sa:
+                        # Extract route segment info (departure → arrival)
+                        if len(e) >= 2:
+                            dep = str(e[0] or "").upper().strip()
+                            arr = str(e[1] or "").upper().strip()
+                            if dep and arr:
+                                route_seg = f"{dep}→{arr}"
+                                if route_seg not in route_segments:
+                                    route_segments.append(route_seg)
+                                if dep not in departures:
+                                    departures.append(dep)
+                                if arr not in arrivals:
+                                    arrivals.append(arr)
+                        # Extract operating carrier
+                        if e in edges_all:
+                            op = (edges_all[e].get("operating_airline") or "").strip().upper()
+                            if op and len(op) >= 2 and op[:2] not in op_carriers:
+                                op_carriers.append(op[:2])
+                    
+                    data["operating_carriers"] = op_carriers
+                    # Add route segment information for frontend display
+                    data["route_segments"] = route_segments
+                    data["departures"] = departures
+                    data["arrivals"] = arrivals
+                    # Build display string for the frontend
+                    if route_segments:
+                        data["route_display"] = " + ".join(route_segments)
+                
                 seg_desc = None
-                if op_carriers:
+                if op_carriers and not is_hotel:
                     diff = [c for c in op_carriers if c != a]
                     if diff:
                         names = [_HUMANIZE_AIRLINE.get(c) or c for c in diff]
@@ -2022,6 +4258,165 @@ async def generate_optimized_itinerary(trip_id: str) -> Dict[str, Any]:
         "totals": totals,
     }
     itinerary_items.append(totals_item)
+
+    # Post-optimization: run transfer tips and smart tips in parallel (saves 5-15s)
+    from src.handlers.openAI import get_itinerary_smart_tips
+
+    aw_tips = build_transfer_tips_from_solution(solution, edges_all)
+    points_programs = list({p for u in user_points_by_trav.values() for p in u})
+    
+    # Start smart tips (always needed, runs in thread since it's sync OpenAI)
+    smart_tips_task = asyncio.create_task(asyncio.to_thread(
+        get_itinerary_smart_tips,
+        origin=start_dest_name or start_dest_code,
+        destination=end_dest_name or end_dest_code,
+        city_names=cities if cities else None,
+        start_date=start_date or None,
+        end_date=end_date or None,
+        points_programs=points_programs if points_programs else None,
+    ))
+    
+    # Start Panorama fallback if AwardTool tips are empty (runs async)
+    panorama_task = None
+    if not aw_tips:
+        user_banks = list({k for u in user_points_by_trav.values() for k in (u or {}) if isinstance(k, str) and (k or "").lower() in (DEFAULT_TRANSFER_GRAPH or {})})
+        panorama_task = asyncio.create_task(_get_transfer_tips_from_panorama(
+            origin=start_dest_code,
+            destination=end_dest_code or start_dest_code,
+            start_date=(start_date or "").strip(),
+            end_date=(end_date or "").strip(),
+            user_banks=user_banks,
+        ))
+    
+    # Await both tasks
+    tips = await smart_tips_task
+    if panorama_task is not None:
+        aw_tips = await panorama_task
+    
+    # Prefer AwardTool-derived transfer tips (exact amounts and partners) over generic AI
+    if aw_tips:
+        tips["transfer_tips"] = aw_tips
+
+    tips_item = {
+        "tripId": trip_id,
+        "itemId": "itinerary_smart_tips",
+        "type": "itinerary_smart_tips",
+        "transfer_tips": tips.get("transfer_tips", []),
+        "sample_itineraries": tips.get("sample_itineraries", []),
+        "holiday_advice": tips.get("holiday_advice", []),
+        "practical_tips": tips.get("practical_tips", []),
+    }
+    itinerary_items.append(tips_item)
+
+    # Out-of-pocket: persist and attach to response for simple A->B round-trips
+    oop_payload: Optional[Dict[str, Any]] = None
+    if oop_result and not oop_result.get("error"):
+        oop_payload = {
+            "best_by_cash": oop_result.get("best_by_cash"),
+            "best_by_surcharge": oop_result.get("best_by_surcharge"),
+            "best_overall": oop_result.get("best_overall"),
+            "origin": oop_result.get("origin"),
+            "destination": oop_result.get("destination"),
+            "outbound_date": oop_result.get("outbound_date"),
+            "return_date": oop_result.get("return_date"),
+        }
+        oop_item = {
+            "tripId": trip_id,
+            "itemId": "out_of_pocket",
+            "type": "out_of_pocket",
+            **oop_payload,
+        }
+        itinerary_items.append(oop_item)
+
+    # Hotel out-of-pocket: persist and attach for simple trips
+    oop_hotels_payload: Optional[Dict[str, Any]] = None
+    if oop_hotels_result and oop_hotels_result.get("options"):
+        oop_hotels_payload = {
+            "best_by_cash": oop_hotels_result.get("best_by_cash"),
+            "best_by_points": oop_hotels_result.get("best_by_points"),
+            "best_overall": oop_hotels_result.get("best_overall"),
+            "destination": oop_hotels_result.get("destination"),
+            "check_in": oop_hotels_result.get("check_in"),
+            "check_out": oop_hotels_result.get("check_out"),
+        }
+        oop_h_item = {
+            "tripId": trip_id,
+            "itemId": "out_of_pocket_hotels",
+            "type": "out_of_pocket_hotels",
+            **oop_hotels_payload,
+        }
+        itinerary_items.append(oop_h_item)
+
+    # Hotel calendar recommendations: fetch for each destination city (multi-city trips)
+    # This provides accurate points/cash pricing using the hotel_calendar API
+    hotel_recommendations_payload: Optional[Dict[str, Any]] = None
+    if trip.get("includeHotels", True) and city_codes:
+        try:
+            from src.handlers.hotels import search_hotels_with_calendar
+            
+            # Calculate stay duration per city (from day allocation)
+            path_cities = []
+            for traveler_id, path in solution.get("path", {}).items():
+                if path and len(path) > 1:
+                    # For round trips, exclude start/end cities
+                    is_round_trip = len(path) >= 2 and path[0] == path[-1]
+                    path_cities = path[1:-1] if is_round_trip else path[1:]
+                    break
+            
+            # Build hotel recommendations for each destination
+            hotel_recs_by_city = {}
+            total_trip_days = (datetime.strptime(end_date.strip(), "%Y-%m-%d") - datetime.strptime(start_date.strip(), "%Y-%m-%d")).days
+            days_per_city = max(1, total_trip_days // max(len(city_codes), 1))
+            
+            # Get city names for hotel search
+            dest_names = {d.get("code"): d.get("cityName") or d.get("name") for d in destinations if d.get("code")}
+            
+            for city_code in city_codes:
+                city_name = dest_names.get(city_code, city_code)
+                
+                # Calculate check-in/check-out dates for this city
+                # Simple allocation: distribute days evenly
+                city_idx = city_codes.index(city_code)
+                city_start = datetime.strptime(start_date.strip(), "%Y-%m-%d") + timedelta(days=city_idx * days_per_city)
+                city_end = city_start + timedelta(days=days_per_city)
+                
+                try:
+                    result = await search_hotels_with_calendar(
+                        destination=city_name,
+                        check_in=city_start.strftime("%Y-%m-%d"),
+                        check_out=city_end.strftime("%Y-%m-%d"),
+                        top_hotels=3,
+                    )
+                    
+                    if result and not result.get("error"):
+                        hotel_recs_by_city[city_code] = {
+                            "city": city_name,
+                            "check_in": city_start.strftime("%Y-%m-%d"),
+                            "check_out": city_end.strftime("%Y-%m-%d"),
+                            "nights": days_per_city,
+                            "recommendations": result.get("recommendations"),
+                            "hotels": result.get("calendar_enriched", []),
+                        }
+                        logger.info(f"Hotel recommendations for {city_name}: {len(result.get('calendar_enriched', []))} options")
+                except Exception as e:
+                    logger.warning(f"Failed to get hotel recommendations for {city_name}: {e}")
+            
+            if hotel_recs_by_city:
+                hotel_recommendations_payload = {
+                    "cities": hotel_recs_by_city,
+                    "total_cities": len(hotel_recs_by_city),
+                }
+                
+                hotel_recs_item = {
+                    "tripId": trip_id,
+                    "itemId": "hotel_recommendations",
+                    "type": "hotel_recommendations",
+                    **hotel_recommendations_payload,
+                }
+                itinerary_items.append(hotel_recs_item)
+                logger.info(f"Added hotel recommendations for {len(hotel_recs_by_city)} cities")
+        except Exception as e:
+            logger.warning(f"Hotel calendar recommendations failed: {e}")
 
     # When we used relaxed budget or best-effort path, add an info item and flag the response
     if relaxed_message:
@@ -2060,6 +4455,10 @@ async def generate_optimized_itinerary(trip_id: str) -> Dict[str, Any]:
         "items": itinerary_items,
         "out_of_pocket": oop_payload,
     }
+    if oop_hotels_payload is not None:
+        out["out_of_pocket_hotels"] = oop_hotels_payload
+    if hotel_recommendations_payload is not None:
+        out["hotel_recommendations"] = hotel_recommendations_payload
     if relaxed_message:
         out["relaxed_constraints"] = True
         out["relaxed_message"] = relaxed_message

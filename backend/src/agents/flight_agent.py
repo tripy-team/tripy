@@ -165,6 +165,8 @@ Return JSON: {{"programs": ["UA", "AA", ...], "reasoning": "..."}}
         cabins: list[str],
     ) -> list[FlightOption]:
         """Search for award flights using AwardTool API."""
+        print(f"[FlightAgent] _search_award_flights called: {origin}->{destination} date={date} programs={programs}")
+        logger.info(f"[FlightAgent] Searching award flights: {origin}->{destination} date={date}")
         try:
             from ..handlers.flights import search_awardtool_flights
             
@@ -175,6 +177,7 @@ Return JSON: {{"programs": ["UA", "AA", ...], "reasoning": "..."}}
                 programs=programs,
                 cabins=cabins,
             )
+            print(f"[FlightAgent] search_awardtool_flights returned {len(results) if results else 0} results")
             
             if not results:
                 logger.info(f"No award flights found for {origin}->{destination}, using dummy data")
