@@ -264,7 +264,10 @@ class FlightItineraryEdge:
         )
     
     # Cash booking option
+    # NOTE: When cash_cost_unknown=True, cash_cost contains a penalty value
+    # for optimization purposes. The real cash price is unknown.
     cash_cost: float = 0.0
+    cash_cost_unknown: bool = False  # True if original cash price was unknown (e.g., -1 sentinel)
     
     # Award options (multiple programs may offer this itinerary)
     award_options: List[AwardOption] = field(default_factory=list)

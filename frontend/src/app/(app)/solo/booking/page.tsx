@@ -268,15 +268,15 @@ function SoloBookingContent() {
         // Fallback to legacy API if solo API didn't work
         if (!usedSoloApi) {
           const [tripData, destRes] = await Promise.all([
-            tripsAPI.get(tripId).catch(() => null),
-            destinationsAPI.list(tripId).catch(() => ({ destinations: [] })),
-          ]);
-          setTrip(tripData ?? null);
-          const map = new Map<string, string>();
-          (destRes?.destinations || []).forEach((d: { destinationId?: string; name?: string }) => {
-            if (d?.destinationId && d?.name) map.set(d.destinationId, d.name);
-          });
-          setDestinationMap(map);
+          tripsAPI.get(tripId).catch(() => null),
+          destinationsAPI.list(tripId).catch(() => ({ destinations: [] })),
+        ]);
+        setTrip(tripData ?? null);
+        const map = new Map<string, string>();
+        (destRes?.destinations || []).forEach((d: { destinationId?: string; name?: string }) => {
+          if (d?.destinationId && d?.name) map.set(d.destinationId, d.name);
+        });
+        setDestinationMap(map);
         }
       } catch (_err) {
         console.log('Error fetching booking data');

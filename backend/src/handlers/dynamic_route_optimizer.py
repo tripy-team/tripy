@@ -598,28 +598,50 @@ class DynamicRouteOptimizer:
                             best_cash_price = cash_price
                 
                 # Populate segment data
+                # SANITIZE: Ensure no negative values leak through for duration/stops/prices
+                # -1 is commonly used as a sentinel value meaning "unknown"
+                def _sanitize_nonneg(val, default=0):
+                    """Return val if non-negative, else default. Prevents -1 sentinel leak."""
+                    if val is None:
+                        return default
+                    try:
+                        v = int(val) if isinstance(val, (int, float)) else int(val)
+                        return v if v >= 0 else default
+                    except (ValueError, TypeError):
+                        return default
+                
+                def _sanitize_nonneg_float(val, default=0.0):
+                    """Return val if non-negative, else default."""
+                    if val is None:
+                        return default
+                    try:
+                        v = float(val)
+                        return v if v >= 0 else default
+                    except (ValueError, TypeError):
+                        return default
+                
                 if best_cash:
-                    segment.cash_price = best_cash_price
+                    segment.cash_price = _sanitize_nonneg_float(best_cash_price, 0.0)
                     segment.airline = best_cash.get("operating_airline")
-                    segment.duration_minutes = best_cash.get("time_cost", 0)
+                    segment.duration_minutes = _sanitize_nonneg(best_cash.get("time_cost"), 0)
                     segment.departure_time = best_cash.get("departure_time")
                     segment.arrival_time = best_cash.get("arrival_time")
                     segment.data_source = best_cash.get("data_source", "serp")
                 
                 if best_award:
                     segment.award_available = True
-                    segment.points_cost = best_award.get("points_cost", 0)
+                    segment.points_cost = _sanitize_nonneg(best_award.get("points_cost"), 0)
                     segment.points_program = best_award.get("points_program")
                     segment.points_program_name = PROGRAM_METADATA.get(
                         best_award.get("points_program", "").upper(), {}
                     ).get("name", best_award.get("points_program"))
-                    segment.surcharge = best_award.get("points_surcharge", 0)
+                    segment.surcharge = _sanitize_nonneg_float(best_award.get("points_surcharge"), 0.0)
                     segment.booking_link = best_award.get("booking_link")
                     
                     # Use award flight details if cash not available
                     if not best_cash:
                         segment.airline = best_award.get("operating_airline")
-                        segment.duration_minutes = best_award.get("time_cost", 0)
+                        segment.duration_minutes = _sanitize_nonneg(best_award.get("time_cost"), 0)
                         segment.departure_time = best_award.get("departure_time")
                         segment.arrival_time = best_award.get("arrival_time")
                         segment.data_source = best_award.get("data_source", "awardtool")

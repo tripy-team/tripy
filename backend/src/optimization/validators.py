@@ -213,13 +213,27 @@ def validate_date_feasibility(
             )
         
         # Check 2: Arrives by check-in of next stay (if exists)
+        # RELAXED: Allow overnight flights that arrive up to 1 day after check-in
+        # The hotel dates will be adjusted in post-processing based on actual flight arrival
         if f.leg_id in seg_after_leg:
             seg = seg_after_leg[f.leg_id]
             if f.arrives_by_date and f.arrives_by_date > seg.check_in:
-                is_feasible = False
-                reasons.append(
-                    f"arrives {f.arrives_by_date} after check_in {seg.check_in}"
-                )
+                # Calculate how many days late the arrival is
+                days_late = (f.arrives_by_date - seg.check_in).days
+                
+                # Allow up to 1 day late (overnight flights)
+                # The hotel check-in will be adjusted to match actual arrival
+                if days_late > 1:
+                    is_feasible = False
+                    reasons.append(
+                        f"arrives {f.arrives_by_date} more than 1 day after check_in {seg.check_in}"
+                    )
+                else:
+                    # Log that we're allowing an overnight flight (date will be adjusted)
+                    logger.debug(
+                        f"{f.edge_id}: overnight flight arrives {f.arrives_by_date}, "
+                        f"original check_in {seg.check_in} - will adjust hotel dates"
+                    )
         
         # Check 3: Departs on/after check-out of previous stay (if exists)
         if f.leg_id in seg_before_leg:

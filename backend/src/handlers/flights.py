@@ -44,6 +44,150 @@ load_dotenv()
 SERPAPI_KEY = os.getenv("SERPAPI_KEY") or os.getenv("SERP_API_KEY")
 AWARD_TOOL_API_KEY = os.getenv("AWARD_TOOL_API_KEY") or os.getenv("AWARDTOOL_API_KEY")
 
+
+# =============================================================================
+# SANITIZATION HELPERS
+# =============================================================================
+# These helpers prevent sentinel values (like -1) from leaking through to the frontend.
+# Flight data sources (especially AwardTool) sometimes use -1 to indicate "unknown" 
+# which would display as "-1" in the UI and corrupt pricing totals.
+#
+# CRITICAL: cash_fare = -1 from AwardTool is truthy in Python, so patterns like
+# `float(cash) if cash else None` will happily convert -1 to -1.0, corrupting totals.
+
+def parse_price(value) -> float | None:
+    """
+    Parse a price value from various formats (string, int, float) to float.
+    
+    Uses the same logic as _to_number_price but with a cleaner interface.
+    Returns None for unparseable values.
+    """
+    if value is None:
+        return None
+    if isinstance(value, (int, float)):
+        return float(value)
+    # Handle string prices like "$123", "123.45", "1,234"
+    m = re.search(r"(\d[\d,\.]*)", str(value))
+    if not m:
+        return None
+    try:
+        return float(m.group(1).replace(",", ""))
+    except (ValueError, TypeError):
+        return None
+
+
+def sanitize_flight_cash_price(price, context: str = "") -> float | None:
+    """
+    Sanitize a flight cash price. Returns None for invalid prices.
+    
+    CRITICAL: AwardTool uses -1 as a sentinel meaning "unknown/unavailable".
+    This function ensures such values never corrupt optimization totals.
+    
+    Rules:
+    - None → None (unknown)
+    - Negative (including -1 sentinel) → None + log warning
+    - Zero → None (treat as unknown; real flights cost money)
+    - Positive → float(price)
+    
+    Args:
+        price: Raw price value from API
+        context: Optional context string for logging (e.g., "JFK->LAX AA100")
+    
+    Returns:
+        float if valid positive price, None otherwise
+        
+    INVARIANT: Never returns negative or zero values.
+    """
+    parsed = parse_price(price)
+    if parsed is None:
+        return None
+    if parsed < 0:
+        # Log negative sentinel detection for tracking source issues
+        logger.warning(f"[SENTINEL] Negative cash_price={parsed} detected{f' for {context}' if context else ''}. Treating as unknown.")
+        return None
+    if parsed == 0:
+        # Zero is not a valid flight price - treat as unknown
+        return None
+    return parsed
+
+
+def sanitize_nonneg_int(v) -> int | None:
+    """
+    Sanitize a value to a non-negative integer or None.
+    
+    - None → None
+    - Negative values (including -1 sentinel) → None  
+    - Valid non-negative → int(v)
+    - Non-numeric → None
+    
+    INVARIANT: Never returns negative values.
+    """
+    if v is None:
+        return None
+    try:
+        val = int(v)
+        return val if val >= 0 else None
+    except (ValueError, TypeError):
+        return None
+
+
+def sanitize_nonneg_float(v) -> float | None:
+    """
+    Sanitize a value to a non-negative float or None.
+    
+    - None → None
+    - Negative values → None
+    - Valid non-negative → float(v)
+    - Non-numeric → None
+    
+    INVARIANT: Never returns negative values.
+    """
+    if v is None:
+        return None
+    try:
+        val = float(v)
+        return val if val >= 0 else None
+    except (ValueError, TypeError):
+        return None
+
+
+def coalesce_nonneg_int(*vals, default: int | None = None) -> int | None:
+    """
+    Return the first non-negative integer from the values, or default.
+    
+    This replaces problematic patterns like:
+        duration = item.get("a") or item.get("b") or fallback
+    which pass through -1 because it's truthy.
+    
+    Usage:
+        duration = coalesce_nonneg_int(
+            item.get("duration_minutes"),
+            item.get("travel_minutes"),
+            computed_fallback,
+            default=180
+        )
+    
+    INVARIANT: Never returns negative values.
+    """
+    for v in vals:
+        result = sanitize_nonneg_int(v)
+        if result is not None:
+            return result
+    return sanitize_nonneg_int(default)
+
+
+def coalesce_nonneg_float(*vals, default: float | None = None) -> float | None:
+    """
+    Return the first non-negative float from the values, or default.
+    
+    INVARIANT: Never returns negative values.
+    """
+    for v in vals:
+        result = sanitize_nonneg_float(v)
+        if result is not None:
+            return result
+    return sanitize_nonneg_float(default)
+
 # Log API key status at startup (helps debug missing keys)
 if not SERPAPI_KEY:
     logger.warning(
@@ -348,7 +492,19 @@ def _merge_award_edges(rt_json):
         pts = item.get("award_points")
         sur = item.get("surcharge")
         prog = (item.get("program_code") or item.get("airline_code") or "").upper()
+        
+        # Extract transfer_options - check multiple possible locations
         xfer = item.get("transfer_options") or []
+        if not xfer:
+            # Check nested structure: cabin_prices.Economy.transfer_options
+            cabin_prices = item.get("cabin_prices", {})
+            for cabin_name in ["Economy", "economy", "Business", "business", "First", "first"]:
+                cabin_data = cabin_prices.get(cabin_name, {})
+                nested_xfer = cabin_data.get("transfer_options", [])
+                if nested_xfer:
+                    xfer = nested_xfer
+                    logger.debug(f"[AwardTool] Found transfer_options in nested cabin_prices.{cabin_name}")
+                    break
         
         if not products:
             skipped += 1
@@ -812,6 +968,13 @@ async def search_awardtool_flights(
         data = raw_result.get("data", []) if isinstance(raw_result, dict) else []
         results = []
         
+        # DEBUG: Log raw data structure on first item
+        if data and not hasattr(search_awardtool_flights, '_logged_raw_data'):
+            sample_item = data[0]
+            logger.info(f"[AwardTool] RAW SAMPLE item keys: {list(sample_item.keys())}")
+            logger.info(f"[AwardTool] RAW SAMPLE data: {str(sample_item)[:500]}")
+            search_awardtool_flights._logged_raw_data = True
+        
         for item in data:
             if not isinstance(item, dict):
                 continue
@@ -820,7 +983,7 @@ async def search_awardtool_flights(
             if "airline_code" in item:
                 prog = (item.get("airline_code") or "").upper()
                 pts = item.get("award_points")
-                sur = item.get("surcharge") or 0
+                sur = item.get("surcharge")
                 cabin = item.get("cabin_type") or "Economy"
                 cash = item.get("cash_fare")
                 
@@ -830,23 +993,69 @@ async def search_awardtool_flights(
                 dep_time = item.get("departure_time") or item.get("departure") or (f"{flight_date}T00:00:00" if flight_date else None)
                 arr_time = item.get("arrival_time") or item.get("arrival")
                 
+                # SANITIZE: Use coalesce_nonneg_int to prevent -1 sentinel values from leaking
+                # Compute distance-based fallback only if distance is valid and positive
+                distance = sanitize_nonneg_float(item.get("distance"))
+                distance_based_duration = int(distance / 8.3) if distance and distance > 0 else None  # ~500mph = 8.3 miles/min
+                
+                duration = coalesce_nonneg_int(
+                    item.get("duration_minutes"),
+                    item.get("travel_minutes"),
+                    distance_based_duration,
+                    default=None  # Don't default to 180 - let UI show "—" for unknown
+                )
+                
+                # SANITIZE: stops must be non-negative, use None if invalid
+                stops = sanitize_nonneg_int(item.get("stops"))
+                if stops is None:
+                    stops = 0  # Default to 0 (nonstop) if unknown for display purposes
+                
+                # Build context for logging
+                route_context = f"{origin}->{destination} {prog} {cabin}"
+                
+                # Try to extract flight numbers from V2 API response
+                # V2 API may include flight_numbers at top level or nested in cabin_prices
+                flight_nums = item.get("flight_numbers", [])
+                if not flight_nums:
+                    # Check cabin_prices for flight info
+                    cabin_prices = item.get("cabin_prices", {})
+                    for cabin_name in ["Economy", "economy", "Business", "business", "First", "first"]:
+                        cabin_data = cabin_prices.get(cabin_name, {})
+                        nested_flight_nums = cabin_data.get("flight_numbers", [])
+                        if not nested_flight_nums:
+                            nested_flight_nums = cabin_data.get("flights", [])
+                        if nested_flight_nums:
+                            flight_nums = nested_flight_nums
+                            logger.debug(f"[AwardTool V2] Found flight_numbers in cabin_prices.{cabin_name}")
+                            break
+                
+                # If still no flight numbers, try to construct from airline_code + date
+                # (This is a fallback - won't give real flight numbers but better than "UA100")
+                if not flight_nums:
+                    # Log what keys we have available for debugging
+                    if not hasattr(search_awardtool_flights, '_logged_v2_keys'):
+                        logger.info(f"[AwardTool V2] No flight_numbers available. Item keys: {list(item.keys())}")
+                        # Log cabin_prices structure if present
+                        if cabin_prices:
+                            for cn, cd in cabin_prices.items():
+                                if isinstance(cd, dict):
+                                    logger.info(f"[AwardTool V2] cabin_prices.{cn} keys: {list(cd.keys())}")
+                        search_awardtool_flights._logged_v2_keys = True
+                
                 results.append({
                     "airline": prog,
                     "cabin": cabin,
-                    "cash_price": float(cash) if cash else None,
+                    # CRITICAL: Use sanitize_flight_cash_price to prevent -1 sentinel from AwardTool
+                    "cash_price": sanitize_flight_cash_price(cash, context=route_context),
                     "program": prog,
-                    "points": int(pts) if pts else None,
-                    "surcharge": float(sur) if sur else 0,
-                    "available": pts is not None,
+                    "points": sanitize_nonneg_int(pts),
+                    "surcharge": sanitize_nonneg_float(sur) or 0,
+                    "available": pts is not None and sanitize_nonneg_int(pts) is not None,
                     "departure_time": dep_time,
                     "arrival_time": arr_time,
-                    # duration_minutes from V2 API; DO NOT use 'distance' as fallback (it's miles, not minutes)
-                    # Estimate based on distance: ~500mph average speed for jets
-                    "duration": item.get("duration_minutes") or item.get("travel_minutes") or (
-                        int(item.get("distance", 0) / 8.3) if item.get("distance") else 180  # ~500mph = 8.3 miles/min
-                    ),
-                    "stops": item.get("stops", 0),
-                    "flight_numbers": item.get("flight_numbers", []),
+                    "duration": duration,
+                    "stops": stops,
+                    "flight_numbers": flight_nums,  # May be empty if V2 API doesn't provide
                     "date": flight_date,  # Preserve the date for the optimizer
                 })
                 continue
@@ -854,6 +1063,16 @@ async def search_awardtool_flights(
             # Handle V1 API format (nested fare.products structure)
             fare = item.get("fare") or {}
             products = fare.get("products") or []
+            
+            # DEBUG: Log raw V1 data structure on first item
+            if not hasattr(search_awardtool_flights, '_logged_v1_sample'):
+                logger.info(f"[AwardTool V1] Sample item keys: {list(item.keys())}")
+                logger.info(f"[AwardTool V1] Sample fare keys: {list(fare.keys()) if fare else 'none'}")
+                if products:
+                    logger.info(f"[AwardTool V1] Sample product keys: {list(products[0].keys())}")
+                    logger.info(f"[AwardTool V1] Sample product data: flight_number={products[0].get('flight_number')}, "
+                               f"departure_time={products[0].get('departure_time')}, arrival_time={products[0].get('arrival_time')}")
+                search_awardtool_flights._logged_v1_sample = True
             
             for product in products:
                 dep = (product.get("origin") or "").upper()
@@ -868,19 +1087,54 @@ async def search_awardtool_flights(
                 sur = item.get("surcharge")
                 cabin = product.get("cabin") or "Economy"
                 
+                # Extract flight number - check multiple possible keys
+                flight_num = (
+                    product.get("flight_number") or 
+                    product.get("flightNumber") or 
+                    product.get("FlightNumber") or
+                    product.get("flight_no")
+                )
+                
+                # Also try to get departure/arrival times from multiple keys
+                dep_time = (
+                    product.get("departure_time") or
+                    product.get("departureTime") or
+                    product.get("departure") or
+                    product.get("departs_at")
+                )
+                arr_time = (
+                    product.get("arrival_time") or
+                    product.get("arrivalTime") or
+                    product.get("arrival") or
+                    product.get("arrives_at")
+                )
+                
+                # SANITIZE: Use coalesce_nonneg_int to prevent -1 sentinel values
+                duration = coalesce_nonneg_int(
+                    product.get("travel_minutes"),
+                    fare.get("travel_minutes_total"),
+                    default=None
+                )
+                
+                # Calculate stops from products count (segments - 1 = connections)
+                stops = max(0, len(products) - 1) if len(products) > 1 else 0
+                
+                logger.info(f"[AwardTool V1] Flight: {dep}->{arr} {prog} {cabin} - "
+                           f"flight_num={flight_num}, dep={dep_time}, arr={arr_time}, pts={pts}")
+                
                 results.append({
                     "airline": prog,
                     "cabin": cabin,
                     "cash_price": None,  # AwardTool doesn't provide cash price in V1
                     "program": prog,
-                    "points": int(pts) if pts else None,
-                    "surcharge": float(sur) if sur else 0,
-                    "available": pts is not None,
-                    "departure_time": product.get("departure_time"),
-                    "arrival_time": product.get("arrival_time"),
-                    "duration": product.get("travel_minutes") or fare.get("travel_minutes_total"),
-                    "stops": len(products) - 1 if len(products) > 1 else 0,
-                    "flight_numbers": [product.get("flight_number")] if product.get("flight_number") else [],
+                    "points": sanitize_nonneg_int(pts),
+                    "surcharge": sanitize_nonneg_float(sur) or 0,
+                    "available": pts is not None and sanitize_nonneg_int(pts) is not None,
+                    "departure_time": dep_time,
+                    "arrival_time": arr_time,
+                    "duration": duration,
+                    "stops": stops,
+                    "flight_numbers": [flight_num] if flight_num else [],
                 })
         
         logger.info(f"search_awardtool_flights: {origin}->{destination} on {date}: {len(results)} options")

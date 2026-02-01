@@ -54,18 +54,36 @@ function formatPoints(points: number): string {
   return points.toLocaleString();
 }
 
-// Format currency
-function formatCurrency(amount: number): string {
+// Format currency - guard against negative/invalid values
+function formatCurrency(amount: number | null | undefined): string {
+  if (amount == null || amount < 0 || !Number.isFinite(amount)) return '—';
   return `$${amount.toLocaleString(undefined, { minimumFractionDigits: 0, maximumFractionDigits: 0 })}`;
 }
 
-// Format duration
-function formatDuration(minutes: number): string {
+// Format duration - guard against negative/invalid values (like -1 sentinel)
+function formatDuration(minutes: number | null | undefined): string {
+  // DEFENSIVE: -1 or negative values mean "unknown" from backend
+  if (minutes == null || minutes < 0 || !Number.isFinite(minutes)) return '—';
   const hours = Math.floor(minutes / 60);
   const mins = minutes % 60;
   if (hours === 0) return `${mins}m`;
   if (mins === 0) return `${hours}h`;
   return `${hours}h ${mins}m`;
+}
+
+// Format stops - guard against negative/invalid values
+function formatStops(numStops: number | null | undefined): string {
+  // DEFENSIVE: -1 or negative values mean "unknown" from backend
+  if (numStops == null || numStops < 0 || !Number.isFinite(numStops)) return '—';
+  if (numStops === 0) return 'Nonstop';
+  if (numStops === 1) return '1 stop';
+  return `${numStops} stops`;
+}
+
+// Format points - guard against negative/invalid values
+function formatPointsSafe(points: number | null | undefined): string {
+  if (points == null || points < 0 || !Number.isFinite(points)) return '—';
+  return formatPoints(points);
 }
 
 // Segment card component
@@ -99,9 +117,14 @@ function SegmentCard({ segment, index }: { segment: DynamicRouteSegment; index: 
               <Clock className="w-3.5 h-3.5" />
               {formatDuration(segment.durationMinutes)}
             </span>
-            {segment.isDirect ? (
+            {/* DEFENSIVE: Handle negative/invalid numStops */}
+            {segment.numStops == null || segment.numStops < 0 ? (
+              <span className="px-2 py-0.5 bg-slate-100 text-slate-500 rounded-full text-xs font-medium">
+                —
+              </span>
+            ) : segment.isDirect || segment.numStops === 0 ? (
               <span className="px-2 py-0.5 bg-green-100 text-green-700 rounded-full text-xs font-medium">
-                Direct
+                Nonstop
               </span>
             ) : (
               <span className="px-2 py-0.5 bg-amber-100 text-amber-700 rounded-full text-xs font-medium">
@@ -125,7 +148,8 @@ function SegmentCard({ segment, index }: { segment: DynamicRouteSegment; index: 
                 <div className="flex items-center gap-2">
                   <Zap className="w-4 h-4 text-blue-500" />
                   <span className="font-semibold text-blue-600">
-                    {formatPoints(segment.pointsCost)} pts
+                    {/* DEFENSIVE: Use safe formatter for points */}
+                    {formatPointsSafe(segment.pointsCost)} pts
                   </span>
                   {segment.pointsProgramName && (
                     <span className="text-xs text-slate-500">
@@ -133,7 +157,8 @@ function SegmentCard({ segment, index }: { segment: DynamicRouteSegment; index: 
                     </span>
                   )}
                 </div>
-                {segment.surcharge > 0 && (
+                {/* DEFENSIVE: Check surcharge is valid before displaying */}
+                {segment.surcharge != null && segment.surcharge > 0 && (
                   <div className="flex items-center gap-1 text-sm">
                     <span className="text-slate-500">+</span>
                     <span className="text-slate-700">{formatCurrency(segment.surcharge)}</span>

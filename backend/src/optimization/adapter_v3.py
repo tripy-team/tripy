@@ -25,6 +25,15 @@ from .solver_v3 import optimize_trip, Mode
 from .validators import validate_connection_eligibility
 from .validation_policy import STRICT_MVP_POLICY
 
+# Import shared pricing sanitizer - CRITICAL for -1 sentinel prevention
+from ..utils.pricing import (
+    sanitize_cash_price, 
+    sanitize_points_cost, 
+    sanitize_surcharge,
+    get_cash_cost_for_optimization,
+    UNKNOWN_PRICE_PENALTY,
+)
+
 logger = logging.getLogger(__name__)
 
 
@@ -204,17 +213,42 @@ def convert_search_results_to_flights(
         key = f"flight_{i}"
         result = search_results.get(key)
         
-        if not result or not hasattr(result, "options"):
+        if not result:
+            logger.warning(f"[V3 Adapter] {key}: No search result found")
             leg_id += 1
             continue
         
-        for j, opt in enumerate(result.options or []):
+        if not hasattr(result, "options"):
+            logger.warning(f"[V3 Adapter] {key}: Result has no 'options' attribute, type={type(result).__name__}")
+            leg_id += 1
+            continue
+        
+        options_list = result.options or []
+        logger.info(f"[V3 Adapter] {key}: Processing {len(options_list)} flight options")
+        
+        # Log source breakdown for debugging
+        sources = {}
+        for opt in options_list:
+            src = getattr(opt, 'source', 'unknown')
+            sources[src] = sources.get(src, 0) + 1
+        logger.info(f"[V3 Adapter] {key}: Source breakdown: {sources}")
+        
+        for j, opt in enumerate(options_list):
+            # Log flight option details for debugging
+            if j < 3:  # Log first 3
+                logger.debug(f"[V3 Adapter] {key}_opt_{j}: airline={getattr(opt, 'airline', '?')}, "
+                            f"points={getattr(opt, 'award_points', None)}, "
+                            f"cash={getattr(opt, 'cash_price', None)}, "
+                            f"available={getattr(opt, 'award_available', False)}, "
+                            f"source={getattr(opt, 'source', '?')}")
+            
             edge = _convert_flight_option(opt, leg_id, j, seg)
             if edge:
                 flights.append(edge)
         
         leg_id += 1
     
+    logger.info(f"[V3 Adapter] convert_search_results_to_flights: {len(flights)} edges from {leg_id} legs")
     return flights
 
 
@@ -330,20 +364,87 @@ def _convert_flight_option(
                 pricing_source = opt.provider
         
         # ═══════════════════════════════════════════════════════════════════
+        # SANITIZE NUMERIC VALUES (prevent -1 sentinel values from leaking)
+        # ═══════════════════════════════════════════════════════════════════
+        # CRITICAL: AwardTool uses -1 as sentinel for "unknown". This MUST NOT
+        # leak into FlightItineraryEdge.cash_cost as it corrupts optimization totals.
+        # We use the shared sanitizer from utils.pricing as the source of truth.
+        
+        # Build route context for logging
+        route_context = f"{opt.origin or segment.get('origin', '?')}->{opt.destination or segment.get('destination', '?')} {edge_id}"
+        
+        # SANITIZE CASH PRICE - CRITICAL!
+        # Use shared sanitizer which returns None for invalid, then convert for optimization
+        sanitized_cash_price_raw = sanitize_cash_price(opt.cash_price, context=route_context)
+        
+        # Track if cash price is unknown (for display purposes)
+        cash_cost_unknown = (sanitized_cash_price_raw is None)
+        
+        # CRITICAL FIX: When cash price is unknown (None), use a LARGE PENALTY
+        # This ensures the optimizer does NOT treat unknown prices as "free" ($0)
+        # and will prefer using points instead of "free" cash bookings
+        sanitized_cash_price = get_cash_cost_for_optimization(
+            sanitized_cash_price_raw, 
+            use_penalty_for_unknown=True  # Use large penalty for unknown (CRITICAL!)
+        )
+        
+        # Log when we're applying the penalty
+        if cash_cost_unknown:
+            logger.info(
+                f"[ADAPTER] cash_price unknown for {route_context}. "
+                f"Using penalty value {UNKNOWN_PRICE_PENALTY} to prevent treating as free."
+            )
+        
+        # SANITIZE AWARD POINTS
+        sanitized_award_points = sanitize_points_cost(opt.award_points, context=route_context)
+        if sanitized_award_points is None:
+            sanitized_award_points = 0
+        
+        # SANITIZE SURCHARGE
+        sanitized_surcharge = sanitize_surcharge(opt.award_surcharge, context=route_context)
+        
+        # Duration - use simple non-negative check with default
+        def _sanitize_duration(v, default=180):
+            if v is None:
+                return default
+            try:
+                val = int(v)
+                return val if val >= 0 else default
+            except (ValueError, TypeError):
+                return default
+        
+        sanitized_duration = _sanitize_duration(opt.duration_minutes, 180)
+        
+        # ═══════════════════════════════════════════════════════════════════
         # BUILD AWARD OPTIONS
         # ═══════════════════════════════════════════════════════════════════
         
         award_options = []
-        if opt.award_available and opt.award_points and opt.award_points > 0:
+        
+        # Debug logging for award option creation
+        logger.debug(
+            f"[ADAPTER] {route_context}: award_available={opt.award_available}, "
+            f"raw_award_points={opt.award_points}, sanitized_points={sanitized_award_points}, "
+            f"award_program={opt.award_program}"
+        )
+        
+        if opt.award_available and sanitized_award_points > 0:
             program = normalize_program(opt.award_program or "UA")
             award_options.append(AwardOption(
                 option_id=f"{edge_id}_{program}",
                 program=program,
-                miles_required=opt.award_points,
-                surcharge=opt.award_surcharge or 0.0,
+                miles_required=sanitized_award_points,
+                surcharge=sanitized_surcharge,
                 cabin_or_room_type=opt.cabin_class or "economy",
-                cash_equivalent=opt.cash_price or 0.0,
+                cash_equivalent=sanitized_cash_price,
             ))
+            logger.debug(f"[ADAPTER] {route_context}: Created award option with {sanitized_award_points} pts via {program}")
+        elif opt.award_points:
+            logger.warning(
+                f"[ADAPTER] {route_context}: Flight has award_points={opt.award_points} but "
+                f"award_available={opt.award_available}, sanitized_points={sanitized_award_points}. "
+                f"Award option NOT created."
+            )
         
         # ═══════════════════════════════════════════════════════════════════
         # CREATE EDGE (let derivation handle protection attributes)
@@ -357,8 +458,9 @@ def _convert_flight_option(
             segments=flight_segments,
             departure_datetime=dep_dt,
             arrival_datetime=arr_dt,
-            total_time_minutes=opt.duration_minutes or 180,
-            cash_cost=opt.cash_price or 0.0,
+            total_time_minutes=sanitized_duration,
+            cash_cost=sanitized_cash_price,
+            cash_cost_unknown=cash_cost_unknown,  # Track if original price was unknown
             award_options=award_options,
             # V4: Raw data for derivation pipeline
             pricing_source=pricing_source,
@@ -371,6 +473,18 @@ def _convert_flight_option(
         )
         
         edge.compute_date_fields()
+        
+        # CRITICAL FIX: SerpAPI/Google Flights results are always single-ticket airline itineraries
+        # They should be marked as AIRLINE_PROTECTED so they don't get filtered out
+        source = getattr(opt, 'source', None)
+        if source == "serpapi":
+            from .models_v3 import ConnectionProtection, TicketingType, SelfTransferRequired
+            edge.ticketing_type = TicketingType.SINGLE_TICKET
+            edge.connection_protection = ConnectionProtection.AIRLINE_PROTECTED
+            edge.self_transfer_required = SelfTransferRequired.NO
+            flight_nums = opt.flight_numbers if hasattr(opt, 'flight_numbers') and opt.flight_numbers else []
+            logger.info(f"[V3 Adapter] {edge_id}: SerpAPI cash flight AIRLINE_PROTECTED, "
+                       f"price=${sanitized_cash_price}, flights={flight_nums[:2]}")
         
         # V4: Run derivation pipeline
         edge = finalize_itinerary(edge)
@@ -423,6 +537,21 @@ def _convert_hotel_option(
     
     try:
         hotel_id = f"hotel_{segment_id}_{option_idx}"
+        hotel_context = f"hotel_{opt.name or hotel_id}"
+        
+        # SANITIZE hotel cash prices
+        cash_per_night_raw = sanitize_cash_price(opt.cash_price_per_night, context=hotel_context)
+        if cash_per_night_raw is None and opt.cash_price_total:
+            # Try to derive from total
+            total_raw = sanitize_cash_price(opt.cash_price_total, context=hotel_context)
+            if total_raw is not None:
+                cash_per_night_raw = total_raw / max(opt.nights, 1)
+        cash_per_night = cash_per_night_raw if cash_per_night_raw is not None else 0.0
+        
+        # SANITIZE points and surcharge
+        points_per_night = sanitize_points_cost(opt.award_points_per_night, context=hotel_context)
+        surcharge_total = sanitize_surcharge(opt.award_surcharge, context=hotel_context)
+        surcharge_per_night = surcharge_total / max(opt.nights, 1) if opt.nights else surcharge_total
         
         # Build room types
         room_types = []
@@ -432,21 +561,21 @@ def _convert_hotel_option(
             room_type_id=f"{hotel_id}_cash",
             name=opt.room_type or "Standard",
             capacity=opt.guests or 2,
-            cash_per_night=opt.cash_price_per_night or (opt.cash_price_total / max(opt.nights, 1) if opt.cash_price_total else 0),
+            cash_per_night=cash_per_night,
         )
         room_types.append(cash_room)
         
         # Award room type (if available)
-        if opt.award_available and opt.award_points_per_night:
+        if opt.award_available and points_per_night and points_per_night > 0:
             program = normalize_program(opt.award_program or "HYATT")
             award_room = RoomType(
                 room_type_id=f"{hotel_id}_{program}",
                 name=opt.room_type or "Award Room",
                 capacity=opt.guests or 2,
-                cash_per_night=opt.cash_price_per_night or 0,
+                cash_per_night=cash_per_night,  # Use sanitized value
                 award_program=program,
-                points_per_night=opt.award_points_per_night,
-                award_surcharge_per_night=(opt.award_surcharge or 0) / max(opt.nights, 1),
+                points_per_night=points_per_night,
+                award_surcharge_per_night=surcharge_per_night,
             )
             room_types.append(award_room)
         
@@ -548,6 +677,48 @@ def convert_result_to_itineraries(
     points_breakdown = {}
     transfers = []
     
+    # Track flight arrivals by leg_id for hotel date adjustment
+    # This allows us to adjust hotel check-in when flights arrive the next day
+    flight_arrivals_by_leg = {}
+    
+    # Build lookup of SerpAPI flights by leg for enriching award flights with real details
+    # Award flights often lack precise flight numbers/times - we can get those from SerpAPI
+    # 
+    # CRITICAL: Only use REAL SerpAPI flights, not AwardTool flights with placeholder numbers
+    # Real flight numbers look like: "DL 2055", "UA 5678", "AF 123" (airline + space + 3-4 digits)
+    # Placeholder numbers look like: "DL100", "UA100" (airline + exactly "100")
+    import re
+    real_flight_pattern = re.compile(r'^[A-Z]{2}\s*\d{3,4}$')  # e.g., "DL 2055", "UA5678"
+    
+    serpapi_flights_by_leg = {}
+    for f in flights:
+        source = getattr(f, 'pricing_source', None)
+        
+        # Check if it's a real SerpAPI flight (not AwardTool)
+        is_serpapi = source == "serpapi"
+        
+        # Also check for real flight numbers (not placeholders like "DL100")
+        if not is_serpapi and f.segments and f.segments[0].flight_number:
+            fn = f.segments[0].flight_number
+            # Real flight numbers have space between airline and number, OR 3-4 digit numbers
+            # Placeholders are like "DL100" (exactly 3 digits, no space)
+            has_space = ' ' in fn
+            # Check if it's NOT a placeholder (placeholder = airline + "100")
+            is_placeholder = fn.endswith('100') and len(fn) <= 5
+            if has_space and not is_placeholder:
+                is_serpapi = True
+        
+        if is_serpapi:
+            leg = f.leg_id
+            if leg not in serpapi_flights_by_leg:
+                serpapi_flights_by_leg[leg] = []
+            serpapi_flights_by_leg[leg].append(f)
+            # Log the flight number for debugging
+            fn = f.segments[0].flight_number if f.segments else "?"
+            logger.debug(f"[V3 Adapter] SerpAPI flight for leg {leg}: {fn}")
+    
+    logger.info(f"[V3 Adapter] SerpAPI flights available for enrichment: {dict((k, len(v)) for k, v in serpapi_flights_by_leg.items())}")
+    
     # Process flights
     for leg_id, edge_id in solution.selected_flights.items():
         flight = flight_by_id.get(edge_id)
@@ -604,30 +775,130 @@ def convert_result_to_itineraries(
         
         total_cash_price += flight.cash_cost
         
-        # Build segment
-        airline_code = flight.segments[0].marketing_carrier if flight.segments else "UA"
-        flight_num = flight.segments[0].flight_number if flight.segments else None
-        cabin = flight.segments[0].cabin if flight.segments else "Economy"
+        # Build segment - extract from first leg (for multi-leg, aggregate flight numbers)
+        first_seg = flight.segments[0] if flight.segments else None
+        airline_code = first_seg.marketing_carrier if first_seg else "UA"
+        # Operating airline (codeshare) - use operating_carrier if different from marketing
+        operating_airline = None
+        if first_seg and first_seg.operating_carrier != first_seg.marketing_carrier:
+            operating_airline = first_seg.operating_carrier
+        
+        # Get ALL flight numbers for connecting flights
+        if flight.segments and len(flight.segments) > 1:
+            all_flight_nums = [seg.flight_number for seg in flight.segments if seg.flight_number]
+            flight_num = " → ".join(all_flight_nums) if all_flight_nums else None
+        else:
+            flight_num = first_seg.flight_number if first_seg else None
+        
+        cabin = first_seg.cabin if first_seg else "Economy"
         dep_time = flight.departure_datetime.isoformat() if flight.departure_datetime else None
+        arr_time = flight.arrival_datetime.isoformat() if flight.arrival_datetime else None
+        duration = flight.total_time_minutes
+        
+        # ENRICHMENT: If flight lacks details (common with award flights), enrich from SerpAPI
+        # Award flights from AwardTool often have placeholder numbers or T00:00:00 times
+        # Placeholder flight numbers: "DL100", "UA100", etc. (airline code + "100")
+        # Note: Don't treat connecting flights (with " → ") as placeholders
+        is_placeholder_flight_num = (
+            flight_num and 
+            " → " not in flight_num and  # Not a connecting flight
+            len(flight_num) <= 5 and 
+            flight_num.endswith('100')
+        )
+        needs_enrichment = (
+            not flight_num or len(flight_num) <= 3 or  # No flight number or just "100"
+            is_placeholder_flight_num or  # Placeholder like "DL100"
+            (dep_time and "T00:00:00" in dep_time)  # Placeholder midnight time
+        )
+        
+        if needs_enrichment and leg_id in serpapi_flights_by_leg:
+            # Find best matching SerpAPI flight for this route
+            serpapi_options = serpapi_flights_by_leg[leg_id]
+            best_match = None
+            
+            # Try to match by airline first
+            for sf in serpapi_options:
+                sf_seg = sf.segments[0] if sf.segments else None
+                if sf_seg:
+                    sf_airline = sf_seg.marketing_carrier
+                    # Match if same airline family (e.g., DL matches Delta)
+                    if sf_airline and airline_code and (
+                        sf_airline.upper() == airline_code.upper() or
+                        sf_airline.upper()[:2] == airline_code.upper()[:2]
+                    ):
+                        best_match = sf
+                        break
+            
+            # Fall back to any SerpAPI flight if no airline match
+            if not best_match and serpapi_options:
+                best_match = serpapi_options[0]
+            
+            if best_match:
+                best_seg = best_match.segments[0] if best_match.segments else None
+                if best_seg:
+                    # Get ALL flight numbers for connecting flights
+                    all_flight_nums = []
+                    for seg in best_match.segments:
+                        if seg.flight_number:
+                            all_flight_nums.append(seg.flight_number)
+                    
+                    # Join flight numbers with arrow for display (e.g., "TN 7 → AS 585")
+                    combined_flight_nums = " → ".join(all_flight_nums) if all_flight_nums else best_seg.flight_number
+                    
+                    logger.info(
+                        f"[V3 Adapter] Enriching leg {leg_id} ({flight.origin}->{flight.destination}) "
+                        f"with SerpAPI details: {combined_flight_nums}, "
+                        f"dep={best_match.departure_datetime}, arr={best_match.arrival_datetime}"
+                    )
+                    # Enrich with SerpAPI data
+                    # Replace flight number if missing or placeholder (like "DL100")
+                    if not flight_num or len(flight_num) <= 3 or is_placeholder_flight_num:
+                        flight_num = combined_flight_nums
+                        airline_code = best_seg.marketing_carrier or airline_code
+                        if best_seg.operating_carrier and best_seg.operating_carrier != best_seg.marketing_carrier:
+                            operating_airline = best_seg.operating_carrier
+                    if (not dep_time or "T00:00:00" in dep_time) and best_match.departure_datetime:
+                        dep_time = best_match.departure_datetime.isoformat()
+                    if (not arr_time or "T00:00:00" in arr_time) and best_match.arrival_datetime:
+                        arr_time = best_match.arrival_datetime.isoformat()
+                    if not duration and best_match.total_time_minutes:
+                        duration = best_match.total_time_minutes
+        
+        # For display purposes, use 0 if cash price was unknown (not the penalty value)
+        display_cash_price = 0.0 if flight.cash_cost_unknown else flight.cash_cost
         
         logger.info(f"[V3 Adapter] Flight segment: {flight.origin}->{flight.destination}, airline={airline_code}, "
-                    f"cash_price={flight.cash_cost}, payment_type={payment.__class__.__name__}, "
-                    f"departure={dep_time}, flight_num={flight_num}, cabin={cabin}")
+                    f"operating={operating_airline or airline_code}, cash_price={display_cash_price} (unknown={flight.cash_cost_unknown}), "
+                    f"payment_type={payment.__class__.__name__}, departure={dep_time}, flight_num={flight_num}, cabin={cabin}")
         
         seg = AgentFlightSegment(
             id=str(uuid.uuid4()),
             origin=flight.origin,
             destination=flight.destination,
             departure_time=dep_time,
-            arrival_time=flight.arrival_datetime.isoformat() if flight.arrival_datetime else None,
-            duration_minutes=flight.total_time_minutes,
+            arrival_time=arr_time,  # Use enriched arrival time
+            duration_minutes=duration,  # Use enriched duration
             airline=airline_code,
             flight_number=flight_num,
             cabin_class=cabin,
-            cash_price=flight.cash_cost,
+            operating_airline=operating_airline,  # Codeshare info
+            # Use display price (0 for unknown), not the optimization penalty
+            cash_price=display_cash_price,
             payment=payment,
         )
         itinerary_segments.append(seg)
+        
+        # Track flight arrival for hotel date adjustment
+        # Use enriched arrival time if available
+        if arr_time:
+            try:
+                arrival_dt = datetime.fromisoformat(arr_time.replace('Z', '+00:00'))
+                flight_arrivals_by_leg[leg_id] = arrival_dt.date()
+            except:
+                if flight.arrival_datetime:
+                    flight_arrivals_by_leg[leg_id] = flight.arrival_datetime.date()
+        elif flight.arrival_datetime:
+            flight_arrivals_by_leg[leg_id] = flight.arrival_datetime.date()
         
         if flight.origin not in route:
             route.append(flight.origin)
@@ -641,7 +912,42 @@ def convert_result_to_itineraries(
         
         # Get segment info for nights
         stay_seg = next((s for s in spec.stay_segments if s.segment_id == seg_id), None)
-        nights = stay_seg.nights if stay_seg else 1
+        
+        # CRITICAL: Adjust hotel check-in based on actual flight arrival
+        # If flight arrives later than planned check-in, use arrival date instead
+        original_check_in = stay_seg.check_in if stay_seg else None
+        original_check_out = stay_seg.check_out if stay_seg else None
+        adjusted_check_in = original_check_in
+        adjusted_check_out = original_check_out
+        
+        # The flight before this hotel segment has leg_id = seg_id (0-indexed matching)
+        # e.g., leg 0 arrives at hotel segment 0
+        preceding_leg_id = seg_id
+        if preceding_leg_id in flight_arrivals_by_leg:
+            flight_arrival = flight_arrivals_by_leg[preceding_leg_id]
+            if original_check_in and flight_arrival > original_check_in:
+                # Flight arrives after original check-in - adjust to arrival date
+                logger.info(
+                    f"[V3 Adapter] Adjusting hotel check-in: flight arrives {flight_arrival}, "
+                    f"original check-in was {original_check_in}. Using arrival date."
+                )
+                adjusted_check_in = flight_arrival
+                # Keep original check-out, just reduce nights
+                # (Or could shift check-out to maintain nights - keeping original for simplicity)
+        
+        # Calculate nights based on adjusted dates
+        if adjusted_check_in and adjusted_check_out:
+            nights = (adjusted_check_out - adjusted_check_in).days
+            if nights <= 0:
+                # Edge case: flight arrives on or after check-out
+                logger.warning(
+                    f"[V3 Adapter] Flight arrives {adjusted_check_in} on/after check-out {adjusted_check_out}. "
+                    f"Setting minimum 1 night."
+                )
+                nights = 1
+                adjusted_check_out = adjusted_check_in + timedelta(days=1)
+        else:
+            nights = stay_seg.nights if stay_seg else 1
         
         # Get room count
         rooms = solution.selected_rooms.get(hotel_id, {})
@@ -724,14 +1030,19 @@ def convert_result_to_itineraries(
             payment = CashPayment(amount=cash_total)
             total_oop += cash_total
         
+        # Log the final hotel dates being output
+        logger.info(f"[V3 Adapter] Hotel segment: {hotel.hotel_name} in {stay_seg.city if stay_seg else ''}, "
+                   f"check_in={adjusted_check_in}, check_out={adjusted_check_out}, nights={nights}")
+        
         seg = AgentHotelSegment(
             id=str(uuid.uuid4()),
             name=hotel.hotel_name,
             brand=hotel.chain,
             star_rating=int(hotel.star_rating),
             city=stay_seg.city if stay_seg else "",
-            check_in=stay_seg.check_in.isoformat() if stay_seg else "",
-            check_out=stay_seg.check_out.isoformat() if stay_seg else "",
+            # Use adjusted dates (based on actual flight arrival)
+            check_in=adjusted_check_in.isoformat() if adjusted_check_in else "",
+            check_out=adjusted_check_out.isoformat() if adjusted_check_out else "",
             nights=nights,
             cash_price_per_night=cash_per_night,
             cash_price_total=cash_total,

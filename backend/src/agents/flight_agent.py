@@ -47,6 +47,12 @@ Return JSON with: {"programs": ["UA", "AA", ...], "reasoning": "..."}"""
         import time
         start_time = time.time()
         
+        import sys
+        print(f"[FlightAgent DEBUG] execute() called for {request.origin}->{request.destination}", flush=True)
+        print(f"[FlightAgent DEBUG] cabin_classes={request.cabin_classes}", flush=True)
+        sys.stderr.write(f"[FlightAgent STDERR] cabin_classes={request.cabin_classes}\n")
+        sys.stderr.flush()
+        
         # Step 1: Determine which programs to search
         programs = await self._select_programs(request)
         
@@ -61,13 +67,21 @@ Return JSON with: {"programs": ["UA", "AA", ...], "reasoning": "..."}"""
             ))
         
         # Cash searches
+        logger.info(f"[FlightAgent] Creating {len(request.cabin_classes)} cash search tasks for cabins: {request.cabin_classes}")
         for cabin in request.cabin_classes:
             tasks.append(self._search_cash_flights(
                 request.origin, request.destination, request.date, cabin
             ))
         
+        logger.info(f"[FlightAgent] Total tasks: {len(tasks)} (award: {len(programs)}, cash: {len(request.cabin_classes)})")
+        
         # Step 3: Gather results
         results = await asyncio.gather(*tasks, return_exceptions=True)
+        
+        # Log any exceptions that occurred
+        for i, result in enumerate(results):
+            if isinstance(result, Exception):
+                logger.error(f"[FlightAgent] Task {i} raised exception: {type(result).__name__}: {result}")
         
         # Step 4: Merge and normalize
         all_options = []
@@ -182,9 +196,13 @@ Return JSON: {{"programs": ["UA", "AA", ...], "reasoning": "..."}}
             )
             print(f"[FlightAgent] search_awardtool_flights returned {len(results) if results else 0} results")
             
+            # CRITICAL FIX: Do NOT fall back to dummy data when API returns empty results
+            # Empty results from real API is valid - it means no flights available for that route
+            # Only use dummy data on actual API errors (handled in except blocks below)
             if not results:
-                logger.info(f"No award flights found for {origin}->{destination}, using dummy data")
-                return self._get_dummy_award_flights(origin, destination, date, programs, cabins)
+                logger.info(f"[FlightAgent] No award flights found for {origin}->{destination} from real API. "
+                           f"This is valid - route may not have award availability.")
+                return []  # Return empty list, NOT dummy data
             
             # Convert to FlightOption
             options = []
@@ -212,12 +230,24 @@ Return JSON: {{"programs": ["UA", "AA", ...], "reasoning": "..."}}
             logger.info(f"Found {len(options)} award flight options for {origin}->{destination}")
             return options
         except ImportError as e:
-            logger.error(f"Import error in award flight search: {e}")
-            return self._get_dummy_award_flights(origin, destination, date, programs, cabins)
+            logger.error(f"[FlightAgent] Import error in award flight search: {e}")
+            # CRITICAL: Only use dummy data if explicitly in dummy mode
+            from ..config import is_awardtool_dummy_mode
+            if is_awardtool_dummy_mode():
+                logger.warning(f"[FlightAgent] Using dummy award flights due to import error (dummy mode is ON)")
+                return self._get_dummy_award_flights(origin, destination, date, programs, cabins)
+            return []
         except Exception as e:
-            logger.error(f"Award flight search failed: {e}")
-            # Return dummy data for development
-            return self._get_dummy_award_flights(origin, destination, date, programs, cabins)
+            logger.error(f"[FlightAgent] Award flight search failed for {origin}->{destination}: {e}")
+            # CRITICAL: Only use dummy data if explicitly in dummy mode
+            # Do NOT silently fall back to dummy data on API errors!
+            from ..config import is_awardtool_dummy_mode
+            if is_awardtool_dummy_mode():
+                logger.warning(f"[FlightAgent] Using dummy award flights due to error (dummy mode is ON)")
+                return self._get_dummy_award_flights(origin, destination, date, programs, cabins)
+            else:
+                logger.warning(f"[FlightAgent] Returning empty results (dummy mode is OFF, not falling back to dummy)")
+                return []
     
     async def _search_cash_flights(
         self,
@@ -226,48 +256,116 @@ Return JSON: {{"programs": ["UA", "AA", ...], "reasoning": "..."}}
         date: str,
         cabin: str,
     ) -> list[FlightOption]:
-        """Search for cash flights using SerpAPI."""
+        """Search for cash flights using SerpAPI (Google Flights)."""
+        logger.info(f"[FlightAgent] _search_cash_flights called: {origin}->{destination} date={date} cabin={cabin}")
+        
+        # Import pricing sanitizer for robust price parsing
+        from ..utils.pricing import sanitize_cash_price
+        from ..config import is_awardtool_dummy_mode
+        
         try:
-            from ..services.serp_api_functions import search_google_flights
+            # FIXED: Import the correct function name
+            from ..services.serp_api_functions import get_google_flights
+            import asyncio
+            
+            logger.info(f"[FlightAgent] Calling SerpAPI get_google_flights for {origin}->{destination}")
             
             cabin_code = CABIN_CLASSES.get(cabin, {}).get("serpapi_code", 1)
             
-            results = await search_google_flights(
-                origin=origin,
-                destination=destination,
-                date=date,
-                travel_class=cabin_code,
+            # FIXED: get_google_flights is synchronous - run in thread executor
+            # Also FIXED: use 'outbound_date' parameter name (not 'date')
+            loop = asyncio.get_event_loop()
+            logger.info(f"[FlightAgent] About to call get_google_flights in executor...")
+            all_flights = await loop.run_in_executor(
+                None,
+                lambda: get_google_flights(
+                    origin=origin,
+                    destination=destination,
+                    outbound_date=date,  # FIXED: correct param name
+                    travel_class=cabin_code,
+                )
             )
+            logger.info(f"[FlightAgent] get_google_flights returned {len(all_flights) if all_flights else 0} flights")
+            
+            # FIXED: get_google_flights returns a list directly, not a dict
+            if not all_flights:
+                logger.info(f"[FlightAgent] SerpAPI returned no cash flights for {origin}->{destination}. "
+                           f"This is valid - no flights available or API issue.")
+                return []  # Return empty, NOT dummy data
+            
+            logger.info(f"[FlightAgent] SerpAPI returned {len(all_flights)} raw flight results for {origin}->{destination}")
             
             options = []
-            for r in results.get("best_flights", []) + results.get("other_flights", []):
-                price = r.get("price")
-                if not price:
+            for r in all_flights:
+                # CRITICAL: Use sanitize_cash_price for robust parsing
+                # Handles strings like "$1,234", "USD 1,234", numeric values, etc.
+                raw_price = r.get("price")
+                parsed_price = sanitize_cash_price(raw_price, context=f"{origin}->{destination} SerpAPI")
+                
+                if parsed_price is None:
+                    logger.debug(f"[FlightAgent] Skipping SerpAPI flight with unparseable price: {raw_price}")
                     continue
                 
                 flights = r.get("flights", [])
                 first_flight = flights[0] if flights else {}
+                last_flight = flights[-1] if flights else {}
+                
+                # FIXED: Extract flight numbers from all legs
+                flight_numbers = []
+                for leg in flights:
+                    fn = leg.get("flight_number", "")
+                    if fn:
+                        flight_numbers.append(fn)
+                
+                # Get airline from first leg (marketing carrier)
+                airline = first_flight.get("airline", "")
+                # Get operating airline (if different)
+                operating_airline = first_flight.get("often_delayed_by_over_30_min") and first_flight.get("airline")
+                # Check for codeshare - SerpAPI uses "operated_by" or separate operating info
+                extensions = first_flight.get("extensions", [])
+                for ext in extensions:
+                    if isinstance(ext, str) and "operated by" in ext.lower():
+                        # Extract operating airline from text like "Operated by SkyWest Airlines"
+                        operating_airline = ext.replace("Operated by ", "").replace("operated by ", "")
+                        break
                 
                 option = FlightOption(
                     id=str(uuid.uuid4()),
                     source="serpapi",
                     origin=origin,
                     destination=destination,
-                    airline=first_flight.get("airline", ""),
+                    airline=airline,
+                    operating_airline=operating_airline if operating_airline and operating_airline != airline else None,
                     cabin_class=cabin,
-                    cash_price=float(price),
+                    cash_price=parsed_price,  # Now properly parsed
                     award_available=False,
+                    # FIXED: Use departure from first flight, arrival from last flight
                     departure_time=first_flight.get("departure_airport", {}).get("time"),
-                    arrival_time=first_flight.get("arrival_airport", {}).get("time"),
+                    arrival_time=last_flight.get("arrival_airport", {}).get("time"),
                     duration_minutes=r.get("total_duration"),
                     stops=len(flights) - 1 if flights else 0,
+                    flight_numbers=flight_numbers,  # FIXED: Now populated!
                 )
                 options.append(option)
+                
+                if flight_numbers:
+                    logger.debug(f"[FlightAgent] Cash flight: {airline} {flight_numbers[0] if flight_numbers else 'N/A'} "
+                               f"{origin}->{destination} ${parsed_price}")
             
+            logger.info(f"[FlightAgent] Found {len(options)} cash flight options for {origin}->{destination}")
             return options
+            
         except Exception as e:
-            logger.error(f"Cash flight search failed: {e}")
-            return self._get_dummy_cash_flights(origin, destination, date, cabin)
+            logger.error(f"[FlightAgent] Cash flight search failed for {origin}->{destination}: {e}", exc_info=True)
+            
+            # CRITICAL: Only use dummy data if explicitly in dummy mode
+            # Do NOT silently fall back to dummy data on API errors!
+            if is_awardtool_dummy_mode():
+                logger.warning(f"[FlightAgent] Using dummy cash flights due to error (dummy mode is ON)")
+                return self._get_dummy_cash_flights(origin, destination, date, cabin)
+            else:
+                logger.warning(f"[FlightAgent] Returning empty results (dummy mode is OFF, not falling back to dummy)")
+                return []
     
     def _get_dummy_award_flights(
         self,

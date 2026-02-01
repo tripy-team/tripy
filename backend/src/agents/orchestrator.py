@@ -38,6 +38,9 @@ from .config import (
     get_transfer_path, AIRLINE_PROGRAMS, HOTEL_PROGRAMS
 )
 from .group_allocator import GroupBookingAllocator, SegmentOption
+
+# Import pricing sanitizer - CRITICAL for preventing -1 sentinel leakage
+from ..utils.pricing import sanitize_cash_price, sanitize_surcharge, sanitize_points_cost
 from .group_models import (
     MemberBookingCapability,
     BookingAllocationStrategy,
@@ -479,17 +482,31 @@ class OrchestratorAgent(BaseAgent):
                 )
             
             # Convert to SegmentOption format
+            # CRITICAL: Use sanitizers to prevent -1 sentinel from AwardTool/SERP leaking through
             segment_options = []
             for i, opt in enumerate(options):
+                # Sanitize cash price - None means unknown, never -1 or 0
+                raw_cash = opt.get("cash_price") or opt.get("price")
+                sanitized_cash = sanitize_cash_price(raw_cash, context=f"{segment['id']}_opt_{i}")
+                
+                # Sanitize points - None means unavailable, never negative
+                raw_points = opt.get("award_points") or opt.get("points")
+                sanitized_points = sanitize_points_cost(raw_points, context=f"{segment['id']}_opt_{i}")
+                
+                # Sanitize surcharge - 0.0 for unknown/invalid, never negative
+                raw_surcharge = opt.get("award_surcharge") or opt.get("surcharge")
+                sanitized_surcharge = sanitize_surcharge(raw_surcharge, context=f"{segment['id']}_opt_{i}")
+                
                 segment_options.append(SegmentOption(
                     segment_id=segment["id"],
                     segment_type=segment["type"],
                     option_id=f"{segment['id']}_opt_{i}",
-                    cash_price=opt.get("cash_price", opt.get("price", 0)) or 0,
-                    award_available=opt.get("award_available", False),
+                    # Use sanitized value, default to None for unknown (not 0!)
+                    cash_price=sanitized_cash if sanitized_cash is not None else 0.0,  # SegmentOption requires float
+                    award_available=opt.get("award_available", False) and sanitized_points is not None,
                     award_program=opt.get("award_program", opt.get("program")),
-                    award_points=opt.get("award_points", opt.get("points")),
-                    award_surcharge=opt.get("award_surcharge", opt.get("surcharge", 0)) or 0,
+                    award_points=sanitized_points,
+                    award_surcharge=sanitized_surcharge,
                     summary=opt.get("summary", self._build_option_summary(segment, opt)),
                 ))
             
@@ -525,17 +542,29 @@ class OrchestratorAgent(BaseAgent):
             )
             result = await self.flight_agent.execute(request)
             
+            # CRITICAL FIX: FlightSearchResult has 'options', not 'flights'
+            # Also: FlightOption has 'award_points', not 'award_price'
             options = []
-            for flight in result.flights[:5]:  # Limit to top 5
+            for flight in result.options[:5]:  # Limit to top 5
                 options.append({
                     "cash_price": flight.cash_price,
-                    "award_available": flight.award_price is not None,
-                    "award_program": flight.program if flight.award_price else None,
-                    "award_points": flight.award_price,
-                    "award_surcharge": flight.surcharge or 0,
+                    "award_available": flight.award_available and flight.award_points is not None,
+                    "award_program": flight.award_program if flight.award_points else None,
+                    "award_points": flight.award_points,
+                    "award_surcharge": flight.award_surcharge or 0,
                     "summary": f"{origin}→{destination} on {flight.airline}",
+                    # Pass through additional fields for better display
+                    "departure_time": flight.departure_time,
+                    "arrival_time": flight.arrival_time,
+                    "duration_minutes": flight.duration_minutes,
+                    "stops": flight.stops,
+                    "airline": flight.airline,
+                    "operating_airline": flight.operating_airline,
+                    "cabin_class": flight.cabin_class,
+                    "flight_numbers": flight.flight_numbers,
                 })
             
+            logger.info(f"[Orchestrator] _search_flight_options: {origin}->{destination} returned {len(options)} options")
             return options
         except Exception as e:
             logger.warning(f"Flight search failed: {e}")
@@ -558,17 +587,27 @@ class OrchestratorAgent(BaseAgent):
             )
             result = await self.hotel_agent.execute(request)
             
+            # CRITICAL FIX: HotelSearchResult has 'options', not 'hotels'
+            # Also: HotelOption has 'award_points_total', not 'award_points'
             options = []
-            for hotel in result.hotels[:5]:  # Limit to top 5
+            for hotel in result.options[:5]:  # Limit to top 5
                 options.append({
                     "cash_price": hotel.cash_price_total,
-                    "award_available": hotel.award_points is not None,
-                    "award_program": hotel.program if hotel.award_points else None,
-                    "award_points": hotel.award_points,
-                    "award_surcharge": 0,
+                    "cash_price_per_night": hotel.cash_price_per_night,
+                    "award_available": hotel.award_available and hotel.award_points_total is not None,
+                    "award_program": hotel.award_program if hotel.award_points_total else None,
+                    "award_points": hotel.award_points_total,
+                    "award_points_per_night": hotel.award_points_per_night,
+                    "award_surcharge": hotel.award_surcharge or 0,
                     "summary": f"{hotel.name} in {city}",
+                    # Pass through additional fields
+                    "name": hotel.name,
+                    "brand": hotel.brand,
+                    "star_rating": hotel.star_rating,
+                    "nights": hotel.nights,
                 })
             
+            logger.info(f"[Orchestrator] _search_hotel_options: {city} returned {len(options)} options")
             return options
         except Exception as e:
             logger.warning(f"Hotel search failed: {e}")
@@ -811,18 +850,26 @@ class OrchestratorAgent(BaseAgent):
         for i in range(len(route) - 1):
             origin = route[i]
             destination = route[i + 1]
+            is_return_leg = (i == len(route) - 2 and destination == start)
             
             # Flight segment
+            # For return leg, use end_date instead of calculated date
+            flight_date = end_dt.strftime("%Y-%m-%d") if is_return_leg else current_date.strftime("%Y-%m-%d")
             segments.append({
                 "type": "flight",
                 "origin": origin,
                 "destination": destination,
-                "date": current_date.strftime("%Y-%m-%d"),
+                "date": flight_date,
             })
             
             # Hotel segment (if not returning home)
             if include_hotels and destination != start:
-                check_out = current_date + timedelta(days=days_per_city)
+                # For the last destination before returning home, check_out should be end_date
+                is_last_stop = (i == len(route) - 3) or (len(route) == 3 and i == 0)
+                if is_last_stop:
+                    check_out = end_dt
+                else:
+                    check_out = current_date + timedelta(days=days_per_city)
                 segments.append({
                     "type": "hotel",
                     "city": destination,

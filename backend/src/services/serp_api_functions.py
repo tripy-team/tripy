@@ -137,8 +137,15 @@ def get_google_flights(
         other = body.get("other_flights") or []
         return list(best) + list(other)
     
+    import logging
+    logger = logging.getLogger(__name__)
+    
     key = _serp_key()
-    if not key or not origin or not destination or not outbound_date:
+    if not key:
+        logger.warning("[SerpAPI] SERPAPI_KEY/SERP_API_KEY not configured - cannot fetch cash flight prices")
+        return []
+    if not origin or not destination or not outbound_date:
+        logger.warning(f"[SerpAPI] Missing required params: origin={origin}, destination={destination}, date={outbound_date}")
         return []
 
     if commercial_only:
@@ -154,7 +161,8 @@ def get_google_flights(
         "departure_id": (origin or "").strip().upper(),
         "arrival_id": (destination or "").strip().upper(),
         "outbound_date": (outbound_date or "").strip(),
-        "type": "2" if return_date else "1",
+        # FIXED: type=1 is Round trip (requires return_date), type=2 is One-way
+        "type": "1" if return_date else "2",
         "currency": "USD",
         "hl": "en",
         "api_key": key,
@@ -165,12 +173,30 @@ def get_google_flights(
         params["travel_class"] = str(travel_class)
 
     try:
+        logger.info(f"[SerpAPI] Calling GoogleSearch with params: {params}")
         search = GoogleSearch(params)
         data = search.get_dict()
+        
+        # Log the full response structure for debugging
+        if data:
+            logger.info(f"[SerpAPI] Response keys: {list(data.keys())}")
+            if "error" in data:
+                logger.error(f"[SerpAPI] API error: {data.get('error')}")
+            if "search_metadata" in data:
+                sm = data.get("search_metadata", {})
+                logger.info(f"[SerpAPI] Search metadata: status={sm.get('status')}, id={sm.get('id')}")
+        else:
+            logger.warning(f"[SerpAPI] Empty response from SerpAPI for {origin}->{destination}")
+        
         best = (data or {}).get("best_flights") or []
         other = (data or {}).get("other_flights") or []
-        return list(best) + list(other)
-    except Exception:
+        all_flights = list(best) + list(other)
+        logger.info(f"[SerpAPI] get_google_flights {origin}->{destination}: {len(all_flights)} flights returned (best={len(best)}, other={len(other)})")
+        return all_flights
+    except Exception as e:
+        logger.error(f"[SerpAPI] get_google_flights {origin}->{destination} failed: {type(e).__name__}: {e}")
+        import traceback
+        logger.error(f"[SerpAPI] Traceback: {traceback.format_exc()}")
         return []
 
 

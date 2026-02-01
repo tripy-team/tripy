@@ -209,6 +209,8 @@ class FlightSegment(BaseModel):
     airline: str
     flight_number: Optional[str] = None
     cabin_class: str = "Economy"
+    # Operating airline for codeshare flights (may differ from marketing carrier)
+    operating_airline: Optional[str] = None
     
     cash_price: float
     payment: CashPayment | PointsPayment
