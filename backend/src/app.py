@@ -345,9 +345,15 @@ def root_health():
 
 
 @app.get("/healthz")
+def healthz():
+    """Health check endpoint (Kubernetes style)"""
+    return {"status": "ok"}
+
+
+@app.get("/health")
 def health():
     """Health check endpoint"""
-    return {"status": "ok"}
+    return {"status": "ok", "service": "tripy-api"}
 
 
 @app.post("/ingest")

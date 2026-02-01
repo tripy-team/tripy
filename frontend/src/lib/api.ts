@@ -1429,6 +1429,27 @@ export interface SoloSegmentBreakdown {
   transferFrom?: string;
   transferTo?: string;
   transferRatio?: number;
+  program?: string;
+  
+  // Flight-specific details
+  origin?: string;
+  destination?: string;
+  departureTime?: string;
+  arrivalTime?: string;
+  airline?: string;
+  operatingAirline?: string; // For codeshare flights
+  flightNumber?: string;
+  cabinClass?: string;
+  durationMinutes?: number;
+  bookingUrl?: string;
+  
+  // Hotel-specific details
+  hotelName?: string;
+  brand?: string;
+  city?: string;
+  checkIn?: string;
+  checkOut?: string;
+  nights?: number;
 }
 
 export interface SoloOOPMetrics {
@@ -1495,6 +1516,7 @@ export interface SoloBookingStep {
   arrivalTime?: string;
   cabinClass?: string;
   flightNumber?: string;
+  operatingAirline?: string;  // For codeshare flights
   durationMinutes?: number;
   
   // Hotel-specific details

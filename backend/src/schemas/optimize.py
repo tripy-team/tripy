@@ -53,6 +53,27 @@ class SegmentBreakdown(BaseModel):
     transfer_from: Optional[str] = None
     transfer_to: Optional[str] = None
     transfer_ratio: Optional[float] = None
+    program: Optional[str] = None       # Loyalty program used for booking
+    
+    # Flight-specific details
+    origin: Optional[str] = None
+    destination: Optional[str] = None
+    departure_time: Optional[str] = None
+    arrival_time: Optional[str] = None
+    airline: Optional[str] = None
+    operating_airline: Optional[str] = None  # For codeshare flights
+    flight_number: Optional[str] = None
+    cabin_class: Optional[str] = None
+    duration_minutes: Optional[int] = None
+    booking_url: Optional[str] = None
+    
+    # Hotel-specific details
+    hotel_name: Optional[str] = None
+    brand: Optional[str] = None
+    city: Optional[str] = None
+    check_in: Optional[str] = None
+    check_out: Optional[str] = None
+    nights: Optional[int] = None
 
 
 class OOPMetrics(BaseModel):
@@ -127,6 +148,7 @@ class BookingStep(BaseModel):
     arrival_time: Optional[str] = None
     cabin_class: Optional[str] = None
     flight_number: Optional[str] = None
+    operating_airline: Optional[str] = None  # For codeshare (e.g., "Operated by Air France")
     duration_minutes: Optional[int] = None
     
     # Hotel-specific details

@@ -816,42 +816,75 @@ function SoloBookingContent() {
                     {transferStrategy.transfers.length > 0 && (
                       <div className="space-y-4">
                         <div className="flex items-center gap-3">
-                          <div className="flex-shrink-0 w-8 h-8 rounded-full bg-gradient-to-br from-blue-500 to-blue-600 text-white flex items-center justify-center font-bold text-sm shadow-md">1</div>
+                          <div className="flex-shrink-0 w-10 h-10 rounded-full bg-gradient-to-br from-blue-500 to-indigo-600 text-white flex items-center justify-center font-bold text-lg shadow-lg">1</div>
                           <div>
-                            <h3 className="font-semibold text-slate-900">Transfer Points</h3>
-                            <p className="text-xs text-slate-500">Move {transferStrategy.totalPointsToTransfer.toLocaleString()} points • Estimated time: {transferStrategy.estimatedTotalTime}</p>
+                            <h3 className="text-lg font-bold text-slate-900">Transfer Points</h3>
+                            <p className="text-sm text-slate-500">
+                              Move <span className="font-semibold text-blue-600">{Math.max(0, transferStrategy.totalPointsToTransfer).toLocaleString()}</span> points • Est. {transferStrategy.estimatedTotalTime}
+                            </p>
                           </div>
                         </div>
                         
-                        <div className="ml-11 space-y-3">
-                          {transferStrategy.transfers.map((transfer, idx) => (
-                            <div key={idx} className="flex items-center justify-between p-4 bg-gradient-to-r from-blue-50 to-indigo-50 rounded-xl border border-blue-100 shadow-sm">
-                              <div className="flex items-center gap-4">
-                                <div className="p-2 bg-white rounded-lg shadow-sm">
-                                  <CreditCard className="w-5 h-5 text-blue-600" />
-                                </div>
-                                <div>
-                                  <div className="font-semibold text-slate-900">{humanizeProgram(transfer.sourceProgram)}</div>
-                                  <div className="flex items-center gap-2 text-sm text-slate-600 mt-0.5">
-                                    <ArrowRight className="w-3 h-3" />
-                                    <span>{humanizeProgram(transfer.targetProgram)}</span>
+                        <div className="ml-[52px] space-y-3">
+                          {transferStrategy.transfers.map((transfer, idx) => {
+                            const pointsToTransfer = Math.max(0, transfer.pointsToTransfer || 0);
+                            return (
+                              <div key={idx} className="bg-gradient-to-r from-blue-50 via-indigo-50 to-purple-50 rounded-2xl border border-blue-100 shadow-sm overflow-hidden">
+                                <div className="p-4">
+                                  <div className="flex items-center justify-between">
+                                    <div className="flex items-center gap-4">
+                                      <div className="w-12 h-12 bg-white rounded-xl shadow-sm flex items-center justify-center">
+                                        <CreditCard className="w-6 h-6 text-blue-600" />
+                                      </div>
+                                      <div>
+                                        <div className="text-sm text-slate-500">From</div>
+                                        <div className="font-bold text-slate-900">{humanizeProgram(transfer.sourceProgram)}</div>
+                                      </div>
+                                      <div className="flex items-center gap-2 px-3">
+                                        <div className="w-8 h-px bg-slate-300"></div>
+                                        <ArrowRight className="w-5 h-5 text-blue-500" />
+                                        <div className="w-8 h-px bg-slate-300"></div>
+                                      </div>
+                                      <div>
+                                        <div className="text-sm text-slate-500">To</div>
+                                        <div className="font-bold text-slate-900">{humanizeProgram(transfer.targetProgram)}</div>
+                                      </div>
+                                    </div>
+                                    <div className="text-right">
+                                      <div className="text-2xl font-bold text-blue-600">{pointsToTransfer.toLocaleString()}</div>
+                                      <div className="text-xs text-slate-500">points</div>
+                                    </div>
                                   </div>
+                                  
+                                  {/* Transfer details */}
+                                  <div className="flex items-center justify-between mt-3 pt-3 border-t border-blue-100">
+                                    <div className="flex items-center gap-4 text-sm text-slate-600">
+                                      <span>⏱ {transfer.expectedTransferTime}</span>
+                                      {transfer.transferRatio && transfer.transferRatio !== 1 && (
+                                        <span>📊 {transfer.transferRatio}:1 ratio</span>
+                                      )}
+                                    </div>
+                                    {transfer.portalUrl && (
+                                      <a 
+                                        href={transfer.portalUrl} 
+                                        target="_blank" 
+                                        rel="noopener noreferrer" 
+                                        className="px-4 py-2 bg-blue-600 text-white text-sm font-semibold rounded-lg hover:bg-blue-700 transition-colors flex items-center gap-2"
+                                      >
+                                        Transfer <ExternalLink className="w-4 h-4" />
+                                      </a>
+                                    )}
+                                  </div>
+                                  
                                   {transfer.warning && (
-                                    <div className="text-xs text-amber-600 mt-1">{transfer.warning}</div>
+                                    <div className="mt-3 p-2 bg-amber-50 border border-amber-200 rounded-lg text-sm text-amber-700">
+                                      ⚠️ {transfer.warning}
+                                    </div>
                                   )}
                                 </div>
                               </div>
-                              <div className="text-right">
-                                <div className="text-xl font-bold text-blue-700">{transfer.pointsToTransfer.toLocaleString()}</div>
-                                <div className="text-xs text-slate-500">points • {transfer.expectedTransferTime}</div>
-                                {transfer.portalUrl && (
-                                  <a href={transfer.portalUrl} target="_blank" rel="noopener noreferrer" className="text-xs text-blue-600 hover:underline mt-1 inline-flex items-center gap-1">
-                                    Transfer portal <ExternalLink className="w-3 h-3" />
-                                  </a>
-                                )}
-                              </div>
-                            </div>
-                          ))}
+                            );
+                          })}
                         </div>
                       </div>
                     )}
@@ -860,115 +893,275 @@ function SoloBookingContent() {
                     {transferStrategy.bookings.length > 0 && (
                       <div className="space-y-4">
                         <div className="flex items-center gap-3">
-                          <div className="flex-shrink-0 w-8 h-8 rounded-full bg-gradient-to-br from-blue-500 to-blue-600 text-white flex items-center justify-center font-bold text-sm shadow-md">
+                          <div className="flex-shrink-0 w-10 h-10 rounded-full bg-gradient-to-br from-blue-500 to-indigo-600 text-white flex items-center justify-center font-bold text-lg shadow-lg">
                             {transferStrategy.transfers.length > 0 ? '2' : '1'}
                           </div>
                           <div>
-                            <h3 className="font-semibold text-slate-900">Book Your Trip</h3>
-                            <p className="text-xs text-slate-500">Use your transferred points to book these segments</p>
+                            <h3 className="text-lg font-bold text-slate-900">Book Your Trip</h3>
+                            <p className="text-sm text-slate-500">
+                              {transferStrategy.bookings.length} segment{transferStrategy.bookings.length > 1 ? 's' : ''} to book
+                            </p>
                           </div>
                         </div>
                         
-                        <div className="ml-11 space-y-3">
-                          {transferStrategy.bookings.map((booking, idx) => (
-                            <div key={idx} className="bg-white rounded-xl border border-slate-200 shadow-sm overflow-hidden">
-                              <div className="p-4">
-                                <div className="flex items-start gap-4">
-                                  <div className={`p-2 rounded-lg ${booking.type === 'flight' ? 'bg-blue-50' : 'bg-amber-50'}`}>
-                                    {booking.type === 'flight' ? (
-                                      <Plane className="w-5 h-5 text-blue-600" />
-                                    ) : (
-                                      <Building2 className="w-5 h-5 text-amber-600" />
-                                    )}
-                                  </div>
-                                  <div className="flex-1">
+                        <div className="ml-[52px] space-y-4">
+                          {transferStrategy.bookings.map((booking, idx) => {
+                            // Ensure no negative values are displayed
+                            const pointsUsed = Math.max(0, booking.pointsUsed || 0);
+                            const cashPrice = Math.max(0, booking.cashPrice || 0);
+                            const surcharge = Math.max(0, booking.surcharge || 0);
+                            const durationMins = Math.max(0, booking.durationMinutes || 0);
+                            const nights = Math.max(0, booking.nights || 0);
+                            
+                            return (
+                              <div key={idx} className="bg-gradient-to-r from-slate-50 to-white rounded-2xl border border-slate-200 shadow-sm overflow-hidden">
+                                {/* Header with type badge */}
+                                <div className="px-4 py-2 bg-blue-50 border-b border-blue-100">
+                                  <div className="flex items-center justify-between">
                                     <div className="flex items-center gap-2">
-                                      <span className="font-semibold text-slate-900">
-                                        {booking.type === 'flight' ? booking.airline : booking.hotelChain}
-                                      </span>
-                                      {booking.flightNumber && (
-                                        <span className="text-xs bg-slate-100 text-slate-600 px-2 py-0.5 rounded">{booking.flightNumber}</span>
+                                      {booking.type === 'flight' ? (
+                                        <Plane className="w-4 h-4 text-blue-600" />
+                                      ) : (
+                                        <Building2 className="w-4 h-4 text-blue-600" />
                                       )}
-                                      <span className={`text-xs px-2 py-0.5 rounded ${
-                                        booking.paymentMethod === 'points' 
-                                          ? 'bg-green-100 text-green-700' 
-                                          : 'bg-slate-100 text-slate-600'
-                                      }`}>
-                                        {booking.paymentMethod === 'points' ? 'Award' : 'Cash'}
+                                      <span className="text-sm font-medium text-blue-700">
+                                        {booking.type === 'flight' ? 'Flight' : 'Hotel'}
                                       </span>
+                                      {booking.segmentReference && (
+                                        <span className="text-xs text-blue-500 ml-2">{booking.segmentReference}</span>
+                                      )}
                                     </div>
-                                    
-                                    {/* Flight Details */}
-                                    {booking.type === 'flight' && (
-                                      <div className="mt-2 space-y-1">
-                                        <div className="flex items-center gap-4 text-sm">
-                                          <span className="font-medium text-slate-800">{booking.origin}</span>
-                                          <ArrowRight className="w-4 h-4 text-slate-400" />
-                                          <span className="font-medium text-slate-800">{booking.destination}</span>
-                                          {booking.cabinClass && (
-                                            <span className="text-slate-500">• {booking.cabinClass}</span>
+                                    <span className={`text-xs px-2 py-1 rounded-full font-medium ${
+                                      booking.paymentMethod === 'points' 
+                                        ? 'bg-blue-100 text-blue-700' 
+                                        : 'bg-slate-200 text-slate-600'
+                                    }`}>
+                                      {booking.paymentMethod === 'points' ? '✓ Award Booking' : 'Cash'}
+                                    </span>
+                                  </div>
+                                </div>
+                                
+                                <div className="p-4">
+                                  {/* Flight Card */}
+                                  {booking.type === 'flight' && (
+                                    <div className="space-y-4">
+                                      {/* Route with airports */}
+                                      <div className="flex items-center gap-4">
+                                        <div className="flex-1">
+                                          <div className="flex items-center gap-3">
+                                            <div>
+                                              <div className="text-2xl font-bold text-slate-900">{booking.origin || '---'}</div>
+                                              {booking.departureTime && (
+                                                <div className="text-sm text-slate-500">
+                                                  {new Date(booking.departureTime).toLocaleString('en-US', { 
+                                                    weekday: 'short', month: 'short', day: 'numeric',
+                                                    hour: 'numeric', minute: '2-digit'
+                                                  })}
+                                                </div>
+                                              )}
+                                            </div>
+                                            <div className="flex-1 flex items-center px-2">
+                                              <div className="flex-1 h-px bg-slate-300"></div>
+                                              <Plane className="w-5 h-5 text-blue-500 mx-2 rotate-90" />
+                                              <div className="flex-1 h-px bg-slate-300"></div>
+                                            </div>
+                                            <div className="text-right">
+                                              <div className="text-2xl font-bold text-slate-900">{booking.destination || '---'}</div>
+                                              {booking.arrivalTime && (
+                                                <div className="text-sm text-slate-500">
+                                                  {new Date(booking.arrivalTime).toLocaleString('en-US', { 
+                                                    hour: 'numeric', minute: '2-digit'
+                                                  })}
+                                                </div>
+                                              )}
+                                            </div>
+                                          </div>
+                                          {durationMins > 0 && (
+                                            <div className="text-center text-xs text-slate-400 mt-1">
+                                              {Math.floor(durationMins / 60)}h {durationMins % 60}m flight
+                                            </div>
                                           )}
                                         </div>
-                                        {booking.departureTime && (
-                                          <div className="text-xs text-slate-500">
-                                            Departs: {new Date(booking.departureTime).toLocaleString('en-US', { 
-                                              weekday: 'short', month: 'short', day: 'numeric', 
-                                              hour: 'numeric', minute: '2-digit' 
-                                            })}
-                                            {booking.durationMinutes && (
-                                              <span> • {Math.floor(booking.durationMinutes / 60)}h {booking.durationMinutes % 60}m flight</span>
-                                            )}
+                                      </div>
+                                      
+                                      {/* Flight Details */}
+                                      <div className="bg-slate-50 rounded-lg p-3 space-y-2">
+                                        <div className="flex flex-wrap items-center gap-x-3 gap-y-1 text-sm">
+                                          <span className="font-semibold text-slate-900">{booking.airline || 'Airline'}</span>
+                                          {booking.flightNumber && (
+                                            <span className="bg-slate-200 text-slate-700 px-2 py-0.5 rounded text-xs font-mono">
+                                              {booking.flightNumber}
+                                            </span>
+                                          )}
+                                          {booking.cabinClass && (
+                                            <span className="text-slate-600">• {booking.cabinClass}</span>
+                                          )}
+                                        </div>
+                                        
+                                        {/* Codeshare info */}
+                                        {booking.operatingAirline && (
+                                          <div className="text-xs text-slate-500 italic">
+                                            Operated by {booking.operatingAirline}
                                           </div>
                                         )}
+                                        
+                                        {/* Booking Instructions */}
+                                        <div className="text-xs text-slate-600 space-y-1 pt-1 border-t border-slate-200">
+                                          {booking.paymentMethod === 'points' && booking.program ? (
+                                            <>
+                                              <p><strong>Book with:</strong> {humanizeProgram(booking.program)} miles</p>
+                                              <p className="text-slate-500">
+                                                Search for {booking.origin} → {booking.destination} on {humanizeProgram(booking.program)}&apos;s award booking page.
+                                              </p>
+                                            </>
+                                          ) : (
+                                            <p><strong>Cash booking:</strong> Purchase on {booking.airline || 'the airline'}&apos;s website or a travel booking site.</p>
+                                          )}
+                                        </div>
                                       </div>
-                                    )}
-                                    
-                                    {/* Hotel Details */}
-                                    {booking.type === 'hotel' && (
-                                      <div className="mt-2 space-y-1">
-                                        <div className="text-sm text-slate-600">{booking.city}</div>
-                                        {booking.checkIn && booking.checkOut && (
-                                          <div className="text-xs text-slate-500">
-                                            {new Date(booking.checkIn).toLocaleDateString('en-US', { month: 'short', day: 'numeric' })} 
-                                            {' → '}
-                                            {new Date(booking.checkOut).toLocaleDateString('en-US', { month: 'short', day: 'numeric' })}
-                                            {booking.nights && <span> • {booking.nights} night{booking.nights > 1 ? 's' : ''}</span>}
-                                          </div>
+                                      
+                                      {/* Payment Summary */}
+                                      <div className="flex items-center justify-between pt-2">
+                                        <div>
+                                          {booking.paymentMethod === 'points' && pointsUsed > 0 ? (
+                                            <div>
+                                              <div className="flex items-baseline gap-1">
+                                                <span className="text-2xl font-bold text-blue-600">{pointsUsed.toLocaleString()}</span>
+                                                <span className="text-blue-600 font-medium">pts</span>
+                                              </div>
+                                              {(surcharge > 0 || cashPrice > 0) && (
+                                                <div className="text-sm text-slate-600">
+                                                  + ${Math.max(surcharge, 0).toFixed(0)} taxes/fees
+                                                </div>
+                                              )}
+                                              {booking.program && (
+                                                <div className="text-xs text-slate-500 mt-1">
+                                                  Book with {humanizeProgram(booking.program)}
+                                                </div>
+                                              )}
+                                            </div>
+                                          ) : (
+                                            <div>
+                                              <div className="flex items-baseline gap-1">
+                                                <span className="text-2xl font-bold text-slate-900">
+                                                  ${cashPrice > 0 ? cashPrice.toLocaleString() : 'TBD'}
+                                                </span>
+                                              </div>
+                                              <div className="text-xs text-slate-500">Cash booking</div>
+                                            </div>
+                                          )}
+                                        </div>
+                                        {booking.bookingUrl && (
+                                          <a
+                                            href={booking.bookingUrl}
+                                            target="_blank"
+                                            rel="noopener noreferrer"
+                                            className="px-5 py-2.5 bg-blue-600 text-white text-sm font-semibold rounded-lg hover:bg-blue-700 transition-colors flex items-center gap-2"
+                                          >
+                                            Book Flight <ExternalLink className="w-4 h-4" />
+                                          </a>
                                         )}
                                       </div>
-                                    )}
-                                    
-                                    {/* Payment Info */}
-                                    <div className="mt-2 flex items-center gap-4 text-sm">
-                                      {booking.paymentMethod === 'points' && booking.pointsUsed ? (
-                                        <>
-                                          <span className="text-blue-600 font-medium">{booking.pointsUsed.toLocaleString()} pts</span>
-                                          {booking.surcharge && booking.surcharge > 0 && (
-                                            <span className="text-slate-500">+ ${booking.surcharge.toFixed(0)} taxes</span>
-                                          )}
-                                          {booking.program && (
-                                            <span className="text-slate-400">via {humanizeProgram(booking.program)}</span>
-                                          )}
-                                        </>
-                                      ) : (
-                                        <span className="text-slate-600">${booking.cashPrice?.toLocaleString() || 0}</span>
-                                      )}
                                     </div>
-                                  </div>
-                                  {booking.bookingUrl && (
-                                    <a
-                                      href={booking.bookingUrl}
-                                      target="_blank"
-                                      rel="noopener noreferrer"
-                                      className="px-4 py-2 bg-blue-600 text-white text-sm font-medium rounded-lg hover:bg-blue-700 transition-colors flex items-center gap-2 self-start"
-                                    >
-                                      Book <ExternalLink className="w-4 h-4" />
-                                    </a>
+                                  )}
+                                  
+                                  {/* Hotel Card */}
+                                  {booking.type === 'hotel' && (
+                                    <div className="space-y-4">
+                                      {/* Hotel Info */}
+                                      <div>
+                                        <div className="text-xl font-bold text-slate-900">{booking.hotelChain || 'Hotel'}</div>
+                                        {booking.city && <div className="text-sm text-slate-500">{booking.city}</div>}
+                                      </div>
+                                      
+                                      {/* Stay Details */}
+                                      <div className="bg-slate-50 rounded-lg p-3">
+                                        <div className="flex items-center gap-4 text-sm">
+                                          <div>
+                                            <div className="text-xs text-slate-500">Check-in</div>
+                                            <div className="font-semibold">
+                                              {booking.checkIn 
+                                                ? new Date(booking.checkIn).toLocaleDateString('en-US', { month: 'short', day: 'numeric', weekday: 'short' })
+                                                : 'TBD'}
+                                            </div>
+                                          </div>
+                                          <ArrowRight className="w-4 h-4 text-slate-400" />
+                                          <div>
+                                            <div className="text-xs text-slate-500">Check-out</div>
+                                            <div className="font-semibold">
+                                              {booking.checkOut 
+                                                ? new Date(booking.checkOut).toLocaleDateString('en-US', { month: 'short', day: 'numeric', weekday: 'short' })
+                                                : 'TBD'}
+                                            </div>
+                                          </div>
+                                          {nights > 0 && (
+                                            <div className="ml-auto bg-blue-100 text-blue-700 px-2 py-1 rounded text-xs font-medium">
+                                              {nights} night{nights > 1 ? 's' : ''}
+                                            </div>
+                                          )}
+                                        </div>
+                                        
+                                        {/* Booking Instructions */}
+                                        <div className="text-xs text-slate-600 pt-2 mt-2 border-t border-slate-200">
+                                          {booking.paymentMethod === 'points' && booking.program ? (
+                                            <>
+                                              <p><strong>Book with:</strong> {humanizeProgram(booking.program)} points</p>
+                                              <p className="text-slate-500">
+                                                Log into your {humanizeProgram(booking.program)} account and search for award nights at this property.
+                                              </p>
+                                            </>
+                                          ) : (
+                                            <p><strong>Cash booking:</strong> Book on {booking.hotelChain || 'the hotel'}&apos;s website or a travel booking site.</p>
+                                          )}
+                                        </div>
+                                      </div>
+                                      
+                                      {/* Payment Summary */}
+                                      <div className="flex items-center justify-between pt-2">
+                                        <div>
+                                          {booking.paymentMethod === 'points' && pointsUsed > 0 ? (
+                                            <div>
+                                              <div className="flex items-baseline gap-1">
+                                                <span className="text-2xl font-bold text-blue-600">{pointsUsed.toLocaleString()}</span>
+                                                <span className="text-blue-600 font-medium">pts</span>
+                                              </div>
+                                              {surcharge > 0 && (
+                                                <div className="text-sm text-slate-600">+ ${surcharge.toFixed(0)} resort fees</div>
+                                              )}
+                                              {booking.program && (
+                                                <div className="text-xs text-slate-500 mt-1">
+                                                  Book with {humanizeProgram(booking.program)}
+                                                </div>
+                                              )}
+                                            </div>
+                                          ) : (
+                                            <div>
+                                              <div className="flex items-baseline gap-1">
+                                                <span className="text-2xl font-bold text-slate-900">
+                                                  ${cashPrice > 0 ? cashPrice.toLocaleString() : 'TBD'}
+                                                </span>
+                                              </div>
+                                              <div className="text-xs text-slate-500">Cash booking</div>
+                                            </div>
+                                          )}
+                                        </div>
+                                        {booking.bookingUrl && (
+                                          <a
+                                            href={booking.bookingUrl}
+                                            target="_blank"
+                                            rel="noopener noreferrer"
+                                            className="px-5 py-2.5 bg-blue-600 text-white text-sm font-semibold rounded-lg hover:bg-blue-700 transition-colors flex items-center gap-2"
+                                          >
+                                            Book Hotel <ExternalLink className="w-4 h-4" />
+                                          </a>
+                                        )}
+                                      </div>
+                                    </div>
                                   )}
                                 </div>
                               </div>
-                            </div>
-                          ))}
+                            );
+                          })}
                         </div>
                       </div>
                     )}

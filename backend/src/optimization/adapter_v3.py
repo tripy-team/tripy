@@ -11,7 +11,7 @@ the frontend API contract.
 
 import logging
 import uuid
-from datetime import datetime, date
+from datetime import datetime, date, timedelta
 from typing import List, Dict, Optional, Tuple
 
 from .trip_spec import TripPlanSpec, Traveler, OrderedLeg, StaySegment
@@ -238,13 +238,35 @@ def _convert_flight_option(
     try:
         edge_id = f"flight_{leg_id}_{option_idx}"
         
-        # Parse times
+        # Parse times - use segment's date as fallback (NOT datetime.now())
+        # Get the segment's travel date as fallback
+        segment_date = segment.get("date") or segment.get("departure_date") or segment.get("depart_date")
+        if not segment_date:
+            logger.debug(f"[V3 Adapter] Segment {leg_id}_{option_idx}: no date in segment, keys: {list(segment.keys())}")
+        
+        if segment_date:
+            try:
+                fallback_dt = datetime.strptime(segment_date, "%Y-%m-%d")
+                # Set a reasonable default time (e.g., 10:00 AM)
+                fallback_dt = fallback_dt.replace(hour=10, minute=0, second=0)
+                logger.debug(f"[V3 Adapter] Using segment date {segment_date} as fallback for {leg_id}_{option_idx}")
+            except Exception as e:
+                logger.warning(f"[V3 Adapter] Failed to parse segment date '{segment_date}': {e}")
+                fallback_dt = datetime.now() + timedelta(days=7)  # Default to a week from now
+        else:
+            fallback_dt = datetime.now() + timedelta(days=7)  # Default to a week from now
+        
         try:
-            dep_dt = datetime.fromisoformat(opt.departure_time) if opt.departure_time else datetime.now()
-            arr_dt = datetime.fromisoformat(opt.arrival_time) if opt.arrival_time else dep_dt
-        except:
-            dep_dt = datetime.now()
-            arr_dt = dep_dt
+            if opt.departure_time:
+                dep_dt = datetime.fromisoformat(opt.departure_time)
+            else:
+                dep_dt = fallback_dt
+                logger.debug(f"[V3 Adapter] {leg_id}_{option_idx}: No departure_time, using fallback {fallback_dt}")
+            arr_dt = datetime.fromisoformat(opt.arrival_time) if opt.arrival_time else dep_dt + timedelta(hours=4)
+        except Exception as e:
+            logger.warning(f"[V3 Adapter] Failed to parse times for {leg_id}_{option_idx}: {e}")
+            dep_dt = fallback_dt
+            arr_dt = dep_dt + timedelta(hours=4)  # Default 4 hour flight
         
         # ═══════════════════════════════════════════════════════════════════
         # BUILD ALL SEGMENTS (not just first one!)
@@ -583,16 +605,25 @@ def convert_result_to_itineraries(
         total_cash_price += flight.cash_cost
         
         # Build segment
+        airline_code = flight.segments[0].marketing_carrier if flight.segments else "UA"
+        flight_num = flight.segments[0].flight_number if flight.segments else None
+        cabin = flight.segments[0].cabin if flight.segments else "Economy"
+        dep_time = flight.departure_datetime.isoformat() if flight.departure_datetime else None
+        
+        logger.info(f"[V3 Adapter] Flight segment: {flight.origin}->{flight.destination}, airline={airline_code}, "
+                    f"cash_price={flight.cash_cost}, payment_type={payment.__class__.__name__}, "
+                    f"departure={dep_time}, flight_num={flight_num}, cabin={cabin}")
+        
         seg = AgentFlightSegment(
             id=str(uuid.uuid4()),
             origin=flight.origin,
             destination=flight.destination,
-            departure_time=flight.departure_datetime.isoformat() if flight.departure_datetime else None,
+            departure_time=dep_time,
             arrival_time=flight.arrival_datetime.isoformat() if flight.arrival_datetime else None,
             duration_minutes=flight.total_time_minutes,
-            airline=flight.segments[0].marketing_carrier if flight.segments else "UA",
-            flight_number=flight.segments[0].flight_number if flight.segments else None,
-            cabin_class=flight.segments[0].cabin if flight.segments else "Economy",
+            airline=airline_code,
+            flight_number=flight_num,
+            cabin_class=cabin,
             cash_price=flight.cash_cost,
             payment=payment,
         )

@@ -300,6 +300,10 @@ Return JSON: {{"programs": ["UA", "AA", ...], "reasoning": "..."}}
                     "AF": 100,
                 }.get(program, 75)
                 
+                # Generate departure time based on the travel date
+                departure_time = f"{date}T10:00:00" if date else None
+                arrival_time = f"{date}T14:00:00" if date else None  # 4 hour flight estimate
+                
                 options.append(FlightOption(
                     id=str(uuid.uuid4()),
                     source="dummy",
@@ -312,6 +316,9 @@ Return JSON: {{"programs": ["UA", "AA", ...], "reasoning": "..."}}
                     award_points=base_points,
                     award_surcharge=float(base_surcharge),
                     award_available=True,
+                    departure_time=departure_time,
+                    arrival_time=arrival_time,
+                    duration_minutes=240,  # 4 hour estimate
                     stops=0,
                 ))
         
@@ -327,6 +334,10 @@ Return JSON: {{"programs": ["UA", "AA", ...], "reasoning": "..."}}
         """Generate dummy cash flight data."""
         price = self._estimate_cash_price(origin, destination, cabin)
         
+        # Generate departure time based on the travel date
+        departure_time = f"{date}T08:00:00" if date else None
+        arrival_time = f"{date}T12:00:00" if date else None  # 4 hour flight estimate
+        
         return [FlightOption(
             id=str(uuid.uuid4()),
             source="dummy",
@@ -336,6 +347,9 @@ Return JSON: {{"programs": ["UA", "AA", ...], "reasoning": "..."}}
             cabin_class=cabin,
             cash_price=price,
             award_available=False,
+            departure_time=departure_time,
+            arrival_time=arrival_time,
+            duration_minutes=240,  # 4 hour estimate
             stops=0,
         )]
     

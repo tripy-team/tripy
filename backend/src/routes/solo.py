@@ -43,7 +43,73 @@ from ..mappers.trip_mapper import trip_storage_to_response
 from ..agents.orchestrator import OrchestratorAgent
 from ..agents.models import OptimizeSoloRequest as AgentOptimizeSoloRequest
 
+# Import transfer validation
+from ..handlers.transfer_strategy import EXTENDED_TRANSFER_GRAPH, PROGRAM_METADATA, BANK_METADATA
+
 logger = logging.getLogger(__name__)
+
+
+def _is_valid_transfer(bank: str, program: str) -> bool:
+    """Check if a bank can transfer to a specific airline/hotel program."""
+    bank_lower = bank.lower().replace("_", "").replace(" ", "")
+    
+    # Normalize bank names
+    bank_map = {
+        "amexmr": "amex", "amexmembershiprewards": "amex", "membershiprewards": "amex",
+        "chaseur": "chase", "chaseultimaterewards": "chase", "ultimaterewards": "chase",
+        "citityp": "citi", "citithankyou": "citi", "thankyoupoints": "citi",
+        "capitalone": "capitalone", "capitaloneventurex": "capitalone",
+        "bilt": "bilt", "biltrewards": "bilt",
+    }
+    bank_normalized = bank_map.get(bank_lower, bank_lower)
+    
+    # Normalize program codes (optimization uses full names, transfer graph uses codes)
+    prog_lower = program.lower().replace("_", "").replace(" ", "") if program else ""
+    prog_map = {
+        "marriott": "MAR", "marriottbonvoy": "MAR", "bonvoy": "MAR",
+        "hilton": "HH", "hiltonhonors": "HH",
+        "hyatt": "HYATT", "worldofhyatt": "HYATT",
+        "ihg": "IHG", "ihgonerewards": "IHG",
+        "delta": "DL", "deltaskymiles": "DL",
+        "united": "UA", "unitedmileageplus": "UA",
+        "american": "AA", "americanadvantage": "AA", "aadvantage": "AA",
+        "britishairways": "BA", "avios": "BA",
+        "airfrance": "AF", "flyingblue": "AF", "airfranceklm": "AF",
+        "singapore": "SQ", "krisflyer": "SQ",
+        "virgin": "VS", "virginatlantic": "VS",
+        "alaska": "AS", "alaskaairlines": "AS",
+        "jetblue": "B6", "trueblue": "B6",
+        "southwest": "WN", "rapidrewards": "WN",
+        "ana": "NH", "anamileageclub": "NH",
+        "emirates": "EK", "skywards": "EK",
+        "cathay": "CX", "asiamiles": "CX",
+        "qantas": "QF", "frequentflyer": "QF",
+        "avianca": "AV", "lifemiles": "AV",
+        "iberia": "IB", "iberiaplus": "IB",
+        "etihad": "EY", "etihadguest": "EY",
+    }
+    prog_normalized = prog_map.get(prog_lower, program.upper() if program else "")
+    
+    # Check if this transfer is valid
+    if bank_normalized not in EXTENDED_TRANSFER_GRAPH:
+        return False
+    
+    return prog_normalized in EXTENDED_TRANSFER_GRAPH[bank_normalized]
+
+
+def _get_program_display_name(program: str) -> str:
+    """Get human-readable name for a program."""
+    meta = PROGRAM_METADATA.get(program.upper(), {})
+    return meta.get("name", program)
+
+
+def _get_bank_display_name(bank: str) -> str:
+    """Get human-readable name for a bank."""
+    bank_lower = bank.lower().replace("_", "")
+    bank_map = {"amexmr": "amex", "chaseur": "chase", "citityp": "citi"}
+    normalized = bank_map.get(bank_lower, bank_lower)
+    meta = BANK_METADATA.get(normalized, {})
+    return meta.get("name", bank)
 
 # Singleton orchestrator
 _orchestrator: Optional[OrchestratorAgent] = None
@@ -412,25 +478,60 @@ def _transform_itineraries(agent_itineraries: list) -> list[RankedItinerary]:
                 transfer_from = None
                 transfer_to = None
             
-            # Build segment description
+            # Build segment with full details
             if seg_type == "flight":
                 segment_name = f"{seg.origin} → {seg.destination}"
                 cash_price = seg.cash_price or 0
+                program = getattr(payment, 'program', None) if payment_method == "points" else None
+                
+                segments.append(SegmentBreakdown(
+                    segment=segment_name,
+                    type=seg_type,
+                    payment_method=payment_method,
+                    cash_price=cash_price,
+                    points_used=points_used,
+                    surcharge=surcharge,
+                    cpp_achieved=cpp,
+                    transfer_from=transfer_from,
+                    transfer_to=transfer_to,
+                    program=program,
+                    # Flight-specific details
+                    origin=seg.origin,
+                    destination=seg.destination,
+                    departure_time=getattr(seg, 'departure_time', None),
+                    arrival_time=getattr(seg, 'arrival_time', None),
+                    airline=getattr(seg, 'airline', None),
+                    operating_airline=getattr(seg, 'operating_airline', None),
+                    flight_number=getattr(seg, 'flight_numbers', [''])[0] if getattr(seg, 'flight_numbers', None) else getattr(seg, 'flight_number', None),
+                    cabin_class=getattr(seg, 'cabin_class', None),
+                    duration_minutes=getattr(seg, 'duration_minutes', None),
+                    booking_url=getattr(seg, 'booking_url', None),
+                ))
             else:
                 segment_name = f"{seg.name} ({seg.city})"
                 cash_price = getattr(seg, 'cash_price_total', 0) or getattr(seg, 'cashPriceTotal', 0)
-            
-            segments.append(SegmentBreakdown(
-                segment=segment_name,
-                type=seg_type,
-                payment_method=payment_method,
-                cash_price=cash_price,
-                points_used=points_used,
-                surcharge=surcharge,
-                cpp_achieved=cpp,
-                transfer_from=transfer_from,
-                transfer_to=transfer_to,
-            ))
+                program = getattr(payment, 'program', None) if payment_method == "points" else None
+                
+                segments.append(SegmentBreakdown(
+                    segment=segment_name,
+                    type=seg_type,
+                    payment_method=payment_method,
+                    cash_price=cash_price,
+                    points_used=points_used,
+                    surcharge=surcharge,
+                    cpp_achieved=cpp,
+                    transfer_from=transfer_from,
+                    transfer_to=transfer_to,
+                    program=program,
+                    # Hotel-specific details
+                    hotel_name=getattr(seg, 'name', None),
+                    brand=getattr(seg, 'brand', None),
+                    city=getattr(seg, 'city', None),
+                    check_in=getattr(seg, 'check_in', None),
+                    check_out=getattr(seg, 'check_out', None),
+                    nights=getattr(seg, 'nights', None),
+                    booking_url=getattr(seg, 'booking_url', None),
+                ))
         
         # Build transfers
         transfers = []
@@ -613,16 +714,29 @@ async def get_transfer_strategy(
         total_points = 0
         max_time_days = 0
         
-        # Process transfers from snapshot
+        # Process transfers from snapshot - validate each one
         snapshot_transfers = snapshot.get("transfers", [])
         for idx, t in enumerate(snapshot_transfers):
             source = t.get("sourceProgram") or t.get("source_program") or t.get("fromProgram") or t.get("from_program", "")
             target = t.get("targetProgram") or t.get("target_program") or t.get("toProgram") or t.get("to_program", "")
-            points = t.get("pointsToTransfer") or t.get("points_to_transfer", 0)
-            ratio = t.get("transferRatio") or t.get("transfer_ratio") or t.get("ratio", 1.0)
+            points_raw = t.get("pointsToTransfer") or t.get("points_to_transfer", 0)
+            points = int(points_raw) if points_raw else 0  # Handle Decimal from DynamoDB
+            ratio_raw = t.get("transferRatio") or t.get("transfer_ratio") or t.get("ratio", 1.0)
+            ratio = float(ratio_raw) if ratio_raw else 1.0  # Handle Decimal from DynamoDB
             time_str = t.get("expectedTransferTime") or t.get("expected_transfer_time") or t.get("transferTime") or t.get("transfer_time", "instant")
             portal = t.get("portalUrl") or t.get("portal_url", "")
             warning = t.get("warning")
+            
+            # Validate transfer is possible
+            if not _is_valid_transfer(source, target):
+                source_name = _get_bank_display_name(source)
+                target_name = _get_program_display_name(target)
+                warning = f"⚠️ {source_name} cannot transfer directly to {target_name}. This may be a codeshare booking."
+                logger.warning(f"[transfer-strategy] Invalid transfer: {source} -> {target}")
+            
+            # Skip invalid transfers with 0 points
+            if points <= 0:
+                continue
             
             transfers.append(TransferInstruction(
                 step_number=idx + 1,
@@ -649,10 +763,24 @@ async def get_transfer_strategy(
         segments = snapshot.get("segments", [])
         step_num = len(transfers) + 1
         
+        logger.info(f"[transfer-strategy] Processing {len(segments)} segments")
+        
         for seg in segments:
+            logger.info(f"[transfer-strategy] Segment: type={seg.get('type')}, cashPrice={seg.get('cashPrice')}, pointsUsed={seg.get('pointsUsed')}, paymentMethod={seg.get('paymentMethod')}, program={seg.get('program')}, origin={seg.get('origin')}, destination={seg.get('destination')}, airline={seg.get('airline')}, departureTime={seg.get('departureTime')}")
             seg_type = seg.get("type", "flight")
+            
+            # Payment info can be in 'payment' object (old format) or directly in segment (new format)
             payment = seg.get("payment", {})
-            payment_method = "points" if (payment.get("method") == "points" or payment.get("paymentMethod") == "points") else "cash"
+            payment_method_raw = seg.get("paymentMethod") or seg.get("payment_method") or payment.get("method") or payment.get("paymentMethod")
+            payment_method = "points" if payment_method_raw == "points" else "cash"
+            
+            # Points/surcharge can be in payment object or directly in segment
+            # Handle Decimal type from DynamoDB
+            points_raw = seg.get("pointsUsed") or seg.get("points_used") or payment.get("pointsUsed") or payment.get("points_used", 0)
+            points_used = int(points_raw) if points_raw else 0
+            surcharge_raw = seg.get("surcharge") or payment.get("surcharge", 0)
+            surcharge = float(surcharge_raw) if surcharge_raw else 0.0
+            program = seg.get("program") or payment.get("program", "")
             
             if seg_type == "flight":
                 airline = seg.get("airline", "Airline")
@@ -664,42 +792,54 @@ async def get_transfer_strategy(
                 flight_num = seg.get("flightNumber") or seg.get("flight_number", "")
                 duration = seg.get("durationMinutes") or seg.get("duration_minutes")
                 booking_url = seg.get("bookingUrl") or seg.get("booking_url", "")
-                cash_price = seg.get("cashPrice") or seg.get("cash_price", 0)
-                points_used = payment.get("pointsUsed") or payment.get("points_used", 0)
-                surcharge = payment.get("surcharge", 0)
-                program = payment.get("program", "")
+                cash_price_raw = seg.get("cashPrice") or seg.get("cash_price", 0)
+                cash_price = float(cash_price_raw) if cash_price_raw else 0.0  # Handle Decimal from DynamoDB
+                operating_airline = seg.get("operatingAirline") or seg.get("operating_airline", "")
+                
+                # Build segment reference (simple - codeshare shown separately)
+                segment_ref = f"{origin} → {destination} {cabin} on {airline}"
+                
+                # Build booking URL based on the program used for booking
+                if not booking_url and program:
+                    prog_meta = PROGRAM_METADATA.get(program.upper(), {})
+                    booking_url = prog_meta.get("booking_url", f"https://{airline.lower().replace(' ', '')}.com")
+                elif not booking_url:
+                    booking_url = f"https://{airline.lower().replace(' ', '')}.com"
+                
+                # Ensure cash_price is valid (not 0 for cash bookings)
+                display_cash_price = cash_price if cash_price and cash_price > 0 else None
                 
                 bookings.append(BookingStep(
                     step_number=step_num,
                     type="flight",
                     airline=airline,
-                    booking_url=booking_url or f"https://{airline.lower().replace(' ', '')}.com/award-booking",
-                    segment_reference=f"{origin} → {destination} {cabin} on {airline}",
+                    booking_url=booking_url,
+                    segment_reference=segment_ref,
                     origin=origin,
                     destination=destination,
                     departure_time=departure,
                     arrival_time=arrival,
                     cabin_class=cabin,
                     flight_number=flight_num,
+                    operating_airline=operating_airline if operating_airline and operating_airline != airline else None,
                     duration_minutes=duration,
                     payment_method=payment_method,
                     points_used=points_used if payment_method == "points" else None,
-                    cash_price=cash_price,
+                    cash_price=display_cash_price,
                     surcharge=surcharge if payment_method == "points" else None,
                     program=program if payment_method == "points" else None,
                 ))
             else:
-                hotel_name = seg.get("name", "Hotel")
+                hotel_name = seg.get("hotelName") or seg.get("hotel_name") or seg.get("name", "Hotel")
                 brand = seg.get("brand", "")
                 city = seg.get("city", "")
                 check_in = seg.get("checkIn") or seg.get("check_in", "")
                 check_out = seg.get("checkOut") or seg.get("check_out", "")
-                nights = seg.get("nights", 0)
+                nights_raw = seg.get("nights", 0)
+                nights = int(nights_raw) if nights_raw else 0  # Handle Decimal from DynamoDB
                 booking_url = seg.get("bookingUrl") or seg.get("booking_url", "")
-                cash_price = seg.get("cashPriceTotal") or seg.get("cash_price_total") or seg.get("cashPrice", 0)
-                points_used = payment.get("pointsUsed") or payment.get("points_used", 0)
-                surcharge = payment.get("surcharge", 0)
-                program = payment.get("program", "")
+                cash_price_raw = seg.get("cashPriceTotal") or seg.get("cash_price_total") or seg.get("cashPrice") or seg.get("cash_price", 0)
+                cash_price = float(cash_price_raw) if cash_price_raw else 0.0  # Handle Decimal from DynamoDB
                 
                 bookings.append(BookingStep(
                     step_number=step_num,
