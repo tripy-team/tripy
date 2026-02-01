@@ -5,7 +5,7 @@ These schemas define the API contracts for optimization results.
 All responses use snake_case; frontend converts to camelCase via serializers.
 """
 from pydantic import BaseModel
-from typing import Optional, Dict, List, Literal
+from typing import Optional, Dict, List, Literal, Any
 
 from .programs import PointsProgram
 
@@ -92,6 +92,11 @@ class RankedItinerary(BaseModel):
     rank: int                           # 1 = best for chosen mode
     route: List[str]                    # e.g., ["JFK", "LAX", "JFK"]
     display_name: str                   # e.g., "JFK → LAX Round Trip"
+
+    # Policy evaluation (optional; wired through by /solo/optimize)
+    policy_evaluation: Optional[Dict[str, Any]] = None
+    disabled: Optional[bool] = None
+    disable_reason: Optional[str] = None
     
     # Bundled breakdown (no separate API call needed) - P1-4 fix
     segments: List[SegmentBreakdown]
@@ -110,6 +115,7 @@ class OptimizeSoloResponse(BaseModel):
     best_option: Optional[str] = None   # ID of recommended itinerary
     warnings: List[str] = []
     global_insights: List[TransferInsight] = []
+    risk_mode: Optional[str] = None
     
     # Staleness metadata (no underscore prefixes - P0-4 fix)
     cached: bool = False

@@ -467,46 +467,59 @@ class GroupBookingAllocator:
             # Try each possible assignment for current segment
             for member in members:
                 for option in options:
-                    # Create a copy of states to simulate this choice
-                    simulated_states = self._copy_member_states(member_states)
-                    
-                    # Try to make this assignment
-                    current_oop = self._try_assignment(
-                        simulated_states[member.member_id],
-                        option,
-                    )
-                    
-                    if current_oop is None:
-                        continue  # Can't afford this option
-                    
-                    # Simulate greedy for remaining lookahead segments
-                    future_oop = self._simulate_future_greedy(
-                        simulated_states,
-                        remaining_segments,
-                        members,
-                    )
-                    
-                    total_oop = current_oop + future_oop
-                    
-                    if total_oop < best_total_oop:
-                        best_total_oop = total_oop
-                        # Check how member can afford this
+                    # Consider BOTH payment choices when award is available:
+                    # - pay cash (preserve points for future)
+                    # - use points (pay surcharge, consume points)
+                    payment_choices = [False]
+                    if option.award_available:
+                        payment_choices = [False, True]
+
+                    for use_points in payment_choices:
+                        simulated_states = self._copy_member_states(member_states)
+                        sim_state = simulated_states[member.member_id]
+
+                        # Determine if this payment choice is feasible and apply it to simulated state
+                        current_oop = None
                         afford_result = None
-                        if option.award_available:
-                            afford_result = self._how_can_afford_award(
-                                member_states[member.member_id], option
-                            )
-                        uses_points = afford_result is not None
-                        
-                        best_assignment = {
-                            "member": member,
-                            "option": option,
-                            "uses_points": uses_points,
-                            "program": option.award_program if uses_points else None,
-                            "points": option.award_points if uses_points else 0,
-                            "cash": current_oop,
-                            "transfer_detail": afford_result.get("transfer_detail") if afford_result else None,
-                        }
+
+                        if use_points:
+                            afford_result = self._how_can_afford_award(sim_state, option)
+                            if afford_result is None:
+                                continue
+                            if not sim_state.can_afford_cash(option.award_surcharge):
+                                continue
+                            current_oop = float(option.award_surcharge)
+                            sim_state.spend_cash(current_oop)
+                            try:
+                                self._deduct_points_from_state(sim_state, option.award_program, option.award_points)
+                            except Exception:
+                                continue
+                        else:
+                            if not sim_state.can_afford_cash(option.cash_price):
+                                continue
+                            current_oop = float(option.cash_price)
+                            sim_state.spend_cash(current_oop)
+
+                        # Simulate greedy for remaining lookahead segments with updated state
+                        future_oop = self._simulate_future_greedy(
+                            simulated_states,
+                            remaining_segments,
+                            members,
+                        )
+
+                        total_oop = current_oop + future_oop
+
+                        if total_oop < best_total_oop:
+                            best_total_oop = total_oop
+                            best_assignment = {
+                                "member": member,
+                                "option": option,
+                                "uses_points": use_points,
+                                "program": option.award_program if use_points else None,
+                                "points": option.award_points if use_points else 0,
+                                "cash": current_oop,
+                                "transfer_detail": afford_result.get("transfer_detail") if afford_result else None,
+                            }
             
             if best_assignment:
                 # Apply the best assignment to actual states
@@ -579,7 +592,7 @@ class GroupBookingAllocator:
         best_assignments = None
         best_oop = float('inf')
         
-        # Generate all possible (member, option) pairs for each segment
+        # Generate all possible (member, option, use_points) choices for each segment
         choices_per_segment = []
         for options in segments:
             if not options:
@@ -587,7 +600,11 @@ class GroupBookingAllocator:
             segment_choices = []
             for member in members:
                 for option in options:
-                    segment_choices.append((member, option))
+                    # Cash choice
+                    segment_choices.append((member, option, False))
+                    # Points choice (if available)
+                    if option.award_available:
+                        segment_choices.append((member, option, True))
             choices_per_segment.append(segment_choices)
         
         if not choices_per_segment:
@@ -600,27 +617,41 @@ class GroupBookingAllocator:
             total_oop = 0.0
             valid = True
             
-            for member, option in combination:
+            for member, option, use_points in combination:
                 state = states[member.member_id]
-                oop = self._try_assignment(state, option)
-                
-                if oop is None:
-                    valid = False
-                    break
-                
+                oop: float | None = None
+                program = None
+                points_used = 0
+
+                if use_points:
+                    if not option.award_available:
+                        valid = False
+                        break
+                    if not self._can_use_award_from_state(state, option):
+                        valid = False
+                        break
+                    if not state.can_afford_cash(option.award_surcharge):
+                        valid = False
+                        break
+                    oop = float(option.award_surcharge)
+                    program = option.award_program
+                    points_used = int(option.award_points or 0)
+                    self._deduct_points_from_state(state, program, points_used)
+                else:
+                    if not state.can_afford_cash(option.cash_price):
+                        valid = False
+                        break
+                    oop = float(option.cash_price)
+
                 total_oop += oop
-                uses_points = self._can_use_award(state, option)
-                
-                if uses_points:
-                    self._deduct_points_from_state(state, option.award_program, option.award_points)
                 state.spend_cash(oop)
                 
                 assignments.append({
                     "member": member,
                     "option": option,
-                    "uses_points": uses_points,
-                    "program": option.award_program if uses_points else None,
-                    "points": option.award_points if uses_points else 0,
+                    "uses_points": use_points,
+                    "program": program,
+                    "points": points_used,
                     "cash": oop,
                 })
             

@@ -190,6 +190,70 @@ def sanitize_surcharge(
     return parsed
 
 
+# ---------------------------------------------------------------------------
+# PR1-compatible aliases (provider-boundary normalization)
+# ---------------------------------------------------------------------------
+def sanitize_money(value: Union[int, float, str, None], context: str = "") -> Optional[float]:
+    """
+    Provider-boundary money sanitizer.
+
+    Alias for `sanitize_cash_price` to match the contract described in the PR plan:
+    - None -> None
+    - x <= 0 -> None
+    - x > 0 -> float(x)
+    """
+    return sanitize_cash_price(value, context=context)
+
+
+def sanitize_fee(value: Union[int, float, str, None], context: str = "") -> Optional[float]:
+    """
+    Provider-boundary fee/taxes/surcharge sanitizer.
+
+    Differences from `sanitize_cash_price`:
+    - 0 is allowed (no fees)
+    - negative values are treated as unknown -> None
+    - parsing follows the same string-cleaning conventions
+
+    Note: we keep `sanitize_surcharge` (which returns float>=0) for internal codepaths
+    that require a numeric fee; `sanitize_fee` is for API/model payloads that can
+    represent unknown as None.
+    """
+    if value is None:
+        return None
+
+    parsed: Optional[float] = None
+    try:
+        if isinstance(value, (int, float)):
+            parsed = float(value)
+        elif isinstance(value, str):
+            cleaned = value.replace(",", "").replace("$", "").strip()
+            if cleaned:
+                parsed = float(cleaned)
+    except (ValueError, TypeError):
+        return None
+
+    if parsed is None:
+        return None
+
+    if parsed < 0:
+        logger.warning(
+            f"[PRICE_SANITIZER] Negative fee sentinel detected: {parsed}"
+            f"{f' ({context})' if context else ''}. Treating as unknown."
+        )
+        return None
+
+    return parsed
+
+
+def sanitize_points(value: Union[int, float, str, None], context: str = "") -> Optional[int]:
+    """
+    Provider-boundary points sanitizer.
+
+    Alias for `sanitize_points_cost` (non-negative int or None).
+    """
+    return sanitize_points_cost(value, context=context)
+
+
 # Large penalty value for optimization when price is unknown
 # This ensures unknown prices don't appear "free" to the optimizer
 UNKNOWN_PRICE_PENALTY = 999999.0

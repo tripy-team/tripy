@@ -2,9 +2,39 @@
 Data models for the agentic optimization system.
 """
 
-from pydantic import BaseModel
-from typing import Optional, Literal
+from pydantic import BaseModel, Field
+from typing import Optional, Literal, Any
 from datetime import datetime, date
+
+
+# =============================================================================
+# POLICY TYPES (inline for Pydantic compatibility)
+# =============================================================================
+
+class PolicyMessageModel(BaseModel):
+    """Policy message for API responses."""
+    code: str
+    severity: Literal["info", "warn", "block"]
+    title: str
+    detail: str
+    context: dict[str, Any] = {}
+    requires_ack: bool = False
+    ack_text: Optional[str] = None
+
+
+class PolicyEvaluationModel(BaseModel):
+    """Policy evaluation for API responses."""
+    blocks: list[PolicyMessageModel] = []
+    warnings: list[PolicyMessageModel] = []
+    info: list[PolicyMessageModel] = []
+    requires_ack: list[str] = []
+    is_blocked: bool = False
+    risk_score: int = 0
+    explanations: list[str] = []
+
+
+# Risk mode type
+RiskMode = Literal["safe", "balanced", "aggressive"]
 
 
 # =============================================================================
@@ -58,6 +88,11 @@ class FlightOption(BaseModel):
     # Metadata
     booking_url: Optional[str] = None
     seats_remaining: Optional[int] = None
+    
+    # Data freshness
+    fetched_at: Optional[str] = None  # ISO timestamp when data was fetched
+    is_verified: bool = False  # Whether flight was cross-verified with Google Flights
+    verification_status: Optional[str] = None  # "verified", "unverified", "stale"
 
 
 class FlightSearchResult(BaseModel):
@@ -195,27 +230,74 @@ class OOPMetrics(BaseModel):
 # SEGMENT MODELS
 # =============================================================================
 
+class FlightLeg(BaseModel):
+    """A single flight leg (one takeoff and landing) within a flight segment.
+    
+    For connecting flights, each leg represents one individual flight.
+    Users need this information to book and board each flight.
+    """
+    flight_number: str  # e.g., "DL 2055"
+    marketing_carrier: str  # Airline selling the ticket (e.g., "Delta")
+    operating_carrier: Optional[str] = None  # Actual operator if codeshare (e.g., "Air France")
+    
+    origin: str  # Airport code (e.g., "SEA")
+    origin_terminal: Optional[str] = None  # Terminal (e.g., "A")
+    destination: str  # Airport code (e.g., "CDG")
+    destination_terminal: Optional[str] = None
+    
+    departure_time: str  # ISO format datetime
+    arrival_time: str  # ISO format datetime
+    duration_minutes: int
+    
+    aircraft: Optional[str] = None  # e.g., "Boeing 777-300ER"
+    cabin_class: str = "Economy"
+    
+    # Codeshare info for display
+    is_codeshare: bool = False
+    codeshare_info: Optional[str] = None  # e.g., "Operated by Air France as AF 1234"
+
+
 class FlightSegment(BaseModel):
-    """A flight segment in the itinerary."""
+    """A flight segment in the itinerary (may include connecting flights)."""
     id: str
     type: Literal["flight"] = "flight"
     
-    origin: str
-    destination: str
-    departure_time: Optional[str] = None
-    arrival_time: Optional[str] = None
-    duration_minutes: Optional[int] = None
+    # Overall journey info
+    origin: str  # First departure airport
+    destination: str  # Final arrival airport
+    departure_time: Optional[str] = None  # First departure
+    arrival_time: Optional[str] = None  # Final arrival
+    duration_minutes: Optional[int] = None  # Total journey time
     
+    # Primary airline (marketing carrier for first leg)
     airline: str
-    flight_number: Optional[str] = None
+    flight_number: Optional[str] = None  # Summary: "DL 2055" or "DL 2055 → SK 944"
     cabin_class: str = "Economy"
     # Operating airline for codeshare flights (may differ from marketing carrier)
     operating_airline: Optional[str] = None
     
+    # Connection details
+    stops: int = 0  # Number of stops (0 = nonstop)
+    legs: list[FlightLeg] = []  # Detailed info for each flight leg
+    layovers: list[dict] = []  # Layover info: [{"airport": "JFK", "duration_minutes": 90}]
+    
     cash_price: float
     payment: CashPayment | PointsPayment
     
+    # Booking verification
     booking_url: Optional[str] = None
+    booking_reference: Optional[str] = None  # Confirmation number if available
+    google_flights_url: Optional[str] = None  # Link to verify on Google Flights
+    verification_note: Optional[str] = None  # Note about data freshness
+    data_source: Optional[str] = None  # "google_flights", "award_program", etc.
+    fetched_at: Optional[str] = None  # ISO timestamp when flight data was fetched
+    is_verified: bool = False  # Whether flight was verified against Google Flights
+    verification_status: Optional[str] = None  # "verified", "unverified", "stale", "not_found"
+    
+    # Policy evaluation
+    policy_evaluation: Optional[PolicyEvaluationModel] = None
+    disabled: bool = False
+    disable_reason: Optional[str] = None
 
 
 class HotelSegment(BaseModel):
@@ -237,6 +319,11 @@ class HotelSegment(BaseModel):
     payment: CashPayment | PointsPayment
     
     booking_url: Optional[str] = None
+    
+    # Policy evaluation
+    policy_evaluation: Optional[PolicyEvaluationModel] = None
+    disabled: bool = False
+    disable_reason: Optional[str] = None
 
 
 # =============================================================================
@@ -259,6 +346,14 @@ class RankedItinerary(BaseModel):
     within_points: bool = True
     
     summary: Optional[str] = None  # AI-generated summary
+    
+    # Policy evaluation for the entire itinerary
+    policy_evaluation: Optional[PolicyEvaluationModel] = None
+    disabled: bool = False
+    disable_reason: Optional[str] = None
+    
+    # Booking structure recommendation
+    booking_structure_recommendation: Optional[Literal["two_one_ways", "round_trip"]] = None
 
 
 # =============================================================================
@@ -305,6 +400,12 @@ class OptimizeSoloRequest(BaseModel):
     cabin_classes: Optional[list[str]] = None
     hotel_stars: Optional[list[int]] = None
     include_hotels: Optional[bool] = True
+    
+    # Policy settings
+    risk_mode: RiskMode = "balanced"  # safe, balanced, aggressive
+    include_basic_economy: bool = False  # Include basic economy fares?
+    flexibility_priority: Literal["low", "medium", "high"] = "medium"
+    acknowledged_policy_codes: list[str] = []  # Codes user has acknowledged
 
 
 class OptimizeGroupRequest(OptimizeSoloRequest):
@@ -314,12 +415,25 @@ class OptimizeGroupRequest(OptimizeSoloRequest):
     split_method: Optional[Literal["equal", "by_usage", "proportional"]] = "by_usage"
 
 
+class PolicySummaryModel(BaseModel):
+    """Summary of policy evaluation across all options."""
+    total_options: int = 0
+    blocked_count: int = 0
+    warning_count: int = 0
+    code_counts: dict[str, int] = {}
+    risk_mode: str = "balanced"
+
+
 class OptimizeSoloResponse(BaseModel):
     """Response for solo trip optimization."""
     trip_id: str
     itineraries: list[RankedItinerary]
     best_option: dict
     warnings: list[str] = []
+    
+    # Policy summary
+    policy_summary: Optional[PolicySummaryModel] = None
+    risk_mode: RiskMode = "balanced"
 
 
 class OptimizeGroupResponse(BaseModel):

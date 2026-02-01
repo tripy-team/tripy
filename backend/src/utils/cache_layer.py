@@ -3,6 +3,9 @@ import json
 import time
 import threading
 from typing import Any, Optional
+import logging
+
+from src.contracts.validate import find_negative_numbers
 
 # ============================================================
 # Config
@@ -38,6 +41,7 @@ if REDIS_URL:
 
 _mem_cache = {}
 _mem_lock = threading.Lock()
+logger = logging.getLogger(__name__)
 
 
 def _mem_set(key: str, value: Any, ttl: int):
@@ -89,19 +93,46 @@ def get_json(key: str) -> Optional[Any]:
     """
     k = _ns(key)
 
+    def _invalidate():
+        # Best-effort invalidation.
+        if _redis:
+            try:
+                _redis.delete(k)
+            except Exception:
+                pass
+        try:
+            with _mem_lock:
+                _mem_cache.pop(k, None)
+        except Exception:
+            pass
+
     # --- Redis path ---
     if _redis:
         try:
             raw = _redis.get(k)
             if raw is None:
                 return None
-            return _json_loads(raw)
+            value = _json_loads(raw)
+            negatives = find_negative_numbers(value)
+            if negatives:
+                logger.warning("[CACHE_INVALID_SENTINEL_VALUES] key=%s sample=%s", k, negatives[:5])
+                _invalidate()
+                return None
+            return value
         except Exception:
             return None
 
     # --- Memory fallback ---
     try:
-        return _mem_get(k)
+        value = _mem_get(k)
+        if value is None:
+            return None
+        negatives = find_negative_numbers(value)
+        if negatives:
+            logger.warning("[CACHE_INVALID_SENTINEL_VALUES] key=%s sample=%s", k, negatives[:5])
+            _invalidate()
+            return None
+        return value
     except Exception:
         return None
 

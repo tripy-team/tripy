@@ -65,6 +65,12 @@ class SoloOptimizeRequest(BaseModel):
     hotel_stars: Optional[list[int]] = None
     include_hotels: Optional[bool] = True
     
+    # Policy settings
+    risk_mode: Optional[Literal["safe", "balanced", "aggressive"]] = "balanced"
+    include_basic_economy: bool = False
+    flexibility_priority: Optional[Literal["low", "medium", "high"]] = "medium"
+    acknowledged_policy_codes: list[str] = []
+    
     @validator('trip_id')
     def validate_trip_id(cls, v):
         # Basic validation - alphanumeric and dashes only
@@ -201,7 +207,7 @@ async def optimize_solo_trip(
         
         orchestrator = get_orchestrator()
         
-        # Convert to internal model with validated points
+        # Convert to internal model with validated points and policy settings
         internal_request = OptimizeSoloRequest(
             trip_id=request.trip_id,
             points=validated_points,
@@ -209,9 +215,31 @@ async def optimize_solo_trip(
             cabin_classes=request.cabin_classes,
             hotel_stars=request.hotel_stars,
             include_hotels=request.include_hotels,
+            # Policy settings
+            risk_mode=request.risk_mode or "balanced",
+            include_basic_economy=request.include_basic_economy,
+            flexibility_priority=request.flexibility_priority or "medium",
+            acknowledged_policy_codes=request.acknowledged_policy_codes,
         )
         
         result = await orchestrator.optimize_solo(internal_request)
+        
+        # Build policy summary from itineraries
+        policy_summary = None
+        if result.itineraries:
+            blocked_count = sum(1 for it in result.itineraries if getattr(it, 'disabled', False))
+            warning_count = sum(
+                1 for it in result.itineraries 
+                if getattr(it, 'policy_evaluation', None) and 
+                   hasattr(it.policy_evaluation, 'warnings') and 
+                   len(it.policy_evaluation.warnings) > 0
+            )
+            policy_summary = {
+                "totalOptions": len(result.itineraries),
+                "blockedCount": blocked_count,
+                "warningCount": warning_count,
+                "riskMode": request.risk_mode or "balanced",
+            }
         
         # Convert to JSON-serializable dict with consistent camelCase
         response = {
@@ -219,6 +247,8 @@ async def optimize_solo_trip(
             "itineraries": [_serialize_itinerary(it) for it in result.itineraries],
             "bestOption": result.best_option,
             "warnings": result.warnings,
+            "policySummary": policy_summary,
+            "riskMode": request.risk_mode or "balanced",
         }
         
         # Cache the result
@@ -798,6 +828,20 @@ def _serialize_itinerary(itinerary: RankedItinerary) -> dict:
     segments = [_serialize_segment(seg) for seg in itinerary.segments]
     transfers = [_serialize_transfer(t) for t in itinerary.transfers]
     
+    # Serialize policy evaluation if present
+    policy_evaluation = None
+    if hasattr(itinerary, 'policy_evaluation') and itinerary.policy_evaluation:
+        pe = itinerary.policy_evaluation
+        policy_evaluation = {
+            "blocks": [_serialize_policy_message(m) for m in (pe.blocks or [])],
+            "warnings": [_serialize_policy_message(m) for m in (pe.warnings or [])],
+            "info": [_serialize_policy_message(m) for m in (pe.info or [])],
+            "requiresAck": pe.requires_ack or [],
+            "isBlocked": pe.is_blocked,
+            "riskScore": pe.risk_score,
+            "explanations": pe.explanations or [],
+        }
+    
     return {
         "id": itinerary.id,
         "rank": itinerary.rank,
@@ -817,6 +861,26 @@ def _serialize_itinerary(itinerary: RankedItinerary) -> dict:
         "withinBudget": itinerary.within_budget,
         "withinPoints": itinerary.within_points,
         "summary": itinerary.summary,
+        # Policy fields
+        "policyEvaluation": policy_evaluation,
+        "disabled": getattr(itinerary, 'disabled', False),
+        "disableReason": getattr(itinerary, 'disable_reason', None),
+        "bookingStructureRecommendation": getattr(itinerary, 'booking_structure_recommendation', None),
+    }
+
+
+def _serialize_policy_message(msg) -> dict:
+    """Serialize a PolicyMessageModel to camelCase dict."""
+    if not msg:
+        return None
+    return {
+        "code": msg.code,
+        "severity": msg.severity,
+        "title": msg.title,
+        "detail": msg.detail,
+        "context": msg.context if hasattr(msg, 'context') else {},
+        "requiresAck": msg.requires_ack if hasattr(msg, 'requires_ack') else False,
+        "ackText": msg.ack_text if hasattr(msg, 'ack_text') else None,
     }
 
 

@@ -8,6 +8,7 @@ logger = logging.getLogger(__name__)
 from src.utils.cache_layer import get_json, set_json
 from src.utils.airline_utils import infer_airline_from_flight_number
 from src.config import is_awardtool_dummy_mode
+from src.utils.pricing import sanitize_cash_price, sanitize_points_cost, sanitize_surcharge
 
 # award_programs: use src.utils.award_programs (src.data.award_programs was removed)
 try:
@@ -98,17 +99,8 @@ def sanitize_flight_cash_price(price, context: str = "") -> float | None:
         
     INVARIANT: Never returns negative or zero values.
     """
-    parsed = parse_price(price)
-    if parsed is None:
-        return None
-    if parsed < 0:
-        # Log negative sentinel detection for tracking source issues
-        logger.warning(f"[SENTINEL] Negative cash_price={parsed} detected{f' for {context}' if context else ''}. Treating as unknown.")
-        return None
-    if parsed == 0:
-        # Zero is not a valid flight price - treat as unknown
-        return None
-    return parsed
+    # Delegate to shared sanitizer (single source of truth).
+    return sanitize_cash_price(price, context=context)
 
 
 def sanitize_nonneg_int(v) -> int | None:
@@ -279,18 +271,34 @@ def key_serp(o, d, date, tclass, stops, bags, typ=1):
 
 TTL_AWARD = 6 * 3600  # 6h
 TTL_PAN = 24 * 3600  # 24h
-TTL_SERP = 90 * 60  # 90m
+TTL_SERP = 15 * 60  # 15m (reduced from 90m for fresher flight data)
 
 
 # ==== SERP route-level (single call) ====
-async def serp_route(origin, destination, date_str, filters, client):
+async def serp_route(origin, destination, date_str, filters, client, force_refresh: bool = False):
+    """
+    Fetch Google Flights data via SerpAPI.
+    
+    Args:
+        force_refresh: If True, bypasses cache and fetches fresh data from SerpAPI
+    
+    Returns dict with:
+        - best_flights, other_flights: flight data
+        - _fetched_at: ISO timestamp of when data was fetched
+        - _from_cache: whether data came from cache
+    """
+    from datetime import datetime, timezone
+    
     tclass = _normalize_travel_class_for_serp((filters or {}).get("travel_class"))
     
     # Check if dummy mode is enabled - return dummy SERP data
     if is_awardtool_dummy_mode():
         from src.handlers.awardtool_dummy import generate_dummy_serp_data
         logger.info("[DUMMY MODE] Returning dummy SERP data for %s->%s on %s", origin, destination, date_str)
-        return generate_dummy_serp_data(origin, destination, date_str, tclass)
+        result = generate_dummy_serp_data(origin, destination, date_str, tclass)
+        result["_fetched_at"] = datetime.now(timezone.utc).isoformat()
+        result["_from_cache"] = False
+        return result
     
     # Use type=2 (one-way): SerpAPI type=1 is round-trip and requires return_date.
     # Segment fetch only has outbound_date.
@@ -322,10 +330,19 @@ async def serp_route(origin, destination, date_str, filters, client):
     k = key_serp(
         origin, destination, date_str, tclass, params.get("stops"), params.get("bags"), params.get("type", 2)
     )
-    cached = get_json(k)
-    if cached:
-        logger.debug("SERP [%s]->[%s] date=%s: cache hit", origin, destination, date_str)
-        return cached
+    
+    # Only check cache if not forcing refresh
+    if not force_refresh:
+        cached = get_json(k)
+        if cached:
+            logger.debug("SERP [%s]->[%s] date=%s: cache hit", origin, destination, date_str)
+            # Add metadata about cache status
+            cached["_from_cache"] = True
+            if "_fetched_at" not in cached:
+                cached["_fetched_at"] = "unknown (legacy cache)"
+            return cached
+    else:
+        logger.info("SERP [%s]->[%s] date=%s: FORCE REFRESH requested, bypassing cache", origin, destination, date_str)
 
     logger.info("SERP [%s]->[%s] date=%s: requesting (type=%s, travel_class=%s)", origin, destination, date_str, params.get("type"), tclass)
     try:
@@ -348,6 +365,11 @@ async def serp_route(origin, destination, date_str, filters, client):
     other = body.get("other_flights") or []
     err = body.get("error") or meta.get("error")
     logger.info("SERP [%s]->[%s] date=%s: status=%s, best_flights=%d, other_flights=%d%s", origin, destination, date_str, status, len(best), len(other), f", error={err}" if err else "")
+    
+    # Add freshness metadata
+    body["_fetched_at"] = datetime.now(timezone.utc).isoformat()
+    body["_from_cache"] = False
+    
     set_json(k, body, TTL_SERP)
     return body
 
@@ -525,11 +547,16 @@ def _merge_award_edges(rt_json):
             arr_time = p.get("arrival_time")
             key = (dep, arr, fn)
             prev = by_edge.get(key)
-            if (prev is None) or (pts < prev["award_points"]):
+            pts_sanitized = sanitize_points_cost(pts, context=f"{dep}->{arr} {prog} {fn}")
+            if pts_sanitized is None:
+                skipped += 1
+                continue
+
+            if (prev is None) or (pts_sanitized < prev["award_points"]):
                 by_edge[key] = {
-                    "award_points": int(pts),
+                    "award_points": int(pts_sanitized),
                     "program_code": prog,
-                    "surcharge": float(sur) if isinstance(sur, (int, float)) else None,
+                    "surcharge": sanitize_surcharge(sur, context=f"{dep}->{arr} {prog} {fn}"),
                     "transfer_partners": xfer,
                     "operating_airline": op_al,
                     "travel_minutes": travel_minutes,
@@ -1042,15 +1069,20 @@ async def search_awardtool_flights(
                                     logger.info(f"[AwardTool V2] cabin_prices.{cn} keys: {list(cd.keys())}")
                         search_awardtool_flights._logged_v2_keys = True
                 
+                points = sanitize_points_cost(pts, context=route_context)
+                if points is None:
+                    # If AwardTool reports sentinel/invalid points, treat as unavailable and skip.
+                    continue
+
                 results.append({
                     "airline": prog,
                     "cabin": cabin,
                     # CRITICAL: Use sanitize_flight_cash_price to prevent -1 sentinel from AwardTool
                     "cash_price": sanitize_flight_cash_price(cash, context=route_context),
                     "program": prog,
-                    "points": sanitize_nonneg_int(pts),
-                    "surcharge": sanitize_nonneg_float(sur) or 0,
-                    "available": pts is not None and sanitize_nonneg_int(pts) is not None,
+                    "points": points,
+                    "surcharge": sanitize_surcharge(sur, context=route_context),
+                    "available": True,
                     "departure_time": dep_time,
                     "arrival_time": arr_time,
                     "duration": duration,
@@ -1121,15 +1153,19 @@ async def search_awardtool_flights(
                 
                 logger.info(f"[AwardTool V1] Flight: {dep}->{arr} {prog} {cabin} - "
                            f"flight_num={flight_num}, dep={dep_time}, arr={arr_time}, pts={pts}")
-                
+
+                points = sanitize_points_cost(pts, context=f"{dep}->{arr} {prog} {cabin}")
+                if points is None:
+                    continue
+
                 results.append({
                     "airline": prog,
                     "cabin": cabin,
                     "cash_price": None,  # AwardTool doesn't provide cash price in V1
                     "program": prog,
-                    "points": sanitize_nonneg_int(pts),
-                    "surcharge": sanitize_nonneg_float(sur) or 0,
-                    "available": pts is not None and sanitize_nonneg_int(pts) is not None,
+                    "points": points,
+                    "surcharge": sanitize_surcharge(sur, context=f"{dep}->{arr} {prog} {cabin}"),
+                    "available": True,
                     "departure_time": dep_time,
                     "arrival_time": arr_time,
                     "duration": duration,

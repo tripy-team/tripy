@@ -138,13 +138,16 @@ class OrchestratorAgent(BaseAgent):
         )
         print(f"[Orchestrator] Search completed, got {len(search_results) if search_results else 0} results")
         
-        # Run OOP optimization
+        # Run OOP optimization with policy settings
         optimized = await self._run_oop_optimization(
             segments=segments,
             search_results=search_results,
             user_points=request.points,
             budget=request.budget,
             trip_data=trip_data,
+            risk_mode=getattr(request, 'risk_mode', 'balanced') or 'balanced',
+            include_basic_economy=getattr(request, 'include_basic_economy', False),
+            flexibility_priority=getattr(request, 'flexibility_priority', 'medium') or 'medium',
         )
         
         # Rank by OOP (lowest first)
@@ -934,6 +937,9 @@ class OrchestratorAgent(BaseAgent):
         budget: float,
         trip_data: dict,
         mode: str = "oop",
+        risk_mode: str = "balanced",
+        include_basic_economy: bool = False,
+        flexibility_priority: str = "medium",
     ) -> list[RankedItinerary]:
         """
         Run optimization using V3 ILP solver.
@@ -944,11 +950,12 @@ class OrchestratorAgent(BaseAgent):
         - Integer-safe transfers
         - Single-ticket enforcement for connections
         - Proper group room allocation
+        - Policy evaluation with risk modes
         
         Falls back to greedy algorithm if V3 fails.
         """
         
-        logger.info(f"[Orchestrator] Running V3 optimization (mode={mode})")
+        logger.info(f"[Orchestrator] Running V3 optimization (mode={mode}, risk_mode={risk_mode})")
         
         try:
             # Try V3 solver first (lazy import)
@@ -960,6 +967,9 @@ class OrchestratorAgent(BaseAgent):
                 budget=budget,
                 trip_data=trip_data,
                 mode=mode,
+                risk_mode=risk_mode,
+                include_basic_economy=include_basic_economy,
+                flexibility_priority=flexibility_priority,
             )
             
             if itineraries:

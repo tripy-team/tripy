@@ -37,7 +37,12 @@ from src.schemas.trip import (
 )
 from src.schemas.points import PointsBalance, PointsSummaryResponse
 from boto3.dynamodb.conditions import Key
+from src.contracts.validate import find_negative_numbers
+from fastapi import HTTPException
+from src.solo.snapshot_schema import normalize_snapshot, validate_snapshot
 
+import logging
+logger = logging.getLogger(__name__)
 
 # Constants
 TRIP_STATUSES = ['draft', 'optimized', 'selected', 'instructions_unlocked', 'completed', 'cancelled']
@@ -193,10 +198,16 @@ def select_itinerary(
         raise ValueError("Trip not found")
     
     now = datetime.now(timezone.utc).strftime('%Y-%m-%dT%H:%M:%SZ')
+
+    # Enforce snapshot schema + no-negative contract before persisting (prevents sticky broken booking pages).
+    snapshot = normalize_snapshot(request.itinerary_snapshot)
+    errors = validate_snapshot(snapshot)
+    if errors:
+        raise HTTPException(status_code=400, detail={"errors": errors})
     
     # Store selection in trip
     trip["selectedItineraryId"] = request.itinerary_id
-    trip["itinerarySnapshot"] = request.itinerary_snapshot
+    trip["itinerarySnapshot"] = snapshot
     trip["cashPriceAtSelection"] = request.cash_price_at_selection
     trip["outOfPocketAtSelection"] = request.out_of_pocket_at_selection
     trip["selectedAt"] = now
@@ -338,7 +349,31 @@ def get_cached_optimization(trip_id: str, cache_key: str) -> Optional[Dict[str, 
         return None
     
     # Check if cache exists and matches
-    cached = trip.get("optimizationCache", {}).get(cache_key)
+    cache = trip.get("optimizationCache", {}) or {}
+    cached = cache.get(cache_key)
+    if not cached:
+        return None
+
+    # Cache poisoning control: never allow negative numeric values to be served from cache.
+    negatives = find_negative_numbers(cached)
+    if negatives:
+        logger.warning(
+            "[CACHE_INVALID_SENTINEL_VALUES] trip_id=%s cache_key=%s sample=%s",
+            trip_id,
+            cache_key,
+            negatives[:5],
+        )
+        # Delete the invalid cache entry and persist update.
+        try:
+            cache.pop(cache_key, None)
+            trip["optimizationCache"] = cache
+            trip["updatedAt"] = datetime.now(timezone.utc).strftime('%Y-%m-%dT%H:%M:%SZ')
+            t = get_solo_table()
+            put_item(t, trip)
+        except Exception:
+            logger.warning("[CACHE_INVALID_SENTINEL_VALUES] failed to persist cache deletion", exc_info=True)
+        return None
+
     return cached
 
 

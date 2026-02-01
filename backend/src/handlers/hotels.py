@@ -14,6 +14,8 @@ from dotenv import load_dotenv
 
 from src.utils.cache_layer import get_json, set_json
 from src.config import is_awardtool_dummy_mode
+from src.utils.pricing import sanitize_cash_price, sanitize_points_cost, sanitize_surcharge
+from src.contracts.sentinel import scrub_sentinels
 
 load_dotenv()
 
@@ -300,9 +302,14 @@ def _parse_hotel_results(body: Dict[str, Any]) -> List[Dict[str, Any]]:
         name = item.get("name") or item.get("hotel_name") or ""
         brand = (item.get("brand") or item.get("program_code") or "").strip()
         prog = (item.get("program_code") or item.get("program") or brand or "").strip().upper()
-        cash = _to_number(item.get("cash_rate") or item.get("cash_cost") or item.get("price"))
-        pts = _to_number(item.get("points") or item.get("award_points") or item.get("points_required"))
-        sur = _to_number(item.get("surcharge") or item.get("tax"))
+        raw_cash = _to_number(item.get("cash_rate") or item.get("cash_cost") or item.get("price"))
+        raw_pts = _to_number(item.get("points") or item.get("award_points") or item.get("points_required"))
+        raw_sur = _to_number(item.get("surcharge") or item.get("tax"))
+
+        ctx = f"hotel:{hid}:{prog}"
+        cash = sanitize_cash_price(raw_cash, context=ctx)
+        pts = sanitize_points_cost(raw_pts, context=ctx)
+        sur = sanitize_surcharge(raw_sur, context=ctx)
         stars = item.get("star_rating") or item.get("stars") or item.get("hotel_class")
         addr = item.get("address") or item.get("location") or ""
 
@@ -312,11 +319,12 @@ def _parse_hotel_results(body: Dict[str, Any]) -> List[Dict[str, Any]]:
             "brand": brand or prog or "Unknown",
             "program_code": prog or None,
             "cash_cost": cash,
-            "points_cost": int(pts) if pts is not None and pts == int(pts) else pts,
+            "points_cost": pts,
             "surcharge": sur,
             "star_rating": stars,
             "address": addr,
-            "raw": item,
+            # Never allow provider sentinel values (e.g. -1) to leak via raw payloads.
+            "raw": scrub_sentinels(item),
         })
     return out
 
@@ -636,7 +644,8 @@ async def search_awardtool_hotels(
                     "cash_total": cash_per_night * nights if cash_per_night else None,
                     "points_per_night": int(points_per_night) if points_per_night else None,
                     "points_total": int(points_per_night * nights) if points_per_night else None,
-                    "surcharge": item.get("surcharge") or 0,
+                    # Already sanitized in _parse_hotel_results; never negative.
+                    "surcharge": item.get("surcharge"),
                     "available": points_per_night is not None,
                     "address": item.get("address"),
                 })

@@ -5,6 +5,9 @@
  * In development, set NEXT_PUBLIC_BACKEND_URL in your .env.local file (e.g., http://localhost:8000)
  */
 
+import type { PolicyEvaluation, RiskMode } from '@/lib/policyConfig';
+import { toCamelCase } from '@/lib/serializers';
+
 const BACKEND_URL = process.env.NEXT_PUBLIC_BACKEND_URL || 'http://localhost:8000';
 
 // Offline mode toggle (defaults to false)
@@ -12,33 +15,7 @@ const BACKEND_URL = process.env.NEXT_PUBLIC_BACKEND_URL || 'http://localhost:800
 // This avoids build-time module resolution issues with gitignored config files
 const ENABLE_OFFLINE_MODE = process.env.NEXT_PUBLIC_ENABLE_OFFLINE_MODE === 'true';
 
-/**
- * Convert snake_case keys to camelCase recursively
- */
-function snakeToCamel(str: string): string {
-  return str.replace(/_([a-z])/g, (_, letter) => letter.toUpperCase());
-}
-
-function transformKeys<T>(obj: unknown): T {
-  if (obj === null || obj === undefined) {
-    return obj as T;
-  }
-  
-  if (Array.isArray(obj)) {
-    return obj.map(item => transformKeys(item)) as T;
-  }
-  
-  if (typeof obj === 'object') {
-    const result: Record<string, unknown> = {};
-    for (const [key, value] of Object.entries(obj as Record<string, unknown>)) {
-      const camelKey = snakeToCamel(key);
-      result[camelKey] = transformKeys(value);
-    }
-    return result as T;
-  }
-  
-  return obj as T;
-}
+// NOTE: For API casing conversion, use `toCamelCase` from `lib/serializers.ts`.
 
 // ============================================================================
 // OFFLINE MODE TOGGLE
@@ -1466,6 +1443,9 @@ export interface SoloRankedItinerary {
   rank: number;
   route: string[];
   displayName: string;
+  policyEvaluation?: PolicyEvaluation;
+  disabled?: boolean;
+  disableReason?: string;
   segments: SoloSegmentBreakdown[];
   oopMetrics: SoloOOPMetrics;
   transfers: SoloTransferInstruction[];
@@ -1477,6 +1457,7 @@ export interface SoloOptimizeResponse {
   bestOption?: string;
   warnings: string[];
   globalInsights: SoloTransferInsight[];
+  riskMode?: RiskMode;
   cached: boolean;
   computedAt: string;
   expiresAt: string;
@@ -1573,7 +1554,7 @@ export const solo = {
         arrival_time_preference: request.arrivalTimePreference,
       }),
     });
-    return transformKeys<SoloTripResponse>(response);
+    return toCamelCase<SoloTripResponse>(response);
   },
 
   /**
@@ -1583,7 +1564,7 @@ export const solo = {
     const response = await apiRequest<Record<string, unknown>>(`/solo/trips/${tripId}`, {
       method: 'GET',
     });
-    return transformKeys<SoloTripResponse>(response);
+    return toCamelCase<SoloTripResponse>(response);
   },
 
   /**
@@ -1625,7 +1606,7 @@ export const solo = {
     const response = await apiRequest<Record<string, unknown>>(`/solo/trips/${tripId}/selection`, {
       method: 'GET',
     });
-    return transformKeys(response);
+    return toCamelCase(response);
   },
 
   /**
@@ -1635,7 +1616,7 @@ export const solo = {
     const response = await apiRequest<Record<string, unknown>>(`/solo/trips/${tripId}/points`, {
       method: 'GET',
     });
-    return transformKeys<SoloPointsSummaryResponse>(response);
+    return toCamelCase<SoloPointsSummaryResponse>(response);
   },
 
   /**
@@ -1651,7 +1632,7 @@ export const solo = {
         })),
       }),
     });
-    return transformKeys<SoloPointsSummaryResponse>(response);
+    return toCamelCase<SoloPointsSummaryResponse>(response);
   },
 
   /**
@@ -1666,7 +1647,13 @@ export const solo = {
         optimization_mode_override: request.optimizationModeOverride,
       }),
     });
-    return transformKeys<SoloOptimizeResponse>(response);
+    if (process.env.NODE_ENV !== 'production') {
+      const raw = response as Record<string, unknown>;
+      if ('policy_evaluation' in raw && 'policyEvaluation' in raw) {
+        console.error('[Tripy] Mixed casing detected in /solo/optimize response', raw);
+      }
+    }
+    return toCamelCase<SoloOptimizeResponse>(response);
   },
 
   /**
@@ -1680,7 +1667,7 @@ export const solo = {
         itinerary_id: itineraryId,
       }),
     });
-    return transformKeys<SoloTransferStrategyResponse>(response);
+    return toCamelCase<SoloTransferStrategyResponse>(response);
   },
 
   /**
@@ -1691,7 +1678,7 @@ export const solo = {
       const response = await apiRequest<Record<string, unknown>>(`/solo/optimization-cache/${tripId}`, {
         method: 'GET',
       });
-      return transformKeys<SoloOptimizeResponse>(response);
+      return toCamelCase<SoloOptimizeResponse>(response);
     } catch {
       return null;
     }
@@ -1796,6 +1783,6 @@ export const optimization = {
     });
     
     // Transform snake_case response to camelCase for frontend
-    return transformKeys<DynamicRouteResult>(response);
+    return toCamelCase<DynamicRouteResult>(response);
   },
 };

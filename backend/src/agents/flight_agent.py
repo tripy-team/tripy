@@ -329,6 +329,10 @@ Return JSON: {{"programs": ["UA", "AA", ...], "reasoning": "..."}}
                         operating_airline = ext.replace("Operated by ", "").replace("operated by ", "")
                         break
                 
+                # Get timestamps for data freshness tracking
+                from datetime import datetime, timezone
+                fetched_at = datetime.now(timezone.utc).isoformat()
+                
                 option = FlightOption(
                     id=str(uuid.uuid4()),
                     source="serpapi",
@@ -345,6 +349,10 @@ Return JSON: {{"programs": ["UA", "AA", ...], "reasoning": "..."}}
                     duration_minutes=r.get("total_duration"),
                     stops=len(flights) - 1 if flights else 0,
                     flight_numbers=flight_numbers,  # FIXED: Now populated!
+                    # Data freshness metadata
+                    fetched_at=fetched_at,
+                    is_verified=True,  # Fresh from SerpAPI = verified
+                    verification_status="verified",
                 )
                 options.append(option)
                 

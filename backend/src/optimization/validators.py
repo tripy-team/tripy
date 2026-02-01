@@ -74,7 +74,26 @@ def validate_connection_eligibility(
             continue
         
         # ═══════════════════════════════════════════════════════════════════
-        # RULE 2: Check protection level against policy
+        # RULE 2: Check self-transfer requirement (log this reason even if other
+        # constraints would also drop the flight)
+        # ═══════════════════════════════════════════════════════════════════
+        
+        if policy.require_explicit_no_self_transfer:
+            # In MVP we drop only when self-transfer is explicitly required.
+            # UNKNOWN/unspecified is handled by protection/ticketing policies elsewhere.
+            if edge.self_transfer_required == SelfTransferRequired.YES:
+                reason = (
+                    f"Dropped {edge.edge_id}: {edge.num_stops}-stop connection "
+                    f"with self_transfer={edge.self_transfer_required.value} "
+                    f"(policy requires explicit NO)"
+                )
+                drop_reasons.append(reason)
+                if policy.log_drops:
+                    logger.info(reason)
+                continue
+
+        # ═══════════════════════════════════════════════════════════════════
+        # RULE 3: Check protection level against policy
         # ═══════════════════════════════════════════════════════════════════
         
         protection_ok = edge.connection_protection in policy.allowed_protection_levels
@@ -91,22 +110,6 @@ def validate_connection_eligibility(
             if policy.log_drops:
                 logger.info(reason)
             continue
-        
-        # ═══════════════════════════════════════════════════════════════════
-        # RULE 3: Check self-transfer requirement
-        # ═══════════════════════════════════════════════════════════════════
-        
-        if policy.require_explicit_no_self_transfer:
-            if edge.self_transfer_required != SelfTransferRequired.NO:
-                reason = (
-                    f"Dropped {edge.edge_id}: {edge.num_stops}-stop connection "
-                    f"with self_transfer={edge.self_transfer_required.value} "
-                    f"(policy requires explicit NO)"
-                )
-                drop_reasons.append(reason)
-                if policy.log_drops:
-                    logger.info(reason)
-                continue
         
         # ═══════════════════════════════════════════════════════════════════
         # RULE 4: Check incomplete segments
@@ -144,11 +147,37 @@ def filter_single_ticket_only(
     flights: List[FlightItineraryEdge],
 ) -> Tuple[List[FlightItineraryEdge], List[str]]:
     """
-    DEPRECATED: Use validate_connection_eligibility with policy instead.
-    
-    This is kept for backwards compatibility but delegates to the new function.
+    Backwards-compat filter for "single-ticket only" behavior.
+
+    - Direct flights: always allowed
+    - Connecting flights: require ticketing_type == SINGLE_TICKET
+      - UNKNOWN is dropped with an explicit warning message
     """
-    return validate_connection_eligibility(flights, policy=STRICT_MVP_POLICY)
+    filtered: List[FlightItineraryEdge] = []
+    warnings: List[str] = []
+
+    for edge in flights:
+        if not edge._finalized:
+            edge = finalize_itinerary(edge)
+
+        if edge.is_direct:
+            filtered.append(edge)
+            continue
+
+        tt = getattr(edge, "ticketing_type", None)
+        # Normalize comparisons across enum/str forms
+        tt_val = tt.value if hasattr(tt, "value") else str(tt or "")
+
+        if tt == TicketingType.SINGLE_TICKET or tt_val.upper() == "SINGLE_TICKET" or tt_val.lower() == "single_ticket":
+            filtered.append(edge)
+            continue
+
+        if tt == TicketingType.UNKNOWN or tt_val.upper() == "UNKNOWN" or tt_val.lower() == "unknown":
+            warnings.append(f"Dropped {edge.edge_id}: unknown ticketing for connecting itinerary")
+        else:
+            warnings.append(f"Dropped {edge.edge_id}: ticketing not single ({tt_val})")
+
+    return filtered, warnings
 
 
 def validate_date_feasibility(

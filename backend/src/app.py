@@ -2044,3 +2044,108 @@ async def get_settlements_status(
     except Exception as e:
         logger.error(f"Error getting settlements status: {str(e)}")
         raise HTTPException(status_code=500, detail=str(e))
+
+
+# === FLIGHT VERIFICATION ENDPOINTS ===
+
+class FlightVerificationRequest(BaseModel):
+    """Request to verify a flight exists on Google Flights."""
+    origin: str
+    destination: str
+    date: str  # YYYY-MM-DD
+    flight_numbers: list[str]
+    departure_time: Optional[str] = None
+    airline: Optional[str] = None
+
+
+class FlightSearchRefreshRequest(BaseModel):
+    """Request to search for flights with fresh data (bypassing cache)."""
+    origin: str
+    destination: str
+    date: str  # YYYY-MM-DD
+    cabin_class: str = "Economy"
+
+
+@app.post("/api/flights/verify")
+async def verify_flight(body: FlightVerificationRequest):
+    """
+    Verify a flight exists on Google Flights.
+    
+    Cross-references the given flight number(s) against fresh SerpAPI data
+    to confirm the flight actually exists and departure times match.
+    
+    Returns:
+        - verified: Whether the flight was found
+        - status: "verified", "not_found", "time_mismatch", or "error"
+        - message: Human-readable status message
+        - google_flights: Matching flight data if found
+        - fetched_at: When verification was performed
+    """
+    try:
+        from .services.flight_verification import verify_flight_exists
+        
+        result = await verify_flight_exists(
+            origin=body.origin,
+            destination=body.destination,
+            date=body.date,
+            flight_numbers=body.flight_numbers,
+            departure_time=body.departure_time,
+            airline=body.airline,
+        )
+        
+        return result
+        
+    except Exception as e:
+        logger.error(f"verify_flight: {e}", exc_info=True)
+        raise HTTPException(status_code=500, detail=str(e))
+
+
+@app.post("/api/flights/search-fresh")
+async def search_flights_fresh(body: FlightSearchRefreshRequest):
+    """
+    Search for flights with fresh data, bypassing any cache.
+    
+    Use this endpoint to get the most up-to-date flight availability
+    and prices directly from Google Flights via SerpAPI.
+    
+    Returns:
+        - flights: List of available flights
+        - fetched_at: When data was fetched
+        - count: Number of flights found
+    """
+    try:
+        from .services.flight_verification import get_verified_flights
+        
+        result = await get_verified_flights(
+            origin=body.origin,
+            destination=body.destination,
+            date=body.date,
+            cabin_class=body.cabin_class,
+        )
+        
+        return result
+        
+    except Exception as e:
+        logger.error(f"search_flights_fresh: {e}", exc_info=True)
+        raise HTTPException(status_code=500, detail=str(e))
+
+
+@app.get("/api/flights/google-url")
+async def get_google_flights_url(
+    origin: str,
+    destination: str,
+    date: str,
+):
+    """
+    Get a Google Flights URL for the given route and date.
+    
+    Use this to direct users to verify flights on Google Flights directly.
+    """
+    from .services.flight_verification import build_google_flights_url
+    
+    return {
+        "url": build_google_flights_url(origin, destination, date),
+        "origin": origin,
+        "destination": destination,
+        "date": date,
+    }

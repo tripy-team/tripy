@@ -5,6 +5,7 @@ import { useRouter, useSearchParams } from 'next/navigation';
 import { MapPin, DollarSign, Clock, Zap, Edit3, Check, Sparkles, TrendingUp, Plane, Car, Bus, Train, Navigation, Info, Bed, ChevronRight, Lock } from 'lucide-react';
 import { solo, trips as tripsAPI, points as pointsAPI, itineraries as itinerariesAPI, ItineraryItem, destinations, type Trip, type SoloRankedItinerary, type SoloOptimizeResponse } from '@/lib/api';
 import { formatAirportDisplay, getCityMapForCodes, isLikelyAirportCode } from '@/lib/airport-formatter';
+import { PolicyWarnings } from '@/components/policy/PolicyWarnings';
 
 interface Itinerary {
     id: number;
@@ -539,9 +540,20 @@ export default function SoloResults() {
         
         // Store the selection with snapshot for later booking
         try {
+            if (!Array.isArray((itinerary as unknown as { segments?: unknown }).segments) || (itinerary as unknown as { segments?: unknown[] }).segments!.length === 0) {
+                setFallbackWarning('Cannot select this route (missing required booking data). Please retry optimization.');
+                return;
+            }
+            const itinerarySnapshot = {
+                ...itinerary,
+                // Schema versioning for backend snapshot validator
+                snapshotVersion: 1,
+                // Explicit id alias for backend normalization
+                itineraryId: itinerary.id,
+            };
             await solo.selectItinerary(tripId, {
                 itineraryId: itinerary.id,
-                itinerarySnapshot: itinerary,
+                itinerarySnapshot,
                 cashPriceAtSelection: itinerary.oopMetrics.totalCashPrice,
                 outOfPocketAtSelection: itinerary.oopMetrics.totalOutOfPocket,
             });
@@ -741,6 +753,7 @@ export default function SoloResults() {
                         <div data-testid="solo-itinerary-list" data-slot="solo-itinerary-list" className="lg:col-span-2 space-y-6">
                             {soloItineraries.map((itinerary) => {
                                 const isSelected = selectedSoloId === itinerary.id;
+                                const isDisabled = Boolean(itinerary.disabled);
                                 const metrics = itinerary.oopMetrics;
                                 
                                 return (
@@ -749,9 +762,9 @@ export default function SoloResults() {
                                         data-testid={`solo-itinerary-card-${itinerary.id}`}
                                         role="button"
                                         tabIndex={0}
-                                        onClick={() => handleSelectSoloItinerary(itinerary)}
-                                        onKeyDown={(e) => { if (e.key === 'Enter' || e.key === ' ') { e.preventDefault(); handleSelectSoloItinerary(itinerary); } }}
-                                        className={`bg-white border-2 rounded-2xl overflow-hidden transition-all shadow-sm cursor-pointer ${
+                                        onClick={() => { if (!isDisabled) handleSelectSoloItinerary(itinerary); }}
+                                        onKeyDown={(e) => { if (!isDisabled && (e.key === 'Enter' || e.key === ' ')) { e.preventDefault(); handleSelectSoloItinerary(itinerary); } }}
+                                        className={`bg-white border-2 rounded-2xl overflow-hidden transition-all shadow-sm ${isDisabled ? 'opacity-60 cursor-not-allowed' : 'cursor-pointer'} ${
                                             isSelected
                                                 ? 'border-blue-600 shadow-lg shadow-blue-600/10 ring-2 ring-blue-600/20'
                                                 : 'border-slate-200 hover:border-blue-300'
@@ -886,16 +899,30 @@ export default function SoloResults() {
                                                 </div>
                                             )}
 
+                                            {/* Policy warnings/blocks */}
+                                            {itinerary.policyEvaluation && (
+                                                <div className="mt-4">
+                                                    <PolicyWarnings
+                                                        evaluation={itinerary.policyEvaluation}
+                                                        showAckCheckboxes={false}
+                                                        collapsed
+                                                    />
+                                                </div>
+                                            )}
+
                                             {/* Select Button */}
                                             <button
                                                 onClick={(e) => {
                                                     e.stopPropagation();
-                                                    handleSelectSoloItinerary(itinerary);
+                                                    if (!isDisabled) handleSelectSoloItinerary(itinerary);
                                                 }}
+                                                disabled={isDisabled}
                                                 className={`w-full mt-4 px-6 py-3 rounded-xl transition-all font-medium ${
                                                     isSelected
                                                         ? 'bg-blue-600 text-white shadow-sm'
-                                                        : 'bg-slate-100 text-slate-900 hover:bg-slate-200'
+                                                        : isDisabled
+                                                            ? 'bg-slate-100 text-slate-500 cursor-not-allowed'
+                                                            : 'bg-slate-100 text-slate-900 hover:bg-slate-200'
                                                 }`}
                                             >
                                                 {isSelected ? (
@@ -903,7 +930,7 @@ export default function SoloResults() {
                                                         <Check className="w-5 h-5" /> Selected
                                                     </span>
                                                 ) : (
-                                                    'Select This Route'
+                                                    isDisabled ? (itinerary.disableReason ? `Blocked: ${itinerary.disableReason}` : 'Blocked by policy') : 'Select This Route'
                                                 )}
                                             </button>
 
@@ -1040,6 +1067,25 @@ export default function SoloResults() {
                         )}
                     </div>
                 ) : (
+                <>
+                <div className="mb-6 p-4 bg-amber-50 border border-amber-300 rounded-xl flex items-start gap-3">
+                    <Info className="w-5 h-5 text-amber-700 flex-shrink-0 mt-0.5" />
+                    <div className="flex-1">
+                        <h3 className="font-semibold text-amber-900 mb-1">Fallback results (view-only)</h3>
+                        <p className="text-sm text-amber-800">
+                            These routes come from the legacy fallback pipeline and can’t be selected for booking. Retry optimization to get bookable results.
+                        </p>
+                        <div className="mt-3">
+                            <button
+                                onClick={() => setRefetchTrigger((x) => x + 1)}
+                                className="px-4 py-2 bg-amber-600 text-white rounded-lg hover:bg-amber-700 transition-colors text-sm font-medium"
+                            >
+                                Retry optimization
+                            </button>
+                        </div>
+                    </div>
+                </div>
+
                 <div className="grid lg:grid-cols-3 gap-6">
                     {/* Itinerary Cards */}
                     <div data-testid="itinerary-list" data-slot="itinerary-list" className="lg:col-span-2 space-y-6">
@@ -1207,34 +1253,16 @@ export default function SoloResults() {
                                     <button
                                         onClick={(e) => {
                                             e.stopPropagation();
-                                            setSelectedId(itinerary.id);
+                                            // View-only: do not allow selection for booking from legacy fallback results.
                                         }}
-                                        className={`w-full mt-4 px-6 py-3 rounded-xl transition-all font-medium ${selectedId === itinerary.id
-                                            ? 'bg-blue-600 text-white shadow-sm'
-                                            : 'bg-slate-100 text-slate-900 hover:bg-slate-200'
-                                            }`}
+                                        disabled
+                                        className="w-full mt-4 px-6 py-3 rounded-xl transition-all font-medium bg-slate-100 text-slate-500 cursor-not-allowed"
                                     >
-                                        {selectedId === itinerary.id ? (
-                                            <span className="flex items-center justify-center gap-2">
-                                                <Check className="w-5 h-5" /> Selected
-                                            </span>
-                                        ) : (
-                                            'Select This Route'
-                                        )}
+                                        View-only (fallback)
                                     </button>
 
                                     {/* Book Button - Show when selected */}
-                                    {selectedId === itinerary.id && (
-                                        <button
-                                            onClick={(e) => {
-                                                e.stopPropagation();
-                                                router.push(`/solo/booking${tripId ? `?trip_id=${tripId}` : ''}`);
-                                            }}
-                                            className="w-full mt-3 px-6 py-3 bg-yellow-400 text-slate-900 rounded-xl hover:bg-yellow-500 transition-colors shadow-lg shadow-yellow-400/20 font-semibold"
-                                        >
-                                            Book This Trip
-                                        </button>
-                                    )}
+                                    {/* Disabled intentionally for legacy fallback */}
                                 </div>
                             </div>
                         ))}
@@ -1308,10 +1336,10 @@ export default function SoloResults() {
 
                                     <div className="space-y-3">
                                         <button
-                                            onClick={() => router.push(`/solo/booking${tripId ? `?trip_id=${tripId}` : ''}`)}
-                                            className="w-full px-6 py-3 bg-yellow-400 text-slate-900 rounded-xl hover:bg-yellow-500 transition-colors shadow-lg shadow-yellow-400/20 font-semibold"
+                                            disabled
+                                            className="w-full px-6 py-3 bg-slate-100 text-slate-500 rounded-xl cursor-not-allowed font-semibold"
                                         >
-                                            Book This Trip
+                                            View-only (fallback)
                                         </button>
                                         <button
                                             onClick={() => router.push(`/solo/comparison${tripId ? `?trip_id=${tripId}` : ''}`)}
@@ -1330,6 +1358,7 @@ export default function SoloResults() {
                         </div>
                     )}
                 </div>
+                </>
                 ))}
             </div>
         </div>

@@ -45,6 +45,7 @@ from ..agents.models import OptimizeSoloRequest as AgentOptimizeSoloRequest
 
 # Import transfer validation
 from ..handlers.transfer_strategy import EXTENDED_TRANSFER_GRAPH, PROGRAM_METADATA, BANK_METADATA
+from ..solo.snapshot_schema import normalize_snapshot, validate_snapshot
 
 logger = logging.getLogger(__name__)
 
@@ -389,6 +390,7 @@ async def optimize_solo(
             "best_option": itineraries[0].id if itineraries else None,
             "warnings": agent_response.warnings or [],
             "global_insights": [i.model_dump() for i in global_insights],
+            "risk_mode": "balanced",
         }
         
         # Cache the result
@@ -412,6 +414,7 @@ async def optimize_solo(
             best_option=itineraries[0].id if itineraries else None,
             warnings=agent_response.warnings or [],
             global_insights=global_insights,
+            risk_mode="balanced",
             cached=False,
             computed_at=computed_str,
             expires_at=expires_str,
@@ -567,12 +570,22 @@ def _transform_itineraries(agent_itineraries: list) -> list[RankedItinerary]:
                 route.append(seg.destination)
         
         display_name = agent_it.name or " → ".join(route) if route else "Itinerary"
+
+        # Preserve policy evaluation fields if present on agent itinerary (V3 adapter attaches these)
+        policy_eval = getattr(agent_it, "policy_evaluation", None)
+        disabled = getattr(agent_it, "disabled", None)
+        disable_reason = getattr(agent_it, "disable_reason", None)
+        if policy_eval is not None and hasattr(policy_eval, "model_dump"):
+            policy_eval = policy_eval.model_dump()
         
         result.append(RankedItinerary(
             id=agent_it.id,
             rank=agent_it.rank,
             route=route,
             display_name=display_name,
+            policy_evaluation=policy_eval,
+            disabled=disabled,
+            disable_reason=disable_reason,
             segments=segments,
             oop_metrics=oop_metrics,
             transfers=transfers,
@@ -639,6 +652,7 @@ def _build_response_from_cached(cached: dict) -> OptimizeSoloResponse:
         best_option=result.get("best_option"),
         warnings=result.get("warnings", []),
         global_insights=global_insights,
+        risk_mode=result.get("risk_mode"),
         cached=True,
         computed_at=cached.get("computed_at", ""),
         expires_at=cached.get("expires_at", ""),
@@ -693,6 +707,19 @@ async def get_transfer_strategy(
     Generates real booking steps from the itinerary snapshot.
     """
     try:
+        # Enforce server-side unlock: do not return booking instructions until unlocked.
+        trip = solo_trip_service.get_solo_trip(request.trip_id, user_id)
+        if not trip:
+            raise HTTPException(status_code=404, detail="Trip not found")
+        if trip.get("status") != "instructions_unlocked":
+            return TransferStrategyResponse(
+                transfers=[],
+                bookings=[],
+                total_points_to_transfer=0,
+                estimated_total_time="Locked",
+                warnings=["Instructions locked. Complete payment to unlock transfer and booking steps."],
+            )
+
         # Get selection to verify it exists
         selection = solo_trip_service.get_selection(request.trip_id, user_id)
         if not selection:
@@ -703,6 +730,16 @@ async def get_transfer_strategy(
         
         # Extract itinerary snapshot
         snapshot = selection.get("itinerary_snapshot", {})
+        snapshot = normalize_snapshot(snapshot)
+        errors = validate_snapshot(snapshot)
+        if errors:
+            raise HTTPException(
+                status_code=409,
+                detail={
+                    "message": "Selection snapshot invalid; re-optimize and re-select.",
+                    "errors": errors,
+                },
+            )
         
         # Debug: log what we received in the snapshot
         logger.info(f"[transfer-strategy] Snapshot keys: {list(snapshot.keys()) if snapshot else 'None'}")

@@ -292,15 +292,27 @@ function SoloBookingContent() {
     
     // Simulate payment processing (actual payment integration will be added later)
     if (tripId) {
-      // Try to update backend status, but don't block on failure
-      solo.updateStatus(tripId, 'instructions_unlocked', {
-        paidAt: new Date().toISOString(),
-        amount: serviceFee,
-        method: 'demo',
-      }).catch((err) => {
-        // Log but don't block - payment UI proceeds regardless
+      // Try to update backend status, then refresh transfer strategy (best-effort)
+      try {
+        await solo.updateStatus(tripId, 'instructions_unlocked', {
+          paidAt: new Date().toISOString(),
+          amount: serviceFee,
+          method: 'demo',
+        });
+      } catch (err) {
         console.warn('Status update failed:', err);
-      });
+      }
+
+      // Refresh transfer strategy now that backend enforces unlock
+      try {
+        const itineraryId = selection?.itineraryId || (await solo.getSelection(tripId).catch(() => null))?.itineraryId;
+        if (itineraryId) {
+          const strategy = await solo.getTransferStrategy(tripId, itineraryId);
+          setTransferStrategy(strategy);
+        }
+      } catch (err) {
+        console.warn('Transfer strategy refresh failed:', err);
+      }
     }
     
     // Simulate processing delay

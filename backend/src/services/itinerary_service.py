@@ -41,8 +41,31 @@ from src.handlers.transfer_strategy import (
     get_program_name,
     get_bank_name,
 )
+from src.contracts.sentinel import scrub_sentinels
+from src.contracts.validate import assert_no_negative_numbers, find_negative_numbers
 
 logger = logging.getLogger(__name__)
+
+
+def _strict_contracts_enabled() -> bool:
+    return (os.getenv("TRIPY_STRICT_CONTRACTS") or "").strip().lower() in {"1", "true", "yes", "y", "on"}
+
+
+def _enforce_no_negative_numbers(payload: Dict[str, Any], context: str) -> Dict[str, Any]:
+    """
+    Enforce the global sentinel contract at the legacy itinerary API boundary.
+    """
+    negatives = find_negative_numbers(payload)
+    if negatives:
+        if _strict_contracts_enabled():
+            assert_no_negative_numbers(payload, context=context)
+        logger.warning(
+            "[CONTRACT] Negative numeric values detected (%s). Scrubbing to None. Sample=%s",
+            context,
+            negatives[:5],
+        )
+        return scrub_sentinels(payload)
+    return scrub_sentinels(payload)
 
 # Feature flag for v2 itinerary generation (can be overridden by env var or request header)
 ITINERARY_GENERATION_VERSION = os.getenv("ITINERARY_GENERATION_VERSION", "v2")
@@ -2745,7 +2768,7 @@ def _generate_easter_egg_itinerary(trip_id: str) -> Dict[str, Any]:
         "notes": ["Optimized for maximum points value with instant transfer partners."],
     }
     
-    return {
+    out = {
         "status": "Optimal",
         "solution": solution,
         "items": itinerary_items,
@@ -2753,6 +2776,7 @@ def _generate_easter_egg_itinerary(trip_id: str) -> Dict[str, Any]:
         "oop_optimization": oop_optimization_summary,
         "easter_egg": True,
     }
+    return _enforce_no_negative_numbers(out, context="legacy itinerary easter_egg (middle_east)")
 
 
 def _generate_japan_easter_egg_itinerary(trip_id: str) -> Dict[str, Any]:
@@ -3471,7 +3495,7 @@ def _generate_japan_easter_egg_itinerary(trip_id: str) -> Dict[str, Any]:
         "notes": ["Optimized for cherry blossom season with premium hotel redemptions."],
     }
     
-    return {
+    out = {
         "status": "Optimal",
         "solution": solution,
         "items": itinerary_items,
@@ -3479,6 +3503,7 @@ def _generate_japan_easter_egg_itinerary(trip_id: str) -> Dict[str, Any]:
         "oop_optimization": oop_optimization_summary,
         "easter_egg": True,
     }
+    return _enforce_no_negative_numbers(out, context="legacy itinerary easter_egg (japan)")
 
 
 async def generate_optimized_itinerary(
@@ -4466,4 +4491,4 @@ async def generate_optimized_itinerary(
     if relaxed_message:
         out["relaxed_constraints"] = True
         out["relaxed_message"] = relaxed_message
-    return out
+    return _enforce_no_negative_numbers(out, context="legacy itinerary generate_optimized_itinerary")

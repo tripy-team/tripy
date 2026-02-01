@@ -10,7 +10,7 @@ from typing import Any, Optional
 from src.utils.cache_layer import get_json, set_json
 
 # TTL constants (in seconds)
-SERP_CACHE_TTL = 90 * 60  # 90 minutes (same as v1)
+SERP_CACHE_TTL = 15 * 60  # 15 minutes (reduced from 90m for fresher flight data)
 AWARD_CACHE_TTL = 6 * 3600  # 6 hours
 ORDER_CACHE_TTL = 3600  # 1 hour for route ordering
 
