@@ -54,3 +54,12 @@ export {
 // OOP Optimization components
 export { OOPSummaryCard } from './OOPSummaryCard';
 export { SegmentBreakdown } from './SegmentBreakdown';
+
+// Solo Booking components
+export { ValueInsightCard } from './ValueInsightCard';
+export { PointsValueExplainer } from './PointsValueExplainer';
+export { CostBreakdownCard } from './CostBreakdownCard';
+export { BookingGuide } from './BookingGuide';
+export { ServiceFeePayment } from './ServiceFeePayment';
+export { StrategyComparisonCard } from './StrategyComparisonCard';
+export { ErrorState } from './ErrorState';

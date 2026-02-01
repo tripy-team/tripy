@@ -4016,6 +4016,10 @@ async def generate_optimized_itinerary(
     # Convert solution to itinerary format
     itinerary_items = []
     
+    # Initialize optional OOP results (these are populated in advanced optimization modes)
+    oop_result: Optional[Dict[str, Any]] = None
+    oop_hotels_result: Optional[Dict[str, Any]] = None
+    
     # Totals (needed for path item costs); solution["totals"] is populated by the optimizer
     totals_for_path = solution.get("totals", {})
     

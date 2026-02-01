@@ -575,23 +575,35 @@ class OrchestratorAgent(BaseAgent):
             return self._get_dummy_hotel_options(city)
     
     def _get_dummy_flight_options(self, origin: str, destination: str) -> list[dict]:
-        """Get dummy flight options when search fails."""
+        """Get dummy flight options when search fails.
+        
+        NOTE: Uses programs that are common transfer partners (DL, AF, BA)
+        to work with AMEX/Chase/Citi transferable points.
+        """
         return [
             {
                 "cash_price": 450.0,
                 "award_available": True,
-                "award_program": "UA",
-                "award_points": 35000,
+                "award_program": "DL",  # Delta - AMEX, Citi, Bilt partner
+                "award_points": 40000,
                 "award_surcharge": 25.0,
-                "summary": f"{origin}→{destination} on United",
+                "summary": f"{origin}→{destination} on Delta",
             },
             {
                 "cash_price": 520.0,
                 "award_available": True,
-                "award_program": "AA",
+                "award_program": "AF",  # Air France - AMEX, Chase, Citi partner
+                "award_points": 35000,
+                "award_surcharge": 50.0,
+                "summary": f"{origin}→{destination} on Air France",
+            },
+            {
+                "cash_price": 480.0,
+                "award_available": True,
+                "award_program": "BA",  # British Airways - AMEX, Chase partner
                 "award_points": 30000,
-                "award_surcharge": 30.0,
-                "summary": f"{origin}→{destination} on American",
+                "award_surcharge": 150.0,
+                "summary": f"{origin}→{destination} on British Airways",
             },
             {
                 "cash_price": 380.0,
@@ -601,23 +613,35 @@ class OrchestratorAgent(BaseAgent):
         ]
     
     def _get_dummy_hotel_options(self, city: str) -> list[dict]:
-        """Get dummy hotel options when search fails."""
+        """Get dummy hotel options when search fails.
+        
+        NOTE: Uses HYATT (Chase transfer), HH (AMEX transfer), and MAR (AMEX/Chase transfer)
+        to work with transferable points.
+        """
         return [
             {
                 "cash_price": 250.0,
                 "award_available": True,
-                "award_program": "HYATT",
+                "award_program": "HYATT",  # Chase transfer partner (best CPP typically)
                 "award_points": 15000,
                 "award_surcharge": 0,
                 "summary": f"Hyatt in {city}",
             },
             {
-                "cash_price": 180.0,
+                "cash_price": 200.0,
                 "award_available": True,
-                "award_program": "HH",
-                "award_points": 40000,
+                "award_program": "HH",  # Hilton - AMEX transfer partner
+                "award_points": 50000,
                 "award_surcharge": 0,
                 "summary": f"Hilton in {city}",
+            },
+            {
+                "cash_price": 220.0,
+                "award_available": True,
+                "award_program": "MAR",  # Marriott - AMEX/Chase/Bilt partner
+                "award_points": 30000,
+                "award_surcharge": 0,
+                "summary": f"Marriott in {city}",
             },
             {
                 "cash_price": 150.0,
@@ -638,12 +662,68 @@ class OrchestratorAgent(BaseAgent):
         import asyncio
         
         try:
-            # Use services which are synchronous
+            loop = asyncio.get_event_loop()
+            
+            # Try solo trip service first (new schema)
+            try:
+                from ..services.solo_trip_service import get_solo_trip
+                trip = await loop.run_in_executor(None, get_solo_trip, trip_id)
+                
+                if trip:
+                    # Solo trips store destinations directly in the record
+                    # Format: ["Paris (CDG,ORY,BVA)", "Rome (FCO,CIA)"]
+                    raw_destinations = trip.get("destinations", [])
+                    origin = trip.get("origin", "")
+                    final_destination = trip.get("finalDestination", origin)
+                    
+                    # Build destinations list with proper structure
+                    destinations = []
+                    
+                    # Add origin as start point
+                    if origin:
+                        destinations.append({
+                            "name": origin,
+                            "isStart": True,
+                            "isEnd": origin == final_destination,
+                        })
+                    
+                    # Add intermediate destinations
+                    for dest in raw_destinations:
+                        # Extract airport code from format like "Paris (CDG,ORY,BVA)"
+                        airport_code = dest
+                        if "(" in dest and ")" in dest:
+                            codes = dest.split("(")[1].split(")")[0]
+                            airport_code = codes.split(",")[0].strip()  # Use first code
+                        
+                        destinations.append({
+                            "name": airport_code,
+                            "mustInclude": True,
+                        })
+                    
+                    # Add final destination if different from origin
+                    if final_destination and final_destination != origin:
+                        destinations.append({
+                            "name": final_destination,
+                            "isEnd": True,
+                        })
+                    
+                    logger.info(f"[Orchestrator] Solo trip loaded: origin={origin}, destinations={raw_destinations}, final={final_destination}")
+                    logger.info(f"[Orchestrator] Parsed destinations: {destinations}")
+                    
+                    return {
+                        "trip_id": trip_id,
+                        "start_date": trip.get("startDate"),
+                        "end_date": trip.get("endDate"),
+                        "destinations": destinations,
+                        "include_hotels": trip.get("includeHotels", True),
+                        "max_budget": trip.get("maxBudget"),
+                    }
+            except ImportError:
+                pass  # Solo trip service not available
+            
+            # Fall back to legacy trip service
             from ..services.trip_service import get_trip
             from ..services.destination_service import list_destinations
-            
-            # Run sync functions in thread pool to avoid blocking
-            loop = asyncio.get_event_loop()
             
             trip = await loop.run_in_executor(None, get_trip, trip_id)
             if not trip:

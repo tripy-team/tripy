@@ -810,6 +810,159 @@ Return JSON: {{ "free_bag_airlines": ["XX", ...], "applies_to_reservation": true
         return None
 
 
+def suggest_routes_for_remote_or_small_cities(
+    origin: str,
+    destination: str,
+    city_names: Optional[List[str]] = None,
+    start_date: Optional[str] = None,
+    end_date: Optional[str] = None,
+    failed_routes: Optional[List[str]] = None,
+) -> List[Dict[str, Any]]:
+    """
+    Use OpenAI to suggest alternative routes for remote or small cities
+    when direct flight search returns no results.
+    
+    Returns a list of route suggestions with nearby airports and connection options.
+    """
+    if OpenAI is None:
+        return []
+    
+    load_dotenv()
+    key = os.getenv("OPENAI_ADMIN_KEY")
+    if not key:
+        return []
+    
+    client = OpenAI(
+        api_key=key,
+        timeout=httpx.Timeout(15.0, connect=5.0),
+        max_retries=0
+    )
+    
+    failed_info = ""
+    if failed_routes:
+        failed_info = f"\n\nFailed routes that need alternatives: {', '.join(failed_routes)}"
+    
+    cities_info = ""
+    if city_names:
+        cities_info = f"\nDestination cities: {', '.join(city_names)}"
+    
+    system_prompt = """You are a travel routing expert. When direct flights aren't available to remote or small cities,
+suggest practical alternative routes including:
+1. Nearby major airports that have more flight options
+2. Connection strategies (fly to hub, then regional flight/train/bus)
+3. Multi-modal options (fly + ground transport)
+
+Return suggestions as a JSON array of route options."""
+
+    user_prompt = f"""Find alternative routes from {origin} to {destination}.{cities_info}
+Travel dates: {start_date or 'flexible'} to {end_date or 'flexible'}{failed_info}
+
+Return JSON array of suggestions:
+[{{
+    "route_description": "Fly to [hub] then [ground/regional to destination]",
+    "nearby_airports": ["ABC", "XYZ"],
+    "estimated_total_time": "X hours",
+    "transport_modes": ["flight", "train/bus/car"],
+    "difficulty": "easy/moderate/complex"
+}}]"""
+
+    try:
+        import json
+        response = client.chat.completions.create(
+            model="gpt-4o-mini",
+            messages=[
+                {"role": "system", "content": system_prompt},
+                {"role": "user", "content": user_prompt}
+            ],
+            response_format={"type": "json_object"},
+            temperature=0.3,
+        )
+        content = response.choices[0].message.content
+        parsed = json.loads(content)
+        return parsed.get("suggestions", parsed) if isinstance(parsed, dict) else parsed
+    except Exception as e:
+        logging.getLogger(__name__).warning(f"suggest_routes_for_remote_or_small_cities failed: {e}")
+        return []
+
+
+def get_itinerary_smart_tips(
+    origin: str,
+    destination: str,
+    city_names: Optional[List[str]] = None,
+    start_date: Optional[str] = None,
+    end_date: Optional[str] = None,
+    points_programs: Optional[List[str]] = None,
+) -> Dict[str, Any]:
+    """
+    Use OpenAI to generate smart travel tips for an itinerary,
+    including transfer tips, local recommendations, and points optimization advice.
+    
+    Returns a dict with keys: transfer_tips, local_tips, points_tips, etc.
+    """
+    if OpenAI is None:
+        return {"transfer_tips": [], "local_tips": [], "points_tips": []}
+    
+    load_dotenv()
+    key = os.getenv("OPENAI_ADMIN_KEY")
+    if not key:
+        return {"transfer_tips": [], "local_tips": [], "points_tips": []}
+    
+    client = OpenAI(
+        api_key=key,
+        timeout=httpx.Timeout(15.0, connect=5.0),
+        max_retries=0
+    )
+    
+    cities_info = ""
+    if city_names:
+        cities_info = f"\nVisiting: {', '.join(city_names)}"
+    
+    programs_info = ""
+    if points_programs:
+        programs_info = f"\nAvailable points programs: {', '.join(points_programs)}"
+    
+    system_prompt = """You are a travel optimization expert specializing in points/miles and efficient travel.
+Generate practical tips for the traveler including:
+1. Transfer tips: best times to transfer points, partner airline sweet spots
+2. Local tips: transportation, timing, cultural notes
+3. Points tips: how to maximize value from their specific programs
+
+Return tips as a JSON object."""
+
+    user_prompt = f"""Generate smart travel tips for trip from {origin} to {destination}.{cities_info}
+Travel dates: {start_date or 'flexible'} to {end_date or 'flexible'}{programs_info}
+
+Return JSON:
+{{
+    "transfer_tips": ["tip1", "tip2"],
+    "local_tips": ["tip1", "tip2"],
+    "points_tips": ["tip1", "tip2"]
+}}"""
+
+    try:
+        import json
+        response = client.chat.completions.create(
+            model="gpt-4o-mini",
+            messages=[
+                {"role": "system", "content": system_prompt},
+                {"role": "user", "content": user_prompt}
+            ],
+            response_format={"type": "json_object"},
+            temperature=0.4,
+        )
+        content = response.choices[0].message.content
+        parsed = json.loads(content)
+        # Ensure required keys exist
+        return {
+            "transfer_tips": parsed.get("transfer_tips", []),
+            "local_tips": parsed.get("local_tips", []),
+            "points_tips": parsed.get("points_tips", []),
+        }
+    except Exception as e:
+        logging.getLogger(__name__).warning(f"get_itinerary_smart_tips failed: {e}")
+        return {"transfer_tips": [], "local_tips": [], "points_tips": []}
+
+
 def get_card_benefits_openai(card_product: str) -> Optional[Dict[str, Any]]:
     """
     Use OpenAI to infer travel benefits for a credit card from model knowledge.

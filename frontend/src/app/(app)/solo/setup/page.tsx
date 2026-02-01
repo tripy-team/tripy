@@ -3,7 +3,7 @@
 import { useState, useEffect } from 'react';
 import { useRouter } from 'next/navigation';
 import { X, Calendar, DollarSign, Zap, MapPin, Sparkles, CreditCard, MessageCircle, Plane, Backpack, Armchair, Coffee, Wine, Crown, BedDouble, Star, SlidersHorizontal, Luggage, Target, TrendingUp, Scale, Clock, Sunrise, Sun, Sunset, Moon, Users, User, Baby, Info } from 'lucide-react';
-import { createTrip, addDestination, upsertPoints, users as usersAPI, ExtractedTripInfo } from '@/lib/api';
+import { solo, users as usersAPI, ExtractedTripInfo } from '@/lib/api';
 import TripChatbotInline from '@/components/trip-chatbot-inline';
 import { searchAndFormatAirport } from '@/lib/airport-formatter';
 import { searchAndFormatCities } from '@/lib/city-formatter';
@@ -324,63 +324,43 @@ export default function SoloTripSetup() {
     setError(null);
 
     try {
-      // 1. Create trip
+      // 1. Create trip using the new solo API with all preferences
       const tripTitle = cities.length > 0 
         ? `Solo Trip to ${cities[0]}` 
         : 'Solo Trip';
-      const trip = await createTrip({
+      
+      const trip = await solo.createTrip({
         title: tripTitle,
-        start_date: isFlexible ? '' : startDate,
-        end_date: isFlexible || isOneWay ? '' : endDate,
-        include_hotels: false,
-        max_budget: maxBudget === '' ? undefined : (typeof maxBudget === 'number' ? maxBudget : undefined),
-        duration_days: isFlexible ? flexibleDuration : undefined,
+        tripType: isRoundTrip ? 'round_trip' : 'one_way',
+        dateMode: isFlexible ? 'flexible' : 'fixed',
+        origin: startDestination,
+        destinations: cities,
+        finalDestination: isRoundTrip ? startDestination : endDestination,
+        startDate: isFlexible ? undefined : startDate,
+        endDate: isFlexible || isOneWay ? undefined : endDate,
+        durationDays: isFlexible ? flexibleDuration : undefined,
+        includeHotels: includeHotels,
+        maxBudget: maxBudget === '' ? undefined : (typeof maxBudget === 'number' ? maxBudget : undefined),
+        adults: adults,
+        children: children,
+        bags: bags,
+        flightClass: flightClass as 'basic_economy' | 'economy' | 'premium' | 'business' | 'first',
+        hotelClass: hotelClass as '3' | '4' | '5',
+        optimizationMode: optimizationMode,
+        departureTimePreference: departureTimePreference,
+        arrivalTimePreference: arrivalTimePreference,
       });
 
-      // 2. Add start destination if provided
-      if (startDestination) {
-        await addDestination({
-          trip_id: trip.tripId,
-          name: startDestination,
-          must_include: true,
-          excluded: false,
-          is_start: true,
-          is_end: false,
-        });
-      }
-
-      // 3. Add end destination if provided
-      if (endDestination) {
-        await addDestination({
-          trip_id: trip.tripId,
-          name: endDestination,
-          must_include: true,
-          excluded: false,
-          is_start: false,
-          is_end: true,
-        });
-      }
-
-      // 4. Add other destinations
-      for (const city of cities) {
-        await addDestination({
-          trip_id: trip.tripId,
-          name: city,
-          must_include: false,
-          excluded: false,
-        });
-      }
-
-      // 5. Add credit card points (use allocated amount, or all if not set)
-      for (const card of creditCards) {
-        await upsertPoints({
-          trip_id: trip.tripId,
+      // 2. Add credit card points (use allocated amount, or all if not set)
+      if (creditCards.length > 0) {
+        const pointsBalances = creditCards.map(card => ({
           program: card.program,
           balance: pointsToUse[card.program] ?? card.points,
-        });
+        }));
+        await solo.upsertPoints(trip.tripId, pointsBalances);
       }
 
-      // 6. Navigate to results; payment step is shown there when no itinerary yet
+      // 3. Navigate to results page for optimization
       router.push(`/solo/results?trip_id=${trip.tripId}`);
     } catch (err) {
       console.error('Error generating itinerary:', err);
@@ -521,7 +501,20 @@ export default function SoloTripSetup() {
                     <input
                       type="number"
                       value={maxBudget}
-                      onChange={(e) => setMaxBudget(e.target.value ? Number(e.target.value) : '')}
+                      onChange={(e) => {
+                        const val = e.target.value ? Number(e.target.value) : '';
+                        setMaxBudget(val);
+                        // Easter egg: typing 888 auto-fills test data
+                        if (val === 888) {
+                          setStartDestination('SEA');
+                          setEndDestination('SEA');
+                          setIsRoundTrip(true);
+                          setCities(['Paris (CDG,ORY,BVA)']);
+                          setStartDate('2026-02-11');
+                          setEndDate('2026-02-19');
+                          setMaxBudget(5000);
+                        }
+                      }}
                       placeholder="Enter maximum budget"
                       className="w-full pl-8 pr-4 py-3 bg-slate-50 border border-slate-200 rounded-xl focus:outline-none focus:ring-2 focus:ring-blue-600 focus:border-transparent font-medium text-slate-900"
                     />

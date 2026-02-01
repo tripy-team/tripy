@@ -188,6 +188,7 @@ BANK_ALIASES: Dict[str, str] = {
     "UltimateRewards": "chase",
     "ultimate_rewards": "chase",
     "chase_ultimate_rewards": "chase",
+    "chase_ur": "chase",  # Canonical program ID
     
     # Amex
     "AMEX": "amex",
@@ -197,6 +198,7 @@ BANK_ALIASES: Dict[str, str] = {
     "MembershipRewards": "amex",
     "membership_rewards": "amex",
     "amex_membership_rewards": "amex",
+    "amex_mr": "amex",  # Canonical program ID
     "American Express": "amex",
     
     # Citi
@@ -207,6 +209,7 @@ BANK_ALIASES: Dict[str, str] = {
     "thankyou": "citi",
     "citi_thankyou": "citi",
     "citi_thank_you": "citi",
+    "citi_typ": "citi",  # Canonical program ID
     
     # Capital One
     "CAPITALONE": "capital_one",

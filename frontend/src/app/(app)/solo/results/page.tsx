@@ -3,7 +3,7 @@
 import { useState, useEffect } from 'react';
 import { useRouter, useSearchParams } from 'next/navigation';
 import { MapPin, DollarSign, Clock, Zap, Edit3, Check, Sparkles, TrendingUp, Plane, Car, Bus, Train, Navigation, Info, Bed, ChevronRight, Lock } from 'lucide-react';
-import { itineraries as itinerariesAPI, trips as tripsAPI, points as pointsAPI, ItineraryItem, destinations, type Trip } from '@/lib/api';
+import { solo, trips as tripsAPI, points as pointsAPI, itineraries as itinerariesAPI, ItineraryItem, destinations, type Trip, type SoloRankedItinerary, type SoloOptimizeResponse } from '@/lib/api';
 import { formatAirportDisplay, getCityMapForCodes, isLikelyAirportCode } from '@/lib/airport-formatter';
 
 interface Itinerary {
@@ -90,7 +90,9 @@ export default function SoloResults() {
     const tripId = searchParams?.get('trip_id') || '';
 
     const [itineraries, setItineraries] = useState<Itinerary[]>([]);
+    const [soloItineraries, setSoloItineraries] = useState<SoloRankedItinerary[]>([]);
     const [selectedId, setSelectedId] = useState<number | null>(null);
+    const [selectedSoloId, setSelectedSoloId] = useState<string | null>(null);
     const [editingId, setEditingId] = useState<number | null>(null);
     const [comparing, setComparing] = useState<number[]>([]);
     const [loading, setLoading] = useState(true);
@@ -104,6 +106,8 @@ export default function SoloResults() {
     const [budgetWarning, setBudgetWarning] = useState<{ message?: string; user_budget?: number; recommended_budget?: number } | null>(null);
     const [optimizationWarning, setOptimizationWarning] = useState<string | null>(null);
     const [fallbackWarning, setFallbackWarning] = useState<string | null>(null);
+    const [usingSoloOptimizer, setUsingSoloOptimizer] = useState(false);
+    const [optimizeResponse, setOptimizeResponse] = useState<SoloOptimizeResponse | null>(null);
 
     useEffect(() => {
         const fetchItineraries = async () => {
@@ -122,8 +126,96 @@ export default function SoloResults() {
                 setBudgetWarning(null);
                 setOptimizationWarning(null);
                 setFallbackWarning(null);
+                setUsingSoloOptimizer(false);
+                setSoloItineraries([]);
+                
+                // Try the new solo optimizer first
+                let usedSoloOptimizer = false;
+                try {
+                    // Get trip and points info
+                    const [tripData, pointsSummary] = await Promise.all([
+                        solo.getTrip(tripId).catch(() => null),
+                        solo.getPoints(tripId).catch(() => ({ items: [], totalPoints: 0, tripId })),
+                    ]);
+                    
+                    if (tripData) {
+                        // Build points map from the points summary
+                        let pointsMap: Record<string, number> = {};
+                        for (const item of pointsSummary.items || []) {
+                            if (item.program && item.balance > 0) {
+                                pointsMap[item.program] = item.balance;
+                            }
+                        }
+                        
+                        // If no points stored, use default test points and warn
+                        if (Object.keys(pointsMap).length === 0) {
+                            console.warn('No points stored for this trip, using default test points (AMEX MR: 1,000,000)');
+                            // Use AMEX MR as default - common transferable points
+                            pointsMap = { 'amex_mr': 1000000 };
+                            
+                            // Save these points to the trip so they persist
+                            try {
+                                await solo.upsertPoints(tripId, [{ program: 'amex_mr', balance: 1000000 }]);
+                            } catch (e) {
+                                console.log('Could not save default points:', e);
+                            }
+                        }
+                        
+                        // Run optimization
+                        const optimizeResult = await solo.optimize({
+                            tripId,
+                            points: pointsMap,
+                        });
+                        
+                        setOptimizeResponse(optimizeResult);
+                        
+                        if (optimizeResult.itineraries && optimizeResult.itineraries.length > 0) {
+                            setSoloItineraries(optimizeResult.itineraries);
+                            setSelectedSoloId(optimizeResult.bestOption || optimizeResult.itineraries[0].id);
+                            setUsingSoloOptimizer(true);
+                            usedSoloOptimizer = true;
+                            
+                            // Set warnings from optimizer
+                            if (optimizeResult.warnings && optimizeResult.warnings.length > 0) {
+                                setOptimizationWarning(optimizeResult.warnings.join('. '));
+                            }
+                            
+                            // Build duration label
+                            let durationLabel = '—';
+                            const startDate = (tripData as { startDate?: string }).startDate;
+                            const endDate = (tripData as { endDate?: string }).endDate;
+                            const durationDays = (tripData as { durationDays?: number }).durationDays;
+                            
+                            if (startDate && endDate) {
+                                const start = new Date(startDate);
+                                const end = new Date(endDate);
+                                if (!isNaN(start.getTime()) && !isNaN(end.getTime())) {
+                                    const d = Math.round((end.getTime() - start.getTime()) / (24 * 60 * 60 * 1000)) + 1;
+                                    if (d > 0) durationLabel = `${d} days`;
+                                }
+                            } else if (durationDays != null && durationDays > 0) {
+                                durationLabel = `${durationDays} days (flexible)`;
+                            }
+                            
+                            setTrip(tripData as Trip);
+                            setUserConstraints({
+                                maxBudget: (tripData as { maxBudget?: number }).maxBudget,
+                                totalPoints: pointsSummary.totalPoints,
+                                durationLabel,
+                            });
+                            
+                            setLoading(false);
+                            return;
+                        }
+                    }
+                } catch (soloErr) {
+                    console.log('[SoloResults] Solo optimizer not available, falling back to legacy:', soloErr);
+                }
+                
+                // Fall back to legacy itineraries API
+                if (!usedSoloOptimizer) {
                 const [response, trip, pointsRes] = await Promise.all([
-                    itinerariesAPI.get(tripId),
+                    tripsAPI.get(tripId).catch(() => null),
                     tripsAPI.get(tripId).catch(() => null),
                     pointsAPI.summary(tripId).catch(() => ({ totalPoints: 0, items: [] })),
                 ]);
@@ -411,19 +503,20 @@ export default function SoloResults() {
                             } else {
                                 setItineraries([]);
                             }
-                        }
-                    } catch (genErr) {
-                        console.error('Error generating itineraries:', genErr);
-                        setItineraries([]);
                     }
+                } catch (genErr) {
+                    console.error('Error generating itineraries:', genErr);
+                    setItineraries([]);
                 }
-            } catch (err) {
-                console.error('Error fetching itineraries:', err);
-                setItineraries([]);
-            } finally {
-                setLoading(false);
             }
-        };
+            } // End of if (!usedSoloOptimizer)
+        } catch (err) {
+            console.error('Error fetching itineraries:', err);
+            setItineraries([]);
+        } finally {
+            setLoading(false);
+        }
+    };
 
         fetchItineraries();
     }, [tripId, refetchTrigger]);
@@ -438,6 +531,24 @@ export default function SoloResults() {
     };
 
     const selectedItinerary = itineraries.find(i => i.id === selectedId);
+    const selectedSoloItinerary = soloItineraries.find(i => i.id === selectedSoloId);
+    
+    // Handle selecting a solo itinerary and storing it
+    const handleSelectSoloItinerary = async (itinerary: SoloRankedItinerary) => {
+        setSelectedSoloId(itinerary.id);
+        
+        // Store the selection with snapshot for later booking
+        try {
+            await solo.selectItinerary(tripId, {
+                itineraryId: itinerary.id,
+                itinerarySnapshot: itinerary,
+                cashPriceAtSelection: itinerary.oopMetrics.totalCashPrice,
+                outOfPocketAtSelection: itinerary.oopMetrics.totalOutOfPocket,
+            });
+        } catch (err) {
+            console.error('Error saving itinerary selection:', err);
+        }
+    };
 
     const updateCityDays = (itineraryId: number, cityIndex: number, days: number) => {
         setItineraries(prev => prev.map(itinerary => {
@@ -623,8 +734,280 @@ export default function SoloResults() {
 
                 {outOfPocket && <OutOfPocketBlock data={outOfPocket} />}
 
-                {/* Empty state when no itineraries */}
-                {itineraries.length === 0 ? (
+                {/* New Solo Optimizer Results */}
+                {usingSoloOptimizer && soloItineraries.length > 0 ? (
+                    <div className="grid lg:grid-cols-3 gap-6">
+                        {/* Solo Itinerary Cards */}
+                        <div data-testid="solo-itinerary-list" data-slot="solo-itinerary-list" className="lg:col-span-2 space-y-6">
+                            {soloItineraries.map((itinerary) => {
+                                const isSelected = selectedSoloId === itinerary.id;
+                                const metrics = itinerary.oopMetrics;
+                                
+                                return (
+                                    <div
+                                        key={itinerary.id}
+                                        data-testid={`solo-itinerary-card-${itinerary.id}`}
+                                        role="button"
+                                        tabIndex={0}
+                                        onClick={() => handleSelectSoloItinerary(itinerary)}
+                                        onKeyDown={(e) => { if (e.key === 'Enter' || e.key === ' ') { e.preventDefault(); handleSelectSoloItinerary(itinerary); } }}
+                                        className={`bg-white border-2 rounded-2xl overflow-hidden transition-all shadow-sm cursor-pointer ${
+                                            isSelected
+                                                ? 'border-blue-600 shadow-lg shadow-blue-600/10 ring-2 ring-blue-600/20'
+                                                : 'border-slate-200 hover:border-blue-300'
+                                        }`}
+                                    >
+                                        <div className="p-6">
+                                            {/* Header */}
+                                            <div className="flex items-start justify-between mb-4">
+                                                <div className="flex-1">
+                                                    <div className="flex items-center gap-3 mb-2">
+                                                        <h3 className="text-2xl text-slate-900 font-semibold">{itinerary.displayName}</h3>
+                                                        {itinerary.rank === 1 && (
+                                                            <span className="px-3 py-1 bg-yellow-100 text-yellow-800 rounded-full text-sm font-medium">
+                                                                <Sparkles className="w-3 h-3 inline mr-1" />
+                                                                Best match
+                                                            </span>
+                                                        )}
+                                                    </div>
+                                                    <div className="flex items-center gap-4 text-sm text-slate-600">
+                                                        <span className="flex items-center gap-1">
+                                                            <MapPin className="w-4 h-4" />
+                                                            {itinerary.route.length} stops
+                                                        </span>
+                                                        <span className="flex items-center gap-1">
+                                                            <Zap className="w-4 h-4" />
+                                                            {(metrics.totalPointsUsed / 1000).toFixed(0)}k pts
+                                                        </span>
+                                                        <span className="flex items-center gap-1">
+                                                            <TrendingUp className="w-4 h-4" />
+                                                            {metrics.averageCpp.toFixed(1)}¢/pt
+                                                        </span>
+                                                    </div>
+                                                </div>
+                                                {metrics.savingsPercentage > 0 && (
+                                                    <span className="px-2.5 py-1 bg-emerald-100 text-emerald-700 rounded-full text-xs font-medium">
+                                                        {Math.round(metrics.savingsPercentage)}% savings
+                                                    </span>
+                                                )}
+                                            </div>
+
+                                            {/* Cost Summary */}
+                                            <div className="mb-6 grid grid-cols-3 gap-3 p-4 bg-gradient-to-br from-blue-50 to-slate-50 rounded-xl border border-blue-100">
+                                                <div>
+                                                    <div className="flex items-center gap-1.5 text-slate-600 mb-1">
+                                                        <DollarSign className="w-4 h-4" />
+                                                        <span className="text-xs font-medium uppercase tracking-wider">Cash Price</span>
+                                                    </div>
+                                                    <div className="text-2xl font-bold text-slate-900">${Math.round(metrics.totalCashPrice).toLocaleString()}</div>
+                                                    <div className="text-xs text-slate-500 mt-0.5">Without points</div>
+                                                </div>
+
+                                                <div>
+                                                    <div className="flex items-center gap-1.5 text-slate-600 mb-1">
+                                                        <DollarSign className="w-4 h-4" />
+                                                        <span className="text-xs font-medium uppercase tracking-wider">You Pay</span>
+                                                    </div>
+                                                    <div className="text-2xl font-bold text-emerald-600">${Math.round(metrics.totalOutOfPocket).toLocaleString()}</div>
+                                                    <div className="text-xs text-slate-500 mt-0.5">Out-of-pocket</div>
+                                                </div>
+
+                                                <div>
+                                                    <div className="flex items-center gap-1.5 text-slate-600 mb-1">
+                                                        <Zap className="w-4 h-4" />
+                                                        <span className="text-xs font-medium uppercase tracking-wider">Points</span>
+                                                    </div>
+                                                    <div className="text-2xl font-bold text-blue-600">{(metrics.totalPointsUsed / 1000).toFixed(0)}k</div>
+                                                    <div className="text-xs text-slate-500 mt-0.5">To use</div>
+                                                </div>
+                                            </div>
+
+                                            {/* Route Display */}
+                                            <div className="mb-4">
+                                                <div className="text-sm text-slate-600 mb-2 font-medium">Route</div>
+                                                <div className="flex flex-wrap items-center gap-1.5 text-sm text-slate-700">
+                                                    {itinerary.route.map((stop, i) => (
+                                                        <span key={i} className="flex items-center gap-1.5">
+                                                            <span className="font-medium">{stop}</span>
+                                                            {i < itinerary.route.length - 1 && (
+                                                                <Plane className="w-3 h-3 text-blue-400 rotate-90" />
+                                                            )}
+                                                        </span>
+                                                    ))}
+                                                </div>
+                                            </div>
+
+                                            {/* Segment Details */}
+                                            <div className="space-y-2 mb-6">
+                                                {itinerary.segments.map((segment, idx) => (
+                                                    <div
+                                                        key={idx}
+                                                        className={`flex items-center gap-3 p-3 rounded-lg border ${
+                                                            segment.paymentMethod === 'points' 
+                                                                ? 'bg-blue-50 border-blue-100' 
+                                                                : 'bg-slate-50 border-slate-100'
+                                                        }`}
+                                                    >
+                                                        {segment.type === 'flight' ? (
+                                                            <Plane className="w-4 h-4 text-blue-600" />
+                                                        ) : (
+                                                            <Bed className="w-4 h-4 text-amber-600" />
+                                                        )}
+                                                        <div className="flex-1">
+                                                            <div className="font-medium text-slate-900">{segment.segment}</div>
+                                                            <div className="text-xs text-slate-500">
+                                                                {segment.paymentMethod === 'points' 
+                                                                    ? `${segment.pointsUsed?.toLocaleString()} pts${segment.surcharge ? ` + $${segment.surcharge} fees` : ''}${segment.cppAchieved ? ` • ${segment.cppAchieved.toFixed(1)}¢/pt` : ''}`
+                                                                    : `$${segment.cashPrice?.toLocaleString()} cash`
+                                                                }
+                                                            </div>
+                                                        </div>
+                                                        {segment.paymentMethod === 'points' && (
+                                                            <span className="px-2 py-0.5 bg-blue-100 text-blue-700 text-xs font-medium rounded">Points</span>
+                                                        )}
+                                                    </div>
+                                                ))}
+                                            </div>
+
+                                            {/* Savings Highlight */}
+                                            {metrics.cashSaved > 0 && (
+                                                <div className="p-4 bg-gradient-to-r from-emerald-50 to-teal-50 rounded-xl border border-emerald-200">
+                                                    <div className="flex items-start justify-between">
+                                                        <div className="flex-1">
+                                                            <div className="text-sm font-medium text-emerald-900 mb-1">Your Savings</div>
+                                                            <div className="text-xs text-emerald-700">
+                                                                Save ${Math.round(metrics.cashSaved).toLocaleString()} by using points instead of cash
+                                                            </div>
+                                                        </div>
+                                                        <div className="text-2xl font-bold text-emerald-700">
+                                                            {Math.round(metrics.savingsPercentage)}%
+                                                        </div>
+                                                    </div>
+                                                </div>
+                                            )}
+
+                                            {/* Select Button */}
+                                            <button
+                                                onClick={(e) => {
+                                                    e.stopPropagation();
+                                                    handleSelectSoloItinerary(itinerary);
+                                                }}
+                                                className={`w-full mt-4 px-6 py-3 rounded-xl transition-all font-medium ${
+                                                    isSelected
+                                                        ? 'bg-blue-600 text-white shadow-sm'
+                                                        : 'bg-slate-100 text-slate-900 hover:bg-slate-200'
+                                                }`}
+                                            >
+                                                {isSelected ? (
+                                                    <span className="flex items-center justify-center gap-2">
+                                                        <Check className="w-5 h-5" /> Selected
+                                                    </span>
+                                                ) : (
+                                                    'Select This Route'
+                                                )}
+                                            </button>
+
+                                            {/* Book Button */}
+                                            {isSelected && (
+                                                <button
+                                                    onClick={(e) => {
+                                                        e.stopPropagation();
+                                                        router.push(`/solo/booking?trip_id=${tripId}`);
+                                                    }}
+                                                    className="w-full mt-3 px-6 py-3 bg-yellow-400 text-slate-900 rounded-xl hover:bg-yellow-500 transition-colors shadow-lg shadow-yellow-400/20 font-semibold"
+                                                >
+                                                    Book This Trip
+                                                </button>
+                                            )}
+                                        </div>
+                                    </div>
+                                );
+                            })}
+                        </div>
+
+                        {/* Right Sidebar - Selected Details */}
+                        {selectedSoloItinerary && (
+                            <div data-testid="solo-selected-sidebar" className="lg:col-span-1">
+                                <div className="sticky top-8 bg-white border border-slate-200 rounded-2xl p-6 shadow-sm">
+                                    <h3 className="text-xl mb-6 text-slate-900 font-semibold">Selected Route</h3>
+
+                                    <div className="space-y-6">
+                                        {/* Route */}
+                                        <div>
+                                            <div className="text-sm text-slate-600 mb-2 font-medium">Route</div>
+                                            <div className="flex flex-wrap items-center gap-1.5 text-sm text-slate-700">
+                                                {selectedSoloItinerary.route.map((stop, i) => (
+                                                    <span key={i} className="flex items-center gap-1.5">
+                                                        <span>{stop}</span>
+                                                        {i < selectedSoloItinerary.route.length - 1 && (
+                                                            <Plane className="w-3 h-3 text-blue-400 rotate-90" />
+                                                        )}
+                                                    </span>
+                                                ))}
+                                            </div>
+                                        </div>
+
+                                        {/* Cost Breakdown */}
+                                        <div>
+                                            <div className="text-sm text-slate-600 mb-3 font-medium">Cost Breakdown</div>
+                                            <div className="space-y-2 text-sm">
+                                                <div className="flex justify-between">
+                                                    <span className="text-slate-600">Cash Price</span>
+                                                    <span className="text-slate-500 line-through">${Math.round(selectedSoloItinerary.oopMetrics.totalCashPrice).toLocaleString()}</span>
+                                                </div>
+                                                <div className="flex justify-between font-semibold">
+                                                    <span className="text-slate-900">You Pay</span>
+                                                    <span className="text-emerald-600">${Math.round(selectedSoloItinerary.oopMetrics.totalOutOfPocket).toLocaleString()}</span>
+                                                </div>
+                                                <div className="flex justify-between text-blue-600">
+                                                    <span>Points Used</span>
+                                                    <span>{(selectedSoloItinerary.oopMetrics.totalPointsUsed / 1000).toFixed(0)}k pts</span>
+                                                </div>
+                                                {selectedSoloItinerary.oopMetrics.cashSaved > 0 && (
+                                                    <div className="flex justify-between text-emerald-600">
+                                                        <span>Savings</span>
+                                                        <span>${Math.round(selectedSoloItinerary.oopMetrics.cashSaved).toLocaleString()}</span>
+                                                    </div>
+                                                )}
+                                            </div>
+                                        </div>
+
+                                        {/* Transfers Needed */}
+                                        {selectedSoloItinerary.transfers.length > 0 && (
+                                            <div>
+                                                <div className="text-sm text-slate-600 mb-3 font-medium">Transfers Needed</div>
+                                                <div className="space-y-2">
+                                                    {selectedSoloItinerary.transfers.map((transfer, idx) => (
+                                                        <div key={idx} className="p-3 bg-blue-50 rounded-lg text-sm">
+                                                            <div className="font-medium text-slate-900">
+                                                                {transfer.sourceProgram} → {transfer.targetProgram}
+                                                            </div>
+                                                            <div className="text-slate-600 mt-1">
+                                                                {transfer.pointsToTransfer.toLocaleString()} pts • {transfer.expectedTransferTime}
+                                                            </div>
+                                                        </div>
+                                                    ))}
+                                                </div>
+                                            </div>
+                                        )}
+
+                                        {/* Action Buttons */}
+                                        <div className="space-y-3">
+                                            <button
+                                                onClick={() => router.push(`/solo/booking?trip_id=${tripId}`)}
+                                                className="w-full px-6 py-3 bg-yellow-400 text-slate-900 rounded-xl hover:bg-yellow-500 transition-colors shadow-lg shadow-yellow-400/20 font-semibold"
+                                            >
+                                                Book This Trip
+                                            </button>
+                                        </div>
+                                    </div>
+                                </div>
+                            </div>
+                        )}
+                    </div>
+                ) : (
+                /* Empty state when no itineraries - Legacy support */
+                itineraries.length === 0 ? (
                     <div data-testid="solo-results-empty" data-slot="solo-results-empty" className="bg-white border border-slate-200 rounded-2xl p-12 text-center">
                         {tripId && trip && !isAiSuggested ? (
                             <>
@@ -947,7 +1330,7 @@ export default function SoloResults() {
                         </div>
                     )}
                 </div>
-                )}
+                ))}
             </div>
         </div>
     );

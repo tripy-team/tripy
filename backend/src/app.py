@@ -2,8 +2,13 @@ import os
 import sys
 from pathlib import Path
 
-# Ensure backend root is on sys.path so "from src.xxx" and "src.utils.award_programs" resolve.
-# __file__ = .../backend/src/app.py -> parent.parent = .../backend
+# NOTE: This sys.path hack is needed because many modules use "from src.xxx" imports
+# and some subdirectories (repos, handlers) are missing __init__.py files.
+# TODO: Clean this up by:
+#   1. Adding __init__.py to all subdirectories
+#   2. Converting all "from src.xxx" imports to relative imports
+#   3. Removing this sys.path hack
+# For now, this ensures compatibility when running via: uvicorn src.app:app
 _backend = Path(__file__).resolve().parent.parent
 if str(_backend) not in sys.path:
     sys.path.insert(0, str(_backend))
@@ -73,31 +78,44 @@ from .handlers.group_api import (
 # Import agentic optimization router
 from .routes.optimize import router as optimize_router
 
+# Import solo booking router
+from .routes.solo import router as solo_router
+
 # Get CORS origins from environment variable
+# IMPORTANT: Browsers reject allow_credentials=True with allow_origins=["*"]
+# When sending Authorization headers or cookies, you MUST specify exact origins
 CORS_ORIGINS_ENV = os.environ.get("CORS_ORIGINS", "")
 if CORS_ORIGINS_ENV:
-    # If CORS_ORIGINS is set, use it (split by comma)
+    # Production: use explicit origins from environment
     ALLOWED_ORIGINS = [
         origin.strip() for origin in CORS_ORIGINS_ENV.split(",") if origin.strip()
     ]
+    ALLOW_CREDENTIALS = True
 else:
-    # Fallback: Allow all origins for development
+    # Development fallback: localhost only (not "*" which breaks with credentials)
     # In production, ALWAYS set CORS_ORIGINS environment variable in App Runner
-    # For security, restrict to specific domains in production
-    ALLOWED_ORIGINS = ["*"]  # Allow all origins - set CORS_ORIGINS in production
+    # Example: CORS_ORIGINS=https://your-frontend.com,http://localhost:3000
+    ALLOWED_ORIGINS = ["http://localhost:3000", "http://127.0.0.1:3000"]
+    ALLOW_CREDENTIALS = True
+
+# Log CORS config at startup for debugging
+logger.info(f"CORS config: origins={ALLOWED_ORIGINS}, credentials={ALLOW_CREDENTIALS}")
 
 app = FastAPI(title="Tripy API", version="1.0.0")
 
 app.add_middleware(
     CORSMiddleware,
     allow_origins=ALLOWED_ORIGINS,
-    allow_credentials=True,
+    allow_credentials=ALLOW_CREDENTIALS,
     allow_methods=["*"],
     allow_headers=["*"],
 )
 
 # Include agentic optimization routes
 app.include_router(optimize_router)
+
+# Include solo booking routes
+app.include_router(solo_router)
 
 # Preload commercial airports and airport data at startup for fast autocomplete
 @app.on_event("startup")

@@ -1340,6 +1340,342 @@ export interface OptimizeGroupRequest extends OptimizeSoloRequest {
   splitMethod?: 'equal' | 'by_usage' | 'proportional';
 }
 
+// ============================================================================
+// SOLO BOOKING API - Uses new /solo/* endpoints
+// ============================================================================
+
+export interface SoloCreateTripRequest {
+  title: string;
+  tripType?: 'one_way' | 'round_trip';
+  dateMode?: 'fixed' | 'flexible';
+  origin: string;
+  destinations: string[];
+  finalDestination?: string;
+  startDate?: string;
+  endDate?: string;
+  durationDays?: number;
+  includeHotels?: boolean;
+  maxBudget?: number;
+  adults?: number;
+  children?: number;
+  bags?: number;
+  flightClass?: 'basic_economy' | 'economy' | 'premium' | 'business' | 'first';
+  hotelClass?: '3' | '4' | '5';
+  optimizationMode?: 'oop' | 'cpp' | 'balanced';
+  departureTimePreference?: 'any' | 'morning' | 'afternoon' | 'evening' | 'night';
+  arrivalTimePreference?: 'any' | 'morning' | 'afternoon' | 'evening' | 'night';
+}
+
+export interface SoloTripResponse {
+  tripId: string;
+  title: string;
+  tripType: string;
+  dateMode: string;
+  origin: string;
+  destinations: string[];
+  finalDestination?: string;
+  startDate?: string;
+  endDate?: string;
+  durationDays?: number;
+  includeHotels: boolean;
+  maxBudget?: number;
+  adults: number;
+  children: number;
+  bags: number;
+  flightClass: string;
+  hotelClass: string;
+  optimizationMode: string;
+  departureTimePreference: string;
+  arrivalTimePreference: string;
+  status: string;
+  createdAt: string;
+  createdBy: string;
+  inviteCode?: string;
+}
+
+export interface SoloOptimizeRequest {
+  tripId: string;
+  points: Record<string, number>;
+  optimizationModeOverride?: 'oop' | 'cpp' | 'balanced';
+}
+
+export interface SoloTransferInsight {
+  type: 'transfer_bonus' | 'sweet_spot' | 'multi_hop' | 'cross_program';
+  description: string;
+  evidence?: string;
+  asOf?: string;
+  confidence: 'high' | 'medium' | 'low';
+}
+
+export interface SoloTransferInstruction {
+  stepNumber: number;
+  sourceProgram: string;
+  targetProgram: string;
+  pointsToTransfer: number;
+  transferRatio: number;
+  expectedTransferTime: string;
+  portalUrl: string;
+  warning?: string;
+}
+
+export interface SoloSegmentBreakdown {
+  segment: string;
+  type: 'flight' | 'hotel';
+  paymentMethod: 'cash' | 'points';
+  cashPrice: number;
+  pointsUsed?: number;
+  surcharge?: number;
+  cppAchieved?: number;
+  transferFrom?: string;
+  transferTo?: string;
+  transferRatio?: number;
+}
+
+export interface SoloOOPMetrics {
+  totalCashPrice: number;
+  totalOutOfPocket: number;
+  cashSaved: number;
+  savingsPercentage: number;
+  totalPointsUsed: number;
+  averageCpp: number;
+}
+
+export interface SoloRankedItinerary {
+  id: string;
+  rank: number;
+  route: string[];
+  displayName: string;
+  segments: SoloSegmentBreakdown[];
+  oopMetrics: SoloOOPMetrics;
+  transfers: SoloTransferInstruction[];
+  insights: SoloTransferInsight[];
+}
+
+export interface SoloOptimizeResponse {
+  itineraries: SoloRankedItinerary[];
+  bestOption?: string;
+  warnings: string[];
+  globalInsights: SoloTransferInsight[];
+  cached: boolean;
+  computedAt: string;
+  expiresAt: string;
+}
+
+export interface SoloSelectItineraryRequest {
+  itineraryId: string;
+  itinerarySnapshot: unknown;
+  cashPriceAtSelection: number;
+  outOfPocketAtSelection: number;
+}
+
+export interface SoloPointsBalance {
+  program: string;
+  balance: number;
+  updatedAt?: string;
+}
+
+export interface SoloPointsSummaryResponse {
+  tripId: string;
+  items: SoloPointsBalance[];
+  totalPoints: number;
+}
+
+export interface SoloBookingStep {
+  stepNumber: number;
+  type: 'flight' | 'hotel';
+  airline?: string;
+  hotelChain?: string;
+  bookingUrl: string;
+  segmentReference: string;
+  
+  // Flight-specific details
+  origin?: string;
+  destination?: string;
+  departureTime?: string;
+  arrivalTime?: string;
+  cabinClass?: string;
+  flightNumber?: string;
+  durationMinutes?: number;
+  
+  // Hotel-specific details
+  city?: string;
+  checkIn?: string;
+  checkOut?: string;
+  nights?: number;
+  
+  // Payment details
+  paymentMethod: 'points' | 'cash';
+  pointsUsed?: number;
+  cashPrice?: number;
+  surcharge?: number;
+  program?: string;
+}
+
+export interface SoloTransferStrategyResponse {
+  transfers: SoloTransferInstruction[];
+  bookings: SoloBookingStep[];
+  totalPointsToTransfer: number;
+  estimatedTotalTime: string;
+  warnings: string[];
+}
+
+/**
+ * Solo booking API client - uses /solo/* endpoints
+ */
+export const solo = {
+  /**
+   * Create a new solo trip
+   */
+  createTrip: async (request: SoloCreateTripRequest): Promise<SoloTripResponse> => {
+    const response = await apiRequest<Record<string, unknown>>('/solo/trips', {
+      method: 'POST',
+      body: JSON.stringify({
+        title: request.title,
+        trip_type: request.tripType || 'round_trip',
+        date_mode: request.dateMode || 'fixed',
+        origin: request.origin,
+        destinations: request.destinations,
+        final_destination: request.finalDestination,
+        start_date: request.startDate,
+        end_date: request.endDate,
+        duration_days: request.durationDays,
+        include_hotels: request.includeHotels,
+        max_budget: request.maxBudget,
+        adults: request.adults,
+        children: request.children,
+        bags: request.bags,
+        flight_class: request.flightClass,
+        hotel_class: request.hotelClass,
+        optimization_mode: request.optimizationMode,
+        departure_time_preference: request.departureTimePreference,
+        arrival_time_preference: request.arrivalTimePreference,
+      }),
+    });
+    return transformKeys<SoloTripResponse>(response);
+  },
+
+  /**
+   * Get a solo trip by ID
+   */
+  getTrip: async (tripId: string): Promise<SoloTripResponse> => {
+    const response = await apiRequest<Record<string, unknown>>(`/solo/trips/${tripId}`, {
+      method: 'GET',
+    });
+    return transformKeys<SoloTripResponse>(response);
+  },
+
+  /**
+   * Update trip status
+   */
+  updateStatus: async (tripId: string, status: string, paymentProof?: unknown): Promise<{ ok: boolean; status: string }> => {
+    return apiRequest('/solo/trips/' + tripId + '/status', {
+      method: 'POST',
+      body: JSON.stringify({ status, payment_proof: paymentProof }),
+    });
+  },
+
+  /**
+   * Select an itinerary for booking
+   */
+  selectItinerary: async (tripId: string, request: SoloSelectItineraryRequest): Promise<{ ok: boolean }> => {
+    return apiRequest('/solo/trips/' + tripId + '/select', {
+      method: 'POST',
+      body: JSON.stringify({
+        itinerary_id: request.itineraryId,
+        itinerary_snapshot: request.itinerarySnapshot,
+        cash_price_at_selection: request.cashPriceAtSelection,
+        out_of_pocket_at_selection: request.outOfPocketAtSelection,
+      }),
+    });
+  },
+
+  /**
+   * Get the selected itinerary
+   */
+  getSelection: async (tripId: string): Promise<{
+    ok: boolean;
+    itineraryId?: string;
+    itinerarySnapshot?: unknown;
+    cashPriceAtSelection?: number;
+    outOfPocketAtSelection?: number;
+    selectedAt?: string;
+  }> => {
+    const response = await apiRequest<Record<string, unknown>>(`/solo/trips/${tripId}/selection`, {
+      method: 'GET',
+    });
+    return transformKeys(response);
+  },
+
+  /**
+   * Get points balances for a trip
+   */
+  getPoints: async (tripId: string): Promise<SoloPointsSummaryResponse> => {
+    const response = await apiRequest<Record<string, unknown>>(`/solo/trips/${tripId}/points`, {
+      method: 'GET',
+    });
+    return transformKeys<SoloPointsSummaryResponse>(response);
+  },
+
+  /**
+   * Upsert points balances for a trip
+   */
+  upsertPoints: async (tripId: string, points: SoloPointsBalance[]): Promise<SoloPointsSummaryResponse> => {
+    const response = await apiRequest<Record<string, unknown>>(`/solo/trips/${tripId}/points`, {
+      method: 'POST',
+      body: JSON.stringify({
+        points: points.map(p => ({
+          program: p.program,
+          balance: p.balance,
+        })),
+      }),
+    });
+    return transformKeys<SoloPointsSummaryResponse>(response);
+  },
+
+  /**
+   * Run optimization - returns ranked itineraries
+   */
+  optimize: async (request: SoloOptimizeRequest): Promise<SoloOptimizeResponse> => {
+    const response = await apiRequest<Record<string, unknown>>('/solo/optimize', {
+      method: 'POST',
+      body: JSON.stringify({
+        trip_id: request.tripId,
+        points: request.points,
+        optimization_mode_override: request.optimizationModeOverride,
+      }),
+    });
+    return transformKeys<SoloOptimizeResponse>(response);
+  },
+
+  /**
+   * Get transfer strategy and booking instructions
+   */
+  getTransferStrategy: async (tripId: string, itineraryId: string): Promise<SoloTransferStrategyResponse> => {
+    const response = await apiRequest<Record<string, unknown>>('/solo/transfer-strategy', {
+      method: 'POST',
+      body: JSON.stringify({
+        trip_id: tripId,
+        itinerary_id: itineraryId,
+      }),
+    });
+    return transformKeys<SoloTransferStrategyResponse>(response);
+  },
+
+  /**
+   * Get cached optimization results (if available)
+   */
+  getOptimizationCache: async (tripId: string): Promise<SoloOptimizeResponse | null> => {
+    try {
+      const response = await apiRequest<Record<string, unknown>>(`/solo/optimization-cache/${tripId}`, {
+        method: 'GET',
+      });
+      return transformKeys<SoloOptimizeResponse>(response);
+    } catch {
+      return null;
+    }
+  },
+};
+
 export const optimization = {
   /**
    * Optimize solo trip - returns itineraries ranked by OOP (lowest first)

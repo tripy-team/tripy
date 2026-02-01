@@ -87,8 +87,11 @@ Return JSON with: {"programs": ["UA", "AA", ...], "reasoning": "..."}"""
                     option.cpp = (cash_saved / option.award_points) * 100
                     option.oop_if_award = option.award_surcharge or 0
         
-        # Sort by OOP (lowest first)
-        all_options.sort(key=lambda x: x.oop_if_award if x.award_available else (x.cash_price or float('inf')))
+        # Sort by OOP (lowest first), handling None values
+        all_options.sort(key=lambda x: (
+            x.oop_if_award if x.oop_if_award is not None and x.award_available 
+            else (x.cash_price if x.cash_price is not None else float('inf'))
+        ))
         
         duration_ms = int((time.time() - start_time) * 1000)
         

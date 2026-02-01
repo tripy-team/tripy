@@ -24,7 +24,7 @@ import {
   Copy,
   Check,
 } from 'lucide-react';
-import { itineraries as itinerariesAPI, trips as tripsAPI, destinations as destinationsAPI, generateItinerary } from '@/lib/api';
+import { solo, trips as tripsAPI, destinations as destinationsAPI, type SoloTransferStrategyResponse, type SoloTransferInstruction, type SoloBookingStep } from '@/lib/api';
 import { calculateServiceFee, SERVICE_FEE_PERCENT, formatDate, tripDurationDays } from '@/lib/utils';
 
 function humanizeProgram(code: string): string {
@@ -189,6 +189,16 @@ function SoloBookingContent() {
   const [loading, setLoading] = useState(true);
   const [expandedFlightIdx, setExpandedFlightIdx] = useState<number | null>(null);
   const [copiedText, setCopiedText] = useState<string | null>(null);
+  
+  // New solo booking state
+  const [selection, setSelection] = useState<{
+    itineraryId?: string;
+    itinerarySnapshot?: Record<string, unknown>;
+    cashPriceAtSelection?: number;
+    outOfPocketAtSelection?: number;
+  } | null>(null);
+  const [transferStrategy, setTransferStrategy] = useState<SoloTransferStrategyResponse | null>(null);
+  const [usingSoloApi, setUsingSoloApi] = useState(false);
 
   useEffect(() => {
     const fetchData = async () => {
@@ -197,18 +207,77 @@ function SoloBookingContent() {
         return;
       }
       try {
-        const [itineraryRes, tripData, destRes] = await Promise.all([
-          itinerariesAPI.get(tripId).catch(() => ({ items: [] })),
-          tripsAPI.get(tripId).catch(() => null),
-          destinationsAPI.list(tripId).catch(() => ({ destinations: [] })),
-        ]);
-        setTrip(tripData ?? null);
-        setItems(Array.isArray(itineraryRes?.items) ? itineraryRes.items : []);
-        const map = new Map<string, string>();
-        (destRes?.destinations || []).forEach((d: { destinationId?: string; name?: string }) => {
-          if (d?.destinationId && d?.name) map.set(d.destinationId, d.name);
-        });
-        setDestinationMap(map);
+        // Try to get selection from new solo API first
+        let usedSoloApi = false;
+        try {
+          const [selectionRes, tripData] = await Promise.all([
+            solo.getSelection(tripId).catch(() => null),
+            solo.getTrip(tripId).catch(() => null),
+          ]);
+          
+          if (selectionRes?.itineraryId && selectionRes?.itinerarySnapshot) {
+            setSelection(selectionRes);
+            setTrip(tripData);
+            setUsingSoloApi(true);
+            usedSoloApi = true;
+            
+            // Get transfer strategy if we have a selection
+            try {
+              const strategy = await solo.getTransferStrategy(tripId, selectionRes.itineraryId);
+              setTransferStrategy(strategy);
+            } catch (strategyErr) {
+              console.log('Could not fetch transfer strategy:', strategyErr);
+            }
+          } else {
+            // No selection found - try to get cached optimization results
+            console.log('No selection found, trying optimization cache...');
+            try {
+              const cacheRes = await solo.getOptimizationCache(tripId);
+              if (cacheRes?.itineraries && cacheRes.itineraries.length > 0) {
+                const bestItinerary = cacheRes.itineraries[0]; // Best OOP itinerary
+                
+                // Auto-select the best itinerary if none selected
+                await solo.selectItinerary(tripId, {
+                  itineraryId: bestItinerary.id,
+                  itinerarySnapshot: bestItinerary,
+                  cashPriceAtSelection: bestItinerary.oopMetrics?.totalCashPrice || 0,
+                  outOfPocketAtSelection: bestItinerary.oopMetrics?.totalOutOfPocket || 0,
+                });
+                
+                // Now get the selection we just saved
+                const newSelectionRes = await solo.getSelection(tripId);
+                if (newSelectionRes?.itineraryId && newSelectionRes?.itinerarySnapshot) {
+                  setSelection(newSelectionRes);
+                  setTrip(tripData);
+                  setUsingSoloApi(true);
+                  usedSoloApi = true;
+                  
+                  // Get transfer strategy
+                  const strategy = await solo.getTransferStrategy(tripId, newSelectionRes.itineraryId);
+                  setTransferStrategy(strategy);
+                }
+              }
+            } catch (cacheErr) {
+              console.log('No optimization cache available:', cacheErr);
+            }
+          }
+        } catch (soloErr) {
+          console.log('Solo API not available, falling back to legacy:', soloErr);
+        }
+        
+        // Fallback to legacy API if solo API didn't work
+        if (!usedSoloApi) {
+          const [tripData, destRes] = await Promise.all([
+            tripsAPI.get(tripId).catch(() => null),
+            destinationsAPI.list(tripId).catch(() => ({ destinations: [] })),
+          ]);
+          setTrip(tripData ?? null);
+          const map = new Map<string, string>();
+          (destRes?.destinations || []).forEach((d: { destinationId?: string; name?: string }) => {
+            if (d?.destinationId && d?.name) map.set(d.destinationId, d.name);
+          });
+          setDestinationMap(map);
+        }
       } catch (_err) {
         console.log('Error fetching booking data');
       } finally {
@@ -220,28 +289,22 @@ function SoloBookingContent() {
 
   const handlePayment = async () => {
     setIsProcessing(true);
+    
+    // Simulate payment processing (actual payment integration will be added later)
     if (tripId) {
-      try {
-        const result = await generateItinerary(tripId);
-        if (process.env.NODE_ENV === 'development') {
-          console.log('[SoloBooking] generateItinerary success', {
-            tripId,
-            status: (result as Record<string, unknown>)?.status,
-            itemCount: Array.isArray((result as Record<string, unknown>)?.items) 
-              ? ((result as Record<string, unknown>).items as unknown[]).length 
-              : 0,
-          });
-        }
-      } catch (err) {
-        if (process.env.NODE_ENV === 'development') {
-          console.error('[SoloBooking] generateItinerary failed', {
-            tripId,
-            error: err instanceof Error ? err.message : String(err),
-          });
-        }
-      }
+      // Try to update backend status, but don't block on failure
+      solo.updateStatus(tripId, 'instructions_unlocked', {
+        paidAt: new Date().toISOString(),
+        amount: serviceFee,
+        method: 'demo',
+      }).catch((err) => {
+        // Log but don't block - payment UI proceeds regardless
+        console.warn('Status update failed:', err);
+      });
     }
-    await new Promise((r) => setTimeout(r, 2000));
+    
+    // Simulate processing delay
+    await new Promise((r) => setTimeout(r, 1500));
     setIsProcessing(false);
     setIsPaid(true);
   };
@@ -608,6 +671,13 @@ function SoloBookingContent() {
 
   // Fallback when no payment data
   const hasData = transferSummaries.length > 0 || flightSegments.length > 0 || hotelBookings.length > 0;
+  
+  // Check if we have data from the new solo API
+  const hasSoloData = usingSoloApi && selection && transferStrategy;
+  const soloSnapshot = selection?.itinerarySnapshot as {
+    oopMetrics?: { totalCashPrice?: number; totalOutOfPocket?: number; cashSaved?: number; savingsPercentage?: number; totalPointsUsed?: number };
+    segments?: Array<{ segment?: string; type?: string; paymentMethod?: string; pointsUsed?: number; surcharge?: number; cashPrice?: number }>;
+  } | undefined;
 
   const SegmentIcon = ({ mode }: { mode: 'flight' | 'bus' | 'car' }) => (
     mode === 'flight' 
@@ -632,8 +702,32 @@ function SoloBookingContent() {
         {/* Left Column: Trip Details & Savings */}
         <div className="lg:col-span-2 space-y-8">
           
-          {/* Savings Highlight - only show when points are being used */}
-          {hasPointsPayments && savings > 0 ? (
+          {/* Savings Highlight - show from solo API or legacy */}
+          {hasSoloData && soloSnapshot?.oopMetrics?.cashSaved && soloSnapshot.oopMetrics.cashSaved > 0 ? (
+            <div className="bg-gradient-to-br from-blue-600 to-indigo-700 rounded-2xl p-8 text-white shadow-xl shadow-blue-900/10 relative overflow-hidden">
+              <div className="absolute top-0 right-0 w-64 h-64 bg-white/10 rounded-full -mr-16 -mt-16 blur-3xl"></div>
+              <div className="relative z-10">
+                <div className="flex items-center gap-2 text-blue-100 mb-1">
+                  <Sparkles className="w-5 h-5" />
+                  <span className="font-medium">Total Savings</span>
+                </div>
+                <div className="flex items-baseline gap-2 mb-4">
+                  <span className="text-5xl font-bold">${Math.round(soloSnapshot.oopMetrics.cashSaved).toLocaleString()}</span>
+                  <span className="text-blue-200">saved vs cash price</span>
+                </div>
+                <div className="grid grid-cols-2 gap-4 bg-white/10 rounded-xl p-4 border border-white/10">
+                  <div>
+                    <div className="text-blue-200 text-sm">Cash Price</div>
+                    <div className="text-xl font-semibold line-through opacity-70">${Math.round(soloSnapshot.oopMetrics.totalCashPrice || 0).toLocaleString()}</div>
+                  </div>
+                  <div>
+                    <div className="text-blue-200 text-sm">Your Cost</div>
+                    <div className="text-xl font-semibold text-green-300">${Math.round(soloSnapshot.oopMetrics.totalOutOfPocket || 0).toLocaleString()}</div>
+                  </div>
+                </div>
+              </div>
+            </div>
+          ) : hasPointsPayments && savings > 0 ? (
             <div className="bg-gradient-to-br from-blue-600 to-indigo-700 rounded-2xl p-8 text-white shadow-xl shadow-blue-900/10 relative overflow-hidden">
               <div className="absolute top-0 right-0 w-64 h-64 bg-white/10 rounded-full -mr-16 -mt-16 blur-3xl"></div>
               <div className="relative z-10">
@@ -715,9 +809,188 @@ function SoloBookingContent() {
               )}
 
               <div className={`p-6 space-y-6 ${!isPaid ? 'opacity-20 select-none' : ''}`}>
-                {hasData ? (
+                {/* New Solo API Transfer Strategy */}
+                {hasSoloData && transferStrategy ? (
                   <>
-                    {/* Step 1: Transfer Summary - Condensed view of all transfers by card */}
+                    {/* Step 1: Transfer Points */}
+                    {transferStrategy.transfers.length > 0 && (
+                      <div className="space-y-4">
+                        <div className="flex items-center gap-3">
+                          <div className="flex-shrink-0 w-8 h-8 rounded-full bg-gradient-to-br from-blue-500 to-blue-600 text-white flex items-center justify-center font-bold text-sm shadow-md">1</div>
+                          <div>
+                            <h3 className="font-semibold text-slate-900">Transfer Points</h3>
+                            <p className="text-xs text-slate-500">Move {transferStrategy.totalPointsToTransfer.toLocaleString()} points • Estimated time: {transferStrategy.estimatedTotalTime}</p>
+                          </div>
+                        </div>
+                        
+                        <div className="ml-11 space-y-3">
+                          {transferStrategy.transfers.map((transfer, idx) => (
+                            <div key={idx} className="flex items-center justify-between p-4 bg-gradient-to-r from-blue-50 to-indigo-50 rounded-xl border border-blue-100 shadow-sm">
+                              <div className="flex items-center gap-4">
+                                <div className="p-2 bg-white rounded-lg shadow-sm">
+                                  <CreditCard className="w-5 h-5 text-blue-600" />
+                                </div>
+                                <div>
+                                  <div className="font-semibold text-slate-900">{humanizeProgram(transfer.sourceProgram)}</div>
+                                  <div className="flex items-center gap-2 text-sm text-slate-600 mt-0.5">
+                                    <ArrowRight className="w-3 h-3" />
+                                    <span>{humanizeProgram(transfer.targetProgram)}</span>
+                                  </div>
+                                  {transfer.warning && (
+                                    <div className="text-xs text-amber-600 mt-1">{transfer.warning}</div>
+                                  )}
+                                </div>
+                              </div>
+                              <div className="text-right">
+                                <div className="text-xl font-bold text-blue-700">{transfer.pointsToTransfer.toLocaleString()}</div>
+                                <div className="text-xs text-slate-500">points • {transfer.expectedTransferTime}</div>
+                                {transfer.portalUrl && (
+                                  <a href={transfer.portalUrl} target="_blank" rel="noopener noreferrer" className="text-xs text-blue-600 hover:underline mt-1 inline-flex items-center gap-1">
+                                    Transfer portal <ExternalLink className="w-3 h-3" />
+                                  </a>
+                                )}
+                              </div>
+                            </div>
+                          ))}
+                        </div>
+                      </div>
+                    )}
+
+                    {/* Step 2: Book Flights/Hotels */}
+                    {transferStrategy.bookings.length > 0 && (
+                      <div className="space-y-4">
+                        <div className="flex items-center gap-3">
+                          <div className="flex-shrink-0 w-8 h-8 rounded-full bg-gradient-to-br from-blue-500 to-blue-600 text-white flex items-center justify-center font-bold text-sm shadow-md">
+                            {transferStrategy.transfers.length > 0 ? '2' : '1'}
+                          </div>
+                          <div>
+                            <h3 className="font-semibold text-slate-900">Book Your Trip</h3>
+                            <p className="text-xs text-slate-500">Use your transferred points to book these segments</p>
+                          </div>
+                        </div>
+                        
+                        <div className="ml-11 space-y-3">
+                          {transferStrategy.bookings.map((booking, idx) => (
+                            <div key={idx} className="bg-white rounded-xl border border-slate-200 shadow-sm overflow-hidden">
+                              <div className="p-4">
+                                <div className="flex items-start gap-4">
+                                  <div className={`p-2 rounded-lg ${booking.type === 'flight' ? 'bg-blue-50' : 'bg-amber-50'}`}>
+                                    {booking.type === 'flight' ? (
+                                      <Plane className="w-5 h-5 text-blue-600" />
+                                    ) : (
+                                      <Building2 className="w-5 h-5 text-amber-600" />
+                                    )}
+                                  </div>
+                                  <div className="flex-1">
+                                    <div className="flex items-center gap-2">
+                                      <span className="font-semibold text-slate-900">
+                                        {booking.type === 'flight' ? booking.airline : booking.hotelChain}
+                                      </span>
+                                      {booking.flightNumber && (
+                                        <span className="text-xs bg-slate-100 text-slate-600 px-2 py-0.5 rounded">{booking.flightNumber}</span>
+                                      )}
+                                      <span className={`text-xs px-2 py-0.5 rounded ${
+                                        booking.paymentMethod === 'points' 
+                                          ? 'bg-green-100 text-green-700' 
+                                          : 'bg-slate-100 text-slate-600'
+                                      }`}>
+                                        {booking.paymentMethod === 'points' ? 'Award' : 'Cash'}
+                                      </span>
+                                    </div>
+                                    
+                                    {/* Flight Details */}
+                                    {booking.type === 'flight' && (
+                                      <div className="mt-2 space-y-1">
+                                        <div className="flex items-center gap-4 text-sm">
+                                          <span className="font-medium text-slate-800">{booking.origin}</span>
+                                          <ArrowRight className="w-4 h-4 text-slate-400" />
+                                          <span className="font-medium text-slate-800">{booking.destination}</span>
+                                          {booking.cabinClass && (
+                                            <span className="text-slate-500">• {booking.cabinClass}</span>
+                                          )}
+                                        </div>
+                                        {booking.departureTime && (
+                                          <div className="text-xs text-slate-500">
+                                            Departs: {new Date(booking.departureTime).toLocaleString('en-US', { 
+                                              weekday: 'short', month: 'short', day: 'numeric', 
+                                              hour: 'numeric', minute: '2-digit' 
+                                            })}
+                                            {booking.durationMinutes && (
+                                              <span> • {Math.floor(booking.durationMinutes / 60)}h {booking.durationMinutes % 60}m flight</span>
+                                            )}
+                                          </div>
+                                        )}
+                                      </div>
+                                    )}
+                                    
+                                    {/* Hotel Details */}
+                                    {booking.type === 'hotel' && (
+                                      <div className="mt-2 space-y-1">
+                                        <div className="text-sm text-slate-600">{booking.city}</div>
+                                        {booking.checkIn && booking.checkOut && (
+                                          <div className="text-xs text-slate-500">
+                                            {new Date(booking.checkIn).toLocaleDateString('en-US', { month: 'short', day: 'numeric' })} 
+                                            {' → '}
+                                            {new Date(booking.checkOut).toLocaleDateString('en-US', { month: 'short', day: 'numeric' })}
+                                            {booking.nights && <span> • {booking.nights} night{booking.nights > 1 ? 's' : ''}</span>}
+                                          </div>
+                                        )}
+                                      </div>
+                                    )}
+                                    
+                                    {/* Payment Info */}
+                                    <div className="mt-2 flex items-center gap-4 text-sm">
+                                      {booking.paymentMethod === 'points' && booking.pointsUsed ? (
+                                        <>
+                                          <span className="text-blue-600 font-medium">{booking.pointsUsed.toLocaleString()} pts</span>
+                                          {booking.surcharge && booking.surcharge > 0 && (
+                                            <span className="text-slate-500">+ ${booking.surcharge.toFixed(0)} taxes</span>
+                                          )}
+                                          {booking.program && (
+                                            <span className="text-slate-400">via {humanizeProgram(booking.program)}</span>
+                                          )}
+                                        </>
+                                      ) : (
+                                        <span className="text-slate-600">${booking.cashPrice?.toLocaleString() || 0}</span>
+                                      )}
+                                    </div>
+                                  </div>
+                                  {booking.bookingUrl && (
+                                    <a
+                                      href={booking.bookingUrl}
+                                      target="_blank"
+                                      rel="noopener noreferrer"
+                                      className="px-4 py-2 bg-blue-600 text-white text-sm font-medium rounded-lg hover:bg-blue-700 transition-colors flex items-center gap-2 self-start"
+                                    >
+                                      Book <ExternalLink className="w-4 h-4" />
+                                    </a>
+                                  )}
+                                </div>
+                              </div>
+                            </div>
+                          ))}
+                        </div>
+                      </div>
+                    )}
+
+                    {/* Warnings */}
+                    {transferStrategy.warnings.length > 0 && (
+                      <div className="p-4 bg-amber-50 border border-amber-200 rounded-xl">
+                        <div className="flex items-center gap-2 text-amber-800 font-medium text-sm mb-2">
+                          <Info className="w-4 h-4" />
+                          Important Notes
+                        </div>
+                        <ul className="text-sm text-amber-700 space-y-1">
+                          {transferStrategy.warnings.map((warning, idx) => (
+                            <li key={idx}>• {warning}</li>
+                          ))}
+                        </ul>
+                      </div>
+                    )}
+                  </>
+                ) : hasData ? (
+                  <>
+                    {/* Legacy Step 1: Transfer Summary - Condensed view of all transfers by card */}
                     {transferSummaries.length > 0 && (
                       <div className="space-y-4">
                         <div className="flex items-center gap-3">

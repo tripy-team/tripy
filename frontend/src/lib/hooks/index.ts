@@ -47,6 +47,25 @@ export {
 } from './useGroupAllocation';
 export { useDynamicRoute } from './useDynamicRoute';
 
+// Solo booking hooks
+export { 
+  useSoloOptimization, 
+  fetchOptimizeSolo,
+  type UseSoloOptimizationResult,
+  type OptimizeSoloResponse,
+  type RankedItinerary,
+  type SegmentBreakdown,
+  type OOPMetrics,
+  type TransferInsight,
+  type TransferInstruction as SoloTransferInstruction,
+} from './useSoloOptimization';
+export {
+  useSoloTransferStrategy,
+  type UseSoloTransferStrategyResult,
+  type BookingGuideStep,
+  type BookingStep,
+} from './useSoloTransferStrategy';
+
 // Re-export dynamic route types from the main types file for convenience
 export type {
   DynamicRouteRequest,

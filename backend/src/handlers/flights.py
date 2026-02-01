@@ -815,7 +815,43 @@ async def search_awardtool_flights(
         for item in data:
             if not isinstance(item, dict):
                 continue
+            
+            # Handle V2 API format (flat structure)
+            if "airline_code" in item:
+                prog = (item.get("airline_code") or "").upper()
+                pts = item.get("award_points")
+                sur = item.get("surcharge") or 0
+                cabin = item.get("cabin_type") or "Economy"
+                cash = item.get("cash_fare")
                 
+                # V2 format uses 'date' field for departure date (YYYY-MM-DD format)
+                # We need to preserve this for the optimizer
+                flight_date = item.get("date")  # e.g., "2026-02-11"
+                dep_time = item.get("departure_time") or item.get("departure") or (f"{flight_date}T00:00:00" if flight_date else None)
+                arr_time = item.get("arrival_time") or item.get("arrival")
+                
+                results.append({
+                    "airline": prog,
+                    "cabin": cabin,
+                    "cash_price": float(cash) if cash else None,
+                    "program": prog,
+                    "points": int(pts) if pts else None,
+                    "surcharge": float(sur) if sur else 0,
+                    "available": pts is not None,
+                    "departure_time": dep_time,
+                    "arrival_time": arr_time,
+                    # duration_minutes from V2 API; DO NOT use 'distance' as fallback (it's miles, not minutes)
+                    # Estimate based on distance: ~500mph average speed for jets
+                    "duration": item.get("duration_minutes") or item.get("travel_minutes") or (
+                        int(item.get("distance", 0) / 8.3) if item.get("distance") else 180  # ~500mph = 8.3 miles/min
+                    ),
+                    "stops": item.get("stops", 0),
+                    "flight_numbers": item.get("flight_numbers", []),
+                    "date": flight_date,  # Preserve the date for the optimizer
+                })
+                continue
+            
+            # Handle V1 API format (nested fare.products structure)
             fare = item.get("fare") or {}
             products = fare.get("products") or []
             
@@ -835,7 +871,7 @@ async def search_awardtool_flights(
                 results.append({
                     "airline": prog,
                     "cabin": cabin,
-                    "cash_price": None,  # AwardTool doesn't provide cash price
+                    "cash_price": None,  # AwardTool doesn't provide cash price in V1
                     "program": prog,
                     "points": int(pts) if pts else None,
                     "surcharge": float(sur) if sur else 0,

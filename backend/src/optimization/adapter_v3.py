@@ -59,11 +59,18 @@ def convert_trip_to_spec(
         normalized = normalize_program(prog)
         bank_normalized = normalize_bank(prog)
         
+        logger.info(f"[V3 Adapter] Points: {prog} -> normalized={normalized}, bank={bank_normalized}")
+        
         # Check if it's a bank (transferable) or airline/hotel program
         if bank_normalized in {"chase", "amex", "citi", "capital_one", "bilt"}:
             bank_balances[bank_normalized] = balance
+            logger.info(f"[V3 Adapter] Added to bank_balances: {bank_normalized}={balance:,}")
         else:
             points_balances[normalized] = balance
+            logger.info(f"[V3 Adapter] Added to points_balances: {normalized}={balance:,}")
+    
+    logger.info(f"[V3 Adapter] Final bank_balances: {bank_balances}")
+    logger.info(f"[V3 Adapter] Final points_balances: {points_balances}")
     
     # Create single traveler (solo trip)
     traveler = Traveler(
@@ -533,8 +540,11 @@ def convert_result_to_itineraries(
             cpp = opt.cpp if opt else 0
             cash_saved = (flight.cash_cost - payment_choice.cash_amount) if opt else 0
             
+            # Ensure program is never None
+            program = (opt.program if opt and opt.program else None) or "unknown"
+            
             payment = PointsPayment(
-                program=opt.program if opt else "unknown",
+                program=program,
                 points_used=payment_choice.points_amount,
                 surcharge=payment_choice.cash_amount,
                 cpp_achieved=cpp,
@@ -608,8 +618,31 @@ def convert_result_to_itineraries(
         
         payment_choice = solution.hotel_payments.get(hotel_id)
         
-        # Find the room type used
-        room_type = hotel.room_types[0] if hotel.room_types else None
+        # Find the room type used - match by award_option_id if using points
+        room_type = None
+        if payment_choice and payment_choice.method == "points" and payment_choice.award_option_id:
+            # Find the room type that matches the ILP's choice
+            logger.info(f"[V3 Adapter] Hotel {hotel_id}: Looking for room type '{payment_choice.award_option_id}'")
+            logger.info(f"[V3 Adapter] Hotel {hotel_id}: Available room types: {[rt.room_type_id for rt in hotel.room_types]}")
+            room_type = next(
+                (rt for rt in hotel.room_types if rt.room_type_id == payment_choice.award_option_id),
+                None
+            )
+            # If not found by ID, try to find any room type with award pricing
+            if not room_type:
+                logger.info(f"[V3 Adapter] Hotel {hotel_id}: Room type not found by ID, looking for any award room")
+                room_type = next(
+                    (rt for rt in hotel.room_types if rt.has_award_pricing),
+                    None
+                )
+            if room_type:
+                logger.info(f"[V3 Adapter] Hotel {hotel_id}: Found room type '{room_type.room_type_id}' with program '{room_type.award_program}'")
+                logger.info(f"[V3 Adapter] Hotel {hotel_id}: payment funding_source_id='{payment_choice.funding_source_id}'")
+        # Fall back to first room type for cash payments or if nothing found
+        if not room_type:
+            room_type = hotel.room_types[0] if hotel.room_types else None
+            logger.info(f"[V3 Adapter] Hotel {hotel_id}: Fell back to room type '{room_type.room_type_id if room_type else None}'")
+            
         cash_per_night = room_type.cash_per_night if room_type else 0
         cash_total = cash_per_night * nights * total_rooms
         
@@ -617,7 +650,16 @@ def convert_result_to_itineraries(
         
         if payment_choice and payment_choice.method == "points":
             points_per_night = room_type.points_per_night if room_type and room_type.has_award_pricing else 0
-            program = room_type.award_program if room_type else "unknown"
+            # Ensure program is never None - use the award_option_id to extract program if available
+            program = None
+            if room_type and room_type.award_program:
+                program = room_type.award_program
+            elif payment_choice.award_option_id:
+                # Try to extract program from award_option_id (format: hotel_X_Y_PROGRAM)
+                parts = payment_choice.award_option_id.split("_")
+                if len(parts) >= 4:
+                    program = parts[-1]  # Last part is typically the program
+            program = program or "unknown"
             
             payment = PointsPayment(
                 program=program,
@@ -630,6 +672,23 @@ def convert_result_to_itineraries(
             total_oop += payment_choice.cash_amount
             total_points_used += payment_choice.points_amount
             points_breakdown[program] = points_breakdown.get(program, 0) + payment_choice.points_amount
+            
+            # Check for transfer (same as flights)
+            if payment_choice.funding_source_id and "transfer" in payment_choice.funding_source_id:
+                parts = payment_choice.funding_source_id.split("_")
+                if len(parts) >= 4:
+                    from_bank = parts[2]
+                    to_prog = parts[3]
+                    transfers.append(TransferInstruction(
+                        from_program=from_bank,
+                        to_program=to_prog,
+                        points_to_transfer=payment_choice.points_amount,
+                        ratio=1.0,
+                        portal_url=f"https://{from_bank}.com/transfer",
+                        transfer_time="Instant",
+                        steps=[f"Transfer {payment_choice.points_amount:,} from {from_bank} to {to_prog}"],
+                    ))
+                    logger.info(f"[V3 Adapter] Hotel transfer: {from_bank} -> {to_prog}: {payment_choice.points_amount:,} pts")
         else:
             payment = CashPayment(amount=cash_total)
             total_oop += cash_total
@@ -681,6 +740,14 @@ def convert_result_to_itineraries(
         summary=f"Save ${cash_saved:.0f} ({savings_pct:.0f}% off) by using {total_points_used:,} points",
     )
     
+    # Debug log transfers
+    logger.info(f"[V3 Adapter] Built itinerary with {len(transfers)} transfers, {len(itinerary_segments)} segments")
+    if transfers:
+        for t in transfers:
+            logger.info(f"[V3 Adapter] Transfer: {t.from_program} -> {t.to_program}: {t.points_to_transfer:,} pts")
+    else:
+        logger.info(f"[V3 Adapter] No transfers - payments: {points_breakdown}")
+    
     return [itinerary]
 
 
@@ -731,6 +798,9 @@ async def run_v3_optimization(
     transfers = build_transfer_paths(user_points)
     
     logger.info(f"[V3 Adapter] Converted: {len(flights)} flights, {len(hotels)} hotels, {len(transfers)} transfer paths")
+    if transfers:
+        for tp in transfers[:5]:  # Log first 5
+            logger.info(f"[V3 Adapter] Transfer path: {tp.from_bank} -> {tp.to_program}")
     
     if not flights:
         logger.warning("[V3 Adapter] No flights to optimize")

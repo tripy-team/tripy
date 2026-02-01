@@ -27,6 +27,158 @@ HOTEL_CALENDAR_URL = "https://www.awardtool-api.com/api/hotel_calendar"
 # Default hotel programs if none provided (AwardTool: Hilton, IHG, Marriott, Hyatt)
 DEFAULT_HOTEL_PROGRAMS = ["HH", "IHG", "MAR", "HYATT"]
 
+# Known hotel IDs by city for calendar-based search
+# Format: city_code/city_name -> list of (hotel_id, program, display_name, star_rating)
+KNOWN_HOTELS_BY_CITY: Dict[str, List[Dict[str, Any]]] = {
+    # Paris
+    "paris": [
+        {"hotel_id": "hyatt_madel", "program": "HYATT", "name": "Park Hyatt Paris-Vendome", "stars": 5},
+        {"hotel_id": "hyatt_parac", "program": "HYATT", "name": "Hyatt Paris Madeleine", "stars": 5},
+        {"hotel_id": "marriott_parch", "program": "MAR", "name": "Paris Marriott Champs Elysees", "stars": 5},
+        {"hotel_id": "marriott_parope", "program": "MAR", "name": "Paris Marriott Opera Ambassador", "stars": 4},
+        {"hotel_id": "hilton_parop", "program": "HH", "name": "Hilton Paris Opera", "stars": 4},
+        {"hotel_id": "ihg_parch", "program": "IHG", "name": "InterContinental Paris Champs-Elysees", "stars": 5},
+    ],
+    "cdg": [  # Paris by airport code
+        {"hotel_id": "hyatt_madel", "program": "HYATT", "name": "Park Hyatt Paris-Vendome", "stars": 5},
+        {"hotel_id": "hyatt_parac", "program": "HYATT", "name": "Hyatt Paris Madeleine", "stars": 5},
+        {"hotel_id": "marriott_parch", "program": "MAR", "name": "Paris Marriott Champs Elysees", "stars": 5},
+        {"hotel_id": "hilton_parop", "program": "HH", "name": "Hilton Paris Opera", "stars": 4},
+    ],
+    # London
+    "london": [
+        {"hotel_id": "hyatt_lonch", "program": "HYATT", "name": "Hyatt Regency London Churchill", "stars": 5},
+        {"hotel_id": "marriott_lonpk", "program": "MAR", "name": "London Marriott Park Lane", "stars": 5},
+        {"hotel_id": "marriott_lonco", "program": "MAR", "name": "London Marriott County Hall", "stars": 5},
+        {"hotel_id": "hilton_lonpk", "program": "HH", "name": "London Hilton Park Lane", "stars": 5},
+        {"hotel_id": "ihg_lonwm", "program": "IHG", "name": "InterContinental London Westminster", "stars": 5},
+    ],
+    "lhr": [  # London by airport code
+        {"hotel_id": "hyatt_lonch", "program": "HYATT", "name": "Hyatt Regency London Churchill", "stars": 5},
+        {"hotel_id": "marriott_lonpk", "program": "MAR", "name": "London Marriott Park Lane", "stars": 5},
+        {"hotel_id": "hilton_lonpk", "program": "HH", "name": "London Hilton Park Lane", "stars": 5},
+    ],
+    # New York
+    "new york": [
+        {"hotel_id": "hyatt_nycgc", "program": "HYATT", "name": "Grand Hyatt New York", "stars": 4},
+        {"hotel_id": "hyatt_nycts", "program": "HYATT", "name": "Hyatt Times Square", "stars": 4},
+        {"hotel_id": "marriott_nycmq", "program": "MAR", "name": "New York Marriott Marquis", "stars": 4},
+        {"hotel_id": "hilton_nycmid", "program": "HH", "name": "New York Hilton Midtown", "stars": 4},
+        {"hotel_id": "ihg_nycba", "program": "IHG", "name": "InterContinental New York Barclay", "stars": 5},
+    ],
+    "jfk": [
+        {"hotel_id": "hyatt_nycgc", "program": "HYATT", "name": "Grand Hyatt New York", "stars": 4},
+        {"hotel_id": "marriott_nycmq", "program": "MAR", "name": "New York Marriott Marquis", "stars": 4},
+        {"hotel_id": "hilton_nycmid", "program": "HH", "name": "New York Hilton Midtown", "stars": 4},
+    ],
+    # Tokyo
+    "tokyo": [
+        {"hotel_id": "hyatt_tyopr", "program": "HYATT", "name": "Park Hyatt Tokyo", "stars": 5},
+        {"hotel_id": "hyatt_tyosh", "program": "HYATT", "name": "Hyatt Regency Tokyo", "stars": 4},
+        {"hotel_id": "marriott_tyopr", "program": "MAR", "name": "The Prince Gallery Tokyo Kioicho", "stars": 5},
+        {"hotel_id": "hilton_tyood", "program": "HH", "name": "Hilton Tokyo Odaiba", "stars": 4},
+    ],
+    "nrt": [
+        {"hotel_id": "hyatt_tyopr", "program": "HYATT", "name": "Park Hyatt Tokyo", "stars": 5},
+        {"hotel_id": "marriott_tyopr", "program": "MAR", "name": "The Prince Gallery Tokyo Kioicho", "stars": 5},
+    ],
+    "hnd": [
+        {"hotel_id": "hyatt_tyopr", "program": "HYATT", "name": "Park Hyatt Tokyo", "stars": 5},
+        {"hotel_id": "marriott_tyopr", "program": "MAR", "name": "The Prince Gallery Tokyo Kioicho", "stars": 5},
+    ],
+    # Los Angeles
+    "los angeles": [
+        {"hotel_id": "hyatt_laxrw", "program": "HYATT", "name": "Hyatt Regency LAX", "stars": 4},
+        {"hotel_id": "marriott_laxdw", "program": "MAR", "name": "LA Marriott Downtown", "stars": 4},
+        {"hotel_id": "hilton_laxap", "program": "HH", "name": "Hilton Los Angeles Airport", "stars": 4},
+    ],
+    "lax": [
+        {"hotel_id": "hyatt_laxrw", "program": "HYATT", "name": "Hyatt Regency LAX", "stars": 4},
+        {"hotel_id": "marriott_laxdw", "program": "MAR", "name": "LA Marriott Downtown", "stars": 4},
+        {"hotel_id": "hilton_laxap", "program": "HH", "name": "Hilton Los Angeles Airport", "stars": 4},
+    ],
+    # San Francisco
+    "san francisco": [
+        {"hotel_id": "hyatt_sfore", "program": "HYATT", "name": "Hyatt Regency SF", "stars": 4},
+        {"hotel_id": "marriott_sfoun", "program": "MAR", "name": "San Francisco Marriott Union Square", "stars": 4},
+        {"hotel_id": "hilton_sfoun", "program": "HH", "name": "Hilton San Francisco Union Square", "stars": 4},
+    ],
+    "sfo": [
+        {"hotel_id": "hyatt_sfore", "program": "HYATT", "name": "Hyatt Regency SF", "stars": 4},
+        {"hotel_id": "marriott_sfoun", "program": "MAR", "name": "San Francisco Marriott Union Square", "stars": 4},
+    ],
+    # Chicago
+    "chicago": [
+        {"hotel_id": "hyatt_ordmg", "program": "HYATT", "name": "Hyatt Regency Chicago", "stars": 4},
+        {"hotel_id": "marriott_ordmg", "program": "MAR", "name": "Chicago Marriott Magnificent Mile", "stars": 4},
+        {"hotel_id": "hilton_ordmg", "program": "HH", "name": "Hilton Chicago", "stars": 4},
+    ],
+    "ord": [
+        {"hotel_id": "hyatt_ordmg", "program": "HYATT", "name": "Hyatt Regency Chicago", "stars": 4},
+        {"hotel_id": "marriott_ordmg", "program": "MAR", "name": "Chicago Marriott Magnificent Mile", "stars": 4},
+    ],
+    # Miami
+    "miami": [
+        {"hotel_id": "hyatt_miacb", "program": "HYATT", "name": "Hyatt Centric South Beach", "stars": 4},
+        {"hotel_id": "marriott_miabt", "program": "MAR", "name": "Miami Marriott Biscayne Bay", "stars": 4},
+        {"hotel_id": "hilton_miadw", "program": "HH", "name": "Hilton Miami Downtown", "stars": 4},
+    ],
+    "mia": [
+        {"hotel_id": "hyatt_miacb", "program": "HYATT", "name": "Hyatt Centric South Beach", "stars": 4},
+        {"hotel_id": "marriott_miabt", "program": "MAR", "name": "Miami Marriott Biscayne Bay", "stars": 4},
+    ],
+    # Barcelona
+    "barcelona": [
+        {"hotel_id": "hyatt_bcnrg", "program": "HYATT", "name": "Hyatt Regency Barcelona Tower", "stars": 5},
+        {"hotel_id": "marriott_bcnfh", "program": "MAR", "name": "W Barcelona", "stars": 5},
+        {"hotel_id": "hilton_bcndi", "program": "HH", "name": "Hilton Barcelona", "stars": 4},
+    ],
+    "bcn": [
+        {"hotel_id": "hyatt_bcnrg", "program": "HYATT", "name": "Hyatt Regency Barcelona Tower", "stars": 5},
+        {"hotel_id": "marriott_bcnfh", "program": "MAR", "name": "W Barcelona", "stars": 5},
+    ],
+    # Rome
+    "rome": [
+        {"hotel_id": "marriott_romex", "program": "MAR", "name": "Rome Marriott Grand Hotel Flora", "stars": 5},
+        {"hotel_id": "hilton_romca", "program": "HH", "name": "Rome Cavalieri Waldorf Astoria", "stars": 5},
+        {"hotel_id": "ihg_romvv", "program": "IHG", "name": "InterContinental Rome Villa Borghese", "stars": 5},
+    ],
+    "fco": [
+        {"hotel_id": "marriott_romex", "program": "MAR", "name": "Rome Marriott Grand Hotel Flora", "stars": 5},
+        {"hotel_id": "hilton_romca", "program": "HH", "name": "Rome Cavalieri Waldorf Astoria", "stars": 5},
+    ],
+    # Singapore
+    "singapore": [
+        {"hotel_id": "hyatt_singh", "program": "HYATT", "name": "Grand Hyatt Singapore", "stars": 5},
+        {"hotel_id": "marriott_sintn", "program": "MAR", "name": "Singapore Marriott Tang Plaza", "stars": 5},
+        {"hotel_id": "hilton_sinor", "program": "HH", "name": "Hilton Singapore Orchard", "stars": 5},
+    ],
+    "sin": [
+        {"hotel_id": "hyatt_singh", "program": "HYATT", "name": "Grand Hyatt Singapore", "stars": 5},
+        {"hotel_id": "marriott_sintn", "program": "MAR", "name": "Singapore Marriott Tang Plaza", "stars": 5},
+    ],
+    # Dubai
+    "dubai": [
+        {"hotel_id": "hyatt_dxbgr", "program": "HYATT", "name": "Grand Hyatt Dubai", "stars": 5},
+        {"hotel_id": "marriott_dxbjb", "program": "MAR", "name": "JW Marriott Marquis Dubai", "stars": 5},
+        {"hotel_id": "hilton_dxbal", "program": "HH", "name": "Hilton Dubai Al Habtoor City", "stars": 5},
+    ],
+    "dxb": [
+        {"hotel_id": "hyatt_dxbgr", "program": "HYATT", "name": "Grand Hyatt Dubai", "stars": 5},
+        {"hotel_id": "marriott_dxbjb", "program": "MAR", "name": "JW Marriott Marquis Dubai", "stars": 5},
+    ],
+    # Hong Kong
+    "hong kong": [
+        {"hotel_id": "hyatt_hkggr", "program": "HYATT", "name": "Grand Hyatt Hong Kong", "stars": 5},
+        {"hotel_id": "marriott_hkgsh", "program": "MAR", "name": "JW Marriott Hong Kong", "stars": 5},
+        {"hotel_id": "hilton_hkgcp", "program": "HH", "name": "Conrad Hong Kong", "stars": 5},
+    ],
+    "hkg": [
+        {"hotel_id": "hyatt_hkggr", "program": "HYATT", "name": "Grand Hyatt Hong Kong", "stars": 5},
+        {"hotel_id": "marriott_hkgsh", "program": "MAR", "name": "JW Marriott Hong Kong", "stars": 5},
+    ],
+}
+
 TIMEOUT = httpx.Timeout(connect=5.0, read=25.0, write=5.0, pool=20)
 TIMEOUT_CALENDAR = httpx.Timeout(connect=5.0, read=30.0, write=5.0, pool=20)  # Calendar API needs longer timeout
 
@@ -219,6 +371,171 @@ def search_hotels(
 # AGENT-COMPATIBLE WRAPPER FUNCTIONS
 # ===========================================================================
 
+def _normalize_city_key(city: str) -> str:
+    """Normalize city name to match KNOWN_HOTELS_BY_CITY keys."""
+    if not city:
+        return ""
+    # Lowercase and strip
+    normalized = city.lower().strip()
+    # Remove common suffixes
+    for suffix in [", france", ", uk", ", usa", ", japan", ", spain", ", italy", ", singapore", ", uae", ", china"]:
+        if normalized.endswith(suffix):
+            normalized = normalized[:-len(suffix)]
+    return normalized
+
+
+def _get_known_hotels_for_city(city: str, programs: Optional[List[str]] = None) -> List[Dict[str, Any]]:
+    """Get known hotels for a city, optionally filtered by programs."""
+    city_key = _normalize_city_key(city)
+    hotels = KNOWN_HOTELS_BY_CITY.get(city_key, [])
+    
+    if programs:
+        prog_set = {p.upper() for p in programs}
+        hotels = [h for h in hotels if h.get("program") in prog_set]
+    
+    return hotels
+
+
+async def _search_hotels_via_calendar(
+    city: str,
+    check_in: str,
+    check_out: str,
+    programs: Optional[List[str]] = None,
+    star_ratings: Optional[List[int]] = None,
+    client: Optional[httpx.AsyncClient] = None,
+) -> List[Dict[str, Any]]:
+    """
+    Search for hotels using the hotel_calendar API endpoint.
+    
+    This is the preferred method since the search_hotel endpoint is unreliable.
+    Uses known hotel IDs for popular cities to query calendar data.
+    
+    Args:
+        city: City name or airport code
+        check_in: Check-in date YYYY-MM-DD
+        check_out: Check-out date YYYY-MM-DD
+        programs: List of hotel programs to search
+        star_ratings: Star ratings to filter
+        client: Optional HTTP client
+        
+    Returns:
+        List of hotel options with pricing from calendar data
+    """
+    own_client = client is None
+    if own_client:
+        client = httpx.AsyncClient(
+            http2=True,
+            headers={"User-Agent": "Tripy/1.0", "Content-Type": "application/json"},
+        )
+    
+    try:
+        # Get known hotels for this city
+        known_hotels = _get_known_hotels_for_city(city, programs)
+        
+        if not known_hotels:
+            logger.info(f"No known hotels for city: {city} (normalized: {_normalize_city_key(city)})")
+            return []
+        
+        # Filter by star ratings if specified
+        if star_ratings:
+            known_hotels = [h for h in known_hotels if h.get("stars") in star_ratings]
+        
+        if not known_hotels:
+            logger.info(f"No hotels matching star ratings {star_ratings} for {city}")
+            return []
+        
+        # Calculate nights
+        try:
+            ci = datetime.strptime(check_in, "%Y-%m-%d")
+            co = datetime.strptime(check_out, "%Y-%m-%d")
+            nights = (co - ci).days
+        except:
+            nights = 1
+        
+        # Query calendar for each hotel in parallel
+        async def fetch_hotel_calendar(hotel_info: Dict[str, Any]) -> Optional[Dict[str, Any]]:
+            hotel_id = hotel_info.get("hotel_id")
+            if not hotel_id:
+                return None
+            
+            try:
+                body = await _awardtool_hotel_calendar(hotel_id, check_in, client)
+                
+                if body.get("error"):
+                    logger.debug(f"Calendar error for {hotel_id}: {body.get('error')}")
+                    return None
+                
+                # Parse calendar records
+                records = _parse_hotel_calendar_results(body)
+                
+                # Filter to our date range
+                filtered_records = []
+                for rec in records:
+                    rec_date = rec.get("date", "")
+                    if rec_date >= check_in and rec_date < check_out:
+                        filtered_records.append(rec)
+                
+                if not filtered_records:
+                    logger.debug(f"No availability for {hotel_id} from {check_in} to {check_out}")
+                    return None
+                
+                # Calculate totals - use the first room type for simplicity
+                # Group by date to get one record per night
+                dates_seen = set()
+                unique_records = []
+                for rec in filtered_records:
+                    if rec.get("date") not in dates_seen:
+                        dates_seen.add(rec.get("date"))
+                        unique_records.append(rec)
+                
+                total_points = sum(r.get("points_rate", 0) or 0 for r in unique_records)
+                total_cash = sum(r.get("cash_price", 0) or 0 for r in unique_records)
+                avg_cpp = 0
+                cpp_values = [r.get("point_value_cpp") for r in unique_records if r.get("point_value_cpp")]
+                if cpp_values:
+                    avg_cpp = sum(cpp_values) / len(cpp_values)
+                
+                # Calculate per-night averages
+                actual_nights = len(unique_records)
+                points_per_night = int(total_points / actual_nights) if actual_nights > 0 else None
+                cash_per_night = total_cash / actual_nights if actual_nights > 0 else None
+                
+                return {
+                    "name": hotel_info.get("name", f"Hotel {hotel_id}"),
+                    "brand": hotel_info.get("program", ""),
+                    "star_rating": hotel_info.get("stars"),
+                    "program": hotel_info.get("program"),
+                    "cash_rate": cash_per_night,
+                    "cash_total": total_cash,
+                    "points_per_night": points_per_night,
+                    "points_total": int(total_points) if total_points else None,
+                    "surcharge": 0,  # Calendar API doesn't provide surcharge
+                    "available": total_points > 0,
+                    "address": None,
+                    "hotel_id": hotel_id,
+                    "cpp": round(avg_cpp, 2) if avg_cpp else None,
+                    "nights_available": actual_nights,
+                    "booking_links": [r.get("booking_link") for r in unique_records if r.get("booking_link")],
+                }
+            except Exception as e:
+                logger.warning(f"Failed to get calendar for {hotel_id}: {e}")
+                return None
+        
+        # Fetch all hotels in parallel
+        tasks = [fetch_hotel_calendar(h) for h in known_hotels]
+        results = await asyncio.gather(*tasks)
+        
+        # Filter out None results
+        valid_results = [r for r in results if r is not None]
+        
+        logger.info(f"search_hotels_via_calendar: {city} ({check_in} to {check_out}): {len(valid_results)}/{len(known_hotels)} hotels with data")
+        return valid_results
+        
+    finally:
+        if own_client:
+            await client.aclose()
+
+
 async def search_awardtool_hotels(
     city: str,
     check_in: str,
@@ -230,8 +547,9 @@ async def search_awardtool_hotels(
     """
     Search for award hotels using AwardTool API.
     
-    This is the agent-compatible wrapper around _awardtool_hotel_search.
-    Returns a list of normalized hotel options.
+    This is the agent-compatible wrapper that:
+    1. First tries the calendar API for known hotels (more reliable)
+    2. Falls back to search_hotel endpoint if no calendar data available
     
     Args:
         city: City name or destination
@@ -248,66 +566,87 @@ async def search_awardtool_hotels(
     """
     programs = programs or DEFAULT_HOTEL_PROGRAMS
     
-    # Convert star_ratings to hotel_class parameter
-    hotel_class = None
-    if star_ratings and len(star_ratings) == 1:
-        hotel_class = str(star_ratings[0])
-    
     client = await _http_client()
     try:
-        raw_result = await _awardtool_hotel_search(
-            destination=city,
+        # Primary method: Use calendar API for known hotels (more reliable)
+        calendar_results = await _search_hotels_via_calendar(
+            city=city,
             check_in=check_in,
             check_out=check_out,
             programs=programs,
-            guests=guests,
-            hotel_class=hotel_class,
+            star_ratings=star_ratings,
             client=client,
         )
         
-        # Parse results
-        parsed = _parse_hotel_results(raw_result)
+        if calendar_results:
+            logger.info(f"search_awardtool_hotels: Using calendar API results for {city}: {len(calendar_results)} options")
+            return calendar_results
         
-        # Calculate nights
-        from datetime import datetime
+        # Fallback: Try the search_hotel endpoint (may fail with 400)
+        logger.info(f"search_awardtool_hotels: No calendar data for {city}, trying search endpoint")
+        
+        # Convert star_ratings to hotel_class parameter
+        hotel_class = None
+        if star_ratings and len(star_ratings) == 1:
+            hotel_class = str(star_ratings[0])
+        
         try:
-            ci = datetime.strptime(check_in, "%Y-%m-%d")
-            co = datetime.strptime(check_out, "%Y-%m-%d")
-            nights = (co - ci).days
-        except:
-            nights = 1
-        
-        # Normalize for agent
-        results = []
-        for item in parsed:
-            # Filter by star rating if specified
-            star = item.get("star_rating")
-            if star_ratings and star:
-                try:
-                    if int(star) not in star_ratings:
-                        continue
-                except:
-                    pass
+            raw_result = await _awardtool_hotel_search(
+                destination=city,
+                check_in=check_in,
+                check_out=check_out,
+                programs=programs,
+                guests=guests,
+                hotel_class=hotel_class,
+                client=client,
+            )
             
-            cash_per_night = item.get("cash_cost")
-            points_per_night = item.get("points_cost")
+            # Parse results
+            parsed = _parse_hotel_results(raw_result)
             
-            results.append({
-                "name": item.get("name"),
-                "brand": item.get("brand"),
-                "star_rating": star,
-                "program": item.get("program_code"),
-                "cash_rate": cash_per_night,
-                "cash_total": cash_per_night * nights if cash_per_night else None,
-                "points_per_night": int(points_per_night) if points_per_night else None,
-                "points_total": int(points_per_night * nights) if points_per_night else None,
-                "surcharge": item.get("surcharge") or 0,
-                "available": points_per_night is not None,
-                "address": item.get("address"),
-            })
-        
-        logger.info(f"search_awardtool_hotels: {city} ({check_in} to {check_out}): {len(results)} options")
-        return results
+            # Calculate nights
+            try:
+                ci = datetime.strptime(check_in, "%Y-%m-%d")
+                co = datetime.strptime(check_out, "%Y-%m-%d")
+                nights = (co - ci).days
+            except:
+                nights = 1
+            
+            # Normalize for agent
+            results = []
+            for item in parsed:
+                # Filter by star rating if specified
+                star = item.get("star_rating")
+                if star_ratings and star:
+                    try:
+                        if int(star) not in star_ratings:
+                            continue
+                    except:
+                        pass
+                
+                cash_per_night = item.get("cash_cost")
+                points_per_night = item.get("points_cost")
+                
+                results.append({
+                    "name": item.get("name"),
+                    "brand": item.get("brand"),
+                    "star_rating": star,
+                    "program": item.get("program_code"),
+                    "cash_rate": cash_per_night,
+                    "cash_total": cash_per_night * nights if cash_per_night else None,
+                    "points_per_night": int(points_per_night) if points_per_night else None,
+                    "points_total": int(points_per_night * nights) if points_per_night else None,
+                    "surcharge": item.get("surcharge") or 0,
+                    "available": points_per_night is not None,
+                    "address": item.get("address"),
+                })
+            
+            logger.info(f"search_awardtool_hotels: {city} ({check_in} to {check_out}): {len(results)} options from search endpoint")
+            return results
+            
+        except Exception as e:
+            logger.warning(f"search_awardtool_hotels: Search endpoint failed for {city}: {e}")
+            return []
         
     finally:
         await client.aclose()
