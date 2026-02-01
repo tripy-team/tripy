@@ -5,6 +5,8 @@ import { useRouter } from 'next/navigation';
 import { Users, MapPin, Calendar, DollarSign, Zap, Sparkles, CreditCard, X, Copy, Check, ArrowRight, MessageCircle, RefreshCw, Baby, User, Info, Plane, Backpack, Armchair, Coffee, Wine, Crown, BedDouble, Star, SlidersHorizontal, Luggage, TrendingUp, Scale, Clock, Sunrise, Sun, Sunset, Moon } from 'lucide-react';
 import { createTrip, addDestination, upsertPoints, users as usersAPI, trips as tripsAPI, ExtractedTripInfo } from '@/lib/api';
 import TripChatbotInline from '@/components/trip-chatbot-inline';
+import { searchAndFormatAirport } from '@/lib/airport-formatter';
+import { searchAndFormatCities } from '@/lib/city-formatter';
 import PointsAllocation from '@/components/PointsAllocation';
 import { DestinationAutocomplete } from '@/components/ui/DestinationAutocomplete';
 import AirportAutocomplete from '@/components/ui/AirportAutocomplete';
@@ -52,6 +54,12 @@ export default function GroupTripSetup() {
   // Flight Time Preferences
   const [departureTimePreference, setDepartureTimePreference] = useState<'any' | 'morning' | 'afternoon' | 'evening' | 'night'>('any');
   const [arrivalTimePreference, setArrivalTimePreference] = useState<'any' | 'morning' | 'afternoon' | 'evening' | 'night'>('any');
+
+  // Travel Style State
+  const [flightClass, setFlightClass] = useState('economy');
+  const [hotelClass, setHotelClass] = useState('4');
+  const [includeHotels, setIncludeHotels] = useState(true);
+  const [bags, setBags] = useState(1);
 
   // Party Size State
   const [adults, setAdults] = useState(1);

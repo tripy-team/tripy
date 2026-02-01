@@ -5,6 +5,8 @@ import { useRouter } from 'next/navigation';
 import { X, Calendar, DollarSign, Zap, MapPin, Sparkles, CreditCard, MessageCircle, Plane, Backpack, Armchair, Coffee, Wine, Crown, BedDouble, Star, SlidersHorizontal, Luggage, Target, TrendingUp, Scale, Clock, Sunrise, Sun, Sunset, Moon, Users, User, Baby, Info } from 'lucide-react';
 import { createTrip, addDestination, upsertPoints, users as usersAPI, ExtractedTripInfo } from '@/lib/api';
 import TripChatbotInline from '@/components/trip-chatbot-inline';
+import { searchAndFormatAirport } from '@/lib/airport-formatter';
+import { searchAndFormatCities } from '@/lib/city-formatter';
 import PointsAllocation from '@/components/PointsAllocation';
 import { DestinationAutocomplete } from '@/components/ui/DestinationAutocomplete';
 import AirportAutocomplete from '@/components/ui/AirportAutocomplete';
