@@ -462,11 +462,12 @@ export default function SoloTripSetup() {
   };
 
   return (
-    <div data-testid="solo-setup-page" data-slot="SoloTripSetup" className="min-h-full p-8 bg-gradient-to-br from-white via-blue-50/20 to-white">
+    <div data-testid="solo-setup-page" data-slot="SoloTripSetup" className="min-h-full p-6 md:p-8 bg-gradient-to-br from-slate-50 via-blue-50 to-indigo-50">
       <div className="max-w-6xl mx-auto">
         {/* Header */}
         <div className="mb-8">
           <h1 className="text-3xl md:text-4xl tracking-tight text-slate-900 font-bold">Book Your Flight</h1>
+          <p className="text-slate-500 mt-1">Find the best deals using your points</p>
         </div>
 
         <div className="grid lg:grid-cols-3 gap-8">
@@ -474,25 +475,25 @@ export default function SoloTripSetup() {
           <div className="lg:col-span-2 space-y-6">
 
             {/* 1. TRAVELERS - Compact horizontal bar */}
-            <div className="bg-white border border-slate-200 rounded-2xl p-6 shadow-sm">
+            <div className="bg-white border border-slate-200 rounded-2xl p-5 shadow-sm">
               <div className="flex flex-wrap items-center gap-6 md:gap-10">
                 {/* Adults */}
                 <div className="flex items-center gap-3">
-                  <User className="w-5 h-5 text-slate-400" />
-                  <span className="text-sm text-slate-600">Adults</span>
-                  <div className="flex items-center gap-2 ml-2">
+                  <User className="w-5 h-5 text-blue-600" />
+                  <span className="text-sm text-slate-700 font-medium">Adults</span>
+                  <div className="flex items-center gap-2 ml-1">
                     <button 
                       type="button"
                       onClick={() => setAdults(Math.max(1, adults - 1))}
-                      className="w-7 h-7 rounded-md bg-slate-100 flex items-center justify-center hover:bg-slate-200 text-slate-600 transition-colors text-sm font-medium"
+                      className="w-7 h-7 rounded-lg bg-slate-100 flex items-center justify-center hover:bg-blue-50 text-slate-600 transition-colors text-sm font-medium"
                     >
                       −
                     </button>
-                    <span className="w-4 text-center font-semibold text-slate-900">{adults}</span>
+                    <span className="w-5 text-center font-bold text-slate-900">{adults}</span>
                     <button 
                       type="button"
                       onClick={() => setAdults(adults + 1)}
-                      className="w-7 h-7 rounded-md bg-slate-100 flex items-center justify-center hover:bg-slate-200 text-slate-600 transition-colors text-sm font-medium"
+                      className="w-7 h-7 rounded-lg bg-slate-100 flex items-center justify-center hover:bg-blue-50 text-slate-600 transition-colors text-sm font-medium"
                     >
                       +
                     </button>
@@ -501,21 +502,21 @@ export default function SoloTripSetup() {
 
                 {/* Children */}
                 <div className="flex items-center gap-3">
-                  <Baby className="w-5 h-5 text-slate-400" />
-                  <span className="text-sm text-slate-600">Children</span>
-                  <div className="flex items-center gap-2 ml-2">
+                  <Baby className="w-5 h-5 text-blue-600" />
+                  <span className="text-sm text-slate-700 font-medium">Children</span>
+                  <div className="flex items-center gap-2 ml-1">
                     <button 
                       type="button"
                       onClick={() => setChildren(Math.max(0, children - 1))}
-                      className="w-7 h-7 rounded-md bg-slate-100 flex items-center justify-center hover:bg-slate-200 text-slate-600 transition-colors text-sm font-medium"
+                      className="w-7 h-7 rounded-lg bg-slate-100 flex items-center justify-center hover:bg-blue-50 text-slate-600 transition-colors text-sm font-medium"
                     >
                       −
                     </button>
-                    <span className="w-4 text-center font-semibold text-slate-900">{children}</span>
+                    <span className="w-5 text-center font-bold text-slate-900">{children}</span>
                     <button 
                       type="button"
                       onClick={() => setChildren(children + 1)}
-                      className="w-7 h-7 rounded-md bg-slate-100 flex items-center justify-center hover:bg-slate-200 text-slate-600 transition-colors text-sm font-medium"
+                      className="w-7 h-7 rounded-lg bg-slate-100 flex items-center justify-center hover:bg-blue-50 text-slate-600 transition-colors text-sm font-medium"
                     >
                       +
                     </button>
@@ -524,21 +525,21 @@ export default function SoloTripSetup() {
 
                 {/* Bags per person */}
                 <div className="flex items-center gap-3">
-                  <Luggage className="w-5 h-5 text-slate-400" />
-                  <span className="text-sm text-slate-600">Bags each</span>
-                  <div className="flex items-center gap-2 ml-2">
+                  <Luggage className="w-5 h-5 text-blue-600" />
+                  <span className="text-sm text-slate-700 font-medium">Bags</span>
+                  <div className="flex items-center gap-2 ml-1">
                     <button
                       type="button"
                       onClick={() => setBags(Math.max(0, bags - 1))}
-                      className="w-7 h-7 rounded-md bg-slate-100 flex items-center justify-center hover:bg-slate-200 text-slate-600 transition-colors text-sm font-medium"
+                      className="w-7 h-7 rounded-lg bg-slate-100 flex items-center justify-center hover:bg-blue-50 text-slate-600 transition-colors text-sm font-medium"
                     >
                       −
                     </button>
-                    <span className="w-4 text-center font-semibold text-slate-900">{bags}</span>
+                    <span className="w-5 text-center font-bold text-slate-900">{bags}</span>
                     <button
                       type="button"
                       onClick={() => setBags(Math.min(4, bags + 1))}
-                      className="w-7 h-7 rounded-md bg-slate-100 flex items-center justify-center hover:bg-slate-200 text-slate-600 transition-colors text-sm font-medium"
+                      className="w-7 h-7 rounded-lg bg-slate-100 flex items-center justify-center hover:bg-blue-50 text-slate-600 transition-colors text-sm font-medium"
                     >
                       +
                     </button>
@@ -550,25 +551,25 @@ export default function SoloTripSetup() {
             {/* Your Route - Unified flight booking interface */}
             <div className="relative z-40 bg-white border border-slate-200 rounded-2xl p-8 shadow-sm">
               <div className="flex items-center gap-3 mb-6">
-                <div className="w-10 h-10 bg-blue-100 rounded-xl flex items-center justify-center">
-                  <Plane className="w-5 h-5 text-blue-600" />
+                <div className="w-10 h-10 bg-blue-600 rounded-xl flex items-center justify-center">
+                  <Plane className="w-5 h-5 text-white" />
                 </div>
                 <div>
-                  <h2 className="text-2xl text-slate-900 font-semibold">Your Route</h2>
+                  <h2 className="text-xl text-slate-900 font-semibold">Your Route</h2>
                   <p className="text-sm text-slate-500">Build your trip by adding destinations and dates</p>
                 </div>
               </div>
 
               <div className="relative">
                 {/* Timeline connector line */}
-                <div className="absolute left-[11px] top-8 bottom-8 w-0.5 bg-slate-200 z-0" />
+                <div className="absolute left-[11px] top-8 bottom-8 w-0.5 bg-blue-200 z-0" />
                 
                 <div className="space-y-0 relative z-10">
                   {/* START LOCATION */}
                   <div className="flex gap-6 pb-4">
                     {/* Timeline dot */}
                     <div className="flex flex-col items-center">
-                      <div className="w-6 h-6 rounded-full bg-slate-900 border-4 border-white shadow-sm z-10" />
+                      <div className="w-6 h-6 rounded-full bg-blue-600 border-4 border-white shadow-sm z-10" />
                     </div>
                     
                     {/* Content */}
@@ -601,7 +602,7 @@ export default function SoloTripSetup() {
                               // Also update first leg date for multi-city
                               updateLegDate(0, e.target.value);
                             }}
-                            className="w-full pl-10 pr-4 py-3 bg-white border border-slate-200 rounded-xl text-sm focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-blue-500 cursor-pointer"
+                            className="w-full pl-10 pr-4 py-3 bg-blue-50 border border-blue-200 rounded-xl text-sm focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-blue-500 cursor-pointer"
                             placeholder="Select date"
                           />
                         </div>
@@ -614,7 +615,7 @@ export default function SoloTripSetup() {
                     <div key={`city-${index}`} className="flex gap-6 py-4">
                       {/* Timeline dot */}
                       <div className="flex flex-col items-center">
-                        <div className="w-6 h-6 rounded-full bg-blue-600 border-4 border-white shadow-sm z-10 flex items-center justify-center">
+                        <div className="w-6 h-6 rounded-full bg-blue-500 border-4 border-white shadow-sm z-10 flex items-center justify-center">
                           <span className="text-[8px] text-white font-bold">{index + 1}</span>
                         </div>
                       </div>
@@ -659,7 +660,7 @@ export default function SoloTripSetup() {
                               min={getMinDateForLeg(index + 1)}
                               onChange={(e) => updateLegDate(index + 1, e.target.value)}
                               disabled={isFlexible}
-                              className="w-full pl-10 pr-4 py-3 bg-white border border-slate-200 rounded-xl text-sm focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-blue-500 disabled:bg-slate-50 disabled:text-slate-400 cursor-pointer"
+                              className="w-full pl-10 pr-4 py-3 bg-blue-50 border border-blue-200 rounded-xl text-sm focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-blue-500 disabled:bg-slate-50 disabled:text-slate-400 cursor-pointer"
                               placeholder="Select date"
                             />
                           </div>
@@ -680,7 +681,7 @@ export default function SoloTripSetup() {
                       <button
                         type="button"
                         onClick={() => setShowAddDestination(!showAddDestination)}
-                        className="flex items-center gap-2 text-blue-600 hover:text-blue-700 font-semibold text-sm py-2"
+                        className="flex items-center gap-2 text-blue-600 hover:text-blue-700 font-medium text-sm"
                       >
                         <Plus className="w-4 h-4" />
                         Add Another Destination
@@ -736,8 +737,8 @@ export default function SoloTripSetup() {
                   <div className="flex gap-6 pt-4">
                     {/* Timeline dot */}
                     <div className="flex flex-col items-center">
-                      <div className="w-6 h-6 rounded-full bg-white border-2 border-slate-400 z-10 flex items-center justify-center">
-                        <MapPin className="w-3 h-3 text-slate-400" />
+                      <div className="w-6 h-6 rounded-full bg-blue-600 border-4 border-white shadow-sm z-10 flex items-center justify-center">
+                        <MapPin className="w-3 h-3 text-white" />
                       </div>
                     </div>
                     
@@ -773,7 +774,7 @@ export default function SoloTripSetup() {
                             value={endDate}
                             min={cities.length > 0 ? getMinDateForLeg(cities.length) : (startDate || new Date().toISOString().split('T')[0])}
                             onChange={(e) => setEndDate(e.target.value)}
-                            className="w-full pl-10 pr-4 py-3 bg-white border border-slate-200 rounded-xl text-sm focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-blue-500 cursor-pointer"
+                            className="w-full pl-10 pr-4 py-3 bg-blue-50 border border-blue-200 rounded-xl text-sm focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-blue-500 cursor-pointer"
                             placeholder="Select date"
                           />
                         </div>
@@ -915,26 +916,16 @@ export default function SoloTripSetup() {
               <div className="bg-white border border-slate-200 rounded-2xl p-6 shadow-sm">
                 <label className="block text-xs text-slate-500 mb-2 font-medium uppercase tracking-wider">Maximum Budget</label>
                 <div className="relative">
-                  <span className="absolute left-4 top-1/2 -translate-y-1/2 text-slate-400 font-medium">$</span>
+                  <span className="absolute left-4 top-1/2 -translate-y-1/2 text-blue-600 font-bold text-lg">$</span>
                   <input
                     type="number"
                     value={maxBudget}
                     onChange={(e) => {
                       const val = e.target.value ? Number(e.target.value) : '';
                       setMaxBudget(val);
-                      // Easter egg: typing 888 auto-fills test data
-                      if (val === 888) {
-                        setStartDestination('SEA');
-                        setEndDestination('SEA');
-                        setIsRoundTrip(true);
-                        setCities(['Paris (CDG,ORY,BVA)']);
-                        setStartDate('2026-02-11');
-                        setEndDate('2026-02-19');
-                        setMaxBudget(5000);
-                      }
                     }}
                     placeholder="No limit"
-                    className="w-full pl-8 pr-4 py-3 bg-slate-50 border border-slate-200 rounded-xl focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-blue-500 font-medium text-slate-900"
+                    className="w-full pl-10 pr-4 py-3 bg-blue-50 border border-blue-200 rounded-xl focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-blue-500 font-semibold text-slate-900 text-lg"
                   />
                 </div>
               </div>
@@ -974,7 +965,7 @@ export default function SoloTripSetup() {
                   </div>
                   <div className="mt-3 pt-3 border-t border-slate-100 flex items-center justify-between">
                     <span className="text-sm text-slate-600">Total to use</span>
-                    <span className="text-lg font-semibold text-blue-600">{totalPointsToUse.toLocaleString()}</span>
+                    <span className="text-xl font-bold text-blue-600">{totalPointsToUse.toLocaleString()}</span>
                   </div>
                 </div>
               )}
@@ -983,7 +974,7 @@ export default function SoloTripSetup() {
               <button
                 onClick={handleGenerate}
                 disabled={!startDestination || !endDestination || cities.length < 1 || (!isFlexible && (!startDate || !endDate)) || isGenerating}
-                className="w-full px-6 py-4 bg-blue-600 text-white rounded-xl hover:bg-blue-700 transition-all disabled:opacity-50 disabled:cursor-not-allowed flex items-center justify-center gap-2 text-base font-semibold shadow-lg"
+                className="w-full px-6 py-4 bg-blue-600 text-white rounded-xl hover:bg-blue-700 transition-all disabled:opacity-50 disabled:cursor-not-allowed flex items-center justify-center gap-2 text-base font-semibold shadow-lg shadow-blue-500/20"
               >
                 {isGenerating ? (
                   <>
@@ -1004,8 +995,8 @@ export default function SoloTripSetup() {
                 </div>
               )}
               
-              <p className="text-xs text-slate-400 text-center">
-                We&apos;ll find the best flight options using your points and budget
+              <p className="text-xs text-slate-500 text-center">
+                We&apos;ll find the best options using your points and budget
               </p>
             </div>
           </div>
