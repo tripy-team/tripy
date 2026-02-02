@@ -768,7 +768,14 @@ async def get_transfer_strategy(
         
         # Debug: log what we received in the snapshot
         logger.info(f"[transfer-strategy] Snapshot keys: {list(snapshot.keys()) if snapshot else 'None'}")
-        logger.info(f"[transfer-strategy] Snapshot transfers: {snapshot.get('transfers', 'NOT FOUND')}")
+        logger.info(f"[transfer-strategy] Snapshot transfers count: {len(snapshot.get('transfers', []))}")
+        
+        # Debug: dump first segment to see full structure
+        snapshot_segments = snapshot.get("segments", [])
+        if snapshot_segments:
+            first_seg = snapshot_segments[0]
+            logger.info(f"[transfer-strategy] FIRST SEGMENT KEYS: {list(first_seg.keys()) if isinstance(first_seg, dict) else 'not a dict'}")
+            logger.info(f"[transfer-strategy] FIRST SEGMENT DUMP: {first_seg}")
         
         # Generate transfer instructions from snapshot
         transfers = []
@@ -834,7 +841,17 @@ async def get_transfer_strategy(
             if seg_type != "flight":
                 continue
             
-            logger.info(f"[transfer-strategy] Flight segment: cashPrice={seg.get('cashPrice')}, pointsUsed={seg.get('pointsUsed')}, paymentMethod={seg.get('paymentMethod')}, program={seg.get('program')}, origin={seg.get('origin')}, destination={seg.get('destination')}, airline={seg.get('airline')}, departureTime={seg.get('departureTime')}, stops={seg.get('stops')}, legs_count={len(seg.get('legs', []))}, layovers_count={len(seg.get('layovers', []))}")
+            # Debug: log all segment keys for diagnosis
+            logger.info(f"[transfer-strategy] Flight segment keys: {list(seg.keys())}")
+            logger.info(f"[transfer-strategy] Flight segment raw: origin={seg.get('origin')}, destination={seg.get('destination')}")
+            logger.info(f"[transfer-strategy]   airline={seg.get('airline')}, flightNumber={seg.get('flightNumber') or seg.get('flight_number')}")
+            logger.info(f"[transfer-strategy]   operatingAirline={seg.get('operatingAirline') or seg.get('operating_airline')}")
+            logger.info(f"[transfer-strategy]   stops={seg.get('stops')}, legs={seg.get('legs')}, layovers={seg.get('layovers')}")
+            logger.info(f"[transfer-strategy]   payment obj={seg.get('payment')}")
+            logger.info(f"[transfer-strategy]   cashPrice={seg.get('cashPrice') or seg.get('cash_price')}")
+            logger.info(f"[transfer-strategy]   pointsUsed={seg.get('pointsUsed') or seg.get('points_used')}")
+            logger.info(f"[transfer-strategy]   paymentMethod={seg.get('paymentMethod') or seg.get('payment_method')}")
+            logger.info(f"[transfer-strategy]   program={seg.get('program')}")
             
             # Payment info can be in 'payment' object (old format) or directly in segment (new format)
             payment = seg.get("payment", {})
@@ -932,7 +949,7 @@ async def get_transfer_strategy(
                 route_airports = [legs[0].origin] + [leg.destination for leg in legs]
                 segment_ref = f"{' → '.join(route_airports)} {cabin} on {airline}"
             
-            bookings.append(BookingStep(
+            booking_step = BookingStep(
                 step_number=step_num,
                 type="flight",
                 airline=airline,
@@ -957,8 +974,18 @@ async def get_transfer_strategy(
                 surcharge=surcharge if payment_method == "points" else None,
                 program=program if payment_method == "points" else None,
                 payment_reason=payment_reason,
-            ))
+            )
             
+            # Debug: log the built booking step
+            logger.info(f"[transfer-strategy] Built BookingStep: origin={origin}, dest={destination}")
+            logger.info(f"[transfer-strategy]   airline={airline}, flight_num={flight_num}, operating={operating_airline}")
+            logger.info(f"[transfer-strategy]   stops={stops}, legs_count={len(legs)}, layovers_count={len(layovers)}")
+            logger.info(f"[transfer-strategy]   payment={payment_method}, points={points_used}, surcharge={surcharge}, program={program}")
+            if legs:
+                for i, leg in enumerate(legs):
+                    logger.info(f"[transfer-strategy]     leg[{i}]: {leg.origin}->{leg.destination} flight={leg.flight_number} marketing={leg.marketing_carrier} operating={leg.operating_carrier}")
+            
+            bookings.append(booking_step)
             step_num += 1
         
         # Estimate total time

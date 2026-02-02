@@ -1419,6 +1419,16 @@ export interface SoloSegmentBreakdown {
   durationMinutes?: number;
   bookingUrl?: string;
   
+  // CRITICAL: Connection details for multi-leg flights
+  stops?: number;                      // Number of stops (0 = nonstop)
+  legs?: SoloFlightLeg[];              // Per-leg details
+  layovers?: SoloLayover[];            // Layover info between legs
+  
+  // Connection safety info
+  ticketingConfirmed?: boolean;        // True if single-ticket confirmed
+  hasCarrierChange?: boolean;          // True if operating carriers differ
+  hasShortConnection?: boolean;        // True if any layover < 60 min
+  
   // Hotel-specific details
   hotelName?: string;
   brand?: string;
