@@ -79,6 +79,7 @@ def trip_storage_to_response(item: Dict[str, Any]) -> Dict[str, Any]:
         "start_date": item.get("startDate"),
         "end_date": item.get("endDate"),
         "duration_days": item.get("durationDays"),
+        "leg_dates": item.get("legDates"),  # Multi-city leg dates
         "include_hotels": item.get("includeHotels", True),
         "max_budget": item.get("maxBudget"),
         "adults": item.get("adults", 1),

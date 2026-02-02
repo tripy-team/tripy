@@ -103,6 +103,7 @@ def create_solo_trip(user_id: str, request: CreateTripRequest) -> Dict[str, Any]
         "startDate": request.start_date or "",
         "endDate": request.end_date or "",
         "durationDays": request.duration_days,
+        "legDates": request.leg_dates or [],  # Multi-city leg dates
         "includeHotels": request.include_hotels,
         "maxBudget": request.max_budget,
         "status": "draft",
@@ -329,6 +330,7 @@ def compute_cache_key(trip_id: str, trip_prefs: dict, points: dict, mode: str) -
         "start_date": trip_prefs.get("startDate"),
         "end_date": trip_prefs.get("endDate"),
         "duration_days": trip_prefs.get("durationDays"),
+        "leg_dates": trip_prefs.get("legDates", []),  # Multi-city leg dates
         "optimization_mode": mode,
         "flight_class": trip_prefs.get("flightClass"),
         "hotel_class": trip_prefs.get("hotelClass"),

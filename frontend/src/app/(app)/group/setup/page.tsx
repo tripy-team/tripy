@@ -2,7 +2,7 @@
 
 import { useState, useEffect } from 'react';
 import { useRouter } from 'next/navigation';
-import { Users, MapPin, Calendar, DollarSign, Zap, Sparkles, CreditCard, X, Copy, Check, ArrowRight, MessageCircle, RefreshCw, Baby, User, Info, Plane, Backpack, Armchair, Coffee, Wine, Crown, BedDouble, Star, SlidersHorizontal, Luggage, TrendingUp, Scale, Clock, Sunrise, Sun, Sunset, Moon } from 'lucide-react';
+import { Users, MapPin, Calendar, DollarSign, Zap, Sparkles, CreditCard, X, Copy, Check, ArrowRight, MessageCircle, RefreshCw, Baby, User, Info, Plane, Backpack, Armchair, Coffee, Wine, Crown, BedDouble, Star, SlidersHorizontal, Luggage, Clock, Sunrise, Sun, Sunset, Moon } from 'lucide-react';
 import { createTrip, addDestination, upsertPoints, users as usersAPI, trips as tripsAPI, ExtractedTripInfo } from '@/lib/api';
 import TripChatbotInline from '@/components/trip-chatbot-inline';
 import { searchAndFormatAirport } from '@/lib/airport-formatter';
@@ -48,8 +48,8 @@ export default function GroupTripSetup() {
   const [isRoundTrip, setIsRoundTrip] = useState(false);
 
 
-  // Optimization Mode State
-  const [optimizationMode, setOptimizationMode] = useState<'oop' | 'cpp' | 'balanced'>('balanced');
+  // Optimization Mode - always use OOP (budget-constrained), UI removed
+  const optimizationMode = 'oop' as const;
 
   // Flight Time Preferences
   const [departureTimePreference, setDepartureTimePreference] = useState<'any' | 'morning' | 'afternoon' | 'evening' | 'night'>('any');
@@ -1090,40 +1090,6 @@ export default function GroupTripSetup() {
                     </div>
                   </div>
                 </div>
-              </div>
-
-              {/* Optimization Mode Selector */}
-              <div className="bg-white border border-slate-200 rounded-xl p-4">
-                <div className="text-xs text-slate-500 mb-2 font-medium uppercase tracking-wider">Optimize for</div>
-                <div className="grid grid-cols-3 gap-1 p-1 bg-slate-100 rounded-lg">
-                  {[
-                    { value: 'oop', label: 'Min Cash', icon: DollarSign, desc: 'Lowest out-of-pocket' },
-                    { value: 'cpp', label: 'Max Value', icon: TrendingUp, desc: 'Best points value' },
-                    { value: 'balanced', label: 'Balanced', icon: Scale, desc: 'Best overall' },
-                  ].map((mode) => {
-                    const Icon = mode.icon;
-                    const isSelected = optimizationMode === mode.value;
-                    return (
-                      <button
-                        key={mode.value}
-                        onClick={() => setOptimizationMode(mode.value as 'oop' | 'cpp' | 'balanced')}
-                        className={`flex flex-col items-center gap-1 py-2 px-1 rounded-md text-xs font-medium transition-all ${
-                          isSelected
-                            ? 'bg-white text-blue-600 shadow-sm'
-                            : 'text-slate-600 hover:text-slate-900'
-                        }`}
-                      >
-                        <Icon className="w-4 h-4" />
-                        <span>{mode.label}</span>
-                      </button>
-                    );
-                  })}
-                </div>
-                <p className="text-xs text-slate-500 mt-2 text-center">
-                  {optimizationMode === 'oop' && 'Minimize your cash spending'}
-                  {optimizationMode === 'cpp' && 'Get the best cents-per-point value'}
-                  {optimizationMode === 'balanced' && 'Balance cost, time & convenience'}
-                </p>
               </div>
 
               {/* Generate/Invite Button */}

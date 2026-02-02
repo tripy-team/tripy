@@ -1339,6 +1339,8 @@ export interface SoloCreateTripRequest {
   optimizationMode?: 'oop' | 'cpp' | 'balanced';
   departureTimePreference?: 'any' | 'morning' | 'afternoon' | 'evening' | 'night';
   arrivalTimePreference?: 'any' | 'morning' | 'afternoon' | 'evening' | 'night';
+  // Multi-city leg dates: departure date for each flight segment
+  legDates?: string[];
 }
 
 export interface SoloTripResponse {
@@ -1593,6 +1595,8 @@ export const solo = {
         optimization_mode: request.optimizationMode,
         departure_time_preference: request.departureTimePreference,
         arrival_time_preference: request.arrivalTimePreference,
+        // Multi-city leg dates
+        leg_dates: request.legDates,
       }),
     });
     return toCamelCase<SoloTripResponse>(response);
