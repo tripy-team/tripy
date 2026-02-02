@@ -187,19 +187,42 @@ def get_optimization_config(mode: str = None) -> dict:
     return OOP_CONFIG if mode == "oop" else CPP_CONFIG
 
 
+def _normalize_bank_for_transfer_graph(bank_key: str) -> str | None:
+    """
+    Normalize a bank key to match TRANSFER_GRAPH format.
+    
+    Handles mismatches like "amex_mr" -> "Amex MR".
+    """
+    if bank_key in TRANSFER_GRAPH:
+        return bank_key
+    
+    bank_normalized = bank_key.lower().replace(" ", "_").replace("-", "_")
+    
+    for graph_bank in TRANSFER_GRAPH.keys():
+        graph_normalized = graph_bank.lower().replace(" ", "_")
+        if (bank_normalized == graph_normalized or 
+            bank_normalized.replace("_", "") == graph_normalized.replace("_", "") or
+            bank_normalized.split("_")[0] == graph_normalized.split("_")[0]):
+            return graph_bank
+    
+    return None
+
+
 def get_transfer_path(source_program: str, target_program: str) -> dict | None:
     """Get transfer path from bank points to airline/hotel program."""
-    if source_program not in TRANSFER_GRAPH:
+    # Normalize source program to match TRANSFER_GRAPH
+    normalized_source = _normalize_bank_for_transfer_graph(source_program)
+    if not normalized_source:
         return None
     
-    source = TRANSFER_GRAPH[source_program]
+    source = TRANSFER_GRAPH[normalized_source]
     all_targets = source.get("airlines", []) + source.get("hotels", [])
     
     if target_program not in all_targets:
         return None
     
     return {
-        "source": source_program,
+        "source": normalized_source,
         "target": target_program,
         "ratio": source["ratios"].get(target_program, 1.0),
         "transfer_time": source["transfer_times"].get(target_program, "1-2 days"),
@@ -212,13 +235,15 @@ def get_available_transfers_for_user(user_points: dict) -> list[dict]:
     transfers = []
     
     for program, balance in user_points.items():
-        if program not in TRANSFER_GRAPH:
+        # Normalize program key to match TRANSFER_GRAPH
+        normalized_program = _normalize_bank_for_transfer_graph(program)
+        if not normalized_program:
             continue
         
-        source = TRANSFER_GRAPH[program]
+        source = TRANSFER_GRAPH[normalized_program]
         for airline in source.get("airlines", []):
             transfers.append({
-                "source": program,
+                "source": program,  # Keep original key for user reference
                 "target": airline,
                 "balance": balance,
                 "ratio": source["ratios"].get(airline, 1.0),
@@ -227,7 +252,7 @@ def get_available_transfers_for_user(user_points: dict) -> list[dict]:
         
         for hotel in source.get("hotels", []):
             transfers.append({
-                "source": program,
+                "source": program,  # Keep original key for user reference
                 "target": hotel,
                 "balance": balance,
                 "ratio": source["ratios"].get(hotel, 1.0),

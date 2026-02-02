@@ -323,6 +323,7 @@ class OrchestratorAgent(BaseAgent):
         # compare results to find the optimal city ordering.
         
         all_optimized = []
+        all_warnings = []
         
         if num_variants > 1 and route_variants:
             logger.info(f"[Orchestrator] Evaluating {num_variants} route permutations...")
@@ -336,7 +337,7 @@ class OrchestratorAgent(BaseAgent):
                 
                 # Run optimization for this route variant
                 try:
-                    variant_results = await self._run_oop_optimization(
+                    variant_results, variant_warnings = await self._run_oop_optimization(
                         segments=variant_segments,
                         search_results=search_results,
                         user_points=request.points,
@@ -358,13 +359,14 @@ class OrchestratorAgent(BaseAgent):
                         logger.info(f"[Orchestrator] Route {variant_idx + 1} best OOP: ${best_oop:.2f}")
                     
                     all_optimized.extend(variant_results)
+                    all_warnings.extend(variant_warnings)
                 except Exception as e:
                     logger.warning(f"[Orchestrator] Route variant {variant_idx + 1} failed: {e}")
             
             optimized = all_optimized
         else:
             # Single route - run optimization directly
-            optimized = await self._run_oop_optimization(
+            optimized, all_warnings = await self._run_oop_optimization(
                 segments=segments,
                 search_results=search_results,
                 user_points=request.points,
@@ -417,6 +419,21 @@ class OrchestratorAgent(BaseAgent):
         
         best = top_results[0] if top_results else None
         
+        # Deduplicate warnings
+        unique_warnings = list(dict.fromkeys(all_warnings))
+        
+        # Add top-level warning if best option is over budget
+        if best and not best.within_budget and request.budget:
+            budget_exceeded_by = best.oop_metrics.total_out_of_pocket - request.budget
+            over_budget_msg = (
+                f"⚠️ No itinerary found within your ${request.budget:.0f} budget. "
+                f"Showing the closest available option at ${best.oop_metrics.total_out_of_pocket:.0f} "
+                f"(${budget_exceeded_by:.0f} over budget)."
+            )
+            # Insert at the beginning so it's the first warning users see
+            if over_budget_msg not in unique_warnings:
+                unique_warnings.insert(0, over_budget_msg)
+        
         return OptimizeSoloResponse(
             trip_id=request.trip_id,
             itineraries=top_results,
@@ -424,8 +441,9 @@ class OrchestratorAgent(BaseAgent):
                 "outOfPocket": best.oop_metrics.total_out_of_pocket if best else 0,
                 "savingsPercentage": best.oop_metrics.savings_percentage if best else 0,
                 "pointsUsed": best.oop_metrics.total_points_used if best else 0,
+                "withinBudget": best.within_budget if best else True,
             },
-            warnings=[],
+            warnings=unique_warnings,
         )
     
     async def optimize_group(
@@ -1321,9 +1339,12 @@ class OrchestratorAgent(BaseAgent):
         risk_mode: str = "balanced",
         include_basic_economy: bool = False,
         flexibility_priority: str = "medium",
-    ) -> list[RankedItinerary]:
+    ) -> tuple[list[RankedItinerary], list[str]]:
         """
         Run optimization using V3 ILP solver.
+        
+        Returns:
+            Tuple of (itineraries, warnings)
         
         V3 improvements:
         - Joint flight + hotel optimization
@@ -1355,14 +1376,14 @@ class OrchestratorAgent(BaseAgent):
             
             if itineraries:
                 logger.info(f"[Orchestrator] V3 solver returned {len(itineraries)} itineraries")
-                return itineraries
+                return itineraries, []  # V3 solver returns no warnings via this path
             else:
                 logger.warning("[Orchestrator] V3 solver returned no itineraries, falling back to greedy")
         
         except Exception as e:
             logger.error(f"[Orchestrator] V3 solver failed: {e}, falling back to greedy")
         
-        # Fallback to original greedy algorithm
+        # Fallback to original greedy algorithm (returns tuple of itineraries and warnings)
         return await self._run_greedy_optimization(
             segments=segments,
             search_results=search_results,
@@ -1378,7 +1399,7 @@ class OrchestratorAgent(BaseAgent):
         user_points: dict,
         budget: float,
         trip_data: dict,
-    ) -> list[RankedItinerary]:
+    ) -> tuple[list[RankedItinerary], list[str]]:
         """
         Fallback greedy optimization algorithm.
         
@@ -1386,9 +1407,23 @@ class OrchestratorAgent(BaseAgent):
         1. For each segment, picks the option with lowest OOP
         2. Respects points balance constraints
         3. Generates transfer instructions
+        
+        NOTE: When budget is set, we should prefer points to stay within budget.
+        
+        Returns:
+            Tuple of (itineraries, warnings)
         """
+        logger.info(f"[Greedy] Starting greedy optimization with budget=${budget if budget else 'unlimited'}")
+        logger.info(f"[Greedy] User points: {user_points}")
+        
         # Track remaining points
         remaining_points = dict(user_points)
+        
+        # Calculate if budget is tight (need to prefer points)
+        budget_is_tight = budget is not None and budget > 0
+        
+        # Track segments where points couldn't be used and why
+        transfer_incompatible_segments = []
         
         # Build itinerary
         itinerary_segments = []
@@ -1398,6 +1433,7 @@ class OrchestratorAgent(BaseAgent):
         points_breakdown = {}
         transfers = []
         route = []
+        warnings = []
         
         for i, segment in enumerate(segments):
             if segment["type"] == "flight":
@@ -1407,12 +1443,16 @@ class OrchestratorAgent(BaseAgent):
                 if not result or not result.options:
                     continue
                 
-                # Pick best option (already sorted by OOP)
-                best = self._pick_best_flight_option(result.options, remaining_points)
+                # Pick best option - when budget is tight, prefer points over cash
+                best = self._pick_best_flight_option(
+                    result.options, 
+                    remaining_points,
+                    prefer_points=budget_is_tight
+                )
                 
                 if best:
                     seg, points_used, transfer = self._create_flight_segment(
-                        best, remaining_points
+                        best, remaining_points, force_points=budget_is_tight
                     )
                     itinerary_segments.append(seg)
                     
@@ -1433,7 +1473,7 @@ class OrchestratorAgent(BaseAgent):
                     route.append(best.destination)
             
         if not itinerary_segments:
-            return []
+            return [], warnings
         
         # Calculate metrics
         cash_saved = total_cash_price - total_oop
@@ -1446,10 +1486,58 @@ class OrchestratorAgent(BaseAgent):
                 cpp_values.append(seg.payment.cpp_achieved)
         avg_cpp = sum(cpp_values) / len(cpp_values) if cpp_values else 0
         
+        # Check budget
+        within_budget = budget is None or budget <= 0 or total_oop <= budget
+        
+        logger.info(f"[Greedy] Final result: OOP=${total_oop:.0f}, budget=${budget if budget else 'unlimited'}, within_budget={within_budget}")
+        logger.info(f"[Greedy] Points used: {total_points_used:,}, cash saved: ${cash_saved:.0f}")
+        
+        if not within_budget and budget:
+            budget_exceeded_by = total_oop - budget
+            logger.warning(f"[Greedy] ⚠️ Budget exceeded by ${budget_exceeded_by:.0f}")
+            
+            # Add clear message that no itinerary within budget exists
+            warnings.append(
+                f"⚠️ No itinerary found within your ${budget:.0f} budget. "
+                f"This is the closest option at ${total_oop:.0f} (${budget_exceeded_by:.0f} over budget)."
+            )
+            
+            # Check if this is due to transfer partner incompatibility
+            if total_points_used == 0 and user_points:
+                # Get user's reachable airlines
+                from .config import TRANSFER_GRAPH
+                user_banks = list(user_points.keys())
+                reachable_airlines = set()
+                for bank_name, config in TRANSFER_GRAPH.items():
+                    bank_normalized = bank_name.lower().replace(" ", "_")
+                    for user_prog in user_points.keys():
+                        user_prog_normalized = user_prog.lower().replace(" ", "_").replace("-", "_")
+                        if (bank_normalized == user_prog_normalized or 
+                            bank_normalized.replace("_", "") == user_prog_normalized.replace("_", "") or
+                            bank_normalized.split("_")[0] == user_prog_normalized.split("_")[0]):
+                            reachable_airlines.update(config.get("airlines", []))
+                
+                warnings.append(
+                    f"Points could not be used because the available award flights are on airlines that "
+                    f"your points ({', '.join(user_banks)}) cannot transfer to. Your points can transfer to: "
+                    f"{', '.join(sorted(reachable_airlines))}. Consider adding Chase Ultimate Rewards or "
+                    f"other bank points to access more airlines."
+                )
+        
+        # Build appropriate summary based on budget status
+        if within_budget:
+            summary = f"Save ${cash_saved:.0f} ({savings_pct:.0f}% off) by using {total_points_used:,} points"
+        else:
+            budget_exceeded_by = total_oop - budget if budget else 0
+            if total_points_used > 0:
+                summary = f"⚠️ Closest to budget (${budget_exceeded_by:.0f} over). Using {total_points_used:,} points saves ${cash_saved:.0f}"
+            else:
+                summary = f"⚠️ Closest to budget (${budget_exceeded_by:.0f} over). No points could be applied to this route."
+        
         itinerary = RankedItinerary(
             id=str(uuid.uuid4()),
             rank=1,
-            name="Optimized Itinerary",
+            name="Closest Available Option" if not within_budget else "Optimized Itinerary",
             route=route,
             segments=itinerary_segments,
             oop_metrics=OOPMetrics(
@@ -1462,76 +1550,248 @@ class OrchestratorAgent(BaseAgent):
                 points_breakdown=points_breakdown,
             ),
             transfers=transfers,
-            within_budget=total_oop <= budget,
+            within_budget=within_budget,
             within_points=True,  # We already respected limits
-            summary=f"Save ${cash_saved:.0f} ({savings_pct:.0f}% off) by using {total_points_used:,} points",
+            summary=summary,
         )
         
-        return [itinerary]
+        return [itinerary], warnings
     
-    def _pick_best_flight_option(self, options: list, remaining_points: dict):
-        """Pick the best flight option considering OOP."""
-        config = OOP_CONFIG
-        min_cpp = config["min_cpp_threshold"]
-        max_surcharge_ratio = config["max_surcharge_ratio"]
+    def _pick_best_flight_option(self, options: list, remaining_points: dict, prefer_points: bool = False):
+        """
+        Pick the best flight option considering OOP.
         
-        for option in options:
-            # Check if award is viable
-            if option.award_available and option.award_points:
-                # Check surcharge ratio
-                if option.cash_price and option.award_surcharge:
-                    surcharge_ratio = option.award_surcharge / option.cash_price
-                    if surcharge_ratio > max_surcharge_ratio:
+        When budget is tight (prefer_points=True), progressively relaxes constraints:
+        1. First try with relaxed CPP/surcharge thresholds
+        2. Then try with NO restrictions (any award we can afford)
+        3. Only fall back to cash if no awards available at all
+        
+        Args:
+            options: List of flight options (already sorted by OOP)
+            remaining_points: User's remaining points balances
+            prefer_points: If True, prefer points over cash (for tight budgets)
+        """
+        config = OOP_CONFIG
+        
+        if not prefer_points:
+            # Normal mode: use standard thresholds
+            min_cpp = config["min_cpp_threshold"]
+            max_surcharge_ratio = config["max_surcharge_ratio"]
+            
+            for option in options:
+                if option.award_available and option.award_points:
+                    if option.cash_price and option.award_surcharge:
+                        surcharge_ratio = option.award_surcharge / option.cash_price
+                        if surcharge_ratio > max_surcharge_ratio:
+                            continue
+                    if option.cpp and option.cpp < min_cpp:
                         continue
+                    if self._can_afford_points(option.award_program, option.award_points, remaining_points):
+                        logger.info(f"[Greedy] Selected points option: {option.award_points:,} pts + ${option.award_surcharge or 0:.0f}")
+                        return option
                 
-                # Check CPP threshold
-                if option.cpp and option.cpp < min_cpp:
-                    continue
-                
-                # Check if we have enough points (direct or via transfer)
-                if self._can_afford_points(option.award_program, option.award_points, remaining_points):
+                if option.cash_price and not option.award_available:
                     return option
             
-            # Fall back to cash option
-            if option.cash_price and not option.award_available:
-                return option
+            # Fall back to cash
+            for option in options:
+                if option.cash_price:
+                    return option
+            return options[0] if options else None
         
-        # Return first cash option
+        # ═══════════════════════════════════════════════════════════════════════
+        # BUDGET-TIGHT MODE: Progressively relax constraints to find ANY award
+        # ═══════════════════════════════════════════════════════════════════════
+        
+        # First, analyze all available options
+        total_options = len(options)
+        award_available_count = sum(1 for o in options if o.award_available and o.award_points)
+        affordable_count = sum(1 for o in options if o.award_available and o.award_points and 
+                              self._can_afford_points(o.award_program, o.award_points, remaining_points))
+        
+        logger.info(f"[Greedy] DIAGNOSTIC: {total_options} total options, {award_available_count} with awards, {affordable_count} affordable")
+        
+        if award_available_count == 0:
+            logger.warning(f"[Greedy] ⚠️ NO OPTIONS have award_available=True! Points cannot be used.")
+        elif affordable_count == 0:
+            # Check WHY awards aren't affordable - is it balance or transfer partner issue?
+            user_banks = [k for k in remaining_points.keys()]
+            from .config import TRANSFER_GRAPH
+            
+            # Get all airlines user can book with
+            reachable_airlines = set()
+            for bank_name, config in TRANSFER_GRAPH.items():
+                bank_normalized = bank_name.lower().replace(" ", "_")
+                for user_prog in remaining_points.keys():
+                    user_prog_normalized = user_prog.lower().replace(" ", "_").replace("-", "_")
+                    if (bank_normalized == user_prog_normalized or 
+                        bank_normalized.replace("_", "") == user_prog_normalized.replace("_", "") or
+                        bank_normalized.split("_")[0] == user_prog_normalized.split("_")[0]):
+                        reachable_airlines.update(config.get("airlines", []))
+            
+            # Check which awards are on unreachable airlines
+            unreachable_count = 0
+            unreachable_programs = set()
+            for o in options:
+                if o.award_available and o.award_points:
+                    prog_upper = o.award_program.upper() if o.award_program else ""
+                    # Extract airline code (first 2 chars if longer name)
+                    airline_code = prog_upper[:2] if len(prog_upper) >= 2 else prog_upper
+                    if airline_code not in reachable_airlines and prog_upper not in reachable_airlines:
+                        unreachable_count += 1
+                        unreachable_programs.add(o.award_program)
+            
+            if unreachable_count > 0 and unreachable_count == award_available_count:
+                logger.warning(
+                    f"[Greedy] ⚠️ {award_available_count} awards available but ALL are on airlines your points "
+                    f"CANNOT transfer to! Your banks: {user_banks}, reachable airlines: {reachable_airlines}, "
+                    f"award programs: {unreachable_programs}"
+                )
+                logger.warning(
+                    f"[Greedy] 💡 TIP: Awards exist on {unreachable_programs} but your {user_banks} points "
+                    f"cannot transfer to these programs. Consider adding Chase UR or other bank points."
+                )
+            else:
+                logger.warning(f"[Greedy] ⚠️ {award_available_count} awards available but NONE are affordable with remaining points: {remaining_points}")
+                # Log what awards exist but can't afford
+                for o in options:
+                    if o.award_available and o.award_points:
+                        logger.info(f"[Greedy]   - {o.award_program}: needs {o.award_points:,} pts")
+        
+        # PASS 1: Relaxed thresholds (CPP >= 0.1, surcharge <= 80%)
+        logger.info("[Greedy] Budget tight - trying relaxed thresholds (CPP >= 0.1, surcharge <= 80%)")
+        for option in options:
+            if option.award_available and option.award_points:
+                if option.cash_price and option.award_surcharge:
+                    surcharge_ratio = option.award_surcharge / option.cash_price
+                    if surcharge_ratio > 0.80:
+                        continue
+                if option.cpp and option.cpp < 0.1:
+                    continue
+                if self._can_afford_points(option.award_program, option.award_points, remaining_points):
+                    logger.info(f"[Greedy] PASS 1: Found award with relaxed thresholds: {option.award_points:,} pts + ${option.award_surcharge or 0:.0f}")
+                    return option
+        
+        # PASS 2: Very relaxed (any positive CPP, surcharge <= 95%)
+        logger.info("[Greedy] No awards in pass 1 - trying very relaxed (CPP > 0, surcharge <= 95%)")
+        for option in options:
+            if option.award_available and option.award_points:
+                if option.cash_price and option.award_surcharge:
+                    surcharge_ratio = option.award_surcharge / option.cash_price
+                    if surcharge_ratio > 0.95:
+                        continue
+                # Accept any positive CPP (or no CPP data)
+                if option.cpp and option.cpp <= 0:
+                    continue
+                if self._can_afford_points(option.award_program, option.award_points, remaining_points):
+                    logger.info(f"[Greedy] PASS 2: Found award with very relaxed thresholds: {option.award_points:,} pts + ${option.award_surcharge or 0:.0f}")
+                    return option
+        
+        # PASS 3: NO RESTRICTIONS - any award we can afford (last resort before cash)
+        logger.info("[Greedy] No awards in pass 2 - trying ANY award we can afford (no restrictions)")
+        for option in options:
+            if option.award_available and option.award_points:
+                if self._can_afford_points(option.award_program, option.award_points, remaining_points):
+                    surcharge = option.award_surcharge or 0
+                    logger.info(f"[Greedy] PASS 3: Found award with NO restrictions: {option.award_points:,} pts + ${surcharge:.0f}")
+                    return option
+        
+        # FINAL FALLBACK: No awards available at all, must use cash
+        logger.warning(
+            f"[Greedy] ⚠️ NO VIABLE AWARDS after all passes. "
+            f"Stats: {award_available_count}/{total_options} had awards, {affordable_count} affordable. "
+            f"Falling back to cash."
+        )
+        
+        # Log why awards failed
+        if award_available_count > 0 and affordable_count == 0:
+            # This means awards exist but user can't use them (transfer partner issue or insufficient balance)
+            logger.warning(
+                "[Greedy] Awards exist but none are usable - likely due to transfer partner incompatibility. "
+                "User's points cannot transfer to the airlines with award availability on this route."
+            )
+        elif award_available_count > 0 and affordable_count > 0:
+            logger.warning("[Greedy] Awards were available and affordable but failed CPP/surcharge checks even with no restrictions - this is unexpected!")
+        
         for option in options:
             if option.cash_price:
+                logger.info(f"[Greedy] Using cash: ${option.cash_price:.0f} (no awards available)")
                 return option
         
         return options[0] if options else None
     
     def _can_afford_points(self, program: str, points_needed: int, remaining_points: dict) -> bool:
-        """Check if user can afford points (direct or via transfer)."""
-        # Check direct balance
-        if program in remaining_points and remaining_points[program] >= points_needed:
-            return True
+        """
+        Check if user can afford points (direct or via transfer).
+        
+        Handles normalization between different key formats:
+        - TRANSFER_GRAPH uses: "Amex MR", "Chase UR", etc.
+        - User points might use: "amex_mr", "chase_ur", "amex", "chase", etc.
+        """
+        # Normalize program name for comparison
+        program_upper = program.upper() if program else ""
+        
+        # Check direct balance (normalize both sides for comparison)
+        for user_prog, balance in remaining_points.items():
+            user_prog_upper = user_prog.upper().replace("_", " ").replace("-", " ")
+            if program_upper == user_prog_upper or program_upper in user_prog_upper:
+                if balance >= points_needed:
+                    return True
         
         # Check transfer partners (airlines only)
         from .config import TRANSFER_GRAPH
-        for bank, config in TRANSFER_GRAPH.items():
-            if program in config.get("airlines", []):
-                ratio = config["ratios"].get(program, 1.0)
+        
+        # Build a mapping of normalized bank names to their config
+        for bank_name, config in TRANSFER_GRAPH.items():
+            if program_upper in [a.upper() for a in config.get("airlines", [])]:
+                ratio = config["ratios"].get(program, config["ratios"].get(program_upper, 1.0))
                 needed_from_bank = int(points_needed / ratio)
-                if bank in remaining_points and remaining_points[bank] >= needed_from_bank:
-                    return True
+                
+                # Check if user has this bank - normalize the comparison
+                bank_normalized = bank_name.lower().replace(" ", "_")
+                for user_prog, balance in remaining_points.items():
+                    user_prog_normalized = user_prog.lower().replace(" ", "_").replace("-", "_")
+                    
+                    # Match by normalized key or partial match
+                    if (bank_normalized == user_prog_normalized or 
+                        bank_normalized.replace("_", "") == user_prog_normalized.replace("_", "") or
+                        bank_normalized.split("_")[0] == user_prog_normalized.split("_")[0]):  # e.g., "amex" matches "amex_mr"
+                        if balance >= needed_from_bank:
+                            logger.info(
+                                f"[Greedy] Can afford {program}: {points_needed:,} pts via {bank_name} "
+                                f"(user has {balance:,} {user_prog}, need {needed_from_bank:,})"
+                            )
+                            return True
         
         return False
     
-    def _create_flight_segment(self, option, remaining_points: dict) -> tuple:
-        """Create flight segment with payment decision."""
+    def _create_flight_segment(self, option, remaining_points: dict, force_points: bool = False) -> tuple:
+        """
+        Create flight segment with payment decision.
+        
+        Args:
+            option: The flight option to use
+            remaining_points: User's remaining points balances
+            force_points: If True, use points regardless of CPP threshold (for tight budgets)
+        """
         transfer = None
         points_used = 0
         
         # Decide cash vs points
-        use_points = (
-            option.award_available and 
-            option.award_points and
-            option.cpp and option.cpp >= OOP_CONFIG["min_cpp_threshold"] and
-            self._can_afford_points(option.award_program, option.award_points, remaining_points)
-        )
+        # When force_points=True, skip CPP threshold check
+        if force_points:
+            use_points = (
+                option.award_available and 
+                option.award_points and
+                self._can_afford_points(option.award_program, option.award_points, remaining_points)
+            )
+        else:
+            use_points = (
+                option.award_available and 
+                option.award_points and
+                option.cpp and option.cpp >= OOP_CONFIG["min_cpp_threshold"] and
+                self._can_afford_points(option.award_program, option.award_points, remaining_points)
+            )
         
         if use_points:
             # Find source for points
@@ -1565,7 +1825,7 @@ class OrchestratorAgent(BaseAgent):
                 cpp_achieved=option.cpp,
                 cash_saved=(option.cash_price or 0) - (option.award_surcharge or 0),
                 transfer=transfer,
-                reason=f"Saves ${(option.cash_price or 0) - (option.award_surcharge or 0):.0f} at {option.cpp:.1f}¢/pt",
+                reason=f"Saves ${(option.cash_price or 0) - (option.award_surcharge or 0):.0f} at {option.cpp or 0:.1f}¢/pt",
             )
             points_used = option.award_points
         else:
@@ -1592,20 +1852,42 @@ class OrchestratorAgent(BaseAgent):
         return segment, points_used, transfer
     
     def _deduct_points(self, program: str, points_needed: int, remaining_points: dict) -> tuple:
-        """Deduct points from user's balance, return (source, actual_points_deducted)."""
-        # Try direct first
-        if program in remaining_points and remaining_points[program] >= points_needed:
-            remaining_points[program] -= points_needed
-            return (program, points_needed)
+        """
+        Deduct points from user's balance, return (source, actual_points_deducted).
+        
+        Handles normalization between different key formats.
+        """
+        program_upper = program.upper() if program else ""
+        
+        # Try direct first (normalize both sides)
+        for user_prog, balance in list(remaining_points.items()):
+            user_prog_upper = user_prog.upper().replace("_", " ").replace("-", " ")
+            if program_upper == user_prog_upper or program_upper in user_prog_upper:
+                if balance >= points_needed:
+                    remaining_points[user_prog] -= points_needed
+                    return (user_prog, points_needed)
         
         # Try transfer partners (airlines only)
         from .config import TRANSFER_GRAPH
-        for bank, config in TRANSFER_GRAPH.items():
-            if program in config.get("airlines", []):
-                ratio = config["ratios"].get(program, 1.0)
+        for bank_name, config in TRANSFER_GRAPH.items():
+            if program_upper in [a.upper() for a in config.get("airlines", [])]:
+                ratio = config["ratios"].get(program, config["ratios"].get(program_upper, 1.0))
                 needed_from_bank = int(points_needed / ratio)
-                if bank in remaining_points and remaining_points[bank] >= needed_from_bank:
-                    remaining_points[bank] -= needed_from_bank
-                    return (bank, needed_from_bank)
+                
+                # Find matching user balance
+                bank_normalized = bank_name.lower().replace(" ", "_")
+                for user_prog, balance in list(remaining_points.items()):
+                    user_prog_normalized = user_prog.lower().replace(" ", "_").replace("-", "_")
+                    
+                    if (bank_normalized == user_prog_normalized or 
+                        bank_normalized.replace("_", "") == user_prog_normalized.replace("_", "") or
+                        bank_normalized.split("_")[0] == user_prog_normalized.split("_")[0]):
+                        if balance >= needed_from_bank:
+                            remaining_points[user_prog] -= needed_from_bank
+                            logger.info(
+                                f"[Greedy] Deducted {needed_from_bank:,} from {user_prog} for {program} "
+                                f"(remaining: {remaining_points[user_prog]:,})"
+                            )
+                            return (user_prog, needed_from_bank)
         
         return (None, 0)

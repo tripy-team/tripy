@@ -356,8 +356,22 @@ async def optimize_solo(
         orchestrator = get_orchestrator()
         
         # Build the agent request with trip preferences
-        # Budget from trip, or default to $500 to test budget constraint
-        budget = trip.get("max_budget") or 500.0
+        # Budget from trip (camelCase: maxBudget), or None for no limit
+        budget = trip.get("maxBudget") or trip.get("max_budget")
+        
+        # Convert to float if present
+        if budget is not None:
+            try:
+                budget = float(budget)
+            except (TypeError, ValueError):
+                budget = None
+        
+        logger.info(f"[solo/optimize] Budget from trip: ${budget if budget else 'None (no limit)'}")
+        
+        # Log points being used for optimization
+        points_summary = {k: f"{v:,}" for k, v in request.points.items()} if request.points else {}
+        total_points = sum(request.points.values()) if request.points else 0
+        logger.info(f"[solo/optimize] Points for optimization: {points_summary} (total: {total_points:,})")
         
         # Map cabin class preference (use camelCase field names)
         cabin_classes = _map_flight_class(trip.get("flightClass", "economy"))
@@ -370,7 +384,7 @@ async def optimize_solo(
             optimization_mode=mode,
         )
         
-        logger.info(f"[solo/optimize] Running orchestrator for trip {request.trip_id} with optimization_mode={mode}")
+        logger.info(f"[solo/optimize] Running orchestrator for trip {request.trip_id} with optimization_mode={mode}, budget=${budget if budget else 'unlimited'}")
         
         # Call the real orchestrator
         agent_response = await orchestrator.optimize_solo(agent_request)

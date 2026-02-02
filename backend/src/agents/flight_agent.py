@@ -128,7 +128,26 @@ Return JSON with: {"programs": ["UA", "AA", ...], "reasoning": "..."}"""
         for bank_program, balance in request.user_points.items():
             if balance <= 0:
                 continue
-            if bank_program in TRANSFER_GRAPH:
+            
+            # Normalize the bank program key to match TRANSFER_GRAPH
+            # User points might have "amex_mr" but TRANSFER_GRAPH uses "Amex MR"
+            bank_normalized = bank_program.lower().replace(" ", "_").replace("-", "_")
+            
+            # Try to find matching bank in transfer graph
+            matched_bank = None
+            for graph_bank in TRANSFER_GRAPH.keys():
+                graph_normalized = graph_bank.lower().replace(" ", "_")
+                if (bank_normalized == graph_normalized or 
+                    bank_normalized.replace("_", "") == graph_normalized.replace("_", "") or
+                    bank_normalized.split("_")[0] == graph_normalized.split("_")[0]):
+                    matched_bank = graph_bank
+                    break
+            
+            if matched_bank:
+                available_programs.update(TRANSFER_GRAPH[matched_bank].get("airlines", []))
+                logger.info(f"[FlightAgent] User bank {bank_program} -> matched {matched_bank} -> airlines: {TRANSFER_GRAPH[matched_bank].get('airlines', [])}")
+            elif bank_program in TRANSFER_GRAPH:
+                # Direct match (legacy support)
                 available_programs.update(TRANSFER_GRAPH[bank_program].get("airlines", []))
         
         # Also add direct airline miles user might have

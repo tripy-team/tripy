@@ -570,7 +570,8 @@ class SolverV3:
         #
         # Normal (r ≥ 0.60): cpp_floor=1.1, miles/$=140
         # Tight (0.30 ≤ r < 0.60): cpp_floor=0.95, miles/$=180
-        # Very tight (r < 0.30 or budget < $100): cpp_floor=0.80, miles/$=250
+        # Very tight (0.15 ≤ r < 0.30): cpp_floor=0.80, miles/$=250
+        # CRITICAL (r < 0.15): cpp_floor=0 (NO restriction), miles/$=∞
         
         best_cash_price = self._compute_best_cash_price()
         self.budget_tier = cfg.get_budget_tier(self.cash_budget, best_cash_price)
@@ -707,6 +708,17 @@ class SolverV3:
             logger.warning(
                 f"[Quality Guards] ⚠️ ALL {rejected_count} award options were rejected by guards! "
                 f"Budget tier is '{self.budget_tier}'. If budget is tight, guards may need further relaxation."
+            )
+            # If critical tier and still rejecting, there's a bug
+            if self.budget_tier == "critical" and rejected_count > 0:
+                logger.error(
+                    f"[Quality Guards] BUG: Critical tier should have NO guards but still rejected {rejected_count} awards!"
+                )
+        
+        if flights_with_awards == 0:
+            logger.warning(
+                f"[Quality Guards] ⚠️ NO AWARD OPTIONS found in flight data! "
+                f"Total flights: {len(self.flights)}. Awards must be fetched from AwardTool."
             )
     
     def _build_transfer_vars(self):

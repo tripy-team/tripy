@@ -2046,6 +2046,7 @@ async def generate_optimized_itinerary(
 
     start_date = trip.get("startDate", "")
     end_date = trip.get("endDate", "")
+    leg_dates = trip.get("legDates") or []  # Multi-city leg dates from frontend
     
     # Validate dates
     try:
@@ -2291,6 +2292,36 @@ async def generate_optimized_itinerary(
     
     logger.info(f"Multi-airport expansion: {len(nodes)} cities -> {len(pairs)} airport pairs")
 
+    # Build city -> departure_date mapping from leg_dates
+    # leg_dates[0] = departure from origin, leg_dates[1] = departure from cities[0], etc.
+    # This allows us to search for award flights on the correct dates for each city
+    city_departure_dates: Dict[str, str] = {}
+    
+    if leg_dates and len(leg_dates) > 0:
+        # Use explicit leg dates from frontend
+        # leg_dates[0] = departure from start, leg_dates[1] = departure from city_codes[0], etc.
+        city_departure_dates[start_dest_code] = leg_dates[0] if len(leg_dates) > 0 else start_date.strip()
+        for i, city_code in enumerate(city_codes):
+            if i + 1 < len(leg_dates):
+                city_departure_dates[city_code] = leg_dates[i + 1]
+            else:
+                # Fallback: compute approximate date if not enough leg_dates
+                logger.warning(f"Missing leg_date for city index {i+1} ({city_code}), using computed date")
+        logger.info(f"Using explicit leg_dates: {city_departure_dates}")
+    else:
+        # Compute progressive dates based on trip duration
+        # Distribute days evenly across cities
+        total_days = (datetime.strptime(end_date.strip(), "%Y-%m-%d") - datetime.strptime(start_date.strip(), "%Y-%m-%d")).days
+        num_segments = len(city_codes) + 1  # segments between cities + return
+        days_per_segment = max(1, total_days // max(num_segments, 1))
+        
+        city_departure_dates[start_dest_code] = start_date.strip()
+        current_date = datetime.strptime(start_date.strip(), "%Y-%m-%d")
+        for i, city_code in enumerate(city_codes):
+            current_date += timedelta(days=days_per_segment)
+            city_departure_dates[city_code] = current_date.strftime("%Y-%m-%d")
+        logger.info(f"Computed leg dates (no explicit leg_dates): {city_departure_dates}")
+
     # Combined points from all travelers (same for every O-D pair)
     combined_points = {}
     for user_id, points in user_points_by_trav.items():
@@ -2302,10 +2333,20 @@ async def generate_optimized_itinerary(
 
     async def _bounded_fetch(o: str, d: str) -> Tuple[Dict[Tuple[str, str, str], Dict[str, Any]], bool]:
         async with sem:
-            # Determine date: use end_date for return leg, start_date otherwise
-            # Check both the actual airport AND the city it represents
+            # Determine the search date for this leg
+            # Use the departure date for the origin city from our mapping
             city_o, city_d = pair_to_city.get((o, d), (o, d))
-            leg_date = end_date.strip() if (city_d == start_dest_code and end_date) else start_date.strip()
+            
+            # Check if this is the return leg (destination is start city)
+            if city_d == start_dest_code and end_date:
+                leg_date = end_date.strip()
+            elif city_o in city_departure_dates:
+                # Use the departure date for this origin city
+                leg_date = city_departure_dates[city_o]
+            else:
+                # Fallback to start_date if city not in mapping
+                leg_date = start_date.strip()
+                
             return await _fetch_edges_for_route(
                 o, d, leg_date, combined_points, travelers, start_dest_code
             )

@@ -652,11 +652,19 @@ class ComfortConfig:
     cpp_floor_very_tight: float = 0.80    # 0.80¢ for very tight budgets
     max_miles_per_dollar_very_tight: float = 250.0
     
+    # CRITICAL budget settings - NO restrictions (budget absolutely requires points)
+    # Used when budget < 15% of cash price or when very_tight still infeasible
+    budget_tier_critical_ratio: float = 0.15  # Below this = "critical" budget
+    cpp_floor_critical: float = 0.0           # NO CPP restriction
+    max_miles_per_dollar_critical: float = float('inf')  # NO miles/$ restriction
+    
     def get_budget_tier(self, budget: Optional[float], best_cash_price: float) -> str:
         """
         Determine budget tier based on tightness ratio.
         
-        Returns: "normal", "tight", or "very_tight"
+        Returns: "normal", "tight", "very_tight", or "critical"
+        
+        Critical tier has NO restrictions - any award is accepted.
         """
         if not self.enable_adaptive_budget_guardrails:
             return "normal"
@@ -664,17 +672,18 @@ class ComfortConfig:
         if budget is None or budget <= 0:
             return "normal"  # No budget constraint
         
-        # Very tight if budget is below absolute threshold
-        if budget < self.budget_tier_very_tight_absolute:
-            return "very_tight"
-        
         # Compute ratio
         if best_cash_price <= 0:
             return "normal"
         
         ratio = budget / best_cash_price
         
-        if ratio < self.budget_tier_very_tight_ratio:
+        # Critical: budget is < 15% of cash price - must use points, no restrictions
+        if ratio < self.budget_tier_critical_ratio:
+            return "critical"
+        
+        # Very tight if budget is below absolute threshold OR ratio < 30%
+        if budget < self.budget_tier_very_tight_absolute or ratio < self.budget_tier_very_tight_ratio:
             return "very_tight"
         elif ratio < self.budget_tier_tight_ratio:
             return "tight"
@@ -683,7 +692,9 @@ class ComfortConfig:
     
     def get_adaptive_cpp_floor(self, tier: str) -> float:
         """Get CPP floor for the given budget tier."""
-        if tier == "very_tight":
+        if tier == "critical":
+            return self.cpp_floor_critical  # NO restriction
+        elif tier == "very_tight":
             return self.cpp_floor_very_tight
         elif tier == "tight":
             return self.cpp_floor_tight
@@ -692,7 +703,9 @@ class ComfortConfig:
     
     def get_adaptive_miles_per_dollar(self, tier: str) -> float:
         """Get miles-per-dollar cap for the given budget tier."""
-        if tier == "very_tight":
+        if tier == "critical":
+            return self.max_miles_per_dollar_critical  # NO restriction
+        elif tier == "very_tight":
             return self.max_miles_per_dollar_very_tight
         elif tier == "tight":
             return self.max_miles_per_dollar_tight

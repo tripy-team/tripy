@@ -2,15 +2,11 @@
 
 import { useState, useEffect } from 'react';
 import { useRouter } from 'next/navigation';
-import { Users, MapPin, Calendar, DollarSign, Zap, Sparkles, CreditCard, X, Copy, Check, ArrowRight, MessageCircle, RefreshCw, Baby, User, Info, Plane, Backpack, Armchair, Coffee, Wine, Crown, BedDouble, Star, SlidersHorizontal, Luggage, Clock, Sunrise, Sun, Sunset, Moon } from 'lucide-react';
-import { createTrip, addDestination, upsertPoints, users as usersAPI, trips as tripsAPI, ExtractedTripInfo } from '@/lib/api';
-import TripChatbotInline from '@/components/trip-chatbot-inline';
-import { searchAndFormatAirport } from '@/lib/airport-formatter';
-import { searchAndFormatCities } from '@/lib/city-formatter';
+import { Users, MapPin, Calendar, X, Copy, Check, ArrowRight, RefreshCw, Baby, User, Info, Plane, Luggage, Plus } from 'lucide-react';
+import { createTrip, addDestination, upsertPoints, users as usersAPI, trips as tripsAPI } from '@/lib/api';
 import PointsAllocation from '@/components/PointsAllocation';
 import { DestinationAutocomplete } from '@/components/ui/DestinationAutocomplete';
 import AirportAutocomplete from '@/components/ui/AirportAutocomplete';
-import DateRangePicker from '@/components/date-range-picker';
 
 interface CreditCardEntry {
   id: string;
@@ -30,17 +26,14 @@ export default function GroupTripSetup() {
   const [pointsToUse, setPointsToUse] = useState<Record<string, number>>({}); // program -> points to use for this trip
   const [showPointsAllocationModal, setShowPointsAllocationModal] = useState(false);
   
-  // Date & Duration State
-  const [isFlexible, setIsFlexible] = useState(false);
+  // Date State
   const [startDate, setStartDate] = useState('');
   const [endDate, setEndDate] = useState('');
-  const [isOneWay, setIsOneWay] = useState(false);
-  const [flexibleDuration, setFlexibleDuration] = useState(7);
-  const [durationDays, setDurationDays] = useState(0);
 
   // Cities State
   const [cities, setCities] = useState<string[]>([]);
   const [newCity, setNewCity] = useState('');
+  const [showAddDestination, setShowAddDestination] = useState(false);
   
   // Start and End Destination State
   const [startDestination, setStartDestination] = useState('');
@@ -48,17 +41,12 @@ export default function GroupTripSetup() {
   const [isRoundTrip, setIsRoundTrip] = useState(false);
 
 
-  // Optimization Mode - always use OOP (budget-constrained), UI removed
-  const optimizationMode = 'oop' as const;
-
   // Flight Time Preferences
   const [departureTimePreference, setDepartureTimePreference] = useState<'any' | 'morning' | 'afternoon' | 'evening' | 'night'>('any');
   const [arrivalTimePreference, setArrivalTimePreference] = useState<'any' | 'morning' | 'afternoon' | 'evening' | 'night'>('any');
 
   // Travel Style State
   const [flightClass, setFlightClass] = useState('economy');
-  const [hotelClass, setHotelClass] = useState('4');
-  const [includeHotels, setIncludeHotels] = useState(true);
   const [bags, setBags] = useState(1);
 
   // Party Size State
@@ -73,14 +61,11 @@ export default function GroupTripSetup() {
   const [showInviteModal, setShowInviteModal] = useState(false);
   const [isRegenerating, setIsRegenerating] = useState(false);
 
-  // Estimates
-  const [estimatedCost, setEstimatedCost] = useState(0);
-  const [estimatedPoints, setEstimatedPoints] = useState(0);
+  // UI State
   const [isGenerating, setIsGenerating] = useState(false);
   const [error, setError] = useState<string | null>(null);
 
-  // Calculate total points; total allocated for this trip
-  const totalPoints = creditCards.reduce((sum, card) => sum + card.points, 0);
+  // Calculate total points to use for this trip
   const totalPointsToUse = creditCards.reduce((sum, card) => sum + (pointsToUse[card.program] ?? card.points), 0);
 
   // Scroll to top on mount and keep it at top
@@ -169,143 +154,10 @@ export default function GroupTripSetup() {
       const timeoutId = setTimeout(saveProfile, 1000);
       return () => clearTimeout(timeoutId);
     }
-  }, [creditCards, isLoadingProfile, flightClass, hotelClass]);
-
-  // Handle extracted trip info from chatbot
-  const handleExtract = async (info: ExtractedTripInfo) => {
-    // Extract and format start destination as airport code
-    if (info.startDestination) {
-      try {
-        const airportCode = await searchAndFormatAirport(info.startDestination);
-        setStartDestination(airportCode);
-      } catch (error) {
-        console.error('Error formatting start destination:', error);
-        setStartDestination(info.startDestination);
-      }
-    }
-
-    // Extract and format end destination as airport code
-    if (info.endDestination) {
-      try {
-        const airportCode = await searchAndFormatAirport(info.endDestination);
-        setEndDestination(airportCode);
-        
-        // 🥚 Auto-detect round trip if start and end are the same
-        if (info.startDestination && info.endDestination) {
-          const startNorm = info.startDestination.toLowerCase().replace(/\s+/g, ' ').trim();
-          const endNorm = info.endDestination.toLowerCase().replace(/\s+/g, ' ').trim();
-          if (startNorm === endNorm) {
-            setIsRoundTrip(true);
-          }
-        }
-      } catch (error) {
-        console.error('Error formatting end destination:', error);
-        setEndDestination(info.endDestination);
-      }
-    }
-
-    // Extract cities (destinations) - search and format with airport codes
-    if (info.cities && info.cities.length > 0) {
-      try {
-        const formattedCities = await searchAndFormatCities(info.cities);
-        if (formattedCities && formattedCities.length > 0) {
-          setCities(prevCities => {
-            const newCities = formattedCities.filter(city => city && !prevCities.includes(city));
-            return newCities.length > 0 ? [...prevCities, ...newCities] : prevCities;
-          });
-        } else {
-          // If formatting returns empty, use original cities
-          setCities(prevCities => {
-            const newCities = info.cities.filter(city => city && !prevCities.includes(city));
-            return newCities.length > 0 ? [...prevCities, ...newCities] : prevCities;
-          });
-        }
-      } catch (error) {
-        console.error('Error formatting cities:', error);
-        // Fallback to unformatted cities - ensure they're added
-        setCities(prevCities => {
-          const newCities = info.cities.filter(city => city && !prevCities.includes(city));
-          return newCities.length > 0 ? [...prevCities, ...newCities] : prevCities;
-        });
-      }
-    }
-
-    // Extract dates - populate dates section
-    if (info.startDate) {
-      setStartDate(info.startDate);
-    }
-    if (info.endDate) {
-      setEndDate(info.endDate);
-    }
-    if (info.duration !== undefined && info.duration !== null && !info.startDate && !info.endDate) {
-      setIsFlexible(true);
-      setFlexibleDuration(info.duration);
-    }
-    if (info.isFlexible !== undefined && info.isFlexible !== null) {
-      setIsFlexible(info.isFlexible);
-    }
-
-    // Extract budget - populate budget section
-          if (info.maxBudget !== undefined && info.maxBudget !== null) {
-            setMaxBudget(info.maxBudget);
-          }
-
-    // Extract credit cards - populate credit cards section
-    if (info.creditCards && info.creditCards.length > 0) {
-      setCreditCards(prevCards => {
-        const newCards = info.creditCards!.map((card, index) => ({
-          id: `extracted-${Date.now()}-${index}`,
-          program: card.program,
-          points: card.points,
-        }));
-        // Filter out duplicates based on program name
-        const existingPrograms = new Set(prevCards.map(c => c.program));
-        const uniqueNewCards = newCards.filter(c => !existingPrograms.has(c.program));
-        return uniqueNewCards.length > 0 ? [...prevCards, ...uniqueNewCards] : prevCards;
-      });
-    }
-
-    // Extract travel style preferences
-    if (info.flightClass) {
-      setFlightClass(info.flightClass);
-    }
-    if (info.hotelClass) {
-      setHotelClass(info.hotelClass);
-    }
-  };
-
-  // Calculate Duration
-  useEffect(() => {
-    if (isFlexible) {
-      setDurationDays(flexibleDuration);
-    } else {
-      if (startDate && endDate) {
-        const start = new Date(startDate);
-        const end = new Date(endDate);
-        const diffTime = Math.abs(end.getTime() - start.getTime());
-        const diffDays = Math.ceil(diffTime / (1000 * 60 * 60 * 24)); 
-        setDurationDays(diffDays > 0 ? diffDays : 0);
-      } else {
-        setDurationDays(0);
-      }
-    }
-  }, [startDate, endDate, isFlexible, flexibleDuration]);
-
-  // Real-time cost calculation
-  useEffect(() => {
-    const baseCostPerDay = 200;
-    const baseCostPerCity = 300;
-    const estimated = (durationDays * baseCostPerDay) + (cities.length * baseCostPerCity);
-    setEstimatedCost(estimated);
-    setEstimatedPoints(Math.floor(estimated * 25));
-  }, [durationDays, cities.length]);
+  }, [creditCards, isLoadingProfile]);
 
   const removeCity = (city: string) => {
     setCities(cities.filter(c => c !== city));
-  };
-
-  const removeCreditCard = (id: string) => {
-    setCreditCards(creditCards.filter(card => card.id !== id));
   };
 
   const handleCreateTrip = async () => {
@@ -314,7 +166,7 @@ export default function GroupTripSetup() {
       setError('Please fill in the start destination');
       return;
     }
-    if (!isOneWay && !endDestination) {
+    if (!endDestination) {
       setError('Please fill in the end destination');
       return;
     }
@@ -322,12 +174,12 @@ export default function GroupTripSetup() {
       setError('Please add at least 1 destination city');
       return;
     }
-    if (!isFlexible && !startDate) {
-      setError('Please select a start date');
+    if (!startDate) {
+      setError('Please select a departure date');
       return;
     }
-    if (!isFlexible && !isOneWay && !endDate) {
-      setError('Please select an end date');
+    if (!endDate) {
+      setError('Please select a return/arrival date');
       return;
     }
 
@@ -337,14 +189,13 @@ export default function GroupTripSetup() {
     try {
       // 1. Create trip
       const tripTitle = cities.length > 0 
-        ? `Group Trip to ${cities[0]}` 
+        ? `Group Trip to ${cities[0]}${cities.length > 1 ? ` + ${cities.length - 1} more` : ''}` 
         : 'Group Trip';
       const trip = await createTrip({
         title: tripTitle,
-        start_date: isFlexible ? '' : startDate,
-        end_date: isFlexible || isOneWay ? '' : endDate,
+        start_date: startDate,
+        end_date: endDate,
         max_budget: maxBudget === '' ? undefined : (typeof maxBudget === 'number' ? maxBudget : undefined),
-        duration_days: isFlexible ? flexibleDuration : undefined,
       });
 
       // 2. Add start destination if provided
@@ -449,256 +300,367 @@ export default function GroupTripSetup() {
   };
 
   return (
-    <div data-testid="group-setup-page" data-slot="GroupTripSetup" className="min-h-full p-8 bg-gradient-to-br from-white via-blue-50/20 to-white">
+    <div data-testid="group-setup-page" data-slot="GroupTripSetup" className="min-h-full p-6 md:p-8 bg-gradient-to-br from-slate-50 via-blue-50 to-indigo-50">
       <div className="max-w-6xl mx-auto">
         {/* Header */}
-        <div className="mb-12">
-            <div className="inline-flex items-center gap-2 px-3 py-1 bg-blue-100 rounded-full text-sm text-blue-700 mb-4 font-medium">
-                <Users className="w-4 h-4" />
-                <span>Group Trip · You&apos;re the admin</span>
-            </div>
-            <h1 className="text-5xl mb-3 tracking-tight text-slate-900 font-bold">Create group trip</h1>
-            <p className="text-lg text-slate-600">Set up the basics and invite your friends to collaborate</p>
+        <div className="mb-8">
+          <div className="inline-flex items-center gap-2 px-3 py-1 bg-blue-100 rounded-full text-sm text-blue-700 mb-2 font-medium">
+            <Users className="w-4 h-4" />
+            <span>Group Trip</span>
+          </div>
+          <h1 className="text-3xl md:text-4xl tracking-tight text-slate-900 font-bold">Plan Your Group Trip</h1>
+          <p className="text-slate-500 mt-1">Find the best deals using your group&apos;s points</p>
         </div>
 
         <div className="grid lg:grid-cols-3 gap-8">
-          {/* Left Column - Inputs */}
+          {/* Left Column - Main Form */}
           <div className="lg:col-span-2 space-y-6">
-            
-            {/* Party Size */}
-            <div className="bg-white border border-slate-200 rounded-2xl p-8 shadow-sm">
-              <div className="flex items-center gap-3 mb-6">
-                <div className="w-10 h-10 bg-blue-100 rounded-xl flex items-center justify-center">
-                  <Users className="w-5 h-5 text-blue-600" />
-                </div>
-                <div>
-                  <h2 className="text-2xl text-slate-900 font-semibold">Your Travel Party</h2>
-                  <p className="text-sm text-slate-500">Who is traveling with you?</p>
-                </div>
-              </div>
 
-              <div className="grid md:grid-cols-2 gap-8">
-                <div className="flex items-center justify-between p-4 bg-slate-50 rounded-xl border border-slate-200">
-                  <div className="flex items-center gap-3">
-                    <div className="w-10 h-10 bg-white rounded-full flex items-center justify-center border border-slate-200 text-slate-600">
-                      <User className="w-5 h-5" />
-                    </div>
-                    <div>
-                      <div className="font-semibold text-slate-900">Adults</div>
-                      <div className="text-xs text-slate-500">Age 13+</div>
-                    </div>
-                  </div>
-                  <div className="flex items-center gap-3">
+            {/* 1. TRAVELERS - Compact horizontal bar */}
+            <div className="bg-white border border-slate-200 rounded-2xl p-5 shadow-sm">
+              <div className="flex flex-wrap items-center gap-6 md:gap-10">
+                {/* Adults */}
+                <div className="flex items-center gap-3">
+                  <User className="w-5 h-5 text-blue-600" />
+                  <span className="text-sm text-slate-700 font-medium">Adults</span>
+                  <div className="flex items-center gap-2 ml-1">
                     <button 
+                      type="button"
                       onClick={() => setAdults(Math.max(1, adults - 1))}
-                      className="w-8 h-8 rounded-lg bg-white border border-slate-200 flex items-center justify-center hover:bg-slate-50 text-slate-600 transition-colors shadow-sm"
+                      className="w-7 h-7 rounded-lg bg-slate-100 flex items-center justify-center hover:bg-blue-50 text-slate-600 transition-colors text-sm font-medium"
                     >
-                      -
+                      −
                     </button>
-                    <span className="w-4 text-center font-semibold text-slate-900">{adults}</span>
+                    <span className="w-5 text-center font-bold text-slate-900">{adults}</span>
                     <button 
+                      type="button"
                       onClick={() => setAdults(adults + 1)}
-                      className="w-8 h-8 rounded-lg bg-white border border-slate-200 flex items-center justify-center hover:bg-slate-50 text-slate-600 transition-colors shadow-sm"
+                      className="w-7 h-7 rounded-lg bg-slate-100 flex items-center justify-center hover:bg-blue-50 text-slate-600 transition-colors text-sm font-medium"
                     >
                       +
                     </button>
                   </div>
                 </div>
 
-                <div className="flex items-center justify-between p-4 bg-slate-50 rounded-xl border border-slate-200">
-                  <div className="flex items-center gap-3">
-                    <div className="w-10 h-10 bg-white rounded-full flex items-center justify-center border border-slate-200 text-slate-600">
-                      <Baby className="w-5 h-5" />
-                    </div>
-                    <div>
-                      <div className="font-semibold text-slate-900">Children</div>
-                      <div className="text-xs text-slate-500">Ages 0-12</div>
-                    </div>
-                  </div>
-                  <div className="flex items-center gap-3">
+                {/* Children */}
+                <div className="flex items-center gap-3">
+                  <Baby className="w-5 h-5 text-blue-600" />
+                  <span className="text-sm text-slate-700 font-medium">Children</span>
+                  <div className="flex items-center gap-2 ml-1">
                     <button 
+                      type="button"
                       onClick={() => setChildren(Math.max(0, children - 1))}
-                      className="w-8 h-8 rounded-lg bg-white border border-slate-200 flex items-center justify-center hover:bg-slate-50 text-slate-600 transition-colors shadow-sm"
+                      className="w-7 h-7 rounded-lg bg-slate-100 flex items-center justify-center hover:bg-blue-50 text-slate-600 transition-colors text-sm font-medium"
                     >
-                      -
+                      −
                     </button>
-                    <span className="w-4 text-center font-semibold text-slate-900">{children}</span>
+                    <span className="w-5 text-center font-bold text-slate-900">{children}</span>
                     <button 
+                      type="button"
                       onClick={() => setChildren(children + 1)}
-                      className="w-8 h-8 rounded-lg bg-white border border-slate-200 flex items-center justify-center hover:bg-slate-50 text-slate-600 transition-colors shadow-sm"
+                      className="w-7 h-7 rounded-lg bg-slate-100 flex items-center justify-center hover:bg-blue-50 text-slate-600 transition-colors text-sm font-medium"
+                    >
+                      +
+                    </button>
+                  </div>
+                </div>
+
+                {/* Bags per person */}
+                <div className="flex items-center gap-3">
+                  <Luggage className="w-5 h-5 text-blue-600" />
+                  <span className="text-sm text-slate-700 font-medium">Bags</span>
+                  <div className="flex items-center gap-2 ml-1">
+                    <button
+                      type="button"
+                      onClick={() => setBags(Math.max(0, bags - 1))}
+                      className="w-7 h-7 rounded-lg bg-slate-100 flex items-center justify-center hover:bg-blue-50 text-slate-600 transition-colors text-sm font-medium"
+                    >
+                      −
+                    </button>
+                    <span className="w-5 text-center font-bold text-slate-900">{bags}</span>
+                    <button
+                      type="button"
+                      onClick={() => setBags(Math.min(4, bags + 1))}
+                      className="w-7 h-7 rounded-lg bg-slate-100 flex items-center justify-center hover:bg-blue-50 text-slate-600 transition-colors text-sm font-medium"
                     >
                       +
                     </button>
                   </div>
                 </div>
               </div>
-
+              
               {adults > 1 && (
-                <div className="mt-6 space-y-4 animate-in fade-in slide-in-from-top-2">
-                  <div className="p-4 bg-amber-50 border border-amber-200 rounded-xl flex items-start gap-3">
-                    <Info className="w-5 h-5 text-amber-600 flex-shrink-0 mt-0.5" />
-                    <div className="text-sm text-amber-900">
-                      <span className="font-semibold block mb-1">Are they contributing points?</span>
-                      Additional adults added here are considered part of your booking. This means that <strong>they do not have points to contribute</strong>. If they do, they should join using an invite link.
-                    </div>
-                  </div>
-
-                  <div className="space-y-3">
-                    <h3 className="text-sm font-medium text-slate-900 pl-1">Additional Traveler Details</h3>
-                    {Array.from({ length: adults - 1 }).map((_, index) => (
-                      <div key={index} className="p-4 bg-slate-50 rounded-xl border border-slate-200 space-y-3">
-                        <div className="flex items-center justify-between">
-                          <div className="text-xs font-bold text-slate-500 uppercase tracking-wider">Adult {index + 2}</div>
-                        </div>
-                        <div className="grid md:grid-cols-2 gap-4">
-                          <div>
-                            <label className="block text-xs text-slate-500 mb-1.5 font-medium">Full Name</label>
-                            <input 
-                              type="text" 
-                              placeholder="e.g. John Doe"
-                              className="w-full px-3 py-2 bg-white border border-slate-200 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-600 focus:border-transparent text-sm" 
-                            />
-                          </div>
-                          <div>
-                            <label className="block text-xs text-slate-500 mb-1.5 font-medium">Email Address</label>
-                            <input 
-                              type="email" 
-                              placeholder="e.g. john@example.com"
-                              className="w-full px-3 py-2 bg-white border border-slate-200 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-600 focus:border-transparent text-sm" 
-                            />
-                          </div>
-                        </div>
-                      </div>
-                    ))}
+                <div className="mt-4 p-3 bg-amber-50 border border-amber-200 rounded-xl flex items-start gap-3">
+                  <Info className="w-4 h-4 text-amber-600 flex-shrink-0 mt-0.5" />
+                  <div className="text-xs text-amber-900">
+                    <span className="font-semibold">Note:</span> Additional adults here are part of your booking and don&apos;t contribute points. If they have points, they should join via invite link.
                   </div>
                 </div>
               )}
             </div>
             
-            {/* Budget */}
-            <div className="bg-white border border-slate-200 rounded-2xl p-8 shadow-sm">
+            {/* Your Route - Unified flight booking interface */}
+            <div className="relative z-40 bg-white border border-slate-200 rounded-2xl p-8 shadow-sm">
               <div className="flex items-center gap-3 mb-6">
-                <div className="w-10 h-10 bg-blue-100 rounded-xl flex items-center justify-center">
-                  <DollarSign className="w-5 h-5 text-blue-600" />
+                <div className="w-10 h-10 bg-blue-600 rounded-xl flex items-center justify-center">
+                  <Plane className="w-5 h-5 text-white" />
                 </div>
-                <h2 className="text-2xl text-slate-900 font-semibold">Budget Range</h2>
+                <div>
+                  <h2 className="text-xl text-slate-900 font-semibold">Your Route</h2>
+                  <p className="text-sm text-slate-500">Build your trip by adding destinations and dates</p>
+                </div>
               </div>
 
-              <div className="space-y-6">
-                <div>
-                  <label className="block text-sm text-slate-600 mb-3 font-medium">Maximum Budget per Person</label>
-                  <div className="relative">
-                    <span className="absolute left-4 top-1/2 -translate-y-1/2 text-slate-400">$</span>
-                    <input
-                      type="number"
-                      value={maxBudget}
-                      onChange={(e) => setMaxBudget(e.target.value ? Number(e.target.value) : '')}
-                      placeholder="Enter maximum budget"
-                      className="w-full pl-8 pr-4 py-3 bg-slate-50 border border-slate-200 rounded-xl focus:outline-none focus:ring-2 focus:ring-blue-600 focus:border-transparent font-medium text-slate-900"
-                    />
+              <div className="relative">
+                {/* Timeline connector line */}
+                <div className="absolute left-[11px] top-8 bottom-8 w-0.5 bg-blue-200 z-0" />
+                
+                <div className="space-y-0 relative z-10">
+                  {/* START LOCATION */}
+                  <div className="flex gap-6 pb-4">
+                    {/* Timeline dot */}
+                    <div className="flex flex-col items-center">
+                      <div className="w-6 h-6 rounded-full bg-blue-600 border-4 border-white shadow-sm z-10" />
+                    </div>
+                    
+                    {/* Content */}
+                    <div className="flex-1 grid grid-cols-1 md:grid-cols-2 gap-4 -mt-1">
+                      <div>
+                        <label className="block text-xs text-slate-500 mb-2 uppercase font-bold tracking-wider">
+                          Start Location
+                        </label>
+                        <AirportAutocomplete
+                          value={startDestination}
+                          onValueChange={setStartDestination}
+                          placeholder="e.g., New York (JFK)"
+                          onSelect={(airportCode) => {
+                            setStartDestination(airportCode);
+                          }}
+                        />
+                      </div>
+                      <div>
+                        <label className="block text-xs text-slate-500 mb-2 uppercase font-bold tracking-wider">
+                          Departure Date
+                        </label>
+                        <div className="relative">
+                          <Calendar className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-slate-400 pointer-events-none" />
+                          <input
+                            type="date"
+                            value={startDate}
+                            min={new Date().toISOString().split('T')[0]}
+                            onChange={(e) => setStartDate(e.target.value)}
+                            className="w-full pl-10 pr-4 py-3 bg-blue-50 border border-blue-200 rounded-xl text-sm focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-blue-500 cursor-pointer"
+                            placeholder="Select date"
+                          />
+                        </div>
+                      </div>
+                    </div>
                   </div>
-                </div>
-
-                <div>
-                  {/* Credit Card List - click to allocate points */}
-                  {creditCards.length > 0 && (
-                    <div className="mt-4 space-y-3">
-                      <div className="flex items-center justify-between">
-                        <h3 className="text-sm text-slate-600 font-medium">Your Cards (Admin)</h3>
-                        <div className="flex items-center gap-2 text-sm">
-                          <button
-                            type="button"
-                            onClick={() => setShowPointsAllocationModal(true)}
-                            className="flex items-center gap-1.5 text-blue-600 hover:text-blue-700 font-medium"
-                          >
-                            <SlidersHorizontal className="w-4 h-4" />
-                            Allocate points
-                          </button>
-                          <span className="text-slate-400">·</span>
-                          <div className="flex items-center gap-1.5">
-                            <Zap className="w-4 h-4 text-blue-600" />
-                            <span className="text-slate-900 font-medium">{totalPointsToUse.toLocaleString()} to use</span>
+                  
+                  {/* INTERMEDIATE DESTINATIONS */}
+                  {cities.map((city, index) => (
+                    <div key={`city-${index}`} className="flex gap-6 py-4">
+                      {/* Timeline dot */}
+                      <div className="flex flex-col items-center">
+                        <div className="w-6 h-6 rounded-full bg-blue-500 border-4 border-white shadow-sm z-10 flex items-center justify-center">
+                          <span className="text-[8px] text-white font-bold">{index + 1}</span>
+                        </div>
+                      </div>
+                      
+                      {/* Content */}
+                      <div className="flex-1 -mt-1">
+                        <div className="relative">
+                          <label className="block text-xs text-slate-500 mb-2 uppercase font-bold tracking-wider">
+                            Destination {index + 1}
+                          </label>
+                          <div className="flex gap-2">
+                            <div className="flex-1 px-4 py-3 bg-blue-50 border border-blue-200 rounded-xl text-sm text-slate-900 font-medium">
+                              {city}
+                            </div>
+                            <button
+                              type="button"
+                              onClick={() => removeCity(city)}
+                              className="px-3 py-2 text-slate-400 hover:text-red-500 hover:bg-red-50 rounded-xl transition-colors"
+                              title="Remove destination"
+                            >
+                              <X className="w-4 h-4" />
+                            </button>
                           </div>
                         </div>
                       </div>
-                      <div className="space-y-2">
-                        {creditCards.map(card => {
-                          const toUse = pointsToUse[card.program] ?? card.points;
-                          const isCustom = toUse !== card.points;
-                          return (
-                            <div
-                              key={card.id}
-                              role="button"
-                              tabIndex={0}
-                              onClick={() => setShowPointsAllocationModal(true)}
-                              onKeyDown={(e) => e.key === 'Enter' && setShowPointsAllocationModal(true)}
-                              className="flex items-center justify-between px-4 py-3 bg-blue-50 border border-blue-200 rounded-xl group hover:bg-blue-100 transition-colors cursor-pointer"
-                            >
-                              <div className="flex items-center gap-3">
-                                <CreditCard className="w-4 h-4 text-blue-600" />
-                                <div>
-                                  <div className="text-sm text-slate-900 font-medium">{card.program}</div>
-                                  <div className="text-xs text-slate-600">
-                                    {isCustom
-                                      ? `${toUse.toLocaleString()} of ${card.points.toLocaleString()} to use`
-                                      : `${card.points.toLocaleString()} points`}
-                                  </div>
-                                </div>
-                              </div>
-                              <div className="flex items-center gap-1">
-                                <SlidersHorizontal className="w-3.5 h-3.5 text-slate-400 opacity-0 group-hover:opacity-100" />
-                                <button
-                                  type="button"
-                                  onClick={(e) => { e.stopPropagation(); removeCreditCard(card.id); }}
-                                  className="opacity-0 group-hover:opacity-100 transition-opacity p-1 -m-1"
-                                >
-                                  <X className="w-4 h-4 text-slate-600 hover:text-slate-900" />
-                                </button>
-                              </div>
+                    </div>
+                  ))}
+                  
+                  {/* ADD DESTINATION BUTTON */}
+                  <div className="flex gap-6 py-4">
+                    {/* Timeline connector */}
+                    <div className="flex flex-col items-center">
+                      <div className="w-6 h-6 rounded-full bg-white border-2 border-dashed border-slate-300 z-10" />
+                    </div>
+                    
+                    {/* Add button and dropdown */}
+                    <div className="flex-1 -mt-1 relative">
+                      <button
+                        type="button"
+                        onClick={() => setShowAddDestination(!showAddDestination)}
+                        className="flex items-center gap-2 text-blue-600 hover:text-blue-700 font-medium text-sm"
+                      >
+                        <Plus className="w-4 h-4" />
+                        Add Another Destination
+                      </button>
+                      
+                      {/* Dropdown popup */}
+                      {showAddDestination && (
+                        <>
+                          {/* Backdrop to close on click outside */}
+                          <div 
+                            className="fixed inset-0 z-40" 
+                            onClick={() => {
+                              setShowAddDestination(false);
+                              setNewCity('');
+                            }}
+                          />
+                          <div className="absolute top-full left-0 right-0 mt-2 bg-white border border-slate-200 rounded-xl shadow-lg p-4 z-50">
+                            <div className="flex items-center justify-between mb-2">
+                              <label className="text-xs text-slate-500 font-medium uppercase tracking-wider">
+                                Search for a city
+                              </label>
+                              <button
+                                type="button"
+                                onClick={() => {
+                                  setShowAddDestination(false);
+                                  setNewCity('');
+                                }}
+                                className="text-slate-400 hover:text-slate-600"
+                              >
+                                <X className="w-4 h-4" />
+                              </button>
                             </div>
-                          );
-                        })}
+                            <DestinationAutocomplete
+                              value={newCity}
+                              onChange={setNewCity}
+                              autoFocus
+                              onSelect={(city) => {
+                                if (city && !cities.includes(city)) {
+                                  setCities(prevCities => [...prevCities, city]);
+                                  setNewCity('');
+                                  setShowAddDestination(false);
+                                }
+                              }}
+                              placeholder="e.g., Paris, Rome, Tokyo..."
+                            />
+                          </div>
+                        </>
+                      )}
+                    </div>
+                  </div>
+                  
+                  {/* FINAL DESTINATION */}
+                  <div className="flex gap-6 pt-4">
+                    {/* Timeline dot */}
+                    <div className="flex flex-col items-center">
+                      <div className="w-6 h-6 rounded-full bg-blue-600 border-4 border-white shadow-sm z-10 flex items-center justify-center">
+                        <MapPin className="w-3 h-3 text-white" />
                       </div>
                     </div>
-                  )}
+                    
+                    {/* Content */}
+                    <div className="flex-1 grid grid-cols-1 md:grid-cols-2 gap-4 -mt-1">
+                      <div>
+                        <label className="block text-xs text-slate-500 mb-2 uppercase font-bold tracking-wider">
+                          Final Destination
+                        </label>
+                        {isRoundTrip ? (
+                          <div className="px-4 py-3 bg-slate-100 border border-slate-200 rounded-xl text-sm text-slate-600">
+                            {startDestination || 'Same as start location'}
+                          </div>
+                        ) : (
+                          <AirportAutocomplete
+                            value={endDestination}
+                            onValueChange={setEndDestination}
+                            placeholder="e.g., New York (JFK)"
+                            onSelect={(airportCode) => {
+                              setEndDestination(airportCode);
+                            }}
+                          />
+                        )}
+                      </div>
+                      <div>
+                        <label className="block text-xs text-slate-500 mb-2 uppercase font-bold tracking-wider">
+                          {isRoundTrip ? 'Return Date' : 'Arrival Date'}
+                        </label>
+                        <div className="relative">
+                          <Calendar className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-slate-400 pointer-events-none" />
+                          <input
+                            type="date"
+                            value={endDate}
+                            min={startDate || new Date().toISOString().split('T')[0]}
+                            onChange={(e) => setEndDate(e.target.value)}
+                            className="w-full pl-10 pr-4 py-3 bg-blue-50 border border-blue-200 rounded-xl text-sm focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-blue-500 cursor-pointer"
+                            placeholder="Select date"
+                          />
+                        </div>
+                      </div>
+                    </div>
+                  </div>
                 </div>
               </div>
+              
+              {/* Options */}
+              <div className="mt-8 pt-6 border-t border-slate-200 flex flex-wrap items-center gap-6">
+                <label className="flex items-center gap-2 cursor-pointer select-none group">
+                  <input
+                    type="checkbox"
+                    checked={isRoundTrip}
+                    onChange={(e) => {
+                      const checked = e.target.checked;
+                      setIsRoundTrip(checked);
+                      if (checked) {
+                        setEndDestination(startDestination);
+                      }
+                    }}
+                    className="w-4 h-4 rounded border-slate-300 text-blue-600 focus:ring-blue-500"
+                  />
+                  <span className="text-sm text-slate-600 group-hover:text-slate-900 transition-colors">
+                    Start and end at same location
+                  </span>
+                </label>
+                
+              </div>
+              
+              <p className="mt-4 text-xs text-slate-500">
+                Small and regional airports are supported. We include connecting flights when needed.
+              </p>
             </div>
-
-            {/* Travel Style */}
+            
+            {/* 3. TRAVEL STYLE & PREFERENCES */}
             <div className="bg-white border border-slate-200 rounded-2xl p-6 shadow-sm">
-              <div className="flex items-center gap-3 mb-5">
-                <div className="w-9 h-9 bg-blue-100 rounded-lg flex items-center justify-center">
-                  <Plane className="w-4 h-4 text-blue-600" />
-                </div>
-                <h2 className="text-xl text-slate-900 font-semibold">Travel Style</h2>
-              </div>
-
+              <h2 className="text-lg text-slate-900 font-semibold mb-4">Travel Style & Preferences</h2>
+              
               <div className="space-y-5">
-                {/* Flight Class - Compact pill buttons */}
+                {/* Cabin Class */}
                 <div>
-                  <label className="block text-xs text-slate-500 mb-2 font-medium uppercase tracking-wider">Flight Class</label>
+                  <label className="block text-xs text-slate-500 mb-2 font-medium uppercase tracking-wider">Cabin Class</label>
                   <div className="flex flex-wrap gap-2">
                     {[
-                      { value: 'basic_economy', label: 'Basic', icon: Backpack },
-                      { value: 'economy', label: 'Economy', icon: Armchair },
-                      { value: 'premium', label: 'Premium', icon: Coffee },
-                      { value: 'business', label: 'Business', icon: Wine },
-                      { value: 'first', label: 'First', icon: Crown },
+                      { value: 'basic_economy', label: 'Basic Economy' },
+                      { value: 'economy', label: 'Economy' },
+                      { value: 'premium', label: 'Premium Economy' },
+                      { value: 'business', label: 'Business' },
+                      { value: 'first', label: 'First' },
                     ].map((option) => {
-                      const Icon = option.icon;
                       const isSelected = flightClass === option.value;
                       return (
                         <button
                           key={option.value}
+                          type="button"
                           onClick={() => setFlightClass(option.value)}
-                          className={`inline-flex items-center gap-1.5 px-3 py-1.5 rounded-full text-sm font-medium transition-all ${
+                          className={`px-4 py-2 rounded-lg text-sm font-medium transition-all ${
                             isSelected 
-                              ? 'bg-blue-600 text-white shadow-sm' 
+                              ? 'bg-blue-600 text-white' 
                               : 'bg-slate-100 text-slate-700 hover:bg-slate-200'
                           }`}
                         >
-                          <Icon className="w-3.5 h-3.5" />
                           {option.label}
                         </button>
                       );
@@ -706,187 +668,56 @@ export default function GroupTripSetup() {
                   </div>
                 </div>
 
-                {/* Hotel toggle + class in one row */}
-                <div className="flex flex-wrap items-center gap-4">
-                  <label className="flex items-center gap-2 cursor-pointer select-none">
-                    <input
-                      type="checkbox"
-                      checked={includeHotels}
-                      onChange={(e) => setIncludeHotels(e.target.checked)}
-                      className="w-4 h-4 rounded border-slate-300 text-blue-600 focus:ring-blue-600"
-                    />
-                    <span className="text-sm text-slate-700 font-medium">Include hotels</span>
-                  </label>
-
-                  {/* Hotel Class - Compact pills, only when hotels enabled */}
-                  {includeHotels && (
-                    <div className="flex items-center gap-2 pl-4 border-l border-slate-200">
-                      {[
-                        { value: '3', label: '3★' },
-                        { value: '4', label: '4★' },
-                        { value: '5', label: '5★' },
-                      ].map((option) => {
-                        const isSelected = hotelClass === option.value;
-                        return (
-                          <button
-                            key={option.value}
-                            onClick={() => setHotelClass(option.value)}
-                            className={`px-3 py-1 rounded-full text-sm font-medium transition-all ${
-                              isSelected 
-                                ? 'bg-blue-600 text-white' 
-                                : 'bg-slate-100 text-slate-700 hover:bg-slate-200'
-                            }`}
-                          >
-                            {option.label}
-                          </button>
-                        );
-                      })}
-                    </div>
-                  )}
-                </div>
-
-                {/* Number of Bags - Compact inline */}
-                <div className="flex items-center gap-4">
-                  <div className="flex items-center gap-2">
-                    <Luggage className="w-4 h-4 text-slate-500" />
-                    <span className="text-sm text-slate-700 font-medium">Checked bags (group)</span>
-                  </div>
-                  <div className="flex items-center gap-2">
-                    <button
-                      type="button"
-                      onClick={() => setBags(Math.max(0, bags - 1))}
-                      className="w-7 h-7 rounded-md bg-slate-100 flex items-center justify-center hover:bg-slate-200 text-slate-600 transition-colors text-sm font-medium"
-                    >
-                      −
-                    </button>
-                    <span className="w-5 text-center font-semibold text-slate-900 text-sm">{bags}</span>
-                    <button
-                      type="button"
-                      onClick={() => setBags(Math.min(12, bags + 1))}
-                      className="w-7 h-7 rounded-md bg-slate-100 flex items-center justify-center hover:bg-slate-200 text-slate-600 transition-colors text-sm font-medium"
-                    >
-                      +
-                    </button>
-                  </div>
-                </div>
-              </div>
-            </div>
-
-            {/* Dates */}
-            <div className="bg-white border border-slate-200 rounded-2xl p-8 shadow-sm">
-              <div className="flex items-center gap-3 mb-6">
-                <div className="w-10 h-10 bg-blue-100 rounded-xl flex items-center justify-center">
-                  <Calendar className="w-5 h-5 text-blue-600" />
-                </div>
-                <h2 className="text-2xl text-slate-900 font-semibold">Dates</h2>
-              </div>
-
-              <div className="space-y-6">
-                {/* Travel Dates - Always visible */}
-                <div>
-                  <label className="block text-xs text-slate-500 mb-1.5 uppercase font-bold tracking-wider">
-                    Travel Dates
-                  </label>
-                  <DateRangePicker
-                    startDate={startDate}
-                    endDate={endDate}
-                    onStartDateChange={setStartDate}
-                    onEndDateChange={setEndDate}
-                    isOneWay={isOneWay}
-                  />
-                </div>
-
-                {/* Flexible Dates and One-way Trip Checkboxes */}
-                <div className="flex flex-wrap items-center gap-6 pt-2">
-                  <label className="flex items-center gap-2 cursor-pointer select-none group inline-flex">
-                    <input
-                      type="checkbox"
-                      checked={isFlexible}
-                      onChange={(e) => setIsFlexible(e.target.checked)}
-                      className="w-4 h-4"
-                    />
-                    <span className="text-sm text-slate-600 group-hover:text-slate-900 transition-colors">Flexible dates</span>
-                  </label>
-
-                  <label className="flex items-center gap-2 cursor-pointer select-none group inline-flex">
-                    <input
-                      type="checkbox"
-                      checked={isOneWay}
-                      onChange={(e) => {
-                        setIsOneWay(e.target.checked);
-                        if (e.target.checked) {
-                          setEndDate('');
-                        }
-                      }}
-                      className="w-4 h-4"
-                    />
-                    <span className="text-sm text-slate-600 group-hover:text-slate-900 transition-colors">One-way trip</span>
-                  </label>
-                </div>
-
-                {/* Flight Time Preferences */}
-                <div className="pt-4 border-t border-slate-100 space-y-3">
-                  <div className="flex flex-wrap items-center gap-3">
-                    <div className="flex items-center gap-1.5 text-sm text-slate-600 min-w-[90px]">
-                      <Plane className="w-3.5 h-3.5" />
-                      <span>Depart</span>
-                    </div>
+                {/* Time Preferences - Combined */}
+                <div className="grid md:grid-cols-2 gap-4">
+                  <div>
+                    <label className="block text-xs text-slate-500 mb-2 font-medium uppercase tracking-wider">Prefer to Depart</label>
                     <div className="flex flex-wrap gap-1.5">
                       {[
-                        { value: 'any', label: 'Any', icon: Clock },
-                        { value: 'morning', label: 'Morning', icon: Sunrise, hint: '5a-12p' },
-                        { value: 'afternoon', label: 'Afternoon', icon: Sun, hint: '12p-5p' },
-                        { value: 'evening', label: 'Evening', icon: Sunset, hint: '5p-9p' },
-                        { value: 'night', label: 'Night', icon: Moon, hint: '9p-5a' },
+                        { value: 'any', label: 'Anytime' },
+                        { value: 'morning', label: 'Morning' },
+                        { value: 'afternoon', label: 'Afternoon' },
+                        { value: 'evening', label: 'Evening' },
                       ].map((option) => {
-                        const Icon = option.icon;
                         const isSelected = departureTimePreference === option.value;
                         return (
                           <button
                             key={option.value}
+                            type="button"
                             onClick={() => setDepartureTimePreference(option.value as typeof departureTimePreference)}
-                            title={option.hint}
-                            className={`inline-flex items-center gap-1 px-2.5 py-1 rounded-full text-xs font-medium transition-all ${
+                            className={`px-3 py-1.5 rounded-lg text-xs font-medium transition-all ${
                               isSelected
                                 ? 'bg-blue-600 text-white'
                                 : 'bg-slate-100 text-slate-600 hover:bg-slate-200'
                             }`}
                           >
-                            <Icon className="w-3 h-3" />
                             {option.label}
                           </button>
                         );
                       })}
                     </div>
                   </div>
-
-                  <div className="flex flex-wrap items-center gap-3">
-                    <div className="flex items-center gap-1.5 text-sm text-slate-600 min-w-[90px]">
-                      <MapPin className="w-3.5 h-3.5" />
-                      <span>Arrive</span>
-                    </div>
+                  <div>
+                    <label className="block text-xs text-slate-500 mb-2 font-medium uppercase tracking-wider">Prefer to Arrive</label>
                     <div className="flex flex-wrap gap-1.5">
                       {[
-                        { value: 'any', label: 'Any', icon: Clock },
-                        { value: 'morning', label: 'Morning', icon: Sunrise, hint: '5a-12p' },
-                        { value: 'afternoon', label: 'Afternoon', icon: Sun, hint: '12p-5p' },
-                        { value: 'evening', label: 'Evening', icon: Sunset, hint: '5p-9p' },
-                        { value: 'night', label: 'Night', icon: Moon, hint: '9p-5a' },
+                        { value: 'any', label: 'Anytime' },
+                        { value: 'morning', label: 'Morning' },
+                        { value: 'afternoon', label: 'Afternoon' },
+                        { value: 'evening', label: 'Evening' },
                       ].map((option) => {
-                        const Icon = option.icon;
                         const isSelected = arrivalTimePreference === option.value;
                         return (
                           <button
                             key={option.value}
+                            type="button"
                             onClick={() => setArrivalTimePreference(option.value as typeof arrivalTimePreference)}
-                            title={option.hint}
-                            className={`inline-flex items-center gap-1 px-2.5 py-1 rounded-full text-xs font-medium transition-all ${
+                            className={`px-3 py-1.5 rounded-lg text-xs font-medium transition-all ${
                               isSelected
                                 ? 'bg-blue-600 text-white'
                                 : 'bg-slate-100 text-slate-600 hover:bg-slate-200'
                             }`}
                           >
-                            <Icon className="w-3 h-3" />
                             {option.label}
                           </button>
                         );
@@ -894,218 +725,90 @@ export default function GroupTripSetup() {
                     </div>
                   </div>
                 </div>
-
-                {/* Duration Slider - Shown when flexible dates is checked */}
-                {isFlexible && (
-                  <div className="pt-4 border-t border-slate-100 animate-in fade-in slide-in-from-top-2">
-                     <label className="block text-xs text-slate-500 mb-1.5 uppercase font-bold tracking-wider">Approximate Duration (Days)</label>
-                     <div className="flex items-center gap-4">
-                        <input
-                          type="range"
-                          min="3"
-                          max="30"
-                          value={flexibleDuration}
-                          onChange={(e) => setFlexibleDuration(Number(e.target.value))}
-                          className="flex-1 h-2 bg-slate-200 rounded-full appearance-none cursor-pointer accent-blue-600"
-                        />
-                        <div className="w-16 px-3 py-2 bg-slate-50 border border-slate-200 rounded-lg text-center font-semibold text-slate-900">
-                          {flexibleDuration}
-                        </div>
-                     </div>
-                     <p className="text-xs text-slate-500 mt-2">We&apos;ll find the best dates for a {flexibleDuration}-day trip.</p>
-                  </div>
-                )}
-              </div>
-            </div>
-
-            {/* Start and End Destinations - z-40 so autocomplete appears above Destinations (z-10) but below nav (z-50) when scrolling */}
-            <div className="relative z-40 bg-white border border-slate-200 rounded-2xl p-8 shadow-sm mb-6">
-              <div className="flex items-center gap-3 mb-6">
-                <div className="w-10 h-10 bg-blue-100 rounded-xl flex items-center justify-center">
-                  <MapPin className="w-5 h-5 text-blue-600" />
-                </div>
-                <div>
-                  <h2 className="text-2xl text-slate-900 font-semibold">Departure & Arrival</h2>
-                  <p className="text-sm text-slate-500">Choose your starting and ending airports</p>
-                </div>
-              </div>
-              
-              <div className="grid grid-cols-2 gap-4">
-                {/* Start Destination */}
-                <div>
-                  <label className="block text-sm text-slate-600 mb-2 font-medium">
-                    Start Airport
-                  </label>
-                  <AirportAutocomplete
-                    value={startDestination}
-                    onValueChange={setStartDestination}
-                    placeholder="Search airports (e.g., JFK, LAX, or airport name)..."
-                    onSelect={(airportCode) => {
-                      setStartDestination(airportCode);
-                    }}
-                  />
-                </div>
-                
-                {/* End Destination */}
-                <div>
-                  <label className="block text-sm text-slate-600 mb-2 font-medium">
-                    End Airport
-                  </label>
-                  <AirportAutocomplete
-                    value={endDestination}
-                    onValueChange={setEndDestination}
-                    placeholder="Search airports (e.g., CDG, LHR, or airport name)..."
-                    disabled={isRoundTrip || isOneWay}
-                    onSelect={(airportCode) => {
-                      setEndDestination(airportCode);
-                    }}
-                  />
-                </div>
-
-                <div className="flex items-center justify-start pt-2">
-                  <label className="flex items-center gap-2 cursor-pointer select-none group inline-flex">
-                    <input
-                      type="checkbox"
-                      checked={isRoundTrip}
-                      onChange={(e) => {
-                        setIsRoundTrip(e.target.checked);
-                        if (e.target.checked) {
-                          setEndDestination(startDestination);
-                        }
-                      }}
-                      className="w-4 h-4"
-                    />
-                    <span className="text-sm text-slate-600 group-hover:text-slate-900 transition-colors">Start and end at same location</span>
-                  </label>
-                </div>
-                <p className="col-span-2 text-xs text-slate-500">
-                  Small and regional airports (e.g. ITH, BGM) are supported. We include connecting flights and different airlines when needed.
-                </p>
-              </div>
-            </div>
-
-            {/* Cities - relative z-10 so autocomplete dropdown appears above section below */}
-            <div className="relative z-10 bg-white border border-slate-200 rounded-2xl p-8 shadow-sm">
-              <div className="flex items-center gap-3 mb-6">
-                <div className="w-10 h-10 bg-blue-100 rounded-xl flex items-center justify-center">
-                  <MapPin className="w-5 h-5 text-blue-600" />
-                </div>
-                <div>
-                  <h2 className="text-2xl text-slate-900 font-semibold">Destinations</h2>
-                  <p className="text-sm text-slate-500">Which cities would you like to visit?</p>
-                </div>
-              </div>
-
-              <div className="space-y-4">
-                <div className="flex gap-2">
-                  <DestinationAutocomplete
-                    value={newCity}
-                    onChange={setNewCity}
-                    autoFocus
-                    onSelect={(city) => {
-                      if (city && !cities.includes(city)) {
-                        setCities(prevCities => {
-                          const newCities = [city].filter(c => !prevCities.includes(c));
-                          return newCities.length > 0 ? [...prevCities, ...newCities] : prevCities;
-                        });
-                        setNewCity('');
-                      }
-                    }}
-                    placeholder="Search and select a city..."
-                  />
-                </div>
-
-                <div className="flex flex-wrap gap-2">
-                  {cities.map((city) => (
-                    <div
-                      key={city}
-                      className="flex items-center gap-2 px-4 py-2 bg-blue-50 rounded-xl group hover:bg-blue-100 transition-colors border border-blue-200"
-                    >
-                      <MapPin className="w-4 h-4 text-blue-600" />
-                      <span className="text-slate-900">{city}</span>
-                      <button
-                        onClick={() => removeCity(city)}
-                        className="ml-1 opacity-0 group-hover:opacity-100 transition-opacity"
-                      >
-                        <X className="w-4 h-4 text-slate-600" />
-                      </button>
-                    </div>
-                  ))}
-                </div>
-
-                {cities.length < 1 && (
-                    <p className="text-sm text-slate-500">Add at least 1 city to get started</p>
-                )}
               </div>
             </div>
 
           </div>
 
-          {/* Right Column - Summary */}
+          {/* Right Column - Budget, Points & Actions */}
           <div className="lg:col-span-1">
-            <div className="sticky top-8 space-y-6 self-start">
-              {/* Live Summary */}
-              <div className="bg-gradient-to-br from-blue-600 to-blue-700 text-white rounded-2xl p-8 shadow-xl shadow-blue-600/20">
-                <div className="flex items-center gap-2 mb-6">
-                  <Sparkles className="w-5 h-5" />
-                  <h3 className="text-xl">Trip Summary</h3>
-                </div>
-
-                <div className="space-y-6">
-                  <div>
-                    <div className="text-sm text-blue-100 mb-1">Estimated Cost/Person</div>
-                    <div className="text-3xl">${estimatedCost.toLocaleString()}</div>
-                  </div>
-
-                  <div>
-                    <div className="text-sm text-blue-100 mb-1">Points Needed</div>
-                    <div className="text-3xl">{estimatedPoints.toLocaleString()}</div>
-                  </div>
-
-                  <div className="pt-6 border-t border-blue-500/30">
-                    <div className="text-sm text-blue-100 mb-2">Configuration</div>
-                    <div className="space-y-2 text-sm">
-                      <div className="flex justify-between">
-                        <span className="text-blue-100">Duration</span>
-                        <span>{durationDays} days</span>
-                      </div>
-                      <div className="flex justify-between">
-                        <span className="text-blue-100">Cities</span>
-                        <span>{cities.length}</span>
-                      </div>
-                      <div className="flex justify-between">
-                        <span className="text-blue-100">Budget</span>
-                        <span>
-                          {maxBudget
-                            ? `Up to $${Number(maxBudget).toLocaleString()}`
-                            : 'Not set'}
-                        </span>
-                      </div>
-                      {creditCards.length > 0 && (
-                        <div className="flex justify-between">
-                          <span className="text-blue-100">Points to use</span>
-                          <span>{totalPointsToUse.toLocaleString()}</span>
-                        </div>
-                      )}
-                    </div>
-                  </div>
+            <div className="lg:sticky lg:top-24 space-y-4">
+              
+              {/* Budget */}
+              <div className="bg-white border border-slate-200 rounded-2xl p-6 shadow-sm">
+                <label className="block text-xs text-slate-500 mb-2 font-medium uppercase tracking-wider">Maximum Budget</label>
+                <div className="relative">
+                  <span className="absolute left-4 top-1/2 -translate-y-1/2 text-blue-600 font-bold text-lg">$</span>
+                  <input
+                    type="number"
+                    value={maxBudget}
+                    onChange={(e) => {
+                      const val = e.target.value ? Number(e.target.value) : '';
+                      setMaxBudget(val);
+                    }}
+                    placeholder="No limit"
+                    className="w-full pl-10 pr-4 py-3 bg-blue-50 border border-blue-200 rounded-xl focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-blue-500 font-semibold text-slate-900 text-lg"
+                  />
                 </div>
               </div>
 
-              {/* Generate/Invite Button */}
+              {/* Points */}
+              {creditCards.length > 0 && (
+                <div className="bg-white border border-slate-200 rounded-2xl p-6 shadow-sm">
+                  <div className="flex items-center justify-between mb-3">
+                    <label className="text-xs text-slate-500 font-medium uppercase tracking-wider">Your Points</label>
+                    <button
+                      type="button"
+                      onClick={() => setShowPointsAllocationModal(true)}
+                      className="text-xs text-blue-600 hover:text-blue-700 font-medium"
+                    >
+                      Adjust
+                    </button>
+                  </div>
+                  <div className="space-y-2">
+                    {creditCards.slice(0, 3).map(card => {
+                      const toUse = pointsToUse[card.program] ?? card.points;
+                      return (
+                        <div key={card.id} className="flex items-center justify-between text-sm">
+                          <span className="text-slate-600 truncate">{card.program}</span>
+                          <span className="text-slate-900 font-medium">{toUse.toLocaleString()}</span>
+                        </div>
+                      );
+                    })}
+                    {creditCards.length > 3 && (
+                      <button 
+                        type="button"
+                        onClick={() => setShowPointsAllocationModal(true)}
+                        className="text-xs text-blue-600 hover:text-blue-700"
+                      >
+                        +{creditCards.length - 3} more
+                      </button>
+                    )}
+                  </div>
+                  <div className="mt-3 pt-3 border-t border-slate-100 flex items-center justify-between">
+                    <span className="text-sm text-slate-600">Total to use</span>
+                    <span className="text-xl font-bold text-blue-600">{totalPointsToUse.toLocaleString()}</span>
+                  </div>
+                </div>
+              )}
+
+              {/* Generate Button */}
               <button
                 onClick={handleCreateTrip}
-                disabled={
-                  !startDestination || 
-                  (!isOneWay && !endDestination) || 
-                  cities.length < 1 || 
-                  (!isFlexible && (!startDate || (!isOneWay && !endDate))) || 
-                  isGenerating
-                }
-                className="w-full px-6 py-3 bg-yellow-400 text-slate-900 rounded-xl hover:bg-yellow-500 transition-all disabled:opacity-50 disabled:cursor-not-allowed flex items-center justify-center gap-2 text-base shadow-lg shadow-yellow-400/20 font-semibold"
+                disabled={!startDestination || !endDestination || cities.length < 1 || !startDate || !endDate || isGenerating}
+                className="w-full px-6 py-4 bg-blue-600 text-white rounded-xl hover:bg-blue-700 transition-all disabled:opacity-50 disabled:cursor-not-allowed flex items-center justify-center gap-2 text-base font-semibold shadow-lg shadow-blue-500/20"
               >
-                <Users className="w-5 h-5" />
-                <span>{isGenerating ? 'Creating...' : 'Create & Invite Friends'}</span>
+                {isGenerating ? (
+                  <>
+                    <div className="w-5 h-5 border-2 border-white/30 border-t-white rounded-full animate-spin" />
+                    <span>Creating trip...</span>
+                  </>
+                ) : (
+                  <>
+                    <Users className="w-5 h-5" />
+                    <span>Create & Invite Friends</span>
+                  </>
+                )}
               </button>
 
               {error && (
@@ -1113,6 +816,10 @@ export default function GroupTripSetup() {
                   {error}
                 </div>
               )}
+              
+              <p className="text-xs text-slate-500 text-center">
+                We&apos;ll find the best options using your group&apos;s points and budget
+              </p>
             </div>
           </div>
         </div>
@@ -1207,7 +914,6 @@ export default function GroupTripSetup() {
                 availablePoints={creditCards.map(c => ({ program: c.program, points: c.points, id: c.id }))}
                 allocatedPoints={Object.fromEntries(creditCards.map(c => [c.program, pointsToUse[c.program] ?? c.points]))}
                 onAllocationChange={(allocations) => setPointsToUse(allocations)}
-                maxTotalPoints={estimatedPoints > 0 ? estimatedPoints : undefined}
                 showCategoryIcons
               />
             </div>

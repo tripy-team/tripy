@@ -395,9 +395,9 @@ export default function SoloTripSetup() {
         setError('Please select a return/arrival date');
         return;
       }
-      // For multi-city, validate intermediate dates
+      // For multi-city, validate intermediate dates (except the last city which uses endDate)
       if (cities.length > 1) {
-        for (let i = 0; i < cities.length; i++) {
+        for (let i = 0; i < cities.length - 1; i++) {
           if (!legDates[i + 1]) {
             setError(`Please select a departure date from ${cities[i]}`);
             return;
@@ -611,63 +611,71 @@ export default function SoloTripSetup() {
                   </div>
                   
                   {/* INTERMEDIATE DESTINATIONS */}
-                  {cities.map((city, index) => (
-                    <div key={`city-${index}`} className="flex gap-6 py-4">
-                      {/* Timeline dot */}
-                      <div className="flex flex-col items-center">
-                        <div className="w-6 h-6 rounded-full bg-blue-500 border-4 border-white shadow-sm z-10 flex items-center justify-center">
-                          <span className="text-[8px] text-white font-bold">{index + 1}</span>
-                        </div>
-                      </div>
-                      
-                      {/* Content */}
-                      <div className="flex-1 grid grid-cols-1 md:grid-cols-2 gap-4 -mt-1">
-                        <div className="relative">
-                          <label className="block text-xs text-slate-500 mb-2 uppercase font-bold tracking-wider">
-                            Destination {index + 1}
-                          </label>
-                          <div className="flex gap-2">
-                            <div className="flex-1 px-4 py-3 bg-blue-50 border border-blue-200 rounded-xl text-sm text-slate-900 font-medium">
-                              {city}
-                            </div>
-                            <button
-                              type="button"
-                              onClick={() => {
-                                removeCity(city);
-                                // Remove the corresponding leg date
-                                setLegDates(prev => {
-                                  const newDates = [...prev];
-                                  newDates.splice(index + 1, 1);
-                                  return newDates;
-                                });
-                              }}
-                              className="px-3 py-2 text-slate-400 hover:text-red-500 hover:bg-red-50 rounded-xl transition-colors"
-                              title="Remove destination"
-                            >
-                              <X className="w-4 h-4" />
-                            </button>
+                  {cities.map((city, index) => {
+                    // Don't show departure date for the last city - it's represented by the end date
+                    const isLastCity = index === cities.length - 1;
+                    
+                    return (
+                      <div key={`city-${index}`} className="flex gap-6 py-4">
+                        {/* Timeline dot */}
+                        <div className="flex flex-col items-center">
+                          <div className="w-6 h-6 rounded-full bg-blue-500 border-4 border-white shadow-sm z-10 flex items-center justify-center">
+                            <span className="text-[8px] text-white font-bold">{index + 1}</span>
                           </div>
                         </div>
-                        <div>
-                          <label className="block text-xs text-slate-500 mb-2 uppercase font-bold tracking-wider">
-                            Departure Date
-                          </label>
+                        
+                        {/* Content */}
+                        <div className={`flex-1 ${isLastCity ? '' : 'grid grid-cols-1 md:grid-cols-2 gap-4'} -mt-1`}>
                           <div className="relative">
-                            <Calendar className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-slate-400 pointer-events-none" />
-                            <input
-                              type="date"
-                              value={legDates[index + 1] || ''}
-                              min={getMinDateForLeg(index + 1)}
-                              onChange={(e) => updateLegDate(index + 1, e.target.value)}
-                              disabled={isFlexible}
-                              className="w-full pl-10 pr-4 py-3 bg-blue-50 border border-blue-200 rounded-xl text-sm focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-blue-500 disabled:bg-slate-50 disabled:text-slate-400 cursor-pointer"
-                              placeholder="Select date"
-                            />
+                            <label className="block text-xs text-slate-500 mb-2 uppercase font-bold tracking-wider">
+                              Destination {index + 1}
+                            </label>
+                            <div className="flex gap-2">
+                              <div className="flex-1 px-4 py-3 bg-blue-50 border border-blue-200 rounded-xl text-sm text-slate-900 font-medium">
+                                {city}
+                              </div>
+                              <button
+                                type="button"
+                                onClick={() => {
+                                  removeCity(city);
+                                  // Remove the corresponding leg date
+                                  setLegDates(prev => {
+                                    const newDates = [...prev];
+                                    newDates.splice(index + 1, 1);
+                                    return newDates;
+                                  });
+                                }}
+                                className="px-3 py-2 text-slate-400 hover:text-red-500 hover:bg-red-50 rounded-xl transition-colors"
+                                title="Remove destination"
+                              >
+                                <X className="w-4 h-4" />
+                              </button>
+                            </div>
                           </div>
+                          {/* Only show departure date for non-last cities in multi-city trips */}
+                          {!isLastCity && (
+                            <div>
+                              <label className="block text-xs text-slate-500 mb-2 uppercase font-bold tracking-wider">
+                                Departure Date
+                              </label>
+                              <div className="relative">
+                                <Calendar className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-slate-400 pointer-events-none" />
+                                <input
+                                  type="date"
+                                  value={legDates[index + 1] || ''}
+                                  min={getMinDateForLeg(index + 1)}
+                                  onChange={(e) => updateLegDate(index + 1, e.target.value)}
+                                  disabled={isFlexible}
+                                  className="w-full pl-10 pr-4 py-3 bg-blue-50 border border-blue-200 rounded-xl text-sm focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-blue-500 disabled:bg-slate-50 disabled:text-slate-400 cursor-pointer"
+                                  placeholder="Select date"
+                                />
+                              </div>
+                            </div>
+                          )}
                         </div>
                       </div>
-                    </div>
-                  ))}
+                    );
+                  })}
                   
                   {/* ADD DESTINATION BUTTON */}
                   <div className="flex gap-6 py-4">
