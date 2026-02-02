@@ -67,6 +67,74 @@ def _enforce_no_negative_numbers(payload, context: str):
 
 
 # =============================================================================
+# PLACEHOLDER FLIGHT NUMBER DETECTION
+# =============================================================================
+
+def _get_metro_airports(airport_code: str) -> list:
+    """Get all airports in the same metro area as the given airport."""
+    METRO_AIRPORTS = {
+        "CDG": ["CDG", "ORY"], "ORY": ["CDG", "ORY"],
+        "LHR": ["LHR", "LGW", "STN"], "LGW": ["LHR", "LGW", "STN"], "STN": ["LHR", "LGW", "STN"],
+        "JFK": ["JFK", "EWR", "LGA"], "EWR": ["JFK", "EWR", "LGA"], "LGA": ["JFK", "EWR", "LGA"],
+        "NRT": ["NRT", "HND"], "HND": ["NRT", "HND"],
+        "DXB": ["DXB", "DWC"], "DWC": ["DXB", "DWC"],
+        "SFO": ["SFO", "OAK", "SJC"], "OAK": ["SFO", "OAK", "SJC"], "SJC": ["SFO", "OAK", "SJC"],
+        "LAX": ["LAX", "BUR", "SNA"], "BUR": ["LAX", "BUR", "SNA"], "SNA": ["LAX", "BUR", "SNA"],
+        "ORD": ["ORD", "MDW"], "MDW": ["ORD", "MDW"],
+        "DFW": ["DFW", "DAL"], "DAL": ["DFW", "DAL"],
+        "IAD": ["IAD", "DCA", "BWI"], "DCA": ["IAD", "DCA", "BWI"], "BWI": ["IAD", "DCA", "BWI"],
+    }
+    code = airport_code.upper() if airport_code else ""
+    return METRO_AIRPORTS.get(code, [code])
+
+
+def _is_placeholder_flight_number(flight_nums: list) -> bool:
+    """
+    Detect if flight numbers are AwardTool placeholders (not real bookable flights).
+    
+    Placeholder patterns:
+    - "DL100", "UA100" - airline + "100"
+    - "AC & LH100" - multi-airline + "100"
+    - "DL & UA100" - alliance codeshare placeholder
+    
+    Real flight numbers have 3-4 digit numbers (not exactly "100"):
+    - "DL 2055", "UA 5678", "AF 123"
+    
+    Returns:
+        True if any flight number looks like a placeholder
+    """
+    import re
+    
+    for fn in flight_nums:
+        if not fn:
+            continue
+        
+        fn_clean = fn.strip()
+        
+        # Pattern 1: Ends with "100" (common placeholder)
+        if fn_clean.endswith('100'):
+            # Extract the numeric part
+            # Could be "DL100", "AC & LH100", "DL & UA100", etc.
+            match = re.search(r'(\d+)$', fn_clean)
+            if match:
+                number = match.group(1)
+                if number == '100':
+                    # It's a placeholder - exactly "100" is used by AwardTool
+                    return True
+        
+        # Pattern 2: Contains " & " (multi-airline placeholder format)
+        # Real codeshares don't use "&" in flight numbers
+        if ' & ' in fn_clean:
+            return True
+        
+        # Pattern 3: Just a number like "100" without airline
+        if fn_clean.isdigit() and fn_clean == '100':
+            return True
+    
+    return False
+
+
+# =============================================================================
 # ROUTE TYPE DETECTION
 # =============================================================================
 
@@ -245,9 +313,16 @@ def _build_legs_and_segments(
     """
     Convert orchestrator segments to V3 legs (flights only).
     
-    MULTI-AIRPORT SUPPORT: Segments can include allowed_origin_airports and
-    allowed_destination_airports to specify which airports are valid for each leg.
-    E.g., for Seattle, segment might have allowed_origin_airports=["SEA", "PAE"]
+    MULTI-AIRPORT SUPPORT: Segments now represent city-pairs (not airport-pairs).
+    Multiple airports in a city are OR alternatives, meaning the optimizer
+    picks ONE flight from any valid airport combination.
+    
+    E.g., for Paris, segment might have:
+    - origin_city: "Seattle"
+    - dest_city: "Paris"  
+    - allowed_destination_airports: ["CDG", "ORY"]
+    
+    The optimizer will pick ONE flight to either CDG or ORY, not both.
     """
     
     legs = []
@@ -274,10 +349,18 @@ def _build_legs_and_segments(
             if allowed_dests and not isinstance(allowed_dests, list):
                 allowed_dests = [allowed_dests]
             
+            # Use city names if available, fallback to airport codes
+            origin_city = seg.get("origin_city") or seg.get("origin", "")
+            dest_city = seg.get("dest_city") or seg.get("destination", "")
+            
+            logger.info(f"[V3 Adapter] Building leg {leg_id}: {origin_city} → {dest_city}")
+            logger.info(f"[V3 Adapter]   Allowed origins: {allowed_origins or ['any']}")
+            logger.info(f"[V3 Adapter]   Allowed dests: {allowed_dests or ['any']}")
+            
             legs.append(OrderedLeg(
                 leg_id=leg_id,
-                origin_city=seg.get("origin", ""),
-                destination_city=seg.get("destination", ""),
+                origin_city=origin_city,
+                destination_city=dest_city,
                 earliest_departure=leg_date,
                 latest_departure=leg_date,  # Single day for now
                 traveler_ids=["user"],
@@ -286,6 +369,7 @@ def _build_legs_and_segments(
             ))
             leg_id += 1
     
+    logger.info(f"[V3 Adapter] Built {len(legs)} legs (one per city-pair)")
     return legs, stays
 
 
@@ -349,7 +433,34 @@ def convert_search_results_to_flights(
         
         leg_id += 1
     
-    logger.info(f"[V3 Adapter] convert_search_results_to_flights: {len(flights)} edges from {leg_id} legs")
+    # Compute and log summary statistics
+    flights_with_awards = sum(1 for f in flights if f.award_options)
+    flights_cash_only = len(flights) - flights_with_awards
+    total_award_options = sum(len(f.award_options) for f in flights)
+    
+    logger.info("=" * 80)
+    logger.info(f"[V3 Adapter] FLIGHT CONVERSION SUMMARY")
+    logger.info(f"  Total flights: {len(flights)} from {leg_id} legs")
+    logger.info(f"  Flights WITH award options: {flights_with_awards}")
+    logger.info(f"  Flights CASH-ONLY (no awards): {flights_cash_only}")
+    logger.info(f"  Total award options created: {total_award_options}")
+    
+    if flights_cash_only > 0 and flights_with_awards == 0:
+        logger.warning(
+            f"  ⚠️ NO flights have award options! This means the solver can ONLY pick cash. "
+            f"Check if AwardTool returned availability."
+        )
+    elif total_award_options > 0:
+        # Log a few sample award options
+        for f in flights[:5]:
+            if f.award_options:
+                opt = f.award_options[0]
+                logger.info(
+                    f"  Sample: {f.origin}→{f.destination} leg{f.leg_id}: "
+                    f"cash=${f.cash_cost:.0f}, award={opt.miles_required:,}pts + ${opt.surcharge} ({opt.program})"
+                )
+    logger.info("=" * 80)
+    
     return flights
 
 
@@ -567,15 +678,21 @@ def _convert_flight_option(
         
         award_options = []
         
-        # Debug logging for award option creation
-        logger.debug(
-            f"[ADAPTER] {route_context}: award_available={opt.award_available}, "
-            f"raw_award_points={opt.award_points}, sanitized_points={sanitized_award_points}, "
-            f"award_program={opt.award_program}"
+        # DETAILED logging for award option creation
+        logger.info(
+            f"[ADAPTER] {route_context}: cash=${sanitized_cash_price}, "
+            f"award_available={opt.award_available}, award_points={opt.award_points}, "
+            f"sanitized_points={sanitized_award_points}, surcharge=${sanitized_surcharge}, "
+            f"program={opt.award_program}"
         )
         
         if opt.award_available and sanitized_award_points > 0:
             program = normalize_program(opt.award_program or "UA")
+            
+            # Calculate CPP for logging
+            cash_saved = max(1.0, sanitized_cash_price - sanitized_surcharge)
+            cpp = (cash_saved * 100) / sanitized_award_points if sanitized_award_points > 0 else 0
+            
             award_options.append(AwardOption(
                 option_id=f"{edge_id}_{program}",
                 program=program,
@@ -584,12 +701,19 @@ def _convert_flight_option(
                 cabin_or_room_type=opt.cabin_class or "economy",
                 cash_equivalent=sanitized_cash_price,
             ))
-            logger.debug(f"[ADAPTER] {route_context}: Created award option with {sanitized_award_points} pts via {program}")
+            logger.info(
+                f"[ADAPTER] ✅ {route_context}: AWARD CREATED - {sanitized_award_points:,} {program} pts + "
+                f"${sanitized_surcharge} surcharge (CPP={cpp:.2f}¢, saves ${cash_saved:.0f} vs ${sanitized_cash_price} cash)"
+            )
         elif opt.award_points:
             logger.warning(
-                f"[ADAPTER] {route_context}: Flight has award_points={opt.award_points} but "
-                f"award_available={opt.award_available}, sanitized_points={sanitized_award_points}. "
-                f"Award option NOT created."
+                f"[ADAPTER] ⚠️ {route_context}: Has award_points={opt.award_points} but "
+                f"award_available={opt.award_available} is False/None, sanitized_points={sanitized_award_points}. "
+                f"Award option NOT created - check AwardTool response."
+            )
+        else:
+            logger.info(
+                f"[ADAPTER] ℹ️ {route_context}: NO AWARD - cash-only option at ${sanitized_cash_price}"
             )
         
         # ═══════════════════════════════════════════════════════════════════
@@ -740,14 +864,13 @@ def convert_result_to_itineraries(
         # Check if it's a real SerpAPI flight (not AwardTool)
         is_serpapi = source == "serpapi"
         
-        # Also check for real flight numbers (not placeholders like "DL100")
+        # Also check for real flight numbers (not placeholders like "DL100", "AC & LH100")
         if not is_serpapi and f.segments and f.segments[0].flight_number:
             fn = f.segments[0].flight_number
             # Real flight numbers have space between airline and number, OR 3-4 digit numbers
-            # Placeholders are like "DL100" (exactly 3 digits, no space)
-            has_space = ' ' in fn
-            # Check if it's NOT a placeholder (placeholder = airline + "100")
-            is_placeholder = fn.endswith('100') and len(fn) <= 5
+            # Placeholders are like "DL100", "AC & LH100" - use robust detection
+            has_space = ' ' in fn and ' & ' not in fn  # Real space, not "&" placeholder
+            is_placeholder = _is_placeholder_flight_number([fn])
             if has_space and not is_placeholder:
                 is_serpapi = True
         
@@ -856,22 +979,27 @@ def convert_result_to_itineraries(
         
         # ENRICHMENT: If flight lacks details (common with award flights), enrich from SerpAPI
         # Award flights from AwardTool often have placeholder numbers or T00:00:00 times
-        # Placeholder flight numbers: "DL100", "UA100", etc. (airline code + "100")
+        # Placeholder flight numbers: "DL100", "UA100", "AC & LH100", etc.
         # Note: Don't treat connecting flights (with " → ") as placeholders
         is_placeholder_flight_num = (
             flight_num and 
             " → " not in flight_num and  # Not a connecting flight
-            len(flight_num) <= 5 and 
-            flight_num.endswith('100')
+            _is_placeholder_flight_number([flight_num])
         )
         needs_enrichment = (
             not flight_num or len(flight_num) <= 3 or  # No flight number or just "100"
-            is_placeholder_flight_num or  # Placeholder like "DL100"
+            is_placeholder_flight_num or  # Placeholder like "DL100", "AC & LH100"
             (dep_time and "T00:00:00" in dep_time)  # Placeholder midnight time
         )
         
         # Store original airline for award flights - we shouldn't change it
         original_airline_code = airline_code
+        
+        # Get the award program for this payment (if points) - MUST be defined before enrichment block
+        award_program = None
+        if payment_choice and payment_choice.method == "points":
+            opt = next((o for o in flight.award_options if o.option_id == payment_choice.award_option_id), None)
+            award_program = opt.program if opt else None
         
         # IMPORTANT: Only enrich with SerpAPI data if we find a MATCHING airline
         # Don't mix data from different airlines - this causes booking confusion
@@ -879,12 +1007,6 @@ def convert_result_to_itineraries(
             # Find best matching SerpAPI flight for this route - MUST match airline
             serpapi_options = serpapi_flights_by_leg[leg_id]
             best_match = None
-            
-            # Get the award program for this payment (if points)
-            award_program = None
-            if payment_choice and payment_choice.method == "points":
-                opt = next((o for o in flight.award_options if o.option_id == payment_choice.award_option_id), None)
-                award_program = opt.program if opt else None
             
             # Define airline code mappings and alliances
             AIRLINE_ALIASES = {
@@ -1121,6 +1243,17 @@ def convert_result_to_itineraries(
             cpp_values.append(seg.payment.cpp_achieved)
     avg_cpp = sum(cpp_values) / len(cpp_values) if cpp_values else 0
     
+    # Budget verification
+    is_within_budget = total_oop <= budget
+    logger.info("=" * 80)
+    logger.info(f"[V3 Adapter] BUDGET VERIFICATION:")
+    logger.info(f"  Total out-of-pocket: ${total_oop:.2f}")
+    logger.info(f"  Budget limit: ${budget:.2f}")
+    logger.info(f"  Within budget: {is_within_budget} ({'✅' if is_within_budget else '❌'})")
+    if not is_within_budget:
+        logger.error(f"  ⚠️ BUDGET EXCEEDED by ${total_oop - budget:.2f}!")
+    logger.info("=" * 80)
+    
     itinerary = RankedItinerary(
         id=str(uuid.uuid4()),
         rank=1,
@@ -1137,7 +1270,7 @@ def convert_result_to_itineraries(
             points_breakdown=points_breakdown,
         ),
         transfers=transfers,
-        within_budget=total_oop <= budget,
+        within_budget=is_within_budget,
         within_points=True,
         summary=f"Save ${cash_saved:.0f} ({savings_pct:.0f}% off) by using {total_points_used:,} points",
     )
@@ -1313,10 +1446,7 @@ async def run_v3_optimization(
                                 # These can't be booked - they don't represent real flights
                                 # Instead, we'll attach their award availability to matching SerpAPI flights below
                                 has_award_options = hasattr(flight, 'award_options') and len(flight.award_options) > 0
-                                is_placeholder = any(
-                                    fn and len(fn) <= 5 and fn.endswith('100') 
-                                    for fn in flight_nums
-                                )
+                                is_placeholder = _is_placeholder_flight_number(flight_nums)
                                 if has_award_options and not is_placeholder:
                                     logger.info(f"[V3 Adapter] Leg {leg_id}: Including AwardTool flight with real flight numbers: {flight_nums}")
                                     flight.verification_status = "unverified_awardtool"
@@ -1324,33 +1454,105 @@ async def run_v3_optimization(
                                 elif has_award_options:
                                     # Collect award options to attach to matching SerpAPI flights
                                     logger.info(f"[V3 Adapter] Leg {leg_id}: SKIPPING AwardTool flight with placeholder numbers (will attach award to real flights): {flight_nums}")
-                                    # Store award options keyed by (leg_id, airline) for later matching
+                                    # Store award options keyed by (leg_id, airline_code) for later matching
+                                    # Map program names to airline codes for matching
+                                    PROGRAM_TO_AIRLINE = {
+                                        "DELTA": "DL", "SKYMILES": "DL",
+                                        "UNITED": "UA", "MILEAGEPLUS": "UA",
+                                        "AMERICAN": "AA", "AADVANTAGE": "AA",
+                                        "AIR FRANCE": "AF", "FLYING BLUE": "AF", "FLYINGBLUE": "AF",
+                                        "KLM": "KL",
+                                        "BRITISH AIRWAYS": "BA", "AVIOS": "BA", "EXECUTIVE CLUB": "BA",
+                                        "LUFTHANSA": "LH", "MILES & MORE": "LH",
+                                        "AIR CANADA": "AC", "AEROPLAN": "AC",
+                                        "ALASKA": "AS", "MILEAGE PLAN": "AS",
+                                        "VIRGIN ATLANTIC": "VS", "FLYING CLUB": "VS",
+                                        "EMIRATES": "EK", "SKYWARDS": "EK",
+                                        "SINGAPORE": "SQ", "KRISFLYER": "SQ",
+                                        "ANA": "NH", "ANAHP": "NH", "ANA MILEAGE CLUB": "NH",
+                                        "TURKISH": "TK", "MILES&SMILES": "TK",
+                                    }
                                     for opt in flight.award_options:
-                                        program = opt.program.upper() if opt.program else ""
-                                        key = (leg_id, program)
+                                        program = (opt.program or "").upper().strip()
+                                        airline_code = PROGRAM_TO_AIRLINE.get(program, program[:2])
+                                        key = (leg_id, airline_code)
                                         if key not in award_options_by_leg_airline:
                                             award_options_by_leg_airline[key] = []
                                         award_options_by_leg_airline[key].append(opt)
+                                        logger.debug(f"[V3 Adapter] Collected award option: program={program} -> airline={airline_code}, key={key}")
                                 else:
                                     logger.debug(f"[V3 Adapter] Leg {leg_id}: EXCLUDING flight without award options: {flight_nums}")
                     
                     logger.info(f"[V3 Adapter] Leg {leg_id}: {verified_count}/{len(leg_flights)} flights verified, {len([f for f in leg_flights if f in validated_flights])} included")
                 else:
-                    logger.warning(f"[V3 Adapter] Leg {leg_id}: No SerpAPI data available - including all flights unverified")
+                    logger.warning(f"[V3 Adapter] Leg {leg_id}: No SerpAPI data available - filtering placeholders and collecting award options")
+                    # CRITICAL: Even without SerpAPI data, we must filter out placeholder flights
+                    # and collect their award options for attachment to real flights
                     for flight in leg_flights:
                         flight.is_verified = False
                         flight.verification_status = "no_serpapi_data"
                         flight.verified_at = validation_timestamp
-                    validated_flights.extend(leg_flights)
+                        
+                        # Get flight numbers for placeholder check
+                        flight_nums = []
+                        for seg in flight.segments:
+                            if seg.flight_number:
+                                flight_nums.append(seg.flight_number)
+                        
+                        has_award_options = hasattr(flight, 'award_options') and len(flight.award_options) > 0
+                        is_placeholder = _is_placeholder_flight_number(flight_nums)
+                        
+                        if is_placeholder:
+                            if has_award_options:
+                                # Collect award options for later attachment to real flights
+                                logger.info(f"[V3 Adapter] Leg {leg_id}: SKIPPING placeholder (no SerpAPI), collecting award options: {flight_nums}")
+                                PROGRAM_TO_AIRLINE = {
+                                    "DELTA": "DL", "SKYMILES": "DL",
+                                    "UNITED": "UA", "MILEAGEPLUS": "UA",
+                                    "AMERICAN": "AA", "AADVANTAGE": "AA",
+                                    "AIR FRANCE": "AF", "FLYING BLUE": "AF", "FLYINGBLUE": "AF",
+                                    "KLM": "KL",
+                                    "BRITISH AIRWAYS": "BA", "AVIOS": "BA", "EXECUTIVE CLUB": "BA",
+                                    "LUFTHANSA": "LH", "MILES & MORE": "LH",
+                                    "AIR CANADA": "AC", "AEROPLAN": "AC",
+                                    "ALASKA": "AS", "MILEAGE PLAN": "AS",
+                                    "VIRGIN ATLANTIC": "VS", "FLYING CLUB": "VS",
+                                    "EMIRATES": "EK", "SKYWARDS": "EK",
+                                    "SINGAPORE": "SQ", "KRISFLYER": "SQ",
+                                    "ANA": "NH",
+                                    "TURKISH": "TK",
+                                }
+                                for opt in flight.award_options:
+                                    program = (opt.program or "").upper().strip()
+                                    airline_code = PROGRAM_TO_AIRLINE.get(program, program[:2])
+                                    key = (leg_id, airline_code)
+                                    if key not in award_options_by_leg_airline:
+                                        award_options_by_leg_airline[key] = []
+                                    award_options_by_leg_airline[key].append(opt)
+                            else:
+                                logger.debug(f"[V3 Adapter] Leg {leg_id}: EXCLUDING placeholder without award options: {flight_nums}")
+                        else:
+                            # Real flight number - include it
+                            validated_flights.append(flight)
+                            logger.info(f"[V3 Adapter] Leg {leg_id}: Including flight with real number (no SerpAPI): {flight_nums}")
                     
             except Exception as e:
                 logger.error(f"[V3 Adapter] Leg {leg_id}: Validation failed: {e}")
-                # On error, include all flights but mark as unverified
+                # On error, still filter placeholders but include real flights
                 for flight in leg_flights:
                     flight.is_verified = False
                     flight.verification_status = "validation_error"
                     flight.verified_at = validation_timestamp
-                validated_flights.extend(leg_flights)
+                    
+                    # Get flight numbers for placeholder check
+                    flight_nums = []
+                    for seg in flight.segments:
+                        if seg.flight_number:
+                            flight_nums.append(seg.flight_number)
+                    
+                    is_placeholder = _is_placeholder_flight_number(flight_nums)
+                    if not is_placeholder:
+                        validated_flights.append(flight)
         
         # CRITICAL: Attach collected award options to matching SerpAPI flights
         # This ensures award availability from AwardTool is shown for REAL flights, not placeholder flights
@@ -1373,6 +1575,9 @@ async def run_v3_optimization(
                 "BA": ["AA", "BA", "IB", "QF", "JL", "AS"],
             }
             
+            # Log available keys for debugging
+            logger.info(f"[V3 Adapter] Award options keys available: {list(award_options_by_leg_airline.keys())}")
+            
             flights_enriched = 0
             for flight in validated_flights:
                 if flight.award_options:
@@ -1388,12 +1593,15 @@ async def run_v3_optimization(
                 
                 # Find matching award options (same leg, same airline or alliance partners)
                 matching_airlines = AIRLINE_ALLIANCES.get(airline, [airline])
+                logger.debug(f"[V3 Adapter] Looking for award options for {airline} flight on leg {leg_id}, checking: {matching_airlines}")
+                
                 best_option = None
                 best_points = float('inf')
                 
                 for match_airline in matching_airlines:
                     key = (leg_id, match_airline)
                     if key in award_options_by_leg_airline:
+                        logger.info(f"[V3 Adapter] Found award options for key {key}: {len(award_options_by_leg_airline[key])} options")
                         for opt in award_options_by_leg_airline[key]:
                             if opt.miles_required and opt.miles_required < best_points:
                                 best_option = opt
@@ -1414,6 +1622,38 @@ async def run_v3_optimization(
         original_count = len(flights)
         flights = validated_flights
         logger.info(f"[V3 Adapter] Cross-validation complete: {len(flights)}/{original_count} flights passed validation")
+        
+        # ═══════════════════════════════════════════════════════════════════
+        # CHECK FOR MISSING LEGS - Inform user which routes have no flights
+        # ═══════════════════════════════════════════════════════════════════
+        flights_by_leg_post_validation = {}
+        for f in flights:
+            leg = f.leg_id
+            if leg not in flights_by_leg_post_validation:
+                flights_by_leg_post_validation[leg] = []
+            flights_by_leg_post_validation[leg].append(f)
+        
+        # Find legs that had flights but now have none
+        missing_legs = []
+        for leg_id in flights_by_leg.keys():
+            if leg_id not in flights_by_leg_post_validation or len(flights_by_leg_post_validation[leg_id]) == 0:
+                # Find the route for this leg from original flights
+                sample_flight = flights_by_leg[leg_id][0] if flights_by_leg[leg_id] else None
+                if sample_flight:
+                    origin = sample_flight.origin
+                    dest = sample_flight.destination
+                    missing_legs.append((leg_id, origin, dest))
+                    logger.warning(f"[V3 Adapter] Leg {leg_id} ({origin}→{dest}): NO VALID FLIGHTS after validation!")
+        
+        if missing_legs:
+            logger.error(f"[V3 Adapter] {len(missing_legs)} legs have no valid flights:")
+            for leg_id, origin, dest in missing_legs:
+                logger.error(f"[V3 Adapter]   - Leg {leg_id}: {origin} → {dest}")
+                # Suggest alternatives
+                origin_alts = _get_metro_airports(origin)
+                dest_alts = _get_metro_airports(dest)
+                if len(origin_alts) > 1 or len(dest_alts) > 1:
+                    logger.info(f"[V3 Adapter]     💡 Try alternate airports: {origin_alts} → {dest_alts}")
     
     transfers = build_transfer_paths(user_points)
     
@@ -1423,7 +1663,7 @@ async def run_v3_optimization(
             logger.info(f"[V3 Adapter] Transfer path: {tp.from_bank} -> {tp.to_program}")
     
     if not flights:
-        logger.warning("[V3 Adapter] No flights to optimize")
+        logger.warning("[V3 Adapter] No flights to optimize - all routes have no valid flights")
         return []
     
     # Detect if this is an international route (affects convenience penalties)
@@ -1431,14 +1671,18 @@ async def run_v3_optimization(
     logger.info(f"[V3 Adapter] Route type: {'international' if is_international else 'domestic'}")
     
     # Run V3 solver (flights only)
+    # Pass budget to solver - when set, FORCES points usage to stay within budget
     result = optimize_trip(
         spec=spec,
         flights=flights,
         transfers=transfers,
-        mode=mode,
+        # mode is ignored - always minimizes cash out-of-pocket
         determinism_mode=False,
         is_international=is_international,
+        cash_budget=budget if budget and budget > 0 else None,
     )
+    
+    logger.info(f"[V3 Adapter] Budget constraint: ${budget if budget else 'None'}")
     
     logger.info(f"[V3 Adapter] V3 solver status: {result.status}")
     

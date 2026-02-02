@@ -458,12 +458,17 @@ class SlackConfig:
     IMPORTANT: The slack determines the "comfort budget" - how much extra
     cash the solver is allowed to spend to improve convenience in Pass 2.
     
-    Too tight (old defaults: $25/1%): convenience can never improve
-    New defaults: $150 domestic / $300 long-haul, 5% relative
+    FLIGHTS-ONLY defaults (recommended):
+      - Domestic: $125 (allows reasonable trade-offs)
+      - International: $250 (long-haul needs more flexibility)
+      - Relative: 5% of Pass 1 objective
+    
+    Pass 2 tie-breaks within this budget to minimize miles used,
+    then time, then stops.
     """
-    rel_eps: float = 0.05  # 5% relative slack (was 1%)
-    abs_eps_domestic: float = 150.0  # $150 for domestic flights (was $25)
-    abs_eps_international: float = 300.0  # $300 for long-haul international
+    rel_eps: float = 0.05  # 5% relative slack
+    abs_eps_domestic: float = 125.0  # $125 for domestic flights
+    abs_eps_international: float = 250.0  # $250 for international flights
     
     # Legacy field for compatibility
     @property
@@ -523,12 +528,178 @@ class ComfortConfig:
     short_connection_cost: float = 50.0  # $50 penalty for < 60 min connection
     
     # ═══════════════════════════════════════════════════════════════════════
-    # POINTS OPPORTUNITY COST
+    # POINTS OPPORTUNITY COST (MODE-SPECIFIC)
     # ═══════════════════════════════════════════════════════════════════════
+    #
+    # The opportunity cost is now MODE-SPECIFIC to align with each mode's intent:
+    #
+    # OOP MODE: "Minimize cash out-of-pocket"
+    #   - Users want to SPEND POINTS to SAVE CASH
+    #   - Opportunity cost should be TINY (just a tiebreaker)
+    #   - If two options cost the same cash, prefer using fewer points
+    #
+    # BALANCED MODE: "Good value without wasting points"
+    #   - Users want savings but don't want terrible redemptions
+    #   - Moderate opportunity cost (~0.8¢) discourages bad CPP
+    #
+    # CPP MODE: "Maximize points value"
+    #   - Opportunity cost is IRRELEVANT (CPP objective already handles value)
+    #   - Set to 0
+    #
+    # Additionally, a CPP_FLOOR prevents truly terrible redemptions in all modes.
     
-    # Prevents "wasting points" on bad itineraries
-    # Points aren't free - they have opportunity cost
-    points_opportunity_cost_cpp: float = 0.012  # 1.2¢ per point opportunity cost
+    # ═══════════════════════════════════════════════════════════════════════
+    # POINTS OPPORTUNITY COST (MODE-SPECIFIC)
+    # ═══════════════════════════════════════════════════════════════════════
+    #
+    # FLIGHTS-ONLY DESIGN: OOP should minimize *cash leaving the bank*, not
+    # "economic cost". Points opportunity cost should be OFF or tiny in OOP.
+    #
+    # OOP MODE: "Save cash using points"
+    #   - Opportunity cost = OFF (0) or tiny tiebreaker (0.003 = 0.3¢)
+    #   - Points will naturally win when they reduce cash
+    #
+    # BALANCED MODE: "Don't waste points"
+    #   - Moderate opportunity cost (0.8-1.2¢)
+    #
+    # CPP MODE: "Maximize redemption value"
+    #   - Opportunity cost irrelevant (CPP objective handles it)
+    #
+    points_opportunity_cost_oop: float = 0.0     # OFF in OOP - let points win!
+    points_opportunity_cost_balanced: float = 0.010  # 1.0¢ - moderate guard
+    points_opportunity_cost_cpp: float = 0.0     # 0¢ - not used in CPP mode
+    
+    # ═══════════════════════════════════════════════════════════════════════
+    # CPP FLOOR (Flight-Specific Guardrail A)
+    # ═══════════════════════════════════════════════════════════════════════
+    #
+    # If an award option's CPP is below this threshold, treat as INFEASIBLE.
+    # This kills bad redemptions like "90k pts + $80 to replace $700 fare".
+    #
+    # FLIGHTS-ONLY defaults:
+    #   - Transfer partners / major programs: 1.1-1.3¢
+    #   - "Use points more aggressively": 1.0¢
+    #
+    # We ship 1.1¢ as the sweet spot - allows good redemptions, blocks junk.
+    #
+    cpp_floor: float = 1.1  # 1.1¢ minimum for flights - strong but fair
+    cpp_floor_hotels: float = 0.7  # Hotels have different norms (lower CPP typical)
+    enable_cpp_floor: bool = True
+    
+    # ═══════════════════════════════════════════════════════════════════════
+    # MAX MILES PER DOLLAR SAVED (Most intuitive guardrail!)
+    # ═══════════════════════════════════════════════════════════════════════
+    #
+    # This is the most user-intuitive rule:
+    #   "Don't spend more than K miles to save $1"
+    #
+    # Formula:
+    #   miles_per_dollar_saved = miles / max(1, cash_equivalent - surcharge)
+    #
+    # The constraint enforces:
+    #   miles_per_dollar_saved <= max_miles_per_dollar
+    #
+    # Interpretation:
+    #   - If you value points at 1.2¢, "fair" is ~83 miles per $ (1/0.012 = 83.33)
+    #   - For "points-forward but not stupid": K = 120-160
+    #   - This directly kills: "60k points to save $120" = 500 miles per $ ❌
+    #
+    # FLIGHTS-ONLY default: 140 miles per $
+    # Aligns with ~0.7¢/pt floor (slightly more permissive than CPP floor)
+    #
+    # Example:
+    #   Cash: $500, Award: 50k pts + $80 surcharge
+    #   Savings = $500 - $80 = $420
+    #   Miles per $ = 50,000 / 420 = 119 ← OK (under 150)
+    #
+    #   Cash: $500, Award: 60k pts + $380 surcharge
+    #   Savings = $500 - $380 = $120  
+    #   Miles per $ = 60,000 / 120 = 500 ← REJECT (way over 150!)
+    #
+    max_miles_per_dollar_saved: float = 140.0  # Max 140 miles per $1 saved (~0.7¢ effective floor)
+    enable_miles_per_dollar_guard: bool = True
+    
+    # ═══════════════════════════════════════════════════════════════════════
+    # ADAPTIVE BUDGET-BASED GUARDRAILS
+    # ═══════════════════════════════════════════════════════════════════════
+    #
+    # When budget is tight, relax redemption guardrails to find feasible solutions.
+    # The solver becomes more willing to spend points when budget is binding.
+    #
+    # Budget tightness ratio: r = budget / best_cash_price
+    #
+    # TIERS (flights-only):
+    #   - Normal (r ≥ 0.60): Use default floors (cpp=1.1, miles/$=140)
+    #   - Tight (0.30 ≤ r < 0.60): More aggressive (cpp=0.95, miles/$=180)
+    #   - Very tight (r < 0.30 or budget < $100): Whatever it takes (cpp=0.80, miles/$=250)
+    #
+    # When budget is very tight, Pass 2 also changes priority:
+    #   - Normal: minimize miles → time → stops
+    #   - Very tight: minimize time → stops → miles (user cares about "I can go")
+    #
+    enable_adaptive_budget_guardrails: bool = True
+    
+    # Tier thresholds
+    budget_tier_tight_ratio: float = 0.60     # Below this = "tight" budget
+    budget_tier_very_tight_ratio: float = 0.30  # Below this = "very tight"
+    budget_tier_very_tight_absolute: float = 100.0  # Below $100 = always "very tight"
+    
+    # Tight budget settings
+    cpp_floor_tight: float = 0.95         # 0.95¢ for tight budgets
+    max_miles_per_dollar_tight: float = 180.0
+    
+    # Very tight budget settings
+    cpp_floor_very_tight: float = 0.80    # 0.80¢ for very tight budgets
+    max_miles_per_dollar_very_tight: float = 250.0
+    
+    def get_budget_tier(self, budget: Optional[float], best_cash_price: float) -> str:
+        """
+        Determine budget tier based on tightness ratio.
+        
+        Returns: "normal", "tight", or "very_tight"
+        """
+        if not self.enable_adaptive_budget_guardrails:
+            return "normal"
+        
+        if budget is None or budget <= 0:
+            return "normal"  # No budget constraint
+        
+        # Very tight if budget is below absolute threshold
+        if budget < self.budget_tier_very_tight_absolute:
+            return "very_tight"
+        
+        # Compute ratio
+        if best_cash_price <= 0:
+            return "normal"
+        
+        ratio = budget / best_cash_price
+        
+        if ratio < self.budget_tier_very_tight_ratio:
+            return "very_tight"
+        elif ratio < self.budget_tier_tight_ratio:
+            return "tight"
+        else:
+            return "normal"
+    
+    def get_adaptive_cpp_floor(self, tier: str) -> float:
+        """Get CPP floor for the given budget tier."""
+        if tier == "very_tight":
+            return self.cpp_floor_very_tight
+        elif tier == "tight":
+            return self.cpp_floor_tight
+        else:
+            return self.cpp_floor
+    
+    def get_adaptive_miles_per_dollar(self, tier: str) -> float:
+        """Get miles-per-dollar cap for the given budget tier."""
+        if tier == "very_tight":
+            return self.max_miles_per_dollar_very_tight
+        elif tier == "tight":
+            return self.max_miles_per_dollar_tight
+        else:
+            return self.max_miles_per_dollar_saved
+    
+    # Legacy field for backward compatibility (now computed per-mode)
     enable_points_opportunity_cost: bool = True
     
     def get_stop_cost(self, is_international: bool = False) -> float:

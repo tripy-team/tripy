@@ -60,7 +60,7 @@ class SoloOptimizeRequest(BaseModel):
     """Request body for solo trip optimization (flights only)."""
     trip_id: str = Field(..., min_length=1, max_length=100)
     points: dict[str, int] = {}  # program -> balance
-    budget: float = Field(default=5000.0, ge=0, le=1000000)
+    budget: float = Field(default=500.0, ge=0, le=1000000)
     cabin_classes: Optional[list[str]] = None
     
     # Policy settings

@@ -16,6 +16,8 @@ class OptimizeSoloRequest(BaseModel):
     points: Dict[str, int]  # { "chase_ur": 50000, "amex_mr": 30000 }
     # Optional: override trip's optimization_mode for comparison
     optimization_mode_override: Optional[Literal["oop", "cpp", "balanced"]] = None
+    # Force bypass cache and run fresh optimization
+    force_refresh: bool = False
 
 
 class TransferInsight(BaseModel):

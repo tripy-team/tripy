@@ -1372,6 +1372,7 @@ export interface SoloOptimizeRequest {
   tripId: string;
   points: Record<string, number>;
   optimizationModeOverride?: 'oop' | 'cpp' | 'balanced';
+  forceRefresh?: boolean;  // Bypass cache and run fresh optimization
 }
 
 export interface SoloTransferInsight {

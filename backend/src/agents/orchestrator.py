@@ -46,6 +46,182 @@ from .group_models import (
     SettlementSplitMethod,
 )
 
+# =============================================================================
+# MULTI-AIRPORT CITY SUPPORT
+# =============================================================================
+
+# Known metro areas with multiple airports
+# Used to expand searches to all airports in a city
+METRO_AIRPORTS = {
+    # US Cities
+    "seattle": ["SEA"],
+    "sea": ["SEA"],
+    "new york": ["JFK", "EWR", "LGA"],
+    "nyc": ["JFK", "EWR", "LGA"],
+    "jfk": ["JFK", "EWR", "LGA"],
+    "ewr": ["JFK", "EWR", "LGA"],
+    "lga": ["JFK", "EWR", "LGA"],
+    "los angeles": ["LAX", "BUR", "SNA", "ONT"],
+    "la": ["LAX", "BUR", "SNA", "ONT"],
+    "lax": ["LAX", "BUR", "SNA", "ONT"],
+    "san francisco": ["SFO", "OAK", "SJC"],
+    "sf": ["SFO", "OAK", "SJC"],
+    "sfo": ["SFO", "OAK", "SJC"],
+    "chicago": ["ORD", "MDW"],
+    "ord": ["ORD", "MDW"],
+    "washington": ["IAD", "DCA", "BWI"],
+    "washington dc": ["IAD", "DCA", "BWI"],
+    "dc": ["IAD", "DCA", "BWI"],
+    "iad": ["IAD", "DCA", "BWI"],
+    "dca": ["IAD", "DCA", "BWI"],
+    "miami": ["MIA", "FLL"],
+    "mia": ["MIA", "FLL"],
+    "dallas": ["DFW", "DAL"],
+    "dfw": ["DFW", "DAL"],
+    "houston": ["IAH", "HOU"],
+    "iah": ["IAH", "HOU"],
+    "boston": ["BOS"],
+    "bos": ["BOS"],
+    # European Cities
+    "london": ["LHR", "LGW", "STN", "LTN"],
+    "lhr": ["LHR", "LGW", "STN", "LTN"],
+    "lgw": ["LHR", "LGW", "STN", "LTN"],
+    "paris": ["CDG", "ORY"],
+    "cdg": ["CDG", "ORY"],
+    "ory": ["CDG", "ORY"],
+    "milan": ["MXP", "LIN", "BGY"],
+    "mxp": ["MXP", "LIN", "BGY"],
+    "rome": ["FCO", "CIA"],
+    "fco": ["FCO", "CIA"],
+    "frankfurt": ["FRA", "HHN"],
+    "fra": ["FRA", "HHN"],
+    "amsterdam": ["AMS"],
+    "ams": ["AMS"],
+    # Asian Cities
+    "tokyo": ["NRT", "HND"],
+    "nrt": ["NRT", "HND"],
+    "hnd": ["NRT", "HND"],
+    "seoul": ["ICN", "GMP"],
+    "icn": ["ICN", "GMP"],
+    "shanghai": ["PVG", "SHA"],
+    "pvg": ["PVG", "SHA"],
+    "beijing": ["PEK", "PKX"],
+    "pek": ["PEK", "PKX"],
+    "hong kong": ["HKG"],
+    "hkg": ["HKG"],
+    "singapore": ["SIN"],
+    "sin": ["SIN"],
+    # Middle East
+    "dubai": ["DXB", "DWC"],
+    "dxb": ["DXB", "DWC"],
+}
+
+# Ground transfer costs between airports in the same metro area (in USD)
+# Format: (airport1, airport2) -> (cost_usd, time_minutes)
+INTER_AIRPORT_TRANSFERS = {
+    # Paris
+    ("CDG", "ORY"): (50, 90),
+    ("ORY", "CDG"): (50, 90),
+    # London
+    ("LHR", "LGW"): (60, 120),
+    ("LGW", "LHR"): (60, 120),
+    ("LHR", "STN"): (70, 150),
+    ("STN", "LHR"): (70, 150),
+    ("LGW", "STN"): (80, 180),
+    ("STN", "LGW"): (80, 180),
+    # NYC
+    ("JFK", "EWR"): (80, 90),
+    ("EWR", "JFK"): (80, 90),
+    ("JFK", "LGA"): (50, 60),
+    ("LGA", "JFK"): (50, 60),
+    ("EWR", "LGA"): (60, 75),
+    ("LGA", "EWR"): (60, 75),
+    # Tokyo
+    ("NRT", "HND"): (40, 120),
+    ("HND", "NRT"): (40, 120),
+    # Default for unknown pairs in same metro
+}
+
+DEFAULT_INTER_AIRPORT_TRANSFER = (40, 90)  # $40, 90 minutes
+
+
+def _get_all_airports_for_location(location: str) -> list[str]:
+    """
+    Get all airports for a location (city name or airport code).
+    
+    Examples:
+        "Paris" -> ["CDG", "ORY"]
+        "Paris (CDG,ORY,BVA)" -> ["CDG", "ORY", "BVA"]
+        "CDG" -> ["CDG", "ORY"] (expands to metro)
+        "SEA" -> ["SEA"]
+    
+    Returns list of airport codes.
+    """
+    if not location:
+        return []
+    
+    location = location.strip()
+    
+    # Check if it's in format "City (CODE1,CODE2,CODE3)"
+    if "(" in location and ")" in location:
+        codes_part = location.split("(")[1].split(")")[0]
+        codes = [c.strip().upper() for c in codes_part.split(",") if c.strip()]
+        # Return explicitly listed codes
+        return codes if codes else []
+    
+    # Check METRO_AIRPORTS mapping
+    location_lower = location.lower()
+    if location_lower in METRO_AIRPORTS:
+        return METRO_AIRPORTS[location_lower]
+    
+    # If it's a 3-letter code, check if it's part of a metro
+    if len(location) == 3 and location.isalpha():
+        code_upper = location.upper()
+        if code_upper.lower() in METRO_AIRPORTS:
+            return METRO_AIRPORTS[code_upper.lower()]
+        # Single airport
+        return [code_upper]
+    
+    # Try partial match on city names
+    for metro_name, airports in METRO_AIRPORTS.items():
+        if metro_name in location_lower or location_lower in metro_name:
+            return airports
+    
+    # Fallback: treat as single airport code
+    return [location.upper()[:3]] if location else []
+
+
+def _get_primary_airport(location: str) -> str:
+    """Get the primary (first) airport for a location."""
+    airports = _get_all_airports_for_location(location)
+    return airports[0] if airports else location.upper()[:3]
+
+
+def _get_inter_airport_transfer(airport1: str, airport2: str) -> tuple[float, int]:
+    """
+    Get transfer cost and time between two airports.
+    
+    Returns (cost_usd, time_minutes) or (0, 0) if same airport.
+    """
+    if airport1 == airport2:
+        return (0, 0)
+    
+    key = (airport1.upper(), airport2.upper())
+    if key in INTER_AIRPORT_TRANSFERS:
+        return INTER_AIRPORT_TRANSFERS[key]
+    
+    # Check if they're in the same metro area
+    airports1 = _get_all_airports_for_location(airport1)
+    airports2 = _get_all_airports_for_location(airport2)
+    
+    # If both airports are in the same metro, use default transfer cost
+    if set(airports1) & set(airports2):
+        return DEFAULT_INTER_AIRPORT_TRANSFER
+    
+    # Different metros - no direct transfer possible
+    return (0, 0)
+
+
 # V3 Optimization - lazy import to avoid slow startup
 def _get_v3_optimizer():
     from ..optimization.adapter_v3 import run_v3_optimization
@@ -666,33 +842,40 @@ class OrchestratorAgent(BaseAgent):
                     # Build destinations list with proper structure
                     destinations = []
                     
-                    # Add origin as start point
+                    # Add origin as start point with all airports
                     if origin:
+                        origin_airports = _get_all_airports_for_location(origin)
                         destinations.append({
                             "name": origin,
                             "isStart": True,
                             "isEnd": origin == final_destination,
+                            "all_airports": origin_airports,
                         })
+                        logger.info(f"[Orchestrator] Origin '{origin}' -> airports: {origin_airports}")
                     
-                    # Add intermediate destinations
+                    # Add intermediate destinations with ALL airport options
                     for dest in raw_destinations:
-                        # Extract airport code from format like "Paris (CDG,ORY,BVA)"
-                        airport_code = dest
-                        if "(" in dest and ")" in dest:
-                            codes = dest.split("(")[1].split(")")[0]
-                            airport_code = codes.split(",")[0].strip()  # Use first code
+                        # Extract ALL airport codes from format like "Paris (CDG,ORY,BVA)"
+                        all_airports = _get_all_airports_for_location(dest)
+                        primary_airport = all_airports[0] if all_airports else dest
                         
                         destinations.append({
-                            "name": airport_code,
+                            "name": primary_airport,
                             "mustInclude": True,
+                            "all_airports": all_airports,  # Store ALL airports for multi-airport search
                         })
+                        
+                        logger.info(f"[Orchestrator] Destination '{dest}' -> airports: {all_airports}")
                     
                     # Add final destination if different from origin
                     if final_destination and final_destination != origin:
+                        final_airports = _get_all_airports_for_location(final_destination)
                         destinations.append({
                             "name": final_destination,
                             "isEnd": True,
+                            "all_airports": final_airports,
                         })
+                        logger.info(f"[Orchestrator] Final destination '{final_destination}' -> airports: {final_airports}")
                     
                     logger.info(f"[Orchestrator] Solo trip loaded: origin={origin}, destinations={raw_destinations}, final={final_destination}")
                     logger.info(f"[Orchestrator] Parsed destinations: {destinations}")
@@ -747,21 +930,40 @@ class OrchestratorAgent(BaseAgent):
         """
         Build list of flight segments to search (flights only).
         
-        IMPORTANT: For multi-city trips, this now generates segments for ALL
-        permutations of intermediate destinations, then stores them as route_variants
-        in trip_data for the optimizer to evaluate.
+        IMPORTANT: This function creates ONE segment per city-pair leg.
+        Multiple airports in a city are treated as ALTERNATIVES (OR), not
+        separate required stops (AND).
+        
+        For example, Paris → [CDG, ORY] means the optimizer can pick EITHER
+        airport, not that it must visit both.
+        
+        The segment includes:
+        - origin_city, dest_city: City names for display
+        - allowed_origin_airports: List of valid origin airports
+        - allowed_destination_airports: List of valid destination airports
+        - airport_search_pairs: List of (origin_apt, dest_apt) to search
         """
         destinations = trip_data.get("destinations", [])
         start_date = trip_data.get("start_date", "2026-03-01")
         end_date = trip_data.get("end_date", "2026-03-08")
         
-        # Find start and end points
+        # Build airport mapping for each destination
+        # {destination_name: [list of airports]}
+        dest_to_airports = {}
+        
+        # Find start and end points with all their airports
         start = None
+        start_airports = []
         end = None
+        end_airports = []
         intermediate = []
+        intermediate_airports = {}
         
         for dest in destinations:
             name = dest.get("name", "")
+            all_airports = dest.get("all_airports") or _get_all_airports_for_location(name)
+            dest_to_airports[name] = all_airports
+            
             # Support both camelCase (from DB) and snake_case (from test data)
             is_start = dest.get("isStart") or dest.get("is_start")
             is_end = dest.get("isEnd") or dest.get("is_end")
@@ -769,40 +971,43 @@ class OrchestratorAgent(BaseAgent):
             
             if is_start:
                 start = name
+                start_airports = all_airports
             if is_end:
                 end = name
+                end_airports = all_airports
             if must_include and not is_start and not is_end:
                 intermediate.append(name)
+                intermediate_airports[name] = all_airports
         
         # Default to first destination as both start and end if not specified
         if not start and destinations:
             start = destinations[0].get("name", "JFK")
+            start_airports = dest_to_airports.get(start, [start])
         if not end:
             end = start
+            end_airports = start_airports
         
         if not start:
             return []
         
+        logger.info(f"[Orchestrator] Multi-airport mapping (airports are OR alternatives):")
+        logger.info(f"[Orchestrator]   Start ({start}): {start_airports}")
+        for city, airports in intermediate_airports.items():
+            logger.info(f"[Orchestrator]   Intermediate ({city}): {airports}")
+        logger.info(f"[Orchestrator]   End ({end}): {end_airports}")
+        
         # ═══════════════════════════════════════════════════════════════════════
         # GENERATE ALL ROUTE PERMUTATIONS
         # ═══════════════════════════════════════════════════════════════════════
-        # For multi-city trips, we need to search flights for ALL possible
-        # orderings of intermediate cities to find the optimal route.
-        # e.g., SEA -> Paris -> Dubai -> SEA AND SEA -> Dubai -> Paris -> SEA
-        
         import itertools
         
         if len(intermediate) > 1:
-            # Generate all permutations of intermediate cities
             permutations = list(itertools.permutations(intermediate))
-            logger.info(f"[Orchestrator] Multi-city trip with {len(intermediate)} intermediate cities")
-            logger.info(f"[Orchestrator] Evaluating {len(permutations)} route permutations")
-            for i, perm in enumerate(permutations):
-                logger.info(f"[Orchestrator]   Route {i+1}: {start} → {' → '.join(perm)} → {end}")
+            logger.info(f"[Orchestrator] Multi-city: {len(permutations)} route permutations")
         else:
             permutations = [tuple(intermediate)]
         
-        # Store all route variants for the optimizer to compare
+        # Store route variants for optimizer
         route_variants = []
         all_segments = []
         
@@ -815,47 +1020,115 @@ class OrchestratorAgent(BaseAgent):
             start_dt = datetime.now()
             end_dt = start_dt + timedelta(days=7)
         
+        # ═══════════════════════════════════════════════════════════════════════
+        # CREATE ONE SEGMENT PER CITY-PAIR (not per airport pair!)
+        # ═══════════════════════════════════════════════════════════════════════
+        # Multiple airports in a city are ALTERNATIVES, not separate stops.
+        
         for perm_idx, perm in enumerate(permutations):
-            route = [start] + list(perm) + ([end] if end != start else [start])
-            route_variants.append(route)
+            route_cities = [start] + list(perm) + ([end] if end != start else [start])
+            route_variants.append(route_cities)
             
             total_days = (end_dt - start_dt).days
-            days_per_city = max(1, total_days // max(len(route) - 1, 1))
+            days_per_city = max(1, total_days // max(len(route_cities) - 1, 1))
             current_date = start_dt
             
-            for i in range(len(route) - 1):
-                origin = route[i]
-                destination = route[i + 1]
-                is_return_leg = (i == len(route) - 2 and (destination == start or end == start))
+            # For each leg in the route, create ONE segment with airport alternatives
+            for i in range(len(route_cities) - 1):
+                origin_city = route_cities[i]
+                dest_city = route_cities[i + 1]
+                is_return_leg = (i == len(route_cities) - 2 and (dest_city == start or end == start))
+                
+                # Get all airports for origin and destination (these are OR alternatives)
+                origin_airports = dest_to_airports.get(origin_city, [origin_city])
+                dest_airports = dest_to_airports.get(dest_city, [dest_city])
                 
                 # For return leg, use end_date
                 flight_date = end_dt.strftime("%Y-%m-%d") if is_return_leg else current_date.strftime("%Y-%m-%d")
                 
-                # Create segment with route variant index for grouping
+                # Generate all airport pairs for searching (we'll consolidate results)
+                airport_search_pairs = [
+                    (orig_apt, dest_apt)
+                    for orig_apt in origin_airports
+                    for dest_apt in dest_airports
+                ]
+                
+                # Create ONE segment for this city-pair
+                # The optimizer will pick ONE flight from any valid airport combination
                 segment = {
                     "type": "flight",
-                    "origin": origin,
-                    "destination": destination,
+                    # Use first airport as "primary" for API compatibility
+                    "origin": origin_airports[0],
+                    "destination": dest_airports[0],
                     "date": flight_date,
-                    "route_variant": perm_idx,  # Which route permutation this belongs to
-                    "leg_index": i,  # Position within the route
+                    "route_variant": perm_idx,
+                    "leg_index": i,
+                    # City info for display and grouping
+                    "origin_city": origin_city,
+                    "dest_city": dest_city,
+                    # CRITICAL: All valid airports are alternatives (OR), not requirements (AND)
+                    "allowed_origin_airports": origin_airports,
+                    "allowed_destination_airports": dest_airports,
+                    # All airport pairs we need to search for flight data
+                    "airport_search_pairs": airport_search_pairs,
                 }
                 all_segments.append(segment)
                 
                 current_date += timedelta(days=days_per_city)
         
-        # Store route variants in trip_data for optimizer reference
+        # Store metadata for optimizer
         trip_data["route_variants"] = route_variants
         trip_data["num_route_variants"] = len(permutations)
+        trip_data["dest_to_airports"] = dest_to_airports
         
-        logger.info(f"[Orchestrator] Built {len(all_segments)} total segments across {len(permutations)} route variants")
+        # Deduplicate segments by city-pair (not airport-pair)
+        unique_segments = self._deduplicate_city_pair_segments(all_segments)
         
-        # Return unique O-D pairs to avoid duplicate searches
-        # The optimizer will handle selecting the best route variant
-        unique_segments = self._deduplicate_segments(all_segments)
-        logger.info(f"[Orchestrator] After deduplication: {len(unique_segments)} unique O-D pairs to search")
+        # Count search pairs
+        total_searches = sum(len(seg.get("airport_search_pairs", [])) for seg in unique_segments)
+        logger.info(f"[Orchestrator] Generated {len(unique_segments)} city-pair legs requiring {total_searches} airport-pair searches")
+        
+        # Log the segments
+        for seg in unique_segments:
+            origin_apts = seg.get("allowed_origin_airports", [seg["origin"]])
+            dest_apts = seg.get("allowed_destination_airports", [seg["destination"]])
+            logger.info(f"[Orchestrator]   Leg: {seg['origin_city']} ({origin_apts}) → {seg['dest_city']} ({dest_apts}) on {seg['date']}")
         
         return unique_segments
+    
+    def _deduplicate_city_pair_segments(self, segments: list[dict]) -> list[dict]:
+        """
+        Deduplicate segments by city-pair + date (not airport-pair).
+        
+        Merges airport_search_pairs from duplicate city-pair segments.
+        """
+        seen = {}  # (origin_city, dest_city, date) -> segment
+        
+        for seg in segments:
+            origin_city = seg.get("origin_city", seg["origin"])
+            dest_city = seg.get("dest_city", seg["destination"])
+            key = (origin_city, dest_city, seg["date"])
+            
+            if key not in seen:
+                seen[key] = seg
+            else:
+                # Merge airport_search_pairs
+                existing = seen[key]
+                existing_pairs = set(tuple(p) for p in existing.get("airport_search_pairs", []))
+                new_pairs = set(tuple(p) for p in seg.get("airport_search_pairs", []))
+                merged_pairs = list(existing_pairs | new_pairs)
+                existing["airport_search_pairs"] = merged_pairs
+                
+                # Merge allowed airports
+                existing_origins = set(existing.get("allowed_origin_airports", []))
+                new_origins = set(seg.get("allowed_origin_airports", []))
+                existing["allowed_origin_airports"] = list(existing_origins | new_origins)
+                
+                existing_dests = set(existing.get("allowed_destination_airports", []))
+                new_dests = set(seg.get("allowed_destination_airports", []))
+                existing["allowed_destination_airports"] = list(existing_dests | new_dests)
+        
+        return list(seen.values())
     
     def _deduplicate_segments(self, segments: list[dict]) -> list[dict]:
         """
@@ -930,30 +1203,110 @@ class OrchestratorAgent(BaseAgent):
         user_points: dict,
         cabin_classes: list[str],
     ) -> dict:
-        """Search flights for all segments in parallel (flights only)."""
+        """
+        Search flights for all segments in parallel (flights only).
+        
+        MULTI-AIRPORT SUPPORT: Each segment may have multiple airport pairs
+        to search. We search ALL pairs and consolidate results into the
+        segment, so the optimizer sees all flight options for the city-pair.
+        """
         tasks = []
-        segment_keys = []
+        task_metadata = []  # Track which segment and airport pair each task belongs to
         
         for i, segment in enumerate(segments):
-            if segment["type"] == "flight":
+            if segment["type"] != "flight":
+                continue
+            
+            # Get airport pairs to search (may be multiple for multi-airport cities)
+            airport_pairs = segment.get("airport_search_pairs")
+            if not airport_pairs:
+                # Fallback: single airport pair from origin/destination
+                airport_pairs = [(segment["origin"], segment["destination"])]
+            
+            # Search each airport pair
+            for origin_apt, dest_apt in airport_pairs:
                 tasks.append(self.flight_agent.execute(FlightSearchRequest(
-                    origin=segment["origin"],
-                    destination=segment["destination"],
+                    origin=origin_apt,
+                    destination=dest_apt,
                     date=segment["date"],
                     cabin_classes=cabin_classes,
                     user_points=user_points,
                 )))
-                segment_keys.append(f"flight_{i}")
+                task_metadata.append({
+                    "segment_idx": i,
+                    "origin_airport": origin_apt,
+                    "dest_airport": dest_apt,
+                })
+        
+        logger.info(f"[Orchestrator] Searching {len(tasks)} airport pairs for {len(segments)} segments")
         
         results = await asyncio.gather(*tasks, return_exceptions=True)
         
+        # Consolidate results by segment
+        # Each segment gets ALL flight options from ALL its airport pairs
         search_results = {}
-        for key, result in zip(segment_keys, results):
+        segment_options = {}  # segment_idx -> list of FlightOption
+        
+        for metadata, result in zip(task_metadata, results):
+            seg_idx = metadata["segment_idx"]
+            origin_apt = metadata["origin_airport"]
+            dest_apt = metadata["dest_airport"]
+            
+            if seg_idx not in segment_options:
+                segment_options[seg_idx] = []
+            
             if isinstance(result, Exception):
-                logger.error(f"Search failed for {key}: {result}")
-                search_results[key] = None
-            else:
-                search_results[key] = result
+                logger.error(f"Search failed for {origin_apt}->{dest_apt}: {result}")
+                continue
+            
+            if result and hasattr(result, "options") and result.options:
+                # Add airport info to each option for debugging
+                for opt in result.options:
+                    # Store the actual airports used (for multi-airport tracking)
+                    if not hasattr(opt, '_searched_origin'):
+                        opt._searched_origin = origin_apt
+                        opt._searched_destination = dest_apt
+                
+                segment_options[seg_idx].extend(result.options)
+                logger.info(f"[Orchestrator] {origin_apt}->{dest_apt}: found {len(result.options)} options")
+        
+        # Create consolidated results for each segment
+        for i, segment in enumerate(segments):
+            if segment["type"] != "flight":
+                continue
+            
+            key = f"flight_{i}"
+            options = segment_options.get(i, [])
+            
+            # Deduplicate options by a reasonable key (airline + departure time + price)
+            seen_keys = set()
+            unique_options = []
+            for opt in options:
+                # Create dedup key
+                dedup_key = (
+                    getattr(opt, 'airline', ''),
+                    getattr(opt, 'departure_time', ''),
+                    getattr(opt, 'cash_price', 0),
+                    getattr(opt, 'award_points', 0),
+                )
+                if dedup_key not in seen_keys:
+                    seen_keys.add(dedup_key)
+                    unique_options.append(opt)
+            
+            # Create a mock result object with consolidated options
+            from .models import FlightSearchResult
+            search_results[key] = FlightSearchResult(
+                options=unique_options,
+                origin=segment.get("origin_city", segment["origin"]),
+                destination=segment.get("dest_city", segment["destination"]),
+                date=segment["date"],
+                programs_searched=getattr(result, 'programs_searched', []) if result else [],
+                errors=[],
+            )
+            
+            origin_apts = segment.get("allowed_origin_airports", [segment["origin"]])
+            dest_apts = segment.get("allowed_destination_airports", [segment["destination"]])
+            logger.info(f"[Orchestrator] {key}: {len(unique_options)} unique options for {segment.get('origin_city', segment['origin'])} ({origin_apts}) → {segment.get('dest_city', segment['destination'])} ({dest_apts})")
         
         return search_results
     

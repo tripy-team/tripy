@@ -335,7 +335,8 @@ async def optimize_solo(
         # Resolve mode: override takes precedence, else trip setting
         mode = request.optimization_mode_override or trip.get("optimizationMode", "balanced")
         
-        # Check cache
+        # Check cache (unless force_refresh is requested)
+        force_refresh = getattr(request, 'force_refresh', False)
         cache_key = solo_trip_service.compute_cache_key(
             request.trip_id, 
             trip, 
@@ -343,17 +344,20 @@ async def optimize_solo(
             mode
         )
         
-        cached = solo_trip_service.get_cached_optimization(request.trip_id, cache_key)
-        if cached and not solo_trip_service.is_cache_expired(cached):
-            # Return cached result with proper response model
-            return _build_response_from_cached(cached)
+        if not force_refresh:
+            cached = solo_trip_service.get_cached_optimization(request.trip_id, cache_key)
+            if cached and not solo_trip_service.is_cache_expired(cached):
+                logger.info(f"[solo/optimize] Returning cached results for trip {request.trip_id}")
+                return _build_response_from_cached(cached)
+        else:
+            logger.info(f"[solo/optimize] Force refresh requested - bypassing cache for trip {request.trip_id}")
         
         # Run REAL optimization using the orchestrator
         orchestrator = get_orchestrator()
         
         # Build the agent request with trip preferences
-        # Budget from trip, or default high to not constrain
-        budget = trip.get("max_budget") or 50000.0
+        # Budget from trip, or default to $500 to test budget constraint
+        budget = trip.get("max_budget") or 500.0
         
         # Map cabin class preference (use camelCase field names)
         cabin_classes = _map_flight_class(trip.get("flightClass", "economy"))

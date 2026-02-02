@@ -125,7 +125,8 @@ async function fetchPointsSummary(tripId: string): Promise<{ items: Array<{ prog
 async function callOptimize(
   tripId: string, 
   points: Record<string, number>,
-  modeOverride?: 'oop' | 'cpp' | 'balanced'
+  modeOverride?: 'oop' | 'cpp' | 'balanced',
+  forceRefresh?: boolean
 ): Promise<OptimizeSoloResponse> {
   const token = getAccessToken();
   
@@ -133,6 +134,7 @@ async function callOptimize(
     tripId,
     points,
     optimizationModeOverride: modeOverride,
+    forceRefresh: forceRefresh ?? false,
   });
   
   const response = await fetch(`${BACKEND_URL}/solo/optimize`, {
@@ -242,9 +244,10 @@ export function useSoloOptimization(): UseSoloOptimizationResult {
 export async function fetchOptimizeSolo(
   tripId: string,
   points: Record<string, number>,
-  modeOverride?: 'oop' | 'cpp' | 'balanced'
+  modeOverride?: 'oop' | 'cpp' | 'balanced',
+  forceRefresh?: boolean
 ): Promise<OptimizeSoloResponse> {
-  return callOptimize(tripId, points, modeOverride);
+  return callOptimize(tripId, points, modeOverride, forceRefresh);
 }
 
 export default useSoloOptimization;

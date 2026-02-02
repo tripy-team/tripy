@@ -164,6 +164,7 @@ class SolverV3:
         comfort_config: Optional[ComfortConfig] = None,
         determinism_mode: bool = False,
         is_international: bool = False,  # Route type affects penalties
+        cash_budget: Optional[float] = None,  # User's cash budget (if set, FORCES points usage when over)
     ):
         self.mode = mode
         self.solver_config = solver_config or SolverConfig()
@@ -173,6 +174,7 @@ class SolverV3:
         self.comfort_config = comfort_config or ComfortConfig()
         self.determinism_mode = determinism_mode
         self.is_international = is_international
+        self.cash_budget = cash_budget  # None means no budget constraint
         
         self.model: Optional[LpProblem] = None
         self.metrics = create_metrics()
@@ -471,10 +473,28 @@ class SolverV3:
         self._add_date_feasibility_constraints()
         
         # ═══════════════════════════════════════════════════════════════════
-        # STEP 5: Build key indices for fast lookup
+        # STEP 5: Add airport continuity constraints for multi-airport cities
+        # ═══════════════════════════════════════════════════════════════════
+        
+        self._add_airport_continuity_constraints()
+        
+        # ═══════════════════════════════════════════════════════════════════
+        # STEP 6: Add budget constraint (if set) - FORCES points usage when over budget
+        # ═══════════════════════════════════════════════════════════════════
+        
+        self._add_budget_constraint()
+        
+        # ═══════════════════════════════════════════════════════════════════
+        # STEP 7: Build key indices for fast lookup
         # ═══════════════════════════════════════════════════════════════════
         
         self._build_key_indices()
+        
+        # ═══════════════════════════════════════════════════════════════════
+        # STEP 8: Log detailed flight options (for debugging)
+        # ═══════════════════════════════════════════════════════════════════
+        
+        self._log_flight_options_detail()
     
     def _build_key_indices(self):
         """Build indices for faster constraint/objective construction."""
@@ -484,16 +504,118 @@ class SolverV3:
             leg, edge = key[0], key[1]
             self.y_pf_keys_by_flight[(leg, edge)].append(key)
     
+    def _compute_best_cash_price(self) -> float:
+        """
+        Compute the best (lowest) cash price across all flight options.
+        
+        Used for budget tier calculation. Returns the sum of cheapest
+        cash option per leg.
+        """
+        best_per_leg = {}
+        
+        for f in self.flights:
+            if f.leg_id not in best_per_leg:
+                best_per_leg[f.leg_id] = float('inf')
+            if f.cash_cost > 0:
+                best_per_leg[f.leg_id] = min(best_per_leg[f.leg_id], f.cash_cost)
+        
+        # Sum across legs (need one flight per leg)
+        total = sum(
+            price for price in best_per_leg.values() 
+            if price < float('inf')
+        )
+        
+        return total if total > 0 else 1000.0  # Default if no cash prices
+    
+    def _compute_lowest_surcharge(self) -> float:
+        """
+        Compute the lowest total surcharge available if paying all points.
+        
+        Used for budget feasibility messaging.
+        """
+        best_surcharge_per_leg = {}
+        
+        for f in self.flights:
+            for opt in f.award_options:
+                if f.leg_id not in best_surcharge_per_leg:
+                    best_surcharge_per_leg[f.leg_id] = float('inf')
+                best_surcharge_per_leg[f.leg_id] = min(
+                    best_surcharge_per_leg[f.leg_id], 
+                    opt.surcharge
+                )
+        
+        if not best_surcharge_per_leg:
+            return float('inf')  # No award options
+        
+        return sum(
+            s for s in best_surcharge_per_leg.values()
+            if s < float('inf')
+        )
+    
     def _build_flight_vars(self):
-        """Build flight decision variables."""
+        """Build flight decision variables with ADAPTIVE budget-based guardrails."""
         
         self.vars["x_f"] = {}     # Flight selection
         self.vars["z_cf"] = {}    # Cash payment
         self.vars["y_pf"] = {}    # Points payment (with option_id!)
         
+        cfg = self.comfort_config
+        
+        # ═══════════════════════════════════════════════════════════════════════
+        # ADAPTIVE BUDGET-BASED GUARDRAILS
+        # ═══════════════════════════════════════════════════════════════════════
+        # 
+        # When budget is tight, relax guardrails to find feasible solutions.
+        # Tier is determined by: r = budget / best_cash_price
+        #
+        # Normal (r ≥ 0.60): cpp_floor=1.1, miles/$=140
+        # Tight (0.30 ≤ r < 0.60): cpp_floor=0.95, miles/$=180
+        # Very tight (r < 0.30 or budget < $100): cpp_floor=0.80, miles/$=250
+        
+        best_cash_price = self._compute_best_cash_price()
+        self.budget_tier = cfg.get_budget_tier(self.cash_budget, best_cash_price)
+        
+        # Get adaptive thresholds based on tier
+        cpp_floor = cfg.get_adaptive_cpp_floor(self.budget_tier) if cfg.enable_cpp_floor else 0.0
+        max_miles_per_dollar = cfg.get_adaptive_miles_per_dollar(self.budget_tier) if cfg.enable_miles_per_dollar_guard else float('inf')
+        
+        # Log budget tier and thresholds
+        if self.cash_budget and self.cash_budget > 0:
+            ratio = self.cash_budget / best_cash_price if best_cash_price > 0 else 1.0
+            logger.info(
+                f"[Budget Tier] budget=${self.cash_budget:.0f}, best_cash=${best_cash_price:.0f}, "
+                f"ratio={ratio:.2f} → tier={self.budget_tier.upper()}"
+            )
+            logger.info(
+                f"[Budget Tier] Using ADAPTIVE guardrails: cpp_floor={cpp_floor}¢, "
+                f"max_miles/$={max_miles_per_dollar}"
+            )
+            
+            # Check if budget is feasible at all
+            lowest_surcharge = self._compute_lowest_surcharge()
+            if lowest_surcharge > self.cash_budget:
+                logger.warning(
+                    f"[Budget Warning] ⚠️ Budget ${self.cash_budget:.0f} may be infeasible! "
+                    f"Lowest available surcharge is ${lowest_surcharge:.0f}. "
+                    f"Even all-points solution exceeds budget."
+                )
+        else:
+            logger.info(f"[Budget Tier] No budget constraint → tier=NORMAL (default guardrails)")
+        
+        rejected_count = 0
+        accepted_count = 0
+        flights_with_awards = 0
+        flights_without_awards = 0
+        
         for f in self.flights:
             leg = f.leg_id
             edge = slug(f.edge_id)
+            
+            # Track flights with/without awards
+            if f.award_options:
+                flights_with_awards += 1
+            else:
+                flights_without_awards += 1
             
             # Selection
             self.vars["x_f"][(f.leg_id, f.edge_id)] = LpVariable(
@@ -510,6 +632,48 @@ class SolverV3:
             # Points payment: for each award option, each payer, each source
             # CRITICAL: includes opt.option_id
             for opt in f.award_options:
+                # ═══════════════════════════════════════════════════════════════
+                # REDEMPTION QUALITY GUARDS
+                # ═══════════════════════════════════════════════════════════════
+                # 
+                # Two complementary guardrails prevent "burn points stupidly":
+                #
+                # 1. CPP FLOOR: Reject if CPP < floor (e.g., < 1.0¢/pt)
+                #    CPP = (cash_saved * 100) / miles_required
+                #
+                # 2. MILES PER DOLLAR: Reject if miles_per_$ > max (e.g., > 150)
+                #    miles_per_dollar = miles / max(1, cash_saved)
+                #
+                # Guard 2 is most intuitive: "Don't spend more than 150 miles to save $1"
+                # It directly kills: "60k pts to save $120" = 500 miles/$ ❌
+                
+                cash_saved = max(1.0, f.cash_cost - opt.surcharge)  # Avoid divide-by-zero
+                actual_cpp = (cash_saved * 100) / opt.miles_required if opt.miles_required > 0 else 0
+                miles_per_dollar = opt.miles_required / cash_saved if cash_saved > 0 else float('inf')
+                
+                # Guard 1: CPP Floor
+                if cpp_floor > 0 and opt.miles_required > 0:
+                    if actual_cpp < cpp_floor:
+                        rejected_count += 1
+                        logger.debug(
+                            f"[CPP Floor] Rejected {f.edge_id} award option: "
+                            f"CPP={actual_cpp:.3f}¢ < floor={cpp_floor}¢ "
+                            f"(cash=${f.cash_cost}, surcharge=${opt.surcharge}, miles={opt.miles_required})"
+                        )
+                        continue
+                
+                # Guard 2: Miles Per Dollar Saved (uses adaptive threshold from budget tier)
+                if miles_per_dollar > max_miles_per_dollar and opt.miles_required > 0:
+                    rejected_count += 1
+                    logger.debug(
+                        f"[Miles/$] Rejected {f.edge_id} award option: "
+                        f"{miles_per_dollar:.1f} miles/$ > max {max_miles_per_dollar} "
+                        f"(saves ${cash_saved:.0f} for {opt.miles_required:,} miles)"
+                    )
+                    continue
+                
+                # Award option passed guards - create variables
+                accepted_count += 1
                 opt_s = slug(opt.option_id)
                 for payer in self.spec.all_traveler_ids:
                     p = slug(payer)
@@ -520,6 +684,30 @@ class SolverV3:
                             f"y_pf_{leg}_{edge}_{opt_s}_{p}_{src_s}",
                             cat=LpBinary
                         )
+        
+        # Diagnostic logging
+        logger.info(
+            f"[Flight Vars] {len(self.flights)} flights: "
+            f"{flights_with_awards} have awards, {flights_without_awards} cash-only"
+        )
+        
+        if flights_without_awards > 0 and flights_with_awards == 0:
+            logger.warning(
+                f"[Flight Vars] ⚠️ NO flights have award options! "
+                f"Solver can ONLY pick cash options. Check AwardTool availability."
+            )
+        
+        if rejected_count > 0 or accepted_count > 0:
+            logger.info(
+                f"[Quality Guards] Award options: {accepted_count} accepted, {rejected_count} rejected "
+                f"(tier={self.budget_tier}, CPP floor={cpp_floor}¢, max miles/$={max_miles_per_dollar})"
+            )
+        
+        if accepted_count == 0 and flights_with_awards > 0:
+            logger.warning(
+                f"[Quality Guards] ⚠️ ALL {rejected_count} award options were rejected by guards! "
+                f"Budget tier is '{self.budget_tier}'. If budget is tight, guards may need further relaxation."
+            )
     
     def _build_transfer_vars(self):
         """Build transfer block variables with tight bounds and 'used' binary."""
@@ -723,6 +911,231 @@ class SolverV3:
                 self.vars["x_f"][(leg, edge)] <= feasible
             ), f"date_feas_{leg}_{slug(edge)}"
     
+    def _add_airport_continuity_constraints(self):
+        """
+        Add airport continuity constraints for multi-airport cities.
+        
+        When consecutive legs share a city (e.g., SEA→Paris, Paris→SEA),
+        the arrival airport of leg N must match the departure airport of leg N+1.
+        
+        This prevents routes like: SEA→ORY, CDG→SEA (different Paris airports!)
+        
+        Implementation:
+        1. Group airports by city using METRO_AIRPORTS mapping
+        2. For each consecutive leg pair through the same city:
+           - Create binary variables for each airport option
+           - Link flight selection to airport selection
+           - Ensure the same airport is selected for arrival and departure
+        """
+        from collections import defaultdict
+        
+        # Build reverse mapping: airport -> city
+        # Import the METRO_AIRPORTS mapping
+        try:
+            from src.agents.orchestrator import METRO_AIRPORTS
+        except ImportError:
+            logger.warning("[Solver] Could not import METRO_AIRPORTS, skipping airport continuity constraints")
+            return
+        
+        airport_to_city = {}
+        for city, airports in METRO_AIRPORTS.items():
+            for apt in airports:
+                airport_to_city[apt.upper()] = city
+        
+        # Sort legs by leg_id to process in order
+        sorted_leg_ids = sorted(set(f.leg_id for f in self.flights))
+        
+        if len(sorted_leg_ids) < 2:
+            return  # No consecutive legs to link
+        
+        # Group flights by leg
+        flights_by_leg = defaultdict(list)
+        for f in self.flights:
+            flights_by_leg[f.leg_id].append(f)
+        
+        # Check each consecutive leg pair
+        continuity_constraints_added = 0
+        
+        for i in range(len(sorted_leg_ids) - 1):
+            leg_n = sorted_leg_ids[i]
+            leg_n1 = sorted_leg_ids[i + 1]
+            
+            # Get destination airports of leg N
+            leg_n_flights = flights_by_leg.get(leg_n, [])
+            leg_n1_flights = flights_by_leg.get(leg_n1, [])
+            
+            if not leg_n_flights or not leg_n1_flights:
+                continue
+            
+            # Find which city leg N ends at
+            # Use the last segment's destination of each flight
+            dest_cities = set()
+            for f in leg_n_flights:
+                if f.segments:
+                    dest_apt = f.segments[-1].destination.upper()
+                    city = airport_to_city.get(dest_apt)
+                    if city:
+                        dest_cities.add(city)
+            
+            # Find which city leg N+1 starts from
+            origin_cities = set()
+            for f in leg_n1_flights:
+                if f.segments:
+                    origin_apt = f.segments[0].origin.upper()
+                    city = airport_to_city.get(origin_apt)
+                    if city:
+                        origin_cities.add(city)
+            
+            # Find shared cities (where continuity constraint needed)
+            shared_cities = dest_cities & origin_cities
+            
+            for city in shared_cities:
+                city_airports = set(METRO_AIRPORTS.get(city, []))
+                
+                if len(city_airports) <= 1:
+                    continue  # Single airport city - no constraint needed
+                
+                logger.info(f"[Solver] Adding airport continuity constraint for {city} between leg {leg_n} and {leg_n1}")
+                
+                # For each airport in the city, create a linking constraint:
+                # If ANY flight landing at this airport is selected on leg N,
+                # then ONLY flights departing from this airport can be selected on leg N+1
+                
+                for airport in city_airports:
+                    airport = airport.upper()
+                    
+                    # Flights landing at this airport on leg N
+                    arriving_at_airport = [
+                        f for f in leg_n_flights
+                        if f.segments and f.segments[-1].destination.upper() == airport
+                    ]
+                    
+                    # Flights departing from this airport on leg N+1
+                    departing_from_airport = [
+                        f for f in leg_n1_flights
+                        if f.segments and f.segments[0].origin.upper() == airport
+                    ]
+                    
+                    # Flights departing from OTHER airports in the same city on leg N+1
+                    departing_from_other = [
+                        f for f in leg_n1_flights
+                        if f.segments and f.segments[0].origin.upper() in city_airports
+                        and f.segments[0].origin.upper() != airport
+                    ]
+                    
+                    if not arriving_at_airport or not departing_from_other:
+                        continue
+                    
+                    # Constraint: If arriving at this airport, cannot depart from other airports
+                    # Sum(arriving) <= 1 - Sum(departing_other) + M*(1 - any_arriving)
+                    # Simplified: Sum(arriving) + Sum(departing_other) <= 1
+                    # This ensures: if any arriving=1, then departing_other must all be 0
+                    
+                    arriving_vars = [
+                        self.vars["x_f"][(f.leg_id, f.edge_id)]
+                        for f in arriving_at_airport
+                        if (f.leg_id, f.edge_id) in self.vars["x_f"]
+                    ]
+                    
+                    departing_other_vars = [
+                        self.vars["x_f"][(f.leg_id, f.edge_id)]
+                        for f in departing_from_other
+                        if (f.leg_id, f.edge_id) in self.vars["x_f"]
+                    ]
+                    
+                    if arriving_vars and departing_other_vars:
+                        # If landing at this airport, cannot depart from other airports
+                        for arr_var in arriving_vars:
+                            for dep_var in departing_other_vars:
+                                self.model += (
+                                    arr_var + dep_var <= 1
+                                ), f"apt_cont_{leg_n}_{leg_n1}_{airport}_{continuity_constraints_added}"
+                                continuity_constraints_added += 1
+        
+        if continuity_constraints_added > 0:
+            logger.info(f"[Solver] Added {continuity_constraints_added} airport continuity constraints")
+    
+    def _add_budget_constraint(self):
+        """
+        Add cash budget constraint (HARD LIMIT).
+        
+        CRITICAL: This is a hard constraint, not a preference.
+        The solver MUST find a solution within budget or return INFEASIBLE.
+        
+        Constraint:
+            total_out_of_pocket <= cash_budget
+        
+        Where total_out_of_pocket =
+            - For cash bookings: full ticket price
+            - For award bookings: surcharge (taxes/fees) only
+        
+        This FORCES points usage when budget is tight:
+            - Budget: $500, All-cash: $2,000 → Must use points
+            - Points: 50k + $80 surcharge → OOP = $80 ✓ (within budget)
+        """
+        if self.cash_budget is None or self.cash_budget <= 0:
+            logger.info("[Budget] No budget constraint set - optimizing without cash limit")
+            return
+        
+        logger.info("=" * 80)
+        logger.info(f"[Budget] ADDING HARD BUDGET CONSTRAINT: OOP <= ${self.cash_budget:,.2f}")
+        logger.info("=" * 80)
+        
+        # Count variables for logging
+        cash_var_count = len(self.vars.get("z_cf", {}))
+        points_var_count = len(self.vars.get("y_pf", {}))
+        
+        logger.info(f"[Budget] Cash payment vars: {cash_var_count}, Points payment vars: {points_var_count}")
+        
+        # Sum of cash payments (full ticket price when paying cash)
+        flight_cash = lpSum(
+            self.vars["z_cf"][(f.leg_id, f.edge_id, p)] * f.cash_cost
+            for f in self.flights
+            for p in self.spec.all_traveler_ids
+            if (f.leg_id, f.edge_id, p) in self.vars["z_cf"]
+        )
+        
+        # Sum of surcharges (taxes/fees when paying with points)
+        flight_surcharge = lpSum(
+            self.vars["y_pf"][(f.leg_id, f.edge_id, opt.option_id, p, src.source_id)] * opt.surcharge
+            for f in self.flights
+            for opt in f.award_options
+            for p in self.spec.all_traveler_ids
+            for src in self._get_sources_for_program(p, opt.program)
+            if (f.leg_id, f.edge_id, opt.option_id, p, src.source_id) in self.vars["y_pf"]
+        )
+        
+        # Log what we're constraining
+        best_cash = self._compute_best_cash_price()
+        lowest_surcharge = self._compute_lowest_surcharge()
+        
+        logger.info(f"[Budget] Best all-cash price: ${best_cash:,.2f}")
+        logger.info(f"[Budget] Lowest all-points surcharge: ${lowest_surcharge:,.2f}")
+        
+        if self.cash_budget < lowest_surcharge:
+            logger.warning(
+                f"[Budget] ⚠️ INFEASIBLE: Budget ${self.cash_budget:,.2f} < "
+                f"minimum surcharge ${lowest_surcharge:,.2f}. No solution possible!"
+            )
+        elif self.cash_budget < best_cash:
+            logger.info(
+                f"[Budget] ✓ Budget ${self.cash_budget:,.2f} < all-cash ${best_cash:,.2f} → "
+                f"Solver MUST use points to meet budget"
+            )
+        else:
+            logger.info(
+                f"[Budget] Budget ${self.cash_budget:,.2f} >= all-cash ${best_cash:,.2f} → "
+                f"Cash option is feasible, but points may still be preferred"
+            )
+        
+        # Add the constraint
+        self.model += (
+            flight_cash + flight_surcharge <= self.cash_budget
+        ), "cash_budget_hard_limit"
+        
+        logger.info(f"[Budget] Constraint added: flight_cash + flight_surcharge <= {self.cash_budget}")
+        logger.info("=" * 80)
+    
     def _solve_two_pass(self) -> OptimizationResult:
         """
         Two-pass solve with robust slack.
@@ -824,30 +1237,41 @@ class SolverV3:
         )
     
     def _build_primary_objective(self):
-        """Build primary objective based on mode."""
+        """
+        Build primary objective: MINIMIZE CASH OUT-OF-POCKET.
         
-        if self.mode == Mode.OOP:
-            return self._build_oop_objective()
-        elif self.mode == Mode.CPP:
-            return self._build_cpp_objective()
-        else:
-            return self._build_balanced_objective()
+        SIMPLIFIED: Single optimization mode. Budget is the constraint.
+        
+        Objective:
+            Minimize: cash_paid + surcharges + convenience_penalties
+        
+        When paying with points, cash_paid = 0, only surcharges apply.
+        This naturally prefers points when they save cash.
+        
+        The budget constraint (if set) FORCES points usage when cash exceeds budget.
+        """
+        return self._build_oop_objective()
     
     def _build_oop_objective(self):
         """
-        OOP: Minimize generalized cost (cash + convenience costs).
+        OOP: Minimize OUT-OF-POCKET cash (cash + surcharges + convenience costs).
         
-        The generalized cost model prices inconvenience in dollars:
-            total_cost = cash + surcharge + stop_cost*stops + time_cost*excess_hours 
-                       + layover_cost*excess_layover_hours + redeye_cost + carrier_change_cost
-                       + points_opportunity_cost*miles
+        DESIGN PRINCIPLE: OOP mode should ENCOURAGE using points to save cash.
         
-        This makes "price vs convenience" a real tradeoff, not a token nudge.
+        The objective is:
+            total_cost = cash + surcharge + convenience_penalties + tiny_points_tiebreaker
+        
+        The points tiebreaker is TINY (0.2¢/point by default) - it only matters when
+        two options have the same cash cost, preferring fewer points in that case.
+        
+        This makes Tripy behave like: "Use points to reduce cash now."
+        
+        Terrible redemptions are blocked by the CPP floor constraint (separate).
         """
         cfg = self.comfort_config
         
         # ═══════════════════════════════════════════════════════════════════════
-        # MONETARY COST: Cash + Surcharges
+        # MONETARY COST: Cash + Surcharges (this is what we minimize!)
         # ═══════════════════════════════════════════════════════════════════════
         
         # Flight cash payments
@@ -909,17 +1333,34 @@ class SolverV3:
         )
         
         # ═══════════════════════════════════════════════════════════════════════
-        # POINTS OPPORTUNITY COST (Optional)
+        # POINTS OPPORTUNITY COST (OFF BY DEFAULT IN OOP MODE)
         # ═══════════════════════════════════════════════════════════════════════
+        #
+        # FLIGHTS-ONLY DESIGN: OOP minimizes *cash leaving the bank*.
+        # Points opportunity cost is OFF (0.0) so points naturally win when
+        # they save cash.
+        #
+        # Pass 2 handles "don't waste points" by minimizing miles within
+        # the comfort budget.
+        #
+        # CPP floor + miles-per-$ guards block terrible redemptions.
+        #
+        # Example with opportunity cost OFF:
+        #   Cash: $500, Points: 50k + $80 surcharge
+        #   OOP cost (cash): $500 + convenience
+        #   OOP cost (points): $80 + convenience  ← Points wins by $420!
+        #
+        # The CPP floor (1.1¢) and miles-per-$ cap (140) prevent garbage.
         
-        # Prevents "wasting points" on bad itineraries
-        # Points aren't free - they have opportunity cost (~1.2¢/point)
-        points_opportunity_cost = 0
-        if cfg.enable_points_opportunity_cost:
-            points_opportunity_cost = lpSum(
+        points_tiebreaker = 0
+        opp_cost_rate = cfg.points_opportunity_cost_oop  # 0 in OOP mode (points preferred!)
+        
+        if opp_cost_rate > 0:
+            # Only used if configured (e.g., for Balanced mode or custom configs)
+            points_tiebreaker = lpSum(
                 self.vars["y_pf"][(f.leg_id, f.edge_id, opt.option_id, p, src.source_id)] 
                 * opt.miles_required 
-                * cfg.points_opportunity_cost_cpp / 100.0  # Convert cpp to dollars
+                * opp_cost_rate / 100.0  # Convert ¢ to $
                 for f in self.flights
                 for opt in f.award_options
                 for p in self.spec.all_traveler_ids
@@ -938,14 +1379,22 @@ class SolverV3:
             time_penalty + 
             layover_penalty + 
             quality_penalty +
-            points_opportunity_cost
+            points_tiebreaker
         )
         
-        logger.debug(
-            f"[OOP Objective] Built generalized cost: "
-            f"stop_cost=${stop_cost}/stop, time_cost=${cfg.time_cost_per_hour}/hr, "
-            f"baseline={baseline_hours}hr, is_intl={self.is_international}"
-        )
+        if opp_cost_rate == 0:
+            logger.info(
+                f"[OOP Objective] Minimize CASH leaving bank (points preferred!): "
+                f"OOP = cash + surcharge + convenience | "
+                f"stop=${stop_cost}/stop, time=${cfg.time_cost_per_hour}/hr | "
+                f"points_opp_cost=OFF, is_intl={self.is_international}"
+            )
+        else:
+            logger.info(
+                f"[OOP Objective] Minimize cash + tiny points cost: "
+                f"stop=${stop_cost}/stop, time=${cfg.time_cost_per_hour}/hr, "
+                f"points_opp_cost={opp_cost_rate}¢/pt, is_intl={self.is_international}"
+            )
         
         return total_cost
     
@@ -1036,7 +1485,23 @@ class SolverV3:
         return cfg.cash_penalty_weight * cash_cost - flight_utility
     
     def _build_secondary_objective(self, slack: float):
-        """Secondary objective with safe tie-breaking."""
+        """
+        Secondary objective: tie-break within OOP slack.
+        
+        ADAPTIVE BEHAVIOR based on budget tier:
+        
+        NORMAL/TIGHT budget (budget >= $100):
+            Priority: minimize miles → time → stops
+            Reason: "Don't waste points" - user has flexibility
+        
+        VERY TIGHT budget (budget < $100):
+            Priority: minimize time → stops → miles
+            Reason: "I can go + don't kill me" - user already knows they're spending points
+        
+        This ensures:
+            - Normal users don't waste points on similarly priced options
+            - Budget-constrained users get the best experience within their limit
+        """
         
         n = len(self.flights)
         if n > 1:
@@ -1046,14 +1511,28 @@ class SolverV3:
         
         safe_eps = max(1e-15, min(1e-6, safe_eps))
         
-        # Prefer shorter flights, fewer stops
+        # ═══════════════════════════════════════════════════════════════════════
+        # COMPUTE COST COMPONENTS
+        # ═══════════════════════════════════════════════════════════════════════
+        
+        miles_cost = lpSum(
+            self.vars["y_pf"][(f.leg_id, f.edge_id, opt.option_id, p, src.source_id)] 
+            * opt.miles_required 
+            * 0.001  # 0.1¢ per mile = $0.001
+            for f in self.flights
+            for opt in f.award_options
+            for p in self.spec.all_traveler_ids
+            for src in self._get_sources_for_program(p, opt.program)
+            if (f.leg_id, f.edge_id, opt.option_id, p, src.source_id) in self.vars["y_pf"]
+        )
+        
         time_cost = lpSum(
-            self.vars["x_f"][(f.leg_id, f.edge_id)] * f.total_time_minutes
+            self.vars["x_f"][(f.leg_id, f.edge_id)] * f.total_time_minutes * 0.0001
             for f in self.flights
         )
         
         stops_cost = lpSum(
-            self.vars["x_f"][(f.leg_id, f.edge_id)] * f.num_stops * 60
+            self.vars["x_f"][(f.leg_id, f.edge_id)] * f.num_stops * 0.001
             for f in self.flights
         )
         
@@ -1064,12 +1543,150 @@ class SolverV3:
             for i, k in enumerate(all_keys)
         )
         
-        return time_cost + stops_cost + tie
+        # ═══════════════════════════════════════════════════════════════════════
+        # ADAPTIVE PRIORITY BASED ON BUDGET TIER
+        # ═══════════════════════════════════════════════════════════════════════
+        
+        budget_tier = getattr(self, 'budget_tier', 'normal')
+        
+        if budget_tier == "very_tight":
+            # VERY TIGHT: User cares about "I can go" + "don't kill me"
+            # Priority: time → stops → miles (user already committed to spending points)
+            logger.info(
+                f"[Pass 2] Budget tier=VERY_TIGHT: prioritizing convenience (time → stops → miles)"
+            )
+            # Scale: time dominates, then stops, then miles
+            return (time_cost * 100) + (stops_cost * 10) + miles_cost + tie
+        else:
+            # NORMAL/TIGHT: User has some flexibility, don't waste points
+            # Priority: miles → time → stops
+            logger.info(
+                f"[Pass 2] Budget tier={budget_tier.upper()}: prioritizing efficiency (miles → time → stops)"
+            )
+            # Scale: miles dominate, then time, then stops
+            return miles_cost + time_cost + stops_cost + tie
+    
+    def _log_flight_options_detail(self):
+        """
+        Log detailed cost breakdown for each flight option.
+        
+        This helps diagnose why the solver picks certain flights.
+        """
+        cfg = self.comfort_config
+        stop_cost = cfg.get_stop_cost(self.is_international)
+        baseline_hours = cfg.get_baseline_hours(self.is_international)
+        opp_cost_rate = cfg.points_opportunity_cost_oop
+        
+        logger.info("=" * 80)
+        logger.info("[FLIGHT OPTIONS DETAIL] Cost breakdown for each option (OOP mode)")
+        logger.info("=" * 80)
+        
+        # Group by leg
+        for leg_id in sorted(set(f.leg_id for f in self.flights)):
+            leg_flights = [f for f in self.flights if f.leg_id == leg_id]
+            logger.info(f"\n--- LEG {leg_id}: {len(leg_flights)} flight options ---")
+            
+            options_with_costs = []
+            
+            for f in leg_flights:
+                # Calculate convenience penalties
+                excess_hours = max(0, (f.total_time_minutes / 60.0) - baseline_hours)
+                time_penalty = excess_hours * cfg.time_cost_per_hour
+                stops_penalty = f.num_stops * stop_cost
+                layover_penalty = self._compute_excess_layover_hours(f) * cfg.layover_cost_per_hour
+                quality_penalty = (
+                    (cfg.redeye_cost if f.is_redeye else 0) +
+                    (cfg.carrier_change_cost if f.has_carrier_change else 0) +
+                    (cfg.short_connection_cost if f.has_short_connection else 0)
+                )
+                convenience_total = time_penalty + stops_penalty + layover_penalty + quality_penalty
+                
+                # Cash option cost
+                cash_total = f.cash_cost + convenience_total
+                options_with_costs.append({
+                    'flight': f,
+                    'method': 'CASH',
+                    'out_of_pocket': f.cash_cost,
+                    'convenience': convenience_total,
+                    'tiebreaker': 0,
+                    'total': cash_total,
+                    'points': 0,
+                    'cpp': 0,
+                })
+                
+                # Award options
+                for opt in f.award_options:
+                    # Check if this option passed guards (has variable)
+                    has_var = any(
+                        (f.leg_id, f.edge_id, opt.option_id, p, src.source_id) in self.vars["y_pf"]
+                        for p in self.spec.all_traveler_ids
+                        for src in self._get_sources_for_program(p, opt.program)
+                    )
+                    
+                    if not has_var:
+                        # Rejected by guards
+                        cash_saved = max(1.0, f.cash_cost - opt.surcharge)
+                        actual_cpp = (cash_saved * 100) / opt.miles_required if opt.miles_required > 0 else 0
+                        miles_per_dollar = opt.miles_required / cash_saved if cash_saved > 0 else float('inf')
+                        logger.debug(
+                            f"  [REJECTED] {opt.program} {opt.miles_required:,}pts + ${opt.surcharge} "
+                            f"(CPP={actual_cpp:.2f}¢, miles/$={miles_per_dollar:.0f}) - failed guards"
+                        )
+                        continue
+                    
+                    # Calculate award cost
+                    points_tiebreaker = opt.miles_required * opp_cost_rate / 100.0
+                    award_total = opt.surcharge + convenience_total + points_tiebreaker
+                    cash_saved = f.cash_cost - opt.surcharge
+                    actual_cpp = (cash_saved * 100) / opt.miles_required if opt.miles_required > 0 else 0
+                    
+                    options_with_costs.append({
+                        'flight': f,
+                        'method': f'POINTS ({opt.program})',
+                        'out_of_pocket': opt.surcharge,
+                        'convenience': convenience_total,
+                        'tiebreaker': points_tiebreaker,
+                        'total': award_total,
+                        'points': opt.miles_required,
+                        'cpp': actual_cpp,
+                        'option': opt,
+                    })
+            
+            # Sort by total cost and log
+            options_with_costs.sort(key=lambda x: x['total'])
+            
+            for i, opt in enumerate(options_with_costs[:10]):  # Top 10
+                f = opt['flight']
+                route = f"{f.origin}→{f.destination}"
+                duration = f.total_time_minutes
+                stops = f.num_stops
+                
+                if opt['method'] == 'CASH':
+                    logger.info(
+                        f"  #{i+1} [{opt['method']}] {route} {stops}stop {duration}min | "
+                        f"OOP=${opt['out_of_pocket']:.0f} + conv=${opt['convenience']:.0f} = "
+                        f"TOTAL=${opt['total']:.0f}"
+                    )
+                else:
+                    logger.info(
+                        f"  #{i+1} [{opt['method']}] {route} {stops}stop {duration}min | "
+                        f"OOP=${opt['out_of_pocket']:.0f} + conv=${opt['convenience']:.0f} + tie=${opt['tiebreaker']:.1f} = "
+                        f"TOTAL=${opt['total']:.0f} | {opt['points']:,}pts ({opt['cpp']:.2f}¢/pt)"
+                    )
+            
+            if len(options_with_costs) > 10:
+                logger.info(f"  ... and {len(options_with_costs) - 10} more options")
+        
+        logger.info("=" * 80)
     
     def _extract_solution(self) -> Solution:
         """Extract solution from solved model."""
         
         solution = Solution()
+        
+        logger.info("\n" + "=" * 80)
+        logger.info("[SOLUTION] Extracting selected flights and payments")
+        logger.info("=" * 80)
         
         # Extract selected flights
         for f in self.flights:
@@ -1096,6 +1713,41 @@ class SolverV3:
                     )
                     solution.total_cash += f.cash_cost
                     payment_found = True
+                    
+                    # Log the selection
+                    logger.info(
+                        f"  [LEG {f.leg_id}] SELECTED: {f.origin}→{f.destination} "
+                        f"({f.num_stops} stops, {f.total_time_minutes}min) | "
+                        f"💵 CASH ${f.cash_cost:.0f}"
+                    )
+                    
+                    # Log why points wasn't chosen (if awards existed)
+                    if f.award_options:
+                        best_award = min(f.award_options, key=lambda o: o.surcharge)
+                        logger.info(
+                            f"      ⚠️ Had {len(f.award_options)} award option(s), "
+                            f"best: {best_award.miles_required:,}pts + ${best_award.surcharge} surcharge"
+                        )
+                        # Check if any passed guards
+                        passed_guards = sum(
+                            1 for opt in f.award_options
+                            if any(
+                                (f.leg_id, f.edge_id, opt.option_id, px, src.source_id) in self.vars["y_pf"]
+                                for px in self.spec.all_traveler_ids
+                                for src in self._get_sources_for_program(px, opt.program)
+                            )
+                        )
+                        if passed_guards == 0:
+                            logger.warning(
+                                f"      ❌ ALL award options rejected by CPP floor / miles-per-$ guards!"
+                            )
+                        else:
+                            logger.info(
+                                f"      ℹ️ {passed_guards} award option(s) passed guards but cash was cheaper overall"
+                            )
+                    else:
+                        logger.info(f"      ℹ️ No award options available for this flight")
+                    
                     break
                 
                 if payment_found:
@@ -1120,11 +1772,43 @@ class SolverV3:
                             )
                             solution.total_value += opt.raw_value
                             payment_found = True
+                            
+                            # Log the selection
+                            cash_saved = f.cash_cost - opt.surcharge
+                            cpp = (cash_saved * 100) / opt.miles_required if opt.miles_required > 0 else 0
+                            logger.info(
+                                f"  [LEG {f.leg_id}] SELECTED: {f.origin}→{f.destination} "
+                                f"({f.num_stops} stops, {f.total_time_minutes}min) | "
+                                f"✈️ POINTS {opt.miles_required:,} {opt.program} + ${opt.surcharge} surcharge "
+                                f"({cpp:.2f}¢/pt, saves ${cash_saved:.0f} vs cash)"
+                            )
+                            
                             break
                     if payment_found:
                         break
                 if payment_found:
                     break
+        
+        # Log summary with budget verification
+        logger.info("-" * 80)
+        logger.info(
+            f"[SOLUTION SUMMARY] Total out-of-pocket: ${solution.total_cash:.0f}, "
+            f"Points used: {solution.total_points_by_program}"
+        )
+        
+        # Verify budget constraint
+        if self.cash_budget and self.cash_budget > 0:
+            if solution.total_cash <= self.cash_budget:
+                logger.info(
+                    f"[BUDGET CHECK] ✅ PASSED: ${solution.total_cash:.0f} <= "
+                    f"budget ${self.cash_budget:.0f}"
+                )
+            else:
+                logger.error(
+                    f"[BUDGET CHECK] ❌ FAILED: ${solution.total_cash:.0f} > "
+                    f"budget ${self.cash_budget:.0f} - THIS IS A BUG!"
+                )
+        logger.info("=" * 80 + "\n")
         
         # Extract transfers
         for key, var in self.vars.get("t_b", {}).items():
@@ -1133,6 +1817,7 @@ class SolverV3:
                 blocks = int(round(val))
                 if blocks > 0:
                     solution.transfers_used[key] = blocks
+                    logger.info(f"  [TRANSFER] {key}: {blocks} blocks")
         
         return solution
 
@@ -1145,43 +1830,53 @@ def optimize_trip(
     spec: TripPlanSpec,
     flights: List[FlightItineraryEdge],
     transfers: List[TransferPath],
-    mode: str = "balanced",
+    mode: str = "oop",  # Kept for API compatibility, but ignored
     determinism_mode: bool = False,
     is_international: bool = False,
     comfort_config: Optional[ComfortConfig] = None,
+    cash_budget: Optional[float] = None,
 ) -> OptimizationResult:
     """
     Main entry point for V3 optimization (flights only).
+    
+    SIMPLIFIED: Single optimization mode. Budget is the constraint.
+    
+    Objective: Minimize cash out-of-pocket (cash + surcharges + convenience).
     
     Args:
         spec: Trip specification
         flights: Available flight itineraries
         transfers: Available transfer paths
-        mode: "oop", "cpp", or "balanced"
+        mode: IGNORED (kept for API compatibility) - always minimizes cash
         determinism_mode: Use single thread for reproducibility
         is_international: Whether this is an international route (affects penalties)
         comfort_config: Optional custom comfort configuration
+        cash_budget: Cash budget constraint (HARD LIMIT). When set:
+                    - Solver MUST find solution within budget
+                    - Forces points usage when cash exceeds budget
+                    - Returns INFEASIBLE if even all-points exceeds budget
     
     Returns:
         OptimizationResult with solution, status, and metrics
     
-    The solver uses a generalized cost model that prices inconvenience:
-        total_cost = cash + surcharge + stop_cost*stops + time_cost*excess_hours 
-                   + layover_cost*excess_layover_hours + redeye_cost + carrier_change_cost
-                   + points_opportunity_cost*miles
+    How it works:
+        1. Minimize: cash_paid + surcharges + convenience_penalties
+        2. If budget set: Add constraint (total_oop <= budget)
+        3. Points naturally win when they save cash
+        4. Budget forces points when cash exceeds limit
     
-    Route type affects default penalties:
-        - Domestic: $100/stop, 4hr baseline, $150 comfort budget
-        - International: $175/stop, 12hr baseline, $300 comfort budget
+    Route type affects convenience penalties:
+        - Domestic: $100/stop, 4hr baseline
+        - International: $175/stop, 12hr baseline
     """
     
-    mode_enum = Mode(mode.lower())
-    
+    # Always use OOP mode (minimize cash)
     solver = SolverV3(
-        mode=mode_enum,
+        mode=Mode.OOP,
         determinism_mode=determinism_mode,
         is_international=is_international,
         comfort_config=comfort_config,
+        cash_budget=cash_budget,
     )
     
     return solver.solve(spec, flights, transfers)
