@@ -83,18 +83,23 @@ export function PolicyWarnings({
 }: PolicyWarningsProps) {
   const [isExpanded, setIsExpanded] = React.useState(!collapsed);
 
-  // Combine all messages for counting
-  const totalMessages =
-    evaluation.blocks.length +
-    evaluation.warnings.length +
-    evaluation.info.length;
+  // Handle undefined/null evaluation
+  if (!evaluation) {
+    return null;
+  }
+
+  // Combine all messages for counting (with null checks)
+  const blocks = evaluation.blocks ?? [];
+  const warnings = evaluation.warnings ?? [];
+  const info = evaluation.info ?? [];
+  const totalMessages = blocks.length + warnings.length + info.length;
 
   if (totalMessages === 0) {
     return null;
   }
 
-  const hasBlocks = evaluation.blocks.length > 0;
-  const hasWarnings = evaluation.warnings.length > 0;
+  const hasBlocks = blocks.length > 0;
+  const hasWarnings = warnings.length > 0;
   const needsAck = requiresAcknowledgment(evaluation);
   const fullyAcked = isFullyAcknowledged(evaluation, acknowledgedCodes);
 
@@ -154,9 +159,9 @@ export function PolicyWarnings({
       {isExpanded && (
         <div className="px-4 pb-4 space-y-3">
           {/* Blocks (most severe) */}
-          {evaluation.blocks.length > 0 && (
+          {blocks.length > 0 && (
             <div className="space-y-2">
-              {evaluation.blocks.map((msg, i) => (
+              {blocks.map((msg, i) => (
                 <PolicyMessageItem
                   key={`block-${i}`}
                   message={msg}
@@ -169,9 +174,9 @@ export function PolicyWarnings({
           )}
 
           {/* Warnings */}
-          {evaluation.warnings.length > 0 && (
+          {warnings.length > 0 && (
             <div className="space-y-2">
-              {evaluation.warnings.map((msg, i) => (
+              {warnings.map((msg, i) => (
                 <PolicyMessageItem
                   key={`warn-${i}`}
                   message={msg}
@@ -184,9 +189,9 @@ export function PolicyWarnings({
           )}
 
           {/* Info */}
-          {evaluation.info.length > 0 && (
+          {info.length > 0 && (
             <div className="space-y-2">
-              {evaluation.info.map((msg, i) => (
+              {info.map((msg, i) => (
                 <PolicyMessageItem
                   key={`info-${i}`}
                   message={msg}
@@ -227,8 +232,8 @@ export function AcknowledgmentModal({
 
   // Get messages that require acknowledgment
   const messagesToAck = [
-    ...evaluation.blocks.filter((m) => m.requires_ack),
-    ...evaluation.warnings.filter((m) => m.requires_ack),
+    ...blocks.filter((m) => m.requires_ack),
+    ...warnings.filter((m) => m.requires_ack),
   ];
 
   const handleToggle = (code: string) => {
@@ -319,9 +324,18 @@ export function PolicyBadge({
   onClick,
   className = '',
 }: PolicyBadgeProps) {
-  const hasBlocks = evaluation.blocks.length > 0;
-  const hasWarnings = evaluation.warnings.length > 0;
-  const hasInfo = evaluation.info.length > 0;
+  // Handle undefined/null evaluation
+  if (!evaluation) {
+    return null;
+  }
+
+  const blocks = evaluation.blocks ?? [];
+  const warnings = evaluation.warnings ?? [];
+  const info = evaluation.info ?? [];
+  
+  const hasBlocks = blocks.length > 0;
+  const hasWarnings = warnings.length > 0;
+  const hasInfo = info.length > 0;
 
   if (!hasBlocks && !hasWarnings && !hasInfo) {
     return null;
@@ -341,7 +355,7 @@ export function PolicyBadge({
     >
       <span>{hasBlocks ? '🚫' : hasWarnings ? '⚠️' : 'ℹ️'}</span>
       <span>
-        {evaluation.blocks.length + evaluation.warnings.length + evaluation.info.length}
+        {blocks.length + warnings.length + info.length}
       </span>
     </button>
   );

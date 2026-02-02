@@ -3,9 +3,7 @@
 Custom test for SEA -> CDG on Feb 11, 2026 with Amex Membership Rewards only.
 NO MOCK DATA - Shows actual API responses and errors.
 
-Uses two separate API structures:
-1. FLIGHTS: apisv2.awardtoolapi.com (priming + polling)
-2. HOTELS: awardtool-api.com/api/hotel_calendar (direct)
+Uses the AwardTool Flight API (priming + polling approach).
 """
 
 import json
@@ -13,7 +11,6 @@ import os
 import sys
 import time
 import uuid
-from datetime import datetime
 
 try:
     import requests
@@ -60,30 +57,6 @@ AMEX_PROGRAM_LISTS = [
     ["SQ", "CX", "EK", "AV"],
 ]
 
-# =============================================================================
-# HOTEL API CONFIGURATION (awardtool-api.com)
-# =============================================================================
-
-HOTEL_CALENDAR_ENDPOINT = "https://www.awardtool-api.com/api/hotel_calendar"
-
-# Headers required for hotel API
-HOTEL_HEADERS = {
-    "authority": "api.awardtool.com",
-    "accept": "application/json, text/plain, */*",
-    "accept-language": "en-US,en;q=0.9",
-    "authentication": "eyJraWQiOiIzRGZJWWhXODVoYkxtRVYrZXp1ZmM1SEJrUUl2bTczSkZCVUVHYklidDUwPSIsImFsZyI6IlJTMjU2In0.eyJhdF9oYXNoIjoianI0c21rNG82M1RDOG5rVmFHamN4ZyIsInN1YiI6Ijc0YzhjNDI4LTcwZDEtNzA1NS00ZTQ5LWMzNzg3MGU1MjFhYSIsImNvZ25pdG86Z3JvdXBzIjpbInVzLWVhc3QtMV9CUDdGMHBjaUZfR29vZ2xlIl0sImVtYWlsX3ZlcmlmaWVkIjpmYWxzZSwiaXNzIjoiaHR0cHM6XC9cL2NvZ25pdG8taWRwLnVzLWVhc3QtMS5hbWF6b25hd3MuY29tXC91cy1lYXN0LTFfQlA3RjBwY2lGIiwiY29nbml0bzp1c2VybmFtZSI6Imdvb2dsZV8xMTUzMDA5MzYxMTkwMzc3NDIyMDEiLCJvcmlnaW5fanRpIjoiY2E3ODlmODUtMjg1Yy00OTFlLWJlODktYjU1ZDViYTMxMTRjIiwiYXVkIjoiMmx1NTk0bmF2ZmNobHRrb3BxbG1rOGx1YzciLCJpZGVudGl0aWVzIjpbeyJ1c2VySWQiOiIxMTUzMDA5MzYxMTkwMzc3NDIyMDEiLCJwcm92aWRlck5hbWUiOiJHb29nbGUiLCJwcm92aWRlclR5cGUiOiJHb29nbGUiLCJpc3N1ZXIiOm51bGwsInByaW1hcnkiOiJ0cnVlIiwiZGF0ZUNyZWF0ZWQiOiIxNjkzMDg4ODU1MzU2In1dLCJ0b2tlbl91c2UiOiJpZCIsImF1dGhfdGltZSI6MTY5NDUwNzAwMSwiZXhwIjoxNjk0NTYzMzgxLCJpYXQiOjE2OTQ1NTk3ODEsImp0aSI6IjJjN2RmNWUyLTZkYzgtNGVlZi1iNTA4LWQyMTcyNzNiYTEyNCIsImVtYWlsIjoiaHVudGVyLnByb21lQGdtYWlsLmNvbSJ9.SbDAHKB1CxRtdK6adleW5Yplbv_x7BmKegjDk389uZV4fT25dANBslsL8_9zsjDLNNOGwAAzDCOj_Mh6P30ozm6235hjiCjNpOq7b-mIZ36_uj9M2nQNHSgbtD6LSUPzP3AK77-z1Zp_VMXkLLtRs33YnzfbsH6iBMxzpfO4HaLiqKxNsy-0jhMT4SLHqT_zkPxqHI5iG6FqfB3KFlyybv9RYS5VfRHq3OHSAn703lyEfEzfPWQo6314WT_NttIk2kxBpVnESUDfsBHzxMa3zZzvHfQVJt0CyrGJlkzX_m65_dZnEZgj4K6mtEddVHgNXj_7YNvWW8zpE-BpzTVTlw",
-    "content-type": "application/json",
-    "user-agent": "Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/116.0.0.0 Safari/537.36",
-}
-
-# Amex transfer partner hotel programs (hotel_id format: brand_shortcode)
-# Example hotels that Amex can transfer to (Hilton, Marriott)
-# Use known working hotel IDs
-SAMPLE_HOTELS = [
-    {"hotel_id": "hyatt_madel", "name": "Hyatt Madeleine (Paris)", "brand": "Hyatt"},  # Known working
-    {"hotel_id": "hilton_parisconcorde", "name": "Hilton Paris Concorde", "brand": "Hilton"},
-    {"hotel_id": "marriott_champsely", "name": "Marriott Champs Elysees", "brand": "Marriott"},
-]
 
 # =============================================================================
 # FLIGHT API FUNCTIONS
@@ -252,98 +225,20 @@ def search_flights(origin: str, destination: str, date: str,
 
 
 # =============================================================================
-# HOTEL API FUNCTIONS
-# =============================================================================
-
-def fetch_hotel_calendar(hotel_id: str, date: str):
-    """
-    Fetch hotel calendar/availability from AwardTool API.
-    Returns calendar data or error dict.
-    """
-    payload = {
-        "hotel_id": hotel_id,
-        "date": date,
-        "api_key": AWARD_TOOL_API_KEY,
-    }
-    
-    print(f"\n  [HOTEL] Fetching calendar for: {hotel_id}")
-    print(f"  [HOTEL] Endpoint: {HOTEL_CALENDAR_ENDPOINT}")
-    print(f"  [HOTEL] Date: {date}")
-    
-    try:
-        response = requests.post(
-            HOTEL_CALENDAR_ENDPOINT,
-            json=payload,
-            headers=HOTEL_HEADERS,
-            timeout=30
-        )
-        
-        print(f"  [HOTEL] Status: {response.status_code}")
-        
-        if response.status_code == 200:
-            data = response.json()
-            print(f"  [HOTEL] ✓ Success! Keys: {list(data.keys()) if isinstance(data, dict) else 'list'}")
-            return data
-        else:
-            print(f"  [HOTEL] ✗ Failed: {response.text[:500]}")
-            return {"error": f"HTTP {response.status_code}", "body": response.text}
-            
-    except requests.exceptions.Timeout:
-        print(f"  [HOTEL] ✗ Timeout")
-        return {"error": "timeout"}
-    except requests.exceptions.RequestException as e:
-        print(f"  [HOTEL] ✗ Request error: {e}")
-        return {"error": str(e)}
-    except Exception as e:
-        print(f"  [HOTEL] ✗ Error: {e}")
-        return {"error": str(e)}
-
-
-def parse_hotel_calendar(calendar_data: dict, hotel_name: str):
-    """
-    Parse hotel calendar data into a list of availability entries.
-    """
-    if not isinstance(calendar_data, dict) or "error" in calendar_data:
-        return []
-    
-    data = calendar_data.get("data", [])
-    availability = []
-    
-    # Data structure: [{"2026-02-01": [{"points_rate": 30000, ...}], ...}]
-    if isinstance(data, list) and len(data) > 0:
-        date_dict = data[0] if isinstance(data[0], dict) else {}
-        for date_str, rates in date_dict.items():
-            if isinstance(rates, list):
-                for rate in rates:
-                    availability.append({
-                        "hotel_name": hotel_name,
-                        "date": date_str,
-                        "points_rate": rate.get("points_rate"),
-                        "cash_price": rate.get("cash_price"),
-                        "point_value": rate.get("point_value"),
-                        "room_type": rate.get("room_type"),
-                        "rate_plan": rate.get("rate_plan"),
-                        "booking_link": rate.get("res_link"),
-                    })
-    
-    return availability
-
-
-# =============================================================================
 # MAIN TEST
 # =============================================================================
 
 def main():
     print(f"\n{'='*80}")
     print("  TEST: SEA -> CDG (Feb 11, 2026) - AMEX MEMBERSHIP REWARDS ONLY")
-    print("  Using separate APIs for flights and hotels")
+    print("  Flight search using AwardTool API")
     print(f"{'='*80}")
     
     # ==========================================================================
-    # TEST 1: FLIGHTS (using priming/polling API)
+    # FLIGHT SEARCH
     # ==========================================================================
     print(f"\n{'='*80}")
-    print("  SECTION 1: FLIGHT SEARCH")
+    print("  FLIGHT SEARCH")
     print(f"{'='*80}")
     print("  Route: SEA -> CDG")
     print("  Date: 2026-02-11")
@@ -396,59 +291,12 @@ def main():
         print("  No flights found.")
     
     # ==========================================================================
-    # TEST 2: HOTELS (using hotel_calendar API)
-    # ==========================================================================
-    print(f"\n{'='*80}")
-    print("  SECTION 2: HOTEL SEARCH")
-    print(f"{'='*80}")
-    print("  Location: Paris")
-    print("  Date: 2026-02-11")
-    print("  Programs: Amex transfer partners (Hilton, Marriott)")
-    
-    all_hotel_availability = []
-    
-    for hotel_info in SAMPLE_HOTELS:
-        hotel_id = hotel_info["hotel_id"]
-        hotel_name = hotel_info["name"]
-        
-        calendar_data = fetch_hotel_calendar(hotel_id, "2026-02-11")
-        availability = parse_hotel_calendar(calendar_data, hotel_name)
-        all_hotel_availability.extend(availability)
-    
-    # Print hotel results
-    print(f"\n  === HOTEL RESULTS ===")
-    print(f"  Total availability entries: {len(all_hotel_availability)}")
-    
-    if all_hotel_availability:
-        # Group by hotel and show sample dates
-        hotels_seen = {}
-        for entry in all_hotel_availability:
-            hotel_name = entry["hotel_name"]
-            if hotel_name not in hotels_seen:
-                hotels_seen[hotel_name] = []
-            hotels_seen[hotel_name].append(entry)
-        
-        for hotel_name, entries in hotels_seen.items():
-            print(f"\n  {hotel_name}:")
-            # Show first 5 dates
-            for entry in sorted(entries, key=lambda x: x["date"])[:5]:
-                pts = entry.get("points_rate", "?")
-                cash = entry.get("cash_price", "?")
-                ppv = entry.get("point_value", "?")
-                room = entry.get("room_type", "?")
-                date = entry.get("date", "?")
-                print(f"    {date}: {pts:,} pts (${cash} cash) | {ppv}cpp | {room}")
-    else:
-        print("  No hotel availability found.")
-    
-    # ==========================================================================
     # SUMMARY
     # ==========================================================================
     print(f"\n{'='*80}")
     print("  TEST COMPLETE")
     print(f"{'='*80}")
     print(f"  Flights found: {len(flights)}")
-    print(f"  Hotel availability entries: {len(all_hotel_availability)}")
     print(f"{'='*80}\n")
 
 

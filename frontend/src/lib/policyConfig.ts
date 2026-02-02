@@ -165,7 +165,7 @@ export function getSeverityClasses(severity: PolicySeverity): {
  * Check if any messages require acknowledgment.
  */
 export function requiresAcknowledgment(evaluation: PolicyEvaluation): boolean {
-  return evaluation.requires_ack.length > 0;
+  return (evaluation?.requires_ack?.length ?? 0) > 0;
 }
 
 /**
@@ -175,6 +175,7 @@ export function isFullyAcknowledged(
   evaluation: PolicyEvaluation,
   acknowledgedCodes: string[]
 ): boolean {
+  if (!evaluation?.requires_ack) return true;
   return evaluation.requires_ack.every((code) =>
     acknowledgedCodes.includes(code)
   );
@@ -187,6 +188,7 @@ export function getMissingAcknowledgments(
   evaluation: PolicyEvaluation,
   acknowledgedCodes: string[]
 ): string[] {
+  if (!evaluation?.requires_ack) return [];
   return evaluation.requires_ack.filter(
     (code) => !acknowledgedCodes.includes(code)
   );

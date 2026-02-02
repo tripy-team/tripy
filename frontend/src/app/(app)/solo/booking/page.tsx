@@ -216,7 +216,13 @@ function SoloBookingContent() {
           ]);
           
           if (selectionRes?.itineraryId && selectionRes?.itinerarySnapshot) {
-            setSelection(selectionRes);
+            // Extract only the fields we need for the selection state
+            setSelection({
+              itineraryId: selectionRes.itineraryId,
+              itinerarySnapshot: selectionRes.itinerarySnapshot as Record<string, unknown>,
+              cashPriceAtSelection: selectionRes.cashPriceAtSelection,
+              outOfPocketAtSelection: selectionRes.outOfPocketAtSelection,
+            });
             setTrip(tripData);
             setUsingSoloApi(true);
             usedSoloApi = true;
@@ -247,7 +253,12 @@ function SoloBookingContent() {
                 // Now get the selection we just saved
                 const newSelectionRes = await solo.getSelection(tripId);
                 if (newSelectionRes?.itineraryId && newSelectionRes?.itinerarySnapshot) {
-                  setSelection(newSelectionRes);
+                  setSelection({
+                    itineraryId: newSelectionRes.itineraryId,
+                    itinerarySnapshot: newSelectionRes.itinerarySnapshot as Record<string, unknown>,
+                    cashPriceAtSelection: newSelectionRes.cashPriceAtSelection,
+                    outOfPocketAtSelection: newSelectionRes.outOfPocketAtSelection,
+                  });
                   setTrip(tripData);
                   setUsingSoloApi(true);
                   usedSoloApi = true;
@@ -957,44 +968,119 @@ function SoloBookingContent() {
                                   {/* Flight Card */}
                                   {booking.type === 'flight' && (
                                     <div className="space-y-4">
-                                      {/* Route with airports */}
+                                      {/* Route with airports - show all stops if connecting flight */}
                                       <div className="flex items-center gap-4">
                                         <div className="flex-1">
-                                          <div className="flex items-center gap-3">
-                                            <div>
-                                              <div className="text-2xl font-bold text-slate-900">{booking.origin || '---'}</div>
-                                              {booking.departureTime && (
-                                                <div className="text-sm text-slate-500">
-                                                  {new Date(booking.departureTime).toLocaleString('en-US', { 
-                                                    weekday: 'short', month: 'short', day: 'numeric',
-                                                    hour: 'numeric', minute: '2-digit'
-                                                  })}
-                                                </div>
-                                              )}
+                                          {booking.stops && booking.stops > 0 && booking.legs && booking.legs.length > 0 ? (
+                                            // Multi-leg connecting flight - show full route
+                                            <div className="space-y-1">
+                                              <div className="flex items-center gap-2 text-2xl font-bold text-slate-900">
+                                                <span>{booking.origin || '---'}</span>
+                                                {booking.layovers?.map((layover, layIdx) => (
+                                                  <span key={layIdx} className="flex items-center gap-2">
+                                                    <ArrowRight className="w-5 h-5 text-slate-400" />
+                                                    <span className="text-amber-600">{layover.airport}</span>
+                                                  </span>
+                                                ))}
+                                                <ArrowRight className="w-5 h-5 text-slate-400" />
+                                                <span>{booking.destination || '---'}</span>
+                                              </div>
+                                              <div className="text-sm text-slate-500">
+                                                {booking.stops} stop{booking.stops > 1 ? 's' : ''}
+                                                {booking.departureTime && (
+                                                  <span className="ml-2">
+                                                    • Departs {new Date(booking.departureTime).toLocaleString('en-US', { 
+                                                      weekday: 'short', month: 'short', day: 'numeric',
+                                                      hour: 'numeric', minute: '2-digit'
+                                                    })}
+                                                  </span>
+                                                )}
+                                              </div>
                                             </div>
-                                            <div className="flex-1 flex items-center px-2">
-                                              <div className="flex-1 h-px bg-slate-300"></div>
-                                              <Plane className="w-5 h-5 text-blue-500 mx-2 rotate-90" />
-                                              <div className="flex-1 h-px bg-slate-300"></div>
+                                          ) : (
+                                            // Direct flight - simple display
+                                            <div className="flex items-center gap-3">
+                                              <div>
+                                                <div className="text-2xl font-bold text-slate-900">{booking.origin || '---'}</div>
+                                                {booking.departureTime && (
+                                                  <div className="text-sm text-slate-500">
+                                                    {new Date(booking.departureTime).toLocaleString('en-US', { 
+                                                      weekday: 'short', month: 'short', day: 'numeric',
+                                                      hour: 'numeric', minute: '2-digit'
+                                                    })}
+                                                  </div>
+                                                )}
+                                              </div>
+                                              <div className="flex-1 flex items-center px-2">
+                                                <div className="flex-1 h-px bg-slate-300"></div>
+                                                <Plane className="w-5 h-5 text-blue-500 mx-2 rotate-90" />
+                                                <div className="flex-1 h-px bg-slate-300"></div>
+                                              </div>
+                                              <div className="text-right">
+                                                <div className="text-2xl font-bold text-slate-900">{booking.destination || '---'}</div>
+                                                {booking.arrivalTime && (
+                                                  <div className="text-sm text-slate-500">
+                                                    {new Date(booking.arrivalTime).toLocaleString('en-US', { 
+                                                      hour: 'numeric', minute: '2-digit'
+                                                    })}
+                                                  </div>
+                                                )}
+                                              </div>
                                             </div>
-                                            <div className="text-right">
-                                              <div className="text-2xl font-bold text-slate-900">{booking.destination || '---'}</div>
-                                              {booking.arrivalTime && (
-                                                <div className="text-sm text-slate-500">
-                                                  {new Date(booking.arrivalTime).toLocaleString('en-US', { 
-                                                    hour: 'numeric', minute: '2-digit'
-                                                  })}
-                                                </div>
-                                              )}
-                                            </div>
-                                          </div>
+                                          )}
                                           {durationMins > 0 && (
                                             <div className="text-center text-xs text-slate-400 mt-1">
-                                              {Math.floor(durationMins / 60)}h {durationMins % 60}m flight
+                                              {Math.floor(durationMins / 60)}h {durationMins % 60}m total travel time
                                             </div>
                                           )}
                                         </div>
                                       </div>
+                                      
+                                      {/* Layover Details for connecting flights */}
+                                      {booking.layovers && booking.layovers.length > 0 && (
+                                        <div className="bg-amber-50 border border-amber-200 rounded-lg p-3">
+                                          <div className="flex items-center gap-2 text-amber-800 font-medium text-sm mb-2">
+                                            <Clock className="w-4 h-4" />
+                                            Layover{booking.layovers.length > 1 ? 's' : ''}
+                                          </div>
+                                          <div className="space-y-2">
+                                            {booking.layovers.map((layover, layIdx) => {
+                                              const layoverMins = layover.durationMinutes || 0;
+                                              const hours = Math.floor(layoverMins / 60);
+                                              const mins = layoverMins % 60;
+                                              const durationStr = hours > 0 ? `${hours}h ${mins}m` : `${mins}m`;
+                                              const isShort = layoverMins < 60;
+                                              const isLong = layoverMins > 240;
+                                              
+                                              return (
+                                                <div key={layIdx} className="flex items-center justify-between text-sm">
+                                                  <div className="flex items-center gap-2">
+                                                    <span className="font-semibold text-amber-900">{layover.airport}</span>
+                                                    {layover.airportName && (
+                                                      <span className="text-amber-700">({layover.airportName})</span>
+                                                    )}
+                                                  </div>
+                                                  <div className="flex items-center gap-2">
+                                                    <span className={`font-bold ${isShort ? 'text-red-600' : isLong ? 'text-amber-600' : 'text-amber-900'}`}>
+                                                      {durationStr}
+                                                    </span>
+                                                    {isShort && (
+                                                      <span className="text-xs bg-red-100 text-red-700 px-1.5 py-0.5 rounded">
+                                                        Short!
+                                                      </span>
+                                                    )}
+                                                    {isLong && (
+                                                      <span className="text-xs bg-amber-100 text-amber-700 px-1.5 py-0.5 rounded">
+                                                        Long layover
+                                                      </span>
+                                                    )}
+                                                  </div>
+                                                </div>
+                                              );
+                                            })}
+                                          </div>
+                                        </div>
+                                      )}
                                       
                                       {/* Flight Details */}
                                       <div className="bg-slate-50 rounded-lg p-3 space-y-2">
@@ -1008,7 +1094,30 @@ function SoloBookingContent() {
                                           {booking.cabinClass && (
                                             <span className="text-slate-600">• {booking.cabinClass}</span>
                                           )}
+                                          {booking.stops && booking.stops > 0 && (
+                                            <span className="text-slate-600">• {booking.stops} stop{booking.stops > 1 ? 's' : ''}</span>
+                                          )}
                                         </div>
+                                        
+                                        {/* Per-leg flight numbers for connecting flights */}
+                                        {booking.legs && booking.legs.length > 1 && (
+                                          <div className="text-xs text-slate-600 space-y-1 pt-1 border-t border-slate-200">
+                                            <p className="font-medium">Flight segments:</p>
+                                            {booking.legs.map((leg, legIdx) => (
+                                              <div key={legIdx} className="flex items-center gap-2">
+                                                <span className="bg-blue-100 text-blue-700 px-1.5 py-0.5 rounded font-mono">
+                                                  {leg.flightNumber}
+                                                </span>
+                                                <span>{leg.origin} → {leg.destination}</span>
+                                                {leg.operatingCarrier && leg.operatingCarrier !== leg.marketingCarrier && (
+                                                  <span className="text-purple-600 text-xs">
+                                                    (Operated by {leg.operatingCarrier})
+                                                  </span>
+                                                )}
+                                              </div>
+                                            ))}
+                                          </div>
+                                        )}
                                         
                                         {/* Codeshare info */}
                                         {booking.operatingAirline && (
@@ -1051,6 +1160,11 @@ function SoloBookingContent() {
                                                   Book with {humanizeProgram(booking.program)}
                                                 </div>
                                               )}
+                                              {booking.paymentReason && (
+                                                <div className="text-xs text-green-600 mt-1 italic">
+                                                  💡 {booking.paymentReason}
+                                                </div>
+                                              )}
                                             </div>
                                           ) : (
                                             <div>
@@ -1060,6 +1174,11 @@ function SoloBookingContent() {
                                                 </span>
                                               </div>
                                               <div className="text-xs text-slate-500">Cash booking</div>
+                                              {booking.paymentReason && (
+                                                <div className="text-xs text-amber-600 mt-1 italic">
+                                                  💡 {booking.paymentReason}
+                                                </div>
+                                              )}
                                             </div>
                                           )}
                                         </div>

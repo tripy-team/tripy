@@ -121,8 +121,6 @@ from .models_v3 import (
     AwardOption,
     FlightSegment,
     FlightItineraryEdge,
-    RoomType,
-    HotelOption,
     TransferPath,
     SlackConfig,
     BalancedModeConfig,
@@ -178,9 +176,9 @@ from .airport_data import (
 
 from .metrics import OptimizationMetrics, create_metrics
 
-from .pruning import prune_flights, prune_hotels, prune_award_options
+from .pruning import prune_flights, prune_award_options
 
-from .precompute import precompute_soft_values, compute_flight_K, compute_hotel_K
+from .precompute import precompute_soft_values, compute_flight_K
 
 # =============================================================================
 # NEW PIPELINE MODULES (PR1, PR2a, PR2b)
@@ -458,8 +456,6 @@ __all__ = [
     "AwardOption",
     "FlightSegment",
     "FlightItineraryEdge",
-    "RoomType",
-    "HotelOption",
     "TransferPath",
     "SlackConfig",
     "BalancedModeConfig",
@@ -506,12 +502,10 @@ __all__ = [
     "create_metrics",
     # Pruning
     "prune_flights",
-    "prune_hotels",
     "prune_award_options",
     # Precompute
     "precompute_soft_values",
     "compute_flight_K",
-    "compute_hotel_K",
     # Solver V3 (LAZY)
     "SolverV3",
     "Mode",

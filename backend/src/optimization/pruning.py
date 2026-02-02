@@ -15,7 +15,6 @@ from collections import defaultdict
 
 from .models_v3 import (
     FlightItineraryEdge, 
-    HotelOption, 
     PruningConfig,
 )
 from .trip_spec import TripPlanSpec, TimeOfDay
@@ -247,110 +246,13 @@ def _flight_combined_score(f: FlightItineraryEdge, time_pref_score: float = 0.5)
     )
 
 
-def prune_hotels(
-    hotels: List[HotelOption],
-    config: PruningConfig,
-) -> List[HotelOption]:
-    """
-    Prune hotels using multiple criteria.
-    
-    Strategy:
-    1. Group by segment_id
-    2. Keep top K by each criterion
-    3. Union selected
-    4. Cap total per segment
-    """
-    
-    by_segment: Dict[int, List[HotelOption]] = defaultdict(list)
-    for h in hotels:
-        by_segment[h.segment_id].append(h)
-    
-    pruned = []
-    
-    for seg_id, seg_hotels in by_segment.items():
-        selected: Set[str] = set()
-        
-        # ═══════════════════════════════════════════════════════════════════
-        # Criterion 1: Top K by lowest cash per night
-        # ═══════════════════════════════════════════════════════════════════
-        
-        by_cash = sorted(seg_hotels, key=lambda h: h.cheapest_cash_per_night())
-        for h in by_cash[:config.max_hotels_by_cash]:
-            selected.add(h.hotel_id)
-        
-        # ═══════════════════════════════════════════════════════════════════
-        # Criterion 2: Top K by best award value per night
-        # ═══════════════════════════════════════════════════════════════════
-        
-        by_award = sorted(
-            seg_hotels,
-            key=lambda h: h.best_award_value_per_night(),
-            reverse=True
-        )
-        for h in by_award[:config.max_hotels_by_award]:
-            selected.add(h.hotel_id)
-        
-        # ═══════════════════════════════════════════════════════════════════
-        # Criterion 3: Top K by star rating
-        # ═══════════════════════════════════════════════════════════════════
-        
-        by_rating = sorted(seg_hotels, key=lambda h: h.star_rating, reverse=True)
-        for h in by_rating[:config.max_hotels_by_rating]:
-            selected.add(h.hotel_id)
-        
-        # ═══════════════════════════════════════════════════════════════════
-        # Collect selected
-        # ═══════════════════════════════════════════════════════════════════
-        
-        seg_selected = [h for h in seg_hotels if h.hotel_id in selected]
-        
-        # Cap total if needed
-        if len(seg_selected) > config.max_hotels_total:
-            seg_selected.sort(key=lambda h: _hotel_combined_score(h), reverse=True)
-            seg_selected = seg_selected[:config.max_hotels_total]
-        
-        pruned.extend(seg_selected)
-    
-    return pruned
-
-
-def _hotel_combined_score(h: HotelOption) -> float:
-    """
-    Combined heuristic score for hotels.
-    
-    Higher score = more likely to keep.
-    """
-    
-    # Cash score (lower per night is better)
-    cheapest = h.cheapest_cash_per_night()
-    cash_score = 1.0 - min(1.0, cheapest / 500) if cheapest < float('inf') else 0
-    
-    # Award score (higher value is better)
-    award_value = h.best_award_value_per_night()
-    award_score = min(1.0, award_value / 300) if award_value > 0 else 0
-    
-    # Rating score (normalized 3-5 to 0-1)
-    rating_score = (h.star_rating - 3.0) / 2.0 if h.star_rating >= 3 else 0
-    rating_score = min(1.0, max(0.0, rating_score))
-    
-    # Location score (if available)
-    location_score = h.location_score
-    
-    return (
-        0.25 * cash_score +
-        0.25 * award_score +
-        0.30 * rating_score +
-        0.20 * location_score
-    )
-
-
 def prune_award_options(
     flights: List[FlightItineraryEdge],
-    hotels: List[HotelOption],
+    hotels: list,  # Ignored - no hotels
     config: PruningConfig,
 ) -> None:
     """
-    Prune award options per edge/hotel to top K programs.
+    Prune award options per edge to top K programs.
     
     This modifies the objects in-place.
     """
@@ -380,23 +282,14 @@ def prune_award_options(
                 break
         
         f.award_options = kept
-    
-    # Hotels - similar logic for room types with awards
-    # (Usually hotels have fewer award options, so less critical)
 
 
 def count_candidates(
     flights: List[FlightItineraryEdge],
-    hotels: List[HotelOption],
 ) -> Dict[str, int]:
     """Count candidates for metrics."""
     
     return {
         "flights": len(flights),
-        "hotels": len(hotels),
         "flight_award_options": sum(len(f.award_options) for f in flights),
-        "hotel_award_room_types": sum(
-            len([rt for rt in h.room_types if rt.has_award_pricing])
-            for h in hotels
-        ),
     }

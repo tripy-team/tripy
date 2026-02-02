@@ -1,5 +1,5 @@
 /**
- * OOP-optimized itinerary types from agentic backend
+ * OOP-optimized itinerary types from agentic backend (Flights Only)
  */
 
 // =============================================================================
@@ -37,7 +37,7 @@ export interface TransferInstruction {
   /** Source program (bank points) */
   fromProgram: string;
   
-  /** Target program (airline/hotel) */
+  /** Target program (airline) */
   toProgram: string;
   
   /** Points to transfer */
@@ -84,47 +84,83 @@ export type SegmentPayment = CashPayment | PointsPayment;
 // SEGMENT TYPES
 // =============================================================================
 
-export interface FlightSegment {
-  id: string;
-  type: 'flight';
-  
+/**
+ * A single leg within a multi-segment flight.
+ * CRITICAL: This enables displaying "SEA → AMS → CDG" instead of just "SEA → CDG"
+ */
+export interface FlightLeg {
   origin: string;
   destination: string;
   departureTime?: string;
   arrivalTime?: string;
   durationMinutes?: number;
   
+  flightNumber: string;
+  marketingCarrier: string;       // Who sells the ticket (e.g., "DL")
+  operatingCarrier?: string;      // Who flies the plane (e.g., "KL" for codeshare)
+  
+  cabinClass?: string;
+  aircraft?: string;
+  
+  // Codeshare display
+  isCodeshare?: boolean;
+  codeshareInfo?: string;         // e.g., "Operated by KLM"
+}
+
+/**
+ * Layover between flight legs.
+ */
+export interface FlightLayover {
+  airport: string;
+  airportName?: string;
+  durationMinutes: number;
+  durationDisplay?: string;       // e.g., "2h 15m"
+  isShort?: boolean;              // Under 60 min (risky)
+  isLong?: boolean;               // Over 4 hours
+}
+
+export interface FlightSegment {
+  id: string;
+  type: 'flight';
+  
+  // Overall journey info (first origin → final destination)
+  origin: string;
+  destination: string;
+  departureTime?: string;
+  arrivalTime?: string;
+  durationMinutes?: number;
+  
+  // Primary airline (marketing carrier of first leg)
   airline: string;
-  flightNumber?: string;
+  flightNumber?: string;          // Summary: "DL 2055" or "DL 2055 → SK 944"
   cabinClass: 'Economy' | 'Premium Economy' | 'Business' | 'First';
+  operatingAirline?: string;      // If first leg is codeshare
+  
+  // CRITICAL: Connection details - enables proper UI display
+  stops: number;                  // Number of stops (0 = nonstop)
+  legs: FlightLeg[];              // Per-leg details for connecting flights
+  layovers: FlightLayover[];      // Layover info between legs
+  
+  // Connection safety flags
+  ticketingConfirmed?: boolean;   // True if single-ticket confirmed
+  hasCarrierChange?: boolean;     // True if operating carriers differ between legs
+  hasShortConnection?: boolean;   // True if any layover < 60 min
   
   cashPrice: number;
   payment: SegmentPayment;
   
   bookingUrl?: string;
+  
+  // Verification info
+  googleFlightsUrl?: string;
+  verificationNote?: string;
+  dataSource?: string;
+  fetchedAt?: string;
+  isVerified?: boolean;
+  verificationStatus?: 'verified' | 'unverified' | 'stale' | 'not_found';
 }
 
-export interface HotelSegment {
-  id: string;
-  type: 'hotel';
-  
-  name: string;
-  brand?: string;
-  starRating: number;
-  city: string;
-  
-  checkIn: string;
-  checkOut: string;
-  nights: number;
-  
-  cashPricePerNight: number;
-  cashPriceTotal: number;
-  payment: SegmentPayment;
-  
-  bookingUrl?: string;
-}
-
-export type TripSegment = FlightSegment | HotelSegment;
+export type TripSegment = FlightSegment;
 
 // =============================================================================
 // RANKED ITINERARY
@@ -185,8 +221,6 @@ export interface OptimizeSoloRequest {
   points: Record<string, number>;
   budget: number;
   cabinClasses?: string[];
-  hotelStars?: number[];
-  includeHotels?: boolean;
 }
 
 export interface OptimizeGroupRequest extends OptimizeSoloRequest {
@@ -224,7 +258,7 @@ export interface OptimizeGroupResponse {
 
 export interface SegmentBreakdown {
   segment: string;
-  type: 'flight' | 'hotel';
+  type: 'flight';
   cashPrice: number;
   paymentMethod: 'cash' | 'points';
   amount?: number;

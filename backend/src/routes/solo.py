@@ -51,7 +51,7 @@ logger = logging.getLogger(__name__)
 
 
 def _is_valid_transfer(bank: str, program: str) -> bool:
-    """Check if a bank can transfer to a specific airline/hotel program."""
+    """Check if a bank can transfer to a specific airline program."""
     bank_lower = bank.lower().replace("_", "").replace(" ", "")
     
     # Normalize bank names
@@ -142,7 +142,7 @@ async def create_solo_trip(
     - Origin and destinations (IATA codes)
     - Trip type (one_way/round_trip)
     - Date mode (fixed/flexible)
-    - Preferences (flight class, hotel class, etc.)
+    - Preferences (flight class, etc.)
     """
     try:
         trip = solo_trip_service.create_solo_trip(user_id, request)
@@ -357,18 +357,16 @@ async def optimize_solo(
         
         # Map cabin class preference (use camelCase field names)
         cabin_classes = _map_flight_class(trip.get("flightClass", "economy"))
-        hotel_stars = _map_hotel_class(trip.get("hotelClass", "4"))
         
         agent_request = AgentOptimizeSoloRequest(
             trip_id=request.trip_id,
             points=request.points,
             budget=budget,
             cabin_classes=cabin_classes,
-            hotel_stars=hotel_stars,
-            include_hotels=trip.get("includeHotels", True),
+            optimization_mode=mode,
         )
         
-        logger.info(f"[solo/optimize] Running orchestrator for trip {request.trip_id} with mode {mode}")
+        logger.info(f"[solo/optimize] Running orchestrator for trip {request.trip_id} with optimization_mode={mode}")
         
         # Call the real orchestrator
         agent_response = await orchestrator.optimize_solo(agent_request)
@@ -441,25 +439,17 @@ def _map_flight_class(flight_class: str) -> list[str]:
     return mapping.get(flight_class, ["Economy", "Business"])
 
 
-def _map_hotel_class(hotel_class: str) -> list[int]:
-    """Map trip hotel_class preference to star ratings."""
-    mapping = {
-        "3": [3, 4],
-        "4": [4, 5],
-        "5": [5],
-    }
-    return mapping.get(hotel_class, [4, 5])
-
-
 def _transform_itineraries(agent_itineraries: list) -> list[RankedItinerary]:
-    """Transform orchestrator itineraries to our schema format."""
+    """Transform orchestrator itineraries to our schema format (flights only)."""
     result = []
     
     for agent_it in agent_itineraries:
-        # Build segments from agent segments
+        # Build segments from agent segments (flights only)
         segments = []
         for seg in agent_it.segments:
-            seg_type = "flight" if hasattr(seg, 'airline') else "hotel"
+            # Skip non-flight segments
+            if not hasattr(seg, 'airline'):
+                continue
             
             # Determine payment method and extract details
             payment = seg.payment
@@ -481,60 +471,91 @@ def _transform_itineraries(agent_itineraries: list) -> list[RankedItinerary]:
                 transfer_from = None
                 transfer_to = None
             
-            # Build segment with full details
-            if seg_type == "flight":
-                segment_name = f"{seg.origin} → {seg.destination}"
-                cash_price = seg.cash_price or 0
-                program = getattr(payment, 'program', None) if payment_method == "points" else None
-                
-                segments.append(SegmentBreakdown(
-                    segment=segment_name,
-                    type=seg_type,
-                    payment_method=payment_method,
-                    cash_price=cash_price,
-                    points_used=points_used,
-                    surcharge=surcharge,
-                    cpp_achieved=cpp,
-                    transfer_from=transfer_from,
-                    transfer_to=transfer_to,
-                    program=program,
-                    # Flight-specific details
-                    origin=seg.origin,
-                    destination=seg.destination,
-                    departure_time=getattr(seg, 'departure_time', None),
-                    arrival_time=getattr(seg, 'arrival_time', None),
-                    airline=getattr(seg, 'airline', None),
-                    operating_airline=getattr(seg, 'operating_airline', None),
-                    flight_number=getattr(seg, 'flight_numbers', [''])[0] if getattr(seg, 'flight_numbers', None) else getattr(seg, 'flight_number', None),
-                    cabin_class=getattr(seg, 'cabin_class', None),
-                    duration_minutes=getattr(seg, 'duration_minutes', None),
-                    booking_url=getattr(seg, 'booking_url', None),
-                ))
-            else:
-                segment_name = f"{seg.name} ({seg.city})"
-                cash_price = getattr(seg, 'cash_price_total', 0) or getattr(seg, 'cashPriceTotal', 0)
-                program = getattr(payment, 'program', None) if payment_method == "points" else None
-                
-                segments.append(SegmentBreakdown(
-                    segment=segment_name,
-                    type=seg_type,
-                    payment_method=payment_method,
-                    cash_price=cash_price,
-                    points_used=points_used,
-                    surcharge=surcharge,
-                    cpp_achieved=cpp,
-                    transfer_from=transfer_from,
-                    transfer_to=transfer_to,
-                    program=program,
-                    # Hotel-specific details
-                    hotel_name=getattr(seg, 'name', None),
-                    brand=getattr(seg, 'brand', None),
-                    city=getattr(seg, 'city', None),
-                    check_in=getattr(seg, 'check_in', None),
-                    check_out=getattr(seg, 'check_out', None),
-                    nights=getattr(seg, 'nights', None),
-                    booking_url=getattr(seg, 'booking_url', None),
-                ))
+            # Build flight segment
+            segment_name = f"{seg.origin} → {seg.destination}"
+            cash_price = seg.cash_price or 0
+            program = getattr(payment, 'program', None) if payment_method == "points" else None
+            
+            # CRITICAL: Extract connection details (legs, layovers, stops)
+            # These come from the FlightSegment model built in adapter_v3.py
+            stops = getattr(seg, 'stops', 0)
+            seg_legs = getattr(seg, 'legs', [])
+            seg_layovers = getattr(seg, 'layovers', [])
+            
+            # Convert legs to FlightLegDetail schema objects if they exist
+            from ..schemas.optimize import FlightLegDetail, LayoverDetail
+            legs = []
+            for leg in seg_legs:
+                if hasattr(leg, 'flight_number'):
+                    # Pydantic FlightLeg model from agents/models.py
+                    legs.append(FlightLegDetail(
+                        origin=leg.origin,
+                        destination=leg.destination,
+                        departure_time=getattr(leg, 'departure_time', None),
+                        arrival_time=getattr(leg, 'arrival_time', None),
+                        duration_minutes=getattr(leg, 'duration_minutes', None),
+                        flight_number=leg.flight_number,
+                        marketing_carrier=getattr(leg, 'marketing_carrier', ''),
+                        operating_carrier=getattr(leg, 'operating_carrier', None),
+                    ))
+                elif isinstance(leg, dict):
+                    # Dict format
+                    legs.append(FlightLegDetail(
+                        origin=leg.get('origin', ''),
+                        destination=leg.get('destination', ''),
+                        departure_time=leg.get('departure_time') or leg.get('departureTime'),
+                        arrival_time=leg.get('arrival_time') or leg.get('arrivalTime'),
+                        duration_minutes=leg.get('duration_minutes') or leg.get('durationMinutes'),
+                        flight_number=leg.get('flight_number') or leg.get('flightNumber', ''),
+                        marketing_carrier=leg.get('marketing_carrier') or leg.get('marketingCarrier', ''),
+                        operating_carrier=leg.get('operating_carrier') or leg.get('operatingCarrier'),
+                    ))
+            
+            # Convert layovers to LayoverDetail schema objects
+            layovers = []
+            for lay in seg_layovers:
+                if isinstance(lay, dict):
+                    duration_mins = lay.get('duration_minutes') or lay.get('durationMinutes', 0)
+                    layovers.append(LayoverDetail(
+                        airport=lay.get('airport', ''),
+                        airport_name=lay.get('airport_name') or lay.get('airportName'),
+                        duration_minutes=duration_mins,
+                        is_short=duration_mins < 60,
+                        is_long=duration_mins > 240,
+                    ))
+            
+            # Update segment name to show full route if connecting flight
+            if stops > 0 and legs:
+                route_airports = [legs[0].origin] + [leg.destination for leg in legs]
+                segment_name = " → ".join(route_airports)
+            
+            segments.append(SegmentBreakdown(
+                segment=segment_name,
+                type="flight",
+                payment_method=payment_method,
+                cash_price=cash_price,
+                points_used=points_used,
+                surcharge=surcharge,
+                cpp_achieved=cpp,
+                transfer_from=transfer_from,
+                transfer_to=transfer_to,
+                program=program,
+                # Flight-specific details
+                origin=seg.origin,
+                destination=seg.destination,
+                departure_time=getattr(seg, 'departure_time', None),
+                arrival_time=getattr(seg, 'arrival_time', None),
+                airline=getattr(seg, 'airline', None),
+                operating_airline=getattr(seg, 'operating_airline', None),
+                flight_number=getattr(seg, 'flight_numbers', [''])[0] if getattr(seg, 'flight_numbers', None) else getattr(seg, 'flight_number', None),
+                cabin_class=getattr(seg, 'cabin_class', None),
+                duration_minutes=getattr(seg, 'duration_minutes', None),
+                booking_url=getattr(seg, 'booking_url', None),
+                # CRITICAL: Connection details for multi-leg flights
+                stops=stops,
+                legs=legs,
+                layovers=layovers,
+            ))
         
         # Build transfers
         transfers = []
@@ -796,15 +817,20 @@ async def get_transfer_strategy(
                 except:
                     max_time_days = max(max_time_days, 2)
         
-        # Generate booking steps from ALL segments (flights and hotels)
+        # Generate booking steps from flight segments only
         segments = snapshot.get("segments", [])
         step_num = len(transfers) + 1
         
         logger.info(f"[transfer-strategy] Processing {len(segments)} segments")
         
         for seg in segments:
-            logger.info(f"[transfer-strategy] Segment: type={seg.get('type')}, cashPrice={seg.get('cashPrice')}, pointsUsed={seg.get('pointsUsed')}, paymentMethod={seg.get('paymentMethod')}, program={seg.get('program')}, origin={seg.get('origin')}, destination={seg.get('destination')}, airline={seg.get('airline')}, departureTime={seg.get('departureTime')}")
             seg_type = seg.get("type", "flight")
+            
+            # Skip non-flight segments
+            if seg_type != "flight":
+                continue
+            
+            logger.info(f"[transfer-strategy] Flight segment: cashPrice={seg.get('cashPrice')}, pointsUsed={seg.get('pointsUsed')}, paymentMethod={seg.get('paymentMethod')}, program={seg.get('program')}, origin={seg.get('origin')}, destination={seg.get('destination')}, airline={seg.get('airline')}, departureTime={seg.get('departureTime')}, stops={seg.get('stops')}, legs_count={len(seg.get('legs', []))}, layovers_count={len(seg.get('layovers', []))}")
             
             # Payment info can be in 'payment' object (old format) or directly in segment (new format)
             payment = seg.get("payment", {})
@@ -819,81 +845,115 @@ async def get_transfer_strategy(
             surcharge = float(surcharge_raw) if surcharge_raw else 0.0
             program = seg.get("program") or payment.get("program", "")
             
-            if seg_type == "flight":
-                airline = seg.get("airline", "Airline")
-                origin = seg.get("origin", "")
-                destination = seg.get("destination", "")
-                cabin = seg.get("cabinClass") or seg.get("cabin_class") or seg.get("cabin", "Economy")
-                departure = seg.get("departureTime") or seg.get("departure_time", "")
-                arrival = seg.get("arrivalTime") or seg.get("arrival_time", "")
-                flight_num = seg.get("flightNumber") or seg.get("flight_number", "")
-                duration = seg.get("durationMinutes") or seg.get("duration_minutes")
-                booking_url = seg.get("bookingUrl") or seg.get("booking_url", "")
-                cash_price_raw = seg.get("cashPrice") or seg.get("cash_price", 0)
-                cash_price = float(cash_price_raw) if cash_price_raw else 0.0  # Handle Decimal from DynamoDB
-                operating_airline = seg.get("operatingAirline") or seg.get("operating_airline", "")
-                
-                # Build segment reference (simple - codeshare shown separately)
-                segment_ref = f"{origin} → {destination} {cabin} on {airline}"
-                
-                # Build booking URL based on the program used for booking
-                if not booking_url and program:
-                    prog_meta = PROGRAM_METADATA.get(program.upper(), {})
-                    booking_url = prog_meta.get("booking_url", f"https://{airline.lower().replace(' ', '')}.com")
-                elif not booking_url:
-                    booking_url = f"https://{airline.lower().replace(' ', '')}.com"
-                
-                # Ensure cash_price is valid (not 0 for cash bookings)
-                display_cash_price = cash_price if cash_price and cash_price > 0 else None
-                
-                bookings.append(BookingStep(
-                    step_number=step_num,
-                    type="flight",
-                    airline=airline,
-                    booking_url=booking_url,
-                    segment_reference=segment_ref,
-                    origin=origin,
-                    destination=destination,
-                    departure_time=departure,
-                    arrival_time=arrival,
-                    cabin_class=cabin,
-                    flight_number=flight_num,
-                    operating_airline=operating_airline if operating_airline and operating_airline != airline else None,
-                    duration_minutes=duration,
-                    payment_method=payment_method,
-                    points_used=points_used if payment_method == "points" else None,
-                    cash_price=display_cash_price,
-                    surcharge=surcharge if payment_method == "points" else None,
-                    program=program if payment_method == "points" else None,
-                ))
+            airline = seg.get("airline", "Airline")
+            origin = seg.get("origin", "")
+            destination = seg.get("destination", "")
+            cabin = seg.get("cabinClass") or seg.get("cabin_class") or seg.get("cabin", "Economy")
+            departure = seg.get("departureTime") or seg.get("departure_time", "")
+            arrival = seg.get("arrivalTime") or seg.get("arrival_time", "")
+            flight_num = seg.get("flightNumber") or seg.get("flight_number", "")
+            duration = seg.get("durationMinutes") or seg.get("duration_minutes")
+            booking_url = seg.get("bookingUrl") or seg.get("booking_url", "")
+            cash_price_raw = seg.get("cashPrice") or seg.get("cash_price", 0)
+            cash_price = float(cash_price_raw) if cash_price_raw else 0.0  # Handle Decimal from DynamoDB
+            operating_airline = seg.get("operatingAirline") or seg.get("operating_airline", "")
+            
+            # Extract connection details - CRITICAL for multi-leg flights
+            stops = seg.get("stops", 0)
+            raw_legs = seg.get("legs", [])
+            raw_layovers = seg.get("layovers", [])
+            
+            # Convert legs to FlightLegDetail objects
+            from ..schemas.optimize import FlightLegDetail, LayoverDetail
+            legs = []
+            for leg_data in raw_legs:
+                if isinstance(leg_data, dict):
+                    legs.append(FlightLegDetail(
+                        origin=leg_data.get("origin", ""),
+                        destination=leg_data.get("destination", ""),
+                        departure_time=leg_data.get("departureTime") or leg_data.get("departure_time"),
+                        arrival_time=leg_data.get("arrivalTime") or leg_data.get("arrival_time"),
+                        duration_minutes=leg_data.get("durationMinutes") or leg_data.get("duration_minutes"),
+                        flight_number=leg_data.get("flightNumber") or leg_data.get("flight_number", ""),
+                        marketing_carrier=leg_data.get("marketingCarrier") or leg_data.get("marketing_carrier", ""),
+                        operating_carrier=leg_data.get("operatingCarrier") or leg_data.get("operating_carrier"),
+                    ))
+            
+            # Convert layovers to LayoverDetail objects
+            layovers = []
+            for lay_data in raw_layovers:
+                if isinstance(lay_data, dict):
+                    duration_mins = lay_data.get("durationMinutes") or lay_data.get("duration_minutes", 0)
+                    layovers.append(LayoverDetail(
+                        airport=lay_data.get("airport", ""),
+                        airport_name=lay_data.get("airportName") or lay_data.get("airport_name"),
+                        duration_minutes=duration_mins,
+                        is_short=duration_mins < 60,
+                        is_long=duration_mins > 240,
+                    ))
+            
+            # Build segment reference (simple - codeshare shown separately)
+            segment_ref = f"{origin} → {destination} {cabin} on {airline}"
+            
+            # Build booking URL based on the program used for booking
+            if not booking_url and program:
+                prog_meta = PROGRAM_METADATA.get(program.upper(), {})
+                booking_url = prog_meta.get("booking_url", f"https://{airline.lower().replace(' ', '')}.com")
+            elif not booking_url:
+                booking_url = f"https://{airline.lower().replace(' ', '')}.com"
+            
+            # Ensure cash_price is valid (not 0 for cash bookings)
+            display_cash_price = cash_price if cash_price and cash_price > 0 else None
+            
+            # Determine payment reason
+            payment_reason = None
+            if payment_method == "points":
+                # Using points - explain the value
+                if points_used and surcharge is not None:
+                    payment_reason = f"Using {points_used:,} points + ${surcharge:.0f} taxes/fees"
+                elif points_used:
+                    payment_reason = f"Using {points_used:,} points"
             else:
-                hotel_name = seg.get("hotelName") or seg.get("hotel_name") or seg.get("name", "Hotel")
-                brand = seg.get("brand", "")
-                city = seg.get("city", "")
-                check_in = seg.get("checkIn") or seg.get("check_in", "")
-                check_out = seg.get("checkOut") or seg.get("check_out", "")
-                nights_raw = seg.get("nights", 0)
-                nights = int(nights_raw) if nights_raw else 0  # Handle Decimal from DynamoDB
-                booking_url = seg.get("bookingUrl") or seg.get("booking_url", "")
-                cash_price_raw = seg.get("cashPriceTotal") or seg.get("cash_price_total") or seg.get("cashPrice") or seg.get("cash_price", 0)
-                cash_price = float(cash_price_raw) if cash_price_raw else 0.0  # Handle Decimal from DynamoDB
-                
-                bookings.append(BookingStep(
-                    step_number=step_num,
-                    type="hotel",
-                    hotel_chain=brand or hotel_name,
-                    booking_url=booking_url or f"https://{(brand or hotel_name).lower().replace(' ', '')}.com/points-booking",
-                    segment_reference=f"{hotel_name} in {city} ({check_in} to {check_out})",
-                    city=city,
-                    check_in=check_in,
-                    check_out=check_out,
-                    nights=nights,
-                    payment_method=payment_method,
-                    points_used=points_used if payment_method == "points" else None,
-                    cash_price=cash_price,
-                    surcharge=surcharge if payment_method == "points" else None,
-                    program=program if payment_method == "points" else None,
-                ))
+                # Using cash - explain why not points
+                payment_reason_detail = seg.get("paymentReason") or seg.get("payment_reason") or payment.get("reason")
+                if payment_reason_detail:
+                    payment_reason = payment_reason_detail
+                elif display_cash_price:
+                    payment_reason = f"Cash booking at ${display_cash_price:.0f} - best value for this route"
+                else:
+                    payment_reason = "Cash booking - no award availability or better value than points"
+            
+            # Update segment reference to show full route if connecting flight
+            if stops > 0 and legs:
+                route_airports = [legs[0].origin] + [leg.destination for leg in legs]
+                segment_ref = f"{' → '.join(route_airports)} {cabin} on {airline}"
+            
+            bookings.append(BookingStep(
+                step_number=step_num,
+                type="flight",
+                airline=airline,
+                booking_url=booking_url,
+                segment_reference=segment_ref,
+                origin=origin,
+                destination=destination,
+                departure_time=departure,
+                arrival_time=arrival,
+                cabin_class=cabin,
+                flight_number=flight_num,
+                operating_airline=operating_airline if operating_airline and operating_airline != airline else None,
+                duration_minutes=duration,
+                # CRITICAL: Connection details for multi-leg flights
+                stops=stops,
+                legs=legs,
+                layovers=layovers,
+                # Payment details
+                payment_method=payment_method,
+                points_used=points_used if payment_method == "points" else None,
+                cash_price=display_cash_price,
+                surcharge=surcharge if payment_method == "points" else None,
+                program=program if payment_method == "points" else None,
+                payment_reason=payment_reason,
+            ))
             
             step_num += 1
         

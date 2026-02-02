@@ -51,23 +51,60 @@ class FlightSearchRequest(BaseModel):
     user_points: dict[str, int] = {}  # program -> balance
 
 
+class Layover(BaseModel):
+    """Layover between flight legs."""
+    airport: str                          # Connection airport code
+    airport_name: Optional[str] = None    # Full name
+    duration_minutes: int                 # Time between flights
+    terminal_change: bool = False         # Requires terminal change
+    
+    @property
+    def is_short(self) -> bool:
+        """Less than 60 minutes is risky."""
+        return self.duration_minutes < 60
+    
+    @property
+    def is_long(self) -> bool:
+        """More than 4 hours is a long layover."""
+        return self.duration_minutes > 240
+
+
 class FlightOption(BaseModel):
-    """Unified flight option from any source."""
+    """
+    Unified flight option from any source.
+    
+    CRITICAL INVARIANT: If stops > 0, segments MUST have length >= 2.
+    The adapter should NOT fabricate single segments for multi-stop flights.
+    """
     id: str
     source: Literal["awardtool", "serpapi", "dummy"]
     
-    # Route
-    origin: str
-    destination: str
-    departure_time: Optional[str] = None
-    arrival_time: Optional[str] = None
-    duration_minutes: Optional[int] = None
-    stops: int = 0
+    # Route (top-level for quick access)
+    origin: str                           # First departure airport
+    destination: str                      # Final arrival airport
+    departure_time: Optional[str] = None  # First leg departure
+    arrival_time: Optional[str] = None    # Last leg arrival
+    duration_minutes: Optional[int] = None  # Total journey time
     
-    # Flight details
+    # CRITICAL: Per-leg segment data - this is where connections live!
+    # Note: Using forward reference since FlightLeg is defined later in the file
+    segments: list["FlightLeg"] = []
+    layovers: list[Layover] = []
+    
+    @property
+    def stops(self) -> int:
+        """Number of stops - DERIVED from segments, not stored independently."""
+        if self.segments:
+            return max(0, len(self.segments) - 1)
+        return self._stops_hint or 0
+    
+    # Fallback if segments not populated (legacy/AwardTool)
+    _stops_hint: Optional[int] = None
+    
+    # Flight details (marketing carrier of first leg for display)
     airline: str
-    operating_airline: Optional[str] = None
-    flight_numbers: list[str] = []
+    operating_airline: Optional[str] = None  # Operating carrier if codeshare
+    flight_numbers: list[str] = []           # All flight numbers for quick access
     
     # Cabin
     cabin_class: str = "Economy"
@@ -93,6 +130,44 @@ class FlightOption(BaseModel):
     fetched_at: Optional[str] = None  # ISO timestamp when data was fetched
     is_verified: bool = False  # Whether flight was cross-verified with Google Flights
     verification_status: Optional[str] = None  # "verified", "unverified", "stale"
+    
+    # Ticketing info (defaults to UNKNOWN, not optimistic assumptions)
+    ticketing_confirmed: bool = False  # True only if source explicitly confirms single ticket
+    
+    @property
+    def has_carrier_change(self) -> bool:
+        """True if operating carriers change between legs."""
+        if len(self.segments) < 2:
+            return False
+        carriers = [s.operating_carrier or s.marketing_carrier for s in self.segments]
+        return len(set(carriers)) > 1
+    
+    @property
+    def has_short_connection(self) -> bool:
+        """True if any layover is under 60 minutes."""
+        return any(l.is_short for l in self.layovers)
+    
+    def validate_segments(self) -> list[str]:
+        """
+        Validate segment data consistency.
+        Returns list of warnings/errors.
+        """
+        warnings = []
+        
+        # INVARIANT: stops > 0 requires segments
+        if self._stops_hint and self._stops_hint > 0 and len(self.segments) < 2:
+            warnings.append(
+                f"Data error: {self._stops_hint} stops claimed but only {len(self.segments)} segments"
+            )
+        
+        # Check segment chain continuity
+        for i in range(len(self.segments) - 1):
+            if self.segments[i].destination != self.segments[i + 1].origin:
+                warnings.append(
+                    f"Segment chain broken: {self.segments[i].destination} != {self.segments[i+1].origin}"
+                )
+        
+        return warnings
 
 
 class FlightSearchResult(BaseModel):
@@ -231,23 +306,28 @@ class OOPMetrics(BaseModel):
 # =============================================================================
 
 class FlightLeg(BaseModel):
-    """A single flight leg (one takeoff and landing) within a flight segment.
+    """
+    A single flight leg (one takeoff and landing) within a flight segment.
+    
+    CRITICAL: This is where per-leg data lives - airports, times, carriers.
+    Without this, connections appear as direct flights in the UI.
     
     For connecting flights, each leg represents one individual flight.
     Users need this information to book and board each flight.
     """
-    flight_number: str  # e.g., "DL 2055"
-    marketing_carrier: str  # Airline selling the ticket (e.g., "Delta")
-    operating_carrier: Optional[str] = None  # Actual operator if codeshare (e.g., "Air France")
+    flight_number: str = ""  # e.g., "DL 2055"
+    marketing_carrier: str = ""  # Airline selling the ticket (e.g., "Delta", "DL")
+    operating_carrier: Optional[str] = None  # Actual operator if codeshare (e.g., "Air France", "KL")
     
-    origin: str  # Airport code (e.g., "SEA")
+    origin: str = ""  # Airport code (e.g., "SEA")
     origin_terminal: Optional[str] = None  # Terminal (e.g., "A")
-    destination: str  # Airport code (e.g., "CDG")
+    destination: str = ""  # Airport code (e.g., "CDG")
     destination_terminal: Optional[str] = None
     
-    departure_time: str  # ISO format datetime
-    arrival_time: str  # ISO format datetime
-    duration_minutes: int
+    # Times - Optional since not all sources provide them
+    departure_time: Optional[str] = None  # ISO format datetime
+    arrival_time: Optional[str] = None  # ISO format datetime
+    duration_minutes: Optional[int] = None
     
     aircraft: Optional[str] = None  # e.g., "Boeing 777-300ER"
     cabin_class: str = "Economy"
@@ -255,6 +335,14 @@ class FlightLeg(BaseModel):
     # Codeshare info for display
     is_codeshare: bool = False
     codeshare_info: Optional[str] = None  # e.g., "Operated by Air France as AF 1234"
+    
+    @property
+    def computed_is_codeshare(self) -> bool:
+        """True if operating carrier differs from marketing carrier."""
+        return (
+            self.operating_carrier is not None and 
+            self.operating_carrier != self.marketing_carrier
+        )
 
 
 class FlightSegment(BaseModel):
@@ -400,6 +488,9 @@ class OptimizeSoloRequest(BaseModel):
     cabin_classes: Optional[list[str]] = None
     hotel_stars: Optional[list[int]] = None
     include_hotels: Optional[bool] = True
+    
+    # Optimization mode: oop (min cost), cpp (max value), balanced
+    optimization_mode: Literal["oop", "cpp", "balanced"] = "oop"
     
     # Policy settings
     risk_mode: RiskMode = "balanced"  # safe, balanced, aggressive

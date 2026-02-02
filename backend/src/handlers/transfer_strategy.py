@@ -1,7 +1,7 @@
 """
 Transfer Strategy Module
 
-Extended transfer graph supporting both airline and hotel programs.
+Extended transfer graph supporting airline programs ONLY.
 Provides utilities for computing optimal point transfers to minimize out-of-pocket costs.
 """
 
@@ -10,7 +10,7 @@ from dataclasses import dataclass, field
 
 
 # =============================================================================
-# EXTENDED TRANSFER GRAPH (Banks → Airlines + Hotels)
+# EXTENDED TRANSFER GRAPH (Banks → Airlines ONLY)
 # =============================================================================
 
 EXTENDED_TRANSFER_GRAPH: Dict[str, Dict[str, Dict[str, Any]]] = {
@@ -29,9 +29,7 @@ EXTENDED_TRANSFER_GRAPH: Dict[str, Dict[str, Dict[str, Any]]] = {
         "QF": {"ratio": 1.0, "type": "airline", "name": "Qantas Frequent Flyer"},
         "AV": {"ratio": 1.0, "type": "airline", "name": "Avianca LifeMiles"},
         "IB": {"ratio": 1.0, "type": "airline", "name": "Iberia Plus"},
-        # Hotels
-        "HH": {"ratio": 2.0, "type": "hotel", "name": "Hilton Honors"},  # 1 MR = 2 Hilton
-        "MAR": {"ratio": 1.0, "type": "hotel", "name": "Marriott Bonvoy"},
+        "AS": {"ratio": 1.0, "type": "airline", "name": "Alaska Mileage Plan"},
     },
     "chase": {
         # Airlines (Ultimate Rewards)
@@ -43,10 +41,7 @@ EXTENDED_TRANSFER_GRAPH: Dict[str, Dict[str, Dict[str, Any]]] = {
         "VS": {"ratio": 1.0, "type": "airline", "name": "Virgin Atlantic Flying Club"},
         "EI": {"ratio": 1.0, "type": "airline", "name": "Aer Lingus AerClub"},
         "WN": {"ratio": 1.0, "type": "airline", "name": "Southwest Rapid Rewards"},
-        # Hotels
-        "HYATT": {"ratio": 1.0, "type": "hotel", "name": "World of Hyatt"},
-        "MAR": {"ratio": 1.0, "type": "hotel", "name": "Marriott Bonvoy"},
-        "IHG": {"ratio": 1.0, "type": "hotel", "name": "IHG One Rewards"},
+        "AS": {"ratio": 1.0, "type": "airline", "name": "Alaska Mileage Plan"},
     },
     "citi": {
         # Airlines (ThankYou Points)
@@ -61,9 +56,7 @@ EXTENDED_TRANSFER_GRAPH: Dict[str, Dict[str, Dict[str, Any]]] = {
         "VS": {"ratio": 1.0, "type": "airline", "name": "Virgin Atlantic Flying Club"},
         "QF": {"ratio": 1.0, "type": "airline", "name": "Qantas Frequent Flyer"},
         "AC": {"ratio": 1.0, "type": "airline", "name": "Air Canada Aeroplan"},
-        # Hotels
-        "ACC": {"ratio": 2.0, "type": "hotel", "name": "Accor Live Limitless"},
-        "WYNDHAM": {"ratio": 1.0, "type": "hotel", "name": "Wyndham Rewards"},
+        "AA": {"ratio": 1.0, "type": "airline", "name": "American AAdvantage"},
     },
     "capitalone": {
         # Airlines
@@ -77,9 +70,6 @@ EXTENDED_TRANSFER_GRAPH: Dict[str, Dict[str, Dict[str, Any]]] = {
         "TK": {"ratio": 1.0, "type": "airline", "name": "Turkish Miles&Smiles"},
         "AV": {"ratio": 1.0, "type": "airline", "name": "Avianca LifeMiles"},
         "TAP": {"ratio": 1.0, "type": "airline", "name": "TAP Miles&Go"},
-        # Hotels
-        "ACC": {"ratio": 1.0, "type": "hotel", "name": "Accor Live Limitless"},
-        "WYNDHAM": {"ratio": 1.0, "type": "hotel", "name": "Wyndham Rewards"},
     },
     "bilt": {
         # Airlines
@@ -91,16 +81,13 @@ EXTENDED_TRANSFER_GRAPH: Dict[str, Dict[str, Dict[str, Any]]] = {
         "VS": {"ratio": 1.0, "type": "airline", "name": "Virgin Atlantic Flying Club"},
         "EI": {"ratio": 1.0, "type": "airline", "name": "Aer Lingus AerClub"},
         "AC": {"ratio": 1.0, "type": "airline", "name": "Air Canada Aeroplan"},
-        # Hotels
-        "HYATT": {"ratio": 1.0, "type": "hotel", "name": "World of Hyatt"},
-        "IHG": {"ratio": 1.0, "type": "hotel", "name": "IHG One Rewards"},
-        "MAR": {"ratio": 1.0, "type": "hotel", "name": "Marriott Bonvoy"},
+        "AS": {"ratio": 1.0, "type": "airline", "name": "Alaska Mileage Plan"},
     },
 }
 
 # Legacy transfer graph for backward compatibility (airlines only, simple ratio)
 DEFAULT_TRANSFER_GRAPH: Dict[str, Dict[str, float]] = {
-    bank: {prog: info["ratio"] for prog, info in programs.items() if info["type"] == "airline"}
+    bank: {prog: info["ratio"] for prog, info in programs.items()}
     for bank, programs in EXTENDED_TRANSFER_GRAPH.items()
 }
 
@@ -142,8 +129,8 @@ BANK_METADATA: Dict[str, Dict[str, Any]] = {
     },
 }
 
+# Program metadata - AIRLINES ONLY
 PROGRAM_METADATA: Dict[str, Dict[str, Any]] = {
-    # Airlines
     "UA": {"name": "United MileagePlus", "type": "airline", "booking_url": "https://www.united.com"},
     "AA": {"name": "American AAdvantage", "type": "airline", "booking_url": "https://www.aa.com"},
     "DL": {"name": "Delta SkyMiles", "type": "airline", "booking_url": "https://www.delta.com"},
@@ -170,13 +157,6 @@ PROGRAM_METADATA: Dict[str, Dict[str, Any]] = {
     "EI": {"name": "Aer Lingus AerClub", "type": "airline", "booking_url": "https://www.aerlingus.com"},
     "AY": {"name": "Finnair Plus", "type": "airline", "booking_url": "https://www.finnair.com"},
     "TAP": {"name": "TAP Miles&Go", "type": "airline", "booking_url": "https://www.flytap.com"},
-    # Hotels
-    "HH": {"name": "Hilton Honors", "type": "hotel", "booking_url": "https://www.hilton.com"},
-    "MAR": {"name": "Marriott Bonvoy", "type": "hotel", "booking_url": "https://www.marriott.com"},
-    "HYATT": {"name": "World of Hyatt", "type": "hotel", "booking_url": "https://www.hyatt.com"},
-    "IHG": {"name": "IHG One Rewards", "type": "hotel", "booking_url": "https://www.ihg.com"},
-    "ACC": {"name": "Accor Live Limitless", "type": "hotel", "booking_url": "https://all.accor.com"},
-    "WYNDHAM": {"name": "Wyndham Rewards", "type": "hotel", "booking_url": "https://www.wyndhamhotels.com"},
 }
 
 
@@ -186,12 +166,12 @@ PROGRAM_METADATA: Dict[str, Dict[str, Any]] = {
 
 @dataclass
 class TransferOption:
-    """Represents a possible transfer from a bank to a program."""
+    """Represents a possible transfer from a bank to an airline program."""
     from_bank: str
     from_bank_name: str
     to_program: str
     to_program_name: str
-    program_type: str  # "airline" or "hotel"
+    program_type: str  # Always "airline"
     ratio: float  # Points received per bank point
     transfer_time: str
     portal_url: str
@@ -206,7 +186,7 @@ class TransferInstruction:
     to_program: str
     to_program_name: str
     points_to_transfer: int
-    transfer_ratio: str  # e.g., "1:1" or "1:2"
+    transfer_ratio: str  # e.g., "1:1"
     resulting_points: int
     transfer_time: str
     portal_url: str
@@ -229,17 +209,17 @@ def get_bank_name(bank: str) -> str:
 
 
 def get_program_name(program: str) -> str:
-    """Get the display name for a program (airline or hotel)."""
+    """Get the display name for a program (airline)."""
     return PROGRAM_METADATA.get(program.upper(), {}).get("name", program)
 
 
 def get_program_type(program: str) -> Optional[str]:
-    """Get the type of a program ('airline' or 'hotel')."""
+    """Get the type of a program (always 'airline')."""
     return PROGRAM_METADATA.get(program.upper(), {}).get("type")
 
 
 def can_transfer(bank: str, program: str) -> bool:
-    """Check if a bank can transfer to a specific program."""
+    """Check if a bank can transfer to a specific airline program."""
     bank_lower = bank.lower()
     prog_upper = program.upper()
     return prog_upper in EXTENDED_TRANSFER_GRAPH.get(bank_lower, {})
@@ -253,22 +233,10 @@ def get_transfer_ratio(bank: str, program: str) -> float:
     return info.get("ratio", 0.0)
 
 
-def get_transfer_partners(bank: str, program_type: Optional[str] = None) -> List[str]:
-    """
-    Get all programs a bank can transfer to.
-    
-    Args:
-        bank: Bank code (e.g., "amex", "chase")
-        program_type: Optional filter for "airline" or "hotel"
-    
-    Returns:
-        List of program codes
-    """
+def get_transfer_partners(bank: str) -> List[str]:
+    """Get all airline programs a bank can transfer to."""
     bank_lower = bank.lower()
     programs = EXTENDED_TRANSFER_GRAPH.get(bank_lower, {})
-    
-    if program_type:
-        return [prog for prog, info in programs.items() if info.get("type") == program_type]
     return list(programs.keys())
 
 
@@ -302,7 +270,7 @@ def get_all_transfer_options(available_points: Dict[str, int]) -> List[TransferO
                 from_bank_name=bank_meta.get("name", prog),
                 to_program=target_prog,
                 to_program_name=info.get("name", target_prog),
-                program_type=info.get("type", "airline"),
+                program_type="airline",
                 ratio=info.get("ratio", 1.0),
                 transfer_time=bank_meta.get("default_transfer_time", "varies"),
                 portal_url=bank_meta.get("portal_url", ""),
@@ -323,7 +291,7 @@ def build_transfer_instruction(
     
     Args:
         bank: Source bank code
-        program: Target program code
+        program: Target airline program code
         points_to_transfer: Number of bank points to transfer
         for_item: Optional description of what this transfer is for
         
@@ -360,7 +328,7 @@ def build_transfer_instruction(
     ]
     
     if booking_url:
-        steps.append(f"8. Book at {booking_url} using your {prog_name} points")
+        steps.append(f"8. Book your flight at {booking_url} using your {prog_name} points")
     
     if for_item:
         steps.append(f"9. Use points for: {for_item}")
@@ -385,12 +353,12 @@ def compute_effective_balance(
     target_program: str,
 ) -> Tuple[int, List[Tuple[str, int, float]]]:
     """
-    Compute the effective points balance for a target program,
+    Compute the effective points balance for a target airline program,
     including transferable bank points.
     
     Args:
         available_points: User's point balances
-        target_program: Target program code
+        target_program: Target airline program code
         
     Returns:
         Tuple of (total_effective_points, [(source, points, ratio), ...])
@@ -428,12 +396,12 @@ def get_best_transfer_source(
     points_needed: int,
 ) -> Optional[Tuple[str, int, float]]:
     """
-    Find the best source to transfer points from for a target program.
+    Find the best source to transfer points from for a target airline program.
     Prioritizes: 1) Direct balance, 2) Best ratio, 3) Sufficient balance
     
     Args:
         available_points: User's point balances
-        target_program: Target program code
+        target_program: Target airline program code
         points_needed: Points required in target program
         
     Returns:
@@ -472,7 +440,7 @@ def get_best_transfer_source(
 
 
 # =============================================================================
-# CREDIT CARD RECOMMENDATIONS
+# CREDIT CARD RECOMMENDATIONS (FLIGHTS ONLY)
 # =============================================================================
 
 CREDIT_CARD_DETAILS: Dict[str, Dict[str, Any]] = {
@@ -482,24 +450,24 @@ CREDIT_CARD_DETAILS: Dict[str, Dict[str, Any]] = {
             {"name": "Chase Sapphire Preferred", "annual_fee": 95, "earn_rate": "2x travel/dining", "best_for": "Moderate travel"},
             {"name": "Chase Ink Business Preferred", "annual_fee": 95, "earn_rate": "3x travel/shipping", "best_for": "Business travel"},
         ],
-        "best_transfers": ["UA", "HYATT", "BA", "VS", "AF"],
+        "best_transfers": ["UA", "BA", "VS", "AF"],
         "sweet_spots": [
-            "Chase → Hyatt: Best hotel value (1:1, points worth ~2¢ each)",
             "Chase → United: No fuel surcharges, good availability",
             "Chase → Virgin Atlantic: Book Delta or Air France with low surcharges",
+            "Chase → British Airways: Short-haul flights on AA and partners",
         ],
     },
     "amex": {
         "cards": [
-            {"name": "Amex Platinum", "annual_fee": 695, "earn_rate": "5x flights/hotels", "best_for": "Premium travel"},
+            {"name": "Amex Platinum", "annual_fee": 695, "earn_rate": "5x flights", "best_for": "Premium travel"},
             {"name": "Amex Gold", "annual_fee": 250, "earn_rate": "4x dining/groceries", "best_for": "Dining rewards"},
-            {"name": "Amex Business Platinum", "annual_fee": 695, "earn_rate": "5x flights/hotels", "best_for": "Business premium"},
+            {"name": "Amex Business Platinum", "annual_fee": 695, "earn_rate": "5x flights", "best_for": "Business premium"},
         ],
-        "best_transfers": ["DL", "NH", "HH", "VS", "SQ"],
+        "best_transfers": ["DL", "NH", "VS", "SQ", "AV"],
         "sweet_spots": [
             "Amex → ANA: Excellent for Japan business class (75-95K RT)",
-            "Amex → Hilton: 1:2 ratio doubles your points!",
             "Amex → Virgin Atlantic: Book Delta domestically or Air France to Europe",
+            "Amex → Avianca LifeMiles: Great Star Alliance redemptions, no fuel surcharges",
         ],
     },
     "citi": {
@@ -530,10 +498,9 @@ CREDIT_CARD_DETAILS: Dict[str, Dict[str, Any]] = {
         "cards": [
             {"name": "Bilt Mastercard", "annual_fee": 0, "earn_rate": "1x rent (no fee)", "best_for": "Rent rewards"},
         ],
-        "best_transfers": ["UA", "AA", "HYATT", "IHG", "VS"],
+        "best_transfers": ["UA", "AA", "VS"],
         "sweet_spots": [
             "Bilt → United/AA: Both domestic giants at 1:1",
-            "Bilt → Hyatt: Best hotel value, same as Chase",
             "Bilt → Virgin Atlantic: Sweet spots to Europe/Asia",
         ],
     },
@@ -549,7 +516,7 @@ def get_credit_card_recommendations(
     
     Args:
         available_points: User's current point balances
-        target_programs: Programs user wants to use
+        target_programs: Airline programs user wants to use
         
     Returns:
         List of card recommendations with reasons
@@ -637,16 +604,14 @@ def get_transfer_timing_advice(
 
 def generate_complete_transfer_plan(
     flight_awards: List[Dict[str, Any]],
-    hotel_awards: List[Dict[str, Any]],
     available_points: Dict[str, int],
     days_until_travel: int = 14,
 ) -> Dict[str, Any]:
     """
-    Generate a complete transfer plan with step-by-step instructions.
+    Generate a complete transfer plan with step-by-step instructions for FLIGHTS ONLY.
     
     Args:
         flight_awards: List of flights to book with points
-        hotel_awards: List of hotels to book with points
         available_points: User's point balances
         days_until_travel: Days until first flight
         
@@ -661,9 +626,7 @@ def generate_complete_transfer_plan(
     # Consolidate transfer needs by (bank, program)
     transfer_needs: Dict[Tuple[str, str], int] = {}
     
-    all_awards = flight_awards + hotel_awards
-    
-    for award in all_awards:
+    for award in flight_awards:
         program = award.get("program", "").upper()
         points_needed = award.get("points", 0)
         surcharge = award.get("surcharge", 0)
@@ -710,17 +673,6 @@ def generate_complete_transfer_plan(
             "booking_url": PROGRAM_METADATA.get(award.get("program", "").upper(), {}).get("booking_url", ""),
         })
     
-    for i, award in enumerate(hotel_awards):
-        booking_steps.append({
-            "step": step_num + len(flight_awards) + i,
-            "type": "hotel",
-            "description": award.get("description", "Hotel"),
-            "points": award.get("points", 0),
-            "surcharge": award.get("surcharge", 0),
-            "program": award.get("program", ""),
-            "booking_url": PROGRAM_METADATA.get(award.get("program", "").upper(), {}).get("booking_url", ""),
-        })
-    
     return {
         "transfer_instructions": transfer_instructions,
         "booking_steps": booking_steps,
@@ -728,6 +680,6 @@ def generate_complete_transfer_plan(
         "warnings": warnings,
         "credit_card_tips": get_credit_card_recommendations(
             available_points, 
-            list(set([a.get("program", "").upper() for a in all_awards]))
+            list(set([a.get("program", "").upper() for a in flight_awards]))
         ),
     }

@@ -456,7 +456,8 @@ export default function TripDetails() {
                                                 const isHotel = step.isHotel;
                                                 const isCodeshare = !isHotel && (step.isCodeshare || tip?.is_codeshare || false);
                                                 const operatingCarrier = !isHotel ? (step.operatingCarrier || tip?.operating_carrier_name) : undefined;
-                                                const partnerName = tip?.booking_airline_name || step.partner;
+                                                const bookingAirline = tip?.booking_airline_name || step.partner;
+                                                const partnerName = bookingAirline;
                                                 
                                                 // Flight-specific: route segment
                                                 const flightSegment = !isHotel ? (step.flightSegment || tip?.best_for) : undefined;

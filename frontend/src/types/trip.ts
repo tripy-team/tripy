@@ -1,5 +1,5 @@
 /**
- * Trip Types for Solo Booking Flow
+ * Trip Types for Solo Booking Flow (Flights Only)
  * 
  * These types mirror the backend schemas and are used at the API boundary.
  * Frontend uses camelCase; serializers handle conversion to/from snake_case.
@@ -9,7 +9,6 @@ export type TripType = 'one_way' | 'round_trip';
 export type DateMode = 'fixed' | 'flexible';
 export type OptimizationMode = 'oop' | 'cpp' | 'balanced';
 export type FlightClass = 'basic_economy' | 'economy' | 'premium' | 'business' | 'first';
-export type HotelClass = '3' | '4' | '5';
 export type TimePreference = 'any' | 'morning' | 'afternoon' | 'evening' | 'night';
 export type TripStatus = 'draft' | 'optimized' | 'selected' | 'instructions_unlocked' | 'completed' | 'cancelled';
 
@@ -32,14 +31,12 @@ export interface CreateTripRequest {
   // Only used if dateMode === "flexible"
   durationDays?: number;
   
-  includeHotels?: boolean;
   maxBudget?: number;
   
   adults?: number;
   children?: number;
   bags?: number;
   flightClass?: FlightClass;
-  hotelClass?: HotelClass;
   optimizationMode?: OptimizationMode;
   departureTimePreference?: TimePreference;
   arrivalTimePreference?: TimePreference;
@@ -59,13 +56,11 @@ export interface Trip {
   startDate?: string;
   endDate?: string;
   durationDays?: number;
-  includeHotels: boolean;
   maxBudget?: number;
   adults: number;
   children: number;
   bags: number;
   flightClass: FlightClass;
-  hotelClass: HotelClass;
   optimizationMode: OptimizationMode;
   departureTimePreference: TimePreference;
   arrivalTimePreference: TimePreference;

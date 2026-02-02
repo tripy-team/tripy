@@ -243,7 +243,9 @@ export default function SoloResults() {
                 });
 
                 // Check for AI route suggestions (small/remote cities with no flight data)
-                const aiItem = response.items?.find((i: ItineraryItem & { type?: string }) => i.type === 'ai_route_suggestions');
+                // Note: tripsAPI.get returns Trip, so we need to cast for potential items
+                const responseWithItems = response as Trip & { items?: (ItineraryItem & { type?: string })[] } | null;
+                const aiItem = responseWithItems?.items?.find((i) => i.type === 'ai_route_suggestions');
                 if (aiItem && (aiItem as { suggestions?: AIRouteSuggestion[] }).suggestions?.length) {
                     setAiSuggestions((aiItem as { suggestions: AIRouteSuggestion[] }).suggestions);
                     setIsAiSuggested(true);
@@ -253,26 +255,27 @@ export default function SoloResults() {
                 }
 
                 // Helper: extract OOP/relaxed from a response (get returns in items; generate can have top-level or in items)
-                const pickOop = (r: { items?: unknown[]; out_of_pocket?: OutOfPocketData }) =>
-                    (r.items?.find((i: unknown) => (i as { type?: string })?.type === 'out_of_pocket') as OutOfPocketData | undefined) || r.out_of_pocket || null;
-                const pickRelaxed = (r: { items?: unknown[]; relaxed_message?: string }) => {
+                const pickOop = (r: { items?: unknown[]; out_of_pocket?: OutOfPocketData } | null) =>
+                    r ? ((r.items?.find((i: unknown) => (i as { type?: string })?.type === 'out_of_pocket') as OutOfPocketData | undefined) || r.out_of_pocket || null) : null;
+                const pickRelaxed = (r: { items?: unknown[]; relaxed_message?: string } | null) => {
+                    if (!r) return null;
                     const it = r.items?.find((i: unknown) => (i as { type?: string })?.type === 'itinerary_relaxed_info') as { message?: string } | undefined;
                     return (it && typeof it.message === 'string' ? it.message : null) || r.relaxed_message || null;
                 };
 
                 // Out-of-pocket (simple A->B round-trip: best cash vs points+surcharge)
-                setOutOfPocket(pickOop(response));
+                setOutOfPocket(pickOop(responseWithItems));
                 // Relaxed-constraints banner (when no feasible solution; we show a similar route)
-                setRelaxedMessage(pickRelaxed(response));
+                setRelaxedMessage(pickRelaxed(responseWithItems));
                 
                 // Extract warnings from response items
-                const budgetWarn = response.items?.find((i: ItineraryItem & { type?: string }) => i.type === 'budget_warning') as { message?: string; user_budget?: number; recommended_budget?: number } | undefined;
+                const budgetWarn = responseWithItems?.items?.find((i) => i.type === 'budget_warning') as { message?: string; user_budget?: number; recommended_budget?: number } | undefined;
                 setBudgetWarning(budgetWarn || null);
                 
-                const optWarn = response.items?.find((i: ItineraryItem & { type?: string }) => i.type === 'optimization_warning') as { message?: string } | undefined;
+                const optWarn = responseWithItems?.items?.find((i) => i.type === 'optimization_warning') as { message?: string } | undefined;
                 setOptimizationWarning(optWarn?.message || null);
                 
-                const fallWarn = response.items?.find((i: ItineraryItem & { type?: string }) => i.type === 'fallback_warning') as { message?: string } | undefined;
+                const fallWarn = responseWithItems?.items?.find((i) => i.type === 'fallback_warning') as { message?: string } | undefined;
                 setFallbackWarning(fallWarn?.message || null);
 
                 // Fetch destinations to map UUIDs to names
@@ -284,7 +287,7 @@ export default function SoloResults() {
 
                 // Transform API response (exclude non-itinerary types: ai_route_suggestions, itinerary_smart_tips, out_of_pocket, out_of_pocket_hotels, payments, totals, warnings)
                 // Include 'path' (optimized ILP routes) and 'itinerary' (simple generator); path has route/path with airport codes
-                const regularItems = (response.items || []).filter(
+                const regularItems = (responseWithItems?.items || []).filter(
                     (i: ItineraryItem & { type?: string }) => {
                         if (['ai_route_suggestions', 'itinerary_smart_tips', 'itinerary_relaxed_info', 'out_of_pocket', 'out_of_pocket_hotels', 'payments', 'totals', 'budget_warning', 'optimization_warning', 'fallback_warning'].includes(i.type || '')) return false;
                         const route = i.route || i.cities || (i as { path?: unknown }).path;

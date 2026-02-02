@@ -39,9 +39,9 @@ from pulp import (
 
 from .trip_spec import TripPlanSpec, StaySegment, OrderedLeg
 from .models_v3 import (
-    FlightItineraryEdge, HotelOption, TransferPath, AwardOption, RoomType,
+    FlightItineraryEdge, TransferPath, AwardOption,
     FundingSource, SlackConfig, SolverConfig, BalancedModeConfig, PruningConfig,
-    OptimizationStatus, Solution, PaymentChoice, OptimizationResult,
+    ComfortConfig, OptimizationStatus, Solution, PaymentChoice, OptimizationResult,
 )
 from .validators import (
     filter_single_ticket_only, 
@@ -49,8 +49,8 @@ from .validators import (
     pre_check_feasibility,
     validate_connection_warnings,
 )
-from .pruning import prune_flights, prune_hotels, prune_award_options
-from .precompute import precompute_soft_values, compute_flight_K, compute_hotel_K
+from .pruning import prune_flights, prune_award_options
+from .precompute import precompute_soft_values, compute_flight_K
 from .metrics import OptimizationMetrics, create_metrics
 
 logger = logging.getLogger(__name__)
@@ -144,21 +144,14 @@ class Mode(Enum):
 
 class SolverV3:
     """
-    V3 Optimization Solver.
+    V3 Optimization Solver (Flights Only).
     
     Variable naming convention (all IDs passed through slug()):
     - x_f_{leg}_{edge}                              : flight selection
-    - x_h_{seg}_{hotel}                             : hotel selection
-    - n_r_{seg}_{hotel}_{room}                      : room count
     - z_cf_{leg}_{edge}_{payer}                     : flight cash payment
     - y_pf_{leg}_{edge}_{opt}_{payer}_{src}         : flight points payment
-    - z_ch_{seg}_{hotel}_{payer}                    : hotel cash payment
-    - y_ph_{seg}_{hotel}_{room}_{payer}_{src}       : hotel points payment
-    - u_points_{seg}_{hotel}                        : hotel paid with points (binary)
     - t_b_{payer}_{bank}_{prog}                     : transfer blocks
-    - u_tr_{payer}_{bank}_{prog}                    : transfer used (binary) - NEW
-    - w_hp_{seg}_{hotel}_{room}_{payer}_{src}       : linearized hotel points rooms
-    - w_hc_{seg}_{hotel}_{room}                     : linearized hotel cash rooms
+    - u_tr_{payer}_{bank}_{prog}                    : transfer used (binary)
     """
     
     def __init__(
@@ -168,14 +161,18 @@ class SolverV3:
         slack_config: Optional[SlackConfig] = None,
         balanced_config: Optional[BalancedModeConfig] = None,
         pruning_config: Optional[PruningConfig] = None,
+        comfort_config: Optional[ComfortConfig] = None,
         determinism_mode: bool = False,
+        is_international: bool = False,  # Route type affects penalties
     ):
         self.mode = mode
         self.solver_config = solver_config or SolverConfig()
         self.slack_config = slack_config or SlackConfig()
         self.balanced_config = balanced_config or BalancedModeConfig()
         self.pruning_config = pruning_config or PruningConfig()
+        self.comfort_config = comfort_config or ComfortConfig()
         self.determinism_mode = determinism_mode
+        self.is_international = is_international
         
         self.model: Optional[LpProblem] = None
         self.metrics = create_metrics()
@@ -183,12 +180,10 @@ class SolverV3:
         # Data
         self.spec: Optional[TripPlanSpec] = None
         self.flights: List[FlightItineraryEdge] = []
-        self.hotels: List[HotelOption] = []
         self.transfers: List[TransferPath] = []
         
         # Indices
         self.flights_by_leg: Dict[int, List[FlightItineraryEdge]] = {}
-        self.hotels_by_seg: Dict[int, List[HotelOption]] = {}
         
         # Funding sources per payer (NO POOLING)
         self.funding_sources: Dict[str, List[FundingSource]] = {}
@@ -201,24 +196,20 @@ class SolverV3:
         
         # Precomputed key indices for faster lookup
         self.y_pf_keys_by_flight: Dict[Tuple[int, str], List] = {}
-        self.y_ph_keys_by_hotel: Dict[Tuple[int, str], List] = {}
         
         # Big-M constants (centralized)
-        self.M_rooms: int = 1
         self.M_blocks: Dict[Tuple[str, str, str], int] = {}
         
         # Normalization constants
         self.K_flight: float = 100.0
-        self.K_hotel: float = 100.0
     
     def solve(
         self,
         spec: TripPlanSpec,
         flights: List[FlightItineraryEdge],
-        hotels: List[HotelOption],
         transfers: List[TransferPath],
     ) -> OptimizationResult:
-        """Main solve method."""
+        """Main solve method (flights only)."""
         
         start_time = time.time()
         all_warnings = []
@@ -226,12 +217,8 @@ class SolverV3:
         self.spec = spec
         self.transfers = transfers
         
-        # Centralized Big-M
-        self.M_rooms = len(spec.travelers)
-        
         # Record input counts
         self.metrics.flights_input = len(flights)
-        self.metrics.hotels_input = len(hotels)
         self.metrics.transfers_input = len(transfers)
         
         # ═══════════════════════════════════════════════════════════════════
@@ -297,13 +284,13 @@ class SolverV3:
         # STEP 5: Build indices and pre-check feasibility
         # ═══════════════════════════════════════════════════════════════════
         
-        self._build_indices(flights, hotels)
+        self._build_indices(flights)
         
         # Validate ID uniqueness (fail early)
-        self._validate_id_uniqueness(flights, hotels)
+        self._validate_id_uniqueness(flights)
         
         is_feasible, feasibility_issues = pre_check_feasibility(
-            spec, self.flights_by_leg, self.hotels_by_seg
+            spec, self.flights_by_leg, {}  # No hotels
         )
         
         if not is_feasible:
@@ -322,28 +309,23 @@ class SolverV3:
         # ═══════════════════════════════════════════════════════════════════
         
         flights = prune_flights(flights, self.pruning_config)
-        hotels = prune_hotels(hotels, self.pruning_config)
-        prune_award_options(flights, hotels, self.pruning_config)
+        prune_award_options(flights, [], self.pruning_config)
         
         self.flights = flights
-        self.hotels = hotels
         
         # Rebuild indices after pruning
-        self._build_indices(flights, hotels)
+        self._build_indices(flights)
         
         self.metrics.flights_after_prune = len(flights)
-        self.metrics.hotels_after_prune = len(hotels)
         
         for leg_id, leg_flights in self.flights_by_leg.items():
             self.metrics.flights_per_leg[leg_id] = len(leg_flights)
-        for seg_id, seg_hotels in self.hotels_by_seg.items():
-            self.metrics.hotels_per_segment[seg_id] = len(seg_hotels)
         
         # ═══════════════════════════════════════════════════════════════════
         # STEP 7: Precompute soft values
         # ═══════════════════════════════════════════════════════════════════
         
-        precompute_soft_values(flights, hotels, self.balanced_config)
+        precompute_soft_values(flights, [], self.balanced_config)
         
         # Count award options and availability
         for f in flights:
@@ -356,7 +338,6 @@ class SolverV3:
         
         # Compute normalization constants
         self.K_flight = compute_flight_K(flights, self.balanced_config)
-        self.K_hotel = compute_hotel_K(hotels, self.balanced_config)
         
         # ═══════════════════════════════════════════════════════════════════
         # STEP 8: Build funding sources (NO POOLING)
@@ -399,7 +380,7 @@ class SolverV3:
         
         return result
     
-    def _validate_id_uniqueness(self, flights: List[FlightItineraryEdge], hotels: List[HotelOption]):
+    def _validate_id_uniqueness(self, flights: List[FlightItineraryEdge]):
         """Validate that IDs are unique where required. Fail early if not."""
         
         # Edge IDs should be unique
@@ -407,34 +388,18 @@ class SolverV3:
         if len(edge_ids) != len(set(edge_ids)):
             raise ValueError("Duplicate flight edge_ids detected")
         
-        # Hotel IDs should be unique per segment
-        for seg_id, seg_hotels in self.hotels_by_seg.items():
-            hotel_ids = [h.hotel_id for h in seg_hotels]
-            if len(hotel_ids) != len(set(hotel_ids)):
-                raise ValueError(f"Duplicate hotel_ids in segment {seg_id}")
-        
         # Option IDs should be unique within each flight
         for f in flights:
             opt_ids = [o.option_id for o in f.award_options]
             if len(opt_ids) != len(set(opt_ids)):
                 raise ValueError(f"Duplicate option_ids in flight {f.edge_id}")
-        
-        # Room type IDs should be unique within each hotel
-        for h in hotels:
-            rt_ids = [rt.room_type_id for rt in h.room_types]
-            if len(rt_ids) != len(set(rt_ids)):
-                raise ValueError(f"Duplicate room_type_ids in hotel {h.hotel_id}")
     
-    def _build_indices(self, flights: List[FlightItineraryEdge], hotels: List[HotelOption]):
+    def _build_indices(self, flights: List[FlightItineraryEdge]):
         """Build lookup indices."""
         
         self.flights_by_leg = defaultdict(list)
         for f in flights:
             self.flights_by_leg[f.leg_id].append(f)
-        
-        self.hotels_by_seg = defaultdict(list)
-        for h in hotels:
-            self.hotels_by_seg[h.segment_id].append(h)
     
     def _build_funding_sources(self):
         """
@@ -473,9 +438,7 @@ class SolverV3:
     
     def _build_model(self):
         """
-        Build MILP with correct variable indexing.
-        
-        CRITICAL: Build order matters for linearization variables.
+        Build MILP with correct variable indexing (flights only).
         """
         
         self.model = LpProblem("TripOptV3", LpMinimize)
@@ -485,7 +448,6 @@ class SolverV3:
         # ═══════════════════════════════════════════════════════════════════
         
         self._build_flight_vars()
-        self._build_hotel_vars()
         self._build_transfer_vars()
         
         # ═══════════════════════════════════════════════════════════════════
@@ -494,30 +456,22 @@ class SolverV3:
         
         self._add_selection_constraints()
         self._add_payment_constraints()
-        self._add_room_constraints()  # Creates u_points vars
         
         # ═══════════════════════════════════════════════════════════════════
-        # STEP 3: Add linearization BEFORE transfer/balance constraints
-        # ═══════════════════════════════════════════════════════════════════
-        
-        self._add_hotel_points_linearization()  # Creates w_hp vars
-        self._add_hotel_cash_linearization()    # Creates w_hc vars
-        
-        # ═══════════════════════════════════════════════════════════════════
-        # STEP 4: Add transfer and balance constraints (use w_hp)
+        # STEP 3: Add transfer and balance constraints
         # ═══════════════════════════════════════════════════════════════════
         
         self._add_transfer_constraints()
         self._add_balance_constraints()
         
         # ═══════════════════════════════════════════════════════════════════
-        # STEP 5: Add date feasibility constraints (REAL enforcement)
+        # STEP 4: Add date feasibility constraints (REAL enforcement)
         # ═══════════════════════════════════════════════════════════════════
         
         self._add_date_feasibility_constraints()
         
         # ═══════════════════════════════════════════════════════════════════
-        # STEP 6: Build key indices for fast lookup
+        # STEP 5: Build key indices for fast lookup
         # ═══════════════════════════════════════════════════════════════════
         
         self._build_key_indices()
@@ -529,11 +483,6 @@ class SolverV3:
         for key in self.vars.get("y_pf", {}).keys():
             leg, edge = key[0], key[1]
             self.y_pf_keys_by_flight[(leg, edge)].append(key)
-        
-        self.y_ph_keys_by_hotel = defaultdict(list)
-        for key in self.vars.get("y_ph", {}).keys():
-            seg, hid = key[0], key[1]
-            self.y_ph_keys_by_hotel[(seg, hid)].append(key)
     
     def _build_flight_vars(self):
         """Build flight decision variables."""
@@ -569,56 +518,6 @@ class SolverV3:
                         key = (f.leg_id, f.edge_id, opt.option_id, payer, src.source_id)
                         self.vars["y_pf"][key] = LpVariable(
                             f"y_pf_{leg}_{edge}_{opt_s}_{p}_{src_s}",
-                            cat=LpBinary
-                        )
-    
-    def _build_hotel_vars(self):
-        """Build hotel decision variables."""
-        
-        self.vars["x_h"] = {}     # Hotel selection
-        self.vars["n_r"] = {}     # Room count
-        self.vars["z_ch"] = {}    # Cash payment
-        self.vars["y_ph"] = {}    # Points payment (per room type)
-        
-        for h in self.hotels:
-            seg = h.segment_id
-            hid = slug(h.hotel_id)
-            
-            # Selection
-            self.vars["x_h"][(h.segment_id, h.hotel_id)] = LpVariable(
-                f"x_h_{seg}_{hid}", cat=LpBinary
-            )
-            
-            # Room counts (with tight upper bound)
-            for rt in h.room_types:
-                rt_s = slug(rt.room_type_id)
-                self.vars["n_r"][(h.segment_id, h.hotel_id, rt.room_type_id)] = LpVariable(
-                    f"n_r_{seg}_{hid}_{rt_s}",
-                    lowBound=0,
-                    upBound=self.M_rooms,  # Tight Big-M
-                    cat=LpInteger
-                )
-            
-            # Cash payment
-            for payer in self.spec.all_traveler_ids:
-                p = slug(payer)
-                self.vars["z_ch"][(h.segment_id, h.hotel_id, payer)] = LpVariable(
-                    f"z_ch_{seg}_{hid}_{p}", cat=LpBinary
-                )
-            
-            # Points payment per award-eligible room type
-            for rt in h.room_types:
-                if not rt.has_award_pricing:
-                    continue
-                
-                rt_s = slug(rt.room_type_id)
-                for payer in self.spec.all_traveler_ids:
-                    p = slug(payer)
-                    for src in self._get_sources_for_program(payer, rt.award_program):
-                        src_s = slug(src.source_id)
-                        key = (h.segment_id, h.hotel_id, rt.room_type_id, payer, src.source_id)
-                        self.vars["y_ph"][key] = LpVariable(
-                            f"y_ph_{seg}_{hid}_{rt_s}_{p}_{src_s}",
                             cat=LpBinary
                         )
     
@@ -663,7 +562,7 @@ class SolverV3:
                 )
     
     def _add_selection_constraints(self):
-        """One flight per leg, one hotel per segment."""
+        """One flight per leg."""
         
         for leg in self.spec.legs:
             leg_flights = self.flights_by_leg.get(leg.leg_id, [])
@@ -672,14 +571,6 @@ class SolverV3:
                     self.vars["x_f"][(leg.leg_id, f.edge_id)]
                     for f in leg_flights
                 ) == 1, f"one_flight_{leg.leg_id}"
-        
-        for seg in self.spec.stay_segments:
-            seg_hotels = self.hotels_by_seg.get(seg.segment_id, [])
-            if seg_hotels:
-                self.model += lpSum(
-                    self.vars["x_h"][(seg.segment_id, h.hotel_id)]
-                    for h in seg_hotels
-                ) == 1, f"one_hotel_{seg.segment_id}"
     
     def _add_payment_constraints(self):
         """Payment constraints for flights."""
@@ -705,163 +596,6 @@ class SolverV3:
             self.model += (
                 lpSum(cash_vars) + lpSum(points_vars) == x
             ), f"one_pay_f_{leg}_{slug(edge)}"
-    
-    def _add_room_constraints(self):
-        """
-        Room allocation constraints.
-        
-        CRITICAL: If paying with points, ALL rooms must be the chosen award room type.
-        """
-        
-        self.vars["u_points"] = {}
-        
-        for h in self.hotels:
-            seg, hid = h.segment_id, h.hotel_id
-            hid_s = slug(hid)
-            x = self.vars["x_h"][(seg, hid)]
-            
-            # ═══════════════════════════════════════════════════════════════
-            # Capacity constraint
-            # ═══════════════════════════════════════════════════════════════
-            
-            capacity = lpSum(
-                self.vars["n_r"][(seg, hid, rt.room_type_id)] * rt.capacity
-                for rt in h.room_types
-            )
-            self.model += capacity >= self.M_rooms * x, f"room_cap_{seg}_{hid_s}"
-            
-            # Rooms only if selected
-            for rt in h.room_types:
-                n = self.vars["n_r"][(seg, hid, rt.room_type_id)]
-                self.model += n <= self.M_rooms * x, f"room_sel_{seg}_{hid_s}_{slug(rt.room_type_id)}"
-            
-            # ═══════════════════════════════════════════════════════════════
-            # Payment mode: Cash XOR Points
-            # ═══════════════════════════════════════════════════════════════
-            
-            z_any_cash = lpSum(
-                self.vars["z_ch"][(seg, hid, p)]
-                for p in self.spec.all_traveler_ids
-            )
-            
-            u = LpVariable(f"u_points_{seg}_{hid_s}", cat=LpBinary)
-            self.vars["u_points"][(seg, hid)] = u
-            
-            self.model += z_any_cash + u == x, f"cash_xor_points_{seg}_{hid_s}"
-            
-            # ═══════════════════════════════════════════════════════════════
-            # Points payment: exactly one (room_type, payer, src) if paying points
-            # ═══════════════════════════════════════════════════════════════
-            
-            all_y_ph = [
-                self.vars["y_ph"][k]
-                for k in self.vars["y_ph"]
-                if k[0] == seg and k[1] == hid
-            ]
-            
-            if all_y_ph:
-                self.model += lpSum(all_y_ph) == u, f"one_award_choice_{seg}_{hid_s}"
-            else:
-                # No award options - must pay cash
-                self.model += u == 0, f"no_award_{seg}_{hid_s}"
-            
-            # ═══════════════════════════════════════════════════════════════
-            # Room type exclusivity: if points, ALL rooms must be chosen award type
-            # ═══════════════════════════════════════════════════════════════
-            
-            award_room_types = [rt for rt in h.room_types if rt.has_award_pricing]
-            non_award_room_types = [rt for rt in h.room_types if not rt.has_award_pricing]
-            
-            # If paying points, non-award rooms must be 0
-            for rt in non_award_room_types:
-                n = self.vars["n_r"][(seg, hid, rt.room_type_id)]
-                self.model += n <= self.M_rooms * (1 - u), f"no_nonaward_{seg}_{hid_s}_{slug(rt.room_type_id)}"
-            
-            # For award rooms: if not chosen, rooms must be 0 when paying points
-            for rt in award_room_types:
-                n = self.vars["n_r"][(seg, hid, rt.room_type_id)]
-                
-                y_for_rt = [
-                    self.vars["y_ph"][k]
-                    for k in self.vars["y_ph"]
-                    if k[0] == seg and k[1] == hid and k[2] == rt.room_type_id
-                ]
-                
-                if y_for_rt:
-                    sum_y = lpSum(y_for_rt)
-                    self.model += n <= self.M_rooms * sum_y + self.M_rooms * (1 - u), \
-                        f"room_type_chosen_{seg}_{hid_s}_{slug(rt.room_type_id)}"
-    
-    def _add_hotel_points_linearization(self):
-        """Create w_hp = n_rooms when paying with points for that room type."""
-        
-        self.vars["w_hp"] = {}
-        
-        for h in self.hotels:
-            seg, hid = h.segment_id, h.hotel_id
-            hid_s = slug(hid)
-            
-            for rt in h.room_types:
-                if not rt.has_award_pricing:
-                    continue
-                
-                rt_s = slug(rt.room_type_id)
-                n = self.vars["n_r"][(seg, hid, rt.room_type_id)]
-                
-                for payer in self.spec.all_traveler_ids:
-                    p = slug(payer)
-                    for src in self._get_sources_for_program(payer, rt.award_program):
-                        src_s = slug(src.source_id)
-                        key = (seg, hid, rt.room_type_id, payer, src.source_id)
-                        
-                        if key not in self.vars["y_ph"]:
-                            continue
-                        
-                        y = self.vars["y_ph"][key]
-                        
-                        w = LpVariable(
-                            f"w_hp_{seg}_{hid_s}_{rt_s}_{p}_{src_s}",
-                            lowBound=0,
-                            upBound=self.M_rooms,
-                            cat=LpInteger
-                        )
-                        self.vars["w_hp"][key] = w
-                        
-                        # Linearization: w = n * y
-                        self.model += w <= n, f"w_hp_ub1_{seg}_{hid_s}_{rt_s}_{p}"
-                        self.model += w <= self.M_rooms * y, f"w_hp_ub2_{seg}_{hid_s}_{rt_s}_{p}"
-                        self.model += w >= n - self.M_rooms * (1 - y), f"w_hp_lb_{seg}_{hid_s}_{rt_s}_{p}"
-    
-    def _add_hotel_cash_linearization(self):
-        """Create w_hc = n_rooms when paying cash."""
-        
-        self.vars["w_hc"] = {}
-        
-        for h in self.hotels:
-            seg, hid = h.segment_id, h.hotel_id
-            hid_s = slug(hid)
-            
-            z_any = lpSum(
-                self.vars["z_ch"][(seg, hid, p)]
-                for p in self.spec.all_traveler_ids
-            )
-            
-            for rt in h.room_types:
-                rt_s = slug(rt.room_type_id)
-                n = self.vars["n_r"][(seg, hid, rt.room_type_id)]
-                
-                w = LpVariable(
-                    f"w_hc_{seg}_{hid_s}_{rt_s}",
-                    lowBound=0,
-                    upBound=self.M_rooms,
-                    cat=LpInteger
-                )
-                self.vars["w_hc"][(seg, hid, rt.room_type_id)] = w
-                
-                # Linearization: w = n * z_any
-                self.model += w <= n, f"w_hc_ub1_{seg}_{hid_s}_{rt_s}"
-                self.model += w <= self.M_rooms * z_any, f"w_hc_ub2_{seg}_{hid_s}_{rt_s}"
-                self.model += w >= n - self.M_rooms * (1 - z_any), f"w_hc_lb_{seg}_{hid_s}_{rt_s}"
     
     def _add_transfer_constraints(self):
         """Transfer constraints with integer delivery and 'used' binary."""
@@ -890,7 +624,7 @@ class SolverV3:
                 
                 src_id = f"transfer_{payer}_{tp.from_bank}_{prog}"
                 
-                # Count awards that use this source
+                # Count flight awards that use this source
                 uses_this_source = []
                 
                 for f in self.flights:
@@ -899,17 +633,6 @@ class SolverV3:
                             y_key = (f.leg_id, f.edge_id, opt.option_id, payer, src_id)
                             if y_key in self.vars["y_pf"]:
                                 uses_this_source.append(self.vars["y_pf"][y_key])
-                
-                for h in self.hotels:
-                    for rt in h.room_types:
-                        if rt.award_program == prog and rt.has_award_pricing:
-                            w_key = (h.segment_id, h.hotel_id, rt.room_type_id, payer, src_id)
-                            if w_key in self.vars.get("w_hp", {}):
-                                # Use w_hp instead of y_ph for hotels (accounts for room count)
-                                # Actually we want u_tr linked to selection, not room count
-                                y_key = (h.segment_id, h.hotel_id, rt.room_type_id, payer, src_id)
-                                if y_key in self.vars["y_ph"]:
-                                    uses_this_source.append(self.vars["y_ph"][y_key])
                 
                 if uses_this_source:
                     # u_tr can only be 1 if at least one award uses this source
@@ -934,7 +657,7 @@ class SolverV3:
         prog = tp.to_program
         src_id = f"transfer_{payer}_{tp.from_bank}_{prog}"
         
-        # Flight miles
+        # Flight miles only
         flight_miles = lpSum(
             self.vars["y_pf"][(f.leg_id, f.edge_id, opt.option_id, payer, src_id)] * opt.miles_required
             for f in self.flights
@@ -943,19 +666,7 @@ class SolverV3:
             if (f.leg_id, f.edge_id, opt.option_id, payer, src_id) in self.vars["y_pf"]
         )
         
-        # Hotel points (from linearized w_hp)
-        hotel_points = lpSum(
-            self.vars["w_hp"][key] * rt.points_per_night * seg.nights
-            for h in self.hotels
-            for seg in [next((s for s in self.spec.stay_segments if s.segment_id == h.segment_id), None)]
-            if seg is not None
-            for rt in h.room_types
-            if rt.award_program == prog and rt.has_award_pricing
-            for key in [(h.segment_id, h.hotel_id, rt.room_type_id, payer, src_id)]
-            if key in self.vars.get("w_hp", {})
-        )
-        
-        return flight_miles + hotel_points
+        return flight_miles
     
     def _add_balance_constraints(self):
         """Balance constraints."""
@@ -979,19 +690,7 @@ class SolverV3:
                     if (f.leg_id, f.edge_id, opt.option_id, payer, src_id) in self.vars["y_pf"]
                 )
                 
-                # Hotel points from native
-                native_hotel = lpSum(
-                    self.vars["w_hp"][key] * rt.points_per_night * seg.nights
-                    for h in self.hotels
-                    for seg in [next((s for s in self.spec.stay_segments if s.segment_id == h.segment_id), None)]
-                    if seg is not None
-                    for rt in h.room_types
-                    if rt.award_program == prog and rt.has_award_pricing
-                    for key in [(h.segment_id, h.hotel_id, rt.room_type_id, payer, src_id)]
-                    if key in self.vars.get("w_hp", {})
-                )
-                
-                self.model += native_flight + native_hotel <= balance, f"native_bal_{slug(payer)}_{slug(prog)}"
+                self.model += native_flight <= balance, f"native_bal_{slug(payer)}_{slug(prog)}"
             
             # Bank balances (sum of blocks * increment)
             for bank, balance in traveler.bank_balances.items():
@@ -1082,8 +781,17 @@ class SolverV3:
         self.metrics.pass1_objective = opt1
         
         # Robust slack: max(absolute, relative * opt)
-        slack = max(self.slack_config.abs_eps, self.slack_config.rel_eps * abs(opt1))
+        # Use route-aware absolute slack ($150 domestic, $300 international)
+        abs_eps = self.slack_config.get_abs_eps(self.is_international)
+        slack = max(abs_eps, self.slack_config.rel_eps * abs(opt1))
         self.metrics.pass1_slack = slack
+        
+        logger.debug(
+            f"[Two-Pass] Pass 1 objective: ${opt1:.2f}, "
+            f"Comfort budget (slack): ${slack:.2f} "
+            f"(abs_eps=${abs_eps}, rel_eps={self.slack_config.rel_eps*100:.0f}%, "
+            f"is_intl={self.is_international})"
+        )
         
         # ═══════════════════════════════════════════════════════════════════
         # PASS 2: Add bound and solve with secondary objective
@@ -1126,16 +834,30 @@ class SolverV3:
             return self._build_balanced_objective()
     
     def _build_oop_objective(self):
-        """OOP: Minimize cash + small stops penalty to prefer nonstop flights."""
+        """
+        OOP: Minimize generalized cost (cash + convenience costs).
         
-        # Flight cash
+        The generalized cost model prices inconvenience in dollars:
+            total_cost = cash + surcharge + stop_cost*stops + time_cost*excess_hours 
+                       + layover_cost*excess_layover_hours + redeye_cost + carrier_change_cost
+                       + points_opportunity_cost*miles
+        
+        This makes "price vs convenience" a real tradeoff, not a token nudge.
+        """
+        cfg = self.comfort_config
+        
+        # ═══════════════════════════════════════════════════════════════════════
+        # MONETARY COST: Cash + Surcharges
+        # ═══════════════════════════════════════════════════════════════════════
+        
+        # Flight cash payments
         flight_cash = lpSum(
             self.vars["z_cf"][(f.leg_id, f.edge_id, p)] * f.cash_cost
             for f in self.flights
             for p in self.spec.all_traveler_ids
         )
         
-        # Flight surcharges
+        # Flight surcharges (taxes/fees for award bookings)
         flight_surcharge = lpSum(
             self.vars["y_pf"][(f.leg_id, f.edge_id, opt.option_id, p, src.source_id)] * opt.surcharge
             for f in self.flights
@@ -1145,46 +867,123 @@ class SolverV3:
             if (f.leg_id, f.edge_id, opt.option_id, p, src.source_id) in self.vars["y_pf"]
         )
         
-        # Hotel cash (from w_hc)
-        hotel_cash = lpSum(
-            self.vars["w_hc"][(h.segment_id, h.hotel_id, rt.room_type_id)] * rt.cash_per_night * seg.nights
-            for h in self.hotels
-            for seg in [next((s for s in self.spec.stay_segments if s.segment_id == h.segment_id), None)]
-            if seg is not None
-            for rt in h.room_types
-            if (h.segment_id, h.hotel_id, rt.room_type_id) in self.vars.get("w_hc", {})
-        )
-        
-        # Hotel surcharges (from w_hp)
-        hotel_surcharge = lpSum(
-            self.vars["w_hp"][key] * rt.award_surcharge_per_night * seg.nights
-            for h in self.hotels
-            for seg in [next((s for s in self.spec.stay_segments if s.segment_id == h.segment_id), None)]
-            if seg is not None
-            for rt in h.room_types
-            if rt.has_award_pricing
-            for key in [(h.segment_id, h.hotel_id, rt.room_type_id, p, src.source_id)
-                       for p in self.spec.all_traveler_ids
-                       for src in self._get_sources_for_program(p, rt.award_program)]
-            if key in self.vars.get("w_hp", {})
-        )
-        
         # ═══════════════════════════════════════════════════════════════════════
-        # Stops penalty: Add $25 equivalent per stop to prefer nonstop flights
-        # This makes nonstop flights preferred unless connections save >$25
+        # CONVENIENCE COSTS (Generalized Cost Model)
         # ═══════════════════════════════════════════════════════════════════════
         
+        stop_cost = cfg.get_stop_cost(self.is_international)
+        baseline_hours = cfg.get_baseline_hours(self.is_international)
+        
+        # Stop penalty: Real cost per stop ($100 domestic, $175 international)
         stops_penalty = lpSum(
-            self.vars["x_f"][(f.leg_id, f.edge_id)] * f.num_stops * 25.0
+            self.vars["x_f"][(f.leg_id, f.edge_id)] * f.num_stops * stop_cost
             for f in self.flights
         )
         
-        return flight_cash + flight_surcharge + hotel_cash + hotel_surcharge + stops_penalty
+        # Time penalty: $20 per hour over baseline
+        # (e.g., a 10-hour flight when baseline is 4 hours = 6 * $20 = $120 penalty)
+        time_penalty = lpSum(
+            self.vars["x_f"][(f.leg_id, f.edge_id)] 
+            * max(0, (f.total_time_minutes / 60.0) - baseline_hours) 
+            * cfg.time_cost_per_hour
+            for f in self.flights
+        )
+        
+        # Layover penalty: $25 per hour after 90 minutes
+        # Sum all layover times that exceed baseline
+        layover_penalty = lpSum(
+            self.vars["x_f"][(f.leg_id, f.edge_id)] 
+            * self._compute_excess_layover_hours(f) 
+            * cfg.layover_cost_per_hour
+            for f in self.flights
+        )
+        
+        # Quality penalties (redeye, carrier change, short connection)
+        quality_penalty = lpSum(
+            self.vars["x_f"][(f.leg_id, f.edge_id)] * (
+                (cfg.redeye_cost if f.is_redeye else 0) +
+                (cfg.carrier_change_cost if f.has_carrier_change else 0) +
+                (cfg.short_connection_cost if f.has_short_connection else 0)
+            )
+            for f in self.flights
+        )
+        
+        # ═══════════════════════════════════════════════════════════════════════
+        # POINTS OPPORTUNITY COST (Optional)
+        # ═══════════════════════════════════════════════════════════════════════
+        
+        # Prevents "wasting points" on bad itineraries
+        # Points aren't free - they have opportunity cost (~1.2¢/point)
+        points_opportunity_cost = 0
+        if cfg.enable_points_opportunity_cost:
+            points_opportunity_cost = lpSum(
+                self.vars["y_pf"][(f.leg_id, f.edge_id, opt.option_id, p, src.source_id)] 
+                * opt.miles_required 
+                * cfg.points_opportunity_cost_cpp / 100.0  # Convert cpp to dollars
+                for f in self.flights
+                for opt in f.award_options
+                for p in self.spec.all_traveler_ids
+                for src in self._get_sources_for_program(p, opt.program)
+                if (f.leg_id, f.edge_id, opt.option_id, p, src.source_id) in self.vars["y_pf"]
+            )
+        
+        # ═══════════════════════════════════════════════════════════════════════
+        # TOTAL GENERALIZED COST
+        # ═══════════════════════════════════════════════════════════════════════
+        
+        total_cost = (
+            flight_cash + 
+            flight_surcharge + 
+            stops_penalty + 
+            time_penalty + 
+            layover_penalty + 
+            quality_penalty +
+            points_opportunity_cost
+        )
+        
+        logger.debug(
+            f"[OOP Objective] Built generalized cost: "
+            f"stop_cost=${stop_cost}/stop, time_cost=${cfg.time_cost_per_hour}/hr, "
+            f"baseline={baseline_hours}hr, is_intl={self.is_international}"
+        )
+        
+        return total_cost
+    
+    def _compute_excess_layover_hours(self, flight: FlightItineraryEdge) -> float:
+        """
+        Compute total excess layover time in hours.
+        
+        Excess = sum of (layover - baseline) for each connection, where baseline is 90 min.
+        Only counts time OVER the baseline (reasonable connections aren't penalized).
+        """
+        cfg = self.comfort_config
+        baseline_minutes = cfg.baseline_layover_minutes
+        
+        if len(flight.segments) <= 1:
+            return 0.0
+        
+        total_excess_minutes = 0.0
+        for i in range(len(flight.segments) - 1):
+            s1 = flight.segments[i]
+            s2 = flight.segments[i + 1]
+            
+            if s1.arrival and s2.departure:
+                layover_minutes = (s2.departure - s1.arrival).total_seconds() / 60.0
+                if layover_minutes > baseline_minutes:
+                    total_excess_minutes += (layover_minutes - baseline_minutes)
+        
+        return total_excess_minutes / 60.0  # Convert to hours
     
     def _build_cpp_objective(self):
-        """CPP: Maximize value (negated for minimize) with nonstop preference."""
+        """
+        CPP: Maximize value (negated for minimize) with real convenience costs.
         
-        # Flight value
+        Uses the same generalized cost model as OOP, but prioritizes value.
+        """
+        cfg = self.comfort_config
+        stop_cost = cfg.get_stop_cost(self.is_international)
+        
+        # Flight value (soft_value_cpp precomputed in precompute.py)
         flight_value = lpSum(
             self.vars["y_pf"][(f.leg_id, f.edge_id, opt.option_id, p, src.source_id)] * opt.soft_value_cpp
             for f in self.flights
@@ -1194,32 +993,24 @@ class SolverV3:
             if (f.leg_id, f.edge_id, opt.option_id, p, src.source_id) in self.vars["y_pf"]
         )
         
-        # Hotel value (simplified)
-        hotel_value = lpSum(
-            self.vars["w_hp"][key] * (rt.cash_per_night - rt.award_surcharge_per_night) * seg.nights
-            for h in self.hotels
-            for seg in [next((s for s in self.spec.stay_segments if s.segment_id == h.segment_id), None)]
-            if seg is not None
-            for rt in h.room_types
-            if rt.has_award_pricing
-            for key in [(h.segment_id, h.hotel_id, rt.room_type_id, p, src.source_id)
-                       for p in self.spec.all_traveler_ids
-                       for src in self._get_sources_for_program(p, rt.award_program)]
-            if key in self.vars.get("w_hp", {})
-        )
-        
-        # ═══════════════════════════════════════════════════════════════════════
-        # Stops penalty: Reduce value by $50 equivalent per stop
-        # This ensures nonstop flights are preferred when values are similar
-        # ═══════════════════════════════════════════════════════════════════════
-        
+        # Stops penalty: Use real convenience cost (same as OOP)
         stops_penalty = lpSum(
-            self.vars["x_f"][(f.leg_id, f.edge_id)] * f.num_stops * 50.0
+            self.vars["x_f"][(f.leg_id, f.edge_id)] * f.num_stops * stop_cost
             for f in self.flights
         )
         
-        # Negate for minimize: minimize(-value + stops_penalty)
-        return -(flight_value + hotel_value) + stops_penalty
+        # Quality penalties (redeye, carrier change)
+        quality_penalty = lpSum(
+            self.vars["x_f"][(f.leg_id, f.edge_id)] * (
+                (cfg.redeye_cost if f.is_redeye else 0) +
+                (cfg.carrier_change_cost if f.has_carrier_change else 0) +
+                (cfg.short_connection_cost if f.has_short_connection else 0)
+            )
+            for f in self.flights
+        )
+        
+        # Negate for minimize: minimize(-value + convenience_costs)
+        return -flight_value + stops_penalty + quality_penalty
     
     def _build_balanced_objective(self):
         """Balanced: Value utility - cash penalty."""
@@ -1238,33 +1029,16 @@ class SolverV3:
             if (f.leg_id, f.edge_id, opt.option_id, p, src.source_id) in self.vars["y_pf"]
         )
         
-        # Hotel utility (simplified)
-        hotel_utility = lpSum(
-            self.vars["w_hp"][key]
-            * ((rt.cash_per_night - rt.award_surcharge_per_night) / self.K_hotel)
-            * cfg.hotel_importance
-            * seg.nights
-            for h in self.hotels
-            for seg in [next((s for s in self.spec.stay_segments if s.segment_id == h.segment_id), None)]
-            if seg is not None
-            for rt in h.room_types
-            if rt.has_award_pricing
-            for key in [(h.segment_id, h.hotel_id, rt.room_type_id, p, src.source_id)
-                       for p in self.spec.all_traveler_ids
-                       for src in self._get_sources_for_program(p, rt.award_program)]
-            if key in self.vars.get("w_hp", {})
-        )
-        
         # Cash cost (reuse OOP objective)
         cash_cost = self._build_oop_objective()
         
         # Total: minimize (cash_penalty - utility) = minimize cash - maximize utility
-        return cfg.cash_penalty_weight * cash_cost - (flight_utility + hotel_utility)
+        return cfg.cash_penalty_weight * cash_cost - flight_utility
     
     def _build_secondary_objective(self, slack: float):
         """Secondary objective with safe tie-breaking."""
         
-        n = len(self.flights) + len(self.hotels)
+        n = len(self.flights)
         if n > 1:
             safe_eps = (1e-6 * abs(slack)) / (n * (n - 1) / 2) if slack != 0 else 1e-10
         else:
@@ -1284,9 +1058,9 @@ class SolverV3:
         )
         
         # Deterministic tie-breaker
-        all_keys = sorted(self.vars["x_f"].keys()) + sorted(self.vars["x_h"].keys())
+        all_keys = sorted(self.vars["x_f"].keys())
         tie = lpSum(
-            (self.vars["x_f"][k] if k in self.vars["x_f"] else self.vars["x_h"][k]) * (i * safe_eps)
+            self.vars["x_f"][k] * (i * safe_eps)
             for i, k in enumerate(all_keys)
         )
         
@@ -1352,93 +1126,6 @@ class SolverV3:
                 if payment_found:
                     break
         
-        # Extract selected hotels and rooms
-        for h in self.hotels:
-            key = (h.segment_id, h.hotel_id)
-            var = self.vars["x_h"].get(key)
-            if var is None:
-                continue
-            
-            val = value(var)
-            if val is None or val < 0.5:
-                continue
-            
-            solution.selected_hotels[h.segment_id] = h.hotel_id
-            
-            seg = next((s for s in self.spec.stay_segments if s.segment_id == h.segment_id), None)
-            nights = seg.nights if seg else 1
-            
-            # Extract room counts
-            rooms = {}
-            for rt in h.room_types:
-                rkey = (h.segment_id, h.hotel_id, rt.room_type_id)
-                n_var = self.vars["n_r"].get(rkey)
-                if n_var:
-                    n_val = value(n_var)
-                    if n_val is not None:
-                        count = int(round(n_val))
-                        if count > 0:
-                            rooms[rt.room_type_id] = count
-            
-            solution.selected_rooms[h.hotel_id] = rooms
-            
-            # Extract payment
-            payment_found = False
-            for p in self.spec.all_traveler_ids:
-                z_var = self.vars["z_ch"].get((h.segment_id, h.hotel_id, p))
-                if z_var and value(z_var) is not None and value(z_var) > 0.5:
-                    # Cash payment
-                    cash_cost = sum(
-                        rooms.get(rt.room_type_id, 0) * rt.cash_per_night * nights
-                        for rt in h.room_types
-                    )
-                    solution.hotel_payments[h.hotel_id] = PaymentChoice(
-                        payer_id=p,
-                        method="cash",
-                        cash_amount=cash_cost,
-                    )
-                    solution.total_cash += cash_cost
-                    payment_found = True
-                    break
-            
-            if payment_found:
-                continue
-            
-            # Check points payment
-            for rt in h.room_types:
-                if not rt.has_award_pricing:
-                    continue
-                
-                for p in self.spec.all_traveler_ids:
-                    for src in self._get_sources_for_program(p, rt.award_program):
-                        ykey = (h.segment_id, h.hotel_id, rt.room_type_id, p, src.source_id)
-                        y_var = self.vars["y_ph"].get(ykey)
-                        if y_var and value(y_var) is not None and value(y_var) > 0.5:
-                            count = rooms.get(rt.room_type_id, 0)
-                            points = count * rt.points_per_night * nights
-                            surcharge = count * rt.award_surcharge_per_night * nights
-                            value_captured = count * (rt.cash_per_night - rt.award_surcharge_per_night) * nights
-                            
-                            solution.hotel_payments[h.hotel_id] = PaymentChoice(
-                                payer_id=p,
-                                method="points",
-                                award_option_id=rt.room_type_id,
-                                funding_source_id=src.source_id,
-                                cash_amount=surcharge,
-                                points_amount=points,
-                            )
-                            solution.total_cash += surcharge
-                            solution.total_points_by_program[rt.award_program] = (
-                                solution.total_points_by_program.get(rt.award_program, 0) + points
-                            )
-                            solution.total_value += value_captured
-                            payment_found = True
-                            break
-                    if payment_found:
-                        break
-                if payment_found:
-                    break
-        
         # Extract transfers
         for key, var in self.vars.get("t_b", {}).items():
             val = value(var)
@@ -1457,24 +1144,35 @@ class SolverV3:
 def optimize_trip(
     spec: TripPlanSpec,
     flights: List[FlightItineraryEdge],
-    hotels: List[HotelOption],
     transfers: List[TransferPath],
     mode: str = "balanced",
     determinism_mode: bool = False,
+    is_international: bool = False,
+    comfort_config: Optional[ComfortConfig] = None,
 ) -> OptimizationResult:
     """
-    Main entry point for V3 optimization.
+    Main entry point for V3 optimization (flights only).
     
     Args:
         spec: Trip specification
         flights: Available flight itineraries
-        hotels: Available hotels
         transfers: Available transfer paths
         mode: "oop", "cpp", or "balanced"
         determinism_mode: Use single thread for reproducibility
+        is_international: Whether this is an international route (affects penalties)
+        comfort_config: Optional custom comfort configuration
     
     Returns:
         OptimizationResult with solution, status, and metrics
+    
+    The solver uses a generalized cost model that prices inconvenience:
+        total_cost = cash + surcharge + stop_cost*stops + time_cost*excess_hours 
+                   + layover_cost*excess_layover_hours + redeye_cost + carrier_change_cost
+                   + points_opportunity_cost*miles
+    
+    Route type affects default penalties:
+        - Domestic: $100/stop, 4hr baseline, $150 comfort budget
+        - International: $175/stop, 12hr baseline, $300 comfort budget
     """
     
     mode_enum = Mode(mode.lower())
@@ -1482,6 +1180,8 @@ def optimize_trip(
     solver = SolverV3(
         mode=mode_enum,
         determinism_mode=determinism_mode,
+        is_international=is_international,
+        comfort_config=comfort_config,
     )
     
-    return solver.solve(spec, flights, hotels, transfers)
+    return solver.solve(spec, flights, transfers)

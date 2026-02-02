@@ -18,7 +18,7 @@ from typing import List, Tuple, Dict, Optional
 from datetime import date
 
 from .trip_spec import TripPlanSpec, OrderedLeg, StaySegment
-from .models_v3 import FlightItineraryEdge, HotelOption
+from .models_v3 import FlightItineraryEdge
 from .enums import ConnectionProtection, SelfTransferRequired, TicketingType
 from .derivation import finalize_itinerary
 from .validation_policy import ValidationPolicy, STRICT_MVP_POLICY, ALLOW_ALL_POLICY
@@ -287,10 +287,10 @@ def validate_date_feasibility(
 def pre_check_feasibility(
     spec: TripPlanSpec,
     flights_by_leg: Dict[int, List[FlightItineraryEdge]],
-    hotels_by_segment: Dict[int, List[HotelOption]],
+    hotels_by_segment: Dict[int, list],  # Ignored - no hotels
 ) -> Tuple[bool, List[str]]:
     """
-    Fast pre-check before building MILP.
+    Fast pre-check before building MILP (flights only).
     
     This catches obvious data problems before expensive MILP construction.
     
@@ -309,15 +309,6 @@ def pre_check_feasibility(
                 f"({leg.earliest_departure} to {leg.latest_departure})"
             )
     
-    # Check each segment has at least one hotel
-    for seg in spec.stay_segments:
-        seg_hotels = hotels_by_segment.get(seg.segment_id, [])
-        if not seg_hotels:
-            issues.append(
-                f"No hotels for segment {seg.segment_id}: {seg.city} "
-                f"({seg.check_in} to {seg.check_out}, {seg.nights} nights)"
-            )
-    
     # Check travelers have some usable points
     has_any_points = False
     for traveler in spec.travelers:
@@ -330,24 +321,6 @@ def pre_check_feasibility(
             "No travelers have usable points or bank balances - "
             "all bookings will be cash-only"
         )
-    
-    # Check traveler count vs minimum rooms
-    num_travelers = spec.num_travelers
-    for seg in spec.stay_segments:
-        if seg.min_rooms:
-            # Check that at least one hotel can accommodate
-            seg_hotels = hotels_by_segment.get(seg.segment_id, [])
-            can_accommodate = False
-            for h in seg_hotels:
-                total_capacity = sum(rt.capacity for rt in h.room_types)
-                if total_capacity >= num_travelers:
-                    can_accommodate = True
-                    break
-            
-            if seg_hotels and not can_accommodate:
-                issues.append(
-                    f"Segment {seg.segment_id}: no hotel can accommodate {num_travelers} travelers"
-                )
     
     return len(issues) == 0, issues
 
@@ -392,7 +365,6 @@ def validate_connection_warnings(
 
 def validate_award_availability(
     flights: List[FlightItineraryEdge],
-    hotels: List[HotelOption],
     min_threshold: float = 0.3,
 ) -> List[str]:
     """
@@ -415,10 +387,5 @@ def validate_award_availability(
                 warnings.append(
                     f"Flight {f.edge_id} award {opt.option_id}: waitlisted"
                 )
-    
-    for h in hotels:
-        for rt in h.room_types:
-            # If we had availability scores on room types, we'd check here
-            pass
     
     return warnings

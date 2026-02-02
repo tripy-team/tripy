@@ -18,7 +18,7 @@ from typing import List, Dict, Optional, Tuple
 from .trip_spec import TripPlanSpec, Traveler, OrderedLeg, StaySegment
 from .models_v3 import (
     FlightItineraryEdge, FlightSegment, AwardOption,
-    HotelOption, RoomType, TransferPath,
+    TransferPath,
     OptimizationResult, OptimizationStatus, Solution,
 )
 from .normalize import normalize_program, normalize_bank
@@ -64,6 +64,100 @@ def _enforce_no_negative_numbers(payload, context: str):
 
     # Still scrub as a no-op for safety (e.g., nested raw payloads)
     return scrub_sentinels(payload)
+
+
+# =============================================================================
+# ROUTE TYPE DETECTION
+# =============================================================================
+
+# US state codes for domestic detection
+US_STATES = {
+    "AL", "AK", "AZ", "AR", "CA", "CO", "CT", "DE", "FL", "GA", "HI", "ID", "IL", "IN", "IA",
+    "KS", "KY", "LA", "ME", "MD", "MA", "MI", "MN", "MS", "MO", "MT", "NE", "NV", "NH", "NJ",
+    "NM", "NY", "NC", "ND", "OH", "OK", "OR", "PA", "RI", "SC", "SD", "TN", "TX", "UT", "VT",
+    "VA", "WA", "WV", "WI", "WY", "DC", "PR", "VI", "GU", "AS", "MP",
+}
+
+# Common US airport country codes
+US_AIRPORT_PREFIXES = {"K", "P"}  # Most US airports start with K (continental) or P (Pacific)
+
+
+def _detect_international_route(segments: List[dict], trip_data: dict) -> bool:
+    """
+    Detect whether this trip contains international routes.
+    
+    International routes get higher convenience penalties because:
+    - Longer baseline travel times
+    - More impactful layovers (customs, immigration, jet lag)
+    - Higher stakes for connections (international rebooking is harder)
+    
+    Returns:
+        True if any segment crosses international boundaries
+    """
+    # Check destinations in trip_data
+    origin = trip_data.get("origin", "")
+    destinations = trip_data.get("destinations", [])
+    
+    # Extract location strings - destinations can be strings or dicts with "name" field
+    all_locations = [origin] if origin else []
+    for dest in destinations:
+        if isinstance(dest, str):
+            all_locations.append(dest)
+        elif isinstance(dest, dict):
+            # Could have "name", "airport_code", or other fields
+            name = dest.get("name") or dest.get("airport_code") or dest.get("code") or ""
+            if name:
+                all_locations.append(name)
+    
+    # Simple heuristic: if any airport code doesn't look like US domestic, it's international
+    for loc in all_locations:
+        if not loc or not isinstance(loc, str):
+            continue
+        
+        # Get airport code (might be "SEA" or "Seattle, WA" or "Paris, FR")
+        code = loc.upper().strip()
+        
+        # If it's a 3-letter code, check if it's a US airport
+        if len(code) == 3:
+            # Most US airports: start with K (continental), P (Pacific), or are well-known
+            # Common exceptions: JFK, LAX, SFO, ORD, etc. don't start with K
+            US_MAJOR_AIRPORTS = {
+                "JFK", "LAX", "SFO", "ORD", "ATL", "DFW", "DEN", "SEA", "MIA", "BOS",
+                "EWR", "IAH", "MSP", "DTW", "PHL", "LGA", "CLT", "PHX", "IAD", "SAN",
+                "TPA", "FLL", "BWI", "SLC", "MCO", "DCA", "PDX", "STL", "AUS", "HNL",
+                "OGG", "LIH", "KOA",  # Hawaii
+            }
+            
+            if code not in US_MAJOR_AIRPORTS and not code.startswith("K"):
+                # Check if it looks like a non-US airport
+                # European hubs, Asian airports, etc.
+                INTL_AIRPORT_PREFIXES = {"L", "E", "H", "R", "Z", "V", "W", "Y", "C", "M"}
+                if code[0] in INTL_AIRPORT_PREFIXES:
+                    logger.debug(f"[V3 Adapter] Detected international route: {code}")
+                    return True
+        
+        # If it contains a country code that's not US
+        if "," in code:
+            parts = code.split(",")
+            if len(parts) >= 2:
+                region = parts[-1].strip()
+                if len(region) == 2 and region not in US_STATES and region != "US":
+                    logger.debug(f"[V3 Adapter] Detected international route via region: {region}")
+                    return True
+    
+    # Also check segments for origin/destination
+    for seg in segments:
+        origin = seg.get("origin", "")
+        dest = seg.get("destination", "")
+        
+        # Check for obvious international destinations
+        intl_indicators = ["CDG", "LHR", "FRA", "AMS", "NRT", "HND", "ICN", "PEK", "HKG", "SYD", "MEL"]
+        if origin in intl_indicators or dest in intl_indicators:
+            logger.debug(f"[V3 Adapter] Detected international route: {origin} -> {dest}")
+            return True
+    
+    # Default to domestic
+    return False
 
 
 # =============================================================================
@@ -149,10 +243,7 @@ def _build_legs_and_segments(
     segments: List[dict],
 ) -> Tuple[List[OrderedLeg], List[StaySegment]]:
     """
-    Convert orchestrator segments to V3 legs and stay segments.
-    
-    The orchestrator alternates: flight, hotel, flight, hotel, ...
-    We map flights to OrderedLeg and hotels to StaySegment.
+    Convert orchestrator segments to V3 legs (flights only).
     
     MULTI-AIRPORT SUPPORT: Segments can include allowed_origin_airports and
     allowed_destination_airports to specify which airports are valid for each leg.
@@ -160,10 +251,9 @@ def _build_legs_and_segments(
     """
     
     legs = []
-    stays = []
+    stays = []  # Empty - no hotels
     
     leg_id = 0
-    segment_id = 0
     
     for seg in segments:
         if seg.get("type") == "flight":
@@ -195,24 +285,6 @@ def _build_legs_and_segments(
                 allowed_destination_airports=allowed_dests,
             ))
             leg_id += 1
-        
-        elif seg.get("type") == "hotel":
-            # Parse dates
-            try:
-                check_in = datetime.strptime(seg.get("check_in", ""), "%Y-%m-%d").date()
-                check_out = datetime.strptime(seg.get("check_out", ""), "%Y-%m-%d").date()
-            except:
-                check_in = date.today()
-                check_out = date.today()
-            
-            stays.append(StaySegment(
-                segment_id=segment_id,
-                city=seg.get("city", ""),
-                check_in=check_in,
-                check_out=check_out,
-                traveler_ids=["user"],
-            ))
-            segment_id += 1
     
     return legs, stays
 
@@ -333,31 +405,76 @@ def _convert_flight_option(
         
         # ═══════════════════════════════════════════════════════════════════
         # BUILD ALL SEGMENTS (not just first one!)
+        # CRITICAL: Preserve per-leg data for connections and codeshares
         # ═══════════════════════════════════════════════════════════════════
         
         flight_segments = []
         
         # Check if provider gives us detailed segment info
-        if hasattr(opt, 'segments') and opt.segments:
+        # FlightOption.segments is now a list of FlightLeg Pydantic models
+        if hasattr(opt, 'segments') and opt.segments and len(opt.segments) > 0:
             # Provider gave us segment details - use them
             for i, seg_data in enumerate(opt.segments):
-                seg_dep = datetime.fromisoformat(seg_data.get('departure_time', '')) if seg_data.get('departure_time') else dep_dt
-                seg_arr = datetime.fromisoformat(seg_data.get('arrival_time', '')) if seg_data.get('arrival_time') else arr_dt
+                # Handle both Pydantic model (FlightLeg) and dict formats
+                if hasattr(seg_data, 'departure_time'):
+                    # Pydantic FlightLeg model
+                    seg_dep_str = seg_data.departure_time
+                    seg_arr_str = seg_data.arrival_time
+                    seg_origin = seg_data.origin
+                    seg_dest = seg_data.destination
+                    seg_fn = seg_data.flight_number
+                    seg_marketing = seg_data.marketing_carrier
+                    seg_operating = seg_data.operating_carrier or seg_data.marketing_carrier
+                    # Try cabin_class first, then cabin for backwards compatibility
+                    seg_cabin = getattr(seg_data, 'cabin_class', None) or getattr(seg_data, 'cabin', None) or opt.cabin_class
+                else:
+                    # Dict format (legacy/fallback)
+                    seg_dep_str = seg_data.get('departure_time', '')
+                    seg_arr_str = seg_data.get('arrival_time', '')
+                    seg_origin = seg_data.get('origin', '')
+                    seg_dest = seg_data.get('destination', '')
+                    seg_fn = seg_data.get('flight_number', f"{opt.airline}{100 + i}")
+                    seg_marketing = seg_data.get('marketing_carrier', opt.airline or "UA")
+                    seg_operating = seg_data.get('operating_carrier', opt.operating_airline or seg_marketing)
+                    seg_cabin = seg_data.get('cabin', opt.cabin_class)
+                
+                # Parse segment times
+                try:
+                    seg_dep = datetime.fromisoformat(seg_dep_str.replace("Z", "+00:00")) if seg_dep_str else dep_dt
+                except:
+                    seg_dep = dep_dt
+                try:
+                    seg_arr = datetime.fromisoformat(seg_arr_str.replace("Z", "+00:00")) if seg_arr_str else arr_dt
+                except:
+                    seg_arr = arr_dt
                 
                 flight_seg = FlightSegment(
                     segment_id=f"seg_{i}",
-                    flight_number=seg_data.get('flight_number', f"{opt.airline}{100 + i}"),
-                    operating_carrier=seg_data.get('operating_carrier', opt.operating_airline or opt.airline or "UA"),
-                    marketing_carrier=seg_data.get('marketing_carrier', opt.airline or "UA"),
-                    origin=seg_data.get('origin', ''),
-                    destination=seg_data.get('destination', ''),
+                    flight_number=seg_fn or f"{opt.airline}{100 + i}",
+                    operating_carrier=seg_operating or opt.airline or "UA",
+                    marketing_carrier=seg_marketing or opt.airline or "UA",
+                    origin=seg_origin,
+                    destination=seg_dest,
                     departure=seg_dep,
                     arrival=seg_arr,
-                    cabin=seg_data.get('cabin', opt.cabin_class),
+                    cabin=seg_cabin,
                 )
                 flight_segments.append(flight_seg)
+            
+            logger.debug(f"[V3 Adapter] {edge_id}: Built {len(flight_segments)} segments from FlightOption.segments")
         else:
-            # No segment details - create single segment from top-level data
+            # No segment details - check if this is a multi-stop flight
+            stops_hint = getattr(opt, '_stops_hint', None) or getattr(opt, 'stops', 0)
+            
+            if stops_hint and stops_hint > 0:
+                # INVARIANT VIOLATION: Multi-stop flight without segment details
+                # Log warning but still create edge (with incomplete data flag)
+                logger.warning(
+                    f"[V3 Adapter] {edge_id}: Data error - {stops_hint} stops claimed but no segments provided. "
+                    f"Connection display will be incorrect."
+                )
+            
+            # Create single segment from top-level data (may be incomplete for connections)
             flight_seg = FlightSegment(
                 segment_id="seg_0",
                 flight_number=opt.flight_numbers[0] if opt.flight_numbers else f"{opt.airline}100",
@@ -525,103 +642,6 @@ def _convert_flight_option(
         return None
 
 
-def convert_search_results_to_hotels(
-    search_results: dict,
-    segments: List[dict],
-) -> List[HotelOption]:
-    """
-    Convert orchestrator search results to V3 HotelOption list.
-    """
-    
-    hotels = []
-    segment_id = 0
-    
-    for i, seg in enumerate(segments):
-        if seg.get("type") != "hotel":
-            continue
-        
-        key = f"hotel_{i}"
-        result = search_results.get(key)
-        
-        if not result or not hasattr(result, "options"):
-            segment_id += 1
-            continue
-        
-        for j, opt in enumerate(result.options or []):
-            hotel = _convert_hotel_option(opt, segment_id, j)
-            if hotel:
-                hotels.append(hotel)
-        
-        segment_id += 1
-    
-    return hotels
-
-
-def _convert_hotel_option(
-    opt,
-    segment_id: int,
-    option_idx: int,
-) -> Optional[HotelOption]:
-    """Convert a HotelOption to V3 HotelOption."""
-    
-    try:
-        hotel_id = f"hotel_{segment_id}_{option_idx}"
-        hotel_context = f"hotel_{opt.name or hotel_id}"
-        
-        # SANITIZE hotel cash prices
-        cash_per_night_raw = sanitize_cash_price(opt.cash_price_per_night, context=hotel_context)
-        if cash_per_night_raw is None and opt.cash_price_total:
-            # Try to derive from total
-            total_raw = sanitize_cash_price(opt.cash_price_total, context=hotel_context)
-            if total_raw is not None:
-                cash_per_night_raw = total_raw / max(opt.nights, 1)
-        cash_per_night = cash_per_night_raw if cash_per_night_raw is not None else 0.0
-        
-        # SANITIZE points and surcharge
-        points_per_night = sanitize_points_cost(opt.award_points_per_night, context=hotel_context)
-        surcharge_total = sanitize_surcharge(opt.award_surcharge, context=hotel_context)
-        surcharge_per_night = surcharge_total / max(opt.nights, 1) if opt.nights else surcharge_total
-        
-        # Build room types
-        room_types = []
-        
-        # Cash room type
-        cash_room = RoomType(
-            room_type_id=f"{hotel_id}_cash",
-            name=opt.room_type or "Standard",
-            capacity=opt.guests or 2,
-            cash_per_night=cash_per_night,
-        )
-        room_types.append(cash_room)
-        
-        # Award room type (if available)
-        if opt.award_available and points_per_night and points_per_night > 0:
-            program = normalize_program(opt.award_program or "HYATT")
-            award_room = RoomType(
-                room_type_id=f"{hotel_id}_{program}",
-                name=opt.room_type or "Award Room",
-                capacity=opt.guests or 2,
-                cash_per_night=cash_per_night,  # Use sanitized value
-                award_program=program,
-                points_per_night=points_per_night,
-                award_surcharge_per_night=surcharge_per_night,
-            )
-            room_types.append(award_room)
-        
-        return HotelOption(
-            hotel_id=hotel_id,
-            segment_id=segment_id,
-            hotel_name=opt.name or "Hotel",
-            chain=opt.brand or "Independent",
-            star_rating=float(opt.star_rating or 4),
-            room_types=room_types,
-        )
-    
-    except Exception as e:
-        logger.warning(f"Failed to convert hotel option: {e}")
-        return None
-
-
 def build_transfer_paths(user_points: Dict[str, int]) -> List[TransferPath]:
     """
     Build transfer paths based on user's bank balances.
@@ -667,7 +687,6 @@ def convert_result_to_itineraries(
     result: OptimizationResult,
     spec: TripPlanSpec,
     flights: List[FlightItineraryEdge],
-    hotels: List[HotelOption],
     search_results: dict,
     segments: List[dict],
     budget: float,
@@ -682,7 +701,6 @@ def convert_result_to_itineraries(
         RankedItinerary, OOPMetrics,
         FlightSegment as AgentFlightSegment,
         FlightLeg,
-        HotelSegment as AgentHotelSegment,
         CashPayment, PointsPayment, TransferInstruction,
     )
     
@@ -694,9 +712,8 @@ def convert_result_to_itineraries(
     if not solution:
         return []
     
-    # Build flight/hotel lookup
+    # Build flight lookup
     flight_by_id = {f.edge_id: f for f in flights}
-    hotel_by_id = {h.hotel_id: h for h in hotels}
     
     # Build itinerary segments
     itinerary_segments = []
@@ -706,10 +723,6 @@ def convert_result_to_itineraries(
     total_points_used = 0
     points_breakdown = {}
     transfers = []
-    
-    # Track flight arrivals by leg_id for hotel date adjustment
-    # This allows us to adjust hotel check-in when flights arrive the next day
-    flight_arrivals_by_leg = {}
     
     # Build lookup of SerpAPI flights by leg for enriching award flights with real details
     # Award flights often lack precise flight numbers/times - we can get those from SerpAPI
@@ -799,9 +812,21 @@ def convert_result_to_itineraries(
             # Cash payment - use actual cash cost, not penalty
             # For display purposes, use 0 if cash price was unknown
             actual_cash = 0.0 if flight.cash_cost_unknown else flight.cash_cost
+            
+            # Determine reason for cash vs points
+            cash_reason = "Best value for this segment"
+            if not flight.award_options:
+                cash_reason = "No award availability for this flight"
+            elif flight.cash_cost_unknown:
+                cash_reason = "Award flight - cash price unavailable for comparison"
+            elif all(opt.cpp and opt.cpp < 1.0 for opt in flight.award_options if opt.cpp):
+                cash_reason = "Points redemption value too low (<1¢/pt) - cash is better"
+            elif actual_cash and actual_cash < 500:  # Cheap flight
+                cash_reason = f"Cash price ${actual_cash:.0f} is competitive - points better for expensive flights"
+            
             payment = CashPayment(
                 amount=actual_cash,
-                reason="Best value for this segment",
+                reason=cash_reason,
             )
             total_oop += actual_cash
         
@@ -1081,171 +1106,13 @@ def convert_result_to_itineraries(
         )
         itinerary_segments.append(seg)
         
-        # Track flight arrival for hotel date adjustment
-        # Use enriched arrival time if available
-        if arr_time:
-            try:
-                arrival_dt = datetime.fromisoformat(arr_time.replace('Z', '+00:00'))
-                flight_arrivals_by_leg[leg_id] = arrival_dt.date()
-            except:
-                if flight.arrival_datetime:
-                    flight_arrivals_by_leg[leg_id] = flight.arrival_datetime.date()
-        elif flight.arrival_datetime:
-            flight_arrivals_by_leg[leg_id] = flight.arrival_datetime.date()
-        
         if flight.origin not in route:
             route.append(flight.origin)
         route.append(flight.destination)
     
-    # Process hotels
-    for seg_id, hotel_id in solution.selected_hotels.items():
-        hotel = hotel_by_id.get(hotel_id)
-        if not hotel:
-            continue
-        
-        # Get segment info for nights
-        stay_seg = next((s for s in spec.stay_segments if s.segment_id == seg_id), None)
-        
-        # CRITICAL: Adjust hotel check-in based on actual flight arrival
-        # If flight arrives later than planned check-in, use arrival date instead
-        original_check_in = stay_seg.check_in if stay_seg else None
-        original_check_out = stay_seg.check_out if stay_seg else None
-        adjusted_check_in = original_check_in
-        adjusted_check_out = original_check_out
-        
-        # The flight before this hotel segment has leg_id = seg_id (0-indexed matching)
-        # e.g., leg 0 arrives at hotel segment 0
-        preceding_leg_id = seg_id
-        if preceding_leg_id in flight_arrivals_by_leg:
-            flight_arrival = flight_arrivals_by_leg[preceding_leg_id]
-            if original_check_in and flight_arrival > original_check_in:
-                # Flight arrives after original check-in - adjust to arrival date
-                logger.info(
-                    f"[V3 Adapter] Adjusting hotel check-in: flight arrives {flight_arrival}, "
-                    f"original check-in was {original_check_in}. Using arrival date."
-                )
-                adjusted_check_in = flight_arrival
-                # Keep original check-out, just reduce nights
-                # (Or could shift check-out to maintain nights - keeping original for simplicity)
-        
-        # Calculate nights based on adjusted dates
-        if adjusted_check_in and adjusted_check_out:
-            nights = (adjusted_check_out - adjusted_check_in).days
-            if nights <= 0:
-                # Edge case: flight arrives on or after check-out
-                logger.warning(
-                    f"[V3 Adapter] Flight arrives {adjusted_check_in} on/after check-out {adjusted_check_out}. "
-                    f"Setting minimum 1 night."
-                )
-                nights = 1
-                adjusted_check_out = adjusted_check_in + timedelta(days=1)
-        else:
-            nights = stay_seg.nights if stay_seg else 1
-        
-        # Get room count
-        rooms = solution.selected_rooms.get(hotel_id, {})
-        total_rooms = sum(rooms.values()) or 1
-        
-        payment_choice = solution.hotel_payments.get(hotel_id)
-        
-        # Find the room type used - match by award_option_id if using points
-        room_type = None
-        if payment_choice and payment_choice.method == "points" and payment_choice.award_option_id:
-            # Find the room type that matches the ILP's choice
-            logger.info(f"[V3 Adapter] Hotel {hotel_id}: Looking for room type '{payment_choice.award_option_id}'")
-            logger.info(f"[V3 Adapter] Hotel {hotel_id}: Available room types: {[rt.room_type_id for rt in hotel.room_types]}")
-            room_type = next(
-                (rt for rt in hotel.room_types if rt.room_type_id == payment_choice.award_option_id),
-                None
-            )
-            # If not found by ID, try to find any room type with award pricing
-            if not room_type:
-                logger.info(f"[V3 Adapter] Hotel {hotel_id}: Room type not found by ID, looking for any award room")
-                room_type = next(
-                    (rt for rt in hotel.room_types if rt.has_award_pricing),
-                    None
-                )
-            if room_type:
-                logger.info(f"[V3 Adapter] Hotel {hotel_id}: Found room type '{room_type.room_type_id}' with program '{room_type.award_program}'")
-                logger.info(f"[V3 Adapter] Hotel {hotel_id}: payment funding_source_id='{payment_choice.funding_source_id}'")
-        # Fall back to first room type for cash payments or if nothing found
-        if not room_type:
-            room_type = hotel.room_types[0] if hotel.room_types else None
-            logger.info(f"[V3 Adapter] Hotel {hotel_id}: Fell back to room type '{room_type.room_type_id if room_type else None}'")
-            
-        cash_per_night = room_type.cash_per_night if room_type else 0
-        cash_total = cash_per_night * nights * total_rooms
-        
-        total_cash_price += cash_total
-        
-        if payment_choice and payment_choice.method == "points":
-            points_per_night = room_type.points_per_night if room_type and room_type.has_award_pricing else 0
-            # Ensure program is never None - use the award_option_id to extract program if available
-            program = None
-            if room_type and room_type.award_program:
-                program = room_type.award_program
-            elif payment_choice.award_option_id:
-                # Try to extract program from award_option_id (format: hotel_X_Y_PROGRAM)
-                parts = payment_choice.award_option_id.split("_")
-                if len(parts) >= 4:
-                    program = parts[-1]  # Last part is typically the program
-            program = program or "unknown"
-            
-            payment = PointsPayment(
-                program=program,
-                points_used=payment_choice.points_amount,
-                surcharge=payment_choice.cash_amount,
-                cpp_achieved=(cash_total - payment_choice.cash_amount) * 100 / payment_choice.points_amount if payment_choice.points_amount else 0,
-                cash_saved=cash_total - payment_choice.cash_amount,
-            )
-            
-            total_oop += payment_choice.cash_amount
-            total_points_used += payment_choice.points_amount
-            points_breakdown[program] = points_breakdown.get(program, 0) + payment_choice.points_amount
-            
-            # Check for transfer (same as flights)
-            if payment_choice.funding_source_id and "transfer" in payment_choice.funding_source_id:
-                parts = payment_choice.funding_source_id.split("_")
-                if len(parts) >= 4:
-                    from_bank = parts[2]
-                    to_prog = parts[3]
-                    transfers.append(TransferInstruction(
-                        from_program=from_bank,
-                        to_program=to_prog,
-                        points_to_transfer=payment_choice.points_amount,
-                        ratio=1.0,
-                        portal_url=f"https://{from_bank}.com/transfer",
-                        transfer_time="Instant",
-                        steps=[f"Transfer {payment_choice.points_amount:,} from {from_bank} to {to_prog}"],
-                    ))
-                    logger.info(f"[V3 Adapter] Hotel transfer: {from_bank} -> {to_prog}: {payment_choice.points_amount:,} pts")
-        else:
-            payment = CashPayment(amount=cash_total)
-            total_oop += cash_total
-        
-        # Log the final hotel dates being output
-        logger.info(f"[V3 Adapter] Hotel segment: {hotel.hotel_name} in {stay_seg.city if stay_seg else ''}, "
-                   f"check_in={adjusted_check_in}, check_out={adjusted_check_out}, nights={nights}")
-        
-        seg = AgentHotelSegment(
-            id=str(uuid.uuid4()),
-            name=hotel.hotel_name,
-            brand=hotel.chain,
-            star_rating=int(hotel.star_rating),
-            city=stay_seg.city if stay_seg else "",
-            # Use adjusted dates (based on actual flight arrival)
-            check_in=adjusted_check_in.isoformat() if adjusted_check_in else "",
-            check_out=adjusted_check_out.isoformat() if adjusted_check_out else "",
-            nights=nights,
-            cash_price_per_night=cash_per_night,
-            cash_price_total=cash_total,
-            payment=payment,
-        )
-        itinerary_segments.append(seg)
-    
-    # Build metrics
-    cash_saved = total_cash_price - total_oop
-    savings_pct = (cash_saved / total_cash_price * 100) if total_cash_price > 0 else 0
+    # Build metrics (ensure non-negative - can't calculate proper savings if cash price unknown)
+    cash_saved = max(0.0, total_cash_price - total_oop)
+    savings_pct = (cash_saved / total_cash_price * 100) if total_cash_price > 0 else 0.0
     
     # Calculate average CPP
     cpp_values = []
@@ -1367,6 +1234,11 @@ async def run_v3_optimization(
         validation_timestamp = datetime.now(timezone.utc).isoformat()
         validated_flights = []
         
+        # Collect award options from AwardTool flights to attach to matching SerpAPI flights
+        # Key: (leg_id, airline code), Value: list of AwardOption objects
+        # We key by leg_id to ensure SEA→CDG award options don't attach to CDG→SEA flights
+        award_options_by_leg_airline = {}
+        
         for leg_id, leg_flights in flights_by_leg.items():
             if not leg_flights:
                 continue
@@ -1431,13 +1303,36 @@ async def run_v3_optimization(
                             verified_count += 1
                             validated_flights.append(flight)
                         else:
-                            # Only include unverified flights from SerpAPI (they're likely still real)
+                            # Include unverified flights - they may still be valid
                             pricing_source = getattr(flight, 'pricing_source', '')
                             if pricing_source == "serpapi":
                                 logger.debug(f"[V3 Adapter] Leg {leg_id}: Including unverified SerpAPI flight: {flight_nums}")
                                 validated_flights.append(flight)
                             else:
-                                logger.warning(f"[V3 Adapter] Leg {leg_id}: EXCLUDING unverified AwardTool flight: {flight_nums}")
+                                # CRITICAL FIX: Do NOT include AwardTool flights with placeholder numbers
+                                # These can't be booked - they don't represent real flights
+                                # Instead, we'll attach their award availability to matching SerpAPI flights below
+                                has_award_options = hasattr(flight, 'award_options') and len(flight.award_options) > 0
+                                is_placeholder = any(
+                                    fn and len(fn) <= 5 and fn.endswith('100') 
+                                    for fn in flight_nums
+                                )
+                                if has_award_options and not is_placeholder:
+                                    logger.info(f"[V3 Adapter] Leg {leg_id}: Including AwardTool flight with real flight numbers: {flight_nums}")
+                                    flight.verification_status = "unverified_awardtool"
+                                    validated_flights.append(flight)
+                                elif has_award_options:
+                                    # Collect award options to attach to matching SerpAPI flights
+                                    logger.info(f"[V3 Adapter] Leg {leg_id}: SKIPPING AwardTool flight with placeholder numbers (will attach award to real flights): {flight_nums}")
+                                    # Store award options keyed by (leg_id, airline) for later matching
+                                    for opt in flight.award_options:
+                                        program = opt.program.upper() if opt.program else ""
+                                        key = (leg_id, program)
+                                        if key not in award_options_by_leg_airline:
+                                            award_options_by_leg_airline[key] = []
+                                        award_options_by_leg_airline[key].append(opt)
+                                else:
+                                    logger.debug(f"[V3 Adapter] Leg {leg_id}: EXCLUDING flight without award options: {flight_nums}")
                     
                     logger.info(f"[V3 Adapter] Leg {leg_id}: {verified_count}/{len(leg_flights)} flights verified, {len([f for f in leg_flights if f in validated_flights])} included")
                 else:
@@ -1457,15 +1352,72 @@ async def run_v3_optimization(
                     flight.verified_at = validation_timestamp
                 validated_flights.extend(leg_flights)
         
+        # CRITICAL: Attach collected award options to matching SerpAPI flights
+        # This ensures award availability from AwardTool is shown for REAL flights, not placeholder flights
+        if award_options_by_leg_airline:
+            programs_with_options = set(prog for (leg, prog) in award_options_by_leg_airline.keys())
+            logger.info(f"[V3 Adapter] Attaching award options to SerpAPI flights. Programs with options: {list(programs_with_options)}")
+            
+            # Define airline alliances for matching
+            AIRLINE_ALLIANCES = {
+                # SkyTeam
+                "DL": ["DL", "AF", "KL", "VS", "AM", "KE"],
+                "AF": ["DL", "AF", "KL", "VS", "AM", "KE"],
+                "KL": ["DL", "AF", "KL", "VS", "AM", "KE"],
+                # Star Alliance
+                "UA": ["UA", "LH", "SQ", "NH", "AC", "TK"],
+                "LH": ["UA", "LH", "SQ", "NH", "AC", "TK"],
+                "SQ": ["UA", "LH", "SQ", "NH", "AC", "TK"],
+                # Oneworld
+                "AA": ["AA", "BA", "IB", "QF", "JL", "AS"],
+                "BA": ["AA", "BA", "IB", "QF", "JL", "AS"],
+            }
+            
+            flights_enriched = 0
+            for flight in validated_flights:
+                if flight.award_options:
+                    continue  # Already has award options
+                
+                # Get airline code and leg_id from flight
+                airline = flight.segments[0].marketing_carrier if flight.segments else ""
+                if not airline:
+                    continue
+                
+                airline = airline.upper()[:2]
+                leg_id = flight.leg_id
+                
+                # Find matching award options (same leg, same airline or alliance partners)
+                matching_airlines = AIRLINE_ALLIANCES.get(airline, [airline])
+                best_option = None
+                best_points = float('inf')
+                
+                for match_airline in matching_airlines:
+                    key = (leg_id, match_airline)
+                    if key in award_options_by_leg_airline:
+                        for opt in award_options_by_leg_airline[key]:
+                            if opt.miles_required and opt.miles_required < best_points:
+                                best_option = opt
+                                best_points = opt.miles_required
+                
+                if best_option:
+                    # Create a new award option with the correct ID for this flight
+                    from copy import deepcopy
+                    new_opt = deepcopy(best_option)
+                    new_opt.option_id = f"{flight.edge_id}_{best_option.program}"
+                    flight.award_options = [new_opt]
+                    flights_enriched += 1
+                    logger.debug(f"[V3 Adapter] Attached {best_option.program} award ({best_points:,} pts) to {airline} flight {flight.edge_id} on leg {leg_id}")
+            
+            logger.info(f"[V3 Adapter] Enriched {flights_enriched} SerpAPI flights with award options")
+        
         # Use validated flights
         original_count = len(flights)
         flights = validated_flights
         logger.info(f"[V3 Adapter] Cross-validation complete: {len(flights)}/{original_count} flights passed validation")
     
-    hotels = convert_search_results_to_hotels(search_results, segments)
     transfers = build_transfer_paths(user_points)
     
-    logger.info(f"[V3 Adapter] Converted: {len(flights)} flights, {len(hotels)} hotels, {len(transfers)} transfer paths")
+    logger.info(f"[V3 Adapter] Converted: {len(flights)} flights, {len(transfers)} transfer paths")
     if transfers:
         for tp in transfers[:5]:  # Log first 5
             logger.info(f"[V3 Adapter] Transfer path: {tp.from_bank} -> {tp.to_program}")
@@ -1474,14 +1426,18 @@ async def run_v3_optimization(
         logger.warning("[V3 Adapter] No flights to optimize")
         return []
     
-    # Run V3 solver
+    # Detect if this is an international route (affects convenience penalties)
+    is_international = _detect_international_route(segments, trip_data)
+    logger.info(f"[V3 Adapter] Route type: {'international' if is_international else 'domestic'}")
+    
+    # Run V3 solver (flights only)
     result = optimize_trip(
         spec=spec,
         flights=flights,
-        hotels=hotels,
         transfers=transfers,
         mode=mode,
         determinism_mode=False,
+        is_international=is_international,
     )
     
     logger.info(f"[V3 Adapter] V3 solver status: {result.status}")
@@ -1495,7 +1451,6 @@ async def run_v3_optimization(
         result=result,
         spec=spec,
         flights=flights,
-        hotels=hotels,
         search_results=search_results,
         segments=segments,
         budget=budget,
@@ -1522,32 +1477,23 @@ async def run_v3_optimization(
                 # Convert itinerary to dict for policy evaluation
                 itin_dict = {
                     "flight_segments": [],
-                    "hotel_segments": [],
                     "transfers": [],
                 }
                 
-                # Collect flight and hotel segments
+                # Collect flight segments
                 for seg in itin.segments:
                     seg_dict = seg.model_dump() if hasattr(seg, 'model_dump') else seg.__dict__
                     
-                    if seg_dict.get("type") == "flight":
-                        # Add flight-specific fields for policy evaluation
-                        flight_dict = {
-                            "segments": seg_dict.get("legs", []),
-                            "ticketing_type": "single_ticket" if seg_dict.get("stops", 0) == 0 or seg_dict.get("is_verified") else "unknown",
-                            "connection_type": "protected" if seg_dict.get("is_verified") else "unknown",
-                            "fare_brand": seg_dict.get("cabin_class"),
-                            "booking_type": "one_way",  # Each segment is one-way in our model
-                            **seg_dict,
-                        }
-                        itin_dict["flight_segments"].append(flight_dict)
-                    elif seg_dict.get("type") == "hotel":
-                        hotel_dict = {
-                            "refundable": True,  # Default assumption
-                            "rate_source": "direct",
-                            **seg_dict,
-                        }
-                        itin_dict["hotel_segments"].append(hotel_dict)
+                    # Add flight-specific fields for policy evaluation
+                    flight_dict = {
+                        "segments": seg_dict.get("legs", []),
+                        "ticketing_type": "single_ticket" if seg_dict.get("stops", 0) == 0 or seg_dict.get("is_verified") else "unknown",
+                        "connection_type": "protected" if seg_dict.get("is_verified") else "unknown",
+                        "fare_brand": seg_dict.get("cabin_class"),
+                        "booking_type": "one_way",  # Each segment is one-way in our model
+                        **seg_dict,
+                    }
+                    itin_dict["flight_segments"].append(flight_dict)
                 
                 # Add transfers if present
                 for transfer in itin.transfers:

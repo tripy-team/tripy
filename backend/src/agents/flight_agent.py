@@ -295,6 +295,9 @@ Return JSON: {{"programs": ["UA", "AA", ...], "reasoning": "..."}}
             
             logger.info(f"[FlightAgent] SerpAPI returned {len(all_flights)} raw flight results for {origin}->{destination}")
             
+            # Import segment models
+            from .models import FlightLeg, Layover
+            
             options = []
             for r in all_flights:
                 # CRITICAL: Use sanitize_cash_price for robust parsing
@@ -307,27 +310,102 @@ Return JSON: {{"programs": ["UA", "AA", ...], "reasoning": "..."}}
                     continue
                 
                 flights = r.get("flights", [])
+                serp_layovers = r.get("layovers", [])
                 first_flight = flights[0] if flights else {}
                 last_flight = flights[-1] if flights else {}
                 
-                # FIXED: Extract flight numbers from all legs
+                # ═══════════════════════════════════════════════════════════════
+                # CRITICAL FIX: Build per-leg segments from SerpAPI flights[]
+                # This is where connection data lives!
+                # ═══════════════════════════════════════════════════════════════
+                
+                segments = []
                 flight_numbers = []
-                for leg in flights:
+                
+                for leg_idx, leg in enumerate(flights):
                     fn = leg.get("flight_number", "")
                     if fn:
                         flight_numbers.append(fn)
+                    
+                    # Extract marketing carrier from airline name or flight number
+                    leg_airline = leg.get("airline", "")
+                    marketing_carrier = fn[:2] if fn and len(fn) >= 2 else ""
+                    if not marketing_carrier:
+                        # Try to infer from airline name
+                        marketing_carrier = self._airline_to_code(leg_airline)
+                    
+                    # Extract operating carrier (codeshare handling)
+                    operating_carrier = marketing_carrier  # Default: same
+                    extensions = leg.get("extensions", [])
+                    for ext in extensions:
+                        if isinstance(ext, str) and "operated by" in ext.lower():
+                            # Parse "Operated by SkyWest Airlines" → "OO" (or keep name)
+                            op_name = ext.replace("Operated by ", "").replace("operated by ", "").strip()
+                            operating_carrier = self._airline_to_code(op_name) or op_name
+                            break
+                    
+                    # Determine if this is a codeshare (operating carrier differs from marketing)
+                    is_codeshare = (
+                        operating_carrier and 
+                        operating_carrier != marketing_carrier
+                    )
+                    codeshare_info = None
+                    if is_codeshare:
+                        codeshare_info = f"Operated by {operating_carrier}"
+                    
+                    # Build segment
+                    segment = FlightLeg(
+                        origin=leg.get("departure_airport", {}).get("id", ""),
+                        destination=leg.get("arrival_airport", {}).get("id", ""),
+                        departure_time=leg.get("departure_airport", {}).get("time"),
+                        arrival_time=leg.get("arrival_airport", {}).get("time"),
+                        duration_minutes=leg.get("duration"),
+                        flight_number=fn,
+                        marketing_carrier=marketing_carrier,
+                        operating_carrier=operating_carrier if is_codeshare else None,
+                        aircraft=leg.get("airplane"),
+                        cabin_class=cabin,
+                        is_codeshare=is_codeshare,
+                        codeshare_info=codeshare_info,
+                    )
+                    segments.append(segment)
+                
+                # Build layovers from SerpAPI layovers[] or compute from segments
+                layovers = []
+                for lay in serp_layovers:
+                    layover = Layover(
+                        airport=lay.get("id", ""),
+                        airport_name=lay.get("name"),
+                        duration_minutes=lay.get("duration", 0),
+                        terminal_change=False,  # SerpAPI doesn't provide this
+                    )
+                    layovers.append(layover)
+                
+                # If no layovers provided but multiple segments, compute from segment gaps
+                if not layovers and len(segments) >= 2:
+                    for i in range(len(segments) - 1):
+                        seg1, seg2 = segments[i], segments[i + 1]
+                        # Calculate layover duration from arrival to next departure
+                        if seg1.arrival_time and seg2.departure_time:
+                            try:
+                                from datetime import datetime
+                                arr = datetime.fromisoformat(seg1.arrival_time.replace("Z", "+00:00"))
+                                dep = datetime.fromisoformat(seg2.departure_time.replace("Z", "+00:00"))
+                                lay_mins = int((dep - arr).total_seconds() / 60)
+                            except:
+                                lay_mins = 120  # Default 2 hours
+                        else:
+                            lay_mins = 120
+                        
+                        layovers.append(Layover(
+                            airport=seg1.destination,
+                            duration_minutes=lay_mins,
+                        ))
                 
                 # Get airline from first leg (marketing carrier)
                 airline = first_flight.get("airline", "")
-                # Get operating airline (if different)
-                operating_airline = first_flight.get("often_delayed_by_over_30_min") and first_flight.get("airline")
-                # Check for codeshare - SerpAPI uses "operated_by" or separate operating info
-                extensions = first_flight.get("extensions", [])
-                for ext in extensions:
-                    if isinstance(ext, str) and "operated by" in ext.lower():
-                        # Extract operating airline from text like "Operated by SkyWest Airlines"
-                        operating_airline = ext.replace("Operated by ", "").replace("operated by ", "")
-                        break
+                # Get operating airline if first leg is codeshare
+                operating_airline = segments[0].operating_carrier if segments else None
                 
                 # Get timestamps for data freshness tracking
                 from datetime import datetime, timezone
@@ -339,26 +417,32 @@ Return JSON: {{"programs": ["UA", "AA", ...], "reasoning": "..."}}
                     origin=origin,
                     destination=destination,
                     airline=airline,
-                    operating_airline=operating_airline if operating_airline and operating_airline != airline else None,
+                    operating_airline=operating_airline,
                     cabin_class=cabin,
-                    cash_price=parsed_price,  # Now properly parsed
+                    cash_price=parsed_price,
                     award_available=False,
-                    # FIXED: Use departure from first flight, arrival from last flight
                     departure_time=first_flight.get("departure_airport", {}).get("time"),
                     arrival_time=last_flight.get("arrival_airport", {}).get("time"),
                     duration_minutes=r.get("total_duration"),
-                    stops=len(flights) - 1 if flights else 0,
-                    flight_numbers=flight_numbers,  # FIXED: Now populated!
+                    _stops_hint=len(flights) - 1 if flights else 0,  # Fallback hint
+                    flight_numbers=flight_numbers,
+                    # CRITICAL: Per-leg segment data!
+                    segments=segments,
+                    layovers=layovers,
                     # Data freshness metadata
                     fetched_at=fetched_at,
-                    is_verified=True,  # Fresh from SerpAPI = verified
+                    is_verified=True,
                     verification_status="verified",
+                    ticketing_confirmed=True,  # SerpAPI flights are single-ticket
                 )
                 options.append(option)
                 
-                if flight_numbers:
-                    logger.debug(f"[FlightAgent] Cash flight: {airline} {flight_numbers[0] if flight_numbers else 'N/A'} "
-                               f"{origin}->{destination} ${parsed_price}")
+                # Log with connection info
+                if len(segments) > 1:
+                    route = " → ".join([s.origin for s in segments] + [segments[-1].destination])
+                    logger.debug(f"[FlightAgent] Connecting flight: {airline} {route} ${parsed_price} ({len(segments)-1} stops)")
+                elif flight_numbers:
+                    logger.debug(f"[FlightAgent] Direct flight: {airline} {flight_numbers[0]} {origin}->{destination} ${parsed_price}")
             
             logger.info(f"[FlightAgent] Found {len(options)} cash flight options for {origin}->{destination}")
             return options
@@ -458,6 +542,84 @@ Return JSON: {{"programs": ["UA", "AA", ...], "reasoning": "..."}}
             duration_minutes=240,  # 4 hour estimate
             stops=0,
         )]
+    
+    def _airline_to_code(self, airline_name: str) -> str:
+        """
+        Convert airline name to IATA code.
+        
+        Used for extracting marketing/operating carrier from SerpAPI data.
+        """
+        if not airline_name:
+            return ""
+        
+        # Common airline name to IATA code mappings
+        AIRLINE_CODES = {
+            # US carriers
+            "delta": "DL", "delta air lines": "DL",
+            "united": "UA", "united airlines": "UA",
+            "american": "AA", "american airlines": "AA",
+            "alaska": "AS", "alaska airlines": "AS",
+            "southwest": "WN", "southwest airlines": "WN",
+            "jetblue": "B6", "jetblue airways": "B6",
+            "spirit": "NK", "spirit airlines": "NK",
+            "frontier": "F9", "frontier airlines": "F9",
+            # European carriers
+            "air france": "AF",
+            "klm": "KL", "klm royal dutch airlines": "KL",
+            "lufthansa": "LH",
+            "british airways": "BA",
+            "virgin atlantic": "VS",
+            "iberia": "IB",
+            "swiss": "LX", "swiss international air lines": "LX",
+            "austrian": "OS", "austrian airlines": "OS",
+            "brussels airlines": "SN",
+            "scandinavian": "SK", "sas": "SK", "scandinavian airlines": "SK",
+            "finnair": "AY",
+            "icelandair": "FI",
+            "norwegian": "DY",
+            "easyjet": "U2",
+            "ryanair": "FR",
+            "turkish airlines": "TK", "turkish": "TK",
+            "tap portugal": "TP", "tap air portugal": "TP",
+            "aer lingus": "EI",
+            # Asian carriers
+            "singapore airlines": "SQ",
+            "cathay pacific": "CX",
+            "ana": "NH", "all nippon airways": "NH",
+            "jal": "JL", "japan airlines": "JL",
+            "korean air": "KE",
+            "asiana": "OZ", "asiana airlines": "OZ",
+            "eva air": "BR",
+            "china airlines": "CI",
+            "thai": "TG", "thai airways": "TG",
+            "qantas": "QF",
+            "air new zealand": "NZ",
+            # Middle East carriers
+            "emirates": "EK",
+            "qatar": "QR", "qatar airways": "QR",
+            "etihad": "EY", "etihad airways": "EY",
+            "royal jordanian": "RJ",
+            "saudia": "SV",
+            # Regional US carriers
+            "skywest": "OO", "skywest airlines": "OO",
+            "republic airways": "YX",
+            "envoy air": "MQ",
+            "psa airlines": "OH",
+            "endeavor air": "9E",
+            "mesa airlines": "YV",
+            "expressjet": "EV",
+            # Canadian
+            "air canada": "AC",
+            "westjet": "WS",
+            # Latin America
+            "latam": "LA", "latam airlines": "LA",
+            "avianca": "AV",
+            "copa": "CM", "copa airlines": "CM",
+            "aeromexico": "AM",
+        }
+        
+        normalized = airline_name.lower().strip()
+        return AIRLINE_CODES.get(normalized, "")
     
     def _estimate_cash_price(self, origin: str, destination: str, cabin: str) -> float:
         """Estimate cash price based on route and cabin."""

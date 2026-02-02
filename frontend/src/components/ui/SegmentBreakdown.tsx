@@ -2,15 +2,47 @@
 
 import { useState } from 'react';
 import { 
-  Plane, Hotel, ChevronDown, ChevronUp, 
+  Plane, ChevronDown, ChevronUp, 
   DollarSign, Zap, ArrowRight, ExternalLink,
-  Clock, AlertCircle
+  Clock, AlertCircle, Circle, AlertTriangle
 } from 'lucide-react';
-import { TripSegment, TransferInstruction, FlightSegment, HotelSegment } from '@/types/optimization';
+import { TripSegment, TransferInstruction, FlightSegment, FlightLeg, FlightLayover } from '@/types/optimization';
 
 interface SegmentBreakdownProps {
   segments: TripSegment[];
   transfers: TransferInstruction[];
+}
+
+/**
+ * Build display route from legs (e.g., "SEA → AMS → CDG")
+ */
+function buildRouteDisplay(segment: FlightSegment): string {
+  if (segment.legs && segment.legs.length > 0) {
+    const airports = [segment.legs[0].origin, ...segment.legs.map(l => l.destination)];
+    return airports.join(' → ');
+  }
+  return `${segment.origin} → ${segment.destination}`;
+}
+
+/**
+ * Format duration for display
+ */
+function formatDuration(minutes?: number): string {
+  if (!minutes) return '—';
+  const hours = Math.floor(minutes / 60);
+  const mins = minutes % 60;
+  if (hours === 0) return `${mins}m`;
+  if (mins === 0) return `${hours}h`;
+  return `${hours}h ${mins}m`;
+}
+
+/**
+ * Get connection status badge color
+ */
+function getConnectionStatusColor(segment: FlightSegment): string {
+  if (segment.hasShortConnection) return 'bg-red-100 text-red-700';
+  if (segment.hasCarrierChange) return 'bg-amber-100 text-amber-700';
+  return 'bg-green-100 text-green-700';
 }
 
 export function SegmentBreakdown({ segments, transfers }: SegmentBreakdownProps) {
@@ -24,8 +56,10 @@ export function SegmentBreakdown({ segments, transfers }: SegmentBreakdownProps)
 
       {segments.map((segment) => {
         const isExpanded = expandedId === segment.id;
-        const isFlight = segment.type === 'flight';
         const isPoints = segment.payment.method === 'points';
+        const flightSegment = segment as FlightSegment;
+        const hasConnections = (flightSegment.stops ?? 0) > 0;
+        const routeDisplay = buildRouteDisplay(flightSegment);
 
         return (
           <div 
@@ -38,28 +72,26 @@ export function SegmentBreakdown({ segments, transfers }: SegmentBreakdownProps)
               className="w-full p-4 flex items-center justify-between hover:bg-slate-50 transition-colors"
             >
               <div className="flex items-center gap-3">
-                {isFlight ? (
-                  <div className="w-10 h-10 bg-blue-100 rounded-lg flex items-center justify-center">
-                    <Plane className="w-5 h-5 text-blue-600" />
-                  </div>
-                ) : (
-                  <div className="w-10 h-10 bg-amber-100 rounded-lg flex items-center justify-center">
-                    <Hotel className="w-5 h-5 text-amber-600" />
-                  </div>
-                )}
+                <div className="w-10 h-10 bg-blue-100 rounded-lg flex items-center justify-center">
+                  <Plane className="w-5 h-5 text-blue-600" />
+                </div>
 
                 <div className="text-left">
                   <div className="font-medium text-slate-900">
-                    {isFlight 
-                      ? `${(segment as FlightSegment).origin} → ${(segment as FlightSegment).destination}`
-                      : (segment as HotelSegment).name
-                    }
+                    {routeDisplay}
                   </div>
-                  <div className="text-sm text-slate-500">
-                    {isFlight 
-                      ? `${(segment as FlightSegment).cabinClass} · ${(segment as FlightSegment).airline}`
-                      : `${(segment as HotelSegment).nights} nights · ${(segment as HotelSegment).starRating}★`
-                    }
+                  <div className="text-sm text-slate-500 flex items-center gap-2">
+                    <span>{flightSegment.cabinClass} · {flightSegment.airline}</span>
+                    {hasConnections && (
+                      <span className={`text-xs px-1.5 py-0.5 rounded ${getConnectionStatusColor(flightSegment)}`}>
+                        {flightSegment.stops} stop{flightSegment.stops !== 1 ? 's' : ''}
+                      </span>
+                    )}
+                    {flightSegment.operatingAirline && flightSegment.operatingAirline !== flightSegment.airline && (
+                      <span className="text-xs text-purple-600">
+                        (Operated by {flightSegment.operatingAirline})
+                      </span>
+                    )}
                   </div>
                 </div>
               </div>
@@ -97,15 +129,109 @@ export function SegmentBreakdown({ segments, transfers }: SegmentBreakdownProps)
             {/* Expanded Details */}
             {isExpanded && (
               <div className="px-4 pb-4 pt-2 border-t border-slate-100 bg-slate-50">
+                
+                {/* Connection Details (for multi-leg flights) */}
+                {hasConnections && flightSegment.legs && flightSegment.legs.length > 0 && (
+                  <div className="mb-4 p-3 bg-white rounded-lg border border-slate-200">
+                    <div className="text-sm font-medium text-slate-700 mb-3">
+                      Flight Details
+                    </div>
+                    <div className="space-y-3">
+                      {flightSegment.legs.map((leg, idx) => (
+                        <div key={idx}>
+                          {/* Leg details */}
+                          <div className="flex items-start gap-3">
+                            <div className="flex flex-col items-center">
+                              <Circle className="w-3 h-3 text-blue-500 fill-blue-500" />
+                              {idx < flightSegment.legs.length - 1 && (
+                                <div className="w-0.5 h-12 bg-slate-300 my-1" />
+                              )}
+                            </div>
+                            <div className="flex-1">
+                              <div className="flex items-center justify-between">
+                                <div>
+                                  <span className="font-medium text-slate-900">{leg.origin}</span>
+                                  <span className="text-slate-400 mx-2">→</span>
+                                  <span className="font-medium text-slate-900">{leg.destination}</span>
+                                </div>
+                                <span className="text-sm text-slate-600">{leg.flightNumber}</span>
+                              </div>
+                              <div className="text-sm text-slate-500 mt-0.5">
+                                {leg.departureTime && (
+                                  <span>{new Date(leg.departureTime).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}</span>
+                                )}
+                                {leg.durationMinutes && (
+                                  <span className="ml-2">({formatDuration(leg.durationMinutes)})</span>
+                                )}
+                                {leg.isCodeshare && leg.codeshareInfo && (
+                                  <span className="ml-2 text-purple-600">{leg.codeshareInfo}</span>
+                                )}
+                              </div>
+                            </div>
+                          </div>
+                          
+                          {/* Layover info (after each leg except the last) */}
+                          {idx < flightSegment.legs.length - 1 && flightSegment.layovers?.[idx] && (
+                            <div className="ml-6 mt-2 mb-1 p-2 bg-slate-50 rounded text-sm">
+                              <div className="flex items-center gap-2">
+                                <Clock className="w-3.5 h-3.5 text-slate-400" />
+                                <span className="text-slate-600">
+                                  Layover in {flightSegment.layovers[idx].airport}:
+                                </span>
+                                <span className={`font-medium ${
+                                  flightSegment.layovers[idx].isShort 
+                                    ? 'text-red-600' 
+                                    : flightSegment.layovers[idx].isLong 
+                                      ? 'text-amber-600'
+                                      : 'text-slate-700'
+                                }`}>
+                                  {flightSegment.layovers[idx].durationDisplay || formatDuration(flightSegment.layovers[idx].durationMinutes)}
+                                </span>
+                                {flightSegment.layovers[idx].isShort && (
+                                  <span className="text-xs text-red-600 flex items-center gap-1">
+                                    <AlertTriangle className="w-3 h-3" />
+                                    Short connection
+                                  </span>
+                                )}
+                              </div>
+                            </div>
+                          )}
+                        </div>
+                      ))}
+                    </div>
+                    
+                    {/* Connection warnings */}
+                    {(flightSegment.hasShortConnection || flightSegment.hasCarrierChange) && (
+                      <div className="mt-3 space-y-2">
+                        {flightSegment.hasShortConnection && (
+                          <div className="flex items-center gap-2 text-sm text-red-600 bg-red-50 p-2 rounded">
+                            <AlertTriangle className="w-4 h-4" />
+                            <span>This itinerary has a short connection. Consider a longer layover if possible.</span>
+                          </div>
+                        )}
+                        {flightSegment.hasCarrierChange && (
+                          <div className="flex items-center gap-2 text-sm text-amber-600 bg-amber-50 p-2 rounded">
+                            <AlertCircle className="w-4 h-4" />
+                            <span>Operating carriers differ between flights. Verify bag check-through policy.</span>
+                          </div>
+                        )}
+                        {!flightSegment.ticketingConfirmed && (
+                          <div className="flex items-center gap-2 text-sm text-slate-600 bg-slate-100 p-2 rounded">
+                            <AlertCircle className="w-4 h-4" />
+                            <span>Ticketing not confirmed. Verify this is a single booking, not separate tickets.</span>
+                          </div>
+                        )}
+                      </div>
+                    )}
+                  </div>
+                )}
+                
                 {/* Cash vs Points Comparison */}
                 <div className="grid grid-cols-2 gap-4 mb-4">
                   <div className={`p-3 rounded-lg ${!isPoints ? 'bg-emerald-50 border-2 border-emerald-200' : 'bg-white border border-slate-200'}`}>
                     <div className="text-xs text-slate-500 mb-1">Cash Price</div>
                     <div className="text-lg font-semibold text-slate-900">
-                      ${(isFlight 
-                        ? (segment as FlightSegment).cashPrice 
-                        : (segment as HotelSegment).cashPriceTotal
-                      ).toLocaleString()}
+                      ${flightSegment.cashPrice.toLocaleString()}
                     </div>
                     {!isPoints && (
                       <div className="text-xs text-emerald-600 mt-1">✓ Selected</div>
@@ -138,19 +264,39 @@ export function SegmentBreakdown({ segments, transfers }: SegmentBreakdownProps)
                 {isPoints && (segment.payment as any).transfer && (
                   <TransferCard transfer={(segment.payment as any).transfer} />
                 )}
-
-                {/* Booking Link */}
-                {segment.bookingUrl && (
-                  <a
-                    href={segment.bookingUrl}
-                    target="_blank"
-                    rel="noopener noreferrer"
-                    className="flex items-center justify-center gap-2 w-full p-3 bg-blue-600 text-white rounded-lg hover:bg-blue-700 transition-colors font-medium"
-                  >
-                    Book This {isFlight ? 'Flight' : 'Hotel'}
-                    <ExternalLink className="w-4 h-4" />
-                  </a>
+                
+                {/* Verification info */}
+                {flightSegment.verificationNote && (
+                  <div className="p-2 bg-slate-100 rounded text-xs text-slate-600 mb-3">
+                    {flightSegment.verificationNote}
+                  </div>
                 )}
+
+                {/* Booking Links */}
+                <div className="flex gap-2">
+                  {segment.bookingUrl && (
+                    <a
+                      href={segment.bookingUrl}
+                      target="_blank"
+                      rel="noopener noreferrer"
+                      className="flex-1 flex items-center justify-center gap-2 p-3 bg-blue-600 text-white rounded-lg hover:bg-blue-700 transition-colors font-medium"
+                    >
+                      Book This Flight
+                      <ExternalLink className="w-4 h-4" />
+                    </a>
+                  )}
+                  {flightSegment.googleFlightsUrl && (
+                    <a
+                      href={flightSegment.googleFlightsUrl}
+                      target="_blank"
+                      rel="noopener noreferrer"
+                      className="flex items-center justify-center gap-2 p-3 border border-slate-300 text-slate-700 rounded-lg hover:bg-slate-50 transition-colors text-sm"
+                    >
+                      Verify on Google
+                      <ExternalLink className="w-3.5 h-3.5" />
+                    </a>
+                  )}
+                </div>
               </div>
             )}
           </div>

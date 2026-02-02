@@ -3,14 +3,13 @@ Orchestrator Agent - Coordinates the entire optimization pipeline.
 
 This is the main entry point that:
 1. Parses trip requirements
-2. Coordinates Flight and Hotel Agents
+2. Coordinates Flight Agents
 3. Runs ILP optimization (V3 solver)
 4. Ranks results by OOP
 5. Generates cost breakdowns
 
 NOTE: Updated to use V3 optimization solver for improved:
 - Three optimization modes (OOP, CPP, Balanced)
-- Hotel + flight joint optimization
 - Integer-safe transfers
 - Single-ticket enforcement for connections
 """
@@ -25,17 +24,16 @@ from .base import BaseAgent, AgentConfig
 from .models import (
     OptimizeSoloRequest, OptimizeSoloResponse, OptimizeGroupRequest, OptimizeGroupResponse,
     RankedItinerary, OOPMetrics, GroupOOPMetrics,
-    FlightSearchRequest, HotelSearchRequest,
-    FlightSegment, HotelSegment,
+    FlightSearchRequest,
+    FlightSegment,
     CashPayment, PointsPayment, TransferInstruction,
     GroupMemberCost, Settlement,
 )
 from .flight_agent import FlightAgent
-from .hotel_agent import HotelAgent
 from .cost_breakdown_agent import CostBreakdownAgent
 from .config import (
     DEFAULT_OPTIMIZATION_MODE, OOP_CONFIG, 
-    get_transfer_path, AIRLINE_PROGRAMS, HOTEL_PROGRAMS
+    get_transfer_path, AIRLINE_PROGRAMS
 )
 from .group_allocator import GroupBookingAllocator, SegmentOption
 
@@ -64,7 +62,6 @@ class OrchestratorAgent(BaseAgent):
     def __init__(self, config: AgentConfig = None):
         super().__init__(config)
         self.flight_agent = FlightAgent()
-        self.hotel_agent = HotelAgent()
         self.cost_agent = CostBreakdownAgent()
         self.group_allocator = GroupBookingAllocator()
     
@@ -87,10 +84,10 @@ class OrchestratorAgent(BaseAgent):
         request: OptimizeSoloRequest,
     ) -> OptimizeSoloResponse:
         """
-        Optimize a solo trip.
+        Optimize a solo trip (flights only).
         
         1. Fetch trip details from database
-        2. Search flights and hotels via agents
+        2. Search flights via agents
         3. Run OOP optimization
         4. Rank and return results
         """
@@ -112,9 +109,12 @@ class OrchestratorAgent(BaseAgent):
                 warnings=["Trip not found"],
             )
         
-        # Build segments to search
+        # Build segments to search (includes all route permutations for multi-city)
         segments = self._build_trip_segments(trip_data)
-        print(f"[Orchestrator] Built {len(segments) if segments else 0} segments to search")
+        route_variants = trip_data.get("route_variants", [])
+        num_variants = len(route_variants) if route_variants else 1
+        
+        print(f"[Orchestrator] Built {len(segments) if segments else 0} segments across {num_variants} route variants")
         if segments:
             for i, seg in enumerate(segments):
                 print(f"[Orchestrator] Segment {i+1}: {seg}")
@@ -127,28 +127,78 @@ class OrchestratorAgent(BaseAgent):
                 warnings=["No valid route found"],
             )
         
-        # Search flights and hotels in parallel
-        print(f"[Orchestrator] Starting search for {len(segments)} segments...")
+        # Search flights for all unique O-D pairs
+        print(f"[Orchestrator] Starting search for {len(segments)} unique O-D pairs...")
         search_results = await self._search_all_segments(
             segments=segments,
             user_points=request.points,
             cabin_classes=request.cabin_classes or ["Economy", "Business"],
-            hotel_stars=request.hotel_stars or [4, 5],
-            include_hotels=request.include_hotels,
         )
         print(f"[Orchestrator] Search completed, got {len(search_results) if search_results else 0} results")
         
-        # Run OOP optimization with policy settings
-        optimized = await self._run_oop_optimization(
-            segments=segments,
-            search_results=search_results,
-            user_points=request.points,
-            budget=request.budget,
-            trip_data=trip_data,
-            risk_mode=getattr(request, 'risk_mode', 'balanced') or 'balanced',
-            include_basic_economy=getattr(request, 'include_basic_economy', False),
-            flexibility_priority=getattr(request, 'flexibility_priority', 'medium') or 'medium',
-        )
+        # Run optimization with selected mode
+        optimization_mode = getattr(request, 'optimization_mode', 'oop') or 'oop'
+        logger.info(f"[Orchestrator] Running optimization with mode={optimization_mode}")
+        
+        # ═══════════════════════════════════════════════════════════════════════
+        # MULTI-ROUTE OPTIMIZATION
+        # ═══════════════════════════════════════════════════════════════════════
+        # For multi-city trips, run optimization for EACH route variant and
+        # compare results to find the optimal city ordering.
+        
+        all_optimized = []
+        
+        if num_variants > 1 and route_variants:
+            logger.info(f"[Orchestrator] Evaluating {num_variants} route permutations...")
+            
+            for variant_idx, route in enumerate(route_variants):
+                route_str = " → ".join(route)
+                logger.info(f"[Orchestrator] Route variant {variant_idx + 1}/{num_variants}: {route_str}")
+                
+                # Build segments for this specific route variant
+                variant_segments = self._build_segments_for_route(route, trip_data)
+                
+                # Run optimization for this route variant
+                try:
+                    variant_results = await self._run_oop_optimization(
+                        segments=variant_segments,
+                        search_results=search_results,
+                        user_points=request.points,
+                        budget=request.budget,
+                        trip_data=trip_data,
+                        mode=optimization_mode,
+                        risk_mode=getattr(request, 'risk_mode', 'balanced') or 'balanced',
+                        include_basic_economy=getattr(request, 'include_basic_economy', False),
+                        flexibility_priority=getattr(request, 'flexibility_priority', 'medium') or 'medium',
+                    )
+                    
+                    # Tag results with route variant info
+                    for itin in variant_results:
+                        itin.route = route_str
+                        itin.name = f"Route: {route_str}"
+                    
+                    if variant_results:
+                        best_oop = min(r.oop_metrics.total_out_of_pocket for r in variant_results)
+                        logger.info(f"[Orchestrator] Route {variant_idx + 1} best OOP: ${best_oop:.2f}")
+                    
+                    all_optimized.extend(variant_results)
+                except Exception as e:
+                    logger.warning(f"[Orchestrator] Route variant {variant_idx + 1} failed: {e}")
+            
+            optimized = all_optimized
+        else:
+            # Single route - run optimization directly
+            optimized = await self._run_oop_optimization(
+                segments=segments,
+                search_results=search_results,
+                user_points=request.points,
+                budget=request.budget,
+                trip_data=trip_data,
+                mode=optimization_mode,
+                risk_mode=getattr(request, 'risk_mode', 'balanced') or 'balanced',
+                include_basic_economy=getattr(request, 'include_basic_economy', False),
+                flexibility_priority=getattr(request, 'flexibility_priority', 'medium') or 'medium',
+            )
         
         # Rank by OOP (lowest first)
         optimized.sort(key=lambda x: x.oop_metrics.total_out_of_pocket)
@@ -251,8 +301,6 @@ class OrchestratorAgent(BaseAgent):
             points=combined_points,
             budget=sum(request.member_budgets.values()) if request.member_budgets else request.budget,
             cabin_classes=request.cabin_classes,
-            hotel_stars=request.hotel_stars,
-            include_hotels=request.include_hotels,
         )
         
         solo_result = await self.optimize_solo(solo_request)
@@ -308,11 +356,10 @@ class OrchestratorAgent(BaseAgent):
         segments = self._build_trip_segments_from_data(trip_data)
         logger.info(f"[Orchestrator] Built {len(segments)} segments")
         
-        # 3. Search for flight/hotel options for each segment
+        # 3. Search for flight options for each segment
         segment_options = await self._search_segment_options(
             segments=segments,
             cabin_classes=request.cabin_classes or ["Economy", "Business"],
-            hotel_stars=request.hotel_stars or [4, 5],
         )
         logger.info(f"[Orchestrator] Found options for {len(segment_options)} segments")
         
@@ -408,7 +455,6 @@ class OrchestratorAgent(BaseAgent):
         
         start_date = trip_data.get("start_date", "2026-03-01")
         end_date = trip_data.get("end_date", "2026-03-08")
-        include_hotels = trip_data.get("include_hotels", True)
         
         from datetime import datetime, timedelta
         try:
@@ -422,7 +468,7 @@ class OrchestratorAgent(BaseAgent):
             days_per_city = 3
         
         for i, city in enumerate(route_cities):
-            # Flight to this destination
+            # Flight to this destination (flights only - no hotels)
             segments.append({
                 "id": f"flight_{i}_to_{city}",
                 "type": "flight",
@@ -431,20 +477,7 @@ class OrchestratorAgent(BaseAgent):
                 "date": current_date.strftime("%Y-%m-%d"),
             })
             
-            # Hotel at this destination
-            if include_hotels:
-                check_out = current_date + timedelta(days=days_per_city)
-                segments.append({
-                    "id": f"hotel_{i}_{city}",
-                    "type": "hotel",
-                    "city": city,
-                    "check_in": current_date.strftime("%Y-%m-%d"),
-                    "check_out": check_out.strftime("%Y-%m-%d"),
-                })
-                current_date = check_out
-            else:
-                current_date += timedelta(days=days_per_city)
-            
+            current_date += timedelta(days=days_per_city)
             prev_city = city
         
         # Return flight to origin (if round trip)
@@ -463,12 +496,12 @@ class OrchestratorAgent(BaseAgent):
         self,
         segments: list[dict],
         cabin_classes: list[str],
-        hotel_stars: list[int],
     ) -> list[list[SegmentOption]]:
-        """Search for booking options for each segment."""
+        """Search for booking options for each segment (flights only)."""
         all_options = []
         
         for segment in segments:
+            # Only handle flight segments
             if segment["type"] == "flight":
                 options = await self._search_flight_options(
                     origin=segment["origin"],
@@ -477,12 +510,8 @@ class OrchestratorAgent(BaseAgent):
                     cabin_classes=cabin_classes,
                 )
             else:
-                options = await self._search_hotel_options(
-                    city=segment["city"],
-                    check_in=segment["check_in"],
-                    check_out=segment["check_out"],
-                    star_ratings=hotel_stars,
-                )
+                # Skip non-flight segments
+                options = []
             
             # Convert to SegmentOption format
             # CRITICAL: Use sanitizers to prevent -1 sentinel from AwardTool/SERP leaking through
@@ -573,49 +602,6 @@ class OrchestratorAgent(BaseAgent):
             logger.warning(f"Flight search failed: {e}")
             return self._get_dummy_flight_options(origin, destination)
     
-    async def _search_hotel_options(
-        self,
-        city: str,
-        check_in: str,
-        check_out: str,
-        star_ratings: list[int],
-    ) -> list[dict]:
-        """Search hotel options using HotelAgent."""
-        try:
-            request = HotelSearchRequest(
-                city=city,
-                check_in=check_in,
-                check_out=check_out,
-                star_ratings=star_ratings,
-            )
-            result = await self.hotel_agent.execute(request)
-            
-            # CRITICAL FIX: HotelSearchResult has 'options', not 'hotels'
-            # Also: HotelOption has 'award_points_total', not 'award_points'
-            options = []
-            for hotel in result.options[:5]:  # Limit to top 5
-                options.append({
-                    "cash_price": hotel.cash_price_total,
-                    "cash_price_per_night": hotel.cash_price_per_night,
-                    "award_available": hotel.award_available and hotel.award_points_total is not None,
-                    "award_program": hotel.award_program if hotel.award_points_total else None,
-                    "award_points": hotel.award_points_total,
-                    "award_points_per_night": hotel.award_points_per_night,
-                    "award_surcharge": hotel.award_surcharge or 0,
-                    "summary": f"{hotel.name} in {city}",
-                    # Pass through additional fields
-                    "name": hotel.name,
-                    "brand": hotel.brand,
-                    "star_rating": hotel.star_rating,
-                    "nights": hotel.nights,
-                })
-            
-            logger.info(f"[Orchestrator] _search_hotel_options: {city} returned {len(options)} options")
-            return options
-        except Exception as e:
-            logger.warning(f"Hotel search failed: {e}")
-            return self._get_dummy_hotel_options(city)
-    
     def _get_dummy_flight_options(self, origin: str, destination: str) -> list[dict]:
         """Get dummy flight options when search fails.
         
@@ -654,50 +640,9 @@ class OrchestratorAgent(BaseAgent):
             },
         ]
     
-    def _get_dummy_hotel_options(self, city: str) -> list[dict]:
-        """Get dummy hotel options when search fails.
-        
-        NOTE: Uses HYATT (Chase transfer), HH (AMEX transfer), and MAR (AMEX/Chase transfer)
-        to work with transferable points.
-        """
-        return [
-            {
-                "cash_price": 250.0,
-                "award_available": True,
-                "award_program": "HYATT",  # Chase transfer partner (best CPP typically)
-                "award_points": 15000,
-                "award_surcharge": 0,
-                "summary": f"Hyatt in {city}",
-            },
-            {
-                "cash_price": 200.0,
-                "award_available": True,
-                "award_program": "HH",  # Hilton - AMEX transfer partner
-                "award_points": 50000,
-                "award_surcharge": 0,
-                "summary": f"Hilton in {city}",
-            },
-            {
-                "cash_price": 220.0,
-                "award_available": True,
-                "award_program": "MAR",  # Marriott - AMEX/Chase/Bilt partner
-                "award_points": 30000,
-                "award_surcharge": 0,
-                "summary": f"Marriott in {city}",
-            },
-            {
-                "cash_price": 150.0,
-                "award_available": False,
-                "summary": f"Budget hotel in {city}",
-            },
-        ]
-    
     def _build_option_summary(self, segment: dict, option: dict) -> str:
-        """Build a summary string for an option."""
-        if segment["type"] == "flight":
-            return f"{segment['origin']}→{segment['destination']}"
-        else:
-            return f"Hotel in {segment['city']}"
+        """Build a summary string for a flight option."""
+        return f"{segment['origin']}→{segment['destination']}"
     
     async def _get_trip_data(self, trip_id: str) -> Optional[dict]:
         """Get trip data from database."""
@@ -796,15 +741,19 @@ class OrchestratorAgent(BaseAgent):
                 {"name": "JFK", "is_start": True, "is_end": True},
                 {"name": "CDG", "must_include": True},
             ],
-            "include_hotels": True,
         }
     
     def _build_trip_segments(self, trip_data: dict) -> list[dict]:
-        """Build list of segments to search."""
+        """
+        Build list of flight segments to search (flights only).
+        
+        IMPORTANT: For multi-city trips, this now generates segments for ALL
+        permutations of intermediate destinations, then stores them as route_variants
+        in trip_data for the optimizer to evaluate.
+        """
         destinations = trip_data.get("destinations", [])
         start_date = trip_data.get("start_date", "2026-03-01")
         end_date = trip_data.get("end_date", "2026-03-08")
-        include_hotels = trip_data.get("include_hotels", True)
         
         # Find start and end points
         start = None
@@ -834,30 +783,136 @@ class OrchestratorAgent(BaseAgent):
         if not start:
             return []
         
-        # Build route
-        route = [start] + intermediate + ([end] if end != start else [start])
+        # ═══════════════════════════════════════════════════════════════════════
+        # GENERATE ALL ROUTE PERMUTATIONS
+        # ═══════════════════════════════════════════════════════════════════════
+        # For multi-city trips, we need to search flights for ALL possible
+        # orderings of intermediate cities to find the optimal route.
+        # e.g., SEA -> Paris -> Dubai -> SEA AND SEA -> Dubai -> Paris -> SEA
         
-        # Build segments
-        segments = []
+        import itertools
+        
+        if len(intermediate) > 1:
+            # Generate all permutations of intermediate cities
+            permutations = list(itertools.permutations(intermediate))
+            logger.info(f"[Orchestrator] Multi-city trip with {len(intermediate)} intermediate cities")
+            logger.info(f"[Orchestrator] Evaluating {len(permutations)} route permutations")
+            for i, perm in enumerate(permutations):
+                logger.info(f"[Orchestrator]   Route {i+1}: {start} → {' → '.join(perm)} → {end}")
+        else:
+            permutations = [tuple(intermediate)]
+        
+        # Store all route variants for the optimizer to compare
+        route_variants = []
+        all_segments = []
+        
         from datetime import datetime, timedelta
         
         try:
-            current_date = datetime.strptime(start_date, "%Y-%m-%d")
+            start_dt = datetime.strptime(start_date, "%Y-%m-%d")
             end_dt = datetime.strptime(end_date, "%Y-%m-%d")
-            total_days = (end_dt - current_date).days
-            days_per_city = max(1, total_days // max(len(route) - 1, 1))
         except:
-            current_date = datetime.now()
-            days_per_city = 3
+            start_dt = datetime.now()
+            end_dt = start_dt + timedelta(days=7)
+        
+        for perm_idx, perm in enumerate(permutations):
+            route = [start] + list(perm) + ([end] if end != start else [start])
+            route_variants.append(route)
+            
+            total_days = (end_dt - start_dt).days
+            days_per_city = max(1, total_days // max(len(route) - 1, 1))
+            current_date = start_dt
+            
+            for i in range(len(route) - 1):
+                origin = route[i]
+                destination = route[i + 1]
+                is_return_leg = (i == len(route) - 2 and (destination == start or end == start))
+                
+                # For return leg, use end_date
+                flight_date = end_dt.strftime("%Y-%m-%d") if is_return_leg else current_date.strftime("%Y-%m-%d")
+                
+                # Create segment with route variant index for grouping
+                segment = {
+                    "type": "flight",
+                    "origin": origin,
+                    "destination": destination,
+                    "date": flight_date,
+                    "route_variant": perm_idx,  # Which route permutation this belongs to
+                    "leg_index": i,  # Position within the route
+                }
+                all_segments.append(segment)
+                
+                current_date += timedelta(days=days_per_city)
+        
+        # Store route variants in trip_data for optimizer reference
+        trip_data["route_variants"] = route_variants
+        trip_data["num_route_variants"] = len(permutations)
+        
+        logger.info(f"[Orchestrator] Built {len(all_segments)} total segments across {len(permutations)} route variants")
+        
+        # Return unique O-D pairs to avoid duplicate searches
+        # The optimizer will handle selecting the best route variant
+        unique_segments = self._deduplicate_segments(all_segments)
+        logger.info(f"[Orchestrator] After deduplication: {len(unique_segments)} unique O-D pairs to search")
+        
+        return unique_segments
+    
+    def _deduplicate_segments(self, segments: list[dict]) -> list[dict]:
+        """
+        Remove duplicate O-D pairs from segments to avoid redundant searches.
+        
+        Different route orderings may share some segments (e.g., the return leg).
+        We only need to search each unique O-D + date combination once.
+        """
+        seen = set()
+        unique = []
+        
+        for seg in segments:
+            key = (seg["origin"], seg["destination"], seg["date"])
+            if key not in seen:
+                seen.add(key)
+                unique.append(seg)
+        
+        return unique
+    
+    def _build_segments_for_route(self, route: list[str], trip_data: dict) -> list[dict]:
+        """
+        Build flight segments for a specific route ordering.
+        
+        Args:
+            route: List of airport codes in order [start, city1, city2, ..., end]
+            trip_data: Trip data with dates
+        
+        Returns:
+            List of segment dicts for this specific route
+        """
+        from datetime import datetime, timedelta
+        
+        start_date = trip_data.get("start_date", "2026-03-01")
+        end_date = trip_data.get("end_date", "2026-03-08")
+        
+        try:
+            start_dt = datetime.strptime(start_date, "%Y-%m-%d")
+            end_dt = datetime.strptime(end_date, "%Y-%m-%d")
+        except:
+            start_dt = datetime.now()
+            end_dt = start_dt + timedelta(days=7)
+        
+        total_days = (end_dt - start_dt).days
+        days_per_city = max(1, total_days // max(len(route) - 1, 1))
+        current_date = start_dt
+        
+        segments = []
+        start_airport = route[0] if route else None
         
         for i in range(len(route) - 1):
             origin = route[i]
             destination = route[i + 1]
-            is_return_leg = (i == len(route) - 2 and destination == start)
+            is_return_leg = (i == len(route) - 2 and destination == start_airport)
             
-            # Flight segment
-            # For return leg, use end_date instead of calculated date
+            # For return leg, use end_date
             flight_date = end_dt.strftime("%Y-%m-%d") if is_return_leg else current_date.strftime("%Y-%m-%d")
+            
             segments.append({
                 "type": "flight",
                 "origin": origin,
@@ -865,23 +920,7 @@ class OrchestratorAgent(BaseAgent):
                 "date": flight_date,
             })
             
-            # Hotel segment (if not returning home)
-            if include_hotels and destination != start:
-                # For the last destination before returning home, check_out should be end_date
-                is_last_stop = (i == len(route) - 3) or (len(route) == 3 and i == 0)
-                if is_last_stop:
-                    check_out = end_dt
-                else:
-                    check_out = current_date + timedelta(days=days_per_city)
-                segments.append({
-                    "type": "hotel",
-                    "city": destination,
-                    "check_in": current_date.strftime("%Y-%m-%d"),
-                    "check_out": check_out.strftime("%Y-%m-%d"),
-                })
-                current_date = check_out
-            else:
-                current_date += timedelta(days=days_per_city)
+            current_date += timedelta(days=days_per_city)
         
         return segments
     
@@ -890,10 +929,8 @@ class OrchestratorAgent(BaseAgent):
         segments: list[dict],
         user_points: dict,
         cabin_classes: list[str],
-        hotel_stars: list[int],
-        include_hotels: bool,
     ) -> dict:
-        """Search flights and hotels for all segments in parallel."""
+        """Search flights for all segments in parallel (flights only)."""
         tasks = []
         segment_keys = []
         
@@ -907,15 +944,6 @@ class OrchestratorAgent(BaseAgent):
                     user_points=user_points,
                 )))
                 segment_keys.append(f"flight_{i}")
-            elif segment["type"] == "hotel" and include_hotels:
-                tasks.append(self.hotel_agent.execute(HotelSearchRequest(
-                    city=segment["city"],
-                    check_in=segment["check_in"],
-                    check_out=segment["check_out"],
-                    star_ratings=hotel_stars,
-                    user_points=user_points,
-                )))
-                segment_keys.append(f"hotel_{i}")
         
         results = await asyncio.gather(*tasks, return_exceptions=True)
         
@@ -1051,33 +1079,6 @@ class OrchestratorAgent(BaseAgent):
                         route.append(best.origin)
                     route.append(best.destination)
             
-            elif segment["type"] == "hotel":
-                key = f"hotel_{i}"
-                result = search_results.get(key)
-                
-                if not result or not result.options:
-                    continue
-                
-                best = self._pick_best_hotel_option(result.options, remaining_points)
-                
-                if best:
-                    seg, points_used, transfer = self._create_hotel_segment(
-                        best, remaining_points
-                    )
-                    itinerary_segments.append(seg)
-                    
-                    total_cash_price += best.cash_price_total or 0
-                    
-                    if seg.payment.method == "cash":
-                        total_oop += seg.payment.amount
-                    else:
-                        total_oop += seg.payment.surcharge
-                        total_points_used += seg.payment.points_used
-                        prog = seg.payment.program
-                        points_breakdown[prog] = points_breakdown.get(prog, 0) + seg.payment.points_used
-                        if transfer:
-                            transfers.append(transfer)
-        
         if not itinerary_segments:
             return []
         
@@ -1149,38 +1150,16 @@ class OrchestratorAgent(BaseAgent):
         
         return options[0] if options else None
     
-    def _pick_best_hotel_option(self, options: list, remaining_points: dict):
-        """Pick the best hotel option considering OOP."""
-        config = OOP_CONFIG
-        min_cpp = config["min_cpp_threshold"]
-        
-        for option in options:
-            if option.award_available and option.award_points_total:
-                if option.cpp and option.cpp < min_cpp:
-                    continue
-                
-                if self._can_afford_points(option.award_program, option.award_points_total, remaining_points):
-                    return option
-            
-            if option.cash_price_total and not option.award_available:
-                return option
-        
-        for option in options:
-            if option.cash_price_total:
-                return option
-        
-        return options[0] if options else None
-    
     def _can_afford_points(self, program: str, points_needed: int, remaining_points: dict) -> bool:
         """Check if user can afford points (direct or via transfer)."""
         # Check direct balance
         if program in remaining_points and remaining_points[program] >= points_needed:
             return True
         
-        # Check transfer partners
+        # Check transfer partners (airlines only)
         from .config import TRANSFER_GRAPH
         for bank, config in TRANSFER_GRAPH.items():
-            if program in config.get("airlines", []) + config.get("hotels", []):
+            if program in config.get("airlines", []):
                 ratio = config["ratios"].get(program, 1.0)
                 needed_from_bank = int(points_needed / ratio)
                 if bank in remaining_points and remaining_points[bank] >= needed_from_bank:
@@ -1259,72 +1238,6 @@ class OrchestratorAgent(BaseAgent):
         
         return segment, points_used, transfer
     
-    def _create_hotel_segment(self, option, remaining_points: dict) -> tuple:
-        """Create hotel segment with payment decision."""
-        transfer = None
-        points_used = 0
-        
-        use_points = (
-            option.award_available and
-            option.award_points_total and
-            option.cpp and option.cpp >= OOP_CONFIG["min_cpp_threshold"] and
-            self._can_afford_points(option.award_program, option.award_points_total, remaining_points)
-        )
-        
-        if use_points:
-            source, actual_points = self._deduct_points(
-                option.award_program, option.award_points_total, remaining_points
-            )
-            
-            if source and source != option.award_program:
-                path = get_transfer_path(source, option.award_program)
-                if path:
-                    transfer = TransferInstruction(
-                        from_program=source,
-                        to_program=option.award_program,
-                        points_to_transfer=actual_points,
-                        ratio=path["ratio"],
-                        portal_url=path["portal_url"],
-                        transfer_time=path["transfer_time"],
-                        steps=[
-                            f"Log in to {source} portal",
-                            f"Navigate to transfer partners",
-                            f"Select {option.award_program}",
-                            f"Transfer {actual_points:,} points",
-                        ],
-                    )
-            
-            payment = PointsPayment(
-                program=option.award_program,
-                points_used=option.award_points_total,
-                surcharge=option.award_surcharge or 0,
-                cpp_achieved=option.cpp,
-                cash_saved=(option.cash_price_total or 0) - (option.award_surcharge or 0),
-                transfer=transfer,
-            )
-            points_used = option.award_points_total
-        else:
-            payment = CashPayment(
-                amount=option.cash_price_total or 0,
-            )
-        
-        segment = HotelSegment(
-            id=str(uuid.uuid4()),
-            name=option.name,
-            brand=option.brand,
-            star_rating=option.star_rating,
-            city=option.city,
-            check_in=option.check_in,
-            check_out=option.check_out,
-            nights=option.nights,
-            cash_price_per_night=option.cash_price_per_night or 0,
-            cash_price_total=option.cash_price_total or 0,
-            payment=payment,
-            booking_url=option.booking_url,
-        )
-        
-        return segment, points_used, transfer
-    
     def _deduct_points(self, program: str, points_needed: int, remaining_points: dict) -> tuple:
         """Deduct points from user's balance, return (source, actual_points_deducted)."""
         # Try direct first
@@ -1332,10 +1245,10 @@ class OrchestratorAgent(BaseAgent):
             remaining_points[program] -= points_needed
             return (program, points_needed)
         
-        # Try transfer partners
+        # Try transfer partners (airlines only)
         from .config import TRANSFER_GRAPH
         for bank, config in TRANSFER_GRAPH.items():
-            if program in config.get("airlines", []) + config.get("hotels", []):
+            if program in config.get("airlines", []):
                 ratio = config["ratios"].get(program, 1.0)
                 needed_from_bank = int(points_needed / ratio)
                 if bank in remaining_points and remaining_points[bank] >= needed_from_bank:

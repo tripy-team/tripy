@@ -22,7 +22,6 @@ from .types import PolicyEvaluation, PolicySummary, PolicyAcknowledgment
 from .modes import BookingRiskMode, get_mode_policy, parse_risk_mode
 from .config import get_policy_config
 from .flight_policy import evaluate_flight_itinerary
-from .hotel_policy import evaluate_hotel_option
 from .penalties import compute_total_penalty
 
 logger = logging.getLogger(__name__)
@@ -66,11 +65,7 @@ def evaluate_itinerary(
         flight_eval = evaluate_flight_itinerary(flight_itin, mode, context)
         evaluation.merge(flight_eval)
     
-    # Evaluate hotel components
-    hotel_segments = itinerary.get("hotel_segments", []) or itinerary.get("hotels", [])
-    for hotel in hotel_segments:
-        hotel_eval = evaluate_hotel_option(hotel, mode, context)
-        evaluation.merge(hotel_eval)
+    # Note: Hotel evaluation removed - flights only mode
     
     # Evaluate transfer components (if points transfers are involved)
     transfers = itinerary.get("transfers", []) or itinerary.get("point_transfers", [])
@@ -110,9 +105,10 @@ def evaluate_hotel(
     """
     Evaluate a single hotel option against hotel policies.
     
-    Convenience wrapper for evaluate_hotel_option.
+    Note: Hotel evaluation disabled - flights only mode.
+    Returns empty evaluation.
     """
-    return evaluate_hotel_option(hotel, mode, context)
+    return PolicyEvaluation()
 
 
 # =============================================================================

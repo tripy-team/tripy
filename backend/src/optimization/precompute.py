@@ -15,9 +15,7 @@ import math
 
 from .models_v3 import (
     FlightItineraryEdge,
-    HotelOption,
     AwardOption,
-    RoomType,
     BalancedModeConfig,
 )
 from .constants import CPP_THRESHOLDS, DEFAULT_CPP_THRESHOLD
@@ -25,11 +23,11 @@ from .constants import CPP_THRESHOLDS, DEFAULT_CPP_THRESHOLD
 
 def precompute_soft_values(
     flights: List[FlightItineraryEdge],
-    hotels: List[HotelOption],
+    hotels: list,  # Ignored - no hotels
     config: BalancedModeConfig,
 ) -> None:
     """
-    Precompute all soft values for award options.
+    Precompute all soft values for flight award options.
     
     This modifies the award options in-place, setting:
     - soft_value_oop
@@ -42,22 +40,10 @@ def precompute_soft_values(
     # Get CPP thresholds
     thresholds = _get_cpp_thresholds()
     
-    # ═══════════════════════════════════════════════════════════════════════
-    # FLIGHTS
-    # ═══════════════════════════════════════════════════════════════════════
-    
+    # Flights only
     for f in flights:
         for opt in f.award_options:
             _precompute_flight_award_values(opt, f, thresholds, config)
-    
-    # ═══════════════════════════════════════════════════════════════════════
-    # HOTELS
-    # ═══════════════════════════════════════════════════════════════════════
-    
-    for h in hotels:
-        for rt in h.room_types:
-            if rt.has_award_pricing:
-                _precompute_hotel_room_values(rt, h, thresholds, config)
 
 
 def _get_cpp_thresholds() -> Dict[str, float]:
@@ -156,43 +142,6 @@ def _precompute_flight_award_values(
     )
 
 
-def _precompute_hotel_room_values(
-    rt: RoomType,
-    hotel: HotelOption,
-    thresholds: Dict[str, float],
-    config: BalancedModeConfig,
-) -> None:
-    """
-    Precompute soft values for a hotel room type award.
-    
-    Note: Hotel room types don't have individual soft_value fields,
-    but we can compute them here for use in the objective.
-    The values are stored on the RoomType or computed on-the-fly.
-    """
-    
-    if not rt.has_award_pricing:
-        return
-    
-    # Compute raw value
-    raw_value = rt.cash_per_night - rt.award_surcharge_per_night
-    
-    if raw_value <= 0:
-        return
-    
-    # Compute CPP
-    cpp = (raw_value * 100) / rt.points_per_night if rt.points_per_night > 0 else 0
-    
-    # Get threshold for hotel program
-    threshold = thresholds.get(rt.award_program, thresholds["default"])
-    
-    # For hotels, we typically use simpler valuation
-    # Star rating bonus
-    star_bonus = config.star_rating_bonus.get(hotel.star_rating, 1.0)
-    
-    # The computed values would be used when building the objective
-    # For now, we don't store them on RoomType directly
-
-
 def compute_flight_K(
     flights: List[FlightItineraryEdge],
     config: BalancedModeConfig,
@@ -208,29 +157,6 @@ def compute_flight_K(
         for opt in f.award_options:
             if opt.soft_value_balanced > 0:
                 values.append(opt.soft_value_balanced)
-    
-    return _robust_median(values, config)
-
-
-def compute_hotel_K(
-    hotels: List[HotelOption],
-    config: BalancedModeConfig,
-) -> float:
-    """
-    Compute normalization constant K for hotels (robust median).
-    
-    K = median of positive award value per night across all hotel room types.
-    """
-    
-    values = []
-    for h in hotels:
-        for rt in h.room_types:
-            if rt.has_award_pricing:
-                value = rt.cash_per_night - rt.award_surcharge_per_night
-                if value > 0:
-                    # Apply star bonus
-                    star_bonus = config.star_rating_bonus.get(h.star_rating, 1.0)
-                    values.append(value * star_bonus)
     
     return _robust_median(values, config)
 
@@ -262,68 +188,3 @@ def _robust_median(values: List[float], config: BalancedModeConfig) -> float:
         return sorted_vals[n // 2]
     
     return trimmed[len(trimmed) // 2]
-
-
-def get_hotel_award_value(
-    rt: RoomType,
-    hotel: HotelOption,
-    nights: int,
-    config: BalancedModeConfig,
-) -> float:
-    """
-    Compute award value for a hotel room type booking.
-    
-    Returns total value for all nights.
-    """
-    
-    if not rt.has_award_pricing:
-        return 0.0
-    
-    # Raw value per night
-    value_per_night = rt.cash_per_night - rt.award_surcharge_per_night
-    
-    if value_per_night <= 0:
-        return 0.0
-    
-    # Apply star bonus
-    star_bonus = config.star_rating_bonus.get(hotel.star_rating, 1.0)
-    
-    return value_per_night * star_bonus * nights
-
-
-def get_hotel_soft_value_cpp(
-    rt: RoomType,
-    hotel: HotelOption,
-    nights: int,
-    thresholds: Dict[str, float],
-) -> float:
-    """
-    Compute CPP-mode soft value for a hotel room type booking.
-    
-    Returns total soft value for all nights.
-    """
-    
-    if not rt.has_award_pricing:
-        return 0.0
-    
-    value_per_night = rt.cash_per_night - rt.award_surcharge_per_night
-    
-    if value_per_night <= 0:
-        return 0.0
-    
-    # Compute CPP
-    cpp = (value_per_night * 100) / rt.points_per_night if rt.points_per_night > 0 else 0
-    
-    # Get threshold
-    threshold = thresholds.get(rt.award_program, thresholds.get("default", 1.2))
-    
-    # Apply penalty
-    if cpp >= threshold:
-        soft_value_per_night = value_per_night
-    elif cpp > 0:
-        penalty_factor = 0.2 + 0.8 * (cpp / threshold)
-        soft_value_per_night = value_per_night * penalty_factor
-    else:
-        soft_value_per_night = 0.0
-    
-    return soft_value_per_night * nights

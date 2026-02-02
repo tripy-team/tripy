@@ -360,8 +360,6 @@ export interface CreateTripRequest {
   title: string;
   start_date: string;
   end_date: string;
-  /** Include hotel out-of-pocket in cost calculations (default true) */
-  include_hotels?: boolean;
   /** Maximum budget in dollars for itinerary generation */
   max_budget?: number;
   /** Trip length in days when dates are flexible (start/end empty) */
@@ -1482,6 +1480,32 @@ export interface SoloPointsSummaryResponse {
   totalPoints: number;
 }
 
+/**
+ * Per-leg detail for connecting flights
+ */
+export interface SoloFlightLeg {
+  origin: string;
+  destination: string;
+  departureTime?: string;
+  arrivalTime?: string;
+  durationMinutes?: number;
+  flightNumber: string;
+  marketingCarrier: string;
+  operatingCarrier?: string;
+  isCodeshare?: boolean;
+  codeshareInfo?: string;
+}
+
+/**
+ * Layover information between flight legs
+ */
+export interface SoloLayover {
+  airport: string;
+  airportName?: string;
+  durationMinutes: number;
+  durationDisplay?: string;  // e.g., "2h 15m"
+}
+
 export interface SoloBookingStep {
   stepNumber: number;
   type: 'flight' | 'hotel';
@@ -1500,6 +1524,11 @@ export interface SoloBookingStep {
   operatingAirline?: string;  // For codeshare flights
   durationMinutes?: number;
   
+  // Connection details for multi-leg flights
+  stops?: number;                  // Number of stops (0 = nonstop)
+  legs?: SoloFlightLeg[];          // Per-leg details
+  layovers?: SoloLayover[];        // Layover info between legs
+  
   // Hotel-specific details
   city?: string;
   checkIn?: string;
@@ -1512,6 +1541,7 @@ export interface SoloBookingStep {
   cashPrice?: number;
   surcharge?: number;
   program?: string;
+  paymentReason?: string;  // Explains why this payment method was chosen
 }
 
 export interface SoloTransferStrategyResponse {

@@ -247,13 +247,7 @@ class TripPlanSpec:
         if not self.legs:
             errors.append("No legs specified")
         
-        # Check leg/segment count alignment
-        expected_segments = len(self.legs) - 1 if self.legs else 0
-        if len(self.stay_segments) != expected_segments:
-            errors.append(
-                f"Expected {expected_segments} stay segments for {len(self.legs)} legs, "
-                f"got {len(self.stay_segments)}"
-            )
+        # Note: stay_segments validation removed - flights only mode
         
         # Check leg IDs are sequential
         for i, leg in enumerate(self.legs):

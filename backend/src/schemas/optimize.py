@@ -40,9 +40,41 @@ class TransferInstruction(BaseModel):
     warning: Optional[str] = None       # e.g., "Transfer bonus expires March 15"
 
 
+class FlightLegDetail(BaseModel):
+    """
+    Per-leg detail for connecting flights.
+    
+    CRITICAL: This enables the UI to show:
+    - "SEA → AMS → CDG" instead of just "SEA → CDG"
+    - Per-leg carriers for codeshare display
+    - Layover airports and durations
+    """
+    origin: str                         # Departure airport (e.g., "SEA")
+    destination: str                    # Arrival airport (e.g., "AMS")
+    departure_time: Optional[str] = None
+    arrival_time: Optional[str] = None
+    duration_minutes: Optional[int] = None
+    
+    flight_number: str                  # e.g., "DL 2055"
+    marketing_carrier: str              # Who sells the ticket (e.g., "DL")
+    operating_carrier: Optional[str] = None  # Who flies the plane (e.g., "KL")
+    
+    aircraft: Optional[str] = None
+    cabin: Optional[str] = None
+
+
+class LayoverDetail(BaseModel):
+    """Layover detail between flight legs."""
+    airport: str                        # Connection airport code
+    airport_name: Optional[str] = None  # Full airport name
+    duration_minutes: int               # Minutes between flights
+    is_short: bool = False              # Under 60 minutes (risky)
+    is_long: bool = False               # Over 4 hours
+
+
 class SegmentBreakdown(BaseModel):
     """Breakdown for a single segment (flight or hotel)"""
-    segment: str                        # e.g., "JFK → LAX"
+    segment: str                        # e.g., "JFK → LAX" or "JFK → AMS → LAX"
     type: Literal["flight", "hotel"]
     payment_method: Literal["cash", "points"]
     cash_price: float                   # Real cash price for this segment
@@ -55,17 +87,28 @@ class SegmentBreakdown(BaseModel):
     transfer_ratio: Optional[float] = None
     program: Optional[str] = None       # Loyalty program used for booking
     
-    # Flight-specific details
+    # Flight-specific details (top-level for quick access)
     origin: Optional[str] = None
     destination: Optional[str] = None
     departure_time: Optional[str] = None
     arrival_time: Optional[str] = None
     airline: Optional[str] = None
     operating_airline: Optional[str] = None  # For codeshare flights
-    flight_number: Optional[str] = None
+    flight_number: Optional[str] = None      # First leg's flight number
     cabin_class: Optional[str] = None
     duration_minutes: Optional[int] = None
     booking_url: Optional[str] = None
+    
+    # CRITICAL: Per-leg details for connections
+    # If this is a connecting flight, legs[] has the per-leg breakdown
+    stops: int = 0                      # Number of stops (0 = direct)
+    legs: List[FlightLegDetail] = []    # Per-leg details (empty for direct flights)
+    layovers: List[LayoverDetail] = []  # Layover details between legs
+    
+    # Connection safety info
+    ticketing_confirmed: bool = False   # True if single-ticket confirmed
+    has_carrier_change: bool = False    # True if operating carriers differ between legs
+    has_short_connection: bool = False  # True if any layover < 60 min
     
     # Hotel-specific details
     hotel_name: Optional[str] = None
@@ -147,7 +190,7 @@ class BookingStep(BaseModel):
     # E.g., "JFK → NRT Business Class United Polaris"
     segment_reference: str
     
-    # Flight-specific details
+    # Flight-specific details (top-level for the overall journey)
     origin: Optional[str] = None
     destination: Optional[str] = None
     departure_time: Optional[str] = None
@@ -156,6 +199,12 @@ class BookingStep(BaseModel):
     flight_number: Optional[str] = None
     operating_airline: Optional[str] = None  # For codeshare (e.g., "Operated by Air France")
     duration_minutes: Optional[int] = None
+    
+    # CRITICAL: Connection details for multi-leg flights
+    # These enable the UI to show layover airports and durations
+    stops: int = 0                          # Number of stops (0 = nonstop)
+    legs: List[FlightLegDetail] = []        # Per-leg details (empty for direct flights)
+    layovers: List[LayoverDetail] = []      # Layover info between legs
     
     # Hotel-specific details
     city: Optional[str] = None
@@ -169,6 +218,7 @@ class BookingStep(BaseModel):
     cash_price: Optional[float] = None
     surcharge: Optional[float] = None
     program: Optional[str] = None  # Loyalty program for the booking
+    payment_reason: Optional[str] = None  # Explains why this payment method was chosen
 
 
 class TransferStrategyResponse(BaseModel):

@@ -57,13 +57,11 @@ def get_cost_agent() -> CostBreakdownAgent:
 # =============================================================================
 
 class SoloOptimizeRequest(BaseModel):
-    """Request body for solo trip optimization."""
+    """Request body for solo trip optimization (flights only)."""
     trip_id: str = Field(..., min_length=1, max_length=100)
     points: dict[str, int] = {}  # program -> balance
     budget: float = Field(default=5000.0, ge=0, le=1000000)
     cabin_classes: Optional[list[str]] = None
-    hotel_stars: Optional[list[int]] = None
-    include_hotels: Optional[bool] = True
     
     # Policy settings
     risk_mode: Optional[Literal["safe", "balanced", "aggressive"]] = "balanced"
@@ -108,10 +106,9 @@ class MemberCapabilityRequest(BaseModel):
 
 
 class AllocationStrategyRequest(BaseModel):
-    """Strategy for allocating bookings across group members."""
+    """Strategy for allocating flight bookings across group members."""
     strategy_type: Literal["optimize", "by_segment_type", "by_direction", "manual"]
     flight_booker: Optional[str] = None  # member_id for by_segment_type
-    hotel_booker: Optional[str] = None
     outbound_booker: Optional[str] = None  # for by_direction
     return_booker: Optional[str] = None
     manual_assignments: dict[str, str] = {}  # segment_id -> member_id
@@ -122,15 +119,13 @@ class GroupAllocationRequest(BaseModel):
     Request body for group booking allocation.
     
     IMPORTANT: Points are per-member, NOT pooled!
-    Each member uses their OWN points for segments they book.
+    Each member uses their OWN points for flights they book.
     """
     trip_id: str = Field(..., min_length=1, max_length=100)
     members: list[MemberCapabilityRequest]
     strategy: AllocationStrategyRequest
     split_method: Literal["equal", "proportional_travelers", "proportional_points", "custom"] = "equal"
     cabin_classes: Optional[list[str]] = None
-    hotel_stars: Optional[list[int]] = None
-    include_hotels: Optional[bool] = True
     
     @validator('trip_id')
     def validate_trip_id(cls, v):
@@ -151,8 +146,6 @@ def _cache_key(request: SoloOptimizeRequest, user_id: str) -> str:
         "points": request.points,
         "budget": request.budget,
         "cabin_classes": request.cabin_classes,
-        "hotel_stars": request.hotel_stars,
-        "include_hotels": request.include_hotels,
         "user_id": user_id,
     }
     return f"opt:{hashlib.md5(json.dumps(data, sort_keys=True).encode()).hexdigest()}"
@@ -168,7 +161,7 @@ async def optimize_solo_trip(
     user_id: str = Depends(get_current_user_id),
 ) -> dict:
     """
-    Optimize a solo trip using the agentic architecture.
+    Optimize a solo trip using the agentic architecture (flights only).
     
     Returns itineraries ranked by out-of-pocket (lowest first).
     Each itinerary includes:
@@ -179,10 +172,9 @@ async def optimize_solo_trip(
     
     **Algorithm:**
     1. Flight Agent searches AwardTool + SerpAPI for each segment
-    2. Hotel Agent searches hotel options (if includeHotels=true)
-    3. ILP optimizer minimizes out-of-pocket using OOP mode
-    4. Results ranked by lowest cash paid first
-    5. Cost Breakdown Agent explains each decision
+    2. ILP optimizer minimizes out-of-pocket using OOP mode
+    3. Results ranked by lowest cash paid first
+    4. Cost Breakdown Agent explains each decision
     """
     logger.info(f"[/optimize/solo] Starting optimization for trip {request.trip_id} by user {user_id}")
     
@@ -213,8 +205,6 @@ async def optimize_solo_trip(
             points=validated_points,
             budget=request.budget,
             cabin_classes=request.cabin_classes,
-            hotel_stars=request.hotel_stars,
-            include_hotels=request.include_hotels,
             # Policy settings
             risk_mode=request.risk_mode or "balanced",
             include_basic_economy=request.include_basic_economy,
@@ -337,8 +327,6 @@ async def optimize_group_trip(
             points=request.points,
             budget=request.budget,
             cabin_classes=request.cabin_classes,
-            hotel_stars=request.hotel_stars,
-            include_hotels=request.include_hotels,
             member_points=request.member_points,
             member_budgets=request.member_budgets,
             split_method=request.split_method,
@@ -366,16 +354,15 @@ async def allocate_group_bookings(
     user_id: str = Depends(get_current_user_id),
 ) -> dict:
     """
-    Allocate booking responsibilities across group members.
+    Allocate flight booking responsibilities across group members.
     
     **CRITICAL: Points are per-member, NOT pooled!**
     
-    Each member uses their OWN points for segments they book.
+    Each member uses their OWN points for flights they book.
     Example: Alice has 100k, Bob has 100k → each can only use their own 100k.
     
     Strategies:
     - **optimize**: System finds best assignment based on who has best points
-    - **by_segment_type**: One person books all flights, another all hotels
     - **by_direction**: One books outbound flights, another return flights
     - **manual**: User specifies each segment assignment
     
@@ -432,8 +419,6 @@ async def allocate_group_bookings(
             points={},  # Not used in allocation
             budget=0,
             cabin_classes=request.cabin_classes,
-            hotel_stars=request.hotel_stars,
-            include_hotels=request.include_hotels,
             member_points=member_points,
             member_budgets=member_budgets,
         )
@@ -442,7 +427,6 @@ async def allocate_group_bookings(
         strategy = BookingAllocationStrategy(
             strategy_type=request.strategy.strategy_type,
             flight_booker=request.strategy.flight_booker,
-            hotel_booker=request.strategy.hotel_booker,
             outbound_booker=request.strategy.outbound_booker,
             return_booker=request.strategy.return_booker,
             manual_assignments=request.strategy.manual_assignments,
@@ -606,12 +590,13 @@ async def get_cost_breakdown(
             # Generate breakdown using Cost Breakdown Agent
             cost_agent = get_cost_agent()
             
-            # Reconstruct RankedItinerary from cached data
-            from ..agents.models import RankedItinerary, OOPMetrics, FlightSegment, HotelSegment, CashPayment, PointsPayment, TransferInstruction
+            # Reconstruct RankedItinerary from cached data (flights only)
+            from ..agents.models import RankedItinerary, OOPMetrics, FlightSegment, CashPayment, PointsPayment, TransferInstruction
             
-            # Build segments from cached data
+            # Build flight segments from cached data
             segments = []
             for seg_data in itinerary_data.get("segments", []):
+                # Only process flight segments
                 if seg_data.get("type") == "flight":
                     payment_data = seg_data.get("payment", {})
                     if payment_data.get("method") == "points":
@@ -619,13 +604,6 @@ async def get_cost_breakdown(
                     else:
                         payment = CashPayment(**payment_data)
                     segments.append(FlightSegment(**{**seg_data, "payment": payment}))
-                else:
-                    payment_data = seg_data.get("payment", {})
-                    if payment_data.get("method") == "points":
-                        payment = PointsPayment(**payment_data)
-                    else:
-                        payment = CashPayment(**payment_data)
-                    segments.append(HotelSegment(**{**seg_data, "payment": payment}))
             
             # Build transfers
             transfers = [

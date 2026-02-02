@@ -395,94 +395,6 @@ class FlightItineraryEdge:
 
 
 # =============================================================================
-# ROOM TYPE: Hotel room category
-# =============================================================================
-
-@dataclass
-class RoomType:
-    """A room type at a hotel."""
-    
-    room_type_id: str  # e.g., "standard_king"
-    name: str  # "Standard King", "Suite", etc.
-    capacity: int  # Max occupants
-    
-    cash_per_night: float
-    
-    # Award pricing (if available)
-    award_program: Optional[str] = None  # Normalized: "hyatt", "marriott"
-    points_per_night: Optional[int] = None
-    award_surcharge_per_night: float = 0.0
-    
-    @property
-    def has_award_pricing(self) -> bool:
-        """Check if this room type has award pricing."""
-        return self.award_program is not None and self.points_per_night is not None and self.points_per_night > 0
-    
-    def award_cpp(self) -> float:
-        """Cents per point for award booking."""
-        if not self.has_award_pricing or self.points_per_night <= 0:
-            return 0.0
-        value = self.cash_per_night - self.award_surcharge_per_night
-        return (value * 100) / self.points_per_night
-
-
-# =============================================================================
-# HOTEL OPTION: Hotel for a stay segment
-# =============================================================================
-
-@dataclass
-class HotelOption:
-    """A hotel option for a stay segment."""
-    
-    hotel_id: str  # Unique string ID
-    segment_id: int  # Which stay segment
-    
-    hotel_name: str
-    chain: str  # "HYATT", "MARRIOTT", etc. (normalized)
-    star_rating: float
-    location_score: float = 0.0  # 0-1, proximity to attractions
-    
-    room_types: List[RoomType] = field(default_factory=list)
-    
-    # Quality metrics
-    review_score: float = 0.0
-    amenities: List[str] = field(default_factory=list)
-    
-    # For pruning heuristics
-    def cheapest_cash_per_night(self) -> float:
-        """Cheapest room per night (for pruning)."""
-        if not self.room_types:
-            return float('inf')
-        return min(rt.cash_per_night for rt in self.room_types)
-    
-    def best_award_cpp(self) -> float:
-        """Best CPP among award room types."""
-        cpps = [rt.award_cpp() for rt in self.room_types if rt.has_award_pricing]
-        return max(cpps) if cpps else 0.0
-    
-    def best_award_value_per_night(self) -> float:
-        """Best award value per night."""
-        values = []
-        for rt in self.room_types:
-            if rt.has_award_pricing:
-                value = rt.cash_per_night - rt.award_surcharge_per_night
-                values.append(value)
-        return max(values) if values else 0.0
-    
-    def get_award_room_types(self) -> List[RoomType]:
-        """Get room types with award pricing."""
-        return [rt for rt in self.room_types if rt.has_award_pricing]
-    
-    def get_award_programs(self) -> List[str]:
-        """Get unique award programs available."""
-        programs = set()
-        for rt in self.room_types:
-            if rt.has_award_pricing and rt.award_program:
-                programs.add(rt.award_program)
-        return list(programs)
-
-
-# =============================================================================
 # TRANSFER PATH: Bank -> Program transfer with integer-safe delivery
 # =============================================================================
 
@@ -540,9 +452,96 @@ class TransferPath:
 
 @dataclass
 class SlackConfig:
-    """Two-pass slack configuration."""
-    rel_eps: float = 0.01  # 1% relative slack
-    abs_eps: float = 25.0  # $25 absolute slack
+    """
+    Two-pass slack configuration.
+    
+    IMPORTANT: The slack determines the "comfort budget" - how much extra
+    cash the solver is allowed to spend to improve convenience in Pass 2.
+    
+    Too tight (old defaults: $25/1%): convenience can never improve
+    New defaults: $150 domestic / $300 long-haul, 5% relative
+    """
+    rel_eps: float = 0.05  # 5% relative slack (was 1%)
+    abs_eps_domestic: float = 150.0  # $150 for domestic flights (was $25)
+    abs_eps_international: float = 300.0  # $300 for long-haul international
+    
+    # Legacy field for compatibility
+    @property
+    def abs_eps(self) -> float:
+        """Default to domestic. Use get_abs_eps() for route-aware value."""
+        return self.abs_eps_domestic
+    
+    def get_abs_eps(self, is_international: bool = False) -> float:
+        """Get absolute epsilon based on route type."""
+        return self.abs_eps_international if is_international else self.abs_eps_domestic
+
+
+@dataclass
+class ComfortConfig:
+    """
+    Comfort constraints and generalized cost configuration.
+    
+    This enables two key improvements:
+    1. Hard constraints that filter out unacceptable itineraries
+    2. Generalized cost that prices inconvenience in dollars
+    
+    The generalized cost model converts convenience into dollars:
+        total_cost = cash + surcharge + stop_cost*stops + time_cost*excess_hours 
+                   + layover_cost*excess_layover_hours + redeye_cost + carrier_change_cost
+    """
+    
+    # ═══════════════════════════════════════════════════════════════════════
+    # HARD CONSTRAINTS (filter out garbage)
+    # ═══════════════════════════════════════════════════════════════════════
+    
+    max_stops_domestic: int = 1  # At most 1 stop for domestic
+    max_stops_international: int = 2  # At most 2 stops for long-haul
+    max_duration_ratio: float = 1.5  # No more than 50% longer than fastest option
+    max_layover_hours: float = 4.0  # No layover longer than 4 hours
+    require_single_ticket: bool = True  # No self-transfer (separate tickets)
+    
+    # ═══════════════════════════════════════════════════════════════════════
+    # GENERALIZED COST (price inconvenience in dollars)
+    # ═══════════════════════════════════════════════════════════════════════
+    
+    # Stop penalties - these are the "value of not having a stop"
+    stop_cost_domestic: float = 100.0  # $100 per stop for domestic
+    stop_cost_international: float = 175.0  # $175 per stop for long-haul
+    
+    # Time penalties
+    time_cost_per_hour: float = 20.0  # $20 per hour over baseline
+    baseline_hours_domestic: float = 4.0  # No penalty up to 4 hours domestic
+    baseline_hours_international: float = 12.0  # No penalty up to 12 hours international
+    
+    # Layover penalties (after baseline connection time)
+    layover_cost_per_hour: float = 25.0  # $25 per hour after 90 min
+    baseline_layover_minutes: float = 90.0  # No penalty for connections up to 90 min
+    
+    # Quality penalties
+    redeye_cost: float = 100.0  # $100 penalty for redeye flights
+    carrier_change_cost: float = 75.0  # $75 penalty for carrier change mid-journey
+    short_connection_cost: float = 50.0  # $50 penalty for < 60 min connection
+    
+    # ═══════════════════════════════════════════════════════════════════════
+    # POINTS OPPORTUNITY COST
+    # ═══════════════════════════════════════════════════════════════════════
+    
+    # Prevents "wasting points" on bad itineraries
+    # Points aren't free - they have opportunity cost
+    points_opportunity_cost_cpp: float = 0.012  # 1.2¢ per point opportunity cost
+    enable_points_opportunity_cost: bool = True
+    
+    def get_stop_cost(self, is_international: bool = False) -> float:
+        """Get stop cost based on route type."""
+        return self.stop_cost_international if is_international else self.stop_cost_domestic
+    
+    def get_baseline_hours(self, is_international: bool = False) -> float:
+        """Get baseline hours based on route type."""
+        return self.baseline_hours_international if is_international else self.baseline_hours_domestic
+    
+    def get_max_stops(self, is_international: bool = False) -> int:
+        """Get max stops based on route type."""
+        return self.max_stops_international if is_international else self.max_stops_domestic
 
 
 @dataclass
@@ -555,7 +554,6 @@ class BalancedModeConfig:
     
     # Category importance (user-tunable)
     flight_importance: float = 1.0
-    hotel_importance: float = 1.0
     
     # Cash penalty (so balanced doesn't ignore cash entirely)
     # Objective = value_utility - cash_penalty_weight * total_cash
@@ -567,15 +565,6 @@ class BalancedModeConfig:
     connection_penalty: float = 0.20  # 20% penalty per stop
     carrier_change_penalty: float = 0.10  # 10% penalty for carrier change
     redeye_penalty: float = 0.15  # 15% penalty for redeye
-    
-    # Quality bonuses for hotels
-    star_rating_bonus: Dict[float, float] = field(default_factory=lambda: {
-        5.0: 1.2,
-        4.5: 1.1,
-        4.0: 1.0,
-        3.5: 0.95,
-        3.0: 0.9,
-    })
     
     # Availability risk
     low_availability_penalty: float = 0.30  # 30% penalty for low availability
@@ -614,12 +603,6 @@ class PruningConfig:
     max_by_time: int = 5  # Top 5 by shortest time
     max_by_award: int = 10  # Top 10 by best award value
     max_total_per_od: int = 20  # Cap after union
-    
-    # Per segment limits for hotels
-    max_hotels_by_cash: int = 8
-    max_hotels_by_award: int = 8
-    max_hotels_by_rating: int = 5
-    max_hotels_total: int = 15
     
     # Award programs per edge
     max_award_programs_per_edge: int = 3
@@ -665,12 +648,9 @@ class Solution:
     
     # Selected items
     selected_flights: Dict[int, str] = field(default_factory=dict)  # leg_id -> edge_id
-    selected_hotels: Dict[int, str] = field(default_factory=dict)  # segment_id -> hotel_id
-    selected_rooms: Dict[str, Dict[str, int]] = field(default_factory=dict)  # hotel_id -> {room_type_id: count}
     
     # Payment
     flight_payments: Dict[str, PaymentChoice] = field(default_factory=dict)  # edge_id -> payment
-    hotel_payments: Dict[str, PaymentChoice] = field(default_factory=dict)  # hotel_id -> payment
     
     # Transfers
     transfers_used: Dict[Tuple[str, str, str], int] = field(default_factory=dict)  # (payer, bank, program) -> blocks

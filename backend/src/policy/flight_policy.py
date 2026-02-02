@@ -347,9 +347,9 @@ def _evaluate_roundtrip_flexibility(
     if not config.ROUNDTRIP_DISCOURAGE:
         return
     
-    booking_type = itinerary.get("booking_type", "")
+    booking_type = itinerary.get("booking_type") or ""
     
-    if booking_type.lower() != "round_trip":
+    if not booking_type or booking_type.lower() != "round_trip":
         return
     
     # Check user's flexibility preference

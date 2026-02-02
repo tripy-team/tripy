@@ -135,7 +135,6 @@ class CreateTripRequest(BaseModel):
     title: str = Field(..., min_length=1, max_length=200)
     start_date: str = Field(..., description="Start date in ISO format (YYYY-MM-DD)")
     end_date: str = Field(..., description="End date in ISO format (YYYY-MM-DD)")
-    include_hotels: Optional[bool] = True  # Include hotel out-of-pocket in cost calculations
     max_budget: Optional[int] = Field(None, ge=0, description="Maximum budget in dollars for itinerary generation")
     duration_days: Optional[int] = Field(None, ge=1, le=365, description="Trip length in days when dates are flexible (start/end empty)")
 
@@ -276,58 +275,14 @@ class OptimizeOutOfPocketRequest(BaseModel):
     commercial_only: bool = Field(False, description="If True, origin and destination must be commercial airports")
 
 
-class HotelSearchRequest(BaseModel):
-    destination: str = Field(..., min_length=1, max_length=200, description="City or location name")
-    check_in: str = Field(..., description="Check-in date YYYY-MM-DD")
-    check_out: str = Field(..., description="Check-out date YYYY-MM-DD")
-    programs: Optional[List[str]] = Field(None, description="Hotel programs e.g. HH, IHG, MAR, HYATT")
-    guests: int = Field(1, ge=1, le=10, description="Number of guests")
-    hotel_class: Optional[str] = Field(None, description="Star rating filter e.g. 3, 4, 5")
-
-
-class OptimizeOutOfPocketHotelsRequest(BaseModel):
-    destination: str = Field(..., min_length=1, max_length=200, description="City or location name")
-    check_in: str = Field(..., description="Check-in date YYYY-MM-DD")
-    check_out: str = Field(..., description="Check-out date YYYY-MM-DD")
-    programs: Optional[List[str]] = Field(None, description="Hotel programs e.g. HH, IHG, MAR, HYATT")
-    guests: int = Field(1, ge=1, le=10, description="Number of guests")
-    hotel_class: Optional[str] = Field(None, description="Star rating filter e.g. 3, 4, 5")
-
-
-class HotelCalendarRequest(BaseModel):
-    hotel_id: str = Field(..., min_length=1, max_length=100, description="AwardTool hotel ID (e.g., hyatt_madel)")
-    check_in: Optional[str] = Field(None, description="Optional start date filter YYYY-MM-DD")
-    check_out: Optional[str] = Field(None, description="Optional end date filter YYYY-MM-DD")
-
-
-class HotelBestNightsRequest(BaseModel):
-    hotel_id: str = Field(..., min_length=1, max_length=100, description="AwardTool hotel ID")
-    num_nights: int = Field(..., ge=1, le=30, description="Number of nights needed")
-    start_date: Optional[str] = Field(None, description="Earliest possible check-in YYYY-MM-DD")
-    end_date: Optional[str] = Field(None, description="Latest possible check-out YYYY-MM-DD")
-    optimize_for: str = Field("points", description="Optimization: 'points', 'cpp', or 'cash'")
-
-
-class HotelSearchWithCalendarRequest(BaseModel):
-    destination: str = Field(..., min_length=1, max_length=200, description="City or destination name")
-    check_in: str = Field(..., description="Check-in date YYYY-MM-DD")
-    check_out: str = Field(..., description="Check-out date YYYY-MM-DD")
-    programs: Optional[List[str]] = Field(None, description="Hotel programs e.g. HH, IHG, MAR, HYATT")
-    guests: int = Field(1, ge=1, le=10, description="Number of guests")
-    hotel_class: Optional[str] = Field(None, description="Star rating filter e.g. 3, 4, 5")
-    top_hotels: int = Field(5, ge=1, le=10, description="Number of top hotels to enrich with calendar")
-
-
-# === NEW: Transfer Strategy Optimizer Models ===
+# === Transfer Strategy Optimizer Models ===
 
 class TransferStrategyRequest(BaseModel):
-    """Request for optimizing point transfers across flights and hotels."""
+    """Request for optimizing point transfers for flights."""
     trip_id: Optional[str] = Field(None, description="Trip ID to optimize (if using saved trip)")
     # OR provide expenses directly:
     flights: Optional[List[Dict[str, Any]]] = Field(None, description="Flight options with cash and points costs")
-    hotels: Optional[List[Dict[str, Any]]] = Field(None, description="Hotel options with cash and points costs")
     available_points: Dict[str, int] = Field(..., description="User's point balances by program (e.g., {'amex': 100000, 'chase': 50000, 'UA': 25000})")
-    include_hotels: bool = Field(True, description="Include hotels in optimization")
     max_cash_budget: Optional[float] = Field(None, ge=0, description="Maximum cash to spend")
     min_points_usage_pct: float = Field(0.0, ge=0, le=1, description="Force minimum point utilization (0-1)")
 
@@ -555,7 +510,6 @@ async def create_trip(
             request.title,
             request.start_date,
             request.end_date,
-            include_hotels=request.include_hotels,
             max_budget=request.max_budget,
             duration_days=request.duration_days,
         )
@@ -1008,167 +962,6 @@ async def get_itinerary(
         raise HTTPException(status_code=500, detail=str(e))
 
 
-# Hotel search (AwardTool Hotel API; requires authentication)
-@app.post("/hotels/search")
-async def search_hotels_endpoint(
-    request: HotelSearchRequest, user_id: str = Depends(get_current_user_id)
-):
-    """Search for award and cash hotel rates via AwardTool Hotel API"""
-    try:
-        from .handlers.hotels import search_hotels_async
-
-        hotels = await search_hotels_async(
-            destination=request.destination,
-            check_in=request.check_in,
-            check_out=request.check_out,
-            programs=request.programs,
-            guests=request.guests,
-            hotel_class=request.hotel_class,
-        )
-        return {"hotels": hotels}
-    except httpx.HTTPStatusError as e:
-        logger.warning(f"Hotel search API error: {e.response.status_code} {e.response.text[:200]}")
-        raise HTTPException(
-            status_code=502,
-            detail=f"Hotel search provider error: {e.response.status_code}. Check AWARDTOOL_API_KEY and AwardTool Hotel API availability.",
-        )
-    except Exception as e:
-        logger.error(f"Error searching hotels: {str(e)}", exc_info=True)
-        raise HTTPException(status_code=500, detail=str(e))
-
-
-@app.post("/hotels/optimize-out-of-pocket")
-async def optimize_out_of_pocket_hotels(
-    body: OptimizeOutOfPocketHotelsRequest, user_id: str = Depends(get_current_user_id)
-):
-    """
-    Minimize hotel out-of-pocket: AwardTool (cash + points + surcharge) and SerpAPI Google Hotels (cash).
-    Returns: { best_by_cash, best_by_points, best_overall, options, destination, check_in, check_out }
-    """
-    try:
-        from .services.serp_api_functions import optimize_hotels_out_of_pocket
-
-        return optimize_hotels_out_of_pocket(
-            destination=body.destination,
-            check_in=body.check_in,
-            check_out=body.check_out,
-            programs=body.programs,
-            guests=body.guests,
-            hotel_class=body.hotel_class,
-        )
-    except Exception as e:
-        logger.error(f"optimize_out_of_pocket_hotels: {e}", exc_info=True)
-        raise HTTPException(status_code=500, detail=str(e))
-
-
-# Hotel calendar endpoints - get availability calendar for specific hotels
-@app.post("/hotels/calendar")
-async def get_hotel_calendar_endpoint(
-    request: HotelCalendarRequest, user_id: str = Depends(get_current_user_id)
-):
-    """
-    Get availability calendar for a specific hotel.
-    
-    Returns points rates, cash prices, and CPP values for each available date.
-    Useful for finding the best redemption dates.
-    
-    Example hotel_ids: hyatt_madel, marriott_lonpk, hilton_london_tower
-    """
-    try:
-        from .handlers.hotels import get_hotel_calendar_async
-
-        result = await get_hotel_calendar_async(
-            hotel_id=request.hotel_id,
-            check_in=request.check_in,
-            check_out=request.check_out,
-        )
-        
-        if result.get("error"):
-            raise HTTPException(status_code=400, detail=result.get("error"))
-        
-        return result
-    except HTTPException:
-        raise
-    except Exception as e:
-        logger.error(f"get_hotel_calendar: {e}", exc_info=True)
-        raise HTTPException(status_code=500, detail=str(e))
-
-
-@app.post("/hotels/best-nights")
-async def get_best_hotel_nights_endpoint(
-    request: HotelBestNightsRequest, user_id: str = Depends(get_current_user_id)
-):
-    """
-    Find the best consecutive nights for a hotel stay.
-    
-    Optimizes for:
-    - 'points': Minimize total points needed
-    - 'cpp': Maximize cents-per-point value
-    - 'cash': Minimize cash price
-    
-    Returns ranked options with total points, cash, and CPP for each stay.
-    """
-    try:
-        from .handlers.hotels import get_best_hotel_nights
-
-        result = await get_best_hotel_nights(
-            hotel_id=request.hotel_id,
-            num_nights=request.num_nights,
-            start_date=request.start_date,
-            end_date=request.end_date,
-            optimize_for=request.optimize_for,
-        )
-        
-        if result.get("error"):
-            raise HTTPException(status_code=400, detail=result.get("error"))
-        
-        return result
-    except HTTPException:
-        raise
-    except Exception as e:
-        logger.error(f"get_best_hotel_nights: {e}", exc_info=True)
-        raise HTTPException(status_code=500, detail=str(e))
-
-
-@app.post("/hotels/search-with-calendar")
-async def search_hotels_with_calendar_endpoint(
-    request: HotelSearchWithCalendarRequest, user_id: str = Depends(get_current_user_id)
-):
-    """
-    Search for hotels AND enrich top results with calendar data.
-    
-    Combines hotel search with calendar API for accurate pricing:
-    - Searches for hotels in destination
-    - Fetches calendar data for top hotels
-    - Returns total points, cash, and CPP for the exact stay dates
-    - Provides recommendations: best by points, value (CPP), and cash
-    
-    This is more accurate than the basic search which may show nightly rates.
-    """
-    try:
-        from .handlers.hotels import search_hotels_with_calendar
-
-        result = await search_hotels_with_calendar(
-            destination=request.destination,
-            check_in=request.check_in,
-            check_out=request.check_out,
-            programs=request.programs,
-            guests=request.guests,
-            hotel_class=request.hotel_class,
-            top_hotels=request.top_hotels,
-        )
-        
-        if result.get("error") and not result.get("hotels"):
-            raise HTTPException(status_code=400, detail=result.get("error"))
-        
-        return result
-    except HTTPException:
-        raise
-    except Exception as e:
-        logger.error(f"search_hotels_with_calendar: {e}", exc_info=True)
-        raise HTTPException(status_code=500, detail=str(e))
-
-
 # City search endpoints (public, no authentication required)
 @app.post("/cities/search")
 async def search_cities(request: CitySearchRequest):
@@ -1363,17 +1156,12 @@ async def optimize_transfer_strategy(
     user_id: str = Depends(get_current_user_id),
 ):
     """
-    Optimize point transfer strategy to minimize out-of-pocket costs.
+    Optimize point transfer strategy to minimize out-of-pocket costs for flights.
     
-    This endpoint analyzes all flights and hotels for a trip and determines:
+    This endpoint analyzes all flights for a trip and determines:
     1. Which items to pay with cash vs points
     2. Which bank points to transfer to which programs
     3. Step-by-step transfer instructions
-    
-    Key difference from /optimize-out-of-pocket:
-    - Considers ALL expenses (flights + hotels) together
-    - Provides explicit transfer instructions
-    - Prioritizes minimizing cash over CPP value
     
     Returns:
     - total_out_of_pocket: Total cash you'll pay
@@ -1389,18 +1177,15 @@ async def optimize_transfer_strategy(
         )
         
         flights = body.flights or []
-        hotels = body.hotels if body.include_hotels else []
         
         # If trip_id provided, fetch trip data
         if body.trip_id:
-            # TODO: Fetch trip's flights and hotels from itinerary service
+            # TODO: Fetch trip's flights from itinerary service
             pass
         
         solution = await optimize_trip_out_of_pocket(
             flight_edges=flights,
-            hotel_options=hotels,
             user_points=body.available_points,
-            include_hotels=body.include_hotels,
             max_cash_budget=body.max_cash_budget,
             min_points_usage_pct=body.min_points_usage_pct,
         )
@@ -1415,7 +1200,7 @@ async def optimize_transfer_strategy(
 @app.post("/api/transfer-strategy/simulate")
 async def simulate_transfer_strategy(body: SimulateTransferRequest):
     """
-    Simulate optimal point allocation for given expenses (no trip required).
+    Simulate optimal point allocation for given flight expenses (no trip required).
     
     Useful for "what if" scenarios to see how points would be allocated
     before creating a trip.
@@ -1425,9 +1210,7 @@ async def simulate_transfer_strategy(body: SimulateTransferRequest):
         "available_points": {"amex": 1000000, "chase": 150000},
         "expenses": [
             {"type": "flight", "description": "JFK to CDG", "cash_cost": 800, 
-             "points_options": [{"program_code": "AF", "points_required": 60000, "surcharge": 150}]},
-            {"type": "hotel", "description": "Paris Hyatt 5 nights", "cash_cost": 1200,
-             "points_options": [{"program_code": "HYATT", "points_required": 100000, "surcharge": 0}]}
+             "points_options": [{"program_code": "AF", "points_required": 60000, "surcharge": 150}]}
         ]
     }
     
@@ -1442,22 +1225,22 @@ async def simulate_transfer_strategy(body: SimulateTransferRequest):
         )
         from .handlers.transfer_strategy import EXTENDED_TRANSFER_GRAPH
         
-        # Convert expenses to TripCostItems
+        # Convert expenses to TripCostItems (flights only)
         items = []
         for i, exp in enumerate(body.expenses):
             points_opts = []
             for opt in exp.get("points_options", []):
                 points_opts.append(PointsOption(
                     program_code=opt.get("program_code", ""),
-                    program_type=opt.get("program_type", "airline" if exp.get("type") == "flight" else "hotel"),
+                    program_type=opt.get("program_type", "airline"),
                     points_required=int(opt.get("points_required", 0)),
                     surcharge=float(opt.get("surcharge", 0)),
                 ))
             
             items.append(TripCostItem(
-                item_id=f"{exp.get('type', 'item')}_{i}",
-                item_type=exp.get("type", "flight"),
-                description=exp.get("description", f"Item {i+1}"),
+                item_id=f"flight_{i}",
+                item_type="flight",
+                description=exp.get("description", f"Flight {i+1}"),
                 cash_cost=float(exp.get("cash_cost", 0)),
                 points_options=points_opts,
             ))
@@ -1488,7 +1271,7 @@ async def simulate_transfer_strategy(body: SimulateTransferRequest):
 @app.get("/api/transfer-partners")
 async def get_transfer_partners(
     program: Optional[str] = Query(None, description="Bank program code (e.g., amex, chase)"),
-    program_type: Optional[str] = Query(None, description="Filter by 'airline' or 'hotel'"),
+    program_type: Optional[str] = Query(None, description="Filter by 'airline'"),
 ):
     """
     Get available transfer partners for bank programs.
@@ -1839,7 +1622,7 @@ async def optimize_group_oop(
     Run group OOP optimization.
     
     This is the main endpoint for optimizing a group trip's out-of-pocket costs.
-    It searches for flights and hotels, runs the ILP optimizer, calculates
+    It searches for flights, runs the ILP optimizer, calculates
     fair cost allocation, and generates settlement instructions.
     """
     try:
@@ -1874,13 +1657,13 @@ async def optimize_group_oop(
                 detail="No destinations found for trip. Add destinations before optimizing."
             )
         
-        # TODO: Search for actual flight and hotel options
+        # TODO: Search for actual flight options
         # For now, use placeholder booking items
-        # In production, this would call AwardTool API and SerpAPI
+        # In production, this would call AwardTool API
         booking_items_data = []
         
         # Placeholder: Create sample booking items from destinations
-        # This should be replaced with actual flight/hotel search
+        # This should be replaced with actual flight search
         for i, dest in enumerate(destinations):
             dest_name = dest.get("name", "Unknown")
             
