@@ -9,6 +9,7 @@ import {
 } from 'lucide-react';
 import { 
     trips as tripsAPI, 
+    users as usersAPI,
     Trip,
 } from '@/lib/api';
 import { Navigation } from '@/components/navigation';
@@ -19,6 +20,11 @@ interface GroupMember {
     status: 'pending' | 'complete';
     name?: string;
     email?: string;
+}
+
+interface CurrentUserRole {
+    isOwner: boolean;
+    userId: string | null;
 }
 
 function GroupWaitingContent() {
@@ -40,6 +46,48 @@ function GroupWaitingContent() {
     const [isRefreshing, setIsRefreshing] = useState(false);
     const [lastRefresh, setLastRefresh] = useState<Date>(new Date());
     const [autoRefreshEnabled, setAutoRefreshEnabled] = useState(true);
+    
+    // Current user role state
+    const [currentUserRole, setCurrentUserRole] = useState<CurrentUserRole>({ isOwner: false, userId: null });
+    const [isCheckingRole, setIsCheckingRole] = useState(true);
+
+    // Check if current user is the trip owner
+    useEffect(() => {
+        const checkUserRole = async () => {
+            if (!tripId) {
+                setIsCheckingRole(false);
+                return;
+            }
+
+            try {
+                // Get current user profile and trip members in parallel
+                const [profile, membersData] = await Promise.all([
+                    usersAPI.getProfile(),
+                    tripsAPI.listMembers(tripId),
+                ]);
+
+                const currentUserId = profile.userId;
+                const currentMember = membersData.members.find(m => m.userId === currentUserId);
+                const isOwner = currentMember?.role === 'owner';
+
+                setCurrentUserRole({ isOwner, userId: currentUserId });
+
+                // If not the owner, redirect to dashboard
+                if (!isOwner) {
+                    router.push(`/group/dashboard?tripId=${tripId}`);
+                    return;
+                }
+            } catch (err) {
+                console.error('Error checking user role:', err);
+                // On error, redirect to dashboard for safety
+                router.push(`/group/dashboard?tripId=${tripId}`);
+            } finally {
+                setIsCheckingRole(false);
+            }
+        };
+
+        checkUserRole();
+    }, [tripId, router]);
 
     // Fetch trip data
     const fetchTripData = useCallback(async (showRefreshing = false) => {
@@ -148,14 +196,30 @@ function GroupWaitingContent() {
             .slice(0, 2);
     };
 
-    if (isLoading) {
+    // Show loading while checking role or loading trip data
+    if (isCheckingRole || isLoading) {
         return (
             <div>
                 <Navigation />
                 <div className="min-h-screen flex items-center justify-center bg-gradient-to-br from-white via-blue-50/20 to-white">
                     <div className="text-center">
                         <Loader2 className="w-12 h-12 text-blue-600 animate-spin mx-auto mb-4" />
-                        <p className="text-slate-600">Loading trip status...</p>
+                        <p className="text-slate-600">{isCheckingRole ? 'Verifying access...' : 'Loading trip status...'}</p>
+                    </div>
+                </div>
+            </div>
+        );
+    }
+    
+    // If not the owner, don't render anything (redirect will happen)
+    if (!currentUserRole.isOwner) {
+        return (
+            <div>
+                <Navigation />
+                <div className="min-h-screen flex items-center justify-center bg-gradient-to-br from-white via-blue-50/20 to-white">
+                    <div className="text-center">
+                        <Loader2 className="w-12 h-12 text-blue-600 animate-spin mx-auto mb-4" />
+                        <p className="text-slate-600">Redirecting...</p>
                     </div>
                 </div>
             </div>

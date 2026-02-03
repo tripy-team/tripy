@@ -209,3 +209,80 @@ def delete_trip(trip_id: str, user_id: str) -> bool:
         raise ValueError("Failed to delete trip")
     
     return success
+
+
+def mark_strategy_paid(trip_id: str, user_id: str, payment_info: Optional[Dict[str, Any]] = None) -> Dict[str, Any]:
+    """
+    Mark a trip's optimization strategy as paid.
+    
+    Any group member can pay for the strategy.
+    Once paid, all group members can access the transfer instructions.
+    
+    Args:
+        trip_id: Trip ID
+        user_id: User making the payment (must be a trip member)
+        payment_info: Optional payment details (amount, method, reference, etc.)
+        
+    Returns:
+        Dict with ok, strategy_paid, and paid_at
+    """
+    from datetime import datetime
+    
+    trip = get_trip(trip_id)
+    if not trip:
+        raise ValueError("Trip not found")
+    
+    # Verify user is a member of the trip (owner or joined member)
+    is_owner = trip.get("createdBy") == user_id
+    is_member = False
+    if not is_owner:
+        # Check if user is a trip member
+        members = trip_member_repo.list_members(trip_id)
+        is_member = any(m.get("userId") == user_id for m in members)
+    
+    if not is_owner and not is_member:
+        raise ValueError("Only trip members can mark strategy as paid")
+    
+    # If already paid, just return success (idempotent)
+    if trip.get("strategyPaid"):
+        return {
+            "ok": True,
+            "strategy_paid": True,
+            "paid_at": trip.get("strategyPaidAt", ""),
+            "already_paid": True,
+        }
+    
+    # Update trip with payment status
+    trip["strategyPaid"] = True
+    trip["strategyPaidAt"] = datetime.utcnow().isoformat() + "Z"
+    trip["strategyPaidBy"] = user_id
+    
+    if payment_info:
+        trip["strategyPaymentInfo"] = {
+            "amount": payment_info.get("amount"),
+            "currency": payment_info.get("currency", "USD"),
+            "method": payment_info.get("method"),
+            "reference": payment_info.get("reference"),
+        }
+    
+    trip_repo.put_trip(trip)
+    
+    return {
+        "ok": True,
+        "strategy_paid": True,
+        "paid_at": trip["strategyPaidAt"],
+    }
+
+
+def is_strategy_paid(trip_id: str) -> bool:
+    """
+    Check if a trip's optimization strategy has been paid for.
+    
+    Returns:
+        True if strategy is paid, False otherwise
+    """
+    trip = get_trip(trip_id)
+    if not trip:
+        return False
+    
+    return trip.get("strategyPaid", False)

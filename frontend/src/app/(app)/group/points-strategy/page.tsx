@@ -36,7 +36,7 @@ export default function GroupPointsStrategy() {
     const [isLoading, setIsLoading] = useState(true);
     const [showAllocation, setShowAllocation] = useState(false);
     const [allocatedPoints, setAllocatedPoints] = useState<Record<string, Record<string, number>>>({}); // userId -> { program -> allocated }
-    const [isPaid, setIsPaid] = useState(false); // TODO: fetch from API (trip payment status)
+    const [isPaid, setIsPaid] = useState(false);
     const [itineraryItems, setItineraryItems] = useState<Array<{ type?: string; [k: string]: unknown }>>([]);
     const [membersForTransfers, setMembersForTransfers] = useState<Array<{ userId: string; name?: string }>>([]);
 
@@ -50,11 +50,14 @@ export default function GroupPointsStrategy() {
             try {
                 setIsLoading(true);
                 
-                const [membersResponse, pointsResponse, itinerariesRes] = await Promise.all([
+                const [membersResponse, pointsResponse, itinerariesRes, strategyStatus] = await Promise.all([
                     tripsAPI.listMembers(tripId),
                     pointsAPI.summary(tripId),
                     itineraries.get(tripId).catch(() => ({ items: [] as Array<{ type?: string; [k: string]: unknown }> })),
+                    tripsAPI.getStrategyStatus(tripId).catch(() => ({ strategy_paid: false })),
                 ]);
+                
+                setIsPaid(strategyStatus.strategy_paid || false);
                 
                 setMembersForTransfers(membersResponse.members || []);
                 setItineraryItems(Array.isArray(itinerariesRes?.items) ? itinerariesRes.items : []);

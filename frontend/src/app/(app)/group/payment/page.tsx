@@ -14,7 +14,7 @@ import { tripDurationDays, calculateServiceFee, SERVICE_FEE_PERCENT } from '@/li
 export default function GroupPayment() {
   const router = useRouter();
   const searchParams = useSearchParams();
-  const tripId = searchParams?.get('tripId') || '';
+  const tripId = searchParams?.get('tripId') || searchParams?.get('trip_id') || '';
   
   const [isProcessing, setIsProcessing] = useState(false);
   const [isPaid, setIsPaid] = useState(false);
@@ -71,6 +71,16 @@ export default function GroupPayment() {
               : 0,
             relaxed: (result as Record<string, unknown>)?.relaxed_constraints,
           });
+        }
+        
+        // Mark strategy as paid so all group members can access transfer instructions
+        await trips.markStrategyPaid(tripId, {
+          amount: Math.max(0, serviceFee - discount),
+          currency: 'USD',
+          method: 'card',
+        });
+        if (process.env.NODE_ENV === 'development') {
+          console.log('[GroupPayment] Strategy marked as paid for trip', tripId);
         }
       }
       

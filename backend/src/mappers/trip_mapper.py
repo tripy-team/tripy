@@ -64,16 +64,47 @@ def trip_storage_to_response(item: Dict[str, Any]) -> Dict[str, Any]:
     Convert a trip storage item to TripResponse format.
     
     Handles the specific mapping from DynamoDB camelCase to API snake_case.
+    
+    P0-2 Fix: Provide defaults for required fields to handle legacy trips
+    created before these fields existed (e.g., group trips, old solo trips).
     """
     if not item:
         return {}
     
+    # Infer trip_type from available data
+    trip_type = item.get("tripType")
+    if not trip_type:
+        # Default to round_trip for group trips (most common pattern)
+        trip_type = "round_trip"
+    
+    # Infer date_mode from available data
+    date_mode = item.get("dateMode")
+    if not date_mode:
+        # If startDate and endDate exist, use fixed; otherwise flexible
+        date_mode = "fixed" if item.get("startDate") and item.get("endDate") else "flexible"
+    
+    # Infer origin - for group trips, first destination might be the origin
+    origin = item.get("origin")
+    if not origin:
+        # Try to extract from destinations list or use empty string
+        destinations = item.get("destinations", [])
+        if destinations:
+            origin = destinations[0] if isinstance(destinations[0], str) else ""
+        else:
+            origin = ""
+    
+    # Infer created_at
+    created_at = item.get("createdAt")
+    if not created_at:
+        # Use a placeholder timestamp if not available
+        created_at = "1970-01-01T00:00:00Z"
+    
     return {
         "trip_id": item.get("tripId"),
-        "title": item.get("title"),
-        "trip_type": item.get("tripType"),
-        "date_mode": item.get("dateMode"),
-        "origin": item.get("origin"),
+        "title": item.get("title") or "Untitled Trip",
+        "trip_type": trip_type,
+        "date_mode": date_mode,
+        "origin": origin,
         "destinations": item.get("destinations", []),
         "final_destination": item.get("finalDestination"),
         "start_date": item.get("startDate"),
@@ -91,8 +122,8 @@ def trip_storage_to_response(item: Dict[str, Any]) -> Dict[str, Any]:
         "departure_time_preference": item.get("departureTimePreference", "any"),
         "arrival_time_preference": item.get("arrivalTimePreference", "any"),
         "status": item.get("status", "draft"),
-        "created_at": item.get("createdAt"),
-        "created_by": item.get("createdBy"),
+        "created_at": created_at,
+        "created_by": item.get("createdBy") or "",
         "invite_code": item.get("inviteCode"),
     }
 

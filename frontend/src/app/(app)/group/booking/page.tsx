@@ -20,20 +20,25 @@ import { calculateServiceFee, SERVICE_FEE_PERCENT } from '@/lib/utils';
 
 function GroupBookingContent() {
   const searchParams = useSearchParams();
-  const tripId = searchParams?.get('trip_id') || '';
+  const tripId = searchParams?.get('tripId') || searchParams?.get('trip_id') || '';
   
   const [groupSize, setGroupSize] = useState(4);
   const [loading, setLoading] = useState(true);
-  const [isPaid, setIsPaid] = useState(false); // TODO: fetch from API (trip payment status)
+  const [isPaid, setIsPaid] = useState(false);
   const [isProcessing, setIsProcessing] = useState(false);
   const [itineraryData, setItineraryData] = useState<{ totalCost?: number; totalCostPerPerson?: number; pointsCost?: number } | null>(null);
 
-  const handlePayment = () => {
+  const handlePayment = async () => {
     setIsProcessing(true);
-    setTimeout(() => {
-      setIsProcessing(false);
+    try {
+      // Mark strategy as paid in the backend
+      await tripsAPI.markStrategyPaid(tripId);
       setIsPaid(true);
-    }, 2000);
+    } catch (err) {
+      console.error('Error marking strategy as paid:', err);
+    } finally {
+      setIsProcessing(false);
+    }
   };
 
   useEffect(() => {
@@ -44,11 +49,13 @@ function GroupBookingContent() {
       }
 
       try {
-        const [membersResponse, itineraryResponse] = await Promise.all([
+        const [membersResponse, itineraryResponse, strategyStatus] = await Promise.all([
           tripsAPI.listMembers(tripId),
           itinerariesAPI.get(tripId).catch(() => ({ items: [] })),
+          tripsAPI.getStrategyStatus(tripId).catch(() => ({ strategy_paid: false })),
         ]);
         setGroupSize(membersResponse.members.length || 4);
+        setIsPaid(strategyStatus.strategy_paid || false);
         // Use first itinerary item for costs (exclude non-route types)
         const routeItem = (itineraryResponse.items || []).find(
           (i: { type?: string; route?: unknown; cities?: unknown }) => {

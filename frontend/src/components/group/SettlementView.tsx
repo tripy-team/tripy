@@ -9,116 +9,51 @@
  * - Net balance per member
  * - Reimbursement instructions
  * 
- * Supports toggling "reimburse points value" to recompute settlement live.
+ * Uses "pay your own" policy - each person pays for their own travelers.
  */
 
 import React, { useState, useEffect, useCallback } from 'react';
 import { 
-  DollarSign, 
-  Users, 
   ArrowRight, 
   Check, 
   AlertCircle,
   Info,
-  ToggleLeft,
-  ToggleRight,
-  ChevronDown,
-  ChevronUp,
-  Settings,
-  Home,
-  Coins,
 } from 'lucide-react';
 import type { 
-  SettlementConfig, 
   SettlementResult, 
-  SettlementPolicy,
   MemberBalance,
   ReimbursementTransfer,
 } from '@/lib/api';
-import { settlementConfig, settlement } from '@/lib/api';
+import { settlement } from '@/lib/api';
 
 interface SettlementViewProps {
   tripId: string;
-  onConfigChange?: () => void;
 }
 
-// Policy icons
-const POLICY_ICONS: Record<SettlementPolicy, React.ReactNode> = {
-  pay_your_own: <Users className="w-5 h-5" />,
-  equal_per_passenger: <DollarSign className="w-5 h-5" />,
-  equal_per_household: <Home className="w-5 h-5" />,
-  sponsor_pays_all: <Coins className="w-5 h-5" />,
-  custom: <Settings className="w-5 h-5" />,
-};
-
-export function SettlementView({ tripId, onConfigChange }: SettlementViewProps) {
-  const [config, setConfig] = useState<SettlementConfig | null>(null);
+export function SettlementView({ tripId }: SettlementViewProps) {
   const [result, setResult] = useState<SettlementResult | null>(null);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
-  const [showConfig, setShowConfig] = useState(false);
-  const [reimbursePoints, setReimbursePoints] = useState(true);
 
-  // Load config and preview settlement
+  // Load settlement preview with "pay_your_own" policy
   const loadData = useCallback(async () => {
     try {
       setLoading(true);
       setError(null);
       
-      const [configData, previewData] = await Promise.all([
-        settlementConfig.get(tripId),
-        settlement.preview(tripId, undefined, reimbursePoints),
-      ]);
-      
-      setConfig(configData);
+      // Always use "pay_your_own" policy - each person pays for their own travelers
+      const previewData = await settlement.preview(tripId, 'pay_your_own', true);
       setResult(previewData);
-      setReimbursePoints(configData.valuation.reimburse_points_value);
     } catch (err) {
       setError(err instanceof Error ? err.message : 'Failed to load settlement');
     } finally {
       setLoading(false);
     }
-  }, [tripId, reimbursePoints]);
+  }, [tripId]);
 
   useEffect(() => {
     loadData();
   }, [loadData]);
-
-  // Handle policy change
-  const handlePolicyChange = async (policy: SettlementPolicy) => {
-    try {
-      await settlementConfig.update(tripId, { policy });
-      
-      // Refresh data
-      const [newConfig, newResult] = await Promise.all([
-        settlementConfig.get(tripId),
-        settlement.preview(tripId, policy, reimbursePoints),
-      ]);
-      
-      setConfig(newConfig);
-      setResult(newResult);
-      onConfigChange?.();
-    } catch (err) {
-      setError(err instanceof Error ? err.message : 'Failed to update policy');
-    }
-  };
-
-  // Handle reimburse points toggle
-  const handleReimburseToggle = async () => {
-    const newValue = !reimbursePoints;
-    setReimbursePoints(newValue);
-    
-    try {
-      await settlementConfig.update(tripId, { reimburse_points_value: newValue });
-      
-      // Re-preview with new setting
-      const newResult = await settlement.preview(tripId, config?.policy, newValue);
-      setResult(newResult);
-      onConfigChange?.();
-    } catch (err) {
-      setError(err instanceof Error ? err.message : 'Failed to update');
-    }
-  };
 
   if (loading) {
     return (
@@ -144,7 +79,7 @@ export function SettlementView({ tripId, onConfigChange }: SettlementViewProps) 
     );
   }
 
-  if (!config || !result) {
+  if (!result) {
     return null;
   }
 
@@ -154,83 +89,16 @@ export function SettlementView({ tripId, onConfigChange }: SettlementViewProps) 
   return (
     <div className="space-y-6">
       {/* Header */}
-      <div className="flex items-center justify-between">
-        <div>
-          <h2 className="text-xl font-semibold">Settlement</h2>
-          <p className="text-sm text-gray-500">
-            See who owes what and how to settle up
-          </p>
-        </div>
-        <button
-          onClick={() => setShowConfig(!showConfig)}
-          className="flex items-center gap-2 text-sm text-gray-600 hover:text-gray-900"
-        >
-          <Settings className="w-4 h-4" />
-          Configure
-          {showConfig ? <ChevronUp className="w-4 h-4" /> : <ChevronDown className="w-4 h-4" />}
-        </button>
+      <div>
+        <h2 className="text-xl font-semibold">Settlement</h2>
+        <p className="text-sm text-gray-500">
+          See who owes what and how to settle up
+        </p>
       </div>
-
-      {/* Configuration Panel (collapsible) */}
-      {showConfig && (
-        <div className="bg-gray-50 rounded-lg p-4 space-y-4">
-          <h3 className="font-medium text-sm text-gray-700">Settlement Policy</h3>
-          
-          {/* Policy selector */}
-          <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-2">
-            {config.available_policies.map((policy) => (
-              <button
-                key={policy.value}
-                onClick={() => handlePolicyChange(policy.value)}
-                className={`
-                  p-3 rounded-lg border text-left transition-all
-                  ${config.policy === policy.value
-                    ? 'border-green-500 bg-green-50'
-                    : 'border-gray-200 hover:border-gray-300'
-                  }
-                `}
-              >
-                <div className="flex items-center gap-2 mb-1">
-                  <span className={config.policy === policy.value ? 'text-green-600' : 'text-gray-500'}>
-                    {POLICY_ICONS[policy.value]}
-                  </span>
-                  <span className="font-medium text-sm">{policy.name}</span>
-                </div>
-                <p className="text-xs text-gray-500">{policy.short}</p>
-              </button>
-            ))}
-          </div>
-
-          {/* Reimburse points toggle */}
-          <div className="flex items-center justify-between pt-2 border-t">
-            <div>
-              <p className="font-medium text-sm">Reimburse Points Value</p>
-              <p className="text-xs text-gray-500">
-                Count points used as contributions worth their USD value
-              </p>
-            </div>
-            <button
-              onClick={handleReimburseToggle}
-              className={`p-1 rounded ${reimbursePoints ? 'text-green-600' : 'text-gray-400'}`}
-            >
-              {reimbursePoints ? (
-                <ToggleRight className="w-8 h-8" />
-              ) : (
-                <ToggleLeft className="w-8 h-8" />
-              )}
-            </button>
-          </div>
-        </div>
-      )}
 
       {/* Summary Card */}
       <div className="bg-white rounded-lg border p-4">
-        <div className="flex items-center justify-between mb-4">
-          <h3 className="font-medium">Trip Cost Summary</h3>
-          <span className="text-xs px-2 py-1 bg-gray-100 rounded">
-            {config.policy_name}
-          </span>
-        </div>
+        <h3 className="font-medium mb-4">Trip Cost Summary</h3>
         
         <div className="grid grid-cols-3 gap-4 text-center">
           <div>
@@ -304,9 +172,9 @@ export function SettlementView({ tripId, onConfigChange }: SettlementViewProps) 
         <div className="flex items-start gap-3">
           <Info className="w-5 h-5 text-blue-600 flex-shrink-0 mt-0.5" />
           <div>
-            <p className="font-medium text-blue-900">{config.policy_name}</p>
+            <p className="font-medium text-blue-900">Pay Your Own</p>
             <p className="text-sm text-blue-700 mt-1">
-              {config.policy_description}
+              Each person pays for their own travelers. Points used are valued at market rate.
             </p>
           </div>
         </div>

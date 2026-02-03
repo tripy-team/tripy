@@ -122,7 +122,7 @@ export default function GroupTransferInstructions() {
     const searchParams = useSearchParams();
     const tripId = searchParams?.get('tripId') || searchParams?.get('trip_id') || '';
     const [copiedId, setCopiedId] = useState<string | null>(null);
-    const [isPaid, setIsPaid] = useState(false); // TODO: fetch from API (trip payment status)
+    const [isPaid, setIsPaid] = useState(false);
     const [items, setItems] = useState<Array<{ type?: string; [k: string]: unknown }>>([]);
     const [members, setMembers] = useState<Array<{ userId: string; name?: string }>>([]);
     const [loading, setLoading] = useState(true);
@@ -147,11 +147,13 @@ export default function GroupTransferInstructions() {
         Promise.all([
             itineraries.get(tripId).then((r) => r.items || []),
             tripsAPI.listMembers(tripId).then((r) => r.members || []),
+            tripsAPI.getStrategyStatus(tripId).then((r) => r.strategy_paid || false),
         ])
-            .then(([its, mems]) => {
+            .then(([its, mems, paid]) => {
                 if (cancelled) return;
                 setItems(Array.isArray(its) ? its : []);
                 setMembers(Array.isArray(mems) ? mems : []);
+                setIsPaid(paid);
             })
             .catch((e) => {
                 if (cancelled) return;
@@ -219,7 +221,17 @@ export default function GroupTransferInstructions() {
                     </div>
                 </div>
 
-                {!isPaid ? (
+                {loading ? (
+                    <div className="bg-white border border-slate-200 rounded-2xl p-12 text-center">
+                        <div className="inline-block animate-spin rounded-full h-8 w-8 border-b-2 border-blue-600" />
+                        <p className="mt-4 text-slate-600">Loading your tailored transfer instructions…</p>
+                    </div>
+                ) : loadError ? (
+                    <div className="bg-white border border-slate-200 rounded-2xl p-8 text-center">
+                        <p className="text-red-600">{loadError}</p>
+                        <p className="mt-2 text-slate-600 text-sm">Generate an itinerary for this trip first, then return here.</p>
+                    </div>
+                ) : !isPaid ? (
                     /* Pending Payment section — transfer strategy hidden until payment */
                     <div className="bg-white border border-slate-200 rounded-2xl overflow-hidden p-8 md:p-12 text-center">
                         <div className="bg-slate-100 p-4 rounded-full w-fit mx-auto mb-4">
@@ -237,20 +249,7 @@ export default function GroupTransferInstructions() {
                         </button>
                     </div>
                 ) : (
-                <>
-                {loading ? (
-                    <div className="bg-white border border-slate-200 rounded-2xl p-12 text-center">
-                        <div className="inline-block animate-spin rounded-full h-8 w-8 border-b-2 border-blue-600" />
-                        <p className="mt-4 text-slate-600">Loading your tailored transfer instructions…</p>
-                    </div>
-                ) : loadError ? (
-                    <div className="bg-white border border-slate-200 rounded-2xl p-8 text-center">
-                        <p className="text-red-600">{loadError}</p>
-                        <p className="mt-2 text-slate-600 text-sm">Generate an itinerary for this trip first, then return here.</p>
-                    </div>
-                ) : (
-                <>
-                {/* Transfer Strategy Overview */}
+                <>{/* Transfer Strategy Overview */}
                 {strategyOverview && strategyOverview.totalPointsByProgram.size > 0 && (
                     <div className="mb-8 bg-white border border-slate-200 rounded-2xl overflow-hidden">
                         <div className="p-6 bg-gradient-to-br from-blue-50 to-indigo-50 border-b border-blue-100">
@@ -544,8 +543,6 @@ export default function GroupTransferInstructions() {
                             Mark All as Completed
                         </button>
                     </div>
-                )}
-                </>
                 )}
                 </>
                 )}

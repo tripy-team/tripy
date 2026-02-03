@@ -3,7 +3,7 @@
 import { useState, use, useEffect } from 'react';
 import { useRouter } from 'next/navigation';
 import { DollarSign, Zap, Users, Calendar, Plane, Backpack, Armchair, Coffee, Wine, Crown, User, Baby, Info, Copy, ChevronDown, Luggage, X, Plus } from 'lucide-react';
-import { trips as tripsAPI, points as pointsAPI } from '@/lib/api';
+import { trips as tripsAPI, points as pointsAPI, users as usersAPI } from '@/lib/api';
 import AirportAutocomplete from '@/components/ui/AirportAutocomplete';
 
 interface TripInfo {
@@ -113,6 +113,26 @@ export default function GroupMemberJoin({ params }: { params: Promise<{ inviteCo
         setCreditCards(creditCards.filter(card => card.id !== id));
     };
 
+    // Load user's credit cards from their profile on mount
+    useEffect(() => {
+        const loadUserProfile = async () => {
+            try {
+                const profile = await usersAPI.getProfile();
+                if (profile.credit_cards && profile.credit_cards.length > 0) {
+                    setCreditCards(profile.credit_cards.map(card => ({
+                        id: card.id,
+                        program: card.program,
+                        points: card.points,
+                    })));
+                }
+            } catch (err) {
+                console.error('Error loading user profile:', err);
+                // Continue without pre-filled points if profile load fails
+            }
+        };
+        loadUserProfile();
+    }, []);
+
     useEffect(() => {
         const fetchTripInfo = async () => {
             try {
@@ -166,16 +186,50 @@ export default function GroupMemberJoin({ params }: { params: Promise<{ inviteCo
                         }
                     }
 
+                    // Get trip's start/end airport as fallback for organizer
+                    // Keep the exact value the organizer put in (e.g., "SEA" or "Seattle (SEA,BFI)")
+                    const tripData = trip as { 
+                        startAirport?: string; 
+                        endAirport?: string;
+                        startDate?: string;
+                        endDate?: string;
+                    };
+                    
+                    const tripStartAirport = tripData.startAirport || '';
+                    const tripEndAirport = tripData.endAirport || '';
+                    
                     // Transform members for the dropdown (for "Same as friend?" feature)
+                    // Backend returns: departure_airport, arrival_airport, is_round_trip, flight_class
                     const membersList = tripMembers.map((m, idx) => {
                         const memberName = extractMemberName(m as Parameters<typeof extractMemberName>[0]);
+                        
+                        // Get member's flight preferences from backend response
+                        const memberData = m as { 
+                            userId?: string; 
+                            name?: string; 
+                            role?: string;
+                            departure_airport?: string;
+                            arrival_airport?: string;
+                            is_round_trip?: boolean;
+                            flight_class?: string;
+                        };
+                        
+                        // Use member's stored preferences, or fall back to trip's airports for organizer
+                        const isOrganizer = m.role === 'owner' || m.role === 'admin' || m.role === 'organizer';
+                        const departureAirport = memberData.departure_airport || (isOrganizer ? tripStartAirport : '');
+                        const arrivalAirport = memberData.arrival_airport || (isOrganizer ? tripEndAirport : '');
                         
                         return {
                             id: m.userId || `m${idx}`,
                             name: memberName || `Traveler ${idx + 1}`,
                             role: m.role || 'member',
-                            // TODO: Fetch actual preferences from member data
-                            flights: { start: 'JFK', end: 'CDG', roundTrip: true, flightClass: 'economy' },
+                            // Use member's stored flight preferences (both start and end should match the selected member)
+                            flights: { 
+                                start: departureAirport, 
+                                end: arrivalAirport, 
+                                roundTrip: memberData.is_round_trip ?? true, 
+                                flightClass: memberData.flight_class || 'economy' 
+                            },
                             dates: { start: trip.startDate || '', end: trip.endDate || '' },
                         };
                     });
@@ -236,17 +290,19 @@ export default function GroupMemberJoin({ params }: { params: Promise<{ inviteCo
         try {
             setIsJoining(true);
 
-            // 1. Join the trip (with pooling preferences: willingness to use points)
+            // 1. Join the trip (with pooling preferences and flight preferences)
             const joinResult = await tripsAPI.join(inviteCode, {
                 points_usage: pointsUsage,
                 willing_to_share_points: pointsUsage !== 'do_not_use',
+                // Flight preferences for "Same as Friend?" feature
+                departure_airport: startAirport,
+                arrival_airport: endAirport,
+                is_round_trip: isRoundTrip,
+                flight_class: flightClass,
             });
             const tripId = joinResult.tripId;
 
-            // 2. Save member preferences (if the backend supports it)
-            // For now, we'll store preferences in trip member data via points
-            // TODO: When backend supports member preferences, save:
-            // - startAirport, endAirport, isRoundTrip, flightClass
+            // 2. Additional member preferences not yet stored:
             // - bags
             // - startDate, endDate
             // - budget, meetupNote
@@ -325,7 +381,12 @@ export default function GroupMemberJoin({ params }: { params: Promise<{ inviteCo
                                     <div className="text-slate-600 mb-1">Organized by</div>
                                     <div className="flex items-center gap-2">
                                         <div className="w-8 h-8 bg-blue-600 rounded-lg flex items-center justify-center text-white text-xs font-semibold">
-                                            SC
+                                            {tripInfo.admin
+                                                .split(' ')
+                                                .map(part => part.charAt(0).toUpperCase())
+                                                .slice(0, 2)
+                                                .join('')
+                                                || 'TO'}
                                         </div>
                                         <span className="text-slate-900">{tripInfo.admin}</span>
                                     </div>
@@ -758,7 +819,7 @@ export default function GroupMemberJoin({ params }: { params: Promise<{ inviteCo
 
                                 <div className="pt-4 border-t border-slate-200">
                                     <div className="space-y-4">
-                                        <label className="block text-sm font-medium text-slate-700">Budget Limit</label>
+                                        <label className="block text-sm font-medium text-slate-700">Maximum Budget <span className="text-red-500">*</span></label>
                                         <div className="relative">
                                             <span className="absolute left-4 top-1/2 -translate-y-1/2 text-blue-600 font-bold text-lg">$</span>
                                             <input
@@ -768,10 +829,15 @@ export default function GroupMemberJoin({ params }: { params: Promise<{ inviteCo
                                                     const val = e.target.value ? Number(e.target.value) : '';
                                                     setBudget(val);
                                                 }}
-                                                placeholder="No limit"
+                                                placeholder="Enter your budget"
+                                                min="1"
+                                                required
                                                 className="w-full pl-10 pr-4 py-3 bg-blue-50 border border-blue-200 rounded-xl focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-blue-500 font-semibold text-slate-900 text-lg"
                                             />
                                         </div>
+                                        {budget === '' && (
+                                            <p className="text-xs text-slate-500">Required to join the trip</p>
+                                        )}
                                     </div>
                                 </div>
 
@@ -879,7 +945,7 @@ export default function GroupMemberJoin({ params }: { params: Promise<{ inviteCo
 
                         <button
                             onClick={handleJoin}
-                            disabled={!startAirport || !endDate || !startDate || isJoining}
+                            disabled={!startAirport || !endDate || !startDate || budget === '' || isJoining}
                             className="w-full px-6 py-4 bg-yellow-400 text-slate-900 rounded-xl hover:bg-yellow-500 transition-colors disabled:opacity-50 disabled:cursor-not-allowed shadow-lg shadow-yellow-400/20 font-semibold text-lg"
                         >
                             {isJoining ? 'Joining...' : 'Confirm & Join Trip'}

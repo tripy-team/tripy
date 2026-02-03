@@ -78,7 +78,7 @@ export default function TripDetails() {
     const [copiedId, setCopiedId] = useState<string | null>(null);
     const [trip, setTrip] = useState<Trip | null>(null);
     const [isLoading, setIsLoading] = useState(true);
-    const [isPaid, setIsPaid] = useState(false); // TODO: fetch from API (trip payment status)
+    const [isPaid, setIsPaid] = useState(false);
     const [itineraryItems, setItineraryItems] = useState<Array<{ type?: string; [k: string]: unknown }>>([]);
     const [members, setMembers] = useState<Array<{ userId: string; name?: string }>>([]);
 
@@ -157,11 +157,13 @@ export default function TripDetails() {
         Promise.all([
             itineraries.get(tripId).then((r) => r.items || []),
             tripsAPI.listMembers(tripId).then((r) => r.members || []),
+            tripsAPI.getStrategyStatus(tripId).then((r) => r.strategy_paid || false).catch(() => false),
         ])
-            .then(([its, mems]) => {
+            .then(([its, mems, paid]) => {
                 if (cancelled) return;
                 setItineraryItems(Array.isArray(its) ? its : []);
                 setMembers(Array.isArray(mems) ? mems : []);
+                setIsPaid(paid);
             })
             .catch(() => {
                 if (cancelled) return;
@@ -720,7 +722,17 @@ export default function TripDetails() {
                             </div>
 
                             <div className="mt-6 pt-6 border-t border-slate-100">
-                                <button className="w-full py-2.5 bg-slate-900 text-white rounded-xl font-medium text-sm hover:bg-slate-800 transition-colors">
+                                <button 
+                                    onClick={() => {
+                                        if (trip.type === 'Group') {
+                                            router.push(`/group/dashboard?tripId=${trip.id}`);
+                                        } else {
+                                            // For solo trips, navigate to results page to view/modify trip
+                                            router.push(`/solo/results?tripId=${trip.id}`);
+                                        }
+                                    }}
+                                    className="w-full py-2.5 bg-slate-900 text-white rounded-xl font-medium text-sm hover:bg-slate-800 transition-colors"
+                                >
                                     Edit Trip Details
                                 </button>
                             </div>

@@ -1,6 +1,6 @@
 'use client';
 
-import { Plane, Calendar, MapPin, CreditCard, Users, User, Trash2, X, Check, Crown, UserPlus } from 'lucide-react';
+import { Plane, Calendar, MapPin, CreditCard, Users, User, Trash2, X, Check, Crown, UserPlus, Loader2 } from 'lucide-react';
 import Link from 'next/link';
 import { useRouter } from 'next/navigation';
 import { useEffect, useState } from 'react';
@@ -10,7 +10,7 @@ interface Trip {
   id: string;
   destination: string;
   dates: string;
-  status: 'upcoming' | 'completed';
+  status: 'planning' | 'upcoming' | 'completed';
   pointsRedeemed: string;
   type: 'Solo' | 'Group';
   travelers: number;
@@ -64,9 +64,15 @@ export default function MyTripsPage() {
             datesStr = startDate.toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric' });
           }
           
-          // Determine status
-          const isCompleted = endDate ? endDate < now : false;
-          const status: 'upcoming' | 'completed' = isCompleted ? 'completed' : 'upcoming';
+          // Determine status: planning (dates TBD or trip not started), upcoming (planned/confirmed), completed (past)
+          let status: 'planning' | 'upcoming' | 'completed' = 'planning';
+          if (endDate && endDate < now) {
+            status = 'completed';
+          } else if (startDate) {
+            // Has a start date - this is an upcoming/planned trip
+            status = 'upcoming';
+          }
+          // If no dates are set, it's still in planning phase
           
           // Determine trip type (group if multiple members, solo otherwise)
           const memberCount = trip.memberCount || 1;
@@ -165,6 +171,7 @@ export default function MyTripsPage() {
     return true; // 'all'
   });
 
+  const planningTrips = filteredTrips.filter(t => t.status === 'planning');
   const upcomingTrips = filteredTrips.filter(t => t.status === 'upcoming');
   const pastTrips = filteredTrips.filter(t => t.status === 'completed');
   
@@ -237,11 +244,13 @@ export default function MyTripsPage() {
               </span>
               {/* Status Badge */}
               <span className={`text-[10px] px-2 h-5 font-medium rounded-full flex items-center ${
-                trip.status === 'upcoming' 
+                trip.status === 'planning'
+                  ? 'bg-purple-50 text-purple-700 hover:bg-purple-100'
+                  : trip.status === 'upcoming' 
                   ? 'bg-blue-50 text-blue-700 hover:bg-blue-100' 
                   : 'bg-slate-100 text-slate-600 hover:bg-slate-200'
               }`}>
-                {trip.status === 'upcoming' ? 'Upcoming' : 'Completed'}
+                {trip.status === 'planning' ? 'Planning' : trip.status === 'upcoming' ? 'Upcoming' : 'Completed'}
               </span>
             </div>
           </div>
@@ -370,74 +379,104 @@ export default function MyTripsPage() {
           </div>
         )}
 
-        {upcomingTrips.length > 0 && (
-          <section className="mb-8">
-            <div className="flex items-center gap-3 mb-4">
-              <h2 className="text-xs font-bold text-slate-400 uppercase tracking-wider">Upcoming Adventures</h2>
-              <div className="h-px flex-1 bg-slate-200"></div>
-            </div>
-            <div className="grid md:grid-cols-2 gap-4">
-              {upcomingTrips.map(trip => (
-                <TripCard key={trip.id} trip={trip} />
-              ))}
-            </div>
-          </section>
+        {/* Loading State */}
+        {isLoading && (
+          <div className="flex flex-col items-center justify-center py-16">
+            <Loader2 className="w-10 h-10 text-blue-600 animate-spin mb-4" />
+            <p className="text-slate-500">Loading your trips...</p>
+          </div>
         )}
 
-        <section>
-          <div className="flex items-center gap-3 mb-4">
-            <h2 className="text-xs font-bold text-slate-400 uppercase tracking-wider">Past Memories</h2>
-            <div className="h-px flex-1 bg-slate-200"></div>
-          </div>
-          {pastTrips.length > 0 ? (
-            <div className="grid md:grid-cols-2 gap-4">
-              {pastTrips.map(trip => (
-                <TripCard key={trip.id} trip={trip} />
-              ))}
-            </div>
-          ) : (
-            <div className="text-center py-12 text-slate-500">
-              <p>No past trips yet. Start planning your first adventure!</p>
-            </div>
-          )}
-        </section>
-
-        {filteredTrips.length === 0 && !isLoading && (
-          <div className="text-center py-12">
-            {tripFilter === 'joined' ? (
-              <>
-                <UserPlus className="w-16 h-16 text-slate-300 mx-auto mb-4" />
-                <h3 className="text-lg font-semibold text-slate-700 mb-2">No joined trips</h3>
-                <p className="text-slate-500 mb-6">Join a group trip using an invite link to see it here!</p>
-              </>
-            ) : tripFilter === 'created' ? (
-              <>
-                <Crown className="w-16 h-16 text-slate-300 mx-auto mb-4" />
-                <h3 className="text-lg font-semibold text-slate-700 mb-2">No trips created</h3>
-                <p className="text-slate-500 mb-6">Create your first trip to get started!</p>
-                <Link 
-                  href="/solo/setup"
-                  className="inline-flex items-center gap-2 bg-blue-600 text-white px-5 py-2 rounded-xl font-medium hover:bg-blue-700 transition-colors shadow-sm"
-                >
-                  <Plane className="w-4 h-4" />
-                  Plan New Trip
-                </Link>
-              </>
-            ) : (
-              <>
-                <Plane className="w-16 h-16 text-slate-300 mx-auto mb-4" />
-                <h3 className="text-lg font-semibold text-slate-700 mb-2">No trips yet</h3>
-                <p className="text-slate-500 mb-6">Start planning your first adventure!</p>
-                <Link 
-                  href="/solo/setup"
-                  className="inline-flex items-center gap-2 bg-blue-600 text-white px-5 py-2 rounded-xl font-medium hover:bg-blue-700 transition-colors shadow-sm"
-                >
-                  <Plane className="w-4 h-4" />
-                  Plan New Trip
-                </Link>
-              </>
+        {/* Trip Sections - only show when not loading */}
+        {!isLoading && (
+          <>
+            {/* In Planning Section */}
+            {planningTrips.length > 0 && (
+              <section className="mb-8">
+                <div className="flex items-center gap-3 mb-4">
+                  <h2 className="text-xs font-bold text-purple-500 uppercase tracking-wider">In Planning</h2>
+                  <span className="text-xs text-slate-400">({planningTrips.length})</span>
+                  <div className="h-px flex-1 bg-slate-200"></div>
+                </div>
+                <div className="grid md:grid-cols-2 gap-4">
+                  {planningTrips.map(trip => (
+                    <TripCard key={trip.id} trip={trip} />
+                  ))}
+                </div>
+              </section>
             )}
-          </div>
+
+            {/* Upcoming Adventures Section */}
+            {upcomingTrips.length > 0 && (
+              <section className="mb-8">
+                <div className="flex items-center gap-3 mb-4">
+                  <h2 className="text-xs font-bold text-blue-500 uppercase tracking-wider">Upcoming Adventures</h2>
+                  <span className="text-xs text-slate-400">({upcomingTrips.length})</span>
+                  <div className="h-px flex-1 bg-slate-200"></div>
+                </div>
+                <div className="grid md:grid-cols-2 gap-4">
+                  {upcomingTrips.map(trip => (
+                    <TripCard key={trip.id} trip={trip} />
+                  ))}
+                </div>
+              </section>
+            )}
+
+            {/* Past Memories Section */}
+            {pastTrips.length > 0 && (
+              <section className="mb-8">
+                <div className="flex items-center gap-3 mb-4">
+                  <h2 className="text-xs font-bold text-slate-400 uppercase tracking-wider">Past Memories</h2>
+                  <span className="text-xs text-slate-400">({pastTrips.length})</span>
+                  <div className="h-px flex-1 bg-slate-200"></div>
+                </div>
+                <div className="grid md:grid-cols-2 gap-4">
+                  {pastTrips.map(trip => (
+                    <TripCard key={trip.id} trip={trip} />
+                  ))}
+                </div>
+              </section>
+            )}
+
+            {/* Empty State - only show when no trips at all */}
+            {filteredTrips.length === 0 && (
+              <div className="text-center py-12">
+                {tripFilter === 'joined' ? (
+                  <>
+                    <UserPlus className="w-16 h-16 text-slate-300 mx-auto mb-4" />
+                    <h3 className="text-lg font-semibold text-slate-700 mb-2">No joined trips</h3>
+                    <p className="text-slate-500 mb-6">Join a group trip using an invite link to see it here!</p>
+                  </>
+                ) : tripFilter === 'created' ? (
+                  <>
+                    <Crown className="w-16 h-16 text-slate-300 mx-auto mb-4" />
+                    <h3 className="text-lg font-semibold text-slate-700 mb-2">No trips created</h3>
+                    <p className="text-slate-500 mb-6">Create your first trip to get started!</p>
+                    <Link 
+                      href="/solo/setup"
+                      className="inline-flex items-center gap-2 bg-blue-600 text-white px-5 py-2 rounded-xl font-medium hover:bg-blue-700 transition-colors shadow-sm"
+                    >
+                      <Plane className="w-4 h-4" />
+                      Plan New Trip
+                    </Link>
+                  </>
+                ) : (
+                  <>
+                    <Plane className="w-16 h-16 text-slate-300 mx-auto mb-4" />
+                    <h3 className="text-lg font-semibold text-slate-700 mb-2">No trips yet</h3>
+                    <p className="text-slate-500 mb-6">Start planning your first adventure!</p>
+                    <Link 
+                      href="/solo/setup"
+                      className="inline-flex items-center gap-2 bg-blue-600 text-white px-5 py-2 rounded-xl font-medium hover:bg-blue-700 transition-colors shadow-sm"
+                    >
+                      <Plane className="w-4 h-4" />
+                      Plan New Trip
+                    </Link>
+                  </>
+                )}
+              </div>
+            )}
+          </>
         )}
       </div>
 

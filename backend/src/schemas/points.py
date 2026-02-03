@@ -70,6 +70,7 @@ def normalize_program(value: Union[str, PointsProgram]) -> PointsProgram:
     - PointsProgram enum values
     - Canonical string values (e.g., "amex_mr")
     - Display names (e.g., "Amex Membership Rewards")
+    - Underscore-separated names (e.g., "AMEX_MEMBERSHIP_REWARDS")
     """
     if isinstance(value, PointsProgram):
         return value
@@ -87,6 +88,11 @@ def normalize_program(value: Union[str, PointsProgram]) -> PointsProgram:
     normalized = value.lower().strip()
     if normalized in DISPLAY_NAME_TO_PROGRAM:
         return DISPLAY_NAME_TO_PROGRAM[normalized]
+    
+    # Also try with underscores converted to spaces (for AMEX_MEMBERSHIP_REWARDS style)
+    normalized_with_spaces = normalized.replace("_", " ")
+    if normalized_with_spaces in DISPLAY_NAME_TO_PROGRAM:
+        return DISPLAY_NAME_TO_PROGRAM[normalized_with_spaces]
     
     # If still not found, raise error with helpful message
     valid_programs = [p.value for p in PointsProgram]

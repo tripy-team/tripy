@@ -11,7 +11,11 @@ def add_member(item: Dict[str, Any]) -> None:
 
 
 def list_members(trip_id: str) -> List[Dict[str, Any]]:
-    resp = t.query(KeyConditionExpression=Key("tripId").eq(trip_id))
+    # Use strongly consistent reads to ensure newly added members are visible immediately
+    resp = t.query(
+        KeyConditionExpression=Key("tripId").eq(trip_id),
+        ConsistentRead=True
+    )
     return resp.get("Items", [])
 
 

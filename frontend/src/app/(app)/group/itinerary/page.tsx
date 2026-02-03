@@ -250,7 +250,7 @@ function getSampleDays(): Day[] {
 export default function GroupItineraryPage() {
   const router = useRouter();
   const searchParams = useSearchParams();
-  const tripId = searchParams?.get('trip_id') || '';
+  const tripId = searchParams?.get('tripId') || searchParams?.get('trip_id') || '';
 
   const [days, setDays] = useState<Day[]>(getSampleDays());
   const [tripTitle, setTripTitle] = useState('Trip Itinerary');

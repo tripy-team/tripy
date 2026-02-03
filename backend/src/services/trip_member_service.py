@@ -15,12 +15,16 @@ def join_trip(
     *,
     willing_to_share_points: bool = True,
     points_usage: str = "freely",
+    departure_airport: Optional[str] = None,
+    arrival_airport: Optional[str] = None,
+    is_round_trip: bool = True,
+    flight_class: str = "economy",
 ) -> Dict[str, Any]:
     """
     Join a trip by invite code.
     
     Sets initial lifecycle_state to JOINED_NO_WALLET.
-    Optionally store member preferences (pooling workflow).
+    Optionally store member preferences (pooling workflow and flight preferences).
     """
     trip = get_trip_by_invite(invite_code)
     if not trip:
@@ -37,6 +41,14 @@ def join_trip(
         item["willing_to_share_points"] = willing_to_share_points
     if points_usage in ("freely", "ask_before", "do_not_use"):
         item["points_usage"] = points_usage
+    
+    # Store flight preferences for "Same as Friend?" feature
+    if departure_airport:
+        item["departure_airport"] = departure_airport
+    if arrival_airport:
+        item["arrival_airport"] = arrival_airport
+    item["is_round_trip"] = is_round_trip
+    item["flight_class"] = flight_class
 
     trip_member_repo.add_member(item)
     return {"tripId": trip["tripId"], "lifecycle_state": item["lifecycle_state"]}

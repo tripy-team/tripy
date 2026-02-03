@@ -216,6 +216,13 @@ export default function GroupTripSetup() {
       setError('Please add at least 1 destination city');
       return;
     }
+    
+    // Validate budget - now required for group trips
+    if (maxBudget === '' || maxBudget <= 0) {
+      setError('Please enter a maximum budget for your group trip');
+      return;
+    }
+    
     if (!startDate) {
       setError('Please select a departure date');
       return;
@@ -809,9 +816,11 @@ export default function GroupTripSetup() {
           <div className="lg:col-span-1">
             <div className="lg:sticky lg:top-24 space-y-4">
               
-              {/* Budget */}
+              {/* Budget - Required */}
               <div className="bg-white border border-slate-200 rounded-2xl p-6 shadow-sm">
-                <label className="block text-xs text-slate-500 mb-2 font-medium uppercase tracking-wider">Maximum Budget</label>
+                <label className="block text-xs text-slate-500 mb-2 font-medium uppercase tracking-wider">
+                  Maximum Budget <span className="text-red-500">*</span>
+                </label>
                 <div className="relative">
                   <span className="absolute left-4 top-1/2 -translate-y-1/2 text-blue-600 font-bold text-lg">$</span>
                   <input
@@ -821,10 +830,15 @@ export default function GroupTripSetup() {
                       const val = e.target.value ? Number(e.target.value) : '';
                       setMaxBudget(val);
                     }}
-                    placeholder="No limit"
+                    placeholder="Enter your budget"
+                    min="1"
+                    required
                     className="w-full pl-10 pr-4 py-3 bg-blue-50 border border-blue-200 rounded-xl focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-blue-500 font-semibold text-slate-900 text-lg"
                   />
                 </div>
+                {maxBudget === '' && (
+                  <p className="text-xs text-slate-500 mt-2">Required to create the trip</p>
+                )}
               </div>
 
               {/* Points */}
@@ -870,7 +884,7 @@ export default function GroupTripSetup() {
               {/* Generate Button */}
               <button
                 onClick={handleCreateTrip}
-                disabled={!startDestination || !endDestination || cities.length < 1 || !startDate || !endDate || isGenerating}
+                disabled={!startDestination || !endDestination || cities.length < 1 || !startDate || !endDate || maxBudget === '' || isGenerating}
                 className="w-full px-6 py-4 bg-blue-600 text-white rounded-xl hover:bg-blue-700 transition-all disabled:opacity-50 disabled:cursor-not-allowed flex items-center justify-center gap-2 text-base font-semibold shadow-lg shadow-blue-500/20"
               >
                 {isGenerating ? (

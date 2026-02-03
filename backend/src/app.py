@@ -288,6 +288,11 @@ class JoinTripRequest(BaseModel):
         "freely",
         description="How Tripy may use my points: freely | ask_before | do_not_use (view only)",
     )
+    # Flight preferences (for "Same as Friend?" feature)
+    departure_airport: Optional[str] = Field(None, description="Member's departure airport code (e.g. JFK)")
+    arrival_airport: Optional[str] = Field(None, description="Member's preferred arrival airport code (e.g. CDG)")
+    is_round_trip: Optional[bool] = Field(True, description="Whether member wants round trip")
+    flight_class: Optional[str] = Field("economy", description="Cabin class preference")
 
 
 class UpdateMemberPreferencesRequest(BaseModel):
@@ -674,22 +679,69 @@ async def get_trip_by_invite(invite_code: str):
         # Start/end are origin/return (like flight booking); only "visiting" destinations are shown.
         from .services.destination_service import list_destinations, get_display_destinations_for_trip
         from .services.trip_member_service import list_members
+        from .repos import user_repo
 
         members = list_members(trip["tripId"])
-        trip["memberCount"] = len(members) if members else 1
-        
-        # Include member details for the join page (name and role only for privacy)
-        trip["members"] = [
-            {
-                "userId": m.get("userId") or m.get("user_id"),
-                "name": m.get("name", ""),
-                "role": m.get("role", "member"),
-            }
-            for m in (members or [])
+        # Filter to only include active members with valid user IDs and proper roles
+        valid_roles = {"owner", "admin", "organizer", "member"}
+        active_members = [
+            m for m in (members or []) 
+            if m.get("status") == "active" 
+            and (m.get("userId") or m.get("user_id"))  # Must have a user ID
+            and m.get("role", "member") in valid_roles  # Must have a valid role
         ]
+        trip["memberCount"] = len(active_members) if active_members else 1
+        
+        # Include member details for the join page (name, role, and flight preferences for "Same as Friend?" feature)
+        # Look up user profiles to get actual names
+        # Generic names to filter out (likely default/placeholder accounts)
+        generic_names = {"user", "test", "admin", "guest", ""}
+        
+        member_list = []
+        for m in active_members:
+            user_id = m.get("userId") or m.get("user_id")
+            member_name = m.get("name", "")
+            
+            # If name is not in member record, look up the user profile
+            if not member_name and user_id:
+                user_profile = user_repo.get_user_by_id(user_id)
+                if user_profile:
+                    # Try different name fields that might exist in the user profile
+                    member_name = user_profile.get("name") or user_profile.get("fullName") or ""
+                    if not member_name:
+                        first_name = user_profile.get("firstName") or user_profile.get("first_name") or ""
+                        last_name = user_profile.get("lastName") or user_profile.get("last_name") or ""
+                        if first_name or last_name:
+                            member_name = f"{first_name} {last_name}".strip()
+            
+            # Skip members with generic/placeholder names
+            if member_name.lower().strip() in generic_names:
+                continue
+            
+            member_list.append({
+                "userId": user_id,
+                "name": member_name,
+                "role": m.get("role", "member"),
+                # Include flight preferences for "Same as Friend?" feature
+                "departure_airport": m.get("departure_airport"),
+                "arrival_airport": m.get("arrival_airport"),
+                "is_round_trip": m.get("is_round_trip", True),
+                "flight_class": m.get("flight_class", "economy"),
+            })
+        
+        trip["members"] = member_list
 
         destinations = list_destinations(trip["tripId"])
         trip["destinations"], trip["firstDestination"] = get_display_destinations_for_trip(destinations or [])
+        
+        # Include trip's start/end airports for "Same as Friend?" feature (used for organizer who doesn't have member preferences)
+        trip["startAirport"] = None
+        trip["endAirport"] = None
+        for dest in (destinations or []):
+            if dest.get("isStart") or dest.get("is_start"):
+                trip["startAirport"] = dest.get("name")
+            if dest.get("isEnd") or dest.get("is_end"):
+                trip["endAirport"] = dest.get("name")
 
         return trip
     except HTTPException:
@@ -703,13 +755,17 @@ async def get_trip_by_invite(invite_code: str):
 async def join_trip(
     request: JoinTripRequest, user_id: str = Depends(get_current_user_id)
 ):
-    """Join a trip using an invite code. Optional: willing_to_share_points, points_usage (freely|ask_before|do_not_use)."""
+    """Join a trip using an invite code. Optional: willing_to_share_points, points_usage (freely|ask_before|do_not_use), flight preferences."""
     try:
         result = trip_member_service.join_trip(
             user_id,
             request.invite_code,
             willing_to_share_points=request.willing_to_share_points,
             points_usage=request.points_usage or "freely",
+            departure_airport=request.departure_airport,
+            arrival_airport=request.arrival_airport,
+            is_round_trip=request.is_round_trip if request.is_round_trip is not None else True,
+            flight_class=request.flight_class or "economy",
         )
         if result.get("error"):
             raise HTTPException(status_code=404, detail=result["error"])
@@ -725,8 +781,10 @@ async def join_trip(
 async def list_trip_members(
     request: TripIdRequest, user_id: str = Depends(get_current_user_id)
 ):
-    """List all members of a trip"""
+    """List all members of a trip with enriched user profile data (names)"""
     try:
+        from .repos import user_repo
+        
         # Verify user has access to this trip
         trip = trip_service.get_trip(request.trip_id)
         if not trip:
@@ -738,7 +796,42 @@ async def list_trip_members(
         if not is_member and trip.get("createdBy") != user_id:
             raise HTTPException(status_code=403, detail="Access denied")
 
-        return {"members": members}
+        # Enrich member data with user profile names
+        enriched_members = []
+        for m in members:
+            member_user_id = m.get("userId") or m.get("user_id", "")
+            member_name = m.get("name", "")
+            
+            # If name is not in member record, look up the user profile
+            if not member_name and member_user_id:
+                user_profile = user_repo.get_user_by_id(member_user_id)
+                if user_profile:
+                    # Try different name fields that might exist in the user profile
+                    member_name = user_profile.get("name") or user_profile.get("fullName") or ""
+                    if not member_name:
+                        first_name = user_profile.get("firstName") or user_profile.get("first_name") or ""
+                        last_name = user_profile.get("lastName") or user_profile.get("last_name") or ""
+                        if first_name or last_name:
+                            member_name = f"{first_name} {last_name}".strip()
+                    
+                    # If still no name, try email as a fallback (extract name from email)
+                    if not member_name:
+                        email = user_profile.get("email", "")
+                        if email and "@" in email:
+                            # Extract name part from email (before @)
+                            email_name = email.split("@")[0]
+                            # Clean up the email name (replace dots/underscores with spaces, capitalize)
+                            email_name = email_name.replace(".", " ").replace("_", " ").replace("-", " ")
+                            member_name = " ".join(word.capitalize() for word in email_name.split())
+            
+            # Build enriched member object
+            enriched_member = {**m}
+            if member_name:
+                enriched_member["name"] = member_name
+            
+            enriched_members.append(enriched_member)
+
+        return {"members": enriched_members}
     except HTTPException:
         raise
     except Exception as e:
@@ -1181,6 +1274,81 @@ async def delete_trip(
         raise HTTPException(status_code=500, detail=str(e))
 
 
+class MarkStrategyPaidRequest(BaseModel):
+    trip_id: str = Field(..., min_length=1)
+    amount: Optional[float] = None
+    currency: Optional[str] = "USD"
+    method: Optional[str] = None
+    reference: Optional[str] = None
+
+
+@app.post("/trips/strategy-paid")
+async def mark_trip_strategy_paid(
+    request: MarkStrategyPaidRequest, user_id: str = Depends(get_current_user_id)
+):
+    """
+    Mark a trip's optimization strategy as paid (owner only).
+    
+    Once paid, all group members can access the transfer instructions.
+    """
+    try:
+        payment_info = None
+        if request.amount is not None:
+            payment_info = {
+                "amount": request.amount,
+                "currency": request.currency,
+                "method": request.method,
+                "reference": request.reference,
+            }
+        
+        result = trip_service.mark_strategy_paid(request.trip_id, user_id, payment_info)
+        return result
+    except ValueError as e:
+        logger.warning(f"Strategy payment error: {str(e)}")
+        raise HTTPException(status_code=403, detail=str(e))
+    except Exception as e:
+        logger.error(f"Error marking strategy as paid: {str(e)}")
+        raise HTTPException(status_code=500, detail=str(e))
+
+
+@app.get("/trips/{trip_id}/strategy-status")
+async def get_trip_strategy_status(
+    trip_id: str, user_id: str = Depends(get_current_user_id)
+):
+    """
+    Check if a trip's optimization strategy has been paid for.
+    
+    Any member of the trip can check this status.
+    """
+    try:
+        # Verify user has access to this trip
+        trip = trip_service.get_trip(trip_id)
+        if not trip:
+            raise HTTPException(status_code=404, detail="Trip not found")
+        
+        # Check if user is a member
+        members = trip_member_service.list_members(trip_id)
+        is_member = any(m.get("userId") == user_id for m in members)
+        if not is_member and trip.get("createdBy") != user_id:
+            raise HTTPException(status_code=403, detail="Access denied")
+        
+        is_paid = trip.get("strategyPaid", False)
+        paid_at = trip.get("strategyPaidAt")
+        paid_by = trip.get("strategyPaidBy")
+        
+        return {
+            "trip_id": trip_id,
+            "strategy_paid": is_paid,
+            "paid_at": paid_at,
+            "paid_by": paid_by,
+        }
+    except HTTPException:
+        raise
+    except Exception as e:
+        logger.error(f"Error getting strategy status: {str(e)}")
+        raise HTTPException(status_code=500, detail=str(e))
+
+
 class UpdatePoolingScopeAPIRequest(BaseModel):
     trip_id: str = Field(..., min_length=1)
     pooling_scope: str = Field(
@@ -1275,11 +1443,14 @@ async def list_destinations(
 ):
     """List all destinations for a trip"""
     try:
-        # Verify user has access to this trip
+        # Verify user has access to this trip (owner OR member)
         trip = trip_service.get_trip(request.trip_id)
         if not trip:
             raise HTTPException(status_code=404, detail="Trip not found")
-        if trip.get("createdBy") != user_id:
+        
+        members = trip_member_service.list_members(request.trip_id)
+        is_member = any(m.get("userId") == user_id for m in members)
+        if not is_member and trip.get("createdBy") != user_id:
             raise HTTPException(status_code=403, detail="Access denied")
 
         destinations = destination_service.list_destinations(request.trip_id)
@@ -1299,11 +1470,14 @@ async def upsert_points(
 ):
     """Add or update points for a user's program in a trip"""
     try:
-        # Verify user has access to this trip
+        # Verify user has access to this trip (owner OR member)
         trip = trip_service.get_trip(request.trip_id)
         if not trip:
             raise HTTPException(status_code=404, detail="Trip not found")
-        if trip.get("createdBy") != user_id:
+        
+        members = trip_member_service.list_members(request.trip_id)
+        is_member = any(m.get("userId") == user_id for m in members)
+        if not is_member and trip.get("createdBy") != user_id:
             raise HTTPException(status_code=403, detail="Access denied")
 
         # Validate program is in the enum
@@ -1331,11 +1505,14 @@ async def get_points_summary(
 ):
     """Get points summary for a trip"""
     try:
-        # Verify user has access to this trip
+        # Verify user has access to this trip (owner OR member)
         trip = trip_service.get_trip(request.trip_id)
         if not trip:
             raise HTTPException(status_code=404, detail="Trip not found")
-        if trip.get("createdBy") != user_id:
+        
+        members = trip_member_service.list_members(request.trip_id)
+        is_member = any(m.get("userId") == user_id for m in members)
+        if not is_member and trip.get("createdBy") != user_id:
             raise HTTPException(status_code=403, detail="Access denied")
 
         summary = points_service.trip_points_summary(request.trip_id)
@@ -1460,11 +1637,14 @@ async def get_itinerary(
 ):
     """Get itinerary for a trip"""
     try:
-        # Verify user has access to this trip
+        # Verify user has access to this trip (owner OR member)
         trip = trip_service.get_trip(request.trip_id)
         if not trip:
             raise HTTPException(status_code=404, detail="Trip not found")
-        if trip.get("createdBy") != user_id:
+        
+        members = trip_member_service.list_members(request.trip_id)
+        is_member = any(m.get("userId") == user_id for m in members)
+        if not is_member and trip.get("createdBy") != user_id:
             raise HTTPException(status_code=403, detail="Access denied")
 
         items = itinerary_service.get_itinerary(request.trip_id)

@@ -640,7 +640,15 @@ export const trips = {
 
   join: async (
     invite_code: string,
-    options?: { willing_to_share_points?: boolean; points_usage?: 'freely' | 'ask_before' | 'do_not_use' }
+    options?: { 
+      willing_to_share_points?: boolean; 
+      points_usage?: 'freely' | 'ask_before' | 'do_not_use';
+      // Flight preferences for "Same as Friend?" feature
+      departure_airport?: string;
+      arrival_airport?: string;
+      is_round_trip?: boolean;
+      flight_class?: string;
+    }
   ): Promise<{ tripId: string }> => {
     if (SKIP_API_AUTH) {
       // Return the trip ID for the matching invite code
@@ -658,6 +666,11 @@ export const trips = {
         invite_code,
         ...(options?.willing_to_share_points !== undefined && { willing_to_share_points: options.willing_to_share_points }),
         ...(options?.points_usage && { points_usage: options.points_usage }),
+        // Include flight preferences
+        ...(options?.departure_airport && { departure_airport: options.departure_airport }),
+        ...(options?.arrival_airport && { arrival_airport: options.arrival_airport }),
+        ...(options?.is_round_trip !== undefined && { is_round_trip: options.is_round_trip }),
+        ...(options?.flight_class && { flight_class: options.flight_class }),
       }),
     });
   },
@@ -704,6 +717,53 @@ export const trips = {
     return apiRequest<{ ok: boolean }>('/trips/delete', {
       method: 'POST',
       body: JSON.stringify({ trip_id }),
+    });
+  },
+  
+  /**
+   * Mark a trip's optimization strategy as paid.
+   * Only the trip owner can mark as paid.
+   * Once paid, all group members can access the transfer instructions.
+   */
+  markStrategyPaid: async (
+    tripId: string,
+    paymentInfo?: { amount?: number; currency?: string; method?: string; reference?: string }
+  ): Promise<{ ok: boolean; strategy_paid: boolean; paid_at: string }> => {
+    if (SKIP_API_AUTH) {
+      return { ok: true, strategy_paid: true, paid_at: new Date().toISOString() };
+    }
+    return apiRequest<{ ok: boolean; strategy_paid: boolean; paid_at: string }>('/trips/strategy-paid', {
+      method: 'POST',
+      body: JSON.stringify({
+        trip_id: tripId,
+        ...(paymentInfo?.amount !== undefined && { amount: paymentInfo.amount }),
+        ...(paymentInfo?.currency && { currency: paymentInfo.currency }),
+        ...(paymentInfo?.method && { method: paymentInfo.method }),
+        ...(paymentInfo?.reference && { reference: paymentInfo.reference }),
+      }),
+    });
+  },
+  
+  /**
+   * Check if a trip's optimization strategy has been paid for.
+   * Any member of the trip can check this status.
+   */
+  getStrategyStatus: async (tripId: string): Promise<{
+    trip_id: string;
+    strategy_paid: boolean;
+    paid_at?: string;
+    paid_by?: string;
+  }> => {
+    if (SKIP_API_AUTH) {
+      return { trip_id: tripId, strategy_paid: true };
+    }
+    return apiRequest<{
+      trip_id: string;
+      strategy_paid: boolean;
+      paid_at?: string;
+      paid_by?: string;
+    }>(`/trips/${tripId}/strategy-status`, {
+      method: 'GET',
     });
   },
   

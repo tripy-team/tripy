@@ -387,7 +387,7 @@ export function DestinationAutocomplete({
                       const active = activeIdx === itemIdx;
                       return (
                         <li
-                          key={a.airport_id || `${a.iata_code}-${itemIdx}`}
+                          key={a.airport_id || `${cityKey}-${a.iata_code}-${airportIdx}`}
                           onMouseEnter={() => setActiveIdx(itemIdx)}
                           onPointerDown={(e) => { e.preventDefault(); e.stopPropagation(); commitSelect(a); }}
                           onMouseDown={(e) => { e.preventDefault(); e.stopPropagation(); commitSelect(a); }}

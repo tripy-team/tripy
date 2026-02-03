@@ -20,7 +20,7 @@ interface Itinerary {
 export default function GroupComparison() {
     const router = useRouter();
     const searchParams = useSearchParams();
-    const tripId = searchParams?.get('trip_id') || '';
+    const tripId = searchParams?.get('tripId') || searchParams?.get('trip_id') || '';
 
     const [itineraries, setItineraries] = useState<Itinerary[]>([]);
     const [groupSize, setGroupSize] = useState(4);

@@ -13,7 +13,6 @@ import {
   ArrowLeft, 
   Users, 
   DollarSign, 
-  Settings,
   Loader2,
   AlertCircle,
 } from 'lucide-react';
@@ -117,37 +116,21 @@ function GroupSettlementContent() {
 
         {/* Settlement View Component */}
         <div className="bg-white border border-slate-200 rounded-2xl p-6 shadow-sm">
-          <SettlementView 
-            tripId={tripId} 
-            onConfigChange={() => {
-              // Could refresh data or show notification
-              console.log('Settlement config changed');
-            }}
-          />
+          <SettlementView tripId={tripId} />
         </div>
 
         {/* Help Section */}
         <div className="mt-8 bg-blue-50 border border-blue-200 rounded-2xl p-6">
           <div className="flex items-start gap-4">
             <div className="w-10 h-10 bg-blue-100 rounded-xl flex items-center justify-center flex-shrink-0">
-              <Settings className="w-5 h-5 text-blue-600" />
+              <DollarSign className="w-5 h-5 text-blue-600" />
             </div>
             <div>
               <h3 className="font-semibold text-slate-900 mb-2">How Settlement Works</h3>
-              <ul className="text-sm text-slate-600 space-y-2">
-                <li className="flex items-start gap-2">
-                  <span className="w-5 h-5 bg-blue-200 text-blue-700 rounded-full flex items-center justify-center text-xs font-bold flex-shrink-0">1</span>
-                  <span><strong>Choose a policy</strong> - Decide how costs should be split (equally, per passenger, by household, etc.)</span>
-                </li>
-                <li className="flex items-start gap-2">
-                  <span className="w-5 h-5 bg-blue-200 text-blue-700 rounded-full flex items-center justify-center text-xs font-bold flex-shrink-0">2</span>
-                  <span><strong>Points valuation</strong> - Toggle whether points used count as contributions (at market value)</span>
-                </li>
-                <li className="flex items-start gap-2">
-                  <span className="w-5 h-5 bg-blue-200 text-blue-700 rounded-full flex items-center justify-center text-xs font-bold flex-shrink-0">3</span>
-                  <span><strong>See who owes what</strong> - Tripy calculates exact reimbursement amounts</span>
-                </li>
-              </ul>
+              <p className="text-sm text-slate-600">
+                Each person pays for their own travelers. Points used are valued at market rate and count as contributions.
+                Tripy calculates who owes whom and shows the exact reimbursement amounts needed to settle up.
+              </p>
             </div>
           </div>
         </div>
