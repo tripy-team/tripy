@@ -29,6 +29,8 @@ export default function GroupTripSetup() {
   // Date State
   const [startDate, setStartDate] = useState('');
   const [endDate, setEndDate] = useState('');
+  // Multi-city leg dates: each element is the departure date for that leg (when 2+ destinations)
+  const [legDates, setLegDates] = useState<string[]>([]);
 
   // Cities State
   const [cities, setCities] = useState<string[]>([]);
@@ -157,8 +159,48 @@ export default function GroupTripSetup() {
   }, [creditCards, isLoadingProfile]);
 
   const removeCity = (city: string) => {
+    const index = cities.indexOf(city);
     setCities(cities.filter(c => c !== city));
+    if (index >= 0) {
+      setLegDates(prev => {
+        const newDates = [...prev];
+        newDates.splice(index + 1, 1);
+        return newDates;
+      });
+    }
   };
+
+  const isMultiCity = cities.length >= 2;
+
+  const updateLegDate = (index: number, date: string) => {
+    setLegDates(prev => {
+      const newDates = [...prev];
+      while (newDates.length <= index) newDates.push('');
+      newDates[index] = date;
+      return newDates;
+    });
+  };
+
+  const getMinDateForLeg = (index: number): string => {
+    if (index === 0) return new Date().toISOString().split('T')[0];
+    const prevDate = legDates[index - 1];
+    if (prevDate) {
+      const prev = new Date(prevDate);
+      prev.setDate(prev.getDate() + 1);
+      return prev.toISOString().split('T')[0];
+    }
+    return new Date().toISOString().split('T')[0];
+  };
+
+  // Sync legDates when switching to 2+ destinations
+  useEffect(() => {
+    if (isMultiCity && legDates.length === 0 && startDate) {
+      setLegDates([startDate]);
+    }
+    if (!isMultiCity && legDates.length > 0 && legDates[0]) {
+      setStartDate(legDates[0]);
+    }
+  }, [isMultiCity, startDate, legDates]);
 
   const handleCreateTrip = async () => {
     // Validate required fields
@@ -181,6 +223,14 @@ export default function GroupTripSetup() {
     if (!endDate) {
       setError('Please select a return/arrival date');
       return;
+    }
+    if (cities.length >= 2) {
+      for (let i = 0; i < cities.length - 1; i++) {
+        if (!legDates[i + 1]) {
+          setError(`Please select a departure date from ${cities[i]}`);
+          return;
+        }
+      }
     }
 
     setIsGenerating(true);
@@ -448,7 +498,10 @@ export default function GroupTripSetup() {
                             type="date"
                             value={startDate}
                             min={new Date().toISOString().split('T')[0]}
-                            onChange={(e) => setStartDate(e.target.value)}
+                            onChange={(e) => {
+                              setStartDate(e.target.value);
+                              if (isMultiCity) updateLegDate(0, e.target.value);
+                            }}
                             className="w-full pl-10 pr-4 py-3 bg-blue-50 border border-blue-200 rounded-xl text-sm focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-blue-500 cursor-pointer"
                             placeholder="Select date"
                           />
@@ -458,38 +511,60 @@ export default function GroupTripSetup() {
                   </div>
                   
                   {/* INTERMEDIATE DESTINATIONS */}
-                  {cities.map((city, index) => (
-                    <div key={`city-${index}`} className="flex gap-6 py-4">
-                      {/* Timeline dot */}
-                      <div className="flex flex-col items-center">
-                        <div className="w-6 h-6 rounded-full bg-blue-500 border-4 border-white shadow-sm z-10 flex items-center justify-center">
-                          <span className="text-[8px] text-white font-bold">{index + 1}</span>
-                        </div>
-                      </div>
-                      
-                      {/* Content */}
-                      <div className="flex-1 -mt-1">
-                        <div className="relative">
-                          <label className="block text-xs text-slate-500 mb-2 uppercase font-bold tracking-wider">
-                            Destination {index + 1}
-                          </label>
-                          <div className="flex gap-2">
-                            <div className="flex-1 px-4 py-3 bg-blue-50 border border-blue-200 rounded-xl text-sm text-slate-900 font-medium">
-                              {city}
-                            </div>
-                            <button
-                              type="button"
-                              onClick={() => removeCity(city)}
-                              className="px-3 py-2 text-slate-400 hover:text-red-500 hover:bg-red-50 rounded-xl transition-colors"
-                              title="Remove destination"
-                            >
-                              <X className="w-4 h-4" />
-                            </button>
+                  {cities.map((city, index) => {
+                    const isLastCity = index === cities.length - 1;
+                    return (
+                      <div key={`city-${index}`} className="flex gap-6 py-4">
+                        {/* Timeline dot */}
+                        <div className="flex flex-col items-center">
+                          <div className="w-6 h-6 rounded-full bg-blue-500 border-4 border-white shadow-sm z-10 flex items-center justify-center">
+                            <span className="text-[8px] text-white font-bold">{index + 1}</span>
                           </div>
                         </div>
+                        
+                        {/* Content */}
+                        <div className={`flex-1 ${isMultiCity && !isLastCity ? 'grid grid-cols-1 md:grid-cols-2 gap-4' : ''} -mt-1`}>
+                          <div className="relative">
+                            <label className="block text-xs text-slate-500 mb-2 uppercase font-bold tracking-wider">
+                              Destination {index + 1}
+                            </label>
+                            <div className="flex gap-2">
+                              <div className="flex-1 px-4 py-3 bg-blue-50 border border-blue-200 rounded-xl text-sm text-slate-900 font-medium">
+                                {city}
+                              </div>
+                              <button
+                                type="button"
+                                onClick={() => removeCity(city)}
+                                className="px-3 py-2 text-slate-400 hover:text-red-500 hover:bg-red-50 rounded-xl transition-colors"
+                                title="Remove destination"
+                              >
+                                <X className="w-4 h-4" />
+                              </button>
+                            </div>
+                          </div>
+                          {/* When 2+ destinations, show departure date for each intermediate stop (not the last) */}
+                          {isMultiCity && !isLastCity && (
+                            <div>
+                              <label className="block text-xs text-slate-500 mb-2 uppercase font-bold tracking-wider">
+                                Departure Date
+                              </label>
+                              <div className="relative">
+                                <Calendar className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-slate-400 pointer-events-none" />
+                                <input
+                                  type="date"
+                                  value={legDates[index + 1] || ''}
+                                  min={getMinDateForLeg(index + 1)}
+                                  onChange={(e) => updateLegDate(index + 1, e.target.value)}
+                                  className="w-full pl-10 pr-4 py-3 bg-blue-50 border border-blue-200 rounded-xl text-sm focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-blue-500 cursor-pointer"
+                                  placeholder="Select date"
+                                />
+                              </div>
+                            </div>
+                          )}
+                        </div>
                       </div>
-                    </div>
-                  ))}
+                    );
+                  })}
                   
                   {/* ADD DESTINATION BUTTON */}
                   <div className="flex gap-6 py-4">
@@ -594,7 +669,7 @@ export default function GroupTripSetup() {
                           <input
                             type="date"
                             value={endDate}
-                            min={startDate || new Date().toISOString().split('T')[0]}
+                            min={isMultiCity && cities.length > 0 ? getMinDateForLeg(cities.length) : (startDate || new Date().toISOString().split('T')[0])}
                             onChange={(e) => setEndDate(e.target.value)}
                             className="w-full pl-10 pr-4 py-3 bg-blue-50 border border-blue-200 rounded-xl text-sm focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-blue-500 cursor-pointer"
                             placeholder="Select date"
