@@ -6,6 +6,26 @@
 // OOP METRICS
 // =============================================================================
 
+/**
+ * Payment action for a single segment (multi-currency tracking).
+ */
+export interface PaymentAction {
+  segmentId: string;
+  segmentDescription: string;  // e.g., "SEA → CDG"
+  paymentMethod: 'cash' | 'points';
+  
+  // For cash payment
+  cashAmount?: number;
+  
+  // For points payment
+  pointsProgram?: string;       // Target program (e.g., "flying_blue")
+  pointsAmount?: number;
+  surcharge?: number;
+  sourceCurrency?: string;      // Bank currency used (e.g., "amex", "chase")
+  transferRatio?: number;
+  cppAchieved?: number;
+}
+
 export interface OOPMetrics {
   /** Total price if paid entirely in cash */
   totalCashPrice: number;
@@ -25,8 +45,21 @@ export interface OOPMetrics {
   /** Weighted average CPP across all point redemptions */
   averageCPP: number;
   
-  /** Points used per program: { "United MileagePlus": 45000, ... } */
+  /** Points used per target program: { "flying_blue": 30000, "united": 25000 } */
   pointsBreakdown: Record<string, number>;
+  
+  /** 
+   * MULTI-CURRENCY: Points spent from each bank currency.
+   * Shows which credit card programs contributed to the optimization.
+   * Example: { "amex": 30000, "chase": 25000 }
+   */
+  bankCurrenciesUsed?: Record<string, number>;
+  
+  /**
+   * MULTI-CURRENCY: Detailed payment actions per segment.
+   * Shows exactly which currency funded each segment.
+   */
+  paymentActions?: PaymentAction[];
 }
 
 // =============================================================================
@@ -218,9 +251,22 @@ export interface GroupOOPMetrics extends OOPMetrics {
 
 export interface OptimizeSoloRequest {
   tripId: string;
+  /** 
+   * MULTI-CURRENCY: Points balances by program.
+   * Can include multiple bank currencies (chase_ur, amex_mr) and direct airline miles (UA, DL).
+   * Example: { "chase_ur": 100000, "amex_mr": 75000, "UA": 25000 }
+   */
   points: Record<string, number>;
   budget: number;
   cabinClasses?: string[];
+  
+  // Currency control settings (optional)
+  /** If set, only use these currencies in optimization */
+  allowedCurrencies?: string[];
+  /** Per-currency maximum points to use */
+  maxPointsByCurrency?: Record<string, number>;
+  /** Maximum cash out-of-pocket (overrides budget) */
+  maxCashBudget?: number;
 }
 
 export interface OptimizeGroupRequest extends OptimizeSoloRequest {

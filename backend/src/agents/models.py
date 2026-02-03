@@ -8,6 +8,15 @@ from datetime import datetime, date
 
 
 # =============================================================================
+# BUDGET CONSTANTS
+# =============================================================================
+
+# Sentinel value representing "no budget limit" - use instead of None
+# This prevents TypeError when comparing float <= None throughout the pipeline
+NO_BUDGET_LIMIT: float = 1e9  # $1 billion - effectively unlimited
+
+
+# =============================================================================
 # POLICY TYPES (inline for Pydantic compatibility)
 # =============================================================================
 
@@ -481,10 +490,19 @@ class GroupOOPMetrics(OOPMetrics):
 # =============================================================================
 
 class OptimizeSoloRequest(BaseModel):
-    """Request for solo trip optimization."""
+    """
+    Request for solo trip optimization.
+    
+    MULTI-CURRENCY SUPPORT:
+    The `points` dict supports multiple credit card programs:
+    - Bank currencies: "chase_ur", "amex_mr", "citi_typ", etc.
+    - Direct airline miles: "UA", "DL", "AA", etc.
+    
+    Use currency control fields to customize optimization behavior.
+    """
     trip_id: str
     points: dict[str, int]  # program -> balance
-    budget: float
+    budget: float = NO_BUDGET_LIMIT  # Use NO_BUDGET_LIMIT for unlimited (never None)
     cabin_classes: Optional[list[str]] = None
     hotel_stars: Optional[list[int]] = None
     include_hotels: Optional[bool] = True
@@ -497,6 +515,11 @@ class OptimizeSoloRequest(BaseModel):
     include_basic_economy: bool = False  # Include basic economy fares?
     flexibility_priority: Literal["low", "medium", "high"] = "medium"
     acknowledged_policy_codes: list[str] = []  # Codes user has acknowledged
+    
+    # Currency control settings (Task 07)
+    allowed_currencies: Optional[list[str]] = None  # If set, only use these currencies
+    max_points_by_currency: Optional[dict[str, int]] = None  # Per-currency caps
+    max_cash_budget: Optional[float] = None  # Maximum cash OOP (overrides budget)
 
 
 class OptimizeGroupRequest(OptimizeSoloRequest):

@@ -27,6 +27,12 @@ const remotePatterns: Array<{
     hostname: 'tripy-city-images.s3.us-east-1.amazonaws.com',
     pathname: '/**',
   },
+  // Also allow S3 URL without region (used for signed URLs)
+  {
+    protocol: 'https',
+    hostname: 'tripy-city-images.s3.amazonaws.com',
+    pathname: '/**',
+  },
 ];
 
 // Add CDN domain if configured

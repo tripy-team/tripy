@@ -180,7 +180,7 @@ PROGRAM_ALIASES: Dict[str, str] = {
 # =============================================================================
 
 BANK_ALIASES: Dict[str, str] = {
-    # Chase
+    # Chase - various key formats from storage and client
     "CHASE": "chase",
     "Chase": "chase",
     "chase": "chase",
@@ -189,8 +189,9 @@ BANK_ALIASES: Dict[str, str] = {
     "ultimate_rewards": "chase",
     "chase_ultimate_rewards": "chase",
     "chase_ur": "chase",  # Canonical program ID
+    "CHASE_UR": "chase",  # Storage format (from utils/normalize.py)
     
-    # Amex
+    # Amex - various key formats from storage and client
     "AMEX": "amex",
     "Amex": "amex",
     "amex": "amex",
@@ -199,9 +200,10 @@ BANK_ALIASES: Dict[str, str] = {
     "membership_rewards": "amex",
     "amex_membership_rewards": "amex",
     "amex_mr": "amex",  # Canonical program ID
+    "AMEX_MR": "amex",  # Storage format (from utils/normalize.py)
     "American Express": "amex",
     
-    # Citi
+    # Citi - various key formats from storage and client
     "CITI": "citi",
     "Citi": "citi",
     "citi": "citi",
@@ -210,8 +212,9 @@ BANK_ALIASES: Dict[str, str] = {
     "citi_thankyou": "citi",
     "citi_thank_you": "citi",
     "citi_typ": "citi",  # Canonical program ID
+    "CITI_TYP": "citi",  # Storage format (from utils/normalize.py)
     
-    # Capital One
+    # Capital One - various key formats
     "CAPITALONE": "capital_one",
     "CapitalOne": "capital_one",
     "capital_one": "capital_one",
@@ -220,7 +223,7 @@ BANK_ALIASES: Dict[str, str] = {
     "CapOne": "capital_one",
     "capone": "capital_one",
     
-    # Bilt
+    # Bilt - various key formats
     "BILT": "bilt",
     "Bilt": "bilt",
     "bilt": "bilt",

@@ -51,15 +51,6 @@ interface OutOfPocketData {
     return_date?: string;
 }
 
-/** Hotel OOP from optimize_hotels_out_of_pocket: best_overall has out_of_pocket, cash, points, surcharge */
-interface OutOfPocketHotelsData {
-    best_by_cash?: { cash?: number; out_of_pocket?: number } | null;
-    best_by_points?: { surcharge?: number; out_of_pocket?: number } | null;
-    best_overall?: { out_of_pocket?: number; cash?: number; points?: number; surcharge?: number } | null;
-    destination?: string;
-    check_in?: string;
-    check_out?: string;
-}
 
 function OutOfPocketBlock({ data }: { data: OutOfPocketData }) {
     const best = data.best_overall;
@@ -202,9 +193,7 @@ export default function GroupResults() {
     const [isAiSuggested, setIsAiSuggested] = useState(false);
     const [smartTips, setSmartTips] = useState<SmartTips>(emptySmartTips);
     const [outOfPocket, setOutOfPocket] = useState<OutOfPocketData | null>(null);
-    const [outOfPocketHotels, setOutOfPocketHotels] = useState<OutOfPocketHotelsData | null>(null);
-    const [includeHotels, setIncludeHotels] = useState(true);
-    const [userConstraints, setUserConstraints] = useState<{ maxBudget?: number; totalPoints: number; totalValue?: number; durationLabel: string; includeHotels: boolean } | null>(null);
+    const [userConstraints, setUserConstraints] = useState<{ maxBudget?: number; totalPoints: number; totalValue?: number; durationLabel: string } | null>(null);
     const [relaxedMessage, setRelaxedMessage] = useState<string | null>(null);
 
     const stepIcon = (method: string) => {
@@ -229,7 +218,6 @@ export default function GroupResults() {
                 setIsAiSuggested(false);
                 setSmartTips(emptySmartTips);
                 setOutOfPocket(null);
-                setOutOfPocketHotels(null);
                 setUserConstraints(null);
                 setRelaxedMessage(null);
 
@@ -240,9 +228,7 @@ export default function GroupResults() {
                     itinerariesAPI.get(tripId),
                     tripsAPI.get(tripId).catch(() => null),
                 ]);
-                const t = trip as { includeHotels?: boolean; maxBudget?: number; startDate?: string; endDate?: string; durationDays?: number } | null;
-                const incHotels = t?.includeHotels !== false;
-                setIncludeHotels(incHotels);
+                const t = trip as { maxBudget?: number; startDate?: string; endDate?: string; durationDays?: number } | null;
 
                 let durationLabel = '—';
                 if (t?.startDate && t?.endDate) {
@@ -262,7 +248,6 @@ export default function GroupResults() {
                     totalPoints: totalPts,
                     totalValue: totalVal,
                     durationLabel,
-                    includeHotels: incHotels,
                 });
 
                 const memberCount = membersResponse.members.length || 4;
@@ -320,14 +305,6 @@ export default function GroupResults() {
                     setOutOfPocket(oopItem as OutOfPocketData);
                 } else {
                     setOutOfPocket(null);
-                }
-
-                // Hotel out-of-pocket (when trip has includeHotels)
-                const oopHotelsItem = itineraryResponse.items?.find((i: ItineraryItem & { type?: string }) => i.type === 'out_of_pocket_hotels');
-                if (oopHotelsItem && typeof oopHotelsItem === 'object') {
-                    setOutOfPocketHotels(oopHotelsItem as OutOfPocketHotelsData);
-                } else {
-                    setOutOfPocketHotels(null);
                 }
 
                 // Relaxed-constraints banner (when no feasible solution; we show a similar route)
@@ -577,7 +554,6 @@ export default function GroupResults() {
                             <span className="text-slate-600">Points: <strong className="text-slate-900">{(userConstraints.totalPoints / 1000).toFixed(0)}k</strong></span>
                         )}
                         <span className="text-slate-600">Duration: <strong className="text-slate-900">{userConstraints.durationLabel}</strong></span>
-                        <span className="text-slate-600">Hotels: <strong className="text-slate-900">{userConstraints.includeHotels ? 'Included' : 'Not included'}</strong></span>
                     </div>
                 )}
 
@@ -792,30 +768,15 @@ export default function GroupResults() {
                                         <div className="space-y-2 text-sm">
                                             {(() => {
                                                 const totalCost = selectedItinerary.totalCostPerPerson * groupSize;
-                                                const flightsPart = totalCost * (includeHotels ? 0.4 : 0.65);
-                                                const hotelOop = includeHotels
-                                                    ? (outOfPocketHotels?.best_overall?.out_of_pocket ?? outOfPocketHotels?.best_overall?.cash)
-                                                    : null;
-                                                const hotelsPart = includeHotels
-                                                    ? (hotelOop ?? totalCost * 0.35)
-                                                    : 0;
-                                                const activitiesPart = totalCost * (includeHotels ? 0.25 : 0.35);
-                                                const sum = flightsPart + hotelsPart + activitiesPart;
+                                                const flightsPart = totalCost * 0.65;
+                                                const activitiesPart = totalCost * 0.35;
+                                                const sum = flightsPart + activitiesPart;
                                                 return (
                                                     <>
                                                         <div className="flex justify-between">
                                                             <span className="text-slate-600">Flights</span>
                                                             <span className="text-slate-900 font-medium">${Math.round(flightsPart).toLocaleString()}</span>
                                                         </div>
-                                                        {includeHotels && (
-                                                            <div className="flex justify-between">
-                                                                <span className="text-slate-600">Hotels</span>
-                                                                <span className="text-slate-900 font-medium">
-                                                                    ${Math.round(hotelsPart).toLocaleString()}
-                                                                    {hotelOop != null && <span className="text-emerald-600 text-xs ml-1">(live)</span>}
-                                                                </span>
-                                                            </div>
-                                                        )}
                                                         <div className="flex justify-between">
                                                             <span className="text-slate-600">Activities</span>
                                                             <span className="text-slate-900 font-medium">${Math.round(activitiesPart).toLocaleString()}</span>

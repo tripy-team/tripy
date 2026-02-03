@@ -36,6 +36,7 @@ from ..utils.pricing import (
 )
 from ..contracts.sentinel import scrub_sentinels
 from ..contracts.validate import assert_no_negative_numbers, find_negative_numbers
+from ..agents.models import NO_BUDGET_LIMIT
 
 logger = logging.getLogger(__name__)
 
@@ -237,19 +238,48 @@ def convert_trip_to_spec(
     segments: List[dict],
     user_points: Dict[str, int],
     user_id: str = "user",
+    allowed_currencies: List[str] = None,
+    max_points_by_currency: Dict[str, int] = None,
 ) -> TripPlanSpec:
     """
     Convert orchestrator trip data to V3 TripPlanSpec.
+    
+    MULTI-CURRENCY SUPPORT:
+    The user_points dict can contain multiple credit card programs:
+    - Bank currencies: "chase_ur", "amex_mr", "citi_typ", etc.
+    - Direct airline miles: "UA", "DL", "AA", etc.
+    - Hotel points: "marriott", "hyatt", etc.
+    
+    These are separated into bank_balances (transferable) and points_balances (direct).
     
     Args:
         trip_data: Trip data from database
         segments: List of segment dicts from _build_trip_segments
         user_points: User's points balances {program: balance}
         user_id: User identifier
+        allowed_currencies: If set, only include these currencies (normalized keys)
+        max_points_by_currency: Per-currency caps {program: max_points}
     
     Returns:
         TripPlanSpec for V3 solver
     """
+    
+    # Normalize allowed_currencies for comparison
+    allowed_normalized = None
+    if allowed_currencies:
+        allowed_normalized = set()
+        for cur in allowed_currencies:
+            allowed_normalized.add(normalize_bank(cur))
+            allowed_normalized.add(normalize_program(cur))
+        logger.info(f"[V3 Adapter] Allowed currencies (normalized): {allowed_normalized}")
+    
+    # Normalize max_points_by_currency keys
+    caps_normalized = {}
+    if max_points_by_currency:
+        for cur, cap in max_points_by_currency.items():
+            caps_normalized[normalize_bank(cur)] = cap
+            caps_normalized[normalize_program(cur)] = cap
+        logger.info(f"[V3 Adapter] Currency caps (normalized): {caps_normalized}")
     
     # Separate points and banks
     points_balances = {}
@@ -261,13 +291,30 @@ def convert_trip_to_spec(
         
         logger.info(f"[V3 Adapter] Points: {prog} -> normalized={normalized}, bank={bank_normalized}")
         
+        # Check if currency is allowed
+        if allowed_normalized:
+            if bank_normalized not in allowed_normalized and normalized not in allowed_normalized:
+                logger.info(f"[V3 Adapter] Skipping {prog} - not in allowed currencies")
+                continue
+        
+        # Apply per-currency cap
+        effective_balance = balance
+        if bank_normalized in caps_normalized:
+            effective_balance = min(balance, caps_normalized[bank_normalized])
+            if effective_balance < balance:
+                logger.info(f"[V3 Adapter] Capping {prog} from {balance:,} to {effective_balance:,}")
+        elif normalized in caps_normalized:
+            effective_balance = min(balance, caps_normalized[normalized])
+            if effective_balance < balance:
+                logger.info(f"[V3 Adapter] Capping {prog} from {balance:,} to {effective_balance:,}")
+        
         # Check if it's a bank (transferable) or airline/hotel program
         if bank_normalized in {"chase", "amex", "citi", "capital_one", "bilt"}:
-            bank_balances[bank_normalized] = balance
-            logger.info(f"[V3 Adapter] Added to bank_balances: {bank_normalized}={balance:,}")
+            bank_balances[bank_normalized] = effective_balance
+            logger.info(f"[V3 Adapter] Added to bank_balances: {bank_normalized}={effective_balance:,}")
         else:
-            points_balances[normalized] = balance
-            logger.info(f"[V3 Adapter] Added to points_balances: {normalized}={balance:,}")
+            points_balances[normalized] = effective_balance
+            logger.info(f"[V3 Adapter] Added to points_balances: {normalized}={effective_balance:,}")
     
     logger.info(f"[V3 Adapter] Final bank_balances: {bank_balances}")
     logger.info(f"[V3 Adapter] Final points_balances: {points_balances}")
@@ -845,7 +892,9 @@ def convert_result_to_itineraries(
     total_cash_price = 0.0
     total_oop = 0.0
     total_points_used = 0
-    points_breakdown = {}
+    points_breakdown = {}           # Points by target program
+    bank_currencies_used = {}       # Points by source bank currency
+    payment_actions = []            # Detailed payment actions for each segment
     transfers = []
     
     # Build lookup of SerpAPI flights by leg for enriching award flights with real details
@@ -916,12 +965,22 @@ def convert_result_to_itineraries(
             prog = opt.program if opt else "unknown"
             points_breakdown[prog] = points_breakdown.get(prog, 0) + payment_choice.points_amount
             
+            # Track source bank currency and build payment action
+            source_currency = None
+            transfer_ratio = None
+            
             # Check for transfer
             if payment_choice.funding_source_id and "transfer" in payment_choice.funding_source_id:
                 parts = payment_choice.funding_source_id.split("_")
                 if len(parts) >= 4:
                     from_bank = parts[2]
                     to_prog = parts[3]
+                    source_currency = from_bank
+                    transfer_ratio = 1.0  # TODO: Get actual ratio from transfer path
+                    
+                    # Track bank currency usage
+                    bank_currencies_used[from_bank] = bank_currencies_used.get(from_bank, 0) + payment_choice.points_amount
+                    
                     transfers.append(TransferInstruction(
                         from_program=from_bank,
                         to_program=to_prog,
@@ -931,6 +990,20 @@ def convert_result_to_itineraries(
                         transfer_time="Instant",
                         steps=[f"Transfer {payment_choice.points_amount:,} from {from_bank} to {to_prog}"],
                     ))
+            
+            # Build payment action for this segment
+            from ..schemas.optimize import PaymentAction
+            payment_actions.append(PaymentAction(
+                segment_id=edge_id,
+                segment_description=f"{flight.origin} → {flight.destination}",
+                payment_method="points",
+                points_program=prog,
+                points_amount=payment_choice.points_amount,
+                surcharge=payment_choice.cash_amount,
+                source_currency=source_currency,
+                transfer_ratio=transfer_ratio,
+                cpp_achieved=cpp if opt else None,
+            ))
         else:
             # Cash payment - use actual cash cost, not penalty
             # For display purposes, use 0 if cash price was unknown
@@ -952,6 +1025,15 @@ def convert_result_to_itineraries(
                 reason=cash_reason,
             )
             total_oop += actual_cash
+            
+            # Build payment action for cash payment
+            from ..schemas.optimize import PaymentAction
+            payment_actions.append(PaymentAction(
+                segment_id=edge_id,
+                segment_description=f"{flight.origin} → {flight.destination}",
+                payment_method="cash",
+                cash_amount=actual_cash,
+            ))
         
         # Use actual price for totals (0 for unknown, not the $999,999 penalty)
         actual_cash_price = 0.0 if flight.cash_cost_unknown else flight.cash_cost
@@ -1243,15 +1325,22 @@ def convert_result_to_itineraries(
             cpp_values.append(seg.payment.cpp_achieved)
     avg_cpp = sum(cpp_values) / len(cpp_values) if cpp_values else 0
     
-    # Budget verification
-    is_within_budget = total_oop <= budget
+    # Budget verification - use NO_BUDGET_LIMIT sentinel for unlimited
+    # Budget is always a float now (never None) due to upstream guards
+    is_unlimited = budget >= NO_BUDGET_LIMIT
+    is_within_budget = is_unlimited or total_oop <= budget
+    
     logger.info("=" * 80)
     logger.info(f"[V3 Adapter] BUDGET VERIFICATION:")
     logger.info(f"  Total out-of-pocket: ${total_oop:.2f}")
-    logger.info(f"  Budget limit: ${budget:.2f}")
-    logger.info(f"  Within budget: {is_within_budget} ({'✅' if is_within_budget else '❌'})")
-    if not is_within_budget:
-        logger.error(f"  ⚠️ BUDGET EXCEEDED by ${total_oop - budget:.2f}!")
+    if is_unlimited:
+        logger.info(f"  Budget limit: No limit set (unlimited)")
+        logger.info(f"  Within budget: {is_within_budget} (✅ no limit)")
+    else:
+        logger.info(f"  Budget limit: ${budget:.2f}")
+        logger.info(f"  Within budget: {is_within_budget} ({'✅' if is_within_budget else '❌'})")
+        if not is_within_budget:
+            logger.error(f"  ⚠️ BUDGET EXCEEDED by ${total_oop - budget:.2f}!")
     logger.info("=" * 80)
     
     itinerary = RankedItinerary(
@@ -1268,6 +1357,8 @@ def convert_result_to_itineraries(
             savings_percentage=savings_pct,
             average_cpp=avg_cpp,
             points_breakdown=points_breakdown,
+            bank_currencies_used=bank_currencies_used,
+            payment_actions=payment_actions,
         ),
         transfers=transfers,
         within_budget=is_within_budget,
@@ -1294,7 +1385,7 @@ async def run_v3_optimization(
     segments: List[dict],
     search_results: dict,
     user_points: Dict[str, int],
-    budget: float,
+    budget: float,  # Required - use NO_BUDGET_LIMIT for unlimited
     trip_data: dict,
     mode: str = "oop",
     force_refresh: bool = False,
@@ -1302,6 +1393,9 @@ async def run_v3_optimization(
     risk_mode: str = "balanced",
     include_basic_economy: bool = False,
     flexibility_priority: str = "medium",
+    allowed_currencies: List[str] = None,
+    max_points_by_currency: Dict[str, int] = None,
+    max_cash_budget: float = None,
 ) -> List:
     """
     Run V3 optimization using orchestrator data.
@@ -1313,11 +1407,19 @@ async def run_v3_optimization(
     4. Converts results back to orchestrator format
     5. Evaluates policy rules and attaches warnings/blocks
     
+    MULTI-CURRENCY SUPPORT:
+    The user_points dict supports multiple credit card programs:
+    - Bank currencies (transferable): "chase_ur", "amex_mr", "citi_typ", etc.
+    - Direct airline miles: "UA", "DL", "AA", etc.
+    
+    The optimizer will use ALL provided currencies to minimize OOP,
+    selecting the optimal combination of transfers and direct redemptions.
+    
     Args:
         segments: List of segment dicts from orchestrator
         search_results: Search results from flight/hotel agents
-        user_points: User's points balances
-        budget: Cash budget
+        user_points: User's points balances (supports multiple currencies)
+        budget: Cash budget (use NO_BUDGET_LIMIT for unlimited)
         trip_data: Trip data dict
         mode: Optimization mode ("oop", "cpp", "balanced")
         force_refresh: If True, bypass cache and fetch fresh SerpAPI data
@@ -1325,10 +1427,19 @@ async def run_v3_optimization(
         risk_mode: Policy risk mode ("safe", "balanced", "aggressive")
         include_basic_economy: Whether to include basic economy fares
         flexibility_priority: User's flexibility priority ("low", "medium", "high")
+        allowed_currencies: If set, only use these currencies (e.g., ["chase_ur"])
+        max_points_by_currency: Per-currency caps {program: max_points}
+        max_cash_budget: Override budget for max cash OOP
     
     Returns:
         List of RankedItinerary objects with policy evaluations attached
+    
+    Note: budget is required - use NO_BUDGET_LIMIT for unlimited
     """
+    # SAFETY: Convert None to NO_BUDGET_LIMIT 
+    if budget is None:
+        budget = NO_BUDGET_LIMIT
+    
     from datetime import timezone
     from ..services.flight_validation import (
         extract_flight_numbers_from_serpapi,
@@ -1339,8 +1450,17 @@ async def run_v3_optimization(
     
     logger.info(f"[V3 Adapter] Starting V3 optimization, mode={mode}, validate_flights={validate_flights}, force_refresh={force_refresh}")
     
-    # Convert to V3 format
-    spec = convert_trip_to_spec(trip_data, segments, user_points)
+    # Convert to V3 format with currency constraints
+    spec = convert_trip_to_spec(
+        trip_data, 
+        segments, 
+        user_points,
+        allowed_currencies=allowed_currencies,
+        max_points_by_currency=max_points_by_currency,
+    )
+    
+    # Use max_cash_budget if provided, otherwise use budget
+    effective_budget = max_cash_budget if max_cash_budget is not None else budget
     
     errors = spec.validate()
     if errors:
@@ -1679,10 +1799,10 @@ async def run_v3_optimization(
         # mode is ignored - always minimizes cash out-of-pocket
         determinism_mode=False,
         is_international=is_international,
-        cash_budget=budget if budget and budget > 0 else None,
+        cash_budget=effective_budget if effective_budget and effective_budget > 0 else None,
     )
     
-    logger.info(f"[V3 Adapter] Budget constraint: ${budget if budget else 'None'}")
+    logger.info(f"[V3 Adapter] Budget constraint: ${effective_budget if effective_budget else 'None'}")
     
     logger.info(f"[V3 Adapter] V3 solver status: {result.status}")
     

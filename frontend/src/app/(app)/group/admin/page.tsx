@@ -2,7 +2,7 @@
 
 import { useState, useEffect, useCallback } from 'react';
 import { useRouter, useSearchParams } from 'next/navigation';
-import { Users, Trash2, UserPlus, Copy, Check } from 'lucide-react';
+import { Users, Trash2, UserPlus, Copy, Check, Receipt, DollarSign } from 'lucide-react';
 import { Navigation } from '@/components/navigation';
 
 interface Member {
@@ -199,6 +199,51 @@ export default function GroupAdmin() {
                 ))}
               </div>
             </div>
+
+            {/* Settlement Section - Group trips only */}
+            {members.length > 1 && (
+              <div className="bg-white border border-slate-200 rounded-2xl p-6 shadow-sm">
+                <h2 className="text-xl font-semibold text-slate-900 mb-4 flex items-center gap-2">
+                  <Receipt className="w-5 h-5 text-green-600" />
+                  Cost Settlement
+                </h2>
+                <p className="text-slate-600 mb-6">
+                  Configure how trip costs are split among group members. Choose a settlement policy and see who owes what after booking.
+                </p>
+                
+                <div className="grid grid-cols-1 md:grid-cols-2 gap-4 mb-6">
+                  <div className="p-4 bg-slate-50 rounded-xl border border-slate-200">
+                    <div className="flex items-center gap-2 mb-2">
+                      <DollarSign className="w-4 h-4 text-green-600" />
+                      <span className="font-medium text-slate-900">Settlement Policies</span>
+                    </div>
+                    <ul className="text-sm text-slate-600 space-y-1">
+                      <li>• Pay Your Own</li>
+                      <li>• Equal Per Passenger</li>
+                      <li>• Equal Per Household</li>
+                      <li>• Sponsor Pays All</li>
+                    </ul>
+                  </div>
+                  <div className="p-4 bg-slate-50 rounded-xl border border-slate-200">
+                    <div className="flex items-center gap-2 mb-2">
+                      <Users className="w-4 h-4 text-blue-600" />
+                      <span className="font-medium text-slate-900">Points Valuation</span>
+                    </div>
+                    <p className="text-sm text-slate-600">
+                      Configure how points are valued for settlement. Choose market rates or set custom values.
+                    </p>
+                  </div>
+                </div>
+                
+                <button
+                  onClick={() => router.push(`/group/settlement?tripId=${tripId}`)}
+                  className="w-full px-6 py-3 bg-green-600 text-white rounded-xl hover:bg-green-700 transition-colors font-medium flex items-center justify-center gap-2"
+                >
+                  <Receipt className="w-5 h-5" />
+                  Configure Settlement
+                </button>
+              </div>
+            )}
           </div>
         </div>
       </div>

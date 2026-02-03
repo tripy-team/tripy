@@ -21,3 +21,14 @@ def list_trips_for_user(user_id: str) -> List[Dict[str, Any]]:
         KeyConditionExpression=Key("userId").eq(user_id),
     )
     return resp.get("Items", [])
+
+
+def update_member(trip_id: str, user_id: str, attrs: Dict[str, Any]) -> bool:
+    """Update attributes for a member. Returns True if member existed and was updated."""
+    items = list_members(trip_id)
+    for item in items:
+        if item.get("userId") == user_id or item.get("user_id") == user_id:
+            merged = {**item, **attrs}
+            t.put_item(Item=merged)
+            return True
+    return False

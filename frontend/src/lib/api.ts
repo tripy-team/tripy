@@ -3,6 +3,10 @@
  * 
  * This client handles communication with the backend FastAPI server.
  * In development, set NEXT_PUBLIC_BACKEND_URL in your .env.local file (e.g., http://localhost:8000)
+ * 
+ * FLIGHT-ONLY MODE:
+ * Tripy is a flight-only points optimizer. Hotel/lodging features are disabled.
+ * See docs/GROUP_TRIP_WORKFLOW.md for product scope.
  */
 
 import type { PolicyEvaluation, RiskMode } from '@/lib/policyConfig';
@@ -319,6 +323,37 @@ export interface SignUpResponse {
   confirmation_required: boolean;
 }
 
+/**
+ * Pooling scope controls how points can be shared across travelers.
+ * - individual_only: No cross-person pooling; each pays for their own seats
+ * - household_only: Pool only within each household_id; no cross-family pooling
+ * - full_group: Optimizer can use any willing member's points for any traveler
+ * - sponsors_only: Only sponsors (can_pay_for_others) can pay for others' seats
+ */
+export type PoolingScope = 'individual_only' | 'household_only' | 'full_group' | 'sponsors_only';
+
+/**
+ * Member lifecycle state tracks onboarding progress.
+ * - invited: Invite sent; not yet accepted
+ * - joined_no_wallet: Joined trip but has not linked wallets/balances
+ * - wallet_connected: Balances provided; not yet approved for planning
+ * - approved_for_planning: OK for Tripy to use in optimized plan
+ * - approved_for_booking: Approved allocation; ready for checklist
+ * - inactive: Dropped or paused; exclude from optimization
+ */
+export type MemberLifecycleState = 
+  | 'invited'
+  | 'joined_no_wallet'
+  | 'wallet_connected'
+  | 'approved_for_planning'
+  | 'approved_for_booking'
+  | 'inactive';
+
+/**
+ * Points usage preference for a member.
+ */
+export type PointsUsagePreference = 'freely' | 'ask_before' | 'do_not_use';
+
 export interface Trip {
   tripId: string;
   createdBy: string;
@@ -331,9 +366,14 @@ export interface Trip {
   destinations?: string[];
   firstDestination?: string;
   memberCount?: number;
+  /** @deprecated Flight-only mode - hotels are not supported */
   includeHotels?: boolean;
   maxBudget?: number;
   durationDays?: number;
+  /** How points can be pooled across members. Default: individual_only */
+  poolingScope?: PoolingScope;
+  /** True if the current plan is invalidated (e.g., pooling scope changed) */
+  planInvalidated?: boolean;
 }
 
 export interface PointsSummaryItem {
@@ -484,7 +524,20 @@ export const auth = {
 
 // Trips API
 export const trips = {
-  create: async (params: { title: string; start_date: string; end_date: string; include_hotels?: boolean; max_budget?: number; duration_days?: number }): Promise<Trip> => {
+  /**
+   * Create a new trip.
+   * Note: include_hotels is deprecated (flight-only mode). Always defaults to false.
+   */
+  create: async (params: { 
+    title: string; 
+    start_date: string; 
+    end_date: string; 
+    /** @deprecated Flight-only mode - hotels are not supported */
+    include_hotels?: boolean; 
+    max_budget?: number; 
+    duration_days?: number;
+    pooling_scope?: PoolingScope;
+  }): Promise<Trip> => {
     if (SKIP_API_AUTH) {
       // Return a new mock trip based on params
       const newTrip: Trip = {
@@ -497,16 +550,49 @@ export const trips = {
         status: 'active',
         destinations: [],
         memberCount: 1,
-        includeHotels: params.include_hotels ?? true,
+        includeHotels: false, // Flight-only mode
         maxBudget: params.max_budget,
         durationDays: params.duration_days,
+        poolingScope: params.pooling_scope ?? 'individual_only',
       };
       return newTrip;
     }
     return apiRequest<Trip>('/trips', {
       method: 'POST',
-      body: JSON.stringify(params),
+      body: JSON.stringify({
+        ...params,
+        include_hotels: false, // Flight-only mode
+      }),
     });
+  },
+  
+  /**
+   * Update the pooling scope for a trip.
+   * Only the trip owner can change pooling scope.
+   * Changing pooling scope invalidates any existing plan.
+   */
+  updatePoolingScope: async (tripId: string, poolingScope: PoolingScope): Promise<{
+    ok: boolean;
+    poolingScope: PoolingScope;
+    planInvalidated: boolean;
+  }> => {
+    if (SKIP_API_AUTH) {
+      return {
+        ok: true,
+        poolingScope,
+        planInvalidated: false,
+      };
+    }
+    return apiRequest<{ ok: boolean; poolingScope: PoolingScope; planInvalidated: boolean }>(
+      '/trips/pooling-scope',
+      {
+        method: 'POST',
+        body: JSON.stringify({
+          trip_id: tripId,
+          pooling_scope: poolingScope,
+        }),
+      }
+    );
   },
 
   list: async (): Promise<{ trips: Trip[] }> => {
@@ -535,24 +621,27 @@ export const trips = {
     });
   },
 
-  getByInvite: async (invite_code: string): Promise<Trip> => {
+  getByInvite: async (invite_code: string): Promise<Trip & { members?: Array<{ userId: string; name: string; role: string }> }> => {
     if (SKIP_API_AUTH) {
-      // Match invite code to mock trips
+      // Match invite code to mock trips - include members for join page
       if (invite_code === MOCK_GROUP_TRIP.inviteCode || invite_code.toUpperCase() === 'EUROPE2025') {
-        return MOCK_GROUP_TRIP;
+        return { ...MOCK_GROUP_TRIP, members: MOCK_TRIP_MEMBERS.map(m => ({ userId: m.userId, name: m.name, role: m.role })) };
       }
       if (invite_code === MOCK_SOLO_TRIP.inviteCode || invite_code.toUpperCase() === 'SOLO-TOKYO') {
-        return MOCK_SOLO_TRIP;
+        return { ...MOCK_SOLO_TRIP, members: [{ userId: MOCK_PROFILE.userId, name: MOCK_PROFILE.name || 'Trip Owner', role: 'owner' }] };
       }
       // Default: return group trip for any other invite code
-      return MOCK_GROUP_TRIP;
+      return { ...MOCK_GROUP_TRIP, members: MOCK_TRIP_MEMBERS.map(m => ({ userId: m.userId, name: m.name, role: m.role })) };
     }
-    return apiRequest<Trip>(`/trips/by-invite/${invite_code}`, {
+    return apiRequest<Trip & { members?: Array<{ userId: string; name: string; role: string }> }>(`/trips/by-invite/${invite_code}`, {
       method: 'GET',
     }, false); // requireAuth = false for public invite access
   },
 
-  join: async (invite_code: string): Promise<{ tripId: string }> => {
+  join: async (
+    invite_code: string,
+    options?: { willing_to_share_points?: boolean; points_usage?: 'freely' | 'ask_before' | 'do_not_use' }
+  ): Promise<{ tripId: string }> => {
     if (SKIP_API_AUTH) {
       // Return the trip ID for the matching invite code
       if (invite_code === MOCK_GROUP_TRIP.inviteCode || invite_code.toUpperCase() === 'EUROPE2025') {
@@ -565,7 +654,22 @@ export const trips = {
     }
     return apiRequest<{ tripId: string }>('/trips/join', {
       method: 'POST',
-      body: JSON.stringify({ invite_code }),
+      body: JSON.stringify({
+        invite_code,
+        ...(options?.willing_to_share_points !== undefined && { willing_to_share_points: options.willing_to_share_points }),
+        ...(options?.points_usage && { points_usage: options.points_usage }),
+      }),
+    });
+  },
+
+  updateMemberPreferences: async (
+    trip_id: string,
+    prefs: { willing_to_share_points?: boolean; points_usage?: 'freely' | 'ask_before' | 'do_not_use' }
+  ): Promise<{ ok: boolean }> => {
+    if (SKIP_API_AUTH) return { ok: true };
+    return apiRequest<{ ok: boolean }>('/trips/members/update-preferences', {
+      method: 'POST',
+      body: JSON.stringify({ trip_id, ...prefs }),
     });
   },
 
@@ -601,6 +705,934 @@ export const trips = {
       method: 'POST',
       body: JSON.stringify({ trip_id }),
     });
+  },
+  
+  /**
+   * Update current user's lifecycle state in a trip.
+   * Validates transitions to ensure they follow the correct order.
+   */
+  updateLifecycleState: async (
+    tripId: string, 
+    lifecycleState: MemberLifecycleState
+  ): Promise<{
+    ok: boolean;
+    lifecycle_state: MemberLifecycleState;
+    previous_state: MemberLifecycleState;
+  }> => {
+    if (SKIP_API_AUTH) {
+      return {
+        ok: true,
+        lifecycle_state: lifecycleState,
+        previous_state: 'joined_no_wallet',
+      };
+    }
+    return apiRequest<{
+      ok: boolean;
+      lifecycle_state: MemberLifecycleState;
+      previous_state: MemberLifecycleState;
+    }>('/trips/members/lifecycle-state', {
+      method: 'POST',
+      body: JSON.stringify({
+        trip_id: tripId,
+        lifecycle_state: lifecycleState,
+      }),
+    });
+  },
+  
+  /**
+   * Check if all required members are approved_for_booking.
+   * Returns status info about which members are ready and which are blocking.
+   */
+  checkBookingReady: async (tripId: string): Promise<{
+    all_ready: boolean;
+    ready_count: number;
+    not_ready_count: number;
+    ready_members: Array<{ userId: string; role: string; lifecycle_state: MemberLifecycleState }>;
+    blocking_members: Array<{ userId: string; role: string; lifecycle_state: MemberLifecycleState }>;
+  }> => {
+    if (SKIP_API_AUTH) {
+      return {
+        all_ready: true,
+        ready_count: 1,
+        not_ready_count: 0,
+        ready_members: [{ userId: MOCK_PROFILE.userId, role: 'owner', lifecycle_state: 'approved_for_booking' }],
+        blocking_members: [],
+      };
+    }
+    return apiRequest<{
+      all_ready: boolean;
+      ready_count: number;
+      not_ready_count: number;
+      ready_members: Array<{ userId: string; role: string; lifecycle_state: MemberLifecycleState }>;
+      blocking_members: Array<{ userId: string; role: string; lifecycle_state: MemberLifecycleState }>;
+    }>('/trips/members/booking-ready', {
+      method: 'POST',
+      body: JSON.stringify({ trip_id: tripId }),
+    });
+  },
+};
+
+/**
+ * Delegation scope for booking authority.
+ */
+export type DelegationScope = 'planning' | 'booking';
+
+/**
+ * Delegated booking authority details.
+ */
+export interface DelegatedBookingAuthority {
+  delegate_user_id: string;
+  scope: DelegationScope;
+}
+
+/**
+ * Trip member with lifecycle state and pooling preferences.
+ */
+export interface TripMember {
+  userId: string;
+  role: 'owner' | 'member' | 'viewer' | 'sponsor';
+  status: string;
+  name?: string;
+  lifecycle_state?: MemberLifecycleState;
+  willing_to_share_points?: boolean;
+  points_usage?: PointsUsagePreference;
+  household_id?: string;
+  can_pay_for_others?: boolean;
+  delegated_booking_authority?: DelegatedBookingAuthority;
+}
+
+// =============================================================================
+// HOUSEHOLD AND DELEGATION API
+// =============================================================================
+
+export const households = {
+  /**
+   * Set the household_id for the current member.
+   * Members with the same household_id are treated as one unit for pooling.
+   */
+  set: async (tripId: string, householdId: string): Promise<{ ok: boolean; household_id: string }> => {
+    if (SKIP_API_AUTH) {
+      return { ok: true, household_id: householdId };
+    }
+    return apiRequest<{ ok: boolean; household_id: string }>('/trips/members/household', {
+      method: 'POST',
+      body: JSON.stringify({
+        trip_id: tripId,
+        household_id: householdId,
+      }),
+    });
+  },
+  
+  /**
+   * Remove the household_id from the current member.
+   */
+  remove: async (tripId: string): Promise<{ ok: boolean }> => {
+    if (SKIP_API_AUTH) {
+      return { ok: true };
+    }
+    return apiRequest<{ ok: boolean }>(`/trips/members/household?trip_id=${tripId}`, {
+      method: 'DELETE',
+    });
+  },
+};
+
+export const delegation = {
+  /**
+   * Delegate booking authority to another household member.
+   * Only allowed within the same household.
+   * 
+   * @param scope - 'planning' (can approve plans) or 'booking' (can book)
+   */
+  set: async (
+    tripId: string, 
+    delegateUserId: string, 
+    scope: DelegationScope = 'planning'
+  ): Promise<{
+    ok: boolean;
+    delegator_user_id: string;
+    delegate_user_id: string;
+    scope: DelegationScope;
+  }> => {
+    if (SKIP_API_AUTH) {
+      return {
+        ok: true,
+        delegator_user_id: MOCK_PROFILE.userId,
+        delegate_user_id: delegateUserId,
+        scope,
+      };
+    }
+    return apiRequest<{
+      ok: boolean;
+      delegator_user_id: string;
+      delegate_user_id: string;
+      scope: DelegationScope;
+    }>('/trips/members/delegation', {
+      method: 'POST',
+      body: JSON.stringify({
+        trip_id: tripId,
+        delegate_user_id: delegateUserId,
+        scope,
+      }),
+    });
+  },
+  
+  /**
+   * Remove delegation from the current member.
+   */
+  remove: async (tripId: string): Promise<{ ok: boolean }> => {
+    if (SKIP_API_AUTH) {
+      return { ok: true };
+    }
+    return apiRequest<{ ok: boolean }>(`/trips/members/delegation?trip_id=${tripId}`, {
+      method: 'DELETE',
+    });
+  },
+};
+
+export const sponsors = {
+  /**
+   * Set or unset the sponsor (can_pay_for_others) flag for a member.
+   * Only the trip owner can grant/revoke sponsor permission.
+   */
+  set: async (
+    tripId: string, 
+    targetUserId: string, 
+    canPayForOthers: boolean
+  ): Promise<{ ok: boolean; can_pay_for_others: boolean }> => {
+    if (SKIP_API_AUTH) {
+      return { ok: true, can_pay_for_others: canPayForOthers };
+    }
+    return apiRequest<{ ok: boolean; can_pay_for_others: boolean }>('/trips/members/sponsor', {
+      method: 'POST',
+      body: JSON.stringify({
+        trip_id: tripId,
+        target_user_id: targetUserId,
+        can_pay_for_others: canPayForOthers,
+      }),
+    });
+  },
+};
+
+// =============================================================================
+// PASSENGER API (for dependents)
+// =============================================================================
+
+export type PassengerType = 'adult' | 'child' | 'infant';
+
+export interface Passenger {
+  passenger_id: string;
+  trip_id: string;
+  guardian_user_id: string;
+  first_name: string;
+  last_name: string;
+  full_name: string;
+  passenger_type: PassengerType;
+  date_of_birth?: string;
+  loyalty_number?: string;
+  seat_preference?: 'window' | 'aisle' | 'middle' | null;
+  special_needs?: string;
+  is_primary: boolean;
+}
+
+export interface TripPassengersSummary {
+  trip_id: string;
+  total_passengers: number;
+  total_seats_needed: number;
+  adults: number;
+  children: number;
+  infants: number;
+  passengers_by_member: Record<string, Passenger[]>;
+}
+
+// =============================================================================
+// SETTLEMENT CONFIGURATION API (Task 17-19)
+// =============================================================================
+
+export type SettlementPolicy = 
+  | 'pay_your_own' 
+  | 'equal_per_passenger' 
+  | 'equal_per_household' 
+  | 'sponsor_pays_all' 
+  | 'custom';
+
+export type PointsValuationMode = 
+  | 'market_implied' 
+  | 'fixed_by_currency' 
+  | 'user_defined';
+
+export interface PointsValuationConfig {
+  mode: PointsValuationMode;
+  mode_name: string;
+  mode_short: string;
+  mode_description: string;
+  fixed_rates_cpp: Record<string, number>;
+  min_cpp: number;
+  max_cpp: number;
+  reimburse_points_value: boolean;
+}
+
+export interface PolicyOption {
+  value: SettlementPolicy;
+  name: string;
+  short: string;
+  description: string;
+}
+
+export interface ValuationModeOption {
+  value: PointsValuationMode;
+  name: string;
+  short: string;
+  description: string;
+}
+
+export interface SettlementConfig {
+  trip_id: string;
+  policy: SettlementPolicy;
+  policy_name: string;
+  policy_short: string;
+  policy_description: string;
+  valuation: PointsValuationConfig;
+  include_taxes_in_split: boolean;
+  custom_obligations: Record<string, number>;
+  available_policies: PolicyOption[];
+  available_valuation_modes: ValuationModeOption[];
+}
+
+export interface MemberBalance {
+  user_id: string;
+  name: string;
+  obligation_usd: number;
+  contribution_usd: number;
+  net_balance: number;
+  passengers: string[];
+  cash_paid: number;
+  points_value: number;
+  status: 'owes' | 'owed' | 'settled';
+}
+
+export interface ReimbursementTransfer {
+  from_user_id: string;
+  from_name: string;
+  to_user_id: string;
+  to_name: string;
+  amount_usd: number;
+  reason: string;
+  display: string;
+}
+
+export interface SettlementResult {
+  summary: {
+    total_trip_cost: number;
+    total_cash_paid: number;
+    total_points_value: number;
+  };
+  policy_used: SettlementPolicy;
+  valuation_mode: PointsValuationMode;
+  obligation_by_passenger: Record<string, number>;
+  contribution_by_member: Record<string, number>;
+  net_balance_by_member: Record<string, MemberBalance>;
+  reimbursement_transfers: ReimbursementTransfer[];
+}
+
+export const settlementConfig = {
+  /**
+   * Get the settlement configuration for a trip.
+   */
+  get: async (tripId: string): Promise<SettlementConfig> => {
+    if (SKIP_API_AUTH) {
+      return {
+        trip_id: tripId,
+        policy: 'pay_your_own',
+        policy_name: 'Pay Your Own',
+        policy_short: 'Each person pays for their own travelers',
+        policy_description: 'The member who is responsible for each passenger pays for their tickets.',
+        valuation: {
+          mode: 'market_implied',
+          mode_name: 'Market Value',
+          mode_short: 'Use Tripy\'s market-based valuations',
+          mode_description: 'Points are valued at their fair market rate.',
+          fixed_rates_cpp: {},
+          min_cpp: 0.5,
+          max_cpp: 5.0,
+          reimburse_points_value: true,
+        },
+        include_taxes_in_split: true,
+        custom_obligations: {},
+        available_policies: [
+          { value: 'pay_your_own', name: 'Pay Your Own', short: 'Each person pays for their own travelers', description: '' },
+          { value: 'equal_per_passenger', name: 'Equal Per Passenger', short: 'Split total cost equally per traveler', description: '' },
+          { value: 'equal_per_household', name: 'Equal Per Household', short: 'Split total cost equally per household', description: '' },
+          { value: 'sponsor_pays_all', name: 'Sponsor Pays All', short: 'Sponsor(s) cover the entire trip', description: '' },
+          { value: 'custom', name: 'Custom Split', short: 'Manually specify each person\'s share', description: '' },
+        ],
+        available_valuation_modes: [
+          { value: 'market_implied', name: 'Market Value', short: 'Use Tripy\'s market-based valuations', description: '' },
+          { value: 'fixed_by_currency', name: 'Fixed Rate', short: 'Use a fixed cents-per-point rate', description: '' },
+          { value: 'user_defined', name: 'Custom Rates', short: 'Set your own per-program valuations', description: '' },
+        ],
+      };
+    }
+    return apiRequest<SettlementConfig>(`/trips/${tripId}/settlement-config`);
+  },
+
+  /**
+   * Update the settlement configuration for a trip.
+   */
+  update: async (
+    tripId: string,
+    updates: {
+      policy?: SettlementPolicy;
+      valuation_mode?: PointsValuationMode;
+      fixed_rates_cpp?: Record<string, number>;
+      min_cpp?: number;
+      max_cpp?: number;
+      reimburse_points_value?: boolean;
+      include_taxes_in_split?: boolean;
+      custom_obligations?: Record<string, number>;
+    }
+  ): Promise<{ ok: boolean; policy?: string; valuation_mode?: string }> => {
+    if (SKIP_API_AUTH) {
+      return { ok: true, policy: updates.policy, valuation_mode: updates.valuation_mode };
+    }
+    return apiRequest(`/trips/${tripId}/settlement-config`, {
+      method: 'POST',
+      body: JSON.stringify(updates),
+    });
+  },
+};
+
+export const settlement = {
+  /**
+   * Compute settlement for a trip based on tickets and allocations.
+   */
+  compute: async (
+    tripId: string,
+    tickets: Record<string, unknown>[],
+    allocations: Record<string, unknown>[],
+    overrides?: {
+      policy?: SettlementPolicy;
+      valuation?: Record<string, unknown>;
+    }
+  ): Promise<SettlementResult> => {
+    if (SKIP_API_AUTH) {
+      return {
+        summary: { total_trip_cost: 0, total_cash_paid: 0, total_points_value: 0 },
+        policy_used: 'pay_your_own',
+        valuation_mode: 'market_implied',
+        obligation_by_passenger: {},
+        contribution_by_member: {},
+        net_balance_by_member: {},
+        reimbursement_transfers: [],
+      };
+    }
+    return apiRequest<SettlementResult>(`/trips/${tripId}/settlement/compute`, {
+      method: 'POST',
+      body: JSON.stringify({
+        tickets,
+        allocations,
+        override_policy: overrides?.policy,
+        override_valuation: overrides?.valuation,
+      }),
+    });
+  },
+
+  /**
+   * Preview settlement with different policies.
+   */
+  preview: async (
+    tripId: string,
+    policy?: SettlementPolicy,
+    reimbursePoints?: boolean
+  ): Promise<SettlementResult> => {
+    if (SKIP_API_AUTH) {
+      return {
+        summary: { total_trip_cost: 1500, total_cash_paid: 500, total_points_value: 1000 },
+        policy_used: policy || 'pay_your_own',
+        valuation_mode: 'market_implied',
+        obligation_by_passenger: { 'pax-1': 750, 'pax-2': 750 },
+        contribution_by_member: { [MOCK_PROFILE.userId]: 1500 },
+        net_balance_by_member: {
+          [MOCK_PROFILE.userId]: {
+            user_id: MOCK_PROFILE.userId,
+            name: MOCK_PROFILE.name || 'Mock User',
+            obligation_usd: 750,
+            contribution_usd: 1500,
+            net_balance: -750,
+            passengers: ['pax-1'],
+            cash_paid: 500,
+            points_value: 1000,
+            status: 'owed',
+          },
+        },
+        reimbursement_transfers: [],
+      };
+    }
+    const params = new URLSearchParams();
+    if (policy) params.append('policy', policy);
+    if (reimbursePoints !== undefined) params.append('reimburse_points', String(reimbursePoints));
+    
+    return apiRequest<SettlementResult>(
+      `/trips/${tripId}/settlement/preview${params.toString() ? '?' + params.toString() : ''}`
+    );
+  },
+};
+
+// =============================================================================
+// BOOKING WORKFLOW API (Tasks 09-13)
+// =============================================================================
+
+export type RiskLevel = 'low' | 'medium' | 'high';
+export type ChecklistStepStatus = 'pending' | 'in_progress' | 'completed' | 'failed' | 'skipped';
+export type ApprovalStatus = 'pending' | 'approved' | 'vetoed' | 'expired';
+
+export interface RiskAssessment {
+  plan_id: string;
+  total_score: number;
+  risk_level: RiskLevel;
+  summary: string;
+  warnings: string[];
+  recommendations: string[];
+  components: Array<{
+    factor: string;
+    score: number;
+    weight: number;
+    explanation: string;
+  }>;
+}
+
+export interface ChecklistStep {
+  step_id: string;
+  step_type: 'transfer' | 'hold' | 'booking' | 'confirmation' | 'payment';
+  order: number;
+  title: string;
+  description: string;
+  instructions: string[];
+  assigned_to: string;
+  assigned_to_name: string;
+  depends_on: string[];
+  status: ChecklistStepStatus;
+  confirmation_type?: string;
+  confirmation_value?: string;
+  started_at?: string;
+  completed_at?: string;
+  failure_reason?: string;
+}
+
+export interface BookingSession {
+  session_id: string;
+  plan_id: string;
+  trip_id: string;
+  status: 'active' | 'completed' | 'partial_success' | 'failed';
+  progress: {
+    total: number;
+    completed: number;
+    failed: number;
+    pending: number;
+  };
+  checklist: ChecklistStep[];
+  started_at: string;
+  completed_at?: string;
+}
+
+export interface Approval {
+  approval_id: string;
+  user_id: string;
+  user_name: string;
+  approving_for: string[];
+  status: ApprovalStatus;
+  veto_reason?: string;
+  created_at: string;
+  responded_at?: string;
+  expires_at?: string;
+}
+
+export interface ApprovalSummary {
+  plan_id: string;
+  total_required: number;
+  total_approved: number;
+  total_vetoed: number;
+  total_pending: number;
+  all_approved: boolean;
+  any_vetoed: boolean;
+  approvals: Approval[];
+  veto_constraints: Record<string, unknown>[];
+}
+
+export interface LedgerEntry {
+  entry_id: string;
+  entry_type: 'points_contribution' | 'cash_payment' | 'taxes_fees' | 'settlement';
+  description: string;
+  payer_user_id: string;
+  payer_name: string;
+  beneficiary_user_id?: string;
+  beneficiary_name?: string;
+  cash_amount: number;
+  points_amount: number;
+  points_program?: string;
+  points_value_usd: number;
+  status: string;
+}
+
+export interface LedgerGroup {
+  group_id: string;
+  group_name: string;
+  total_cash: number;
+  total_points_used: Record<string, number>;
+  total_points_value: number;
+  total_taxes_fees: number;
+  entry_count: number;
+  entries: LedgerEntry[];
+}
+
+export interface TripLedger {
+  trip_id: string;
+  totals: {
+    total_trip_cost: number;
+    total_cash_out_of_pocket: number;
+    total_taxes_fees: number;
+    total_points_used: Record<string, number>;
+  };
+  by_traveler: Record<string, LedgerGroup>;
+  by_household: Record<string, LedgerGroup>;
+  by_payer: Record<string, LedgerGroup>;
+  by_program: Record<string, LedgerGroup>;
+  settlements: Array<{
+    from_user_id: string;
+    from_name: string;
+    to_user_id: string;
+    to_name: string;
+    amount_usd: number;
+    reason: string;
+  }>;
+}
+
+export const bookingWorkflow = {
+  /**
+   * Create a booking session from an approved plan.
+   */
+  createSession: async (
+    tripId: string,
+    planId: string,
+    planAllocation: Record<string, unknown>,
+    transferPlan: Record<string, unknown>[] = [],
+  ): Promise<BookingSession> => {
+    if (SKIP_API_AUTH) {
+      return {
+        session_id: `mock-session-${Date.now()}`,
+        plan_id: planId,
+        trip_id: tripId,
+        status: 'active',
+        progress: { total: 3, completed: 0, failed: 0, pending: 3 },
+        checklist: [],
+        started_at: new Date().toISOString(),
+      };
+    }
+    return apiRequest<BookingSession>(`/trips/${tripId}/booking-session`, {
+      method: 'POST',
+      body: JSON.stringify({
+        plan_id: planId,
+        plan_allocation: planAllocation,
+        transfer_plan: transferPlan,
+      }),
+    });
+  },
+
+  /**
+   * Get a booking session by ID.
+   */
+  getSession: async (tripId: string, sessionId: string): Promise<BookingSession> => {
+    if (SKIP_API_AUTH) {
+      return {
+        session_id: sessionId,
+        plan_id: 'mock-plan',
+        trip_id: tripId,
+        status: 'active',
+        progress: { total: 3, completed: 1, failed: 0, pending: 2 },
+        checklist: [],
+        started_at: new Date().toISOString(),
+      };
+    }
+    return apiRequest<BookingSession>(`/trips/${tripId}/booking-session/${sessionId}`);
+  },
+
+  /**
+   * Update a checklist step status.
+   */
+  updateStep: async (
+    tripId: string,
+    sessionId: string,
+    stepId: string,
+    status: ChecklistStepStatus,
+    confirmationValue?: string,
+    failureReason?: string,
+  ): Promise<{ ok: boolean; step_id: string; status: string }> => {
+    if (SKIP_API_AUTH) {
+      return { ok: true, step_id: stepId, status };
+    }
+    return apiRequest(`/trips/${tripId}/booking-session/${sessionId}/step`, {
+      method: 'POST',
+      body: JSON.stringify({
+        step_id: stepId,
+        status,
+        confirmation_value: confirmationValue,
+        failure_reason: failureReason,
+      }),
+    });
+  },
+
+  /**
+   * Get risk assessment for a plan.
+   */
+  getRiskAssessment: async (
+    tripId: string,
+    planId: string,
+    planAllocation: Record<string, unknown>,
+    transferPlan: Record<string, unknown>[] = [],
+  ): Promise<RiskAssessment> => {
+    if (SKIP_API_AUTH) {
+      return {
+        plan_id: planId,
+        total_score: 35,
+        risk_level: 'medium',
+        summary: 'Medium risk: some coordination required.',
+        warnings: ['Multiple point transfers required'],
+        recommendations: ['Initiate transfers early'],
+        components: [],
+      };
+    }
+    return apiRequest<RiskAssessment>(`/trips/${tripId}/risk-assessment`, {
+      method: 'POST',
+      body: JSON.stringify({
+        plan_id: planId,
+        plan_allocation: planAllocation,
+        transfer_plan: transferPlan,
+      }),
+    });
+  },
+};
+
+export const approvals = {
+  /**
+   * Create approval requests for a plan.
+   */
+  create: async (
+    tripId: string,
+    planId: string,
+    planAllocation: Record<string, unknown>,
+  ): Promise<{ plan_id: string; approvals_created: number; approvals: Approval[] }> => {
+    if (SKIP_API_AUTH) {
+      return { plan_id: planId, approvals_created: 0, approvals: [] };
+    }
+    return apiRequest(`/trips/${tripId}/approvals`, {
+      method: 'POST',
+      body: JSON.stringify({ plan_id: planId, plan_allocation: planAllocation }),
+    });
+  },
+
+  /**
+   * Submit an approval or veto.
+   */
+  submit: async (
+    tripId: string,
+    planId: string,
+    approve: boolean,
+    vetoReason?: string,
+    vetoConstraints?: Record<string, unknown>,
+  ): Promise<{ ok: boolean; approval_id: string; status: string; summary: ApprovalSummary }> => {
+    if (SKIP_API_AUTH) {
+      return {
+        ok: true,
+        approval_id: 'mock-approval',
+        status: approve ? 'approved' : 'vetoed',
+        summary: {
+          plan_id: planId,
+          total_required: 1,
+          total_approved: approve ? 1 : 0,
+          total_vetoed: approve ? 0 : 1,
+          total_pending: 0,
+          all_approved: approve,
+          any_vetoed: !approve,
+          approvals: [],
+          veto_constraints: [],
+        },
+      };
+    }
+    return apiRequest(`/trips/${tripId}/approvals/submit`, {
+      method: 'POST',
+      body: JSON.stringify({
+        plan_id: planId,
+        approve,
+        veto_reason: vetoReason,
+        veto_constraints: vetoConstraints,
+      }),
+    });
+  },
+
+  /**
+   * Get approval summary for a plan.
+   */
+  getSummary: async (tripId: string, planId: string): Promise<ApprovalSummary> => {
+    if (SKIP_API_AUTH) {
+      return {
+        plan_id: planId,
+        total_required: 0,
+        total_approved: 0,
+        total_vetoed: 0,
+        total_pending: 0,
+        all_approved: true,
+        any_vetoed: false,
+        approvals: [],
+        veto_constraints: [],
+      };
+    }
+    return apiRequest<ApprovalSummary>(`/trips/${tripId}/approvals/${planId}`);
+  },
+};
+
+export const ledger = {
+  /**
+   * Get the complete ledger for a trip.
+   */
+  get: async (tripId: string): Promise<TripLedger> => {
+    if (SKIP_API_AUTH) {
+      return {
+        trip_id: tripId,
+        totals: {
+          total_trip_cost: 0,
+          total_cash_out_of_pocket: 0,
+          total_taxes_fees: 0,
+          total_points_used: {},
+        },
+        by_traveler: {},
+        by_household: {},
+        by_payer: {},
+        by_program: {},
+        settlements: [],
+      };
+    }
+    return apiRequest<TripLedger>(`/trips/${tripId}/ledger`);
+  },
+
+  /**
+   * Generate ledger from allocations.
+   */
+  generate: async (
+    tripId: string,
+    planId: string,
+    planAllocation: Record<string, unknown>,
+    transferPlan: Record<string, unknown>[] = [],
+  ): Promise<TripLedger> => {
+    if (SKIP_API_AUTH) {
+      return {
+        trip_id: tripId,
+        totals: {
+          total_trip_cost: 0,
+          total_cash_out_of_pocket: 0,
+          total_taxes_fees: 0,
+          total_points_used: {},
+        },
+        by_traveler: {},
+        by_household: {},
+        by_payer: {},
+        by_program: {},
+        settlements: [],
+      };
+    }
+    return apiRequest<TripLedger>(`/trips/${tripId}/ledger/generate`, {
+      method: 'POST',
+      body: JSON.stringify({
+        plan_id: planId,
+        plan_allocation: planAllocation,
+        transfer_plan: transferPlan,
+      }),
+    });
+  },
+};
+
+// =============================================================================
+// PASSENGER API (for dependents)
+// =============================================================================
+
+export const passengers = {
+  /**
+   * Create a passenger (traveler) under the current member.
+   * Each member can add dependents (kids) as passengers.
+   */
+  create: async (params: {
+    trip_id: string;
+    first_name: string;
+    last_name: string;
+    passenger_type?: PassengerType;
+    date_of_birth?: string;
+    loyalty_number?: string;
+    seat_preference?: string;
+    special_needs?: string;
+  }): Promise<Passenger> => {
+    if (SKIP_API_AUTH) {
+      return {
+        passenger_id: `mock-pax-${Date.now()}`,
+        trip_id: params.trip_id,
+        guardian_user_id: MOCK_PROFILE.userId,
+        first_name: params.first_name,
+        last_name: params.last_name,
+        full_name: `${params.first_name} ${params.last_name}`,
+        passenger_type: params.passenger_type || 'adult',
+        date_of_birth: params.date_of_birth,
+        loyalty_number: params.loyalty_number,
+        seat_preference: params.seat_preference as Passenger['seat_preference'],
+        special_needs: params.special_needs,
+        is_primary: false,
+      };
+    }
+    return apiRequest<Passenger>('/trips/passengers', {
+      method: 'POST',
+      body: JSON.stringify(params),
+    });
+  },
+  
+  /**
+   * List all passengers for a trip with summary.
+   */
+  list: async (tripId: string): Promise<TripPassengersSummary> => {
+    if (SKIP_API_AUTH) {
+      return {
+        trip_id: tripId,
+        total_passengers: 1,
+        total_seats_needed: 1,
+        adults: 1,
+        children: 0,
+        infants: 0,
+        passengers_by_member: {
+          [MOCK_PROFILE.userId]: [{
+            passenger_id: 'mock-pax-1',
+            trip_id: tripId,
+            guardian_user_id: MOCK_PROFILE.userId,
+            first_name: 'Mock',
+            last_name: 'User',
+            full_name: 'Mock User',
+            passenger_type: 'adult',
+            is_primary: true,
+          }],
+        },
+      };
+    }
+    return apiRequest<TripPassengersSummary>(`/trips/${tripId}/passengers`, {
+      method: 'GET',
+    });
+  },
+  
+  /**
+   * Delete a passenger.
+   * Only the guardian can delete their passengers.
+   */
+  delete: async (tripId: string, passengerId: string): Promise<{ ok: boolean }> => {
+    if (SKIP_API_AUTH) {
+      return { ok: true };
+    }
+    return apiRequest<{ ok: boolean }>(
+      `/trips/passengers/${passengerId}?trip_id=${tripId}`,
+      { method: 'DELETE' }
+    );
   },
 };
 
@@ -769,6 +1801,9 @@ export const itineraries = {
   },
 };
 
+/**
+ * @deprecated Hotel features are disabled. Tripy operates in flight-only mode.
+ */
 export interface HotelSearchResult {
   hotel_id: string;
   name: string;
@@ -781,6 +1816,9 @@ export interface HotelSearchResult {
   address?: string;
 }
 
+/**
+ * @deprecated Hotel features are disabled. Tripy operates in flight-only mode.
+ */
 export interface HotelSearchParams {
   destination: string;
   check_in: string;
@@ -790,19 +1828,23 @@ export interface HotelSearchParams {
   hotel_class?: string | null;
 }
 
+/**
+ * FLIGHT-ONLY MODE: Hotel features are disabled.
+ * Tripy is a flight-only points optimizer. Lodging is out of scope.
+ * 
+ * @deprecated Hotel search is disabled. Tripy operates in flight-only mode.
+ */
 export const hotels = {
-  search: async (params: HotelSearchParams): Promise<{ hotels: HotelSearchResult[] }> => {
-    return apiRequest<{ hotels: HotelSearchResult[] }>('/hotels/search', {
-      method: 'POST',
-      body: JSON.stringify({
-        destination: params.destination,
-        check_in: params.check_in,
-        check_out: params.check_out,
-        programs: params.programs ?? undefined,
-        guests: params.guests ?? 1,
-        hotel_class: params.hotel_class ?? undefined,
-      }),
-    });
+  /**
+   * @deprecated Hotel search is disabled. Tripy operates in flight-only mode.
+   * This function will throw an error indicating hotel features are unavailable.
+   */
+  search: async (_params: HotelSearchParams): Promise<{ hotels: HotelSearchResult[] }> => {
+    // Flight-only mode: hotel features are disabled
+    throw new Error(
+      'Tripy is a flight-only optimizer. Hotel/lodging features are not available. ' +
+      'See docs/GROUP_TRIP_WORKFLOW.md for product scope.'
+    );
   },
 };
 
@@ -1042,6 +2084,7 @@ export const upsertPoints = points.upsert;
 export const getPointsSummary = points.summary;
 export const generateItinerary = itineraries.generate;
 export const getItinerary = itineraries.get;
+/** @deprecated Hotel features are disabled. Tripy operates in flight-only mode. */
 export const searchHotels = hotels.search;
 export const searchCities = cities.search;
 

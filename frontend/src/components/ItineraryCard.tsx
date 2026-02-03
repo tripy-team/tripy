@@ -39,7 +39,6 @@ interface ItineraryCardProps {
   withinPoints?: boolean;
   isSelected?: boolean;
   isEditing?: boolean;
-  includeHotels?: boolean;
   onSelect?: () => void;
   onEdit?: () => void;
   onCityDaysChange?: (cityIndex: number, days: number) => void;
@@ -68,7 +67,6 @@ export function ItineraryCard({
   withinPoints = true,
   isSelected = false,
   isEditing = false,
-  includeHotels = true,
   onSelect,
   onEdit,
   onCityDaysChange,

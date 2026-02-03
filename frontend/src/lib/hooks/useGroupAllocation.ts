@@ -36,8 +36,6 @@ interface UseGroupAllocationReturn {
     strategy: BookingAllocationStrategy,
     options?: {
       cabinClasses?: string[];
-      hotelStars?: number[];
-      includeHotels?: boolean;
       splitMethod?: SettlementSplitMethod;
     }
   ) => Promise<GroupBookingPlan | null>;
@@ -74,8 +72,6 @@ export function useGroupAllocation(
     strategy: BookingAllocationStrategy;
     options?: {
       cabinClasses?: string[];
-      hotelStars?: number[];
-      includeHotels?: boolean;
       splitMethod?: SettlementSplitMethod;
     };
   } | null>(null);
@@ -85,8 +81,6 @@ export function useGroupAllocation(
     strategy: BookingAllocationStrategy,
     requestOptions?: {
       cabinClasses?: string[];
-      hotelStars?: number[];
-      includeHotels?: boolean;
       splitMethod?: SettlementSplitMethod;
     }
   ): Promise<GroupBookingPlan | null> => {
@@ -103,8 +97,6 @@ export function useGroupAllocation(
         strategy,
         splitMethod: requestOptions?.splitMethod,
         cabinClasses: requestOptions?.cabinClasses,
-        hotelStars: requestOptions?.hotelStars,
-        includeHotels: requestOptions?.includeHotels ?? true,
       };
       
       const response = await fetch('/api/optimize/group/allocate', {

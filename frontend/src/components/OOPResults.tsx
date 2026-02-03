@@ -17,8 +17,6 @@ interface OOPResultsProps {
   points?: Record<string, number>;
   budget?: number;
   cabinClasses?: string[];
-  hotelStars?: number[];
-  includeHotels?: boolean;
 }
 
 export function OOPResults({
@@ -27,8 +25,6 @@ export function OOPResults({
   points = {},
   budget = 5000,
   cabinClasses = ['Economy', 'Business'],
-  hotelStars = [4, 5],
-  includeHotels = true,
 }: OOPResultsProps) {
   const router = useRouter();
   
@@ -49,8 +45,6 @@ export function OOPResults({
     points,
     budget,
     cabinClasses,
-    hotelStars,
-    includeHotels,
     autoFetch: true,
   });
 

@@ -57,7 +57,16 @@ def get_cost_agent() -> CostBreakdownAgent:
 # =============================================================================
 
 class SoloOptimizeRequest(BaseModel):
-    """Request body for solo trip optimization (flights only)."""
+    """
+    Request body for solo trip optimization (flights only).
+    
+    MULTI-CURRENCY SUPPORT:
+    The `points` dict supports multiple credit card programs simultaneously:
+    - Bank currencies: "chase_ur", "amex_mr", "citi_typ", etc.
+    - Direct airline miles: "UA", "DL", "AA", etc.
+    
+    Use the currency control fields to customize which currencies the optimizer uses.
+    """
     trip_id: str = Field(..., min_length=1, max_length=100)
     points: dict[str, int] = {}  # program -> balance
     budget: float = Field(default=500.0, ge=0, le=1000000)
@@ -68,6 +77,11 @@ class SoloOptimizeRequest(BaseModel):
     include_basic_economy: bool = False
     flexibility_priority: Optional[Literal["low", "medium", "high"]] = "medium"
     acknowledged_policy_codes: list[str] = []
+    
+    # Currency control settings (Task 07)
+    allowed_currencies: Optional[list[str]] = None  # If set, only use these currencies
+    max_points_by_currency: Optional[dict[str, int]] = None  # Per-currency caps
+    max_cash_budget: Optional[float] = None  # Maximum cash out-of-pocket (overrides budget)
     
     @validator('trip_id')
     def validate_trip_id(cls, v):
@@ -210,6 +224,10 @@ async def optimize_solo_trip(
             include_basic_economy=request.include_basic_economy,
             flexibility_priority=request.flexibility_priority or "medium",
             acknowledged_policy_codes=request.acknowledged_policy_codes,
+            # Currency control settings (Task 07)
+            allowed_currencies=request.allowed_currencies,
+            max_points_by_currency=request.max_points_by_currency,
+            max_cash_budget=request.max_cash_budget,
         )
         
         result = await orchestrator.optimize_solo(internal_request)
@@ -252,36 +270,98 @@ async def optimize_solo_trip(
         raise HTTPException(status_code=500, detail=str(e))
 
 
+def _normalize_points_key(key: str) -> str:
+    """
+    Normalize points program key to canonical form for comparison.
+    
+    Handles the inconsistency between storage (AMEX_MR) and client (amex_mr) keys.
+    Returns lowercase normalized key that can be used for matching.
+    """
+    if not key:
+        return key
+    
+    # Convert to lowercase and normalize underscores
+    normalized = key.lower().strip().replace(" ", "_").replace("-", "_")
+    
+    # Map common variations to canonical form
+    key_mapping = {
+        "amex_mr": "amex",
+        "amex": "amex",
+        "mr": "amex",
+        "membership_rewards": "amex",
+        "chase_ur": "chase",
+        "chase": "chase",
+        "ur": "chase",
+        "ultimate_rewards": "chase",
+        "citi_typ": "citi",
+        "citi": "citi",
+        "thankyou": "citi",
+        "capital_one": "capital_one",
+        "capitalone": "capital_one",
+        "c1": "capital_one",
+        "bilt": "bilt",
+        "bilt_rewards": "bilt",
+    }
+    
+    return key_mapping.get(normalized, normalized)
+
+
 async def _validate_and_get_points(trip_id: str, user_id: str, client_points: dict) -> dict:
     """
     Validate points against server-side data.
     
     Uses server-side points as the source of truth, but allows
     client to specify a subset of their available points.
+    
+    Handles normalization to resolve key mismatches between storage
+    (e.g., "AMEX_MR") and client keys (e.g., "amex_mr").
     """
     try:
         from ..services.points_service import trip_points_summary
         
         server_summary = trip_points_summary(trip_id)
-        server_points = {}
+        
+        # Build normalized server points dict
+        # Key: normalized key, Value: (original_key, balance)
+        server_points_normalized = {}
+        server_points_raw = {}
         
         for item in server_summary.get("items", []):
             if item.get("userId") == user_id:
                 program = item.get("program")
                 balance = item.get("balance", 0)
                 if program and balance > 0:
-                    server_points[program] = balance
+                    normalized_key = _normalize_points_key(program)
+                    server_points_normalized[normalized_key] = balance
+                    server_points_raw[program] = balance
         
         # Use server points if available, otherwise trust client
         # (for demo/testing purposes when no points are saved)
-        if server_points:
+        if server_points_normalized:
             # Validate client doesn't claim more than they have
             validated = {}
             for program, client_balance in client_points.items():
-                server_balance = server_points.get(program, 0)
+                normalized_key = _normalize_points_key(program)
+                server_balance = server_points_normalized.get(normalized_key, 0)
                 # Use the minimum of client claim and server balance
+                # Keep the client's key format for consistency downstream
                 validated[program] = min(client_balance, server_balance) if server_balance else client_balance
-            return validated if validated else server_points
+            
+            # Also include any server currencies the client didn't specify
+            # This ensures multi-currency users get ALL their balances
+            for program, balance in server_points_raw.items():
+                normalized_key = _normalize_points_key(program)
+                # Check if this currency is already in validated (by normalized key)
+                client_has_it = any(
+                    _normalize_points_key(k) == normalized_key 
+                    for k in validated.keys()
+                )
+                if not client_has_it:
+                    # Add server currency that client didn't specify
+                    validated[program] = balance
+                    logger.info(f"Added server currency {program}={balance} not in client request")
+            
+            return validated if validated else server_points_raw
         
         return client_points
     except Exception as e:
@@ -834,6 +914,23 @@ def _serialize_itinerary(itinerary: RankedItinerary) -> dict:
             "savingsPercentage": itinerary.oop_metrics.savings_percentage,
             "averageCPP": itinerary.oop_metrics.average_cpp,
             "pointsBreakdown": itinerary.oop_metrics.points_breakdown,
+            # Multi-currency tracking
+            "bankCurrenciesUsed": getattr(itinerary.oop_metrics, 'bank_currencies_used', {}),
+            "paymentActions": [
+                {
+                    "segmentId": pa.segment_id,
+                    "segmentDescription": pa.segment_description,
+                    "paymentMethod": pa.payment_method,
+                    "cashAmount": pa.cash_amount,
+                    "pointsProgram": pa.points_program,
+                    "pointsAmount": pa.points_amount,
+                    "surcharge": pa.surcharge,
+                    "sourceCurrency": pa.source_currency,
+                    "transferRatio": pa.transfer_ratio,
+                    "cppAchieved": pa.cpp_achieved,
+                }
+                for pa in getattr(itinerary.oop_metrics, 'payment_actions', [])
+            ],
         },
         "transfers": transfers,
         "withinBudget": itinerary.within_budget,

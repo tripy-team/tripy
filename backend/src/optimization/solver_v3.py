@@ -408,6 +408,8 @@ class SolverV3:
         Build funding sources per payer.
         
         NO POOLING: Each payer can only use their own balances.
+        
+        MULTI-CURRENCY TELEMETRY: Logs all available currencies and funding paths.
         """
         
         self.funding_sources = {}
@@ -416,20 +418,37 @@ class SolverV3:
             payer = traveler.traveler_id
             sources = []
             
+            # ══════════════════════════════════════════════════════════════
+            # MULTI-CURRENCY TELEMETRY: Log available currencies
+            # ══════════════════════════════════════════════════════════════
+            logger.info(f"[V3 Solver] Building funding sources for payer '{payer}'")
+            logger.info(f"[V3 Solver] ├── Bank balances: {traveler.bank_balances}")
+            logger.info(f"[V3 Solver] └── Airline balances: {traveler.points_balances}")
+            
             # Native program balances
             for prog, bal in traveler.points_balances.items():
                 if bal > 0:
                     sources.append(FundingSource.make_native(payer, prog))
+                    logger.debug(f"[V3 Solver]     + Native source: {prog} ({bal:,} pts)")
             
             # Transfer paths from this payer's banks
+            transfer_count_by_bank = {}
             for tp in self.transfers:
                 if tp.from_bank in traveler.bank_balances:
                     if traveler.bank_balances[tp.from_bank] > 0:
                         sources.append(FundingSource.make_transfer(
                             payer, tp.from_bank, tp.to_program, tp.path_id
                         ))
+                        transfer_count_by_bank[tp.from_bank] = transfer_count_by_bank.get(tp.from_bank, 0) + 1
+            
+            # Log transfer path summary
+            if transfer_count_by_bank:
+                for bank, count in transfer_count_by_bank.items():
+                    bal = traveler.bank_balances.get(bank, 0)
+                    logger.info(f"[V3 Solver]     + {bank}: {bal:,} pts → {count} transfer partners")
             
             self.funding_sources[payer] = sources
+            logger.info(f"[V3 Solver] Total funding sources for '{payer}': {len(sources)}")
     
     def _get_sources_for_program(self, payer: str, program: str) -> List[FundingSource]:
         """Get funding sources a payer can use for a specific program."""
@@ -1807,6 +1826,47 @@ class SolverV3:
             f"[SOLUTION SUMMARY] Total out-of-pocket: ${solution.total_cash:.0f}, "
             f"Points used: {solution.total_points_by_program}"
         )
+        
+        # ══════════════════════════════════════════════════════════════════
+        # MULTI-CURRENCY TELEMETRY: Log which bank currencies were used
+        # ══════════════════════════════════════════════════════════════════
+        if solution.transfers_used or solution.total_points_by_program:
+            logger.info("-" * 80)
+            logger.info("[MULTI-CURRENCY SUMMARY]")
+            
+            # Count currencies actually used
+            bank_currencies_used = {}
+            for (payer, bank, program), blocks in solution.transfers_used.items():
+                if blocks > 0:
+                    # Find increment from transfer paths
+                    tp = next((t for t in self.transfers if t.from_bank == bank and t.to_program == program), None)
+                    points_used = blocks * (tp.min_increment if tp else 1000)
+                    bank_currencies_used[bank] = bank_currencies_used.get(bank, 0) + points_used
+            
+            if bank_currencies_used:
+                logger.info("  Bank currencies used (transferred):")
+                for bank, points in bank_currencies_used.items():
+                    traveler = next((t for t in self.spec.travelers), None)
+                    available = traveler.bank_balances.get(bank, 0) if traveler else 0
+                    pct = (points / available * 100) if available > 0 else 0
+                    logger.info(f"    • {bank}: {points:,} pts used (of {available:,} available, {pct:.1f}%)")
+            
+            if solution.total_points_by_program:
+                logger.info("  Target programs funded:")
+                for prog, pts in solution.total_points_by_program.items():
+                    logger.info(f"    • {prog}: {pts:,} pts")
+            
+            # Count currencies available but NOT used
+            unused_banks = []
+            for traveler in self.spec.travelers:
+                for bank, balance in traveler.bank_balances.items():
+                    if balance > 0 and bank not in bank_currencies_used:
+                        unused_banks.append((bank, balance))
+            
+            if unused_banks:
+                logger.info("  Currencies available but NOT used:")
+                for bank, balance in unused_banks:
+                    logger.info(f"    • {bank}: {balance:,} pts (not optimal for this route)")
         
         # Verify budget constraint
         if self.cash_budget and self.cash_budget > 0:

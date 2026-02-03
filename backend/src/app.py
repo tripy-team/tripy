@@ -130,6 +130,26 @@ async def startup_preload_caches():
     logger.info("Started background preload of airport caches")
 
 
+# Import group trip models
+from .models.group_trip import (
+    PoolingScope,
+    MemberLifecycleState,
+    DelegationScope,
+    UpdatePoolingScopeRequest,
+    CreatePassengerRequest,
+    # Settlement (Task 17)
+    SettlementPolicy,
+    PointsValuationMode,
+    PointsValuationConfig,
+    TripSettlementConfig,
+    UpdateSettlementConfigRequest,
+    SETTLEMENT_POLICY_DESCRIPTIONS,
+    POINTS_VALUATION_DESCRIPTIONS,
+)
+
+# Import passenger service
+from .services import passenger_service
+
 # Request models with validation
 class CreateTripRequest(BaseModel):
     title: str = Field(..., min_length=1, max_length=200)
@@ -137,6 +157,10 @@ class CreateTripRequest(BaseModel):
     end_date: str = Field(..., description="End date in ISO format (YYYY-MM-DD)")
     max_budget: Optional[int] = Field(None, ge=0, description="Maximum budget in dollars for itinerary generation")
     duration_days: Optional[int] = Field(None, ge=1, le=365, description="Trip length in days when dates are flexible (start/end empty)")
+    pooling_scope: Optional[str] = Field(
+        None,
+        description="How points can be pooled: individual_only, household_only, full_group, sponsors_only"
+    )
 
     @validator("start_date", "end_date")
     def validate_date(cls, v):
@@ -258,6 +282,18 @@ class CitySearchRequest(BaseModel):
 
 class JoinTripRequest(BaseModel):
     invite_code: str = Field(..., min_length=1)
+    # Optional member preferences (trust layer / pooling workflow)
+    willing_to_share_points: Optional[bool] = Field(True, description="Allow optimizer to use my points for group bookings")
+    points_usage: Optional[str] = Field(
+        "freely",
+        description="How Tripy may use my points: freely | ask_before | do_not_use (view only)",
+    )
+
+
+class UpdateMemberPreferencesRequest(BaseModel):
+    trip_id: str = Field(..., min_length=1)
+    willing_to_share_points: Optional[bool] = None
+    points_usage: Optional[str] = Field(None, description="freely | ask_before | do_not_use")
 
 
 class ExtractTripInfoRequest(BaseModel):
@@ -503,15 +539,17 @@ async def confirm_forgot_password(request: ConfirmForgotPasswordRequest):
 async def create_trip(
     request: CreateTripRequest, user_id: str = Depends(get_current_user_id)
 ):
-    """Create a new trip"""
+    """Create a new trip (flight-only mode)"""
     try:
         trip = trip_service.create_trip(
             user_id,
             request.title,
             request.start_date,
             request.end_date,
+            include_hotels=False,  # Flight-only mode
             max_budget=request.max_budget,
             duration_days=request.duration_days,
+            pooling_scope=request.pooling_scope,
         )
         # Track trip creation for analytics
         track_trip_created(
@@ -537,9 +575,11 @@ async def get_trip(request: TripIdRequest, user_id: str = Depends(get_current_us
         if not trip:
             raise HTTPException(status_code=404, detail="Trip not found")
 
-        # Verify user has access to this trip
-        # TODO: Add trip member check for group trips
-        if trip.get("createdBy") != user_id:
+        # Verify user has access to this trip (owner OR member)
+        from .services.trip_member_service import get_member
+        is_owner = trip.get("createdBy") == user_id
+        is_member = get_member(request.trip_id, user_id) is not None
+        if not is_owner and not is_member:
             raise HTTPException(status_code=403, detail="Access denied")
 
         # Enrich with destinations and member count for display (e.g. trip configuration summary)
@@ -637,6 +677,16 @@ async def get_trip_by_invite(invite_code: str):
 
         members = list_members(trip["tripId"])
         trip["memberCount"] = len(members) if members else 1
+        
+        # Include member details for the join page (name and role only for privacy)
+        trip["members"] = [
+            {
+                "userId": m.get("userId") or m.get("user_id"),
+                "name": m.get("name", ""),
+                "role": m.get("role", "member"),
+            }
+            for m in (members or [])
+        ]
 
         destinations = list_destinations(trip["tripId"])
         trip["destinations"], trip["firstDestination"] = get_display_destinations_for_trip(destinations or [])
@@ -653,9 +703,14 @@ async def get_trip_by_invite(invite_code: str):
 async def join_trip(
     request: JoinTripRequest, user_id: str = Depends(get_current_user_id)
 ):
-    """Join a trip using an invite code"""
+    """Join a trip using an invite code. Optional: willing_to_share_points, points_usage (freely|ask_before|do_not_use)."""
     try:
-        result = trip_member_service.join_trip(user_id, request.invite_code)
+        result = trip_member_service.join_trip(
+            user_id,
+            request.invite_code,
+            willing_to_share_points=request.willing_to_share_points,
+            points_usage=request.points_usage or "freely",
+        )
         if result.get("error"):
             raise HTTPException(status_code=404, detail=result["error"])
         return result
@@ -691,6 +746,425 @@ async def list_trip_members(
         raise HTTPException(status_code=500, detail=str(e))
 
 
+@app.post("/trips/members/update-preferences")
+async def update_member_preferences(
+    request: UpdateMemberPreferencesRequest, user_id: str = Depends(get_current_user_id)
+):
+    """Update current user's preferences for a trip (pooling: willing_to_share_points, points_usage)."""
+    try:
+        trip = trip_service.get_trip(request.trip_id)
+        if not trip:
+            raise HTTPException(status_code=404, detail="Trip not found")
+        members = trip_member_service.list_members(request.trip_id)
+        is_member = any(m.get("userId") == user_id for m in members)
+        if not is_member:
+            raise HTTPException(status_code=403, detail="Not a member of this trip")
+        ok = trip_member_service.update_member_preferences(
+            request.trip_id,
+            user_id,
+            willing_to_share_points=request.willing_to_share_points,
+            points_usage=request.points_usage,
+        )
+        return {"ok": ok}
+    except HTTPException:
+        raise
+    except Exception as e:
+        logger.error(f"Error updating member preferences: {str(e)}")
+        raise HTTPException(status_code=500, detail=str(e))
+
+
+class UpdateLifecycleStateRequest(BaseModel):
+    trip_id: str = Field(..., min_length=1)
+    lifecycle_state: str = Field(
+        ...,
+        description="New lifecycle state: invited, joined_no_wallet, wallet_connected, approved_for_planning, approved_for_booking, inactive"
+    )
+
+
+@app.post("/trips/members/lifecycle-state")
+async def update_member_lifecycle_state(
+    request: UpdateLifecycleStateRequest,
+    user_id: str = Depends(get_current_user_id)
+):
+    """
+    Update current user's lifecycle state in a trip.
+    
+    Lifecycle states:
+    - invited: Invite sent; not yet accepted
+    - joined_no_wallet: Joined trip but has not linked wallets/balances
+    - wallet_connected: Balances provided; not yet approved for planning
+    - approved_for_planning: OK for Tripy to use in optimized plan
+    - approved_for_booking: Approved allocation; ready for checklist
+    - inactive: Dropped or paused; exclude from optimization
+    
+    Transitions are validated to ensure they follow the correct order.
+    """
+    try:
+        trip = trip_service.get_trip(request.trip_id)
+        if not trip:
+            raise HTTPException(status_code=404, detail="Trip not found")
+        
+        # Verify user is a member of the trip
+        members = trip_member_service.list_members(request.trip_id)
+        is_member = any(m.get("userId") == user_id for m in members)
+        if not is_member:
+            raise HTTPException(status_code=403, detail="Not a member of this trip")
+        
+        result = trip_member_service.update_member_lifecycle_state(
+            request.trip_id,
+            user_id,
+            request.lifecycle_state,
+            requesting_user_id=user_id,
+        )
+        return result
+    except ValueError as e:
+        logger.warning(f"Lifecycle state update error: {str(e)}")
+        raise HTTPException(status_code=400, detail=str(e))
+    except HTTPException:
+        raise
+    except Exception as e:
+        logger.error(f"Error updating lifecycle state: {str(e)}")
+        raise HTTPException(status_code=500, detail=str(e))
+
+
+class TripBookingReadyRequest(BaseModel):
+    trip_id: str = Field(..., min_length=1)
+
+
+@app.post("/trips/members/booking-ready")
+async def check_trip_booking_ready(
+    request: TripBookingReadyRequest,
+    user_id: str = Depends(get_current_user_id)
+):
+    """
+    Check if all required members are approved_for_booking.
+    
+    Returns status info about which members are ready and which are blocking.
+    This is used to determine if the booking workflow can proceed.
+    """
+    try:
+        trip = trip_service.get_trip(request.trip_id)
+        if not trip:
+            raise HTTPException(status_code=404, detail="Trip not found")
+        
+        # Verify user has access to this trip
+        members = trip_member_service.list_members(request.trip_id)
+        is_member = any(m.get("userId") == user_id for m in members)
+        if not is_member and trip.get("createdBy") != user_id:
+            raise HTTPException(status_code=403, detail="Access denied")
+        
+        result = trip_member_service.check_booking_ready(request.trip_id)
+        return result
+    except HTTPException:
+        raise
+    except Exception as e:
+        logger.error(f"Error checking booking ready: {str(e)}")
+        raise HTTPException(status_code=500, detail=str(e))
+
+
+# =============================================================================
+# HOUSEHOLD AND DELEGATION ENDPOINTS
+# =============================================================================
+
+class SetHouseholdRequest(BaseModel):
+    trip_id: str = Field(..., min_length=1)
+    household_id: str = Field(..., min_length=1, max_length=100)
+
+
+@app.post("/trips/members/household")
+async def set_member_household(
+    request: SetHouseholdRequest,
+    user_id: str = Depends(get_current_user_id)
+):
+    """
+    Set the household_id for the current member.
+    
+    Members with the same household_id are treated as one unit for pooling
+    (when pooling_scope is household_only).
+    """
+    try:
+        trip = trip_service.get_trip(request.trip_id)
+        if not trip:
+            raise HTTPException(status_code=404, detail="Trip not found")
+        
+        # Verify user is a member
+        members = trip_member_service.list_members(request.trip_id)
+        is_member = any(m.get("userId") == user_id for m in members)
+        if not is_member:
+            raise HTTPException(status_code=403, detail="Not a member of this trip")
+        
+        result = trip_member_service.set_household(
+            request.trip_id,
+            user_id,
+            request.household_id,
+        )
+        return result
+    except ValueError as e:
+        logger.warning(f"Set household error: {str(e)}")
+        raise HTTPException(status_code=400, detail=str(e))
+    except HTTPException:
+        raise
+    except Exception as e:
+        logger.error(f"Error setting household: {str(e)}")
+        raise HTTPException(status_code=500, detail=str(e))
+
+
+@app.delete("/trips/members/household")
+async def remove_member_household(
+    trip_id: str = Query(..., min_length=1),
+    user_id: str = Depends(get_current_user_id)
+):
+    """Remove the household_id from the current member."""
+    try:
+        trip = trip_service.get_trip(trip_id)
+        if not trip:
+            raise HTTPException(status_code=404, detail="Trip not found")
+        
+        members = trip_member_service.list_members(trip_id)
+        is_member = any(m.get("userId") == user_id for m in members)
+        if not is_member:
+            raise HTTPException(status_code=403, detail="Not a member of this trip")
+        
+        result = trip_member_service.remove_household(trip_id, user_id)
+        return result
+    except ValueError as e:
+        raise HTTPException(status_code=400, detail=str(e))
+    except HTTPException:
+        raise
+    except Exception as e:
+        logger.error(f"Error removing household: {str(e)}")
+        raise HTTPException(status_code=500, detail=str(e))
+
+
+class SetDelegationRequest(BaseModel):
+    trip_id: str = Field(..., min_length=1)
+    delegate_user_id: str = Field(..., min_length=1, description="User receiving delegation")
+    scope: str = Field(
+        default="planning",
+        description="Delegation scope: 'planning' (can approve plan) or 'booking' (can book)"
+    )
+
+
+@app.post("/trips/members/delegation")
+async def set_member_delegation(
+    request: SetDelegationRequest,
+    user_id: str = Depends(get_current_user_id)
+):
+    """
+    Delegate booking authority to another household member.
+    
+    The delegate can approve planning/booking using your points.
+    Only allowed within the same household.
+    
+    Scopes:
+    - planning: Delegate can approve plans using your points
+    - booking: Delegate can book using your points (includes planning)
+    """
+    try:
+        trip = trip_service.get_trip(request.trip_id)
+        if not trip:
+            raise HTTPException(status_code=404, detail="Trip not found")
+        
+        # Verify user is a member
+        members = trip_member_service.list_members(request.trip_id)
+        is_member = any(m.get("userId") == user_id for m in members)
+        if not is_member:
+            raise HTTPException(status_code=403, detail="Not a member of this trip")
+        
+        result = trip_member_service.set_delegation(
+            request.trip_id,
+            user_id,  # delegator
+            request.delegate_user_id,
+            request.scope,
+        )
+        return result
+    except ValueError as e:
+        logger.warning(f"Set delegation error: {str(e)}")
+        raise HTTPException(status_code=400, detail=str(e))
+    except HTTPException:
+        raise
+    except Exception as e:
+        logger.error(f"Error setting delegation: {str(e)}")
+        raise HTTPException(status_code=500, detail=str(e))
+
+
+@app.delete("/trips/members/delegation")
+async def remove_member_delegation(
+    trip_id: str = Query(..., min_length=1),
+    user_id: str = Depends(get_current_user_id)
+):
+    """Remove delegation from the current member."""
+    try:
+        trip = trip_service.get_trip(trip_id)
+        if not trip:
+            raise HTTPException(status_code=404, detail="Trip not found")
+        
+        members = trip_member_service.list_members(trip_id)
+        is_member = any(m.get("userId") == user_id for m in members)
+        if not is_member:
+            raise HTTPException(status_code=403, detail="Not a member of this trip")
+        
+        result = trip_member_service.remove_delegation(trip_id, user_id)
+        return result
+    except ValueError as e:
+        raise HTTPException(status_code=400, detail=str(e))
+    except HTTPException:
+        raise
+    except Exception as e:
+        logger.error(f"Error removing delegation: {str(e)}")
+        raise HTTPException(status_code=500, detail=str(e))
+
+
+class SetSponsorRequest(BaseModel):
+    trip_id: str = Field(..., min_length=1)
+    target_user_id: str = Field(..., min_length=1, description="User to update")
+    can_pay_for_others: bool = Field(..., description="Whether user can pay for others")
+
+
+@app.post("/trips/members/sponsor")
+async def set_member_sponsor(
+    request: SetSponsorRequest,
+    user_id: str = Depends(get_current_user_id)
+):
+    """
+    Set or unset the sponsor (can_pay_for_others) flag for a member.
+    
+    Only the trip owner can grant/revoke sponsor permission.
+    Sponsors can pay for other members' seats when pooling_scope is sponsors_only.
+    """
+    try:
+        result = trip_member_service.set_sponsor_flag(
+            request.trip_id,
+            request.target_user_id,
+            request.can_pay_for_others,
+            requesting_user_id=user_id,
+        )
+        return result
+    except ValueError as e:
+        logger.warning(f"Set sponsor error: {str(e)}")
+        raise HTTPException(status_code=400, detail=str(e))
+    except HTTPException:
+        raise
+    except Exception as e:
+        logger.error(f"Error setting sponsor: {str(e)}")
+        raise HTTPException(status_code=500, detail=str(e))
+
+
+# =============================================================================
+# PASSENGER ENDPOINTS (for dependents)
+# =============================================================================
+
+class CreatePassengerAPIRequest(BaseModel):
+    trip_id: str = Field(..., min_length=1)
+    first_name: str = Field(..., min_length=1)
+    last_name: str = Field(..., min_length=1)
+    passenger_type: str = Field(default="adult", description="adult, child, or infant")
+    date_of_birth: Optional[str] = Field(None, description="DOB in YYYY-MM-DD format")
+    loyalty_number: Optional[str] = None
+    seat_preference: Optional[str] = None
+    special_needs: Optional[str] = None
+
+
+@app.post("/trips/passengers")
+async def create_passenger(
+    request: CreatePassengerAPIRequest,
+    user_id: str = Depends(get_current_user_id)
+):
+    """
+    Create a passenger (traveler) under the current member.
+    
+    Each member can add dependents (kids) as passengers.
+    Trip seat count is derived from total passengers (excluding lap infants).
+    """
+    try:
+        trip = trip_service.get_trip(request.trip_id)
+        if not trip:
+            raise HTTPException(status_code=404, detail="Trip not found")
+        
+        # Verify user is a member
+        members = trip_member_service.list_members(request.trip_id)
+        is_member = any(m.get("userId") == user_id for m in members)
+        if not is_member:
+            raise HTTPException(status_code=403, detail="Not a member of this trip")
+        
+        passenger = passenger_service.create_passenger(
+            trip_id=request.trip_id,
+            guardian_user_id=user_id,
+            first_name=request.first_name,
+            last_name=request.last_name,
+            passenger_type=request.passenger_type,
+            date_of_birth=request.date_of_birth,
+            loyalty_number=request.loyalty_number,
+            seat_preference=request.seat_preference,
+            special_needs=request.special_needs,
+        )
+        return passenger
+    except ValueError as e:
+        logger.warning(f"Create passenger error: {str(e)}")
+        raise HTTPException(status_code=400, detail=str(e))
+    except HTTPException:
+        raise
+    except Exception as e:
+        logger.error(f"Error creating passenger: {str(e)}")
+        raise HTTPException(status_code=500, detail=str(e))
+
+
+@app.get("/trips/{trip_id}/passengers")
+async def list_trip_passengers(
+    trip_id: str,
+    user_id: str = Depends(get_current_user_id)
+):
+    """
+    List all passengers for a trip with summary.
+    
+    Returns total counts and passengers grouped by member.
+    """
+    try:
+        trip = trip_service.get_trip(trip_id)
+        if not trip:
+            raise HTTPException(status_code=404, detail="Trip not found")
+        
+        # Verify user has access
+        members = trip_member_service.list_members(trip_id)
+        is_member = any(m.get("userId") == user_id for m in members)
+        if not is_member and trip.get("createdBy") != user_id:
+            raise HTTPException(status_code=403, detail="Access denied")
+        
+        summary = passenger_service.get_trip_passengers_summary(trip_id)
+        summary["total_seats_needed"] = passenger_service.get_total_seat_count(trip_id)
+        return summary
+    except HTTPException:
+        raise
+    except Exception as e:
+        logger.error(f"Error listing passengers: {str(e)}")
+        raise HTTPException(status_code=500, detail=str(e))
+
+
+@app.delete("/trips/passengers/{passenger_id}")
+async def delete_passenger(
+    passenger_id: str,
+    trip_id: str = Query(..., min_length=1),
+    user_id: str = Depends(get_current_user_id)
+):
+    """
+    Delete a passenger.
+    
+    Only the guardian can delete their passengers.
+    Primary passengers (the member themselves) cannot be deleted.
+    """
+    try:
+        result = passenger_service.delete_passenger(trip_id, passenger_id, user_id)
+        return result
+    except ValueError as e:
+        logger.warning(f"Delete passenger error: {str(e)}")
+        raise HTTPException(status_code=400, detail=str(e))
+    except HTTPException:
+        raise
+    except Exception as e:
+        logger.error(f"Error deleting passenger: {str(e)}")
+        raise HTTPException(status_code=500, detail=str(e))
+
+
 @app.post("/trips/delete")
 async def delete_trip(
     request: TripIdRequest, user_id: str = Depends(get_current_user_id)
@@ -704,6 +1178,46 @@ async def delete_trip(
         raise HTTPException(status_code=403, detail=str(e))
     except Exception as e:
         logger.error(f"Error deleting trip: {str(e)}")
+        raise HTTPException(status_code=500, detail=str(e))
+
+
+class UpdatePoolingScopeAPIRequest(BaseModel):
+    trip_id: str = Field(..., min_length=1)
+    pooling_scope: str = Field(
+        ...,
+        description="How points can be pooled: individual_only, household_only, full_group, sponsors_only"
+    )
+
+
+@app.post("/trips/pooling-scope")
+async def update_trip_pooling_scope(
+    request: UpdatePoolingScopeAPIRequest,
+    user_id: str = Depends(get_current_user_id)
+):
+    """
+    Update the pooling scope for a trip.
+    
+    Pooling scope controls how points can be shared across travelers:
+    - individual_only: No cross-person pooling; each pays for their own seats
+    - household_only: Pool only within each household_id; no cross-family pooling
+    - full_group: Optimizer can use any willing member's points for any traveler
+    - sponsors_only: Only sponsors (can_pay_for_others) can pay for others' seats
+    
+    Only the trip owner can change pooling scope.
+    Changing pooling scope invalidates any existing plan (requires re-optimization).
+    """
+    try:
+        result = trip_service.update_pooling_scope(
+            request.trip_id,
+            user_id,
+            request.pooling_scope,
+        )
+        return result
+    except ValueError as e:
+        logger.warning(f"Update pooling scope error: {str(e)}")
+        raise HTTPException(status_code=400, detail=str(e))
+    except Exception as e:
+        logger.error(f"Error updating pooling scope: {str(e)}")
         raise HTTPException(status_code=500, detail=str(e))
 
 
@@ -1662,23 +2176,36 @@ async def optimize_group_oop(
         # In production, this would call AwardTool API
         booking_items_data = []
         
-        # Placeholder: Create sample booking items from destinations
-        # This should be replaced with actual flight search
-        for i, dest in enumerate(destinations):
-            dest_name = dest.get("name", "Unknown")
+        # Create booking items for EACH member (not just the first)
+        # Each member needs flights to each destination
+        for member_idx, member in enumerate(members_data):
+            member_id = member.get("user_id")
+            member_name = member.get("name", f"Member {member_idx + 1}")
+            party_size = member.get("party_size", 1)  # Support multiple travelers per member
             
-            # Sample flight item
-            booking_items_data.append({
-                "item_id": f"flight_{i}",
-                "type": "flight",
-                "member_id": members_data[0].get("user_id"),  # First member as example
-                "description": f"Flight to {dest_name}",
-                "cash_cost": 500.0,  # Placeholder
-                "points_options": [
-                    {"program_code": "UA", "points_required": 30000, "surcharge": 50},
-                    {"program_code": "AA", "points_required": 35000, "surcharge": 45},
-                ],
-            })
+            for dest_idx, dest in enumerate(destinations):
+                dest_name = dest.get("name", "Unknown")
+                
+                # Create flight item for this member to this destination
+                booking_items_data.append({
+                    "item_id": f"flight_{member_idx}_{dest_idx}",
+                    "type": "flight",
+                    "member_id": member_id,
+                    "description": f"Flight to {dest_name} for {member_name}",
+                    "cash_cost": 500.0,  # Placeholder - should come from flight search
+                    "party_size": party_size,  # How many travelers in this booking
+                    "points_options": [
+                        {"program_code": "UA", "points_required": 30000, "surcharge": 50},
+                        {"program_code": "AA", "points_required": 35000, "surcharge": 45},
+                    ],
+                })
+        
+        # Log group optimization context
+        logger.info(f"Group OOP optimization: {len(members_data)} members, "
+                   f"{len(destinations)} destinations, {len(booking_items_data)} booking items")
+        for m in members_data:
+            logger.info(f"  Member {m.get('user_id')}: points={m.get('points', {})}, "
+                       f"budget={m.get('max_cash_budget') or m.get('max_budget', 'unlimited')}")
         
         result = await handle_optimize_oop(
             trip_id=trip_id,
@@ -1826,6 +2353,594 @@ async def get_settlements_status(
         raise
     except Exception as e:
         logger.error(f"Error getting settlements status: {str(e)}")
+        raise HTTPException(status_code=500, detail=str(e))
+
+
+# =============================================================================
+# SETTLEMENT CONFIGURATION ENDPOINTS (Task 17)
+# =============================================================================
+
+# In-memory storage for settlement configs (would be DynamoDB in production)
+_settlement_configs: Dict[str, Dict[str, Any]] = {}
+
+
+def get_settlement_config(trip_id: str) -> Dict[str, Any]:
+    """Get settlement config for a trip, with defaults if not set."""
+    if trip_id in _settlement_configs:
+        return _settlement_configs[trip_id]
+    
+    # Return defaults
+    return {
+        "policy": SettlementPolicy.PAY_YOUR_OWN.value,
+        "valuation": {
+            "mode": PointsValuationMode.MARKET_IMPLIED.value,
+            "fixed_rates_cpp": {},
+            "min_cpp": 0.5,
+            "max_cpp": 5.0,
+            "reimburse_points_value": True,
+        },
+        "include_taxes_in_split": True,
+        "custom_obligations": {},
+    }
+
+
+def save_settlement_config(trip_id: str, config: Dict[str, Any]):
+    """Save settlement config for a trip."""
+    _settlement_configs[trip_id] = config
+
+
+@app.get("/trips/{trip_id}/settlement-config")
+async def get_trip_settlement_config(
+    trip_id: str,
+    user_id: str = Depends(get_current_user_id),
+):
+    """
+    Get the settlement configuration for a trip.
+    
+    Returns the policy, valuation mode, and all settings with descriptions.
+    """
+    try:
+        trip = trip_service.get_trip(trip_id)
+        if not trip:
+            raise HTTPException(status_code=404, detail="Trip not found")
+        
+        config = get_settlement_config(trip_id)
+        policy = SettlementPolicy(config.get("policy", "pay_your_own"))
+        valuation = config.get("valuation", {})
+        valuation_mode = PointsValuationMode(valuation.get("mode", "market_implied"))
+        
+        policy_desc = SETTLEMENT_POLICY_DESCRIPTIONS.get(policy, {})
+        valuation_desc = POINTS_VALUATION_DESCRIPTIONS.get(valuation_mode, {})
+        
+        return {
+            "trip_id": trip_id,
+            "policy": policy.value,
+            "policy_name": policy_desc.get("name", policy.value),
+            "policy_short": policy_desc.get("short", ""),
+            "policy_description": policy_desc.get("description", ""),
+            "valuation": {
+                "mode": valuation_mode.value,
+                "mode_name": valuation_desc.get("name", valuation_mode.value),
+                "mode_short": valuation_desc.get("short", ""),
+                "mode_description": valuation_desc.get("description", ""),
+                "fixed_rates_cpp": valuation.get("fixed_rates_cpp", {}),
+                "min_cpp": valuation.get("min_cpp", 0.5),
+                "max_cpp": valuation.get("max_cpp", 5.0),
+                "reimburse_points_value": valuation.get("reimburse_points_value", True),
+            },
+            "include_taxes_in_split": config.get("include_taxes_in_split", True),
+            "custom_obligations": config.get("custom_obligations", {}),
+            "available_policies": [
+                {
+                    "value": p.value,
+                    "name": SETTLEMENT_POLICY_DESCRIPTIONS[p]["name"],
+                    "short": SETTLEMENT_POLICY_DESCRIPTIONS[p]["short"],
+                    "description": SETTLEMENT_POLICY_DESCRIPTIONS[p]["description"],
+                }
+                for p in SettlementPolicy
+            ],
+            "available_valuation_modes": [
+                {
+                    "value": m.value,
+                    "name": POINTS_VALUATION_DESCRIPTIONS[m]["name"],
+                    "short": POINTS_VALUATION_DESCRIPTIONS[m]["short"],
+                    "description": POINTS_VALUATION_DESCRIPTIONS[m]["description"],
+                }
+                for m in PointsValuationMode
+            ],
+        }
+    except HTTPException:
+        raise
+    except Exception as e:
+        logger.error(f"Error getting settlement config: {str(e)}")
+        raise HTTPException(status_code=500, detail=str(e))
+
+
+@app.post("/trips/{trip_id}/settlement-config")
+async def update_trip_settlement_config(
+    trip_id: str,
+    request: UpdateSettlementConfigRequest,
+    user_id: str = Depends(get_current_user_id),
+):
+    """
+    Update the settlement configuration for a trip.
+    
+    Can update policy, valuation mode, fixed rates, and other settings.
+    """
+    try:
+        trip = trip_service.get_trip(trip_id)
+        if not trip:
+            raise HTTPException(status_code=404, detail="Trip not found")
+        
+        # Get current config
+        config = get_settlement_config(trip_id)
+        
+        # Update policy
+        if request.policy is not None:
+            config["policy"] = request.policy.value
+        
+        # Update valuation
+        valuation = config.get("valuation", {})
+        if request.valuation_mode is not None:
+            valuation["mode"] = request.valuation_mode.value
+        if request.fixed_rates_cpp is not None:
+            valuation["fixed_rates_cpp"] = request.fixed_rates_cpp
+        if request.min_cpp is not None:
+            valuation["min_cpp"] = request.min_cpp
+        if request.max_cpp is not None:
+            valuation["max_cpp"] = request.max_cpp
+        if request.reimburse_points_value is not None:
+            valuation["reimburse_points_value"] = request.reimburse_points_value
+        config["valuation"] = valuation
+        
+        # Update other settings
+        if request.include_taxes_in_split is not None:
+            config["include_taxes_in_split"] = request.include_taxes_in_split
+        if request.custom_obligations is not None:
+            config["custom_obligations"] = request.custom_obligations
+        
+        # Save
+        save_settlement_config(trip_id, config)
+        
+        logger.info(f"Updated settlement config for trip {trip_id}: policy={config.get('policy')}")
+        
+        return {
+            "ok": True,
+            "trip_id": trip_id,
+            "policy": config.get("policy"),
+            "valuation_mode": valuation.get("mode"),
+        }
+    except HTTPException:
+        raise
+    except Exception as e:
+        logger.error(f"Error updating settlement config: {str(e)}")
+        raise HTTPException(status_code=500, detail=str(e))
+
+
+# =============================================================================
+# SETTLEMENT ENGINE ENDPOINTS (Task 18)
+# =============================================================================
+
+from .services import settlement_engine
+
+
+class ComputeSettlementRequest(BaseModel):
+    """Request to compute settlement for a trip."""
+    tickets: List[Dict[str, Any]] = Field(default_factory=list)
+    allocations: List[Dict[str, Any]] = Field(default_factory=list)
+    # Override valuation config (optional)
+    override_valuation: Optional[Dict[str, Any]] = None
+    override_policy: Optional[str] = None
+
+
+@app.post("/trips/{trip_id}/settlement/compute")
+async def compute_trip_settlement(
+    trip_id: str,
+    request: ComputeSettlementRequest,
+    user_id: str = Depends(get_current_user_id),
+):
+    """
+    Compute settlement for a trip.
+    
+    Uses the trip's settlement config unless overrides are provided.
+    Returns obligations, contributions, net balances, and reimbursement transfers.
+    """
+    try:
+        trip = trip_service.get_trip(trip_id)
+        if not trip:
+            raise HTTPException(status_code=404, detail="Trip not found")
+        
+        # Get members and passengers
+        members = trip_member_service.list_members(trip_id)
+        passengers = passenger_service.list_passengers(trip_id)
+        
+        # Get settlement config
+        config = get_settlement_config(trip_id)
+        
+        # Apply overrides if provided
+        policy = request.override_policy or config.get("policy", "pay_your_own")
+        valuation_config = request.override_valuation or config.get("valuation", {})
+        
+        # Compute settlement
+        result = settlement_engine.compute_settlement(
+            tickets=request.tickets,
+            allocations=request.allocations,
+            passengers=passengers,
+            members=members,
+            policy=policy,
+            valuation_config=valuation_config,
+            custom_obligations=config.get("custom_obligations"),
+        )
+        
+        return settlement_engine.settlement_result_to_dict(result)
+    except HTTPException:
+        raise
+    except Exception as e:
+        logger.error(f"Error computing settlement: {str(e)}")
+        raise HTTPException(status_code=500, detail=str(e))
+
+
+@app.get("/trips/{trip_id}/settlement/preview")
+async def preview_trip_settlement(
+    trip_id: str,
+    policy: Optional[str] = None,
+    reimburse_points: Optional[bool] = None,
+    user_id: str = Depends(get_current_user_id),
+):
+    """
+    Preview settlement with different policies.
+    
+    Useful for comparing how different policies affect the split.
+    """
+    try:
+        trip = trip_service.get_trip(trip_id)
+        if not trip:
+            raise HTTPException(status_code=404, detail="Trip not found")
+        
+        # Get current data
+        members = trip_member_service.list_members(trip_id)
+        passengers = passenger_service.list_passengers(trip_id)
+        
+        # Get ledger to derive tickets/allocations
+        ledger = ledger_service.get_ledger(trip_id)
+        
+        # Build tickets from ledger entries
+        tickets = []
+        allocations = []
+        
+        if ledger:
+            for entry in ledger.entries:
+                if entry.entry_type.value in ("cash_payment", "points_contribution"):
+                    # Create ticket-like structure
+                    tickets.append({
+                        "passenger_id": entry.beneficiary_passenger_id,
+                        "base_fare_cash": entry.cash_amount if entry.entry_type.value == "cash_payment" else 0,
+                        "taxes_fees_cash": 0,
+                    })
+                    
+                    # Create allocation-like structure
+                    allocations.append({
+                        "payer_user_id": entry.payer_user_id,
+                        "payment_type": "points" if entry.points_amount else "cash",
+                        "cash_amount": entry.cash_amount,
+                        "points_used": entry.points_amount,
+                        "points_program": entry.points_program,
+                    })
+        
+        # Get config with overrides
+        config = get_settlement_config(trip_id)
+        if policy:
+            config["policy"] = policy
+        if reimburse_points is not None:
+            valuation = config.get("valuation", {})
+            valuation["reimburse_points_value"] = reimburse_points
+            config["valuation"] = valuation
+        
+        # Compute
+        result = settlement_engine.compute_settlement(
+            tickets=tickets,
+            allocations=allocations,
+            passengers=passengers,
+            members=members,
+            policy=config.get("policy", "pay_your_own"),
+            valuation_config=config.get("valuation", {}),
+            custom_obligations=config.get("custom_obligations"),
+        )
+        
+        return settlement_engine.settlement_result_to_dict(result)
+    except HTTPException:
+        raise
+    except Exception as e:
+        logger.error(f"Error previewing settlement: {str(e)}")
+        raise HTTPException(status_code=500, detail=str(e))
+
+
+# =============================================================================
+# BOOKING WORKFLOW ENDPOINTS (Tasks 09-13)
+# =============================================================================
+
+from .services import booking_workflow, ledger_service
+
+
+class CreateBookingSessionRequest(BaseModel):
+    """Request to create a booking session from a plan."""
+    plan_id: str = Field(..., min_length=1)
+    plan_allocation: Dict[str, Any] = Field(default_factory=dict)
+    transfer_plan: List[Dict[str, Any]] = Field(default_factory=list)
+
+
+class UpdateChecklistStepRequest(BaseModel):
+    """Request to update a checklist step."""
+    step_id: str = Field(..., min_length=1)
+    status: str = Field(..., description="pending, in_progress, completed, failed")
+    confirmation_value: Optional[str] = None
+    failure_reason: Optional[str] = None
+
+
+class ApprovalSubmitRequest(BaseModel):
+    """Request to submit an approval or veto."""
+    plan_id: str = Field(..., min_length=1)
+    approve: bool = True
+    veto_reason: Optional[str] = None
+    veto_constraints: Optional[Dict[str, Any]] = None
+
+
+@app.post("/trips/{trip_id}/booking-session")
+async def create_booking_session(
+    trip_id: str,
+    request: CreateBookingSessionRequest,
+    user_id: str = Depends(get_current_user_id),
+):
+    """
+    Create a booking session from an approved plan.
+    
+    Generates the step-by-step checklist for executing bookings.
+    """
+    try:
+        # Get members and passengers
+        members = trip_member_service.list_members(trip_id)
+        passengers = passenger_service.list_passengers(trip_id)
+        
+        # Get booking dependencies
+        dependencies = booking_workflow.get_booking_dependencies(
+            request.plan_allocation,
+            request.transfer_plan,
+        )
+        
+        # Generate session
+        session = booking_workflow.generate_booking_checklist(
+            plan_id=request.plan_id,
+            trip_id=trip_id,
+            plan_allocation=request.plan_allocation,
+            transfer_plan=request.transfer_plan,
+            members=members,
+            dependencies=dependencies,
+        )
+        
+        return booking_workflow.booking_session_to_dict(session)
+    except ValueError as e:
+        raise HTTPException(status_code=400, detail=str(e))
+    except Exception as e:
+        logger.error(f"Error creating booking session: {str(e)}")
+        raise HTTPException(status_code=500, detail=str(e))
+
+
+@app.get("/trips/{trip_id}/booking-session/{session_id}")
+async def get_booking_session(
+    trip_id: str,
+    session_id: str,
+    user_id: str = Depends(get_current_user_id),
+):
+    """Get a booking session by ID."""
+    session = booking_workflow.get_booking_session(session_id)
+    if not session or session.trip_id != trip_id:
+        raise HTTPException(status_code=404, detail="Session not found")
+    return booking_workflow.booking_session_to_dict(session)
+
+
+@app.post("/trips/{trip_id}/booking-session/{session_id}/step")
+async def update_checklist_step(
+    trip_id: str,
+    session_id: str,
+    request: UpdateChecklistStepRequest,
+    user_id: str = Depends(get_current_user_id),
+):
+    """
+    Update a checklist step status.
+    
+    Used to mark steps as completed, failed, etc.
+    """
+    try:
+        from .services.booking_workflow import ChecklistStepStatus
+        
+        step = booking_workflow.update_checklist_step(
+            session_id=session_id,
+            step_id=request.step_id,
+            status=ChecklistStepStatus(request.status),
+            confirmation_value=request.confirmation_value,
+            failure_reason=request.failure_reason,
+        )
+        
+        return {
+            "ok": True,
+            "step_id": step.step_id,
+            "status": step.status.value,
+            "confirmation_value": step.confirmation_value,
+        }
+    except ValueError as e:
+        raise HTTPException(status_code=400, detail=str(e))
+    except Exception as e:
+        logger.error(f"Error updating step: {str(e)}")
+        raise HTTPException(status_code=500, detail=str(e))
+
+
+@app.post("/trips/{trip_id}/risk-assessment")
+async def get_risk_assessment(
+    trip_id: str,
+    request: CreateBookingSessionRequest,
+    user_id: str = Depends(get_current_user_id),
+):
+    """
+    Calculate risk score for a booking plan.
+    
+    Returns risk level (low/medium/high), score, and explanations.
+    """
+    try:
+        members = trip_member_service.list_members(trip_id)
+        passengers = passenger_service.list_passengers(trip_id)
+        
+        assessment = booking_workflow.calculate_risk_score(
+            plan_allocation=request.plan_allocation,
+            transfer_plan=request.transfer_plan,
+            members=members,
+            passengers=passengers,
+        )
+        
+        return booking_workflow.risk_assessment_to_dict(assessment)
+    except Exception as e:
+        logger.error(f"Error calculating risk: {str(e)}")
+        raise HTTPException(status_code=500, detail=str(e))
+
+
+@app.post("/trips/{trip_id}/approvals")
+async def create_approvals(
+    trip_id: str,
+    request: CreateBookingSessionRequest,
+    user_id: str = Depends(get_current_user_id),
+):
+    """
+    Create approval requests for all members who need to approve.
+    """
+    try:
+        members = trip_member_service.list_members(trip_id)
+        passengers = passenger_service.list_passengers(trip_id)
+        
+        approvals = booking_workflow.create_approval_requests(
+            plan_id=request.plan_id,
+            members=members,
+            passengers=passengers,
+            plan_allocation=request.plan_allocation,
+        )
+        
+        return {
+            "plan_id": request.plan_id,
+            "approvals_created": len(approvals),
+            "approvals": [
+                {
+                    "approval_id": a.approval_id,
+                    "user_id": a.user_id,
+                    "user_name": a.user_name,
+                    "approving_for": a.approving_for,
+                    "status": a.status.value,
+                    "expires_at": a.expires_at,
+                }
+                for a in approvals
+            ],
+        }
+    except Exception as e:
+        logger.error(f"Error creating approvals: {str(e)}")
+        raise HTTPException(status_code=500, detail=str(e))
+
+
+@app.post("/trips/{trip_id}/approvals/submit")
+async def submit_approval(
+    trip_id: str,
+    request: ApprovalSubmitRequest,
+    user_id: str = Depends(get_current_user_id),
+):
+    """
+    Submit an approval or veto for a plan.
+    """
+    try:
+        approval = booking_workflow.submit_approval(
+            plan_id=request.plan_id,
+            user_id=user_id,
+            approve=request.approve,
+            veto_reason=request.veto_reason,
+            veto_constraints=request.veto_constraints,
+        )
+        
+        # Get updated summary
+        summary = booking_workflow.get_approval_summary(request.plan_id)
+        
+        return {
+            "ok": True,
+            "approval_id": approval.approval_id,
+            "status": approval.status.value,
+            "summary": booking_workflow.approval_summary_to_dict(summary),
+        }
+    except ValueError as e:
+        raise HTTPException(status_code=400, detail=str(e))
+    except Exception as e:
+        logger.error(f"Error submitting approval: {str(e)}")
+        raise HTTPException(status_code=500, detail=str(e))
+
+
+@app.get("/trips/{trip_id}/approvals/{plan_id}")
+async def get_approval_summary(
+    trip_id: str,
+    plan_id: str,
+    user_id: str = Depends(get_current_user_id),
+):
+    """Get approval summary for a plan."""
+    summary = booking_workflow.get_approval_summary(plan_id)
+    return booking_workflow.approval_summary_to_dict(summary)
+
+
+@app.get("/trips/{trip_id}/ledger")
+async def get_trip_ledger(
+    trip_id: str,
+    user_id: str = Depends(get_current_user_id),
+):
+    """
+    Get the complete ledger for a trip.
+    
+    Shows all financial movements grouped by traveler, household, and payer.
+    """
+    ledger = ledger_service.get_ledger(trip_id)
+    if not ledger:
+        # Generate empty ledger
+        return {
+            "trip_id": trip_id,
+            "totals": {
+                "total_trip_cost": 0,
+                "total_cash_out_of_pocket": 0,
+                "total_taxes_fees": 0,
+                "total_points_used": {},
+            },
+            "by_traveler": {},
+            "by_household": {},
+            "by_payer": {},
+            "by_program": {},
+            "settlements": [],
+        }
+    return ledger_service.ledger_to_dict(ledger)
+
+
+@app.post("/trips/{trip_id}/ledger/generate")
+async def generate_trip_ledger(
+    trip_id: str,
+    request: CreateBookingSessionRequest,
+    user_id: str = Depends(get_current_user_id),
+):
+    """
+    Generate ledger from booking allocations.
+    """
+    try:
+        members = trip_member_service.list_members(trip_id)
+        passengers = passenger_service.list_passengers(trip_id)
+        
+        ledger = ledger_service.generate_ledger_from_allocations(
+            trip_id=trip_id,
+            allocations=request.plan_allocation.get("seat_allocations", []),
+            members=members,
+            passengers=passengers,
+            transfer_plan=request.transfer_plan,
+        )
+        
+        return ledger_service.ledger_to_dict(ledger)
+    except Exception as e:
+        logger.error(f"Error generating ledger: {str(e)}")
         raise HTTPException(status_code=500, detail=str(e))
 
 

@@ -122,3 +122,28 @@ def _log_api_status():
 
 # Run status logging at import time
 _log_api_status()
+
+# =============================================================================
+# FEATURE FLAGS
+# =============================================================================
+
+# FEATURE_FLIGHTS_ONLY: When True, Tripy operates as a flight-only optimizer.
+# Hotel/lodging endpoints will return HTTP 410 Gone.
+# This is the product decision: Tripy is a points-first, seat-allocation,
+# ticketing optimizer for flights only. Lodging is out of scope.
+FEATURE_FLIGHTS_ONLY = os.environ.get("FEATURE_FLIGHTS_ONLY", "true").lower() == "true"
+
+
+def is_flights_only_mode() -> bool:
+    """
+    Check if Tripy is running in flight-only mode (default: True).
+    When True, hotel/lodging endpoints return HTTP 410 Gone.
+    """
+    return FEATURE_FLIGHTS_ONLY
+
+
+# Log feature flag status at startup
+if FEATURE_FLIGHTS_ONLY:
+    logger.info("[CONFIG] FLIGHT-ONLY MODE: Hotel/lodging features are disabled (FEATURE_FLIGHTS_ONLY=true)")
+else:
+    logger.info("[CONFIG] FULL MODE: Hotel/lodging features are enabled (FEATURE_FLIGHTS_ONLY=false)")

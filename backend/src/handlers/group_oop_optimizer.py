@@ -251,6 +251,7 @@ def minimize_group_out_of_pocket(
     allow_cross_member_points: bool = True,
     max_subsidy_per_member: Optional[float] = None,
     transfer_graph: Optional[Dict] = None,
+    max_group_budget: Optional[float] = None,
 ) -> GroupOOPSolution:
     """
     Solve ILP to minimize total group out-of-pocket cost.
@@ -258,7 +259,11 @@ def minimize_group_out_of_pocket(
     This extends the single-traveler optimizer with:
     - Cross-member point usage (Alice's points for Bob's booking)
     - Per-member budget constraints
+    - Combined group budget constraint (additive budgets)
     - Settlement calculations
+    
+    Key feature: Uses ALL members' points from the pool, not just one member's.
+    The optimizer can use any willing member's points for any booking to minimize OOP.
     
     Args:
         members: List of GroupMember objects
@@ -267,6 +272,7 @@ def minimize_group_out_of_pocket(
         allow_cross_member_points: Allow using one member's points for another
         max_subsidy_per_member: Max USD value one member can contribute for others
         transfer_graph: Transfer graph (defaults to EXTENDED_TRANSFER_GRAPH)
+        max_group_budget: Combined group budget limit (sum of all member budgets)
         
     Returns:
         GroupOOPSolution with allocations, transfers, and settlements
@@ -474,6 +480,30 @@ def minimize_group_out_of_pocket(
             m += subsidy_points * 0.015 <= max_subsidy_per_member, \
                 f"max_subsidy_{owner_id}"
     
+    # 6. Combined group budget constraint (all members' budgets are additive)
+    if max_group_budget is not None:
+        total_cash_paid = pl.lpSum(
+            pay_cash[item.item_id] * item.cash_cost * item.party_size
+            for item in booking_items
+        )
+        total_surcharges = pl.lpSum(
+            use_points[(item.item_id, opt.program_code, owner_id)] 
+                * opt.surcharge * item.party_size
+            for item in booking_items
+            for opt in item.points_options
+            for owner_id in pool.by_member.keys()
+            if (item.item_id, opt.program_code, owner_id) in use_points
+        )
+        m += total_cash_paid + total_surcharges <= max_group_budget, "group_budget"
+    
+    # Log optimization context for debugging
+    logger.info(f"Group ILP: {len(members)} members, {len(booking_items)} items, "
+               f"{len(use_points)} point variables, {len(transfer)} transfer variables")
+    for owner_id, owner_points in pool.by_member.items():
+        total_pts = sum(owner_points.values())
+        logger.info(f"  Pool[{owner_id}]: {total_pts:,} total points across "
+                   f"{len(owner_points)} programs: {list(owner_points.keys())}")
+    
     # =========================================================================
     # SOLVE
     # =========================================================================
@@ -516,28 +546,62 @@ def _can_provide_points(
     transfer_graph: Dict,
     member_lookup: Dict[str, GroupMember],
 ) -> bool:
-    """Check if an owner can provide points for a program (directly or via transfer)."""
+    """
+    Check if an owner can provide points for a program (directly or via transfer).
+    
+    This is critical for group optimization - it determines which members can
+    contribute points for each booking option.
+    
+    Args:
+        owner_id: Member ID
+        program: Target program code (e.g., "UA", "HH")
+        pool: Group points pool
+        transfer_graph: Transfer paths between programs
+        member_lookup: Member ID to GroupMember mapping
+        
+    Returns:
+        True if member can provide points for this program
+    """
     owner_points = pool.by_member.get(owner_id, {})
     member = member_lookup.get(owner_id)
     
-    # Check willing to share
+    # Check willing to share (default to True if not specified)
     if member and not member.willing_to_share_points:
+        logger.debug(f"  Member {owner_id} not willing to share points")
         return False
     
-    # Direct balance
-    if owner_points.get(program, 0) > 0 or owner_points.get(program.upper(), 0) > 0:
+    # Check if owner has any points at all
+    if not owner_points:
+        logger.debug(f"  Member {owner_id} has no points in pool")
+        return False
+    
+    # Direct balance - check both cases (upper and lower)
+    program_upper = program.upper()
+    program_lower = program.lower()
+    direct_balance = (
+        owner_points.get(program, 0) + 
+        owner_points.get(program_upper, 0) + 
+        owner_points.get(program_lower, 0)
+    )
+    
+    if direct_balance > 0:
+        logger.debug(f"  Member {owner_id} has {direct_balance} direct {program} points")
         return True
     
-    # Via transfer from bank
+    # Via transfer from bank programs
     for bank, balance in owner_points.items():
         if balance <= 0:
             continue
+        
+        # Check if this is a transferable bank program
         bank_lower = bank.lower()
-        if bank_lower in transfer_graph:
-            prog_upper = program.upper()
-            if prog_upper in transfer_graph[bank_lower]:
+        if bank_lower in BANK_PROGRAMS and bank_lower in transfer_graph:
+            # Check if this bank can transfer to the target program
+            if program_upper in transfer_graph[bank_lower]:
+                logger.debug(f"  Member {owner_id} can transfer {bank} -> {program}")
                 return True
     
+    logger.debug(f"  Member {owner_id} cannot provide {program} points")
     return False
 
 

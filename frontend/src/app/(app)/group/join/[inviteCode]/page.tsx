@@ -2,7 +2,7 @@
 
 import { useState, use, useEffect } from 'react';
 import { useRouter } from 'next/navigation';
-import { DollarSign, Zap, Users, Calendar, Plane, MessageSquare, Bed, Backpack, Armchair, Coffee, Wine, Crown, BedDouble, Star, User, Baby, Info, Copy, ChevronDown, Luggage } from 'lucide-react';
+import { DollarSign, Zap, Users, Calendar, Plane, Backpack, Armchair, Coffee, Wine, Crown, User, Baby, Info, Copy, ChevronDown, Luggage, X, Plus } from 'lucide-react';
 import { trips as tripsAPI, points as pointsAPI } from '@/lib/api';
 import AirportAutocomplete from '@/components/ui/AirportAutocomplete';
 
@@ -21,11 +21,24 @@ interface AdditionalTraveler {
     email: string;
 }
 
+interface CreditCardEntry {
+    id: string;
+    program: string;
+    points: number;
+}
+
 export default function GroupMemberJoin({ params }: { params: Promise<{ inviteCode: string }> }) {
     const { inviteCode } = use(params);
     const router = useRouter();
-    const [budget, setBudget] = useState(5000);
-    const [points, setPoints] = useState(100000);
+    const [budget, setBudget] = useState<number | ''>('');
+    // Pooling workflow: how Tripy may use this member's points (trust layer)
+    const [pointsUsage, setPointsUsage] = useState<'freely' | 'ask_before' | 'do_not_use'>('freely');
+
+    // Credit Card / Points State
+    const [creditCards, setCreditCards] = useState<CreditCardEntry[]>([]);
+    const [newCardProgram, setNewCardProgram] = useState('');
+    const [newCardPoints, setNewCardPoints] = useState<number | ''>('');
+    const [showAddCard, setShowAddCard] = useState(false);
 
     // Party Size State
     const [adults, setAdults] = useState(1);
@@ -61,12 +74,9 @@ export default function GroupMemberJoin({ params }: { params: Promise<{ inviteCo
     const [endAirport, setEndAirport] = useState('');
     const [isRoundTrip, setIsRoundTrip] = useState(true);
     const [flightClass, setFlightClass] = useState('economy');
-    const [hotelClass, setHotelClass] = useState('4');
-    const [roomOccupancy, setRoomOccupancy] = useState(1);
     const [bags, setBags] = useState(1);
     const [startDate, setStartDate] = useState('');
     const [endDate, setEndDate] = useState('');
-    const [meetupNote, setMeetupNote] = useState('');
 
     const [tripInfo, setTripInfo] = useState<TripInfo | null>(null);
     const [isLoading, setIsLoading] = useState(true);
@@ -76,14 +86,32 @@ export default function GroupMemberJoin({ params }: { params: Promise<{ inviteCo
         name: string;
         role: string;
         flights?: { start: string; end: string; roundTrip: boolean; flightClass: string };
-        accommodation?: { hotelClass: string; occupancy: number };
         dates?: { start: string; end: string };
     }>>([]);
 
     // Match State Tracking
     const [flightMatchId, setFlightMatchId] = useState('');
-    const [accommodationMatchId, setAccommodationMatchId] = useState('');
     const [datesMatchId, setDatesMatchId] = useState('');
+
+    // Calculate total points from all cards
+    const totalPoints = creditCards.reduce((sum, card) => sum + card.points, 0);
+
+    const addCreditCard = () => {
+        if (newCardProgram && newCardPoints) {
+            setCreditCards([...creditCards, {
+                id: Math.random().toString(36).substring(2, 9),
+                program: newCardProgram,
+                points: typeof newCardPoints === 'number' ? newCardPoints : 0
+            }]);
+            setNewCardProgram('');
+            setNewCardPoints('');
+            setShowAddCard(false);
+        }
+    };
+
+    const removeCreditCard = (id: string) => {
+        setCreditCards(creditCards.filter(card => card.id !== id));
+    };
 
     useEffect(() => {
         const fetchTripInfo = async () => {
@@ -102,38 +130,67 @@ export default function GroupMemberJoin({ params }: { params: Promise<{ inviteCo
                     : 'TBD';
 
                 const cities = (trip.destinations || []) as string[];
-                const admin = 'Trip Organizer';
+                
+                // Helper to extract name from member object
+                const extractMemberName = (m: { 
+                    name?: string; 
+                    fullName?: string;
+                    firstName?: string;
+                    lastName?: string;
+                    first_name?: string;
+                    last_name?: string;
+                }): string | null => {
+                    let memberName = m.name || m.fullName;
+                    if (!memberName && (m.firstName || m.first_name)) {
+                        const first = m.firstName || m.first_name || '';
+                        const last = m.lastName || m.last_name || '';
+                        memberName = `${first} ${last}`.trim();
+                    }
+                    return memberName || null;
+                };
+
+                let adminName = 'Trip Organizer';
+
+                // Use members data from the trip response (included by getByInvite endpoint)
+                const tripMembers = (trip as { members?: Array<{ userId?: string; name?: string; role?: string }> }).members || [];
+                
+                if (tripMembers.length > 0) {
+                    // Find the owner/organizer and get their name
+                    const owner = tripMembers.find((m) => 
+                        m.role === 'owner' || m.role === 'admin' || m.role === 'organizer'
+                    );
+                    if (owner) {
+                        const ownerName = extractMemberName(owner as Parameters<typeof extractMemberName>[0]);
+                        if (ownerName) {
+                            adminName = ownerName;
+                        }
+                    }
+
+                    // Transform members for the dropdown (for "Same as friend?" feature)
+                    const membersList = tripMembers.map((m, idx) => {
+                        const memberName = extractMemberName(m as Parameters<typeof extractMemberName>[0]);
+                        
+                        return {
+                            id: m.userId || `m${idx}`,
+                            name: memberName || `Traveler ${idx + 1}`,
+                            role: m.role || 'member',
+                            // TODO: Fetch actual preferences from member data
+                            flights: { start: 'JFK', end: 'CDG', roundTrip: true, flightClass: 'economy' },
+                            dates: { start: trip.startDate || '', end: trip.endDate || '' },
+                        };
+                    });
+                    
+                    setExistingMembers(membersList);
+                }
 
                 setTripInfo({
                     name: trip.title || 'Group Trip',
-                    admin: admin,
+                    admin: adminName,
                     cities: cities,
                     duration: duration,
                     startDate: startDateStr,
                     currentMembers: trip.memberCount || 1,
                 });
-
-                // Fetch existing members if trip has tripId
-                if (trip.tripId) {
-                    try {
-                        const membersResponse = await tripsAPI.listMembers(trip.tripId);
-                        // Transform members for the dropdown
-                        // Note: We'll need to fetch member preferences separately or from trip member data
-                        // For now, using mock structure that matches Figma
-                        setExistingMembers(membersResponse.members.map((m: { userId?: string; name?: string; role?: string }, idx: number) => ({
-                            id: m.userId || `m${idx}`,
-                            name: m.name || `Member ${idx + 1}`,
-                            role: m.role || 'Member',
-                            // TODO: Fetch actual preferences from member data
-                            flights: { start: 'JFK', end: 'CDG', roundTrip: true, flightClass: 'economy' },
-                            accommodation: { hotelClass: '4', occupancy: 1 },
-                            dates: { start: trip.startDate || '', end: trip.endDate || '' },
-                        })));
-                    } catch (err) {
-                        console.error('Error fetching members:', err);
-                        // Continue without member data
-                    }
-                }
             } catch (err) {
                 console.error('Error fetching trip info:', err);
                 setTripInfo(null);
@@ -145,6 +202,16 @@ export default function GroupMemberJoin({ params }: { params: Promise<{ inviteCo
         fetchTripInfo();
     }, [inviteCode]);
 
+    // Format name as "FirstName L." (first name + last initial)
+    const formatMemberName = (fullName: string): string => {
+        const parts = fullName.trim().split(/\s+/);
+        if (parts.length === 0) return fullName;
+        if (parts.length === 1) return parts[0];
+        const firstName = parts[0];
+        const lastInitial = parts[parts.length - 1].charAt(0).toUpperCase();
+        return `${firstName} ${lastInitial}.`;
+    };
+
     const handleCopyFlights = (memberId: string) => {
         const member = existingMembers.find(m => m.id === memberId);
         if (member && member.flights) {
@@ -153,15 +220,6 @@ export default function GroupMemberJoin({ params }: { params: Promise<{ inviteCo
             setIsRoundTrip(member.flights.roundTrip);
             setFlightClass(member.flights.flightClass);
             setFlightMatchId(memberId);
-        }
-    };
-
-    const handleCopyAccommodation = (memberId: string) => {
-        const member = existingMembers.find(m => m.id === memberId);
-        if (member && member.accommodation) {
-            setHotelClass(member.accommodation.hotelClass);
-            setRoomOccupancy(member.accommodation.occupancy);
-            setAccommodationMatchId(memberId);
         }
     };
 
@@ -178,26 +236,31 @@ export default function GroupMemberJoin({ params }: { params: Promise<{ inviteCo
         try {
             setIsJoining(true);
 
-            // 1. Join the trip
-            const joinResult = await tripsAPI.join(inviteCode);
+            // 1. Join the trip (with pooling preferences: willingness to use points)
+            const joinResult = await tripsAPI.join(inviteCode, {
+                points_usage: pointsUsage,
+                willing_to_share_points: pointsUsage !== 'do_not_use',
+            });
             const tripId = joinResult.tripId;
 
             // 2. Save member preferences (if the backend supports it)
             // For now, we'll store preferences in trip member data via points
             // TODO: When backend supports member preferences, save:
             // - startAirport, endAirport, isRoundTrip, flightClass
-            // - hotelClass, roomOccupancy, bags
+            // - bags
             // - startDate, endDate
             // - budget, meetupNote
             // - additionalTravelers
 
-            // 3. Upsert points if user has any
-            if (points > 0) {
-                await pointsAPI.upsert({
-                    trip_id: tripId,
-                    program: 'User Points',
-                    balance: points,
-                });
+            // 3. Upsert points if user has any credit cards
+            if (creditCards.length > 0) {
+                for (const card of creditCards) {
+                    await pointsAPI.upsert({
+                        trip_id: tripId,
+                        program: card.program,
+                        balance: card.points,
+                    });
+                }
             }
 
             // Navigate to dashboard with tripId
@@ -305,6 +368,11 @@ export default function GroupMemberJoin({ params }: { params: Promise<{ inviteCo
 
                     {/* Right - Input Form */}
                     <div className="lg:col-span-2 space-y-6">
+                        {/* A) Travel preferences */}
+                        <div className="flex items-center gap-2 text-sm font-semibold text-blue-700 uppercase tracking-wider">
+                            <span className="bg-blue-100 px-2 py-0.5 rounded">A</span>
+                            <span>Travel preferences</span>
+                        </div>
                         {/* Party Size */}
                         <div className="bg-white border border-slate-200 rounded-2xl p-8 shadow-sm">
                             <div className="flex items-center gap-3 mb-6">
@@ -448,7 +516,7 @@ export default function GroupMemberJoin({ params }: { params: Promise<{ inviteCo
                                         >
                                             <option value="">Select member...</option>
                                             {existingMembers.map(m => (
-                                                <option key={m.id} value={m.id}>{m.name} ({m.role})</option>
+                                                <option key={m.id} value={m.id}>{formatMemberName(m.name)}</option>
                                             ))}
                                         </select>
                                         <ChevronDown className="absolute right-3 top-1/2 -translate-y-1/2 w-4 h-4 text-slate-400 pointer-events-none" />
@@ -578,121 +646,6 @@ export default function GroupMemberJoin({ params }: { params: Promise<{ inviteCo
                             </div>
                         </div>
 
-                        {/* Accommodation */}
-                        <div className="bg-white border border-slate-200 rounded-2xl p-8 shadow-sm">
-                            <div className="flex items-center gap-3 mb-6">
-                                <div className="w-10 h-10 bg-blue-100 rounded-xl flex items-center justify-center">
-                                    <Bed className="w-5 h-5 text-blue-600" />
-                                </div>
-                                <h2 className="text-2xl text-slate-900 font-semibold">Accommodation</h2>
-                            </div>
-
-                            {existingMembers.length > 0 && (
-                                <div className="mb-8 flex flex-col sm:flex-row items-center gap-3 p-3 bg-blue-50/50 border border-blue-100 rounded-xl">
-                                    <div className="hidden sm:flex flex-shrink-0 w-10 h-10 bg-blue-100 rounded-lg items-center justify-center">
-                                        <Copy className="w-5 h-5 text-blue-600" />
-                                    </div>
-                                    <div className="flex-1 min-w-0 text-center sm:text-left">
-                                        <div className="text-xs font-semibold text-blue-700 uppercase tracking-wider mb-0.5">Same as friend?</div>
-                                        <div className="text-xs text-slate-500 truncate">Copy hotel preferences from another traveler</div>
-                                    </div>
-                                    <div className="relative w-full sm:w-[220px]">
-                                        <select
-                                            className="w-full appearance-none pl-3 pr-8 py-2 bg-white border border-blue-200 rounded-lg text-sm text-slate-700 focus:outline-none focus:ring-2 focus:ring-blue-600 focus:border-transparent cursor-pointer hover:border-blue-300 transition-colors"
-                                            onChange={(e) => handleCopyAccommodation(e.target.value)}
-                                            value={accommodationMatchId}
-                                        >
-                                            <option value="">Select member...</option>
-                                            {existingMembers.map(m => (
-                                                <option key={m.id} value={m.id}>{m.name} ({m.role})</option>
-                                            ))}
-                                        </select>
-                                        <ChevronDown className="absolute right-3 top-1/2 -translate-y-1/2 w-4 h-4 text-slate-400 pointer-events-none" />
-                                    </div>
-                                </div>
-                            )}
-
-                            <div className="space-y-8">
-                                {/* Hotel Class */}
-                                <div>
-                                    <label className="block text-sm text-slate-600 mb-4 font-medium uppercase tracking-wider">Comfort Level Preference</label>
-                                    <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
-                                        {[
-                                            { value: '3', label: 'Standard', desc: 'Clean, comfortable bases', stars: 3 },
-                                            { value: '4', label: 'Upscale', desc: 'Amenities & great locations', stars: 4 },
-                                            { value: '5', label: 'Luxury', desc: 'Top-tier service & design', stars: 5 },
-                                        ].map((option) => {
-                                            const isSelected = hotelClass === option.value;
-                                            return (
-                                                <button
-                                                    key={option.value}
-                                                    onClick={() => {
-                                                        setHotelClass(option.value);
-                                                        setAccommodationMatchId('');
-                                                    }}
-                                                    className={`relative p-4 rounded-2xl border-2 transition-all text-left flex items-start gap-4 group ${
-                                                        isSelected
-                                                            ? 'border-blue-600 bg-blue-50/50 shadow-sm'
-                                                            : 'border-slate-100 hover:border-blue-200 bg-white hover:bg-slate-50'
-                                                    }`}
-                                                >
-                                                    <div className={`w-10 h-10 rounded-xl flex-shrink-0 flex items-center justify-center transition-colors ${
-                                                        isSelected ? 'bg-blue-600 text-white' : 'bg-slate-100 text-slate-500 group-hover:bg-blue-100 group-hover:text-blue-600'
-                                                    }`}>
-                                                        {option.value === '5' ? <Crown className="w-5 h-5" /> : <BedDouble className="w-5 h-5" />}
-                                                    </div>
-                                                    <div className="flex-1">
-                                                        <div className="flex items-center gap-1 mb-1">
-                                                            {Array.from({ length: option.stars }).map((_, i) => (
-                                                                <Star key={i} className={`w-3 h-3 fill-current ${isSelected ? 'text-yellow-500' : 'text-yellow-400'}`} />
-                                                            ))}
-                                                        </div>
-                                                        <div className={`font-semibold mb-0.5 text-sm ${isSelected ? 'text-blue-900' : 'text-slate-900'}`}>
-                                                            {option.label}
-                                                        </div>
-                                                        <div className="text-xs text-slate-500 leading-relaxed">{option.desc}</div>
-                                                    </div>
-                                                </button>
-                                            );
-                                        })}
-                                    </div>
-                                </div>
-
-                                <div className="pt-6 border-t border-slate-100">
-                                    <label className="block text-sm font-medium text-slate-700 mb-3">Room Sharing Preferences</label>
-                                    <div className="flex items-center justify-between p-4 bg-slate-50 rounded-xl border border-slate-200">
-                                        <div>
-                                            <div className="text-sm font-medium text-slate-900">Travelers per Room</div>
-                                            <div className="text-xs text-slate-500">How many people are you sharing with?</div>
-                                        </div>
-                                        <div className="flex items-center gap-4">
-                                            <button
-                                                onClick={() => {
-                                                    setRoomOccupancy(Math.max(1, roomOccupancy - 1));
-                                                    setAccommodationMatchId('');
-                                                }}
-                                                className="w-8 h-8 rounded-lg bg-white border border-slate-200 flex items-center justify-center hover:bg-slate-50 text-slate-600 transition-colors shadow-sm"
-                                            >
-                                                -
-                                            </button>
-                                            <div className="w-8 text-center font-semibold text-lg text-slate-900">
-                                                {roomOccupancy}
-                                            </div>
-                                            <button
-                                                onClick={() => {
-                                                    setRoomOccupancy(Math.min(4, roomOccupancy + 1));
-                                                    setAccommodationMatchId('');
-                                                }}
-                                                className="w-8 h-8 rounded-lg bg-white border border-slate-200 flex items-center justify-center hover:bg-slate-50 text-slate-600 transition-colors shadow-sm"
-                                            >
-                                                +
-                                            </button>
-                                        </div>
-                                    </div>
-                                </div>
-                            </div>
-                        </div>
-
                         {/* Dates */}
                         <div className="bg-white border border-slate-200 rounded-2xl p-8 shadow-sm">
                             <div className="flex items-center gap-3 mb-6">
@@ -719,7 +672,7 @@ export default function GroupMemberJoin({ params }: { params: Promise<{ inviteCo
                                         >
                                             <option value="">Select member...</option>
                                             {existingMembers.map(m => (
-                                                <option key={m.id} value={m.id}>{m.name} ({m.role})</option>
+                                                <option key={m.id} value={m.id}>{formatMemberName(m.name)}</option>
                                             ))}
                                         </select>
                                         <ChevronDown className="absolute right-3 top-1/2 -translate-y-1/2 w-4 h-4 text-slate-400 pointer-events-none" />
@@ -760,65 +713,166 @@ export default function GroupMemberJoin({ params }: { params: Promise<{ inviteCo
                             </p>
                         </div>
 
-                        {/* Meetup Note */}
-                        <div className="bg-white border border-slate-200 rounded-2xl p-8 shadow-sm">
-                            <div className="flex items-center gap-3 mb-6">
-                                <div className="w-10 h-10 bg-blue-100 rounded-xl flex items-center justify-center">
-                                    <MessageSquare className="w-5 h-5 text-blue-600" />
-                                </div>
-                                <h2 className="text-2xl text-slate-900 font-semibold">Meetup Preferences</h2>
-                            </div>
-
-                            <div className="space-y-4">
-                                <p className="text-slate-600 text-sm">
-                                    Let the group know when you&apos;ll be joining them and any specific meetup plans.
-                                </p>
-                                <textarea
-                                    value={meetupNote}
-                                    onChange={(e) => setMeetupNote(e.target.value)}
-                                    placeholder="e.g., I'll be arriving a few days early in Paris and would love to meet up for dinner on the 15th..."
-                                    className="w-full px-4 py-3 bg-white border border-slate-200 rounded-xl focus:outline-none focus:ring-2 focus:ring-blue-600 focus:border-transparent h-32 resize-none"
-                                />
-                            </div>
+                        {/* B) Points & accounts */}
+                        <div className="flex items-center gap-2 text-sm font-semibold text-blue-700 uppercase tracking-wider">
+                            <span className="bg-blue-100 px-2 py-0.5 rounded">B</span>
+                            <span>Points & accounts</span>
                         </div>
-
-                        {/* Budget & Points */}
                         <div className="bg-white border border-slate-200 rounded-2xl p-8 shadow-sm">
                             <div className="flex items-center gap-3 mb-6">
                                 <div className="w-10 h-10 bg-blue-100 rounded-xl flex items-center justify-center">
                                     <DollarSign className="w-5 h-5 text-blue-600" />
                                 </div>
-                                <h2 className="text-2xl text-slate-900 font-semibold">Budget & Points</h2>
+                                <div>
+                                    <h2 className="text-2xl text-slate-900 font-semibold">Budget & Points</h2>
+                                    <p className="text-sm text-slate-500">Connect your points so the group can find the best plan</p>
+                                </div>
                             </div>
 
-                            <div className="grid md:grid-cols-2 gap-8">
-                                <div className="space-y-4">
-                                    <label className="block text-sm font-medium text-slate-700">Budget Limit</label>
-                                    <div className="flex items-baseline gap-2">
-                                        <span className="text-3xl text-slate-900 font-bold">${budget.toLocaleString()}</span>
+                            <div className="space-y-6">
+                                <div>
+                                    <label className="block text-sm font-medium text-slate-700 mb-3">Willingness to use points</label>
+                                    <p className="text-xs text-slate-500 mb-3">You keep full control. Choose how Tripy may use your points for group bookings.</p>
+                                    <div className="space-y-2">
+                                        {[
+                                            { value: 'freely' as const, label: 'Use my points freely for group bookings', desc: 'Optimizer can allocate my points without asking' },
+                                            { value: 'ask_before' as const, label: 'Ask me before using my points', desc: 'Show me the plan first; I approve before anything is booked' },
+                                            { value: 'do_not_use' as const, label: 'Do not use my points (view only)', desc: 'I\'m just viewing; don\'t use my balances for this trip' },
+                                        ].map((opt) => (
+                                            <button
+                                                key={opt.value}
+                                                type="button"
+                                                onClick={() => setPointsUsage(opt.value)}
+                                                className={`w-full text-left p-4 rounded-xl border-2 transition-all ${
+                                                    pointsUsage === opt.value
+                                                        ? 'border-blue-600 bg-blue-50/50'
+                                                        : 'border-slate-200 hover:border-slate-300 bg-white'
+                                                }`}
+                                            >
+                                                <div className="font-medium text-slate-900">{opt.label}</div>
+                                                <div className="text-xs text-slate-500 mt-0.5">{opt.desc}</div>
+                                            </button>
+                                        ))}
                                     </div>
-                                    <input
-                                        type="range"
-                                        min="1000"
-                                        max="20000"
-                                        step="100"
-                                        value={budget}
-                                        onChange={(e) => setBudget(Number(e.target.value))}
-                                        className="w-full h-2 bg-slate-200 rounded-full appearance-none cursor-pointer accent-blue-600"
-                                    />
                                 </div>
 
-                                <div className="space-y-4">
-                                    <label className="block text-sm font-medium text-slate-700">Available Points</label>
-                                    <div className="relative">
-                                        <Zap className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-blue-600" />
-                                        <input
-                                            type="number"
-                                            value={points}
-                                            onChange={(e) => setPoints(Number(e.target.value))}
-                                            className="w-full pl-10 pr-4 py-3 bg-white border border-slate-200 rounded-xl focus:outline-none focus:ring-2 focus:ring-blue-600 focus:border-transparent"
-                                        />
+                                <div className="pt-4 border-t border-slate-200">
+                                    <div className="space-y-4">
+                                        <label className="block text-sm font-medium text-slate-700">Budget Limit</label>
+                                        <div className="relative">
+                                            <span className="absolute left-4 top-1/2 -translate-y-1/2 text-blue-600 font-bold text-lg">$</span>
+                                            <input
+                                                type="number"
+                                                value={budget}
+                                                onChange={(e) => {
+                                                    const val = e.target.value ? Number(e.target.value) : '';
+                                                    setBudget(val);
+                                                }}
+                                                placeholder="No limit"
+                                                className="w-full pl-10 pr-4 py-3 bg-blue-50 border border-blue-200 rounded-xl focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-blue-500 font-semibold text-slate-900 text-lg"
+                                            />
+                                        </div>
                                     </div>
+                                </div>
+
+                                <div className="pt-4 border-t border-slate-200">
+                                    <div className="flex items-center justify-between mb-4">
+                                        <label className="block text-sm font-medium text-slate-700">Available Points</label>
+                                        <button
+                                            type="button"
+                                            onClick={() => setShowAddCard(true)}
+                                            className="flex items-center gap-1.5 text-sm text-blue-600 hover:text-blue-700 font-medium"
+                                        >
+                                            <Plus className="w-4 h-4" />
+                                            Add Points
+                                        </button>
+                                    </div>
+
+                                    {creditCards.length > 0 ? (
+                                        <div className="space-y-3">
+                                            {creditCards.map(card => (
+                                                <div key={card.id} className="flex items-center justify-between p-4 bg-slate-50 rounded-xl border border-slate-200">
+                                                    <div className="flex items-center gap-3">
+                                                        <div className="w-10 h-10 bg-blue-100 rounded-xl flex items-center justify-center">
+                                                            <Zap className="w-5 h-5 text-blue-600" />
+                                                        </div>
+                                                        <div>
+                                                            <div className="font-medium text-slate-900">{card.program}</div>
+                                                            <div className="text-sm text-slate-500">{card.points.toLocaleString()} points</div>
+                                                        </div>
+                                                    </div>
+                                                    <button
+                                                        type="button"
+                                                        onClick={() => removeCreditCard(card.id)}
+                                                        className="p-2 text-slate-400 hover:text-red-500 hover:bg-red-50 rounded-lg transition-colors"
+                                                    >
+                                                        <X className="w-4 h-4" />
+                                                    </button>
+                                                </div>
+                                            ))}
+
+                                            <div className="mt-4 pt-4 border-t border-slate-100 flex items-center justify-between">
+                                                <span className="text-sm text-slate-600">Total Points</span>
+                                                <span className="text-xl font-bold text-blue-600">{totalPoints.toLocaleString()}</span>
+                                            </div>
+                                        </div>
+                                    ) : (
+                                        <div className="text-center py-8 bg-slate-50 rounded-xl border border-dashed border-slate-200">
+                                            <Zap className="w-8 h-8 text-slate-300 mx-auto mb-2" />
+                                            <p className="text-sm text-slate-500">No points added yet</p>
+                                            <p className="text-xs text-slate-400 mt-1">Add your credit card or loyalty points</p>
+                                        </div>
+                                    )}
+
+                                    {/* Add Card Modal */}
+                                    {showAddCard && (
+                                        <div className="fixed inset-0 bg-black/60 backdrop-blur-sm flex items-center justify-center z-50 p-4" onClick={() => setShowAddCard(false)}>
+                                            <div className="bg-white rounded-2xl shadow-2xl max-w-md w-full p-6 animate-in fade-in zoom-in duration-200" onClick={(e) => e.stopPropagation()}>
+                                                <div className="flex items-center justify-between mb-6">
+                                                    <h3 className="text-lg font-semibold text-slate-900">Add Points</h3>
+                                                    <button
+                                                        type="button"
+                                                        onClick={() => setShowAddCard(false)}
+                                                        className="p-2 text-slate-400 hover:text-slate-600 rounded-lg"
+                                                    >
+                                                        <X className="w-5 h-5" />
+                                                    </button>
+                                                </div>
+
+                                                <div className="space-y-4">
+                                                    <div>
+                                                        <label className="block text-xs text-slate-500 mb-2 uppercase font-bold tracking-wider">Program Name</label>
+                                                        <input
+                                                            type="text"
+                                                            value={newCardProgram}
+                                                            onChange={(e) => setNewCardProgram(e.target.value)}
+                                                            placeholder="e.g., Chase Sapphire, Delta SkyMiles"
+                                                            className="w-full px-4 py-3 bg-white border border-slate-200 rounded-xl focus:outline-none focus:ring-2 focus:ring-blue-600 focus:border-transparent"
+                                                        />
+                                                    </div>
+                                                    <div>
+                                                        <label className="block text-xs text-slate-500 mb-2 uppercase font-bold tracking-wider">Points Balance</label>
+                                                        <input
+                                                            type="number"
+                                                            value={newCardPoints}
+                                                            onChange={(e) => setNewCardPoints(e.target.value ? Number(e.target.value) : '')}
+                                                            placeholder="e.g., 50000"
+                                                            className="w-full px-4 py-3 bg-white border border-slate-200 rounded-xl focus:outline-none focus:ring-2 focus:ring-blue-600 focus:border-transparent"
+                                                        />
+                                                    </div>
+                                                </div>
+
+                                                <button
+                                                    type="button"
+                                                    onClick={addCreditCard}
+                                                    disabled={!newCardProgram || !newCardPoints}
+                                                    className="w-full mt-6 px-6 py-3 bg-blue-600 text-white rounded-xl hover:bg-blue-700 transition-colors disabled:opacity-50 disabled:cursor-not-allowed font-semibold"
+                                                >
+                                                    Add Points
+                                                </button>
+                                            </div>
+                                        </div>
+                                    )}
                                 </div>
                             </div>
                         </div>

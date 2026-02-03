@@ -21,8 +21,6 @@ interface UseOOPOptimizationOptions {
   memberPoints?: Record<string, Record<string, number>>;
   memberBudgets?: Record<string, number>;
   cabinClasses?: string[];
-  hotelStars?: number[];
-  includeHotels?: boolean;
   autoFetch?: boolean;
 }
 
@@ -93,8 +91,6 @@ export function useOOPOptimization(options: UseOOPOptimizationOptions): UseOOPOp
           points: currentOptions.points,
           budget: currentOptions.budget,
           cabinClasses: currentOptions.cabinClasses,
-          hotelStars: currentOptions.hotelStars,
-          includeHotels: currentOptions.includeHotels,
         });
       } else {
         response = await optimization.group({
@@ -104,8 +100,6 @@ export function useOOPOptimization(options: UseOOPOptimizationOptions): UseOOPOp
           memberPoints: currentOptions.memberPoints || {},
           memberBudgets: currentOptions.memberBudgets || {},
           cabinClasses: currentOptions.cabinClasses,
-          hotelStars: currentOptions.hotelStars,
-          includeHotels: currentOptions.includeHotels,
         });
       }
 

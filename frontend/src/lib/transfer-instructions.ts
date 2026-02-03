@@ -4,7 +4,7 @@
  */
 
 import type { LucideIcon } from 'lucide-react';
-import { Plane, Building2 } from 'lucide-react';
+import { Plane } from 'lucide-react';
 
 // Bank source (backend) -> display name
 export const SOURCE_TO_DISPLAY: Record<string, string> = {
@@ -46,26 +46,6 @@ export const AIRLINE_TO_DISPLAY: Record<string, string> = {
   BR: 'EVA Air',
 };
 
-// Hotel program code (backend) -> partner display name
-export const HOTEL_TO_DISPLAY: Record<string, string> = {
-  HYATT: 'World of Hyatt',
-  HH: 'Hilton Honors',
-  HILTON: 'Hilton Honors',
-  MAR: 'Marriott Bonvoy',
-  MARRIOTT: 'Marriott Bonvoy',
-  BONVOY: 'Marriott Bonvoy',
-  IHG: 'IHG One Rewards',
-  ACC: 'Accor Live Limitless',
-  ACCOR: 'Accor Live Limitless',
-  WYNDHAM: 'Wyndham Rewards',
-  CHOICE: 'Choice Privileges',
-};
-
-// Set of hotel program codes for detecting hotel transfers
-export const HOTEL_PROGRAMS = new Set([
-  'HYATT', 'HH', 'HILTON', 'MAR', 'MARRIOTT', 'BONVOY', 
-  'IHG', 'ACC', 'ACCOR', 'WYNDHAM', 'CHOICE'
-]);
 
 export interface TransferTip {
   from_program?: string;
@@ -150,23 +130,16 @@ export interface TransferStepResult {
   partner: string;
   amount: number;
   amountStr: string;
-  category: string; // "Flights" or "Hotels"
+  category: string; // "Flights"
   icon: LucideIcon;
   steps: string[];
   warning?: string;
   status: 'pending' | 'completed';
-  // Type indicator
-  isHotel?: boolean; // true for hotel transfers, false/undefined for flights
-  // Route segment details for FLIGHTS (from totals.transfers - direct from backend)
+  // Route segment details for flights (from totals.transfers - direct from backend)
   flightSegment?: string; // e.g., "SFO→HKG" or "SFO→HKG + HKG→NRT"
   departures?: string[]; // e.g., ["SFO", "HKG"]
   arrivals?: string[]; // e.g., ["HKG", "NRT"]
   routeSegments?: string[]; // e.g., ["SFO→HKG", "HKG→NRT"]
-  // Hotel details for HOTELS (from totals.transfers - direct from backend)
-  hotelNames?: string[]; // e.g., ["Park Hyatt Tokyo", "Ritz-Carlton Kyoto"]
-  hotelCities?: string[]; // e.g., ["Tokyo", "Kyoto"]
-  hotelDisplay?: string; // e.g., "Park Hyatt Tokyo + Ritz-Carlton Kyoto"
-  locationDisplay?: string; // e.g., "Tokyo, Kyoto"
   // Additional transfer details
   surcharge?: number; // Taxes/fees in dollars
   isCodeshare?: boolean;
@@ -380,22 +353,10 @@ export function buildTransferStepsFromItinerary(
           departures?: string[];
           arrivals?: string[];
           operating_carriers?: string[];
-          // Hotel-specific fields
-          is_hotel?: boolean;
-          hotel_names?: string[];
-          hotel_cities?: string[];
-          hotel_display?: string;
-          location_display?: string;
-          partner_display?: string;
         };
         
-        // Detect if this is a hotel transfer (from backend flag or program code)
-        const isHotel = transferData.is_hotel || HOTEL_PROGRAMS.has(partnerCode.toUpperCase());
-        
-        // Get partner display name - use hotel or airline mapping
-        const partner = isHotel 
-          ? (transferData.partner_display || HOTEL_TO_DISPLAY[partnerCode.toUpperCase()] || partnerDisplay(partnerCode))
-          : partnerDisplay(partnerCode);
+        // Get partner display name for airline
+        const partner = partnerDisplay(partnerCode);
         
         const note = findNote(transfer_tips, program, partner);
         
@@ -421,7 +382,7 @@ export function buildTransferStepsFromItinerary(
         if (matchingTip?.cents_per_point) {
           warningParts.push(`Value: ${matchingTip.cents_per_point.toFixed(2)} cpp`);
         }
-        if (!isHotel && matchingTip?.is_codeshare && matchingTip?.operating_carrier_name) {
+        if (matchingTip?.is_codeshare && matchingTip?.operating_carrier_name) {
           warningParts.push(`Flying on ${matchingTip.operating_carrier_name} metal`);
         }
         if (timingTip) {
@@ -430,9 +391,7 @@ export function buildTransferStepsFromItinerary(
         if (note && !matchingTip?.transfer_steps) {
           warningParts.push(note);
         }
-        const defaultWarning = isHotel 
-          ? 'Double check availability on the hotel website before transferring.'
-          : 'Double check availability on the airline website before transferring.';
+        const defaultWarning = 'Double check availability on the airline website before transferring.';
         const warning = warningParts.join('. ').trim() || defaultWarning;
 
         // Get bank code for portal URL lookup
@@ -440,34 +399,22 @@ export function buildTransferStepsFromItinerary(
         const portalUrl = matchingTip?.transfer_portal_url || BANK_PORTAL_URLS[bankCode] || '';
         const transferTime = matchingTip?.transfer_time || BANK_TRANSFER_TIMES[bankCode] || '';
 
-        // For FLIGHTS: extract route segment info
+        // Extract route segment info
         const routeDisplay = transferData.route_display;
         const routeSegments = transferData.route_segments;
         const departures = transferData.departures;
         const arrivals = transferData.arrivals;
         
         // Build flight segment string: prefer direct data, fall back to tip matching
-        let flightSegment: string | undefined;
-        if (!isHotel) {
-          flightSegment = routeDisplay 
-            || (routeSegments?.length ? routeSegments.join(' + ') : undefined)
-            || matchingTip?.route_segment 
-            || matchingTip?.best_for;
-          
-          // If we have departures and arrivals but no display, build it
-          if (!flightSegment && departures?.length && arrivals?.length) {
-            flightSegment = `${departures.join('/')}→${arrivals.join('/')}`;
-          }
-        }
-        
-        // For HOTELS: extract hotel names and cities
-        const hotelNames = transferData.hotel_names;
-        const hotelCities = transferData.hotel_cities;
-        const hotelDisplay = transferData.hotel_display 
-          || (hotelNames?.length ? hotelNames.join(' + ') : undefined)
+        let flightSegment: string | undefined = routeDisplay 
+          || (routeSegments?.length ? routeSegments.join(' + ') : undefined)
+          || matchingTip?.route_segment 
           || matchingTip?.best_for;
-        const locationDisplay = transferData.location_display 
-          || (hotelCities?.length ? hotelCities.join(', ') : undefined);
+        
+        // If we have departures and arrivals but no display, build it
+        if (!flightSegment && departures?.length && arrivals?.length) {
+          flightSegment = `${departures.join('/')}→${arrivals.join('/')}`;
+        }
 
         result.push({
           id: `t-${idx}`,
@@ -477,27 +424,20 @@ export function buildTransferStepsFromItinerary(
           partner,
           amount: sp,
           amountStr: sp.toLocaleString(),
-          category: isHotel ? 'Hotels' : 'Flights',
-          icon: isHotel ? Building2 : Plane,
+          category: 'Flights',
+          icon: Plane,
           steps,
           warning,
           status: 'pending',
-          // Type indicator
-          isHotel,
-          // Route segment info for FLIGHTS - prefer direct backend data over tip matching
-          flightSegment: isHotel ? undefined : flightSegment,
-          departures: isHotel ? undefined : departures,
-          arrivals: isHotel ? undefined : arrivals,
-          routeSegments: isHotel ? undefined : routeSegments,
-          // Hotel info for HOTELS
-          hotelNames: isHotel ? hotelNames : undefined,
-          hotelCities: isHotel ? hotelCities : undefined,
-          hotelDisplay: isHotel ? hotelDisplay : undefined,
-          locationDisplay: isHotel ? locationDisplay : undefined,
+          // Route segment info - prefer direct backend data over tip matching
+          flightSegment,
+          departures,
+          arrivals,
+          routeSegments,
           // Additional details from transfer tips
           surcharge: matchingTip?.surcharge,
-          isCodeshare: isHotel ? undefined : matchingTip?.is_codeshare,
-          operatingCarrier: isHotel ? undefined : matchingTip?.operating_carrier_name,
+          isCodeshare: matchingTip?.is_codeshare,
+          operatingCarrier: matchingTip?.operating_carrier_name,
           segmentDescription: segmentDescription || matchingTip?.segment_description,
           // Enhanced transfer details
           transferPortalUrl: portalUrl,

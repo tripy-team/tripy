@@ -300,7 +300,7 @@ export function DestinationAutocomplete({
   }, [debounced]);
 
   return (
-    <div ref={wrapperRef} className={`relative w-full ${className}`} style={{ position: 'relative', zIndex: 1 }}>
+    <div ref={wrapperRef} className={`relative w-full ${className}`} style={{ position: 'relative', zIndex: open ? 9999 : 1 }}>
       <div className="relative">
         <input
           ref={inputRef}

@@ -1,6 +1,6 @@
 'use client';
 
-import { Plane, Calendar, MapPin, CreditCard, Users, User, Trash2, X, Check } from 'lucide-react';
+import { Plane, Calendar, MapPin, CreditCard, Users, User, Trash2, X, Check, Crown, UserPlus } from 'lucide-react';
 import Link from 'next/link';
 import { useRouter } from 'next/navigation';
 import { useEffect, useState } from 'react';
@@ -16,6 +16,7 @@ interface Trip {
   travelers: number;
   location: string;
   description: string;
+  role: 'owner' | 'member';
 }
 
 interface ApiTrip {
@@ -31,6 +32,8 @@ interface ApiTrip {
   firstDestination?: string;
 }
 
+type TripFilter = 'all' | 'created' | 'joined';
+
 export default function MyTripsPage() {
   const router = useRouter();
   const [trips, setTrips] = useState<Trip[]>([]);
@@ -39,6 +42,7 @@ export default function MyTripsPage() {
   const [selectedTripIds, setSelectedTripIds] = useState<Set<string>>(new Set());
   const [isDeleting, setIsDeleting] = useState(false);
   const [showDeleteModal, setShowDeleteModal] = useState(false);
+  const [tripFilter, setTripFilter] = useState<TripFilter>('all');
 
   useEffect(() => {
     const fetchTrips = async () => {
@@ -87,6 +91,7 @@ export default function MyTripsPage() {
             travelers: memberCount,
             location: location,
             description: description,
+            role: (trip.role === 'owner' ? 'owner' : 'member') as 'owner' | 'member',
           };
         });
         
@@ -153,8 +158,19 @@ export default function MyTripsPage() {
     setShowDeleteModal(false);
   };
 
-  const upcomingTrips = trips.filter(t => t.status === 'upcoming');
-  const pastTrips = trips.filter(t => t.status === 'completed');
+  // Filter trips based on selected filter
+  const filteredTrips = trips.filter(t => {
+    if (tripFilter === 'created') return t.role === 'owner';
+    if (tripFilter === 'joined') return t.role === 'member';
+    return true; // 'all'
+  });
+
+  const upcomingTrips = filteredTrips.filter(t => t.status === 'upcoming');
+  const pastTrips = filteredTrips.filter(t => t.status === 'completed');
+  
+  // Count trips by role for filter badges
+  const createdCount = trips.filter(t => t.role === 'owner').length;
+  const joinedCount = trips.filter(t => t.role === 'member').length;
 
   const TripCard = ({ trip }: { trip: Trip }) => {
     const isSelected = selectedTripIds.has(trip.id);
@@ -200,13 +216,34 @@ export default function MyTripsPage() {
                 <span className="truncate">{trip.location}</span>
               </div>
             </div>
-            <span className={`shrink-0 text-[10px] px-2 h-5 font-medium rounded-full flex items-center ${
-              trip.status === 'upcoming' 
-                ? 'bg-blue-50 text-blue-700 hover:bg-blue-100' 
-                : 'bg-slate-100 text-slate-600 hover:bg-slate-200'
-            }`}>
-              {trip.status === 'upcoming' ? 'Upcoming' : 'Completed'}
-            </span>
+            <div className="flex items-center gap-1.5 shrink-0">
+              {/* Role Badge */}
+              <span className={`text-[10px] px-2 h-5 font-medium rounded-full flex items-center gap-1 ${
+                trip.role === 'owner'
+                  ? 'bg-amber-50 text-amber-700'
+                  : 'bg-emerald-50 text-emerald-700'
+              }`}>
+                {trip.role === 'owner' ? (
+                  <>
+                    <Crown className="w-3 h-3" />
+                    Organizer
+                  </>
+                ) : (
+                  <>
+                    <UserPlus className="w-3 h-3" />
+                    Joined
+                  </>
+                )}
+              </span>
+              {/* Status Badge */}
+              <span className={`text-[10px] px-2 h-5 font-medium rounded-full flex items-center ${
+                trip.status === 'upcoming' 
+                  ? 'bg-blue-50 text-blue-700 hover:bg-blue-100' 
+                  : 'bg-slate-100 text-slate-600 hover:bg-slate-200'
+              }`}>
+                {trip.status === 'upcoming' ? 'Upcoming' : 'Completed'}
+              </span>
+            </div>
           </div>
 
           {/* Middle: Description & Date */}
@@ -291,6 +328,40 @@ export default function MyTripsPage() {
           </div>
         </div>
 
+        {/* Trip Filter Tabs */}
+        <div className="flex gap-2 mb-6">
+          <button
+            onClick={() => setTripFilter('all')}
+            className={`px-4 py-2 rounded-lg text-sm font-medium transition-colors ${
+              tripFilter === 'all'
+                ? 'bg-blue-600 text-white'
+                : 'bg-slate-100 text-slate-600 hover:bg-slate-200'
+            }`}
+          >
+            All Trips ({trips.length})
+          </button>
+          <button
+            onClick={() => setTripFilter('created')}
+            className={`px-4 py-2 rounded-lg text-sm font-medium transition-colors ${
+              tripFilter === 'created'
+                ? 'bg-blue-600 text-white'
+                : 'bg-slate-100 text-slate-600 hover:bg-slate-200'
+            }`}
+          >
+            Created ({createdCount})
+          </button>
+          <button
+            onClick={() => setTripFilter('joined')}
+            className={`px-4 py-2 rounded-lg text-sm font-medium transition-colors ${
+              tripFilter === 'joined'
+                ? 'bg-blue-600 text-white'
+                : 'bg-slate-100 text-slate-600 hover:bg-slate-200'
+            }`}
+          >
+            Joined ({joinedCount})
+          </button>
+        </div>
+
         {isManageMode && (
           <div className="mb-6 p-4 bg-blue-50 border border-blue-200 rounded-xl">
             <p className="text-sm text-blue-800">
@@ -331,18 +402,41 @@ export default function MyTripsPage() {
           )}
         </section>
 
-        {trips.length === 0 && !isLoading && (
+        {filteredTrips.length === 0 && !isLoading && (
           <div className="text-center py-12">
-            <Plane className="w-16 h-16 text-slate-300 mx-auto mb-4" />
-            <h3 className="text-lg font-semibold text-slate-700 mb-2">No trips yet</h3>
-            <p className="text-slate-500 mb-6">Start planning your first adventure!</p>
-            <Link 
-              href="/solo/setup"
-              className="inline-flex items-center gap-2 bg-blue-600 text-white px-5 py-2 rounded-xl font-medium hover:bg-blue-700 transition-colors shadow-sm"
-            >
-              <Plane className="w-4 h-4" />
-              Plan New Trip
-            </Link>
+            {tripFilter === 'joined' ? (
+              <>
+                <UserPlus className="w-16 h-16 text-slate-300 mx-auto mb-4" />
+                <h3 className="text-lg font-semibold text-slate-700 mb-2">No joined trips</h3>
+                <p className="text-slate-500 mb-6">Join a group trip using an invite link to see it here!</p>
+              </>
+            ) : tripFilter === 'created' ? (
+              <>
+                <Crown className="w-16 h-16 text-slate-300 mx-auto mb-4" />
+                <h3 className="text-lg font-semibold text-slate-700 mb-2">No trips created</h3>
+                <p className="text-slate-500 mb-6">Create your first trip to get started!</p>
+                <Link 
+                  href="/solo/setup"
+                  className="inline-flex items-center gap-2 bg-blue-600 text-white px-5 py-2 rounded-xl font-medium hover:bg-blue-700 transition-colors shadow-sm"
+                >
+                  <Plane className="w-4 h-4" />
+                  Plan New Trip
+                </Link>
+              </>
+            ) : (
+              <>
+                <Plane className="w-16 h-16 text-slate-300 mx-auto mb-4" />
+                <h3 className="text-lg font-semibold text-slate-700 mb-2">No trips yet</h3>
+                <p className="text-slate-500 mb-6">Start planning your first adventure!</p>
+                <Link 
+                  href="/solo/setup"
+                  className="inline-flex items-center gap-2 bg-blue-600 text-white px-5 py-2 rounded-xl font-medium hover:bg-blue-700 transition-colors shadow-sm"
+                >
+                  <Plane className="w-4 h-4" />
+                  Plan New Trip
+                </Link>
+              </>
+            )}
           </div>
         )}
       </div>

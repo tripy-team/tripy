@@ -57,8 +57,6 @@ export default function SoloTripSetup() {
 
   // Travel Style State
   const [flightClass, setFlightClass] = useState('economy');
-  const [hotelClass, setHotelClass] = useState('4');
-  const [includeHotels, setIncludeHotels] = useState(true);
   const [bags, setBags] = useState(1);
 
   // Optimization Mode - always use OOP (budget-constrained), UI removed
@@ -267,9 +265,6 @@ export default function SoloTripSetup() {
     if (info.flightClass) {
       setFlightClass(info.flightClass);
     }
-    if (info.hotelClass) {
-      setHotelClass(info.hotelClass);
-    }
   };
 
   // Calculate Duration
@@ -385,6 +380,12 @@ export default function SoloTripSetup() {
       return;
     }
     
+    // Validate budget - now required
+    if (maxBudget === '' || maxBudget <= 0) {
+      setError('Please enter a maximum budget for your trip');
+      return;
+    }
+    
     // Validate dates
     if (!isFlexible) {
       if (!startDate) {
@@ -429,13 +430,11 @@ export default function SoloTripSetup() {
         startDate: isFlexible ? undefined : effectiveStartDate,
         endDate: isFlexible ? undefined : effectiveEndDate,
         durationDays: isFlexible ? flexibleDuration : undefined,
-        includeHotels: includeHotels,
         maxBudget: maxBudget === '' ? undefined : (typeof maxBudget === 'number' ? maxBudget : undefined),
         adults: adults,
         children: children,
         bags: bags,
         flightClass: flightClass as 'basic_economy' | 'economy' | 'premium' | 'business' | 'first',
-        hotelClass: hotelClass as '3' | '4' | '5',
         optimizationMode: optimizationMode,
         departureTimePreference: departureTimePreference,
         arrivalTimePreference: arrivalTimePreference,
@@ -920,9 +919,11 @@ export default function SoloTripSetup() {
           <div className="lg:col-span-1">
             <div className="lg:sticky lg:top-24 space-y-4">
               
-              {/* Budget */}
+              {/* Budget - Required */}
               <div className="bg-white border border-slate-200 rounded-2xl p-6 shadow-sm">
-                <label className="block text-xs text-slate-500 mb-2 font-medium uppercase tracking-wider">Maximum Budget</label>
+                <label className="block text-xs text-slate-500 mb-2 font-medium uppercase tracking-wider">
+                  Maximum Budget <span className="text-red-500">*</span>
+                </label>
                 <div className="relative">
                   <span className="absolute left-4 top-1/2 -translate-y-1/2 text-blue-600 font-bold text-lg">$</span>
                   <input
@@ -932,10 +933,17 @@ export default function SoloTripSetup() {
                       const val = e.target.value ? Number(e.target.value) : '';
                       setMaxBudget(val);
                     }}
-                    placeholder="No limit"
-                    className="w-full pl-10 pr-4 py-3 bg-blue-50 border border-blue-200 rounded-xl focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-blue-500 font-semibold text-slate-900 text-lg"
+                    placeholder="Enter your budget"
+                    min="1"
+                    required
+                    className={`w-full pl-10 pr-4 py-3 bg-blue-50 border rounded-xl focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-blue-500 font-semibold text-slate-900 text-lg ${
+                      maxBudget === '' ? 'border-blue-200' : 'border-blue-200'
+                    }`}
                   />
                 </div>
+                {maxBudget === '' && (
+                  <p className="text-xs text-slate-500 mt-2">Required to optimize your trip</p>
+                )}
               </div>
 
               {/* Points */}
@@ -981,7 +989,7 @@ export default function SoloTripSetup() {
               {/* Generate Button */}
               <button
                 onClick={handleGenerate}
-                disabled={!startDestination || !endDestination || cities.length < 1 || (!isFlexible && (!startDate || !endDate)) || isGenerating}
+                disabled={!startDestination || !endDestination || cities.length < 1 || (!isFlexible && (!startDate || !endDate)) || maxBudget === '' || isGenerating}
                 className="w-full px-6 py-4 bg-blue-600 text-white rounded-xl hover:bg-blue-700 transition-all disabled:opacity-50 disabled:cursor-not-allowed flex items-center justify-center gap-2 text-base font-semibold shadow-lg shadow-blue-500/20"
               >
                 {isGenerating ? (

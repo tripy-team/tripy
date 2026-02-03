@@ -10,12 +10,53 @@ from typing import Optional, Dict, List, Literal, Any
 from .programs import PointsProgram
 
 
+class CurrencyBalance(BaseModel):
+    """Balance for a single currency/program with metadata."""
+    program: str  # e.g., "chase_ur", "amex_mr", "UA", "DL"
+    balance: int  # Points balance
+    currency_type: Literal["bank", "airline", "hotel"] = "bank"  # Category
+    display_name: Optional[str] = None  # e.g., "Chase Ultimate Rewards"
+    enabled: bool = True  # Whether to use this currency in optimization
+    max_to_use: Optional[int] = None  # Cap on points to use (None = no cap)
+
+
 class OptimizeSoloRequest(BaseModel):
-    """Request to optimize a solo trip"""
+    """
+    Request to optimize a solo trip.
+    
+    MULTI-CURRENCY SUPPORT:
+    The `points` dict supports multiple credit card programs simultaneously:
+    - Bank currencies: "chase_ur", "amex_mr", "citi_typ", "capital_one", "bilt"
+    - Direct airline miles: "UA", "DL", "AA", etc.
+    - Hotel points: "marriott", "hyatt", "hilton", etc.
+    
+    The optimizer will use ALL provided currencies to minimize out-of-pocket cost,
+    selecting the optimal combination of bank transfers and direct redemptions.
+    
+    Example with multiple currencies:
+    {
+        "trip_id": "abc123",
+        "points": {
+            "chase_ur": 100000,    # Bank points - can transfer to airlines
+            "amex_mr": 75000,      # Bank points - different transfer partners
+            "UA": 25000            # Direct airline miles
+        }
+    }
+    """
     trip_id: str
-    points: Dict[str, int]  # { "chase_ur": 50000, "amex_mr": 30000 }
+    points: Dict[str, int]  # { "chase_ur": 50000, "amex_mr": 30000, "UA": 10000 }
+    
+    # Optional: structured currency controls (alternative to flat points dict)
+    currency_balances: Optional[List[CurrencyBalance]] = None
+    
     # Optional: override trip's optimization_mode for comparison
     optimization_mode_override: Optional[Literal["oop", "cpp", "balanced"]] = None
+    
+    # Optional: constraints on currency usage
+    allowed_currencies: Optional[List[str]] = None  # If set, only use these currencies
+    max_points_by_currency: Optional[Dict[str, int]] = None  # Per-currency caps
+    max_cash_budget: Optional[float] = None  # Maximum cash out-of-pocket
+    
     # Force bypass cache and run fresh optimization
     force_refresh: bool = False
 
@@ -121,14 +162,48 @@ class SegmentBreakdown(BaseModel):
     nights: Optional[int] = None
 
 
+class PaymentAction(BaseModel):
+    """A single payment action in the booking plan."""
+    segment_id: str                     # Which segment this payment is for
+    segment_description: str            # e.g., "SEA → CDG outbound"
+    payment_method: Literal["cash", "points"]
+    
+    # For cash payment
+    cash_amount: Optional[float] = None
+    
+    # For points payment
+    points_program: Optional[str] = None      # Target program (e.g., "flying_blue")
+    points_amount: Optional[int] = None
+    surcharge: Optional[float] = None
+    
+    # For transfer-based points (multi-currency)
+    source_currency: Optional[str] = None     # Bank currency used (e.g., "amex", "chase")
+    transfer_ratio: Optional[float] = None    # Transfer ratio applied
+    
+    # CPP achieved for this segment
+    cpp_achieved: Optional[float] = None
+
+
 class OOPMetrics(BaseModel):
-    """Out-of-pocket metrics for an itinerary"""
+    """
+    Out-of-pocket metrics for an itinerary.
+    
+    MULTI-CURRENCY SUPPORT:
+    - points_breakdown: Points used by target program (e.g., {"flying_blue": 30000, "united": 25000})
+    - bank_currencies_used: Points spent from each bank currency (e.g., {"amex": 30000, "chase": 25000})
+    - payment_actions: Detailed breakdown of each payment decision
+    """
     total_cash_price: float             # What it would cost in cash
     total_out_of_pocket: float          # What user actually pays
     cash_saved: float                   # total_cash_price - total_out_of_pocket
     savings_percentage: float           # (cash_saved / total_cash_price) * 100
     total_points_used: int
     average_cpp: float                  # Average cents-per-point achieved
+    
+    # Multi-currency tracking
+    points_breakdown: Dict[str, int] = {}     # Points by target program
+    bank_currencies_used: Dict[str, int] = {} # Points by source bank currency
+    payment_actions: List[PaymentAction] = [] # Detailed payment breakdown
 
 
 class RankedItinerary(BaseModel):

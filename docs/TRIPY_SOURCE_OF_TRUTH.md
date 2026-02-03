@@ -6,16 +6,18 @@
 
 ## What is Tripy?
 
-**Tripy is a travel planning app that helps people get more value from their credit card points and loyalty programs.**
+**Tripy is a flight-only travel planning app that helps people get more value from their credit card points and loyalty programs.**
 
-At its core, Tripy is a **points arbitrage engine**—it finds the gap between what your points are "officially" worth and what they *could* be worth when used strategically. The difference can be 3x, 5x, or even 10x.
+At its core, Tripy is a **points arbitrage engine for flights**—it finds the gap between what your points are "officially" worth and what they *could* be worth when used strategically for award flights. The difference can be 3x, 5x, or even 10x.
 
 Most travelers accumulate points across multiple credit cards (Chase, Amex, Citi, etc.) but don't know how to use them effectively. Tripy solves this by:
 
-1. Finding the best ways to use your points for flights and hotels
+1. Finding the best ways to use your points for **flights** (seat allocation, ticketing, taxes/fees)
 2. Comparing cash prices vs. points redemptions
 3. Optimizing across multiple cards and loyalty programs
 4. Making group travel coordination simple
+
+> **Flight-Only Scope**: Tripy is a points-first, seat-allocation, ticketing optimizer for **flights only**. Lodging/hotels are out of scope. See [GROUP_TRIP_WORKFLOW.md](./GROUP_TRIP_WORKFLOW.md) for the complete product spec.
 
 **What users see**: Simple recommendations and clear savings.
 **What's happening behind the curtain**: A sophisticated engine evaluating thousands of combinations to find arbitrage opportunities.
@@ -48,12 +50,12 @@ A single traveler can:
 
 - **Set up a trip**: Choose destinations, dates, number of travelers, and budget
 - **Connect their points**: Enter balances from all their credit card and loyalty programs
-- **Set preferences**: Choose flight class, hotel star rating, preferred departure times, and whether they need checked bags
+- **Set preferences**: Choose flight class, cabin preferences, preferred departure times, and whether they need checked bags
 - **Choose how to optimize**:
   - *Minimize Cash*: Spend as little money as possible, using points wherever it makes sense
   - *Maximize Value*: Get the best "cents per point" value from redemptions
   - *Balanced*: Find a middle ground between cost, time, and convenience
-- **Get optimized results**: See the best flight and hotel combinations based on their preferences
+- **Get optimized results**: See the best flight combinations based on their preferences
 - **Compare options**: Review multiple itinerary options side-by-side
 - **Follow booking instructions**: Get step-by-step guidance on how to book, including which points to transfer and where
 
@@ -63,7 +65,7 @@ Groups of friends or family can:
 
 - **Create a group trip**: Set the basic trip parameters
 - **Invite members**: Share an invite code or link with friends
-- **Pool points**: Combine points across all group members to unlock better redemptions
+- **Pool points**: Combine points across all group members to unlock better redemptions (see [GROUP_TRIP_WORKFLOW.md](./GROUP_TRIP_WORKFLOW.md) for the full product/system workflow)
 - **Vote on destinations**: Collaboratively decide where to go
 - **Get group-optimized results**: Find itineraries that work for everyone
 - **See fair cost splits**: Know exactly who owes what and who should book which parts

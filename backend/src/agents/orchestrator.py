@@ -28,6 +28,7 @@ from .models import (
     FlightSegment,
     CashPayment, PointsPayment, TransferInstruction,
     GroupMemberCost, Settlement,
+    NO_BUDGET_LIMIT,
 )
 from .flight_agent import FlightAgent
 from .cost_breakdown_agent import CostBreakdownAgent
@@ -347,6 +348,9 @@ class OrchestratorAgent(BaseAgent):
                         risk_mode=getattr(request, 'risk_mode', 'balanced') or 'balanced',
                         include_basic_economy=getattr(request, 'include_basic_economy', False),
                         flexibility_priority=getattr(request, 'flexibility_priority', 'medium') or 'medium',
+                        allowed_currencies=getattr(request, 'allowed_currencies', None),
+                        max_points_by_currency=getattr(request, 'max_points_by_currency', None),
+                        max_cash_budget=getattr(request, 'max_cash_budget', None),
                     )
                     
                     # Tag results with route variant info
@@ -376,6 +380,9 @@ class OrchestratorAgent(BaseAgent):
                 risk_mode=getattr(request, 'risk_mode', 'balanced') or 'balanced',
                 include_basic_economy=getattr(request, 'include_basic_economy', False),
                 flexibility_priority=getattr(request, 'flexibility_priority', 'medium') or 'medium',
+                allowed_currencies=getattr(request, 'allowed_currencies', None),
+                max_points_by_currency=getattr(request, 'max_points_by_currency', None),
+                max_cash_budget=getattr(request, 'max_cash_budget', None),
             )
         
         # Rank by OOP (lowest first)
@@ -1333,12 +1340,15 @@ class OrchestratorAgent(BaseAgent):
         segments: list[dict],
         search_results: dict,
         user_points: dict,
-        budget: float,
+        budget: float,  # Required float - use NO_BUDGET_LIMIT for unlimited
         trip_data: dict,
         mode: str = "oop",
         risk_mode: str = "balanced",
         include_basic_economy: bool = False,
         flexibility_priority: str = "medium",
+        allowed_currencies: list[str] = None,
+        max_points_by_currency: dict[str, int] = None,
+        max_cash_budget: float = None,
     ) -> tuple[list[RankedItinerary], list[str]]:
         """
         Run optimization using V3 ILP solver.
@@ -1353,11 +1363,21 @@ class OrchestratorAgent(BaseAgent):
         - Single-ticket enforcement for connections
         - Proper group room allocation
         - Policy evaluation with risk modes
+        - MULTI-CURRENCY SUPPORT: Uses all provided currencies optimally
         
         Falls back to greedy algorithm if V3 fails.
+        
+        Note: budget is required (use NO_BUDGET_LIMIT for unlimited)
         """
+        # SAFETY: Convert None to NO_BUDGET_LIMIT to prevent TypeError in downstream code
+        if budget is None:
+            budget = NO_BUDGET_LIMIT
         
         logger.info(f"[Orchestrator] Running V3 optimization (mode={mode}, risk_mode={risk_mode})")
+        if allowed_currencies:
+            logger.info(f"[Orchestrator] Currency restriction: only using {allowed_currencies}")
+        if max_points_by_currency:
+            logger.info(f"[Orchestrator] Currency caps: {max_points_by_currency}")
         
         try:
             # Try V3 solver first (lazy import)
@@ -1372,6 +1392,9 @@ class OrchestratorAgent(BaseAgent):
                 risk_mode=risk_mode,
                 include_basic_economy=include_basic_economy,
                 flexibility_priority=flexibility_priority,
+                allowed_currencies=allowed_currencies,
+                max_points_by_currency=max_points_by_currency,
+                max_cash_budget=max_cash_budget,
             )
             
             if itineraries:
@@ -1397,7 +1420,7 @@ class OrchestratorAgent(BaseAgent):
         segments: list[dict],
         search_results: dict,
         user_points: dict,
-        budget: float,
+        budget: float,  # Required float - use NO_BUDGET_LIMIT for unlimited
         trip_data: dict,
     ) -> tuple[list[RankedItinerary], list[str]]:
         """
@@ -1412,15 +1435,23 @@ class OrchestratorAgent(BaseAgent):
         
         Returns:
             Tuple of (itineraries, warnings)
+        
+        Note: budget is required (use NO_BUDGET_LIMIT for unlimited)
         """
-        logger.info(f"[Greedy] Starting greedy optimization with budget=${budget if budget else 'unlimited'}")
+        # SAFETY: Convert None to NO_BUDGET_LIMIT to prevent errors
+        if budget is None:
+            budget = NO_BUDGET_LIMIT
+        
+        budget_display = 'unlimited' if budget >= NO_BUDGET_LIMIT else f'${budget}'
+        logger.info(f"[Greedy] Starting greedy optimization with budget={budget_display}")
         logger.info(f"[Greedy] User points: {user_points}")
         
         # Track remaining points
         remaining_points = dict(user_points)
         
         # Calculate if budget is tight (need to prefer points)
-        budget_is_tight = budget is not None and budget > 0
+        # Budget is "tight" if it's a real limit (not the unlimited sentinel)
+        budget_is_tight = budget > 0 and budget < NO_BUDGET_LIMIT
         
         # Track segments where points couldn't be used and why
         transfer_incompatible_segments = []
@@ -1486,13 +1517,14 @@ class OrchestratorAgent(BaseAgent):
                 cpp_values.append(seg.payment.cpp_achieved)
         avg_cpp = sum(cpp_values) / len(cpp_values) if cpp_values else 0
         
-        # Check budget
-        within_budget = budget is None or budget <= 0 or total_oop <= budget
+        # Check budget (if unlimited or total_oop under budget, we're good)
+        within_budget = budget >= NO_BUDGET_LIMIT or total_oop <= budget
         
-        logger.info(f"[Greedy] Final result: OOP=${total_oop:.0f}, budget=${budget if budget else 'unlimited'}, within_budget={within_budget}")
+        budget_display = 'unlimited' if budget >= NO_BUDGET_LIMIT else f'${budget}'
+        logger.info(f"[Greedy] Final result: OOP=${total_oop:.0f}, budget={budget_display}, within_budget={within_budget}")
         logger.info(f"[Greedy] Points used: {total_points_used:,}, cash saved: ${cash_saved:.0f}")
         
-        if not within_budget and budget:
+        if not within_budget and budget < NO_BUDGET_LIMIT:
             budget_exceeded_by = total_oop - budget
             logger.warning(f"[Greedy] ⚠️ Budget exceeded by ${budget_exceeded_by:.0f}")
             
@@ -1528,7 +1560,7 @@ class OrchestratorAgent(BaseAgent):
         if within_budget:
             summary = f"Save ${cash_saved:.0f} ({savings_pct:.0f}% off) by using {total_points_used:,} points"
         else:
-            budget_exceeded_by = total_oop - budget if budget else 0
+            budget_exceeded_by = total_oop - budget if budget < NO_BUDGET_LIMIT else 0
             if total_points_used > 0:
                 summary = f"⚠️ Closest to budget (${budget_exceeded_by:.0f} over). Using {total_points_used:,} points saves ${cash_saved:.0f}"
             else:

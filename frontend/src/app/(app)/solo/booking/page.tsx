@@ -9,7 +9,6 @@ import {
   CreditCard,
   ArrowRight,
   Plane,
-  Building2,
   Sparkles,
   ChevronRight,
   ChevronDown,
@@ -144,7 +143,7 @@ function getAirlineName(code: string): string {
 interface PaymentRec {
   edge?: unknown[];
   type?: string;
-  via?: { source?: string; airline?: string; native?: string; hotel?: string };
+  via?: { source?: string; airline?: string; native?: string };
   miles?: number;
   surcharge?: number;
   mode?: string;
@@ -153,28 +152,6 @@ interface PaymentRec {
   departure_time?: string;
   arrival_time?: string;
   operating_airline?: string;
-  // Hotel-specific fields
-  segmentType?: 'flight' | 'hotel';
-  hotelName?: string;
-  hotelCity?: string;
-  checkIn?: string;
-  checkOut?: string;
-  nights?: number;
-  program?: string;
-}
-
-// Hotel program display names
-function humanizeHotelProgram(code: string): string {
-  const m: Record<string, string> = {
-    hyatt: 'World of Hyatt',
-    marriott: 'Marriott Bonvoy',
-    hilton: 'Hilton Honors',
-    ihg: 'IHG One Rewards',
-    wyndham: 'Wyndham Rewards',
-    choice: 'Choice Privileges',
-    accor: 'Accor Live Limitless',
-  };
-  return m[String(code || '').toLowerCase()] || String(code || '').replace(/_/g, ' ').replace(/\b\w/g, c => c.toUpperCase());
 }
 
 function SoloBookingContent() {
@@ -183,7 +160,7 @@ function SoloBookingContent() {
 
   const [isPaid, setIsPaid] = useState(false);
   const [isProcessing, setIsProcessing] = useState(false);
-  const [trip, setTrip] = useState<{ startDate?: string; endDate?: string; includeHotels?: boolean; destinations?: string[] } | null>(null);
+  const [trip, setTrip] = useState<{ startDate?: string; endDate?: string; destinations?: string[] } | null>(null);
   const [items, setItems] = useState<Record<string, unknown>[]>([]);
   const [destinationMap, setDestinationMap] = useState<Map<string, string>>(new Map());
   const [loading, setLoading] = useState(true);
@@ -385,7 +362,6 @@ function SoloBookingContent() {
     : 0;
   const serviceFee = calculateServiceFee(cashPrice);
 
-  const includeHotels = trip?.includeHotels !== false;
   const startDate = trip?.startDate || '';
   const endDate = trip?.endDate || '';
   const primaryDestLabel = routeLabels[1] || routeLabels[0] || (trip?.destinations && trip.destinations[0]) || 'your destination';
@@ -400,7 +376,6 @@ function SoloBookingContent() {
     partnerCode: string;
     totalPoints: number;
     totalSurcharge: number;
-    isHotel: boolean;
   };
   
   type FlightSegment = {
@@ -543,157 +518,95 @@ function SoloBookingContent() {
   
   const isRedEyeHour = (hour: number): boolean => hour >= 22 || hour < 5;
 
-  type HotelBooking = {
-    hotelName?: string;
-    hotelCity: string;
-    checkIn: string;
-    checkOut: string;
-    nights?: number;
-    pointsUsed?: number;
-    program?: string;
-  };
-
   const transferSummaries: TransferSummary[] = [];
   const flightSegments: FlightSegment[] = [];
-  const hotelBookings: HotelBooking[] = [];
 
   // Process payment records to build condensed summaries
   if (paymentRecs.length > 0) {
     const transferMap = new Map<string, TransferSummary>();
     
     paymentRecs.forEach((p) => {
-      const isHotel = p.segmentType === 'hotel' || p.hotelName || p.via?.hotel;
-      
-      if (isHotel) {
-        // Process hotel
-        if (p.type === 'points' && (p.miles ?? 0) > 0) {
-          const sourceCode = (p.via?.source || '').toLowerCase();
-          const hotelProgram = (p.via?.hotel || p.program || '').toLowerCase();
-          const key = `${sourceCode}→${hotelProgram}→hotel`;
-          
-          const existing = transferMap.get(key);
-          if (existing) {
-            existing.totalPoints += Math.round(Number(p.miles) || 0);
-            existing.totalSurcharge += Number(p.surcharge) || 0;
-          } else {
-            transferMap.set(key, {
-              source: humanizeProgram(sourceCode),
-              sourceCode,
-              partner: humanizeHotelProgram(hotelProgram),
-              partnerCode: hotelProgram,
-              totalPoints: Math.round(Number(p.miles) || 0),
-              totalSurcharge: Number(p.surcharge) || 0,
-              isHotel: true,
-            });
-          }
-        }
-        // Add hotel booking
-        hotelBookings.push({
-          hotelName: p.hotelName,
-          hotelCity: p.hotelCity || primaryDestLabel,
-          checkIn: p.checkIn || startLabel,
-          checkOut: p.checkOut || (endLabel || startLabel),
-          nights: p.nights,
-          pointsUsed: p.type === 'points' ? Math.round(Number(p.miles) || 0) : undefined,
-          program: p.type === 'points' ? humanizeHotelProgram(p.via?.hotel || p.program || '') : undefined,
-        });
-      } else {
-        // Process flight/segment
-        if (p.type === 'points' && (p.via?.source || p.via?.airline || p.via?.native) && (p.miles ?? 0) > 0) {
-          const sourceCode = (p.via?.source || '').toLowerCase();
-          const partnerCode = (p.via?.airline || p.via?.native || '').toUpperCase();
-          const key = `${sourceCode}→${partnerCode}→flight`;
-          
-          const existing = transferMap.get(key);
-          if (existing) {
-            existing.totalPoints += Math.round(Number(p.miles) || 0);
-            existing.totalSurcharge += Number(p.surcharge) || 0;
-          } else {
-            transferMap.set(key, {
-              source: humanizeProgram(sourceCode),
-              sourceCode,
-              partner: humanizeAirline(partnerCode),
-              partnerCode,
-              totalPoints: Math.round(Number(p.miles) || 0),
-              totalSurcharge: Number(p.surcharge) || 0,
-              isHotel: false,
-            });
-          }
-        }
+      // Process flight/segment
+      if (p.type === 'points' && (p.via?.source || p.via?.airline || p.via?.native) && (p.miles ?? 0) > 0) {
+        const sourceCode = (p.via?.source || '').toLowerCase();
+        const partnerCode = (p.via?.airline || p.via?.native || '').toUpperCase();
+        const key = `${sourceCode}→${partnerCode}→flight`;
         
-        // Add flight segment
-        const edge = Array.isArray(p.edge) ? p.edge : [];
-        const orig = String(edge[0] || '').toUpperCase();
-        const dest = String(edge[1] || '').toUpperCase();
-        const flightNumber = edge[2] ? String(edge[2]).toUpperCase() : undefined;
-        const mode = (p.mode || 'flight') as 'flight' | 'bus' | 'car';
-        
-        if (orig && dest) {
-          // Detect codeshare: marketing airline (via.airline) differs from operating airline (via.native)
-          // Also check operating_airline field from backend
-          const marketingCode = (p.via?.airline || '').toUpperCase();
-          const nativeCode = (p.via?.native || '').toUpperCase();
-          const operatingFromBackend = (p.operating_airline || '').toUpperCase();
-          const operatingCode = operatingFromBackend || nativeCode;
-          const isCodeshare = !!(marketingCode && operatingCode && marketingCode !== operatingCode);
-          
-          // For airline display, use marketingCode if available, otherwise use nativeCode
-          const displayAirlineCode = marketingCode || nativeCode;
-          
-          // Parse departure/arrival times for red-eye and overnight detection
-          const depParsed = parseFlightTime(p.departure_time);
-          const arrParsed = parseFlightTime(p.arrival_time);
-          const isRedEye = depParsed ? isRedEyeHour(depParsed.hour) : false;
-          const isOvernight = arrParsed?.nextDay || false;
-          
-          // Parse date from departure time (or use trip start date as fallback)
-          const departureDate = parseDateFromDateTime(p.departure_time) || startLabel;
-          
-          flightSegments.push({
-            mode,
-            orig,
-            dest,
-            flightNumber: flightNumber !== 'BUS' && flightNumber !== 'CAR' ? flightNumber : undefined,
-            marketingAirline: displayAirlineCode ? humanizeAirline(displayAirlineCode) : undefined,
-            marketingAirlineName: displayAirlineCode ? getAirlineName(displayAirlineCode) : undefined,
-            marketingCode: displayAirlineCode || undefined,
-            operatingAirline: isCodeshare ? humanizeAirline(operatingCode) : undefined,
-            operatingAirlineName: isCodeshare ? getAirlineName(operatingCode) : undefined,
-            operatingCode: isCodeshare ? operatingCode : undefined,
-            isCodeshare,
-            fare: p.type === 'cash' ? Number(p.fare) : undefined,
-            surcharge: p.type === 'points' ? Number(p.surcharge) : undefined,
-            miles: p.type === 'points' ? Number(p.miles) : undefined,
-            departureDate,
-            departureTime: p.departure_time,
-            arrivalTime: p.arrival_time,
-            isRedEye,
-            isOvernight,
-            paymentType: p.type as 'points' | 'cash' | undefined,
-            sourceProgram: p.type === 'points' && p.via?.source ? humanizeProgram(p.via.source) : undefined,
+        const existing = transferMap.get(key);
+        if (existing) {
+          existing.totalPoints += Math.round(Number(p.miles) || 0);
+          existing.totalSurcharge += Number(p.surcharge) || 0;
+        } else {
+          transferMap.set(key, {
+            source: humanizeProgram(sourceCode),
+            sourceCode,
+            partner: humanizeAirline(partnerCode),
+            partnerCode,
+            totalPoints: Math.round(Number(p.miles) || 0),
+            totalSurcharge: Number(p.surcharge) || 0,
           });
         }
+      }
+      
+      // Add flight segment
+      const edge = Array.isArray(p.edge) ? p.edge : [];
+      const orig = String(edge[0] || '').toUpperCase();
+      const dest = String(edge[1] || '').toUpperCase();
+      const flightNumber = edge[2] ? String(edge[2]).toUpperCase() : undefined;
+      const mode = (p.mode || 'flight') as 'flight' | 'bus' | 'car';
+      
+      if (orig && dest) {
+        // Detect codeshare: marketing airline (via.airline) differs from operating airline (via.native)
+        // Also check operating_airline field from backend
+        const marketingCode = (p.via?.airline || '').toUpperCase();
+        const nativeCode = (p.via?.native || '').toUpperCase();
+        const operatingFromBackend = (p.operating_airline || '').toUpperCase();
+        const operatingCode = operatingFromBackend || nativeCode;
+        const isCodeshare = !!(marketingCode && operatingCode && marketingCode !== operatingCode);
+        
+        // For airline display, use marketingCode if available, otherwise use nativeCode
+        const displayAirlineCode = marketingCode || nativeCode;
+        
+        // Parse departure/arrival times for red-eye and overnight detection
+        const depParsed = parseFlightTime(p.departure_time);
+        const arrParsed = parseFlightTime(p.arrival_time);
+        const isRedEye = depParsed ? isRedEyeHour(depParsed.hour) : false;
+        const isOvernight = arrParsed?.nextDay || false;
+        
+        // Parse date from departure time (or use trip start date as fallback)
+        const departureDate = parseDateFromDateTime(p.departure_time) || startLabel;
+        
+        flightSegments.push({
+          mode,
+          orig,
+          dest,
+          flightNumber: flightNumber !== 'BUS' && flightNumber !== 'CAR' ? flightNumber : undefined,
+          marketingAirline: displayAirlineCode ? humanizeAirline(displayAirlineCode) : undefined,
+          marketingAirlineName: displayAirlineCode ? getAirlineName(displayAirlineCode) : undefined,
+          marketingCode: displayAirlineCode || undefined,
+          operatingAirline: isCodeshare ? humanizeAirline(operatingCode) : undefined,
+          operatingAirlineName: isCodeshare ? getAirlineName(operatingCode) : undefined,
+          operatingCode: isCodeshare ? operatingCode : undefined,
+          isCodeshare,
+          fare: p.type === 'cash' ? Number(p.fare) : undefined,
+          surcharge: p.type === 'points' ? Number(p.surcharge) : undefined,
+          miles: p.type === 'points' ? Number(p.miles) : undefined,
+          departureDate,
+          departureTime: p.departure_time,
+          arrivalTime: p.arrival_time,
+          isRedEye,
+          isOvernight,
+          paymentType: p.type as 'points' | 'cash' | undefined,
+          sourceProgram: p.type === 'points' && p.via?.source ? humanizeProgram(p.via.source) : undefined,
+        });
       }
     });
     
     transferSummaries.push(...transferMap.values());
   }
-  
-  // Add fallback hotel booking when includeHotels is true but no hotel payments exist
-  if (includeHotels && hotelBookings.length === 0 && (transferSummaries.length > 0 || flightSegments.length > 0)) {
-    hotelBookings.push({
-      hotelName: undefined,
-      hotelCity: primaryDestLabel,
-      checkIn: startLabel,
-      checkOut: endLabel || startLabel,
-      nights: duration > 0 ? duration : undefined,
-      pointsUsed: undefined,
-      program: undefined,
-    });
-  }
 
   // Fallback when no payment data
-  const hasData = transferSummaries.length > 0 || flightSegments.length > 0 || hotelBookings.length > 0;
+  const hasData = transferSummaries.length > 0 || flightSegments.length > 0;
   
   // Check if we have data from the new solo API
   const hasSoloData = usingSoloApi && selection && transferStrategy;
@@ -942,13 +855,9 @@ function SoloBookingContent() {
                                 <div className="px-4 py-2 bg-blue-50 border-b border-blue-100">
                                   <div className="flex items-center justify-between">
                                     <div className="flex items-center gap-2">
-                                      {booking.type === 'flight' ? (
-                                        <Plane className="w-4 h-4 text-blue-600" />
-                                      ) : (
-                                        <Building2 className="w-4 h-4 text-blue-600" />
-                                      )}
+                                      <Plane className="w-4 h-4 text-blue-600" />
                                       <span className="text-sm font-medium text-blue-700">
-                                        {booking.type === 'flight' ? 'Flight' : 'Hotel'}
+                                        Flight
                                       </span>
                                       {booking.segmentReference && (
                                         <span className="text-xs text-blue-500 ml-2">{booking.segmentReference}</span>
@@ -1321,12 +1230,12 @@ function SoloBookingContent() {
                           <div className="flex-shrink-0 w-8 h-8 rounded-full bg-gradient-to-br from-blue-500 to-blue-600 text-white flex items-center justify-center font-bold text-sm shadow-md">1</div>
                           <div>
                             <h3 className="font-semibold text-slate-900">Transfer Points</h3>
-                            <p className="text-xs text-slate-500">Move points from your credit cards to airline/hotel programs</p>
+                            <p className="text-xs text-slate-500">Move points from your credit cards to airline programs</p>
                           </div>
                         </div>
                         
                         <div className="ml-11 space-y-3">
-                          {transferSummaries.filter(t => !t.isHotel).map((transfer, idx) => (
+                          {transferSummaries.map((transfer, idx) => (
                             <div key={`flight-${idx}`} className="flex items-center justify-between p-4 bg-gradient-to-r from-blue-50 to-indigo-50 rounded-xl border border-blue-100 shadow-sm">
                               <div className="flex items-center gap-4">
                                 <div className="p-2 bg-white rounded-lg shadow-sm">
@@ -1342,30 +1251,6 @@ function SoloBookingContent() {
                               </div>
                               <div className="text-right">
                                 <div className="text-xl font-bold text-blue-700">{transfer.totalPoints.toLocaleString()}</div>
-                                <div className="text-xs text-slate-500">points to transfer</div>
-                                {transfer.totalSurcharge > 0 && (
-                                  <div className="text-xs text-slate-500 mt-1">+${Math.round(transfer.totalSurcharge)} fees</div>
-                                )}
-                              </div>
-                            </div>
-                          ))}
-                          
-                          {transferSummaries.filter(t => t.isHotel).map((transfer, idx) => (
-                            <div key={`hotel-${idx}`} className="flex items-center justify-between p-4 bg-gradient-to-r from-amber-50 to-orange-50 rounded-xl border border-amber-100 shadow-sm">
-                              <div className="flex items-center gap-4">
-                                <div className="p-2 bg-white rounded-lg shadow-sm">
-                                  <Building2 className="w-5 h-5 text-amber-600" />
-                                </div>
-                                <div>
-                                  <div className="font-semibold text-slate-900">{transfer.source}</div>
-                                  <div className="flex items-center gap-2 text-sm text-slate-600 mt-0.5">
-                                    <ArrowRight className="w-3 h-3" />
-                                    <span>{transfer.partner}</span>
-                                  </div>
-                                </div>
-                              </div>
-                              <div className="text-right">
-                                <div className="text-xl font-bold text-amber-700">{transfer.totalPoints.toLocaleString()}</div>
                                 <div className="text-xs text-slate-500">points to transfer</div>
                                 {transfer.totalSurcharge > 0 && (
                                   <div className="text-xs text-slate-500 mt-1">+${Math.round(transfer.totalSurcharge)} fees</div>
@@ -1635,81 +1520,6 @@ function SoloBookingContent() {
                       </div>
                     )}
 
-                    {/* Step 3: Hotels to Book - Condensed list */}
-                    {hotelBookings.length > 0 && (
-                      <div className="space-y-4">
-                        <div className="flex items-center gap-3">
-                          <div className="flex-shrink-0 w-8 h-8 rounded-full bg-gradient-to-br from-amber-500 to-orange-500 text-white flex items-center justify-center font-bold text-sm shadow-md">
-                            {(transferSummaries.length > 0 ? 1 : 0) + (flightSegments.length > 0 ? 1 : 0) + 1}
-                          </div>
-                          <div>
-                            <h3 className="font-semibold text-slate-900">Book Your Hotels</h3>
-                            <p className="text-xs text-slate-500">Reserve your accommodation at these destinations</p>
-                          </div>
-                        </div>
-                        
-                        <div className="ml-11 space-y-3">
-                          {hotelBookings.map((hotel, idx) => (
-                            <div key={idx} className="bg-white rounded-xl border border-slate-200 shadow-sm overflow-hidden">
-                              <div className="p-4">
-                                <div className="flex items-start gap-4">
-                                  <div className="p-2.5 bg-gradient-to-br from-amber-100 to-orange-100 rounded-lg">
-                                    <Building2 className="w-5 h-5 text-amber-600" />
-                                  </div>
-                                  <div className="flex-1 min-w-0">
-                                    <div className="text-lg font-semibold text-slate-900">
-                                      {hotel.hotelName || `Hotel in ${hotel.hotelCity}`}
-                                    </div>
-                                    {hotel.hotelName && hotel.hotelCity && (
-                                      <div className="text-sm text-slate-500 mt-0.5">{hotel.hotelCity}</div>
-                                    )}
-                                  </div>
-                                </div>
-                                
-                                {/* Stay details */}
-                                <div className="mt-4 grid grid-cols-2 md:grid-cols-4 gap-3">
-                                  <div className="p-3 bg-slate-50 rounded-lg">
-                                    <div className="text-xs text-slate-500 font-medium mb-1">Check-in</div>
-                                    <div className="font-semibold text-slate-900 text-sm">{hotel.checkIn}</div>
-                                  </div>
-                                  <div className="p-3 bg-slate-50 rounded-lg">
-                                    <div className="text-xs text-slate-500 font-medium mb-1">Check-out</div>
-                                    <div className="font-semibold text-slate-900 text-sm">{hotel.checkOut}</div>
-                                  </div>
-                                  {hotel.nights && (
-                                    <div className="p-3 bg-slate-50 rounded-lg">
-                                      <div className="text-xs text-slate-500 font-medium mb-1">Duration</div>
-                                      <div className="font-semibold text-slate-900 text-sm">{hotel.nights} nights</div>
-                                    </div>
-                                  )}
-                                  {hotel.pointsUsed && hotel.program && (
-                                    <div className="p-3 bg-amber-50 rounded-lg">
-                                      <div className="text-xs text-amber-600 font-medium mb-1">Points</div>
-                                      <div className="font-semibold text-amber-800 text-sm">{hotel.pointsUsed.toLocaleString()}</div>
-                                    </div>
-                                  )}
-                                </div>
-                                
-                                {hotel.program && (
-                                  <div className="mt-3 flex items-center gap-2 text-sm text-slate-600">
-                                    <span className="w-1.5 h-1.5 rounded-full bg-amber-500"></span>
-                                    Book via <span className="font-medium text-amber-700">{hotel.program}</span>
-                                  </div>
-                                )}
-                              </div>
-                              {!hotel.hotelName && (
-                                <div className="px-4 py-3 bg-gradient-to-r from-amber-50 to-orange-50 border-t border-amber-100">
-                                  <p className="text-sm text-amber-800">
-                                    Search for hotels in <strong>{hotel.hotelCity}</strong> using your preferred hotel program (Marriott Bonvoy, Hilton Honors, World of Hyatt, etc.)
-                                  </p>
-                                </div>
-                              )}
-                            </div>
-                          ))}
-                        </div>
-                      </div>
-                    )}
-
                     {/* Total Out-of-Pocket Summary */}
                     {taxes > 0 && (
                       <div className="mt-4 p-4 bg-slate-100 rounded-xl border border-slate-200">
@@ -1740,7 +1550,6 @@ function SoloBookingContent() {
                         <li>Search for award flights on airline websites</li>
                         <li>Transfer points from Chase, Amex, or Citi to airline partners</li>
                         <li>Book quickly as award seats disappear fast</li>
-                        {includeHotels && <li>Book hotels separately using hotel points or cash</li>}
                       </ul>
                     </div>
                   </div>

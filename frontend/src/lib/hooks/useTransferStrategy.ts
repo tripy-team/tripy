@@ -117,15 +117,7 @@ export interface OptimizeParams {
     points_options?: PointsOption[];
     [key: string]: unknown;
   }>;
-  hotels?: Array<{
-    name?: string;
-    location?: string;
-    cash_cost: number;
-    points_options?: PointsOption[];
-    [key: string]: unknown;
-  }>;
   availablePoints: Record<string, number>;
-  includeHotels?: boolean;
   maxCashBudget?: number;
   minPointsUsagePct?: number;
 }
@@ -161,9 +153,7 @@ export function useTransferStrategy(): UseTransferStrategyResult {
         body: JSON.stringify({
           trip_id: params.tripId,
           flights: params.flights,
-          hotels: params.hotels,
           available_points: params.availablePoints,
-          include_hotels: params.includeHotels ?? true,
           max_cash_budget: params.maxCashBudget,
           min_points_usage_pct: params.minPointsUsagePct ?? 0,
         }),

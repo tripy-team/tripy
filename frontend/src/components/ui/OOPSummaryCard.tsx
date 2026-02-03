@@ -97,6 +97,31 @@ export function OOPSummaryCard({ metrics, rank, isSelected, onClick }: OOPSummar
           </div>
         </div>
       )}
+
+      {/* Multi-Currency Breakdown */}
+      {metrics.bankCurrenciesUsed && Object.keys(metrics.bankCurrenciesUsed).length > 0 && (
+        <div className="mt-3 pt-3 border-t border-slate-100">
+          <div className="text-xs text-slate-500 mb-2">Points from your cards:</div>
+          <div className="flex flex-wrap gap-2">
+            {Object.entries(metrics.bankCurrenciesUsed).map(([bank, points]) => {
+              const bankLabel = bank === 'amex' ? 'Amex MR' 
+                : bank === 'chase' ? 'Chase UR'
+                : bank === 'citi' ? 'Citi TYP'
+                : bank === 'capital_one' ? 'Capital One'
+                : bank === 'bilt' ? 'Bilt'
+                : bank;
+              return (
+                <span 
+                  key={bank}
+                  className="px-2 py-1 bg-purple-50 text-purple-700 rounded-lg text-xs font-medium"
+                >
+                  {bankLabel}: {(points / 1000).toFixed(0)}k
+                </span>
+              );
+            })}
+          </div>
+        </div>
+      )}
     </div>
   );
 }

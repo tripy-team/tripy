@@ -8,7 +8,6 @@ import { useState } from 'react';
 import {
   ArrowRightLeft,
   Plane,
-  Building2,
   ExternalLink,
   Copy,
   Check,
@@ -57,7 +56,7 @@ const AIRLINE_BOOKING_URLS: Record<string, string> = {
 };
 
 export interface TransferItem {
-  type: 'flight' | 'hotel';
+  type: 'flight';
   // Transfer details
   fromBank: string;
   fromBankName: string;
@@ -72,12 +71,6 @@ export interface TransferItem {
   destination?: string;
   departureDate?: string;
   departureTime?: string;
-  // Hotel details
-  hotelName?: string;
-  hotelLocation?: string;
-  nights?: number;
-  checkIn?: string;
-  checkOut?: string;
   // Costs
   surcharge?: number;
   cashAlternative?: number;
@@ -127,7 +120,7 @@ export function TransferStrategyCard({
     const bank = transfer.fromBankName.split(' ')[0]; // "Amex" from "Amex Membership Rewards"
     const program = transfer.toProgramName;
     
-    if (transfer.type === 'flight' && transfer.flightNumber) {
+    if (transfer.flightNumber) {
       const route = transfer.origin && transfer.destination 
         ? `${transfer.origin}→${transfer.destination}` 
         : '';
@@ -135,11 +128,6 @@ export function TransferStrategyCard({
         ? ` on ${new Date(transfer.departureDate).toLocaleDateString('en-US', { month: 'short', day: 'numeric' })}`
         : '';
       return `Transfer ${points} ${bank} points to ${program} to book ${transfer.flightNumber} ${route}${date}`;
-    }
-    
-    if (transfer.type === 'hotel' && transfer.hotelName) {
-      const nights = transfer.nights ? ` (${transfer.nights} nights)` : '';
-      return `Transfer ${points} ${bank} points to ${program} to book ${transfer.hotelName}${nights}`;
     }
     
     return `Transfer ${points} ${bank} points to ${program}`;
@@ -256,15 +244,9 @@ export function TransferStrategyCard({
                     
                     {/* Quick info badges */}
                     <div className="flex flex-wrap gap-2 mt-2">
-                      {transfer.type === 'flight' ? (
-                        <span className="inline-flex items-center gap-1 px-2 py-0.5 bg-blue-100 text-blue-700 text-xs rounded-full">
-                          <Plane className="w-3 h-3" /> Flight
-                        </span>
-                      ) : (
-                        <span className="inline-flex items-center gap-1 px-2 py-0.5 bg-amber-100 text-amber-700 text-xs rounded-full">
-                          <Building2 className="w-3 h-3" /> Hotel
-                        </span>
-                      )}
+                      <span className="inline-flex items-center gap-1 px-2 py-0.5 bg-blue-100 text-blue-700 text-xs rounded-full">
+                        <Plane className="w-3 h-3" /> Flight
+                      </span>
                       <span className="inline-flex items-center gap-1 px-2 py-0.5 bg-slate-100 text-slate-600 text-xs rounded-full">
                         <Clock className="w-3 h-3" /> {transferTime}
                       </span>
@@ -360,44 +342,6 @@ export function TransferStrategyCard({
                           </div>
                         )}
                         
-                        {transfer.type === 'hotel' && transfer.hotelName && (
-                          <div className="bg-amber-50 rounded-xl p-4 border border-amber-200">
-                            <h4 className="text-xs font-bold text-amber-600 uppercase tracking-wider mb-3 flex items-center gap-1">
-                              <Building2 className="w-3 h-3" /> Hotel Details
-                            </h4>
-                            <div className="grid grid-cols-2 gap-4">
-                              <div className="col-span-2">
-                                <div className="text-xs text-amber-600">Hotel</div>
-                                <div className="font-bold text-slate-900">{transfer.hotelName}</div>
-                              </div>
-                              {transfer.hotelLocation && (
-                                <div>
-                                  <div className="text-xs text-amber-600">Location</div>
-                                  <div className="font-medium text-slate-900">{transfer.hotelLocation}</div>
-                                </div>
-                              )}
-                              {transfer.nights && (
-                                <div>
-                                  <div className="text-xs text-amber-600">Nights</div>
-                                  <div className="font-medium text-slate-900">{transfer.nights}</div>
-                                </div>
-                              )}
-                              {transfer.checkIn && (
-                                <div>
-                                  <div className="text-xs text-amber-600">Check-in</div>
-                                  <div className="font-medium text-slate-900">{transfer.checkIn}</div>
-                                </div>
-                              )}
-                              {transfer.checkOut && (
-                                <div>
-                                  <div className="text-xs text-amber-600">Check-out</div>
-                                  <div className="font-medium text-slate-900">{transfer.checkOut}</div>
-                                </div>
-                              )}
-                            </div>
-                          </div>
-                        )}
-                        
                         {/* Step-by-step instructions */}
                         <div className="bg-white rounded-xl p-4 border border-slate-200">
                           <h4 className="text-xs font-bold text-slate-500 uppercase tracking-wider mb-3">
@@ -463,9 +407,6 @@ export function TransferStrategyCard({
                                       'the airline website'
                                     )}
                                   </>
-                                ) : (
-                                  <>Book {transfer.hotelName || 'hotel'} at the hotel program website</>
-                                )}
                               </span>
                             </li>
                           </ol>

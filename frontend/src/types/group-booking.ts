@@ -235,8 +235,6 @@ export interface GroupAllocationRequest {
   strategy: BookingAllocationStrategy;
   splitMethod?: SettlementSplitMethod;
   cabinClasses?: string[];
-  hotelStars?: number[];
-  includeHotels?: boolean;
 }
 
 export type GroupAllocationResponse = GroupBookingPlan;

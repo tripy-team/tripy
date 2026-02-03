@@ -2,7 +2,7 @@
 
 import { useRouter, useSearchParams } from 'next/navigation';
 import { useState, useEffect } from 'react';
-import { ArrowLeft, CheckCircle, ExternalLink, AlertCircle, Copy, Plane, Info, Lock, ChevronRight, Lightbulb, TrendingUp, ArrowRight, Building2 } from 'lucide-react';
+import { ArrowLeft, CheckCircle, ExternalLink, AlertCircle, Copy, Plane, Info, Lock, ChevronRight, Lightbulb, TrendingUp, ArrowRight } from 'lucide-react';
 import { itineraries, trips as tripsAPI } from '@/lib/api';
 import {
     buildTransferStepsFromItinerary,
@@ -214,7 +214,7 @@ export default function GroupTransferInstructions() {
                     <AlertCircle className="w-5 h-5 text-amber-600 flex-shrink-0 mt-0.5" />
                     <div className="text-sm text-amber-900">
                         <span className="font-semibold block mb-1">Important: Transfers are irreversible</span>
-                        Once you transfer credit card points to an airline or hotel partner, you cannot move them back.
+                        Once you transfer credit card points to an airline partner, you cannot move them back.
                         Ensure availability is still there before confirming the transfer.
                     </div>
                 </div>
@@ -376,51 +376,38 @@ export default function GroupTransferInstructions() {
                                  transfer.program.toLowerCase().includes(t.from_program?.toLowerCase() || ''))
                             );
                             
-                            const isHotel = transfer.isHotel;
-                            // Flight-specific
-                            const flightSegment = !isHotel ? (transfer.flightSegment || matchingTip?.best_for) : undefined;
-                            const isCodeshare = !isHotel && (transfer.isCodeshare || matchingTip?.is_codeshare);
-                            const operatingCarrier = !isHotel ? (transfer.operatingCarrier || matchingTip?.operating_carrier_name) : undefined;
-                            // Hotel-specific
-                            const hotelDisplay = isHotel ? (transfer.hotelDisplay || matchingTip?.best_for) : undefined;
-                            const locationDisplay = isHotel ? transfer.locationDisplay : undefined;
+                            const flightSegment = transfer.flightSegment || matchingTip?.best_for;
+                            const isCodeshare = transfer.isCodeshare || matchingTip?.is_codeshare;
+                            const operatingCarrier = transfer.operatingCarrier || matchingTip?.operating_carrier_name;
                             
                             const surcharge = transfer.surcharge ?? matchingTip?.surcharge;
                             const partnerName = matchingTip?.booking_airline_name || transfer.partner;
 
                             return (
-                                <div key={transfer.id} className={`bg-white border-2 rounded-2xl overflow-hidden shadow-sm hover:shadow-md transition-shadow ${
-                                    isHotel ? 'border-purple-200' : 'border-slate-200'
-                                }`}>
+                                <div key={transfer.id} className="bg-white border-2 rounded-2xl overflow-hidden shadow-sm hover:shadow-md transition-shadow border-slate-200">
                                     {/* Header with Member Info */}
-                                    <div className={`p-6 border-b-2 border-slate-100 bg-gradient-to-r ${
-                                        isHotel ? 'from-slate-50 to-purple-50/30' : 'from-slate-50 to-blue-50/30'
-                                    }`}>
+                                    <div className="p-6 border-b-2 border-slate-100 bg-gradient-to-r from-slate-50 to-blue-50/30">
                                         <div className="flex items-center gap-4 mb-4">
-                                            <div className={`w-14 h-14 rounded-xl flex items-center justify-center shadow-lg text-white font-bold text-lg ${
-                                                isHotel ? 'bg-gradient-to-br from-purple-600 to-fuchsia-600' : 'bg-gradient-to-br from-blue-600 to-indigo-600'
-                                            }`}>
+                                            <div className="w-14 h-14 rounded-xl flex items-center justify-center shadow-lg text-white font-bold text-lg bg-gradient-to-br from-blue-600 to-indigo-600">
                                                 {transfer.initials}
                                             </div>
                                             <div>
                                                 <div className="flex items-center gap-2 mb-1">
                                                     <h3 className="text-xl font-bold text-slate-900">{transfer.member}</h3>
-                                                    <span className={`px-2 py-0.5 text-xs rounded-full font-bold uppercase tracking-wide ${
-                                                        isHotel ? 'bg-purple-100 text-purple-700' : 'bg-blue-100 text-blue-700'
-                                                    }`}>
+                                                    <span className="px-2 py-0.5 text-xs rounded-full font-bold uppercase tracking-wide bg-blue-100 text-blue-700">
                                                         {transfer.category}
                                                     </span>
                                                 </div>
                                                 <div className="text-sm text-slate-600 flex items-center gap-2">
                                                     <span className="font-medium">{transfer.program}</span>
                                                     <ArrowRight className="w-3.5 h-3.5 text-slate-400" />
-                                                    <span className={`font-bold ${isHotel ? 'text-purple-700' : 'text-blue-700'}`}>{transfer.partner}</span>
+                                                    <span className="font-bold text-blue-700">{transfer.partner}</span>
                                                 </div>
                                             </div>
                                         </div>
 
                                         {/* Transfer Summary - Prominent Display */}
-                                        <div className={`bg-white rounded-xl p-4 border-2 shadow-sm ${isHotel ? 'border-purple-200' : 'border-blue-200'}`}>
+                                        <div className="bg-white rounded-xl p-4 border-2 shadow-sm border-blue-200">
                                             <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
                                                 <div>
                                                     <div className="text-xs font-bold text-slate-500 uppercase tracking-wider mb-1">From Card</div>
@@ -428,12 +415,12 @@ export default function GroupTransferInstructions() {
                                                 </div>
                                                 <div>
                                                     <div className="text-xs font-bold text-slate-500 uppercase tracking-wider mb-1">Transfer Amount</div>
-                                                    <div className={`text-2xl font-bold ${isHotel ? 'text-purple-700' : 'text-blue-700'}`}>{transfer.amount.toLocaleString()}</div>
+                                                    <div className="text-2xl font-bold text-blue-700">{transfer.amount.toLocaleString()}</div>
                                                     <div className="text-xs text-slate-600 font-medium">points</div>
                                                 </div>
                                                 <div>
                                                     <div className="text-xs font-bold text-slate-500 uppercase tracking-wider mb-1">To Partner</div>
-                                                    <div className={`text-sm font-bold flex items-center gap-1 ${isHotel ? 'text-purple-700' : 'text-blue-700'}`}>
+                                                    <div className="text-sm font-bold flex items-center gap-1 text-blue-700">
                                                         {partnerName}
                                                         <button
                                                             onClick={() => copyToClipboard(partnerName, transfer.id)}
@@ -447,27 +434,13 @@ export default function GroupTransferInstructions() {
                                             </div>
 
                                             {/* Flight Segment Info */}
-                                            {!isHotel && flightSegment && (
+                                            {flightSegment && (
                                                 <div className="mt-3 pt-3 border-t border-slate-200">
                                                     <div className="flex items-center gap-2 text-sm">
                                                         <Plane className="w-4 h-4 text-slate-500" />
                                                         <span className="font-medium text-slate-600">For flight:</span>
                                                         <span className="font-bold text-slate-900">{flightSegment}</span>
                                                     </div>
-                                                </div>
-                                            )}
-                                            
-                                            {/* Hotel Info */}
-                                            {isHotel && (hotelDisplay || locationDisplay) && (
-                                                <div className="mt-3 pt-3 border-t border-slate-200">
-                                                    <div className="flex items-center gap-2 text-sm">
-                                                        <Building2 className="w-4 h-4 text-slate-500" />
-                                                        <span className="font-medium text-slate-600">For hotel:</span>
-                                                        <span className="font-bold text-slate-900">{hotelDisplay || locationDisplay}</span>
-                                                    </div>
-                                                    {hotelDisplay && locationDisplay && (
-                                                        <div className="text-xs text-slate-500 mt-1 ml-6">{locationDisplay}</div>
-                                                    )}
                                                 </div>
                                             )}
 
@@ -481,8 +454,8 @@ export default function GroupTransferInstructions() {
                                                 </div>
                                             )}
 
-                                            {/* Codeshare Info (flights only) */}
-                                            {!isHotel && isCodeshare && operatingCarrier && (
+                                            {/* Codeshare Info */}
+                                            {isCodeshare && operatingCarrier && (
                                                 <div className="mt-3 p-2 bg-blue-50 border border-blue-200 rounded-lg">
                                                     <div className="flex items-center gap-2 text-xs">
                                                         <Info className="w-3.5 h-3.5 text-blue-600" />

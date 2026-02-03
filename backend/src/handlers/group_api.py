@@ -161,6 +161,9 @@ async def handle_optimize_oop(
     """
     Run group OOP optimization.
     
+    This uses ALL members' points from the aggregated pool to minimize
+    total out-of-pocket cost. Member budgets can be additive (combined).
+    
     Args:
         trip_id: Trip ID
         members_data: List of member data dicts
@@ -176,19 +179,47 @@ async def handle_optimize_oop(
     # Convert to GroupMember objects
     members = _convert_to_group_members(members_data)
     
-    # Aggregate points
+    # Log members and their points for debugging
+    logger.info(f"Group OOP optimization for trip {trip_id}")
+    logger.info(f"  Members: {len(members)}")
+    for m in members:
+        pts_summary = {k: v for k, v in m.points_balances.items() if v > 0}
+        logger.info(f"    {m.user_id} ({m.name}): points={pts_summary}, "
+                   f"budget={m.max_cash_budget}, willing_to_share={m.willing_to_share_points}")
+    
+    # Aggregate points from ALL members
     pool = aggregate_group_points(members)
+    
+    logger.info(f"  Aggregated pool: {pool.total_by_program}")
+    logger.info(f"  Shareable pool: {pool.shareable_pool}")
+    logger.info(f"  Total value: ${pool.total_value:,.2f}")
     
     # Convert booking items
     booking_items = _convert_to_booking_items(booking_items_data, pool)
     
-    # Run optimization
+    logger.info(f"  Booking items: {len(booking_items)} items")
+    for item in booking_items:
+        logger.info(f"    {item.item_id}: for={item.member_id}, "
+                   f"cash=${item.cash_cost:.2f}, party_size={item.party_size}, "
+                   f"points_options={len(item.points_options)}")
+    
+    # Calculate combined group budget (sum of all member budgets)
+    # This allows group members to pool their budgets together
+    combined_budget = None
+    individual_budgets = [m.max_cash_budget for m in members if m.max_cash_budget]
+    if individual_budgets:
+        combined_budget = sum(individual_budgets)
+        logger.info(f"  Combined group budget: ${combined_budget:,.2f} "
+                   f"(from {len(individual_budgets)} members)")
+    
+    # Run optimization with ALL members' points and combined budget
     solution = minimize_group_out_of_pocket(
         members=members,
         booking_items=booking_items,
         pool=pool,
         allow_cross_member_points=options.allow_cross_member_points,
         max_subsidy_per_member=options.max_subsidy_per_member,
+        max_group_budget=combined_budget,  # Pass combined budget
     )
     
     # Calculate detailed cost allocation
@@ -465,8 +496,13 @@ def _convert_to_group_members(members_data: List[Dict[str, Any]]) -> List[GroupM
             if bal and int(bal) > 0:
                 normalized_points[prog] = int(bal)
         
+        # points_usage: "do_not_use" -> do not use for group; "freely" / "ask_before" -> allow use
+        points_usage = m.get("points_usage") or "freely"
+        willing = m.get("willing_to_share_points")
+        if willing is None:
+            willing = points_usage != "do_not_use"
         member = GroupMember(
-            user_id=m.get("user_id") or m.get("member_id") or m.get("id"),
+            user_id=m.get("user_id") or m.get("userId") or m.get("member_id") or m.get("id"),
             name=m.get("name") or m.get("display_name") or m.get("user_id", "Unknown"),
             role=MemberRole(m.get("role", "member")),
             departure_airport=m.get("departure_airport") or m.get("origin_airport") or "JFK",
@@ -474,7 +510,7 @@ def _convert_to_group_members(members_data: List[Dict[str, Any]]) -> List[GroupM
             cabin_preference=m.get("cabin_preference") or m.get("cabin") or "Economy",
             points_balances=normalized_points,
             max_cash_budget=m.get("max_cash_budget") or m.get("max_budget"),
-            willing_to_share_points=m.get("willing_to_share_points", True),
+            willing_to_share_points=willing,
             party_size=m.get("party_size", 1),
         )
         members.append(member)
@@ -486,7 +522,15 @@ def _convert_to_booking_items(
     items_data: List[Dict[str, Any]],
     pool: GroupPointsPool,
 ) -> List[MemberBookingItem]:
-    """Convert booking item data dicts to MemberBookingItem objects."""
+    """
+    Convert booking item data dicts to MemberBookingItem objects.
+    
+    Important: This determines which members can provide points for each booking.
+    The ILP solver uses this to decide how to optimally allocate points across
+    all group members.
+    """
+    from .transfer_strategy import EXTENDED_TRANSFER_GRAPH
+    
     items = []
     
     for item in items_data:
@@ -502,24 +546,49 @@ def _convert_to_booking_items(
             surcharge = opt.get("surcharge") or opt.get("taxes") or opt.get("tax") or 0
             
             if prog and points_req > 0:
-                # Find who can provide these points
-                available_from = []
+                prog_upper = prog.upper()
+                
+                # Find ALL members who can provide these points (direct or via transfer)
+                available_from = set()
+                
                 for member_id, member_points in pool.by_member.items():
-                    # Check direct balance
-                    if member_points.get(prog.upper(), 0) >= points_req:
-                        available_from.append(member_id)
-                    # Check via bank transfer (simplified)
+                    # Check direct balance (case-insensitive)
+                    direct_balance = (
+                        member_points.get(prog, 0) + 
+                        member_points.get(prog_upper, 0) + 
+                        member_points.get(prog.lower(), 0)
+                    )
+                    if direct_balance >= points_req:
+                        available_from.add(member_id)
+                        continue
+                    
+                    # Check via bank transfer
+                    # Banks: chase, amex, citi, capitalone, bilt
                     for bank in ["chase", "amex", "citi", "capitalone", "bilt"]:
-                        if member_points.get(bank, 0) >= points_req:
-                            available_from.append(member_id)
-                            break
+                        bank_balance = member_points.get(bank, 0)
+                        if bank_balance <= 0:
+                            continue
+                        
+                        # Check if this bank can transfer to the target program
+                        if bank in EXTENDED_TRANSFER_GRAPH:
+                            if prog_upper in EXTENDED_TRANSFER_GRAPH[bank]:
+                                ratio = EXTENDED_TRANSFER_GRAPH[bank][prog_upper].get("ratio", 1.0)
+                                # How many bank points needed?
+                                bank_points_needed = int(points_req / ratio) if ratio > 0 else points_req
+                                if bank_balance >= bank_points_needed:
+                                    available_from.add(member_id)
+                                    break
                 
                 points_options.append(GroupPointsOption(
-                    program_code=prog.upper(),
+                    program_code=prog_upper,
                     points_required=int(points_req),
                     surcharge=float(surcharge),
-                    available_from=list(set(available_from)),
+                    available_from=list(available_from),
                 ))
+                
+                if available_from:
+                    logger.debug(f"  Points option {prog_upper}: {points_req} pts, "
+                               f"available from {len(available_from)} members: {list(available_from)}")
         
         booking_item = MemberBookingItem(
             item_id=item.get("item_id") or item.get("id") or f"item_{len(items)}",

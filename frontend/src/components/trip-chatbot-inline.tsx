@@ -137,10 +137,6 @@ export default function TripChatbotInline({ onExtract }: TripChatbotInlineProps)
       if (extracted.flightClass) {
         extractedItems.push(`✈️ Flight Class: ${extracted.flightClass.replace(/_/g, ' ')}`);
       }
-
-      if (extracted.hotelClass) {
-        extractedItems.push(`🏨 Hotel Class: ${extracted.hotelClass} Star`);
-      }
     }
 
     const hasUsefulExtraction = extractedItems.length > 0;
