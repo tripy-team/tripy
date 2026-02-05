@@ -1327,8 +1327,13 @@ def convert_result_to_itineraries(
     
     # Budget verification - use NO_BUDGET_LIMIT sentinel for unlimited
     # Budget is always a float now (never None) due to upstream guards
+    # Also check solution's budget tracking (set by solver if budget fallback was used)
     is_unlimited = budget >= NO_BUDGET_LIMIT
     is_within_budget = is_unlimited or total_oop <= budget
+    
+    # If solver marked budget as exceeded (e.g., fallback solve without budget), use that
+    if solution and hasattr(solution, 'budget_exceeded') and solution.budget_exceeded:
+        is_within_budget = False
     
     logger.info("=" * 80)
     logger.info(f"[V3 Adapter] BUDGET VERIFICATION:")
@@ -1340,7 +1345,8 @@ def convert_result_to_itineraries(
         logger.info(f"  Budget limit: ${budget:.2f}")
         logger.info(f"  Within budget: {is_within_budget} ({'✅' if is_within_budget else '❌'})")
         if not is_within_budget:
-            logger.error(f"  ⚠️ BUDGET EXCEEDED by ${total_oop - budget:.2f}!")
+            exceeded_by = solution.budget_exceeded_by if (solution and hasattr(solution, 'budget_exceeded_by') and solution.budget_exceeded_by) else (total_oop - budget)
+            logger.warning(f"  ⚠️ BUDGET EXCEEDED by ${exceeded_by:.0f}! Showing closest itinerary.")
     logger.info("=" * 80)
     
     itinerary = RankedItinerary(

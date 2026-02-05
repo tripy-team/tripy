@@ -1173,6 +1173,11 @@ class SolverV3:
         
         SAFE APPROACH: Build a fresh model for pass 2 to avoid
         PuLP objective state issues.
+        
+        BUDGET FALLBACK: If the solve fails with a budget constraint,
+        automatically retry WITHOUT the budget constraint to find the
+        "closest" (minimum cost) itinerary. This ensures users always
+        see an itinerary, even if it exceeds their budget.
         """
         
         try:
@@ -1211,6 +1216,34 @@ class SolverV3:
         status = self.model.solve(solver)
         
         self.metrics.pass1_status = LpStatus[status]
+        
+        # ═══════════════════════════════════════════════════════════════════
+        # BUDGET FALLBACK: If infeasible AND budget was set, retry without budget
+        # ═══════════════════════════════════════════════════════════════════
+        
+        budget_fallback_used = False
+        original_budget = self.cash_budget
+        
+        if status != LpStatusOptimal and self.cash_budget is not None and self.cash_budget > 0:
+            logger.warning(
+                f"[Solver] Model infeasible with budget ${self.cash_budget:,.0f}. "
+                "Retrying WITHOUT budget constraint to find closest itinerary..."
+            )
+            
+            # Remove the budget constraint by name
+            if "cash_budget_hard_limit" in self.model.constraints:
+                del self.model.constraints["cash_budget_hard_limit"]
+                logger.info("[Solver] Removed budget constraint, retrying solve...")
+                
+                # Re-solve without budget
+                status = self.model.solve(solver)
+                self.metrics.pass1_status = LpStatus[status]
+                budget_fallback_used = True
+                
+                if status == LpStatusOptimal:
+                    logger.info("[Solver] ✓ Found feasible solution WITHOUT budget constraint")
+                else:
+                    logger.warning("[Solver] Still infeasible even without budget constraint")
         
         if status != LpStatusOptimal:
             return OptimizationResult(
@@ -1257,14 +1290,44 @@ class SolverV3:
         # Extract solution
         solution = self._extract_solution()
         
+        # ═══════════════════════════════════════════════════════════════════
+        # BUDGET TRACKING: Mark if solution exceeds user's budget
+        # ═══════════════════════════════════════════════════════════════════
+        
+        warnings = []
+        suggestions = []
+        
+        if solution and original_budget is not None and original_budget > 0:
+            solution.user_budget = original_budget
+            if solution.total_cash > original_budget:
+                solution.budget_exceeded = True
+                solution.budget_exceeded_by = solution.total_cash - original_budget
+                
+                # Calculate suggested budget (10% above minimum cost)
+                suggested_budget = int(solution.total_cash * 1.1)
+                
+                logger.warning(
+                    f"[Solver] Solution exceeds budget: ${solution.total_cash:.0f} > "
+                    f"${original_budget:.0f} (exceeded by ${solution.budget_exceeded_by:.0f})"
+                )
+                
+                warnings.append(
+                    f"No itinerary found within your ${original_budget:.0f} budget. "
+                    f"The minimum cost for this trip is ${solution.total_cash:.0f}. "
+                    f"We recommend setting your budget to at least ${suggested_budget:,}."
+                )
+                suggestions.append(f"Increase budget to ${suggested_budget:,} or more")
+            else:
+                solution.budget_exceeded = False
+        
         return OptimizationResult(
             status=OptimizationStatus.OPTIMAL if status == LpStatusOptimal else OptimizationStatus.FEASIBLE_SUBOPTIMAL,
             solution=solution,
             pass1_objective=opt1,
             pass1_slack=slack,
             pass2_objective=self.metrics.pass2_objective,
-            warnings=[],
-            suggestions=[],
+            warnings=warnings,
+            suggestions=suggestions,
         )
     
     def _build_primary_objective(self):

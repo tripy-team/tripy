@@ -844,6 +844,11 @@ class Solution:
     total_points_by_program: Dict[str, int] = field(default_factory=dict)
     total_value: float = 0.0  # Value captured from awards
     
+    # Budget tracking
+    budget_exceeded: bool = False  # True if solution exceeds user's budget
+    user_budget: Optional[float] = None  # User's budget constraint (if set)
+    budget_exceeded_by: Optional[float] = None  # How much over budget
+    
     @property
     def total_points(self) -> int:
         """Total points across all programs."""
