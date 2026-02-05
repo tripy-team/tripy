@@ -3,7 +3,7 @@
 import { useEffect, useState, useRef } from 'react';
 import { useRouter } from 'next/navigation';
 import Link from 'next/link';
-import { Plane, CreditCard, Users, Sparkles, Search } from 'lucide-react';
+import { Plane, CreditCard, PiggyBank, Sparkles, Search } from 'lucide-react';
 import { Navigation } from '@/components/navigation';
 
 export default function LandingPage() {
@@ -149,15 +149,15 @@ export default function LandingPage() {
                 <div className="max-w-7xl mx-auto px-8">
                     <h2 className="text-5xl text-center mb-16 text-slate-900 font-bold">How It Works</h2>
                     
-                    <div className="grid md:grid-cols-4 gap-12">
+                    <div className="grid md:grid-cols-3 gap-12">
                         {/* Feature 1 */}
                         <div className="text-center">
                             <div className="w-20 h-20 mx-auto mb-6 bg-gradient-to-br from-blue-100 to-blue-200 rounded-2xl flex items-center justify-center transform hover:scale-110 transition-transform">
-                                <Plane className="w-10 h-10 text-blue-600" />
+                                <PiggyBank className="w-10 h-10 text-blue-600" />
                             </div>
-                            <h3 className="text-xl mb-3 text-slate-900 font-semibold">Maximize Your Points</h3>
+                            <h3 className="text-xl mb-3 text-slate-900 font-semibold">Save Thousands on Travel</h3>
                             <p className="text-slate-600 leading-relaxed">
-                                Get the most value from Amex, Chase points, and more
+                                Turn your credit card points into flights worth 3-10x more than cash back
                             </p>
                         </div>
 
@@ -168,29 +168,18 @@ export default function LandingPage() {
                             </div>
                             <h3 className="text-xl mb-3 text-slate-900 font-semibold">Multi-Card Optimization</h3>
                             <p className="text-slate-600 leading-relaxed">
-                                Finds redemptions that give 3-10x value per point
+                                We find the best transfer paths across all your cards to maximize savings
                             </p>
                         </div>
 
                         {/* Feature 3 */}
                         <div className="text-center">
                             <div className="w-20 h-20 mx-auto mb-6 bg-gradient-to-br from-blue-100 to-blue-200 rounded-2xl flex items-center justify-center transform hover:scale-110 transition-transform">
-                                <Users className="w-10 h-10 text-blue-600" />
-                            </div>
-                            <h3 className="text-xl mb-3 text-slate-900 font-semibold">Collaborative Travel</h3>
-                            <p className="text-slate-600 leading-relaxed">
-                                Plan, split, vote on destinations with your whole group
-                            </p>
-                        </div>
-
-                        {/* Feature 4 */}
-                        <div className="text-center">
-                            <div className="w-20 h-20 mx-auto mb-6 bg-gradient-to-br from-blue-100 to-blue-200 rounded-2xl flex items-center justify-center transform hover:scale-110 transition-transform">
                                 <Search className="w-10 h-10 text-blue-600" />
                             </div>
-                            <h3 className="text-xl mb-3 text-slate-900 font-semibold">Transparent Flight Search</h3>
+                            <h3 className="text-xl mb-3 text-slate-900 font-semibold">Compare Cash vs Points</h3>
                             <p className="text-slate-600 leading-relaxed">
-                                See cash vs points, time savings, and hidden routing options
+                                See exactly how much you save with points vs paying cash
                             </p>
                         </div>
                     </div>

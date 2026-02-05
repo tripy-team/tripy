@@ -46,29 +46,12 @@ const mockTransfers: TransferItem[] = [
     surcharge: 70,
     cashAlternative: 4100,
   },
-  {
-    type: 'hotel',
-    fromBank: 'chase',
-    fromBankName: 'Chase Ultimate Rewards',
-    toProgram: 'HYATT',
-    toProgramName: 'World of Hyatt',
-    pointsToTransfer: 180000,
-    transferTime: 'Instant',
-    transferRatio: '1:1',
-    hotelName: 'Grand Hyatt Seoul',
-    hotelLocation: 'Seoul, South Korea',
-    nights: 9,
-    checkIn: '2026-03-15',
-    checkOut: '2026-03-24',
-    surcharge: 45,
-    cashAlternative: 2700,
-  },
 ];
 
 const mockSummary = {
-  totalOutOfPocket: 190, // Sum of surcharges
-  allCashCost: 11000, // Sum of cash alternatives
-  savings: 10810,
+  totalOutOfPocket: 145, // Sum of surcharges (75 + 70)
+  allCashCost: 8300, // Sum of cash alternatives (4200 + 4100)
+  savings: 8155,
   savingsPercentage: 98.3,
 };
 
@@ -121,46 +104,13 @@ const europeTransfers: TransferItem[] = [
     surcharge: 45,
     cashAlternative: 780,
   },
-  {
-    type: 'hotel',
-    fromBank: 'amex',
-    fromBankName: 'Amex Membership Rewards',
-    toProgram: 'HH',
-    toProgramName: 'Hilton Honors',
-    pointsToTransfer: 80000, // 1:2 ratio gets 160k Hilton points
-    transferTime: '1-2 business days',
-    transferRatio: '1:2',
-    hotelName: 'Hilton Paris Opera',
-    hotelLocation: 'Paris, France',
-    nights: 4,
-    checkIn: '2026-06-01',
-    checkOut: '2026-06-05',
-    surcharge: 40,
-    cashAlternative: 1200,
-  },
-  {
-    type: 'hotel',
-    fromBank: 'chase',
-    fromBankName: 'Chase Ultimate Rewards',
-    toProgram: 'HYATT',
-    toProgramName: 'World of Hyatt',
-    pointsToTransfer: 100000,
-    transferTime: 'Instant',
-    hotelName: 'Hyatt Regency Barcelona Tower',
-    hotelLocation: 'Barcelona, Spain',
-    nights: 5,
-    checkIn: '2026-06-09',
-    checkOut: '2026-06-14',
-    surcharge: 30,
-    cashAlternative: 900,
-  },
 ];
 
 const europeSummary = {
-  totalOutOfPocket: 260,
-  allCashCost: 3850,
-  savings: 3590,
-  savingsPercentage: 93.2,
+  totalOutOfPocket: 190, // Sum of surcharges (120 + 25 + 45)
+  allCashCost: 1750, // Sum of cash alternatives (850 + 120 + 780)
+  savings: 1560,
+  savingsPercentage: 89.1,
 };
 
 export default function DemoTransferStrategy() {
@@ -188,7 +138,7 @@ export default function DemoTransferStrategy() {
         <section>
           <h2 className="text-2xl font-bold text-slate-900 mb-2">Example 1: Seoul Round Trip</h2>
           <p className="text-slate-600 mb-6">
-            JFK → Seoul → JFK with 9 nights at Grand Hyatt Seoul
+            JFK → Seoul → JFK round trip flights
           </p>
           <TransferStrategyCard
             transfers={mockTransfers}
@@ -200,7 +150,7 @@ export default function DemoTransferStrategy() {
         <section>
           <h2 className="text-2xl font-bold text-slate-900 mb-2">Example 2: European Adventure</h2>
           <p className="text-slate-600 mb-6">
-            JFK → Paris → Rome → Barcelona → JFK with hotels
+            JFK → Paris → Rome → Barcelona → JFK multi-city flights
           </p>
           <TransferStrategyCard
             transfers={europeTransfers}
@@ -275,7 +225,6 @@ export default function DemoTransferStrategy() {
               <li>Expandable step-by-step instructions</li>
               <li>Direct links to bank portals and airline booking sites</li>
               <li>Flight number, route, and date display</li>
-              <li>Hotel name and stay details</li>
               <li>Savings summary (optional)</li>
             </ul>
           </div>
