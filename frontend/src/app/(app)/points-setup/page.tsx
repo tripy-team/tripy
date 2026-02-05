@@ -4,7 +4,7 @@ import { useState, useEffect, useMemo, useRef } from 'react';
 import { useRouter } from 'next/navigation';
 import { CreditCard, Plus, X, Zap, TrendingUp, ArrowRight, Sparkles, ChevronDown, Plane, AlertTriangle } from 'lucide-react';
 import { users as usersAPI, points as pointsAPI } from '@/lib/api';
-import { ALL_LOYALTY_PROGRAMS, getProgramCategory, isValidProgram, type ProgramCategory } from '@/lib/loyalty-programs';
+import { ALL_LOYALTY_PROGRAMS, getProgramCategory, isValidProgram } from '@/lib/loyalty-programs';
 
 interface LoyaltyCard {
   id: string;
@@ -33,7 +33,7 @@ export default function PointsSetup() {
   const [showAddModal, setShowAddModal] = useState(false);
   const [newProgram, setNewProgram] = useState('');
   const [newPoints, setNewPoints] = useState('');
-  const [newCategory, setNewCategory] = useState<ProgramCategory>('credit');
+  const [newCategory, setNewCategory] = useState<'credit' | 'airline'>('credit');
   const [newCardProduct, setNewCardProduct] = useState('');
   const [showProgramDropdown, setShowProgramDropdown] = useState(false);
   const [programSearchQuery, setProgramSearchQuery] = useState('');
@@ -80,7 +80,8 @@ export default function PointsSetup() {
     const programInfo = ALL_LOYALTY_PROGRAMS.find(p => p.value === program || p.label === program);
     if (programInfo) {
       setNewProgram(programInfo.value);
-      setNewCategory(programInfo.category);
+      // Hotels not supported - treat as credit
+      setNewCategory(programInfo.category === 'hotel' ? 'credit' : programInfo.category);
       setShowProgramDropdown(false);
       setProgramSearchQuery('');
     }
@@ -164,11 +165,14 @@ export default function PointsSetup() {
   const addCard = () => {
     if (newProgram.trim() && newPoints.trim() && isValidProgram(newProgram)) {
       const programInfo = ALL_LOYALTY_PROGRAMS.find(p => p.value === newProgram || p.label === newProgram);
+      const rawCategory = programInfo?.category || newCategory;
+      // Hotels not supported - treat as credit if encountered
+      const category: 'credit' | 'airline' = rawCategory === 'hotel' ? 'credit' : rawCategory;
       const card: LoyaltyCard = {
         id: `card-${Date.now()}-${Math.random().toString(36).substr(2, 9)}`,
         program: programInfo?.value || newProgram.trim(),
         points: Number(newPoints.trim()),
-        category: programInfo?.category || newCategory,
+        category,
         card_product: newCardProduct.trim() || undefined,
       };
       setCards([...cards, card]);
@@ -321,7 +325,8 @@ export default function PointsSetup() {
                       key={programInfo.value}
                       onClick={() => {
                         setNewProgram(programInfo.value);
-                        setNewCategory(programInfo.category);
+                        // Hotels not supported - treat as credit
+                        setNewCategory(programInfo.category === 'hotel' ? 'credit' : programInfo.category);
                         setShowAddModal(true);
                       }}
                       className="flex items-center gap-3 px-4 py-3 bg-slate-50 border border-slate-200 rounded-xl hover:bg-blue-50 hover:border-blue-200 transition-all text-left"
@@ -455,7 +460,7 @@ export default function PointsSetup() {
                     <button
                       key={value}
                       onClick={() => {
-                        setNewCategory(value as ProgramCategory);
+                        setNewCategory(value as 'credit' | 'airline');
                         setNewProgram('');
                         setProgramSearchQuery('');
                       }}
