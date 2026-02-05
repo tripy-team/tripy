@@ -253,7 +253,7 @@ export default function GroupTripSetup() {
         title: tripTitle,
         start_date: startDate,
         end_date: endDate,
-        max_budget: maxBudget === '' ? undefined : (typeof maxBudget === 'number' ? maxBudget : undefined),
+        max_budget: maxBudget,
         // Include organizer's party size
         adults: adults,
         children: children,
