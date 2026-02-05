@@ -1174,10 +1174,9 @@ class SolverV3:
         SAFE APPROACH: Build a fresh model for pass 2 to avoid
         PuLP objective state issues.
         
-        BUDGET FALLBACK: If the solve fails with a budget constraint,
-        automatically retry WITHOUT the budget constraint to find the
-        "closest" (minimum cost) itinerary. This ensures users always
-        see an itinerary, even if it exceeds their budget.
+        FALLBACK BEHAVIOR: If budget constraint makes model infeasible,
+        automatically relax it and return the closest feasible solution
+        with an appropriate warning.
         """
         
         try:
@@ -1217,35 +1216,21 @@ class SolverV3:
         
         self.metrics.pass1_status = LpStatus[status]
         
-        # ═══════════════════════════════════════════════════════════════════
-        # BUDGET FALLBACK: If infeasible AND budget was set, retry without budget
-        # ═══════════════════════════════════════════════════════════════════
-        
-        budget_fallback_used = False
-        original_budget = self.cash_budget
-        
-        if status != LpStatusOptimal and self.cash_budget is not None and self.cash_budget > 0:
-            logger.warning(
-                f"[Solver] Model infeasible with budget ${self.cash_budget:,.0f}. "
-                "Retrying WITHOUT budget constraint to find closest itinerary..."
-            )
-            
-            # Remove the budget constraint by name
-            if "cash_budget_hard_limit" in self.model.constraints:
-                del self.model.constraints["cash_budget_hard_limit"]
-                logger.info("[Solver] Removed budget constraint, retrying solve...")
-                
-                # Re-solve without budget
-                status = self.model.solve(solver)
-                self.metrics.pass1_status = LpStatus[status]
-                budget_fallback_used = True
-                
-                if status == LpStatusOptimal:
-                    logger.info("[Solver] ✓ Found feasible solution WITHOUT budget constraint")
-                else:
-                    logger.warning("[Solver] Still infeasible even without budget constraint")
-        
         if status != LpStatusOptimal:
+            # ═══════════════════════════════════════════════════════════════
+            # FALLBACK: Try without budget constraint to find closest solution
+            # ═══════════════════════════════════════════════════════════════
+            if self.cash_budget and self.cash_budget > 0:
+                logger.warning(
+                    f"[Solver] Model infeasible with budget ${self.cash_budget:.0f}. "
+                    f"Trying to find closest feasible solution..."
+                )
+                
+                # Try solving without the budget constraint
+                fallback_result = self._solve_without_budget_constraint(solver, primary)
+                if fallback_result:
+                    return fallback_result
+            
             return OptimizationResult(
                 status=OptimizationStatus.INFEASIBLE_MODEL,
                 solution=None,
@@ -1290,45 +1275,100 @@ class SolverV3:
         # Extract solution
         solution = self._extract_solution()
         
-        # ═══════════════════════════════════════════════════════════════════
-        # BUDGET TRACKING: Mark if solution exceeds user's budget
-        # ═══════════════════════════════════════════════════════════════════
-        
-        warnings = []
-        suggestions = []
-        
-        if solution and original_budget is not None and original_budget > 0:
-            solution.user_budget = original_budget
-            if solution.total_cash > original_budget:
-                solution.budget_exceeded = True
-                solution.budget_exceeded_by = solution.total_cash - original_budget
-                
-                # Calculate suggested budget (10% above minimum cost)
-                suggested_budget = int(solution.total_cash * 1.1)
-                
-                logger.warning(
-                    f"[Solver] Solution exceeds budget: ${solution.total_cash:.0f} > "
-                    f"${original_budget:.0f} (exceeded by ${solution.budget_exceeded_by:.0f})"
-                )
-                
-                warnings.append(
-                    f"No itinerary found within your ${original_budget:.0f} budget. "
-                    f"The minimum cost for this trip is ${solution.total_cash:.0f}. "
-                    f"We recommend setting your budget to at least ${suggested_budget:,}."
-                )
-                suggestions.append(f"Increase budget to ${suggested_budget:,} or more")
-            else:
-                solution.budget_exceeded = False
-        
         return OptimizationResult(
             status=OptimizationStatus.OPTIMAL if status == LpStatusOptimal else OptimizationStatus.FEASIBLE_SUBOPTIMAL,
             solution=solution,
             pass1_objective=opt1,
             pass1_slack=slack,
             pass2_objective=self.metrics.pass2_objective,
-            warnings=warnings,
-            suggestions=suggestions,
+            warnings=[],
+            suggestions=[],
         )
+    
+    def _solve_without_budget_constraint(self, solver, primary) -> Optional[OptimizationResult]:
+        """
+        Solve without the budget constraint to find the closest feasible solution.
+        
+        This is called when the original model is infeasible due to budget.
+        Returns an OptimizationResult with the closest solution and a warning
+        about how much it exceeds the budget.
+        """
+        logger.info("[Solver] Rebuilding model without budget constraint for fallback solve...")
+        
+        # Store original budget and disable it
+        original_budget = self.cash_budget
+        self.cash_budget = None
+        
+        try:
+            # Rebuild the model without budget constraint
+            self._build_model()
+            
+            # Build and set objective
+            primary = self._build_primary_objective()
+            self.model.objective = primary
+            self.model.sense = LpMinimize
+            
+            # Solve
+            status = self.model.solve(solver)
+            
+            if status != LpStatusOptimal:
+                logger.warning("[Solver] Even without budget constraint, model is infeasible")
+                return None
+            
+            opt1 = value(primary)
+            logger.info(f"[Solver] Fallback solve found solution with OOP: ${opt1:.2f}")
+            
+            # Calculate how much over budget
+            budget_excess = opt1 - original_budget if original_budget else 0
+            
+            # Build warning message
+            warning_msg = (
+                f"No itinerary available within your ${original_budget:.0f} budget. "
+                f"The closest option costs ${opt1:.0f} (${budget_excess:.0f} over budget)."
+            )
+            
+            suggestion_msg = (
+                f"Consider increasing your budget to ${opt1:.0f} or adding more points balances."
+            )
+            
+            # Run pass 2 for tie-breaking
+            abs_eps = self.slack_config.get_abs_eps(self.is_international)
+            slack = max(abs_eps, self.slack_config.rel_eps * abs(opt1))
+            
+            # Add pass1 bound constraint
+            self.model += primary <= opt1 + slack, "pass1_bound"
+            
+            # Build and set secondary objective
+            secondary = self._build_secondary_objective(slack)
+            self.model.objective = secondary
+            
+            status = self.model.solve(solver)
+            
+            # Extract solution
+            solution = self._extract_solution()
+            
+            # Mark that this solution exceeds budget
+            if solution:
+                solution.budget_exceeded = True
+                solution.budget_excess_amount = budget_excess
+                solution.original_budget = original_budget
+            
+            return OptimizationResult(
+                status=OptimizationStatus.FEASIBLE_SUBOPTIMAL,
+                solution=solution,
+                pass1_objective=opt1,
+                pass1_slack=slack,
+                pass2_objective=value(secondary) if status == LpStatusOptimal else 0,
+                warnings=[warning_msg],
+                suggestions=[suggestion_msg],
+                infeasibility_reason=None,
+                budget_exceeded=True,
+                budget_excess_amount=budget_excess,
+            )
+            
+        finally:
+            # Restore original budget setting
+            self.cash_budget = original_budget
     
     def _build_primary_objective(self):
         """

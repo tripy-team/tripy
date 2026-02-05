@@ -844,10 +844,10 @@ class Solution:
     total_points_by_program: Dict[str, int] = field(default_factory=dict)
     total_value: float = 0.0  # Value captured from awards
     
-    # Budget tracking
-    budget_exceeded: bool = False  # True if solution exceeds user's budget
-    user_budget: Optional[float] = None  # User's budget constraint (if set)
-    budget_exceeded_by: Optional[float] = None  # How much over budget
+    # Budget exceeded info (set when fallback solve is used)
+    budget_exceeded: bool = False
+    budget_excess_amount: float = 0.0
+    original_budget: Optional[float] = None
     
     @property
     def total_points(self) -> int:
@@ -879,3 +879,7 @@ class OptimizationResult:
     # For infeasible cases
     infeasibility_reason: Optional[str] = None
     missing_data: List[str] = field(default_factory=list)
+    
+    # Budget exceeded info (set when original budget was infeasible)
+    budget_exceeded: bool = False
+    budget_excess_amount: float = 0.0

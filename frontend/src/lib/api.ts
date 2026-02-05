@@ -2678,6 +2678,10 @@ export interface SoloRankedItinerary {
   oopMetrics: SoloOOPMetrics;
   transfers: SoloTransferInstruction[];
   insights: SoloTransferInsight[];
+  /** Warning message when itinerary exceeds user's budget */
+  budgetWarning?: string;
+  /** Whether this itinerary is within the user's budget */
+  withinBudget?: boolean;
 }
 
 export interface SoloOptimizeResponse {

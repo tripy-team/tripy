@@ -214,6 +214,9 @@ export interface RankedItinerary {
   withinPoints: boolean;
   
   summary?: string;
+  
+  /** Warning message when itinerary exceeds user's budget */
+  budgetWarning?: string;
 }
 
 // =============================================================================

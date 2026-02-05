@@ -444,6 +444,10 @@ class RankedItinerary(BaseModel):
     
     summary: Optional[str] = None  # AI-generated summary
     
+    # Budget warning message when itinerary exceeds user's budget
+    # This is set when the original budget was infeasible and we return the closest option
+    budget_warning: Optional[str] = None
+    
     # For group trips: ID of the member this itinerary is for
     traveler_id: Optional[str] = None
     

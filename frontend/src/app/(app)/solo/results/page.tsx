@@ -175,6 +175,19 @@ export default function SoloResults() {
                                 setOptimizationWarning(optimizeResult.warnings.join('. '));
                             }
                             
+                            // Check for budget warnings in itineraries (when budget was infeasible)
+                            const itin = optimizeResult.itineraries[0];
+                            if (itin.budgetWarning) {
+                                // Extract budget info from the warning if available
+                                const userBudget = (tripData as { maxBudget?: number }).maxBudget;
+                                const oopCost = itin.oopMetrics?.totalOutOfPocket;
+                                setBudgetWarning({
+                                    message: itin.budgetWarning,
+                                    user_budget: userBudget,
+                                    recommended_budget: oopCost ? Math.ceil(oopCost) : undefined,
+                                });
+                            }
+                            
                             // Build duration label
                             let durationLabel = '—';
                             const startDate = (tripData as { startDate?: string }).startDate;
@@ -667,8 +680,12 @@ export default function SoloResults() {
                         <div>
                             <h1 className="text-4xl tracking-tight text-slate-900 font-bold">Your Trip Options</h1>
                             <p className="text-slate-600 mt-1">
-                                {itineraries.length === 0
+                                {itineraries.length === 0 && !budgetWarning
                                     ? 'No itineraries match your budget and points. Try adjusting your limits or destinations.'
+                                    : itineraries.length === 0 && budgetWarning
+                                    ? 'We found the closest option to your budget.'
+                                    : budgetWarning
+                                    ? 'We found the closest option to your budget — see below for details'
                                     : itineraries.length === 1
                                     ? 'We generated 1 itinerary that fits your budget and points'
                                     : `Choose from ${itineraries.length} personalized itineraries — each showing out-of-pocket costs and points needed`}
@@ -772,12 +789,26 @@ export default function SoloResults() {
                                         }`}
                                     >
                                         <div className="p-6">
+                                            {/* Budget Warning Banner - shown when itinerary exceeds budget */}
+                                            {itinerary.budgetWarning && (
+                                                <div className="mb-4 p-3 bg-amber-50 border border-amber-200 rounded-lg flex items-start gap-2">
+                                                    <Info className="w-4 h-4 text-amber-600 flex-shrink-0 mt-0.5" />
+                                                    <div className="text-sm text-amber-800">
+                                                        <span className="font-medium">Over Budget:</span> {itinerary.budgetWarning}
+                                                    </div>
+                                                </div>
+                                            )}
+                                            
                                             {/* Header */}
                                             <div className="flex items-start justify-between mb-4">
                                                 <div className="flex-1">
                                                     <div className="flex items-center gap-3 mb-2">
                                                         <h3 className="text-2xl text-slate-900 font-semibold">{itinerary.displayName}</h3>
-                                                        {itinerary.rank === 1 && (
+                                                        {itinerary.budgetWarning ? (
+                                                            <span className="px-3 py-1 bg-amber-100 text-amber-800 rounded-full text-sm font-medium">
+                                                                Closest Option
+                                                            </span>
+                                                        ) : itinerary.rank === 1 && (
                                                             <span className="px-3 py-1 bg-yellow-100 text-yellow-800 rounded-full text-sm font-medium">
                                                                 <Sparkles className="w-3 h-3 inline mr-1" />
                                                                 Best match

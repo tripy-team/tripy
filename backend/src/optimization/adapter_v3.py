@@ -866,6 +866,9 @@ def convert_result_to_itineraries(
     Convert V3 OptimizationResult to orchestrator RankedItinerary list.
     
     Returns list of RankedItinerary objects (or dicts that match the format).
+    
+    IMPORTANT: Even when budget is infeasible, we return the closest solution
+    with appropriate warnings so users can see what's available.
     """
     
     from ..agents.models import (
@@ -878,6 +881,10 @@ def convert_result_to_itineraries(
     if result.status not in {OptimizationStatus.OPTIMAL, OptimizationStatus.FEASIBLE_SUBOPTIMAL}:
         logger.warning(f"V3 solver returned {result.status}: {result.infeasibility_reason}")
         return []
+    
+    # Track if this is a budget-exceeded fallback solution
+    budget_exceeded = getattr(result, 'budget_exceeded', False)
+    budget_excess_amount = getattr(result, 'budget_excess_amount', 0.0)
     
     solution = result.solution
     if not solution:
@@ -1327,13 +1334,8 @@ def convert_result_to_itineraries(
     
     # Budget verification - use NO_BUDGET_LIMIT sentinel for unlimited
     # Budget is always a float now (never None) due to upstream guards
-    # Also check solution's budget tracking (set by solver if budget fallback was used)
     is_unlimited = budget >= NO_BUDGET_LIMIT
     is_within_budget = is_unlimited or total_oop <= budget
-    
-    # If solver marked budget as exceeded (e.g., fallback solve without budget), use that
-    if solution and hasattr(solution, 'budget_exceeded') and solution.budget_exceeded:
-        is_within_budget = False
     
     logger.info("=" * 80)
     logger.info(f"[V3 Adapter] BUDGET VERIFICATION:")
@@ -1344,15 +1346,36 @@ def convert_result_to_itineraries(
     else:
         logger.info(f"  Budget limit: ${budget:.2f}")
         logger.info(f"  Within budget: {is_within_budget} ({'✅' if is_within_budget else '❌'})")
-        if not is_within_budget:
-            exceeded_by = solution.budget_exceeded_by if (solution and hasattr(solution, 'budget_exceeded_by') and solution.budget_exceeded_by) else (total_oop - budget)
-            logger.warning(f"  ⚠️ BUDGET EXCEEDED by ${exceeded_by:.0f}! Showing closest itinerary.")
+        if not is_within_budget or budget_exceeded:
+            excess = budget_excess_amount if budget_exceeded else (total_oop - budget)
+            logger.warning(f"  ⚠️ BUDGET EXCEEDED by ${excess:.2f} - returning closest itinerary")
     logger.info("=" * 80)
+    
+    # Build budget warning message if exceeded
+    budget_warning = None
+    if budget_exceeded or (not is_unlimited and not is_within_budget):
+        excess = budget_excess_amount if budget_exceeded else (total_oop - budget)
+        budget_warning = (
+            f"This itinerary costs ${total_oop:.0f}, which is ${excess:.0f} over your "
+            f"${budget:.0f} budget. Consider increasing your budget or adjusting your trip."
+        )
+    
+    # Build summary - adjust if budget exceeded
+    if budget_exceeded or (not is_unlimited and not is_within_budget):
+        excess = budget_excess_amount if budget_exceeded else (total_oop - budget)
+        summary = (
+            f"Closest option: ${total_oop:.0f} out-of-pocket (${excess:.0f} over budget). "
+            f"Uses {total_points_used:,} points."
+        )
+        itinerary_name = "Closest Available Itinerary"
+    else:
+        summary = f"Save ${cash_saved:.0f} ({savings_pct:.0f}% off) by using {total_points_used:,} points"
+        itinerary_name = "V3 Optimized Itinerary"
     
     itinerary = RankedItinerary(
         id=str(uuid.uuid4()),
         rank=1,
-        name="V3 Optimized Itinerary",
+        name=itinerary_name,
         route=route,
         segments=itinerary_segments,
         oop_metrics=OOPMetrics(
@@ -1367,9 +1390,10 @@ def convert_result_to_itineraries(
             payment_actions=payment_actions,
         ),
         transfers=transfers,
-        within_budget=is_within_budget,
+        within_budget=is_within_budget and not budget_exceeded,
         within_points=True,
-        summary=f"Save ${cash_saved:.0f} ({savings_pct:.0f}% off) by using {total_points_used:,} points",
+        summary=summary,
+        budget_warning=budget_warning,
     )
     
     # Debug log transfers
