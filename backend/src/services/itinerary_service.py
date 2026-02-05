@@ -2040,7 +2040,8 @@ async def _get_transfer_tips_from_panorama(
     then suggest where to transfer. Used when the optimizer has no points bookings.
     """
     import httpx
-    api_key = os.getenv("AWARD_TOOL_API_KEY") or os.getenv("AWARDTOOL_API_KEY")
+    from src.config import AWARDTOOL_API_KEY as _cfg_award
+    api_key = _cfg_award or os.getenv("AWARD_TOOL_API_KEY") or os.getenv("AWARDTOOL_API_KEY")
     if not api_key or not origin or not destination:
         return []
 

@@ -7,7 +7,7 @@ from dotenv import load_dotenv
 logger = logging.getLogger(__name__)
 from src.utils.cache_layer import get_json, set_json
 from src.utils.airline_utils import infer_airline_from_flight_number
-from src.config import is_awardtool_dummy_mode
+from src.config import is_awardtool_dummy_mode, SERP_API_KEY as CONFIG_SERP_KEY, AWARDTOOL_API_KEY as CONFIG_AWARDTOOL_KEY
 from src.utils.pricing import sanitize_cash_price, sanitize_points_cost, sanitize_surcharge
 
 # award_programs: use src.utils.award_programs (src.data.award_programs was removed)
@@ -41,9 +41,9 @@ from .serp_client import get_flights_between_airports
 # from amadeus import Client as AmadeusClient, Location
 
 load_dotenv()
-# Support both naming conventions (SERPAPI vs SERP_API; AWARD_TOOL vs AWARDTOOL)
-SERPAPI_KEY = os.getenv("SERPAPI_KEY") or os.getenv("SERP_API_KEY")
-AWARD_TOOL_API_KEY = os.getenv("AWARD_TOOL_API_KEY") or os.getenv("AWARDTOOL_API_KEY")
+# Use config (Secrets Manager or env). Config supports SERP_API_KEY/SERPAPI_KEY and AWARDTOOL_API_KEY/AWARD_TOOL_API_KEY.
+SERPAPI_KEY = CONFIG_SERP_KEY or os.getenv("SERPAPI_KEY") or os.getenv("SERP_API_KEY")
+AWARD_TOOL_API_KEY = CONFIG_AWARDTOOL_KEY or os.getenv("AWARD_TOOL_API_KEY") or os.getenv("AWARDTOOL_API_KEY")
 
 
 # =============================================================================

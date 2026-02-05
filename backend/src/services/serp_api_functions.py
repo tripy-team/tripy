@@ -13,16 +13,22 @@ load_dotenv()
 
 from serpapi import GoogleSearch
 
+from src.config import SERP_API_KEY as _CONFIG_SERP, AWARDTOOL_API_KEY as _CONFIG_AWARDTOOL
+
 SERP_URL = "https://serpapi.com/search.json"
 AWARDTOOL_URL = "https://www.awardtool-api.com/search_real_time"
 
 
 def _serp_key() -> str:
-    return (os.getenv("SERPAPI_KEY") or os.getenv("SERP_API_KEY") or "").strip()
+    return (
+        (_CONFIG_SERP or os.getenv("SERPAPI_KEY") or os.getenv("SERP_API_KEY") or "").strip()
+    )
 
 
 def _award_key() -> str:
-    return (os.getenv("AWARD_TOOL_API_KEY") or os.getenv("AWARDTOOL_API_KEY") or "").strip()
+    return (
+        (_CONFIG_AWARDTOOL or os.getenv("AWARD_TOOL_API_KEY") or os.getenv("AWARDTOOL_API_KEY") or "").strip()
+    )
 
 
 # --- Autocomplete (SerpAPI Google Flights Autocomplete) ---

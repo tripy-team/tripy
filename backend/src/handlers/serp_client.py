@@ -12,6 +12,8 @@ try:
 except ImportError:
     GoogleSearch = None
 
+from src.config import SERP_API_KEY as _CONFIG_SERP_KEY
+
 logger = logging.getLogger(__name__)
 
 # TTL for cached SerpAPI organic results (6h) so benefits stay reasonably up to date
@@ -25,7 +27,7 @@ SERP_FLIGHTS_TIMEOUT = httpx.Timeout(connect=5.0, read=25.0, write=5.0, pool=5.0
 
 
 def _serp_api_key() -> Optional[str]:
-    return os.getenv("SERPAPI_KEY") or os.getenv("SERP_API_KEY")
+    return _CONFIG_SERP_KEY or os.getenv("SERPAPI_KEY") or os.getenv("SERP_API_KEY")
 
 
 def organic_search(q: str, num: int = 8) -> List[Dict[str, str]]:

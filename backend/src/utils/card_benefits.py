@@ -332,7 +332,8 @@ def get_benefits_for_card(
     if cached is not None:
         return cached
 
-    serp_key = os.getenv("SERPAPI_KEY") or os.getenv("SERP_API_KEY")
+    from src.config import SERP_API_KEY as _cfg_serp
+    serp_key = _cfg_serp or os.getenv("SERPAPI_KEY") or os.getenv("SERP_API_KEY")
     openai_key = os.getenv("OPENAI_ADMIN_KEY")
 
     # 1) SerpAPI + OpenAI: up-to-date from web snippets

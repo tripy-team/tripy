@@ -7,10 +7,10 @@ from dotenv import load_dotenv
 
 load_dotenv()
 
-from src.config import is_awardtool_dummy_mode
+from src.config import is_awardtool_dummy_mode, AWARDTOOL_API_KEY as _CONFIG_AWARDTOOL
 
-# Support AWARD_TOOL_API_KEY (our convention) and AWARDTOOL_API_KEY (AwardTool docs)
-AWARD_TOOL_API_KEY = os.getenv("AWARD_TOOL_API_KEY") or os.getenv("AWARDTOOL_API_KEY")
+# Use config (Secrets Manager or env). Support AWARD_TOOL_API_KEY and AWARDTOOL_API_KEY.
+AWARD_TOOL_API_KEY = _CONFIG_AWARDTOOL or os.getenv("AWARD_TOOL_API_KEY") or os.getenv("AWARDTOOL_API_KEY")
 AWARD_CAL_URL = "https://www.awardtool-api.com/panorama/panorama_calendar_data"
 
 TIMEOUT = httpx.Timeout(connect=5.0, read=20.0, write=5.0, pool=5)

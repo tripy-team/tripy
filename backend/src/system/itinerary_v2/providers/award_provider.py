@@ -80,8 +80,9 @@ async def fetch_award_options(
         logger.debug(f"Award cache hit for {origin}->{destination} on {date_str}")
         return _parse_award_response(cached, origin, destination, leg_date, date_str)
     
-    # Get API key
-    api_key = os.getenv("AWARDTOOL_API_KEY") or os.getenv("AWARD_TOOL_API_KEY")
+    # Get API key (config uses Secrets Manager in production)
+    from src.config import AWARDTOOL_API_KEY as _cfg_award
+    api_key = _cfg_award or os.getenv("AWARDTOOL_API_KEY") or os.getenv("AWARD_TOOL_API_KEY")
     if not api_key:
         logger.debug("AwardTool API key not configured, skipping award fetch")
         return []

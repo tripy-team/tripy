@@ -262,6 +262,44 @@ aws iam attach-role-policy \
 
 ## Troubleshooting
 
+### App Runner: No flights / "SERPAPI_KEY not configured" / "A free account is needed for this action"
+
+If your **tripy-backend** App Runner service returns no flight results and logs show:
+
+- `[SerpAPI] SERPAPI_KEY/SERP_API_KEY not configured - cannot fetch cash flight prices`
+- `AwardTool v2 priming failed: ... "A free account is needed for this action."`
+- `[AwardTool v2] API key present: False`
+
+then the backend is **not** loading API keys. When App Runner is connected to **GitHub**, environment variables are taken from the **service configuration in AWS**, not from `apprunner.yaml` in the repo. You must enable Secrets Manager in the service:
+
+1. **Create the secret** (if you haven’t):
+   - AWS Console → **Secrets Manager** → Store a new secret
+   - Type: Other type of secret → **Plaintext** → JSON like:
+     ```json
+     {
+       "SERP_API_KEY": "your-serp-key",
+       "AWARDTOOL_API_KEY": "your-awardtool-key"
+     }
+     ```
+   - Secret name: `tripy/production/api-keys`
+
+2. **Grant the App Runner instance role access** to the secret:
+   - IAM → Roles → find the role used by **tripy-backend** (e.g. `TripyAppRunnerRole`)
+   - Add an inline or managed policy that allows `secretsmanager:GetSecretValue` and `secretsmanager:DescribeSecret` on `arn:aws:secretsmanager:us-east-1:YOUR_ACCOUNT_ID:secret:tripy/production/api-keys*`
+
+3. **Set env vars on the App Runner service**:
+   - App Runner → **Services** → **tripy-backend** → **Configuration** tab → **Edit**
+   - Under **Environment variables**, add (or ensure you have):
+     - `USE_SECRETS_MANAGER` = `true`
+     - `SECRETS_MANAGER_SECRET_NAME` = `tripy/production/api-keys`
+   - Save and deploy. Wait for the new deployment to finish.
+
+4. **Confirm in logs** (App Runner → tripy-backend → Logs):
+   - You should see: `[SECRETS] Using AWS Secrets Manager: tripy/production/api-keys`
+   - And: `[CONFIG] AwardTool API ACTIVE` / `SERP_API_KEY configured`
+
+Until these are set, the backend will use dummy/missing keys and flight search will return no results.
+
 ### "Secret not found" Error
 
 ```
