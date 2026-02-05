@@ -334,7 +334,8 @@ class MemberBookingSummary(BaseModel):
 class BookingAllocationStrategy(BaseModel):
     """Strategy for allocating bookings."""
     strategy_type: Literal[
-        "optimize",        # ILP finds optimal assignment
+        "optimize",        # ILP finds optimal assignment (minimize total OOP)
+        "balanced",        # Distribute points/costs evenly across members
         "by_segment_type", # One person books flights, another hotels
         "by_direction",    # One books outbound, another return
         "manual",          # User specifies each assignment

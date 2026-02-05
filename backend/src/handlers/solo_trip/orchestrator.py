@@ -174,6 +174,9 @@ class SoloTripOrchestrator:
     ) -> OptimizationResult:
         """
         Run ILP optimization on the route graph.
+        
+        Note: Flight prices in edges_dict are PER PERSON. We scale the budget
+        to per-person for ILP comparison, then scale final costs back to party total.
         """
         # Import ILP functions
         from src.handlers.ilp_adapter import run_ilp_from_edges
@@ -187,7 +190,11 @@ class SoloTripOrchestrator:
         # Convert graph to edges dict
         edges_dict = graph.to_edges_dict()
         
-        # Build traveler data (solo trip = single traveler)
+        # Party size for cost scaling
+        party_size = trip_input.party_size
+        logger.info(f"Party size: {party_size} (adults={trip_input.num_adults}, children={trip_input.num_children})")
+        
+        # Build traveler data (solo trip = single traveler, but party_size may be > 1)
         traveler_id = trip_input.trip_id or "traveler_1"
         travelers = [traveler_id]
         
@@ -201,10 +208,15 @@ class SoloTripOrchestrator:
             if d.must_include and not d.excluded
         ]
         
-        # Calculate budget per traveler
-        budget_per_trav = trip_input.max_budget if trip_input.max_budget else 1e9
+        # Budget is for the entire party, but flight prices are per-person
+        # Divide budget by party_size for ILP comparison
+        if trip_input.max_budget:
+            budget_for_ilp = trip_input.max_budget / party_size
+            logger.info(f"Total budget: ${trip_input.max_budget}, Per-person budget for ILP: ${budget_for_ilp:.2f}")
+        else:
+            budget_for_ilp = 1e9
         
-        # Run ILP
+        # Run ILP with per-person budget
         try:
             solution = run_ilp_from_edges(
                 edges_dict,
@@ -222,7 +234,7 @@ class SoloTripOrchestrator:
                 allow_all_payers=True,
                 default_cash_if_missing=1e7,
                 default_time_if_missing=1e6,
-                default_cash_budget=budget_per_trav,
+                default_cash_budget=budget_for_ilp,  # Per-person budget
                 optimization_mode="oop",  # Minimize out-of-pocket
             )
         except Exception as e:
@@ -266,28 +278,47 @@ class SoloTripOrchestrator:
                 logger.warning(f"Unconstrained optimization failed: {e}")
         
         if status != "Optimal":
+            # This only happens if NO routes exist at all (not a budget issue)
             raise OptimizationFailedError(
-                message=f"Could not find optimal route: {status}",
+                message=(
+                    f"No routes found between your destinations on the selected dates (status: {status}). "
+                    "This is not a budget issue - no flights are available for this route. "
+                    "Try different dates or modify your destinations."
+                ),
                 status=status
             )
         
-        # Extract solution data
+        # Extract solution data (per-person costs from ILP)
         totals = solution.get("totals", {})
-        total_oop = totals.get("cash", 0)
+        per_person_oop = totals.get("cash", 0)
         
-        # Build itinerary from solution
+        # Scale to total party cost
+        total_oop = per_person_oop * party_size
+        logger.info(f"Per-person OOP: ${per_person_oop:.2f}, Total party OOP: ${total_oop:.2f}")
+        
+        # Build itinerary from solution (with party_size for cost scaling)
         itinerary = self._build_itinerary_from_solution(
             solution=solution,
             graph=graph,
             trip_input=trip_input,
+            party_size=party_size,
         )
         
-        # Check budget
+        # Check budget (compare total party cost against total budget)
         within_budget = True
         exceeded_by = None
+        suggested_budget = None
         if trip_input.max_budget and total_oop > trip_input.max_budget:
             within_budget = False
             exceeded_by = total_oop - trip_input.max_budget
+            suggested_budget = int(total_oop * 1.1)  # 10% buffer
+        
+        # Build party context for message
+        party_context = ""
+        if party_size > 1:
+            party_context = f" for {trip_input.num_adults} adult{'s' if trip_input.num_adults != 1 else ''}"
+            if trip_input.num_children > 0:
+                party_context += f" and {trip_input.num_children} child{'ren' if trip_input.num_children != 1 else ''}"
         
         return OptimizationResult(
             success=True,
@@ -296,8 +327,11 @@ class SoloTripOrchestrator:
             within_budget=within_budget,
             user_budget=trip_input.max_budget,
             budget_exceeded_by=exceeded_by,
+            suggested_budget=suggested_budget,
             message=None if within_budget else (
-                f"Minimum cost ${total_oop:,.2f} exceeds budget ${trip_input.max_budget:,.2f}"
+                f"Your budget of ${trip_input.max_budget:,.0f} is too low for this trip{party_context}. "
+                f"The minimum cost is ${total_oop:,.0f}. "
+                f"We recommend setting your budget to at least ${suggested_budget:,}."
             ),
             solution=solution,
             status=status,
@@ -308,12 +342,33 @@ class SoloTripOrchestrator:
         solution: Dict[str, Any],
         graph: RouteGraph,
         trip_input: TripInput,
+        party_size: int = 1,
     ) -> Itinerary:
-        """Build Itinerary object from ILP solution."""
+        """Build Itinerary object from ILP solution.
+        
+        Args:
+            solution: ILP solution dict
+            graph: Route graph with flight options
+            trip_input: Trip input data
+            party_size: Number of travelers (for cost scaling)
+        
+        Returns:
+            Itinerary with costs scaled to party total
+        """
         
         totals = solution.get("totals", {})
         paths = solution.get("path", {})
         pay_modes = solution.get("pay_mode", {})
+        
+        # Per-person totals from ILP
+        per_person_cash = totals.get("cash", 0)
+        per_person_cash_fares = totals.get("cash_fares", 0)
+        per_person_surcharges = totals.get("surcharges", 0)
+        
+        # Scale to party totals
+        total_oop = per_person_cash * party_size
+        total_cash = per_person_cash_fares * party_size
+        total_surcharges = per_person_surcharges * party_size
         
         # Get the path (should be only one for solo trip)
         path = []
@@ -322,7 +377,7 @@ class SoloTripOrchestrator:
                 path = p
                 break
         
-        # Build flight segments from payments
+        # Build flight segments from payments (scale costs by party_size)
         flight_segments = []
         for traveler_id, payments in pay_modes.items():
             for payment in payments:
@@ -344,7 +399,17 @@ class SoloTripOrchestrator:
                             route_edge = e
                             break
                 
-                # Build segment
+                # Get per-person costs from payment
+                per_person_fare = payment.get("fare")
+                per_person_surcharge = payment.get("surcharge")
+                per_person_miles = int(payment.get("miles", 0)) if payment.get("type") == "points" else None
+                
+                # Scale to party costs
+                scaled_cash_cost = per_person_fare * party_size if per_person_fare else None
+                scaled_surcharge = per_person_surcharge * party_size if per_person_surcharge else None
+                scaled_points = per_person_miles * party_size if per_person_miles else None
+                
+                # Build segment with scaled costs
                 segment = FlightSegment(
                     segment_id=f"{origin}_{dest}_{fn}",
                     origin=origin,
@@ -356,25 +421,26 @@ class SoloTripOrchestrator:
                     connection_airports=route_edge.connection_airports if route_edge else [],
                     total_duration_minutes=route_edge.total_duration_minutes if route_edge else 0,
                     payment_method="points" if payment.get("type") == "points" else "cash",
-                    cash_cost=payment.get("fare") if payment.get("type") == "cash" else None,
-                    points_cost=int(payment.get("miles", 0)) if payment.get("type") == "points" else None,
+                    cash_cost=scaled_cash_cost,
+                    points_cost=scaled_points,
                     points_program=payment.get("via", {}).get("airline") if payment.get("type") == "points" else None,
-                    surcharge=payment.get("surcharge") if payment.get("type") == "points" else None,
+                    surcharge=scaled_surcharge,
                     booking_link=route_edge.booking_link if route_edge else None,
                 )
                 flight_segments.append(segment)
         
-        # Build transfer plan
+        # Build transfer plan (scale points by party_size)
         transfers = []
         for payer, by_source in (totals.get("transfers") or {}).items():
             for source, by_airline in (by_source or {}).items():
                 for airline, data in (by_airline or {}).items():
-                    if data.get("source_points", 0) > 0:
+                    per_person_source_points = data.get("source_points", 0)
+                    if per_person_source_points > 0:
                         transfers.append(PointsTransfer(
                             from_bank=source,
                             to_airline=airline,
-                            bank_points=data.get("source_points", 0),
-                            airline_points=int(data.get("delivered_airline_points", 0)),
+                            bank_points=per_person_source_points * party_size,
+                            airline_points=int(data.get("delivered_airline_points", 0)) * party_size,
                             ratio=1.0,
                             is_instant=source.lower() in ["chase", "bilt"],
                         ))
@@ -384,15 +450,18 @@ class SoloTripOrchestrator:
             has_delayed_transfers=any(not t.is_instant for t in transfers),
         )
         
-        # Build itinerary
+        # Build itinerary with scaled totals
         return Itinerary(
             itinerary_id=f"itin_{trip_input.trip_id}_{datetime.utcnow().strftime('%Y%m%d%H%M%S')}",
             flight_segments=flight_segments,
             transfer_plan=transfer_plan,
-            total_oop=totals.get("cash", 0),
-            total_cash=totals.get("cash_fares", 0),
-            total_surcharges=totals.get("surcharges", 0),
+            total_oop=total_oop,
+            total_cash=total_cash,
+            total_surcharges=total_surcharges,
             points_used={},  # Could be extracted from solution
+            party_size=party_size,
+            num_adults=trip_input.num_adults,
+            num_children=trip_input.num_children,
             origin=trip_input.start_destination,
             destination=trip_input.end_destination,
             path=path,

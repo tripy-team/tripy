@@ -1,4 +1,5 @@
 from typing import Dict, Any, List, Optional
+from decimal import Decimal
 from src.repos import trip_member_repo
 from src.models.group_trip import (
     MemberLifecycleState,
@@ -19,12 +20,17 @@ def join_trip(
     arrival_airport: Optional[str] = None,
     is_round_trip: bool = True,
     flight_class: str = "economy",
+    max_cash_budget: Optional[float] = None,
+    adults: int = 1,
+    children: int = 0,
+    max_settlement_owed: Optional[float] = None,
+    include_settlement_in_budget: bool = False,
 ) -> Dict[str, Any]:
     """
     Join a trip by invite code.
     
     Sets initial lifecycle_state to JOINED_NO_WALLET.
-    Optionally store member preferences (pooling workflow and flight preferences).
+    Optionally store member preferences (pooling workflow, flight preferences, budget, party size, and settlement constraints).
     """
     trip = get_trip_by_invite(invite_code)
     if not trip:
@@ -49,6 +55,21 @@ def join_trip(
         item["arrival_airport"] = arrival_airport
     item["is_round_trip"] = is_round_trip
     item["flight_class"] = flight_class
+    
+    # Store budget (DynamoDB requires Decimal, not float)
+    if max_cash_budget is not None:
+        item["max_cash_budget"] = Decimal(str(max_cash_budget))
+    
+    # Store party size (travelers in this member's booking)
+    item["adults"] = max(1, adults)  # At least 1 adult
+    item["children"] = max(0, children)
+    # party_size is the total for optimizer calculations
+    item["party_size"] = item["adults"] + item["children"]
+    
+    # Store settlement constraints (Issue 2: Settlement-aware budgets)
+    if max_settlement_owed is not None:
+        item["max_settlement_owed"] = Decimal(str(max_settlement_owed))
+    item["include_settlement_in_budget"] = include_settlement_in_budget
 
     trip_member_repo.add_member(item)
     return {"tripId": trip["tripId"], "lifecycle_state": item["lifecycle_state"]}

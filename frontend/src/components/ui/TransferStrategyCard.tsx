@@ -407,6 +407,9 @@ export function TransferStrategyCard({
                                       'the airline website'
                                     )}
                                   </>
+                                ) : (
+                                  'Book your reservation with the transferred points'
+                                )}
                               </span>
                             </li>
                           </ol>

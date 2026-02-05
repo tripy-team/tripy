@@ -6,6 +6,7 @@ import { MapPin, DollarSign, Clock, Zap, Edit3, Check, Sparkles, TrendingUp, Pla
 import { solo, trips as tripsAPI, points as pointsAPI, itineraries as itinerariesAPI, ItineraryItem, destinations, type Trip, type SoloRankedItinerary, type SoloOptimizeResponse } from '@/lib/api';
 import { formatAirportDisplay, getCityMapForCodes, isLikelyAirportCode } from '@/lib/airport-formatter';
 import { PolicyWarnings } from '@/components/policy/PolicyWarnings';
+import { TripGenerationLoader } from '@/components/ui/TripGenerationLoader';
 
 interface Itinerary {
     id: number;
@@ -103,6 +104,7 @@ export default function SoloResults() {
     const [userConstraints, setUserConstraints] = useState<{ maxBudget?: number; totalPoints: number; durationLabel: string } | null>(null);
     const [relaxedMessage, setRelaxedMessage] = useState<string | null>(null);
     const [trip, setTrip] = useState<Trip | null>(null);
+    const [partySize, setPartySize] = useState<{ adults: number; children: number; total: number }>({ adults: 1, children: 0, total: 1 });
     const [refetchTrigger, setRefetchTrigger] = useState(0);
     const [budgetWarning, setBudgetWarning] = useState<{ message?: string; user_budget?: number; recommended_budget?: number } | null>(null);
     const [optimizationWarning, setOptimizationWarning] = useState<string | null>(null);
@@ -141,25 +143,17 @@ export default function SoloResults() {
                     
                     if (tripData) {
                         // Build points map from the points summary
-                        let pointsMap: Record<string, number> = {};
+                        // Only include points the user actually has - do NOT auto-assign default points
+                        const pointsMap: Record<string, number> = {};
                         for (const item of pointsSummary.items || []) {
                             if (item.program && item.balance > 0) {
                                 pointsMap[item.program] = item.balance;
                             }
                         }
                         
-                        // If no points stored, use default test points and warn
+                        // If user has no points, that's fine - the optimizer will find cash-only routes
                         if (Object.keys(pointsMap).length === 0) {
-                            console.warn('No points stored for this trip, using default test points (AMEX MR: 1,000,000)');
-                            // Use AMEX MR as default - common transferable points
-                            pointsMap = { 'amex_mr': 1000000 };
-                            
-                            // Save these points to the trip so they persist
-                            try {
-                                await solo.upsertPoints(tripId, [{ program: 'amex_mr', balance: 1000000 }]);
-                            } catch (e) {
-                                console.log('Could not save default points:', e);
-                            }
+                            console.log('No points stored for this trip - optimizer will find cash-only routes');
                         }
                         
                         // Run optimization
@@ -199,6 +193,12 @@ export default function SoloResults() {
                             }
                             
                             setTrip(tripData as Trip);
+                            
+                            // Extract party size from trip data
+                            const adults = (tripData as { adults?: number }).adults || 1;
+                            const children = (tripData as { children?: number }).children || 0;
+                            setPartySize({ adults, children, total: adults + children });
+                            
                             setUserConstraints({
                                 maxBudget: (tripData as { maxBudget?: number }).maxBudget,
                                 totalPoints: pointsSummary.totalPoints,
@@ -599,15 +599,13 @@ export default function SoloResults() {
             <div
                 data-testid="solo-results-loading"
                 data-slot="loading-spinner-wrapper"
-                className="min-h-full flex items-center justify-center bg-gradient-to-br from-white via-blue-50/20 to-white"
+                className="min-h-screen bg-gradient-to-br from-white via-blue-50/20 to-white"
             >
-                <div className="text-center">
-                    <div className="w-16 h-16 bg-gradient-to-br from-blue-600 to-blue-700 rounded-2xl flex items-center justify-center mx-auto mb-6 animate-pulse shadow-xl shadow-blue-600/20">
-                        <Sparkles className="w-8 h-8 text-white" />
-                    </div>
-                    <h2 className="text-2xl mb-2 text-slate-900 font-semibold">Generating your routes</h2>
-                    <p className="text-slate-600">Analyzing points, checking availability, optimizing costs...</p>
-                </div>
+                <TripGenerationLoader 
+                    isVisible={true}
+                    isComplete={false}
+                    estimatedDuration={15000}
+                />
             </div>
         );
     }
@@ -825,7 +823,13 @@ export default function SoloResults() {
                                                         <span className="text-xs font-medium uppercase tracking-wider">You Pay</span>
                                                     </div>
                                                     <div className="text-2xl font-bold text-emerald-600">${Math.round(metrics.totalOutOfPocket).toLocaleString()}</div>
-                                                    <div className="text-xs text-slate-500 mt-0.5">Out-of-pocket</div>
+                                                    <div className="text-xs text-slate-500 mt-0.5">
+                                                        {partySize.total > 1 ? (
+                                                            <>Total for {partySize.adults} adult{partySize.adults !== 1 ? 's' : ''}{partySize.children > 0 && `, ${partySize.children} child${partySize.children !== 1 ? 'ren' : ''}`}</>
+                                                        ) : (
+                                                            'Out-of-pocket'
+                                                        )}
+                                                    </div>
                                                 </div>
 
                                                 <div>
@@ -979,7 +983,14 @@ export default function SoloResults() {
 
                                         {/* Cost Breakdown */}
                                         <div>
-                                            <div className="text-sm text-slate-600 mb-3 font-medium">Cost Breakdown</div>
+                                            <div className="text-sm text-slate-600 mb-3 font-medium">
+                                                Cost Breakdown
+                                                {partySize.total > 1 && (
+                                                    <span className="text-xs text-slate-400 ml-2">
+                                                        ({partySize.adults} adult{partySize.adults !== 1 ? 's' : ''}{partySize.children > 0 && `, ${partySize.children} child${partySize.children !== 1 ? 'ren' : ''}`})
+                                                    </span>
+                                                )}
+                                            </div>
                                             <div className="space-y-2 text-sm">
                                                 <div className="flex justify-between">
                                                     <span className="text-slate-600">Cash Price</span>
@@ -989,6 +1000,12 @@ export default function SoloResults() {
                                                     <span className="text-slate-900">You Pay</span>
                                                     <span className="text-emerald-600">${Math.round(selectedSoloItinerary.oopMetrics.totalOutOfPocket).toLocaleString()}</span>
                                                 </div>
+                                                {partySize.total > 1 && (
+                                                    <div className="flex justify-between text-slate-500">
+                                                        <span>Per Person</span>
+                                                        <span>${Math.round(selectedSoloItinerary.oopMetrics.totalOutOfPocket / partySize.total).toLocaleString()}</span>
+                                                    </div>
+                                                )}
                                                 <div className="flex justify-between text-blue-600">
                                                     <span>Points Used</span>
                                                     <span>{(selectedSoloItinerary.oopMetrics.totalPointsUsed / 1000).toFixed(0)}k pts</span>

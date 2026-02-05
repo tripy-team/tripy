@@ -17,6 +17,10 @@ interface Itinerary {
     score: number;
     withinBudget?: boolean;
     withinPoints?: boolean;
+    /** For group trips: ID of the member this itinerary is for */
+    travelerId?: string;
+    /** For group trips: Name of the member this itinerary is for */
+    travelerName?: string;
 }
 
 interface AIRouteSuggestion {
@@ -308,8 +312,22 @@ export default function GroupResults() {
                 }
 
                 // Relaxed-constraints banner (when no feasible solution; we show a similar route)
-                const relaxedItem = itineraryResponse.items?.find((i: ItineraryItem & { type?: string }) => i.type === 'itinerary_relaxed_info');
-                setRelaxedMessage(relaxedItem && typeof (relaxedItem as { message?: string }).message === 'string' ? (relaxedItem as { message: string }).message : null);
+                const relaxedItem = itineraryResponse.items?.find((i: ItineraryItem & { type?: string }) => i.type === 'itinerary_relaxed_info') as { 
+                    message?: string; 
+                    suggested_budget?: number;
+                    original_budget?: number;
+                    suggested_cash?: number;
+                } | undefined;
+                
+                if (relaxedItem && relaxedItem.suggested_budget && relaxedItem.original_budget) {
+                    // Create a more informative message with the suggested budget
+                    const msg = `Your budget of $${relaxedItem.original_budget.toLocaleString()} is too low for this trip. ` +
+                        `The minimum cost is $${relaxedItem.suggested_cash?.toLocaleString() || 'unknown'}. ` +
+                        `We recommend setting your budget to at least $${relaxedItem.suggested_budget.toLocaleString()}.`;
+                    setRelaxedMessage(msg);
+                } else {
+                    setRelaxedMessage(relaxedItem && typeof relaxedItem.message === 'string' ? relaxedItem.message : null);
+                }
 
                 // Fetch destinations to map UUIDs to names
                 const destinationsResponse = await destinations.list(tripId);
@@ -392,9 +410,20 @@ export default function GroupResults() {
                                 : [];
                         }
 
+                        // Extract travelerId for per-member routes
+                        const rawItem = item as ItineraryItem & { travelerId?: string };
+                        const travelerId = rawItem.travelerId;
+                        
+                        // Find member name if travelerId is present
+                        let travelerName: string | undefined;
+                        if (travelerId && transformedMembers.length > 0) {
+                            const member = transformedMembers.find(m => m.id === travelerId);
+                            travelerName = member?.name;
+                        }
+                        
                         return {
                             id: index + 1,
-                            name: item.name || `Itinerary ${index + 1}`,
+                            name: item.name || (travelerName ? `${travelerName}'s Route` : `Itinerary ${index + 1}`),
                             cities,
                             routeDisplay: routeDisplay.length > 0 ? routeDisplay : undefined,
                             totalCostPerPerson: item.totalCostPerPerson || item.costPerPerson || (item.totalCost || 0) / memberCount,
@@ -402,6 +431,8 @@ export default function GroupResults() {
                             score: item.score || 85,
                             withinBudget: item.withinBudget !== false,
                             withinPoints: item.withinPoints !== false,
+                            travelerId,
+                            travelerName,
                         };
                     });
                     transformed = transformed.sort((a, b) => {
@@ -536,6 +567,8 @@ export default function GroupResults() {
                             <p className="text-slate-600 mt-1">
                                 {itineraries.length === 0
                                     ? 'No itineraries match your group budget and points. Try adjusting your limits or destinations.'
+                                    : itineraries.some(it => it.travelerId)
+                                    ? `Each member has their own customized route based on their departure airport. Below you'll find ${itineraries.length} personalized routes for your group.`
                                     : itineraries.length === 1
                                     ? 'We generated 1 group itinerary that fits your budget and points'
                                     : `Choose from ${itineraries.length} personalized group itineraries — each showing costs per person and total points needed`}
@@ -583,6 +616,12 @@ export default function GroupResults() {
                                         <div className="flex-1">
                                             <div className="flex items-center gap-3 mb-2">
                                                 <h3 className="text-2xl text-slate-900 font-semibold">{itinerary.name}</h3>
+                                                {itinerary.travelerName && (
+                                                    <span className="px-3 py-1 bg-indigo-100 text-indigo-800 rounded-full text-sm font-medium flex items-center gap-1">
+                                                        <Users className="w-3 h-3" />
+                                                        {itinerary.travelerName}
+                                                    </span>
+                                                )}
                                                 {itinerary.score >= 90 && (
                                                     <span className="px-3 py-1 bg-yellow-100 text-yellow-800 rounded-full text-sm font-medium">
                                                         <Sparkles className="w-3 h-3 inline mr-1" />

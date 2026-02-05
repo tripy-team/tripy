@@ -13,6 +13,7 @@ type AirportSuggestion = {
   country: string;
   region?: string;
   display_name: string;
+  uniqueKey: string; // Unique key for React (combines iata + city to avoid duplicates)
 };
 
 // Client-side response cache for fast repeat searches
@@ -118,6 +119,8 @@ type SuggestionLike = {
 
 function flattenSuggestionsToAirports(raw: SuggestionLike[]): AirportSuggestion[] {
   const out: AirportSuggestion[] = [];
+  const seen = new Set<string>(); // Deduplicate by iata + city
+  
   for (const s of raw) {
     const list = s.airports || [];
     const fallbackId =
@@ -126,14 +129,19 @@ function flattenSuggestionsToAirports(raw: SuggestionLike[]): AirportSuggestion[
         : null;
     if (list.length === 0 && s.id && /^[A-Za-z]{3}$/.test(String(s.id).trim())) {
       const id = String(s.id).trim().toUpperCase();
+      const city = s.name || "";
+      const uniqueKey = `${id}-${city}`.toLowerCase();
+      if (seen.has(uniqueKey)) continue;
+      seen.add(uniqueKey);
       out.push({
         airport_id: id,
         iata_code: id,
         airport_name: s.name || id,
-        city: s.name || "",
+        city,
         country: s.description || "",
         region: "",
         display_name: `${id} – ${s.name || id}`,
+        uniqueKey,
       });
       continue;
     }
@@ -142,14 +150,19 @@ function flattenSuggestionsToAirports(raw: SuggestionLike[]): AirportSuggestion[
       if (!id && fallbackId) id = fallbackId;
       if (!id) continue;
       id = id.toUpperCase();
+      const city = a.city || s.name || "";
+      const uniqueKey = `${id}-${city}`.toLowerCase();
+      if (seen.has(uniqueKey)) continue;
+      seen.add(uniqueKey);
       out.push({
         airport_id: id,
         iata_code: id,
         airport_name: a.name || id,
-        city: a.city || s.name || "",
+        city,
         country: s.description || "",
         region: "",
         display_name: `${id} – ${a.name || id}`,
+        uniqueKey,
       });
     }
   }
@@ -190,10 +203,10 @@ export default function AirportAutocomplete({
     return () => document.removeEventListener("mousedown", onDocClick);
   }, []);
 
-  // debounced query for smoother typing (reduced from 80ms to 50ms for faster response)
+  // debounced query for smoother typing (200ms balances responsiveness with API efficiency)
   const [debounced, setDebounced] = useState(value);
   useEffect(() => {
-    const t = setTimeout(() => setDebounced(value), 50);
+    const t = setTimeout(() => setDebounced(value), 200);
     return () => clearTimeout(t);
   }, [value]);
 
@@ -534,7 +547,7 @@ export default function AirportAutocomplete({
                       const active = activeIdx === itemIdx;
                       return (
                         <li
-                          key={a.airport_id || `${a.iata_code}-${itemIdx}`}
+                          key={a.uniqueKey || `${a.iata_code}-${itemIdx}`}
                           onMouseEnter={() => setActiveIdx(itemIdx)}
                           onPointerDown={(e) => {
                             e.preventDefault();
@@ -590,7 +603,7 @@ export default function AirportAutocomplete({
                 const active = idx === activeIdx;
                 return (
                   <li
-                    key={a.airport_id || `${a.iata_code}-${idx}`}
+                    key={a.uniqueKey || `${a.iata_code}-${idx}`}
                     onMouseEnter={() => setActiveIdx(idx)}
                     onPointerDown={(e) => {
                       e.preventDefault();

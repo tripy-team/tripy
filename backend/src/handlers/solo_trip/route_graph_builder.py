@@ -213,6 +213,8 @@ class RouteGraphBuilder:
             segments=segments,
             cabin_class=trip_data.cabin_class,
             user_points=trip_data.points_balances,
+            num_adults=trip_data.num_adults,
+            num_children=trip_data.num_children,
         )
         
         return results

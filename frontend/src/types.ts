@@ -51,8 +51,6 @@ export interface Trip {
   cashSaved: number;
   thumbnail: string;
   members: number;
-  hotel: string;
-  flightClass: string;
 }
 
 // Itinerary

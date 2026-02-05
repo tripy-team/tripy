@@ -374,6 +374,16 @@ export interface Trip {
   poolingScope?: PoolingScope;
   /** True if the current plan is invalidated (e.g., pooling scope changed) */
   planInvalidated?: boolean;
+  /** True if optimization has already been generated for this trip */
+  optimizationGenerated?: boolean;
+  /** Timestamp when optimization was generated */
+  optimizationGeneratedAt?: string;
+  /** True if the strategy fee has been paid */
+  strategyPaid?: boolean;
+  /** Timestamp when strategy was paid */
+  strategyPaidAt?: string;
+  /** User ID who paid for the strategy */
+  strategyPaidBy?: string;
 }
 
 export interface PointsSummaryItem {
@@ -415,6 +425,8 @@ export interface Destination {
   isStart?: boolean;
   isEnd?: boolean;
   createdBy: string;
+  arrivalDate?: string;    // When arriving AT this destination (YYYY-MM-DD)
+  departureDate?: string;  // When departing FROM this destination (YYYY-MM-DD)
 }
 
 export interface CitySearchResult {
@@ -537,6 +549,9 @@ export const trips = {
     max_budget?: number; 
     duration_days?: number;
     pooling_scope?: PoolingScope;
+    // Organizer party size (travelers in organizer's booking)
+    adults?: number;
+    children?: number;
   }): Promise<Trip> => {
     if (SKIP_API_AUTH) {
       // Return a new mock trip based on params
@@ -595,13 +610,30 @@ export const trips = {
     );
   },
 
-  list: async (): Promise<{ trips: Trip[] }> => {
+  list: async (options?: {
+    limit?: number;
+    offset?: number;
+    includeDetails?: boolean;
+  }): Promise<{ 
+    trips: Trip[]; 
+    total?: number; 
+    has_more?: boolean;
+    limit?: number;
+    offset?: number;
+  }> => {
     if (SKIP_API_AUTH) {
-      return { trips: [MOCK_GROUP_TRIP, MOCK_SOLO_TRIP] };
+      return { trips: [MOCK_GROUP_TRIP, MOCK_SOLO_TRIP], total: 2, has_more: false };
     }
-    return apiRequest<{ trips: Trip[] }>('/trips', {
-      method: 'GET',
-    });
+    const params = new URLSearchParams();
+    if (options?.limit !== undefined) params.append('limit', String(options.limit));
+    if (options?.offset !== undefined) params.append('offset', String(options.offset));
+    if (options?.includeDetails) params.append('include_details', 'true');
+    
+    const queryString = params.toString();
+    return apiRequest<{ trips: Trip[]; total?: number; has_more?: boolean; limit?: number; offset?: number }>(
+      `/trips${queryString ? `?${queryString}` : ''}`,
+      { method: 'GET' }
+    );
   },
 
   get: async (trip_id: string): Promise<Trip> => {
@@ -648,6 +680,11 @@ export const trips = {
       arrival_airport?: string;
       is_round_trip?: boolean;
       flight_class?: string;
+      // Budget
+      max_cash_budget?: number;
+      // Party size (travelers in this member's booking)
+      adults?: number;
+      children?: number;
     }
   ): Promise<{ tripId: string }> => {
     if (SKIP_API_AUTH) {
@@ -671,6 +708,11 @@ export const trips = {
         ...(options?.arrival_airport && { arrival_airport: options.arrival_airport }),
         ...(options?.is_round_trip !== undefined && { is_round_trip: options.is_round_trip }),
         ...(options?.flight_class && { flight_class: options.flight_class }),
+        // Include budget
+        ...(options?.max_cash_budget !== undefined && { max_cash_budget: options.max_cash_budget }),
+        // Include party size
+        ...(options?.adults !== undefined && { adults: options.adults }),
+        ...(options?.children !== undefined && { children: options.children }),
       }),
     });
   },
@@ -799,6 +841,44 @@ export const trips = {
     });
   },
   
+  /**
+   * Admin: Update another member's lifecycle state.
+   * Only the trip owner can use this endpoint.
+   * 
+   * Used for approve/deny workflows:
+   * - Approve: joined_no_wallet -> approved_for_planning
+   * - Deny/Remove: any state -> inactive
+   */
+  adminUpdateLifecycleState: async (
+    tripId: string,
+    targetUserId: string,
+    lifecycleState: MemberLifecycleState
+  ): Promise<{
+    ok: boolean;
+    lifecycle_state: MemberLifecycleState;
+    previous_state: MemberLifecycleState;
+  }> => {
+    if (SKIP_API_AUTH) {
+      return {
+        ok: true,
+        lifecycle_state: lifecycleState,
+        previous_state: 'joined_no_wallet',
+      };
+    }
+    return apiRequest<{
+      ok: boolean;
+      lifecycle_state: MemberLifecycleState;
+      previous_state: MemberLifecycleState;
+    }>('/trips/members/admin/lifecycle-state', {
+      method: 'POST',
+      body: JSON.stringify({
+        trip_id: tripId,
+        target_user_id: targetUserId,
+        lifecycle_state: lifecycleState,
+      }),
+    });
+  },
+
   /**
    * Check if all required members are approved_for_booking.
    * Returns status info about which members are ready and which are blocking.
@@ -1742,7 +1822,15 @@ export const destinations = {
     return res.json();
   },
 
-  add: async (params: { trip_id: string; name: string; must_include?: boolean; excluded?: boolean; is_start?: boolean; is_end?: boolean }): Promise<Destination> => {
+  add: async (params: { 
+    trip_id: string; 
+    name: string; 
+    must_include?: boolean; 
+    excluded?: boolean; 
+    is_start?: boolean; 
+    is_end?: boolean;
+    departure_date?: string;
+  }): Promise<Destination> => {
     return apiRequest<Destination>('/destinations/add', {
       method: 'POST',
       body: JSON.stringify({
@@ -1752,6 +1840,7 @@ export const destinations = {
         excluded: params.excluded ?? false,
         is_start: params.is_start ?? false,
         is_end: params.is_end ?? false,
+        departure_date: params.departure_date,
       }),
     });
   },
@@ -1760,6 +1849,27 @@ export const destinations = {
     return apiRequest<{ destinations: Destination[]; scores: Record<string, number> }>('/destinations/list', {
       method: 'POST',
       body: JSON.stringify({ trip_id }),
+    });
+  },
+
+  remove: async (trip_id: string, destination_id: string): Promise<{ ok: boolean; message: string }> => {
+    return apiRequest<{ ok: boolean; message: string }>('/destinations/remove', {
+      method: 'POST',
+      body: JSON.stringify({ trip_id, destination_id }),
+    });
+  },
+
+  update: async (params: {
+    trip_id: string;
+    destination_id: string;
+    arrival_date?: string;
+    departure_date?: string;
+    must_include?: boolean;
+    excluded?: boolean;
+  }): Promise<{ ok: boolean; destination: Destination }> => {
+    return apiRequest<{ ok: boolean; destination: Destination }>('/destinations/update', {
+      method: 'POST',
+      body: JSON.stringify(params),
     });
   },
 };
@@ -2550,6 +2660,10 @@ export interface SoloOOPMetrics {
   savingsPercentage: number;
   totalPointsUsed: number;
   averageCpp: number;
+  // Party size - costs are scaled to party total
+  partySize?: number;
+  numAdults?: number;
+  numChildren?: number;
 }
 
 export interface SoloRankedItinerary {

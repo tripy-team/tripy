@@ -444,6 +444,9 @@ class RankedItinerary(BaseModel):
     
     summary: Optional[str] = None  # AI-generated summary
     
+    # For group trips: ID of the member this itinerary is for
+    traveler_id: Optional[str] = None
+    
     # Policy evaluation for the entire itinerary
     policy_evaluation: Optional[PolicyEvaluationModel] = None
     disabled: bool = False

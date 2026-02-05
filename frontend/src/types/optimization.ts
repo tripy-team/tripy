@@ -286,6 +286,43 @@ export interface OptimizeSoloResponse {
   warnings: string[];
 }
 
+/**
+ * Budget overrun information for group optimization.
+ * Populated when solution exceeds budget (relaxed mode).
+ */
+export interface BudgetOverrun {
+  /** Amount by which group total budget is exceeded */
+  group_overrun_usd: number;
+  /** Per-member budget overruns (member_id -> overrun amount) */
+  member_overrun_usd: Record<string, number>;
+  /** Maximum overrun among all members */
+  max_member_overrun_usd: number;
+  /** Sum of all positive overruns */
+  total_overrun_usd: number;
+}
+
+/**
+ * Solve metadata for group optimization.
+ */
+export interface SolveMeta {
+  /** Status of the optimization */
+  status: 'optimal_strict' | 'optimal_relaxed' | 'infeasible_no_options' | 'error';
+  /** Whether budget constraints were relaxed */
+  is_relaxed: boolean;
+  /** Solver used */
+  solver: string;
+  /** Time limit in seconds */
+  time_limit_s: number;
+  /** Actual solve time in milliseconds */
+  solve_time_ms: number;
+  /** Final objective value */
+  objective_value: number | null;
+  /** Reason why strict solve was infeasible */
+  strict_infeasible_reason: string | null;
+  /** Summary of relaxation */
+  relaxation_summary: Record<string, unknown>;
+}
+
 export interface OptimizeGroupResponse {
   tripId: string;
   itineraries: RankedItinerary[];
@@ -294,8 +331,35 @@ export interface OptimizeGroupResponse {
     totalOutOfPocket: number;
     perPersonAverage: number;
     totalSavings: number;
+    /** Whether solution is within budget */
+    withinBudget?: boolean;
+    /** Suggested budget if over budget */
+    suggestedBudget?: number;
+    /** User's original budget */
+    userBudget?: number;
   };
   warnings: string[];
+  
+  // New contract fields for two-phase solve
+  /** Solve metadata (status, timing, etc.) */
+  meta?: SolveMeta;
+  /** Budget overrun information */
+  budget_overrun?: BudgetOverrun;
+  /** Results array (new format) */
+  results?: Array<{
+    id: string;
+    name: string;
+    total_oop: number;
+    total_cash_price: number;
+    total_savings: number;
+    savings_percentage: number;
+    total_points_used: number;
+    within_budget: boolean;
+    overrun?: BudgetOverrun;
+    allocations?: unknown[];
+    transfers?: unknown[];
+    settlements?: unknown[];
+  }>;
 }
 
 // =============================================================================

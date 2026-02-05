@@ -430,12 +430,15 @@ class OrchestratorAgent(BaseAgent):
         unique_warnings = list(dict.fromkeys(all_warnings))
         
         # Add top-level warning if best option is over budget
+        suggested_budget = None
         if best and not best.within_budget and request.budget:
             budget_exceeded_by = best.oop_metrics.total_out_of_pocket - request.budget
+            # Suggest a budget with 10% buffer above the minimum OOP
+            suggested_budget = int(best.oop_metrics.total_out_of_pocket * 1.1)
             over_budget_msg = (
                 f"⚠️ No itinerary found within your ${request.budget:.0f} budget. "
-                f"Showing the closest available option at ${best.oop_metrics.total_out_of_pocket:.0f} "
-                f"(${budget_exceeded_by:.0f} over budget)."
+                f"The minimum cost for this trip is ${best.oop_metrics.total_out_of_pocket:.0f}. "
+                f"We recommend setting your budget to at least ${suggested_budget:,}."
             )
             # Insert at the beginning so it's the first warning users see
             if over_budget_msg not in unique_warnings:
@@ -449,6 +452,8 @@ class OrchestratorAgent(BaseAgent):
                 "savingsPercentage": best.oop_metrics.savings_percentage if best else 0,
                 "pointsUsed": best.oop_metrics.total_points_used if best else 0,
                 "withinBudget": best.within_budget if best else True,
+                "suggestedBudget": suggested_budget,
+                "userBudget": request.budget,
             },
             warnings=unique_warnings,
         )
@@ -456,40 +461,207 @@ class OrchestratorAgent(BaseAgent):
     async def optimize_group(
         self,
         request: OptimizeGroupRequest,
+        members_data: list[dict] = None,
     ) -> OptimizeGroupResponse:
         """
-        Optimize a group trip with cost splitting.
+        Optimize a group trip with per-member customized routes.
         
-        IMPORTANT: Points are NOT poolable across members!
-        Each member can only use their OWN points for segments they book.
+        Each member gets their own route based on their departure/arrival airports:
+        - Member A from SEA: SEA → destination → SEA
+        - Member B from JFK: JFK → destination → JFK
+        
+        Args:
+            request: Group optimization request with member points
+            members_data: Optional list of member dicts with airport info
+                         If not provided, will be fetched from trip service
+        
+        Returns:
+            OptimizeGroupResponse with per-member itineraries
         """
-        # TODO: CRITICAL FIX NEEDED - Points should NOT be pooled!
-        # 
-        # ❌ CURRENT (WRONG): Pools all points together as if they're fungible
-        #    combined_points = alice.points + bob.points  # This is unrealistic!
-        #
-        # ✅ CORRECT APPROACH: Use GroupBookingAllocator to:
-        #    1. Assign each segment to a specific member
-        #    2. Each member uses THEIR OWN points for segments they book
-        #    3. Settlement calculation handles who owes whom
-        #
-        # See REMAINING_IMPLEMENTATION_PLAN.md Section 1: Group Booking Allocation
-        # for the correct implementation using per-member constraints.
-        #
-        # Example of why current approach is wrong:
-        #   Alice has 100k Chase UR, Bob has 100k Chase UR
-        #   Flight costs 150k Chase UR
-        #   Current code: "Group has 200k, can book with combined points" - WRONG!
-        #   Reality: Neither Alice nor Bob can book this flight alone with points
+        logger.info(f"[Orchestrator] Starting per-member group optimization for trip {request.trip_id}")
         
+        # 1. Get trip data
+        trip_data = await self._get_trip_data(request.trip_id)
+        if not trip_data:
+            return OptimizeGroupResponse(
+                trip_id=request.trip_id,
+                itineraries=[],
+                group_metrics=None,
+                best_option={"totalOutOfPocket": 0, "perPersonAverage": 0, "totalSavings": 0},
+                warnings=["Trip not found"],
+            )
+        
+        # 2. Get member data with airports
+        if not members_data:
+            # Fetch from trip service
+            from ..services.trip_member_service import list_members
+            members_data = list_members(request.trip_id) or []
+        
+        if not members_data:
+            logger.warning("[Orchestrator] No members found for group trip")
+            # Fall back to solo optimization if no member data
+            return await self._optimize_group_solo_fallback(request)
+        
+        logger.info(f"[Orchestrator] Optimizing for {len(members_data)} members")
+        
+        # 3. Build per-member segments
+        member_segments = self._build_per_member_segments(trip_data, members_data)
+        
+        if not member_segments:
+            logger.warning("[Orchestrator] Could not build per-member segments, falling back to solo")
+            return await self._optimize_group_solo_fallback(request)
+        
+        # 4. PARALLEL: Search flights for ALL members simultaneously
+        logger.info(f"[Orchestrator] Starting PARALLEL flight searches for {len(member_segments)} members")
+        start_time = asyncio.get_event_loop().time()
+        
+        # Create search tasks for all members
+        async def search_for_member(member_id: str, segments: list) -> tuple[str, dict]:
+            """Search flights for a single member's segments."""
+            member_points = request.member_points.get(member_id, {})
+            logger.info(f"[Orchestrator] [PARALLEL] Starting search for member {member_id} ({len(segments)} segments)")
+            search_results = await self._search_all_segments(
+                segments=segments,
+                user_points=member_points,
+                cabin_classes=request.cabin_classes or ["Economy", "Business"],
+            )
+            logger.info(f"[Orchestrator] [PARALLEL] Completed search for member {member_id}")
+            return (member_id, search_results)
+        
+        # Run ALL flight searches in parallel
+        search_tasks = [
+            search_for_member(member_id, segments)
+            for member_id, segments in member_segments.items()
+        ]
+        search_results_list = await asyncio.gather(*search_tasks, return_exceptions=True)
+        
+        # Build a map of member_id -> search_results
+        member_search_results = {}
+        for result in search_results_list:
+            if isinstance(result, Exception):
+                logger.error(f"[Orchestrator] Flight search failed: {result}")
+                continue
+            member_id, search_results = result
+            member_search_results[member_id] = search_results
+        
+        search_elapsed = asyncio.get_event_loop().time() - start_time
+        logger.info(f"[Orchestrator] PARALLEL flight searches completed in {search_elapsed:.1f}s for {len(member_search_results)} members")
+        
+        # 5. PARALLEL: Run optimization for ALL members simultaneously
+        logger.info(f"[Orchestrator] Starting PARALLEL optimization for {len(member_search_results)} members")
+        opt_start_time = asyncio.get_event_loop().time()
+        
+        async def optimize_for_member(member_id: str) -> tuple[str, list, list]:
+            """Run optimization for a single member."""
+            segments = member_segments[member_id]
+            search_results = member_search_results.get(member_id, {})
+            member_points = request.member_points.get(member_id, {})
+            member_budget = request.member_budgets.get(member_id) if request.member_budgets else request.budget
+            member_trip_data = dict(trip_data)
+            
+            logger.info(f"[Orchestrator] [PARALLEL] Starting optimization for member {member_id}")
+            
+            try:
+                member_itineraries, member_warnings = await self._run_oop_optimization(
+                    segments=segments,
+                    search_results=search_results,
+                    user_points=member_points,
+                    budget=member_budget or 1e9,
+                    trip_data=member_trip_data,
+                    mode="oop",
+                    risk_mode="balanced",
+                    include_basic_economy=False,
+                    flexibility_priority="medium",
+                    allowed_currencies=None,
+                    max_points_by_currency=None,
+                    max_cash_budget=member_budget,
+                )
+                logger.info(f"[Orchestrator] [PARALLEL] Completed optimization for member {member_id}: {len(member_itineraries)} itineraries")
+                return (member_id, member_itineraries, member_warnings)
+            except Exception as e:
+                logger.error(f"[Orchestrator] [PARALLEL] Optimization failed for member {member_id}: {e}")
+                return (member_id, [], [f"Could not optimize route for member {member_id}: {str(e)}"])
+        
+        # Run ALL optimizations in parallel
+        opt_tasks = [
+            optimize_for_member(member_id)
+            for member_id in member_search_results.keys()
+        ]
+        opt_results_list = await asyncio.gather(*opt_tasks, return_exceptions=True)
+        
+        opt_elapsed = asyncio.get_event_loop().time() - opt_start_time
+        logger.info(f"[Orchestrator] PARALLEL optimizations completed in {opt_elapsed:.1f}s")
+        
+        # 6. Collect results from all members
+        all_member_itineraries = []
+        total_oop = 0
+        total_savings = 0
+        all_warnings = []
+        
+        for result in opt_results_list:
+            if isinstance(result, Exception):
+                logger.error(f"[Orchestrator] Optimization task failed: {result}")
+                all_warnings.append(f"Optimization failed: {str(result)}")
+                continue
+                
+            member_id, member_itineraries, member_warnings = result
+            
+            # Tag itineraries with member_id (travelerId)
+            for itin in member_itineraries:
+                itin.traveler_id = member_id
+                # Find member name
+                member_info = next((m for m in members_data if 
+                    (m.get("user_id") or m.get("userId") or m.get("member_id")) == member_id), None)
+                if member_info:
+                    member_name = member_info.get("name") or member_info.get("display_name") or member_id[:8]
+                    itin.name = f"{member_name}'s Route"
+            
+            if member_itineraries:
+                # Add the best itinerary for this member
+                best_member_itin = member_itineraries[0]
+                all_member_itineraries.append(best_member_itin)
+                total_oop += best_member_itin.oop_metrics.total_out_of_pocket
+                total_savings += best_member_itin.oop_metrics.cash_saved
+                
+            all_warnings.extend(member_warnings)
+        
+        total_elapsed = search_elapsed + opt_elapsed
+        logger.info(f"[Orchestrator] Total parallel optimization time: {total_elapsed:.1f}s (searches: {search_elapsed:.1f}s, optimization: {opt_elapsed:.1f}s)")
+        
+        # 7. Build group response
+        num_members = len(member_segments)
+        
+        group_best_option = {
+            "totalOutOfPocket": total_oop,
+            "perPersonAverage": total_oop / num_members if num_members > 0 else 0,
+            "totalSavings": total_savings,
+            "withinBudget": True,  # Will be updated based on individual budgets
+        }
+        
+        # Deduplicate warnings
+        unique_warnings = list(dict.fromkeys(all_warnings))
+        
+        return OptimizeGroupResponse(
+            trip_id=request.trip_id,
+            itineraries=all_member_itineraries,
+            group_metrics=None,  # TODO: Add detailed per-member metrics
+            best_option=group_best_option,
+            warnings=unique_warnings,
+        )
+    
+    async def _optimize_group_solo_fallback(
+        self,
+        request: OptimizeGroupRequest,
+    ) -> OptimizeGroupResponse:
+        """
+        Fallback to solo optimization when per-member optimization isn't possible.
+        Uses combined points (legacy behavior).
+        """
         logger.warning(
-            "GROUP OPTIMIZATION: Using temporary pooled approach. "
-            "This incorrectly assumes points can be combined across members. "
-            "See REMAINING_IMPLEMENTATION_PLAN.md for correct implementation."
+            "GROUP OPTIMIZATION: Using fallback pooled approach. "
+            "Per-member routes not available."
         )
         
-        # TEMPORARY: Delegate to solo optimization with combined points
-        # This gives an overly optimistic result since it assumes point fungibility
         combined_points = {}
         for member_id, points in request.member_points.items():
             for program, balance in points.items():
@@ -506,20 +678,26 @@ class OrchestratorAgent(BaseAgent):
         
         solo_result = await self.optimize_solo(solo_request)
         
-        # Convert to group response with cost splitting
-        # WARNING: This doesn't properly account for who books what
+        num_members = max(len(request.member_budgets), 1)
+        total_oop = solo_result.best_option["outOfPocket"]
+        
+        group_best_option = {
+            "totalOutOfPocket": total_oop,
+            "perPersonAverage": total_oop / num_members,
+            "totalSavings": total_oop * solo_result.best_option["savingsPercentage"] / 100,
+            "withinBudget": solo_result.best_option.get("withinBudget", True),
+            "suggestedBudget": solo_result.best_option.get("suggestedBudget"),
+            "userBudget": solo_result.best_option.get("userBudget"),
+        }
+        
         return OptimizeGroupResponse(
             trip_id=request.trip_id,
             itineraries=solo_result.itineraries,
-            group_metrics=None,  # TODO: Calculate per-member metrics with booking assignments
-            best_option={
-                "totalOutOfPocket": solo_result.best_option["outOfPocket"],
-                "perPersonAverage": solo_result.best_option["outOfPocket"] / max(len(request.member_budgets), 1),
-                "totalSavings": solo_result.best_option["outOfPocket"] * solo_result.best_option["savingsPercentage"] / 100,
-            },
+            group_metrics=None,
+            best_option=group_best_option,
             warnings=[
-                "⚠️ Group optimization currently uses a simplified model. "
-                "Actual booking requires assigning segments to specific members."
+                "⚠️ Using shared route (per-member routes not available). "
+                "All members will use the same flight segments."
             ] + solo_result.warnings,
         )
     
@@ -1173,6 +1351,159 @@ class OrchestratorAgent(BaseAgent):
         
         return unique
     
+    def _build_per_member_segments(
+        self,
+        trip_data: dict,
+        members: list[dict],
+    ) -> dict[str, list[dict]]:
+        """
+        Build per-member route segments based on their departure/arrival airports.
+        
+        Each member may have a different:
+        - departure_airport: Where they fly FROM
+        - arrival_airport: Where they fly TO (for one-way) or same as departure (round trip)
+        - is_round_trip: Whether they return to their departure airport
+        
+        Args:
+            trip_data: Trip data with destinations and dates
+            members: List of member dicts with airport preferences
+            
+        Returns:
+            Dict mapping member_id -> list of segments for that member
+        """
+        from datetime import datetime, timedelta
+        
+        destinations = trip_data.get("destinations", [])
+        start_date = trip_data.get("start_date", "2026-03-01")
+        end_date = trip_data.get("end_date", "2026-03-08")
+        
+        try:
+            start_dt = datetime.strptime(start_date, "%Y-%m-%d")
+            end_dt = datetime.strptime(end_date, "%Y-%m-%d")
+        except:
+            start_dt = datetime.now()
+            end_dt = start_dt + timedelta(days=7)
+        
+        # Find the destination cities (excluding start/end markers)
+        dest_cities = []
+        dest_airports_map = {}
+        
+        for dest in destinations:
+            name = dest.get("name", "")
+            all_airports = dest.get("all_airports") or _get_all_airports_for_location(name)
+            dest_airports_map[name] = all_airports
+            
+            is_start = dest.get("isStart") or dest.get("is_start")
+            is_end = dest.get("isEnd") or dest.get("is_end")
+            must_include = dest.get("mustInclude") or dest.get("must_include")
+            
+            # Collect intermediate destinations (the places the group visits)
+            if must_include and not is_start and not is_end:
+                dest_cities.append(name)
+        
+        # If no intermediate destinations, use the trip's destination
+        if not dest_cities:
+            for dest in destinations:
+                is_start = dest.get("isStart") or dest.get("is_start")
+                is_end = dest.get("isEnd") or dest.get("is_end")
+                if not is_start:
+                    dest_cities.append(dest.get("name", ""))
+                    break
+        
+        if not dest_cities:
+            logger.warning("[Orchestrator] No destination cities found for per-member routes")
+            return {}
+        
+        logger.info(f"[Orchestrator] Building per-member routes to destinations: {dest_cities}")
+        
+        member_segments = {}
+        
+        for member in members:
+            member_id = member.get("user_id") or member.get("userId") or member.get("member_id")
+            departure_airport = member.get("departure_airport") or member.get("origin_airport") or "JFK"
+            arrival_airport = member.get("arrival_airport") or departure_airport
+            is_round_trip = member.get("is_round_trip", True)
+            
+            if is_round_trip:
+                arrival_airport = departure_airport  # For round trips, return to departure
+            
+            logger.info(f"[Orchestrator] Member {member_id}: {departure_airport} → {dest_cities} → {arrival_airport} (round_trip={is_round_trip})")
+            
+            segments = []
+            total_days = (end_dt - start_dt).days
+            num_legs = len(dest_cities) + 1 if not is_round_trip else len(dest_cities) * 2
+            days_per_leg = max(1, total_days // max(num_legs, 1))
+            current_date = start_dt
+            
+            # Outbound: departure_airport → first destination
+            first_dest = dest_cities[0]
+            first_dest_airports = dest_airports_map.get(first_dest, [first_dest])
+            
+            segments.append({
+                "type": "flight",
+                "origin": departure_airport,
+                "destination": first_dest_airports[0],
+                "date": current_date.strftime("%Y-%m-%d"),
+                "member_id": member_id,
+                "leg_type": "outbound",
+                "leg_index": 0,
+                "origin_city": departure_airport,
+                "dest_city": first_dest,
+                "allowed_origin_airports": [departure_airport],
+                "allowed_destination_airports": first_dest_airports,
+                "airport_search_pairs": [(departure_airport, apt) for apt in first_dest_airports],
+            })
+            current_date += timedelta(days=days_per_leg)
+            
+            # Inter-destination flights (if multiple destinations)
+            for i in range(len(dest_cities) - 1):
+                origin_city = dest_cities[i]
+                dest_city = dest_cities[i + 1]
+                origin_airports = dest_airports_map.get(origin_city, [origin_city])
+                dest_airports = dest_airports_map.get(dest_city, [dest_city])
+                
+                segments.append({
+                    "type": "flight",
+                    "origin": origin_airports[0],
+                    "destination": dest_airports[0],
+                    "date": current_date.strftime("%Y-%m-%d"),
+                    "member_id": member_id,
+                    "leg_type": "inter_destination",
+                    "leg_index": i + 1,
+                    "origin_city": origin_city,
+                    "dest_city": dest_city,
+                    "allowed_origin_airports": origin_airports,
+                    "allowed_destination_airports": dest_airports,
+                    "airport_search_pairs": [
+                        (orig, dest) for orig in origin_airports for dest in dest_airports
+                    ],
+                })
+                current_date += timedelta(days=days_per_leg)
+            
+            # Return leg: last destination → arrival_airport
+            last_dest = dest_cities[-1]
+            last_dest_airports = dest_airports_map.get(last_dest, [last_dest])
+            
+            segments.append({
+                "type": "flight",
+                "origin": last_dest_airports[0],
+                "destination": arrival_airport,
+                "date": end_dt.strftime("%Y-%m-%d"),  # Return on end date
+                "member_id": member_id,
+                "leg_type": "return",
+                "leg_index": len(dest_cities),
+                "origin_city": last_dest,
+                "dest_city": arrival_airport,
+                "allowed_origin_airports": last_dest_airports,
+                "allowed_destination_airports": [arrival_airport],
+                "airport_search_pairs": [(apt, arrival_airport) for apt in last_dest_airports],
+            })
+            
+            member_segments[member_id] = segments
+            logger.info(f"[Orchestrator] Member {member_id} has {len(segments)} flight segments")
+        
+        return member_segments
+    
     def _build_segments_for_route(self, route: list[str], trip_data: dict) -> list[dict]:
         """
         Build flight segments for a specific route ordering.
@@ -1526,12 +1857,14 @@ class OrchestratorAgent(BaseAgent):
         
         if not within_budget and budget < NO_BUDGET_LIMIT:
             budget_exceeded_by = total_oop - budget
-            logger.warning(f"[Greedy] ⚠️ Budget exceeded by ${budget_exceeded_by:.0f}")
+            suggested_budget = int(total_oop * 1.1)  # 10% buffer
+            logger.warning(f"[Greedy] ⚠️ Budget exceeded by ${budget_exceeded_by:.0f}. Suggested budget: ${suggested_budget:,}")
             
             # Add clear message that no itinerary within budget exists
             warnings.append(
                 f"⚠️ No itinerary found within your ${budget:.0f} budget. "
-                f"This is the closest option at ${total_oop:.0f} (${budget_exceeded_by:.0f} over budget)."
+                f"The minimum cost for this trip is ${total_oop:.0f}. "
+                f"We recommend setting your budget to at least ${suggested_budget:,}."
             )
             
             # Check if this is due to transfer partner incompatibility
@@ -1561,15 +1894,23 @@ class OrchestratorAgent(BaseAgent):
             summary = f"Save ${cash_saved:.0f} ({savings_pct:.0f}% off) by using {total_points_used:,} points"
         else:
             budget_exceeded_by = total_oop - budget if budget < NO_BUDGET_LIMIT else 0
+            min_budget_needed = int(total_oop * 1.1)  # 10% buffer
             if total_points_used > 0:
-                summary = f"⚠️ Closest to budget (${budget_exceeded_by:.0f} over). Using {total_points_used:,} points saves ${cash_saved:.0f}"
+                summary = f"⚠️ Min budget needed: ${min_budget_needed:,}. Using {total_points_used:,} points saves ${cash_saved:.0f}"
             else:
-                summary = f"⚠️ Closest to budget (${budget_exceeded_by:.0f} over). No points could be applied to this route."
+                summary = f"⚠️ Min budget needed: ${min_budget_needed:,}. No points could be applied to this route."
+        
+        # Generate a descriptive name based on budget status
+        if within_budget:
+            itinerary_name = "Optimized Itinerary"
+        else:
+            min_budget_needed = int(total_oop * 1.1)
+            itinerary_name = f"Min Budget Needed: ${min_budget_needed:,}"
         
         itinerary = RankedItinerary(
             id=str(uuid.uuid4()),
             rank=1,
-            name="Closest Available Option" if not within_budget else "Optimized Itinerary",
+            name=itinerary_name,
             route=route,
             segments=itinerary_segments,
             oop_metrics=OOPMetrics(

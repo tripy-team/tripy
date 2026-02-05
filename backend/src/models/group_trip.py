@@ -385,7 +385,8 @@ class TripPassengersSummary(BaseModel):
 
 VALID_LIFECYCLE_TRANSITIONS = {
     MemberLifecycleState.INVITED: [MemberLifecycleState.JOINED_NO_WALLET, MemberLifecycleState.INACTIVE],
-    MemberLifecycleState.JOINED_NO_WALLET: [MemberLifecycleState.WALLET_CONNECTED, MemberLifecycleState.INACTIVE],
+    # Allow direct approval from joined_no_wallet (admin can approve even without points)
+    MemberLifecycleState.JOINED_NO_WALLET: [MemberLifecycleState.WALLET_CONNECTED, MemberLifecycleState.APPROVED_FOR_PLANNING, MemberLifecycleState.INACTIVE],
     MemberLifecycleState.WALLET_CONNECTED: [MemberLifecycleState.APPROVED_FOR_PLANNING, MemberLifecycleState.JOINED_NO_WALLET, MemberLifecycleState.INACTIVE],
     MemberLifecycleState.APPROVED_FOR_PLANNING: [MemberLifecycleState.APPROVED_FOR_BOOKING, MemberLifecycleState.WALLET_CONNECTED, MemberLifecycleState.INACTIVE],
     MemberLifecycleState.APPROVED_FOR_BOOKING: [MemberLifecycleState.APPROVED_FOR_PLANNING, MemberLifecycleState.INACTIVE],

@@ -13,6 +13,9 @@ def create_trip(
     max_budget: Optional[int] = None,
     duration_days: Optional[int] = None,
     pooling_scope: Optional[str] = None,
+    # Organizer member preferences (same as join_trip)
+    adults: int = 1,
+    children: int = 0,
 ) -> Dict[str, Any]:
     """
     Create a new trip.
@@ -56,14 +59,27 @@ def create_trip(
     }
     trip_repo.put_trip(trip)
 
-    trip_member_repo.add_member(
-        {
-            "tripId": trip_id,
-            "userId": user_id,
-            "role": "owner",
-            "status": "active",
-        }
-    )
+    # Owner is automatically approved for planning
+    from src.models.group_trip import MemberLifecycleState
+    from decimal import Decimal
+    
+    owner_member = {
+        "tripId": trip_id,
+        "userId": user_id,
+        "role": "owner",
+        "status": "complete",  # Owner is auto-approved
+        "lifecycle_state": MemberLifecycleState.APPROVED_FOR_PLANNING.value,
+        # Store owner's budget in member record (same as joined members)
+        "adults": max(1, adults),
+        "children": max(0, children),
+        "party_size": max(1, adults) + max(0, children),
+    }
+    
+    # Store budget in member record (DynamoDB requires Decimal)
+    if max_budget is not None:
+        owner_member["max_cash_budget"] = Decimal(str(max_budget))
+    
+    trip_member_repo.add_member(owner_member)
 
     return trip
 
@@ -158,13 +174,33 @@ def regenerate_invite_code(trip_id: str, user_id: str) -> Dict[str, Any]:
     return {"inviteCode": new_invite_code}
 
 
-def list_trips_for_user(user_id: str) -> List[Dict[str, Any]]:
-    """List all trips for a user (both owned and joined)"""
+def list_trips_for_user(
+    user_id: str,
+    limit: Optional[int] = None,
+    offset: int = 0,
+    include_details: bool = False
+) -> List[Dict[str, Any]]:
+    """
+    List trips for a user (both owned and joined).
+    
+    Args:
+        user_id: User ID
+        limit: Maximum number of trips to return (None = all)
+        offset: Number of trips to skip (for pagination)
+        include_details: If True, fetch destinations and member counts (slower)
+                        If False, return minimal trip data (faster)
+    
+    Returns:
+        List of trips with basic info. Use include_details=True for full data.
+    """
     from .destination_service import list_destinations, get_display_destinations_for_trip
     from .trip_member_service import list_members
     
     # Get trip memberships
     memberships = trip_member_repo.list_trips_for_user(user_id)
+    
+    # Sort memberships by tripId to ensure consistent ordering for pagination
+    # We'll re-sort by date after fetching trip data
     
     # Get trip details for each membership
     trips = []
@@ -177,20 +213,45 @@ def list_trips_for_user(user_id: str) -> List[Dict[str, Any]]:
                 trip["role"] = membership.get("role", "member")
                 trip["memberStatus"] = membership.get("status", "active")
                 
-                # Get member count
-                members = list_members(trip_id)
-                trip["memberCount"] = len(members) if members else 1
+                # Include user's own flight preferences from membership
+                # This allows displaying "SEA → Paris" style trip titles
+                trip["userDepartureAirport"] = membership.get("departure_airport")
+                trip["userArrivalAirport"] = membership.get("arrival_airport")
+                trip["userIsRoundTrip"] = membership.get("is_round_trip", True)
                 
-                # Get destinations (first destination name for display).
-                # Start/end are origin/return (like flight booking); only "visiting" destinations are shown.
-                destinations = list_destinations(trip_id)
-                trip["destinations"], trip["firstDestination"] = get_display_destinations_for_trip(destinations or [])
+                if include_details:
+                    # Get member count (expensive - extra DB call)
+                    members = list_members(trip_id)
+                    trip["memberCount"] = len(members) if members else 1
+                    
+                    # Get destinations (expensive - extra DB call)
+                    destinations = list_destinations(trip_id)
+                    trip["destinations"], trip["firstDestination"] = get_display_destinations_for_trip(destinations or [])
+                else:
+                    # Fast mode: use cached/default values
+                    # memberCount can be updated when viewing trip details
+                    trip["memberCount"] = trip.get("memberCount", 1)
+                    trip["destinations"] = trip.get("destinations", [])
+                    trip["firstDestination"] = trip.get("firstDestination", trip.get("title", ""))
 
                 trips.append(trip)
     
     # Sort by startDate descending (most recent first)
     trips.sort(key=lambda x: x.get("startDate", ""), reverse=True)
+    
+    # Apply pagination
+    if offset > 0:
+        trips = trips[offset:]
+    if limit is not None:
+        trips = trips[:limit]
+    
     return trips
+
+
+def get_trips_count_for_user(user_id: str) -> int:
+    """Get total number of trips for a user (fast count without fetching details)."""
+    memberships = trip_member_repo.list_trips_for_user(user_id)
+    return len(memberships)
 
 
 def delete_trip(trip_id: str, user_id: str) -> bool:
@@ -286,3 +347,44 @@ def is_strategy_paid(trip_id: str) -> bool:
         return False
     
     return trip.get("strategyPaid", False)
+
+
+def mark_optimization_generated(trip_id: str) -> bool:
+    """
+    Mark a trip's optimization as generated to prevent multiple runs.
+    
+    This is called after a successful optimization to ensure users cannot
+    keep calling the optimization endpoint.
+    
+    Args:
+        trip_id: Trip ID
+        
+    Returns:
+        True if successfully marked, False if trip not found
+    """
+    from datetime import datetime
+    
+    trip = get_trip(trip_id)
+    if not trip:
+        return False
+    
+    # Set the optimization generated flag with timestamp
+    trip["optimizationGenerated"] = True
+    trip["optimizationGeneratedAt"] = datetime.utcnow().isoformat() + "Z"
+    
+    trip_repo.put_trip(trip)
+    return True
+
+
+def is_optimization_generated(trip_id: str) -> bool:
+    """
+    Check if a trip's optimization has already been generated.
+    
+    Returns:
+        True if optimization was already generated, False otherwise
+    """
+    trip = get_trip(trip_id)
+    if not trip:
+        return False
+    
+    return trip.get("optimizationGenerated", False)

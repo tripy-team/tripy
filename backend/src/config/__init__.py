@@ -1,3 +1,9 @@
+"""
+Configuration module for backend services.
+
+This __init__.py re-exports all original config.py exports to maintain backward
+compatibility, while also adding optimizer-specific configuration.
+"""
 import os
 import logging
 from dotenv import load_dotenv
@@ -63,6 +69,10 @@ SERP_API_KEY = os.environ.get("SERP_API_KEY", "")
 AWARDTOOL_API_KEY = os.environ.get("AWARDTOOL_API_KEY", "") or os.environ.get(
     "AWARD_TOOL_API_KEY", ""
 )
+
+# Email (AWS SES) configuration
+SES_SENDER_EMAIL = os.environ.get("SES_SENDER_EMAIL", "")
+FRONTEND_URL = os.environ.get("FRONTEND_URL", "https://tripy.app")
 
 # AwardTool Dummy Data Mode - set USE_AWARDTOOL_DUMMY_DATA=true in .env to use dummy data
 USE_AWARDTOOL_DUMMY_DATA = (
@@ -147,3 +157,23 @@ if FEATURE_FLIGHTS_ONLY:
     logger.info("[CONFIG] FLIGHT-ONLY MODE: Hotel/lodging features are disabled (FEATURE_FLIGHTS_ONLY=true)")
 else:
     logger.info("[CONFIG] FULL MODE: Hotel/lodging features are enabled (FEATURE_FLIGHTS_ONLY=false)")
+
+
+# =============================================================================
+# OPTIMIZER CONFIGURATION (from optimizer_config.py)
+# =============================================================================
+
+from .optimizer_config import (
+    GROUP_SOLVE_TIME_LIMIT_S,
+    GROUP_SOLVER,
+    RELAX_BIG_M_GROUP,
+    RELAX_BIG_M_MEMBER,
+    RELAX_BIG_M_MAX_MEMBER,
+    RELAX_EPS_OOP,
+    RELAX_EPS_POINTS,
+    RELAX_ENABLE_MINIMAX,
+    MAX_ALTERNATIVE_SOLUTIONS,
+    GENERATE_ALTERNATIVES_IN_RELAXED,
+    get_relaxation_config,
+    log_relaxation_config,
+)

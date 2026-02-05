@@ -229,6 +229,375 @@ FALLBACK_CITIES = [
         "cityName": "Singapore",
         "countryName": "Singapore",
     },
+    # Vienna - CRITICAL: was missing causing routing bugs
+    {
+        "id": "VIE",
+        "name": "Vienna (VIE)",
+        "iataCode": "VIE",
+        "type": "AIRPORT",
+        "cityName": "Vienna",
+        "countryName": "Austria",
+    },
+    # Prague - CRITICAL: was missing causing routing bugs
+    {
+        "id": "PRG",
+        "name": "Prague (PRG)",
+        "iataCode": "PRG",
+        "type": "AIRPORT",
+        "cityName": "Prague",
+        "countryName": "Czech Republic",
+    },
+    # Budapest
+    {
+        "id": "BUD",
+        "name": "Budapest (BUD)",
+        "iataCode": "BUD",
+        "type": "AIRPORT",
+        "cityName": "Budapest",
+        "countryName": "Hungary",
+    },
+    # Zurich
+    {
+        "id": "ZRH",
+        "name": "Zurich (ZRH)",
+        "iataCode": "ZRH",
+        "type": "AIRPORT",
+        "cityName": "Zurich",
+        "countryName": "Switzerland",
+    },
+    # Geneva
+    {
+        "id": "GVA",
+        "name": "Geneva (GVA)",
+        "iataCode": "GVA",
+        "type": "AIRPORT",
+        "cityName": "Geneva",
+        "countryName": "Switzerland",
+    },
+    # Copenhagen
+    {
+        "id": "CPH",
+        "name": "Copenhagen (CPH)",
+        "iataCode": "CPH",
+        "type": "AIRPORT",
+        "cityName": "Copenhagen",
+        "countryName": "Denmark",
+    },
+    # Stockholm
+    {
+        "id": "ARN",
+        "name": "Stockholm (ARN)",
+        "iataCode": "ARN",
+        "type": "AIRPORT",
+        "cityName": "Stockholm",
+        "countryName": "Sweden",
+    },
+    # Oslo
+    {
+        "id": "OSL",
+        "name": "Oslo (OSL)",
+        "iataCode": "OSL",
+        "type": "AIRPORT",
+        "cityName": "Oslo",
+        "countryName": "Norway",
+    },
+    # Helsinki
+    {
+        "id": "HEL",
+        "name": "Helsinki (HEL)",
+        "iataCode": "HEL",
+        "type": "AIRPORT",
+        "cityName": "Helsinki",
+        "countryName": "Finland",
+    },
+    # Dublin
+    {
+        "id": "DUB",
+        "name": "Dublin (DUB)",
+        "iataCode": "DUB",
+        "type": "AIRPORT",
+        "cityName": "Dublin",
+        "countryName": "Ireland",
+    },
+    # Lisbon
+    {
+        "id": "LIS",
+        "name": "Lisbon (LIS)",
+        "iataCode": "LIS",
+        "type": "AIRPORT",
+        "cityName": "Lisbon",
+        "countryName": "Portugal",
+    },
+    # Athens
+    {
+        "id": "ATH",
+        "name": "Athens (ATH)",
+        "iataCode": "ATH",
+        "type": "AIRPORT",
+        "cityName": "Athens",
+        "countryName": "Greece",
+    },
+    # Warsaw
+    {
+        "id": "WAW",
+        "name": "Warsaw (WAW)",
+        "iataCode": "WAW",
+        "type": "AIRPORT",
+        "cityName": "Warsaw",
+        "countryName": "Poland",
+    },
+    # Krakow
+    {
+        "id": "KRK",
+        "name": "Krakow (KRK)",
+        "iataCode": "KRK",
+        "type": "AIRPORT",
+        "cityName": "Krakow",
+        "countryName": "Poland",
+    },
+    # Brussels
+    {
+        "id": "BRU",
+        "name": "Brussels (BRU)",
+        "iataCode": "BRU",
+        "type": "AIRPORT",
+        "cityName": "Brussels",
+        "countryName": "Belgium",
+    },
+    # Milan
+    {
+        "id": "MXP",
+        "name": "Milan (MXP)",
+        "iataCode": "MXP",
+        "type": "AIRPORT",
+        "cityName": "Milan",
+        "countryName": "Italy",
+    },
+    # Venice
+    {
+        "id": "VCE",
+        "name": "Venice (VCE)",
+        "iataCode": "VCE",
+        "type": "AIRPORT",
+        "cityName": "Venice",
+        "countryName": "Italy",
+    },
+    # Florence
+    {
+        "id": "FLR",
+        "name": "Florence (FLR)",
+        "iataCode": "FLR",
+        "type": "AIRPORT",
+        "cityName": "Florence",
+        "countryName": "Italy",
+    },
+    # Nice
+    {
+        "id": "NCE",
+        "name": "Nice (NCE)",
+        "iataCode": "NCE",
+        "type": "AIRPORT",
+        "cityName": "Nice",
+        "countryName": "France",
+    },
+    # Berlin
+    {
+        "id": "BER",
+        "name": "Berlin (BER)",
+        "iataCode": "BER",
+        "type": "AIRPORT",
+        "cityName": "Berlin",
+        "countryName": "Germany",
+    },
+    # Denver - added for completeness
+    {
+        "id": "DEN",
+        "name": "Denver (DEN)",
+        "iataCode": "DEN",
+        "type": "AIRPORT",
+        "cityName": "Denver",
+        "countryName": "United States",
+    },
+    # Seattle
+    {
+        "id": "SEA",
+        "name": "Seattle (SEA)",
+        "iataCode": "SEA",
+        "type": "AIRPORT",
+        "cityName": "Seattle",
+        "countryName": "United States",
+    },
+    # Miami
+    {
+        "id": "MIA",
+        "name": "Miami (MIA)",
+        "iataCode": "MIA",
+        "type": "AIRPORT",
+        "cityName": "Miami",
+        "countryName": "United States",
+    },
+    # Boston
+    {
+        "id": "BOS",
+        "name": "Boston (BOS)",
+        "iataCode": "BOS",
+        "type": "AIRPORT",
+        "cityName": "Boston",
+        "countryName": "United States",
+    },
+    # Chicago
+    {
+        "id": "ORD",
+        "name": "Chicago (ORD)",
+        "iataCode": "ORD",
+        "type": "AIRPORT",
+        "cityName": "Chicago",
+        "countryName": "United States",
+    },
+    # Dallas
+    {
+        "id": "DFW",
+        "name": "Dallas (DFW)",
+        "iataCode": "DFW",
+        "type": "AIRPORT",
+        "cityName": "Dallas",
+        "countryName": "United States",
+    },
+    # Hong Kong
+    {
+        "id": "HKG",
+        "name": "Hong Kong (HKG)",
+        "iataCode": "HKG",
+        "type": "AIRPORT",
+        "cityName": "Hong Kong",
+        "countryName": "Hong Kong",
+    },
+    # Bangkok
+    {
+        "id": "BKK",
+        "name": "Bangkok (BKK)",
+        "iataCode": "BKK",
+        "type": "AIRPORT",
+        "cityName": "Bangkok",
+        "countryName": "Thailand",
+    },
+    # Seoul
+    {
+        "id": "ICN",
+        "name": "Seoul (ICN)",
+        "iataCode": "ICN",
+        "type": "AIRPORT",
+        "cityName": "Seoul",
+        "countryName": "South Korea",
+    },
+    # Delhi
+    {
+        "id": "DEL",
+        "name": "Delhi (DEL)",
+        "iataCode": "DEL",
+        "type": "AIRPORT",
+        "cityName": "Delhi",
+        "countryName": "India",
+    },
+    # Mumbai
+    {
+        "id": "BOM",
+        "name": "Mumbai (BOM)",
+        "iataCode": "BOM",
+        "type": "AIRPORT",
+        "cityName": "Mumbai",
+        "countryName": "India",
+    },
+    # Cairo
+    {
+        "id": "CAI",
+        "name": "Cairo (CAI)",
+        "iataCode": "CAI",
+        "type": "AIRPORT",
+        "cityName": "Cairo",
+        "countryName": "Egypt",
+    },
+    # Johannesburg
+    {
+        "id": "JNB",
+        "name": "Johannesburg (JNB)",
+        "iataCode": "JNB",
+        "type": "AIRPORT",
+        "cityName": "Johannesburg",
+        "countryName": "South Africa",
+    },
+    # Cape Town
+    {
+        "id": "CPT",
+        "name": "Cape Town (CPT)",
+        "iataCode": "CPT",
+        "type": "AIRPORT",
+        "cityName": "Cape Town",
+        "countryName": "South Africa",
+    },
+    # Toronto
+    {
+        "id": "YYZ",
+        "name": "Toronto (YYZ)",
+        "iataCode": "YYZ",
+        "type": "AIRPORT",
+        "cityName": "Toronto",
+        "countryName": "Canada",
+    },
+    # Vancouver
+    {
+        "id": "YVR",
+        "name": "Vancouver (YVR)",
+        "iataCode": "YVR",
+        "type": "AIRPORT",
+        "cityName": "Vancouver",
+        "countryName": "Canada",
+    },
+    # Mexico City
+    {
+        "id": "MEX",
+        "name": "Mexico City (MEX)",
+        "iataCode": "MEX",
+        "type": "AIRPORT",
+        "cityName": "Mexico City",
+        "countryName": "Mexico",
+    },
+    # Cancun
+    {
+        "id": "CUN",
+        "name": "Cancun (CUN)",
+        "iataCode": "CUN",
+        "type": "AIRPORT",
+        "cityName": "Cancun",
+        "countryName": "Mexico",
+    },
+    # Buenos Aires
+    {
+        "id": "EZE",
+        "name": "Buenos Aires (EZE)",
+        "iataCode": "EZE",
+        "type": "AIRPORT",
+        "cityName": "Buenos Aires",
+        "countryName": "Argentina",
+    },
+    # Sao Paulo
+    {
+        "id": "GRU",
+        "name": "Sao Paulo (GRU)",
+        "iataCode": "GRU",
+        "type": "AIRPORT",
+        "cityName": "Sao Paulo",
+        "countryName": "Brazil",
+    },
+    # Rio de Janeiro
+    {
+        "id": "GIG",
+        "name": "Rio de Janeiro (GIG)",
+        "iataCode": "GIG",
+        "type": "AIRPORT",
+        "cityName": "Rio de Janeiro",
+        "countryName": "Brazil",
+    },
 ]
 
 

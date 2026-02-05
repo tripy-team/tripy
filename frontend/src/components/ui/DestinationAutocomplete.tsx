@@ -1,6 +1,6 @@
 'use client';
 
-import { Fragment, useState, useEffect, useRef, useMemo } from 'react';
+import { Fragment, useState, useEffect, useRef, useMemo, useCallback } from 'react';
 import { Plane } from 'lucide-react';
 import { destinations } from '@/lib/api';
 import { filterFallbackAirports } from '@/lib/autocomplete-fallback-data';
@@ -14,6 +14,8 @@ type AirportSuggestion = {
   country: string;
   region?: string;
   display_name: string;
+  // Unique key for React - combines city + iata to avoid duplicates
+  uniqueKey: string;
 };
 
 type SuggestionLike = {
@@ -23,8 +25,31 @@ type SuggestionLike = {
   airports?: Array<{ id?: string; name?: string; city?: string }>;
 };
 
+// Simple in-memory cache for autocomplete results (avoids repeated API calls)
+const autocompleteCache = new Map<string, { airports: AirportSuggestion[]; timestamp: number }>();
+const CACHE_TTL_MS = 60000; // 1 minute cache
+
+function getCachedResults(query: string): AirportSuggestion[] | null {
+  const cached = autocompleteCache.get(query.toLowerCase());
+  if (cached && Date.now() - cached.timestamp < CACHE_TTL_MS) {
+    return cached.airports;
+  }
+  return null;
+}
+
+function setCachedResults(query: string, airports: AirportSuggestion[]) {
+  // Limit cache size
+  if (autocompleteCache.size > 100) {
+    const firstKey = autocompleteCache.keys().next().value;
+    if (firstKey) autocompleteCache.delete(firstKey);
+  }
+  autocompleteCache.set(query.toLowerCase(), { airports, timestamp: Date.now() });
+}
+
 function flattenSuggestionsToAirports(raw: SuggestionLike[]): AirportSuggestion[] {
   const out: AirportSuggestion[] = [];
+  const seen = new Set<string>(); // Deduplicate by iata_code + city
+  
   for (const s of raw) {
     const list = s.airports || [];
     const fallbackId =
@@ -33,14 +58,19 @@ function flattenSuggestionsToAirports(raw: SuggestionLike[]): AirportSuggestion[
         : null;
     if (list.length === 0 && s.id && /^[A-Za-z]{3}$/.test(String(s.id).trim())) {
       const id = String(s.id).trim().toUpperCase();
+      const city = s.name || '';
+      const uniqueKey = `${id}-${city}`.toLowerCase();
+      if (seen.has(uniqueKey)) continue;
+      seen.add(uniqueKey);
       out.push({
         airport_id: id,
         iata_code: id,
         airport_name: s.name || id,
-        city: s.name || '',
+        city,
         country: s.description || '',
         region: '',
         display_name: `${id} – ${s.name || id}`,
+        uniqueKey,
       });
       continue;
     }
@@ -49,14 +79,19 @@ function flattenSuggestionsToAirports(raw: SuggestionLike[]): AirportSuggestion[
       if (!id && fallbackId) id = fallbackId;
       if (!id) continue;
       id = id.toUpperCase();
+      const city = a.city || s.name || '';
+      const uniqueKey = `${id}-${city}`.toLowerCase();
+      if (seen.has(uniqueKey)) continue;
+      seen.add(uniqueKey);
       out.push({
         airport_id: id,
         iata_code: id,
         airport_name: a.name || id,
-        city: a.city || s.name || '',
+        city,
         country: s.description || '',
         region: '',
         display_name: `${id} – ${a.name || id}`,
+        uniqueKey,
       });
     }
   }
@@ -133,7 +168,8 @@ export function DestinationAutocomplete({
 
   const [debounced, setDebounced] = useState(value);
   useEffect(() => {
-    const t = setTimeout(() => setDebounced(value), 80);
+    // Longer debounce (250ms) for better performance - reduces API calls
+    const t = setTimeout(() => setDebounced(value), 250);
     return () => clearTimeout(t);
   }, [value]);
 
@@ -234,7 +270,21 @@ export function DestinationAutocomplete({
     setActiveIdx(0);
   }, [debounced, suggestions]);
 
-  // Fetch: same as AirportAutocomplete, with commercialOnly=true
+  // Helper to convert fallback airports to our format
+  const fallbackToAirports = useCallback((query: string): AirportSuggestion[] => {
+    return filterFallbackAirports(query, 12).map((a) => ({
+      airport_id: a.iata_code,
+      iata_code: a.iata_code,
+      airport_name: a.airport_name,
+      city: a.city,
+      country: a.country,
+      region: '',
+      display_name: `${a.iata_code} – ${a.airport_name}`,
+      uniqueKey: `${a.iata_code}-${a.city}`.toLowerCase(),
+    }));
+  }, []);
+
+  // Fetch with caching and optimized fallback chain
   useEffect(() => {
     const query = debounced.trim();
     if (!query || query.length < 1) {
@@ -242,62 +292,72 @@ export function DestinationAutocomplete({
       setIsLoading(false);
       return;
     }
+
+    // Check cache first (instant results)
+    const cached = getCachedResults(query);
+    if (cached) {
+      setSuggestions(cached);
+      setIsLoading(false);
+      return;
+    }
+
+    // For very short queries (1-2 chars), use local fallback immediately
+    if (query.length <= 2) {
+      const localResults = fallbackToAirports(query);
+      setSuggestions(localResults);
+      setCachedResults(query, localResults);
+      setIsLoading(false);
+      return;
+    }
+
+    let cancelled = false;
     setIsLoading(true);
-    const timeoutId = setTimeout(async () => {
+
+    // Single async fetch with graceful fallbacks
+    (async () => {
       try {
         const response = await destinations.autocomplete(query, 12, true);
+        if (cancelled) return;
+        
         const raw = response?.suggestions ?? [];
         let airports = flattenSuggestionsToAirports(raw);
+        
+        // If no results from primary, try fallback API (only one fallback attempt)
         if (airports.length === 0) {
-          const fallbackRes = await destinations.fallbackDestinations(query, 12, true);
-          airports = flattenSuggestionsToAirports(fallbackRes?.suggestions ?? []);
+          try {
+            const fallbackRes = await destinations.fallbackDestinations(query, 12, true);
+            if (cancelled) return;
+            airports = flattenSuggestionsToAirports(fallbackRes?.suggestions ?? []);
+          } catch {
+            // Ignore fallback API error
+          }
         }
+        
+        // If still no results, use local data
         if (airports.length === 0) {
-          airports = filterFallbackAirports(query, 12).map((a) => ({
-            airport_id: a.iata_code,
-            iata_code: a.iata_code,
-            airport_name: a.airport_name,
-            city: a.city,
-            country: a.country,
-            region: '',
-            display_name: `${a.iata_code} – ${a.airport_name}`,
-          }));
+          airports = fallbackToAirports(query);
         }
-        setSuggestions(airports);
+        
+        if (!cancelled) {
+          setSuggestions(airports);
+          setCachedResults(query, airports);
+        }
       } catch (err) {
+        if (cancelled) return;
         console.error('[DestinationAutocomplete] Error fetching:', err);
-        try {
-          const fallbackRes = await destinations.fallbackDestinations(query, 12, true);
-          const airports = flattenSuggestionsToAirports(fallbackRes?.suggestions ?? []);
-          setSuggestions(airports.length > 0 ? airports : filterFallbackAirports(query, 12).map((a) => ({
-            airport_id: a.iata_code,
-            iata_code: a.iata_code,
-            airport_name: a.airport_name,
-            city: a.city,
-            country: a.country,
-            region: '',
-            display_name: `${a.iata_code} – ${a.airport_name}`,
-          })));
-        } catch {
-          setSuggestions(filterFallbackAirports(query, 12).map((a) => ({
-            airport_id: a.iata_code,
-            iata_code: a.iata_code,
-            airport_name: a.airport_name,
-            city: a.city,
-            country: a.country,
-            region: '',
-            display_name: `${a.iata_code} – ${a.airport_name}`,
-          })));
-        }
+        // On error, use local fallback immediately (no retry)
+        const localResults = fallbackToAirports(query);
+        setSuggestions(localResults);
+        setCachedResults(query, localResults);
       } finally {
-        setIsLoading(false);
+        if (!cancelled) setIsLoading(false);
       }
-    }, 200);
+    })();
+
     return () => {
-      clearTimeout(timeoutId);
-      setIsLoading(false);
+      cancelled = true;
     };
-  }, [debounced]);
+  }, [debounced, fallbackToAirports]);
 
   return (
     <div ref={wrapperRef} className={`relative w-full ${className}`} style={{ position: 'relative', zIndex: open ? 9999 : 1 }}>
@@ -387,7 +447,7 @@ export function DestinationAutocomplete({
                       const active = activeIdx === itemIdx;
                       return (
                         <li
-                          key={a.airport_id || `${cityKey}-${a.iata_code}-${airportIdx}`}
+                          key={a.uniqueKey || `${cityKey}-${a.iata_code}-${airportIdx}`}
                           onMouseEnter={() => setActiveIdx(itemIdx)}
                           onPointerDown={(e) => { e.preventDefault(); e.stopPropagation(); commitSelect(a); }}
                           onMouseDown={(e) => { e.preventDefault(); e.stopPropagation(); commitSelect(a); }}
@@ -417,7 +477,7 @@ export function DestinationAutocomplete({
                 const active = idx === activeIdx;
                 return (
                   <li
-                    key={a.airport_id || `${a.iata_code}-${idx}`}
+                    key={a.uniqueKey || `${a.iata_code}-${idx}`}
                     onMouseEnter={() => setActiveIdx(idx)}
                     onPointerDown={(e) => { e.preventDefault(); e.stopPropagation(); commitSelect(a); }}
                     onMouseDown={(e) => { e.preventDefault(); e.stopPropagation(); commitSelect(a); }}

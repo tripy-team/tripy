@@ -185,6 +185,56 @@ def list_destinations(trip_id: str) -> List[Dict[str, Any]]:
     return destination_repo.list_destinations(trip_id)
 
 
+def get_destination(trip_id: str, destination_id: str) -> Optional[Dict[str, Any]]:
+    """Get a single destination by ID."""
+    return destination_repo.get_destination(trip_id, destination_id)
+
+
+def remove_destination(trip_id: str, destination_id: str) -> bool:
+    """Remove a destination from a trip."""
+    return destination_repo.delete_destination(trip_id, destination_id)
+
+
+def update_destination(
+    trip_id: str,
+    destination_id: str,
+    *,
+    arrival_date: Optional[str] = None,
+    departure_date: Optional[str] = None,
+    must_include: Optional[bool] = None,
+    excluded: Optional[bool] = None,
+) -> Optional[Dict[str, Any]]:
+    """
+    Update a destination's fields.
+    
+    Args:
+        trip_id: Trip ID
+        destination_id: Destination ID
+        arrival_date: Arrival date AT this destination (YYYY-MM-DD format)
+        departure_date: Departure date FROM this destination (YYYY-MM-DD format)
+        must_include: Whether destination must be included
+        excluded: Whether destination is excluded
+        
+    Returns:
+        Updated destination dict or None if not found
+    """
+    updates = {}
+    if arrival_date is not None:
+        updates["arrivalDate"] = arrival_date
+    if departure_date is not None:
+        updates["departureDate"] = departure_date
+    if must_include is not None:
+        updates["mustInclude"] = must_include
+    if excluded is not None:
+        updates["excluded"] = excluded
+    
+    if not updates:
+        return destination_repo.get_destination(trip_id, destination_id)
+    
+    updates["updatedAt"] = datetime.utcnow().isoformat()
+    return destination_repo.update_destination(trip_id, destination_id, updates)
+
+
 def cast_vote(
     trip_id: str, destination_id: str, user_id: str, vote: int
 ) -> Dict[str, Any]:

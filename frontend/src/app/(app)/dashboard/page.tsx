@@ -1,11 +1,15 @@
 'use client';
 
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useMemo, useCallback } from 'react';
 import Link from 'next/link';
-import { Plus, Calendar, CreditCard, Users, Plane, TrendingUp } from 'lucide-react';
+import { Plus, Calendar, CreditCard, Users, Plane, TrendingUp, Loader2 } from 'lucide-react';
 import { TripCard } from '@/components/trip-card';
 import { Trip } from '@/types';
 import { trips as tripsAPI } from '@/lib/api';
+
+// Initial batch size for fast loading
+const INITIAL_LOAD_LIMIT = 9;
+const LOAD_MORE_BATCH_SIZE = 12;
 
 interface ApiTrip {
   tripId: string;
@@ -20,67 +24,63 @@ interface ApiTrip {
   firstDestination?: string;
 }
 
+// Transform API trip to display format - outside component for performance
+function transformApiTrip(trip: ApiTrip): Trip {
+    const startDate = trip.startDate ? new Date(trip.startDate) : null;
+    const endDate = trip.endDate ? new Date(trip.endDate) : null;
+    const now = new Date();
+    
+    let datesStr = 'TBD';
+    if (startDate && endDate) {
+        datesStr = `${startDate.toLocaleDateString('en-US', { month: 'short', day: 'numeric' })} - ${endDate.toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric' })}`;
+    } else if (startDate) {
+        datesStr = startDate.toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric' });
+    }
+    
+    const isCompleted = endDate ? endDate < now : false;
+    const status: 'completed' | 'upcoming' | 'planning' = isCompleted ? 'completed' : (trip.status === 'active' ? 'upcoming' : 'planning');
+    const memberCount = trip.memberCount || 1;
+    const tripType: 'solo' | 'group' = memberCount > 1 ? 'group' : 'solo';
+    const destinationName = trip.firstDestination || trip.title || 'Trip';
+    
+    return {
+        id: trip.tripId,
+        name: trip.title || destinationName,
+        destination: destinationName,
+        dates: datesStr,
+        status: status,
+        type: tripType,
+        pointsUsed: 0,
+        cashSaved: 0,
+        thumbnail: '',
+        members: memberCount
+    };
+}
+
 export default function Dashboard() {
-    const [viewMode, setViewMode] = useState<'trips' | 'explore'>('trips');
     const [trips, setTrips] = useState<Trip[]>([]);
     const [isLoading, setIsLoading] = useState(true);
-    // Note: Authentication is handled by the AppLayout component
+    const [isLoadingMore, setIsLoadingMore] = useState(false);
+    const [hasMore, setHasMore] = useState(false);
+    const [totalTrips, setTotalTrips] = useState(0);
 
+    // Initial load - fetch first batch quickly without expensive details
     useEffect(() => {
         const fetchTrips = async () => {
             try {
                 setIsLoading(true);
-                const response = await tripsAPI.list();
-                
-                // Transform API trips to display format
-                const transformedTrips: Trip[] = response.trips.map((trip: ApiTrip) => {
-                    // Format dates
-                    const startDate = trip.startDate ? new Date(trip.startDate) : null;
-                    const endDate = trip.endDate ? new Date(trip.endDate) : null;
-                    const now = new Date();
-                    
-                    let datesStr = 'TBD';
-                    if (startDate && endDate) {
-                        datesStr = `${startDate.toLocaleDateString('en-US', { month: 'short', day: 'numeric' })} - ${endDate.toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric' })}`;
-                    } else if (startDate) {
-                        datesStr = startDate.toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric' });
-                    }
-                    
-                    // Determine status
-                    const isCompleted = endDate ? endDate < now : false;
-                    const status: 'completed' | 'upcoming' | 'planning' = isCompleted ? 'completed' : (trip.status === 'active' ? 'upcoming' : 'planning');
-                    
-                    // Determine trip type (group if multiple members, solo otherwise)
-                    const memberCount = trip.memberCount || 1;
-                    const tripType: 'solo' | 'group' = memberCount > 1 ? 'group' : 'solo';
-                    
-                    // Get destination name or use first destination
-                    const destinationName = trip.firstDestination || trip.title || 'Trip';
-                    
-                    // Use empty string as placeholder - TripCard component will load optimized image
-                    // via getOptimizedImageUrl which has proper fallback handling
-                    const thumbnail = '';
-                    
-                    return {
-                        id: trip.tripId,
-                        name: trip.title || destinationName,
-                        destination: destinationName,
-                        dates: datesStr,
-                        status: status,
-                        type: tripType,
-                        pointsUsed: 0, // TODO: Calculate from points data
-                        cashSaved: 0, // TODO: Calculate from points data
-                        thumbnail: thumbnail,
-                        members: memberCount,
-                        hotel: '', // TODO: Get from itinerary data
-                        flightClass: '' // TODO: Get from itinerary data
-                    };
+                const response = await tripsAPI.list({
+                    limit: INITIAL_LOAD_LIMIT,
+                    offset: 0,
+                    includeDetails: false
                 });
                 
+                const transformedTrips: Trip[] = response.trips.map(transformApiTrip);
                 setTrips(transformedTrips);
+                setTotalTrips(response.total || transformedTrips.length);
+                setHasMore(response.has_more || false);
             } catch (err) {
                 console.error('Error fetching trips:', err);
-                // Keep empty array on error (don't show dummy data)
                 setTrips([]);
             } finally {
                 setIsLoading(false);
@@ -90,15 +90,39 @@ export default function Dashboard() {
         fetchTrips();
     }, []);
 
-    const completedTrips = trips.filter(t => t.status === 'completed');
-    const upcomingTrips = trips.filter(t => t.status === 'upcoming');
-    const confirmedTrips = trips.filter(t => (t.status === 'upcoming' || t.status === 'planning') as boolean);
+    // Load more trips
+    const loadMoreTrips = useCallback(async () => {
+        if (isLoadingMore || !hasMore) return;
+        
+        try {
+            setIsLoadingMore(true);
+            const response = await tripsAPI.list({
+                limit: LOAD_MORE_BATCH_SIZE,
+                offset: trips.length,
+                includeDetails: false
+            });
+            
+            const newTrips = response.trips.map(transformApiTrip);
+            setTrips(prev => [...prev, ...newTrips]);
+            setHasMore(response.has_more || false);
+        } catch (err) {
+            console.error('Error loading more trips:', err);
+        } finally {
+            setIsLoadingMore(false);
+        }
+    }, [trips.length, hasMore, isLoadingMore]);
 
-    // Calculate stats
-    const totalCompletedTrips = completedTrips.length;
-    const totalUpcomingAndConfirmed = confirmedTrips.length;
-    const totalPointsUsed = trips.reduce((sum, trip) => sum + trip.pointsUsed, 0);
-    const totalCashSaved = trips.reduce((sum, trip) => sum + trip.cashSaved, 0);
+    // Memoized filtered trips
+    const completedTrips = useMemo(() => trips.filter(t => t.status === 'completed'), [trips]);
+    const upcomingTrips = useMemo(() => trips.filter(t => t.status === 'upcoming' || t.status === 'planning'), [trips]);
+
+    // Calculate stats (memoized)
+    const stats = useMemo(() => ({
+        totalCompletedTrips: completedTrips.length,
+        totalUpcomingAndConfirmed: upcomingTrips.length,
+        totalPointsUsed: trips.reduce((sum, trip) => sum + trip.pointsUsed, 0),
+        totalCashSaved: trips.reduce((sum, trip) => sum + trip.cashSaved, 0)
+    }), [trips, completedTrips.length, upcomingTrips.length]);
 
     if (isLoading) {
         return (
@@ -133,7 +157,7 @@ export default function Dashboard() {
                             </div>
                             <div className="text-sm text-blue-100">Completed Trips</div>
                         </div>
-                        <div className="text-4xl text-white font-bold">{totalCompletedTrips}</div>
+                        <div className="text-4xl text-white font-bold">{stats.totalCompletedTrips}</div>
                         <div className="text-sm text-blue-100 mt-1">total completed</div>
                     </div>
 
@@ -144,7 +168,7 @@ export default function Dashboard() {
                             </div>
                             <div className="text-sm text-slate-600">Upcoming + Confirmed</div>
                         </div>
-                        <div className="text-3xl text-slate-900 font-semibold">{totalUpcomingAndConfirmed}</div>
+                        <div className="text-3xl text-slate-900 font-semibold">{stats.totalUpcomingAndConfirmed}</div>
                         <div className="text-sm text-slate-500 mt-1">trips planned</div>
                     </div>
 
@@ -155,7 +179,7 @@ export default function Dashboard() {
                             </div>
                             <div className="text-sm text-slate-600">Points Used</div>
                         </div>
-                        <div className="text-3xl text-slate-900 font-semibold">{totalPointsUsed.toLocaleString()}</div>
+                        <div className="text-3xl text-slate-900 font-semibold">{stats.totalPointsUsed.toLocaleString()}</div>
                         <div className="text-sm text-slate-500 mt-1">across all trips</div>
                     </div>
 
@@ -166,7 +190,7 @@ export default function Dashboard() {
                             </div>
                             <div className="text-sm text-slate-600">Cash Saved</div>
                         </div>
-                        <div className="text-3xl text-green-600 font-semibold">${totalCashSaved.toLocaleString()}</div>
+                        <div className="text-3xl text-green-600 font-semibold">${stats.totalCashSaved.toLocaleString()}</div>
                         <div className="text-sm text-slate-500 mt-1">vs paying cash</div>
                     </div>
                 </div>
@@ -176,7 +200,7 @@ export default function Dashboard() {
                     <div className="flex items-center justify-between">
                         <div>
                             <h3 className="text-lg font-semibold text-slate-900 mb-1">You&apos;re maximizing your points!</h3>
-                            <p className="text-slate-600">You&apos;ve saved <span className="font-bold text-green-600">${totalCashSaved.toLocaleString()}</span> by using {totalPointsUsed.toLocaleString()} points instead of cash</p>
+                            <p className="text-slate-600">You&apos;ve saved <span className="font-bold text-green-600">${stats.totalCashSaved.toLocaleString()}</span> by using {stats.totalPointsUsed.toLocaleString()} points instead of cash</p>
                         </div>
                         <div className="hidden md:block">
                             <div className="w-16 h-16 bg-green-500 rounded-full flex items-center justify-center">
@@ -236,13 +260,38 @@ export default function Dashboard() {
 
                     {/* Completed Trips */}
                     {completedTrips.length > 0 && (
-                        <div>
+                        <div className="mb-8">
                             <h2 className="text-2xl mb-4 text-slate-900 font-semibold">Completed Trips</h2>
                             <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
                                 {completedTrips.map(trip => (
                                     <TripCard key={trip.id} trip={trip} />
                                 ))}
                             </div>
+                        </div>
+                    )}
+
+                    {/* Load More Button */}
+                    {hasMore && (
+                        <div className="flex justify-center mt-8 mb-8">
+                            <button
+                                onClick={loadMoreTrips}
+                                disabled={isLoadingMore}
+                                className="flex items-center gap-2 px-6 py-3 bg-blue-600 text-white rounded-xl font-medium hover:bg-blue-700 transition-colors disabled:opacity-50 shadow-sm"
+                            >
+                                {isLoadingMore ? (
+                                    <>
+                                        <Loader2 className="w-4 h-4 animate-spin" />
+                                        Loading more trips...
+                                    </>
+                                ) : (
+                                    <>
+                                        Load More Trips
+                                        <span className="text-xs text-blue-200">
+                                            ({totalTrips - trips.length} remaining)
+                                        </span>
+                                    </>
+                                )}
+                            </button>
                         </div>
                     )}
 

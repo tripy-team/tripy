@@ -5,13 +5,16 @@ import { useRouter } from 'next/navigation';
 import { DollarSign, Zap, Users, Calendar, Plane, Backpack, Armchair, Coffee, Wine, Crown, User, Baby, Info, Copy, ChevronDown, Luggage, X, Plus } from 'lucide-react';
 import { trips as tripsAPI, points as pointsAPI, users as usersAPI } from '@/lib/api';
 import AirportAutocomplete from '@/components/ui/AirportAutocomplete';
+import SingleDatePicker from '@/components/ui/SingleDatePicker';
 
 interface TripInfo {
     name: string;
     admin: string;
     cities: string[];
     duration: number;
-    startDate: string;
+    startDate: string;  // Formatted display string
+    rawStartDate: string;  // Raw date string (YYYY-MM-DD)
+    rawEndDate: string;    // Raw date string (YYYY-MM-DD)
     currentMembers: number;
 }
 
@@ -31,8 +34,8 @@ export default function GroupMemberJoin({ params }: { params: Promise<{ inviteCo
     const { inviteCode } = use(params);
     const router = useRouter();
     const [budget, setBudget] = useState<number | ''>('');
-    // Pooling workflow: how Tripy may use this member's points (trust layer)
-    const [pointsUsage, setPointsUsage] = useState<'freely' | 'ask_before' | 'do_not_use'>('freely');
+    // Points usage defaults to 'freely' - optimizer can allocate points without asking
+    const pointsUsage = 'freely' as const;
 
     // Credit Card / Points State
     const [creditCards, setCreditCards] = useState<CreditCardEntry[]>([]);
@@ -91,7 +94,6 @@ export default function GroupMemberJoin({ params }: { params: Promise<{ inviteCo
 
     // Match State Tracking
     const [flightMatchId, setFlightMatchId] = useState('');
-    const [datesMatchId, setDatesMatchId] = useState('');
 
     // Calculate total points from all cards
     const totalPoints = creditCards.reduce((sum, card) => sum + card.points, 0);
@@ -139,8 +141,9 @@ export default function GroupMemberJoin({ params }: { params: Promise<{ inviteCo
                 setIsLoading(true);
                 const trip = await tripsAPI.getByInvite(inviteCode);
 
-                const startDate = trip.startDate ? new Date(trip.startDate) : null;
-                const endDate = trip.endDate ? new Date(trip.endDate) : null;
+                // Add T12:00:00 to avoid timezone shifts when parsing date-only strings
+                const startDate = trip.startDate ? new Date(trip.startDate + 'T12:00:00') : null;
+                const endDate = trip.endDate ? new Date(trip.endDate + 'T12:00:00') : null;
                 const duration = startDate && endDate
                     ? Math.ceil((endDate.getTime() - startDate.getTime()) / (1000 * 60 * 60 * 24))
                     : 0;
@@ -172,7 +175,21 @@ export default function GroupMemberJoin({ params }: { params: Promise<{ inviteCo
                 let adminName = 'Trip Organizer';
 
                 // Use members data from the trip response (included by getByInvite endpoint)
-                const tripMembers = (trip as { members?: Array<{ userId?: string; name?: string; role?: string }> }).members || [];
+                // If not included, make a separate call to listMembers as fallback
+                let tripMembers = (trip as { members?: Array<{ userId?: string; name?: string; role?: string }> }).members || [];
+                
+                // Fallback: If no members came from getByInvite, try fetching them separately
+                if (tripMembers.length === 0 && trip.tripId) {
+                    try {
+                        const membersResponse = await tripsAPI.listMembers(trip.tripId);
+                        if (membersResponse.members && membersResponse.members.length > 0) {
+                            tripMembers = membersResponse.members;
+                        }
+                    } catch (err) {
+                        console.error('Error fetching members as fallback:', err);
+                        // Continue without member data
+                    }
+                }
                 
                 if (tripMembers.length > 0) {
                     // Find the owner/organizer and get their name
@@ -243,6 +260,8 @@ export default function GroupMemberJoin({ params }: { params: Promise<{ inviteCo
                     cities: cities,
                     duration: duration,
                     startDate: startDateStr,
+                    rawStartDate: trip.startDate || '',
+                    rawEndDate: trip.endDate || '',
                     currentMembers: trip.memberCount || 1,
                 });
             } catch (err) {
@@ -270,27 +289,31 @@ export default function GroupMemberJoin({ params }: { params: Promise<{ inviteCo
         const member = existingMembers.find(m => m.id === memberId);
         if (member && member.flights) {
             setStartAirport(member.flights.start);
-            setEndAirport(member.flights.end);
             setIsRoundTrip(member.flights.roundTrip);
             setFlightClass(member.flights.flightClass);
             setFlightMatchId(memberId);
+            // For round trip, end airport should match start airport
+            if (member.flights.roundTrip) {
+                setEndAirport(member.flights.start);
+            } else {
+                setEndAirport(member.flights.end);
+            }
         }
     };
 
-    const handleCopyDates = (memberId: string) => {
-        const member = existingMembers.find(m => m.id === memberId);
-        if (member && member.dates) {
-            setStartDate(member.dates.start);
-            setEndDate(member.dates.end);
-            setDatesMatchId(memberId);
+    // Auto-set dates when trip info loads (default to same day as group)
+    useEffect(() => {
+        if (tripInfo?.rawStartDate && tripInfo?.rawEndDate && !startDate) {
+            setStartDate(tripInfo.rawStartDate);
+            setEndDate(tripInfo.rawEndDate);
         }
-    };
+    }, [tripInfo, startDate]);
 
     const handleJoin = async () => {
         try {
             setIsJoining(true);
 
-            // 1. Join the trip (with pooling preferences and flight preferences)
+            // 1. Join the trip (with pooling preferences, flight preferences, budget, and party size)
             const joinResult = await tripsAPI.join(inviteCode, {
                 points_usage: pointsUsage,
                 willing_to_share_points: pointsUsage !== 'do_not_use',
@@ -299,14 +322,19 @@ export default function GroupMemberJoin({ params }: { params: Promise<{ inviteCo
                 arrival_airport: endAirport,
                 is_round_trip: isRoundTrip,
                 flight_class: flightClass,
+                // Budget
+                max_cash_budget: typeof budget === 'number' ? budget : undefined,
+                // Party size (travelers in this member's booking)
+                adults: adults,
+                children: children,
             });
             const tripId = joinResult.tripId;
 
             // 2. Additional member preferences not yet stored:
             // - bags
             // - startDate, endDate
-            // - budget, meetupNote
-            // - additionalTravelers
+            // - meetupNote
+            // - additionalTravelers (names/emails for non-account travelers)
 
             // 3. Upsert points if user has any credit cards
             if (creditCards.length > 0) {
@@ -586,31 +614,6 @@ export default function GroupMemberJoin({ params }: { params: Promise<{ inviteCo
                             )}
 
                             <div className="space-y-6">
-                                <div className="grid md:grid-cols-2 gap-6">
-                                    <div>
-                                        <label className="block text-xs text-slate-500 mb-1.5 uppercase font-bold tracking-wider">Departure Airport</label>
-                                        <AirportAutocomplete
-                                            value={startAirport}
-                                            onValueChange={(val) => {
-                                                setStartAirport(val);
-                                                setFlightMatchId('');
-                                            }}
-                                            placeholder="e.g., JFK, LAX, or search by airport name"
-                                        />
-                                    </div>
-                                    <div>
-                                        <label className="block text-xs text-slate-500 mb-1.5 uppercase font-bold tracking-wider">Preferred Arrival Airport</label>
-                                        <AirportAutocomplete
-                                            value={endAirport}
-                                            onValueChange={(val) => {
-                                                setEndAirport(val);
-                                                setFlightMatchId('');
-                                            }}
-                                            placeholder="e.g., CDG, LHR, or search by airport name"
-                                        />
-                                    </div>
-                                </div>
-
                                 <div className="flex items-center justify-between mb-4">
                                     <label className="flex items-center gap-2 cursor-pointer select-none group">
                                         <input
@@ -619,11 +622,54 @@ export default function GroupMemberJoin({ params }: { params: Promise<{ inviteCo
                                             onChange={(e) => {
                                                 setIsRoundTrip(e.target.checked);
                                                 setFlightMatchId('');
+                                                // For round trip, sync end airport with start airport
+                                                if (e.target.checked && startAirport) {
+                                                    setEndAirport(startAirport);
+                                                }
                                             }}
                                             className="w-4 h-4 text-blue-600 bg-white rounded border-blue-400 focus:ring-blue-600 focus:ring-offset-0"
                                         />
                                         <span className="text-sm text-slate-600 group-hover:text-slate-900 transition-colors">Round Trip</span>
                                     </label>
+                                </div>
+
+                                <div className={`grid ${isRoundTrip ? 'md:grid-cols-1' : 'md:grid-cols-2'} gap-6`}>
+                                    <div>
+                                        <label className="block text-xs text-slate-500 mb-1.5 uppercase font-bold tracking-wider">
+                                            {isRoundTrip ? 'Home Airport' : 'Flying From'}
+                                        </label>
+                                        <p className="text-xs text-slate-400 mb-2">
+                                            {isRoundTrip 
+                                                ? "Where you'll depart from and return to" 
+                                                : "Your departure airport"}
+                                        </p>
+                                        <AirportAutocomplete
+                                            value={startAirport}
+                                            onValueChange={(val) => {
+                                                setStartAirport(val);
+                                                setFlightMatchId('');
+                                                // For round trip, keep end airport in sync
+                                                if (isRoundTrip) {
+                                                    setEndAirport(val);
+                                                }
+                                            }}
+                                            placeholder="e.g., JFK, LAX, or search by airport name"
+                                        />
+                                    </div>
+                                    {!isRoundTrip && (
+                                        <div>
+                                            <label className="block text-xs text-slate-500 mb-1.5 uppercase font-bold tracking-wider">Flying To</label>
+                                            <p className="text-xs text-slate-400 mb-2">Your final destination airport</p>
+                                            <AirportAutocomplete
+                                                value={endAirport}
+                                                onValueChange={(val) => {
+                                                    setEndAirport(val);
+                                                    setFlightMatchId('');
+                                                }}
+                                                placeholder="e.g., CDG, LHR, or search by airport name"
+                                            />
+                                        </div>
+                                    )}
                                 </div>
 
                                 {/* Flight Class Selection */}
@@ -713,65 +759,88 @@ export default function GroupMemberJoin({ params }: { params: Promise<{ inviteCo
                                 <div className="w-10 h-10 bg-blue-100 rounded-xl flex items-center justify-center">
                                     <Calendar className="w-5 h-5 text-blue-600" />
                                 </div>
-                                <h2 className="text-2xl text-slate-900 font-semibold">Travel Dates</h2>
+                                <div>
+                                    <h2 className="text-2xl text-slate-900 font-semibold">Arrival Date</h2>
+                                    <p className="text-sm text-slate-500 mt-1">When will you arrive for the trip?</p>
+                                </div>
                             </div>
 
-                            {existingMembers.length > 0 && (
-                                <div className="mb-8 flex flex-col sm:flex-row items-center gap-3 p-3 bg-blue-50/50 border border-blue-100 rounded-xl">
-                                    <div className="hidden sm:flex flex-shrink-0 w-10 h-10 bg-blue-100 rounded-lg items-center justify-center">
-                                        <Copy className="w-5 h-5 text-blue-600" />
+                            {tripInfo && tripInfo.rawStartDate && (
+                                <div className="space-y-4">
+                                    {/* Arrival date options */}
+                                    <div className="space-y-3">
+                                        {(() => {
+                                            const groupStart = new Date(tripInfo.rawStartDate + 'T12:00:00');
+                                            const options = [
+                                                { days: 0, label: 'Same day as group', desc: `Arrive on ${groupStart.toLocaleDateString('en-US', { weekday: 'short', month: 'short', day: 'numeric' })}` },
+                                                { days: -1, label: '1 day early', desc: `Arrive on ${new Date(groupStart.getTime() - 86400000).toLocaleDateString('en-US', { weekday: 'short', month: 'short', day: 'numeric' })}` },
+                                                { days: -2, label: '2 days early', desc: `Arrive on ${new Date(groupStart.getTime() - 2 * 86400000).toLocaleDateString('en-US', { weekday: 'short', month: 'short', day: 'numeric' })} (timezone buffer)` },
+                                            ];
+                                            
+                                            return options.map((option) => {
+                                                const optionDate = new Date(groupStart.getTime() + option.days * 86400000);
+                                                const dateStr = optionDate.toISOString().split('T')[0];
+                                                const isSelected = startDate === dateStr;
+                                                
+                                                return (
+                                                    <button
+                                                        key={option.days}
+                                                        type="button"
+                                                        onClick={() => {
+                                                            setStartDate(dateStr);
+                                                            // Auto-set end date to group's end date
+                                                            setEndDate(tripInfo.rawEndDate);
+                                                        }}
+                                                        className={`w-full p-4 rounded-xl border-2 transition-all text-left flex items-center justify-between ${
+                                                            isSelected
+                                                                ? 'border-blue-600 bg-blue-50/50'
+                                                                : 'border-slate-200 hover:border-blue-200 bg-white'
+                                                        }`}
+                                                    >
+                                                        <div className="flex items-center gap-3">
+                                                            <div className={`w-5 h-5 rounded-full border-2 flex items-center justify-center ${
+                                                                isSelected ? 'border-blue-600 bg-blue-600' : 'border-slate-300'
+                                                            }`}>
+                                                                {isSelected && (
+                                                                    <div className="w-2 h-2 rounded-full bg-white" />
+                                                                )}
+                                                            </div>
+                                                            <div>
+                                                                <div className={`font-medium ${isSelected ? 'text-blue-900' : 'text-slate-900'}`}>
+                                                                    {option.label}
+                                                                </div>
+                                                                <div className="text-sm text-slate-500">{option.desc}</div>
+                                                            </div>
+                                                        </div>
+                                                        {option.days === 0 && (
+                                                            <span className="px-2 py-1 bg-green-100 text-green-700 text-xs font-medium rounded-full">
+                                                                Recommended
+                                                            </span>
+                                                        )}
+                                                    </button>
+                                                );
+                                            });
+                                        })()}
                                     </div>
-                                    <div className="flex-1 min-w-0 text-center sm:text-left">
-                                        <div className="text-xs font-semibold text-blue-700 uppercase tracking-wider mb-0.5">Same as friend?</div>
-                                        <div className="text-xs text-slate-500 truncate">Copy dates from another traveler</div>
+
+                                    {/* Show the return date info */}
+                                    <div className="mt-6 p-4 bg-slate-50 rounded-xl border border-slate-200">
+                                        <div className="flex items-center gap-2 text-sm">
+                                            <Calendar className="w-4 h-4 text-slate-400" />
+                                            <span className="text-slate-600">Return date:</span>
+                                            <span className="font-medium text-slate-900">
+                                                {tripInfo.rawEndDate ? new Date(tripInfo.rawEndDate + 'T12:00:00').toLocaleDateString('en-US', { weekday: 'short', month: 'short', day: 'numeric', year: 'numeric' }) : 'TBD'}
+                                            </span>
+                                            <span className="text-slate-400">(same as group)</span>
+                                        </div>
                                     </div>
-                                    <div className="relative w-full sm:w-[220px]">
-                                        <select
-                                            className="w-full appearance-none pl-3 pr-8 py-2 bg-white border border-blue-200 rounded-lg text-sm text-slate-700 focus:outline-none focus:ring-2 focus:ring-blue-600 focus:border-transparent cursor-pointer hover:border-blue-300 transition-colors"
-                                            onChange={(e) => handleCopyDates(e.target.value)}
-                                            value={datesMatchId}
-                                        >
-                                            <option value="">Select member...</option>
-                                            {existingMembers.map(m => (
-                                                <option key={m.id} value={m.id}>{formatMemberName(m.name)}</option>
-                                            ))}
-                                        </select>
-                                        <ChevronDown className="absolute right-3 top-1/2 -translate-y-1/2 w-4 h-4 text-slate-400 pointer-events-none" />
-                                    </div>
+
+                                    <p className="text-sm text-slate-500 flex items-start gap-2">
+                                        <Info className="w-4 h-4 flex-shrink-0 mt-0.5" />
+                                        Arriving 1-2 days early helps account for timezone differences and flight delays.
+                                    </p>
                                 </div>
                             )}
-
-                            <div className="grid md:grid-cols-2 gap-6 mb-4">
-                                <div>
-                                    <label className="block text-xs text-slate-500 mb-1.5 uppercase font-bold tracking-wider">Start Date</label>
-                                    <input
-                                        type="date"
-                                        value={startDate}
-                                        onChange={(e) => {
-                                            setStartDate(e.target.value);
-                                            setDatesMatchId('');
-                                        }}
-                                        className="w-full px-4 py-3 bg-white border border-slate-200 rounded-xl focus:outline-none focus:ring-2 focus:ring-blue-600 focus:border-transparent"
-                                    />
-                                </div>
-                                <div>
-                                    <label className="block text-xs text-slate-500 mb-1.5 uppercase font-bold tracking-wider">End Date</label>
-                                    <input
-                                        type="date"
-                                        value={endDate}
-                                        onChange={(e) => {
-                                            setEndDate(e.target.value);
-                                            setDatesMatchId('');
-                                        }}
-                                        min={startDate}
-                                        className="w-full px-4 py-3 bg-white border border-slate-200 rounded-xl focus:outline-none focus:ring-2 focus:ring-blue-600 focus:border-transparent"
-                                    />
-                                </div>
-                            </div>
-
-                            <p className="text-sm text-slate-500">
-                                Tip: You can arrive earlier or stay longer than the group trip.
-                            </p>
                         </div>
 
                         {/* B) Points & accounts */}
@@ -792,32 +861,6 @@ export default function GroupMemberJoin({ params }: { params: Promise<{ inviteCo
 
                             <div className="space-y-6">
                                 <div>
-                                    <label className="block text-sm font-medium text-slate-700 mb-3">Willingness to use points</label>
-                                    <p className="text-xs text-slate-500 mb-3">You keep full control. Choose how Tripy may use your points for group bookings.</p>
-                                    <div className="space-y-2">
-                                        {[
-                                            { value: 'freely' as const, label: 'Use my points freely for group bookings', desc: 'Optimizer can allocate my points without asking' },
-                                            { value: 'ask_before' as const, label: 'Ask me before using my points', desc: 'Show me the plan first; I approve before anything is booked' },
-                                            { value: 'do_not_use' as const, label: 'Do not use my points (view only)', desc: 'I\'m just viewing; don\'t use my balances for this trip' },
-                                        ].map((opt) => (
-                                            <button
-                                                key={opt.value}
-                                                type="button"
-                                                onClick={() => setPointsUsage(opt.value)}
-                                                className={`w-full text-left p-4 rounded-xl border-2 transition-all ${
-                                                    pointsUsage === opt.value
-                                                        ? 'border-blue-600 bg-blue-50/50'
-                                                        : 'border-slate-200 hover:border-slate-300 bg-white'
-                                                }`}
-                                            >
-                                                <div className="font-medium text-slate-900">{opt.label}</div>
-                                                <div className="text-xs text-slate-500 mt-0.5">{opt.desc}</div>
-                                            </button>
-                                        ))}
-                                    </div>
-                                </div>
-
-                                <div className="pt-4 border-t border-slate-200">
                                     <div className="space-y-4">
                                         <label className="block text-sm font-medium text-slate-700">Maximum Budget <span className="text-red-500">*</span></label>
                                         <div className="relative">
@@ -829,6 +872,7 @@ export default function GroupMemberJoin({ params }: { params: Promise<{ inviteCo
                                                     const val = e.target.value ? Number(e.target.value) : '';
                                                     setBudget(val);
                                                 }}
+                                                onWheel={(e) => e.currentTarget.blur()}
                                                 placeholder="Enter your budget"
                                                 min="1"
                                                 required
@@ -922,6 +966,7 @@ export default function GroupMemberJoin({ params }: { params: Promise<{ inviteCo
                                                             type="number"
                                                             value={newCardPoints}
                                                             onChange={(e) => setNewCardPoints(e.target.value ? Number(e.target.value) : '')}
+                                                            onWheel={(e) => e.currentTarget.blur()}
                                                             placeholder="e.g., 50000"
                                                             className="w-full px-4 py-3 bg-white border border-slate-200 rounded-xl focus:outline-none focus:ring-2 focus:ring-blue-600 focus:border-transparent"
                                                         />
@@ -945,7 +990,7 @@ export default function GroupMemberJoin({ params }: { params: Promise<{ inviteCo
 
                         <button
                             onClick={handleJoin}
-                            disabled={!startAirport || !endDate || !startDate || budget === '' || isJoining}
+                            disabled={!startAirport || !startDate || budget === '' || isJoining}
                             className="w-full px-6 py-4 bg-yellow-400 text-slate-900 rounded-xl hover:bg-yellow-500 transition-colors disabled:opacity-50 disabled:cursor-not-allowed shadow-lg shadow-yellow-400/20 font-semibold text-lg"
                         >
                             {isJoining ? 'Joining...' : 'Confirm & Join Trip'}

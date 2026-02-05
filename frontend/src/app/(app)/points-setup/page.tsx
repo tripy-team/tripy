@@ -1,8 +1,8 @@
 'use client';
 
-import { useState, useEffect, useMemo } from 'react';
+import { useState, useEffect, useMemo, useRef } from 'react';
 import { useRouter } from 'next/navigation';
-import { CreditCard, Plus, X, Zap, TrendingUp, ArrowRight, Sparkles, ChevronDown, Building2, Plane, AlertTriangle } from 'lucide-react';
+import { CreditCard, Plus, X, Zap, TrendingUp, ArrowRight, Sparkles, ChevronDown, Plane, AlertTriangle } from 'lucide-react';
 import { users as usersAPI, points as pointsAPI } from '@/lib/api';
 import { ALL_LOYALTY_PROGRAMS, getProgramCategory, isValidProgram, type ProgramCategory } from '@/lib/loyalty-programs';
 
@@ -10,7 +10,7 @@ interface LoyaltyCard {
   id: string;
   program: string;
   points: number;
-  category: 'credit' | 'hotel' | 'airline';
+  category: 'credit' | 'airline';
   /** Optional card product (e.g. "Delta SkyMiles Gold Amex") for benefit-aware optimization (free bags, etc.) */
   card_product?: string;
 }
@@ -21,12 +21,10 @@ const POPULAR_PROGRAMS = [
   'Amex Membership Rewards',
   'Citi ThankYou Points',
   'Capital One Miles',
-  'Marriott Bonvoy',
-  'Hilton Honors',
-  'Hyatt World of Hyatt',
   'Delta SkyMiles',
   'United MileagePlus',
   'American Airlines AAdvantage',
+  'Southwest Rapid Rewards',
 ];
 
 export default function PointsSetup() {
@@ -40,8 +38,10 @@ export default function PointsSetup() {
   const [showProgramDropdown, setShowProgramDropdown] = useState(false);
   const [programSearchQuery, setProgramSearchQuery] = useState('');
   const [isLoading, setIsLoading] = useState(true);
-  const [isSaving, setIsSaving] = useState(false);
   const [valuations, setValuations] = useState<Record<string, number>>({});
+  
+  // Use ref for saving state to avoid infinite loop in useEffect
+  const isSavingRef = useRef(false);
 
   // Fetch TPG market-rate valuations (cents per point)
   useEffect(() => {
@@ -126,33 +126,38 @@ export default function PointsSetup() {
 
   // Save credit cards to user profile when they change
   useEffect(() => {
-    if (!isLoading && !isSaving) {
-      const saveProfile = async () => {
-        try {
-          setIsSaving(true);
-          // Convert to backend format (remove category as it's not stored)
-          const cardsToSave = cards.map(card => ({
-            id: card.id,
-            program: card.program,
-            points: card.points,
-            ...(card.card_product ? { card_product: card.card_product } : {}),
-          }));
-          
-          await usersAPI.updateProfile({
-            credit_cards: cardsToSave,
-          });
-        } catch (err) {
-          console.error('Error saving user profile:', err);
-        } finally {
-          setIsSaving(false);
-        }
-      };
-
-      // Debounce saves to avoid too many API calls
-      const timeoutId = setTimeout(saveProfile, 1000);
-      return () => clearTimeout(timeoutId);
+    // Skip if still loading initial data or already saving
+    if (isLoading || isSavingRef.current) {
+      return;
     }
-  }, [cards, isLoading, isSaving]);
+
+    const saveProfile = async () => {
+      if (isSavingRef.current) return;
+      
+      try {
+        isSavingRef.current = true;
+        // Convert to backend format (remove category as it's not stored)
+        const cardsToSave = cards.map(card => ({
+          id: card.id,
+          program: card.program,
+          points: card.points,
+          ...(card.card_product ? { card_product: card.card_product } : {}),
+        }));
+        
+        await usersAPI.updateProfile({
+          credit_cards: cardsToSave,
+        });
+      } catch (err) {
+        console.error('Error saving user profile:', err);
+      } finally {
+        isSavingRef.current = false;
+      }
+    };
+
+    // Debounce saves to avoid too many API calls
+    const timeoutId = setTimeout(saveProfile, 1000);
+    return () => clearTimeout(timeoutId);
+  }, [cards, isLoading]);
 
   const addCard = () => {
     if (newProgram.trim() && newPoints.trim() && isValidProgram(newProgram)) {
@@ -180,7 +185,6 @@ export default function PointsSetup() {
   const getCategoryColor = (category: string) => {
     switch (category) {
       case 'credit': return 'bg-blue-50 border-blue-200 text-blue-700';
-      case 'hotel': return 'bg-purple-50 border-purple-200 text-purple-700';
       case 'airline': return 'bg-cyan-50 border-cyan-200 text-cyan-700';
       default: return 'bg-slate-50 border-slate-200 text-slate-700';
     }
@@ -189,7 +193,6 @@ export default function PointsSetup() {
   const getCategoryIcon = (category: string) => {
     switch (category) {
       case 'credit': return <CreditCard className="w-4 h-4" />;
-      case 'hotel': return <Building2 className="w-4 h-4" />;
       case 'airline': return <Plane className="w-4 h-4" />;
       default: return <CreditCard className="w-4 h-4" />;
     }
@@ -355,7 +358,7 @@ export default function PointsSetup() {
                   <div className="pt-6 border-t border-blue-500/30">
                     <div className="text-sm text-blue-100 mb-3">Breakdown by Category</div>
                     <div className="space-y-2">
-                      {['credit', 'hotel', 'airline'].map(category => {
+                      {['credit', 'airline'].map(category => {
                         const categoryCards = cards.filter(c => c.category === category);
                         const categoryPoints = categoryCards.reduce((sum, c) => sum + c.points, 0);
                         if (categoryCards.length === 0) return null;
@@ -442,10 +445,9 @@ export default function PointsSetup() {
                 <label className="block text-sm text-slate-600 mb-2 font-medium">
                   Category
                 </label>
-                <div className="grid grid-cols-3 gap-2">
+                <div className="grid grid-cols-2 gap-2">
                   {[
                     { value: 'credit', label: 'Credit Card', icon: CreditCard },
-                    { value: 'hotel', label: 'Hotel', icon: Building2 },
                     { value: 'airline', label: 'Airline', icon: Plane },
                   ].map(({ value, label, icon: Icon }) => (
                     <button
@@ -544,6 +546,7 @@ export default function PointsSetup() {
                   type="number"
                   value={newPoints}
                   onChange={(e) => setNewPoints(e.target.value)}
+                  onWheel={(e) => e.currentTarget.blur()}
                   placeholder="e.g., 150000"
                   className="w-full px-4 py-3 bg-white border border-slate-200 rounded-xl focus:outline-none focus:ring-2 focus:ring-blue-600 focus:border-transparent"
                 />

@@ -454,6 +454,12 @@ class StrictTripInputValidator:
         cabin_str = trip_data.get("cabin_class") or trip_data.get("cabinClass") or "economy"
         cabin_class = CabinClass.from_string(cabin_str)
         
+        # Extract party size (ensure at least 1 adult)
+        num_adults = trip_data.get("num_adults") or trip_data.get("adults") or 1
+        num_adults = max(1, int(num_adults))
+        num_children = trip_data.get("num_children") or trip_data.get("children") or 0
+        num_children = max(0, int(num_children))
+        
         # Build TripInput
         return TripInput(
             trip_id=trip_data.get("trip_id") or trip_data.get("tripId", ""),
@@ -475,6 +481,9 @@ class StrictTripInputValidator:
             cabin_class=cabin_class,
             include_hotels=trip_data.get("include_hotels") or trip_data.get("includeHotels", False),
             hotel_class=trip_data.get("hotel_class") or trip_data.get("hotelClass"),
-            num_bags=trip_data.get("num_bags") or trip_data.get("numBags", 0),
+            num_bags=trip_data.get("num_bags") or trip_data.get("numBags") or trip_data.get("bags", 0),
             one_way=trip_data.get("one_way") or trip_data.get("oneWay", False),
+            # Party size
+            num_adults=num_adults,
+            num_children=num_children,
         )

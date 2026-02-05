@@ -17,7 +17,9 @@ from .group_oop_optimizer import (
     GroupOOPSolution,
     MemberRole,
     minimize_group_out_of_pocket,
+    minimize_group_out_of_pocket_two_phase,
     group_solution_to_dict,
+    SolveMode,
 )
 from .group_points_pooling import (
     aggregate_group_points,
@@ -34,6 +36,12 @@ from .cost_allocation import (
     allocation_to_dict,
 )
 from .fair_market_values import get_fair_market_value, get_cpp
+from ..contracts.group_optimization_contracts import (
+    OptimizationStatus,
+    BudgetOverrun,
+    SolveMeta,
+    GroupOptimizationResult,
+)
 
 logger = logging.getLogger(__name__)
 
@@ -157,21 +165,24 @@ async def handle_optimize_oop(
     members_data: List[Dict[str, Any]],
     booking_items_data: List[Dict[str, Any]],
     options: Optional[OptimizeOOPOptions] = None,
+    use_two_phase: bool = True,
 ) -> Dict[str, Any]:
     """
-    Run group OOP optimization.
+    Run group OOP optimization with two-phase solve (strict → relaxed).
     
     This uses ALL members' points from the aggregated pool to minimize
-    total out-of-pocket cost. Member budgets can be additive (combined).
+    total out-of-pocket cost. If strict constraints are infeasible,
+    falls back to relaxed mode to find the "closest" solution.
     
     Args:
         trip_id: Trip ID
         members_data: List of member data dicts
         booking_items_data: List of booking item dicts (flights + hotels)
         options: Optimization options
+        use_two_phase: Whether to use two-phase solve (default True)
         
     Returns:
-        Complete optimization solution
+        Complete optimization solution with GroupOptimizationResult contract
     """
     if options is None:
         options = OptimizeOOPOptions()
@@ -180,47 +191,68 @@ async def handle_optimize_oop(
     members = _convert_to_group_members(members_data)
     
     # Log members and their points for debugging
-    logger.info(f"Group OOP optimization for trip {trip_id}")
-    logger.info(f"  Members: {len(members)}")
+    logger.info(f"[GroupAPI] Group OOP optimization for trip {trip_id}")
+    logger.info(f"[GroupAPI]   Members: {len(members)}, two_phase={use_two_phase}")
     for m in members:
         pts_summary = {k: v for k, v in m.points_balances.items() if v > 0}
-        logger.info(f"    {m.user_id} ({m.name}): points={pts_summary}, "
+        logger.info(f"[GroupAPI]     {m.user_id} ({m.name}): points={pts_summary}, "
                    f"budget={m.max_cash_budget}, willing_to_share={m.willing_to_share_points}")
     
     # Aggregate points from ALL members
     pool = aggregate_group_points(members)
     
-    logger.info(f"  Aggregated pool: {pool.total_by_program}")
-    logger.info(f"  Shareable pool: {pool.shareable_pool}")
-    logger.info(f"  Total value: ${pool.total_value:,.2f}")
+    logger.info(f"[GroupAPI]   Aggregated pool: {pool.total_by_program}")
+    logger.info(f"[GroupAPI]   Shareable pool: {pool.shareable_pool}")
+    logger.info(f"[GroupAPI]   Total value: ${pool.total_value:,.2f}")
     
     # Convert booking items
     booking_items = _convert_to_booking_items(booking_items_data, pool)
     
-    logger.info(f"  Booking items: {len(booking_items)} items")
+    logger.info(f"[GroupAPI]   Booking items: {len(booking_items)} items")
     for item in booking_items:
-        logger.info(f"    {item.item_id}: for={item.member_id}, "
+        logger.info(f"[GroupAPI]     {item.item_id}: for={item.member_id}, "
                    f"cash=${item.cash_cost:.2f}, party_size={item.party_size}, "
                    f"points_options={len(item.points_options)}")
     
     # Calculate combined group budget (sum of all member budgets)
-    # This allows group members to pool their budgets together
     combined_budget = None
+    member_budgets = {m.user_id: m.max_cash_budget for m in members if m.max_cash_budget is not None}
     individual_budgets = [m.max_cash_budget for m in members if m.max_cash_budget]
     if individual_budgets:
         combined_budget = sum(individual_budgets)
-        logger.info(f"  Combined group budget: ${combined_budget:,.2f} "
+        logger.info(f"[GroupAPI]   Combined group budget: ${combined_budget:,.2f} "
                    f"(from {len(individual_budgets)} members)")
     
-    # Run optimization with ALL members' points and combined budget
-    solution = minimize_group_out_of_pocket(
-        members=members,
-        booking_items=booking_items,
-        pool=pool,
-        allow_cross_member_points=options.allow_cross_member_points,
-        max_subsidy_per_member=options.max_subsidy_per_member,
-        max_group_budget=combined_budget,  # Pass combined budget
-    )
+    # Run optimization - use two-phase solve by default
+    if use_two_phase:
+        solution, solve_meta = minimize_group_out_of_pocket_two_phase(
+            members=members,
+            booking_items=booking_items,
+            pool=pool,
+            allow_cross_member_points=options.allow_cross_member_points,
+            max_subsidy_per_member=options.max_subsidy_per_member,
+            max_group_budget=combined_budget,
+        )
+    else:
+        solution = minimize_group_out_of_pocket(
+            members=members,
+            booking_items=booking_items,
+            pool=pool,
+            allow_cross_member_points=options.allow_cross_member_points,
+            max_subsidy_per_member=options.max_subsidy_per_member,
+            max_group_budget=combined_budget,
+        )
+        solve_meta = solution.solve_meta
+    
+    # Handle infeasible case
+    if solve_meta and solve_meta.status == OptimizationStatus.INFEASIBLE_NO_OPTIONS:
+        logger.warning(f"[GroupAPI] Optimization infeasible for trip {trip_id}")
+        return _build_infeasible_response(
+            trip_id=trip_id,
+            solve_meta=solve_meta,
+            members=members,
+            booking_items=booking_items,
+        )
     
     # Calculate detailed cost allocation
     config = CostAllocationConfig(
@@ -232,15 +264,14 @@ async def handle_optimize_oop(
     # Generate detailed breakdown
     detailed = generate_detailed_breakdown(allocation, solution, members)
     
-    # Build response
-    member_lookup = {m.user_id: m for m in members}
-    
+    # Build response with new contract format
     return _build_optimization_response(
         solution=solution,
         allocation=allocation,
         detailed=detailed,
         members=members,
         pool=pool,
+        member_budgets=member_budgets,
     )
 
 
@@ -610,23 +641,129 @@ def _convert_to_booking_items(
     return items
 
 
+def _build_infeasible_response(
+    trip_id: str,
+    solve_meta: Any,
+    members: List[GroupMember],
+    booking_items: List[MemberBookingItem],
+) -> Dict[str, Any]:
+    """Build response for infeasible optimization."""
+    from datetime import datetime
+    
+    # Calculate all-cash cost for reference
+    all_cash_cost = sum(
+        (item.cash_cost or 500.0) * item.party_size 
+        for item in booking_items
+    )
+    
+    # Generate suggestions
+    suggestions = []
+    
+    # Suggestion 1: Increase budgets
+    total_budget = sum(m.max_cash_budget or 0 for m in members)
+    if total_budget > 0 and all_cash_cost > total_budget:
+        min_budget_needed = int(all_cash_cost * 1.1)  # 10% buffer
+        suggestions.append(
+            f"Increase combined budget to at least ${min_budget_needed:,} "
+            f"(current: ${total_budget:,.0f})"
+        )
+    
+    # Suggestion 2: Add cabin classes
+    suggestions.append("Enable additional cabin classes (Economy, Premium Economy, Business)")
+    
+    # Suggestion 3: Add points
+    total_points = sum(
+        sum(m.points_balances.values()) 
+        for m in members
+    )
+    if total_points < 50000:
+        suggestions.append("Add more points programs or connect additional credit cards")
+    
+    # Suggestion 4: Flexibility
+    suggestions.append("Consider adjusting travel dates or destinations for more options")
+    
+    # Build meta for response
+    meta_dict = {
+        "status": OptimizationStatus.INFEASIBLE_NO_OPTIONS.value,
+        "is_relaxed": False,
+        "solver": "CBC",
+        "time_limit_s": 60,
+        "solve_time_ms": solve_meta.solve_time_ms if solve_meta else 0,
+        "objective_value": None,
+        "strict_infeasible_reason": (
+            solve_meta.strict_infeasible_reason if solve_meta 
+            else "No feasible booking combination found"
+        ),
+        "relaxation_summary": {},
+    }
+    
+    budget_overrun_dict = {
+        "group_overrun_usd": 0.0,
+        "member_overrun_usd": {},
+        "max_member_overrun_usd": 0.0,
+        "total_overrun_usd": 0.0,
+    }
+    
+    warnings = [
+        "No booking combination could be constructed with the current constraints.",
+    ] + suggestions
+    
+    return {
+        # New contract fields
+        "meta": meta_dict,
+        "budget_overrun": budget_overrun_dict,
+        "results": [],
+        "warnings": warnings,
+        # Legacy fields for backward compatibility
+        "status": "Infeasible",
+        "message": "No feasible booking combination found",
+        "summary": {
+            "total_group_oop": 0,
+            "all_cash_would_cost": all_cash_cost,
+            "total_savings": 0,
+            "savings_percentage": 0,
+            "total_points_used": 0,
+            "num_members": len(members),
+            "num_bookings": 0,
+            "num_transfers": 0,
+            "num_settlements": 0,
+        },
+        "per_member": {},
+        "allocations": [],
+        "transfers": [],
+        "settlements": [],
+        "booking_order": [],
+        "points_remaining": {},
+        "metadata": {
+            "created_at": datetime.utcnow().isoformat() + "Z",
+            "suggestions": suggestions,
+        },
+    }
+
+
 def _build_optimization_response(
     solution: GroupOOPSolution,
     allocation: Any,
     detailed: Dict[str, Any],
     members: List[GroupMember],
     pool: GroupPointsPool,
+    member_budgets: Optional[Dict[str, float]] = None,
 ) -> Dict[str, Any]:
-    """Build the full optimization response."""
+    """Build the full optimization response with new contract format."""
     from datetime import datetime
     from dataclasses import asdict
     
     member_lookup = {m.user_id: m for m in members}
+    member_budgets = member_budgets or {}
     
     # Build per-member response
     per_member = {}
     for member_id, breakdown in allocation.member_breakdowns.items():
         member = member_lookup.get(member_id)
+        budget = member_budgets.get(member_id)
+        oop = breakdown.cash_paid + getattr(breakdown, 'surcharge_paid', 0)
+        overrun = max(0, oop - budget) if budget else 0
+        
         per_member[member_id] = {
             "member_name": breakdown.member_name,
             "cash_paid": breakdown.cash_paid,
@@ -638,6 +775,9 @@ def _build_optimization_response(
             "net_settlement": breakdown.net_settlement,
             "settlement_direction": breakdown.settlement_direction,
             "total_effective_cost": breakdown.total_effective_cost,
+            # New fields for budget tracking
+            "budget": budget,
+            "overrun": overrun if overrun > 0.01 else 0,
         }
     
     # Build booking order
@@ -700,7 +840,99 @@ def _build_optimization_response(
         })
         step += 1
     
+    # Build meta object
+    is_relaxed = solution.is_relaxed
+    solve_meta = solution.solve_meta
+    
+    if solve_meta:
+        meta_dict = {
+            "status": solve_meta.status.value,
+            "is_relaxed": solve_meta.is_relaxed,
+            "solver": solve_meta.solver,
+            "time_limit_s": solve_meta.time_limit_s,
+            "solve_time_ms": solve_meta.solve_time_ms,
+            "objective_value": solve_meta.objective_value,
+            "strict_infeasible_reason": solve_meta.strict_infeasible_reason,
+            "relaxation_summary": solve_meta.relaxation_summary,
+        }
+    else:
+        meta_dict = {
+            "status": OptimizationStatus.OPTIMAL_STRICT.value,
+            "is_relaxed": False,
+            "solver": "CBC",
+            "time_limit_s": 60,
+            "solve_time_ms": 0,
+            "objective_value": solution.total_group_oop,
+            "strict_infeasible_reason": None,
+            "relaxation_summary": {},
+        }
+    
+    # Build budget_overrun object
+    budget_overrun = solution.budget_overrun
+    if budget_overrun:
+        budget_overrun_dict = {
+            "group_overrun_usd": budget_overrun.group_overrun_usd,
+            "member_overrun_usd": budget_overrun.member_overrun_usd,
+            "max_member_overrun_usd": budget_overrun.max_member_overrun_usd,
+            "total_overrun_usd": budget_overrun.total_overrun_usd,
+        }
+    else:
+        budget_overrun_dict = {
+            "group_overrun_usd": 0.0,
+            "member_overrun_usd": {},
+            "max_member_overrun_usd": 0.0,
+            "total_overrun_usd": 0.0,
+        }
+    
+    # Build warnings
+    warnings = []
+    if is_relaxed and budget_overrun and budget_overrun.total_overrun_usd > 0:
+        # Check if this is an unconstrained solve (closest option)
+        is_unconstrained = (
+            solve_meta and 
+            solve_meta.relaxation_summary and 
+            solve_meta.relaxation_summary.get("type") == "unconstrained"
+        )
+        
+        if is_unconstrained or solution.status == "Closest":
+            warnings.append(
+                f"No itinerary exists within budget. This is the closest possible option, "
+                f"exceeding budget by ${budget_overrun.total_overrun_usd:.2f}"
+            )
+        else:
+            warnings.append(
+                f"This is the closest option, exceeding budget by ${budget_overrun.total_overrun_usd:.2f}"
+            )
+        
+        if budget_overrun.max_member_overrun_usd > 0:
+            warnings.append(
+                f"Maximum individual overrun: ${budget_overrun.max_member_overrun_usd:.2f}"
+            )
+    
+    # Build results array (for new contract format)
+    # Each result is an itinerary - for now we have just one
+    results = [{
+        "id": f"group_result_{datetime.utcnow().strftime('%Y%m%d%H%M%S')}",
+        "name": "Optimized Group Itinerary",
+        "total_oop": solution.total_group_oop,
+        "total_cash_price": solution.all_cash_cost,
+        "total_savings": solution.total_savings,
+        "savings_percentage": solution.savings_percentage,
+        "total_points_used": sum(solution.points_used_per_member.values()),
+        "within_budget": not is_relaxed,
+        "overrun": budget_overrun_dict,
+        "allocations": [asdict(a) for a in solution.allocations],
+        "transfers": [asdict(t) for t in solution.transfer_plan],
+        "settlements": [asdict(s) for s in solution.settlements],
+    }]
+    
     return {
+        # New contract fields (GroupOptimizationResult format)
+        "meta": meta_dict,
+        "budget_overrun": budget_overrun_dict,
+        "results": results,
+        "warnings": warnings,
+        # Legacy fields for backward compatibility
         "status": solution.status,
         "message": solution.message,
         "summary": {
@@ -723,5 +955,6 @@ def _build_optimization_response(
         "metadata": {
             "created_at": datetime.utcnow().isoformat() + "Z",
             "valuation_method": allocation.valuation_method,
+            "is_relaxed": is_relaxed,
         },
     }

@@ -1,7 +1,7 @@
 'use client';
 
 import { useState, useEffect } from 'react';
-import { CreditCard, Plane, Hotel, TrendingUp, Zap, DollarSign } from 'lucide-react';
+import { CreditCard, Plane, TrendingUp, Zap, DollarSign } from 'lucide-react';
 import { getProgramCategory, type ProgramCategory } from '@/lib/loyalty-programs';
 
 interface PointsAllocationProps {
@@ -23,8 +23,6 @@ const getCategoryIcon = (category: ProgramCategory) => {
       return CreditCard;
     case 'airline':
       return Plane;
-    case 'hotel':
-      return Hotel;
     default:
       return CreditCard;
   }
@@ -36,8 +34,6 @@ const getCategoryColor = (category: ProgramCategory) => {
       return 'bg-blue-50 border-blue-200 text-blue-900';
     case 'airline':
       return 'bg-purple-50 border-purple-200 text-purple-900';
-    case 'hotel':
-      return 'bg-orange-50 border-orange-200 text-orange-900';
     default:
       return 'bg-slate-50 border-slate-200 text-slate-900';
   }
@@ -76,22 +72,18 @@ export default function PointsAllocation({
     const currentTotal = Object.values(allocatedPoints).reduce((sum, val) => sum + val, 0);
     const newTotal = currentTotal - (allocatedPoints[program] || 0) + clampedValue;
     
+    let finalValue = clampedValue;
     if (maxTotalPoints && newTotal > maxTotalPoints) {
       // Adjust to fit within limit
       const remaining = maxTotalPoints - (currentTotal - (allocatedPoints[program] || 0));
-      const adjustedValue = Math.max(0, Math.min(clampedValue, remaining));
-      setAllocatedPoints((prev) => {
-        const updated = { ...prev, [program]: adjustedValue };
-        onAllocationChange?.(updated);
-        return updated;
-      });
-    } else {
-      setAllocatedPoints((prev) => {
-        const updated = { ...prev, [program]: clampedValue };
-        onAllocationChange?.(updated);
-        return updated;
-      });
+      finalValue = Math.max(0, Math.min(clampedValue, remaining));
     }
+    
+    // Update state and notify parent - must call onAllocationChange OUTSIDE
+    // the setState callback to avoid "update while rendering" React error
+    const updated = { ...allocatedPoints, [program]: finalValue };
+    setAllocatedPoints(updated);
+    onAllocationChange?.(updated);
   };
 
   const handleSliderChange = (program: string, value: string) => {
@@ -116,7 +108,7 @@ export default function PointsAllocation({
     return acc;
   }, {} as Record<ProgramCategory, typeof availablePoints>);
 
-  const categories: ProgramCategory[] = ['credit', 'airline', 'hotel'];
+  const categories: ProgramCategory[] = ['credit', 'airline'];
 
   return (
     <div className={`space-y-6 ${className}`}>

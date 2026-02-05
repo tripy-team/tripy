@@ -180,10 +180,12 @@ def _normalize_city_to_code(city_name: str) -> Optional[str]:
         codes = code_match.group(1).split(',')
         return codes[0].strip()
     
-    # Try city service search
+    # Strip airport codes from name for searching
+    search_name = re.sub(r'\s*\([A-Z]{3}(?:,[A-Z]{3})*\)', '', city_name).strip()
+    
+    # Try Amadeus city service search (primary)
     try:
         from src.services import city_service
-        search_name = re.sub(r'\s*\([A-Z]{3}(?:,[A-Z]{3})*\)', '', city_name).strip()
         results = city_service.search_cities(search_name, max_results=5)
         if results:
             for result in results:
@@ -193,17 +195,19 @@ def _normalize_city_to_code(city_name: str) -> Optional[str]:
     except Exception as e:
         logger.debug(f"City search for {city_name} failed: {e}")
     
-    # Fallback to OpenAI for small/remote cities
+    # Fallback to CSV-based airport search (comprehensive, fast)
+    # The CSV contains 40,000+ airports - no need for OpenAI
     try:
-        from src.handlers.openAI import find_commercial_airports_for_city
-        search_name = re.sub(r'\s*\([A-Z]{3}(?:,[A-Z]{3})*\)', '', city_name).strip()
-        ai_airports = find_commercial_airports_for_city(search_name, max_results=3)
-        for a in ai_airports:
-            code = (a.get("iata_code") or "").upper().strip()
-            if code and re.match(r'^[A-Z]{3}$', code):
-                return code
+        from src.services.airport_service import search_airports
+        airport_results = search_airports(search_name, max_results=5)
+        if airport_results:
+            for result in airport_results:
+                iata_code = result.get("iata_code", "")
+                if iata_code and re.match(r'^[A-Z]{3}$', iata_code):
+                    logger.info(f"Found airport code {iata_code} for '{city_name}' via CSV lookup")
+                    return iata_code.upper()
     except Exception as e:
-        logger.debug(f"OpenAI airport lookup for {city_name}: {e}")
+        logger.debug(f"CSV airport lookup for {city_name}: {e}")
     
     return None
 
@@ -259,11 +263,17 @@ async def load_input_bundle(trip_id: str, run_id: str) -> InputBundle:
     start_dest_name = (start_d.get("name") or "").strip()
     end_dest_name = (end_d.get("name") or "").strip()
     
-    # Collect intermediate cities (not start/end)
+    # Get start/end destination IDs for robust filtering
+    start_dest_id = start_d.get("destinationId")
+    end_dest_id = end_d.get("destinationId")
+    
+    # Collect intermediate cities (not start/end) - use IDs for comparison, not names
+    # This handles cases where start and end might have the same name (e.g., round trip)
     city_names = []
     for d in valid_destinations:
+        dest_id = d.get("destinationId")
         name = (d.get("name") or "").strip()
-        if name and name not in (start_dest_name, end_dest_name):
+        if name and dest_id not in (start_dest_id, end_dest_id):
             city_names.append(name)
     
     # Resolve all names to airport codes in parallel

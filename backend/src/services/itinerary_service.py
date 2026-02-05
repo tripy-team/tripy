@@ -67,6 +67,42 @@ def _enforce_no_negative_numbers(payload: Dict[str, Any], context: str) -> Dict[
         return scrub_sentinels(payload)
     return scrub_sentinels(payload)
 
+def _normalize_airport_code(airport_value: str) -> str:
+    """
+    Normalize airport value to a proper IATA code.
+    Handles formats like:
+    - "SEA" -> "SEA"
+    - "SEATTLE (SEA,BFI)" -> "SEA" (extracts first code)
+    - "Seattle (SEA)" -> "SEA"
+    - "sea" -> "SEA"
+    """
+    if not airport_value:
+        return ""
+    
+    value = airport_value.strip().upper()
+    
+    # If it's already a 3-letter IATA code, return it
+    if re.match(r'^[A-Z]{3}$', value):
+        return value
+    
+    # Try to extract airport codes from parentheses like "SEATTLE (SEA,BFI)" or "Paris (CDG)"
+    match = re.search(r'\(([A-Z]{3}(?:,\s*[A-Z]{3})*)\)', value)
+    if match:
+        # Return the first airport code (primary)
+        codes = [c.strip() for c in match.group(1).split(',')]
+        if codes:
+            return codes[0]
+    
+    # If no parentheses, check if the whole string is a valid-looking code
+    # Remove any numbers and take first 3 uppercase letters
+    letters_only = re.sub(r'[^A-Z]', '', value)
+    if len(letters_only) >= 3:
+        return letters_only[:3]
+    
+    # Return original stripped value as fallback
+    return value
+
+
 # Feature flag for v2 itinerary generation (can be overridden by env var or request header)
 ITINERARY_GENERATION_VERSION = os.getenv("ITINERARY_GENERATION_VERSION", "v2")
 
@@ -854,18 +890,22 @@ def _normalize_city_to_code(city_name: str) -> Optional[str]:
     except Exception as e:
         logger.warning(f"Error searching for airport code for {city_name}: {e}")
 
-    # Fallback: try OpenAI for small/remote cities not in our static/Amadeus data
+    # Fallback 2: Try direct CSV lookup using airport_service
+    # This ensures we find airports like Vienna (VIE) and Prague (PRG) even if Amadeus is unavailable
+    # The CSV contains 40,000+ airports - comprehensive coverage without needing OpenAI
     try:
-        from src.handlers.openAI import find_commercial_airports_for_city
-        ai_airports = find_commercial_airports_for_city(search_name, max_results=3)
-        for a in ai_airports:
-            code = (a.get("iata_code") or "").upper().strip()
-            if code and _is_airport_code(code):
-                return code
+        from src.services.airport_service import search_airports
+        airport_results = search_airports(search_name, max_results=5)
+        if airport_results:
+            for result in airport_results:
+                iata_code = result.get("iata_code", "")
+                if iata_code and _is_airport_code(iata_code):
+                    logger.info(f"Found airport code {iata_code} for '{city_name}' via CSV lookup")
+                    return iata_code.upper()
     except Exception as e:
-        logger.debug(f"OpenAI airport lookup for {city_name}: {e}")
+        logger.debug(f"CSV airport lookup for {city_name}: {e}")
     
-    # If search fails, try to extract code from name (e.g., "New York (JFK)" or "New York (JFK,LGA,EWR)")
+    # Fallback 3: try to extract code from name (e.g., "New York (JFK)" or "New York (JFK,LGA,EWR)")
     # Handle both single code and multiple codes - prefer main international airport
     match = re.search(r'\(([A-Z]{3}(?:,[A-Z]{3})*)\)', city_name.upper())
     if match:
@@ -882,8 +922,11 @@ def _normalize_city_to_code(city_name: str) -> Optional[str]:
         sorted_codes = sorted(codes, key=get_priority)
         best_code = sorted_codes[0]
         if _is_airport_code(best_code):
+            logger.info(f"Extracted airport code {best_code} from '{city_name}' via name parsing")
             return best_code.upper()
     
+    # If all lookups fail, log a warning
+    logger.warning(f"FAILED to resolve airport code for city '{city_name}' - all lookups exhausted")
     return None
 
 
@@ -1100,6 +1143,184 @@ def _best_effort_path_from_edges(
         "Shown below is the lowest-cost route we found; it may exceed your limits. "
         "Consider increasing your budget, adding more points, or reducing destinations/days."
     )
+    return (solution, msg)
+
+
+def _best_effort_path_multi_traveler(
+    edges_dict: Dict[Tuple[str, str, str], Dict[str, Any]],
+    start_city_by_trav: Dict[str, str],
+    end_city_by_trav: Dict[str, str],
+    travelers: List[str],
+    must_visit: Optional[List[str]] = None,
+) -> Tuple[Optional[Dict[str, Any]], Optional[str]]:
+    """
+    Find minimum cash-cost paths for each traveler independently.
+    This handles group trips where members have different start/end airports.
+    Returns partial solutions if some travelers have valid routes but others don't.
+    """
+    logger.info(f"BEST-EFFORT MULTI-TRAVELER: Starting for {len(travelers)} travelers, must_visit={must_visit}")
+    logger.info(f"BEST-EFFORT MULTI-TRAVELER: start_cities={list(start_city_by_trav.values())}, end_cities={list(end_city_by_trav.values())}")
+    logger.info(f"BEST-EFFORT MULTI-TRAVELER: {len(edges_dict)} edges available")
+    
+    if not travelers:
+        logger.info("BEST-EFFORT MULTI-TRAVELER: No travelers, returning None")
+        return (None, None)
+    
+    # Build adjacency list once
+    best: Dict[Tuple[str, str], Tuple[Tuple[str, str, str], float]] = {}
+    for (i, j, k), d in edges_dict.items():
+        try:
+            cost = float(d.get("cash_cost") or 1e7)
+        except (TypeError, ValueError):
+            cost = 1e7
+        if (i, j) not in best or cost < best[(i, j)][1]:
+            best[(i, j)] = ((i, j, k), cost)
+    
+    adj: Dict[str, List[Tuple[str, float, Tuple[str, str, str]]]] = {}
+    for (i, j), (edge, cost) in best.items():
+        adj.setdefault(i, []).append((j, cost, edge))
+    
+    def _dijkstra(start: str, end: str, must_pass: Optional[List[str]] = None) -> Optional[Tuple[List[str], List[Tuple[str, str, str]], float]]:
+        """Find shortest path from start to end, optionally passing through must_pass cities."""
+        if not start or not end:
+            return None
+        
+        # If must_pass is specified, we need to find path through those cities
+        if must_pass and len(must_pass) > 0:
+            # Try: start -> must_pass[0] -> must_pass[1] -> ... -> end
+            waypoints = [start] + list(must_pass) + [end]
+            total_path_edges: List[Tuple[str, str, str]] = []
+            total_cost = 0.0
+            
+            for i in range(len(waypoints) - 1):
+                segment = _dijkstra(waypoints[i], waypoints[i+1], None)
+                if segment is None:
+                    return None
+                path_nodes, path_edges, cost = segment
+                total_path_edges.extend(path_edges)
+                total_cost += cost
+            
+            full_path = [start] + [e[1] for e in total_path_edges]
+            return (full_path, total_path_edges, total_cost)
+        
+        INF = 10 ** 9
+        dist: Dict[str, float] = {start: 0.0}
+        parent: Dict[str, Tuple[str, Tuple[str, str, str]]] = {}
+        heap: List[Tuple[float, str]] = [(0.0, start)]
+        
+        while heap:
+            d, u = heapq.heappop(heap)
+            if u == end:
+                break
+            if d > dist.get(u, INF):
+                continue
+            for v, cost, edge in adj.get(u, []):
+                nd = d + cost
+                if nd < dist.get(v, INF):
+                    dist[v] = nd
+                    parent[v] = (u, edge)
+                    heapq.heappush(heap, (nd, v))
+        
+        if end not in parent and start != end:
+            return None
+        
+        # Recover path
+        path_edges: List[Tuple[str, str, str]] = []
+        cur = end
+        while cur in parent:
+            u, e = parent[cur]
+            path_edges.append(e)
+            cur = u
+        path_edges.reverse()
+        path_nodes = [start] + [e[1] for e in path_edges]
+        
+        return (path_nodes, path_edges, dist.get(end, 0.0))
+    
+    # Try to find paths for each traveler
+    paths_by_trav: Dict[str, List[str]] = {}
+    edges_by_trav: Dict[str, List[List[str]]] = {}
+    pay_mode_by_trav: Dict[str, List[Dict[str, Any]]] = {}
+    total_cash = 0.0
+    total_time = 0.0
+    failed_travelers: List[str] = []
+    
+    for trav in travelers:
+        start = start_city_by_trav.get(trav, "")
+        end = end_city_by_trav.get(trav, "")
+        
+        if not start or not end:
+            failed_travelers.append(trav)
+            continue
+        
+        result = _dijkstra(start, end, must_visit)
+        if result is None:
+            failed_travelers.append(trav)
+            logger.warning(f"No path found for traveler {trav[-8:]}: {start} -> {end}")
+            continue
+        
+        path_nodes, path_edges, cost = result
+        paths_by_trav[trav] = path_nodes
+        edges_by_trav[trav] = [[e[0], e[1], e[2]] for e in path_edges]
+        
+        # Build pay_mode for this traveler
+        pay_list: List[Dict[str, Any]] = []
+        trav_cost = 0.0
+        for e in path_edges:
+            d = edges_dict.get(e, {})
+            try:
+                cash = float(d.get("cash_cost") or 0)
+            except (TypeError, ValueError):
+                cash = 0.0
+            try:
+                total_time += float(d.get("time_cost") or 0)
+            except (TypeError, ValueError):
+                pass
+            trav_cost += cash
+            pay_list.append({
+                "edge": [e[0], e[1], e[2]],
+                "type": "cash",
+                "payer": trav,
+                "fare": cash,
+            })
+        
+        pay_mode_by_trav[trav] = pay_list
+        total_cash += trav_cost
+        logger.info(f"Found path for traveler {trav[-8:]}: {start} -> {end}, cost=${trav_cost:.0f}")
+    
+    # If no travelers have valid paths, return None
+    if not paths_by_trav:
+        return (None, None)
+    
+    # Build solution with whatever paths we found
+    solution: Dict[str, Any] = {
+        "status": "Optimal",
+        "path": paths_by_trav,
+        "edges": edges_by_trav,
+        "pay_mode": pay_mode_by_trav,
+        "totals": {
+            "airline_points": 0.0,
+            "cash": total_cash,
+            "time": total_time,
+            "points_value": 0.0,
+            "transfers": {q: {} for q in travelers if q in paths_by_trav},
+            "native_used": {q: {} for q in travelers if q in paths_by_trav},
+        },
+    }
+    
+    # Build message
+    if failed_travelers:
+        msg = (
+            f"Found routes for {len(paths_by_trav)} of {len(travelers)} travelers. "
+            f"{len(failed_travelers)} member(s) could not be routed - they may need to choose different airports. "
+            "The shown route exceeds your budget but is the lowest cost option available."
+        )
+    else:
+        msg = (
+            "No feasible solution within your budget and points. "
+            "Shown below is the lowest-cost route we found; it may exceed your limits. "
+            "Consider increasing your budget, adding more points, or reducing destinations/days."
+        )
+    
     return (solution, msg)
 
 
@@ -2167,11 +2388,20 @@ async def generate_optimized_itinerary(
         if isinstance(result, Exception):
             logger.warning(f"Error resolving '{city_name}': {result}")
         elif result:
+            logger.info(f"Resolved destination '{city_name}' -> airport code '{result}'")
             city_codes.append(result)
             if all_airports:
                 city_to_all_airports[result] = all_airports
         else:
             logger.warning(f"Could not find airport code for '{city_name}', skipping")
+    
+    # Log comprehensive destination resolution summary
+    logger.info(
+        f"DESTINATION RESOLUTION SUMMARY: "
+        f"start='{start_dest_name}'->{start_dest_code}, "
+        f"end='{end_dest_name}'->{end_dest_code}, "
+        f"cities={dict(zip(cities, [code_results[idx + i] if not isinstance(code_results[idx + i], Exception) else 'ERROR' for i in range(len(cities))]))}"
+    )
     
     # Log multi-airport mappings for debugging
     multi_airport_cities = {k: v for k, v in city_to_all_airports.items() if len(v) > 1}
@@ -2196,14 +2426,18 @@ async def generate_optimized_itinerary(
     if not members:
         raise ValueError("No members found for trip. Please add at least one member.")
     
-    travelers = [m.get("userId", "") for m in members if m.get("status") == "active"]
+    # Include all members as travelers (not just "active" status)
+    # This ensures point balancing works for all group members
+    travelers = [m.get("userId", "") for m in members if m.get("userId")]
+    
+    # Log member statuses for debugging
+    member_statuses = {m.get("userId", ""): m.get("status", "unknown") for m in members}
+    logger.info(f"Member statuses: {member_statuses}")
+    
     if not travelers:
-        raise ValueError("No active members found. Please ensure at least one member has active status.")
+        raise ValueError("No members found for optimization")
     
-    if len(travelers) == 0:
-        raise ValueError("No active travelers found for optimization")
-    
-    logger.info(f"Found {len(travelers)} active travelers: {travelers}")
+    logger.info(f"Found {len(travelers)} travelers: {travelers}")
 
     # 4. Get points for all members with validation
     points_summary = points_service.trip_points_summary(trip_id)
@@ -2240,16 +2474,66 @@ async def generate_optimized_itinerary(
     else:
         logger.info(f"Total points available: {total_points:,} across {len(user_points_by_trav)} users")
     
-    # 5. Build start/end city mapping using airport codes (for now, all travelers use same start/end)
-    start_city_by_trav = {t: start_dest_code for t in travelers}
-    end_city_by_trav = {t: end_dest_code for t in travelers}
+    # 5. Build start/end city mapping using per-member airport codes if available
+    # Members can have different departure/arrival airports (e.g., User from SEA, Eric from SFO)
+    member_airports = {m.get("userId", ""): m for m in members}
+    
+    start_city_by_trav = {}
+    end_city_by_trav = {}
+    unique_start_airports = set()
+    
+    for t in travelers:
+        member = member_airports.get(t, {})
+        # Use member's departure_airport if set, otherwise fall back to trip-level start
+        # Normalize airport codes to handle formats like "SEATTLE (SEA,BFI)" -> "SEA"
+        member_departure = _normalize_airport_code(member.get("departure_airport") or "")
+        member_arrival = _normalize_airport_code(member.get("arrival_airport") or "")
+        
+        # For departure: use member's airport or trip default
+        if member_departure:
+            start_city_by_trav[t] = member_departure
+            unique_start_airports.add(member_departure)
+            logger.info(f"Member {t[-8:]} using custom departure airport: {member_departure}")
+        else:
+            start_city_by_trav[t] = start_dest_code
+            unique_start_airports.add(start_dest_code)
+        
+        # For arrival: use member's airport, or same as departure (round trip), or trip default
+        if member_arrival:
+            end_city_by_trav[t] = member_arrival
+        elif member_departure:
+            # If member has custom departure but no arrival, assume round trip to same airport
+            end_city_by_trav[t] = member_departure
+        else:
+            end_city_by_trav[t] = end_dest_code
+    
+    # Log the per-member routing
+    if len(unique_start_airports) > 1:
+        logger.info(f"Group trip with multiple origins: {unique_start_airports}")
+        for t in travelers:
+            logger.info(f"  {t[-8:]}: {start_city_by_trav[t]} -> destination -> {end_city_by_trav[t]}")
     
     # 6. Fetch flight edges using airport codes
     # Build all possible routes: start -> city1 -> city2 -> ... -> end
     # For round-trip (start==end with cities), include the return leg so we fetch e.g. ITH->CDG and CDG->ITH
+    # 
+    # IMPORTANT: When members have different origins (e.g., User from SEA, Eric from SFO),
+    # we need to include ALL unique start/end airports in the nodes
     all_cities = [start_dest_code] + city_codes
     if end_dest_code != start_dest_code or city_codes:
         all_cities = all_cities + [end_dest_code]
+    
+    # Add unique member-specific start/end airports to the route
+    unique_end_airports = set(end_city_by_trav.values())
+    for airport in unique_start_airports:
+        if airport and airport not in all_cities:
+            all_cities.insert(0, airport)  # Add alternate origins at the start
+            logger.info(f"Added member origin airport to route: {airport}")
+    for airport in unique_end_airports:
+        if airport and airport not in all_cities:
+            all_cities.append(airport)  # Add alternate return airports at the end
+            logger.info(f"Added member return airport to route: {airport}")
+    
     # Deduplicate only when not a round-trip (avoid collapsing ITH->CDG->ITH into ITH->CDG)
     if not (len(all_cities) > 1 and all_cities[0] == all_cities[-1]):
         all_cities = list(dict.fromkeys(all_cities))
@@ -2263,7 +2547,7 @@ async def generate_optimized_itinerary(
     # Fetch edges for all O–D pairs so the optimizer can choose the cheapest ordering of
     # destinations (start/end fixed; middle cities can reorder to reduce cost).
     nodes = list(dict.fromkeys(all_cities))
-    logger.info(f"Optimizing route over {nodes} (start={start_dest_code}, end={end_dest_code}); order flexible for {len(city_codes)} cities")
+    logger.info(f"Optimizing route over {nodes} with {len(unique_start_airports)} unique origins: {unique_start_airports}; order flexible for {len(city_codes)} cities")
     
     edges_all = {}
     transfer_graph = DEFAULT_TRANSFER_GRAPH
@@ -2337,15 +2621,28 @@ async def generate_optimized_itinerary(
             # Use the departure date for the origin city from our mapping
             city_o, city_d = pair_to_city.get((o, d), (o, d))
             
-            # Check if this is the return leg (destination is start city)
-            if city_d == start_dest_code and end_date:
+            # Check if this is a return leg:
+            # 1. Destination is the trip's start city (round trip back to origin)
+            # 2. Destination is any member's end airport (group trips with different return airports)
+            # 3. Origin is a must-visit city and destination is a member's end airport
+            is_return_leg = (
+                (city_d == start_dest_code) or
+                (city_d in unique_end_airports) or
+                (d in unique_end_airports) or  # Check actual airport too
+                (city_o in city_codes and (city_d in unique_end_airports or d in unique_end_airports))
+            )
+            
+            if is_return_leg and end_date:
                 leg_date = end_date.strip()
+                logger.debug(f"Return leg {o}->{d}: using end_date {leg_date}")
             elif city_o in city_departure_dates:
                 # Use the departure date for this origin city
                 leg_date = city_departure_dates[city_o]
+                logger.debug(f"Outbound leg {o}->{d}: using city date {leg_date}")
             else:
                 # Fallback to start_date if city not in mapping
                 leg_date = start_date.strip()
+                logger.debug(f"Fallback leg {o}->{d}: using start_date {leg_date}")
                 
             return await _fetch_edges_for_route(
                 o, d, leg_date, combined_points, travelers, start_dest_code
@@ -2436,7 +2733,8 @@ async def generate_optimized_itinerary(
         
         status = solution.get("status", "Unknown")
         if status != "Optimal":
-            if status == "Infeasible":
+            # Handle both Infeasible and Not Solved (timeout) statuses
+            if status in ("Infeasible", "Not Solved"):
                 relaxed_solution: Optional[Dict[str, Any]] = None
                 # Calculate smart budget based on actual route costs if we have edges
                 smart_budget: Optional[int] = None
@@ -2465,15 +2763,18 @@ async def generate_optimized_itinerary(
                                 )
                             )
                 
-                # 1) Retry with smart budget first, then fallback to multipliers
+                # 1) Quick check: try ONE budget retry (2x) to determine if this is a budget issue
+                # If that also fails, skip directly to unconstrained to save time
+                consecutive_infeasible = 0
+                max_consecutive_infeasible = 1  # Stop retrying after this many consecutive failures
+                
                 budget_attempts = []
                 if smart_budget and smart_budget > max_budget:
                     budget_attempts.append(("smart", smart_budget))
-                # Add multiplier attempts
-                for mult in [2, 3, 5, 10]:
-                    mult_budget = (max_budget * mult) if max_budget else None
-                    if mult_budget:
-                        budget_attempts.append((f"{mult}x", mult_budget))
+                # Only try 2x multiplier - if unconstrained works, we know it's budget related
+                # If unconstrained fails too, it's not a budget issue
+                if max_budget:
+                    budget_attempts.append(("2x", max_budget * 2))
                 
                 if len(travelers) > 0:
                     for attempt_label, try_total_budget in budget_attempts:
@@ -2511,39 +2812,93 @@ async def generate_optimized_itinerary(
                                 )
                                 logger.info(f"Infeasible: found solution with {attempt_label} budget (${try_total_budget:,.0f})")
                                 break
+                            elif sol_retry.get("status") == "Infeasible":
+                                consecutive_infeasible += 1
+                                logger.info(f"Budget retry ({attempt_label}) still infeasible - likely not a budget issue")
+                                if consecutive_infeasible >= max_consecutive_infeasible:
+                                    logger.info("Skipping remaining budget retries - problem is not budget-related")
+                                    break
                         except Exception as retry_err:
                             logger.debug("Relaxed budget retry (%s, $%s) failed: %s", attempt_label, try_total_budget, retry_err)
                 
-                # 2) Best-effort: minimum cash path from graph (may exceed budget/points)
+                # 2) Try with NO budget constraint to find the minimum cost route
                 if relaxed_solution is None:
-                    relaxed_solution, relaxed_message = _best_effort_path_from_edges(
-                        edges_all, start_city_by_trav, end_city_by_trav, travelers
+                    logger.info("Trying unconstrained optimization (no budget limit) to find minimum cost route...")
+                    try:
+                        unconstrained_solution = run_ilp_from_edges(
+                            edges_all,
+                            travelers,
+                            start_city_by_trav,
+                            end_city_by_trav,
+                            user_points_by_trav,
+                            plan_maximize_points_value,
+                            meetup_cities=[],
+                            require_meetup_in_graph=False,
+                            must_visit_cities=city_codes,
+                            transfer_graph=transfer_graph,
+                            transfer_bonuses={},
+                            bank_block_size=1000,
+                            allow_all_payers=True,
+                            default_cash_if_missing=1e7,
+                            default_time_if_missing=1e6,
+                            default_cash_budget=1e9,  # Effectively no budget constraint
+                            benefit_airlines=benefit_airlines,
+                            optimization_mode=optimization_mode,
+                        )
+                        unconstrained_status = unconstrained_solution.get("status", "Unknown")
+                        logger.info(f"Unconstrained optimization returned status: {unconstrained_status}")
+                        if unconstrained_status == "Optimal" and any((unconstrained_solution.get("path") or {}).values()):
+                            relaxed_solution = unconstrained_solution
+                            tot = unconstrained_solution.get("totals", {}).get("cash", 0) or 0
+                            suggested_budget = int(tot * 1.1)  # 10% buffer
+                            relaxed_message = (
+                                f"Your budget of ${max_budget:,} is too low for this trip. "
+                                f"The minimum cost route we found is ${tot:,.0f}. "
+                                f"We recommend setting your budget to at least ${suggested_budget:,}."
+                            )
+                            logger.info(f"Found unconstrained solution with total cash: ${tot:,.0f}")
+                        else:
+                            logger.info(f"Unconstrained optimization also infeasible - problem is NOT budget-related (likely time constraints)")
+                    except Exception as e:
+                        logger.warning(f"Unconstrained optimization failed: {e}")
+                
+                # 3) Best-effort: minimum cash path from graph (may exceed budget/points)
+                # Use multi-traveler version for group trips with different origins
+                if relaxed_solution is None:
+                    logger.info("All ILP attempts failed - falling back to best-effort pathfinding...")
+                    relaxed_solution, relaxed_message = _best_effort_path_multi_traveler(
+                        edges_all, start_city_by_trav, end_city_by_trav, travelers, 
+                        must_visit=city_codes
                     )
+                    # Fallback to single-traveler version if multi-traveler fails
+                    if relaxed_solution is None:
+                        relaxed_solution, relaxed_message = _best_effort_path_from_edges(
+                            edges_all, start_city_by_trav, end_city_by_trav, travelers
+                        )
                     if relaxed_solution and relaxed_message and max_budget:
                         # Enhance message with budget recommendation
                         tot = relaxed_solution.get("totals", {}).get("cash", 0) or 0
                         if tot > max_budget:
+                            suggested_budget = int(tot * 1.1)  # 10% buffer
                             relaxed_message = (
-                                f"Your budget of ${max_budget:,} is insufficient. "
-                                f"The lowest-cost route we found costs ${tot:,.0f}. "
-                                f"We recommend a budget of at least ${int(tot * 1.2):,}."
+                                f"Your budget of ${max_budget:,} is too low for this trip. "
+                                f"The minimum cost route we found is ${tot:,.0f}. "
+                                f"We recommend setting your budget to at least ${suggested_budget:,}."
                             )
                 
-                # 3) Use relaxed solution or raise explicit error (NO FALLBACKS)
+                # 4) Use relaxed solution - always return the closest itinerary if we found any route
                 if relaxed_solution and any((relaxed_solution.get("path") or {}).values()):
                     solution = relaxed_solution
-                    logger.info("Using relaxed/best-effort solution: %s", relaxed_message[:80] if relaxed_message else "")
+                    logger.info("Using closest available itinerary: %s", relaxed_message[:80] if relaxed_message else "")
                 else:
-                    # NO FALLBACK - Raise explicit error with actionable guidance
+                    # Only fail if NO routes exist at all (not a budget issue)
                     logger.info(
-                        "No feasible optimized solution found - raising explicit error"
+                        "No routes found between destinations - this is a routing issue, not budget"
                     )
                     raise ValueError(
-                        "Unable to find a valid route with the given constraints. "
-                        "This may be because: (1) Your budget is too low for available flights, "
-                        "(2) No flights are available on your selected dates, or "
-                        "(3) No routes exist between your chosen destinations. "
-                        "Try increasing your budget, choosing different dates, or modifying your destinations."
+                        "No routes found between your chosen destinations on the selected dates. "
+                        "This is not a budget issue - no flights are available for this route. "
+                        "Try choosing different dates or modifying your destinations."
                     )
             elif status == "Unbounded":
                 logger.warning("Optimization is unbounded - this should not happen with proper constraints")
@@ -2979,13 +3334,17 @@ async def generate_optimized_itinerary(
 
     # When we used relaxed budget or best-effort path, add an info item and flag the response
     if relaxed_message:
+        actual_cost = solution.get("totals", {}).get("cash") or 0
+        suggested_budget = int(actual_cost * 1.1) if actual_cost > 0 else None  # 10% buffer
         relaxed_info = {
             "tripId": trip_id,
             "itemId": "itinerary_relaxed_info",
             "type": "itinerary_relaxed_info",
             "message": relaxed_message,
             "original_budget": max_budget,
-            "suggested_cash": solution.get("totals", {}).get("cash"),
+            "suggested_cash": actual_cost,
+            "suggested_budget": suggested_budget,
+            "budget_exceeded": max_budget is not None and actual_cost > max_budget,
         }
         itinerary_items.append(relaxed_info)
 

@@ -56,13 +56,18 @@ class ComprehensiveFlightSearcher:
         cabin_class: CabinClass = CabinClass.ECONOMY,
         include_connections: bool = True,
         user_points: Optional[Dict[str, int]] = None,
-        filters: Optional[Dict[str, Any]] = None
+        filters: Optional[Dict[str, Any]] = None,
+        num_adults: int = 1,
+        num_children: int = 0,
     ) -> FlightSearchResult:
         """
         Searches for ALL flight options between origin and destination.
         Returns both direct and connecting flight options.
         
         NEVER returns estimated or placeholder data.
+        
+        Note: Prices returned are PER PERSON. Caller must multiply by party_size
+        for total costs.
         
         Args:
             origin: Origin airport code
@@ -72,9 +77,11 @@ class ComprehensiveFlightSearcher:
             include_connections: Whether to include connecting flights
             user_points: User's points balances
             filters: Additional filters
+            num_adults: Number of adult passengers
+            num_children: Number of child passengers
         
         Returns:
-            FlightSearchResult with all options
+            FlightSearchResult with all options (prices are per-person)
         """
         # Import here to avoid circular imports
         from src.handlers.flights import (
@@ -87,6 +94,15 @@ class ComprehensiveFlightSearcher:
         filt = filters or {}
         filt["outbound_date"] = date_str
         filt["travel_class"] = self._cabin_to_filter(cabin_class)
+        
+        # Add party size to filters for flight APIs
+        party_size = num_adults + num_children
+        filt["pax"] = party_size
+        filt["adults"] = num_adults
+        filt["children"] = num_children
+        
+        logger.info(f"Flight search {origin}->{destination} with party_size={party_size} "
+                   f"(adults={num_adults}, children={num_children})")
         
         all_options: List[ConnectingFlightOption] = []
         search_errors: List[Dict[str, Any]] = []
@@ -368,6 +384,8 @@ class ComprehensiveFlightSearcher:
         segments: List[Tuple[str, str, date]],
         cabin_class: CabinClass = CabinClass.ECONOMY,
         user_points: Optional[Dict[str, int]] = None,
+        num_adults: int = 1,
+        num_children: int = 0,
     ) -> Dict[Tuple[str, str], FlightSearchResult]:
         """
         Search multiple segments in parallel.
@@ -376,6 +394,8 @@ class ComprehensiveFlightSearcher:
             segments: List of (origin, destination, date) tuples
             cabin_class: Cabin class
             user_points: User's points balances
+            num_adults: Number of adult passengers
+            num_children: Number of child passengers
         
         Returns:
             Dict mapping (origin, destination) to FlightSearchResult
@@ -390,6 +410,8 @@ class ComprehensiveFlightSearcher:
                     search_date=search_date,
                     cabin_class=cabin_class,
                     user_points=user_points,
+                    num_adults=num_adults,
+                    num_children=num_children,
                 )
         
         tasks = [

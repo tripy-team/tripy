@@ -395,8 +395,17 @@ async def optimize_solo(
         computed_str = now.strftime('%Y-%m-%dT%H:%M:%SZ')
         expires_str = expires.strftime('%Y-%m-%dT%H:%M:%SZ')
         
-        # Convert agent itineraries to our schema format
-        itineraries = _transform_itineraries(agent_response.itineraries)
+        # Get party size from trip for cost scaling
+        # Costs from orchestrator are per-person; we need to scale to party total
+        # Convert to int explicitly (DynamoDB may return Decimal)
+        adults = int(trip.get("adults") or 1)
+        children = int(trip.get("children") or 0)
+        party_size = max(1, adults + children)
+        
+        logger.info(f"[solo/optimize] Party size: {party_size} (adults={adults}, children={children})")
+        
+        # Convert agent itineraries to our schema format (with party_size scaling)
+        itineraries = _transform_itineraries(agent_response.itineraries, party_size=party_size)
         
         # Generate insights from the results
         global_insights = _generate_insights(itineraries) if itineraries else []
@@ -457,8 +466,16 @@ def _map_flight_class(flight_class: str) -> list[str]:
     return mapping.get(flight_class, ["Economy", "Business"])
 
 
-def _transform_itineraries(agent_itineraries: list) -> list[RankedItinerary]:
-    """Transform orchestrator itineraries to our schema format (flights only)."""
+def _transform_itineraries(agent_itineraries: list, party_size: int = 1) -> list[RankedItinerary]:
+    """Transform orchestrator itineraries to our schema format (flights only).
+    
+    Args:
+        agent_itineraries: Itineraries from the orchestrator (per-person costs)
+        party_size: Number of travelers to scale costs for
+        
+    Returns:
+        List of RankedItinerary with costs scaled to party total
+    """
     result = []
     
     for agent_it in agent_itineraries:
@@ -473,8 +490,12 @@ def _transform_itineraries(agent_itineraries: list) -> list[RankedItinerary]:
             payment = seg.payment
             if hasattr(payment, 'method') and payment.method == 'points':
                 payment_method = "points"
-                points_used = getattr(payment, 'points_used', None) or getattr(payment, 'pointsUsed', 0)
-                surcharge = getattr(payment, 'surcharge', 0)
+                # Get per-person values and scale by party_size
+                per_person_points = getattr(payment, 'points_used', None) or getattr(payment, 'pointsUsed', 0)
+                per_person_surcharge = getattr(payment, 'surcharge', 0)
+                points_used = per_person_points * party_size if per_person_points else None
+                surcharge = per_person_surcharge * party_size if per_person_surcharge else 0
+                # CPP stays the same (it's a ratio, not a total)
                 cpp = getattr(payment, 'cpp_achieved', None) or getattr(payment, 'cppAchieved', 0)
                 transfer_from = None
                 transfer_to = None
@@ -489,9 +510,10 @@ def _transform_itineraries(agent_itineraries: list) -> list[RankedItinerary]:
                 transfer_from = None
                 transfer_to = None
             
-            # Build flight segment
+            # Build flight segment with scaled costs
             segment_name = f"{seg.origin} → {seg.destination}"
-            cash_price = seg.cash_price or 0
+            per_person_cash = seg.cash_price or 0
+            cash_price = per_person_cash * party_size  # Scale cash price by party_size
             program = getattr(payment, 'program', None) if payment_method == "points" else None
             
             # CRITICAL: Extract connection details (legs, layovers, stops)
@@ -575,29 +597,31 @@ def _transform_itineraries(agent_itineraries: list) -> list[RankedItinerary]:
                 layovers=layovers,
             ))
         
-        # Build transfers
+        # Build transfers (scale points by party_size)
         transfers = []
         for idx, t in enumerate(agent_it.transfers or []):
+            per_person_points = t.points_to_transfer
+            scaled_points = per_person_points * party_size
             transfers.append(TransferInstruction(
                 step_number=idx + 1,
                 source_program=t.from_program,
                 target_program=t.to_program,
-                points_to_transfer=t.points_to_transfer,
-                transfer_ratio=t.ratio,
+                points_to_transfer=scaled_points,  # Scaled by party_size
+                transfer_ratio=t.ratio,  # Ratio stays the same
                 expected_transfer_time=t.transfer_time,
                 portal_url=t.portal_url,
                 warning=t.warning,
             ))
         
-        # Build OOP metrics
+        # Build OOP metrics (scale costs by party_size, percentages stay same)
         metrics = agent_it.oop_metrics
         oop_metrics = OOPMetrics(
-            total_cash_price=metrics.total_cash_price,
-            total_out_of_pocket=metrics.total_out_of_pocket,
-            cash_saved=metrics.cash_saved,
-            savings_percentage=metrics.savings_percentage,
-            total_points_used=metrics.total_points_used,
-            average_cpp=metrics.average_cpp,
+            total_cash_price=metrics.total_cash_price * party_size,
+            total_out_of_pocket=metrics.total_out_of_pocket * party_size,
+            cash_saved=metrics.cash_saved * party_size,
+            savings_percentage=metrics.savings_percentage,  # Percentage stays the same
+            total_points_used=metrics.total_points_used * party_size,
+            average_cpp=metrics.average_cpp,  # CPP (cents per point) stays the same
         )
         
         # Build route from segments

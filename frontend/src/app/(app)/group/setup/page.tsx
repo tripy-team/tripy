@@ -7,6 +7,7 @@ import { createTrip, addDestination, upsertPoints, users as usersAPI, trips as t
 import PointsAllocation from '@/components/PointsAllocation';
 import { DestinationAutocomplete } from '@/components/ui/DestinationAutocomplete';
 import AirportAutocomplete from '@/components/ui/AirportAutocomplete';
+import SingleDatePicker from '@/components/ui/SingleDatePicker';
 
 interface CreditCardEntry {
   id: string;
@@ -253,6 +254,9 @@ export default function GroupTripSetup() {
         start_date: startDate,
         end_date: endDate,
         max_budget: maxBudget === '' ? undefined : (typeof maxBudget === 'number' ? maxBudget : undefined),
+        // Include organizer's party size
+        adults: adults,
+        children: children,
       });
 
       // 2. Add start destination if provided
@@ -350,7 +354,7 @@ export default function GroupTripSetup() {
 
   const handleContinue = () => {
     if (currentTripId) {
-      router.push(`/group/payment?tripId=${currentTripId}`);
+      router.push(`/group/dashboard?tripId=${currentTripId}`);
     } else {
       router.push('/group/dashboard');
     }
@@ -450,7 +454,7 @@ export default function GroupTripSetup() {
                 <div className="mt-4 p-3 bg-amber-50 border border-amber-200 rounded-xl flex items-start gap-3">
                   <Info className="w-4 h-4 text-amber-600 flex-shrink-0 mt-0.5" />
                   <div className="text-xs text-amber-900">
-                    <span className="font-semibold">Note:</span> Additional adults here are part of your booking and don&apos;t contribute points. If they have points, they should join via invite link.
+                    <span className="font-semibold">Note:</span> Additional adults here are part of your booking and don&apos;t contribute points. If they have points, they should join via group travel invite link.
                   </div>
                 </div>
               )}
@@ -499,20 +503,15 @@ export default function GroupTripSetup() {
                         <label className="block text-xs text-slate-500 mb-2 uppercase font-bold tracking-wider">
                           Departure Date
                         </label>
-                        <div className="relative">
-                          <Calendar className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-slate-400 pointer-events-none" />
-                          <input
-                            type="date"
-                            value={startDate}
-                            min={new Date().toISOString().split('T')[0]}
-                            onChange={(e) => {
-                              setStartDate(e.target.value);
-                              if (isMultiCity) updateLegDate(0, e.target.value);
-                            }}
-                            className="w-full pl-10 pr-4 py-3 bg-blue-50 border border-blue-200 rounded-xl text-sm focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-blue-500 cursor-pointer"
-                            placeholder="Select date"
-                          />
-                        </div>
+                        <SingleDatePicker
+                          value={startDate}
+                          onChange={(date) => {
+                            setStartDate(date);
+                            if (isMultiCity) updateLegDate(0, date);
+                          }}
+                          minDate={new Date().toISOString().split('T')[0]}
+                          placeholder="Select date"
+                        />
                       </div>
                     </div>
                   </div>
@@ -555,17 +554,12 @@ export default function GroupTripSetup() {
                               <label className="block text-xs text-slate-500 mb-2 uppercase font-bold tracking-wider">
                                 Departure Date
                               </label>
-                              <div className="relative">
-                                <Calendar className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-slate-400 pointer-events-none" />
-                                <input
-                                  type="date"
-                                  value={legDates[index + 1] || ''}
-                                  min={getMinDateForLeg(index + 1)}
-                                  onChange={(e) => updateLegDate(index + 1, e.target.value)}
-                                  className="w-full pl-10 pr-4 py-3 bg-blue-50 border border-blue-200 rounded-xl text-sm focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-blue-500 cursor-pointer"
-                                  placeholder="Select date"
-                                />
-                              </div>
+                              <SingleDatePicker
+                                value={legDates[index + 1] || ''}
+                                onChange={(date) => updateLegDate(index + 1, date)}
+                                minDate={getMinDateForLeg(index + 1)}
+                                placeholder="Select date"
+                              />
                             </div>
                           )}
                         </div>
@@ -671,17 +665,12 @@ export default function GroupTripSetup() {
                         <label className="block text-xs text-slate-500 mb-2 uppercase font-bold tracking-wider">
                           {isRoundTrip ? 'Return Date' : 'Arrival Date'}
                         </label>
-                        <div className="relative">
-                          <Calendar className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-slate-400 pointer-events-none" />
-                          <input
-                            type="date"
-                            value={endDate}
-                            min={isMultiCity && cities.length > 0 ? getMinDateForLeg(cities.length) : (startDate || new Date().toISOString().split('T')[0])}
-                            onChange={(e) => setEndDate(e.target.value)}
-                            className="w-full pl-10 pr-4 py-3 bg-blue-50 border border-blue-200 rounded-xl text-sm focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-blue-500 cursor-pointer"
-                            placeholder="Select date"
-                          />
-                        </div>
+                        <SingleDatePicker
+                          value={endDate}
+                          onChange={(date) => setEndDate(date)}
+                          minDate={isMultiCity && cities.length > 0 ? getMinDateForLeg(cities.length) : (startDate || new Date().toISOString().split('T')[0])}
+                          placeholder="Select date"
+                        />
                       </div>
                     </div>
                   </div>
@@ -830,6 +819,7 @@ export default function GroupTripSetup() {
                       const val = e.target.value ? Number(e.target.value) : '';
                       setMaxBudget(val);
                     }}
+                    onWheel={(e) => e.currentTarget.blur()}
                     placeholder="Enter your budget"
                     min="1"
                     required

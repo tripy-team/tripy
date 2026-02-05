@@ -338,6 +338,8 @@ class GroupBookingAllocator:
         # === ROUTE TO STRATEGY ===
         if strategy.strategy_type == "optimize":
             assignments = self._allocate_optimized(segments, members)
+        elif strategy.strategy_type == "balanced":
+            assignments = self._allocate_balanced(segments, members)
         elif strategy.strategy_type == "by_segment_type":
             assignments = self._allocate_by_type(segments, members, strategy)
         elif strategy.strategy_type == "by_direction":
@@ -1037,6 +1039,274 @@ class GroupBookingAllocator:
                             cash_amount=cash,
                             segment_summary=option.summary,
                         ))
+        
+        return assignments
+    
+    # =========================================================================
+    # STRATEGY: BALANCED (even distribution of points/costs)
+    # =========================================================================
+    
+    def _allocate_balanced(
+        self,
+        segments: list[list[SegmentOption]],
+        members: list[MemberBookingCapability],
+    ) -> list[BookingAssignment]:
+        """
+        Distribute bookings evenly across members so each uses similar points.
+        
+        Strategy:
+        1. Sort segments by points cost (descending) for better balancing
+        2. For each segment, assign to member with lowest points usage so far
+        3. This achieves approximately even distribution (like load balancing)
+        """
+        if len(members) == 0:
+            return []
+        
+        if len(members) == 1:
+            # Only one member, they book everything
+            return self._allocate_single_member(segments, members[0])
+        
+        logger.info(f"[Balanced] Allocating {len(segments)} segments among {len(members)} members")
+        
+        assignments = []
+        member_states = self._initialize_member_states(members)
+        
+        # Track total points value used by each member
+        member_points_used: dict[str, int] = {m.member_id: 0 for m in members}
+        
+        # Sort segments by points cost (descending) - assign expensive ones first
+        # This helps balance better (similar to multiprocessor scheduling)
+        indexed_segments = list(enumerate(segments))
+        
+        def get_segment_points_cost(item: tuple[int, list[SegmentOption]]) -> int:
+            _, options = item
+            if not options:
+                return 0
+            # Get the best award option's points cost
+            for opt in options:
+                if opt.award_available and opt.award_points:
+                    return opt.award_points
+            return 0
+        
+        # Sort by points cost descending (assign expensive segments first)
+        sorted_segments = sorted(indexed_segments, key=get_segment_points_cost, reverse=True)
+        
+        for orig_idx, options in sorted_segments:
+            if not options:
+                continue
+            
+            # Find member with lowest points usage who can afford this segment
+            best_member = None
+            best_option = None
+            best_uses_points = False
+            best_points_used = 0
+            
+            # Get members sorted by points usage (lowest first)
+            sorted_members = sorted(
+                members,
+                key=lambda m: member_points_used[m.member_id]
+            )
+            
+            for member in sorted_members:
+                state = member_states[member.member_id]
+                
+                # Try each option for this member
+                for option in options:
+                    # First try award option (if available and affordable)
+                    if option.award_available and option.award_points:
+                        program = option.award_program
+                        points_needed = option.award_points
+                        surcharge = option.award_surcharge
+                        
+                        # Check if member can afford with direct points or transfer
+                        can_afford = self._can_use_award(state, option)
+                        can_afford_cash = state.can_afford_cash(surcharge)
+                        
+                        if can_afford and can_afford_cash:
+                            best_member = member
+                            best_option = option
+                            best_uses_points = True
+                            best_points_used = points_needed
+                            break
+                    
+                    # Fall back to cash
+                    if state.can_afford_cash(option.cash_price):
+                        if best_member is None:
+                            best_member = member
+                            best_option = option
+                            best_uses_points = False
+                            best_points_used = 0
+                        break
+                
+                if best_member and best_uses_points:
+                    # Found a member who can use points - prefer this
+                    break
+            
+            if best_member is None or best_option is None:
+                # No one can afford - assign to first member anyway (will show warning)
+                best_member = members[0]
+                best_option = options[0]
+                best_uses_points = False
+                best_points_used = 0
+                logger.warning(f"[Balanced] No member can afford segment {best_option.segment_id}")
+            
+            # Record the assignment
+            state = member_states[best_member.member_id]
+            
+            if best_uses_points:
+                program = best_option.award_program
+                points = best_option.award_points
+                cash = best_option.award_surcharge
+                
+                # Find transfer source before deducting (for tracking)
+                transfer_source = self._select_best_transfer_source(
+                    state.remaining_points, program, points
+                )
+                
+                # Deduct points (handles transfers internally)
+                self._deduct_points_from_state(state, program, points)
+                state.spend_cash(cash)
+                
+                # Track points used for balancing
+                member_points_used[best_member.member_id] += points
+                
+                # Determine if transfer is needed and get details
+                requires_transfer = False
+                transfer_from = None
+                transfer_points_from_source = None
+                transfer_ratio = None
+                transfer_ratio_display = None
+                
+                if transfer_source and transfer_source.source_program != program:
+                    requires_transfer = True
+                    transfer_from = transfer_source.source_program
+                    transfer_points_from_source = int(points / transfer_source.ratio)
+                    transfer_ratio = transfer_source.ratio
+                    transfer_ratio_display = f"1:{int(transfer_source.ratio)}" if transfer_source.ratio >= 1 else "1:1"
+                
+                assignments.append(BookingAssignment(
+                    segment_id=best_option.segment_id,
+                    segment_type=best_option.segment_type,
+                    assigned_to=best_member.member_id,
+                    assigned_to_name=best_member.member_name,
+                    reason=f"Balanced: assigned to balance points usage ({member_points_used[best_member.member_id]:,} pts total)",
+                    uses_points=True,
+                    points_program=program,
+                    points_used=points,
+                    cash_amount=cash,
+                    segment_summary=best_option.summary,
+                    requires_transfer=requires_transfer,
+                    transfer_from=transfer_from,
+                    transfer_points_from_source=transfer_points_from_source,
+                    transfer_ratio=transfer_ratio,
+                    transfer_ratio_display=transfer_ratio_display,
+                ))
+            else:
+                cash = best_option.cash_price
+                state.spend_cash(cash)
+                
+                assignments.append(BookingAssignment(
+                    segment_id=best_option.segment_id,
+                    segment_type=best_option.segment_type,
+                    assigned_to=best_member.member_id,
+                    assigned_to_name=best_member.member_name,
+                    reason=f"Balanced: cash booking assigned to member with fewer points used",
+                    uses_points=False,
+                    points_program=None,
+                    points_used=0,
+                    cash_amount=cash,
+                    segment_summary=best_option.summary,
+                ))
+        
+        # Log final distribution
+        for member_id, points in member_points_used.items():
+            member_name = next((m.member_name for m in members if m.member_id == member_id), member_id)
+            logger.info(f"[Balanced] {member_name}: {points:,} points used")
+        
+        return assignments
+    
+    def _allocate_single_member(
+        self,
+        segments: list[list[SegmentOption]],
+        member: MemberBookingCapability,
+    ) -> list[BookingAssignment]:
+        """Allocate all segments to a single member."""
+        assignments = []
+        state = MemberState(
+            member_id=member.member_id,
+            remaining_points=dict(member.points),
+            remaining_budget=member.max_cash_budget,
+        )
+        
+        for options in segments:
+            if not options:
+                continue
+            
+            assigned = False
+            
+            # Try award first
+            for option in options:
+                if option.award_available and option.award_points:
+                    if self._can_use_award(state, option) and state.can_afford_cash(option.award_surcharge):
+                        program = option.award_program
+                        points = option.award_points
+                        
+                        # Find transfer source before deducting
+                        transfer_source = self._select_best_transfer_source(
+                            state.remaining_points, program, points
+                        )
+                        
+                        self._deduct_points_from_state(state, program, points)
+                        state.spend_cash(option.award_surcharge)
+                        
+                        # Determine transfer details
+                        requires_transfer = False
+                        transfer_from = None
+                        transfer_points_from_source = None
+                        
+                        if transfer_source and transfer_source.source_program != program:
+                            requires_transfer = True
+                            transfer_from = transfer_source.source_program
+                            transfer_points_from_source = int(points / transfer_source.ratio)
+                        
+                        assignments.append(BookingAssignment(
+                            segment_id=option.segment_id,
+                            segment_type=option.segment_type,
+                            assigned_to=member.member_id,
+                            assigned_to_name=member.member_name,
+                            reason="Single member booking",
+                            uses_points=True,
+                            points_program=program,
+                            points_used=points,
+                            cash_amount=option.award_surcharge,
+                            segment_summary=option.summary,
+                            requires_transfer=requires_transfer,
+                            transfer_from=transfer_from,
+                            transfer_points_from_source=transfer_points_from_source,
+                        ))
+                        assigned = True
+                        break
+            
+            if assigned:
+                continue
+            
+            # Fall back to cash
+            for option in options:
+                if state.can_afford_cash(option.cash_price):
+                    state.spend_cash(option.cash_price)
+                    assignments.append(BookingAssignment(
+                        segment_id=option.segment_id,
+                        segment_type=option.segment_type,
+                        assigned_to=member.member_id,
+                        assigned_to_name=member.member_name,
+                        reason="Single member cash booking",
+                        uses_points=False,
+                        points_program=None,
+                        points_used=0,
+                        cash_amount=option.cash_price,
+                        segment_summary=option.summary,
+                    ))
+                    break
         
         return assignments
     

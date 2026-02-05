@@ -13,6 +13,16 @@ logger = logging.getLogger(__name__)
 DEFAULT_POINTS_VALUE = 0.01  # $0.01 per point
 
 
+def get_user(user_id: str) -> Optional[Dict[str, Any]]:
+    """
+    Get user by ID.
+    
+    Returns:
+        User dict with userId, email, name, etc. or None if not found
+    """
+    return user_repo.get_user_by_id(user_id)
+
+
 def ensure_user_exists(user_id: str, email: Optional[str] = None) -> Dict[str, Any]:
     """
     Ensure user exists in database. Uses conditional write to prevent race conditions.

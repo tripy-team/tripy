@@ -14,6 +14,7 @@ ENHANCED with OOP Reduction Strategies:
 - Surcharge caps (rejects awards where surcharge > 50% of cash price)
 """
 
+import math
 from typing import List, Dict, Tuple, Set, Literal, Optional
 
 try:
@@ -653,6 +654,63 @@ def plan_maximize_points_value(
                 ) <= cap
 
     # ---------------------------
+    # 8) BALANCED ASSIGNMENT CONSTRAINT (for group trips)
+    # ---------------------------
+    # When there are multiple travelers/payers, distribute payment responsibility
+    # evenly so each member contributes. This prevents one person from paying for
+    # everything while others contribute nothing.
+    #
+    # For a group trip with N members and M required segments:
+    # - Each member should pay for approximately M/N segments
+    # - We use ceil(M/N) to ensure full coverage while forcing distribution
+    
+    num_members = len(T)
+    if num_members > 1:
+        # Count how many members have points available (from any source)
+        members_with_points = 0
+        for q in T:
+            has_transferable = any(source_balances.get((q, s), 0) > 0 for s in sources_by_trav.get(q, []))
+            has_native = any(miles_balance.get((q, a), 0) > 0 for a in A)
+            if has_transferable or has_native:
+                members_with_points += 1
+        
+        # Only apply balancing if multiple members have points
+        # If only one member has points, let them use all their points (no balance needed)
+        if members_with_points >= 2:
+            # Calculate minimum required edges for this trip
+            # For a round trip (JFK→SEA→JFK): 2 edges
+            # For multi-destination (JFK→SEA→LAX→JFK): 3 edges
+            min_required_edges = len(must_visit_cities) + 1 if must_visit_cities else 2
+            
+            # Calculate max edges any single member can pay for using points
+            # Use ceiling division to ensure coverage, but force distribution
+            # Example: 2 edges, 2 members -> max 1 each (forces 1+1 split)
+            # Example: 3 edges, 2 members -> max 2 each (allows 2+1 split)
+            max_edges_per_member = math.ceil(min_required_edges / members_with_points)
+            
+            for q in T:
+                # Count how many edges this payer q pays for (via points - transfer or native)
+                edges_paid_by_q = pl.lpSum(
+                    y[(q, p)][(s, a)][e]
+                    for p in T
+                    for (s, a) in y[(q, p)].keys()
+                    for e in edges
+                ) + pl.lpSum(
+                    y_native[(q, p)][a][e]
+                    for p in T
+                    for a in A
+                    for e in edges
+                )
+                
+                # Limit: each member can pay for at most max_edges_per_member edges with points
+                m += edges_paid_by_q <= max_edges_per_member, f"balance_edges_{q}"
+            
+            logger.info(f"ILP balanced assignment: {members_with_points} members with points, "
+                       f"{min_required_edges} required edges, max {max_edges_per_member} edges/member")
+        else:
+            logger.info(f"ILP balanced assignment: skipped (only {members_with_points} member(s) have points)")
+    
+    # ---------------------------
     # OBJECTIVE: Based on optimization_mode
     # ---------------------------
     
@@ -984,8 +1042,9 @@ def plan_maximize_points_value(
               - W_connection * extra_connections_expr
               - transfer_penalty_expr)
 
-    # Solve
-    m.solve(pl.PULP_CBC_CMD(msg=False))
+    # Solve with time limit to prevent indefinite running
+    # 60 seconds is usually enough for most itineraries; complex ones may timeout
+    m.solve(pl.PULP_CBC_CMD(msg=False, timeLimit=60))
 
     # ---------------------------
     # Extract solution (same as original)

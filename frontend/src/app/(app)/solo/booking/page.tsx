@@ -22,6 +22,7 @@ import {
   ExternalLink,
   Copy,
   Check,
+  DollarSign,
 } from 'lucide-react';
 import { solo, trips as tripsAPI, destinations as destinationsAPI, type SoloTransferStrategyResponse, type SoloTransferInstruction, type SoloBookingStep } from '@/lib/api';
 import { calculateServiceFee, SERVICE_FEE_PERCENT, formatDate, tripDurationDays } from '@/lib/utils';
@@ -160,7 +161,7 @@ function SoloBookingContent() {
 
   const [isPaid, setIsPaid] = useState(false);
   const [isProcessing, setIsProcessing] = useState(false);
-  const [trip, setTrip] = useState<{ startDate?: string; endDate?: string; destinations?: string[] } | null>(null);
+  const [trip, setTrip] = useState<{ startDate?: string; endDate?: string; destinations?: string[]; adults?: number; children?: number } | null>(null);
   const [items, setItems] = useState<Record<string, unknown>[]>([]);
   const [destinationMap, setDestinationMap] = useState<Map<string, string>>(new Map());
   const [loading, setLoading] = useState(true);
@@ -184,6 +185,16 @@ function SoloBookingContent() {
         return;
       }
       try {
+        // Check if strategy is already paid
+        try {
+          const strategyStatus = await tripsAPI.getStrategyStatus(tripId);
+          if (strategyStatus.strategy_paid) {
+            setIsPaid(true);
+          }
+        } catch (statusErr) {
+          console.log('Could not check strategy status:', statusErr);
+        }
+        
         // Try to get selection from new solo API first
         let usedSoloApi = false;
         try {
@@ -751,6 +762,19 @@ function SoloBookingContent() {
                     {/* Step 1: Transfer Points */}
                     {transferStrategy.transfers.length > 0 && (
                       <div className="space-y-4">
+                        {/* Party size indicator */}
+                        {trip && ((trip.adults ?? 1) > 1 || (trip.children ?? 0) > 0) && (
+                          <div className="flex items-center gap-2 px-4 py-2 bg-indigo-50 border border-indigo-100 rounded-lg text-sm">
+                            <span className="text-indigo-600 font-medium">👥 Booking for:</span>
+                            <span className="text-slate-700">
+                              {trip.adults ?? 1} {(trip.adults ?? 1) === 1 ? 'adult' : 'adults'}
+                              {(trip.children ?? 0) > 0 && (
+                                <>, {trip.children} {trip.children === 1 ? 'child' : 'children'}</>
+                              )}
+                            </span>
+                            <span className="text-slate-500">• Point totals below are for entire party</span>
+                          </div>
+                        )}
                         <div className="flex items-center gap-3">
                           <div className="flex-shrink-0 w-10 h-10 rounded-full bg-gradient-to-br from-blue-500 to-indigo-600 text-white flex items-center justify-center font-bold text-lg shadow-lg">1</div>
                           <div>
@@ -921,9 +945,9 @@ function SoloBookingContent() {
                                                 )}
                                               </div>
                                               <div className="flex-1 flex items-center px-2">
-                                                <div className="flex-1 h-px bg-slate-300"></div>
-                                                <Plane className="w-5 h-5 text-blue-500 mx-2 rotate-90" />
-                                                <div className="flex-1 h-px bg-slate-300"></div>
+                                                <div className="flex-1 h-1 bg-gradient-to-r from-blue-200 to-blue-400 rounded-full"></div>
+                                                <Plane className="w-5 h-5 text-blue-600 mx-2 rotate-90" />
+                                                <div className="flex-1 h-1 bg-gradient-to-r from-blue-400 to-blue-200 rounded-full"></div>
                                               </div>
                                               <div className="text-right">
                                                 <div className="text-2xl font-bold text-slate-900">{booking.destination || '---'}</div>
@@ -1226,6 +1250,19 @@ function SoloBookingContent() {
                     {/* Legacy Step 1: Transfer Summary - Condensed view of all transfers by card */}
                     {transferSummaries.length > 0 && (
                       <div className="space-y-4">
+                        {/* Party size indicator (legacy) */}
+                        {trip && ((trip.adults ?? 1) > 1 || (trip.children ?? 0) > 0) && (
+                          <div className="flex items-center gap-2 px-4 py-2 bg-indigo-50 border border-indigo-100 rounded-lg text-sm">
+                            <span className="text-indigo-600 font-medium">👥 Booking for:</span>
+                            <span className="text-slate-700">
+                              {trip.adults ?? 1} {(trip.adults ?? 1) === 1 ? 'adult' : 'adults'}
+                              {(trip.children ?? 0) > 0 && (
+                                <>, {trip.children} {trip.children === 1 ? 'child' : 'children'}</>
+                              )}
+                            </span>
+                            <span className="text-slate-500">• Point totals below are for entire party</span>
+                          </div>
+                        )}
                         <div className="flex items-center gap-3">
                           <div className="flex-shrink-0 w-8 h-8 rounded-full bg-gradient-to-br from-blue-500 to-blue-600 text-white flex items-center justify-center font-bold text-sm shadow-md">1</div>
                           <div>
@@ -1533,25 +1570,555 @@ function SoloBookingContent() {
                   </>
                 ) : (
                   <div className="space-y-4">
-                    <div className="p-5 bg-amber-50 border border-amber-200 rounded-xl">
-                      <div className="flex items-start gap-3">
-                        <Info className="w-5 h-5 text-amber-600 flex-shrink-0 mt-0.5" />
-                        <div>
-                          <h3 className="font-semibold text-amber-900 mb-2">No detailed flight data available</h3>
-                          <p className="text-amber-800 text-sm">
-                            We couldn't find specific flight and transfer information. Please return to the Results page to regenerate your itinerary with valid dates and major airports.
-                          </p>
+                    {/* Cash-only booking instructions when no points are being used */}
+                    {!hasPointsPayments && cashPrice > 0 ? (
+                      <>
+                        <div className="p-5 bg-emerald-50 border border-emerald-200 rounded-xl">
+                          <div className="flex items-start gap-3">
+                            <DollarSign className="w-5 h-5 text-emerald-600 flex-shrink-0 mt-0.5" />
+                            <div>
+                              <h3 className="font-semibold text-emerald-900 mb-2">Cash Booking</h3>
+                              <p className="text-emerald-800 text-sm">
+                                This itinerary is best booked with cash. No points transfers are needed.
+                              </p>
+                            </div>
+                          </div>
                         </div>
-                      </div>
-                    </div>
-                    <div className="p-4 bg-slate-50 rounded-xl">
-                      <h3 className="font-semibold text-slate-900 mb-2">General guidance</h3>
-                      <ul className="text-slate-600 text-sm space-y-1 list-disc list-inside">
-                        <li>Search for award flights on airline websites</li>
-                        <li>Transfer points from Chase, Amex, or Citi to airline partners</li>
-                        <li>Book quickly as award seats disappear fast</li>
-                      </ul>
-                    </div>
+                        
+                        {/* Flight Details - First check outer flightSegments from payment records */}
+                        {flightSegments.length > 0 ? (
+                          <div className="space-y-4">
+                            <div className="flex items-center gap-3">
+                              <div className="flex-shrink-0 w-10 h-10 rounded-full bg-gradient-to-br from-blue-500 to-indigo-600 text-white flex items-center justify-center font-bold text-lg shadow-lg">1</div>
+                              <div>
+                                <h3 className="text-lg font-bold text-slate-900">Book Your Flights</h3>
+                                <p className="text-sm text-slate-500">{flightSegments.length} flight{flightSegments.length > 1 ? 's' : ''} to book</p>
+                              </div>
+                            </div>
+                            
+                            <div className="ml-[52px] space-y-4">
+                              {flightSegments.map((seg, idx) => {
+                                const origin = seg.orig;
+                                const destination = seg.dest;
+                                const airline = seg.marketingAirlineName || '';
+                                const airlineCode = seg.marketingCode || '';
+                                const flightNum = seg.flightNumber || '';
+                                const departure = seg.departureTime;
+                                const arrival = seg.arrivalTime;
+                                const price = seg.fare || 0;
+                                const isCodeshare = seg.isCodeshare;
+                                const operatingAirline = seg.operatingAirlineName || '';
+                                
+                                return (
+                                  <div key={idx} className="bg-white rounded-2xl border border-slate-200 shadow-sm overflow-hidden">
+                                    {/* Header */}
+                                    <div className="px-4 py-3 bg-blue-50 border-b border-blue-100">
+                                      <div className="flex items-center justify-between">
+                                        <div className="flex items-center gap-2">
+                                          <Plane className="w-4 h-4 text-blue-600" />
+                                          <span className="font-semibold text-blue-800">Flight {idx + 1}</span>
+                                          {isCodeshare && operatingAirline && (
+                                            <span className="text-xs bg-amber-100 text-amber-700 px-2 py-0.5 rounded-full">
+                                              Codeshare
+                                            </span>
+                                          )}
+                                        </div>
+                                        {price > 0 && <span className="text-lg font-bold text-slate-900">${price.toLocaleString()}</span>}
+                                      </div>
+                                    </div>
+                                    
+                                    {/* Flight Details */}
+                                    <div className="p-4 space-y-4">
+                                      {/* Route Display */}
+                                      <div className="flex items-center justify-between">
+                                        <div className="text-center">
+                                          <div className="text-2xl font-bold text-slate-900">{origin}</div>
+                                          {departure && <div className="text-sm text-slate-500">{formatTime(departure)}</div>}
+                                        </div>
+                                        <div className="flex-1 flex items-center px-4">
+                                          <div className="flex-1 h-1.5 bg-gradient-to-r from-blue-300 to-blue-500 rounded-full"></div>
+                                          <div className="px-3 text-center">
+                                            <Plane className="w-5 h-5 text-blue-600 mx-auto rotate-90" />
+                                          </div>
+                                          <div className="flex-1 h-1.5 bg-gradient-to-r from-blue-500 to-blue-300 rounded-full"></div>
+                                        </div>
+                                        <div className="text-center">
+                                          <div className="text-2xl font-bold text-slate-900">{destination}</div>
+                                          {arrival && <div className="text-sm text-slate-500">{formatTime(arrival)}</div>}
+                                        </div>
+                                      </div>
+                                      
+                                      {/* Flight Info Grid */}
+                                      {(airline || flightNum) && (
+                                        <div className="grid grid-cols-2 md:grid-cols-3 gap-3 pt-3 border-t border-slate-100">
+                                          {airline && (
+                                            <div className="p-3 bg-slate-50 rounded-lg">
+                                              <div className="text-xs text-slate-500 mb-1">Airline</div>
+                                              <div className="font-semibold text-slate-900">{airline}</div>
+                                            </div>
+                                          )}
+                                          {flightNum && (
+                                            <div className="p-3 bg-slate-50 rounded-lg">
+                                              <div className="text-xs text-slate-500 mb-1">Flight</div>
+                                              <div className="font-semibold text-slate-900">{airlineCode} {flightNum}</div>
+                                            </div>
+                                          )}
+                                          {isCodeshare && operatingAirline && (
+                                            <div className="p-3 bg-amber-50 rounded-lg">
+                                              <div className="text-xs text-amber-600 mb-1">Operated by</div>
+                                              <div className="font-semibold text-amber-900">{operatingAirline}</div>
+                                            </div>
+                                          )}
+                                        </div>
+                                      )}
+                                      
+                                      {/* Booking Link */}
+                                      <div className="pt-3">
+                                        <a
+                                          href={`https://www.google.com/travel/flights?q=flights%20from%20${encodeURIComponent(origin)}%20to%20${encodeURIComponent(destination)}${startDate ? `%20on%20${encodeURIComponent(startDate)}` : ''}`}
+                                          target="_blank"
+                                          rel="noopener noreferrer"
+                                          className="flex items-center justify-center gap-2 w-full py-3 bg-blue-600 hover:bg-blue-700 text-white rounded-xl font-semibold text-sm transition-colors"
+                                        >
+                                          <Plane className="w-4 h-4" />
+                                          Book this flight on Google Flights
+                                          <ExternalLink className="w-4 h-4" />
+                                        </a>
+                                      </div>
+                                    </div>
+                                  </div>
+                                );
+                              })}
+                            </div>
+                            
+                            {/* Total Cost */}
+                            <div className="ml-[52px] p-4 bg-emerald-50 rounded-xl border border-emerald-200">
+                              <div className="flex items-center justify-between">
+                                <span className="font-medium text-emerald-900">Total Estimated Cost</span>
+                                <span className="text-xl font-bold text-emerald-700">${cashPrice.toLocaleString()}</span>
+                              </div>
+                              <p className="text-xs text-emerald-700 mt-1">Book directly with airlines or through travel sites</p>
+                            </div>
+                          </div>
+                        ) : (
+                        /* Fall back to Flight Details from Snapshot */
+                        (() => {
+                          // Extract flight segments from snapshot
+                          const snapshotSegments = (soloSnapshot?.segments || selection?.itinerarySnapshot?.segments || []) as Array<{
+                            type?: string;
+                            segment?: string; // e.g., "JFK → LAX"
+                            origin?: string;
+                            destination?: string;
+                            airline?: string;
+                            flightNumber?: string;
+                            flight_number?: string;
+                            departureTime?: string;
+                            departure_time?: string;
+                            arrivalTime?: string;
+                            arrival_time?: string;
+                            cabinClass?: string;
+                            cabin_class?: string;
+                            cashPrice?: number;
+                            cash_price?: number;
+                            paymentMethod?: string;
+                            payment_method?: string;
+                            durationMinutes?: number;
+                            duration_minutes?: number;
+                            stops?: number;
+                            legs?: Array<{
+                              origin?: string;
+                              destination?: string;
+                              flightNumber?: string;
+                              flight_number?: string;
+                              departureTime?: string;
+                              departure_time?: string;
+                              arrivalTime?: string;
+                              arrival_time?: string;
+                              marketingCarrier?: string;
+                              marketing_carrier?: string;
+                            }>;
+                          }>;
+                          
+                          // Filter for flight segments (type === 'flight' or not set, excluding hotels)
+                          const flightSegments = snapshotSegments.filter(s => s.type === 'flight' || (!s.type && s.type !== 'hotel'));
+                          
+                          // Helper to parse origin/destination from segment string like "JFK → LAX" or "JFK → AMS → LAX"
+                          const parseSegmentRoute = (seg: typeof flightSegments[0]) => {
+                            // Try dedicated fields first
+                            if (seg.origin && seg.destination) {
+                              return { origin: seg.origin, destination: seg.destination };
+                            }
+                            // Parse from segment string
+                            const segStr = seg.segment || '';
+                            const parts = segStr.split(/\s*→\s*/).map(s => s.trim()).filter(Boolean);
+                            if (parts.length >= 2) {
+                              return { origin: parts[0], destination: parts[parts.length - 1] };
+                            }
+                            return { origin: '', destination: '' };
+                          };
+                          
+                          if (flightSegments.length === 0) {
+                            // Check if we have any segments at all to show route info
+                            const allSegments = snapshotSegments;
+                            if (allSegments.length > 0) {
+                              // We have segments but they might not be typed as 'flight' - show them anyway
+                              return (
+                                <div className="space-y-4">
+                                  <div className="flex items-center gap-3">
+                                    <div className="flex-shrink-0 w-10 h-10 rounded-full bg-gradient-to-br from-blue-500 to-indigo-600 text-white flex items-center justify-center font-bold text-lg shadow-lg">1</div>
+                                    <div>
+                                      <h3 className="text-lg font-bold text-slate-900">Book Your Flights</h3>
+                                      <p className="text-sm text-slate-500">{allSegments.length} flight{allSegments.length > 1 ? 's' : ''} to book</p>
+                                    </div>
+                                  </div>
+                                  
+                                  <div className="ml-[52px] space-y-4">
+                                    {allSegments.map((seg, idx) => {
+                                      const { origin, destination } = parseSegmentRoute(seg);
+                                      const price = seg.cashPrice || seg.cash_price || 0;
+                                      const segmentLabel = seg.segment || `${origin} → ${destination}`;
+                                      
+                                      return (
+                                        <div key={idx} className="bg-white rounded-2xl border border-slate-200 shadow-sm overflow-hidden">
+                                          <div className="px-4 py-3 bg-blue-50 border-b border-blue-100">
+                                            <div className="flex items-center justify-between">
+                                              <div className="flex items-center gap-2">
+                                                <Plane className="w-4 h-4 text-blue-600" />
+                                                <span className="font-semibold text-blue-800">Flight {idx + 1}</span>
+                                              </div>
+                                              {price > 0 && <span className="text-lg font-bold text-slate-900">${price.toLocaleString()}</span>}
+                                            </div>
+                                          </div>
+                                          
+                                          <div className="p-4 space-y-4">
+                                            <div className="flex items-center justify-between">
+                                              <div className="text-center">
+                                                <div className="text-2xl font-bold text-slate-900">{origin || '—'}</div>
+                                              </div>
+                                              <div className="flex-1 flex items-center px-4">
+                                                <div className="flex-1 h-1.5 bg-gradient-to-r from-blue-300 to-blue-500 rounded-full"></div>
+                                                <div className="px-3 text-center">
+                                                  <Plane className="w-5 h-5 text-blue-600 mx-auto rotate-90" />
+                                                </div>
+                                                <div className="flex-1 h-1.5 bg-gradient-to-r from-blue-500 to-blue-300 rounded-full"></div>
+                                              </div>
+                                              <div className="text-center">
+                                                <div className="text-2xl font-bold text-slate-900">{destination || '—'}</div>
+                                              </div>
+                                            </div>
+                                            
+                                            {segmentLabel && segmentLabel !== `${origin} → ${destination}` && (
+                                              <div className="text-sm text-slate-600 text-center">{segmentLabel}</div>
+                                            )}
+                                            
+                                            {origin && destination && (
+                                              <div className="pt-3">
+                                                <a
+                                                  href={`https://www.google.com/travel/flights?q=flights%20from%20${encodeURIComponent(origin)}%20to%20${encodeURIComponent(destination)}`}
+                                                  target="_blank"
+                                                  rel="noopener noreferrer"
+                                                  className="flex items-center justify-center gap-2 w-full py-3 bg-blue-600 hover:bg-blue-700 text-white rounded-xl font-semibold text-sm transition-colors"
+                                                >
+                                                  <Plane className="w-4 h-4" />
+                                                  Search on Google Flights
+                                                  <ExternalLink className="w-3 h-3" />
+                                                </a>
+                                              </div>
+                                            )}
+                                          </div>
+                                        </div>
+                                      );
+                                    })}
+                                  </div>
+                                </div>
+                              );
+                            }
+                            
+                            // No segments at all - show route-based booking info using routeLabels
+                            // routeLabels contains the full route: [origin, dest1, dest2, ..., return]
+                            const routeForDisplay = routeLabels.length > 0 ? routeLabels : [];
+                            const hasRoute = routeForDisplay.length >= 2;
+                            
+                            // Build flight segments from route labels (e.g., SEA -> AMS, AMS -> SEA)
+                            const routeSegments: { from: string; to: string }[] = [];
+                            for (let i = 0; i < routeForDisplay.length - 1; i++) {
+                              routeSegments.push({ from: routeForDisplay[i], to: routeForDisplay[i + 1] });
+                            }
+                            
+                            return (
+                              <div className="space-y-4">
+                                {hasRoute ? (
+                                  <>
+                                    <div className="flex items-center gap-3">
+                                      <div className="flex-shrink-0 w-10 h-10 rounded-full bg-gradient-to-br from-blue-500 to-indigo-600 text-white flex items-center justify-center font-bold text-lg shadow-lg">1</div>
+                                      <div>
+                                        <h3 className="text-lg font-bold text-slate-900">Book Your Flights</h3>
+                                        <p className="text-sm text-slate-500">{routeSegments.length} flight{routeSegments.length > 1 ? 's' : ''} to book</p>
+                                      </div>
+                                    </div>
+                                    
+                                    <div className="ml-[52px] space-y-4">
+                                      {routeSegments.map((seg, idx) => (
+                                        <div key={idx} className="bg-white rounded-2xl border border-slate-200 shadow-sm overflow-hidden">
+                                          <div className="px-4 py-3 bg-blue-50 border-b border-blue-100">
+                                            <div className="flex items-center gap-2">
+                                              <Plane className="w-4 h-4 text-blue-600" />
+                                              <span className="font-semibold text-blue-800">Flight {idx + 1}</span>
+                                            </div>
+                                          </div>
+                                          
+                                          <div className="p-4 space-y-4">
+                                            <div className="flex items-center justify-between">
+                                              <div className="text-center">
+                                                <div className="text-2xl font-bold text-slate-900">{seg.from}</div>
+                                                {startDate && idx === 0 && <div className="text-sm text-slate-500">{startLabel}</div>}
+                                              </div>
+                                              <div className="flex-1 flex items-center px-4">
+                                                <div className="flex-1 h-1.5 bg-gradient-to-r from-blue-300 to-blue-500 rounded-full"></div>
+                                                <div className="px-3">
+                                                  <Plane className="w-5 h-5 text-blue-600 rotate-90" />
+                                                </div>
+                                                <div className="flex-1 h-1.5 bg-gradient-to-r from-blue-500 to-blue-300 rounded-full"></div>
+                                              </div>
+                                              <div className="text-center">
+                                                <div className="text-2xl font-bold text-slate-900">{seg.to}</div>
+                                                {endDate && idx === routeSegments.length - 1 && <div className="text-sm text-slate-500">{endLabel}</div>}
+                                              </div>
+                                            </div>
+                                            
+                                            <div className="pt-3">
+                                              <a
+                                                href={`https://www.google.com/travel/flights?q=flights%20from%20${encodeURIComponent(seg.from)}%20to%20${encodeURIComponent(seg.to)}${startDate && idx === 0 ? `%20on%20${encodeURIComponent(startDate)}` : ''}${endDate && idx === routeSegments.length - 1 ? `%20on%20${encodeURIComponent(endDate)}` : ''}`}
+                                                target="_blank"
+                                                rel="noopener noreferrer"
+                                                className="flex items-center justify-center gap-2 w-full py-3 bg-blue-600 hover:bg-blue-700 text-white rounded-xl font-semibold text-sm transition-colors"
+                                              >
+                                                <Plane className="w-4 h-4" />
+                                                Book {seg.from} → {seg.to} on Google Flights
+                                                <ExternalLink className="w-3 h-3" />
+                                              </a>
+                                            </div>
+                                          </div>
+                                        </div>
+                                      ))}
+                                    </div>
+                                    
+                                    <div className="ml-[52px] p-4 bg-emerald-50 rounded-xl border border-emerald-200">
+                                      <div className="flex items-center justify-between">
+                                        <span className="font-medium text-emerald-900">Total Estimated Cost</span>
+                                        <span className="text-xl font-bold text-emerald-700">${cashPrice.toLocaleString()}</span>
+                                      </div>
+                                      <p className="text-xs text-emerald-700 mt-1">Book directly with airlines or through travel sites</p>
+                                    </div>
+                                  </>
+                                ) : (
+                                  <div className="p-4 bg-amber-50 border border-amber-200 rounded-xl">
+                                    <div className="flex items-start gap-3">
+                                      <Info className="w-5 h-5 text-amber-600 flex-shrink-0 mt-0.5" />
+                                      <div>
+                                        <p className="text-sm text-amber-900 font-medium mb-2">
+                                          Route information unavailable
+                                        </p>
+                                        <p className="text-sm text-amber-800">
+                                          Please return to the Results page to view your itinerary details.
+                                        </p>
+                                      </div>
+                                    </div>
+                                  </div>
+                                )}
+                              </div>
+                            );
+                          }
+                          
+                          return (
+                            <div className="space-y-4">
+                              <div className="flex items-center gap-3">
+                                <div className="flex-shrink-0 w-10 h-10 rounded-full bg-gradient-to-br from-blue-500 to-indigo-600 text-white flex items-center justify-center font-bold text-lg shadow-lg">1</div>
+                                <div>
+                                  <h3 className="text-lg font-bold text-slate-900">Book Your Flights</h3>
+                                  <p className="text-sm text-slate-500">{flightSegments.length} flight{flightSegments.length > 1 ? 's' : ''} to book with cash</p>
+                                </div>
+                              </div>
+                              
+                              <div className="ml-[52px] space-y-4">
+                                {flightSegments.map((seg, idx) => {
+                                  // Use parseSegmentRoute to get origin/destination from segment string if not available
+                                  const parsed = parseSegmentRoute(seg);
+                                  const origin = parsed.origin;
+                                  const destination = parsed.destination;
+                                  const airline = seg.airline || '';
+                                  const flightNum = seg.flightNumber || seg.flight_number || '';
+                                  const departure = seg.departureTime || seg.departure_time || '';
+                                  const arrival = seg.arrivalTime || seg.arrival_time || '';
+                                  const cabin = seg.cabinClass || seg.cabin_class || '';
+                                  const price = seg.cashPrice || seg.cash_price || 0;
+                                  const duration = seg.durationMinutes || seg.duration_minutes || 0;
+                                  const stops = seg.stops || 0;
+                                  const legs = seg.legs || [];
+                                  const segmentLabel = seg.segment || '';
+                                  
+                                  // Format times
+                                  const formatTime = (isoStr: string) => {
+                                    if (!isoStr) return '';
+                                    try {
+                                      return new Date(isoStr).toLocaleString('en-US', {
+                                        weekday: 'short', month: 'short', day: 'numeric',
+                                        hour: 'numeric', minute: '2-digit'
+                                      });
+                                    } catch { return isoStr; }
+                                  };
+                                  
+                                  // Format duration
+                                  const formatDuration = (mins: number) => {
+                                    if (!mins) return '';
+                                    const h = Math.floor(mins / 60);
+                                    const m = mins % 60;
+                                    return h > 0 ? `${h}h ${m}m` : `${m}m`;
+                                  };
+                                  
+                                  return (
+                                    <div key={idx} className="bg-white rounded-2xl border border-slate-200 shadow-sm overflow-hidden">
+                                      {/* Header */}
+                                      <div className="px-4 py-3 bg-blue-50 border-b border-blue-100">
+                                        <div className="flex items-center justify-between">
+                                          <div className="flex items-center gap-2">
+                                            <Plane className="w-4 h-4 text-blue-600" />
+                                            <span className="font-semibold text-blue-800">Flight {idx + 1}</span>
+                                            {stops > 0 && (
+                                              <span className="text-xs bg-amber-100 text-amber-700 px-2 py-0.5 rounded-full">
+                                                {stops} stop{stops > 1 ? 's' : ''}
+                                              </span>
+                                            )}
+                                          </div>
+                                          <span className="text-lg font-bold text-slate-900">${price.toLocaleString()}</span>
+                                        </div>
+                                      </div>
+                                      
+                                      {/* Flight Details */}
+                                      <div className="p-4 space-y-4">
+                                        {/* Route Display */}
+                                        {origin && destination ? (
+                                          <div className="flex items-center justify-between">
+                                            <div className="text-center">
+                                              <div className="text-2xl font-bold text-slate-900">{origin}</div>
+                                              {departure && <div className="text-sm text-slate-500">{formatTime(departure)}</div>}
+                                            </div>
+                                            <div className="flex-1 flex items-center px-4">
+                                              <div className="flex-1 h-1.5 bg-gradient-to-r from-blue-300 to-blue-500 rounded-full"></div>
+                                              <div className="px-3 text-center">
+                                                <Plane className="w-5 h-5 text-blue-600 mx-auto rotate-90" />
+                                                {duration > 0 && <div className="text-xs text-slate-500 mt-1">{formatDuration(duration)}</div>}
+                                              </div>
+                                              <div className="flex-1 h-1.5 bg-gradient-to-r from-blue-500 to-blue-300 rounded-full"></div>
+                                            </div>
+                                            <div className="text-center">
+                                              <div className="text-2xl font-bold text-slate-900">{destination}</div>
+                                              {arrival && <div className="text-sm text-slate-500">{formatTime(arrival)}</div>}
+                                            </div>
+                                          </div>
+                                        ) : segmentLabel ? (
+                                          <div className="text-center py-2">
+                                            <div className="text-xl font-bold text-slate-900">{segmentLabel}</div>
+                                          </div>
+                                        ) : null}
+                                        
+                                        {/* Flight Info Grid - only show if we have at least one detail */}
+                                        {(airline || flightNum || cabin) && (
+                                          <div className="grid grid-cols-2 md:grid-cols-3 gap-3 pt-3 border-t border-slate-100">
+                                            {airline && (
+                                              <div className="p-3 bg-slate-50 rounded-lg">
+                                                <div className="text-xs text-slate-500 mb-1">Airline</div>
+                                                <div className="font-semibold text-slate-900">{airline}</div>
+                                              </div>
+                                            )}
+                                            {flightNum && (
+                                              <div className="p-3 bg-slate-50 rounded-lg">
+                                                <div className="text-xs text-slate-500 mb-1">Flight</div>
+                                                <div className="font-semibold text-slate-900">{flightNum}</div>
+                                              </div>
+                                            )}
+                                            {cabin && (
+                                              <div className="p-3 bg-slate-50 rounded-lg">
+                                                <div className="text-xs text-slate-500 mb-1">Cabin</div>
+                                                <div className="font-semibold text-slate-900">{cabin}</div>
+                                              </div>
+                                            )}
+                                          </div>
+                                        )}
+                                        
+                                        {/* Multi-leg flight details */}
+                                        {legs.length > 1 && (
+                                          <div className="pt-3 border-t border-slate-100">
+                                            <div className="text-sm font-medium text-slate-700 mb-2">Flight Segments:</div>
+                                            <div className="space-y-2">
+                                              {legs.map((leg, legIdx) => (
+                                                <div key={legIdx} className="flex items-center gap-2 text-sm text-slate-600 bg-slate-50 rounded-lg p-2">
+                                                  <span className="font-medium">{leg.origin} → {leg.destination}</span>
+                                                  {(leg.flightNumber || leg.flight_number) && (
+                                                    <span className="text-slate-400">({leg.marketingCarrier || leg.marketing_carrier || ''} {leg.flightNumber || leg.flight_number})</span>
+                                                  )}
+                                                </div>
+                                              ))}
+                                            </div>
+                                          </div>
+                                        )}
+                                        
+                                        {/* Booking Link */}
+                                        {origin && destination && (
+                                          <div className="pt-3">
+                                            <a
+                                              href={`https://www.google.com/travel/flights?q=flights%20from%20${encodeURIComponent(origin)}%20to%20${encodeURIComponent(destination)}`}
+                                              target="_blank"
+                                              rel="noopener noreferrer"
+                                              className="flex items-center justify-center gap-2 w-full py-3 bg-blue-600 hover:bg-blue-700 text-white rounded-xl font-semibold text-sm transition-colors"
+                                            >
+                                              <Plane className="w-4 h-4" />
+                                              Search on Google Flights
+                                              <ExternalLink className="w-4 h-4" />
+                                            </a>
+                                          </div>
+                                        )}
+                                      </div>
+                                    </div>
+                                  );
+                                })}
+                              </div>
+                              
+                              {/* Total Cost */}
+                              <div className="ml-[52px] p-4 bg-emerald-50 rounded-xl border border-emerald-200">
+                                <div className="flex items-center justify-between">
+                                  <span className="font-medium text-emerald-900">Total Estimated Cost</span>
+                                  <span className="text-xl font-bold text-emerald-700">${cashPrice.toLocaleString()}</span>
+                                </div>
+                                <p className="text-xs text-emerald-700 mt-1">Book directly with airlines or through travel sites</p>
+                              </div>
+                            </div>
+                          );
+                        })())}
+                      </>
+                    ) : (
+                      <>
+                        <div className="p-5 bg-amber-50 border border-amber-200 rounded-xl">
+                          <div className="flex items-start gap-3">
+                            <Info className="w-5 h-5 text-amber-600 flex-shrink-0 mt-0.5" />
+                            <div>
+                              <h3 className="font-semibold text-amber-900 mb-2">Booking Information Unavailable</h3>
+                              <p className="text-amber-800 text-sm">
+                                We couldn&apos;t load the detailed booking steps. Please return to the Results page and re-select your itinerary.
+                              </p>
+                            </div>
+                          </div>
+                        </div>
+                        <div className="p-4 bg-slate-50 rounded-xl">
+                          <h3 className="font-semibold text-slate-900 mb-2">General guidance</h3>
+                          <ul className="text-slate-600 text-sm space-y-1 list-disc list-inside">
+                            <li>Search for flights on Google Flights or airline websites</li>
+                            <li>If using points, transfer from your credit card programs to airlines</li>
+                            <li>Book quickly as prices and availability change frequently</li>
+                          </ul>
+                        </div>
+                      </>
+                    )}
                   </div>
                 )}
               </div>

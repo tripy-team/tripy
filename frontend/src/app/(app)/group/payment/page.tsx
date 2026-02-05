@@ -9,6 +9,7 @@ import {
   Sparkles
 } from 'lucide-react';
 import { generateItinerary, trips } from '@/lib/api';
+import { TripGenerationLoader } from '@/components/ui/TripGenerationLoader';
 import { tripDurationDays, calculateServiceFee, SERVICE_FEE_PERCENT } from '@/lib/utils';
 
 export default function GroupPayment() {
@@ -17,14 +18,23 @@ export default function GroupPayment() {
   const tripId = searchParams?.get('tripId') || searchParams?.get('trip_id') || '';
   
   const [isProcessing, setIsProcessing] = useState(false);
+  const [isGenerating, setIsGenerating] = useState(false);
   const [isPaid, setIsPaid] = useState(false);
+  const [isAlreadyGenerated, setIsAlreadyGenerated] = useState(false);
   const [error, setError] = useState<string | null>(null);
-  const [trip, setTrip] = useState<{ startDate?: string; endDate?: string; destinations?: string[] } | null>(null);
+  const [trip, setTrip] = useState<{ startDate?: string; endDate?: string; destinations?: string[]; optimizationGenerated?: boolean; strategyPaid?: boolean } | null>(null);
   const [groupSize, setGroupSize] = useState(4);
 
   useEffect(() => {
     if (!tripId) return;
-    trips.get(tripId).then(setTrip).catch(() => setTrip(null));
+    trips.get(tripId).then((tripData) => {
+      setTrip(tripData);
+      // Check if optimization was already generated or strategy already paid
+      if (tripData.optimizationGenerated || tripData.strategyPaid) {
+        setIsAlreadyGenerated(true);
+        setIsPaid(true);
+      }
+    }).catch(() => setTrip(null));
     trips.listMembers(tripId).then((r) => setGroupSize(r.members?.length || 4)).catch(() => {});
   }, [tripId]);
 
@@ -57,7 +67,11 @@ export default function GroupPayment() {
     setError(null);
     try {
       // Simulate payment processing
-      await new Promise(resolve => setTimeout(resolve, 2000));
+      await new Promise(resolve => setTimeout(resolve, 1500));
+      
+      // Show generation loader and start generating
+      setIsProcessing(false);
+      setIsGenerating(true);
       
       // Generate itinerary after payment
       if (tripId) {
@@ -84,13 +98,9 @@ export default function GroupPayment() {
         }
       }
       
-      setIsProcessing(false);
       setIsPaid(true);
       
-      // Redirect to results after success
-      setTimeout(() => {
-        router.push(`/group/results?tripId=${tripId}`);
-      }, 1500);
+      // The loader will handle the redirect after showing completion
     } catch (err) {
       if (process.env.NODE_ENV === 'development') {
         console.error('[GroupPayment] generateItinerary failed', {
@@ -98,14 +108,28 @@ export default function GroupPayment() {
           error: err instanceof Error ? err.message : String(err),
         });
       }
-      setIsProcessing(false);
+      setIsGenerating(false);
       const msg = err instanceof Error ? err.message : 'Failed to generate itinerary. Please try again.';
       setError(msg);
     }
   };
+  
+  // Handle generation complete - redirect to results
+  const handleGenerationComplete = () => {
+    setIsGenerating(false);
+    router.push(`/group/results?tripId=${tripId}`);
+  };
 
   return (
     <div className="min-h-screen bg-slate-50 pb-20">
+      {/* Trip Generation Progress Loader */}
+      <TripGenerationLoader 
+        isVisible={isGenerating} 
+        isComplete={isPaid}
+        onComplete={handleGenerationComplete}
+        estimatedDuration={20000}
+      />
+      
       {/* Header */}
       <div className="bg-white border-b border-slate-200">
         <div className="max-w-4xl mx-auto px-6 py-8">
@@ -257,11 +281,13 @@ export default function GroupPayment() {
                   
                   <button
                     onClick={handlePayment}
-                    disabled={isProcessing}
+                    disabled={isProcessing || isGenerating}
                     className="w-full py-4 bg-blue-600 hover:bg-blue-700 text-white rounded-xl font-bold text-lg shadow-lg shadow-blue-600/20 transition-all flex items-center justify-center gap-2 disabled:opacity-70 disabled:cursor-not-allowed"
                   >
                     {isProcessing ? (
-                      <>Processing...</>
+                      <>Processing payment...</>
+                    ) : isGenerating ? (
+                      <>Generating trip...</>
                     ) : (
                       <>
                         <CreditCard className="w-5 h-5" /> Pay & Generate
@@ -273,6 +299,22 @@ export default function GroupPayment() {
                      <div className="w-8 h-5 bg-slate-200 rounded"></div>
                      <div className="w-8 h-5 bg-slate-200 rounded"></div>
                   </div>
+                </div>
+              ) : isAlreadyGenerated ? (
+                <div className="text-center py-6">
+                  <div className="w-16 h-16 bg-amber-100 rounded-full flex items-center justify-center mx-auto mb-4">
+                    <CheckCircle className="w-8 h-8 text-amber-600" />
+                  </div>
+                  <h3 className="text-lg font-bold text-slate-900 mb-2">Already Generated</h3>
+                  <p className="text-sm text-slate-600 mb-4">
+                    Optimization has already been run for this trip.
+                  </p>
+                  <button 
+                    onClick={() => router.push(`/group/results?tripId=${tripId}`)}
+                    className="w-full py-3 bg-blue-600 hover:bg-blue-700 text-white rounded-xl font-semibold transition-colors"
+                  >
+                    View Results
+                  </button>
                 </div>
               ) : (
                 <div className="text-center py-6">

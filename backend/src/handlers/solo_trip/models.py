@@ -61,13 +61,27 @@ class TripInput:
     end_date: Optional[date] = None
     flexible_dates: bool = False
     duration_days: Optional[int] = None
-    max_budget: Optional[float] = None
+    max_budget: Optional[float] = None  # Total budget for entire party
     points_balances: Dict[str, int] = field(default_factory=dict)
     cabin_class: CabinClass = CabinClass.ECONOMY
     include_hotels: bool = False
     hotel_class: Optional[str] = None
     num_bags: int = 0
     one_way: bool = False
+    
+    # Party size fields
+    num_adults: int = 1
+    num_children: int = 0
+    
+    @property
+    def party_size(self) -> int:
+        """Total number of travelers in the party."""
+        return self.num_adults + self.num_children
+    
+    @property
+    def pax(self) -> int:
+        """Alias for party_size, used in flight API calls."""
+        return self.party_size
 
 
 @dataclass
@@ -579,11 +593,16 @@ class Itinerary:
     flight_segments: List[FlightSegment] = field(default_factory=list)
     transfer_plan: Optional[TransferPlan] = None
     
-    # Totals (ALL REAL)
+    # Totals (ALL REAL) - These are TOTAL for the party
     total_oop: float = 0.0
     total_cash: float = 0.0
     total_surcharges: float = 0.0
     points_used: Dict[str, int] = field(default_factory=dict)
+    
+    # Party size
+    party_size: int = 1
+    num_adults: int = 1
+    num_children: int = 0
     
     # Route
     origin: str = ""
@@ -620,6 +639,9 @@ class Itinerary:
             "total_cash": self.total_cash,
             "total_surcharges": self.total_surcharges,
             "points_used": self.points_used,
+            "party_size": self.party_size,
+            "num_adults": self.num_adults,
+            "num_children": self.num_children,
             "origin": self.origin,
             "destination": self.destination,
             "stops": self.stops,
@@ -645,6 +667,7 @@ class OptimizationResult:
     within_budget: bool = True
     user_budget: Optional[float] = None
     budget_exceeded_by: Optional[float] = None
+    suggested_budget: Optional[int] = None  # Recommended budget (with 10% buffer)
     message: Optional[str] = None
     
     # ILP solution details
@@ -663,6 +686,7 @@ class OptimizationResult:
             "within_budget": self.within_budget,
             "user_budget": self.user_budget,
             "budget_exceeded_by": self.budget_exceeded_by,
+            "suggested_budget": self.suggested_budget,
             "message": self.message,
             "status": self.status,
             "alternatives": self.alternatives,

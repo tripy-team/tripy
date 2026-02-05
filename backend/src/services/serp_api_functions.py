@@ -38,6 +38,105 @@ def _is_commercial(iata: str, commercial_set: set) -> bool:
     return is_commercial_airport(iata, commercial_set)
 
 
+# Metro area airport groupings - airports that should be included when searching for a city
+# Key: query patterns (lowercase), Value: dict with "primary_city" name pattern and "include_cities" to merge
+METRO_AREA_GROUPINGS = {
+    "new york": {
+        "primary_city_pattern": "new york",
+        "include_city_patterns": ["newark"],
+        "include_airports": ["EWR"],  # Newark Liberty should be included with NYC
+    },
+    "nyc": {
+        "primary_city_pattern": "new york",
+        "include_city_patterns": ["newark"],
+        "include_airports": ["EWR"],
+    },
+}
+
+
+def _merge_metro_area_airports(query: str, results: List[Dict[str, Any]]) -> List[Dict[str, Any]]:
+    """
+    Merge airports from nearby cities into the primary metro city.
+    E.g., when searching "New York", include Newark (EWR) in the New York airports list.
+    """
+    query_lower = query.lower().strip()
+    
+    # Check if query matches any metro area grouping
+    grouping = None
+    for pattern, config in METRO_AREA_GROUPINGS.items():
+        if pattern in query_lower or query_lower.startswith(pattern):
+            grouping = config
+            break
+    
+    if not grouping:
+        return results
+    
+    primary_pattern = grouping["primary_city_pattern"]
+    include_patterns = grouping["include_city_patterns"]
+    include_airports = grouping.get("include_airports", [])
+    
+    # Find the primary city entry and cities to merge
+    primary_entry = None
+    entries_to_merge = []
+    other_entries = []
+    
+    for entry in results:
+        name_lower = (entry.get("name") or "").lower()
+        entry_type = (entry.get("type") or "").lower()
+        
+        # Check if this is the primary city (city type, not airport)
+        if primary_pattern in name_lower and entry_type == "city":
+            primary_entry = entry
+        # Check if this should be merged (Newark for NYC)
+        elif any(p in name_lower for p in include_patterns):
+            entries_to_merge.append(entry)
+        else:
+            other_entries.append(entry)
+    
+    # If no primary entry found, return original results
+    if not primary_entry:
+        return results
+    
+    # Merge airports from secondary cities into primary
+    existing_airport_ids = {a.get("id", "").upper() for a in primary_entry.get("airports", [])}
+    
+    for merge_entry in entries_to_merge:
+        for airport in merge_entry.get("airports", []):
+            airport_id = (airport.get("id") or "").upper()
+            # Add if not already present
+            if airport_id and airport_id not in existing_airport_ids:
+                # Mark it as part of the metro area
+                airport_copy = dict(airport)
+                if "city" not in airport_copy or not airport_copy["city"]:
+                    airport_copy["city"] = merge_entry.get("name", "")
+                primary_entry.setdefault("airports", []).append(airport_copy)
+                existing_airport_ids.add(airport_id)
+    
+    # Also check if there are standalone airport entries we should include
+    final_other = []
+    for entry in other_entries:
+        entry_id = (entry.get("id") or "").upper()
+        entry_type = (entry.get("type") or "").lower()
+        
+        # If this is an airport that should be included in the metro
+        if entry_type == "airport" and entry_id in include_airports:
+            if entry_id not in existing_airport_ids:
+                airport_data = {
+                    "id": entry_id,
+                    "name": entry.get("name", ""),
+                    "city": entry.get("description", "").split(",")[0] if entry.get("description") else "",
+                    "city_id": entry.get("city_id", ""),
+                    "distance": entry.get("distance", ""),
+                }
+                primary_entry.setdefault("airports", []).append(airport_data)
+                existing_airport_ids.add(entry_id)
+        else:
+            final_other.append(entry)
+    
+    # Return primary entry first, then other entries (excluding merged ones)
+    return [primary_entry] + final_other
+
+
 def autocomplete_destinations(
     q: str,
     gl: str = "us",
@@ -105,6 +204,9 @@ def autocomplete_destinations(
                 if stype == "airport" and len(sid) == 3 and sid not in commercial_set:
                     continue
             out.append(entry)
+        
+        # Merge metro area airports (e.g., Newark into New York)
+        out = _merge_metro_area_airports(q, out)
         return out
     except Exception:
         return []

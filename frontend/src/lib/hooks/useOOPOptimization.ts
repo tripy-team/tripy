@@ -1,6 +1,6 @@
 'use client';
 
-import { useState, useEffect, useCallback, useRef } from 'react';
+import { useState, useEffect, useCallback, useRef, useMemo } from 'react';
 import { 
   optimization,
   type OptimizeSoloRequest,
@@ -11,7 +11,12 @@ import type {
   OptimizeGroupResponse,
   RankedItinerary,
   CostBreakdown,
+  BudgetOverrun,
+  SolveMeta,
 } from '@/types/optimization';
+
+// Re-export types for convenience
+export type OptimizationStatus = 'optimal_strict' | 'optimal_relaxed' | 'infeasible_no_options' | 'error' | 'loading' | 'idle';
 
 interface UseOOPOptimizationOptions {
   tripId: string;
@@ -54,6 +59,24 @@ interface UseOOPOptimizationReturn {
     savingsPercentage: number;
     pointsUsed: number;
   } | null;
+  
+  // NEW: Two-phase solve status exposure
+  /** Current optimization status */
+  status: OptimizationStatus;
+  /** Whether the solution required relaxing budget constraints */
+  isRelaxed: boolean;
+  /** Budget overrun information (if over budget) */
+  overrun: BudgetOverrun | null;
+  /** Solve metadata (timing, status details) */
+  solveMeta: SolveMeta | null;
+  /** User-facing warnings */
+  warnings: string[];
+  /** Whether solution is within budget */
+  isWithinBudget: boolean;
+  /** Whether the optimization found a valid solution (strict or relaxed) */
+  hasValidSolution: boolean;
+  /** Whether the optimization found no feasible solution */
+  isInfeasible: boolean;
 }
 
 const MAX_RETRIES = 3;
@@ -170,6 +193,62 @@ export function useOOPOptimization(options: UseOOPOptimizationOptions): UseOOPOp
       }
     : null;
 
+  // Compute new status fields from group response
+  const groupResults = results && 'meta' in results ? results as OptimizeGroupResponse : null;
+  
+  const status: OptimizationStatus = useMemo(() => {
+    if (loading) return 'loading';
+    if (!results) return 'idle';
+    if (error) return 'error';
+    
+    // Check for new contract format
+    if (groupResults?.meta?.status) {
+      return groupResults.meta.status;
+    }
+    
+    // Legacy format fallback
+    if (results.itineraries.length === 0) {
+      return 'infeasible_no_options';
+    }
+    return 'optimal_strict';
+  }, [loading, results, error, groupResults]);
+  
+  const isRelaxed = useMemo(() => {
+    return groupResults?.meta?.is_relaxed ?? false;
+  }, [groupResults]);
+  
+  const overrun: BudgetOverrun | null = useMemo(() => {
+    if (!groupResults?.budget_overrun) return null;
+    const bo = groupResults.budget_overrun;
+    // Only return if there's actual overrun
+    if (bo.total_overrun_usd > 0) {
+      return bo;
+    }
+    return null;
+  }, [groupResults]);
+  
+  const solveMeta: SolveMeta | null = useMemo(() => {
+    return groupResults?.meta ?? null;
+  }, [groupResults]);
+  
+  const warnings: string[] = useMemo(() => {
+    return results?.warnings ?? [];
+  }, [results]);
+  
+  const isWithinBudget = useMemo(() => {
+    if (status === 'optimal_strict') return true;
+    if (status === 'optimal_relaxed') return false;
+    return true; // Default
+  }, [status]);
+  
+  const hasValidSolution = useMemo(() => {
+    return status === 'optimal_strict' || status === 'optimal_relaxed';
+  }, [status]);
+  
+  const isInfeasible = useMemo(() => {
+    return status === 'infeasible_no_options';
+  }, [status]);
+
   return {
     loading,
     error,
@@ -185,6 +264,15 @@ export function useOOPOptimization(options: UseOOPOptimizationOptions): UseOOPOp
     retryCount,
     canRetry: retryCount < MAX_RETRIES,
     bestOption,
+    // New two-phase solve fields
+    status,
+    isRelaxed,
+    overrun,
+    solveMeta,
+    warnings,
+    isWithinBudget,
+    hasValidSolution,
+    isInfeasible,
   };
 }
 

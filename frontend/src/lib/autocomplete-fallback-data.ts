@@ -77,6 +77,7 @@ export const POPULAR_CITIES: FallbackCity[] = [
   { name: "Tokyo", country: "Japan", airportCode: "NRT" },
   { name: "Toronto", country: "Canada", airportCode: "YYZ" },
   { name: "Vancouver", country: "Canada", airportCode: "YVR" },
+  { name: "Vienna", country: "Austria", airportCode: "VIE" },
   { name: "Washington", country: "United States", airportCode: "IAD" },
   { name: "Zurich", country: "Switzerland", airportCode: "ZRH" },
 ];
@@ -108,6 +109,8 @@ export const POPULAR_AIRPORTS: FallbackAirport[] = [
   { iata_code: "IST", airport_name: "Istanbul", city: "Istanbul", country: "Turkey" },
   { iata_code: "KUL", airport_name: "Kuala Lumpur International", city: "Kuala Lumpur", country: "Malaysia" },
   { iata_code: "JFK", airport_name: "John F. Kennedy", city: "New York", country: "United States" },
+  { iata_code: "EWR", airport_name: "Newark Liberty", city: "New York", country: "United States" },
+  { iata_code: "LGA", airport_name: "LaGuardia", city: "New York", country: "United States" },
   { iata_code: "LAX", airport_name: "Los Angeles International", city: "Los Angeles", country: "United States" },
   { iata_code: "LAS", airport_name: "Harry Reid", city: "Las Vegas", country: "United States" },
   { iata_code: "LHR", airport_name: "Heathrow", city: "London", country: "United Kingdom" },
@@ -135,6 +138,7 @@ export const POPULAR_AIRPORTS: FallbackAirport[] = [
   { iata_code: "SIN", airport_name: "Changi", city: "Singapore", country: "Singapore" },
   { iata_code: "SYD", airport_name: "Kingsford Smith", city: "Sydney", country: "Australia" },
   { iata_code: "YUL", airport_name: "Montréal-Trudeau", city: "Montreal", country: "Canada" },
+  { iata_code: "VIE", airport_name: "Vienna International", city: "Vienna", country: "Austria" },
   { iata_code: "YVR", airport_name: "Vancouver", city: "Vancouver", country: "Canada" },
   { iata_code: "YYZ", airport_name: "Pearson", city: "Toronto", country: "Canada" },
   { iata_code: "ZRH", airport_name: "Zurich", city: "Zurich", country: "Switzerland" },
@@ -154,6 +158,7 @@ interface AirportSuggestionShape {
   airport_name: string;
   city: string;
   country: string;
+  uniqueKey: string;
   region?: string;
   display_name: string;
 }
@@ -220,5 +225,6 @@ export function filterFallbackAirports(query: string, limit: number): AirportSug
       country: a.country,
       region: "",
       display_name: `${a.iata_code} – ${a.airport_name}`,
+      uniqueKey: `${a.iata_code}-${a.city}`.toLowerCase(),
     }));
 }

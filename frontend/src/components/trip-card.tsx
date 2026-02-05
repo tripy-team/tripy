@@ -1,7 +1,7 @@
 'use client';
 
 import { useRouter } from 'next/navigation';
-import { MapPin, Calendar, CreditCard, Users, Plane, Hotel, ArrowRight, TrendingUp } from 'lucide-react';
+import { MapPin, Calendar, CreditCard, Users, Plane, ArrowRight, TrendingUp } from 'lucide-react';
 
 interface Trip {
     id: string;
@@ -14,8 +14,6 @@ interface Trip {
     cashSaved?: number;
     thumbnail: string;
     members: number;
-    hotel: string;
-    flightClass: string;
 }
 
 interface TripCardProps {
@@ -117,22 +115,6 @@ export function TripCard({ trip }: TripCardProps) {
                             <span>Cash Saved</span>
                         </div>
                         <span className="text-green-600 font-medium">${trip.cashSaved?.toLocaleString() || 0}</span>
-                    </div>
-
-                    <div className="flex items-center justify-between text-sm">
-                        <div className="flex items-center gap-2 text-slate-600">
-                            <Hotel className="w-4 h-4 text-purple-600" />
-                            <span>Hotel</span>
-                        </div>
-                        <span className="text-slate-900 text-xs text-right max-w-[150px] truncate font-medium">{trip.hotel}</span>
-                    </div>
-
-                    <div className="flex items-center justify-between text-sm">
-                        <div className="flex items-center gap-2 text-slate-600">
-                            <Plane className="w-4 h-4 text-blue-600" />
-                            <span>Flight</span>
-                        </div>
-                        <span className="text-slate-900 font-medium">{trip.flightClass}</span>
                     </div>
 
                     {trip.type === 'group' && (

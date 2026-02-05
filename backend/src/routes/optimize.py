@@ -121,7 +121,7 @@ class MemberCapabilityRequest(BaseModel):
 
 class AllocationStrategyRequest(BaseModel):
     """Strategy for allocating flight bookings across group members."""
-    strategy_type: Literal["optimize", "by_segment_type", "by_direction", "manual"]
+    strategy_type: Literal["optimize", "balanced", "by_segment_type", "by_direction", "manual"]
     flight_booker: Optional[str] = None  # member_id for by_segment_type
     outbound_booker: Optional[str] = None  # for by_direction
     return_booker: Optional[str] = None
@@ -375,15 +375,20 @@ async def optimize_group_trip(
     user_id: str = Depends(get_current_user_id),
 ) -> dict:
     """
-    Optimize a group trip with cost splitting and settlements.
+    Optimize a group trip with per-member customized routes.
     
-    Additional features over solo:
-    - Points pooling across all members
-    - Per-member cost breakdown
+    Each member gets their own personalized route based on their departure/arrival airports.
+    For example:
+    - Alice from SEA: SEA → Seoul → SEA
+    - Bob from JFK: JFK → Seoul → JFK
+    
+    Features:
+    - Per-member routes based on individual airports
+    - Per-member cost breakdown and transfer instructions
+    - Points optimization per member (each uses their own points)
     - Settlement calculations (who owes who)
-    - Fair cost splitting based on split_method
     """
-    logger.info(f"[/optimize/group] Starting optimization for trip {request.trip_id} by user {user_id}")
+    logger.info(f"[/optimize/group] Starting per-member optimization for trip {request.trip_id} by user {user_id}")
     
     try:
         # Validate user has access to this trip
@@ -394,11 +399,17 @@ async def optimize_group_trip(
         if not trip:
             raise HTTPException(status_code=404, detail="Trip not found")
         
-        # Check if user is owner or member
+        # Get all members with their airport preferences
         members = list_members(request.trip_id)
         is_member = any(m.get("userId") == user_id for m in members)
         if trip.get("createdBy") != user_id and not is_member:
             raise HTTPException(status_code=403, detail="Access denied")
+        
+        # Log member airports for debugging
+        for m in members:
+            member_id = m.get("userId") or m.get("user_id")
+            dep_airport = m.get("departure_airport") or m.get("origin_airport") or "Not set"
+            logger.info(f"[/optimize/group] Member {member_id}: departure={dep_airport}")
         
         orchestrator = get_orchestrator()
         
@@ -412,11 +423,20 @@ async def optimize_group_trip(
             split_method=request.split_method,
         )
         
-        result = await orchestrator.optimize_group(internal_request)
+        # Pass member data with airport info to the optimizer
+        result = await orchestrator.optimize_group(internal_request, members_data=members)
+        
+        # Serialize itineraries with travelerId
+        serialized_itineraries = []
+        for it in result.itineraries:
+            serialized = _serialize_itinerary(it)
+            if it.traveler_id:
+                serialized["travelerId"] = it.traveler_id
+            serialized_itineraries.append(serialized)
         
         return {
             "tripId": result.trip_id,
-            "itineraries": [_serialize_itinerary(it) for it in result.itineraries],
+            "itineraries": serialized_itineraries,
             "groupMetrics": result.group_metrics.model_dump() if result.group_metrics else None,
             "bestOption": result.best_option,
             "warnings": result.warnings,
