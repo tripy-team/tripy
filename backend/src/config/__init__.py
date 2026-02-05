@@ -3,15 +3,23 @@ Configuration module for backend services.
 
 This __init__.py re-exports all original config.py exports to maintain backward
 compatibility, while also adding optimizer-specific configuration.
+
+SECURITY NOTE:
+- For local development, secrets are loaded from .env file
+- For production, set USE_SECRETS_MANAGER=true to use AWS Secrets Manager
+- See backend/src/utils/secrets_manager.py for details
 """
 import os
 import logging
 from dotenv import load_dotenv
 
-# Load environment variables from .env file
+# Load environment variables from .env file (for local development)
 load_dotenv()
 
 logger = logging.getLogger(__name__)
+
+# Import secrets manager for sensitive keys
+from utils.secrets_manager import secrets, get_api_keys
 
 
 def _get_required_env(key: str) -> str:
@@ -65,10 +73,17 @@ USER_POOL_ID = os.environ.get("USER_POOL_ID", "")
 USER_POOL_CLIENT_ID = os.environ.get("USER_POOL_CLIENT_ID", "")
 AWS_REGION = os.environ.get("AWS_REGION", "us-west-2")
 
-SERP_API_KEY = os.environ.get("SERP_API_KEY", "")
-AWARDTOOL_API_KEY = os.environ.get("AWARDTOOL_API_KEY", "") or os.environ.get(
+# API Keys - Use secrets manager for sensitive keys (supports AWS Secrets Manager)
+SERP_API_KEY = secrets.get("SERP_API_KEY", "") or secrets.get("SERPAPI_KEY", "")
+AWARDTOOL_API_KEY = secrets.get("AWARDTOOL_API_KEY", "") or secrets.get(
     "AWARD_TOOL_API_KEY", ""
 )
+
+# Additional API keys available via secrets manager:
+# - OPENAI_ADMIN_KEY: secrets.get("OPENAI_ADMIN_KEY")
+# - CLAUDE_API_KEY: secrets.get("CLAUDE_API_KEY")
+# - AMADEUS_CLIENT_ID: secrets.get("AMADEUS_CLIENT_ID")
+# - AMADEUS_CLIENT_SECRET: secrets.get("AMADEUS_CLIENT_SECRET")
 
 # Email (AWS SES) configuration
 SES_SENDER_EMAIL = os.environ.get("SES_SENDER_EMAIL", "")
@@ -132,6 +147,12 @@ def _log_api_status():
 
 # Run status logging at import time
 _log_api_status()
+
+# Log secrets manager status
+if secrets.is_using_secrets_manager():
+    logger.info("[CONFIG] SECRETS: Using AWS Secrets Manager for API keys")
+else:
+    logger.info("[CONFIG] SECRETS: Using environment variables (.env) for API keys")
 
 # =============================================================================
 # FEATURE FLAGS

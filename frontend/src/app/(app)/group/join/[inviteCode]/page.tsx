@@ -316,7 +316,7 @@ export default function GroupMemberJoin({ params }: { params: Promise<{ inviteCo
             // 1. Join the trip (with pooling preferences, flight preferences, budget, and party size)
             const joinResult = await tripsAPI.join(inviteCode, {
                 points_usage: pointsUsage,
-                willing_to_share_points: pointsUsage !== 'do_not_use',
+                willing_to_share_points: true, // Always true since pointsUsage is 'freely'
                 // Flight preferences for "Same as Friend?" feature
                 departure_airport: startAirport,
                 arrival_airport: endAirport,
