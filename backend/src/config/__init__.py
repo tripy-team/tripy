@@ -19,7 +19,7 @@ load_dotenv()
 logger = logging.getLogger(__name__)
 
 # Import secrets manager for sensitive keys
-from utils.secrets_manager import secrets, get_api_keys
+from src.utils.secrets_manager import secrets, get_api_keys
 
 
 def _get_required_env(key: str) -> str:
