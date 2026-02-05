@@ -397,8 +397,9 @@ export default function SoloTripSetup() {
       setError('Please select at least one arrival airport');
       return;
     }
-    if (cities.length < 1) {
-      setError('Please add at least 1 destination city');
+    // Round trip requires at least one destination; one-way can be direct (departure → arrival, no cities)
+    if (isRoundTrip && cities.length < 1) {
+      setError('Please add at least 1 destination city for a round trip');
       return;
     }
     
@@ -414,7 +415,10 @@ export default function SoloTripSetup() {
         setError('Please select a departure date');
         return;
       }
-      if (!endDate) {
+      // One-way trips only need departure date; arrival/return date is not used
+      if (!isRoundTrip) {
+        // One-way: no return/arrival date required
+      } else if (!endDate) {
         setError('Please select a return/arrival date');
         return;
       }
@@ -454,7 +458,8 @@ export default function SoloTripSetup() {
         destinations: cities,
         finalDestination: finalAirports,
         startDate: isFlexible ? undefined : effectiveStartDate,
-        endDate: isFlexible ? undefined : effectiveEndDate,
+        // One-way trips only use departure date; do not send arrival/return date
+        endDate: isFlexible ? undefined : (isRoundTrip ? effectiveEndDate : undefined),
         durationDays: isFlexible ? flexibleDuration : undefined,
         maxBudget: maxBudget,
         adults: adults,
@@ -784,17 +789,20 @@ export default function SoloTripSetup() {
                           />
                         )}
                       </div>
-                      <div>
-                        <label className="block text-xs text-slate-500 mb-2 uppercase font-bold tracking-wider">
-                          {isRoundTrip ? 'Return Date' : 'Arrival Date'}
-                        </label>
-                        <SingleDatePicker
-                          value={endDate}
-                          onChange={(date) => setEndDate(date)}
-                          minDate={cities.length > 0 ? getMinDateForLeg(cities.length) : (startDate || new Date().toISOString().split('T')[0])}
-                          placeholder="Select date"
-                        />
-                      </div>
+                      {/* Arrival/return date: only for round trip; one-way uses departure date only */}
+                      {isRoundTrip && (
+                        <div>
+                          <label className="block text-xs text-slate-500 mb-2 uppercase font-bold tracking-wider">
+                            Return Date
+                          </label>
+                          <SingleDatePicker
+                            value={endDate}
+                            onChange={(date) => setEndDate(date)}
+                            minDate={cities.length > 0 ? getMinDateForLeg(cities.length) : (startDate || new Date().toISOString().split('T')[0])}
+                            placeholder="Select date"
+                          />
+                        </div>
+                      )}
                     </div>
                   </div>
                 </div>
@@ -999,7 +1007,7 @@ export default function SoloTripSetup() {
               {/* Generate Button */}
               <button
                 onClick={handleGenerate}
-                disabled={startAirports.length === 0 || (!isRoundTrip && endAirports.length === 0) || cities.length < 1 || (!isFlexible && (!startDate || !endDate)) || maxBudget === '' || isGenerating}
+                disabled={startAirports.length === 0 || (!isRoundTrip && endAirports.length === 0) || (isRoundTrip && cities.length < 1) || (!isFlexible && (!startDate || (isRoundTrip && !endDate))) || maxBudget === '' || isGenerating}
                 className="w-full px-6 py-4 bg-blue-600 text-white rounded-xl hover:bg-blue-700 transition-all disabled:opacity-50 disabled:cursor-not-allowed flex items-center justify-center gap-2 text-base font-semibold shadow-lg shadow-blue-500/20"
               >
                 {isGenerating ? (

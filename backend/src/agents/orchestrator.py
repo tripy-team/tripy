@@ -1094,11 +1094,13 @@ class OrchestratorAgent(BaseAgent):
                     logger.info(f"[Orchestrator] Solo trip loaded: origin={origin}, destinations={raw_destinations}, final={final_destination}")
                     logger.info(f"[Orchestrator] Parsed destinations: {destinations}")
                     
+                    one_way = (trip.get("tripType") or "").strip().lower() == "one_way"
                     return {
                         "trip_id": trip_id,
                         "start_date": trip.get("startDate"),
                         "end_date": trip.get("endDate"),
                         "destinations": destinations,
+                        "one_way": one_way,
                         "include_hotels": trip.get("includeHotels", True),
                         "max_budget": trip.get("maxBudget"),
                     }
@@ -1159,7 +1161,12 @@ class OrchestratorAgent(BaseAgent):
         """
         destinations = trip_data.get("destinations", [])
         start_date = trip_data.get("start_date", "2026-03-01")
-        end_date = trip_data.get("end_date", "2026-03-08")
+        one_way = trip_data.get("one_way", False)
+        # One-way trips only need departure date; arrival/return date is not used
+        end_date = trip_data.get("end_date") or ("" if one_way else "2026-03-08")
+        if one_way and not end_date:
+            end_date = start_date
+        end_date = end_date or "2026-03-08"
         
         # Build airport mapping for each destination
         # {destination_name: [list of airports]}
@@ -1230,7 +1237,7 @@ class OrchestratorAgent(BaseAgent):
         try:
             start_dt = datetime.strptime(start_date, "%Y-%m-%d")
             end_dt = datetime.strptime(end_date, "%Y-%m-%d")
-        except:
+        except Exception:
             start_dt = datetime.now()
             end_dt = start_dt + timedelta(days=7)
         

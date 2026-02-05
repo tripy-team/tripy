@@ -143,16 +143,18 @@ class StrictTripInputValidator:
                 suggestions=suggestions
             ))
         
-        # Destinations: REQUIRED, at least one
+        # Destinations: required unless one-way with no intermediate stops
+        # (One-way A→B: start_destination and end_destination define the single leg; no cities needed.)
+        one_way = trip_data.get("one_way") or trip_data.get("oneWay", False)
         destinations = trip_data.get("destinations") or []
-        if not destinations or len(destinations) == 0:
+        if not one_way and (not destinations or len(destinations) == 0):
             errors.append(ValidationError(
                 field="destinations",
-                message="At least one destination city is required.",
+                message="At least one destination city is required for multi-city or round trips.",
                 code="NO_DESTINATIONS",
                 severity="blocking"
             ))
-        else:
+        elif destinations:
             # Validate each destination
             for i, dest in enumerate(destinations):
                 dest_errors = self._validate_destination(dest, index=i)
