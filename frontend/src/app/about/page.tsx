@@ -2,7 +2,7 @@
 
 import Link from 'next/link';
 import { useState, useEffect } from 'react';
-import { Plane, CreditCard, PiggyBank, Sparkles, Search, Zap, MapPin, Calendar } from 'lucide-react';
+import { Plane, CreditCard, PiggyBank, Sparkles, Search, Zap, MapPin, Calendar, Users } from 'lucide-react';
 import { Navigation } from '@/components/navigation';
 
 interface UserData {
