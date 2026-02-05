@@ -2,14 +2,20 @@
 
 import { useState, useEffect, useMemo, useCallback } from 'react';
 import Link from 'next/link';
-import { Plus, Calendar, CreditCard, Users, Plane, TrendingUp, Loader2 } from 'lucide-react';
+import { Plus, Calendar, CreditCard, Plane, TrendingUp, Loader2 } from 'lucide-react';
 import { TripCard } from '@/components/trip-card';
 import { Trip } from '@/types';
-import { trips as tripsAPI } from '@/lib/api';
+import { trips as tripsAPI, users } from '@/lib/api';
 
 // Initial batch size for fast loading
 const INITIAL_LOAD_LIMIT = 9;
 const LOAD_MORE_BATCH_SIZE = 12;
+
+// User savings stats
+interface UserSavingsStats {
+    totalSavings: number;
+    totalPointsUsed: number;
+}
 
 interface ApiTrip {
   tripId: string;
@@ -63,8 +69,12 @@ export default function Dashboard() {
     const [isLoadingMore, setIsLoadingMore] = useState(false);
     const [hasMore, setHasMore] = useState(false);
     const [totalTrips, setTotalTrips] = useState(0);
+    const [userSavings, setUserSavings] = useState<UserSavingsStats>({
+        totalSavings: 0,
+        totalPointsUsed: 0
+    });
 
-    // Initial load - fetch first batch quickly without expensive details
+    // Initial load - fetch trips and user savings
     useEffect(() => {
         const fetchTrips = async () => {
             try {
@@ -87,7 +97,31 @@ export default function Dashboard() {
             }
         };
 
+        const fetchUserSavings = async () => {
+            try {
+                // Calculate and fetch user savings from completed trips
+                const savingsData = await users.calculateSavings();
+                setUserSavings({
+                    totalSavings: savingsData.total_savings || 0,
+                    totalPointsUsed: savingsData.total_points_used || 0
+                });
+            } catch (err) {
+                console.error('Error fetching user savings:', err);
+                // Fallback: try to get cached savings from profile
+                try {
+                    const savingsResult = await users.getSavings();
+                    setUserSavings({
+                        totalSavings: savingsResult.total_savings || 0,
+                        totalPointsUsed: savingsResult.total_points_used || 0
+                    });
+                } catch {
+                    // Silently fail - stats will show 0
+                }
+            }
+        };
+
         fetchTrips();
+        fetchUserSavings();
     }, []);
 
     // Load more trips
@@ -120,9 +154,9 @@ export default function Dashboard() {
     const stats = useMemo(() => ({
         totalCompletedTrips: completedTrips.length,
         totalUpcomingAndConfirmed: upcomingTrips.length,
-        totalPointsUsed: trips.reduce((sum, trip) => sum + trip.pointsUsed, 0),
-        totalCashSaved: trips.reduce((sum, trip) => sum + trip.cashSaved, 0)
-    }), [trips, completedTrips.length, upcomingTrips.length]);
+        totalPointsUsed: userSavings.totalPointsUsed,
+        totalCashSaved: userSavings.totalSavings
+    }), [completedTrips.length, upcomingTrips.length, userSavings]);
 
     if (isLoading) {
         return (
@@ -212,34 +246,18 @@ export default function Dashboard() {
 
                 <div>
                     {/* Quick Actions */}
-                    <div className="mb-8 flex gap-4">
+                    <div className="mb-8">
                         <Link
                             href="/solo/setup"
-                            className="flex-1 bg-gradient-to-br from-blue-600 to-blue-700 text-white rounded-2xl p-6 hover:shadow-xl transition-all group"
+                            className="block bg-gradient-to-br from-blue-600 to-blue-700 text-white rounded-2xl p-6 hover:shadow-xl transition-all group"
                         >
                             <div className="flex items-center justify-between">
                                 <div>
                                     <div className="flex items-center gap-2 mb-2">
                                         <Plane className="w-6 h-6" />
-                                        <span className="text-xl font-semibold">Plan Solo Trip</span>
+                                        <span className="text-xl font-semibold">Plan a Trip</span>
                                     </div>
-                                    <p className="text-blue-100 text-sm">Optimize your points for a personal adventure</p>
-                                </div>
-                                <Plus className="w-8 h-8 opacity-50 group-hover:opacity-100 transition-opacity" />
-                            </div>
-                        </Link>
-
-                        <Link
-                            href="/group/setup"
-                            className="flex-1 bg-gradient-to-br from-yellow-400 to-yellow-500 text-slate-900 rounded-2xl p-6 hover:shadow-xl transition-all group"
-                        >
-                            <div className="flex items-center justify-between">
-                                <div>
-                                    <div className="flex items-center gap-2 mb-2">
-                                        <Users className="w-6 h-6" />
-                                        <span className="text-xl font-semibold">Plan Group Trip</span>
-                                    </div>
-                                    <p className="text-slate-700 text-sm">Collaborate and vote on destinations together</p>
+                                    <p className="text-blue-100 text-sm">Optimize your points for your next adventure</p>
                                 </div>
                                 <Plus className="w-8 h-8 opacity-50 group-hover:opacity-100 transition-opacity" />
                             </div>
@@ -303,20 +321,12 @@ export default function Dashboard() {
                             </div>
                             <h3 className="text-2xl mb-2 text-slate-900 font-semibold">No trips yet</h3>
                             <p className="text-slate-600 mb-6">Start planning your next adventure</p>
-                            <div className="flex gap-4 justify-center">
-                                <Link
-                                    href="/solo/setup"
-                                    className="px-6 py-3 bg-blue-600 text-white rounded-xl hover:bg-blue-700 transition-all font-medium"
-                                >
-                                    Plan Solo Trip
-                                </Link>
-                                <Link
-                                    href="/group/setup"
-                                    className="px-6 py-3 bg-white text-blue-600 border-2 border-blue-600 rounded-xl hover:bg-blue-50 transition-all font-medium"
-                                >
-                                    Plan Group Trip
-                                </Link>
-                            </div>
+                            <Link
+                                href="/solo/setup"
+                                className="px-6 py-3 bg-blue-600 text-white rounded-xl hover:bg-blue-700 transition-all font-medium inline-block"
+                            >
+                                Plan a Trip
+                            </Link>
                         </div>
                     )}
                 </div>

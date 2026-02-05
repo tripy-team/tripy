@@ -103,6 +103,40 @@ def _normalize_airport_code(airport_value: str) -> str:
     return value
 
 
+def _parse_multi_airport_string(airport_value: str) -> Optional[List[str]]:
+    """
+    Parse a multi-airport string like "SEA,BFI,PDX" into a list of IATA codes.
+    
+    Returns None if the input is not a valid multi-airport string.
+    Returns a list of validated IATA codes if parsing succeeds.
+    
+    Handles formats like:
+    - "SEA,BFI,PDX" -> ["SEA", "BFI", "PDX"]
+    - "SEA, BFI, PDX" -> ["SEA", "BFI", "PDX"]
+    - "SEA" -> ["SEA"] (single airport also valid)
+    - "Seattle" -> None (not IATA codes)
+    """
+    if not airport_value:
+        return None
+    
+    value = airport_value.strip().upper()
+    
+    # Check if it looks like a comma-separated list of IATA codes
+    # Pattern: 3 uppercase letters, optionally followed by comma and more codes
+    parts = [p.strip() for p in value.split(',')]
+    
+    # All parts must be valid 3-letter IATA codes
+    valid_codes = []
+    for part in parts:
+        if re.match(r'^[A-Z]{3}$', part):
+            valid_codes.append(part)
+        else:
+            # If any part is not a valid IATA code, this is not a multi-airport string
+            return None
+    
+    return valid_codes if valid_codes else None
+
+
 # Feature flag for v2 itinerary generation (can be overridden by env var or request header)
 ITINERARY_GENERATION_VERSION = os.getenv("ITINERARY_GENERATION_VERSION", "v2")
 
@@ -812,12 +846,18 @@ def _normalize_city_to_code(city_name: str) -> Optional[str]:
     - "New York" -> searches for airport
     - "New York (JFK,LGA,EWR)" -> extracts "JFK" (first code)
     - "Seoul (GMP,ICN)" -> extracts "ICN" (prefers main international airport)
+    - "SEA,BFI,PDX" -> "SEA" (comma-separated IATA codes, returns first)
     """
     city_name = city_name.strip()
     
     # If it's already an airport code, return it
     if _is_airport_code(city_name):
         return city_name.upper()
+    
+    # Check if it's a comma-separated list of IATA codes (e.g., "SEA,BFI,PDX")
+    multi_codes = _parse_multi_airport_string(city_name)
+    if multi_codes:
+        return multi_codes[0]  # Return the first (primary) code
     
     # Check if it's in format "City (CODE1,CODE2,CODE3)" and extract best code
     import re
@@ -940,6 +980,7 @@ def _get_all_airports_for_city(city_name: str) -> List[str]:
     - "New York (JFK,LGA,EWR)" -> ["JFK", "LGA", "EWR"]
     - "Paris (CDG,ORY)" -> ["CDG", "ORY"]
     - "JFK" -> ["JFK"] (already a code)
+    - "SEA,BFI,PDX" -> ["SEA", "BFI", "PDX"] (comma-separated IATA codes)
     
     Returns list of airport codes, or empty list if none found.
     """
@@ -949,6 +990,11 @@ def _get_all_airports_for_city(city_name: str) -> List[str]:
     # If it's already an airport code, return it as a list
     if _is_airport_code(city_name):
         return [city_name.upper()]
+    
+    # Check if it's a comma-separated list of IATA codes (e.g., "SEA,BFI,PDX")
+    multi_codes = _parse_multi_airport_string(city_name)
+    if multi_codes:
+        return multi_codes  # Return all codes
     
     # Check if it's in format "City (CODE1,CODE2,CODE3)"
     code_match = re.search(r'\(([A-Z]{3}(?:,[A-Z]{3})*)\)', city_name.upper())
@@ -2343,64 +2389,103 @@ async def generate_optimized_itinerary(
     # MULTI-AIRPORT SUPPORT: Get ALL airports for each city for comprehensive search
     logger.info(f"Converting city names to airport codes: start={start_dest_name}, end={end_dest_name}, cities={cities}")
     
-    # Build list of all city names to resolve
-    names_to_resolve = [start_dest_name]
-    if end_dest_name and end_dest_name != start_dest_name:
+    # Check if start_dest_name is a comma-separated list of IATA codes (e.g., "SEA,BFI,PDX")
+    start_multi_airports = _parse_multi_airport_string(start_dest_name)
+    end_multi_airports = _parse_multi_airport_string(end_dest_name) if end_dest_name else None
+    
+    # Handle start destination
+    if start_multi_airports:
+        # User provided explicit airport codes - use directly
+        start_dest_code = start_multi_airports[0]  # Primary code
+        start_all_airports = start_multi_airports  # All codes
+        logger.info(f"Multi-airport origin detected: {start_dest_name} -> primary={start_dest_code}, all={start_all_airports}")
+        start_needs_resolve = False
+    else:
+        start_needs_resolve = True
+        start_dest_code = None
+        start_all_airports = []
+    
+    # Handle end destination
+    if end_multi_airports:
+        # User provided explicit airport codes - use directly
+        end_dest_code = end_multi_airports[0]  # Primary code
+        end_all_airports = end_multi_airports  # All codes
+        logger.info(f"Multi-airport destination detected: {end_dest_name} -> primary={end_dest_code}, all={end_all_airports}")
+        end_needs_resolve = False
+    elif start_multi_airports and end_dest_name == start_dest_name:
+        # Round trip with multi-airport - use same codes
+        end_dest_code = start_dest_code
+        end_all_airports = start_all_airports
+        end_needs_resolve = False
+    else:
+        end_needs_resolve = True
+        end_dest_code = None
+        end_all_airports = []
+    
+    # Build list of names that need resolution (only those not already parsed as multi-airport)
+    names_to_resolve = []
+    if start_needs_resolve:
+        names_to_resolve.append(start_dest_name)
+    if end_needs_resolve and end_dest_name and end_dest_name != start_dest_name:
         names_to_resolve.append(end_dest_name)
     names_to_resolve.extend(cities)
     
-    # Resolve all in parallel - get BOTH primary code AND all airports
-    code_results = await asyncio.gather(
-        *[asyncio.to_thread(_normalize_city_to_code, name) for name in names_to_resolve],
-        return_exceptions=True,
-    )
-    all_airports_results = await asyncio.gather(
-        *[asyncio.to_thread(_get_all_airports_for_city, name) for name in names_to_resolve],
-        return_exceptions=True,
-    )
+    # Resolve remaining names in parallel - get BOTH primary code AND all airports
+    if names_to_resolve:
+        code_results = await asyncio.gather(
+            *[asyncio.to_thread(_normalize_city_to_code, name) for name in names_to_resolve],
+            return_exceptions=True,
+        )
+        all_airports_results = await asyncio.gather(
+            *[asyncio.to_thread(_get_all_airports_for_city, name) for name in names_to_resolve],
+            return_exceptions=True,
+        )
+    else:
+        code_results = []
+        all_airports_results = []
     
     # Map results back
     idx = 0
-    start_dest_code = code_results[idx] if not isinstance(code_results[idx], Exception) else None
-    start_all_airports = all_airports_results[idx] if not isinstance(all_airports_results[idx], Exception) else []
-    idx += 1
-    
-    if end_dest_name and end_dest_name != start_dest_name:
-        end_dest_code = code_results[idx] if not isinstance(code_results[idx], Exception) else None
-        end_all_airports = all_airports_results[idx] if not isinstance(all_airports_results[idx], Exception) else []
+    if start_needs_resolve:
+        start_dest_code = code_results[idx] if idx < len(code_results) and not isinstance(code_results[idx], Exception) else None
+        start_all_airports = all_airports_results[idx] if idx < len(all_airports_results) and not isinstance(all_airports_results[idx], Exception) else []
         idx += 1
+    
+    if end_needs_resolve and end_dest_name and end_dest_name != start_dest_name:
+        end_dest_code = code_results[idx] if idx < len(code_results) and not isinstance(code_results[idx], Exception) else None
+        end_all_airports = all_airports_results[idx] if idx < len(all_airports_results) and not isinstance(all_airports_results[idx], Exception) else []
+        idx += 1
+    elif not end_needs_resolve:
+        pass  # Already set above
     else:
         end_dest_code = start_dest_code
         end_all_airports = start_all_airports
     
-    # Build mapping from primary code to all airports for multi-airport search
-    # This allows the optimizer to search from/to all airports for each city
-    city_to_all_airports: Dict[str, List[str]] = {}
-    if start_dest_code and start_all_airports:
-        city_to_all_airports[start_dest_code] = start_all_airports
-    if end_dest_code and end_all_airports:
-        city_to_all_airports[end_dest_code] = end_all_airports
-    
+    # Process intermediate cities from code_results
     city_codes = []
     for i, city_name in enumerate(cities):
-        result = code_results[idx + i]
-        all_airports = all_airports_results[idx + i] if not isinstance(all_airports_results[idx + i], Exception) else []
-        if isinstance(result, Exception):
-            logger.warning(f"Error resolving '{city_name}': {result}")
-        elif result:
-            logger.info(f"Resolved destination '{city_name}' -> airport code '{result}'")
-            city_codes.append(result)
-            if all_airports:
-                city_to_all_airports[result] = all_airports
+        result_idx = idx + i
+        if result_idx < len(code_results):
+            result = code_results[result_idx]
+            all_airports = all_airports_results[result_idx] if result_idx < len(all_airports_results) and not isinstance(all_airports_results[result_idx], Exception) else []
+            if isinstance(result, Exception):
+                logger.warning(f"Error resolving '{city_name}': {result}")
+            elif result:
+                logger.info(f"Resolved destination '{city_name}' -> airport code '{result}'")
+                city_codes.append(result)
+                if all_airports:
+                    city_to_all_airports[result] = all_airports
+            else:
+                logger.warning(f"Could not find airport code for '{city_name}', skipping")
         else:
-            logger.warning(f"Could not find airport code for '{city_name}', skipping")
+            logger.warning(f"No result available for city '{city_name}' (index out of range)")
     
     # Log comprehensive destination resolution summary
     logger.info(
         f"DESTINATION RESOLUTION SUMMARY: "
         f"start='{start_dest_name}'->{start_dest_code}, "
         f"end='{end_dest_name}'->{end_dest_code}, "
-        f"cities={dict(zip(cities, [code_results[idx + i] if not isinstance(code_results[idx + i], Exception) else 'ERROR' for i in range(len(cities))]))}"
+        f"cities={cities} -> {city_codes}"
     )
     
     # Log multi-airport mappings for debugging

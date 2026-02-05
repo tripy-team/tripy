@@ -2459,13 +2459,14 @@ async def calculate_user_savings(user_id: str = Depends(get_current_user_id)):
 @app.get("/users/me/savings")
 async def get_user_savings(user_id: str = Depends(get_current_user_id)):
     """
-    Get current total savings for the user.
-    Returns the cached value from the user profile.
+    Get current total savings and points used for the user.
+    Returns the cached values from the user profile.
     """
     try:
         user = user_service.ensure_user_exists(user_id)
         return {
             "total_savings": user.get("total_savings", 0),
+            "total_points_used": user.get("total_points_used", 0),
             "user_id": user_id
         }
     except Exception as e:

@@ -10,6 +10,7 @@ import { searchAndFormatCities } from '@/lib/city-formatter';
 import PointsAllocation from '@/components/PointsAllocation';
 import { DestinationAutocomplete } from '@/components/ui/DestinationAutocomplete';
 import AirportAutocomplete from '@/components/ui/AirportAutocomplete';
+import MultiAirportAutocomplete from '@/components/ui/MultiAirportAutocomplete';
 import DateRangePicker from '@/components/date-range-picker';
 import SingleDatePicker from '@/components/ui/SingleDatePicker';
 
@@ -51,9 +52,9 @@ export default function SoloTripSetup() {
   const [newCity, setNewCity] = useState('');
   const [showAddDestination, setShowAddDestination] = useState(false);
   
-  // Start and End Destination State
-  const [startDestination, setStartDestination] = useState('');
-  const [endDestination, setEndDestination] = useState('');
+  // Start and End Destination State (now supports multiple airports)
+  const [startAirports, setStartAirports] = useState<string[]>([]);
+  const [endAirports, setEndAirports] = useState<string[]>([]);
   const [isRoundTrip, setIsRoundTrip] = useState(false);
 
   // Travel Style State
@@ -159,14 +160,14 @@ export default function SoloTripSetup() {
     }
   }, [creditCards, isLoadingProfile]);
 
-  // Sync end destination with start destination if round trip
-  // This ensures end destination ALWAYS matches start when round trip is enabled
+  // Sync end airports with start airports if round trip
+  // This ensures end airports ALWAYS match start when round trip is enabled
   useEffect(() => {
     if (isRoundTrip) {
-      // Always sync when round trip is enabled and start destination changes
-      setEndDestination(startDestination);
+      // Always sync when round trip is enabled and start airports change
+      setEndAirports(startAirports);
     }
-  }, [startDestination, isRoundTrip]);
+  }, [startAirports, isRoundTrip]);
 
   // Handle extracted trip info from chatbot
   const handleExtract = async (info: ExtractedTripInfo) => {
@@ -174,10 +175,15 @@ export default function SoloTripSetup() {
     if (info.startDestination) {
       try {
         const airportCode = await searchAndFormatAirport(info.startDestination);
-        setStartDestination(airportCode);
+        // Add to start airports if not already present
+        setStartAirports(prev => prev.includes(airportCode) ? prev : [...prev, airportCode]);
       } catch (error) {
         console.error('Error formatting start destination:', error);
-        setStartDestination(info.startDestination);
+        // Try to add raw value if it looks like an IATA code
+        if (/^[A-Z]{3}$/i.test(info.startDestination.trim())) {
+          const code = info.startDestination.trim().toUpperCase();
+          setStartAirports(prev => prev.includes(code) ? prev : [...prev, code]);
+        }
       }
     }
 
@@ -185,9 +191,10 @@ export default function SoloTripSetup() {
     if (info.endDestination) {
       try {
         const airportCode = await searchAndFormatAirport(info.endDestination);
-        setEndDestination(airportCode);
+        // Add to end airports if not already present
+        setEndAirports(prev => prev.includes(airportCode) ? prev : [...prev, airportCode]);
         
-        // 🥚 Auto-detect round trip if start and end are the same
+        // Auto-detect round trip if start and end are the same
         if (info.startDestination && info.endDestination) {
           const startNorm = info.startDestination.toLowerCase().replace(/\s+/g, ' ').trim();
           const endNorm = info.endDestination.toLowerCase().replace(/\s+/g, ' ').trim();
@@ -197,7 +204,11 @@ export default function SoloTripSetup() {
         }
       } catch (error) {
         console.error('Error formatting end destination:', error);
-        setEndDestination(info.endDestination);
+        // Try to add raw value if it looks like an IATA code
+        if (/^[A-Z]{3}$/i.test(info.endDestination.trim())) {
+          const code = info.endDestination.trim().toUpperCase();
+          setEndAirports(prev => prev.includes(code) ? prev : [...prev, code]);
+        }
       }
     }
 
@@ -305,12 +316,15 @@ export default function SoloTripSetup() {
   // Compute flight legs for multi-city trips
   // Returns array of {from, to} objects representing each flight segment
   const getFlightLegs = () => {
-    if (!startDestination || cities.length === 0) return [];
+    if (startAirports.length === 0 || cities.length === 0) return [];
     
     const legs: Array<{ from: string; to: string; index: number }> = [];
     
-    // First leg: origin → first city
-    legs.push({ from: startDestination, to: cities[0], index: 0 });
+    // First leg: origin airports → first city
+    const startDisplay = startAirports.length > 1 
+      ? startAirports.join(', ') 
+      : startAirports[0];
+    legs.push({ from: startDisplay, to: cities[0], index: 0 });
     
     // Middle legs: city[i] → city[i+1]
     for (let i = 0; i < cities.length - 1; i++) {
@@ -319,9 +333,12 @@ export default function SoloTripSetup() {
     
     // Last leg: last city → final destination (if not one-way with same end)
     const lastCity = cities[cities.length - 1];
-    const finalDest = isRoundTrip ? startDestination : endDestination;
-    if (finalDest && finalDest !== lastCity) {
-      legs.push({ from: lastCity, to: finalDest, index: cities.length });
+    const finalAirports = isRoundTrip ? startAirports : endAirports;
+    const finalDisplay = finalAirports.length > 1
+      ? finalAirports.join(', ')
+      : finalAirports[0] || '';
+    if (finalDisplay && finalDisplay !== lastCity) {
+      legs.push({ from: lastCity, to: finalDisplay, index: cities.length });
     }
     
     return legs;
@@ -372,8 +389,12 @@ export default function SoloTripSetup() {
 
   const handleGenerate = async () => {
     // Validate required fields
-    if (!startDestination || !endDestination) {
-      setError('Please fill in both start and end destinations');
+    if (startAirports.length === 0) {
+      setError('Please select at least one departure airport');
+      return;
+    }
+    if (!isRoundTrip && endAirports.length === 0) {
+      setError('Please select at least one arrival airport');
       return;
     }
     if (cities.length < 1) {
@@ -421,13 +442,17 @@ export default function SoloTripSetup() {
       const effectiveStartDate = startDate;
       const effectiveEndDate = endDate;
       
+      // For API, join multiple airports with comma for origin/finalDestination
+      const originAirports = startAirports.join(',');
+      const finalAirports = isRoundTrip ? startAirports.join(',') : endAirports.join(',');
+      
       const trip = await solo.createTrip({
         title: tripTitle,
         tripType: isRoundTrip ? 'round_trip' : 'one_way',
         dateMode: isFlexible ? 'flexible' : 'fixed',
-        origin: startDestination,
+        origin: originAirports,
         destinations: cities,
-        finalDestination: isRoundTrip ? startDestination : endDestination,
+        finalDestination: finalAirports,
         startDate: isFlexible ? undefined : effectiveStartDate,
         endDate: isFlexible ? undefined : effectiveEndDate,
         durationDays: isFlexible ? flexibleDuration : undefined,
@@ -576,15 +601,13 @@ export default function SoloTripSetup() {
                     <div className="flex-1 grid grid-cols-1 md:grid-cols-2 gap-4 -mt-1">
                       <div>
                         <label className="block text-xs text-slate-500 mb-2 uppercase font-bold tracking-wider">
-                          Start Location
+                          Departure Airport(s)
                         </label>
-                        <AirportAutocomplete
-                          value={startDestination}
-                          onValueChange={setStartDestination}
-                          placeholder="e.g., New York (JFK)"
-                          onSelect={(airportCode) => {
-                            setStartDestination(airportCode);
-                          }}
+                        <MultiAirportAutocomplete
+                          value={startAirports}
+                          onChange={setStartAirports}
+                          placeholder="e.g., JFK, EWR, LGA"
+                          maxSelections={5}
                         />
                       </div>
                       <div>
@@ -744,20 +767,20 @@ export default function SoloTripSetup() {
                     <div className="flex-1 grid grid-cols-1 md:grid-cols-2 gap-4 -mt-1">
                       <div>
                         <label className="block text-xs text-slate-500 mb-2 uppercase font-bold tracking-wider">
-                          Final Destination
+                          Arrival Airport(s)
                         </label>
                         {isRoundTrip ? (
-                          <div className="px-4 py-3 bg-slate-100 border border-slate-200 rounded-xl text-sm text-slate-600">
-                            {startDestination || 'Same as start location'}
+                          <div className="px-4 py-3 bg-slate-100 border border-slate-200 rounded-xl text-sm text-slate-600 min-h-[46px] flex items-center">
+                            {startAirports.length > 0 
+                              ? `Same as departure (${startAirports.join(', ')})` 
+                              : 'Same as departure airport(s)'}
                           </div>
                         ) : (
-                          <AirportAutocomplete
-                            value={endDestination}
-                            onValueChange={setEndDestination}
-                            placeholder="e.g., New York (JFK)"
-                            onSelect={(airportCode) => {
-                              setEndDestination(airportCode);
-                            }}
+                          <MultiAirportAutocomplete
+                            value={endAirports}
+                            onChange={setEndAirports}
+                            placeholder="e.g., JFK, EWR, LGA"
+                            maxSelections={5}
                           />
                         )}
                       </div>
@@ -787,13 +810,13 @@ export default function SoloTripSetup() {
                       const checked = e.target.checked;
                       setIsRoundTrip(checked);
                       if (checked) {
-                        setEndDestination(startDestination);
+                        setEndAirports(startAirports);
                       }
                     }}
                     className="w-4 h-4 rounded border-slate-300 text-blue-600 focus:ring-blue-500"
                   />
                   <span className="text-sm text-slate-600 group-hover:text-slate-900 transition-colors">
-                    Start and end at same location
+                    Start and end at same airport(s)
                   </span>
                 </label>
                 
@@ -976,7 +999,7 @@ export default function SoloTripSetup() {
               {/* Generate Button */}
               <button
                 onClick={handleGenerate}
-                disabled={!startDestination || !endDestination || cities.length < 1 || (!isFlexible && (!startDate || !endDate)) || maxBudget === '' || isGenerating}
+                disabled={startAirports.length === 0 || (!isRoundTrip && endAirports.length === 0) || cities.length < 1 || (!isFlexible && (!startDate || !endDate)) || maxBudget === '' || isGenerating}
                 className="w-full px-6 py-4 bg-blue-600 text-white rounded-xl hover:bg-blue-700 transition-all disabled:opacity-50 disabled:cursor-not-allowed flex items-center justify-center gap-2 text-base font-semibold shadow-lg shadow-blue-500/20"
               >
                 {isGenerating ? (

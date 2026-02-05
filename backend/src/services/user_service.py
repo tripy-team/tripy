@@ -88,9 +88,9 @@ def update_profile(user_id: str, updates: Dict[str, Any]) -> None:
     user_repo.update_user(user_id, updates)
 
 
-def calculate_trip_savings(trip_id: str, itinerary_items: List[Dict[str, Any]]) -> float:
+def calculate_trip_savings(trip_id: str, itinerary_items: List[Dict[str, Any]]) -> Dict[str, Any]:
     """
-    Calculate savings for a single trip based on itinerary items.
+    Calculate savings and points used for a single trip based on itinerary items.
     
     Savings = Cash price - Actual cash paid (when using points)
     
@@ -98,8 +98,12 @@ def calculate_trip_savings(trip_id: str, itinerary_items: List[Dict[str, Any]]) 
     - totalCost: Full cash price if paying with cash
     - pointsCost: Points needed if using points
     - If points were used: actual cash paid = surcharges/fees only (typically 5-10%)
+    
+    Returns:
+        Dict with 'savings' (float) and 'points_used' (int)
     """
     total_savings = 0.0
+    total_points_used = 0
     
     for item in itinerary_items:
         # Get cost information
@@ -114,6 +118,8 @@ def calculate_trip_savings(trip_id: str, itinerary_items: List[Dict[str, Any]]) 
         # Calculate savings for this itinerary item
         if points_needed > 0:
             # Points were used
+            total_points_used += points_needed
+            
             # Actual cash paid = surcharges/fees (usually 5-10% of cash price)
             if actual_cash_paid > 0:
                 cash_spent = actual_cash_paid
@@ -126,15 +132,18 @@ def calculate_trip_savings(trip_id: str, itinerary_items: List[Dict[str, Any]]) 
             savings = cash_price - cash_spent
             total_savings += savings
     
-    return total_savings
+    return {
+        "savings": total_savings,
+        "points_used": total_points_used
+    }
 
 
 def calculate_and_update_user_savings(user_id: str) -> Dict[str, Any]:
     """
-    Calculate total savings from all user's trips and update user profile.
+    Calculate total savings and points used from all user's trips and update user profile.
     
     Returns:
-        Dict with total_savings and trips_count
+        Dict with total_savings, total_points_used, trips_count, trips_with_savings
     """
     from .trip_service import list_trips_for_user
     
@@ -142,6 +151,7 @@ def calculate_and_update_user_savings(user_id: str) -> Dict[str, Any]:
     trips = list_trips_for_user(user_id)
     
     total_savings = 0.0
+    total_points_used = 0
     trips_with_savings = 0
     
     # Calculate savings for each trip
@@ -156,21 +166,29 @@ def calculate_and_update_user_savings(user_id: str) -> Dict[str, Any]:
         if not itinerary_items:
             continue
         
-        # Calculate savings for this trip
-        trip_savings = calculate_trip_savings(trip_id, itinerary_items)
+        # Calculate savings and points used for this trip
+        trip_stats = calculate_trip_savings(trip_id, itinerary_items)
+        trip_savings = trip_stats["savings"]
+        trip_points = trip_stats["points_used"]
         
-        if trip_savings > 0:
+        if trip_savings > 0 or trip_points > 0:
             total_savings += trip_savings
-            trips_with_savings += 1
-            logger.info(f"Trip {trip_id}: ${trip_savings:.2f} saved")
+            total_points_used += trip_points
+            if trip_savings > 0:
+                trips_with_savings += 1
+            logger.info(f"Trip {trip_id}: ${trip_savings:.2f} saved, {trip_points:,} points used")
     
-    # Update user profile with total savings
-    update_profile(user_id, {"total_savings": round(total_savings, 2)})
+    # Update user profile with total savings and points used
+    update_profile(user_id, {
+        "total_savings": round(total_savings, 2),
+        "total_points_used": total_points_used
+    })
     
-    logger.info(f"User {user_id}: Total savings ${total_savings:.2f} from {trips_with_savings} trips")
+    logger.info(f"User {user_id}: Total savings ${total_savings:.2f}, {total_points_used:,} points used from {trips_with_savings} trips")
     
     return {
         "total_savings": round(total_savings, 2),
+        "total_points_used": total_points_used,
         "trips_count": len(trips),
         "trips_with_savings": trips_with_savings
     }

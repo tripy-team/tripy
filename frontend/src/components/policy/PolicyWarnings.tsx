@@ -8,7 +8,14 @@ import {
   requiresAcknowledgment,
   isFullyAcknowledged,
   getCodeDescription,
+  REASON_CODES,
 } from '@/lib/policyConfig';
+
+// Warning codes to hide from the UI
+const HIDDEN_WARNING_CODES = [
+  REASON_CODES.FLIGHT_UNPROTECTED_CONNECTION,
+  REASON_CODES.FLIGHT_OVERNIGHT_CONNECTION,
+];
 
 // =============================================================================
 // POLICY MESSAGE ITEM
@@ -89,9 +96,14 @@ export function PolicyWarnings({
   }
 
   // Combine all messages for counting (with null checks)
+  // Filter out hidden warning codes
   const blocks = evaluation.blocks ?? [];
-  const warnings = evaluation.warnings ?? [];
-  const info = evaluation.info ?? [];
+  const warnings = (evaluation.warnings ?? []).filter(
+    (msg) => !HIDDEN_WARNING_CODES.includes(msg.code)
+  );
+  const info = (evaluation.info ?? []).filter(
+    (msg) => !HIDDEN_WARNING_CODES.includes(msg.code)
+  );
   const totalMessages = blocks.length + warnings.length + info.length;
 
   if (totalMessages === 0) {
@@ -329,9 +341,14 @@ export function PolicyBadge({
     return null;
   }
 
+  // Filter out hidden warning codes
   const blocks = evaluation.blocks ?? [];
-  const warnings = evaluation.warnings ?? [];
-  const info = evaluation.info ?? [];
+  const warnings = (evaluation.warnings ?? []).filter(
+    (msg) => !HIDDEN_WARNING_CODES.includes(msg.code)
+  );
+  const info = (evaluation.info ?? []).filter(
+    (msg) => !HIDDEN_WARNING_CODES.includes(msg.code)
+  );
   
   const hasBlocks = blocks.length > 0;
   const hasWarnings = warnings.length > 0;

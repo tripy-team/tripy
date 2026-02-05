@@ -1231,19 +1231,18 @@ function SoloBookingContent() {
                     )}
 
                     {/* Warnings */}
-                    {transferStrategy.warnings.length > 0 && (
-                      <div className="p-4 bg-amber-50 border border-amber-200 rounded-xl">
-                        <div className="flex items-center gap-2 text-amber-800 font-medium text-sm mb-2">
-                          <Info className="w-4 h-4" />
-                          Important Notes
-                        </div>
-                        <ul className="text-sm text-amber-700 space-y-1">
-                          {transferStrategy.warnings.map((warning, idx) => (
-                            <li key={idx}>• {warning}</li>
-                          ))}
-                        </ul>
+                    <div className="p-4 bg-amber-50 border border-amber-200 rounded-xl">
+                      <div className="flex items-center gap-2 text-amber-800 font-medium text-sm mb-2">
+                        <Info className="w-4 h-4" />
+                        Important Notes
                       </div>
-                    )}
+                      <ul className="text-sm text-amber-700 space-y-1">
+                        <li>• Verify flight availability on the airline&apos;s website before transferring points</li>
+                        {transferStrategy.warnings.map((warning, idx) => (
+                          <li key={idx}>• {warning}</li>
+                        ))}
+                      </ul>
+                    </div>
                   </>
                 ) : hasData ? (
                   <>

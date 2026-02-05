@@ -155,13 +155,24 @@ def _get_all_airports_for_location(location: str) -> list[str]:
         "Paris (CDG,ORY,BVA)" -> ["CDG", "ORY", "BVA"]
         "CDG" -> ["CDG", "ORY"] (expands to metro)
         "SEA" -> ["SEA"]
+        "SEA,BFI,PDX" -> ["SEA", "BFI", "PDX"]  # Comma-separated multi-airport
     
     Returns list of airport codes.
     """
+    import re
+    
     if not location:
         return []
     
     location = location.strip()
+    
+    # Check if it's a comma-separated list of IATA codes (e.g., "SEA,BFI,PDX")
+    # This format is used when the user selects multiple airports from the frontend
+    if "," in location and "(" not in location:
+        parts = [p.strip().upper() for p in location.split(",")]
+        # All parts must be valid 3-letter IATA codes
+        if all(re.match(r'^[A-Z]{3}$', p) for p in parts):
+            return parts
     
     # Check if it's in format "City (CODE1,CODE2,CODE3)"
     if "(" in location and ")" in location:

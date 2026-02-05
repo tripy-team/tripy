@@ -2221,20 +2221,20 @@ export const users = {
     });
   },
 
-  getSavings: async (): Promise<{ total_savings: number; user_id: string }> => {
+  getSavings: async (): Promise<{ total_savings: number; total_points_used: number; user_id: string }> => {
     if (SKIP_API_AUTH) {
-      return { total_savings: MOCK_PROFILE.total_savings || 0, user_id: MOCK_PROFILE.userId };
+      return { total_savings: MOCK_PROFILE.total_savings || 0, total_points_used: 0, user_id: MOCK_PROFILE.userId };
     }
-    return apiRequest<{ total_savings: number; user_id: string }>('/users/me/savings', {
+    return apiRequest<{ total_savings: number; total_points_used: number; user_id: string }>('/users/me/savings', {
       method: 'GET',
     });
   },
 
-  calculateSavings: async (): Promise<{ total_savings: number; trips_count: number; trips_with_savings: number }> => {
+  calculateSavings: async (): Promise<{ total_savings: number; total_points_used: number; trips_count: number; trips_with_savings: number }> => {
     if (SKIP_API_AUTH) {
-      return { total_savings: 0, trips_count: 0, trips_with_savings: 0 };
+      return { total_savings: 0, total_points_used: 0, trips_count: 0, trips_with_savings: 0 };
     }
-    return apiRequest<{ total_savings: number; trips_count: number; trips_with_savings: number }>('/users/me/savings/calculate', {
+    return apiRequest<{ total_savings: number; total_points_used: number; trips_count: number; trips_with_savings: number }>('/users/me/savings/calculate', {
       method: 'POST',
     });
   },

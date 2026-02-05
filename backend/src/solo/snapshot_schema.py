@@ -70,12 +70,27 @@ def validate_snapshot(snapshot: Any) -> list[str]:
         elif len(segments) == 0:
             errors.append("segments must be non-empty")
 
-    # numeric contract
+    # numeric contract - check for negative numbers
+    # Certain fields are allowed to be negative:
+    # - cashSaved: can be negative when trip cost exceeds budget (meaning user "lost" money vs paying cash)
+    # - savings*: savings metrics can be negative when trip exceeds budget
+    ALLOWED_NEGATIVE_PATTERNS = (
+        "cashSaved", "cash_saved",
+        "savingsAmount", "savings_amount",
+        "savings", "Savings",
+    )
+    
     negatives = find_negative_numbers(snapshot)
-    if negatives:
+    # Filter out allowed negative paths
+    filtered_negatives = [
+        (path, val) for path, val in negatives
+        if not any(allowed in path for allowed in ALLOWED_NEGATIVE_PATTERNS)
+    ]
+    
+    if filtered_negatives:
         errors.append(
             "negative numeric values detected: "
-            + ", ".join([p for p, _ in negatives[:10]])
+            + ", ".join([p for p, _ in filtered_negatives[:10]])
         )
 
     return errors

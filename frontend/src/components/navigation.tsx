@@ -1,6 +1,6 @@
 'use client';
 
-import { Bell, LogOut, Settings, User, Menu, X, Users } from 'lucide-react';
+import { Bell, LogOut, Settings, User, Menu, X } from 'lucide-react';
 import { useEffect, useState } from 'react';
 import Link from 'next/link';
 import { usePathname, useRouter } from 'next/navigation';
@@ -15,11 +15,9 @@ import {
 } from '@/components/ui/dropdown-menu';
 import {
   NavigationMenu,
-  NavigationMenuContent,
   NavigationMenuItem,
   NavigationMenuLink,
   NavigationMenuList,
-  NavigationMenuTrigger,
   navigationMenuTriggerStyle,
 } from '@/components/ui/navigation-menu';
 import { cn } from '@/components/ui/utils';
@@ -159,59 +157,17 @@ export function Navigation() {
                   </NavigationMenuItem>
 
                   <NavigationMenuItem>
-                    <NavigationMenuTrigger className={cn((pathname.startsWith('/solo') || pathname.startsWith('/group')) && "bg-slate-100 text-slate-900")}>
-                      Plan a Trip
-                    </NavigationMenuTrigger>
-                    <NavigationMenuContent>
-                      <ul className="grid gap-3 p-4 w-[400px]">
-                        <li>
-                          <NavigationMenuLink asChild>
-                            <Link
-                              href={user ? "/solo/setup" : "/login?redirect=/solo/setup"}
-                              className="block select-none space-y-1 rounded-md p-3 leading-none no-underline outline-none transition-colors hover:bg-slate-100 focus:bg-slate-100"
-                            >
-                              <div className="flex items-center gap-2 text-sm font-medium leading-none text-slate-900">
-                                <User className="h-4 w-4 text-blue-600" />
-                                Solo Trip
-                              </div>
-                              <p className="line-clamp-2 text-sm leading-snug text-slate-500 mt-1">
-                                Plan a personal getaway optimized for your points.
-                              </p>
-                            </Link>
-                          </NavigationMenuLink>
-                        </li>
-                        <li>
-                          <NavigationMenuLink asChild>
-                            <Link
-                              href={user ? "/group/setup" : "/login?redirect=/group/setup"}
-                              className="block select-none space-y-1 rounded-md p-3 leading-none no-underline outline-none transition-colors hover:bg-slate-100 focus:bg-slate-100"
-                            >
-                              <div className="flex items-center gap-2 text-sm font-medium leading-none text-slate-900">
-                                <Users className="h-4 w-4 text-blue-600" />
-                                Group Trip
-                              </div>
-                              <p className="line-clamp-2 text-sm leading-snug text-slate-500 mt-1">
-                                Collaborate with friends, vote on options, and split costs.
-                              </p>
-                            </Link>
-                          </NavigationMenuLink>
-                        </li>
-                      </ul>
-                    </NavigationMenuContent>
+                    <NavigationMenuLink asChild className={cn(navigationMenuTriggerStyle(), pathname.startsWith('/solo') && "bg-slate-100 text-slate-900")}>
+                      <Link href={user ? "/solo/setup" : "/login?redirect=/solo/setup"}>
+                        Plan a Trip
+                      </Link>
+                    </NavigationMenuLink>
                   </NavigationMenuItem>
 
                   <NavigationMenuItem>
                     <NavigationMenuLink asChild className={cn(navigationMenuTriggerStyle(), isActive('/my-trips') && "bg-slate-100 text-slate-900")}>
                       <Link href={user ? "/my-trips" : "/login?redirect=/my-trips"}>
                         My Trips
-                      </Link>
-                    </NavigationMenuLink>
-                  </NavigationMenuItem>
-
-                  <NavigationMenuItem>
-                    <NavigationMenuLink asChild className={cn(navigationMenuTriggerStyle(), isActive('/join') && "bg-slate-100 text-slate-900")}>
-                      <Link href={user ? "/join" : "/login?redirect=/join"}>
-                        Join a Trip
                       </Link>
                     </NavigationMenuLink>
                   </NavigationMenuItem>
@@ -321,30 +277,16 @@ export function Navigation() {
               Home
             </Link>
             
-            <div className="px-3 py-2 text-xs font-semibold text-slate-400 uppercase tracking-wider">
-              Plan a Trip
-            </div>
             <Link
               href={user ? "/solo/setup" : "/login?redirect=/solo/setup"}
               onClick={() => setMobileMenuOpen(false)}
-              className={`block pl-6 pr-4 py-2 border-l-4 text-base font-medium ${
+              className={`block pl-3 pr-4 py-2 border-l-4 text-base font-medium ${
                 pathname.includes('/solo')
                   ? 'bg-blue-50 border-blue-500 text-blue-700'
                   : 'border-transparent text-slate-500 hover:bg-slate-50 hover:border-slate-300 hover:text-slate-700'
               }`}
             >
-              Solo Trip
-            </Link>
-            <Link
-              href={user ? "/group/setup" : "/login?redirect=/group/setup"}
-              onClick={() => setMobileMenuOpen(false)}
-              className={`block pl-6 pr-4 py-2 border-l-4 text-base font-medium ${
-                pathname.includes('/group')
-                  ? 'bg-blue-50 border-blue-500 text-blue-700'
-                  : 'border-transparent text-slate-500 hover:bg-slate-50 hover:border-slate-300 hover:text-slate-700'
-              }`}
-            >
-              Group Trip
+              Plan a Trip
             </Link>
             
             <Link
@@ -357,17 +299,6 @@ export function Navigation() {
               }`}
             >
               My Trips
-            </Link>
-            <Link
-              href={user ? "/join" : "/login?redirect=/join"}
-              onClick={() => setMobileMenuOpen(false)}
-              className={`block pl-3 pr-4 py-2 border-l-4 text-base font-medium ${
-                isActive('/join')
-                  ? 'bg-blue-50 border-blue-500 text-blue-700'
-                  : 'border-transparent text-slate-500 hover:bg-slate-50 hover:border-slate-300 hover:text-slate-700'
-              }`}
-            >
-              Join a Trip
             </Link>
             <Link
               href={user ? "/points-setup" : "/login?redirect=/points-setup"}
