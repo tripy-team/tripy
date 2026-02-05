@@ -242,6 +242,10 @@ export function AcknowledgmentModal({
     initialAcknowledged
   );
 
+  // Get blocks and warnings from evaluation
+  const blocks = evaluation.blocks ?? [];
+  const warnings = evaluation.warnings ?? [];
+
   // Get messages that require acknowledgment
   const messagesToAck = [
     ...blocks.filter((m) => m.requires_ack),
