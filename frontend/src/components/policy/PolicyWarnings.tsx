@@ -12,7 +12,7 @@ import {
 } from '@/lib/policyConfig';
 
 // Warning codes to hide from the UI
-const HIDDEN_WARNING_CODES = [
+const HIDDEN_WARNING_CODES: string[] = [
   REASON_CODES.FLIGHT_UNPROTECTED_CONNECTION,
   REASON_CODES.FLIGHT_OVERNIGHT_CONNECTION,
 ];
