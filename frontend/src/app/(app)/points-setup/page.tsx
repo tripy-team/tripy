@@ -102,13 +102,15 @@ export default function PointsSetup() {
           // Convert backend format to frontend format
           // Determine category from program name
           const loadedCards: LoyaltyCard[] = profile.credit_cards.map(card => {
-            const category = getProgramCategory(card.program) || 'credit';
+            const rawCategory = getProgramCategory(card.program) || 'credit';
+            // Hotels not supported - treat as credit if encountered
+            const category: 'credit' | 'airline' = rawCategory === 'hotel' ? 'credit' : rawCategory;
             const c = card as { card_product?: string; card_name?: string };
             return {
               id: card.id,
               program: card.program,
               points: card.points,
-              category: category as 'credit' | 'hotel' | 'airline',
+              category,
               card_product: c.card_product || c.card_name,
             };
           });
