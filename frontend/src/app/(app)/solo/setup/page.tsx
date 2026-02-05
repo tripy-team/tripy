@@ -456,7 +456,7 @@ export default function SoloTripSetup() {
         startDate: isFlexible ? undefined : effectiveStartDate,
         endDate: isFlexible ? undefined : effectiveEndDate,
         durationDays: isFlexible ? flexibleDuration : undefined,
-        maxBudget: maxBudget === '' ? undefined : (typeof maxBudget === 'number' ? maxBudget : undefined),
+        maxBudget: maxBudget,
         adults: adults,
         children: children,
         bags: bags,
