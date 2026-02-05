@@ -3,7 +3,7 @@ applications:
   - appRoot: frontend
     frontend:
       env:
-        NEXT_PUBLIC_BACKEND_URL: https://p4vpzp2mjf.us-east-1.awsapprunner.com
+        NEXT_PUBLIC_BACKEND_URL: https://xezfenhu6t.us-east-1.awsapprunner.com
       phases:
         preBuild:
           commands:
