@@ -356,7 +356,11 @@ function SoloBookingContent() {
   const destCount = Math.max(1, (trip?.destinations && trip.destinations.length) || destinationMap.size || 1);
   const estimatedCash = duration * 200 + destCount * 300;
 
-  const cashPrice = Number(pathItem?.totalCost ?? itineraryItem?.totalCost ?? totalsItem?.totals?.cash ?? estimatedCash) || estimatedCash;
+  // Use actual out-of-pocket cost from selected itinerary when available (solo API selection)
+  const selectionOOP = selection?.outOfPocketAtSelection;
+  const cashPrice = selectionOOP != null && selectionOOP >= 0
+    ? selectionOOP
+    : (Number(pathItem?.totalCost ?? itineraryItem?.totalCost ?? totalsItem?.totals?.cash ?? estimatedCash) || estimatedCash);
   const pointsCost = Number(pathItem?.pointsCost ?? itineraryItem?.pointsCost ?? totalsItem?.totals?.airline_points ?? Math.round(estimatedCash * 25)) || 60000;
   const paymentRecs: PaymentRec[] = Array.isArray(paymentsItem?.payments) ? paymentsItem.payments : [];
   const taxesFromPayments = paymentRecs.reduce((s, p) => s + (Number(p.surcharge) || 0), 0);
