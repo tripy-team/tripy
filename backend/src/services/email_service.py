@@ -916,18 +916,104 @@ def send_i_booked_it_email(
 def send_monitoring_alert_email(
     to_email: str,
     trip_update_link: str,
+    unsubscribe_link: str = "",
+    manage_link: str = "",
+    consent_date: str = "",
 ) -> Dict[str, Any]:
     """
     Alert a user that something changed on a monitored plan.
     Template: monitoring_alert
+
+    Includes:
+    - Unsubscribe footer with consent date
+    - List-Unsubscribe + List-Unsubscribe-Post headers (RFC 8058)
     """
     rendered = _render_template("monitoring_alert", trip_update_link=trip_update_link)
+
+    # Append unsubscribe footer to rendered HTML/text
+    footer_html = ""
+    footer_text = ""
+    if unsubscribe_link:
+        consent_str = f" on {consent_date}" if consent_date else ""
+        footer_html = f"""
+        <div style="text-align: center; padding: 16px 20px; color: #94A3B8; font-size: 11px; border-top: 1px solid #E2E8F0; margin-top: 20px;">
+            <p style="margin: 0 0 4px 0;">You signed up for trip monitoring{consent_str}.</p>
+            <p style="margin: 0;"><a href="{unsubscribe_link}" style="color: #64748B;">Unsubscribe from this trip</a>"""
+        if manage_link:
+            footer_html += f""" &middot; <a href="{manage_link}" style="color: #64748B;">Manage all alerts</a>"""
+        footer_html += """</p></div>"""
+
+        footer_text = f"\n---\nYou signed up for trip monitoring{consent_str}.\nUnsubscribe: {unsubscribe_link}"
+        if manage_link:
+            footer_text += f"\nManage all alerts: {manage_link}"
+
+    html_body = rendered["html"]
+    text_body = rendered["text"]
+    if footer_html:
+        # Insert footer before closing </body> tag
+        html_body = html_body.replace("</body>", f"{footer_html}</body>")
+        text_body = text_body + footer_text
+
+    # Use SES send_raw_email for custom headers (List-Unsubscribe)
+    if unsubscribe_link:
+        return _send_email_with_headers(
+            to_email=to_email,
+            subject=rendered["subject"],
+            html_body=html_body,
+            text_body=text_body,
+            extra_headers={
+                "List-Unsubscribe": f"<{unsubscribe_link}>",
+                "List-Unsubscribe-Post": "List-Unsubscribe=One-Click",
+            },
+        )
+
     return send_email(
         to_email=to_email,
         subject=rendered["subject"],
-        html_body=rendered["html"],
-        text_body=rendered["text"],
+        html_body=html_body,
+        text_body=text_body,
     )
+
+
+def _send_email_with_headers(
+    to_email: str,
+    subject: str,
+    html_body: str,
+    text_body: str,
+    extra_headers: Dict[str, str] = None,
+) -> Dict[str, Any]:
+    """
+    Send email via SES send_raw_email to include custom headers (e.g., List-Unsubscribe).
+    """
+    import email.mime.multipart
+    import email.mime.text
+
+    try:
+        msg = email.mime.multipart.MIMEMultipart("alternative")
+        msg["Subject"] = subject
+        msg["From"] = SENDER_EMAIL
+        msg["To"] = to_email
+
+        if extra_headers:
+            for key, value in extra_headers.items():
+                msg[key] = value
+
+        part_text = email.mime.text.MIMEText(text_body, "plain", "utf-8")
+        part_html = email.mime.text.MIMEText(html_body, "html", "utf-8")
+        msg.attach(part_text)
+        msg.attach(part_html)
+
+        response = ses_client.send_raw_email(
+            Source=SENDER_EMAIL,
+            Destinations=[to_email],
+            RawMessage={"Data": msg.as_string()},
+        )
+
+        logger.info(f"Raw email sent to {to_email}, MessageId: {response['MessageId']}")
+        return {"success": True, "message_id": response["MessageId"]}
+    except Exception as e:
+        logger.error(f"Error sending raw email: {e}")
+        return {"success": False, "error": str(e)}
 
 
 def send_gentle_nudge_email(

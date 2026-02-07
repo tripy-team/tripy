@@ -11,7 +11,7 @@ import logging
 from datetime import datetime, timezone, timedelta
 from typing import Dict, Optional
 
-from fastapi import APIRouter, Depends, HTTPException
+from fastapi import APIRouter, BackgroundTasks, Depends, HTTPException
 from pydantic import BaseModel
 
 from ..utils.jwt_auth import get_current_user_id, get_user_or_anon_id, is_anonymous
@@ -405,12 +405,33 @@ async def optimize_solo(
         # Map cabin class preference (use camelCase field names)
         cabin_classes = _map_flight_class(trip.get("flightClass", "economy"))
         
+        # Read advanced flight filters from trip preferences
+        include_budget_airlines = trip.get("includeBudgetAirlines", True)
+        max_stops = int(trip.get("maxStops", 0))
+        departure_hour_range = trip.get("departureHourRange") or None
+        arrival_hour_range = trip.get("arrivalHourRange") or None
+        # Sanitize hour ranges: must be [int, int] or None
+        if departure_hour_range and len(departure_hour_range) == 2:
+            departure_hour_range = [int(departure_hour_range[0]), int(departure_hour_range[1])]
+        else:
+            departure_hour_range = None
+        if arrival_hour_range and len(arrival_hour_range) == 2:
+            arrival_hour_range = [int(arrival_hour_range[0]), int(arrival_hour_range[1])]
+        else:
+            arrival_hour_range = None
+        
+        logger.info(f"[solo/optimize] Flight filters: include_budget={include_budget_airlines}, max_stops={max_stops}, dep_hours={departure_hour_range}, arr_hours={arrival_hour_range}")
+        
         agent_request = AgentOptimizeSoloRequest(
             trip_id=request.trip_id,
             points=request.points,
             budget=budget,
             cabin_classes=cabin_classes,
             optimization_mode=mode,
+            include_budget_airlines=include_budget_airlines,
+            max_stops=max_stops,
+            departure_hour_range=departure_hour_range,
+            arrival_hour_range=arrival_hour_range,
         )
         
         logger.info(f"[solo/optimize] Running orchestrator for trip {request.trip_id} with optimization_mode={mode}, budget=${budget if budget else 'unlimited'}")
@@ -793,51 +814,108 @@ def _generate_decision_summary(
     """
     Generate the decision confidence header for the recommended itinerary.
     Uses opinionated, confident language — NOT neutral or numeric.
+    
+    CRITICAL DESIGN:
+    - confidence_level = "Should I book this?" (risk, data quality, execution complexity)
+    - value_label = "How good is this financially?" (CPP, savings)
+    These are INDEPENDENT dimensions. Cash-only trips can be high confidence.
+    CPP does NOT determine confidence.
     """
     metrics = best.oop_metrics
     cpp = metrics.average_cpp
     savings_pct = metrics.savings_percentage
     saved = metrics.cash_saved
     oop = metrics.total_out_of_pocket
+    points_used = metrics.total_points_used
+    is_cash_only = points_used == 0
     
-    # Build confident headline
-    parts = []
-    if saved > 100:
-        parts.append(f"saving you ${saved:,.0f}")
-    
-    # Check for direct flights
+    # --- Flight characteristics ---
     has_direct = any(seg.stops == 0 for seg in best.segments if seg.type == "flight")
     has_transfers = len(best.transfers) > 0
+    short_connections = any(seg.has_short_connection for seg in best.segments)
     
+    # --- Use the risk assessment (already computed before this function is called) ---
+    risk = best.risk
+    risk_level = risk.level if risk else "low"
+    risk_first_flag = risk.flags[0] if risk and risk.flags else ""
+    
+    # =========================================================================
+    # DIMENSION 1: Decision Confidence (badge)
+    # Answers: "Should I book this?"
+    # Inputs: execution risk, data completeness, booking complexity
+    # NOT inputs: CPP, savings percentage
+    # =========================================================================
+    if risk_level == "high":
+        confidence = "low"
+        confidence_reason = f"Complex booking — {risk_first_flag}" if risk_first_flag else "High execution risk"
+    elif is_estimated and has_transfers:
+        confidence = "medium"
+        confidence_reason = "Estimated balances and transfers needed — verify points before booking"
+    elif is_estimated:
+        confidence = "medium"
+        confidence_reason = "Based on estimated balances — verify your actual points before booking"
+    elif risk_level == "medium":
+        confidence = "medium"
+        confidence_reason = f"Good plan with some complexity — {risk_first_flag}" if risk_first_flag else "Moderate booking complexity"
+    else:
+        # Low risk, not estimated → high confidence regardless of CPP
+        confidence = "high"
+        if is_cash_only:
+            confidence_reason = "Clean cash booking — straightforward to book"
+        elif has_transfers:
+            confidence_reason = "Strong plan — initiate transfers and book within 48 hours"
+        else:
+            confidence_reason = "Clean booking — straightforward to book"
+    
+    # =========================================================================
+    # DIMENSION 2: Value Assessment (label)
+    # Answers: "How good is this financially?"
+    # Independent from confidence.
+    # =========================================================================
+    if is_cash_only:
+        value_label = "Cash booking"
+    elif cpp >= 2.0:
+        value_label = "Exceptional value"
+    elif cpp >= 1.5:
+        value_label = "Excellent value"
+    elif cpp >= 1.0:
+        value_label = "Good value"
+    elif cpp >= 0.8:
+        value_label = "Fair value"
+    else:
+        value_label = "Below-average redemption"
+    
+    # =========================================================================
+    # Headline — confident, opinionated
+    # =========================================================================
+    parts = []
+    if saved > 100 and not is_cash_only:
+        parts.append(f"saving you ${saved:,.0f}")
     if has_direct:
         parts.append("with a direct flight")
     
     if parts:
         headline = f"Book this plan — {' '.join(parts)}."
+    elif is_cash_only and has_direct:
+        headline = "Book this — best cash price with a direct flight."
+    elif is_cash_only:
+        headline = "Book this — best cash price for your route."
     elif savings_pct > 0:
         headline = f"This is your best option — {_humanize_savings(savings_pct)} vs paying cash."
     else:
         headline = "This is your smartest move right now."
     
-    # Confidence level
-    if is_estimated:
-        confidence = "medium"
-    elif cpp >= 1.5 and savings_pct >= 20:
-        confidence = "high"
-    elif cpp >= 1.0 and savings_pct >= 10:
-        confidence = "high"
-    elif cpp >= 0.8:
-        confidence = "medium"
-    else:
-        confidence = "low"
-    
+    # =========================================================================
     # Why it's good (bullet points)
+    # =========================================================================
     why_good = []
-    if savings_pct > 0:
+    if is_cash_only:
+        why_good.append("Best cash option we found for this route")
+    elif savings_pct > 0:
         why_good.append(f"Saves {savings_pct:.0f}% compared to paying full cash price")
-    if cpp >= 1.5:
+    if not is_cash_only and cpp >= 1.5:
         why_good.append(f"{_humanize_cpp(cpp)} — your points are working hard ({cpp:.1f}¢ each)")
-    elif cpp >= 1.0:
+    elif not is_cash_only and cpp >= 1.0:
         why_good.append(f"{_humanize_cpp(cpp)} — better than the typical redemption")
     if has_direct:
         why_good.append("Direct flight — no stressful connections")
@@ -848,7 +926,9 @@ def _generate_decision_summary(
     if not why_good:
         why_good.append("Best combination of price and convenience we could find")
     
+    # =========================================================================
     # Tradeoffs (honest)
+    # =========================================================================
     tradeoffs = []
     if has_transfers:
         transfer_time_total = sum(1 for t in best.transfers)
@@ -858,17 +938,20 @@ def _generate_decision_summary(
     for seg in non_direct:
         tradeoffs.append(f"{seg.origin}→{seg.destination}: {seg.stops} stop{'s' if seg.stops > 1 else ''}")
     
+    if is_cash_only and points_used == 0 and not is_estimated:
+        tradeoffs.append("No points applied — your points programs don't connect to available flights")
+    
     if not tradeoffs:
         tradeoffs.append("Nothing major — this is a clean plan")
     
+    # =========================================================================
     # Risks
+    # =========================================================================
     risks = []
     if has_transfers:
         risks.append("Award availability can change — book within 48 hours of transferring")
     if is_estimated:
         risks.append("Your balances are estimated — actual points may differ")
-    
-    short_connections = [seg for seg in best.segments if seg.has_short_connection]
     if short_connections:
         risks.append("Short connection time on one or more legs — check with airline")
     
@@ -878,6 +961,8 @@ def _generate_decision_summary(
     return DecisionSummary(
         headline=headline,
         confidence_level=confidence,
+        confidence_reason=confidence_reason,
+        value_label=value_label,
         why_good=why_good,
         tradeoffs=tradeoffs,
         risks=risks,
@@ -1708,19 +1793,6 @@ async def get_transfer_strategy(
     Generates real booking steps from the itinerary snapshot.
     """
     try:
-        # Enforce server-side unlock: do not return booking instructions until unlocked.
-        trip = solo_trip_service.get_solo_trip(request.trip_id, user_id)
-        if not trip:
-            raise HTTPException(status_code=404, detail="Trip not found")
-        if trip.get("status") != "instructions_unlocked":
-            return TransferStrategyResponse(
-                transfers=[],
-                bookings=[],
-                total_points_to_transfer=0,
-                estimated_total_time="Locked",
-                warnings=["Instructions locked. Complete payment to unlock transfer and booking steps."],
-            )
-
         # Get selection to verify it exists
         selection = solo_trip_service.get_selection(request.trip_id, user_id)
         if not selection:
@@ -2167,3 +2239,74 @@ def _mark_support_touch_for_user(user_id: str):
             solo_trip_service.mark_email_sent(item['tripId'], 'emailSupportTouchSent')
     except Exception as e:
         logger.warning(f"_mark_support_touch_for_user error: {e}")
+
+
+# =========================================================================
+# User Feedback Endpoint
+# =========================================================================
+
+class FeedbackRequest(BaseModel):
+    feedback: str
+    trip_id: Optional[str] = None
+
+
+@router.post("/feedback")
+async def submit_feedback(
+    body: FeedbackRequest,
+    background_tasks: BackgroundTasks,
+    user_id: str = Depends(get_user_or_anon_id),
+):
+    """
+    Receive user feedback from the confidence prompt and email it to the team.
+    Runs the email send in a background task so the user gets an instant response.
+    """
+    feedback_text = body.feedback.strip()
+    if not feedback_text:
+        raise HTTPException(status_code=400, detail="Feedback cannot be empty")
+
+    FEEDBACK_RECIPIENT = "tripy@traveltripy.com"
+
+    subject = "feedback-from-input-box"
+    text_body = (
+        f"New feedback from the results page:\n\n"
+        f"---\n"
+        f"{feedback_text}\n"
+        f"---\n\n"
+        f"User/session: {user_id}\n"
+        f"Trip ID: {body.trip_id or 'N/A'}\n"
+        f"Submitted at: {datetime.now(timezone.utc).isoformat()}\n"
+    )
+    html_body = (
+        f'<div style="font-family: sans-serif; max-width: 600px; margin: 0 auto;">'
+        f'<h2 style="color: #1E293B;">New User Feedback</h2>'
+        f'<div style="background: #F8FAFC; border: 1px solid #E2E8F0; border-radius: 8px; padding: 16px; margin: 16px 0;">'
+        f'<p style="color: #334155; white-space: pre-wrap;">{feedback_text}</p>'
+        f'</div>'
+        f'<table style="color: #64748B; font-size: 13px;">'
+        f'<tr><td style="padding-right: 12px;"><strong>User/Session:</strong></td><td>{user_id}</td></tr>'
+        f'<tr><td style="padding-right: 12px;"><strong>Trip ID:</strong></td><td>{body.trip_id or "N/A"}</td></tr>'
+        f'<tr><td style="padding-right: 12px;"><strong>Submitted:</strong></td><td>{datetime.now(timezone.utc).isoformat()}</td></tr>'
+        f'</table>'
+        f'</div>'
+    )
+
+    def _send():
+        try:
+            from ..services.email_service import send_email
+            result = send_email(
+                to_email=FEEDBACK_RECIPIENT,
+                subject=subject,
+                html_body=html_body,
+                text_body=text_body,
+                reply_to=FEEDBACK_RECIPIENT,
+            )
+            if result.get("success"):
+                logger.info(f"Feedback email sent for trip={body.trip_id} user={user_id}")
+            else:
+                logger.error(f"Feedback email failed: {result.get('error')}")
+        except Exception as e:
+            logger.error(f"Feedback email exception: {e}")
+
+    background_tasks.add_task(_send)
+
+    return {"ok": True, "message": "Feedback received — thank you!"}

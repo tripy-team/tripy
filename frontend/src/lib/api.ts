@@ -308,6 +308,27 @@ async function apiRequest<T>(
       throw new Error('Authentication failed. Please log in again.');
     }
 
+    // Handle 429 Too Many Requests with automatic retry
+    if (response.status === 429) {
+      const retryAfter = response.headers.get('Retry-After');
+      const waitMs = retryAfter ? Math.min(parseInt(retryAfter, 10) * 1000, 5000) : 2000;
+      console.warn(`[api] Rate limited on ${endpoint}, retrying in ${waitMs}ms...`);
+      await new Promise(resolve => setTimeout(resolve, waitMs));
+      // Retry once
+      const retryResponse = await fetch(url, {
+        ...options,
+        headers: headers as HeadersInit,
+      });
+      if (!retryResponse.ok) {
+        const retryError = await retryResponse.json().catch(() => ({ detail: 'Unknown error' }));
+        throw new Error(retryError.detail || retryError.message || `HTTP ${retryResponse.status}`);
+      }
+      if (retryResponse.status === 204) {
+        return {} as T;
+      }
+      return retryResponse.json() as T;
+    }
+
     if (!response.ok) {
       const error = await response.json().catch(() => ({ detail: 'Unknown error' }));
       throw new Error(error.detail || error.message || `HTTP ${response.status}`);
@@ -335,7 +356,7 @@ async function apiRequest<T>(
     // Handle network errors with more specific messages
     if (error instanceof TypeError) {
       if (error.message.includes('fetch') || error.message === 'Failed to fetch') {
-        // Network error - backend might not be running or URL is wrong
+        // Network error - backend might not be running, URL is wrong, or CORS blocked
         const backendUrl = BACKEND_URL;
         console.error('Network error - Backend URL:', backendUrl);
         throw new Error(`Cannot connect to backend server at ${backendUrl}. Please ensure the backend is running.`);
@@ -2619,6 +2640,11 @@ export interface SoloCreateTripRequest {
   arrivalTimePreference?: 'any' | 'morning' | 'afternoon' | 'evening' | 'night';
   // Multi-city leg dates: departure date for each flight segment
   legDates?: string[];
+  // Advanced flight filters (Google Flights parity)
+  includeBudgetAirlines?: boolean;
+  maxStops?: number; // 0=Any, 1=Nonstop, 2=1 stop or fewer, 3=2 stops or fewer
+  departureHourRange?: [number, number]; // [startHour, endHour]
+  arrivalHourRange?: [number, number]; // [startHour, endHour]
 }
 
 export interface SoloTripResponse {
@@ -2734,10 +2760,27 @@ export interface SoloOOPMetrics {
 export interface DecisionSummary {
   headline: string;
   confidenceLevel: 'high' | 'medium' | 'low';
+  confidenceReason?: string;           // One-sentence: WHY this confidence level
+  valueLabel?: string;                 // Financial assessment: "Excellent value", "Cash booking", etc.
   whyGood: string[];
   tradeoffs: string[];
   risks: string[];
   isEstimated?: boolean;
+}
+
+export interface WarningItem {
+  category: 'budget' | 'points' | 'estimation' | 'degradation';
+  severity: 'info' | 'warning' | 'error';
+  headline: string;
+  message: string;
+  details?: Record<string, unknown>;
+}
+
+export interface StructuredWarnings {
+  budget?: WarningItem;
+  points?: WarningItem;
+  estimation?: WarningItem;
+  degradation?: WarningItem;
 }
 
 export interface RejectedAlternative {
@@ -2811,7 +2854,8 @@ export interface SoloRankedItinerary {
 export interface SoloOptimizeResponse {
   itineraries: SoloRankedItinerary[];
   bestOption?: string;
-  warnings: string[];
+  warnings: string[];                  // Flat list (backward compat)
+  structuredWarnings?: StructuredWarnings;  // Typed warnings (preferred)
   globalInsights: SoloTransferInsight[];
   riskMode?: RiskMode;
   /** Decision summary for the recommended option */
@@ -2944,10 +2988,15 @@ export const solo = {
         flight_class: request.flightClass,
         hotel_class: request.hotelClass,
         optimization_mode: request.optimizationMode,
-        departure_time_preference: request.departureTimePreference,
-        arrival_time_preference: request.arrivalTimePreference,
+        departure_time_preference: request.departureTimePreference ?? 'any',
+        arrival_time_preference: request.arrivalTimePreference ?? 'any',
         // Multi-city leg dates
         leg_dates: request.legDates,
+        // Advanced flight filters
+        include_budget_airlines: request.includeBudgetAirlines ?? true,
+        max_stops: request.maxStops ?? 0,
+        departure_hour_range: request.departureHourRange ?? null,
+        arrival_hour_range: request.arrivalHourRange ?? null,
       }),
     });
     return toCamelCase<SoloTripResponse>(response);
@@ -3041,6 +3090,7 @@ export const solo = {
         trip_id: request.tripId,
         points: request.points,
         optimization_mode_override: request.optimizationModeOverride,
+        force_refresh: request.forceRefresh ?? false,
       }),
     });
     if (process.env.NODE_ENV !== 'production') {
@@ -3130,6 +3180,99 @@ export const solo = {
     } catch {
       return null;
     }
+  },
+
+  // =========================================================================
+  // MONITORING
+  // =========================================================================
+
+  /**
+   * Start monitoring for a trip (free email tier).
+   * Creates a subscription and sends verification email for unauthenticated users.
+   */
+  startMonitoring: async (
+    tripId: string,
+    email: string,
+    baselinePayload?: {
+      schema_version: number;
+      selected_itinerary: Record<string, unknown>;
+      alternatives?: Record<string, unknown>[];
+      query_inputs?: Record<string, unknown>;
+    },
+  ): Promise<{
+    subscriptionId: string;
+    state: string;
+    tier: string;
+    expiresAt: string | null;
+    message: string | null;
+  }> => {
+    const response = await apiRequest<Record<string, unknown>>(
+      `/solo/trips/${tripId}/monitoring/start`,
+      {
+        method: 'POST',
+        body: JSON.stringify({
+          tier: 'free_email',
+          email,
+          baseline_payload: baselinePayload || null,
+        }),
+      },
+      false, // allow anonymous
+    );
+    return toCamelCase(response) as {
+      subscriptionId: string;
+      state: string;
+      tier: string;
+      expiresAt: string | null;
+      message: string | null;
+    };
+  },
+
+  /**
+   * Get monitoring status for the current authenticated user on a trip.
+   */
+  getMonitoringStatus: async (
+    tripId: string,
+  ): Promise<{
+    subscriptionId: string;
+    state: string;
+    tier: string;
+    emailMasked: string;
+    expiresAt: string | null;
+    nextCheckAt: string | null;
+    lastCheckedAt: string | null;
+    alertsSent: number;
+  } | null> => {
+    try {
+      const response = await apiRequest<Record<string, unknown>>(
+        `/solo/trips/${tripId}/monitoring/status`,
+        { method: 'GET' },
+        true, // require auth
+      );
+      return toCamelCase(response) as {
+        subscriptionId: string;
+        state: string;
+        tier: string;
+        emailMasked: string;
+        expiresAt: string | null;
+        nextCheckAt: string | null;
+        lastCheckedAt: string | null;
+        alertsSent: number;
+      };
+    } catch {
+      return null; // 404 or auth failure
+    }
+  },
+
+  /**
+   * Stop monitoring for a trip.
+   */
+  stopMonitoring: async (tripId: string): Promise<{ ok: boolean }> => {
+    const response = await apiRequest<Record<string, unknown>>(
+      `/solo/trips/${tripId}/monitoring/stop`,
+      { method: 'POST' },
+      true,
+    );
+    return toCamelCase(response) as { ok: boolean };
   },
 };
 

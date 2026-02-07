@@ -228,11 +228,25 @@ def get_google_flights(
     return_date: Optional[str] = None,
     travel_class: Optional[int] = None,
     commercial_only: bool = False,
+    sort_by: Optional[int] = None,
+    stops: Optional[int] = None,
+    outbound_times: Optional[str] = None,
+    best_only: bool = False,
+    exclude_airlines: Optional[str] = None,
 ) -> List[Dict[str, Any]]:
     """
     Round-trip (type=2) or one-way (type=1) via SerpAPI google_flights.
     If commercial_only=True, returns [] when origin or destination is not a commercial airport.
-    Returns: best_flights + other_flights (each with price, flights[], total_duration, etc.)
+    
+    Advanced filters (Google Flights parity):
+        sort_by: 1=Top flights (best), 2=Price, 3=Departure, 4=Arrival, 5=Duration
+        stops: 0=Any, 1=Nonstop, 2=1 stop or fewer, 3=2 stops or fewer
+        outbound_times: Hour ranges like "6,18" (depart 6AM-7PM) or "6,18,8,22" (depart+arrive)
+        best_only: If True, only return SerpAPI's recommended "best_flights" (excludes other).
+                   If False (default), return best_flights + other_flights combined.
+        exclude_airlines: Comma-separated IATA airline codes to exclude (e.g. "NK,F9,G4").
+    
+    Returns: best_flights + other_flights (or best_flights only if best_only=True)
     """
     # Check if dummy mode is enabled
     from src.config import is_awardtool_dummy_mode
@@ -243,6 +257,14 @@ def get_google_flights(
         body = generate_dummy_serp_data(origin, destination, outbound_date, travel_class)
         best = body.get("best_flights") or []
         other = body.get("other_flights") or []
+        if best_only:
+            if best:
+                logging.getLogger(__name__).info(f"[DUMMY MODE] best_only=True: returning {len(best)} best flights (excluded {len(other)} other flights)")
+                return list(best)
+            else:
+                # best_flights not always present in SerpAPI response - fall back to other_flights
+                logging.getLogger(__name__).warning(f"[DUMMY MODE] best_only=True but no best_flights returned, falling back to all {len(other)} other_flights")
+                return list(other)
         return list(best) + list(other)
     
     import logging
@@ -279,6 +301,15 @@ def get_google_flights(
         params["return_date"] = (return_date or "").strip()
     if travel_class is not None and travel_class in (1, 2, 3, 4):
         params["travel_class"] = str(travel_class)
+    # Advanced filters (Google Flights parity)
+    if sort_by is not None and sort_by in (1, 2, 3, 4, 5, 6):
+        params["sort_by"] = str(sort_by)
+    if stops is not None and stops in (1, 2, 3):
+        params["stops"] = str(stops)
+    if outbound_times:
+        params["outbound_times"] = outbound_times
+    if exclude_airlines:
+        params["exclude_airlines"] = exclude_airlines
 
     try:
         logger.info(f"[SerpAPI] Calling GoogleSearch with params: {params}")
@@ -298,6 +329,14 @@ def get_google_flights(
         
         best = (data or {}).get("best_flights") or []
         other = (data or {}).get("other_flights") or []
+        if best_only:
+            if best:
+                logger.info(f"[SerpAPI] get_google_flights {origin}->{destination}: returning {len(best)} best flights only (excluded {len(other)} other flights)")
+                return list(best)
+            else:
+                # best_flights is not always present in SerpAPI response - fall back to other_flights
+                logger.warning(f"[SerpAPI] get_google_flights {origin}->{destination}: best_only=True but no best_flights returned, falling back to all {len(other)} other_flights")
+                return list(other)
         all_flights = list(best) + list(other)
         logger.info(f"[SerpAPI] get_google_flights {origin}->{destination}: {len(all_flights)} flights returned (best={len(best)}, other={len(other)})")
         return all_flights

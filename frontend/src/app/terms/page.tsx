@@ -121,8 +121,8 @@ export default function TermsPage() {
                         <p className="mb-2">Questions or concerns?</p>
                         <p>
                             Email us at{' '}
-                            <a href="mailto:support@traveltripy.com" className="text-blue-600 hover:underline">
-                                support@traveltripy.com
+                            <a href="mailto:tripy@traveltripy.com" className="text-blue-600 hover:underline">
+                                tripy@traveltripy.com
                             </a>
                         </p>
                         <p className="mt-1 text-slate-500">We actually read it.</p>

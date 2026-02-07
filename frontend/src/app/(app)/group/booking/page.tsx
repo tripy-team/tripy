@@ -10,13 +10,8 @@ import {
   Sparkles,
   Wallet,
   Users,
-  Lock,
-  Shield,
-  CreditCard,
-  ChevronRight
 } from 'lucide-react';
 import { trips as tripsAPI, itineraries as itinerariesAPI } from '@/lib/api';
-import { calculateServiceFee, SERVICE_FEE_PERCENT } from '@/lib/utils';
 
 function GroupBookingContent() {
   const searchParams = useSearchParams();
@@ -24,22 +19,11 @@ function GroupBookingContent() {
   
   const [groupSize, setGroupSize] = useState(4);
   const [loading, setLoading] = useState(true);
-  const [isPaid, setIsPaid] = useState(false);
+  const [isPaid, setIsPaid] = useState(true);
   const [isProcessing, setIsProcessing] = useState(false);
   const [itineraryData, setItineraryData] = useState<{ totalCost?: number; totalCostPerPerson?: number; pointsCost?: number } | null>(null);
 
-  const handlePayment = async () => {
-    setIsProcessing(true);
-    try {
-      // Mark strategy as paid in the backend
-      await tripsAPI.markStrategyPaid(tripId);
-      setIsPaid(true);
-    } catch (err) {
-      console.error('Error marking strategy as paid:', err);
-    } finally {
-      setIsProcessing(false);
-    }
-  };
+  // handlePayment removed — paywall disabled
 
   useEffect(() => {
     const fetchData = async () => {
@@ -99,7 +83,7 @@ function GroupBookingContent() {
   const pointsCost = itineraryData?.pointsCost ?? 60000;
   const taxes = 50 * groupSize;
   const savings = cashPrice - (pointsCost / 1000 * 2 + taxes); // Rough estimate
-  const serviceFee = calculateServiceFee(cashPrice); // cash = spent + saved
+  // Service fee removed — paywall disabled
 
   return (
     <div className="min-h-screen bg-slate-50 pb-20">
@@ -148,37 +132,13 @@ function GroupBookingContent() {
                 <Wallet className="w-5 h-5 text-blue-600" />
                 Transfer Instructions
               </h2>
-              {isPaid ? (
-                <span className="px-3 py-1 bg-green-100 text-green-700 text-xs font-bold uppercase tracking-wide rounded-full flex items-center gap-1">
-                  <CheckCircle className="w-3 h-3" /> Unlocked
+              <span className="px-3 py-1 bg-green-100 text-green-700 text-xs font-bold uppercase tracking-wide rounded-full flex items-center gap-1">
+                  <CheckCircle className="w-3 h-3" /> Ready
                 </span>
-              ) : (
-                <span className="px-3 py-1 bg-amber-100 text-amber-700 text-xs font-bold uppercase tracking-wide rounded-full flex items-center gap-1">
-                  <Lock className="w-3 h-3" /> Locked
-                </span>
-              )}
             </div>
 
             <div className="relative">
-              {!isPaid && (
-                <div className="absolute inset-0 bg-white/60 backdrop-blur-sm z-10 flex flex-col items-center justify-center text-center p-8">
-                  <div className="bg-white p-4 rounded-full shadow-lg mb-4">
-                    <Lock className="w-8 h-8 text-blue-600" />
-                  </div>
-                  <h3 className="text-lg font-bold text-slate-900 mb-2">Pending Payment</h3>
-                  <p className="text-slate-600 max-w-sm mb-6">
-                    Pay the service fee to reveal the exact transfer partners, flight numbers, and step-by-step booking guide for your group.
-                  </p>
-                  <button
-                    onClick={() => document.getElementById('payment-section')?.scrollIntoView({ behavior: 'smooth' })}
-                    className="text-blue-600 font-semibold hover:text-blue-700 flex items-center gap-1"
-                  >
-                    Go to Payment <ChevronRight className="w-4 h-4" />
-                  </button>
-                </div>
-              )}
-
-              <div className={`p-8 space-y-8 ${!isPaid ? 'opacity-20 select-none' : ''}`}>
+              <div className="p-8 space-y-8">
                 {/* Step 1 - Group Flight Transfer */}
                 <div className="flex gap-4">
                   <div className="flex-shrink-0 w-8 h-8 rounded-full bg-blue-100 text-blue-600 flex items-center justify-center font-bold">1</div>
@@ -276,11 +236,11 @@ function GroupBookingContent() {
           </div>
         </div>
 
-        {/* Right Column: Order Summary & Payment (pending payment section when !isPaid) */}
-        <div className="lg:col-span-1" id="payment-section">
+        {/* Right Column: Trip Summary */}
+        <div className="lg:col-span-1">
           <div className="bg-white border border-slate-200 rounded-2xl shadow-lg sticky top-8">
             <div className="p-6 border-b border-slate-100">
-              <h2 className="text-lg font-bold text-slate-900">Order Summary</h2>
+              <h2 className="text-lg font-bold text-slate-900">Trip Summary</h2>
             </div>
             
             <div className="p-6 space-y-6">
@@ -297,56 +257,17 @@ function GroupBookingContent() {
                   <span>Taxes & Fees (Airline)</span>
                   <span className="font-medium text-slate-900">~${taxes}.00</span>
                 </div>
-                <div className="border-t border-slate-100 my-4 pt-4 flex justify-between items-center">
-                  <span className="font-semibold text-slate-900">Tripy Service Fee ({SERVICE_FEE_PERCENT}% of trip value)</span>
-                  <span className="text-xl font-bold text-slate-900">${serviceFee.toFixed(2)}</span>
-                </div>
               </div>
 
-              {!isPaid ? (
-                <div className="space-y-4">
-                  <div className="p-4 bg-blue-50 border border-blue-100 rounded-xl">
-                    <div className="flex items-center gap-2 mb-2 text-blue-800 font-semibold text-sm">
-                      <Shield className="w-4 h-4" /> Secure Payment
-                    </div>
-                    <p className="text-xs text-blue-600">
-                      We use bank-level encryption to handle your transaction securely.
-                    </p>
-                  </div>
-                  
-                  <button
-                    onClick={handlePayment}
-                    disabled={isProcessing}
-                    className="w-full py-4 bg-blue-600 hover:bg-blue-700 text-white rounded-xl font-bold text-lg shadow-lg shadow-blue-600/20 transition-all flex items-center justify-center gap-2 disabled:opacity-70 disabled:cursor-not-allowed"
-                  >
-                    {isProcessing ? (
-                      <>Processing...</>
-                    ) : (
-                      <>
-                        <CreditCard className="w-5 h-5" /> Pay & Reveal
-                      </>
-                    )}
-                  </button>
-                  <p className="text-xs text-center text-slate-400">
-                    By clicking Pay, you agree to our Terms of Service.
-                  </p>
+              <div className="text-center py-4">
+                <div className="w-16 h-16 bg-green-100 rounded-full flex items-center justify-center mx-auto mb-4">
+                  <CheckCircle className="w-8 h-8 text-green-600" />
                 </div>
-              ) : (
-                <div className="text-center py-6">
-                  <div className="w-16 h-16 bg-green-100 rounded-full flex items-center justify-center mx-auto mb-4">
-                    <CheckCircle className="w-8 h-8 text-green-600" />
-                  </div>
-                  <h3 className="text-lg font-bold text-slate-900 mb-2">Payment Successful!</h3>
-                  <p className="text-sm text-slate-600">
-                    Instructions unlocked. Check your email for a receipt.
-                  </p>
-                  <button 
-                    className="mt-6 w-full py-3 bg-slate-100 hover:bg-slate-200 text-slate-700 rounded-xl font-semibold transition-colors"
-                  >
-                    Download Receipt
-                  </button>
-                </div>
-              )}
+                <h3 className="text-lg font-bold text-slate-900 mb-2">Instructions Ready</h3>
+                <p className="text-sm text-slate-600">
+                  Follow the transfer instructions on the left to complete your group booking.
+                </p>
+              </div>
             </div>
           </div>
         </div>

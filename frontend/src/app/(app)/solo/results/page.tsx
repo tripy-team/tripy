@@ -3,19 +3,13 @@
 import { useState, useEffect } from 'react';
 import { useRouter, useSearchParams } from 'next/navigation';
 import { MapPin, DollarSign, Clock, Zap, Edit3, Check, Sparkles, TrendingUp, Plane, Car, Bus, Train, Navigation, Info, Bed, ChevronRight, Lock, ChevronDown, ChevronUp, Mail } from 'lucide-react';
-import { solo, trips as tripsAPI, points as pointsAPI, itineraries as itinerariesAPI, ItineraryItem, destinations, type Trip, type SoloRankedItinerary, type SoloOptimizeResponse, isAuthenticated } from '@/lib/api';
+import { solo, trips as tripsAPI, points as pointsAPI, itineraries as itinerariesAPI, ItineraryItem, destinations, type Trip, type SoloRankedItinerary, type SoloOptimizeResponse, type StructuredWarnings, isAuthenticated } from '@/lib/api';
 import { formatAirportDisplay, getCityMapForCodes, isLikelyAirportCode } from '@/lib/airport-formatter';
 import { PolicyWarnings } from '@/components/policy/PolicyWarnings';
 import { TripGenerationLoader } from '@/components/ui/TripGenerationLoader';
 import DecisionHeader from '@/components/DecisionHeader';
 import WhyNotOthers from '@/components/WhyNotOthers';
-import LockPlanCTA from '@/components/LockPlanCTA';
-import NextSteps from '@/components/NextSteps';
-import SignInPrompt from '@/components/SignInPrompt';
-import BookingChecklist from '@/components/BookingChecklist';
 import RiskBadge from '@/components/RiskBadge';
-import EvidenceChips from '@/components/EvidenceChips';
-import EmailPlanModal from '@/components/EmailPlanModal';
 import { trackEvent, EVENTS } from '@/lib/analytics';
 
 interface Itinerary {
@@ -119,29 +113,19 @@ export default function SoloResults() {
     const [budgetWarning, setBudgetWarning] = useState<{ message?: string; user_budget?: number; recommended_budget?: number } | null>(null);
     const [optimizationWarning, setOptimizationWarning] = useState<string | null>(null);
     const [fallbackWarning, setFallbackWarning] = useState<string | null>(null);
+    const [structuredWarnings, setStructuredWarnings] = useState<StructuredWarnings | null>(null);
     const [usingSoloOptimizer, setUsingSoloOptimizer] = useState(false);
     const [optimizeResponse, setOptimizeResponse] = useState<SoloOptimizeResponse | null>(null);
     
     // Track when API data is ready (for loader completion animation)
     const [apiComplete, setApiComplete] = useState(false);
     
-    // New: Decision confidence, lock plan, sign-in prompt states
-    const [isLocked, setIsLocked] = useState(false);
-    const [isBooked, setIsBooked] = useState(false);
-    const [showSignInPrompt, setShowSignInPrompt] = useState<'lock' | 'save' | 'monitor' | null>(null);
+    // Decision confidence states
     const [showAdvancedDetails, setShowAdvancedDetails] = useState(false);
     const [calmnessVote, setCalmnessVote] = useState<'yes' | 'no' | null>(null);
-    const [showEmailModal, setShowEmailModal] = useState(false);
-
-    // Check if this trip was previously booked locally (anon users)
-    useEffect(() => {
-        if (tripId && typeof window !== 'undefined') {
-            const bookedTrips = JSON.parse(localStorage.getItem('tripy_booked_trips') || '[]');
-            if (bookedTrips.includes(tripId)) {
-                setIsBooked(true);
-            }
-        }
-    }, [tripId]);
+    const [showFeedbackInput, setShowFeedbackInput] = useState(false);
+    const [feedbackText, setFeedbackText] = useState('');
+    const [feedbackSubmitted, setFeedbackSubmitted] = useState(false);
 
     useEffect(() => {
         const fetchItineraries = async () => {
@@ -228,9 +212,12 @@ export default function SoloResults() {
                             setUsingSoloOptimizer(true);
                             usedSoloOptimizer = true;
                             
-                            // Set warnings from optimizer
-                            if (optimizeResult.warnings && optimizeResult.warnings.length > 0) {
-                                setOptimizationWarning(optimizeResult.warnings.join('. '));
+                            // Set warnings from optimizer (prefer structured, fall back to flat)
+                            if (optimizeResult.structuredWarnings) {
+                                setStructuredWarnings(optimizeResult.structuredWarnings);
+                            } else if (optimizeResult.warnings && optimizeResult.warnings.length > 0) {
+                                // Backward compat: join flat warnings (legacy path)
+                                setOptimizationWarning(optimizeResult.warnings.join(' '));
                             }
                             
                             // Check for budget warnings in itineraries (when budget was infeasible)
@@ -748,96 +735,58 @@ export default function SoloResults() {
         );
     }
 
-    // Handle Lock Plan — requires sign-in for anonymous users (Task 11/12/16)
-    const handleLockPlan = async () => {
-        trackEvent(EVENTS.LOCK_PLAN_CLICKED, { tripId, isAuthenticated: isAuthenticated() });
-        
-        if (!isAuthenticated()) {
-            trackEvent(EVENTS.SIGN_IN_PROMPTED, { trigger: 'lock', tripId });
-            setShowSignInPrompt('lock');
-            return;
-        }
-        
-        // If authenticated, lock the plan
-        try {
-            if (selectedSoloId && tripId) {
-                await solo.selectItinerary(tripId, {
-                    itineraryId: selectedSoloId,
-                    itinerarySnapshot: selectedSoloItinerary || {},
-                    cashPriceAtSelection: selectedSoloItinerary?.oopMetrics?.totalCashPrice || 0,
-                    outOfPocketAtSelection: selectedSoloItinerary?.oopMetrics?.totalOutOfPocket || 0,
-                });
-            }
-            setIsLocked(true);
-            trackEvent(EVENTS.PLAN_LOCKED, { tripId });
-        } catch (err) {
-            console.error('Error locking plan:', err);
-        }
-    };
-
     // Track calmness vote (Task 17)
     const handleCalmnessVote = (vote: 'yes' | 'no') => {
+        if (vote === 'no') {
+            setShowFeedbackInput(true);
+            trackEvent(EVENTS.CALMNESS_VOTE, { vote, tripId });
+            return;
+        }
         setCalmnessVote(vote);
         trackEvent(EVENTS.CALMNESS_VOTE, { vote, tripId });
     };
 
-    // "I Booked It" handler (Task 3)
-    const handleIBookedIt = async () => {
-        trackEvent(EVENTS.I_BOOKED_IT, { tripId, isAuthenticated: isAuthenticated() });
-        
-        if (isAuthenticated() && tripId) {
+    const handleFeedbackSubmit = async () => {
+        const trimmed = feedbackText.trim();
+        if (trimmed) {
+            trackEvent(EVENTS.CALMNESS_VOTE, { vote: 'no', tripId, feedback: trimmed });
+
+            // Send feedback email via API (fire-and-forget)
             try {
-                await solo.updateStatus(tripId, 'booked');
-            } catch (err) {
-                console.error('Error marking trip as booked:', err);
-            }
-        } else {
-            // Persist locally for anonymous users
-            if (typeof window !== 'undefined' && tripId) {
-                const bookedTrips = JSON.parse(localStorage.getItem('tripy_booked_trips') || '[]');
-                if (!bookedTrips.includes(tripId)) {
-                    bookedTrips.push(tripId);
-                    localStorage.setItem('tripy_booked_trips', JSON.stringify(bookedTrips));
+                const headers: Record<string, string> = { 'Content-Type': 'application/json' };
+                const token = typeof sessionStorage !== 'undefined'
+                    ? sessionStorage.getItem('access_token') || localStorage.getItem('access_token')
+                    : null;
+                if (token) {
+                    headers['Authorization'] = `Bearer ${token}`;
+                } else {
+                    const anonId = localStorage.getItem('tripy_anon_session_id');
+                    if (anonId) headers['X-Anon-Session-Id'] = anonId;
                 }
+
+                fetch('/api/feedback', {
+                    method: 'POST',
+                    headers,
+                    body: JSON.stringify({ feedback: trimmed, trip_id: tripId }),
+                }).catch((err) => console.error('Feedback API error:', err));
+            } catch (err) {
+                console.error('Feedback submission error:', err);
             }
         }
-        
-        setIsBooked(true);
+        setFeedbackSubmitted(true);
+        setCalmnessVote('no');
     };
 
     return (
         <div data-testid="solo-results-page" data-slot="SoloResults" className="min-h-full p-8 bg-gradient-to-br from-white via-blue-50/20 to-white">
             <div className="max-w-7xl mx-auto">
-                {/* Sign-in prompt modal (for lock/save/monitor actions) */}
-                {showSignInPrompt && (
-                    <SignInPrompt
-                        trigger={showSignInPrompt}
-                        onDismiss={() => setShowSignInPrompt(null)}
-                        onContinueWithout={() => setShowSignInPrompt(null)}
-                    />
-                )}
-
-                {/* Email Plan Modal (Task 9) */}
-                {showEmailModal && tripId && (
-                    <EmailPlanModal
-                        tripId={tripId}
-                        onClose={() => setShowEmailModal(false)}
-                    />
-                )}
-
                 {/* DECISION CONFIDENCE HEADER — shown FIRST, before any prices or details */}
                 {usingSoloOptimizer && optimizeResponse?.decisionSummary && (
                     <>
                         <DecisionHeader
                             summary={optimizeResponse.decisionSummary}
-                            onBookPlan={handleLockPlan}
+                            onBookPlan={() => router.push(`/solo/booking?trip_id=${tripId}`)}
                         />
-                        {/* Evidence Chips (Task 6) — Trust signals under decision header */}
-                        {selectedSoloItinerary && optimizeResponse && (
-                            <div className="mb-6 -mt-4">
-                                <EvidenceChips itinerary={selectedSoloItinerary} response={optimizeResponse} />
-                            </div>
-                        )}
                     </>
                 )}
 
@@ -866,33 +815,11 @@ export default function SoloResults() {
                 </div>
                 )}
 
-                {/* Freshness indicator (Task 7) */}
-                {usingSoloOptimizer && optimizeResponse && (
-                    <div className="mb-4 flex items-center gap-4 text-xs text-slate-500">
-                        {optimizeResponse.cached && <span className="px-2 py-0.5 bg-blue-50 text-blue-600 rounded-full">Cached</span>}
-                        {optimizeResponse.computedAt && (
-                            <span>Last checked: {new Date(optimizeResponse.computedAt).toLocaleString()}</span>
-                        )}
-                        {optimizeResponse.expiresAt && (
-                            <span>Expires: {new Date(optimizeResponse.expiresAt).toLocaleString()}</span>
-                        )}
-                    </div>
-                )}
+                {/* "Based on your inputs" removed — freshness + warnings moved below cards */}
 
-                {/* Your inputs — so "Within budget & points" is measured against these */}
-                {userConstraints && (
-                    <div className="mb-8 p-4 bg-slate-50 border border-slate-200 rounded-xl flex flex-wrap items-center gap-6 text-sm">
-                        <span className="font-medium text-slate-700">Based on your inputs:</span>
-                        {userConstraints.maxBudget != null && userConstraints.maxBudget > 0 && (
-                            <span className="text-slate-600">Budget: <strong className="text-slate-900">${userConstraints.maxBudget.toLocaleString()}</strong></span>
-                        )}
-                        {userConstraints.totalPoints > 0 && (
-                            <span className="text-slate-600">Points: <strong className="text-slate-900">{(userConstraints.totalPoints / 1000).toFixed(0)}k</strong></span>
-                        )}
-                        <span className="text-slate-600">Duration: <strong className="text-slate-900">{userConstraints.durationLabel}</strong></span>
-                    </div>
-                )}
-
+                {/* Warnings for solo optimizer are shown below cards; for legacy path, show above */}
+                {!usingSoloOptimizer && (
+                <>
                 {relaxedMessage && (
                     <div className="mb-6 p-4 bg-amber-50 border border-amber-200 rounded-xl flex items-start gap-3">
                         <Info className="w-5 h-5 text-amber-600 flex-shrink-0 mt-0.5" />
@@ -900,57 +827,123 @@ export default function SoloResults() {
                     </div>
                 )}
 
-                {/* Budget Warning - shown when user's budget is too low */}
-                {budgetWarning && (
-                    <div className="mb-6 p-5 bg-red-50 border-2 border-red-300 rounded-xl">
-                        <div className="flex items-start gap-3 mb-3">
-                            <Info className="w-6 h-6 text-red-600 flex-shrink-0 mt-0.5" />
-                            <div>
-                                <h3 className="font-semibold text-red-900 mb-2">Budget Too Low</h3>
-                                <p className="text-sm text-red-800">{budgetWarning.message}</p>
-                            </div>
-                        </div>
-                        {budgetWarning.user_budget != null && budgetWarning.recommended_budget != null && (
-                            <div className="mt-3 pt-3 border-t border-red-200 grid grid-cols-2 gap-4 text-sm">
-                                <div>
-                                    <div className="text-red-600 font-medium">Your Budget</div>
-                                    <div className="text-lg font-bold text-red-900">${budgetWarning.user_budget.toLocaleString()}</div>
+                {/* ===== STRUCTURED WARNINGS (preferred) ===== */}
+                {structuredWarnings ? (
+                    <div className="space-y-4 mb-6">
+                        {structuredWarnings.budget && (
+                            <div className="p-5 bg-red-50 border-2 border-red-300 rounded-xl">
+                                <div className="flex items-start gap-3 mb-3">
+                                    <Info className="w-6 h-6 text-red-600 flex-shrink-0 mt-0.5" />
+                                    <div>
+                                        <h3 className="font-semibold text-red-900 mb-2">{structuredWarnings.budget.headline}</h3>
+                                        <p className="text-sm text-red-800">{structuredWarnings.budget.message}</p>
+                                    </div>
                                 </div>
+                                {structuredWarnings.budget.details?.user_budget != null && structuredWarnings.budget.details?.suggested_budget != null && (
+                                    <div className="mt-3 pt-3 border-t border-red-200 grid grid-cols-2 gap-4 text-sm">
+                                        <div>
+                                            <div className="text-red-600 font-medium">Your Budget</div>
+                                            <div className="text-lg font-bold text-red-900">${(structuredWarnings.budget.details.user_budget as number).toLocaleString()}</div>
+                                        </div>
+                                        <div>
+                                            <div className="text-green-600 font-medium">Recommended</div>
+                                            <div className="text-lg font-bold text-green-900">${(structuredWarnings.budget.details.suggested_budget as number).toLocaleString()}</div>
+                                        </div>
+                                    </div>
+                                )}
+                            </div>
+                        )}
+                        {structuredWarnings.points && (
+                            <div className="p-4 bg-amber-50 border border-amber-300 rounded-xl flex items-start gap-3">
+                                <Info className="w-5 h-5 text-amber-600 flex-shrink-0 mt-0.5" />
                                 <div>
-                                    <div className="text-green-600 font-medium">Recommended</div>
-                                    <div className="text-lg font-bold text-green-900">${budgetWarning.recommended_budget.toLocaleString()}</div>
+                                    <h3 className="font-semibold text-amber-900 mb-1">{structuredWarnings.points.headline}</h3>
+                                    <p className="text-sm text-amber-800">{structuredWarnings.points.message}</p>
+                                </div>
+                            </div>
+                        )}
+                        {structuredWarnings.estimation && (
+                            <div className="p-4 bg-blue-50 border border-blue-300 rounded-xl flex items-start gap-3">
+                                <Info className="w-5 h-5 text-blue-600 flex-shrink-0 mt-0.5" />
+                                <div>
+                                    <h3 className="font-semibold text-blue-900 mb-1">{structuredWarnings.estimation.headline}</h3>
+                                    <p className="text-sm text-blue-800">{structuredWarnings.estimation.message}</p>
+                                </div>
+                            </div>
+                        )}
+                        {structuredWarnings.degradation && (
+                            <div className={`p-4 rounded-xl flex items-start gap-3 ${
+                                structuredWarnings.degradation.severity === 'error'
+                                    ? 'bg-red-50 border border-red-300'
+                                    : 'bg-amber-50 border border-amber-300'
+                            }`}>
+                                <Info className={`w-5 h-5 flex-shrink-0 mt-0.5 ${
+                                    structuredWarnings.degradation.severity === 'error' ? 'text-red-600' : 'text-amber-600'
+                                }`} />
+                                <div>
+                                    <h3 className={`font-semibold mb-1 ${
+                                        structuredWarnings.degradation.severity === 'error' ? 'text-red-900' : 'text-amber-900'
+                                    }`}>{structuredWarnings.degradation.headline}</h3>
+                                    <p className={`text-sm ${
+                                        structuredWarnings.degradation.severity === 'error' ? 'text-red-800' : 'text-amber-800'
+                                    }`}>{structuredWarnings.degradation.message}</p>
                                 </div>
                             </div>
                         )}
                     </div>
+                ) : (
+                    <>
+                        {budgetWarning && (
+                            <div className="mb-6 p-5 bg-red-50 border-2 border-red-300 rounded-xl">
+                                <div className="flex items-start gap-3 mb-3">
+                                    <Info className="w-6 h-6 text-red-600 flex-shrink-0 mt-0.5" />
+                                    <div>
+                                        <h3 className="font-semibold text-red-900 mb-2">Budget Too Low</h3>
+                                        <p className="text-sm text-red-800">{budgetWarning.message}</p>
+                                    </div>
+                                </div>
+                                {budgetWarning.user_budget != null && budgetWarning.recommended_budget != null && (
+                                    <div className="mt-3 pt-3 border-t border-red-200 grid grid-cols-2 gap-4 text-sm">
+                                        <div>
+                                            <div className="text-red-600 font-medium">Your Budget</div>
+                                            <div className="text-lg font-bold text-red-900">${budgetWarning.user_budget.toLocaleString()}</div>
+                                        </div>
+                                        <div>
+                                            <div className="text-green-600 font-medium">Recommended</div>
+                                            <div className="text-lg font-bold text-green-900">${budgetWarning.recommended_budget.toLocaleString()}</div>
+                                        </div>
+                                    </div>
+                                )}
+                            </div>
+                        )}
+                        {optimizationWarning && (
+                            <div className="mb-6 p-4 bg-amber-50 border border-amber-300 rounded-xl flex items-start gap-3">
+                                <Info className="w-5 h-5 text-amber-600 flex-shrink-0 mt-0.5" />
+                                <div>
+                                    <h3 className="font-semibold text-amber-900 mb-1">Things to Know</h3>
+                                    <p className="text-sm text-amber-800">{optimizationWarning}</p>
+                                </div>
+                            </div>
+                        )}
+                        {fallbackWarning && (
+                            <div className="mb-6 p-4 bg-red-50 border border-red-300 rounded-xl flex items-start gap-3">
+                                <Info className="w-5 h-5 text-red-600 flex-shrink-0 mt-0.5" />
+                                <div>
+                                    <h3 className="font-semibold text-red-900 mb-1">Unable to Generate Itinerary</h3>
+                                    <p className="text-sm text-red-800">{fallbackWarning}</p>
+                                </div>
+                            </div>
+                        )}
+                    </>
                 )}
-
-                {/* Optimization Warning - shown when optimizer couldn't find flights */}
-                {optimizationWarning && (
-                    <div className="mb-6 p-4 bg-amber-50 border border-amber-300 rounded-xl flex items-start gap-3">
-                        <Info className="w-5 h-5 text-amber-600 flex-shrink-0 mt-0.5" />
-                        <div>
-                            <h3 className="font-semibold text-amber-900 mb-1">Estimated Routes</h3>
-                            <p className="text-sm text-amber-800">{optimizationWarning}</p>
-                        </div>
-                    </div>
-                )}
-
-                {/* Fallback Warning - shown as last resort */}
-                {fallbackWarning && (
-                    <div className="mb-6 p-4 bg-red-50 border border-red-300 rounded-xl flex items-start gap-3">
-                        <Info className="w-5 h-5 text-red-600 flex-shrink-0 mt-0.5" />
-                        <div>
-                            <h3 className="font-semibold text-red-900 mb-1">Unable to Generate Itinerary</h3>
-                            <p className="text-sm text-red-800">{fallbackWarning}</p>
-                        </div>
-                    </div>
+                </>
                 )}
 
                 {outOfPocket && <OutOfPocketBlock data={outOfPocket} />}
 
                 {/* New Solo Optimizer Results */}
                 {usingSoloOptimizer && soloItineraries.length > 0 ? (
+                <>
                     <div className="grid lg:grid-cols-3 gap-6">
                         {/* Solo Itinerary Cards */}
                         <div data-testid="solo-itinerary-list" data-slot="solo-itinerary-list" className="lg:col-span-2 space-y-6">
@@ -1007,7 +1000,7 @@ export default function SoloResults() {
                                                     <div className="flex items-center gap-4 text-sm text-slate-600">
                                                         <span className="flex items-center gap-1">
                                                             <MapPin className="w-4 h-4" />
-                                                            {itinerary.route.length} stops
+                                                            {itinerary.route.length - 2 === 0 ? 'Nonstop' : `${itinerary.route.length - 2} layover${itinerary.route.length - 2 > 1 ? 's' : ''}`}
                                                         </span>
                                                         <span className="flex items-center gap-1">
                                                             <Zap className="w-4 h-4" />
@@ -1062,51 +1055,139 @@ export default function SoloResults() {
                                                 </div>
                                             </div>
 
-                                            {/* Route Display */}
-                                            <div className="mb-4">
-                                                <div className="text-sm text-slate-600 mb-2 font-medium">Route</div>
-                                                <div className="flex flex-wrap items-center gap-1.5 text-sm text-slate-700">
-                                                    {itinerary.route.map((stop, i) => (
-                                                        <span key={i} className="flex items-center gap-1.5">
-                                                            <span className="font-medium">{stop}</span>
-                                                            {i < itinerary.route.length - 1 && (
-                                                                <Plane className="w-3 h-3 text-blue-400 rotate-90" />
-                                                            )}
-                                                        </span>
-                                                    ))}
-                                                </div>
-                                            </div>
+                                            {/* Airline-style Flight Segments */}
+                                            <div className="space-y-3 mb-6">
+                                                {itinerary.segments.map((segment, idx) => {
+                                                    if (segment.type === 'flight') {
+                                                        const depTime = segment.departureTime ? new Date(segment.departureTime) : null;
+                                                        const arrTime = segment.arrivalTime ? new Date(segment.arrivalTime) : null;
+                                                        const validDep = depTime && !isNaN(depTime.getTime());
+                                                        const validArr = arrTime && !isNaN(arrTime.getTime());
 
-                                            {/* Segment Details */}
-                                            <div className="space-y-2 mb-6">
-                                                {itinerary.segments.map((segment, idx) => (
-                                                    <div
-                                                        key={idx}
-                                                        className={`flex items-center gap-3 p-3 rounded-lg border ${
-                                                            segment.paymentMethod === 'points' 
-                                                                ? 'bg-blue-50 border-blue-100' 
-                                                                : 'bg-slate-50 border-slate-100'
-                                                        }`}
-                                                    >
-                                                        {segment.type === 'flight' ? (
-                                                            <Plane className="w-4 h-4 text-blue-600" />
-                                                        ) : (
-                                                            <Bed className="w-4 h-4 text-amber-600" />
-                                                        )}
-                                                        <div className="flex-1">
-                                                            <div className="font-medium text-slate-900">{segment.segment}</div>
-                                                            <div className="text-xs text-slate-500">
-                                                                {segment.paymentMethod === 'points' 
-                                                                    ? `${segment.pointsUsed?.toLocaleString()} pts${segment.surcharge ? ` + $${segment.surcharge} fees` : ''}${segment.cppAchieved ? ` • ${segment.cppAchieved.toFixed(1)}¢/pt` : ''}`
-                                                                    : `$${segment.cashPrice?.toLocaleString()} cash`
-                                                                }
+                                                        // Compute duration
+                                                        let durationStr = '';
+                                                        if (segment.durationMinutes) {
+                                                            const hrs = Math.floor(segment.durationMinutes / 60);
+                                                            const mins = segment.durationMinutes % 60;
+                                                            durationStr = hrs > 0 ? `${hrs}h ${mins}m` : `${mins}m`;
+                                                        } else if (validDep && validArr) {
+                                                            const diffMs = arrTime.getTime() - depTime.getTime();
+                                                            if (diffMs > 0) {
+                                                                const hrs = Math.floor(diffMs / 3600000);
+                                                                const mins = Math.round((diffMs % 3600000) / 60000);
+                                                                durationStr = hrs > 0 ? `${hrs}h ${mins}m` : `${mins}m`;
+                                                            }
+                                                        }
+
+                                                        const formatTime = (d: Date) => d.toLocaleTimeString('en-US', { hour: 'numeric', minute: '2-digit', hour12: true });
+                                                        const formatDate = (d: Date) => d.toLocaleDateString('en-US', { weekday: 'short', month: 'short', day: 'numeric' });
+
+                                                        const stopsLabel = segment.stops != null
+                                                            ? (segment.stops === 0 ? 'Nonstop' : `${segment.stops} stop${segment.stops > 1 ? 's' : ''}`)
+                                                            : (itinerary.route.length - 2 === 0 ? 'Nonstop' : `${itinerary.route.length - 2} stop${itinerary.route.length - 2 > 1 ? 's' : ''}`);
+
+                                                        return (
+                                                            <div key={idx} className={`p-4 rounded-xl border ${segment.paymentMethod === 'points' ? 'bg-blue-50/50 border-blue-100' : 'bg-slate-50 border-slate-200'}`}>
+                                                                {/* Date row */}
+                                                                {validDep && (
+                                                                    <div className="flex items-center gap-2 mb-3 text-xs text-slate-500">
+                                                                        <Plane className="w-3.5 h-3.5 text-blue-500" />
+                                                                        <span className="font-medium text-slate-600">{formatDate(depTime)}</span>
+                                                                        {segment.airline && (
+                                                                            <>
+                                                                                <span className="text-slate-300">·</span>
+                                                                                <span>{segment.airline}{segment.flightNumber ? ` ${segment.flightNumber}` : ''}</span>
+                                                                            </>
+                                                                        )}
+                                                                        {segment.cabinClass && (
+                                                                            <>
+                                                                                <span className="text-slate-300">·</span>
+                                                                                <span className="capitalize">{segment.cabinClass}</span>
+                                                                            </>
+                                                                        )}
+                                                                    </div>
+                                                                )}
+
+                                                                {/* Airline-style timeline row */}
+                                                                <div className="flex items-center gap-3">
+                                                                    {/* Departure */}
+                                                                    <div className="text-right min-w-[70px]">
+                                                                        <div className="text-lg font-bold text-slate-900 leading-tight">
+                                                                            {validDep ? formatTime(depTime) : '--:--'}
+                                                                        </div>
+                                                                        <div className="text-xs font-medium text-slate-500 mt-0.5">
+                                                                            {segment.origin || itinerary.route[0]}
+                                                                        </div>
+                                                                    </div>
+
+                                                                    {/* Timeline connector */}
+                                                                    <div className="flex-1 flex flex-col items-center gap-0.5 px-1">
+                                                                        {durationStr && (
+                                                                            <span className="text-[11px] font-medium text-slate-400">{durationStr}</span>
+                                                                        )}
+                                                                        <div className="w-full flex items-center">
+                                                                            <div className="w-2 h-2 rounded-full border-2 border-blue-400 bg-white flex-shrink-0" />
+                                                                            <div className="flex-1 h-[2px] bg-blue-400" />
+                                                                            <Plane className="w-3.5 h-3.5 text-blue-500 flex-shrink-0 mx-1" />
+                                                                            <div className="flex-1 h-[2px] bg-blue-400" />
+                                                                            <div className="w-2 h-2 rounded-full border-2 border-blue-400 bg-blue-400 flex-shrink-0" />
+                                                                        </div>
+                                                                        <span className="text-[11px] text-slate-400">{stopsLabel}</span>
+                                                                    </div>
+
+                                                                    {/* Arrival */}
+                                                                    <div className="text-left min-w-[70px]">
+                                                                        <div className="text-lg font-bold text-slate-900 leading-tight">
+                                                                            {validArr ? formatTime(arrTime) : '--:--'}
+                                                                        </div>
+                                                                        <div className="text-xs font-medium text-slate-500 mt-0.5">
+                                                                            {segment.destination || itinerary.route[itinerary.route.length - 1]}
+                                                                        </div>
+                                                                    </div>
+                                                                </div>
+
+                                                                {/* Price & payment row */}
+                                                                <div className="flex items-center justify-between mt-3 pt-3 border-t border-slate-200/60">
+                                                                    <div className="text-xs text-slate-500">
+                                                                        {segment.paymentMethod === 'points'
+                                                                            ? `${segment.pointsUsed?.toLocaleString()} pts${segment.surcharge ? ` + $${segment.surcharge} fees` : ''}${segment.cppAchieved ? ` · ${segment.cppAchieved.toFixed(1)}¢/pt` : ''}`
+                                                                            : `$${segment.cashPrice?.toLocaleString()} cash`
+                                                                        }
+                                                                    </div>
+                                                                    {segment.paymentMethod === 'points' && (
+                                                                        <span className="px-2 py-0.5 bg-blue-100 text-blue-700 text-xs font-medium rounded">Points</span>
+                                                                    )}
+                                                                </div>
                                                             </div>
+                                                        );
+                                                    }
+
+                                                    // Hotel or other segment types
+                                                    return (
+                                                        <div
+                                                            key={idx}
+                                                            className={`flex items-center gap-3 p-3 rounded-lg border ${
+                                                                segment.paymentMethod === 'points'
+                                                                    ? 'bg-blue-50 border-blue-100'
+                                                                    : 'bg-slate-50 border-slate-100'
+                                                            }`}
+                                                        >
+                                                            <Bed className="w-4 h-4 text-amber-600" />
+                                                            <div className="flex-1">
+                                                                <div className="font-medium text-slate-900">{segment.segment}</div>
+                                                                <div className="text-xs text-slate-500">
+                                                                    {segment.paymentMethod === 'points'
+                                                                        ? `${segment.pointsUsed?.toLocaleString()} pts${segment.surcharge ? ` + $${segment.surcharge} fees` : ''}${segment.cppAchieved ? ` · ${segment.cppAchieved.toFixed(1)}¢/pt` : ''}`
+                                                                        : `$${segment.cashPrice?.toLocaleString()} cash`
+                                                                    }
+                                                                </div>
+                                                            </div>
+                                                            {segment.paymentMethod === 'points' && (
+                                                                <span className="px-2 py-0.5 bg-blue-100 text-blue-700 text-xs font-medium rounded">Points</span>
+                                                            )}
                                                         </div>
-                                                        {segment.paymentMethod === 'points' && (
-                                                            <span className="px-2 py-0.5 bg-blue-100 text-blue-700 text-xs font-medium rounded">Points</span>
-                                                        )}
-                                                    </div>
-                                                ))}
+                                                    );
+                                                })}
                                             </div>
 
                                             {/* Savings Highlight */}
@@ -1137,42 +1218,24 @@ export default function SoloResults() {
                                                 </div>
                                             )}
 
-                                            {/* Select Button */}
+                                            {/* Book Button */}
                                             <button
-                                                onClick={(e) => {
+                                                onClick={async (e) => {
                                                     e.stopPropagation();
-                                                    if (!isDisabled) handleSelectSoloItinerary(itinerary);
+                                                    if (!isDisabled) {
+                                                        await handleSelectSoloItinerary(itinerary);
+                                                        router.push(`/solo/booking?trip_id=${tripId}`);
+                                                    }
                                                 }}
                                                 disabled={isDisabled}
-                                                className={`w-full mt-4 px-6 py-3 rounded-xl transition-all font-medium ${
-                                                    isSelected
-                                                        ? 'bg-blue-600 text-white shadow-sm'
-                                                        : isDisabled
-                                                            ? 'bg-slate-100 text-slate-500 cursor-not-allowed'
-                                                            : 'bg-slate-100 text-slate-900 hover:bg-slate-200'
+                                                className={`w-full mt-4 px-6 py-3 rounded-xl transition-all font-semibold ${
+                                                    isDisabled
+                                                        ? 'bg-slate-100 text-slate-500 cursor-not-allowed'
+                                                        : 'bg-blue-600 text-white hover:bg-blue-700 shadow-lg shadow-blue-600/20'
                                                 }`}
                                             >
-                                                {isSelected ? (
-                                                    <span className="flex items-center justify-center gap-2">
-                                                        <Check className="w-5 h-5" /> Selected
-                                                    </span>
-                                                ) : (
-                                                    isDisabled ? (itinerary.disableReason ? `Blocked: ${itinerary.disableReason}` : 'Blocked by policy') : 'Select This Route'
-                                                )}
+                                                {isDisabled ? (itinerary.disableReason ? `Blocked: ${itinerary.disableReason}` : 'Blocked by policy') : 'Book This Trip'}
                                             </button>
-
-                                            {/* Book Button */}
-                                            {isSelected && (
-                                                <button
-                                                    onClick={(e) => {
-                                                        e.stopPropagation();
-                                                        router.push(`/solo/booking?trip_id=${tripId}`);
-                                                    }}
-                                                    className="w-full mt-3 px-6 py-3 bg-yellow-400 text-slate-900 rounded-xl hover:bg-yellow-500 transition-colors shadow-lg shadow-yellow-400/20 font-semibold"
-                                                >
-                                                    Book This Trip
-                                                </button>
-                                            )}
                                         </div>
                                     </div>
                                 );
@@ -1187,8 +1250,8 @@ export default function SoloResults() {
                                         <h3 className="text-xl mb-6 text-slate-900 font-semibold">Your Plan</h3>
 
                                         <div className="space-y-6">
-                                            {/* Value Label — humanized, not numeric */}
-                                            {selectedSoloItinerary.valueLabel && (
+                                            {/* Value Label — humanized, not numeric (only show when points are used) */}
+                                            {selectedSoloItinerary.valueLabel && selectedSoloItinerary.oopMetrics.totalPointsUsed > 0 && (
                                                 <div className="flex items-center gap-2">
                                                     <TrendingUp className="w-4 h-4 text-emerald-600" />
                                                     <span className="text-sm font-semibold text-emerald-700">{selectedSoloItinerary.valueLabel}</span>
@@ -1267,7 +1330,8 @@ export default function SoloResults() {
                                                 </div>
                                             )}
 
-                                            {/* Progressive Disclosure: Advanced Details (Task 10) */}
+                                            {/* Progressive Disclosure: Advanced Details (Task 10) — only when points are used */}
+                                            {selectedSoloItinerary.oopMetrics.totalPointsUsed > 0 && (
                                             <div className="border-t border-slate-100 pt-3">
                                                 <button
                                                     onClick={() => setShowAdvancedDetails(!showAdvancedDetails)}
@@ -1308,109 +1372,128 @@ export default function SoloResults() {
                                                     </div>
                                                 )}
                                             </div>
+                                            )}
                                         </div>
                                     </div>
 
-                                    {/* Risk Assessment Card (Task 5) */}
-                                    {selectedSoloItinerary?.risk && (
-                                        <RiskBadge risk={selectedSoloItinerary.risk} variant="card" />
-                                    )}
-
-                                    {/* Booking Checklist (Task 2) */}
-                                    {(optimizeResponse?.bookingDetails || selectedSoloItinerary?.bookingDetails) && (
-                                        <BookingChecklist
-                                            bookingDetails={(optimizeResponse?.bookingDetails || selectedSoloItinerary?.bookingDetails)!}
-                                            onStepComplete={(step) => trackEvent(EVENTS.BOOKING_STEP_COMPLETED, { tripId, step })}
-                                        />
-                                    )}
-
-                                    {/* "I Booked It" Button (Task 3) */}
-                                    <div className="bg-white border border-slate-200 rounded-2xl p-4">
-                                        {isBooked ? (
-                                            <div className="flex items-center gap-3 text-green-700">
-                                                <div className="w-8 h-8 bg-green-100 rounded-full flex items-center justify-center">
-                                                    <Check className="w-5 h-5" />
-                                                </div>
-                                                <div>
-                                                    <div className="font-semibold text-sm">Booked!</div>
-                                                    <div className="text-xs text-green-600">
-                                                        {isAuthenticated() ? 'Saved to your account.' : 'Saved locally. Sign in to keep it safe.'}
-                                                    </div>
-                                                </div>
-                                            </div>
-                                        ) : (
-                                            <button
-                                                onClick={handleIBookedIt}
-                                                className="w-full py-3 px-4 bg-emerald-600 hover:bg-emerald-700 text-white rounded-xl font-medium transition-colors text-sm flex items-center justify-center gap-2"
-                                            >
-                                                <Check className="w-4 h-4" />
-                                                I Booked It
-                                            </button>
-                                        )}
-                                        {isBooked && !isAuthenticated() && (
-                                            <button
-                                                onClick={() => setShowSignInPrompt('save')}
-                                                className="w-full mt-2 py-2 px-4 border border-slate-200 text-slate-600 rounded-xl text-xs font-medium hover:bg-slate-50 transition-colors"
-                                            >
-                                                Sign in to save permanently
-                                            </button>
-                                        )}
-                                    </div>
-
-                                    {/* Email Me This Plan (Task 9) */}
-                                    <button
-                                        onClick={() => setShowEmailModal(true)}
-                                        className="w-full py-3 px-4 border border-slate-200 bg-white hover:bg-slate-50 rounded-2xl text-sm font-medium text-slate-700 transition-colors flex items-center justify-center gap-2"
-                                    >
-                                        <Mail className="w-4 h-4" />
-                                        Email me this plan
-                                    </button>
-
-                                    {/* Lock This Plan CTA (Task 11) */}
-                                    <LockPlanCTA onLockPlan={handleLockPlan} isLocked={isLocked} />
 
                                     {/* Why We Didn't Pick Others (Task 9) */}
                                     {optimizeResponse?.rejectedAlternatives && optimizeResponse.rejectedAlternatives.length > 0 && (
                                         <WhyNotOthers alternatives={optimizeResponse.rejectedAlternatives} />
                                     )}
 
-                                    {/* What Happens Next (Task 15) */}
-                                    <NextSteps 
-                                        hasTransfers={selectedSoloItinerary.transfers.length > 0}
-                                        isLocked={isLocked}
-                                    />
-
-                                    {/* Confidence feedback (Task 17) */}
-                                    <div className="p-4 bg-slate-50 border border-slate-200 rounded-xl text-center">
-                                        {calmnessVote === null ? (
-                                            <>
-                                                <p className="text-sm text-slate-600 mb-3">Did this make you feel calmer about booking?</p>
-                                                <div className="flex gap-3 justify-center">
-                                                    <button
-                                                        onClick={() => handleCalmnessVote('yes')}
-                                                        className="px-4 py-2 bg-white border border-slate-200 rounded-lg text-sm font-medium text-slate-700 hover:bg-emerald-50 hover:border-emerald-200 hover:text-emerald-700 transition-colors"
-                                                    >
-                                                        Yes, much calmer
-                                                    </button>
-                                                    <button
-                                                        onClick={() => handleCalmnessVote('no')}
-                                                        className="px-4 py-2 bg-white border border-slate-200 rounded-lg text-sm font-medium text-slate-700 hover:bg-slate-100 transition-colors"
-                                                    >
-                                                        Not really
-                                                    </button>
-                                                </div>
-                                            </>
-                                        ) : (
-                                            <p className="text-sm text-slate-500">
-                                                {calmnessVote === 'yes' ? 'Glad to hear it. Happy travels!' : 'Thanks for the feedback — we\'ll keep improving.'}
-                                            </p>
-                                        )}
-                                    </div>
                                 </div>
                             </div>
                         )}
                     </div>
-                ) : (
+
+                    {/* Freshness indicator — below cards (Task 7) */}
+                    {optimizeResponse && (
+                        <div className="mt-4 flex items-center gap-4 text-xs text-slate-500">
+                            {optimizeResponse.cached && <span className="px-2 py-0.5 bg-blue-50 text-blue-600 rounded-full">Cached</span>}
+                            {optimizeResponse.computedAt && (
+                                <span>Last checked: {new Date(optimizeResponse.computedAt).toLocaleString()}</span>
+                            )}
+                            {optimizeResponse.expiresAt && (
+                                <span>Expires: {new Date(optimizeResponse.expiresAt).toLocaleString()}</span>
+                            )}
+                        </div>
+                    )}
+
+                    {/* Warnings — below cards */}
+                    {relaxedMessage && (
+                        <div className="mt-4 p-4 bg-amber-50 border border-amber-200 rounded-xl flex items-start gap-3">
+                            <Info className="w-5 h-5 text-amber-600 flex-shrink-0 mt-0.5" />
+                            <p className="text-sm text-amber-900">{relaxedMessage}</p>
+                        </div>
+                    )}
+
+                    {structuredWarnings ? (
+                        <div className="space-y-4 mt-4">
+                            {structuredWarnings.budget && (
+                                <div className="p-5 bg-red-50 border-2 border-red-300 rounded-xl">
+                                    <div className="flex items-start gap-3 mb-3">
+                                        <Info className="w-6 h-6 text-red-600 flex-shrink-0 mt-0.5" />
+                                        <div>
+                                            <h3 className="font-semibold text-red-900 mb-2">{structuredWarnings.budget.headline}</h3>
+                                            <p className="text-sm text-red-800">{structuredWarnings.budget.message}</p>
+                                        </div>
+                                    </div>
+                                    {structuredWarnings.budget.details?.user_budget != null && structuredWarnings.budget.details?.suggested_budget != null && (
+                                        <div className="mt-3 pt-3 border-t border-red-200 grid grid-cols-2 gap-4 text-sm">
+                                            <div>
+                                                <div className="text-red-600 font-medium">Your Budget</div>
+                                                <div className="text-lg font-bold text-red-900">${(structuredWarnings.budget.details.user_budget as number).toLocaleString()}</div>
+                                            </div>
+                                            <div>
+                                                <div className="text-green-600 font-medium">Recommended</div>
+                                                <div className="text-lg font-bold text-green-900">${(structuredWarnings.budget.details.suggested_budget as number).toLocaleString()}</div>
+                                            </div>
+                                        </div>
+                                    )}
+                                </div>
+                            )}
+                            {structuredWarnings.points && (
+                                <div className="p-4 bg-amber-50 border border-amber-300 rounded-xl flex items-start gap-3">
+                                    <Info className="w-5 h-5 text-amber-600 flex-shrink-0 mt-0.5" />
+                                    <div>
+                                        <h3 className="font-semibold text-amber-900 mb-1">{structuredWarnings.points.headline}</h3>
+                                        <p className="text-sm text-amber-800">{structuredWarnings.points.message}</p>
+                                    </div>
+                                </div>
+                            )}
+                            {structuredWarnings.estimation && (
+                                <div className="p-4 bg-blue-50 border border-blue-300 rounded-xl flex items-start gap-3">
+                                    <Info className="w-5 h-5 text-blue-600 flex-shrink-0 mt-0.5" />
+                                    <div>
+                                        <h3 className="font-semibold text-blue-900 mb-1">{structuredWarnings.estimation.headline}</h3>
+                                        <p className="text-sm text-blue-800">{structuredWarnings.estimation.message}</p>
+                                    </div>
+                                </div>
+                            )}
+                            {structuredWarnings.degradation && (
+                                <div className={`p-4 rounded-xl flex items-start gap-3 ${
+                                    structuredWarnings.degradation.severity === 'error'
+                                        ? 'bg-red-50 border border-red-300'
+                                        : 'bg-amber-50 border border-amber-300'
+                                }`}>
+                                    <Info className={`w-5 h-5 flex-shrink-0 mt-0.5 ${
+                                        structuredWarnings.degradation.severity === 'error' ? 'text-red-600' : 'text-amber-600'
+                                    }`} />
+                                    <div>
+                                        <h3 className={`font-semibold mb-1 ${
+                                            structuredWarnings.degradation.severity === 'error' ? 'text-red-900' : 'text-amber-900'
+                                        }`}>{structuredWarnings.degradation.headline}</h3>
+                                        <p className={`text-sm ${
+                                            structuredWarnings.degradation.severity === 'error' ? 'text-red-800' : 'text-amber-800'
+                                        }`}>{structuredWarnings.degradation.message}</p>
+                                    </div>
+                                </div>
+                            )}
+                        </div>
+                    ) : (
+                        <>
+                            {optimizationWarning && (
+                                <div className="mt-4 p-4 bg-amber-50 border border-amber-300 rounded-xl flex items-start gap-3">
+                                    <Info className="w-5 h-5 text-amber-600 flex-shrink-0 mt-0.5" />
+                                    <div>
+                                        <h3 className="font-semibold text-amber-900 mb-1">Things to Know</h3>
+                                        <p className="text-sm text-amber-800">{optimizationWarning}</p>
+                                    </div>
+                                </div>
+                            )}
+                            {fallbackWarning && (
+                                <div className="mt-4 p-4 bg-red-50 border border-red-300 rounded-xl flex items-start gap-3">
+                                    <Info className="w-5 h-5 text-red-600 flex-shrink-0 mt-0.5" />
+                                    <div>
+                                        <h3 className="font-semibold text-red-900 mb-1">Unable to Generate Itinerary</h3>
+                                        <p className="text-sm text-red-800">{fallbackWarning}</p>
+                                    </div>
+                                </div>
+                            )}
+                        </>
+                    )}
+                </>) : (
                 /* Empty state when no itineraries - Legacy support */
                 itineraries.length === 0 ? (
                     <div data-testid="solo-results-empty" data-slot="solo-results-empty" className="bg-white border border-slate-200 rounded-2xl p-12 text-center">
@@ -1419,7 +1502,7 @@ export default function SoloResults() {
                                 <MapPin className="w-14 h-14 text-slate-300 mx-auto mb-4" />
                                 <h2 className="text-xl font-semibold text-slate-900 mb-2">Complete your booking</h2>
                                 <p className="text-slate-600 max-w-md mx-auto mb-6">
-                                    Your personalized routes will be ready after you complete payment on the booking page.
+                                    Your personalized routes and transfer instructions are ready on the booking page.
                                 </p>
                                 <button
                                     onClick={() => router.push(`/solo/booking${tripId ? `?trip_id=${tripId}` : ''}`)}
@@ -1738,6 +1821,61 @@ export default function SoloResults() {
                 </div>
                 </>
                 ))}
+                {/* Confidence feedback (Task 17) — above footer */}
+                <div className="p-4 mt-6 bg-slate-50 border border-slate-200 rounded-xl text-center">
+                    {calmnessVote === null && !showFeedbackInput ? (
+                        <>
+                            <p className="text-sm text-slate-600 mb-3">Do you feel more confident about booking this trip?</p>
+                            <div className="flex gap-3 justify-center">
+                                <button
+                                    onClick={() => handleCalmnessVote('yes')}
+                                    className="px-4 py-2 bg-white border border-slate-200 rounded-lg text-sm font-medium text-slate-700 hover:bg-emerald-50 hover:border-emerald-200 hover:text-emerald-700 transition-colors"
+                                >
+                                    Yes, I&apos;m ready to book
+                                </button>
+                                <button
+                                    onClick={() => handleCalmnessVote('no')}
+                                    className="px-4 py-2 bg-white border border-slate-200 rounded-lg text-sm font-medium text-slate-700 hover:bg-slate-100 transition-colors"
+                                >
+                                    I still have questions
+                                </button>
+                            </div>
+                        </>
+                    ) : showFeedbackInput && !feedbackSubmitted ? (
+                        <div className="space-y-3">
+                            <p className="text-sm text-slate-600">What questions do you still have, or how can we improve?</p>
+                            <textarea
+                                value={feedbackText}
+                                onChange={(e) => setFeedbackText(e.target.value)}
+                                placeholder="E.g. I'm not sure about the layover, pricing seems off, I'd like more hotel options..."
+                                className="w-full px-3 py-2 text-sm border border-slate-200 rounded-lg resize-none focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent"
+                                rows={3}
+                            />
+                            <div className="flex gap-2 justify-center">
+                                <button
+                                    onClick={handleFeedbackSubmit}
+                                    className="px-4 py-2 bg-blue-600 text-white rounded-lg text-sm font-medium hover:bg-blue-700 transition-colors"
+                                >
+                                    Send feedback
+                                </button>
+                                <button
+                                    onClick={() => { setFeedbackSubmitted(true); setCalmnessVote('no'); }}
+                                    className="px-4 py-2 bg-white border border-slate-200 rounded-lg text-sm font-medium text-slate-500 hover:bg-slate-100 transition-colors"
+                                >
+                                    Skip
+                                </button>
+                            </div>
+                        </div>
+                    ) : (
+                        <p className="text-sm text-slate-500">
+                            {calmnessVote === 'yes'
+                                ? 'Glad to hear it. Happy travels!'
+                                : feedbackText.trim()
+                                    ? 'Thanks for sharing — your feedback helps us improve!'
+                                    : 'Thanks for the feedback — we\'ll keep improving.'}
+                        </p>
+                    )}
+                </div>
             </div>
         </div>
     );

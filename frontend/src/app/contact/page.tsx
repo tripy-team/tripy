@@ -20,10 +20,10 @@ export default function ContactPage() {
 							Contact
 						</h2>
 						<a
-							href="mailto:tripy@legit-email.com"
+							href="mailto:tripy@traveltripy.com"
 							className="text-lg text-blue-600 hover:text-blue-700 underline inline-block mb-6"
 						>
-							tripy@legit-email.com
+							tripy@traveltripy.com
 						</a>
 
 						{/* Socials */}
@@ -66,10 +66,10 @@ export default function ContactPage() {
 						</div>
 					</div>
 
-					{/* FOUNDERS */}
+					{/* FOUNDER */}
 					<div className="bg-white rounded-2xl border border-slate-200 p-8 shadow-sm">
 						<h2 className="text-sm font-semibold tracking-wider text-slate-500 uppercase mb-6">
-							Founders
+							Founder
 						</h2>
 						<div className="flex flex-col gap-4">
 							<a
@@ -87,22 +87,6 @@ export default function ContactPage() {
 									<path d="M20.5 2h-17A1.5 1.5 0 002 3.5v17A1.5 1.5 0 003.5 22h17a1.5 1.5 0 001.5-1.5v-17A1.5 1.5 0 0020.5 2zM8 19H5v-9h3zM6.5 8.25A1.75 1.75 0 118.3 6.5a1.78 1.78 0 01-1.8 1.75zM19 19h-3v-4.74c0-1.42-.6-1.93-1.38-1.93A1.74 1.74 0 0013 14.19a.66.66 0 000 .14V19h-3v-9h2.9v1.3a3.11 3.11 0 012.7-1.4c1.55 0 3.36.86 3.36 3.66z" />
 								</svg>
 								<span>Eric Zhong</span>
-							</a>
-							<a
-								href="http://linkedin.com/in/its-david-garzon/"
-								target="_blank"
-								rel="noopener noreferrer"
-								className="inline-flex items-center gap-2 text-lg text-blue-600 hover:text-blue-700 transition-colors font-semibold"
-							>
-								<svg
-									viewBox="0 0 24 24"
-									className="h-4 w-4"
-									fill="currentColor"
-									aria-hidden="true"
-								>
-									<path d="M20.5 2h-17A1.5 1.5 0 002 3.5v17A1.5 1.5 0 003.5 22h17a1.5 1.5 0 001.5-1.5v-17A1.5 1.5 0 0020.5 2zM8 19H5v-9h3zM6.5 8.25A1.75 1.75 0 118.3 6.5a1.78 1.78 0 01-1.8 1.75zM19 19h-3v-4.74c0-1.42-.6-1.93-1.38-1.93A1.74 1.74 0 0013 14.19a.66.66 0 000 .14V19h-3v-9h2.9v1.3a3.11 3.11 0 012.7-1.4c1.55 0 3.36.86 3.36 3.66z" />
-								</svg>
-								<span>David Garzon</span>
 							</a>
 						</div>
 					</div>

@@ -256,7 +256,7 @@ export function TripGenerationLoader({
             <div className="w-full h-4 bg-slate-200 rounded-full overflow-hidden shadow-inner">
               <div 
                 className={`
-                  h-full rounded-full transition-all duration-300 ease-out
+                  h-full rounded-full transition-colors duration-300
                   ${isAnimationComplete 
                     ? 'bg-gradient-to-r from-green-500 to-emerald-500' 
                     : 'bg-gradient-to-r from-blue-500 to-blue-600'

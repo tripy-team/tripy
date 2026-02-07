@@ -58,6 +58,12 @@ class FlightSearchRequest(BaseModel):
     cabin_classes: list[str] = ["Economy", "Business"]
     travelers: int = 1
     user_points: dict[str, int] = {}  # program -> balance
+    
+    # Advanced filters (Google Flights parity)
+    include_budget_airlines: bool = True  # If True, sort_by=2 (price, includes all); if False, sort_by=1 (best quality)
+    max_stops: int = 0  # 0=Any, 1=Nonstop, 2=1 stop or fewer, 3=2 stops or fewer
+    departure_hour_range: Optional[list[int]] = None  # [startHour, endHour]
+    arrival_hour_range: Optional[list[int]] = None  # [startHour, endHour]
 
 
 class Layover(BaseModel):
@@ -527,6 +533,12 @@ class OptimizeSoloRequest(BaseModel):
     allowed_currencies: Optional[list[str]] = None  # If set, only use these currencies
     max_points_by_currency: Optional[dict[str, int]] = None  # Per-currency caps
     max_cash_budget: Optional[float] = None  # Maximum cash OOP (overrides budget)
+    
+    # Advanced flight filters (Google Flights parity)
+    include_budget_airlines: bool = True  # Sort by price (True, includes all) or best quality (False) in SerpAPI
+    max_stops: int = 0  # 0=Any, 1=Nonstop, 2=1 stop or fewer, 3=2 stops or fewer
+    departure_hour_range: Optional[list[int]] = None  # [startHour, endHour]
+    arrival_hour_range: Optional[list[int]] = None  # [startHour, endHour]
 
 
 class OptimizeGroupRequest(OptimizeSoloRequest):

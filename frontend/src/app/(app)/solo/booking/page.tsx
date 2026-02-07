@@ -3,14 +3,11 @@
 import { useState, Suspense, useEffect } from 'react';
 import { useSearchParams } from 'next/navigation';
 import {
-  Shield,
   CheckCircle,
-  Lock,
   CreditCard,
   ArrowRight,
   Plane,
   Sparkles,
-  ChevronRight,
   ChevronDown,
   ChevronUp,
   Wallet,
@@ -23,9 +20,20 @@ import {
   Copy,
   Check,
   DollarSign,
+  Eye,
+  Mail,
+  Shield,
+  TrendingDown,
+  Calendar,
 } from 'lucide-react';
-import { solo, trips as tripsAPI, destinations as destinationsAPI, type SoloTransferStrategyResponse, type SoloTransferInstruction, type SoloBookingStep } from '@/lib/api';
+import { solo, trips as tripsAPI, destinations as destinationsAPI, type SoloTransferStrategyResponse, type SoloTransferInstruction, type SoloBookingStep, type BookingDetails, type ItineraryRisk, isAuthenticated } from '@/lib/api';
 import { calculateServiceFee, SERVICE_FEE_PERCENT, formatDate, tripDurationDays } from '@/lib/utils';
+import { trackEvent, EVENTS } from '@/lib/analytics';
+import TransferInfoBanner from '@/components/TransferInfoBanner';
+import NextSteps from '@/components/NextSteps';
+import RiskBadge from '@/components/RiskBadge';
+import SignInPrompt from '@/components/SignInPrompt';
+import EmailPlanModal from '@/components/EmailPlanModal';
 
 function humanizeProgram(code: string): string {
   const m: Record<string, string> = {
@@ -165,7 +173,7 @@ function SoloBookingContent() {
   const searchParams = useSearchParams();
   const tripId = searchParams?.get('trip_id') || '';
 
-  const [isPaid, setIsPaid] = useState(false);
+  const [isPaid, setIsPaid] = useState(true);
   const [isProcessing, setIsProcessing] = useState(false);
   const [trip, setTrip] = useState<{ startDate?: string; endDate?: string; destinations?: string[]; adults?: number; children?: number } | null>(null);
   const [items, setItems] = useState<Record<string, unknown>[]>([]);
@@ -173,7 +181,21 @@ function SoloBookingContent() {
   const [loading, setLoading] = useState(true);
   const [expandedFlightIdx, setExpandedFlightIdx] = useState<number | null>(null);
   const [copiedText, setCopiedText] = useState<string | null>(null);
+
+  // Post-booking workflow state (see docs/KEEP_WATCHING_FEATURE.md for state machine spec)
+  const [postBookingState, setPostBookingState] = useState<
+    'asking' | 'not_booked' | 'dismissed' | 'booked' | 'email_input' | 'email_pending_verification' | 'monitoring_active'
+  >('asking');
+  const [monitoringEmail, setMonitoringEmail] = useState('');
+  const [emailSubmitting, setEmailSubmitting] = useState(false);
+  const [monitoringError, setMonitoringError] = useState<string | null>(null);
   
+  // Action buttons state (moved from results page)
+  const [isBooked, setIsBooked] = useState(false);
+  const [isLocked, setIsLocked] = useState(false);
+  const [showSignInPrompt, setShowSignInPrompt] = useState<'lock' | 'save' | null>(null);
+  const [showEmailModal, setShowEmailModal] = useState(false);
+
   // New solo booking state
   const [selection, setSelection] = useState<{
     itineraryId?: string;
@@ -183,6 +205,7 @@ function SoloBookingContent() {
   } | null>(null);
   const [transferStrategy, setTransferStrategy] = useState<SoloTransferStrategyResponse | null>(null);
   const [usingSoloApi, setUsingSoloApi] = useState(false);
+  const [bookingDetails, setBookingDetails] = useState<BookingDetails | null>(null);
 
   useEffect(() => {
     const fetchData = async () => {
@@ -191,14 +214,15 @@ function SoloBookingContent() {
         return;
       }
       try {
-        // Check if strategy is already paid
+        // Auto-unlock transfer instructions
         try {
-          const strategyStatus = await tripsAPI.getStrategyStatus(tripId);
-          if (strategyStatus.strategy_paid) {
-            setIsPaid(true);
-          }
+          await solo.updateStatus(tripId, 'instructions_unlocked', {
+            paidAt: new Date().toISOString(),
+            amount: 0,
+            method: 'free',
+          });
         } catch (statusErr) {
-          console.log('Could not check strategy status:', statusErr);
+          console.log('Could not auto-unlock status:', statusErr);
         }
         
         // Try to get selection from new solo API first
@@ -211,15 +235,21 @@ function SoloBookingContent() {
           
           if (selectionRes?.itineraryId && selectionRes?.itinerarySnapshot) {
             // Extract only the fields we need for the selection state
+            const snapshot = selectionRes.itinerarySnapshot as Record<string, unknown>;
             setSelection({
               itineraryId: selectionRes.itineraryId,
-              itinerarySnapshot: selectionRes.itinerarySnapshot as Record<string, unknown>,
+              itinerarySnapshot: snapshot,
               cashPriceAtSelection: selectionRes.cashPriceAtSelection,
               outOfPocketAtSelection: selectionRes.outOfPocketAtSelection,
             });
             setTrip(tripData);
             setUsingSoloApi(true);
             usedSoloApi = true;
+            
+            // Extract bookingDetails from itinerary snapshot if available
+            if (snapshot.bookingDetails) {
+              setBookingDetails(snapshot.bookingDetails as BookingDetails);
+            }
             
             // Get transfer strategy if we have a selection
             try {
@@ -236,6 +266,13 @@ function SoloBookingContent() {
               if (cacheRes?.itineraries && cacheRes.itineraries.length > 0) {
                 const bestItinerary = cacheRes.itineraries[0]; // Best OOP itinerary
                 
+                // Extract bookingDetails from cache or best itinerary
+                if (cacheRes.bookingDetails) {
+                  setBookingDetails(cacheRes.bookingDetails);
+                } else if (bestItinerary.bookingDetails) {
+                  setBookingDetails(bestItinerary.bookingDetails);
+                }
+                
                 // Auto-select the best itinerary if none selected
                 await solo.selectItinerary(tripId, {
                   itineraryId: bestItinerary.id,
@@ -247,15 +284,21 @@ function SoloBookingContent() {
                 // Now get the selection we just saved
                 const newSelectionRes = await solo.getSelection(tripId);
                 if (newSelectionRes?.itineraryId && newSelectionRes?.itinerarySnapshot) {
+                  const newSnapshot = newSelectionRes.itinerarySnapshot as Record<string, unknown>;
                   setSelection({
                     itineraryId: newSelectionRes.itineraryId,
-                    itinerarySnapshot: newSelectionRes.itinerarySnapshot as Record<string, unknown>,
+                    itinerarySnapshot: newSnapshot,
                     cashPriceAtSelection: newSelectionRes.cashPriceAtSelection,
                     outOfPocketAtSelection: newSelectionRes.outOfPocketAtSelection,
                   });
                   setTrip(tripData);
                   setUsingSoloApi(true);
                   usedSoloApi = true;
+                  
+                  // Extract bookingDetails from new snapshot if not already set
+                  if (!bookingDetails && newSnapshot.bookingDetails) {
+                    setBookingDetails(newSnapshot.bookingDetails as BookingDetails);
+                  }
                   
                   // Get transfer strategy
                   const strategy = await solo.getTransferStrategy(tripId, newSelectionRes.itineraryId);
@@ -292,39 +335,214 @@ function SoloBookingContent() {
     fetchData();
   }, [tripId]);
 
-  const handlePayment = async () => {
-    setIsProcessing(true);
-    
-    // Simulate payment processing (actual payment integration will be added later)
-    if (tripId) {
-      // Try to update backend status, then refresh transfer strategy (best-effort)
+  // Persist and restore post-booking workflow state
+  useEffect(() => {
+    if (!tripId) return;
+
+    // Check for monitoring redirect param (from verification magic link)
+    if (typeof window !== 'undefined') {
+      const params = new URLSearchParams(window.location.search);
+      const monitoringParam = params.get('monitoring');
+      if (monitoringParam === 'activated' || monitoringParam === 'already_verified') {
+        setPostBookingState('monitoring_active');
+        // Store in localStorage with expiry for staleness check
+        const expiresAt = new Date(Date.now() + 14 * 24 * 60 * 60 * 1000).toISOString();
+        localStorage.setItem(`tripy_monitoring_${tripId}`, JSON.stringify({
+          state: 'active',
+          verified_at: new Date().toISOString(),
+          expires_at: expiresAt,
+        }));
+        return;
+      }
+    }
+
+    // Try to get server truth for authenticated users
+    const fetchStatus = async () => {
       try {
-        await solo.updateStatus(tripId, 'instructions_unlocked', {
-          paidAt: new Date().toISOString(),
-          amount: serviceFee,
-          method: 'demo',
-        });
-      } catch (err) {
-        console.warn('Status update failed:', err);
+        const status = await solo.getMonitoringStatus(tripId);
+        if (status && (status.state === 'active' || status.state === 'pending_verification')) {
+          if (status.state === 'active') {
+            setPostBookingState('monitoring_active');
+          } else {
+            setPostBookingState('email_pending_verification');
+          }
+          return;
+        }
+      } catch {
+        // Not authenticated or no subscription — fall through to localStorage
       }
 
-      // Refresh transfer strategy now that backend enforces unlock
+      // Restore from localStorage (unauthenticated / fallback)
       try {
-        const itineraryId = selection?.itineraryId || (await solo.getSelection(tripId).catch(() => null))?.itineraryId;
-        if (itineraryId) {
-          const strategy = await solo.getTransferStrategy(tripId, itineraryId);
-          setTransferStrategy(strategy);
+        // Check monitoring-specific localStorage (with staleness)
+        const monitoringRaw = localStorage.getItem(`tripy_monitoring_${tripId}`);
+        if (monitoringRaw) {
+          const parsed = JSON.parse(monitoringRaw);
+          if (parsed.state === 'active' && parsed.expires_at) {
+            const expiresAt = new Date(parsed.expires_at);
+            if (expiresAt > new Date()) {
+              setPostBookingState('monitoring_active');
+              return;
+            }
+            // Stale — remove it
+            localStorage.removeItem(`tripy_monitoring_${tripId}`);
+          }
         }
+
+        // Check general post-booking state
+        const stored = localStorage.getItem(`tripy_post_booking_${tripId}`);
+        if (stored) {
+          const parsed = JSON.parse(stored);
+          if (['booked', 'monitoring_active', 'dismissed', 'email_input', 'email_pending_verification'].includes(parsed.state)) {
+            setPostBookingState(parsed.state);
+            if (parsed.email) setMonitoringEmail(parsed.email);
+          }
+        }
+      } catch { /* ignore parse errors */ }
+    };
+
+    fetchStatus();
+  }, [tripId]);
+
+  useEffect(() => {
+    if (!tripId) return;
+    if (['booked', 'monitoring_active', 'dismissed', 'email_input', 'email_pending_verification'].includes(postBookingState)) {
+      localStorage.setItem(`tripy_post_booking_${tripId}`, JSON.stringify({
+        state: postBookingState,
+        email: monitoringEmail,
+      }));
+    }
+  }, [tripId, postBookingState, monitoringEmail]);
+
+  // Check if this trip was previously booked locally (anon users)
+  useEffect(() => {
+    if (tripId && typeof window !== 'undefined') {
+      const bookedTrips = JSON.parse(localStorage.getItem('tripy_booked_trips') || '[]');
+      if (bookedTrips.includes(tripId)) {
+        setIsBooked(true);
+      }
+    }
+  }, [tripId]);
+
+  // "I Booked It" handler
+  const handleIBookedIt = async () => {
+    trackEvent(EVENTS.I_BOOKED_IT, { tripId, isAuthenticated: isAuthenticated() });
+    
+    if (isAuthenticated() && tripId) {
+      try {
+        await solo.updateStatus(tripId, 'booked');
       } catch (err) {
-        console.warn('Transfer strategy refresh failed:', err);
+        console.error('Error marking trip as booked:', err);
+      }
+    } else {
+      if (typeof window !== 'undefined' && tripId) {
+        const bookedTrips = JSON.parse(localStorage.getItem('tripy_booked_trips') || '[]');
+        if (!bookedTrips.includes(tripId)) {
+          bookedTrips.push(tripId);
+          localStorage.setItem('tripy_booked_trips', JSON.stringify(bookedTrips));
+        }
       }
     }
     
-    // Simulate processing delay
-    await new Promise((r) => setTimeout(r, 1500));
-    setIsProcessing(false);
-    setIsPaid(true);
+    setIsBooked(true);
   };
+
+  // Handle Lock Plan
+  const handleLockPlan = async () => {
+    trackEvent(EVENTS.LOCK_PLAN_CLICKED, { tripId, isAuthenticated: isAuthenticated() });
+    
+    if (!isAuthenticated()) {
+      trackEvent(EVENTS.SIGN_IN_PROMPTED, { trigger: 'lock', tripId });
+      setShowSignInPrompt('lock');
+      return;
+    }
+    
+    try {
+      if (selection?.itineraryId && tripId) {
+        await solo.selectItinerary(tripId, {
+          itineraryId: selection.itineraryId,
+          itinerarySnapshot: selection.itinerarySnapshot || {},
+          cashPriceAtSelection: selection.cashPriceAtSelection || 0,
+          outOfPocketAtSelection: selection.outOfPocketAtSelection || 0,
+        });
+      }
+      setIsLocked(true);
+    } catch (err) {
+      console.error('Error locking plan:', err);
+    }
+  };
+
+  // Post-booking workflow handlers
+  const handleBookingConfirm = async () => {
+    setPostBookingState('booked');
+    if (tripId) {
+      try {
+        await solo.updateStatus(tripId, 'booked');
+      } catch (err) {
+        console.log('Could not update trip status:', err);
+      }
+    }
+  };
+
+  const handleNotYet = () => {
+    setPostBookingState('not_booked');
+  };
+
+  const handleStartMonitoring = () => {
+    // Show email input — free email tier only (paid hidden behind feature flag)
+    setPostBookingState('email_input');
+    setMonitoringError(null);
+  };
+
+  const handleMonitoringDecline = () => {
+    // Clean dismiss — no email prompt, no nag
+    setPostBookingState('dismissed');
+  };
+
+  const handleEmailSubmit = async () => {
+    if (!monitoringEmail.trim()) return;
+    if (!tripId) return;
+    setEmailSubmitting(true);
+    setMonitoringError(null);
+    try {
+      // Build baseline payload from current selection (if available)
+      const baselinePayload = selection?.itinerarySnapshot
+        ? {
+            schema_version: 1,
+            selected_itinerary: selection.itinerarySnapshot,
+            alternatives: [],
+            query_inputs: {},
+          }
+        : undefined;
+
+      const result = await solo.startMonitoring(tripId, monitoringEmail, baselinePayload);
+
+      if (result.state === 'active') {
+        // Authenticated user — immediately active
+        setPostBookingState('monitoring_active');
+        const expiresAt = result.expiresAt || new Date(Date.now() + 14 * 24 * 60 * 60 * 1000).toISOString();
+        localStorage.setItem(`tripy_monitoring_${tripId}`, JSON.stringify({
+          state: 'active',
+          verified_at: new Date().toISOString(),
+          expires_at: expiresAt,
+        }));
+      } else if (result.state === 'pending_verification') {
+        // Unauthenticated — awaiting email verification
+        setPostBookingState('email_pending_verification');
+      } else {
+        // Unexpected state — treat as active
+        setPostBookingState('monitoring_active');
+      }
+    } catch (err: unknown) {
+      const message = err instanceof Error ? err.message : 'Could not start monitoring. Please try again.';
+      setMonitoringError(message);
+      // Stay in email_input state so user can retry
+    } finally {
+      setEmailSubmitting(false);
+    }
+  };
+
+  // handlePayment removed — paywall disabled
 
   if (loading) {
     return (
@@ -634,6 +852,7 @@ function SoloBookingContent() {
   const soloSnapshot = selection?.itinerarySnapshot as {
     oopMetrics?: { totalCashPrice?: number; totalOutOfPocket?: number; cashSaved?: number; savingsPercentage?: number; totalPointsUsed?: number };
     segments?: Array<{ segment?: string; type?: string; paymentMethod?: string; pointsUsed?: number; surcharge?: number; cashPrice?: number }>;
+    risk?: ItineraryRisk;
   } | undefined;
 
   const SegmentIcon = ({ mode }: { mode: 'flight' | 'bus' | 'car' }) => (
@@ -646,18 +865,36 @@ function SoloBookingContent() {
 
   return (
     <div data-testid="solo-booking-page" data-slot="SoloBooking" className="min-h-screen bg-slate-50 pb-20">
+      {/* Sign-in prompt modal (for lock/save actions) */}
+      {showSignInPrompt && (
+        <SignInPrompt
+          trigger={showSignInPrompt}
+          onDismiss={() => setShowSignInPrompt(null)}
+          onContinueWithout={() => setShowSignInPrompt(null)}
+        />
+      )}
+
+      {/* Email Plan Modal */}
+      {showEmailModal && tripId && (
+        <EmailPlanModal
+          tripId={tripId}
+          onClose={() => setShowEmailModal(false)}
+        />
+      )}
+
       {/* Header */}
       <div className="bg-white border-b border-slate-200">
         <div className="max-w-4xl mx-auto px-6 py-8">
-          <h1 className="text-3xl font-bold text-slate-900">Secure Your Booking</h1>
-          <p className="text-slate-500 mt-2">Complete your payment to unlock step-by-step transfer instructions.</p>
+          <h1 className="text-3xl font-bold text-slate-900">Your Booking Plan</h1>
+          <p className="text-slate-500 mt-2 mb-4">Follow the step-by-step transfer instructions below to book your trip.</p>
+          <TransferInfoBanner />
         </div>
       </div>
 
-      <div className="max-w-4xl mx-auto px-6 py-12 grid grid-cols-1 lg:grid-cols-3 gap-8">
+      <div className="max-w-4xl mx-auto px-6 py-12">
         
-        {/* Left Column: Trip Details & Savings */}
-        <div className="lg:col-span-2 space-y-8">
+        {/* Trip Details & Savings */}
+        <div className="space-y-8">
           
           {/* Savings Highlight - show from solo API or legacy */}
           {hasSoloData && soloSnapshot?.oopMetrics?.cashSaved && soloSnapshot.oopMetrics.cashSaved > 0 ? (
@@ -708,64 +945,22 @@ function SoloBookingContent() {
                 </div>
               </div>
             </div>
-          ) : (
-            <div className="bg-gradient-to-br from-slate-600 to-slate-700 rounded-2xl p-8 text-white shadow-xl shadow-slate-900/10 relative overflow-hidden">
-              <div className="absolute top-0 right-0 w-64 h-64 bg-white/10 rounded-full -mr-16 -mt-16 blur-3xl"></div>
-              <div className="relative z-10">
-                <div className="flex items-center gap-2 text-slate-300 mb-1">
-                  <CreditCard className="w-5 h-5" />
-                  <span className="font-medium">Cash Booking</span>
-                </div>
-                <div className="flex items-baseline gap-2 mb-4">
-                  <span className="text-5xl font-bold">${cashPrice.toLocaleString()}</span>
-                  <span className="text-slate-300">total cost</span>
-                </div>
-                <div className="bg-white/10 rounded-xl p-4 border border-white/10">
-                  <div className="text-slate-300 text-sm mb-1">No points redemption available for this itinerary</div>
-                  <div className="text-sm text-slate-400">This trip will be booked using cash. Points may be unavailable for these routes or you may not have sufficient points balance.</div>
-                </div>
-              </div>
-            </div>
-          )}
+          ) : null}
 
           {/* Transfer Instructions (Blurred until paid) */}
           <div className="bg-white border border-slate-200 rounded-2xl overflow-hidden shadow-sm">
             <div className="p-6 border-b border-slate-100 flex justify-between items-center bg-slate-50/50">
               <h2 className="text-xl font-semibold text-slate-900 flex items-center gap-2">
                 <Wallet className="w-5 h-5 text-blue-600" />
-                Transfer Instructions
+                Instructions
               </h2>
-              {isPaid ? (
-                <span className="px-3 py-1 bg-green-100 text-green-700 text-xs font-bold uppercase tracking-wide rounded-full flex items-center gap-1">
-                  <CheckCircle className="w-3 h-3" /> Unlocked
+              <span className="px-3 py-1 bg-green-100 text-green-700 text-xs font-bold uppercase tracking-wide rounded-full flex items-center gap-1">
+                  <CheckCircle className="w-3 h-3" /> Ready
                 </span>
-              ) : (
-                <span className="px-3 py-1 bg-amber-100 text-amber-700 text-xs font-bold uppercase tracking-wide rounded-full flex items-center gap-1">
-                  <Lock className="w-3 h-3" /> Locked
-                </span>
-              )}
             </div>
 
             <div className="relative">
-              {!isPaid && (
-                <div className="absolute inset-0 bg-white/60 backdrop-blur-sm z-10 flex flex-col items-center justify-center text-center p-8">
-                  <div className="bg-white p-4 rounded-full shadow-lg mb-4">
-                    <Lock className="w-8 h-8 text-blue-600" />
-                  </div>
-                  <h3 className="text-lg font-bold text-slate-900 mb-2">Pending Payment</h3>
-                  <p className="text-slate-600 max-w-sm mb-6">
-                    Pay the service fee to reveal the exact transfer partners, flight numbers, and step-by-step booking guide.
-                  </p>
-                  <button 
-                    onClick={() => document.getElementById('payment-section')?.scrollIntoView({ behavior: 'smooth' })}
-                    className="text-blue-600 font-semibold hover:text-blue-700 flex items-center gap-1"
-                  >
-                    Go to Payment <ChevronRight className="w-4 h-4" />
-                  </button>
-                </div>
-              )}
-
-              <div className={`p-6 space-y-6 ${!isPaid ? 'opacity-20 select-none' : ''}`}>
+              <div className="p-6 space-y-6">
                 {/* New Solo API Transfer Strategy */}
                 {hasSoloData && transferStrategy ? (
                   <>
@@ -2135,89 +2330,220 @@ function SoloBookingContent() {
           </div>
         </div>
 
-        {/* Right Column: Payment */}
-        <div className="lg:col-span-1" id="payment-section">
-          <div className="bg-white border border-slate-200 rounded-2xl shadow-lg sticky top-8">
-            <div className="p-6 border-b border-slate-100">
-              <h2 className="text-lg font-bold text-slate-900">Order Summary</h2>
-            </div>
-            
-            <div className="p-6 space-y-6">
-              <div className="space-y-3">
-                <div className="flex justify-between text-slate-600">
-                  <span>Itinerary Value</span>
-                  <span className={hasPointsPayments && savings > 0 ? "line-through" : ""}>${cashPrice.toLocaleString()}.00</span>
-                </div>
-                {hasPointsPayments && actualPointsUsed > 0 ? (
-                  <>
-                    <div className="flex justify-between text-slate-600">
-                      <span>Points Cost</span>
-                      <span className="font-medium text-slate-900">{actualPointsUsed.toLocaleString()} pts</span>
-                    </div>
-                    <div className="flex justify-between text-slate-600">
-                      <span>Taxes & Fees (Airline)</span>
-                      <span className="font-medium text-slate-900">~${taxes}.00</span>
-                    </div>
-                  </>
-                ) : (
-                  <div className="flex justify-between text-slate-600">
-                    <span>Payment Method</span>
-                    <span className="font-medium text-slate-900">Cash</span>
+        {/* ================================================ */}
+        {/* Next Steps                                       */}
+        {/* ================================================ */}
+        <div className="mt-8 space-y-6">
+          {/* What Happens Next */}
+          <NextSteps 
+            hasTransfers={
+              (transferStrategy?.transfers?.length ?? 0) > 0 ||
+              transferSummaries.length > 0
+            }
+          />
+
+          {/* Risk Assessment */}
+          {soloSnapshot?.risk && (
+            <RiskBadge risk={soloSnapshot.risk} variant="card" />
+          )}
+
+          {/* Email Me This Plan */}
+          <button
+            onClick={() => setShowEmailModal(true)}
+            className="w-full py-3 px-4 border border-slate-200 bg-white hover:bg-slate-50 rounded-2xl text-sm font-medium text-slate-700 transition-colors flex items-center justify-center gap-2"
+          >
+            <Mail className="w-4 h-4" />
+            Email me this plan
+          </button>
+
+        </div>
+
+        {/* ================================================ */}
+        {/* Post-Booking Workflow (Steps 4–9)                */}
+        {/* ================================================ */}
+        <div className="mt-12">
+
+          {/* STEP 4 — "Did you book this flight?" checkpoint */}
+          {postBookingState === 'asking' && (
+            <div className="bg-white border border-slate-200 rounded-2xl p-6 shadow-sm">
+              <div className="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-4">
+                <div className="flex items-center gap-3">
+                  <div className="w-10 h-10 bg-blue-50 rounded-xl flex items-center justify-center flex-shrink-0">
+                    <Plane className="w-5 h-5 text-blue-600" />
                   </div>
-                )}
-                <div className="border-t border-slate-100 my-4 pt-4 flex justify-between items-center">
-                  <span className="font-semibold text-slate-900">Tripy Service Fee ({SERVICE_FEE_PERCENT}% of trip value)</span>
-                  <span className="text-xl font-bold text-slate-900">${serviceFee.toFixed(2)}</span>
+                  <div>
+                    <h3 className="font-semibold text-slate-900">Did you book this flight?</h3>
+                    <p className="text-sm text-slate-500">Let us know so we can help you next.</p>
+                  </div>
+                </div>
+                <div className="flex items-center gap-3">
+                  <button
+                    onClick={handleBookingConfirm}
+                    className="px-5 py-2.5 bg-green-600 hover:bg-green-700 text-white font-semibold rounded-xl transition-colors flex items-center gap-2"
+                  >
+                    <Check className="w-4 h-4" />
+                    Yes, I booked it
+                  </button>
+                  <button
+                    onClick={handleNotYet}
+                    className="px-5 py-2.5 bg-slate-100 hover:bg-slate-200 text-slate-700 font-medium rounded-xl transition-colors flex items-center gap-2"
+                  >
+                    <Clock className="w-4 h-4" />
+                    Not yet
+                  </button>
+                </div>
+              </div>
+            </div>
+          )}
+
+          {/* STEP 5–6 — Reassurance + STEP 7 — Monitoring offer */}
+          {postBookingState === 'booked' && (
+            <div className="space-y-6">
+              {/* Reassurance (Step 6) — always shown before any upsell */}
+              <div className="bg-green-50 border border-green-200 rounded-2xl p-6">
+                <div className="flex items-start gap-3">
+                  <div className="w-10 h-10 bg-green-100 rounded-xl flex items-center justify-center flex-shrink-0">
+                    <CheckCircle className="w-5 h-5 text-green-600" />
+                  </div>
+                  <div>
+                    <h3 className="font-semibold text-green-900 text-lg">Nice work — this was a clean booking.</h3>
+                    <p className="text-green-700 mt-1">
+                      {flightSegments.length <= 2 ? 'Direct flight, ' : `${flightSegments.length} segments, `}
+                      single ticket, low risk.
+                    </p>
+                  </div>
                 </div>
               </div>
 
-              {!isPaid ? (
-                <div className="space-y-4">
-                  <div className="p-4 bg-blue-50 border border-blue-100 rounded-xl">
-                    <div className="flex items-center gap-2 mb-2 text-blue-800 font-semibold text-sm">
-                      <Shield className="w-4 h-4" /> Secure Payment
+              {/* Monitoring offer (Step 7) — free email tier only */}
+              <div className="bg-white border border-slate-200 rounded-2xl overflow-hidden shadow-sm">
+                <div className="p-6">
+                  <div className="flex items-start gap-3 mb-5">
+                    <div className="w-10 h-10 bg-blue-50 rounded-xl flex items-center justify-center flex-shrink-0">
+                      <Eye className="w-5 h-5 text-blue-600" />
                     </div>
-                    <p className="text-xs text-blue-600">
-                      We use bank-level encryption to handle your transaction securely.
-                    </p>
+                    <div>
+                      <h3 className="font-semibold text-slate-900 text-lg">Want us to keep watching this trip?</h3>
+                      <p className="text-slate-500 mt-1">
+                        We&apos;ll monitor prices and schedule changes for this route every 6 hours for up to 14 days, and email you if something meaningful changes.
+                      </p>
+                    </div>
                   </div>
-                  
-                  <button
-                    onClick={handlePayment}
-                    disabled={isProcessing}
-                    className="w-full py-4 bg-blue-600 hover:bg-blue-700 text-white rounded-xl font-bold text-lg shadow-lg shadow-blue-600/20 transition-all flex items-center justify-center gap-2 disabled:opacity-70 disabled:cursor-not-allowed"
-                  >
-                    {isProcessing ? (
-                      <>Processing...</>
-                    ) : (
-                      <>
-                        <CreditCard className="w-5 h-5" /> Pay & Reveal
-                      </>
-                    )}
-                  </button>
-                  <p className="text-xs text-center text-slate-400">
-                    By clicking Pay, you agree to our Terms of Service.
-                  </p>
-                </div>
-              ) : (
-                <div className="text-center py-6">
-                  <div className="w-16 h-16 bg-green-100 rounded-full flex items-center justify-center mx-auto mb-4">
-                    <CheckCircle className="w-8 h-8 text-green-600" />
+
+                  <div className="grid grid-cols-2 gap-3 mb-6">
+                    <div className="flex items-center gap-2.5 p-3 bg-slate-50 rounded-xl">
+                      <TrendingDown className="w-4 h-4 text-blue-600 flex-shrink-0" />
+                      <span className="text-sm text-slate-700">Price drops</span>
+                    </div>
+                    <div className="flex items-center gap-2.5 p-3 bg-slate-50 rounded-xl">
+                      <Calendar className="w-4 h-4 text-amber-600 flex-shrink-0" />
+                      <span className="text-sm text-slate-700">Schedule changes</span>
+                    </div>
                   </div>
-                  <h3 className="text-lg font-bold text-slate-900 mb-2">Payment Successful!</h3>
-                  <p className="text-sm text-slate-600">
-                    Instructions unlocked. Check your email for a receipt.
+
+                  <p className="text-slate-600 mb-5 text-sm">
+                    Free &middot; We check every 6 hours &middot; Monitoring runs until 24h before departure or 14 days
                   </p>
-                  <button 
-                    className="mt-6 w-full py-3 bg-slate-100 hover:bg-slate-200 text-slate-700 rounded-xl font-semibold transition-colors"
-                  >
-                    Download Receipt
-                  </button>
+
+                  <div className="flex items-center gap-3">
+                    <button
+                      onClick={handleStartMonitoring}
+                      className="px-6 py-3 bg-blue-600 hover:bg-blue-700 text-white font-semibold rounded-xl transition-colors"
+                    >
+                      Watch this trip
+                    </button>
+                    <button
+                      onClick={handleMonitoringDecline}
+                      className="px-6 py-3 text-slate-500 hover:text-slate-700 font-medium transition-colors"
+                    >
+                      No thanks
+                    </button>
+                  </div>
                 </div>
+              </div>
+            </div>
+          )}
+
+          {/* STEP 8 — Email input (user clicked "Watch this trip") */}
+          {postBookingState === 'email_input' && (
+            <div className="bg-white border border-slate-200 rounded-2xl p-6 shadow-sm">
+              <div className="flex items-start gap-3 mb-4">
+                <div className="w-10 h-10 bg-blue-50 rounded-xl flex items-center justify-center flex-shrink-0">
+                  <Mail className="w-5 h-5 text-blue-600" />
+                </div>
+                <div>
+                  <h3 className="font-semibold text-slate-900">Where should we send alerts?</h3>
+                  <p className="text-sm text-slate-500 mt-1">We&apos;ll send a confirmation email to verify it&apos;s you.</p>
+                </div>
+              </div>
+              <div className="flex items-center gap-3">
+                <input
+                  type="email"
+                  value={monitoringEmail}
+                  onChange={(e) => { setMonitoringEmail(e.target.value); setMonitoringError(null); }}
+                  onKeyDown={(e) => { if (e.key === 'Enter') handleEmailSubmit(); }}
+                  placeholder="you@example.com"
+                  className="flex-1 px-4 py-2.5 border border-slate-200 rounded-xl text-sm focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent"
+                />
+                <button
+                  onClick={handleEmailSubmit}
+                  disabled={emailSubmitting || !monitoringEmail.trim()}
+                  className="px-5 py-2.5 bg-blue-600 hover:bg-blue-700 disabled:bg-slate-300 disabled:cursor-not-allowed text-white font-semibold rounded-xl transition-colors"
+                >
+                  {emailSubmitting ? 'Verifying...' : 'Start watching'}
+                </button>
+              </div>
+              {monitoringError && (
+                <p className="mt-2 text-sm text-red-600">{monitoringError}</p>
               )}
             </div>
-          </div>
+          )}
+
+          {/* STEP 8b — Email pending verification */}
+          {postBookingState === 'email_pending_verification' && (
+            <div className="bg-amber-50 border border-amber-200 rounded-2xl p-6">
+              <div className="flex items-start gap-3">
+                <div className="w-10 h-10 bg-amber-100 rounded-xl flex items-center justify-center flex-shrink-0">
+                  <Mail className="w-5 h-5 text-amber-600" />
+                </div>
+                <div>
+                  <h3 className="font-semibold text-amber-900">Check your inbox to confirm</h3>
+                  <p className="text-amber-700 mt-1">
+                    We sent a verification link to <strong>{monitoringEmail}</strong>. Click it to activate monitoring.
+                  </p>
+                  <button
+                    onClick={handleEmailSubmit}
+                    disabled={emailSubmitting}
+                    className="mt-3 text-sm text-amber-700 hover:text-amber-900 underline underline-offset-2"
+                  >
+                    {emailSubmitting ? 'Resending...' : 'Resend verification email'}
+                  </button>
+                </div>
+              </div>
+            </div>
+          )}
+
+          {/* STEP 9 — Monitoring active confirmation */}
+          {postBookingState === 'monitoring_active' && (
+            <div className="bg-blue-50 border border-blue-200 rounded-2xl p-6">
+              <div className="flex items-start gap-3">
+                <div className="w-10 h-10 bg-blue-100 rounded-xl flex items-center justify-center flex-shrink-0">
+                  <Shield className="w-5 h-5 text-blue-600" />
+                </div>
+                <div>
+                  <h3 className="font-semibold text-blue-900 text-lg">We&apos;re watching this trip for you.</h3>
+                  <p className="text-blue-700 mt-1">
+                    We&apos;ll check every 6 hours for price drops and schedule changes, and email you if something meaningful happens.
+                  </p>
+                  <p className="text-blue-600 text-sm mt-2">Monitoring active until 24h before departure (up to 14 days).</p>
+                </div>
+              </div>
+            </div>
+          )}
+
+          {/* postBookingState === 'not_booked' or 'dismissed' renders nothing — banner dismissed */}
         </div>
+
       </div>
     </div>
   );

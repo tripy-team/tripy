@@ -1,9 +1,9 @@
 'use client';
 
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useMemo } from 'react';
 import { useRouter } from 'next/navigation';
-import { X, Calendar, Zap, MapPin, Plane, Luggage, Clock, Users, User, Baby, Plus } from 'lucide-react';
-import { solo, users as usersAPI, ExtractedTripInfo } from '@/lib/api';
+import { X, Calendar, Zap, MapPin, Plane, Clock, Users, User, Baby, Plus, CreditCard, ChevronDown } from 'lucide-react';
+import { solo, users as usersAPI, ExtractedTripInfo, isAuthenticated as checkIsAuthenticated } from '@/lib/api';
 import TripChatbotInline from '@/components/trip-chatbot-inline';
 import { searchAndFormatAirport } from '@/lib/airport-formatter';
 import { searchAndFormatCities } from '@/lib/city-formatter';
@@ -13,6 +13,17 @@ import AirportAutocomplete from '@/components/ui/AirportAutocomplete';
 import MultiAirportAutocomplete from '@/components/ui/MultiAirportAutocomplete';
 import DateRangePicker from '@/components/date-range-picker';
 import SingleDatePicker from '@/components/ui/SingleDatePicker';
+import { ALL_LOYALTY_PROGRAMS, getProgramCategory, isValidProgram } from '@/lib/loyalty-programs';
+
+// Popular programs for quick-add on the setup page
+const QUICK_ADD_PROGRAMS = [
+  'Chase Ultimate Rewards',
+  'Amex Membership Rewards',
+  'Capital One Miles',
+  'Delta SkyMiles',
+  'United MileagePlus',
+  'American Airlines AAdvantage',
+];
 
 interface CreditCardEntry {
   id: string;
@@ -35,6 +46,16 @@ export default function SoloTripSetup() {
   const [creditCards, setCreditCards] = useState<CreditCardEntry[]>([]);
   const [pointsToUse, setPointsToUse] = useState<Record<string, number>>({}); // program -> points to use for this trip
   const [showPointsAllocationModal, setShowPointsAllocationModal] = useState(false);
+
+  // Add Points Modal State (for users who haven't signed up)
+  const [isUserAuthenticated, setIsUserAuthenticated] = useState(false);
+  const [showAddPointsModal, setShowAddPointsModal] = useState(false);
+  const [newProgram, setNewProgram] = useState('');
+  const [newPoints, setNewPoints] = useState('');
+  const [newCategory, setNewCategory] = useState<'credit' | 'airline'>('credit');
+  const [newCardProduct, setNewCardProduct] = useState('');
+  const [showProgramDropdown, setShowProgramDropdown] = useState(false);
+  const [programSearchQuery, setProgramSearchQuery] = useState('');
 
   // Date & Duration State
   const [isFlexible, setIsFlexible] = useState(false);
@@ -59,14 +80,25 @@ export default function SoloTripSetup() {
 
   // Travel Style State
   const [flightClass, setFlightClass] = useState('economy');
-  const [bags, setBags] = useState(1);
 
   // Optimization Mode - always use OOP (budget-constrained), UI removed
   const optimizationMode = 'oop' as const;
 
-  // Flight Time Preferences
-  const [departureTimePreference, setDepartureTimePreference] = useState<'any' | 'morning' | 'afternoon' | 'evening' | 'night'>('any');
-  const [arrivalTimePreference, setArrivalTimePreference] = useState<'any' | 'morning' | 'afternoon' | 'evening' | 'night'>('any');
+  // Advanced Flight Filters
+  const [includeBudgetAirlines, setIncludeBudgetAirlines] = useState(false);
+  const [maxStops, setMaxStops] = useState(0); // 0=Any, 1=Nonstop, 2=1 stop or fewer, 3=2 stops or fewer
+  const [departureHourStart, setDepartureHourStart] = useState(0);
+  const [departureHourEnd, setDepartureHourEnd] = useState(23);
+  const [arrivalHourStart, setArrivalHourStart] = useState(0);
+  const [arrivalHourEnd, setArrivalHourEnd] = useState(23);
+
+  // Helper: format hour (0-23) to display string
+  const formatHour = (h: number): string => {
+    if (h === 0) return '12:00 AM';
+    if (h < 12) return `${h}:00 AM`;
+    if (h === 12) return '12:00 PM';
+    return `${h - 12}:00 PM`;
+  };
 
   // Estimates
   const [estimatedCost, setEstimatedCost] = useState(0);
@@ -78,6 +110,71 @@ export default function SoloTripSetup() {
   // Calculate total points from all cards; total allocated for this trip
   const totalPoints = creditCards.reduce((sum, card) => sum + card.points, 0);
   const totalPointsToUse = creditCards.reduce((sum, card) => sum + (pointsToUse[card.program] ?? card.points), 0);
+
+  // Filter programs for the add-points dropdown
+  const filteredPrograms = useMemo(() => {
+    return ALL_LOYALTY_PROGRAMS.filter(p => {
+      const matchesCategory = p.category === newCategory;
+      const matchesSearch = !programSearchQuery ||
+        p.label.toLowerCase().includes(programSearchQuery.toLowerCase()) ||
+        p.value.toLowerCase().includes(programSearchQuery.toLowerCase());
+      return matchesCategory && matchesSearch;
+    });
+  }, [newCategory, programSearchQuery]);
+
+  // Close program dropdown when clicking outside
+  useEffect(() => {
+    const handleClickOutside = (event: MouseEvent) => {
+      const target = event.target as HTMLElement;
+      if (!target.closest('[data-program-dropdown]') && !target.closest('[data-program-input]')) {
+        setShowProgramDropdown(false);
+      }
+    };
+    if (showProgramDropdown) {
+      document.addEventListener('mousedown', handleClickOutside);
+      return () => document.removeEventListener('mousedown', handleClickOutside);
+    }
+  }, [showProgramDropdown]);
+
+  const handleProgramSelect = (program: string) => {
+    const programInfo = ALL_LOYALTY_PROGRAMS.find(p => p.value === program || p.label === program);
+    if (programInfo) {
+      setNewProgram(programInfo.value);
+      setNewCategory(programInfo.category === 'hotel' ? 'credit' : programInfo.category);
+      setShowProgramDropdown(false);
+      setProgramSearchQuery('');
+    }
+  };
+
+  const addPointsCard = () => {
+    if (newProgram.trim() && newPoints.trim() && isValidProgram(newProgram)) {
+      const programInfo = ALL_LOYALTY_PROGRAMS.find(p => p.value === newProgram || p.label === newProgram);
+      // Don't add duplicates
+      const alreadyExists = creditCards.some(c => c.program === (programInfo?.value || newProgram.trim()));
+      if (alreadyExists) return;
+      
+      const card: CreditCardEntry = {
+        id: `card-${Date.now()}-${Math.random().toString(36).substr(2, 9)}`,
+        program: programInfo?.value || newProgram.trim(),
+        points: Number(newPoints.trim()),
+      };
+      setCreditCards(prev => [...prev, card]);
+      setNewProgram('');
+      setNewPoints('');
+      setNewCategory('credit');
+      setNewCardProduct('');
+      setProgramSearchQuery('');
+      setShowAddPointsModal(false);
+    }
+  };
+
+  const getCategoryColor = (category: string) => {
+    switch (category) {
+      case 'credit': return 'bg-blue-50 border-blue-200 text-blue-700';
+      case 'airline': return 'bg-cyan-50 border-cyan-200 text-cyan-700';
+      default: return 'bg-slate-50 border-slate-200 text-slate-700';
+    }
+  };
 
   // Scroll to top on mount and keep it at top
   useEffect(() => {
@@ -119,12 +216,13 @@ export default function SoloTripSetup() {
       try {
         setIsLoadingProfile(true);
         // Only load profile if user is authenticated
-        const { isAuthenticated: checkAuth } = await import('@/lib/api');
-        if (!checkAuth()) {
+        if (!checkIsAuthenticated()) {
           // Anonymous user — skip profile load, use defaults
+          setIsUserAuthenticated(false);
           console.log('[SoloSetup] Anonymous session — skipping profile load');
           return;
         }
+        setIsUserAuthenticated(true);
         
         const profile = await usersAPI.getProfile();
         
@@ -155,8 +253,7 @@ export default function SoloTripSetup() {
       const saveProfile = async () => {
         try {
           // Only save if authenticated — anonymous users don't have a profile
-          const { isAuthenticated: checkAuth } = await import('@/lib/api');
-          if (!checkAuth()) return;
+          if (!checkIsAuthenticated()) return;
           
           await usersAPI.updateProfile({
             credit_cards: creditCards,
@@ -476,13 +573,16 @@ export default function SoloTripSetup() {
         maxBudget: maxBudget,
         adults: adults,
         children: children,
-        bags: bags,
+
         flightClass: flightClass as 'basic_economy' | 'economy' | 'premium' | 'business' | 'first',
         optimizationMode: optimizationMode,
-        departureTimePreference: departureTimePreference,
-        arrivalTimePreference: arrivalTimePreference,
         // Pass leg dates for multi-city trips
         legDates: isMultiCity ? legDates : undefined,
+        // Advanced flight filters
+        includeBudgetAirlines: includeBudgetAirlines,
+        maxStops: maxStops,
+        departureHourRange: (departureHourStart !== 0 || departureHourEnd !== 23) ? [departureHourStart, departureHourEnd] : undefined,
+        arrivalHourRange: (arrivalHourStart !== 0 || arrivalHourEnd !== 23) ? [arrivalHourStart, arrivalHourEnd] : undefined,
       });
 
       // 2. Add credit card points (use allocated amount, or all if not set)
@@ -565,28 +665,6 @@ export default function SoloTripSetup() {
                   </div>
                 </div>
 
-                {/* Bags per person */}
-                <div className="flex items-center gap-3">
-                  <Luggage className="w-5 h-5 text-blue-600" />
-                  <span className="text-sm text-slate-700 font-medium">Bags</span>
-                  <div className="flex items-center gap-2 ml-1">
-                    <button
-                      type="button"
-                      onClick={() => setBags(Math.max(0, bags - 1))}
-                      className="w-7 h-7 rounded-lg bg-slate-100 flex items-center justify-center hover:bg-blue-50 text-slate-600 transition-colors text-sm font-medium"
-                    >
-                      −
-                    </button>
-                    <span className="w-5 text-center font-bold text-slate-900">{bags}</span>
-                    <button
-                      type="button"
-                      onClick={() => setBags(Math.min(4, bags + 1))}
-                      className="w-7 h-7 rounded-lg bg-slate-100 flex items-center justify-center hover:bg-blue-50 text-slate-600 transition-colors text-sm font-medium"
-                    >
-                      +
-                    </button>
-                  </div>
-                </div>
               </div>
             </div>
 
@@ -882,60 +960,238 @@ export default function SoloTripSetup() {
                   </div>
                 </div>
 
-                {/* Time Preferences - Combined */}
-                <div className="grid md:grid-cols-2 gap-4">
+                {/* Stops Filter */}
+                <div>
+                  <label className="block text-xs text-slate-500 mb-2 font-medium uppercase tracking-wider">Stops</label>
+                  <div className="flex flex-wrap gap-2">
+                    {[
+                      { value: 0, label: 'Any' },
+                      { value: 1, label: 'Nonstop only' },
+                      { value: 2, label: '1 stop or fewer' },
+                      { value: 3, label: '2 stops or fewer' },
+                    ].map((option) => {
+                      const isSelected = maxStops === option.value;
+                      return (
+                        <button
+                          key={option.value}
+                          type="button"
+                          onClick={() => setMaxStops(option.value)}
+                          className={`px-4 py-2 rounded-lg text-sm font-medium transition-all ${
+                            isSelected 
+                              ? 'bg-blue-600 text-white' 
+                              : 'bg-slate-100 text-slate-700 hover:bg-slate-200'
+                          }`}
+                        >
+                          {option.label}
+                        </button>
+                      );
+                    })}
+                  </div>
+                </div>
+
+                {/* Include Budget Airlines Toggle */}
+                <div>
+                  <label className="flex items-center gap-3 cursor-pointer select-none group">
+                    <div className="relative">
+                      <input
+                        type="checkbox"
+                        checked={includeBudgetAirlines}
+                        onChange={(e) => setIncludeBudgetAirlines(e.target.checked)}
+                        className="sr-only peer"
+                      />
+                      <div className="w-11 h-6 bg-slate-200 rounded-full peer peer-checked:bg-blue-600 transition-colors" />
+                      <div className="absolute top-0.5 left-0.5 w-5 h-5 bg-white rounded-full shadow-sm transition-transform peer-checked:translate-x-5" />
+                    </div>
+                    <div>
+                      <span className="text-sm text-slate-700 font-medium group-hover:text-slate-900 transition-colors">
+                        Include budget airlines
+                      </span>
+                      <p className="text-xs text-slate-500 mt-0.5">
+                        {includeBudgetAirlines 
+                          ? 'Showing cheapest flights first (includes all airlines)'
+                          : 'Showing best quality flights (excludes ultra-low-cost carriers)'}
+                      </p>
+                    </div>
+                  </label>
+                </div>
+
+                {/* Flight Time Preferences */}
+                <div className="grid md:grid-cols-2 gap-6">
+                  {/* Departure Time */}
                   <div>
-                    <label className="block text-xs text-slate-500 mb-2 font-medium uppercase tracking-wider">Prefer to Depart</label>
-                    <div className="flex flex-wrap gap-1.5">
-                      {[
-                        { value: 'any', label: 'Anytime' },
-                        { value: 'morning', label: 'Morning' },
-                        { value: 'afternoon', label: 'Afternoon' },
-                        { value: 'evening', label: 'Evening' },
-                      ].map((option) => {
-                        const isSelected = departureTimePreference === option.value;
-                        return (
-                          <button
-                            key={option.value}
-                            type="button"
-                            onClick={() => setDepartureTimePreference(option.value as typeof departureTimePreference)}
-                            className={`px-3 py-1.5 rounded-lg text-xs font-medium transition-all ${
-                              isSelected
-                                ? 'bg-blue-600 text-white'
-                                : 'bg-slate-100 text-slate-600 hover:bg-slate-200'
-                            }`}
-                          >
-                            {option.label}
-                          </button>
-                        );
-                      })}
+                    <div className="flex items-center justify-between mb-3">
+                      <label className="text-xs text-slate-500 font-medium uppercase tracking-wider">
+                        Departure Time
+                      </label>
+                      <label className="flex items-center gap-2 cursor-pointer select-none group">
+                        <span className="text-xs text-slate-500 group-hover:text-slate-700 transition-colors">Anytime</span>
+                        <div className="relative">
+                          <input
+                            type="checkbox"
+                            checked={departureHourStart === 0 && departureHourEnd === 23}
+                            onChange={(e) => {
+                              if (e.target.checked) {
+                                setDepartureHourStart(0);
+                                setDepartureHourEnd(23);
+                              } else {
+                                setDepartureHourStart(6);
+                                setDepartureHourEnd(22);
+                              }
+                            }}
+                            className="sr-only peer"
+                          />
+                          <div className="w-9 h-5 bg-slate-200 rounded-full peer peer-checked:bg-blue-600 transition-colors" />
+                          <div className="absolute top-0.5 left-0.5 w-4 h-4 bg-white rounded-full shadow-sm transition-transform peer-checked:translate-x-4" />
+                        </div>
+                      </label>
+                    </div>
+
+                    {/* Range display when custom */}
+                    <div
+                      className={`overflow-hidden transition-all duration-300 ease-in-out ${
+                        departureHourStart === 0 && departureHourEnd === 23
+                          ? 'max-h-0 opacity-0'
+                          : 'max-h-40 opacity-100'
+                      }`}
+                    >
+                      <div className="text-sm text-slate-700 font-medium mb-2">
+                        {formatHour(departureHourStart)} – {formatHour(departureHourEnd)}
+                      </div>
+                      <div className="px-2.5">
+                        <div className="relative h-6">
+                          {/* Track background */}
+                          <div className="absolute top-1/2 -translate-y-1/2 w-full h-1.5 bg-slate-200 rounded-full" />
+                          {/* Active range highlight */}
+                          <div
+                            className="absolute top-1/2 -translate-y-1/2 h-1.5 bg-blue-500 rounded-full transition-all"
+                            style={{
+                              left: `${(departureHourStart / 23) * 100}%`,
+                              right: `${100 - (departureHourEnd / 23) * 100}%`,
+                            }}
+                          />
+                          {/* Start thumb */}
+                          <input
+                            type="range"
+                            min={0}
+                            max={23}
+                            value={departureHourStart}
+                            onChange={(e) => {
+                              const val = Number(e.target.value);
+                              if (val <= departureHourEnd) setDepartureHourStart(val);
+                            }}
+                            className="absolute top-0 w-full h-6 appearance-none bg-transparent pointer-events-none [&::-webkit-slider-thumb]:pointer-events-auto [&::-webkit-slider-thumb]:appearance-none [&::-webkit-slider-thumb]:w-5 [&::-webkit-slider-thumb]:h-5 [&::-webkit-slider-thumb]:rounded-full [&::-webkit-slider-thumb]:bg-white [&::-webkit-slider-thumb]:border-2 [&::-webkit-slider-thumb]:border-blue-500 [&::-webkit-slider-thumb]:shadow-md [&::-webkit-slider-thumb]:cursor-pointer [&::-webkit-slider-thumb]:relative [&::-webkit-slider-thumb]:z-10 [&::-moz-range-thumb]:pointer-events-auto [&::-moz-range-thumb]:appearance-none [&::-moz-range-thumb]:w-5 [&::-moz-range-thumb]:h-5 [&::-moz-range-thumb]:rounded-full [&::-moz-range-thumb]:bg-white [&::-moz-range-thumb]:border-2 [&::-moz-range-thumb]:border-blue-500 [&::-moz-range-thumb]:shadow-md [&::-moz-range-thumb]:cursor-pointer [&::-moz-range-track]:bg-transparent"
+                          />
+                          {/* End thumb */}
+                          <input
+                            type="range"
+                            min={0}
+                            max={23}
+                            value={departureHourEnd}
+                            onChange={(e) => {
+                              const val = Number(e.target.value);
+                              if (val >= departureHourStart) setDepartureHourEnd(val);
+                            }}
+                            className="absolute top-0 w-full h-6 appearance-none bg-transparent pointer-events-none [&::-webkit-slider-thumb]:pointer-events-auto [&::-webkit-slider-thumb]:appearance-none [&::-webkit-slider-thumb]:w-5 [&::-webkit-slider-thumb]:h-5 [&::-webkit-slider-thumb]:rounded-full [&::-webkit-slider-thumb]:bg-white [&::-webkit-slider-thumb]:border-2 [&::-webkit-slider-thumb]:border-blue-500 [&::-webkit-slider-thumb]:shadow-md [&::-webkit-slider-thumb]:cursor-pointer [&::-webkit-slider-thumb]:relative [&::-webkit-slider-thumb]:z-10 [&::-moz-range-thumb]:pointer-events-auto [&::-moz-range-thumb]:appearance-none [&::-moz-range-thumb]:w-5 [&::-moz-range-thumb]:h-5 [&::-moz-range-thumb]:rounded-full [&::-moz-range-thumb]:bg-white [&::-moz-range-thumb]:border-2 [&::-moz-range-thumb]:border-blue-500 [&::-moz-range-thumb]:shadow-md [&::-moz-range-thumb]:cursor-pointer [&::-moz-range-track]:bg-transparent"
+                          />
+                        </div>
+                        {/* Time axis labels */}
+                        <div className="flex justify-between text-[10px] text-slate-400 mt-1.5 select-none">
+                          <span>12 AM</span>
+                          <span>6 AM</span>
+                          <span>12 PM</span>
+                          <span>6 PM</span>
+                          <span>11 PM</span>
+                        </div>
+                      </div>
                     </div>
                   </div>
+
+                  {/* Arrival Time */}
                   <div>
-                    <label className="block text-xs text-slate-500 mb-2 font-medium uppercase tracking-wider">Prefer to Arrive</label>
-                    <div className="flex flex-wrap gap-1.5">
-                      {[
-                        { value: 'any', label: 'Anytime' },
-                        { value: 'morning', label: 'Morning' },
-                        { value: 'afternoon', label: 'Afternoon' },
-                        { value: 'evening', label: 'Evening' },
-                      ].map((option) => {
-                        const isSelected = arrivalTimePreference === option.value;
-                        return (
-                          <button
-                            key={option.value}
-                            type="button"
-                            onClick={() => setArrivalTimePreference(option.value as typeof arrivalTimePreference)}
-                            className={`px-3 py-1.5 rounded-lg text-xs font-medium transition-all ${
-                              isSelected
-                                ? 'bg-blue-600 text-white'
-                                : 'bg-slate-100 text-slate-600 hover:bg-slate-200'
-                            }`}
-                          >
-                            {option.label}
-                          </button>
-                        );
-                      })}
+                    <div className="flex items-center justify-between mb-3">
+                      <label className="text-xs text-slate-500 font-medium uppercase tracking-wider">
+                        Arrival Time
+                      </label>
+                      <label className="flex items-center gap-2 cursor-pointer select-none group">
+                        <span className="text-xs text-slate-500 group-hover:text-slate-700 transition-colors">Anytime</span>
+                        <div className="relative">
+                          <input
+                            type="checkbox"
+                            checked={arrivalHourStart === 0 && arrivalHourEnd === 23}
+                            onChange={(e) => {
+                              if (e.target.checked) {
+                                setArrivalHourStart(0);
+                                setArrivalHourEnd(23);
+                              } else {
+                                setArrivalHourStart(6);
+                                setArrivalHourEnd(22);
+                              }
+                            }}
+                            className="sr-only peer"
+                          />
+                          <div className="w-9 h-5 bg-slate-200 rounded-full peer peer-checked:bg-blue-600 transition-colors" />
+                          <div className="absolute top-0.5 left-0.5 w-4 h-4 bg-white rounded-full shadow-sm transition-transform peer-checked:translate-x-4" />
+                        </div>
+                      </label>
+                    </div>
+
+                    {/* Range display when custom */}
+                    <div
+                      className={`overflow-hidden transition-all duration-300 ease-in-out ${
+                        arrivalHourStart === 0 && arrivalHourEnd === 23
+                          ? 'max-h-0 opacity-0'
+                          : 'max-h-40 opacity-100'
+                      }`}
+                    >
+                      <div className="text-sm text-slate-700 font-medium mb-2">
+                        {formatHour(arrivalHourStart)} – {formatHour(arrivalHourEnd)}
+                      </div>
+                      <div className="px-2.5">
+                        <div className="relative h-6">
+                          {/* Track background */}
+                          <div className="absolute top-1/2 -translate-y-1/2 w-full h-1.5 bg-slate-200 rounded-full" />
+                          {/* Active range highlight */}
+                          <div
+                            className="absolute top-1/2 -translate-y-1/2 h-1.5 bg-blue-500 rounded-full transition-all"
+                            style={{
+                              left: `${(arrivalHourStart / 23) * 100}%`,
+                              right: `${100 - (arrivalHourEnd / 23) * 100}%`,
+                            }}
+                          />
+                          {/* Start thumb */}
+                          <input
+                            type="range"
+                            min={0}
+                            max={23}
+                            value={arrivalHourStart}
+                            onChange={(e) => {
+                              const val = Number(e.target.value);
+                              if (val <= arrivalHourEnd) setArrivalHourStart(val);
+                            }}
+                            className="absolute top-0 w-full h-6 appearance-none bg-transparent pointer-events-none [&::-webkit-slider-thumb]:pointer-events-auto [&::-webkit-slider-thumb]:appearance-none [&::-webkit-slider-thumb]:w-5 [&::-webkit-slider-thumb]:h-5 [&::-webkit-slider-thumb]:rounded-full [&::-webkit-slider-thumb]:bg-white [&::-webkit-slider-thumb]:border-2 [&::-webkit-slider-thumb]:border-blue-500 [&::-webkit-slider-thumb]:shadow-md [&::-webkit-slider-thumb]:cursor-pointer [&::-webkit-slider-thumb]:relative [&::-webkit-slider-thumb]:z-10 [&::-moz-range-thumb]:pointer-events-auto [&::-moz-range-thumb]:appearance-none [&::-moz-range-thumb]:w-5 [&::-moz-range-thumb]:h-5 [&::-moz-range-thumb]:rounded-full [&::-moz-range-thumb]:bg-white [&::-moz-range-thumb]:border-2 [&::-moz-range-thumb]:border-blue-500 [&::-moz-range-thumb]:shadow-md [&::-moz-range-thumb]:cursor-pointer [&::-moz-range-track]:bg-transparent"
+                          />
+                          {/* End thumb */}
+                          <input
+                            type="range"
+                            min={0}
+                            max={23}
+                            value={arrivalHourEnd}
+                            onChange={(e) => {
+                              const val = Number(e.target.value);
+                              if (val >= arrivalHourStart) setArrivalHourEnd(val);
+                            }}
+                            className="absolute top-0 w-full h-6 appearance-none bg-transparent pointer-events-none [&::-webkit-slider-thumb]:pointer-events-auto [&::-webkit-slider-thumb]:appearance-none [&::-webkit-slider-thumb]:w-5 [&::-webkit-slider-thumb]:h-5 [&::-webkit-slider-thumb]:rounded-full [&::-webkit-slider-thumb]:bg-white [&::-webkit-slider-thumb]:border-2 [&::-webkit-slider-thumb]:border-blue-500 [&::-webkit-slider-thumb]:shadow-md [&::-webkit-slider-thumb]:cursor-pointer [&::-webkit-slider-thumb]:relative [&::-webkit-slider-thumb]:z-10 [&::-moz-range-thumb]:pointer-events-auto [&::-moz-range-thumb]:appearance-none [&::-moz-range-thumb]:w-5 [&::-moz-range-thumb]:h-5 [&::-moz-range-thumb]:rounded-full [&::-moz-range-thumb]:bg-white [&::-moz-range-thumb]:border-2 [&::-moz-range-thumb]:border-blue-500 [&::-moz-range-thumb]:shadow-md [&::-moz-range-thumb]:cursor-pointer [&::-moz-range-track]:bg-transparent"
+                          />
+                        </div>
+                        {/* Time axis labels */}
+                        <div className="flex justify-between text-[10px] text-slate-400 mt-1.5 select-none">
+                          <span>12 AM</span>
+                          <span>6 AM</span>
+                          <span>12 PM</span>
+                          <span>6 PM</span>
+                          <span>11 PM</span>
+                        </div>
+                      </div>
                     </div>
                   </div>
                 </div>
@@ -971,50 +1227,114 @@ export default function SoloTripSetup() {
                     }`}
                   />
                 </div>
-                {maxBudget === '' && (
-                  <p className="text-xs text-slate-500 mt-2">Required to optimize your trip</p>
-                )}
+                <p className="text-xs text-slate-500 mt-2">A lower budget will prioritize more aggressive use of your points</p>
               </div>
 
               {/* Points */}
-              {creditCards.length > 0 && (
-                <div className="bg-white border border-slate-200 rounded-2xl p-6 shadow-sm">
-                  <div className="flex items-center justify-between mb-3">
-                    <label className="text-xs text-slate-500 font-medium uppercase tracking-wider">Your Points</label>
-                    <button
-                      type="button"
-                      onClick={() => setShowPointsAllocationModal(true)}
-                      className="text-xs text-blue-600 hover:text-blue-700 font-medium"
-                    >
-                      Adjust
-                    </button>
-                  </div>
-                  <div className="space-y-2">
-                    {creditCards.slice(0, 3).map(card => {
-                      const toUse = pointsToUse[card.program] ?? card.points;
-                      return (
-                        <div key={card.id} className="flex items-center justify-between text-sm">
-                          <span className="text-slate-600 truncate">{card.program}</span>
-                          <span className="text-slate-900 font-medium">{toUse.toLocaleString()}</span>
-                        </div>
-                      );
-                    })}
-                    {creditCards.length > 3 && (
-                      <button 
+              <div className="bg-white border border-slate-200 rounded-2xl p-6 shadow-sm">
+                <div className="flex items-center justify-between mb-3">
+                  <label className="text-xs text-slate-500 font-medium uppercase tracking-wider">Your Points</label>
+                  <div className="flex items-center gap-2">
+                    {creditCards.length > 0 && (
+                      <button
                         type="button"
                         onClick={() => setShowPointsAllocationModal(true)}
-                        className="text-xs text-blue-600 hover:text-blue-700"
+                        className="text-xs text-blue-600 hover:text-blue-700 font-medium"
                       >
-                        +{creditCards.length - 3} more
+                        Adjust
                       </button>
                     )}
-                  </div>
-                  <div className="mt-3 pt-3 border-t border-slate-100 flex items-center justify-between">
-                    <span className="text-sm text-slate-600">Total to use</span>
-                    <span className="text-xl font-bold text-blue-600">{totalPointsToUse.toLocaleString()}</span>
+                    <button
+                      type="button"
+                      onClick={() => setShowAddPointsModal(true)}
+                      className="flex items-center gap-1 text-xs text-blue-600 hover:text-blue-700 font-medium"
+                    >
+                      <Plus className="w-3 h-3" />
+                      Add
+                    </button>
                   </div>
                 </div>
-              )}
+
+                {creditCards.length > 0 ? (
+                  <>
+                    <div className="space-y-2">
+                      {creditCards.map(card => {
+                        const toUse = pointsToUse[card.program] ?? card.points;
+                        const category = getProgramCategory(card.program);
+                        return (
+                          <div key={card.id} className="flex items-center justify-between text-sm group">
+                            <div className="flex items-center gap-2 truncate">
+                              <div className={`w-5 h-5 rounded flex items-center justify-center flex-shrink-0 ${
+                                category === 'airline' ? 'bg-cyan-50 text-cyan-600' : 'bg-blue-50 text-blue-600'
+                              }`}>
+                                {category === 'airline' ? <Plane className="w-3 h-3" /> : <CreditCard className="w-3 h-3" />}
+                              </div>
+                              <span className="text-slate-600 truncate">{card.program}</span>
+                            </div>
+                            <div className="flex items-center gap-1">
+                              <span className="text-slate-900 font-medium">{toUse.toLocaleString()}</span>
+                              <button
+                                type="button"
+                                onClick={() => removeCreditCard(card.id)}
+                                className="opacity-0 group-hover:opacity-100 p-0.5 hover:bg-red-50 rounded transition-opacity"
+                                title="Remove"
+                              >
+                                <X className="w-3 h-3 text-red-500" />
+                              </button>
+                            </div>
+                          </div>
+                        );
+                      })}
+                    </div>
+                    <div className="mt-3 pt-3 border-t border-slate-100 flex items-center justify-between">
+                      <span className="text-sm text-slate-600">Total to use</span>
+                      <span className="text-xl font-bold text-blue-600">{totalPointsToUse.toLocaleString()}</span>
+                    </div>
+                  </>
+                ) : (
+                  <div className="text-center py-4">
+                    <div className="w-12 h-12 bg-blue-50 rounded-xl flex items-center justify-center mx-auto mb-3">
+                      <CreditCard className="w-6 h-6 text-blue-400" />
+                    </div>
+                    <p className="text-sm text-slate-600 mb-1">No points added yet</p>
+                    <p className="text-xs text-slate-400 mb-4">Add your loyalty programs to find better deals</p>
+                    <button
+                      type="button"
+                      onClick={() => setShowAddPointsModal(true)}
+                      className="px-4 py-2 bg-blue-600 text-white rounded-lg text-sm hover:bg-blue-700 transition-colors font-medium"
+                    >
+                      Add Your Points
+                    </button>
+                  </div>
+                )}
+
+                {/* Quick-add popular programs (show when few cards added) */}
+                {creditCards.length < 3 && (
+                  <div className="mt-4 pt-4 border-t border-slate-100">
+                    <p className="text-xs text-slate-500 mb-2 font-medium">Quick Add</p>
+                    <div className="flex flex-wrap gap-1.5">
+                      {QUICK_ADD_PROGRAMS.filter(name => !creditCards.some(c => c.program === name)).slice(0, 4).map(programName => {
+                        const programInfo = ALL_LOYALTY_PROGRAMS.find(p => p.value === programName || p.label === programName);
+                        if (!programInfo) return null;
+                        return (
+                          <button
+                            key={programInfo.value}
+                            type="button"
+                            onClick={() => {
+                              setNewProgram(programInfo.value);
+                              setNewCategory(programInfo.category === 'hotel' ? 'credit' : programInfo.category);
+                              setShowAddPointsModal(true);
+                            }}
+                            className="px-2.5 py-1.5 bg-slate-50 border border-slate-200 rounded-lg text-xs text-slate-700 hover:bg-blue-50 hover:border-blue-200 hover:text-blue-700 transition-all"
+                          >
+                            {programInfo.label}
+                          </button>
+                        );
+                      })}
+                    </div>
+                  </div>
+                )}
+              </div>
 
               {/* Generate Button */}
               <button
@@ -1073,6 +1393,189 @@ export default function SoloTripSetup() {
                 className="w-full py-3 bg-blue-600 text-white rounded-xl hover:bg-blue-700 transition-colors font-semibold"
               >
                 Done
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* Add Points Modal */}
+      {showAddPointsModal && (
+        <div className="fixed inset-0 bg-black/60 backdrop-blur-sm flex items-center justify-center z-50 p-4" onClick={() => {
+          setShowAddPointsModal(false);
+          setNewProgram('');
+          setNewPoints('');
+          setNewCategory('credit');
+          setNewCardProduct('');
+          setProgramSearchQuery('');
+          setShowProgramDropdown(false);
+        }}>
+          <div className="bg-white rounded-2xl shadow-2xl max-w-md w-full p-8 animate-in fade-in zoom-in duration-200" onClick={(e) => e.stopPropagation()}>
+            <div className="flex items-center justify-between mb-6">
+              <h2 className="text-xl text-slate-900 font-semibold">Add Loyalty Program</h2>
+              <button
+                type="button"
+                onClick={() => {
+                  setShowAddPointsModal(false);
+                  setNewProgram('');
+                  setNewPoints('');
+                  setNewCategory('credit');
+                  setNewCardProduct('');
+                  setProgramSearchQuery('');
+                  setShowProgramDropdown(false);
+                }}
+                className="p-2 hover:bg-slate-100 rounded-lg transition-colors"
+              >
+                <X className="w-5 h-5 text-slate-600" />
+              </button>
+            </div>
+
+            <div className="space-y-5">
+              {/* Category Toggle */}
+              <div>
+                <label className="block text-sm text-slate-600 mb-2 font-medium">Category</label>
+                <div className="grid grid-cols-2 gap-2">
+                  {[
+                    { value: 'credit', label: 'Credit Card', icon: CreditCard },
+                    { value: 'airline', label: 'Airline', icon: Plane },
+                  ].map(({ value, label, icon: Icon }) => (
+                    <button
+                      key={value}
+                      type="button"
+                      onClick={() => {
+                        setNewCategory(value as 'credit' | 'airline');
+                        setNewProgram('');
+                        setProgramSearchQuery('');
+                      }}
+                      className={`px-4 py-3 rounded-xl border-2 transition-all flex flex-col items-center gap-2 ${
+                        newCategory === value
+                          ? 'border-blue-600 bg-blue-50'
+                          : 'border-slate-200 bg-white hover:border-slate-300'
+                      }`}
+                    >
+                      <Icon className={`w-5 h-5 ${newCategory === value ? 'text-blue-600' : 'text-slate-600'}`} />
+                      <span className={`text-xs font-medium ${newCategory === value ? 'text-blue-600' : 'text-slate-600'}`}>
+                        {label}
+                      </span>
+                    </button>
+                  ))}
+                </div>
+              </div>
+
+              {/* Program Dropdown */}
+              <div className="relative">
+                <label className="block text-sm text-slate-600 mb-2 font-medium">
+                  Program Name <span className="text-red-500">*</span>
+                </label>
+                <div className="relative" data-program-dropdown>
+                  <input
+                    type="text"
+                    data-program-input
+                    value={programSearchQuery || newProgram}
+                    onChange={(e) => {
+                      setProgramSearchQuery(e.target.value);
+                      setShowProgramDropdown(true);
+                      if (e.target.value !== newProgram) {
+                        setNewProgram('');
+                      }
+                      const match = ALL_LOYALTY_PROGRAMS.find(
+                        p => p.category === newCategory &&
+                        (p.label.toLowerCase() === e.target.value.toLowerCase() ||
+                         p.value.toLowerCase() === e.target.value.toLowerCase())
+                      );
+                      if (match) {
+                        handleProgramSelect(match.value);
+                      }
+                    }}
+                    onFocus={() => setShowProgramDropdown(true)}
+                    placeholder="Search or select a program..."
+                    className="w-full px-4 py-3 bg-white border border-slate-200 rounded-xl focus:outline-none focus:ring-2 focus:ring-blue-600 focus:border-transparent pr-10"
+                  />
+                  <ChevronDown className="absolute right-3 top-1/2 -translate-y-1/2 w-5 h-5 text-slate-400 pointer-events-none" />
+
+                  {showProgramDropdown && filteredPrograms.length > 0 && (
+                    <div
+                      className="absolute z-50 w-full mt-1 bg-white border border-slate-200 rounded-xl shadow-lg max-h-48 overflow-y-auto"
+                      onMouseDown={(e) => e.preventDefault()}
+                    >
+                      {filteredPrograms.map(program => (
+                        <button
+                          key={program.value}
+                          type="button"
+                          onClick={(e) => {
+                            e.stopPropagation();
+                            handleProgramSelect(program.value);
+                          }}
+                          className="w-full px-4 py-3 text-left hover:bg-blue-50 transition-colors border-b border-slate-100 last:border-b-0 flex items-center gap-3"
+                        >
+                          <div className={`w-6 h-6 rounded-lg flex items-center justify-center ${getCategoryColor(program.category)}`}>
+                            {program.category === 'airline' ? <Plane className="w-3 h-3" /> : <CreditCard className="w-3 h-3" />}
+                          </div>
+                          <span className="text-sm font-medium text-slate-900">{program.label}</span>
+                        </button>
+                      ))}
+                    </div>
+                  )}
+                </div>
+                {newProgram && !isValidProgram(newProgram) && (
+                  <p className="text-xs text-red-500 mt-1">Please select a valid program from the list</p>
+                )}
+              </div>
+
+              {/* Points Balance */}
+              <div>
+                <label className="block text-sm text-slate-600 mb-2 font-medium">Points Balance</label>
+                <input
+                  type="number"
+                  value={newPoints}
+                  onChange={(e) => setNewPoints(e.target.value)}
+                  onWheel={(e) => e.currentTarget.blur()}
+                  placeholder="e.g., 150000"
+                  className="w-full px-4 py-3 bg-white border border-slate-200 rounded-xl focus:outline-none focus:ring-2 focus:ring-blue-600 focus:border-transparent"
+                />
+              </div>
+
+              {/* Card Product (Optional) */}
+              <div>
+                <label className="block text-sm text-slate-600 mb-2 font-medium">
+                  Card product <span className="text-slate-400 font-normal">(optional)</span>
+                </label>
+                <input
+                  type="text"
+                  value={newCardProduct}
+                  onChange={(e) => setNewCardProduct(e.target.value)}
+                  placeholder="e.g., Delta SkyMiles Gold Amex"
+                  className="w-full px-4 py-3 bg-white border border-slate-200 rounded-xl focus:outline-none focus:ring-2 focus:ring-blue-600 focus:border-transparent"
+                />
+                <p className="text-xs text-slate-500 mt-1">
+                  Enables benefit-aware savings (e.g. free bags on Delta when you have Delta Gold)
+                </p>
+              </div>
+            </div>
+
+            <div className="flex gap-3 mt-8">
+              <button
+                type="button"
+                onClick={() => {
+                  setShowAddPointsModal(false);
+                  setNewProgram('');
+                  setNewPoints('');
+                  setNewCategory('credit');
+                  setNewCardProduct('');
+                  setProgramSearchQuery('');
+                  setShowProgramDropdown(false);
+                }}
+                className="flex-1 px-4 py-3 bg-white border-2 border-slate-200 text-slate-900 rounded-xl hover:bg-slate-50 transition-colors"
+              >
+                Cancel
+              </button>
+              <button
+                type="button"
+                onClick={addPointsCard}
+                disabled={!newProgram.trim() || !newPoints.trim() || !isValidProgram(newProgram)}
+                className="flex-1 px-4 py-3 bg-blue-600 text-white rounded-xl hover:bg-blue-700 transition-colors shadow-sm disabled:opacity-50 disabled:cursor-not-allowed"
+              >
+                Add Program
               </button>
             </div>
           </div>

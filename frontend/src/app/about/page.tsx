@@ -4,6 +4,7 @@ import Link from 'next/link';
 import { useState, useEffect } from 'react';
 import { Plane, CreditCard, PiggyBank, Sparkles, Search, Zap, MapPin, Calendar, Users } from 'lucide-react';
 import { Navigation } from '@/components/navigation';
+import Footer from '@/components/footer';
 
 interface UserData {
   name?: string;
@@ -49,7 +50,7 @@ export default function AboutPage() {
 							Travel Smarter.
 						</h1>
 						<p className="text-xl text-slate-600 mb-8 leading-relaxed max-w-lg">
-							AI-powered flight & hotel recommendations using your credit-card points.
+							AI-powered flight recommendations using your credit-card points.
 						</p>
 						{user ? (
 							<div className="flex gap-4">
@@ -287,49 +288,7 @@ export default function AboutPage() {
 				</div>
 			</div>
 
-			{/* Footer */}
-			<footer className="bg-slate-900 text-white py-12">
-				<div className="max-w-7xl mx-auto px-8">
-					<div className="grid md:grid-cols-4 gap-8">
-						<div>
-							<div className="flex items-center gap-3 mb-4">
-								<div className="w-10 h-10 bg-blue-600 rounded-xl flex items-center justify-center">
-									<Plane className="w-5 h-5 text-white" />
-								</div>
-								<span className="text-xl font-bold">Tripy</span>
-							</div>
-							<p className="text-slate-400 text-sm">
-								Maximize your travel points and plan smarter trips.
-							</p>
-						</div>
-						<div>
-							<h4 className="font-semibold mb-4">Product</h4>
-							<ul className="space-y-2 text-sm text-slate-400">
-								<li><Link href="/solo/setup" className="hover:text-white">Solo Trips</Link></li>
-								<li><Link href="/group/setup" className="hover:text-white">Group Trips</Link></li>
-								<li><Link href="/explore" className="hover:text-white">Explore</Link></li>
-							</ul>
-						</div>
-						<div>
-							<h4 className="font-semibold mb-4">Company</h4>
-							<ul className="space-y-2 text-sm text-slate-400">
-								<li><Link href="/about" className="hover:text-white">About</Link></li>
-								<li><Link href="/contact" className="hover:text-white">Contact</Link></li>
-							</ul>
-						</div>
-						<div>
-							<h4 className="font-semibold mb-4">Legal</h4>
-							<ul className="space-y-2 text-sm text-slate-400">
-								<li><Link href="/privacy" className="hover:text-white">Privacy Policy</Link></li>
-								<li><Link href="/terms" className="hover:text-white">Terms of Service</Link></li>
-							</ul>
-						</div>
-					</div>
-					<div className="border-t border-slate-800 mt-8 pt-8 text-center text-sm text-slate-400">
-						<p>&copy; {new Date().getFullYear()} Tripy. All rights reserved.</p>
-					</div>
-				</div>
-			</footer>
+			<Footer />
 		</div>
 	);
 }

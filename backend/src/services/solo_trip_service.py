@@ -120,6 +120,11 @@ def create_solo_trip(user_id: str, request: CreateTripRequest) -> Dict[str, Any]
         "optimizationMode": request.optimization_mode.value,
         "departureTimePreference": request.departure_time_preference,
         "arrivalTimePreference": request.arrival_time_preference,
+        # Advanced flight filters
+        "includeBudgetAirlines": request.include_budget_airlines,
+        "maxStops": request.max_stops,
+        "departureHourRange": request.departure_hour_range or [],
+        "arrivalHourRange": request.arrival_hour_range or [],
     }
     
     # Set TTL for anonymous users (DynamoDB TTL auto-deletes after expiry)

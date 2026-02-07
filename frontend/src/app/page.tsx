@@ -5,6 +5,7 @@ import { useRouter } from 'next/navigation';
 import Link from 'next/link';
 import { Plane, CreditCard, PiggyBank, Sparkles, Search } from 'lucide-react';
 import { Navigation } from '@/components/navigation';
+import Footer from '@/components/footer';
 
 export default function LandingPage() {
     const router = useRouter();
@@ -90,7 +91,7 @@ export default function LandingPage() {
                             Travel Smarter.
                         </h1>
                         <p className="text-xl text-slate-600 mb-8 leading-relaxed max-w-lg">
-                            AI-powered flight & hotel recommendations using your credit-card points.
+                            AI-powered flight recommendations using your credit-card points.
                         </p>
                         <div className="flex gap-4">
                             <Link
@@ -251,6 +252,8 @@ export default function LandingPage() {
                     </div>
                 </div>
             </div>
+
+            <Footer />
         </div>
     );
 }

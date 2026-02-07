@@ -178,6 +178,57 @@ export default function MultiAirportAutocomplete({
     return suggestions.filter(s => !value.includes(s.iata_code));
   }, [suggestions, value]);
 
+  // Group ALL suggestions by city (used to find sibling airports when auto-adding)
+  const allGroupedByCity = useMemo(() => {
+    const cities: Record<string, AirportSuggestion[]> = {};
+    for (const airport of suggestions) {
+      const cityKey = `${airport.city}, ${airport.country}`.toLowerCase();
+      if (!cities[cityKey]) cities[cityKey] = [];
+      cities[cityKey].push(airport);
+    }
+    return cities;
+  }, [suggestions]);
+
+  // Group filtered suggestions by city (for dropdown display)
+  const groupedAirports = useMemo(() => {
+    const cities: Record<string, AirportSuggestion[]> = {};
+    for (const airport of filteredSuggestions) {
+      const cityKey = `${airport.city}, ${airport.country}`.toLowerCase();
+      if (!cities[cityKey]) cities[cityKey] = [];
+      cities[cityKey].push(airport);
+    }
+    return cities;
+  }, [filteredSuggestions]);
+
+  // Check if any city has multiple airports
+  const hasCityGrouping = useMemo(() => {
+    return Object.values(groupedAirports).some(airports => airports.length > 1);
+  }, [groupedAirports]);
+
+  // Build a flat list of items for keyboard navigation (city headers + airports)
+  const flatItems = useMemo(() => {
+    if (!hasCityGrouping) return filteredSuggestions.map(a => ({ type: 'airport' as const, airport: a }));
+    const items: Array<
+      | { type: 'city-header'; airports: AirportSuggestion[]; cityName: string; country: string }
+      | { type: 'airport'; airport: AirportSuggestion }
+    > = [];
+    for (const cityAirports of Object.values(groupedAirports)) {
+      const hasMultiple = cityAirports.length > 1;
+      if (hasMultiple) {
+        items.push({
+          type: 'city-header',
+          airports: cityAirports,
+          cityName: cityAirports[0].city,
+          country: cityAirports[0].country,
+        });
+      }
+      for (const a of cityAirports) {
+        items.push({ type: 'airport', airport: a });
+      }
+    }
+    return items;
+  }, [hasCityGrouping, groupedAirports, filteredSuggestions]);
+
   // Search airports
   useEffect(() => {
     const q = debounced.trim();
@@ -256,25 +307,79 @@ export default function MultiAirportAutocomplete({
   // Reset active index on list change
   useEffect(() => {
     setActiveIdx(0);
-  }, [filteredSuggestions]);
+  }, [flatItems]);
 
   // Add airport to selection
+  // When selecting from a multi-airport city, auto-add ALL airports in that city
+  // so the optimizer searches all airport combinations (e.g., JFK+EWR+LGA for NYC)
   const addAirport = useCallback((airport: AirportSuggestion) => {
     if (value.length >= maxSelections) return;
     if (value.includes(airport.iata_code)) return;
     
-    // Store details for display
+    // Check if this airport belongs to a multi-airport city
+    const cityKey = `${airport.city}, ${airport.country}`.toLowerCase();
+    const cityAirports = allGroupedByCity[cityKey];
+    
+    if (cityAirports && cityAirports.length > 1) {
+      // Auto-add ALL airports from this city (that aren't already selected)
+      const newAirports = cityAirports
+        .filter(a => !value.includes(a.iata_code))
+        .slice(0, maxSelections - value.length);
+      
+      if (newAirports.length > 0) {
+        setSelectedDetails(prev => {
+          const next = new Map(prev);
+          for (const a of newAirports) {
+            next.set(a.iata_code, {
+              code: a.iata_code,
+              city: a.city,
+              name: a.airport_name,
+            });
+          }
+          return next;
+        });
+        
+        onChange([...value, ...newAirports.map(a => a.iata_code)]);
+      }
+    } else {
+      // Single-airport city: just add the one airport
+      setSelectedDetails(prev => {
+        const next = new Map(prev);
+        next.set(airport.iata_code, {
+          code: airport.iata_code,
+          city: airport.city,
+          name: airport.airport_name,
+        });
+        return next;
+      });
+      
+      onChange([...value, airport.iata_code]);
+    }
+    
+    setQuery("");
+    setOpen(false);
+  }, [value, onChange, maxSelections, allGroupedByCity]);
+
+  // Add all airports for a city at once
+  const addCityAirports = useCallback((airports: AirportSuggestion[]) => {
+    const newCodes = airports
+      .filter(a => !value.includes(a.iata_code))
+      .slice(0, maxSelections - value.length);
+    if (newCodes.length === 0) return;
+
     setSelectedDetails(prev => {
       const next = new Map(prev);
-      next.set(airport.iata_code, {
-        code: airport.iata_code,
-        city: airport.city,
-        name: airport.airport_name,
-      });
+      for (const a of newCodes) {
+        next.set(a.iata_code, {
+          code: a.iata_code,
+          city: a.city,
+          name: a.airport_name,
+        });
+      }
       return next;
     });
-    
-    onChange([...value, airport.iata_code]);
+
+    onChange([...value, ...newCodes.map(a => a.iata_code)]);
     setQuery("");
     setOpen(false);
   }, [value, onChange, maxSelections]);
@@ -292,16 +397,24 @@ export default function MultiAirportAutocomplete({
     }
     if (!open) return;
 
+    const totalItems = flatItems.length;
+
     if (e.key === "ArrowDown") {
       e.preventDefault();
-      setActiveIdx(i => Math.min(i + 1, filteredSuggestions.length - 1));
+      setActiveIdx(i => Math.min(i + 1, totalItems - 1));
     } else if (e.key === "ArrowUp") {
       e.preventDefault();
       setActiveIdx(i => Math.max(i - 1, 0));
     } else if (e.key === "Enter") {
       e.preventDefault();
-      const pick = filteredSuggestions[activeIdx];
-      if (pick) addAirport(pick);
+      const item = flatItems[activeIdx];
+      if (item) {
+        if (item.type === 'city-header') {
+          addCityAirports(item.airports);
+        } else {
+          addAirport(item.airport);
+        }
+      }
     } else if (e.key === "Escape") {
       e.preventDefault();
       setOpen(false);
@@ -396,6 +509,77 @@ export default function MultiAirportAutocomplete({
             <div className="px-4 py-8 text-center">
               <div className="inline-block w-6 h-6 border-2 border-blue-600 border-t-transparent rounded-full animate-spin" />
             </div>
+          ) : hasCityGrouping ? (
+            <ul className="max-h-60 overflow-auto">
+              {flatItems.map((item, idx) => {
+                const active = idx === activeIdx;
+                if (item.type === 'city-header') {
+                  return (
+                    <li
+                      key={`city-${item.cityName}-${item.country}`}
+                      onMouseEnter={() => setActiveIdx(idx)}
+                      onMouseDown={(e) => {
+                        e.preventDefault();
+                        e.stopPropagation();
+                        addCityAirports(item.airports);
+                      }}
+                      className={[
+                        "flex cursor-pointer items-center gap-3 px-4 py-3 transition-colors border-b border-slate-100",
+                        active ? "bg-blue-50" : "bg-white hover:bg-slate-50",
+                      ].join(" ")}
+                    >
+                      <div className="min-w-[44px] rounded-lg border border-blue-200 bg-blue-100 px-2 py-1 text-center text-xs font-semibold text-blue-900">
+                        {item.airports.length}
+                      </div>
+                      <div className="flex-1 min-w-0">
+                        <div className="text-sm font-semibold text-blue-900">
+                          {highlightMatch(item.cityName, debounced.trim())}, {item.country}
+                        </div>
+                        <div className="text-xs text-blue-600">
+                          Add all {item.airports.length} airports ({item.airports.map(a => a.iata_code).join(", ")})
+                        </div>
+                      </div>
+                      <Plus className="w-4 h-4 text-blue-600" />
+                    </li>
+                  );
+                }
+                // Individual airport within a group
+                const a = item.airport;
+                // Check if this airport belongs to a multi-airport city
+                const cityKey = `${a.city}, ${a.country}`.toLowerCase();
+                const isGrouped = (groupedAirports[cityKey]?.length ?? 0) > 1;
+                return (
+                  <li
+                    key={a.uniqueKey || `${a.iata_code}-${idx}`}
+                    onMouseEnter={() => setActiveIdx(idx)}
+                    onMouseDown={(e) => {
+                      e.preventDefault();
+                      e.stopPropagation();
+                      addAirport(a);
+                    }}
+                    className={[
+                      "flex cursor-pointer items-center gap-3 py-3 transition-colors",
+                      active ? "bg-blue-50" : "bg-white hover:bg-slate-50",
+                      isGrouped ? "pl-8 pr-4" : "px-4",
+                    ].join(" ")}
+                  >
+                    <div className="min-w-[44px] rounded-lg border border-slate-200 bg-blue-50 px-2 py-1 text-center text-xs font-semibold text-blue-900">
+                      {a.iata_code.toUpperCase()}
+                    </div>
+                    <div className="flex-1 min-w-0">
+                      <div className="text-sm font-medium text-slate-900">
+                        {highlightMatch(a.city, debounced.trim())}
+                        {a.region ? `, ${a.region}` : ""} • {a.country}
+                      </div>
+                      <div className="text-xs text-slate-500 truncate">
+                        {highlightMatch(a.airport_name, debounced.trim())}
+                      </div>
+                    </div>
+                    <Plus className="w-4 h-4 text-blue-600" />
+                  </li>
+                );
+              })}
+            </ul>
           ) : (
             <ul className="max-h-60 overflow-auto">
               {filteredSuggestions.map((a, idx) => {

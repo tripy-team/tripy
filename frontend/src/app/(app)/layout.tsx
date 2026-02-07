@@ -4,6 +4,7 @@ import { useEffect, useState } from 'react';
 import { useRouter, usePathname } from 'next/navigation';
 import { Navigation } from '@/components/navigation';
 import { ScrollToTop } from '@/components/scroll-to-top';
+import Footer from '@/components/footer';
 import { SKIP_API_AUTH, isAuthenticated } from '@/lib/api';
 
 const AUTH_CHECKED_KEY = 'tripy_auth_checked_session';
@@ -119,6 +120,7 @@ export default function AppLayout({
             <main className="flex-1 pt-20">
                 {children}
             </main>
+            <Footer />
         </div>
     );
 }

@@ -49,7 +49,7 @@ function MyPopover(props: PopoverProps) {
       {...props}
       className={({ isEntering, isExiting }) =>
         [
-          'z-50 rounded-xl bg-white border border-slate-200 shadow-lg',
+          'z-50 rounded-xl bg-white border border-slate-200 shadow-lg !max-h-none',
           isEntering
             ? 'animate-in fade-in placement-bottom:slide-in-from-top-1 placement-top:slide-in-from-bottom-1 duration-200 ease-out'
             : '',

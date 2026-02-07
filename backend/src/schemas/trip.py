@@ -60,6 +60,12 @@ class CreateTripRequest(BaseModel):
     optimization_mode: OptimizationMode = OptimizationMode.BALANCED
     departure_time_preference: Literal["any", "morning", "afternoon", "evening", "night"] = "any"
     arrival_time_preference: Literal["any", "morning", "afternoon", "evening", "night"] = "any"
+    
+    # Advanced flight filters (Google Flights parity)
+    include_budget_airlines: bool = True  # If True, sort by price (includes all airlines); if False, sort by "best flights"
+    max_stops: int = 0  # 0=Any, 1=Nonstop only, 2=1 stop or fewer, 3=2 stops or fewer
+    departure_hour_range: Optional[List[int]] = None  # [startHour, endHour] e.g. [6, 18]
+    arrival_hour_range: Optional[List[int]] = None  # [startHour, endHour] e.g. [8, 22]
 
 
 class TripResponse(BaseModel):
@@ -96,7 +102,7 @@ class TripResponse(BaseModel):
 
 class UpdateTripStatusRequest(BaseModel):
     """Request to update trip status"""
-    status: Literal["draft", "optimized", "selected", "instructions_unlocked", "completed", "cancelled"]
+    status: Literal["draft", "optimized", "selected", "instructions_unlocked", "booked", "completed", "cancelled"]
     # Optional: payment proof when unlocking instructions
     payment_proof: Optional[dict] = None
 

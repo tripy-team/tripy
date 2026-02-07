@@ -16,6 +16,7 @@ import {
     BANK_TRANSFER_TIMES,
 } from '@/lib/transfer-instructions';
 import { TransferStrategyCard, type TransferItem } from '@/components/ui';
+import TransferInfoBanner from '@/components/TransferInfoBanner';
 
 // Transform transfer tips and payments into TransferItem format for the new card component
 function buildTransferItemsFromData(
@@ -122,7 +123,7 @@ export default function GroupTransferInstructions() {
     const searchParams = useSearchParams();
     const tripId = searchParams?.get('tripId') || searchParams?.get('trip_id') || '';
     const [copiedId, setCopiedId] = useState<string | null>(null);
-    const [isPaid, setIsPaid] = useState(false);
+    const [isPaid, setIsPaid] = useState(true);
     const [items, setItems] = useState<Array<{ type?: string; [k: string]: unknown }>>([]);
     const [members, setMembers] = useState<Array<{ userId: string; name?: string }>>([]);
     const [loading, setLoading] = useState(true);
@@ -208,7 +209,8 @@ export default function GroupTransferInstructions() {
                     </button>
 
                     <h1 className="text-3xl font-bold text-slate-900 mb-3">Transfer Instructions</h1>
-                    <p className="text-slate-600">Step-by-step guide: from which credit card to transfer, how many points to transfer, and how to book.</p>
+                    <p className="text-slate-600 mb-4">Step-by-step guide: from which credit card to transfer, how many points to transfer, and how to book.</p>
+                    <TransferInfoBanner />
                 </div>
 
                 {/* Warning Banner */}
@@ -230,23 +232,6 @@ export default function GroupTransferInstructions() {
                     <div className="bg-white border border-slate-200 rounded-2xl p-8 text-center">
                         <p className="text-red-600">{loadError}</p>
                         <p className="mt-2 text-slate-600 text-sm">Generate an itinerary for this trip first, then return here.</p>
-                    </div>
-                ) : !isPaid ? (
-                    /* Pending Payment section — transfer strategy hidden until payment */
-                    <div className="bg-white border border-slate-200 rounded-2xl overflow-hidden p-8 md:p-12 text-center">
-                        <div className="bg-slate-100 p-4 rounded-full w-fit mx-auto mb-4">
-                            <Lock className="w-10 h-10 text-slate-500" />
-                        </div>
-                        <h3 className="text-lg font-bold text-slate-900 mb-2">Pending Payment</h3>
-                        <p className="text-slate-600 max-w-md mx-auto mb-6">
-                            Complete payment to unlock which credit card to transfer from, how many points to transfer to each partner, and step-by-step instructions for each member.
-                        </p>
-                        <button
-                            onClick={() => router.push(`/group/booking?tripId=${tripId}`)}
-                            className="text-blue-600 font-semibold hover:text-blue-700 inline-flex items-center gap-1"
-                        >
-                            Complete Payment <ChevronRight className="w-4 h-4" />
-                        </button>
                     </div>
                 ) : (
                 <>{/* Transfer Strategy Overview */}

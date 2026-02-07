@@ -120,8 +120,8 @@ export default function PrivacyPage() {
                         </ul>
                         <p>
                             To make a request, contact us at{' '}
-                            <a href="mailto:support@traveltripy.com" className="text-blue-600 hover:underline">
-                                support@traveltripy.com
+                            <a href="mailto:tripy@traveltripy.com" className="text-blue-600 hover:underline">
+                                tripy@traveltripy.com
                             </a>.
                         </p>
                     </section>

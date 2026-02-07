@@ -212,9 +212,16 @@ class DecisionSummary(BaseModel):
     
     This tells the user WHY this is the right plan, in confident human language.
     Displayed at the very top of the results page before any prices or details.
+    
+    IMPORTANT: confidence_level reflects DECISION quality (should I book this?),
+    NOT points efficiency. Cash-only trips can be high confidence.
+    value_label reflects FINANCIAL assessment (how good is this deal?).
+    These are independent dimensions.
     """
     headline: str                       # e.g., "Book this. You're saving $847 and getting a direct flight."
-    confidence_level: Literal["high", "medium", "low"]  # How confident we are
+    confidence_level: Literal["high", "medium", "low"]  # Decision confidence (risk + data quality)
+    confidence_reason: str = ""         # One-sentence explanation: WHY this confidence level
+    value_label: str = ""               # Financial assessment: "Excellent value", "Cash booking", etc.
     why_good: List[str]                 # Bullet points: why this is a good plan
     tradeoffs: List[str]               # What you're giving up (honest)
     risks: List[str]                   # What could go wrong
@@ -308,11 +315,33 @@ class BookingDetails(BaseModel):
     transfer_programs: List[str] = []   # e.g., ["Amex MR → Flying Blue"]
 
 
+class WarningItem(BaseModel):
+    """A single typed warning with category and severity."""
+    category: Literal["budget", "points", "estimation", "degradation"]
+    severity: Literal["info", "warning", "error"]
+    headline: str                       # Short heading: "Budget Too Low", "Points Unavailable"
+    message: str                        # Full explanation
+    details: Optional[Dict[str, Any]] = None  # Structured data (e.g., user_budget, suggested_budget)
+
+
+class StructuredWarnings(BaseModel):
+    """
+    Typed warning container — each warning category is separate.
+    Frontend renders each as its own banner with appropriate severity styling.
+    No more joining unrelated warnings into a single paragraph.
+    """
+    budget: Optional[WarningItem] = None
+    points: Optional[WarningItem] = None
+    estimation: Optional[WarningItem] = None
+    degradation: Optional[WarningItem] = None
+
+
 class OptimizeSoloResponse(BaseModel):
     """Response from solo optimization"""
     itineraries: List[RankedItinerary]
     best_option: Optional[str] = None   # ID of recommended itinerary
-    warnings: List[str] = []
+    warnings: List[str] = []            # Flat list (backward compat)
+    structured_warnings: Optional[StructuredWarnings] = None  # Typed warnings (preferred)
     global_insights: List[TransferInsight] = []
     risk_mode: Optional[str] = None
     

@@ -164,21 +164,25 @@ export function Navigation() {
                     </NavigationMenuLink>
                   </NavigationMenuItem>
 
-                  <NavigationMenuItem>
-                    <NavigationMenuLink asChild className={cn(navigationMenuTriggerStyle(), isActive('/my-trips') && "bg-slate-100 text-slate-900")}>
-                      <Link href={user ? "/my-trips" : "/login?redirect=/my-trips"}>
-                        My Trips
-                      </Link>
-                    </NavigationMenuLink>
-                  </NavigationMenuItem>
+                  {user && (
+                    <NavigationMenuItem>
+                      <NavigationMenuLink asChild className={cn(navigationMenuTriggerStyle(), isActive('/my-trips') && "bg-slate-100 text-slate-900")}>
+                        <Link href="/my-trips">
+                          My Trips
+                        </Link>
+                      </NavigationMenuLink>
+                    </NavigationMenuItem>
+                  )}
 
-                  <NavigationMenuItem>
-                    <NavigationMenuLink asChild className={cn(navigationMenuTriggerStyle(), isActive('/points-setup') && "bg-slate-100 text-slate-900")}>
-                      <Link href={user ? "/points-setup" : "/login?redirect=/points-setup"}>
-                        My Points
-                      </Link>
-                    </NavigationMenuLink>
-                  </NavigationMenuItem>
+                  {user && (
+                    <NavigationMenuItem>
+                      <NavigationMenuLink asChild className={cn(navigationMenuTriggerStyle(), isActive('/points-setup') && "bg-slate-100 text-slate-900")}>
+                        <Link href="/points-setup">
+                          My Points
+                        </Link>
+                      </NavigationMenuLink>
+                    </NavigationMenuItem>
+                  )}
                 </NavigationMenuList>
               </NavigationMenu>
             </div>
@@ -289,28 +293,32 @@ export function Navigation() {
               Plan a Trip
             </Link>
             
-            <Link
-              href={user ? "/my-trips" : "/login?redirect=/my-trips"}
-              onClick={() => setMobileMenuOpen(false)}
-              className={`block pl-3 pr-4 py-2 border-l-4 text-base font-medium ${
-                isActive('/my-trips')
-                  ? 'bg-blue-50 border-blue-500 text-blue-700'
-                  : 'border-transparent text-slate-500 hover:bg-slate-50 hover:border-slate-300 hover:text-slate-700'
-              }`}
-            >
-              My Trips
-            </Link>
-            <Link
-              href={user ? "/points-setup" : "/login?redirect=/points-setup"}
-              onClick={() => setMobileMenuOpen(false)}
-              className={`block pl-3 pr-4 py-2 border-l-4 text-base font-medium ${
-                isActive('/points-setup')
-                  ? 'bg-blue-50 border-blue-500 text-blue-700'
-                  : 'border-transparent text-slate-500 hover:bg-slate-50 hover:border-slate-300 hover:text-slate-700'
-              }`}
-            >
-              My Points
-            </Link>
+            {user && (
+              <Link
+                href="/my-trips"
+                onClick={() => setMobileMenuOpen(false)}
+                className={`block pl-3 pr-4 py-2 border-l-4 text-base font-medium ${
+                  isActive('/my-trips')
+                    ? 'bg-blue-50 border-blue-500 text-blue-700'
+                    : 'border-transparent text-slate-500 hover:bg-slate-50 hover:border-slate-300 hover:text-slate-700'
+                }`}
+              >
+                My Trips
+              </Link>
+            )}
+            {user && (
+              <Link
+                href="/points-setup"
+                onClick={() => setMobileMenuOpen(false)}
+                className={`block pl-3 pr-4 py-2 border-l-4 text-base font-medium ${
+                  isActive('/points-setup')
+                    ? 'bg-blue-50 border-blue-500 text-blue-700'
+                    : 'border-transparent text-slate-500 hover:bg-slate-50 hover:border-slate-300 hover:text-slate-700'
+                }`}
+              >
+                My Points
+              </Link>
+            )}
           </div>
           <div className="pt-4 pb-4 border-t border-slate-200">
             {user ? (

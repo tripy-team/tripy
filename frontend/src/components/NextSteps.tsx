@@ -1,6 +1,7 @@
 'use client';
 
 import { ArrowRight, CreditCard, Plane, Camera, Bell } from 'lucide-react';
+import TransferInfoBanner from '@/components/TransferInfoBanner';
 
 interface NextStepsProps {
   hasTransfers: boolean;
@@ -68,7 +69,13 @@ export default function NextSteps({ hasTransfers, isLocked }: NextStepsProps) {
   return (
     <div className="mt-8 p-6 bg-white border border-slate-200 rounded-2xl">
       <h3 className="text-lg font-semibold text-slate-900 mb-1">What happens next</h3>
-      <p className="text-sm text-slate-500 mb-5">Follow these steps to complete your booking.</p>
+      <p className="text-sm text-slate-500 mb-4">Follow these steps to complete your booking.</p>
+
+      {hasTransfers && (
+        <div className="mb-5">
+          <TransferInfoBanner variant="compact" />
+        </div>
+      )}
 
       <div className="space-y-4">
         {steps.map((step, i) => (

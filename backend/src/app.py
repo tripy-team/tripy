@@ -81,6 +81,9 @@ from .routes.optimize import router as optimize_router
 # Import solo booking router
 from .routes.solo import router as solo_router
 
+# Import monitoring router
+from .routes.monitoring import router as monitoring_router
+
 # Get CORS origins from environment variable
 # IMPORTANT: Browsers reject allow_credentials=True with allow_origins=["*"]
 # When sending Authorization headers or cookies, you MUST specify exact origins
@@ -130,7 +133,42 @@ from collections import defaultdict
 _rate_limit_store: Dict[str, list] = defaultdict(list)
 RATE_LIMIT_MAX = 30  # requests per window
 RATE_LIMIT_WINDOW_S = 60  # seconds
-RATE_LIMITED_PATHS = {"/solo/optimize", "/solo/trips", "/points/estimate", "/solo/share"}
+
+# Rate-limit write/mutation endpoints only — NOT read endpoints like
+# /solo/trips/{id}/selection, /solo/trips/{id}/status, etc.
+# Using exact-match paths to avoid accidentally catching sub-paths.
+RATE_LIMITED_PATHS_EXACT = {"/solo/optimize", "/points/estimate", "/solo/share"}
+# Prefix paths that should ONLY match the prefix itself (e.g. POST /solo/trips)
+# Sub-paths like /solo/trips/{id}/selection are excluded via the allowlist below.
+RATE_LIMITED_PATHS_PREFIX = {"/solo/trips"}
+# Sub-paths under prefix paths that should NOT be rate-limited (read endpoints)
+RATE_LIMIT_EXCLUDE_SUFFIXES = {
+    "/selection", "/status", "/monitoring", "/points",
+    "/optimization-cache", "/select", "/transfer-strategy",
+    "/booking-details", "/updates", "/share",
+}
+
+
+def _should_rate_limit(path: str) -> bool:
+    """Determine if a path should be rate-limited."""
+    # Exact match
+    if path in RATE_LIMITED_PATHS_EXACT:
+        return True
+    # Prefix match, but exclude read sub-paths
+    for prefix in RATE_LIMITED_PATHS_PREFIX:
+        if path.startswith(prefix):
+            # Only rate-limit the base path itself (e.g. POST /solo/trips)
+            if path == prefix or path == prefix + "/":
+                return True
+            # For sub-paths, check if they end with an excluded suffix
+            path_after_id = path.split("/", 4)  # e.g. ['', 'solo', 'trips', '{id}', 'selection']
+            if len(path_after_id) >= 5:
+                suffix = "/" + path_after_id[4]
+                if any(suffix.startswith(excl) for excl in RATE_LIMIT_EXCLUDE_SUFFIXES):
+                    return False
+            # Rate-limit unknown sub-paths
+            return True
+    return False
 
 
 @app.middleware("http")
@@ -139,7 +177,7 @@ async def rate_limit_middleware(request: Request, call_next):
     path = request.url.path
     
     # Only rate-limit specific paths
-    should_limit = any(path.startswith(p) for p in RATE_LIMITED_PATHS)
+    should_limit = _should_rate_limit(path)
     
     if should_limit:
         # Build key: IP + anon_session_id
@@ -153,10 +191,18 @@ async def rate_limit_middleware(request: Request, call_next):
         
         if len(_rate_limit_store[key]) >= RATE_LIMIT_MAX:
             from starlette.responses import JSONResponse
+            # Include CORS headers so the browser doesn't block the 429 response
+            origin = request.headers.get("origin", "")
+            cors_headers = {"Retry-After": str(RATE_LIMIT_WINDOW_S)}
+            if origin and origin in ALLOWED_ORIGINS:
+                cors_headers.update({
+                    "Access-Control-Allow-Origin": origin,
+                    "Access-Control-Allow-Credentials": "true",
+                })
             return JSONResponse(
                 status_code=429,
                 content={"detail": "Too many requests. Please wait a moment and try again."},
-                headers={"Retry-After": str(RATE_LIMIT_WINDOW_S)},
+                headers=cors_headers,
             )
         
         _rate_limit_store[key].append(now)
@@ -193,6 +239,9 @@ app.include_router(optimize_router)
 
 # Include solo booking routes
 app.include_router(solo_router)
+
+# Include monitoring routes
+app.include_router(monitoring_router)
 
 
 # Preload commercial airports and airport data at startup for fast autocomplete

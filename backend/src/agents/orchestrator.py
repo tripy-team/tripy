@@ -52,70 +52,53 @@ from .group_models import (
 # =============================================================================
 
 # Known metro areas with multiple airports
-# Used to expand searches to all airports in a city
+# Used to expand searches to all airports in a city.
+# IMPORTANT: Only city names/aliases are keys here (NOT individual airport codes).
+# This ensures that selecting a specific airport (e.g. "LGA") returns only that
+# airport, while selecting a city (e.g. "New York") expands to all metro airports.
 METRO_AIRPORTS = {
     # US Cities
     "seattle": ["SEA"],
-    "sea": ["SEA"],
     "new york": ["JFK", "EWR", "LGA"],
     "nyc": ["JFK", "EWR", "LGA"],
-    "jfk": ["JFK", "EWR", "LGA"],
-    "ewr": ["JFK", "EWR", "LGA"],
-    "lga": ["JFK", "EWR", "LGA"],
     "los angeles": ["LAX", "BUR", "SNA", "ONT"],
     "la": ["LAX", "BUR", "SNA", "ONT"],
-    "lax": ["LAX", "BUR", "SNA", "ONT"],
     "san francisco": ["SFO", "OAK", "SJC"],
     "sf": ["SFO", "OAK", "SJC"],
-    "sfo": ["SFO", "OAK", "SJC"],
     "chicago": ["ORD", "MDW"],
-    "ord": ["ORD", "MDW"],
     "washington": ["IAD", "DCA", "BWI"],
     "washington dc": ["IAD", "DCA", "BWI"],
     "dc": ["IAD", "DCA", "BWI"],
-    "iad": ["IAD", "DCA", "BWI"],
-    "dca": ["IAD", "DCA", "BWI"],
     "miami": ["MIA", "FLL"],
-    "mia": ["MIA", "FLL"],
     "dallas": ["DFW", "DAL"],
-    "dfw": ["DFW", "DAL"],
     "houston": ["IAH", "HOU"],
-    "iah": ["IAH", "HOU"],
     "boston": ["BOS"],
-    "bos": ["BOS"],
     # European Cities
     "london": ["LHR", "LGW", "STN", "LTN"],
-    "lhr": ["LHR", "LGW", "STN", "LTN"],
-    "lgw": ["LHR", "LGW", "STN", "LTN"],
     "paris": ["CDG", "ORY"],
-    "cdg": ["CDG", "ORY"],
-    "ory": ["CDG", "ORY"],
     "milan": ["MXP", "LIN", "BGY"],
-    "mxp": ["MXP", "LIN", "BGY"],
     "rome": ["FCO", "CIA"],
-    "fco": ["FCO", "CIA"],
     "frankfurt": ["FRA", "HHN"],
-    "fra": ["FRA", "HHN"],
     "amsterdam": ["AMS"],
-    "ams": ["AMS"],
     # Asian Cities
     "tokyo": ["NRT", "HND"],
-    "nrt": ["NRT", "HND"],
-    "hnd": ["NRT", "HND"],
     "seoul": ["ICN", "GMP"],
-    "icn": ["ICN", "GMP"],
     "shanghai": ["PVG", "SHA"],
-    "pvg": ["PVG", "SHA"],
     "beijing": ["PEK", "PKX"],
-    "pek": ["PEK", "PKX"],
     "hong kong": ["HKG"],
-    "hkg": ["HKG"],
     "singapore": ["SIN"],
-    "sin": ["SIN"],
     # Middle East
     "dubai": ["DXB", "DWC"],
-    "dxb": ["DXB", "DWC"],
 }
+
+# Reverse lookup: airport code -> all airports in the same metro area.
+# Built from METRO_AIRPORTS for internal use (e.g. inter-airport transfer detection).
+# This is NOT used for expanding user input — only for checking metro membership.
+_AIRPORT_TO_METRO: dict[str, list[str]] = {}
+for _city_key, _airport_list in METRO_AIRPORTS.items():
+    for _code in _airport_list:
+        if _code not in _AIRPORT_TO_METRO:
+            _AIRPORT_TO_METRO[_code] = _airport_list
 
 # Ground transfer costs between airports in the same metro area (in USD)
 # Format: (airport1, airport2) -> (cost_usd, time_minutes)
@@ -150,10 +133,15 @@ def _get_all_airports_for_location(location: str) -> list[str]:
     """
     Get all airports for a location (city name or airport code).
     
+    City names expand to all metro airports; specific airport codes return only
+    that airport (unidirectional expansion).
+    
     Examples:
-        "Paris" -> ["CDG", "ORY"]
+        "Paris" -> ["CDG", "ORY"]          (city -> all metro airports)
+        "CDG" -> ["CDG"]                   (specific airport -> only that airport)
+        "New York" -> ["JFK", "EWR", "LGA"]
+        "LGA" -> ["LGA"]                   (specific airport -> only that airport)
         "Paris (CDG,ORY,BVA)" -> ["CDG", "ORY", "BVA"]
-        "CDG" -> ["CDG", "ORY"] (expands to metro)
         "SEA" -> ["SEA"]
         "SEA,BFI,PDX" -> ["SEA", "BFI", "PDX"]  # Comma-separated multi-airport
     
@@ -181,18 +169,15 @@ def _get_all_airports_for_location(location: str) -> list[str]:
         # Return explicitly listed codes
         return codes if codes else []
     
-    # Check METRO_AIRPORTS mapping
+    # If it's a 3-letter airport code, return ONLY that airport (no metro expansion).
+    # This ensures "LGA" -> ["LGA"], not ["JFK", "EWR", "LGA"].
+    if len(location) == 3 and location.isalpha():
+        return [location.upper()]
+    
+    # Check METRO_AIRPORTS mapping (city names only — no airport code keys)
     location_lower = location.lower()
     if location_lower in METRO_AIRPORTS:
         return METRO_AIRPORTS[location_lower]
-    
-    # If it's a 3-letter code, check if it's part of a metro
-    if len(location) == 3 and location.isalpha():
-        code_upper = location.upper()
-        if code_upper.lower() in METRO_AIRPORTS:
-            return METRO_AIRPORTS[code_upper.lower()]
-        # Single airport
-        return [code_upper]
     
     # Try partial match on city names
     for metro_name, airports in METRO_AIRPORTS.items():
@@ -222,12 +207,12 @@ def _get_inter_airport_transfer(airport1: str, airport2: str) -> tuple[float, in
     if key in INTER_AIRPORT_TRANSFERS:
         return INTER_AIRPORT_TRANSFERS[key]
     
-    # Check if they're in the same metro area
-    airports1 = _get_all_airports_for_location(airport1)
-    airports2 = _get_all_airports_for_location(airport2)
+    # Check if they're in the same metro area using the reverse lookup
+    metro1 = _AIRPORT_TO_METRO.get(airport1.upper())
+    metro2 = _AIRPORT_TO_METRO.get(airport2.upper())
     
-    # If both airports are in the same metro, use default transfer cost
-    if set(airports1) & set(airports2):
+    # If both airports belong to the same metro group, use default transfer cost
+    if metro1 is not None and metro1 is metro2:
         return DEFAULT_INTER_AIRPORT_TRANSFER
     
     # Different metros - no direct transfer possible
@@ -321,6 +306,10 @@ class OrchestratorAgent(BaseAgent):
             segments=segments,
             user_points=request.points,
             cabin_classes=request.cabin_classes or ["Economy", "Business"],
+            include_budget_airlines=request.include_budget_airlines,
+            max_stops=request.max_stops,
+            departure_hour_range=request.departure_hour_range,
+            arrival_hour_range=request.arrival_hour_range,
         )
         print(f"[Orchestrator] Search completed, got {len(search_results) if search_results else 0} results")
         
@@ -440,20 +429,52 @@ class OrchestratorAgent(BaseAgent):
         # Deduplicate warnings
         unique_warnings = list(dict.fromkeys(all_warnings))
         
-        # Add top-level warning if best option is over budget
+        # Build structured warnings + flat list (backward compat)
+        from ..schemas.optimize import WarningItem, StructuredWarnings
+        structured = StructuredWarnings()
         suggested_budget = None
+        
         if best and not best.within_budget and request.budget:
             budget_exceeded_by = best.oop_metrics.total_out_of_pocket - request.budget
-            # Suggest a budget with 10% buffer above the minimum OOP
             suggested_budget = int(best.oop_metrics.total_out_of_pocket * 1.1)
             over_budget_msg = (
-                f"⚠️ No itinerary found within your ${request.budget:.0f} budget. "
+                f"No itinerary found within your ${request.budget:.0f} budget. "
                 f"The minimum cost for this trip is ${best.oop_metrics.total_out_of_pocket:.0f}. "
-                f"We recommend setting your budget to at least ${suggested_budget:,}."
+                f"We recommend setting your budget to at least ${suggested_budget:,}"
             )
-            # Insert at the beginning so it's the first warning users see
+            structured.budget = WarningItem(
+                category="budget",
+                severity="error",
+                headline="Budget Too Low",
+                message=over_budget_msg,
+                details={
+                    "user_budget": request.budget,
+                    "min_cost": best.oop_metrics.total_out_of_pocket,
+                    "suggested_budget": suggested_budget,
+                },
+            )
+            # Flat list backward compat (no leading emoji — frontend controls styling)
             if over_budget_msg not in unique_warnings:
                 unique_warnings.insert(0, over_budget_msg)
+        
+        # Classify existing warnings into structured categories
+        for w in unique_warnings:
+            if "points could not be used" in w.lower() or "cannot transfer" in w.lower():
+                if not structured.points:
+                    structured.points = WarningItem(
+                        category="points",
+                        severity="warning",
+                        headline="Points Unavailable",
+                        message=w.lstrip("⚠️ "),
+                    )
+            elif "estimated" in w.lower() or "degraded" in w.lower() or "fallback" in w.lower():
+                if not structured.degradation:
+                    structured.degradation = WarningItem(
+                        category="degradation",
+                        severity="warning",
+                        headline="Limited Flight Data",
+                        message=w.lstrip("⚠️ "),
+                    )
         
         return OptimizeSoloResponse(
             trip_id=request.trip_id,
@@ -467,6 +488,7 @@ class OrchestratorAgent(BaseAgent):
                 "userBudget": request.budget,
             },
             warnings=unique_warnings,
+            structured_warnings=structured,
         )
     
     async def optimize_group(
@@ -535,6 +557,10 @@ class OrchestratorAgent(BaseAgent):
                 segments=segments,
                 user_points=member_points,
                 cabin_classes=request.cabin_classes or ["Economy", "Business"],
+                include_budget_airlines=request.include_budget_airlines,
+                max_stops=request.max_stops,
+                departure_hour_range=request.departure_hour_range,
+                arrival_hour_range=request.arrival_hour_range,
             )
             logger.info(f"[Orchestrator] [PARALLEL] Completed search for member {member_id}")
             return (member_id, search_results)
@@ -1576,6 +1602,10 @@ class OrchestratorAgent(BaseAgent):
         segments: list[dict],
         user_points: dict,
         cabin_classes: list[str],
+        include_budget_airlines: bool = True,
+        max_stops: int = 0,
+        departure_hour_range: list[int] | None = None,
+        arrival_hour_range: list[int] | None = None,
     ) -> dict:
         """
         Search flights for all segments in parallel (flights only).
@@ -1605,6 +1635,10 @@ class OrchestratorAgent(BaseAgent):
                     date=segment["date"],
                     cabin_classes=cabin_classes,
                     user_points=user_points,
+                    include_budget_airlines=include_budget_airlines,
+                    max_stops=max_stops,
+                    departure_hour_range=departure_hour_range,
+                    arrival_hour_range=arrival_hour_range,
                 )))
                 task_metadata.append({
                     "segment_idx": i,
@@ -1666,6 +1700,9 @@ class OrchestratorAgent(BaseAgent):
                 if dedup_key not in seen_keys:
                     seen_keys.add(dedup_key)
                     unique_options.append(opt)
+            
+            # Sort options by cash price (cheapest first) so greedy picks the best deal
+            unique_options.sort(key=lambda o: o.cash_price if o.cash_price else float('inf'))
             
             # Create a mock result object with consolidated options
             from .models import FlightSearchResult
@@ -1890,6 +1927,8 @@ class OrchestratorAgent(BaseAgent):
                 # Get user's reachable airlines
                 from .config import TRANSFER_GRAPH
                 user_banks = list(user_points.keys())
+                # Humanize bank keys: "bank_of_america" → "Bank of America"
+                user_banks_display = [b.replace("_", " ").title() for b in user_banks]
                 reachable_airlines = set()
                 for bank_name, config in TRANSFER_GRAPH.items():
                     bank_normalized = bank_name.lower().replace(" ", "_")
@@ -1900,12 +1939,23 @@ class OrchestratorAgent(BaseAgent):
                             bank_normalized.split("_")[0] == user_prog_normalized.split("_")[0]):
                             reachable_airlines.update(config.get("airlines", []))
                 
-                warnings.append(
-                    f"Points could not be used because the available award flights are on airlines that "
-                    f"your points ({', '.join(user_banks)}) cannot transfer to. Your points can transfer to: "
-                    f"{', '.join(sorted(reachable_airlines))}. Consider adding Chase Ultimate Rewards or "
-                    f"other bank points to access more airlines."
-                )
+                # Build points warning with guard against empty reachable airlines
+                banks_str = ", ".join(user_banks_display)
+                if reachable_airlines:
+                    airlines_str = ", ".join(sorted(reachable_airlines))
+                    points_msg = (
+                        f"Points could not be used because the available award flights are on airlines "
+                        f"that your points ({banks_str}) cannot transfer to. "
+                        f"Your points can transfer to: {airlines_str}. "
+                        f"Consider adding more cards to access more airlines."
+                    )
+                else:
+                    points_msg = (
+                        f"Points could not be used because your points program ({banks_str}) "
+                        f"does not have transfer partners that match the available flights on this route. "
+                        f"Consider adding more cards to access more airlines."
+                    )
+                warnings.append(points_msg)
         
         # Build appropriate summary based on budget status
         if within_budget:
@@ -1958,7 +2008,7 @@ class OrchestratorAgent(BaseAgent):
         3. Only fall back to cash if no awards available at all
         
         Args:
-            options: List of flight options (already sorted by OOP)
+            options: List of flight options (sorted by cash_price ascending)
             remaining_points: User's remaining points balances
             prefer_points: If True, prefer points over cash (for tight budgets)
         """
@@ -1984,10 +2034,10 @@ class OrchestratorAgent(BaseAgent):
                 if option.cash_price and not option.award_available:
                     return option
             
-            # Fall back to cash
-            for option in options:
-                if option.cash_price:
-                    return option
+            # Fall back to cheapest cash option
+            cash_options = [o for o in options if o.cash_price]
+            if cash_options:
+                return min(cash_options, key=lambda o: o.cash_price)
             return options[0] if options else None
         
         # ═══════════════════════════════════════════════════════════════════════
@@ -2104,10 +2154,12 @@ class OrchestratorAgent(BaseAgent):
         elif award_available_count > 0 and affordable_count > 0:
             logger.warning("[Greedy] Awards were available and affordable but failed CPP/surcharge checks even with no restrictions - this is unexpected!")
         
-        for option in options:
-            if option.cash_price:
-                logger.info(f"[Greedy] Using cash: ${option.cash_price:.0f} (no awards available)")
-                return option
+        # Find the CHEAPEST cash option (not just the first one)
+        cash_options = [o for o in options if o.cash_price]
+        if cash_options:
+            cheapest = min(cash_options, key=lambda o: o.cash_price)
+            logger.info(f"[Greedy] Using cash: ${cheapest.cash_price:.0f} (cheapest of {len(cash_options)} cash options, no awards available)")
+            return cheapest
         
         return options[0] if options else None
     

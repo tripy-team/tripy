@@ -388,16 +388,7 @@ export default function PointsSetup() {
                   disabled={cards.length === 0}
                   className="w-full px-6 py-4 bg-yellow-400 text-slate-900 rounded-xl hover:bg-yellow-500 transition-all disabled:opacity-50 disabled:cursor-not-allowed flex items-center justify-center gap-2 shadow-lg shadow-yellow-400/20 font-semibold"
                 >
-                  <span>Plan Solo Trip</span>
-                  <ArrowRight className="w-5 h-5" />
-                </button>
-
-                <button
-                  onClick={() => router.push('/group/setup')}
-                  disabled={cards.length === 0}
-                  className="w-full px-6 py-4 bg-white border-2 border-slate-200 text-slate-900 rounded-xl hover:bg-slate-50 transition-all disabled:opacity-50 disabled:cursor-not-allowed flex items-center justify-center gap-2 font-semibold"
-                >
-                  <span>Plan Group Trip</span>
+                  <span>Plan Trip</span>
                   <ArrowRight className="w-5 h-5" />
                 </button>
 

@@ -6,6 +6,8 @@ import { useState } from 'react';
 interface DecisionSummary {
   headline: string;
   confidenceLevel: 'high' | 'medium' | 'low';
+  confidenceReason?: string;
+  valueLabel?: string;
   whyGood: string[];
   tradeoffs: string[];
   risks: string[];
@@ -58,17 +60,29 @@ export default function DecisionHeader({ summary, onBookPlan }: DecisionHeaderPr
             <ConfidenceIcon className="w-6 h-6" />
           </div>
           <div className="flex-1 min-w-0">
-            {/* Confidence badge */}
-            <div className="flex items-center gap-2 mb-2">
+            {/* Confidence badge + value label */}
+            <div className="flex items-center gap-2 mb-2 flex-wrap">
               <span className={`px-3 py-1 rounded-full text-xs font-semibold ${config.badge}`}>
                 {config.label}
               </span>
+              {summary.valueLabel && (
+                <span className="px-3 py-1 rounded-full text-xs font-semibold bg-blue-50 text-blue-700">
+                  {summary.valueLabel}
+                </span>
+              )}
               {summary.isEstimated && (
                 <span className="px-3 py-1 rounded-full text-xs font-semibold bg-slate-100 text-slate-600">
                   Based on estimated balances
                 </span>
               )}
             </div>
+
+            {/* Confidence reason — one sentence, no ambiguity */}
+            {summary.confidenceReason && (
+              <p className={`text-sm mb-2 ${config.color}`}>
+                {summary.confidenceReason}
+              </p>
+            )}
             
             {/* Big confident headline */}
             <h1 className="text-2xl sm:text-3xl font-bold text-slate-900 leading-tight mb-4">

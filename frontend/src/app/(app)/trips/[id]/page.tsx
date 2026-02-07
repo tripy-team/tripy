@@ -3,7 +3,7 @@
 import { useParams, useRouter } from 'next/navigation';
 import { useState, useEffect } from 'react';
 import Image from 'next/image';
-import { ArrowLeft, Calendar, MapPin, CreditCard, Users, User, Plane, CheckCircle, Lock, ChevronRight, ArrowRight, Sparkles, Wallet, Check, ExternalLink, LucideIcon } from 'lucide-react';
+import { ArrowLeft, Calendar, MapPin, CreditCard, Users, User, Plane, CheckCircle, ChevronRight, ArrowRight, Sparkles, Wallet, Check, ExternalLink, LucideIcon } from 'lucide-react';
 import { trips as tripsAPI, itineraries, points as pointsAPI } from '@/lib/api';
 import { getOptimizedImageUrl } from '@/lib/image-utils';
 import { 
@@ -66,7 +66,7 @@ export default function TripDetails() {
     const tripId = params.id as string;
     const [trip, setTrip] = useState<Trip | null>(null);
     const [isLoading, setIsLoading] = useState(true);
-    const [isPaid, setIsPaid] = useState(false);
+    const [isPaid, setIsPaid] = useState(true);
     const [itineraryItems, setItineraryItems] = useState<Array<{ type?: string; [k: string]: unknown }>>([]);
     const [membersForTransfers, setMembersForTransfers] = useState<Array<{ userId: string; name?: string }>>([]);
     const [members, setMembers] = useState<Member[]>([]);
@@ -318,43 +318,6 @@ export default function TripDetails() {
             </div>
 
             <div className="max-w-4xl mx-auto px-6 py-8 relative z-10">
-                {!isPaid ? (
-                    /* Pending Payment section — transfer strategy hidden until payment */
-                    <div className="bg-white border border-slate-200 rounded-2xl overflow-hidden shadow-sm">
-                        <div className="p-6 border-b border-slate-100 flex justify-between items-center bg-slate-50/50">
-                            <h2 className="text-xl font-semibold text-slate-900 flex items-center gap-2">
-                                <Wallet className="w-5 h-5 text-blue-600" />
-                                Transfer Instructions
-                            </h2>
-                            <span className="px-3 py-1 bg-amber-100 text-amber-700 text-xs font-bold uppercase tracking-wide rounded-full flex items-center gap-1">
-                                <Lock className="w-3 h-3" /> Locked
-                            </span>
-                        </div>
-                        <div className="relative">
-                            <div className="absolute inset-0 bg-white/60 backdrop-blur-sm z-10 flex flex-col items-center justify-center text-center p-8">
-                                <div className="bg-white p-4 rounded-full shadow-lg mb-4">
-                                    <Lock className="w-8 h-8 text-blue-600" />
-                                </div>
-                                <h3 className="text-lg font-bold text-slate-900 mb-2">Pending Payment</h3>
-                                <p className="text-slate-600 max-w-sm mb-6">
-                                    Pay the service fee to reveal the exact transfer partners, amounts, and step-by-step booking guide.
-                                </p>
-                                <button 
-                                    onClick={() => router.push(trip.type === 'Group' ? `/group/booking?tripId=${tripId}` : `/solo/booking?tripId=${tripId}`)}
-                                    className="text-blue-600 font-semibold hover:text-blue-700 flex items-center gap-1"
-                                >
-                                    Complete Payment <ChevronRight className="w-4 h-4" />
-                                </button>
-                            </div>
-                            <div className="p-6 opacity-20 select-none">
-                                <div className="space-y-3">
-                                    <div className="h-24 bg-slate-100 rounded-xl"></div>
-                                    <div className="h-24 bg-slate-100 rounded-xl"></div>
-                                </div>
-                            </div>
-                        </div>
-                    </div>
-                ) : (
                 <>
                 {/* Savings Summary */}
                 {totalCashValue > 0 && (
@@ -739,7 +702,6 @@ export default function TripDetails() {
                     </div>
                 </div>
                 </>
-                )}
             </div>
         </div>
     );

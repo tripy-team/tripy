@@ -70,7 +70,11 @@ Return JSON with: {"programs": ["UA", "AA", ...], "reasoning": "..."}"""
         logger.info(f"[FlightAgent] Creating {len(request.cabin_classes)} cash search tasks for cabins: {request.cabin_classes}")
         for cabin in request.cabin_classes:
             tasks.append(self._search_cash_flights(
-                request.origin, request.destination, request.date, cabin
+                request.origin, request.destination, request.date, cabin,
+                include_budget_airlines=request.include_budget_airlines,
+                max_stops=request.max_stops,
+                departure_hour_range=request.departure_hour_range,
+                arrival_hour_range=request.arrival_hour_range,
             ))
         
         logger.info(f"[FlightAgent] Total tasks: {len(tasks)} (award: {len(programs)}, cash: {len(request.cabin_classes)})")
@@ -274,9 +278,13 @@ Return JSON: {{"programs": ["UA", "AA", ...], "reasoning": "..."}}
         destination: str,
         date: str,
         cabin: str,
+        include_budget_airlines: bool = True,
+        max_stops: int = 0,
+        departure_hour_range: list[int] | None = None,
+        arrival_hour_range: list[int] | None = None,
     ) -> list[FlightOption]:
         """Search for cash flights using SerpAPI (Google Flights)."""
-        logger.info(f"[FlightAgent] _search_cash_flights called: {origin}->{destination} date={date} cabin={cabin}")
+        logger.info(f"[FlightAgent] _search_cash_flights called: {origin}->{destination} date={date} cabin={cabin} include_budget={include_budget_airlines} max_stops={max_stops}")
         
         # Import pricing sanitizer for robust price parsing
         from ..utils.pricing import sanitize_cash_price
@@ -295,6 +303,32 @@ Return JSON: {{"programs": ["UA", "AA", ...], "reasoning": "..."}}
             # Also FIXED: use 'outbound_date' parameter name (not 'date')
             loop = asyncio.get_event_loop()
             logger.info(f"[FlightAgent] About to call get_google_flights in executor...")
+            # Build outbound_times string for SerpAPI from hour ranges
+            outbound_times = None
+            if departure_hour_range or arrival_hour_range:
+                dep_start = departure_hour_range[0] if departure_hour_range else 0
+                dep_end = departure_hour_range[1] if departure_hour_range else 23
+                if arrival_hour_range:
+                    arr_start = arrival_hour_range[0]
+                    arr_end = arrival_hour_range[1]
+                    outbound_times = f"{dep_start},{dep_end},{arr_start},{arr_end}"
+                else:
+                    outbound_times = f"{dep_start},{dep_end}"
+            
+            # When budget airlines OFF: sort_by=1 (best quality) + best_only=True + exclude budget carriers via SerpAPI
+            # When budget airlines ON: sort_by=2 (price) + best_only=False (include all flights)
+            # Known ultra-low-cost / budget carrier IATA codes to exclude
+            # North America/Americas: Spirit, Frontier, Allegiant, WestJet, Volaris
+            # Europe: Ryanair, easyJet, Norwegian, Eurowings, Vueling, Wizz Air
+            # Asia-Pacific: AirAsia, Scoot, Jetstar, IndiGo
+            # Middle East: Flynas, Air Arabia
+            BUDGET_AIRLINE_CODES = ",".join([
+                "NK", "F9", "G4", "WS", "Y4",       # North America/Americas
+                "FR", "U2", "DY", "EW", "VY", "W6",  # Europe
+                "AK", "TR", "JQ", "6E",               # Asia-Pacific
+                "XY", "G9",                            # Middle East
+            ])
+            
             all_flights = await loop.run_in_executor(
                 None,
                 lambda: get_google_flights(
@@ -302,6 +336,11 @@ Return JSON: {{"programs": ["UA", "AA", ...], "reasoning": "..."}}
                     destination=destination,
                     outbound_date=date,  # FIXED: correct param name
                     travel_class=cabin_code,
+                    sort_by=2 if include_budget_airlines else 1,
+                    stops=max_stops if max_stops > 0 else None,
+                    outbound_times=outbound_times,
+                    best_only=not include_budget_airlines,
+                    exclude_airlines=BUDGET_AIRLINE_CODES if not include_budget_airlines else None,
                 )
             )
             logger.info(f"[FlightAgent] get_google_flights returned {len(all_flights) if all_flights else 0} flights")
