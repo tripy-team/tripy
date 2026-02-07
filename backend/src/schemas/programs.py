@@ -24,6 +24,12 @@ class PointsProgram(str, Enum):
     CAPITAL_ONE = "capital_one"     # Capital One Miles
     BILT = "bilt"                   # Bilt Rewards
     
+    # Credit Card Programs (fixed-value portal redemption - no airline transfer partners)
+    BANK_OF_AMERICA = "bank_of_america"   # Bank of America Points
+    WELLS_FARGO = "wells_fargo"           # Wells Fargo Points
+    DISCOVER = "discover"                 # Discover Miles
+    US_BANK = "us_bank"                   # US Bank Rewards
+    
     # Airline Programs
     UNITED = "united"               # United MileagePlus
     AMERICAN = "american"           # AAdvantage

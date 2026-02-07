@@ -82,18 +82,22 @@ export function OOPSummaryCard({ metrics, rank, isSelected, onClick }: OOPSummar
       </div>
 
       {/* Points Breakdown */}
-      {Object.keys(metrics.pointsBreakdown).length > 0 && (
+      {metrics.pointsBreakdown && typeof metrics.pointsBreakdown === 'object' && Object.keys(metrics.pointsBreakdown).length > 0 && (
         <div className="mt-4 pt-4 border-t border-slate-100">
           <div className="text-xs text-slate-500 mb-2">Points by program:</div>
           <div className="flex flex-wrap gap-2">
-            {Object.entries(metrics.pointsBreakdown).map(([program, points]) => (
-              <span 
-                key={program}
-                className="px-2 py-1 bg-blue-50 text-blue-700 rounded-lg text-xs font-medium"
-              >
-                {program}: {(points / 1000).toFixed(0)}k
-              </span>
-            ))}
+            {Object.entries(metrics.pointsBreakdown).map(([program, points]) => {
+              const programStr = typeof program === 'string' ? program : String(program);
+              const pointsNum = typeof points === 'number' ? points : Number(points) || 0;
+              return (
+                <span 
+                  key={programStr}
+                  className="px-2 py-1 bg-blue-50 text-blue-700 rounded-lg text-xs font-medium"
+                >
+                  {programStr}: {(pointsNum / 1000).toFixed(0)}k
+                </span>
+              );
+            })}
           </div>
         </div>
       )}
@@ -109,7 +113,11 @@ export function OOPSummaryCard({ metrics, rank, isSelected, onClick }: OOPSummar
                 : bank === 'citi' ? 'Citi TYP'
                 : bank === 'capital_one' ? 'Capital One'
                 : bank === 'bilt' ? 'Bilt'
-                : bank;
+                : bank === 'bank_of_america' ? 'BofA'
+                : bank === 'wells_fargo' ? 'Wells Fargo'
+                : bank === 'discover' ? 'Discover'
+                : bank === 'us_bank' ? 'US Bank'
+                : typeof bank === 'string' ? bank : String(bank);
               return (
                 <span 
                   key={bank}

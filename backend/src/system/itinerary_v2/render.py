@@ -34,7 +34,12 @@ _HUMANIZE_BANK: Dict[str, str] = {
     "chase": "Chase Ultimate Rewards",
     "citi": "Citi ThankYou Points",
     "capitalone": "Capital One Miles",
+    "capital_one": "Capital One Miles",
     "bilt": "Bilt Rewards",
+    "bank_of_america": "Bank of America Points",
+    "wells_fargo": "Wells Fargo Points",
+    "discover": "Discover Miles",
+    "us_bank": "US Bank Rewards",
 }
 
 

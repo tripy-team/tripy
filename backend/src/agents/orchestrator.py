@@ -2111,6 +2111,21 @@ class OrchestratorAgent(BaseAgent):
         
         return options[0] if options else None
     
+    # Fixed-value bank programs that cannot be used for airline award bookings
+    _FIXED_VALUE_BANK_KEYWORDS = frozenset([
+        "bank of america", "bank_of_america", "boa", "bofa",
+        "wells fargo", "wells_fargo",
+        "discover", "discover miles", "discover_miles",
+        "us bank", "us_bank", "usbank",
+    ])
+    
+    def _is_fixed_value_bank(self, program: str) -> bool:
+        """Check if program is a fixed-value bank (no airline transfer partners)."""
+        if not program:
+            return False
+        lower = program.lower().replace("-", "_").replace(" ", "_")
+        return any(kw.replace(" ", "_") in lower for kw in self._FIXED_VALUE_BANK_KEYWORDS)
+    
     def _can_afford_points(self, program: str, points_needed: int, remaining_points: dict) -> bool:
         """
         Check if user can afford points (direct or via transfer).
@@ -2124,6 +2139,9 @@ class OrchestratorAgent(BaseAgent):
         
         # Check direct balance (normalize both sides for comparison)
         for user_prog, balance in remaining_points.items():
+            # Skip fixed-value bank programs - they can't be used for award bookings
+            if self._is_fixed_value_bank(user_prog):
+                continue
             user_prog_upper = user_prog.upper().replace("_", " ").replace("-", " ")
             if program_upper == user_prog_upper or program_upper in user_prog_upper:
                 if balance >= points_needed:
@@ -2252,6 +2270,9 @@ class OrchestratorAgent(BaseAgent):
         
         # Try direct first (normalize both sides)
         for user_prog, balance in list(remaining_points.items()):
+            # Skip fixed-value bank programs - they can't be used for award bookings
+            if self._is_fixed_value_bank(user_prog):
+                continue
             user_prog_upper = user_prog.upper().replace("_", " ").replace("-", " ")
             if program_upper == user_prog_upper or program_upper in user_prog_upper:
                 if balance >= points_needed:

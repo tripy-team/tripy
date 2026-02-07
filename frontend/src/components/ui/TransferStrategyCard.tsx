@@ -26,6 +26,10 @@ const BANK_PORTALS: Record<string, string> = {
   citi: 'https://thankyou.citi.com',
   capitalone: 'https://www.capitalone.com/credit-cards/benefits/travel/',
   bilt: 'https://www.biltrewards.com',
+  bank_of_america: 'https://travel.bankofamerica.com',
+  wells_fargo: 'https://www.wellsfargo.com/rewards/',
+  discover: 'https://www.discover.com/credit-cards/cashback-bonus/travel.html',
+  us_bank: 'https://rewards.usbank.com',
 };
 
 // Bank transfer times
@@ -35,6 +39,10 @@ const BANK_TRANSFER_TIMES: Record<string, string> = {
   citi: 'Instant to 24h',
   capitalone: 'Instant to 2 days',
   bilt: 'Instant',
+  bank_of_america: 'Fixed-value portal',
+  wells_fargo: 'Fixed-value portal',
+  discover: 'Fixed-value portal',
+  us_bank: 'Fixed-value portal',
 };
 
 // Airline booking URLs
@@ -116,9 +124,10 @@ export function TransferStrategyCard({
   };
 
   const formatOneLiner = (transfer: TransferItem): string => {
-    const points = transfer.pointsToTransfer.toLocaleString();
-    const bank = transfer.fromBankName.split(' ')[0]; // "Amex" from "Amex Membership Rewards"
-    const program = transfer.toProgramName;
+    const points = (typeof transfer.pointsToTransfer === 'number' ? transfer.pointsToTransfer : Number(transfer.pointsToTransfer) || 0).toLocaleString();
+    const bankName = typeof transfer.fromBankName === 'string' ? transfer.fromBankName : String(transfer.fromBankName || 'Points');
+    const bank = bankName.split(' ')[0]; // "Amex" from "Amex Membership Rewards"
+    const program = typeof transfer.toProgramName === 'string' ? transfer.toProgramName : String(transfer.toProgramName || 'Travel Partner');
     
     if (transfer.flightNumber) {
       const route = transfer.origin && transfer.destination 
@@ -134,12 +143,16 @@ export function TransferStrategyCard({
   };
 
   const getBankCode = (bankName: string): string => {
-    const lower = bankName.toLowerCase();
+    const lower = (typeof bankName === 'string' ? bankName : String(bankName || '')).toLowerCase();
     if (lower.includes('amex') || lower.includes('american express')) return 'amex';
     if (lower.includes('chase')) return 'chase';
     if (lower.includes('citi')) return 'citi';
     if (lower.includes('capital')) return 'capitalone';
     if (lower.includes('bilt')) return 'bilt';
+    if (lower.includes('bank of america') || lower.includes('boa') || lower.includes('bofa')) return 'bank_of_america';
+    if (lower.includes('wells fargo')) return 'wells_fargo';
+    if (lower.includes('discover')) return 'discover';
+    if (lower.includes('us bank')) return 'us_bank';
     return '';
   };
 

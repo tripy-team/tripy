@@ -1058,10 +1058,10 @@ export default function SoloResults() {
                                                     {selectedSoloItinerary.transfers.map((transfer, idx) => (
                                                         <div key={idx} className="p-3 bg-blue-50 rounded-lg text-sm">
                                                             <div className="font-medium text-slate-900">
-                                                                {transfer.sourceProgram} → {transfer.targetProgram}
+                                                                {typeof transfer.sourceProgram === 'string' ? transfer.sourceProgram : String(transfer.sourceProgram || '')} → {typeof transfer.targetProgram === 'string' ? transfer.targetProgram : String(transfer.targetProgram || '')}
                                                             </div>
                                                             <div className="text-slate-600 mt-1">
-                                                                {transfer.pointsToTransfer.toLocaleString()} pts • {transfer.expectedTransferTime}
+                                                                {(typeof transfer.pointsToTransfer === 'number' ? transfer.pointsToTransfer : Number(transfer.pointsToTransfer) || 0).toLocaleString()} pts • {typeof transfer.expectedTransferTime === 'string' ? transfer.expectedTransferTime : String(transfer.expectedTransferTime || 'varies')}
                                                             </div>
                                                         </div>
                                                     ))}

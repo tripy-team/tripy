@@ -28,6 +28,20 @@ DISPLAY_NAME_TO_PROGRAM = {
     # Bilt
     "bilt rewards": PointsProgram.BILT,
     "bilt": PointsProgram.BILT,
+    # Bank of America (fixed-value)
+    "bank of america points": PointsProgram.BANK_OF_AMERICA,
+    "bank of america": PointsProgram.BANK_OF_AMERICA,
+    "boa": PointsProgram.BANK_OF_AMERICA,
+    "bofa": PointsProgram.BANK_OF_AMERICA,
+    # Wells Fargo (fixed-value)
+    "wells fargo points": PointsProgram.WELLS_FARGO,
+    "wells fargo": PointsProgram.WELLS_FARGO,
+    # Discover (fixed-value)
+    "discover miles": PointsProgram.DISCOVER,
+    "discover": PointsProgram.DISCOVER,
+    # US Bank (fixed-value)
+    "us bank rewards": PointsProgram.US_BANK,
+    "us bank": PointsProgram.US_BANK,
     # Airlines
     "united mileageplus": PointsProgram.UNITED,
     "united": PointsProgram.UNITED,

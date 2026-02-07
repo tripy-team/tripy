@@ -127,6 +127,38 @@ BANK_METADATA: Dict[str, Dict[str, Any]] = {
         "default_transfer_time": "instant",
         "block_size": 1000,
     },
+    "bank_of_america": {
+        "name": "Bank of America Points",
+        "portal_url": "https://travel.bankofamerica.com",
+        "default_transfer_time": "N/A (fixed-value portal redemption)",
+        "block_size": 1,
+        "fixed_value": True,
+        "cpp": 1.0,
+    },
+    "wells_fargo": {
+        "name": "Wells Fargo Points",
+        "portal_url": "https://www.wellsfargo.com/rewards/",
+        "default_transfer_time": "N/A (fixed-value portal redemption)",
+        "block_size": 1,
+        "fixed_value": True,
+        "cpp": 1.0,
+    },
+    "discover": {
+        "name": "Discover Miles",
+        "portal_url": "https://www.discover.com/credit-cards/cashback-bonus/travel.html",
+        "default_transfer_time": "N/A (fixed-value portal redemption)",
+        "block_size": 1,
+        "fixed_value": True,
+        "cpp": 1.0,
+    },
+    "us_bank": {
+        "name": "US Bank Rewards",
+        "portal_url": "https://rewards.usbank.com",
+        "default_transfer_time": "N/A (fixed-value portal redemption)",
+        "block_size": 1,
+        "fixed_value": True,
+        "cpp": 1.5,
+    },
 }
 
 # Program metadata - AIRLINES ONLY

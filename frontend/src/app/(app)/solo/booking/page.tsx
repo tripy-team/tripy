@@ -33,6 +33,12 @@ function humanizeProgram(code: string): string {
     amex: 'Amex Membership Rewards',
     citi: 'Citi ThankYou Rewards',
     capital_one: 'Capital One Miles',
+    capitalone: 'Capital One Miles',
+    bilt: 'Bilt Rewards',
+    bank_of_america: 'Bank of America Points',
+    wells_fargo: 'Wells Fargo Points',
+    discover: 'Discover Miles',
+    us_bank: 'US Bank Rewards',
   };
   return m[String(code || '').toLowerCase()] || String(code || '').replace(/_/g, ' ').replace(/\b\w/g, c => c.toUpperCase());
 }

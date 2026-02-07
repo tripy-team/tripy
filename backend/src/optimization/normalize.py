@@ -229,6 +229,46 @@ BANK_ALIASES: Dict[str, str] = {
     "bilt": "bilt",
     "BiltRewards": "bilt",
     "bilt_rewards": "bilt",
+    
+    # Bank of America - fixed-value portal redemption (no airline transfer partners)
+    "BANK_OF_AMERICA": "bank_of_america",
+    "Bank of America": "bank_of_america",
+    "bank_of_america": "bank_of_america",
+    "bank of america": "bank_of_america",
+    "bank_of_america_points": "bank_of_america",
+    "Bank of America Points": "bank_of_america",
+    "boa": "bank_of_america",
+    "BOA": "bank_of_america",
+    "BofA": "bank_of_america",
+    "bofa": "bank_of_america",
+    
+    # Wells Fargo - fixed-value portal redemption (no airline transfer partners)
+    "WELLS_FARGO": "wells_fargo",
+    "Wells Fargo": "wells_fargo",
+    "wells_fargo": "wells_fargo",
+    "wells fargo": "wells_fargo",
+    "wells_fargo_points": "wells_fargo",
+    "Wells Fargo Points": "wells_fargo",
+    "WF": "wells_fargo",
+    "wf": "wells_fargo",
+    
+    # Discover - fixed-value portal redemption (no airline transfer partners)
+    "DISCOVER": "discover",
+    "Discover": "discover",
+    "discover": "discover",
+    "discover_miles": "discover",
+    "Discover Miles": "discover",
+    "discover_it": "discover",
+    
+    # US Bank - fixed-value portal redemption (no airline transfer partners)
+    "US_BANK": "us_bank",
+    "US Bank": "us_bank",
+    "us_bank": "us_bank",
+    "us bank": "us_bank",
+    "us_bank_rewards": "us_bank",
+    "US Bank Rewards": "us_bank",
+    "usbank": "us_bank",
+    "USBank": "us_bank",
 }
 
 
@@ -375,10 +415,37 @@ def normalize_airline(raw: str) -> str:
 
 
 def is_bank_program(key: str) -> bool:
-    """Check if a key represents a bank/transferable points program."""
+    """Check if a key represents a bank/transferable points program (including fixed-value banks)."""
     if not key:
         return False
     
+    normalized = normalize_bank(key)
+    return normalized in {"chase", "amex", "citi", "capital_one", "bilt",
+                          "bank_of_america", "wells_fargo", "discover", "us_bank"}
+
+
+# Fixed-value banks that cannot transfer to airline partners.
+# Their points have a fixed cash value when redeemed via the bank's travel portal.
+FIXED_VALUE_BANKS = {
+    "bank_of_america": {"cpp": 1.0, "premium_cpp": 1.75, "portal_name": "Bank of America Travel Center"},
+    "wells_fargo": {"cpp": 1.0, "premium_cpp": 1.5, "portal_name": "Wells Fargo Rewards"},
+    "discover": {"cpp": 1.0, "premium_cpp": 1.0, "portal_name": "Discover Travel Portal"},
+    "us_bank": {"cpp": 1.5, "premium_cpp": 1.5, "portal_name": "US Bank Rewards Center"},
+}
+
+
+def is_fixed_value_bank(key: str) -> bool:
+    """Check if a key represents a fixed-value bank (no airline transfer partners)."""
+    if not key:
+        return False
+    normalized = normalize_bank(key)
+    return normalized in FIXED_VALUE_BANKS
+
+
+def is_transferable_bank(key: str) -> bool:
+    """Check if a key represents a bank that CAN transfer to airline/hotel partners."""
+    if not key:
+        return False
     normalized = normalize_bank(key)
     return normalized in {"chase", "amex", "citi", "capital_one", "bilt"}
 
@@ -440,5 +507,9 @@ def get_bank_display_name(normalized_key: str) -> str:
         "citi": "Citi ThankYou Points",
         "capital_one": "Capital One Miles",
         "bilt": "Bilt Rewards",
+        "bank_of_america": "Bank of America Points",
+        "wells_fargo": "Wells Fargo Points",
+        "discover": "Discover Miles",
+        "us_bank": "US Bank Rewards",
     }
     return DISPLAY_NAMES.get(normalized_key, normalized_key.replace("_", " ").title())

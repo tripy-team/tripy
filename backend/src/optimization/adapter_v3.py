@@ -21,7 +21,7 @@ from .models_v3 import (
     TransferPath,
     OptimizationResult, OptimizationStatus, Solution,
 )
-from .normalize import normalize_program, normalize_bank
+from .normalize import normalize_program, normalize_bank, is_fixed_value_bank, is_transferable_bank, FIXED_VALUE_BANKS
 from .solver_v3 import optimize_trip, Mode
 from .validators import validate_connection_eligibility
 from .validation_policy import STRICT_MVP_POLICY
@@ -308,10 +308,24 @@ def convert_trip_to_spec(
             if effective_balance < balance:
                 logger.info(f"[V3 Adapter] Capping {prog} from {balance:,} to {effective_balance:,}")
         
-        # Check if it's a bank (transferable) or airline/hotel program
+        # Check if it's a bank (transferable), fixed-value bank, or airline/hotel program
         if bank_normalized in {"chase", "amex", "citi", "capital_one", "bilt"}:
             bank_balances[bank_normalized] = effective_balance
             logger.info(f"[V3 Adapter] Added to bank_balances: {bank_normalized}={effective_balance:,}")
+        elif is_fixed_value_bank(prog):
+            # Fixed-value banks (BoA, Wells Fargo, Discover, US Bank) can't transfer
+            # to airline partners. Their points have a fixed cash value when redeemed
+            # via the bank's travel portal. We track them separately and don't add
+            # them to points_balances (which would incorrectly treat them as airline miles).
+            fv_info = FIXED_VALUE_BANKS.get(bank_normalized, {})
+            cash_value = effective_balance * fv_info.get("cpp", 1.0) / 100  # Convert to dollars
+            logger.info(
+                f"[V3 Adapter] Fixed-value bank: {bank_normalized}={effective_balance:,} pts "
+                f"(≈${cash_value:.0f} via {fv_info.get('portal_name', 'travel portal')}). "
+                f"Cannot transfer to airlines - will use as cash offset."
+            )
+            # Don't add to either dict - these points can't be used in the ILP
+            # The optimizer will fall back to cash for these, which is correct
         else:
             points_balances[normalized] = effective_balance
             logger.info(f"[V3 Adapter] Added to points_balances: {normalized}={effective_balance:,}")

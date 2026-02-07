@@ -44,6 +44,23 @@ def _normalize_program_to_transfer_key(program: str) -> str:
         "venture": "capitalone",
         "bilt": "bilt",
         "bilt rewards": "bilt",
+        # Fixed-value banks (no airline transfer partners)
+        "bank of america": "bank_of_america",
+        "bank of america points": "bank_of_america",
+        "bank_of_america": "bank_of_america",
+        "bank_of_america_points": "bank_of_america",
+        "boa": "bank_of_america",
+        "wells fargo": "wells_fargo",
+        "wells fargo points": "wells_fargo",
+        "wells_fargo": "wells_fargo",
+        "wells_fargo_points": "wells_fargo",
+        "discover": "discover",
+        "discover miles": "discover",
+        "discover_miles": "discover",
+        "us bank": "us_bank",
+        "us bank rewards": "us_bank",
+        "us_bank": "us_bank",
+        "us_bank_rewards": "us_bank",
     }
     
     # Airline mappings (uppercase 2-letter codes)

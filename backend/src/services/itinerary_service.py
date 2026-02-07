@@ -146,7 +146,16 @@ _HUMANIZE_BANK: Dict[str, str] = {
     "chase": "Chase Ultimate Rewards",
     "citi": "Citi ThankYou Points",
     "capitalone": "Capital One Miles",
+    "capital_one": "Capital One Miles",
     "bilt": "Bilt Rewards",
+    "bank_of_america": "Bank of America Points",
+    "bank of america points": "Bank of America Points",
+    "wells_fargo": "Wells Fargo Points",
+    "wells fargo points": "Wells Fargo Points",
+    "discover": "Discover Miles",
+    "discover miles": "Discover Miles",
+    "us_bank": "US Bank Rewards",
+    "us bank rewards": "US Bank Rewards",
 }
 
 def _normalize_program_to_transfer_key(program: str) -> str:
@@ -192,6 +201,23 @@ def _normalize_program_to_transfer_key(program: str) -> str:
         "bilt": "bilt",
         "bilt rewards": "bilt",
         "bilt_rewards": "bilt",
+        # Fixed-value banks (no airline transfer partners)
+        "bank of america": "bank_of_america",
+        "bank of america points": "bank_of_america",
+        "bank_of_america": "bank_of_america",
+        "bank_of_america_points": "bank_of_america",
+        "boa": "bank_of_america",
+        "wells fargo": "wells_fargo",
+        "wells fargo points": "wells_fargo",
+        "wells_fargo": "wells_fargo",
+        "wells_fargo_points": "wells_fargo",
+        "discover": "discover",
+        "discover miles": "discover",
+        "discover_miles": "discover",
+        "us bank": "us_bank",
+        "us bank rewards": "us_bank",
+        "us_bank": "us_bank",
+        "us_bank_rewards": "us_bank",
     }
     
     # Airline mappings (uppercase 2-letter codes)
