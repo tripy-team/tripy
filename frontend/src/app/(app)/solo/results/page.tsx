@@ -150,6 +150,10 @@ export default function SoloResults() {
                 return;
             }
 
+            // Track whether the solo optimizer succeeded so the loader can
+            // play its completion animation before we hide it.
+            let loaderHandlesTransition = false;
+
             try {
                 setLoading(true);
                 setApiComplete(false);
@@ -166,7 +170,6 @@ export default function SoloResults() {
                 
                 // Try the new solo optimizer first
                 let usedSoloOptimizer = false;
-                let loaderHandlesTransition = false; // true = let TripGenerationLoader play completion animation before hiding
                 try {
                     // Get trip and points info
                     const [tripData, pointsSummary] = await Promise.all([

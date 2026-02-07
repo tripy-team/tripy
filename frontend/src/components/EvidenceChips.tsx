@@ -27,7 +27,7 @@ export default function EvidenceChips({ itinerary, response }: EvidenceChipsProp
   // Ticketing evidence
   const flightSegs = itinerary.segments?.filter((s) => s.type === 'flight') || [];
   const allSingleTicket = flightSegs.every((s) => s.ticketingConfirmed);
-  const anyMultiTicket = flightSegs.some((s) => s.stops > 0 && !s.ticketingConfirmed);
+  const anyMultiTicket = flightSegs.some((s) => (s.stops ?? 0) > 0 && !s.ticketingConfirmed);
 
   if (allSingleTicket && flightSegs.length > 0) {
     chips.push({

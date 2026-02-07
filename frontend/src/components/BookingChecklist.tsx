@@ -177,7 +177,7 @@ export default function BookingChecklist({ bookingDetails, onStepComplete }: Boo
                       {step.description}
                     </p>
                     {/* Extra details */}
-                    {step.details && step.actionType === 'transfer' && step.details.portal_url && (
+                    {step.details && step.actionType === 'transfer' && !!step.details.portal_url && (
                       <a
                         href={step.details.portal_url as string}
                         target="_blank"
@@ -188,14 +188,14 @@ export default function BookingChecklist({ bookingDetails, onStepComplete }: Boo
                         Open transfer portal <ArrowRight className="w-3 h-3" />
                       </a>
                     )}
-                    {step.details && step.actionType === 'book' && step.details.flight_numbers && (
+                    {step.details && step.actionType === 'book' && !!step.details.flight_numbers && (
                       <div className="flex flex-wrap gap-1.5 mt-2">
                         {(step.details.flight_numbers as string[]).map((fn) => (
                           <CopyButton key={fn} text={fn} label={fn} />
                         ))}
                       </div>
                     )}
-                    {step.details && step.actionType === 'save' && step.details.what_to_save && (
+                    {step.details && step.actionType === 'save' && !!step.details.what_to_save && (
                       <ul className="mt-2 text-xs text-slate-500 space-y-0.5">
                         {(step.details.what_to_save as string[]).map((item) => (
                           <li key={item} className="flex items-center gap-1.5">
