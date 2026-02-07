@@ -64,8 +64,10 @@ class ConnectionValidator:
     # US domestic airports (for domestic/international classification)
     US_AIRPORTS = {
         "JFK", "LAX", "ORD", "DFW", "DEN", "SFO", "SEA", "ATL", "MIA", "BOS",
-        "EWR", "LGA", "IAD", "DCA", "PHX", "IAH", "MSP", "DTW", "CLT", "LAS",
-        "MCO", "SAN", "SJC", "PDX", "AUS", "TPA", "STL", "MCI", "SLC", "BNA",
+        "EWR", "LGA", "IAD", "DCA", "PHX", "IAH", "HOU", "MSP", "DTW", "CLT",
+        "LAS", "MCO", "SAN", "SJC", "PDX", "AUS", "TPA", "STL", "MCI", "SLC",
+        "BNA", "MDW", "DAL", "FLL", "BWI", "BUR", "OAK", "SNA", "ONT", "RDU",
+        "SAT", "PHL",
         # Regional
         "SYR", "BUF", "ROC", "ALB", "ITH", "ELM", "BGM",
     }

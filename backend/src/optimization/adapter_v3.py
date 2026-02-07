@@ -192,8 +192,10 @@ def _detect_international_route(segments: List[dict], trip_data: dict) -> bool:
             # Common exceptions: JFK, LAX, SFO, ORD, etc. don't start with K
             US_MAJOR_AIRPORTS = {
                 "JFK", "LAX", "SFO", "ORD", "ATL", "DFW", "DEN", "SEA", "MIA", "BOS",
-                "EWR", "IAH", "MSP", "DTW", "PHL", "LGA", "CLT", "PHX", "IAD", "SAN",
-                "TPA", "FLL", "BWI", "SLC", "MCO", "DCA", "PDX", "STL", "AUS", "HNL",
+                "EWR", "IAH", "HOU", "MSP", "DTW", "PHL", "LGA", "CLT", "PHX", "IAD",
+                "SAN", "TPA", "FLL", "BWI", "SLC", "MCO", "DCA", "PDX", "STL", "AUS",
+                "HNL", "MDW", "DAL", "BUR", "OAK", "SJC", "SNA", "ONT", "LAS", "BNA",
+                "RDU", "SAT",
                 "OGG", "LIH", "KOA",  # Hawaii
             }
             

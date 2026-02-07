@@ -85,8 +85,10 @@ def _get_fallback_airport_data() -> dict:
         # Major US airports (for port of entry detection)
         "us_airports": [
             "JFK", "LAX", "ORD", "DFW", "DEN", "SFO", "SEA", "ATL", "BOS", "MIA",
-            "EWR", "IAH", "PHX", "MSP", "DTW", "LGA", "FLL", "BWI", "SLC", "DCA",
-            "IAD", "SAN", "TPA", "PDX", "STL", "HNL", "AUS", "MCO", "CLT", "PHL",
+            "EWR", "IAH", "HOU", "PHX", "MSP", "DTW", "LGA", "FLL", "BWI", "SLC",
+            "DCA", "IAD", "SAN", "TPA", "PDX", "STL", "HNL", "AUS", "MCO", "CLT",
+            "PHL", "MDW", "DAL", "BUR", "OAK", "SJC", "SNA", "ONT", "LAS", "BNA",
+            "RDU", "SAT",
         ],
         
         # Airport to country mapping (IATA -> ISO country code)
@@ -104,6 +106,7 @@ def _get_fallback_airport_data() -> dict:
             "MIA": {"country": "US", "name": "Miami Intl"},
             "EWR": {"country": "US", "name": "Newark Liberty"},
             "IAH": {"country": "US", "name": "George Bush Intercontinental"},
+            "HOU": {"country": "US", "name": "William P. Hobby"},
             "LGA": {"country": "US", "name": "LaGuardia"},
             "IAD": {"country": "US", "name": "Washington Dulles"},
             "DCA": {"country": "US", "name": "Ronald Reagan Washington"},

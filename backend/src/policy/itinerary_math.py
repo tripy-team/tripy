@@ -51,8 +51,13 @@ AIRPORT_COUNTRIES = {
     # USA
     "ATL": "US", "ORD": "US", "DFW": "US", "DEN": "US", "LAX": "US",
     "JFK": "US", "LGA": "US", "EWR": "US", "SFO": "US", "MIA": "US",
-    "SEA": "US", "BOS": "US", "PHX": "US", "IAH": "US", "MSP": "US",
-    "DTW": "US", "CLT": "US", "MCO": "US", "SAN": "US", "SLC": "US",
+    "SEA": "US", "BOS": "US", "PHX": "US", "IAH": "US", "HOU": "US",
+    "MSP": "US", "DTW": "US", "CLT": "US", "MCO": "US", "SAN": "US",
+    "SLC": "US", "MDW": "US", "DAL": "US", "FLL": "US", "BWI": "US",
+    "DCA": "US", "IAD": "US", "BUR": "US", "OAK": "US", "SJC": "US",
+    "SNA": "US", "ONT": "US", "LAS": "US", "BNA": "US", "RDU": "US",
+    "SAT": "US", "TPA": "US", "PDX": "US", "STL": "US", "AUS": "US",
+    "PHL": "US", "HNL": "US",
     
     # Canada
     "YYZ": "CA", "YVR": "CA", "YUL": "CA", "YYC": "CA", "YOW": "CA",
