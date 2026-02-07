@@ -41,6 +41,60 @@ if (typeof window !== 'undefined' && process.env.NODE_ENV === 'development') {
   }
 }
 
+// ============================================================================
+// ANONYMOUS SESSION SUPPORT
+// ============================================================================
+// When no user is logged in, we generate an anonymous session ID (UUID v4)
+// and persist it in localStorage. This allows trip generation without sign-in.
+// ============================================================================
+
+const ANON_SESSION_KEY = 'tripy_anon_session_id';
+
+function generateUUID(): string {
+  // Use crypto.randomUUID if available, fallback to manual generation
+  if (typeof crypto !== 'undefined' && crypto.randomUUID) {
+    return crypto.randomUUID();
+  }
+  return 'xxxxxxxx-xxxx-4xxx-yxxx-xxxxxxxxxxxx'.replace(/[xy]/g, (c) => {
+    const r = (Math.random() * 16) | 0;
+    const v = c === 'x' ? r : (r & 0x3) | 0x8;
+    return v.toString(16);
+  });
+}
+
+/**
+ * Get or create an anonymous session ID.
+ * Persisted in localStorage so it survives page refreshes.
+ */
+export function getAnonSessionId(): string {
+  if (typeof window === 'undefined') return `anon_${generateUUID()}`;
+  
+  let anonId = localStorage.getItem(ANON_SESSION_KEY);
+  if (!anonId) {
+    anonId = `anon_${generateUUID()}`;
+    localStorage.setItem(ANON_SESSION_KEY, anonId);
+  }
+  return anonId;
+}
+
+/**
+ * Check if the user is currently authenticated (has valid tokens).
+ */
+export function isAuthenticated(): boolean {
+  if (typeof window === 'undefined') return false;
+  const token = sessionStorage.getItem('access_token') || localStorage.getItem('access_token');
+  return !!token;
+}
+
+/**
+ * Clear the anonymous session (called when user signs in and data is migrated).
+ */
+export function clearAnonSession(): void {
+  if (typeof window !== 'undefined') {
+    localStorage.removeItem(ANON_SESSION_KEY);
+  }
+}
+
 /**
  * Get access token from storage (checks sessionStorage first, then localStorage)
  */
@@ -171,15 +225,26 @@ async function apiRequest<T>(
             sessionStorage.removeItem('refresh_token');
             sessionStorage.removeItem('tripy_auth_checked_session');
           }
-          throw new Error('Session expired. Please log in again.');
+          // Don't throw — fall through to anonymous session
+          token = null;
         }
       }
 
       if (token) {
         headers['Authorization'] = `Bearer ${token}`;
       } else {
-        throw new Error('Authentication required. Please log in.');
+        // No token available — use anonymous session instead of blocking
+        // This allows trip generation without sign-in
+        const anonId = getAnonSessionId();
+        headers['X-Anon-Session-Id'] = anonId;
       }
+    }
+  } else {
+    // Even for non-auth requests, attach anon session if no auth token
+    const token = getAccessToken();
+    if (!token) {
+      const anonId = getAnonSessionId();
+      headers['X-Anon-Session-Id'] = anonId;
     }
   }
 
@@ -2666,6 +2731,57 @@ export interface SoloOOPMetrics {
   numChildren?: number;
 }
 
+export interface DecisionSummary {
+  headline: string;
+  confidenceLevel: 'high' | 'medium' | 'low';
+  whyGood: string[];
+  tradeoffs: string[];
+  risks: string[];
+  isEstimated?: boolean;
+}
+
+export interface RejectedAlternative {
+  label: string;
+  description: string;
+  rejectionReason: string;
+  priceOrPoints?: string;
+}
+
+export interface ItineraryRisk {
+  score: number;
+  level: 'low' | 'medium' | 'high';
+  flags: string[];
+}
+
+export interface BookingChecklistStep {
+  stepNumber: number;
+  title: string;
+  description: string;
+  actionType: 'transfer' | 'book' | 'save' | 'monitor';
+  details?: Record<string, unknown>;
+  completed: boolean;
+}
+
+export interface BookingDetails {
+  airlines: string[];
+  flightNumbers: string[];
+  departureDate?: string;
+  returnDate?: string;
+  departureTime?: string;
+  returnTime?: string;
+  originAirport?: string;
+  destinationAirport?: string;
+  connectionAirports: string[];
+  cabin?: string;
+  totalPoints: number;
+  totalTaxesFees: number;
+  totalCashPrice: number;
+  searchHint: string;
+  bookingChecklist: BookingChecklistStep[];
+  needsTransfer: boolean;
+  transferPrograms: string[];
+}
+
 export interface SoloRankedItinerary {
   id: string;
   rank: number;
@@ -2682,6 +2798,14 @@ export interface SoloRankedItinerary {
   budgetWarning?: string;
   /** Whether this itinerary is within the user's budget */
   withinBudget?: boolean;
+  /** Decision confidence summary (for recommended option) */
+  decisionSummary?: DecisionSummary;
+  /** Human-readable value label (replaces raw CPP) */
+  valueLabel?: string;
+  /** Risk assessment */
+  risk?: ItineraryRisk;
+  /** Booking details for actionable guidance */
+  bookingDetails?: BookingDetails;
 }
 
 export interface SoloOptimizeResponse {
@@ -2690,6 +2814,12 @@ export interface SoloOptimizeResponse {
   warnings: string[];
   globalInsights: SoloTransferInsight[];
   riskMode?: RiskMode;
+  /** Decision summary for the recommended option */
+  decisionSummary?: DecisionSummary;
+  /** Explains why other options weren't picked */
+  rejectedAlternatives?: RejectedAlternative[];
+  /** Booking details for the recommended itinerary */
+  bookingDetails?: BookingDetails;
   cached: boolean;
   computedAt: string;
   expiresAt: string;
@@ -2934,6 +3064,58 @@ export const solo = {
       }),
     });
     return toCamelCase<SoloTransferStrategyResponse>(response);
+  },
+
+  /**
+   * Lock a plan (Task 12)
+   * Anonymous users will get requires_sign_in=true
+   */
+  lockPlan: async (tripId: string, itineraryId: string, snapshot?: unknown): Promise<{ ok: boolean; locked: boolean; message: string; requiresSignIn: boolean }> => {
+    const response = await apiRequest<Record<string, unknown>>(`/solo/trips/${tripId}/lock`, {
+      method: 'POST',
+      body: JSON.stringify({
+        itinerary_id: itineraryId,
+        itinerary_snapshot: snapshot,
+      }),
+    });
+    return toCamelCase<{ ok: boolean; locked: boolean; message: string; requiresSignIn: boolean }>(response);
+  },
+
+  /**
+   * Share a plan via email magic link (Task 9/10)
+   */
+  sharePlan: async (tripId: string, email: string): Promise<{ ok: boolean; message: string; shareToken?: string }> => {
+    const response = await apiRequest<Record<string, unknown>>('/solo/share', {
+      method: 'POST',
+      body: JSON.stringify({
+        trip_id: tripId,
+        email,
+      }),
+    });
+    return toCamelCase<{ ok: boolean; message: string; shareToken?: string }>(response);
+  },
+
+  /**
+   * Claim a shared plan to authenticated user's account (Task 11)
+   */
+  claimPlan: async (tripId: string): Promise<{ ok: boolean; message: string }> => {
+    return apiRequest<{ ok: boolean; message: string }>('/solo/claim', {
+      method: 'POST',
+      body: JSON.stringify({ trip_id: tripId }),
+    });
+  },
+
+  /**
+   * Migrate anonymous session to authenticated user (Task 12)
+   */
+  migrateSession: async (anonSessionId: string): Promise<{ ok: boolean; tripsMigrated: number; message: string }> => {
+    const response = await apiRequest<Record<string, unknown>>('/solo/migrate-session', {
+      method: 'POST',
+      body: JSON.stringify({
+        anon_session_id: anonSessionId,
+      }),
+    });
+    return toCamelCase<{ ok: boolean; tripsMigrated: number; message: string }>(response);
   },
 
   /**

@@ -206,6 +206,32 @@ class OOPMetrics(BaseModel):
     payment_actions: List[PaymentAction] = [] # Detailed payment breakdown
 
 
+class DecisionSummary(BaseModel):
+    """
+    Decision confidence header — the MOST IMPORTANT part of the response.
+    
+    This tells the user WHY this is the right plan, in confident human language.
+    Displayed at the very top of the results page before any prices or details.
+    """
+    headline: str                       # e.g., "Book this. You're saving $847 and getting a direct flight."
+    confidence_level: Literal["high", "medium", "low"]  # How confident we are
+    why_good: List[str]                 # Bullet points: why this is a good plan
+    tradeoffs: List[str]               # What you're giving up (honest)
+    risks: List[str]                   # What could go wrong
+    is_estimated: bool = False          # True if balances are estimated (affects confidence)
+
+
+class RejectedAlternative(BaseModel):
+    """
+    Explains why a competing option was NOT recommended.
+    Used in "Why we didn't pick the other options" section.
+    """
+    label: str                          # e.g., "Cheapest option", "Fastest option"
+    description: str                    # Short description of the alternative
+    rejection_reason: str               # Human, opinionated reason why it was rejected
+    price_or_points: Optional[str] = None  # e.g., "$423" or "45,000 pts"
+
+
 class RankedItinerary(BaseModel):
     """A ranked itinerary option from the optimizer"""
     id: str                             # Unique identifier for selection
@@ -227,6 +253,59 @@ class RankedItinerary(BaseModel):
     
     # Insights about this itinerary
     insights: List[TransferInsight]
+    
+    # Decision confidence (populated for the recommended option)
+    decision_summary: Optional[DecisionSummary] = None
+    
+    # Human-readable value label (replaces raw CPP numbers)
+    value_label: Optional[str] = None   # e.g., "Excellent value", "Solid use of points"
+
+    # Risk assessment (Phase 12)
+    risk: Optional["RiskAssessment"] = None
+
+    # Booking details for actionable "how to book" guidance (Phase 11)
+    booking_details: Optional["BookingDetails"] = None
+
+
+class RiskAssessment(BaseModel):
+    """Risk model for an itinerary (v1 heuristics)."""
+    score: int                          # 0-100, higher = riskier
+    level: Literal["low", "medium", "high"]
+    flags: List[str]                    # Human-readable risk flags
+
+
+class BookingChecklistStep(BaseModel):
+    """A single step in the booking checklist."""
+    step_number: int
+    title: str                          # e.g., "Transfer Points"
+    description: str                    # Detailed human instructions
+    action_type: Literal["transfer", "book", "save", "monitor"]
+    details: Optional[Dict[str, Any]] = None  # Extra context (URLs, amounts, etc.)
+    completed: bool = False
+
+
+class BookingDetails(BaseModel):
+    """
+    Actionable booking guidance for an itinerary.
+    Contains everything a user needs to book without guessing.
+    """
+    airlines: List[str]                 # e.g., ["Air France", "Delta"]
+    flight_numbers: List[str]           # e.g., ["AF 123", "DL 456"]
+    departure_date: Optional[str] = None
+    return_date: Optional[str] = None
+    departure_time: Optional[str] = None
+    return_time: Optional[str] = None
+    origin_airport: Optional[str] = None
+    destination_airport: Optional[str] = None
+    connection_airports: List[str] = []
+    cabin: Optional[str] = None         # e.g., "Business"
+    total_points: int = 0
+    total_taxes_fees: float = 0.0
+    total_cash_price: float = 0.0
+    search_hint: str = ""               # e.g., "Search on airfrance.com for award flights SEA→CDG on Jul 15"
+    booking_checklist: List[BookingChecklistStep] = []
+    needs_transfer: bool = False
+    transfer_programs: List[str] = []   # e.g., ["Amex MR → Flying Blue"]
 
 
 class OptimizeSoloResponse(BaseModel):
@@ -237,6 +316,15 @@ class OptimizeSoloResponse(BaseModel):
     global_insights: List[TransferInsight] = []
     risk_mode: Optional[str] = None
     
+    # Decision summary for the recommended option (top-level for easy access)
+    decision_summary: Optional[DecisionSummary] = None
+    
+    # Rejected alternatives — explains why other options weren't picked
+    rejected_alternatives: List[RejectedAlternative] = []
+    
+    # Booking details for the recommended itinerary (top-level for easy access)
+    booking_details: Optional[BookingDetails] = None
+
     # Staleness metadata (no underscore prefixes - P0-4 fix)
     cached: bool = False
     computed_at: str                    # ISO timestamp

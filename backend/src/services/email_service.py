@@ -5,7 +5,13 @@ This service handles sending email notifications for:
 - Member approval notifications
 - Member denial notifications
 - Trip invitations
-- Other transactional emails
+- Solo plan sharing (magic link)
+- Post-result follow-up
+- Lock plan prompt
+- Booking acknowledgment
+- Monitoring alerts
+- Gentle conversion nudges
+- Support / human touch
 """
 import boto3
 from botocore.exceptions import ClientError
@@ -202,6 +208,431 @@ Or use invite code: {invite_code}
 
 ---
 © {year} Tripy. Maximize your travel points.
+""",
+    },
+    # =========================================================================
+    # Solo Plan / Confidence Engine Templates
+    # =========================================================================
+    "magic_link": {
+        "subject": "Your Tripy flight plan",
+        "html": """
+<!DOCTYPE html>
+<html>
+<head>
+    <meta charset="utf-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Your Tripy Plan</title>
+</head>
+<body style="font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, 'Helvetica Neue', Arial, sans-serif; line-height: 1.7; color: #334155; max-width: 600px; margin: 0 auto; padding: 20px; background: #f8fafc;">
+    <div style="background: linear-gradient(135deg, #3B82F6 0%, #1D4ED8 100%); padding: 28px; border-radius: 16px 16px 0 0; text-align: center;">
+        <h1 style="color: white; margin: 0; font-size: 22px; font-weight: 600;">Tripy</h1>
+    </div>
+    <div style="background: white; padding: 32px; border: 1px solid #E2E8F0; border-top: none; border-radius: 0 0 16px 16px;">
+        <p style="margin-top: 0;">Hi there,</p>
+        <p>You asked us to save your Tripy flight plan — here it is.</p>
+
+        <div style="text-align: center; margin: 28px 0;">
+            <a href="{magic_link}" style="display: inline-block; background: #2563EB; color: white; text-decoration: none; padding: 14px 32px; border-radius: 10px; font-weight: 600; font-size: 16px;">View your plan</a>
+        </div>
+
+        <p>This link restores the exact recommendation you saw, including:</p>
+        <ul style="color: #475569; padding-left: 20px;">
+            <li>The flight we suggested</li>
+            <li>Why it's the best option</li>
+            <li>What to watch out for</li>
+            <li>How to book it step by step</li>
+        </ul>
+
+        <p>No account required.<br>
+        If you want to save or monitor this plan later, you'll have the option to do that when you're ready.</p>
+
+        <p style="margin-bottom: 0;">Safe travels,<br><strong>Tripy</strong></p>
+
+        <div style="border-top: 1px solid #E2E8F0; margin-top: 24px; padding-top: 16px;">
+            <p style="color: #94A3B8; font-size: 13px; margin: 0; font-style: italic;">
+                P.S. Flight availability can change quickly. If you want us to keep an eye on this for you, just sign in after opening the link.
+            </p>
+        </div>
+    </div>
+    <div style="text-align: center; padding: 20px; color: #94A3B8; font-size: 12px;">
+        <p style="margin: 0;">&copy; {year} Tripy &middot; Book with confidence.</p>
+    </div>
+</body>
+</html>
+""",
+        "text": """Hi there,
+
+You asked us to save your Tripy flight plan — here it is.
+
+View your plan: {magic_link}
+
+This link restores the exact recommendation you saw, including:
+- The flight we suggested
+- Why it's the best option
+- What to watch out for
+- How to book it step by step
+
+No account required.
+If you want to save or monitor this plan later, you'll have the option to do that when you're ready.
+
+Safe travels,
+Tripy
+
+P.S. Flight availability can change quickly. If you want us to keep an eye on this for you, just sign in after opening the link.
+
+---
+© {year} Tripy. Book with confidence.
+""",
+    },
+    "post_result_followup": {
+        "subject": "Your Tripy plan is still ready",
+        "html": """
+<!DOCTYPE html>
+<html>
+<head>
+    <meta charset="utf-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Quick check-in from Tripy</title>
+</head>
+<body style="font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, 'Helvetica Neue', Arial, sans-serif; line-height: 1.7; color: #334155; max-width: 600px; margin: 0 auto; padding: 20px; background: #f8fafc;">
+    <div style="background: linear-gradient(135deg, #3B82F6 0%, #1D4ED8 100%); padding: 28px; border-radius: 16px 16px 0 0; text-align: center;">
+        <h1 style="color: white; margin: 0; font-size: 22px; font-weight: 600;">Tripy</h1>
+    </div>
+    <div style="background: white; padding: 32px; border: 1px solid #E2E8F0; border-top: none; border-radius: 0 0 16px 16px;">
+        <p style="margin-top: 0;">Hi,</p>
+        <p>Quick check-in.</p>
+        <p>We wanted to make sure your Tripy recommendation helped you feel more confident about your booking decision.</p>
+
+        <p>If you haven't booked yet, your plan is still available here:</p>
+
+        <div style="text-align: center; margin: 24px 0;">
+            <a href="{magic_link}" style="display: inline-block; background: #2563EB; color: white; text-decoration: none; padding: 14px 32px; border-radius: 10px; font-weight: 600; font-size: 16px;">View your plan</a>
+        </div>
+
+        <p>If you already booked — nice work.<br>
+        You avoided the most common traps we see people fall into.</p>
+
+        <p>If you want Tripy to remember this plan or alert you if something better appears, you can save it anytime after signing in.</p>
+
+        <p style="margin-bottom: 0;">Thanks for trusting us,<br><strong>Tripy</strong></p>
+    </div>
+    <div style="text-align: center; padding: 20px; color: #94A3B8; font-size: 12px;">
+        <p style="margin: 0;">&copy; {year} Tripy &middot; Book with confidence.</p>
+    </div>
+</body>
+</html>
+""",
+        "text": """Hi,
+
+Quick check-in.
+
+We wanted to make sure your Tripy recommendation helped you feel more confident about your booking decision.
+
+If you haven't booked yet, your plan is still available here:
+{magic_link}
+
+If you already booked — nice work.
+You avoided the most common traps we see people fall into.
+
+If you want Tripy to remember this plan or alert you if something better appears, you can save it anytime after signing in.
+
+Thanks for trusting us,
+Tripy
+
+---
+© {year} Tripy. Book with confidence.
+""",
+    },
+    "lock_plan_prompt": {
+        "subject": "Save your Tripy plan?",
+        "html": """
+<!DOCTYPE html>
+<html>
+<head>
+    <meta charset="utf-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Save your Tripy plan</title>
+</head>
+<body style="font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, 'Helvetica Neue', Arial, sans-serif; line-height: 1.7; color: #334155; max-width: 600px; margin: 0 auto; padding: 20px; background: #f8fafc;">
+    <div style="background: linear-gradient(135deg, #3B82F6 0%, #1D4ED8 100%); padding: 28px; border-radius: 16px 16px 0 0; text-align: center;">
+        <h1 style="color: white; margin: 0; font-size: 22px; font-weight: 600;">Tripy</h1>
+    </div>
+    <div style="background: white; padding: 32px; border: 1px solid #E2E8F0; border-top: none; border-radius: 0 0 16px 16px;">
+        <p style="margin-top: 0;">Hi,</p>
+        <p>You recently looked at a Tripy flight plan and chose not to save it yet — totally fine.</p>
+
+        <p>If you'd like us to:</p>
+        <ul style="color: #475569; padding-left: 20px;">
+            <li>Remember this plan</li>
+            <li>Keep it available across devices</li>
+            <li>Notify you if prices or availability change</li>
+        </ul>
+
+        <p>You can lock it with one click here:</p>
+
+        <div style="text-align: center; margin: 24px 0;">
+            <a href="{lock_plan_link}" style="display: inline-block; background: #2563EB; color: white; text-decoration: none; padding: 14px 32px; border-radius: 10px; font-weight: 600; font-size: 16px;">Lock this plan</a>
+        </div>
+
+        <p>No pressure. Tripy works just fine without an account — this just lets us work a little harder for you.</p>
+
+        <p style="margin-bottom: 0;">Best,<br><strong>Tripy</strong></p>
+    </div>
+    <div style="text-align: center; padding: 20px; color: #94A3B8; font-size: 12px;">
+        <p style="margin: 0;">&copy; {year} Tripy &middot; Book with confidence.</p>
+    </div>
+</body>
+</html>
+""",
+        "text": """Hi,
+
+You recently looked at a Tripy flight plan and chose not to save it yet — totally fine.
+
+If you'd like us to:
+- Remember this plan
+- Keep it available across devices
+- Notify you if prices or availability change
+
+You can lock it with one click here:
+{lock_plan_link}
+
+No pressure. Tripy works just fine without an account — this just lets us work a little harder for you.
+
+Best,
+Tripy
+
+---
+© {year} Tripy. Book with confidence.
+""",
+    },
+    "i_booked_it": {
+        "subject": "Congrats on booking your flight",
+        "html": """
+<!DOCTYPE html>
+<html>
+<head>
+    <meta charset="utf-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Booking confirmed</title>
+</head>
+<body style="font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, 'Helvetica Neue', Arial, sans-serif; line-height: 1.7; color: #334155; max-width: 600px; margin: 0 auto; padding: 20px; background: #f8fafc;">
+    <div style="background: linear-gradient(135deg, #3B82F6 0%, #1D4ED8 100%); padding: 28px; border-radius: 16px 16px 0 0; text-align: center;">
+        <h1 style="color: white; margin: 0; font-size: 22px; font-weight: 600;">Tripy</h1>
+    </div>
+    <div style="background: white; padding: 32px; border: 1px solid #E2E8F0; border-top: none; border-radius: 0 0 16px 16px;">
+        <p style="margin-top: 0; font-size: 18px;">Congrats on booking your flight &#9992;&#65039;</p>
+
+        <p>Here are a few quick reminders to keep things smooth:</p>
+        <ul style="color: #475569; padding-left: 20px;">
+            <li>Save your booking confirmation and ticket number</li>
+            <li>Keep your point transfer receipt (if you transferred points)</li>
+            <li>Double-check seat selection and baggage rules</li>
+        </ul>
+
+        <p>Your Tripy plan is still available if you want to review it later:</p>
+
+        <div style="text-align: center; margin: 24px 0;">
+            <a href="{trip_link}" style="display: inline-block; background: #2563EB; color: white; text-decoration: none; padding: 14px 32px; border-radius: 10px; font-weight: 600; font-size: 16px;">View your plan</a>
+        </div>
+
+        <p>If anything changes — prices, schedules, or better options — Tripy can watch this trip for you once it's saved.</p>
+
+        <p style="margin-bottom: 0;">Enjoy the trip,<br><strong>Tripy</strong></p>
+    </div>
+    <div style="text-align: center; padding: 20px; color: #94A3B8; font-size: 12px;">
+        <p style="margin: 0;">&copy; {year} Tripy &middot; Book with confidence.</p>
+    </div>
+</body>
+</html>
+""",
+        "text": """Congrats on booking your flight!
+
+Here are a few quick reminders to keep things smooth:
+- Save your booking confirmation and ticket number
+- Keep your point transfer receipt (if you transferred points)
+- Double-check seat selection and baggage rules
+
+Your Tripy plan is still available if you want to review it later:
+{trip_link}
+
+If anything changes — prices, schedules, or better options — Tripy can watch this trip for you once it's saved.
+
+Enjoy the trip,
+Tripy
+
+---
+© {year} Tripy. Book with confidence.
+""",
+    },
+    "monitoring_alert": {
+        "subject": "Something changed with your Tripy plan",
+        "html": """
+<!DOCTYPE html>
+<html>
+<head>
+    <meta charset="utf-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Plan update</title>
+</head>
+<body style="font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, 'Helvetica Neue', Arial, sans-serif; line-height: 1.7; color: #334155; max-width: 600px; margin: 0 auto; padding: 20px; background: #f8fafc;">
+    <div style="background: linear-gradient(135deg, #3B82F6 0%, #1D4ED8 100%); padding: 28px; border-radius: 16px 16px 0 0; text-align: center;">
+        <h1 style="color: white; margin: 0; font-size: 22px; font-weight: 600;">Tripy</h1>
+    </div>
+    <div style="background: white; padding: 32px; border: 1px solid #E2E8F0; border-top: none; border-radius: 0 0 16px 16px;">
+        <p style="margin-top: 0;">Hi,</p>
+        <p>We're keeping an eye on your Tripy flight plan, and something changed.</p>
+
+        <div style="text-align: center; margin: 24px 0;">
+            <a href="{trip_update_link}" style="display: inline-block; background: #2563EB; color: white; text-decoration: none; padding: 14px 32px; border-radius: 10px; font-weight: 600; font-size: 16px;">View the update</a>
+        </div>
+
+        <div style="background: #EFF6FF; border: 1px solid #BFDBFE; border-radius: 12px; padding: 20px; margin: 20px 0;">
+            <p style="margin: 0 0 8px 0; font-weight: 600; color: #1E40AF;">What this means:</p>
+            <ul style="margin: 0; padding-left: 20px; color: #1E3A8A;">
+                <li>A better option may be available, <strong>or</strong></li>
+                <li>Pricing or availability shifted</li>
+            </ul>
+        </div>
+
+        <p>We'll explain exactly what changed and whether it's worth acting — no guesswork.</p>
+
+        <p>As always, you're in control.<br>
+        We're just here to help you decide.</p>
+
+        <p style="margin-bottom: 0;">— <strong>Tripy</strong></p>
+    </div>
+    <div style="text-align: center; padding: 20px; color: #94A3B8; font-size: 12px;">
+        <p style="margin: 0;">&copy; {year} Tripy &middot; Book with confidence.</p>
+    </div>
+</body>
+</html>
+""",
+        "text": """Hi,
+
+We're keeping an eye on your Tripy flight plan, and something changed.
+
+View the update: {trip_update_link}
+
+What this means:
+- A better option may be available, or
+- Pricing or availability shifted
+
+We'll explain exactly what changed and whether it's worth acting — no guesswork.
+
+As always, you're in control.
+We're just here to help you decide.
+
+— Tripy
+
+---
+© {year} Tripy. Book with confidence.
+""",
+    },
+    "gentle_nudge": {
+        "subject": "Tripy noticed a pattern",
+        "html": """
+<!DOCTYPE html>
+<html>
+<head>
+    <meta charset="utf-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Save your preferences</title>
+</head>
+<body style="font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, 'Helvetica Neue', Arial, sans-serif; line-height: 1.7; color: #334155; max-width: 600px; margin: 0 auto; padding: 20px; background: #f8fafc;">
+    <div style="background: linear-gradient(135deg, #3B82F6 0%, #1D4ED8 100%); padding: 28px; border-radius: 16px 16px 0 0; text-align: center;">
+        <h1 style="color: white; margin: 0; font-size: 22px; font-weight: 600;">Tripy</h1>
+    </div>
+    <div style="background: white; padding: 32px; border: 1px solid #E2E8F0; border-top: none; border-radius: 0 0 16px 16px;">
+        <p style="margin-top: 0;">Hi,</p>
+        <p>You've used Tripy a couple of times now, and we noticed a pattern in how you like to travel.</p>
+
+        <p>If you want, you can save your preferences so Tripy can:</p>
+        <ul style="color: #475569; padding-left: 20px;">
+            <li>Skip setup next time</li>
+            <li>Optimize faster</li>
+            <li>Match recommendations more closely to how you decide</li>
+        </ul>
+
+        <div style="text-align: center; margin: 24px 0;">
+            <a href="{sign_in_link}" style="display: inline-block; background: #2563EB; color: white; text-decoration: none; padding: 14px 32px; border-radius: 10px; font-weight: 600; font-size: 16px;">Save my preferences</a>
+        </div>
+
+        <p>Totally optional — Tripy works without an account too.</p>
+
+        <p style="margin-bottom: 0;">Thanks for using Tripy,<br><strong>Tripy</strong></p>
+    </div>
+    <div style="text-align: center; padding: 20px; color: #94A3B8; font-size: 12px;">
+        <p style="margin: 0;">&copy; {year} Tripy &middot; Book with confidence.</p>
+    </div>
+</body>
+</html>
+""",
+        "text": """Hi,
+
+You've used Tripy a couple of times now, and we noticed a pattern in how you like to travel.
+
+If you want, you can save your preferences so Tripy can:
+- Skip setup next time
+- Optimize faster
+- Match recommendations more closely to how you decide
+
+You can do that here: {sign_in_link}
+
+Totally optional — Tripy works without an account too.
+
+Thanks for using Tripy,
+Tripy
+
+---
+© {year} Tripy. Book with confidence.
+""",
+    },
+    "support_touch": {
+        "subject": "Was your Tripy recommendation helpful?",
+        "html": """
+<!DOCTYPE html>
+<html>
+<head>
+    <meta charset="utf-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>We'd love your feedback</title>
+</head>
+<body style="font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, 'Helvetica Neue', Arial, sans-serif; line-height: 1.7; color: #334155; max-width: 600px; margin: 0 auto; padding: 20px; background: #f8fafc;">
+    <div style="background: linear-gradient(135deg, #3B82F6 0%, #1D4ED8 100%); padding: 28px; border-radius: 16px 16px 0 0; text-align: center;">
+        <h1 style="color: white; margin: 0; font-size: 22px; font-weight: 600;">Tripy</h1>
+    </div>
+    <div style="background: white; padding: 32px; border: 1px solid #E2E8F0; border-top: none; border-radius: 0 0 16px 16px;">
+        <p style="margin-top: 0;">Hi,</p>
+        <p>If anything about your Tripy recommendation felt unclear or off, we want to hear about it.</p>
+
+        <p>You can reply directly to this email — it goes to a real person.</p>
+
+        <div style="background: #F8FAFC; border: 1px solid #E2E8F0; border-radius: 12px; padding: 20px; margin: 24px 0; text-align: center;">
+            <p style="margin: 0; color: #475569; font-size: 15px;">Our goal is simple:<br>
+            <strong style="color: #1E293B;">Help you book with confidence and avoid regret.</strong></p>
+        </div>
+
+        <p style="margin-bottom: 0;">— <strong>Tripy Support</strong></p>
+    </div>
+    <div style="text-align: center; padding: 20px; color: #94A3B8; font-size: 12px;">
+        <p style="margin: 0;">&copy; {year} Tripy &middot; Book with confidence.</p>
+    </div>
+</body>
+</html>
+""",
+        "text": """Hi,
+
+If anything about your Tripy recommendation felt unclear or off, we want to hear about it.
+
+You can reply directly to this email — it goes to a real person.
+
+Our goal is simple:
+Help you book with confidence and avoid regret.
+
+— Tripy Support
+
+---
+© {year} Tripy. Book with confidence.
 """,
     },
 }
@@ -404,6 +835,132 @@ def send_trip_invitation_email(
         subject=rendered["subject"],
         html_body=rendered["html"],
         text_body=rendered["text"],
+    )
+
+
+# =========================================================================
+# Solo Plan / Confidence Engine Email Helpers
+# =========================================================================
+
+SUPPORT_EMAIL = "support@traveltripy.com"
+
+
+def send_magic_link_email(
+    to_email: str,
+    magic_link: str,
+) -> Dict[str, Any]:
+    """
+    Send a magic link email so the user can restore their flight plan.
+    Template: magic_link (Phase 14 — "Email Me This Plan")
+    """
+    rendered = _render_template("magic_link", magic_link=magic_link)
+    return send_email(
+        to_email=to_email,
+        subject=rendered["subject"],
+        html_body=rendered["html"],
+        text_body=rendered["text"],
+    )
+
+
+def send_post_result_followup_email(
+    to_email: str,
+    magic_link: str,
+) -> Dict[str, Any]:
+    """
+    Send a calm follow-up after a user generated results but hasn't booked.
+    Template: post_result_followup
+    """
+    rendered = _render_template("post_result_followup", magic_link=magic_link)
+    return send_email(
+        to_email=to_email,
+        subject=rendered["subject"],
+        html_body=rendered["html"],
+        text_body=rendered["text"],
+    )
+
+
+def send_lock_plan_prompt_email(
+    to_email: str,
+    lock_plan_link: str,
+) -> Dict[str, Any]:
+    """
+    Prompt a signed-in user to lock/save their plan.
+    Template: lock_plan_prompt
+    """
+    rendered = _render_template("lock_plan_prompt", lock_plan_link=lock_plan_link)
+    return send_email(
+        to_email=to_email,
+        subject=rendered["subject"],
+        html_body=rendered["html"],
+        text_body=rendered["text"],
+    )
+
+
+def send_i_booked_it_email(
+    to_email: str,
+    trip_link: str,
+) -> Dict[str, Any]:
+    """
+    Acknowledge a booking and remind the user to keep key documents.
+    Template: i_booked_it
+    """
+    rendered = _render_template("i_booked_it", trip_link=trip_link)
+    return send_email(
+        to_email=to_email,
+        subject=rendered["subject"],
+        html_body=rendered["html"],
+        text_body=rendered["text"],
+    )
+
+
+def send_monitoring_alert_email(
+    to_email: str,
+    trip_update_link: str,
+) -> Dict[str, Any]:
+    """
+    Alert a user that something changed on a monitored plan.
+    Template: monitoring_alert
+    """
+    rendered = _render_template("monitoring_alert", trip_update_link=trip_update_link)
+    return send_email(
+        to_email=to_email,
+        subject=rendered["subject"],
+        html_body=rendered["html"],
+        text_body=rendered["text"],
+    )
+
+
+def send_gentle_nudge_email(
+    to_email: str,
+    sign_in_link: str,
+) -> Dict[str, Any]:
+    """
+    Gently encourage a repeat user to save their preferences.
+    Template: gentle_nudge
+    """
+    rendered = _render_template("gentle_nudge", sign_in_link=sign_in_link)
+    return send_email(
+        to_email=to_email,
+        subject=rendered["subject"],
+        html_body=rendered["html"],
+        text_body=rendered["text"],
+    )
+
+
+def send_support_touch_email(
+    to_email: str,
+) -> Dict[str, Any]:
+    """
+    Human-touch email inviting feedback. Reply goes to a real person.
+    Template: support_touch
+    """
+    rendered = _render_template("support_touch")
+    return send_email(
+        to_email=to_email,
+        subject=rendered["subject"],
+        html_body=rendered["html"],
+        text_body=rendered["text"],
+        reply_to=SUPPORT_EMAIL,
     )
 
 

@@ -45,8 +45,10 @@ import logging
 logger = logging.getLogger(__name__)
 
 # Constants
-TRIP_STATUSES = ['draft', 'optimized', 'selected', 'instructions_unlocked', 'completed', 'cancelled']
+TRIP_STATUSES = ['draft', 'optimized', 'selected', 'instructions_unlocked', 'booked', 'completed', 'cancelled']
 OPTIMIZATION_CACHE_TTL_HOURS = 4
+ANON_DATA_TTL_DAYS = 30  # Anonymous trip/points data expires after 30 days
+ANON_PREFIX = "anon_"  # Must match jwt_auth.ANON_PREFIX
 
 # Initialize table references
 _trips_table = table(TRIPS_TABLE)
@@ -119,6 +121,12 @@ def create_solo_trip(user_id: str, request: CreateTripRequest) -> Dict[str, Any]
         "departureTimePreference": request.departure_time_preference,
         "arrivalTimePreference": request.arrival_time_preference,
     }
+    
+    # Set TTL for anonymous users (DynamoDB TTL auto-deletes after expiry)
+    if user_id.startswith(ANON_PREFIX):
+        ttl_epoch = int((datetime.now(timezone.utc) + timedelta(days=ANON_DATA_TTL_DAYS)).timestamp())
+        item["ttl"] = ttl_epoch
+        item["isAnonymous"] = True
     
     put_item(t, item)
     
@@ -308,6 +316,11 @@ def upsert_points(
             "balance": balance.balance,
             "source": "manual",
         }
+        
+        # Set TTL for anonymous users' points data
+        if user_id.startswith(ANON_PREFIX):
+            ttl_epoch = int((datetime.now(timezone.utc) + timedelta(days=ANON_DATA_TTL_DAYS)).timestamp())
+            item["ttl"] = ttl_epoch
         
         t.put_item(Item=sanitize_for_dynamodb(item))
     

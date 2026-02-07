@@ -4,7 +4,7 @@ Points Schemas for Solo Booking Flow
 These schemas define the API contracts for points management.
 """
 from pydantic import BaseModel, field_validator
-from typing import List, Optional, Union
+from typing import List, Literal, Optional, Union
 
 from .programs import PointsProgram
 
@@ -117,10 +117,17 @@ def normalize_program(value: Union[str, PointsProgram]) -> PointsProgram:
 
 
 class PointsBalance(BaseModel):
-    """Single points balance for a program"""
+    """Single points balance for a program.
+    
+    Supports both exact and estimated balances:
+    - owner_type: "user" for authenticated users, "anon" for anonymous sessions
+    - confidence: "exact" (verified), "estimated" (conservative guess), "unknown" (user skipped)
+    """
     program: Union[str, PointsProgram]  # Accept both string and enum
     balance: int
     updated_at: Optional[str] = None  # Issue #4 FIX: add updated_at
+    owner_type: Optional[Literal["user", "anon"]] = "user"  # Who owns these points
+    confidence: Optional[Literal["exact", "estimated", "unknown"]] = "exact"  # Balance confidence
     
     @field_validator('program', mode='before')
     @classmethod

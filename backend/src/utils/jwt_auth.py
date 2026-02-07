@@ -1,10 +1,14 @@
 """
 JWT Authentication utilities for FastAPI
+
+Supports both authenticated users (Cognito JWT) and anonymous sessions (UUID v4).
+Anonymous sessions allow trip generation without sign-in.
 """
 
+import uuid
 import jwt
 from typing import Optional, Dict, Any
-from fastapi import HTTPException, Security, Depends
+from fastapi import HTTPException, Security, Depends, Request
 from fastapi.security import HTTPBearer, HTTPAuthorizationCredentials
 from src.config import USER_POOL_ID, USER_POOL_CLIENT_ID, AWS_REGION
 import boto3
@@ -14,6 +18,9 @@ logger = logging.getLogger(__name__)
 
 security = HTTPBearer()
 optional_security = HTTPBearer(auto_error=False)
+
+# Prefix for anonymous session IDs to distinguish from Cognito user IDs
+ANON_PREFIX = "anon_"
 
 
 def get_jwks_url() -> str:
@@ -228,4 +235,83 @@ def get_optional_user_id(
     try:
         return get_current_user_id(credentials)
     except HTTPException:
+        return None
+
+
+def is_anonymous(user_or_anon_id: str) -> bool:
+    """Check if the given ID is an anonymous session ID."""
+    return user_or_anon_id.startswith(ANON_PREFIX)
+
+
+def get_user_or_anon_id(
+    request: Request,
+    credentials: Optional[HTTPAuthorizationCredentials] = Depends(optional_security),
+) -> str:
+    """
+    Dependency that returns either:
+    - Authenticated user ID (from JWT token), OR
+    - Anonymous session ID (from X-Anon-Session header, or generates a new one)
+
+    This allows trip generation without sign-in.
+    The returned ID is always a string:
+    - Cognito user IDs look like UUIDs (e.g., "a1b2c3d4-...")
+    - Anonymous session IDs are prefixed with "anon_" (e.g., "anon_a1b2c3d4-...")
+    """
+    # Try authenticated user first
+    if credentials:
+        try:
+            user_id = get_current_user_id(credentials)
+            if user_id:
+                return user_id
+        except HTTPException:
+            pass  # Fall through to anonymous
+
+    # Check for anonymous session header
+    anon_session_id = request.headers.get("X-Anon-Session-Id")
+    if anon_session_id:
+        validated = _validate_anon_session_id(anon_session_id)
+        if validated:
+            logger.debug(f"Using anonymous session: {validated}")
+            return validated
+        else:
+            # Invalid header — generate a new one instead of erroring
+            logger.warning(f"Invalid X-Anon-Session-Id header (length={len(anon_session_id)}), generating new")
+
+    # Generate a new anonymous session ID
+    new_anon_id = f"{ANON_PREFIX}{uuid.uuid4()}"
+    logger.info(f"Generated new anonymous session: {new_anon_id}")
+    return new_anon_id
+
+
+def _validate_anon_session_id(raw: str) -> Optional[str]:
+    """
+    Validate and normalize an anonymous session ID.
+    
+    Rules:
+    - Must start with "anon_" (or we prepend it)
+    - Must contain a valid UUID after the prefix
+    - Reject overly long values (> 100 chars) to prevent header abuse
+    - Returns normalized ID or None if invalid
+    """
+    if not raw or not isinstance(raw, str):
+        return None
+    
+    # Reject overly long values
+    if len(raw) > 100:
+        return None
+    
+    # Strip whitespace
+    raw = raw.strip()
+    
+    # Extract the UUID part
+    if raw.startswith(ANON_PREFIX):
+        uuid_part = raw[len(ANON_PREFIX):]
+    else:
+        uuid_part = raw
+    
+    # Validate UUID format
+    try:
+        parsed = uuid.UUID(uuid_part)
+        return f"{ANON_PREFIX}{parsed}"
+    except (ValueError, AttributeError):
         return None

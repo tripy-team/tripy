@@ -113,11 +113,19 @@ export default function SoloTripSetup() {
     };
   }, []);
 
-  // Load user profile on mount
+  // Load user profile on mount (gracefully handles anonymous users)
   useEffect(() => {
     const loadUserProfile = async () => {
       try {
         setIsLoadingProfile(true);
+        // Only load profile if user is authenticated
+        const { isAuthenticated: checkAuth } = await import('@/lib/api');
+        if (!checkAuth()) {
+          // Anonymous user — skip profile load, use defaults
+          console.log('[SoloSetup] Anonymous session — skipping profile load');
+          return;
+        }
+        
         const profile = await usersAPI.getProfile();
         
         // Max budget is now per-trip, not stored in profile
@@ -132,7 +140,7 @@ export default function SoloTripSetup() {
         }
       } catch (err) {
         console.error('Error loading user profile:', err);
-        // Use defaults if profile load fails
+        // Use defaults if profile load fails (expected for anonymous users)
       } finally {
         setIsLoadingProfile(false);
       }
@@ -141,11 +149,15 @@ export default function SoloTripSetup() {
     loadUserProfile();
   }, []);
 
-  // Save credit cards when they change
+  // Save credit cards when they change (only for authenticated users)
   useEffect(() => {
     if (!isLoadingProfile) {
       const saveProfile = async () => {
         try {
+          // Only save if authenticated — anonymous users don't have a profile
+          const { isAuthenticated: checkAuth } = await import('@/lib/api');
+          if (!checkAuth()) return;
+          
           await usersAPI.updateProfile({
             credit_cards: creditCards,
           });

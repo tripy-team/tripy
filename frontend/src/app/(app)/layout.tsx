@@ -1,12 +1,22 @@
 'use client';
 
 import { useEffect, useState } from 'react';
-import { useRouter } from 'next/navigation';
+import { useRouter, usePathname } from 'next/navigation';
 import { Navigation } from '@/components/navigation';
 import { ScrollToTop } from '@/components/scroll-to-top';
-import { SKIP_API_AUTH } from '@/lib/api';
+import { SKIP_API_AUTH, isAuthenticated } from '@/lib/api';
 
 const AUTH_CHECKED_KEY = 'tripy_auth_checked_session';
+
+// Routes that DO NOT require authentication — users can generate trips anonymously
+const PUBLIC_ROUTES = [
+    '/solo/setup',
+    '/solo/results',
+];
+
+function isPublicRoute(pathname: string): boolean {
+    return PUBLIC_ROUTES.some(route => pathname.startsWith(route));
+}
 
 export default function AppLayout({
     children,
@@ -14,6 +24,7 @@ export default function AppLayout({
     children: React.ReactNode;
 }) {
     const router = useRouter();
+    const pathname = usePathname();
     const [isChecking, setIsChecking] = useState(true);
 
     useEffect(() => {
@@ -26,6 +37,16 @@ export default function AppLayout({
 
         // Ensure we're in the browser
         if (typeof window === 'undefined') {
+            setIsChecking(false);
+            return;
+        }
+
+        // PUBLIC ROUTES: Never block trip generation behind auth
+        if (isPublicRoute(pathname)) {
+            if (process.env.NODE_ENV === 'development') {
+                console.log('[AppLayout] Public route — skipping auth gate:', pathname);
+            }
+            sessionStorage.setItem(AUTH_CHECKED_KEY, 'true');
             setIsChecking(false);
             return;
         }
@@ -48,7 +69,6 @@ export default function AppLayout({
         }
 
         // First time check or tokens were cleared
-        // Simple auth check - only verify access_token exists (this is what login sets)
         const accessToken = localStorage.getItem('access_token') || sessionStorage.getItem('access_token');
         const idToken = localStorage.getItem('id_token') || sessionStorage.getItem('id_token');
         
@@ -63,21 +83,18 @@ export default function AppLayout({
         }
         
         // Only redirect if we have NO tokens at all
-        // Having access_token OR id_token means user is authenticated
         if (!accessToken && !idToken) {
-            // No tokens - user is not authenticated
             sessionStorage.setItem(AUTH_CHECKED_KEY, 'true');
             setIsChecking(false);
             router.replace('/login');
             return;
         }
         
-        // User has a token - allow access (they're authenticated)
-        // Mark as checked in sessionStorage so we don't check again this session
+        // User has a token - allow access
         sessionStorage.setItem(AUTH_CHECKED_KEY, 'true');
         setIsChecking(false);
         // eslint-disable-next-line react-hooks/exhaustive-deps
-    }, []); // Only run once on mount - router is stable and doesn't need to be in deps
+    }, [pathname]); // Re-check when route changes
 
     // Show loading state while checking authentication
     if (isChecking) {

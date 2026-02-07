@@ -1,7 +1,11 @@
+import { Navigation } from '@/components/navigation';
+import Footer from '@/components/footer';
+
 export default function ContactPage() {
 	return (
 		<main className="min-h-screen bg-gradient-to-br from-white via-blue-50/30 to-white text-slate-900">
-			<section className="mx-auto max-w-4xl px-8 py-12">
+			<Navigation />
+			<section className="mx-auto max-w-4xl px-8 pt-32 pb-24">
 				<h1 className="mb-6 text-5xl font-bold text-slate-900 tracking-tight">
 					Contact Us
 				</h1>
@@ -104,6 +108,7 @@ export default function ContactPage() {
 					</div>
 				</div>
 			</section>
+			<Footer />
 		</main>
 	);
 }

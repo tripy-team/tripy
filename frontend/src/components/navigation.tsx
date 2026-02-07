@@ -158,7 +158,7 @@ export function Navigation() {
 
                   <NavigationMenuItem>
                     <NavigationMenuLink asChild className={cn(navigationMenuTriggerStyle(), pathname.startsWith('/solo') && "bg-slate-100 text-slate-900")}>
-                      <Link href={user ? "/solo/setup" : "/login?redirect=/solo/setup"}>
+                      <Link href="/solo/setup">
                         Plan a Trip
                       </Link>
                     </NavigationMenuLink>
@@ -278,7 +278,7 @@ export function Navigation() {
             </Link>
             
             <Link
-              href={user ? "/solo/setup" : "/login?redirect=/solo/setup"}
+              href="/solo/setup"
               onClick={() => setMobileMenuOpen(false)}
               className={`block pl-3 pr-4 py-2 border-l-4 text-base font-medium ${
                 pathname.includes('/solo')

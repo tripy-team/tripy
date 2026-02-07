@@ -54,7 +54,7 @@ from .utils.analytics import (
     track_destination_added,
     track_itinerary_generated,
 )
-from .utils.jwt_auth import get_current_user_id
+from .utils.jwt_auth import get_current_user_id, get_user_or_anon_id, is_anonymous
 from .utils.loyalty_programs import validate_program
 from .handlers.openAI import (
     extract_trip_info_with_openai,
@@ -115,7 +115,78 @@ app.add_middleware(
     allow_credentials=ALLOW_CREDENTIALS,
     allow_methods=["*"],
     allow_headers=["*"],
+    expose_headers=["X-Anon-Session-Id"],
 )
+
+# ============================================================================
+# Rate Limiting (Phase 16, Task 15)
+# ============================================================================
+# In-memory rate limiter. Per IP + anon_session_id, 30 req/min for sensitive endpoints.
+# Replace with Redis in production.
+
+import time
+from collections import defaultdict
+
+_rate_limit_store: Dict[str, list] = defaultdict(list)
+RATE_LIMIT_MAX = 30  # requests per window
+RATE_LIMIT_WINDOW_S = 60  # seconds
+RATE_LIMITED_PATHS = {"/solo/optimize", "/solo/trips", "/points/estimate", "/solo/share"}
+
+
+@app.middleware("http")
+async def rate_limit_middleware(request: Request, call_next):
+    """Rate limit sensitive anonymous endpoints: 30 req/min per IP+anon."""
+    path = request.url.path
+    
+    # Only rate-limit specific paths
+    should_limit = any(path.startswith(p) for p in RATE_LIMITED_PATHS)
+    
+    if should_limit:
+        # Build key: IP + anon_session_id
+        client_ip = request.client.host if request.client else "unknown"
+        anon_id = request.headers.get("X-Anon-Session-Id", "")
+        key = f"{client_ip}:{anon_id}"
+        
+        now = time.time()
+        # Clean old entries
+        _rate_limit_store[key] = [t for t in _rate_limit_store[key] if now - t < RATE_LIMIT_WINDOW_S]
+        
+        if len(_rate_limit_store[key]) >= RATE_LIMIT_MAX:
+            from starlette.responses import JSONResponse
+            return JSONResponse(
+                status_code=429,
+                content={"detail": "Too many requests. Please wait a moment and try again."},
+                headers={"Retry-After": str(RATE_LIMIT_WINDOW_S)},
+            )
+        
+        _rate_limit_store[key].append(now)
+        
+        # Periodically clean stale keys (every ~100 requests)
+        if len(_rate_limit_store) > 1000:
+            stale_keys = [k for k, v in _rate_limit_store.items() if not v or now - v[-1] > RATE_LIMIT_WINDOW_S * 2]
+            for k in stale_keys:
+                del _rate_limit_store[k]
+    
+    return await call_next(request)
+
+
+# Anonymous session middleware — attaches anon_session_id to response headers
+# so the frontend can persist it across page refreshes
+@app.middleware("http")
+async def anon_session_middleware(request: Request, call_next):
+    """
+    If no Authorization header is present, check for X-Anon-Session-Id header.
+    Echo the anon session ID back in the response so the frontend can persist it.
+    """
+    response = await call_next(request)
+    
+    # If the request had an anon session header, echo it back
+    anon_id = request.headers.get("X-Anon-Session-Id")
+    if anon_id:
+        response.headers["X-Anon-Session-Id"] = anon_id
+    
+    return response
+
 
 # Include agentic optimization routes
 app.include_router(optimize_router)
@@ -1943,6 +2014,126 @@ async def get_points_valuations(user_id: str = Depends(get_current_user_id)):
     except Exception as e:
         logger.error(f"Error getting points valuations: {str(e)}")
         raise HTTPException(status_code=500, detail=str(e))
+
+
+# ============================================================================
+# Points Estimation (supports anonymous users)
+# ============================================================================
+
+# Conservative default balances for common cards (annual spending estimates)
+ESTIMATED_CARD_BALANCES = {
+    # Bank points (transferable) — conservative estimates
+    "amex_mr": {"card": "Amex Gold", "balance": 60000, "label": "Amex Membership Rewards"},
+    "amex_mr_platinum": {"card": "Amex Platinum", "balance": 100000, "label": "Amex Membership Rewards"},
+    "chase_ur": {"card": "Chase Sapphire Preferred", "balance": 50000, "label": "Chase Ultimate Rewards"},
+    "chase_ur_reserve": {"card": "Chase Sapphire Reserve", "balance": 80000, "label": "Chase Ultimate Rewards"},
+    "citi_typ": {"card": "Citi Premier", "balance": 40000, "label": "Citi ThankYou Points"},
+    "capital_one": {"card": "Capital One Venture X", "balance": 50000, "label": "Capital One Miles"},
+    "bilt": {"card": "Bilt Mastercard", "balance": 30000, "label": "Bilt Rewards"},
+}
+
+# Pre-configured common card situations for "Confirm My Situation"
+COMMON_CARD_PRESETS = [
+    {
+        "id": "amex_gold",
+        "name": "Amex Gold",
+        "program": "amex_mr",
+        "estimated_balance": 60000,
+        "usable_label": "~60,000 MR points",
+        "icon": "amex",
+    },
+    {
+        "id": "amex_platinum",
+        "name": "Amex Platinum",
+        "program": "amex_mr",
+        "estimated_balance": 100000,
+        "usable_label": "~100,000 MR points",
+        "icon": "amex",
+    },
+    {
+        "id": "chase_sapphire_preferred",
+        "name": "Chase Sapphire Preferred",
+        "program": "chase_ur",
+        "estimated_balance": 50000,
+        "usable_label": "~50,000 UR points",
+        "icon": "chase",
+    },
+    {
+        "id": "chase_sapphire_reserve",
+        "name": "Chase Sapphire Reserve",
+        "program": "chase_ur",
+        "estimated_balance": 80000,
+        "usable_label": "~80,000 UR points",
+        "icon": "chase",
+    },
+    {
+        "id": "capital_one_venture_x",
+        "name": "Capital One Venture X",
+        "program": "capital_one",
+        "estimated_balance": 50000,
+        "usable_label": "~50,000 miles",
+        "icon": "capitalone",
+    },
+    {
+        "id": "citi_premier",
+        "name": "Citi Premier",
+        "program": "citi_typ",
+        "estimated_balance": 40000,
+        "usable_label": "~40,000 TYP",
+        "icon": "citi",
+    },
+    {
+        "id": "bilt",
+        "name": "Bilt Mastercard",
+        "program": "bilt",
+        "estimated_balance": 30000,
+        "usable_label": "~30,000 Bilt points",
+        "icon": "bilt",
+    },
+]
+
+
+@app.get("/points/card-presets")
+async def get_card_presets():
+    """
+    Get pre-configured common card presets for the 'Confirm My Situation' UI.
+    No auth required — works for anonymous users.
+    """
+    return {"presets": COMMON_CARD_PRESETS}
+
+
+class EstimatePointsRequest(BaseModel):
+    """Request to estimate points for selected cards."""
+    card_ids: List[str] = Field(..., description="List of card preset IDs the user selected")
+
+
+@app.post("/points/estimate")
+async def estimate_points(request: EstimatePointsRequest):
+    """
+    Estimate points balances for users who select 'Estimate for me.'
+    Uses conservative defaults. No auth required.
+    
+    Returns estimated balances with confidence='estimated' so the optimizer 
+    can bias toward safer itineraries.
+    """
+    estimated_points = []
+    preset_lookup = {p["id"]: p for p in COMMON_CARD_PRESETS}
+    
+    for card_id in request.card_ids:
+        preset = preset_lookup.get(card_id)
+        if preset:
+            estimated_points.append({
+                "program": preset["program"],
+                "balance": preset["estimated_balance"],
+                "confidence": "estimated",
+                "owner_type": "anon",
+                "card_name": preset["name"],
+            })
+    
+    return {
+        "estimated_points": estimated_points,
+        "disclaimer": "These are conservative estimates. Sign in to use your exact balances.",
+    }
 
 
 # Itinerary endpoints (require authentication)

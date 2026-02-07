@@ -6,13 +6,15 @@ All responses use snake_case; frontend converts to camelCase via serializers.
 
 Integrates with the real OrchestratorAgent for ILP-based optimization.
 """
+import os
 import logging
 from datetime import datetime, timezone, timedelta
-from typing import Optional
+from typing import Dict, Optional
 
 from fastapi import APIRouter, Depends, HTTPException
+from pydantic import BaseModel
 
-from ..utils.jwt_auth import get_current_user_id
+from ..utils.jwt_auth import get_current_user_id, get_user_or_anon_id, is_anonymous
 from ..schemas import (
     # Trip schemas
     CreateTripRequest as SoloCreateTripRequest,
@@ -34,6 +36,11 @@ from ..schemas import (
     SegmentBreakdown,
     OOPMetrics,
     RankedItinerary,
+    DecisionSummary,
+    RejectedAlternative,
+    RiskAssessment,
+    BookingDetails,
+    BookingChecklistStep,
     BookingStep,
 )
 from ..services import solo_trip_service
@@ -133,10 +140,13 @@ router = APIRouter(prefix="/solo", tags=["Solo Booking"])
 @router.post("/trips", response_model=TripResponse)
 async def create_solo_trip(
     request: SoloCreateTripRequest,
-    user_id: str = Depends(get_current_user_id),
+    user_id: str = Depends(get_user_or_anon_id),
 ):
     """
     Create a new solo trip.
+    
+    Supports both authenticated users and anonymous sessions.
+    Anonymous users can generate trips without signing in.
     
     This endpoint creates a trip with:
     - Origin and destinations (IATA codes)
@@ -156,9 +166,9 @@ async def create_solo_trip(
 @router.get("/trips/{trip_id}", response_model=TripResponse)
 async def get_solo_trip(
     trip_id: str,
-    user_id: str = Depends(get_current_user_id),
+    user_id: str = Depends(get_user_or_anon_id),
 ):
-    """Get a solo trip by ID."""
+    """Get a solo trip by ID. Supports both authenticated and anonymous sessions."""
     try:
         trip = solo_trip_service.get_solo_trip(trip_id, user_id)
         if not trip:
@@ -178,12 +188,13 @@ async def get_solo_trip(
 async def update_solo_trip_status(
     trip_id: str,
     request: UpdateTripStatusRequest,
-    user_id: str = Depends(get_current_user_id),
+    user_id: str = Depends(get_user_or_anon_id),
 ):
     """
     Update trip status.
     
-    Status lifecycle: draft → optimized → selected → instructions_unlocked → completed
+    Status lifecycle: draft → optimized → selected → instructions_unlocked → booked → completed
+    Supports anonymous users for the 'booked' status.
     """
     try:
         result = solo_trip_service.update_solo_trip_status(
@@ -275,9 +286,9 @@ async def get_selection(
 @router.get("/trips/{trip_id}/points", response_model=PointsSummaryResponse)
 async def get_trip_points(
     trip_id: str,
-    user_id: str = Depends(get_current_user_id),
+    user_id: str = Depends(get_user_or_anon_id),
 ):
-    """Get points balances for a trip."""
+    """Get points balances for a trip. Supports anonymous sessions."""
     try:
         return solo_trip_service.get_points(trip_id, user_id)
     except PermissionError as e:
@@ -293,10 +304,10 @@ async def get_trip_points(
 async def upsert_trip_points(
     trip_id: str,
     request: SoloUpsertPointsRequest,
-    user_id: str = Depends(get_current_user_id),
+    user_id: str = Depends(get_user_or_anon_id),
 ):
     """
-    Upsert points balances for a trip.
+    Upsert points balances for a trip. Supports anonymous sessions.
     
     Issue #3 FIX: use request.points (matches UpsertPointsRequest schema)
     """
@@ -318,10 +329,11 @@ async def upsert_trip_points(
 @router.post("/optimize", response_model=OptimizeSoloResponse)
 async def optimize_solo(
     request: OptimizeSoloRequest,
-    user_id: str = Depends(get_current_user_id),
+    user_id: str = Depends(get_user_or_anon_id),
 ):
     """
     Optimize a solo trip using the real ILP-based orchestrator.
+    Supports anonymous sessions — no sign-in required.
     
     Fixup 3: Uses trip preferences from backend (source of truth).
     Only tripId + points + optional mode override come from request.
@@ -386,13 +398,53 @@ async def optimize_solo(
         
         logger.info(f"[solo/optimize] Running orchestrator for trip {request.trip_id} with optimization_mode={mode}, budget=${budget if budget else 'unlimited'}")
         
-        # Call the real orchestrator
-        agent_response = await orchestrator.optimize_solo(agent_request)
+        # Call the real orchestrator with safe degradation (Task 17)
+        degradation_warnings = []
+        try:
+            agent_response = await orchestrator.optimize_solo(agent_request)
+        except Exception as search_err:
+            logger.warning(f"[solo/optimize] Primary search failed: {search_err}. Attempting cash-only fallback.")
+            degradation_warnings.append(
+                "Award search temporarily unavailable. Showing cash-only recommendation. "
+                "Points-based options may be available if you try again later."
+            )
+            try:
+                # Fallback: try cash-only optimization (no points)
+                fallback_request = AgentOptimizeSoloRequest(
+                    trip_id=request.trip_id,
+                    points={},  # No points = cash only
+                    budget=budget,
+                    cabin_classes=cabin_classes,
+                    optimization_mode="oop",  # Force out-of-pocket mode for cash
+                )
+                agent_response = await orchestrator.optimize_solo(fallback_request)
+            except Exception as fallback_err:
+                logger.error(f"[solo/optimize] Cash-only fallback also failed: {fallback_err}")
+                raise HTTPException(
+                    status_code=503,
+                    detail="Flight search is temporarily unavailable. Please try again in a few minutes."
+                )
         
-        # Transform to our response schema
+        # Check for partial failures in the response
+        if hasattr(agent_response, 'warnings') and agent_response.warnings:
+            for w in agent_response.warnings:
+                if 'error' in w.lower() or 'fail' in w.lower() or 'unavailable' in w.lower():
+                    degradation_warnings.append(w)
+        
+        # Transform to our response schema with volatility-aware TTL (Task 8)
         now = datetime.now(timezone.utc)
-        expires = now + timedelta(hours=solo_trip_service.OPTIMIZATION_CACHE_TTL_HOURS)
         computed_str = now.strftime('%Y-%m-%dT%H:%M:%SZ')
+        
+        # TTL Strategy: Points itineraries expire faster (more volatile)
+        has_points = any(v > 0 for v in request.points.values()) if request.points else False
+        if has_points:
+            # Points redemptions: 10-30 min TTL (award availability changes fast)
+            ttl_minutes = 20  # Default 20 minutes for points
+        else:
+            # Cash-only: 1-6 hours (more stable)
+            ttl_minutes = 180  # 3 hours for cash-only
+        
+        expires = now + timedelta(minutes=ttl_minutes)
         expires_str = expires.strftime('%Y-%m-%dT%H:%M:%SZ')
         
         # Get party size from trip for cost scaling
@@ -410,12 +462,37 @@ async def optimize_solo(
         # Generate insights from the results
         global_insights = _generate_insights(itineraries) if itineraries else []
         
+        # Check if points are estimated (for confidence level)
+        is_estimated = any(
+            v == 0 for v in request.points.values()
+        ) if request.points else True
+        
+        # Generate decision summary, risk, booking details, and rejection reasons
+        decision_summary = None
+        rejected_alternatives = []
+        booking_details = None
+        if itineraries:
+            best = itineraries[0]
+            # Add value labels, risk, and booking details to all itineraries
+            for it in itineraries:
+                it.value_label = _humanize_cpp(it.oop_metrics.average_cpp)
+                it.risk = _generate_risk_assessment(it)
+                it.booking_details = _generate_booking_details(it, trip)
+            
+            decision_summary = _generate_decision_summary(best, itineraries, is_estimated)
+            best.decision_summary = decision_summary
+            rejected_alternatives = _generate_rejected_alternatives(best, itineraries)
+            booking_details = best.booking_details
+        
         result = {
             "itineraries": [it.model_dump() for it in itineraries],
             "best_option": itineraries[0].id if itineraries else None,
-            "warnings": agent_response.warnings or [],
+            "warnings": (agent_response.warnings or []) + degradation_warnings,
             "global_insights": [i.model_dump() for i in global_insights],
             "risk_mode": "balanced",
+            "decision_summary": decision_summary.model_dump() if decision_summary else None,
+            "rejected_alternatives": [ra.model_dump() for ra in rejected_alternatives],
+            "booking_details": booking_details.model_dump() if booking_details else None,
         }
         
         # Cache the result
@@ -437,9 +514,12 @@ async def optimize_solo(
         return OptimizeSoloResponse(
             itineraries=itineraries,
             best_option=itineraries[0].id if itineraries else None,
-            warnings=agent_response.warnings or [],
+            warnings=(agent_response.warnings or []) + degradation_warnings,
             global_insights=global_insights,
             risk_mode="balanced",
+            decision_summary=decision_summary,
+            rejected_alternatives=rejected_alternatives,
+            booking_details=booking_details,
             cached=False,
             computed_at=computed_str,
             expires_at=expires_str,
@@ -658,6 +738,206 @@ def _transform_itineraries(agent_itineraries: list, party_size: int = 1) -> list
     return result
 
 
+def _humanize_cpp(cpp: float) -> str:
+    """Convert CPP number to human-readable value label. Task 13: Replace numeric-only language."""
+    if cpp >= 2.0:
+        return "Exceptional value"
+    elif cpp >= 1.5:
+        return "Excellent value"
+    elif cpp >= 1.2:
+        return "Solid use of points"
+    elif cpp >= 0.8:
+        return "Fair redemption"
+    elif cpp >= 0.5:
+        return "Below average — consider cash"
+    else:
+        return "Wasteful redemption"
+
+
+def _humanize_savings(pct: float) -> str:
+    """Convert savings percentage to human-readable text."""
+    if pct >= 50:
+        return "massive savings"
+    elif pct >= 30:
+        return "significant savings"
+    elif pct >= 15:
+        return "solid savings"
+    elif pct >= 5:
+        return "modest savings"
+    else:
+        return "minimal savings"
+
+
+def _generate_decision_summary(
+    best: RankedItinerary,
+    all_itineraries: list[RankedItinerary],
+    is_estimated: bool = False,
+) -> DecisionSummary:
+    """
+    Generate the decision confidence header for the recommended itinerary.
+    Uses opinionated, confident language — NOT neutral or numeric.
+    """
+    metrics = best.oop_metrics
+    cpp = metrics.average_cpp
+    savings_pct = metrics.savings_percentage
+    saved = metrics.cash_saved
+    oop = metrics.total_out_of_pocket
+    
+    # Build confident headline
+    parts = []
+    if saved > 100:
+        parts.append(f"saving you ${saved:,.0f}")
+    
+    # Check for direct flights
+    has_direct = any(seg.stops == 0 for seg in best.segments if seg.type == "flight")
+    has_transfers = len(best.transfers) > 0
+    
+    if has_direct:
+        parts.append("with a direct flight")
+    
+    if parts:
+        headline = f"Book this plan — {' '.join(parts)}."
+    elif savings_pct > 0:
+        headline = f"This is your best option — {_humanize_savings(savings_pct)} vs paying cash."
+    else:
+        headline = "This is your smartest move right now."
+    
+    # Confidence level
+    if is_estimated:
+        confidence = "medium"
+    elif cpp >= 1.5 and savings_pct >= 20:
+        confidence = "high"
+    elif cpp >= 1.0 and savings_pct >= 10:
+        confidence = "high"
+    elif cpp >= 0.8:
+        confidence = "medium"
+    else:
+        confidence = "low"
+    
+    # Why it's good (bullet points)
+    why_good = []
+    if savings_pct > 0:
+        why_good.append(f"Saves {savings_pct:.0f}% compared to paying full cash price")
+    if cpp >= 1.5:
+        why_good.append(f"{_humanize_cpp(cpp)} — your points are working hard ({cpp:.1f}¢ each)")
+    elif cpp >= 1.0:
+        why_good.append(f"{_humanize_cpp(cpp)} — better than the typical redemption")
+    if has_direct:
+        why_good.append("Direct flight — no stressful connections")
+    if oop < 200:
+        why_good.append(f"Only ${oop:,.0f} out of pocket")
+    elif oop < 500:
+        why_good.append(f"${oop:,.0f} out of pocket — reasonable for this route")
+    if not why_good:
+        why_good.append("Best combination of price and convenience we could find")
+    
+    # Tradeoffs (honest)
+    tradeoffs = []
+    if has_transfers:
+        transfer_time_total = sum(1 for t in best.transfers)
+        tradeoffs.append(f"Requires {transfer_time_total} point transfer{'s' if transfer_time_total > 1 else ''} (plan 1-3 days ahead)")
+    
+    non_direct = [seg for seg in best.segments if seg.type == "flight" and seg.stops > 0]
+    for seg in non_direct:
+        tradeoffs.append(f"{seg.origin}→{seg.destination}: {seg.stops} stop{'s' if seg.stops > 1 else ''}")
+    
+    if not tradeoffs:
+        tradeoffs.append("Nothing major — this is a clean plan")
+    
+    # Risks
+    risks = []
+    if has_transfers:
+        risks.append("Award availability can change — book within 48 hours of transferring")
+    if is_estimated:
+        risks.append("Your balances are estimated — actual points may differ")
+    
+    short_connections = [seg for seg in best.segments if seg.has_short_connection]
+    if short_connections:
+        risks.append("Short connection time on one or more legs — check with airline")
+    
+    if not risks:
+        risks.append("Low risk — straightforward booking")
+    
+    return DecisionSummary(
+        headline=headline,
+        confidence_level=confidence,
+        why_good=why_good,
+        tradeoffs=tradeoffs,
+        risks=risks,
+        is_estimated=is_estimated,
+    )
+
+
+def _generate_rejected_alternatives(
+    best: RankedItinerary,
+    all_itineraries: list[RankedItinerary],
+) -> list[RejectedAlternative]:
+    """
+    Task 8: Explain why top alternative options were rejected.
+    Generates human, opinionated rejection reasons.
+    """
+    if len(all_itineraries) <= 1:
+        return []
+    
+    alternatives = []
+    best_metrics = best.oop_metrics
+    
+    # Find cheapest alternative (lowest OOP)
+    cheapest = min(
+        (it for it in all_itineraries if it.id != best.id),
+        key=lambda it: it.oop_metrics.total_out_of_pocket,
+        default=None,
+    )
+    if cheapest and cheapest.oop_metrics.total_out_of_pocket < best_metrics.total_out_of_pocket:
+        diff = best_metrics.total_out_of_pocket - cheapest.oop_metrics.total_out_of_pocket
+        # Explain why cheaper isn't better
+        reasons = []
+        cheap_stops = sum(seg.stops for seg in cheapest.segments if seg.type == "flight")
+        best_stops = sum(seg.stops for seg in best.segments if seg.type == "flight")
+        if cheap_stops > best_stops:
+            reasons.append(f"requires {cheap_stops} stop{'s' if cheap_stops > 1 else ''} vs our pick's {best_stops}")
+        if cheapest.oop_metrics.average_cpp < best_metrics.average_cpp * 0.8:
+            reasons.append("wastes your points (poor redemption value)")
+        
+        reason = f"${diff:,.0f} cheaper, but " + (" and ".join(reasons) if reasons else "less convenient overall") + "."
+        alternatives.append(RejectedAlternative(
+            label="Cheapest option",
+            description=cheapest.display_name,
+            rejection_reason=reason,
+            price_or_points=f"${cheapest.oop_metrics.total_out_of_pocket:,.0f}",
+        ))
+    
+    # Find best CPP alternative
+    best_cpp_it = max(
+        (it for it in all_itineraries if it.id != best.id),
+        key=lambda it: it.oop_metrics.average_cpp,
+        default=None,
+    )
+    if best_cpp_it and best_cpp_it.oop_metrics.average_cpp > best_metrics.average_cpp:
+        extra_cost = best_cpp_it.oop_metrics.total_out_of_pocket - best_metrics.total_out_of_pocket
+        if extra_cost > 50:
+            reason = f"Higher points value ({best_cpp_it.oop_metrics.average_cpp:.1f}¢/pt) but costs ${extra_cost:,.0f} more out of pocket."
+        else:
+            reason = f"Slightly better points value but less convenient routing."
+        alternatives.append(RejectedAlternative(
+            label="Best points value",
+            description=best_cpp_it.display_name,
+            rejection_reason=reason,
+            price_or_points=f"{best_cpp_it.oop_metrics.average_cpp:.1f}¢/pt",
+        ))
+    
+    # Add a "Google Flights suggestion" rejection
+    if best_metrics.cash_saved > 100:
+        alternatives.append(RejectedAlternative(
+            label="What Google Flights would show",
+            description="Full cash price booking",
+            rejection_reason=f"You'd pay ${best_metrics.total_cash_price:,.0f} in cash. We saved you ${best_metrics.cash_saved:,.0f} by using your points strategically.",
+            price_or_points=f"${best_metrics.total_cash_price:,.0f}",
+        ))
+    
+    return alternatives
+
+
 def _generate_insights(itineraries: list[RankedItinerary]) -> list[TransferInsight]:
     """Generate insights from optimization results."""
     insights = []
@@ -697,6 +977,255 @@ def _generate_insights(itineraries: list[RankedItinerary]) -> list[TransferInsig
     return insights
 
 
+def _generate_risk_assessment(itinerary: RankedItinerary) -> RiskAssessment:
+    """
+    Task 4: Generate risk assessment for an itinerary using v1 heuristics.
+    
+    Rules:
+    - Separate tickets / self-transfer → high
+    - Tight connection (<60 min domestic, <90 min international) → medium/high
+    - Overnight layover → flag
+    - Carrier changes between legs → medium
+    """
+    flags = []
+    score = 0
+    
+    for seg in itinerary.segments:
+        if seg.type != "flight":
+            continue
+        
+        # Check if separate tickets (not single-ticket confirmed)
+        if seg.stops > 0 and not seg.ticketing_confirmed:
+            flags.append("Separate tickets — if one flight is delayed, the airline won't rebook you")
+            score += 40
+        
+        # Carrier changes
+        if seg.has_carrier_change:
+            flags.append(f"Carrier change on {seg.origin}→{seg.destination} — bags may need to be rechecked")
+            score += 15
+        
+        # Short connections
+        if seg.has_short_connection:
+            flags.append(f"Tight connection on {seg.origin}→{seg.destination} — under 60 minutes")
+            score += 25
+        
+        # Check layovers
+        for layover in seg.layovers:
+            if layover.duration_minutes < 60:
+                # Already flagged by has_short_connection, but add specifics
+                pass
+            elif layover.duration_minutes < 90 and layover.airport not in ["", None]:
+                # International heuristic: treat connections < 90 min as tight
+                # (Simplified: any non-trivial connection under 90 min)
+                if score < 20:
+                    flags.append(f"Connection at {layover.airport}: {layover.duration_minutes} min may be tight for international")
+                    score += 10
+            
+            if layover.is_long and layover.duration_minutes > 480:  # 8+ hours
+                flags.append(f"Overnight layover at {layover.airport} ({layover.duration_minutes // 60}h)")
+                score += 5
+    
+    # Check if transfers needed (adds risk of timing)
+    if itinerary.transfers:
+        non_instant = [t for t in itinerary.transfers if "instant" not in (t.expected_transfer_time or "").lower()]
+        if non_instant:
+            flags.append("Point transfers may take 1-3 days — transfer before searching for award seats")
+            score += 10
+    
+    # Determine level
+    score = min(score, 100)
+    if score >= 40:
+        level = "high"
+    elif score >= 20:
+        level = "medium"
+    else:
+        level = "low"
+    
+    if not flags:
+        flags.append("Low risk — single ticket, reasonable connections")
+    
+    return RiskAssessment(score=score, level=level, flags=flags)
+
+
+def _generate_booking_details(
+    itinerary: RankedItinerary,
+    trip: dict,
+) -> BookingDetails:
+    """
+    Task 1: Generate actionable booking details for an itinerary.
+    Includes everything a user needs to book without guessing.
+    """
+    airlines = set()
+    flight_numbers = []
+    connection_airports = set()
+    cabin = None
+    departure_date = None
+    return_date = None
+    departure_time = None
+    return_time = None
+    origin_airport = None
+    destination_airport = None
+    
+    for seg in itinerary.segments:
+        if seg.type != "flight":
+            continue
+        
+        if seg.airline:
+            airlines.add(seg.airline)
+        if seg.operating_airline and seg.operating_airline != seg.airline:
+            airlines.add(seg.operating_airline)
+        if seg.flight_number:
+            flight_numbers.append(seg.flight_number)
+        if seg.cabin_class:
+            cabin = seg.cabin_class
+        
+        # Collect leg flight numbers too
+        for leg in seg.legs:
+            if leg.flight_number and leg.flight_number not in flight_numbers:
+                flight_numbers.append(leg.flight_number)
+            if leg.marketing_carrier:
+                airlines.add(leg.marketing_carrier)
+        
+        # Track connection airports from layovers
+        for layover in seg.layovers:
+            if layover.airport:
+                connection_airports.add(layover.airport)
+    
+    # Determine departure/return from trip data
+    origin_airport = trip.get("origin", "")
+    destinations = trip.get("destinations", [])
+    if destinations:
+        destination_airport = destinations[0]
+    
+    departure_date = trip.get("startDate") or trip.get("start_date")
+    return_date = trip.get("endDate") or trip.get("end_date")
+    
+    # Get times from first/last segments
+    flight_segs = [s for s in itinerary.segments if s.type == "flight"]
+    if flight_segs:
+        if flight_segs[0].departure_time:
+            departure_time = flight_segs[0].departure_time
+        if len(flight_segs) > 1 and flight_segs[-1].departure_time:
+            return_time = flight_segs[-1].departure_time
+    
+    # Check if transfers are needed
+    needs_transfer = len(itinerary.transfers) > 0
+    transfer_programs = []
+    for t in itinerary.transfers:
+        src_name = _get_bank_display_name(t.source_program)
+        tgt_name = _get_program_display_name(t.target_program)
+        transfer_programs.append(f"{src_name} → {tgt_name}")
+    
+    # Build search hint
+    airline_names = sorted(airlines)
+    if airline_names and origin_airport and destination_airport:
+        primary_airline = airline_names[0]
+        search_hint = f"Search {primary_airline} for award flights {origin_airport} → {destination_airport}"
+        if departure_date:
+            search_hint += f" on {departure_date}"
+    else:
+        search_hint = "Search your airline's website for award availability"
+    
+    # Build checklist
+    checklist = []
+    step = 1
+    
+    if needs_transfer:
+        for t in itinerary.transfers:
+            src_name = _get_bank_display_name(t.source_program)
+            tgt_name = _get_program_display_name(t.target_program)
+            checklist.append(BookingChecklistStep(
+                step_number=step,
+                title="Transfer Points",
+                description=f"Transfer {t.points_to_transfer:,} points from {src_name} to {tgt_name}. Expected time: {t.expected_transfer_time}.",
+                action_type="transfer",
+                details={
+                    "source": t.source_program,
+                    "target": t.target_program,
+                    "points": t.points_to_transfer,
+                    "portal_url": t.portal_url,
+                    "transfer_time": t.expected_transfer_time,
+                },
+            ))
+            step += 1
+    
+    # Book flights step(s)
+    for seg in flight_segs:
+        program = seg.program or (airline_names[0] if airline_names else "airline")
+        prog_name = _get_program_display_name(program) if seg.program else (airline_names[0] if airline_names else "the airline")
+        desc = f"Book {seg.origin} → {seg.destination}"
+        if seg.cabin_class:
+            desc += f" ({seg.cabin_class})"
+        if seg.points_used:
+            desc += f" using {seg.points_used:,} points on {prog_name}"
+        if seg.surcharge and seg.surcharge > 0:
+            desc += f" + ${seg.surcharge:,.2f} taxes/fees"
+        desc += "."
+        
+        booking_url = seg.booking_url or ""
+        checklist.append(BookingChecklistStep(
+            step_number=step,
+            title="Book Flight",
+            description=desc,
+            action_type="book",
+            details={
+                "origin": seg.origin,
+                "destination": seg.destination,
+                "flight_numbers": [seg.flight_number] if seg.flight_number else [l.flight_number for l in seg.legs if l.flight_number],
+                "cabin": seg.cabin_class,
+                "booking_url": booking_url,
+            },
+        ))
+        step += 1
+    
+    # Save confirmation step
+    checklist.append(BookingChecklistStep(
+        step_number=step,
+        title="Save Confirmation",
+        description="Screenshot your confirmation number, receipt, and e-ticket. Save it somewhere you won't lose it.",
+        action_type="save",
+        details={
+            "what_to_save": [
+                "Confirmation number / PNR",
+                "Receipt with ticket cost",
+                "E-ticket number (13 digits)",
+                "Seat assignment (if applicable)",
+            ],
+        },
+    ))
+    step += 1
+    
+    # Monitor step
+    checklist.append(BookingChecklistStep(
+        step_number=step,
+        title="Monitor Your Trip",
+        description="We'll keep watching for schedule changes and better options. Sign in to enable monitoring.",
+        action_type="monitor",
+    ))
+    
+    return BookingDetails(
+        airlines=sorted(airlines),
+        flight_numbers=flight_numbers,
+        departure_date=departure_date,
+        return_date=return_date,
+        departure_time=departure_time,
+        return_time=return_time,
+        origin_airport=origin_airport,
+        destination_airport=destination_airport,
+        connection_airports=sorted(connection_airports),
+        cabin=cabin,
+        total_points=itinerary.oop_metrics.total_points_used,
+        total_taxes_fees=sum(
+            (seg.surcharge or 0) for seg in itinerary.segments if seg.payment_method == "points"
+        ),
+        total_cash_price=itinerary.oop_metrics.total_cash_price,
+        search_hint=search_hint,
+        booking_checklist=checklist,
+        needs_transfer=needs_transfer,
+        transfer_programs=transfer_programs,
+    )
+
+
 def _build_response_from_cached(cached: dict) -> OptimizeSoloResponse:
     """Build response from cached data."""
     result = cached.get("result", {})
@@ -710,12 +1239,30 @@ def _build_response_from_cached(cached: dict) -> OptimizeSoloResponse:
     for ins_data in result.get("global_insights", []):
         global_insights.append(TransferInsight(**ins_data))
     
+    # Reconstruct decision summary, rejected alternatives, and booking details
+    decision_summary = None
+    ds_data = result.get("decision_summary")
+    if ds_data:
+        decision_summary = DecisionSummary(**ds_data)
+    
+    rejected_alternatives = []
+    for ra_data in result.get("rejected_alternatives", []):
+        rejected_alternatives.append(RejectedAlternative(**ra_data))
+    
+    booking_details = None
+    bd_data = result.get("booking_details")
+    if bd_data:
+        booking_details = BookingDetails(**bd_data)
+    
     return OptimizeSoloResponse(
         itineraries=itineraries,
         best_option=result.get("best_option"),
         warnings=result.get("warnings", []),
         global_insights=global_insights,
         risk_mode=result.get("risk_mode"),
+        decision_summary=decision_summary,
+        rejected_alternatives=rejected_alternatives,
+        booking_details=booking_details,
         cached=True,
         computed_at=cached.get("computed_at", ""),
         expires_at=cached.get("expires_at", ""),
@@ -725,7 +1272,7 @@ def _build_response_from_cached(cached: dict) -> OptimizeSoloResponse:
 @router.get("/optimization-cache/{trip_id}", response_model=OptimizeSoloResponse)
 async def get_optimization_cache(
     trip_id: str,
-    user_id: str = Depends(get_current_user_id),
+    user_id: str = Depends(get_user_or_anon_id),
 ):
     """
     Get cached optimization results for a trip.
@@ -759,6 +1306,380 @@ async def get_optimization_cache(
         logger.error(f"Error getting optimization cache: {str(e)}")
         raise HTTPException(status_code=500, detail=str(e))
 
+
+# ============================================================================
+# Lock Plan & Session Migration Endpoints
+# ============================================================================
+
+class LockPlanRequest(BaseModel):
+    """Request to lock a plan."""
+    itinerary_id: str
+    itinerary_snapshot: Optional[Dict] = None
+
+
+class LockPlanResponse(BaseModel):
+    """Response from locking a plan."""
+    ok: bool
+    locked: bool
+    message: str
+    requires_sign_in: bool = False
+
+
+class MigrateSessionRequest(BaseModel):
+    """Request to migrate anonymous session data to user account."""
+    anon_session_id: str
+
+
+class MigrateSessionResponse(BaseModel):
+    """Response from session migration."""
+    ok: bool
+    trips_migrated: int
+    message: str
+
+
+@router.post("/trips/{trip_id}/lock", response_model=LockPlanResponse)
+async def lock_plan(
+    trip_id: str,
+    request: LockPlanRequest,
+    user_id: str = Depends(get_user_or_anon_id),
+):
+    """
+    Lock a plan. 
+    - Anonymous user → returns requires_sign_in=True
+    - Authenticated user → saves the plan immediately
+    """
+    try:
+        if is_anonymous(user_id):
+            return LockPlanResponse(
+                ok=True,
+                locked=False,
+                message="Sign in to lock this plan and keep watching for better options.",
+                requires_sign_in=True,
+            )
+        
+        # Save selection and mark as locked
+        trip = solo_trip_service.get_solo_trip(trip_id, user_id)
+        if not trip:
+            raise HTTPException(status_code=404, detail="Trip not found")
+        
+        # Store the lock with snapshot
+        if request.itinerary_snapshot:
+            from ..schemas import SelectItineraryRequest
+            solo_trip_service.select_itinerary(
+                trip_id, user_id,
+                SelectItineraryRequest(
+                    itinerary_id=request.itinerary_id,
+                    itinerary_snapshot=request.itinerary_snapshot,
+                    cash_price_at_selection=request.itinerary_snapshot.get("oopMetrics", {}).get("totalCashPrice", 0),
+                    out_of_pocket_at_selection=request.itinerary_snapshot.get("oopMetrics", {}).get("totalOutOfPocket", 0),
+                )
+            )
+        
+        return LockPlanResponse(
+            ok=True,
+            locked=True,
+            message="Plan locked. We'll remember this and watch for better options.",
+            requires_sign_in=False,
+        )
+    except HTTPException:
+        raise
+    except Exception as e:
+        logger.error(f"Error locking plan: {str(e)}")
+        raise HTTPException(status_code=500, detail=str(e))
+
+
+@router.post("/migrate-session", response_model=MigrateSessionResponse)
+async def migrate_anon_session(
+    request: MigrateSessionRequest,
+    user_id: str = Depends(get_current_user_id),
+):
+    """
+    Migrate anonymous session data to an authenticated user account.
+    Called after sign-in when the user had anonymous trip data.
+    
+    No data loss: all trips and points from the anonymous session are 
+    transferred to the authenticated user.
+    """
+    try:
+        anon_id = request.anon_session_id
+        if not anon_id.startswith("anon_"):
+            anon_id = f"anon_{anon_id}"
+        
+        # Find all trips created by this anonymous session
+        from ..repos.ddb import table, sanitize_for_dynamodb
+        from ..config import TRIPS_TABLE, POINTS_TABLE
+        from boto3.dynamodb.conditions import Attr
+        
+        trips_table = table(TRIPS_TABLE)
+        
+        # Scan for trips with this anon user
+        # In production, you'd use a GSI. For now, scan is acceptable for < 100 trips.
+        response = trips_table.scan(
+            FilterExpression=Attr('createdBy').eq(anon_id)
+        )
+        
+        migrated_count = 0
+        for trip_item in response.get('Items', []):
+            trip_id = trip_item.get('tripId')
+            if trip_id:
+                # Update trip ownership
+                trips_table.update_item(
+                    Key={'tripId': trip_id},
+                    UpdateExpression='SET createdBy = :uid',
+                    ExpressionAttributeValues={':uid': user_id}
+                )
+                
+                # Update points ownership
+                points_table = table(POINTS_TABLE)
+                points_response = points_table.scan(
+                    FilterExpression=Attr('tripId').eq(trip_id)
+                )
+                for point_item in points_response.get('Items', []):
+                    user_program = point_item.get('userProgram', '')
+                    if anon_id in user_program:
+                        new_user_program = user_program.replace(anon_id, user_id)
+                        # Delete old and create new entry
+                        points_table.delete_item(
+                            Key={'tripId': trip_id, 'userProgram': user_program}
+                        )
+                        point_item['userProgram'] = new_user_program
+                        points_table.put_item(Item=sanitize_for_dynamodb(point_item))
+                
+                migrated_count += 1
+        
+        return MigrateSessionResponse(
+            ok=True,
+            trips_migrated=migrated_count,
+            message=f"Successfully migrated {migrated_count} trip{'s' if migrated_count != 1 else ''} to your account.",
+        )
+    except HTTPException:
+        raise
+    except Exception as e:
+        logger.error(f"Error migrating session: {str(e)}")
+        raise HTTPException(status_code=500, detail=str(e))
+
+
+# ============================================================================
+# Share / Magic Link Endpoints (Phase 14)
+# ============================================================================
+
+class SharePlanRequest(BaseModel):
+    """Request to share a plan via email."""
+    trip_id: str
+    email: str
+    anon_session_id: Optional[str] = None
+
+
+class SharePlanResponse(BaseModel):
+    """Response from sharing a plan."""
+    ok: bool
+    message: str
+    share_token: Optional[str] = None  # For testing/debugging
+
+
+class ClaimPlanRequest(BaseModel):
+    """Request to claim a shared plan."""
+    trip_id: str
+
+
+class ClaimPlanResponse(BaseModel):
+    """Response from claiming a plan."""
+    ok: bool
+    message: str
+
+
+def _generate_share_token(trip_id: str, owner_id: str) -> str:
+    """Generate a signed share token (HMAC-based, 7-day TTL)."""
+    import hashlib
+    import hmac
+    import base64
+    import json
+    import time
+    
+    secret = os.environ.get("SHARE_TOKEN_SECRET", "tripy-share-secret-dev")
+    payload = {
+        "trip_id": trip_id,
+        "owner_id": owner_id,
+        "exp": int(time.time()) + (7 * 24 * 3600),  # 7 days
+    }
+    payload_b64 = base64.urlsafe_b64encode(json.dumps(payload).encode()).decode()
+    sig = hmac.new(secret.encode(), payload_b64.encode(), hashlib.sha256).hexdigest()
+    return f"{payload_b64}.{sig}"
+
+
+def _verify_share_token(token: str) -> Optional[Dict]:
+    """Verify and decode a share token. Returns payload or None."""
+    import hashlib
+    import hmac
+    import base64
+    import json
+    import time
+    
+    try:
+        parts = token.split(".")
+        if len(parts) != 2:
+            return None
+        
+        payload_b64, sig = parts
+        secret = os.environ.get("SHARE_TOKEN_SECRET", "tripy-share-secret-dev")
+        expected_sig = hmac.new(secret.encode(), payload_b64.encode(), hashlib.sha256).hexdigest()
+        
+        if not hmac.compare_digest(sig, expected_sig):
+            return None
+        
+        payload = json.loads(base64.urlsafe_b64decode(payload_b64))
+        
+        # Check expiry
+        if payload.get("exp", 0) < time.time():
+            return None
+        
+        return payload
+    except Exception:
+        return None
+
+
+@router.post("/share", response_model=SharePlanResponse)
+async def share_plan(
+    request: SharePlanRequest,
+    user_id: str = Depends(get_user_or_anon_id),
+):
+    """
+    Share a plan via email magic link.
+    No sign-in required. Creates a signed token that allows read-only access.
+    """
+    try:
+        # Verify trip exists
+        trip = solo_trip_service.get_solo_trip(request.trip_id, user_id)
+        if not trip:
+            raise HTTPException(status_code=404, detail="Trip not found")
+        
+        # Generate share token
+        owner_id = user_id
+        token = _generate_share_token(request.trip_id, owner_id)
+        
+        # Build share URL
+        from ..config import FRONTEND_URL
+        from ..services.email_service import send_magic_link_email, is_email_enabled
+        share_url = f"{FRONTEND_URL}/solo/results?trip_id={request.trip_id}&share_token={token}"
+        
+        # Send email via the email service (graceful if SES not configured)
+        email_sent = False
+        if is_email_enabled():
+            try:
+                result = send_magic_link_email(
+                    to_email=request.email,
+                    magic_link=share_url,
+                )
+                email_sent = result.get("success", False)
+                if not email_sent:
+                    logger.warning(f"Email service returned failure: {result.get('error')}")
+            except Exception as e:
+                logger.warning(f"Failed to send share email: {e}")
+        
+        if not email_sent:
+            logger.info(f"[share] Email not sent (SES not configured). Share URL: {share_url}")
+        
+        return SharePlanResponse(
+            ok=True,
+            message="Link sent! Check your email." if email_sent else "Link created. Email delivery is not configured yet.",
+            share_token=token,
+        )
+    except HTTPException:
+        raise
+    except Exception as e:
+        logger.error(f"Error sharing plan: {str(e)}")
+        raise HTTPException(status_code=500, detail=str(e))
+
+
+@router.get("/shared/{token}")
+async def get_shared_plan(token: str):
+    """
+    Access a shared plan via magic link token.
+    Read-only — does not expose other trips.
+    """
+    try:
+        payload = _verify_share_token(token)
+        if not payload:
+            raise HTTPException(status_code=401, detail="Invalid or expired share link")
+        
+        trip_id = payload["trip_id"]
+        owner_id = payload["owner_id"]
+        
+        # Get trip (using owner_id for lookup)
+        trip = solo_trip_service.get_solo_trip(trip_id, owner_id)
+        if not trip:
+            raise HTTPException(status_code=404, detail="Trip not found")
+        
+        # Get cached optimization if available
+        points_summary = solo_trip_service.get_points(trip_id, owner_id)
+        points_dict = {p.program: p.balance for p in (points_summary.items or [])}
+        mode = trip.get("optimizationMode", "balanced")
+        cache_key = solo_trip_service.compute_cache_key(trip_id, trip, points_dict, mode)
+        cached = solo_trip_service.get_cached_optimization(trip_id, cache_key)
+        
+        optimization = None
+        if cached and not solo_trip_service.is_cache_expired(cached):
+            optimization = _build_response_from_cached(cached).model_dump()
+        
+        # Return trip + optimization (read-only view)
+        from ..mappers.trip_mapper import trip_storage_to_response
+        trip_response = trip_storage_to_response(trip)
+        
+        return {
+            "ok": True,
+            "trip": trip_response.model_dump(),
+            "optimization": optimization,
+            "read_only": True,
+        }
+    except HTTPException:
+        raise
+    except Exception as e:
+        logger.error(f"Error accessing shared plan: {str(e)}")
+        raise HTTPException(status_code=500, detail=str(e))
+
+
+@router.post("/claim", response_model=ClaimPlanResponse)
+async def claim_plan(
+    request: ClaimPlanRequest,
+    user_id: str = Depends(get_current_user_id),
+):
+    """
+    Claim a shared plan to the authenticated user's account.
+    Reassigns trip ownership.
+    """
+    try:
+        # Get trip (without user check — we need to reassign)
+        from ..repos.ddb import table
+        from ..config import TRIPS_TABLE
+        
+        trips_table = table(TRIPS_TABLE)
+        response = trips_table.get_item(Key={'tripId': request.trip_id})
+        trip = response.get('Item')
+        
+        if not trip:
+            raise HTTPException(status_code=404, detail="Trip not found")
+        
+        # Update ownership
+        trips_table.update_item(
+            Key={'tripId': request.trip_id},
+            UpdateExpression='SET createdBy = :uid',
+            ExpressionAttributeValues={':uid': user_id}
+        )
+        
+        return ClaimPlanResponse(
+            ok=True,
+            message="Plan claimed to your account. You can now save, monitor, and manage it.",
+        )
+    except HTTPException:
+        raise
+    except Exception as e:
+        logger.error(f"Error claiming plan: {str(e)}")
+        raise HTTPException(status_code=500, detail=str(e))
+
+
+# ============================================================================
+# Transfer Strategy Endpoint
+# ============================================================================
 
 @router.post("/transfer-strategy", response_model=TransferStrategyResponse)
 async def get_transfer_strategy(
@@ -954,12 +1875,29 @@ async def get_transfer_strategy(
             # Build segment reference (simple - codeshare shown separately)
             segment_ref = f"{origin} → {destination} {cabin} on {airline}"
             
-            # Build booking URL based on the program used for booking
+            # Build booking URL based on the program used for booking.
+            # IMPORTANT: Never fall back to https://{airline_code}.com blindly —
+            # e.g. "UA" would resolve to ua.com (Under Armour), not United Airlines.
             if not booking_url and program:
                 prog_meta = PROGRAM_METADATA.get(program.upper(), {})
-                booking_url = prog_meta.get("booking_url", f"https://{airline.lower().replace(' ', '')}.com")
-            elif not booking_url:
-                booking_url = f"https://{airline.lower().replace(' ', '')}.com"
+                booking_url = prog_meta.get("booking_url", "")
+            if not booking_url:
+                # Try looking up the airline name/code in PROGRAM_METADATA directly
+                airline_meta = PROGRAM_METADATA.get(airline.upper(), {})
+                booking_url = airline_meta.get("booking_url", "")
+            if not booking_url:
+                # Also try the marketing carrier from the flight number (e.g. "UA123" → "UA")
+                carrier_code = (flight_num[:2] if flight_num and len(flight_num) >= 2 else "").upper()
+                if carrier_code:
+                    carrier_meta = PROGRAM_METADATA.get(carrier_code, {})
+                    booking_url = carrier_meta.get("booking_url", "")
+            if not booking_url:
+                # Final fallback: only use airline name if it looks like a full name (not a 2-letter code)
+                if len(airline) > 3:
+                    booking_url = f"https://www.{airline.lower().replace(' ', '')}.com"
+                else:
+                    # For short codes we can't resolve, use Google Flights as a safe fallback
+                    booking_url = f"https://www.google.com/travel/flights?q=flights+{airline}"
             
             # Ensure cash_price is valid (not 0 for cash bookings)
             display_cash_price = cash_price if cash_price and cash_price > 0 else None

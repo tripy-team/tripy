@@ -94,16 +94,16 @@ export default function LandingPage() {
                         </p>
                         <div className="flex gap-4">
                             <Link
-                                href="/login"
+                                href="/solo/setup"
                                 className="px-8 py-4 bg-blue-600 text-white rounded-2xl hover:bg-blue-700 transition-all shadow-lg shadow-blue-600/20 hover:shadow-xl hover:shadow-blue-600/30 font-medium"
                             >
-                                Get Early Access
+                                Plan My Trip
                             </Link>
                             <Link
-                                href="/demo/dynamic-route"
+                                href="/pricing"
                                 className="px-8 py-4 bg-white text-slate-900 border-2 border-slate-200 rounded-2xl hover:border-slate-300 transition-all font-medium"
                             >
-                                Try Demo
+                                See Pricing
                             </Link>
                         </div>
                     </div>
@@ -243,16 +243,10 @@ export default function LandingPage() {
                     </p>
                     <div className="flex gap-4 justify-center">
                         <Link
-                            href="/login"
+                            href="/solo/setup"
                             className="px-8 py-4 bg-yellow-400 text-slate-900 rounded-2xl hover:bg-yellow-300 transition-all shadow-lg hover:shadow-xl font-medium"
                         >
-                            Get Started
-                        </Link>
-                        <Link
-                            href="/demo/dynamic-route"
-                            className="px-8 py-4 bg-white text-blue-600 rounded-2xl hover:bg-blue-50 transition-all shadow-lg hover:shadow-xl font-medium"
-                        >
-                            Try Demo
+                            Plan My Trip — Free
                         </Link>
                     </div>
                 </div>
