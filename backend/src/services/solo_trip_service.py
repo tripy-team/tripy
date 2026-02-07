@@ -186,6 +186,150 @@ def update_solo_trip_status(
 
 
 # ============================================================================
+# Cron / Email Trigger Queries
+# ============================================================================
+
+def find_trips_for_followup(hours_ago_min: int = 24, hours_ago_max: int = 72, limit: int = 50) -> list:
+    """
+    Find trips that were optimized N hours ago but not yet booked.
+    Used by: post_result_followup email.
+    
+    Returns list of trip dicts with createdBy, tripId, createdAt, status.
+    """
+    t = get_solo_table()
+    now = datetime.now(timezone.utc)
+    cutoff_max = (now - timedelta(hours=hours_ago_min)).strftime('%Y-%m-%dT%H:%M:%SZ')
+    cutoff_min = (now - timedelta(hours=hours_ago_max)).strftime('%Y-%m-%dT%H:%M:%SZ')
+
+    from boto3.dynamodb.conditions import Attr
+    try:
+        resp = t.scan(
+            FilterExpression=(
+                Attr('status').eq('optimized')
+                & Attr('createdAt').between(cutoff_min, cutoff_max)
+                & Attr('isAnonymous').not_exists()  # Only auth users (have email)
+                & Attr('emailFollowupSent').not_exists()  # Not already emailed
+            ),
+            ProjectionExpression='tripId, createdBy, createdAt, #s',
+            ExpressionAttributeNames={'#s': 'status'},
+            Limit=limit,
+        )
+        return resp.get('Items', [])
+    except Exception as e:
+        logger.error(f"find_trips_for_followup error: {e}")
+        return []
+
+
+def find_unlocked_trips_for_prompt(hours_ago_min: int = 2, hours_ago_max: int = 48, limit: int = 50) -> list:
+    """
+    Find trips that were optimized but not locked/selected by auth users.
+    Used by: lock_plan_prompt email.
+    """
+    t = get_solo_table()
+    now = datetime.now(timezone.utc)
+    cutoff_max = (now - timedelta(hours=hours_ago_min)).strftime('%Y-%m-%dT%H:%M:%SZ')
+    cutoff_min = (now - timedelta(hours=hours_ago_max)).strftime('%Y-%m-%dT%H:%M:%SZ')
+
+    from boto3.dynamodb.conditions import Attr
+    try:
+        resp = t.scan(
+            FilterExpression=(
+                Attr('status').is_in(['optimized'])
+                & Attr('createdAt').between(cutoff_min, cutoff_max)
+                & Attr('isAnonymous').not_exists()
+                & Attr('emailLockPromptSent').not_exists()
+            ),
+            ProjectionExpression='tripId, createdBy, createdAt, #s',
+            ExpressionAttributeNames={'#s': 'status'},
+            Limit=limit,
+        )
+        return resp.get('Items', [])
+    except Exception as e:
+        logger.error(f"find_unlocked_trips_for_prompt error: {e}")
+        return []
+
+
+def find_repeat_anonymous_users(min_trips: int = 2, limit: int = 50) -> list:
+    """
+    Find anonymous users who have generated multiple trips (candidates for gentle_nudge).
+    Returns list of dicts with createdBy and trip count.
+    
+    Note: This requires a scan + aggregation. At scale, replace with a counter table.
+    """
+    t = get_solo_table()
+    from boto3.dynamodb.conditions import Attr
+    try:
+        resp = t.scan(
+            FilterExpression=(
+                Attr('isAnonymous').eq(True)
+                & Attr('emailNudgeSent').not_exists()
+            ),
+            ProjectionExpression='tripId, createdBy',
+        )
+        items = resp.get('Items', [])
+
+        # Aggregate by user
+        from collections import Counter
+        user_counts = Counter(item['createdBy'] for item in items)
+        return [
+            {'createdBy': uid, 'tripCount': count}
+            for uid, count in user_counts.items()
+            if count >= min_trips
+        ][:limit]
+    except Exception as e:
+        logger.error(f"find_repeat_anonymous_users error: {e}")
+        return []
+
+
+def find_first_time_users(hours_ago_min: int = 24, hours_ago_max: int = 72, limit: int = 50) -> list:
+    """
+    Find auth users whose first trip was created recently (candidates for support_touch).
+    """
+    t = get_solo_table()
+    now = datetime.now(timezone.utc)
+    cutoff_max = (now - timedelta(hours=hours_ago_min)).strftime('%Y-%m-%dT%H:%M:%SZ')
+    cutoff_min = (now - timedelta(hours=hours_ago_max)).strftime('%Y-%m-%dT%H:%M:%SZ')
+
+    from boto3.dynamodb.conditions import Attr
+    try:
+        resp = t.scan(
+            FilterExpression=(
+                Attr('createdAt').between(cutoff_min, cutoff_max)
+                & Attr('isAnonymous').not_exists()
+                & Attr('emailSupportTouchSent').not_exists()
+            ),
+            ProjectionExpression='tripId, createdBy, createdAt',
+        )
+        items = resp.get('Items', [])
+
+        # Deduplicate by user — only include users who have exactly 1 trip in this window
+        from collections import Counter
+        user_counts = Counter(item['createdBy'] for item in items)
+        first_timers = [uid for uid, count in user_counts.items() if count == 1]
+        return [{'createdBy': uid} for uid in first_timers[:limit]]
+    except Exception as e:
+        logger.error(f"find_first_time_users error: {e}")
+        return []
+
+
+def mark_email_sent(trip_id: str, flag_name: str):
+    """
+    Set a flag on a trip to prevent duplicate emails.
+    flag_name examples: emailFollowupSent, emailLockPromptSent, emailNudgeSent, emailSupportTouchSent
+    """
+    t = get_solo_table()
+    try:
+        t.update_item(
+            Key={'tripId': trip_id},
+            UpdateExpression='SET #flag = :val',
+            ExpressionAttributeNames={'#flag': flag_name},
+            ExpressionAttributeValues={':val': datetime.now(timezone.utc).strftime('%Y-%m-%dT%H:%M:%SZ')},
+        )
+    except Exception as e:
+        logger.warning(f"mark_email_sent error for {trip_id}/{flag_name}: {e}")
+
+
+# ============================================================================
 # Selection Management
 # ============================================================================
 

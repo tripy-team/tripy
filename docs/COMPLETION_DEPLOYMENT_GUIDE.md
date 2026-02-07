@@ -198,21 +198,133 @@ Or trigger manually in the Amplify console.
 
 ---
 
-## Step 5 — Wire remaining email triggers
+## Step 5 — Set up the scheduled email cron
 
-Seven email templates exist. Two are already wired. The rest need trigger logic, which you can add whenever you're ready.
+All email triggers are now wired in code. Here's the status:
 
-| # | Template | When to send | Status | How to wire |
-|---|----------|-------------|--------|-------------|
-| 1 | `magic_link` | User clicks "Email me this plan" | **Live** | Already wired in `POST /solo/share` |
-| 2 | `support_touch` | After a user's first trip | Ready | Call `send_support_touch_email()` — needs a cron/Lambda that finds first-time users |
-| 3 | `post_result_followup` | 24–48 hrs after results, user hasn't booked | Ready | Cron/Lambda: query trips with `status != booked` and `created_at` 24–48 hrs ago |
-| 4 | `lock_plan_prompt` | User signed in but didn't lock their plan | Ready | Cron/Lambda: query auth users with unlocked trips older than 1 hour |
-| 5 | `i_booked_it` | User marks trip as "booked" | Ready | Add `send_i_booked_it_email()` call inside `update_solo_trip_status` when status changes to `booked` (requires user email lookup) |
-| 6 | `monitoring_alert` | Price or availability changes on a saved plan | Ready | Requires monitoring infrastructure (future feature) |
-| 7 | `gentle_nudge` | Repeat anonymous user with email on file | Ready | Cron/Lambda: query users with 2+ trips who haven't created an account |
+| # | Template | Trigger | Status |
+|---|----------|---------|--------|
+| 1 | `magic_link` | User clicks "Email me this plan" | **Live** — fires instantly via `POST /solo/share` |
+| 2 | `i_booked_it` | User marks trip as "booked" | **Live** — fires instantly via `POST /solo/trips/:id/status` |
+| 3 | `post_result_followup` | 24–72 hrs after results, user hasn't booked | **Cron** — runs via scheduled endpoint |
+| 4 | `lock_plan_prompt` | Auth user got results 2–48 hrs ago, didn't lock | **Cron** — runs via scheduled endpoint |
+| 5 | `support_touch` | Auth user's first trip was 24–72 hrs ago | **Cron** — runs via scheduled endpoint |
+| 6 | `gentle_nudge` | Repeat anon user with 2+ trips | **Cron** — placeholder (needs anon email lookup table) |
+| 7 | `monitoring_alert` | Price/availability change on saved plan | **Future** — needs monitoring infrastructure |
 
-**Simplest next step:** Wire template #5 (`i_booked_it`). It's a single function call in an existing endpoint — no cron needed. The others require a scheduled job, which you can add with an EventBridge rule + Lambda, or a simple cron inside the App Runner container.
+Templates 1–2 fire automatically. Templates 3–5 run when the cron endpoint is called. You need to set up a scheduler to call it.
+
+### 5a. Generate a cron secret
+
+```bash
+openssl rand -hex 32
+```
+
+Add it to Secrets Manager alongside your other secrets:
+
+```json
+{
+  "CRON_SECRET": "<your generated hex string>"
+}
+```
+
+And to your local `.env`:
+
+```
+CRON_SECRET=dev-cron-secret
+```
+
+### 5b. Test the endpoint locally
+
+```bash
+curl -X POST http://localhost:8000/solo/internal/send-scheduled-emails \
+  -H "X-Cron-Secret: dev-cron-secret" \
+  -H "Content-Type: application/json"
+```
+
+Expected response:
+
+```json
+{
+  "ok": true,
+  "followup_sent": 0,
+  "lock_prompt_sent": 0,
+  "support_touch_sent": 0,
+  "gentle_nudge_sent": 0,
+  "errors": []
+}
+```
+
+### 5c. Set up EventBridge Scheduler (production)
+
+Create a schedule that calls the endpoint every hour.
+
+**Option A — EventBridge Scheduler → HTTP target (simplest)**
+
+```bash
+# Create the schedule
+aws scheduler create-schedule \
+  --name tripy-email-cron \
+  --schedule-expression "rate(1 hour)" \
+  --flexible-time-window '{"Mode":"OFF"}' \
+  --target '{
+    "Arn": "arn:aws:scheduler:::aws-sdk:http:invoke",
+    "RoleArn": "<your-scheduler-role-arn>",
+    "Input": "{\"method\":\"POST\",\"url\":\"https://xezfenhu6t.us-east-1.awsapprunner.com/solo/internal/send-scheduled-emails\",\"headers\":{\"X-Cron-Secret\":\"<your-cron-secret>\",\"Content-Type\":\"application/json\"}}"
+  }' \
+  --region us-east-1
+```
+
+**Option B — EventBridge → Lambda → HTTP call (more flexible)**
+
+Create a small Lambda that does:
+
+```python
+import urllib3
+
+def handler(event, context):
+    http = urllib3.PoolManager()
+    resp = http.request(
+        "POST",
+        "https://xezfenhu6t.us-east-1.awsapprunner.com/solo/internal/send-scheduled-emails",
+        headers={
+            "X-Cron-Secret": "<your-cron-secret>",
+            "Content-Type": "application/json",
+        },
+    )
+    print(f"Status: {resp.status}, Body: {resp.data.decode()}")
+    return {"statusCode": resp.status}
+```
+
+Then attach an EventBridge rule:
+
+```bash
+# Create the rule (runs every hour)
+aws events put-rule \
+  --name tripy-email-cron \
+  --schedule-expression "rate(1 hour)" \
+  --region us-east-1
+
+# Add the Lambda as target
+aws events put-targets \
+  --rule tripy-email-cron \
+  --targets "Id"="1","Arn"="arn:aws:lambda:us-east-1:386454729971:function:tripy-email-cron" \
+  --region us-east-1
+```
+
+### 5d. How the cron works (what happens under the hood)
+
+When the endpoint is called, it runs 4 jobs sequentially:
+
+1. **Post-result follow-up** — Scans `tripy-trips` for auth users whose trip was optimized 24–72 hours ago and status is still `optimized`. Sends them a "your plan is still ready" email with a link to their results. Marks the trip with `emailFollowupSent` to prevent duplicates.
+
+2. **Lock plan prompt** — Scans for auth users whose trip was optimized 2–48 hours ago but never locked/selected. Sends a "save your plan?" email. Marks with `emailLockPromptSent`.
+
+3. **Support touch** — Scans for auth users who created their first trip 24–72 hours ago. Sends a "was this helpful?" email that replies to a real person. Marks with `emailSupportTouchSent`.
+
+4. **Gentle nudge** — Scans for anonymous users with 2+ trips. Currently a placeholder — it identifies candidates but can't email them unless they previously shared their email via "Email Me This Plan". A proper implementation needs an anon email lookup table (future).
+
+Each job is idempotent — flag attributes on the trip record prevent duplicate sends. Safe to run as often as you want.
 
 ---
 
@@ -270,6 +382,7 @@ Run through this checklist after deploying.
 | `SHARE_TOKEN_SECRET` | Yes (production) | `tripy-share-secret-dev` | Secrets Manager |
 | `SES_SENDER_EMAIL` | Yes (for email) | `""` (disabled) | Secrets Manager |
 | `FRONTEND_URL` | Yes | `https://tripy.app` | Secrets Manager |
+| `CRON_SECRET` | Yes (for scheduled emails) | `""` (disabled) | Secrets Manager |
 | `AWS_REGION` | Already set | `us-east-1` | `apprunner.yaml` |
 
 ---
@@ -280,9 +393,13 @@ Run through this checklist after deploying.
 |-------|-----------|------|---------|
 | `tripy-trips` | `ttl` | Number (epoch) | Auto-delete anonymous trips after 30 days |
 | `tripy-trips` | `isAnonymous` | Boolean | Marks anonymous-origin records |
+| `tripy-trips` | `emailFollowupSent` | String (ISO date) | Prevents duplicate follow-up emails |
+| `tripy-trips` | `emailLockPromptSent` | String (ISO date) | Prevents duplicate lock prompt emails |
+| `tripy-trips` | `emailSupportTouchSent` | String (ISO date) | Prevents duplicate support touch emails |
+| `tripy-trips` | `emailNudgeSent` | String (ISO date) | Prevents duplicate gentle nudge emails |
 | `tripy-points` | `ttl` | Number (epoch) | Auto-delete anonymous points after 30 days |
 
-These attributes are written automatically by the backend. You only need to enable TTL on the tables (Step 3).
+These attributes are written automatically by the backend. You only need to enable TTL on the tables (Step 3). The email flag attributes are set by the cron job (Step 5) and require no manual setup.
 
 ---
 

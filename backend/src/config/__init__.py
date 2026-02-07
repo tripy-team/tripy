@@ -89,6 +89,9 @@ AWARDTOOL_API_KEY = secrets.get("AWARDTOOL_API_KEY", "") or secrets.get(
 SES_SENDER_EMAIL = os.environ.get("SES_SENDER_EMAIL", "")
 FRONTEND_URL = os.environ.get("FRONTEND_URL", "https://tripy.app")
 
+# Internal cron secret — protects /solo/internal/* endpoints
+CRON_SECRET = os.environ.get("CRON_SECRET", "")
+
 # AwardTool Dummy Data Mode - set USE_AWARDTOOL_DUMMY_DATA=true in .env to use dummy data
 USE_AWARDTOOL_DUMMY_DATA = (
     os.environ.get("USE_AWARDTOOL_DUMMY_DATA", "false").lower() == "true"

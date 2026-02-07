@@ -203,6 +203,23 @@ async def update_solo_trip_status(
             user_id,
             request.payment_proof
         )
+
+        # Send "I booked it" acknowledgment email for authenticated users
+        if request.status == "booked" and not is_anonymous(user_id):
+            try:
+                from ..services.user_service import get_user
+                from ..services.email_service import send_i_booked_it_email, is_email_enabled
+                from ..config import FRONTEND_URL
+                if is_email_enabled():
+                    user = get_user(user_id)
+                    user_email = user.get("email") if user else None
+                    if user_email:
+                        trip_link = f"{FRONTEND_URL}/solo/results?trip_id={trip_id}"
+                        send_i_booked_it_email(to_email=user_email, trip_link=trip_link)
+                        logger.info(f"Sent booking acknowledgment email to {user_email}")
+            except Exception as e:
+                logger.warning(f"Failed to send booking ack email: {e}")
+
         return result
     except PermissionError as e:
         raise HTTPException(status_code=403, detail=str(e))
@@ -1991,3 +2008,162 @@ async def get_transfer_strategy(
     except Exception as e:
         logger.error(f"Error getting transfer strategy: {str(e)}", exc_info=True)
         raise HTTPException(status_code=500, detail=str(e))
+
+
+# ============================================================================
+# Internal Cron — Scheduled Email Triggers
+# ============================================================================
+# Protected by a shared secret (CRON_SECRET env var).
+# Designed to be called by EventBridge Scheduler → HTTP target, or a Lambda.
+# Call: POST /solo/internal/send-scheduled-emails
+#       Header: X-Cron-Secret: <value of CRON_SECRET>
+
+from fastapi import Header, Request as FastAPIRequest
+
+
+class CronEmailResult(BaseModel):
+    """Summary of a cron email run."""
+    ok: bool
+    followup_sent: int = 0
+    lock_prompt_sent: int = 0
+    support_touch_sent: int = 0
+    gentle_nudge_sent: int = 0
+    errors: list = []
+
+
+@router.post("/internal/send-scheduled-emails", response_model=CronEmailResult)
+async def send_scheduled_emails(
+    x_cron_secret: str = Header(..., alias="X-Cron-Secret"),
+):
+    """
+    Internal endpoint — runs all scheduled email jobs.
+    Protected by X-Cron-Secret header. Not meant for end users.
+    
+    Jobs:
+      1. post_result_followup — user got results 24-72h ago, hasn't booked
+      2. lock_plan_prompt     — auth user got results 2-48h ago, didn't lock/select
+      3. support_touch        — auth user's first trip was 24-72h ago
+      4. gentle_nudge         — anon user with 2+ trips (needs email from share history)
+    """
+    # Validate cron secret
+    from ..config import CRON_SECRET
+    if not CRON_SECRET or x_cron_secret != CRON_SECRET:
+        raise HTTPException(status_code=403, detail="Invalid cron secret")
+
+    from ..services.user_service import get_user
+    from ..services.email_service import (
+        send_post_result_followup_email,
+        send_lock_plan_prompt_email,
+        send_support_touch_email,
+        is_email_enabled,
+    )
+    from ..config import FRONTEND_URL
+
+    if not is_email_enabled():
+        return CronEmailResult(ok=True, errors=["SES not configured — skipped all jobs"])
+
+    result = CronEmailResult(ok=True)
+
+    # ---- Job 1: Post-result follow-up ----
+    try:
+        trips = solo_trip_service.find_trips_for_followup()
+        for trip in trips:
+            try:
+                user = get_user(trip['createdBy'])
+                email = user.get('email') if user else None
+                if not email:
+                    continue
+                trip_id = trip['tripId']
+                magic_link = f"{FRONTEND_URL}/solo/results?trip_id={trip_id}"
+                send_result = send_post_result_followup_email(to_email=email, magic_link=magic_link)
+                if send_result.get('success'):
+                    solo_trip_service.mark_email_sent(trip_id, 'emailFollowupSent')
+                    result.followup_sent += 1
+                else:
+                    result.errors.append(f"followup:{trip_id}:{send_result.get('error')}")
+            except Exception as e:
+                result.errors.append(f"followup:{trip.get('tripId')}:{str(e)}")
+    except Exception as e:
+        result.errors.append(f"followup_query:{str(e)}")
+
+    # ---- Job 2: Lock plan prompt ----
+    try:
+        trips = solo_trip_service.find_unlocked_trips_for_prompt()
+        for trip in trips:
+            try:
+                user = get_user(trip['createdBy'])
+                email = user.get('email') if user else None
+                if not email:
+                    continue
+                trip_id = trip['tripId']
+                lock_link = f"{FRONTEND_URL}/solo/results?trip_id={trip_id}"
+                send_result = send_lock_plan_prompt_email(to_email=email, lock_plan_link=lock_link)
+                if send_result.get('success'):
+                    solo_trip_service.mark_email_sent(trip_id, 'emailLockPromptSent')
+                    result.lock_prompt_sent += 1
+                else:
+                    result.errors.append(f"lock_prompt:{trip_id}:{send_result.get('error')}")
+            except Exception as e:
+                result.errors.append(f"lock_prompt:{trip.get('tripId')}:{str(e)}")
+    except Exception as e:
+        result.errors.append(f"lock_prompt_query:{str(e)}")
+
+    # ---- Job 3: Support touch (first-time auth users) ----
+    try:
+        users = solo_trip_service.find_first_time_users()
+        for entry in users:
+            try:
+                user = get_user(entry['createdBy'])
+                email = user.get('email') if user else None
+                if not email:
+                    continue
+                send_result = send_support_touch_email(to_email=email)
+                if send_result.get('success'):
+                    # Mark on a trip so we don't resend (pick any trip by this user)
+                    trips = solo_trip_service.find_trips_for_followup.__wrapped__ if hasattr(solo_trip_service.find_trips_for_followup, '__wrapped__') else None
+                    # Simple: just mark the flag using a scan
+                    _mark_support_touch_for_user(entry['createdBy'])
+                    result.support_touch_sent += 1
+                else:
+                    result.errors.append(f"support_touch:{entry['createdBy']}:{send_result.get('error')}")
+            except Exception as e:
+                result.errors.append(f"support_touch:{entry.get('createdBy')}:{str(e)}")
+    except Exception as e:
+        result.errors.append(f"support_touch_query:{str(e)}")
+
+    # ---- Job 4: Gentle nudge (repeat anon users) ----
+    # Note: This only works for anon users who have shared their email via "Email Me This Plan".
+    # We check if they have a share record with an email. If not, we skip them.
+    # For now, this is a placeholder — it requires an email lookup table for anon users.
+    # Logging for visibility.
+    try:
+        repeat_users = solo_trip_service.find_repeat_anonymous_users()
+        if repeat_users:
+            logger.info(f"[cron] Found {len(repeat_users)} repeat anon users for gentle_nudge, "
+                        "but no email lookup table exists yet. Skipping.")
+    except Exception as e:
+        result.errors.append(f"gentle_nudge_query:{str(e)}")
+
+    logger.info(
+        f"[cron] Scheduled emails complete: "
+        f"followup={result.followup_sent}, lock_prompt={result.lock_prompt_sent}, "
+        f"support_touch={result.support_touch_sent}, gentle_nudge={result.gentle_nudge_sent}, "
+        f"errors={len(result.errors)}"
+    )
+    return result
+
+
+def _mark_support_touch_for_user(user_id: str):
+    """Mark all trips by this user so the support_touch email isn't sent again."""
+    t = solo_trip_service.get_solo_table()
+    from boto3.dynamodb.conditions import Attr
+    try:
+        resp = t.scan(
+            FilterExpression=Attr('createdBy').eq(user_id),
+            ProjectionExpression='tripId',
+            Limit=10,
+        )
+        for item in resp.get('Items', []):
+            solo_trip_service.mark_email_sent(item['tripId'], 'emailSupportTouchSent')
+    except Exception as e:
+        logger.warning(f"_mark_support_touch_for_user error: {e}")
