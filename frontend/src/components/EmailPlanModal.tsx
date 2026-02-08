@@ -25,8 +25,13 @@ export default function EmailPlanModal({ tripId, onClose }: EmailPlanModalProps)
     trackEvent(EVENTS.EMAIL_PLAN_REQUESTED, { tripId, email });
 
     try {
-      await solo.sharePlan(tripId, email);
-      setStatus('success');
+      const result = await solo.sharePlan(tripId, email);
+      if (result.emailSent) {
+        setStatus('success');
+      } else {
+        setStatus('error');
+        setErrorMsg(result.message || 'Email could not be sent. Please try again.');
+      }
     } catch (err) {
       setStatus('error');
       setErrorMsg(err instanceof Error ? err.message : 'Failed to send. Try again.');

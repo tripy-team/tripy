@@ -73,6 +73,7 @@ class StartMonitoringResponse(BaseModel):
     tier: MonitoringTier
     expires_at: Optional[str] = None
     message: Optional[str] = None
+    email_sent: bool = True
 
 
 class MonitoringStatusResponse(BaseModel):

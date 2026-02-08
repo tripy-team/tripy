@@ -3135,7 +3135,7 @@ export const solo = {
   /**
    * Share a plan via email magic link (Task 9/10)
    */
-  sharePlan: async (tripId: string, email: string): Promise<{ ok: boolean; message: string; shareToken?: string }> => {
+  sharePlan: async (tripId: string, email: string): Promise<{ ok: boolean; message: string; emailSent: boolean; shareToken?: string }> => {
     const response = await apiRequest<Record<string, unknown>>('/solo/share', {
       method: 'POST',
       body: JSON.stringify({
@@ -3143,7 +3143,7 @@ export const solo = {
         email,
       }),
     });
-    return toCamelCase<{ ok: boolean; message: string; shareToken?: string }>(response);
+    return toCamelCase<{ ok: boolean; message: string; emailSent: boolean; shareToken?: string }>(response);
   },
 
   /**
@@ -3206,6 +3206,7 @@ export const solo = {
     tier: string;
     expiresAt: string | null;
     message: string | null;
+    emailSent: boolean;
   }> => {
     const response = await apiRequest<Record<string, unknown>>(
       `/solo/trips/${tripId}/monitoring/start`,
@@ -3225,6 +3226,7 @@ export const solo = {
       tier: string;
       expiresAt: string | null;
       message: string | null;
+      emailSent: boolean;
     };
   },
 

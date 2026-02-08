@@ -527,8 +527,13 @@ function SoloBookingContent() {
           expires_at: expiresAt,
         }));
       } else if (result.state === 'pending_verification') {
-        // Unauthenticated — awaiting email verification
-        setPostBookingState('email_pending_verification');
+        // Check if the verification email was actually sent
+        if (result.emailSent === false) {
+          setMonitoringError(result.message || 'Could not send verification email. Please try again.');
+        } else {
+          // Unauthenticated — awaiting email verification
+          setPostBookingState('email_pending_verification');
+        }
       } else {
         // Unexpected state — treat as active
         setPostBookingState('monitoring_active');

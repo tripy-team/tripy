@@ -183,14 +183,15 @@ async def start_monitoring(
                 raise HTTPException(status_code=429, detail="Verification email resend limit reached. Check your inbox.")
 
             token = issue_verification_token(sub)
-            _send_verification_email(email, token, trip_id)
+            resend_ok = _send_verification_email(email, token, trip_id)
 
             return StartMonitoringResponse(
                 subscription_id=sub["subscription_id"],
                 state=MonitoringState.PENDING_VERIFICATION,
                 tier=MonitoringTier(sub.get("tier", "free_email")),
                 expires_at=sub.get("expires_at"),
-                message="Verification email resent. Check your inbox.",
+                email_sent=resend_ok,
+                message="Verification email resent. Check your inbox." if resend_ok else "Could not send verification email. Please try again later.",
             )
 
     # New subscription — capture baseline first
@@ -292,16 +293,22 @@ async def start_monitoring(
         raise HTTPException(status_code=500, detail="Internal error creating subscription.")
 
     # Send verification email for unauthenticated users
+    verification_email_sent = True
     if is_anon:
         token = issue_verification_token(sub_item)
-        _send_verification_email(email, token, trip_id)
+        verification_email_sent = _send_verification_email(email, token, trip_id)
 
     return StartMonitoringResponse(
         subscription_id=sub_id,
         state=MonitoringState(initial_state),
         tier=body.tier,
         expires_at=expires_at,
-        message="Check your email to verify." if is_anon else "Monitoring activated.",
+        email_sent=verification_email_sent,
+        message=(
+            "Check your email to verify." if (is_anon and verification_email_sent)
+            else "Could not send verification email. Please try again later." if (is_anon and not verification_email_sent)
+            else "Monitoring activated."
+        ),
     )
 
 
@@ -360,13 +367,13 @@ def _build_baseline(
     }
 
 
-def _send_verification_email(email: str, token: str, trip_id: str):
-    """Send a verification email with a magic link."""
+def _send_verification_email(email: str, token: str, trip_id: str) -> bool:
+    """Send a verification email with a magic link. Returns True if sent successfully."""
     verify_url = f"{FRONTEND_URL}/api/monitoring/verify?token={token}"
     try:
         from src.services.email_service import send_email, is_email_enabled
         if is_email_enabled():
-            send_email(
+            result = send_email(
                 to_email=email,
                 subject="Verify your Tripy monitoring alerts",
                 html_body=f"""
@@ -384,10 +391,16 @@ def _send_verification_email(email: str, token: str, trip_id: str):
                 """,
                 text_body=f"Activate monitoring for your Tripy trip: {verify_url}\n\nThis link expires in 24 hours.",
             )
+            if result.get("success"):
+                return True
+            logger.warning(f"Email service returned failure: {result.get('error')}")
+            return False
         else:
             logger.warning(f"Email not enabled. Verification URL: {verify_url}")
+            return False
     except Exception as e:
         logger.error(f"Failed to send verification email to {mask_email(email)}: {e}")
+        return False
 
 
 # =============================================================================

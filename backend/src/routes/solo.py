@@ -1576,6 +1576,7 @@ class SharePlanResponse(BaseModel):
     """Response from sharing a plan."""
     ok: bool
     message: str
+    email_sent: bool = False
     share_token: Optional[str] = None  # For testing/debugging
 
 
@@ -1683,7 +1684,8 @@ async def share_plan(
         
         return SharePlanResponse(
             ok=True,
-            message="Link sent! Check your email." if email_sent else "Link created. Email delivery is not configured yet.",
+            message="Link sent! Check your email." if email_sent else "Email could not be sent. Please try again or check your email address.",
+            email_sent=email_sent,
             share_token=token,
         )
     except HTTPException:
