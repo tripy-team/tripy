@@ -395,12 +395,17 @@ def _build_legs_and_segments(
     
     for seg in segments:
         if seg.get("type") == "flight":
-            # Parse date
+            # Parse date - CRITICAL: must use the user's intended travel date
             date_str = seg.get("date", "")
             try:
                 leg_date = datetime.strptime(date_str, "%Y-%m-%d").date()
-            except:
+            except Exception as e:
                 leg_date = date.today()
+                logger.warning(
+                    f"[V3 Adapter] Failed to parse date '{date_str}' for segment "
+                    f"{seg.get('origin', '?')}->{seg.get('destination', '?')}: {e}. "
+                    f"Falling back to today ({leg_date}). This will likely cause date constraint failures!"
+                )
             
             # MULTI-AIRPORT SUPPORT: Extract allowed airports from segment
             allowed_origins = seg.get("allowed_origin_airports")
@@ -416,7 +421,7 @@ def _build_legs_and_segments(
             origin_city = seg.get("origin_city") or seg.get("origin", "")
             dest_city = seg.get("dest_city") or seg.get("destination", "")
             
-            logger.info(f"[V3 Adapter] Building leg {leg_id}: {origin_city} → {dest_city}")
+            logger.info(f"[V3 Adapter] Building leg {leg_id}: {origin_city} → {dest_city} on {leg_date}")
             logger.info(f"[V3 Adapter]   Allowed origins: {allowed_origins or ['any']}")
             logger.info(f"[V3 Adapter]   Allowed dests: {allowed_dests or ['any']}")
             

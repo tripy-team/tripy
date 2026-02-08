@@ -869,8 +869,9 @@ class OrchestratorAgent(BaseAgent):
             # Round trip: go through intermediates then back home
             route_cities = intermediate
         
-        start_date = trip_data.get("start_date", "2026-03-01")
-        end_date = trip_data.get("end_date", "2026-03-08")
+        start_date = trip_data.get("start_date") or "2026-03-01"
+        end_date = trip_data.get("end_date") or "2026-03-08"
+        leg_dates = trip_data.get("leg_dates") or []
         
         from datetime import datetime, timedelta
         try:
@@ -879,18 +880,25 @@ class OrchestratorAgent(BaseAgent):
             total_days = (end_dt - current_date).days
             num_segments = len(route_cities) + 1 if end_dest == start_dest else len(route_cities)
             days_per_city = max(1, total_days // max(num_segments, 1))
-        except:
+        except Exception:
+            logger.warning(f"[Orchestrator] Failed to parse dates in _build_trip_segments_from_data: start_date={start_date!r}, end_date={end_date!r}")
             current_date = datetime.now()
             days_per_city = 3
         
         for i, city in enumerate(route_cities):
+            # Use explicit leg_dates if available (multi-city trips)
+            if leg_dates and i < len(leg_dates) and leg_dates[i]:
+                flight_date = leg_dates[i]
+            else:
+                flight_date = current_date.strftime("%Y-%m-%d")
+            
             # Flight to this destination (flights only - no hotels)
             segments.append({
                 "id": f"flight_{i}_to_{city}",
                 "type": "flight",
                 "origin": prev_city,
                 "destination": city,
-                "date": current_date.strftime("%Y-%m-%d"),
+                "date": flight_date,
             })
             
             current_date += timedelta(days=days_per_city)
@@ -898,12 +906,17 @@ class OrchestratorAgent(BaseAgent):
         
         # Return flight to origin (if round trip)
         if prev_city != origin:
+            return_leg_idx = len(route_cities)  # Return leg comes after all intermediate legs
+            if leg_dates and return_leg_idx < len(leg_dates) and leg_dates[return_leg_idx]:
+                return_date = leg_dates[return_leg_idx]
+            else:
+                return_date = current_date.strftime("%Y-%m-%d")
             segments.append({
                 "id": f"flight_return_to_{origin}",
                 "type": "flight",
                 "origin": prev_city,
                 "destination": origin,
-                "date": current_date.strftime("%Y-%m-%d"),
+                "date": return_date,
             })
         
         return segments
@@ -1121,10 +1134,12 @@ class OrchestratorAgent(BaseAgent):
                     logger.info(f"[Orchestrator] Parsed destinations: {destinations}")
                     
                     one_way = (trip.get("tripType") or "").strip().lower() == "one_way"
+                    leg_dates = trip.get("legDates") or []  # Multi-city per-leg departure dates
                     return {
                         "trip_id": trip_id,
                         "start_date": trip.get("startDate"),
                         "end_date": trip.get("endDate"),
+                        "leg_dates": leg_dates,
                         "destinations": destinations,
                         "one_way": one_way,
                         "include_hotels": trip.get("includeHotels", True),
@@ -1148,6 +1163,7 @@ class OrchestratorAgent(BaseAgent):
                 "trip_id": trip_id,
                 "start_date": trip.get("startDate"),
                 "end_date": trip.get("endDate"),
+                "leg_dates": trip.get("legDates") or [],
                 "destinations": destinations or [],
                 "include_hotels": trip.get("includeHotels", True),
                 "max_budget": trip.get("maxBudget"),
@@ -1186,13 +1202,18 @@ class OrchestratorAgent(BaseAgent):
         - airport_search_pairs: List of (origin_apt, dest_apt) to search
         """
         destinations = trip_data.get("destinations", [])
-        start_date = trip_data.get("start_date", "2026-03-01")
+        start_date = trip_data.get("start_date") or "2026-03-01"
         one_way = trip_data.get("one_way", False)
         # One-way trips only need departure date; arrival/return date is not used
         end_date = trip_data.get("end_date") or ("" if one_way else "2026-03-08")
         if one_way and not end_date:
             end_date = start_date
         end_date = end_date or "2026-03-08"
+        
+        # Multi-city per-leg departure dates (set by user in the UI)
+        leg_dates = trip_data.get("leg_dates") or []
+        if leg_dates:
+            logger.info(f"[Orchestrator] Using explicit leg_dates from trip: {leg_dates}")
         
         # Build airport mapping for each destination
         # {destination_name: [list of airports]}
@@ -1264,8 +1285,11 @@ class OrchestratorAgent(BaseAgent):
             start_dt = datetime.strptime(start_date, "%Y-%m-%d")
             end_dt = datetime.strptime(end_date, "%Y-%m-%d")
         except Exception:
+            logger.warning(f"[Orchestrator] Failed to parse dates in _build_trip_segments: start_date={start_date!r}, end_date={end_date!r}. Falling back to now().")
             start_dt = datetime.now()
             end_dt = start_dt + timedelta(days=7)
+        
+        logger.info(f"[Orchestrator] Trip dates: start={start_date}, end={end_date}, leg_dates={leg_dates}")
         
         # ═══════════════════════════════════════════════════════════════════════
         # CREATE ONE SEGMENT PER CITY-PAIR (not per airport pair!)
@@ -1290,8 +1314,13 @@ class OrchestratorAgent(BaseAgent):
                 origin_airports = dest_to_airports.get(origin_city, [origin_city])
                 dest_airports = dest_to_airports.get(dest_city, [dest_city])
                 
-                # For return leg, use end_date
-                flight_date = end_dt.strftime("%Y-%m-%d") if is_return_leg else current_date.strftime("%Y-%m-%d")
+                # Use explicit leg_dates if available (multi-city trips)
+                if leg_dates and i < len(leg_dates) and leg_dates[i]:
+                    flight_date = leg_dates[i]
+                elif is_return_leg:
+                    flight_date = end_dt.strftime("%Y-%m-%d")
+                else:
+                    flight_date = current_date.strftime("%Y-%m-%d")
                 
                 # Generate all airport pairs for searching (we'll consolidate results)
                 airport_search_pairs = [
@@ -1418,13 +1447,14 @@ class OrchestratorAgent(BaseAgent):
         from datetime import datetime, timedelta
         
         destinations = trip_data.get("destinations", [])
-        start_date = trip_data.get("start_date", "2026-03-01")
-        end_date = trip_data.get("end_date", "2026-03-08")
+        start_date = trip_data.get("start_date") or "2026-03-01"
+        end_date = trip_data.get("end_date") or "2026-03-08"
         
         try:
             start_dt = datetime.strptime(start_date, "%Y-%m-%d")
             end_dt = datetime.strptime(end_date, "%Y-%m-%d")
-        except:
+        except Exception:
+            logger.warning(f"[Orchestrator] Failed to parse dates in _build_per_member_segments: start_date={start_date!r}, end_date={end_date!r}")
             start_dt = datetime.now()
             end_dt = start_dt + timedelta(days=7)
         
@@ -1561,13 +1591,15 @@ class OrchestratorAgent(BaseAgent):
         """
         from datetime import datetime, timedelta
         
-        start_date = trip_data.get("start_date", "2026-03-01")
-        end_date = trip_data.get("end_date", "2026-03-08")
+        start_date = trip_data.get("start_date") or "2026-03-01"
+        end_date = trip_data.get("end_date") or "2026-03-08"
+        leg_dates = trip_data.get("leg_dates") or []
         
         try:
             start_dt = datetime.strptime(start_date, "%Y-%m-%d")
             end_dt = datetime.strptime(end_date, "%Y-%m-%d")
-        except:
+        except Exception:
+            logger.warning(f"[Orchestrator] Failed to parse dates: start_date={start_date!r}, end_date={end_date!r}. Falling back to now().")
             start_dt = datetime.now()
             end_dt = start_dt + timedelta(days=7)
         
@@ -1583,8 +1615,13 @@ class OrchestratorAgent(BaseAgent):
             destination = route[i + 1]
             is_return_leg = (i == len(route) - 2 and destination == start_airport)
             
-            # For return leg, use end_date
-            flight_date = end_dt.strftime("%Y-%m-%d") if is_return_leg else current_date.strftime("%Y-%m-%d")
+            # Use explicit leg_dates if available (multi-city trips)
+            if leg_dates and i < len(leg_dates) and leg_dates[i]:
+                flight_date = leg_dates[i]
+            elif is_return_leg:
+                flight_date = end_dt.strftime("%Y-%m-%d")
+            else:
+                flight_date = current_date.strftime("%Y-%m-%d")
             
             segments.append({
                 "type": "flight",
@@ -1594,6 +1631,8 @@ class OrchestratorAgent(BaseAgent):
             })
             
             current_date += timedelta(days=days_per_city)
+        
+        logger.info(f"[Orchestrator] Built segments for route {' → '.join(route)}: dates={[s['date'] for s in segments]}")
         
         return segments
     
