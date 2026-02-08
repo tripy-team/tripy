@@ -94,6 +94,7 @@ export default function SoloResults() {
     const router = useRouter();
     const searchParams = useSearchParams();
     const tripId = searchParams?.get('trip_id') || '';
+    const shareToken = searchParams?.get('share_token') || '';
 
     const [itineraries, setItineraries] = useState<Itinerary[]>([]);
     const [soloItineraries, setSoloItineraries] = useState<SoloRankedItinerary[]>([]);
@@ -152,6 +153,85 @@ export default function SoloResults() {
                 setUsingSoloOptimizer(false);
                 setSoloItineraries([]);
                 
+                // ============================================================
+                // Shared plan path: use the public endpoint when share_token
+                // is present (e.g. magic-link emails opened on another device
+                // where the user is not logged in).
+                // ============================================================
+                if (shareToken) {
+                    try {
+                        const shared = await solo.getSharedPlan(shareToken);
+                        if (shared?.ok && shared.trip) {
+                            const tripData = shared.trip;
+                            setTrip(tripData as unknown as Trip);
+
+                            // Extract party size
+                            const adults = tripData.adults || 1;
+                            const children = tripData.children || 0;
+                            setPartySize({ adults, children, total: adults + children });
+
+                            // Build duration label
+                            let durationLabel = '—';
+                            if (tripData.startDate && tripData.endDate) {
+                                const start = new Date(tripData.startDate);
+                                const end = new Date(tripData.endDate);
+                                if (!isNaN(start.getTime()) && !isNaN(end.getTime())) {
+                                    const d = Math.round((end.getTime() - start.getTime()) / (24 * 60 * 60 * 1000)) + 1;
+                                    if (d > 0) durationLabel = `${d} days`;
+                                }
+                            } else if (tripData.durationDays != null && tripData.durationDays > 0) {
+                                durationLabel = `${tripData.durationDays} days (flexible)`;
+                            }
+
+                            setUserConstraints({
+                                maxBudget: tripData.maxBudget,
+                                totalPoints: 0,
+                                durationLabel,
+                            });
+
+                            // Use cached optimization from the shared response
+                            const optimizeResult = shared.optimization;
+                            if (optimizeResult && optimizeResult.itineraries && optimizeResult.itineraries.length > 0) {
+                                setOptimizeResponse(optimizeResult);
+                                setSoloItineraries(optimizeResult.itineraries);
+                                setSelectedSoloId(optimizeResult.bestOption || optimizeResult.itineraries[0].id);
+                                setUsingSoloOptimizer(true);
+
+                                if (optimizeResult.structuredWarnings) {
+                                    setStructuredWarnings(optimizeResult.structuredWarnings);
+                                } else if (optimizeResult.warnings && optimizeResult.warnings.length > 0) {
+                                    setOptimizationWarning(optimizeResult.warnings.join(' '));
+                                }
+
+                                const itin = optimizeResult.itineraries[0];
+                                if (itin.budgetWarning) {
+                                    const oopCost = itin.oopMetrics?.totalOutOfPocket;
+                                    setBudgetWarning({
+                                        message: itin.budgetWarning,
+                                        user_budget: tripData.maxBudget,
+                                        recommended_budget: oopCost ? Math.ceil(oopCost) : undefined,
+                                    });
+                                }
+
+                                trackEvent(EVENTS.TRIP_RESULT_VIEWED, {
+                                    tripId,
+                                    itineraryCount: optimizeResult.itineraries.length,
+                                    hasDecisionSummary: !!optimizeResult.decisionSummary,
+                                    shared: true,
+                                });
+
+                                loaderHandlesTransition = true;
+                                setApiComplete(true);
+                                return;
+                            }
+                        }
+                        // If shared endpoint didn't return optimization, fall through
+                        // to the normal flow (user may be logged in on this device too).
+                    } catch (sharedErr) {
+                        console.log('[SoloResults] Shared plan fetch failed, falling back to authenticated flow:', sharedErr);
+                    }
+                }
+
                 // Try the new solo optimizer first
                 let usedSoloOptimizer = false;
                 try {
@@ -602,7 +682,7 @@ export default function SoloResults() {
     };
 
         fetchItineraries();
-    }, [tripId, refetchTrigger]);
+    }, [tripId, shareToken, refetchTrigger]);
 
     const stepIcon = (method: string) => {
         const m = (method || '').toLowerCase();

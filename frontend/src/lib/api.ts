@@ -3147,6 +3147,29 @@ export const solo = {
   },
 
   /**
+   * Get a shared plan via magic link token (public, no auth required).
+   * Returns the trip data + cached optimization for read-only viewing.
+   */
+  getSharedPlan: async (shareToken: string): Promise<{
+    ok: boolean;
+    trip: SoloTripResponse;
+    optimization: SoloOptimizeResponse | null;
+    readOnly: boolean;
+  }> => {
+    const response = await apiRequest<Record<string, unknown>>(
+      `/solo/shared/${encodeURIComponent(shareToken)}`,
+      { method: 'GET' },
+      false, // requireAuth = false — public endpoint
+    );
+    return toCamelCase<{
+      ok: boolean;
+      trip: SoloTripResponse;
+      optimization: SoloOptimizeResponse | null;
+      readOnly: boolean;
+    }>(response);
+  },
+
+  /**
    * Claim a shared plan to authenticated user's account (Task 11)
    */
   claimPlan: async (tripId: string): Promise<{ ok: boolean; message: string }> => {
