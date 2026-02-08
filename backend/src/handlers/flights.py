@@ -1020,6 +1020,21 @@ async def search_awardtool_flights(
                 dep_time = item.get("departure_time") or item.get("departure") or (f"{flight_date}T00:00:00" if flight_date else None)
                 arr_time = item.get("arrival_time") or item.get("arrival")
                 
+                # Fallback: compute arrival_time from departure + duration when AwardTool
+                # doesn't provide it. Note: this uses departure timezone so it's approximate
+                # for cross-timezone flights, but the V3 adapter/greedy enrichment will
+                # replace it with real SerpAPI times when available.
+                if not arr_time and dep_time and (item.get("duration_minutes") or item.get("travel_minutes")):
+                    try:
+                        from datetime import datetime as dt_cls, timedelta
+                        dep_dt = dt_cls.fromisoformat(dep_time)
+                        dur_mins = item.get("duration_minutes") or item.get("travel_minutes")
+                        if dur_mins and int(dur_mins) > 0:
+                            arr_dt = dep_dt + timedelta(minutes=int(dur_mins))
+                            arr_time = arr_dt.isoformat()
+                    except Exception:
+                        pass
+                
                 # SANITIZE: Use coalesce_nonneg_int to prevent -1 sentinel values from leaking
                 # Compute distance-based fallback only if distance is valid and positive
                 distance = sanitize_nonneg_float(item.get("distance"))

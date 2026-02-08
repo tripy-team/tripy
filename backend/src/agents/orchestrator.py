@@ -1868,6 +1868,58 @@ class OrchestratorAgent(BaseAgent):
                 )
                 
                 if best:
+                    # Enrich award flights with real times from SerpAPI cash flights
+                    # Award flights from AwardTool often lack departure/arrival times
+                    # or use a midnight placeholder (T00:00:00)
+                    has_placeholder_dep = best.departure_time and "T00:00:00" in best.departure_time
+                    needs_time_enrichment = (
+                        not best.arrival_time or 
+                        has_placeholder_dep
+                    )
+                    if needs_time_enrichment:
+                        # First pass: match same airline
+                        for other_opt in result.options:
+                            if other_opt is best:
+                                continue
+                            if not other_opt.departure_time or not other_opt.arrival_time:
+                                continue
+                            if "T00:00:00" in (other_opt.departure_time or ""):
+                                continue  # Skip other placeholder times
+                            other_airline = (other_opt.airline or "").upper()[:2]
+                            best_airline = (best.airline or "").upper()[:2]
+                            if other_airline == best_airline:
+                                if has_placeholder_dep:
+                                    best.departure_time = other_opt.departure_time
+                                if not best.arrival_time:
+                                    best.arrival_time = other_opt.arrival_time
+                                if not best.duration_minutes and other_opt.duration_minutes:
+                                    best.duration_minutes = other_opt.duration_minutes
+                                # Also borrow leg/segment data if missing
+                                if not best.segments and other_opt.segments:
+                                    best.segments = other_opt.segments
+                                logger.info(f"[Greedy] Enriched {best.origin}->{best.destination} times from matching {other_airline} SerpAPI flight")
+                                break
+                        
+                        # Second pass: accept any airline for same route if still missing
+                        if not best.arrival_time or (best.departure_time and "T00:00:00" in best.departure_time):
+                            for other_opt in result.options:
+                                if other_opt is best:
+                                    continue
+                                if not other_opt.departure_time or not other_opt.arrival_time:
+                                    continue
+                                if "T00:00:00" in (other_opt.departure_time or ""):
+                                    continue
+                                if best.departure_time and "T00:00:00" in best.departure_time:
+                                    best.departure_time = other_opt.departure_time
+                                if not best.arrival_time:
+                                    best.arrival_time = other_opt.arrival_time
+                                if not best.duration_minutes and other_opt.duration_minutes:
+                                    best.duration_minutes = other_opt.duration_minutes
+                                if not best.segments and other_opt.segments:
+                                    best.segments = other_opt.segments
+                                logger.info(f"[Greedy] Enriched {best.origin}->{best.destination} times from {other_opt.airline} SerpAPI flight (cross-airline)")
+                                break
+                    
                     seg, points_used, transfer = self._create_flight_segment(
                         best, remaining_points, force_points=budget_is_tight
                     )
