@@ -56,7 +56,7 @@ run:
 
     # Email / Sharing (required for "Email me this plan" and monitoring verification)
     - name: SES_SENDER_EMAIL
-      value: "support@traveltripy.com"
+      value: "tripy@traveltripy.com"
     - name: FRONTEND_URL
       value: "https://traveltripy.com"
 
