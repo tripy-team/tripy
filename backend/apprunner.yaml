@@ -59,6 +59,10 @@ run:
       value: "tripy@traveltripy.com"
     - name: FRONTEND_URL
       value: "https://traveltripy.com"
+    - name: SHARE_TOKEN_SECRET
+      value: "f58fde766e311a52097be5484dd94e2f5c34b0db56ef74d5e0191fea33a2e1c3"
+    - name: CRON_SECRET
+      value: "0b440b54a6b07a7b6d8a48c1958fd124a9a33e2e3b3ed4a37bc4c72dc95c0901"
 
     # Monitoring feature tables
     - name: MONITORING_TABLE_SUBSCRIPTIONS
