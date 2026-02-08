@@ -725,7 +725,7 @@ export default function SoloTripSetup() {
                   
                   {/* INTERMEDIATE DESTINATIONS */}
                   {cities.map((city, index) => {
-                    // Don't show departure date for the last city - it's represented by the end date
+                    // For the last city in a round trip, show "Return Date" using endDate instead of legDates
                     const isLastCity = index === cities.length - 1;
                     
                     return (
@@ -738,7 +738,7 @@ export default function SoloTripSetup() {
                         </div>
                         
                         {/* Content */}
-                        <div className={`flex-1 ${isLastCity ? '' : 'grid grid-cols-1 md:grid-cols-2 gap-4'} -mt-1`}>
+                        <div className="flex-1 grid grid-cols-1 md:grid-cols-2 gap-4 -mt-1">
                           <div className="relative">
                             <label className="block text-xs text-slate-500 mb-2 uppercase font-bold tracking-wider">
                               Destination {index + 1}
@@ -765,12 +765,19 @@ export default function SoloTripSetup() {
                               </button>
                             </div>
                           </div>
-                          {/* Only show departure date for non-last cities in multi-city trips */}
-                          {!isLastCity && (
-                            <div>
-                              <label className="block text-xs text-slate-500 mb-2 uppercase font-bold tracking-wider">
-                                Departure Date
-                              </label>
+                          <div>
+                            <label className="block text-xs text-slate-500 mb-2 uppercase font-bold tracking-wider">
+                              {isLastCity && isRoundTrip ? 'Return Date' : 'Departure Date'}
+                            </label>
+                            {isLastCity && isRoundTrip ? (
+                              <SingleDatePicker
+                                value={endDate}
+                                onChange={(date) => setEndDate(date)}
+                                minDate={getMinDateForLeg(index + 1)}
+                                disabled={isFlexible}
+                                placeholder="Select date"
+                              />
+                            ) : (
                               <SingleDatePicker
                                 value={legDates[index + 1] || ''}
                                 onChange={(date) => updateLegDate(index + 1, date)}
@@ -778,8 +785,8 @@ export default function SoloTripSetup() {
                                 disabled={isFlexible}
                                 placeholder="Select date"
                               />
-                            </div>
-                          )}
+                            )}
+                          </div>
                         </div>
                       </div>
                     );
@@ -879,8 +886,8 @@ export default function SoloTripSetup() {
                           />
                         )}
                       </div>
-                      {/* Arrival/return date: only for round trip; one-way uses departure date only */}
-                      {isRoundTrip && (
+                      {/* Arrival/return date: only for round trip when no destinations added (otherwise shown on last destination) */}
+                      {isRoundTrip && cities.length === 0 && (
                         <div>
                           <label className="block text-xs text-slate-500 mb-2 uppercase font-bold tracking-wider">
                             Return Date
@@ -888,7 +895,7 @@ export default function SoloTripSetup() {
                           <SingleDatePicker
                             value={endDate}
                             onChange={(date) => setEndDate(date)}
-                            minDate={cities.length > 0 ? getMinDateForLeg(cities.length) : (startDate || new Date().toISOString().split('T')[0])}
+                            minDate={startDate || new Date().toISOString().split('T')[0]}
                             placeholder="Select date"
                           />
                         </div>
