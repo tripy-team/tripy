@@ -469,6 +469,16 @@ Return JSON: {{"programs": ["UA", "AA", ...], "reasoning": "..."}}
                 from datetime import datetime, timezone
                 fetched_at = datetime.now(timezone.utc).isoformat()
                 
+                # Extract departure/arrival times with fallback to per-leg segment data
+                dep_time = first_flight.get("departure_airport", {}).get("time")
+                arr_time = last_flight.get("arrival_airport", {}).get("time")
+                
+                # Fallback: if top-level times are missing, derive from segments
+                if not dep_time and segments:
+                    dep_time = segments[0].departure_time
+                if not arr_time and segments:
+                    arr_time = segments[-1].arrival_time
+                
                 option = FlightOption(
                     id=str(uuid.uuid4()),
                     source="serpapi",
@@ -479,8 +489,8 @@ Return JSON: {{"programs": ["UA", "AA", ...], "reasoning": "..."}}
                     cabin_class=cabin,
                     cash_price=parsed_price,
                     award_available=False,
-                    departure_time=first_flight.get("departure_airport", {}).get("time"),
-                    arrival_time=last_flight.get("arrival_airport", {}).get("time"),
+                    departure_time=dep_time,
+                    arrival_time=arr_time,
                     duration_minutes=r.get("total_duration"),
                     _stops_hint=len(flights) - 1 if flights else 0,  # Fallback hint
                     flight_numbers=flight_numbers,

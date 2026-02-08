@@ -2308,6 +2308,10 @@ class OrchestratorAgent(BaseAgent):
             cash_price=option.cash_price or 0,
             payment=payment,
             booking_url=option.booking_url,
+            # Pass through connection details from FlightOption
+            stops=option.stops,
+            legs=option.segments,
+            layovers=[lay.model_dump() for lay in option.layovers] if option.layovers else [],
         )
         
         return segment, points_used, transfer

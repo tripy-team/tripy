@@ -1038,8 +1038,8 @@ export default function SoloResults() {
                                         data-testid={`solo-itinerary-card-${itinerary.id}`}
                                         role="button"
                                         tabIndex={0}
-                                        onClick={() => { if (!isDisabled) handleSelectSoloItinerary(itinerary); }}
-                                        onKeyDown={(e) => { if (!isDisabled && (e.key === 'Enter' || e.key === ' ')) { e.preventDefault(); handleSelectSoloItinerary(itinerary); } }}
+                                        onClick={() => { if (!isDisabled) setSelectedSoloId(itinerary.id); }}
+                                        onKeyDown={(e) => { if (!isDisabled && (e.key === 'Enter' || e.key === ' ')) { e.preventDefault(); setSelectedSoloId(itinerary.id); } }}
                                         className={`bg-white border-2 rounded-2xl overflow-hidden transition-all shadow-sm ${isDisabled ? 'opacity-60 cursor-not-allowed' : 'cursor-pointer'} ${
                                             isSelected
                                                 ? 'border-blue-600 shadow-lg shadow-blue-600/10 ring-2 ring-blue-600/20'
