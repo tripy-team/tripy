@@ -2798,6 +2798,9 @@ function SoloBookingContent() {
                   <p className="text-amber-700 mt-1">
                     We sent a verification link to <strong>{monitoringEmail}</strong>. Click it to activate monitoring.
                   </p>
+                  {monitoringError && (
+                    <p className="mt-2 text-sm text-red-600">{monitoringError}</p>
+                  )}
                   <button
                     onClick={handleEmailSubmit}
                     disabled={emailSubmitting}

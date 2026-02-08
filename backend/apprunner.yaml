@@ -53,3 +53,19 @@ run:
       value: "us-east-1_zCMCjyTLJ"
     - name: USER_POOL_CLIENT_ID
       value: "2rehpmlssbivmlo6468rcsd0kq"
+
+    # Email / Sharing (required for "Email me this plan" and monitoring verification)
+    - name: SES_SENDER_EMAIL
+      value: "support@traveltripy.com"
+    - name: FRONTEND_URL
+      value: "https://traveltripy.com"
+
+    # Monitoring feature tables
+    - name: MONITORING_TABLE_SUBSCRIPTIONS
+      value: "tripy-monitoring-subscriptions"
+    - name: MONITORING_TABLE_BASELINES
+      value: "tripy-monitoring-baselines"
+    - name: MONITORING_TABLE_UPDATES
+      value: "tripy-monitoring-updates"
+    - name: RATE_LIMIT_TABLE
+      value: "tripy-rate-limit-counters"
