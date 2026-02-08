@@ -301,8 +301,9 @@ async function apiRequest<T>(
           currentPath === '/';
 
         if (!isAuthPage) {
-          // Redirect to login
-          window.location.href = '/login';
+          // Redirect to login, preserving the current page so the user returns here after signing in
+          const returnUrl = encodeURIComponent(window.location.pathname + window.location.search);
+          window.location.href = `/login?redirect=${returnUrl}`;
         }
       }
       throw new Error('Authentication failed. Please log in again.');

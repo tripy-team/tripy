@@ -87,7 +87,9 @@ export default function AppLayout({
         if (!accessToken && !idToken) {
             sessionStorage.setItem(AUTH_CHECKED_KEY, 'true');
             setIsChecking(false);
-            router.replace('/login');
+            // Preserve the current page so the user returns here after signing in
+            const returnUrl = encodeURIComponent(window.location.pathname + window.location.search);
+            router.replace(`/login?redirect=${returnUrl}`);
             return;
         }
         

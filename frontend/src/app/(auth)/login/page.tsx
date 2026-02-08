@@ -4,7 +4,7 @@ import Link from "next/link";
 import { useState, Suspense } from "react";
 import { useRouter, useSearchParams } from "next/navigation";
 import { Plane, Mail, Lock, ArrowRight, Eye, EyeOff } from "lucide-react";
-import { login } from "@/lib/api";
+import { login, solo, getAnonSessionId } from "@/lib/api";
 
 function LoginForm() {
 	const router = useRouter();
@@ -64,6 +64,17 @@ function LoginForm() {
 				window.dispatchEvent(new Event('tripy_auth_change'));
 			}
 			
+			// Migrate anonymous session trips to the authenticated user
+			try {
+				const anonId = getAnonSessionId();
+				if (anonId) {
+					await solo.migrateSession(anonId);
+				}
+			} catch (migrationErr) {
+				// Non-blocking: migration failure shouldn't prevent login
+				console.warn('[Login] Session migration failed:', migrationErr);
+			}
+
 			// On success, redirect to the specified page or default to points setup
 			const destination = redirectPath || "/points-setup";
 			router.push(destination);

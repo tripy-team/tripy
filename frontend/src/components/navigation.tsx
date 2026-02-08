@@ -3,7 +3,7 @@
 import { Bell, LogOut, Settings, User, Menu, X } from 'lucide-react';
 import { useEffect, useState } from 'react';
 import Link from 'next/link';
-import { usePathname, useRouter } from 'next/navigation';
+import { usePathname, useRouter, useSearchParams } from 'next/navigation';
 import { TripyLogo } from '@/components/tripy-logo';
 import {
   DropdownMenu,
@@ -30,8 +30,23 @@ interface UserData {
 export function Navigation() {
   const router = useRouter();
   const pathname = usePathname();
+  const searchParams = useSearchParams();
   const [user, setUser] = useState<UserData | null>(null);
   const [mobileMenuOpen, setMobileMenuOpen] = useState(false);
+
+  // Build login URL that redirects to the right page after sign-in.
+  // If the user is on the results page with a trip_id, send them straight
+  // to the booking page after login so they can act on the generated route.
+  const loginHref = (() => {
+    const tripId = searchParams?.get('trip_id');
+    if (pathname === '/solo/results' && tripId) {
+      return `/login?redirect=${encodeURIComponent(`/solo/booking?trip_id=${tripId}`)}`;
+    }
+    const currentUrl = searchParams?.toString()
+      ? `${pathname}?${searchParams.toString()}`
+      : pathname;
+    return `/login?redirect=${encodeURIComponent(currentUrl)}`;
+  })();
 
   useEffect(() => {
     // Check for logged in user
@@ -232,7 +247,7 @@ export function Navigation() {
             ) : (
               <div className="flex items-center gap-3">
                 <Link
-                  href="/login"
+                  href={loginHref}
                   className="text-slate-600 hover:text-slate-900 font-medium text-sm"
                 >
                   Log in
@@ -355,7 +370,7 @@ export function Navigation() {
             ) : (
               <div className="px-4 space-y-2">
                 <Link
-                  href="/login"
+                  href={loginHref}
                   onClick={() => setMobileMenuOpen(false)}
                   className="block w-full text-center px-4 py-3 border border-slate-300 rounded-xl text-slate-700 font-medium hover:bg-slate-50"
                 >

@@ -25,6 +25,27 @@ export interface TransferInstruction {
   warning?: string;
 }
 
+export interface FlightLegDetail {
+  origin: string;
+  destination: string;
+  departureTime?: string;
+  arrivalTime?: string;
+  durationMinutes?: number;
+  flightNumber: string;
+  marketingCarrier: string;
+  operatingCarrier?: string;
+  aircraft?: string;
+  cabin?: string;
+}
+
+export interface LayoverDetail {
+  airport: string;
+  airportName?: string;
+  durationMinutes: number;
+  isShort: boolean;
+  isLong: boolean;
+}
+
 export interface BookingStep {
   stepNumber: number;
   type: 'flight' | 'hotel';
@@ -32,6 +53,29 @@ export interface BookingStep {
   hotelChain?: string;  // Fixup 6: Use hotelChain, not hotelName
   bookingUrl: string;
   segmentReference: string;
+
+  // Flight-specific details
+  origin?: string;
+  destination?: string;
+  departureTime?: string;
+  arrivalTime?: string;
+  cabinClass?: string;
+  flightNumber?: string;
+  operatingAirline?: string;
+  durationMinutes?: number;
+
+  // Connection details
+  stops?: number;
+  legs?: FlightLegDetail[];
+  layovers?: LayoverDetail[];
+
+  // Payment details
+  paymentMethod?: 'points' | 'cash';
+  pointsUsed?: number;
+  cashPrice?: number;
+  surcharge?: number;
+  program?: string;
+  paymentReason?: string;
 }
 
 export interface TransferStrategyResponse {
@@ -56,6 +100,28 @@ export interface BookingGuideStep {
     portalUrl?: string;
     bookingUrl?: string;
     warning?: string;
+
+    // Flight-specific details
+    flightNumber?: string;
+    origin?: string;
+    destination?: string;
+    departureTime?: string;
+    arrivalTime?: string;
+    cabinClass?: string;
+    airline?: string;
+    operatingAirline?: string;
+    durationMinutes?: number;
+    stops?: number;
+    legs?: FlightLegDetail[];
+    layovers?: LayoverDetail[];
+
+    // Payment info
+    paymentMethod?: 'points' | 'cash';
+    pointsUsed?: number;
+    cashPrice?: number;
+    surcharge?: number;
+    program?: string;
+    paymentReason?: string;
   };
 }
 
@@ -145,12 +211,43 @@ export function useSoloTransferStrategy(): UseSoloTransferStrategyResult {
       // Add booking steps
       for (const b of data.bookings || []) {
         if (b.type === 'flight') {
+          // Build a rich title with flight number and route
+          const flightLabel = b.flightNumber
+            ? `${b.airline || 'Flight'} ${b.flightNumber}`
+            : (b.airline || 'Flight');
+          const routeLabel = b.origin && b.destination
+            ? `${b.origin} → ${b.destination}`
+            : '';
+          const title = routeLabel
+            ? `Book ${flightLabel} (${routeLabel})`
+            : `Book ${flightLabel}`;
+
           transformedSteps.push({
             stepNumber: stepNum++,
             action: 'book_flight',
-            title: `Book ${b.airline || 'Flight'}`,
+            title,
             description: b.segmentReference,
-            details: { bookingUrl: b.bookingUrl },
+            details: {
+              bookingUrl: b.bookingUrl,
+              flightNumber: b.flightNumber,
+              origin: b.origin,
+              destination: b.destination,
+              departureTime: b.departureTime,
+              arrivalTime: b.arrivalTime,
+              cabinClass: b.cabinClass,
+              airline: b.airline,
+              operatingAirline: b.operatingAirline,
+              durationMinutes: b.durationMinutes,
+              stops: b.stops,
+              legs: b.legs,
+              layovers: b.layovers,
+              paymentMethod: b.paymentMethod,
+              pointsUsed: b.pointsUsed,
+              cashPrice: b.cashPrice,
+              surcharge: b.surcharge,
+              program: b.program,
+              paymentReason: b.paymentReason,
+            },
           });
         } else {
           // Fixup 6: Use hotelChain (from backend hotel_chain after serialization)

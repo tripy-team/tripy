@@ -1220,10 +1220,12 @@ export default function SoloResults() {
 
                                             {/* Book Button */}
                                             <button
-                                                onClick={async (e) => {
+                                                onClick={(e) => {
                                                     e.stopPropagation();
                                                     if (!isDisabled) {
-                                                        await handleSelectSoloItinerary(itinerary);
+                                                        // Navigate immediately (same as "Book this plan"),
+                                                        // and persist the itinerary selection in the background
+                                                        handleSelectSoloItinerary(itinerary);
                                                         router.push(`/solo/booking?trip_id=${tripId}`);
                                                     }
                                                 }}
