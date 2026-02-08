@@ -1,7 +1,7 @@
 'use client';
 
 import { Bell, LogOut, Settings, User, Menu, X } from 'lucide-react';
-import { useEffect, useState } from 'react';
+import { Suspense, useEffect, useState } from 'react';
 import Link from 'next/link';
 import { usePathname, useRouter, useSearchParams } from 'next/navigation';
 import { TripyLogo } from '@/components/tripy-logo';
@@ -28,6 +28,14 @@ interface UserData {
 }
 
 export function Navigation() {
+  return (
+    <Suspense fallback={null}>
+      <NavigationInner />
+    </Suspense>
+  );
+}
+
+function NavigationInner() {
   const router = useRouter();
   const pathname = usePathname();
   const searchParams = useSearchParams();

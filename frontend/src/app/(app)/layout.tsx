@@ -1,6 +1,6 @@
 'use client';
 
-import { Suspense, useEffect, useState } from 'react';
+import { useEffect, useState } from 'react';
 import { useRouter, usePathname } from 'next/navigation';
 import { Navigation } from '@/components/navigation';
 import { ScrollToTop } from '@/components/scroll-to-top';
@@ -103,9 +103,7 @@ export default function AppLayout({
     if (isChecking) {
         return (
             <div className="flex flex-col min-h-screen bg-slate-50">
-                <Suspense fallback={null}>
-                    <Navigation />
-                </Suspense>
+                <Navigation />
                 <main className="flex-1 flex items-center justify-center pt-20">
                     <div className="text-center">
                         <div className="inline-block animate-spin rounded-full h-8 w-8 border-b-2 border-blue-600"></div>
@@ -119,9 +117,7 @@ export default function AppLayout({
     return (
         <div className="flex flex-col min-h-screen bg-slate-50">
             <ScrollToTop />
-            <Suspense fallback={null}>
-                <Navigation />
-            </Suspense>
+            <Navigation />
             {/* pt-20 = navbar height (h-20) so content starts below the fixed nav */}
             <main className="flex-1 pt-20">
                 {children}
