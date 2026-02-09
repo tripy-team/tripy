@@ -17,15 +17,18 @@ import {
 } from 'lucide-react';
 
 // Optimization stages with realistic timing estimates
-// Backend can take up to 60s, so stages are spread across that duration
+// Backend can take up to 60s, so stages are spread across that duration.
+// Progress is deliberately back-loaded: early stages advance quickly to show
+// activity, while later stages move slowly so the bar is still moving when
+// the API finishes (avoids the "stuck at 98%" feeling).
 const OPTIMIZATION_STAGES = [
   { 
     stage: 'preparing', 
     label: 'Preparing your trip data...', 
-    sublabel: 'Loading destinations and group preferences',
+    sublabel: 'Loading destinations and preferences',
     icon: MapPin,
     minProgress: 0,
-    maxProgress: 8,
+    maxProgress: 5,
     minDuration: 2000,
     maxDuration: 4000,
   },
@@ -34,50 +37,50 @@ const OPTIMIZATION_STAGES = [
     label: 'Searching flight options...', 
     sublabel: 'Scanning airlines and award availability',
     icon: Plane,
-    minProgress: 8,
-    maxProgress: 35,
+    minProgress: 5,
+    maxProgress: 20,
     minDuration: 10000,
-    maxDuration: 20000,
+    maxDuration: 18000,
   },
   { 
     stage: 'pooling', 
-    label: 'Pooling group points...', 
+    label: 'Pooling points...', 
     sublabel: 'Aggregating points from all members',
     icon: Users,
-    minProgress: 35,
-    maxProgress: 45,
-    minDuration: 3000,
-    maxDuration: 6000,
+    minProgress: 20,
+    maxProgress: 30,
+    minDuration: 4000,
+    maxDuration: 8000,
   },
   { 
     stage: 'optimizing', 
     label: 'Running optimization algorithm...', 
-    sublabel: 'Finding the best value for your group',
+    sublabel: 'Finding the best value for your trip',
     icon: Calculator,
-    minProgress: 45,
-    maxProgress: 75,
-    minDuration: 15000,
-    maxDuration: 25000,
+    minProgress: 30,
+    maxProgress: 55,
+    minDuration: 18000,
+    maxDuration: 30000,
   },
   { 
     stage: 'allocating', 
     label: 'Allocating bookings...', 
-    sublabel: 'Assigning flights to members',
+    sublabel: 'Assigning flights and calculating costs',
     icon: Zap,
-    minProgress: 75,
-    maxProgress: 88,
-    minDuration: 5000,
-    maxDuration: 10000,
+    minProgress: 55,
+    maxProgress: 75,
+    minDuration: 10000,
+    maxDuration: 18000,
   },
   { 
     stage: 'finalizing', 
     label: 'Finalizing results...', 
-    sublabel: 'Calculating settlements and savings',
+    sublabel: 'Calculating savings and polishing details',
     icon: TrendingUp,
-    minProgress: 88,
-    maxProgress: 98,
-    minDuration: 5000,
-    maxDuration: 10000,
+    minProgress: 75,
+    maxProgress: 95,
+    minDuration: 12000,
+    maxDuration: 22000,
   },
 ];
 
@@ -85,14 +88,14 @@ interface TripGenerationLoaderProps {
   isVisible: boolean;
   isComplete?: boolean; // Set to true when backend has finished (triggers completion animation)
   onComplete?: () => void;
-  estimatedDuration?: number; // Total estimated time in ms (default: 15000)
+  estimatedDuration?: number; // Total estimated time in ms (default: 55000)
 }
 
 export function TripGenerationLoader({ 
   isVisible, 
   isComplete: apiComplete = false,
   onComplete,
-  estimatedDuration = 45000  // 45 seconds - better matches actual backend duration
+  estimatedDuration = 55000  // 55 seconds - generous estimate so bar is still moving when API finishes
 }: TripGenerationLoaderProps) {
   const [progress, setProgress] = useState(0);
   const [currentStageIndex, setCurrentStageIndex] = useState(0);
@@ -128,6 +131,7 @@ export function TripGenerationLoader({
       OPTIMIZATION_STAGES[0].minDuration,
       OPTIMIZATION_STAGES[0].maxDuration
     );
+    let waitingStartTime: number | null = null;
 
     const animate = (timestamp: number) => {
       if (!startTime) {
@@ -139,8 +143,8 @@ export function TripGenerationLoader({
       const stageElapsed = timestamp - stageStartTime;
       const stageProgressRatio = Math.min(stageElapsed / stageDuration, 1);
       
-      // Ease-out progression within each stage
-      const easeOut = 1 - Math.pow(1 - stageProgressRatio, 2);
+      // Ease-out progression within each stage (slower deceleration for later stages)
+      const easeOut = 1 - Math.pow(1 - stageProgressRatio, stageIndex >= 4 ? 3 : 2);
       currentProgress = stage.minProgress + (stage.maxProgress - stage.minProgress) * easeOut;
       
       setProgress(currentProgress);
@@ -156,12 +160,23 @@ export function TripGenerationLoader({
         );
       }
 
-      // Continue animation unless at final stage completion
-      if (currentProgress < 98) {
+      // Once stages are done, slowly creep from 95 toward 99 over ~30s
+      // so the bar keeps moving even while waiting for the API
+      if (currentProgress >= 95 && stageProgressRatio >= 1 && stageIndex >= OPTIMIZATION_STAGES.length - 1) {
+        if (!waitingStartTime) {
+          waitingStartTime = timestamp;
+          setWaitingForApi(true);
+        }
+        const waitElapsed = timestamp - waitingStartTime;
+        // Asymptotically approach 99% over ~30 seconds using logarithmic ease
+        const creep = Math.min(4, 4 * (1 - 1 / (1 + waitElapsed / 15000)));
+        currentProgress = 95 + creep;
+        setProgress(currentProgress);
+      }
+
+      // Always keep animating (the creep ensures the bar never looks stuck)
+      if (currentProgress < 99.5) {
         animationFrame = requestAnimationFrame(animate);
-      } else {
-        // Animation reached max, wait for API
-        setWaitingForApi(true);
       }
     };
 
@@ -263,7 +278,7 @@ export function TripGenerationLoader({
                   }
                 `}
                 style={{ 
-                  width: `${Math.max(2, Math.min(progress, isWaitingForServer ? 98 : 100))}%`,
+                  width: `${Math.max(2, Math.min(progress, 100))}%`,
                   minWidth: progress > 0 ? '8px' : '0px'
                 }}
               />
@@ -273,7 +288,7 @@ export function TripGenerationLoader({
                 {isAnimationComplete ? 'Complete' : isWaitingForServer ? 'Finishing up' : 'Optimizing'}
               </span>
               <span className={`font-medium ${isAnimationComplete ? 'text-green-600' : 'text-blue-600'}`}>
-                {isWaitingForServer ? '~98%' : `${Math.round(progress)}%`}
+                {`${Math.round(progress)}%`}
               </span>
             </div>
           </div>

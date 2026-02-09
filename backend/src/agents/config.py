@@ -60,41 +60,45 @@ CPP_CONFIG = {
 
 TRANSFER_GRAPH = {
     "Chase UR": {
-        "airlines": ["UA", "AA", "BA", "AF", "VS", "SQ", "IB", "AV"],
+        "airlines": ["UA", "AA", "BA", "AF", "VS", "SQ", "IB", "AV", "EK", "AC"],
         "hotels": ["HYATT", "MAR", "IHG"],
         "ratios": {
             "UA": 1.0, "AA": 1.0, "BA": 1.0, "AF": 1.0, "VS": 1.0,
-            "SQ": 1.0, "IB": 1.0, "AV": 1.0,
+            "SQ": 1.0, "IB": 1.0, "AV": 1.0, "EK": 1.0, "AC": 1.0,
             "HYATT": 1.0, "MAR": 1.0, "IHG": 1.0,
         },
         "transfer_times": {
             "UA": "Instant", "AA": "Instant", "BA": "Instant", "AF": "Instant",
-            "VS": "Instant", "SQ": "Instant", "HYATT": "Instant", "MAR": "1-2 days",
+            "VS": "Instant", "SQ": "Instant", "EK": "Instant", "AC": "Instant",
+            "HYATT": "Instant", "MAR": "1-2 days",
         },
         "portal_url": "https://ultimaterewardspoints.chase.com",
     },
     "Amex MR": {
-        "airlines": ["DL", "BA", "AF", "ANA", "VS", "SQ", "EK", "JL"],
+        "airlines": ["DL", "BA", "AF", "ANA", "VS", "SQ", "EK", "JL", "QR", "AV", "EY", "NH", "AC"],
         "hotels": ["HH", "MAR"],
         "ratios": {
             "DL": 1.0, "BA": 1.0, "AF": 1.0, "ANA": 1.0, "VS": 1.0,
-            "SQ": 1.0, "EK": 1.0, "JL": 1.0,
+            "SQ": 1.0, "EK": 1.0, "JL": 1.0, "QR": 1.0, "AV": 1.0,
+            "EY": 1.0, "NH": 1.0, "AC": 1.0,
             "HH": 2.0, "MAR": 1.0,  # 1 MR = 2 Hilton
         },
         "transfer_times": {
             "DL": "Instant", "BA": "Instant", "AF": "Instant",
+            "QR": "Instant", "AV": "Instant", "EY": "1-2 days",
             "HH": "Instant", "MAR": "1-2 days",
         },
         "portal_url": "https://global.americanexpress.com/rewards",
     },
     "Citi TYP": {
-        "airlines": ["AA", "SQ", "TK", "VS", "AF", "EK", "QF"],
+        "airlines": ["AA", "SQ", "TK", "VS", "AF", "EK", "QF", "AC", "JL", "CX", "EY", "QR"],
         "hotels": [],
         "ratios": {
             "AA": 1.0, "SQ": 1.0, "TK": 1.0, "VS": 1.0, "AF": 1.0,
-            "EK": 1.0, "QF": 1.0,
+            "EK": 1.0, "QF": 1.0, "AC": 1.0, "JL": 1.0, "CX": 1.0,
+            "EY": 1.0, "QR": 1.0,
         },
-        "transfer_times": {"AA": "Instant", "SQ": "1-2 days", "TK": "1-2 days"},
+        "transfer_times": {"AA": "Instant", "SQ": "1-2 days", "TK": "1-2 days", "AC": "Instant"},
         "portal_url": "https://www.thankyou.com",
     },
     "Capital One": {

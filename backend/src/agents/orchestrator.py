@@ -388,6 +388,30 @@ class OrchestratorAgent(BaseAgent):
         # Rank by OOP (lowest first)
         optimized.sort(key=lambda x: x.oop_metrics.total_out_of_pocket)
         
+        # Deduplicate itineraries that have the same route + flights + pricing
+        # This prevents showing identical cards when multiple optimization paths
+        # converge on the same solution.
+        def _itinerary_fingerprint(itin: RankedItinerary) -> str:
+            seg_keys = []
+            for seg in itin.segments:
+                seg_keys.append(
+                    f"{seg.origin}-{seg.destination}|{seg.airline}|{getattr(seg, 'flight_number', '')}|{seg.departure_time}"
+                )
+            oop = round(itin.oop_metrics.total_out_of_pocket, 2)
+            return f"{itin.route}||{';;'.join(seg_keys)}||{oop}"
+        
+        seen_fingerprints: set[str] = set()
+        deduped: list[RankedItinerary] = []
+        for itin in optimized:
+            fp = _itinerary_fingerprint(itin)
+            if fp not in seen_fingerprints:
+                seen_fingerprints.add(fp)
+                deduped.append(itin)
+        
+        if len(deduped) < len(optimized):
+            logger.info(f"[Orchestrator] Deduplicated {len(optimized)} → {len(deduped)} unique itineraries")
+        optimized = deduped
+        
         # Assign ranks
         for i, itinerary in enumerate(optimized):
             itinerary.rank = i + 1
@@ -412,7 +436,7 @@ class OrchestratorAgent(BaseAgent):
                         "totalPointsUsed": itinerary.oop_metrics.total_points_used,
                         "cashSaved": itinerary.oop_metrics.cash_saved,
                         "savingsPercentage": itinerary.oop_metrics.savings_percentage,
-                        "averageCPP": itinerary.oop_metrics.average_cpp,
+                        "averageCpp": itinerary.oop_metrics.average_cpp,
                         "pointsBreakdown": itinerary.oop_metrics.points_breakdown,
                     },
                     "transfers": [t.model_dump() for t in itinerary.transfers],
@@ -1964,7 +1988,19 @@ class OrchestratorAgent(BaseAgent):
                     )
                     itinerary_segments.append(seg)
                     
-                    total_cash_price += best.cash_price or 0
+                    # For total_cash_price, we need the cash cost of this flight
+                    # even if the selected option is an award flight without a cash price.
+                    # This represents "what it would cost if ALL flights were booked with cash".
+                    segment_cash_price = best.cash_price or 0
+                    if not segment_cash_price and result and result.options:
+                        # Selected option has no cash price (e.g., award-only flight).
+                        # Find the cheapest cash price from any option on this route.
+                        cash_prices = [o.cash_price for o in result.options if o.cash_price]
+                        if cash_prices:
+                            segment_cash_price = min(cash_prices)
+                            logger.info(f"[Greedy] Cash price unknown for selected option {best.origin}->{best.destination}, "
+                                       f"using cheapest alternative: ${segment_cash_price:.0f}")
+                    total_cash_price += segment_cash_price
                     
                     if seg.payment.method == "cash":
                         total_oop += seg.payment.amount
@@ -1983,8 +2019,8 @@ class OrchestratorAgent(BaseAgent):
         if not itinerary_segments:
             return [], warnings
         
-        # Calculate metrics
-        cash_saved = total_cash_price - total_oop
+        # Calculate metrics (clamp to 0 — negative means surcharges exceed cash price)
+        cash_saved = max(0.0, total_cash_price - total_oop)
         savings_pct = (cash_saved / total_cash_price * 100) if total_cash_price > 0 else 0
         
         # Calculate average CPP
@@ -2276,9 +2312,21 @@ class OrchestratorAgent(BaseAgent):
         Handles normalization between different key formats:
         - TRANSFER_GRAPH uses: "Amex MR", "Chase UR", etc.
         - User points might use: "amex_mr", "chase_ur", "amex", "chase", etc.
+        
+        Also handles compound program names from AwardTool like "IB & QR", "LO & TK"
+        by checking each component airline individually.
         """
         # Normalize program name for comparison
         program_upper = program.upper() if program else ""
+        
+        # COMPOUND PROGRAM HANDLING: AwardTool sometimes returns multi-airline
+        # program names like "IB & QR", "LO & TK". We need to check each
+        # component airline separately against the transfer graph.
+        program_codes = [program_upper]
+        if " & " in program_upper:
+            # Split "IB & QR" into ["IB", "QR"] and check each
+            program_codes = [p.strip() for p in program_upper.split("&") if p.strip()]
+            logger.debug(f"[Greedy] Compound program '{program}' split into: {program_codes}")
         
         # Check direct balance (normalize both sides for comparison)
         for user_prog, balance in remaining_points.items():
@@ -2286,17 +2334,27 @@ class OrchestratorAgent(BaseAgent):
             if self._is_fixed_value_bank(user_prog):
                 continue
             user_prog_upper = user_prog.upper().replace("_", " ").replace("-", " ")
-            if program_upper == user_prog_upper or program_upper in user_prog_upper:
-                if balance >= points_needed:
-                    return True
+            for code in program_codes:
+                if code == user_prog_upper or code in user_prog_upper:
+                    if balance >= points_needed:
+                        return True
         
         # Check transfer partners (airlines only)
         from .config import TRANSFER_GRAPH
         
         # Build a mapping of normalized bank names to their config
         for bank_name, config in TRANSFER_GRAPH.items():
-            if program_upper in [a.upper() for a in config.get("airlines", [])]:
-                ratio = config["ratios"].get(program, config["ratios"].get(program_upper, 1.0))
+            airlines_upper = [a.upper() for a in config.get("airlines", [])]
+            
+            # Check if ANY component of the compound program is in this bank's airlines
+            matched_code = None
+            for code in program_codes:
+                if code in airlines_upper:
+                    matched_code = code
+                    break
+            
+            if matched_code:
+                ratio = config["ratios"].get(matched_code, config["ratios"].get(program, config["ratios"].get(program_upper, 1.0)))
                 needed_from_bank = int(points_needed / ratio)
                 
                 # Check if user has this bank - normalize the comparison
@@ -2311,7 +2369,7 @@ class OrchestratorAgent(BaseAgent):
                         if balance >= needed_from_bank:
                             logger.info(
                                 f"[Greedy] Can afford {program}: {points_needed:,} pts via {bank_name} "
-                                f"(user has {balance:,} {user_prog}, need {needed_from_bank:,})"
+                                f"(user has {balance:,} {user_prog}, need {needed_from_bank:,}, matched airline={matched_code})"
                             )
                             return True
         
@@ -2330,11 +2388,14 @@ class OrchestratorAgent(BaseAgent):
         points_used = 0
         
         # Decide cash vs points
-        # When force_points=True, skip CPP threshold check
+        # When force_points=True, skip CPP threshold check but still require that
+        # surcharge < cash_price (otherwise using points costs MORE than paying cash).
         if force_points:
+            surcharge_ok = (option.award_surcharge or 0) < (option.cash_price or 0)
             use_points = (
                 option.award_available and 
                 option.award_points and
+                surcharge_ok and
                 self._can_afford_points(option.award_program, option.award_points, remaining_points)
             )
         else:
@@ -2403,6 +2464,7 @@ class OrchestratorAgent(BaseAgent):
             stops=option.stops,
             legs=option.segments,
             layovers=[lay.model_dump() for lay in option.layovers] if option.layovers else [],
+            ticketing_confirmed=getattr(option, 'ticketing_confirmed', False),
         )
         
         return segment, points_used, transfer

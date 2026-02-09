@@ -21,6 +21,8 @@ DEFAULT_TRANSFER_GRAPH: Dict[str, Dict[str, float]] = {
         "VS": 1.0,   # Virgin Atlantic
         "IB": 1.0,   # Iberia Plus
         "EK": 1.0,   # Emirates Skywards
+        "AC": 1.0,   # Air Canada Aeroplan
+        "AV": 1.0,   # Avianca LifeMiles
         "HYATT": 1.0,  # World of Hyatt
         "MAR": 1.0,  # Marriott Bonvoy (3:1 but set to 1 here, adjusted elsewhere)
     },
@@ -35,6 +37,9 @@ DEFAULT_TRANSFER_GRAPH: Dict[str, Dict[str, float]] = {
         "EK": 1.0,   # Emirates Skywards
         "AV": 1.0,   # Avianca LifeMiles
         "EY": 1.0,   # Etihad Guest
+        "QR": 1.0,   # Qatar Airways Privilege Club
+        "AC": 1.0,   # Air Canada Aeroplan
+        "JL": 1.0,   # Japan Airlines Mileage Bank
         "HH": 1.0,   # Hilton Honors (often 1:2 but varies)
         "MAR": 1.0,  # Marriott Bonvoy
     },
@@ -50,6 +55,8 @@ DEFAULT_TRANSFER_GRAPH: Dict[str, Dict[str, float]] = {
         "JL": 1.0,   # Japan Airlines Mileage Bank
         "CX": 1.0,   # Cathay Pacific Asia Miles
         "AC": 1.0,   # Air Canada Aeroplan
+        "QR": 1.0,   # Qatar Airways Privilege Club
+        "EK": 1.0,   # Emirates Skywards
     },
     "capitalone": {
         # Capital One Miles partners

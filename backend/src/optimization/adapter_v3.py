@@ -962,6 +962,16 @@ def convert_result_to_itineraries(
     
     logger.info(f"[V3 Adapter] SerpAPI flights available for enrichment: {dict((k, len(v)) for k, v in serpapi_flights_by_leg.items())}")
     
+    # Build lookup of cheapest known cash price per leg.
+    # This is used when the selected flight has an unknown cash price (award-only)
+    # so we can still compute "what it would cost if ALL flights were booked with cash".
+    cheapest_cash_by_leg: dict[str, float] = {}
+    for f in flights:
+        if not f.cash_cost_unknown and f.cash_cost > 0:
+            leg = f.leg_id
+            if leg not in cheapest_cash_by_leg or f.cash_cost < cheapest_cash_by_leg[leg]:
+                cheapest_cash_by_leg[leg] = f.cash_cost
+    
     # Process flights
     for leg_id, edge_id in solution.selected_flights.items():
         flight = flight_by_id.get(edge_id)
@@ -1063,8 +1073,20 @@ def convert_result_to_itineraries(
                 cash_amount=actual_cash,
             ))
         
-        # Use actual price for totals (0 for unknown, not the $999,999 penalty)
-        actual_cash_price = 0.0 if flight.cash_cost_unknown else flight.cash_cost
+        # Use actual price for totals (0 for unknown, not the $999,999 penalty).
+        # When cash price is unknown (award-only flight), fall back to the cheapest
+        # known cash price for this leg so "Cash Price / Without points" reflects
+        # the cost of booking ALL flights with cash, not just the cash-paid ones.
+        if flight.cash_cost_unknown:
+            fallback_cash = cheapest_cash_by_leg.get(leg_id, 0.0)
+            if fallback_cash > 0:
+                logger.info(
+                    f"[V3 Adapter] Cash price unknown for {flight.origin}->{flight.destination}, "
+                    f"using cheapest known cash price for leg {leg_id}: ${fallback_cash:.0f}"
+                )
+            actual_cash_price = fallback_cash
+        else:
+            actual_cash_price = flight.cash_cost
         total_cash_price += actual_cash_price
         
         # Build segment - extract from first leg (for multi-leg, aggregate flight numbers)
@@ -1184,8 +1206,11 @@ def convert_result_to_itineraries(
                     f"with airline {search_code}. Award flights may need manual lookup."
                 )
         
-        # For display purposes, use 0 if cash price was unknown (not the penalty value)
-        display_cash_price = 0.0 if flight.cash_cost_unknown else flight.cash_cost
+        # For display purposes, use fallback cash price if unknown (not the penalty value)
+        if flight.cash_cost_unknown:
+            display_cash_price = cheapest_cash_by_leg.get(leg_id, 0.0)
+        else:
+            display_cash_price = flight.cash_cost
         
         # Build detailed flight legs for booking information
         flight_legs = []
@@ -1263,6 +1288,84 @@ def convert_result_to_itineraries(
         
         stops = len(flight_legs) - 1
         
+        # ═══════════════════════════════════════════════════════════════════
+        # CODESHARE / TICKETING DETECTION
+        # Different operating carriers does NOT always mean separate booking.
+        # If segments are unified under a common marketing carrier, they are
+        # codeshare flights on a single reservation.
+        # ═══════════════════════════════════════════════════════════════════
+        
+        is_single_reservation = False
+        top_airline_norm = (airline_code or "").strip().upper()[:2]
+        
+        if stops == 0:
+            # Direct flight — trivially single reservation
+            is_single_reservation = True
+        elif flight_legs:
+            # For connecting flights, check if all legs share a common marketing carrier
+            leg_marketing_carriers = set()
+            for leg in flight_legs:
+                mkt = (leg.marketing_carrier or "").strip().upper()[:2]
+                if mkt:
+                    leg_marketing_carriers.add(mkt)
+            
+            if len(leg_marketing_carriers) <= 1:
+                # All legs have the same marketing carrier → single reservation
+                is_single_reservation = True
+                logger.info(
+                    f"[V3 Adapter] Codeshare detected: all legs share marketing carrier "
+                    f"{leg_marketing_carriers}, single reservation"
+                )
+            elif top_airline_norm and top_airline_norm not in leg_marketing_carriers:
+                # The top-level airline (e.g., DL) is NOT any of the segment carriers
+                # (e.g., AS, BF). This means segments are codeshare under the top airline.
+                is_single_reservation = True
+                
+                # Update legs to properly reflect codeshare relationship
+                for leg in flight_legs:
+                    leg_mkt = (leg.marketing_carrier or "").strip().upper()[:2]
+                    if leg_mkt and leg_mkt != top_airline_norm:
+                        # This leg's carrier differs from the top airline — it's a codeshare
+                        if not leg.is_codeshare:
+                            leg.is_codeshare = True
+                            leg.operating_carrier = leg.operating_carrier or leg.marketing_carrier
+                            leg.codeshare_info = (
+                                leg.codeshare_info or
+                                f"Operated by {leg.operating_carrier or leg.marketing_carrier}"
+                            )
+                
+                logger.info(
+                    f"[V3 Adapter] Codeshare detected: top airline {top_airline_norm} unifies "
+                    f"segment carriers {leg_marketing_carriers}, single reservation"
+                )
+            elif top_airline_norm and top_airline_norm in leg_marketing_carriers and len(leg_marketing_carriers) == 2:
+                # One carrier is the top airline, one is different — partial codeshare
+                # E.g., DL 123 + AF 456 where AF is codeshare under DL
+                other_carriers = leg_marketing_carriers - {top_airline_norm}
+                # Check if the "other" carrier is an alliance partner (common codeshare)
+                CODESHARE_GROUPS = {
+                    "DL": {"AF", "KL", "VS", "AM", "KE", "AR"},  # SkyTeam partners
+                    "AA": {"BA", "IB", "JL", "QF", "CX", "AY", "MH", "AS"},  # OneWorld partners (AS joined 2021)
+                    "UA": {"LH", "SQ", "NH", "AC", "SK", "TG", "NZ"},  # Star Alliance partners
+                }
+                partner_carriers = CODESHARE_GROUPS.get(top_airline_norm, set())
+                if other_carriers.issubset(partner_carriers):
+                    is_single_reservation = True
+                    logger.info(
+                        f"[V3 Adapter] Alliance codeshare detected: {top_airline_norm} + "
+                        f"{other_carriers} are alliance partners, likely single reservation"
+                    )
+        
+        # Determine ticketing_confirmed based on source trust + codeshare analysis
+        source = getattr(flight, 'pricing_source', None) or getattr(flight, 'source', 'unknown')
+        ticketing_confirmed = False
+        if is_single_reservation:
+            if source == "serpapi":
+                # SerpAPI (Google Flights) itineraries are sold as single tickets
+                ticketing_confirmed = True
+            elif stops == 0:
+                ticketing_confirmed = True  # Direct flights are always single-ticket
+        
         # Generate Google Flights verification URL
         # Format: https://www.google.com/travel/flights?q=flights%20from%20SEA%20to%20CDG%20on%202026-02-11
         dep_date_only = ""
@@ -1325,6 +1428,7 @@ def convert_result_to_itineraries(
             stops=stops,
             legs=flight_legs,
             layovers=layovers,
+            ticketing_confirmed=ticketing_confirmed,  # Codeshare-aware single-ticket detection
             # Use display price (0 for unknown), not the optimization penalty
             cash_price=display_cash_price,
             payment=payment,

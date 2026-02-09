@@ -128,6 +128,22 @@ export default function SoloResults() {
     const [feedbackText, setFeedbackText] = useState('');
     const [feedbackSubmitted, setFeedbackSubmitted] = useState(false);
 
+    // Deduplicate itineraries that share the same route + segments + OOP.
+    // This handles cached results that were stored before backend dedup was added.
+    const deduplicateItineraries = (items: SoloRankedItinerary[]): SoloRankedItinerary[] => {
+        const seen = new Set<string>();
+        return items.filter((itin) => {
+            const segKey = (itin.segments || [])
+                .map((s) => `${s.origin}-${s.destination}|${s.airline}|${s.flightNumber || ''}|${s.departureTime || ''}`)
+                .join(';;');
+            const oop = itin.oopMetrics?.totalOutOfPocket ?? 0;
+            const fp = `${(itin.route || []).join(',')}||${segKey}||${Math.round(oop * 100)}`;
+            if (seen.has(fp)) return false;
+            seen.add(fp);
+            return true;
+        });
+    };
+
     useEffect(() => {
         const fetchItineraries = async () => {
             if (!tripId) {
@@ -193,8 +209,9 @@ export default function SoloResults() {
                             const optimizeResult = shared.optimization;
                             if (optimizeResult && optimizeResult.itineraries && optimizeResult.itineraries.length > 0) {
                                 setOptimizeResponse(optimizeResult);
-                                setSoloItineraries(optimizeResult.itineraries);
-                                setSelectedSoloId(optimizeResult.bestOption || optimizeResult.itineraries[0].id);
+                                const uniqueItineraries = deduplicateItineraries(optimizeResult.itineraries);
+                                setSoloItineraries(uniqueItineraries);
+                                setSelectedSoloId(optimizeResult.bestOption || uniqueItineraries[0].id);
                                 setUsingSoloOptimizer(true);
 
                                 if (optimizeResult.structuredWarnings) {
@@ -287,8 +304,9 @@ export default function SoloResults() {
                         trackEvent(EVENTS.TRIP_RESULT_VIEWED, { tripId, itineraryCount: optimizeResult.itineraries?.length || 0, hasDecisionSummary: !!optimizeResult.decisionSummary });
                         
                         if (optimizeResult.itineraries && optimizeResult.itineraries.length > 0) {
-                            setSoloItineraries(optimizeResult.itineraries);
-                            setSelectedSoloId(optimizeResult.bestOption || optimizeResult.itineraries[0].id);
+                            const uniqueItineraries = deduplicateItineraries(optimizeResult.itineraries);
+                            setSoloItineraries(uniqueItineraries);
+                            setSelectedSoloId(optimizeResult.bestOption || uniqueItineraries[0].id);
                             setUsingSoloOptimizer(true);
                             usedSoloOptimizer = true;
                             
@@ -763,7 +781,6 @@ export default function SoloResults() {
                 <TripGenerationLoader 
                     isVisible={true}
                     isComplete={apiComplete}
-                    estimatedDuration={15000}
                     onComplete={() => setLoading(false)}
                 />
             </div>
@@ -1077,20 +1094,7 @@ export default function SoloResults() {
                                                             <RiskBadge risk={itinerary.risk} variant="badge" />
                                                         )}
                                                     </div>
-                                                    <div className="flex items-center gap-4 text-sm text-slate-600">
-                                                        <span className="flex items-center gap-1">
-                                                            <MapPin className="w-4 h-4" />
-                                                            {itinerary.route.length - 2 === 0 ? 'Nonstop' : `${itinerary.route.length - 2} layover${itinerary.route.length - 2 > 1 ? 's' : ''}`}
-                                                        </span>
-                                                        <span className="flex items-center gap-1">
-                                                            <Zap className="w-4 h-4" />
-                                                            {(metrics.totalPointsUsed / 1000).toFixed(0)}k pts
-                                                        </span>
-                                                        <span className="flex items-center gap-1">
-                                                            <TrendingUp className="w-4 h-4" />
-                                                            {metrics.averageCpp.toFixed(1)}¢/pt
-                                                        </span>
-                                                    </div>
+                                                    
                                                 </div>
                                                 {metrics.savingsPercentage > 0 && (
                                                     <span className="px-2.5 py-1 bg-emerald-100 text-emerald-700 rounded-full text-xs font-medium">
@@ -1100,40 +1104,60 @@ export default function SoloResults() {
                                             </div>
 
                                             {/* Cost Summary */}
-                                            <div className="mb-6 grid grid-cols-3 gap-3 p-4 bg-gradient-to-br from-blue-50 to-slate-50 rounded-xl border border-blue-100">
-                                                <div>
-                                                    <div className="flex items-center gap-1.5 text-slate-600 mb-1">
-                                                        <DollarSign className="w-4 h-4" />
-                                                        <span className="text-xs font-medium uppercase tracking-wider">Cash Price</span>
+                                            {(() => {
+                                                // Use multiple sources for points: oopMetrics (primary), bookingDetails (fallback)
+                                                const pointsNeeded = metrics.totalPointsUsed
+                                                    || itinerary.bookingDetails?.totalPoints
+                                                    || 0;
+                                                return (
+                                            <div className="mb-6 p-4 bg-gradient-to-br from-blue-50 to-slate-50 rounded-xl border border-blue-100">
+                                                <div className="grid grid-cols-2 gap-3">
+                                                    <div>
+                                                        <div className="flex items-center gap-1.5 text-slate-600 mb-1">
+                                                            <DollarSign className="w-4 h-4" />
+                                                            <span className="text-xs font-medium uppercase tracking-wider">Cash Price</span>
+                                                        </div>
+                                                        <div className="text-2xl font-bold text-slate-900">${Math.round(metrics.totalCashPrice).toLocaleString()}</div>
+                                                        <div className="text-xs text-slate-500 mt-0.5">Without points</div>
                                                     </div>
-                                                    <div className="text-2xl font-bold text-slate-900">${Math.round(metrics.totalCashPrice).toLocaleString()}</div>
-                                                    <div className="text-xs text-slate-500 mt-0.5">Without points</div>
+
+                                                    <div>
+                                                        <div className="flex items-center gap-1.5 text-slate-600 mb-1">
+                                                            <DollarSign className="w-4 h-4" />
+                                                            <span className="text-xs font-medium uppercase tracking-wider">You Pay</span>
+                                                        </div>
+                                                        <div className="text-2xl font-bold text-emerald-600">${Math.round(metrics.totalOutOfPocket).toLocaleString()}</div>
+                                                        <div className="text-xs text-slate-500 mt-0.5">
+                                                            {partySize.total > 1 ? (
+                                                                <>Total for {partySize.adults} adult{partySize.adults !== 1 ? 's' : ''}{partySize.children > 0 && `, ${partySize.children} child${partySize.children !== 1 ? 'ren' : ''}`}</>
+                                                            ) : (
+                                                                'Out-of-pocket'
+                                                            )}
+                                                        </div>
+                                                    </div>
                                                 </div>
 
-                                                <div>
-                                                    <div className="flex items-center gap-1.5 text-slate-600 mb-1">
-                                                        <DollarSign className="w-4 h-4" />
-                                                        <span className="text-xs font-medium uppercase tracking-wider">You Pay</span>
+                                                {/* Points breakdown */}
+                                                {pointsNeeded > 0 && (
+                                                    <div className="mt-3 pt-3 border-t border-blue-200/50 grid grid-cols-2 gap-3">
+                                                        <div>
+                                                            <div className="flex items-center gap-1.5 text-slate-600 mb-1">
+                                                                <Zap className="w-3.5 h-3.5 text-blue-500" />
+                                                                <span className="text-xs font-medium uppercase tracking-wider">Points Needed</span>
+                                                            </div>
+                                                            <div className="text-lg font-bold text-blue-700">
+                                                                {pointsNeeded >= 1000
+                                                                    ? `${(pointsNeeded / 1000).toFixed(pointsNeeded % 1000 === 0 ? 0 : 1)}k`
+                                                                    : pointsNeeded.toLocaleString()
+                                                                }
+                                                            </div>
+                                                            <div className="text-xs text-slate-500 mt-0.5">Total points to redeem</div>
+                                                        </div>
                                                     </div>
-                                                    <div className="text-2xl font-bold text-emerald-600">${Math.round(metrics.totalOutOfPocket).toLocaleString()}</div>
-                                                    <div className="text-xs text-slate-500 mt-0.5">
-                                                        {partySize.total > 1 ? (
-                                                            <>Total for {partySize.adults} adult{partySize.adults !== 1 ? 's' : ''}{partySize.children > 0 && `, ${partySize.children} child${partySize.children !== 1 ? 'ren' : ''}`}</>
-                                                        ) : (
-                                                            'Out-of-pocket'
-                                                        )}
-                                                    </div>
-                                                </div>
-
-                                                <div>
-                                                    <div className="flex items-center gap-1.5 text-slate-600 mb-1">
-                                                        <Zap className="w-4 h-4" />
-                                                        <span className="text-xs font-medium uppercase tracking-wider">Points</span>
-                                                    </div>
-                                                    <div className="text-2xl font-bold text-blue-600">{(metrics.totalPointsUsed / 1000).toFixed(0)}k</div>
-                                                    <div className="text-xs text-slate-500 mt-0.5">To use</div>
-                                                </div>
+                                                )}
                                             </div>
+                                                );
+                                            })()}
 
                                             {/* Airline-style Flight Segments */}
                                             <div className="space-y-3 mb-6">
@@ -1166,8 +1190,10 @@ export default function SoloResults() {
                                                             ? (segment.stops === 0 ? 'Nonstop' : `${segment.stops} stop${segment.stops > 1 ? 's' : ''}`)
                                                             : (itinerary.route.length - 2 === 0 ? 'Nonstop' : `${itinerary.route.length - 2} stop${itinerary.route.length - 2 > 1 ? 's' : ''}`);
 
+                                                        const segIsPoints = segment.paymentMethod === 'points' || (segment.pointsUsed != null && segment.pointsUsed > 0) || (metrics.cashSaved > 0 && segment.cashPrice === 0);
+
                                                         return (
-                                                            <div key={idx} className={`p-4 rounded-xl border ${segment.paymentMethod === 'points' ? 'bg-blue-50/50 border-blue-100' : 'bg-slate-50 border-slate-200'}`}>
+                                                            <div key={idx} className={`p-4 rounded-xl border ${segIsPoints ? 'bg-blue-50/50 border-blue-100' : 'bg-slate-50 border-slate-200'}`}>
                                                                 {/* Date row */}
                                                                 {validDep && (
                                                                     <div className="flex items-center gap-2 mb-3 text-xs text-slate-500">
@@ -1227,27 +1253,42 @@ export default function SoloResults() {
                                                                 </div>
 
                                                                 {/* Price & payment row */}
+                                                                {(() => {
+                                                                    const isPoints = segment.paymentMethod === 'points' || (segment.pointsUsed != null && segment.pointsUsed > 0);
+                                                                    const fmtSurcharge = segment.surcharge ? `$${Number(segment.surcharge) % 1 === 0 ? Math.round(segment.surcharge).toLocaleString() : Number(segment.surcharge).toFixed(2)}` : '';
+                                                                    return (
                                                                 <div className="flex items-center justify-between mt-3 pt-3 border-t border-slate-200/60">
                                                                     <div className="text-xs text-slate-500">
-                                                                        {segment.paymentMethod === 'points'
-                                                                            ? `${segment.pointsUsed?.toLocaleString()} pts${segment.surcharge ? ` + $${segment.surcharge} fees` : ''}${segment.cppAchieved ? ` · ${segment.cppAchieved.toFixed(1)}¢/pt` : ''}`
-                                                                            : `$${segment.cashPrice?.toLocaleString()} cash`
+                                                                        {isPoints
+                                                                            ? `${segment.pointsUsed?.toLocaleString() ?? '—'} pts${fmtSurcharge ? ` + ${fmtSurcharge} fees` : ''}`
+                                                                            : (segment.cashPrice != null && segment.cashPrice > 0)
+                                                                                ? `$${segment.cashPrice.toLocaleString()} cash`
+                                                                                : metrics.cashSaved > 0
+                                                                                    ? 'Paid with points'
+                                                                                    : ''
                                                                         }
                                                                     </div>
-                                                                    {segment.paymentMethod === 'points' && (
+                                                                    {isPoints && (
+                                                                        <span className="px-2 py-0.5 bg-blue-100 text-blue-700 text-xs font-medium rounded">Points</span>
+                                                                    )}
+                                                                    {!isPoints && metrics.cashSaved > 0 && segment.cashPrice === 0 && (
                                                                         <span className="px-2 py-0.5 bg-blue-100 text-blue-700 text-xs font-medium rounded">Points</span>
                                                                     )}
                                                                 </div>
+                                                                    );
+                                                                })()}
                                                             </div>
                                                         );
                                                     }
 
                                                     // Hotel or other segment types
+                                                    {
+                                                    const isHotelPoints = segment.paymentMethod === 'points' || (segment.pointsUsed != null && segment.pointsUsed > 0);
                                                     return (
                                                         <div
                                                             key={idx}
                                                             className={`flex items-center gap-3 p-3 rounded-lg border ${
-                                                                segment.paymentMethod === 'points'
+                                                                isHotelPoints || (metrics.cashSaved > 0 && segment.cashPrice === 0)
                                                                     ? 'bg-blue-50 border-blue-100'
                                                                     : 'bg-slate-50 border-slate-100'
                                                             }`}
@@ -1255,18 +1296,28 @@ export default function SoloResults() {
                                                             <Bed className="w-4 h-4 text-amber-600" />
                                                             <div className="flex-1">
                                                                 <div className="font-medium text-slate-900">{segment.segment}</div>
+                                                                {(() => {
+                                                                    const hFmtSurcharge = segment.surcharge ? `$${Number(segment.surcharge) % 1 === 0 ? Math.round(segment.surcharge).toLocaleString() : Number(segment.surcharge).toFixed(2)}` : '';
+                                                                    return (
                                                                 <div className="text-xs text-slate-500">
-                                                                    {segment.paymentMethod === 'points'
-                                                                        ? `${segment.pointsUsed?.toLocaleString()} pts${segment.surcharge ? ` + $${segment.surcharge} fees` : ''}${segment.cppAchieved ? ` · ${segment.cppAchieved.toFixed(1)}¢/pt` : ''}`
-                                                                        : `$${segment.cashPrice?.toLocaleString()} cash`
+                                                                    {isHotelPoints
+                                                                        ? `${segment.pointsUsed?.toLocaleString() ?? '—'} pts${hFmtSurcharge ? ` + ${hFmtSurcharge} fees` : ''}`
+                                                                        : (segment.cashPrice != null && segment.cashPrice > 0)
+                                                                            ? `$${segment.cashPrice.toLocaleString()} cash`
+                                                                            : metrics.cashSaved > 0
+                                                                                ? 'Paid with points'
+                                                                                : ''
                                                                     }
                                                                 </div>
+                                                                    );
+                                                                })()}
                                                             </div>
-                                                            {segment.paymentMethod === 'points' && (
+                                                            {(isHotelPoints || (metrics.cashSaved > 0 && segment.cashPrice === 0)) && (
                                                                 <span className="px-2 py-0.5 bg-blue-100 text-blue-700 text-xs font-medium rounded">Points</span>
                                                             )}
                                                         </div>
                                                     );
+                                                    }
                                                 })}
                                             </div>
 
@@ -1332,14 +1383,6 @@ export default function SoloResults() {
                                         <h3 className="text-xl mb-6 text-slate-900 font-semibold">Your Plan</h3>
 
                                         <div className="space-y-6">
-                                            {/* Value Label — humanized, not numeric (only show when points are used) */}
-                                            {selectedSoloItinerary.valueLabel && selectedSoloItinerary.oopMetrics.totalPointsUsed > 0 && (
-                                                <div className="flex items-center gap-2">
-                                                    <TrendingUp className="w-4 h-4 text-emerald-600" />
-                                                    <span className="text-sm font-semibold text-emerald-700">{selectedSoloItinerary.valueLabel}</span>
-                                                </div>
-                                            )}
-
                                             {/* Route */}
                                             <div>
                                                 <div className="text-sm text-slate-600 mb-2 font-medium">Route</div>
@@ -1356,6 +1399,16 @@ export default function SoloResults() {
                                             </div>
 
                                             {/* Cost Breakdown — simplified language */}
+                                            {(() => {
+                                                // Use multiple sources for points: oopMetrics (primary), bookingDetails (fallback)
+                                                const sidebarPoints = selectedSoloItinerary.oopMetrics.totalPointsUsed
+                                                    || selectedSoloItinerary.bookingDetails?.totalPoints
+                                                    || 0;
+                                                const sidebarTaxesFees = selectedSoloItinerary.bookingDetails?.totalTaxesFees
+                                                    ?? selectedSoloItinerary.segments
+                                                        .filter(s => s.paymentMethod === 'points')
+                                                        .reduce((sum, s) => sum + (s.surcharge || 0), 0);
+                                                return (
                                             <div>
                                                 <div className="text-sm text-slate-600 mb-3 font-medium">
                                                     What you&apos;ll pay
@@ -1380,10 +1433,26 @@ export default function SoloResults() {
                                                             <span>${Math.round(selectedSoloItinerary.oopMetrics.totalOutOfPocket / partySize.total).toLocaleString()}</span>
                                                         </div>
                                                     )}
-                                                    <div className="flex justify-between text-blue-600">
-                                                        <span>Points you&apos;ll use</span>
-                                                        <span>{(selectedSoloItinerary.oopMetrics.totalPointsUsed / 1000).toFixed(0)}k pts</span>
-                                                    </div>
+                                                    {sidebarPoints > 0 && (
+                                                        <div className="flex justify-between text-blue-700 font-medium">
+                                                            <span className="flex items-center gap-1">
+                                                                <Zap className="w-3.5 h-3.5" />
+                                                                Points needed
+                                                            </span>
+                                                            <span>
+                                                                {sidebarPoints >= 1000
+                                                                    ? `${(sidebarPoints / 1000).toFixed(sidebarPoints % 1000 === 0 ? 0 : 1)}k pts`
+                                                                    : `${sidebarPoints.toLocaleString()} pts`
+                                                                }
+                                                            </span>
+                                                        </div>
+                                                    )}
+                                                    {sidebarTaxesFees > 0 && (
+                                                        <div className="flex justify-between text-amber-700">
+                                                            <span>Taxes &amp; fees</span>
+                                                            <span>${Math.round(sidebarTaxesFees).toLocaleString()}</span>
+                                                        </div>
+                                                    )}
                                                     {selectedSoloItinerary.oopMetrics.cashSaved > 0 && (
                                                         <div className="flex justify-between text-emerald-600 font-medium">
                                                             <span>You&apos;re saving</span>
@@ -1392,6 +1461,8 @@ export default function SoloResults() {
                                                     )}
                                                 </div>
                                             </div>
+                                                );
+                                            })()}
 
                                             {/* Transfers Needed */}
                                             {selectedSoloItinerary.transfers.length > 0 && (
@@ -1413,7 +1484,7 @@ export default function SoloResults() {
                                             )}
 
                                             {/* Progressive Disclosure: Advanced Details (Task 10) — only when points are used */}
-                                            {selectedSoloItinerary.oopMetrics.totalPointsUsed > 0 && (
+                                            {(selectedSoloItinerary.oopMetrics.totalPointsUsed > 0 || selectedSoloItinerary.bookingDetails?.totalPoints || selectedSoloItinerary.oopMetrics.cashSaved > 0) && (
                                             <div className="border-t border-slate-100 pt-3">
                                                 <button
                                                     onClick={() => setShowAdvancedDetails(!showAdvancedDetails)}
@@ -1425,21 +1496,15 @@ export default function SoloResults() {
                                                 
                                                 {showAdvancedDetails && (
                                                     <div className="mt-3 space-y-3 text-sm">
-                                                        {/* CPP Details */}
-                                                        <div className="p-3 bg-slate-50 rounded-lg">
-                                                            <div className="text-xs font-semibold text-slate-500 mb-1">POINTS VALUE</div>
-                                                            <div className="text-slate-700">
-                                                                {selectedSoloItinerary.oopMetrics.averageCpp.toFixed(1)}¢ per point
-                                                                <span className="text-slate-400 ml-1">(CPP)</span>
-                                                            </div>
-                                                        </div>
-                                                        {/* Savings percentage */}
+                                                        {/* Savings percentage — only show when positive */}
+                                                        {selectedSoloItinerary.oopMetrics.savingsPercentage > 0 && (
                                                         <div className="p-3 bg-slate-50 rounded-lg">
                                                             <div className="text-xs font-semibold text-slate-500 mb-1">SAVINGS</div>
                                                             <div className="text-slate-700">
                                                                 {selectedSoloItinerary.oopMetrics.savingsPercentage.toFixed(0)}% off cash price
                                                             </div>
                                                         </div>
+                                                        )}
                                                         {/* Transfer ratios */}
                                                         {selectedSoloItinerary.transfers.length > 0 && (
                                                             <div className="p-3 bg-slate-50 rounded-lg">
@@ -1868,12 +1933,6 @@ export default function SoloResults() {
                                                 <span className="text-slate-900">Total</span>
                                                 <span className="text-slate-900">${selectedItinerary.totalCost.toLocaleString()}</span>
                                             </div>
-                                            {selectedItinerary.pointsCost > 0 && (
-                                                <div className="flex justify-between text-blue-600">
-                                                    <span>Points value</span>
-                                                    <span>{(selectedItinerary.pointsCost / 1000).toFixed(0)}k pts</span>
-                                                </div>
-                                            )}
                                         </div>
                                     </div>
 

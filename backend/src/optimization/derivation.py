@@ -200,6 +200,40 @@ def _derive_protection(edge: "FlightItineraryEdge"):
         return
     
     # ═══════════════════════════════════════════════════════════════════════
+    # LEVEL 0.5: Codeshare detection
+    # Different operating carriers under the same marketing/validating
+    # carrier are codeshare flights on a SINGLE reservation. This is NOT
+    # the same as separate tickets / virtual interline.
+    # E.g., DL selling AS 274 + BF 721 = single DL reservation.
+    # ═══════════════════════════════════════════════════════════════════════
+    
+    if edge.segments and len(edge.segments) > 1:
+        marketing_carriers = set()
+        for seg in edge.segments:
+            mkt = (seg.marketing_carrier or "").strip().upper()[:2]
+            if mkt:
+                marketing_carriers.add(mkt)
+        
+        validating = (edge.validating_carrier or "").strip().upper()[:2]
+        
+        # Check if segments are codeshare-unified under one carrier
+        all_same_marketing = len(marketing_carriers) <= 1
+        unified_by_validating = (
+            validating and
+            len(marketing_carriers) > 1 and
+            validating not in marketing_carriers
+        )
+        
+        if (all_same_marketing or unified_by_validating) and contract.trust_level == "high":
+            # All segments are under one marketing carrier from a high-trust source
+            # This is a codeshare itinerary on a single reservation
+            edge.ticketing_type = TicketingType.SINGLE_TICKET
+            edge.connection_protection = ConnectionProtection.AIRLINE_PROTECTED
+            edge.self_transfer_required = SelfTransferRequired.NO
+            edge.protection_provider = validating or (list(marketing_carriers)[0] if marketing_carriers else "airline")
+            return
+    
+    # ═══════════════════════════════════════════════════════════════════════
     # LEVEL 1: Check for priced offer from HIGH TRUST provider
     # Only high-trust providers can assert single-ticket + protected
     # ═══════════════════════════════════════════════════════════════════════

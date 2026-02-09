@@ -972,7 +972,16 @@ function SoloBookingContent() {
                 {hasSoloData && transferStrategy ? (
                   <>
                     {/* Step 1: Transfer Points */}
-                    {transferStrategy.transfers.length > 0 && (
+                    {transferStrategy.transfers.length > 0 && (() => {
+                      // Compute total taxes/fees from all points-based bookings
+                      const totalTaxes = transferStrategy.bookings
+                        .filter(b => b.paymentMethod === 'points')
+                        .reduce((sum, b) => sum + Math.max(0, b.surcharge || 0), 0);
+                      // Compute total cash out-of-pocket from cash bookings
+                      const totalCashOOP = transferStrategy.bookings
+                        .filter(b => b.paymentMethod === 'cash')
+                        .reduce((sum, b) => sum + Math.max(0, b.cashPrice || 0), 0);
+                      return (
                       <div className="space-y-4">
                         {/* Party size indicator */}
                         {trip && ((trip.adults ?? 1) > 1 || (trip.children ?? 0) > 0) && (
@@ -992,7 +1001,10 @@ function SoloBookingContent() {
                           <div>
                             <h3 className="text-lg font-bold text-slate-900">Transfer Points</h3>
                             <p className="text-sm text-slate-500">
-                              Move <span className="font-semibold text-blue-600">{Math.max(0, transferStrategy.totalPointsToTransfer).toLocaleString()}</span> points • Est. {transferStrategy.estimatedTotalTime}
+                              Move <span className="font-semibold text-blue-600">{Math.max(0, transferStrategy.totalPointsToTransfer).toLocaleString()}</span> points
+                              {totalTaxes > 0 && <> + <span className="font-semibold text-slate-700">${Math.round(totalTaxes).toLocaleString()}</span> in taxes/fees</>}
+                              {totalCashOOP > 0 && <> + <span className="font-semibold text-slate-700">${Math.round(totalCashOOP).toLocaleString()}</span> cash</>}
+                              {' '}• Est. {transferStrategy.estimatedTotalTime}
                             </p>
                           </div>
                         </div>
@@ -1059,7 +1071,8 @@ function SoloBookingContent() {
                           })}
                         </div>
                       </div>
-                    )}
+                      );
+                    })()}
 
                     {/* Step 2: Book Flights/Hotels */}
                     {transferStrategy.bookings.length > 0 && (
@@ -1245,24 +1258,40 @@ function SoloBookingContent() {
                                         </div>
                                         
                                         {/* Per-leg flight numbers for connecting flights */}
-                                        {booking.legs && booking.legs.length > 1 && (
-                                          <div className="text-xs text-slate-600 space-y-1 pt-1 border-t border-slate-200">
-                                            <p className="font-medium">Flight segments:</p>
-                                            {booking.legs.map((leg, legIdx) => (
-                                              <div key={legIdx} className="flex items-center gap-2">
-                                                <span className="bg-blue-100 text-blue-700 px-1.5 py-0.5 rounded font-mono">
-                                                  {leg.flightNumber}
-                                                </span>
-                                                <span>{leg.origin} → {leg.destination}</span>
-                                                {leg.operatingCarrier && leg.operatingCarrier !== leg.marketingCarrier && (
-                                                  <span className="text-purple-600 text-xs">
-                                                    (Operated by {leg.operatingCarrier})
+                                        {booking.legs && booking.legs.length > 1 && (() => {
+                                          // Detect codeshare: legs have different carriers but unified under one booking airline
+                                          const legCarriers = booking.legs!.map(l => (l.marketingCarrier || '').toUpperCase().slice(0, 2)).filter(Boolean);
+                                          const uniqueLegCarriers = [...new Set(legCarriers)];
+                                          const topAirline = (booking.airline || '').toUpperCase().slice(0, 2);
+                                          const hasCodeshareLegs = booking.legs!.some(l => l.isCodeshare);
+                                          const isDifferentOperators = uniqueLegCarriers.length > 1 || (topAirline && !uniqueLegCarriers.includes(topAirline));
+                                          const isCodeshareUnified = (hasCodeshareLegs || isDifferentOperators) && !!topAirline;
+                                          
+                                          return (
+                                            <div className="text-xs text-slate-600 space-y-1 pt-1 border-t border-slate-200">
+                                              <p className="font-medium">Flight segments:</p>
+                                              {booking.legs!.map((leg, legIdx) => (
+                                                <div key={legIdx} className="flex items-center gap-2">
+                                                  <span className="bg-blue-100 text-blue-700 px-1.5 py-0.5 rounded font-mono">
+                                                    {leg.flightNumber}
                                                   </span>
-                                                )}
-                                              </div>
-                                            ))}
-                                          </div>
-                                        )}
+                                                  <span>{leg.origin} → {leg.destination}</span>
+                                                  {leg.operatingCarrier && leg.operatingCarrier !== leg.marketingCarrier && (
+                                                    <span className="text-purple-600 text-xs">
+                                                      (Operated by {leg.operatingCarrier})
+                                                    </span>
+                                                  )}
+                                                </div>
+                                              ))}
+                                              {/* Codeshare note: clarify that different operators = one reservation */}
+                                              {isCodeshareUnified && (
+                                                <p className="text-green-700 bg-green-50 px-2 py-1 rounded mt-1">
+                                                  One reservation &mdash; booked as a single {booking.airline} ticket
+                                                </p>
+                                              )}
+                                            </div>
+                                          );
+                                        })()}
                                         
                                         {/* Codeshare info */}
                                         {booking.operatingAirline && (
@@ -1315,10 +1344,10 @@ function SoloBookingContent() {
                                             <div>
                                               <div className="flex items-baseline gap-1">
                                                 <span className="text-2xl font-bold text-slate-900">
-                                                  ${cashPrice > 0 ? cashPrice.toLocaleString() : 'TBD'}
+                                                  ${cashPrice > 0 ? cashPrice.toLocaleString() : '—'}
                                                 </span>
                                               </div>
-                                              <div className="text-xs text-slate-500">Cash booking</div>
+                                              <div className="text-xs text-slate-500">Cash out of pocket</div>
                                               {booking.paymentReason && (
                                                 <div className="text-xs text-amber-600 mt-1 italic">
                                                   💡 {booking.paymentReason}
@@ -1414,10 +1443,10 @@ function SoloBookingContent() {
                                             <div>
                                               <div className="flex items-baseline gap-1">
                                                 <span className="text-2xl font-bold text-slate-900">
-                                                  ${cashPrice > 0 ? cashPrice.toLocaleString() : 'TBD'}
+                                                  ${cashPrice > 0 ? cashPrice.toLocaleString() : '—'}
                                                 </span>
                                               </div>
-                                              <div className="text-xs text-slate-500">Cash booking</div>
+                                              <div className="text-xs text-slate-500">Cash out of pocket</div>
                                             </div>
                                           )}
                                         </div>
@@ -1683,7 +1712,7 @@ function SoloBookingContent() {
                                     )}
                                     
                                     {/* Payment details */}
-                                    {paymentMethod === 'points' && pointsUsed > 0 && (
+                                    {paymentMethod === 'points' && pointsUsed > 0 ? (
                                       <div className="pt-3 border-t border-slate-100">
                                         <div className="flex items-center gap-2 text-sm">
                                           <Wallet className="w-4 h-4 text-purple-500" />
@@ -1693,7 +1722,16 @@ function SoloBookingContent() {
                                           </span>
                                         </div>
                                       </div>
-                                    )}
+                                    ) : price > 0 ? (
+                                      <div className="pt-3 border-t border-slate-100">
+                                        <div className="flex items-center gap-2 text-sm">
+                                          <DollarSign className="w-4 h-4 text-emerald-500" />
+                                          <span className="text-slate-700">
+                                            ${price.toLocaleString()} cash out of pocket
+                                          </span>
+                                        </div>
+                                      </div>
+                                    ) : null}
                                     
                                     {/* Booking links */}
                                     <div className="pt-3 flex flex-wrap gap-2">

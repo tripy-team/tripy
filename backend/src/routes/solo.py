@@ -605,21 +605,37 @@ def _transform_itineraries(agent_itineraries: list, party_size: int = 1) -> list
                 continue
             
             # Determine payment method and extract details
+            # Handle payment as either a Pydantic model or dict (e.g., from cache/DynamoDB)
             payment = seg.payment
-            if hasattr(payment, 'method') and payment.method == 'points':
+            pay_method = (
+                getattr(payment, 'method', None)
+                or (payment.get('method') if isinstance(payment, dict) else None)
+            )
+            if pay_method == 'points':
                 payment_method = "points"
                 # Get per-person values and scale by party_size
-                per_person_points = getattr(payment, 'points_used', None) or getattr(payment, 'pointsUsed', 0)
-                per_person_surcharge = getattr(payment, 'surcharge', 0)
+                if isinstance(payment, dict):
+                    per_person_points = payment.get('points_used') or payment.get('pointsUsed') or 0
+                    per_person_surcharge = payment.get('surcharge', 0)
+                    cpp = payment.get('cpp_achieved') or payment.get('cppAchieved', 0)
+                    transfer_data = payment.get('transfer')
+                else:
+                    per_person_points = getattr(payment, 'points_used', None) or getattr(payment, 'pointsUsed', 0)
+                    per_person_surcharge = getattr(payment, 'surcharge', 0)
+                    cpp = getattr(payment, 'cpp_achieved', None) or getattr(payment, 'cppAchieved', 0)
+                    transfer_data = getattr(payment, 'transfer', None)
                 points_used = per_person_points * party_size if per_person_points else None
                 surcharge = per_person_surcharge * party_size if per_person_surcharge else 0
                 # CPP stays the same (it's a ratio, not a total)
-                cpp = getattr(payment, 'cpp_achieved', None) or getattr(payment, 'cppAchieved', 0)
                 transfer_from = None
                 transfer_to = None
-                if hasattr(payment, 'transfer') and payment.transfer:
-                    transfer_from = payment.transfer.from_program
-                    transfer_to = payment.transfer.to_program
+                if transfer_data:
+                    if isinstance(transfer_data, dict):
+                        transfer_from = transfer_data.get('from_program') or transfer_data.get('fromProgram')
+                        transfer_to = transfer_data.get('to_program') or transfer_data.get('toProgram')
+                    else:
+                        transfer_from = getattr(transfer_data, 'from_program', None)
+                        transfer_to = getattr(transfer_data, 'to_program', None)
             else:
                 payment_method = "cash"
                 points_used = None
@@ -632,7 +648,10 @@ def _transform_itineraries(agent_itineraries: list, party_size: int = 1) -> list
             segment_name = f"{seg.origin} → {seg.destination}"
             per_person_cash = seg.cash_price or 0
             cash_price = per_person_cash * party_size  # Scale cash price by party_size
-            program = getattr(payment, 'program', None) if payment_method == "points" else None
+            if payment_method == "points":
+                program = (payment.get('program') if isinstance(payment, dict) else getattr(payment, 'program', None))
+            else:
+                program = None
             
             # CRITICAL: Extract connection details (legs, layovers, stops)
             # These come from the FlightSegment model built in adapter_v3.py
@@ -713,6 +732,7 @@ def _transform_itineraries(agent_itineraries: list, party_size: int = 1) -> list
                 stops=stops,
                 legs=legs,
                 layovers=layovers,
+                ticketing_confirmed=getattr(seg, 'ticketing_confirmed', False),
             ))
         
         # Build transfers (scale points by party_size)
@@ -1096,9 +1116,15 @@ def _generate_risk_assessment(itinerary: RankedItinerary) -> RiskAssessment:
         if seg.type != "flight":
             continue
         
-        # Check if separate tickets (not single-ticket confirmed)
-        if seg.stops > 0 and not seg.ticketing_confirmed:
-            flags.append("Separate tickets — if one flight is delayed, the airline won't rebook you")
+        # Check if separate tickets — only flag when there are actual connecting
+        # legs between two places (i.e., a multi-leg connection like SEA → ORD → JFK).
+        # Direct flights or segments without connecting legs don't have this risk.
+        has_connecting_legs = seg.stops > 0 and (len(seg.legs) > 1 or len(seg.layovers) > 0)
+        if has_connecting_legs and not seg.ticketing_confirmed:
+            flags.append(
+                f"Separate tickets on {seg.origin}→{seg.destination} — "
+                "if one flight is delayed, the airline won't rebook you"
+            )
             score += 40
         
         # Carrier changes
@@ -1925,7 +1951,7 @@ async def get_transfer_strategy(
             flight_num = seg.get("flightNumber") or seg.get("flight_number", "")
             duration = seg.get("durationMinutes") or seg.get("duration_minutes")
             booking_url = seg.get("bookingUrl") or seg.get("booking_url", "")
-            cash_price_raw = seg.get("cashPrice") or seg.get("cash_price", 0)
+            cash_price_raw = seg.get("cashPrice") or seg.get("cash_price") or payment.get("amount") or 0
             cash_price = float(cash_price_raw) if cash_price_raw else 0.0  # Handle Decimal from DynamoDB
             operating_airline = seg.get("operatingAirline") or seg.get("operating_airline", "")
             

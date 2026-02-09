@@ -151,11 +151,45 @@ class FlightOption(BaseModel):
     
     @property
     def has_carrier_change(self) -> bool:
-        """True if operating carriers change between legs."""
+        """True if MARKETING carriers change between legs (indicates separate booking risk).
+        
+        IMPORTANT: Different OPERATING carriers with the same MARKETING carrier is a
+        codeshare, NOT a carrier change. Codeshare flights are on a single reservation.
+        E.g., DL-marketed flights operated by AS + BF = single DL reservation.
+        
+        We check marketing carriers first. If all legs share the same marketing carrier,
+        there's no carrier change. We also check if the top-level airline unifies the
+        segments (the parent itinerary's marketing carrier).
+        """
         if len(self.segments) < 2:
             return False
-        carriers = [s.operating_carrier or s.marketing_carrier for s in self.segments]
-        return len(set(carriers)) > 1
+        
+        # Normalize carrier code to 2-letter IATA
+        def _normalize(code: str) -> str:
+            return (code or "").strip().upper()[:2]
+        
+        # Collect marketing carriers across legs
+        marketing_carriers = set()
+        for s in self.segments:
+            mkt = _normalize(s.marketing_carrier)
+            if mkt:
+                marketing_carriers.add(mkt)
+        
+        # If all legs share the same marketing carrier → codeshare, not carrier change
+        if len(marketing_carriers) <= 1:
+            return False
+        
+        # Check if the top-level airline (self.airline) unifies the segments.
+        # When an itinerary is sold by DL but has segments showing AS/BF,
+        # the top-level airline is the actual marketing/ticketing carrier.
+        top_airline = _normalize(self.airline)
+        if top_airline and top_airline not in marketing_carriers:
+            # The parent airline differs from ALL segment carriers →
+            # segments are codeshare under the parent airline, not a real carrier change
+            return False
+        
+        # Marketing carriers genuinely differ (e.g., UA + AA interline)
+        return True
     
     @property
     def has_short_connection(self) -> bool:
@@ -383,6 +417,7 @@ class FlightSegment(BaseModel):
     stops: int = 0  # Number of stops (0 = nonstop)
     legs: list[FlightLeg] = []  # Detailed info for each flight leg
     layovers: list[dict] = []  # Layover info: [{"airport": "JFK", "duration_minutes": 90}]
+    ticketing_confirmed: bool = False  # True if confirmed single-ticket (no separate-ticket risk)
     
     cash_price: float
     payment: CashPayment | PointsPayment

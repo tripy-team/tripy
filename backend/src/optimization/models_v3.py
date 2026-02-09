@@ -349,21 +349,57 @@ class FlightItineraryEdge:
         
         NOTE: This does NOT validate "protected connection" - 
         only ticketing_type determines that.
+        
+        CODESHARE AWARENESS: If all segments share the same marketing carrier,
+        or are unified under a validating carrier, it's a codeshare — NOT a
+        carrier change. Different operating carriers on the same marketing
+        carrier = one reservation.
         """
         warnings = []
         
         if len(self.segments) <= 1:
             return warnings
         
+        # Check if validating_carrier unifies all segments (codeshare scenario)
+        # E.g., DL as validating carrier with AS-operated + BF-operated segments
+        validating = (self.validating_carrier or "").strip().upper()[:2]
+        
+        # Collect all unique marketing carriers
+        marketing_carriers = set()
+        for seg in self.segments:
+            mkt = (seg.marketing_carrier or "").strip().upper()[:2]
+            if mkt:
+                marketing_carriers.add(mkt)
+        
+        # Determine if there's a common marketing carrier
+        # Case 1: All segments have same marketing carrier → codeshare, no change
+        # Case 2: validating_carrier unifies different marketing carriers → codeshare
+        # Case 3: Marketing carriers genuinely differ → real carrier change
+        is_codeshare_unified = (
+            len(marketing_carriers) <= 1 or
+            (validating and validating not in marketing_carriers)
+            # ^ If validating carrier differs from ALL segment carriers,
+            #   segments are codeshare under validating carrier
+        )
+        
         for i in range(len(self.segments) - 1):
             s1, s2 = self.segments[i], self.segments[i + 1]
             
             if s1.marketing_carrier != s2.marketing_carrier:
-                self.has_carrier_change = True
-                warnings.append(
-                    f"Carrier change at {s1.destination}: "
-                    f"{s1.marketing_carrier} → {s2.marketing_carrier}"
-                )
+                if is_codeshare_unified:
+                    # Different operating/marketing codes but unified under one ticket
+                    warnings.append(
+                        f"Codeshare at {s1.destination}: "
+                        f"{s1.marketing_carrier} → {s2.marketing_carrier} "
+                        f"(unified under {validating or list(marketing_carriers)[0] if marketing_carriers else '?'})"
+                    )
+                else:
+                    # Genuine carrier change — different airlines, separate booking risk
+                    self.has_carrier_change = True
+                    warnings.append(
+                        f"Carrier change at {s1.destination}: "
+                        f"{s1.marketing_carrier} → {s2.marketing_carrier}"
+                    )
             
             # Check connection time
             connection_minutes = (s2.departure - s1.arrival).total_seconds() / 60
