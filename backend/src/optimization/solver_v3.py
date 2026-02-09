@@ -204,6 +204,9 @@ class SolverV3:
         
         # Normalization constants
         self.K_flight: float = 100.0
+        
+        # Budget tier override (used during guardrail escalation)
+        self._override_budget_tier: Optional[str] = None
     
     def solve(
         self,
@@ -593,7 +596,13 @@ class SolverV3:
         # CRITICAL (r < 0.15): cpp_floor=0 (NO restriction), miles/$=∞
         
         best_cash_price = self._compute_best_cash_price()
-        self.budget_tier = cfg.get_budget_tier(self.cash_budget, best_cash_price)
+        
+        # Use override tier if set (during guardrail escalation), otherwise compute
+        if self._override_budget_tier is not None:
+            self.budget_tier = self._override_budget_tier
+            logger.info(f"[Budget Tier] Using OVERRIDE tier: {self.budget_tier.upper()} (escalated to prioritize points)")
+        else:
+            self.budget_tier = cfg.get_budget_tier(self.cash_budget, best_cash_price)
         
         # Get adaptive thresholds based on tier
         cpp_floor = cfg.get_adaptive_cpp_floor(self.budget_tier) if cfg.enable_cpp_floor else 0.0
@@ -1218,15 +1227,37 @@ class SolverV3:
         
         if status != LpStatusOptimal:
             # ═══════════════════════════════════════════════════════════════
-            # FALLBACK: Try without budget constraint to find closest solution
+            # FALLBACK STRATEGY: Prioritize using points before giving up
             # ═══════════════════════════════════════════════════════════════
+            #
+            # When budget makes the model infeasible, try harder to use
+            # points by progressively relaxing quality guardrails before
+            # removing the budget constraint entirely.
+            #
+            # Order of escalation:
+            #   1. Escalate guardrails (tight → very_tight → critical)
+            #      This allows more award options to be considered,
+            #      potentially finding a points-heavy solution within budget.
+            #   2. Only if even "critical" (no restrictions) is infeasible,
+            #      fall back to removing the budget constraint.
+            #
             if self.cash_budget and self.cash_budget > 0:
+                current_tier = getattr(self, 'budget_tier', 'normal')
                 logger.warning(
-                    f"[Solver] Model infeasible with budget ${self.cash_budget:.0f}. "
-                    f"Trying to find closest feasible solution..."
+                    f"[Solver] Model infeasible with budget ${self.cash_budget:.0f} "
+                    f"(tier={current_tier}). Escalating guardrails to prioritize points..."
                 )
                 
-                # Try solving without the budget constraint
+                # Step 1: Try escalating guardrail tiers to accept more award options
+                escalated_result = self._solve_with_escalated_guardrails(solver, current_tier)
+                if escalated_result:
+                    return escalated_result
+                
+                # Step 2: Even critical tier failed - remove budget constraint entirely
+                logger.warning(
+                    f"[Solver] All guardrail tiers exhausted. "
+                    f"Removing budget constraint to find closest feasible solution..."
+                )
                 fallback_result = self._solve_without_budget_constraint(solver, primary)
                 if fallback_result:
                     return fallback_result
@@ -1285,11 +1316,130 @@ class SolverV3:
             suggestions=[],
         )
     
+    # ═══════════════════════════════════════════════════════════════════════
+    # GUARDRAIL ESCALATION: Prioritize points when budget is tight
+    # ═══════════════════════════════════════════════════════════════════════
+    
+    # Tier escalation order: each tier relaxes quality guards further
+    TIER_ESCALATION_ORDER = ["normal", "tight", "very_tight", "critical"]
+    
+    def _solve_with_escalated_guardrails(
+        self, solver, current_tier: str
+    ) -> Optional[OptimizationResult]:
+        """
+        Progressively relax guardrails to find a within-budget solution using points.
+        
+        When the model is infeasible at the current budget tier, this method
+        escalates through higher tiers (tight → very_tight → critical),
+        rebuilding the model each time with relaxed quality guards. This allows
+        more award options to be considered, potentially finding a points-heavy
+        solution that stays within the user's budget.
+        
+        Returns an OptimizationResult if a feasible solution is found at any
+        escalated tier, or None if even "critical" (no restrictions) is infeasible.
+        """
+        
+        # Determine which tiers to try (only those above the current tier)
+        try:
+            current_idx = self.TIER_ESCALATION_ORDER.index(current_tier)
+        except ValueError:
+            current_idx = 0  # Default to trying all tiers
+        
+        tiers_to_try = self.TIER_ESCALATION_ORDER[current_idx + 1:]
+        
+        if not tiers_to_try:
+            logger.info(
+                f"[Guardrail Escalation] Already at highest tier ({current_tier}). "
+                f"No further escalation possible."
+            )
+            return None
+        
+        logger.info("=" * 80)
+        logger.info(
+            f"[Guardrail Escalation] Current tier: {current_tier.upper()}. "
+            f"Will try: {' → '.join(t.upper() for t in tiers_to_try)}"
+        )
+        logger.info("=" * 80)
+        
+        for tier in tiers_to_try:
+            logger.info(
+                f"[Guardrail Escalation] Trying tier={tier.upper()} "
+                f"(relaxing quality guards to accept more award options)..."
+            )
+            
+            # Override the budget tier and rebuild the model
+            self._override_budget_tier = tier
+            
+            try:
+                self._build_model()
+                
+                # Build and set objective
+                primary = self._build_primary_objective()
+                self.model.objective = primary
+                self.model.sense = LpMinimize
+                
+                # Solve
+                status = self.model.solve(solver)
+                
+                if status == LpStatusOptimal:
+                    opt1 = value(primary)
+                    logger.info(
+                        f"[Guardrail Escalation] ✅ FEASIBLE at tier={tier.upper()}! "
+                        f"OOP=${opt1:.2f} (within budget ${self.cash_budget:.0f})"
+                    )
+                    
+                    # Run pass 2 for tie-breaking
+                    abs_eps = self.slack_config.get_abs_eps(self.is_international)
+                    slack = max(abs_eps, self.slack_config.rel_eps * abs(opt1))
+                    
+                    self.model += primary <= opt1 + slack, "pass1_bound"
+                    
+                    secondary = self._build_secondary_objective(slack)
+                    self.model.objective = secondary
+                    
+                    status = self.model.solve(solver)
+                    
+                    self.metrics.pass2_status = LpStatus[status]
+                    self.metrics.pass2_objective = value(secondary) if status == LpStatusOptimal else 0
+                    
+                    solution = self._extract_solution()
+                    
+                    # Add a note about escalated guardrails
+                    escalation_note = (
+                        f"Used relaxed redemption criteria (tier={tier}) to stay within budget. "
+                        f"Some point redemptions may have lower-than-ideal value."
+                    )
+                    
+                    return OptimizationResult(
+                        status=OptimizationStatus.OPTIMAL,
+                        solution=solution,
+                        pass1_objective=opt1,
+                        pass1_slack=slack,
+                        pass2_objective=self.metrics.pass2_objective,
+                        warnings=[escalation_note],
+                        suggestions=[],
+                    )
+                else:
+                    logger.info(
+                        f"[Guardrail Escalation] ❌ Still infeasible at tier={tier.upper()}. "
+                        f"Trying next tier..."
+                    )
+            finally:
+                # Always clear the override after each attempt
+                self._override_budget_tier = None
+        
+        logger.warning(
+            f"[Guardrail Escalation] All tiers exhausted (up to CRITICAL). "
+            f"Budget ${self.cash_budget:.0f} cannot be met even with unrestricted points usage."
+        )
+        return None
+    
     def _solve_without_budget_constraint(self, solver, primary) -> Optional[OptimizationResult]:
         """
         Solve without the budget constraint to find the closest feasible solution.
         
-        This is called when the original model is infeasible due to budget.
+        This is called when the original model is infeasible due to budget AND
+        guardrail escalation has already been attempted.
         Returns an OptimizationResult with the closest solution and a warning
         about how much it exceeds the budget.
         """
