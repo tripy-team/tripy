@@ -584,16 +584,17 @@ class SolverV3:
         cfg = self.comfort_config
         
         # ═══════════════════════════════════════════════════════════════════════
-        # ADAPTIVE BUDGET-BASED GUARDRAILS
+        # ADAPTIVE BUDGET-BASED GUARDRAILS (Budget > CPP)
         # ═══════════════════════════════════════════════════════════════════════
         # 
-        # When budget is tight, relax guardrails to find feasible solutions.
+        # PRINCIPLE: Meeting the user's budget is MORE important than CPP quality.
+        # When budget requires points, we proactively relax CPP guards.
         # Tier is determined by: r = budget / best_cash_price
         #
-        # Normal (r ≥ 0.60): cpp_floor=1.1, miles/$=140
-        # Tight (0.30 ≤ r < 0.60): cpp_floor=0.95, miles/$=180
-        # Very tight (0.15 ≤ r < 0.30): cpp_floor=0.80, miles/$=250
-        # CRITICAL (r < 0.15): cpp_floor=0 (NO restriction), miles/$=∞
+        # Normal (r ≥ 1.0): cpp_floor=1.1, miles/$=140 (budget covers cash)
+        # Tight (0.60 ≤ r < 1.0): cpp_floor=0.95, miles/$=180 (must use some points)
+        # Very tight (0.30 ≤ r < 0.60): cpp_floor=0.80, miles/$=250 (heavy points)
+        # CRITICAL (r < 0.30): cpp_floor=0 (NO restriction), miles/$=∞
         
         best_cash_price = self._compute_best_cash_price()
         
@@ -1833,16 +1834,16 @@ class SolverV3:
         
         budget_tier = getattr(self, 'budget_tier', 'normal')
         
-        if budget_tier == "very_tight":
-            # VERY TIGHT: User cares about "I can go" + "don't kill me"
-            # Priority: time → stops → miles (user already committed to spending points)
+        if budget_tier in ("very_tight", "critical"):
+            # VERY TIGHT / CRITICAL: Budget is the priority, user is committed to spending points.
+            # Priority: time → stops → miles (best experience within budget)
             logger.info(
-                f"[Pass 2] Budget tier=VERY_TIGHT: prioritizing convenience (time → stops → miles)"
+                f"[Pass 2] Budget tier={budget_tier.upper()}: prioritizing convenience (time → stops → miles)"
             )
             # Scale: time dominates, then stops, then miles
             return (time_cost * 100) + (stops_cost * 10) + miles_cost + tie
         else:
-            # NORMAL/TIGHT: User has some flexibility, don't waste points
+            # NORMAL/TIGHT: User has some flexibility, balance points efficiency
             # Priority: miles → time → stops
             logger.info(
                 f"[Pass 2] Budget tier={budget_tier.upper()}: prioritizing efficiency (miles → time → stops)"

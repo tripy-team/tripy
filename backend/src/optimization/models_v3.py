@@ -659,15 +659,25 @@ class ComfortConfig:
     # ADAPTIVE BUDGET-BASED GUARDRAILS
     # ═══════════════════════════════════════════════════════════════════════
     #
-    # When budget is tight, relax redemption guardrails to find feasible solutions.
-    # The solver becomes more willing to spend points when budget is binding.
+    # PRINCIPLE: Budget compliance > redemption quality (CPP).
+    #
+    # When a budget is set, staying within budget is ALWAYS the priority.
+    # CPP guardrails are relaxed proactively to ensure the solver has enough
+    # award options to find a within-budget solution. We'd rather use points
+    # at lower CPP than go over budget.
     #
     # Budget tightness ratio: r = budget / best_cash_price
     #
     # TIERS (flights-only):
-    #   - Normal (r ≥ 0.60): Use default floors (cpp=1.1, miles/$=140)
-    #   - Tight (0.30 ≤ r < 0.60): More aggressive (cpp=0.95, miles/$=180)
-    #   - Very tight (r < 0.30 or budget < $100): Whatever it takes (cpp=0.80, miles/$=250)
+    #   - Normal (r ≥ 1.0): Budget covers cash — CPP guards at full strength
+    #   - Tight (0.60 ≤ r < 1.0): Budget requires points — relax CPP
+    #   - Very tight (0.30 ≤ r < 0.60): Heavy points needed — relax more
+    #   - CRITICAL (r < 0.30 or budget < $100): No CPP restrictions at all
+    #
+    # KEY DESIGN DECISION: "Tight" starts at r < 1.0 (not r < 0.60).
+    # This means ANY budget that requires points usage will relax CPP guards.
+    # Rationale: if the user set a budget, meeting it matters more than
+    # getting perfect CPP on every redemption.
     #
     # When budget is very tight, Pass 2 also changes priority:
     #   - Normal: minimize miles → time → stops
@@ -675,9 +685,9 @@ class ComfortConfig:
     #
     enable_adaptive_budget_guardrails: bool = True
     
-    # Tier thresholds
-    budget_tier_tight_ratio: float = 0.60     # Below this = "tight" budget
-    budget_tier_very_tight_ratio: float = 0.30  # Below this = "very tight"
+    # Tier thresholds — budget takes priority over CPP
+    budget_tier_tight_ratio: float = 1.0      # Below cash price = "tight" (budget needs points)
+    budget_tier_very_tight_ratio: float = 0.60  # Below 60% = "very tight"
     budget_tier_very_tight_absolute: float = 100.0  # Below $100 = always "very tight"
     
     # Tight budget settings
@@ -689,8 +699,8 @@ class ComfortConfig:
     max_miles_per_dollar_very_tight: float = 250.0
     
     # CRITICAL budget settings - NO restrictions (budget absolutely requires points)
-    # Used when budget < 15% of cash price or when very_tight still infeasible
-    budget_tier_critical_ratio: float = 0.15  # Below this = "critical" budget
+    # Used when budget < 30% of cash price or when very_tight still infeasible
+    budget_tier_critical_ratio: float = 0.30  # Below this = "critical" budget
     cpp_floor_critical: float = 0.0           # NO CPP restriction
     max_miles_per_dollar_critical: float = float('inf')  # NO miles/$ restriction
     
@@ -698,9 +708,17 @@ class ComfortConfig:
         """
         Determine budget tier based on tightness ratio.
         
+        PRINCIPLE: Budget > CPP. When a budget is set and requires points,
+        we proactively relax CPP guards so the solver can find a within-budget
+        solution. Better to redeem at lower CPP than to exceed the budget.
+        
         Returns: "normal", "tight", "very_tight", or "critical"
         
-        Critical tier has NO restrictions - any award is accepted.
+        Tier escalation (r = budget / best_cash_price):
+          - r >= 1.0: "normal" — budget covers cash, CPP guards at full strength
+          - 0.60 <= r < 1.0: "tight" — must use some points, relax CPP
+          - 0.30 <= r < 0.60: "very_tight" — heavy points usage, relax further
+          - r < 0.30 (or budget < $100): "critical" — no CPP restrictions
         """
         if not self.enable_adaptive_budget_guardrails:
             return "normal"
@@ -714,11 +732,12 @@ class ComfortConfig:
         
         ratio = budget / best_cash_price
         
-        # Critical: budget is < 15% of cash price - must use points, no restrictions
+        # Critical: budget is < 30% of cash price or below absolute threshold
+        # Must use points aggressively — no CPP restrictions at all
         if ratio < self.budget_tier_critical_ratio:
             return "critical"
         
-        # Very tight if budget is below absolute threshold OR ratio < 30%
+        # Very tight if budget is below absolute threshold OR ratio < 60%
         if budget < self.budget_tier_very_tight_absolute or ratio < self.budget_tier_very_tight_ratio:
             return "very_tight"
         elif ratio < self.budget_tier_tight_ratio:
