@@ -531,17 +531,16 @@ export default function SoloTripSetup() {
     }
   }, [isMultiCity, startDate, legDates]);
 
-  // Get minimum date for a leg (must be after previous leg's date)
+  // Get minimum date for a leg (must be on or after previous leg's date)
+  // Same-day is allowed to support connecting flights through an airport
   const getMinDateForLeg = (index: number): string => {
     if (index === 0) {
       return new Date().toISOString().split('T')[0]; // Today
     }
     const prevDate = legDates[index - 1];
     if (prevDate) {
-      // Add 1 day to previous date
-      const prev = new Date(prevDate);
-      prev.setDate(prev.getDate() + 1);
-      return prev.toISOString().split('T')[0];
+      // Allow same day as previous leg (for connecting flights)
+      return prevDate;
     }
     return new Date().toISOString().split('T')[0];
   };
@@ -996,6 +995,18 @@ export default function SoloTripSetup() {
                       setIsRoundTrip(checked);
                       if (checked) {
                         setEndAirports(startAirports);
+                        // Preserve the last leg date as endDate so toggling doesn't lose user's work
+                        if (cities.length > 0) {
+                          const lastLegDate = legDates[cities.length];
+                          if (lastLegDate && !endDate) {
+                            setEndDate(lastLegDate);
+                          }
+                        }
+                      } else {
+                        // Preserve endDate as the last leg date so toggling doesn't lose user's work
+                        if (cities.length > 0 && endDate && !legDates[cities.length]) {
+                          updateLegDate(cities.length, endDate);
+                        }
                       }
                     }}
                     className="w-4 h-4 rounded border-slate-300 text-blue-600 focus:ring-blue-500"

@@ -182,13 +182,13 @@ export default function GroupTripSetup() {
     });
   };
 
+  // Same-day is allowed to support connecting flights through an airport
   const getMinDateForLeg = (index: number): string => {
     if (index === 0) return new Date().toISOString().split('T')[0];
     const prevDate = legDates[index - 1];
     if (prevDate) {
-      const prev = new Date(prevDate);
-      prev.setDate(prev.getDate() + 1);
-      return prev.toISOString().split('T')[0];
+      // Allow same day as previous leg (for connecting flights)
+      return prevDate;
     }
     return new Date().toISOString().split('T')[0];
   };
