@@ -29,6 +29,7 @@ interface CreditCardEntry {
   id: string;
   program: string;
   points: number;
+  owner: string; // "me" = user's own account, anything else = another person donating points
 }
 
 export default function SoloTripSetup() {
@@ -44,7 +45,7 @@ export default function SoloTripSetup() {
 
   // Credit Card State
   const [creditCards, setCreditCards] = useState<CreditCardEntry[]>([]);
-  const [pointsToUse, setPointsToUse] = useState<Record<string, number>>({}); // program -> points to use for this trip
+  const [pointsToUse, setPointsToUse] = useState<Record<string, number>>({}); // card.id -> points to use for this trip
   const [showPointsAllocationModal, setShowPointsAllocationModal] = useState(false);
 
   // Add Points Modal State (for users who haven't signed up)
@@ -54,6 +55,8 @@ export default function SoloTripSetup() {
   const [newPoints, setNewPoints] = useState('');
   const [newCategory, setNewCategory] = useState<'credit' | 'airline'>('credit');
   const [newCardProduct, setNewCardProduct] = useState('');
+  const [newOwnerType, setNewOwnerType] = useState<'me' | 'other'>('me'); // whose card is being added
+  const [newOwnerName, setNewOwnerName] = useState(''); // name when owner is someone else
   const [showProgramDropdown, setShowProgramDropdown] = useState(false);
   const [programSearchQuery, setProgramSearchQuery] = useState('');
 
@@ -84,6 +87,30 @@ export default function SoloTripSetup() {
   // Optimization Mode - always use OOP (budget-constrained), UI removed
   const optimizationMode = 'oop' as const;
 
+  // Easter egg: typing budget of 88 auto-fills the form with test data
+  useEffect(() => {
+    if (maxBudget === 88) {
+      console.log('[EasterEgg] Budget 88 detected — auto-filling test data');
+      setStartAirports(['SEA', 'BFI']);
+      setCities(['Paris (CDG,ORY)', 'Dubai (DXB)', 'San Francisco (SFO)']);
+      setIsRoundTrip(true);
+      setEndAirports(['SEA', 'BFI']);
+      setStartDate('2026-04-08');
+      setLegDates(['2026-04-08', '2026-04-15', '2026-04-22', '2026-04-29']);
+      setEndDate('2026-04-29');
+      setMaxBudget(2000);
+      setAdults(1);
+      setChildren(0);
+      setFlightClass('economy');
+      setCreditCards([
+        { id: 'ee-amex', program: 'Amex Membership Rewards', points: 1000000, owner: 'me' },
+        { id: 'ee-chase', program: 'Chase Ultimate Rewards', points: 1000000, owner: 'me' },
+        { id: 'ee-delta', program: 'Delta SkyMiles', points: 100000, owner: 'me' },
+        { id: 'ee-joe-chase', program: 'Chase Ultimate Rewards', points: 1000000, owner: 'joe' },
+      ]);
+    }
+  }, [maxBudget]);
+
   // Advanced Flight Filters
   const [includeBudgetAirlines, setIncludeBudgetAirlines] = useState(false);
   const [maxStops, setMaxStops] = useState(0); // 0=Any, 1=Nonstop, 2=1 stop or fewer, 3=2 stops or fewer
@@ -109,7 +136,7 @@ export default function SoloTripSetup() {
 
   // Calculate total points from all cards; total allocated for this trip
   const totalPoints = creditCards.reduce((sum, card) => sum + card.points, 0);
-  const totalPointsToUse = creditCards.reduce((sum, card) => sum + (pointsToUse[card.program] ?? card.points), 0);
+  const totalPointsToUse = creditCards.reduce((sum, card) => sum + (pointsToUse[card.id] ?? card.points), 0);
 
   // Filter programs for the add-points dropdown
   const filteredPrograms = useMemo(() => {
@@ -149,20 +176,34 @@ export default function SoloTripSetup() {
   const addPointsCard = () => {
     if (newProgram.trim() && newPoints.trim() && isValidProgram(newProgram)) {
       const programInfo = ALL_LOYALTY_PROGRAMS.find(p => p.value === newProgram || p.label === newProgram);
-      // Don't add duplicates
-      const alreadyExists = creditCards.some(c => c.program === (programInfo?.value || newProgram.trim()));
-      if (alreadyExists) return;
-      
-      const card: CreditCardEntry = {
-        id: `card-${Date.now()}-${Math.random().toString(36).substr(2, 9)}`,
-        program: programInfo?.value || newProgram.trim(),
-        points: Number(newPoints.trim()),
-      };
-      setCreditCards(prev => [...prev, card]);
+      const programKey = programInfo?.value || newProgram.trim();
+      const newBalance = Number(newPoints.trim());
+      const owner = newOwnerType === 'me' ? 'me' : newOwnerName.trim();
+
+      // Owner-aware duplicate check:
+      // Same owner + same program → merge balances (e.g., two Platinum cards on one account)
+      // Different owner + same program → keep separate (e.g., spouse has their own Amex account)
+      const existingIndex = creditCards.findIndex(c => c.program === programKey && c.owner === owner);
+      if (existingIndex !== -1) {
+        // Same owner, same program — add balances together
+        setCreditCards(prev => prev.map((c, i) =>
+          i === existingIndex ? { ...c, points: c.points + newBalance } : c
+        ));
+      } else {
+        const card: CreditCardEntry = {
+          id: `card-${Date.now()}-${Math.random().toString(36).substr(2, 9)}`,
+          program: programKey,
+          points: newBalance,
+          owner,
+        };
+        setCreditCards(prev => [...prev, card]);
+      }
       setNewProgram('');
       setNewPoints('');
       setNewCategory('credit');
       setNewCardProduct('');
+      setNewOwnerType('me');
+      setNewOwnerName('');
       setProgramSearchQuery('');
       setShowAddPointsModal(false);
     }
@@ -234,6 +275,7 @@ export default function SoloTripSetup() {
             id: card.id,
             program: card.program,
             points: card.points,
+            owner: 'me',
           })));
         }
       } catch (err) {
@@ -374,11 +416,19 @@ export default function SoloTripSetup() {
           id: `extracted-${Date.now()}-${index}`,
           program: card.program,
           points: card.points,
+          owner: 'me' as string, // Extracted cards are the user's own
         }));
-        // Filter out duplicates based on program name
-        const existingPrograms = new Set(prevCards.map(c => c.program));
-        const uniqueNewCards = newCards.filter(c => !existingPrograms.has(c.program));
-        return uniqueNewCards.length > 0 ? [...prevCards, ...uniqueNewCards] : prevCards;
+        // Same-owner merge: combine balances for duplicate programs from the same owner
+        const merged = [...prevCards];
+        for (const newCard of newCards) {
+          const existingIndex = merged.findIndex(c => c.program === newCard.program && c.owner === newCard.owner);
+          if (existingIndex !== -1) {
+            merged[existingIndex] = { ...merged[existingIndex], points: merged[existingIndex].points + newCard.points };
+          } else {
+            merged.push(newCard);
+          }
+        }
+        return merged;
       });
     }
 
@@ -586,12 +636,42 @@ export default function SoloTripSetup() {
       });
 
       // 2. Add credit card points (use allocated amount, or all if not set)
+      // Group by owner for payer_points support
       if (creditCards.length > 0) {
-        const pointsBalances = creditCards.map(card => ({
-          program: card.program,
-          balance: pointsToUse[card.program] ?? card.points,
-        }));
-        await solo.upsertPoints(trip.tripId, pointsBalances);
+        const hasMultipleOwners = creditCards.some(c => c.owner !== 'me');
+
+        if (hasMultipleOwners) {
+          // Multi-payer: group by owner, keep balances separate per person
+          const payerPoints: Record<string, Record<string, number>> = {};
+          for (const card of creditCards) {
+            const ownerKey = card.owner;
+            if (!payerPoints[ownerKey]) payerPoints[ownerKey] = {};
+            const balance = pointsToUse[card.id] ?? card.points;
+            // Same owner may have multiple different programs — accumulate
+            payerPoints[ownerKey][card.program] = (payerPoints[ownerKey][card.program] || 0) + balance;
+          }
+          // Still upsert points (using merged totals) for trip record
+          const mergedBalances: Record<string, number> = {};
+          for (const card of creditCards) {
+            const balance = pointsToUse[card.id] ?? card.points;
+            mergedBalances[card.program] = (mergedBalances[card.program] || 0) + balance;
+          }
+          const pointsBalances = Object.entries(mergedBalances).map(([program, balance]) => ({
+            program,
+            balance,
+          }));
+          await solo.upsertPoints(trip.tripId, pointsBalances);
+
+          // Store payer_points in sessionStorage for the results page to use
+          sessionStorage.setItem(`payer_points_${trip.tripId}`, JSON.stringify(payerPoints));
+        } else {
+          // Single owner: standard path
+          const pointsBalances = creditCards.map(card => ({
+            program: card.program,
+            balance: pointsToUse[card.id] ?? card.points,
+          }));
+          await solo.upsertPoints(trip.tripId, pointsBalances);
+        }
       }
 
       // 3. Navigate to results page for optimization
@@ -1240,7 +1320,9 @@ export default function SoloTripSetup() {
               {/* Points */}
               <div className="bg-white border border-slate-200 rounded-2xl p-6 shadow-sm">
                 <div className="flex items-center justify-between mb-3">
-                  <label className="text-xs text-slate-500 font-medium uppercase tracking-wider">Your Points</label>
+                  <label className="text-xs text-slate-500 font-medium uppercase tracking-wider">
+                    {creditCards.some(c => c.owner !== 'me') ? 'Points' : 'Your Points'}
+                  </label>
                   <div className="flex items-center gap-2">
                     {creditCards.length > 0 && (
                       <button
@@ -1266,17 +1348,26 @@ export default function SoloTripSetup() {
                   <>
                     <div className="space-y-2">
                       {creditCards.map(card => {
-                        const toUse = pointsToUse[card.program] ?? card.points;
+                        const toUse = pointsToUse[card.id] ?? card.points;
                         const category = getProgramCategory(card.program);
                         return (
                           <div key={card.id} className="flex items-center justify-between text-sm group">
                             <div className="flex items-center gap-2 truncate">
                               <div className={`w-5 h-5 rounded flex items-center justify-center flex-shrink-0 ${
-                                category === 'airline' ? 'bg-cyan-50 text-cyan-600' : 'bg-blue-50 text-blue-600'
+                                card.owner !== 'me'
+                                  ? 'bg-purple-50 text-purple-600'
+                                  : category === 'airline' ? 'bg-cyan-50 text-cyan-600' : 'bg-blue-50 text-blue-600'
                               }`}>
-                                {category === 'airline' ? <Plane className="w-3 h-3" /> : <CreditCard className="w-3 h-3" />}
+                                {card.owner !== 'me'
+                                  ? <Users className="w-3 h-3" />
+                                  : category === 'airline' ? <Plane className="w-3 h-3" /> : <CreditCard className="w-3 h-3" />}
                               </div>
-                              <span className="text-slate-600 truncate">{card.program}</span>
+                              <span className="text-slate-600 truncate">
+                                {card.program}
+                                {card.owner !== 'me' && (
+                                  <span className="text-purple-500 ml-1 text-xs">({card.owner})</span>
+                                )}
+                              </span>
                             </div>
                             <div className="flex items-center gap-1">
                               <span className="text-slate-900 font-medium">{toUse.toLocaleString()}</span>
@@ -1315,8 +1406,8 @@ export default function SoloTripSetup() {
                   </div>
                 )}
 
-                {/* Quick-add popular programs (show when few cards added) */}
-                {creditCards.length < 3 && (
+                {/* Quick-add popular programs (show when unselected programs remain) */}
+                {QUICK_ADD_PROGRAMS.some(name => !creditCards.some(c => c.program === name)) && (
                   <div className="mt-4 pt-4 border-t border-slate-100">
                     <p className="text-xs text-slate-500 mb-2 font-medium">Quick Add</p>
                     <div className="flex flex-wrap gap-1.5">
@@ -1386,9 +1477,26 @@ export default function SoloTripSetup() {
             </div>
             <div className="overflow-y-auto flex-1 p-6">
               <PointsAllocation
-                availablePoints={creditCards.map(c => ({ program: c.program, points: c.points, id: c.id }))}
-                allocatedPoints={Object.fromEntries(creditCards.map(c => [c.program, pointsToUse[c.program] ?? c.points]))}
-                onAllocationChange={(allocations) => setPointsToUse(allocations)}
+                availablePoints={creditCards.map(c => ({
+                  program: c.owner !== 'me' ? `${c.program} (${c.owner})` : c.program,
+                  points: c.points,
+                  id: c.id,
+                }))}
+                allocatedPoints={Object.fromEntries(creditCards.map(c => [
+                  c.owner !== 'me' ? `${c.program} (${c.owner})` : c.program,
+                  pointsToUse[c.id] ?? c.points,
+                ]))}
+                onAllocationChange={(allocations) => {
+                  // Convert program-keyed allocations back to id-keyed
+                  const idKeyed: Record<string, number> = {};
+                  creditCards.forEach(c => {
+                    const key = c.owner !== 'me' ? `${c.program} (${c.owner})` : c.program;
+                    if (key in allocations) {
+                      idKeyed[c.id] = allocations[key];
+                    }
+                  });
+                  setPointsToUse(idKeyed);
+                }}
                 maxTotalPoints={estimatedPoints > 0 ? estimatedPoints : undefined}
                 showCategoryIcons
               />
@@ -1414,176 +1522,236 @@ export default function SoloTripSetup() {
           setNewPoints('');
           setNewCategory('credit');
           setNewCardProduct('');
+          setNewOwnerType('me');
+          setNewOwnerName('');
           setProgramSearchQuery('');
           setShowProgramDropdown(false);
         }}>
-          <div className="bg-white rounded-2xl shadow-2xl max-w-md w-full p-8 animate-in fade-in zoom-in duration-200" onClick={(e) => e.stopPropagation()}>
-            <div className="flex items-center justify-between mb-6">
-              <h2 className="text-xl text-slate-900 font-semibold">Add Loyalty Program</h2>
-              <button
-                type="button"
-                onClick={() => {
-                  setShowAddPointsModal(false);
-                  setNewProgram('');
-                  setNewPoints('');
-                  setNewCategory('credit');
-                  setNewCardProduct('');
-                  setProgramSearchQuery('');
-                  setShowProgramDropdown(false);
-                }}
-                className="p-2 hover:bg-slate-100 rounded-lg transition-colors"
-              >
-                <X className="w-5 h-5 text-slate-600" />
-              </button>
+          <div className="bg-white rounded-2xl shadow-2xl max-w-md w-full max-h-[90vh] flex flex-col animate-in fade-in zoom-in duration-200" onClick={(e) => e.stopPropagation()}>
+            {/* Fixed header */}
+            <div className="p-6 pb-4 border-b border-slate-200 flex-shrink-0">
+              <div className="flex items-center justify-between">
+                <h2 className="text-xl text-slate-900 font-semibold">Add Loyalty Program</h2>
+                <button
+                  type="button"
+                  onClick={() => {
+                    setShowAddPointsModal(false);
+                    setNewProgram('');
+                    setNewPoints('');
+                    setNewCategory('credit');
+                    setNewCardProduct('');
+                    setNewOwnerType('me');
+                    setNewOwnerName('');
+                    setProgramSearchQuery('');
+                    setShowProgramDropdown(false);
+                  }}
+                  className="p-2 hover:bg-slate-100 rounded-lg transition-colors"
+                >
+                  <X className="w-5 h-5 text-slate-600" />
+                </button>
+              </div>
             </div>
 
-            <div className="space-y-5">
-              {/* Category Toggle */}
-              <div>
-                <label className="block text-sm text-slate-600 mb-2 font-medium">Category</label>
-                <div className="grid grid-cols-2 gap-2">
-                  {[
-                    { value: 'credit', label: 'Credit Card', icon: CreditCard },
-                    { value: 'airline', label: 'Airline', icon: Plane },
-                  ].map(({ value, label, icon: Icon }) => (
+            {/* Scrollable body */}
+            <div className="overflow-y-auto flex-1 p-6">
+              <div className="space-y-5">
+                {/* Whose Points? */}
+                <div>
+                  <label className="block text-sm text-slate-600 mb-2 font-medium">Whose points?</label>
+                  <div className="grid grid-cols-2 gap-2">
                     <button
-                      key={value}
                       type="button"
-                      onClick={() => {
-                        setNewCategory(value as 'credit' | 'airline');
-                        setNewProgram('');
-                        setProgramSearchQuery('');
-                      }}
+                      onClick={() => { setNewOwnerType('me'); setNewOwnerName(''); }}
                       className={`px-4 py-3 rounded-xl border-2 transition-all flex flex-col items-center gap-2 ${
-                        newCategory === value
+                        newOwnerType === 'me'
                           ? 'border-blue-600 bg-blue-50'
                           : 'border-slate-200 bg-white hover:border-slate-300'
                       }`}
                     >
-                      <Icon className={`w-5 h-5 ${newCategory === value ? 'text-blue-600' : 'text-slate-600'}`} />
-                      <span className={`text-xs font-medium ${newCategory === value ? 'text-blue-600' : 'text-slate-600'}`}>
-                        {label}
-                      </span>
+                      <User className={`w-5 h-5 ${newOwnerType === 'me' ? 'text-blue-600' : 'text-slate-600'}`} />
+                      <span className={`text-xs font-medium ${newOwnerType === 'me' ? 'text-blue-600' : 'text-slate-600'}`}>Mine</span>
                     </button>
-                  ))}
-                </div>
-              </div>
-
-              {/* Program Dropdown */}
-              <div className="relative">
-                <label className="block text-sm text-slate-600 mb-2 font-medium">
-                  Program Name <span className="text-red-500">*</span>
-                </label>
-                <div className="relative" data-program-dropdown>
-                  <input
-                    type="text"
-                    data-program-input
-                    value={programSearchQuery || newProgram}
-                    onChange={(e) => {
-                      setProgramSearchQuery(e.target.value);
-                      setShowProgramDropdown(true);
-                      if (e.target.value !== newProgram) {
-                        setNewProgram('');
-                      }
-                      const match = ALL_LOYALTY_PROGRAMS.find(
-                        p => p.category === newCategory &&
-                        (p.label.toLowerCase() === e.target.value.toLowerCase() ||
-                         p.value.toLowerCase() === e.target.value.toLowerCase())
-                      );
-                      if (match) {
-                        handleProgramSelect(match.value);
-                      }
-                    }}
-                    onFocus={() => setShowProgramDropdown(true)}
-                    placeholder="Search or select a program..."
-                    className="w-full px-4 py-3 bg-white border border-slate-200 rounded-xl focus:outline-none focus:ring-2 focus:ring-blue-600 focus:border-transparent pr-10"
-                  />
-                  <ChevronDown className="absolute right-3 top-1/2 -translate-y-1/2 w-5 h-5 text-slate-400 pointer-events-none" />
-
-                  {showProgramDropdown && filteredPrograms.length > 0 && (
-                    <div
-                      className="absolute z-50 w-full mt-1 bg-white border border-slate-200 rounded-xl shadow-lg max-h-48 overflow-y-auto"
-                      onMouseDown={(e) => e.preventDefault()}
+                    <button
+                      type="button"
+                      onClick={() => setNewOwnerType('other')}
+                      className={`px-4 py-3 rounded-xl border-2 transition-all flex flex-col items-center gap-2 ${
+                        newOwnerType === 'other'
+                          ? 'border-purple-600 bg-purple-50'
+                          : 'border-slate-200 bg-white hover:border-slate-300'
+                      }`}
                     >
-                      {filteredPrograms.map(program => (
-                        <button
-                          key={program.value}
-                          type="button"
-                          onClick={(e) => {
-                            e.stopPropagation();
-                            handleProgramSelect(program.value);
-                          }}
-                          className="w-full px-4 py-3 text-left hover:bg-blue-50 transition-colors border-b border-slate-100 last:border-b-0 flex items-center gap-3"
-                        >
-                          <div className={`w-6 h-6 rounded-lg flex items-center justify-center ${getCategoryColor(program.category)}`}>
-                            {program.category === 'airline' ? <Plane className="w-3 h-3" /> : <CreditCard className="w-3 h-3" />}
-                          </div>
-                          <span className="text-sm font-medium text-slate-900">{program.label}</span>
-                        </button>
-                      ))}
+                      <Users className={`w-5 h-5 ${newOwnerType === 'other' ? 'text-purple-600' : 'text-slate-600'}`} />
+                      <span className={`text-xs font-medium ${newOwnerType === 'other' ? 'text-purple-600' : 'text-slate-600'}`}>Someone else</span>
+                    </button>
+                  </div>
+                  {newOwnerType === 'other' && (
+                    <div className="mt-3">
+                      <input
+                        type="text"
+                        value={newOwnerName}
+                        onChange={(e) => setNewOwnerName(e.target.value)}
+                        placeholder="e.g., Sarah, Mom, John"
+                        className="w-full px-4 py-3 bg-white border border-slate-200 rounded-xl focus:outline-none focus:ring-2 focus:ring-purple-500 focus:border-transparent"
+                      />
+                      <p className="text-xs text-slate-500 mt-1">
+                        Points from different people are kept separate and cannot be combined
+                      </p>
                     </div>
                   )}
                 </div>
-                {newProgram && !isValidProgram(newProgram) && (
-                  <p className="text-xs text-red-500 mt-1">Please select a valid program from the list</p>
-                )}
-              </div>
 
-              {/* Points Balance */}
-              <div>
-                <label className="block text-sm text-slate-600 mb-2 font-medium">Points Balance</label>
-                <input
-                  type="number"
-                  value={newPoints}
-                  onChange={(e) => setNewPoints(e.target.value)}
-                  onWheel={(e) => e.currentTarget.blur()}
-                  placeholder="e.g., 150000"
-                  className="w-full px-4 py-3 bg-white border border-slate-200 rounded-xl focus:outline-none focus:ring-2 focus:ring-blue-600 focus:border-transparent"
-                />
-              </div>
+                {/* Category Toggle */}
+                <div>
+                  <label className="block text-sm text-slate-600 mb-2 font-medium">Category</label>
+                  <div className="grid grid-cols-2 gap-2">
+                    {[
+                      { value: 'credit', label: 'Credit Card', icon: CreditCard },
+                      { value: 'airline', label: 'Airline', icon: Plane },
+                    ].map(({ value, label, icon: Icon }) => (
+                      <button
+                        key={value}
+                        type="button"
+                        onClick={() => {
+                          setNewCategory(value as 'credit' | 'airline');
+                          setNewProgram('');
+                          setProgramSearchQuery('');
+                        }}
+                        className={`px-4 py-3 rounded-xl border-2 transition-all flex flex-col items-center gap-2 ${
+                          newCategory === value
+                            ? 'border-blue-600 bg-blue-50'
+                            : 'border-slate-200 bg-white hover:border-slate-300'
+                        }`}
+                      >
+                        <Icon className={`w-5 h-5 ${newCategory === value ? 'text-blue-600' : 'text-slate-600'}`} />
+                        <span className={`text-xs font-medium ${newCategory === value ? 'text-blue-600' : 'text-slate-600'}`}>
+                          {label}
+                        </span>
+                      </button>
+                    ))}
+                  </div>
+                </div>
 
-              {/* Card Product (Optional) */}
-              <div>
-                <label className="block text-sm text-slate-600 mb-2 font-medium">
-                  Card product <span className="text-slate-400 font-normal">(optional)</span>
-                </label>
-                <input
-                  type="text"
-                  value={newCardProduct}
-                  onChange={(e) => setNewCardProduct(e.target.value)}
-                  placeholder="e.g., Delta SkyMiles Gold Amex"
-                  className="w-full px-4 py-3 bg-white border border-slate-200 rounded-xl focus:outline-none focus:ring-2 focus:ring-blue-600 focus:border-transparent"
-                />
-                <p className="text-xs text-slate-500 mt-1">
-                  Enables benefit-aware savings (e.g. free bags on Delta when you have Delta Gold)
-                </p>
+                {/* Program Dropdown */}
+                <div className="relative">
+                  <label className="block text-sm text-slate-600 mb-2 font-medium">
+                    Program Name <span className="text-red-500">*</span>
+                  </label>
+                  <div className="relative" data-program-dropdown>
+                    <input
+                      type="text"
+                      data-program-input
+                      value={programSearchQuery || newProgram}
+                      onChange={(e) => {
+                        setProgramSearchQuery(e.target.value);
+                        setShowProgramDropdown(true);
+                        if (e.target.value !== newProgram) {
+                          setNewProgram('');
+                        }
+                        const match = ALL_LOYALTY_PROGRAMS.find(
+                          p => p.category === newCategory &&
+                          (p.label.toLowerCase() === e.target.value.toLowerCase() ||
+                           p.value.toLowerCase() === e.target.value.toLowerCase())
+                        );
+                        if (match) {
+                          handleProgramSelect(match.value);
+                        }
+                      }}
+                      onFocus={() => setShowProgramDropdown(true)}
+                      placeholder="Search or select a program..."
+                      className="w-full px-4 py-3 bg-white border border-slate-200 rounded-xl focus:outline-none focus:ring-2 focus:ring-blue-600 focus:border-transparent pr-10"
+                    />
+                    <ChevronDown className="absolute right-3 top-1/2 -translate-y-1/2 w-5 h-5 text-slate-400 pointer-events-none" />
+
+                    {showProgramDropdown && filteredPrograms.length > 0 && (
+                      <div
+                        className="absolute z-50 w-full mt-1 bg-white border border-slate-200 rounded-xl shadow-lg max-h-48 overflow-y-auto"
+                        onMouseDown={(e) => e.preventDefault()}
+                      >
+                        {filteredPrograms.map(program => (
+                          <button
+                            key={program.value}
+                            type="button"
+                            onClick={(e) => {
+                              e.stopPropagation();
+                              handleProgramSelect(program.value);
+                            }}
+                            className="w-full px-4 py-3 text-left hover:bg-blue-50 transition-colors border-b border-slate-100 last:border-b-0 flex items-center gap-3"
+                          >
+                            <div className={`w-6 h-6 rounded-lg flex items-center justify-center ${getCategoryColor(program.category)}`}>
+                              {program.category === 'airline' ? <Plane className="w-3 h-3" /> : <CreditCard className="w-3 h-3" />}
+                            </div>
+                            <span className="text-sm font-medium text-slate-900">{program.label}</span>
+                          </button>
+                        ))}
+                      </div>
+                    )}
+                  </div>
+                  {newProgram && !isValidProgram(newProgram) && (
+                    <p className="text-xs text-red-500 mt-1">Please select a valid program from the list</p>
+                  )}
+                </div>
+
+                {/* Points Balance */}
+                <div>
+                  <label className="block text-sm text-slate-600 mb-2 font-medium">Points Balance</label>
+                  <input
+                    type="number"
+                    value={newPoints}
+                    onChange={(e) => setNewPoints(e.target.value)}
+                    onWheel={(e) => e.currentTarget.blur()}
+                    placeholder="e.g., 150000"
+                    className="w-full px-4 py-3 bg-white border border-slate-200 rounded-xl focus:outline-none focus:ring-2 focus:ring-blue-600 focus:border-transparent"
+                  />
+                </div>
+
+                {/* Card Product (Optional) */}
+                <div>
+                  <label className="block text-sm text-slate-600 mb-2 font-medium">
+                    Card product <span className="text-slate-400 font-normal">(optional)</span>
+                  </label>
+                  <input
+                    type="text"
+                    value={newCardProduct}
+                    onChange={(e) => setNewCardProduct(e.target.value)}
+                    placeholder="e.g., Delta SkyMiles Gold Amex"
+                    className="w-full px-4 py-3 bg-white border border-slate-200 rounded-xl focus:outline-none focus:ring-2 focus:ring-blue-600 focus:border-transparent"
+                  />
+                  <p className="text-xs text-slate-500 mt-1">
+                    Enables benefit-aware savings (e.g. free bags on Delta when you have Delta Gold)
+                  </p>
+                </div>
               </div>
             </div>
 
-            <div className="flex gap-3 mt-8">
-              <button
-                type="button"
-                onClick={() => {
-                  setShowAddPointsModal(false);
-                  setNewProgram('');
-                  setNewPoints('');
-                  setNewCategory('credit');
-                  setNewCardProduct('');
-                  setProgramSearchQuery('');
-                  setShowProgramDropdown(false);
-                }}
-                className="flex-1 px-4 py-3 bg-white border-2 border-slate-200 text-slate-900 rounded-xl hover:bg-slate-50 transition-colors"
-              >
-                Cancel
-              </button>
-              <button
-                type="button"
-                onClick={addPointsCard}
-                disabled={!newProgram.trim() || !newPoints.trim() || !isValidProgram(newProgram)}
-                className="flex-1 px-4 py-3 bg-blue-600 text-white rounded-xl hover:bg-blue-700 transition-colors shadow-sm disabled:opacity-50 disabled:cursor-not-allowed"
-              >
-                Add Program
-              </button>
+            {/* Fixed footer */}
+            <div className="p-6 pt-4 border-t border-slate-200 flex-shrink-0">
+              <div className="flex gap-3">
+                <button
+                  type="button"
+                  onClick={() => {
+                    setShowAddPointsModal(false);
+                    setNewProgram('');
+                    setNewPoints('');
+                    setNewCategory('credit');
+                    setNewCardProduct('');
+                    setNewOwnerType('me');
+                    setNewOwnerName('');
+                    setProgramSearchQuery('');
+                    setShowProgramDropdown(false);
+                  }}
+                  className="flex-1 px-4 py-3 bg-white border-2 border-slate-200 text-slate-900 rounded-xl hover:bg-slate-50 transition-colors"
+                >
+                  Cancel
+                </button>
+                <button
+                  type="button"
+                  onClick={addPointsCard}
+                  disabled={!newProgram.trim() || !newPoints.trim() || !isValidProgram(newProgram) || (newOwnerType === 'other' && !newOwnerName.trim())}
+                  className="flex-1 px-4 py-3 bg-blue-600 text-white rounded-xl hover:bg-blue-700 transition-colors shadow-sm disabled:opacity-50 disabled:cursor-not-allowed"
+                >
+                  Add Program
+                </button>
+              </div>
             </div>
           </div>
         </div>

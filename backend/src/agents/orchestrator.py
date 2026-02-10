@@ -40,6 +40,7 @@ from .group_allocator import GroupBookingAllocator, SegmentOption
 
 # Import pricing sanitizer - CRITICAL for preventing -1 sentinel leakage
 from ..utils.pricing import sanitize_cash_price, sanitize_surcharge, sanitize_points_cost
+from ..optimization.flags import V3_PROPORTIONAL_BUDGET_TIERS_ENABLED
 from .group_models import (
     MemberBookingCapability,
     BookingAllocationStrategy,
@@ -351,6 +352,7 @@ class OrchestratorAgent(BaseAgent):
                         allowed_currencies=getattr(request, 'allowed_currencies', None),
                         max_points_by_currency=getattr(request, 'max_points_by_currency', None),
                         max_cash_budget=getattr(request, 'max_cash_budget', None),
+                        payer_points=getattr(request, 'payer_points', None),
                     )
                     
                     # Tag results with route variant info
@@ -383,6 +385,7 @@ class OrchestratorAgent(BaseAgent):
                 allowed_currencies=getattr(request, 'allowed_currencies', None),
                 max_points_by_currency=getattr(request, 'max_points_by_currency', None),
                 max_cash_budget=getattr(request, 'max_cash_budget', None),
+                payer_points=getattr(request, 'payer_points', None),
             )
         
         # Rank by OOP (lowest first)
@@ -478,8 +481,21 @@ class OrchestratorAgent(BaseAgent):
                 },
             )
             # Flat list backward compat (no leading emoji — frontend controls styling)
-            if over_budget_msg not in unique_warnings:
+            # Check for near-duplicate budget warnings (greedy optimizer may have added one
+            # with emoji prefix / trailing period that differs slightly)
+            has_budget_warning = any(
+                "no itinerary found within" in w.lower() or "budget" in w.lower() and "minimum cost" in w.lower()
+                for w in unique_warnings
+            )
+            if not has_budget_warning:
                 unique_warnings.insert(0, over_budget_msg)
+            else:
+                # Replace the existing budget warning with the clean version (no emoji)
+                unique_warnings = [
+                    over_budget_msg if ("no itinerary found within" in w.lower() or ("budget" in w.lower() and "minimum cost" in w.lower()))
+                    else w
+                    for w in unique_warnings
+                ]
         
         # Classify existing warnings into structured categories
         for w in unique_warnings:
@@ -1780,7 +1796,19 @@ class OrchestratorAgent(BaseAgent):
             
             origin_apts = segment.get("allowed_origin_airports", [segment["origin"]])
             dest_apts = segment.get("allowed_destination_airports", [segment["destination"]])
-            logger.info(f"[Orchestrator] {key}: {len(unique_options)} unique options for {segment.get('origin_city', segment['origin'])} ({origin_apts}) → {segment.get('dest_city', segment['destination'])} ({dest_apts})")
+            
+            # DIAGNOSTIC: Count award vs cash options to detect AwardTool failures
+            award_count = sum(1 for o in unique_options if getattr(o, 'award_available', False))
+            sources = {}
+            for o in unique_options:
+                src = getattr(o, 'source', 'unknown')
+                sources[src] = sources.get(src, 0) + 1
+            logger.info(
+                f"[Orchestrator] {key}: {len(unique_options)} unique options "
+                f"(award={award_count}, sources={sources}) for "
+                f"{segment.get('origin_city', segment['origin'])} ({origin_apts}) → "
+                f"{segment.get('dest_city', segment['destination'])} ({dest_apts})"
+            )
         
         return search_results
     
@@ -1798,6 +1826,7 @@ class OrchestratorAgent(BaseAgent):
         allowed_currencies: list[str] = None,
         max_points_by_currency: dict[str, int] = None,
         max_cash_budget: float = None,
+        payer_points: dict = None,  # Multi-payer: { payer_id: { program: balance } }
     ) -> tuple[list[RankedItinerary], list[str]]:
         """
         Run optimization using V3 ILP solver.
@@ -1844,6 +1873,7 @@ class OrchestratorAgent(BaseAgent):
                 allowed_currencies=allowed_currencies,
                 max_points_by_currency=max_points_by_currency,
                 max_cash_budget=max_cash_budget,
+                payer_points=payer_points,
             )
             
             if itineraries:
@@ -1862,6 +1892,10 @@ class OrchestratorAgent(BaseAgent):
             user_points=user_points,
             budget=budget,
             trip_data=trip_data,
+            payer_points=payer_points,
+            allowed_currencies=allowed_currencies,
+            max_points_by_currency=max_points_by_currency,
+            max_cash_budget=max_cash_budget,
         )
     
     async def _run_greedy_optimization(
@@ -1871,6 +1905,10 @@ class OrchestratorAgent(BaseAgent):
         user_points: dict,
         budget: float,  # Required float - use NO_BUDGET_LIMIT for unlimited
         trip_data: dict,
+        payer_points: dict = None,  # Multi-payer: { payer_id: { program: balance } }
+        allowed_currencies: list = None,
+        max_points_by_currency: dict = None,
+        max_cash_budget: float = None,
     ) -> tuple[list[RankedItinerary], list[str]]:
         """
         Fallback greedy optimization algorithm.
@@ -1879,6 +1917,11 @@ class OrchestratorAgent(BaseAgent):
         1. For each segment, picks the option with lowest OOP
         2. Respects points balance constraints
         3. Generates transfer instructions
+        
+        MULTI-PAYER SUPPORT: When payer_points is provided, uses payer-prefixed
+        keys in remaining_points to keep individual payer balances separate.
+        This allows two people with the same bank (e.g., both have amex_mr)
+        to contribute independently.
         
         NOTE: When budget is set, we should prefer points to stay within budget.
         
@@ -1896,11 +1939,69 @@ class OrchestratorAgent(BaseAgent):
         logger.info(f"[Greedy] User points: {user_points}")
         
         # Track remaining points
-        remaining_points = dict(user_points)
+        # When payer_points is provided, use payer-prefixed keys (e.g., "alice::amex_mr")
+        if payer_points:
+            remaining_points = self._build_payer_remaining(payer_points)
+            logger.info(f"[Greedy] Multi-payer mode: {len(payer_points)} payers, prefixed keys: {list(remaining_points.keys())}")
+        else:
+            remaining_points = dict(user_points)
+        
+        # Apply currency constraints (Fix 3)
+        if allowed_currencies:
+            allowed_set = set(c.lower().replace("_", "").replace(" ", "") for c in allowed_currencies)
+            filtered = {}
+            for k, v in remaining_points.items():
+                key_normalized = k.lower().replace("_", "").replace(" ", "")
+                # Also check the part after "::" for payer-prefixed keys
+                base_key = k.split("::")[-1].lower().replace("_", "").replace(" ", "") if "::" in k else key_normalized
+                if key_normalized in allowed_set or base_key in allowed_set:
+                    filtered[k] = v
+                else:
+                    logger.info(f"[Greedy] Filtering out {k} - not in allowed_currencies")
+            remaining_points = filtered
+        
+        if max_points_by_currency:
+            for k in remaining_points:
+                base_key = k.split("::")[-1] if "::" in k else k
+                if base_key in max_points_by_currency:
+                    cap = max_points_by_currency[base_key]
+                    if remaining_points[k] > cap:
+                        logger.info(f"[Greedy] Capping {k} from {remaining_points[k]:,} to {cap:,}")
+                        remaining_points[k] = cap
+        
+        # Override budget with max_cash_budget if provided
+        if max_cash_budget is not None and max_cash_budget > 0:
+            budget = min(budget, max_cash_budget)
+            logger.info(f"[Greedy] Applying max_cash_budget override: ${max_cash_budget}")
         
         # Calculate if budget is tight (need to prefer points)
-        # Budget is "tight" if it's a real limit (not the unlimited sentinel)
-        budget_is_tight = budget > 0 and budget < NO_BUDGET_LIMIT
+        if V3_PROPORTIONAL_BUDGET_TIERS_ENABLED:
+            # Proportional budget tiers (Fix 10)
+            if budget <= 0 or budget >= NO_BUDGET_LIMIT:
+                budget_tier = "none"
+                budget_is_tight = False
+            else:
+                # Estimate best cash price from search results
+                best_cash = self._estimate_best_cash_price(search_results, segments)
+                ratio = budget / best_cash if best_cash > 0 else 1.0
+                
+                if ratio >= 1.0:
+                    budget_tier = "normal"
+                    budget_is_tight = False
+                elif ratio >= 0.60:
+                    budget_tier = "tight"
+                    budget_is_tight = True
+                elif ratio >= 0.30:
+                    budget_tier = "very_tight"
+                    budget_is_tight = True
+                else:
+                    budget_tier = "critical"
+                    budget_is_tight = True
+                
+                logger.info(f"[Greedy] Budget tier={budget_tier} (ratio={ratio:.2f}, budget=${budget:.0f}, best_cash=${best_cash:.0f})")
+        else:
+            # Legacy: binary budget_is_tight
+            budget_is_tight = budget > 0 and budget < NO_BUDGET_LIMIT
         
         # Track segments where points couldn't be used and why
         transfer_incompatible_segments = []
@@ -1983,7 +2084,7 @@ class OrchestratorAgent(BaseAgent):
                                 logger.info(f"[Greedy] Enriched {best.origin}->{best.destination} times from {other_opt.airline} SerpAPI flight (cross-airline)")
                                 break
                     
-                    seg, points_used, transfer = self._create_flight_segment(
+                    seg, points_used, seg_transfers = self._create_flight_segment(
                         best, remaining_points, force_points=budget_is_tight
                     )
                     itinerary_segments.append(seg)
@@ -2009,8 +2110,8 @@ class OrchestratorAgent(BaseAgent):
                         total_points_used += seg.payment.points_used
                         prog = seg.payment.program
                         points_breakdown[prog] = points_breakdown.get(prog, 0) + seg.payment.points_used
-                        if transfer:
-                            transfers.append(transfer)
+                        if seg_transfers:
+                            transfers.extend(seg_transfers)
                     
                     if best.origin not in route:
                         route.append(best.origin)
@@ -2018,6 +2119,14 @@ class OrchestratorAgent(BaseAgent):
             
         if not itinerary_segments:
             return [], warnings
+        
+        # SANITY CHECK: If total_oop is 0 but we have cash-only segments, fix it
+        if total_oop <= 0 and total_cash_price > 0 and total_points_used == 0:
+            logger.warning(
+                f"[Greedy] total_oop=${total_oop:.2f} but total_cash_price=${total_cash_price:.2f} "
+                f"with 0 points — fixing total_oop to match total_cash_price"
+            )
+            total_oop = total_cash_price
         
         # Calculate metrics (clamp to 0 — negative means surcharges exceed cash price)
         cash_saved = max(0.0, total_cash_price - total_oop)
@@ -2102,6 +2211,18 @@ class OrchestratorAgent(BaseAgent):
             min_budget_needed = int(total_oop * 1.1)
             itinerary_name = f"Min Budget Needed: ${min_budget_needed:,}"
         
+        # Build bank_currencies_used from transfers (use raw program names, not prefixed)
+        bank_currencies_used = {}
+        for t in transfers:
+            bank_currencies_used[t.from_program] = (
+                bank_currencies_used.get(t.from_program, 0) + t.points_to_transfer
+            )
+        
+        # Compute payer_breakdown if multi-payer mode was used
+        payer_breakdown = None
+        if payer_points:
+            payer_breakdown = self._compute_payer_breakdown(payer_points, remaining_points)
+        
         itinerary = RankedItinerary(
             id=str(uuid.uuid4()),
             rank=1,
@@ -2116,6 +2237,8 @@ class OrchestratorAgent(BaseAgent):
                 savings_percentage=savings_pct,
                 average_cpp=avg_cpp,
                 points_breakdown=points_breakdown,
+                bank_currencies_used=bank_currencies_used,
+                payer_breakdown=payer_breakdown,
             ),
             transfers=transfers,
             within_budget=within_budget,
@@ -2183,7 +2306,7 @@ class OrchestratorAgent(BaseAgent):
             logger.warning(f"[Greedy] ⚠️ NO OPTIONS have award_available=True! Points cannot be used.")
         elif affordable_count == 0:
             # Check WHY awards aren't affordable - is it balance or transfer partner issue?
-            user_banks = [k for k in remaining_points.keys()]
+            user_banks = [self._program_from_key(k) for k in remaining_points.keys()]
             from .config import TRANSFER_GRAPH
             
             # Get all airlines user can book with
@@ -2191,10 +2314,11 @@ class OrchestratorAgent(BaseAgent):
             for bank_name, config in TRANSFER_GRAPH.items():
                 bank_normalized = bank_name.lower().replace(" ", "_")
                 for user_prog in remaining_points.keys():
-                    user_prog_normalized = user_prog.lower().replace(" ", "_").replace("-", "_")
-                    if (bank_normalized == user_prog_normalized or 
-                        bank_normalized.replace("_", "") == user_prog_normalized.replace("_", "") or
-                        bank_normalized.split("_")[0] == user_prog_normalized.split("_")[0]):
+                    raw_prog = self._program_from_key(user_prog)
+                    raw_prog_normalized = raw_prog.lower().replace(" ", "_").replace("-", "_")
+                    if (bank_normalized == raw_prog_normalized or 
+                        bank_normalized.replace("_", "") == raw_prog_normalized.replace("_", "") or
+                        bank_normalized.split("_")[0] == raw_prog_normalized.split("_")[0]):
                         reachable_airlines.update(config.get("airlines", []))
             
             # Check which awards are on unreachable airlines
@@ -2305,9 +2429,77 @@ class OrchestratorAgent(BaseAgent):
         lower = program.lower().replace("-", "_").replace(" ", "_")
         return any(kw.replace(" ", "_") in lower for kw in self._FIXED_VALUE_BANK_KEYWORDS)
     
+    # Multi-payer key separator: "alice::amex_mr" -> payer_id="alice", program="amex_mr"
+    _PAYER_SEP = "::"
+    
+    def _parse_payer_key(self, key: str) -> tuple:
+        """Parse a payer-prefixed key like 'alice::amex_mr' -> ('alice', 'amex_mr').
+        Returns (None, key) if no prefix."""
+        if self._PAYER_SEP in key:
+            payer_id, program = key.split(self._PAYER_SEP, 1)
+            return payer_id, program
+        return None, key
+    
+    def _program_from_key(self, key: str) -> str:
+        """Strip payer prefix from a key. 'alice::amex_mr' -> 'amex_mr'."""
+        _, program = self._parse_payer_key(key)
+        return program
+    
+    def _build_payer_remaining(self, payer_points: dict) -> dict:
+        """Build flat remaining_points dict with payer-prefixed keys.
+        { "alice": {"amex_mr": 50000}, "bob": {"chase_ur": 30000} }
+        -> { "alice::amex_mr": 50000, "bob::chase_ur": 30000 }
+        """
+        remaining = {}
+        for payer_id, balances in payer_points.items():
+            for program, balance in balances.items():
+                key = f"{payer_id}{self._PAYER_SEP}{program}"
+                remaining[key] = balance
+        return remaining
+    
+    def _compute_payer_breakdown(self, initial_payer_points: dict, remaining_points: dict) -> dict:
+        """Compute per-payer points usage from initial and remaining balances.
+        Returns: { "alice": {"amex_mr": 20000}, "bob": {"chase_ur": 15000} }
+        """
+        breakdown = {}
+        for key, initial_balance in self._build_payer_remaining(initial_payer_points).items():
+            payer_id, program = self._parse_payer_key(key)
+            remaining = remaining_points.get(key, 0)
+            used = initial_balance - remaining
+            if used > 0:
+                if payer_id not in breakdown:
+                    breakdown[payer_id] = {}
+                breakdown[payer_id][program] = used
+        return breakdown if breakdown else None
+    
+    def _estimate_best_cash_price(self, search_results: dict, segments: list) -> float:
+        """
+        Estimate best cash price from search results for budget tier calculation.
+        Sum of cheapest cash flight per segment.
+        """
+        total = 0.0
+        for i, seg in enumerate(segments):
+            if seg.get("type") != "flight":
+                continue
+            key = f"flight_{i}"
+            result = search_results.get(key)
+            if not result or not getattr(result, 'options', None):
+                continue
+            cash_prices = [
+                o.cash_price for o in result.options
+                if o.cash_price and o.cash_price > 0
+            ]
+            if cash_prices:
+                total += min(cash_prices)
+        return total if total > 0 else 1.0  # Avoid divide-by-zero
+    
     def _can_afford_points(self, program: str, points_needed: int, remaining_points: dict) -> bool:
         """
         Check if user can afford points (direct or via transfer).
+        
+        MULTI-BANK SUPPORT: Sums available points across ALL banks that can
+        transfer to the target airline program. E.g., 40k Chase + 30k Bilt both
+        transfer to United at 1:1 -- combined they cover a 60k United award.
         
         Handles normalization between different key formats:
         - TRANSFER_GRAPH uses: "Amex MR", "Chase UR", etc.
@@ -2329,20 +2521,26 @@ class OrchestratorAgent(BaseAgent):
             logger.debug(f"[Greedy] Compound program '{program}' split into: {program_codes}")
         
         # Check direct balance (normalize both sides for comparison)
+        direct_total = 0
         for user_prog, balance in remaining_points.items():
+            # Strip payer prefix for normalization (multi-payer support)
+            raw_prog = self._program_from_key(user_prog)
             # Skip fixed-value bank programs - they can't be used for award bookings
-            if self._is_fixed_value_bank(user_prog):
+            if self._is_fixed_value_bank(raw_prog):
                 continue
-            user_prog_upper = user_prog.upper().replace("_", " ").replace("-", " ")
+            raw_prog_upper = raw_prog.upper().replace("_", " ").replace("-", " ")
             for code in program_codes:
-                if code == user_prog_upper or code in user_prog_upper:
-                    if balance >= points_needed:
-                        return True
+                if code == raw_prog_upper or code in raw_prog_upper:
+                    direct_total += balance
+        if direct_total >= points_needed:
+            return True
         
         # Check transfer partners (airlines only)
+        # MULTI-BANK: Sum contributions from ALL banks that transfer to this program
         from .config import TRANSFER_GRAPH
         
-        # Build a mapping of normalized bank names to their config
+        total_available = direct_total  # Start with any direct balance
+        
         for bank_name, config in TRANSFER_GRAPH.items():
             airlines_upper = [a.upper() for a in config.get("airlines", [])]
             
@@ -2355,23 +2553,28 @@ class OrchestratorAgent(BaseAgent):
             
             if matched_code:
                 ratio = config["ratios"].get(matched_code, config["ratios"].get(program, config["ratios"].get(program_upper, 1.0)))
-                needed_from_bank = int(points_needed / ratio)
                 
                 # Check if user has this bank - normalize the comparison
                 bank_normalized = bank_name.lower().replace(" ", "_")
                 for user_prog, balance in remaining_points.items():
-                    user_prog_normalized = user_prog.lower().replace(" ", "_").replace("-", "_")
+                    # Strip payer prefix for normalization (multi-payer support)
+                    raw_prog = self._program_from_key(user_prog)
+                    raw_prog_normalized = raw_prog.lower().replace(" ", "_").replace("-", "_")
                     
                     # Match by normalized key or partial match
-                    if (bank_normalized == user_prog_normalized or 
-                        bank_normalized.replace("_", "") == user_prog_normalized.replace("_", "") or
-                        bank_normalized.split("_")[0] == user_prog_normalized.split("_")[0]):  # e.g., "amex" matches "amex_mr"
-                        if balance >= needed_from_bank:
-                            logger.info(
-                                f"[Greedy] Can afford {program}: {points_needed:,} pts via {bank_name} "
-                                f"(user has {balance:,} {user_prog}, need {needed_from_bank:,}, matched airline={matched_code})"
-                            )
-                            return True
+                    if (bank_normalized == raw_prog_normalized or 
+                        bank_normalized.replace("_", "") == raw_prog_normalized.replace("_", "") or
+                        bank_normalized.split("_")[0] == raw_prog_normalized.split("_")[0]):  # e.g., "amex" matches "amex_mr"
+                        # Convert bank points to target program points at transfer ratio
+                        available_in_target = int(balance * ratio)
+                        total_available += available_in_target
+        
+        if total_available >= points_needed:
+            logger.info(
+                f"[Greedy] Can afford {program}: {points_needed:,} pts "
+                f"(total available across all sources: {total_available:,})"
+            )
+            return True
         
         return False
     
@@ -2379,12 +2582,19 @@ class OrchestratorAgent(BaseAgent):
         """
         Create flight segment with payment decision.
         
+        MULTI-BANK SUPPORT: When points come from multiple banks, creates
+        multiple TransferInstruction objects (one per bank used).
+        
         Args:
             option: The flight option to use
             remaining_points: User's remaining points balances
             force_points: If True, use points regardless of CPP threshold (for tight budgets)
+            
+        Returns:
+            (segment, points_used, transfers_list) where transfers_list is a list of
+            TransferInstruction objects (may be empty, one, or multiple).
         """
-        transfer = None
+        transfers = []
         points_used = 0
         
         # Decide cash vs points
@@ -2407,29 +2617,39 @@ class OrchestratorAgent(BaseAgent):
             )
         
         if use_points:
-            # Find source for points
-            source, actual_points = self._deduct_points(
+            # Deduct points — may return multiple (source, amount) tuples for multi-bank
+            deductions = self._deduct_points(
                 option.award_program, option.award_points, remaining_points
             )
             
-            if source and source != option.award_program:
-                # Need transfer
-                path = get_transfer_path(source, option.award_program)
-                if path:
-                    transfer = TransferInstruction(
-                        from_program=source,
-                        to_program=option.award_program,
-                        points_to_transfer=actual_points,
-                        ratio=path["ratio"],
-                        portal_url=path["portal_url"],
-                        transfer_time=path["transfer_time"],
-                        steps=[
-                            f"Log in to {source} portal",
-                            f"Navigate to transfer partners",
-                            f"Select {option.award_program}",
-                            f"Transfer {actual_points:,} points",
-                        ],
-                    )
+            # Build transfer instructions for each source that needs a transfer
+            for source_key, actual_points in deductions:
+                # Extract payer info and raw program from potentially prefixed key
+                payer_id, raw_source = self._parse_payer_key(source_key)
+                
+                if raw_source and raw_source != option.award_program:
+                    # Need transfer
+                    path = get_transfer_path(raw_source, option.award_program)
+                    if path:
+                        transfers.append(TransferInstruction(
+                            from_program=raw_source,
+                            to_program=option.award_program,
+                            points_to_transfer=actual_points,
+                            ratio=path["ratio"],
+                            portal_url=path["portal_url"],
+                            transfer_time=path["transfer_time"],
+                            steps=[
+                                f"Log in to {raw_source} portal",
+                                f"Navigate to transfer partners",
+                                f"Select {option.award_program}",
+                                f"Transfer {actual_points:,} points",
+                            ],
+                            payer_id=payer_id,
+                            payer_name=payer_id,  # Use payer_id as display name
+                        ))
+            
+            # For backward compatibility, primary transfer is the first one (if any)
+            primary_transfer = transfers[0] if transfers else None
             
             payment = PointsPayment(
                 program=option.award_program,
@@ -2437,7 +2657,8 @@ class OrchestratorAgent(BaseAgent):
                 surcharge=option.award_surcharge or 0,
                 cpp_achieved=option.cpp,
                 cash_saved=(option.cash_price or 0) - (option.award_surcharge or 0),
-                transfer=transfer,
+                transfer=primary_transfer,
+                transfers=transfers,
                 reason=f"Saves ${(option.cash_price or 0) - (option.award_surcharge or 0):.0f} at {option.cpp or 0:.1f}¢/pt",
             )
             points_used = option.award_points
@@ -2467,29 +2688,39 @@ class OrchestratorAgent(BaseAgent):
             ticketing_confirmed=getattr(option, 'ticketing_confirmed', False),
         )
         
-        return segment, points_used, transfer
+        return segment, points_used, transfers
     
-    def _deduct_points(self, program: str, points_needed: int, remaining_points: dict) -> tuple:
+    def _deduct_points(self, program: str, points_needed: int, remaining_points: dict) -> list:
         """
-        Deduct points from user's balance, return (source, actual_points_deducted).
+        Deduct points from user's balance(s).
         
-        Handles normalization between different key formats.
+        MULTI-BANK SUPPORT: If no single bank can cover the cost, iteratively
+        deducts from multiple banks (highest balance first) until the required
+        points are covered.
+        
+        Returns:
+            list of (source, actual_points_deducted) tuples.
+            Empty list if unable to deduct enough points.
         """
         program_upper = program.upper() if program else ""
         
-        # Try direct first (normalize both sides)
+        # Try direct first (normalize both sides) - single source covers all
         for user_prog, balance in list(remaining_points.items()):
+            # Strip payer prefix for normalization (multi-payer support)
+            raw_prog = self._program_from_key(user_prog)
             # Skip fixed-value bank programs - they can't be used for award bookings
-            if self._is_fixed_value_bank(user_prog):
+            if self._is_fixed_value_bank(raw_prog):
                 continue
-            user_prog_upper = user_prog.upper().replace("_", " ").replace("-", " ")
-            if program_upper == user_prog_upper or program_upper in user_prog_upper:
+            raw_prog_upper = raw_prog.upper().replace("_", " ").replace("-", " ")
+            if program_upper == raw_prog_upper or program_upper in raw_prog_upper:
                 if balance >= points_needed:
                     remaining_points[user_prog] -= points_needed
-                    return (user_prog, points_needed)
+                    return [(user_prog, points_needed)]
         
         # Try transfer partners (airlines only)
         from .config import TRANSFER_GRAPH
+        
+        # First pass: try single-bank transfer (cheapest path)
         for bank_name, config in TRANSFER_GRAPH.items():
             if program_upper in [a.upper() for a in config.get("airlines", [])]:
                 ratio = config["ratios"].get(program, config["ratios"].get(program_upper, 1.0))
@@ -2498,17 +2729,104 @@ class OrchestratorAgent(BaseAgent):
                 # Find matching user balance
                 bank_normalized = bank_name.lower().replace(" ", "_")
                 for user_prog, balance in list(remaining_points.items()):
-                    user_prog_normalized = user_prog.lower().replace(" ", "_").replace("-", "_")
+                    raw_prog = self._program_from_key(user_prog)
+                    raw_prog_normalized = raw_prog.lower().replace(" ", "_").replace("-", "_")
                     
-                    if (bank_normalized == user_prog_normalized or 
-                        bank_normalized.replace("_", "") == user_prog_normalized.replace("_", "") or
-                        bank_normalized.split("_")[0] == user_prog_normalized.split("_")[0]):
+                    if (bank_normalized == raw_prog_normalized or 
+                        bank_normalized.replace("_", "") == raw_prog_normalized.replace("_", "") or
+                        bank_normalized.split("_")[0] == raw_prog_normalized.split("_")[0]):
                         if balance >= needed_from_bank:
                             remaining_points[user_prog] -= needed_from_bank
                             logger.info(
                                 f"[Greedy] Deducted {needed_from_bank:,} from {user_prog} for {program} "
                                 f"(remaining: {remaining_points[user_prog]:,})"
                             )
-                            return (user_prog, needed_from_bank)
+                            return [(user_prog, needed_from_bank)]
         
-        return (None, 0)
+        # Second pass: MULTI-BANK SPLIT - no single source covers the cost.
+        # Collect all sources that can contribute, sorted by balance (highest first).
+        candidate_sources = []
+        
+        # Collect transfer-capable banks
+        for bank_name, config in TRANSFER_GRAPH.items():
+            if program_upper in [a.upper() for a in config.get("airlines", [])]:
+                ratio = config["ratios"].get(program, config["ratios"].get(program_upper, 1.0))
+                bank_normalized = bank_name.lower().replace(" ", "_")
+                
+                for user_prog, balance in remaining_points.items():
+                    if balance <= 0:
+                        continue
+                    raw_prog = self._program_from_key(user_prog)
+                    raw_prog_normalized = raw_prog.lower().replace(" ", "_").replace("-", "_")
+                    
+                    if (bank_normalized == raw_prog_normalized or 
+                        bank_normalized.replace("_", "") == raw_prog_normalized.replace("_", "") or
+                        bank_normalized.split("_")[0] == raw_prog_normalized.split("_")[0]):
+                        # Points this source contributes in target-program terms
+                        available_in_target = int(balance * ratio)
+                        candidate_sources.append((user_prog, balance, ratio, available_in_target))
+        
+        # Also check direct balances
+        for user_prog, balance in remaining_points.items():
+            if balance <= 0:
+                continue
+            raw_prog = self._program_from_key(user_prog)
+            if self._is_fixed_value_bank(raw_prog):
+                continue
+            raw_prog_upper = raw_prog.upper().replace("_", " ").replace("-", " ")
+            if program_upper == raw_prog_upper or program_upper in raw_prog_upper:
+                candidate_sources.append((user_prog, balance, 1.0, balance))
+        
+        # Deduplicate by user_prog (in case same prog appeared via direct + transfer)
+        seen = set()
+        unique_sources = []
+        for src in candidate_sources:
+            if src[0] not in seen:
+                seen.add(src[0])
+                unique_sources.append(src)
+        
+        # Sort by available_in_target descending (drain biggest balances first)
+        unique_sources.sort(key=lambda x: x[3], reverse=True)
+        
+        total_available = sum(s[3] for s in unique_sources)
+        if total_available < points_needed:
+            return []  # Can't afford even across all banks
+        
+        # Greedily deduct from multiple sources
+        deductions = []
+        remaining_need = points_needed  # in target program points
+        
+        for user_prog, balance, ratio, available_in_target in unique_sources:
+            if remaining_need <= 0:
+                break
+            
+            # How many target points this source will cover
+            contribute_target = min(available_in_target, remaining_need)
+            # Convert back to source points
+            contribute_source = int(contribute_target / ratio) if ratio != 0 else contribute_target
+            # Don't exceed actual balance
+            contribute_source = min(contribute_source, remaining_points[user_prog])
+            
+            if contribute_source <= 0:
+                continue
+            
+            remaining_points[user_prog] -= contribute_source
+            deductions.append((user_prog, contribute_source))
+            remaining_need -= int(contribute_source * ratio)
+            
+            logger.info(
+                f"[Greedy] Multi-bank split: deducted {contribute_source:,} from {user_prog} "
+                f"for {program} (ratio={ratio}, remaining_need={remaining_need:,})"
+            )
+        
+        if remaining_need > 0:
+            # Couldn't cover it despite our earlier check — rollback
+            for user_prog, amount in deductions:
+                remaining_points[user_prog] += amount
+            return []
+        
+        logger.info(
+            f"[Greedy] Multi-bank split complete for {program}: {len(deductions)} sources used, "
+            f"total target pts = {points_needed:,}"
+        )
+        return deductions

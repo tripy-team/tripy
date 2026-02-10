@@ -2678,6 +2678,7 @@ export interface SoloTripResponse {
 export interface SoloOptimizeRequest {
   tripId: string;
   points: Record<string, number>;
+  payerPoints?: Record<string, Record<string, number>>; // Multi-payer: { ownerName: { program: balance } }
   optimizationModeOverride?: 'oop' | 'cpp' | 'balanced';
   forceRefresh?: boolean;  // Bypass cache and run fresh optimization
 }
@@ -2699,6 +2700,7 @@ export interface SoloTransferInstruction {
   expectedTransferTime: string;
   portalUrl: string;
   warning?: string;
+  isDirect?: boolean;  // True when using native miles (no transfer needed)
 }
 
 export interface SoloSegmentBreakdown {
@@ -3090,6 +3092,7 @@ export const solo = {
       body: JSON.stringify({
         trip_id: request.tripId,
         points: request.points,
+        ...(request.payerPoints ? { payer_points: request.payerPoints } : {}),
         optimization_mode_override: request.optimizationModeOverride,
         force_refresh: request.forceRefresh ?? false,
       }),

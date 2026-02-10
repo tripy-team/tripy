@@ -15,6 +15,8 @@ function ConfirmSignupForm() {
 	const [submitting, setSubmitting] = useState(false);
 	const [confirmed, setConfirmed] = useState(false);
 
+	const redirectPath = searchParams.get("redirect");
+
 	useEffect(() => {
 		// Get email from URL query parameter
 		const emailParam = searchParams.get("email");
@@ -53,9 +55,12 @@ function ConfirmSignupForm() {
 			// On success, mark as confirmed
 			setConfirmed(true);
 
-			// Redirect to login page after a brief delay
+			// Redirect to login page after a brief delay, preserving the redirect param
 			setTimeout(() => {
-				router.push("/login");
+				const loginUrl = redirectPath
+					? `/login?redirect=${encodeURIComponent(redirectPath)}`
+					: "/login";
+				router.push(loginUrl);
 			}, 2000);
 		} catch (err) {
 			// Handle different error types
@@ -183,7 +188,7 @@ function ConfirmSignupForm() {
 							)}
 							<p className="mt-2 text-xs text-slate-500">
 								Didn&apos;t receive a code? Check your spam folder or{" "}
-								<Link href="/register" className="text-blue-600 hover:text-blue-700 font-medium">
+								<Link href={redirectPath ? `/register?redirect=${encodeURIComponent(redirectPath)}` : "/register"} className="text-blue-600 hover:text-blue-700 font-medium">
 									sign up again
 								</Link>
 							</p>
@@ -204,14 +209,14 @@ function ConfirmSignupForm() {
 						</button>
 					</form>
 
-					<div className="mt-8 pt-8 border-t border-slate-100 text-center">
-						<p className="text-sm text-slate-600">
-							Already confirmed?{" "}
-							<Link href="/login" className="text-blue-600 font-medium hover:text-blue-700">
-								Sign in
-							</Link>
-						</p>
-					</div>
+				<div className="mt-8 pt-8 border-t border-slate-100 text-center">
+					<p className="text-sm text-slate-600">
+						Already confirmed?{" "}
+						<Link href={redirectPath ? `/login?redirect=${encodeURIComponent(redirectPath)}` : "/login"} className="text-blue-600 font-medium hover:text-blue-700">
+							Sign in
+						</Link>
+					</p>
+				</div>
 				</div>
 			</div>
 

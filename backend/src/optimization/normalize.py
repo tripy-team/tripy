@@ -138,6 +138,29 @@ PROGRAM_ALIASES: Dict[str, str] = {
     "IBE": "iberia",
     "iberia": "iberia",
     
+    # Aer Lingus
+    "EI": "aer_lingus",
+    "EIN": "aer_lingus",
+    "aer_lingus": "aer_lingus",
+    "aerlingus": "aer_lingus",
+    
+    # Qatar Airways
+    "QR": "qatar",
+    "QTR": "qatar",
+    "qatar": "qatar",
+    "qatar_airways": "qatar",
+    
+    # Finnair
+    "AY": "finnair",
+    "FIN": "finnair",
+    "finnair": "finnair",
+    
+    # TAP Air Portugal
+    "TAP": "tap",
+    "TP": "tap",
+    "tap": "tap",
+    "tap_portugal": "tap",
+    
     # ═══════════════════════════════════════════════════════════════════════
     # HOTEL PROGRAMS
     # ═══════════════════════════════════════════════════════════════════════
@@ -300,6 +323,11 @@ AIRLINE_ALIASES: Dict[str, str] = {
     "JAL": "JL",
     "IBE": "IB",
     
+    # Additional ICAO codes
+    "EIN": "EI",  # Aer Lingus
+    "QTR": "QR",  # Qatar Airways
+    "FIN": "AY",  # Finnair
+    
     # Already 2-letter codes - pass through
     "UA": "UA",
     "AA": "AA",
@@ -322,6 +350,11 @@ AIRLINE_ALIASES: Dict[str, str] = {
     "EY": "EY",
     "JL": "JL",
     "IB": "IB",
+    "EI": "EI",
+    "QR": "QR",
+    "AY": "AY",
+    "TP": "TP",
+    "TAP": "TAP",
 }
 
 
@@ -333,10 +366,18 @@ def normalize_program(raw: str) -> str:
     """
     Normalize program identifier to canonical form.
     
+    Handles compound program names from AwardTool codeshare flights
+    (e.g., "UA & LH" → "united", "KL & VS" → "flying_blue").
+    For compound names, tries each component in order and returns
+    the first that resolves to a known program.
+    
     Examples:
         normalize_program("UA") -> "united"
         normalize_program("MileagePlus") -> "united"
         normalize_program("HYATT") -> "hyatt"
+        normalize_program("UA & LH") -> "united"
+        normalize_program("KL & VS") -> "flying_blue"
+        normalize_program("AC & TP") -> "aeroplan"
     """
     if not raw:
         return raw
@@ -354,6 +395,24 @@ def normalize_program(raw: str) -> str:
     underscored = lower.replace(" ", "_").replace("-", "_")
     if underscored in PROGRAM_ALIASES:
         return PROGRAM_ALIASES[underscored]
+    
+    # Handle compound program names (e.g., "UA & LH", "KL & VS")
+    # AwardTool returns these for codeshare flights. The first component
+    # is typically the marketing/booking carrier (the program to book through).
+    if "&" in raw:
+        parts = [p.strip() for p in raw.split("&") if p.strip()]
+        for part in parts:
+            # Try each lookup strategy for this component
+            if part in PROGRAM_ALIASES:
+                return PROGRAM_ALIASES[part]
+            part_lower = part.lower()
+            if part_lower in PROGRAM_ALIASES:
+                return PROGRAM_ALIASES[part_lower]
+            part_under = part_lower.replace(" ", "_").replace("-", "_")
+            if part_under in PROGRAM_ALIASES:
+                return PROGRAM_ALIASES[part_under]
+        # No component resolved to a known program; return first component lowered
+        return parts[0].lower() if parts else lower
     
     # Return lowercase as default
     return lower

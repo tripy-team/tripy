@@ -20,6 +20,7 @@ EXTENDED_TRANSFER_GRAPH: Dict[str, Dict[str, Dict[str, Any]]] = {
         "B6": {"ratio": 1.0, "type": "airline", "name": "JetBlue TrueBlue"},
         "AF": {"ratio": 1.0, "type": "airline", "name": "Air France / KLM Flying Blue"},
         "BA": {"ratio": 1.0, "type": "airline", "name": "British Airways Avios"},
+        "IB": {"ratio": 1.0, "type": "airline", "name": "Iberia Plus"},
         "SQ": {"ratio": 1.0, "type": "airline", "name": "Singapore KrisFlyer"},
         "CX": {"ratio": 1.0, "type": "airline", "name": "Cathay Pacific Asia Miles"},
         "NH": {"ratio": 1.0, "type": "airline", "name": "ANA Mileage Club"},
@@ -28,8 +29,9 @@ EXTENDED_TRANSFER_GRAPH: Dict[str, Dict[str, Dict[str, Any]]] = {
         "VS": {"ratio": 1.0, "type": "airline", "name": "Virgin Atlantic Flying Club"},
         "QF": {"ratio": 1.0, "type": "airline", "name": "Qantas Frequent Flyer"},
         "AV": {"ratio": 1.0, "type": "airline", "name": "Avianca LifeMiles"},
-        "IB": {"ratio": 1.0, "type": "airline", "name": "Iberia Plus"},
         "AS": {"ratio": 1.0, "type": "airline", "name": "Alaska Mileage Plan"},
+        "AC": {"ratio": 1.0, "type": "airline", "name": "Air Canada Aeroplan"},
+        "JL": {"ratio": 1.0, "type": "airline", "name": "Japan Airlines Mileage Bank"},
     },
     "chase": {
         # Airlines (Ultimate Rewards)
@@ -40,11 +42,15 @@ EXTENDED_TRANSFER_GRAPH: Dict[str, Dict[str, Dict[str, Any]]] = {
         "SQ": {"ratio": 1.0, "type": "airline", "name": "Singapore KrisFlyer"},
         "VS": {"ratio": 1.0, "type": "airline", "name": "Virgin Atlantic Flying Club"},
         "EI": {"ratio": 1.0, "type": "airline", "name": "Aer Lingus AerClub"},
+        "EK": {"ratio": 1.0, "type": "airline", "name": "Emirates Skywards"},
+        "AC": {"ratio": 1.0, "type": "airline", "name": "Air Canada Aeroplan"},
+        "AV": {"ratio": 1.0, "type": "airline", "name": "Avianca LifeMiles"},
         "WN": {"ratio": 1.0, "type": "airline", "name": "Southwest Rapid Rewards"},
         "AS": {"ratio": 1.0, "type": "airline", "name": "Alaska Mileage Plan"},
     },
     "citi": {
         # Airlines (ThankYou Points)
+        "AA": {"ratio": 1.0, "type": "airline", "name": "American AAdvantage"},
         "B6": {"ratio": 1.0, "type": "airline", "name": "JetBlue TrueBlue"},
         "SQ": {"ratio": 1.0, "type": "airline", "name": "Singapore KrisFlyer"},
         "CX": {"ratio": 1.0, "type": "airline", "name": "Cathay Pacific Asia Miles"},
@@ -54,9 +60,10 @@ EXTENDED_TRANSFER_GRAPH: Dict[str, Dict[str, Dict[str, Any]]] = {
         "TK": {"ratio": 1.0, "type": "airline", "name": "Turkish Miles&Smiles"},
         "AV": {"ratio": 1.0, "type": "airline", "name": "Avianca LifeMiles"},
         "VS": {"ratio": 1.0, "type": "airline", "name": "Virgin Atlantic Flying Club"},
+        "AF": {"ratio": 1.0, "type": "airline", "name": "Air France / KLM Flying Blue"},
         "QF": {"ratio": 1.0, "type": "airline", "name": "Qantas Frequent Flyer"},
         "AC": {"ratio": 1.0, "type": "airline", "name": "Air Canada Aeroplan"},
-        "AA": {"ratio": 1.0, "type": "airline", "name": "American AAdvantage"},
+        "JL": {"ratio": 1.0, "type": "airline", "name": "Japan Airlines Mileage Bank"},
     },
     "capitalone": {
         # Airlines
@@ -69,17 +76,19 @@ EXTENDED_TRANSFER_GRAPH: Dict[str, Dict[str, Dict[str, Any]]] = {
         "SQ": {"ratio": 1.0, "type": "airline", "name": "Singapore KrisFlyer"},
         "TK": {"ratio": 1.0, "type": "airline", "name": "Turkish Miles&Smiles"},
         "AV": {"ratio": 1.0, "type": "airline", "name": "Avianca LifeMiles"},
+        "QF": {"ratio": 1.0, "type": "airline", "name": "Qantas Frequent Flyer"},
         "TAP": {"ratio": 1.0, "type": "airline", "name": "TAP Miles&Go"},
     },
     "bilt": {
         # Airlines
         "UA": {"ratio": 1.0, "type": "airline", "name": "United MileagePlus"},
         "AA": {"ratio": 1.0, "type": "airline", "name": "American AAdvantage"},
+        "BA": {"ratio": 1.0, "type": "airline", "name": "British Airways Avios"},
         "AF": {"ratio": 1.0, "type": "airline", "name": "Air France / KLM Flying Blue"},
         "TK": {"ratio": 1.0, "type": "airline", "name": "Turkish Miles&Smiles"},
-        "EK": {"ratio": 1.0, "type": "airline", "name": "Emirates Skywards"},
         "VS": {"ratio": 1.0, "type": "airline", "name": "Virgin Atlantic Flying Club"},
         "EI": {"ratio": 1.0, "type": "airline", "name": "Aer Lingus AerClub"},
+        "EK": {"ratio": 1.0, "type": "airline", "name": "Emirates Skywards"},
         "AC": {"ratio": 1.0, "type": "airline", "name": "Air Canada Aeroplan"},
         "AS": {"ratio": 1.0, "type": "airline", "name": "Alaska Mileage Plan"},
     },

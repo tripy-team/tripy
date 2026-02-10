@@ -46,6 +46,12 @@ class OptimizeSoloRequest(BaseModel):
     trip_id: str
     points: Dict[str, int]  # { "chase_ur": 50000, "amex_mr": 30000, "UA": 10000 }
     
+    # MULTI-PAYER SUPPORT: When two people contribute points to a trip
+    # Each payer has their own balances (different accounts, different banks)
+    # When provided, `points` is ignored in favor of per-payer breakdown.
+    # Example: { "alice": {"amex_mr": 50000}, "bob": {"amex_mr": 75000, "chase_ur": 30000} }
+    payer_points: Optional[Dict[str, Dict[str, int]]] = None
+    
     # Optional: structured currency controls (alternative to flat points dict)
     currency_balances: Optional[List[CurrencyBalance]] = None
     
@@ -72,15 +78,20 @@ class TransferInsight(BaseModel):
 
 
 class TransferInstruction(BaseModel):
-    """Typed transfer instruction for BookingGuide"""
+    """Typed transfer instruction for BookingGuide (or direct point usage)"""
     step_number: int
     source_program: str  # PointsProgram value
-    target_program: str  # PointsProgram value
+    target_program: str  # PointsProgram value (same as source for direct usage)
     points_to_transfer: int
     transfer_ratio: float               # e.g., 1.0 or 1.3 for 30% bonus
     expected_transfer_time: str         # e.g., "instant", "1-2 days"
     portal_url: str
     warning: Optional[str] = None       # e.g., "Transfer bonus expires March 15"
+    # Multi-payer attribution: which payer performs this transfer
+    payer_id: Optional[str] = None      # e.g., "alice"
+    payer_name: Optional[str] = None    # e.g., "Alice"
+    # Direct usage flag: True when using native miles (no transfer needed)
+    is_direct: bool = False
 
 
 class FlightLegDetail(BaseModel):
@@ -204,6 +215,10 @@ class OOPMetrics(BaseModel):
     points_breakdown: Dict[str, int] = {}     # Points by target program
     bank_currencies_used: Dict[str, int] = {} # Points by source bank currency
     payment_actions: List[PaymentAction] = [] # Detailed payment breakdown
+    
+    # Multi-payer tracking: which payer contributed what
+    # { "alice": {"amex_mr": 30000}, "bob": {"chase_ur": 25000} }
+    payer_breakdown: Optional[Dict[str, Dict[str, int]]] = None
 
 
 class DecisionSummary(BaseModel):
@@ -336,6 +351,21 @@ class StructuredWarnings(BaseModel):
     degradation: Optional[WarningItem] = None
 
 
+class BudgetStatus(BaseModel):
+    """
+    Structured budget compliance status.
+    
+    Allows UI to definitively determine whether the plan meets the budget,
+    and to show clear "over budget" banners with actionable suggestions.
+    """
+    status: Literal["within_budget", "closest_over_budget", "no_budget_set"]
+    user_budget: Optional[float] = None
+    actual_oop: float = 0.0
+    required_budget: Optional[float] = None  # min feasible OOP (only if over budget)
+    shortfall: Optional[float] = None        # required_budget - user_budget
+    suggested_budget: Optional[float] = None  # required_budget * 1.10
+
+
 class OptimizeSoloResponse(BaseModel):
     """Response from solo optimization"""
     itineraries: List[RankedItinerary]
@@ -344,6 +374,9 @@ class OptimizeSoloResponse(BaseModel):
     structured_warnings: Optional[StructuredWarnings] = None  # Typed warnings (preferred)
     global_insights: List[TransferInsight] = []
     risk_mode: Optional[str] = None
+    
+    # Budget compliance status (Fix 8)
+    budget_status: Optional[BudgetStatus] = None
     
     # Decision summary for the recommended option (top-level for easy access)
     decision_summary: Optional[DecisionSummary] = None

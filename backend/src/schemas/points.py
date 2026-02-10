@@ -122,12 +122,19 @@ class PointsBalance(BaseModel):
     Supports both exact and estimated balances:
     - owner_type: "user" for authenticated users, "anon" for anonymous sessions
     - confidence: "exact" (verified), "estimated" (conservative guess), "unknown" (user skipped)
+    
+    Multi-payer support:
+    - payer_id: Optional identifier for the points owner in multi-payer trips
+    - payer_name: Optional display name for the payer
     """
     program: Union[str, PointsProgram]  # Accept both string and enum
     balance: int
     updated_at: Optional[str] = None  # Issue #4 FIX: add updated_at
     owner_type: Optional[Literal["user", "anon"]] = "user"  # Who owns these points
     confidence: Optional[Literal["exact", "estimated", "unknown"]] = "exact"  # Balance confidence
+    # Multi-payer: identify which person owns this balance
+    payer_id: Optional[str] = None  # e.g., "alice" or a user ID
+    payer_name: Optional[str] = None  # e.g., "Alice" for display
     
     @field_validator('program', mode='before')
     @classmethod

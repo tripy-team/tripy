@@ -21,6 +21,7 @@ from .points import (
 from .optimize import (
     OptimizeSoloRequest,
     OptimizeSoloResponse,
+    BudgetStatus,
     TransferInsight,
     TransferInstruction,
     SegmentBreakdown,
@@ -56,6 +57,7 @@ __all__ = [
     # Optimize
     "OptimizeSoloRequest",
     "OptimizeSoloResponse",
+    "BudgetStatus",
     "TransferInsight",
     "TransferInstruction",
     "SegmentBreakdown",

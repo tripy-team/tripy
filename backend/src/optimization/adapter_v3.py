@@ -9,9 +9,11 @@ This allows the orchestrator to use the V3 solver without changing
 the frontend API contract.
 """
 
+import hashlib
 import logging
 import os
 import uuid
+from copy import deepcopy
 from datetime import datetime, date, timedelta
 from typing import List, Dict, Optional, Tuple
 
@@ -37,8 +39,114 @@ from ..utils.pricing import (
 from ..contracts.sentinel import scrub_sentinels
 from ..contracts.validate import assert_no_negative_numbers, find_negative_numbers
 from ..agents.models import NO_BUDGET_LIMIT
+from .flags import (
+    V3_MULTI_CURRENCY_ENRICHMENT_ENABLED,
+    V3_FINGERPRINT_MATCHING_ENABLED,
+)
 
 logger = logging.getLogger(__name__)
+
+# ═══════════════════════════════════════════════════════════════════════════
+# AWARD ENRICHMENT HELPERS (Fix 1)
+# ═══════════════════════════════════════════════════════════════════════════
+
+MAX_AWARD_OPTIONS_PER_FLIGHT = 8
+
+
+def make_flight_fingerprint(edge: FlightItineraryEdge) -> tuple:
+    """
+    Deterministic fingerprint for matching award options to validated flights.
+    Uses only fields that exist on BOTH placeholder (AwardTool) and validated (SerpAPI) edges.
+    
+    Fields:
+    - leg_id: which leg this serves
+    - origin: first departure airport
+    - destination: final arrival airport
+    - marketing_carrier: first segment's marketing carrier
+    - num_stops: 0 for direct, 1+ for connections
+    - departure_bucket: departure time bucketed to 60-min windows
+    
+    NOT included (unreliable on placeholders):
+    - flight_number, arrival_time, cabin
+    """
+    carrier = ""
+    if edge.segments:
+        carrier = (edge.segments[0].marketing_carrier or "").upper()[:2]
+    
+    dep_bucket = ""
+    if edge.departure_datetime:
+        try:
+            dep_bucket = edge.departure_datetime.strftime("%Y-%m-%dT%H")
+        except Exception:
+            pass
+    
+    return (
+        edge.leg_id,
+        (edge.origin or "").upper(),
+        (edge.destination or "").upper(),
+        carrier,
+        edge.num_stops,
+        dep_bucket,
+    )
+
+
+def make_option_id(edge_id: str, opt) -> str:
+    """
+    Stable, unique option_id for ILP variable naming and dict keys.
+    
+    Format: "{edge_id}:{program}:{cabin}:{miles}:{surcharge_cents}"
+    
+    Rules:
+    - surcharge normalized to integer cents (avoid float drift)
+    - cabin lowercased and stripped
+    - colons in component values replaced with '_'
+    - if total length > 80, keep first 40 chars of edge_id + sha1 hash (12 hex)
+    """
+    program = (opt.program or "unknown").replace(":", "_")
+    cabin = (getattr(opt, "cabin_or_room_type", None) or "economy").lower().strip().replace(":", "_")
+    surcharge_cents = int(round((opt.surcharge or 0) * 100))
+    miles = opt.miles_required or 0
+    
+    raw_id = f"{edge_id}:{program}:{cabin}:{miles}:{surcharge_cents}"
+    
+    if len(raw_id) <= 80:
+        return raw_id
+    
+    hash_suffix = hashlib.sha1(raw_id.encode()).hexdigest()[:12]
+    return f"{edge_id[:40]}:{hash_suffix}"
+
+
+def _pareto_select_per_program(candidates: list) -> list:
+    """
+    For each program, keep up to 2 options: lowest miles + lowest surcharge.
+    If they're the same option, keep just one.
+    Dedup by (program, miles, surcharge_cents, cabin).
+    """
+    pareto_by_program = {}  # program -> {"best_miles": opt, "best_surcharge": opt}
+    
+    for opt in candidates:
+        prog = opt.program
+        if prog not in pareto_by_program:
+            pareto_by_program[prog] = {"best_miles": opt, "best_surcharge": opt}
+        else:
+            entry = pareto_by_program[prog]
+            if (opt.miles_required or float('inf')) < (entry["best_miles"].miles_required or float('inf')):
+                entry["best_miles"] = opt
+            if (opt.surcharge or float('inf')) < (entry["best_surcharge"].surcharge or float('inf')):
+                entry["best_surcharge"] = opt
+    
+    # Flatten with dedup
+    pareto_options = []
+    seen_fingerprints = set()
+    for prog, entry in sorted(pareto_by_program.items()):
+        for opt in [entry["best_miles"], entry["best_surcharge"]]:
+            cabin = getattr(opt, "cabin_or_room_type", "economy") or "economy"
+            fp = (opt.program, opt.miles_required, int(round((opt.surcharge or 0) * 100)), cabin)
+            if fp not in seen_fingerprints:
+                seen_fingerprints.add(fp)
+                pareto_options.append(opt)
+    
+    return pareto_options
 
 
 def _strict_contracts_enabled() -> bool:
@@ -235,6 +343,83 @@ def _detect_international_route(segments: List[dict], trip_data: dict) -> bool:
 # ORCHESTRATOR → V3 CONVERSION
 # =============================================================================
 
+def _classify_points(
+    user_points: Dict[str, int],
+    allowed_normalized: set = None,
+    caps_normalized: dict = None,
+    label: str = "",
+) -> Tuple[Dict[str, int], Dict[str, int]]:
+    """
+    Classify points into points_balances and bank_balances.
+    
+    Shared helper used by both single-payer and multi-payer paths.
+    Returns (points_balances, bank_balances).
+    """
+    points_balances = {}
+    bank_balances = {}
+    
+    for prog, balance in user_points.items():
+        normalized = normalize_program(prog)
+        bank_normalized = normalize_bank(prog)
+        
+        logger.info(f"[V3 Adapter]{label} Points: {prog} -> normalized={normalized}, bank={bank_normalized}")
+        
+        # Check if currency is allowed
+        if allowed_normalized:
+            if bank_normalized not in allowed_normalized and normalized not in allowed_normalized:
+                logger.info(f"[V3 Adapter]{label} Skipping {prog} - not in allowed currencies")
+                continue
+        
+        # Apply per-currency cap
+        effective_balance = balance
+        if caps_normalized:
+            if bank_normalized in caps_normalized:
+                effective_balance = min(balance, caps_normalized[bank_normalized])
+                if effective_balance < balance:
+                    logger.info(f"[V3 Adapter]{label} Capping {prog} from {balance:,} to {effective_balance:,}")
+            elif normalized in caps_normalized:
+                effective_balance = min(balance, caps_normalized[normalized])
+                if effective_balance < balance:
+                    logger.info(f"[V3 Adapter]{label} Capping {prog} from {balance:,} to {effective_balance:,}")
+        
+        # Check if it's a bank (transferable), fixed-value bank, or airline/hotel program
+        if bank_normalized in {"chase", "amex", "citi", "capital_one", "bilt"}:
+            if bank_normalized in bank_balances:
+                old_val = bank_balances[bank_normalized]
+                bank_balances[bank_normalized] = max(old_val, effective_balance)
+                logger.warning(
+                    f"[V3 Adapter]{label} Alias collision: '{prog}' -> '{bank_normalized}' "
+                    f"already has {old_val:,} pts. Taking max({old_val:,}, {effective_balance:,}) = "
+                    f"{bank_balances[bank_normalized]:,}. If these are separate accounts, "
+                    f"use payer_points with distinct payer IDs."
+                )
+            else:
+                bank_balances[bank_normalized] = effective_balance
+            logger.info(f"[V3 Adapter]{label} Added to bank_balances: {bank_normalized}={effective_balance:,}")
+        elif is_fixed_value_bank(prog):
+            fv_info = FIXED_VALUE_BANKS.get(bank_normalized, {})
+            cash_value = effective_balance * fv_info.get("cpp", 1.0) / 100
+            logger.info(
+                f"[V3 Adapter]{label} Fixed-value bank: {bank_normalized}={effective_balance:,} pts "
+                f"(≈${cash_value:.0f} via {fv_info.get('portal_name', 'travel portal')}). "
+                f"Cannot transfer to airlines - will use as cash offset."
+            )
+        else:
+            if normalized in points_balances:
+                old_val = points_balances[normalized]
+                points_balances[normalized] = max(old_val, effective_balance)
+                logger.warning(
+                    f"[V3 Adapter]{label} Alias collision: '{prog}' -> '{normalized}' "
+                    f"already has {old_val:,} pts. Taking max({old_val:,}, {effective_balance:,}) = "
+                    f"{points_balances[normalized]:,}."
+                )
+            else:
+                points_balances[normalized] = effective_balance
+            logger.info(f"[V3 Adapter]{label} Added to points_balances: {normalized}={effective_balance:,}")
+    
+    return points_balances, bank_balances
+
+
 def convert_trip_to_spec(
     trip_data: dict,
     segments: List[dict],
@@ -242,6 +427,7 @@ def convert_trip_to_spec(
     user_id: str = "user",
     allowed_currencies: List[str] = None,
     max_points_by_currency: Dict[str, int] = None,
+    payer_points: Dict[str, Dict[str, int]] = None,
 ) -> TripPlanSpec:
     """
     Convert orchestrator trip data to V3 TripPlanSpec.
@@ -252,15 +438,19 @@ def convert_trip_to_spec(
     - Direct airline miles: "UA", "DL", "AA", etc.
     - Hotel points: "marriott", "hyatt", etc.
     
-    These are separated into bank_balances (transferable) and points_balances (direct).
+    MULTI-PAYER SUPPORT:
+    When payer_points is provided, creates one Traveler per payer instead of a
+    single traveler. Each traveler gets their own bank_balances and points_balances.
+    All travelers share the same legs (solo trip — same flights, multiple funding sources).
     
     Args:
         trip_data: Trip data from database
         segments: List of segment dicts from _build_trip_segments
-        user_points: User's points balances {program: balance}
+        user_points: User's points balances {program: balance} (used when payer_points is None)
         user_id: User identifier
         allowed_currencies: If set, only include these currencies (normalized keys)
         max_points_by_currency: Per-currency caps {program: max_points}
+        payer_points: Multi-payer points { payer_id: { program: balance } }
     
     Returns:
         TripPlanSpec for V3 solver
@@ -283,73 +473,56 @@ def convert_trip_to_spec(
             caps_normalized[normalize_program(cur)] = cap
         logger.info(f"[V3 Adapter] Currency caps (normalized): {caps_normalized}")
     
-    # Separate points and banks
-    points_balances = {}
-    bank_balances = {}
+    home_airport = _get_home_airport(trip_data, segments)
     
-    for prog, balance in user_points.items():
-        normalized = normalize_program(prog)
-        bank_normalized = normalize_bank(prog)
-        
-        logger.info(f"[V3 Adapter] Points: {prog} -> normalized={normalized}, bank={bank_normalized}")
-        
-        # Check if currency is allowed
-        if allowed_normalized:
-            if bank_normalized not in allowed_normalized and normalized not in allowed_normalized:
-                logger.info(f"[V3 Adapter] Skipping {prog} - not in allowed currencies")
-                continue
-        
-        # Apply per-currency cap
-        effective_balance = balance
-        if bank_normalized in caps_normalized:
-            effective_balance = min(balance, caps_normalized[bank_normalized])
-            if effective_balance < balance:
-                logger.info(f"[V3 Adapter] Capping {prog} from {balance:,} to {effective_balance:,}")
-        elif normalized in caps_normalized:
-            effective_balance = min(balance, caps_normalized[normalized])
-            if effective_balance < balance:
-                logger.info(f"[V3 Adapter] Capping {prog} from {balance:,} to {effective_balance:,}")
-        
-        # Check if it's a bank (transferable), fixed-value bank, or airline/hotel program
-        if bank_normalized in {"chase", "amex", "citi", "capital_one", "bilt"}:
-            bank_balances[bank_normalized] = effective_balance
-            logger.info(f"[V3 Adapter] Added to bank_balances: {bank_normalized}={effective_balance:,}")
-        elif is_fixed_value_bank(prog):
-            # Fixed-value banks (BoA, Wells Fargo, Discover, US Bank) can't transfer
-            # to airline partners. Their points have a fixed cash value when redeemed
-            # via the bank's travel portal. We track them separately and don't add
-            # them to points_balances (which would incorrectly treat them as airline miles).
-            fv_info = FIXED_VALUE_BANKS.get(bank_normalized, {})
-            cash_value = effective_balance * fv_info.get("cpp", 1.0) / 100  # Convert to dollars
-            logger.info(
-                f"[V3 Adapter] Fixed-value bank: {bank_normalized}={effective_balance:,} pts "
-                f"(≈${cash_value:.0f} via {fv_info.get('portal_name', 'travel portal')}). "
-                f"Cannot transfer to airlines - will use as cash offset."
+    # Build travelers — multi-payer or single-payer
+    travelers = []
+    
+    if payer_points:
+        # MULTI-PAYER: Create one Traveler per payer
+        logger.info(f"[V3 Adapter] Multi-payer mode: creating {len(payer_points)} travelers")
+        for payer_id, balances in payer_points.items():
+            points_balances, bank_balances = _classify_points(
+                balances,
+                allowed_normalized=allowed_normalized,
+                caps_normalized=caps_normalized,
+                label=f" [{payer_id}]",
             )
-            # Don't add to either dict - these points can't be used in the ILP
-            # The optimizer will fall back to cash for these, which is correct
-        else:
-            points_balances[normalized] = effective_balance
-            logger.info(f"[V3 Adapter] Added to points_balances: {normalized}={effective_balance:,}")
-    
-    logger.info(f"[V3 Adapter] Final bank_balances: {bank_balances}")
-    logger.info(f"[V3 Adapter] Final points_balances: {points_balances}")
-    
-    # Create single traveler (solo trip)
-    traveler = Traveler(
-        traveler_id=user_id,
-        name="Traveler",
-        home_airport=_get_home_airport(trip_data, segments),
-        points_balances=points_balances,
-        bank_balances=bank_balances,
-    )
+            logger.info(f"[V3 Adapter] Payer '{payer_id}' bank_balances: {bank_balances}, points_balances: {points_balances}")
+            
+            travelers.append(Traveler(
+                traveler_id=payer_id,
+                name=payer_id,
+                home_airport=home_airport,
+                points_balances=points_balances,
+                bank_balances=bank_balances,
+            ))
+    else:
+        # Single-payer: original behavior
+        points_balances, bank_balances = _classify_points(
+            user_points,
+            allowed_normalized=allowed_normalized,
+            caps_normalized=caps_normalized,
+        )
+        logger.info(f"[V3 Adapter] Final bank_balances: {bank_balances}")
+        logger.info(f"[V3 Adapter] Final points_balances: {points_balances}")
+        
+        travelers.append(Traveler(
+            traveler_id=user_id,
+            name="Traveler",
+            home_airport=home_airport,
+            points_balances=points_balances,
+            bank_balances=bank_balances,
+        ))
     
     # Build ordered legs and stay segments
-    legs, stay_segments = _build_legs_and_segments(segments)
+    # Pass actual payer IDs so traveler_ids on legs match spec travelers
+    payer_ids = [t.traveler_id for t in travelers]
+    legs, stay_segments = _build_legs_and_segments(segments, payer_ids=payer_ids)
     
     return TripPlanSpec(
         trip_id=trip_data.get("trip_id", str(uuid.uuid4())),
-        travelers=[traveler],
+        travelers=travelers,
         legs=legs,
         stay_segments=stay_segments,
     )
@@ -372,6 +545,7 @@ def _get_home_airport(trip_data: dict, segments: List[dict]) -> str:
 
 def _build_legs_and_segments(
     segments: List[dict],
+    payer_ids: Optional[List[str]] = None,
 ) -> Tuple[List[OrderedLeg], List[StaySegment]]:
     """
     Convert orchestrator segments to V3 legs (flights only).
@@ -431,7 +605,7 @@ def _build_legs_and_segments(
                 destination_city=dest_city,
                 earliest_departure=leg_date,
                 latest_departure=leg_date,  # Single day for now
-                traveler_ids=["user"],
+                traveler_ids=payer_ids or ["user"],
                 allowed_origin_airports=allowed_origins,
                 allowed_destination_airports=allowed_dests,
             ))
@@ -755,7 +929,10 @@ def _convert_flight_option(
         )
         
         if opt.award_available and sanitized_award_points > 0:
-            program = normalize_program(opt.award_program or "UA")
+            raw_program = opt.award_program or "UA"
+            program = normalize_program(raw_program)
+            if "&" in raw_program and program != raw_program.lower():
+                logger.info(f"[ADAPTER] Compound program '{raw_program}' normalized to '{program}'")
             
             # Calculate CPP for logging
             cash_saved = max(1.0, sanitized_cash_price - sanitized_surcharge)
@@ -924,6 +1101,7 @@ def convert_result_to_itineraries(
     bank_currencies_used = {}       # Points by source bank currency
     payment_actions = []            # Detailed payment actions for each segment
     transfers = []
+    payer_usage = {}                # { payer_id: { source_program: points_used } }
     
     # Build lookup of SerpAPI flights by leg for enriching award flights with real details
     # Award flights often lack precise flight numbers/times - we can get those from SerpAPI
@@ -1007,9 +1185,15 @@ def convert_result_to_itineraries(
             source_currency = None
             transfer_ratio = None
             
+            # Extract payer_id from the payment choice (V3 solver tracks this)
+            payer_id = getattr(payment_choice, 'payer_id', None)
+            
             # Check for transfer
             if payment_choice.funding_source_id and "transfer" in payment_choice.funding_source_id:
-                parts = payment_choice.funding_source_id.split("_")
+                # Format: "transfer_{owner}_{bank}_{program}"
+                # Use maxsplit=3 so program names with underscores (e.g., "flying_blue",
+                # "virgin_atlantic", "british_airways") are preserved intact.
+                parts = payment_choice.funding_source_id.split("_", 3)
                 if len(parts) >= 4:
                     from_bank = parts[2]
                     to_prog = parts[3]
@@ -1019,6 +1203,12 @@ def convert_result_to_itineraries(
                     # Track bank currency usage
                     bank_currencies_used[from_bank] = bank_currencies_used.get(from_bank, 0) + payment_choice.points_amount
                     
+                    # Track per-payer usage
+                    if payer_id:
+                        if payer_id not in payer_usage:
+                            payer_usage[payer_id] = {}
+                        payer_usage[payer_id][from_bank] = payer_usage[payer_id].get(from_bank, 0) + payment_choice.points_amount
+                    
                     transfers.append(TransferInstruction(
                         from_program=from_bank,
                         to_program=to_prog,
@@ -1027,7 +1217,32 @@ def convert_result_to_itineraries(
                         portal_url=f"https://{from_bank}.com/transfer",
                         transfer_time="Instant",
                         steps=[f"Transfer {payment_choice.points_amount:,} from {from_bank} to {to_prog}"],
+                        payer_id=payer_id,
+                        payer_name=payer_id,
                     ))
+            elif payment_choice.funding_source_id and "native" in payment_choice.funding_source_id:
+                # Native program usage — user already has these miles
+                # IMPORTANT: Include in transfers list as direct usage so users
+                # see ALL point redemptions needed, not just bank transfers.
+                transfers.append(TransferInstruction(
+                    from_program=prog,
+                    to_program=prog,
+                    points_to_transfer=payment_choice.points_amount,
+                    ratio=1.0,
+                    portal_url="",
+                    transfer_time="Already available",
+                    steps=[f"Use {payment_choice.points_amount:,} {prog} miles directly"],
+                    is_direct=True,
+                    payer_id=payer_id,
+                    payer_name=payer_id,
+                ))
+                
+                # Track per-payer usage
+                if payer_id:
+                    native_prog = prog  # The target program
+                    if payer_id not in payer_usage:
+                        payer_usage[payer_id] = {}
+                    payer_usage[payer_id][native_prog] = payer_usage[payer_id].get(native_prog, 0) + payment_choice.points_amount
             
             # Build payment action for this segment
             from ..schemas.optimize import PaymentAction
@@ -1044,8 +1259,12 @@ def convert_result_to_itineraries(
             ))
         else:
             # Cash payment - use actual cash cost, not penalty
-            # For display purposes, use 0 if cash price was unknown
-            actual_cash = 0.0 if flight.cash_cost_unknown else flight.cash_cost
+            # When cash price is unknown, use the cheapest known cash price for this leg
+            # (same fallback used for total_cash_price) so users see a meaningful price.
+            if flight.cash_cost_unknown:
+                actual_cash = cheapest_cash_by_leg.get(leg_id, 0.0)
+            else:
+                actual_cash = flight.cash_cost
             
             # Determine reason for cash vs points
             cash_reason = "Best value for this segment"
@@ -1209,6 +1428,9 @@ def convert_result_to_itineraries(
         # For display purposes, use fallback cash price if unknown (not the penalty value)
         if flight.cash_cost_unknown:
             display_cash_price = cheapest_cash_by_leg.get(leg_id, 0.0)
+            # If still no fallback, use the cash amount from the payment (which uses the same fallback)
+            if display_cash_price <= 0 and hasattr(payment, 'amount') and payment.amount > 0:
+                display_cash_price = payment.amount
         else:
             display_cash_price = flight.cash_cost
         
@@ -1446,9 +1668,53 @@ def convert_result_to_itineraries(
             route.append(flight.origin)
         route.append(flight.destination)
     
+    # ═══════════════════════════════════════════════════════════════════
+    # CONSOLIDATE TRANSFERS: Merge transfers to the same source→target
+    # into a single instruction with total points. This way the user sees
+    # "chase → flying_blue: 136,000 pts" instead of two separate entries.
+    # ═══════════════════════════════════════════════════════════════════
+    if transfers:
+        consolidated = {}  # (payer_id, from_program, to_program, is_direct) -> TransferInstruction
+        for t in transfers:
+            key = (t.payer_id, t.from_program, t.to_program, t.is_direct)
+            if key in consolidated:
+                consolidated[key].points_to_transfer += t.points_to_transfer
+            else:
+                # Clone the first transfer as the base
+                consolidated[key] = TransferInstruction(
+                    from_program=t.from_program,
+                    to_program=t.to_program,
+                    points_to_transfer=t.points_to_transfer,
+                    ratio=t.ratio,
+                    portal_url=t.portal_url,
+                    transfer_time=t.transfer_time,
+                    steps=list(t.steps),
+                    warning=t.warning,
+                    payer_id=t.payer_id,
+                    payer_name=t.payer_name,
+                    is_direct=t.is_direct,
+                )
+        transfers = list(consolidated.values())
+        logger.info(f"[V3 Adapter] Consolidated {len(consolidated)} unique transfer paths")
+    
+    # SANITY CHECK: If total_oop is 0 but we have segments, something went wrong.
+    # For cash-only bookings (no points used), total_oop should equal total_cash_price.
+    if total_oop <= 0 and total_cash_price > 0 and total_points_used == 0:
+        logger.warning(
+            f"[V3 Adapter] total_oop=${total_oop:.2f} but total_cash_price=${total_cash_price:.2f} "
+            f"with 0 points used — fixing total_oop to match total_cash_price (cash-only booking)"
+        )
+        total_oop = total_cash_price
+    
     # Build metrics (ensure non-negative - can't calculate proper savings if cash price unknown)
     cash_saved = max(0.0, total_cash_price - total_oop)
     savings_pct = (cash_saved / total_cash_price * 100) if total_cash_price > 0 else 0.0
+    
+    # Guard: savings percentage should never be 100% unless the trip is truly free
+    # (which is impossible for flights). Clamp to 0 if it looks bogus.
+    if savings_pct >= 100.0 and total_oop > 0:
+        logger.warning(f"[V3 Adapter] savings_pct={savings_pct:.0f}% looks bogus (total_oop=${total_oop:.2f}), clamping to actual")
+        savings_pct = max(0.0, (total_cash_price - total_oop) / total_cash_price * 100) if total_cash_price > 0 else 0.0
     
     # Calculate average CPP
     cpp_values = []
@@ -1513,6 +1779,7 @@ def convert_result_to_itineraries(
             points_breakdown=points_breakdown,
             bank_currencies_used=bank_currencies_used,
             payment_actions=payment_actions,
+            payer_breakdown=payer_usage if payer_usage else None,
         ),
         transfers=transfers,
         within_budget=is_within_budget and not budget_exceeded,
@@ -1551,6 +1818,7 @@ async def run_v3_optimization(
     allowed_currencies: List[str] = None,
     max_points_by_currency: Dict[str, int] = None,
     max_cash_budget: float = None,
+    payer_points: Dict[str, Dict[str, int]] = None,
 ) -> List:
     """
     Run V3 optimization using orchestrator data.
@@ -1566,6 +1834,10 @@ async def run_v3_optimization(
     The user_points dict supports multiple credit card programs:
     - Bank currencies (transferable): "chase_ur", "amex_mr", "citi_typ", etc.
     - Direct airline miles: "UA", "DL", "AA", etc.
+    
+    MULTI-PAYER SUPPORT:
+    When payer_points is provided, creates one Traveler per payer. The V3 solver
+    handles multiple travelers natively, optimizing across all payers' balances.
     
     The optimizer will use ALL provided currencies to minimize OOP,
     selecting the optimal combination of transfers and direct redemptions.
@@ -1585,6 +1857,7 @@ async def run_v3_optimization(
         allowed_currencies: If set, only use these currencies (e.g., ["chase_ur"])
         max_points_by_currency: Per-currency caps {program: max_points}
         max_cash_budget: Override budget for max cash OOP
+        payer_points: Multi-payer points { payer_id: { program: balance } }
     
     Returns:
         List of RankedItinerary objects with policy evaluations attached
@@ -1605,6 +1878,20 @@ async def run_v3_optimization(
     
     logger.info(f"[V3 Adapter] Starting V3 optimization, mode={mode}, validate_flights={validate_flights}, force_refresh={force_refresh}")
     
+    # Telemetry: Input precedence
+    if payer_points:
+        input_source = "payer_points"
+        payer_count = len(payer_points)
+        currency_count = sum(len(v) for v in payer_points.values())
+    else:
+        input_source = "points"
+        payer_count = 1
+        currency_count = len(user_points) if user_points else 0
+    logger.info(
+        f"[V3] input_source={input_source} payer_count={payer_count} "
+        f"currency_count={currency_count}"
+    )
+    
     # Convert to V3 format with currency constraints
     spec = convert_trip_to_spec(
         trip_data, 
@@ -1612,14 +1899,30 @@ async def run_v3_optimization(
         user_points,
         allowed_currencies=allowed_currencies,
         max_points_by_currency=max_points_by_currency,
+        payer_points=payer_points,
     )
+    
+    # Telemetry: Currencies classified per traveler
+    for t in spec.travelers:
+        logger.info(
+            f"[V3] payer={t.traveler_id} bank_balances={t.bank_balances} "
+            f"points_balances={t.points_balances}"
+        )
     
     # Use max_cash_budget if provided, otherwise use budget
     effective_budget = max_cash_budget if max_cash_budget is not None else budget
     
     errors = spec.validate()
     if errors:
-        logger.error(f"[V3 Adapter] Invalid spec: {errors}")
+        traveler_ids_spec = [t.traveler_id for t in spec.travelers]
+        leg_traveler_ids = [l.traveler_ids for l in spec.legs]
+        logger.error(
+            f"[V3 Adapter] CRITICAL: Invalid spec — ILP solver cannot run. "
+            f"Errors: {errors}. "
+            f"Traveler IDs: {traveler_ids_spec}, "
+            f"Leg traveler_ids: {leg_traveler_ids}"
+        )
+        logger.error(f"[V3] ilp_invoked=false reason=spec_validation_failed")
         return []
     
     flights = convert_search_results_to_flights(search_results, segments)
@@ -1736,16 +2039,30 @@ async def run_v3_optimization(
                                         "UNITED": "UA", "MILEAGEPLUS": "UA",
                                         "AMERICAN": "AA", "AADVANTAGE": "AA",
                                         "AIR FRANCE": "AF", "FLYING BLUE": "AF", "FLYINGBLUE": "AF",
+                                        "FLYING_BLUE": "AF",  # normalized form
                                         "KLM": "KL",
                                         "BRITISH AIRWAYS": "BA", "AVIOS": "BA", "EXECUTIVE CLUB": "BA",
+                                        "BRITISH_AIRWAYS": "BA",  # normalized form
                                         "LUFTHANSA": "LH", "MILES & MORE": "LH",
                                         "AIR CANADA": "AC", "AEROPLAN": "AC",
                                         "ALASKA": "AS", "MILEAGE PLAN": "AS",
                                         "VIRGIN ATLANTIC": "VS", "FLYING CLUB": "VS",
+                                        "VIRGIN_ATLANTIC": "VS",  # normalized form
                                         "EMIRATES": "EK", "SKYWARDS": "EK",
                                         "SINGAPORE": "SQ", "KRISFLYER": "SQ",
                                         "ANA": "NH", "ANAHP": "NH", "ANA MILEAGE CLUB": "NH",
                                         "TURKISH": "TK", "MILES&SMILES": "TK",
+                                        "AER_LINGUS": "EI",  # normalized form
+                                        "IBERIA": "IB",  # normalized form
+                                        "CATHAY": "CX",  # normalized form
+                                        "AVIANCA": "AV", "LIFEMILES": "AV",  # normalized form
+                                        "ETIHAD": "EY",  # normalized form
+                                        "QANTAS": "QF",  # normalized form
+                                        "JETBLUE": "B6",  # normalized form
+                                        "SOUTHWEST": "WN",  # normalized form
+                                        "JAL": "JL",  # normalized form
+                                        "QATAR": "QR",  # normalized form
+                                        "TAP": "TP",  # normalized form
                                     }
                                     for opt in flight.award_options:
                                         program = (opt.program or "").upper().strip()
@@ -1786,16 +2103,30 @@ async def run_v3_optimization(
                                     "UNITED": "UA", "MILEAGEPLUS": "UA",
                                     "AMERICAN": "AA", "AADVANTAGE": "AA",
                                     "AIR FRANCE": "AF", "FLYING BLUE": "AF", "FLYINGBLUE": "AF",
+                                    "FLYING_BLUE": "AF",  # normalized form
                                     "KLM": "KL",
                                     "BRITISH AIRWAYS": "BA", "AVIOS": "BA", "EXECUTIVE CLUB": "BA",
+                                    "BRITISH_AIRWAYS": "BA",  # normalized form
                                     "LUFTHANSA": "LH", "MILES & MORE": "LH",
                                     "AIR CANADA": "AC", "AEROPLAN": "AC",
                                     "ALASKA": "AS", "MILEAGE PLAN": "AS",
                                     "VIRGIN ATLANTIC": "VS", "FLYING CLUB": "VS",
+                                    "VIRGIN_ATLANTIC": "VS",  # normalized form
                                     "EMIRATES": "EK", "SKYWARDS": "EK",
                                     "SINGAPORE": "SQ", "KRISFLYER": "SQ",
                                     "ANA": "NH",
                                     "TURKISH": "TK",
+                                    "AER_LINGUS": "EI",  # normalized form
+                                    "IBERIA": "IB",  # normalized form
+                                    "CATHAY": "CX",  # normalized form
+                                    "AVIANCA": "AV", "LIFEMILES": "AV",
+                                    "ETIHAD": "EY",  # normalized form
+                                    "QANTAS": "QF",  # normalized form
+                                    "JETBLUE": "B6",  # normalized form
+                                    "SOUTHWEST": "WN",  # normalized form
+                                    "JAL": "JL",  # normalized form
+                                    "QATAR": "QR",  # normalized form
+                                    "TAP": "TP",  # normalized form
                                 }
                                 for opt in flight.award_options:
                                     program = (opt.program or "").upper().strip()
@@ -1829,13 +2160,15 @@ async def run_v3_optimization(
                     if not is_placeholder:
                         validated_flights.append(flight)
         
+        # ═══════════════════════════════════════════════════════════════════
         # CRITICAL: Attach collected award options to matching SerpAPI flights
-        # This ensures award availability from AwardTool is shown for REAL flights, not placeholder flights
+        # (Fix 1 — multi-currency enrichment with Pareto selection)
+        # ═══════════════════════════════════════════════════════════════════
         if award_options_by_leg_airline:
             programs_with_options = set(prog for (leg, prog) in award_options_by_leg_airline.keys())
             logger.info(f"[V3 Adapter] Attaching award options to SerpAPI flights. Programs with options: {list(programs_with_options)}")
             
-            # Define airline alliances for matching
+            # Define airline alliances for matching (fallback when fingerprint matching fails)
             AIRLINE_ALLIANCES = {
                 # SkyTeam
                 "DL": ["DL", "AF", "KL", "VS", "AM", "KE"],
@@ -1845,53 +2178,140 @@ async def run_v3_optimization(
                 "UA": ["UA", "LH", "SQ", "NH", "AC", "TK"],
                 "LH": ["UA", "LH", "SQ", "NH", "AC", "TK"],
                 "SQ": ["UA", "LH", "SQ", "NH", "AC", "TK"],
+                "NH": ["UA", "LH", "SQ", "NH", "AC", "TK"],
+                "AC": ["UA", "LH", "SQ", "NH", "AC", "TK"],
+                "TK": ["UA", "LH", "SQ", "NH", "AC", "TK"],
                 # Oneworld
                 "AA": ["AA", "BA", "IB", "QF", "JL", "AS"],
                 "BA": ["AA", "BA", "IB", "QF", "JL", "AS"],
+                "QF": ["AA", "BA", "IB", "QF", "JL", "AS"],
+                "JL": ["AA", "BA", "IB", "QF", "JL", "AS"],
             }
             
-            # Log available keys for debugging
-            logger.info(f"[V3 Adapter] Award options keys available: {list(award_options_by_leg_airline.keys())}")
-            
-            flights_enriched = 0
-            for flight in validated_flights:
-                if flight.award_options:
-                    continue  # Already has award options
+            if V3_MULTI_CURRENCY_ENRICHMENT_ENABLED:
+                # ═══════════════════════════════════════════════════════
+                # NEW PATH: Pareto selection + fingerprint matching
+                # ═══════════════════════════════════════════════════════
                 
-                # Get airline code and leg_id from flight
-                airline = flight.segments[0].marketing_carrier if flight.segments else ""
-                if not airline:
-                    continue
+                # Build fingerprint index from placeholder edges for tight matching
+                award_options_by_fingerprint = {}  # fingerprint -> List[AwardOption]
+                if V3_FINGERPRINT_MATCHING_ENABLED:
+                    for flight in flights:  # all flights including placeholders
+                        if flight.award_options and _is_placeholder_flight_number(
+                            [s.flight_number for s in flight.segments] if flight.segments else []
+                        ):
+                            fp = make_flight_fingerprint(flight)
+                            if fp not in award_options_by_fingerprint:
+                                award_options_by_fingerprint[fp] = []
+                            award_options_by_fingerprint[fp].extend(flight.award_options)
+                    logger.info(f"[V3 Adapter] Built fingerprint index with {len(award_options_by_fingerprint)} entries")
                 
-                airline = airline.upper()[:2]
-                leg_id = flight.leg_id
-                
-                # Find matching award options (same leg, same airline or alliance partners)
-                matching_airlines = AIRLINE_ALLIANCES.get(airline, [airline])
-                logger.debug(f"[V3 Adapter] Looking for award options for {airline} flight on leg {leg_id}, checking: {matching_airlines}")
-                
-                best_option = None
-                best_points = float('inf')
-                
-                for match_airline in matching_airlines:
-                    key = (leg_id, match_airline)
-                    if key in award_options_by_leg_airline:
-                        logger.info(f"[V3 Adapter] Found award options for key {key}: {len(award_options_by_leg_airline[key])} options")
-                        for opt in award_options_by_leg_airline[key]:
-                            if opt.miles_required and opt.miles_required < best_points:
-                                best_option = opt
-                                best_points = opt.miles_required
-                
-                if best_option:
-                    # Create a new award option with the correct ID for this flight
-                    from copy import deepcopy
-                    new_opt = deepcopy(best_option)
-                    new_opt.option_id = f"{flight.edge_id}_{best_option.program}"
-                    flight.award_options = [new_opt]
+                flights_enriched = 0
+                for flight in validated_flights:
+                    if flight.award_options:
+                        continue  # Already has award options
+                    
+                    airline = flight.segments[0].marketing_carrier if flight.segments else ""
+                    if not airline:
+                        continue
+                    airline = airline.upper()[:2]
+                    leg_id = flight.leg_id
+                    
+                    # Step 1: Collect candidates via matching (fingerprint first, then alliance fallback)
+                    all_candidates = []
+                    match_method = "none"
+                    
+                    if V3_FINGERPRINT_MATCHING_ENABLED:
+                        fp = make_flight_fingerprint(flight)
+                        if fp in award_options_by_fingerprint:
+                            all_candidates.extend(award_options_by_fingerprint[fp])
+                            match_method = "fingerprint"
+                    
+                    if not all_candidates:
+                        # Fallback: alliance matching (original behavior)
+                        matching_airlines = AIRLINE_ALLIANCES.get(airline, [airline])
+                        for match_airline in matching_airlines:
+                            key = (leg_id, match_airline)
+                            if key in award_options_by_leg_airline:
+                                for opt in award_options_by_leg_airline[key]:
+                                    if opt.miles_required and opt.miles_required > 0:
+                                        all_candidates.append(opt)
+                        if all_candidates:
+                            match_method = "alliance_fallback"
+                            if V3_FINGERPRINT_MATCHING_ENABLED:
+                                logger.warning(
+                                    f"[V3 Adapter] No fingerprint match for {flight.edge_id}. "
+                                    f"Using alliance fallback ({len(all_candidates)} candidates). "
+                                    f"Award pricing may not exactly correspond to this flight."
+                                )
+                    
+                    if not all_candidates:
+                        continue
+                    
+                    # Step 2: Pareto select per program (best miles + best surcharge)
+                    pareto_options = _pareto_select_per_program(all_candidates)
+                    
+                    # Step 3: Sort deterministically then cap
+                    pareto_options.sort(key=lambda o: (
+                        o.surcharge or 0,
+                        o.miles_required or 0,
+                        o.program or "",
+                    ))
+                    pareto_options = pareto_options[:MAX_AWARD_OPTIONS_PER_FLIGHT]
+                    
+                    # Step 4: Attach with stable, unique option_ids
+                    flight.award_options = []
+                    for opt in pareto_options:
+                        new_opt = deepcopy(opt)
+                        new_opt.option_id = make_option_id(flight.edge_id, opt)
+                        flight.award_options.append(new_opt)
+                    
                     flights_enriched += 1
-                    logger.debug(f"[V3 Adapter] Attached {best_option.program} award ({best_points:,} pts) to {airline} flight {flight.edge_id} on leg {leg_id}")
+                    programs_attached = list(set(o.program for o in flight.award_options))
+                    logger.info(
+                        f"[V3] flight={flight.edge_id} award_options={len(flight.award_options)} "
+                        f"programs={programs_attached} match_method={match_method}"
+                    )
+                
+                logger.info(f"[V3 Adapter] Enriched {flights_enriched} SerpAPI flights with award options (multi-currency mode)")
             
-            logger.info(f"[V3 Adapter] Enriched {flights_enriched} SerpAPI flights with award options")
+            else:
+                # ═══════════════════════════════════════════════════════
+                # LEGACY PATH: Keep only single cheapest option (flag off)
+                # ═══════════════════════════════════════════════════════
+                logger.info(f"[V3 Adapter] Award options keys available: {list(award_options_by_leg_airline.keys())}")
+                
+                flights_enriched = 0
+                for flight in validated_flights:
+                    if flight.award_options:
+                        continue
+                    
+                    airline = flight.segments[0].marketing_carrier if flight.segments else ""
+                    if not airline:
+                        continue
+                    airline = airline.upper()[:2]
+                    leg_id = flight.leg_id
+                    
+                    matching_airlines = AIRLINE_ALLIANCES.get(airline, [airline])
+                    
+                    best_option = None
+                    best_points = float('inf')
+                    
+                    for match_airline in matching_airlines:
+                        key = (leg_id, match_airline)
+                        if key in award_options_by_leg_airline:
+                            for opt in award_options_by_leg_airline[key]:
+                                if opt.miles_required and opt.miles_required < best_points:
+                                    best_option = opt
+                                    best_points = opt.miles_required
+                    
+                    if best_option:
+                        new_opt = deepcopy(best_option)
+                        new_opt.option_id = f"{flight.edge_id}_{best_option.program}"
+                        flight.award_options = [new_opt]
+                        flights_enriched += 1
+                
+                logger.info(f"[V3 Adapter] Enriched {flights_enriched} SerpAPI flights with award options (legacy mode)")
         
         # Use validated flights
         original_count = len(flights)
@@ -1939,6 +2359,7 @@ async def run_v3_optimization(
     
     if not flights:
         logger.warning("[V3 Adapter] No flights to optimize - all routes have no valid flights")
+        logger.error("[V3] ilp_invoked=false reason=no_flights")
         return []
     
     # Detect if this is an international route (affects convenience penalties)
@@ -1957,6 +2378,7 @@ async def run_v3_optimization(
         cash_budget=effective_budget if effective_budget and effective_budget > 0 else None,
     )
     
+    logger.info(f"[V3] ilp_invoked=true reason=success")
     logger.info(f"[V3 Adapter] Budget constraint: ${effective_budget if effective_budget else 'None'}")
     
     logger.info(f"[V3 Adapter] V3 solver status: {result.status}")

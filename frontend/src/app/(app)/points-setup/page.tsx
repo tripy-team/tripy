@@ -165,17 +165,30 @@ export default function PointsSetup() {
   const addCard = () => {
     if (newProgram.trim() && newPoints.trim() && isValidProgram(newProgram)) {
       const programInfo = ALL_LOYALTY_PROGRAMS.find(p => p.value === newProgram || p.label === newProgram);
+      const programKey = programInfo?.value || newProgram.trim();
+      const newBalance = Number(newPoints.trim());
       const rawCategory = programInfo?.category || newCategory;
       // Hotels not supported - treat as credit if encountered
       const category: 'credit' | 'airline' = rawCategory === 'hotel' ? 'credit' : rawCategory;
-      const card: LoyaltyCard = {
-        id: `card-${Date.now()}-${Math.random().toString(36).substr(2, 9)}`,
-        program: programInfo?.value || newProgram.trim(),
-        points: Number(newPoints.trim()),
-        category,
-        card_product: newCardProduct.trim() || undefined,
-      };
-      setCards([...cards, card]);
+
+      // Same owner check: if the program already exists, merge balances
+      // (all cards on this page belong to the same user, so duplicates are same-owner)
+      const existingIndex = cards.findIndex(c => c.program === programKey);
+      if (existingIndex !== -1) {
+        // Same owner — add balances together
+        setCards(prev => prev.map((c, i) =>
+          i === existingIndex ? { ...c, points: c.points + newBalance } : c
+        ));
+      } else {
+        const card: LoyaltyCard = {
+          id: `card-${Date.now()}-${Math.random().toString(36).substr(2, 9)}`,
+          program: programKey,
+          points: newBalance,
+          category,
+          card_product: newCardProduct.trim() || undefined,
+        };
+        setCards([...cards, card]);
+      }
       setNewProgram('');
       setNewPoints('');
       setNewCategory('credit');

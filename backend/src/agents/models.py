@@ -303,15 +303,20 @@ class HotelSearchResult(BaseModel):
 # =============================================================================
 
 class TransferInstruction(BaseModel):
-    """Instructions for transferring points."""
-    from_program: str  # e.g., "Chase UR"
-    to_program: str  # e.g., "United MileagePlus"
+    """Instructions for transferring points or using existing miles."""
+    from_program: str  # e.g., "Chase UR" or "Delta SkyMiles" (for direct use)
+    to_program: str  # e.g., "United MileagePlus" or same as from_program (for direct use)
     points_to_transfer: int
     ratio: float = 1.0
     portal_url: str
     transfer_time: str = "Instant"
     steps: list[str] = []
     warning: Optional[str] = None
+    # Multi-payer attribution: which payer performs this transfer
+    payer_id: Optional[str] = None
+    payer_name: Optional[str] = None
+    # Direct usage flag: True when using native miles (no transfer needed)
+    is_direct: bool = False
 
 
 class CashPayment(BaseModel):
@@ -330,7 +335,8 @@ class PointsPayment(BaseModel):
     surcharge: float = 0.0
     cpp_achieved: Optional[float] = None
     cash_saved: Optional[float] = None
-    transfer: Optional[TransferInstruction] = None
+    transfer: Optional[TransferInstruction] = None  # Primary transfer (backward compat)
+    transfers: list[TransferInstruction] = []  # All transfers (for multi-bank splits)
     payer: Optional[str] = None
     reason: Optional[str] = None
 
@@ -348,6 +354,9 @@ class OOPMetrics(BaseModel):
     savings_percentage: float
     average_cpp: float
     points_breakdown: dict[str, int] = {}  # program -> points
+    bank_currencies_used: dict[str, int] = {}  # source bank -> points spent
+    # Multi-payer: which payer contributed what
+    payer_breakdown: Optional[dict[str, dict[str, int]]] = None
 
 
 # =============================================================================
@@ -554,6 +563,11 @@ class OptimizeSoloRequest(BaseModel):
     cabin_classes: Optional[list[str]] = None
     hotel_stars: Optional[list[int]] = None
     include_hotels: Optional[bool] = True
+    
+    # MULTI-PAYER SUPPORT: When two people contribute points to a trip.
+    # When provided, `points` is ignored in favor of per-payer breakdown.
+    # Example: { "alice": {"amex_mr": 50000}, "bob": {"amex_mr": 75000, "chase_ur": 30000} }
+    payer_points: Optional[dict[str, dict[str, int]]] = None
     
     # Optimization mode: oop (min cost), cpp (max value), balanced
     optimization_mode: Literal["oop", "cpp", "balanced"] = "oop"

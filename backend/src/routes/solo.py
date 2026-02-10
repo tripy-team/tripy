@@ -42,6 +42,7 @@ from ..schemas import (
     BookingDetails,
     BookingChecklistStep,
     BookingStep,
+    BudgetStatus,
 )
 from ..services import solo_trip_service
 from ..mappers.trip_mapper import trip_storage_to_response
@@ -366,10 +367,21 @@ async def optimize_solo(
         
         # Check cache (unless force_refresh is requested)
         force_refresh = getattr(request, 'force_refresh', False)
+        
+        # Build cache-key points: merge payer_points if present for consistent hashing
+        cache_points = request.points
+        if request.payer_points:
+            merged = {}
+            for payer_id, payer_balances in request.payer_points.items():
+                for program, balance in payer_balances.items():
+                    # Include payer_id in key to distinguish "alice:amex 50k" from "bob:amex 50k"
+                    merged[f"{payer_id}:{program}"] = balance
+            cache_points = merged
+        
         cache_key = solo_trip_service.compute_cache_key(
             request.trip_id, 
             trip, 
-            request.points, 
+            cache_points, 
             mode
         )
         
@@ -397,9 +409,20 @@ async def optimize_solo(
         
         logger.info(f"[solo/optimize] Budget from trip: ${budget if budget else 'None (no limit)'}")
         
+        # Multi-payer support: when payer_points is provided, merge into points
+        # for backward-compatible code paths (cache key, logging, etc.)
+        effective_points = request.points
+        if request.payer_points:
+            merged = {}
+            for payer_id, payer_balances in request.payer_points.items():
+                for program, balance in payer_balances.items():
+                    merged[program] = merged.get(program, 0) + balance
+            effective_points = merged
+            logger.info(f"[solo/optimize] Multi-payer mode: {len(request.payer_points)} payers, merged points: {merged}")
+        
         # Log points being used for optimization
-        points_summary = {k: f"{v:,}" for k, v in request.points.items()} if request.points else {}
-        total_points = sum(request.points.values()) if request.points else 0
+        points_summary = {k: f"{v:,}" for k, v in effective_points.items()} if effective_points else {}
+        total_points = sum(effective_points.values()) if effective_points else 0
         logger.info(f"[solo/optimize] Points for optimization: {points_summary} (total: {total_points:,})")
         
         # Map cabin class preference (use camelCase field names)
@@ -424,7 +447,7 @@ async def optimize_solo(
         
         agent_request = AgentOptimizeSoloRequest(
             trip_id=request.trip_id,
-            points=request.points,
+            points=effective_points,
             budget=budget,
             cabin_classes=cabin_classes,
             optimization_mode=mode,
@@ -432,6 +455,7 @@ async def optimize_solo(
             max_stops=max_stops,
             departure_hour_range=departure_hour_range,
             arrival_hour_range=arrival_hour_range,
+            payer_points=request.payer_points,
         )
         
         logger.info(f"[solo/optimize] Running orchestrator for trip {request.trip_id} with optimization_mode={mode}, budget=${budget if budget else 'unlimited'}")
@@ -549,12 +573,37 @@ async def optimize_solo(
         except Exception as e:
             logger.warning(f"Failed to update trip status: {e}")
         
+        # Build BudgetStatus from result data
+        _budget_status = None
+        if budget is None:
+            _budget_status = BudgetStatus(status="no_budget_set", actual_oop=0.0)
+        elif itineraries:
+            best_oop = itineraries[0].oop_metrics.total_out_of_pocket if itineraries[0].oop_metrics else 0.0
+            within = getattr(itineraries[0], 'within_budget', True)
+            if within:
+                _budget_status = BudgetStatus(
+                    status="within_budget",
+                    user_budget=budget,
+                    actual_oop=best_oop,
+                )
+            else:
+                shortfall = best_oop - budget
+                _budget_status = BudgetStatus(
+                    status="closest_over_budget",
+                    user_budget=budget,
+                    actual_oop=best_oop,
+                    required_budget=best_oop,
+                    shortfall=shortfall,
+                    suggested_budget=best_oop * 1.10,
+                )
+        
         return OptimizeSoloResponse(
             itineraries=itineraries,
             best_option=itineraries[0].id if itineraries else None,
             warnings=(agent_response.warnings or []) + degradation_warnings,
             global_insights=global_insights,
             risk_mode="balanced",
+            budget_status=_budget_status,
             decision_summary=decision_summary,
             rejected_alternatives=rejected_alternatives,
             booking_details=booking_details,
@@ -647,6 +696,12 @@ def _transform_itineraries(agent_itineraries: list, party_size: int = 1) -> list
             # Build flight segment with scaled costs
             segment_name = f"{seg.origin} → {seg.destination}"
             per_person_cash = seg.cash_price or 0
+            # If cash_price is 0 but this is a cash booking, fall back to CashPayment.amount
+            if per_person_cash == 0 and pay_method == "cash":
+                if isinstance(payment, dict):
+                    per_person_cash = float(payment.get('amount', 0) or 0)
+                else:
+                    per_person_cash = float(getattr(payment, 'amount', 0) or 0)
             cash_price = per_person_cash * party_size  # Scale cash price by party_size
             if payment_method == "points":
                 program = (payment.get('program') if isinstance(payment, dict) else getattr(payment, 'program', None))
@@ -749,6 +804,7 @@ def _transform_itineraries(agent_itineraries: list, party_size: int = 1) -> list
                 expected_transfer_time=t.transfer_time,
                 portal_url=t.portal_url,
                 warning=t.warning,
+                is_direct=getattr(t, 'is_direct', False),
             ))
         
         # Build OOP metrics (scale costs by party_size, percentages stay same)
@@ -851,7 +907,7 @@ def _generate_decision_summary(
     
     # --- Flight characteristics ---
     has_direct = any(seg.stops == 0 for seg in best.segments if seg.type == "flight")
-    has_transfers = len(best.transfers) > 0
+    has_transfers = any(not getattr(t, 'is_direct', False) for t in best.transfers)
     short_connections = any(seg.has_short_connection for seg in best.segments)
     
     # --- Use the risk assessment (already computed before this function is called) ---
@@ -951,7 +1007,8 @@ def _generate_decision_summary(
     # =========================================================================
     tradeoffs = []
     if has_transfers:
-        transfer_time_total = sum(1 for t in best.transfers)
+        actual_transfers = [t for t in best.transfers if not getattr(t, 'is_direct', False)]
+        transfer_time_total = len(actual_transfers)
         tradeoffs.append(f"Requires {transfer_time_total} point transfer{'s' if transfer_time_total > 1 else ''} (plan 1-3 days ahead)")
     
     non_direct = [seg for seg in best.segments if seg.type == "flight" and seg.stops > 0]
@@ -1153,9 +1210,10 @@ def _generate_risk_assessment(itinerary: RankedItinerary) -> RiskAssessment:
                 flags.append(f"Overnight layover at {layover.airport} ({layover.duration_minutes // 60}h)")
                 score += 5
     
-    # Check if transfers needed (adds risk of timing)
-    if itinerary.transfers:
-        non_instant = [t for t in itinerary.transfers if "instant" not in (t.expected_transfer_time or "").lower()]
+    # Check if actual transfers needed (not direct usage — adds risk of timing)
+    actual_xfers = [t for t in itinerary.transfers if not getattr(t, 'is_direct', False)]
+    if actual_xfers:
+        non_instant = [t for t in actual_xfers if "instant" not in (t.expected_transfer_time or "").lower()]
         if non_instant:
             flags.append("Point transfers may take 1-3 days — transfer before searching for award seats")
             score += 10
@@ -1236,10 +1294,11 @@ def _generate_booking_details(
         if len(flight_segs) > 1 and flight_segs[-1].departure_time:
             return_time = flight_segs[-1].departure_time
     
-    # Check if transfers are needed
-    needs_transfer = len(itinerary.transfers) > 0
+    # Check if actual transfers are needed (not counting direct usage)
+    actual_transfer_entries = [t for t in itinerary.transfers if not getattr(t, 'is_direct', False)]
+    needs_transfer = len(actual_transfer_entries) > 0
     transfer_programs = []
-    for t in itinerary.transfers:
+    for t in actual_transfer_entries:
         src_name = _get_bank_display_name(t.source_program)
         tgt_name = _get_program_display_name(t.target_program)
         transfer_programs.append(f"{src_name} → {tgt_name}")
@@ -1259,7 +1318,7 @@ def _generate_booking_details(
     step = 1
     
     if needs_transfer:
-        for t in itinerary.transfers:
+        for t in actual_transfer_entries:
             src_name = _get_bank_display_name(t.source_program)
             tgt_name = _get_program_display_name(t.target_program)
             checklist.append(BookingChecklistStep(
@@ -1883,6 +1942,9 @@ async def get_transfer_strategy(
             if points <= 0:
                 continue
             
+            # Check if this is a direct usage (source == target means native miles)
+            is_direct = t.get("isDirect") or t.get("is_direct", False)
+            
             transfers.append(TransferInstruction(
                 step_number=idx + 1,
                 source_program=source,
@@ -1892,9 +1954,12 @@ async def get_transfer_strategy(
                 expected_transfer_time=time_str,
                 portal_url=portal,
                 warning=warning,
+                is_direct=is_direct,
             ))
             
-            total_points += points
+            # Only count actual transfers (not direct usage) toward total_points_to_transfer
+            if not is_direct:
+                total_points += points
             
             # Parse time for estimate
             if "day" in time_str.lower():
@@ -1953,6 +2018,26 @@ async def get_transfer_strategy(
             booking_url = seg.get("bookingUrl") or seg.get("booking_url", "")
             cash_price_raw = seg.get("cashPrice") or seg.get("cash_price") or payment.get("amount") or 0
             cash_price = float(cash_price_raw) if cash_price_raw else 0.0  # Handle Decimal from DynamoDB
+            
+            # Fallback for cash bookings with missing price: use oopMetrics from snapshot
+            # This handles legacy snapshots where cashPrice was saved as 0
+            if cash_price == 0 and payment_method == "cash":
+                oop_metrics = snapshot.get("oopMetrics", {}) or snapshot.get("oop_metrics", {})
+                total_cash = float(oop_metrics.get("totalCashPrice", 0) or oop_metrics.get("total_cash_price", 0) or 0)
+                total_oop = float(oop_metrics.get("totalOutOfPocket", 0) or oop_metrics.get("total_out_of_pocket", 0) or 0)
+                # Use totalOutOfPocket divided by cash segments count, or totalCashPrice as last resort
+                cash_segment_count = sum(
+                    1 for s in segments 
+                    if s.get("type", "flight") == "flight" and (
+                        (s.get("paymentMethod") or s.get("payment_method", "")) == "cash"
+                    )
+                )
+                if total_oop > 0 and cash_segment_count > 0:
+                    cash_price = total_oop / cash_segment_count
+                elif total_cash > 0 and len(segments) > 0:
+                    cash_price = total_cash / len(segments)
+                logger.info(f"[transfer-strategy] Cash price was 0 for {origin}->{destination}, fallback to ${cash_price:.0f} from oopMetrics")
+            
             operating_airline = seg.get("operatingAirline") or seg.get("operating_airline", "")
             
             # Extract connection details - CRITICAL for multi-leg flights

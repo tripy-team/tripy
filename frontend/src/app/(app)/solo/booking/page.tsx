@@ -971,8 +971,11 @@ function SoloBookingContent() {
                 {/* New Solo API Transfer Strategy */}
                 {hasSoloData && transferStrategy ? (
                   <>
-                    {/* Step 1: Transfer Points */}
+                    {/* Step 1: Transfer Points & Use Existing Miles */}
                     {transferStrategy.transfers.length > 0 && (() => {
+                      // Separate transfers from direct usage
+                      const actualTransfers = transferStrategy.transfers.filter(t => !t.isDirect);
+                      const directUsage = transferStrategy.transfers.filter(t => t.isDirect);
                       // Compute total taxes/fees from all points-based bookings
                       const totalTaxes = transferStrategy.bookings
                         .filter(b => b.paymentMethod === 'points')
@@ -981,6 +984,8 @@ function SoloBookingContent() {
                       const totalCashOOP = transferStrategy.bookings
                         .filter(b => b.paymentMethod === 'cash')
                         .reduce((sum, b) => sum + Math.max(0, b.cashPrice || 0), 0);
+                      // Total points across both transfers and direct usage
+                      const totalAllPoints = transferStrategy.transfers.reduce((sum, t) => sum + Math.max(0, t.pointsToTransfer || 0), 0);
                       return (
                       <div className="space-y-4">
                         {/* Party size indicator */}
@@ -999,21 +1004,28 @@ function SoloBookingContent() {
                         <div className="flex items-center gap-3">
                           <div className="flex-shrink-0 w-10 h-10 rounded-full bg-gradient-to-br from-blue-500 to-indigo-600 text-white flex items-center justify-center font-bold text-lg shadow-lg">1</div>
                           <div>
-                            <h3 className="text-lg font-bold text-slate-900">Transfer Points</h3>
+                            <h3 className="text-lg font-bold text-slate-900">{actualTransfers.length > 0 ? 'Transfer Points' : 'Points Needed'}</h3>
                             <p className="text-sm text-slate-500">
-                              Move <span className="font-semibold text-blue-600">{Math.max(0, transferStrategy.totalPointsToTransfer).toLocaleString()}</span> points
+                              {actualTransfers.length > 0 && (
+                                <>Move <span className="font-semibold text-blue-600">{Math.max(0, transferStrategy.totalPointsToTransfer).toLocaleString()}</span> points</>
+                              )}
+                              {actualTransfers.length > 0 && directUsage.length > 0 && ' + '}
+                              {directUsage.length > 0 && (
+                                <><span className="font-semibold text-green-600">{directUsage.reduce((sum, t) => sum + Math.max(0, t.pointsToTransfer || 0), 0).toLocaleString()}</span> existing miles</>
+                              )}
                               {totalTaxes > 0 && <> + <span className="font-semibold text-slate-700">${Math.round(totalTaxes).toLocaleString()}</span> in taxes/fees</>}
                               {totalCashOOP > 0 && <> + <span className="font-semibold text-slate-700">${Math.round(totalCashOOP).toLocaleString()}</span> cash</>}
-                              {' '}• Est. {transferStrategy.estimatedTotalTime}
+                              {actualTransfers.length > 0 && <>{' '}• Est. {transferStrategy.estimatedTotalTime}</>}
                             </p>
                           </div>
                         </div>
                         
                         <div className="ml-[52px] space-y-3">
-                          {transferStrategy.transfers.map((transfer, idx) => {
+                          {/* Actual transfers (bank → airline) */}
+                          {actualTransfers.map((transfer, idx) => {
                             const pointsToTransfer = Math.max(0, transfer.pointsToTransfer || 0);
                             return (
-                              <div key={idx} className="bg-gradient-to-r from-blue-50 via-indigo-50 to-purple-50 rounded-2xl border border-blue-100 shadow-sm overflow-hidden">
+                              <div key={`transfer-${idx}`} className="bg-gradient-to-r from-blue-50 via-indigo-50 to-purple-50 rounded-2xl border border-blue-100 shadow-sm overflow-hidden">
                                 <div className="p-4">
                                   <div className="flex items-center justify-between">
                                     <div className="flex items-center gap-4">
@@ -1069,6 +1081,38 @@ function SoloBookingContent() {
                               </div>
                             );
                           })}
+                          
+                          {/* Direct usage (existing miles) */}
+                          {directUsage.map((transfer, idx) => {
+                            const pointsNeeded = Math.max(0, transfer.pointsToTransfer || 0);
+                            return (
+                              <div key={`direct-${idx}`} className="bg-gradient-to-r from-green-50 via-emerald-50 to-teal-50 rounded-2xl border border-green-100 shadow-sm overflow-hidden">
+                                <div className="p-4">
+                                  <div className="flex items-center justify-between">
+                                    <div className="flex items-center gap-4">
+                                      <div className="w-12 h-12 bg-white rounded-xl shadow-sm flex items-center justify-center">
+                                        <Check className="w-6 h-6 text-green-600" />
+                                      </div>
+                                      <div>
+                                        <div className="text-sm text-green-600 font-medium">Use existing miles</div>
+                                        <div className="font-bold text-slate-900">{humanizeProgram(transfer.sourceProgram)}</div>
+                                      </div>
+                                    </div>
+                                    <div className="text-right">
+                                      <div className="text-2xl font-bold text-green-600">{pointsNeeded.toLocaleString()}</div>
+                                      <div className="text-xs text-slate-500">points</div>
+                                    </div>
+                                  </div>
+                                  
+                                  <div className="flex items-center mt-3 pt-3 border-t border-green-100">
+                                    <div className="text-sm text-slate-600">
+                                      Already in your account — no transfer needed
+                                    </div>
+                                  </div>
+                                </div>
+                              </div>
+                            );
+                          })}
                         </div>
                       </div>
                       );
@@ -1093,7 +1137,16 @@ function SoloBookingContent() {
                           {transferStrategy.bookings.map((booking, idx) => {
                             // Ensure no negative values are displayed
                             const pointsUsed = Math.max(0, booking.pointsUsed || 0);
-                            const cashPrice = Math.max(0, booking.cashPrice || 0);
+                            // Fall back to selection-level OOP when per-booking cash price is missing
+                            const bookingCashRaw = booking.cashPrice || 0;
+                            const cashBookingCount = transferStrategy.bookings.filter(
+                              (b) => b.paymentMethod !== 'points' || !(b.pointsUsed && b.pointsUsed > 0)
+                            ).length;
+                            const cashPrice = bookingCashRaw > 0
+                              ? Math.max(0, bookingCashRaw)
+                              : (booking.paymentMethod !== 'points' && selection?.outOfPocketAtSelection && cashBookingCount > 0
+                                ? Math.round(selection.outOfPocketAtSelection / cashBookingCount)
+                                : 0);
                             const surcharge = Math.max(0, booking.surcharge || 0);
                             const durationMins = Math.max(0, booking.durationMinutes || 0);
                             const nights = Math.max(0, booking.nights || 0);
@@ -1344,10 +1397,12 @@ function SoloBookingContent() {
                                             <div>
                                               <div className="flex items-baseline gap-1">
                                                 <span className="text-2xl font-bold text-slate-900">
-                                                  ${cashPrice > 0 ? cashPrice.toLocaleString() : '—'}
+                                                  {cashPrice > 0 ? `$${cashPrice.toLocaleString()}` : 'Cash booking'}
                                                 </span>
                                               </div>
-                                              <div className="text-xs text-slate-500">Cash out of pocket</div>
+                                              <div className="text-xs text-slate-500">
+                                                {cashPrice > 0 ? 'Cash out of pocket' : 'Price shown at checkout'}
+                                              </div>
                                               {booking.paymentReason && (
                                                 <div className="text-xs text-amber-600 mt-1 italic">
                                                   💡 {booking.paymentReason}
@@ -1443,10 +1498,12 @@ function SoloBookingContent() {
                                             <div>
                                               <div className="flex items-baseline gap-1">
                                                 <span className="text-2xl font-bold text-slate-900">
-                                                  ${cashPrice > 0 ? cashPrice.toLocaleString() : '—'}
+                                                  {cashPrice > 0 ? `$${cashPrice.toLocaleString()}` : 'Cash booking'}
                                                 </span>
                                               </div>
-                                              <div className="text-xs text-slate-500">Cash out of pocket</div>
+                                              <div className="text-xs text-slate-500">
+                                                {cashPrice > 0 ? 'Cash out of pocket' : 'Price shown at checkout'}
+                                              </div>
                                             </div>
                                           )}
                                         </div>

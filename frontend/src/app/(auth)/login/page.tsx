@@ -206,14 +206,14 @@ function LoginForm() {
 				</button>
 			</form>
 
-			<div className="mt-8 pt-8 border-t border-slate-100 text-center">
-				<p className="text-sm text-slate-600">
-					Don&apos;t have an account?{' '}
-					<Link href="/register" className="text-blue-600 font-medium hover:text-blue-700">
-						Sign up
-					</Link>
-				</p>
-			</div>
+		<div className="mt-8 pt-8 border-t border-slate-100 text-center">
+			<p className="text-sm text-slate-600">
+				Don&apos;t have an account?{' '}
+				<Link href={redirectPath ? `/register?redirect=${encodeURIComponent(redirectPath)}` : "/register"} className="text-blue-600 font-medium hover:text-blue-700">
+					Sign up
+				</Link>
+			</p>
+		</div>
 		</div>
 	);
 }

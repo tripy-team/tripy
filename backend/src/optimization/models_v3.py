@@ -843,8 +843,8 @@ class PruningConfig:
     max_by_award: int = 10  # Top 10 by best award value
     max_total_per_od: int = 20  # Cap after union
     
-    # Award programs per edge
-    max_award_programs_per_edge: int = 3
+    # Award programs per edge (no practical limit — evaluate all user currencies)
+    max_award_programs_per_edge: int = 50
     
     # Hard limits
     max_stops: int = 2

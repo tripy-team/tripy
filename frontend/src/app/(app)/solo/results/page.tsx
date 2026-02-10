@@ -5,6 +5,7 @@ import { useRouter, useSearchParams } from 'next/navigation';
 import { MapPin, DollarSign, Clock, Zap, Edit3, Check, Sparkles, TrendingUp, Plane, Car, Bus, Train, Navigation, Info, Bed, ChevronRight, Lock, ChevronDown, ChevronUp, Mail } from 'lucide-react';
 import { solo, trips as tripsAPI, points as pointsAPI, itineraries as itinerariesAPI, ItineraryItem, destinations, type Trip, type SoloRankedItinerary, type SoloOptimizeResponse, type StructuredWarnings, isAuthenticated } from '@/lib/api';
 import { formatAirportDisplay, getCityMapForCodes, isLikelyAirportCode } from '@/lib/airport-formatter';
+import { formatProgramName } from '@/lib/programLabels';
 import { PolicyWarnings } from '@/components/policy/PolicyWarnings';
 import { TripGenerationLoader } from '@/components/ui/TripGenerationLoader';
 import DecisionHeader from '@/components/DecisionHeader';
@@ -294,9 +295,14 @@ export default function SoloResults() {
                         
                         // If no cache, run optimization
                         if (!optimizeResult) {
+                            // Check for multi-payer points from setup page
+                            const storedPayerPoints = sessionStorage.getItem(`payer_points_${tripId}`);
+                            const payerPoints = storedPayerPoints ? JSON.parse(storedPayerPoints) as Record<string, Record<string, number>> : undefined;
+
                             optimizeResult = await solo.optimize({
                                 tripId,
                                 points: pointsMap,
+                                ...(payerPoints ? { payerPoints } : {}),
                             });
                         }
                         
@@ -1096,7 +1102,8 @@ export default function SoloResults() {
                                                     </div>
                                                     
                                                 </div>
-                                                {metrics.savingsPercentage > 0 && (
+                                                {/* Only show savings when points are actually used AND out-of-pocket is less than cash price */}
+                                                {metrics.savingsPercentage > 0 && metrics.totalPointsUsed > 0 && metrics.cashSaved > 0 && metrics.totalOutOfPocket < metrics.totalCashPrice && (
                                                     <span className="px-2.5 py-1 bg-emerald-100 text-emerald-700 rounded-full text-xs font-medium">
                                                         {Math.round(metrics.savingsPercentage)}% savings
                                                     </span>
@@ -1117,7 +1124,9 @@ export default function SoloResults() {
                                                             <DollarSign className="w-4 h-4" />
                                                             <span className="text-xs font-medium uppercase tracking-wider">Cash Price</span>
                                                         </div>
-                                                        <div className="text-2xl font-bold text-slate-900">${Math.round(metrics.totalCashPrice).toLocaleString()}</div>
+                                                        <div className="text-2xl font-bold text-slate-900">
+                                                            {metrics.totalCashPrice > 0 ? `$${Math.round(metrics.totalCashPrice).toLocaleString()}` : 'See checkout'}
+                                                        </div>
                                                         <div className="text-xs text-slate-500 mt-0.5">Without points</div>
                                                     </div>
 
@@ -1126,7 +1135,9 @@ export default function SoloResults() {
                                                             <DollarSign className="w-4 h-4" />
                                                             <span className="text-xs font-medium uppercase tracking-wider">You Pay</span>
                                                         </div>
-                                                        <div className="text-2xl font-bold text-emerald-600">${Math.round(metrics.totalOutOfPocket).toLocaleString()}</div>
+                                                        <div className="text-2xl font-bold text-emerald-600">
+                                                            {metrics.totalOutOfPocket > 0 ? `$${Math.round(metrics.totalOutOfPocket).toLocaleString()}` : (metrics.totalCashPrice > 0 ? `$${Math.round(metrics.totalCashPrice).toLocaleString()}` : 'See checkout')}
+                                                        </div>
                                                         <div className="text-xs text-slate-500 mt-0.5">
                                                             {partySize.total > 1 ? (
                                                                 <>Total for {partySize.adults} adult{partySize.adults !== 1 ? 's' : ''}{partySize.children > 0 && `, ${partySize.children} child${partySize.children !== 1 ? 'ren' : ''}`}</>
@@ -1265,7 +1276,7 @@ export default function SoloResults() {
                                                                                 ? `$${segment.cashPrice.toLocaleString()} cash`
                                                                                 : metrics.cashSaved > 0
                                                                                     ? 'Paid with points'
-                                                                                    : ''
+                                                                                    : 'Cash booking'
                                                                         }
                                                                     </div>
                                                                     {isPoints && (
@@ -1321,8 +1332,8 @@ export default function SoloResults() {
                                                 })}
                                             </div>
 
-                                            {/* Savings Highlight */}
-                                            {metrics.cashSaved > 0 && (
+                                            {/* Savings Highlight - only show when points are actually used and savings are real */}
+                                            {metrics.cashSaved > 0 && metrics.totalPointsUsed > 0 && metrics.totalOutOfPocket < metrics.totalCashPrice && (
                                                 <div className="p-4 bg-gradient-to-r from-emerald-50 to-teal-50 rounded-xl border border-emerald-200">
                                                     <div className="flex items-start justify-between">
                                                         <div className="flex-1">
@@ -1419,13 +1430,23 @@ export default function SoloResults() {
                                                     )}
                                                 </div>
                                                 <div className="space-y-2 text-sm">
+                                                    {selectedSoloItinerary.oopMetrics.totalCashPrice > 0 && (
                                                     <div className="flex justify-between">
                                                         <span className="text-slate-600">Would cost in cash</span>
                                                         <span className="text-slate-500 line-through">${Math.round(selectedSoloItinerary.oopMetrics.totalCashPrice).toLocaleString()}</span>
                                                     </div>
+                                                    )}
                                                     <div className="flex justify-between font-semibold text-lg">
                                                         <span className="text-slate-900">Your cost</span>
-                                                        <span className="text-emerald-600">${Math.round(selectedSoloItinerary.oopMetrics.totalOutOfPocket).toLocaleString()}</span>
+                                                        <span className="text-emerald-600">
+                                                            {selectedSoloItinerary.oopMetrics.totalOutOfPocket > 0
+                                                                ? `$${Math.round(selectedSoloItinerary.oopMetrics.totalOutOfPocket).toLocaleString()}`
+                                                                : (selectedSoloItinerary.oopMetrics.totalCashPrice > 0
+                                                                    ? `$${Math.round(selectedSoloItinerary.oopMetrics.totalCashPrice).toLocaleString()}`
+                                                                    : 'See checkout'
+                                                                )
+                                                            }
+                                                        </span>
                                                     </div>
                                                     {partySize.total > 1 && (
                                                         <div className="flex justify-between text-slate-500">
@@ -1464,22 +1485,45 @@ export default function SoloResults() {
                                                 );
                                             })()}
 
-                                            {/* Transfers Needed */}
+                                            {/* Points Usage: Transfers + Direct Redemptions */}
                                             {selectedSoloItinerary.transfers.length > 0 && (
                                                 <div>
-                                                    <div className="text-sm text-slate-600 mb-3 font-medium">Points to transfer first</div>
-                                                    <div className="space-y-2">
-                                                        {selectedSoloItinerary.transfers.map((transfer, idx) => (
-                                                            <div key={idx} className="p-3 bg-blue-50 rounded-lg text-sm">
-                                                                <div className="font-medium text-slate-900">
-                                                                    {typeof transfer.sourceProgram === 'string' ? transfer.sourceProgram : String(transfer.sourceProgram || '')} → {typeof transfer.targetProgram === 'string' ? transfer.targetProgram : String(transfer.targetProgram || '')}
-                                                                </div>
-                                                                <div className="text-slate-600 mt-1">
-                                                                    {(typeof transfer.pointsToTransfer === 'number' ? transfer.pointsToTransfer : Number(transfer.pointsToTransfer) || 0).toLocaleString()} pts • {typeof transfer.expectedTransferTime === 'string' ? transfer.expectedTransferTime : String(transfer.expectedTransferTime || 'varies')}
-                                                                </div>
+                                                    {/* Transfers (bank → airline) */}
+                                                    {selectedSoloItinerary.transfers.filter(t => !t.isDirect).length > 0 && (
+                                                        <>
+                                                            <div className="text-sm text-slate-600 mb-3 font-medium">Points to transfer first</div>
+                                                            <div className="space-y-2 mb-3">
+                                                                {selectedSoloItinerary.transfers.filter(t => !t.isDirect).map((transfer, idx) => (
+                                                                    <div key={idx} className="p-3 bg-blue-50 rounded-lg text-sm">
+                                                                        <div className="font-medium text-slate-900">
+                                                                            {formatProgramName(typeof transfer.sourceProgram === 'string' ? transfer.sourceProgram : String(transfer.sourceProgram || ''))} → {formatProgramName(typeof transfer.targetProgram === 'string' ? transfer.targetProgram : String(transfer.targetProgram || ''))}
+                                                                        </div>
+                                                                        <div className="text-slate-600 mt-1">
+                                                                            {(typeof transfer.pointsToTransfer === 'number' ? transfer.pointsToTransfer : Number(transfer.pointsToTransfer) || 0).toLocaleString()} pts • {typeof transfer.expectedTransferTime === 'string' ? transfer.expectedTransferTime : String(transfer.expectedTransferTime || 'varies')}
+                                                                        </div>
+                                                                    </div>
+                                                                ))}
                                                             </div>
-                                                        ))}
-                                                    </div>
+                                                        </>
+                                                    )}
+                                                    {/* Direct redemptions (use existing miles) */}
+                                                    {selectedSoloItinerary.transfers.filter(t => t.isDirect).length > 0 && (
+                                                        <>
+                                                            <div className="text-sm text-slate-600 mb-3 font-medium">Use your existing miles</div>
+                                                            <div className="space-y-2">
+                                                                {selectedSoloItinerary.transfers.filter(t => t.isDirect).map((transfer, idx) => (
+                                                                    <div key={idx} className="p-3 bg-green-50 rounded-lg text-sm">
+                                                                        <div className="font-medium text-slate-900">
+                                                                            {formatProgramName(typeof transfer.sourceProgram === 'string' ? transfer.sourceProgram : String(transfer.sourceProgram || ''))}
+                                                                        </div>
+                                                                        <div className="text-slate-600 mt-1">
+                                                                            {(typeof transfer.pointsToTransfer === 'number' ? transfer.pointsToTransfer : Number(transfer.pointsToTransfer) || 0).toLocaleString()} pts • Already in your account
+                                                                        </div>
+                                                                    </div>
+                                                                ))}
+                                                            </div>
+                                                        </>
+                                                    )}
                                                 </div>
                                             )}
 
@@ -1496,8 +1540,8 @@ export default function SoloResults() {
                                                 
                                                 {showAdvancedDetails && (
                                                     <div className="mt-3 space-y-3 text-sm">
-                                                        {/* Savings percentage — only show when positive */}
-                                                        {selectedSoloItinerary.oopMetrics.savingsPercentage > 0 && (
+                                                        {/* Savings percentage — only show when points are used and savings are real */}
+                                                        {selectedSoloItinerary.oopMetrics.savingsPercentage > 0 && selectedSoloItinerary.oopMetrics.totalPointsUsed > 0 && selectedSoloItinerary.oopMetrics.totalOutOfPocket < selectedSoloItinerary.oopMetrics.totalCashPrice && (
                                                         <div className="p-3 bg-slate-50 rounded-lg">
                                                             <div className="text-xs font-semibold text-slate-500 mb-1">SAVINGS</div>
                                                             <div className="text-slate-700">
@@ -1508,10 +1552,13 @@ export default function SoloResults() {
                                                         {/* Transfer ratios */}
                                                         {selectedSoloItinerary.transfers.length > 0 && (
                                                             <div className="p-3 bg-slate-50 rounded-lg">
-                                                                <div className="text-xs font-semibold text-slate-500 mb-1">TRANSFER DETAILS</div>
+                                                                <div className="text-xs font-semibold text-slate-500 mb-1">POINTS DETAILS</div>
                                                                 {selectedSoloItinerary.transfers.map((t, i) => (
                                                                     <div key={i} className="text-slate-700">
-                                                                        {t.sourceProgram} → {t.targetProgram}: {t.transferRatio}x ratio
+                                                                        {t.isDirect
+                                                                            ? `${formatProgramName(t.sourceProgram)}: ${(t.pointsToTransfer || 0).toLocaleString()} pts (direct)`
+                                                                            : `${formatProgramName(t.sourceProgram)} → ${formatProgramName(t.targetProgram)}: ${t.transferRatio}x ratio`
+                                                                        }
                                                                     </div>
                                                                 ))}
                                                             </div>

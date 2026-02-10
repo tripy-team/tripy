@@ -42,19 +42,17 @@ function NavigationInner() {
   const [user, setUser] = useState<UserData | null>(null);
   const [mobileMenuOpen, setMobileMenuOpen] = useState(false);
 
-  // Build login URL that redirects to the right page after sign-in.
-  // If the user is on the results page with a trip_id, send them straight
-  // to the booking page after login so they can act on the generated route.
-  const loginHref = (() => {
-    const tripId = searchParams?.get('trip_id');
-    if (pathname === '/solo/results' && tripId) {
-      return `/login?redirect=${encodeURIComponent(`/solo/booking?trip_id=${tripId}`)}`;
-    }
+  // Build redirect URL that preserves the current page (including query params)
+  // so the user returns here after signing in or creating an account.
+  const redirectParam = (() => {
     const currentUrl = searchParams?.toString()
       ? `${pathname}?${searchParams.toString()}`
       : pathname;
-    return `/login?redirect=${encodeURIComponent(currentUrl)}`;
+    return encodeURIComponent(currentUrl);
   })();
+
+  const loginHref = `/login?redirect=${redirectParam}`;
+  const signupHref = `/register?redirect=${redirectParam}`;
 
   useEffect(() => {
     // Check for logged in user
@@ -261,7 +259,7 @@ function NavigationInner() {
                   Log in
                 </Link>
                 <Link
-                  href="/register"
+                  href={signupHref}
                   className="px-5 py-2.5 bg-blue-600 text-white rounded-xl hover:bg-blue-700 transition-all shadow-lg shadow-blue-600/20 hover:shadow-xl hover:shadow-blue-600/30 font-medium text-sm"
                 >
                   Sign Up
@@ -385,7 +383,7 @@ function NavigationInner() {
                   Log in
                 </Link>
                 <Link
-                  href="/register"
+                  href={signupHref}
                   onClick={() => setMobileMenuOpen(false)}
                   className="block w-full text-center px-4 py-3 bg-blue-600 text-white rounded-xl font-medium hover:bg-blue-700"
                 >

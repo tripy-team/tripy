@@ -52,8 +52,21 @@ from .validators import (
 from .pruning import prune_flights, prune_award_options
 from .precompute import precompute_soft_values, compute_flight_K
 from .metrics import OptimizationMetrics, create_metrics
+from .flags import V3_LEXICOGRAPHIC_OBJECTIVE_ENABLED, V3_CLOSEST_PLAN_ENABLED
 
 logger = logging.getLogger(__name__)
+
+
+def compute_stage2_delta(budget: float, oop_star: float) -> float:
+    """
+    Slack for Stage 2 quality optimization.
+    
+    Small enough that OOP doesn't degrade meaningfully.
+    Large enough that the solver has room to improve quality.
+    
+    Formula: delta = max($25, 2% of budget, 1% of OOP*)
+    """
+    return max(25.0, 0.02 * max(1.0, budget or 0), 0.01 * oop_star)
 
 
 # =============================================================================
@@ -681,26 +694,35 @@ class SolverV3:
                 actual_cpp = (cash_saved * 100) / opt.miles_required if opt.miles_required > 0 else 0
                 miles_per_dollar = opt.miles_required / cash_saved if cash_saved > 0 else float('inf')
                 
-                # Guard 1: CPP Floor
-                if cpp_floor > 0 and opt.miles_required > 0:
-                    if actual_cpp < cpp_floor:
+                # Store CPP quality metadata for Stage 2 objective
+                opt._cpp_quality = actual_cpp
+                
+                if V3_LEXICOGRAPHIC_OBJECTIVE_ENABLED:
+                    # Lexicographic mode: no hard CPP gates — all options create variables.
+                    # Quality is handled in Stage 2 objective instead.
+                    pass
+                else:
+                    # Legacy mode: hard CPP/miles-per-dollar guards
+                    # Guard 1: CPP Floor
+                    if cpp_floor > 0 and opt.miles_required > 0:
+                        if actual_cpp < cpp_floor:
+                            rejected_count += 1
+                            logger.debug(
+                                f"[CPP Floor] Rejected {f.edge_id} award option: "
+                                f"CPP={actual_cpp:.3f}¢ < floor={cpp_floor}¢ "
+                                f"(cash=${f.cash_cost}, surcharge=${opt.surcharge}, miles={opt.miles_required})"
+                            )
+                            continue
+                    
+                    # Guard 2: Miles Per Dollar Saved (uses adaptive threshold from budget tier)
+                    if miles_per_dollar > max_miles_per_dollar and opt.miles_required > 0:
                         rejected_count += 1
                         logger.debug(
-                            f"[CPP Floor] Rejected {f.edge_id} award option: "
-                            f"CPP={actual_cpp:.3f}¢ < floor={cpp_floor}¢ "
-                            f"(cash=${f.cash_cost}, surcharge=${opt.surcharge}, miles={opt.miles_required})"
+                            f"[Miles/$] Rejected {f.edge_id} award option: "
+                            f"{miles_per_dollar:.1f} miles/$ > max {max_miles_per_dollar} "
+                            f"(saves ${cash_saved:.0f} for {opt.miles_required:,} miles)"
                         )
                         continue
-                
-                # Guard 2: Miles Per Dollar Saved (uses adaptive threshold from budget tier)
-                if miles_per_dollar > max_miles_per_dollar and opt.miles_required > 0:
-                    rejected_count += 1
-                    logger.debug(
-                        f"[Miles/$] Rejected {f.edge_id} award option: "
-                        f"{miles_per_dollar:.1f} miles/$ > max {max_miles_per_dollar} "
-                        f"(saves ${cash_saved:.0f} for {opt.miles_required:,} miles)"
-                    )
-                    continue
                 
                 # Award option passed guards - create variables
                 accepted_count += 1
@@ -1213,7 +1235,7 @@ class SolverV3:
         )
         
         # ═══════════════════════════════════════════════════════════════════
-        # PASS 1: Primary objective
+        # STAGE 1: Minimize OOP (primary objective)
         # ═══════════════════════════════════════════════════════════════════
         
         primary = self._build_primary_objective()
@@ -1227,82 +1249,127 @@ class SolverV3:
         self.metrics.pass1_status = LpStatus[status]
         
         if status != LpStatusOptimal:
-            # ═══════════════════════════════════════════════════════════════
-            # FALLBACK STRATEGY: Prioritize using points before giving up
-            # ═══════════════════════════════════════════════════════════════
-            #
-            # When budget makes the model infeasible, try harder to use
-            # points by progressively relaxing quality guardrails before
-            # removing the budget constraint entirely.
-            #
-            # Order of escalation:
-            #   1. Escalate guardrails (tight → very_tight → critical)
-            #      This allows more award options to be considered,
-            #      potentially finding a points-heavy solution within budget.
-            #   2. Only if even "critical" (no restrictions) is infeasible,
-            #      fall back to removing the budget constraint.
-            #
-            if self.cash_budget and self.cash_budget > 0:
-                current_tier = getattr(self, 'budget_tier', 'normal')
-                logger.warning(
-                    f"[Solver] Model infeasible with budget ${self.cash_budget:.0f} "
-                    f"(tier={current_tier}). Escalating guardrails to prioritize points..."
-                )
+            if V3_LEXICOGRAPHIC_OBJECTIVE_ENABLED:
+                # ═══════════════════════════════════════════════════════
+                # LEXICOGRAPHIC MODE: No tier escalation.
+                # All award options already have variables (no CPP gates).
+                # If infeasible, go directly to closest-plan.
+                # ═══════════════════════════════════════════════════════
+                if self.cash_budget and self.cash_budget > 0:
+                    logger.warning(
+                        f"[Solver] Stage 1 infeasible with budget ${self.cash_budget:.0f}. "
+                        f"Budget cannot be met. Finding closest plan..."
+                    )
+                    
+                    if V3_CLOSEST_PLAN_ENABLED:
+                        fallback_result = self._solve_closest_plan(solver)
+                        if fallback_result:
+                            return fallback_result
                 
-                # Step 1: Try escalating guardrail tiers to accept more award options
-                escalated_result = self._solve_with_escalated_guardrails(solver, current_tier)
-                if escalated_result:
-                    return escalated_result
-                
-                # Step 2: Even critical tier failed - remove budget constraint entirely
-                logger.warning(
-                    f"[Solver] All guardrail tiers exhausted. "
-                    f"Removing budget constraint to find closest feasible solution..."
+                return OptimizationResult(
+                    status=OptimizationStatus.INFEASIBLE_MODEL,
+                    solution=None,
+                    warnings=[],
+                    suggestions=["No feasible solution within budget. Check constraints and available points."],
+                    infeasibility_reason="No feasible solution found",
                 )
-                fallback_result = self._solve_without_budget_constraint(solver, primary)
-                if fallback_result:
-                    return fallback_result
+            else:
+                # ═══════════════════════════════════════════════════════
+                # LEGACY MODE: Tier escalation + budget constraint removal
+                # ═══════════════════════════════════════════════════════
+                if self.cash_budget and self.cash_budget > 0:
+                    current_tier = getattr(self, 'budget_tier', 'normal')
+                    logger.warning(
+                        f"[Solver] Model infeasible with budget ${self.cash_budget:.0f} "
+                        f"(tier={current_tier}). Escalating guardrails to prioritize points..."
+                    )
+                    
+                    escalated_result = self._solve_with_escalated_guardrails(solver, current_tier)
+                    if escalated_result:
+                        return escalated_result
+                    
+                    logger.warning(
+                        f"[Solver] All guardrail tiers exhausted. "
+                        f"Removing budget constraint to find closest feasible solution..."
+                    )
+                    fallback_result = self._solve_without_budget_constraint(solver, primary)
+                    if fallback_result:
+                        return fallback_result
+                
+                return OptimizationResult(
+                    status=OptimizationStatus.INFEASIBLE_MODEL,
+                    solution=None,
+                    warnings=[],
+                    suggestions=["Model infeasible. Check constraints."],
+                    infeasibility_reason="No feasible solution found",
+                )
+        
+        oop_star = value(primary)
+        self.metrics.pass1_objective = oop_star
+        
+        logger.info(f"[V3] stage1 oop_star={oop_star:.2f}")
+        
+        if V3_LEXICOGRAPHIC_OBJECTIVE_ENABLED:
+            # ═══════════════════════════════════════════════════════════════
+            # STAGE 2 (Lexicographic): Maximize quality within OOP envelope
+            # ═══════════════════════════════════════════════════════════════
+            delta = compute_stage2_delta(self.cash_budget or 0, oop_star)
+            self.metrics.pass1_slack = delta
             
-            return OptimizationResult(
-                status=OptimizationStatus.INFEASIBLE_MODEL,
-                solution=None,
-                warnings=[],
-                suggestions=["Model infeasible. Check constraints."],
-                infeasibility_reason="No feasible solution found",
+            logger.info(
+                f"[V3] stage2 delta={delta:.2f} "
+                f"(budget={self.cash_budget}, oop_star={oop_star:.2f})"
             )
+            
+            # Add OOP envelope constraint
+            self.model += primary <= oop_star + delta, "oop_envelope"
+            
+            # Build quality-maximization objective
+            secondary = self._build_lexicographic_quality_objective()
+            self.model.objective = secondary
+            # Maximize quality (LpMinimize of negative = maximize)
+            self.model.sense = LpMinimize
+            
+            status = self.model.solve(solver)
+            
+            self.metrics.pass2_status = LpStatus[status]
+            self.metrics.pass2_objective = value(secondary) if status == LpStatusOptimal else 0
+            
+            logger.info(f"[V3] stage2 quality={self.metrics.pass2_objective:.4f}")
+            
+        else:
+            # ═══════════════════════════════════════════════════════════════
+            # LEGACY PASS 2: Tie-break within slack
+            # ═══════════════════════════════════════════════════════════════
+            abs_eps = self.slack_config.get_abs_eps(self.is_international)
+            slack = max(abs_eps, self.slack_config.rel_eps * abs(oop_star))
+            self.metrics.pass1_slack = slack
+            
+            logger.debug(
+                f"[Two-Pass] Pass 1 objective: ${oop_star:.2f}, "
+                f"Comfort budget (slack): ${slack:.2f} "
+                f"(abs_eps=${abs_eps}, rel_eps={self.slack_config.rel_eps*100:.0f}%, "
+                f"is_intl={self.is_international})"
+            )
+            
+            self.model += primary <= oop_star + slack, "pass1_bound"
+            
+            secondary = self._build_secondary_objective(slack)
+            self.model.objective = secondary
+            
+            status = self.model.solve(solver)
+            
+            self.metrics.pass2_status = LpStatus[status]
+            self.metrics.pass2_objective = value(secondary) if status == LpStatusOptimal else 0
         
-        opt1 = value(primary)
-        self.metrics.pass1_objective = opt1
-        
-        # Robust slack: max(absolute, relative * opt)
-        # Use route-aware absolute slack ($150 domestic, $300 international)
-        abs_eps = self.slack_config.get_abs_eps(self.is_international)
-        slack = max(abs_eps, self.slack_config.rel_eps * abs(opt1))
-        self.metrics.pass1_slack = slack
-        
-        logger.debug(
-            f"[Two-Pass] Pass 1 objective: ${opt1:.2f}, "
-            f"Comfort budget (slack): ${slack:.2f} "
-            f"(abs_eps=${abs_eps}, rel_eps={self.slack_config.rel_eps*100:.0f}%, "
-            f"is_intl={self.is_international})"
+        # Log budget status
+        budget_status = "no_budget_set"
+        if self.cash_budget and self.cash_budget > 0:
+            budget_status = "within_budget"
+        logger.info(
+            f"[V3] budget_status={budget_status} "
+            f"user_budget={self.cash_budget} actual_oop={oop_star:.2f} shortfall=0"
         )
-        
-        # ═══════════════════════════════════════════════════════════════════
-        # PASS 2: Add bound and solve with secondary objective
-        # (Keep same model but add constraint and change objective)
-        # ═══════════════════════════════════════════════════════════════════
-        
-        # Add pass1 bound constraint
-        self.model += primary <= opt1 + slack, "pass1_bound"
-        
-        # Build and set secondary objective
-        secondary = self._build_secondary_objective(slack)
-        self.model.objective = secondary
-        
-        status = self.model.solve(solver)
-        
-        self.metrics.pass2_status = LpStatus[status]
-        self.metrics.pass2_objective = value(secondary) if status == LpStatusOptimal else 0
         
         # Extract solution
         solution = self._extract_solution()
@@ -1310,8 +1377,8 @@ class SolverV3:
         return OptimizationResult(
             status=OptimizationStatus.OPTIMAL if status == LpStatusOptimal else OptimizationStatus.FEASIBLE_SUBOPTIMAL,
             solution=solution,
-            pass1_objective=opt1,
-            pass1_slack=slack,
+            pass1_objective=oop_star,
+            pass1_slack=self.metrics.pass1_slack,
             pass2_objective=self.metrics.pass2_objective,
             warnings=[],
             suggestions=[],
@@ -1850,6 +1917,149 @@ class SolverV3:
             )
             # Scale: miles dominate, then time, then stops
             return miles_cost + time_cost + stops_cost + tie
+    
+    def _build_lexicographic_quality_objective(self):
+        """
+        Stage 2 quality objective for lexicographic mode.
+        
+        MAXIMIZE quality (we negate and minimize):
+        - CPP quality (primary — reward good redemption value): +1000 per cpp cent
+        - Transfer count penalty: -200 per transfer
+        - Program diversity penalty: -100 per distinct program used
+        - Stops penalty: -150 per stop
+        - Travel time penalty: -50 per hour over baseline
+        - Deterministic tie-breaker: tiny bonus for lower edge index
+        """
+        cfg = self.comfort_config
+        baseline_hours = cfg.get_baseline_hours(self.is_international)
+        
+        # Term 1: CPP quality (reward good redemption value)
+        cpp_quality = lpSum(
+            self.vars["y_pf"][(f.leg_id, f.edge_id, opt.option_id, p, src.source_id)]
+            * getattr(opt, '_cpp_quality', 0) * 10  # Scale: 10 per cpp cent
+            for f in self.flights
+            for opt in f.award_options
+            for p in self.spec.all_traveler_ids
+            for src in self._get_sources_for_program(p, opt.program)
+            if (f.leg_id, f.edge_id, opt.option_id, p, src.source_id) in self.vars["y_pf"]
+        )
+        
+        # Term 2: Transfer count penalty
+        transfer_penalty = lpSum(
+            self.vars["u_tr"][k] * 200
+            for k in self.vars.get("u_tr", {})
+        )
+        
+        # Term 3: Stops penalty (150 per stop)
+        stops_penalty = lpSum(
+            self.vars["x_f"][(f.leg_id, f.edge_id)] * f.num_stops * 150
+            for f in self.flights
+        )
+        
+        # Term 4: Travel time penalty (50 per hour over baseline)
+        time_penalty = lpSum(
+            self.vars["x_f"][(f.leg_id, f.edge_id)]
+            * max(0, (f.total_time_minutes / 60.0) - baseline_hours)
+            * 50
+            for f in self.flights
+        )
+        
+        # Term 5: Deterministic tie-breaker (tiny bonus for lower edge index)
+        all_keys = sorted(self.vars["x_f"].keys())
+        tie = lpSum(
+            self.vars["x_f"][k] * (i * 0.001)
+            for i, k in enumerate(all_keys)
+        )
+        
+        # Minimize negative quality = maximize quality
+        # quality = cpp_quality - transfer_penalty - stops_penalty - time_penalty
+        # minimize: -quality + tie = -cpp_quality + transfer_penalty + stops_penalty + time_penalty + tie
+        return -cpp_quality + transfer_penalty + stops_penalty + time_penalty + tie
+    
+    def _solve_closest_plan(self, solver) -> Optional[OptimizationResult]:
+        """
+        Find the closest feasible plan when budget is infeasible.
+        
+        Invariant: "Closest plan" = minimum OOP under the SAME constraints
+        as the original request, EXCEPT `OOP <= budget` is removed.
+        
+        Preserves: allowed_currencies, max_points_by_currency, payer separation,
+        transfer increments, cabin/stops/airline filters, same search result snapshot.
+        Only removes: the budget hard constraint.
+        """
+        logger.info("[Solver] Finding closest plan (same constraints, no budget)...")
+        
+        original_budget = self.cash_budget
+        self.cash_budget = None
+        
+        try:
+            # Rebuild model without budget constraint (same flights, same constraints)
+            self._build_model()
+            
+            primary = self._build_primary_objective()
+            self.model.objective = primary
+            self.model.sense = LpMinimize
+            
+            status = self.model.solve(solver)
+            
+            if status != LpStatusOptimal:
+                logger.warning("[Solver] Even without budget, model is infeasible")
+                return None
+            
+            min_feasible_oop = value(primary)
+            shortfall = min_feasible_oop - original_budget if original_budget else 0
+            
+            logger.info(
+                f"[V3] budget_status=closest_over_budget "
+                f"user_budget={original_budget} actual_oop={min_feasible_oop:.2f} "
+                f"shortfall={shortfall:.2f}"
+            )
+            
+            # Run Stage 2 for quality within closest plan
+            if V3_LEXICOGRAPHIC_OBJECTIVE_ENABLED:
+                delta = compute_stage2_delta(original_budget or 0, min_feasible_oop)
+                self.model += primary <= min_feasible_oop + delta, "oop_envelope"
+                secondary = self._build_lexicographic_quality_objective()
+            else:
+                abs_eps = self.slack_config.get_abs_eps(self.is_international)
+                slack = max(abs_eps, self.slack_config.rel_eps * abs(min_feasible_oop))
+                self.model += primary <= min_feasible_oop + slack, "pass1_bound"
+                secondary = self._build_secondary_objective(slack)
+            
+            self.model.objective = secondary
+            self.model.sense = LpMinimize
+            status = self.model.solve(solver)
+            
+            solution = self._extract_solution()
+            
+            if solution:
+                solution.budget_exceeded = True
+                solution.budget_excess_amount = shortfall
+                solution.original_budget = original_budget
+            
+            warning_msg = (
+                f"No itinerary available within your ${original_budget:.0f} budget. "
+                f"The closest option costs ${min_feasible_oop:.0f} "
+                f"(${shortfall:.0f} over budget)."
+            )
+            suggestion_msg = (
+                f"Consider increasing your budget to ${min_feasible_oop * 1.10:.0f} "
+                f"or adding more points balances."
+            )
+            
+            return OptimizationResult(
+                status=OptimizationStatus.FEASIBLE_SUBOPTIMAL,
+                solution=solution,
+                pass1_objective=min_feasible_oop,
+                pass1_slack=0,
+                pass2_objective=value(secondary) if status == LpStatusOptimal else 0,
+                warnings=[warning_msg],
+                suggestions=[suggestion_msg],
+                budget_exceeded=True,
+                budget_excess_amount=shortfall,
+            )
+        finally:
+            self.cash_budget = original_budget
     
     def _log_flight_options_detail(self):
         """

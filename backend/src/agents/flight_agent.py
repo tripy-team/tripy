@@ -91,13 +91,59 @@ Return JSON with: {"programs": ["UA", "AA", ...], "reasoning": "..."}"""
         all_options = []
         errors = []
         
+        exception_count = sum(1 for r in results if isinstance(r, Exception))
+        empty_count = sum(1 for r in results if isinstance(r, list) and len(r) == 0)
+        nonempty_count = sum(1 for r in results if isinstance(r, list) and len(r) > 0)
+        logger.info(
+            f"[FlightAgent] {request.origin}->{request.destination}: "
+            f"tasks={len(results)}, exceptions={exception_count}, empty={empty_count}, nonempty={nonempty_count}"
+        )
+        
         for result in results:
             if isinstance(result, Exception):
                 errors.append(str(result))
             elif isinstance(result, list):
                 all_options.extend(result)
         
-        # Step 5: Calculate CPP for award options
+        # DIAGNOSTIC: Count merged results by source and award status
+        source_counts = {}
+        award_total = 0
+        for opt in all_options:
+            src = opt.source
+            source_counts[src] = source_counts.get(src, 0) + 1
+            if opt.award_available:
+                award_total += 1
+        logger.info(
+            f"[FlightAgent] {request.origin}->{request.destination}: "
+            f"merged total={len(all_options)}, award_available={award_total}, "
+            f"sources={source_counts}, errors={len(errors)}"
+        )
+        
+        # Step 4.5: ENRICH AwardTool options with SerpAPI cash prices
+        # AwardTool returns award points + taxes but usually no cash price.
+        # SerpAPI returns cash prices but no award data.
+        # We merge them so every award option also has a cash price reference,
+        # enabling proper CPP calculation and eliminating downstream fallbacks.
+        serpapi_cash_prices: dict[str, float] = {}  # (origin, dest) -> cheapest cash price
+        for option in all_options:
+            if option.source == "serpapi" and option.cash_price and option.cash_price > 0:
+                route_key = f"{(option.origin or '').upper()}_{(option.destination or '').upper()}"
+                if route_key not in serpapi_cash_prices or option.cash_price < serpapi_cash_prices[route_key]:
+                    serpapi_cash_prices[route_key] = option.cash_price
+        
+        enriched_count = 0
+        for option in all_options:
+            if option.award_available and not option.cash_price:
+                route_key = f"{(option.origin or '').upper()}_{(option.destination or '').upper()}"
+                if route_key in serpapi_cash_prices:
+                    option.cash_price = serpapi_cash_prices[route_key]
+                    enriched_count += 1
+        
+        if enriched_count > 0:
+            logger.info(f"[FlightAgent] Enriched {enriched_count} AwardTool options with SerpAPI cash prices "
+                       f"(routes with prices: {list(serpapi_cash_prices.keys())})")
+        
+        # Step 5: Calculate CPP for award options (now works for enriched options too)
         for option in all_options:
             if option.award_available and option.cash_price and option.award_points:
                 cash_saved = option.cash_price - (option.award_surcharge or 0)
@@ -125,16 +171,20 @@ Return JSON with: {"programs": ["UA", "AA", ...], "reasoning": "..."}"""
         )
     
     async def _select_programs(self, request: FlightSearchRequest) -> list[str]:
-        """Select which award programs to search."""
-        # Get programs user can transfer to
-        available_programs = set()
+        """Select which award programs to search.
+        
+        Uses a bank-fair selection algorithm to ensure each bank the user has
+        gets representation in the search. This prevents scenarios where only
+        Chase partners get searched when the user also has Amex points.
+        """
+        # Build per-bank program sets
+        bank_programs: dict[str, list[str]] = {}  # bank_name -> list of airline codes
         
         for bank_program, balance in request.user_points.items():
             if balance <= 0:
                 continue
             
             # Normalize the bank program key to match TRANSFER_GRAPH
-            # User points might have "amex_mr" but TRANSFER_GRAPH uses "Amex MR"
             bank_normalized = bank_program.lower().replace(" ", "_").replace("-", "_")
             
             # Try to find matching bank in transfer graph
@@ -148,53 +198,73 @@ Return JSON with: {"programs": ["UA", "AA", ...], "reasoning": "..."}"""
                     break
             
             if matched_bank:
-                available_programs.update(TRANSFER_GRAPH[matched_bank].get("airlines", []))
-                logger.info(f"[FlightAgent] User bank {bank_program} -> matched {matched_bank} -> airlines: {TRANSFER_GRAPH[matched_bank].get('airlines', [])}")
+                airlines = TRANSFER_GRAPH[matched_bank].get("airlines", [])
+                bank_programs[matched_bank] = airlines
+                logger.info(f"[FlightAgent] User bank {bank_program} -> matched {matched_bank} -> airlines: {airlines}")
             elif bank_program in TRANSFER_GRAPH:
-                # Direct match (legacy support)
-                available_programs.update(TRANSFER_GRAPH[bank_program].get("airlines", []))
+                airlines = TRANSFER_GRAPH[bank_program].get("airlines", [])
+                bank_programs[bank_program] = airlines
         
         # Also add direct airline miles user might have
+        direct_programs = set()
         for program in request.user_points:
             if program in AIRLINE_PROGRAMS:
-                available_programs.add(program)
+                direct_programs.add(program)
+        
+        all_available = set()
+        for airlines in bank_programs.values():
+            all_available.update(airlines)
+        all_available.update(direct_programs)
         
         # Default to common US programs if no points specified
-        if not available_programs:
-            available_programs = {"UA", "AA", "DL", "AF"}
+        if not all_available:
+            return ["UA", "AA", "DL", "AF", "VS"]
         
-        # Use LLM to prioritize if available
-        if self.client and len(available_programs) > 5:
-            try:
-                result = await self._call_llm_json([
-                    {"role": "system", "content": self.system_prompt},
-                    {"role": "user", "content": f"""
-Route: {request.origin} → {request.destination}
-Available programs: {list(available_programs)}
-User points: {request.user_points}
-
-Select the top 5 programs most likely to have good award availability and value.
-Return JSON: {{"programs": ["UA", "AA", ...], "reasoning": "..."}}
-"""}
-                ])
-                if result and "programs" in result:
-                    return result["programs"][:5]
-            except Exception as e:
-                logger.warning(f"LLM program selection failed: {e}")
+        # ── Bank-fair selection ──────────────────────────────────────────
+        # Ensure each bank gets at least some representation.
+        # Target: ~3 programs per bank, up to a total of 10 programs.
+        MAX_PROGRAMS = 10
+        PROGRAMS_PER_BANK = 3
         
-        # Return top 5 by preference
-        preferred_order = ["UA", "AA", "DL", "AF", "VS", "BA", "SQ", "NH"]
-        selected = []
-        for prog in preferred_order:
-            if prog in available_programs and len(selected) < 5:
-                selected.append(prog)
+        # Priority lists for each bank (best/unique partners first)
+        BANK_PRIORITIES: dict[str, list[str]] = {
+            "Chase UR":     ["UA", "BA", "VS", "AF", "IB", "SQ", "AS", "EK", "AC", "AV"],
+            "Amex MR":      ["DL", "NH", "VS", "AV", "CX", "BA", "AF", "SQ", "B6", "AS", "IB", "EK", "EY", "JL", "QF", "AC"],
+            "Citi TYP":     ["AA", "TK", "SQ", "CX", "QR", "VS", "AF", "EK", "AV", "B6", "QF", "AC", "JL"],
+            "Capital One":  ["AF", "TK", "AV", "SQ", "BA", "EK", "EY", "AC", "QF"],
+            "Bilt":         ["UA", "AA", "VS", "AF", "TK", "BA", "EK", "AS", "AC", "EI"],
+        }
         
-        # Add remaining if needed
-        for prog in available_programs:
-            if prog not in selected and len(selected) < 5:
-                selected.append(prog)
+        selected = list(direct_programs)  # Always include direct miles first
         
-        return selected[:5]
+        # Round-robin across banks: pick top-priority exclusive programs from each bank
+        num_banks = len(bank_programs)
+        if num_banks > 0:
+            per_bank_quota = max(PROGRAMS_PER_BANK, MAX_PROGRAMS // num_banks)
+            
+            for bank_name, airlines in bank_programs.items():
+                priority = BANK_PRIORITIES.get(bank_name, airlines)
+                count = 0
+                for prog in priority:
+                    if prog in all_available and prog not in selected and count < per_bank_quota:
+                        selected.append(prog)
+                        count += 1
+                    if count >= per_bank_quota:
+                        break
+                
+                # Fill with remaining airlines if priority list didn't have enough
+                if count < per_bank_quota:
+                    for prog in airlines:
+                        if prog not in selected and count < per_bank_quota:
+                            selected.append(prog)
+                            count += 1
+        
+        # Cap at MAX_PROGRAMS
+        selected = selected[:MAX_PROGRAMS]
+        
+        logger.info(f"[FlightAgent] Bank-fair selection: {len(bank_programs)} banks -> {len(selected)} programs: {selected}")
+        
+        return selected
     
     async def _search_award_flights(
         self,

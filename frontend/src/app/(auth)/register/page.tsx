@@ -1,13 +1,15 @@
 "use client";
 
 import Link from "next/link";
-import { useState } from "react";
-import { useRouter } from "next/navigation";
+import { useState, Suspense } from "react";
+import { useRouter, useSearchParams } from "next/navigation";
 import { Plane, Mail, Lock, User, ArrowRight, Check, Eye, EyeOff } from "lucide-react";
-import { signup } from "@/lib/api";
+import { signup, solo, getAnonSessionId } from "@/lib/api";
 
-export default function RegisterPage() {
+function RegisterForm() {
 	const router = useRouter();
+	const searchParams = useSearchParams();
+	const redirectPath = searchParams.get('redirect');
 	const [form, setForm] = useState({
 		name: "",
 		email: "",
@@ -71,12 +73,26 @@ export default function RegisterPage() {
 				window.dispatchEvent(new Event('tripy_auth_change'));
 			}
 
+			// Migrate anonymous session trips to the authenticated user
+			try {
+				const anonId = getAnonSessionId();
+				if (anonId) {
+					await solo.migrateSession(anonId);
+				}
+			} catch (migrationErr) {
+				// Non-blocking: migration failure shouldn't prevent signup
+				console.warn('[Register] Session migration failed:', migrationErr);
+			}
+
 			// If confirmation is required, redirect to confirmation page
+			// Preserve the redirect param so user gets back to their page after confirming
 			if (response.confirmation_required) {
-				router.push(`/auth/confirm-signup?email=${encodeURIComponent(form.email)}`);
+				const confirmUrl = `/auth/confirm-signup?email=${encodeURIComponent(form.email)}${redirectPath ? `&redirect=${encodeURIComponent(redirectPath)}` : ''}`;
+				router.push(confirmUrl);
 			} else {
-				// User is auto-confirmed - redirect to points setup (same as login flow)
-				router.push("/points-setup");
+				// User is auto-confirmed - redirect to the specified page or default to points setup
+				const destination = redirectPath || "/points-setup";
+				router.push(destination);
 			}
 		} catch (err) {
 			// Handle different error types from Cognito
@@ -232,14 +248,14 @@ export default function RegisterPage() {
 						</button>
 					</form>
 
-					<div className="mt-8 pt-8 border-t border-slate-100 text-center">
-						<p className="text-sm text-slate-600">
-							Already have an account?{' '}
-							<Link href="/login" className="text-blue-600 font-medium hover:text-blue-700">
-								Sign in
-							</Link>
-						</p>
-					</div>
+				<div className="mt-8 pt-8 border-t border-slate-100 text-center">
+					<p className="text-sm text-slate-600">
+						Already have an account?{' '}
+						<Link href={redirectPath ? `/login?redirect=${encodeURIComponent(redirectPath)}` : "/login"} className="text-blue-600 font-medium hover:text-blue-700">
+							Sign in
+						</Link>
+					</p>
+				</div>
 				</div>
 			</div>
 
@@ -285,5 +301,40 @@ export default function RegisterPage() {
 				</div>
 			</div>
 		</div>
+	);
+}
+
+function RegisterFormFallback() {
+	return (
+		<div className="min-h-full bg-white flex">
+			<div className="flex-1 flex flex-col justify-center px-8 sm:px-12 lg:px-20 xl:px-24 py-12 bg-white">
+				<div className="w-full max-w-sm mx-auto">
+					<div className="flex items-center gap-2 mb-10">
+						<div className="w-10 h-10 bg-blue-600 rounded-xl flex items-center justify-center shadow-lg shadow-blue-600/20">
+							<Plane className="w-5 h-5 text-white" fill="currentColor" />
+						</div>
+						<span className="text-xl font-bold text-slate-900">Tripy</span>
+					</div>
+					<div className="mb-8">
+						<h1 className="text-3xl font-bold text-slate-900 mb-3">Create your account</h1>
+						<p className="text-slate-600">Start optimizing your travel points today.</p>
+					</div>
+					<div className="space-y-5 animate-pulse">
+						<div className="h-12 bg-slate-200 rounded-xl"></div>
+						<div className="h-12 bg-slate-200 rounded-xl"></div>
+						<div className="h-12 bg-slate-200 rounded-xl"></div>
+						<div className="h-12 bg-blue-200 rounded-xl"></div>
+					</div>
+				</div>
+			</div>
+		</div>
+	);
+}
+
+export default function RegisterPage() {
+	return (
+		<Suspense fallback={<RegisterFormFallback />}>
+			<RegisterForm />
+		</Suspense>
 	);
 }
