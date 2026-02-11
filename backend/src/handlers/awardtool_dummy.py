@@ -13,6 +13,12 @@ from typing import Any, Dict, List, Optional, Tuple
 import logging
 import math
 
+# Centralized program config (single source of truth)
+from src.config.programs import (
+    AIRLINE_PROGRAMS_FULL as AIRLINE_PROGRAMS,
+    HOTEL_PROGRAMS_FULL as HOTEL_PROGRAMS,
+)
+
 logger = logging.getLogger(__name__)
 
 
@@ -338,166 +344,7 @@ FLIGHT_DURATIONS = {
 }
 
 
-# =============================================================================
-# AIRLINE PROGRAM DATA
-# =============================================================================
-
-AIRLINE_PROGRAMS = {
-    "UA": {
-        "name": "United MileagePlus",
-        "hubs": ["EWR", "ORD", "IAH", "SFO", "LAX", "DEN"],
-        "surcharge_multiplier": 0.8,
-        "transfer_partners": ["chase", "bilt"],
-        "regions": ["NA", "EU", "AS_E", "AS_SE", "SA", "OC"],
-    },
-    "AA": {
-        "name": "American AAdvantage",
-        "hubs": ["DFW", "CLT", "MIA", "ORD", "LAX", "PHX", "PHL"],
-        "surcharge_multiplier": 0.9,
-        "transfer_partners": ["citi", "bilt"],
-        "regions": ["NA", "EU", "SA", "AS_E", "CB"],
-    },
-    "DL": {
-        "name": "Delta SkyMiles",
-        "hubs": ["ATL", "DTW", "MSP", "SEA", "LAX", "JFK", "BOS"],
-        "surcharge_multiplier": 0.85,
-        "transfer_partners": ["amex"],
-        "regions": ["NA", "EU", "AS_E", "SA", "AF"],
-    },
-    "BA": {
-        "name": "British Airways Avios",
-        "hubs": ["LHR", "LGW"],
-        "surcharge_multiplier": 2.5,  # BA has HIGH surcharges
-        "transfer_partners": ["chase", "amex", "capitalone", "bilt"],
-        "regions": ["EU", "NA", "ME", "AS_S", "AF"],
-    },
-    "VS": {
-        "name": "Virgin Atlantic Flying Club",
-        "hubs": ["LHR", "MAN"],
-        "surcharge_multiplier": 1.8,
-        "transfer_partners": ["chase", "amex", "citi", "bilt"],
-        "regions": ["EU", "NA", "CB"],
-    },
-    "AF": {
-        "name": "Air France Flying Blue",
-        "hubs": ["CDG", "ORY"],
-        "surcharge_multiplier": 1.4,
-        "transfer_partners": ["chase", "amex", "citi", "capitalone", "bilt"],
-        "regions": ["EU", "NA", "AF", "AS_SE", "SA"],
-    },
-    "KL": {
-        "name": "KLM Flying Blue",
-        "hubs": ["AMS"],
-        "surcharge_multiplier": 1.3,
-        "transfer_partners": ["chase", "amex", "citi", "capitalone"],
-        "regions": ["EU", "NA", "AF", "AS_SE"],
-    },
-    "LH": {
-        "name": "Lufthansa Miles & More",
-        "hubs": ["FRA", "MUC"],
-        "surcharge_multiplier": 2.2,  # High surcharges
-        "transfer_partners": ["amex", "capitalone"],
-        "regions": ["EU", "NA", "AS_E", "ME", "SA"],
-    },
-    "SQ": {
-        "name": "Singapore KrisFlyer",
-        "hubs": ["SIN"],
-        "surcharge_multiplier": 0.3,  # SQ has LOW surcharges
-        "transfer_partners": ["chase", "amex", "citi", "capitalone"],
-        "regions": ["AS_SE", "AS_E", "EU", "NA", "OC", "AS_S"],
-    },
-    "NH": {
-        "name": "ANA Mileage Club",
-        "hubs": ["NRT", "HND"],
-        "surcharge_multiplier": 0.4,
-        "transfer_partners": ["amex"],
-        "regions": ["AS_E", "NA", "EU", "AS_SE"],
-    },
-    "CX": {
-        "name": "Cathay Pacific Asia Miles",
-        "hubs": ["HKG"],
-        "surcharge_multiplier": 1.2,
-        "transfer_partners": ["amex", "citi"],
-        "regions": ["AS_E", "AS_SE", "NA", "EU", "OC"],
-    },
-    "EK": {
-        "name": "Emirates Skywards",
-        "hubs": ["DXB"],
-        "surcharge_multiplier": 1.0,
-        "transfer_partners": ["amex", "citi", "capitalone"],
-        "regions": ["ME", "EU", "NA", "AS_E", "AS_SE", "AS_S", "AF", "OC"],
-    },
-    "QR": {
-        "name": "Qatar Privilege Club",
-        "hubs": ["DOH"],
-        "surcharge_multiplier": 0.6,
-        "transfer_partners": ["citi"],
-        "regions": ["ME", "EU", "NA", "AS_E", "AS_SE", "AS_S", "AF", "OC"],
-    },
-    "TK": {
-        "name": "Turkish Miles&Smiles",
-        "hubs": ["IST"],
-        "surcharge_multiplier": 0.5,
-        "transfer_partners": ["citi", "capitalone", "bilt"],
-        "regions": ["ME", "EU", "NA", "AS_E", "AS_SE", "AS_S", "AF"],
-    },
-    "AS": {
-        "name": "Alaska Mileage Plan",
-        "hubs": ["SEA", "PDX", "ANC", "LAX", "SFO"],
-        "surcharge_multiplier": 0.7,
-        "transfer_partners": ["amex", "chase", "capitalone"],
-        "regions": ["NA"],
-    },
-    "B6": {
-        "name": "JetBlue TrueBlue",
-        "hubs": ["JFK", "BOS", "FLL", "LAX"],
-        "surcharge_multiplier": 0.6,
-        "transfer_partners": ["amex"],
-        "regions": ["NA", "CB", "SA"],
-    },
-    "AC": {
-        "name": "Air Canada Aeroplan",
-        "hubs": ["YYZ", "YVR", "YUL"],
-        "surcharge_multiplier": 0.9,
-        "transfer_partners": ["chase", "amex", "capitalone"],
-        "regions": ["NA", "EU", "AS_E", "SA"],
-    },
-    "JL": {
-        "name": "Japan Airlines Mileage Bank",
-        "hubs": ["NRT", "HND"],
-        "surcharge_multiplier": 0.5,
-        "transfer_partners": ["amex"],
-        "regions": ["AS_E", "NA", "EU", "AS_SE", "OC"],
-    },
-    "QF": {
-        "name": "Qantas Frequent Flyer",
-        "hubs": ["SYD", "MEL"],
-        "surcharge_multiplier": 1.6,
-        "transfer_partners": ["amex", "citi"],
-        "regions": ["OC", "AS_E", "AS_SE", "NA", "EU"],
-    },
-    "EY": {
-        "name": "Etihad Guest",
-        "hubs": ["AUH"],
-        "surcharge_multiplier": 0.8,
-        "transfer_partners": ["amex", "citi", "capitalone"],
-        "regions": ["ME", "EU", "NA", "AS_E", "AS_SE", "AS_S", "AF", "OC"],
-    },
-    "AV": {
-        "name": "Avianca LifeMiles",
-        "hubs": ["BOG", "LIM", "SJO"],
-        "surcharge_multiplier": 0.5,
-        "transfer_partners": ["amex", "citi", "capitalone", "bilt"],
-        "regions": ["SA", "CA", "NA"],
-    },
-    "IB": {
-        "name": "Iberia Plus",
-        "hubs": ["MAD"],
-        "surcharge_multiplier": 1.3,
-        "transfer_partners": ["chase", "amex"],
-        "regions": ["EU", "SA", "NA"],
-    },
-}
+# AIRLINE_PROGRAMS is now imported from src.config.programs (AIRLINE_PROGRAMS_FULL)
 
 
 def _get_relevant_programs(origin: str, destination: str, programs: List[str]) -> List[str]:
@@ -669,36 +516,7 @@ def generate_dummy_flight_data(
 # HOTEL DUMMY DATA
 # =============================================================================
 
-HOTEL_PROGRAMS = {
-    "HH": {
-        "name": "Hilton Honors",
-        "brands": ["Hilton", "Conrad", "Waldorf Astoria", "DoubleTree", "Hampton Inn", "Embassy Suites"],
-        "points_per_night_range": (10000, 120000),
-        "has_surcharge": True,
-        "transfer_partners": ["amex"],
-    },
-    "MAR": {
-        "name": "Marriott Bonvoy",
-        "brands": ["Marriott", "Ritz-Carlton", "St. Regis", "W Hotels", "Westin", "Sheraton", "Renaissance"],
-        "points_per_night_range": (15000, 100000),
-        "has_surcharge": True,
-        "transfer_partners": ["chase", "amex"],
-    },
-    "HYATT": {
-        "name": "World of Hyatt",
-        "brands": ["Grand Hyatt", "Park Hyatt", "Andaz", "Hyatt Regency", "Hyatt Place", "Hyatt House"],
-        "points_per_night_range": (5000, 45000),
-        "has_surcharge": False,
-        "transfer_partners": ["chase", "bilt"],
-    },
-    "IHG": {
-        "name": "IHG One Rewards",
-        "brands": ["InterContinental", "Kimpton", "Crowne Plaza", "Holiday Inn", "Staybridge Suites"],
-        "points_per_night_range": (10000, 80000),
-        "has_surcharge": True,
-        "transfer_partners": ["chase", "bilt"],
-    },
-}
+# HOTEL_PROGRAMS is now imported from src.config.programs (HOTEL_PROGRAMS_FULL)
 
 # City tier for hotel pricing (affects both cash and points)
 def _get_city_tier(destination: str) -> int:

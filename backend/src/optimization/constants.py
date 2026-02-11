@@ -6,101 +6,15 @@ This module centralizes all magic numbers, thresholds, and default values.
 
 from typing import Dict, Set
 
-
-# =============================================================================
-# TRANSFER GRAPH: Bank -> Airline mappings with transfer ratios
-# =============================================================================
-
-DEFAULT_TRANSFER_GRAPH: Dict[str, Dict[str, float]] = {
-    "chase": {
-        # Chase Ultimate Rewards airline partners
-        "UA": 1.0,   # United MileagePlus
-        "BA": 1.0,   # British Airways Avios
-        "AF": 1.0,   # Air France/KLM Flying Blue
-        "IB": 1.0,   # Iberia Plus
-        "SQ": 1.0,   # Singapore KrisFlyer
-        "VS": 1.0,   # Virgin Atlantic
-        "EI": 1.0,   # Aer Lingus AerClub
-        "EK": 1.0,   # Emirates Skywards
-        "AC": 1.0,   # Air Canada Aeroplan
-        "AV": 1.0,   # Avianca LifeMiles
-        "WN": 1.0,   # Southwest Rapid Rewards
-        "AS": 1.0,   # Alaska Mileage Plan
-        # Hotels
-        "HYATT": 1.0,  # World of Hyatt
-        "MAR": 1.0,  # Marriott Bonvoy (3:1 but set to 1 here, adjusted elsewhere)
-        "IHG": 1.0,  # IHG One Rewards
-    },
-    "amex": {
-        # Amex Membership Rewards airline partners
-        "DL": 1.0,   # Delta SkyMiles
-        "B6": 1.0,   # JetBlue TrueBlue
-        "BA": 1.0,   # British Airways Avios
-        "AF": 1.0,   # Air France/KLM Flying Blue
-        "IB": 1.0,   # Iberia Plus
-        "SQ": 1.0,   # Singapore KrisFlyer
-        "CX": 1.0,   # Cathay Pacific Asia Miles
-        "NH": 1.0,   # ANA Mileage Club
-        "VS": 1.0,   # Virgin Atlantic
-        "EK": 1.0,   # Emirates Skywards
-        "EY": 1.0,   # Etihad Guest
-        "QF": 1.0,   # Qantas Frequent Flyer
-        "AV": 1.0,   # Avianca LifeMiles
-        "AS": 1.0,   # Alaska Mileage Plan
-        "AC": 1.0,   # Air Canada Aeroplan
-        "JL": 1.0,   # Japan Airlines Mileage Bank
-        # Hotels
-        "HH": 1.0,   # Hilton Honors (often 1:2 but varies)
-        "MAR": 1.0,  # Marriott Bonvoy
-    },
-    "citi": {
-        # Citi ThankYou airline partners
-        "AA": 1.0,   # American AAdvantage
-        "B6": 1.0,   # JetBlue TrueBlue
-        "TK": 1.0,   # Turkish Miles&Smiles
-        "SQ": 1.0,   # Singapore KrisFlyer
-        "CX": 1.0,   # Cathay Pacific Asia Miles
-        "QR": 1.0,   # Qatar Airways Privilege Club
-        "VS": 1.0,   # Virgin Atlantic
-        "EY": 1.0,   # Etihad Guest
-        "EK": 1.0,   # Emirates Skywards
-        "AF": 1.0,   # Air France/KLM Flying Blue
-        "QF": 1.0,   # Qantas Frequent Flyer
-        "AC": 1.0,   # Air Canada Aeroplan
-        "AV": 1.0,   # Avianca LifeMiles
-        "JL": 1.0,   # Japan Airlines Mileage Bank
-    },
-    "capitalone": {
-        # Capital One Miles airline partners
-        "AC": 1.0,   # Air Canada Aeroplan
-        "AF": 1.0,   # Air France/KLM Flying Blue
-        "BA": 1.0,   # British Airways Avios
-        "EK": 1.0,   # Emirates Skywards
-        "EY": 1.0,   # Etihad Guest
-        "AY": 1.0,   # Finnair Plus
-        "SQ": 1.0,   # Singapore KrisFlyer
-        "TK": 1.0,   # Turkish Miles&Smiles
-        "AV": 1.0,   # Avianca LifeMiles
-        "QF": 1.0,   # Qantas Frequent Flyer
-        "TAP": 1.0,  # TAP Air Portugal
-    },
-    "bilt": {
-        # Bilt Rewards airline partners
-        "UA": 1.0,   # United MileagePlus
-        "AA": 1.0,   # American AAdvantage
-        "BA": 1.0,   # British Airways Avios
-        "AF": 1.0,   # Air France/KLM Flying Blue
-        "TK": 1.0,   # Turkish Miles&Smiles
-        "VS": 1.0,   # Virgin Atlantic
-        "EI": 1.0,   # Aer Lingus AerClub
-        "EK": 1.0,   # Emirates Skywards
-        "AC": 1.0,   # Air Canada Aeroplan
-        "AS": 1.0,   # Alaska Mileage Plan
-        # Hotels
-        "HYATT": 1.0,  # World of Hyatt
-        "IHG": 1.0,  # IHG One Rewards
-    },
-}
+# Centralized program config (single source of truth)
+from src.config.programs import (
+    DEFAULT_TRANSFER_GRAPH,
+    AIRLINE_DISPLAY_NAMES as AIRLINE_NAMES,
+    BANK_NAME_MAPPINGS,
+    BANK_PREFIXES,
+    CREDIT_CARD_SUGGESTIONS,
+    HIGH_SURCHARGE_PROGRAMS,
+)
 
 
 # =============================================================================
@@ -143,20 +57,7 @@ CPP_THRESHOLDS: Dict[str, float] = {
 DEFAULT_CPP_THRESHOLD = 1.2  # For unknown programs
 
 
-# =============================================================================
-# HIGH SURCHARGE PROGRAMS (Known for fuel surcharges on awards)
-# =============================================================================
-
-HIGH_SURCHARGE_PROGRAMS: Set[str] = {
-    "BA",  # British Airways - notorious for surcharges
-    "LH",  # Lufthansa
-    "LX",  # Swiss
-    "OS",  # Austrian
-    "QF",  # Qantas
-    "VS",  # Virgin Atlantic
-    "SQ",  # Singapore (on some routes)
-    "NH",  # ANA (some partner routes)
-}
+# HIGH_SURCHARGE_PROGRAMS is now imported from src.config.programs
 
 
 # =============================================================================
@@ -347,76 +248,8 @@ class SOLVER_CONFIG:
     BIG_M = 1e6
 
 
-# =============================================================================
-# BANK NAME MAPPINGS
-# =============================================================================
-
-BANK_NAME_MAPPINGS: Dict[str, str] = {
-    # Long names to short codes
-    "amex_membership_rewards": "amex",
-    "chase_ultimate_rewards": "chase",
-    "citi_thankyou_points": "citi",
-    "citi_thank_you": "citi",
-    "capital_one_miles": "capitalone",
-    "capitalone_miles": "capitalone",
-    "bilt_rewards": "bilt",
-    
-    # Common variations
-    "membership_rewards": "amex",
-    "ultimate_rewards": "chase",
-    "thankyou_points": "citi",
-}
-
-BANK_PREFIXES = ["amex", "chase", "citi", "capitalone", "bilt"]
-
-
-# =============================================================================
-# CREDIT CARD SUGGESTIONS (For transfer strategy display)
-# =============================================================================
-
-CREDIT_CARD_SUGGESTIONS: Dict[str, str] = {
-    "chase": "Chase Sapphire Preferred/Reserve or Chase Ink Preferred",
-    "amex": "Amex Platinum, Amex Gold, or Amex Business Platinum",
-    "citi": "Citi Premier or Citi Custom Cash",
-    "capitalone": "Capital One Venture X or Venture",
-    "bilt": "Bilt Mastercard",
-}
-
-
-# =============================================================================
-# AIRLINE DISPLAY NAMES
-# =============================================================================
-
-AIRLINE_NAMES: Dict[str, str] = {
-    "UA": "United MileagePlus",
-    "AA": "American AAdvantage",
-    "DL": "Delta SkyMiles",
-    "BA": "British Airways Avios",
-    "AF": "Air France/KLM Flying Blue",
-    "SQ": "Singapore KrisFlyer",
-    "NH": "ANA Mileage Club",
-    "TK": "Turkish Miles&Smiles",
-    "VS": "Virgin Atlantic Flying Club",
-    "EK": "Emirates Skywards",
-    "QF": "Qantas Frequent Flyer",
-    "CX": "Cathay Pacific Asia Miles",
-    "AC": "Air Canada Aeroplan",
-    "AS": "Alaska Mileage Plan",
-    "AV": "Avianca LifeMiles",
-    "EY": "Etihad Guest",
-    "IB": "Iberia Plus",
-    "JL": "Japan Airlines Mileage Bank",
-    "B6": "JetBlue TrueBlue",
-    "WN": "Southwest Rapid Rewards",
-    "EI": "Aer Lingus AerClub",
-    "QR": "Qatar Airways Privilege Club",
-    "AY": "Finnair Plus",
-    "TAP": "TAP Miles&Go",
-    "HYATT": "World of Hyatt",
-    "MAR": "Marriott Bonvoy",
-    "HH": "Hilton Honors",
-    "IHG": "IHG One Rewards",
-}
+# BANK_NAME_MAPPINGS, BANK_PREFIXES, CREDIT_CARD_SUGGESTIONS, AIRLINE_NAMES,
+# and HIGH_SURCHARGE_PROGRAMS are now imported from src.config.programs
 
 
 # =============================================================================

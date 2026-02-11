@@ -2213,6 +2213,8 @@ export interface UserProfile {
     points: number;
     /** Optional card product (e.g. "Delta SkyMiles Gold Amex") for benefit-aware optimization */
     card_product?: string;
+    /** Owner of the points: "me" for the user's own account, or a name like "Jose" for someone else */
+    owner?: string;
   }>;
   flight_class?: string;
   hotel_class?: string;
@@ -2228,6 +2230,8 @@ export interface UpdateProfileRequest {
     program: string;
     points: number;
     card_product?: string;
+    /** Owner of the points: "me" for the user's own account, or a name like "Jose" for someone else */
+    owner?: string;
   }>;
   flight_class?: string;
   hotel_class?: string;
@@ -2636,7 +2640,7 @@ export interface SoloCreateTripRequest {
   bags?: number;
   flightClass?: 'basic_economy' | 'economy' | 'premium' | 'business' | 'first';
   hotelClass?: '3' | '4' | '5';
-  optimizationMode?: 'oop' | 'cpp' | 'balanced';
+  optimizationMode?: 'oop' | 'cpp' | 'balanced' | 'money_saving';
   departureTimePreference?: 'any' | 'morning' | 'afternoon' | 'evening' | 'night';
   arrivalTimePreference?: 'any' | 'morning' | 'afternoon' | 'evening' | 'night';
   // Multi-city leg dates: departure date for each flight segment
@@ -2701,6 +2705,8 @@ export interface SoloTransferInstruction {
   portalUrl: string;
   warning?: string;
   isDirect?: boolean;  // True when using native miles (no transfer needed)
+  payerId?: string;    // Multi-payer: who owns these points (e.g. "alice")
+  payerName?: string;  // Multi-payer: display name (e.g. "Alice")
 }
 
 export interface SoloSegmentBreakdown {
@@ -2758,6 +2764,9 @@ export interface SoloOOPMetrics {
   partySize?: number;
   numAdults?: number;
   numChildren?: number;
+  // Multi-payer tracking: which payer contributed what
+  // e.g., { "Jose": { "amex_mr": 100000 }, "me": { "chase_ur": 50000 } }
+  payerBreakdown?: Record<string, Record<string, number>>;
 }
 
 export interface DecisionSummary {
@@ -3219,7 +3228,7 @@ export const solo = {
    */
   startMonitoring: async (
     tripId: string,
-    email: string,
+    email?: string,
     baselinePayload?: {
       schema_version: number;
       selected_itinerary: Record<string, unknown>;
@@ -3240,7 +3249,7 @@ export const solo = {
         method: 'POST',
         body: JSON.stringify({
           tier: 'free_email',
-          email,
+          email: email || null,
           baseline_payload: baselinePayload || null,
         }),
       },
@@ -3302,6 +3311,82 @@ export const solo = {
       true,
     );
     return toCamelCase(response) as { ok: boolean };
+  },
+};
+
+// ============================================================================
+// PAYMENT API — Stripe integration for service fees
+// ============================================================================
+
+export interface CalculateFeeResponse {
+  tripId: string;
+  destinationCount: number;  // total airports (origin + destinations)
+  label: string;             // e.g. "2 destinations"
+  amount: number;            // cents
+  displayAmount: string;     // e.g. "$8.00"
+  currency: string;
+}
+
+export interface ValidatePromoResponse {
+  valid: boolean;
+  code?: string;
+  description?: string;
+  originalAmount: number;
+  discountAmount: number;
+  finalAmount: number;
+  finalDisplay: string;
+  message: string;
+}
+
+export interface CreatePaymentIntentResponse {
+  clientSecret: string;
+  paymentIntentId: string;
+  amount: number;
+  currency: string;
+}
+
+export const payment = {
+  /**
+   * Calculate the service fee tier and amount for a trip.
+   */
+  calculateFee: async (tripId: string): Promise<CalculateFeeResponse> => {
+    const response = await apiRequest<Record<string, unknown>>('/payment/calculate-fee', {
+      method: 'POST',
+      body: JSON.stringify({ trip_id: tripId }),
+    });
+    return toCamelCase<CalculateFeeResponse>(response);
+  },
+
+  /**
+   * Validate a promo code and preview the discount.
+   */
+  validatePromo: async (tripId: string, promoCode: string): Promise<ValidatePromoResponse> => {
+    const response = await apiRequest<Record<string, unknown>>('/payment/validate-promo', {
+      method: 'POST',
+      body: JSON.stringify({ trip_id: tripId, promo_code: promoCode }),
+    });
+    return toCamelCase<ValidatePromoResponse>(response);
+  },
+
+  /**
+   * Create a Stripe PaymentIntent. Requires authentication.
+   */
+  createIntent: async (tripId: string, promoCode?: string): Promise<CreatePaymentIntentResponse> => {
+    const response = await apiRequest<Record<string, unknown>>('/payment/create-intent', {
+      method: 'POST',
+      body: JSON.stringify({ trip_id: tripId, promo_code: promoCode || null }),
+    });
+    return toCamelCase<CreatePaymentIntentResponse>(response);
+  },
+
+  /**
+   * Confirm a $0 payment (100% promo code discount). Requires authentication.
+   */
+  confirmFree: async (tripId: string, promoCode: string): Promise<{ ok: boolean; message: string }> => {
+    return apiRequest<{ ok: boolean; message: string }>('/payment/confirm-free', {
+      method: 'POST',
+      body: JSON.stringify({ trip_id: tripId, promo_code: promoCode }),
+    });
   },
 };
 

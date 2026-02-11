@@ -22,6 +22,7 @@ from .models_v3 import (
     FlightItineraryEdge, FlightSegment, AwardOption,
     TransferPath,
     OptimizationResult, OptimizationStatus, Solution,
+    ComfortConfig, PruningConfig,
 )
 from .normalize import normalize_program, normalize_bank, is_fixed_value_bank, is_transferable_bank, FIXED_VALUE_BANKS
 from .solver_v3 import optimize_trip, Mode
@@ -1088,6 +1089,11 @@ def convert_result_to_itineraries(
     if not solution:
         return []
     
+    # Determine if this is a single-payer (solo) trip.
+    # When single-payer, payer_name should be None so the frontend treats
+    # transfers as the user's own (not "someone else's points").
+    is_single_payer = len(spec.travelers) <= 1
+    
     # Build flight lookup
     flight_by_id = {f.edge_id: f for f in flights}
     
@@ -1218,7 +1224,7 @@ def convert_result_to_itineraries(
                         transfer_time="Instant",
                         steps=[f"Transfer {payment_choice.points_amount:,} from {from_bank} to {to_prog}"],
                         payer_id=payer_id,
-                        payer_name=payer_id,
+                        payer_name=None if is_single_payer else payer_id,
                     ))
             elif payment_choice.funding_source_id and "native" in payment_choice.funding_source_id:
                 # Native program usage — user already has these miles
@@ -1234,7 +1240,7 @@ def convert_result_to_itineraries(
                     steps=[f"Use {payment_choice.points_amount:,} {prog} miles directly"],
                     is_direct=True,
                     payer_id=payer_id,
-                    payer_name=payer_id,
+                    payer_name=None if is_single_payer else payer_id,
                 ))
                 
                 # Track per-payer usage
@@ -1761,7 +1767,7 @@ def convert_result_to_itineraries(
         itinerary_name = "Closest Available Itinerary"
     else:
         summary = f"Save ${cash_saved:.0f} ({savings_pct:.0f}% off) by using {total_points_used:,} points"
-        itinerary_name = "V3 Optimized Itinerary"
+        itinerary_name = "Optimized Itinerary"
     
     itinerary = RankedItinerary(
         id=str(uuid.uuid4()),
@@ -2366,6 +2372,50 @@ async def run_v3_optimization(
     is_international = _detect_international_route(segments, trip_data)
     logger.info(f"[V3 Adapter] Route type: {'international' if is_international else 'domestic'}")
     
+    # Build configs for money-saver mode (ultra-aggressive points usage)
+    money_saver_comfort = None
+    money_saver_pruning = None
+    if mode == "money_saving":
+        logger.info("[V3 Adapter] MONEY-SAVER MODE: Disabling ALL guardrails and convenience penalties — pure minimum cash")
+        money_saver_comfort = ComfortConfig(
+            # ═══════════════════════════════════════════════════════════════
+            # HARD CONSTRAINTS: Remove all limits — accept any itinerary
+            # ═══════════════════════════════════════════════════════════════
+            max_stops_domestic=99,          # No stop limit
+            max_stops_international=99,     # No stop limit
+            max_duration_ratio=100.0,       # No duration limit
+            max_layover_hours=48.0,         # Allow very long layovers
+            require_single_ticket=False,    # Allow self-transfer / separate tickets
+            # ═══════════════════════════════════════════════════════════════
+            # CONVENIENCE PENALTIES: All zero — duration, stops, layovers don't matter
+            # ═══════════════════════════════════════════════════════════════
+            stop_cost_domestic=0.0,
+            stop_cost_international=0.0,
+            time_cost_per_hour=0.0,
+            layover_cost_per_hour=0.0,
+            redeye_cost=0.0,
+            carrier_change_cost=0.0,
+            short_connection_cost=0.0,
+            # ═══════════════════════════════════════════════════════════════
+            # CPP GUARDRAILS: All disabled — accept any award that saves $1
+            # ═══════════════════════════════════════════════════════════════
+            cpp_floor=0.0,
+            cpp_floor_hotels=0.0,
+            enable_cpp_floor=False,
+            max_miles_per_dollar_saved=float('inf'),
+            enable_miles_per_dollar_guard=False,
+            # Points opportunity cost OFF — let points win always
+            points_opportunity_cost_oop=0.0,
+            # Force critical budget tier — no guardrail escalation needed
+            enable_adaptive_budget_guardrails=False,
+            # No quality slack — pure minimum cash, Stage 2 delta = 0
+            stage2_delta_override=0.0,
+        )
+        money_saver_pruning = PruningConfig(
+            max_stops=99,              # Don't prune by stops
+            max_duration_hours=999.0,  # Don't prune by duration
+        )
+    
     # Run V3 solver (flights only)
     # Pass budget to solver - when set, FORCES points usage to stay within budget
     result = optimize_trip(
@@ -2375,6 +2425,8 @@ async def run_v3_optimization(
         # mode is ignored - always minimizes cash out-of-pocket
         determinism_mode=False,
         is_international=is_international,
+        comfort_config=money_saver_comfort,
+        pruning_config=money_saver_pruning,
         cash_budget=effective_budget if effective_budget and effective_budget > 0 else None,
     )
     

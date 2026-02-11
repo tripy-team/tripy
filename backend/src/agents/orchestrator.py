@@ -497,7 +497,20 @@ class OrchestratorAgent(BaseAgent):
                     for w in unique_warnings
                 ]
         
-        # Classify existing warnings into structured categories
+        # Build structured points warning from diagnostic reasons (preferred)
+        if best and best.no_points_reasons:
+            structured.points = WarningItem(
+                category="points",
+                severity="warning",
+                headline="Points Not Used",
+                message=(
+                    "Points are not being used for the following reasons. "
+                    "Cash is the recommended option for this booking."
+                ),
+                details={"reasons": best.no_points_reasons},
+            )
+        
+        # Classify remaining warnings into structured categories
         for w in unique_warnings:
             if "points could not be used" in w.lower() or "cannot transfer" in w.lower():
                 if not structured.points:
@@ -2157,41 +2170,21 @@ class OrchestratorAgent(BaseAgent):
                 f"The minimum cost for this trip is ${total_oop:.0f}. "
                 f"We recommend setting your budget to at least ${suggested_budget:,}."
             )
-            
-            # Check if this is due to transfer partner incompatibility
-            if total_points_used == 0 and user_points:
-                # Get user's reachable airlines
-                from .config import TRANSFER_GRAPH
-                user_banks = list(user_points.keys())
-                # Humanize bank keys: "bank_of_america" → "Bank of America"
-                user_banks_display = [b.replace("_", " ").title() for b in user_banks]
-                reachable_airlines = set()
-                for bank_name, config in TRANSFER_GRAPH.items():
-                    bank_normalized = bank_name.lower().replace(" ", "_")
-                    for user_prog in user_points.keys():
-                        user_prog_normalized = user_prog.lower().replace(" ", "_").replace("-", "_")
-                        if (bank_normalized == user_prog_normalized or 
-                            bank_normalized.replace("_", "") == user_prog_normalized.replace("_", "") or
-                            bank_normalized.split("_")[0] == user_prog_normalized.split("_")[0]):
-                            reachable_airlines.update(config.get("airlines", []))
-                
-                # Build points warning with guard against empty reachable airlines
-                banks_str = ", ".join(user_banks_display)
-                if reachable_airlines:
-                    airlines_str = ", ".join(sorted(reachable_airlines))
-                    points_msg = (
-                        f"Points could not be used because the available award flights are on airlines "
-                        f"that your points ({banks_str}) cannot transfer to. "
-                        f"Your points can transfer to: {airlines_str}. "
-                        f"Consider adding more cards to access more airlines."
-                    )
-                else:
-                    points_msg = (
-                        f"Points could not be used because your points program ({banks_str}) "
-                        f"does not have transfer partners that match the available flights on this route. "
-                        f"Consider adding more cards to access more airlines."
-                    )
-                warnings.append(points_msg)
+        
+        # Diagnose why points weren't used (runs regardless of budget status)
+        no_points_reasons: list[str] = []
+        if total_points_used == 0 and user_points:
+            no_points_reasons = self._diagnose_no_points_reasons(
+                search_results, segments, user_points, remaining_points,
+            )
+            logger.info(f"[Greedy] Points not used — reasons: {no_points_reasons}")
+            # Build a legacy flat warning for backward compat
+            if no_points_reasons:
+                reasons_joined = "; ".join(no_points_reasons)
+                warnings.append(
+                    f"Points could not be used: {reasons_joined}. "
+                    f"Cash is the recommended option for this booking."
+                )
         
         # Build appropriate summary based on budget status
         if within_budget:
@@ -2244,6 +2237,7 @@ class OrchestratorAgent(BaseAgent):
             within_budget=within_budget,
             within_points=True,  # We already respected limits
             summary=summary,
+            no_points_reasons=no_points_reasons if no_points_reasons else None,
         )
         
         return [itinerary], warnings
@@ -2493,6 +2487,148 @@ class OrchestratorAgent(BaseAgent):
                 total += min(cash_prices)
         return total if total > 0 else 1.0  # Avoid divide-by-zero
     
+    def _diagnose_no_points_reasons(
+        self,
+        search_results: dict,
+        segments: list[dict],
+        user_points: dict,
+        remaining_points: dict,
+    ) -> list[str]:
+        """
+        Diagnose WHY points weren't used even though the user has them.
+
+        Inspects every flight option across all segments and returns a list of
+        human-readable reason strings (order = priority).
+
+        Possible reasons:
+        1. No award seats found at all
+        2. Transfer partner incompatibility
+        3. Redemption value (CPP) too low
+        4. Award surcharges too high
+        5. Insufficient points balance
+        """
+        from .config import OOP_CONFIG, TRANSFER_GRAPH
+
+        reasons: list[str] = []
+
+        # Collect all flight options across segments
+        all_award_options = []
+        has_any_options = False
+        for i, segment in enumerate(segments):
+            if segment.get("type") != "flight":
+                continue
+            key = f"flight_{i}"
+            result = search_results.get(key)
+            if not result or not result.options:
+                continue
+            has_any_options = True
+            for opt in result.options:
+                if opt.award_available and opt.award_points:
+                    all_award_options.append(opt)
+
+        if not has_any_options:
+            reasons.append("No flight options were returned for this route")
+            return reasons
+
+        # --- Reason 1: No award availability at all ---
+        if not all_award_options:
+            reasons.append("No award seats were found on any airline for this route and date")
+            return reasons  # No further diagnosis possible
+
+        # --- Reason 2: Transfer partner incompatibility ---
+        reachable_airlines: set[str] = set()
+        for bank_name, config in TRANSFER_GRAPH.items():
+            bank_normalized = bank_name.lower().replace(" ", "_")
+            for user_prog in user_points.keys():
+                user_prog_normalized = user_prog.lower().replace(" ", "_").replace("-", "_")
+                if (bank_normalized == user_prog_normalized or
+                    bank_normalized.replace("_", "") == user_prog_normalized.replace("_", "") or
+                    bank_normalized.split("_")[0] == user_prog_normalized.split("_")[0]):
+                    reachable_airlines.update(config.get("airlines", []))
+
+        unreachable_programs: set[str] = set()
+        reachable_award_options = []
+        for opt in all_award_options:
+            prog_upper = (opt.award_program or "").upper()
+            airline_code = prog_upper[:2] if len(prog_upper) >= 2 else prog_upper
+            if airline_code not in reachable_airlines and prog_upper not in reachable_airlines:
+                unreachable_programs.add(opt.award_program or "Unknown")
+            else:
+                reachable_award_options.append(opt)
+
+        if unreachable_programs and not reachable_award_options:
+            banks_display = ", ".join(
+                b.replace("_", " ").title() for b in user_points.keys()
+            )
+            reasons.append(
+                f"Your points ({banks_display}) cannot transfer to the airlines "
+                f"offering award seats on this route ({', '.join(sorted(unreachable_programs))})"
+            )
+            return reasons  # Can't use unreachable awards, no further analysis
+
+        # From here on we're looking at awards the user's points CAN reach
+        check_options = reachable_award_options if reachable_award_options else all_award_options
+
+        # --- Reason 3: CPP too low ---
+        min_cpp = OOP_CONFIG.get("min_cpp_threshold", 0.5)
+        low_cpp_options = [
+            opt for opt in check_options
+            if opt.cpp is not None and opt.cpp < min_cpp
+        ]
+        if low_cpp_options:
+            worst_cpp = min(opt.cpp for opt in low_cpp_options)
+            reasons.append(
+                f"The best available redemption value was {worst_cpp:.1f}\u00a2 per point, "
+                f"below the {min_cpp}\u00a2 minimum for a good deal"
+            )
+
+        # --- Reason 4: Surcharge too high ---
+        max_surcharge_ratio = OOP_CONFIG.get("max_surcharge_ratio", 0.50)
+        high_surcharge_options = [
+            opt for opt in check_options
+            if opt.cash_price and opt.award_surcharge
+            and (opt.award_surcharge / opt.cash_price) > max_surcharge_ratio
+        ]
+        if high_surcharge_options:
+            worst_ratio = max(
+                opt.award_surcharge / opt.cash_price for opt in high_surcharge_options
+            )
+            reasons.append(
+                f"Award surcharges were too high "
+                f"({int(worst_ratio * 100)}% of the cash fare, limit is {int(max_surcharge_ratio * 100)}%)"
+            )
+
+        # --- Reason 5: Insufficient balance ---
+        unaffordable_options = [
+            opt for opt in check_options
+            if not self._can_afford_points(opt.award_program, opt.award_points, remaining_points)
+        ]
+        affordable_options = [
+            opt for opt in check_options
+            if self._can_afford_points(opt.award_program, opt.award_points, remaining_points)
+        ]
+        if unaffordable_options and not affordable_options:
+            cheapest = min(unaffordable_options, key=lambda o: o.award_points)
+            reasons.append(
+                f"The cheapest award requires {cheapest.award_points:,} points "
+                f"but your balance is not sufficient"
+            )
+
+        # --- Reason 2b: partial transfer incompatibility ---
+        if unreachable_programs and reachable_award_options:
+            reasons.append(
+                f"Some award options were on airlines your points can't reach "
+                f"({', '.join(sorted(unreachable_programs))})"
+            )
+
+        # Fallback if no specific reason detected
+        if not reasons:
+            reasons.append(
+                "Cash offered a better overall value than the available award options"
+            )
+
+        return reasons
+
     def _can_afford_points(self, program: str, points_needed: int, remaining_points: dict) -> bool:
         """
         Check if user can afford points (direct or via transfer).

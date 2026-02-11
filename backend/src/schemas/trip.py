@@ -26,6 +26,7 @@ class OptimizationMode(str, Enum):
     OOP = "oop"          # Minimize out-of-pocket
     CPP = "cpp"          # Maximize cents-per-point
     BALANCED = "balanced"
+    MONEY_SAVING = "money_saving"  # Ultra-aggressive: use points at any CPP to minimize cash
 
 
 class CreateTripRequest(BaseModel):

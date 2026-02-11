@@ -279,8 +279,8 @@ class SolveMode(str, Enum):
     RELAXED = "relaxed"  # Soft budget constraints with slack variables
 
 
-# Bank program codes (lowercase)
-BANK_PROGRAMS = {"chase", "amex", "citi", "capitalone", "bilt"}
+# Bank program codes (lowercase) — from centralized config
+from src.config.programs import BANK_PROGRAMS
 
 
 # =============================================================================

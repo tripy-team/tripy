@@ -17,6 +17,7 @@ cryptography>=3.4.8
 
 # Config & env
 python-dotenv==1.0.0
+PyYAML>=6.0
 
 # Dates, flights, imaging
 python-dateutil==2.9.0.post0
@@ -31,3 +32,6 @@ google-search-results
 openai
 beautifulsoup4
 rapidfuzz>=3.0.0
+
+# Payments
+stripe>=8.0.0

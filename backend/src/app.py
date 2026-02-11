@@ -84,6 +84,9 @@ from .routes.solo import router as solo_router
 # Import monitoring router
 from .routes.monitoring import router as monitoring_router
 
+# Import payment router
+from .routes.payment import router as payment_router
+
 # Get CORS origins from environment variable
 # IMPORTANT: Browsers reject allow_credentials=True with allow_origins=["*"]
 # When sending Authorization headers or cookies, you MUST specify exact origins
@@ -242,6 +245,9 @@ app.include_router(solo_router)
 
 # Include monitoring routes
 app.include_router(monitoring_router)
+
+# Include payment routes
+app.include_router(payment_router)
 
 
 # Preload commercial airports and airport data at startup for fast autocomplete

@@ -254,11 +254,15 @@ class SolverV3:
             )
         
         # ═══════════════════════════════════════════════════════════════════
-        # STEP 2: Single-ticket filter (HARD)
+        # STEP 2: Single-ticket filter (HARD — skipped in money-saver mode)
         # ═══════════════════════════════════════════════════════════════════
         
-        flights, ticket_warnings = filter_single_ticket_only(flights)
-        all_warnings.extend(ticket_warnings)
+        if self.comfort_config.require_single_ticket:
+            flights, ticket_warnings = filter_single_ticket_only(flights)
+            all_warnings.extend(ticket_warnings)
+        else:
+            ticket_warnings = []
+            logger.info("[V3] Single-ticket filter SKIPPED (money-saver mode)")
         
         self.metrics.flights_after_ticket_filter = len(flights)
         self.metrics.flights_dropped_separate_tickets = sum(
@@ -1313,7 +1317,12 @@ class SolverV3:
             # ═══════════════════════════════════════════════════════════════
             # STAGE 2 (Lexicographic): Maximize quality within OOP envelope
             # ═══════════════════════════════════════════════════════════════
-            delta = compute_stage2_delta(self.cash_budget or 0, oop_star)
+            # Use delta override from comfort config if set (e.g., money-saver mode uses 0)
+            if self.comfort_config.stage2_delta_override is not None:
+                delta = self.comfort_config.stage2_delta_override
+                logger.info(f"[V3] stage2 delta={delta:.2f} (OVERRIDE from comfort config)")
+            else:
+                delta = compute_stage2_delta(self.cash_budget or 0, oop_star)
             self.metrics.pass1_slack = delta
             
             logger.info(
@@ -2370,6 +2379,7 @@ def optimize_trip(
     determinism_mode: bool = False,
     is_international: bool = False,
     comfort_config: Optional[ComfortConfig] = None,
+    pruning_config: Optional[PruningConfig] = None,
     cash_budget: Optional[float] = None,
 ) -> OptimizationResult:
     """
@@ -2387,6 +2397,7 @@ def optimize_trip(
         determinism_mode: Use single thread for reproducibility
         is_international: Whether this is an international route (affects penalties)
         comfort_config: Optional custom comfort configuration
+        pruning_config: Optional custom pruning configuration
         cash_budget: Cash budget constraint (HARD LIMIT). When set:
                     - Solver MUST find solution within budget
                     - Forces points usage when cash exceeds budget
@@ -2412,6 +2423,7 @@ def optimize_trip(
         determinism_mode=determinism_mode,
         is_international=is_international,
         comfort_config=comfort_config,
+        pruning_config=pruning_config,
         cash_budget=cash_budget,
     )
     

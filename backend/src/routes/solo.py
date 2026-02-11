@@ -96,6 +96,13 @@ def _is_valid_transfer(bank: str, program: str) -> bool:
         "avianca": "AV", "lifemiles": "AV",
         "iberia": "IB", "iberiaplus": "IB",
         "etihad": "EY", "etihadguest": "EY",
+        "aeroplan": "AC", "aircanada": "AC", "aircanadaaeroplan": "AC",
+        "turkish": "TK", "milesandsmiles": "TK", "miles&smiles": "TK",
+        "qatar": "QR", "privilegeclub": "QR",
+        "jal": "JL", "japanairlines": "JL",
+        "aerlingus": "EI", "aerclub": "EI",
+        "finnair": "AY", "finnairplus": "AY",
+        "tap": "TAP", "tapmiles&go": "TAP",
     }
     prog_normalized = prog_map.get(prog_lower, program.upper() if program else "")
     
@@ -805,6 +812,8 @@ def _transform_itineraries(agent_itineraries: list, party_size: int = 1) -> list
                 portal_url=t.portal_url,
                 warning=t.warning,
                 is_direct=getattr(t, 'is_direct', False),
+                payer_id=getattr(t, 'payer_id', None),
+                payer_name=getattr(t, 'payer_name', None),
             ))
         
         # Build OOP metrics (scale costs by party_size, percentages stay same)
@@ -816,6 +825,7 @@ def _transform_itineraries(agent_itineraries: list, party_size: int = 1) -> list
             savings_percentage=metrics.savings_percentage,  # Percentage stays the same
             total_points_used=metrics.total_points_used * party_size,
             average_cpp=metrics.average_cpp,  # CPP (cents per point) stays the same
+            payer_breakdown=getattr(metrics, 'payer_breakdown', None),
         )
         
         # Build route from segments
@@ -1945,6 +1955,10 @@ async def get_transfer_strategy(
             # Check if this is a direct usage (source == target means native miles)
             is_direct = t.get("isDirect") or t.get("is_direct", False)
             
+            # Multi-payer: extract payer info from snapshot transfer
+            payer_id = t.get("payerId") or t.get("payer_id")
+            payer_name = t.get("payerName") or t.get("payer_name")
+            
             transfers.append(TransferInstruction(
                 step_number=idx + 1,
                 source_program=source,
@@ -1955,6 +1969,8 @@ async def get_transfer_strategy(
                 portal_url=portal,
                 warning=warning,
                 is_direct=is_direct,
+                payer_id=payer_id,
+                payer_name=payer_name,
             ))
             
             # Only count actual transfers (not direct usage) toward total_points_to_transfer

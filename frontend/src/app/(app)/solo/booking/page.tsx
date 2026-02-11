@@ -1,6 +1,6 @@
 'use client';
 
-import { useState, Suspense, useEffect } from 'react';
+import { useState, Suspense, useEffect, useRef } from 'react';
 import { useSearchParams } from 'next/navigation';
 import {
   CheckCircle,
@@ -21,10 +21,10 @@ import {
   Check,
   DollarSign,
   Eye,
-  Mail,
   Shield,
   TrendingDown,
   Calendar,
+  Users,
 } from 'lucide-react';
 import { solo, trips as tripsAPI, destinations as destinationsAPI, type SoloTransferStrategyResponse, type SoloTransferInstruction, type SoloBookingStep, type BookingDetails, type ItineraryRisk, isAuthenticated } from '@/lib/api';
 import { calculateServiceFee, SERVICE_FEE_PERCENT, formatDate, tripDurationDays } from '@/lib/utils';
@@ -36,7 +36,7 @@ import SignInPrompt from '@/components/SignInPrompt';
 import EmailPlanModal from '@/components/EmailPlanModal';
 
 function humanizeProgram(code: string): string {
-  const m: Record<string, string> = {
+  const banks: Record<string, string> = {
     chase: 'Chase Ultimate Rewards',
     amex: 'Amex Membership Rewards',
     citi: 'Citi ThankYou Rewards',
@@ -48,7 +48,14 @@ function humanizeProgram(code: string): string {
     discover: 'Discover Miles',
     us_bank: 'US Bank Rewards',
   };
-  return m[String(code || '').toLowerCase()] || String(code || '').replace(/_/g, ' ').replace(/\b\w/g, c => c.toUpperCase());
+  const s = String(code || '');
+  // Check bank names first (lowercase match)
+  if (banks[s.toLowerCase()]) return banks[s.toLowerCase()];
+  // Then try airline lookup (uppercase match)
+  const airlineName = humanizeAirline(s);
+  if (airlineName !== s.toUpperCase()) return airlineName;
+  // Fallback: title-case
+  return s.replace(/_/g, ' ').replace(/\b\w/g, c => c.toUpperCase());
 }
 
 function humanizeAirline(code: string): string {
@@ -88,7 +95,7 @@ function humanizeAirline(code: string): string {
     KE: 'SKYPASS',
     OZ: 'Asiana Club',
     // Americas
-    AC: 'Aeroplan',
+    AC: 'Air Canada Aeroplan',
     AM: 'Club Premier',
     AV: 'LifeMiles',
   };
@@ -184,10 +191,8 @@ function SoloBookingContent() {
 
   // Post-booking workflow state (see docs/KEEP_WATCHING_FEATURE.md for state machine spec)
   const [postBookingState, setPostBookingState] = useState<
-    'asking' | 'not_booked' | 'dismissed' | 'booked' | 'email_input' | 'email_pending_verification' | 'monitoring_active'
-  >('asking');
-  const [monitoringEmail, setMonitoringEmail] = useState('');
-  const [emailSubmitting, setEmailSubmitting] = useState(false);
+    'asking' | 'not_booked' | 'dismissed' | 'booked' | 'monitoring_active'
+  >('booked');
   const [monitoringError, setMonitoringError] = useState<string | null>(null);
   
   // Action buttons state (moved from results page)
@@ -360,12 +365,8 @@ function SoloBookingContent() {
     const fetchStatus = async () => {
       try {
         const status = await solo.getMonitoringStatus(tripId);
-        if (status && (status.state === 'active' || status.state === 'pending_verification')) {
-          if (status.state === 'active') {
-            setPostBookingState('monitoring_active');
-          } else {
-            setPostBookingState('email_pending_verification');
-          }
+        if (status && status.state === 'active') {
+          setPostBookingState('monitoring_active');
           return;
         }
       } catch {
@@ -393,9 +394,8 @@ function SoloBookingContent() {
         const stored = localStorage.getItem(`tripy_post_booking_${tripId}`);
         if (stored) {
           const parsed = JSON.parse(stored);
-          if (['booked', 'monitoring_active', 'dismissed', 'email_input', 'email_pending_verification'].includes(parsed.state)) {
+          if (['booked', 'monitoring_active', 'dismissed'].includes(parsed.state)) {
             setPostBookingState(parsed.state);
-            if (parsed.email) setMonitoringEmail(parsed.email);
           }
         }
       } catch { /* ignore parse errors */ }
@@ -406,13 +406,25 @@ function SoloBookingContent() {
 
   useEffect(() => {
     if (!tripId) return;
-    if (['booked', 'monitoring_active', 'dismissed', 'email_input', 'email_pending_verification'].includes(postBookingState)) {
+    if (['booked', 'monitoring_active', 'dismissed'].includes(postBookingState)) {
       localStorage.setItem(`tripy_post_booking_${tripId}`, JSON.stringify({
         state: postBookingState,
-        email: monitoringEmail,
       }));
     }
-  }, [tripId, postBookingState, monitoringEmail]);
+  }, [tripId, postBookingState]);
+
+  // Auto-mark trip as booked on page load (user lands here after selecting a flight)
+  const hasAutoBooked = useRef(false);
+  useEffect(() => {
+    if (!tripId || hasAutoBooked.current) return;
+    // Only auto-fire if we're in the default 'booked' state (not restored to something else)
+    if (postBookingState === 'booked') {
+      hasAutoBooked.current = true;
+      solo.updateStatus(tripId, 'booked').catch((err: unknown) => {
+        console.log('Could not update trip status:', err);
+      });
+    }
+  }, [tripId, postBookingState]);
 
   // Check if this trip was previously booked locally (anon users)
   useEffect(() => {
@@ -488,64 +500,50 @@ function SoloBookingContent() {
     setPostBookingState('not_booked');
   };
 
-  const handleStartMonitoring = () => {
-    // Show email input — free email tier only (paid hidden behind feature flag)
-    setPostBookingState('email_input');
+  // Auto-start monitoring when the booking page loads (uses profile email on backend)
+  const hasAutoStartedMonitoring = useRef(false);
+  useEffect(() => {
+    if (!tripId || hasAutoStartedMonitoring.current) return;
+    if (postBookingState !== 'booked') return;
+
+    hasAutoStartedMonitoring.current = true;
     setMonitoringError(null);
-  };
 
-  const handleMonitoringDecline = () => {
-    // Clean dismiss — no email prompt, no nag
-    setPostBookingState('dismissed');
-  };
+    const autoStartMonitoring = async () => {
+      try {
+        const baselinePayload = selection?.itinerarySnapshot
+          ? {
+              schema_version: 1,
+              selected_itinerary: selection.itinerarySnapshot,
+              alternatives: [],
+              query_inputs: {},
+            }
+          : undefined;
 
-  const handleEmailSubmit = async () => {
-    if (!monitoringEmail.trim()) return;
-    if (!tripId) return;
-    setEmailSubmitting(true);
-    setMonitoringError(null);
-    try {
-      // Build baseline payload from current selection (if available)
-      const baselinePayload = selection?.itinerarySnapshot
-        ? {
-            schema_version: 1,
-            selected_itinerary: selection.itinerarySnapshot,
-            alternatives: [],
-            query_inputs: {},
-          }
-        : undefined;
+        const result = await solo.startMonitoring(tripId, undefined, baselinePayload);
 
-      const result = await solo.startMonitoring(tripId, monitoringEmail, baselinePayload);
-
-      if (result.state === 'active') {
-        // Authenticated user — immediately active
-        setPostBookingState('monitoring_active');
-        const expiresAt = result.expiresAt || new Date(Date.now() + 14 * 24 * 60 * 60 * 1000).toISOString();
-        localStorage.setItem(`tripy_monitoring_${tripId}`, JSON.stringify({
-          state: 'active',
-          verified_at: new Date().toISOString(),
-          expires_at: expiresAt,
-        }));
-      } else if (result.state === 'pending_verification') {
-        // Check if the verification email was actually sent
-        if (result.emailSent === false) {
-          setMonitoringError(result.message || 'Could not send verification email. Please try again.');
+        if (result.state === 'active') {
+          setPostBookingState('monitoring_active');
+          const expiresAt = result.expiresAt || new Date(Date.now() + 14 * 24 * 60 * 60 * 1000).toISOString();
+          localStorage.setItem(`tripy_monitoring_${tripId}`, JSON.stringify({
+            state: 'active',
+            verified_at: new Date().toISOString(),
+            expires_at: expiresAt,
+          }));
         } else {
-          // Unauthenticated — awaiting email verification
-          setPostBookingState('email_pending_verification');
+          // Treat any other state as active (monitoring is best-effort)
+          setPostBookingState('monitoring_active');
         }
-      } else {
-        // Unexpected state — treat as active
+      } catch (err: unknown) {
+        console.log('Could not auto-start monitoring:', err);
+        // Still show the monitoring card but with an error note
+        setMonitoringError('Could not activate monitoring automatically. We\'ll keep trying.');
         setPostBookingState('monitoring_active');
       }
-    } catch (err: unknown) {
-      const message = err instanceof Error ? err.message : 'Could not start monitoring. Please try again.';
-      setMonitoringError(message);
-      // Stay in email_input state so user can retry
-    } finally {
-      setEmailSubmitting(false);
-    }
-  };
+    };
+
+    autoStartMonitoring();
+  }, [tripId, postBookingState, selection]);
 
   // handlePayment removed — paywall disabled
 
@@ -1024,13 +1022,27 @@ function SoloBookingContent() {
                           {/* Actual transfers (bank → airline) */}
                           {actualTransfers.map((transfer, idx) => {
                             const pointsToTransfer = Math.max(0, transfer.pointsToTransfer || 0);
+                            const isOtherPerson = transfer.payerName && transfer.payerName !== 'me' && transfer.payerName !== 'user';
                             return (
-                              <div key={`transfer-${idx}`} className="bg-gradient-to-r from-blue-50 via-indigo-50 to-purple-50 rounded-2xl border border-blue-100 shadow-sm overflow-hidden">
+                              <div key={`transfer-${idx}`} className={`rounded-2xl border shadow-sm overflow-hidden ${
+                                isOtherPerson
+                                  ? 'bg-gradient-to-r from-purple-50 via-fuchsia-50 to-pink-50 border-purple-200'
+                                  : 'bg-gradient-to-r from-blue-50 via-indigo-50 to-purple-50 border-blue-100'
+                              }`}>
+                                {/* Owner badge for someone else's points */}
+                                {isOtherPerson && (
+                                  <div className="px-4 pt-3 pb-0">
+                                    <span className="inline-flex items-center gap-1.5 px-2.5 py-1 bg-purple-100 text-purple-700 text-xs font-semibold rounded-full border border-purple-200">
+                                      <Users className="w-3 h-3" />
+                                      {transfer.payerName}&apos;s points
+                                    </span>
+                                  </div>
+                                )}
                                 <div className="p-4">
                                   <div className="flex items-center justify-between">
                                     <div className="flex items-center gap-4">
                                       <div className="w-12 h-12 bg-white rounded-xl shadow-sm flex items-center justify-center">
-                                        <CreditCard className="w-6 h-6 text-blue-600" />
+                                        <CreditCard className={`w-6 h-6 ${isOtherPerson ? 'text-purple-600' : 'text-blue-600'}`} />
                                       </div>
                                       <div>
                                         <div className="text-sm text-slate-500">From</div>
@@ -1038,7 +1050,7 @@ function SoloBookingContent() {
                                       </div>
                                       <div className="flex items-center gap-2 px-3">
                                         <div className="w-8 h-px bg-slate-300"></div>
-                                        <ArrowRight className="w-5 h-5 text-blue-500" />
+                                        <ArrowRight className={`w-5 h-5 ${isOtherPerson ? 'text-purple-500' : 'text-blue-500'}`} />
                                         <div className="w-8 h-px bg-slate-300"></div>
                                       </div>
                                       <div>
@@ -1047,13 +1059,13 @@ function SoloBookingContent() {
                                       </div>
                                     </div>
                                     <div className="text-right">
-                                      <div className="text-2xl font-bold text-blue-600">{pointsToTransfer.toLocaleString()}</div>
+                                      <div className={`text-2xl font-bold ${isOtherPerson ? 'text-purple-600' : 'text-blue-600'}`}>{pointsToTransfer.toLocaleString()}</div>
                                       <div className="text-xs text-slate-500">points</div>
                                     </div>
                                   </div>
                                   
                                   {/* Transfer details */}
-                                  <div className="flex items-center justify-between mt-3 pt-3 border-t border-blue-100">
+                                  <div className={`flex items-center justify-between mt-3 pt-3 border-t ${isOtherPerson ? 'border-purple-100' : 'border-blue-100'}`}>
                                     <div className="flex items-center gap-4 text-sm text-slate-600">
                                       <span>⏱ {transfer.expectedTransferTime}</span>
                                       {transfer.transferRatio && transfer.transferRatio !== 1 && (
@@ -1065,12 +1077,20 @@ function SoloBookingContent() {
                                         href={transfer.portalUrl} 
                                         target="_blank" 
                                         rel="noopener noreferrer" 
-                                        className="px-4 py-2 bg-blue-600 text-white text-sm font-semibold rounded-lg hover:bg-blue-700 transition-colors flex items-center gap-2"
+                                        className={`px-4 py-2 text-white text-sm font-semibold rounded-lg transition-colors flex items-center gap-2 ${
+                                          isOtherPerson ? 'bg-purple-600 hover:bg-purple-700' : 'bg-blue-600 hover:bg-blue-700'
+                                        }`}
                                       >
                                         Transfer <ExternalLink className="w-4 h-4" />
                                       </a>
                                     )}
                                   </div>
+                                  
+                                  {isOtherPerson && (
+                                    <div className="mt-3 p-2 bg-purple-50 border border-purple-200 rounded-lg text-sm text-purple-700">
+                                      👤 Ask {transfer.payerName} to transfer from their {humanizeProgram(transfer.sourceProgram)} account
+                                    </div>
+                                  )}
                                   
                                   {transfer.warning && (
                                     <div className="mt-3 p-2 bg-amber-50 border border-amber-200 rounded-lg text-sm text-amber-700">
@@ -1085,28 +1105,46 @@ function SoloBookingContent() {
                           {/* Direct usage (existing miles) */}
                           {directUsage.map((transfer, idx) => {
                             const pointsNeeded = Math.max(0, transfer.pointsToTransfer || 0);
+                            const isOtherPerson = transfer.payerName && transfer.payerName !== 'me' && transfer.payerName !== 'user';
                             return (
-                              <div key={`direct-${idx}`} className="bg-gradient-to-r from-green-50 via-emerald-50 to-teal-50 rounded-2xl border border-green-100 shadow-sm overflow-hidden">
+                              <div key={`direct-${idx}`} className={`rounded-2xl border shadow-sm overflow-hidden ${
+                                isOtherPerson
+                                  ? 'bg-gradient-to-r from-purple-50 via-fuchsia-50 to-pink-50 border-purple-200'
+                                  : 'bg-gradient-to-r from-green-50 via-emerald-50 to-teal-50 border-green-100'
+                              }`}>
+                                {/* Owner badge for someone else's points */}
+                                {isOtherPerson && (
+                                  <div className="px-4 pt-3 pb-0">
+                                    <span className="inline-flex items-center gap-1.5 px-2.5 py-1 bg-purple-100 text-purple-700 text-xs font-semibold rounded-full border border-purple-200">
+                                      <Users className="w-3 h-3" />
+                                      {transfer.payerName}&apos;s points
+                                    </span>
+                                  </div>
+                                )}
                                 <div className="p-4">
                                   <div className="flex items-center justify-between">
                                     <div className="flex items-center gap-4">
                                       <div className="w-12 h-12 bg-white rounded-xl shadow-sm flex items-center justify-center">
-                                        <Check className="w-6 h-6 text-green-600" />
+                                        <Check className={`w-6 h-6 ${isOtherPerson ? 'text-purple-600' : 'text-green-600'}`} />
                                       </div>
                                       <div>
-                                        <div className="text-sm text-green-600 font-medium">Use existing miles</div>
+                                        <div className={`text-sm font-medium ${isOtherPerson ? 'text-purple-600' : 'text-green-600'}`}>
+                                          {isOtherPerson ? `${transfer.payerName}'s miles` : 'Use existing miles'}
+                                        </div>
                                         <div className="font-bold text-slate-900">{humanizeProgram(transfer.sourceProgram)}</div>
                                       </div>
                                     </div>
                                     <div className="text-right">
-                                      <div className="text-2xl font-bold text-green-600">{pointsNeeded.toLocaleString()}</div>
+                                      <div className={`text-2xl font-bold ${isOtherPerson ? 'text-purple-600' : 'text-green-600'}`}>{pointsNeeded.toLocaleString()}</div>
                                       <div className="text-xs text-slate-500">points</div>
                                     </div>
                                   </div>
                                   
-                                  <div className="flex items-center mt-3 pt-3 border-t border-green-100">
+                                  <div className={`flex items-center mt-3 pt-3 border-t ${isOtherPerson ? 'border-purple-100' : 'border-green-100'}`}>
                                     <div className="text-sm text-slate-600">
-                                      Already in your account — no transfer needed
+                                      {isOtherPerson
+                                        ? `In ${transfer.payerName}'s account — ask them to book or share access`
+                                        : 'Already in your account — no transfer needed'}
                                     </div>
                                   </div>
                                 </div>
@@ -1151,23 +1189,48 @@ function SoloBookingContent() {
                             const durationMins = Math.max(0, booking.durationMinutes || 0);
                             const nights = Math.max(0, booking.nights || 0);
                             
+                            // Multi-payer: find matching transfer to identify who owns the points for this booking
+                            const bookingPayerTransfer = booking.paymentMethod === 'points' && booking.program
+                              ? transferStrategy.transfers.find(t => {
+                                  if (!t.payerName || t.payerName === 'me' || t.payerName === 'user') return false;
+                                  // Match by target program (booking.program matches transfer.targetProgram)
+                                  if (t.targetProgram && booking.program && t.targetProgram.toLowerCase() === booking.program.toLowerCase()) return true;
+                                  // Match by source program
+                                  if (t.sourceProgram && booking.program && t.sourceProgram.toLowerCase() === booking.program.toLowerCase()) return true;
+                                  return false;
+                                })
+                              : null;
+                            const isOtherPersonBooking = !!bookingPayerTransfer;
+                            
                             return (
-                              <div key={idx} className="bg-gradient-to-r from-slate-50 to-white rounded-2xl border border-slate-200 shadow-sm overflow-hidden">
+                              <div key={idx} className={`bg-gradient-to-r ${isOtherPersonBooking ? 'from-purple-50/50 to-white' : 'from-slate-50 to-white'} rounded-2xl border ${isOtherPersonBooking ? 'border-purple-200' : 'border-slate-200'} shadow-sm overflow-hidden`}>
+                                {/* Multi-payer banner: show whose points are being used */}
+                                {isOtherPersonBooking && bookingPayerTransfer && (
+                                  <div className="px-4 py-2 bg-purple-100 border-b border-purple-200">
+                                    <div className="flex items-center gap-2">
+                                      <Users className="w-4 h-4 text-purple-600" />
+                                      <span className="text-sm font-semibold text-purple-700">
+                                        {bookingPayerTransfer.payerName} needs to book this flight
+                                      </span>
+                                      <span className="text-xs text-purple-500 ml-auto">Using {bookingPayerTransfer.payerName}&apos;s points</span>
+                                    </div>
+                                  </div>
+                                )}
                                 {/* Header with type badge */}
-                                <div className="px-4 py-2 bg-blue-50 border-b border-blue-100">
+                                <div className={`px-4 py-2 ${isOtherPersonBooking ? 'bg-purple-50/50' : 'bg-blue-50'} border-b ${isOtherPersonBooking ? 'border-purple-100' : 'border-blue-100'}`}>
                                   <div className="flex items-center justify-between">
                                     <div className="flex items-center gap-2">
-                                      <Plane className="w-4 h-4 text-blue-600" />
-                                      <span className="text-sm font-medium text-blue-700">
+                                      <Plane className={`w-4 h-4 ${isOtherPersonBooking ? 'text-purple-600' : 'text-blue-600'}`} />
+                                      <span className={`text-sm font-medium ${isOtherPersonBooking ? 'text-purple-700' : 'text-blue-700'}`}>
                                         Flight
                                       </span>
                                       {booking.segmentReference && (
-                                        <span className="text-xs text-blue-500 ml-2">{booking.segmentReference}</span>
+                                        <span className={`text-xs ${isOtherPersonBooking ? 'text-purple-500' : 'text-blue-500'} ml-2`}>{booking.segmentReference}</span>
                                       )}
                                     </div>
                                     <span className={`text-xs px-2 py-1 rounded-full font-medium ${
                                       booking.paymentMethod === 'points' 
-                                        ? 'bg-blue-100 text-blue-700' 
+                                        ? (isOtherPersonBooking ? 'bg-purple-100 text-purple-700' : 'bg-blue-100 text-blue-700')
                                         : 'bg-slate-200 text-slate-600'
                                     }`}>
                                       {booking.paymentMethod === 'points' ? '✓ Award Booking' : 'Cash'}
@@ -1357,9 +1420,14 @@ function SoloBookingContent() {
                                         <div className="text-xs text-slate-600 space-y-1 pt-1 border-t border-slate-200">
                                           {booking.paymentMethod === 'points' && booking.program ? (
                                             <>
-                                              <p><strong>Book with:</strong> {humanizeProgram(booking.program)} miles</p>
+                                              <p>
+                                                <strong>Book with:</strong> {isOtherPersonBooking && bookingPayerTransfer ? `${bookingPayerTransfer.payerName}'s ` : ''}{humanizeProgram(booking.program)} miles
+                                              </p>
                                               <p className="text-slate-500">
-                                                Search for {booking.origin} → {booking.destination} on {humanizeProgram(booking.program)}&apos;s award booking page.
+                                                {isOtherPersonBooking && bookingPayerTransfer
+                                                  ? `Ask ${bookingPayerTransfer.payerName} to search for ${booking.origin} → ${booking.destination} on ${humanizeProgram(booking.program)}'s award booking page.`
+                                                  : <>Search for {booking.origin} → {booking.destination} on {humanizeProgram(booking.program)}&apos;s award booking page.</>
+                                                }
                                               </p>
                                             </>
                                           ) : (
@@ -1383,8 +1451,11 @@ function SoloBookingContent() {
                                                 </div>
                                               )}
                                               {booking.program && (
-                                                <div className="text-xs text-slate-500 mt-1">
-                                                  Book with {humanizeProgram(booking.program)}
+                                                <div className={`text-xs mt-1 ${isOtherPersonBooking ? 'text-purple-600 font-medium' : 'text-slate-500'}`}>
+                                                  {isOtherPersonBooking && bookingPayerTransfer
+                                                    ? `Using ${bookingPayerTransfer.payerName}'s ${humanizeProgram(booking.program)}`
+                                                    : `Book with ${humanizeProgram(booking.program)}`
+                                                  }
                                                 </div>
                                               )}
                                               {booking.paymentReason && (
@@ -1536,6 +1607,7 @@ function SoloBookingContent() {
                       </div>
                       <ul className="text-sm text-amber-700 space-y-1">
                         <li>• Verify flight availability on the airline&apos;s website before transferring points</li>
+                        <li>• Point transfers are permanent and cannot be reversed</li>
                         {transferStrategy.warnings.map((warning, idx) => (
                           <li key={idx}>• {warning}</li>
                         ))}
@@ -2731,19 +2803,6 @@ function SoloBookingContent() {
             }
           />
 
-          {/* Risk Assessment */}
-          {soloSnapshot?.risk && (
-            <RiskBadge risk={soloSnapshot.risk} variant="card" />
-          )}
-
-          {/* Email Me This Plan */}
-          <button
-            onClick={() => setShowEmailModal(true)}
-            className="w-full py-3 px-4 border border-slate-200 bg-white hover:bg-slate-50 rounded-2xl text-sm font-medium text-slate-700 transition-colors flex items-center justify-center gap-2"
-          >
-            <Mail className="w-4 h-4" />
-            Email me this plan
-          </button>
 
         </div>
 
@@ -2752,157 +2811,22 @@ function SoloBookingContent() {
         {/* ================================================ */}
         <div className="mt-12">
 
-          {/* STEP 4 — "Did you book this flight?" checkpoint */}
-          {postBookingState === 'asking' && (
-            <div className="bg-white border border-slate-200 rounded-2xl p-6 shadow-sm">
-              <div className="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-4">
-                <div className="flex items-center gap-3">
-                  <div className="w-10 h-10 bg-blue-50 rounded-xl flex items-center justify-center flex-shrink-0">
-                    <Plane className="w-5 h-5 text-blue-600" />
-                  </div>
-                  <div>
-                    <h3 className="font-semibold text-slate-900">Did you book this flight?</h3>
-                    <p className="text-sm text-slate-500">Let us know so we can help you next.</p>
-                  </div>
-                </div>
-                <div className="flex items-center gap-3">
-                  <button
-                    onClick={handleBookingConfirm}
-                    className="px-5 py-2.5 bg-green-600 hover:bg-green-700 text-white font-semibold rounded-xl transition-colors flex items-center gap-2"
-                  >
-                    <Check className="w-4 h-4" />
-                    Yes, I booked it
-                  </button>
-                </div>
-              </div>
-            </div>
-          )}
-
-          {/* STEP 5–6 — Reassurance + STEP 7 — Monitoring offer */}
+          {/* Monitoring — activating automatically */}
           {postBookingState === 'booked' && (
-            <div className="space-y-6">
-              {/* Reassurance (Step 6) — always shown before any upsell */}
-              <div className="bg-green-50 border border-green-200 rounded-2xl p-6">
-                <div className="flex items-start gap-3">
-                  <div className="w-10 h-10 bg-green-100 rounded-xl flex items-center justify-center flex-shrink-0">
-                    <CheckCircle className="w-5 h-5 text-green-600" />
-                  </div>
-                  <div>
-                    <h3 className="font-semibold text-green-900 text-lg">Nice work — this was a clean booking.</h3>
-                    <p className="text-green-700 mt-1">
-                      {flightSegments.length <= 2 ? 'Direct flight, ' : `${flightSegments.length} segments, `}
-                      single ticket, low risk.
-                    </p>
-                  </div>
-                </div>
-              </div>
-
-              {/* Monitoring offer (Step 7) — free email tier only */}
-              <div className="bg-white border border-slate-200 rounded-2xl overflow-hidden shadow-sm">
-                <div className="p-6">
-                  <div className="flex items-start gap-3 mb-5">
-                    <div className="w-10 h-10 bg-blue-50 rounded-xl flex items-center justify-center flex-shrink-0">
-                      <Eye className="w-5 h-5 text-blue-600" />
-                    </div>
-                    <div>
-                      <h3 className="font-semibold text-slate-900 text-lg">Want us to keep watching this trip?</h3>
-                      <p className="text-slate-500 mt-1">
-                        We&apos;ll monitor prices and schedule changes for this route every 6 hours for up to 14 days, and email you if something meaningful changes.
-                      </p>
-                    </div>
-                  </div>
-
-                  <div className="grid grid-cols-2 gap-3 mb-6">
-                    <div className="flex items-center gap-2.5 p-3 bg-slate-50 rounded-xl">
-                      <TrendingDown className="w-4 h-4 text-blue-600 flex-shrink-0" />
-                      <span className="text-sm text-slate-700">Price drops</span>
-                    </div>
-                    <div className="flex items-center gap-2.5 p-3 bg-slate-50 rounded-xl">
-                      <Calendar className="w-4 h-4 text-amber-600 flex-shrink-0" />
-                      <span className="text-sm text-slate-700">Schedule changes</span>
-                    </div>
-                  </div>
-
-                  <p className="text-slate-600 mb-5 text-sm">
-                    Free &middot; We check every 6 hours &middot; Monitoring runs until 24h before departure or 14 days
-                  </p>
-
-                  <div className="flex items-center gap-3">
-                    <button
-                      onClick={handleStartMonitoring}
-                      className="px-6 py-3 bg-blue-600 hover:bg-blue-700 text-white font-semibold rounded-xl transition-colors"
-                    >
-                      Watch this trip
-                    </button>
-                    <button
-                      onClick={handleMonitoringDecline}
-                      className="px-6 py-3 text-slate-500 hover:text-slate-700 font-medium transition-colors"
-                    >
-                      No thanks
-                    </button>
-                  </div>
-                </div>
-              </div>
-            </div>
-          )}
-
-          {/* STEP 8 — Email input (user clicked "Watch this trip") */}
-          {postBookingState === 'email_input' && (
-            <div className="bg-white border border-slate-200 rounded-2xl p-6 shadow-sm">
-              <div className="flex items-start gap-3 mb-4">
-                <div className="w-10 h-10 bg-blue-50 rounded-xl flex items-center justify-center flex-shrink-0">
-                  <Mail className="w-5 h-5 text-blue-600" />
-                </div>
-                <div>
-                  <h3 className="font-semibold text-slate-900">Where should we send alerts?</h3>
-                  <p className="text-sm text-slate-500 mt-1">We&apos;ll send a confirmation email to verify it&apos;s you.</p>
-                </div>
-              </div>
-              <div className="flex items-center gap-3">
-                <input
-                  type="email"
-                  value={monitoringEmail}
-                  onChange={(e) => { setMonitoringEmail(e.target.value); setMonitoringError(null); }}
-                  onKeyDown={(e) => { if (e.key === 'Enter') handleEmailSubmit(); }}
-                  placeholder="you@example.com"
-                  className="flex-1 px-4 py-2.5 border border-slate-200 rounded-xl text-sm focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent"
-                />
-                <button
-                  onClick={handleEmailSubmit}
-                  disabled={emailSubmitting || !monitoringEmail.trim()}
-                  className="px-5 py-2.5 bg-blue-600 hover:bg-blue-700 disabled:bg-slate-300 disabled:cursor-not-allowed text-white font-semibold rounded-xl transition-colors"
-                >
-                  {emailSubmitting ? 'Verifying...' : 'Start watching'}
-                </button>
-              </div>
-              {monitoringError && (
-                <p className="mt-2 text-sm text-red-600">{monitoringError}</p>
-              )}
-            </div>
-          )}
-
-          {/* STEP 8b — Email pending verification */}
-          {postBookingState === 'email_pending_verification' && (
-            <div className="bg-amber-50 border border-amber-200 rounded-2xl p-6">
+            <div className="bg-blue-50 border border-blue-200 rounded-2xl p-6">
               <div className="flex items-start gap-3">
-                <div className="w-10 h-10 bg-amber-100 rounded-xl flex items-center justify-center flex-shrink-0">
-                  <Mail className="w-5 h-5 text-amber-600" />
+                <div className="w-10 h-10 bg-blue-100 rounded-xl flex items-center justify-center flex-shrink-0">
+                  <Eye className="w-5 h-5 text-blue-600" />
                 </div>
                 <div>
-                  <h3 className="font-semibold text-amber-900">Check your inbox to confirm</h3>
-                  <p className="text-amber-700 mt-1">
-                    We sent a verification link to <strong>{monitoringEmail}</strong>. Click it to activate monitoring.
+                  <h3 className="font-semibold text-blue-900 text-lg">Setting up monitoring...</h3>
+                  <p className="text-blue-700 mt-1">
+                    We&apos;re activating price drop and point reallocation monitoring for this trip.
                   </p>
-                  {monitoringError && (
-                    <p className="mt-2 text-sm text-red-600">{monitoringError}</p>
-                  )}
-                  <button
-                    onClick={handleEmailSubmit}
-                    disabled={emailSubmitting}
-                    className="mt-3 text-sm text-amber-700 hover:text-amber-900 underline underline-offset-2"
-                  >
-                    {emailSubmitting ? 'Resending...' : 'Resend verification email'}
-                  </button>
+                  <div className="mt-3 flex items-center gap-2">
+                    <div className="inline-block animate-spin rounded-full h-4 w-4 border-b-2 border-blue-600"></div>
+                    <span className="text-blue-600 text-sm">Activating...</span>
+                  </div>
                 </div>
               </div>
             </div>
@@ -2916,11 +2840,14 @@ function SoloBookingContent() {
                   <Shield className="w-5 h-5 text-blue-600" />
                 </div>
                 <div>
-                  <h3 className="font-semibold text-blue-900 text-lg">We&apos;re watching this trip for you.</h3>
+                  <h3 className="font-semibold text-blue-900 text-lg">We&apos;re monitoring this trip for you.</h3>
                   <p className="text-blue-700 mt-1">
-                    We&apos;ll check every 6 hours for price drops and schedule changes, and email you if something meaningful happens.
+                    We check every 6 hours for <strong>price drops</strong> and <strong>point reallocation opportunities</strong>. If we find savings, we&apos;ll let you know.
                   </p>
-                  <p className="text-blue-600 text-sm mt-2">Monitoring active until 24h before departure (up to 14 days).</p>
+                  {monitoringError && (
+                    <p className="mt-2 text-sm text-amber-600">{monitoringError}</p>
+                  )}
+                  <p className="text-blue-600 text-xs mt-3">Free &middot; Runs until 24h before departure or 14 days</p>
                 </div>
               </div>
             </div>

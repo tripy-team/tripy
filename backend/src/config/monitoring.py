@@ -25,6 +25,12 @@ MONITORING_ALERTS_ENABLED: bool = _bool_env("MONITORING_ALERTS_ENABLED", False)
 # Gate paid monitoring backend endpoints (checkout, Stripe webhooks).
 MONITORING_PAID_ENABLED: bool = _bool_env("MONITORING_PAID_ENABLED", False)
 
+# Search mode for the monitoring cron job.
+#   "stub"      — candidate = baseline (current no-op behavior, score always 0)
+#   "fake_drop" — candidate = baseline with cash_price reduced ~20%, stops -1 (dev testing)
+#   "real"      — calls real flight search pipeline
+MONITORING_SEARCH_MODE: str = os.environ.get("MONITORING_SEARCH_MODE", "stub")
+
 # =============================================================================
 # SECRETS
 # =============================================================================
@@ -100,6 +106,7 @@ RATE_LIMIT_START_PER_HOUR_PER_IP: int = 10
 RATE_LIMIT_START_PER_DAY_PER_TRIP: int = 10
 RATE_LIMIT_RESEND_PER_DAY_PER_EMAIL: int = 3
 RATE_LIMIT_VERIFY_PER_HOUR_PER_IP: int = 20
+RATE_LIMIT_UPDATE_FETCH_PER_MIN_PER_IP: int = 30
 
 # Update record expiry
 UPDATE_EXPIRY_DAYS: int = 90
@@ -129,6 +136,7 @@ def _log_monitoring_config():
     logger.info(
         f"[MONITORING CONFIG] alerts_enabled={MONITORING_ALERTS_ENABLED}, "
         f"paid_enabled={MONITORING_PAID_ENABLED}, "
+        f"search_mode={MONITORING_SEARCH_MODE}, "
         f"subs_table={MONITORING_TABLE_SUBSCRIPTIONS}, "
         f"baselines_table={MONITORING_TABLE_BASELINES}, "
         f"updates_table={MONITORING_TABLE_UPDATES}, "

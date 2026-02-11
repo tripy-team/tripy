@@ -1,0 +1,497 @@
+# =============================================================================
+# PROGRAMS CONFIG — Single Source of Truth
+# =============================================================================
+
+banks:
+  chase:
+    name: "Chase Ultimate Rewards"
+    short_name: "Chase UR"
+    portal_url: "https://ultimaterewardspoints.chase.com"
+    default_transfer_time: "instant"
+    block_size: 1000
+    cards:
+      - name: "Chase Sapphire Reserve"
+        annual_fee: 550
+        earn_rate: "3x travel/dining"
+        best_for: "Premium travel"
+      - name: "Chase Sapphire Preferred"
+        annual_fee: 95
+        earn_rate: "2x travel/dining"
+        best_for: "Moderate travel"
+      - name: "Chase Ink Business Preferred"
+        annual_fee: 95
+        earn_rate: "3x travel/shipping"
+        best_for: "Business travel"
+    sweet_spots:
+      - "Chase → United: No fuel surcharges, good availability"
+      - "Chase → Virgin Atlantic: Sweet spots on partners (watch surcharges)"
+      - "Chase → British Airways: Short-haul flights on partners"
+    airline_partners:
+      UA: { ratio: 1.0, transfer_time: "Instant" }
+      WN: { ratio: 1.0, transfer_time: "Instant" }
+      B6: { ratio: 1.0, transfer_time: "Instant" }
+      AC: { ratio: 1.0, transfer_time: "Instant" }
+      AF: { ratio: 1.0, transfer_time: "Instant" }
+      BA: { ratio: 1.0, transfer_time: "Instant" }
+      IB: { ratio: 1.0, transfer_time: "Instant" }
+      EI: { ratio: 1.0, transfer_time: "Instant" }
+      SQ: { ratio: 1.0, transfer_time: "Instant" }
+      VS: { ratio: 1.0, transfer_time: "Instant" }
+    hotel_partners:
+      HYATT: { ratio: 1.0, transfer_time: "Instant" }
+      MAR: { ratio: 1.0, transfer_time: "1-2 days" }
+      IHG: { ratio: 1.0, transfer_time: "Instant" }
+    best_transfers: ["UA", "HYATT", "VS", "SQ", "AF"]
+
+  amex:
+    name: "American Express Membership Rewards"
+    short_name: "Amex MR"
+    portal_url: "https://global.americanexpress.com/rewards/transfer"
+    default_transfer_time: "instant to 2 business days"
+    block_size: 1000
+    cards:
+      - name: "Amex Platinum"
+        annual_fee: 695
+        earn_rate: "5x flights"
+        best_for: "Premium travel"
+      - name: "Amex Gold"
+        annual_fee: 250
+        earn_rate: "4x dining/groceries"
+        best_for: "Dining rewards"
+      - name: "Amex Business Platinum"
+        annual_fee: 695
+        earn_rate: "5x flights"
+        best_for: "Business premium"
+    sweet_spots:
+      - "Amex → ANA: Excellent round-trip business class value (when available)"
+      - "Amex → Virgin Atlantic: Partner sweet spots (watch surcharges)"
+      - "Amex → Avianca LifeMiles: Star Alliance awards, generally no fuel surcharges"
+    airline_partners:
+      DL: { ratio: 1.0, transfer_time: "1-2 days" }
+      B6: { ratio: 1.0, transfer_time: "1-2 days" }
+      AF: { ratio: 1.0, transfer_time: "Instant-2 days" }
+      BA: { ratio: 1.0, transfer_time: "Instant-2 days" }
+      IB: { ratio: 1.0, transfer_time: "Instant-2 days" }
+      SQ: { ratio: 1.0, transfer_time: "Instant-2 days" }
+      CX: { ratio: 1.0, transfer_time: "1-3 days" }
+      NH: { ratio: 1.0, transfer_time: "1-3 days" }
+      EK: { ratio: 1.0, transfer_time: "Instant-2 days" }
+      EY: { ratio: 1.0, transfer_time: "Instant-2 days" }
+      VS: { ratio: 1.0, transfer_time: "Instant-2 days" }
+      QF: { ratio: 1.0, transfer_time: "Instant-2 days" }
+      AV: { ratio: 1.0, transfer_time: "Instant-2 days" }
+      AC: { ratio: 1.0, transfer_time: "Instant-2 days" }
+      EI: { ratio: 1.0, transfer_time: "Instant-2 days" }
+    hotel_partners:
+      HH: { ratio: 2.0, transfer_time: "1-2 days" } # 1 MR = 2 Hilton
+      MAR: { ratio: 1.0, transfer_time: "1-2 days" }
+    best_transfers: ["NH", "AV", "AF", "VS", "SQ"]
+
+  citi:
+    name: "Citi ThankYou Points"
+    short_name: "Citi TYP"
+    portal_url: "https://www.thankyou.com"
+    default_transfer_time: "instant to 48 hours"
+    block_size: 1000
+    cards:
+      - name: "Citi Strata Premier"
+        annual_fee: 95
+        earn_rate: "3x travel/dining"
+        best_for: "Everyday travel"
+      - name: "Citi Custom Cash"
+        annual_fee: 0
+        earn_rate: "5% top category"
+        best_for: "Flexible rewards"
+    sweet_spots:
+      - "Citi → Turkish: Some strong award pricing (program-dependent)"
+      - "Citi → Flying Blue: Promo Rewards can be excellent"
+      - "Citi → American: Useful for AA redemptions when you need instant transfer"
+    airline_partners:
+      AA: { ratio: 1.0, transfer_time: "Instant" }
+      B6: { ratio: 1.0, transfer_time: "Instant-2 days" }
+      SQ: { ratio: 1.0, transfer_time: "1-2 days" }
+      CX: { ratio: 1.0, transfer_time: "1-2 days" }
+      QR: { ratio: 1.0, transfer_time: "1-2 days" }
+      EK: { ratio: 0.8, transfer_time: "1-2 days" } # ratios vary by Citi card
+      EY: { ratio: 1.0, transfer_time: "1-2 days" }
+      TK: { ratio: 1.0, transfer_time: "1-2 days" }
+      AV: { ratio: 1.0, transfer_time: "1-2 days" }
+      VS: { ratio: 1.0, transfer_time: "Instant-2 days" }
+      AF: { ratio: 1.0, transfer_time: "Instant-2 days" }
+      QF: { ratio: 1.0, transfer_time: "1-2 days" }
+    hotel_partners:
+      ACCOR: { ratio: 0.5, transfer_time: "1-2 days" }  # commonly varies; keep conservative
+      CHOICE: { ratio: 1.0, transfer_time: "1-2 days" }
+      WYNDHAM: { ratio: 1.0, transfer_time: "1-2 days" }
+      LEADERS: { ratio: 0.5, transfer_time: "1-2 days" }
+      PREFERRED: { ratio: 0.5, transfer_time: "1-2 days" }
+    best_transfers: ["AA", "TK", "AF", "QR", "SQ"]
+
+  capitalone:
+    name: "Capital One Miles"
+    short_name: "Capital One"
+    portal_url: "https://www.capitalone.com/credit-cards/rewards"
+    default_transfer_time: "instant to 2 days"
+    block_size: 1000
+    cards:
+      - name: "Capital One Venture X"
+        annual_fee: 395
+        earn_rate: "2x everything"
+        best_for: "Simple rewards"
+      - name: "Capital One Venture"
+        annual_fee: 95
+        earn_rate: "2x everything"
+        best_for: "No FTF travel"
+    sweet_spots:
+      - "Capital One → Flying Blue: Often strong for Europe"
+      - "Capital One → Avianca: Star Alliance awards, typically no fuel surcharges"
+      - "Capital One → Turkish: Can be high-value depending on route/pricing"
+    airline_partners:
+      AC: { ratio: 1.0, transfer_time: "Instant" }
+      AF: { ratio: 1.0, transfer_time: "Instant" }
+      BA: { ratio: 1.0, transfer_time: "Instant" }
+      CX: { ratio: 1.0, transfer_time: "Instant-24h" }
+      EY: { ratio: 1.0, transfer_time: "Instant-2 days" }
+      AY: { ratio: 1.0, transfer_time: "Instant-2 days" }
+      SQ: { ratio: 1.0, transfer_time: "Instant-2 days" }
+      TK: { ratio: 1.0, transfer_time: "Instant-2 days" }
+      AV: { ratio: 1.0, transfer_time: "Instant" }
+      QF: { ratio: 1.0, transfer_time: "Instant-2 days" }
+      TAP: { ratio: 1.0, transfer_time: "Instant-2 days" }
+      QR: { ratio: 1.0, transfer_time: "Instant-2 days" }
+      VR: { ratio: 1.0, transfer_time: "Instant-2 days" } # Virgin Red (not the same as VS)
+      AM: { ratio: 1.0, transfer_time: "Instant-2 days" } # Aeromexico
+    hotel_partners:
+      ACCOR: { ratio: 0.5, transfer_time: "1-2 days" }
+      CHOICE: { ratio: 1.0, transfer_time: "1-2 days" }
+      IPREFER: { ratio: 2.0, transfer_time: "1-2 days" }
+    best_transfers: ["AF", "AV", "TK", "AC", "BA"]
+
+  bilt:
+    name: "Bilt Rewards"
+    short_name: "Bilt"
+    portal_url: "https://www.biltrewards.com"
+    default_transfer_time: "instant"
+    block_size: 1000
+    cards:
+      - name: "Bilt Mastercard"
+        annual_fee: 0
+        earn_rate: "1x rent (no fee)"
+        best_for: "Rent rewards"
+    sweet_spots:
+      - "Bilt → United: 1:1 transfers; verify award space first"
+      - "Bilt → Hyatt: 1:1; often strong hotel value"
+      - "Bilt → Flying Blue / Avios: Useful for Europe depending on pricing"
+    airline_partners:
+      ATMOS: { ratio: 1.0, transfer_time: "Instant-48h" } # Atmos Rewards (Alaska + Hawaiian)
+      AV: { ratio: 1.0, transfer_time: "Instant-48h" }
+      UA: { ratio: 1.0, transfer_time: "Instant-48h" }
+      AF: { ratio: 1.0, transfer_time: "Instant-48h" }
+      VS: { ratio: 1.0, transfer_time: "Instant-48h" }
+      VR: { ratio: 1.0, transfer_time: "Instant-48h" } # Virgin Red
+      EK: { ratio: 1.0, transfer_time: "Instant-48h" }
+      BA: { ratio: 1.0, transfer_time: "Instant-48h" }
+      CX: { ratio: 1.0, transfer_time: "Instant-48h" }
+      TK: { ratio: 1.0, transfer_time: "Instant-48h" }
+      EI: { ratio: 1.0, transfer_time: "Instant-48h" }
+      IB: { ratio: 1.0, transfer_time: "Instant-48h" }
+      AC: { ratio: 1.0, transfer_time: "Instant-48h" }
+      TAP: { ratio: 1.0, transfer_time: "Instant-48h" }
+      WN: { ratio: 1.0, transfer_time: "Up to 72h" }
+      JL: { ratio: 1.0, transfer_time: "Instant-48h" }
+      QR: { ratio: 1.0, transfer_time: "Instant-48h" }
+      EY: { ratio: 1.0, transfer_time: "Instant-48h" }
+      NK: { ratio: 1.0, transfer_time: "Instant-48h" } # Spirit / Free Spirit
+    hotel_partners:
+      HH: { ratio: 1.0, transfer_time: "Instant-48h" }
+      MAR: { ratio: 1.0, transfer_time: "Instant-48h" }
+      HYATT: { ratio: 1.0, transfer_time: "Instant-48h" }
+      IHG: { ratio: 1.0, transfer_time: "Instant-48h" }
+      ACCOR: { ratio: 0.6667, transfer_time: "Instant-48h" } # 3:2
+    best_transfers: ["UA", "HYATT", "AF", "BA", "TK"]
+
+fixed_value_banks:
+  bank_of_america:
+    name: "Bank of America Points"
+    portal_url: "https://travel.bankofamerica.com"
+    cpp: 1.0
+  wells_fargo:
+    name: "Wells Fargo Points"
+    portal_url: "https://www.wellsfargo.com/rewards/"
+    cpp: 1.0
+  discover:
+    name: "Discover Miles"
+    portal_url: "https://www.discover.com/credit-cards/cashback-bonus/travel.html"
+    cpp: 1.0
+  us_bank:
+    name: "US Bank Rewards"
+    portal_url: "https://rewards.usbank.com"
+    cpp: 1.5
+
+airlines:
+  UA:
+    name: "United MileagePlus"
+    alliance: "Star Alliance"
+    booking_url: "https://www.united.com"
+    hubs: ["EWR", "ORD", "IAH", "SFO", "LAX", "DEN"]
+    surcharge_multiplier: 0.8
+    high_surcharge: false
+    regions: ["NA", "EU", "AS_E", "AS_SE", "SA", "OC"]
+  AA:
+    name: "American AAdvantage"
+    alliance: "oneworld"
+    booking_url: "https://www.aa.com"
+    hubs: ["DFW", "CLT", "MIA", "ORD", "LAX", "PHX", "PHL"]
+    surcharge_multiplier: 0.9
+    high_surcharge: false
+    regions: ["NA", "EU", "SA", "AS_E", "CB"]
+  DL:
+    name: "Delta SkyMiles"
+    alliance: "SkyTeam"
+    booking_url: "https://www.delta.com"
+    hubs: ["ATL", "DTW", "MSP", "SEA", "LAX", "JFK", "BOS"]
+    surcharge_multiplier: 0.85
+    high_surcharge: false
+    regions: ["NA", "EU", "AS_E", "SA", "AF"]
+  WN:
+    name: "Southwest Rapid Rewards"
+    alliance: null
+    booking_url: "https://www.southwest.com"
+    hubs: ["DAL", "HOU", "MDW", "BWI", "LAS", "DEN"]
+    surcharge_multiplier: 0.5
+    high_surcharge: false
+    regions: ["NA"]
+  B6:
+    name: "JetBlue TrueBlue"
+    alliance: null
+    booking_url: "https://www.jetblue.com"
+    hubs: ["JFK", "BOS", "FLL", "LAX"]
+    surcharge_multiplier: 0.6
+    high_surcharge: false
+    regions: ["NA", "CB", "SA"]
+  AS:
+    name: "Alaska Mileage Plan"
+    alliance: "oneworld"
+    booking_url: "https://www.alaskaair.com"
+    hubs: ["SEA", "PDX", "ANC", "LAX", "SFO"]
+    surcharge_multiplier: 0.7
+    high_surcharge: false
+    regions: ["NA"]
+  BA:
+    name: "British Airways Club"
+    alliance: "oneworld"
+    booking_url: "https://www.britishairways.com"
+    hubs: ["LHR", "LGW"]
+    surcharge_multiplier: 2.5
+    high_surcharge: true
+    regions: ["EU", "NA", "ME", "AS_S", "AF"]
+  AF:
+    name: "Air France-KLM Flying Blue"
+    alliance: "SkyTeam"
+    booking_url: "https://www.airfrance.com"
+    hubs: ["CDG", "ORY", "AMS"]
+    surcharge_multiplier: 1.4
+    high_surcharge: false
+    regions: ["EU", "NA", "AF", "AS_SE", "SA"]
+  VS:
+    name: "Virgin Atlantic Flying Club"
+    alliance: "SkyTeam"
+    booking_url: "https://www.virginatlantic.com"
+    hubs: ["LHR", "MAN"]
+    surcharge_multiplier: 1.8
+    high_surcharge: true
+    regions: ["EU", "NA", "CB"]
+  SQ:
+    name: "Singapore KrisFlyer"
+    alliance: "Star Alliance"
+    booking_url: "https://www.singaporeair.com"
+    hubs: ["SIN"]
+    surcharge_multiplier: 0.3
+    high_surcharge: false
+    regions: ["AS_SE", "AS_E", "EU", "NA", "OC", "AS_S"]
+  CX:
+    name: "Cathay Pacific Asia Miles"
+    alliance: "oneworld"
+    booking_url: "https://www.cathaypacific.com"
+    hubs: ["HKG"]
+    surcharge_multiplier: 1.2
+    high_surcharge: false
+    regions: ["AS_E", "AS_SE", "NA", "EU", "OC"]
+  NH:
+    name: "ANA Mileage Club"
+    alliance: "Star Alliance"
+    booking_url: "https://www.ana.co.jp"
+    hubs: ["NRT", "HND"]
+    surcharge_multiplier: 0.4
+    high_surcharge: false
+    regions: ["AS_E", "NA", "EU", "AS_SE"]
+  JL:
+    name: "Japan Airlines Mileage Bank"
+    alliance: "oneworld"
+    booking_url: "https://www.jal.co.jp"
+    hubs: ["NRT", "HND"]
+    surcharge_multiplier: 0.5
+    high_surcharge: false
+    regions: ["AS_E", "NA", "EU", "AS_SE", "OC"]
+  EK:
+    name: "Emirates Skywards"
+    alliance: null
+    booking_url: "https://www.emirates.com"
+    hubs: ["DXB"]
+    surcharge_multiplier: 1.0
+    high_surcharge: false
+    regions: ["ME", "EU", "NA", "AS_E", "AS_SE", "AS_S", "AF", "OC"]
+  QR:
+    name: "Qatar Airways Privilege Club"
+    alliance: "oneworld"
+    booking_url: "https://www.qatarairways.com"
+    hubs: ["DOH"]
+    surcharge_multiplier: 0.6
+    high_surcharge: false
+    regions: ["ME", "EU", "NA", "AS_E", "AS_SE", "AS_S", "AF", "OC"]
+  EY:
+    name: "Etihad Guest"
+    alliance: null
+    booking_url: "https://www.etihad.com"
+    hubs: ["AUH"]
+    surcharge_multiplier: 0.8
+    high_surcharge: false
+    regions: ["ME", "EU", "NA", "AS_E", "AS_SE", "AS_S", "AF", "OC"]
+  TK:
+    name: "Turkish Miles&Smiles"
+    alliance: "Star Alliance"
+    booking_url: "https://www.turkishairlines.com"
+    hubs: ["IST"]
+    surcharge_multiplier: 0.5
+    high_surcharge: false
+    regions: ["ME", "EU", "NA", "AS_E", "AS_SE", "AS_S", "AF"]
+  AV:
+    name: "Avianca LifeMiles"
+    alliance: "Star Alliance"
+    booking_url: "https://www.lifemiles.com"
+    hubs: ["BOG", "LIM", "SJO"]
+    surcharge_multiplier: 0.5
+    high_surcharge: false
+    regions: ["SA", "CA", "NA"]
+  IB:
+    name: "Iberia Club"
+    alliance: "oneworld"
+    booking_url: "https://www.iberia.com"
+    hubs: ["MAD"]
+    surcharge_multiplier: 1.3
+    high_surcharge: false
+    regions: ["EU", "SA", "NA"]
+  QF:
+    name: "Qantas Frequent Flyer"
+    alliance: "oneworld"
+    booking_url: "https://www.qantas.com"
+    hubs: ["SYD", "MEL"]
+    surcharge_multiplier: 1.6
+    high_surcharge: true
+    regions: ["OC", "AS_E", "AS_SE", "NA", "EU"]
+  AC:
+    name: "Air Canada Aeroplan"
+    alliance: "Star Alliance"
+    booking_url: "https://www.aircanada.com"
+    hubs: ["YYZ", "YVR", "YUL"]
+    surcharge_multiplier: 0.9
+    high_surcharge: false
+    regions: ["NA", "EU", "AS_E", "SA"]
+  LH:
+    name: "Lufthansa Miles & More"
+    alliance: "Star Alliance"
+    booking_url: "https://www.lufthansa.com"
+    hubs: ["FRA", "MUC"]
+    surcharge_multiplier: 2.2
+    high_surcharge: true
+    regions: ["EU", "NA", "AS_E", "ME", "SA"]
+  LX:
+    name: "Swiss Miles & More"
+    alliance: "Star Alliance"
+    booking_url: "https://www.swiss.com"
+    hubs: ["ZRH"]
+    surcharge_multiplier: 2.0
+    high_surcharge: true
+    regions: ["EU", "NA"]
+  EI:
+    name: "Aer Lingus AerClub"
+    alliance: null
+    booking_url: "https://www.aerlingus.com"
+    hubs: ["DUB"]
+    surcharge_multiplier: 1.0
+    high_surcharge: false
+    regions: ["EU", "NA"]
+  AY:
+    name: "Finnair Plus"
+    alliance: "oneworld"
+    booking_url: "https://www.finnair.com"
+    hubs: ["HEL"]
+    surcharge_multiplier: 1.0
+    high_surcharge: false
+    regions: ["EU", "AS_E"]
+  TAP:
+    name: "TAP Miles&Go"
+    alliance: "Star Alliance"
+    booking_url: "https://www.flytap.com"
+    hubs: ["LIS"]
+    surcharge_multiplier: 1.0
+    high_surcharge: false
+    regions: ["EU", "SA", "AF"]
+  NK:
+    name: "Spirit Free Spirit"
+    alliance: null
+    booking_url: "https://www.spirit.com"
+    hubs: ["FLL", "MCO", "LAS", "DTW"]
+    surcharge_multiplier: 0.4
+    high_surcharge: false
+    regions: ["NA", "CB", "SA"]
+
+hotels:
+  HH:
+    name: "Hilton Honors"
+    typical_cpp: 0.5
+    brands: ["Hilton", "Conrad", "Waldorf Astoria", "DoubleTree", "Hampton Inn", "Embassy Suites"]
+    points_per_night_range: [10000, 120000]
+    has_surcharge: true
+  MAR:
+    name: "Marriott Bonvoy"
+    typical_cpp: 0.8
+    brands: ["Marriott", "Ritz-Carlton", "St. Regis", "W Hotels", "Westin", "Sheraton", "Renaissance"]
+    points_per_night_range: [15000, 100000]
+    has_surcharge: true
+  HYATT:
+    name: "World of Hyatt"
+    typical_cpp: 1.8
+    brands: ["Grand Hyatt", "Park Hyatt", "Andaz", "Hyatt Regency", "Hyatt Place", "Hyatt House"]
+    points_per_night_range: [5000, 45000]
+    has_surcharge: false
+  IHG:
+    name: "IHG One Rewards"
+    typical_cpp: 0.5
+    brands: ["InterContinental", "Kimpton", "Crowne Plaza", "Holiday Inn", "Staybridge Suites"]
+    points_per_night_range: [10000, 80000]
+    has_surcharge: true
+
+alliances:
+  star_alliance: ["UA", "AC", "LH", "TK", "SQ", "NH", "AV", "LX", "TAP"]
+  oneworld: ["AA", "BA", "IB", "QF", "CX", "QR", "AS", "AY", "JL"]
+  skyteam: ["DL", "AF", "VS"]
+
+bank_name_mappings:
+  amex_membership_rewards: "amex"
+  chase_ultimate_rewards: "chase"
+  citi_thankyou_points: "citi"
+  citi_thank_you: "citi"
+  capital_one_miles: "capitalone"
+  capitalone_miles: "capitalone"
+  bilt_rewards: "bilt"
+  membership_rewards: "amex"
+  ultimate_rewards: "chase"
+  thankyou_points: "citi"
+
+credit_card_suggestions:
+  chase: "Chase Sapphire Preferred/Reserve or Chase Ink Preferred"
+  amex: "Amex Platinum, Amex Gold, or Amex Business Platinum"
+  citi: "Citi Strata Premier or Citi Custom Cash"
+  capitalone: "Capital One Venture X or Venture"
+  bilt: "Bilt Mastercard"

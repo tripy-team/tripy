@@ -82,7 +82,7 @@ def maybe_send_alert(
             scope="trip",
         )
         unsubscribe_link = f"{FRONTEND_URL}/solo/monitoring/unsubscribe?token={unsub_token}"
-        manage_link = f"{FRONTEND_URL}/solo/monitoring/preferences"
+        manage_link = f"{FRONTEND_URL}/settings"
         consent_date = subscription.get("consent_at", "")
 
         from src.services.email_service import send_monitoring_alert_email, is_email_enabled

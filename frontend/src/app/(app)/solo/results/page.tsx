@@ -94,7 +94,10 @@ function OutOfPocketBlock({ data }: { data: OutOfPocketData }) {
 export default function SoloResults() {
     const router = useRouter();
     const searchParams = useSearchParams();
-    const tripId = searchParams?.get('trip_id') || '';
+    // Prefer trip_id from URL; fall back to the last generated trip stored in
+    // sessionStorage (survives sign-in redirects that may lose query params).
+    const tripIdFromUrl = searchParams?.get('trip_id') || '';
+    const tripId = tripIdFromUrl || (typeof window !== 'undefined' ? sessionStorage.getItem('tripy_last_trip_id') || '' : '');
     const shareToken = searchParams?.get('share_token') || '';
 
     const [itineraries, setItineraries] = useState<Itinerary[]>([]);
@@ -719,6 +722,15 @@ export default function SoloResults() {
 
     const selectedItinerary = itineraries.find(i => i.id === selectedId);
     const selectedSoloItinerary = soloItineraries.find(i => i.id === selectedSoloId);
+
+    // Compute points range across all itineraries for display
+    const soloPointsRange = (() => {
+        const allPoints = soloItineraries
+            .map(it => it.oopMetrics.totalPointsUsed || it.bookingDetails?.totalPoints || 0)
+            .filter(p => p > 0);
+        if (allPoints.length === 0) return { min: 0, max: 0 };
+        return { min: Math.min(...allPoints), max: Math.max(...allPoints) };
+    })();
     
     // Handle selecting a solo itinerary and storing it
     const handleSelectSoloItinerary = async (itinerary: SoloRankedItinerary) => {
@@ -888,7 +900,7 @@ export default function SoloResults() {
                     <>
                         <DecisionHeader
                             summary={optimizeResponse.decisionSummary}
-                            onBookPlan={() => router.push(`/solo/booking?trip_id=${tripId}`)}
+                            onBookPlan={() => router.push(`/solo/payment?trip_id=${tripId}`)}
                         />
                     </>
                 )}
@@ -1157,15 +1169,67 @@ export default function SoloResults() {
                                                                 <span className="text-xs font-medium uppercase tracking-wider">Points Needed</span>
                                                             </div>
                                                             <div className="text-lg font-bold text-blue-700">
-                                                                {pointsNeeded >= 1000
-                                                                    ? `${(pointsNeeded / 1000).toFixed(pointsNeeded % 1000 === 0 ? 0 : 1)}k`
-                                                                    : pointsNeeded.toLocaleString()
-                                                                }
+                                                                {(() => {
+                                                                    const fmtPts = (v: number) => v >= 1000
+                                                                        ? `${(v / 1000).toFixed(v % 1000 === 0 ? 0 : 1)}k`
+                                                                        : v.toLocaleString();
+                                                                    if (soloPointsRange.min > 0 && soloPointsRange.max > 0 && soloPointsRange.min !== soloPointsRange.max) {
+                                                                        return `${fmtPts(soloPointsRange.min)} – ${fmtPts(soloPointsRange.max)}`;
+                                                                    }
+                                                                    return fmtPts(pointsNeeded);
+                                                                })()}
                                                             </div>
-                                                            <div className="text-xs text-slate-500 mt-0.5">Total points to redeem</div>
+                                                            <div className="text-xs text-slate-500 mt-0.5">Points range across options</div>
                                                         </div>
                                                     </div>
                                                 )}
+
+                                                {/* Why points aren't being used notice */}
+                                                {pointsNeeded === 0 && metrics.totalOutOfPocket >= metrics.totalCashPrice && metrics.totalCashPrice > 0 && (() => {
+                                                    const reasons = (structuredWarnings?.points?.details?.reasons ?? []) as string[];
+                                                    const hasPoints = userConstraints && userConstraints.totalPoints > 0;
+                                                    return (
+                                                    <div className="mt-3 pt-3 border-t border-blue-200/50">
+                                                        <div className="flex items-start gap-2 p-2.5 bg-amber-50 rounded-lg border border-amber-200">
+                                                            <Info className="w-4 h-4 text-amber-500 flex-shrink-0 mt-0.5" />
+                                                            <div className="text-xs text-amber-800 leading-relaxed">
+                                                                {hasPoints ? (
+                                                                    <>
+                                                                        <span className="font-medium">Why aren&apos;t points being used?</span>
+                                                                        {reasons.length > 0 ? (
+                                                                            <>
+                                                                                <ul className="mt-1.5 ml-1 space-y-1 list-none">
+                                                                                    {reasons.map((reason, ri) => (
+                                                                                        <li key={ri} className="flex items-start gap-1.5">
+                                                                                            <span className="text-amber-400 mt-px">&bull;</span>
+                                                                                            <span>{reason}</span>
+                                                                                        </li>
+                                                                                    ))}
+                                                                                </ul>
+                                                                                <p className="mt-2 font-medium text-amber-900">
+                                                                                    Therefore, we recommend booking with cash for this trip.
+                                                                                </p>
+                                                                            </>
+                                                                        ) : (
+                                                                            <p className="mt-1">
+                                                                                Award options for this route were either unavailable, had high
+                                                                                surcharges, or didn&apos;t offer enough value to justify the points
+                                                                                cost. Cash is the better deal here.
+                                                                            </p>
+                                                                        )}
+                                                                    </>
+                                                                ) : (
+                                                                    <>
+                                                                        <span className="font-medium">No points added.</span>{' '}
+                                                                        Add your loyalty program balances to see if you can save with
+                                                                        points on this route.
+                                                                    </>
+                                                                )}
+                                                            </div>
+                                                        </div>
+                                                    </div>
+                                                    );
+                                                })()}
                                             </div>
                                                 );
                                             })()}
@@ -1263,28 +1327,18 @@ export default function SoloResults() {
                                                                     </div>
                                                                 </div>
 
-                                                                {/* Price & payment row */}
+                                                                {/* Payment method row - only show for non-points segments */}
                                                                 {(() => {
                                                                     const isPoints = segment.paymentMethod === 'points' || (segment.pointsUsed != null && segment.pointsUsed > 0);
-                                                                    const fmtSurcharge = segment.surcharge ? `$${Number(segment.surcharge) % 1 === 0 ? Math.round(segment.surcharge).toLocaleString() : Number(segment.surcharge).toFixed(2)}` : '';
+                                                                    if (isPoints) return null;
                                                                     return (
                                                                 <div className="flex items-center justify-between mt-3 pt-3 border-t border-slate-200/60">
                                                                     <div className="text-xs text-slate-500">
-                                                                        {isPoints
-                                                                            ? `${segment.pointsUsed?.toLocaleString() ?? '—'} pts${fmtSurcharge ? ` + ${fmtSurcharge} fees` : ''}`
-                                                                            : (segment.cashPrice != null && segment.cashPrice > 0)
-                                                                                ? `$${segment.cashPrice.toLocaleString()} cash`
-                                                                                : metrics.cashSaved > 0
-                                                                                    ? 'Paid with points'
-                                                                                    : 'Cash booking'
+                                                                        {(segment.cashPrice != null && segment.cashPrice > 0)
+                                                                            ? `$${segment.cashPrice.toLocaleString()} cash`
+                                                                            : 'Cash booking'
                                                                         }
                                                                     </div>
-                                                                    {isPoints && (
-                                                                        <span className="px-2 py-0.5 bg-blue-100 text-blue-700 text-xs font-medium rounded">Points</span>
-                                                                    )}
-                                                                    {!isPoints && metrics.cashSaved > 0 && segment.cashPrice === 0 && (
-                                                                        <span className="px-2 py-0.5 bg-blue-100 text-blue-700 text-xs font-medium rounded">Points</span>
-                                                                    )}
                                                                 </div>
                                                                     );
                                                                 })()}
@@ -1307,25 +1361,12 @@ export default function SoloResults() {
                                                             <Bed className="w-4 h-4 text-amber-600" />
                                                             <div className="flex-1">
                                                                 <div className="font-medium text-slate-900">{segment.segment}</div>
-                                                                {(() => {
-                                                                    const hFmtSurcharge = segment.surcharge ? `$${Number(segment.surcharge) % 1 === 0 ? Math.round(segment.surcharge).toLocaleString() : Number(segment.surcharge).toFixed(2)}` : '';
-                                                                    return (
-                                                                <div className="text-xs text-slate-500">
-                                                                    {isHotelPoints
-                                                                        ? `${segment.pointsUsed?.toLocaleString() ?? '—'} pts${hFmtSurcharge ? ` + ${hFmtSurcharge} fees` : ''}`
-                                                                        : (segment.cashPrice != null && segment.cashPrice > 0)
-                                                                            ? `$${segment.cashPrice.toLocaleString()} cash`
-                                                                            : metrics.cashSaved > 0
-                                                                                ? 'Paid with points'
-                                                                                : ''
-                                                                    }
-                                                                </div>
-                                                                    );
-                                                                })()}
+                                                                {!isHotelPoints && (segment.cashPrice != null && segment.cashPrice > 0) && (
+                                                                    <div className="text-xs text-slate-500">
+                                                                        {`$${segment.cashPrice.toLocaleString()} cash`}
+                                                                    </div>
+                                                                )}
                                                             </div>
-                                                            {(isHotelPoints || (metrics.cashSaved > 0 && segment.cashPrice === 0)) && (
-                                                                <span className="px-2 py-0.5 bg-blue-100 text-blue-700 text-xs font-medium rounded">Points</span>
-                                                            )}
                                                         </div>
                                                     );
                                                     }
@@ -1349,26 +1390,15 @@ export default function SoloResults() {
                                                 </div>
                                             )}
 
-                                            {/* Policy warnings/blocks */}
-                                            {itinerary.policyEvaluation && (
-                                                <div className="mt-4">
-                                                    <PolicyWarnings
-                                                        evaluation={itinerary.policyEvaluation}
-                                                        showAckCheckboxes={false}
-                                                        collapsed
-                                                    />
-                                                </div>
-                                            )}
-
-                                            {/* Book Button */}
+                                            {/* Book Button — auth-gated, routes to payment */}
                                             <button
                                                 onClick={(e) => {
                                                     e.stopPropagation();
                                                     if (!isDisabled) {
-                                                        // Navigate immediately (same as "Book this plan"),
-                                                        // and persist the itinerary selection in the background
+                                                        // Persist the itinerary selection in the background
                                                         handleSelectSoloItinerary(itinerary);
-                                                        router.push(`/solo/booking?trip_id=${tripId}`);
+                                                        // Route to payment page (auth check happens there)
+                                                        router.push(`/solo/payment?trip_id=${tripId}`);
                                                     }
                                                 }}
                                                 disabled={isDisabled}
@@ -1485,88 +1515,6 @@ export default function SoloResults() {
                                                 );
                                             })()}
 
-                                            {/* Points Usage: Transfers + Direct Redemptions */}
-                                            {selectedSoloItinerary.transfers.length > 0 && (
-                                                <div>
-                                                    {/* Transfers (bank → airline) */}
-                                                    {selectedSoloItinerary.transfers.filter(t => !t.isDirect).length > 0 && (
-                                                        <>
-                                                            <div className="text-sm text-slate-600 mb-3 font-medium">Points to transfer first</div>
-                                                            <div className="space-y-2 mb-3">
-                                                                {selectedSoloItinerary.transfers.filter(t => !t.isDirect).map((transfer, idx) => (
-                                                                    <div key={idx} className="p-3 bg-blue-50 rounded-lg text-sm">
-                                                                        <div className="font-medium text-slate-900">
-                                                                            {formatProgramName(typeof transfer.sourceProgram === 'string' ? transfer.sourceProgram : String(transfer.sourceProgram || ''))} → {formatProgramName(typeof transfer.targetProgram === 'string' ? transfer.targetProgram : String(transfer.targetProgram || ''))}
-                                                                        </div>
-                                                                        <div className="text-slate-600 mt-1">
-                                                                            {(typeof transfer.pointsToTransfer === 'number' ? transfer.pointsToTransfer : Number(transfer.pointsToTransfer) || 0).toLocaleString()} pts • {typeof transfer.expectedTransferTime === 'string' ? transfer.expectedTransferTime : String(transfer.expectedTransferTime || 'varies')}
-                                                                        </div>
-                                                                    </div>
-                                                                ))}
-                                                            </div>
-                                                        </>
-                                                    )}
-                                                    {/* Direct redemptions (use existing miles) */}
-                                                    {selectedSoloItinerary.transfers.filter(t => t.isDirect).length > 0 && (
-                                                        <>
-                                                            <div className="text-sm text-slate-600 mb-3 font-medium">Use your existing miles</div>
-                                                            <div className="space-y-2">
-                                                                {selectedSoloItinerary.transfers.filter(t => t.isDirect).map((transfer, idx) => (
-                                                                    <div key={idx} className="p-3 bg-green-50 rounded-lg text-sm">
-                                                                        <div className="font-medium text-slate-900">
-                                                                            {formatProgramName(typeof transfer.sourceProgram === 'string' ? transfer.sourceProgram : String(transfer.sourceProgram || ''))}
-                                                                        </div>
-                                                                        <div className="text-slate-600 mt-1">
-                                                                            {(typeof transfer.pointsToTransfer === 'number' ? transfer.pointsToTransfer : Number(transfer.pointsToTransfer) || 0).toLocaleString()} pts • Already in your account
-                                                                        </div>
-                                                                    </div>
-                                                                ))}
-                                                            </div>
-                                                        </>
-                                                    )}
-                                                </div>
-                                            )}
-
-                                            {/* Progressive Disclosure: Advanced Details (Task 10) — only when points are used */}
-                                            {(selectedSoloItinerary.oopMetrics.totalPointsUsed > 0 || selectedSoloItinerary.bookingDetails?.totalPoints || selectedSoloItinerary.oopMetrics.cashSaved > 0) && (
-                                            <div className="border-t border-slate-100 pt-3">
-                                                <button
-                                                    onClick={() => setShowAdvancedDetails(!showAdvancedDetails)}
-                                                    className="flex items-center gap-2 text-sm text-slate-500 hover:text-slate-700 transition-colors w-full"
-                                                >
-                                                    {showAdvancedDetails ? <ChevronUp className="w-4 h-4" /> : <ChevronDown className="w-4 h-4" />}
-                                                    <span>{showAdvancedDetails ? 'Hide' : 'Show'} detailed breakdown</span>
-                                                </button>
-                                                
-                                                {showAdvancedDetails && (
-                                                    <div className="mt-3 space-y-3 text-sm">
-                                                        {/* Savings percentage — only show when points are used and savings are real */}
-                                                        {selectedSoloItinerary.oopMetrics.savingsPercentage > 0 && selectedSoloItinerary.oopMetrics.totalPointsUsed > 0 && selectedSoloItinerary.oopMetrics.totalOutOfPocket < selectedSoloItinerary.oopMetrics.totalCashPrice && (
-                                                        <div className="p-3 bg-slate-50 rounded-lg">
-                                                            <div className="text-xs font-semibold text-slate-500 mb-1">SAVINGS</div>
-                                                            <div className="text-slate-700">
-                                                                {selectedSoloItinerary.oopMetrics.savingsPercentage.toFixed(0)}% off cash price
-                                                            </div>
-                                                        </div>
-                                                        )}
-                                                        {/* Transfer ratios */}
-                                                        {selectedSoloItinerary.transfers.length > 0 && (
-                                                            <div className="p-3 bg-slate-50 rounded-lg">
-                                                                <div className="text-xs font-semibold text-slate-500 mb-1">POINTS DETAILS</div>
-                                                                {selectedSoloItinerary.transfers.map((t, i) => (
-                                                                    <div key={i} className="text-slate-700">
-                                                                        {t.isDirect
-                                                                            ? `${formatProgramName(t.sourceProgram)}: ${(t.pointsToTransfer || 0).toLocaleString()} pts (direct)`
-                                                                            : `${formatProgramName(t.sourceProgram)} → ${formatProgramName(t.targetProgram)}: ${t.transferRatio}x ratio`
-                                                                        }
-                                                                    </div>
-                                                                ))}
-                                                            </div>
-                                                        )}
-                                                    </div>
-                                                )}
-                                            </div>
-                                            )}
                                         </div>
                                     </div>
 
@@ -1594,88 +1542,11 @@ export default function SoloResults() {
                         </div>
                     )}
 
-                    {/* Warnings — below cards */}
-                    {relaxedMessage && (
-                        <div className="mt-4 p-4 bg-amber-50 border border-amber-200 rounded-xl flex items-start gap-3">
-                            <Info className="w-5 h-5 text-amber-600 flex-shrink-0 mt-0.5" />
-                            <p className="text-sm text-amber-900">{relaxedMessage}</p>
-                        </div>
-                    )}
+                    {/* Warnings removed from results — shown on booking page instead */}
 
-                    {structuredWarnings ? (
-                        <div className="space-y-4 mt-4">
-                            {structuredWarnings.budget && (
-                                <div className="p-5 bg-red-50 border-2 border-red-300 rounded-xl">
-                                    <div className="flex items-start gap-3 mb-3">
-                                        <Info className="w-6 h-6 text-red-600 flex-shrink-0 mt-0.5" />
-                                        <div>
-                                            <h3 className="font-semibold text-red-900 mb-2">{structuredWarnings.budget.headline}</h3>
-                                            <p className="text-sm text-red-800">{structuredWarnings.budget.message}</p>
-                                        </div>
-                                    </div>
-                                    {structuredWarnings.budget.details?.user_budget != null && structuredWarnings.budget.details?.suggested_budget != null && (
-                                        <div className="mt-3 pt-3 border-t border-red-200 grid grid-cols-2 gap-4 text-sm">
-                                            <div>
-                                                <div className="text-red-600 font-medium">Your Budget</div>
-                                                <div className="text-lg font-bold text-red-900">${(structuredWarnings.budget.details.user_budget as number).toLocaleString()}</div>
-                                            </div>
-                                            <div>
-                                                <div className="text-green-600 font-medium">Recommended</div>
-                                                <div className="text-lg font-bold text-green-900">${(structuredWarnings.budget.details.suggested_budget as number).toLocaleString()}</div>
-                                            </div>
-                                        </div>
-                                    )}
-                                </div>
-                            )}
-                            {structuredWarnings.points && (
-                                <div className="p-4 bg-amber-50 border border-amber-300 rounded-xl flex items-start gap-3">
-                                    <Info className="w-5 h-5 text-amber-600 flex-shrink-0 mt-0.5" />
-                                    <div>
-                                        <h3 className="font-semibold text-amber-900 mb-1">{structuredWarnings.points.headline}</h3>
-                                        <p className="text-sm text-amber-800">{structuredWarnings.points.message}</p>
-                                    </div>
-                                </div>
-                            )}
-                            {structuredWarnings.estimation && (
-                                <div className="p-4 bg-blue-50 border border-blue-300 rounded-xl flex items-start gap-3">
-                                    <Info className="w-5 h-5 text-blue-600 flex-shrink-0 mt-0.5" />
-                                    <div>
-                                        <h3 className="font-semibold text-blue-900 mb-1">{structuredWarnings.estimation.headline}</h3>
-                                        <p className="text-sm text-blue-800">{structuredWarnings.estimation.message}</p>
-                                    </div>
-                                </div>
-                            )}
-                            {structuredWarnings.degradation && (
-                                <div className={`p-4 rounded-xl flex items-start gap-3 ${
-                                    structuredWarnings.degradation.severity === 'error'
-                                        ? 'bg-red-50 border border-red-300'
-                                        : 'bg-amber-50 border border-amber-300'
-                                }`}>
-                                    <Info className={`w-5 h-5 flex-shrink-0 mt-0.5 ${
-                                        structuredWarnings.degradation.severity === 'error' ? 'text-red-600' : 'text-amber-600'
-                                    }`} />
-                                    <div>
-                                        <h3 className={`font-semibold mb-1 ${
-                                            structuredWarnings.degradation.severity === 'error' ? 'text-red-900' : 'text-amber-900'
-                                        }`}>{structuredWarnings.degradation.headline}</h3>
-                                        <p className={`text-sm ${
-                                            structuredWarnings.degradation.severity === 'error' ? 'text-red-800' : 'text-amber-800'
-                                        }`}>{structuredWarnings.degradation.message}</p>
-                                    </div>
-                                </div>
-                            )}
-                        </div>
-                    ) : (
+                    {/* Keep only critical non-transfer warnings: fallback errors */}
+                    {!structuredWarnings && (
                         <>
-                            {optimizationWarning && (
-                                <div className="mt-4 p-4 bg-amber-50 border border-amber-300 rounded-xl flex items-start gap-3">
-                                    <Info className="w-5 h-5 text-amber-600 flex-shrink-0 mt-0.5" />
-                                    <div>
-                                        <h3 className="font-semibold text-amber-900 mb-1">Things to Know</h3>
-                                        <p className="text-sm text-amber-800">{optimizationWarning}</p>
-                                    </div>
-                                </div>
-                            )}
                             {fallbackWarning && (
                                 <div className="mt-4 p-4 bg-red-50 border border-red-300 rounded-xl flex items-start gap-3">
                                     <Info className="w-5 h-5 text-red-600 flex-shrink-0 mt-0.5" />
@@ -1699,7 +1570,7 @@ export default function SoloResults() {
                                     Your personalized routes and transfer instructions are ready on the booking page.
                                 </p>
                                 <button
-                                    onClick={() => router.push(`/solo/booking${tripId ? `?trip_id=${tripId}` : ''}`)}
+                                    onClick={() => router.push(`/solo/payment${tripId ? `?trip_id=${tripId}` : ''}`)}
                                     className="px-6 py-3 bg-blue-600 text-white rounded-xl hover:bg-blue-700 transition-colors font-medium"
                                 >
                                     Go to Booking

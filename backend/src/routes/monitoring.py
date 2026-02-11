@@ -20,9 +20,11 @@ from src.config.monitoring import (
     MONITORING_ALERTS_ENABLED,
     MONITORING_CRON_SECRET,
     MONITORING_PAID_ENABLED,
+    MONITORING_SEARCH_MODE,
     RATE_LIMIT_RESEND_PER_DAY_PER_EMAIL,
     RATE_LIMIT_START_PER_DAY_PER_TRIP,
     RATE_LIMIT_START_PER_HOUR_PER_IP,
+    RATE_LIMIT_UPDATE_FETCH_PER_MIN_PER_IP,
     RATE_LIMIT_VERIFY_PER_HOUR_PER_IP,
     UPDATE_EXPIRY_DAYS,
     UPDATE_TTL_GRACE_DAYS,
@@ -129,11 +131,10 @@ async def start_monitoring(
     if body.email:
         email = normalize_email(body.email)
     elif not is_anon and user_id:
-        # Try to get email from user profile
+        # Try to get email from user profile (same service used by booking ack)
         try:
-            from src.repos.ddb import get_item, table
-            from src.config import USERS_TABLE
-            user = get_item(table(USERS_TABLE), {"userId": user_id})
+            from src.services.user_service import get_user
+            user = get_user(user_id)
             if user:
                 email = normalize_email(user.get("email", ""))
         except Exception:
@@ -195,7 +196,7 @@ async def start_monitoring(
             )
 
     # New subscription — capture baseline first
-    baseline_id = f"mbl_{uuid.uuid4().hex[:12]}"
+    baseline_id = f"mbl_{uuid.uuid4().hex}"
     baseline_item = _build_baseline(baseline_id, body, trip_id, user_id, is_anon)
     if baseline_item is None:
         raise HTTPException(
@@ -216,7 +217,7 @@ async def start_monitoring(
         raise HTTPException(status_code=500, detail="Failed to save monitoring baseline.")
 
     # Create subscription via atomic dedupe
-    sub_id = f"msub_{uuid.uuid4().hex[:12]}"
+    sub_id = f"msub_{uuid.uuid4().hex}"
     expires_at = compute_expires_at(body.tier.value).isoformat()
     now = now_iso()
     bucket = compute_state_bucket(sub_id, "pending_verification" if is_anon else "active")
@@ -622,15 +623,32 @@ def _cancel_by_unsubscribe(payload: dict):
 # =============================================================================
 
 @router.get("/api/monitoring/updates/{update_id}")
-async def get_monitoring_update(update_id: str):
+async def get_monitoring_update(update_id: str, request: Request):
     """
     Public endpoint for the update click-through page.
     The UUID is the capability token — no auth required.
     NEVER includes email/user_id/subscription_id in response.
+    Rate-limited per IP to prevent scraping.
     """
+    # Rate limit: per IP (prevents scraping of capability URLs)
+    client_ip = _get_client_ip(request)
+    ip_hash = hashlib.sha256(client_ip.encode()).hexdigest()[:16]
+    if not repo.check_rate_limit(
+        f"update_fetch:ip:{ip_hash}", 60, RATE_LIMIT_UPDATE_FETCH_PER_MIN_PER_IP
+    ):
+        return JSONResponse(
+            status_code=429,
+            content={"detail": "Rate limit exceeded. Please try again later."},
+            headers=_update_security_headers(),
+        )
+
     update = repo.get_update(update_id)
     if not update:
-        raise HTTPException(status_code=404, detail="Update not found")
+        return JSONResponse(
+            status_code=404,
+            content={"detail": "Update not found"},
+            headers=_update_security_headers(),
+        )
 
     # Check expiry
     expires_at = update.get("expires_at")
@@ -641,6 +659,7 @@ async def get_monitoring_update(update_id: str):
                 return JSONResponse(
                     status_code=410,
                     content=UpdateExpiredResponse().dict(),
+                    headers=_update_security_headers(),
                 )
         except (ValueError, TypeError):
             pass
@@ -661,6 +680,7 @@ async def get_monitoring_update(update_id: str):
                 detected_at=update.get("detected_at"),
                 trip_id=update.get("trip_id"),
             ).dict(),
+            headers=_update_security_headers(),
         )
 
     # Parse deltas
@@ -672,16 +692,19 @@ async def get_monitoring_update(update_id: str):
             deltas_raw = {"bullets": [], "recommendation": "", "caveat": ""}
 
     # Build response — NO PII, NO internal IDs
-    return {
-        "update_id": update_id,
-        "detected_at": update.get("detected_at", ""),
-        "severity": update.get("severity", "medium"),
-        "baseline_summary": _safe_json(update.get("baseline_summary", {})),
-        "new_candidate_summary": _safe_json(update.get("new_candidate_summary", {})),
-        "deltas": deltas_raw,
-        "trip_id": update.get("trip_id", ""),
-        "subscription_tier": update.get("subscription_tier", "free_email"),
-    }
+    return JSONResponse(
+        content={
+            "update_id": update_id,
+            "detected_at": update.get("detected_at", ""),
+            "severity": update.get("severity", "medium"),
+            "baseline_summary": _safe_json(update.get("baseline_summary", {})),
+            "new_candidate_summary": _safe_json(update.get("new_candidate_summary", {})),
+            "deltas": deltas_raw,
+            "trip_id": update.get("trip_id", ""),
+            "subscription_tier": update.get("subscription_tier", "free_email"),
+        },
+        headers=_update_security_headers(),
+    )
 
 
 def _safe_json(val):
@@ -692,6 +715,15 @@ def _safe_json(val):
         except json.JSONDecodeError:
             return {}
     return val or {}
+
+
+def _update_security_headers() -> dict:
+    """Security headers for public update capability endpoint."""
+    return {
+        "Cache-Control": "private, no-store",
+        "Pragma": "no-cache",
+        "X-Robots-Tag": "noindex",
+    }
 
 
 # =============================================================================
@@ -734,6 +766,8 @@ async def monitoring_check(
         compute_next_check_at as compute_nca,
         compute_state_bucket,
         far_future_iso,
+        generate_delta_bullets,
+        generate_recommendation_and_caveat,
         should_alert,
     )
 
@@ -809,9 +843,9 @@ async def monitoring_check(
                 stats.skipped_version += 1
                 return
 
-            # 4. Run search (placeholder — integrate with real search pipeline)
-            #    For now, this is a stub that returns the baseline itself
-            #    TODO: Integrate with OrchestratorAgent / flight search pipeline
+            # 4. Run search via monitoring search adapter
+            from src.domain.monitoring.search import run_search
+
             selected_itinerary = baseline.get("selected_itinerary", {})
             if isinstance(selected_itinerary, str):
                 try:
@@ -819,9 +853,14 @@ async def monitoring_check(
                 except json.JSONDecodeError:
                     selected_itinerary = {}
 
-            # Placeholder: no change detected (search not implemented yet)
-            # When search is implemented, `candidate` will be the best match from search results
-            candidate = selected_itinerary  # TODO: replace with actual search result
+            candidate = run_search(baseline, mode=MONITORING_SEARCH_MODE)
+            if candidate is None:
+                # Search returned nothing — log and skip
+                logger.warning(f"monitoring.no_candidate sub={sub_id}")
+                nca = compute_nca(tier).isoformat()
+                repo.update_subscription_fields(sub_id, next_check_at=nca, last_checked_at=now_str)
+                stats.checked += 1
+                return
 
             # 5. Compute score
             score = compute_change_score(selected_itinerary, candidate, tier)
@@ -873,9 +912,29 @@ async def monitoring_check(
 
             # 9. Create update record + maybe send email (TWO-STEP SEND)
             if alert_triggered:
-                update_id = f"mupd_{uuid.uuid4().hex[:12]}"
+                update_id = f"mupd_{uuid.uuid4().hex}"
                 update_expires = (now + timedelta(days=UPDATE_EXPIRY_DAYS)).isoformat()
                 ttl_epoch = int((now + timedelta(days=UPDATE_EXPIRY_DAYS + UPDATE_TTL_GRACE_DAYS)).timestamp())
+
+                # Generate real delta bullets
+                bullets = generate_delta_bullets(selected_itinerary, candidate, tier)
+                recommendation, caveat = generate_recommendation_and_caveat(
+                    bullets, selected_itinerary, candidate,
+                )
+
+                # If bullets are empty despite score > threshold, skip alert
+                # (prevents render-check failure and empty emails)
+                if not bullets:
+                    logger.warning(
+                        f"monitoring.empty_bullets sub={sub_id} score={score} — skipping alert"
+                    )
+                    nca = compute_nca(tier).isoformat()
+                    repo.update_subscription_fields(
+                        sub_id, next_check_at=nca, last_checked_at=now_str,
+                        recent_fingerprints=json.dumps(recent_fps),
+                    )
+                    stats.checked += 1
+                    return
 
                 update_item = {
                     "update_id": update_id,
@@ -888,9 +947,9 @@ async def monitoring_check(
                     "baseline_summary": json.dumps(selected_itinerary),
                     "new_candidate_summary": json.dumps(candidate),
                     "deltas": json.dumps({
-                        "bullets": [],  # TODO: generate real delta bullets from scoring
-                        "recommendation": "",
-                        "caveat": "Prices change frequently. Verify current availability before booking.",
+                        "bullets": bullets,
+                        "recommendation": recommendation,
+                        "caveat": caveat,
                     }),
                     "change_fingerprint": current_fp,
                     "email_status": None,
@@ -930,6 +989,11 @@ async def monitoring_check(
                 last_checked_at=now_str,
                 recent_fingerprints=json.dumps(recent_fps),
             )
+
+            # 11. Heartbeat: refresh lock TTL for this active subscription
+            lock_pk = f"lock#{sub.get('trip_email_key', '')}"
+            if lock_pk != "lock#":
+                repo.refresh_lock_expiry(lock_pk)
 
             stats.checked += 1
 

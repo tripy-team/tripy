@@ -508,6 +508,9 @@ class RankedItinerary(BaseModel):
     
     # Booking structure recommendation
     booking_structure_recommendation: Optional[Literal["two_one_ways", "round_trip"]] = None
+    
+    # Diagnostic: reasons why points were not used (populated when user has points but none were applied)
+    no_points_reasons: Optional[list[str]] = None
 
 
 # =============================================================================
@@ -569,8 +572,8 @@ class OptimizeSoloRequest(BaseModel):
     # Example: { "alice": {"amex_mr": 50000}, "bob": {"amex_mr": 75000, "chase_ur": 30000} }
     payer_points: Optional[dict[str, dict[str, int]]] = None
     
-    # Optimization mode: oop (min cost), cpp (max value), balanced
-    optimization_mode: Literal["oop", "cpp", "balanced"] = "oop"
+    # Optimization mode: oop (min cost), cpp (max value), balanced, money_saving (ultra-aggressive points usage)
+    optimization_mode: Literal["oop", "cpp", "balanced", "money_saving"] = "oop"
     
     # Policy settings
     risk_mode: RiskMode = "balanced"  # safe, balanced, aggressive

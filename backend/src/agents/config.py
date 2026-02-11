@@ -5,6 +5,13 @@ OOP (Out Of Pocket) is the primary optimization strategy.
 
 from typing import Literal
 
+# Centralized program config (single source of truth)
+from src.config.programs import (
+    AGENTS_TRANSFER_GRAPH as TRANSFER_GRAPH,
+    AIRLINE_PROGRAMS_FULL as AIRLINE_PROGRAMS,
+    HOTEL_PROGRAMS_FULL as HOTEL_PROGRAMS,
+)
+
 # =============================================================================
 # DEFAULT OPTIMIZATION MODE
 # =============================================================================
@@ -54,130 +61,8 @@ CPP_CONFIG = {
     },
 }
 
-# =============================================================================
-# TRANSFER GRAPH
-# =============================================================================
-
-TRANSFER_GRAPH = {
-    "Chase UR": {
-        "airlines": ["UA", "BA", "AF", "IB", "SQ", "VS", "EI", "EK", "AC", "AV", "WN", "AS"],
-        "hotels": ["HYATT", "MAR", "IHG"],
-        "ratios": {
-            "UA": 1.0, "BA": 1.0, "AF": 1.0, "IB": 1.0, "SQ": 1.0,
-            "VS": 1.0, "EI": 1.0, "EK": 1.0, "AC": 1.0, "AV": 1.0,
-            "WN": 1.0, "AS": 1.0,
-            "HYATT": 1.0, "MAR": 1.0, "IHG": 1.0,
-        },
-        "transfer_times": {
-            "UA": "Instant", "BA": "Instant", "AF": "Instant", "IB": "Instant",
-            "SQ": "Instant", "VS": "Instant", "EI": "Instant", "EK": "Instant",
-            "AC": "Instant", "AV": "Instant", "WN": "Instant", "AS": "Instant",
-            "HYATT": "Instant", "MAR": "1-2 days", "IHG": "Instant",
-        },
-        "portal_url": "https://ultimaterewardspoints.chase.com",
-    },
-    "Amex MR": {
-        "airlines": ["DL", "B6", "BA", "AF", "IB", "SQ", "CX", "NH", "VS", "EK", "EY", "QF", "AV", "AS", "AC", "JL"],
-        "hotels": ["HH", "MAR"],
-        "ratios": {
-            "DL": 1.0, "B6": 1.0, "BA": 1.0, "AF": 1.0, "IB": 1.0,
-            "SQ": 1.0, "CX": 1.0, "NH": 1.0, "VS": 1.0, "EK": 1.0,
-            "EY": 1.0, "QF": 1.0, "AV": 1.0, "AS": 1.0, "AC": 1.0, "JL": 1.0,
-            "HH": 2.0, "MAR": 1.0,  # 1 MR = 2 Hilton
-        },
-        "transfer_times": {
-            "DL": "1-2 days", "B6": "1-2 days", "BA": "1-2 days", "AF": "1-2 days",
-            "IB": "1-2 days", "SQ": "1-2 days", "CX": "1-2 days", "NH": "1-2 days",
-            "VS": "1-2 days", "EK": "1-2 days", "EY": "1-2 days", "QF": "1-2 days",
-            "AV": "1-2 days", "AS": "1-2 days", "AC": "1-2 days", "JL": "1-2 days",
-            "HH": "1-2 days", "MAR": "1-2 days",
-        },
-        "portal_url": "https://global.americanexpress.com/rewards",
-    },
-    "Citi TYP": {
-        "airlines": ["AA", "B6", "SQ", "CX", "TK", "VS", "AF", "EK", "EY", "QR", "QF", "AC", "AV", "JL"],
-        "hotels": [],
-        "ratios": {
-            "AA": 1.0, "B6": 1.0, "SQ": 1.0, "CX": 1.0, "TK": 1.0,
-            "VS": 1.0, "AF": 1.0, "EK": 1.0, "EY": 1.0, "QR": 1.0,
-            "QF": 1.0, "AC": 1.0, "AV": 1.0, "JL": 1.0,
-        },
-        "transfer_times": {
-            "AA": "Instant", "B6": "Instant", "SQ": "1-2 days", "CX": "1-2 days",
-            "TK": "1-2 days", "VS": "Instant", "AF": "Instant", "AC": "Instant",
-        },
-        "portal_url": "https://www.thankyou.com",
-    },
-    "Capital One": {
-        "airlines": ["AC", "AF", "BA", "EK", "EY", "AY", "SQ", "TK", "AV", "QF", "TAP"],
-        "hotels": [],
-        "ratios": {
-            "AC": 1.0, "AF": 1.0, "BA": 1.0, "EK": 1.0, "EY": 1.0,
-            "AY": 1.0, "SQ": 1.0, "TK": 1.0, "AV": 1.0, "QF": 1.0, "TAP": 1.0,
-        },
-        "transfer_times": {"AF": "Instant", "BA": "Instant", "AV": "Instant"},
-        "portal_url": "https://www.capitalone.com/credit-cards/rewards",
-    },
-    "Bilt": {
-        "airlines": ["UA", "AA", "BA", "AF", "TK", "VS", "EI", "EK", "AC", "AS"],
-        "hotels": ["HYATT", "IHG"],
-        "ratios": {
-            "UA": 1.0, "AA": 1.0, "BA": 1.0, "AF": 1.0, "TK": 1.0,
-            "VS": 1.0, "EI": 1.0, "EK": 1.0, "AC": 1.0, "AS": 1.0,
-            "HYATT": 1.0, "IHG": 1.0,
-        },
-        "transfer_times": {"AA": "Instant", "UA": "Instant", "HYATT": "Instant"},
-        "portal_url": "https://www.biltrewards.com",
-    },
-}
-
-# =============================================================================
-# AIRLINE PROGRAMS
-# =============================================================================
-
-AIRLINE_PROGRAMS = {
-    "UA": {"name": "United MileagePlus", "alliance": "Star Alliance"},
-    "AA": {"name": "American AAdvantage", "alliance": "oneworld"},
-    "DL": {"name": "Delta SkyMiles", "alliance": "SkyTeam"},
-    "BA": {"name": "British Airways Avios", "alliance": "oneworld", "high_surcharge": True},
-    "AF": {"name": "Air France Flying Blue", "alliance": "SkyTeam"},
-    "VS": {"name": "Virgin Atlantic Flying Club", "alliance": "SkyTeam"},
-    "SQ": {"name": "Singapore KrisFlyer", "alliance": "Star Alliance"},
-    "NH": {"name": "ANA Mileage Club", "alliance": "Star Alliance"},
-    "JL": {"name": "JAL Mileage Bank", "alliance": "oneworld"},
-    "CX": {"name": "Cathay Pacific Asia Miles", "alliance": "oneworld"},
-    "EK": {"name": "Emirates Skywards", "alliance": None},
-    "QR": {"name": "Qatar Airways Privilege Club", "alliance": "oneworld"},
-    "TK": {"name": "Turkish Miles&Smiles", "alliance": "Star Alliance"},
-    "LH": {"name": "Lufthansa Miles & More", "alliance": "Star Alliance", "high_surcharge": True},
-}
-
-# =============================================================================
-# HOTEL PROGRAMS
-# =============================================================================
-
-HOTEL_PROGRAMS = {
-    "HH": {
-        "name": "Hilton Honors",
-        "typical_cpp": 0.5,
-        "transfer_partners": ["Amex MR"],
-    },
-    "MAR": {
-        "name": "Marriott Bonvoy",
-        "typical_cpp": 0.8,
-        "transfer_partners": ["Chase UR", "Amex MR"],
-    },
-    "HYATT": {
-        "name": "World of Hyatt",
-        "typical_cpp": 1.8,
-        "transfer_partners": ["Chase UR", "Bilt"],
-    },
-    "IHG": {
-        "name": "IHG One Rewards",
-        "typical_cpp": 0.5,
-        "transfer_partners": ["Chase UR", "Bilt"],
-    },
-}
+# TRANSFER_GRAPH, AIRLINE_PROGRAMS, and HOTEL_PROGRAMS are now imported
+# from src.config.programs (single source of truth: programs.yml)
 
 # =============================================================================
 # CABIN CLASSES

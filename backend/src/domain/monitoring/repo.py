@@ -151,8 +151,17 @@ def put_subscription_transact_with_lock(
     """
     Atomically create a subscription + lock item using TransactWriteItems.
     The lock item's conditional expression enforces (trip_id, email) uniqueness.
+    Treats expired locks (lock_expires_at < now) as absent to prevent stale orphans.
     Raises TransactionCanceledException if another request won the race.
     """
+    now_iso = datetime.now(timezone.utc).isoformat()
+
+    # Ensure lock item has lock_expires_at (24 hours from now)
+    from datetime import timedelta
+    lock_item["lock_expires_at"] = (
+        datetime.now(timezone.utc) + timedelta(hours=24)
+    ).isoformat()
+
     _ddb_client.transact_write_items(
         TransactItems=[
             {
@@ -161,11 +170,13 @@ def put_subscription_transact_with_lock(
                     "Item": _serialize_for_client(lock_item),
                     "ConditionExpression":
                         "attribute_not_exists(subscription_id) OR "
-                        "#state IN (:cancelled, :expired)",
+                        "#state IN (:cancelled, :expired) OR "
+                        "lock_expires_at < :now",
                     "ExpressionAttributeNames": {"#state": "state"},
                     "ExpressionAttributeValues": {
                         ":cancelled": {"S": "cancelled"},
                         ":expired": {"S": "expired"},
+                        ":now": {"S": now_iso},
                     },
                 },
             },
@@ -189,6 +200,7 @@ def update_subscription_state_transact(
 ) -> None:
     """
     Atomically update both the subscription and its lock item's state.
+    On cancel/expire: sets lock_expires_at = now to free the lock immediately.
     """
     now = datetime.now(timezone.utc).isoformat()
 
@@ -212,6 +224,16 @@ def update_subscription_state_transact(
         update_parts.append(f"{key} = {placeholder}")
         attr_values[placeholder] = _to_ddb_attr(val)
 
+    # On cancel/expire: set lock_expires_at = now to free it immediately
+    # On other transitions: refresh lock_expires_at to 24h from now
+    if new_state in ("cancelled", "expired"):
+        lock_expires_at = now
+    else:
+        from datetime import timedelta
+        lock_expires_at = (
+            datetime.now(timezone.utc) + timedelta(hours=24)
+        ).isoformat()
+
     _ddb_client.transact_write_items(
         TransactItems=[
             {
@@ -227,16 +249,36 @@ def update_subscription_state_transact(
                 "Update": {
                     "TableName": MONITORING_TABLE_SUBSCRIPTIONS,
                     "Key": {"subscription_id": {"S": lock_pk}},
-                    "UpdateExpression": "SET #state = :state, updated_at = :now",
+                    "UpdateExpression": "SET #state = :state, updated_at = :now, lock_expires_at = :lock_exp",
                     "ExpressionAttributeNames": {"#state": "state"},
                     "ExpressionAttributeValues": {
                         ":state": {"S": new_state},
                         ":now": {"S": now},
+                        ":lock_exp": {"S": lock_expires_at},
                     },
                 },
             },
         ],
     )
+
+
+def refresh_lock_expiry(lock_pk: str) -> None:
+    """
+    Heartbeat: extend lock_expires_at by 24 hours.
+    Called during cron processing to keep locks alive for active subscriptions.
+    """
+    from datetime import timedelta
+    new_expiry = (
+        datetime.now(timezone.utc) + timedelta(hours=24)
+    ).isoformat()
+    try:
+        _subs_table().update_item(
+            Key={"subscription_id": lock_pk},
+            UpdateExpression="SET lock_expires_at = :exp",
+            ExpressionAttributeValues=sanitize_for_dynamodb({":exp": new_expiry}),
+        )
+    except ClientError as e:
+        logger.warning(f"refresh_lock_expiry failed for {lock_pk}: {e}")
 
 
 def update_subscription_fields(subscription_id: str, **fields) -> None:

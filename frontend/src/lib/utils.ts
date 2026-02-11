@@ -80,18 +80,29 @@ export function tripDurationDays(startDate: string, endDate: string): number | n
   return days > 0 ? days : null;
 }
 
-/** Service fee as % of (amount spent + amount saved). Min/max in USD. */
+/** @deprecated — Use tiered pricing via /payment/calculate-fee instead. */
 export const SERVICE_FEE_PERCENT = 2;
-const SERVICE_FEE_MIN = 15;
-const SERVICE_FEE_MAX = 99;
 
 /**
- * Calculate the service/planning fee as a percentage of the total value
- * (money spent + money saved using the service). Uses cash price as the base
- * since: spent (out-of-pocket) + saved = cash price.
+ * Per-destination pricing (matches backend /payment/calculate-fee):
+ *   2 destinations (origin + 1 stop) = $8.00 base
+ *   Each additional stop             = +$4.00
+ */
+export const SERVICE_FEE_BASE_CENTS = 1200;  // $12.00
+export const SERVICE_FEE_EXTRA_CENTS = 400;  // $4.00 per extra stop
+
+export function calculateDestinationFee(destinationCount: number): number {
+  const count = Math.max(destinationCount, 2);
+  return SERVICE_FEE_BASE_CENTS + Math.max(count - 2, 0) * SERVICE_FEE_EXTRA_CENTS;
+}
+
+/**
+ * @deprecated Legacy percentage-based fee. Kept for backward-compat in booking page.
+ * Prefer using `SERVICE_FEE_TIERS` or the backend /payment/calculate-fee endpoint.
  */
 export function calculateServiceFee(amountSpentAndSaved: number): number {
-  if (!Number.isFinite(amountSpentAndSaved) || amountSpentAndSaved <= 0) return SERVICE_FEE_MIN;
+  // Return a static minimum ($14.99) as fallback; real pricing comes from the API
+  if (!Number.isFinite(amountSpentAndSaved) || amountSpentAndSaved <= 0) return 15;
   const raw = Math.round((amountSpentAndSaved * SERVICE_FEE_PERCENT) / 100);
-  return Math.max(SERVICE_FEE_MIN, Math.min(SERVICE_FEE_MAX, raw));
+  return Math.max(15, Math.min(99, raw));
 }

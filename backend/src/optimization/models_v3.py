@@ -770,6 +770,10 @@ class ComfortConfig:
     # Legacy field for backward compatibility (now computed per-mode)
     enable_points_opportunity_cost: bool = True
     
+    # Stage 2 delta override: when set, use this fixed value instead of computing
+    # Useful for money-saver mode where delta=0 means pure minimum cash, no quality slack
+    stage2_delta_override: Optional[float] = None
+    
     def get_stop_cost(self, is_international: bool = False) -> float:
         """Get stop cost based on route type."""
         return self.stop_cost_international if is_international else self.stop_cost_domestic

@@ -56,7 +56,7 @@ class OptimizeSoloRequest(BaseModel):
     currency_balances: Optional[List[CurrencyBalance]] = None
     
     # Optional: override trip's optimization_mode for comparison
-    optimization_mode_override: Optional[Literal["oop", "cpp", "balanced"]] = None
+    optimization_mode_override: Optional[Literal["oop", "cpp", "balanced", "money_saving"]] = None
     
     # Optional: constraints on currency usage
     allowed_currencies: Optional[List[str]] = None  # If set, only use these currencies

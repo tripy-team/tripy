@@ -1,6 +1,6 @@
 'use client';
 
-import { useState, useEffect, useMemo } from 'react';
+import { useState, useEffect, useMemo, useRef } from 'react';
 import { useRouter } from 'next/navigation';
 import { X, Calendar, Zap, MapPin, Plane, Clock, Users, User, Baby, Plus, CreditCard, ChevronDown } from 'lucide-react';
 import { solo, users as usersAPI, ExtractedTripInfo, isAuthenticated as checkIsAuthenticated } from '@/lib/api';
@@ -14,6 +14,62 @@ import MultiAirportAutocomplete from '@/components/ui/MultiAirportAutocomplete';
 import DateRangePicker from '@/components/date-range-picker';
 import SingleDatePicker from '@/components/ui/SingleDatePicker';
 import { ALL_LOYALTY_PROGRAMS, getProgramCategory, isValidProgram } from '@/lib/loyalty-programs';
+
+// ============================================================================
+// SESSION STORAGE PERSISTENCE
+// ============================================================================
+// Saves form state so it survives sign-in redirects, page refreshes, etc.
+// Cleared on successful trip generation (navigation to results page).
+// ============================================================================
+const SETUP_STORAGE_KEY = 'tripy_solo_setup_state';
+
+interface SavedSetupState {
+  adults: number;
+  children: number;
+  maxBudget: number | '';
+  startAirports: string[];
+  endAirports: string[];
+  cities: string[];
+  startDate: string;
+  endDate: string;
+  isFlexible: boolean;
+  flexibleDuration: number;
+  isRoundTrip: boolean;
+  flightClass: string;
+  moneySaverMode: boolean;
+  includeBudgetAirlines: boolean;
+  maxStops: number;
+  departureHourStart: number;
+  departureHourEnd: number;
+  arrivalHourStart: number;
+  arrivalHourEnd: number;
+  legDates: string[];
+  creditCards: CreditCardEntry[];
+  pointsToUse: Record<string, number>;
+  savedAt: number; // timestamp for expiry
+}
+
+function loadSavedState(): SavedSetupState | null {
+  if (typeof window === 'undefined') return null;
+  try {
+    const raw = sessionStorage.getItem(SETUP_STORAGE_KEY);
+    if (!raw) return null;
+    const parsed: SavedSetupState = JSON.parse(raw);
+    // Expire after 1 hour
+    if (Date.now() - parsed.savedAt > 60 * 60 * 1000) {
+      sessionStorage.removeItem(SETUP_STORAGE_KEY);
+      return null;
+    }
+    return parsed;
+  } catch {
+    return null;
+  }
+}
+
+function clearSavedState(): void {
+  if (typeof window === 'undefined') return;
+  sessionStorage.removeItem(SETUP_STORAGE_KEY);
+}
 
 // Popular programs for quick-add on the setup page
 const QUICK_ADD_PROGRAMS = [
@@ -35,17 +91,24 @@ interface CreditCardEntry {
 export default function SoloTripSetup() {
   const router = useRouter();
 
+  // Load saved state once (before first render takes effect)
+  const savedState = useRef<SavedSetupState | null>(null);
+  if (savedState.current === undefined || savedState.current === null) {
+    savedState.current = loadSavedState();
+  }
+  const s = savedState.current; // shorthand
+
   // Party Size State
-  const [adults, setAdults] = useState(1);
-  const [children, setChildren] = useState(0);
+  const [adults, setAdults] = useState(s?.adults ?? 1);
+  const [children, setChildren] = useState(s?.children ?? 0);
   
   // Budget State
-  const [maxBudget, setMaxBudget] = useState<number | ''>('');
+  const [maxBudget, setMaxBudget] = useState<number | ''>(s?.maxBudget ?? '');
   const [isLoadingProfile, setIsLoadingProfile] = useState(true);
 
   // Credit Card State
-  const [creditCards, setCreditCards] = useState<CreditCardEntry[]>([]);
-  const [pointsToUse, setPointsToUse] = useState<Record<string, number>>({}); // card.id -> points to use for this trip
+  const [creditCards, setCreditCards] = useState<CreditCardEntry[]>(s?.creditCards ?? []);
+  const [pointsToUse, setPointsToUse] = useState<Record<string, number>>(s?.pointsToUse ?? {}); // card.id -> points to use for this trip
   const [showPointsAllocationModal, setShowPointsAllocationModal] = useState(false);
 
   // Add Points Modal State (for users who haven't signed up)
@@ -57,67 +120,45 @@ export default function SoloTripSetup() {
   const [newCardProduct, setNewCardProduct] = useState('');
   const [newOwnerType, setNewOwnerType] = useState<'me' | 'other'>('me'); // whose card is being added
   const [newOwnerName, setNewOwnerName] = useState(''); // name when owner is someone else
+  const [showOwnerDropdown, setShowOwnerDropdown] = useState(false); // dropdown for existing owners
   const [showProgramDropdown, setShowProgramDropdown] = useState(false);
   const [programSearchQuery, setProgramSearchQuery] = useState('');
 
   // Date & Duration State
-  const [isFlexible, setIsFlexible] = useState(false);
-  const [startDate, setStartDate] = useState('');
-  const [endDate, setEndDate] = useState('');
+  const [isFlexible, setIsFlexible] = useState(s?.isFlexible ?? false);
+  const [startDate, setStartDate] = useState(s?.startDate ?? '');
+  const [endDate, setEndDate] = useState(s?.endDate ?? '');
   const [isOneWay, setIsOneWay] = useState(false);
-  const [flexibleDuration, setFlexibleDuration] = useState(7); // Default days if flexible
+  const [flexibleDuration, setFlexibleDuration] = useState(s?.flexibleDuration ?? 7); // Default days if flexible
   
   // Multi-city leg dates: each element is the departure date for that leg
   // Leg 0: origin → city[0], Leg 1: city[0] → city[1], ..., Last leg: city[n-1] → final destination
-  const [legDates, setLegDates] = useState<string[]>([]);
+  const [legDates, setLegDates] = useState<string[]>(s?.legDates ?? []);
 
   // Cities State
-  const [cities, setCities] = useState<string[]>([]);
+  const [cities, setCities] = useState<string[]>(s?.cities ?? []);
   const [newCity, setNewCity] = useState('');
   const [showAddDestination, setShowAddDestination] = useState(false);
   
   // Start and End Destination State (now supports multiple airports)
-  const [startAirports, setStartAirports] = useState<string[]>([]);
-  const [endAirports, setEndAirports] = useState<string[]>([]);
-  const [isRoundTrip, setIsRoundTrip] = useState(false);
+  const [startAirports, setStartAirports] = useState<string[]>(s?.startAirports ?? []);
+  const [endAirports, setEndAirports] = useState<string[]>(s?.endAirports ?? []);
+  const [isRoundTrip, setIsRoundTrip] = useState(s?.isRoundTrip ?? false);
 
   // Travel Style State
-  const [flightClass, setFlightClass] = useState('economy');
+  const [flightClass, setFlightClass] = useState(s?.flightClass ?? 'economy');
 
-  // Optimization Mode - always use OOP (budget-constrained), UI removed
-  const optimizationMode = 'oop' as const;
-
-  // Easter egg: typing budget of 88 auto-fills the form with test data
-  useEffect(() => {
-    if (maxBudget === 88) {
-      console.log('[EasterEgg] Budget 88 detected — auto-filling test data');
-      setStartAirports(['SEA', 'BFI']);
-      setCities(['Paris (CDG,ORY)', 'Dubai (DXB)', 'San Francisco (SFO)']);
-      setIsRoundTrip(true);
-      setEndAirports(['SEA', 'BFI']);
-      setStartDate('2026-04-08');
-      setLegDates(['2026-04-08', '2026-04-15', '2026-04-22', '2026-04-29']);
-      setEndDate('2026-04-29');
-      setMaxBudget(2000);
-      setAdults(1);
-      setChildren(0);
-      setFlightClass('economy');
-      setCreditCards([
-        { id: 'ee-amex', program: 'Amex Membership Rewards', points: 1000000, owner: 'me' },
-        { id: 'ee-chase', program: 'Chase Ultimate Rewards', points: 1000000, owner: 'me' },
-        { id: 'ee-delta', program: 'Delta SkyMiles', points: 100000, owner: 'me' },
-        { id: 'ee-joe-chase', program: 'Chase Ultimate Rewards', points: 1000000, owner: 'joe' },
-      ]);
-    }
-  }, [maxBudget]);
+  // Optimization Mode - OOP by default, money-saver mode for aggressive points usage
+  const [moneySaverMode, setMoneySaverMode] = useState(s?.moneySaverMode ?? false);
+  const optimizationMode = moneySaverMode ? 'money_saving' : 'oop';
 
   // Advanced Flight Filters
-  const [includeBudgetAirlines, setIncludeBudgetAirlines] = useState(false);
-  const [maxStops, setMaxStops] = useState(0); // 0=Any, 1=Nonstop, 2=1 stop or fewer, 3=2 stops or fewer
-  const [departureHourStart, setDepartureHourStart] = useState(0);
-  const [departureHourEnd, setDepartureHourEnd] = useState(23);
-  const [arrivalHourStart, setArrivalHourStart] = useState(0);
-  const [arrivalHourEnd, setArrivalHourEnd] = useState(23);
+  const [includeBudgetAirlines, setIncludeBudgetAirlines] = useState(s?.includeBudgetAirlines ?? false);
+  const [maxStops, setMaxStops] = useState(s?.maxStops ?? 0); // 0=Any, 1=Nonstop, 2=1 stop or fewer, 3=2 stops or fewer
+  const [departureHourStart, setDepartureHourStart] = useState(s?.departureHourStart ?? 0);
+  const [departureHourEnd, setDepartureHourEnd] = useState(s?.departureHourEnd ?? 23);
+  const [arrivalHourStart, setArrivalHourStart] = useState(s?.arrivalHourStart ?? 0);
+  const [arrivalHourEnd, setArrivalHourEnd] = useState(s?.arrivalHourEnd ?? 23);
 
   // Helper: format hour (0-23) to display string
   const formatHour = (h: number): string => {
@@ -137,6 +178,14 @@ export default function SoloTripSetup() {
   // Calculate total points from all cards; total allocated for this trip
   const totalPoints = creditCards.reduce((sum, card) => sum + card.points, 0);
   const totalPointsToUse = creditCards.reduce((sum, card) => sum + (pointsToUse[card.id] ?? card.points), 0);
+
+  // Unique "other" owner names already added (for the dropdown)
+  const existingOwnerNames = useMemo(() => {
+    const names = creditCards
+      .filter(c => c.owner !== 'me')
+      .map(c => c.owner);
+    return [...new Set(names)];
+  }, [creditCards]);
 
   // Filter programs for the add-points dropdown
   const filteredPrograms = useMemo(() => {
@@ -162,6 +211,20 @@ export default function SoloTripSetup() {
       return () => document.removeEventListener('mousedown', handleClickOutside);
     }
   }, [showProgramDropdown]);
+
+  // Close owner dropdown when clicking outside
+  useEffect(() => {
+    const handleClickOutside = (event: MouseEvent) => {
+      const target = event.target as HTMLElement;
+      if (!target.closest('[data-owner-dropdown]')) {
+        setShowOwnerDropdown(false);
+      }
+    };
+    if (showOwnerDropdown) {
+      document.addEventListener('mousedown', handleClickOutside);
+      return () => document.removeEventListener('mousedown', handleClickOutside);
+    }
+  }, [showOwnerDropdown]);
 
   const handleProgramSelect = (program: string) => {
     const programInfo = ALL_LOYALTY_PROGRAMS.find(p => p.value === program || p.label === program);
@@ -204,6 +267,7 @@ export default function SoloTripSetup() {
       setNewCardProduct('');
       setNewOwnerType('me');
       setNewOwnerName('');
+      setShowOwnerDropdown(false);
       setProgramSearchQuery('');
       setShowAddPointsModal(false);
     }
@@ -271,12 +335,25 @@ export default function SoloTripSetup() {
         // User will set it manually for each trip
         
         if (profile.credit_cards && profile.credit_cards.length > 0) {
-          setCreditCards(profile.credit_cards.map(card => ({
+          const profileCards = profile.credit_cards.map(card => ({
             id: card.id,
             program: card.program,
             points: card.points,
-            owner: 'me',
-          })));
+            owner: card.owner || 'me',
+          }));
+          // If we restored credit cards from sessionStorage (e.g. after sign-in
+          // redirect), merge: prefer the profile version for cards that exist in
+          // both (profile is source of truth for balances), but keep any
+          // session-only cards the user added before signing in.
+          if (s && s.creditCards && s.creditCards.length > 0) {
+            const profilePrograms = new Set(profileCards.map(c => `${c.program}::${c.owner}`));
+            const sessionOnlyCards = s.creditCards.filter(
+              c => !profilePrograms.has(`${c.program}::${c.owner}`)
+            );
+            setCreditCards([...profileCards, ...sessionOnlyCards]);
+          } else {
+            setCreditCards(profileCards);
+          }
         }
       } catch (err) {
         console.error('Error loading user profile:', err);
@@ -287,6 +364,7 @@ export default function SoloTripSetup() {
     };
 
     loadUserProfile();
+  // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
 
   // Save credit cards when they change (only for authenticated users)
@@ -310,6 +388,59 @@ export default function SoloTripSetup() {
       return () => clearTimeout(timeoutId);
     }
   }, [creditCards, isLoadingProfile]);
+
+  // ============================================================
+  // PERSIST FORM STATE TO SESSION STORAGE
+  // ============================================================
+  // Debounced save: writes all user-entered form fields so they
+  // survive sign-in redirects, page refreshes, and back-navigation.
+  // ============================================================
+  useEffect(() => {
+    // Don't save while the profile is still loading (avoids overwriting
+    // saved state with defaults before profile credit cards load).
+    if (isLoadingProfile) return;
+
+    const timeoutId = setTimeout(() => {
+      try {
+        const state: SavedSetupState = {
+          adults,
+          children,
+          maxBudget,
+          startAirports,
+          endAirports,
+          cities,
+          startDate,
+          endDate,
+          isFlexible,
+          flexibleDuration,
+          isRoundTrip,
+          flightClass,
+          moneySaverMode,
+          includeBudgetAirlines,
+          maxStops,
+          departureHourStart,
+          departureHourEnd,
+          arrivalHourStart,
+          arrivalHourEnd,
+          legDates,
+          creditCards,
+          pointsToUse,
+          savedAt: Date.now(),
+        };
+        sessionStorage.setItem(SETUP_STORAGE_KEY, JSON.stringify(state));
+      } catch {
+        // sessionStorage may be full or unavailable — silently ignore
+      }
+    }, 500); // 500ms debounce
+
+    return () => clearTimeout(timeoutId);
+  }, [
+    adults, children, maxBudget, startAirports, endAirports, cities,
+    startDate, endDate, isFlexible, flexibleDuration, isRoundTrip,
+    flightClass, moneySaverMode, includeBudgetAirlines, maxStops,
+    departureHourStart, departureHourEnd, arrivalHourStart, arrivalHourEnd,
+    legDates, creditCards, pointsToUse, isLoadingProfile,
+  ]);
 
   // Sync end airports with start airports if round trip
   // This ensures end airports ALWAYS match start when round trip is enabled
@@ -673,7 +804,14 @@ export default function SoloTripSetup() {
         }
       }
 
-      // 3. Navigate to results page for optimization
+      // 3. Clear saved form state — trip is created, no need to keep it
+      clearSavedState();
+
+      // 4. Remember the last generated trip ID so the results page can
+      //    recover it even after a sign-in redirect (e.g. URL gets lost).
+      sessionStorage.setItem('tripy_last_trip_id', trip.tripId);
+
+      // 5. Navigate to results page for optimization
       router.push(`/solo/results?trip_id=${trip.tripId}`);
     } catch (err) {
       console.error('Error generating itinerary:', err);
@@ -1326,6 +1464,29 @@ export default function SoloTripSetup() {
                   />
                 </div>
                 <p className="text-xs text-slate-500 mt-2">A lower budget will prioritize more aggressive use of your points</p>
+
+                {/* Money-Saver Mode Toggle */}
+                <div className="mt-4 flex items-center justify-between">
+                  <div className="flex-1 mr-3">
+                    <span className="text-sm font-medium text-slate-700">Money-Saver Mode</span>
+                    <p className="text-xs text-slate-400 mt-0.5">Burn points to minimize cash — any stops, duration, or layovers are fair game</p>
+                  </div>
+                  <button
+                    type="button"
+                    onClick={() => setMoneySaverMode(!moneySaverMode)}
+                    className={`relative inline-flex h-6 w-11 flex-shrink-0 cursor-pointer rounded-full border-2 border-transparent transition-colors duration-200 ease-in-out focus:outline-none focus:ring-2 focus:ring-blue-500 focus:ring-offset-2 ${
+                      moneySaverMode ? 'bg-green-500' : 'bg-slate-200'
+                    }`}
+                    role="switch"
+                    aria-checked={moneySaverMode}
+                  >
+                    <span
+                      className={`pointer-events-none inline-block h-5 w-5 transform rounded-full bg-white shadow ring-0 transition duration-200 ease-in-out ${
+                        moneySaverMode ? 'translate-x-5' : 'translate-x-0'
+                      }`}
+                    />
+                  </button>
+                </div>
               </div>
 
               {/* Points */}
@@ -1535,6 +1696,7 @@ export default function SoloTripSetup() {
           setNewCardProduct('');
           setNewOwnerType('me');
           setNewOwnerName('');
+          setShowOwnerDropdown(false);
           setProgramSearchQuery('');
           setShowProgramDropdown(false);
         }}>
@@ -1553,6 +1715,7 @@ export default function SoloTripSetup() {
                     setNewCardProduct('');
                     setNewOwnerType('me');
                     setNewOwnerName('');
+                    setShowOwnerDropdown(false);
                     setProgramSearchQuery('');
                     setShowProgramDropdown(false);
                   }}
@@ -1572,7 +1735,7 @@ export default function SoloTripSetup() {
                   <div className="grid grid-cols-2 gap-2">
                     <button
                       type="button"
-                      onClick={() => { setNewOwnerType('me'); setNewOwnerName(''); }}
+                      onClick={() => { setNewOwnerType('me'); setNewOwnerName(''); setShowOwnerDropdown(false); }}
                       className={`px-4 py-3 rounded-xl border-2 transition-all flex flex-col items-center gap-2 ${
                         newOwnerType === 'me'
                           ? 'border-blue-600 bg-blue-50'
@@ -1597,15 +1760,52 @@ export default function SoloTripSetup() {
                   </div>
                   {newOwnerType === 'other' && (
                     <div className="mt-3">
-                      <input
-                        type="text"
-                        value={newOwnerName}
-                        onChange={(e) => setNewOwnerName(e.target.value)}
-                        placeholder="e.g., Sarah, Mom, John"
-                        className="w-full px-4 py-3 bg-white border border-slate-200 rounded-xl focus:outline-none focus:ring-2 focus:ring-purple-500 focus:border-transparent"
-                      />
+                      <div className="relative" data-owner-dropdown>
+                        <input
+                          type="text"
+                          value={newOwnerName}
+                          onChange={(e) => {
+                            setNewOwnerName(e.target.value);
+                            setShowOwnerDropdown(true);
+                          }}
+                          onFocus={() => setShowOwnerDropdown(true)}
+                          placeholder={existingOwnerNames.length > 0 ? 'Select or type a name...' : 'e.g., Sarah, Mom, John'}
+                          className="w-full px-4 py-3 bg-white border border-slate-200 rounded-xl focus:outline-none focus:ring-2 focus:ring-purple-500 focus:border-transparent pr-10"
+                        />
+                        {existingOwnerNames.length > 0 && (
+                          <ChevronDown className="absolute right-3 top-1/2 -translate-y-1/2 w-5 h-5 text-slate-400 pointer-events-none" />
+                        )}
+
+                        {showOwnerDropdown && existingOwnerNames.length > 0 && (
+                          <div
+                            className="absolute z-50 w-full mt-1 bg-white border border-slate-200 rounded-xl shadow-lg max-h-48 overflow-y-auto"
+                            onMouseDown={(e) => e.preventDefault()}
+                          >
+                            {existingOwnerNames
+                              .filter(name => !newOwnerName || name.toLowerCase().includes(newOwnerName.toLowerCase()))
+                              .map(name => (
+                              <button
+                                key={name}
+                                type="button"
+                                onClick={() => {
+                                  setNewOwnerName(name);
+                                  setShowOwnerDropdown(false);
+                                }}
+                                className="w-full px-4 py-3 text-left hover:bg-purple-50 transition-colors border-b border-slate-100 last:border-b-0 flex items-center gap-3"
+                              >
+                                <div className="w-6 h-6 rounded-lg flex items-center justify-center bg-purple-50 text-purple-600">
+                                  <User className="w-3 h-3" />
+                                </div>
+                                <span className="text-sm font-medium text-slate-900">{name}</span>
+                              </button>
+                            ))}
+                          </div>
+                        )}
+                      </div>
                       <p className="text-xs text-slate-500 mt-1">
-                        Points from different people are kept separate and cannot be combined
+                        {existingOwnerNames.length > 0
+                          ? 'Select an existing person or type a new name'
+                          : 'Points from different people are kept separate and cannot be combined'}
                       </p>
                     </div>
                   )}
@@ -1747,6 +1947,7 @@ export default function SoloTripSetup() {
                     setNewCardProduct('');
                     setNewOwnerType('me');
                     setNewOwnerName('');
+                    setShowOwnerDropdown(false);
                     setProgramSearchQuery('');
                     setShowProgramDropdown(false);
                   }}

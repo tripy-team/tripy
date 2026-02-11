@@ -12,60 +12,14 @@ Enhanced with:
 from typing import Dict, List, Set, Tuple, Optional
 from datetime import datetime
 
-# AwardTool 2-letter program codes to query (US + major international with good coverage)
-_AIRLINE_PROGRAMS = [
-    "UA", "AA", "DL",  # US majors
-    "AS", "B6",        # Alaska, JetBlue
-    "AC", "BA", "AF", "KL",  # North Atlantic
-    "LH", "LX",        # Lufthansa, Swiss
-    "SQ", "CX", "NH", "JL",  # Asia
-    "EK", "QR", "EY", "TK",  # Middle East, Turkey
-    "AV", "IB", "QF", "VS",  # Avianca, Iberia, Qantas, Virgin Atlantic
-]
-
-# Banks (lowercase) -> { airline: transfer_ratio }
-# Used by ilp_adapter to know which bank points can transfer to which airlines.
-# Ratio 1.0 = 1:1; e.g. 1.25 = bonus.
-_BANKS = ["amex", "chase", "citi", "capitalone", "bilt"]
-
-# =============================================================================
-# TRANSFER GRAPH WITH ACTUAL PARTNER RELATIONSHIPS
-# =============================================================================
-
-# Note: Not all banks transfer to all airlines. This is the ACTUAL transfer graph.
-DEFAULT_TRANSFER_GRAPH: Dict[str, Dict[str, float]] = {
-    "amex": {
-        # Airline partners (Membership Rewards)
-        "DL": 1.0, "BA": 1.0, "AF": 1.0, "VS": 1.0, "SQ": 1.0,
-        "AV": 1.0, "IB": 1.0, "CX": 1.0, "EK": 1.0, "EY": 1.0,
-        "QR": 1.0, "NH": 1.0, "AC": 1.0, "JL": 1.0, "QF": 1.0,
-        "KL": 1.0, "AS": 1.0,
-    },
-    "chase": {
-        # Airline partners (Ultimate Rewards)
-        "UA": 1.0, "BA": 1.0, "AF": 1.0, "VS": 1.0, "SQ": 1.0,
-        "IB": 1.0, "AC": 1.0, "KL": 1.0, "JL": 1.0, "EK": 1.0,
-        "AS": 1.0,  # Added 2023
-    },
-    "citi": {
-        # Airline partners (ThankYou Points)
-        "AA": 1.0, "TK": 1.0, "QF": 1.0, "VS": 1.0, "SQ": 1.0,
-        "EY": 1.0, "AF": 1.0, "CX": 1.0, "EK": 1.0, "QR": 1.0,
-        "AV": 1.0, "TG": 1.0, "JL": 1.0, "AC": 1.0,
-    },
-    "capitalone": {
-        # Airline partners (Capital One Miles) - note: some are NOT 1:1
-        "AF": 1.0, "BA": 0.75, "AV": 1.0, "SQ": 1.0, "EK": 1.0,
-        "EY": 1.0, "QF": 1.0, "QR": 1.0, "VS": 1.0, "TK": 1.0,
-        "CX": 1.0, "FJ": 1.0, "TP": 1.0, "AS": 1.0,
-    },
-    "bilt": {
-        # Airline partners (Bilt Rewards)
-        "UA": 1.0, "AA": 1.0, "BA": 1.0, "AF": 1.0, "VS": 1.0,
-        "AV": 1.0, "IB": 1.0, "CX": 1.0, "EK": 1.0, "EY": 1.0,
-        "AC": 1.0, "AS": 1.0, "TK": 1.0, "TP": 1.0,
-    },
-}
+# Centralized program config (single source of truth)
+from src.config.programs import (
+    DEFAULT_TRANSFER_GRAPH,
+    AIRLINE_PROGRAMS_LIST as _AIRLINE_PROGRAMS,
+    BANK_PREFIXES as _BANKS,
+    ALLIANCE_PARTNERS,
+    HIGH_SURCHARGE_PROGRAMS,
+)
 
 # =============================================================================
 # CPP THRESHOLDS BY PROGRAM
@@ -94,29 +48,7 @@ def get_cpp_threshold(program: str) -> float:
     return PROGRAM_CPP_THRESHOLDS.get(program.upper(), DEFAULT_CPP_THRESHOLD)
 
 
-# =============================================================================
-# ALLIANCE PARTNERSHIPS
-# =============================================================================
-
-ALLIANCE_PARTNERS: Dict[str, List[str]] = {
-    # Star Alliance
-    "UA": ["AC", "LH", "TK", "SQ", "NH", "AV", "LX"],
-    "LH": ["UA", "AC", "TK", "SQ", "NH", "AV", "LX"],
-    "AC": ["UA", "LH", "TK", "SQ", "NH", "AV", "LX"],
-    "SQ": ["UA", "AC", "LH", "TK", "NH", "AV", "LX"],
-    "NH": ["UA", "AC", "LH", "TK", "SQ", "AV", "LX"],
-    # Oneworld
-    "AA": ["BA", "IB", "QF", "CX", "QR", "AS"],
-    "BA": ["AA", "IB", "QF", "CX", "QR", "AS"],
-    "QF": ["AA", "BA", "IB", "CX", "QR", "AS"],
-    "CX": ["AA", "BA", "IB", "QF", "QR", "AS"],
-    "AS": ["AA", "BA", "QF", "CX"],
-    # SkyTeam
-    "DL": ["AF", "KL", "VS", "KE"],
-    "AF": ["DL", "KL", "VS", "KE"],
-    "KL": ["DL", "AF", "VS", "KE"],
-    "VS": ["DL", "AF", "KL"],
-}
+# ALLIANCE_PARTNERS is now imported from src.config.programs
 
 
 def get_partner_programs(operating_carrier: str) -> List[str]:
@@ -177,11 +109,7 @@ def can_transfer(bank: str, airline: str) -> bool:
     return airline.upper() in DEFAULT_TRANSFER_GRAPH.get(bank.lower(), {})
 
 
-# =============================================================================
-# HIGH SURCHARGE PROGRAMS
-# =============================================================================
-
-HIGH_SURCHARGE_PROGRAMS: Set[str] = {"BA", "LH", "LX", "QF", "SQ", "VS"}
+# HIGH_SURCHARGE_PROGRAMS is now imported from src.config.programs
 
 
 def is_high_surcharge_program(program: str) -> bool:

@@ -222,17 +222,19 @@ Return JSON with: {"programs": ["UA", "AA", ...], "reasoning": "..."}"""
         
         # ── Bank-fair selection ──────────────────────────────────────────
         # Ensure each bank gets at least some representation.
-        # Target: ~3 programs per bank, up to a total of 10 programs.
-        MAX_PROGRAMS = 10
-        PROGRAMS_PER_BANK = 3
+        # Target: ~5 programs per bank, up to a total of 12 programs.
+        MAX_PROGRAMS = 12
+        PROGRAMS_PER_BANK = 5
         
         # Priority lists for each bank (best/unique partners first)
+        # NOTE: Aeroplan (AC) is one of the best Star Alliance programs — great
+        # for NA↔EU routes with low surcharges. Keep it in top 3-4 per bank.
         BANK_PRIORITIES: dict[str, list[str]] = {
-            "Chase UR":     ["UA", "BA", "VS", "AF", "IB", "SQ", "AS", "EK", "AC", "AV"],
-            "Amex MR":      ["DL", "NH", "VS", "AV", "CX", "BA", "AF", "SQ", "B6", "AS", "IB", "EK", "EY", "JL", "QF", "AC"],
-            "Citi TYP":     ["AA", "TK", "SQ", "CX", "QR", "VS", "AF", "EK", "AV", "B6", "QF", "AC", "JL"],
-            "Capital One":  ["AF", "TK", "AV", "SQ", "BA", "EK", "EY", "AC", "QF"],
-            "Bilt":         ["UA", "AA", "VS", "AF", "TK", "BA", "EK", "AS", "AC", "EI"],
+            "Chase UR":     ["UA", "AC", "BA", "VS", "AF", "IB", "SQ", "AS", "EK", "AV"],
+            "Amex MR":      ["DL", "AC", "NH", "VS", "AV", "CX", "BA", "AF", "SQ", "B6", "AS", "IB", "EK", "EY", "JL", "QF"],
+            "Citi TYP":     ["AA", "AC", "TK", "SQ", "CX", "QR", "VS", "AF", "EK", "AV", "B6", "QF", "JL"],
+            "Capital One":  ["AC", "AF", "TK", "AV", "SQ", "BA", "EK", "EY", "QF"],
+            "Bilt":         ["UA", "AA", "AC", "VS", "AF", "TK", "BA", "EK", "AS", "EI"],
         }
         
         selected = list(direct_programs)  # Always include direct miles first

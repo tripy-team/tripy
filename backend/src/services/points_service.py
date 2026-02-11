@@ -7,6 +7,15 @@ from src.repos import points_repo
 from src.utils.normalize import normalize_program_name
 from src.utils.display_formatters import format_currency, format_points, format_cents_per_point
 
+# Centralized program config (single source of truth)
+from src.config.programs import (
+    BANK_PROGRAMS,
+    AIRLINE_PROGRAMS_SET as AIRLINE_PROGRAMS,
+    HOTEL_PROGRAMS_SET as HOTEL_PROGRAMS,
+    TRANSFER_PARTNERS,
+    PROGRAM_DISPLAY_NAMES,
+)
+
 logger = logging.getLogger(__name__)
 
 try:
@@ -26,40 +35,6 @@ except ImportError:
         fetch_tpg_valuations = None  # type: ignore
         get_cents_per_point = None  # type: ignore
         get_valuations = None  # type: ignore
-
-
-# Program categorization
-BANK_PROGRAMS = {"chase", "amex", "citi", "capitalone", "bilt"}
-AIRLINE_PROGRAMS = {"UA", "AA", "DL", "AS", "B6", "WN", "AC", "BA", "AF", "KL", "LH", "LX", "VS", "SQ", "CX", "NH", "JL", "EK", "QR", "EY", "TK", "AV", "IB", "QF"}
-HOTEL_PROGRAMS = {"MAR", "HH", "HYATT", "IHG"}
-
-# Transfer partners (bank -> airlines)
-TRANSFER_PARTNERS = {
-    "chase": ["UA", "BA", "AF", "IB", "VS", "SQ", "AV"],
-    "amex": ["DL", "BA", "AF", "AV", "NH", "SQ", "CX", "JL", "EK", "QR", "VS"],
-    "citi": ["AA", "AF", "EK", "QR", "SQ", "VS", "TK"],
-    "capitalone": ["AF", "BA", "AV", "EK", "SQ", "QR", "TK"],
-    "bilt": ["UA", "AA", "BA", "AF", "VS", "AV", "TK"],
-}
-
-# Human-readable program names
-PROGRAM_DISPLAY_NAMES = {
-    "chase": "Chase Ultimate Rewards",
-    "amex": "Amex Membership Rewards",
-    "citi": "Citi ThankYou Points",
-    "capitalone": "Capital One Miles",
-    "bilt": "Bilt Rewards",
-    "UA": "United MileagePlus",
-    "AA": "American AAdvantage",
-    "DL": "Delta SkyMiles",
-    "AS": "Alaska Mileage Plan",
-    "B6": "JetBlue TrueBlue",
-    "BA": "British Airways Avios",
-    "AF": "Air France / KLM Flying Blue",
-    "VS": "Virgin Atlantic Flying Club",
-    "SQ": "Singapore KrisFlyer",
-    "NH": "ANA Mileage Club",
-}
 
 
 def _get_program_category(program: str) -> str:
