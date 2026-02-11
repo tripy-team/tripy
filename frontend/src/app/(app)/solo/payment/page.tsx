@@ -65,53 +65,65 @@ function CheckoutForm({
   const elements = useElements();
   const [processing, setProcessing] = useState(false);
   const [error, setError] = useState<string | null>(null);
+  const [ready, setReady] = useState(false);
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
-    if (!stripe || !elements) return;
+    if (!stripe || !elements || processing) return;
 
     setProcessing(true);
     setError(null);
 
-    const { error: submitError } = await elements.submit();
-    if (submitError) {
-      setError(submitError.message || 'Validation failed.');
-      setProcessing(false);
-      return;
-    }
-
-    const { error: confirmError, paymentIntent } = await stripe.confirmPayment({
-      elements,
-      confirmParams: {
-        return_url: `${window.location.origin}/solo/booking?trip_id=${tripId}&payment=success`,
-      },
-      redirect: 'if_required',
-    });
-
-    if (confirmError) {
-      setError(confirmError.message || 'Payment failed. Please try again.');
-      setProcessing(false);
-      return;
-    }
-
-    if (paymentIntent?.status === 'succeeded') {
-      // Also update trip status client-side as a fallback (webhook is primary)
-      try {
-        await solo.updateStatus(tripId, 'instructions_unlocked', {
-          provider: 'stripe',
-          status: 'succeeded',
-          payment_intent_id: paymentIntent.id,
-          amount: paymentIntent.amount,
-          currency: paymentIntent.currency,
-          paid_at: new Date().toISOString(),
-        });
-      } catch {
-        // Webhook will handle it
+    try {
+      const { error: submitError } = await elements.submit();
+      if (submitError) {
+        setError(submitError.message || 'Validation failed.');
+        return;
       }
-      onSuccess();
-    }
 
-    setProcessing(false);
+      const { error: confirmError, paymentIntent } = await stripe.confirmPayment({
+        elements,
+        confirmParams: {
+          return_url: `${window.location.origin}/solo/booking?trip_id=${tripId}&payment=success`,
+        },
+        redirect: 'if_required',
+      });
+
+      if (confirmError) {
+        setError(confirmError.message || 'Payment failed. Please try again.');
+        return;
+      }
+
+      if (paymentIntent?.status === 'succeeded') {
+        // Also update trip status client-side as a fallback (webhook is primary)
+        try {
+          await solo.updateStatus(tripId, 'instructions_unlocked', {
+            provider: 'stripe',
+            status: 'succeeded',
+            payment_intent_id: paymentIntent.id,
+            amount: paymentIntent.amount,
+            currency: paymentIntent.currency,
+            paid_at: new Date().toISOString(),
+          });
+        } catch {
+          // Webhook will handle it
+        }
+        onSuccess();
+      } else if (paymentIntent?.status === 'requires_action') {
+        // 3D Secure or additional authentication is needed — Stripe handles the
+        // redirect automatically when redirect: 'if_required' is set.
+        // If we reach here without a redirect, it means the action couldn't
+        // be completed inline.
+        setError('Additional authentication is required. Please try again.');
+      } else {
+        setError('Payment was not completed. Please try again.');
+      }
+    } catch (err) {
+      console.error('Payment error:', err);
+      setError(err instanceof Error ? err.message : 'An unexpected error occurred. Please try again.');
+    } finally {
+      setProcessing(false);
+    }
   };
 
   return (
@@ -120,6 +132,7 @@ function CheckoutForm({
         options={{
           layout: 'tabs',
         }}
+        onReady={() => setReady(true)}
       />
 
       {error && (
@@ -131,13 +144,18 @@ function CheckoutForm({
 
       <button
         type="submit"
-        disabled={!stripe || processing}
+        disabled={!stripe || !ready || processing}
         className="w-full flex items-center justify-center gap-2 px-6 py-4 bg-blue-600 text-white rounded-xl font-semibold text-lg hover:bg-blue-700 transition-colors disabled:opacity-50 disabled:cursor-not-allowed shadow-lg shadow-blue-600/20"
       >
         {processing ? (
           <>
             <Loader2 className="w-5 h-5 animate-spin" />
             Processing...
+          </>
+        ) : !ready ? (
+          <>
+            <Loader2 className="w-5 h-5 animate-spin" />
+            Loading...
           </>
         ) : (
           <>
@@ -248,14 +266,19 @@ function PaymentPageContent() {
     })();
   }, [tripId]);
 
+  // Error from creating the PaymentIntent (shown in the payment section)
+  const [intentError, setIntentError] = useState<string | null>(null);
+
   // Create PaymentIntent when we know the final amount
   const createIntent = useCallback(async (promoCode?: string) => {
     if (!tripId) return;
+    setIntentError(null);
     try {
       const intentData = await payment.createIntent(tripId, promoCode);
       setClientSecret(intentData.clientSecret);
     } catch (err) {
       console.error('Failed to create payment intent:', err);
+      setIntentError(err instanceof Error ? err.message : 'Failed to initialize payment. Please refresh and try again.');
     }
   }, [tripId]);
 
@@ -555,7 +578,20 @@ function PaymentPageContent() {
                 Payment Details
               </h2>
 
-              {clientSecret ? (
+              {intentError ? (
+                <div className="space-y-4">
+                  <div className="flex items-start gap-2 p-3 bg-red-50 border border-red-200 rounded-xl text-sm text-red-700">
+                    <AlertCircle className="w-4 h-4 mt-0.5 flex-shrink-0" />
+                    <span>{intentError}</span>
+                  </div>
+                  <button
+                    onClick={() => { setIntentError(null); createIntent(promo?.code); }}
+                    className="w-full px-4 py-3 bg-blue-600 text-white rounded-xl text-sm font-medium hover:bg-blue-700 transition-colors"
+                  >
+                    Retry
+                  </button>
+                </div>
+              ) : clientSecret && getStripe() ? (
                 <Elements
                   stripe={getStripe()}
                   options={{
@@ -572,6 +608,11 @@ function PaymentPageContent() {
                 >
                   <CheckoutForm tripId={tripId} onSuccess={handleSuccess} />
                 </Elements>
+              ) : clientSecret && !getStripe() ? (
+                <div className="flex items-start gap-2 p-3 bg-red-50 border border-red-200 rounded-xl text-sm text-red-700">
+                  <AlertCircle className="w-4 h-4 mt-0.5 flex-shrink-0" />
+                  <span>Payment system failed to load. Please refresh the page.</span>
+                </div>
               ) : (
                 <div className="flex items-center justify-center py-8">
                   <Loader2 className="w-6 h-6 animate-spin text-blue-600" />
