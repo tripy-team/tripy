@@ -1327,21 +1327,7 @@ export default function SoloResults() {
                                                                     </div>
                                                                 </div>
 
-                                                                {/* Payment method row - only show for non-points segments */}
-                                                                {(() => {
-                                                                    const isPoints = segment.paymentMethod === 'points' || (segment.pointsUsed != null && segment.pointsUsed > 0);
-                                                                    if (isPoints) return null;
-                                                                    return (
-                                                                <div className="flex items-center justify-between mt-3 pt-3 border-t border-slate-200/60">
-                                                                    <div className="text-xs text-slate-500">
-                                                                        {(segment.cashPrice != null && segment.cashPrice > 0)
-                                                                            ? `$${segment.cashPrice.toLocaleString()} cash`
-                                                                            : 'Cash booking'
-                                                                        }
-                                                                    </div>
-                                                                </div>
-                                                                    );
-                                                                })()}
+                                                                {/* Payment method row - hidden per design */}
                                                             </div>
                                                         );
                                                     }
@@ -1361,11 +1347,7 @@ export default function SoloResults() {
                                                             <Bed className="w-4 h-4 text-amber-600" />
                                                             <div className="flex-1">
                                                                 <div className="font-medium text-slate-900">{segment.segment}</div>
-                                                                {!isHotelPoints && (segment.cashPrice != null && segment.cashPrice > 0) && (
-                                                                    <div className="text-xs text-slate-500">
-                                                                        {`$${segment.cashPrice.toLocaleString()} cash`}
-                                                                    </div>
-                                                                )}
+                                                                {/* Per-segment cost hidden per design */}
                                                             </div>
                                                         </div>
                                                     );

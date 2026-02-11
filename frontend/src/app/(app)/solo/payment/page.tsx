@@ -15,6 +15,10 @@ import {
   Sparkles,
   AlertCircle,
   Lock,
+  BookOpen,
+  Link2,
+  PieChart,
+  BellRing,
 } from 'lucide-react';
 import { solo, payment, isAuthenticated, getAnonSessionId, type SoloTripResponse } from '@/lib/api';
 
@@ -339,16 +343,20 @@ function PaymentPageContent() {
     }
   };
 
+  // Error from confirming $0 payment
+  const [freeError, setFreeError] = useState<string | null>(null);
+
   // Confirm $0 payment
   const handleConfirmFree = async () => {
     if (!promo?.code || !tripId) return;
     setFreeProcessing(true);
+    setFreeError(null);
     try {
       await payment.confirmFree(tripId, promo.code);
       setPaymentSuccess(true);
     } catch (err) {
       console.error('Free confirmation failed:', err);
-      setPromoError('Failed to apply promo. Please try again.');
+      setFreeError('Failed to unlock your plan. Please try again.');
     } finally {
       setFreeProcessing(false);
     }
@@ -461,11 +469,53 @@ function PaymentPageContent() {
           </div>
           <h1 className="text-3xl font-bold text-slate-900 mb-2">Unlock Your Booking Plan</h1>
           <p className="text-slate-600 max-w-md mx-auto">
-            Get step-by-step transfer instructions, booking links, and price drop monitoring.
+            Everything you need to book your trip at the best possible price.
           </p>
         </div>
 
         <div className="space-y-6">
+          {/* What you get — prominent perks grid */}
+          <div className="bg-gradient-to-br from-blue-600 to-indigo-700 rounded-2xl p-6 shadow-lg shadow-blue-600/15">
+            <h3 className="font-semibold text-white text-lg mb-4">What&apos;s included in your plan:</h3>
+            <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+              {[
+                {
+                  icon: BookOpen,
+                  title: 'Transfer Instructions',
+                  desc: 'Step-by-step guide for every points transfer',
+                },
+                {
+                  icon: Link2,
+                  title: 'Direct Booking Links',
+                  desc: 'One-click links to book each flight',
+                },
+                {
+                  icon: PieChart,
+                  title: 'Savings Breakdown',
+                  desc: 'See exactly how much you save vs. cash prices',
+                },
+                {
+                  icon: BellRing,
+                  title: 'Price Drop Alerts',
+                  desc: 'Free email monitoring if prices decrease',
+                },
+              ].map((perk, i) => (
+                <div
+                  key={i}
+                  className="flex items-start gap-3 bg-white/10 backdrop-blur-sm rounded-xl p-3.5 border border-white/10"
+                >
+                  <div className="w-9 h-9 rounded-lg bg-white/20 flex items-center justify-center flex-shrink-0">
+                    <perk.icon className="w-5 h-5 text-white" />
+                  </div>
+                  <div className="min-w-0">
+                    <p className="font-semibold text-white text-sm leading-tight">{perk.title}</p>
+                    <p className="text-blue-100 text-xs mt-0.5 leading-snug">{perk.desc}</p>
+                  </div>
+                </div>
+              ))}
+            </div>
+          </div>
+
           {/* Order Summary Card */}
           <div className="bg-white border border-slate-200 rounded-2xl overflow-hidden shadow-sm">
             <div className="p-6">
@@ -497,11 +547,6 @@ function PaymentPageContent() {
                       <span className="ml-1.5 px-2 py-0.5 bg-blue-50 text-blue-700 rounded-full text-xs font-medium">
                         {feeInfo.label}
                       </span>
-                      {feeInfo.destinationCount > 2 && (
-                        <span className="ml-1 text-xs text-slate-500">
-                          ($12 base + ${(feeInfo.destinationCount - 2) * 4} for {feeInfo.destinationCount - 2} extra stop{feeInfo.destinationCount - 2 > 1 ? 's' : ''})
-                        </span>
-                      )}
                     </span>
                     <span className="font-medium text-slate-900">{feeInfo.displayAmount}</span>
                   </div>
@@ -650,26 +695,22 @@ function PaymentPageContent() {
                     </>
                   )}
                 </button>
+
+                {freeError && (
+                  <div className="mt-4 flex items-start gap-2 p-3 bg-red-50 border border-red-200 rounded-xl text-sm text-red-700 max-w-xs mx-auto">
+                    <AlertCircle className="w-4 h-4 mt-0.5 flex-shrink-0" />
+                    <span>{freeError}</span>
+                  </div>
+                )}
               </div>
             </div>
           ) : null}
 
-          {/* What you get */}
-          <div className="bg-blue-50 border border-blue-200 rounded-2xl p-6">
-            <h3 className="font-semibold text-blue-900 mb-3">What you get:</h3>
-            <ul className="space-y-2.5">
-              {[
-                'Step-by-step points transfer instructions',
-                'Direct booking links for each flight',
-                'Detailed cost breakdown with savings analysis',
-                'Free price drop monitoring via email',
-              ].map((item, i) => (
-                <li key={i} className="flex items-start gap-2 text-sm text-blue-800">
-                  <CheckCircle className="w-4 h-4 text-blue-600 flex-shrink-0 mt-0.5" />
-                  <span>{item}</span>
-                </li>
-              ))}
-            </ul>
+          {/* Trust badge */}
+          <div className="flex items-center justify-center gap-4 text-xs text-slate-400 pt-2">
+            <span className="flex items-center gap-1"><Shield className="w-3.5 h-3.5" /> Secure payment</span>
+            <span className="w-1 h-1 bg-slate-300 rounded-full" />
+            <span className="flex items-center gap-1"><CheckCircle className="w-3.5 h-3.5" /> Instant access</span>
           </div>
         </div>
       </div>

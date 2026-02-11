@@ -35,6 +35,110 @@ import RiskBadge from '@/components/RiskBadge';
 import SignInPrompt from '@/components/SignInPrompt';
 import EmailPlanModal from '@/components/EmailPlanModal';
 
+/**
+ * Build a fallback SoloTransferStrategyResponse from snapshot data.
+ * Used when the /transfer-strategy API fails so that the booking page
+ * can still display transfer instructions and flight segments.
+ */
+function buildFallbackTransferStrategy(
+  snapshot: Record<string, unknown>,
+): SoloTransferStrategyResponse | null {
+  const rawTransfers = (snapshot.transfers || []) as Array<Record<string, unknown>>;
+  const rawSegments = (snapshot.segments || []) as Array<Record<string, unknown>>;
+
+  // Nothing useful in the snapshot to display
+  if (rawTransfers.length === 0 && rawSegments.length === 0) return null;
+
+  // Map snapshot transfers → SoloTransferInstruction[]
+  const transfers: SoloTransferInstruction[] = rawTransfers
+    .map((t, idx) => ({
+      stepNumber: Number(t.stepNumber ?? t.step_number ?? idx + 1),
+      sourceProgram: String(t.sourceProgram ?? t.source_program ?? t.fromProgram ?? t.from_program ?? ''),
+      targetProgram: String(t.targetProgram ?? t.target_program ?? t.toProgram ?? t.to_program ?? ''),
+      pointsToTransfer: Number(t.pointsToTransfer ?? t.points_to_transfer ?? 0),
+      transferRatio: Number(t.transferRatio ?? t.transfer_ratio ?? t.ratio ?? 1),
+      expectedTransferTime: String(t.expectedTransferTime ?? t.expected_transfer_time ?? t.transferTime ?? t.transfer_time ?? 'Instant'),
+      portalUrl: String(t.portalUrl ?? t.portal_url ?? ''),
+      warning: t.warning != null ? String(t.warning) : undefined,
+      isDirect: Boolean(t.isDirect ?? t.is_direct ?? false),
+      payerId: t.payerId != null ? String(t.payerId) : (t.payer_id != null ? String(t.payer_id) : undefined),
+      payerName: t.payerName != null ? String(t.payerName) : (t.payer_name != null ? String(t.payer_name) : undefined),
+    }))
+    .filter(t => t.pointsToTransfer > 0);
+
+  // Map snapshot segments → SoloBookingStep[]
+  const flightSegs = rawSegments.filter(s => {
+    const segType = String(s.type ?? 'flight');
+    return segType === 'flight' || segType === '';
+  });
+
+  const bookings: SoloBookingStep[] = flightSegs.map((seg, idx) => {
+    const payment = (seg.payment ?? {}) as Record<string, unknown>;
+    const paymentMethodRaw = seg.paymentMethod ?? seg.payment_method ?? payment.method ?? payment.paymentMethod ?? 'cash';
+    const paymentMethod = paymentMethodRaw === 'points' ? 'points' as const : 'cash' as const;
+    const origin = String(seg.origin ?? seg.originAirport ?? seg.origin_airport ?? '');
+    const destination = String(seg.destination ?? seg.destinationAirport ?? seg.destination_airport ?? '');
+    const airline = String(seg.airline ?? seg.airlineName ?? seg.airline_name ?? '');
+    const cabin = String(seg.cabinClass ?? seg.cabin_class ?? seg.cabin ?? 'Economy');
+
+    return {
+      stepNumber: transfers.length + idx + 1,
+      type: 'flight' as const,
+      airline,
+      bookingUrl: String(seg.bookingUrl ?? seg.booking_url ?? ''),
+      segmentReference: `${origin} → ${destination} ${cabin} on ${airline}`,
+      origin,
+      destination,
+      departureTime: (seg.departureTime ?? seg.departure_time ?? undefined) as string | undefined,
+      arrivalTime: (seg.arrivalTime ?? seg.arrival_time ?? undefined) as string | undefined,
+      cabinClass: cabin,
+      flightNumber: (seg.flightNumber ?? seg.flight_number ?? undefined) as string | undefined,
+      operatingAirline: (seg.operatingAirline ?? seg.operating_airline ?? undefined) as string | undefined,
+      durationMinutes: seg.durationMinutes != null ? Number(seg.durationMinutes) : (seg.duration_minutes != null ? Number(seg.duration_minutes) : undefined),
+      stops: seg.stops != null ? Number(seg.stops) : undefined,
+      legs: (seg.legs ?? undefined) as SoloBookingStep['legs'],
+      layovers: (seg.layovers ?? undefined) as SoloBookingStep['layovers'],
+      paymentMethod,
+      pointsUsed: paymentMethod === 'points' ? Number(seg.pointsUsed ?? seg.points_used ?? payment.pointsUsed ?? payment.points_used ?? 0) : undefined,
+      cashPrice: Number(seg.cashPrice ?? seg.cash_price ?? payment.amount ?? 0) || undefined,
+      surcharge: paymentMethod === 'points' ? Number(seg.surcharge ?? payment.surcharge ?? 0) || undefined : undefined,
+      program: paymentMethod === 'points' ? String(seg.program ?? payment.program ?? '') || undefined : undefined,
+      paymentReason: (seg.paymentReason ?? seg.payment_reason ?? undefined) as string | undefined,
+    };
+  });
+
+  const totalPointsToTransfer = transfers
+    .filter(t => !t.isDirect)
+    .reduce((sum, t) => sum + t.pointsToTransfer, 0);
+
+  // Estimate total time from transfer times
+  let maxDays = 0;
+  for (const t of transfers) {
+    if (t.isDirect) continue;
+    const timeStr = t.expectedTransferTime.toLowerCase();
+    if (timeStr.includes('day')) {
+      const digits = timeStr.split('-').pop()?.replace(/\D/g, '');
+      const days = digits ? parseInt(digits, 10) : 2;
+      maxDays = Math.max(maxDays, isNaN(days) ? 2 : days);
+    }
+  }
+  const estimatedTotalTime = maxDays > 0
+    ? `${maxDays}-${maxDays + 1} days`
+    : transfers.length > 0
+      ? '1-2 days'
+      : 'Instant';
+
+  return {
+    transfers,
+    bookings,
+    totalPointsToTransfer,
+    estimatedTotalTime,
+    warnings: transfers.length > 0
+      ? ['Complete all transfers before booking to ensure points are available']
+      : [],
+  };
+}
+
 function humanizeProgram(code: string): string {
   const banks: Record<string, string> = {
     chase: 'Chase Ultimate Rewards',
@@ -259,9 +363,27 @@ function SoloBookingContent() {
             // Get transfer strategy if we have a selection
             try {
               const strategy = await solo.getTransferStrategy(tripId, selectionRes.itineraryId);
-              setTransferStrategy(strategy);
+              // If the API returned an empty strategy but the snapshot has data, use the snapshot instead.
+              // This handles cases where the backend fails to parse transfers from the stored snapshot.
+              const snapshotTransfers = (snapshot.transfers || []) as unknown[];
+              if (
+                strategy.transfers.length === 0 &&
+                strategy.bookings.length === 0 &&
+                (snapshotTransfers.length > 0 || ((snapshot.segments || []) as unknown[]).length > 0)
+              ) {
+                const fallback = buildFallbackTransferStrategy(snapshot);
+                setTransferStrategy(fallback ?? strategy);
+              } else {
+                setTransferStrategy(strategy);
+              }
             } catch (strategyErr) {
               console.log('Could not fetch transfer strategy:', strategyErr);
+              // Fallback: build transfer strategy from snapshot data so that
+              // transfer instructions and flight segments still render.
+              const fallback = buildFallbackTransferStrategy(snapshot);
+              if (fallback) {
+                setTransferStrategy(fallback);
+              }
             }
           } else {
             // No selection found - try to get cached optimization results
@@ -306,8 +428,16 @@ function SoloBookingContent() {
                   }
                   
                   // Get transfer strategy
-                  const strategy = await solo.getTransferStrategy(tripId, newSelectionRes.itineraryId);
-                  setTransferStrategy(strategy);
+                  try {
+                    const strategy = await solo.getTransferStrategy(tripId, newSelectionRes.itineraryId);
+                    setTransferStrategy(strategy);
+                  } catch (strategyErr) {
+                    console.log('Could not fetch transfer strategy from cache path:', strategyErr);
+                    const fallback = buildFallbackTransferStrategy(newSnapshot);
+                    if (fallback) {
+                      setTransferStrategy(fallback);
+                    }
+                  }
                 }
               }
             } catch (cacheErr) {
@@ -857,6 +987,7 @@ function SoloBookingContent() {
   const soloSnapshot = selection?.itinerarySnapshot as {
     oopMetrics?: { totalCashPrice?: number; totalOutOfPocket?: number; cashSaved?: number; savingsPercentage?: number; totalPointsUsed?: number };
     segments?: Array<Record<string, unknown>>;
+    transfers?: Array<Record<string, unknown>>;
     risk?: ItineraryRisk;
   } | undefined;
 
