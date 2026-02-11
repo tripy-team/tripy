@@ -311,7 +311,7 @@ def generate_delta_bullets(
             bullets.append({
                 "type": "schedule_change",
                 "subtype": "stops_decreased",
-                "label": f"{'Nonstop' if candidate_stops == 0 else f'{candidate_stops} stop{"s" if candidate_stops > 1 else ""}'} now available",
+                "label": f"{'Nonstop' if candidate_stops == 0 else str(candidate_stops) + ' stop' + ('s' if candidate_stops > 1 else '')} now available",
                 "detail": f"{baseline_stops} stop{'s' if baseline_stops != 1 else ''} → {candidate_stops} stop{'s' if candidate_stops != 1 else ''}",
                 "direction": "improvement",
             })
