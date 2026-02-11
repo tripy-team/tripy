@@ -31,8 +31,15 @@ router = APIRouter(prefix="/payment", tags=["payment"])
 # ---------------------------------------------------------------------------
 # Stripe configuration
 # ---------------------------------------------------------------------------
-stripe.api_key = os.getenv("STRIPE_SECRET_KEY", "")
-STRIPE_WEBHOOK_SECRET = os.getenv("STRIPE_WEBHOOK_SECRET", "")
+# Read lazily so the key is available even if the env wasn't fully loaded at
+# import time (e.g. when load_dotenv runs after this module is first imported).
+def _get_stripe_key() -> str:
+    if not stripe.api_key:
+        stripe.api_key = os.getenv("STRIPE_SECRET_KEY", "")
+    return stripe.api_key or ""
+
+def _get_webhook_secret() -> str:
+    return os.getenv("STRIPE_WEBHOOK_SECRET", "")
 
 # ---------------------------------------------------------------------------
 # Pricing: per-destination model (amounts in cents for Stripe)
@@ -252,8 +259,8 @@ async def create_payment_intent(
     user_id: str = Depends(get_current_user_id),  # Must be authenticated
 ):
     """Create a Stripe PaymentIntent for the service fee."""
-    if not stripe.api_key:
-        raise HTTPException(status_code=500, detail="Stripe is not configured.")
+    if not _get_stripe_key():
+        raise HTTPException(status_code=500, detail="Stripe is not configured. Set STRIPE_SECRET_KEY in the environment.")
 
     anon_id = _get_anon_session_id(raw_request)
     trip = _get_trip_or_404(request.trip_id, user_id, anon_session_id=anon_id)
@@ -355,12 +362,16 @@ async def stripe_webhook(request: Request):
     payload = await request.body()
     sig_header = request.headers.get("stripe-signature", "")
 
-    if not STRIPE_WEBHOOK_SECRET or STRIPE_WEBHOOK_SECRET == "whsec_your_secret_here":
+    webhook_secret = _get_webhook_secret()
+    if not webhook_secret or webhook_secret == "whsec_your_secret_here":
         logger.warning("Stripe webhook secret not configured. Skipping verification.")
         raise HTTPException(status_code=400, detail="Webhook secret not configured.")
 
+    # Ensure Stripe API key is loaded for any follow-up Stripe calls
+    _get_stripe_key()
+
     try:
-        event = stripe.Webhook.construct_event(payload, sig_header, STRIPE_WEBHOOK_SECRET)
+        event = stripe.Webhook.construct_event(payload, sig_header, webhook_secret)
     except ValueError:
         raise HTTPException(status_code=400, detail="Invalid payload.")
     except stripe.SignatureVerificationError:
