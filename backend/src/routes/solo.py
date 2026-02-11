@@ -11,7 +11,7 @@ import logging
 from datetime import datetime, timezone, timedelta
 from typing import Dict, Optional
 
-from fastapi import APIRouter, BackgroundTasks, Depends, HTTPException
+from fastapi import APIRouter, BackgroundTasks, Depends, HTTPException, Request
 from pydantic import BaseModel
 
 from ..utils.jwt_auth import get_current_user_id, get_user_or_anon_id, is_anonymous
@@ -174,6 +174,7 @@ async def create_solo_trip(
 @router.get("/trips/{trip_id}", response_model=TripResponse)
 async def get_solo_trip(
     trip_id: str,
+    request: Request,
     user_id: str = Depends(get_user_or_anon_id),
 ):
     """Get a solo trip by ID. Supports both authenticated and anonymous sessions."""
@@ -184,6 +185,19 @@ async def get_solo_trip(
         # Convert camelCase storage to snake_case API response
         return trip_storage_to_response(trip)
     except PermissionError as e:
+        # Fallback: try with the anonymous session ID from the header
+        anon_id = request.headers.get("X-Anon-Session-Id")
+        if anon_id and anon_id.startswith("anon_"):
+            try:
+                trip = solo_trip_service.get_solo_trip(trip_id, anon_id)
+                if trip:
+                    logger.info(
+                        f"Trip {trip_id} accessed via anon fallback (user={user_id}, anon={anon_id}). "
+                        "Session migration may not have completed."
+                    )
+                    return trip_storage_to_response(trip)
+            except (PermissionError, ValueError):
+                pass
         raise HTTPException(status_code=403, detail=str(e))
     except HTTPException:
         raise

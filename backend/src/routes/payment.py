@@ -19,6 +19,11 @@ from pydantic import BaseModel
 from ..utils.jwt_auth import get_current_user_id, get_user_or_anon_id
 from ..services import solo_trip_service
 
+
+def _get_anon_session_id(request: Request) -> str | None:
+    """Extract anonymous session ID from request header, if present."""
+    return request.headers.get("X-Anon-Session-Id")
+
 logger = logging.getLogger(__name__)
 
 router = APIRouter(prefix="/payment", tags=["payment"])
@@ -157,11 +162,30 @@ def _apply_promo(base_amount: int, code: str) -> tuple[bool, int, str]:
     return True, discount, promo.get("description", "Promo applied!")
 
 
-def _get_trip_or_404(trip_id: str, user_id: str) -> dict:
-    """Fetch trip from DynamoDB or raise 404."""
+def _get_trip_or_404(trip_id: str, user_id: str, anon_session_id: str | None = None) -> dict:
+    """
+    Fetch trip from DynamoDB or raise 404.
+    
+    Supports fallback: if the authenticated user_id doesn't match the trip's
+    createdBy, we also try the anon_session_id (from the X-Anon-Session-Id header).
+    This handles the case where a trip was created anonymously, the user signed in,
+    but session migration hasn't completed yet.
+    """
     try:
         trip = solo_trip_service.get_solo_trip(trip_id, user_id)
     except PermissionError:
+        # Fallback: try with the anonymous session ID
+        if anon_session_id and anon_session_id.startswith("anon_"):
+            try:
+                trip = solo_trip_service.get_solo_trip(trip_id, anon_session_id)
+                if trip:
+                    logger.info(
+                        f"Trip {trip_id} accessed via anon fallback (user={user_id}, anon={anon_session_id}). "
+                        "Session migration may not have completed."
+                    )
+                    return trip
+            except (PermissionError, ValueError):
+                pass
         raise HTTPException(status_code=403, detail="Not authorized for this trip.")
     except ValueError:
         raise HTTPException(status_code=404, detail="Trip not found.")
@@ -177,10 +201,12 @@ def _get_trip_or_404(trip_id: str, user_id: str) -> dict:
 @router.post("/calculate-fee", response_model=CalculateFeeResponse)
 async def calculate_fee(
     request: CalculateFeeRequest,
+    raw_request: Request,
     user_id: str = Depends(get_user_or_anon_id),
 ):
     """Return the service fee based on destination count."""
-    trip = _get_trip_or_404(request.trip_id, user_id)
+    anon_id = _get_anon_session_id(raw_request)
+    trip = _get_trip_or_404(request.trip_id, user_id, anon_session_id=anon_id)
     amount, dest_count = _calculate_price(trip)
 
     return CalculateFeeResponse(
@@ -196,10 +222,12 @@ async def calculate_fee(
 @router.post("/validate-promo", response_model=ValidatePromoResponse)
 async def validate_promo(
     request: ValidatePromoRequest,
+    raw_request: Request,
     user_id: str = Depends(get_user_or_anon_id),
 ):
     """Validate a promo code and preview the discount."""
-    trip = _get_trip_or_404(request.trip_id, user_id)
+    anon_id = _get_anon_session_id(raw_request)
+    trip = _get_trip_or_404(request.trip_id, user_id, anon_session_id=anon_id)
     base, _ = _calculate_price(trip)
 
     valid, discount, msg = _apply_promo(base, request.promo_code)
@@ -220,13 +248,15 @@ async def validate_promo(
 @router.post("/create-intent", response_model=CreatePaymentIntentResponse)
 async def create_payment_intent(
     request: CreatePaymentIntentRequest,
+    raw_request: Request,
     user_id: str = Depends(get_current_user_id),  # Must be authenticated
 ):
     """Create a Stripe PaymentIntent for the service fee."""
     if not stripe.api_key:
         raise HTTPException(status_code=500, detail="Stripe is not configured.")
 
-    trip = _get_trip_or_404(request.trip_id, user_id)
+    anon_id = _get_anon_session_id(raw_request)
+    trip = _get_trip_or_404(request.trip_id, user_id, anon_session_id=anon_id)
     base, dest_count = _calculate_price(trip)
 
     # Apply promo if provided
@@ -269,13 +299,15 @@ async def create_payment_intent(
 @router.post("/confirm-free", response_model=ConfirmFreeResponse)
 async def confirm_free_payment(
     request: ConfirmFreeRequest,
+    raw_request: Request,
     user_id: str = Depends(get_current_user_id),
 ):
     """
     Confirm a $0 payment (100% promo discount).
     Marks trip as instructions_unlocked with a free payment proof.
     """
-    trip = _get_trip_or_404(request.trip_id, user_id)
+    anon_id = _get_anon_session_id(raw_request)
+    trip = _get_trip_or_404(request.trip_id, user_id, anon_session_id=anon_id)
     base, _ = _calculate_price(trip)
 
     valid, discount, msg = _apply_promo(base, request.promo_code)

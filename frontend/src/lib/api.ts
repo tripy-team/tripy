@@ -232,6 +232,12 @@ async function apiRequest<T>(
 
       if (token) {
         headers['Authorization'] = `Bearer ${token}`;
+        // Also send anonymous session ID if available — allows backend fallback
+        // for trips created before sign-in (migration may not have completed)
+        const anonId = localStorage.getItem(ANON_SESSION_KEY);
+        if (anonId) {
+          headers['X-Anon-Session-Id'] = anonId;
+        }
       } else {
         // No token available — use anonymous session instead of blocking
         // This allows trip generation without sign-in

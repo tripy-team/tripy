@@ -16,7 +16,7 @@ import {
   AlertCircle,
   Lock,
 } from 'lucide-react';
-import { solo, payment, isAuthenticated, type SoloTripResponse } from '@/lib/api';
+import { solo, payment, isAuthenticated, getAnonSessionId, type SoloTripResponse } from '@/lib/api';
 
 // ---------------------------------------------------------------------------
 // Stripe loader — singleton so we only load once
@@ -172,6 +172,7 @@ function PaymentPageContent() {
   const [promoError, setPromoError] = useState<string | null>(null);
   const [clientSecret, setClientSecret] = useState<string | null>(null);
   const [loading, setLoading] = useState(true);
+  const [loadError, setLoadError] = useState<string | null>(null);
   const [paymentSuccess, setPaymentSuccess] = useState(false);
   const [freeProcessing, setFreeProcessing] = useState(false);
 
@@ -188,20 +189,59 @@ function PaymentPageContent() {
     }
   }, [router, tripId]);
 
-  // Load trip + fee info
+  // Load trip + fee info (with anonymous session migration retry)
   useEffect(() => {
     if (!tripId || !isAuthenticated()) return;
 
     (async () => {
-      try {
-        const [tripData, feeData] = await Promise.all([
+      // Helper to load trip and fee data
+      const loadData = async () => {
+        const [tripResult, feeResult] = await Promise.allSettled([
           solo.getTrip(tripId),
           payment.calculateFee(tripId),
         ]);
-        setTrip(tripData);
-        setFeeInfo(feeData);
+
+        const tripOk = tripResult.status === 'fulfilled' ? tripResult.value : null;
+        const feeOk = feeResult.status === 'fulfilled' ? feeResult.value : null;
+
+        return { tripOk, feeOk, tripErr: tripResult.status === 'rejected' ? tripResult.reason : null, feeErr: feeResult.status === 'rejected' ? feeResult.reason : null };
+      };
+
+      try {
+        let { tripOk, feeOk, tripErr, feeErr } = await loadData();
+
+        // If we got a 403, try migrating the anonymous session first, then retry
+        const is403 = (err: unknown) => err instanceof Error && err.message.includes('Not authorized');
+        if ((tripErr && is403(tripErr)) || (feeErr && is403(feeErr))) {
+          try {
+            const anonId = getAnonSessionId();
+            if (anonId) {
+              console.log('[Payment] Trip access denied — attempting anonymous session migration...');
+              await solo.migrateSession(anonId);
+              // Retry after migration
+              const retry = await loadData();
+              tripOk = retry.tripOk;
+              feeOk = retry.feeOk;
+              tripErr = retry.tripErr;
+              feeErr = retry.feeErr;
+            }
+          } catch (migrationErr) {
+            console.warn('[Payment] Session migration failed:', migrationErr);
+          }
+        }
+
+        if (tripOk) setTrip(tripOk);
+        if (feeOk) setFeeInfo(feeOk);
+
+        // Set error if we still couldn't load critical data
+        if (!tripOk || !feeOk) {
+          const errMsg = tripErr?.message || feeErr?.message || 'Failed to load payment data.';
+          console.error('Failed to load payment data:', tripErr || feeErr);
+          setLoadError(errMsg);
+        }
       } catch (err) {
         console.error('Failed to load payment data:', err);
+        setLoadError(err instanceof Error ? err.message : 'Failed to load payment data.');
       } finally {
         setLoading(false);
       }
@@ -313,6 +353,44 @@ function PaymentPageContent() {
         <div className="text-center">
           <Loader2 className="w-8 h-8 animate-spin text-blue-600 mx-auto mb-3" />
           <p className="text-slate-600">Loading payment details...</p>
+        </div>
+      </div>
+    );
+  }
+
+  // Error state — show a clear message and retry option
+  if (loadError) {
+    return (
+      <div className="min-h-screen flex items-center justify-center bg-gradient-to-br from-white via-blue-50/20 to-white">
+        <div className="text-center max-w-md mx-auto px-6">
+          <div className="w-16 h-16 bg-red-100 rounded-full flex items-center justify-center mx-auto mb-5">
+            <AlertCircle className="w-8 h-8 text-red-500" />
+          </div>
+          <h1 className="text-2xl font-bold text-slate-900 mb-3">Unable to Load Payment</h1>
+          <p className="text-slate-600 mb-6 text-sm">
+            {loadError.includes('Not authorized')
+              ? 'We couldn\'t verify your access to this trip. This can happen if you created the trip before signing in. Please try again or go back to results.'
+              : loadError}
+          </p>
+          <div className="flex flex-col sm:flex-row gap-3 justify-center">
+            <button
+              onClick={() => {
+                setLoadError(null);
+                setLoading(true);
+                // Trigger re-load by re-mounting
+                window.location.reload();
+              }}
+              className="px-5 py-2.5 bg-blue-600 text-white rounded-xl text-sm font-medium hover:bg-blue-700 transition-colors"
+            >
+              Try Again
+            </button>
+            <button
+              onClick={() => router.back()}
+              className="px-5 py-2.5 bg-slate-100 text-slate-700 rounded-xl text-sm font-medium hover:bg-slate-200 transition-colors"
+            >
+              Back to Results
+            </button>
+          </div>
         </div>
       </div>
     );
