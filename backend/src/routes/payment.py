@@ -17,6 +17,7 @@ from fastapi import APIRouter, Depends, HTTPException, Request
 from pydantic import BaseModel
 
 from ..utils.jwt_auth import get_current_user_id, get_user_or_anon_id
+from ..utils.secrets_manager import secrets
 from ..services import solo_trip_service
 
 
@@ -31,15 +32,15 @@ router = APIRouter(prefix="/payment", tags=["payment"])
 # ---------------------------------------------------------------------------
 # Stripe configuration
 # ---------------------------------------------------------------------------
-# Read lazily so the key is available even if the env wasn't fully loaded at
-# import time (e.g. when load_dotenv runs after this module is first imported).
+# Read lazily via the secrets manager so keys resolve from AWS Secrets Manager
+# in production and from .env / os.environ in local development.
 def _get_stripe_key() -> str:
     if not stripe.api_key:
-        stripe.api_key = os.getenv("STRIPE_SECRET_KEY", "")
+        stripe.api_key = secrets.get("STRIPE_SECRET_KEY", "") or ""
     return stripe.api_key or ""
 
 def _get_webhook_secret() -> str:
-    return os.getenv("STRIPE_WEBHOOK_SECRET", "")
+    return secrets.get("STRIPE_WEBHOOK_SECRET", "") or ""
 
 # ---------------------------------------------------------------------------
 # Pricing: per-destination model (amounts in cents for Stripe)
