@@ -91,7 +91,7 @@ export default function LandingPage() {
                             Travel Smarter.
                         </h1>
                         <p className="text-xl text-slate-600 mb-8 leading-relaxed max-w-lg">
-                            AI-powered flight recommendations using your credit-card points.
+                            Optimized flight recommendations using your credit-card points.
                         </p>
                         <div className="flex gap-4">
                             <Link
