@@ -75,8 +75,14 @@ function LoginForm() {
 				console.warn('[Login] Session migration failed:', migrationErr);
 			}
 
-			// On success, redirect to the specified page or default to points setup
-			const destination = redirectPath || "/points-setup";
+			// On success, redirect to the specified page, pending trip results, or default
+			let destination = redirectPath || "/points-setup";
+			if (!redirectPath) {
+				const pendingTripId = sessionStorage.getItem('tripy_last_trip_id') || localStorage.getItem('tripy_last_trip_id');
+				if (pendingTripId) {
+					destination = `/solo/results?trip_id=${pendingTripId}`;
+				}
+			}
 			router.push(destination);
 		} catch (err) {
 			// Handle different error types from Cognito

@@ -141,6 +141,38 @@ def get_orchestrator() -> OrchestratorAgent:
 router = APIRouter(prefix="/solo", tags=["Solo Booking"])
 
 
+def _get_trip_with_anon_fallback(
+    trip_id: str,
+    user_id: str,
+    http_request: Request,
+):
+    """
+    Fetch a solo trip with anon-session fallback.
+
+    Tries the authenticated user_id first; on PermissionError falls back to
+    the X-Anon-Session-Id header so trips created before sign-in still work
+    even when session migration hasn't completed yet.
+    """
+    try:
+        trip = solo_trip_service.get_solo_trip(trip_id, user_id)
+        return trip
+    except PermissionError:
+        anon_id = http_request.headers.get("X-Anon-Session-Id")
+        if anon_id and anon_id.startswith("anon_"):
+            try:
+                trip = solo_trip_service.get_solo_trip(trip_id, anon_id)
+                if trip:
+                    logger.info(
+                        f"Trip {trip_id} accessed via anon fallback "
+                        f"(user={user_id}, anon={anon_id}). "
+                        "Session migration may not have completed."
+                    )
+                    return trip
+            except (PermissionError, ValueError):
+                pass
+        raise
+
+
 # ============================================================================
 # Trip Endpoints
 # ============================================================================
@@ -325,13 +357,21 @@ async def get_selection(
 @router.get("/trips/{trip_id}/points", response_model=PointsSummaryResponse)
 async def get_trip_points(
     trip_id: str,
+    http_request: Request,
     user_id: str = Depends(get_user_or_anon_id),
 ):
     """Get points balances for a trip. Supports anonymous sessions."""
     try:
         return solo_trip_service.get_points(trip_id, user_id)
-    except PermissionError as e:
-        raise HTTPException(status_code=403, detail=str(e))
+    except PermissionError:
+        # Anon fallback: try with the anonymous session ID from the header
+        anon_id = http_request.headers.get("X-Anon-Session-Id")
+        if anon_id and anon_id.startswith("anon_"):
+            try:
+                return solo_trip_service.get_points(trip_id, anon_id)
+            except (PermissionError, ValueError):
+                pass
+        raise HTTPException(status_code=403, detail="Not authorized to access this trip's points")
     except ValueError as e:
         raise HTTPException(status_code=400, detail=str(e))
     except Exception as e:
@@ -368,6 +408,7 @@ async def upsert_trip_points(
 @router.post("/optimize", response_model=OptimizeSoloResponse)
 async def optimize_solo(
     request: OptimizeSoloRequest,
+    http_request: Request,
     user_id: str = Depends(get_user_or_anon_id),
 ):
     """
@@ -378,8 +419,8 @@ async def optimize_solo(
     Only tripId + points + optional mode override come from request.
     """
     try:
-        # Get trip to load preferences
-        trip = solo_trip_service.get_solo_trip(request.trip_id, user_id)
+        # Get trip to load preferences (with anon fallback for pre-sign-in trips)
+        trip = _get_trip_with_anon_fallback(request.trip_id, user_id, http_request)
         if not trip:
             raise HTTPException(status_code=404, detail="Trip not found")
         
@@ -1483,6 +1524,7 @@ def _build_response_from_cached(cached: dict) -> OptimizeSoloResponse:
 @router.get("/optimization-cache/{trip_id}", response_model=OptimizeSoloResponse)
 async def get_optimization_cache(
     trip_id: str,
+    http_request: Request,
     user_id: str = Depends(get_user_or_anon_id),
 ):
     """
@@ -1490,13 +1532,16 @@ async def get_optimization_cache(
     Returns 404 if no cache exists.
     """
     try:
-        # Get trip to verify ownership
-        trip = solo_trip_service.get_solo_trip(trip_id, user_id)
+        # Get trip to verify ownership (with anon fallback for pre-sign-in trips)
+        trip = _get_trip_with_anon_fallback(trip_id, user_id, http_request)
         if not trip:
             raise HTTPException(status_code=404, detail="Trip not found")
         
+        # Resolve the effective owner for points lookup
+        effective_user_id = trip.get("createdBy", user_id)
+        
         # Build cache key (simplified - assumes points haven't changed)
-        points_summary = solo_trip_service.get_points(trip_id, user_id)
+        points_summary = solo_trip_service.get_points(trip_id, effective_user_id)
         points_dict = {p.program: p.balance for p in (points_summary.items or [])}
         
         # Use default mode for cache lookup
@@ -1511,6 +1556,8 @@ async def get_optimization_cache(
         logger.info(f"[optimization-cache] Returning cached results for trip {trip_id}")
         return _build_response_from_cached(cached)
         
+    except PermissionError as e:
+        raise HTTPException(status_code=403, detail=str(e))
     except HTTPException:
         raise
     except Exception as e:

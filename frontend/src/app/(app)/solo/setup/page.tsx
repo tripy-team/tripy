@@ -810,6 +810,7 @@ export default function SoloTripSetup() {
       // 4. Remember the last generated trip ID so the results page can
       //    recover it even after a sign-in redirect (e.g. URL gets lost).
       sessionStorage.setItem('tripy_last_trip_id', trip.tripId);
+      localStorage.setItem('tripy_last_trip_id', trip.tripId);
 
       // 5. Navigate to results page for optimization
       router.push(`/solo/results?trip_id=${trip.tripId}`);

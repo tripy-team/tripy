@@ -94,10 +94,12 @@ function OutOfPocketBlock({ data }: { data: OutOfPocketData }) {
 export default function SoloResults() {
     const router = useRouter();
     const searchParams = useSearchParams();
-    // Prefer trip_id from URL; fall back to the last generated trip stored in
-    // sessionStorage (survives sign-in redirects that may lose query params).
+    // Prefer trip_id from URL; fall back to sessionStorage then localStorage
+    // (localStorage survives sign-in/sign-up redirects that may lose query params).
     const tripIdFromUrl = searchParams?.get('trip_id') || '';
-    const tripId = tripIdFromUrl || (typeof window !== 'undefined' ? sessionStorage.getItem('tripy_last_trip_id') || '' : '');
+    const tripId = tripIdFromUrl || (typeof window !== 'undefined'
+        ? sessionStorage.getItem('tripy_last_trip_id') || localStorage.getItem('tripy_last_trip_id') || ''
+        : '');
     const shareToken = searchParams?.get('share_token') || '';
 
     const [itineraries, setItineraries] = useState<Itinerary[]>([]);

@@ -84,14 +84,23 @@ function RegisterForm() {
 				console.warn('[Register] Session migration failed:', migrationErr);
 			}
 
+			// Compute the best redirect destination: explicit redirect > pending trip > default
+			let effectiveRedirect = redirectPath;
+			if (!effectiveRedirect) {
+				const pendingTripId = sessionStorage.getItem('tripy_last_trip_id') || localStorage.getItem('tripy_last_trip_id');
+				if (pendingTripId) {
+					effectiveRedirect = `/solo/results?trip_id=${pendingTripId}`;
+				}
+			}
+
 			// If confirmation is required, redirect to confirmation page
 			// Preserve the redirect param so user gets back to their page after confirming
 			if (response.confirmation_required) {
-				const confirmUrl = `/auth/confirm-signup?email=${encodeURIComponent(form.email)}${redirectPath ? `&redirect=${encodeURIComponent(redirectPath)}` : ''}`;
+				const confirmUrl = `/auth/confirm-signup?email=${encodeURIComponent(form.email)}${effectiveRedirect ? `&redirect=${encodeURIComponent(effectiveRedirect)}` : ''}`;
 				router.push(confirmUrl);
 			} else {
 				// User is auto-confirmed - redirect to the specified page or default to points setup
-				const destination = redirectPath || "/points-setup";
+				const destination = effectiveRedirect || "/points-setup";
 				router.push(destination);
 			}
 		} catch (err) {
