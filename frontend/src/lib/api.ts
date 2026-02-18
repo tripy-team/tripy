@@ -68,7 +68,7 @@ function generateUUID(): string {
  */
 export function getAnonSessionId(): string {
   if (typeof window === 'undefined') return `anon_${generateUUID()}`;
-  
+
   let anonId = localStorage.getItem(ANON_SESSION_KEY);
   if (!anonId) {
     anonId = `anon_${generateUUID()}`;
@@ -346,18 +346,18 @@ async function apiRequest<T>(
     }
 
     const data = await response.json();
-    
+
     // Log itinerary responses in development
     if (process.env.NODE_ENV === 'development' && endpoint.startsWith('/itinerary/')) {
       console.log('[api]', endpoint, 'response', {
         status: (data as Record<string, unknown>)?.status,
-        items: Array.isArray((data as Record<string, unknown>)?.items) 
-          ? ((data as Record<string, unknown>).items as unknown[]).length 
+        items: Array.isArray((data as Record<string, unknown>)?.items)
+          ? ((data as Record<string, unknown>).items as unknown[]).length
           : undefined,
         relaxed_constraints: (data as Record<string, unknown>)?.relaxed_constraints,
       });
     }
-    
+
     return data as T;
   } catch (error) {
     // Handle network errors with more specific messages
@@ -434,7 +434,7 @@ export type PoolingScope = 'individual_only' | 'household_only' | 'full_group' |
  * - approved_for_booking: Approved allocation; ready for checklist
  * - inactive: Dropped or paused; exclude from optimization
  */
-export type MemberLifecycleState = 
+export type MemberLifecycleState =
   | 'invited'
   | 'joined_no_wallet'
   | 'wallet_connected'
@@ -603,11 +603,11 @@ export const auth = {
     }, false); // requireAuth = false for forgot password
   },
 
-  confirmForgotPassword: async (params: { email: string; confirmation_code: string; new_password: string }): Promise<{ message: string }> => {
-    return apiRequest<{ message: string }>('/auth/confirm-forgot-password', {
+  resetPassword: async (params: { email: string; code: string; new_password: string }): Promise<{ message: string }> => {
+    return apiRequest<{ message: string }>('/auth/reset-password', {
       method: 'POST',
       body: JSON.stringify(params),
-    }, false); // requireAuth = false for password reset
+    }, false);
   },
 
   logout: () => {
@@ -633,13 +633,13 @@ export const trips = {
    * Create a new trip.
    * Note: include_hotels is deprecated (flight-only mode). Always defaults to false.
    */
-  create: async (params: { 
-    title: string; 
-    start_date: string; 
-    end_date: string; 
+  create: async (params: {
+    title: string;
+    start_date: string;
+    end_date: string;
     /** @deprecated Flight-only mode - hotels are not supported */
-    include_hotels?: boolean; 
-    max_budget?: number; 
+    include_hotels?: boolean;
+    max_budget?: number;
     duration_days?: number;
     pooling_scope?: PoolingScope;
     // Organizer party size (travelers in organizer's booking)
@@ -673,7 +673,7 @@ export const trips = {
       }),
     });
   },
-  
+
   /**
    * Update the pooling scope for a trip.
    * Only the trip owner can change pooling scope.
@@ -707,9 +707,9 @@ export const trips = {
     limit?: number;
     offset?: number;
     includeDetails?: boolean;
-  }): Promise<{ 
-    trips: Trip[]; 
-    total?: number; 
+  }): Promise<{
+    trips: Trip[];
+    total?: number;
     has_more?: boolean;
     limit?: number;
     offset?: number;
@@ -721,7 +721,7 @@ export const trips = {
     if (options?.limit !== undefined) params.append('limit', String(options.limit));
     if (options?.offset !== undefined) params.append('offset', String(options.offset));
     if (options?.includeDetails) params.append('include_details', 'true');
-    
+
     const queryString = params.toString();
     return apiRequest<{ trips: Trip[]; total?: number; has_more?: boolean; limit?: number; offset?: number }>(
       `/trips${queryString ? `?${queryString}` : ''}`,
@@ -765,8 +765,8 @@ export const trips = {
 
   join: async (
     invite_code: string,
-    options?: { 
-      willing_to_share_points?: boolean; 
+    options?: {
+      willing_to_share_points?: boolean;
       points_usage?: 'freely' | 'ask_before' | 'do_not_use';
       // Flight preferences for "Same as Friend?" feature
       departure_airport?: string;
@@ -854,7 +854,7 @@ export const trips = {
       body: JSON.stringify({ trip_id }),
     });
   },
-  
+
   /**
    * Mark a trip's optimization strategy as paid.
    * Only the trip owner can mark as paid.
@@ -878,7 +878,7 @@ export const trips = {
       }),
     });
   },
-  
+
   /**
    * Check if a trip's optimization strategy has been paid for.
    * Any member of the trip can check this status.
@@ -901,13 +901,13 @@ export const trips = {
       method: 'GET',
     });
   },
-  
+
   /**
    * Update current user's lifecycle state in a trip.
    * Validates transitions to ensure they follow the correct order.
    */
   updateLifecycleState: async (
-    tripId: string, 
+    tripId: string,
     lifecycleState: MemberLifecycleState
   ): Promise<{
     ok: boolean;
@@ -933,7 +933,7 @@ export const trips = {
       }),
     });
   },
-  
+
   /**
    * Admin: Update another member's lifecycle state.
    * Only the trip owner can use this endpoint.
@@ -1055,7 +1055,7 @@ export const households = {
       }),
     });
   },
-  
+
   /**
    * Remove the household_id from the current member.
    */
@@ -1077,8 +1077,8 @@ export const delegation = {
    * @param scope - 'planning' (can approve plans) or 'booking' (can book)
    */
   set: async (
-    tripId: string, 
-    delegateUserId: string, 
+    tripId: string,
+    delegateUserId: string,
     scope: DelegationScope = 'planning'
   ): Promise<{
     ok: boolean;
@@ -1108,7 +1108,7 @@ export const delegation = {
       }),
     });
   },
-  
+
   /**
    * Remove delegation from the current member.
    */
@@ -1128,8 +1128,8 @@ export const sponsors = {
    * Only the trip owner can grant/revoke sponsor permission.
    */
   set: async (
-    tripId: string, 
-    targetUserId: string, 
+    tripId: string,
+    targetUserId: string,
     canPayForOthers: boolean
   ): Promise<{ ok: boolean; can_pay_for_others: boolean }> => {
     if (SKIP_API_AUTH) {
@@ -1181,16 +1181,16 @@ export interface TripPassengersSummary {
 // SETTLEMENT CONFIGURATION API (Task 17-19)
 // =============================================================================
 
-export type SettlementPolicy = 
-  | 'pay_your_own' 
-  | 'equal_per_passenger' 
-  | 'equal_per_household' 
-  | 'sponsor_pays_all' 
+export type SettlementPolicy =
+  | 'pay_your_own'
+  | 'equal_per_passenger'
+  | 'equal_per_household'
+  | 'sponsor_pays_all'
   | 'custom';
 
-export type PointsValuationMode = 
-  | 'market_implied' 
-  | 'fixed_by_currency' 
+export type PointsValuationMode =
+  | 'market_implied'
+  | 'fixed_by_currency'
   | 'user_defined';
 
 export interface PointsValuationConfig {
@@ -1403,7 +1403,7 @@ export const settlement = {
     const params = new URLSearchParams();
     if (policy) params.append('policy', policy);
     if (reimbursePoints !== undefined) params.append('reimburse_points', String(reimbursePoints));
-    
+
     return apiRequest<SettlementResult>(
       `/trips/${tripId}/settlement/preview${params.toString() ? '?' + params.toString() : ''}`
     );
@@ -1822,7 +1822,7 @@ export const passengers = {
       body: JSON.stringify(params),
     });
   },
-  
+
   /**
    * List all passengers for a trip with summary.
    */
@@ -1853,7 +1853,7 @@ export const passengers = {
       method: 'GET',
     });
   },
-  
+
   /**
    * Delete a passenger.
    * Only the guardian can delete their passengers.
@@ -1915,12 +1915,12 @@ export const destinations = {
     return res.json();
   },
 
-  add: async (params: { 
-    trip_id: string; 
-    name: string; 
-    must_include?: boolean; 
-    excluded?: boolean; 
-    is_start?: boolean; 
+  add: async (params: {
+    trip_id: string;
+    name: string;
+    must_include?: boolean;
+    excluded?: boolean;
+    is_start?: boolean;
     is_end?: boolean;
     departure_date?: string;
   }): Promise<Destination> => {
@@ -2005,7 +2005,7 @@ export interface ItineraryItem {
   withinBudget?: boolean;
   /** True when pointsCost <= trip total points */
   withinPoints?: boolean;
-  
+
   // Flight-specific fields from optimized itinerary
   /** Item type: path, payments, totals, or itinerary */
   type?: 'path' | 'payments' | 'totals' | 'itinerary' | string;
@@ -2588,7 +2588,7 @@ export const group = {
 
   // Get member preferences
   getMemberPreferences: async (tripId: string, userId?: string): Promise<MemberPreferences> => {
-    const endpoint = userId 
+    const endpoint = userId
       ? `/trips/${tripId}/member/${userId}/preferences`
       : `/trips/${tripId}/member/preferences`;
     return apiRequest<MemberPreferences>(endpoint, {
@@ -2727,7 +2727,7 @@ export interface SoloSegmentBreakdown {
   transferTo?: string;
   transferRatio?: number;
   program?: string;
-  
+
   // Flight-specific details
   origin?: string;
   destination?: string;
@@ -2739,17 +2739,17 @@ export interface SoloSegmentBreakdown {
   cabinClass?: string;
   durationMinutes?: number;
   bookingUrl?: string;
-  
+
   // CRITICAL: Connection details for multi-leg flights
   stops?: number;                      // Number of stops (0 = nonstop)
   legs?: SoloFlightLeg[];              // Per-leg details
   layovers?: SoloLayover[];            // Layover info between legs
-  
+
   // Connection safety info
   ticketingConfirmed?: boolean;        // True if single-ticket confirmed
   hasCarrierChange?: boolean;          // True if operating carriers differ
   hasShortConnection?: boolean;        // True if any layover < 60 min
-  
+
   // Hotel-specific details
   hotelName?: string;
   brand?: string;
@@ -2939,7 +2939,7 @@ export interface SoloBookingStep {
   hotelChain?: string;
   bookingUrl: string;
   segmentReference: string;
-  
+
   // Flight-specific details
   origin?: string;
   destination?: string;
@@ -2949,18 +2949,18 @@ export interface SoloBookingStep {
   flightNumber?: string;
   operatingAirline?: string;  // For codeshare flights
   durationMinutes?: number;
-  
+
   // Connection details for multi-leg flights
   stops?: number;                  // Number of stops (0 = nonstop)
   legs?: SoloFlightLeg[];          // Per-leg details
   layovers?: SoloLayover[];        // Layover info between legs
-  
+
   // Hotel-specific details
   city?: string;
   checkIn?: string;
   checkOut?: string;
   nights?: number;
-  
+
   // Payment details
   paymentMethod: 'points' | 'cash';
   pointsUsed?: number;
@@ -3492,7 +3492,7 @@ export const optimization = {
         cabin_class: request.cabinClass || 'economy',
       }),
     });
-    
+
     // Transform snake_case response to camelCase for frontend
     return toCamelCase<DynamicRouteResult>(response);
   },

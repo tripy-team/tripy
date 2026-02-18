@@ -20,14 +20,14 @@ def get_cognito_client():
 def authenticate_user(email: str, password: str) -> Dict[str, Any]:
     """
     Authenticate user with Cognito
-    
+
     Args:
         email: User email
         password: User password
-        
+
     Returns:
         Dictionary with authentication tokens and user info
-        
+
     Raises:
         Exception: If authentication fails
     """
@@ -35,9 +35,9 @@ def authenticate_user(email: str, password: str) -> Dict[str, Any]:
         raise ValueError("USER_POOL_ID not configured")
     if not USER_POOL_CLIENT_ID:
         raise ValueError("USER_POOL_CLIENT_ID not configured")
-    
+
     client = get_cognito_client()
-    
+
     try:
         # Authenticate using USER_PASSWORD_AUTH flow
         response = client.initiate_auth(
@@ -48,15 +48,15 @@ def authenticate_user(email: str, password: str) -> Dict[str, Any]:
                 "PASSWORD": password,
             },
         )
-        
+
         authentication_result = response.get("AuthenticationResult", {})
-        
+
         # Validate that all required tokens are present
         access_token = authentication_result.get("AccessToken")
         id_token = authentication_result.get("IdToken")
         refresh_token = authentication_result.get("RefreshToken")
         expires_in = authentication_result.get("ExpiresIn")
-        
+
         if not access_token:
             raise Exception("Authentication failed: Access token not received")
         if not id_token:
@@ -65,7 +65,7 @@ def authenticate_user(email: str, password: str) -> Dict[str, Any]:
             raise Exception("Authentication failed: Refresh token not received")
         if not expires_in:
             raise Exception("Authentication failed: Token expiration not received")
-        
+
         return {
             "AccessToken": access_token,
             "IdToken": id_token,
@@ -76,7 +76,7 @@ def authenticate_user(email: str, password: str) -> Dict[str, Any]:
     except ClientError as e:
         error_code = e.response.get("Error", {}).get("Code", "")
         error_message = e.response.get("Error", {}).get("Message", "")
-        
+
         if error_code == "NotAuthorizedException":
             raise Exception("Invalid email or password")
         elif error_code == "UserNotConfirmedException":
@@ -90,21 +90,23 @@ def authenticate_user(email: str, password: str) -> Dict[str, Any]:
 def get_user_from_token(access_token: str) -> Dict[str, Any]:
     """
     Get user information from Cognito access token
-    
+
     Args:
         access_token: Cognito access token
-        
+
     Returns:
         Dictionary with user information
     """
     client = get_cognito_client()
-    
+
     try:
         response = client.get_user(AccessToken=access_token)
-        
-        user_attributes = {attr["Name"]: attr["Value"] for attr in response.get("UserAttributes", [])}
+
+        user_attributes = {
+            attr["Name"]: attr["Value"] for attr in response.get("UserAttributes", [])
+        }
         username = response.get("Username", "")
-        
+
         return {
             "username": username,
             "email": user_attributes.get("email", ""),
@@ -113,18 +115,22 @@ def get_user_from_token(access_token: str) -> Dict[str, Any]:
             "user_status": response.get("UserStatus", ""),
         }
     except ClientError as e:
-        raise Exception(f"Failed to get user info: {e.response.get('Error', {}).get('Message', '')}")
+        raise Exception(
+            f"Failed to get user info: {e.response.get('Error', {}).get('Message', '')}"
+        )
 
 
-def sign_up_user(email: str, password: str, attributes: Optional[Dict[str, str]] = None) -> Dict[str, Any]:
+def sign_up_user(
+    email: str, password: str, attributes: Optional[Dict[str, str]] = None
+) -> Dict[str, Any]:
     """
     Sign up a new user in Cognito
-    
+
     Args:
         email: User email
         password: User password
         attributes: Optional additional user attributes
-        
+
     Returns:
         Dictionary with signup confirmation info
     """
@@ -132,14 +138,14 @@ def sign_up_user(email: str, password: str, attributes: Optional[Dict[str, str]]
         raise ValueError("USER_POOL_ID not configured")
     if not USER_POOL_CLIENT_ID:
         raise ValueError("USER_POOL_CLIENT_ID not configured")
-    
+
     client = get_cognito_client()
-    
+
     user_attributes = [{"Name": "email", "Value": email}]
     if attributes:
         for key, value in attributes.items():
             user_attributes.append({"Name": key, "Value": value})
-    
+
     try:
         response = client.sign_up(
             ClientId=USER_POOL_CLIENT_ID,
@@ -147,7 +153,7 @@ def sign_up_user(email: str, password: str, attributes: Optional[Dict[str, str]]
             Password=password,
             UserAttributes=user_attributes,
         )
-        
+
         return {
             "UserSub": response.get("UserSub"),
             "CodeDeliveryDetails": response.get("CodeDeliveryDetails"),
@@ -156,7 +162,7 @@ def sign_up_user(email: str, password: str, attributes: Optional[Dict[str, str]]
     except ClientError as e:
         error_code = e.response.get("Error", {}).get("Code", "")
         error_message = e.response.get("Error", {}).get("Message", "")
-        
+
         if error_code == "UsernameExistsException":
             raise Exception("User already exists with this email")
         else:
@@ -166,19 +172,19 @@ def sign_up_user(email: str, password: str, attributes: Optional[Dict[str, str]]
 def confirm_sign_up(email: str, confirmation_code: str) -> bool:
     """
     Confirm user sign up with verification code
-    
+
     Args:
         email: User email
         confirmation_code: Verification code sent to email
-        
+
     Returns:
         True if successful
     """
     if not USER_POOL_CLIENT_ID:
         raise ValueError("USER_POOL_CLIENT_ID not configured")
-    
+
     client = get_cognito_client()
-    
+
     try:
         client.confirm_sign_up(
             ClientId=USER_POOL_CLIENT_ID,
@@ -189,7 +195,7 @@ def confirm_sign_up(email: str, confirmation_code: str) -> bool:
     except ClientError as e:
         error_code = e.response.get("Error", {}).get("Code", "")
         error_message = e.response.get("Error", {}).get("Message", "")
-        
+
         if error_code == "CodeMismatchException":
             raise Exception("Invalid confirmation code")
         elif error_code == "ExpiredCodeException":
@@ -201,18 +207,18 @@ def confirm_sign_up(email: str, confirmation_code: str) -> bool:
 def refresh_tokens(refresh_token: str) -> Dict[str, Any]:
     """
     Refresh access and ID tokens using refresh token
-    
+
     Args:
         refresh_token: Cognito refresh token
-        
+
     Returns:
         Dictionary with new tokens
     """
     if not USER_POOL_CLIENT_ID:
         raise ValueError("USER_POOL_CLIENT_ID not configured")
-    
+
     client = get_cognito_client()
-    
+
     try:
         response = client.initiate_auth(
             ClientId=USER_POOL_CLIENT_ID,
@@ -221,18 +227,18 @@ def refresh_tokens(refresh_token: str) -> Dict[str, Any]:
                 "REFRESH_TOKEN": refresh_token,
             },
         )
-        
+
         authentication_result = response.get("AuthenticationResult", {})
-        
+
         access_token = authentication_result.get("AccessToken")
         id_token = authentication_result.get("IdToken")
         expires_in = authentication_result.get("ExpiresIn")
-        
+
         if not access_token:
             raise Exception("Token refresh failed: Access token not received")
         if not id_token:
             raise Exception("Token refresh failed: ID token not received")
-        
+
         return {
             "AccessToken": access_token,
             "IdToken": id_token,
@@ -242,7 +248,7 @@ def refresh_tokens(refresh_token: str) -> Dict[str, Any]:
     except ClientError as e:
         error_code = e.response.get("Error", {}).get("Code", "")
         error_message = e.response.get("Error", {}).get("Message", "")
-        
+
         if error_code == "NotAuthorizedException":
             raise Exception("Invalid or expired refresh token")
         else:
@@ -251,13 +257,10 @@ def refresh_tokens(refresh_token: str) -> Dict[str, Any]:
 
 def forgot_password(email: str) -> Dict[str, Any]:
     """
-    Initiate password reset flow - sends verification code to user's email
-    
-    Args:
-        email: User email
-        
-    Returns:
-        Dictionary with code delivery details
+    Initiate password reset flow via Cognito.
+
+    Cognito sends the verification code; a Custom Message Lambda trigger
+    packages it into a clickable reset link in the email.
     """
     if not USER_POOL_CLIENT_ID:
         raise ValueError("USER_POOL_CLIENT_ID not configured")
@@ -278,8 +281,7 @@ def forgot_password(email: str) -> Dict[str, Any]:
         error_message = e.response.get("Error", {}).get("Message", "")
         
         if error_code == "UserNotFoundException":
-            # Don't reveal if user exists for security
-            raise Exception("If an account exists with this email, a password reset code has been sent.")
+            return {}
         elif error_code == "LimitExceededException":
             raise Exception("Too many attempts. Please try again later.")
         else:
@@ -288,15 +290,10 @@ def forgot_password(email: str) -> Dict[str, Any]:
 
 def confirm_forgot_password(email: str, confirmation_code: str, new_password: str) -> bool:
     """
-    Confirm password reset with verification code
+    Confirm password reset with the Cognito verification code.
     
-    Args:
-        email: User email
-        confirmation_code: Verification code sent to email
-        new_password: New password
-        
-    Returns:
-        True if successful
+    The code arrives via the reset link that the user clicked
+    (/reset-password?email=...&code=...).
     """
     if not USER_POOL_CLIENT_ID:
         raise ValueError("USER_POOL_CLIENT_ID not configured")
@@ -316,9 +313,9 @@ def confirm_forgot_password(email: str, confirmation_code: str, new_password: st
         error_message = e.response.get("Error", {}).get("Message", "")
         
         if error_code == "CodeMismatchException":
-            raise Exception("Invalid confirmation code")
+            raise Exception("Invalid or expired reset link. Please request a new one.")
         elif error_code == "ExpiredCodeException":
-            raise Exception("Confirmation code has expired")
+            raise Exception("This reset link has expired. Please request a new one.")
         elif error_code == "InvalidPasswordException":
             raise Exception("Password does not meet requirements")
         else:

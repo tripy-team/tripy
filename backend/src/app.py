@@ -146,9 +146,16 @@ RATE_LIMITED_PATHS_EXACT = {"/solo/optimize", "/points/estimate", "/solo/share"}
 RATE_LIMITED_PATHS_PREFIX = {"/solo/trips"}
 # Sub-paths under prefix paths that should NOT be rate-limited (read endpoints)
 RATE_LIMIT_EXCLUDE_SUFFIXES = {
-    "/selection", "/status", "/monitoring", "/points",
-    "/optimization-cache", "/select", "/transfer-strategy",
-    "/booking-details", "/updates", "/share",
+    "/selection",
+    "/status",
+    "/monitoring",
+    "/points",
+    "/optimization-cache",
+    "/select",
+    "/transfer-strategy",
+    "/booking-details",
+    "/updates",
+    "/share",
 }
 
 
@@ -164,7 +171,9 @@ def _should_rate_limit(path: str) -> bool:
             if path == prefix or path == prefix + "/":
                 return True
             # For sub-paths, check if they end with an excluded suffix
-            path_after_id = path.split("/", 4)  # e.g. ['', 'solo', 'trips', '{id}', 'selection']
+            path_after_id = path.split(
+                "/", 4
+            )  # e.g. ['', 'solo', 'trips', '{id}', 'selection']
             if len(path_after_id) >= 5:
                 suffix = "/" + path_after_id[4]
                 if any(suffix.startswith(excl) for excl in RATE_LIMIT_EXCLUDE_SUFFIXES):
@@ -178,44 +187,55 @@ def _should_rate_limit(path: str) -> bool:
 async def rate_limit_middleware(request: Request, call_next):
     """Rate limit sensitive anonymous endpoints: 30 req/min per IP+anon."""
     path = request.url.path
-    
+
     # Only rate-limit specific paths
     should_limit = _should_rate_limit(path)
-    
+
     if should_limit:
         # Build key: IP + anon_session_id
         client_ip = request.client.host if request.client else "unknown"
         anon_id = request.headers.get("X-Anon-Session-Id", "")
         key = f"{client_ip}:{anon_id}"
-        
+
         now = time.time()
         # Clean old entries
-        _rate_limit_store[key] = [t for t in _rate_limit_store[key] if now - t < RATE_LIMIT_WINDOW_S]
-        
+        _rate_limit_store[key] = [
+            t for t in _rate_limit_store[key] if now - t < RATE_LIMIT_WINDOW_S
+        ]
+
         if len(_rate_limit_store[key]) >= RATE_LIMIT_MAX:
             from starlette.responses import JSONResponse
+
             # Include CORS headers so the browser doesn't block the 429 response
             origin = request.headers.get("origin", "")
             cors_headers = {"Retry-After": str(RATE_LIMIT_WINDOW_S)}
             if origin and origin in ALLOWED_ORIGINS:
-                cors_headers.update({
-                    "Access-Control-Allow-Origin": origin,
-                    "Access-Control-Allow-Credentials": "true",
-                })
+                cors_headers.update(
+                    {
+                        "Access-Control-Allow-Origin": origin,
+                        "Access-Control-Allow-Credentials": "true",
+                    }
+                )
             return JSONResponse(
                 status_code=429,
-                content={"detail": "Too many requests. Please wait a moment and try again."},
+                content={
+                    "detail": "Too many requests. Please wait a moment and try again."
+                },
                 headers=cors_headers,
             )
-        
+
         _rate_limit_store[key].append(now)
-        
+
         # Periodically clean stale keys (every ~100 requests)
         if len(_rate_limit_store) > 1000:
-            stale_keys = [k for k, v in _rate_limit_store.items() if not v or now - v[-1] > RATE_LIMIT_WINDOW_S * 2]
+            stale_keys = [
+                k
+                for k, v in _rate_limit_store.items()
+                if not v or now - v[-1] > RATE_LIMIT_WINDOW_S * 2
+            ]
             for k in stale_keys:
                 del _rate_limit_store[k]
-    
+
     return await call_next(request)
 
 
@@ -228,12 +248,12 @@ async def anon_session_middleware(request: Request, call_next):
     Echo the anon session ID back in the response so the frontend can persist it.
     """
     response = await call_next(request)
-    
+
     # If the request had an anon session header, echo it back
     anon_id = request.headers.get("X-Anon-Session-Id")
     if anon_id:
         response.headers["X-Anon-Session-Id"] = anon_id
-    
+
     return response
 
 
@@ -439,9 +459,9 @@ class ForgotPasswordRequest(BaseModel):
     email: EmailStr
 
 
-class ConfirmForgotPasswordRequest(BaseModel):
+class ResetPasswordRequest(BaseModel):
     email: EmailStr
-    confirmation_code: str = Field(..., min_length=6, max_length=6)
+    code: str = Field(..., min_length=6, max_length=6)
     new_password: str = Field(..., min_length=8, max_length=128)
 
 
@@ -741,34 +761,35 @@ async def refresh_token(request: RefreshTokenRequest):
 
 @app.post("/auth/forgot-password")
 async def forgot_password(request: ForgotPasswordRequest):
-    """Initiate password reset - sends verification code to user's email"""
+    """Initiate password reset - sends a reset link to the user's email"""
     try:
-        result = auth_service.forgot_password(request.email)
+        auth_service.forgot_password(request.email)
         return {
-            "message": "If an account exists with this email, a password reset code has been sent.",
-            "code_delivery_details": result.get("CodeDeliveryDetails"),
+            "message": "If an account exists with this email, a password reset link has been sent.",
         }
     except ValueError as e:
         logger.warning(f"Forgot password validation error: {str(e)}")
         raise HTTPException(status_code=400, detail=str(e))
     except Exception as e:
         logger.error(f"Forgot password error: {str(e)}")
-        raise HTTPException(status_code=400, detail=str(e))
+        return {
+            "message": "If an account exists with this email, a password reset link has been sent.",
+        }
 
 
-@app.post("/auth/confirm-forgot-password")
-async def confirm_forgot_password(request: ConfirmForgotPasswordRequest):
-    """Confirm password reset with verification code"""
+@app.post("/auth/reset-password")
+async def reset_password(request: ResetPasswordRequest):
+    """Reset password using the Cognito code delivered via the reset link"""
     try:
         auth_service.confirm_forgot_password(
-            request.email, request.confirmation_code, request.new_password
+            request.email, request.code, request.new_password
         )
         return {"message": "Password reset successfully"}
     except ValueError as e:
-        logger.warning(f"Confirm forgot password validation error: {str(e)}")
+        logger.warning(f"Reset password validation error: {str(e)}")
         raise HTTPException(status_code=400, detail=str(e))
     except Exception as e:
-        logger.error(f"Confirm forgot password error: {str(e)}")
+        logger.error(f"Reset password error: {str(e)}")
         raise HTTPException(status_code=400, detail=str(e))
 
 
@@ -2078,12 +2099,36 @@ async def get_points_valuations(user_id: str = Depends(get_current_user_id)):
 # Conservative default balances for common cards (annual spending estimates)
 ESTIMATED_CARD_BALANCES = {
     # Bank points (transferable) — conservative estimates
-    "amex_mr": {"card": "Amex Gold", "balance": 60000, "label": "Amex Membership Rewards"},
-    "amex_mr_platinum": {"card": "Amex Platinum", "balance": 100000, "label": "Amex Membership Rewards"},
-    "chase_ur": {"card": "Chase Sapphire Preferred", "balance": 50000, "label": "Chase Ultimate Rewards"},
-    "chase_ur_reserve": {"card": "Chase Sapphire Reserve", "balance": 80000, "label": "Chase Ultimate Rewards"},
-    "citi_typ": {"card": "Citi Premier", "balance": 40000, "label": "Citi ThankYou Points"},
-    "capital_one": {"card": "Capital One Venture X", "balance": 50000, "label": "Capital One Miles"},
+    "amex_mr": {
+        "card": "Amex Gold",
+        "balance": 60000,
+        "label": "Amex Membership Rewards",
+    },
+    "amex_mr_platinum": {
+        "card": "Amex Platinum",
+        "balance": 100000,
+        "label": "Amex Membership Rewards",
+    },
+    "chase_ur": {
+        "card": "Chase Sapphire Preferred",
+        "balance": 50000,
+        "label": "Chase Ultimate Rewards",
+    },
+    "chase_ur_reserve": {
+        "card": "Chase Sapphire Reserve",
+        "balance": 80000,
+        "label": "Chase Ultimate Rewards",
+    },
+    "citi_typ": {
+        "card": "Citi Premier",
+        "balance": 40000,
+        "label": "Citi ThankYou Points",
+    },
+    "capital_one": {
+        "card": "Capital One Venture X",
+        "balance": 50000,
+        "label": "Capital One Miles",
+    },
     "bilt": {"card": "Bilt Mastercard", "balance": 30000, "label": "Bilt Rewards"},
 }
 
@@ -2159,7 +2204,10 @@ async def get_card_presets():
 
 class EstimatePointsRequest(BaseModel):
     """Request to estimate points for selected cards."""
-    card_ids: List[str] = Field(..., description="List of card preset IDs the user selected")
+
+    card_ids: List[str] = Field(
+        ..., description="List of card preset IDs the user selected"
+    )
 
 
 @app.post("/points/estimate")
@@ -2167,24 +2215,26 @@ async def estimate_points(request: EstimatePointsRequest):
     """
     Estimate points balances for users who select 'Estimate for me.'
     Uses conservative defaults. No auth required.
-    
-    Returns estimated balances with confidence='estimated' so the optimizer 
+
+    Returns estimated balances with confidence='estimated' so the optimizer
     can bias toward safer itineraries.
     """
     estimated_points = []
     preset_lookup = {p["id"]: p for p in COMMON_CARD_PRESETS}
-    
+
     for card_id in request.card_ids:
         preset = preset_lookup.get(card_id)
         if preset:
-            estimated_points.append({
-                "program": preset["program"],
-                "balance": preset["estimated_balance"],
-                "confidence": "estimated",
-                "owner_type": "anon",
-                "card_name": preset["name"],
-            })
-    
+            estimated_points.append(
+                {
+                    "program": preset["program"],
+                    "balance": preset["estimated_balance"],
+                    "confidence": "estimated",
+                    "owner_type": "anon",
+                    "card_name": preset["name"],
+                }
+            )
+
     return {
         "estimated_points": estimated_points,
         "disclaimer": "These are conservative estimates. Sign in to use your exact balances.",
