@@ -7,6 +7,7 @@ Pricing (per-destination):
 
 Promo codes are stored in-memory (config-driven). Extend to DynamoDB for scale.
 """
+
 import os
 import logging
 from datetime import datetime, timezone
@@ -25,9 +26,11 @@ def _get_anon_session_id(request: Request) -> str | None:
     """Extract anonymous session ID from request header, if present."""
     return request.headers.get("X-Anon-Session-Id")
 
+
 logger = logging.getLogger(__name__)
 
 router = APIRouter(prefix="/payment", tags=["payment"])
+
 
 # ---------------------------------------------------------------------------
 # Stripe configuration
@@ -39,8 +42,10 @@ def _get_stripe_key() -> str:
         stripe.api_key = secrets.get("STRIPE_SECRET_KEY", "") or ""
     return stripe.api_key or ""
 
+
 def _get_webhook_secret() -> str:
     return secrets.get("STRIPE_WEBHOOK_SECRET", "") or ""
+
 
 # ---------------------------------------------------------------------------
 # Pricing: per-destination model (amounts in cents for Stripe)
@@ -52,25 +57,20 @@ def _get_webhook_secret() -> str:
 #     EWR → CDG → FCO (round-trip)   = 3 destinations = $12
 #     EWR → CDG → FCO → LHR          = 4 destinations = $16
 # ---------------------------------------------------------------------------
-BASE_PRICE_CENTS = 1200       # $12.00 for 2 destinations
-EXTRA_STOP_CENTS = 400        # $4.00 per additional stop
+BASE_PRICE_CENTS = 1200  # $12.00 for 2 destinations
+EXTRA_STOP_CENTS = 400  # $4.00 per additional stop
 
 # ---------------------------------------------------------------------------
 # Promo codes — simple in-memory store.
 # discount_type: "percent" (0-100) or "fixed" (amount in cents)
 # ---------------------------------------------------------------------------
-PROMO_CODES: dict[str, dict] = {
-    "TRIPY100":   {"discount_type": "percent", "discount_value": 100, "max_uses": None, "uses": 0, "active": True, "description": "100% off — internal testing"},
-    "TRIPY50":    {"discount_type": "percent", "discount_value": 50,  "max_uses": None, "uses": 0, "active": True, "description": "50% off"},
-    "LAUNCH10":   {"discount_type": "fixed",   "discount_value": 1000, "max_uses": 100, "uses": 0, "active": True, "description": "$10 off launch promo"},
-    "BETATESTER": {"discount_type": "percent", "discount_value": 100, "max_uses": None, "uses": 0, "active": True, "description": "Free for beta testers"},
-}
-
+PROMO_CODES: dict[str, dict] = {}
 
 
 # ---------------------------------------------------------------------------
 # Request / Response models
 # ---------------------------------------------------------------------------
+
 
 class CalculateFeeRequest(BaseModel):
     trip_id: str
@@ -78,10 +78,10 @@ class CalculateFeeRequest(BaseModel):
 
 class CalculateFeeResponse(BaseModel):
     trip_id: str
-    destination_count: int   # total airports (origin + destinations)
-    label: str               # e.g. "2 destinations" or "4 destinations"
-    amount: int              # cents
-    display_amount: str      # e.g. "$8.00"
+    destination_count: int  # total airports (origin + destinations)
+    label: str  # e.g. "2 destinations" or "4 destinations"
+    amount: int  # cents
+    display_amount: str  # e.g. "$8.00"
     currency: str
 
 
@@ -127,6 +127,7 @@ class ConfirmFreeResponse(BaseModel):
 # Helpers
 # ---------------------------------------------------------------------------
 
+
 def _calculate_price(trip: dict) -> tuple[int, int]:
     """
     Calculate service fee from trip destinations.
@@ -142,7 +143,7 @@ def _calculate_price(trip: dict) -> tuple[int, int]:
     destinations = trip.get("destinations", [])
     # Count = origin + destinations (the return leg for round-trip is free)
     dest_count = 1 + len(destinations)  # at least 2 (origin + 1 dest)
-    dest_count = max(dest_count, 2)     # floor at 2
+    dest_count = max(dest_count, 2)  # floor at 2
 
     extra_stops = max(dest_count - 2, 0)
     amount = BASE_PRICE_CENTS + (extra_stops * EXTRA_STOP_CENTS)
@@ -170,10 +171,12 @@ def _apply_promo(base_amount: int, code: str) -> tuple[bool, int, str]:
     return True, discount, promo.get("description", "Promo applied!")
 
 
-def _get_trip_or_404(trip_id: str, user_id: str, anon_session_id: str | None = None) -> dict:
+def _get_trip_or_404(
+    trip_id: str, user_id: str, anon_session_id: str | None = None
+) -> dict:
     """
     Fetch trip from DynamoDB or raise 404.
-    
+
     Supports fallback: if the authenticated user_id doesn't match the trip's
     createdBy, we also try the anon_session_id (from the X-Anon-Session-Id header).
     This handles the case where a trip was created anonymously, the user signed in,
@@ -205,6 +208,7 @@ def _get_trip_or_404(trip_id: str, user_id: str, anon_session_id: str | None = N
 # ---------------------------------------------------------------------------
 # Endpoints
 # ---------------------------------------------------------------------------
+
 
 @router.post("/calculate-fee", response_model=CalculateFeeResponse)
 async def calculate_fee(
@@ -261,7 +265,10 @@ async def create_payment_intent(
 ):
     """Create a Stripe PaymentIntent for the service fee."""
     if not _get_stripe_key():
-        raise HTTPException(status_code=500, detail="Stripe is not configured. Set STRIPE_SECRET_KEY in the environment.")
+        raise HTTPException(
+            status_code=500,
+            detail="Stripe is not configured. Set STRIPE_SECRET_KEY in the environment.",
+        )
 
     anon_id = _get_anon_session_id(raw_request)
     trip = _get_trip_or_404(request.trip_id, user_id, anon_session_id=anon_id)
@@ -345,7 +352,10 @@ async def confirm_free_payment(
     }
     try:
         solo_trip_service.update_solo_trip_status(
-            request.trip_id, "instructions_unlocked", user_id, payment_proof=payment_proof
+            request.trip_id,
+            "instructions_unlocked",
+            user_id,
+            payment_proof=payment_proof,
         )
     except Exception as e:
         logger.error(f"Error unlocking trip after free payment: {e}")
@@ -397,7 +407,10 @@ async def stripe_webhook(request: Request):
             }
             try:
                 solo_trip_service.update_solo_trip_status(
-                    trip_id, "instructions_unlocked", user_id, payment_proof=payment_proof
+                    trip_id,
+                    "instructions_unlocked",
+                    user_id,
+                    payment_proof=payment_proof,
                 )
                 logger.info(f"Trip {trip_id} unlocked via Stripe webhook.")
             except Exception as e:
