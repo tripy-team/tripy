@@ -176,7 +176,17 @@ def _apply_promo(base_amount: int, code: str) -> tuple[bool, int, str]:
     if not promo_codes.data:
         return False, 0, "Invalid or expired promo code."
 
-    promo = promo_codes.data[0]
+    promo_from_list = promo_codes.data[0]
+    promo_id = promo_from_list.get("id") or promo_from_list.id
+    logger.info(f"[PROMO] Found promotion code id={promo_id}, re-retrieving with coupon expand")
+
+    # Re-retrieve with expand to guarantee coupon data is attached (stripe v8+)
+    try:
+        promo = stripe.PromotionCode.retrieve(promo_id, expand=["coupon"])
+    except Exception as e:
+        logger.error(f"[PROMO] Failed to retrieve promo {promo_id}: {type(e).__name__}: {e}")
+        return False, 0, "Unable to validate promo code. Please try again."
+
     if not promo.get("active"):
         return False, 0, "This promo code is no longer active."
 
@@ -184,35 +194,43 @@ def _apply_promo(base_amount: int, code: str) -> tuple[bool, int, str]:
     if max_red and promo.get("times_redeemed", 0) >= max_red:
         return False, 0, "This promo code has been fully redeemed."
 
-    # Retrieve the coupon separately — avoids attribute-access issues in stripe v8+
-    coupon_ref = promo.get("coupon")
-    if not coupon_ref:
-        logger.error(f"[PROMO] No coupon attached to promotion code '{cleaned}'")
+    # Extract coupon data from the expanded response
+    coupon = promo.get("coupon")
+    logger.info(f"[PROMO] coupon from expanded retrieve: type={type(coupon).__name__}, value={coupon}")
+
+    if not coupon:
+        # Last resort: convert to plain dict via the raw JSON response
+        try:
+            import json as _json
+            raw = _json.loads(promo.last_response.body)
+            coupon = raw.get("coupon", {})
+            logger.info(f"[PROMO] coupon from raw response: {coupon}")
+        except Exception as e:
+            logger.error(f"[PROMO] Could not parse raw response: {e}")
+            return False, 0, "Invalid coupon configuration."
+
+    if not coupon:
         return False, 0, "Invalid coupon configuration."
 
-    try:
-        coupon_id = coupon_ref if isinstance(coupon_ref, str) else coupon_ref.get("id", coupon_ref)
-        coupon = stripe.Coupon.retrieve(coupon_id)
-    except Exception as e:
-        logger.error(f"[PROMO] Failed to retrieve coupon for '{cleaned}': {type(e).__name__}: {e}")
-        return False, 0, "Unable to validate promo code. Please try again."
+    # coupon may be a StripeObject or a plain dict — use .get() for both
+    _get = coupon.get if hasattr(coupon, "get") else lambda k, d=None: getattr(coupon, k, d)
 
-    if not coupon.get("valid", True):
+    if not _get("valid", True):
         return False, 0, "The coupon for this code has expired."
 
-    percent_off = coupon.get("percent_off")
-    amount_off = coupon.get("amount_off")
+    percent_off = _get("percent_off")
+    amount_off = _get("amount_off")
 
     if percent_off:
-        discount = int(base_amount * percent_off / 100)
+        discount = int(base_amount * float(percent_off) / 100)
         logger.info(f"[PROMO] '{cleaned}' → {percent_off}% off → discount {discount}¢")
     elif amount_off:
-        discount = min(amount_off, base_amount)
+        discount = min(int(amount_off), base_amount)
         logger.info(f"[PROMO] '{cleaned}' → {amount_off}¢ off → discount {discount}¢")
     else:
         return False, 0, "Invalid coupon configuration."
 
-    name = coupon.get("name") or promo.get("code") or "Promo applied!"
+    name = _get("name") or promo.get("code") or "Promo applied!"
     return True, discount, name
 
 
