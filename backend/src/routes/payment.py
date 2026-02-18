@@ -5,7 +5,7 @@ Pricing (per-destination):
   - 2 destinations (origin + 1 stop):  $12.00
   - Each additional stop:             +$4.00
 
-Promo codes are stored in-memory (config-driven). Extend to DynamoDB for scale.
+Promo/coupon codes are validated via the Stripe Promotion Codes API.
 """
 
 import os
@@ -61,10 +61,10 @@ BASE_PRICE_CENTS = 1200  # $12.00 for 2 destinations
 EXTRA_STOP_CENTS = 400  # $4.00 per additional stop
 
 # ---------------------------------------------------------------------------
-# Promo codes — simple in-memory store.
-# discount_type: "percent" (0-100) or "fixed" (amount in cents)
+# Promo codes — validated via Stripe Promotion Codes API.
+# Create coupons + promotion codes in the Stripe Dashboard; this code
+# looks them up at runtime so there's no in-memory state to maintain.
 # ---------------------------------------------------------------------------
-PROMO_CODES: dict[str, dict] = {}
 
 
 # ---------------------------------------------------------------------------
@@ -152,23 +152,42 @@ def _calculate_price(trip: dict) -> tuple[int, int]:
 
 def _apply_promo(base_amount: int, code: str) -> tuple[bool, int, str]:
     """
-    Apply promo code to base_amount.
+    Validate a promotion code via Stripe and calculate the discount.
     Returns (valid, discount_cents, message).
+
+    Looks up the customer-facing code string using stripe.PromotionCode.list(),
+    then reads the linked Coupon to compute the discount against base_amount.
     """
-    upper = code.strip().upper()
-    promo = PROMO_CODES.get(upper)
-    if not promo or not promo["active"]:
+    _get_stripe_key()
+    try:
+        promo_codes = stripe.PromotionCode.list(code=code.strip(), active=True, limit=1)
+    except stripe.StripeError as e:
+        logger.error(f"Stripe error looking up promo code '{code}': {e}")
+        return False, 0, "Unable to validate promo code. Please try again."
+
+    if not promo_codes.data:
         return False, 0, "Invalid or expired promo code."
 
-    if promo["max_uses"] is not None and promo["uses"] >= promo["max_uses"]:
+    promo = promo_codes.data[0]
+    if not promo.active:
+        return False, 0, "This promo code is no longer active."
+
+    if promo.max_redemptions and promo.times_redeemed >= promo.max_redemptions:
         return False, 0, "This promo code has been fully redeemed."
 
-    if promo["discount_type"] == "percent":
-        discount = int(base_amount * promo["discount_value"] / 100)
-    else:  # fixed
-        discount = min(promo["discount_value"], base_amount)
+    coupon = promo.coupon
+    if not coupon.valid:
+        return False, 0, "The coupon for this code has expired."
 
-    return True, discount, promo.get("description", "Promo applied!")
+    if coupon.percent_off:
+        discount = int(base_amount * coupon.percent_off / 100)
+    elif coupon.amount_off:
+        discount = min(coupon.amount_off, base_amount)
+    else:
+        return False, 0, "Invalid coupon configuration."
+
+    name = coupon.name or promo.code or "Promo applied!"
+    return True, discount, name
 
 
 def _get_trip_or_404(
@@ -336,16 +355,11 @@ async def confirm_free_payment(
             detail=f"Promo does not cover the full amount (${final / 100:.2f} remaining). Use Stripe payment.",
         )
 
-    # Increment promo usage
-    upper = request.promo_code.strip().upper()
-    if upper in PROMO_CODES:
-        PROMO_CODES[upper]["uses"] += 1
-
     # Mark trip as paid
     payment_proof = {
         "provider": "promo",
         "status": "succeeded",
-        "promo_code": upper,
+        "promo_code": request.promo_code.strip(),
         "amount": 0,
         "currency": "usd",
         "paid_at": datetime.now(timezone.utc).isoformat(),
