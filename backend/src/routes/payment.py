@@ -156,37 +156,63 @@ def _apply_promo(base_amount: int, code: str) -> tuple[bool, int, str]:
     Returns (valid, discount_cents, message).
 
     Looks up the customer-facing code string using stripe.PromotionCode.list(),
-    then reads the linked Coupon to compute the discount against base_amount.
+    then retrieves the linked Coupon to compute the discount against base_amount.
     """
-    _get_stripe_key()
+    key = _get_stripe_key()
+    if not key:
+        logger.error("[PROMO] No Stripe API key configured.")
+        return False, 0, "Payment system not configured. Please try again later."
+
+    cleaned = code.strip().upper()
+    logger.info(f"[PROMO] Validating code '{cleaned}' against base amount {base_amount}")
+
     try:
-        promo_codes = stripe.PromotionCode.list(code=code.strip(), active=True, limit=1)
-    except stripe.StripeError as e:
-        logger.error(f"Stripe error looking up promo code '{code}': {e}")
+        promo_codes = stripe.PromotionCode.list(code=cleaned, active=True, limit=1)
+        logger.info(f"[PROMO] Stripe returned {len(promo_codes.data)} result(s) for '{cleaned}'")
+    except Exception as e:
+        logger.error(f"[PROMO] Stripe API error for '{cleaned}': {type(e).__name__}: {e}")
         return False, 0, "Unable to validate promo code. Please try again."
 
     if not promo_codes.data:
         return False, 0, "Invalid or expired promo code."
 
     promo = promo_codes.data[0]
-    if not promo.active:
+    if not promo.get("active"):
         return False, 0, "This promo code is no longer active."
 
-    if promo.max_redemptions and promo.times_redeemed >= promo.max_redemptions:
+    max_red = promo.get("max_redemptions")
+    if max_red and promo.get("times_redeemed", 0) >= max_red:
         return False, 0, "This promo code has been fully redeemed."
 
-    coupon = promo.coupon
-    if not coupon.valid:
+    # Retrieve the coupon separately — avoids attribute-access issues in stripe v8+
+    coupon_ref = promo.get("coupon")
+    if not coupon_ref:
+        logger.error(f"[PROMO] No coupon attached to promotion code '{cleaned}'")
+        return False, 0, "Invalid coupon configuration."
+
+    try:
+        coupon_id = coupon_ref if isinstance(coupon_ref, str) else coupon_ref.get("id", coupon_ref)
+        coupon = stripe.Coupon.retrieve(coupon_id)
+    except Exception as e:
+        logger.error(f"[PROMO] Failed to retrieve coupon for '{cleaned}': {type(e).__name__}: {e}")
+        return False, 0, "Unable to validate promo code. Please try again."
+
+    if not coupon.get("valid", True):
         return False, 0, "The coupon for this code has expired."
 
-    if coupon.percent_off:
-        discount = int(base_amount * coupon.percent_off / 100)
-    elif coupon.amount_off:
-        discount = min(coupon.amount_off, base_amount)
+    percent_off = coupon.get("percent_off")
+    amount_off = coupon.get("amount_off")
+
+    if percent_off:
+        discount = int(base_amount * percent_off / 100)
+        logger.info(f"[PROMO] '{cleaned}' → {percent_off}% off → discount {discount}¢")
+    elif amount_off:
+        discount = min(amount_off, base_amount)
+        logger.info(f"[PROMO] '{cleaned}' → {amount_off}¢ off → discount {discount}¢")
     else:
         return False, 0, "Invalid coupon configuration."
 
-    name = coupon.name or promo.code or "Promo applied!"
+    name = coupon.get("name") or promo.get("code") or "Promo applied!"
     return True, discount, name
 
 
@@ -257,23 +283,32 @@ async def validate_promo(
     user_id: str = Depends(get_user_or_anon_id),
 ):
     """Validate a promo code and preview the discount."""
-    anon_id = _get_anon_session_id(raw_request)
-    trip = _get_trip_or_404(request.trip_id, user_id, anon_session_id=anon_id)
-    base, _ = _calculate_price(trip)
+    try:
+        anon_id = _get_anon_session_id(raw_request)
+        trip = _get_trip_or_404(request.trip_id, user_id, anon_session_id=anon_id)
+        base, _ = _calculate_price(trip)
 
-    valid, discount, msg = _apply_promo(base, request.promo_code)
-    final = max(base - discount, 0)
+        valid, discount, msg = _apply_promo(base, request.promo_code)
+        final = max(base - discount, 0)
 
-    return ValidatePromoResponse(
-        valid=valid,
-        code=request.promo_code.strip().upper() if valid else None,
-        description=msg if valid else None,
-        original_amount=base,
-        discount_amount=discount if valid else 0,
-        final_amount=final if valid else base,
-        final_display=f"${final / 100:.2f}" if valid else f"${base / 100:.2f}",
-        message=msg,
-    )
+        return ValidatePromoResponse(
+            valid=valid,
+            code=request.promo_code.strip().upper() if valid else None,
+            description=msg if valid else None,
+            original_amount=base,
+            discount_amount=discount if valid else 0,
+            final_amount=final if valid else base,
+            final_display=f"${final / 100:.2f}" if valid else f"${base / 100:.2f}",
+            message=msg,
+        )
+    except HTTPException:
+        raise
+    except Exception as e:
+        logger.error(f"[PROMO] Unexpected error in validate_promo: {type(e).__name__}: {e}")
+        return ValidatePromoResponse(
+            valid=False,
+            message="Something went wrong validating your code. Please try again.",
+        )
 
 
 @router.post("/create-intent", response_model=CreatePaymentIntentResponse)
