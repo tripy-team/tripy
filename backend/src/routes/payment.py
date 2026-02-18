@@ -150,13 +150,24 @@ def _calculate_price(trip: dict) -> tuple[int, int]:
     return amount, dest_count
 
 
+def _stripe_get(path: str, api_key: str) -> dict:
+    """Raw GET to the Stripe API, returning parsed JSON (bypasses the SDK)."""
+    import json as _json
+    import urllib.request
+
+    req = urllib.request.Request(f"https://api.stripe.com/v1{path}")
+    req.add_header("Authorization", f"Bearer {api_key}")
+    with urllib.request.urlopen(req) as resp:
+        return _json.loads(resp.read().decode())
+
+
 def _apply_promo(base_amount: int, code: str) -> tuple[bool, int, str]:
     """
     Validate a promotion code via Stripe and calculate the discount.
     Returns (valid, discount_cents, message).
 
-    Looks up the customer-facing code string using stripe.PromotionCode.list(),
-    then retrieves the linked Coupon to compute the discount against base_amount.
+    Uses raw HTTP to the Stripe REST API to avoid object-mapping issues
+    in stripe-python v8+.
     """
     key = _get_stripe_key()
     if not key:
@@ -167,25 +178,21 @@ def _apply_promo(base_amount: int, code: str) -> tuple[bool, int, str]:
     logger.info(f"[PROMO] Validating code '{cleaned}' against base amount {base_amount}")
 
     try:
-        promo_codes = stripe.PromotionCode.list(code=cleaned, active=True, limit=1)
-        logger.info(f"[PROMO] Stripe returned {len(promo_codes.data)} result(s) for '{cleaned}'")
+        from urllib.parse import quote
+        data = _stripe_get(
+            f"/promotion_codes?code={quote(cleaned)}&active=true&limit=1", key
+        )
+        results = data.get("data", [])
+        logger.info(f"[PROMO] Stripe returned {len(results)} result(s) for '{cleaned}'")
     except Exception as e:
         logger.error(f"[PROMO] Stripe API error for '{cleaned}': {type(e).__name__}: {e}")
         return False, 0, "Unable to validate promo code. Please try again."
 
-    if not promo_codes.data:
+    if not results:
         return False, 0, "Invalid or expired promo code."
 
-    promo_from_list = promo_codes.data[0]
-    promo_id = promo_from_list.get("id") or promo_from_list.id
-    logger.info(f"[PROMO] Found promotion code id={promo_id}, re-retrieving with coupon expand")
-
-    # Re-retrieve with expand to guarantee coupon data is attached (stripe v8+)
-    try:
-        promo = stripe.PromotionCode.retrieve(promo_id, expand=["coupon"])
-    except Exception as e:
-        logger.error(f"[PROMO] Failed to retrieve promo {promo_id}: {type(e).__name__}: {e}")
-        return False, 0, "Unable to validate promo code. Please try again."
+    promo = results[0]
+    logger.info(f"[PROMO] Promo keys: {list(promo.keys())}")
 
     if not promo.get("active"):
         return False, 0, "This promo code is no longer active."
@@ -194,32 +201,17 @@ def _apply_promo(base_amount: int, code: str) -> tuple[bool, int, str]:
     if max_red and promo.get("times_redeemed", 0) >= max_red:
         return False, 0, "This promo code has been fully redeemed."
 
-    # Extract coupon data from the expanded response
-    coupon = promo.get("coupon")
-    logger.info(f"[PROMO] coupon from expanded retrieve: type={type(coupon).__name__}, value={coupon}")
-
-    if not coupon:
-        # Last resort: convert to plain dict via the raw JSON response
-        try:
-            import json as _json
-            raw = _json.loads(promo.last_response.body)
-            coupon = raw.get("coupon", {})
-            logger.info(f"[PROMO] coupon from raw response: {coupon}")
-        except Exception as e:
-            logger.error(f"[PROMO] Could not parse raw response: {e}")
-            return False, 0, "Invalid coupon configuration."
+    coupon = promo.get("coupon", {})
+    logger.info(f"[PROMO] Coupon data: {coupon}")
 
     if not coupon:
         return False, 0, "Invalid coupon configuration."
 
-    # coupon may be a StripeObject or a plain dict — use .get() for both
-    _get = coupon.get if hasattr(coupon, "get") else lambda k, d=None: getattr(coupon, k, d)
-
-    if not _get("valid", True):
+    if not coupon.get("valid", True):
         return False, 0, "The coupon for this code has expired."
 
-    percent_off = _get("percent_off")
-    amount_off = _get("amount_off")
+    percent_off = coupon.get("percent_off")
+    amount_off = coupon.get("amount_off")
 
     if percent_off:
         discount = int(base_amount * float(percent_off) / 100)
@@ -230,7 +222,7 @@ def _apply_promo(base_amount: int, code: str) -> tuple[bool, int, str]:
     else:
         return False, 0, "Invalid coupon configuration."
 
-    name = _get("name") or promo.get("code") or "Promo applied!"
+    name = coupon.get("name") or promo.get("code") or "Promo applied!"
     return True, discount, name
 
 
