@@ -54,7 +54,13 @@ def run_payment_optimization(
     """
     from src.handlers.ilp_adapter import run_ilp_from_edges
     from src.utils.award_programs import DEFAULT_TRANSFER_GRAPH
-    
+
+    try:
+        from src.services.transfer_bonus_scraper import get_ilp_transfer_bonuses
+        _transfer_bonuses = get_ilp_transfer_bonuses()
+    except Exception:
+        _transfer_bonuses = {}
+
     try:
         from src.handlers.points_maximizer import plan_maximize_points_value
     except ImportError:
@@ -108,7 +114,7 @@ def run_payment_optimization(
             require_meetup_in_graph=False,
             must_visit_cities=must_visit_cities or [],
             transfer_graph=DEFAULT_TRANSFER_GRAPH,
-            transfer_bonuses={},
+            transfer_bonuses=_transfer_bonuses,
             bank_block_size=1000,
             allow_all_payers=True,
             default_cash_if_missing=1e7,

@@ -23,6 +23,8 @@ export interface TransferInstruction {
   expectedTransferTime: string;
   portalUrl: string;
   warning?: string;
+  bonusPercentage?: number;
+  bonusEndDate?: string;
 }
 
 export interface FlightLegDetail {

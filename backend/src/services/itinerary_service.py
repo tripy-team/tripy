@@ -2663,6 +2663,14 @@ async def generate_optimized_itinerary(
     
     edges_all = {}
     transfer_graph = DEFAULT_TRANSFER_GRAPH
+
+    # Load active transfer bonuses from NerdWallet scraper
+    try:
+        from src.services.transfer_bonus_scraper import get_ilp_transfer_bonuses
+        transfer_bonuses = get_ilp_transfer_bonuses()
+    except Exception:
+        transfer_bonuses = {}
+
     successful_routes = 0
     failed_routes = []
     
@@ -2833,7 +2841,7 @@ async def generate_optimized_itinerary(
             require_meetup_in_graph=False,
             must_visit_cities=city_codes,  # Each visited exactly once; optimizer chooses order to reduce cost
             transfer_graph=transfer_graph,
-            transfer_bonuses={},
+            transfer_bonuses=transfer_bonuses,
             bank_block_size=1000,
             allow_all_payers=True,
             default_cash_if_missing=1e7,
@@ -2905,7 +2913,7 @@ async def generate_optimized_itinerary(
                                 require_meetup_in_graph=False,
                                 must_visit_cities=city_codes,
                                 transfer_graph=transfer_graph,
-                                transfer_bonuses={},
+                                transfer_bonuses=transfer_bonuses,
                                 bank_block_size=1000,
                                 allow_all_payers=True,
                                 default_cash_if_missing=1e7,
@@ -2948,7 +2956,7 @@ async def generate_optimized_itinerary(
                             require_meetup_in_graph=False,
                             must_visit_cities=city_codes,
                             transfer_graph=transfer_graph,
-                            transfer_bonuses={},
+                            transfer_bonuses=transfer_bonuses,
                             bank_block_size=1000,
                             allow_all_payers=True,
                             default_cash_if_missing=1e7,

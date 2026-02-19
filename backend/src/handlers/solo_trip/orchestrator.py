@@ -186,6 +186,13 @@ class SoloTripOrchestrator:
         # Use default transfer graph if not provided
         if transfer_graph is None:
             transfer_graph = DEFAULT_TRANSFER_GRAPH
+
+        # Load active transfer bonuses from NerdWallet scraper
+        try:
+            from src.services.transfer_bonus_scraper import get_ilp_transfer_bonuses
+            transfer_bonuses = get_ilp_transfer_bonuses()
+        except Exception:
+            transfer_bonuses = {}
         
         # Convert graph to edges dict
         edges_dict = graph.to_edges_dict()
@@ -229,7 +236,7 @@ class SoloTripOrchestrator:
                 require_meetup_in_graph=False,
                 must_visit_cities=must_visit,
                 transfer_graph=transfer_graph,
-                transfer_bonuses={},
+                transfer_bonuses=transfer_bonuses,
                 bank_block_size=1000,
                 allow_all_payers=True,
                 default_cash_if_missing=1e7,
@@ -262,7 +269,7 @@ class SoloTripOrchestrator:
                     require_meetup_in_graph=False,
                     must_visit_cities=must_visit,
                     transfer_graph=transfer_graph,
-                    transfer_bonuses={},
+                    transfer_bonuses=transfer_bonuses,
                     bank_block_size=1000,
                     allow_all_payers=True,
                     default_cash_if_missing=1e7,

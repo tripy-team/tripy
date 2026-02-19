@@ -36,7 +36,7 @@ banks:
       IB: { ratio: 1.0, transfer_time: "Instant" }
       EI: { ratio: 1.0, transfer_time: "Instant" }
       SQ: { ratio: 1.0, transfer_time: "Instant" }
-      VS: { ratio: 1.4, transfer_time: "Instant" }
+      VS: { ratio: 1.0, transfer_time: "Instant" }
     hotel_partners:
       HYATT: { ratio: 1.0, transfer_time: "Instant" }
       MAR: { ratio: 1.0, transfer_time: "1-2 days" }

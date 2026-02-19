@@ -282,6 +282,29 @@ async def startup_preload_caches():
     preload_airport_data()
     logger.info("Started background preload of airport caches")
 
+    # Scrape transfer bonuses from NerdWallet on startup
+    try:
+        from .services.transfer_bonus_scraper import refresh_bonuses
+        bonuses = await refresh_bonuses()
+        logger.info("Transfer bonus scraper: loaded %d bonuses on startup", len(bonuses))
+    except Exception as e:
+        logger.warning("Transfer bonus scraper failed on startup (non-fatal): %s", e)
+
+    # Schedule daily refresh of transfer bonuses
+    async def _daily_bonus_refresh():
+        import asyncio
+        while True:
+            await asyncio.sleep(24 * 60 * 60)  # 24 hours
+            try:
+                from .services.transfer_bonus_scraper import refresh_bonuses as _refresh
+                await _refresh()
+                logger.info("Daily transfer bonus refresh completed")
+            except Exception as exc:
+                logger.warning("Daily transfer bonus refresh failed: %s", exc)
+
+    import asyncio
+    asyncio.create_task(_daily_bonus_refresh())
+
 
 # Import group trip models
 from .models.group_trip import (

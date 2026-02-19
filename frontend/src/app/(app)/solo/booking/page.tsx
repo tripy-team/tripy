@@ -1158,7 +1158,9 @@ function SoloBookingContent() {
                               <div key={`transfer-${idx}`} className={`rounded-2xl border shadow-sm overflow-hidden ${
                                 isOtherPerson
                                   ? 'bg-gradient-to-r from-purple-50 via-fuchsia-50 to-pink-50 border-purple-200'
-                                  : 'bg-gradient-to-r from-blue-50 via-indigo-50 to-purple-50 border-blue-100'
+                                  : transfer.bonusPercentage && transfer.bonusPercentage > 0
+                                    ? 'bg-gradient-to-r from-emerald-50 via-green-50 to-teal-50 border-emerald-200'
+                                    : 'bg-gradient-to-r from-blue-50 via-indigo-50 to-purple-50 border-blue-100'
                               }`}>
                                 {/* Owner badge for someone else's points */}
                                 {isOtherPerson && (
@@ -1166,6 +1168,20 @@ function SoloBookingContent() {
                                     <span className="inline-flex items-center gap-1.5 px-2.5 py-1 bg-purple-100 text-purple-700 text-xs font-semibold rounded-full border border-purple-200">
                                       <Users className="w-3 h-3" />
                                       {transfer.payerName}&apos;s points
+                                    </span>
+                                  </div>
+                                )}
+                                {/* Transfer bonus badge */}
+                                {transfer.bonusPercentage && transfer.bonusPercentage > 0 && (
+                                  <div className="px-4 pt-3 pb-0">
+                                    <span className="inline-flex items-center gap-1.5 px-3 py-1.5 bg-gradient-to-r from-emerald-100 to-green-100 text-emerald-800 text-xs font-bold rounded-full border border-emerald-300 shadow-sm">
+                                      <Sparkles className="w-3.5 h-3.5 text-emerald-600" />
+                                      {transfer.bonusPercentage}% Transfer Bonus Active
+                                      {transfer.bonusEndDate && (
+                                        <span className="text-emerald-600 font-medium ml-1">
+                                          &middot; ends {new Date(transfer.bonusEndDate + 'T00:00:00').toLocaleDateString('en-US', { month: 'short', day: 'numeric' })}
+                                        </span>
+                                      )}
                                     </span>
                                   </div>
                                 )}
@@ -1196,11 +1212,20 @@ function SoloBookingContent() {
                                   </div>
                                   
                                   {/* Transfer details */}
-                                  <div className={`flex items-center justify-between mt-3 pt-3 border-t ${isOtherPerson ? 'border-purple-100' : 'border-blue-100'}`}>
+                                  <div className={`flex items-center justify-between mt-3 pt-3 border-t ${
+                                    isOtherPerson ? 'border-purple-100'
+                                    : transfer.bonusPercentage && transfer.bonusPercentage > 0 ? 'border-emerald-100'
+                                    : 'border-blue-100'
+                                  }`}>
                                     <div className="flex items-center gap-4 text-sm text-slate-600">
                                       <span>⏱ {transfer.expectedTransferTime}</span>
                                       {transfer.transferRatio && transfer.transferRatio !== 1 && (
                                         <span>📊 {transfer.transferRatio}:1 ratio</span>
+                                      )}
+                                      {transfer.bonusPercentage && transfer.bonusPercentage > 0 && (
+                                        <span className="text-emerald-700 font-semibold">
+                                          +{transfer.bonusPercentage}% bonus
+                                        </span>
                                       )}
                                     </div>
                                     {transfer.portalUrl && (
@@ -1209,7 +1234,9 @@ function SoloBookingContent() {
                                         target="_blank" 
                                         rel="noopener noreferrer" 
                                         className={`px-4 py-2 text-white text-sm font-semibold rounded-lg transition-colors flex items-center gap-2 ${
-                                          isOtherPerson ? 'bg-purple-600 hover:bg-purple-700' : 'bg-blue-600 hover:bg-blue-700'
+                                          isOtherPerson ? 'bg-purple-600 hover:bg-purple-700'
+                                          : transfer.bonusPercentage && transfer.bonusPercentage > 0 ? 'bg-emerald-600 hover:bg-emerald-700'
+                                          : 'bg-blue-600 hover:bg-blue-700'
                                         }`}
                                       >
                                         Transfer <ExternalLink className="w-4 h-4" />

@@ -70,13 +70,22 @@ def get_transfer_bonus(bank: str, airline: str) -> Optional[float]:
     """
     Get active transfer bonus percentage (e.g., 30 for 30% bonus).
     Returns None if no active bonus.
+
+    Checks the live NerdWallet scraper first, falls back to static config.
     """
+    try:
+        from src.services.transfer_bonus_scraper import get_bonus_for_transfer
+        record = get_bonus_for_transfer(bank, airline)
+        if record:
+            return record.bonus_pct
+    except Exception:
+        pass
+
     key = (bank.lower(), airline.upper())
     bonus_data = ACTIVE_TRANSFER_BONUSES.get(key)
     if not bonus_data:
         return None
     
-    # Check if still active
     end_date_str = bonus_data.get("end_date")
     if end_date_str:
         try:

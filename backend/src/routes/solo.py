@@ -857,18 +857,30 @@ def _transform_itineraries(agent_itineraries: list, party_size: int = 1) -> list
         for idx, t in enumerate(agent_it.transfers or []):
             per_person_points = t.points_to_transfer
             scaled_points = per_person_points * party_size
+            bonus_percentage = None
+            bonus_end_date = None
+            try:
+                from ..services.transfer_bonus_scraper import get_bonus_for_transfer
+                bonus_record = get_bonus_for_transfer(t.from_program, t.to_program)
+                if bonus_record:
+                    bonus_percentage = bonus_record.bonus_pct
+                    bonus_end_date = bonus_record.end_date.isoformat() if bonus_record.end_date else None
+            except Exception:
+                pass
             transfers.append(TransferInstruction(
                 step_number=idx + 1,
                 source_program=t.from_program,
                 target_program=t.to_program,
-                points_to_transfer=scaled_points,  # Scaled by party_size
-                transfer_ratio=t.ratio,  # Ratio stays the same
+                points_to_transfer=scaled_points,
+                transfer_ratio=t.ratio,
                 expected_transfer_time=t.transfer_time,
                 portal_url=t.portal_url,
                 warning=t.warning,
                 is_direct=getattr(t, 'is_direct', False),
                 payer_id=getattr(t, 'payer_id', None),
                 payer_name=getattr(t, 'payer_name', None),
+                bonus_percentage=bonus_percentage,
+                bonus_end_date=bonus_end_date,
             ))
         
         # Build OOP metrics (scale costs by party_size, percentages stay same)
@@ -2020,6 +2032,18 @@ async def get_transfer_strategy(
             payer_id = t.get("payerId") or t.get("payer_id")
             payer_name = t.get("payerName") or t.get("payer_name")
             
+            # Enrich with live transfer bonus data
+            bonus_percentage = None
+            bonus_end_date = None
+            try:
+                from ..services.transfer_bonus_scraper import get_bonus_for_transfer
+                bonus_record = get_bonus_for_transfer(source, target)
+                if bonus_record:
+                    bonus_percentage = bonus_record.bonus_pct
+                    bonus_end_date = bonus_record.end_date.isoformat() if bonus_record.end_date else None
+            except Exception:
+                pass
+
             transfers.append(TransferInstruction(
                 step_number=idx + 1,
                 source_program=source,
@@ -2032,6 +2056,8 @@ async def get_transfer_strategy(
                 is_direct=is_direct,
                 payer_id=payer_id,
                 payer_name=payer_name,
+                bonus_percentage=bonus_percentage,
+                bonus_end_date=bonus_end_date,
             ))
             
             # Only count actual transfers (not direct usage) toward total_points_to_transfer
@@ -2500,3 +2526,45 @@ async def submit_feedback(
     background_tasks.add_task(_send)
 
     return {"ok": True, "message": "Feedback received — thank you!"}
+
+
+# ============================================================================
+# Transfer Bonuses Endpoint
+# ============================================================================
+
+@router.get("/transfer-bonuses")
+async def get_transfer_bonuses():
+    """
+    Return current transfer bonuses scraped from NerdWallet.
+    Used by the frontend to display bonus badges on transfer cards.
+    """
+    from ..services.transfer_bonus_scraper import get_active_bonuses, get_cache_info
+
+    bonuses = get_active_bonuses()
+    cache = get_cache_info()
+
+    return {
+        "bonuses": [
+            {
+                "bank_code": b.bank_code,
+                "program_code": b.program_code,
+                "bonus_pct": b.bonus_pct,
+                "start_date": b.start_date.isoformat() if b.start_date else None,
+                "end_date": b.end_date.isoformat() if b.end_date else None,
+                "bank_display": b.bank_display,
+                "program_display": b.program_display,
+            }
+            for b in bonuses
+        ],
+        "cache": cache,
+    }
+
+
+@router.post("/transfer-bonuses/refresh")
+async def refresh_transfer_bonuses():
+    """Force a refresh of transfer bonus data from NerdWallet."""
+    from ..services.transfer_bonus_scraper import refresh_bonuses, get_cache_info
+
+    await refresh_bonuses()
+    cache = get_cache_info()
+    return {"ok": True, "cache": cache}

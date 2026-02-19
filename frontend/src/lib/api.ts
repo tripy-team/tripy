@@ -2713,6 +2713,8 @@ export interface SoloTransferInstruction {
   isDirect?: boolean;  // True when using native miles (no transfer needed)
   payerId?: string;    // Multi-payer: who owns these points (e.g. "alice")
   payerName?: string;  // Multi-payer: display name (e.g. "Alice")
+  bonusPercentage?: number;  // e.g. 40.0 for 40% bonus
+  bonusEndDate?: string;     // ISO date string, e.g. "2026-02-28"
 }
 
 export interface SoloSegmentBreakdown {

@@ -92,6 +92,9 @@ class TransferInstruction(BaseModel):
     payer_name: Optional[str] = None    # e.g., "Alice"
     # Direct usage flag: True when using native miles (no transfer needed)
     is_direct: bool = False
+    # Transfer bonus info (populated from NerdWallet scraper)
+    bonus_percentage: Optional[float] = None   # e.g. 40.0 for 40% bonus
+    bonus_end_date: Optional[str] = None       # ISO date string, e.g. "2026-02-28"
 
 
 class FlightLegDetail(BaseModel):
