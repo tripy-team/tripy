@@ -1633,19 +1633,7 @@ def convert_result_to_itineraries(
             elif stops == 0:
                 ticketing_confirmed = True  # Direct flights are always single-ticket
         
-        # Generate Google Flights verification URL
-        # Format: https://www.google.com/travel/flights?q=flights%20from%20SEA%20to%20CDG%20on%202026-02-11
-        dep_date_only = ""
-        if dep_time:
-            try:
-                dep_date_only = dep_time.split("T")[0]
-            except:
-                dep_date_only = ""
-        
-        google_flights_url = (
-            f"https://www.google.com/travel/flights?q=flights%20from%20{flight.origin}%20to%20{flight.destination}"
-            f"%20on%20{dep_date_only}" if dep_date_only else None
-        )
+        google_flights_url = None
         
         # Determine data source and verification note
         source = getattr(flight, 'pricing_source', None) or getattr(flight, 'source', 'unknown')

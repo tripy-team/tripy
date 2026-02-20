@@ -87,15 +87,35 @@ from .routes.monitoring import router as monitoring_router
 # Import payment router
 from .routes.payment import router as payment_router
 
+
 # Get CORS origins from environment variable
 # IMPORTANT: Browsers reject allow_credentials=True with allow_origins=["*"]
-# When sending Authorization headers or cookies, you MUST specify exact origins
+# When sending Authorization headers or cookies, you MUST specify exact origins.
+# We normalize aggressively here because cloud consoles often store values with
+# quotes/semicolons/trailing slashes, which would otherwise never match Origin.
+def _parse_cors_origins(raw_value: str) -> List[str]:
+    if not raw_value:
+        return []
+
+    normalized = raw_value.strip()
+    if (normalized.startswith('"') and normalized.endswith('"')) or (
+        normalized.startswith("'") and normalized.endswith("'")
+    ):
+        normalized = normalized[1:-1]
+
+    origins: List[str] = []
+    for item in normalized.replace(";", ",").split(","):
+        origin = item.strip().strip('"').strip("'").rstrip("/")
+        if origin:
+            origins.append(origin)
+    return origins
+
+
 CORS_ORIGINS_ENV = os.environ.get("CORS_ORIGINS", "")
-if CORS_ORIGINS_ENV:
+PARSED_CORS_ORIGINS = _parse_cors_origins(CORS_ORIGINS_ENV)
+if PARSED_CORS_ORIGINS:
     # Production: use explicit origins from environment
-    ALLOWED_ORIGINS = [
-        origin.strip() for origin in CORS_ORIGINS_ENV.split(",") if origin.strip()
-    ]
+    ALLOWED_ORIGINS = PARSED_CORS_ORIGINS
     ALLOW_CREDENTIALS = True
 else:
     # Development fallback: localhost only (not "*" which breaks with credentials)
@@ -118,6 +138,8 @@ app = FastAPI(title="Tripy API", version="1.0.0")
 app.add_middleware(
     CORSMiddleware,
     allow_origins=ALLOWED_ORIGINS,
+    # Allow Amplify preview/custom branch domains without listing each one.
+    allow_origin_regex=r"https://.*\.amplifyapp\.com",
     allow_credentials=ALLOW_CREDENTIALS,
     allow_methods=["*"],
     allow_headers=["*"],
@@ -285,24 +307,30 @@ async def startup_preload_caches():
     # Scrape transfer bonuses from NerdWallet on startup
     try:
         from .services.transfer_bonus_scraper import refresh_bonuses
+
         bonuses = await refresh_bonuses()
-        logger.info("Transfer bonus scraper: loaded %d bonuses on startup", len(bonuses))
+        logger.info(
+            "Transfer bonus scraper: loaded %d bonuses on startup", len(bonuses)
+        )
     except Exception as e:
         logger.warning("Transfer bonus scraper failed on startup (non-fatal): %s", e)
 
     # Schedule daily refresh of transfer bonuses
     async def _daily_bonus_refresh():
         import asyncio
+
         while True:
             await asyncio.sleep(24 * 60 * 60)  # 24 hours
             try:
                 from .services.transfer_bonus_scraper import refresh_bonuses as _refresh
+
                 await _refresh()
                 logger.info("Daily transfer bonus refresh completed")
             except Exception as exc:
                 logger.warning("Daily transfer bonus refresh failed: %s", exc)
 
     import asyncio
+
     asyncio.create_task(_daily_bonus_refresh())
 
 

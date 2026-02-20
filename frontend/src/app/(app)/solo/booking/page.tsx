@@ -26,7 +26,7 @@ import {
   Calendar,
   Users,
 } from 'lucide-react';
-import { solo, trips as tripsAPI, destinations as destinationsAPI, type SoloTransferStrategyResponse, type SoloTransferInstruction, type SoloBookingStep, type BookingDetails, type ItineraryRisk, isAuthenticated } from '@/lib/api';
+import { solo, trips as tripsAPI, destinations as destinationsAPI, type SoloTransferStrategyResponse, type SoloTransferInstruction, type SoloBookingStep, type BookingDetails, type ItineraryRisk, isAuthenticated, getAnonSessionId } from '@/lib/api';
 import { calculateServiceFee, SERVICE_FEE_PERCENT, formatDate, tripDurationDays } from '@/lib/utils';
 import { trackEvent, EVENTS } from '@/lib/analytics';
 import TransferInfoBanner from '@/components/TransferInfoBanner';
@@ -337,10 +337,26 @@ function SoloBookingContent() {
         // Try to get selection from new solo API first
         let usedSoloApi = false;
         try {
-          const [selectionRes, tripData] = await Promise.all([
-            solo.getSelection(tripId).catch(() => null),
-            solo.getTrip(tripId).catch(() => null),
-          ]);
+          let [selectionRes, tripData] = await Promise.all([
+            solo.getSelection(tripId).catch((e: Error) => { if (e.message?.includes('Not authorized')) throw e; return null; }),
+            solo.getTrip(tripId).catch((e: Error) => { if (e.message?.includes('Not authorized')) throw e; return null; }),
+          ]).catch(async () => {
+            // 403 — attempt anonymous session migration, then retry
+            try {
+              const anonId = getAnonSessionId();
+              if (anonId) {
+                console.log('[Booking] Trip access denied — attempting session migration...');
+                await solo.migrateSession(anonId);
+                return Promise.all([
+                  solo.getSelection(tripId).catch(() => null),
+                  solo.getTrip(tripId).catch(() => null),
+                ]);
+              }
+            } catch (migrationErr) {
+              console.warn('[Booking] Session migration failed:', migrationErr);
+            }
+            return [null, null] as const;
+          });
           
           if (selectionRes?.itineraryId && selectionRes?.itinerarySnapshot) {
             // Extract only the fields we need for the selection state
@@ -2032,11 +2048,6 @@ function SoloBookingContent() {
                                           className="flex items-center justify-center gap-2 flex-1 py-3 bg-blue-600 hover:bg-blue-700 text-white rounded-xl font-semibold text-sm transition-colors">
                                           <Plane className="w-4 h-4" /> Book on {getAirlineName(airlineCode) || directUrl} <ExternalLink className="w-4 h-4" />
                                         </a>
-                                      ) : origin && destination ? (
-                                        <a href={`https://www.google.com/travel/flights?q=flights%20from%20${encodeURIComponent(origin)}%20to%20${encodeURIComponent(destination)}${startDate ? `%20on%20${encodeURIComponent(startDate)}` : ''}`} target="_blank" rel="noopener noreferrer"
-                                          className="flex items-center justify-center gap-2 flex-1 py-3 bg-blue-600 hover:bg-blue-700 text-white rounded-xl font-semibold text-sm transition-colors">
-                                          <Plane className="w-4 h-4" /> Search on Google Flights <ExternalLink className="w-4 h-4" />
-                                        </a>
                                       ) : null}
                                       
                                       {directUrl && bookingUrl && !bookingUrl.includes(directUrl) && (
@@ -2497,19 +2508,7 @@ function SoloBookingContent() {
                                         </div>
                                       )}
                                       
-                                      {/* Booking Link */}
-                                      <div className="pt-3">
-                                        <a
-                                          href={`https://www.google.com/travel/flights?q=flights%20from%20${encodeURIComponent(origin)}%20to%20${encodeURIComponent(destination)}${startDate ? `%20on%20${encodeURIComponent(startDate)}` : ''}`}
-                                          target="_blank"
-                                          rel="noopener noreferrer"
-                                          className="flex items-center justify-center gap-2 w-full py-3 bg-blue-600 hover:bg-blue-700 text-white rounded-xl font-semibold text-sm transition-colors"
-                                        >
-                                          <Plane className="w-4 h-4" />
-                                          Book this flight on Google Flights
-                                          <ExternalLink className="w-4 h-4" />
-                                        </a>
-                                      </div>
+                                      
                                     </div>
                                   </div>
                                 );
@@ -2626,18 +2625,7 @@ function SoloBookingContent() {
                                               {endDate && idx === routeSegments.length - 1 && <div className="text-sm text-slate-500">{endLabel}</div>}
                                             </div>
                                           </div>
-                                          <div className="pt-3">
-                                            <a
-                                              href={`https://www.google.com/travel/flights?q=flights%20from%20${encodeURIComponent(seg.from)}%20to%20${encodeURIComponent(seg.to)}${startDate && idx === 0 ? `%20on%20${encodeURIComponent(startDate)}` : ''}${endDate && idx === routeSegments.length - 1 ? `%20on%20${encodeURIComponent(endDate)}` : ''}`}
-                                              target="_blank"
-                                              rel="noopener noreferrer"
-                                              className="flex items-center justify-center gap-2 w-full py-3 bg-blue-600 hover:bg-blue-700 text-white rounded-xl font-semibold text-sm transition-colors"
-                                            >
-                                              <Plane className="w-4 h-4" />
-                                              Search {seg.from} → {seg.to} on Google Flights
-                                              <ExternalLink className="w-3 h-3" />
-                                            </a>
-                                          </div>
+                                          
                                         </div>
                                       </div>
                                     ))}
@@ -2663,24 +2651,14 @@ function SoloBookingContent() {
                                       <p className="text-sm text-blue-900 font-medium mb-2">
                                         Detailed flight info not available
                                       </p>
-                                      <p className="text-sm text-blue-800 mb-3">
-                                        Return to the Results page and re-select your itinerary to see full flight details, or search for flights below.
+                                      <p className="text-sm text-blue-800">
+                                        Return to the Results page and re-select your itinerary to see full flight details.
                                       </p>
                                       {cashPrice > 0 && (
-                                        <p className="text-sm font-semibold text-blue-900 mb-3">
+                                        <p className="text-sm font-semibold text-blue-900 mt-2">
                                           Estimated total: ${cashPrice.toLocaleString()}
                                         </p>
                                       )}
-                                      <a
-                                        href="https://www.google.com/travel/flights"
-                                        target="_blank"
-                                        rel="noopener noreferrer"
-                                        className="inline-flex items-center gap-2 px-4 py-2 bg-blue-600 hover:bg-blue-700 text-white rounded-lg font-medium text-sm transition-colors"
-                                      >
-                                        <Plane className="w-4 h-4" />
-                                        Search Google Flights
-                                        <ExternalLink className="w-3 h-3" />
-                                      </a>
                                     </div>
                                   </div>
                                 </div>
@@ -2875,17 +2853,6 @@ function SoloBookingContent() {
                                               Book on {getAirlineName(airlineCode) || directUrl}
                                               <ExternalLink className="w-4 h-4" />
                                             </a>
-                                          ) : origin && destination ? (
-                                            <a
-                                              href={`https://www.google.com/travel/flights?q=flights%20from%20${encodeURIComponent(origin)}%20to%20${encodeURIComponent(destination)}${startDate ? `%20on%20${encodeURIComponent(startDate)}` : ''}`}
-                                              target="_blank"
-                                              rel="noopener noreferrer"
-                                              className="flex items-center justify-center gap-2 flex-1 py-3 bg-blue-600 hover:bg-blue-700 text-white rounded-xl font-semibold text-sm transition-colors"
-                                            >
-                                              <Plane className="w-4 h-4" />
-                                              Search on Google Flights
-                                              <ExternalLink className="w-4 h-4" />
-                                            </a>
                                           ) : null}
                                           
                                           {/* Airline website link (separate from booking) */}
@@ -2935,7 +2902,7 @@ function SoloBookingContent() {
                         <div className="p-4 bg-slate-50 rounded-xl">
                           <h3 className="font-semibold text-slate-900 mb-2">General guidance</h3>
                           <ul className="text-slate-600 text-sm space-y-1 list-disc list-inside">
-                            <li>Search for flights on Google Flights or airline websites</li>
+                            <li>Search for flights on airline websites</li>
                             <li>If using points, transfer from your credit card programs to airlines</li>
                             <li>Book quickly as prices and availability change frequently</li>
                           </ul>

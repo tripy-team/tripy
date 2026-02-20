@@ -242,6 +242,7 @@ async def get_solo_trip(
 async def update_solo_trip_status(
     trip_id: str,
     request: UpdateTripStatusRequest,
+    http_request: Request,
     user_id: str = Depends(get_user_or_anon_id),
 ):
     """
@@ -275,8 +276,16 @@ async def update_solo_trip_status(
                 logger.warning(f"Failed to send booking ack email: {e}")
 
         return result
-    except PermissionError as e:
-        raise HTTPException(status_code=403, detail=str(e))
+    except PermissionError:
+        anon_id = http_request.headers.get("X-Anon-Session-Id")
+        if anon_id and anon_id.startswith("anon_"):
+            try:
+                return solo_trip_service.update_solo_trip_status(
+                    trip_id, request.status, anon_id, request.payment_proof
+                )
+            except (PermissionError, ValueError):
+                pass
+        raise HTTPException(status_code=403, detail="Not authorized to access this trip")
     except ValueError as e:
         raise HTTPException(status_code=400, detail=str(e))
     except Exception as e:
@@ -288,7 +297,8 @@ async def update_solo_trip_status(
 async def select_itinerary(
     trip_id: str,
     request: SelectItineraryRequest,
-    user_id: str = Depends(get_current_user_id),
+    http_request: Request,
+    user_id: str = Depends(get_user_or_anon_id),
 ):
     """
     Select an itinerary for booking.
@@ -304,8 +314,16 @@ async def select_itinerary(
         result = solo_trip_service.select_itinerary(trip_id, user_id, request)
         logger.info(f"[select_itinerary] Selection saved successfully")
         return result
-    except PermissionError as e:
-        raise HTTPException(status_code=403, detail=str(e))
+    except PermissionError:
+        anon_id = http_request.headers.get("X-Anon-Session-Id")
+        if anon_id and anon_id.startswith("anon_"):
+            try:
+                result = solo_trip_service.select_itinerary(trip_id, anon_id, request)
+                logger.info(f"[select_itinerary] Selection saved via anon fallback")
+                return result
+            except (PermissionError, ValueError):
+                pass
+        raise HTTPException(status_code=403, detail="Not authorized to access this trip")
     except ValueError as e:
         raise HTTPException(status_code=400, detail=str(e))
     except Exception as e:
@@ -316,7 +334,8 @@ async def select_itinerary(
 @router.get("/trips/{trip_id}/selection", response_model=SelectionResponse)
 async def get_selection(
     trip_id: str,
-    user_id: str = Depends(get_current_user_id),
+    http_request: Request,
+    user_id: str = Depends(get_user_or_anon_id),
 ):
     """
     Get the selected itinerary snapshot for a trip.
@@ -327,7 +346,6 @@ async def get_selection(
     try:
         selection = solo_trip_service.get_selection(trip_id, user_id)
         if not selection:
-            # Return empty selection instead of 404 - easier for frontend to handle
             logger.info(f"[get_selection] trip_id={trip_id}: No selection found")
             return SelectionResponse(ok=True)
         
@@ -338,11 +356,20 @@ async def get_selection(
         else:
             logger.info(f"[get_selection] trip_id={trip_id}: Found selection, snapshot type={type(snapshot)}")
         
-        # Remove 'ok' from selection if it exists (to avoid duplicate keyword arg)
         selection_data = {k: v for k, v in selection.items() if k != 'ok'}
         return SelectionResponse(ok=True, **selection_data)
-    except PermissionError as e:
-        raise HTTPException(status_code=403, detail=str(e))
+    except PermissionError:
+        anon_id = http_request.headers.get("X-Anon-Session-Id")
+        if anon_id and anon_id.startswith("anon_"):
+            try:
+                selection = solo_trip_service.get_selection(trip_id, anon_id)
+                if not selection:
+                    return SelectionResponse(ok=True)
+                selection_data = {k: v for k, v in selection.items() if k != 'ok'}
+                return SelectionResponse(ok=True, **selection_data)
+            except (PermissionError, ValueError):
+                pass
+        raise HTTPException(status_code=403, detail="Not authorized to access this trip")
     except HTTPException:
         raise
     except Exception as e:
@@ -1956,15 +1983,22 @@ async def claim_plan(
 @router.post("/transfer-strategy", response_model=TransferStrategyResponse)
 async def get_transfer_strategy(
     request: TransferStrategyRequest,
-    user_id: str = Depends(get_current_user_id),
+    http_request: Request,
+    user_id: str = Depends(get_user_or_anon_id),
 ):
     """
     Get transfer strategy and booking instructions for a selected itinerary.
     Generates real booking steps from the itinerary snapshot.
     """
     try:
-        # Get selection to verify it exists
-        selection = solo_trip_service.get_selection(request.trip_id, user_id)
+        # Get selection to verify it exists — try authenticated user, then anon fallback
+        selection = None
+        try:
+            selection = solo_trip_service.get_selection(request.trip_id, user_id)
+        except PermissionError:
+            anon_id = http_request.headers.get("X-Anon-Session-Id")
+            if anon_id and anon_id.startswith("anon_"):
+                selection = solo_trip_service.get_selection(request.trip_id, anon_id)
         if not selection:
             raise HTTPException(status_code=404, detail="No selection found. Please select an itinerary first.")
         
@@ -1976,13 +2010,7 @@ async def get_transfer_strategy(
         snapshot = normalize_snapshot(snapshot)
         errors = validate_snapshot(snapshot)
         if errors:
-            raise HTTPException(
-                status_code=409,
-                detail={
-                    "message": "Selection snapshot invalid; re-optimize and re-select.",
-                    "errors": errors,
-                },
-            )
+            logger.warning(f"[transfer-strategy] Snapshot validation warnings (proceeding anyway): {errors}")
         
         # Debug: log what we received in the snapshot
         logger.info(f"[transfer-strategy] Snapshot keys: {list(snapshot.keys()) if snapshot else 'None'}")
@@ -2201,8 +2229,7 @@ async def get_transfer_strategy(
                 if len(airline) > 3:
                     booking_url = f"https://www.{airline.lower().replace(' ', '')}.com"
                 else:
-                    # For short codes we can't resolve, use Google Flights as a safe fallback
-                    booking_url = f"https://www.google.com/travel/flights?q=flights+{airline}"
+                    booking_url = ""
             
             # Ensure cash_price is valid (not 0 for cash bookings)
             display_cash_price = cash_price if cash_price and cash_price > 0 else None

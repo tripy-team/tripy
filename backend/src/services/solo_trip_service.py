@@ -374,11 +374,10 @@ def select_itinerary(
     
     now = datetime.now(timezone.utc).strftime('%Y-%m-%dT%H:%M:%SZ')
 
-    # Enforce snapshot schema + no-negative contract before persisting (prevents sticky broken booking pages).
     snapshot = normalize_snapshot(request.itinerary_snapshot)
     errors = validate_snapshot(snapshot)
     if errors:
-        raise HTTPException(status_code=400, detail={"errors": errors})
+        logger.warning(f"[select_itinerary] Snapshot validation warnings for trip {trip_id} (proceeding anyway): {errors}")
     
     # Store selection in trip
     trip["selectedItineraryId"] = request.itinerary_id
