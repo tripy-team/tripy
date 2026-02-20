@@ -298,6 +298,8 @@ function SoloBookingContent() {
     'asking' | 'not_booked' | 'dismissed' | 'booked' | 'monitoring_active'
   >('booked');
   const [monitoringError, setMonitoringError] = useState<string | null>(null);
+  const [monitoringEmailInput, setMonitoringEmailInput] = useState('');
+  const [monitoringEmailSubmitting, setMonitoringEmailSubmitting] = useState(false);
   
   // Action buttons state (moved from results page)
   const [isBooked, setIsBooked] = useState(false);
@@ -646,7 +648,20 @@ function SoloBookingContent() {
     setPostBookingState('not_booked');
   };
 
-  // Auto-start monitoring when the booking page loads (uses profile email on backend)
+  // Resolve the user's email from localStorage (set during auth)
+  const getUserEmail = (): string | null => {
+    if (typeof window === 'undefined') return null;
+    try {
+      const stored = localStorage.getItem('user');
+      if (stored) {
+        const parsed = JSON.parse(stored);
+        if (parsed?.email) return parsed.email;
+      }
+    } catch { /* ignore parse errors */ }
+    return null;
+  };
+
+  // Auto-start monitoring when the booking page loads
   const hasAutoStartedMonitoring = useRef(false);
   useEffect(() => {
     if (!tripId || hasAutoStartedMonitoring.current) return;
@@ -666,7 +681,8 @@ function SoloBookingContent() {
             }
           : undefined;
 
-        const result = await solo.startMonitoring(tripId, undefined, baselinePayload);
+        const email = getUserEmail();
+        const result = await solo.startMonitoring(tripId, email || undefined, baselinePayload);
 
         if (result.state === 'active') {
           setPostBookingState('monitoring_active');
@@ -677,19 +693,58 @@ function SoloBookingContent() {
             expires_at: expiresAt,
           }));
         } else {
-          // Treat any other state as active (monitoring is best-effort)
           setPostBookingState('monitoring_active');
         }
       } catch (err: unknown) {
         console.log('Could not auto-start monitoring:', err);
-        // Still show the monitoring card but with an error note
-        setMonitoringError('Could not activate monitoring automatically. We\'ll keep trying.');
+        const email = getUserEmail();
+        if (email) {
+          setMonitoringEmailInput(email);
+        }
+        setMonitoringError('Could not activate monitoring automatically. Enter your email below to enable it.');
         setPostBookingState('monitoring_active');
       }
     };
 
     autoStartMonitoring();
   }, [tripId, postBookingState, selection]);
+
+  // Manual monitoring start via email input
+  const handleManualMonitoringStart = async () => {
+    if (!tripId || !monitoringEmailInput.trim()) return;
+    setMonitoringEmailSubmitting(true);
+    setMonitoringError(null);
+
+    try {
+      const baselinePayload = selection?.itinerarySnapshot
+        ? {
+            schema_version: 1,
+            selected_itinerary: selection.itinerarySnapshot,
+            alternatives: [],
+            query_inputs: {},
+          }
+        : undefined;
+
+      const result = await solo.startMonitoring(tripId, monitoringEmailInput.trim(), baselinePayload);
+
+      if (result.state === 'active' || result.state === 'pending_verification') {
+        setPostBookingState('monitoring_active');
+        setMonitoringError(null);
+        const expiresAt = result.expiresAt || new Date(Date.now() + 14 * 24 * 60 * 60 * 1000).toISOString();
+        localStorage.setItem(`tripy_monitoring_${tripId}`, JSON.stringify({
+          state: result.state,
+          verified_at: new Date().toISOString(),
+          expires_at: expiresAt,
+        }));
+      }
+    } catch (err: unknown) {
+      console.log('Could not start monitoring with email:', err);
+      const msg = err instanceof Error ? err.message : 'Could not activate monitoring. Please try again.';
+      setMonitoringError(msg);
+    } finally {
+      setMonitoringEmailSubmitting(false);
+    }
+  };
 
   // handlePayment removed — paywall disabled
 
@@ -1591,7 +1646,7 @@ function SoloBookingContent() {
                                         )}
                                         
                                         {/* Booking Instructions */}
-                                        <div className="text-xs text-slate-600 space-y-1 pt-1 border-t border-slate-200">
+                                        <div className="text-xs text-slate-600 space-y-1.5 pt-2 border-t border-slate-200">
                                           {booking.paymentMethod === 'points' && booking.program ? (
                                             <>
                                               <p>
@@ -1607,6 +1662,71 @@ function SoloBookingContent() {
                                           ) : (
                                             <p><strong>Cash booking:</strong> Purchase on {booking.airline || 'the airline'}&apos;s website or a travel booking site.</p>
                                           )}
+                                          {/* Specific flight search details */}
+                                          <div className="bg-blue-50 border border-blue-200 rounded-lg p-2.5 mt-1.5">
+                                            <p className="font-semibold text-blue-800 mb-1">Look for this flight:</p>
+                                            <div className="space-y-0.5 text-blue-700">
+                                              {booking.departureTime && (
+                                                <p>
+                                                  <span className="text-blue-500">Date:</span>{' '}
+                                                  <strong>
+                                                    {new Date(booking.departureTime).toLocaleDateString('en-US', {
+                                                      weekday: 'long', month: 'long', day: 'numeric', year: 'numeric'
+                                                    })}
+                                                  </strong>
+                                                </p>
+                                              )}
+                                              <p>
+                                                <span className="text-blue-500">Route:</span>{' '}
+                                                <strong>{booking.origin} → {booking.destination}</strong>
+                                              </p>
+                                              {booking.departureTime && (
+                                                <p>
+                                                  <span className="text-blue-500">Departure:</span>{' '}
+                                                  <strong>
+                                                    {new Date(booking.departureTime).toLocaleTimeString('en-US', {
+                                                      hour: 'numeric', minute: '2-digit'
+                                                    })}
+                                                  </strong>
+                                                  {booking.arrivalTime && (
+                                                    <> → {new Date(booking.arrivalTime).toLocaleTimeString('en-US', {
+                                                      hour: 'numeric', minute: '2-digit'
+                                                    })}</>
+                                                  )}
+                                                </p>
+                                              )}
+                                              {booking.flightNumber && (
+                                                <p>
+                                                  <span className="text-blue-500">Flight:</span>{' '}
+                                                  <strong>{booking.flightNumber}</strong>
+                                                </p>
+                                              )}
+                                              {booking.legs && booking.legs.length > 1 && (
+                                                <div className="mt-1 pt-1 border-t border-blue-200">
+                                                  <p className="text-blue-500 mb-0.5">Flight segments to book:</p>
+                                                  {booking.legs.map((leg, legIdx) => (
+                                                    <p key={legIdx}>
+                                                      <span className="font-mono bg-blue-100 px-1 rounded">{leg.flightNumber}</span>{' '}
+                                                      {leg.origin} → {leg.destination}
+                                                      {leg.departureTime && (
+                                                        <span className="text-blue-500">
+                                                          {' '}at {new Date(leg.departureTime).toLocaleTimeString('en-US', {
+                                                            hour: 'numeric', minute: '2-digit'
+                                                          })}
+                                                        </span>
+                                                      )}
+                                                    </p>
+                                                  ))}
+                                                </div>
+                                              )}
+                                              {booking.cabinClass && (
+                                                <p>
+                                                  <span className="text-blue-500">Cabin:</span>{' '}
+                                                  <strong>{booking.cabinClass}</strong>
+                                                </p>
+                                              )}
+                                            </div>
+                                          </div>
                                         </div>
                                       </div>
                                       
@@ -2964,14 +3084,40 @@ function SoloBookingContent() {
                 <div className="w-10 h-10 bg-blue-100 rounded-xl flex items-center justify-center flex-shrink-0">
                   <Shield className="w-5 h-5 text-blue-600" />
                 </div>
-                <div>
-                  <h3 className="font-semibold text-blue-900 text-lg">We&apos;re monitoring this trip for you.</h3>
+                <div className="flex-1">
+                  <h3 className="font-semibold text-blue-900 text-lg">
+                    {monitoringError ? 'Enable price monitoring' : 'We\u2019re monitoring this trip for you.'}
+                  </h3>
                   <p className="text-blue-700 mt-1">
-                    We check every 6 hours for <strong>price drops</strong> and <strong>point reallocation opportunities</strong>. If we find savings, we&apos;ll let you know.
+                    We check every 6 hours for <strong>price drops</strong> and <strong>point reallocation opportunities</strong>. If we find savings, we&apos;ll email you.
                   </p>
                   {monitoringError && (
                     <p className="mt-2 text-sm text-amber-600">{monitoringError}</p>
                   )}
+
+                  {/* Email input for monitoring */}
+                  {monitoringError && (
+                    <div className="mt-3">
+                      <div className="flex gap-2">
+                        <input
+                          type="email"
+                          placeholder="you@example.com"
+                          value={monitoringEmailInput}
+                          onChange={(e) => setMonitoringEmailInput(e.target.value)}
+                          onKeyDown={(e) => { if (e.key === 'Enter') handleManualMonitoringStart(); }}
+                          className="flex-1 px-3 py-2 text-sm border border-blue-300 rounded-lg bg-white text-slate-900 placeholder:text-slate-400 focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent"
+                        />
+                        <button
+                          onClick={handleManualMonitoringStart}
+                          disabled={monitoringEmailSubmitting || !monitoringEmailInput.trim()}
+                          className="px-4 py-2 text-sm font-medium text-white bg-blue-600 rounded-lg hover:bg-blue-700 disabled:opacity-50 disabled:cursor-not-allowed transition-colors"
+                        >
+                          {monitoringEmailSubmitting ? 'Starting...' : 'Monitor'}
+                        </button>
+                      </div>
+                    </div>
+                  )}
+
                   <p className="text-blue-600 text-xs mt-3">Free &middot; Runs until 24h before departure or 14 days</p>
                 </div>
               </div>
