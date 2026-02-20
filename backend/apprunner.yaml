@@ -25,7 +25,7 @@ run:
     # CORS: Allow frontend origins to access the API
     # Include your Amplify URL, custom domain, and localhost for dev
     - name: CORS_ORIGINS
-      value: "https://prayers.d2gex3fvl9gx9o.amplifyapp.com"
+      value: "https://traveltripy.com,https://www.traveltripy.com,https://main.d2p22adloz2lev.amplifyapp.com"
 
     - name: USE_SECRETS_MANAGER
       value: "true"
@@ -58,7 +58,7 @@ run:
     - name: SES_SENDER_EMAIL
       value: "tripy@traveltripy.com"
     - name: FRONTEND_URL
-      value: "https://prayers.d2gex3fvl9gx9o.amplifyapp.com"
+      value: "https://traveltripy.com"
     - name: SHARE_TOKEN_SECRET
       value: "f58fde766e311a52097be5484dd94e2f5c34b0db56ef74d5e0191fea33a2e1c3"
     - name: CRON_SECRET
