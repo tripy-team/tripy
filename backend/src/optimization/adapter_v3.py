@@ -177,25 +177,32 @@ def _enforce_no_negative_numbers(payload, context: str):
 
 
 # =============================================================================
+# DATE NORMALIZATION
+# =============================================================================
+
+def _normalize_flight_date(dt) -> str:
+    """
+    Normalize a datetime to YYYY-MM-DD string (departure date in origin local time).
+    Handles datetime objects, date objects, and string inputs.
+    """
+    if dt is None:
+        return ""
+    if isinstance(dt, str):
+        return dt[:10]
+    if hasattr(dt, 'strftime'):
+        return dt.strftime("%Y-%m-%d")
+    return str(dt)[:10]
+
+
+# =============================================================================
 # PLACEHOLDER FLIGHT NUMBER DETECTION
 # =============================================================================
 
 def _get_metro_airports(airport_code: str) -> list:
     """Get all airports in the same metro area as the given airport."""
-    METRO_AIRPORTS = {
-        "CDG": ["CDG", "ORY"], "ORY": ["CDG", "ORY"],
-        "LHR": ["LHR", "LGW", "STN"], "LGW": ["LHR", "LGW", "STN"], "STN": ["LHR", "LGW", "STN"],
-        "JFK": ["JFK", "EWR", "LGA"], "EWR": ["JFK", "EWR", "LGA"], "LGA": ["JFK", "EWR", "LGA"],
-        "NRT": ["NRT", "HND"], "HND": ["NRT", "HND"],
-        "DXB": ["DXB", "DWC"], "DWC": ["DXB", "DWC"],
-        "SFO": ["SFO", "OAK", "SJC"], "OAK": ["SFO", "OAK", "SJC"], "SJC": ["SFO", "OAK", "SJC"],
-        "LAX": ["LAX", "BUR", "SNA"], "BUR": ["LAX", "BUR", "SNA"], "SNA": ["LAX", "BUR", "SNA"],
-        "ORD": ["ORD", "MDW"], "MDW": ["ORD", "MDW"],
-        "DFW": ["DFW", "DAL"], "DAL": ["DFW", "DAL"],
-        "IAD": ["IAD", "DCA", "BWI"], "DCA": ["IAD", "DCA", "BWI"], "BWI": ["IAD", "DCA", "BWI"],
-    }
+    from ..config.metro_airports import AIRPORT_TO_METRO
     code = airport_code.upper() if airport_code else ""
-    return METRO_AIRPORTS.get(code, [code])
+    return list(AIRPORT_TO_METRO.get(code, [code]))
 
 
 def _is_placeholder_flight_number(flight_nums: list) -> bool:
@@ -638,7 +645,7 @@ def convert_search_results_to_flights(
         if seg.get("type") != "flight":
             continue
         
-        key = f"flight_{i}"
+        key = seg.get("search_uid", f"flight_{i}")
         result = search_results.get(key)
         
         if not result:
@@ -1015,14 +1022,41 @@ def _convert_flight_option(
 def build_transfer_paths(user_points: Dict[str, int]) -> List[TransferPath]:
     """
     Build transfer paths based on user's bank balances.
+    
+    Integrates live transfer bonuses from the NerdWallet scraper so the ILP
+    solver sees the effective (bonus-adjusted) ratio and prefers paths where
+    a promotion is active — e.g. a 30 % Capital One → ANA bonus makes
+    Star Alliance NRT routings significantly cheaper.
     """
     
     from .constants import DEFAULT_TRANSFER_GRAPH
     
+    # Fetch active transfer bonuses: {(bank_code, program_code): multiplier}
+    ilp_bonuses: Dict = {}
+    try:
+        from ..services.transfer_bonus_scraper import get_ilp_transfer_bonuses
+        ilp_bonuses = get_ilp_transfer_bonuses()
+        if ilp_bonuses:
+            logger.info(
+                "[V3 Adapter] Loaded %d active transfer bonuses: %s",
+                len(ilp_bonuses),
+                ", ".join(f"{b}->{p} x{m:.2f}" for (b, p), m in ilp_bonuses.items()),
+            )
+    except Exception as e:
+        logger.warning("[V3 Adapter] Could not load transfer bonuses, using 1.0x: %s", e)
+    
+    # Fetch bonus expiry dates for TransferPath metadata
+    bonus_expiry: Dict = {}
+    try:
+        from ..services.transfer_bonus_scraper import get_active_bonuses
+        for rec in get_active_bonuses():
+            bonus_expiry[(rec.bank_code, rec.program_code)] = rec.end_date
+    except Exception:
+        pass
+    
     paths = []
     
     for bank, targets in DEFAULT_TRANSFER_GRAPH.items():
-        # Check if user has this bank
         normalized_bank = normalize_bank(bank)
         
         has_bank = False
@@ -1034,16 +1068,21 @@ def build_transfer_paths(user_points: Dict[str, int]) -> List[TransferPath]:
         if not has_bank:
             continue
         
-        # Add transfer paths to each target
         for target, ratio in targets.items():
             normalized_target = normalize_program(target)
+            
+            bonus_key = (normalized_bank, target.upper())
+            multiplier = ilp_bonuses.get(bonus_key, 1.0)
+            expiry = bonus_expiry.get(bonus_key)
+            
             paths.append(TransferPath(
                 path_id=f"{normalized_bank}_to_{normalized_target}",
                 from_bank=normalized_bank,
                 to_program=normalized_target,
                 min_increment=1000,
                 ratio=ratio,
-                current_bonus=1.0,
+                current_bonus=multiplier,
+                bonus_expiry_date=expiry,
             ))
     
     return paths
@@ -1952,36 +1991,85 @@ async def run_v3_optimization(
         validated_flights = []
         
         # Collect award options from AwardTool flights to attach to matching SerpAPI flights
-        # Key: (leg_id, airline code), Value: list of AwardOption objects
-        # We key by leg_id to ensure SEA→CDG award options don't attach to CDG→SEA flights
+        # Two-tier keying:
+        #  - award_options_by_route: (leg_id, airline, origin, dest, date) for precise matching
+        #  - award_options_by_leg_airline: (leg_id, airline) as loose fallback
         award_options_by_leg_airline = {}
+        award_options_by_route = {}
         
         for leg_id, leg_flights in flights_by_leg.items():
             if not leg_flights:
                 continue
             
-            # Get route info from first flight
-            first_flight = leg_flights[0]
-            origin = first_flight.segments[0].origin if first_flight.segments else ""
-            dest = first_flight.segments[-1].destination if first_flight.segments else ""
-            dep_date = first_flight.segments[0].departure.strftime("%Y-%m-%d") if first_flight.segments else ""
+            # Discover all distinct airport pairs in this leg's candidates
+            pair_counts: dict[tuple[str, str], int] = {}
+            cheapest_cash_pair: tuple[str, str] | None = None
+            cheapest_cash_price: float = float('inf')
+            lowest_surcharge_pair: tuple[str, str] | None = None
+            lowest_surcharge: float = float('inf')
+            dep_date = ""
             
-            if not origin or not dest or not dep_date:
+            for f in leg_flights:
+                if not f.segments:
+                    continue
+                o = f.segments[0].origin
+                d = f.segments[-1].destination
+                if not dep_date and f.segments[0].departure:
+                    dep_date = f.segments[0].departure.strftime("%Y-%m-%d")
+                pair = (o, d)
+                pair_counts[pair] = pair_counts.get(pair, 0) + 1
+                
+                if f.cash_cost and f.cash_cost < cheapest_cash_price:
+                    cheapest_cash_price = f.cash_cost
+                    cheapest_cash_pair = pair
+                
+                surcharge = min(
+                    (getattr(opt, 'surcharge', float('inf')) or float('inf'))
+                    for opt in (f.award_options or [])
+                ) if f.award_options else float('inf')
+                if surcharge < lowest_surcharge:
+                    lowest_surcharge = surcharge
+                    lowest_surcharge_pair = pair
+            
+            if not pair_counts or not dep_date:
                 logger.warning(f"[V3 Adapter] Leg {leg_id}: Missing route info, skipping validation")
                 validated_flights.extend(leg_flights)
                 continue
             
-            logger.info(f"[V3 Adapter] Leg {leg_id}: Validating {len(leg_flights)} flights for {origin}->{dest} on {dep_date}")
+            # Type-aware hybrid heuristic: pick pairs to validate
+            MAX_SERP_PAIRS = 3
+            pairs_to_validate = []
+            if cheapest_cash_pair:
+                pairs_to_validate.append(cheapest_cash_pair)
+            if lowest_surcharge_pair and lowest_surcharge_pair not in pairs_to_validate:
+                pairs_to_validate.append(lowest_surcharge_pair)
+            for pair, _ in sorted(pair_counts.items(), key=lambda x: -x[1]):
+                if len(pairs_to_validate) >= MAX_SERP_PAIRS:
+                    break
+                if pair not in pairs_to_validate:
+                    pairs_to_validate.append(pair)
+            
+            if not pairs_to_validate:
+                pairs_to_validate = [list(pair_counts.keys())[0]]
+            
+            logger.info(
+                f"[V3 Adapter] Leg {leg_id}: Validating {len(leg_flights)} flights "
+                f"across {len(pairs_to_validate)} airport pairs: {pairs_to_validate}"
+            )
             
             try:
-                # Fetch fresh SerpAPI data
-                serp_flights = get_google_flights(
-                    origin=origin,
-                    destination=dest,
-                    outbound_date=dep_date,
-                    return_date=None,
-                    travel_class=1,  # Economy
-                )
+                # Fetch SerpAPI data for all selected pairs and merge lookups
+                serp_flights = []
+                for origin, dest in pairs_to_validate:
+                    pair_serp = get_google_flights(
+                        origin=origin,
+                        destination=dest,
+                        outbound_date=dep_date,
+                        return_date=None,
+                        travel_class=1,
+                    )
+                    if pair_serp:
+                        serp_flights.extend(pair_serp)
                 
                 if serp_flights:
                     logger.info(f"[V3 Adapter] Leg {leg_id}: Got {len(serp_flights)} Google Flights for validation")
@@ -2070,14 +2158,21 @@ async def run_v3_optimization(
                                         "QATAR": "QR",  # normalized form
                                         "TAP": "TP",  # normalized form
                                     }
+                                    fl_origin = flight.segments[0].origin if flight.segments else ""
+                                    fl_dest = flight.segments[-1].destination if flight.segments else ""
+                                    fl_date = _normalize_flight_date(flight.segments[0].departure) if flight.segments else ""
                                     for opt in flight.award_options:
                                         program = (opt.program or "").upper().strip()
                                         airline_code = PROGRAM_TO_AIRLINE.get(program, program[:2])
-                                        key = (leg_id, airline_code)
-                                        if key not in award_options_by_leg_airline:
-                                            award_options_by_leg_airline[key] = []
-                                        award_options_by_leg_airline[key].append(opt)
-                                        logger.debug(f"[V3 Adapter] Collected award option: program={program} -> airline={airline_code}, key={key}")
+                                        leg_key = (leg_id, airline_code)
+                                        if leg_key not in award_options_by_leg_airline:
+                                            award_options_by_leg_airline[leg_key] = []
+                                        award_options_by_leg_airline[leg_key].append(opt)
+                                        route_key = (leg_id, airline_code, fl_origin, fl_dest, fl_date)
+                                        if route_key not in award_options_by_route:
+                                            award_options_by_route[route_key] = []
+                                        award_options_by_route[route_key].append(opt)
+                                        logger.debug(f"[V3 Adapter] Collected award option: program={program} -> airline={airline_code}, route_key={route_key}")
                                 else:
                                     logger.debug(f"[V3 Adapter] Leg {leg_id}: EXCLUDING flight without award options: {flight_nums}")
                     
@@ -2134,17 +2229,23 @@ async def run_v3_optimization(
                                     "QATAR": "QR",  # normalized form
                                     "TAP": "TP",  # normalized form
                                 }
+                                fl_origin = flight.segments[0].origin if flight.segments else ""
+                                fl_dest = flight.segments[-1].destination if flight.segments else ""
+                                fl_date = _normalize_flight_date(flight.segments[0].departure) if flight.segments else ""
                                 for opt in flight.award_options:
                                     program = (opt.program or "").upper().strip()
                                     airline_code = PROGRAM_TO_AIRLINE.get(program, program[:2])
-                                    key = (leg_id, airline_code)
-                                    if key not in award_options_by_leg_airline:
-                                        award_options_by_leg_airline[key] = []
-                                    award_options_by_leg_airline[key].append(opt)
+                                    leg_key = (leg_id, airline_code)
+                                    if leg_key not in award_options_by_leg_airline:
+                                        award_options_by_leg_airline[leg_key] = []
+                                    award_options_by_leg_airline[leg_key].append(opt)
+                                    route_key = (leg_id, airline_code, fl_origin, fl_dest, fl_date)
+                                    if route_key not in award_options_by_route:
+                                        award_options_by_route[route_key] = []
+                                    award_options_by_route[route_key].append(opt)
                             else:
                                 logger.debug(f"[V3 Adapter] Leg {leg_id}: EXCLUDING placeholder without award options: {flight_nums}")
                         else:
-                            # Real flight number - include it
                             validated_flights.append(flight)
                             logger.info(f"[V3 Adapter] Leg {leg_id}: Including flight with real number (no SerpAPI): {flight_nums}")
                     
@@ -2233,8 +2334,23 @@ async def run_v3_optimization(
                             all_candidates.extend(award_options_by_fingerprint[fp])
                             match_method = "fingerprint"
                     
+                    # Step 2: Route-specific matching (origin+dest+date aware)
                     if not all_candidates:
-                        # Fallback: alliance matching (original behavior)
+                        fl_origin = flight.segments[0].origin if flight.segments else ""
+                        fl_dest = flight.segments[-1].destination if flight.segments else ""
+                        fl_date = _normalize_flight_date(flight.segments[0].departure) if flight.segments else ""
+                        matching_airlines = AIRLINE_ALLIANCES.get(airline, [airline])
+                        for match_airline in matching_airlines:
+                            route_key = (leg_id, match_airline, fl_origin, fl_dest, fl_date)
+                            if route_key in award_options_by_route:
+                                for opt in award_options_by_route[route_key]:
+                                    if opt.miles_required and opt.miles_required > 0:
+                                        all_candidates.append(opt)
+                        if all_candidates:
+                            match_method = "route_specific"
+                    
+                    # Step 3: Loose fallback (leg_id + airline only, no route filter)
+                    if not all_candidates:
                         matching_airlines = AIRLINE_ALLIANCES.get(airline, [airline])
                         for match_airline in matching_airlines:
                             key = (leg_id, match_airline)
@@ -2244,6 +2360,11 @@ async def run_v3_optimization(
                                         all_candidates.append(opt)
                         if all_candidates:
                             match_method = "alliance_fallback"
+                            logger.warning(
+                                f"[V3 Adapter] Leg {leg_id}: Route-specific award match failed "
+                                f"for {flight.edge_id}, using loose alliance fallback. "
+                                f"{len(all_candidates)} candidates."
+                            )
                             if V3_FINGERPRINT_MATCHING_ENABLED:
                                 logger.warning(
                                     f"[V3 Adapter] No fingerprint match for {flight.edge_id}. "
@@ -2303,13 +2424,27 @@ async def run_v3_optimization(
                     best_option = None
                     best_points = float('inf')
                     
+                    # Try route-specific match first
+                    fl_origin = flight.segments[0].origin if flight.segments else ""
+                    fl_dest = flight.segments[-1].destination if flight.segments else ""
+                    fl_date = _normalize_flight_date(flight.segments[0].departure) if flight.segments else ""
                     for match_airline in matching_airlines:
-                        key = (leg_id, match_airline)
-                        if key in award_options_by_leg_airline:
-                            for opt in award_options_by_leg_airline[key]:
+                        route_key = (leg_id, match_airline, fl_origin, fl_dest, fl_date)
+                        if route_key in award_options_by_route:
+                            for opt in award_options_by_route[route_key]:
                                 if opt.miles_required and opt.miles_required < best_points:
                                     best_option = opt
                                     best_points = opt.miles_required
+                    
+                    # Fall back to broad match if route-specific found nothing
+                    if not best_option:
+                        for match_airline in matching_airlines:
+                            key = (leg_id, match_airline)
+                            if key in award_options_by_leg_airline:
+                                for opt in award_options_by_leg_airline[key]:
+                                    if opt.miles_required and opt.miles_required < best_points:
+                                        best_option = opt
+                                        best_points = opt.miles_required
                     
                     if best_option:
                         new_opt = deepcopy(best_option)

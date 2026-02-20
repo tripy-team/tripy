@@ -534,6 +534,23 @@ class SolverV3:
         # ═══════════════════════════════════════════════════════════════════
         
         self._log_flight_options_detail()
+        
+        # Invariant log: per-leg airport coverage before ILP solve
+        from collections import defaultdict as _dd
+        _flights_by_leg = _dd(list)
+        for f in self.flights:
+            _flights_by_leg[f.leg_id].append(f)
+        for _lid in sorted(_flights_by_leg.keys()):
+            _leg_flights = _flights_by_leg[_lid]
+            _actual_dests = sorted(set(
+                seg.destination for f in _leg_flights for seg in f.segments
+            )) if _leg_flights else []
+            _allowed = getattr(self.legs[_lid], "allowed_destination_airports", None) if _lid < len(self.legs) else None
+            logger.info(
+                f"[INVARIANT] leg={_lid} stage=pre_ilp "
+                f"allowed_dest={list(_allowed) if _allowed else []} "
+                f"actual_dest={_actual_dests} edge_count={len(_leg_flights)}"
+            )
     
     def _build_key_indices(self):
         """Build indices for faster constraint/objective construction."""
@@ -997,9 +1014,8 @@ class SolverV3:
         from collections import defaultdict
         
         # Build reverse mapping: airport -> city
-        # Import the METRO_AIRPORTS mapping
         try:
-            from src.agents.orchestrator import METRO_AIRPORTS
+            from src.config.metro_airports import METRO_AIRPORTS
         except ImportError:
             logger.warning("[Solver] Could not import METRO_AIRPORTS, skipping airport continuity constraints")
             return

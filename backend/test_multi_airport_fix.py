@@ -83,8 +83,8 @@ def test_city_pair_segments():
     
     # Check first segment: Seattle → Paris
     seg1 = segments[0]
-    assert seg1["origin_city"] == "Seattle", f"Expected origin_city='Seattle', got '{seg1.get('origin_city')}'"
-    assert seg1["dest_city"] == "Paris", f"Expected dest_city='Paris', got '{seg1.get('dest_city')}'"
+    assert seg1["origin_city"] == "SEA", f"Expected origin_city='SEA' (canonical), got '{seg1.get('origin_city')}'"
+    assert seg1["dest_city"] == "PAR", f"Expected dest_city='PAR' (canonical), got '{seg1.get('dest_city')}'"
     assert "CDG" in seg1["allowed_destination_airports"], "Paris leg should allow CDG"
     assert "ORY" in seg1["allowed_destination_airports"], "Paris leg should allow ORY"
     

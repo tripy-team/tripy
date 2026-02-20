@@ -52,54 +52,16 @@ from .group_models import (
 # MULTI-AIRPORT CITY SUPPORT
 # =============================================================================
 
-# Known metro areas with multiple airports
-# Used to expand searches to all airports in a city.
-# IMPORTANT: Only city names/aliases are keys here (NOT individual airport codes).
-# This ensures that selecting a specific airport (e.g. "LGA") returns only that
-# airport, while selecting a city (e.g. "New York") expands to all metro airports.
-METRO_AIRPORTS = {
-    # US Cities
-    "seattle": ["SEA"],
-    "new york": ["JFK", "EWR", "LGA"],
-    "nyc": ["JFK", "EWR", "LGA"],
-    "los angeles": ["LAX", "BUR", "SNA", "ONT"],
-    "la": ["LAX", "BUR", "SNA", "ONT"],
-    "san francisco": ["SFO", "OAK", "SJC"],
-    "sf": ["SFO", "OAK", "SJC"],
-    "chicago": ["ORD", "MDW"],
-    "washington": ["IAD", "DCA", "BWI"],
-    "washington dc": ["IAD", "DCA", "BWI"],
-    "dc": ["IAD", "DCA", "BWI"],
-    "miami": ["MIA", "FLL"],
-    "dallas": ["DFW", "DAL"],
-    "houston": ["IAH", "HOU"],
-    "boston": ["BOS"],
-    # European Cities
-    "london": ["LHR", "LGW", "STN", "LTN"],
-    "paris": ["CDG", "ORY"],
-    "milan": ["MXP", "LIN", "BGY"],
-    "rome": ["FCO", "CIA"],
-    "frankfurt": ["FRA", "HHN"],
-    "amsterdam": ["AMS"],
-    # Asian Cities
-    "tokyo": ["NRT", "HND"],
-    "seoul": ["ICN", "GMP"],
-    "shanghai": ["PVG", "SHA"],
-    "beijing": ["PEK", "PKX"],
-    "hong kong": ["HKG"],
-    "singapore": ["SIN"],
-    # Middle East
-    "dubai": ["DXB", "DWC"],
-}
+# Metro airport data — single source of truth in config/metro_airports.py
+from ..config.metro_airports import (
+    METRO_AIRPORTS,
+    AIRPORT_TO_METRO as _AIRPORT_TO_METRO,
+    AIRPORT_TO_METRO_KEY,
+    expand_to_metro as _expand_to_metro_shared,
+    normalize_to_metro_key,
+)
 
-# Reverse lookup: airport code -> all airports in the same metro area.
-# Built from METRO_AIRPORTS for internal use (e.g. inter-airport transfer detection).
-# This is NOT used for expanding user input — only for checking metro membership.
-_AIRPORT_TO_METRO: dict[str, list[str]] = {}
-for _city_key, _airport_list in METRO_AIRPORTS.items():
-    for _code in _airport_list:
-        if _code not in _AIRPORT_TO_METRO:
-            _AIRPORT_TO_METRO[_code] = _airport_list
+import hashlib
 
 # Ground transfer costs between airports in the same metro area (in USD)
 # Format: (airport1, airport2) -> (cost_usd, time_minutes)
@@ -130,21 +92,84 @@ INTER_AIRPORT_TRANSFERS = {
 DEFAULT_INTER_AIRPORT_TRANSFER = (40, 90)  # $40, 90 minutes
 
 
-def _get_all_airports_for_location(location: str) -> list[str]:
+def _expand_to_metro(codes: list[str]) -> list[str]:
+    """
+    Expand airport codes to include all airports in their metro area.
+    
+    For destinations, a user selecting "HND" almost certainly wants to reach
+    Tokyo — not specifically Haneda.  By expanding to the full metro group
+    (NRT + HND), we can surface better award options through either airport.
+    
+    The user's selected airport stays first (preferred for tie-breaking).
+    """
+    expanded = list(codes)
+    for code in codes:
+        metro = _AIRPORT_TO_METRO.get(code)
+        if metro:
+            for peer in metro:
+                if peer not in expanded:
+                    expanded.append(peer)
+    return expanded
+
+
+def _normalize_dest_key(location: str) -> str:
+    """
+    Return a stable canonical key for dest_to_airports lookup.
+    Delegates to normalize_to_metro_key(); falls back to uppercased string.
+    """
+    key = normalize_to_metro_key(location)
+    if key is not None:
+        return key
+    return location.strip().upper()[:10]
+
+
+def _detect_preferred_airport(location: str) -> str | None:
+    """
+    If the user typed a specific airport code (not a city name), return it.
+    Returns None for city names or parenthesized multi-airport strings.
+    """
+    stripped = location.strip()
+    if len(stripped) == 3 and stripped.isalpha() and stripped.upper() in AIRPORT_TO_METRO_KEY:
+        return stripped.upper()
+    return None
+
+
+def _make_search_uid(origin_key: str, dest_key: str, date: str) -> str:
+    """Deterministic search ID from city-pair + date. Dedup-able."""
+    raw = f"{origin_key}|{dest_key}|{date}"
+    return f"search_{hashlib.sha256(raw.encode()).hexdigest()[:12]}"
+
+
+def _make_segment_uid(origin_key: str, dest_key: str, date: str, leg_index: int) -> str:
+    """Unique segment identity per leg instance."""
+    raw = f"{origin_key}|{dest_key}|{date}|{leg_index}"
+    return f"seg_{hashlib.sha256(raw.encode()).hexdigest()[:12]}"
+
+
+def _get_all_airports_for_location(location: str, expand_metro: bool = False) -> list[str]:
     """
     Get all airports for a location (city name or airport code).
     
-    City names expand to all metro airports; specific airport codes return only
-    that airport (unidirectional expansion).
+    City names always expand to all metro airports.  Individual airport codes
+    only expand when *expand_metro=True* (intended for destinations where the
+    user cares about the city, not the specific runway).
     
-    Examples:
-        "Paris" -> ["CDG", "ORY"]          (city -> all metro airports)
-        "CDG" -> ["CDG"]                   (specific airport -> only that airport)
-        "New York" -> ["JFK", "EWR", "LGA"]
-        "LGA" -> ["LGA"]                   (specific airport -> only that airport)
-        "Paris (CDG,ORY,BVA)" -> ["CDG", "ORY", "BVA"]
+    Args:
+        location: City name, IATA code, or "City (CODE1,CODE2)" format.
+        expand_metro: If True, a single IATA code like "HND" expands to the
+                      full metro group ["HND", "NRT"].  Default False keeps
+                      the legacy behavior for origins.
+    
+    Examples (expand_metro=False — origins):
         "SEA" -> ["SEA"]
-        "SEA,BFI,PDX" -> ["SEA", "BFI", "PDX"]  # Comma-separated multi-airport
+        "HND" -> ["HND"]
+        "Paris" -> ["CDG", "ORY"]
+    
+    Examples (expand_metro=True — destinations):
+        "HND" -> ["HND", "NRT"]
+        "CDG" -> ["CDG", "ORY"]
+        "LGA" -> ["LGA", "JFK", "EWR"]
+        "Tokyo (HND)" -> ["HND", "NRT"]
     
     Returns list of airport codes.
     """
@@ -156,26 +181,27 @@ def _get_all_airports_for_location(location: str) -> list[str]:
     location = location.strip()
     
     # Check if it's a comma-separated list of IATA codes (e.g., "SEA,BFI,PDX")
-    # This format is used when the user selects multiple airports from the frontend
     if "," in location and "(" not in location:
         parts = [p.strip().upper() for p in location.split(",")]
-        # All parts must be valid 3-letter IATA codes
         if all(re.match(r'^[A-Z]{3}$', p) for p in parts):
-            return parts
+            return _expand_to_metro(parts) if expand_metro else parts
     
     # Check if it's in format "City (CODE1,CODE2,CODE3)"
     if "(" in location and ")" in location:
         codes_part = location.split("(")[1].split(")")[0]
         codes = [c.strip().upper() for c in codes_part.split(",") if c.strip()]
-        # Return explicitly listed codes
-        return codes if codes else []
+        if not codes:
+            return []
+        return _expand_to_metro(codes) if expand_metro else codes
     
-    # If it's a 3-letter airport code, return ONLY that airport (no metro expansion).
-    # This ensures "LGA" -> ["LGA"], not ["JFK", "EWR", "LGA"].
+    # If it's a 3-letter airport code
     if len(location) == 3 and location.isalpha():
-        return [location.upper()]
+        code = location.upper()
+        if expand_metro:
+            return _expand_to_metro([code])
+        return [code]
     
-    # Check METRO_AIRPORTS mapping (city names only — no airport code keys)
+    # Check METRO_AIRPORTS mapping (city names always expand)
     location_lower = location.lower()
     if location_lower in METRO_AIRPORTS:
         return METRO_AIRPORTS[location_lower]
@@ -186,7 +212,8 @@ def _get_all_airports_for_location(location: str) -> list[str]:
             return airports
     
     # Fallback: treat as single airport code
-    return [location.upper()[:3]] if location else []
+    fallback = [location.upper()[:3]] if location else []
+    return _expand_to_metro(fallback) if expand_metro else fallback
 
 
 def _get_primary_airport(location: str) -> str:
@@ -233,11 +260,21 @@ class OrchestratorAgent(BaseAgent):
     Main orchestrator that coordinates all agents and optimization.
     """
     
+    # Map TRANSFER_GRAPH display names → scraper bank codes for bonus lookups
+    _BANK_DISPLAY_TO_CODE = {
+        "chase ur": "chase",
+        "amex mr": "amex",
+        "citi typ": "citi",
+        "capital one": "capitalone",
+        "bilt": "bilt",
+    }
+    
     def __init__(self, config: AgentConfig = None):
         super().__init__(config)
         self.flight_agent = FlightAgent()
         self.cost_agent = CostBreakdownAgent()
         self.group_allocator = GroupBookingAllocator()
+        self._transfer_bonus_cache: dict[tuple[str, str], float] | None = None
     
     @property
     def name(self) -> str:
@@ -1148,9 +1185,9 @@ class OrchestratorAgent(BaseAgent):
                     # Build destinations list with proper structure
                     destinations = []
                     
-                    # Add origin as start point with all airports
+                    # Add origin as start point (no metro expansion — respect user's departure airport)
                     if origin:
-                        origin_airports = _get_all_airports_for_location(origin)
+                        origin_airports = _get_all_airports_for_location(origin, expand_metro=False)
                         destinations.append({
                             "name": origin,
                             "isStart": True,
@@ -1159,23 +1196,23 @@ class OrchestratorAgent(BaseAgent):
                         })
                         logger.info(f"[Orchestrator] Origin '{origin}' -> airports: {origin_airports}")
                     
-                    # Add intermediate destinations with ALL airport options
+                    # Add intermediate destinations with metro expansion so we
+                    # search ALL airports in a metro area (e.g. HND → [HND, NRT])
                     for dest in raw_destinations:
-                        # Extract ALL airport codes from format like "Paris (CDG,ORY,BVA)"
-                        all_airports = _get_all_airports_for_location(dest)
+                        all_airports = _get_all_airports_for_location(dest, expand_metro=True)
                         primary_airport = all_airports[0] if all_airports else dest
                         
                         destinations.append({
                             "name": primary_airport,
                             "mustInclude": True,
-                            "all_airports": all_airports,  # Store ALL airports for multi-airport search
+                            "all_airports": all_airports,
                         })
                         
                         logger.info(f"[Orchestrator] Destination '{dest}' -> airports: {all_airports}")
                     
                     # Add final destination if different from origin
                     if final_destination and final_destination != origin:
-                        final_airports = _get_all_airports_for_location(final_destination)
+                        final_airports = _get_all_airports_for_location(final_destination, expand_metro=True)
                         destinations.append({
                             "name": final_destination,
                             "isEnd": True,
@@ -1280,10 +1317,20 @@ class OrchestratorAgent(BaseAgent):
         intermediate = []
         intermediate_airports = {}
         
+        dest_preferences = {}  # metro_key → preferred airport code (if user typed one)
+        name_to_canonical = {}  # original name → canonical key (for route variant translation)
+        
         for dest in destinations:
             name = dest.get("name", "")
             all_airports = dest.get("all_airports") or _get_all_airports_for_location(name)
-            dest_to_airports[name] = all_airports
+            
+            canonical = _normalize_dest_key(name)
+            dest_to_airports[canonical] = all_airports
+            name_to_canonical[name] = canonical
+            
+            preferred = _detect_preferred_airport(name)
+            if preferred:
+                dest_preferences[canonical] = preferred
             
             # Support both camelCase (from DB) and snake_case (from test data)
             is_start = dest.get("isStart") or dest.get("is_start")
@@ -1291,14 +1338,14 @@ class OrchestratorAgent(BaseAgent):
             must_include = dest.get("mustInclude") or dest.get("must_include")
             
             if is_start:
-                start = name
+                start = canonical
                 start_airports = all_airports
             if is_end:
-                end = name
+                end = canonical
                 end_airports = all_airports
             if must_include and not is_start and not is_end:
-                intermediate.append(name)
-                intermediate_airports[name] = all_airports
+                intermediate.append(canonical)
+                intermediate_airports[canonical] = all_airports
         
         # Default to first destination as both start and end if not specified
         if not start and destinations:
@@ -1382,26 +1429,39 @@ class OrchestratorAgent(BaseAgent):
                     for dest_apt in dest_airports
                 ]
                 
-                # Create ONE segment for this city-pair
-                # The optimizer will pick ONE flight from any valid airport combination
+                # Collapse detection: warn if a known multi-airport city resolves to single airport
+                if len(dest_airports) == 1 and _AIRPORT_TO_METRO.get(dest_airports[0]) and \
+                   len(_AIRPORT_TO_METRO[dest_airports[0]]) > 1:
+                    logger.error(
+                        f"[Orchestrator] MULTI-AIRPORT COLLAPSE: {dest_city} resolved to "
+                        f"single airport {dest_airports} but metro has "
+                        f"{_AIRPORT_TO_METRO[dest_airports[0]]}. Check normalization."
+                    )
+                
                 segment = {
                     "type": "flight",
-                    # Use first airport as "primary" for API compatibility
+                    "search_uid": _make_search_uid(origin_city, dest_city, flight_date),
+                    "segment_uid": _make_segment_uid(origin_city, dest_city, flight_date, leg_index=i),
                     "origin": origin_airports[0],
                     "destination": dest_airports[0],
                     "date": flight_date,
                     "route_variant": perm_idx,
                     "leg_index": i,
-                    # City info for display and grouping
                     "origin_city": origin_city,
                     "dest_city": dest_city,
-                    # CRITICAL: All valid airports are alternatives (OR), not requirements (AND)
                     "allowed_origin_airports": origin_airports,
                     "allowed_destination_airports": dest_airports,
-                    # All airport pairs we need to search for flight data
                     "airport_search_pairs": airport_search_pairs,
+                    "preferred_origin_airport": dest_preferences.get(origin_city),
+                    "preferred_destination_airport": dest_preferences.get(dest_city),
                 }
                 all_segments.append(segment)
+                
+                # Invariant log at segment build stage
+                logger.info(
+                    f"[INVARIANT] seg={segment['search_uid']} stage=segment_build "
+                    f"allowed_dest={dest_airports} allowed_count={len(dest_airports)}"
+                )
                 
                 current_date += timedelta(days=days_per_city)
         
@@ -1409,6 +1469,7 @@ class OrchestratorAgent(BaseAgent):
         trip_data["route_variants"] = route_variants
         trip_data["num_route_variants"] = len(permutations)
         trip_data["dest_to_airports"] = dest_to_airports
+        trip_data["dest_preferences"] = dest_preferences
         
         # Deduplicate segments by city-pair (not airport-pair)
         unique_segments = self._deduplicate_city_pair_segments(all_segments)
@@ -1635,14 +1696,15 @@ class OrchestratorAgent(BaseAgent):
         """
         Build flight segments for a specific route ordering.
         
-        Args:
-            route: List of airport codes in order [start, city1, city2, ..., end]
-            trip_data: Trip data with dates
-        
-        Returns:
-            List of segment dicts for this specific route
+        Now includes full multi-airport data (allowed_*_airports, airport_search_pairs,
+        search_uid, segment_uid) so variant segments can correctly look up shared
+        search results and pass airport constraints to the optimizer.
         """
         from datetime import datetime, timedelta
+        
+        dest_to_airports = trip_data.get("dest_to_airports", {})
+        dest_preferences = trip_data.get("dest_preferences", {})
+        num_variants = trip_data.get("num_route_variants", 1)
         
         start_date = trip_data.get("start_date") or "2026-03-01"
         end_date = trip_data.get("end_date") or "2026-03-08"
@@ -1656,19 +1718,42 @@ class OrchestratorAgent(BaseAgent):
             start_dt = datetime.now()
             end_dt = start_dt + timedelta(days=7)
         
+        # Route node assertion: every node must exist in dest_to_airports
+        for node in route:
+            if node not in dest_to_airports:
+                if num_variants > 1:
+                    raise ValueError(
+                        f"Route node '{node}' not in dest_to_airports. "
+                        f"Keys: {list(dest_to_airports.keys())}. "
+                        f"This would assign wrong city-pair flights to legs."
+                    )
+                else:
+                    logger.error(
+                        f"[Orchestrator] Route node '{node}' not in dest_to_airports. "
+                        f"Falling back to [{node}]. Multi-airport support degraded."
+                    )
+        
         total_days = (end_dt - start_dt).days
         days_per_city = max(1, total_days // max(len(route) - 1, 1))
         current_date = start_dt
         
         segments = []
-        start_airport = route[0] if route else None
+        start_node = route[0] if route else None
         
         for i in range(len(route) - 1):
             origin = route[i]
             destination = route[i + 1]
-            is_return_leg = (i == len(route) - 2 and destination == start_airport)
+            is_return_leg = (i == len(route) - 2 and destination == start_node)
             
-            # Use explicit leg_dates if available (multi-city trips)
+            origin_airports = dest_to_airports.get(origin, [origin])
+            dest_airports = dest_to_airports.get(destination, [destination])
+            
+            airport_search_pairs = [
+                (orig_apt, dest_apt)
+                for orig_apt in origin_airports
+                for dest_apt in dest_airports
+            ]
+            
             if leg_dates and i < len(leg_dates) and leg_dates[i]:
                 flight_date = leg_dates[i]
             elif is_return_leg:
@@ -1678,10 +1763,25 @@ class OrchestratorAgent(BaseAgent):
             
             segments.append({
                 "type": "flight",
-                "origin": origin,
-                "destination": destination,
+                "search_uid": _make_search_uid(origin, destination, flight_date),
+                "segment_uid": _make_segment_uid(origin, destination, flight_date, leg_index=i),
+                "origin": origin_airports[0],
+                "destination": dest_airports[0],
                 "date": flight_date,
+                "origin_city": origin,
+                "dest_city": destination,
+                "allowed_origin_airports": origin_airports,
+                "allowed_destination_airports": dest_airports,
+                "airport_search_pairs": airport_search_pairs,
+                "preferred_origin_airport": dest_preferences.get(origin),
+                "preferred_destination_airport": dest_preferences.get(destination),
             })
+            
+            # Invariant log at segment build stage
+            logger.info(
+                f"[INVARIANT] seg={segments[-1]['search_uid']} stage=segment_build "
+                f"allowed_dest={dest_airports} allowed_count={len(dest_airports)}"
+            )
             
             current_date += timedelta(days=days_per_city)
         
@@ -1775,14 +1875,13 @@ class OrchestratorAgent(BaseAgent):
             if segment["type"] != "flight":
                 continue
             
-            key = f"flight_{i}"
+            key = segment.get("search_uid", f"flight_{i}")
             options = segment_options.get(i, [])
             
             # Deduplicate options by a reasonable key (airline + departure time + price)
             seen_keys = set()
             unique_options = []
             for opt in options:
-                # Create dedup key
                 dedup_key = (
                     getattr(opt, 'airline', ''),
                     getattr(opt, 'departure_time', ''),
@@ -1793,10 +1892,8 @@ class OrchestratorAgent(BaseAgent):
                     seen_keys.add(dedup_key)
                     unique_options.append(opt)
             
-            # Sort options by cash price (cheapest first) so greedy picks the best deal
             unique_options.sort(key=lambda o: o.cash_price if o.cash_price else float('inf'))
             
-            # Create a mock result object with consolidated options
             from .models import FlightSearchResult
             search_results[key] = FlightSearchResult(
                 options=unique_options,
@@ -1810,7 +1907,18 @@ class OrchestratorAgent(BaseAgent):
             origin_apts = segment.get("allowed_origin_airports", [segment["origin"]])
             dest_apts = segment.get("allowed_destination_airports", [segment["destination"]])
             
-            # DIAGNOSTIC: Count award vs cash options to detect AwardTool failures
+            # Invariant log: intent vs reality at search stage
+            actual_dests = sorted(set(
+                getattr(o, '_searched_destination', '')
+                for o in unique_options
+                if getattr(o, '_searched_destination', '')
+            )) or dest_apts[:1]
+            logger.info(
+                f"[INVARIANT] seg={key} stage=search "
+                f"allowed_dest={dest_apts} actual_dest={actual_dests} "
+                f"flight_count={len(unique_options)}"
+            )
+            
             award_count = sum(1 for o in unique_options if getattr(o, 'award_available', False))
             sources = {}
             for o in unique_options:
@@ -2031,13 +2139,12 @@ class OrchestratorAgent(BaseAgent):
         
         for i, segment in enumerate(segments):
             if segment["type"] == "flight":
-                key = f"flight_{i}"
+                key = segment.get("search_uid", f"flight_{i}")
                 result = search_results.get(key)
                 
                 if not result or not result.options:
                     continue
                 
-                # Pick best option - when budget is tight, prefer points over cash
                 best = self._pick_best_flight_option(
                     result.options, 
                     remaining_points,
@@ -2469,13 +2576,13 @@ class OrchestratorAgent(BaseAgent):
     def _estimate_best_cash_price(self, search_results: dict, segments: list) -> float:
         """
         Estimate best cash price from search results for budget tier calculation.
-        Sum of cheapest cash flight per segment.
+        Sum of cheapest cash flight per segment across all airport variants.
         """
         total = 0.0
         for i, seg in enumerate(segments):
             if seg.get("type") != "flight":
                 continue
-            key = f"flight_{i}"
+            key = seg.get("search_uid", f"flight_{i}")
             result = search_results.get(key)
             if not result or not getattr(result, 'options', None):
                 continue
@@ -2517,7 +2624,7 @@ class OrchestratorAgent(BaseAgent):
         for i, segment in enumerate(segments):
             if segment.get("type") != "flight":
                 continue
-            key = f"flight_{i}"
+            key = segment.get("search_uid", f"flight_{i}")
             result = search_results.get(key)
             if not result or not result.options:
                 continue
@@ -2629,6 +2736,38 @@ class OrchestratorAgent(BaseAgent):
 
         return reasons
 
+    def _get_transfer_bonuses(self) -> dict[tuple[str, str], float]:
+        """
+        Cached lookup of active transfer bonuses from the NerdWallet scraper.
+        Returns {(bank_code, airline_code): multiplier}, e.g. {("capitalone", "TK"): 1.30}.
+        """
+        if self._transfer_bonus_cache is not None:
+            return self._transfer_bonus_cache
+        try:
+            from ..services.transfer_bonus_scraper import get_ilp_transfer_bonuses
+            self._transfer_bonus_cache = get_ilp_transfer_bonuses()
+            if self._transfer_bonus_cache:
+                logger.info(
+                    "[Greedy] Loaded %d active transfer bonuses: %s",
+                    len(self._transfer_bonus_cache),
+                    ", ".join(f"{b}->{p} x{m:.2f}" for (b, p), m in self._transfer_bonus_cache.items()),
+                )
+        except Exception as e:
+            logger.warning("[Greedy] Could not load transfer bonuses: %s", e)
+            self._transfer_bonus_cache = {}
+        return self._transfer_bonus_cache
+    
+    def _bonus_multiplier(self, bank_display_name: str, airline_code: str) -> float:
+        """
+        Get the transfer bonus multiplier for a bank→airline pair.
+        Returns 1.0 if no active bonus.
+        """
+        bonuses = self._get_transfer_bonuses()
+        if not bonuses:
+            return 1.0
+        bank_code = self._BANK_DISPLAY_TO_CODE.get(bank_display_name.lower(), bank_display_name.lower())
+        return bonuses.get((bank_code, airline_code.upper()), 1.0)
+    
     def _can_afford_points(self, program: str, points_needed: int, remaining_points: dict) -> bool:
         """
         Check if user can afford points (direct or via transfer).
@@ -2643,6 +2782,9 @@ class OrchestratorAgent(BaseAgent):
         
         Also handles compound program names from AwardTool like "IB & QR", "LO & TK"
         by checking each component airline individually.
+        
+        Accounts for active transfer bonuses — e.g. a 30% Capital One→Turkish
+        bonus means 1 C1 mile delivers 1.3 TK miles, stretching the user's balance.
         """
         # Normalize program name for comparison
         program_upper = program.upper() if program else ""
@@ -2689,6 +2831,8 @@ class OrchestratorAgent(BaseAgent):
             
             if matched_code:
                 ratio = config["ratios"].get(matched_code, config["ratios"].get(program, config["ratios"].get(program_upper, 1.0)))
+                bonus = self._bonus_multiplier(bank_name, matched_code)
+                effective_ratio = ratio * bonus
                 
                 # Check if user has this bank - normalize the comparison
                 bank_normalized = bank_name.lower().replace(" ", "_")
@@ -2701,9 +2845,15 @@ class OrchestratorAgent(BaseAgent):
                     if (bank_normalized == raw_prog_normalized or 
                         bank_normalized.replace("_", "") == raw_prog_normalized.replace("_", "") or
                         bank_normalized.split("_")[0] == raw_prog_normalized.split("_")[0]):  # e.g., "amex" matches "amex_mr"
-                        # Convert bank points to target program points at transfer ratio
-                        available_in_target = int(balance * ratio)
+                        # Convert bank points to target program points at transfer ratio (+ bonus)
+                        available_in_target = int(balance * effective_ratio)
                         total_available += available_in_target
+                        if bonus > 1.0:
+                            logger.info(
+                                f"[Greedy] Transfer bonus active: {bank_name}->{matched_code} "
+                                f"x{bonus:.2f} (effective ratio {effective_ratio:.2f}), "
+                                f"{balance:,} bank pts = {available_in_target:,} target pts"
+                            )
         
         if total_available >= points_needed:
             logger.info(
@@ -2767,21 +2917,33 @@ class OrchestratorAgent(BaseAgent):
                     # Need transfer
                     path = get_transfer_path(raw_source, option.award_program)
                     if path:
+                        bonus = self._bonus_multiplier(raw_source, option.award_program)
+                        effective_ratio = path["ratio"] * bonus
+                        bonus_step = (
+                            f"🎁 Active {int((bonus - 1) * 100)}% transfer bonus! "
+                            f"Your {actual_points:,} points become "
+                            f"{int(actual_points * effective_ratio):,} {option.award_program} miles"
+                        ) if bonus > 1.0 else None
+                        
+                        steps = [
+                            f"Log in to {raw_source} portal",
+                            f"Navigate to transfer partners",
+                            f"Select {option.award_program}",
+                            f"Transfer {actual_points:,} points",
+                        ]
+                        if bonus_step:
+                            steps.insert(0, bonus_step)
+                        
                         transfers.append(TransferInstruction(
                             from_program=raw_source,
                             to_program=option.award_program,
                             points_to_transfer=actual_points,
-                            ratio=path["ratio"],
+                            ratio=effective_ratio,
                             portal_url=path["portal_url"],
                             transfer_time=path["transfer_time"],
-                            steps=[
-                                f"Log in to {raw_source} portal",
-                                f"Navigate to transfer partners",
-                                f"Select {option.award_program}",
-                                f"Transfer {actual_points:,} points",
-                            ],
+                            steps=steps,
                             payer_id=payer_id,
-                            payer_name=payer_id,  # Use payer_id as display name
+                            payer_name=payer_id,
                         ))
             
             # For backward compatibility, primary transfer is the first one (if any)
@@ -2853,14 +3015,16 @@ class OrchestratorAgent(BaseAgent):
                     remaining_points[user_prog] -= points_needed
                     return [(user_prog, points_needed)]
         
-        # Try transfer partners (airlines only)
+        # Try transfer partners (airlines only), accounting for active bonuses
         from .config import TRANSFER_GRAPH
         
         # First pass: try single-bank transfer (cheapest path)
         for bank_name, config in TRANSFER_GRAPH.items():
             if program_upper in [a.upper() for a in config.get("airlines", [])]:
                 ratio = config["ratios"].get(program, config["ratios"].get(program_upper, 1.0))
-                needed_from_bank = int(points_needed / ratio)
+                bonus = self._bonus_multiplier(bank_name, program_upper)
+                effective_ratio = ratio * bonus
+                needed_from_bank = int(points_needed / effective_ratio)
                 
                 # Find matching user balance
                 bank_normalized = bank_name.lower().replace(" ", "_")
@@ -2873,9 +3037,11 @@ class OrchestratorAgent(BaseAgent):
                         bank_normalized.split("_")[0] == raw_prog_normalized.split("_")[0]):
                         if balance >= needed_from_bank:
                             remaining_points[user_prog] -= needed_from_bank
+                            bonus_note = f" (bonus x{bonus:.2f})" if bonus > 1.0 else ""
                             logger.info(
                                 f"[Greedy] Deducted {needed_from_bank:,} from {user_prog} for {program} "
-                                f"(remaining: {remaining_points[user_prog]:,})"
+                                f"(effective ratio {effective_ratio:.2f}{bonus_note}, "
+                                f"remaining: {remaining_points[user_prog]:,})"
                             )
                             return [(user_prog, needed_from_bank)]
         
@@ -2887,6 +3053,8 @@ class OrchestratorAgent(BaseAgent):
         for bank_name, config in TRANSFER_GRAPH.items():
             if program_upper in [a.upper() for a in config.get("airlines", [])]:
                 ratio = config["ratios"].get(program, config["ratios"].get(program_upper, 1.0))
+                bonus = self._bonus_multiplier(bank_name, program_upper)
+                effective_ratio = ratio * bonus
                 bank_normalized = bank_name.lower().replace(" ", "_")
                 
                 for user_prog, balance in remaining_points.items():
@@ -2898,9 +3066,9 @@ class OrchestratorAgent(BaseAgent):
                     if (bank_normalized == raw_prog_normalized or 
                         bank_normalized.replace("_", "") == raw_prog_normalized.replace("_", "") or
                         bank_normalized.split("_")[0] == raw_prog_normalized.split("_")[0]):
-                        # Points this source contributes in target-program terms
-                        available_in_target = int(balance * ratio)
-                        candidate_sources.append((user_prog, balance, ratio, available_in_target))
+                        # Points this source contributes in target-program terms (with bonus)
+                        available_in_target = int(balance * effective_ratio)
+                        candidate_sources.append((user_prog, balance, effective_ratio, available_in_target))
         
         # Also check direct balances
         for user_prog, balance in remaining_points.items():

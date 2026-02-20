@@ -480,11 +480,18 @@ def upsert_points(
 # Optimization Caching
 # ============================================================================
 
+# Bump this version whenever the optimization logic changes materially
+# (e.g. metro airport expansion, transfer bonus integration) so that
+# stale cached results are automatically bypassed.
+OPTIMIZATION_LOGIC_VERSION = "v3"
+
+
 def compute_cache_key(trip_id: str, trip_prefs: dict, points: dict, mode: str) -> str:
     """
     Compute deterministic cache key for optimization results.
     """
     key_data = {
+        "v": OPTIMIZATION_LOGIC_VERSION,
         "trip_id": trip_id,
         "origin": trip_prefs.get("origin"),
         "destinations": trip_prefs.get("destinations", []),

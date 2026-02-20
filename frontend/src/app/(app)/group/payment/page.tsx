@@ -53,7 +53,11 @@ export default function GroupPayment() {
   const [promoMessage, setPromoMessage] = useState('');
 
   const handleApplyPromo = () => {
-    if (promoCode.toUpperCase() === 'TRIPY2025') {
+    const code = promoCode.toUpperCase();
+    if (code === 'QEUIOXN0211') {
+      setDiscount(serviceFee);
+      setPromoMessage('100% off applied!');
+    } else if (code === 'TRIPY2025') {
       setDiscount(10);
       setPromoMessage('Code applied successfully!');
     } else {

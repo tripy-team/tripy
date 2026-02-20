@@ -288,6 +288,17 @@ def process_candidates_pipeline(
         
         processed_by_leg[leg_id] = policy_allowed
         
+        # Invariant log: intent vs reality after pruning
+        actual_dests_post_prune = sorted(set(
+            c.get("destination", "") for c in policy_allowed if c.get("destination")
+        ))
+        allowed_dest_list = list(allowed_dests) if allowed_dests else []
+        logger.info(
+            f"[INVARIANT] leg={leg_id} stage=post_prune "
+            f"allowed_dest={allowed_dest_list} actual_dest={actual_dests_post_prune} "
+            f"candidate_count={len(policy_allowed)}"
+        )
+        
         logger.info(
             f"Pipeline completed for {scope_id}: "
             f"{len(raw_candidates)} raw -> "
