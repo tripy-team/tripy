@@ -337,7 +337,7 @@ function SoloBookingContent() {
         // Try to get selection from new solo API first
         let usedSoloApi = false;
         try {
-          let [selectionRes, tripData] = await Promise.all([
+          const [selectionRes, tripData] = await Promise.all([
             solo.getSelection(tripId).catch((e: Error) => { if (e.message?.includes('Not authorized')) throw e; return null; }),
             solo.getTrip(tripId).catch((e: Error) => { if (e.message?.includes('Not authorized')) throw e; return null; }),
           ]).catch(async () => {
