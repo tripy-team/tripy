@@ -29,6 +29,7 @@ class DecimalEncoder(json.JSONEncoder):
 
 from src.config import TRIPS_TABLE, POINTS_TABLE
 from src.repos.ddb import table, get_item, put_item, sanitize_for_dynamodb
+from src.repos import trip_member_repo
 from src.mappers.trip_mapper import storage_to_api, selection_to_api
 from src.schemas.trip import (
     CreateTripRequest,
@@ -127,13 +128,29 @@ def create_solo_trip(user_id: str, request: CreateTripRequest) -> Dict[str, Any]
         "arrivalHourRange": request.arrival_hour_range or [],
     }
     
+    is_anonymous = user_id.startswith(ANON_PREFIX)
+    
     # Set TTL for anonymous users (DynamoDB TTL auto-deletes after expiry)
-    if user_id.startswith(ANON_PREFIX):
+    if is_anonymous:
         ttl_epoch = int((datetime.now(timezone.utc) + timedelta(days=ANON_DATA_TTL_DAYS)).timestamp())
         item["ttl"] = ttl_epoch
         item["isAnonymous"] = True
     
     put_item(t, item)
+    
+    # Create owner membership so the trip appears in GET /trips (dashboard)
+    if not is_anonymous:
+        member = {
+            "tripId": trip_id,
+            "userId": user_id,
+            "role": "owner",
+            "status": "complete",
+            "tripType": "solo",
+        }
+        try:
+            trip_member_repo.add_member(member)
+        except Exception as e:
+            logger.warning(f"Failed to create membership for solo trip {trip_id}: {e}")
     
     return item
 

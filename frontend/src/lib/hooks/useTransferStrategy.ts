@@ -6,7 +6,11 @@
 
 import { useState, useCallback } from 'react';
 
-const API_BASE = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:8000';
+// Keep NEXT_PUBLIC_API_URL as a legacy fallback, but standardize on NEXT_PUBLIC_BACKEND_URL.
+const API_BASE =
+  process.env.NEXT_PUBLIC_BACKEND_URL ||
+  process.env.NEXT_PUBLIC_API_URL ||
+  'http://localhost:8000';
 
 // Types
 export interface PointsOption {
