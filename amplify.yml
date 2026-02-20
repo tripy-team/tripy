@@ -3,7 +3,7 @@ applications:
   - appRoot: frontend
     frontend:
       env:
-        NEXT_PUBLIC_BACKEND_URL: https://xezfenhu6t.us-east-1.awsapprunner.com
+        NEXT_PUBLIC_BACKEND_URL: https://tx3hjtmhrm.us-east-1.awsapprunner.com
         NEXT_PUBLIC_STRIPE_PUBLISHABLE_KEY: pk_live_51Ry29NLCwmHfiBloGeoO9I3WVNV6vRZWyd7sDhKwllD8jOIxgUjx8OVUTR0WrVHHRxOYh0DRthb9zVUbiR6ZrtJ900UpjHe6R3
       phases:
         preBuild:
