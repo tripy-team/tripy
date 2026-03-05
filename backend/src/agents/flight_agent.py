@@ -221,45 +221,38 @@ Return JSON with: {"programs": ["UA", "AA", ...], "reasoning": "..."}"""
             return ["UA", "AA", "DL", "AF", "VS"]
         
         # ── Bank-fair selection ──────────────────────────────────────────
-        # Ensure each bank gets at least some representation.
-        # Target: ~5 programs per bank, up to a total of 12 programs.
+        # STRICT: Only search programs that are actual transfer partners of the
+        # user's banks (from programs.yml). Never search non-partner programs.
         MAX_PROGRAMS = 12
         PROGRAMS_PER_BANK = 5
         
-        # Priority lists for each bank (best/unique partners first)
-        # NOTE: Aeroplan (AC) is one of the best Star Alliance programs — great
-        # for NA↔EU routes with low surcharges. Keep it in top 3-4 per bank.
-        BANK_PRIORITIES: dict[str, list[str]] = {
-            "Chase UR":     ["UA", "AC", "BA", "VS", "AF", "IB", "SQ", "AS", "EK", "AV"],
-            "Amex MR":      ["DL", "AC", "NH", "VS", "AV", "CX", "BA", "AF", "SQ", "B6", "AS", "IB", "EK", "EY", "JL", "QF"],
-            "Citi TYP":     ["AA", "AC", "TK", "SQ", "CX", "QR", "VS", "AF", "EK", "AV", "B6", "QF", "JL"],
-            "Capital One":  ["AC", "AF", "TK", "AV", "SQ", "BA", "EK", "EY", "QF"],
-            "Bilt":         ["UA", "AA", "AC", "VS", "AF", "TK", "BA", "EK", "AS", "EI"],
-        }
+        # High-value programs to prioritize when a bank has many partners.
+        # Only programs that appear in the bank's actual partner list are used.
+        HIGH_VALUE_PROGRAMS = ["AC", "UA", "AA", "DL", "NH", "VS", "AF", "AV", "BA", "SQ", "CX", "TK", "QR", "EK"]
         
         selected = list(direct_programs)  # Always include direct miles first
         
-        # Round-robin across banks: pick top-priority exclusive programs from each bank
+        # Round-robin across banks: pick from actual partners only
         num_banks = len(bank_programs)
         if num_banks > 0:
             per_bank_quota = max(PROGRAMS_PER_BANK, MAX_PROGRAMS // num_banks)
             
             for bank_name, airlines in bank_programs.items():
-                priority = BANK_PRIORITIES.get(bank_name, airlines)
+                actual_partners = set(airlines)
+                # Build a priority-ordered list from actual partners only
+                priority = [p for p in HIGH_VALUE_PROGRAMS if p in actual_partners]
+                # Append remaining partners not in priority list
+                for p in airlines:
+                    if p not in priority:
+                        priority.append(p)
+                
                 count = 0
                 for prog in priority:
-                    if prog in all_available and prog not in selected and count < per_bank_quota:
+                    if prog not in selected and count < per_bank_quota:
                         selected.append(prog)
                         count += 1
                     if count >= per_bank_quota:
                         break
-                
-                # Fill with remaining airlines if priority list didn't have enough
-                if count < per_bank_quota:
-                    for prog in airlines:
-                        if prog not in selected and count < per_bank_quota:
-                            selected.append(prog)
-                            count += 1
         
         # Cap at MAX_PROGRAMS
         selected = selected[:MAX_PROGRAMS]

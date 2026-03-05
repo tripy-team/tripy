@@ -58,11 +58,9 @@ from ..solo.snapshot_schema import normalize_snapshot, validate_snapshot
 logger = logging.getLogger(__name__)
 
 
-def _is_valid_transfer(bank: str, program: str) -> bool:
-    """Check if a bank can transfer to a specific airline program."""
+def _normalize_bank_for_validation(bank: str) -> str:
+    """Normalize a bank identifier for transfer validation lookups."""
     bank_lower = bank.lower().replace("_", "").replace(" ", "")
-    
-    # Normalize bank names
     bank_map = {
         "amexmr": "amex", "amexmembershiprewards": "amex", "membershiprewards": "amex",
         "chaseur": "chase", "chaseultimaterewards": "chase", "ultimaterewards": "chase",
@@ -70,10 +68,14 @@ def _is_valid_transfer(bank: str, program: str) -> bool:
         "capitalone": "capitalone", "capitaloneventurex": "capitalone",
         "bilt": "bilt", "biltrewards": "bilt",
     }
-    bank_normalized = bank_map.get(bank_lower, bank_lower)
-    
-    # Normalize program codes (optimization uses full names, transfer graph uses codes)
-    prog_lower = program.lower().replace("_", "").replace(" ", "") if program else ""
+    return bank_map.get(bank_lower, bank_lower)
+
+
+def _normalize_program_for_validation(program: str) -> str:
+    """Normalize a program identifier to IATA code for transfer graph lookups."""
+    if not program:
+        return ""
+    prog_lower = program.lower().replace("_", "").replace(" ", "")
     prog_map = {
         "marriott": "MAR", "marriottbonvoy": "MAR", "bonvoy": "MAR",
         "hilton": "HH", "hiltonhonors": "HH",
@@ -104,13 +106,34 @@ def _is_valid_transfer(bank: str, program: str) -> bool:
         "finnair": "AY", "finnairplus": "AY",
         "tap": "TAP", "tapmiles&go": "TAP",
     }
-    prog_normalized = prog_map.get(prog_lower, program.upper() if program else "")
+    return prog_map.get(prog_lower, program.upper())
+
+
+def _is_valid_transfer(bank: str, program: str) -> bool:
+    """Check if a bank can transfer to a specific airline program."""
+    bank_normalized = _normalize_bank_for_validation(bank)
+    prog_normalized = _normalize_program_for_validation(program)
     
-    # Check if this transfer is valid
     if bank_normalized not in EXTENDED_TRANSFER_GRAPH:
         return False
     
     return prog_normalized in EXTENDED_TRANSFER_GRAPH[bank_normalized]
+
+
+def _find_valid_source_bank(target_program: str, user_banks: list[str]) -> Optional[str]:
+    """Find a user bank that can transfer to the target program.
+    
+    Returns the first user bank that has the target program as a transfer partner,
+    or None if no valid path exists.
+    """
+    prog_normalized = _normalize_program_for_validation(target_program)
+    
+    for bank in user_banks:
+        bank_normalized = _normalize_bank_for_validation(bank)
+        partners = EXTENDED_TRANSFER_GRAPH.get(bank_normalized, {})
+        if prog_normalized in partners:
+            return bank
+    return None
 
 
 def _get_program_display_name(program: str) -> str:
@@ -126,6 +149,191 @@ def _get_bank_display_name(bank: str) -> str:
     normalized = bank_map.get(bank_lower, bank_lower)
     meta = BANK_METADATA.get(normalized, {})
     return meta.get("name", bank)
+
+
+def _extract_date_from_departure(departure_time: str) -> str:
+    """Extract YYYY-MM-DD date string from a departure time value.
+    Handles ISO 8601, RFC 2822, and common human-readable formats.
+    """
+    if not departure_time:
+        return ""
+    # Fast path: ISO-like strings starting with YYYY-MM-DD
+    if len(departure_time) >= 10 and departure_time[4] == "-" and departure_time[7] == "-":
+        return departure_time[:10]
+    try:
+        from dateutil.parser import parse as dateparse
+        parsed = dateparse(departure_time)
+        return parsed.strftime("%Y-%m-%d")
+    except Exception:
+        return ""
+
+
+_CABIN_MAP_UA = {"economy": "7", "premium economy": "3", "business": "2", "first": "1"}
+_CABIN_MAP_AA = {"economy": "", "premium economy": "PREMIUM_ECONOMY", "business": "BUSINESS", "first": "FIRST"}
+_CABIN_MAP_DL = {"economy": "MAIN", "premium economy": "PREM-ECONOMY", "business": "BUSINESS", "first": "FIRST"}
+_CABIN_MAP_BA = {"economy": "M", "premium economy": "W", "business": "J", "first": "F"}
+_CABIN_MAP_VS = {"economy": "economy", "premium economy": "premium", "business": "upper", "first": "upper"}
+_CABIN_MAP_AC = {"economy": "economy", "premium economy": "premiumeconomy", "business": "business", "first": "first"}
+
+
+def _build_booking_deep_link(
+    program_code: str,
+    origin: str,
+    destination: str,
+    departure_time: str,
+    cabin_class: str = "Economy",
+    is_award: bool = True,
+) -> str:
+    """Build an airline-specific deep link URL pre-filled with search parameters.
+
+    Returns a URL that takes the user directly to the airline's flight search
+    page with origin, destination, date, and cabin class already filled in.
+    Falls back to the airline's award booking page when a deep link format
+    is not available for the given program.
+    """
+    if not program_code:
+        return ""
+
+    code = program_code.upper().strip()
+    date_str = _extract_date_from_departure(departure_time)
+    cabin = (cabin_class or "economy").strip().lower()
+    o = origin or ""
+    d = destination or ""
+
+    if code == "UA":
+        sc = _CABIN_MAP_UA.get(cabin, "7")
+        params = (
+            f"f={o}&t={d}&d={date_str}&tt=1&ct=1&sc={sc}"
+            f"&px=1&taxng=1&newHP=True&clm={sc}"
+            f"&st=bestmatches&fareWheel=True"
+        )
+        if is_award:
+            params += "&tqp=A"
+        return f"https://www.united.com/en/us/fsr/choose-flights?{params}"
+
+    if code == "AA":
+        cab = _CABIN_MAP_AA.get(cabin, "")
+        params = (
+            f"locale=en_US&pax=1&type=1&searchType={'Award' if is_award else 'Revenue'}"
+            f"&adult=1&child=0&infant=0&youngAdult=0"
+            f"&from={o}&to={d}&date={date_str}&cabin={cab}"
+        )
+        return f"https://www.aa.com/booking/choose-flights/1?{params}"
+
+    if code == "DL":
+        cab = _CABIN_MAP_DL.get(cabin, "MAIN")
+        params = (
+            f"tripType=ONE_WAY&departureDate={date_str}"
+            f"&from={o}&to={d}&passengers=1"
+            f"&deltaOnlySearch=false&cabin={cab}"
+        )
+        if is_award:
+            params += "&awardTravel=true"
+        return f"https://www.delta.com/flight-search/book-a-flight?{params}"
+
+    if code == "AS":
+        params = (
+            f"origin={o}&destination={d}&departure={date_str}"
+            f"&adults=1&travelType={'award' if is_award else 'revenue'}"
+        )
+        return f"https://www.alaskaair.com/shopping/flights?{params}"
+
+    if code == "BA":
+        cab = _CABIN_MAP_BA.get(cabin, "M")
+        params = (
+            f"departureDate={date_str}&from={o}&to={d}"
+            f"&cabin={cab}&ADT=1&type={'redeem' if is_award else 'revenue'}"
+        )
+        return f"https://www.britishairways.com/travel/book/public/en_us?{params}"
+
+    if code in ("AF", "KL"):
+        domain = "airfrance.us" if code == "AF" else "klm.us"
+        params = (
+            f"pax=1:0:0:0:0:0:0:0&cabinClass=ECONOMY"
+            f"&activeConnection=0"
+            f"&connections={o}>{d}:{date_str.replace('-', '')}"
+        )
+        if is_award:
+            params += "&bookingFlow=REWARD"
+        return f"https://www.{domain}/search/offers?{params}"
+
+    if code == "VS":
+        cab = _CABIN_MAP_VS.get(cabin, "economy")
+        params = (
+            f"origin={o}&destination={d}&departureDate={date_str}"
+            f"&adultCount=1&childCount=0&infantCount=0&searchType=ONEWAY"
+            f"&cabinClass={cab}"
+        )
+        return f"https://www.virginatlantic.com/flight/search?{params}"
+
+    if code == "AC":
+        cab = _CABIN_MAP_AC.get(cabin, "economy")
+        params = (
+            f"org0={o}&dest0={d}&departureDt0={date_str}"
+            f"&ADT=1&tripType=O&marketCode=US&lang=en-CA"
+            f"&cabinClass={cab}"
+        )
+        if is_award:
+            params += "&awardBooking=true"
+        return f"https://www.aircanada.com/aeroplan/redeem/availability/outbound?{params}"
+
+    if code == "SQ":
+        params = (
+            f"originStationCode={o}&destinationStationCode={d}"
+            f"&departureDate={date_str}&tripType=O&numOfAdults=1"
+            f"&cabinClass=Y"
+        )
+        if is_award:
+            params += "&redemptionBooking=true"
+        return f"https://www.singaporeair.com/en_UK/plan-and-book/book-flights/?{params}"
+
+    if code == "NH":
+        return f"https://www.ana.co.jp/en/us/amc/reference/tukau/award/int/search/?route={o}-{d}&date={date_str}"
+
+    if code == "TK":
+        params = (
+            f"originCode={o}&destinationCode={d}"
+            f"&departureDateM={date_str}&returnDateM="
+            f"&tripType=O&passengerCount=1"
+        )
+        if is_award:
+            params += "&awardBooking=true"
+        return f"https://www.turkishairlines.com/en-us/flights/?{params}"
+
+    if code == "EK":
+        params = (
+            f"origin={o}&destination={d}&departDate={date_str}"
+            f"&pax=1&cabin=Economy&tripType=OW"
+        )
+        return f"https://www.emirates.com/us/english/book/?{params}"
+
+    if code == "QR":
+        params = (
+            f"from={o}&to={d}&departing={date_str}"
+            f"&adults=1&children=0&infants=0&travel-class=Economy"
+            f"&trip-type=O"
+        )
+        if is_award:
+            params += "&is498=true"
+        return f"https://www.qatarairways.com/en-us/book-trip/flights.html?{params}"
+
+    if code == "AV":
+        params = (
+            f"origin={o}&destination={d}&date={date_str}"
+            f"&adults=1&children=0&infants=0"
+        )
+        return f"https://www.lifemiles.com/booking/flight-search?{params}"
+
+    if code == "TP":
+        params = (
+            f"origin={o}&destination={d}&departureDate={date_str}"
+            f"&passengers=1&promoCode=&type=OW&classType={cabin_class}"
+        )
+        return f"https://www.flytap.com/en-us/booking?{params}"
+
+    # Fallback: return empty to let caller use PROGRAM_METADATA generic URL
+    return ""
+
 
 # Singleton orchestrator
 _orchestrator: Optional[OrchestratorAgent] = None
@@ -2029,7 +2237,21 @@ async def get_transfer_strategy(
         total_points = 0
         max_time_days = 0
         
-        # Process transfers from snapshot - validate each one
+        # Load user's available bank programs for rerouting invalid transfers
+        user_banks: list[str] = []
+        try:
+            points_data = solo_trip_service.get_points(request.trip_id, user_id)
+            for item in (points_data.items or []):
+                prog = item.get("program", "") if isinstance(item, dict) else getattr(item, "program", "")
+                bal = item.get("balance", 0) if isinstance(item, dict) else getattr(item, "balance", 0)
+                if bal and int(bal) > 0:
+                    user_banks.append(prog)
+        except Exception as e:
+            logger.warning(f"[transfer-strategy] Could not load user points for validation: {e}")
+        
+        logger.info(f"[transfer-strategy] User banks for validation: {user_banks}")
+        
+        # Process transfers from snapshot - validate and reroute invalid ones
         snapshot_transfers = snapshot.get("transfers", [])
         for idx, t in enumerate(snapshot_transfers):
             source = t.get("sourceProgram") or t.get("source_program") or t.get("fromProgram") or t.get("from_program", "")
@@ -2042,12 +2264,25 @@ async def get_transfer_strategy(
             portal = t.get("portalUrl") or t.get("portal_url", "")
             warning = t.get("warning")
             
-            # Validate transfer is possible
+            # Validate and reroute invalid transfers
             if not _is_valid_transfer(source, target):
-                source_name = _get_bank_display_name(source)
-                target_name = _get_program_display_name(target)
-                warning = f"⚠️ {source_name} cannot transfer directly to {target_name}. This may be a codeshare booking."
-                logger.warning(f"[transfer-strategy] Invalid transfer: {source} -> {target}")
+                old_source = source
+                valid_bank = _find_valid_source_bank(target, user_banks)
+                if valid_bank:
+                    source = valid_bank
+                    bank_norm = _normalize_bank_for_validation(valid_bank)
+                    prog_norm = _normalize_program_for_validation(target)
+                    partner_info = EXTENDED_TRANSFER_GRAPH.get(bank_norm, {}).get(prog_norm, {})
+                    if isinstance(partner_info, dict):
+                        ratio = partner_info.get("ratio", 1.0)
+                    portal = BANK_METADATA.get(bank_norm, {}).get("portal_url", portal)
+                    logger.info(f"[transfer-strategy] Rerouted invalid transfer {old_source} -> {target} to use {source}")
+                else:
+                    source_name = _get_bank_display_name(source)
+                    target_name = _get_program_display_name(target)
+                    warning = f"⚠️ None of your cards can transfer to {target_name}. You may need a different credit card program."
+                    logger.warning(f"[transfer-strategy] No valid source bank for {target} among user banks {user_banks}. Skipping transfer.")
+                    continue
             
             # Skip invalid transfers with 0 points
             if points <= 0:
@@ -2136,7 +2371,29 @@ async def get_transfer_strategy(
             points_used = int(points_raw) if points_raw else 0
             surcharge_raw = seg.get("surcharge") or payment.get("surcharge", 0)
             surcharge = float(surcharge_raw) if surcharge_raw else 0.0
-            program = seg.get("program") or payment.get("program", "")
+            raw_program = seg.get("program") or payment.get("program", "")
+            
+            # Cross-reference with validated transfers to get the correct booking program.
+            # The segment's raw program may be an operating carrier (e.g., "united" for a
+            # codeshare), while the actual booking program is the transfer target (e.g., "aeroplan").
+            program = raw_program
+            if payment_method == "points" and transfers:
+                prog_norm = _normalize_program_for_validation(raw_program)
+                matched_transfer = next(
+                    (t for t in transfers if _normalize_program_for_validation(t.target_program) == prog_norm),
+                    None
+                )
+                if matched_transfer:
+                    program = matched_transfer.target_program
+                elif raw_program:
+                    # No matching transfer found - check if the raw program is reachable from user's banks
+                    valid_bank = _find_valid_source_bank(raw_program, user_banks) if user_banks else None
+                    if not valid_bank:
+                        logger.warning(
+                            f"[transfer-strategy] Segment program '{raw_program}' has no valid transfer "
+                            f"source from user banks {user_banks}. Falling back to cash display."
+                        )
+                        payment_method = "cash"
             
             airline = seg.get("airline", "Airline")
             origin = seg.get("origin", "")
@@ -2208,28 +2465,37 @@ async def get_transfer_strategy(
             # Build segment reference (simple - codeshare shown separately)
             segment_ref = f"{origin} → {destination} {cabin} on {airline}"
             
-            # Build booking URL based on the program used for booking.
-            # IMPORTANT: Never fall back to https://{airline_code}.com blindly —
-            # e.g. "UA" would resolve to ua.com (Under Armour), not United Airlines.
+            # Build booking URL: prefer a deep link with pre-filled search params
+            # so the user lands directly on the award search results page.
+            is_award = payment_method == "points"
+            if not booking_url:
+                # 1. Try deep link for the booking program (e.g. "UA" for United)
+                if program:
+                    booking_url = _build_booking_deep_link(
+                        program, origin, destination, departure, cabin, is_award
+                    )
+                # 2. Try deep link for the airline code
+                if not booking_url and airline:
+                    booking_url = _build_booking_deep_link(
+                        airline, origin, destination, departure, cabin, is_award
+                    )
+                # 3. Try marketing carrier from flight number (e.g. "UA123" → "UA")
+                if not booking_url and flight_num and len(flight_num) >= 2:
+                    carrier_code = flight_num[:2].upper()
+                    booking_url = _build_booking_deep_link(
+                        carrier_code, origin, destination, departure, cabin, is_award
+                    )
+            # 4. Fallback to generic booking page from PROGRAM_METADATA
             if not booking_url and program:
                 prog_meta = PROGRAM_METADATA.get(program.upper(), {})
                 booking_url = prog_meta.get("booking_url", "")
             if not booking_url:
-                # Try looking up the airline name/code in PROGRAM_METADATA directly
                 airline_meta = PROGRAM_METADATA.get(airline.upper(), {})
                 booking_url = airline_meta.get("booking_url", "")
-            if not booking_url:
-                # Also try the marketing carrier from the flight number (e.g. "UA123" → "UA")
-                carrier_code = (flight_num[:2] if flight_num and len(flight_num) >= 2 else "").upper()
-                if carrier_code:
-                    carrier_meta = PROGRAM_METADATA.get(carrier_code, {})
-                    booking_url = carrier_meta.get("booking_url", "")
-            if not booking_url:
-                # Final fallback: only use airline name if it looks like a full name (not a 2-letter code)
-                if len(airline) > 3:
-                    booking_url = f"https://www.{airline.lower().replace(' ', '')}.com"
-                else:
-                    booking_url = ""
+            if not booking_url and flight_num and len(flight_num) >= 2:
+                carrier_code = flight_num[:2].upper()
+                carrier_meta = PROGRAM_METADATA.get(carrier_code, {})
+                booking_url = carrier_meta.get("booking_url", "")
             
             # Ensure cash_price is valid (not 0 for cash bookings)
             display_cash_price = cash_price if cash_price and cash_price > 0 else None

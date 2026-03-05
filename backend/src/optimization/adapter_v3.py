@@ -937,9 +937,9 @@ def _convert_flight_option(
         )
         
         if opt.award_available and sanitized_award_points > 0:
-            raw_program = opt.award_program or "UA"
-            program = normalize_program(raw_program)
-            if "&" in raw_program and program != raw_program.lower():
+            raw_program = opt.award_program or ""
+            program = normalize_program(raw_program) if raw_program else ""
+            if "&" in raw_program:
                 logger.info(f"[ADAPTER] Compound program '{raw_program}' normalized to '{program}'")
             
             # Calculate CPP for logging

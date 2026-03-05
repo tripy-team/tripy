@@ -1418,18 +1418,24 @@ function SoloBookingContent() {
                             const durationMins = Math.max(0, booking.durationMinutes || 0);
                             const nights = Math.max(0, booking.nights || 0);
                             
-                            // Multi-payer: find matching transfer to identify who owns the points for this booking
-                            const bookingPayerTransfer = booking.paymentMethod === 'points' && booking.program
+                            // Find matching transfer for this booking to show source credit card
+                            const matchingTransfer = booking.paymentMethod === 'points' && booking.program
                               ? transferStrategy.transfers.find(t => {
-                                  if (!t.payerName || t.payerName === 'me' || t.payerName === 'user') return false;
-                                  // Match by target program (booking.program matches transfer.targetProgram)
                                   if (t.targetProgram && booking.program && t.targetProgram.toLowerCase() === booking.program.toLowerCase()) return true;
-                                  // Match by source program
                                   if (t.sourceProgram && booking.program && t.sourceProgram.toLowerCase() === booking.program.toLowerCase()) return true;
                                   return false;
                                 })
                               : null;
+                            
+                            // Multi-payer: check if the matching transfer belongs to someone else
+                            const bookingPayerTransfer = matchingTransfer && matchingTransfer.payerName && matchingTransfer.payerName !== 'me' && matchingTransfer.payerName !== 'user'
+                              ? matchingTransfer : null;
                             const isOtherPersonBooking = !!bookingPayerTransfer;
+                            
+                            // Source credit card for display (e.g., "Amex Membership Rewards")
+                            const sourceCardLabel = matchingTransfer && !matchingTransfer.isDirect
+                              ? humanizeProgram(matchingTransfer.sourceProgram)
+                              : null;
                             
                             return (
                               <div key={idx} className={`bg-gradient-to-r ${isOtherPersonBooking ? 'from-purple-50/50 to-white' : 'from-slate-50 to-white'} rounded-2xl border ${isOtherPersonBooking ? 'border-purple-200' : 'border-slate-200'} shadow-sm overflow-hidden`}>
@@ -1651,6 +1657,9 @@ function SoloBookingContent() {
                                             <>
                                               <p>
                                                 <strong>Book with:</strong> {isOtherPersonBooking && bookingPayerTransfer ? `${bookingPayerTransfer.payerName}'s ` : ''}{humanizeProgram(booking.program)} miles
+                                                {sourceCardLabel && (
+                                                  <span className="text-blue-600 font-medium"> (via {sourceCardLabel})</span>
+                                                )}
                                               </p>
                                               <p className="text-slate-500">
                                                 {isOtherPersonBooking && bookingPayerTransfer
@@ -1748,7 +1757,9 @@ function SoloBookingContent() {
                                                 <div className={`text-xs mt-1 ${isOtherPersonBooking ? 'text-purple-600 font-medium' : 'text-slate-500'}`}>
                                                   {isOtherPersonBooking && bookingPayerTransfer
                                                     ? `Using ${bookingPayerTransfer.payerName}'s ${humanizeProgram(booking.program)}`
-                                                    : `Book with ${humanizeProgram(booking.program)}`
+                                                    : sourceCardLabel
+                                                      ? `Using ${sourceCardLabel} → ${humanizeProgram(booking.program)}`
+                                                      : `Book with ${humanizeProgram(booking.program)}`
                                                   }
                                                 </div>
                                               )}

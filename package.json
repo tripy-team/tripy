@@ -7,7 +7,9 @@
     "dev:all": "concurrently --names \"BACKEND,FRONTEND\" --prefix-colors \"blue,green\" \"cd backend && ./start_server.sh\" \"cd frontend && npm run dev\"",
     "backend": "cd backend && ./start_server.sh",
     "frontend": "cd frontend && npm run dev",
-    "install:all": "cd backend && pip install -r requirements.txt && cd ../frontend && npm install"
+    "install:all": "cd backend && pip install -r requirements.txt && cd ../frontend && npm install",
+    "deploy": "./deploy.sh",
+    "deploy:diff": "./deploy.sh diff"
   },
   "devDependencies": {
     "concurrently": "^8.2.2"

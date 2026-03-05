@@ -25,6 +25,8 @@ export interface TransferInstruction {
   warning?: string;
   bonusPercentage?: number;
   bonusEndDate?: string;
+  isDirect?: boolean;
+  payerName?: string;
 }
 
 export interface FlightLegDetail {
