@@ -295,6 +295,19 @@ def _get_trip_or_404(
     return trip
 
 
+def _migrate_trip_ownership(trip: dict, new_user_id: str) -> None:
+    """
+    Transfer trip ownership from an anonymous session to an authenticated user.
+    Called during payment when the trip was created anonymously but the user
+    has since signed in.
+    """
+    from ..repos.ddb import put_item
+    trip["createdBy"] = new_user_id
+    trip["updatedAt"] = datetime.now(timezone.utc).strftime('%Y-%m-%dT%H:%M:%SZ')
+    put_item(solo_trip_service.get_solo_table(), trip)
+    logger.info(f"Migrated trip {trip['tripId']} ownership to {new_user_id}")
+
+
 # ---------------------------------------------------------------------------
 # Endpoints
 # ---------------------------------------------------------------------------
@@ -371,7 +384,16 @@ async def create_payment_intent(
 
     anon_id = _get_anon_session_id(raw_request)
     trip = _get_trip_or_404(request.trip_id, user_id, anon_session_id=anon_id)
+    trip_owner = trip.get("createdBy", user_id)
     base, dest_count = _calculate_price(trip)
+
+    # Migrate ownership from anon session to authenticated user if needed
+    if trip_owner != user_id:
+        try:
+            _migrate_trip_ownership(trip, user_id)
+            trip_owner = user_id
+        except Exception as e:
+            logger.warning(f"Trip ownership migration failed for {request.trip_id}: {e}")
 
     # Apply promo if provided
     final_amount = base
@@ -392,7 +414,7 @@ async def create_payment_intent(
             currency="usd",
             metadata={
                 "trip_id": request.trip_id,
-                "user_id": user_id,
+                "user_id": trip_owner,
                 "destinations": str(dest_count),
                 "promo_code": request.promo_code or "",
             },
@@ -422,6 +444,7 @@ async def confirm_free_payment(
     """
     anon_id = _get_anon_session_id(raw_request)
     trip = _get_trip_or_404(request.trip_id, user_id, anon_session_id=anon_id)
+    trip_owner = trip.get("createdBy", user_id)
     base, _ = _calculate_price(trip)
 
     valid, discount, msg = _apply_promo(base, request.promo_code)
@@ -434,6 +457,14 @@ async def confirm_free_payment(
             status_code=400,
             detail=f"Promo does not cover the full amount (${final / 100:.2f} remaining). Use Stripe payment.",
         )
+
+    # Migrate ownership from anon session to authenticated user if needed
+    if trip_owner != user_id:
+        try:
+            _migrate_trip_ownership(trip, user_id)
+            trip_owner = user_id
+        except Exception as e:
+            logger.warning(f"Trip ownership migration failed for {request.trip_id}: {e}")
 
     # Mark trip as paid
     payment_proof = {
@@ -448,7 +479,7 @@ async def confirm_free_payment(
         solo_trip_service.update_solo_trip_status(
             request.trip_id,
             "instructions_unlocked",
-            user_id,
+            trip_owner,
             payment_proof=payment_proof,
         )
     except Exception as e:
