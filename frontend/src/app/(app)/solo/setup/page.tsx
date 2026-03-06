@@ -412,7 +412,7 @@ function SoloTripSetupContent() {
         if (tripData.optimizationMode === 'money_saving') setMoneySaverMode(true);
 
         // Load advanced filters from trip response
-        const raw = tripData as Record<string, unknown>;
+        const raw = tripData as unknown as Record<string, unknown>;
         if (raw.includeBudgetAirlines != null) setIncludeBudgetAirlines(!!raw.includeBudgetAirlines);
         if (raw.maxStops != null) setMaxStops(Number(raw.maxStops));
         const depRange = raw.departureHourRange as number[] | undefined;
