@@ -12,12 +12,17 @@ import type { PointsProgram } from '@/types/programs';
  * Use getProgramLabel() to safely get labels with fallback.
  */
 export const PROGRAM_LABELS: Record<PointsProgram, string> = {
-  // Credit Card Programs
+  // Credit Card Programs (transferable)
   chase_ur: 'Chase Ultimate Rewards',
   amex_mr: 'Amex Membership Rewards',
   citi_typ: 'Citi ThankYou Points',
   capital_one: 'Capital One Miles',
   bilt: 'Bilt Rewards',
+  // Credit Card Programs (fixed-value)
+  bank_of_america: 'Bank of America Points',
+  wells_fargo: 'Wells Fargo Points',
+  discover: 'Discover Miles',
+  us_bank: 'US Bank Rewards',
   
   // Airlines
   united: 'United MileagePlus',
@@ -60,12 +65,17 @@ export function getProgramLabel(programId: string): string {
  * Short labels for compact UI display
  */
 export const PROGRAM_SHORT_LABELS: Record<PointsProgram, string> = {
-  // Credit Card Programs
+  // Credit Card Programs (transferable)
   chase_ur: 'Chase UR',
   amex_mr: 'Amex MR',
   citi_typ: 'Citi TYP',
   capital_one: 'Cap One',
   bilt: 'Bilt',
+  // Credit Card Programs (fixed-value)
+  bank_of_america: 'BofA',
+  wells_fargo: 'Wells Fargo',
+  discover: 'Discover',
+  us_bank: 'US Bank',
   
   // Airlines
   united: 'United',
@@ -118,6 +128,15 @@ const EXTENDED_PROGRAM_LABELS: Record<string, string> = {
   'BILT_REWARDS': 'Bilt Rewards',
   'bilt_rewards': 'Bilt Rewards',
   'bilt': 'Bilt Rewards',
+  // Fixed-value bank programs
+  'BANK_OF_AMERICA': 'Bank of America Points',
+  'bank_of_america': 'Bank of America Points',
+  'WELLS_FARGO': 'Wells Fargo Points',
+  'wells_fargo': 'Wells Fargo Points',
+  'DISCOVER': 'Discover Miles',
+  'discover': 'Discover Miles',
+  'US_BANK': 'US Bank Rewards',
+  'us_bank': 'US Bank Rewards',
   
   // Airline Programs - various formats
   'UNITED_MILEAGEPLUS': 'United MileagePlus',

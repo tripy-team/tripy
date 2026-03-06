@@ -128,10 +128,38 @@ class ConfirmFreeResponse(BaseModel):
 # ---------------------------------------------------------------------------
 
 
+def _is_cash_only_trip(trip: dict) -> bool:
+    """
+    Check if the selected itinerary uses only cash (no points).
+
+    Returns True only when we have an itinerary snapshot with metrics
+    that explicitly show zero points used.  When the data is missing or
+    ambiguous we conservatively return False (charge the fee).
+    """
+    snapshot = trip.get("itinerarySnapshot") or {}
+    if not snapshot:
+        return False
+    oop_metrics = snapshot.get("oopMetrics") or snapshot.get("oop_metrics")
+    if not oop_metrics:
+        return False
+    total_points = oop_metrics.get("totalPointsUsed")
+    if total_points is None:
+        total_points = oop_metrics.get("total_points_used")
+    if total_points is None:
+        return False
+    try:
+        return int(total_points) == 0
+    except (ValueError, TypeError):
+        return False
+
+
 def _calculate_price(trip: dict) -> tuple[int, int]:
     """
     Calculate service fee from trip destinations.
     Returns (amount_cents, destination_count).
+
+    Cash-only itineraries (no points used) are free — users only pay
+    the service fee when they benefit from points transfer instructions.
 
     Destination count = origin (1) + number of unique destinations.
     For round-trips the return to origin doesn't add an extra charge.
@@ -144,6 +172,9 @@ def _calculate_price(trip: dict) -> tuple[int, int]:
     # Count = origin + destinations (the return leg for round-trip is free)
     dest_count = 1 + len(destinations)  # at least 2 (origin + 1 dest)
     dest_count = max(dest_count, 2)  # floor at 2
+
+    if _is_cash_only_trip(trip):
+        return 0, dest_count
 
     extra_stops = max(dest_count - 2, 0)
     amount = BASE_PRICE_CENTS + (extra_stops * EXTRA_STOP_CENTS)

@@ -270,6 +270,25 @@ function PaymentPageContent() {
     })();
   }, [tripId]);
 
+  // Auto-redirect to booking when the fee is $0 (cash-only itinerary, no points used)
+  useEffect(() => {
+    if (!feeInfo || loading || paymentSuccess) return;
+    if (feeInfo.amount === 0) {
+      (async () => {
+        try {
+          await solo.updateStatus(tripId, 'instructions_unlocked', {
+            paidAt: new Date().toISOString(),
+            amount: 0,
+            method: 'free_cash_only',
+          });
+        } catch {
+          // Best-effort; the booking page also auto-unlocks
+        }
+        router.replace(`/solo/booking?trip_id=${tripId}`);
+      })();
+    }
+  }, [feeInfo, loading, paymentSuccess, tripId, router]);
+
   // Error from creating the PaymentIntent (shown in the payment section)
   const [intentError, setIntentError] = useState<string | null>(null);
 

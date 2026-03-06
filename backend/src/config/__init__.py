@@ -184,6 +184,26 @@ else:
 
 
 # =============================================================================
+# STREAMING / ASYNC GENERATION CONFIGURATION
+# =============================================================================
+
+GENERATION_QUEUE_URL = os.environ.get("GENERATION_QUEUE_URL", "")
+
+FEATURE_STREAM_GENERATION = os.environ.get("FEATURE_STREAM_GENERATION", "false").lower() == "true"
+
+# Heuristic thresholds for inline-vs-queue decision
+STREAM_QUEUE_PAIR_THRESHOLD = int(os.environ.get("STREAM_QUEUE_PAIR_THRESHOLD", "20"))
+
+# Stale lock timeout in seconds (locks older than this are considered abandoned)
+GENERATION_LOCK_STALE_SECONDS = int(os.environ.get("GENERATION_LOCK_STALE_SECONDS", "300"))
+
+if FEATURE_STREAM_GENERATION:
+    logger.info("[CONFIG] STREAM GENERATION: Enabled (FEATURE_STREAM_GENERATION=true)")
+else:
+    logger.info("[CONFIG] STREAM GENERATION: Disabled — legacy sync endpoint only")
+
+
+# =============================================================================
 # OPTIMIZER CONFIGURATION (from optimizer_config.py)
 # =============================================================================
 

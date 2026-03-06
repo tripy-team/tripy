@@ -82,11 +82,13 @@ export class DbStack extends Stack {
         const destinationVotes = dynamodb.Table.fromTableName(this, "DestinationVotesTable", "tripy-destination-votes");
 
         // ITINERARY (trip-scoped; store items)
+        // TTL enabled for auto-expiring generation lock and job status items
         const itinerary = new dynamodb.Table(this, "ItineraryTable", {
             tableName: "tripy-itinerary",
             partitionKey: { name: "tripId", type: dynamodb.AttributeType.STRING },
             sortKey: { name: "itemId", type: dynamodb.AttributeType.STRING },
             billingMode: dynamodb.BillingMode.PAY_PER_REQUEST,
+            timeToLiveAttribute: "ttl",
             removalPolicy,
         });
 

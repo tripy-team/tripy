@@ -86,20 +86,59 @@ const OPTIMIZATION_STAGES = [
 
 interface TripGenerationLoaderProps {
   isVisible: boolean;
-  isComplete?: boolean; // Set to true when backend has finished (triggers completion animation)
+  isComplete?: boolean;
   onComplete?: () => void;
-  estimatedDuration?: number; // Total estimated time in ms (default: 55000)
+  estimatedDuration?: number;
+  /** Streaming mode: real phase from backend */
+  streamPhase?: string | null;
+  /** Streaming mode: message from backend */
+  streamMessage?: string | null;
+  /** Streaming mode: {current, total, unit} progress from backend */
+  streamProgress?: { current: number; total: number; unit: string } | null;
+  /** Streaming mode: error from backend */
+  streamError?: { code: string; userMessage: string } | null;
 }
 
 export function TripGenerationLoader({ 
   isVisible, 
   isComplete: apiComplete = false,
   onComplete,
-  estimatedDuration = 55000  // 55 seconds - generous estimate so bar is still moving when API finishes
+  estimatedDuration = 55000,
+  streamPhase,
+  streamMessage,
+  streamProgress,
+  streamError,
 }: TripGenerationLoaderProps) {
   const [progress, setProgress] = useState(0);
   const [currentStageIndex, setCurrentStageIndex] = useState(0);
   const [waitingForApi, setWaitingForApi] = useState(false);
+
+  const isStreaming = streamPhase != null;
+
+  // Map backend phases to stage indices + progress for streaming mode
+  const PHASE_MAP: Record<string, { stageIdx: number; baseProgress: number }> = {
+    loading:    { stageIdx: 0, baseProgress: 3 },
+    airports:   { stageIdx: 1, baseProgress: 10 },
+    flights:    { stageIdx: 1, baseProgress: 15 },
+    optimizing: { stageIdx: 3, baseProgress: 40 },
+    saving:     { stageIdx: 5, baseProgress: 80 },
+    tips:       { stageIdx: 5, baseProgress: 90 },
+  };
+
+  useEffect(() => {
+    if (!isStreaming || !streamPhase) return;
+    const mapping = PHASE_MAP[streamPhase];
+    if (!mapping) return;
+
+    let pct = mapping.baseProgress;
+    if (streamProgress && streamProgress.total > 0) {
+      const ratio = streamProgress.current / streamProgress.total;
+      const stageRange = (OPTIMIZATION_STAGES[mapping.stageIdx]?.maxProgress ?? 50) - mapping.baseProgress;
+      pct = mapping.baseProgress + ratio * Math.max(stageRange, 10);
+    }
+    setProgress(Math.min(pct, 95));
+    setCurrentStageIndex(mapping.stageIdx);
+  }, [isStreaming, streamPhase, streamProgress]);
 
   // Calculate stage durations proportionally based on estimated total duration
   const getScaledDuration = useCallback((minDuration: number, maxDuration: number) => {
@@ -250,11 +289,15 @@ export function TripGenerationLoader({
 
           {/* Stage label */}
           <p className="text-lg text-slate-700 text-center mb-1">
-            {isAnimationComplete 
-              ? 'Redirecting to results...' 
-              : isWaitingForServer
-                ? 'Finalizing your trip details...'
-                : currentStage.label
+            {streamError
+              ? streamError.userMessage
+              : isAnimationComplete 
+                ? 'Redirecting to results...' 
+                : isStreaming && streamMessage
+                  ? streamMessage
+                  : isWaitingForServer
+                    ? 'Finalizing your trip details...'
+                    : currentStage.label
             }
           </p>
           <p className="text-sm text-slate-500 text-center mb-6">

@@ -95,6 +95,10 @@ class TripResponse(BaseModel):
     optimization_mode: str  # OptimizationMode value
     departure_time_preference: str
     arrival_time_preference: str
+    include_budget_airlines: bool = True
+    max_stops: int = 0
+    departure_hour_range: Optional[List[int]] = None
+    arrival_hour_range: Optional[List[int]] = None
     status: str
     created_at: str
     created_by: str
@@ -112,6 +116,30 @@ class StatusUpdateResponse(BaseModel):
     """Response after status update"""
     ok: bool
     status: str
+
+
+class UpdateTripRequest(BaseModel):
+    """Request to update an existing solo trip's parameters (all fields optional)."""
+    title: Optional[str] = None
+    trip_type: Optional[TripType] = None
+    date_mode: Optional[DateMode] = None
+    origin: Optional[str] = None
+    destinations: Optional[List[str]] = None
+    final_destination: Optional[str] = None
+    start_date: Optional[str] = None
+    end_date: Optional[str] = None
+    duration_days: Optional[int] = None
+    leg_dates: Optional[List[str]] = None
+    max_budget: Optional[float] = None
+    adults: Optional[int] = None
+    children: Optional[int] = None
+    bags: Optional[int] = None
+    flight_class: Optional[Literal["basic_economy", "economy", "premium", "business", "first"]] = None
+    optimization_mode: Optional[OptimizationMode] = None
+    include_budget_airlines: Optional[bool] = None
+    max_stops: Optional[int] = None
+    departure_hour_range: Optional[List[int]] = None
+    arrival_hour_range: Optional[List[int]] = None
 
 
 class SelectItineraryRequest(BaseModel):

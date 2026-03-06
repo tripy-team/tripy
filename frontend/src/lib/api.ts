@@ -98,7 +98,7 @@ export function clearAnonSession(): void {
 /**
  * Get access token from storage (checks sessionStorage first, then localStorage)
  */
-function getAccessToken(): string | null {
+export function getAccessToken(): string | null {
   if (typeof window === 'undefined') return null;
   // Check sessionStorage first (more secure), fallback to localStorage
   return sessionStorage.getItem('access_token') || localStorage.getItem('access_token');
@@ -2658,6 +2658,28 @@ export interface SoloCreateTripRequest {
   arrivalHourRange?: [number, number]; // [startHour, endHour]
 }
 
+export interface SoloUpdateTripRequest {
+  title?: string;
+  tripType?: 'one_way' | 'round_trip';
+  dateMode?: 'fixed' | 'flexible';
+  origin?: string;
+  destinations?: string[];
+  finalDestination?: string;
+  startDate?: string;
+  endDate?: string;
+  durationDays?: number;
+  legDates?: string[];
+  maxBudget?: number;
+  adults?: number;
+  children?: number;
+  flightClass?: 'basic_economy' | 'economy' | 'premium' | 'business' | 'first';
+  optimizationMode?: 'oop' | 'cpp' | 'balanced' | 'money_saving';
+  includeBudgetAirlines?: boolean;
+  maxStops?: number;
+  departureHourRange?: [number, number];
+  arrivalHourRange?: [number, number];
+}
+
 export interface SoloTripResponse {
   tripId: string;
   title: string;
@@ -2669,6 +2691,7 @@ export interface SoloTripResponse {
   startDate?: string;
   endDate?: string;
   durationDays?: number;
+  legDates?: string[];
   includeHotels: boolean;
   maxBudget?: number;
   adults: number;
@@ -2679,6 +2702,10 @@ export interface SoloTripResponse {
   optimizationMode: string;
   departureTimePreference: string;
   arrivalTimePreference: string;
+  includeBudgetAirlines?: boolean;
+  maxStops?: number;
+  departureHourRange?: number[];
+  arrivalHourRange?: number[];
   status: string;
   createdAt: string;
   createdBy: string;
@@ -3028,6 +3055,40 @@ export const solo = {
   getTrip: async (tripId: string): Promise<SoloTripResponse> => {
     const response = await apiRequest<Record<string, unknown>>(`/solo/trips/${tripId}`, {
       method: 'GET',
+    });
+    return toCamelCase<SoloTripResponse>(response);
+  },
+
+  /**
+   * Update an existing solo trip's parameters.
+   * Only the fields provided are overwritten; omitted fields stay unchanged.
+   * Resets the trip to draft and clears cached optimization.
+   */
+  updateTrip: async (tripId: string, request: SoloUpdateTripRequest): Promise<SoloTripResponse> => {
+    const body: Record<string, unknown> = {};
+    if (request.title !== undefined) body.title = request.title;
+    if (request.tripType !== undefined) body.trip_type = request.tripType;
+    if (request.dateMode !== undefined) body.date_mode = request.dateMode;
+    if (request.origin !== undefined) body.origin = request.origin;
+    if (request.destinations !== undefined) body.destinations = request.destinations;
+    if (request.finalDestination !== undefined) body.final_destination = request.finalDestination;
+    if (request.startDate !== undefined) body.start_date = request.startDate;
+    if (request.endDate !== undefined) body.end_date = request.endDate;
+    if (request.durationDays !== undefined) body.duration_days = request.durationDays;
+    if (request.legDates !== undefined) body.leg_dates = request.legDates;
+    if (request.maxBudget !== undefined) body.max_budget = request.maxBudget;
+    if (request.adults !== undefined) body.adults = request.adults;
+    if (request.children !== undefined) body.children = request.children;
+    if (request.flightClass !== undefined) body.flight_class = request.flightClass;
+    if (request.optimizationMode !== undefined) body.optimization_mode = request.optimizationMode;
+    if (request.includeBudgetAirlines !== undefined) body.include_budget_airlines = request.includeBudgetAirlines;
+    if (request.maxStops !== undefined) body.max_stops = request.maxStops;
+    if (request.departureHourRange !== undefined) body.departure_hour_range = request.departureHourRange;
+    if (request.arrivalHourRange !== undefined) body.arrival_hour_range = request.arrivalHourRange;
+
+    const response = await apiRequest<Record<string, unknown>>(`/solo/trips/${tripId}`, {
+      method: 'PATCH',
+      body: JSON.stringify(body),
     });
     return toCamelCase<SoloTripResponse>(response);
   },

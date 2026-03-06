@@ -4,8 +4,10 @@
 import { Stack, StackProps, Duration, CfnOutput } from "aws-cdk-lib";
 import { Construct } from "constructs";
 import * as lambda from "aws-cdk-lib/aws-lambda";
+import * as lambdaEventSources from "aws-cdk-lib/aws-lambda-event-sources";
 import * as iam from "aws-cdk-lib/aws-iam";
 import * as cognito from "aws-cdk-lib/aws-cognito";
+import * as sqs from "aws-cdk-lib/aws-sqs";
 import * as apigwv2 from "aws-cdk-lib/aws-apigatewayv2";
 import * as integrations from "aws-cdk-lib/aws-apigatewayv2-integrations";
 import * as authorizers from "aws-cdk-lib/aws-apigatewayv2-authorizers";
@@ -156,6 +158,79 @@ export class ApiStackLambda extends Stack {
         // Allow API function to invoke background tasks
         backgroundTasksFunction.grantInvoke(apiFunction);
 
+        // -----------------------------------------------
+        // SQS Queue + Worker Lambda for async itinerary generation
+        // -----------------------------------------------
+        const generationDLQ = new sqs.Queue(this, "ItineraryGenerationDLQ", {
+            queueName: "tripy-itinerary-generation-dlq",
+            retentionPeriod: Duration.days(14),
+        });
+
+        const generationQueue = new sqs.Queue(this, "ItineraryGenerationQueue", {
+            queueName: "tripy-itinerary-generation",
+            visibilityTimeout: Duration.minutes(10),
+            retentionPeriod: Duration.days(3),
+            deadLetterQueue: { queue: generationDLQ, maxReceiveCount: 3 },
+        });
+
+        const itineraryWorker = new lambda.Function(this, "ItineraryWorker", {
+            functionName: "tripy-itinerary-worker",
+            runtime: lambda.Runtime.PYTHON_3_12,
+            handler: "src.workers.itinerary_worker.handler",
+            code: lambda.Code.fromAsset("../backend", {
+                exclude: [
+                    "**/__pycache__", "**/*.pyc",
+                    "**/.pytest_cache", "**/test_*.py",
+                    "**/tests", "**/.env",
+                ],
+            }),
+            timeout: Duration.minutes(10),
+            memorySize: 2048,
+            environment: {
+                USERS_TABLE: props.tables.users.tableName,
+                TRIPS_TABLE: props.tables.trips.tableName,
+                TRIP_MEMBERS_TABLE: props.tables.tripMembers.tableName,
+                POINTS_TABLE: props.tables.points.tableName,
+                DESTINATIONS_TABLE: props.tables.destinations.tableName,
+                DESTINATION_VOTES_TABLE: props.tables.destinationVotes.tableName,
+                ITINERARY_TABLE: props.tables.itinerary.tableName,
+                AWS_REGION: this.region || "us-east-1",
+                USE_SECRETS_MANAGER: "true",
+                SECRETS_MANAGER_SECRET_NAME: "tripy/production/api-keys",
+                PYTHONPATH: "/var/task",
+            },
+            logRetention: logs.RetentionDays.ONE_WEEK,
+        });
+
+        itineraryWorker.addEventSource(
+            new lambdaEventSources.SqsEventSource(generationQueue, {
+                batchSize: 1,
+            }),
+        );
+
+        // Grant the worker access to all tables it needs
+        props.tables.users.grantReadWriteData(itineraryWorker);
+        props.tables.trips.grantReadWriteData(itineraryWorker);
+        props.tables.tripMembers.grantReadData(itineraryWorker);
+        props.tables.points.grantReadData(itineraryWorker);
+        props.tables.destinations.grantReadData(itineraryWorker);
+        props.tables.destinationVotes.grantReadData(itineraryWorker);
+        props.tables.itinerary.grantReadWriteData(itineraryWorker);
+
+        // Secrets Manager for API keys
+        itineraryWorker.addToRolePolicy(
+            new iam.PolicyStatement({
+                actions: ["secretsmanager:GetSecretValue"],
+                resources: [`arn:aws:secretsmanager:${this.region}:${this.account}:secret:tripy/production/api-keys*`],
+            }),
+        );
+
+        // Allow the API Lambda to send messages to the queue
+        generationQueue.grantSendMessages(apiFunction);
+
+        // Pass queue URL to the API Lambda
+        apiFunction.addEnvironment("GENERATION_QUEUE_URL", generationQueue.queueUrl);
+
         // -----------------------------
         // HTTP API Gateway
         // -----------------------------
@@ -261,6 +336,16 @@ export class ApiStackLambda extends Stack {
         new CfnOutput(this, "BACKGROUND_TASKS_FUNCTION_NAME", {
             value: backgroundTasksFunction.functionName,
             description: "Background tasks Lambda function name",
+        });
+
+        new CfnOutput(this, "GENERATION_QUEUE_URL", {
+            value: generationQueue.queueUrl,
+            description: "SQS queue URL for async itinerary generation",
+        });
+
+        new CfnOutput(this, "ITINERARY_WORKER_FUNCTION_NAME", {
+            value: itineraryWorker.functionName,
+            description: "Itinerary worker Lambda function name",
         });
     }
 }

@@ -12,6 +12,11 @@ export type PointsProgram =
   | 'citi_typ'       // Citi ThankYou Points
   | 'capital_one'    // Capital One Miles
   | 'bilt'           // Bilt Rewards
+  // Credit Card Programs (fixed-value)
+  | 'bank_of_america' // Bank of America Points
+  | 'wells_fargo'    // Wells Fargo Points
+  | 'discover'       // Discover Miles
+  | 'us_bank'        // US Bank Rewards
   // Airline Programs
   | 'united'         // United MileagePlus
   | 'american'       // AAdvantage
@@ -35,6 +40,7 @@ export type PointsProgram =
  */
 export const VALID_PROGRAMS: PointsProgram[] = [
   'chase_ur', 'amex_mr', 'citi_typ', 'capital_one', 'bilt',
+  'bank_of_america', 'wells_fargo', 'discover', 'us_bank',
   'united', 'american', 'delta', 'southwest', 'jetblue', 'alaska',
   'british_airways', 'virgin_atlantic', 'air_france_klm', 'singapore', 'ana',
   'marriott', 'hilton', 'hyatt', 'ihg',

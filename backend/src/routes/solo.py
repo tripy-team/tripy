@@ -18,6 +18,7 @@ from ..utils.jwt_auth import get_current_user_id, get_user_or_anon_id, is_anonym
 from ..schemas import (
     # Trip schemas
     CreateTripRequest as SoloCreateTripRequest,
+    UpdateTripRequest as SoloUpdateTripRequest,
     TripResponse,
     UpdateTripStatusRequest,
     StatusUpdateResponse,
@@ -443,6 +444,38 @@ async def get_solo_trip(
         raise
     except Exception as e:
         logger.error(f"Error getting solo trip: {str(e)}")
+        raise HTTPException(status_code=500, detail=str(e))
+
+
+@router.patch("/trips/{trip_id}", response_model=TripResponse)
+async def update_solo_trip(
+    trip_id: str,
+    request: SoloUpdateTripRequest,
+    http_request: Request,
+    user_id: str = Depends(get_user_or_anon_id),
+):
+    """
+    Update an existing solo trip's parameters.
+
+    Accepts any subset of trip fields. Resets the trip to 'draft' status
+    and clears cached optimization so the user can re-search.
+    """
+    try:
+        trip = solo_trip_service.update_solo_trip(trip_id, user_id, request)
+        return trip_storage_to_response(trip)
+    except PermissionError:
+        anon_id = http_request.headers.get("X-Anon-Session-Id")
+        if anon_id and anon_id.startswith("anon_"):
+            try:
+                trip = solo_trip_service.update_solo_trip(trip_id, anon_id, request)
+                return trip_storage_to_response(trip)
+            except (PermissionError, ValueError):
+                pass
+        raise HTTPException(status_code=403, detail="Not authorized to modify this trip")
+    except ValueError as e:
+        raise HTTPException(status_code=404, detail=str(e))
+    except Exception as e:
+        logger.error(f"Error updating solo trip: {str(e)}")
         raise HTTPException(status_code=500, detail=str(e))
 
 

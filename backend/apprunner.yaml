@@ -73,3 +73,9 @@ run:
       value: "tripy-monitoring-updates"
     - name: RATE_LIMIT_TABLE
       value: "tripy-rate-limit-counters"
+
+    # Streaming generation (SSE + SQS)
+    - name: GENERATION_QUEUE_URL
+      value: ""
+    - name: FEATURE_STREAM_GENERATION
+      value: "false"

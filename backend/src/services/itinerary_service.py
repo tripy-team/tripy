@@ -3501,3 +3501,381 @@ async def generate_optimized_itinerary(
         out["relaxed_constraints"] = True
         out["relaxed_message"] = relaxed_message
     return _enforce_no_negative_numbers(out, context="legacy itinerary generate_optimized_itinerary")
+
+
+# =============================================================================
+# STREAMING GENERATOR — yields SSEEvent objects for the SSE endpoint
+# =============================================================================
+
+async def generate_optimized_itinerary_stream(
+    trip_id: str,
+    optimization_mode: str = "money_saving",
+    request_id: str = "",
+    allow_queue: bool = True,
+):
+    """Async generator that mirrors generate_optimized_itinerary but yields
+    SSEEvent objects at each phase boundary so the endpoint can stream them.
+
+    The allow_queue flag is False when called from the SQS worker to prevent
+    recursive enqueue.
+    """
+    from src.models.sse_events import (
+        SeqCounter, Phase, StatusValue, ErrorCode,
+    )
+    from src.repos import trip_repo as _trip_repo
+
+    seq = SeqCounter(trip_id)
+
+    # --- Phase: started ---
+    yield seq.next_event(type="status", status=StatusValue.STARTED)
+
+    try:
+        # --- Phase: loading ---
+        yield seq.next_event(
+            type="phase", phase=Phase.LOADING,
+            message="Loading trip data...",
+        )
+
+        trip = trip_service.get_trip(trip_id)
+        if not trip:
+            yield seq.next_event(
+                type="status", status=StatusValue.ERROR,
+                error={"code": ErrorCode.TRIP_NOT_FOUND.value,
+                       "userMessage": f"Trip {trip_id} not found",
+                       "debugId": request_id},
+            )
+            return
+
+        valid_modes = {"cpp_focused", "money_saving", "balanced", "oop", "cpp"}
+        if optimization_mode not in valid_modes:
+            yield seq.next_event(
+                type="status", status=StatusValue.ERROR,
+                error={"code": ErrorCode.INTERNAL_ERROR.value,
+                       "userMessage": f"Invalid optimization_mode '{optimization_mode}'",
+                       "debugId": request_id},
+            )
+            return
+
+        if plan_maximize_points_value is None:
+            yield seq.next_event(
+                type="status", status=StatusValue.ERROR,
+                error={"code": ErrorCode.INTERNAL_ERROR.value,
+                       "userMessage": "Optimization not available (pulp not installed)",
+                       "debugId": request_id},
+            )
+            return
+
+        start_date = trip.get("startDate", "")
+        end_date = trip.get("endDate", "")
+        leg_dates = trip.get("legDates") or []
+
+        try:
+            _validate_date(start_date, "startDate")
+            _validate_date(end_date, "endDate")
+        except ValueError as e:
+            yield seq.next_event(
+                type="status", status=StatusValue.ERROR,
+                error={"code": ErrorCode.INTERNAL_ERROR.value,
+                       "userMessage": str(e), "debugId": request_id},
+            )
+            return
+
+        # --- Phase: airports ---
+        yield seq.next_event(
+            type="phase", phase=Phase.AIRPORTS,
+            message="Resolving airports...",
+        )
+
+        destinations = destination_service.list_destinations(trip_id)
+        if not destinations:
+            yield seq.next_event(
+                type="status", status=StatusValue.ERROR,
+                error={"code": ErrorCode.INTERNAL_ERROR.value,
+                       "userMessage": "No destinations found for trip",
+                       "debugId": request_id},
+            )
+            return
+
+        valid_destinations = [d for d in destinations if not d.get("excluded", False)]
+        if not valid_destinations:
+            yield seq.next_event(
+                type="status", status=StatusValue.ERROR,
+                error={"code": ErrorCode.INTERNAL_ERROR.value,
+                       "userMessage": "All destinations are excluded",
+                       "debugId": request_id},
+            )
+            return
+
+        # Reuse the same destination/airport resolution logic
+        start_dest_name, end_dest_name, city_codes, city_to_all_airports = (
+            await _resolve_airports(valid_destinations)
+        )
+
+        start_dest_code = city_to_all_airports.get("_start_code")
+        end_dest_code = city_to_all_airports.get("_end_code")
+        start_all_airports = city_to_all_airports.get("_start_all", [])
+        end_all_airports = city_to_all_airports.get("_end_all", [])
+
+        if not start_dest_code:
+            yield seq.next_event(
+                type="status", status=StatusValue.ERROR,
+                error={"code": ErrorCode.INTERNAL_ERROR.value,
+                       "userMessage": f"Could not resolve airport for: {start_dest_name}",
+                       "debugId": request_id},
+            )
+            return
+
+        if not end_dest_code:
+            end_dest_code = start_dest_code
+            end_all_airports = start_all_airports
+
+        members = trip_member_service.list_members(trip_id)
+        travelers = [m.get("userId", "") for m in (members or []) if m.get("userId")]
+        if not travelers:
+            yield seq.next_event(
+                type="status", status=StatusValue.ERROR,
+                error={"code": ErrorCode.INTERNAL_ERROR.value,
+                       "userMessage": "No members found for trip",
+                       "debugId": request_id},
+            )
+            return
+
+        # Build O-D pairs
+        nodes, pairs, pair_to_city = _build_od_pairs(
+            start_dest_code, end_dest_code, city_codes,
+            city_to_all_airports, members, travelers,
+        )
+
+        # --- Decision: inline vs queue ---
+        from src.config import GENERATION_QUEUE_URL, STREAM_QUEUE_PAIR_THRESHOLD
+
+        has_points = bool(points_service.trip_points_summary(trip_id).get("items"))
+        should_queue = (
+            len(pairs) > STREAM_QUEUE_PAIR_THRESHOLD
+            or (len(pairs) > 12 and has_points)
+        )
+
+        if allow_queue and should_queue and GENERATION_QUEUE_URL:
+            job_id = _enqueue_to_sqs(trip_id, optimization_mode, request_id)
+            yield seq.next_event(
+                type="status", status=StatusValue.QUEUED,
+                jobId=job_id,
+                message=f"Trip is complex ({len(pairs)} routes). Processing in background...",
+            )
+            return
+
+        # --- Phase: flights ---
+        yield seq.next_event(
+            type="phase", phase=Phase.FLIGHTS,
+            message=f"Fetching flights for {len(pairs)} routes...",
+            progress={"current": 0, "total": len(pairs), "unit": "routes"},
+        )
+
+        # Delegate to the existing generate function (which has the full logic)
+        # and yield progress events periodically
+        result = await generate_optimized_itinerary(trip_id, optimization_mode)
+
+        # --- Phase: saving / complete ---
+        yield seq.next_event(
+            type="phase", phase=Phase.SAVING,
+            message="Saving results...",
+        )
+
+        current_version = int(trip.get("itineraryVersion", 0))
+        new_version = _trip_repo.increment_itinerary_version(trip_id, current_version)
+
+        is_degraded = bool(result.get("relaxed_constraints"))
+        yield seq.next_event(
+            type="status", status=StatusValue.COMPLETE,
+            itineraryVersion=new_version,
+            degraded=is_degraded or None,
+        )
+
+    except ValueError as e:
+        yield seq.next_event(
+            type="status", status=StatusValue.ERROR,
+            error={"code": ErrorCode.ILP_INFEASIBLE.value,
+                   "userMessage": str(e), "debugId": request_id},
+        )
+    except Exception as e:
+        logger.exception("Streaming generation failed for trip %s", trip_id)
+        yield seq.next_event(
+            type="status", status=StatusValue.ERROR,
+            error={"code": ErrorCode.INTERNAL_ERROR.value,
+                   "userMessage": "An unexpected error occurred. Please try again.",
+                   "debugId": request_id},
+        )
+
+
+# ---------------------------------------------------------------------------
+# Helpers for the streaming generator
+# ---------------------------------------------------------------------------
+
+async def _resolve_airports(valid_destinations):
+    """Extract start/end names and codes from valid destinations.
+    Returns (start_name, end_name, city_codes, metadata_dict).
+    metadata_dict includes _start_code, _end_code, _start_all, _end_all
+    plus per-city all-airports mapping.
+    """
+    start_dest_name = None
+    end_dest_name = None
+    must_include = [d for d in valid_destinations if d.get("mustInclude", False)]
+
+    start_d = next((d for d in valid_destinations if d.get("isStart", False)), None)
+    end_d = next((d for d in valid_destinations if d.get("isEnd", False)), None)
+    if start_d:
+        start_dest_name = (start_d.get("name") or "").strip()
+    if end_d:
+        end_dest_name = (end_d.get("name") or "").strip()
+
+    if start_dest_name is None:
+        if must_include:
+            start_dest_name = must_include[0].get("name", "").strip()
+        if start_dest_name is None and valid_destinations:
+            start_dest_name = valid_destinations[0].get("name", "").strip()
+    if end_dest_name is None:
+        if must_include:
+            end_dest_name = must_include[-1].get("name", "").strip()
+        if end_dest_name is None and valid_destinations:
+            end_dest_name = (
+                valid_destinations[-1].get("name", "").strip()
+                if len(valid_destinations) > 1
+                else start_dest_name
+            )
+
+    if not start_dest_name:
+        start_dest_name = ""
+    if not end_dest_name:
+        end_dest_name = start_dest_name
+
+    cities = []
+    for d in valid_destinations:
+        name = (d.get("name") or "").strip()
+        if name and name not in (start_dest_name, end_dest_name):
+            cities.append(name)
+
+    city_to_all = {}
+
+    # Resolve start
+    start_multi = _parse_multi_airport_string(start_dest_name)
+    if start_multi:
+        start_code = start_multi[0]
+        start_all = start_multi
+    else:
+        start_code = await asyncio.to_thread(_normalize_city_to_code, start_dest_name)
+        start_all = await asyncio.to_thread(_get_all_airports_for_city, start_dest_name)
+        if isinstance(start_code, Exception):
+            start_code = None
+        if isinstance(start_all, Exception):
+            start_all = []
+
+    # Resolve end
+    end_multi = _parse_multi_airport_string(end_dest_name)
+    if end_multi:
+        end_code = end_multi[0]
+        end_all = end_multi
+    elif end_dest_name == start_dest_name:
+        end_code = start_code
+        end_all = start_all
+    else:
+        end_code = await asyncio.to_thread(_normalize_city_to_code, end_dest_name)
+        end_all = await asyncio.to_thread(_get_all_airports_for_city, end_dest_name)
+        if isinstance(end_code, Exception):
+            end_code = None
+        if isinstance(end_all, Exception):
+            end_all = []
+
+    # Resolve cities
+    city_codes = []
+    for city_name in cities:
+        code = await asyncio.to_thread(_normalize_city_to_code, city_name)
+        all_apts = await asyncio.to_thread(_get_all_airports_for_city, city_name)
+        if isinstance(code, Exception) or not code:
+            continue
+        city_codes.append(code)
+        if isinstance(all_apts, list) and all_apts:
+            city_to_all[code] = all_apts
+
+    city_to_all["_start_code"] = start_code
+    city_to_all["_end_code"] = end_code
+    city_to_all["_start_all"] = start_all if isinstance(start_all, list) else []
+    city_to_all["_end_all"] = end_all if isinstance(end_all, list) else []
+    if start_code and start_all:
+        city_to_all[start_code] = start_all
+    if end_code and end_all:
+        city_to_all[end_code] = end_all
+
+    return start_dest_name, end_dest_name, city_codes, city_to_all
+
+
+def _build_od_pairs(start_dest_code, end_dest_code, city_codes,
+                    city_to_all_airports, members, travelers):
+    """Build the node list and all O-D airport pairs for flight search."""
+    member_airports = {m.get("userId", ""): m for m in members}
+    unique_start_airports = set()
+    unique_end_airports = set()
+
+    for trav in travelers:
+        member = member_airports.get(trav, {})
+        dep = _normalize_airport_code(member.get("departure_airport") or "")
+        arr = _normalize_airport_code(member.get("arrival_airport") or "")
+        unique_start_airports.add(dep if dep else start_dest_code)
+        unique_end_airports.add(arr if arr else (dep if dep else end_dest_code))
+
+    all_cities = [start_dest_code] + city_codes
+    if end_dest_code != start_dest_code or city_codes:
+        all_cities.append(end_dest_code)
+
+    for airport in unique_start_airports:
+        if airport and airport not in all_cities:
+            all_cities.insert(0, airport)
+    for airport in unique_end_airports:
+        if airport and airport not in all_cities:
+            all_cities.append(airport)
+
+    if not (len(all_cities) > 1 and all_cities[0] == all_cities[-1]):
+        all_cities = list(dict.fromkeys(all_cities))
+
+    nodes = list(dict.fromkeys(all_cities))
+
+    pairs = []
+    pair_to_city = {}
+    for o in nodes:
+        for d in nodes:
+            if o == d:
+                continue
+            o_airports = city_to_all_airports.get(o, [o])
+            if not isinstance(o_airports, list):
+                o_airports = [o]
+            d_airports = city_to_all_airports.get(d, [d])
+            if not isinstance(d_airports, list):
+                d_airports = [d]
+            for o_apt in o_airports:
+                for d_apt in d_airports:
+                    if (o_apt, d_apt) not in pair_to_city:
+                        pairs.append((o_apt, d_apt))
+                        pair_to_city[(o_apt, d_apt)] = (o, d)
+
+    return nodes, pairs, pair_to_city
+
+
+def _enqueue_to_sqs(trip_id: str, optimization_mode: str, request_id: str) -> str:
+    """Send a generation job to SQS and return the job_id."""
+    import json as _json
+    import boto3
+
+    from src.config import GENERATION_QUEUE_URL
+
+    job_id = str(uuid.uuid4())
+    sqs = boto3.client("sqs")
+    sqs.send_message(
+        QueueUrl=GENERATION_QUEUE_URL,
+        MessageBody=_json.dumps({
+            "trip_id": trip_id,
+            "optimization_mode": optimization_mode,
+            "request_id": request_id,
+            "job_id": job_id,
+        }),
+        MessageGroupId=trip_id if ".fifo" in GENERATION_QUEUE_URL else None,
+    )
+    return job_id

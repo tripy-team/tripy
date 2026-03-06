@@ -902,7 +902,11 @@ export default function SoloResults() {
                     <>
                         <DecisionHeader
                             summary={optimizeResponse.decisionSummary}
-                            onBookPlan={() => router.push(`/solo/payment?trip_id=${tripId}`)}
+                            onBookPlan={() => {
+                                const bestItinerary = soloItineraries[0];
+                                const usesPoints = bestItinerary && (bestItinerary.oopMetrics?.totalPointsUsed ?? 0) > 0;
+                                router.push(usesPoints ? `/solo/payment?trip_id=${tripId}` : `/solo/booking?trip_id=${tripId}`);
+                            }}
                         />
                     </>
                 )}
@@ -932,7 +936,40 @@ export default function SoloResults() {
                 </div>
                 )}
 
-                {/* "Based on your inputs" removed — freshness + warnings moved below cards */}
+                {/* Edit Search Parameters bar */}
+                {!loading && tripId && (
+                    <div className="mb-6 flex items-center justify-between bg-white border border-slate-200 rounded-xl px-5 py-3 shadow-sm">
+                        <div className="flex items-center gap-3 text-sm text-slate-600 min-w-0 overflow-hidden">
+                            <Plane className="w-4 h-4 text-blue-500 flex-shrink-0" />
+                            <span className="truncate">
+                                {trip ? (
+                                    <>
+                                        {(trip as unknown as { origin?: string }).origin?.split(',')[0] || '—'}
+                                        {' → '}
+                                        {((trip as unknown as { destinations?: string[] }).destinations || []).join(' → ')}
+                                        {(trip as unknown as { tripType?: string }).tripType === 'round_trip' && ` → ${(trip as unknown as { origin?: string }).origin?.split(',')[0] || ''}`}
+                                        {(trip as unknown as { startDate?: string }).startDate && (
+                                            <span className="text-slate-400 ml-2">
+                                                · {(trip as unknown as { startDate?: string }).startDate}
+                                                {(trip as unknown as { endDate?: string }).endDate && ` – ${(trip as unknown as { endDate?: string }).endDate}`}
+                                            </span>
+                                        )}
+                                        {userConstraints?.maxBudget && (
+                                            <span className="text-slate-400 ml-2">· Budget: ${userConstraints.maxBudget.toLocaleString()}</span>
+                                        )}
+                                    </>
+                                ) : 'Your search parameters'}
+                            </span>
+                        </div>
+                        <button
+                            onClick={() => router.push(`/solo/setup?trip_id=${tripId}`)}
+                            className="flex items-center gap-1.5 px-4 py-2 text-sm font-medium text-blue-600 hover:text-blue-700 hover:bg-blue-50 rounded-lg transition-colors flex-shrink-0 ml-3"
+                        >
+                            <Edit3 className="w-4 h-4" />
+                            Edit Search
+                        </button>
+                    </div>
+                )}
 
                 {/* Warnings for solo optimizer are shown below cards; for legacy path, show above */}
                 {!usingSoloOptimizer && (
@@ -1374,26 +1411,31 @@ export default function SoloResults() {
                                                 </div>
                                             )}
 
-                                            {/* Book Button — auth-gated, routes to payment */}
-                                            <button
-                                                onClick={(e) => {
-                                                    e.stopPropagation();
-                                                    if (!isDisabled) {
-                                                        // Persist the itinerary selection in the background
-                                                        handleSelectSoloItinerary(itinerary);
-                                                        // Route to payment page (auth check happens there)
-                                                        router.push(`/solo/payment?trip_id=${tripId}`);
-                                                    }
-                                                }}
-                                                disabled={isDisabled}
-                                                className={`w-full mt-4 px-6 py-3 rounded-xl transition-all font-semibold ${
-                                                    isDisabled
-                                                        ? 'bg-slate-100 text-slate-500 cursor-not-allowed'
-                                                        : 'bg-blue-600 text-white hover:bg-blue-700 shadow-lg shadow-blue-600/20'
-                                                }`}
-                                            >
-                                                {isDisabled ? (itinerary.disableReason ? `Blocked: ${itinerary.disableReason}` : 'Blocked by policy') : 'Book This Trip'}
-                                            </button>
+                                            {/* Book Button — routes to payment (if points used) or directly to booking (cash-only) */}
+                                            {(() => {
+                                                const usesPoints = (itinerary.oopMetrics?.totalPointsUsed ?? 0) > 0;
+                                                return (
+                                                    <button
+                                                        onClick={(e) => {
+                                                            e.stopPropagation();
+                                                            if (!isDisabled) {
+                                                                handleSelectSoloItinerary(itinerary);
+                                                                router.push(usesPoints
+                                                                    ? `/solo/payment?trip_id=${tripId}`
+                                                                    : `/solo/booking?trip_id=${tripId}`);
+                                                            }
+                                                        }}
+                                                        disabled={isDisabled}
+                                                        className={`w-full mt-4 px-6 py-3 rounded-xl transition-all font-semibold ${
+                                                            isDisabled
+                                                                ? 'bg-slate-100 text-slate-500 cursor-not-allowed'
+                                                                : 'bg-blue-600 text-white hover:bg-blue-700 shadow-lg shadow-blue-600/20'
+                                                        }`}
+                                                    >
+                                                        {isDisabled ? (itinerary.disableReason ? `Blocked: ${itinerary.disableReason}` : 'Blocked by policy') : 'Book This Trip'}
+                                                    </button>
+                                                );
+                                            })()}
                                         </div>
                                     </div>
                                 );
@@ -1554,7 +1596,7 @@ export default function SoloResults() {
                                     Your personalized routes and transfer instructions are ready on the booking page.
                                 </p>
                                 <button
-                                    onClick={() => router.push(`/solo/payment${tripId ? `?trip_id=${tripId}` : ''}`)}
+                                    onClick={() => router.push(`/solo/booking${tripId ? `?trip_id=${tripId}` : ''}`)}
                                     className="px-6 py-3 bg-blue-600 text-white rounded-xl hover:bg-blue-700 transition-colors font-medium"
                                 >
                                     Go to Booking
@@ -1568,10 +1610,10 @@ export default function SoloResults() {
                                     We couldn&apos;t generate itineraries that fit your budget and points. Try increasing your budget, adding more points, or choosing different destinations.
                                 </p>
                                 <button
-                                    onClick={() => router.push(`/solo/setup`)}
+                                    onClick={() => router.push(tripId ? `/solo/setup?trip_id=${tripId}` : `/solo/setup`)}
                                     className="px-6 py-3 bg-blue-600 text-white rounded-xl hover:bg-blue-700 transition-colors font-medium"
                                 >
-                                    Back to setup
+                                    Edit Search & Try Again
                                 </button>
                             </>
                         )}

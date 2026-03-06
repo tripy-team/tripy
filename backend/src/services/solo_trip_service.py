@@ -33,6 +33,7 @@ from src.repos import trip_member_repo
 from src.mappers.trip_mapper import storage_to_api, selection_to_api
 from src.schemas.trip import (
     CreateTripRequest,
+    UpdateTripRequest,
     TripResponse,
     SelectItineraryRequest,
 )
@@ -172,6 +173,71 @@ def get_solo_trip(trip_id: str, user_id: Optional[str] = None) -> Optional[Dict[
         raise PermissionError("Not authorized to access this trip")
     
     return item
+
+
+def update_solo_trip(trip_id: str, user_id: str, request: UpdateTripRequest) -> Dict[str, Any]:
+    """
+    Update an existing solo trip's parameters.
+
+    Only the fields provided (non-None) in the request are overwritten.
+    Resets the trip back to 'draft' status and clears any cached optimization
+    so the user can re-search with the new parameters.
+    """
+    t = get_solo_table()
+    trip = get_item(t, {"tripId": trip_id})
+    if not trip:
+        raise ValueError("Trip not found")
+    if trip.get("createdBy") != user_id:
+        raise PermissionError("Not authorized to modify this trip")
+
+    field_map = {
+        "title": request.title,
+        "tripType": request.trip_type.value if request.trip_type else None,
+        "dateMode": request.date_mode.value if request.date_mode else None,
+        "origin": request.origin,
+        "destinations": request.destinations,
+        "finalDestination": request.final_destination,
+        "startDate": request.start_date,
+        "endDate": request.end_date,
+        "durationDays": request.duration_days,
+        "legDates": request.leg_dates,
+        "maxBudget": request.max_budget,
+        "adults": request.adults,
+        "children": request.children,
+        "bags": request.bags,
+        "flightClass": request.flight_class,
+        "optimizationMode": request.optimization_mode.value if request.optimization_mode else None,
+        "includeBudgetAirlines": request.include_budget_airlines,
+        "maxStops": request.max_stops,
+        "departureHourRange": request.departure_hour_range,
+        "arrivalHourRange": request.arrival_hour_range,
+    }
+
+    for key, value in field_map.items():
+        if value is not None:
+            trip[key] = value
+
+    # Recompute finalDestination when origin/destinations/tripType may have changed
+    trip_type = trip.get("tripType", "round_trip")
+    if trip_type == "round_trip":
+        trip["finalDestination"] = trip.get("origin", "")
+    elif not trip.get("finalDestination"):
+        dests = trip.get("destinations", [])
+        if dests:
+            trip["finalDestination"] = dests[-1]
+
+    # Reset to draft so the user can re-optimize
+    trip["status"] = "draft"
+    trip["updatedAt"] = datetime.now(timezone.utc).strftime('%Y-%m-%dT%H:%M:%SZ')
+
+    # Clear cached optimization results so a fresh search is triggered
+    if "optimizationCache" in trip:
+        trip["optimizationCache"] = {}
+    if "selectedItinerary" in trip:
+        del trip["selectedItinerary"]
+
+    put_item(t, trip)
+    return trip
 
 
 def update_solo_trip_status(
@@ -458,6 +524,8 @@ def upsert_points(
     Upsert points balances for a trip.
     
     Uses the existing POINTS_TABLE schema with tripId + userProgram as keys.
+    Performs a full replacement: any previously stored programs that are not
+    in the new list are deleted so that removed points are properly cleared.
     """
     t = get_points_table()
     
@@ -465,6 +533,9 @@ def upsert_points(
     trip = get_solo_trip(trip_id, user_id)
     if not trip:
         raise ValueError("Trip not found")
+
+    # Build set of new program keys for comparison
+    new_keys: set = set()
     
     for balance in points:
         # Get program value (string) for DynamoDB
@@ -472,6 +543,7 @@ def upsert_points(
         
         # Use the existing schema: userProgram is composite key (user_id#program)
         user_program = f"{user_id}#{program_value}"
+        new_keys.add(user_program)
         
         item = {
             "tripId": trip_id,
@@ -488,6 +560,16 @@ def upsert_points(
             item["ttl"] = ttl_epoch
         
         t.put_item(Item=sanitize_for_dynamodb(item))
+
+    # Delete stale points that are no longer in the provided list
+    try:
+        existing = t.query(KeyConditionExpression=Key("tripId").eq(trip_id))
+        for old_item in existing.get("Items", []):
+            old_key = old_item.get("userProgram", "")
+            if old_key and old_key not in new_keys:
+                t.delete_item(Key={"tripId": trip_id, "userProgram": old_key})
+    except Exception as e:
+        logger.warning(f"Failed to clean stale points for trip {trip_id}: {e}")
     
     return get_points(trip_id, user_id)
 

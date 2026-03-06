@@ -1,7 +1,7 @@
 'use client';
 
-import { useState, useEffect, useMemo, useRef } from 'react';
-import { useRouter } from 'next/navigation';
+import { useState, useEffect, useMemo, useRef, Suspense } from 'react';
+import { useRouter, useSearchParams } from 'next/navigation';
 import { X, Calendar, Zap, MapPin, Plane, Clock, Users, User, Baby, Plus, CreditCard, ChevronDown } from 'lucide-react';
 import { solo, users as usersAPI, ExtractedTripInfo, isAuthenticated as checkIsAuthenticated } from '@/lib/api';
 import TripChatbotInline from '@/components/trip-chatbot-inline';
@@ -14,6 +14,7 @@ import MultiAirportAutocomplete from '@/components/ui/MultiAirportAutocomplete';
 import DateRangePicker from '@/components/date-range-picker';
 import SingleDatePicker from '@/components/ui/SingleDatePicker';
 import { ALL_LOYALTY_PROGRAMS, getProgramCategory, isValidProgram } from '@/lib/loyalty-programs';
+import { formatProgramName } from '@/lib/programLabels';
 
 // ============================================================================
 // SESSION STORAGE PERSISTENCE
@@ -88,8 +89,14 @@ interface CreditCardEntry {
   owner: string; // "me" = user's own account, anything else = another person donating points
 }
 
-export default function SoloTripSetup() {
+function SoloTripSetupContent() {
   const router = useRouter();
+  const searchParams = useSearchParams();
+  const editTripId = searchParams?.get('trip_id') || '';
+
+  // Edit mode: when trip_id is in the URL, we load that trip and update it
+  const [isEditMode, setIsEditMode] = useState(false);
+  const [editTripLoading, setEditTripLoading] = useState(!!editTripId);
 
   // Load saved state once (before first render takes effect)
   const savedState = useRef<SavedSetupState | null>(null);
@@ -367,12 +374,100 @@ export default function SoloTripSetup() {
   // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
 
-  // Save credit cards when they change (only for authenticated users)
+  // Load existing trip when editing (trip_id in URL)
   useEffect(() => {
-    if (!isLoadingProfile) {
+    if (!editTripId) {
+      setEditTripLoading(false);
+      return;
+    }
+    const loadTrip = async () => {
+      try {
+        setEditTripLoading(true);
+        const tripData = await solo.getTrip(editTripId);
+
+        setIsEditMode(true);
+
+        // Pre-fill form fields from the trip data
+        if (tripData.origin) {
+          setStartAirports(tripData.origin.split(',').map(a => a.trim()).filter(Boolean));
+        }
+        if (tripData.finalDestination) {
+          const isSameAsOrigin = tripData.tripType === 'round_trip';
+          if (!isSameAsOrigin) {
+            setEndAirports(tripData.finalDestination.split(',').map(a => a.trim()).filter(Boolean));
+          }
+        }
+        if (tripData.destinations) {
+          setCities(tripData.destinations);
+        }
+        setIsRoundTrip(tripData.tripType === 'round_trip');
+        setIsFlexible(tripData.dateMode === 'flexible');
+        if (tripData.startDate) setStartDate(tripData.startDate);
+        if (tripData.endDate) setEndDate(tripData.endDate);
+        if (tripData.durationDays) setFlexibleDuration(tripData.durationDays);
+        if (tripData.maxBudget) setMaxBudget(tripData.maxBudget);
+        if (tripData.adults) setAdults(tripData.adults);
+        if (tripData.children != null) setChildren(tripData.children);
+        if (tripData.flightClass) setFlightClass(tripData.flightClass);
+        if (tripData.optimizationMode === 'money_saving') setMoneySaverMode(true);
+
+        // Load advanced filters from trip response
+        const raw = tripData as Record<string, unknown>;
+        if (raw.includeBudgetAirlines != null) setIncludeBudgetAirlines(!!raw.includeBudgetAirlines);
+        if (raw.maxStops != null) setMaxStops(Number(raw.maxStops));
+        const depRange = raw.departureHourRange as number[] | undefined;
+        if (depRange && depRange.length === 2) {
+          setDepartureHourStart(depRange[0]);
+          setDepartureHourEnd(depRange[1]);
+        }
+        const arrRange = raw.arrivalHourRange as number[] | undefined;
+        if (arrRange && arrRange.length === 2) {
+          setArrivalHourStart(arrRange[0]);
+          setArrivalHourEnd(arrRange[1]);
+        }
+        const rawLegDates = raw.legDates as string[] | undefined;
+        if (rawLegDates && rawLegDates.length > 0) {
+          setLegDates(rawLegDates);
+        }
+
+        // Load points associated with the trip.
+        // The backend stores canonical keys (e.g. "chase_ur") so we convert
+        // them to display names ("Chase Ultimate Rewards") that the UI expects.
+        try {
+          const pointsSummary = await solo.getPoints(editTripId);
+          if (pointsSummary.items && pointsSummary.items.length > 0) {
+            const cards = pointsSummary.items.map((item: { program: string; balance: number }, idx: number) => {
+              const displayName = formatProgramName(item.program);
+              return {
+                id: `edit-${idx}-${Date.now()}`,
+                program: displayName,
+                points: item.balance,
+                owner: 'me',
+              };
+            });
+            setCreditCards(cards);
+          }
+        } catch {
+          console.log('[SoloSetup] Could not load points for edit mode');
+        }
+      } catch (err) {
+        console.error('Error loading trip for editing:', err);
+        setIsEditMode(false);
+      } finally {
+        setEditTripLoading(false);
+      }
+    };
+    loadTrip();
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [editTripId]);
+
+  // Save credit cards when they change (only for authenticated users).
+  // Skip in edit mode — cards loaded from the trip's points store use internal
+  // program keys (e.g. "chase_ur") that the profile API doesn't accept.
+  useEffect(() => {
+    if (!isLoadingProfile && !isEditMode) {
       const saveProfile = async () => {
         try {
-          // Only save if authenticated — anonymous users don't have a profile
           if (!checkIsAuthenticated()) return;
           
           await usersAPI.updateProfile({
@@ -383,11 +478,10 @@ export default function SoloTripSetup() {
         }
       };
 
-      // Debounce saves to avoid too many API calls
       const timeoutId = setTimeout(saveProfile, 1000);
       return () => clearTimeout(timeoutId);
     }
-  }, [creditCards, isLoadingProfile]);
+  }, [creditCards, isLoadingProfile, isEditMode]);
 
   // ============================================================
   // PERSIST FORM STATE TO SESSION STORAGE
@@ -726,61 +820,62 @@ export default function SoloTripSetup() {
     setError(null);
 
     try {
-      // 1. Create trip using the new solo API with all preferences
       const tripTitle = cities.length > 0 
         ? `Solo Trip to ${cities[0]}${cities.length > 1 ? ` + ${cities.length - 1} more` : ''}` 
         : 'Solo Trip';
       
-      // Use startDate and endDate directly since they're now always set in the new UI
       const effectiveStartDate = startDate;
       const effectiveEndDate = endDate;
-      
-      // For API, join multiple airports with comma for origin/finalDestination
       const originAirports = startAirports.join(',');
       const finalAirports = isRoundTrip ? startAirports.join(',') : endAirports.join(',');
-      
-      const trip = await solo.createTrip({
+
+      const tripParams = {
         title: tripTitle,
-        tripType: isRoundTrip ? 'round_trip' : 'one_way',
-        dateMode: isFlexible ? 'flexible' : 'fixed',
+        tripType: (isRoundTrip ? 'round_trip' : 'one_way') as 'one_way' | 'round_trip',
+        dateMode: (isFlexible ? 'flexible' : 'fixed') as 'fixed' | 'flexible',
         origin: originAirports,
         destinations: cities,
         finalDestination: finalAirports,
         startDate: isFlexible ? undefined : effectiveStartDate,
-        // One-way trips only use departure date; do not send arrival/return date
         endDate: isFlexible ? undefined : (isRoundTrip ? effectiveEndDate : undefined),
         durationDays: isFlexible ? flexibleDuration : undefined,
-        maxBudget: maxBudget,
+        maxBudget: maxBudget as number,
         adults: adults,
         children: children,
-
         flightClass: flightClass as 'basic_economy' | 'economy' | 'premium' | 'business' | 'first',
-        optimizationMode: optimizationMode,
-        // Pass leg dates for multi-city trips
+        optimizationMode: optimizationMode as 'oop' | 'cpp' | 'balanced' | 'money_saving',
         legDates: isMultiCity ? legDates : undefined,
-        // Advanced flight filters
         includeBudgetAirlines: includeBudgetAirlines,
         maxStops: maxStops,
-        departureHourRange: (departureHourStart !== 0 || departureHourEnd !== 23) ? [departureHourStart, departureHourEnd] : undefined,
-        arrivalHourRange: (arrivalHourStart !== 0 || arrivalHourEnd !== 23) ? [arrivalHourStart, arrivalHourEnd] : undefined,
-      });
+        departureHourRange: (departureHourStart !== 0 || departureHourEnd !== 23) ? [departureHourStart, departureHourEnd] as [number, number] : undefined,
+        arrivalHourRange: (arrivalHourStart !== 0 || arrivalHourEnd !== 23) ? [arrivalHourStart, arrivalHourEnd] as [number, number] : undefined,
+      };
 
-      // 2. Add credit card points (use allocated amount, or all if not set)
-      // Group by owner for payer_points support
+      let tripId: string;
+
+      if (isEditMode && editTripId) {
+        // Update existing trip
+        const updated = await solo.updateTrip(editTripId, tripParams);
+        tripId = updated.tripId;
+      } else {
+        // Create new trip
+        const trip = await solo.createTrip(tripParams);
+        tripId = trip.tripId;
+      }
+
+      // Sync credit card points. In edit mode, always upsert (even if empty)
+      // so that removed programs get cleared from the backend.
       if (creditCards.length > 0) {
         const hasMultipleOwners = creditCards.some(c => c.owner !== 'me');
 
         if (hasMultipleOwners) {
-          // Multi-payer: group by owner, keep balances separate per person
           const payerPoints: Record<string, Record<string, number>> = {};
           for (const card of creditCards) {
             const ownerKey = card.owner;
             if (!payerPoints[ownerKey]) payerPoints[ownerKey] = {};
             const balance = pointsToUse[card.id] ?? card.points;
-            // Same owner may have multiple different programs — accumulate
             payerPoints[ownerKey][card.program] = (payerPoints[ownerKey][card.program] || 0) + balance;
           }
-          // Still upsert points (using merged totals) for trip record
           const mergedBalances: Record<string, number> = {};
           for (const card of creditCards) {
             const balance = pointsToUse[card.id] ?? card.points;
@@ -790,30 +885,24 @@ export default function SoloTripSetup() {
             program,
             balance,
           }));
-          await solo.upsertPoints(trip.tripId, pointsBalances);
-
-          // Store payer_points in sessionStorage for the results page to use
-          sessionStorage.setItem(`payer_points_${trip.tripId}`, JSON.stringify(payerPoints));
+          await solo.upsertPoints(tripId, pointsBalances);
+          sessionStorage.setItem(`payer_points_${tripId}`, JSON.stringify(payerPoints));
         } else {
-          // Single owner: standard path
           const pointsBalances = creditCards.map(card => ({
             program: card.program,
             balance: pointsToUse[card.id] ?? card.points,
           }));
-          await solo.upsertPoints(trip.tripId, pointsBalances);
+          await solo.upsertPoints(tripId, pointsBalances);
         }
+      } else if (isEditMode) {
+        // No cards left — clear all points from the trip
+        await solo.upsertPoints(tripId, []);
       }
 
-      // 3. Clear saved form state — trip is created, no need to keep it
       clearSavedState();
-
-      // 4. Remember the last generated trip ID so the results page can
-      //    recover it even after a sign-in redirect (e.g. URL gets lost).
-      sessionStorage.setItem('tripy_last_trip_id', trip.tripId);
-      localStorage.setItem('tripy_last_trip_id', trip.tripId);
-
-      // 5. Navigate to results page for optimization
-      router.push(`/solo/results?trip_id=${trip.tripId}`);
+      sessionStorage.setItem('tripy_last_trip_id', tripId);
+      localStorage.setItem('tripy_last_trip_id', tripId);
+      router.push(`/solo/results?trip_id=${tripId}`);
     } catch (err) {
       console.error('Error generating itinerary:', err);
       setError(err instanceof Error ? err.message : 'Failed to generate itinerary. Please try again.');
@@ -826,9 +915,22 @@ export default function SoloTripSetup() {
       <div className="max-w-6xl mx-auto">
         {/* Header */}
         <div className="mb-8">
-          <h1 className="text-3xl md:text-4xl tracking-tight text-slate-900 font-bold">Book Your Flight</h1>
-          <p className="text-slate-500 mt-1">Find the best deals using your points</p>
+          <h1 className="text-3xl md:text-4xl tracking-tight text-slate-900 font-bold">
+            {isEditMode ? 'Edit Your Search' : 'Book Your Flight'}
+          </h1>
+          <p className="text-slate-500 mt-1">
+            {isEditMode ? 'Modify your trip parameters and re-search for flights' : 'Find the best deals using your points'}
+          </p>
         </div>
+
+        {editTripLoading && (
+          <div className="mb-8 flex items-center justify-center py-12">
+            <div className="text-center">
+              <div className="inline-block animate-spin rounded-full h-8 w-8 border-b-2 border-blue-600 mb-3" />
+              <p className="text-sm text-slate-500">Loading your trip details...</p>
+            </div>
+          </div>
+        )}
 
         <div className="grid lg:grid-cols-3 gap-8">
           {/* Left Column - Main Form */}
@@ -1616,12 +1718,12 @@ export default function SoloTripSetup() {
                 {isGenerating ? (
                   <>
                     <div className="w-5 h-5 border-2 border-white/30 border-t-white rounded-full animate-spin" />
-                    <span>Searching flights...</span>
+                    <span>{isEditMode ? 'Updating & searching...' : 'Searching flights...'}</span>
                   </>
                 ) : (
                   <>
                     <Zap className="w-5 h-5" />
-                    <span>Search Flights</span>
+                    <span>{isEditMode ? 'Update & Re-search' : 'Search Flights'}</span>
                   </>
                 )}
               </button>
@@ -1970,5 +2072,13 @@ export default function SoloTripSetup() {
         </div>
       )}
     </div>
+  );
+}
+
+export default function SoloTripSetup() {
+  return (
+    <Suspense fallback={<div className="min-h-full flex items-center justify-center p-8 bg-gradient-to-br from-slate-50 via-blue-50 to-indigo-50"><div className="inline-block animate-spin rounded-full h-8 w-8 border-b-2 border-blue-600" /></div>}>
+      <SoloTripSetupContent />
+    </Suspense>
   );
 }

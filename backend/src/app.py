@@ -478,6 +478,12 @@ class GenerateItineraryRequest(BaseModel):
     )
 
 
+class GenerateStreamRequest(BaseModel):
+    trip_id: str = Field(..., min_length=1)
+    request_id: str = Field(default="")
+    optimization_mode: str = Field(default="money_saving")
+
+
 class UpdateProfileRequest(BaseModel):
     name: Optional[str] = None
     default_home_airport: Optional[str] = None
@@ -2399,6 +2405,188 @@ async def generate_itinerary(
             ],
         }
         return error_response
+
+
+# ── SSE streaming generation endpoint ──────────────────────────────────────
+@app.post("/itinerary/generate-stream")
+async def generate_itinerary_stream(
+    request: GenerateStreamRequest,
+    user_id: str = Depends(get_current_user_id),
+):
+    """Stream itinerary generation progress via SSE. Falls back to SQS for
+    complex trips and returns a QUEUED event so the client can poll."""
+    import asyncio
+    import uuid as _uuid
+    from starlette.concurrency import run_in_threadpool
+    from starlette.responses import StreamingResponse
+    from src.models.sse_events import (
+        format_sse, format_sse_comment, format_sse_retry,
+        SSEEvent, StatusValue, SeqCounter,
+    )
+    from src.repos import itinerary_repo
+    from src.config import GENERATION_LOCK_STALE_SECONDS
+
+    trip = await run_in_threadpool(trip_service.get_trip, request.trip_id)
+    if not trip:
+        raise HTTPException(status_code=404, detail="Trip not found")
+
+    if trip.get("createdBy") != user_id:
+        raise HTTPException(status_code=403, detail="Access denied")
+
+    seq = SeqCounter(request.trip_id)
+    request_id = request.request_id or str(_uuid.uuid4())
+
+    # -- Idempotency: try to acquire trip-level generation lock --
+    job_id = str(_uuid.uuid4())
+    now_iso = datetime.utcnow().isoformat() + "Z"
+    from datetime import timedelta
+    stale_threshold = (datetime.utcnow() - timedelta(seconds=GENERATION_LOCK_STALE_SECONDS)).isoformat() + "Z"
+
+    lock_item = {
+        "tripId": request.trip_id,
+        "itemId": "__generation_lock__",
+        "jobId": job_id,
+        "requestId": request_id,
+        "status": "processing",
+        "lastHeartbeatAt": now_iso,
+        "createdAt": now_iso,
+    }
+    lock_acquired = await run_in_threadpool(
+        itinerary_repo.put_item_conditional,
+        lock_item,
+        "attribute_not_exists(itemId) OR #s IN (:complete, :error) OR lastHeartbeatAt < :stale",
+        {"#s": "status"},
+        {":complete": "complete", ":error": "error", ":stale": stale_threshold},
+    )
+
+    if not lock_acquired:
+        existing_lock = await run_in_threadpool(
+            itinerary_repo.get_generation_lock, request.trip_id,
+        )
+        if existing_lock and existing_lock.get("status") in ("complete",):
+            evt = seq.next_event(
+                type="status", status=StatusValue.COMPLETE,
+                itineraryVersion=int(trip.get("itineraryVersion", 1)),
+            )
+            async def _cached():
+                yield format_sse_retry(3000)
+                yield format_sse(evt)
+            return StreamingResponse(
+                _cached(), media_type="text/event-stream",
+                headers=_sse_headers(),
+            )
+        if existing_lock:
+            evt = seq.next_event(
+                type="status", status=StatusValue.ALREADY_PROCESSING,
+                jobId=existing_lock.get("jobId"),
+                message="Generation already in progress for this trip.",
+            )
+            async def _already():
+                yield format_sse_retry(3000)
+                yield format_sse(evt)
+            return StreamingResponse(
+                _already(), media_type="text/event-stream",
+                headers=_sse_headers(),
+            )
+
+    # Cached result fast-path
+    if trip.get("optimizationGenerated"):
+        evt = seq.next_event(
+            type="status", status=StatusValue.COMPLETE,
+            itineraryVersion=int(trip.get("itineraryVersion", 1)),
+        )
+        async def _done():
+            yield format_sse_retry(3000)
+            yield format_sse(evt)
+        return StreamingResponse(
+            _done(), media_type="text/event-stream",
+            headers=_sse_headers(),
+        )
+
+    # -- Stream the generation via asyncio.Queue for heartbeat interleaving --
+    async def event_stream():
+        queue: asyncio.Queue = asyncio.Queue(maxsize=100)
+        yield format_sse_retry(3000)
+
+        async def heartbeat():
+            while True:
+                await asyncio.sleep(15)
+                try:
+                    queue.put_nowait(format_sse_comment("keep-alive"))
+                except asyncio.QueueFull:
+                    pass
+
+        async def generate():
+            try:
+                async for evt in itinerary_service.generate_optimized_itinerary_stream(
+                    request.trip_id,
+                    request.optimization_mode,
+                    request_id,
+                    allow_queue=True,
+                ):
+                    await queue.put(format_sse(evt))
+            except Exception as exc:
+                logger.exception("SSE generation error for trip %s", request.trip_id)
+                error_evt = seq.next_event(
+                    type="status", status=StatusValue.ERROR,
+                    error={
+                        "code": "INTERNAL_ERROR",
+                        "userMessage": "An unexpected error occurred.",
+                        "debugId": request_id,
+                    },
+                )
+                await queue.put(format_sse(error_evt))
+            finally:
+                await queue.put(None)
+
+        hb_task = asyncio.create_task(heartbeat())
+        gen_task = asyncio.create_task(generate())
+
+        try:
+            while True:
+                item = await queue.get()
+                if item is None:
+                    break
+                yield item
+        finally:
+            hb_task.cancel()
+            if not gen_task.done():
+                gen_task.cancel()
+
+    return StreamingResponse(
+        event_stream(),
+        media_type="text/event-stream",
+        headers=_sse_headers(),
+    )
+
+
+@app.get("/itinerary/jobs/latest/{trip_id}")
+async def get_latest_job_status(
+    trip_id: str,
+    user_id: str = Depends(get_current_user_id),
+):
+    """Polling endpoint: returns latest generation job status for a trip."""
+    from starlette.concurrency import run_in_threadpool
+    from src.repos import itinerary_repo
+
+    trip = await run_in_threadpool(trip_service.get_trip, trip_id)
+    if not trip:
+        raise HTTPException(status_code=404, detail="Trip not found")
+    if trip.get("createdBy") != user_id:
+        raise HTTPException(status_code=403, detail="Access denied")
+
+    job = await run_in_threadpool(itinerary_repo.get_latest_job, trip_id)
+    if not job:
+        raise HTTPException(status_code=404, detail="No generation job found for this trip")
+    return job
+
+
+def _sse_headers() -> dict:
+    return {
+        "Cache-Control": "no-cache, no-store, must-revalidate",
+        "Connection": "keep-alive",
+        "X-Accel-Buffering": "no",
+    }
 
 
 @app.post("/itinerary/get")

@@ -11,6 +11,9 @@ import {
 import { generateItinerary, trips } from '@/lib/api';
 import { TripGenerationLoader } from '@/components/ui/TripGenerationLoader';
 import { tripDurationDays, calculateServiceFee, SERVICE_FEE_PERCENT } from '@/lib/utils';
+import { useItineraryStream } from '@/lib/hooks/useItineraryStream';
+
+const FEATURE_STREAM = process.env.NEXT_PUBLIC_FEATURE_STREAM_GENERATION === 'true';
 
 export default function GroupPayment() {
   const router = useRouter();
@@ -66,6 +69,8 @@ export default function GroupPayment() {
     }
   };
 
+  const stream = useItineraryStream();
+
   const handlePayment = async () => {
     setIsProcessing(true);
     setError(null);
@@ -77,20 +82,23 @@ export default function GroupPayment() {
       setIsProcessing(false);
       setIsGenerating(true);
       
-      // Generate itinerary after payment
       if (tripId) {
-        const result = await generateItinerary(tripId);
-        if (process.env.NODE_ENV === 'development') {
-          console.log('[GroupPayment] generateItinerary success', {
-            tripId,
-            status: (result as Record<string, unknown>)?.status,
-            itemCount: Array.isArray((result as Record<string, unknown>)?.items) 
-              ? ((result as Record<string, unknown>).items as unknown[]).length 
-              : 0,
-            relaxed: (result as Record<string, unknown>)?.relaxed_constraints,
-          });
+        if (FEATURE_STREAM) {
+          await stream.generate(tripId);
+        } else {
+          const result = await generateItinerary(tripId);
+          if (process.env.NODE_ENV === 'development') {
+            console.log('[GroupPayment] generateItinerary success', {
+              tripId,
+              status: (result as Record<string, unknown>)?.status,
+              itemCount: Array.isArray((result as Record<string, unknown>)?.items) 
+                ? ((result as Record<string, unknown>).items as unknown[]).length 
+                : 0,
+              relaxed: (result as Record<string, unknown>)?.relaxed_constraints,
+            });
+          }
         }
-        
+
         // Mark strategy as paid so all group members can access transfer instructions
         await trips.markStrategyPaid(tripId, {
           amount: Math.max(0, serviceFee - discount),
@@ -102,9 +110,9 @@ export default function GroupPayment() {
         }
       }
       
-      setIsPaid(true);
-      
-      // The loader will handle the redirect after showing completion
+      if (!FEATURE_STREAM) {
+        setIsPaid(true);
+      }
     } catch (err) {
       if (process.env.NODE_ENV === 'development') {
         console.error('[GroupPayment] generateItinerary failed', {
@@ -118,6 +126,20 @@ export default function GroupPayment() {
     }
   };
   
+  // When streaming finishes, mark complete and redirect
+  useEffect(() => {
+    if (FEATURE_STREAM && stream.status === 'complete' && isGenerating) {
+      setIsPaid(true);
+    }
+  }, [stream.status, isGenerating]);
+
+  useEffect(() => {
+    if (FEATURE_STREAM && stream.status === 'error' && isGenerating) {
+      setIsGenerating(false);
+      setError(stream.error?.userMessage ?? 'Generation failed. Please try again.');
+    }
+  }, [stream.status, stream.error, isGenerating]);
+
   // Handle generation complete - redirect to results
   const handleGenerationComplete = () => {
     setIsGenerating(false);
@@ -132,6 +154,10 @@ export default function GroupPayment() {
         isComplete={isPaid}
         onComplete={handleGenerationComplete}
         estimatedDuration={20000}
+        streamPhase={FEATURE_STREAM ? stream.phase : undefined}
+        streamMessage={FEATURE_STREAM ? stream.message : undefined}
+        streamProgress={FEATURE_STREAM ? stream.progress : undefined}
+        streamError={FEATURE_STREAM ? stream.error : undefined}
       />
       
       {/* Header */}
