@@ -322,24 +322,29 @@ function SoloTripSetupContent() {
     };
   }, []);
 
-  // Load user profile on mount (gracefully handles anonymous users)
+  // Load user profile on mount (gracefully handles anonymous users).
+  // In edit mode the trip's stored points are the source of truth, so we
+  // skip loading profile credit cards to avoid a race condition where
+  // the profile response arrives after the trip load and overwrites the
+  // trip-specific points with stale profile data.
   useEffect(() => {
     const loadUserProfile = async () => {
       try {
         setIsLoadingProfile(true);
-        // Only load profile if user is authenticated
         if (!checkIsAuthenticated()) {
-          // Anonymous user — skip profile load, use defaults
           setIsUserAuthenticated(false);
           console.log('[SoloSetup] Anonymous session — skipping profile load');
           return;
         }
         setIsUserAuthenticated(true);
+
+        // Skip profile credit-card loading in edit mode — the trip's
+        // stored points will be loaded by the trip-loader useEffect.
+        if (editTripId) {
+          return;
+        }
         
         const profile = await usersAPI.getProfile();
-        
-        // Max budget is now per-trip, not stored in profile
-        // User will set it manually for each trip
         
         if (profile.credit_cards && profile.credit_cards.length > 0) {
           const profileCards = profile.credit_cards.map(card => ({
@@ -348,10 +353,6 @@ function SoloTripSetupContent() {
             points: card.points,
             owner: card.owner || 'me',
           }));
-          // If we restored credit cards from sessionStorage (e.g. after sign-in
-          // redirect), merge: prefer the profile version for cards that exist in
-          // both (profile is source of truth for balances), but keep any
-          // session-only cards the user added before signing in.
           if (s && s.creditCards && s.creditCards.length > 0) {
             const profilePrograms = new Set(profileCards.map(c => `${c.program}::${c.owner}`));
             const sessionOnlyCards = s.creditCards.filter(
@@ -364,7 +365,6 @@ function SoloTripSetupContent() {
         }
       } catch (err) {
         console.error('Error loading user profile:', err);
-        // Use defaults if profile load fails (expected for anonymous users)
       } finally {
         setIsLoadingProfile(false);
       }
