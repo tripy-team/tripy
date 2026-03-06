@@ -1062,6 +1062,32 @@ function SoloBookingContent() {
     risk?: ItineraryRisk;
   } | undefined;
 
+  // Recompute OOP metrics from transferStrategy bookings when available.
+  // The transfer strategy may reclassify segments from points→cash if the user's
+  // banks can't transfer to the required program, making the snapshot's oopMetrics stale.
+  const effectiveOopMetrics = (() => {
+    const base = soloSnapshot?.oopMetrics;
+    if (!transferStrategy || !base) return base;
+
+    const totalSurcharges = transferStrategy.bookings
+      .filter(b => b.paymentMethod === 'points')
+      .reduce((sum, b) => sum + Math.max(0, b.surcharge || 0), 0);
+    const totalCashBookings = transferStrategy.bookings
+      .filter(b => b.paymentMethod === 'cash')
+      .reduce((sum, b) => sum + Math.max(0, b.cashPrice || 0), 0);
+    const adjustedOOP = totalSurcharges + totalCashBookings;
+
+    const totalCashPrice = base.totalCashPrice || 0;
+    const adjustedCashSaved = Math.max(0, totalCashPrice - adjustedOOP);
+
+    return {
+      ...base,
+      totalOutOfPocket: adjustedOOP,
+      cashSaved: adjustedCashSaved,
+      savingsPercentage: totalCashPrice > 0 ? (adjustedCashSaved / totalCashPrice * 100) : 0,
+    };
+  })();
+
   const SegmentIcon = ({ mode }: { mode: 'flight' | 'bus' | 'car' }) => (
     mode === 'flight' 
       ? <Plane className="w-5 h-5 text-blue-600" /> 
@@ -1126,7 +1152,7 @@ function SoloBookingContent() {
         <div className="space-y-8">
           
           {/* Savings Highlight - show from solo API or legacy */}
-          {(hasSoloData || hasSnapshotSegments) && soloSnapshot?.oopMetrics?.cashSaved && soloSnapshot.oopMetrics.cashSaved > 0 ? (
+          {(hasSoloData || hasSnapshotSegments) && effectiveOopMetrics?.cashSaved && effectiveOopMetrics.cashSaved > 0 ? (
             <div className="bg-gradient-to-br from-blue-600 to-indigo-700 rounded-2xl p-8 text-white shadow-xl shadow-blue-900/10 relative overflow-hidden">
               <div className="absolute top-0 right-0 w-64 h-64 bg-white/10 rounded-full -mr-16 -mt-16 blur-3xl"></div>
               <div className="relative z-10">
@@ -1135,17 +1161,17 @@ function SoloBookingContent() {
                   <span className="font-medium">Total Savings</span>
                 </div>
                 <div className="flex items-baseline gap-2 mb-4">
-                  <span className="text-5xl font-bold">${Math.round(soloSnapshot.oopMetrics.cashSaved).toLocaleString()}</span>
+                  <span className="text-5xl font-bold">${Math.round(effectiveOopMetrics.cashSaved).toLocaleString()}</span>
                   <span className="text-blue-200">saved vs cash price</span>
                 </div>
                 <div className="grid grid-cols-2 gap-4 bg-white/10 rounded-xl p-4 border border-white/10">
                   <div>
                     <div className="text-blue-200 text-sm">Cash Price</div>
-                    <div className="text-xl font-semibold line-through opacity-70">${Math.round(soloSnapshot.oopMetrics.totalCashPrice || 0).toLocaleString()}</div>
+                    <div className="text-xl font-semibold line-through opacity-70">${Math.round(effectiveOopMetrics.totalCashPrice || 0).toLocaleString()}</div>
                   </div>
                   <div>
                     <div className="text-blue-200 text-sm">Your Cost</div>
-                    <div className="text-xl font-semibold text-green-300">${Math.round(soloSnapshot.oopMetrics.totalOutOfPocket || 0).toLocaleString()}</div>
+                    <div className="text-xl font-semibold text-green-300">${Math.round(effectiveOopMetrics.totalOutOfPocket || 0).toLocaleString()}</div>
                   </div>
                 </div>
               </div>
@@ -2217,14 +2243,14 @@ function SoloBookingContent() {
                           </div>
                           
                           {/* Total Cost */}
-                          {soloSnapshot?.oopMetrics && (
+                          {effectiveOopMetrics && (
                             <div className="ml-[52px] p-4 bg-emerald-50 rounded-xl border border-emerald-200">
                               <div className="flex items-center justify-between">
                                 <span className="font-medium text-emerald-900">
                                   {hasPointsSegs ? 'Total Out-of-Pocket' : 'Total Estimated Cost'}
                                 </span>
                                 <span className="text-xl font-bold text-emerald-700">
-                                  ${Math.round(soloSnapshot.oopMetrics.totalOutOfPocket || soloSnapshot.oopMetrics.totalCashPrice || cashPrice || 0).toLocaleString()}
+                                  ${Math.round(effectiveOopMetrics.totalOutOfPocket || effectiveOopMetrics.totalCashPrice || cashPrice || 0).toLocaleString()}
                                 </span>
                               </div>
                               <p className="text-xs text-emerald-700 mt-1">Book directly with airlines or through travel sites</p>
