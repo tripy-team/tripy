@@ -876,6 +876,25 @@ async def optimize_solo(
             rejected_alternatives = _generate_rejected_alternatives(best, itineraries)
             booking_details = best.booking_details
         
+        # Hotel recommendations (only when includeHotels is true on the trip)
+        hotel_recs = None
+        if trip.get("includeHotels", False):
+            try:
+                from ..services.hotel_recommendation_service import recommend_hotels_for_solo_trip
+                trip_type = trip.get("tripType", "round_trip")
+                hotel_recs = recommend_hotels_for_solo_trip(
+                    destinations=trip.get("destinations", []),
+                    start_date=trip.get("startDate"),
+                    end_date=trip.get("endDate"),
+                    leg_dates=trip.get("legDates") or None,
+                    traveler_count=party_size,
+                    is_round_trip=(trip_type == "round_trip"),
+                )
+                logger.info(f"[solo/optimize] Generated {len(hotel_recs)} hotel recommendations")
+            except Exception as hotel_err:
+                logger.warning(f"[solo/optimize] Hotel recommendations failed (non-fatal): {hotel_err}")
+                hotel_recs = None
+
         result = {
             "itineraries": [it.model_dump() for it in itineraries],
             "best_option": itineraries[0].id if itineraries else None,
@@ -886,6 +905,8 @@ async def optimize_solo(
             "rejected_alternatives": [ra.model_dump() for ra in rejected_alternatives],
             "booking_details": booking_details.model_dump() if booking_details else None,
         }
+        if hotel_recs is not None:
+            result["hotel_recommendations"] = [r.model_dump() for r in hotel_recs]
         
         # Cache the result
         solo_trip_service.cache_optimization(
@@ -927,6 +948,14 @@ async def optimize_solo(
                     suggested_budget=best_oop * 1.10,
                 )
         
+        # Build hotel recommendation response objects
+        hotel_rec_responses = None
+        if hotel_recs is not None:
+            from ..schemas.optimize import HotelRecommendationResponse
+            hotel_rec_responses = [
+                HotelRecommendationResponse(**r.model_dump()) for r in hotel_recs
+            ]
+
         return OptimizeSoloResponse(
             itineraries=itineraries,
             best_option=itineraries[0].id if itineraries else None,
@@ -937,6 +966,7 @@ async def optimize_solo(
             decision_summary=decision_summary,
             rejected_alternatives=rejected_alternatives,
             booking_details=booking_details,
+            hotel_recommendations=hotel_rec_responses,
             cached=False,
             computed_at=computed_str,
             expires_at=expires_str,

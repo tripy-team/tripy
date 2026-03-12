@@ -13,6 +13,7 @@ const AUTH_CHECKED_KEY = 'tripy_auth_checked_session';
 const PUBLIC_ROUTES = [
     '/solo/setup',
     '/solo/results',
+    '/group-planning',
 ];
 
 function isPublicRoute(pathname: string): boolean {

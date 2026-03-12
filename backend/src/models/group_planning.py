@@ -94,6 +94,7 @@ class GroupTripCreate(BaseModel):
     end_date: str = Field(..., min_length=10, max_length=10)
     currency: str = Field(default="USD", max_length=3)
     split_method: SplitMethod = SplitMethod.POINTS_VALUE_WEIGHTED
+    include_hotels: bool = False
 
 
 class GroupTripUpdate(BaseModel):
@@ -104,6 +105,7 @@ class GroupTripUpdate(BaseModel):
     currency: Optional[str] = Field(None, max_length=3)
     status: Optional[GroupTripStatus] = None
     split_method: Optional[SplitMethod] = None
+    include_hotels: Optional[bool] = None
 
 
 class GroupTripResponse(BaseModel):
@@ -116,6 +118,7 @@ class GroupTripResponse(BaseModel):
     currency: str
     status: str
     split_method: str
+    include_hotels: bool = False
     created_at: str
     updated_at: str
     traveler_count: int = 0
@@ -126,6 +129,7 @@ class TravelerProfileCreate(BaseModel):
     email: Optional[str] = Field(None, max_length=200)
     origin_city: Optional[str] = Field(None, max_length=100)
     origin_airport: Optional[str] = Field(None, max_length=10)
+    return_airport: Optional[str] = Field(None, max_length=10)
     cabin_preference: Optional[CabinPreference] = None
     hotel_preference: Optional[HotelPreference] = None
     room_share_group_id: Optional[str] = None
@@ -138,6 +142,7 @@ class TravelerProfileUpdate(BaseModel):
     email: Optional[str] = Field(None, max_length=200)
     origin_city: Optional[str] = Field(None, max_length=100)
     origin_airport: Optional[str] = Field(None, max_length=10)
+    return_airport: Optional[str] = Field(None, max_length=10)
     cabin_preference: Optional[CabinPreference] = None
     hotel_preference: Optional[HotelPreference] = None
     room_share_group_id: Optional[str] = None
@@ -154,6 +159,7 @@ class TravelerProfileResponse(BaseModel):
     email: Optional[str] = None
     origin_city: Optional[str] = None
     origin_airport: Optional[str] = None
+    return_airport: Optional[str] = None
     cabin_preference: Optional[str] = None
     hotel_preference: Optional[str] = None
     room_share_group_id: Optional[str] = None

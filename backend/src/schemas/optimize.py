@@ -369,6 +369,25 @@ class BudgetStatus(BaseModel):
     suggested_budget: Optional[float] = None  # required_budget * 1.10
 
 
+class HotelRecommendationResponse(BaseModel):
+    """Normalized hotel recommendation for API responses."""
+    hotel_id: str
+    hotel_name: str
+    destination: str
+    check_in: str
+    check_out: str
+    price_total: float
+    nightly_rate: float
+    currency: str = "USD"
+    booking_url: Optional[str] = None
+    rating: Optional[float] = None
+    star_level: int = 4
+    amenities: List[str] = []
+    recommendation_reason: Optional[str] = None
+    traveler_count: int = 1
+    room_count: int = 1
+
+
 class OptimizeSoloResponse(BaseModel):
     """Response from solo optimization"""
     itineraries: List[RankedItinerary]
@@ -389,6 +408,9 @@ class OptimizeSoloResponse(BaseModel):
     
     # Booking details for the recommended itinerary (top-level for easy access)
     booking_details: Optional[BookingDetails] = None
+
+    # Hotel recommendations (only present when includeHotels=true)
+    hotel_recommendations: Optional[List[HotelRecommendationResponse]] = None
 
     # Staleness metadata (no underscore prefixes - P0-4 fix)
     cached: bool = False

@@ -298,6 +298,29 @@ class HotelSearchResult(BaseModel):
     errors: list[str] = []
 
 
+class HotelRecommendation(BaseModel):
+    """Normalized hotel recommendation for a single stay window.
+
+    Shared across solo and group flows. One recommendation per
+    destination stay segment.
+    """
+    hotel_id: str
+    hotel_name: str
+    destination: str
+    check_in: str   # YYYY-MM-DD
+    check_out: str  # YYYY-MM-DD
+    price_total: float
+    nightly_rate: float
+    currency: str = "USD"
+    booking_url: Optional[str] = None
+    rating: Optional[float] = None
+    star_level: int = 4
+    amenities: list[str] = []
+    recommendation_reason: Optional[str] = None
+    traveler_count: int = 1
+    room_count: int = 1
+
+
 # =============================================================================
 # PAYMENT & TRANSFER MODELS
 # =============================================================================

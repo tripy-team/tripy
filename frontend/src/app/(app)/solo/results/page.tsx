@@ -11,6 +11,7 @@ import { TripGenerationLoader } from '@/components/ui/TripGenerationLoader';
 import DecisionHeader from '@/components/DecisionHeader';
 import WhyNotOthers from '@/components/WhyNotOthers';
 import RiskBadge from '@/components/RiskBadge';
+import HotelRecommendationCard from '@/components/HotelRecommendationCard';
 import { trackEvent, EVENTS } from '@/lib/analytics';
 
 interface Itinerary {
@@ -1923,6 +1924,21 @@ export default function SoloResults() {
                 </div>
                 </>
                 ))}
+                {/* Hotel Recommendations */}
+                {optimizeResponse?.hotelRecommendations && optimizeResponse.hotelRecommendations.length > 0 && (
+                    <div className="mt-8">
+                        <div className="flex items-center gap-2 mb-4">
+                            <Bed className="w-5 h-5 text-indigo-600" />
+                            <h2 className="text-xl font-semibold text-slate-900">Recommended Hotels</h2>
+                        </div>
+                        <div className="grid md:grid-cols-2 gap-4">
+                            {optimizeResponse.hotelRecommendations.map((rec) => (
+                                <HotelRecommendationCard key={rec.hotelId} recommendation={rec} />
+                            ))}
+                        </div>
+                    </div>
+                )}
+
                 {/* Confidence feedback (Task 17) — above footer */}
                 <div className="p-4 mt-6 bg-slate-50 border border-slate-200 rounded-xl text-center">
                     {calmnessVote === null && !showFeedbackInput ? (

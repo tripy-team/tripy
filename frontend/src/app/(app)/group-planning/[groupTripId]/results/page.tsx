@@ -29,7 +29,9 @@ import {
   type GroupTripDetail,
   type SettlementSummary,
   type TravelerProfileResponse,
+  type HotelRecommendation,
 } from '@/lib/api';
+import HotelRecommendationCard from '@/components/HotelRecommendationCard';
 
 function formatCurrency(value: number): string {
   return new Intl.NumberFormat('en-US', {
@@ -620,6 +622,7 @@ export default function GroupPlanningResults() {
   const [error, setError] = useState('');
   const [optimizing, setOptimizing] = useState(false);
   const [showAdjustmentModal, setShowAdjustmentModal] = useState(false);
+  const [hotelRecommendations, setHotelRecommendations] = useState<HotelRecommendation[]>([]);
 
   const fetchData = useCallback(async () => {
     if (!groupTripId) return;
@@ -642,7 +645,10 @@ export default function GroupPlanningResults() {
   const handleOptimize = async () => {
     setOptimizing(true);
     try {
-      await groupPlanning.optimize(groupTripId);
+      const optimizeResult = await groupPlanning.optimize(groupTripId) as Record<string, unknown>;
+      if (optimizeResult?.hotelRecommendations) {
+        setHotelRecommendations(optimizeResult.hotelRecommendations as HotelRecommendation[]);
+      }
       await groupPlanning.calculateSplit(groupTripId);
       await fetchData();
     } catch (err: unknown) {
@@ -651,6 +657,14 @@ export default function GroupPlanningResults() {
       setOptimizing(false);
     }
   };
+
+  useEffect(() => {
+    if (!groupTripId) return;
+    groupPlanning.getOptimizationResult(groupTripId).then((result) => {
+      const recs = (result as Record<string, unknown>)?.hotelRecommendations;
+      if (Array.isArray(recs)) setHotelRecommendations(recs as HotelRecommendation[]);
+    }).catch(() => {});
+  }, [groupTripId]);
 
   const handleAdjustmentSaved = async () => {
     setShowAdjustmentModal(false);
@@ -684,6 +698,21 @@ export default function GroupPlanningResults() {
         <TripHeader trip={trip} />
 
         <TravelerCards travelers={travelers} balances={balances} settlements={settlements} />
+
+        {/* Hotel Recommendations */}
+        {hotelRecommendations.length > 0 && (
+          <div>
+            <div className="flex items-center gap-2 mb-4">
+              <Building2 className="w-5 h-5 text-indigo-600" />
+              <h2 className="text-xl font-semibold text-slate-900">Recommended Hotels</h2>
+            </div>
+            <div className="grid md:grid-cols-2 gap-4">
+              {hotelRecommendations.map((rec) => (
+                <HotelRecommendationCard key={rec.hotelId} recommendation={rec} />
+              ))}
+            </div>
+          </div>
+        )}
 
         {!hasSettlements ? (
           <EmptyState onOptimize={handleOptimize} optimizing={optimizing} />

@@ -159,6 +159,9 @@ function SoloTripSetupContent() {
   const [moneySaverMode, setMoneySaverMode] = useState(s?.moneySaverMode ?? false);
   const optimizationMode = moneySaverMode ? 'money_saving' : 'oop';
 
+  // Hotel recommendations
+  const [includeHotels, setIncludeHotels] = useState(false);
+
   // Advanced Flight Filters
   const [includeBudgetAirlines, setIncludeBudgetAirlines] = useState(s?.includeBudgetAirlines ?? false);
   const [maxStops, setMaxStops] = useState(s?.maxStops ?? 0); // 0=Any, 1=Nonstop, 2=1 stop or fewer, 3=2 stops or fewer
@@ -839,6 +842,7 @@ function SoloTripSetupContent() {
         startDate: isFlexible ? undefined : effectiveStartDate,
         endDate: isFlexible ? undefined : (isRoundTrip ? effectiveEndDate : undefined),
         durationDays: isFlexible ? flexibleDuration : undefined,
+        includeHotels: includeHotels,
         maxBudget: maxBudget as number,
         adults: adults,
         children: children,
@@ -1586,6 +1590,29 @@ function SoloTripSetupContent() {
                     <span
                       className={`pointer-events-none inline-block h-5 w-5 transform rounded-full bg-white shadow ring-0 transition duration-200 ease-in-out ${
                         moneySaverMode ? 'translate-x-5' : 'translate-x-0'
+                      }`}
+                    />
+                  </button>
+                </div>
+
+                {/* Include Hotels Toggle */}
+                <div className="mt-4 flex items-center justify-between">
+                  <div className="flex-1 mr-3">
+                    <span className="text-sm font-medium text-slate-700">Include Hotel Recommendations</span>
+                    <p className="text-xs text-slate-400 mt-0.5">Get recommended hotels alongside your flight results</p>
+                  </div>
+                  <button
+                    type="button"
+                    onClick={() => setIncludeHotels(!includeHotels)}
+                    className={`relative inline-flex h-6 w-11 flex-shrink-0 cursor-pointer rounded-full border-2 border-transparent transition-colors duration-200 ease-in-out focus:outline-none focus:ring-2 focus:ring-blue-500 focus:ring-offset-2 ${
+                      includeHotels ? 'bg-blue-500' : 'bg-slate-200'
+                    }`}
+                    role="switch"
+                    aria-checked={includeHotels}
+                  >
+                    <span
+                      className={`pointer-events-none inline-block h-5 w-5 transform rounded-full bg-white shadow ring-0 transition duration-200 ease-in-out ${
+                        includeHotels ? 'translate-x-5' : 'translate-x-0'
                       }`}
                     />
                   </button>

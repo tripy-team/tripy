@@ -62,6 +62,7 @@ def create_group_trip(user_id: str, data: GroupTripCreate) -> GroupTripResponse:
         "currency": data.currency,
         "status": "draft",
         "splitMethod": data.split_method.value,
+        "includeHotels": data.include_hotels,
         "createdAt": now,
         "updatedAt": now,
     }
@@ -107,6 +108,7 @@ def update_group_trip(group_trip_id: str, user_id: str, data: GroupTripUpdate) -
         "currency": "currency",
         "status": "status",
         "split_method": "splitMethod",
+        "include_hotels": "includeHotels",
     }
 
     for py_field, db_field in field_mapping.items():
@@ -424,6 +426,7 @@ def _trip_to_response(item: Dict[str, Any], traveler_count: int = 0) -> GroupTri
         currency=item.get("currency", "USD"),
         status=item.get("status", "draft"),
         split_method=item.get("splitMethod", "points_value_weighted"),
+        include_hotels=item.get("includeHotels", False),
         created_at=item.get("createdAt", ""),
         updated_at=item.get("updatedAt", ""),
         traveler_count=traveler_count,

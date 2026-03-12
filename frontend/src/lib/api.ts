@@ -2899,6 +2899,24 @@ export interface SoloRankedItinerary {
   bookingDetails?: BookingDetails;
 }
 
+export interface HotelRecommendation {
+  hotelId: string;
+  hotelName: string;
+  destination: string;
+  checkIn: string;
+  checkOut: string;
+  priceTotal: number;
+  nightlyRate: number;
+  currency: string;
+  bookingUrl?: string;
+  rating?: number;
+  starLevel: number;
+  amenities: string[];
+  recommendationReason?: string;
+  travelerCount: number;
+  roomCount: number;
+}
+
 export interface SoloOptimizeResponse {
   itineraries: SoloRankedItinerary[];
   bestOption?: string;
@@ -2912,6 +2930,8 @@ export interface SoloOptimizeResponse {
   rejectedAlternatives?: RejectedAlternative[];
   /** Booking details for the recommended itinerary */
   bookingDetails?: BookingDetails;
+  /** Hotel recommendations (only present when includeHotels=true) */
+  hotelRecommendations?: HotelRecommendation[];
   cached: boolean;
   computedAt: string;
   expiresAt: string;
@@ -3577,6 +3597,7 @@ export interface GroupTripCreateRequest {
   endDate: string;
   currency?: string;
   splitMethod?: 'points_value_weighted' | 'equal_cash_after_points';
+  includeHotels?: boolean;
 }
 
 export interface GroupTripResponse {
@@ -3589,6 +3610,7 @@ export interface GroupTripResponse {
   currency: string;
   status: string;
   splitMethod: string;
+  includeHotels: boolean;
   createdAt: string;
   updatedAt: string;
   travelerCount: number;
@@ -3599,6 +3621,7 @@ export interface TravelerProfileRequest {
   email?: string;
   originCity?: string;
   originAirport?: string;
+  returnAirport?: string;
   cabinPreference?: 'economy' | 'premium_economy' | 'business' | 'first';
   hotelPreference?: 'budget' | 'standard' | 'luxury';
   roomShareGroupId?: string;
@@ -3615,6 +3638,7 @@ export interface TravelerProfileResponse {
   email?: string;
   originCity?: string;
   originAirport?: string;
+  returnAirport?: string;
   cabinPreference?: string;
   hotelPreference?: string;
   roomShareGroupId?: string;
@@ -3688,6 +3712,7 @@ export const groupPlanning = {
         end_date: data.endDate,
         currency: data.currency || 'USD',
         split_method: data.splitMethod || 'points_value_weighted',
+        include_hotels: data.includeHotels ?? false,
       }),
     });
     return toCamelCase<GroupTripResponse>(res);
@@ -3735,6 +3760,7 @@ export const groupPlanning = {
         email: data.email,
         origin_city: data.originCity,
         origin_airport: data.originAirport,
+        return_airport: data.returnAirport,
         cabin_preference: data.cabinPreference,
         hotel_preference: data.hotelPreference,
         room_share_group_id: data.roomShareGroupId,
@@ -3755,6 +3781,7 @@ export const groupPlanning = {
     if (data.displayName) body.display_name = data.displayName;
     if (data.email !== undefined) body.email = data.email;
     if (data.originAirport !== undefined) body.origin_airport = data.originAirport;
+    if (data.returnAirport !== undefined) body.return_airport = data.returnAirport;
     if (data.cabinPreference) body.cabin_preference = data.cabinPreference;
     if (data.hotelPreference) body.hotel_preference = data.hotelPreference;
     if (data.cashBudget !== undefined) body.cash_budget = data.cashBudget;
@@ -3821,6 +3848,11 @@ export const groupPlanning = {
   // Optimization & settlement
   optimize: async (tripId: string): Promise<unknown> => {
     const res = await apiRequest<Record<string, unknown>>(`/group-trips/${tripId}/optimize`, { method: 'POST' });
+    return toCamelCase(res);
+  },
+
+  getOptimizationResult: async (tripId: string): Promise<unknown> => {
+    const res = await apiRequest<Record<string, unknown>>(`/group-trips/${tripId}/optimization-result`);
     return toCamelCase(res);
   },
 

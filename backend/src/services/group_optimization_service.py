@@ -117,13 +117,32 @@ async def optimize_group_trip(group_trip_id: str, user_id: str) -> Dict[str, Any
     try:
         result = _run_staged_optimization(inputs)
 
+        # Hotel recommendations (only when includeHotels is true)
+        hotel_recs_payload = None
+        if trip.get("includeHotels", False):
+            try:
+                from src.services.hotel_recommendation_service import recommend_hotels_for_group_trip
+                hotel_recs = recommend_hotels_for_group_trip(
+                    destination=trip.get("destination", ""),
+                    start_date=trip.get("startDate", ""),
+                    end_date=trip.get("endDate", ""),
+                    traveler_count=len(travelers),
+                )
+                hotel_recs_payload = [r.model_dump() for r in hotel_recs]
+                logger.info(f"Generated {len(hotel_recs)} hotel recommendations for group trip {group_trip_id}")
+            except Exception as hotel_err:
+                logger.warning(f"Hotel recommendations failed for group trip (non-fatal): {hotel_err}")
+
         trip["status"] = "ready"
+        if hotel_recs_payload is not None:
+            trip["hotelRecommendations"] = hotel_recs_payload
         repo.put_group_trip(trip)
 
         return {
             "status": "success",
             "group_trip_id": group_trip_id,
             "optimization_result": result,
+            **({"hotel_recommendations": hotel_recs_payload} if hotel_recs_payload else {}),
         }
     except Exception as e:
         logger.error(f"Group optimization failed: {e}")
@@ -145,7 +164,7 @@ def get_optimization_result(group_trip_id: str, user_id: str) -> Dict[str, Any]:
 
     traveler_lookup = {t["travelerId"]: t.get("displayName", "") for t in travelers}
 
-    return {
+    out = {
         "group_trip_id": group_trip_id,
         "status": trip.get("status", "draft"),
         "assignments": [
@@ -157,6 +176,10 @@ def get_optimization_result(group_trip_id: str, user_id: str) -> Dict[str, Any]:
         ],
         "settlements": settlements,
     }
+    hotel_recs = trip.get("hotelRecommendations")
+    if hotel_recs:
+        out["hotel_recommendations"] = hotel_recs
+    return out
 
 
 def _run_staged_optimization(inputs: Dict[str, Any]) -> Dict[str, Any]:
