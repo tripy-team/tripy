@@ -68,6 +68,9 @@ DESTINATIONS_TABLE = _get_required_env("DESTINATIONS_TABLE")
 DESTINATION_VOTES_TABLE = _get_required_env("DESTINATION_VOTES_TABLE")
 ITINERARY_TABLE = _get_required_env("ITINERARY_TABLE")
 
+# Group planning table (optional, defaults for local dev)
+GROUP_PLANNING_TABLE = os.environ.get("GROUP_PLANNING_TABLE", "tripy-group-planning")
+
 # Optional configuration
 USER_POOL_ID = os.environ.get("USER_POOL_ID", "")
 USER_POOL_CLIENT_ID = os.environ.get("USER_POOL_CLIENT_ID", "")

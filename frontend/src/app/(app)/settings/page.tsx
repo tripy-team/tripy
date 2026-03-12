@@ -15,6 +15,7 @@ import {
 } from 'lucide-react';
 import { users as usersAPI, UpdateProfileRequest } from '@/lib/api';
 import CityAutocomplete from '@/components/city-autocomplete';
+import { resetUser } from '@/lib/analytics';
 
 export default function SettingsPage() {
   const router = useRouter();
@@ -114,8 +115,8 @@ export default function SettingsPage() {
   };
 
   const handleLogout = () => {
-    // Clear tokens
     if (typeof window !== 'undefined') {
+      resetUser();
       localStorage.removeItem('access_token');
       localStorage.removeItem('id_token');
       localStorage.removeItem('refresh_token');

@@ -5,6 +5,7 @@ import { useState, Suspense } from "react";
 import { useRouter, useSearchParams } from "next/navigation";
 import { Plane, Mail, Lock, User, ArrowRight, Check, Eye, EyeOff } from "lucide-react";
 import { signup, solo, getAnonSessionId } from "@/lib/api";
+import { identifyUser } from "@/lib/analytics";
 
 function RegisterForm() {
 	const router = useRouter();
@@ -71,6 +72,7 @@ function RegisterForm() {
 					userId: response.user_id,
 				}));
 				window.dispatchEvent(new Event('tripy_auth_change'));
+				identifyUser(response.user_id);
 			}
 
 			// Migrate anonymous session trips to the authenticated user

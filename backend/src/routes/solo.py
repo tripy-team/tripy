@@ -11,7 +11,7 @@ import logging
 from datetime import datetime, timezone, timedelta
 from typing import Dict, Optional
 
-from fastapi import APIRouter, BackgroundTasks, Depends, HTTPException, Request
+from fastapi import APIRouter, BackgroundTasks, Depends, HTTPException, Query, Request
 from pydantic import BaseModel
 
 from ..utils.jwt_auth import get_current_user_id, get_user_or_anon_id, is_anonymous
@@ -1806,10 +1806,13 @@ async def get_optimization_cache(
     trip_id: str,
     http_request: Request,
     user_id: str = Depends(get_user_or_anon_id),
+    allow_stale: bool = Query(False, description="Return cached results even if expired"),
 ):
     """
     Get cached optimization results for a trip.
     Returns 404 if no cache exists.
+    When allow_stale=true, returns results even if the cache TTL has expired
+    (useful when revisiting a trip from My Trips to avoid re-optimization).
     """
     try:
         # Get trip to verify ownership (with anon fallback for pre-sign-in trips)
@@ -1829,11 +1832,16 @@ async def get_optimization_cache(
         cache_key = solo_trip_service.compute_cache_key(trip_id, trip, points_dict, mode)
         cached = solo_trip_service.get_cached_optimization(trip_id, cache_key)
         
-        if not cached or solo_trip_service.is_cache_expired(cached):
-            logger.info(f"[optimization-cache] No valid cache found for trip {trip_id}")
+        if not cached:
+            logger.info(f"[optimization-cache] No cache found for trip {trip_id}")
+            raise HTTPException(status_code=404, detail="No cached optimization results")
+
+        if not allow_stale and solo_trip_service.is_cache_expired(cached):
+            logger.info(f"[optimization-cache] Cache expired for trip {trip_id}")
             raise HTTPException(status_code=404, detail="No cached optimization results")
         
-        logger.info(f"[optimization-cache] Returning cached results for trip {trip_id}")
+        is_stale = solo_trip_service.is_cache_expired(cached)
+        logger.info(f"[optimization-cache] Returning {'stale ' if is_stale else ''}cached results for trip {trip_id}")
         return _build_response_from_cached(cached)
         
     except PermissionError as e:

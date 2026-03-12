@@ -11,6 +11,7 @@
 
 import type { PolicyEvaluation, RiskMode } from '@/lib/policyConfig';
 import { toCamelCase } from '@/lib/serializers';
+import { resetUser } from '@/lib/analytics';
 
 const BACKEND_URL = process.env.NEXT_PUBLIC_BACKEND_URL || 'http://localhost:8000';
 
@@ -612,6 +613,7 @@ export const auth = {
 
   logout: () => {
     if (typeof window !== 'undefined') {
+      resetUser();
       localStorage.removeItem('access_token');
       localStorage.removeItem('id_token');
       localStorage.removeItem('refresh_token');
@@ -620,8 +622,7 @@ export const auth = {
       sessionStorage.removeItem('access_token');
       sessionStorage.removeItem('id_token');
       sessionStorage.removeItem('refresh_token');
-      sessionStorage.removeItem('tripy_auth_checked'); // Clear auth check flag
-      // Trigger auth change event for components to update
+      sessionStorage.removeItem('tripy_auth_checked');
       window.dispatchEvent(new Event('tripy_auth_change'));
     }
   },
@@ -3274,11 +3275,14 @@ export const solo = {
   },
 
   /**
-   * Get cached optimization results (if available)
+   * Get cached optimization results (if available).
+   * Pass allowStale=true to return results even if the cache TTL has expired
+   * (avoids expensive re-optimization when revisiting a trip).
    */
-  getOptimizationCache: async (tripId: string): Promise<SoloOptimizeResponse | null> => {
+  getOptimizationCache: async (tripId: string, options?: { allowStale?: boolean }): Promise<SoloOptimizeResponse | null> => {
     try {
-      const response = await apiRequest<Record<string, unknown>>(`/solo/optimization-cache/${tripId}`, {
+      const qs = options?.allowStale ? '?allow_stale=true' : '';
+      const response = await apiRequest<Record<string, unknown>>(`/solo/optimization-cache/${tripId}${qs}`, {
         method: 'GET',
       });
       return toCamelCase<SoloOptimizeResponse>(response);
@@ -3558,5 +3562,287 @@ export const optimization = {
 
     // Transform snake_case response to camelCase for frontend
     return toCamelCase<DynamicRouteResult>(response);
+  },
+};
+
+
+// ============================================================================
+// GROUP PLANNING API (organizer-managed group trips)
+// ============================================================================
+
+export interface GroupTripCreateRequest {
+  name: string;
+  destination: string;
+  startDate: string;
+  endDate: string;
+  currency?: string;
+  splitMethod?: 'points_value_weighted' | 'equal_cash_after_points';
+}
+
+export interface GroupTripResponse {
+  id: string;
+  ownerUserId: string;
+  name: string;
+  destination: string;
+  startDate: string;
+  endDate: string;
+  currency: string;
+  status: string;
+  splitMethod: string;
+  createdAt: string;
+  updatedAt: string;
+  travelerCount: number;
+}
+
+export interface TravelerProfileRequest {
+  displayName: string;
+  email?: string;
+  originCity?: string;
+  originAirport?: string;
+  cabinPreference?: 'economy' | 'premium_economy' | 'business' | 'first';
+  hotelPreference?: 'budget' | 'standard' | 'luxury';
+  roomShareGroupId?: string;
+  cashBudget?: number;
+  notes?: string;
+}
+
+export interface TravelerProfileResponse {
+  id: string;
+  groupTripId: string;
+  linkedUserId?: string;
+  isGuestProfile: boolean;
+  displayName: string;
+  email?: string;
+  originCity?: string;
+  originAirport?: string;
+  cabinPreference?: string;
+  hotelPreference?: string;
+  roomShareGroupId?: string;
+  cashBudget?: number;
+  notes?: string;
+  createdAt: string;
+  updatedAt: string;
+}
+
+export interface LoyaltyBalanceRequest {
+  program: string;
+  currencyType: 'airline_miles' | 'hotel_points' | 'bank_points';
+  balance: number;
+  transferableFrom?: string[];
+  centsPerPointAssumption?: number;
+  isEnabledForPooling?: boolean;
+}
+
+export interface LoyaltyBalanceResponse {
+  id: string;
+  travelerProfileId: string;
+  program: string;
+  currencyType: string;
+  balance: number;
+  transferableFrom?: string[];
+  centsPerPointAssumption?: number;
+  isEnabledForPooling: boolean;
+  createdAt: string;
+  updatedAt: string;
+}
+
+export interface ContributionPreferenceRequest {
+  maxCashContribution?: number;
+  maxPointValueContributionUsd?: number;
+  usePointsPriority?: 'low' | 'medium' | 'high';
+  allowTransferPartners?: boolean;
+  allowHotelPoints?: boolean;
+  allowFlightPoints?: boolean;
+}
+
+export interface SettlementSummary {
+  id: string;
+  groupTripId: string;
+  travelerProfileId: string;
+  travelerName: string;
+  grossShareUsd: number;
+  contributedValueUsd: number;
+  netOwedUsd: number;
+  netCreditUsd: number;
+  explanationLines: string[];
+  calculationVersion: number;
+  createdAt: string;
+}
+
+export interface GroupTripDetail {
+  trip: GroupTripResponse;
+  travelers: TravelerProfileResponse[];
+  balances: Record<string, LoyaltyBalanceResponse[]>;
+  preferences: Record<string, ContributionPreferenceRequest>;
+  settlements: SettlementSummary[];
+}
+
+export const groupPlanning = {
+  createTrip: async (data: GroupTripCreateRequest): Promise<GroupTripResponse> => {
+    const res = await apiRequest<Record<string, unknown>>('/group-trips', {
+      method: 'POST',
+      body: JSON.stringify({
+        name: data.name,
+        destination: data.destination,
+        start_date: data.startDate,
+        end_date: data.endDate,
+        currency: data.currency || 'USD',
+        split_method: data.splitMethod || 'points_value_weighted',
+      }),
+    });
+    return toCamelCase<GroupTripResponse>(res);
+  },
+
+  listTrips: async (): Promise<GroupTripResponse[]> => {
+    const res = await apiRequest<Record<string, unknown>[]>('/group-trips');
+    return res.map(r => toCamelCase<GroupTripResponse>(r));
+  },
+
+  getTrip: async (id: string): Promise<GroupTripResponse> => {
+    const res = await apiRequest<Record<string, unknown>>(`/group-trips/${id}`);
+    return toCamelCase<GroupTripResponse>(res);
+  },
+
+  getTripDetail: async (id: string): Promise<GroupTripDetail> => {
+    const res = await apiRequest<Record<string, unknown>>(`/group-trips/${id}/detail`);
+    return toCamelCase<GroupTripDetail>(res);
+  },
+
+  updateTrip: async (id: string, data: Partial<GroupTripCreateRequest>): Promise<GroupTripResponse> => {
+    const body: Record<string, unknown> = {};
+    if (data.name) body.name = data.name;
+    if (data.destination) body.destination = data.destination;
+    if (data.startDate) body.start_date = data.startDate;
+    if (data.endDate) body.end_date = data.endDate;
+    if (data.splitMethod) body.split_method = data.splitMethod;
+    const res = await apiRequest<Record<string, unknown>>(`/group-trips/${id}`, {
+      method: 'PATCH',
+      body: JSON.stringify(body),
+    });
+    return toCamelCase<GroupTripResponse>(res);
+  },
+
+  deleteTrip: async (id: string): Promise<void> => {
+    await apiRequest(`/group-trips/${id}`, { method: 'DELETE' });
+  },
+
+  // Traveler profiles
+  addTraveler: async (tripId: string, data: TravelerProfileRequest): Promise<TravelerProfileResponse> => {
+    const res = await apiRequest<Record<string, unknown>>(`/group-trips/${tripId}/travelers`, {
+      method: 'POST',
+      body: JSON.stringify({
+        display_name: data.displayName,
+        email: data.email,
+        origin_city: data.originCity,
+        origin_airport: data.originAirport,
+        cabin_preference: data.cabinPreference,
+        hotel_preference: data.hotelPreference,
+        room_share_group_id: data.roomShareGroupId,
+        cash_budget: data.cashBudget,
+        notes: data.notes,
+      }),
+    });
+    return toCamelCase<TravelerProfileResponse>(res);
+  },
+
+  listTravelers: async (tripId: string): Promise<TravelerProfileResponse[]> => {
+    const res = await apiRequest<Record<string, unknown>[]>(`/group-trips/${tripId}/travelers`);
+    return res.map(r => toCamelCase<TravelerProfileResponse>(r));
+  },
+
+  updateTraveler: async (tripId: string, travelerId: string, data: Partial<TravelerProfileRequest>): Promise<TravelerProfileResponse> => {
+    const body: Record<string, unknown> = {};
+    if (data.displayName) body.display_name = data.displayName;
+    if (data.email !== undefined) body.email = data.email;
+    if (data.originAirport !== undefined) body.origin_airport = data.originAirport;
+    if (data.cabinPreference) body.cabin_preference = data.cabinPreference;
+    if (data.hotelPreference) body.hotel_preference = data.hotelPreference;
+    if (data.cashBudget !== undefined) body.cash_budget = data.cashBudget;
+    if (data.notes !== undefined) body.notes = data.notes;
+    const res = await apiRequest<Record<string, unknown>>(`/group-trips/${tripId}/travelers/${travelerId}`, {
+      method: 'PATCH',
+      body: JSON.stringify(body),
+    });
+    return toCamelCase<TravelerProfileResponse>(res);
+  },
+
+  deleteTraveler: async (tripId: string, travelerId: string): Promise<void> => {
+    await apiRequest(`/group-trips/${tripId}/travelers/${travelerId}`, { method: 'DELETE' });
+  },
+
+  // Loyalty balances
+  addBalance: async (tripId: string, travelerId: string, data: LoyaltyBalanceRequest): Promise<LoyaltyBalanceResponse> => {
+    const res = await apiRequest<Record<string, unknown>>(`/group-trips/${tripId}/travelers/${travelerId}/balances`, {
+      method: 'POST',
+      body: JSON.stringify({
+        program: data.program,
+        currency_type: data.currencyType,
+        balance: data.balance,
+        transferable_from: data.transferableFrom,
+        cents_per_point_assumption: data.centsPerPointAssumption,
+        is_enabled_for_pooling: data.isEnabledForPooling ?? true,
+      }),
+    });
+    return toCamelCase<LoyaltyBalanceResponse>(res);
+  },
+
+  updateBalance: async (tripId: string, travelerId: string, balanceId: string, data: Partial<LoyaltyBalanceRequest>): Promise<LoyaltyBalanceResponse> => {
+    const body: Record<string, unknown> = {};
+    if (data.balance !== undefined) body.balance = data.balance;
+    if (data.program) body.program = data.program;
+    if (data.isEnabledForPooling !== undefined) body.is_enabled_for_pooling = data.isEnabledForPooling;
+    const res = await apiRequest<Record<string, unknown>>(`/group-trips/${tripId}/travelers/${travelerId}/balances/${balanceId}`, {
+      method: 'PATCH',
+      body: JSON.stringify(body),
+    });
+    return toCamelCase<LoyaltyBalanceResponse>(res);
+  },
+
+  deleteBalance: async (tripId: string, travelerId: string, balanceId: string): Promise<void> => {
+    await apiRequest(`/group-trips/${tripId}/travelers/${travelerId}/balances/${balanceId}`, { method: 'DELETE' });
+  },
+
+  // Preferences
+  upsertPreferences: async (tripId: string, travelerId: string, data: ContributionPreferenceRequest): Promise<unknown> => {
+    const res = await apiRequest<Record<string, unknown>>(`/group-trips/${tripId}/travelers/${travelerId}/preferences`, {
+      method: 'PUT',
+      body: JSON.stringify({
+        max_cash_contribution: data.maxCashContribution,
+        max_point_value_contribution_usd: data.maxPointValueContributionUsd,
+        use_points_priority: data.usePointsPriority || 'medium',
+        allow_transfer_partners: data.allowTransferPartners ?? true,
+        allow_hotel_points: data.allowHotelPoints ?? true,
+        allow_flight_points: data.allowFlightPoints ?? true,
+      }),
+    });
+    return toCamelCase(res);
+  },
+
+  // Optimization & settlement
+  optimize: async (tripId: string): Promise<unknown> => {
+    const res = await apiRequest<Record<string, unknown>>(`/group-trips/${tripId}/optimize`, { method: 'POST' });
+    return toCamelCase(res);
+  },
+
+  calculateSplit: async (tripId: string): Promise<unknown> => {
+    const res = await apiRequest<Record<string, unknown>>(`/group-trips/${tripId}/calculate-split`, { method: 'POST' });
+    return toCamelCase(res);
+  },
+
+  getSettlement: async (tripId: string): Promise<SettlementSummary[]> => {
+    const res = await apiRequest<Record<string, unknown>[]>(`/group-trips/${tripId}/settlement`);
+    return res.map(r => toCamelCase<SettlementSummary>(r));
+  },
+
+  addManualAdjustment: async (tripId: string, travelerId: string, amountUsd: number, description: string): Promise<unknown> => {
+    const res = await apiRequest<Record<string, unknown>>(`/group-trips/${tripId}/settlement/manual-adjustment`, {
+      method: 'POST',
+      body: JSON.stringify({
+        traveler_profile_id: travelerId,
+        amount_usd: amountUsd,
+        description,
+      }),
+    });
+    return toCamelCase(res);
   },
 };

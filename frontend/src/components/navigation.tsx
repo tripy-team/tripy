@@ -5,6 +5,7 @@ import { Suspense, useEffect, useState } from 'react';
 import Link from 'next/link';
 import { usePathname, useRouter, useSearchParams } from 'next/navigation';
 import { TripyLogo } from '@/components/tripy-logo';
+import { resetUser } from '@/lib/analytics';
 import {
   DropdownMenu,
   DropdownMenuContent,
@@ -126,6 +127,7 @@ function NavigationInner() {
 
   const handleLogout = () => {
     if (typeof window !== 'undefined') {
+      resetUser();
       localStorage.removeItem('access_token');
       localStorage.removeItem('id_token');
       localStorage.removeItem('refresh_token');
@@ -134,7 +136,7 @@ function NavigationInner() {
       sessionStorage.removeItem('access_token');
       sessionStorage.removeItem('id_token');
       sessionStorage.removeItem('refresh_token');
-      sessionStorage.removeItem('tripy_auth_checked'); // Clear auth check flag
+      sessionStorage.removeItem('tripy_auth_checked');
     }
     setUser(null);
     window.dispatchEvent(new Event('tripy_auth_change'));
@@ -184,6 +186,16 @@ function NavigationInner() {
                       </Link>
                     </NavigationMenuLink>
                   </NavigationMenuItem>
+
+                  {user && (
+                    <NavigationMenuItem>
+                      <NavigationMenuLink asChild className={cn(navigationMenuTriggerStyle(), pathname.startsWith('/group-planning') && "bg-slate-100 text-slate-900")}>
+                        <Link href="/group-planning/new">
+                          Group Planning
+                        </Link>
+                      </NavigationMenuLink>
+                    </NavigationMenuItem>
+                  )}
 
                   {user && (
                     <NavigationMenuItem>

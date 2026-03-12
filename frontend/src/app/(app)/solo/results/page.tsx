@@ -279,28 +279,45 @@ export default function SoloResults() {
                             console.log('No points stored for this trip - optimizer will find cash-only routes');
                         }
                         
-                        // CACHE-FIRST: Try cached results before running optimization (Task 7)
+                        // SELECTION-FIRST: If the user already selected an itinerary,
+                        // restore it from the snapshot (instant, no optimization needed).
                         let optimizeResult: SoloOptimizeResponse | null = null;
                         try {
-                            const cached = await solo.getOptimizationCache(tripId);
-                            if (cached && cached.itineraries && cached.itineraries.length > 0) {
-                                // Check if cache has expired
-                                const expiresAt = new Date(cached.expiresAt);
-                                if (expiresAt > new Date()) {
-                                    optimizeResult = cached;
-                                    console.log('[SoloResults] Using cached results (expires:', cached.expiresAt, ')');
-                                } else {
-                                    console.log('[SoloResults] Cache expired, will re-optimize');
+                            const selection = await solo.getSelection(tripId);
+                            if (selection?.ok && selection.itinerarySnapshot) {
+                                const snapshot = selection.itinerarySnapshot as SoloRankedItinerary;
+                                if (snapshot.route && snapshot.segments) {
+                                    optimizeResult = {
+                                        itineraries: [snapshot],
+                                        bestOption: snapshot.id || selection.itineraryId,
+                                        warnings: [],
+                                        globalInsights: snapshot.insights || [],
+                                        cached: true,
+                                        computedAt: selection.selectedAt || '',
+                                        expiresAt: '',
+                                    };
+                                    console.log('[SoloResults] Using saved selection (selected at:', selection.selectedAt, ')');
                                 }
                             }
                         } catch {
-                            // Cache miss or error — proceed to optimize
-                            console.log('[SoloResults] No cache available, will optimize');
+                            console.log('[SoloResults] No selection available');
+                        }
+
+                        // CACHE-SECOND: Try cached results (including stale) before running optimization
+                        if (!optimizeResult) {
+                            try {
+                                const cached = await solo.getOptimizationCache(tripId, { allowStale: true });
+                                if (cached && cached.itineraries && cached.itineraries.length > 0) {
+                                    optimizeResult = cached;
+                                    console.log('[SoloResults] Using cached results (expires:', cached.expiresAt, ')');
+                                }
+                            } catch {
+                                console.log('[SoloResults] No cache available, will optimize');
+                            }
                         }
                         
-                        // If no cache, run optimization
+                        // Only run optimization if no saved results exist
                         if (!optimizeResult) {
-                            // Check for multi-payer points from setup page
                             const storedPayerPoints = sessionStorage.getItem(`payer_points_${tripId}`);
                             const payerPoints = storedPayerPoints ? JSON.parse(storedPayerPoints) as Record<string, Record<string, number>> : undefined;
 

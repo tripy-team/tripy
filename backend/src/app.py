@@ -87,6 +87,9 @@ from .routes.monitoring import router as monitoring_router
 # Import payment router
 from .routes.payment import router as payment_router
 
+# Import group planning router
+from .routes.group_planning import router as group_planning_router
+
 
 # Get CORS origins from environment variable
 # IMPORTANT: Browsers reject allow_credentials=True with allow_origins=["*"]
@@ -290,6 +293,9 @@ app.include_router(monitoring_router)
 
 # Include payment routes
 app.include_router(payment_router)
+
+# Include group planning routes
+app.include_router(group_planning_router)
 
 
 # Preload commercial airports and airport data at startup for fast autocomplete

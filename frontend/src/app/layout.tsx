@@ -1,5 +1,6 @@
 import "./globals.css";
 import type { Metadata } from "next";
+import { PageViewTracker } from "@/components/analytics/PageViewTracker";
 
 export const metadata: Metadata = {
 	title: "Tripy",
@@ -13,7 +14,10 @@ export default function RootLayout({
 }) {
 	return (
 		<html lang="en">
-			<body>{children}</body>
+			<body>
+				<PageViewTracker />
+				{children}
+			</body>
 		</html>
 	);
 }
