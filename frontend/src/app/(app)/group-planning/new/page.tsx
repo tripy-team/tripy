@@ -177,8 +177,8 @@ export default function NewGroupTripPage() {
   // and endDate = departure from the last destination.
   const [legDates, setLegDates] = useState<string[]>([]);
 
-  // Hotels & room assignments
-  const [includeHotels, setIncludeHotels] = useState(false);
+  // Hotels & room assignments (on by default)
+  const [includeHotels, setIncludeHotels] = useState(true);
   const [rooms, setRooms] = useState<RoomDraft[]>([]);
 
   // Travelers — start with one blank traveler; the profile loader will populate it

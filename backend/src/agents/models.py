@@ -319,6 +319,10 @@ class HotelRecommendation(BaseModel):
     recommendation_reason: Optional[str] = None
     traveler_count: int = 1
     room_count: int = 1
+    # Points-based pricing
+    loyalty_program: Optional[str] = None
+    points_per_night: Optional[int] = None
+    points_total: Optional[int] = None
 
 
 # =============================================================================

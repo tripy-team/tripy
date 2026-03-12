@@ -2701,6 +2701,11 @@ async def generate_optimized_itinerary(
     # This allows us to search for award flights on the correct dates for each city
     city_departure_dates: Dict[str, str] = {}
     
+    # Per-destination durations (days): used to preserve each destination's
+    # allocated days when the optimizer reorders cities.
+    # dest_duration_days[city_code] = number of days the user plans at that city
+    dest_duration_days: Dict[str, int] = {}
+    
     if leg_dates and len(leg_dates) > 0:
         # Use explicit leg dates from frontend
         # leg_dates[0] = departure from start, leg_dates[1] = departure from city_codes[0], etc.
@@ -2712,6 +2717,30 @@ async def generate_optimized_itinerary(
                 # Fallback: compute approximate date if not enough leg_dates
                 logger.warning(f"Missing leg_date for city index {i+1} ({city_code}), using computed date")
         logger.info(f"Using explicit leg_dates: {city_departure_dates}")
+        
+        # Compute per-destination durations from leg_dates
+        # Duration at city_codes[i] = leg_dates[i+1] - leg_dates[i]
+        # Duration at last city = end_date - leg_dates[last]
+        try:
+            for i, city_code in enumerate(city_codes):
+                arrive_str = leg_dates[i] if i < len(leg_dates) else None
+                if i + 1 < len(leg_dates) and leg_dates[i + 1]:
+                    depart_str = leg_dates[i + 1]
+                elif i == len(city_codes) - 1:
+                    depart_str = end_date.strip()
+                else:
+                    depart_str = None
+                
+                if arrive_str and depart_str:
+                    arrive_dt = datetime.strptime(arrive_str, "%Y-%m-%d")
+                    depart_dt = datetime.strptime(depart_str, "%Y-%m-%d")
+                    dest_duration_days[city_code] = max(1, (depart_dt - arrive_dt).days)
+            
+            if dest_duration_days:
+                logger.info(f"Per-destination durations (days): {dest_duration_days}")
+        except (ValueError, IndexError) as e:
+            logger.warning(f"Could not compute per-destination durations: {e}")
+            dest_duration_days = {}
     else:
         # Compute progressive dates based on trip duration
         # Distribute days evenly across cities
@@ -2724,6 +2753,7 @@ async def generate_optimized_itinerary(
         for i, city_code in enumerate(city_codes):
             current_date += timedelta(days=days_per_segment)
             city_departure_dates[city_code] = current_date.strftime("%Y-%m-%d")
+            dest_duration_days[city_code] = days_per_segment
         logger.info(f"Computed leg dates (no explicit leg_dates): {city_departure_dates}")
 
     # Combined points from all travelers (same for every O-D pair)
@@ -3063,10 +3093,17 @@ async def generate_optimized_itinerary(
     # Save paths for each traveler (include route, totalCost, pointsCost, name so frontend shows them as itineraries)
     total_days = _parse_trip_duration_days(trip)
     
+    # Build a case-insensitive lookup for per-destination durations
+    _duration_lookup: Dict[str, int] = {}
+    if dest_duration_days:
+        for code, days in dest_duration_days.items():
+            _duration_lookup[(code or "").upper()] = days
+    
     # User’s chosen destinations (city_codes, case-normalized). Transit/connection stops (e.g. Doha on JFK–DOH–HKG) are not in this set.
     _dest = set((c or "").upper() for c in (city_codes or []))
     logger.info(
-        f"Allocating {total_days} days across destination cities: {list(_dest)}; start={start_dest_code}, end={end_dest_code}"
+        f"Allocating {total_days} days across destination cities: {list(_dest)}; "
+        f"start={start_dest_code}, end={end_dest_code}, per-dest durations={_duration_lookup or 'even split'}"
     )
 
     for traveler_id, path in solution.get("path", {}).items():
@@ -3089,12 +3126,36 @@ async def generate_optimized_itinerary(
                 logger.info(f"Route includes transit cities (0 days each): {transit}")
 
             if stays:
-                num = len(stays)
-                base = max(1, total_days // num)
-                remainder = total_days - base * num
-                day_list = [base] * num
-                if remainder:
-                    day_list[-1] += remainder
+                if _duration_lookup:
+                    # Use per-destination durations from leg_dates (preserves user's
+                    # planned days even when the optimizer reorders destinations)
+                    day_list = []
+                    allocated_days = 0
+                    for c in stays:
+                        city_upper = (c or "").upper()
+                        d = _duration_lookup.get(city_upper)
+                        if d is not None:
+                            day_list.append(d)
+                            allocated_days += d
+                        else:
+                            day_list.append(None)
+                    
+                    # Fill any missing durations with remaining days split evenly
+                    missing = [i for i, d in enumerate(day_list) if d is None]
+                    if missing:
+                        remaining = max(0, total_days - allocated_days)
+                        per_missing = max(1, remaining // len(missing)) if missing else 1
+                        for idx in missing:
+                            day_list[idx] = per_missing
+                else:
+                    # Fallback: even split
+                    num = len(stays)
+                    base = max(1, total_days // num)
+                    remainder = total_days - base * num
+                    day_list = [base] * num
+                    if remainder:
+                        day_list[-1] += remainder
+                
                 city_objs = [{"name": c, "days": day_list[i]} for i, c in enumerate(stays)]
                 logger.info(
                     f"Allocated days for traveler {traveler_id}: " + ", ".join([f"{c['name']}={c['days']}d" for c in city_objs])
@@ -3400,7 +3461,7 @@ async def generate_optimized_itinerary(
             # Build hotel recommendations for each destination
             hotel_recs_by_city = {}
             total_trip_days = (datetime.strptime(end_date.strip(), "%Y-%m-%d") - datetime.strptime(start_date.strip(), "%Y-%m-%d")).days
-            days_per_city = max(1, total_trip_days // max(len(city_codes), 1))
+            days_per_city_fallback = max(1, total_trip_days // max(len(city_codes), 1))
             
             # Get city names for hotel search
             dest_names = {d.get("code"): d.get("cityName") or d.get("name") for d in destinations if d.get("code")}
@@ -3408,11 +3469,23 @@ async def generate_optimized_itinerary(
             for city_code in city_codes:
                 city_name = dest_names.get(city_code, city_code)
                 
-                # Calculate check-in/check-out dates for this city
-                # Simple allocation: distribute days evenly
+                # Use per-destination durations when available, otherwise even split
+                city_days = dest_duration_days.get(city_code) or dest_duration_days.get((city_code or "").upper()) or days_per_city_fallback
+                
+                # Calculate check-in date from leg_dates or progressive allocation
                 city_idx = city_codes.index(city_code)
-                city_start = datetime.strptime(start_date.strip(), "%Y-%m-%d") + timedelta(days=city_idx * days_per_city)
-                city_end = city_start + timedelta(days=days_per_city)
+                if city_code in city_departure_dates:
+                    city_start = datetime.strptime(city_departure_dates.get(
+                        city_codes[city_idx - 1] if city_idx > 0 else start_dest_code,
+                        start_date.strip()
+                    ), "%Y-%m-%d")
+                else:
+                    preceding_days = sum(
+                        dest_duration_days.get(city_codes[j], days_per_city_fallback)
+                        for j in range(city_idx)
+                    ) if dest_duration_days else city_idx * days_per_city_fallback
+                    city_start = datetime.strptime(start_date.strip(), "%Y-%m-%d") + timedelta(days=preceding_days)
+                city_end = city_start + timedelta(days=city_days)
                 
                 try:
                     result = await search_hotels_with_calendar(
@@ -3427,7 +3500,7 @@ async def generate_optimized_itinerary(
                             "city": city_name,
                             "check_in": city_start.strftime("%Y-%m-%d"),
                             "check_out": city_end.strftime("%Y-%m-%d"),
-                            "nights": days_per_city,
+                            "nights": city_days,
                             "recommendations": result.get("recommendations"),
                             "hotels": result.get("calendar_enriched", []),
                         }

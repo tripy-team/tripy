@@ -159,8 +159,8 @@ function SoloTripSetupContent() {
   const [moneySaverMode, setMoneySaverMode] = useState(s?.moneySaverMode ?? false);
   const optimizationMode = moneySaverMode ? 'money_saving' : 'oop';
 
-  // Hotel recommendations
-  const [includeHotels, setIncludeHotels] = useState(false);
+  // Hotel recommendations (on by default)
+  const [includeHotels, setIncludeHotels] = useState(true);
 
   // Advanced Flight Filters
   const [includeBudgetAirlines, setIncludeBudgetAirlines] = useState(s?.includeBudgetAirlines ?? false);

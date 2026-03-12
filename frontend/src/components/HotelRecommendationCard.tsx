@@ -1,6 +1,6 @@
 'use client';
 
-import { Building2, Star, MapPin, ExternalLink } from 'lucide-react';
+import { Building2, Star, MapPin, ExternalLink, Award } from 'lucide-react';
 import type { HotelRecommendation } from '@/lib/api';
 
 interface Props {
@@ -30,6 +30,7 @@ function nights(checkIn: string, checkOut: string): number {
 
 export default function HotelRecommendationCard({ recommendation: r }: Props) {
   const n = nights(r.checkIn, r.checkOut);
+  const hasPoints = r.pointsTotal != null && r.pointsTotal > 0;
 
   return (
     <div className="bg-white border border-slate-200 rounded-xl p-5 shadow-sm hover:shadow-md transition-shadow">
@@ -58,19 +59,45 @@ export default function HotelRecommendationCard({ recommendation: r }: Props) {
         </div>
 
         <div className="text-right flex-shrink-0">
-          <p className="text-lg font-bold text-slate-900">
-            ${r.priceTotal.toLocaleString(undefined, { maximumFractionDigits: 0 })}
-          </p>
-          <p className="text-xs text-slate-500">
-            ${r.nightlyRate.toLocaleString(undefined, { maximumFractionDigits: 0 })}/night · {n} night{n !== 1 ? 's' : ''}
-          </p>
+          {hasPoints ? (
+            <>
+              <div className="flex items-center justify-end gap-1">
+                <Award className="w-3.5 h-3.5 text-indigo-500" />
+                <p className="text-lg font-bold text-indigo-700">
+                  {r.pointsTotal!.toLocaleString()} pts
+                </p>
+              </div>
+              <p className="text-xs text-indigo-500">
+                {r.pointsPerNight!.toLocaleString()} pts/night · {n} night{n !== 1 ? 's' : ''}
+              </p>
+              <p className="text-[10px] text-slate-400 mt-0.5">
+                or ${r.priceTotal.toLocaleString(undefined, { maximumFractionDigits: 0 })} cash
+              </p>
+            </>
+          ) : (
+            <>
+              <p className="text-lg font-bold text-slate-900">
+                ${r.priceTotal.toLocaleString(undefined, { maximumFractionDigits: 0 })}
+              </p>
+              <p className="text-xs text-slate-500">
+                ${r.nightlyRate.toLocaleString(undefined, { maximumFractionDigits: 0 })}/night · {n} night{n !== 1 ? 's' : ''}
+              </p>
+            </>
+          )}
           {r.roomCount > 1 && (
             <p className="text-xs text-slate-400">{r.roomCount} rooms</p>
           )}
         </div>
       </div>
 
-      <div className="mt-3 flex items-center gap-1.5 text-xs text-slate-600">
+      {r.loyaltyProgram && (
+        <div className="mt-2 inline-flex items-center gap-1 px-2 py-0.5 rounded-full bg-indigo-50 text-[10px] font-medium text-indigo-700">
+          <Award className="w-3 h-3" />
+          {r.loyaltyProgram}
+        </div>
+      )}
+
+      <div className="mt-2 flex items-center gap-1.5 text-xs text-slate-600">
         <span>{formatDate(r.checkIn)}</span>
         <span className="text-slate-300">→</span>
         <span>{formatDate(r.checkOut)}</span>

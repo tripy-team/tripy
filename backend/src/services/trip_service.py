@@ -16,6 +16,7 @@ def create_trip(
     # Organizer member preferences (same as join_trip)
     adults: int = 1,
     children: int = 0,
+    leg_dates: Optional[List[str]] = None,
 ) -> Dict[str, Any]:
     """
     Create a new trip.
@@ -57,6 +58,8 @@ def create_trip(
         "durationDays": duration_days,
         "poolingScope": validated_scope.value,
     }
+    if leg_dates:
+        trip["legDates"] = leg_dates
     trip_repo.put_trip(trip)
 
     # Owner is automatically approved for planning

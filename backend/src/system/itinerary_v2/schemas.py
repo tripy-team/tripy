@@ -26,6 +26,7 @@ class TripConstraints:
     end_date: Optional[date]
     duration_days: Optional[int]
     max_budget_usd: Optional[int]
+    dest_durations: Optional[Mapping[str, int]] = None
 
 
 @dataclass(frozen=True)

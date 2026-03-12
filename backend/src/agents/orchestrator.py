@@ -1392,6 +1392,50 @@ class OrchestratorAgent(BaseAgent):
         logger.info(f"[Orchestrator] Trip dates: start={start_date}, end={end_date}, leg_dates={leg_dates}")
         
         # ═══════════════════════════════════════════════════════════════════════
+        # COMPUTE PER-DESTINATION DURATIONS FROM LEG_DATES
+        # ═══════════════════════════════════════════════════════════════════════
+        # When the user specifies leg_dates, each destination has a specific
+        # number of days. Permutations must preserve these durations and only
+        # change the order, recalculating dates accordingly.
+        #
+        # leg_dates[0] = departure from origin (arrival at intermediate[0])
+        # leg_dates[k] = departure from intermediate[k-1] (arrival at intermediate[k])
+        # end_date = departure from last intermediate
+        #
+        # Duration at intermediate[i] = leg_dates[i+1] - leg_dates[i]
+        # Duration at last intermediate = end_date - leg_dates[len(intermediate)-1]
+        
+        total_days = (end_dt - start_dt).days
+        days_per_city_fallback = max(1, total_days // max(len(intermediate) + 1, 1))
+        
+        dest_durations = {}  # city_name -> number of days
+        has_duration_info = False
+        
+        if leg_dates and len(leg_dates) > 0 and len(intermediate) > 0:
+            all_valid = True
+            for i, dest in enumerate(intermediate):
+                try:
+                    arrive_dt = datetime.strptime(leg_dates[i], "%Y-%m-%d")
+                    if i + 1 < len(leg_dates) and leg_dates[i + 1]:
+                        depart_dt = datetime.strptime(leg_dates[i + 1], "%Y-%m-%d")
+                    elif i == len(intermediate) - 1:
+                        depart_dt = end_dt
+                    else:
+                        all_valid = False
+                        break
+                    dest_durations[dest] = max(1, (depart_dt - arrive_dt).days)
+                except (ValueError, IndexError):
+                    all_valid = False
+                    break
+            
+            if all_valid and len(dest_durations) == len(intermediate):
+                has_duration_info = True
+                logger.info(f"[Orchestrator] Per-destination durations (days): {dest_durations}")
+            else:
+                dest_durations = {}
+                logger.warning(f"[Orchestrator] Could not compute per-destination durations from leg_dates, using even split")
+        
+        # ═══════════════════════════════════════════════════════════════════════
         # CREATE ONE SEGMENT PER CITY-PAIR (not per airport pair!)
         # ═══════════════════════════════════════════════════════════════════════
         # Multiple airports in a city are ALTERNATIVES, not separate stops.
@@ -1400,8 +1444,19 @@ class OrchestratorAgent(BaseAgent):
             route_cities = [start] + list(perm) + ([end] if end != start else [start])
             route_variants.append(route_cities)
             
-            total_days = (end_dt - start_dt).days
-            days_per_city = max(1, total_days // max(len(route_cities) - 1, 1))
+            # Compute permutation-specific leg dates.
+            # Each destination keeps its allocated number of days regardless of order.
+            if has_duration_info:
+                perm_leg_dates = [start_dt.strftime("%Y-%m-%d")]
+                current = start_dt
+                for dest in perm:
+                    duration = dest_durations.get(dest, days_per_city_fallback)
+                    current = current + timedelta(days=duration)
+                    perm_leg_dates.append(current.strftime("%Y-%m-%d"))
+                logger.info(f"[Orchestrator] Perm {perm_idx} ({list(perm)}): leg_dates={perm_leg_dates}")
+            else:
+                perm_leg_dates = None
+            
             current_date = start_dt
             
             # For each leg in the route, create ONE segment with airport alternatives
@@ -1414,8 +1469,11 @@ class OrchestratorAgent(BaseAgent):
                 origin_airports = dest_to_airports.get(origin_city, [origin_city])
                 dest_airports = dest_to_airports.get(dest_city, [dest_city])
                 
-                # Use explicit leg_dates if available (multi-city trips)
-                if leg_dates and i < len(leg_dates) and leg_dates[i]:
+                # Determine flight date: use permutation-aware dates that preserve
+                # per-destination durations, falling back to original leg_dates or even split
+                if perm_leg_dates and i < len(perm_leg_dates):
+                    flight_date = perm_leg_dates[i]
+                elif leg_dates and i < len(leg_dates) and leg_dates[i]:
                     flight_date = leg_dates[i]
                 elif is_return_leg:
                     flight_date = end_dt.strftime("%Y-%m-%d")
@@ -1463,13 +1521,19 @@ class OrchestratorAgent(BaseAgent):
                     f"allowed_dest={dest_airports} allowed_count={len(dest_airports)}"
                 )
                 
-                current_date += timedelta(days=days_per_city)
+                if has_duration_info:
+                    dest_for_leg = route_cities[i + 1] if i + 1 < len(route_cities) else None
+                    current_date += timedelta(days=dest_durations.get(dest_for_leg, days_per_city_fallback))
+                else:
+                    current_date += timedelta(days=days_per_city_fallback)
         
         # Store metadata for optimizer
         trip_data["route_variants"] = route_variants
         trip_data["num_route_variants"] = len(permutations)
         trip_data["dest_to_airports"] = dest_to_airports
         trip_data["dest_preferences"] = dest_preferences
+        if has_duration_info:
+            trip_data["dest_durations"] = dest_durations
         
         # Deduplicate segments by city-pair (not airport-pair)
         unique_segments = self._deduplicate_city_pair_segments(all_segments)

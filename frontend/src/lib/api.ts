@@ -632,13 +632,11 @@ export const auth = {
 export const trips = {
   /**
    * Create a new trip.
-   * Note: include_hotels is deprecated (flight-only mode). Always defaults to false.
    */
   create: async (params: {
     title: string;
     start_date: string;
     end_date: string;
-    /** @deprecated Flight-only mode - hotels are not supported */
     include_hotels?: boolean;
     max_budget?: number;
     duration_days?: number;
@@ -646,6 +644,8 @@ export const trips = {
     // Organizer party size (travelers in organizer's booking)
     adults?: number;
     children?: number;
+    // Multi-city leg dates for per-destination duration tracking
+    leg_dates?: string[];
   }): Promise<Trip> => {
     if (SKIP_API_AUTH) {
       // Return a new mock trip based on params
@@ -659,7 +659,7 @@ export const trips = {
         status: 'active',
         destinations: [],
         memberCount: 1,
-        includeHotels: false, // Flight-only mode
+        includeHotels: params.include_hotels ?? true,
         maxBudget: params.max_budget,
         durationDays: params.duration_days,
         poolingScope: params.pooling_scope ?? 'individual_only',
@@ -670,7 +670,7 @@ export const trips = {
       method: 'POST',
       body: JSON.stringify({
         ...params,
-        include_hotels: false, // Flight-only mode
+        include_hotels: params.include_hotels ?? true,
       }),
     });
   },
@@ -2915,6 +2915,9 @@ export interface HotelRecommendation {
   recommendationReason?: string;
   travelerCount: number;
   roomCount: number;
+  loyaltyProgram?: string;
+  pointsPerNight?: number;
+  pointsTotal?: number;
 }
 
 export interface SoloOptimizeResponse {

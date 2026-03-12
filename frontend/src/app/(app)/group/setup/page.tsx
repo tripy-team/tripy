@@ -257,6 +257,8 @@ export default function GroupTripSetup() {
         // Include organizer's party size
         adults: adults,
         children: children,
+        // Multi-city leg dates preserve per-destination durations across permutations
+        leg_dates: isMultiCity ? legDates : undefined,
       });
 
       // 2. Add start destination if provided

@@ -386,6 +386,10 @@ class CreateTripRequest(BaseModel):
     children: Optional[int] = Field(
         0, ge=0, description="Number of children in organizer's booking"
     )
+    leg_dates: Optional[List[str]] = Field(
+        None,
+        description="Multi-city leg dates: departure date for each flight segment",
+    )
 
     @validator("start_date", "end_date")
     def validate_date(cls, v):
@@ -874,6 +878,7 @@ async def create_trip(
             pooling_scope=request.pooling_scope,
             adults=request.adults if request.adults is not None else 1,
             children=request.children if request.children is not None else 0,
+            leg_dates=request.leg_dates,
         )
         # Track trip creation for analytics
         track_trip_created(

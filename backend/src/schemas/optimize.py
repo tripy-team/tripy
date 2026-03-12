@@ -386,6 +386,9 @@ class HotelRecommendationResponse(BaseModel):
     recommendation_reason: Optional[str] = None
     traveler_count: int = 1
     room_count: int = 1
+    loyalty_program: Optional[str] = None
+    points_per_night: Optional[int] = None
+    points_total: Optional[int] = None
 
 
 class OptimizeSoloResponse(BaseModel):

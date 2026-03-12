@@ -169,7 +169,12 @@ def _schedule_legs(
     constraints: TripConstraints,
     route: RouteOrder,
 ) -> ScheduledRoute:
-    """Assign dates to each leg in the route."""
+    """Assign dates to each leg in the route.
+    
+    When per-destination durations are available (from user-specified leg_dates),
+    each destination keeps its allocated number of days regardless of the order
+    the optimizer chose.  Otherwise days are split evenly.
+    """
     airports = route.airports
     
     # Determine dates
@@ -182,9 +187,10 @@ def _schedule_legs(
     
     start_date = constraints.start_date or (date.today() + timedelta(days=30))
     
-    # Allocate days per city (equal split for now)
-    num_stays = max(1, len(airports) - 1)  # -1 for origin
-    days_per_stay = max(1, total_days // num_stays)
+    num_stays = max(1, len(airports) - 1)
+    days_per_stay_fallback = max(1, total_days // num_stays)
+    
+    dest_durations = constraints.dest_durations or {}
     
     # Build legs with dates
     legs = []
@@ -197,10 +203,10 @@ def _schedule_legs(
         
         legs.append(ScheduledLeg(origin=origin, destination=dest, date=current_date))
         
-        # Record stay duration for destination
         if i < len(airports) - 2:  # Not the final leg
-            city_stays[dest] = days_per_stay
-            current_date = current_date + timedelta(days=days_per_stay)
+            stay = dest_durations.get(dest, days_per_stay_fallback)
+            city_stays[dest] = stay
+            current_date = current_date + timedelta(days=stay)
         else:
             city_stays[dest] = 0  # Final destination (return home)
     

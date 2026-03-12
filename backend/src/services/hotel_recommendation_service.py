@@ -185,10 +185,30 @@ class HotelProvider(Protocol):
 # =============================================================================
 
 _MOCK_HOTEL_CHAINS = [
-    {"name": "Marriott", "brands": ["Marriott", "Westin", "Sheraton", "W Hotels", "Ritz-Carlton"]},
-    {"name": "Hilton", "brands": ["Hilton", "Conrad", "DoubleTree", "Waldorf Astoria"]},
-    {"name": "Hyatt", "brands": ["Hyatt Regency", "Grand Hyatt", "Park Hyatt", "Andaz"]},
-    {"name": "IHG", "brands": ["InterContinental", "Crowne Plaza", "Holiday Inn"]},
+    {
+        "name": "Marriott",
+        "brands": ["Marriott", "Westin", "Sheraton", "W Hotels", "Ritz-Carlton"],
+        "loyalty": "Marriott Bonvoy",
+        "points_base": {4: 35000, 5: 60000},
+    },
+    {
+        "name": "Hilton",
+        "brands": ["Hilton", "Conrad", "DoubleTree", "Waldorf Astoria"],
+        "loyalty": "Hilton Honors",
+        "points_base": {4: 50000, 5: 80000},
+    },
+    {
+        "name": "Hyatt",
+        "brands": ["Hyatt Regency", "Grand Hyatt", "Park Hyatt", "Andaz"],
+        "loyalty": "World of Hyatt",
+        "points_base": {4: 15000, 5: 25000},
+    },
+    {
+        "name": "IHG",
+        "brands": ["InterContinental", "Crowne Plaza", "Holiday Inn"],
+        "loyalty": "IHG One Rewards",
+        "points_base": {4: 30000, 5: 50000},
+    },
 ]
 
 _CITY_TIER = {
@@ -225,11 +245,19 @@ class MockHotelProvider:
         rating = round(random.uniform(4.0, 4.8), 1)
         amenities = random.sample(_AMENITIES_POOL, min(5, len(_AMENITIES_POOL)))
 
+        loyalty_program = chain["loyalty"]
+        points_base = chain["points_base"]
+        tier_multiplier = {1: 1.4, 2: 1.1, 3: 0.9}.get(tier, 1.0)
+        ppn = int(points_base.get(star, 35000) * tier_multiplier * window.room_count)
+        ppn += random.randint(-2000, 2000)
+        ppn = max(5000, ppn)
+        points_total = ppn * window.nights
+
         city_label = window.destination
         reason = (
             f"Best value {star}-star hotel in {city_label} for your "
             f"{window.nights}-night stay. {brand} offers strong loyalty "
-            f"value and consistent quality."
+            f"value via {loyalty_program} ({ppn:,} pts/night)."
         )
 
         return [HotelRecommendation(
@@ -248,6 +276,9 @@ class MockHotelProvider:
             recommendation_reason=reason,
             traveler_count=window.traveler_count,
             room_count=window.room_count,
+            loyalty_program=loyalty_program,
+            points_per_night=ppn,
+            points_total=points_total,
         )]
 
 

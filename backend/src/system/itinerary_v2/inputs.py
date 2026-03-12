@@ -371,6 +371,29 @@ async def load_input_bundle(trip_id: str, run_id: str) -> InputBundle:
         except (TypeError, ValueError):
             pass
     
+    # Compute per-destination durations from leg_dates
+    leg_dates_raw = trip.get("legDates") or trip.get("leg_dates") or []
+    dest_durations_map: Optional[Dict[str, int]] = None
+    if leg_dates_raw and len(leg_dates_raw) > 0 and city_codes:
+        dest_durations_map = {}
+        try:
+            for i, code in enumerate(city_codes):
+                arrive_str = leg_dates_raw[i] if i < len(leg_dates_raw) else None
+                if i + 1 < len(leg_dates_raw) and leg_dates_raw[i + 1]:
+                    depart_str = leg_dates_raw[i + 1]
+                elif i == len(city_codes) - 1 and end_date:
+                    depart_str = str(end_date)
+                else:
+                    depart_str = None
+                if arrive_str and depart_str:
+                    a_dt = datetime.strptime(str(arrive_str).strip(), "%Y-%m-%d")
+                    d_dt = datetime.strptime(str(depart_str).strip(), "%Y-%m-%d")
+                    dest_durations_map[code] = max(1, (d_dt - a_dt).days)
+            if len(dest_durations_map) != len(city_codes):
+                dest_durations_map = None
+        except (ValueError, IndexError):
+            dest_durations_map = None
+    
     constraints = TripConstraints(
         start_airport=start_code,
         end_airport=end_code,
@@ -379,6 +402,7 @@ async def load_input_bundle(trip_id: str, run_id: str) -> InputBundle:
         end_date=end_date,
         duration_days=duration_days,
         max_budget_usd=max_budget,
+        dest_durations=dest_durations_map,
     )
     
     # 6. Log inputs

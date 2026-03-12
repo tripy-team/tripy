@@ -2500,7 +2500,8 @@ async def get_transfer_strategy(
             operating_airline = seg.get("operatingAirline") or seg.get("operating_airline", "")
             
             # Extract connection details - CRITICAL for multi-leg flights
-            stops = seg.get("stops", 0)
+            stops_raw = seg.get("stops", 0)
+            stops = int(stops_raw) if stops_raw is not None else 0
             raw_legs = seg.get("legs", [])
             raw_layovers = seg.get("layovers", [])
             
@@ -2524,7 +2525,8 @@ async def get_transfer_strategy(
             layovers = []
             for lay_data in raw_layovers:
                 if isinstance(lay_data, dict):
-                    duration_mins = lay_data.get("durationMinutes") or lay_data.get("duration_minutes", 0)
+                    duration_mins_raw = lay_data.get("durationMinutes") or lay_data.get("duration_minutes", 0)
+                    duration_mins = int(duration_mins_raw) if duration_mins_raw is not None else 0
                     layovers.append(LayoverDetail(
                         airport=lay_data.get("airport", ""),
                         airport_name=lay_data.get("airportName") or lay_data.get("airport_name"),

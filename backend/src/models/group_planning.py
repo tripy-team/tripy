@@ -94,7 +94,7 @@ class GroupTripCreate(BaseModel):
     end_date: str = Field(..., min_length=10, max_length=10)
     currency: str = Field(default="USD", max_length=3)
     split_method: SplitMethod = SplitMethod.POINTS_VALUE_WEIGHTED
-    include_hotels: bool = False
+    include_hotels: bool = True
 
 
 class GroupTripUpdate(BaseModel):
@@ -118,7 +118,7 @@ class GroupTripResponse(BaseModel):
     currency: str
     status: str
     split_method: str
-    include_hotels: bool = False
+    include_hotels: bool = True
     created_at: str
     updated_at: str
     traveler_count: int = 0

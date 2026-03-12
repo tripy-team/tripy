@@ -189,6 +189,10 @@ class TestMockHotelProvider:
         assert rec.price_total > 0
         assert rec.nightly_rate > 0
         assert rec.hotel_name
+        assert rec.loyalty_program is not None
+        assert rec.points_per_night is not None and rec.points_per_night > 0
+        assert rec.points_total is not None and rec.points_total > 0
+        assert rec.points_total == rec.points_per_night * 5  # 5 nights
         assert rec.hotel_id.startswith("mock-")
 
 
@@ -340,11 +344,17 @@ class TestHotelRecommendationModel:
             recommendation_reason="Best value",
             traveler_count=2,
             room_count=1,
+            loyalty_program="Marriott Bonvoy",
+            points_per_night=35000,
+            points_total=245000,
         )
         data = rec.model_dump()
         assert data["hotel_id"] == "test-123"
         assert data["price_total"] == 1400.00
         assert data["amenities"] == ["Free WiFi", "Pool"]
+        assert data["loyalty_program"] == "Marriott Bonvoy"
+        assert data["points_per_night"] == 35000
+        assert data["points_total"] == 245000
 
         restored = HotelRecommendation(**data)
         assert restored.hotel_name == "Test Hotel Paris"
