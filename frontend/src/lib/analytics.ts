@@ -50,6 +50,7 @@ function initRum(): void {
         telemetries: ['performance', 'errors', 'http'],
         allowCookies: true,
         enableXRay: false,
+        signing: true,
         pageIdFormat: 'PATH',
         disableAutoPageView: true,
       },

@@ -89,7 +89,7 @@ class AssignmentItemType(str, Enum):
 
 class GroupTripCreate(BaseModel):
     name: str = Field(..., min_length=1, max_length=200)
-    destination: str = Field(..., min_length=1, max_length=200)
+    destination: str = Field(..., min_length=1, max_length=1000)
     start_date: str = Field(..., min_length=10, max_length=10)
     end_date: str = Field(..., min_length=10, max_length=10)
     currency: str = Field(default="USD", max_length=3)
@@ -98,7 +98,7 @@ class GroupTripCreate(BaseModel):
 
 class GroupTripUpdate(BaseModel):
     name: Optional[str] = Field(None, min_length=1, max_length=200)
-    destination: Optional[str] = Field(None, min_length=1, max_length=200)
+    destination: Optional[str] = Field(None, min_length=1, max_length=1000)
     start_date: Optional[str] = Field(None, min_length=10, max_length=10)
     end_date: Optional[str] = Field(None, min_length=10, max_length=10)
     currency: Optional[str] = Field(None, max_length=3)

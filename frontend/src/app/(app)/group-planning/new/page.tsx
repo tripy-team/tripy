@@ -14,11 +14,17 @@ import {
   Plus,
   ArrowRight,
   Loader2,
+  MapPin,
+  Calendar,
+  X,
+  Globe,
+  Info,
 } from 'lucide-react';
 import { cn } from '@/components/ui/utils';
 import { groupPlanning } from '@/lib/api';
 import AirportAutocomplete from '@/components/ui/AirportAutocomplete';
-import CityAutocomplete from '@/components/city-autocomplete';
+import { DestinationAutocomplete } from '@/components/ui/DestinationAutocomplete';
+import SingleDatePicker from '@/components/ui/SingleDatePicker';
 
 // ---------------------------------------------------------------------------
 // Local draft types (not yet persisted)
@@ -89,10 +95,12 @@ const LOYALTY_PROGRAMS = [
   { value: 'amex_mr', label: 'Amex Membership Rewards', type: 'bank_points' as const },
   { value: 'citi_typ', label: 'Citi ThankYou Points', type: 'bank_points' as const },
   { value: 'capital_one', label: 'Capital One Miles', type: 'bank_points' as const },
+  { value: 'bilt', label: 'Bilt Rewards', type: 'bank_points' as const },
   { value: 'united', label: 'United MileagePlus', type: 'airline_miles' as const },
   { value: 'american', label: 'American AAdvantage', type: 'airline_miles' as const },
   { value: 'delta', label: 'Delta SkyMiles', type: 'airline_miles' as const },
   { value: 'southwest', label: 'Southwest Rapid Rewards', type: 'airline_miles' as const },
+  { value: 'alaska', label: 'Alaska Mileage Plan', type: 'airline_miles' as const },
   { value: 'marriott', label: 'Marriott Bonvoy', type: 'hotel_points' as const },
   { value: 'hilton', label: 'Hilton Honors', type: 'hotel_points' as const },
   { value: 'hyatt', label: 'World of Hyatt', type: 'hotel_points' as const },
@@ -108,7 +116,9 @@ export default function NewGroupTripPage() {
 
   // Trip basics
   const [tripName, setTripName] = useState('');
-  const [destination, setDestination] = useState('');
+  const [destinations, setDestinations] = useState<string[]>([]);
+  const [showAddDestination, setShowAddDestination] = useState(false);
+  const [newCity, setNewCity] = useState('');
   const [startDate, setStartDate] = useState('');
   const [endDate, setEndDate] = useState('');
 
@@ -119,6 +129,12 @@ export default function NewGroupTripPage() {
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [progress, setProgress] = useState('');
+
+  // ---- destination helpers --------------------------------------------------
+
+  function removeDestination(city: string) {
+    setDestinations((prev) => prev.filter((c) => c !== city));
+  }
 
   // ---- traveler CRUD helpers ------------------------------------------------
 
@@ -204,7 +220,7 @@ export default function NewGroupTripPage() {
 
   const canSubmit =
     tripName.trim() !== '' &&
-    destination.trim() !== '' &&
+    destinations.length > 0 &&
     startDate !== '' &&
     endDate !== '' &&
     travelers.length > 0 &&
@@ -219,7 +235,7 @@ export default function NewGroupTripPage() {
       setProgress('Creating trip...');
       const trip = await groupPlanning.createTrip({
         name: tripName.trim(),
-        destination: destination.trim(),
+        destination: destinations.join(', '),
         startDate,
         endDate,
       });
@@ -285,182 +301,361 @@ export default function NewGroupTripPage() {
   // Render
   // ---------------------------------------------------------------------------
 
+  const totalBalances = travelers.reduce((sum, t) => sum + t.balances.length, 0);
+
   return (
-    <div className="min-h-screen bg-gradient-to-br from-white via-blue-50/20 to-white">
-      <div className="max-w-3xl mx-auto px-4 py-10">
+    <div className="min-h-full p-6 md:p-8 bg-gradient-to-br from-slate-50 via-blue-50 to-indigo-50">
+      <div className="max-w-6xl mx-auto">
         {/* Header */}
-        <div className="mb-10">
-          <div className="flex items-center gap-3 mb-2">
-            <div className="p-2.5 rounded-xl bg-blue-100">
-              <Users className="w-6 h-6 text-blue-600" />
-            </div>
-            <h1 className="text-3xl font-bold text-slate-900">
-              Plan a Group Trip
-            </h1>
+        <div className="mb-8">
+          <div className="inline-flex items-center gap-2 px-3 py-1 bg-blue-100 rounded-full text-sm text-blue-700 mb-2 font-medium">
+            <Users className="w-4 h-4" />
+            <span>Group Planning</span>
           </div>
-          <p className="text-slate-500 ml-[52px]">
-            Add travelers, their points balances, and preferences — then let
-            Tripy find the optimal plan.
+          <h1 className="text-3xl md:text-4xl tracking-tight text-slate-900 font-bold">
+            Plan a Group Trip
+          </h1>
+          <p className="text-slate-500 mt-1">
+            Add travelers, their points, and shared destinations — Tripy optimizes for the whole group.
           </p>
         </div>
 
-        {/* ================================================================ */}
-        {/* STEP 1 — Trip Basics                                             */}
-        {/* ================================================================ */}
-        <section className="bg-white border border-slate-200 rounded-2xl p-8 shadow-sm mb-8">
-          <h2 className="text-xl font-semibold text-slate-900 mb-1">
-            Trip Details
-          </h2>
-          <p className="text-sm text-slate-500 mb-6">
-            Where is the group headed?
-          </p>
+        <div className="grid lg:grid-cols-3 gap-8">
+          {/* ============================================================== */}
+          {/* LEFT COLUMN — Main Form                                        */}
+          {/* ============================================================== */}
+          <div className="lg:col-span-2 space-y-6">
 
-          <div className="grid grid-cols-1 sm:grid-cols-2 gap-5">
-            <div className="sm:col-span-2 space-y-2">
-              <label className="block text-sm font-medium text-slate-700">
-                Trip Name
-              </label>
-              <input
-                type="text"
-                value={tripName}
-                onChange={(e) => setTripName(e.target.value)}
-                placeholder="e.g., Summer Japan 2026"
-                className="w-full px-4 py-3 bg-white border border-slate-200 rounded-xl focus:outline-none focus:ring-2 focus:ring-blue-600 focus:border-transparent text-sm"
-              />
+            {/* ---- Trip Name ---- */}
+            <div className="bg-white border border-slate-200 rounded-2xl p-5 shadow-sm">
+              <div className="space-y-2">
+                <label className="block text-xs text-slate-500 font-medium uppercase tracking-wider">
+                  Trip Name
+                </label>
+                <input
+                  type="text"
+                  value={tripName}
+                  onChange={(e) => setTripName(e.target.value)}
+                  placeholder="e.g., Summer Japan 2026, Europe Family Trip"
+                  className="w-full px-4 py-3 bg-white border border-slate-200 rounded-xl focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-blue-500 text-sm font-medium text-slate-900"
+                />
+              </div>
             </div>
 
-            <div className="sm:col-span-2 space-y-2">
-              <label className="block text-sm font-medium text-slate-700">
-                Destination
-              </label>
-              <CityAutocomplete
-                value={destination}
-                onChange={setDestination}
-                onSelect={(city) => setDestination(city)}
-                placeholder="e.g., Tokyo, Paris, Maui"
-              />
+            {/* ---- Shared Destinations ---- */}
+            <div className="relative z-40 bg-white border border-slate-200 rounded-2xl p-8 shadow-sm">
+              <div className="flex items-center gap-3 mb-2">
+                <div className="w-10 h-10 bg-blue-600 rounded-xl flex items-center justify-center">
+                  <Globe className="w-5 h-5 text-white" />
+                </div>
+                <div>
+                  <h2 className="text-xl text-slate-900 font-semibold">Shared Destinations</h2>
+                  <p className="text-sm text-slate-500">Where is the group meeting up?</p>
+                </div>
+              </div>
+
+              <div className="mt-2 mb-6 p-3 bg-blue-50 border border-blue-100 rounded-xl flex items-start gap-2.5">
+                <Info className="w-4 h-4 text-blue-500 flex-shrink-0 mt-0.5" />
+                <p className="text-xs text-blue-700">
+                  Add the cities everyone will visit together. Each traveler&apos;s starting airport is set in their profile below — you don&apos;t need to include start or end locations here.
+                </p>
+              </div>
+
+              <div className="relative">
+                {/* Timeline connector line */}
+                {destinations.length > 0 && (
+                  <div className="absolute left-[11px] top-4 bottom-4 w-0.5 bg-blue-200 z-0" />
+                )}
+
+                <div className="space-y-0 relative z-10">
+                  {/* Destinations list */}
+                  {destinations.map((city, index) => (
+                    <div key={city} className="flex gap-6 py-3">
+                      <div className="flex flex-col items-center">
+                        <div className="w-6 h-6 rounded-full bg-blue-500 border-4 border-white shadow-sm z-10 flex items-center justify-center">
+                          <span className="text-[8px] text-white font-bold">{index + 1}</span>
+                        </div>
+                      </div>
+                      <div className="flex-1 -mt-0.5">
+                        <div className="flex items-center gap-2">
+                          <div className="flex-1 px-4 py-3 bg-blue-50 border border-blue-200 rounded-xl text-sm text-slate-900 font-medium flex items-center gap-2">
+                            <MapPin className="w-4 h-4 text-blue-500 flex-shrink-0" />
+                            {city}
+                          </div>
+                          <button
+                            type="button"
+                            onClick={() => removeDestination(city)}
+                            className="px-3 py-2 text-slate-400 hover:text-red-500 hover:bg-red-50 rounded-xl transition-colors"
+                            title="Remove destination"
+                          >
+                            <X className="w-4 h-4" />
+                          </button>
+                        </div>
+                      </div>
+                    </div>
+                  ))}
+
+                  {/* Add destination button + dropdown */}
+                  <div className="flex gap-6 py-3">
+                    <div className="flex flex-col items-center">
+                      <div className="w-6 h-6 rounded-full bg-white border-2 border-dashed border-slate-300 z-10" />
+                    </div>
+                    <div className="flex-1 -mt-0.5 relative">
+                      <button
+                        type="button"
+                        onClick={() => setShowAddDestination(!showAddDestination)}
+                        className="flex items-center gap-2 text-blue-600 hover:text-blue-700 font-medium text-sm"
+                      >
+                        <Plus className="w-4 h-4" />
+                        {destinations.length === 0 ? 'Add a Destination' : 'Add Another Destination'}
+                      </button>
+
+                      {showAddDestination && (
+                        <>
+                          <div
+                            className="fixed inset-0 z-40"
+                            onClick={() => {
+                              setShowAddDestination(false);
+                              setNewCity('');
+                            }}
+                          />
+                          <div className="absolute top-full left-0 right-0 mt-2 bg-white border border-slate-200 rounded-xl shadow-lg p-4 z-50">
+                            <div className="flex items-center justify-between mb-2">
+                              <label className="text-xs text-slate-500 font-medium uppercase tracking-wider">
+                                Search for a city
+                              </label>
+                              <button
+                                type="button"
+                                onClick={() => {
+                                  setShowAddDestination(false);
+                                  setNewCity('');
+                                }}
+                                className="text-slate-400 hover:text-slate-600"
+                              >
+                                <X className="w-4 h-4" />
+                              </button>
+                            </div>
+                            <DestinationAutocomplete
+                              value={newCity}
+                              onChange={setNewCity}
+                              autoFocus
+                              onSelect={(city) => {
+                                if (city && !destinations.includes(city)) {
+                                  setDestinations((prev) => [...prev, city]);
+                                  setNewCity('');
+                                  setShowAddDestination(false);
+                                }
+                              }}
+                              placeholder="e.g., Paris, Tokyo, Rome..."
+                            />
+                          </div>
+                        </>
+                      )}
+                    </div>
+                  </div>
+                </div>
+              </div>
+
+              {destinations.length === 0 && (
+                <p className="mt-4 text-xs text-slate-400">
+                  Add at least one destination where the group will meet.
+                </p>
+              )}
             </div>
 
-            <div className="space-y-2">
-              <label className="block text-sm font-medium text-slate-700">
-                Start Date
-              </label>
-              <input
-                type="date"
-                value={startDate}
-                onChange={(e) => setStartDate(e.target.value)}
-                className="w-full px-4 py-3 bg-white border border-slate-200 rounded-xl focus:outline-none focus:ring-2 focus:ring-blue-600 focus:border-transparent text-sm"
-              />
+            {/* ---- Dates ---- */}
+            <div className="bg-white border border-slate-200 rounded-2xl p-6 shadow-sm">
+              <div className="flex items-center gap-3 mb-5">
+                <div className="w-10 h-10 bg-blue-600 rounded-xl flex items-center justify-center">
+                  <Calendar className="w-5 h-5 text-white" />
+                </div>
+                <div>
+                  <h2 className="text-xl text-slate-900 font-semibold">Trip Dates</h2>
+                  <p className="text-sm text-slate-500">When should the group be there?</p>
+                </div>
+              </div>
+              <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                <div className="space-y-2">
+                  <label className="block text-xs text-slate-500 font-medium uppercase tracking-wider">
+                    Start Date
+                  </label>
+                  <SingleDatePicker
+                    value={startDate}
+                    onChange={setStartDate}
+                    minDate={new Date().toISOString().split('T')[0]}
+                    placeholder="Select date"
+                  />
+                </div>
+                <div className="space-y-2">
+                  <label className="block text-xs text-slate-500 font-medium uppercase tracking-wider">
+                    End Date
+                  </label>
+                  <SingleDatePicker
+                    value={endDate}
+                    onChange={setEndDate}
+                    minDate={startDate || new Date().toISOString().split('T')[0]}
+                    placeholder="Select date"
+                  />
+                </div>
+              </div>
             </div>
 
-            <div className="space-y-2">
-              <label className="block text-sm font-medium text-slate-700">
-                End Date
-              </label>
-              <input
-                type="date"
-                value={endDate}
-                onChange={(e) => setEndDate(e.target.value)}
-                min={startDate || undefined}
-                className="w-full px-4 py-3 bg-white border border-slate-200 rounded-xl focus:outline-none focus:ring-2 focus:ring-blue-600 focus:border-transparent text-sm"
-              />
+            {/* ---- Travelers ---- */}
+            <div>
+              <div className="flex items-center justify-between mb-4">
+                <div className="flex items-center gap-3">
+                  <div className="w-10 h-10 bg-blue-600 rounded-xl flex items-center justify-center">
+                    <Users className="w-5 h-5 text-white" />
+                  </div>
+                  <div>
+                    <h2 className="text-xl text-slate-900 font-semibold">
+                      Travelers
+                      <span className="ml-2 text-sm font-normal text-slate-400">
+                        ({travelers.length})
+                      </span>
+                    </h2>
+                    <p className="text-sm text-slate-500">Each person&apos;s starting airport, preferences, and points</p>
+                  </div>
+                </div>
+                <button
+                  type="button"
+                  onClick={addTraveler}
+                  className="inline-flex items-center gap-1.5 px-4 py-2 text-sm font-medium text-blue-600 bg-blue-50 hover:bg-blue-100 rounded-xl transition-colors"
+                >
+                  <UserPlus className="w-4 h-4" />
+                  Add Traveler
+                </button>
+              </div>
+
+              {travelers.length === 0 && (
+                <div className="bg-white border border-dashed border-slate-300 rounded-2xl p-12 text-center shadow-sm">
+                  <Users className="w-12 h-12 text-slate-300 mx-auto mb-3" />
+                  <p className="text-slate-500 text-sm mb-4">
+                    No travelers yet. Add at least one to get started.
+                  </p>
+                  <button
+                    type="button"
+                    onClick={addTraveler}
+                    className="inline-flex items-center gap-1.5 px-5 py-2.5 text-sm font-medium text-white bg-blue-600 hover:bg-blue-700 rounded-xl transition-colors"
+                  >
+                    <UserPlus className="w-4 h-4" />
+                    Add First Traveler
+                  </button>
+                </div>
+              )}
+
+              <div className="space-y-4">
+                {travelers.map((traveler, idx) => (
+                  <TravelerCard
+                    key={traveler.id}
+                    index={idx}
+                    traveler={traveler}
+                    onUpdate={(patch) => updateTraveler(traveler.id, patch)}
+                    onRemove={() => removeTraveler(traveler.id)}
+                    onToggle={() => toggleExpand(traveler.id)}
+                    onAddBalance={() => addBalance(traveler.id)}
+                    onUpdateBalance={(bid, patch) =>
+                      updateBalance(traveler.id, bid, patch)
+                    }
+                    onRemoveBalance={(bid) => removeBalance(traveler.id, bid)}
+                    onUpdatePreferences={(patch) =>
+                      updatePreferences(traveler.id, patch)
+                    }
+                    canRemove={travelers.length > 1}
+                  />
+                ))}
+              </div>
             </div>
           </div>
-        </section>
 
-        {/* ================================================================ */}
-        {/* STEP 2 — Travelers                                               */}
-        {/* ================================================================ */}
-        <section className="mb-8">
-          <div className="flex items-center justify-between mb-4">
-            <h2 className="text-xl font-semibold text-slate-900">
-              Travelers
-              <span className="ml-2 text-sm font-normal text-slate-400">
-                ({travelers.length})
-              </span>
-            </h2>
-            <button
-              type="button"
-              onClick={addTraveler}
-              className="inline-flex items-center gap-1.5 px-4 py-2 text-sm font-medium text-blue-600 bg-blue-50 hover:bg-blue-100 rounded-xl transition-colors"
-            >
-              <UserPlus className="w-4 h-4" />
-              Add Traveler
-            </button>
-          </div>
+          {/* ============================================================== */}
+          {/* RIGHT COLUMN — Summary & Submit                                */}
+          {/* ============================================================== */}
+          <div className="lg:col-span-1">
+            <div className="lg:sticky lg:top-24 space-y-4">
 
-          {travelers.length === 0 && (
-            <div className="bg-white border border-dashed border-slate-300 rounded-2xl p-12 text-center shadow-sm">
-              <Users className="w-12 h-12 text-slate-300 mx-auto mb-3" />
-              <p className="text-slate-500 text-sm mb-4">
-                No travelers yet. Add at least one to get started.
-              </p>
+              {/* Trip summary */}
+              <div className="bg-white border border-slate-200 rounded-2xl p-6 shadow-sm">
+                <h3 className="text-xs text-slate-500 font-medium uppercase tracking-wider mb-4">Trip Summary</h3>
+                <div className="space-y-3">
+                  <div className="flex items-start gap-3">
+                    <Globe className="w-4 h-4 text-blue-500 mt-0.5 flex-shrink-0" />
+                    <div>
+                      <p className="text-sm font-medium text-slate-900">
+                        {destinations.length > 0 ? destinations.join(' → ') : 'No destinations yet'}
+                      </p>
+                      <p className="text-xs text-slate-400">
+                        {destinations.length} destination{destinations.length !== 1 ? 's' : ''}
+                      </p>
+                    </div>
+                  </div>
+                  <div className="flex items-start gap-3">
+                    <Calendar className="w-4 h-4 text-blue-500 mt-0.5 flex-shrink-0" />
+                    <p className="text-sm text-slate-700">
+                      {startDate && endDate
+                        ? `${new Date(startDate + 'T12:00:00').toLocaleDateString('en-US', { month: 'short', day: 'numeric' })} — ${new Date(endDate + 'T12:00:00').toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric' })}`
+                        : 'Dates not set'}
+                    </p>
+                  </div>
+                  <div className="flex items-start gap-3">
+                    <Users className="w-4 h-4 text-blue-500 mt-0.5 flex-shrink-0" />
+                    <div>
+                      <p className="text-sm text-slate-700">
+                        {travelers.length} traveler{travelers.length !== 1 ? 's' : ''}
+                      </p>
+                      {travelers.filter((t) => t.displayName).length > 0 && (
+                        <p className="text-xs text-slate-400 mt-0.5">
+                          {travelers
+                            .filter((t) => t.displayName)
+                            .map((t) => t.displayName)
+                            .join(', ')}
+                        </p>
+                      )}
+                    </div>
+                  </div>
+                  {totalBalances > 0 && (
+                    <div className="flex items-start gap-3">
+                      <CreditCard className="w-4 h-4 text-blue-500 mt-0.5 flex-shrink-0" />
+                      <p className="text-sm text-slate-700">
+                        {totalBalances} point balance{totalBalances !== 1 ? 's' : ''} across group
+                      </p>
+                    </div>
+                  )}
+                </div>
+              </div>
+
+              {/* Submit button */}
               <button
                 type="button"
-                onClick={addTraveler}
-                className="inline-flex items-center gap-1.5 px-5 py-2.5 text-sm font-medium text-white bg-blue-600 hover:bg-blue-700 rounded-xl transition-colors"
+                disabled={!canSubmit || isSubmitting}
+                onClick={handleSubmit}
+                className="w-full px-6 py-4 bg-blue-600 text-white rounded-xl hover:bg-blue-700 transition-all disabled:opacity-50 disabled:cursor-not-allowed flex items-center justify-center gap-2 text-base font-semibold shadow-lg shadow-blue-500/20"
               >
-                <UserPlus className="w-4 h-4" />
-                Add First Traveler
+                {isSubmitting ? (
+                  <>
+                    <Loader2 className="w-5 h-5 animate-spin" />
+                    {progress}
+                  </>
+                ) : (
+                  <>
+                    <Users className="w-5 h-5" />
+                    Optimize Group Trip
+                  </>
+                )}
               </button>
+
+              {error && (
+                <div className="bg-red-50 border border-red-200 text-red-700 px-4 py-3 rounded-xl text-sm">
+                  {error}
+                </div>
+              )}
+
+              <p className="text-xs text-slate-500 text-center">
+                Tripy finds the best flights and split for your group, using everyone&apos;s points to save cash.
+              </p>
             </div>
-          )}
-
-          <div className="space-y-4">
-            {travelers.map((traveler, idx) => (
-              <TravelerCard
-                key={traveler.id}
-                index={idx}
-                traveler={traveler}
-                onUpdate={(patch) => updateTraveler(traveler.id, patch)}
-                onRemove={() => removeTraveler(traveler.id)}
-                onToggle={() => toggleExpand(traveler.id)}
-                onAddBalance={() => addBalance(traveler.id)}
-                onUpdateBalance={(bid, patch) =>
-                  updateBalance(traveler.id, bid, patch)
-                }
-                onRemoveBalance={(bid) => removeBalance(traveler.id, bid)}
-                onUpdatePreferences={(patch) =>
-                  updatePreferences(traveler.id, patch)
-                }
-                canRemove={travelers.length > 1}
-              />
-            ))}
           </div>
-        </section>
-
-        {/* ================================================================ */}
-        {/* Error / Submit                                                   */}
-        {/* ================================================================ */}
-        {error && (
-          <div className="mb-6 p-4 bg-red-50 border border-red-200 rounded-xl text-sm text-red-700">
-            {error}
-          </div>
-        )}
-
-        <button
-          type="button"
-          disabled={!canSubmit || isSubmitting}
-          onClick={handleSubmit}
-          className={cn(
-            'w-full flex items-center justify-center gap-2.5 px-6 py-4 rounded-2xl text-base font-semibold transition-all shadow-sm',
-            canSubmit && !isSubmitting
-              ? 'bg-blue-600 text-white hover:bg-blue-700 active:scale-[0.98]'
-              : 'bg-slate-100 text-slate-400 cursor-not-allowed',
-          )}
-        >
-          {isSubmitting ? (
-            <>
-              <Loader2 className="w-5 h-5 animate-spin" />
-              {progress}
-            </>
-          ) : (
-            <>
-              Optimize Trip
-              <ArrowRight className="w-5 h-5" />
-            </>
-          )}
-        </button>
+        </div>
       </div>
     </div>
   );
@@ -497,6 +692,15 @@ function TravelerCard({
 }: TravelerCardProps) {
   const [showPrefs, setShowPrefs] = useState(false);
 
+  const initials = traveler.displayName
+    ? traveler.displayName
+        .split(' ')
+        .map((w) => w[0])
+        .join('')
+        .toUpperCase()
+        .slice(0, 2)
+    : String(index + 1);
+
   return (
     <div className="bg-white border border-slate-200 rounded-2xl shadow-sm overflow-hidden">
       {/* Collapsed header */}
@@ -506,14 +710,7 @@ function TravelerCard({
         className="w-full flex items-center gap-3 px-6 py-4 text-left hover:bg-slate-50/60 transition-colors"
       >
         <div className="flex-shrink-0 w-9 h-9 rounded-full bg-gradient-to-br from-blue-500 to-blue-600 flex items-center justify-center text-white text-sm font-semibold">
-          {traveler.displayName
-            ? traveler.displayName
-                .split(' ')
-                .map((w) => w[0])
-                .join('')
-                .toUpperCase()
-                .slice(0, 2)
-            : index + 1}
+          {initials}
         </div>
 
         <div className="flex-1 min-w-0">
@@ -522,9 +719,10 @@ function TravelerCard({
           </p>
           <p className="text-xs text-slate-400 truncate">
             {[
-              traveler.originAirport && `From ${traveler.originAirport}`,
+              traveler.originAirport && `Flies from ${traveler.originAirport}`,
               traveler.balances.length > 0 &&
-                `${traveler.balances.length} balance${traveler.balances.length !== 1 ? 's' : ''}`,
+                `${traveler.balances.length} point balance${traveler.balances.length !== 1 ? 's' : ''}`,
+              traveler.cabinPreference !== 'economy' && traveler.cabinPreference.replace('_', ' '),
             ]
               .filter(Boolean)
               .join(' · ') || 'Tap to edit'}
@@ -572,13 +770,14 @@ function TravelerCard({
             <div className="space-y-2">
               <label className="flex items-center gap-1.5 text-sm font-medium text-slate-700">
                 <Plane className="w-3.5 h-3.5 text-slate-400" />
-                Origin Airport
+                Starting Airport
               </label>
               <AirportAutocomplete
                 value={traveler.originAirport}
                 onValueChange={(v) => onUpdate({ originAirport: v })}
-                placeholder="e.g., SFO"
+                placeholder="e.g., SEA, MIA, JFK"
               />
+              <p className="text-[11px] text-slate-400">Where this traveler departs from</p>
             </div>
 
             <div className="space-y-2">
@@ -629,6 +828,7 @@ function TravelerCard({
                       e.target.value === '' ? null : Number(e.target.value),
                   })
                 }
+                onWheel={(e) => e.currentTarget.blur()}
                 placeholder="Optional"
                 className="w-full px-4 py-3 bg-white border border-slate-200 rounded-xl focus:outline-none focus:ring-2 focus:ring-blue-600 focus:border-transparent text-sm"
               />
@@ -725,6 +925,7 @@ function TravelerCard({
                             balance: Number(e.target.value),
                           })
                         }
+                        onWheel={(e) => e.currentTarget.blur()}
                         placeholder="Points balance"
                         className="w-full px-3 py-2 bg-white border border-slate-200 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-600 focus:border-transparent text-sm"
                       />
@@ -777,6 +978,7 @@ function TravelerCard({
                               : Number(e.target.value),
                         })
                       }
+                      onWheel={(e) => e.currentTarget.blur()}
                       placeholder="No limit"
                       className="w-full px-3 py-2 bg-white border border-slate-200 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-600 focus:border-transparent text-sm"
                     />
@@ -800,6 +1002,7 @@ function TravelerCard({
                               : Number(e.target.value),
                         })
                       }
+                      onWheel={(e) => e.currentTarget.blur()}
                       placeholder="No limit"
                       className="w-full px-3 py-2 bg-white border border-slate-200 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-600 focus:border-transparent text-sm"
                     />
