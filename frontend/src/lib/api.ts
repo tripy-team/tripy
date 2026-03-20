@@ -2650,13 +2650,14 @@ export interface SoloCreateTripRequest {
   optimizationMode?: 'oop' | 'cpp' | 'balanced' | 'money_saving';
   departureTimePreference?: 'any' | 'morning' | 'afternoon' | 'evening' | 'night';
   arrivalTimePreference?: 'any' | 'morning' | 'afternoon' | 'evening' | 'night';
-  // Multi-city leg dates: departure date for each flight segment
   legDates?: string[];
-  // Advanced flight filters (Google Flights parity)
   includeBudgetAirlines?: boolean;
-  maxStops?: number; // 0=Any, 1=Nonstop, 2=1 stop or fewer, 3=2 stops or fewer
-  departureHourRange?: [number, number]; // [startHour, endHour]
-  arrivalHourRange?: [number, number]; // [startHour, endHour]
+  maxStops?: number;
+  departureHourRange?: [number, number];
+  arrivalHourRange?: [number, number];
+  // B2B fields
+  orgId?: string;
+  clientId?: string;
 }
 
 export interface SoloUpdateTripRequest {
@@ -2711,6 +2712,13 @@ export interface SoloTripResponse {
   createdAt: string;
   createdBy: string;
   inviteCode?: string;
+  // B2B fields
+  orgId?: string;
+  clientId?: string;
+  assignedTo?: string;
+  estimatedSavings?: number;
+  pointsStrategySummary?: string;
+  advisorNote?: string;
 }
 
 export interface SoloOptimizeRequest {
@@ -3061,13 +3069,14 @@ export const solo = {
         optimization_mode: request.optimizationMode,
         departure_time_preference: request.departureTimePreference ?? 'any',
         arrival_time_preference: request.arrivalTimePreference ?? 'any',
-        // Multi-city leg dates
         leg_dates: request.legDates,
-        // Advanced flight filters
         include_budget_airlines: request.includeBudgetAirlines ?? true,
         max_stops: request.maxStops ?? 0,
         departure_hour_range: request.departureHourRange ?? null,
         arrival_hour_range: request.arrivalHourRange ?? null,
+        // B2B fields
+        org_id: request.orgId,
+        client_id: request.clientId,
       }),
     });
     return toCamelCase<SoloTripResponse>(response);
@@ -3879,5 +3888,108 @@ export const groupPlanning = {
       }),
     });
     return toCamelCase(res);
+  },
+};
+
+// ─── B2B: Organizations ────────────────────────────────────────────────────────
+
+export const orgs = {
+  getMyOrg: async () => {
+    const res = await apiRequest<Record<string, unknown>>('/orgs/me');
+    return toCamelCase<import('@/types/org').Organization>(res);
+  },
+
+  updateBranding: async (branding: import('@/types/org').BrandingSettings) => {
+    const res = await apiRequest<Record<string, unknown>>('/orgs/branding', {
+      method: 'PATCH',
+      body: JSON.stringify({
+        brand_name: branding.brandName,
+        brand_color: branding.brandColor,
+        logo_url: branding.logoUrl,
+      }),
+    });
+    return toCamelCase<import('@/types/org').Organization>(res);
+  },
+
+  getMembers: async () => {
+    const res = await apiRequest<Record<string, unknown>[]>('/orgs/members');
+    return res.map(m => toCamelCase<import('@/types/org').OrgMember>(m));
+  },
+
+  addMember: async (email: string) => {
+    const res = await apiRequest<Record<string, unknown>>('/orgs/members', {
+      method: 'POST',
+      body: JSON.stringify({ email }),
+    });
+    return toCamelCase<import('@/types/org').OrgMember>(res);
+  },
+
+  removeMember: async (userId: string) => {
+    await apiRequest(`/orgs/members/${userId}`, { method: 'DELETE' });
+  },
+};
+
+// ─── B2B: Clients ──────────────────────────────────────────────────────────────
+
+export const clientsAPI = {
+  list: async () => {
+    const res = await apiRequest<Record<string, unknown>[]>('/clients');
+    return res.map(c => toCamelCase<import('@/types/org').Client>(c));
+  },
+
+  get: async (clientId: string) => {
+    const res = await apiRequest<Record<string, unknown>>(`/clients/${clientId}`);
+    return toCamelCase<import('@/types/org').Client>(res);
+  },
+
+  create: async (data: import('@/types/org').CreateClientRequest) => {
+    const res = await apiRequest<Record<string, unknown>>('/clients', {
+      method: 'POST',
+      body: JSON.stringify({
+        name: data.name,
+        email: data.email,
+        home_airport: data.homeAirport,
+        notes: data.notes,
+        preferences: data.preferences,
+        initial_points: data.initialPoints?.map(p => ({
+          program: p.program,
+          balance: p.balance,
+        })),
+      }),
+    });
+    return toCamelCase<import('@/types/org').Client>(res);
+  },
+
+  update: async (clientId: string, data: import('@/types/org').UpdateClientRequest) => {
+    const body: Record<string, unknown> = {};
+    if (data.name !== undefined) body.name = data.name;
+    if (data.email !== undefined) body.email = data.email;
+    if (data.homeAirport !== undefined) body.home_airport = data.homeAirport;
+    if (data.notes !== undefined) body.notes = data.notes;
+    if (data.preferences !== undefined) body.preferences = data.preferences;
+
+    const res = await apiRequest<Record<string, unknown>>(`/clients/${clientId}`, {
+      method: 'PATCH',
+      body: JSON.stringify(body),
+    });
+    return toCamelCase<import('@/types/org').Client>(res);
+  },
+
+  getPoints: async (clientId: string) => {
+    const res = await apiRequest<Record<string, unknown>[]>(`/clients/${clientId}/points`);
+    return res.map(p => toCamelCase<import('@/types/org').ClientPointsBalance>(p));
+  },
+
+  updatePoints: async (clientId: string, points: { program: string; balance: number }[]) => {
+    const res = await apiRequest<Record<string, unknown>[]>(`/clients/${clientId}/points`, {
+      method: 'PUT',
+      body: JSON.stringify({ points }),
+    });
+    return res.map(p => toCamelCase<import('@/types/org').ClientPointsBalance>(p));
+  },
+
+  getTrips: async (clientId: string) => {
+    const res = await apiRequest<Record<string, unknown>[]>(`/clients/${clientId}/trips`);
+    return res.map(t => toCamelCase<SoloTripResponse>(t));
   },
 };

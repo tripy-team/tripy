@@ -34,6 +34,10 @@ class CreateTripRequest(BaseModel):
     title: str
     trip_type: TripType = TripType.ROUND_TRIP
     date_mode: DateMode = DateMode.FIXED
+
+    # B2B: org and client scoping (optional for backward compat)
+    org_id: Optional[str] = None
+    client_id: Optional[str] = None
     
     # REQUIRED: Origin and destinations (P0-9 fix)
     origin: str                          # IATA code, e.g., "JFK"
@@ -103,6 +107,13 @@ class TripResponse(BaseModel):
     created_at: str
     created_by: str
     invite_code: Optional[str] = None
+    # B2B fields
+    org_id: Optional[str] = None
+    client_id: Optional[str] = None
+    assigned_to: Optional[str] = None
+    estimated_savings: Optional[float] = None
+    points_strategy_summary: Optional[str] = None
+    advisor_note: Optional[str] = None
 
 
 class UpdateTripStatusRequest(BaseModel):

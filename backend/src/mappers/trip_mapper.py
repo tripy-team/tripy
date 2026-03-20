@@ -129,6 +129,13 @@ def trip_storage_to_response(item: Dict[str, Any]) -> Dict[str, Any]:
         "created_at": created_at,
         "created_by": item.get("createdBy") or "",
         "invite_code": item.get("inviteCode"),
+        # B2B fields
+        "org_id": item.get("orgId"),
+        "client_id": item.get("clientId"),
+        "assigned_to": item.get("assignedTo"),
+        "estimated_savings": item.get("estimatedSavings"),
+        "points_strategy_summary": item.get("pointsStrategySummary"),
+        "advisor_note": item.get("advisorNote"),
     }
 
 

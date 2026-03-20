@@ -41,6 +41,10 @@ export class ApiStack extends Stack {
                     DESTINATION_VOTES_TABLE: props.tables.destinationVotes.tableName,
                     ITINERARY_TABLE: props.tables.itinerary.tableName,
                     USER_POOL_ID: props.userPool.userPoolId,
+                    ORGANIZATIONS_TABLE: props.tables.organizations.tableName,
+                    ORG_MEMBERS_TABLE: props.tables.orgMembers.tableName,
+                    CLIENTS_TABLE: props.tables.clients.tableName,
+                    CLIENT_POINTS_TABLE: props.tables.clientPoints.tableName,
                 },
             });
 

@@ -7,6 +7,7 @@ Anonymous sessions allow trip generation without sign-in.
 
 import uuid
 import jwt
+from dataclasses import dataclass
 from typing import Optional, Dict, Any
 from fastapi import HTTPException, Security, Depends, Request
 from fastapi.security import HTTPBearer, HTTPAuthorizationCredentials
@@ -315,3 +316,131 @@ def _validate_anon_session_id(raw: str) -> Optional[str]:
         return f"{ANON_PREFIX}{parsed}"
     except (ValueError, AttributeError):
         return None
+
+
+# =========================================================================
+# B2B: Organization context and lazy migration
+# =========================================================================
+
+@dataclass
+class OrgContext:
+    org_id: str
+    user_id: str
+    role: str  # "owner" | "member"
+
+
+def _bootstrap_org_for_user(user_id: str) -> OrgContext:
+    """
+    Create a personal org, owner membership, and self-client for an existing
+    user who has no org yet. Also backfills orgId/clientId on their existing
+    trips. This is idempotent — safe to call multiple times.
+    """
+    from datetime import datetime, timezone
+    from src.repos import org_repo, org_member_repo, client_repo
+    from src.repos.ddb import table, sanitize_for_dynamodb, query_gsi
+    from src.config import TRIPS_TABLE, USERS_TABLE
+
+    now = datetime.now(timezone.utc).strftime("%Y-%m-%dT%H:%M:%SZ")
+    org_id = f"org_{uuid.uuid4()}"
+    client_id = f"client_{uuid.uuid4()}"
+
+    user = None
+    try:
+        from src.repos import user_repo
+        user = user_repo.get_user_by_id(user_id)
+    except Exception:
+        logger.warning(f"Could not load user record for {user_id} during org bootstrap")
+
+    user_name = (user or {}).get("name", "")
+    user_email = (user or {}).get("email", "")
+    home_airport = (user or {}).get("default_home_airport", "")
+
+    org_name = f"{user_name}'s Workspace" if user_name else "My Workspace"
+
+    org_repo.create_org({
+        "orgId": org_id,
+        "name": org_name,
+        "ownerId": user_id,
+        "plan": "trial",
+        "trialEndsAt": None,
+        "stripeCustomerId": None,
+        "stripeSubscriptionId": None,
+        "branding": {
+            "brandName": org_name,
+            "brandColor": "#1a56db",
+            "logoUrl": None,
+        },
+        "createdAt": now,
+    })
+
+    org_member_repo.add_member({
+        "orgId": org_id,
+        "userId": user_id,
+        "role": "owner",
+        "createdAt": now,
+    })
+
+    client_repo.create_client({
+        "orgId": org_id,
+        "clientId": client_id,
+        "name": "Myself",
+        "email": user_email,
+        "homeAirport": home_airport or None,
+        "notes": None,
+        "preferences": {},
+        "stats": {"totalTrips": 0, "totalSavings": 0, "totalPointsOptimized": 0},
+        "isSelfClient": True,
+        "createdBy": user_id,
+        "createdAt": now,
+    })
+
+    # Backfill orgId/clientId on existing trips owned by this user
+    try:
+        trips_t = table(TRIPS_TABLE)
+        from boto3.dynamodb.conditions import Attr
+        scan_resp = trips_t.scan(
+            FilterExpression=Attr("createdBy").eq(user_id) & Attr("orgId").not_exists(),
+            ProjectionExpression="tripId",
+        )
+        for item in scan_resp.get("Items", []):
+            try:
+                trips_t.update_item(
+                    Key={"tripId": item["tripId"]},
+                    UpdateExpression="SET orgId = :o, clientId = :c",
+                    ExpressionAttributeValues=sanitize_for_dynamodb({
+                        ":o": org_id,
+                        ":c": client_id,
+                    }),
+                )
+            except Exception as e:
+                logger.warning(f"Failed to backfill trip {item['tripId']}: {e}")
+    except Exception as e:
+        logger.warning(f"Failed to backfill trips for user {user_id}: {e}")
+
+    logger.info(f"Bootstrapped org {org_id} for user {user_id}")
+    return OrgContext(org_id=org_id, user_id=user_id, role="owner")
+
+
+def get_org_context(
+    user_id: str = Depends(get_current_user_id),
+) -> OrgContext:
+    """
+    FastAPI dependency: resolve the authenticated user's org membership.
+    If the user has no org, lazily create one (B2C migration path).
+    Raises 403 if user is anonymous.
+    """
+    if user_id.startswith(ANON_PREFIX):
+        raise HTTPException(status_code=403, detail="Organization access requires authentication")
+
+    from src.repos import org_member_repo
+
+    memberships = org_member_repo.get_orgs_for_user(user_id)
+    if memberships:
+        mem = memberships[0]
+        return OrgContext(
+            org_id=mem["orgId"],
+            user_id=user_id,
+            role=mem.get("role", "member"),
+        )
+
+    return _bootstrap_org_for_user(user_id)

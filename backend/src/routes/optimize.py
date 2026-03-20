@@ -200,16 +200,28 @@ async def optimize_solo_trip(
         return cached
     
     try:
-        # Validate user has access to this trip
+        # Validate user has access to this trip (supports B2B org access)
         from ..services.trip_service import get_trip
         trip = get_trip(request.trip_id)
         if not trip:
             raise HTTPException(status_code=404, detail="Trip not found")
-        if trip.get("createdBy") != user_id:
+        
+        # B2B: allow org members to access org-scoped trips
+        has_access = trip.get("createdBy") == user_id
+        if not has_access and trip.get("orgId"):
+            try:
+                from ..repos import org_member_repo
+                mem = org_member_repo.get_orgs_for_user(user_id)
+                has_access = any(m["orgId"] == trip["orgId"] for m in mem)
+            except Exception:
+                pass
+        if not has_access:
             raise HTTPException(status_code=403, detail="Access denied")
         
-        # Validate points against server-side data
-        validated_points = await _validate_and_get_points(request.trip_id, user_id, request.points)
+        # Validate points: try client-level points first, then trip-level
+        validated_points = await _validate_and_get_points(
+            request.trip_id, user_id, request.points, client_id=trip.get("clientId"), org_id=trip.get("orgId")
+        )
         
         orchestrator = get_orchestrator()
         
@@ -306,23 +318,43 @@ def _normalize_points_key(key: str) -> str:
     return key_mapping.get(normalized, normalized)
 
 
-async def _validate_and_get_points(trip_id: str, user_id: str, client_points: dict) -> dict:
+async def _validate_and_get_points(
+    trip_id: str, user_id: str, client_points: dict,
+    client_id: str | None = None, org_id: str | None = None,
+) -> dict:
     """
     Validate points against server-side data.
     
-    Uses server-side points as the source of truth, but allows
-    client to specify a subset of their available points.
-    
-    Handles normalization to resolve key mismatches between storage
-    (e.g., "AMEX_MR") and client keys (e.g., "amex_mr").
+    Priority:
+    1. Client-level points (B2B) if client_id and org_id are present
+    2. Trip-level points (legacy)
+    3. Request body (fallback)
     """
+    # B2B: try client-level points first
+    if client_id and org_id:
+        try:
+            from ..repos import client_points_repo
+            stored = client_points_repo.list_points(org_id, client_id)
+            if stored:
+                server_points_normalized = {}
+                server_points_raw = {}
+                for item in stored:
+                    program = item.get("program", "")
+                    balance = int(item.get("balance", 0))
+                    if program and balance > 0:
+                        normalized_key = _normalize_points_key(program)
+                        server_points_normalized[normalized_key] = balance
+                        server_points_raw[program] = balance
+                if server_points_normalized:
+                    return _merge_points(client_points, server_points_normalized, server_points_raw)
+        except Exception as e:
+            logger.warning(f"Client-level points lookup failed, falling back: {e}")
+
     try:
         from ..services.points_service import trip_points_summary
         
         server_summary = trip_points_summary(trip_id)
         
-        # Build normalized server points dict
-        # Key: normalized key, Value: (original_key, balance)
         server_points_normalized = {}
         server_points_raw = {}
         
@@ -335,38 +367,34 @@ async def _validate_and_get_points(trip_id: str, user_id: str, client_points: di
                     server_points_normalized[normalized_key] = balance
                     server_points_raw[program] = balance
         
-        # Use server points if available, otherwise trust client
-        # (for demo/testing purposes when no points are saved)
         if server_points_normalized:
-            # Validate client doesn't claim more than they have
-            validated = {}
-            for program, client_balance in client_points.items():
-                normalized_key = _normalize_points_key(program)
-                server_balance = server_points_normalized.get(normalized_key, 0)
-                # Use the minimum of client claim and server balance
-                # Keep the client's key format for consistency downstream
-                validated[program] = min(client_balance, server_balance) if server_balance else client_balance
-            
-            # Also include any server currencies the client didn't specify
-            # This ensures multi-currency users get ALL their balances
-            for program, balance in server_points_raw.items():
-                normalized_key = _normalize_points_key(program)
-                # Check if this currency is already in validated (by normalized key)
-                client_has_it = any(
-                    _normalize_points_key(k) == normalized_key 
-                    for k in validated.keys()
-                )
-                if not client_has_it:
-                    # Add server currency that client didn't specify
-                    validated[program] = balance
-                    logger.info(f"Added server currency {program}={balance} not in client request")
-            
-            return validated if validated else server_points_raw
+            return _merge_points(client_points, server_points_normalized, server_points_raw)
         
         return client_points
     except Exception as e:
         logger.warning(f"Points validation failed, using client points: {e}")
         return client_points
+
+
+def _merge_points(client_points: dict, server_normalized: dict, server_raw: dict) -> dict:
+    """Merge client-requested points with server-side stored points, capping at server balances."""
+    validated = {}
+    for program, client_balance in client_points.items():
+        normalized_key = _normalize_points_key(program)
+        server_balance = server_normalized.get(normalized_key, 0)
+        validated[program] = min(client_balance, server_balance) if server_balance else client_balance
+
+    for program, balance in server_raw.items():
+        normalized_key = _normalize_points_key(program)
+        client_has_it = any(
+            _normalize_points_key(k) == normalized_key
+            for k in validated.keys()
+        )
+        if not client_has_it:
+            validated[program] = balance
+            logger.info(f"Added server currency {program}={balance} not in client request")
+
+    return validated if validated else server_raw
 
 
 @router.post("/group", response_model=None)

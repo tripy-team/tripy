@@ -1,337 +1,240 @@
 'use client';
 
-import { useState, useEffect, useMemo, useCallback } from 'react';
+import { useState, useEffect, useCallback } from 'react';
 import Link from 'next/link';
-import { Plus, Calendar, CreditCard, Plane, TrendingUp, Loader2 } from 'lucide-react';
-import { TripCard } from '@/components/trip-card';
-import { Trip } from '@/types';
-import { trips as tripsAPI, users } from '@/lib/api';
+import { useRouter } from 'next/navigation';
+import { Plus, Plane, Users, DollarSign, TrendingUp, Loader2 } from 'lucide-react';
+import { clientsAPI, orgs, trips as tripsAPI, users } from '@/lib/api';
+import type { Client } from '@/types/org';
 
-// Initial batch size for fast loading
-const INITIAL_LOAD_LIMIT = 9;
-const LOAD_MORE_BATCH_SIZE = 12;
-
-// User savings stats
-interface UserSavingsStats {
-    totalSavings: number;
-    totalPointsUsed: number;
-}
-
-interface ApiTrip {
+interface RecentTrip {
   tripId: string;
   title: string;
-  startDate: string;
-  endDate: string;
-  status: string;
-  createdBy: string;
-  role?: string;
-  memberCount?: number;
+  clientName?: string;
   destinations?: string[];
-  firstDestination?: string;
-}
-
-// Transform API trip to display format - outside component for performance
-function transformApiTrip(trip: ApiTrip): Trip {
-    const startDate = trip.startDate ? new Date(trip.startDate) : null;
-    const endDate = trip.endDate ? new Date(trip.endDate) : null;
-    const now = new Date();
-    
-    let datesStr = 'TBD';
-    if (startDate && endDate) {
-        datesStr = `${startDate.toLocaleDateString('en-US', { month: 'short', day: 'numeric' })} - ${endDate.toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric' })}`;
-    } else if (startDate) {
-        datesStr = startDate.toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric' });
-    }
-    
-    const isCompleted = endDate ? endDate < now : false;
-    const status: 'completed' | 'upcoming' | 'planning' = isCompleted ? 'completed' : (trip.status === 'active' ? 'upcoming' : 'planning');
-    const memberCount = trip.memberCount || 1;
-    const tripType: 'solo' | 'group' = memberCount > 1 ? 'group' : 'solo';
-    const destinationName = trip.firstDestination || trip.title || 'Trip';
-    
-    return {
-        id: trip.tripId,
-        name: trip.title || destinationName,
-        destination: destinationName,
-        dates: datesStr,
-        status: status,
-        type: tripType,
-        pointsUsed: 0,
-        cashSaved: 0,
-        thumbnail: '',
-        members: memberCount
-    };
+  startDate?: string;
+  endDate?: string;
+  status: string;
+  estimatedSavings?: number;
 }
 
 export default function Dashboard() {
-    const [trips, setTrips] = useState<Trip[]>([]);
-    const [isLoading, setIsLoading] = useState(true);
-    const [isLoadingMore, setIsLoadingMore] = useState(false);
-    const [hasMore, setHasMore] = useState(false);
-    const [totalTrips, setTotalTrips] = useState(0);
-    const [userSavings, setUserSavings] = useState<UserSavingsStats>({
-        totalSavings: 0,
-        totalPointsUsed: 0
-    });
+  const router = useRouter();
+  const [isLoading, setIsLoading] = useState(true);
+  const [clients, setClients] = useState<Client[]>([]);
+  const [recentTrips, setRecentTrips] = useState<RecentTrip[]>([]);
+  const [totalSavings, setTotalSavings] = useState(0);
+  const [tripsThisMonth, setTripsThisMonth] = useState(0);
+  const [orgName, setOrgName] = useState<string | null>(null);
 
-    // Initial load - fetch trips and user savings
-    useEffect(() => {
-        const fetchTrips = async () => {
-            try {
-                setIsLoading(true);
-                const response = await tripsAPI.list({
-                    limit: INITIAL_LOAD_LIMIT,
-                    offset: 0,
-                    includeDetails: false
-                });
-                
-                const transformedTrips: Trip[] = response.trips.map(transformApiTrip);
-                setTrips(transformedTrips);
-                setTotalTrips(response.total || transformedTrips.length);
-                setHasMore(response.has_more || false);
-            } catch (err) {
-                console.error('Error fetching trips:', err);
-                setTrips([]);
-            } finally {
-                setIsLoading(false);
-            }
-        };
+  useEffect(() => {
+    const load = async () => {
+      try {
+        const [orgData, clientsData, tripsData] = await Promise.all([
+          orgs.getMyOrg().catch(() => null),
+          clientsAPI.list().catch(() => []),
+          tripsAPI.list({ limit: 10, offset: 0, includeDetails: false }).catch(() => ({ trips: [], total: 0, has_more: false })),
+        ]);
 
-        const fetchUserSavings = async () => {
-            try {
-                // Calculate and fetch user savings from completed trips
-                const savingsData = await users.calculateSavings();
-                setUserSavings({
-                    totalSavings: savingsData.total_savings || 0,
-                    totalPointsUsed: savingsData.total_points_used || 0
-                });
-            } catch (err) {
-                console.error('Error fetching user savings:', err);
-                // Fallback: try to get cached savings from profile
-                try {
-                    const savingsResult = await users.getSavings();
-                    setUserSavings({
-                        totalSavings: savingsResult.total_savings || 0,
-                        totalPointsUsed: savingsResult.total_points_used || 0
-                    });
-                } catch {
-                    // Silently fail - stats will show 0
-                }
-            }
-        };
+        if (orgData) setOrgName(orgData.branding?.brandName || orgData.name);
+        setClients(clientsData);
 
-        fetchTrips();
-        fetchUserSavings();
-    }, []);
+        // Build client lookup
+        const clientMap = new Map(clientsData.map(c => [c.clientId, c]));
 
-    // Load more trips
-    const loadMoreTrips = useCallback(async () => {
-        if (isLoadingMore || !hasMore) return;
-        
-        try {
-            setIsLoadingMore(true);
-            const response = await tripsAPI.list({
-                limit: LOAD_MORE_BATCH_SIZE,
-                offset: trips.length,
-                includeDetails: false
-            });
-            
-            const newTrips = response.trips.map(transformApiTrip);
-            setTrips(prev => [...prev, ...newTrips]);
-            setHasMore(response.has_more || false);
-        } catch (err) {
-            console.error('Error loading more trips:', err);
-        } finally {
-            setIsLoadingMore(false);
+        const now = new Date();
+        const monthStart = new Date(now.getFullYear(), now.getMonth(), 1);
+        let monthCount = 0;
+
+        const mapped: RecentTrip[] = (tripsData.trips || []).map((t: Record<string, unknown>) => {
+          const created = t.createdAt ? new Date(t.createdAt as string) : null;
+          if (created && created >= monthStart) monthCount++;
+
+          const cId = t.clientId as string | undefined;
+          const client = cId ? clientMap.get(cId) : undefined;
+
+          return {
+            tripId: t.tripId as string,
+            title: (t.title as string) || (t.firstDestination as string) || 'Trip',
+            clientName: client?.isSelfClient ? 'Myself' : client?.name,
+            destinations: t.destinations as string[] | undefined,
+            startDate: t.startDate as string | undefined,
+            endDate: t.endDate as string | undefined,
+            status: t.status as string,
+            estimatedSavings: t.estimatedSavings as number | undefined,
+          };
+        });
+
+        setRecentTrips(mapped);
+        setTripsThisMonth(monthCount);
+
+        // Aggregate savings from client stats
+        const savings = clientsData.reduce((sum, c) => sum + (c.stats?.totalSavings ?? 0), 0);
+        if (savings > 0) {
+          setTotalSavings(savings);
+        } else {
+          try {
+            const s = await users.calculateSavings();
+            setTotalSavings(s.total_savings || 0);
+          } catch {
+            /* non-blocking */
+          }
         }
-    }, [trips.length, hasMore, isLoadingMore]);
+      } catch (err) {
+        console.error('Dashboard load error:', err);
+      } finally {
+        setIsLoading(false);
+      }
+    };
+    load();
+  }, []);
 
-    // Memoized filtered trips
-    const completedTrips = useMemo(() => trips.filter(t => t.status === 'completed'), [trips]);
-    const upcomingTrips = useMemo(() => trips.filter(t => t.status === 'upcoming' || t.status === 'planning'), [trips]);
+  const activeClients = clients.filter(c => !c.isSelfClient);
 
-    // Calculate stats (memoized)
-    const stats = useMemo(() => ({
-        totalCompletedTrips: completedTrips.length,
-        totalUpcomingAndConfirmed: upcomingTrips.length,
-        totalPointsUsed: userSavings.totalPointsUsed,
-        totalCashSaved: userSavings.totalSavings
-    }), [completedTrips.length, upcomingTrips.length, userSavings]);
-
-    if (isLoading) {
-        return (
-            <div className="min-h-full bg-gradient-to-br from-white via-blue-50/30 to-white">
-                <div className="max-w-7xl mx-auto px-8 py-8">
-                    <div className="flex items-center justify-center min-h-[400px]">
-                        <div className="text-center">
-                            <div className="inline-block animate-spin rounded-full h-8 w-8 border-b-2 border-blue-600"></div>
-                            <p className="mt-4 text-slate-600">Loading trips...</p>
-                        </div>
-                    </div>
-                </div>
-            </div>
-        );
-    }
-
+  if (isLoading) {
     return (
-        <div className="min-h-full bg-gradient-to-br from-white via-blue-50/30 to-white">
-            <div className="max-w-7xl mx-auto px-8 py-8">
-                {/* Header */}
-                <div className="mb-8">
-                    <h1 className="text-4xl mb-2 text-slate-900 font-bold">Welcome back!</h1>
-                    <p className="text-slate-600">Manage your trips and discover new destinations</p>
-                </div>
-
-                {/* Stats Overview */}
-                <div className="grid grid-cols-1 md:grid-cols-4 gap-4 mb-8">
-                    <div className="bg-gradient-to-br from-blue-500 to-blue-600 rounded-2xl p-6 shadow-lg">
-                        <div className="flex items-center gap-3 mb-2">
-                            <div className="w-10 h-10 bg-white/20 rounded-xl flex items-center justify-center">
-                                <Plane className="w-5 h-5 text-white" />
-                            </div>
-                            <div className="text-sm text-blue-100">Completed Trips</div>
-                        </div>
-                        <div className="text-4xl text-white font-bold">{stats.totalCompletedTrips}</div>
-                        <div className="text-sm text-blue-100 mt-1">total completed</div>
-                    </div>
-
-                    <div className="bg-white rounded-2xl p-6 border border-slate-200 shadow-sm">
-                        <div className="flex items-center gap-3 mb-2">
-                            <div className="w-10 h-10 bg-purple-100 rounded-xl flex items-center justify-center">
-                                <Calendar className="w-5 h-5 text-purple-600" />
-                            </div>
-                            <div className="text-sm text-slate-600">Upcoming + Confirmed</div>
-                        </div>
-                        <div className="text-3xl text-slate-900 font-semibold">{stats.totalUpcomingAndConfirmed}</div>
-                        <div className="text-sm text-slate-500 mt-1">trips planned</div>
-                    </div>
-
-                    <div className="bg-white rounded-2xl p-6 border border-slate-200 shadow-sm">
-                        <div className="flex items-center gap-3 mb-2">
-                            <div className="w-10 h-10 bg-yellow-100 rounded-xl flex items-center justify-center">
-                                <CreditCard className="w-5 h-5 text-yellow-600" />
-                            </div>
-                            <div className="text-sm text-slate-600">Points Used</div>
-                        </div>
-                        <div className="text-3xl text-slate-900 font-semibold">{stats.totalPointsUsed.toLocaleString()}</div>
-                        <div className="text-sm text-slate-500 mt-1">across all trips</div>
-                    </div>
-
-                    <div className="bg-white rounded-2xl p-6 border border-slate-200 shadow-sm">
-                        <div className="flex items-center gap-3 mb-2">
-                            <div className="w-10 h-10 bg-green-100 rounded-xl flex items-center justify-center">
-                                <TrendingUp className="w-5 h-5 text-green-600" />
-                            </div>
-                            <div className="text-sm text-slate-600">Cash Saved</div>
-                        </div>
-                        <div className="text-3xl text-green-600 font-semibold">${stats.totalCashSaved.toLocaleString()}</div>
-                        <div className="text-sm text-slate-500 mt-1">vs paying cash</div>
-                    </div>
-                </div>
-
-                {/* Value Proposition Banner */}
-                <div className="bg-gradient-to-r from-green-50 to-emerald-50 rounded-2xl p-6 mb-8 border border-green-200">
-                    <div className="flex items-center justify-between">
-                        <div>
-                            <h3 className="text-lg font-semibold text-slate-900 mb-1">You&apos;re maximizing your points!</h3>
-                            <p className="text-slate-600">You&apos;ve saved <span className="font-bold text-green-600">${stats.totalCashSaved.toLocaleString()}</span> by using {stats.totalPointsUsed.toLocaleString()} points instead of cash</p>
-                        </div>
-                        <div className="hidden md:block">
-                            <div className="w-16 h-16 bg-green-500 rounded-full flex items-center justify-center">
-                                <TrendingUp className="w-8 h-8 text-white" />
-                            </div>
-                        </div>
-                    </div>
-                </div>
-
-                <div>
-                    {/* Quick Actions */}
-                    <div className="mb-8">
-                        <Link
-                            href="/solo/setup"
-                            className="block bg-gradient-to-br from-blue-600 to-blue-700 text-white rounded-2xl p-6 hover:shadow-xl transition-all group"
-                        >
-                            <div className="flex items-center justify-between">
-                                <div>
-                                    <div className="flex items-center gap-2 mb-2">
-                                        <Plane className="w-6 h-6" />
-                                        <span className="text-xl font-semibold">Plan a Trip</span>
-                                    </div>
-                                    <p className="text-blue-100 text-sm">Optimize your points for your next adventure</p>
-                                </div>
-                                <Plus className="w-8 h-8 opacity-50 group-hover:opacity-100 transition-opacity" />
-                            </div>
-                        </Link>
-                    </div>
-
-                    {/* Upcoming Trips */}
-                    {upcomingTrips.length > 0 && (
-                        <div className="mb-8">
-                            <h2 className="text-2xl mb-4 text-slate-900 font-semibold">Upcoming Trips</h2>
-                            <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
-                                {upcomingTrips.map(trip => (
-                                    <TripCard key={trip.id} trip={trip} />
-                                ))}
-                            </div>
-                        </div>
-                    )}
-
-                    {/* Completed Trips */}
-                    {completedTrips.length > 0 && (
-                        <div className="mb-8">
-                            <h2 className="text-2xl mb-4 text-slate-900 font-semibold">Completed Trips</h2>
-                            <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
-                                {completedTrips.map(trip => (
-                                    <TripCard key={trip.id} trip={trip} />
-                                ))}
-                            </div>
-                        </div>
-                    )}
-
-                    {/* Load More Button */}
-                    {hasMore && (
-                        <div className="flex justify-center mt-8 mb-8">
-                            <button
-                                onClick={loadMoreTrips}
-                                disabled={isLoadingMore}
-                                className="flex items-center gap-2 px-6 py-3 bg-blue-600 text-white rounded-xl font-medium hover:bg-blue-700 transition-colors disabled:opacity-50 shadow-sm"
-                            >
-                                {isLoadingMore ? (
-                                    <>
-                                        <Loader2 className="w-4 h-4 animate-spin" />
-                                        Loading more trips...
-                                    </>
-                                ) : (
-                                    <>
-                                        Load More Trips
-                                        <span className="text-xs text-blue-200">
-                                            ({totalTrips - trips.length} remaining)
-                                        </span>
-                                    </>
-                                )}
-                            </button>
-                        </div>
-                    )}
-
-                    {/* Empty State */}
-                    {trips.length === 0 && (
-                        <div className="text-center py-16">
-                            <div className="w-20 h-20 bg-blue-100 rounded-full flex items-center justify-center mx-auto mb-4">
-                                <Plane className="w-10 h-10 text-blue-600" />
-                            </div>
-                            <h3 className="text-2xl mb-2 text-slate-900 font-semibold">No trips yet</h3>
-                            <p className="text-slate-600 mb-6">Start planning your next adventure</p>
-                            <Link
-                                href="/solo/setup"
-                                className="px-6 py-3 bg-blue-600 text-white rounded-xl hover:bg-blue-700 transition-all font-medium inline-block"
-                            >
-                                Plan a Trip
-                            </Link>
-                        </div>
-                    )}
-                </div>
-            </div>
+      <div className="max-w-6xl mx-auto px-4 sm:px-6 lg:px-8 py-10">
+        <div className="flex items-center justify-center py-24">
+          <Loader2 className="w-6 h-6 animate-spin text-blue-600" />
+          <span className="ml-3 text-slate-600">Loading dashboard...</span>
         </div>
+      </div>
     );
-}
+  }
 
+  return (
+    <div className="max-w-6xl mx-auto px-4 sm:px-6 lg:px-8 py-10">
+      {/* Header */}
+      <div className="mb-8">
+        <h1 className="text-3xl font-bold text-slate-900">
+          {orgName ? `${orgName}` : 'Your Workspace'}
+        </h1>
+        <p className="text-slate-600 mt-1">Manage your clients and trip recommendations</p>
+      </div>
+
+      {/* Stats */}
+      <div className="grid grid-cols-1 sm:grid-cols-3 gap-4 mb-8">
+        <div className="bg-white border border-slate-200 rounded-xl p-5">
+          <div className="flex items-center gap-2 text-sm text-slate-500 mb-1">
+            <Users className="w-4 h-4" />
+            Active Clients
+          </div>
+          <p className="text-3xl font-bold text-slate-900">{activeClients.length}</p>
+        </div>
+        <div className="bg-white border border-slate-200 rounded-xl p-5">
+          <div className="flex items-center gap-2 text-sm text-slate-500 mb-1">
+            <Plane className="w-4 h-4" />
+            Trips This Month
+          </div>
+          <p className="text-3xl font-bold text-slate-900">{tripsThisMonth}</p>
+        </div>
+        <div className="bg-white border border-slate-200 rounded-xl p-5">
+          <div className="flex items-center gap-2 text-sm text-slate-500 mb-1">
+            <DollarSign className="w-4 h-4" />
+            Total Savings Generated
+          </div>
+          <p className="text-3xl font-bold text-green-600">${totalSavings.toLocaleString()}</p>
+        </div>
+      </div>
+
+      {/* Quick actions */}
+      <div className="grid grid-cols-1 sm:grid-cols-2 gap-4 mb-10">
+        <Link
+          href="/clients/new"
+          className="flex items-center gap-4 bg-white border border-slate-200 rounded-xl p-5 hover:border-blue-300 hover:shadow-sm transition-all group"
+        >
+          <div className="w-11 h-11 bg-blue-50 rounded-xl flex items-center justify-center group-hover:bg-blue-100 transition-colors">
+            <Users className="w-5 h-5 text-blue-600" />
+          </div>
+          <div>
+            <h3 className="font-semibold text-slate-900">Add Client</h3>
+            <p className="text-sm text-slate-500">Add a new client to your portfolio</p>
+          </div>
+        </Link>
+        <Link
+          href="/solo/setup"
+          className="flex items-center gap-4 bg-white border border-slate-200 rounded-xl p-5 hover:border-blue-300 hover:shadow-sm transition-all group"
+        >
+          <div className="w-11 h-11 bg-blue-50 rounded-xl flex items-center justify-center group-hover:bg-blue-100 transition-colors">
+            <Plane className="w-5 h-5 text-blue-600" />
+          </div>
+          <div>
+            <h3 className="font-semibold text-slate-900">New Trip</h3>
+            <p className="text-sm text-slate-500">Optimize a trip for a client</p>
+          </div>
+        </Link>
+      </div>
+
+      {/* Recent trips */}
+      <div>
+        <div className="flex items-center justify-between mb-4">
+          <h2 className="text-lg font-semibold text-slate-900">Recent Trips</h2>
+          <Link href="/my-trips" className="text-sm text-blue-600 hover:text-blue-700 font-medium">
+            View all
+          </Link>
+        </div>
+
+        {recentTrips.length === 0 ? (
+          <div className="bg-white border border-slate-200 rounded-xl p-12 text-center">
+            <Plane className="w-10 h-10 text-slate-300 mx-auto mb-3" />
+            <h3 className="font-semibold text-slate-900 mb-1">No trips yet</h3>
+            <p className="text-slate-500 mb-6">Create your first trip to get started.</p>
+            <Link
+              href="/solo/setup"
+              className="inline-flex items-center gap-2 px-5 py-2.5 bg-blue-600 text-white rounded-xl hover:bg-blue-700 font-medium"
+            >
+              <Plus className="w-4 h-4" />
+              New Trip
+            </Link>
+          </div>
+        ) : (
+          <div className="bg-white border border-slate-200 rounded-xl overflow-hidden">
+            <table className="w-full text-sm">
+              <thead className="bg-slate-50 border-b border-slate-200">
+                <tr>
+                  <th className="text-left px-5 py-3 font-medium text-slate-600">Trip</th>
+                  <th className="text-left px-5 py-3 font-medium text-slate-600">Client</th>
+                  <th className="text-left px-5 py-3 font-medium text-slate-600">Dates</th>
+                  <th className="text-left px-5 py-3 font-medium text-slate-600">Status</th>
+                  <th className="text-right px-5 py-3 font-medium text-slate-600">Est. Savings</th>
+                </tr>
+              </thead>
+              <tbody className="divide-y divide-slate-100">
+                {recentTrips.map(trip => (
+                  <tr
+                    key={trip.tripId}
+                    onClick={() => router.push(`/solo/results?trip_id=${trip.tripId}`)}
+                    className="hover:bg-slate-50 cursor-pointer transition-colors"
+                  >
+                    <td className="px-5 py-3.5">
+                      <span className="font-medium text-slate-900">{trip.title}</span>
+                    </td>
+                    <td className="px-5 py-3.5 text-slate-600">
+                      {trip.clientName || '—'}
+                    </td>
+                    <td className="px-5 py-3.5 text-slate-600">
+                      {trip.startDate ? new Date(trip.startDate).toLocaleDateString('en-US', { month: 'short', day: 'numeric' }) : '—'}
+                      {trip.endDate ? ` – ${new Date(trip.endDate).toLocaleDateString('en-US', { month: 'short', day: 'numeric' })}` : ''}
+                    </td>
+                    <td className="px-5 py-3.5">
+                      <span className={`inline-block px-2.5 py-0.5 rounded-full text-xs font-medium ${
+                        trip.status === 'completed' ? 'bg-green-50 text-green-700' :
+                        trip.status === 'optimized' || trip.status === 'selected' ? 'bg-blue-50 text-blue-700' :
+                        'bg-slate-100 text-slate-600'
+                      }`}>
+                        {trip.status}
+                      </span>
+                    </td>
+                    <td className="px-5 py-3.5 text-right font-medium text-slate-900">
+                      {trip.estimatedSavings != null ? `$${trip.estimatedSavings.toLocaleString()}` : '—'}
+                    </td>
+                  </tr>
+                ))}
+              </tbody>
+            </table>
+          </div>
+        )}
+      </div>
+    </div>
+  );
+}

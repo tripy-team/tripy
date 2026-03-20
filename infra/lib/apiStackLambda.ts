@@ -67,6 +67,12 @@ export class ApiStackLambda extends Stack {
                 
                 // CORS (set in production)
                 CORS_ORIGINS: process.env.CORS_ORIGINS || "*",
+
+                // B2B Tables
+                ORGANIZATIONS_TABLE: props.tables.organizations.tableName,
+                ORG_MEMBERS_TABLE: props.tables.orgMembers.tableName,
+                CLIENTS_TABLE: props.tables.clients.tableName,
+                CLIENT_POINTS_TABLE: props.tables.clientPoints.tableName,
             },
             logRetention: logs.RetentionDays.ONE_WEEK,
         });
@@ -78,6 +84,10 @@ export class ApiStackLambda extends Stack {
         props.tables.points.grantReadWriteData(apiFunction);
         props.tables.destinations.grantReadWriteData(apiFunction);
         props.tables.destinationVotes.grantReadWriteData(apiFunction);
+        props.tables.organizations.grantReadWriteData(apiFunction);
+        props.tables.orgMembers.grantReadWriteData(apiFunction);
+        props.tables.clients.grantReadWriteData(apiFunction);
+        props.tables.clientPoints.grantReadWriteData(apiFunction);
         props.tables.itinerary.grantReadWriteData(apiFunction);
 
         // Cognito permissions

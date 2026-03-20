@@ -71,6 +71,12 @@ ITINERARY_TABLE = _get_required_env("ITINERARY_TABLE")
 # Group planning table (optional, defaults for local dev)
 GROUP_PLANNING_TABLE = os.environ.get("GROUP_PLANNING_TABLE", "tripy-group-planning")
 
+# B2B tables (optional, defaults for local dev)
+ORGANIZATIONS_TABLE = os.environ.get("ORGANIZATIONS_TABLE", "tripy-organizations")
+ORG_MEMBERS_TABLE = os.environ.get("ORG_MEMBERS_TABLE", "tripy-org-members")
+CLIENTS_TABLE = os.environ.get("CLIENTS_TABLE", "tripy-clients")
+CLIENT_POINTS_TABLE = os.environ.get("CLIENT_POINTS_TABLE", "tripy-client-points")
+
 # Optional configuration
 USER_POOL_ID = os.environ.get("USER_POOL_ID", "")
 USER_POOL_CLIENT_ID = os.environ.get("USER_POOL_CLIENT_ID", "")

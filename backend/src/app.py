@@ -89,6 +89,8 @@ from .routes.payment import router as payment_router
 
 # Import group planning router
 from .routes.group_planning import router as group_planning_router
+from .routes.orgs import router as orgs_router
+from .routes.clients import router as clients_router
 
 
 # Get CORS origins from environment variable
@@ -296,6 +298,10 @@ app.include_router(payment_router)
 
 # Include group planning routes
 app.include_router(group_planning_router)
+
+# Include B2B org and client routes
+app.include_router(orgs_router)
+app.include_router(clients_router)
 
 
 # Preload commercial airports and airport data at startup for fast autocomplete

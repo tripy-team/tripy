@@ -128,6 +128,13 @@ def create_solo_trip(user_id: str, request: CreateTripRequest) -> Dict[str, Any]
         "departureHourRange": request.departure_hour_range or [],
         "arrivalHourRange": request.arrival_hour_range or [],
     }
+
+    # B2B: attach org and client context if provided
+    if getattr(request, "org_id", None):
+        item["orgId"] = request.org_id
+    if getattr(request, "client_id", None):
+        item["clientId"] = request.client_id
+    item["assignedTo"] = user_id
     
     is_anonymous = user_id.startswith(ANON_PREFIX)
     
@@ -156,26 +163,33 @@ def create_solo_trip(user_id: str, request: CreateTripRequest) -> Dict[str, Any]
     return item
 
 
-def get_solo_trip(trip_id: str, user_id: Optional[str] = None) -> Optional[Dict[str, Any]]:
+def get_solo_trip(trip_id: str, user_id: Optional[str] = None, org_id: Optional[str] = None) -> Optional[Dict[str, Any]]:
     """
     Get a solo trip by ID.
     
-    Optionally verifies ownership if user_id is provided.
+    Access is granted if any of these hold:
+    - org_id is provided and matches the trip's orgId (B2B org membership)
+    - user_id matches the trip's createdBy (legacy B2C ownership)
+    - no user_id or org_id provided (internal/system call)
     """
     t = get_solo_table()
     item = get_item(t, {"tripId": trip_id})
     
     if not item:
         return None
+
+    # If org_id is provided, check org-level access first
+    if org_id and item.get("orgId") == org_id:
+        return item
     
-    # Verify ownership if user_id provided
+    # Fall back to legacy createdBy check
     if user_id and item.get("createdBy") != user_id:
         raise PermissionError("Not authorized to access this trip")
     
     return item
 
 
-def update_solo_trip(trip_id: str, user_id: str, request: UpdateTripRequest) -> Dict[str, Any]:
+def update_solo_trip(trip_id: str, user_id: str, request: UpdateTripRequest, org_id: Optional[str] = None) -> Dict[str, Any]:
     """
     Update an existing solo trip's parameters.
 
@@ -187,7 +201,9 @@ def update_solo_trip(trip_id: str, user_id: str, request: UpdateTripRequest) -> 
     trip = get_item(t, {"tripId": trip_id})
     if not trip:
         raise ValueError("Trip not found")
-    if trip.get("createdBy") != user_id:
+    if org_id and trip.get("orgId") == org_id:
+        pass  # org member access
+    elif trip.get("createdBy") != user_id:
         raise PermissionError("Not authorized to modify this trip")
 
     field_map = {

@@ -167,52 +167,50 @@ function NavigationInner() {
               </div>
             </div>
             
-            {/* Desktop Navigation Menu - Always visible */}
+            {/* Desktop Navigation Menu */}
             <div className="hidden md:flex items-center">
               <NavigationMenu>
                 <NavigationMenuList>
-                  <NavigationMenuItem>
-                    <NavigationMenuLink asChild className={cn(navigationMenuTriggerStyle(), isActive('/') && "bg-slate-100 text-slate-900")}>
-                      <Link href="/">
-                        Home
-                      </Link>
-                    </NavigationMenuLink>
-                  </NavigationMenuItem>
+                  {user ? (
+                    <>
+                      <NavigationMenuItem>
+                        <NavigationMenuLink asChild className={cn(navigationMenuTriggerStyle(), isActive('/dashboard') && "bg-slate-100 text-slate-900")}>
+                          <Link href="/dashboard">Dashboard</Link>
+                        </NavigationMenuLink>
+                      </NavigationMenuItem>
 
-                  <NavigationMenuItem>
-                    <NavigationMenuLink asChild className={cn(navigationMenuTriggerStyle(), pathname.startsWith('/solo') && "bg-slate-100 text-slate-900")}>
-                      <Link href="/solo/setup">
-                        Plan a Trip
-                      </Link>
-                    </NavigationMenuLink>
-                  </NavigationMenuItem>
+                      <NavigationMenuItem>
+                        <NavigationMenuLink asChild className={cn(navigationMenuTriggerStyle(), pathname.startsWith('/clients') && "bg-slate-100 text-slate-900")}>
+                          <Link href="/clients">Clients</Link>
+                        </NavigationMenuLink>
+                      </NavigationMenuItem>
 
-                  <NavigationMenuItem>
-                    <NavigationMenuLink asChild className={cn(navigationMenuTriggerStyle(), pathname.startsWith('/group-planning') && "bg-slate-100 text-slate-900")}>
-                      <Link href="/group-planning/new">
-                        Group Planning
-                      </Link>
-                    </NavigationMenuLink>
-                  </NavigationMenuItem>
+                      <NavigationMenuItem>
+                        <NavigationMenuLink asChild className={cn(navigationMenuTriggerStyle(), pathname.startsWith('/solo') && "bg-slate-100 text-slate-900")}>
+                          <Link href="/solo/setup">New Trip</Link>
+                        </NavigationMenuLink>
+                      </NavigationMenuItem>
 
-                  {user && (
-                    <NavigationMenuItem>
-                      <NavigationMenuLink asChild className={cn(navigationMenuTriggerStyle(), isActive('/my-trips') && "bg-slate-100 text-slate-900")}>
-                        <Link href="/my-trips">
-                          My Trips
-                        </Link>
-                      </NavigationMenuLink>
-                    </NavigationMenuItem>
-                  )}
+                      <NavigationMenuItem>
+                        <NavigationMenuLink asChild className={cn(navigationMenuTriggerStyle(), isActive('/settings') && "bg-slate-100 text-slate-900")}>
+                          <Link href="/settings">Settings</Link>
+                        </NavigationMenuLink>
+                      </NavigationMenuItem>
+                    </>
+                  ) : (
+                    <>
+                      <NavigationMenuItem>
+                        <NavigationMenuLink asChild className={cn(navigationMenuTriggerStyle(), isActive('/') && "bg-slate-100 text-slate-900")}>
+                          <Link href="/">Home</Link>
+                        </NavigationMenuLink>
+                      </NavigationMenuItem>
 
-                  {user && (
-                    <NavigationMenuItem>
-                      <NavigationMenuLink asChild className={cn(navigationMenuTriggerStyle(), isActive('/points-setup') && "bg-slate-100 text-slate-900")}>
-                        <Link href="/points-setup">
-                          My Points
-                        </Link>
-                      </NavigationMenuLink>
-                    </NavigationMenuItem>
+                      <NavigationMenuItem>
+                        <NavigationMenuLink asChild className={cn(navigationMenuTriggerStyle(), pathname.startsWith('/solo') && "bg-slate-100 text-slate-900")}>
+                          <Link href="/solo/setup">Plan a Trip</Link>
+                        </NavigationMenuLink>
+                      </NavigationMenuItem>
+                    </>
                   )}
                 </NavigationMenuList>
               </NavigationMenu>
@@ -298,69 +296,79 @@ function NavigationInner() {
       {/* Mobile menu */}
       {mobileMenuOpen && (
         <div className="md:hidden border-t border-slate-200 bg-white max-h-[calc(100vh-5rem)] overflow-y-auto">
-          {/* Mobile Navigation Items - Always visible */}
           <div className="pt-2 pb-3 space-y-1 px-2">
-            <Link
-              href="/"
-              onClick={() => setMobileMenuOpen(false)}
-              className={`block pl-3 pr-4 py-2 border-l-4 text-base font-medium ${
-                isActive('/')
-                  ? 'bg-blue-50 border-blue-500 text-blue-700'
-                  : 'border-transparent text-slate-500 hover:bg-slate-50 hover:border-slate-300 hover:text-slate-700'
-              }`}
-            >
-              Home
-            </Link>
-            
-            <Link
-              href="/solo/setup"
-              onClick={() => setMobileMenuOpen(false)}
-              className={`block pl-3 pr-4 py-2 border-l-4 text-base font-medium ${
-                pathname.includes('/solo')
-                  ? 'bg-blue-50 border-blue-500 text-blue-700'
-                  : 'border-transparent text-slate-500 hover:bg-slate-50 hover:border-slate-300 hover:text-slate-700'
-              }`}
-            >
-              Plan a Trip
-            </Link>
-
-            <Link
-              href="/group-planning/new"
-              onClick={() => setMobileMenuOpen(false)}
-              className={`block pl-3 pr-4 py-2 border-l-4 text-base font-medium ${
-                pathname.includes('/group-planning')
-                  ? 'bg-blue-50 border-blue-500 text-blue-700'
-                  : 'border-transparent text-slate-500 hover:bg-slate-50 hover:border-slate-300 hover:text-slate-700'
-              }`}
-            >
-              Group Planning
-            </Link>
-            
-            {user && (
-              <Link
-                href="/my-trips"
-                onClick={() => setMobileMenuOpen(false)}
-                className={`block pl-3 pr-4 py-2 border-l-4 text-base font-medium ${
-                  isActive('/my-trips')
-                    ? 'bg-blue-50 border-blue-500 text-blue-700'
-                    : 'border-transparent text-slate-500 hover:bg-slate-50 hover:border-slate-300 hover:text-slate-700'
-                }`}
-              >
-                My Trips
-              </Link>
-            )}
-            {user && (
-              <Link
-                href="/points-setup"
-                onClick={() => setMobileMenuOpen(false)}
-                className={`block pl-3 pr-4 py-2 border-l-4 text-base font-medium ${
-                  isActive('/points-setup')
-                    ? 'bg-blue-50 border-blue-500 text-blue-700'
-                    : 'border-transparent text-slate-500 hover:bg-slate-50 hover:border-slate-300 hover:text-slate-700'
-                }`}
-              >
-                My Points
-              </Link>
+            {user ? (
+              <>
+                <Link
+                  href="/dashboard"
+                  onClick={() => setMobileMenuOpen(false)}
+                  className={`block pl-3 pr-4 py-2 border-l-4 text-base font-medium ${
+                    isActive('/dashboard')
+                      ? 'bg-blue-50 border-blue-500 text-blue-700'
+                      : 'border-transparent text-slate-500 hover:bg-slate-50 hover:border-slate-300 hover:text-slate-700'
+                  }`}
+                >
+                  Dashboard
+                </Link>
+                <Link
+                  href="/clients"
+                  onClick={() => setMobileMenuOpen(false)}
+                  className={`block pl-3 pr-4 py-2 border-l-4 text-base font-medium ${
+                    pathname.startsWith('/clients')
+                      ? 'bg-blue-50 border-blue-500 text-blue-700'
+                      : 'border-transparent text-slate-500 hover:bg-slate-50 hover:border-slate-300 hover:text-slate-700'
+                  }`}
+                >
+                  Clients
+                </Link>
+                <Link
+                  href="/solo/setup"
+                  onClick={() => setMobileMenuOpen(false)}
+                  className={`block pl-3 pr-4 py-2 border-l-4 text-base font-medium ${
+                    pathname.includes('/solo')
+                      ? 'bg-blue-50 border-blue-500 text-blue-700'
+                      : 'border-transparent text-slate-500 hover:bg-slate-50 hover:border-slate-300 hover:text-slate-700'
+                  }`}
+                >
+                  New Trip
+                </Link>
+                <Link
+                  href="/settings"
+                  onClick={() => setMobileMenuOpen(false)}
+                  className={`block pl-3 pr-4 py-2 border-l-4 text-base font-medium ${
+                    isActive('/settings')
+                      ? 'bg-blue-50 border-blue-500 text-blue-700'
+                      : 'border-transparent text-slate-500 hover:bg-slate-50 hover:border-slate-300 hover:text-slate-700'
+                  }`}
+                >
+                  Settings
+                </Link>
+              </>
+            ) : (
+              <>
+                <Link
+                  href="/"
+                  onClick={() => setMobileMenuOpen(false)}
+                  className={`block pl-3 pr-4 py-2 border-l-4 text-base font-medium ${
+                    isActive('/')
+                      ? 'bg-blue-50 border-blue-500 text-blue-700'
+                      : 'border-transparent text-slate-500 hover:bg-slate-50 hover:border-slate-300 hover:text-slate-700'
+                  }`}
+                >
+                  Home
+                </Link>
+                <Link
+                  href="/solo/setup"
+                  onClick={() => setMobileMenuOpen(false)}
+                  className={`block pl-3 pr-4 py-2 border-l-4 text-base font-medium ${
+                    pathname.includes('/solo')
+                      ? 'bg-blue-50 border-blue-500 text-blue-700'
+                      : 'border-transparent text-slate-500 hover:bg-slate-50 hover:border-slate-300 hover:text-slate-700'
+                  }`}
+                >
+                  Plan a Trip
+                </Link>
+              </>
             )}
           </div>
           <div className="pt-4 pb-4 border-t border-slate-200">

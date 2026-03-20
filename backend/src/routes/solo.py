@@ -350,6 +350,20 @@ def get_orchestrator() -> OrchestratorAgent:
 router = APIRouter(prefix="/solo", tags=["Solo Booking"])
 
 
+def _resolve_org_id(user_id: str) -> Optional[str]:
+    """Best-effort org ID resolution for B2B trip access. Returns None for anon users."""
+    if not user_id or user_id.startswith("anon_"):
+        return None
+    try:
+        from ..repos import org_member_repo
+        memberships = org_member_repo.get_orgs_for_user(user_id)
+        if memberships:
+            return memberships[0]["orgId"]
+    except Exception:
+        pass
+    return None
+
+
 def _get_trip_with_anon_fallback(
     trip_id: str,
     user_id: str,
@@ -420,7 +434,9 @@ async def get_solo_trip(
 ):
     """Get a solo trip by ID. Supports both authenticated and anonymous sessions."""
     try:
-        trip = solo_trip_service.get_solo_trip(trip_id, user_id)
+        # Resolve org context for B2B access (non-blocking — falls back to legacy)
+        org_id = _resolve_org_id(user_id)
+        trip = solo_trip_service.get_solo_trip(trip_id, user_id, org_id=org_id)
         if not trip:
             raise HTTPException(status_code=404, detail="Trip not found")
         # Convert camelCase storage to snake_case API response
@@ -739,9 +755,25 @@ async def optimize_solo(
         
         logger.info(f"[solo/optimize] Budget from trip: ${budget if budget else 'None (no limit)'}")
         
+        # B2B: if no points in request but trip has a clientId, load from client-level balances
+        request_points = request.points
+        if not request_points and trip.get("clientId") and trip.get("orgId"):
+            try:
+                from ..repos import client_points_repo
+                stored = client_points_repo.list_points(trip["orgId"], trip["clientId"])
+                if stored:
+                    request_points = {
+                        item["program"]: int(item.get("balance", 0))
+                        for item in stored
+                        if item.get("program") and int(item.get("balance", 0)) > 0
+                    }
+                    logger.info(f"[solo/optimize] Loaded {len(request_points)} client-level point balances for trip {request.trip_id}")
+            except Exception as e:
+                logger.warning(f"[solo/optimize] Failed to load client points: {e}")
+
         # Multi-payer support: when payer_points is provided, merge into points
         # for backward-compatible code paths (cache key, logging, etc.)
-        effective_points = request.points
+        effective_points = request_points
         if request.payer_points:
             merged = {}
             for payer_id, payer_balances in request.payer_points.items():

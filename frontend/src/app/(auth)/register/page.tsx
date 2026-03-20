@@ -3,8 +3,8 @@
 import Link from "next/link";
 import { useState, Suspense } from "react";
 import { useRouter, useSearchParams } from "next/navigation";
-import { Plane, Mail, Lock, User, ArrowRight, Check, Eye, EyeOff } from "lucide-react";
-import { signup, solo, getAnonSessionId } from "@/lib/api";
+import { Plane, Mail, Lock, User, ArrowRight, Check, Eye, EyeOff, Building2 } from "lucide-react";
+import { signup, solo, orgs, getAnonSessionId } from "@/lib/api";
 import { identifyUser } from "@/lib/analytics";
 
 function RegisterForm() {
@@ -13,6 +13,7 @@ function RegisterForm() {
 	const redirectPath = searchParams.get('redirect');
 	const [form, setForm] = useState({
 		name: "",
+		companyName: "",
 		email: "",
 		password: "",
 	});
@@ -70,6 +71,7 @@ function RegisterForm() {
 					name: form.name,
 					email: form.email,
 					userId: response.user_id,
+					companyName: form.companyName || undefined,
 				}));
 				window.dispatchEvent(new Event('tripy_auth_change'));
 				identifyUser(response.user_id);
@@ -82,11 +84,23 @@ function RegisterForm() {
 					await solo.migrateSession(anonId);
 				}
 			} catch (migrationErr) {
-				// Non-blocking: migration failure shouldn't prevent signup
 				console.warn('[Register] Session migration failed:', migrationErr);
 			}
 
-			// Compute the best redirect destination: explicit redirect > pending trip > default
+			// Bootstrap workspace: calling getMyOrg triggers lazy org creation on the backend.
+			// If user provided a company name, update the org branding immediately after.
+			if (!response.confirmation_required) {
+				try {
+					const org = await orgs.getMyOrg();
+					if (form.companyName.trim() && org) {
+						await orgs.updateBranding({ brandName: form.companyName.trim() });
+					}
+				} catch (bootstrapErr) {
+					console.warn('[Register] Workspace bootstrap failed:', bootstrapErr);
+				}
+			}
+
+			// Compute the best redirect destination
 			let effectiveRedirect = redirectPath;
 			if (!effectiveRedirect) {
 				const pendingTripId = sessionStorage.getItem('tripy_last_trip_id') || localStorage.getItem('tripy_last_trip_id');
@@ -95,14 +109,11 @@ function RegisterForm() {
 				}
 			}
 
-			// If confirmation is required, redirect to confirmation page
-			// Preserve the redirect param so user gets back to their page after confirming
 			if (response.confirmation_required) {
 				const confirmUrl = `/auth/confirm-signup?email=${encodeURIComponent(form.email)}${effectiveRedirect ? `&redirect=${encodeURIComponent(effectiveRedirect)}` : ''}`;
 				router.push(confirmUrl);
 			} else {
-				// User is auto-confirmed - redirect to the specified page or default to points setup
-				const destination = effectiveRedirect || "/points-setup";
+				const destination = effectiveRedirect || "/dashboard";
 				router.push(destination);
 			}
 		} catch (err) {
@@ -149,9 +160,9 @@ function RegisterForm() {
 					</div>
 
 					<div className="mb-8">
-						<h1 className="text-3xl font-bold text-slate-900 mb-3">Create your account</h1>
+						<h1 className="text-3xl font-bold text-slate-900 mb-3">Create your workspace</h1>
 						<p className="text-slate-600">
-							Start optimizing your travel points today.
+							Start optimizing client points in minutes. Free 14-day trial.
 						</p>
 					</div>
 
@@ -185,6 +196,25 @@ function RegisterForm() {
 							{errors.name && (
 								<p className="mt-1 text-xs text-red-600">{errors.name}</p>
 							)}
+						</div>
+
+						<div>
+							<label className="block text-sm font-medium text-slate-700 mb-1.5">
+								Company / Practice Name <span className="text-slate-400 font-normal">(optional)</span>
+							</label>
+							<div className="relative">
+								<div className="absolute inset-y-0 left-0 pl-3 flex items-center pointer-events-none">
+									<Building2 className="h-5 w-5 text-slate-400" />
+								</div>
+								<input
+									type="text"
+									name="companyName"
+									value={form.companyName}
+									onChange={onChange}
+									className="block w-full pl-10 pr-3 py-2.5 border border-slate-200 rounded-xl text-slate-900 placeholder:text-slate-400 focus:outline-none focus:ring-2 focus:ring-blue-600 focus:border-transparent transition-all"
+									placeholder="Elite Points Consulting"
+								/>
+							</div>
 						</div>
 
 						<div>
@@ -250,10 +280,10 @@ function RegisterForm() {
 							className="w-full flex items-center justify-center gap-2 py-3 px-4 bg-blue-600 text-white rounded-xl hover:bg-blue-700 focus:outline-none focus:ring-2 focus:ring-blue-600 focus:ring-offset-2 transition-all shadow-lg shadow-blue-600/20 disabled:opacity-70 disabled:cursor-not-allowed font-medium"
 						>
 							{submitting ? (
-								'Creating account...'
+								'Creating workspace...'
 							) : (
 								<>
-									Get Started <ArrowRight className="w-4 h-4" />
+									Start Free Trial <ArrowRight className="w-4 h-4" />
 								</>
 							)}
 						</button>
@@ -280,11 +310,11 @@ function RegisterForm() {
 				<div className="relative z-10 flex flex-col justify-center px-16 text-white h-full max-w-2xl mx-auto">
 					<div className="mb-12">
 						<h2 className="text-4xl font-bold mb-6 leading-tight">
-							Turn your points into <br/>
-							<span className="text-yellow-400">unforgettable trips</span>
+							Stop rebuilding points strategies<br/>
+							<span className="text-yellow-400">from scratch</span>
 						</h2>
 						<p className="text-blue-100 text-lg leading-relaxed">
-							Join thousands of travelers who are maximizing their credit card rewards and traveling for pennies on the dollar.
+							Store client loyalty balances, generate optimized recommendations, and share polished booking instructions from one workspace.
 						</p>
 					</div>
 
@@ -294,8 +324,8 @@ function RegisterForm() {
 								<Check className="w-5 h-5 text-blue-900" />
 							</div>
 							<div>
-								<h3 className="font-semibold text-lg mb-1">Smart Point Optimization</h3>
-								<p className="text-blue-100 text-sm">Automatically calculate the best redemption value across all your cards.</p>
+								<h3 className="font-semibold text-lg mb-1">Client Portfolio Management</h3>
+								<p className="text-blue-100 text-sm">Store loyalty balances and preferences per client. Reuse them across trips.</p>
 							</div>
 						</div>
 
@@ -304,8 +334,18 @@ function RegisterForm() {
 								<Check className="w-5 h-5 text-blue-900" />
 							</div>
 							<div>
-								<h3 className="font-semibold text-lg mb-1">Collaborative Planning</h3>
-								<p className="text-blue-100 text-sm">Vote on destinations and split costs seamlessly with friends.</p>
+								<h3 className="font-semibold text-lg mb-1">Branded Deliverables</h3>
+								<p className="text-blue-100 text-sm">Share polished, white-labeled recommendations your clients will love.</p>
+							</div>
+						</div>
+
+						<div className="flex items-start gap-4 p-4 bg-white/10 backdrop-blur-sm rounded-2xl border border-white/10">
+							<div className="w-10 h-10 bg-yellow-400 rounded-xl flex items-center justify-center flex-shrink-0">
+								<Check className="w-5 h-5 text-blue-900" />
+							</div>
+							<div>
+								<h3 className="font-semibold text-lg mb-1">Savings You Can Show</h3>
+								<p className="text-blue-100 text-sm">Track estimated savings per client. Prove your value at renewal time.</p>
 							</div>
 						</div>
 					</div>
@@ -327,8 +367,8 @@ function RegisterFormFallback() {
 						<span className="text-xl font-bold text-slate-900">Tripy</span>
 					</div>
 					<div className="mb-8">
-						<h1 className="text-3xl font-bold text-slate-900 mb-3">Create your account</h1>
-						<p className="text-slate-600">Start optimizing your travel points today.</p>
+						<h1 className="text-3xl font-bold text-slate-900 mb-3">Create your workspace</h1>
+						<p className="text-slate-600">Start optimizing client points in minutes. Free 14-day trial.</p>
 					</div>
 					<div className="space-y-5 animate-pulse">
 						<div className="h-12 bg-slate-200 rounded-xl"></div>

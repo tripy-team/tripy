@@ -15,6 +15,10 @@ export type TripyTables = {
     monitoringBaselines: dynamodb.Table;
     monitoringUpdates: dynamodb.Table;
     rateLimitCounters: dynamodb.Table;
+    organizations: dynamodb.Table;
+    orgMembers: dynamodb.Table;
+    clients: dynamodb.Table;
+    clientPoints: dynamodb.Table;
 };
 
 export class DbStack extends Stack {
@@ -49,6 +53,11 @@ export class DbStack extends Stack {
         trips.addGlobalSecondaryIndex({
             indexName: "inviteCode-index",
             partitionKey: { name: "inviteCode", type: dynamodb.AttributeType.STRING },
+            projectionType: dynamodb.ProjectionType.ALL,
+        });
+        trips.addGlobalSecondaryIndex({
+            indexName: "orgId-index",
+            partitionKey: { name: "orgId", type: dynamodb.AttributeType.STRING },
             projectionType: dynamodb.ProjectionType.ALL,
         });
 
@@ -175,10 +184,51 @@ export class DbStack extends Stack {
             removalPolicy,
         });
 
+        // ================================================================
+        // B2B TABLES — Organizations, Members, Clients, Client Points
+        // ================================================================
+
+        const organizations = new dynamodb.Table(this, "OrganizationsTable", {
+            tableName: "tripy-organizations",
+            partitionKey: { name: "orgId", type: dynamodb.AttributeType.STRING },
+            billingMode: dynamodb.BillingMode.PAY_PER_REQUEST,
+            removalPolicy,
+        });
+
+        const orgMembers = new dynamodb.Table(this, "OrgMembersTable", {
+            tableName: "tripy-org-members",
+            partitionKey: { name: "orgId", type: dynamodb.AttributeType.STRING },
+            sortKey: { name: "userId", type: dynamodb.AttributeType.STRING },
+            billingMode: dynamodb.BillingMode.PAY_PER_REQUEST,
+            removalPolicy,
+        });
+        orgMembers.addGlobalSecondaryIndex({
+            indexName: "userId-index",
+            partitionKey: { name: "userId", type: dynamodb.AttributeType.STRING },
+            projectionType: dynamodb.ProjectionType.ALL,
+        });
+
+        const clients = new dynamodb.Table(this, "ClientsTable", {
+            tableName: "tripy-clients",
+            partitionKey: { name: "orgId", type: dynamodb.AttributeType.STRING },
+            sortKey: { name: "clientId", type: dynamodb.AttributeType.STRING },
+            billingMode: dynamodb.BillingMode.PAY_PER_REQUEST,
+            removalPolicy,
+        });
+
+        const clientPoints = new dynamodb.Table(this, "ClientPointsTable", {
+            tableName: "tripy-client-points",
+            partitionKey: { name: "orgClientId", type: dynamodb.AttributeType.STRING },
+            sortKey: { name: "program", type: dynamodb.AttributeType.STRING },
+            billingMode: dynamodb.BillingMode.PAY_PER_REQUEST,
+            removalPolicy,
+        });
+
         this.tables = {
             users, trips, tripMembers, points, destinations, destinationVotes,
             itinerary, invites,
             monitoringSubscriptions, monitoringBaselines, monitoringUpdates, rateLimitCounters,
+            organizations, orgMembers, clients, clientPoints,
         };
 
         // Outputs
@@ -191,5 +241,9 @@ export class DbStack extends Stack {
         new CfnOutput(this, "MONITORING_TABLE_BASELINES", { value: monitoringBaselines.tableName });
         new CfnOutput(this, "MONITORING_TABLE_UPDATES", { value: monitoringUpdates.tableName });
         new CfnOutput(this, "RATE_LIMIT_TABLE", { value: rateLimitCounters.tableName });
+        new CfnOutput(this, "ORGANIZATIONS_TABLE", { value: organizations.tableName });
+        new CfnOutput(this, "ORG_MEMBERS_TABLE", { value: orgMembers.tableName });
+        new CfnOutput(this, "CLIENTS_TABLE", { value: clients.tableName });
+        new CfnOutput(this, "CLIENT_POINTS_TABLE", { value: clientPoints.tableName });
     }
 }

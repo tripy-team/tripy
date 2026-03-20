@@ -3,7 +3,8 @@
 import { useState, useEffect, useMemo, useRef, Suspense } from 'react';
 import { useRouter, useSearchParams } from 'next/navigation';
 import { X, Calendar, Zap, MapPin, Plane, Clock, Users, User, Baby, Plus, CreditCard, ChevronDown } from 'lucide-react';
-import { solo, users as usersAPI, ExtractedTripInfo, isAuthenticated as checkIsAuthenticated } from '@/lib/api';
+import { solo, clientsAPI, orgs, users as usersAPI, ExtractedTripInfo, isAuthenticated as checkIsAuthenticated } from '@/lib/api';
+import type { Client, ClientPointsBalance } from '@/types/org';
 import TripChatbotInline from '@/components/trip-chatbot-inline';
 import { searchAndFormatAirport } from '@/lib/airport-formatter';
 import { searchAndFormatCities } from '@/lib/city-formatter';
@@ -93,10 +94,16 @@ function SoloTripSetupContent() {
   const router = useRouter();
   const searchParams = useSearchParams();
   const editTripId = searchParams?.get('trip_id') || '';
+  const clientIdParam = searchParams?.get('clientId') || '';
 
   // Edit mode: when trip_id is in the URL, we load that trip and update it
   const [isEditMode, setIsEditMode] = useState(false);
   const [editTripLoading, setEditTripLoading] = useState(!!editTripId);
+
+  // B2B client context
+  const [selectedClient, setSelectedClient] = useState<Client | null>(null);
+  const [clientsList, setClientsList] = useState<Client[]>([]);
+  const [orgId, setOrgId] = useState<string | null>(null);
 
   // Load saved state once (before first render takes effect)
   const savedState = useRef<SavedSetupState | null>(null);
@@ -324,6 +331,52 @@ function SoloTripSetupContent() {
       clearTimeout(timeoutId2);
     };
   }, []);
+
+  // B2B: Load org context and client list for authenticated users
+  useEffect(() => {
+    if (!checkIsAuthenticated()) return;
+    const loadOrgData = async () => {
+      try {
+        const [org, cls] = await Promise.all([
+          orgs.getMyOrg().catch(() => null),
+          clientsAPI.list().catch(() => []),
+        ]);
+        if (org) setOrgId(org.orgId);
+        setClientsList(cls);
+
+        // If clientId is in URL, preselect and prefill from that client
+        if (clientIdParam) {
+          const match = cls.find(c => c.clientId === clientIdParam);
+          if (match) {
+            setSelectedClient(match);
+            if (match.homeAirport && startAirports.length === 0) {
+              setStartAirports([match.homeAirport]);
+            }
+            // Load client points into credit cards
+            try {
+              const pts = await clientsAPI.getPoints(clientIdParam);
+              if (pts.length > 0) {
+                const entries = pts.map((p: ClientPointsBalance, i: number) => ({
+                  id: `client_${i}`,
+                  program: p.program,
+                  points: p.balance,
+                  category: 'credit' as const,
+                  owner: 'me',
+                  cardProduct: '',
+                }));
+                setCreditCards(entries);
+                const alloc: Record<string, number> = {};
+                entries.forEach(e => { alloc[e.id] = e.points; });
+                setPointsToUse(alloc);
+              }
+            } catch { /* non-blocking */ }
+          }
+        }
+      } catch { /* non-blocking */ }
+    };
+    loadOrgData();
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [clientIdParam]);
 
   // Load user profile on mount (gracefully handles anonymous users).
   // In edit mode the trip's stored points are the source of truth, so we
@@ -853,6 +906,9 @@ function SoloTripSetupContent() {
         maxStops: maxStops,
         departureHourRange: (departureHourStart !== 0 || departureHourEnd !== 23) ? [departureHourStart, departureHourEnd] as [number, number] : undefined,
         arrivalHourRange: (arrivalHourStart !== 0 || arrivalHourEnd !== 23) ? [arrivalHourStart, arrivalHourEnd] as [number, number] : undefined,
+        // B2B: scope trip to org + client
+        orgId: orgId || undefined,
+        clientId: selectedClient?.clientId || undefined,
       };
 
       let tripId: string;
@@ -926,6 +982,32 @@ function SoloTripSetupContent() {
             {isEditMode ? 'Modify your trip parameters and re-search for flights' : 'Find the best deals using your points'}
           </p>
         </div>
+
+        {/* B2B: Client selector for authenticated advisors */}
+        {clientsList.length > 0 && (
+          <div className="mb-6 bg-white border border-slate-200 rounded-2xl p-4 shadow-sm">
+            <label className="block text-sm font-medium text-slate-700 mb-2">Who is this trip for?</label>
+            <select
+              value={selectedClient?.clientId || ''}
+              onChange={e => {
+                const c = clientsList.find(cl => cl.clientId === e.target.value) || null;
+                setSelectedClient(c);
+                if (c?.homeAirport && startAirports.length === 0) {
+                  setStartAirports([c.homeAirport]);
+                }
+              }}
+              className="w-full px-3 py-2.5 border border-slate-200 rounded-xl text-slate-900 focus:outline-none focus:ring-2 focus:ring-blue-600 focus:border-transparent bg-white"
+            >
+              <option value="">Select a client...</option>
+              {clientsList.filter(c => c.isSelfClient).map(c => (
+                <option key={c.clientId} value={c.clientId}>Myself</option>
+              ))}
+              {clientsList.filter(c => !c.isSelfClient).map(c => (
+                <option key={c.clientId} value={c.clientId}>{c.name}{c.homeAirport ? ` (${c.homeAirport})` : ''}</option>
+              ))}
+            </select>
+          </div>
+        )}
 
         {editTripLoading && (
           <div className="mb-8 flex items-center justify-center py-12">
