@@ -1,44 +1,173 @@
 'use client';
 
-import { useEffect, useState, useRef } from 'react';
+import { useEffect, useState, useRef, FormEvent } from 'react';
 import { useRouter } from 'next/navigation';
 import Link from 'next/link';
-import { Plane, CreditCard, PiggyBank, Sparkles, Search } from 'lucide-react';
+import {
+    Users,
+    Sparkles,
+    Clock,
+    BarChart3,
+    ArrowRight,
+    CheckCircle2,
+    Shield,
+    Zap,
+    FileText,
+    Mail,
+} from 'lucide-react';
 import { Navigation } from '@/components/navigation';
 import Footer from '@/components/footer';
+
+function WaitlistForm({ variant = 'hero' }: { variant?: 'hero' | 'bottom' }) {
+    const [email, setEmail] = useState('');
+    const [submitted, setSubmitted] = useState(false);
+    const [submitting, setSubmitting] = useState(false);
+    const [error, setError] = useState('');
+
+    const handleSubmit = async (e: FormEvent) => {
+        e.preventDefault();
+        if (!email.trim() || !/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email)) {
+            setError('Please enter a valid email address.');
+            return;
+        }
+        setSubmitting(true);
+        setError('');
+
+        // TODO: connect to backend waitlist endpoint
+        await new Promise((r) => setTimeout(r, 800));
+        setSubmitted(true);
+        setSubmitting(false);
+    };
+
+    if (submitted) {
+        return (
+            <div className="flex items-center gap-3 rounded-2xl border border-emerald-200 bg-emerald-50 px-6 py-4">
+                <CheckCircle2 className="h-5 w-5 shrink-0 text-emerald-600" />
+                <p className="text-sm font-medium text-emerald-800">
+                    You&apos;re on the list! We&apos;ll be in touch soon.
+                </p>
+            </div>
+        );
+    }
+
+    const isHero = variant === 'hero';
+
+    return (
+        <form onSubmit={handleSubmit} className="w-full max-w-md">
+            <div
+                className={`flex gap-3 ${isHero ? 'flex-col sm:flex-row' : 'flex-col sm:flex-row'}`}
+            >
+                <div className="relative flex-1">
+                    <Mail
+                        className={`absolute left-3.5 top-1/2 h-4 w-4 -translate-y-1/2 ${isHero ? 'text-slate-400' : 'text-blue-300'}`}
+                    />
+                    <input
+                        type="email"
+                        value={email}
+                        onChange={(e) => setEmail(e.target.value)}
+                        placeholder="you@agency.com"
+                        className={`w-full rounded-xl py-3 pl-10 pr-4 text-sm transition-all focus:outline-none focus:ring-2 ${
+                            isHero
+                                ? 'border border-slate-200 bg-white text-slate-900 placeholder:text-slate-400 focus:border-transparent focus:ring-blue-600'
+                                : 'border border-white/20 bg-white/10 text-white placeholder:text-blue-200 backdrop-blur-sm focus:border-transparent focus:ring-white/50'
+                        }`}
+                    />
+                </div>
+                <button
+                    type="submit"
+                    disabled={submitting}
+                    className={`flex shrink-0 items-center justify-center gap-2 rounded-xl px-6 py-3 text-sm font-medium transition-all disabled:cursor-not-allowed disabled:opacity-70 ${
+                        isHero
+                            ? 'bg-blue-600 text-white shadow-lg shadow-blue-600/20 hover:bg-blue-700 hover:shadow-xl hover:shadow-blue-600/30'
+                            : 'bg-white text-blue-700 shadow-lg hover:bg-blue-50'
+                    }`}
+                >
+                    {submitting ? (
+                        'Joining...'
+                    ) : (
+                        <>
+                            Join Waitlist <ArrowRight className="h-4 w-4" />
+                        </>
+                    )}
+                </button>
+            </div>
+            {error && <p className="mt-2 text-xs text-red-500">{error}</p>}
+        </form>
+    );
+}
+
+const VALUE_PROPS = [
+    {
+        icon: Users,
+        title: 'Client Loyalty Portfolios',
+        description:
+            'Store each client\u2019s points balances across programs. Enter once, reuse across every trip.',
+    },
+    {
+        icon: Zap,
+        title: 'Instant Cash vs. Points Optimization',
+        description:
+            'Our solver finds the best transfer routes and compares cash vs. points in seconds, not hours.',
+    },
+    {
+        icon: FileText,
+        title: 'Client-Ready Deliverables',
+        description:
+            'Generate polished, branded booking instructions your clients can actually follow.',
+    },
+    {
+        icon: BarChart3,
+        title: 'Track Savings Across Clients',
+        description:
+            'See total savings generated across your portfolio. Justify your fees with real data.',
+    },
+];
+
+const STEPS = [
+    {
+        number: '01',
+        title: 'Add Your Client',
+        description:
+            'Create a client profile with their loyalty balances across Chase, Amex, Citi, and more.',
+    },
+    {
+        number: '02',
+        title: 'Run an Optimization',
+        description:
+            'Enter the trip details. Tripy finds the optimal cash + points strategy in seconds.',
+    },
+    {
+        number: '03',
+        title: 'Share the Recommendation',
+        description:
+            'Send a polished, branded booking guide your client can follow step by step.',
+    },
+];
 
 export default function LandingPage() {
     const router = useRouter();
     const [isChecking, setIsChecking] = useState(true);
     const hasRedirectedRef = useRef(false);
-    
-    useEffect(() => {
-        // Check if user is logged in - only run once
-        const checkAuth = () => {
-            // Prevent multiple redirects using ref
-            if (hasRedirectedRef.current) {
-                return;
-            }
 
-            const accessToken = localStorage.getItem('access_token') || sessionStorage.getItem('access_token');
+    useEffect(() => {
+        const checkAuth = () => {
+            if (hasRedirectedRef.current) return;
+
+            const accessToken =
+                localStorage.getItem('access_token') ||
+                sessionStorage.getItem('access_token');
             const authToken = localStorage.getItem('auth_token');
-            
-            // Check if user data exists (required for authentication)
             const storedUser = localStorage.getItem('user');
-            
-            // Only redirect if we have tokens AND user data
+
             if ((accessToken || authToken) && storedUser) {
                 try {
                     const parsedUser = JSON.parse(storedUser);
                     if (parsedUser && (parsedUser.name || parsedUser.email)) {
-                        // User is logged in, redirect to dashboard
-                        // Use replace instead of push to avoid adding to history stack
                         hasRedirectedRef.current = true;
                         router.replace('/dashboard');
                         return;
                     }
-                } catch (_e) {
-                    // Invalid user data, clear and continue
+                } catch {
                     localStorage.removeItem('access_token');
                     localStorage.removeItem('id_token');
                     localStorage.removeItem('refresh_token');
@@ -49,22 +178,24 @@ export default function LandingPage() {
                     sessionStorage.removeItem('refresh_token');
                 }
             }
-            
-            // User is not logged in, show landing page
+
             setIsChecking(false);
         };
 
         checkAuth();
     }, [router]);
 
-    // Show loading state while checking authentication
     if (isChecking) {
         return (
-            <div data-testid="home-loading" data-slot="loading-spinner-wrapper" className="min-h-full bg-gradient-to-br from-white via-blue-50/30 to-white">
+            <div
+                data-testid="home-loading"
+                data-slot="loading-spinner-wrapper"
+                className="min-h-full bg-white"
+            >
                 <Navigation />
-                <div className="flex items-center justify-center min-h-screen">
+                <div className="flex min-h-screen items-center justify-center">
                     <div className="text-center">
-                        <div className="inline-block animate-spin rounded-full h-8 w-8 border-b-2 border-blue-600"></div>
+                        <div className="inline-block h-8 w-8 animate-spin rounded-full border-b-2 border-blue-600"></div>
                         <p className="mt-4 text-slate-600">Loading...</p>
                     </div>
                 </div>
@@ -72,186 +203,236 @@ export default function LandingPage() {
         );
     }
 
-    // Landing page - shown when user is NOT logged in
-    // All buttons lead to login or signup pages
-
     return (
-        <div data-testid="home-page" data-slot="Home" className="min-h-full bg-gradient-to-br from-white via-blue-50/30 to-white">
-            {/* Consistent Navigation */}
+        <div
+            data-testid="home-page"
+            data-slot="Home"
+            className="min-h-full bg-white"
+        >
             <Navigation />
 
-            {/* Hero Section */}
-            <div className="max-w-7xl mx-auto px-8 pt-20 pb-32">
-                <div className="grid lg:grid-cols-2 gap-16 items-center">
-                    {/* Left Column */}
-                    <div>
-                        <h1 className="text-6xl lg:text-7xl mb-6 tracking-tight text-slate-900 leading-tight font-bold">
-                            Spend Less.
-                            <br />
-                            Travel Smarter.
-                        </h1>
-                        <p className="text-xl text-slate-600 mb-8 leading-relaxed max-w-lg">
-                            Optimized flight recommendations using your credit-card points.
-                        </p>
-                        <div className="flex gap-4">
-                            <Link
-                                href="/solo/setup"
-                                className="px-8 py-4 bg-blue-600 text-white rounded-2xl hover:bg-blue-700 transition-all shadow-lg shadow-blue-600/20 hover:shadow-xl hover:shadow-blue-600/30 font-medium"
-                            >
-                                Plan My Trip
-                            </Link>
-                            <Link
-                                href="/pricing"
-                                className="px-8 py-4 bg-white text-slate-900 border-2 border-slate-200 rounded-2xl hover:border-slate-300 transition-all font-medium"
-                            >
-                                See Pricing
-                            </Link>
-                        </div>
+            {/* Hero */}
+            <section className="relative overflow-hidden pt-32 pb-24">
+                <div className="absolute inset-0 bg-gradient-to-b from-blue-50/60 via-white to-white" />
+                <div className="absolute top-0 left-1/2 h-[600px] w-[800px] -translate-x-1/2 rounded-full bg-blue-100/40 blur-3xl" />
+
+                <div className="relative mx-auto max-w-4xl px-6 text-center">
+                    <div className="mb-6 inline-flex items-center gap-2 rounded-full border border-blue-200 bg-blue-50 px-4 py-1.5">
+                        <Sparkles className="h-4 w-4 text-blue-600" />
+                        <span className="text-sm font-medium text-blue-700">
+                            Early Access — Limited Spots
+                        </span>
                     </div>
 
-                    {/* Right Column - Illustration */}
-                    <div className="relative">
-                        <div className="relative aspect-square max-w-lg mx-auto">
-                            {/* Globe Background */}
-                            <div className="absolute inset-0 bg-gradient-to-br from-blue-200 via-blue-300 to-cyan-200 rounded-full opacity-20 blur-3xl"></div>
-                            
-                            {/* Card Illustration */}
-                            <div className="absolute top-1/4 left-1/4 w-64 h-40 bg-gradient-to-br from-blue-500 to-blue-600 rounded-3xl shadow-2xl transform -rotate-12 hover:rotate-0 transition-transform duration-500">
-                                <div className="p-6">
-                                    <div className="flex justify-between items-start mb-8">
-                                        <div className="w-12 h-10 bg-yellow-400 rounded-lg"></div>
-                                        <div className="text-white/60 text-xs">TRIPY</div>
-                                    </div>
-                                    <div className="flex gap-3">
-                                        <div className="w-12 h-8 bg-yellow-400 rounded"></div>
-                                        <div className="w-12 h-8 bg-yellow-400 rounded"></div>
-                                        <div className="w-12 h-8 bg-yellow-400 rounded"></div>
-                                    </div>
-                                    <div className="absolute bottom-6 right-6 w-10 h-10 bg-yellow-400 rounded-full"></div>
-                                </div>
-                            </div>
+                    <h1 className="mb-6 text-5xl font-bold leading-tight tracking-tight text-slate-900 sm:text-6xl lg:text-7xl">
+                        The loyalty optimization
+                        <br />
+                        <span className="bg-gradient-to-r from-blue-600 to-cyan-500 bg-clip-text text-transparent">
+                            workspace for advisors
+                        </span>
+                    </h1>
 
-                            {/* Points Badge */}
-                            <div className="absolute bottom-1/4 right-1/4 bg-white rounded-2xl shadow-2xl p-6 hover:scale-105 transition-transform">
-                                <div className="flex items-center gap-3 mb-2">
-                                    <Plane className="w-6 h-6 text-blue-600"  />
-                                    <div className="text-sm text-slate-600">A GO FOR POINTS</div>
-                                </div>
-                                <div className="text-4xl font-bold text-slate-900">90,000</div>
-                                <div className="text-sm text-slate-600 mt-1">Points</div>
-                            </div>
-                        </div>
-                    </div>
-                </div>
-            </div>
-
-            {/* Features Section */}
-            <div className="bg-white py-24">
-                <div className="max-w-7xl mx-auto px-8">
-                    <h2 className="text-5xl text-center mb-16 text-slate-900 font-bold">How It Works</h2>
-                    
-                    <div className="grid md:grid-cols-3 gap-12">
-                        {/* Feature 1 */}
-                        <div className="text-center">
-                            <div className="w-20 h-20 mx-auto mb-6 bg-gradient-to-br from-blue-100 to-blue-200 rounded-2xl flex items-center justify-center transform hover:scale-110 transition-transform">
-                                <PiggyBank className="w-10 h-10 text-blue-600" />
-                            </div>
-                            <h3 className="text-xl mb-3 text-slate-900 font-semibold">Save Thousands on Travel</h3>
-                            <p className="text-slate-600 leading-relaxed">
-                                Turn your credit card points into flights worth 3-10x more than cash back
-                            </p>
-                        </div>
-
-                        {/* Feature 2 */}
-                        <div className="text-center">
-                            <div className="w-20 h-20 mx-auto mb-6 bg-gradient-to-br from-blue-100 to-blue-200 rounded-2xl flex items-center justify-center transform hover:scale-110 transition-transform">
-                                <CreditCard className="w-10 h-10 text-blue-600" />
-                            </div>
-                            <h3 className="text-xl mb-3 text-slate-900 font-semibold">Multi-Card Optimization</h3>
-                            <p className="text-slate-600 leading-relaxed">
-                                We find the best transfer paths across all your cards to maximize savings
-                            </p>
-                        </div>
-
-                        {/* Feature 3 */}
-                        <div className="text-center">
-                            <div className="w-20 h-20 mx-auto mb-6 bg-gradient-to-br from-blue-100 to-blue-200 rounded-2xl flex items-center justify-center transform hover:scale-110 transition-transform">
-                                <Search className="w-10 h-10 text-blue-600" />
-                            </div>
-                            <h3 className="text-xl mb-3 text-slate-900 font-semibold">Compare Cash vs Points</h3>
-                            <p className="text-slate-600 leading-relaxed">
-                                See exactly how much you save with points vs paying cash
-                            </p>
-                        </div>
-                    </div>
-                </div>
-            </div>
-
-            {/* Steps Section */}
-            <div className="py-24 bg-slate-50">
-                <div className="max-w-6xl mx-auto px-8">
-                    <h2 className="text-5xl text-center mb-20 text-slate-900 font-bold">Get Started in 3 Steps</h2>
-                    
-                    <div className="grid md:grid-cols-3 gap-16">
-                        {/* Step 1 */}
-                        <div>
-                            <div className="w-16 h-16 bg-blue-600 text-white rounded-full flex items-center justify-center text-2xl mb-6 font-bold">
-                                1
-                            </div>
-                            <h3 className="text-2xl mb-3 text-slate-900 font-semibold">Connect Your Cards</h3>
-                            <p className="text-slate-600 leading-relaxed">
-                                Securely connect your loyalty programs
-                            </p>
-                        </div>
-
-                        {/* Step 2 */}
-                        <div>
-                            <div className="w-16 h-16 bg-blue-600 text-white rounded-full flex items-center justify-center text-2xl mb-6 font-bold">
-                                2
-                            </div>
-                            <h3 className="text-2xl mb-3 text-slate-900 font-semibold">Choose Your Destination & Dates</h3>
-                            <p className="text-slate-600 leading-relaxed">
-                                Choose where and when you want travel
-                            </p>
-                        </div>
-
-                        {/* Step 3 */}
-                        <div>
-                            <div className="w-16 h-16 bg-blue-600 text-white rounded-full flex items-center justify-center text-2xl mb-6 font-bold">
-                                3
-                            </div>
-                            <h3 className="text-2xl mb-3 text-slate-900 font-semibold">Get Optimized Cash + Points Recommendations</h3>
-                            <p className="text-slate-600 leading-relaxed">
-                                Pick from top flight + hotel recommendations
-                            </p>
-                        </div>
-                    </div>
-                </div>
-            </div>
-
-            {/* CTA Section */}
-            <div className="py-24 bg-gradient-to-br from-blue-600 to-blue-700">
-                <div className="max-w-4xl mx-auto px-8 text-center">
-                    <div className="inline-flex items-center gap-2 px-4 py-2 bg-white/20 backdrop-blur-sm rounded-full mb-6">
-                        <Sparkles className="w-4 h-4 text-white" />
-                        <span className="text-white text-sm font-medium">Start Planning Today</span>
-                    </div>
-                    <h2 className="text-5xl mb-6 text-white font-bold">
-                        Ready to travel smarter?
-                    </h2>
-                    <p className="text-xl text-blue-100 mb-10 leading-relaxed">
-                        Join thousands of travelers optimizing their points and saving money
+                    <p className="mx-auto mb-10 max-w-2xl text-lg leading-relaxed text-slate-600 sm:text-xl">
+                        Stop rebuilding transfer strategies from scratch. Store
+                        client points, generate optimized cash&nbsp;+&nbsp;points
+                        recommendations, and deliver polished booking guides —
+                        all in one place.
                     </p>
-                    <div className="flex gap-4 justify-center">
-                        <Link
-                            href="/solo/setup"
-                            className="px-8 py-4 bg-yellow-400 text-slate-900 rounded-2xl hover:bg-yellow-300 transition-all shadow-lg hover:shadow-xl font-medium"
-                        >
-                            Plan My Trip — Free
-                        </Link>
+
+                    <div className="flex flex-col items-center gap-5">
+                        <WaitlistForm variant="hero" />
+                        <p className="text-sm text-slate-500">
+                            Already have an account?{' '}
+                            <Link
+                                href="/login"
+                                className="font-medium text-blue-600 hover:text-blue-700"
+                            >
+                                Log in
+                            </Link>
+                        </p>
                     </div>
                 </div>
-            </div>
+            </section>
+
+            {/* Social proof strip */}
+            <section className="border-y border-slate-100 bg-slate-50/50 py-8">
+                <div className="mx-auto max-w-5xl px-6">
+                    <p className="text-center text-sm font-medium tracking-wide text-slate-400 uppercase">
+                        Built for independent points consultants &amp; small
+                        travel advisory teams
+                    </p>
+                </div>
+            </section>
+
+            {/* Value Props */}
+            <section className="py-24">
+                <div className="mx-auto max-w-6xl px-6">
+                    <div className="mx-auto mb-16 max-w-2xl text-center">
+                        <h2 className="mb-4 text-4xl font-bold text-slate-900">
+                            Hours of research, done in seconds
+                        </h2>
+                        <p className="text-lg text-slate-600">
+                            Tripy replaces the spreadsheets, screenshots, and
+                            manual research with a purpose-built optimization
+                            engine.
+                        </p>
+                    </div>
+
+                    <div className="grid gap-8 sm:grid-cols-2">
+                        {VALUE_PROPS.map((prop) => (
+                            <div
+                                key={prop.title}
+                                className="group rounded-2xl border border-slate-100 bg-white p-8 transition-all hover:border-blue-100 hover:shadow-lg hover:shadow-blue-600/5"
+                            >
+                                <div className="mb-5 flex h-12 w-12 items-center justify-center rounded-xl bg-blue-50 text-blue-600 transition-colors group-hover:bg-blue-600 group-hover:text-white">
+                                    <prop.icon className="h-6 w-6" />
+                                </div>
+                                <h3 className="mb-2 text-xl font-semibold text-slate-900">
+                                    {prop.title}
+                                </h3>
+                                <p className="leading-relaxed text-slate-600">
+                                    {prop.description}
+                                </p>
+                            </div>
+                        ))}
+                    </div>
+                </div>
+            </section>
+
+            {/* How It Works */}
+            <section className="bg-slate-50 py-24">
+                <div className="mx-auto max-w-5xl px-6">
+                    <div className="mx-auto mb-16 max-w-2xl text-center">
+                        <h2 className="mb-4 text-4xl font-bold text-slate-900">
+                            Three steps. Client impressed.
+                        </h2>
+                        <p className="text-lg text-slate-600">
+                            Go from client request to polished recommendation
+                            in minutes.
+                        </p>
+                    </div>
+
+                    <div className="grid gap-12 md:grid-cols-3">
+                        {STEPS.map((step) => (
+                            <div key={step.number} className="relative">
+                                <span className="mb-4 block text-5xl font-bold text-blue-100">
+                                    {step.number}
+                                </span>
+                                <h3 className="mb-2 text-xl font-semibold text-slate-900">
+                                    {step.title}
+                                </h3>
+                                <p className="leading-relaxed text-slate-600">
+                                    {step.description}
+                                </p>
+                            </div>
+                        ))}
+                    </div>
+                </div>
+            </section>
+
+            {/* Pain / Gain comparison */}
+            <section className="py-24">
+                <div className="mx-auto max-w-5xl px-6">
+                    <div className="grid gap-8 md:grid-cols-2">
+                        {/* Without Tripy */}
+                        <div className="rounded-2xl border border-slate-200 bg-white p-8">
+                            <div className="mb-6 flex items-center gap-3">
+                                <Clock className="h-6 w-6 text-slate-400" />
+                                <h3 className="text-xl font-semibold text-slate-900">
+                                    Without Tripy
+                                </h3>
+                            </div>
+                            <ul className="space-y-4">
+                                {[
+                                    'Manually check transfer partners across 4-5 bank programs',
+                                    'Rebuild transfer logic from scratch for every client',
+                                    'Copy screenshots into emails as "recommendations"',
+                                    'Re-enter points balances every single trip',
+                                    'No way to track total savings across clients',
+                                ].map((item) => (
+                                    <li
+                                        key={item}
+                                        className="flex items-start gap-3 text-slate-600"
+                                    >
+                                        <span className="mt-1.5 block h-1.5 w-1.5 shrink-0 rounded-full bg-slate-300" />
+                                        {item}
+                                    </li>
+                                ))}
+                            </ul>
+                        </div>
+
+                        {/* With Tripy */}
+                        <div className="rounded-2xl border border-blue-200 bg-blue-50/50 p-8">
+                            <div className="mb-6 flex items-center gap-3">
+                                <Zap className="h-6 w-6 text-blue-600" />
+                                <h3 className="text-xl font-semibold text-slate-900">
+                                    With Tripy
+                                </h3>
+                            </div>
+                            <ul className="space-y-4">
+                                {[
+                                    'Optimized cash + points strategies in seconds',
+                                    'Client points stored once, reused across trips',
+                                    'Branded, step-by-step booking guides clients can follow',
+                                    'Portfolio-wide savings tracking with real data',
+                                    'Look smarter and save hours every week',
+                                ].map((item) => (
+                                    <li
+                                        key={item}
+                                        className="flex items-start gap-3 text-slate-700"
+                                    >
+                                        <CheckCircle2 className="mt-0.5 h-5 w-5 shrink-0 text-blue-600" />
+                                        {item}
+                                    </li>
+                                ))}
+                            </ul>
+                        </div>
+                    </div>
+                </div>
+            </section>
+
+            {/* Trust / Security */}
+            <section className="border-y border-slate-100 bg-slate-50/50 py-16">
+                <div className="mx-auto max-w-4xl px-6 text-center">
+                    <div className="mb-6 inline-flex items-center gap-2 rounded-full border border-slate-200 bg-white px-4 py-1.5">
+                        <Shield className="h-4 w-4 text-slate-500" />
+                        <span className="text-sm font-medium text-slate-600">
+                            Enterprise-grade security
+                        </span>
+                    </div>
+                    <p className="text-lg text-slate-600">
+                        Client data is encrypted at rest and in transit. Built
+                        on AWS with SOC&nbsp;2-ready infrastructure. Your
+                        clients&apos; loyalty information stays safe.
+                    </p>
+                </div>
+            </section>
+
+            {/* Bottom CTA */}
+            <section className="bg-gradient-to-br from-blue-600 to-blue-700 py-24">
+                <div className="mx-auto max-w-3xl px-6 text-center">
+                    <h2 className="mb-4 text-4xl font-bold text-white sm:text-5xl">
+                        Ready to optimize smarter?
+                    </h2>
+                    <p className="mx-auto mb-10 max-w-xl text-lg leading-relaxed text-blue-100">
+                        Join the waitlist for early access. We&apos;re
+                        onboarding a small group of advisors to shape the
+                        product together.
+                    </p>
+                    <div className="flex flex-col items-center gap-4">
+                        <WaitlistForm variant="bottom" />
+                        <p className="text-sm text-blue-200">
+                            Already have an account?{' '}
+                            <Link
+                                href="/login"
+                                className="font-medium text-white underline underline-offset-2 hover:no-underline"
+                            >
+                                Log in
+                            </Link>
+                        </p>
+                    </div>
+                </div>
+            </section>
 
             <Footer />
         </div>

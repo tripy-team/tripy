@@ -7,6 +7,19 @@ import { Plus, Plane, Users, DollarSign, TrendingUp, Loader2 } from 'lucide-reac
 import { clientsAPI, orgs, trips as tripsAPI, users } from '@/lib/api';
 import type { Client } from '@/types/org';
 
+interface ApiTrip {
+  tripId: string;
+  title?: string;
+  firstDestination?: string;
+  destinations?: string[];
+  startDate?: string;
+  endDate?: string;
+  status: string;
+  createdAt?: string;
+  clientId?: string;
+  estimatedSavings?: number;
+}
+
 interface RecentTrip {
   tripId: string;
   title: string;
@@ -46,22 +59,21 @@ export default function Dashboard() {
         const monthStart = new Date(now.getFullYear(), now.getMonth(), 1);
         let monthCount = 0;
 
-        const mapped: RecentTrip[] = (tripsData.trips || []).map((t: Record<string, unknown>) => {
-          const created = t.createdAt ? new Date(t.createdAt as string) : null;
+        const mapped: RecentTrip[] = ((tripsData.trips || []) as unknown as ApiTrip[]).map((t) => {
+          const created = t.createdAt ? new Date(t.createdAt) : null;
           if (created && created >= monthStart) monthCount++;
 
-          const cId = t.clientId as string | undefined;
-          const client = cId ? clientMap.get(cId) : undefined;
+          const client = t.clientId ? clientMap.get(t.clientId) : undefined;
 
           return {
-            tripId: t.tripId as string,
-            title: (t.title as string) || (t.firstDestination as string) || 'Trip',
+            tripId: t.tripId,
+            title: t.title || t.firstDestination || 'Trip',
             clientName: client?.isSelfClient ? 'Myself' : client?.name,
-            destinations: t.destinations as string[] | undefined,
-            startDate: t.startDate as string | undefined,
-            endDate: t.endDate as string | undefined,
-            status: t.status as string,
-            estimatedSavings: t.estimatedSavings as number | undefined,
+            destinations: t.destinations,
+            startDate: t.startDate,
+            endDate: t.endDate,
+            status: t.status,
+            estimatedSavings: t.estimatedSavings,
           };
         });
 

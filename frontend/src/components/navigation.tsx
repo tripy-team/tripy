@@ -204,12 +204,6 @@ function NavigationInner() {
                           <Link href="/">Home</Link>
                         </NavigationMenuLink>
                       </NavigationMenuItem>
-
-                      <NavigationMenuItem>
-                        <NavigationMenuLink asChild className={cn(navigationMenuTriggerStyle(), pathname.startsWith('/solo') && "bg-slate-100 text-slate-900")}>
-                          <Link href="/solo/setup">Plan a Trip</Link>
-                        </NavigationMenuLink>
-                      </NavigationMenuItem>
                     </>
                   )}
                 </NavigationMenuList>
@@ -267,10 +261,10 @@ function NavigationInner() {
                   Log in
                 </Link>
                 <Link
-                  href={signupHref}
+                  href="/#waitlist"
                   className="px-5 py-2.5 bg-blue-600 text-white rounded-xl hover:bg-blue-700 transition-all shadow-lg shadow-blue-600/20 hover:shadow-xl hover:shadow-blue-600/30 font-medium text-sm"
                 >
-                  Sign Up
+                  Join Waitlist
                 </Link>
               </div>
             )}
@@ -357,17 +351,6 @@ function NavigationInner() {
                 >
                   Home
                 </Link>
-                <Link
-                  href="/solo/setup"
-                  onClick={() => setMobileMenuOpen(false)}
-                  className={`block pl-3 pr-4 py-2 border-l-4 text-base font-medium ${
-                    pathname.includes('/solo')
-                      ? 'bg-blue-50 border-blue-500 text-blue-700'
-                      : 'border-transparent text-slate-500 hover:bg-slate-50 hover:border-slate-300 hover:text-slate-700'
-                  }`}
-                >
-                  Plan a Trip
-                </Link>
               </>
             )}
           </div>
@@ -413,11 +396,11 @@ function NavigationInner() {
                   Log in
                 </Link>
                 <Link
-                  href={signupHref}
+                  href="/#waitlist"
                   onClick={() => setMobileMenuOpen(false)}
                   className="block w-full text-center px-4 py-3 bg-blue-600 text-white rounded-xl font-medium hover:bg-blue-700"
                 >
-                  Sign Up
+                  Join Waitlist
                 </Link>
               </div>
             )}

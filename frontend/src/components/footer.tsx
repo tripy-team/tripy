@@ -21,9 +21,9 @@ export default function Footer() {
 							</div>
 							<span className="text-xl font-bold">Tripy</span>
 						</div>
-						<p className="text-sm leading-relaxed text-slate-400">
-							Maximize your travel points and plan smarter trips.
-						</p>
+					<p className="text-sm leading-relaxed text-slate-400">
+						The loyalty optimization workspace for travel advisors.
+					</p>
 					</div>
 
 					{/* Contact Us */}
