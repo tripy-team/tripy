@@ -47,6 +47,7 @@ applications:
         build:
           commands:
             - npm run build
+            - cp .env.production.local .next/.env.production.local
       artifacts:
         baseDirectory: .next
         files:
