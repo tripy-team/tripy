@@ -61,7 +61,7 @@ if (process.env.NEXT_PUBLIC_S3_BUCKET) {
 }
 
 const nextConfig: NextConfig = {
-  // Enable image optimization
+  output: 'standalone',
   images: {
     // Allow images from Unsplash and other sources
     remotePatterns,

@@ -42,10 +42,10 @@ applications:
               echo "============================="
         build:
           commands:
-            - env | grep -i "AMPLIFY\|NEXT\|NODE" | sort || true
             - npm run build
             - cp .env.production.local .next/.env.production.local
-            - echo "=== Verifying static chunks ===" && ls -la .next/static/chunks/app/ 2>/dev/null | head -10 && ls -la .next/static/chunks/main-app* 2>/dev/null
+            - cp -r .next/static .next/standalone/.next/static
+            - cp -r public .next/standalone/public
       artifacts:
         baseDirectory: .next
         files:
