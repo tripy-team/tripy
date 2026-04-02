@@ -74,23 +74,11 @@ const nextConfig: NextConfig = {
     // Minimum quality (1-100)
     minimumCacheTTL: 60 * 60 * 24 * 7, // 7 days
   },
-  webpack: (config, { isServer }) => {
-    // Ensure JSON files can be imported dynamically
+  webpack: (config) => {
     config.resolve.extensionAlias = {
       '.js': ['.ts', '.tsx', '.js', '.jsx'],
       '.json': ['.json'],
     };
-    // Configure alias for absolute paths - ensure it works for dynamic imports
-    const path = require('path');
-    if (!config.resolve.alias) {
-      config.resolve.alias = {};
-    }
-    config.resolve.alias['@'] = path.resolve(__dirname, 'src');
-    // Also add to modules for better resolution
-    if (!config.resolve.modules) {
-      config.resolve.modules = [];
-    }
-    config.resolve.modules.push(path.resolve(__dirname, 'src'));
     return config;
   },
 };
