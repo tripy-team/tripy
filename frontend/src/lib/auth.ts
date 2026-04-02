@@ -1,7 +1,7 @@
 import jwt from "jsonwebtoken";
 import bcrypt from "bcryptjs";
 import { prisma } from "./prisma";
-import type { UserRole } from "@/generated/prisma";
+import type { UserRole } from "@/generated/prisma/client";
 
 const JWT_SECRET = process.env.JWT_SECRET || "tripy-dev-secret-change-me";
 const TOKEN_EXPIRY = "7d";

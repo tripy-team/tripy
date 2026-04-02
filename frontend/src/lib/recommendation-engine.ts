@@ -4,7 +4,7 @@ import type {
   PaymentType,
   InsightType,
   Severity,
-} from "@/generated/prisma";
+} from "@/generated/prisma/client";
 
 interface TravelerWithBalances {
   travelerId: string;

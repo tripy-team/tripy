@@ -15,7 +15,7 @@ import {
 	TravelerType,
 	TripStatus,
 	UserRole,
-} from "../src/generated/prisma";
+} from "../src/generated/prisma/client";
 import bcrypt from "bcryptjs";
 
 function stripSslMode(url: string): string {
