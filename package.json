@@ -11,8 +11,10 @@
     "deploy": "./deploy.sh",
     "deploy:diff": "./deploy.sh diff"
   },
-  "devDependencies": {
-    "concurrently": "^8.2.2",
+  "dependencies": {
     "next": "^15.5.9"
+  },
+  "devDependencies": {
+    "concurrently": "^8.2.2"
   }
 }
