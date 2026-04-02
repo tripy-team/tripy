@@ -91,6 +91,11 @@ from .routes.payment import router as payment_router
 from .routes.group_planning import router as group_planning_router
 from .routes.orgs import router as orgs_router
 from .routes.clients import router as clients_router
+from .routes.intake import router as intake_router
+from .routes.proposals import router as proposals_router
+from .routes.copilot import router as copilot_router
+from .routes.feedback import router as feedback_router
+from .routes.analytics import router as analytics_router
 
 
 # Get CORS origins from environment variable
@@ -302,6 +307,13 @@ app.include_router(group_planning_router)
 # Include B2B org and client routes
 app.include_router(orgs_router)
 app.include_router(clients_router)
+
+# YC-fundable feature routes
+app.include_router(intake_router)
+app.include_router(proposals_router)
+app.include_router(copilot_router)
+app.include_router(feedback_router)
+app.include_router(analytics_router)
 
 
 # Preload commercial airports and airport data at startup for fast autocomplete

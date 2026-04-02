@@ -26,9 +26,32 @@ router = APIRouter(prefix="/clients", tags=["Clients"])
 
 
 def _client_to_response(c: dict) -> ClientResponse:
-    from ..schemas.client import ClientPreferences, ClientStats
+    from ..schemas.client import ClientPreferences, ClientStats, FamilyMember
     prefs_raw = c.get("preferences") or {}
     stats_raw = c.get("stats") or {}
+    family_raw = c.get("familyMembers") or []
+
+    prefs = ClientPreferences(
+        flight_class=prefs_raw.get("flightClass"),
+        preferred_airlines=prefs_raw.get("preferredAirlines", []),
+        preferred_airports=prefs_raw.get("preferredAirports", []),
+        cabin_default=prefs_raw.get("cabinDefault"),
+        budget_style=prefs_raw.get("budgetStyle"),
+        avoid_constraints=prefs_raw.get("avoidConstraints", []),
+        positive_constraints=prefs_raw.get("positiveConstraints", []),
+    ) if prefs_raw else None
+
+    family = [
+        FamilyMember(
+            name=m.get("name", ""),
+            relationship=m.get("relationship", ""),
+            age=m.get("age"),
+            loyalty_programs=m.get("loyaltyPrograms", []),
+            notes=m.get("notes"),
+        )
+        for m in family_raw
+    ]
+
     return ClientResponse(
         org_id=c["orgId"],
         client_id=c["clientId"],
@@ -36,9 +59,8 @@ def _client_to_response(c: dict) -> ClientResponse:
         email=c.get("email"),
         home_airport=c.get("homeAirport"),
         notes=c.get("notes"),
-        preferences=ClientPreferences(
-            flight_class=prefs_raw.get("flightClass"),
-        ) if prefs_raw else None,
+        preferences=prefs,
+        family_members=family,
         stats=ClientStats(
             total_trips=int(stats_raw.get("totalTrips", 0)),
             total_savings=float(stats_raw.get("totalSavings", 0)),
@@ -47,6 +69,7 @@ def _client_to_response(c: dict) -> ClientResponse:
         is_self_client=c.get("isSelfClient", False),
         created_by=c.get("createdBy"),
         created_at=c.get("createdAt", ""),
+        travel_history_summary=c.get("travelHistorySummary"),
     )
 
 
@@ -58,6 +81,29 @@ async def create_client(
     now = datetime.now(timezone.utc).strftime("%Y-%m-%dT%H:%M:%SZ")
     client_id = f"client_{uuid.uuid4()}"
 
+    prefs_dict = {}
+    if request.preferences:
+        prefs_dict = {
+            "flightClass": request.preferences.flight_class,
+            "preferredAirlines": request.preferences.preferred_airlines,
+            "preferredAirports": request.preferences.preferred_airports,
+            "cabinDefault": request.preferences.cabin_default,
+            "budgetStyle": request.preferences.budget_style,
+            "avoidConstraints": request.preferences.avoid_constraints,
+            "positiveConstraints": request.preferences.positive_constraints,
+        }
+
+    family_list = []
+    if request.family_members:
+        for m in request.family_members:
+            family_list.append({
+                "name": m.name,
+                "relationship": m.relationship,
+                "age": m.age,
+                "loyaltyPrograms": m.loyalty_programs,
+                "notes": m.notes,
+            })
+
     item = {
         "orgId": ctx.org_id,
         "clientId": client_id,
@@ -65,11 +111,8 @@ async def create_client(
         "email": request.email,
         "homeAirport": request.home_airport,
         "notes": request.notes,
-        "preferences": (
-            {"flightClass": request.preferences.flight_class}
-            if request.preferences
-            else {}
-        ),
+        "preferences": prefs_dict,
+        "familyMembers": family_list,
         "stats": {"totalTrips": 0, "totalSavings": 0, "totalPointsOptimized": 0},
         "isSelfClient": False,
         "createdBy": ctx.user_id,
@@ -129,7 +172,26 @@ async def update_client(
     if request.notes is not None:
         updates["notes"] = request.notes
     if request.preferences is not None:
-        updates["preferences"] = {"flightClass": request.preferences.flight_class}
+        updates["preferences"] = {
+            "flightClass": request.preferences.flight_class,
+            "preferredAirlines": request.preferences.preferred_airlines,
+            "preferredAirports": request.preferences.preferred_airports,
+            "cabinDefault": request.preferences.cabin_default,
+            "budgetStyle": request.preferences.budget_style,
+            "avoidConstraints": request.preferences.avoid_constraints,
+            "positiveConstraints": request.preferences.positive_constraints,
+        }
+    if request.family_members is not None:
+        updates["familyMembers"] = [
+            {
+                "name": m.name,
+                "relationship": m.relationship,
+                "age": m.age,
+                "loyaltyPrograms": m.loyalty_programs,
+                "notes": m.notes,
+            }
+            for m in request.family_members
+        ]
 
     if updates:
         client_repo.update_client(ctx.org_id, client_id, updates)

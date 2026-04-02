@@ -2,129 +2,134 @@
 
 import { useEffect, useState } from 'react';
 import { useRouter, usePathname } from 'next/navigation';
-import { Navigation } from '@/components/navigation';
-import { ScrollToTop } from '@/components/scroll-to-top';
-import Footer from '@/components/footer';
-import { SKIP_API_AUTH, isAuthenticated } from '@/lib/api';
+import Link from 'next/link';
+import {
+  LayoutDashboard,
+  Users,
+  Home,
+  Plane,
+  Bell,
+  Settings,
+  LogOut,
+  Loader2,
+} from 'lucide-react';
+import { TripyLogo } from '@/components/tripy-logo';
+import { getMe } from '@/lib/api-client';
+import type { User } from '@/lib/api-client';
 
-const AUTH_CHECKED_KEY = 'tripy_auth_checked_session';
-
-// Routes that DO NOT require authentication — users can generate trips anonymously
-const PUBLIC_ROUTES = [
-    '/solo/setup',
-    '/solo/results',
-    '/group-planning',
+const NAV_ITEMS = [
+  { href: '/dashboard', label: 'Dashboard', icon: LayoutDashboard },
+  { href: '/clients', label: 'Clients', icon: Users },
+  { href: '/households', label: 'Households', icon: Home },
+  { href: '/trip-requests', label: 'Trip Requests', icon: Plane },
+  { href: '/alerts', label: 'Alerts', icon: Bell },
+  { href: '/settings', label: 'Settings', icon: Settings },
 ];
 
-function isPublicRoute(pathname: string): boolean {
-    return PUBLIC_ROUTES.some(route => pathname.startsWith(route));
-}
+export default function AppLayout({ children }: { children: React.ReactNode }) {
+  const router = useRouter();
+  const pathname = usePathname();
+  const [user, setUser] = useState<User | null>(null);
+  const [isChecking, setIsChecking] = useState(true);
 
-export default function AppLayout({
-    children,
-}: {
-    children: React.ReactNode;
-}) {
-    const router = useRouter();
-    const pathname = usePathname();
-    const [isChecking, setIsChecking] = useState(true);
-
-    useEffect(() => {
-        // Skip authentication check if offline mode is enabled
-        if (SKIP_API_AUTH) {
-            console.log('[AppLayout] Authentication check skipped (offline mode)');
-            setIsChecking(false);
-            return;
-        }
-
-        // Ensure we're in the browser
-        if (typeof window === 'undefined') {
-            setIsChecking(false);
-            return;
-        }
-
-        // PUBLIC ROUTES: Never block trip generation behind auth
-        if (isPublicRoute(pathname)) {
-            if (process.env.NODE_ENV === 'development') {
-                console.log('[AppLayout] Public route — skipping auth gate:', pathname);
-            }
-            sessionStorage.setItem(AUTH_CHECKED_KEY, 'true');
-            setIsChecking(false);
-            return;
-        }
-
-        // Check if we've already validated auth this session (persists across remounts)
-        const alreadyChecked = sessionStorage.getItem(AUTH_CHECKED_KEY) === 'true';
-        
-        if (alreadyChecked) {
-            // Already checked - verify tokens still exist quickly
-            const accessToken = localStorage.getItem('access_token') || sessionStorage.getItem('access_token');
-            const idToken = localStorage.getItem('id_token') || sessionStorage.getItem('id_token');
-            
-            if (accessToken || idToken) {
-                // Tokens still exist - allow access immediately
-                setIsChecking(false);
-                return;
-            }
-            // Tokens cleared - remove flag and re-check below
-            sessionStorage.removeItem(AUTH_CHECKED_KEY);
-        }
-
-        // First time check or tokens were cleared
-        const accessToken = localStorage.getItem('access_token') || sessionStorage.getItem('access_token');
-        const idToken = localStorage.getItem('id_token') || sessionStorage.getItem('id_token');
-        
-        // Debug logging (remove in production)
-        if (process.env.NODE_ENV === 'development') {
-            console.log('[AppLayout] Auth check:', {
-                alreadyChecked,
-                hasAccessToken: !!accessToken,
-                hasIdToken: !!idToken,
-                pathname: window.location.pathname
-            });
-        }
-        
-        // Only redirect if we have NO tokens at all
-        if (!accessToken && !idToken) {
-            sessionStorage.setItem(AUTH_CHECKED_KEY, 'true');
-            setIsChecking(false);
-            // Preserve the current page so the user returns here after signing in
-            const returnUrl = encodeURIComponent(window.location.pathname + window.location.search);
-            router.replace(`/login?redirect=${returnUrl}`);
-            return;
-        }
-        
-        // User has a token - allow access
-        sessionStorage.setItem(AUTH_CHECKED_KEY, 'true');
-        setIsChecking(false);
-        // eslint-disable-next-line react-hooks/exhaustive-deps
-    }, [pathname]); // Re-check when route changes
-
-    // Show loading state while checking authentication
-    if (isChecking) {
-        return (
-            <div className="flex flex-col min-h-screen bg-slate-50">
-                <Navigation />
-                <main className="flex-1 flex items-center justify-center pt-20">
-                    <div className="text-center">
-                        <div className="inline-block animate-spin rounded-full h-8 w-8 border-b-2 border-blue-600"></div>
-                        <p className="mt-4 text-slate-600">Loading...</p>
-                    </div>
-                </main>
-            </div>
-        );
+  useEffect(() => {
+    const token = localStorage.getItem('tripy_token');
+    if (!token) {
+      router.replace('/login');
+      return;
     }
 
-    return (
-        <div className="flex flex-col min-h-screen bg-slate-50">
-            <ScrollToTop />
-            <Navigation />
-            {/* pt-20 = navbar height (h-20) so content starts below the fixed nav */}
-            <main className="flex-1 pt-20">
-                {children}
-            </main>
-            <Footer />
-        </div>
-    );
-}
+    getMe()
+      .then(setUser)
+      .catch(() => {
+        localStorage.removeItem('tripy_token');
+        localStorage.removeItem('tripy_user');
+        router.replace('/login');
+      })
+      .finally(() => setIsChecking(false));
+  }, [router]);
 
+  const handleLogout = () => {
+    localStorage.removeItem('tripy_token');
+    localStorage.removeItem('tripy_user');
+    router.push('/login');
+  };
+
+  if (isChecking) {
+    return (
+      <div className="flex h-screen items-center justify-center bg-slate-50">
+        <div className="text-center">
+          <Loader2 className="mx-auto h-8 w-8 animate-spin text-blue-600" />
+          <p className="mt-4 text-slate-500">Loading...</p>
+        </div>
+      </div>
+    );
+  }
+
+  const isActive = (href: string) =>
+    href === '/dashboard' ? pathname === href : pathname.startsWith(href);
+
+  return (
+    <div className="flex h-screen bg-slate-50">
+      {/* Sidebar */}
+      <aside className="fixed inset-y-0 left-0 z-40 flex w-64 flex-col border-r border-slate-200 bg-white">
+        {/* Logo */}
+        <div className="flex h-16 items-center px-6 border-b border-slate-100">
+          <TripyLogo href="/dashboard" />
+        </div>
+
+        {/* Navigation */}
+        <nav className="flex-1 space-y-1 overflow-y-auto px-3 py-4">
+          {NAV_ITEMS.map((item) => {
+            const active = isActive(item.href);
+            const Icon = item.icon;
+            return (
+              <Link
+                key={item.href}
+                href={item.href}
+                className={`flex items-center gap-3 rounded-lg px-3 py-2.5 text-sm font-medium transition-colors ${
+                  active
+                    ? 'bg-blue-50 text-blue-700'
+                    : 'text-slate-600 hover:bg-slate-50 hover:text-slate-900'
+                }`}
+              >
+                <Icon className={`h-5 w-5 ${active ? 'text-blue-600' : 'text-slate-400'}`} />
+                {item.label}
+              </Link>
+            );
+          })}
+        </nav>
+
+        {/* User section */}
+        {user && (
+          <div className="border-t border-slate-100 p-3">
+            <div className="flex items-center gap-3 rounded-lg px-3 py-2">
+              <div className="flex h-9 w-9 items-center justify-center rounded-lg bg-blue-600 text-sm font-medium text-white">
+                {user.firstName?.[0]}
+                {user.lastName?.[0]}
+              </div>
+              <div className="min-w-0 flex-1">
+                <p className="truncate text-sm font-medium text-slate-900">
+                  {user.firstName} {user.lastName}
+                </p>
+                <p className="truncate text-xs text-slate-500">{user.email}</p>
+              </div>
+            </div>
+            <button
+              onClick={handleLogout}
+              className="mt-1 flex w-full items-center gap-3 rounded-lg px-3 py-2 text-sm font-medium text-slate-600 transition-colors hover:bg-red-50 hover:text-red-600"
+            >
+              <LogOut className="h-4 w-4" />
+              Log out
+            </button>
+          </div>
+        )}
+      </aside>
+
+      {/* Main content */}
+      <main className="ml-64 flex-1 overflow-y-auto">
+        <div className="p-6">{children}</div>
+      </main>
+    </div>
+  );
+}

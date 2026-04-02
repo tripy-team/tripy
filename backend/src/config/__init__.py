@@ -77,6 +77,10 @@ ORG_MEMBERS_TABLE = os.environ.get("ORG_MEMBERS_TABLE", "tripy-org-members")
 CLIENTS_TABLE = os.environ.get("CLIENTS_TABLE", "tripy-clients")
 CLIENT_POINTS_TABLE = os.environ.get("CLIENT_POINTS_TABLE", "tripy-client-points")
 
+# Feature tables (optional, defaults for local dev)
+PROPOSALS_TABLE = os.environ.get("PROPOSALS_TABLE", "tripy-proposals")
+PREFERENCE_SIGNALS_TABLE = os.environ.get("PREFERENCE_SIGNALS_TABLE", "tripy-preference-signals")
+
 # Optional configuration
 USER_POOL_ID = os.environ.get("USER_POOL_ID", "")
 USER_POOL_CLIENT_ID = os.environ.get("USER_POOL_CLIENT_ID", "")

@@ -186,8 +186,20 @@ function NavigationInner() {
                       </NavigationMenuItem>
 
                       <NavigationMenuItem>
-                        <NavigationMenuLink asChild className={cn(navigationMenuTriggerStyle(), pathname.startsWith('/solo') && "bg-slate-100 text-slate-900")}>
-                          <Link href="/solo/setup">New Trip</Link>
+                        <NavigationMenuLink asChild className={cn(navigationMenuTriggerStyle(), pathname.startsWith('/households') && "bg-slate-100 text-slate-900")}>
+                          <Link href="/households">Households</Link>
+                        </NavigationMenuLink>
+                      </NavigationMenuItem>
+
+                      <NavigationMenuItem>
+                        <NavigationMenuLink asChild className={cn(navigationMenuTriggerStyle(), pathname.startsWith('/trip-requests') && "bg-slate-100 text-slate-900")}>
+                          <Link href="/trip-requests">Trips</Link>
+                        </NavigationMenuLink>
+                      </NavigationMenuItem>
+
+                      <NavigationMenuItem>
+                        <NavigationMenuLink asChild className={cn(navigationMenuTriggerStyle(), pathname.startsWith('/alerts') && "bg-slate-100 text-slate-900")}>
+                          <Link href="/alerts">Alerts</Link>
                         </NavigationMenuLink>
                       </NavigationMenuItem>
 
@@ -316,15 +328,37 @@ function NavigationInner() {
                   Clients
                 </Link>
                 <Link
-                  href="/solo/setup"
+                  href="/households"
                   onClick={() => setMobileMenuOpen(false)}
                   className={`block pl-3 pr-4 py-2 border-l-4 text-base font-medium ${
-                    pathname.includes('/solo')
+                    pathname.startsWith('/households')
                       ? 'bg-blue-50 border-blue-500 text-blue-700'
                       : 'border-transparent text-slate-500 hover:bg-slate-50 hover:border-slate-300 hover:text-slate-700'
                   }`}
                 >
-                  New Trip
+                  Households
+                </Link>
+                <Link
+                  href="/trip-requests"
+                  onClick={() => setMobileMenuOpen(false)}
+                  className={`block pl-3 pr-4 py-2 border-l-4 text-base font-medium ${
+                    pathname.startsWith('/trip-requests')
+                      ? 'bg-blue-50 border-blue-500 text-blue-700'
+                      : 'border-transparent text-slate-500 hover:bg-slate-50 hover:border-slate-300 hover:text-slate-700'
+                  }`}
+                >
+                  Trips
+                </Link>
+                <Link
+                  href="/alerts"
+                  onClick={() => setMobileMenuOpen(false)}
+                  className={`block pl-3 pr-4 py-2 border-l-4 text-base font-medium ${
+                    pathname.startsWith('/alerts')
+                      ? 'bg-blue-50 border-blue-500 text-blue-700'
+                      : 'border-transparent text-slate-500 hover:bg-slate-50 hover:border-slate-300 hover:text-slate-700'
+                  }`}
+                >
+                  Alerts
                 </Link>
                 <Link
                   href="/settings"

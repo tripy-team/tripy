@@ -3993,3 +3993,154 @@ export const clientsAPI = {
     return res.map(t => toCamelCase<SoloTripResponse>(t));
   },
 };
+
+// =============================================================================
+// INTAKE PARSER API (Feature 1)
+// =============================================================================
+
+export const intakeAPI = {
+  parse: async (text: string, clientId?: string, orgId?: string) => {
+    return apiRequest<Record<string, unknown>>('/intake', {
+      method: 'POST',
+      body: JSON.stringify({ text, client_id: clientId, org_id: orgId }),
+    } as RequestInit);
+  },
+};
+
+// =============================================================================
+// PROPOSALS API (Feature 7)
+// =============================================================================
+
+export const proposalsAPI = {
+  create: async (data: {
+    tripId: string;
+    clientId: string;
+    clientName: string;
+    recommendations: Record<string, unknown>[];
+    advisorNote?: string;
+    tripSummary?: string;
+    showAlternatives?: boolean;
+    showBookingSteps?: boolean;
+    showPointsBreakdown?: boolean;
+  }) => {
+    return apiRequest<Record<string, unknown>>('/proposals', {
+      method: 'POST',
+      body: JSON.stringify({
+        trip_id: data.tripId,
+        client_id: data.clientId,
+        client_name: data.clientName,
+        recommendations: data.recommendations,
+        advisor_note: data.advisorNote || '',
+        trip_summary: data.tripSummary || '',
+        show_alternatives: data.showAlternatives ?? true,
+        show_booking_steps: data.showBookingSteps ?? true,
+        show_points_breakdown: data.showPointsBreakdown ?? true,
+      }),
+    });
+  },
+
+  list: async () => {
+    return apiRequest<Record<string, unknown>[]>('/proposals');
+  },
+
+  get: async (proposalId: string) => {
+    return apiRequest<Record<string, unknown>>(`/proposals/${proposalId}`);
+  },
+
+  getShared: async (shareToken: string) => {
+    return apiRequest<Record<string, unknown>>(`/proposals/shared/${shareToken}`, {}, false);
+  },
+
+  send: async (proposalId: string, email: string) => {
+    return apiRequest<Record<string, unknown>>(`/proposals/${proposalId}/send`, {
+      method: 'POST',
+      body: JSON.stringify({ email }),
+    });
+  },
+};
+
+// =============================================================================
+// COPILOT API (Feature 10)
+// =============================================================================
+
+export const copilotAPI = {
+  sendMessage: async (data: {
+    message: string;
+    tripId: string;
+    currentConstraints?: Record<string, unknown>;
+    currentRecommendations?: Record<string, unknown>[];
+    conversationHistory?: { role: string; content: string }[];
+  }) => {
+    return apiRequest<Record<string, unknown>>('/copilot/message', {
+      method: 'POST',
+      body: JSON.stringify({
+        message: data.message,
+        trip_id: data.tripId,
+        current_constraints: data.currentConstraints || {},
+        current_recommendations: data.currentRecommendations || [],
+        conversation_history: data.conversationHistory || [],
+      }),
+    });
+  },
+
+  quickAction: async (action: string, tripId: string, constraints?: Record<string, unknown>) => {
+    return apiRequest<Record<string, unknown>>('/copilot/quick-action', {
+      method: 'POST',
+      body: JSON.stringify({
+        action,
+        trip_id: tripId,
+        current_constraints: constraints || {},
+      }),
+    });
+  },
+};
+
+// =============================================================================
+// FEEDBACK API (Feature 14)
+// =============================================================================
+
+export const feedbackAPI = {
+  recordEvent: async (data: {
+    tripId: string;
+    eventType: string;
+    data?: Record<string, unknown>;
+    clientId?: string;
+  }) => {
+    return apiRequest<Record<string, unknown>>('/feedback/event', {
+      method: 'POST',
+      body: JSON.stringify({
+        trip_id: data.tripId,
+        event_type: data.eventType,
+        data: data.data || {},
+        client_id: data.clientId,
+      }),
+    });
+  },
+
+  getTripFeedback: async (tripId: string) => {
+    return apiRequest<Record<string, unknown>>(`/feedback/trip/${tripId}`);
+  },
+
+  getStats: async () => {
+    return apiRequest<Record<string, unknown>>('/feedback/stats');
+  },
+};
+
+// =============================================================================
+// ANALYTICS API (Feature 17)
+// =============================================================================
+
+export const analyticsAPI = {
+  getROIDashboard: async (periodDays: number = 30) => {
+    return apiRequest<Record<string, unknown>>(`/analytics/roi?period_days=${periodDays}`);
+  },
+
+  exportCSV: async (periodDays: number = 90) => {
+    const res = await fetch(`${BACKEND_URL}/analytics/roi/export?period_days=${periodDays}`, {
+      headers: {
+        'Authorization': `Bearer ${typeof window !== 'undefined' ? sessionStorage.getItem('access_token') || localStorage.getItem('access_token') : ''}`,
+      },
+    });
+    return res.text();
+  },
+};

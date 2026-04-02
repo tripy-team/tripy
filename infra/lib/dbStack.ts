@@ -19,6 +19,8 @@ export type TripyTables = {
     orgMembers: dynamodb.Table;
     clients: dynamodb.Table;
     clientPoints: dynamodb.Table;
+    proposals: dynamodb.Table;
+    preferenceSignals: dynamodb.Table;
 };
 
 export class DbStack extends Stack {
@@ -224,11 +226,30 @@ export class DbStack extends Stack {
             removalPolicy,
         });
 
+        // Feature 7: Proposals table
+        const proposals = new dynamodb.Table(this, "Proposals", {
+            tableName: "tripy-proposals",
+            partitionKey: { name: "orgId", type: dynamodb.AttributeType.STRING },
+            sortKey: { name: "proposalId", type: dynamodb.AttributeType.STRING },
+            billingMode: dynamodb.BillingMode.PAY_PER_REQUEST,
+            removalPolicy,
+        });
+
+        // Feature 13: Preference signals table
+        const preferenceSignals = new dynamodb.Table(this, "PreferenceSignals", {
+            tableName: "tripy-preference-signals",
+            partitionKey: { name: "orgId", type: dynamodb.AttributeType.STRING },
+            sortKey: { name: "timestampSignalId", type: dynamodb.AttributeType.STRING },
+            billingMode: dynamodb.BillingMode.PAY_PER_REQUEST,
+            removalPolicy,
+        });
+
         this.tables = {
             users, trips, tripMembers, points, destinations, destinationVotes,
             itinerary, invites,
             monitoringSubscriptions, monitoringBaselines, monitoringUpdates, rateLimitCounters,
             organizations, orgMembers, clients, clientPoints,
+            proposals, preferenceSignals,
         };
 
         // Outputs
@@ -245,5 +266,7 @@ export class DbStack extends Stack {
         new CfnOutput(this, "ORG_MEMBERS_TABLE", { value: orgMembers.tableName });
         new CfnOutput(this, "CLIENTS_TABLE", { value: clients.tableName });
         new CfnOutput(this, "CLIENT_POINTS_TABLE", { value: clientPoints.tableName });
+        new CfnOutput(this, "PROPOSALS_TABLE", { value: proposals.tableName });
+        new CfnOutput(this, "PREFERENCE_SIGNALS_TABLE", { value: preferenceSignals.tableName });
     }
 }

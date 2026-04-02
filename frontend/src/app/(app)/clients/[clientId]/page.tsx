@@ -1,435 +1,574 @@
 'use client';
 
-import { useState, useEffect, useCallback } from 'react';
-import { useParams, useRouter } from 'next/navigation';
+import { useState, useEffect, useCallback, Fragment } from 'react';
+import { useParams } from 'next/navigation';
 import Link from 'next/link';
 import {
-  ArrowLeft, Loader2, Plus, Trash2, Save, Plane, DollarSign,
-  TrendingUp, Mail, MapPin, StickyNote, Edit2, X,
+  ArrowLeft,
+  Loader2,
+  Plus,
+  Save,
+  X,
+  Mail,
+  Phone,
+  Calendar,
+  StickyNote,
+  RefreshCw,
+  Trash2,
+  ChevronDown,
+  ChevronRight,
+  Home,
+  Plane,
 } from 'lucide-react';
-import { clientsAPI } from '@/lib/api';
-import type { Client, ClientPointsBalance } from '@/types/org';
-import type { SoloTripResponse } from '@/lib/api';
-import { VALID_PROGRAMS } from '@/types/programs';
-import { getProgramLabel } from '@/lib/programLabels';
+import {
+  getClient,
+  getClientBalances,
+  getClientPreferences,
+  addClientBalance,
+  updateClientPreferences,
+} from '@/lib/api-client';
+import type {
+  Client,
+  LoyaltyBalance,
+  ClientPreference,
+  LedgerEntry,
+} from '@/lib/api-client';
 
-interface PointsEntry {
-  program: string;
-  balance: string;
-}
+type Tab = 'overview' | 'balances' | 'preferences' | 'households' | 'trips';
 
 export default function ClientDetailPage() {
   const params = useParams();
-  const router = useRouter();
   const clientId = params.clientId as string;
 
   const [client, setClient] = useState<Client | null>(null);
-  const [pointsList, setPointsList] = useState<ClientPointsBalance[]>([]);
-  const [trips, setTrips] = useState<SoloTripResponse[]>([]);
-  const [isLoading, setIsLoading] = useState(true);
+  const [balances, setBalances] = useState<LoyaltyBalance[]>([]);
+  const [preferences, setPreferences] = useState<ClientPreference | null>(null);
+  const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
+  const [activeTab, setActiveTab] = useState<Tab>('overview');
 
-  // Points editor state
-  const [editingPoints, setEditingPoints] = useState(false);
-  const [pointsForm, setPointsForm] = useState<PointsEntry[]>([]);
-  const [savingPoints, setSavingPoints] = useState(false);
+  // Add balance form
+  const [showAddBalance, setShowAddBalance] = useState(false);
+  const [balanceForm, setBalanceForm] = useState({ programName: '', balance: '', expirationDate: '' });
+  const [savingBalance, setSavingBalance] = useState(false);
 
-  // Profile edit state
-  const [editingProfile, setEditingProfile] = useState(false);
-  const [profileForm, setProfileForm] = useState({ name: '', email: '', homeAirport: '', notes: '' });
-  const [savingProfile, setSavingProfile] = useState(false);
+  // Preferences form
+  const [editingPrefs, setEditingPrefs] = useState(false);
+  const [prefsForm, setPrefsForm] = useState({
+    cabinPreference: '',
+    redemptionStyle: '',
+    preferNonstop: false,
+    preferredAirlines: '',
+  });
+  const [savingPrefs, setSavingPrefs] = useState(false);
+
+  // Expanded ledger
+  const [expandedBalance, setExpandedBalance] = useState<string | null>(null);
 
   const loadData = useCallback(async () => {
     try {
-      const [clientData, pts, tripsData] = await Promise.all([
-        clientsAPI.get(clientId),
-        clientsAPI.getPoints(clientId),
-        clientsAPI.getTrips(clientId),
+      const [c, b, p] = await Promise.all([
+        getClient(clientId),
+        getClientBalances(clientId),
+        getClientPreferences(clientId).catch(() => null),
       ]);
-      setClient(clientData);
-      setPointsList(pts);
-      setTrips(tripsData);
+      setClient(c);
+      setBalances(b);
+      setPreferences(p);
     } catch (err) {
-      console.error('Failed to load client:', err);
-      setError('Failed to load client data.');
+      setError(err instanceof Error ? err.message : 'Failed to load client');
     } finally {
-      setIsLoading(false);
+      setLoading(false);
     }
   }, [clientId]);
 
-  useEffect(() => { loadData(); }, [loadData]);
+  useEffect(() => {
+    loadData();
+  }, [loadData]);
 
-  const startEditingPoints = () => {
-    setPointsForm(pointsList.map(p => ({ program: p.program, balance: String(p.balance) })));
-    setEditingPoints(true);
-  };
-
-  const addPointsRow = () => {
-    setPointsForm(prev => [...prev, { program: VALID_PROGRAMS[0], balance: '' }]);
-  };
-
-  const updatePointsEntry = (idx: number, field: keyof PointsEntry, value: string) => {
-    setPointsForm(prev => prev.map((e, i) => i === idx ? { ...e, [field]: value } : e));
-  };
-
-  const removePointsEntry = (idx: number) => {
-    setPointsForm(prev => prev.filter((_, i) => i !== idx));
-  };
-
-  const savePoints = async () => {
-    setSavingPoints(true);
+  const handleAddBalance = async () => {
+    if (!balanceForm.programName || !balanceForm.balance) return;
+    setSavingBalance(true);
     try {
-      const payload = pointsForm
-        .filter(p => p.program && Number(p.balance) > 0)
-        .map(p => ({ program: p.program, balance: Number(p.balance) }));
-      const updated = await clientsAPI.updatePoints(clientId, payload);
-      setPointsList(updated);
-      setEditingPoints(false);
-    } catch (err) {
-      console.error('Failed to save points:', err);
-    } finally {
-      setSavingPoints(false);
-    }
-  };
-
-  const startEditingProfile = () => {
-    if (!client) return;
-    setProfileForm({
-      name: client.name,
-      email: client.email || '',
-      homeAirport: client.homeAirport || '',
-      notes: client.notes || '',
-    });
-    setEditingProfile(true);
-  };
-
-  const saveProfile = async () => {
-    setSavingProfile(true);
-    try {
-      const updated = await clientsAPI.update(clientId, {
-        name: profileForm.name.trim(),
-        email: profileForm.email.trim() || undefined,
-        homeAirport: profileForm.homeAirport.trim().toUpperCase() || undefined,
-        notes: profileForm.notes.trim() || undefined,
+      const newBalance = await addClientBalance(clientId, {
+        programName: balanceForm.programName,
+        balance: Number(balanceForm.balance),
+        expirationDate: balanceForm.expirationDate || undefined,
       });
-      setClient(updated);
-      setEditingProfile(false);
+      setBalances((prev) => [...prev, newBalance]);
+      setBalanceForm({ programName: '', balance: '', expirationDate: '' });
+      setShowAddBalance(false);
     } catch (err) {
-      console.error('Failed to update client:', err);
+      console.error('Failed to add balance:', err);
     } finally {
-      setSavingProfile(false);
+      setSavingBalance(false);
     }
   };
 
-  if (isLoading) {
+  const handleSavePrefs = async () => {
+    setSavingPrefs(true);
+    try {
+      const updated = await updateClientPreferences(clientId, {
+        cabinPreference: prefsForm.cabinPreference || undefined,
+        redemptionStyle: prefsForm.redemptionStyle || undefined,
+        preferNonstop: prefsForm.preferNonstop,
+        preferredAirlines: prefsForm.preferredAirlines
+          ? prefsForm.preferredAirlines.split(',').map((a) => a.trim())
+          : undefined,
+      });
+      setPreferences(updated);
+      setEditingPrefs(false);
+    } catch (err) {
+      console.error('Failed to save preferences:', err);
+    } finally {
+      setSavingPrefs(false);
+    }
+  };
+
+  const startEditingPrefs = () => {
+    setPrefsForm({
+      cabinPreference: preferences?.cabinPreference ?? '',
+      redemptionStyle: preferences?.redemptionStyle ?? '',
+      preferNonstop: preferences?.preferNonstop ?? false,
+      preferredAirlines: preferences?.preferredAirlines?.join(', ') ?? '',
+    });
+    setEditingPrefs(true);
+  };
+
+  if (loading) {
     return (
-      <div className="max-w-4xl mx-auto px-4 sm:px-6 lg:px-8 py-10">
-        <div className="flex items-center justify-center py-24">
-          <Loader2 className="w-6 h-6 animate-spin text-blue-600" />
-          <span className="ml-3 text-slate-600">Loading client...</span>
-        </div>
+      <div className="flex items-center justify-center py-32">
+        <Loader2 className="h-6 w-6 animate-spin text-blue-600" />
+        <span className="ml-3 text-slate-500">Loading client...</span>
       </div>
     );
   }
 
   if (error || !client) {
     return (
-      <div className="max-w-4xl mx-auto px-4 sm:px-6 lg:px-8 py-10">
-        <div className="text-center py-24">
-          <p className="text-red-600 mb-4">{error || 'Client not found'}</p>
-          <Link href="/clients" className="text-blue-600 hover:text-blue-700 font-medium">Back to clients</Link>
-        </div>
+      <div className="py-32 text-center">
+        <p className="mb-4 text-red-600">{error || 'Client not found'}</p>
+        <Link href="/clients" className="font-medium text-blue-600 hover:text-blue-700">
+          Back to clients
+        </Link>
       </div>
     );
   }
 
-  const usedPrograms = new Set(pointsForm.map(p => p.program));
+  const tabs: { key: Tab; label: string }[] = [
+    { key: 'overview', label: 'Overview' },
+    { key: 'balances', label: 'Balances' },
+    { key: 'preferences', label: 'Preferences' },
+    { key: 'households', label: 'Households' },
+    { key: 'trips', label: 'Trips' },
+  ];
 
   return (
-    <div className="max-w-4xl mx-auto px-4 sm:px-6 lg:px-8 py-10">
-      <Link href="/clients" className="inline-flex items-center gap-1.5 text-sm text-slate-600 hover:text-slate-900 mb-6">
-        <ArrowLeft className="w-4 h-4" />
+    <div className="max-w-5xl">
+      <Link
+        href="/clients"
+        className="mb-6 inline-flex items-center gap-1.5 text-sm text-slate-600 hover:text-slate-900"
+      >
+        <ArrowLeft className="h-4 w-4" />
         Back to clients
       </Link>
 
-      {/* Client header */}
-      <div className="flex items-start justify-between mb-8">
+      {/* Header */}
+      <div className="mb-6 flex items-start justify-between">
         <div>
-          <h1 className="text-2xl font-bold text-slate-900">{client.name}</h1>
-          <div className="flex items-center gap-4 mt-2 text-sm text-slate-500">
-            {client.email && <span className="flex items-center gap-1"><Mail className="w-3.5 h-3.5" />{client.email}</span>}
-            {client.homeAirport && <span className="flex items-center gap-1"><MapPin className="w-3.5 h-3.5" />{client.homeAirport}</span>}
+          <h1 className="text-2xl font-bold text-slate-900">
+            {client.firstName} {client.lastName}
+          </h1>
+          <div className="mt-1 flex items-center gap-4 text-sm text-slate-500">
+            {client.email && (
+              <span className="flex items-center gap-1">
+                <Mail className="h-3.5 w-3.5" />
+                {client.email}
+              </span>
+            )}
+            {client.phone && (
+              <span className="flex items-center gap-1">
+                <Phone className="h-3.5 w-3.5" />
+                {client.phone}
+              </span>
+            )}
           </div>
         </div>
-        <Link
-          href={`/solo/setup?clientId=${clientId}`}
-          className="inline-flex items-center gap-2 px-4 py-2.5 bg-blue-600 text-white rounded-xl hover:bg-blue-700 transition-colors font-medium shadow-sm"
+        <span
+          className={`rounded-full px-3 py-1 text-xs font-medium ${
+            client.status === 'active'
+              ? 'bg-green-50 text-green-700'
+              : 'bg-slate-100 text-slate-600'
+          }`}
         >
-          <Plane className="w-4 h-4" />
-          New Trip
-        </Link>
+          {client.status}
+        </span>
       </div>
 
-      {/* Stats cards */}
-      <div className="grid grid-cols-3 gap-4 mb-8">
-        <div className="bg-white border border-slate-200 rounded-xl p-5">
-          <div className="flex items-center gap-2 text-sm text-slate-500 mb-1">
-            <Plane className="w-4 h-4" />
-            Trips
-          </div>
-          <p className="text-2xl font-bold text-slate-900">{client.stats?.totalTrips ?? trips.length}</p>
-        </div>
-        <div className="bg-white border border-slate-200 rounded-xl p-5">
-          <div className="flex items-center gap-2 text-sm text-slate-500 mb-1">
-            <DollarSign className="w-4 h-4" />
-            Total Savings
-          </div>
-          <p className="text-2xl font-bold text-slate-900">${(client.stats?.totalSavings ?? 0).toLocaleString()}</p>
-        </div>
-        <div className="bg-white border border-slate-200 rounded-xl p-5">
-          <div className="flex items-center gap-2 text-sm text-slate-500 mb-1">
-            <TrendingUp className="w-4 h-4" />
-            Points Optimized
-          </div>
-          <p className="text-2xl font-bold text-slate-900">{(client.stats?.totalPointsOptimized ?? 0).toLocaleString()}</p>
-        </div>
+      {/* Tabs */}
+      <div className="mb-6 border-b border-slate-200">
+        <nav className="-mb-px flex gap-6">
+          {tabs.map((tab) => (
+            <button
+              key={tab.key}
+              onClick={() => setActiveTab(tab.key)}
+              className={`border-b-2 pb-3 text-sm font-medium transition-colors ${
+                activeTab === tab.key
+                  ? 'border-blue-600 text-blue-600'
+                  : 'border-transparent text-slate-500 hover:border-slate-300 hover:text-slate-700'
+              }`}
+            >
+              {tab.label}
+            </button>
+          ))}
+        </nav>
       </div>
 
-      <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
-        {/* Profile section */}
-        <div className="bg-white border border-slate-200 rounded-xl p-6">
-          <div className="flex items-center justify-between mb-4">
-            <h2 className="font-semibold text-slate-900">Profile</h2>
-            {!editingProfile && (
-              <button onClick={startEditingProfile} className="text-sm text-blue-600 hover:text-blue-700 font-medium flex items-center gap-1">
-                <Edit2 className="w-3.5 h-3.5" />
+      {/* Tab Content */}
+      {activeTab === 'overview' && (
+        <div className="space-y-6">
+          {/* Quick stats */}
+          <div className="grid grid-cols-3 gap-4">
+            <div className="rounded-xl border border-slate-200 bg-white p-5 shadow-sm">
+              <p className="text-sm text-slate-500">Total Points Value</p>
+              <p className="mt-1 text-2xl font-bold text-slate-900">
+                {balances.reduce((sum, b) => sum + b.balance, 0).toLocaleString()}
+              </p>
+            </div>
+            <div className="rounded-xl border border-slate-200 bg-white p-5 shadow-sm">
+              <p className="text-sm text-slate-500">Programs</p>
+              <p className="mt-1 text-2xl font-bold text-slate-900">{balances.length}</p>
+            </div>
+            <div className="rounded-xl border border-slate-200 bg-white p-5 shadow-sm">
+              <p className="text-sm text-slate-500">Households</p>
+              <p className="mt-1 text-2xl font-bold text-slate-900">{client.householdsCount ?? 0}</p>
+            </div>
+          </div>
+
+          {/* Client info */}
+          <div className="rounded-xl border border-slate-200 bg-white p-6 shadow-sm">
+            <h2 className="mb-4 font-semibold text-slate-900">Client Information</h2>
+            <div className="grid grid-cols-2 gap-4 text-sm">
+              {client.email && (
+                <div className="flex items-center gap-2 text-slate-600">
+                  <Mail className="h-4 w-4 text-slate-400" />
+                  {client.email}
+                </div>
+              )}
+              {client.phone && (
+                <div className="flex items-center gap-2 text-slate-600">
+                  <Phone className="h-4 w-4 text-slate-400" />
+                  {client.phone}
+                </div>
+              )}
+              {client.dateOfBirth && (
+                <div className="flex items-center gap-2 text-slate-600">
+                  <Calendar className="h-4 w-4 text-slate-400" />
+                  {new Date(client.dateOfBirth).toLocaleDateString()}
+                </div>
+              )}
+              {client.notes && (
+                <div className="col-span-2 flex items-start gap-2 text-slate-600">
+                  <StickyNote className="mt-0.5 h-4 w-4 text-slate-400" />
+                  {client.notes}
+                </div>
+              )}
+            </div>
+          </div>
+        </div>
+      )}
+
+      {activeTab === 'balances' && (
+        <div className="space-y-4">
+          <div className="flex items-center justify-between">
+            <h2 className="font-semibold text-slate-900">Loyalty Balances</h2>
+            <button
+              onClick={() => setShowAddBalance(true)}
+              className="inline-flex items-center gap-1.5 text-sm font-medium text-blue-600 hover:text-blue-700"
+            >
+              <Plus className="h-4 w-4" />
+              Add Balance
+            </button>
+          </div>
+
+          {showAddBalance && (
+            <div className="rounded-xl border border-blue-200 bg-blue-50/50 p-4">
+              <div className="grid grid-cols-3 gap-3">
+                <input
+                  type="text"
+                  placeholder="Program name"
+                  value={balanceForm.programName}
+                  onChange={(e) => setBalanceForm((f) => ({ ...f, programName: e.target.value }))}
+                  className="rounded-lg border border-slate-200 px-3 py-2 text-sm focus:border-transparent focus:outline-none focus:ring-2 focus:ring-blue-600"
+                />
+                <input
+                  type="number"
+                  placeholder="Balance"
+                  value={balanceForm.balance}
+                  onChange={(e) => setBalanceForm((f) => ({ ...f, balance: e.target.value }))}
+                  className="rounded-lg border border-slate-200 px-3 py-2 text-sm focus:border-transparent focus:outline-none focus:ring-2 focus:ring-blue-600"
+                />
+                <input
+                  type="date"
+                  placeholder="Expiration"
+                  value={balanceForm.expirationDate}
+                  onChange={(e) => setBalanceForm((f) => ({ ...f, expirationDate: e.target.value }))}
+                  className="rounded-lg border border-slate-200 px-3 py-2 text-sm focus:border-transparent focus:outline-none focus:ring-2 focus:ring-blue-600"
+                />
+              </div>
+              <div className="mt-3 flex gap-2">
+                <button
+                  onClick={handleAddBalance}
+                  disabled={savingBalance}
+                  className="inline-flex items-center gap-1.5 rounded-lg bg-blue-600 px-4 py-2 text-sm font-medium text-white hover:bg-blue-700 disabled:opacity-60"
+                >
+                  {savingBalance ? <Loader2 className="h-3.5 w-3.5 animate-spin" /> : <Save className="h-3.5 w-3.5" />}
+                  Save
+                </button>
+                <button
+                  onClick={() => setShowAddBalance(false)}
+                  className="rounded-lg bg-white px-4 py-2 text-sm font-medium text-slate-600 hover:bg-slate-50"
+                >
+                  Cancel
+                </button>
+              </div>
+            </div>
+          )}
+
+          {balances.length === 0 ? (
+            <div className="rounded-xl border border-slate-200 bg-white py-12 text-center shadow-sm">
+              <p className="text-slate-400">No loyalty balances recorded yet.</p>
+            </div>
+          ) : (
+            <div className="overflow-hidden rounded-xl border border-slate-200 bg-white shadow-sm">
+              <table className="w-full text-sm">
+                <thead className="border-b border-slate-200 bg-slate-50">
+                  <tr>
+                    <th className="px-5 py-3 text-left font-medium text-slate-600">Program</th>
+                    <th className="px-5 py-3 text-right font-medium text-slate-600">Balance</th>
+                    <th className="px-5 py-3 text-right font-medium text-slate-600">Expiration</th>
+                    <th className="px-5 py-3 text-right font-medium text-slate-600">Updated</th>
+                    <th className="w-10 px-3 py-3" />
+                  </tr>
+                </thead>
+                <tbody className="divide-y divide-slate-100">
+                  {balances.map((bal) => (
+                    <Fragment key={bal.id}>
+                      <tr
+                        className="cursor-pointer transition-colors hover:bg-slate-50"
+                        onClick={() => setExpandedBalance(expandedBalance === bal.id ? null : bal.id)}
+                      >
+                        <td className="px-5 py-3.5 font-medium text-slate-900">{bal.programName}</td>
+                        <td className="px-5 py-3.5 text-right text-slate-900">
+                          {bal.balance.toLocaleString()}
+                        </td>
+                        <td className="px-5 py-3.5 text-right text-slate-600">
+                          {bal.expirationDate
+                            ? new Date(bal.expirationDate).toLocaleDateString()
+                            : '—'}
+                        </td>
+                        <td className="px-5 py-3.5 text-right text-slate-500">
+                          {new Date(bal.lastUpdated).toLocaleDateString()}
+                        </td>
+                        <td className="px-3 py-3.5">
+                          {expandedBalance === bal.id ? (
+                            <ChevronDown className="h-4 w-4 text-slate-400" />
+                          ) : (
+                            <ChevronRight className="h-4 w-4 text-slate-400" />
+                          )}
+                        </td>
+                      </tr>
+                      {expandedBalance === bal.id && bal.ledgerEntries && bal.ledgerEntries.length > 0 && (
+                        <tr key={`${bal.id}-ledger`}>
+                          <td colSpan={5} className="bg-slate-50 px-8 py-3">
+                            <p className="mb-2 text-xs font-medium text-slate-500">Ledger History</p>
+                            <div className="space-y-1">
+                              {bal.ledgerEntries.map((entry: LedgerEntry) => (
+                                <div
+                                  key={entry.id}
+                                  className="flex items-center justify-between text-xs"
+                                >
+                                  <span className="text-slate-600">{entry.reason}</span>
+                                  <div className="flex items-center gap-4">
+                                    <span
+                                      className={
+                                        entry.changeAmount > 0
+                                          ? 'text-green-600'
+                                          : 'text-red-600'
+                                      }
+                                    >
+                                      {entry.changeAmount > 0 ? '+' : ''}
+                                      {entry.changeAmount.toLocaleString()}
+                                    </span>
+                                    <span className="text-slate-400">
+                                      {new Date(entry.createdAt).toLocaleDateString()}
+                                    </span>
+                                  </div>
+                                </div>
+                              ))}
+                            </div>
+                          </td>
+                        </tr>
+                      )}
+                    </Fragment>
+                  ))}
+                </tbody>
+              </table>
+            </div>
+          )}
+        </div>
+      )}
+
+      {activeTab === 'preferences' && (
+        <div className="rounded-xl border border-slate-200 bg-white p-6 shadow-sm">
+          <div className="mb-4 flex items-center justify-between">
+            <h2 className="font-semibold text-slate-900">Travel Preferences</h2>
+            {!editingPrefs && (
+              <button
+                onClick={startEditingPrefs}
+                className="text-sm font-medium text-blue-600 hover:text-blue-700"
+              >
                 Edit
               </button>
             )}
           </div>
 
-          {editingProfile ? (
+          {editingPrefs ? (
             <div className="space-y-4">
+              <div className="grid grid-cols-2 gap-4">
+                <div>
+                  <label className="mb-1.5 block text-sm font-medium text-slate-700">
+                    Cabin Preference
+                  </label>
+                  <select
+                    value={prefsForm.cabinPreference}
+                    onChange={(e) => setPrefsForm((f) => ({ ...f, cabinPreference: e.target.value }))}
+                    className="block w-full rounded-lg border border-slate-200 bg-white px-3 py-2.5 text-sm focus:border-transparent focus:outline-none focus:ring-2 focus:ring-blue-600"
+                  >
+                    <option value="">No preference</option>
+                    <option value="economy">Economy</option>
+                    <option value="premium_economy">Premium Economy</option>
+                    <option value="business">Business</option>
+                    <option value="first">First</option>
+                  </select>
+                </div>
+                <div>
+                  <label className="mb-1.5 block text-sm font-medium text-slate-700">
+                    Redemption Style
+                  </label>
+                  <select
+                    value={prefsForm.redemptionStyle}
+                    onChange={(e) => setPrefsForm((f) => ({ ...f, redemptionStyle: e.target.value }))}
+                    className="block w-full rounded-lg border border-slate-200 bg-white px-3 py-2.5 text-sm focus:border-transparent focus:outline-none focus:ring-2 focus:ring-blue-600"
+                  >
+                    <option value="">No preference</option>
+                    <option value="maximize_points">Maximize Points</option>
+                    <option value="minimize_cash">Minimize Cash</option>
+                    <option value="balanced">Balanced</option>
+                  </select>
+                </div>
+              </div>
+
               <div>
-                <label className="block text-sm font-medium text-slate-700 mb-1">Name</label>
+                <label className="mb-1.5 block text-sm font-medium text-slate-700">
+                  Preferred Airlines
+                </label>
                 <input
                   type="text"
-                  value={profileForm.name}
-                  onChange={e => setProfileForm(f => ({ ...f, name: e.target.value }))}
-                  className="block w-full px-3 py-2 border border-slate-200 rounded-lg text-slate-900 focus:outline-none focus:ring-2 focus:ring-blue-600 focus:border-transparent"
+                  value={prefsForm.preferredAirlines}
+                  onChange={(e) => setPrefsForm((f) => ({ ...f, preferredAirlines: e.target.value }))}
+                  placeholder="e.g., United, Delta, AA"
+                  className="block w-full rounded-lg border border-slate-200 px-3 py-2.5 text-sm placeholder:text-slate-400 focus:border-transparent focus:outline-none focus:ring-2 focus:ring-blue-600"
                 />
               </div>
-              <div>
-                <label className="block text-sm font-medium text-slate-700 mb-1">Email</label>
+
+              <label className="flex items-center gap-2 text-sm text-slate-700">
                 <input
-                  type="email"
-                  value={profileForm.email}
-                  onChange={e => setProfileForm(f => ({ ...f, email: e.target.value }))}
-                  className="block w-full px-3 py-2 border border-slate-200 rounded-lg text-slate-900 focus:outline-none focus:ring-2 focus:ring-blue-600 focus:border-transparent"
+                  type="checkbox"
+                  checked={prefsForm.preferNonstop}
+                  onChange={(e) => setPrefsForm((f) => ({ ...f, preferNonstop: e.target.checked }))}
+                  className="rounded border-slate-300"
                 />
-              </div>
-              <div>
-                <label className="block text-sm font-medium text-slate-700 mb-1">Home Airport</label>
-                <input
-                  type="text"
-                  value={profileForm.homeAirport}
-                  onChange={e => setProfileForm(f => ({ ...f, homeAirport: e.target.value }))}
-                  maxLength={4}
-                  className="block w-full px-3 py-2 border border-slate-200 rounded-lg text-slate-900 uppercase focus:outline-none focus:ring-2 focus:ring-blue-600 focus:border-transparent"
-                />
-              </div>
-              <div>
-                <label className="block text-sm font-medium text-slate-700 mb-1">Notes</label>
-                <textarea
-                  value={profileForm.notes}
-                  onChange={e => setProfileForm(f => ({ ...f, notes: e.target.value }))}
-                  rows={3}
-                  className="block w-full px-3 py-2 border border-slate-200 rounded-lg text-slate-900 focus:outline-none focus:ring-2 focus:ring-blue-600 focus:border-transparent resize-none"
-                />
-              </div>
-              <div className="flex items-center gap-2">
-                <button onClick={saveProfile} disabled={savingProfile} className="px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 text-sm font-medium disabled:opacity-60 flex items-center gap-1.5">
-                  {savingProfile ? <Loader2 className="w-3.5 h-3.5 animate-spin" /> : <Save className="w-3.5 h-3.5" />}
+                Prefer nonstop flights
+              </label>
+
+              <div className="flex gap-2 pt-2">
+                <button
+                  onClick={handleSavePrefs}
+                  disabled={savingPrefs}
+                  className="inline-flex items-center gap-1.5 rounded-lg bg-blue-600 px-4 py-2 text-sm font-medium text-white hover:bg-blue-700 disabled:opacity-60"
+                >
+                  {savingPrefs ? <Loader2 className="h-3.5 w-3.5 animate-spin" /> : <Save className="h-3.5 w-3.5" />}
                   Save
                 </button>
-                <button onClick={() => setEditingProfile(false)} className="px-4 py-2 text-slate-600 bg-slate-100 rounded-lg hover:bg-slate-200 text-sm font-medium flex items-center gap-1.5">
-                  <X className="w-3.5 h-3.5" />
+                <button
+                  onClick={() => setEditingPrefs(false)}
+                  className="rounded-lg bg-slate-100 px-4 py-2 text-sm font-medium text-slate-600 hover:bg-slate-200"
+                >
                   Cancel
                 </button>
               </div>
             </div>
           ) : (
             <div className="space-y-3 text-sm">
-              {client.email && (
-                <div className="flex items-start gap-2">
-                  <Mail className="w-4 h-4 text-slate-400 mt-0.5" />
-                  <span className="text-slate-700">{client.email}</span>
-                </div>
-              )}
-              {client.homeAirport && (
-                <div className="flex items-start gap-2">
-                  <MapPin className="w-4 h-4 text-slate-400 mt-0.5" />
-                  <span className="text-slate-700">{client.homeAirport}</span>
-                </div>
-              )}
-              {client.notes && (
-                <div className="flex items-start gap-2">
-                  <StickyNote className="w-4 h-4 text-slate-400 mt-0.5" />
-                  <span className="text-slate-700">{client.notes}</span>
-                </div>
-              )}
-              {!client.email && !client.homeAirport && !client.notes && (
-                <p className="text-slate-400">No details added yet.</p>
-              )}
-            </div>
-          )}
-        </div>
-
-        {/* Points section */}
-        <div className="bg-white border border-slate-200 rounded-xl p-6">
-          <div className="flex items-center justify-between mb-4">
-            <h2 className="font-semibold text-slate-900">Loyalty Balances</h2>
-            {!editingPoints ? (
-              <button onClick={startEditingPoints} className="text-sm text-blue-600 hover:text-blue-700 font-medium flex items-center gap-1">
-                <Edit2 className="w-3.5 h-3.5" />
-                Edit
-              </button>
-            ) : (
-              <button onClick={addPointsRow} className="text-sm text-blue-600 hover:text-blue-700 font-medium flex items-center gap-1">
-                <Plus className="w-3.5 h-3.5" />
-                Add
-              </button>
-            )}
-          </div>
-
-          {editingPoints ? (
-            <div className="space-y-3">
-              {pointsForm.length === 0 && (
-                <p className="text-sm text-slate-400 py-2">No balances yet.</p>
-              )}
-              {pointsForm.map((entry, idx) => (
-                <div key={idx} className="flex items-center gap-2">
-                  <select
-                    value={entry.program}
-                    onChange={e => updatePointsEntry(idx, 'program', e.target.value)}
-                    className="flex-1 px-3 py-2 border border-slate-200 rounded-lg text-sm text-slate-900 focus:outline-none focus:ring-2 focus:ring-blue-600 bg-white"
-                  >
-                    {VALID_PROGRAMS.map(prog => (
-                      <option key={prog} value={prog} disabled={usedPrograms.has(prog) && entry.program !== prog}>
-                        {getProgramLabel(prog)}
-                      </option>
-                    ))}
-                  </select>
-                  <input
-                    type="number"
-                    value={entry.balance}
-                    onChange={e => updatePointsEntry(idx, 'balance', e.target.value)}
-                    min={0}
-                    placeholder="0"
-                    className="w-28 px-3 py-2 border border-slate-200 rounded-lg text-sm text-slate-900 focus:outline-none focus:ring-2 focus:ring-blue-600"
-                  />
-                  <button onClick={() => removePointsEntry(idx)} className="p-1.5 text-slate-400 hover:text-red-500">
-                    <Trash2 className="w-4 h-4" />
-                  </button>
-                </div>
-              ))}
-              <div className="flex items-center gap-2 pt-2">
-                <button onClick={savePoints} disabled={savingPoints} className="px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 text-sm font-medium disabled:opacity-60 flex items-center gap-1.5">
-                  {savingPoints ? <Loader2 className="w-3.5 h-3.5 animate-spin" /> : <Save className="w-3.5 h-3.5" />}
-                  Save
-                </button>
-                <button onClick={() => setEditingPoints(false)} className="px-4 py-2 text-slate-600 bg-slate-100 rounded-lg hover:bg-slate-200 text-sm font-medium flex items-center gap-1.5">
-                  <X className="w-3.5 h-3.5" />
-                  Cancel
-                </button>
+              <div className="flex justify-between">
+                <span className="text-slate-500">Cabin Preference</span>
+                <span className="font-medium text-slate-900">
+                  {preferences?.cabinPreference || 'Not set'}
+                </span>
+              </div>
+              <div className="flex justify-between">
+                <span className="text-slate-500">Redemption Style</span>
+                <span className="font-medium text-slate-900">
+                  {preferences?.redemptionStyle || 'Not set'}
+                </span>
+              </div>
+              <div className="flex justify-between">
+                <span className="text-slate-500">Nonstop Flights</span>
+                <span className="font-medium text-slate-900">
+                  {preferences?.preferNonstop ? 'Yes' : 'No preference'}
+                </span>
+              </div>
+              <div className="flex justify-between">
+                <span className="text-slate-500">Preferred Airlines</span>
+                <span className="font-medium text-slate-900">
+                  {preferences?.preferredAirlines?.join(', ') || 'None'}
+                </span>
               </div>
             </div>
-          ) : (
-            <div className="space-y-2">
-              {pointsList.length === 0 ? (
-                <p className="text-sm text-slate-400 py-2">No loyalty balances recorded yet.</p>
-              ) : (
-                pointsList.map(p => (
-                  <div key={p.program} className="flex items-center justify-between py-2 border-b border-slate-100 last:border-0">
-                    <span className="text-sm text-slate-700">{getProgramLabel(p.program)}</span>
-                    <span className="text-sm font-medium text-slate-900">{p.balance.toLocaleString()}</span>
-                  </div>
-                ))
-              )}
-            </div>
           )}
         </div>
-      </div>
+      )}
 
-      {/* Trip history */}
-      <div className="mt-8">
-        <div className="flex items-center justify-between mb-4">
-          <h2 className="font-semibold text-slate-900">Trip History</h2>
+      {activeTab === 'households' && (
+        <div className="rounded-xl border border-slate-200 bg-white py-12 text-center shadow-sm">
+          <Home className="mx-auto h-8 w-8 text-slate-300" />
+          <p className="mt-2 text-sm text-slate-500">
+            Household memberships will appear here.
+          </p>
           <Link
-            href={`/solo/setup?clientId=${clientId}`}
-            className="text-sm text-blue-600 hover:text-blue-700 font-medium flex items-center gap-1"
+            href="/households"
+            className="mt-4 inline-flex items-center gap-2 text-sm font-medium text-blue-600 hover:text-blue-700"
           >
-            <Plus className="w-3.5 h-3.5" />
-            New Trip
+            Go to Households
           </Link>
         </div>
+      )}
 
-        {trips.length === 0 ? (
-          <div className="bg-white border border-slate-200 rounded-xl p-8 text-center">
-            <Plane className="w-8 h-8 text-slate-300 mx-auto mb-3" />
-            <p className="text-slate-500 mb-4">No trips yet for this client.</p>
-            <Link
-              href={`/solo/setup?clientId=${clientId}`}
-              className="inline-flex items-center gap-2 px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 text-sm font-medium"
-            >
-              <Plane className="w-4 h-4" />
-              Create First Trip
-            </Link>
-          </div>
-        ) : (
-          <div className="bg-white border border-slate-200 rounded-xl overflow-hidden">
-            <table className="w-full text-sm">
-              <thead className="bg-slate-50 border-b border-slate-200">
-                <tr>
-                  <th className="text-left px-5 py-3 font-medium text-slate-600">Trip</th>
-                  <th className="text-left px-5 py-3 font-medium text-slate-600">Dates</th>
-                  <th className="text-left px-5 py-3 font-medium text-slate-600">Status</th>
-                  <th className="text-right px-5 py-3 font-medium text-slate-600">Est. Savings</th>
-                </tr>
-              </thead>
-              <tbody className="divide-y divide-slate-100">
-                {trips.map(trip => (
-                  <tr
-                    key={trip.tripId}
-                    onClick={() => router.push(`/solo/results?trip_id=${trip.tripId}`)}
-                    className="hover:bg-slate-50 cursor-pointer transition-colors"
-                  >
-                    <td className="px-5 py-3.5">
-                      <span className="font-medium text-slate-900">{trip.title || trip.destinations?.join(' → ') || 'Trip'}</span>
-                    </td>
-                    <td className="px-5 py-3.5 text-slate-600">
-                      {trip.startDate ? new Date(trip.startDate).toLocaleDateString('en-US', { month: 'short', day: 'numeric' }) : '—'}
-                      {trip.endDate ? ` – ${new Date(trip.endDate).toLocaleDateString('en-US', { month: 'short', day: 'numeric' })}` : ''}
-                    </td>
-                    <td className="px-5 py-3.5">
-                      <span className={`inline-block px-2.5 py-0.5 rounded-full text-xs font-medium ${
-                        trip.status === 'completed' ? 'bg-green-50 text-green-700' :
-                        trip.status === 'optimized' || trip.status === 'selected' ? 'bg-blue-50 text-blue-700' :
-                        'bg-slate-100 text-slate-600'
-                      }`}>
-                        {trip.status}
-                      </span>
-                    </td>
-                    <td className="px-5 py-3.5 text-right font-medium text-slate-900">
-                      {trip.estimatedSavings != null ? `$${trip.estimatedSavings.toLocaleString()}` : '—'}
-                    </td>
-                  </tr>
-                ))}
-              </tbody>
-            </table>
-          </div>
-        )}
-      </div>
+      {activeTab === 'trips' && (
+        <div className="rounded-xl border border-slate-200 bg-white py-12 text-center shadow-sm">
+          <Plane className="mx-auto h-8 w-8 text-slate-300" />
+          <p className="mt-2 text-sm text-slate-500">
+            Trip requests involving this client will appear here.
+          </p>
+          <Link
+            href="/trip-requests"
+            className="mt-4 inline-flex items-center gap-2 text-sm font-medium text-blue-600 hover:text-blue-700"
+          >
+            Go to Trip Requests
+          </Link>
+        </div>
+      )}
     </div>
   );
 }
