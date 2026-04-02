@@ -1,56 +1,58 @@
 version: 1
-frontend:
-  phases:
-    preBuild:
-      commands:
-        - npm ci --cache .npm --prefer-offline
-        - npx prisma generate
-        - |
-          echo "=== Branch-based environment configuration ==="
-          echo "AWS_BRANCH=$AWS_BRANCH"
+applications:
+  - appRoot: frontend
+    frontend:
+      phases:
+        preBuild:
+          commands:
+            - npm ci --cache .npm --prefer-offline
+            - npx prisma generate
+            - |
+              echo "=== Branch-based environment configuration ==="
+              echo "AWS_BRANCH=$AWS_BRANCH"
 
-          # Database URL and JWT secret are set in Amplify Console > Environment Variables
-          # They are automatically available as process.env at build time and runtime
+              # Database URL and JWT secret are set in Amplify Console > Environment Variables
+              # They are automatically available as process.env at build time and runtime
 
-          if [ "$AWS_BRANCH" = "dev" ]; then
-            BACKEND="${NEXT_PUBLIC_BACKEND_URL:-https://vi3dh2q9ic.us-east-1.awsapprunner.com}"
-            STRIPE="${NEXT_PUBLIC_STRIPE_PUBLISHABLE_KEY:-pk_test_51T6mgQLpzBoX3ffZw5IebJzL3YWEYrACRblbysqlIeDCN1oWpCLmQVwlhfKwMg9Sb8Lo5S60pUw1FDMGpEiqY8sh00Qb8qCUKH}"
-          else
-            BACKEND="${NEXT_PUBLIC_BACKEND_URL:-https://xezfenhu6t.us-east-1.awsapprunner.com}"
-            STRIPE="${NEXT_PUBLIC_STRIPE_PUBLISHABLE_KEY:-pk_live_51Ry29NLCwmHfiBloGeoO9I3WVNV6vRZWyd7sDhKwllD8jOIxgUjx8OVUTR0WrVHHRxOYh0DRthb9zVUbiR6ZrtJ900UpjHe6R3}"
-          fi
+              if [ "$AWS_BRANCH" = "dev" ]; then
+                BACKEND="${NEXT_PUBLIC_BACKEND_URL:-https://vi3dh2q9ic.us-east-1.awsapprunner.com}"
+                STRIPE="${NEXT_PUBLIC_STRIPE_PUBLISHABLE_KEY:-pk_test_51T6mgQLpzBoX3ffZw5IebJzL3YWEYrACRblbysqlIeDCN1oWpCLmQVwlhfKwMg9Sb8Lo5S60pUw1FDMGpEiqY8sh00Qb8qCUKH}"
+              else
+                BACKEND="${NEXT_PUBLIC_BACKEND_URL:-https://xezfenhu6t.us-east-1.awsapprunner.com}"
+                STRIPE="${NEXT_PUBLIC_STRIPE_PUBLISHABLE_KEY:-pk_live_51Ry29NLCwmHfiBloGeoO9I3WVNV6vRZWyd7sDhKwllD8jOIxgUjx8OVUTR0WrVHHRxOYh0DRthb9zVUbiR6ZrtJ900UpjHe6R3}"
+              fi
 
-          echo "NEXT_PUBLIC_BACKEND_URL=$BACKEND" > .env.production.local
-          if [ -n "$STRIPE" ]; then
-            echo "NEXT_PUBLIC_STRIPE_PUBLISHABLE_KEY=$STRIPE" >> .env.production.local
-          fi
+              echo "NEXT_PUBLIC_BACKEND_URL=$BACKEND" > .env.production.local
+              if [ -n "$STRIPE" ]; then
+                echo "NEXT_PUBLIC_STRIPE_PUBLISHABLE_KEY=$STRIPE" >> .env.production.local
+              fi
 
-          # Pass server-side env vars through to the SSR runtime
-          if [ -n "${DATABASE_URL:-}" ]; then
-            echo "DATABASE_URL=$DATABASE_URL" >> .env.production.local
-            echo "DATABASE_URL is set (${#DATABASE_URL} chars)"
-          else
-            echo "WARNING: DATABASE_URL is not set. Set it in Amplify Console > Environment Variables."
-          fi
-          if [ -n "${JWT_SECRET:-}" ]; then
-            echo "JWT_SECRET=$JWT_SECRET" >> .env.production.local
-          fi
-          if [ -n "${OPENAI_API_KEY:-}" ]; then
-            echo "OPENAI_API_KEY=$OPENAI_API_KEY" >> .env.production.local
-          fi
+              # Pass server-side env vars through to the SSR runtime
+              if [ -n "${DATABASE_URL:-}" ]; then
+                echo "DATABASE_URL=$DATABASE_URL" >> .env.production.local
+                echo "DATABASE_URL is set (${#DATABASE_URL} chars)"
+              else
+                echo "WARNING: DATABASE_URL is not set. Set it in Amplify Console > Environment Variables."
+              fi
+              if [ -n "${JWT_SECRET:-}" ]; then
+                echo "JWT_SECRET=$JWT_SECRET" >> .env.production.local
+              fi
+              if [ -n "${OPENAI_API_KEY:-}" ]; then
+                echo "OPENAI_API_KEY=$OPENAI_API_KEY" >> .env.production.local
+              fi
 
-          echo "--- .env.production.local (keys only) ---"
-          sed 's/=.*//' .env.production.local || true
-          echo "============================="
-    build:
-      commands:
-        - npm run build
-  artifacts:
-    baseDirectory: .next
-    files:
-      - '**/*'
-  cache:
-    paths:
-      - .next/cache/**/*
-      - .npm/**/*
-      - node_modules/**/*
+              echo "--- .env.production.local (keys only) ---"
+              sed 's/=.*//' .env.production.local || true
+              echo "============================="
+        build:
+          commands:
+            - npm run build
+      artifacts:
+        baseDirectory: .next
+        files:
+          - '**/*'
+      cache:
+        paths:
+          - .next/cache/**/*
+          - .npm/**/*
+          - node_modules/**/*
