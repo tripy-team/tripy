@@ -273,10 +273,10 @@ function NavigationInner() {
                   Log in
                 </Link>
                 <Link
-                  href="/#waitlist"
+                  href={signupHref}
                   className="px-5 py-2.5 bg-blue-600 text-white rounded-xl hover:bg-blue-700 transition-all shadow-lg shadow-blue-600/20 hover:shadow-xl hover:shadow-blue-600/30 font-medium text-sm"
                 >
-                  Join Waitlist
+                  Sign Up
                 </Link>
               </div>
             )}
@@ -430,11 +430,11 @@ function NavigationInner() {
                   Log in
                 </Link>
                 <Link
-                  href="/#waitlist"
+                  href={signupHref}
                   onClick={() => setMobileMenuOpen(false)}
                   className="block w-full text-center px-4 py-3 bg-blue-600 text-white rounded-xl font-medium hover:bg-blue-700"
                 >
-                  Join Waitlist
+                  Sign Up
                 </Link>
               </div>
             )}

@@ -1,147 +1,127 @@
 'use client';
 
-import { useEffect, useState, useRef, FormEvent } from 'react';
+import { useEffect, useState, useRef } from 'react';
 import { useRouter } from 'next/navigation';
 import Link from 'next/link';
 import {
     Users,
     Sparkles,
-    Clock,
     BarChart3,
     ArrowRight,
     CheckCircle2,
     Shield,
     Zap,
     FileText,
-    Mail,
+    Repeat,
+    Bell,
+    Brain,
+    PieChart,
+    Plane,
+    CreditCard,
+    TrendingUp,
+    Target,
+    Clock,
+    Wallet,
 } from 'lucide-react';
 import { Navigation } from '@/components/navigation';
 import Footer from '@/components/footer';
 
-function WaitlistForm({ variant = 'hero' }: { variant?: 'hero' | 'bottom' }) {
-    const [email, setEmail] = useState('');
-    const [submitted, setSubmitted] = useState(false);
-    const [submitting, setSubmitting] = useState(false);
-    const [error, setError] = useState('');
-
-    const handleSubmit = async (e: FormEvent) => {
-        e.preventDefault();
-        if (!email.trim() || !/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email)) {
-            setError('Please enter a valid email address.');
-            return;
-        }
-        setSubmitting(true);
-        setError('');
-
-        // TODO: connect to backend waitlist endpoint
-        await new Promise((r) => setTimeout(r, 800));
-        setSubmitted(true);
-        setSubmitting(false);
-    };
-
-    if (submitted) {
-        return (
-            <div className="flex items-center gap-3 rounded-2xl border border-emerald-200 bg-emerald-50 px-6 py-4">
-                <CheckCircle2 className="h-5 w-5 shrink-0 text-emerald-600" />
-                <p className="text-sm font-medium text-emerald-800">
-                    You&apos;re on the list! We&apos;ll be in touch soon.
-                </p>
-            </div>
-        );
-    }
-
-    const isHero = variant === 'hero';
-
-    return (
-        <form onSubmit={handleSubmit} className="w-full max-w-md">
-            <div
-                className={`flex gap-3 ${isHero ? 'flex-col sm:flex-row' : 'flex-col sm:flex-row'}`}
-            >
-                <div className="relative flex-1">
-                    <Mail
-                        className={`absolute left-3.5 top-1/2 h-4 w-4 -translate-y-1/2 ${isHero ? 'text-slate-400' : 'text-blue-300'}`}
-                    />
-                    <input
-                        type="email"
-                        value={email}
-                        onChange={(e) => setEmail(e.target.value)}
-                        placeholder="you@agency.com"
-                        className={`w-full rounded-xl py-3 pl-10 pr-4 text-sm transition-all focus:outline-none focus:ring-2 ${
-                            isHero
-                                ? 'border border-slate-200 bg-white text-slate-900 placeholder:text-slate-400 focus:border-transparent focus:ring-blue-600'
-                                : 'border border-white/20 bg-white/10 text-white placeholder:text-blue-200 backdrop-blur-sm focus:border-transparent focus:ring-white/50'
-                        }`}
-                    />
-                </div>
-                <button
-                    type="submit"
-                    disabled={submitting}
-                    className={`flex shrink-0 items-center justify-center gap-2 rounded-xl px-6 py-3 text-sm font-medium transition-all disabled:cursor-not-allowed disabled:opacity-70 ${
-                        isHero
-                            ? 'bg-blue-600 text-white shadow-lg shadow-blue-600/20 hover:bg-blue-700 hover:shadow-xl hover:shadow-blue-600/30'
-                            : 'bg-white text-blue-700 shadow-lg hover:bg-blue-50'
-                    }`}
-                >
-                    {submitting ? (
-                        'Joining...'
-                    ) : (
-                        <>
-                            Join Waitlist <ArrowRight className="h-4 w-4" />
-                        </>
-                    )}
-                </button>
-            </div>
-            {error && <p className="mt-2 text-xs text-red-500">{error}</p>}
-        </form>
-    );
-}
-
-const VALUE_PROPS = [
+const CORE_FEATURES = [
     {
-        icon: Users,
-        title: 'Client Loyalty Portfolios',
+        icon: Wallet,
+        title: 'Loyalty Portfolio Management',
         description:
-            'Store each client\u2019s points balances across programs. Enter once, reuse across every trip.',
+            'Store and manage client loyalty balances across Chase, Amex, Citi, Bilt, and 15+ major programs. Enter balances once, reuse across every trip.',
     },
     {
-        icon: Zap,
-        title: 'Instant Cash vs. Points Optimization',
+        icon: Brain,
+        title: 'AI-Powered Recommendation Engine',
         description:
-            'Our solver finds the best transfer routes and compares cash vs. points in seconds, not hours.',
+            'Generate 3\u20135 ranked strategies per trip\u2014points only, cash only, mixed, or hold-and-wait\u2014with per-traveler allocation breakdowns.',
+    },
+    {
+        icon: Repeat,
+        title: 'Transfer & Pooling Rules Engine',
+        description:
+            'Built-in knowledge of which bank currencies transfer to which airlines and hotels, at what ratios, and whether household pooling applies.',
     },
     {
         icon: FileText,
-        title: 'Client-Ready Deliverables',
+        title: 'Client-Ready Memos & Exports',
         description:
-            'Generate polished, branded booking instructions your clients can actually follow.',
+            'Auto-generate advisor-facing summaries, client-facing explanations, copyable email drafts, and shareable PDF booking guides.',
     },
     {
-        icon: BarChart3,
-        title: 'Track Savings Across Clients',
+        icon: Bell,
+        title: 'Alerts & Monitoring',
         description:
-            'See total savings generated across your portfolio. Justify your fees with real data.',
+            'Get notified about live transfer bonuses, expiring balances, and time-sensitive redemption opportunities across your client base.',
+    },
+    {
+        icon: PieChart,
+        title: 'Portfolio Analytics & Insights',
+        description:
+            'See concentration risk, estimated portfolio value, flexible vs. locked currency ratios, and underutilized programs at a glance.',
     },
 ];
 
-const STEPS = [
+const HOW_IT_WORKS = [
     {
         number: '01',
-        title: 'Add Your Client',
+        title: 'Add Your Clients & Households',
         description:
-            'Create a client profile with their loyalty balances across Chase, Amex, Citi, and more.',
+            'Create client profiles with loyalty balances across programs. Group families into households to unlock pooling and cross-traveler strategies.',
     },
     {
         number: '02',
-        title: 'Run an Optimization',
+        title: 'Submit a Trip Request',
         description:
-            'Enter the trip details. Tripy finds the optimal cash + points strategy in seconds.',
+            'Enter origin, destination, dates, cabin preference, and budget. Assign travelers from a client or household to the trip.',
     },
     {
         number: '03',
+        title: 'Get Ranked Strategies',
+        description:
+            'Tripy\u2019s engine analyzes every transfer route, bonus opportunity, and traveler balance to produce optimized cash + points strategies.',
+    },
+    {
+        number: '04',
         title: 'Share the Recommendation',
         description:
-            'Send a polished, branded booking guide your client can follow step by step.',
+            'Send a polished memo with clear explanations your client can follow\u2014including why this strategy won and what the alternatives were.',
     },
+];
+
+const STRATEGY_TYPES = [
+    {
+        icon: Target,
+        label: 'Points Only',
+        description: 'Maximize award redemptions to minimize out-of-pocket cost.',
+    },
+    {
+        icon: CreditCard,
+        label: 'Cash Only',
+        description: 'When paid fares offer better value than burning points.',
+    },
+    {
+        icon: TrendingUp,
+        label: 'Mixed Strategy',
+        description: 'Split across cash and points for the optimal balance of cost and flexibility.',
+    },
+    {
+        icon: Clock,
+        label: 'Hold & Wait',
+        description: 'Preserve flexible currencies when a transfer bonus or better availability is expected.',
+    },
+];
+
+const INSIGHT_EXAMPLES = [
+    'Client is overexposed to a low-value hotel program',
+    'A live 30% transfer bonus makes Aeroplan the clear winner',
+    'Preserve Chase Ultimate Rewards for future high-value redemptions',
+    'Taxes and fees make this award less compelling than a paid fare',
+    'Partial family redemption\u2014Passenger A on points, Passenger B on cash',
+    'Points expire in 45 days\u2014use them or lose them',
 ];
 
 export default function LandingPage() {
@@ -220,7 +200,7 @@ export default function LandingPage() {
                     <div className="mb-6 inline-flex items-center gap-2 rounded-full border border-blue-200 bg-blue-50 px-4 py-1.5">
                         <Sparkles className="h-4 w-4 text-blue-600" />
                         <span className="text-sm font-medium text-blue-700">
-                            Early Access — Limited Spots
+                            AI-Powered Loyalty Point Wealth Management
                         </span>
                     </div>
 
@@ -233,65 +213,102 @@ export default function LandingPage() {
                     </h1>
 
                     <p className="mx-auto mb-10 max-w-2xl text-lg leading-relaxed text-slate-600 sm:text-xl">
-                        Stop rebuilding transfer strategies from scratch. Store
-                        client points, generate optimized cash&nbsp;+&nbsp;points
-                        recommendations, and deliver polished booking guides —
-                        all in one place.
+                        Tripy helps travel advisors manage client loyalty portfolios,
+                        recommend the best cash&nbsp;vs.&nbsp;points redemption strategies,
+                        and deliver polished booking guidance with clear AI-generated
+                        explanations&mdash;all in one platform.
                     </p>
 
-                    <div className="flex flex-col items-center gap-5">
-                        <WaitlistForm variant="hero" />
-                        <p className="text-sm text-slate-500">
-                            Already have an account?{' '}
-                            <Link
-                                href="/login"
-                                className="font-medium text-blue-600 hover:text-blue-700"
-                            >
-                                Log in
-                            </Link>
-                        </p>
+                    <div className="flex flex-col items-center gap-4 sm:flex-row sm:justify-center">
+                        <Link
+                            href="/register"
+                            className="flex items-center gap-2 rounded-xl bg-blue-600 px-8 py-3.5 text-base font-medium text-white shadow-lg shadow-blue-600/20 transition-all hover:bg-blue-700 hover:shadow-xl hover:shadow-blue-600/30"
+                        >
+                            Sign Up Free <ArrowRight className="h-4 w-4" />
+                        </Link>
+                        <Link
+                            href="/login"
+                            className="flex items-center gap-2 rounded-xl border border-slate-200 bg-white px-8 py-3.5 text-base font-medium text-slate-700 transition-all hover:border-slate-300 hover:bg-slate-50"
+                        >
+                            Log In
+                        </Link>
                     </div>
+
+                    <p className="mt-6 text-sm text-slate-400">
+                        No credit card required. Built for independent advisors and small teams.
+                    </p>
                 </div>
             </section>
 
             {/* Social proof strip */}
             <section className="border-y border-slate-100 bg-slate-50/50 py-8">
-                <div className="mx-auto max-w-5xl px-6">
-                    <p className="text-center text-sm font-medium tracking-wide text-slate-400 uppercase">
-                        Built for independent points consultants &amp; small
-                        travel advisory teams
+                <div className="mx-auto flex max-w-5xl flex-wrap items-center justify-center gap-x-10 gap-y-4 px-6">
+                    {[
+                        'Chase Ultimate Rewards',
+                        'Amex Membership Rewards',
+                        'Capital One Miles',
+                        'Citi ThankYou',
+                        'Bilt Rewards',
+                        'Aeroplan',
+                        'Hyatt',
+                        'Hilton Honors',
+                        'Marriott Bonvoy',
+                    ].map((program) => (
+                        <span
+                            key={program}
+                            className="text-sm font-medium text-slate-400"
+                        >
+                            {program}
+                        </span>
+                    ))}
+                </div>
+            </section>
+
+            {/* What is Tripy */}
+            <section className="py-24">
+                <div className="mx-auto max-w-4xl px-6 text-center">
+                    <h2 className="mb-4 text-4xl font-bold text-slate-900">
+                        What is Tripy?
+                    </h2>
+                    <p className="mx-auto max-w-3xl text-lg leading-relaxed text-slate-600">
+                        Tripy is a <strong>loyalty portfolio management and redemption
+                        strategy platform</strong> purpose-built for travel advisors.
+                        It&apos;s not a generic travel CRM&mdash;it&apos;s a specialized
+                        workspace that helps you track client loyalty assets like a
+                        portfolio, analyze every transfer route and bonus opportunity,
+                        and recommend the smartest way to book each trip using cash,
+                        points, or a mix of both.
                     </p>
                 </div>
             </section>
 
-            {/* Value Props */}
-            <section className="py-24">
+            {/* Core Features */}
+            <section className="bg-slate-50 py-24">
                 <div className="mx-auto max-w-6xl px-6">
                     <div className="mx-auto mb-16 max-w-2xl text-center">
                         <h2 className="mb-4 text-4xl font-bold text-slate-900">
-                            Hours of research, done in seconds
+                            Everything advisors need, nothing they don&apos;t
                         </h2>
                         <p className="text-lg text-slate-600">
-                            Tripy replaces the spreadsheets, screenshots, and
-                            manual research with a purpose-built optimization
-                            engine.
+                            From portfolio tracking to AI-powered explanations,
+                            Tripy handles the hard parts of loyalty optimization.
                         </p>
                     </div>
 
-                    <div className="grid gap-8 sm:grid-cols-2">
-                        {VALUE_PROPS.map((prop) => (
+                    <div className="grid gap-8 sm:grid-cols-2 lg:grid-cols-3">
+                        {CORE_FEATURES.map((feature) => (
                             <div
-                                key={prop.title}
-                                className="group rounded-2xl border border-slate-100 bg-white p-8 transition-all hover:border-blue-100 hover:shadow-lg hover:shadow-blue-600/5"
+                                key={feature.title}
+                                className="group rounded-2xl border border-slate-200 bg-white p-8 transition-all hover:border-blue-100 hover:shadow-lg hover:shadow-blue-600/5"
                             >
                                 <div className="mb-5 flex h-12 w-12 items-center justify-center rounded-xl bg-blue-50 text-blue-600 transition-colors group-hover:bg-blue-600 group-hover:text-white">
-                                    <prop.icon className="h-6 w-6" />
+                                    <feature.icon className="h-6 w-6" />
                                 </div>
                                 <h3 className="mb-2 text-xl font-semibold text-slate-900">
-                                    {prop.title}
+                                    {feature.title}
                                 </h3>
                                 <p className="leading-relaxed text-slate-600">
-                                    {prop.description}
+                                    {feature.description}
                                 </p>
                             </div>
                         ))}
@@ -300,29 +317,64 @@ export default function LandingPage() {
             </section>
 
             {/* How It Works */}
-            <section className="bg-slate-50 py-24">
+            <section className="py-24">
                 <div className="mx-auto max-w-5xl px-6">
                     <div className="mx-auto mb-16 max-w-2xl text-center">
                         <h2 className="mb-4 text-4xl font-bold text-slate-900">
-                            Three steps. Client impressed.
+                            From trip request to client recommendation in minutes
                         </h2>
                         <p className="text-lg text-slate-600">
-                            Go from client request to polished recommendation
-                            in minutes.
+                            Four steps to impress every client with data-backed booking guidance.
                         </p>
                     </div>
 
-                    <div className="grid gap-12 md:grid-cols-3">
-                        {STEPS.map((step) => (
-                            <div key={step.number} className="relative">
-                                <span className="mb-4 block text-5xl font-bold text-blue-100">
+                    <div className="grid gap-12 md:grid-cols-2">
+                        {HOW_IT_WORKS.map((step) => (
+                            <div key={step.number} className="relative flex gap-5">
+                                <span className="text-5xl font-bold text-blue-100">
                                     {step.number}
                                 </span>
-                                <h3 className="mb-2 text-xl font-semibold text-slate-900">
-                                    {step.title}
+                                <div>
+                                    <h3 className="mb-2 text-xl font-semibold text-slate-900">
+                                        {step.title}
+                                    </h3>
+                                    <p className="leading-relaxed text-slate-600">
+                                        {step.description}
+                                    </p>
+                                </div>
+                            </div>
+                        ))}
+                    </div>
+                </div>
+            </section>
+
+            {/* Strategy Types */}
+            <section className="border-y border-slate-100 bg-slate-50 py-24">
+                <div className="mx-auto max-w-5xl px-6">
+                    <div className="mx-auto mb-16 max-w-2xl text-center">
+                        <h2 className="mb-4 text-4xl font-bold text-slate-900">
+                            Multiple strategies, one clear winner
+                        </h2>
+                        <p className="text-lg text-slate-600">
+                            The recommendation engine generates ranked strategies
+                            so you can confidently advise the best path.
+                        </p>
+                    </div>
+
+                    <div className="grid gap-6 sm:grid-cols-2 lg:grid-cols-4">
+                        {STRATEGY_TYPES.map((strategy) => (
+                            <div
+                                key={strategy.label}
+                                className="rounded-2xl border border-slate-200 bg-white p-6 text-center transition-all hover:border-blue-200 hover:shadow-md"
+                            >
+                                <div className="mx-auto mb-4 flex h-12 w-12 items-center justify-center rounded-xl bg-blue-50 text-blue-600">
+                                    <strategy.icon className="h-6 w-6" />
+                                </div>
+                                <h3 className="mb-1.5 text-lg font-semibold text-slate-900">
+                                    {strategy.label}
                                 </h3>
-                                <p className="leading-relaxed text-slate-600">
-                                    {step.description}
+                                <p className="text-sm leading-relaxed text-slate-500">
+                                    {strategy.description}
                                 </p>
                             </div>
                         ))}
@@ -330,11 +382,75 @@ export default function LandingPage() {
                 </div>
             </section>
 
-            {/* Pain / Gain comparison */}
+            {/* AI Insights */}
             <section className="py-24">
                 <div className="mx-auto max-w-5xl px-6">
+                    <div className="grid items-center gap-16 lg:grid-cols-2">
+                        <div>
+                            <div className="mb-4 inline-flex items-center gap-2 rounded-full border border-blue-200 bg-blue-50 px-4 py-1.5">
+                                <Sparkles className="h-4 w-4 text-blue-600" />
+                                <span className="text-sm font-medium text-blue-700">
+                                    AI-Powered Insights
+                                </span>
+                            </div>
+                            <h2 className="mb-4 text-4xl font-bold text-slate-900">
+                                Smart insights that explain the &ldquo;why&rdquo;
+                            </h2>
+                            <p className="mb-6 text-lg leading-relaxed text-slate-600">
+                                Every recommendation comes with AI-generated explanations
+                                in both advisor-facing and client-facing language.
+                                Know why the top strategy won, why alternatives ranked
+                                lower, and what trade-offs to consider.
+                            </p>
+                            <ul className="space-y-3">
+                                {[
+                                    'Internal advisor summary with technical rationale',
+                                    'Client-friendly explanation they can understand',
+                                    'Copyable email draft ready to send',
+                                    'Per-traveler allocation breakdown',
+                                ].map((item) => (
+                                    <li
+                                        key={item}
+                                        className="flex items-start gap-3 text-slate-700"
+                                    >
+                                        <CheckCircle2 className="mt-0.5 h-5 w-5 shrink-0 text-blue-600" />
+                                        {item}
+                                    </li>
+                                ))}
+                            </ul>
+                        </div>
+
+                        <div className="rounded-2xl border border-slate-200 bg-slate-50 p-8">
+                            <h3 className="mb-5 text-lg font-semibold text-slate-900">
+                                Example insights Tripy surfaces
+                            </h3>
+                            <div className="space-y-3">
+                                {INSIGHT_EXAMPLES.map((insight, i) => (
+                                    <div
+                                        key={i}
+                                        className="flex items-start gap-3 rounded-xl border border-slate-100 bg-white px-4 py-3"
+                                    >
+                                        <Zap className="mt-0.5 h-4 w-4 shrink-0 text-amber-500" />
+                                        <span className="text-sm text-slate-700">
+                                            {insight}
+                                        </span>
+                                    </div>
+                                ))}
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            </section>
+
+            {/* Pain / Gain comparison */}
+            <section className="bg-slate-50 py-24">
+                <div className="mx-auto max-w-5xl px-6">
+                    <div className="mx-auto mb-16 max-w-2xl text-center">
+                        <h2 className="mb-4 text-4xl font-bold text-slate-900">
+                            Before &amp; after Tripy
+                        </h2>
+                    </div>
                     <div className="grid gap-8 md:grid-cols-2">
-                        {/* Without Tripy */}
                         <div className="rounded-2xl border border-slate-200 bg-white p-8">
                             <div className="mb-6 flex items-center gap-3">
                                 <Clock className="h-6 w-6 text-slate-400" />
@@ -344,11 +460,12 @@ export default function LandingPage() {
                             </div>
                             <ul className="space-y-4">
                                 {[
-                                    'Manually check transfer partners across 4-5 bank programs',
-                                    'Rebuild transfer logic from scratch for every client',
-                                    'Copy screenshots into emails as "recommendations"',
+                                    'Manually check transfer partners across 4\u20135 bank programs',
+                                    'Rebuild transfer logic from scratch for every client trip',
+                                    'Copy screenshots into emails as \u201crecommendations\u201d',
                                     'Re-enter points balances every single trip',
-                                    'No way to track total savings across clients',
+                                    'No way to track total savings or portfolio exposure',
+                                    'Hours of research per booking with no audit trail',
                                 ].map((item) => (
                                     <li
                                         key={item}
@@ -361,7 +478,6 @@ export default function LandingPage() {
                             </ul>
                         </div>
 
-                        {/* With Tripy */}
                         <div className="rounded-2xl border border-blue-200 bg-blue-50/50 p-8">
                             <div className="mb-6 flex items-center gap-3">
                                 <Zap className="h-6 w-6 text-blue-600" />
@@ -371,11 +487,12 @@ export default function LandingPage() {
                             </div>
                             <ul className="space-y-4">
                                 {[
-                                    'Optimized cash + points strategies in seconds',
-                                    'Client points stored once, reused across trips',
+                                    'Optimized cash + points strategies generated in seconds',
+                                    'Client points stored once, reused across every trip',
                                     'Branded, step-by-step booking guides clients can follow',
                                     'Portfolio-wide savings tracking with real data',
-                                    'Look smarter and save hours every week',
+                                    'Transfer bonus alerts so you never miss an opportunity',
+                                    'Full ledger history and audit trail for every balance change',
                                 ].map((item) => (
                                     <li
                                         key={item}
@@ -391,6 +508,55 @@ export default function LandingPage() {
                 </div>
             </section>
 
+            {/* Who it's for */}
+            <section className="py-24">
+                <div className="mx-auto max-w-4xl px-6 text-center">
+                    <h2 className="mb-4 text-4xl font-bold text-slate-900">
+                        Built for the people who do this work
+                    </h2>
+                    <p className="mx-auto mb-12 max-w-2xl text-lg leading-relaxed text-slate-600">
+                        Tripy is designed for travel advisors, award booking consultants,
+                        luxury travel planners, and concierge-style teams who manage
+                        client loyalty programs and need to deliver high-quality
+                        redemption guidance.
+                    </p>
+                    <div className="grid gap-6 sm:grid-cols-3">
+                        {[
+                            {
+                                icon: Users,
+                                title: 'Independent Advisors',
+                                description: 'Solo points consultants managing multiple client portfolios.',
+                            },
+                            {
+                                icon: Plane,
+                                title: 'Travel Agencies',
+                                description: 'Multi-advisor teams with admin, advisor, and viewer roles.',
+                            },
+                            {
+                                icon: BarChart3,
+                                title: 'Award Booking Specialists',
+                                description: 'Consultants who charge for expert redemption strategy.',
+                            },
+                        ].map((persona) => (
+                            <div
+                                key={persona.title}
+                                className="rounded-2xl border border-slate-100 bg-white p-8 transition-all hover:shadow-md"
+                            >
+                                <div className="mx-auto mb-4 flex h-12 w-12 items-center justify-center rounded-xl bg-blue-50 text-blue-600">
+                                    <persona.icon className="h-6 w-6" />
+                                </div>
+                                <h3 className="mb-2 text-lg font-semibold text-slate-900">
+                                    {persona.title}
+                                </h3>
+                                <p className="text-sm leading-relaxed text-slate-500">
+                                    {persona.description}
+                                </p>
+                            </div>
+                        ))}
+                    </div>
+                </div>
+            </section>
+
             {/* Trust / Security */}
             <section className="border-y border-slate-100 bg-slate-50/50 py-16">
                 <div className="mx-auto max-w-4xl px-6 text-center">
@@ -401,9 +567,10 @@ export default function LandingPage() {
                         </span>
                     </div>
                     <p className="text-lg text-slate-600">
-                        Client data is encrypted at rest and in transit. Built
-                        on AWS with SOC&nbsp;2-ready infrastructure. Your
-                        clients&apos; loyalty information stays safe.
+                        Client data is encrypted at rest and in transit. Multi-tenant
+                        workspaces keep organizations isolated. Role-based access
+                        control with admin, advisor, and viewer permissions ensures
+                        your clients&apos; loyalty information stays safe.
                     </p>
                 </div>
             </section>
@@ -415,22 +582,27 @@ export default function LandingPage() {
                         Ready to optimize smarter?
                     </h2>
                     <p className="mx-auto mb-10 max-w-xl text-lg leading-relaxed text-blue-100">
-                        Join the waitlist for early access. We&apos;re
-                        onboarding a small group of advisors to shape the
-                        product together.
+                        Create your free account and start managing client loyalty
+                        portfolios, generating optimized recommendations, and
+                        delivering polished booking guidance today.
                     </p>
-                    <div className="flex flex-col items-center gap-4">
-                        <WaitlistForm variant="bottom" />
-                        <p className="text-sm text-blue-200">
-                            Already have an account?{' '}
-                            <Link
-                                href="/login"
-                                className="font-medium text-white underline underline-offset-2 hover:no-underline"
-                            >
-                                Log in
-                            </Link>
-                        </p>
+                    <div className="flex flex-col items-center justify-center gap-4 sm:flex-row">
+                        <Link
+                            href="/register"
+                            className="flex items-center gap-2 rounded-xl bg-white px-8 py-3.5 text-base font-medium text-blue-700 shadow-lg transition-all hover:bg-blue-50"
+                        >
+                            Sign Up Free <ArrowRight className="h-4 w-4" />
+                        </Link>
+                        <Link
+                            href="/login"
+                            className="flex items-center gap-2 rounded-xl border border-white/30 px-8 py-3.5 text-base font-medium text-white transition-all hover:border-white/60 hover:bg-white/10"
+                        >
+                            Log In
+                        </Link>
                     </div>
+                    <p className="mt-6 text-sm text-blue-200">
+                        No credit card required. Start with a free workspace.
+                    </p>
                 </div>
             </section>
 
