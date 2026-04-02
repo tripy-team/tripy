@@ -42,7 +42,7 @@ applications:
               fi
 
               echo "--- .env.production.local (keys only) ---"
-              grep -oP '^[^=]+' .env.production.local || true
+              sed 's/=.*//' .env.production.local || true
               echo "============================="
         build:
           commands:
