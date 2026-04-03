@@ -60,7 +60,13 @@ if (process.env.NEXT_PUBLIC_S3_BUCKET) {
   });
 }
 
+const serverEnv: Record<string, string> = {};
+if (process.env.DATABASE_URL) serverEnv.DATABASE_URL = process.env.DATABASE_URL;
+if (process.env.JWT_SECRET) serverEnv.JWT_SECRET = process.env.JWT_SECRET;
+if (process.env.OPENAI_API_KEY) serverEnv.OPENAI_API_KEY = process.env.OPENAI_API_KEY;
+
 const nextConfig: NextConfig = {
+  env: serverEnv,
   assetPrefix: process.env.ASSET_PREFIX || undefined,
   images: {
     // Allow images from Unsplash and other sources
