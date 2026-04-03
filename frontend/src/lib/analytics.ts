@@ -90,7 +90,9 @@ function captureSessionAttribution(): void {
 }
 
 if (IS_BROWSER) {
-  captureSessionAttribution();
+  try {
+    captureSessionAttribution();
+  } catch { /* storage access may be blocked — never crash the app */ }
 }
 
 function getSessionAttribution(): Record<string, string> {

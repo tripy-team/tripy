@@ -36,21 +36,13 @@ applications:
               if [ -n "${OPENAI_API_KEY:-}" ]; then
                 echo "OPENAI_API_KEY=$OPENAI_API_KEY" >> .env.production.local
               fi
-              echo "ASSET_PREFIX=https://tripy-static-assets.s3.us-east-1.amazonaws.com" >> .env.production.local
-
               echo "--- .env.production.local (keys only) ---"
               sed 's/=.*//' .env.production.local || true
               echo "============================="
         build:
           commands:
-            - ASSET_PREFIX=https://tripy-static-assets.s3.us-east-1.amazonaws.com npm run build
+            - npm run build
             - cp .env.production.local .next/.env.production.local
-            - |
-              echo "=== Uploading static assets to S3 ==="
-              aws s3 sync .next/static s3://tripy-static-assets/_next/static/ \
-                --cache-control "public, max-age=31536000, immutable" \
-                --region us-east-1
-              echo "=== Static asset upload complete ==="
       artifacts:
         baseDirectory: .next
         files:
