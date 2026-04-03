@@ -61,6 +61,7 @@ if (process.env.NEXT_PUBLIC_S3_BUCKET) {
 }
 
 const nextConfig: NextConfig = {
+  assetPrefix: process.env.ASSET_PREFIX || undefined,
   images: {
     // Allow images from Unsplash and other sources
     remotePatterns,
