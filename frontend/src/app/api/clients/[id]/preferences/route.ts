@@ -1,4 +1,5 @@
 import { prisma } from "@/lib/prisma";
+import { Prisma } from "@/generated/prisma/client";
 import { getAuthUser, json, errorResponse } from "@/lib/auth";
 
 const PREFERENCE_FIELDS = [
@@ -112,8 +113,8 @@ export async function PUT(
           changedByUserId: user.id,
           source,
           fieldName: field,
-          oldValue: oldVal === undefined ? null : oldVal,
-          newValue: newVal,
+          oldValue: oldVal == null ? Prisma.DbNull : (oldVal as Prisma.InputJsonValue),
+          newValue: newVal == null ? Prisma.DbNull : (newVal as Prisma.InputJsonValue),
         });
       }
     }
