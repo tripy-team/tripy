@@ -1,13 +1,36 @@
--- CreateEnum (vendor infrastructure enums)
-CREATE TYPE "VendorRequestType" AS ENUM ('room_upgrade', 'early_check_in', 'late_check_out', 'connecting_rooms', 'airport_transfer', 'amenity_request', 'dining_request', 'celebration_request', 'quote_request', 'custom_request');
-CREATE TYPE "VendorRequestUrgency" AS ENUM ('low', 'medium', 'high', 'urgent');
-CREATE TYPE "VendorRequestStatus" AS ENUM ('draft', 'needs_advisor_review', 'needs_client_approval', 'approved_to_send', 'sent_to_vendor', 'awaiting_vendor_response', 'follow_up_needed', 'confirmed', 'declined', 'complete', 'cancelled');
-CREATE TYPE "ReminderStatus" AS ENUM ('pending', 'completed', 'snoozed', 'auto_resolved');
-CREATE TYPE "DraftTone" AS ENUM ('gentle_nudge', 'firm_reminder', 'escalation', 'urgent_deadline');
-CREATE TYPE "TemplateScope" AS ENUM ('system', 'organization');
+-- CreateEnum (vendor infrastructure enums, idempotent)
+DO $$ BEGIN
+    CREATE TYPE "VendorRequestType" AS ENUM ('room_upgrade', 'early_check_in', 'late_check_out', 'connecting_rooms', 'airport_transfer', 'amenity_request', 'dining_request', 'celebration_request', 'quote_request', 'custom_request');
+EXCEPTION WHEN duplicate_object THEN null;
+END $$;
+
+DO $$ BEGIN
+    CREATE TYPE "VendorRequestUrgency" AS ENUM ('low', 'medium', 'high', 'urgent');
+EXCEPTION WHEN duplicate_object THEN null;
+END $$;
+
+DO $$ BEGIN
+    CREATE TYPE "VendorRequestStatus" AS ENUM ('draft', 'needs_advisor_review', 'needs_client_approval', 'approved_to_send', 'sent_to_vendor', 'awaiting_vendor_response', 'follow_up_needed', 'confirmed', 'declined', 'complete', 'cancelled');
+EXCEPTION WHEN duplicate_object THEN null;
+END $$;
+
+DO $$ BEGIN
+    CREATE TYPE "ReminderStatus" AS ENUM ('pending', 'completed', 'snoozed', 'auto_resolved');
+EXCEPTION WHEN duplicate_object THEN null;
+END $$;
+
+DO $$ BEGIN
+    CREATE TYPE "DraftTone" AS ENUM ('gentle_nudge', 'firm_reminder', 'escalation', 'urgent_deadline');
+EXCEPTION WHEN duplicate_object THEN null;
+END $$;
+
+DO $$ BEGIN
+    CREATE TYPE "TemplateScope" AS ENUM ('system', 'organization');
+EXCEPTION WHEN duplicate_object THEN null;
+END $$;
 
 -- CreateTable: vendor_requests
-CREATE TABLE "vendor_requests" (
+CREATE TABLE IF NOT EXISTS "vendor_requests" (
     "id" TEXT NOT NULL,
     "organization_id" TEXT NOT NULL,
     "trip_request_id" TEXT NOT NULL,
@@ -34,35 +57,47 @@ CREATE TABLE "vendor_requests" (
     CONSTRAINT "vendor_requests_pkey" PRIMARY KEY ("id")
 );
 
-CREATE INDEX "vendor_requests_organization_id_idx" ON "vendor_requests"("organization_id");
-CREATE INDEX "vendor_requests_trip_request_id_idx" ON "vendor_requests"("trip_request_id");
-CREATE INDEX "vendor_requests_client_id_idx" ON "vendor_requests"("client_id");
-CREATE INDEX "vendor_requests_status_idx" ON "vendor_requests"("status");
-CREATE INDEX "vendor_requests_due_date_idx" ON "vendor_requests"("due_date");
-CREATE INDEX "vendor_requests_vendor_name_idx" ON "vendor_requests"("vendor_name");
+CREATE INDEX IF NOT EXISTS "vendor_requests_organization_id_idx" ON "vendor_requests"("organization_id");
+CREATE INDEX IF NOT EXISTS "vendor_requests_trip_request_id_idx" ON "vendor_requests"("trip_request_id");
+CREATE INDEX IF NOT EXISTS "vendor_requests_client_id_idx" ON "vendor_requests"("client_id");
+CREATE INDEX IF NOT EXISTS "vendor_requests_status_idx" ON "vendor_requests"("status");
+CREATE INDEX IF NOT EXISTS "vendor_requests_due_date_idx" ON "vendor_requests"("due_date");
+CREATE INDEX IF NOT EXISTS "vendor_requests_vendor_name_idx" ON "vendor_requests"("vendor_name");
 
-ALTER TABLE "vendor_requests"
-    ADD CONSTRAINT "vendor_requests_organization_id_fkey"
-    FOREIGN KEY ("organization_id") REFERENCES "organizations"("id")
-    ON DELETE RESTRICT ON UPDATE CASCADE;
+DO $$ BEGIN
+    ALTER TABLE "vendor_requests"
+        ADD CONSTRAINT "vendor_requests_organization_id_fkey"
+        FOREIGN KEY ("organization_id") REFERENCES "organizations"("id")
+        ON DELETE RESTRICT ON UPDATE CASCADE;
+EXCEPTION WHEN duplicate_object THEN null;
+END $$;
 
-ALTER TABLE "vendor_requests"
-    ADD CONSTRAINT "vendor_requests_trip_request_id_fkey"
-    FOREIGN KEY ("trip_request_id") REFERENCES "trip_requests"("id")
-    ON DELETE RESTRICT ON UPDATE CASCADE;
+DO $$ BEGIN
+    ALTER TABLE "vendor_requests"
+        ADD CONSTRAINT "vendor_requests_trip_request_id_fkey"
+        FOREIGN KEY ("trip_request_id") REFERENCES "trip_requests"("id")
+        ON DELETE RESTRICT ON UPDATE CASCADE;
+EXCEPTION WHEN duplicate_object THEN null;
+END $$;
 
-ALTER TABLE "vendor_requests"
-    ADD CONSTRAINT "vendor_requests_client_id_fkey"
-    FOREIGN KEY ("client_id") REFERENCES "clients"("id")
-    ON DELETE SET NULL ON UPDATE CASCADE;
+DO $$ BEGIN
+    ALTER TABLE "vendor_requests"
+        ADD CONSTRAINT "vendor_requests_client_id_fkey"
+        FOREIGN KEY ("client_id") REFERENCES "clients"("id")
+        ON DELETE SET NULL ON UPDATE CASCADE;
+EXCEPTION WHEN duplicate_object THEN null;
+END $$;
 
-ALTER TABLE "vendor_requests"
-    ADD CONSTRAINT "vendor_requests_created_by_user_id_fkey"
-    FOREIGN KEY ("created_by_user_id") REFERENCES "users"("id")
-    ON DELETE RESTRICT ON UPDATE CASCADE;
+DO $$ BEGIN
+    ALTER TABLE "vendor_requests"
+        ADD CONSTRAINT "vendor_requests_created_by_user_id_fkey"
+        FOREIGN KEY ("created_by_user_id") REFERENCES "users"("id")
+        ON DELETE RESTRICT ON UPDATE CASCADE;
+EXCEPTION WHEN duplicate_object THEN null;
+END $$;
 
 -- CreateTable: vendor_request_reminders
-CREATE TABLE "vendor_request_reminders" (
+CREATE TABLE IF NOT EXISTS "vendor_request_reminders" (
     "id" TEXT NOT NULL,
     "vendor_request_id" TEXT NOT NULL,
     "status" "ReminderStatus" NOT NULL DEFAULT 'pending',
@@ -76,16 +111,19 @@ CREATE TABLE "vendor_request_reminders" (
     CONSTRAINT "vendor_request_reminders_pkey" PRIMARY KEY ("id")
 );
 
-CREATE INDEX "vendor_request_reminders_vendor_request_id_idx" ON "vendor_request_reminders"("vendor_request_id");
-CREATE INDEX "vendor_request_reminders_status_remind_at_idx" ON "vendor_request_reminders"("status", "remind_at");
+CREATE INDEX IF NOT EXISTS "vendor_request_reminders_vendor_request_id_idx" ON "vendor_request_reminders"("vendor_request_id");
+CREATE INDEX IF NOT EXISTS "vendor_request_reminders_status_remind_at_idx" ON "vendor_request_reminders"("status", "remind_at");
 
-ALTER TABLE "vendor_request_reminders"
-    ADD CONSTRAINT "vendor_request_reminders_vendor_request_id_fkey"
-    FOREIGN KEY ("vendor_request_id") REFERENCES "vendor_requests"("id")
-    ON DELETE CASCADE ON UPDATE CASCADE;
+DO $$ BEGIN
+    ALTER TABLE "vendor_request_reminders"
+        ADD CONSTRAINT "vendor_request_reminders_vendor_request_id_fkey"
+        FOREIGN KEY ("vendor_request_id") REFERENCES "vendor_requests"("id")
+        ON DELETE CASCADE ON UPDATE CASCADE;
+EXCEPTION WHEN duplicate_object THEN null;
+END $$;
 
 -- CreateTable: vendor_request_drafts
-CREATE TABLE "vendor_request_drafts" (
+CREATE TABLE IF NOT EXISTS "vendor_request_drafts" (
     "id" TEXT NOT NULL,
     "vendor_request_id" TEXT NOT NULL,
     "tone" "DraftTone" NOT NULL,
@@ -97,15 +135,18 @@ CREATE TABLE "vendor_request_drafts" (
     CONSTRAINT "vendor_request_drafts_pkey" PRIMARY KEY ("id")
 );
 
-CREATE INDEX "vendor_request_drafts_vendor_request_id_idx" ON "vendor_request_drafts"("vendor_request_id");
+CREATE INDEX IF NOT EXISTS "vendor_request_drafts_vendor_request_id_idx" ON "vendor_request_drafts"("vendor_request_id");
 
-ALTER TABLE "vendor_request_drafts"
-    ADD CONSTRAINT "vendor_request_drafts_vendor_request_id_fkey"
-    FOREIGN KEY ("vendor_request_id") REFERENCES "vendor_requests"("id")
-    ON DELETE CASCADE ON UPDATE CASCADE;
+DO $$ BEGIN
+    ALTER TABLE "vendor_request_drafts"
+        ADD CONSTRAINT "vendor_request_drafts_vendor_request_id_fkey"
+        FOREIGN KEY ("vendor_request_id") REFERENCES "vendor_requests"("id")
+        ON DELETE CASCADE ON UPDATE CASCADE;
+EXCEPTION WHEN duplicate_object THEN null;
+END $$;
 
 -- CreateTable: vendor_request_approvals
-CREATE TABLE "vendor_request_approvals" (
+CREATE TABLE IF NOT EXISTS "vendor_request_approvals" (
     "id" TEXT NOT NULL,
     "vendor_request_id" TEXT NOT NULL,
     "from_status" "VendorRequestStatus" NOT NULL,
@@ -117,15 +158,18 @@ CREATE TABLE "vendor_request_approvals" (
     CONSTRAINT "vendor_request_approvals_pkey" PRIMARY KEY ("id")
 );
 
-CREATE INDEX "vendor_request_approvals_vendor_request_id_idx" ON "vendor_request_approvals"("vendor_request_id");
+CREATE INDEX IF NOT EXISTS "vendor_request_approvals_vendor_request_id_idx" ON "vendor_request_approvals"("vendor_request_id");
 
-ALTER TABLE "vendor_request_approvals"
-    ADD CONSTRAINT "vendor_request_approvals_vendor_request_id_fkey"
-    FOREIGN KEY ("vendor_request_id") REFERENCES "vendor_requests"("id")
-    ON DELETE CASCADE ON UPDATE CASCADE;
+DO $$ BEGIN
+    ALTER TABLE "vendor_request_approvals"
+        ADD CONSTRAINT "vendor_request_approvals_vendor_request_id_fkey"
+        FOREIGN KEY ("vendor_request_id") REFERENCES "vendor_requests"("id")
+        ON DELETE CASCADE ON UPDATE CASCADE;
+EXCEPTION WHEN duplicate_object THEN null;
+END $$;
 
 -- CreateTable: vendor_request_templates
-CREATE TABLE "vendor_request_templates" (
+CREATE TABLE IF NOT EXISTS "vendor_request_templates" (
     "id" TEXT NOT NULL,
     "organization_id" TEXT,
     "scope" "TemplateScope" NOT NULL DEFAULT 'system',
@@ -142,11 +186,11 @@ CREATE TABLE "vendor_request_templates" (
     CONSTRAINT "vendor_request_templates_pkey" PRIMARY KEY ("id")
 );
 
-CREATE INDEX "vendor_request_templates_organization_id_idx" ON "vendor_request_templates"("organization_id");
-CREATE INDEX "vendor_request_templates_scope_idx" ON "vendor_request_templates"("scope");
+CREATE INDEX IF NOT EXISTS "vendor_request_templates_organization_id_idx" ON "vendor_request_templates"("organization_id");
+CREATE INDEX IF NOT EXISTS "vendor_request_templates_scope_idx" ON "vendor_request_templates"("scope");
 
 -- CreateTable: vendor_score_summaries
-CREATE TABLE "vendor_score_summaries" (
+CREATE TABLE IF NOT EXISTS "vendor_score_summaries" (
     "id" TEXT NOT NULL,
     "organization_id" TEXT NOT NULL,
     "vendor_name" TEXT NOT NULL,
@@ -166,11 +210,11 @@ CREATE TABLE "vendor_score_summaries" (
     CONSTRAINT "vendor_score_summaries_pkey" PRIMARY KEY ("id")
 );
 
-CREATE UNIQUE INDEX "vendor_score_summaries_organization_id_vendor_name_key" ON "vendor_score_summaries"("organization_id", "vendor_name");
-CREATE INDEX "vendor_score_summaries_organization_id_idx" ON "vendor_score_summaries"("organization_id");
+CREATE UNIQUE INDEX IF NOT EXISTS "vendor_score_summaries_organization_id_vendor_name_key" ON "vendor_score_summaries"("organization_id", "vendor_name");
+CREATE INDEX IF NOT EXISTS "vendor_score_summaries_organization_id_idx" ON "vendor_score_summaries"("organization_id");
 
 -- CreateTable: vendor_request_timeline
-CREATE TABLE "vendor_request_timeline" (
+CREATE TABLE IF NOT EXISTS "vendor_request_timeline" (
     "id" TEXT NOT NULL,
     "vendor_request_id" TEXT NOT NULL,
     "event_type" TEXT NOT NULL,
@@ -181,9 +225,12 @@ CREATE TABLE "vendor_request_timeline" (
     CONSTRAINT "vendor_request_timeline_pkey" PRIMARY KEY ("id")
 );
 
-CREATE INDEX "vendor_request_timeline_vendor_request_id_idx" ON "vendor_request_timeline"("vendor_request_id");
+CREATE INDEX IF NOT EXISTS "vendor_request_timeline_vendor_request_id_idx" ON "vendor_request_timeline"("vendor_request_id");
 
-ALTER TABLE "vendor_request_timeline"
-    ADD CONSTRAINT "vendor_request_timeline_vendor_request_id_fkey"
-    FOREIGN KEY ("vendor_request_id") REFERENCES "vendor_requests"("id")
-    ON DELETE CASCADE ON UPDATE CASCADE;
+DO $$ BEGIN
+    ALTER TABLE "vendor_request_timeline"
+        ADD CONSTRAINT "vendor_request_timeline_vendor_request_id_fkey"
+        FOREIGN KEY ("vendor_request_id") REFERENCES "vendor_requests"("id")
+        ON DELETE CASCADE ON UPDATE CASCADE;
+EXCEPTION WHEN duplicate_object THEN null;
+END $$;
