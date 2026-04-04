@@ -56,6 +56,7 @@ export const ModelName = {
   Client: 'Client',
   Household: 'Household',
   HouseholdMember: 'HouseholdMember',
+  FamilyMember: 'FamilyMember',
   LoyaltyProgram: 'LoyaltyProgram',
   ClientLoyaltyBalance: 'ClientLoyaltyBalance',
   BalanceLedgerEntry: 'BalanceLedgerEntry',
@@ -63,15 +64,28 @@ export const ModelName = {
   ProgramPoolingRule: 'ProgramPoolingRule',
   TransferBonus: 'TransferBonus',
   ClientPreference: 'ClientPreference',
+  PreferenceChangeLog: 'PreferenceChangeLog',
   TripRequest: 'TripRequest',
+  TripTradeoffRanking: 'TripTradeoffRanking',
   TripTraveler: 'TripTraveler',
   RecommendationRun: 'RecommendationRun',
   RecommendationOption: 'RecommendationOption',
   RecommendationTravelerAllocation: 'RecommendationTravelerAllocation',
   RecommendationInsight: 'RecommendationInsight',
   RecommendationMemo: 'RecommendationMemo',
+  ClientIntake: 'ClientIntake',
+  TripBrief: 'TripBrief',
   AlertSubscription: 'AlertSubscription',
-  AlertEvent: 'AlertEvent'
+  AlertEvent: 'AlertEvent',
+  InferredPreference: 'InferredPreference',
+  FollowUpSuggestion: 'FollowUpSuggestion',
+  VendorRequest: 'VendorRequest',
+  VendorRequestReminder: 'VendorRequestReminder',
+  VendorRequestDraft: 'VendorRequestDraft',
+  VendorRequestApproval: 'VendorRequestApproval',
+  VendorRequestTemplate: 'VendorRequestTemplate',
+  VendorScoreSummary: 'VendorScoreSummary',
+  VendorRequestTimeline: 'VendorRequestTimeline'
 } as const
 
 export type ModelName = (typeof ModelName)[keyof typeof ModelName]
@@ -121,6 +135,7 @@ export const ClientScalarFieldEnum = {
   id: 'id',
   organizationId: 'organizationId',
   ownerUserId: 'ownerUserId',
+  clientType: 'clientType',
   firstName: 'firstName',
   lastName: 'lastName',
   email: 'email',
@@ -157,6 +172,22 @@ export const HouseholdMemberScalarFieldEnum = {
 } as const
 
 export type HouseholdMemberScalarFieldEnum = (typeof HouseholdMemberScalarFieldEnum)[keyof typeof HouseholdMemberScalarFieldEnum]
+
+
+export const FamilyMemberScalarFieldEnum = {
+  id: 'id',
+  clientId: 'clientId',
+  name: 'name',
+  relationship: 'relationship',
+  email: 'email',
+  phone: 'phone',
+  dateOfBirth: 'dateOfBirth',
+  notes: 'notes',
+  createdAt: 'createdAt',
+  updatedAt: 'updatedAt'
+} as const
+
+export type FamilyMemberScalarFieldEnum = (typeof FamilyMemberScalarFieldEnum)[keyof typeof FamilyMemberScalarFieldEnum]
 
 
 export const LoyaltyProgramScalarFieldEnum = {
@@ -261,16 +292,44 @@ export const ClientPreferenceScalarFieldEnum = {
   prefersNonstop: 'prefersNonstop',
   maxLayoverMinutes: 'maxLayoverMinutes',
   willingToReposition: 'willingToReposition',
-  redemptionStyle: 'redemptionStyle',
   avoidBasicEconomy: 'avoidBasicEconomy',
   preferredAirlines: 'preferredAirlines',
   avoidedAirlines: 'avoidedAirlines',
+  preferredHotelTypes: 'preferredHotelTypes',
+  roomPreferences: 'roomPreferences',
+  locationPreferences: 'locationPreferences',
+  redemptionStyle: 'redemptionStyle',
+  budgetSensitivity: 'budgetSensitivity',
+  pointsVsCash: 'pointsVsCash',
+  accessibilityNeeds: 'accessibilityNeeds',
+  foodPreferences: 'foodPreferences',
+  activityPreferences: 'activityPreferences',
+  familyConsiderations: 'familyConsiderations',
+  specialOccasions: 'specialOccasions',
+  dislikes: 'dislikes',
+  dealbreakers: 'dealbreakers',
   notes: 'notes',
+  lastUpdatedSource: 'lastUpdatedSource',
+  mergeStrategy: 'mergeStrategy',
   createdAt: 'createdAt',
   updatedAt: 'updatedAt'
 } as const
 
 export type ClientPreferenceScalarFieldEnum = (typeof ClientPreferenceScalarFieldEnum)[keyof typeof ClientPreferenceScalarFieldEnum]
+
+
+export const PreferenceChangeLogScalarFieldEnum = {
+  id: 'id',
+  preferenceId: 'preferenceId',
+  changedByUserId: 'changedByUserId',
+  source: 'source',
+  fieldName: 'fieldName',
+  oldValue: 'oldValue',
+  newValue: 'newValue',
+  createdAt: 'createdAt'
+} as const
+
+export type PreferenceChangeLogScalarFieldEnum = (typeof PreferenceChangeLogScalarFieldEnum)[keyof typeof PreferenceChangeLogScalarFieldEnum]
 
 
 export const TripRequestScalarFieldEnum = {
@@ -295,6 +354,24 @@ export const TripRequestScalarFieldEnum = {
 } as const
 
 export type TripRequestScalarFieldEnum = (typeof TripRequestScalarFieldEnum)[keyof typeof TripRequestScalarFieldEnum]
+
+
+export const TripTradeoffRankingScalarFieldEnum = {
+  id: 'id',
+  tripRequestId: 'tripRequestId',
+  cashCost: 'cashCost',
+  pointsUsage: 'pointsUsage',
+  redemptionValue: 'redemptionValue',
+  travelTime: 'travelTime',
+  fewestLayovers: 'fewestLayovers',
+  premiumExperience: 'premiumExperience',
+  flexibility: 'flexibility',
+  familyConvenience: 'familyConvenience',
+  createdAt: 'createdAt',
+  updatedAt: 'updatedAt'
+} as const
+
+export type TripTradeoffRankingScalarFieldEnum = (typeof TripTradeoffRankingScalarFieldEnum)[keyof typeof TripTradeoffRankingScalarFieldEnum]
 
 
 export const TripTravelerScalarFieldEnum = {
@@ -385,6 +462,73 @@ export const RecommendationMemoScalarFieldEnum = {
 export type RecommendationMemoScalarFieldEnum = (typeof RecommendationMemoScalarFieldEnum)[keyof typeof RecommendationMemoScalarFieldEnum]
 
 
+export const ClientIntakeScalarFieldEnum = {
+  id: 'id',
+  clientId: 'clientId',
+  createdByUserId: 'createdByUserId',
+  status: 'status',
+  isTemplate: 'isTemplate',
+  templateName: 'templateName',
+  duplicatedFromId: 'duplicatedFromId',
+  tripType: 'tripType',
+  tripTypeOther: 'tripTypeOther',
+  destinations: 'destinations',
+  departureAirports: 'departureAirports',
+  dateFlexibility: 'dateFlexibility',
+  earliestDeparture: 'earliestDeparture',
+  latestReturn: 'latestReturn',
+  tripDurationDays: 'tripDurationDays',
+  budgetMin: 'budgetMin',
+  budgetMax: 'budgetMax',
+  budgetCurrency: 'budgetCurrency',
+  budgetNotes: 'budgetNotes',
+  cabinPreference: 'cabinPreference',
+  hotelStyles: 'hotelStyles',
+  loyaltyNotes: 'loyaltyNotes',
+  accessibilityNeeds: 'accessibilityNeeds',
+  dietaryNeeds: 'dietaryNeeds',
+  travelPace: 'travelPace',
+  layoverTolerance: 'layoverTolerance',
+  luxuryPreference: 'luxuryPreference',
+  familyFriendly: 'familyFriendly',
+  travelerCount: 'travelerCount',
+  childrenCount: 'childrenCount',
+  childrenAges: 'childrenAges',
+  desiredExperiences: 'desiredExperiences',
+  dealbreakers: 'dealbreakers',
+  preferredAirlines: 'preferredAirlines',
+  avoidedAirlines: 'avoidedAirlines',
+  notes: 'notes',
+  completedAt: 'completedAt',
+  createdAt: 'createdAt',
+  updatedAt: 'updatedAt'
+} as const
+
+export type ClientIntakeScalarFieldEnum = (typeof ClientIntakeScalarFieldEnum)[keyof typeof ClientIntakeScalarFieldEnum]
+
+
+export const TripBriefScalarFieldEnum = {
+  id: 'id',
+  tripRequestId: 'tripRequestId',
+  clientId: 'clientId',
+  intakeId: 'intakeId',
+  generatedByUserId: 'generatedByUserId',
+  version: 'version',
+  executiveSummary: 'executiveSummary',
+  hardConstraints: 'hardConstraints',
+  softPreferences: 'softPreferences',
+  pointsCashPosture: 'pointsCashPosture',
+  acceptableTradeoffs: 'acceptableTradeoffs',
+  doNotRecommend: 'doNotRecommend',
+  operationalNotes: 'operationalNotes',
+  isEdited: 'isEdited',
+  createdAt: 'createdAt',
+  updatedAt: 'updatedAt'
+} as const
+
+export type TripBriefScalarFieldEnum = (typeof TripBriefScalarFieldEnum)[keyof typeof TripBriefScalarFieldEnum]
+
+
 export const AlertSubscriptionScalarFieldEnum = {
   id: 'id',
   organizationId: 'organizationId',
@@ -413,6 +557,163 @@ export const AlertEventScalarFieldEnum = {
 } as const
 
 export type AlertEventScalarFieldEnum = (typeof AlertEventScalarFieldEnum)[keyof typeof AlertEventScalarFieldEnum]
+
+
+export const InferredPreferenceScalarFieldEnum = {
+  id: 'id',
+  clientId: 'clientId',
+  category: 'category',
+  label: 'label',
+  description: 'description',
+  confidence: 'confidence',
+  evidence: 'evidence',
+  status: 'status',
+  resolvedAt: 'resolvedAt',
+  resolvedByUserId: 'resolvedByUserId',
+  appliedToProfile: 'appliedToProfile',
+  createdAt: 'createdAt',
+  updatedAt: 'updatedAt'
+} as const
+
+export type InferredPreferenceScalarFieldEnum = (typeof InferredPreferenceScalarFieldEnum)[keyof typeof InferredPreferenceScalarFieldEnum]
+
+
+export const FollowUpSuggestionScalarFieldEnum = {
+  id: 'id',
+  clientId: 'clientId',
+  intakeId: 'intakeId',
+  category: 'category',
+  priority: 'priority',
+  questionText: 'questionText',
+  reason: 'reason',
+  ruleKey: 'ruleKey',
+  status: 'status',
+  statusChangedAt: 'statusChangedAt',
+  createdAt: 'createdAt',
+  updatedAt: 'updatedAt'
+} as const
+
+export type FollowUpSuggestionScalarFieldEnum = (typeof FollowUpSuggestionScalarFieldEnum)[keyof typeof FollowUpSuggestionScalarFieldEnum]
+
+
+export const VendorRequestScalarFieldEnum = {
+  id: 'id',
+  organizationId: 'organizationId',
+  tripRequestId: 'tripRequestId',
+  clientId: 'clientId',
+  createdByUserId: 'createdByUserId',
+  templateId: 'templateId',
+  vendorName: 'vendorName',
+  vendorContact: 'vendorContact',
+  requestType: 'requestType',
+  requestDetails: 'requestDetails',
+  dateSent: 'dateSent',
+  urgency: 'urgency',
+  dueDate: 'dueDate',
+  status: 'status',
+  followUpCount: 'followUpCount',
+  internalNotes: 'internalNotes',
+  finalOutcome: 'finalOutcome',
+  archivedAt: 'archivedAt',
+  firstResponseAt: 'firstResponseAt',
+  resolvedAt: 'resolvedAt',
+  createdAt: 'createdAt',
+  updatedAt: 'updatedAt'
+} as const
+
+export type VendorRequestScalarFieldEnum = (typeof VendorRequestScalarFieldEnum)[keyof typeof VendorRequestScalarFieldEnum]
+
+
+export const VendorRequestReminderScalarFieldEnum = {
+  id: 'id',
+  vendorRequestId: 'vendorRequestId',
+  status: 'status',
+  remindAt: 'remindAt',
+  label: 'label',
+  snoozedUntil: 'snoozedUntil',
+  completedAt: 'completedAt',
+  createdAt: 'createdAt',
+  updatedAt: 'updatedAt'
+} as const
+
+export type VendorRequestReminderScalarFieldEnum = (typeof VendorRequestReminderScalarFieldEnum)[keyof typeof VendorRequestReminderScalarFieldEnum]
+
+
+export const VendorRequestDraftScalarFieldEnum = {
+  id: 'id',
+  vendorRequestId: 'vendorRequestId',
+  tone: 'tone',
+  generatedBody: 'generatedBody',
+  editedBody: 'editedBody',
+  metadata: 'metadata',
+  createdAt: 'createdAt'
+} as const
+
+export type VendorRequestDraftScalarFieldEnum = (typeof VendorRequestDraftScalarFieldEnum)[keyof typeof VendorRequestDraftScalarFieldEnum]
+
+
+export const VendorRequestApprovalScalarFieldEnum = {
+  id: 'id',
+  vendorRequestId: 'vendorRequestId',
+  fromStatus: 'fromStatus',
+  toStatus: 'toStatus',
+  approvedByUserId: 'approvedByUserId',
+  notes: 'notes',
+  createdAt: 'createdAt'
+} as const
+
+export type VendorRequestApprovalScalarFieldEnum = (typeof VendorRequestApprovalScalarFieldEnum)[keyof typeof VendorRequestApprovalScalarFieldEnum]
+
+
+export const VendorRequestTemplateScalarFieldEnum = {
+  id: 'id',
+  organizationId: 'organizationId',
+  scope: 'scope',
+  title: 'title',
+  requestType: 'requestType',
+  defaultBody: 'defaultBody',
+  placeholders: 'placeholders',
+  defaultUrgency: 'defaultUrgency',
+  defaultReminders: 'defaultReminders',
+  isActive: 'isActive',
+  createdAt: 'createdAt',
+  updatedAt: 'updatedAt'
+} as const
+
+export type VendorRequestTemplateScalarFieldEnum = (typeof VendorRequestTemplateScalarFieldEnum)[keyof typeof VendorRequestTemplateScalarFieldEnum]
+
+
+export const VendorScoreSummaryScalarFieldEnum = {
+  id: 'id',
+  organizationId: 'organizationId',
+  vendorName: 'vendorName',
+  totalRequests: 'totalRequests',
+  confirmedCount: 'confirmedCount',
+  declinedCount: 'declinedCount',
+  avgResponseHours: 'avgResponseHours',
+  avgResolutionHours: 'avgResolutionHours',
+  avgFollowUps: 'avgFollowUps',
+  overdueCount: 'overdueCount',
+  score: 'score',
+  confidence: 'confidence',
+  lastCalculatedAt: 'lastCalculatedAt',
+  createdAt: 'createdAt',
+  updatedAt: 'updatedAt'
+} as const
+
+export type VendorScoreSummaryScalarFieldEnum = (typeof VendorScoreSummaryScalarFieldEnum)[keyof typeof VendorScoreSummaryScalarFieldEnum]
+
+
+export const VendorRequestTimelineScalarFieldEnum = {
+  id: 'id',
+  vendorRequestId: 'vendorRequestId',
+  eventType: 'eventType',
+  description: 'description',
+  metadata: 'metadata',
+  createdAt: 'createdAt'
+} as const
+
+export type VendorRequestTimelineScalarFieldEnum = (typeof VendorRequestTimelineScalarFieldEnum)[keyof typeof VendorRequestTimelineScalarFieldEnum]
 
 
 export const SortOrder = {

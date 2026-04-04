@@ -20,6 +20,11 @@ enum ClientStatus {
   archived
 }
 
+enum ClientType {
+  individual
+  business
+}
+
 enum ProgramCategory {
   airline
   hotel
@@ -110,6 +115,187 @@ enum AlertType {
   goal_watch
 }
 
+enum InferenceStatus {
+  pending
+  accepted
+  rejected
+}
+
+enum SuggestionStatus {
+  pending
+  asked
+  answered
+  skipped
+}
+
+enum SuggestionPriority {
+  high
+  medium
+  low
+}
+
+enum SuggestionCategory {
+  missing_intake
+  ambiguous_preference
+  conflicting_constraint
+  budget_luxury_mismatch
+  points_convenience_mismatch
+  destination_flexibility
+  group_traveler_difference
+}
+
+enum InferenceCategory {
+  cabin_choice
+  airline_preference
+  nonstop_preference
+  hotel_tier
+  budget_behavior
+  payment_style
+  destination_pattern
+  trip_style
+}
+
+enum BudgetSensitivity {
+  price_conscious
+  moderate
+  comfort_first
+  luxury
+}
+
+enum PreferenceSource {
+  manual
+  intake
+  inferred
+}
+
+enum MergeStrategy {
+  overwrite
+  merge
+  suggest
+}
+
+enum IntakeStatus {
+  draft
+  complete
+}
+
+enum TripType {
+  leisure
+  business_travel
+  honeymoon
+  family_vacation
+  adventure
+  luxury_getaway
+  group_trip
+  destination_wedding
+  solo
+  other
+}
+
+enum DateFlexibility {
+  exact
+  flexible_1_2_days
+  flexible_week
+  flexible_month
+  fully_flexible
+}
+
+enum TravelPace {
+  relaxed
+  moderate
+  active
+  packed
+}
+
+enum LayoverTolerance {
+  nonstop_only
+  prefer_nonstop
+  no_preference
+  layovers_ok
+}
+
+enum LuxuryPreference {
+  luxury
+  upscale
+  balanced
+  value
+  budget
+}
+
+enum VendorRequestType {
+  room_upgrade
+  early_check_in
+  late_check_out
+  connecting_rooms
+  airport_transfer
+  amenity_request
+  dining_request
+  celebration_request
+  quote_request
+  custom_request
+}
+
+enum VendorRequestStatus {
+  draft
+  needs_advisor_review
+  needs_client_approval
+  approved_to_send
+  sent_to_vendor
+  awaiting_vendor_response
+  follow_up_needed
+  confirmed
+  declined
+  complete
+  cancelled
+}
+
+enum ReminderStatus {
+  pending
+  completed
+  snoozed
+  auto_resolved
+}
+
+enum DraftTone {
+  gentle_nudge
+  firm_reminder
+  escalation
+  urgent_deadline
+}
+
+enum TemplateScope {
+  system
+  organization
+}
+
+enum VendorRequestUrgency {
+  low
+  medium
+  high
+  urgent
+}
+
+// ─── Meeting Copilot Enums ───────────────────────────────
+
+enum MeetingSessionStatus {
+  active
+  completed
+  archived
+}
+
+enum MeetingEntryRole {
+  advisor_note
+  question_answer
+  system
+}
+
+enum ProfileSuggestionStatus {
+  pending
+  approved
+  rejected
+  committed
+}
+
 // ─── Organization ────────────────────────────────────────
 
 model Organization {
@@ -125,6 +311,7 @@ model Organization {
   households         Household[]
   tripRequests       TripRequest[]
   alertSubscriptions AlertSubscription[]
+  vendorRequests     VendorRequest[]
 
   @@map("organizations")
 }
@@ -142,11 +329,16 @@ model User {
   createdAt      DateTime @default(now()) @map("created_at")
   updatedAt      DateTime @updatedAt @map("updated_at")
 
-  organization       Organization        @relation(fields: [organizationId], references: [id])
-  ownedClients       Client[]
-  tripRequests       TripRequest[]
-  recommendationRuns RecommendationRun[]
-  ledgerEntries      BalanceLedgerEntry[]
+  organization           Organization            @relation(fields: [organizationId], references: [id])
+  ownedClients           Client[]
+  tripRequests           TripRequest[]
+  recommendationRuns     RecommendationRun[]
+  ledgerEntries          BalanceLedgerEntry[]
+  preferenceChangeLogs   PreferenceChangeLog[]
+  resolvedInferences     InferredPreference[]
+  tripBriefs             TripBrief[]
+  vendorRequests         VendorRequest[]
+  meetingSessions        DiscoveryMeetingSession[]
 
   @@index([organizationId])
   @@map("users")
@@ -158,6 +350,7 @@ model Client {
   id             String       @id @default(cuid())
   organizationId String       @map("organization_id")
   ownerUserId    String       @map("owner_user_id")
+  clientType     ClientType   @default(individual) @map("client_type")
   firstName      String       @map("first_name")
   lastName       String       @map("last_name")
   email          String?
@@ -168,14 +361,21 @@ model Client {
   createdAt      DateTime     @default(now()) @map("created_at")
   updatedAt      DateTime     @updatedAt @map("updated_at")
 
-  organization       Organization          @relation(fields: [organizationId], references: [id])
-  owner              User                  @relation(fields: [ownerUserId], references: [id])
-  householdMembers   HouseholdMember[]
-  loyaltyBalances    ClientLoyaltyBalance[]
-  preferences        ClientPreference?
-  tripRequests       TripRequest[]
-  tripTravelers      TripTraveler[]
-  alertSubscriptions AlertSubscription[]
+  organization          Organization          @relation(fields: [organizationId], references: [id])
+  owner                 User                  @relation(fields: [ownerUserId], references: [id])
+  householdMembers      HouseholdMember[]
+  familyMembers         FamilyMember[]
+  loyaltyBalances       ClientLoyaltyBalance[]
+  preferences           ClientPreference?
+  intakes               ClientIntake[]
+  tripRequests          TripRequest[]
+  tripTravelers         TripTraveler[]
+  tripBriefs            TripBrief[]
+  alertSubscriptions    AlertSubscription[]
+  inferredPreferences   InferredPreference[]
+  followUpSuggestions   FollowUpSuggestion[]
+  vendorRequests        VendorRequest[]
+  meetingSessions       DiscoveryMeetingSession[]
 
   @@index([organizationId])
   @@index([ownerUserId])
@@ -215,6 +415,24 @@ model HouseholdMember {
 
   @@unique([householdId, clientId])
   @@map("household_members")
+}
+
+model FamilyMember {
+  id                String   @id @default(cuid())
+  clientId          String   @map("client_id")
+  name              String
+  relationship      String
+  email             String?
+  phone             String?
+  dateOfBirth       DateTime? @map("date_of_birth")
+  notes             String?
+  createdAt         DateTime @default(now()) @map("created_at")
+  updatedAt         DateTime @updatedAt @map("updated_at")
+
+  client Client @relation(fields: [clientId], references: [id], onDelete: Cascade)
+
+  @@index([clientId])
+  @@map("family_members")
 }
 
 // ─── Loyalty Programs ────────────────────────────────────
@@ -343,26 +561,76 @@ model TransferBonus {
   @@map("transfer_bonuses")
 }
 
-// ─── Client Preferences ──────────────────────────────────
+// ─── Client Preference Profile ──────────────────────────────
 
 model ClientPreference {
-  id                 String          @id @default(cuid())
-  clientId           String          @unique @map("client_id")
-  preferredCabin     CabinPreference @default(economy) @map("preferred_cabin")
-  prefersNonstop     Boolean         @default(false) @map("prefers_nonstop")
-  maxLayoverMinutes  Int?            @map("max_layover_minutes")
-  willingToReposition Boolean        @default(false) @map("willing_to_reposition")
-  redemptionStyle    RedemptionStyle @default(balanced) @map("redemption_style")
-  avoidBasicEconomy  Boolean         @default(false) @map("avoid_basic_economy")
-  preferredAirlines  Json?           @map("preferred_airlines")
-  avoidedAirlines    Json?           @map("avoided_airlines")
-  notes              String?
-  createdAt          DateTime        @default(now()) @map("created_at")
-  updatedAt          DateTime        @updatedAt @map("updated_at")
+  id                  String           @id @default(cuid())
+  clientId            String           @unique @map("client_id")
 
-  client Client @relation(fields: [clientId], references: [id])
+  // Flight preferences
+  preferredCabin      CabinPreference  @default(economy) @map("preferred_cabin")
+  prefersNonstop      Boolean          @default(false) @map("prefers_nonstop")
+  maxLayoverMinutes   Int?             @map("max_layover_minutes")
+  willingToReposition Boolean          @default(false) @map("willing_to_reposition")
+  avoidBasicEconomy   Boolean          @default(false) @map("avoid_basic_economy")
+  preferredAirlines   Json?            @map("preferred_airlines")
+  avoidedAirlines     Json?            @map("avoided_airlines")
+
+  // Hotel & accommodation preferences
+  preferredHotelTypes Json?            @map("preferred_hotel_types")
+  roomPreferences     Json?            @map("room_preferences")
+  locationPreferences String?          @map("location_preferences")
+
+  // Budget & points
+  redemptionStyle     RedemptionStyle  @default(balanced) @map("redemption_style")
+  budgetSensitivity   BudgetSensitivity? @map("budget_sensitivity")
+  pointsVsCash        String?          @map("points_vs_cash")
+
+  // Accessibility
+  accessibilityNeeds  Json?            @map("accessibility_needs")
+
+  // Food & activities
+  foodPreferences     Json?            @map("food_preferences")
+  activityPreferences Json?            @map("activity_preferences")
+
+  // Family / children
+  familyConsiderations String?         @map("family_considerations")
+
+  // Celebrations
+  specialOccasions    Json?            @map("special_occasions")
+
+  // Dealbreakers
+  dislikes            Json?
+  dealbreakers        Json?
+
+  // Metadata
+  notes               String?
+  lastUpdatedSource   PreferenceSource @default(manual) @map("last_updated_source")
+  mergeStrategy       MergeStrategy    @default(merge) @map("merge_strategy")
+  createdAt           DateTime         @default(now()) @map("created_at")
+  updatedAt           DateTime         @updatedAt @map("updated_at")
+
+  client    Client                @relation(fields: [clientId], references: [id])
+  changelog PreferenceChangeLog[]
 
   @@map("client_preferences")
+}
+
+model PreferenceChangeLog {
+  id              String           @id @default(cuid())
+  preferenceId    String           @map("preference_id")
+  changedByUserId String           @map("changed_by_user_id")
+  source          PreferenceSource
+  fieldName       String           @map("field_name")
+  oldValue        Json?            @map("old_value")
+  newValue        Json?            @map("new_value")
+  createdAt       DateTime         @default(now()) @map("created_at")
+
+  preference ClientPreference @relation(fields: [preferenceId], references: [id], onDelete: Cascade)
+  changedBy  User             @relation(fields: [changedByUserId], references: [id])
+
+  @@index([preferenceId])
+  @@map("preference_change_logs")
 }
 
 // ─── Trip Request ────────────────────────────────────────
@@ -387,18 +655,40 @@ model TripRequest {
   createdAt           DateTime        @default(now()) @map("created_at")
   updatedAt           DateTime        @updatedAt @map("updated_at")
 
-  organization       Organization        @relation(fields: [organizationId], references: [id])
-  owner              User                @relation(fields: [ownerUserId], references: [id])
-  client             Client?             @relation(fields: [clientId], references: [id])
-  household          Household?          @relation(fields: [householdId], references: [id])
+  organization       Organization          @relation(fields: [organizationId], references: [id])
+  owner              User                  @relation(fields: [ownerUserId], references: [id])
+  client             Client?               @relation(fields: [clientId], references: [id])
+  household          Household?            @relation(fields: [householdId], references: [id])
   travelers          TripTraveler[]
   recommendationRuns RecommendationRun[]
+  tripBriefs         TripBrief[]
   alertSubscriptions AlertSubscription[]
+  tradeoffRanking    TripTradeoffRanking?
+  vendorRequests     VendorRequest[]
 
   @@index([organizationId])
   @@index([clientId])
   @@index([householdId])
   @@map("trip_requests")
+}
+
+model TripTradeoffRanking {
+  id                 String   @id @default(cuid())
+  tripRequestId      String   @unique @map("trip_request_id")
+  cashCost           Int      @default(50) @map("cash_cost")
+  pointsUsage        Int      @default(50) @map("points_usage")
+  redemptionValue    Int      @default(50) @map("redemption_value")
+  travelTime         Int      @default(50) @map("travel_time")
+  fewestLayovers     Int      @default(50) @map("fewest_layovers")
+  premiumExperience  Int      @default(50) @map("premium_experience")
+  flexibility        Int      @default(50)
+  familyConvenience  Int      @default(50) @map("family_convenience")
+  createdAt          DateTime @default(now()) @map("created_at")
+  updatedAt          DateTime @updatedAt @map("updated_at")
+
+  tripRequest TripRequest @relation(fields: [tripRequestId], references: [id], onDelete: Cascade)
+
+  @@map("trip_tradeoff_rankings")
 }
 
 model TripTraveler {
@@ -508,6 +798,100 @@ model RecommendationMemo {
   @@map("recommendation_memos")
 }
 
+// ─── Client Intake ───────────────────────────────────
+
+model ClientIntake {
+  id                    String           @id @default(cuid())
+  clientId              String           @map("client_id")
+  createdByUserId       String           @map("created_by_user_id")
+  status                IntakeStatus     @default(draft)
+  isTemplate            Boolean          @default(false) @map("is_template")
+  templateName          String?          @map("template_name")
+  duplicatedFromId      String?          @map("duplicated_from_id")
+
+  tripType              TripType?        @map("trip_type")
+  tripTypeOther         String?          @map("trip_type_other")
+  destinations          Json?
+  departureAirports     Json?            @map("departure_airports")
+  dateFlexibility       DateFlexibility? @map("date_flexibility")
+  earliestDeparture     DateTime?        @map("earliest_departure")
+  latestReturn          DateTime?        @map("latest_return")
+  tripDurationDays      Int?             @map("trip_duration_days")
+
+  budgetMin             Int?             @map("budget_min")
+  budgetMax             Int?             @map("budget_max")
+  budgetCurrency        String           @default("USD") @map("budget_currency")
+  budgetNotes           String?          @map("budget_notes")
+
+  cabinPreference       CabinPreference? @map("cabin_preference")
+  hotelStyles           Json?            @map("hotel_styles")
+  loyaltyNotes          String?          @map("loyalty_notes")
+
+  accessibilityNeeds    String?          @map("accessibility_needs")
+  dietaryNeeds          String?          @map("dietary_needs")
+
+  travelPace            TravelPace?      @map("travel_pace")
+  layoverTolerance      LayoverTolerance? @map("layover_tolerance")
+  luxuryPreference      LuxuryPreference? @map("luxury_preference")
+  familyFriendly        Boolean?         @map("family_friendly")
+  travelerCount         Int?             @map("traveler_count")
+  childrenCount         Int?             @map("children_count")
+  childrenAges          Json?            @map("children_ages")
+
+  desiredExperiences    Json?            @map("desired_experiences")
+  dealbreakers          Json?
+  preferredAirlines     Json?            @map("preferred_airlines")
+  avoidedAirlines       Json?            @map("avoided_airlines")
+
+  notes                 String?
+
+  completedAt           DateTime?        @map("completed_at")
+  createdAt             DateTime         @default(now()) @map("created_at")
+  updatedAt             DateTime         @updatedAt @map("updated_at")
+
+  client                Client           @relation(fields: [clientId], references: [id], onDelete: Cascade)
+  duplicatedFrom        ClientIntake?    @relation("IntakeDuplicate", fields: [duplicatedFromId], references: [id])
+  duplicates            ClientIntake[]   @relation("IntakeDuplicate")
+  tripBriefs            TripBrief[]
+  followUpSuggestions   FollowUpSuggestion[]
+
+  @@index([clientId])
+  @@index([createdByUserId])
+  @@map("client_intakes")
+}
+
+// ─── Trip Brief ─────────────────────────────────────────
+
+model TripBrief {
+  id                  String   @id @default(cuid())
+  tripRequestId       String?  @map("trip_request_id")
+  clientId            String   @map("client_id")
+  intakeId            String?  @map("intake_id")
+  generatedByUserId   String   @map("generated_by_user_id")
+  version             Int      @default(1)
+
+  executiveSummary    String?  @map("executive_summary")
+  hardConstraints     String?  @map("hard_constraints")
+  softPreferences     String?  @map("soft_preferences")
+  pointsCashPosture   String?  @map("points_cash_posture")
+  acceptableTradeoffs String?  @map("acceptable_tradeoffs")
+  doNotRecommend      String?  @map("do_not_recommend")
+  operationalNotes    String?  @map("operational_notes")
+
+  isEdited            Boolean  @default(false) @map("is_edited")
+  createdAt           DateTime @default(now()) @map("created_at")
+  updatedAt           DateTime @updatedAt @map("updated_at")
+
+  tripRequest         TripRequest?  @relation(fields: [tripRequestId], references: [id])
+  client              Client        @relation(fields: [clientId], references: [id])
+  intake              ClientIntake? @relation(fields: [intakeId], references: [id])
+  generatedBy         User          @relation(fields: [generatedByUserId], references: [id])
+
+  @@index([tripRequestId])
+  @@index([clientId])
+  @@map("trip_briefs")
+}
+
 // ─── Alerts ──────────────────────────────────────────────
 
 model AlertSubscription {
@@ -546,4 +930,292 @@ model AlertEvent {
   alertSubscription AlertSubscription @relation(fields: [alertSubscriptionId], references: [id], onDelete: Cascade)
 
   @@map("alert_events")
+}
+
+// ─── Inferred Preferences ───────────────────────────────
+
+model InferredPreference {
+  id               String            @id @default(cuid())
+  clientId         String            @map("client_id")
+  category         InferenceCategory
+  label            String
+  description      String
+  confidence       Float
+  evidence         Json
+  status           InferenceStatus   @default(pending)
+  resolvedAt       DateTime?         @map("resolved_at")
+  resolvedByUserId String?           @map("resolved_by_user_id")
+  appliedToProfile Boolean           @default(false) @map("applied_to_profile")
+  createdAt        DateTime          @default(now()) @map("created_at")
+  updatedAt        DateTime          @updatedAt @map("updated_at")
+
+  client     Client @relation(fields: [clientId], references: [id], onDelete: Cascade)
+  resolvedBy User?  @relation(fields: [resolvedByUserId], references: [id])
+
+  @@index([clientId])
+  @@map("inferred_preferences")
+}
+
+// ─── Follow-Up Suggestions ──────────────────────────────
+
+model FollowUpSuggestion {
+  id              String              @id @default(cuid())
+  clientId        String              @map("client_id")
+  intakeId        String?             @map("intake_id")
+  category        SuggestionCategory
+  priority        SuggestionPriority
+  questionText    String              @map("question_text")
+  reason          String
+  ruleKey         String              @map("rule_key")
+  status          SuggestionStatus    @default(pending)
+  statusChangedAt DateTime?           @map("status_changed_at")
+  createdAt       DateTime            @default(now()) @map("created_at")
+  updatedAt       DateTime            @updatedAt @map("updated_at")
+
+  client Client       @relation(fields: [clientId], references: [id], onDelete: Cascade)
+  intake ClientIntake? @relation(fields: [intakeId], references: [id], onDelete: SetNull)
+
+  @@index([clientId])
+  @@index([clientId, status])
+  @@map("follow_up_suggestions")
+}
+
+// ─── Vendor Request Tracker ─────────────────────────────
+
+model VendorRequest {
+  id               String               @id @default(cuid())
+  organizationId   String               @map("organization_id")
+  tripRequestId    String               @map("trip_request_id")
+  clientId         String?              @map("client_id")
+  createdByUserId  String               @map("created_by_user_id")
+  templateId       String?              @map("template_id")
+
+  vendorName       String               @map("vendor_name")
+  vendorContact    String?              @map("vendor_contact")
+  requestType      VendorRequestType    @map("request_type")
+  requestDetails   String?              @map("request_details")
+  dateSent         DateTime?            @map("date_sent")
+  urgency          VendorRequestUrgency @default(medium)
+  dueDate          DateTime?            @map("due_date")
+  status           VendorRequestStatus  @default(draft)
+  followUpCount    Int                  @default(0) @map("follow_up_count")
+  internalNotes    String?              @map("internal_notes")
+  finalOutcome     String?              @map("final_outcome")
+  archivedAt       DateTime?            @map("archived_at")
+
+  firstResponseAt  DateTime?            @map("first_response_at")
+  resolvedAt       DateTime?            @map("resolved_at")
+
+  createdAt        DateTime             @default(now()) @map("created_at")
+  updatedAt        DateTime             @updatedAt @map("updated_at")
+
+  organization     Organization         @relation(fields: [organizationId], references: [id])
+  tripRequest      TripRequest          @relation(fields: [tripRequestId], references: [id])
+  client           Client?              @relation(fields: [clientId], references: [id])
+  createdBy        User                 @relation(fields: [createdByUserId], references: [id])
+
+  reminders        VendorRequestReminder[]
+  drafts           VendorRequestDraft[]
+  approvals        VendorRequestApproval[]
+  timeline         VendorRequestTimeline[]
+
+  @@index([organizationId])
+  @@index([tripRequestId])
+  @@index([clientId])
+  @@index([status])
+  @@index([dueDate])
+  @@index([vendorName])
+  @@map("vendor_requests")
+}
+
+model VendorRequestReminder {
+  id                String         @id @default(cuid())
+  vendorRequestId   String         @map("vendor_request_id")
+  status            ReminderStatus @default(pending)
+  remindAt          DateTime       @map("remind_at")
+  label             String?
+  snoozedUntil      DateTime?      @map("snoozed_until")
+  completedAt       DateTime?      @map("completed_at")
+  createdAt         DateTime       @default(now()) @map("created_at")
+  updatedAt         DateTime       @updatedAt @map("updated_at")
+
+  vendorRequest     VendorRequest  @relation(fields: [vendorRequestId], references: [id], onDelete: Cascade)
+
+  @@index([vendorRequestId])
+  @@index([status, remindAt])
+  @@map("vendor_request_reminders")
+}
+
+model VendorRequestDraft {
+  id                String        @id @default(cuid())
+  vendorRequestId   String        @map("vendor_request_id")
+  tone              DraftTone
+  generatedBody     String        @map("generated_body")
+  editedBody        String?       @map("edited_body")
+  metadata          Json?
+  createdAt         DateTime      @default(now()) @map("created_at")
+
+  vendorRequest     VendorRequest @relation(fields: [vendorRequestId], references: [id], onDelete: Cascade)
+
+  @@index([vendorRequestId])
+  @@map("vendor_request_drafts")
+}
+
+model VendorRequestApproval {
+  id                String              @id @default(cuid())
+  vendorRequestId   String              @map("vendor_request_id")
+  fromStatus        VendorRequestStatus @map("from_status")
+  toStatus          VendorRequestStatus @map("to_status")
+  approvedByUserId  String?             @map("approved_by_user_id")
+  notes             String?
+  createdAt         DateTime            @default(now()) @map("created_at")
+
+  vendorRequest     VendorRequest       @relation(fields: [vendorRequestId], references: [id], onDelete: Cascade)
+
+  @@index([vendorRequestId])
+  @@map("vendor_request_approvals")
+}
+
+model VendorRequestTemplate {
+  id                String               @id @default(cuid())
+  organizationId    String?              @map("organization_id")
+  scope             TemplateScope        @default(system)
+  title             String
+  requestType       VendorRequestType    @map("request_type")
+  defaultBody       String               @map("default_body")
+  placeholders      Json?
+  defaultUrgency    VendorRequestUrgency @default(medium) @map("default_urgency")
+  defaultReminders  Json?                @map("default_reminders")
+  isActive          Boolean              @default(true) @map("is_active")
+  createdAt         DateTime             @default(now()) @map("created_at")
+  updatedAt         DateTime             @updatedAt @map("updated_at")
+
+  @@index([organizationId])
+  @@index([scope])
+  @@map("vendor_request_templates")
+}
+
+model VendorScoreSummary {
+  id                     String   @id @default(cuid())
+  organizationId         String   @map("organization_id")
+  vendorName             String   @map("vendor_name")
+  totalRequests          Int      @default(0) @map("total_requests")
+  confirmedCount         Int      @default(0) @map("confirmed_count")
+  declinedCount          Int      @default(0) @map("declined_count")
+  avgResponseHours       Float?   @map("avg_response_hours")
+  avgResolutionHours     Float?   @map("avg_resolution_hours")
+  avgFollowUps           Float?   @map("avg_follow_ups")
+  overdueCount           Int      @default(0) @map("overdue_count")
+  score                  Float?
+  confidence             String?
+  lastCalculatedAt       DateTime @default(now()) @map("last_calculated_at")
+  createdAt              DateTime @default(now()) @map("created_at")
+  updatedAt              DateTime @updatedAt @map("updated_at")
+
+  @@unique([organizationId, vendorName])
+  @@index([organizationId])
+  @@map("vendor_score_summaries")
+}
+
+model VendorRequestTimeline {
+  id                String        @id @default(cuid())
+  vendorRequestId   String        @map("vendor_request_id")
+  eventType         String        @map("event_type")
+  description       String
+  metadata          Json?
+  createdAt         DateTime      @default(now()) @map("created_at")
+
+  vendorRequest     VendorRequest @relation(fields: [vendorRequestId], references: [id], onDelete: Cascade)
+
+  @@index([vendorRequestId])
+  @@map("vendor_request_timeline")
+}
+
+// ─── Meeting Copilot ─────────────────────────────────────
+
+model DiscoveryMeetingSession {
+  id              String               @id @default(cuid())
+  clientId        String               @map("client_id")
+  advisorUserId   String               @map("advisor_user_id")
+  title           String
+  status          MeetingSessionStatus @default(active)
+  summary         String?
+  createdAt       DateTime             @default(now()) @map("created_at")
+  updatedAt       DateTime             @updatedAt @map("updated_at")
+
+  client              Client                      @relation(fields: [clientId], references: [id], onDelete: Cascade)
+  advisor             User                        @relation(fields: [advisorUserId], references: [id])
+  entries             MeetingEntry[]
+  questionSuggestions MeetingQuestionSuggestion[]
+  profileSuggestions  MeetingProfileSuggestion[]
+  recap               MeetingRecap?
+
+  @@index([clientId])
+  @@index([advisorUserId])
+  @@map("discovery_meeting_sessions")
+}
+
+model MeetingEntry {
+  id          String           @id @default(cuid())
+  sessionId   String           @map("session_id")
+  role        MeetingEntryRole
+  content     String
+  metadata    Json?
+  createdAt   DateTime         @default(now()) @map("created_at")
+
+  session DiscoveryMeetingSession @relation(fields: [sessionId], references: [id], onDelete: Cascade)
+
+  @@index([sessionId])
+  @@map("meeting_entries")
+}
+
+model MeetingQuestionSuggestion {
+  id              String   @id @default(cuid())
+  sessionId       String   @map("session_id")
+  questionText    String   @map("question_text")
+  category        String
+  reason          String
+  priority        String
+  targetFields    Json     @map("target_fields")
+  isUsed          Boolean  @default(false) @map("is_used")
+  createdAt       DateTime @default(now()) @map("created_at")
+
+  session DiscoveryMeetingSession @relation(fields: [sessionId], references: [id], onDelete: Cascade)
+
+  @@index([sessionId])
+  @@map("meeting_question_suggestions")
+}
+
+model MeetingProfileSuggestion {
+  id          String                  @id @default(cuid())
+  sessionId   String                  @map("session_id")
+  targetField String                  @map("target_field")
+  suggestedValue Json                 @map("suggested_value")
+  confidence  Float
+  evidence    String
+  rationale   String
+  status      ProfileSuggestionStatus @default(pending)
+  resolvedAt  DateTime?               @map("resolved_at")
+  createdAt   DateTime                @default(now()) @map("created_at")
+
+  session DiscoveryMeetingSession @relation(fields: [sessionId], references: [id], onDelete: Cascade)
+
+  @@index([sessionId])
+  @@index([sessionId, status])
+  @@map("meeting_profile_suggestions")
+}
+
+model MeetingRecap {
+  id                  String   @id @default(cuid())
+  sessionId           String   @unique @map("session_id")
+  travelerSummary     String   @map("traveler_summary")
+  newPreferencesLearned String @map("new_preferences_learned")
+  unresolvedQuestions String   @map("unresolved_questions")
+  nextSteps           String   @map("next_steps")
+  createdAt           DateTime @default(now()) @map("created_at")
+  updatedAt           DateTime @updatedAt @map("updated_at")
+
+  session DiscoveryMeetingSession @relation(fields: [sessionId], references: [id], onDelete: Cascade)
+
+  @@map("meeting_recaps")
 }

@@ -21,6 +21,9 @@ import {
   getClients,
 } from '@/lib/api-client';
 import type { TripRequest, Client, TripTraveler, RecommendationRunSummary } from '@/lib/api-client';
+import TradeoffRankingPanel from '@/components/TradeoffRankingPanel';
+import ConfidenceMeter from '@/components/ConfidenceMeter';
+import TripBriefPanel from '@/components/TripBriefPanel';
 
 function StatusBadge({ status }: { status: string }) {
   const styles: Record<string, string> = {
@@ -334,6 +337,26 @@ export default function TripRequestDetailPage() {
             )}
           </div>
         </div>
+      </div>
+
+      {/* Trip Brief */}
+      {trip.clientId && (
+        <div className="mt-6">
+          <TripBriefPanel tripId={tripId} hasCompletedIntake={true} />
+        </div>
+      )}
+
+      {/* Preference Confidence Meter */}
+      <div className="mt-6">
+        <ConfidenceMeter tripId={tripId} />
+      </div>
+
+      {/* Tradeoff Priorities */}
+      <div className="mt-6">
+        <TradeoffRankingPanel
+          tripRequestId={tripId}
+          clientId={trip.clientId}
+        />
       </div>
 
       {/* Notes */}

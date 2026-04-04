@@ -6,12 +6,11 @@ import Link from 'next/link';
 import {
   LayoutDashboard,
   Users,
-  Home,
-  Plane,
   Bell,
   Settings,
   LogOut,
   Loader2,
+  ClipboardList,
 } from 'lucide-react';
 import { TripyLogo } from '@/components/tripy-logo';
 import { getMe } from '@/lib/api-client';
@@ -20,8 +19,7 @@ import type { User } from '@/lib/api-client';
 const NAV_ITEMS = [
   { href: '/dashboard', label: 'Dashboard', icon: LayoutDashboard },
   { href: '/clients', label: 'Clients', icon: Users },
-  { href: '/households', label: 'Households', icon: Home },
-  { href: '/trip-requests', label: 'Trip Requests', icon: Plane },
+  { href: '/operations', label: 'Operations', icon: ClipboardList },
   { href: '/alerts', label: 'Alerts', icon: Bell },
   { href: '/settings', label: 'Settings', icon: Settings },
 ];

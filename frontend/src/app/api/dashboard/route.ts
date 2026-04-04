@@ -7,11 +7,10 @@ export async function GET(request: Request) {
     if (!user) return errorResponse("Unauthorized", 401);
 
     const orgId = user.organizationId;
+    const now = new Date();
 
     const [
       totalClients,
-      totalHouseholds,
-      expiringBalances,
       activeBonuses,
       activeTripAnalyses,
       recentAlerts,
@@ -20,49 +19,24 @@ export async function GET(request: Request) {
         where: { organizationId: orgId, status: "active" },
       }),
 
-      prisma.household.count({
-        where: { organizationId: orgId },
+      prisma.transferBonus.findMany({
+        where: {
+          isActive: true,
+          startsAt: { lte: now },
+          endsAt: { gte: now },
+        },
+        include: { fromProgram: true, toProgram: true },
+        orderBy: { endsAt: "asc" },
       }),
 
-      (async () => {
-        const thirtyDays = new Date(Date.now() + 30 * 86400000);
-        const clientIds = await prisma.client.findMany({
-          where: { organizationId: orgId, status: "active" },
-          select: { id: true },
-        });
-        const balances = await prisma.clientLoyaltyBalance.findMany({
-          where: {
-            clientId: { in: clientIds.map((c) => c.id) },
-            expirationDate: { lte: thirtyDays, gte: new Date() },
-          },
-          include: {
-            loyaltyProgram: true,
-            client: { select: { firstName: true, lastName: true } },
-          },
-          orderBy: { expirationDate: "asc" },
-        });
-        return { count: balances.length, items: balances };
-      })(),
-
-      (async () => {
-        const now = new Date();
-        const bonuses = await prisma.transferBonus.findMany({
-          where: { isActive: true, startsAt: { lte: now }, endsAt: { gte: now } },
-          include: { fromProgram: true, toProgram: true },
-          orderBy: { endsAt: "asc" },
-        });
-        return { count: bonuses.length, items: bonuses };
-      })(),
-
-      (async () => {
-        const trips = await prisma.tripRequest.findMany({
-          where: {
-            organizationId: orgId,
-            status: { in: ["analyzing", "draft"] },
-          },
-        });
-        return { count: trips.length };
-      })(),
+      prisma.tripRequest.findMany({
+        where: {
+          organizationId: orgId,
+          status: { in: ["analyzing", "draft"] },
+        },
+        orderBy: { updatedAt: "desc" },
+        take: 10,
+      }),
 
       (async () => {
         const subIds = await prisma.alertSubscription.findMany({
@@ -80,11 +54,24 @@ export async function GET(request: Request) {
       })(),
     ]);
 
+    const transferBonusDetails = activeBonuses.map((b) => ({
+      id: b.id,
+      fromProgram: b.fromProgram.name,
+      fromProgramCode: b.fromProgram.code,
+      toProgram: b.toProgram.name,
+      toProgramCode: b.toProgram.code,
+      bonusPercent: b.bonusPercent,
+      startsAt: b.startsAt.toISOString(),
+      endsAt: b.endsAt.toISOString(),
+      sourceUrl: b.sourceUrl,
+      sourceLabel: b.sourceLabel,
+    }));
+
     return json({
+      advisorName: `${user.firstName} ${user.lastName}`,
       totalClients,
-      totalHouseholds,
-      expiringPointsSoon: expiringBalances,
-      activeTransferBonuses: activeBonuses,
+      transferBonuses: transferBonusDetails,
+      transferBonusCount: transferBonusDetails.length,
       activeTripAnalyses,
       recentAlerts,
     });

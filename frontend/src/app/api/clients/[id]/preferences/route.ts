@@ -1,6 +1,32 @@
 import { prisma } from "@/lib/prisma";
 import { getAuthUser, json, errorResponse } from "@/lib/auth";
 
+const PREFERENCE_FIELDS = [
+  "preferredCabin",
+  "prefersNonstop",
+  "maxLayoverMinutes",
+  "willingToReposition",
+  "avoidBasicEconomy",
+  "preferredAirlines",
+  "avoidedAirlines",
+  "preferredHotelTypes",
+  "roomPreferences",
+  "locationPreferences",
+  "redemptionStyle",
+  "budgetSensitivity",
+  "pointsVsCash",
+  "accessibilityNeeds",
+  "foodPreferences",
+  "activityPreferences",
+  "familyConsiderations",
+  "specialOccasions",
+  "dislikes",
+  "dealbreakers",
+  "defaultTradeoffWeights",
+  "notes",
+  "mergeStrategy",
+] as const;
+
 export async function GET(
   request: Request,
   { params }: { params: Promise<{ id: string }> },
@@ -43,44 +69,58 @@ export async function PUT(
     if (!client) return errorResponse("Client not found", 404);
 
     const body = await request.json();
-    const {
-      preferredCabin,
-      prefersNonstop,
-      maxLayoverMinutes,
-      willingToReposition,
-      redemptionStyle,
-      avoidBasicEconomy,
-      preferredAirlines,
-      avoidedAirlines,
-      notes,
-    } = body;
+    const source = body._source ?? "manual";
+
+    const existing = await prisma.clientPreference.findUnique({
+      where: { clientId: id },
+    });
+
+    const updateData: Record<string, unknown> = {};
+    for (const field of PREFERENCE_FIELDS) {
+      if (body[field] !== undefined) {
+        updateData[field] = body[field];
+      }
+    }
+    updateData.lastUpdatedSource = source;
 
     const preferences = await prisma.clientPreference.upsert({
       where: { clientId: id },
       create: {
         clientId: id,
-        preferredCabin: preferredCabin ?? "economy",
-        prefersNonstop: prefersNonstop ?? false,
-        maxLayoverMinutes: maxLayoverMinutes ?? null,
-        willingToReposition: willingToReposition ?? false,
-        redemptionStyle: redemptionStyle ?? "balanced",
-        avoidBasicEconomy: avoidBasicEconomy ?? false,
-        preferredAirlines: preferredAirlines ?? null,
-        avoidedAirlines: avoidedAirlines ?? null,
-        notes: notes ?? null,
+        ...Object.fromEntries(
+          PREFERENCE_FIELDS.map((f) => [f, body[f] ?? null]),
+        ),
+        preferredCabin: body.preferredCabin ?? "economy",
+        prefersNonstop: body.prefersNonstop ?? false,
+        willingToReposition: body.willingToReposition ?? false,
+        avoidBasicEconomy: body.avoidBasicEconomy ?? false,
+        redemptionStyle: body.redemptionStyle ?? "balanced",
+        lastUpdatedSource: source,
+        mergeStrategy: body.mergeStrategy ?? "merge",
       },
-      update: {
-        ...(preferredCabin !== undefined && { preferredCabin }),
-        ...(prefersNonstop !== undefined && { prefersNonstop }),
-        ...(maxLayoverMinutes !== undefined && { maxLayoverMinutes }),
-        ...(willingToReposition !== undefined && { willingToReposition }),
-        ...(redemptionStyle !== undefined && { redemptionStyle }),
-        ...(avoidBasicEconomy !== undefined && { avoidBasicEconomy }),
-        ...(preferredAirlines !== undefined && { preferredAirlines }),
-        ...(avoidedAirlines !== undefined && { avoidedAirlines }),
-        ...(notes !== undefined && { notes }),
-      },
+      update: updateData,
     });
+
+    const changeLogs = [];
+    for (const field of PREFERENCE_FIELDS) {
+      if (body[field] === undefined) continue;
+      const oldVal = existing ? (existing as Record<string, unknown>)[field] : null;
+      const newVal = body[field];
+      if (JSON.stringify(oldVal) !== JSON.stringify(newVal)) {
+        changeLogs.push({
+          preferenceId: preferences.id,
+          changedByUserId: user.id,
+          source,
+          fieldName: field,
+          oldValue: oldVal === undefined ? null : oldVal,
+          newValue: newVal,
+        });
+      }
+    }
+
+    if (changeLogs.length > 0) {
+      await prisma.preferenceChangeLog.createMany({ data: changeLogs });
+    }
 
     return json(preferences);
   } catch (error) {

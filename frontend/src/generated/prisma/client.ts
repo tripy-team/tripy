@@ -67,6 +67,11 @@ export type Household = Prisma.HouseholdModel
  */
 export type HouseholdMember = Prisma.HouseholdMemberModel
 /**
+ * Model FamilyMember
+ * 
+ */
+export type FamilyMember = Prisma.FamilyMemberModel
+/**
  * Model LoyaltyProgram
  * 
  */
@@ -102,10 +107,20 @@ export type TransferBonus = Prisma.TransferBonusModel
  */
 export type ClientPreference = Prisma.ClientPreferenceModel
 /**
+ * Model PreferenceChangeLog
+ * 
+ */
+export type PreferenceChangeLog = Prisma.PreferenceChangeLogModel
+/**
  * Model TripRequest
  * 
  */
 export type TripRequest = Prisma.TripRequestModel
+/**
+ * Model TripTradeoffRanking
+ * 
+ */
+export type TripTradeoffRanking = Prisma.TripTradeoffRankingModel
 /**
  * Model TripTraveler
  * 
@@ -137,6 +152,16 @@ export type RecommendationInsight = Prisma.RecommendationInsightModel
  */
 export type RecommendationMemo = Prisma.RecommendationMemoModel
 /**
+ * Model ClientIntake
+ * 
+ */
+export type ClientIntake = Prisma.ClientIntakeModel
+/**
+ * Model TripBrief
+ * 
+ */
+export type TripBrief = Prisma.TripBriefModel
+/**
  * Model AlertSubscription
  * 
  */
@@ -146,3 +171,48 @@ export type AlertSubscription = Prisma.AlertSubscriptionModel
  * 
  */
 export type AlertEvent = Prisma.AlertEventModel
+/**
+ * Model InferredPreference
+ * 
+ */
+export type InferredPreference = Prisma.InferredPreferenceModel
+/**
+ * Model FollowUpSuggestion
+ * 
+ */
+export type FollowUpSuggestion = Prisma.FollowUpSuggestionModel
+/**
+ * Model VendorRequest
+ * 
+ */
+export type VendorRequest = Prisma.VendorRequestModel
+/**
+ * Model VendorRequestReminder
+ * 
+ */
+export type VendorRequestReminder = Prisma.VendorRequestReminderModel
+/**
+ * Model VendorRequestDraft
+ * 
+ */
+export type VendorRequestDraft = Prisma.VendorRequestDraftModel
+/**
+ * Model VendorRequestApproval
+ * 
+ */
+export type VendorRequestApproval = Prisma.VendorRequestApprovalModel
+/**
+ * Model VendorRequestTemplate
+ * 
+ */
+export type VendorRequestTemplate = Prisma.VendorRequestTemplateModel
+/**
+ * Model VendorScoreSummary
+ * 
+ */
+export type VendorScoreSummary = Prisma.VendorScoreSummaryModel
+/**
+ * Model VendorRequestTimeline
+ * 
+ */
+export type VendorRequestTimeline = Prisma.VendorRequestTimelineModel

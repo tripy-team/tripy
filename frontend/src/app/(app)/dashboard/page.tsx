@@ -4,17 +4,22 @@ import { useState, useEffect } from 'react';
 import Link from 'next/link';
 import {
   Users,
-  Home,
-  Clock,
   ArrowRightLeft,
   Plane,
   Bell,
   Plus,
   Loader2,
   RefreshCw,
+  ExternalLink,
+  Zap,
 } from 'lucide-react';
-import { getDashboard } from '@/lib/api-client';
-import type { DashboardData, TripRequest, AlertEvent } from '@/lib/api-client';
+import { getDashboard, scrapeTransferBonuses } from '@/lib/api-client';
+import type {
+  DashboardData,
+  TripRequest,
+  AlertEvent,
+  TransferBonusDetail,
+} from '@/lib/api-client';
 
 function StatCard({
   label,
@@ -29,7 +34,6 @@ function StatCard({
 }) {
   const colorMap: Record<string, string> = {
     blue: 'bg-blue-50 text-blue-600',
-    slate: 'bg-slate-50 text-slate-600',
     amber: 'bg-amber-50 text-amber-600',
     green: 'bg-green-50 text-green-600',
   };
@@ -63,10 +67,64 @@ function StatusBadge({ status }: { status: string }) {
   );
 }
 
+function daysUntil(dateStr: string): number {
+  const diff = new Date(dateStr).getTime() - Date.now();
+  return Math.ceil(diff / 86400000);
+}
+
+function TransferBonusCard({ bonus }: { bonus: TransferBonusDetail }) {
+  const daysLeft = daysUntil(bonus.endsAt);
+  const urgency = daysLeft <= 7 ? 'text-red-600' : daysLeft <= 14 ? 'text-amber-600' : 'text-slate-500';
+
+  return (
+    <div className="flex items-center justify-between rounded-lg border border-slate-100 bg-white px-4 py-3 transition-colors hover:border-green-200 hover:bg-green-50/30">
+      <div className="flex items-center gap-3">
+        <div className="flex h-9 w-9 items-center justify-center rounded-lg bg-green-50">
+          <Zap className="h-4 w-4 text-green-600" />
+        </div>
+        <div>
+          <p className="text-sm font-medium text-slate-900">
+            {bonus.fromProgram} → {bonus.toProgram}
+          </p>
+          <p className="text-xs text-slate-500">
+            {bonus.sourceLabel && <span>{bonus.sourceLabel}</span>}
+          </p>
+        </div>
+      </div>
+      <div className="flex items-center gap-4">
+        <span className="rounded-full bg-green-100 px-2.5 py-0.5 text-sm font-semibold text-green-700">
+          +{bonus.bonusPercent}%
+        </span>
+        <div className="text-right">
+          <p className={`text-xs font-medium ${urgency}`}>
+            {daysLeft > 0 ? `${daysLeft}d left` : 'Ending today'}
+          </p>
+          <p className="text-xs text-slate-400">
+            ends {new Date(bonus.endsAt).toLocaleDateString('en-US', { month: 'short', day: 'numeric' })}
+          </p>
+        </div>
+        {bonus.sourceUrl && (
+          <a
+            href={bonus.sourceUrl}
+            target="_blank"
+            rel="noopener noreferrer"
+            onClick={(e) => e.stopPropagation()}
+            className="text-slate-400 hover:text-blue-600"
+          >
+            <ExternalLink className="h-3.5 w-3.5" />
+          </a>
+        )}
+      </div>
+    </div>
+  );
+}
+
 export default function DashboardPage() {
   const [data, setData] = useState<DashboardData | null>(null);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
+  const [scraping, setScraping] = useState(false);
+  const [scrapeMessage, setScrapeMessage] = useState<string | null>(null);
 
   const load = () => {
     setLoading(true);
@@ -75,6 +133,20 @@ export default function DashboardPage() {
       .then(setData)
       .catch((err) => setError(err.message))
       .finally(() => setLoading(false));
+  };
+
+  const handleScrapeTPG = async () => {
+    setScraping(true);
+    setScrapeMessage(null);
+    try {
+      const result = await scrapeTransferBonuses();
+      setScrapeMessage(result.message);
+      load();
+    } catch (err) {
+      setScrapeMessage(err instanceof Error ? err.message : 'Scrape failed');
+    } finally {
+      setScraping(false);
+    }
   };
 
   useEffect(load, []);
@@ -105,6 +177,10 @@ export default function DashboardPage() {
 
   if (!data) return null;
 
+  const transferBonuses = Array.isArray(data.transferBonuses) ? data.transferBonuses : [];
+  const activeTripAnalyses = Array.isArray(data.activeTripAnalyses) ? data.activeTripAnalyses : [];
+  const recentAlerts = Array.isArray(data.recentAlerts) ? data.recentAlerts : [];
+
   return (
     <div className="max-w-6xl">
       {/* Header */}
@@ -116,11 +192,9 @@ export default function DashboardPage() {
       </div>
 
       {/* Stats Grid */}
-      <div className="mb-8 grid grid-cols-1 gap-4 sm:grid-cols-2 lg:grid-cols-4">
-        <StatCard label="Total Clients" value={data.totalClients} icon={Users} color="blue" />
-        <StatCard label="Total Households" value={data.totalHouseholds} icon={Home} color="slate" />
-        <StatCard label="Expiring Points (30d)" value={data.expiringPointsNext30Days} icon={Clock} color="amber" />
-        <StatCard label="Active Transfer Bonuses" value={data.activeTransferBonuses} icon={ArrowRightLeft} color="green" />
+      <div className="mb-8 grid grid-cols-1 gap-4 sm:grid-cols-2">
+        <StatCard label="Total Clients" value={data.totalClients ?? 0} icon={Users} color="blue" />
+        <StatCard label="Active Transfer Bonuses" value={data.transferBonusCount ?? 0} icon={ArrowRightLeft} color="green" />
       </div>
 
       {/* Quick Actions */}
@@ -132,20 +206,52 @@ export default function DashboardPage() {
           <Plus className="h-4 w-4" />
           New Client
         </Link>
-        <Link
-          href="/trip-requests/new"
-          className="inline-flex items-center gap-2 rounded-lg border border-slate-200 bg-white px-4 py-2 text-sm font-medium text-slate-700 shadow-sm hover:bg-slate-50"
+        <button
+          onClick={handleScrapeTPG}
+          disabled={scraping}
+          className="inline-flex items-center gap-2 rounded-lg border border-slate-200 bg-white px-4 py-2 text-sm font-medium text-slate-700 shadow-sm hover:bg-slate-50 disabled:opacity-60"
         >
-          <Plane className="h-4 w-4" />
-          New Trip Request
-        </Link>
-        <Link
-          href="/settings"
-          className="inline-flex items-center gap-2 rounded-lg border border-slate-200 bg-white px-4 py-2 text-sm font-medium text-slate-700 shadow-sm hover:bg-slate-50"
-        >
-          <ArrowRightLeft className="h-4 w-4" />
-          View Transfer Bonuses
-        </Link>
+          {scraping ? <Loader2 className="h-4 w-4 animate-spin" /> : <RefreshCw className="h-4 w-4" />}
+          Sync TPG Bonuses
+        </button>
+      </div>
+
+      {scrapeMessage && (
+        <div className="mb-6 rounded-lg bg-blue-50 px-4 py-3 text-sm text-blue-700">
+          {scrapeMessage}
+        </div>
+      )}
+
+      {/* Transfer Bonuses Section */}
+      <div className="mb-6 rounded-xl border border-slate-200 bg-white shadow-sm">
+        <div className="flex items-center justify-between border-b border-slate-100 px-5 py-4">
+          <div>
+            <h2 className="font-semibold text-slate-900">Active Transfer Bonuses</h2>
+            <p className="text-xs text-slate-500">Current promotions across loyalty programs</p>
+          </div>
+          <span className="rounded-full bg-green-100 px-2.5 py-0.5 text-xs font-semibold text-green-700">
+            {transferBonuses.length} active
+          </span>
+        </div>
+        <div className="divide-y divide-slate-50 p-3">
+          {transferBonuses.length === 0 ? (
+            <div className="py-8 text-center">
+              <ArrowRightLeft className="mx-auto h-8 w-8 text-slate-300" />
+              <p className="mt-2 text-sm text-slate-500">No active transfer bonuses</p>
+              <button
+                onClick={handleScrapeTPG}
+                disabled={scraping}
+                className="mt-3 text-sm font-medium text-blue-600 hover:text-blue-700"
+              >
+                Sync from TPG
+              </button>
+            </div>
+          ) : (
+            transferBonuses.map((bonus: TransferBonusDetail) => (
+              <TransferBonusCard key={bonus.id} bonus={bonus} />
+            ))
+          )}
+        </div>
       </div>
 
       <div className="grid grid-cols-1 gap-6 lg:grid-cols-2">
@@ -158,13 +264,13 @@ export default function DashboardPage() {
             </Link>
           </div>
           <div className="divide-y divide-slate-100">
-            {data.activeTripAnalyses.length === 0 ? (
+            {activeTripAnalyses.length === 0 ? (
               <div className="px-5 py-8 text-center">
                 <Plane className="mx-auto h-8 w-8 text-slate-300" />
                 <p className="mt-2 text-sm text-slate-500">No active analyses</p>
               </div>
             ) : (
-              data.activeTripAnalyses.map((trip: TripRequest) => (
+              activeTripAnalyses.map((trip: TripRequest) => (
                 <Link
                   key={trip.id}
                   href={`/trip-requests/${trip.id}`}
@@ -192,13 +298,13 @@ export default function DashboardPage() {
             </Link>
           </div>
           <div className="divide-y divide-slate-100">
-            {data.recentAlerts.length === 0 ? (
+            {recentAlerts.length === 0 ? (
               <div className="px-5 py-8 text-center">
                 <Bell className="mx-auto h-8 w-8 text-slate-300" />
                 <p className="mt-2 text-sm text-slate-500">No recent alerts</p>
               </div>
             ) : (
-              data.recentAlerts.slice(0, 5).map((alert: AlertEvent) => {
+              recentAlerts.slice(0, 5).map((alert: AlertEvent) => {
                 const severityColors: Record<string, string> = {
                   info: 'bg-blue-500',
                   warning: 'bg-amber-500',

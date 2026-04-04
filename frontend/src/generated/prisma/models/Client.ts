@@ -28,6 +28,7 @@ export type ClientMinAggregateOutputType = {
   id: string | null
   organizationId: string | null
   ownerUserId: string | null
+  clientType: $Enums.ClientType | null
   firstName: string | null
   lastName: string | null
   email: string | null
@@ -43,6 +44,7 @@ export type ClientMaxAggregateOutputType = {
   id: string | null
   organizationId: string | null
   ownerUserId: string | null
+  clientType: $Enums.ClientType | null
   firstName: string | null
   lastName: string | null
   email: string | null
@@ -58,6 +60,7 @@ export type ClientCountAggregateOutputType = {
   id: number
   organizationId: number
   ownerUserId: number
+  clientType: number
   firstName: number
   lastName: number
   email: number
@@ -75,6 +78,7 @@ export type ClientMinAggregateInputType = {
   id?: true
   organizationId?: true
   ownerUserId?: true
+  clientType?: true
   firstName?: true
   lastName?: true
   email?: true
@@ -90,6 +94,7 @@ export type ClientMaxAggregateInputType = {
   id?: true
   organizationId?: true
   ownerUserId?: true
+  clientType?: true
   firstName?: true
   lastName?: true
   email?: true
@@ -105,6 +110,7 @@ export type ClientCountAggregateInputType = {
   id?: true
   organizationId?: true
   ownerUserId?: true
+  clientType?: true
   firstName?: true
   lastName?: true
   email?: true
@@ -193,6 +199,7 @@ export type ClientGroupByOutputType = {
   id: string
   organizationId: string
   ownerUserId: string
+  clientType: $Enums.ClientType
   firstName: string
   lastName: string
   email: string | null
@@ -229,6 +236,7 @@ export type ClientWhereInput = {
   id?: Prisma.StringFilter<"Client"> | string
   organizationId?: Prisma.StringFilter<"Client"> | string
   ownerUserId?: Prisma.StringFilter<"Client"> | string
+  clientType?: Prisma.EnumClientTypeFilter<"Client"> | $Enums.ClientType
   firstName?: Prisma.StringFilter<"Client"> | string
   lastName?: Prisma.StringFilter<"Client"> | string
   email?: Prisma.StringNullableFilter<"Client"> | string | null
@@ -241,17 +249,24 @@ export type ClientWhereInput = {
   organization?: Prisma.XOR<Prisma.OrganizationScalarRelationFilter, Prisma.OrganizationWhereInput>
   owner?: Prisma.XOR<Prisma.UserScalarRelationFilter, Prisma.UserWhereInput>
   householdMembers?: Prisma.HouseholdMemberListRelationFilter
+  familyMembers?: Prisma.FamilyMemberListRelationFilter
   loyaltyBalances?: Prisma.ClientLoyaltyBalanceListRelationFilter
   preferences?: Prisma.XOR<Prisma.ClientPreferenceNullableScalarRelationFilter, Prisma.ClientPreferenceWhereInput> | null
+  intakes?: Prisma.ClientIntakeListRelationFilter
   tripRequests?: Prisma.TripRequestListRelationFilter
   tripTravelers?: Prisma.TripTravelerListRelationFilter
+  tripBriefs?: Prisma.TripBriefListRelationFilter
   alertSubscriptions?: Prisma.AlertSubscriptionListRelationFilter
+  inferredPreferences?: Prisma.InferredPreferenceListRelationFilter
+  followUpSuggestions?: Prisma.FollowUpSuggestionListRelationFilter
+  vendorRequests?: Prisma.VendorRequestListRelationFilter
 }
 
 export type ClientOrderByWithRelationInput = {
   id?: Prisma.SortOrder
   organizationId?: Prisma.SortOrder
   ownerUserId?: Prisma.SortOrder
+  clientType?: Prisma.SortOrder
   firstName?: Prisma.SortOrder
   lastName?: Prisma.SortOrder
   email?: Prisma.SortOrderInput | Prisma.SortOrder
@@ -264,11 +279,17 @@ export type ClientOrderByWithRelationInput = {
   organization?: Prisma.OrganizationOrderByWithRelationInput
   owner?: Prisma.UserOrderByWithRelationInput
   householdMembers?: Prisma.HouseholdMemberOrderByRelationAggregateInput
+  familyMembers?: Prisma.FamilyMemberOrderByRelationAggregateInput
   loyaltyBalances?: Prisma.ClientLoyaltyBalanceOrderByRelationAggregateInput
   preferences?: Prisma.ClientPreferenceOrderByWithRelationInput
+  intakes?: Prisma.ClientIntakeOrderByRelationAggregateInput
   tripRequests?: Prisma.TripRequestOrderByRelationAggregateInput
   tripTravelers?: Prisma.TripTravelerOrderByRelationAggregateInput
+  tripBriefs?: Prisma.TripBriefOrderByRelationAggregateInput
   alertSubscriptions?: Prisma.AlertSubscriptionOrderByRelationAggregateInput
+  inferredPreferences?: Prisma.InferredPreferenceOrderByRelationAggregateInput
+  followUpSuggestions?: Prisma.FollowUpSuggestionOrderByRelationAggregateInput
+  vendorRequests?: Prisma.VendorRequestOrderByRelationAggregateInput
 }
 
 export type ClientWhereUniqueInput = Prisma.AtLeast<{
@@ -278,6 +299,7 @@ export type ClientWhereUniqueInput = Prisma.AtLeast<{
   NOT?: Prisma.ClientWhereInput | Prisma.ClientWhereInput[]
   organizationId?: Prisma.StringFilter<"Client"> | string
   ownerUserId?: Prisma.StringFilter<"Client"> | string
+  clientType?: Prisma.EnumClientTypeFilter<"Client"> | $Enums.ClientType
   firstName?: Prisma.StringFilter<"Client"> | string
   lastName?: Prisma.StringFilter<"Client"> | string
   email?: Prisma.StringNullableFilter<"Client"> | string | null
@@ -290,17 +312,24 @@ export type ClientWhereUniqueInput = Prisma.AtLeast<{
   organization?: Prisma.XOR<Prisma.OrganizationScalarRelationFilter, Prisma.OrganizationWhereInput>
   owner?: Prisma.XOR<Prisma.UserScalarRelationFilter, Prisma.UserWhereInput>
   householdMembers?: Prisma.HouseholdMemberListRelationFilter
+  familyMembers?: Prisma.FamilyMemberListRelationFilter
   loyaltyBalances?: Prisma.ClientLoyaltyBalanceListRelationFilter
   preferences?: Prisma.XOR<Prisma.ClientPreferenceNullableScalarRelationFilter, Prisma.ClientPreferenceWhereInput> | null
+  intakes?: Prisma.ClientIntakeListRelationFilter
   tripRequests?: Prisma.TripRequestListRelationFilter
   tripTravelers?: Prisma.TripTravelerListRelationFilter
+  tripBriefs?: Prisma.TripBriefListRelationFilter
   alertSubscriptions?: Prisma.AlertSubscriptionListRelationFilter
+  inferredPreferences?: Prisma.InferredPreferenceListRelationFilter
+  followUpSuggestions?: Prisma.FollowUpSuggestionListRelationFilter
+  vendorRequests?: Prisma.VendorRequestListRelationFilter
 }, "id">
 
 export type ClientOrderByWithAggregationInput = {
   id?: Prisma.SortOrder
   organizationId?: Prisma.SortOrder
   ownerUserId?: Prisma.SortOrder
+  clientType?: Prisma.SortOrder
   firstName?: Prisma.SortOrder
   lastName?: Prisma.SortOrder
   email?: Prisma.SortOrderInput | Prisma.SortOrder
@@ -322,6 +351,7 @@ export type ClientScalarWhereWithAggregatesInput = {
   id?: Prisma.StringWithAggregatesFilter<"Client"> | string
   organizationId?: Prisma.StringWithAggregatesFilter<"Client"> | string
   ownerUserId?: Prisma.StringWithAggregatesFilter<"Client"> | string
+  clientType?: Prisma.EnumClientTypeWithAggregatesFilter<"Client"> | $Enums.ClientType
   firstName?: Prisma.StringWithAggregatesFilter<"Client"> | string
   lastName?: Prisma.StringWithAggregatesFilter<"Client"> | string
   email?: Prisma.StringNullableWithAggregatesFilter<"Client"> | string | null
@@ -335,6 +365,7 @@ export type ClientScalarWhereWithAggregatesInput = {
 
 export type ClientCreateInput = {
   id?: string
+  clientType?: $Enums.ClientType
   firstName: string
   lastName: string
   email?: string | null
@@ -347,17 +378,24 @@ export type ClientCreateInput = {
   organization: Prisma.OrganizationCreateNestedOneWithoutClientsInput
   owner: Prisma.UserCreateNestedOneWithoutOwnedClientsInput
   householdMembers?: Prisma.HouseholdMemberCreateNestedManyWithoutClientInput
+  familyMembers?: Prisma.FamilyMemberCreateNestedManyWithoutClientInput
   loyaltyBalances?: Prisma.ClientLoyaltyBalanceCreateNestedManyWithoutClientInput
   preferences?: Prisma.ClientPreferenceCreateNestedOneWithoutClientInput
+  intakes?: Prisma.ClientIntakeCreateNestedManyWithoutClientInput
   tripRequests?: Prisma.TripRequestCreateNestedManyWithoutClientInput
   tripTravelers?: Prisma.TripTravelerCreateNestedManyWithoutClientInput
+  tripBriefs?: Prisma.TripBriefCreateNestedManyWithoutClientInput
   alertSubscriptions?: Prisma.AlertSubscriptionCreateNestedManyWithoutClientInput
+  inferredPreferences?: Prisma.InferredPreferenceCreateNestedManyWithoutClientInput
+  followUpSuggestions?: Prisma.FollowUpSuggestionCreateNestedManyWithoutClientInput
+  vendorRequests?: Prisma.VendorRequestCreateNestedManyWithoutClientInput
 }
 
 export type ClientUncheckedCreateInput = {
   id?: string
   organizationId: string
   ownerUserId: string
+  clientType?: $Enums.ClientType
   firstName: string
   lastName: string
   email?: string | null
@@ -368,15 +406,22 @@ export type ClientUncheckedCreateInput = {
   createdAt?: Date | string
   updatedAt?: Date | string
   householdMembers?: Prisma.HouseholdMemberUncheckedCreateNestedManyWithoutClientInput
+  familyMembers?: Prisma.FamilyMemberUncheckedCreateNestedManyWithoutClientInput
   loyaltyBalances?: Prisma.ClientLoyaltyBalanceUncheckedCreateNestedManyWithoutClientInput
   preferences?: Prisma.ClientPreferenceUncheckedCreateNestedOneWithoutClientInput
+  intakes?: Prisma.ClientIntakeUncheckedCreateNestedManyWithoutClientInput
   tripRequests?: Prisma.TripRequestUncheckedCreateNestedManyWithoutClientInput
   tripTravelers?: Prisma.TripTravelerUncheckedCreateNestedManyWithoutClientInput
+  tripBriefs?: Prisma.TripBriefUncheckedCreateNestedManyWithoutClientInput
   alertSubscriptions?: Prisma.AlertSubscriptionUncheckedCreateNestedManyWithoutClientInput
+  inferredPreferences?: Prisma.InferredPreferenceUncheckedCreateNestedManyWithoutClientInput
+  followUpSuggestions?: Prisma.FollowUpSuggestionUncheckedCreateNestedManyWithoutClientInput
+  vendorRequests?: Prisma.VendorRequestUncheckedCreateNestedManyWithoutClientInput
 }
 
 export type ClientUpdateInput = {
   id?: Prisma.StringFieldUpdateOperationsInput | string
+  clientType?: Prisma.EnumClientTypeFieldUpdateOperationsInput | $Enums.ClientType
   firstName?: Prisma.StringFieldUpdateOperationsInput | string
   lastName?: Prisma.StringFieldUpdateOperationsInput | string
   email?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
@@ -389,17 +434,24 @@ export type ClientUpdateInput = {
   organization?: Prisma.OrganizationUpdateOneRequiredWithoutClientsNestedInput
   owner?: Prisma.UserUpdateOneRequiredWithoutOwnedClientsNestedInput
   householdMembers?: Prisma.HouseholdMemberUpdateManyWithoutClientNestedInput
+  familyMembers?: Prisma.FamilyMemberUpdateManyWithoutClientNestedInput
   loyaltyBalances?: Prisma.ClientLoyaltyBalanceUpdateManyWithoutClientNestedInput
   preferences?: Prisma.ClientPreferenceUpdateOneWithoutClientNestedInput
+  intakes?: Prisma.ClientIntakeUpdateManyWithoutClientNestedInput
   tripRequests?: Prisma.TripRequestUpdateManyWithoutClientNestedInput
   tripTravelers?: Prisma.TripTravelerUpdateManyWithoutClientNestedInput
+  tripBriefs?: Prisma.TripBriefUpdateManyWithoutClientNestedInput
   alertSubscriptions?: Prisma.AlertSubscriptionUpdateManyWithoutClientNestedInput
+  inferredPreferences?: Prisma.InferredPreferenceUpdateManyWithoutClientNestedInput
+  followUpSuggestions?: Prisma.FollowUpSuggestionUpdateManyWithoutClientNestedInput
+  vendorRequests?: Prisma.VendorRequestUpdateManyWithoutClientNestedInput
 }
 
 export type ClientUncheckedUpdateInput = {
   id?: Prisma.StringFieldUpdateOperationsInput | string
   organizationId?: Prisma.StringFieldUpdateOperationsInput | string
   ownerUserId?: Prisma.StringFieldUpdateOperationsInput | string
+  clientType?: Prisma.EnumClientTypeFieldUpdateOperationsInput | $Enums.ClientType
   firstName?: Prisma.StringFieldUpdateOperationsInput | string
   lastName?: Prisma.StringFieldUpdateOperationsInput | string
   email?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
@@ -410,17 +462,24 @@ export type ClientUncheckedUpdateInput = {
   createdAt?: Prisma.DateTimeFieldUpdateOperationsInput | Date | string
   updatedAt?: Prisma.DateTimeFieldUpdateOperationsInput | Date | string
   householdMembers?: Prisma.HouseholdMemberUncheckedUpdateManyWithoutClientNestedInput
+  familyMembers?: Prisma.FamilyMemberUncheckedUpdateManyWithoutClientNestedInput
   loyaltyBalances?: Prisma.ClientLoyaltyBalanceUncheckedUpdateManyWithoutClientNestedInput
   preferences?: Prisma.ClientPreferenceUncheckedUpdateOneWithoutClientNestedInput
+  intakes?: Prisma.ClientIntakeUncheckedUpdateManyWithoutClientNestedInput
   tripRequests?: Prisma.TripRequestUncheckedUpdateManyWithoutClientNestedInput
   tripTravelers?: Prisma.TripTravelerUncheckedUpdateManyWithoutClientNestedInput
+  tripBriefs?: Prisma.TripBriefUncheckedUpdateManyWithoutClientNestedInput
   alertSubscriptions?: Prisma.AlertSubscriptionUncheckedUpdateManyWithoutClientNestedInput
+  inferredPreferences?: Prisma.InferredPreferenceUncheckedUpdateManyWithoutClientNestedInput
+  followUpSuggestions?: Prisma.FollowUpSuggestionUncheckedUpdateManyWithoutClientNestedInput
+  vendorRequests?: Prisma.VendorRequestUncheckedUpdateManyWithoutClientNestedInput
 }
 
 export type ClientCreateManyInput = {
   id?: string
   organizationId: string
   ownerUserId: string
+  clientType?: $Enums.ClientType
   firstName: string
   lastName: string
   email?: string | null
@@ -434,6 +493,7 @@ export type ClientCreateManyInput = {
 
 export type ClientUpdateManyMutationInput = {
   id?: Prisma.StringFieldUpdateOperationsInput | string
+  clientType?: Prisma.EnumClientTypeFieldUpdateOperationsInput | $Enums.ClientType
   firstName?: Prisma.StringFieldUpdateOperationsInput | string
   lastName?: Prisma.StringFieldUpdateOperationsInput | string
   email?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
@@ -449,6 +509,7 @@ export type ClientUncheckedUpdateManyInput = {
   id?: Prisma.StringFieldUpdateOperationsInput | string
   organizationId?: Prisma.StringFieldUpdateOperationsInput | string
   ownerUserId?: Prisma.StringFieldUpdateOperationsInput | string
+  clientType?: Prisma.EnumClientTypeFieldUpdateOperationsInput | $Enums.ClientType
   firstName?: Prisma.StringFieldUpdateOperationsInput | string
   lastName?: Prisma.StringFieldUpdateOperationsInput | string
   email?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
@@ -474,6 +535,7 @@ export type ClientCountOrderByAggregateInput = {
   id?: Prisma.SortOrder
   organizationId?: Prisma.SortOrder
   ownerUserId?: Prisma.SortOrder
+  clientType?: Prisma.SortOrder
   firstName?: Prisma.SortOrder
   lastName?: Prisma.SortOrder
   email?: Prisma.SortOrder
@@ -489,6 +551,7 @@ export type ClientMaxOrderByAggregateInput = {
   id?: Prisma.SortOrder
   organizationId?: Prisma.SortOrder
   ownerUserId?: Prisma.SortOrder
+  clientType?: Prisma.SortOrder
   firstName?: Prisma.SortOrder
   lastName?: Prisma.SortOrder
   email?: Prisma.SortOrder
@@ -504,6 +567,7 @@ export type ClientMinOrderByAggregateInput = {
   id?: Prisma.SortOrder
   organizationId?: Prisma.SortOrder
   ownerUserId?: Prisma.SortOrder
+  clientType?: Prisma.SortOrder
   firstName?: Prisma.SortOrder
   lastName?: Prisma.SortOrder
   email?: Prisma.SortOrder
@@ -609,6 +673,10 @@ export type ClientUncheckedUpdateManyWithoutOwnerNestedInput = {
   deleteMany?: Prisma.ClientScalarWhereInput | Prisma.ClientScalarWhereInput[]
 }
 
+export type EnumClientTypeFieldUpdateOperationsInput = {
+  set?: $Enums.ClientType
+}
+
 export type NullableStringFieldUpdateOperationsInput = {
   set?: string | null
 }
@@ -633,6 +701,20 @@ export type ClientUpdateOneRequiredWithoutHouseholdMembersNestedInput = {
   upsert?: Prisma.ClientUpsertWithoutHouseholdMembersInput
   connect?: Prisma.ClientWhereUniqueInput
   update?: Prisma.XOR<Prisma.XOR<Prisma.ClientUpdateToOneWithWhereWithoutHouseholdMembersInput, Prisma.ClientUpdateWithoutHouseholdMembersInput>, Prisma.ClientUncheckedUpdateWithoutHouseholdMembersInput>
+}
+
+export type ClientCreateNestedOneWithoutFamilyMembersInput = {
+  create?: Prisma.XOR<Prisma.ClientCreateWithoutFamilyMembersInput, Prisma.ClientUncheckedCreateWithoutFamilyMembersInput>
+  connectOrCreate?: Prisma.ClientCreateOrConnectWithoutFamilyMembersInput
+  connect?: Prisma.ClientWhereUniqueInput
+}
+
+export type ClientUpdateOneRequiredWithoutFamilyMembersNestedInput = {
+  create?: Prisma.XOR<Prisma.ClientCreateWithoutFamilyMembersInput, Prisma.ClientUncheckedCreateWithoutFamilyMembersInput>
+  connectOrCreate?: Prisma.ClientCreateOrConnectWithoutFamilyMembersInput
+  upsert?: Prisma.ClientUpsertWithoutFamilyMembersInput
+  connect?: Prisma.ClientWhereUniqueInput
+  update?: Prisma.XOR<Prisma.XOR<Prisma.ClientUpdateToOneWithWhereWithoutFamilyMembersInput, Prisma.ClientUpdateWithoutFamilyMembersInput>, Prisma.ClientUncheckedUpdateWithoutFamilyMembersInput>
 }
 
 export type ClientCreateNestedOneWithoutLoyaltyBalancesInput = {
@@ -693,6 +775,34 @@ export type ClientUpdateOneRequiredWithoutTripTravelersNestedInput = {
   update?: Prisma.XOR<Prisma.XOR<Prisma.ClientUpdateToOneWithWhereWithoutTripTravelersInput, Prisma.ClientUpdateWithoutTripTravelersInput>, Prisma.ClientUncheckedUpdateWithoutTripTravelersInput>
 }
 
+export type ClientCreateNestedOneWithoutIntakesInput = {
+  create?: Prisma.XOR<Prisma.ClientCreateWithoutIntakesInput, Prisma.ClientUncheckedCreateWithoutIntakesInput>
+  connectOrCreate?: Prisma.ClientCreateOrConnectWithoutIntakesInput
+  connect?: Prisma.ClientWhereUniqueInput
+}
+
+export type ClientUpdateOneRequiredWithoutIntakesNestedInput = {
+  create?: Prisma.XOR<Prisma.ClientCreateWithoutIntakesInput, Prisma.ClientUncheckedCreateWithoutIntakesInput>
+  connectOrCreate?: Prisma.ClientCreateOrConnectWithoutIntakesInput
+  upsert?: Prisma.ClientUpsertWithoutIntakesInput
+  connect?: Prisma.ClientWhereUniqueInput
+  update?: Prisma.XOR<Prisma.XOR<Prisma.ClientUpdateToOneWithWhereWithoutIntakesInput, Prisma.ClientUpdateWithoutIntakesInput>, Prisma.ClientUncheckedUpdateWithoutIntakesInput>
+}
+
+export type ClientCreateNestedOneWithoutTripBriefsInput = {
+  create?: Prisma.XOR<Prisma.ClientCreateWithoutTripBriefsInput, Prisma.ClientUncheckedCreateWithoutTripBriefsInput>
+  connectOrCreate?: Prisma.ClientCreateOrConnectWithoutTripBriefsInput
+  connect?: Prisma.ClientWhereUniqueInput
+}
+
+export type ClientUpdateOneRequiredWithoutTripBriefsNestedInput = {
+  create?: Prisma.XOR<Prisma.ClientCreateWithoutTripBriefsInput, Prisma.ClientUncheckedCreateWithoutTripBriefsInput>
+  connectOrCreate?: Prisma.ClientCreateOrConnectWithoutTripBriefsInput
+  upsert?: Prisma.ClientUpsertWithoutTripBriefsInput
+  connect?: Prisma.ClientWhereUniqueInput
+  update?: Prisma.XOR<Prisma.XOR<Prisma.ClientUpdateToOneWithWhereWithoutTripBriefsInput, Prisma.ClientUpdateWithoutTripBriefsInput>, Prisma.ClientUncheckedUpdateWithoutTripBriefsInput>
+}
+
 export type ClientCreateNestedOneWithoutAlertSubscriptionsInput = {
   create?: Prisma.XOR<Prisma.ClientCreateWithoutAlertSubscriptionsInput, Prisma.ClientUncheckedCreateWithoutAlertSubscriptionsInput>
   connectOrCreate?: Prisma.ClientCreateOrConnectWithoutAlertSubscriptionsInput
@@ -709,8 +819,53 @@ export type ClientUpdateOneWithoutAlertSubscriptionsNestedInput = {
   update?: Prisma.XOR<Prisma.XOR<Prisma.ClientUpdateToOneWithWhereWithoutAlertSubscriptionsInput, Prisma.ClientUpdateWithoutAlertSubscriptionsInput>, Prisma.ClientUncheckedUpdateWithoutAlertSubscriptionsInput>
 }
 
+export type ClientCreateNestedOneWithoutInferredPreferencesInput = {
+  create?: Prisma.XOR<Prisma.ClientCreateWithoutInferredPreferencesInput, Prisma.ClientUncheckedCreateWithoutInferredPreferencesInput>
+  connectOrCreate?: Prisma.ClientCreateOrConnectWithoutInferredPreferencesInput
+  connect?: Prisma.ClientWhereUniqueInput
+}
+
+export type ClientUpdateOneRequiredWithoutInferredPreferencesNestedInput = {
+  create?: Prisma.XOR<Prisma.ClientCreateWithoutInferredPreferencesInput, Prisma.ClientUncheckedCreateWithoutInferredPreferencesInput>
+  connectOrCreate?: Prisma.ClientCreateOrConnectWithoutInferredPreferencesInput
+  upsert?: Prisma.ClientUpsertWithoutInferredPreferencesInput
+  connect?: Prisma.ClientWhereUniqueInput
+  update?: Prisma.XOR<Prisma.XOR<Prisma.ClientUpdateToOneWithWhereWithoutInferredPreferencesInput, Prisma.ClientUpdateWithoutInferredPreferencesInput>, Prisma.ClientUncheckedUpdateWithoutInferredPreferencesInput>
+}
+
+export type ClientCreateNestedOneWithoutFollowUpSuggestionsInput = {
+  create?: Prisma.XOR<Prisma.ClientCreateWithoutFollowUpSuggestionsInput, Prisma.ClientUncheckedCreateWithoutFollowUpSuggestionsInput>
+  connectOrCreate?: Prisma.ClientCreateOrConnectWithoutFollowUpSuggestionsInput
+  connect?: Prisma.ClientWhereUniqueInput
+}
+
+export type ClientUpdateOneRequiredWithoutFollowUpSuggestionsNestedInput = {
+  create?: Prisma.XOR<Prisma.ClientCreateWithoutFollowUpSuggestionsInput, Prisma.ClientUncheckedCreateWithoutFollowUpSuggestionsInput>
+  connectOrCreate?: Prisma.ClientCreateOrConnectWithoutFollowUpSuggestionsInput
+  upsert?: Prisma.ClientUpsertWithoutFollowUpSuggestionsInput
+  connect?: Prisma.ClientWhereUniqueInput
+  update?: Prisma.XOR<Prisma.XOR<Prisma.ClientUpdateToOneWithWhereWithoutFollowUpSuggestionsInput, Prisma.ClientUpdateWithoutFollowUpSuggestionsInput>, Prisma.ClientUncheckedUpdateWithoutFollowUpSuggestionsInput>
+}
+
+export type ClientCreateNestedOneWithoutVendorRequestsInput = {
+  create?: Prisma.XOR<Prisma.ClientCreateWithoutVendorRequestsInput, Prisma.ClientUncheckedCreateWithoutVendorRequestsInput>
+  connectOrCreate?: Prisma.ClientCreateOrConnectWithoutVendorRequestsInput
+  connect?: Prisma.ClientWhereUniqueInput
+}
+
+export type ClientUpdateOneWithoutVendorRequestsNestedInput = {
+  create?: Prisma.XOR<Prisma.ClientCreateWithoutVendorRequestsInput, Prisma.ClientUncheckedCreateWithoutVendorRequestsInput>
+  connectOrCreate?: Prisma.ClientCreateOrConnectWithoutVendorRequestsInput
+  upsert?: Prisma.ClientUpsertWithoutVendorRequestsInput
+  disconnect?: Prisma.ClientWhereInput | boolean
+  delete?: Prisma.ClientWhereInput | boolean
+  connect?: Prisma.ClientWhereUniqueInput
+  update?: Prisma.XOR<Prisma.XOR<Prisma.ClientUpdateToOneWithWhereWithoutVendorRequestsInput, Prisma.ClientUpdateWithoutVendorRequestsInput>, Prisma.ClientUncheckedUpdateWithoutVendorRequestsInput>
+}
+
 export type ClientCreateWithoutOrganizationInput = {
   id?: string
+  clientType?: $Enums.ClientType
   firstName: string
   lastName: string
   email?: string | null
@@ -722,16 +877,23 @@ export type ClientCreateWithoutOrganizationInput = {
   updatedAt?: Date | string
   owner: Prisma.UserCreateNestedOneWithoutOwnedClientsInput
   householdMembers?: Prisma.HouseholdMemberCreateNestedManyWithoutClientInput
+  familyMembers?: Prisma.FamilyMemberCreateNestedManyWithoutClientInput
   loyaltyBalances?: Prisma.ClientLoyaltyBalanceCreateNestedManyWithoutClientInput
   preferences?: Prisma.ClientPreferenceCreateNestedOneWithoutClientInput
+  intakes?: Prisma.ClientIntakeCreateNestedManyWithoutClientInput
   tripRequests?: Prisma.TripRequestCreateNestedManyWithoutClientInput
   tripTravelers?: Prisma.TripTravelerCreateNestedManyWithoutClientInput
+  tripBriefs?: Prisma.TripBriefCreateNestedManyWithoutClientInput
   alertSubscriptions?: Prisma.AlertSubscriptionCreateNestedManyWithoutClientInput
+  inferredPreferences?: Prisma.InferredPreferenceCreateNestedManyWithoutClientInput
+  followUpSuggestions?: Prisma.FollowUpSuggestionCreateNestedManyWithoutClientInput
+  vendorRequests?: Prisma.VendorRequestCreateNestedManyWithoutClientInput
 }
 
 export type ClientUncheckedCreateWithoutOrganizationInput = {
   id?: string
   ownerUserId: string
+  clientType?: $Enums.ClientType
   firstName: string
   lastName: string
   email?: string | null
@@ -742,11 +904,17 @@ export type ClientUncheckedCreateWithoutOrganizationInput = {
   createdAt?: Date | string
   updatedAt?: Date | string
   householdMembers?: Prisma.HouseholdMemberUncheckedCreateNestedManyWithoutClientInput
+  familyMembers?: Prisma.FamilyMemberUncheckedCreateNestedManyWithoutClientInput
   loyaltyBalances?: Prisma.ClientLoyaltyBalanceUncheckedCreateNestedManyWithoutClientInput
   preferences?: Prisma.ClientPreferenceUncheckedCreateNestedOneWithoutClientInput
+  intakes?: Prisma.ClientIntakeUncheckedCreateNestedManyWithoutClientInput
   tripRequests?: Prisma.TripRequestUncheckedCreateNestedManyWithoutClientInput
   tripTravelers?: Prisma.TripTravelerUncheckedCreateNestedManyWithoutClientInput
+  tripBriefs?: Prisma.TripBriefUncheckedCreateNestedManyWithoutClientInput
   alertSubscriptions?: Prisma.AlertSubscriptionUncheckedCreateNestedManyWithoutClientInput
+  inferredPreferences?: Prisma.InferredPreferenceUncheckedCreateNestedManyWithoutClientInput
+  followUpSuggestions?: Prisma.FollowUpSuggestionUncheckedCreateNestedManyWithoutClientInput
+  vendorRequests?: Prisma.VendorRequestUncheckedCreateNestedManyWithoutClientInput
 }
 
 export type ClientCreateOrConnectWithoutOrganizationInput = {
@@ -782,6 +950,7 @@ export type ClientScalarWhereInput = {
   id?: Prisma.StringFilter<"Client"> | string
   organizationId?: Prisma.StringFilter<"Client"> | string
   ownerUserId?: Prisma.StringFilter<"Client"> | string
+  clientType?: Prisma.EnumClientTypeFilter<"Client"> | $Enums.ClientType
   firstName?: Prisma.StringFilter<"Client"> | string
   lastName?: Prisma.StringFilter<"Client"> | string
   email?: Prisma.StringNullableFilter<"Client"> | string | null
@@ -795,6 +964,7 @@ export type ClientScalarWhereInput = {
 
 export type ClientCreateWithoutOwnerInput = {
   id?: string
+  clientType?: $Enums.ClientType
   firstName: string
   lastName: string
   email?: string | null
@@ -806,16 +976,23 @@ export type ClientCreateWithoutOwnerInput = {
   updatedAt?: Date | string
   organization: Prisma.OrganizationCreateNestedOneWithoutClientsInput
   householdMembers?: Prisma.HouseholdMemberCreateNestedManyWithoutClientInput
+  familyMembers?: Prisma.FamilyMemberCreateNestedManyWithoutClientInput
   loyaltyBalances?: Prisma.ClientLoyaltyBalanceCreateNestedManyWithoutClientInput
   preferences?: Prisma.ClientPreferenceCreateNestedOneWithoutClientInput
+  intakes?: Prisma.ClientIntakeCreateNestedManyWithoutClientInput
   tripRequests?: Prisma.TripRequestCreateNestedManyWithoutClientInput
   tripTravelers?: Prisma.TripTravelerCreateNestedManyWithoutClientInput
+  tripBriefs?: Prisma.TripBriefCreateNestedManyWithoutClientInput
   alertSubscriptions?: Prisma.AlertSubscriptionCreateNestedManyWithoutClientInput
+  inferredPreferences?: Prisma.InferredPreferenceCreateNestedManyWithoutClientInput
+  followUpSuggestions?: Prisma.FollowUpSuggestionCreateNestedManyWithoutClientInput
+  vendorRequests?: Prisma.VendorRequestCreateNestedManyWithoutClientInput
 }
 
 export type ClientUncheckedCreateWithoutOwnerInput = {
   id?: string
   organizationId: string
+  clientType?: $Enums.ClientType
   firstName: string
   lastName: string
   email?: string | null
@@ -826,11 +1003,17 @@ export type ClientUncheckedCreateWithoutOwnerInput = {
   createdAt?: Date | string
   updatedAt?: Date | string
   householdMembers?: Prisma.HouseholdMemberUncheckedCreateNestedManyWithoutClientInput
+  familyMembers?: Prisma.FamilyMemberUncheckedCreateNestedManyWithoutClientInput
   loyaltyBalances?: Prisma.ClientLoyaltyBalanceUncheckedCreateNestedManyWithoutClientInput
   preferences?: Prisma.ClientPreferenceUncheckedCreateNestedOneWithoutClientInput
+  intakes?: Prisma.ClientIntakeUncheckedCreateNestedManyWithoutClientInput
   tripRequests?: Prisma.TripRequestUncheckedCreateNestedManyWithoutClientInput
   tripTravelers?: Prisma.TripTravelerUncheckedCreateNestedManyWithoutClientInput
+  tripBriefs?: Prisma.TripBriefUncheckedCreateNestedManyWithoutClientInput
   alertSubscriptions?: Prisma.AlertSubscriptionUncheckedCreateNestedManyWithoutClientInput
+  inferredPreferences?: Prisma.InferredPreferenceUncheckedCreateNestedManyWithoutClientInput
+  followUpSuggestions?: Prisma.FollowUpSuggestionUncheckedCreateNestedManyWithoutClientInput
+  vendorRequests?: Prisma.VendorRequestUncheckedCreateNestedManyWithoutClientInput
 }
 
 export type ClientCreateOrConnectWithoutOwnerInput = {
@@ -861,6 +1044,7 @@ export type ClientUpdateManyWithWhereWithoutOwnerInput = {
 
 export type ClientCreateWithoutHouseholdMembersInput = {
   id?: string
+  clientType?: $Enums.ClientType
   firstName: string
   lastName: string
   email?: string | null
@@ -872,17 +1056,24 @@ export type ClientCreateWithoutHouseholdMembersInput = {
   updatedAt?: Date | string
   organization: Prisma.OrganizationCreateNestedOneWithoutClientsInput
   owner: Prisma.UserCreateNestedOneWithoutOwnedClientsInput
+  familyMembers?: Prisma.FamilyMemberCreateNestedManyWithoutClientInput
   loyaltyBalances?: Prisma.ClientLoyaltyBalanceCreateNestedManyWithoutClientInput
   preferences?: Prisma.ClientPreferenceCreateNestedOneWithoutClientInput
+  intakes?: Prisma.ClientIntakeCreateNestedManyWithoutClientInput
   tripRequests?: Prisma.TripRequestCreateNestedManyWithoutClientInput
   tripTravelers?: Prisma.TripTravelerCreateNestedManyWithoutClientInput
+  tripBriefs?: Prisma.TripBriefCreateNestedManyWithoutClientInput
   alertSubscriptions?: Prisma.AlertSubscriptionCreateNestedManyWithoutClientInput
+  inferredPreferences?: Prisma.InferredPreferenceCreateNestedManyWithoutClientInput
+  followUpSuggestions?: Prisma.FollowUpSuggestionCreateNestedManyWithoutClientInput
+  vendorRequests?: Prisma.VendorRequestCreateNestedManyWithoutClientInput
 }
 
 export type ClientUncheckedCreateWithoutHouseholdMembersInput = {
   id?: string
   organizationId: string
   ownerUserId: string
+  clientType?: $Enums.ClientType
   firstName: string
   lastName: string
   email?: string | null
@@ -892,11 +1083,17 @@ export type ClientUncheckedCreateWithoutHouseholdMembersInput = {
   status?: $Enums.ClientStatus
   createdAt?: Date | string
   updatedAt?: Date | string
+  familyMembers?: Prisma.FamilyMemberUncheckedCreateNestedManyWithoutClientInput
   loyaltyBalances?: Prisma.ClientLoyaltyBalanceUncheckedCreateNestedManyWithoutClientInput
   preferences?: Prisma.ClientPreferenceUncheckedCreateNestedOneWithoutClientInput
+  intakes?: Prisma.ClientIntakeUncheckedCreateNestedManyWithoutClientInput
   tripRequests?: Prisma.TripRequestUncheckedCreateNestedManyWithoutClientInput
   tripTravelers?: Prisma.TripTravelerUncheckedCreateNestedManyWithoutClientInput
+  tripBriefs?: Prisma.TripBriefUncheckedCreateNestedManyWithoutClientInput
   alertSubscriptions?: Prisma.AlertSubscriptionUncheckedCreateNestedManyWithoutClientInput
+  inferredPreferences?: Prisma.InferredPreferenceUncheckedCreateNestedManyWithoutClientInput
+  followUpSuggestions?: Prisma.FollowUpSuggestionUncheckedCreateNestedManyWithoutClientInput
+  vendorRequests?: Prisma.VendorRequestUncheckedCreateNestedManyWithoutClientInput
 }
 
 export type ClientCreateOrConnectWithoutHouseholdMembersInput = {
@@ -917,6 +1114,7 @@ export type ClientUpdateToOneWithWhereWithoutHouseholdMembersInput = {
 
 export type ClientUpdateWithoutHouseholdMembersInput = {
   id?: Prisma.StringFieldUpdateOperationsInput | string
+  clientType?: Prisma.EnumClientTypeFieldUpdateOperationsInput | $Enums.ClientType
   firstName?: Prisma.StringFieldUpdateOperationsInput | string
   lastName?: Prisma.StringFieldUpdateOperationsInput | string
   email?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
@@ -928,17 +1126,24 @@ export type ClientUpdateWithoutHouseholdMembersInput = {
   updatedAt?: Prisma.DateTimeFieldUpdateOperationsInput | Date | string
   organization?: Prisma.OrganizationUpdateOneRequiredWithoutClientsNestedInput
   owner?: Prisma.UserUpdateOneRequiredWithoutOwnedClientsNestedInput
+  familyMembers?: Prisma.FamilyMemberUpdateManyWithoutClientNestedInput
   loyaltyBalances?: Prisma.ClientLoyaltyBalanceUpdateManyWithoutClientNestedInput
   preferences?: Prisma.ClientPreferenceUpdateOneWithoutClientNestedInput
+  intakes?: Prisma.ClientIntakeUpdateManyWithoutClientNestedInput
   tripRequests?: Prisma.TripRequestUpdateManyWithoutClientNestedInput
   tripTravelers?: Prisma.TripTravelerUpdateManyWithoutClientNestedInput
+  tripBriefs?: Prisma.TripBriefUpdateManyWithoutClientNestedInput
   alertSubscriptions?: Prisma.AlertSubscriptionUpdateManyWithoutClientNestedInput
+  inferredPreferences?: Prisma.InferredPreferenceUpdateManyWithoutClientNestedInput
+  followUpSuggestions?: Prisma.FollowUpSuggestionUpdateManyWithoutClientNestedInput
+  vendorRequests?: Prisma.VendorRequestUpdateManyWithoutClientNestedInput
 }
 
 export type ClientUncheckedUpdateWithoutHouseholdMembersInput = {
   id?: Prisma.StringFieldUpdateOperationsInput | string
   organizationId?: Prisma.StringFieldUpdateOperationsInput | string
   ownerUserId?: Prisma.StringFieldUpdateOperationsInput | string
+  clientType?: Prisma.EnumClientTypeFieldUpdateOperationsInput | $Enums.ClientType
   firstName?: Prisma.StringFieldUpdateOperationsInput | string
   lastName?: Prisma.StringFieldUpdateOperationsInput | string
   email?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
@@ -948,15 +1153,22 @@ export type ClientUncheckedUpdateWithoutHouseholdMembersInput = {
   status?: Prisma.EnumClientStatusFieldUpdateOperationsInput | $Enums.ClientStatus
   createdAt?: Prisma.DateTimeFieldUpdateOperationsInput | Date | string
   updatedAt?: Prisma.DateTimeFieldUpdateOperationsInput | Date | string
+  familyMembers?: Prisma.FamilyMemberUncheckedUpdateManyWithoutClientNestedInput
   loyaltyBalances?: Prisma.ClientLoyaltyBalanceUncheckedUpdateManyWithoutClientNestedInput
   preferences?: Prisma.ClientPreferenceUncheckedUpdateOneWithoutClientNestedInput
+  intakes?: Prisma.ClientIntakeUncheckedUpdateManyWithoutClientNestedInput
   tripRequests?: Prisma.TripRequestUncheckedUpdateManyWithoutClientNestedInput
   tripTravelers?: Prisma.TripTravelerUncheckedUpdateManyWithoutClientNestedInput
+  tripBriefs?: Prisma.TripBriefUncheckedUpdateManyWithoutClientNestedInput
   alertSubscriptions?: Prisma.AlertSubscriptionUncheckedUpdateManyWithoutClientNestedInput
+  inferredPreferences?: Prisma.InferredPreferenceUncheckedUpdateManyWithoutClientNestedInput
+  followUpSuggestions?: Prisma.FollowUpSuggestionUncheckedUpdateManyWithoutClientNestedInput
+  vendorRequests?: Prisma.VendorRequestUncheckedUpdateManyWithoutClientNestedInput
 }
 
-export type ClientCreateWithoutLoyaltyBalancesInput = {
+export type ClientCreateWithoutFamilyMembersInput = {
   id?: string
+  clientType?: $Enums.ClientType
   firstName: string
   lastName: string
   email?: string | null
@@ -969,16 +1181,23 @@ export type ClientCreateWithoutLoyaltyBalancesInput = {
   organization: Prisma.OrganizationCreateNestedOneWithoutClientsInput
   owner: Prisma.UserCreateNestedOneWithoutOwnedClientsInput
   householdMembers?: Prisma.HouseholdMemberCreateNestedManyWithoutClientInput
+  loyaltyBalances?: Prisma.ClientLoyaltyBalanceCreateNestedManyWithoutClientInput
   preferences?: Prisma.ClientPreferenceCreateNestedOneWithoutClientInput
+  intakes?: Prisma.ClientIntakeCreateNestedManyWithoutClientInput
   tripRequests?: Prisma.TripRequestCreateNestedManyWithoutClientInput
   tripTravelers?: Prisma.TripTravelerCreateNestedManyWithoutClientInput
+  tripBriefs?: Prisma.TripBriefCreateNestedManyWithoutClientInput
   alertSubscriptions?: Prisma.AlertSubscriptionCreateNestedManyWithoutClientInput
+  inferredPreferences?: Prisma.InferredPreferenceCreateNestedManyWithoutClientInput
+  followUpSuggestions?: Prisma.FollowUpSuggestionCreateNestedManyWithoutClientInput
+  vendorRequests?: Prisma.VendorRequestCreateNestedManyWithoutClientInput
 }
 
-export type ClientUncheckedCreateWithoutLoyaltyBalancesInput = {
+export type ClientUncheckedCreateWithoutFamilyMembersInput = {
   id?: string
   organizationId: string
   ownerUserId: string
+  clientType?: $Enums.ClientType
   firstName: string
   lastName: string
   email?: string | null
@@ -989,10 +1208,140 @@ export type ClientUncheckedCreateWithoutLoyaltyBalancesInput = {
   createdAt?: Date | string
   updatedAt?: Date | string
   householdMembers?: Prisma.HouseholdMemberUncheckedCreateNestedManyWithoutClientInput
+  loyaltyBalances?: Prisma.ClientLoyaltyBalanceUncheckedCreateNestedManyWithoutClientInput
   preferences?: Prisma.ClientPreferenceUncheckedCreateNestedOneWithoutClientInput
+  intakes?: Prisma.ClientIntakeUncheckedCreateNestedManyWithoutClientInput
   tripRequests?: Prisma.TripRequestUncheckedCreateNestedManyWithoutClientInput
   tripTravelers?: Prisma.TripTravelerUncheckedCreateNestedManyWithoutClientInput
+  tripBriefs?: Prisma.TripBriefUncheckedCreateNestedManyWithoutClientInput
   alertSubscriptions?: Prisma.AlertSubscriptionUncheckedCreateNestedManyWithoutClientInput
+  inferredPreferences?: Prisma.InferredPreferenceUncheckedCreateNestedManyWithoutClientInput
+  followUpSuggestions?: Prisma.FollowUpSuggestionUncheckedCreateNestedManyWithoutClientInput
+  vendorRequests?: Prisma.VendorRequestUncheckedCreateNestedManyWithoutClientInput
+}
+
+export type ClientCreateOrConnectWithoutFamilyMembersInput = {
+  where: Prisma.ClientWhereUniqueInput
+  create: Prisma.XOR<Prisma.ClientCreateWithoutFamilyMembersInput, Prisma.ClientUncheckedCreateWithoutFamilyMembersInput>
+}
+
+export type ClientUpsertWithoutFamilyMembersInput = {
+  update: Prisma.XOR<Prisma.ClientUpdateWithoutFamilyMembersInput, Prisma.ClientUncheckedUpdateWithoutFamilyMembersInput>
+  create: Prisma.XOR<Prisma.ClientCreateWithoutFamilyMembersInput, Prisma.ClientUncheckedCreateWithoutFamilyMembersInput>
+  where?: Prisma.ClientWhereInput
+}
+
+export type ClientUpdateToOneWithWhereWithoutFamilyMembersInput = {
+  where?: Prisma.ClientWhereInput
+  data: Prisma.XOR<Prisma.ClientUpdateWithoutFamilyMembersInput, Prisma.ClientUncheckedUpdateWithoutFamilyMembersInput>
+}
+
+export type ClientUpdateWithoutFamilyMembersInput = {
+  id?: Prisma.StringFieldUpdateOperationsInput | string
+  clientType?: Prisma.EnumClientTypeFieldUpdateOperationsInput | $Enums.ClientType
+  firstName?: Prisma.StringFieldUpdateOperationsInput | string
+  lastName?: Prisma.StringFieldUpdateOperationsInput | string
+  email?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
+  phone?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
+  dateOfBirth?: Prisma.NullableDateTimeFieldUpdateOperationsInput | Date | string | null
+  notes?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
+  status?: Prisma.EnumClientStatusFieldUpdateOperationsInput | $Enums.ClientStatus
+  createdAt?: Prisma.DateTimeFieldUpdateOperationsInput | Date | string
+  updatedAt?: Prisma.DateTimeFieldUpdateOperationsInput | Date | string
+  organization?: Prisma.OrganizationUpdateOneRequiredWithoutClientsNestedInput
+  owner?: Prisma.UserUpdateOneRequiredWithoutOwnedClientsNestedInput
+  householdMembers?: Prisma.HouseholdMemberUpdateManyWithoutClientNestedInput
+  loyaltyBalances?: Prisma.ClientLoyaltyBalanceUpdateManyWithoutClientNestedInput
+  preferences?: Prisma.ClientPreferenceUpdateOneWithoutClientNestedInput
+  intakes?: Prisma.ClientIntakeUpdateManyWithoutClientNestedInput
+  tripRequests?: Prisma.TripRequestUpdateManyWithoutClientNestedInput
+  tripTravelers?: Prisma.TripTravelerUpdateManyWithoutClientNestedInput
+  tripBriefs?: Prisma.TripBriefUpdateManyWithoutClientNestedInput
+  alertSubscriptions?: Prisma.AlertSubscriptionUpdateManyWithoutClientNestedInput
+  inferredPreferences?: Prisma.InferredPreferenceUpdateManyWithoutClientNestedInput
+  followUpSuggestions?: Prisma.FollowUpSuggestionUpdateManyWithoutClientNestedInput
+  vendorRequests?: Prisma.VendorRequestUpdateManyWithoutClientNestedInput
+}
+
+export type ClientUncheckedUpdateWithoutFamilyMembersInput = {
+  id?: Prisma.StringFieldUpdateOperationsInput | string
+  organizationId?: Prisma.StringFieldUpdateOperationsInput | string
+  ownerUserId?: Prisma.StringFieldUpdateOperationsInput | string
+  clientType?: Prisma.EnumClientTypeFieldUpdateOperationsInput | $Enums.ClientType
+  firstName?: Prisma.StringFieldUpdateOperationsInput | string
+  lastName?: Prisma.StringFieldUpdateOperationsInput | string
+  email?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
+  phone?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
+  dateOfBirth?: Prisma.NullableDateTimeFieldUpdateOperationsInput | Date | string | null
+  notes?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
+  status?: Prisma.EnumClientStatusFieldUpdateOperationsInput | $Enums.ClientStatus
+  createdAt?: Prisma.DateTimeFieldUpdateOperationsInput | Date | string
+  updatedAt?: Prisma.DateTimeFieldUpdateOperationsInput | Date | string
+  householdMembers?: Prisma.HouseholdMemberUncheckedUpdateManyWithoutClientNestedInput
+  loyaltyBalances?: Prisma.ClientLoyaltyBalanceUncheckedUpdateManyWithoutClientNestedInput
+  preferences?: Prisma.ClientPreferenceUncheckedUpdateOneWithoutClientNestedInput
+  intakes?: Prisma.ClientIntakeUncheckedUpdateManyWithoutClientNestedInput
+  tripRequests?: Prisma.TripRequestUncheckedUpdateManyWithoutClientNestedInput
+  tripTravelers?: Prisma.TripTravelerUncheckedUpdateManyWithoutClientNestedInput
+  tripBriefs?: Prisma.TripBriefUncheckedUpdateManyWithoutClientNestedInput
+  alertSubscriptions?: Prisma.AlertSubscriptionUncheckedUpdateManyWithoutClientNestedInput
+  inferredPreferences?: Prisma.InferredPreferenceUncheckedUpdateManyWithoutClientNestedInput
+  followUpSuggestions?: Prisma.FollowUpSuggestionUncheckedUpdateManyWithoutClientNestedInput
+  vendorRequests?: Prisma.VendorRequestUncheckedUpdateManyWithoutClientNestedInput
+}
+
+export type ClientCreateWithoutLoyaltyBalancesInput = {
+  id?: string
+  clientType?: $Enums.ClientType
+  firstName: string
+  lastName: string
+  email?: string | null
+  phone?: string | null
+  dateOfBirth?: Date | string | null
+  notes?: string | null
+  status?: $Enums.ClientStatus
+  createdAt?: Date | string
+  updatedAt?: Date | string
+  organization: Prisma.OrganizationCreateNestedOneWithoutClientsInput
+  owner: Prisma.UserCreateNestedOneWithoutOwnedClientsInput
+  householdMembers?: Prisma.HouseholdMemberCreateNestedManyWithoutClientInput
+  familyMembers?: Prisma.FamilyMemberCreateNestedManyWithoutClientInput
+  preferences?: Prisma.ClientPreferenceCreateNestedOneWithoutClientInput
+  intakes?: Prisma.ClientIntakeCreateNestedManyWithoutClientInput
+  tripRequests?: Prisma.TripRequestCreateNestedManyWithoutClientInput
+  tripTravelers?: Prisma.TripTravelerCreateNestedManyWithoutClientInput
+  tripBriefs?: Prisma.TripBriefCreateNestedManyWithoutClientInput
+  alertSubscriptions?: Prisma.AlertSubscriptionCreateNestedManyWithoutClientInput
+  inferredPreferences?: Prisma.InferredPreferenceCreateNestedManyWithoutClientInput
+  followUpSuggestions?: Prisma.FollowUpSuggestionCreateNestedManyWithoutClientInput
+  vendorRequests?: Prisma.VendorRequestCreateNestedManyWithoutClientInput
+}
+
+export type ClientUncheckedCreateWithoutLoyaltyBalancesInput = {
+  id?: string
+  organizationId: string
+  ownerUserId: string
+  clientType?: $Enums.ClientType
+  firstName: string
+  lastName: string
+  email?: string | null
+  phone?: string | null
+  dateOfBirth?: Date | string | null
+  notes?: string | null
+  status?: $Enums.ClientStatus
+  createdAt?: Date | string
+  updatedAt?: Date | string
+  householdMembers?: Prisma.HouseholdMemberUncheckedCreateNestedManyWithoutClientInput
+  familyMembers?: Prisma.FamilyMemberUncheckedCreateNestedManyWithoutClientInput
+  preferences?: Prisma.ClientPreferenceUncheckedCreateNestedOneWithoutClientInput
+  intakes?: Prisma.ClientIntakeUncheckedCreateNestedManyWithoutClientInput
+  tripRequests?: Prisma.TripRequestUncheckedCreateNestedManyWithoutClientInput
+  tripTravelers?: Prisma.TripTravelerUncheckedCreateNestedManyWithoutClientInput
+  tripBriefs?: Prisma.TripBriefUncheckedCreateNestedManyWithoutClientInput
+  alertSubscriptions?: Prisma.AlertSubscriptionUncheckedCreateNestedManyWithoutClientInput
+  inferredPreferences?: Prisma.InferredPreferenceUncheckedCreateNestedManyWithoutClientInput
+  followUpSuggestions?: Prisma.FollowUpSuggestionUncheckedCreateNestedManyWithoutClientInput
+  vendorRequests?: Prisma.VendorRequestUncheckedCreateNestedManyWithoutClientInput
 }
 
 export type ClientCreateOrConnectWithoutLoyaltyBalancesInput = {
@@ -1013,6 +1362,7 @@ export type ClientUpdateToOneWithWhereWithoutLoyaltyBalancesInput = {
 
 export type ClientUpdateWithoutLoyaltyBalancesInput = {
   id?: Prisma.StringFieldUpdateOperationsInput | string
+  clientType?: Prisma.EnumClientTypeFieldUpdateOperationsInput | $Enums.ClientType
   firstName?: Prisma.StringFieldUpdateOperationsInput | string
   lastName?: Prisma.StringFieldUpdateOperationsInput | string
   email?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
@@ -1025,16 +1375,23 @@ export type ClientUpdateWithoutLoyaltyBalancesInput = {
   organization?: Prisma.OrganizationUpdateOneRequiredWithoutClientsNestedInput
   owner?: Prisma.UserUpdateOneRequiredWithoutOwnedClientsNestedInput
   householdMembers?: Prisma.HouseholdMemberUpdateManyWithoutClientNestedInput
+  familyMembers?: Prisma.FamilyMemberUpdateManyWithoutClientNestedInput
   preferences?: Prisma.ClientPreferenceUpdateOneWithoutClientNestedInput
+  intakes?: Prisma.ClientIntakeUpdateManyWithoutClientNestedInput
   tripRequests?: Prisma.TripRequestUpdateManyWithoutClientNestedInput
   tripTravelers?: Prisma.TripTravelerUpdateManyWithoutClientNestedInput
+  tripBriefs?: Prisma.TripBriefUpdateManyWithoutClientNestedInput
   alertSubscriptions?: Prisma.AlertSubscriptionUpdateManyWithoutClientNestedInput
+  inferredPreferences?: Prisma.InferredPreferenceUpdateManyWithoutClientNestedInput
+  followUpSuggestions?: Prisma.FollowUpSuggestionUpdateManyWithoutClientNestedInput
+  vendorRequests?: Prisma.VendorRequestUpdateManyWithoutClientNestedInput
 }
 
 export type ClientUncheckedUpdateWithoutLoyaltyBalancesInput = {
   id?: Prisma.StringFieldUpdateOperationsInput | string
   organizationId?: Prisma.StringFieldUpdateOperationsInput | string
   ownerUserId?: Prisma.StringFieldUpdateOperationsInput | string
+  clientType?: Prisma.EnumClientTypeFieldUpdateOperationsInput | $Enums.ClientType
   firstName?: Prisma.StringFieldUpdateOperationsInput | string
   lastName?: Prisma.StringFieldUpdateOperationsInput | string
   email?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
@@ -1045,14 +1402,21 @@ export type ClientUncheckedUpdateWithoutLoyaltyBalancesInput = {
   createdAt?: Prisma.DateTimeFieldUpdateOperationsInput | Date | string
   updatedAt?: Prisma.DateTimeFieldUpdateOperationsInput | Date | string
   householdMembers?: Prisma.HouseholdMemberUncheckedUpdateManyWithoutClientNestedInput
+  familyMembers?: Prisma.FamilyMemberUncheckedUpdateManyWithoutClientNestedInput
   preferences?: Prisma.ClientPreferenceUncheckedUpdateOneWithoutClientNestedInput
+  intakes?: Prisma.ClientIntakeUncheckedUpdateManyWithoutClientNestedInput
   tripRequests?: Prisma.TripRequestUncheckedUpdateManyWithoutClientNestedInput
   tripTravelers?: Prisma.TripTravelerUncheckedUpdateManyWithoutClientNestedInput
+  tripBriefs?: Prisma.TripBriefUncheckedUpdateManyWithoutClientNestedInput
   alertSubscriptions?: Prisma.AlertSubscriptionUncheckedUpdateManyWithoutClientNestedInput
+  inferredPreferences?: Prisma.InferredPreferenceUncheckedUpdateManyWithoutClientNestedInput
+  followUpSuggestions?: Prisma.FollowUpSuggestionUncheckedUpdateManyWithoutClientNestedInput
+  vendorRequests?: Prisma.VendorRequestUncheckedUpdateManyWithoutClientNestedInput
 }
 
 export type ClientCreateWithoutPreferencesInput = {
   id?: string
+  clientType?: $Enums.ClientType
   firstName: string
   lastName: string
   email?: string | null
@@ -1065,16 +1429,23 @@ export type ClientCreateWithoutPreferencesInput = {
   organization: Prisma.OrganizationCreateNestedOneWithoutClientsInput
   owner: Prisma.UserCreateNestedOneWithoutOwnedClientsInput
   householdMembers?: Prisma.HouseholdMemberCreateNestedManyWithoutClientInput
+  familyMembers?: Prisma.FamilyMemberCreateNestedManyWithoutClientInput
   loyaltyBalances?: Prisma.ClientLoyaltyBalanceCreateNestedManyWithoutClientInput
+  intakes?: Prisma.ClientIntakeCreateNestedManyWithoutClientInput
   tripRequests?: Prisma.TripRequestCreateNestedManyWithoutClientInput
   tripTravelers?: Prisma.TripTravelerCreateNestedManyWithoutClientInput
+  tripBriefs?: Prisma.TripBriefCreateNestedManyWithoutClientInput
   alertSubscriptions?: Prisma.AlertSubscriptionCreateNestedManyWithoutClientInput
+  inferredPreferences?: Prisma.InferredPreferenceCreateNestedManyWithoutClientInput
+  followUpSuggestions?: Prisma.FollowUpSuggestionCreateNestedManyWithoutClientInput
+  vendorRequests?: Prisma.VendorRequestCreateNestedManyWithoutClientInput
 }
 
 export type ClientUncheckedCreateWithoutPreferencesInput = {
   id?: string
   organizationId: string
   ownerUserId: string
+  clientType?: $Enums.ClientType
   firstName: string
   lastName: string
   email?: string | null
@@ -1085,10 +1456,16 @@ export type ClientUncheckedCreateWithoutPreferencesInput = {
   createdAt?: Date | string
   updatedAt?: Date | string
   householdMembers?: Prisma.HouseholdMemberUncheckedCreateNestedManyWithoutClientInput
+  familyMembers?: Prisma.FamilyMemberUncheckedCreateNestedManyWithoutClientInput
   loyaltyBalances?: Prisma.ClientLoyaltyBalanceUncheckedCreateNestedManyWithoutClientInput
+  intakes?: Prisma.ClientIntakeUncheckedCreateNestedManyWithoutClientInput
   tripRequests?: Prisma.TripRequestUncheckedCreateNestedManyWithoutClientInput
   tripTravelers?: Prisma.TripTravelerUncheckedCreateNestedManyWithoutClientInput
+  tripBriefs?: Prisma.TripBriefUncheckedCreateNestedManyWithoutClientInput
   alertSubscriptions?: Prisma.AlertSubscriptionUncheckedCreateNestedManyWithoutClientInput
+  inferredPreferences?: Prisma.InferredPreferenceUncheckedCreateNestedManyWithoutClientInput
+  followUpSuggestions?: Prisma.FollowUpSuggestionUncheckedCreateNestedManyWithoutClientInput
+  vendorRequests?: Prisma.VendorRequestUncheckedCreateNestedManyWithoutClientInput
 }
 
 export type ClientCreateOrConnectWithoutPreferencesInput = {
@@ -1109,6 +1486,7 @@ export type ClientUpdateToOneWithWhereWithoutPreferencesInput = {
 
 export type ClientUpdateWithoutPreferencesInput = {
   id?: Prisma.StringFieldUpdateOperationsInput | string
+  clientType?: Prisma.EnumClientTypeFieldUpdateOperationsInput | $Enums.ClientType
   firstName?: Prisma.StringFieldUpdateOperationsInput | string
   lastName?: Prisma.StringFieldUpdateOperationsInput | string
   email?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
@@ -1121,16 +1499,23 @@ export type ClientUpdateWithoutPreferencesInput = {
   organization?: Prisma.OrganizationUpdateOneRequiredWithoutClientsNestedInput
   owner?: Prisma.UserUpdateOneRequiredWithoutOwnedClientsNestedInput
   householdMembers?: Prisma.HouseholdMemberUpdateManyWithoutClientNestedInput
+  familyMembers?: Prisma.FamilyMemberUpdateManyWithoutClientNestedInput
   loyaltyBalances?: Prisma.ClientLoyaltyBalanceUpdateManyWithoutClientNestedInput
+  intakes?: Prisma.ClientIntakeUpdateManyWithoutClientNestedInput
   tripRequests?: Prisma.TripRequestUpdateManyWithoutClientNestedInput
   tripTravelers?: Prisma.TripTravelerUpdateManyWithoutClientNestedInput
+  tripBriefs?: Prisma.TripBriefUpdateManyWithoutClientNestedInput
   alertSubscriptions?: Prisma.AlertSubscriptionUpdateManyWithoutClientNestedInput
+  inferredPreferences?: Prisma.InferredPreferenceUpdateManyWithoutClientNestedInput
+  followUpSuggestions?: Prisma.FollowUpSuggestionUpdateManyWithoutClientNestedInput
+  vendorRequests?: Prisma.VendorRequestUpdateManyWithoutClientNestedInput
 }
 
 export type ClientUncheckedUpdateWithoutPreferencesInput = {
   id?: Prisma.StringFieldUpdateOperationsInput | string
   organizationId?: Prisma.StringFieldUpdateOperationsInput | string
   ownerUserId?: Prisma.StringFieldUpdateOperationsInput | string
+  clientType?: Prisma.EnumClientTypeFieldUpdateOperationsInput | $Enums.ClientType
   firstName?: Prisma.StringFieldUpdateOperationsInput | string
   lastName?: Prisma.StringFieldUpdateOperationsInput | string
   email?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
@@ -1141,14 +1526,21 @@ export type ClientUncheckedUpdateWithoutPreferencesInput = {
   createdAt?: Prisma.DateTimeFieldUpdateOperationsInput | Date | string
   updatedAt?: Prisma.DateTimeFieldUpdateOperationsInput | Date | string
   householdMembers?: Prisma.HouseholdMemberUncheckedUpdateManyWithoutClientNestedInput
+  familyMembers?: Prisma.FamilyMemberUncheckedUpdateManyWithoutClientNestedInput
   loyaltyBalances?: Prisma.ClientLoyaltyBalanceUncheckedUpdateManyWithoutClientNestedInput
+  intakes?: Prisma.ClientIntakeUncheckedUpdateManyWithoutClientNestedInput
   tripRequests?: Prisma.TripRequestUncheckedUpdateManyWithoutClientNestedInput
   tripTravelers?: Prisma.TripTravelerUncheckedUpdateManyWithoutClientNestedInput
+  tripBriefs?: Prisma.TripBriefUncheckedUpdateManyWithoutClientNestedInput
   alertSubscriptions?: Prisma.AlertSubscriptionUncheckedUpdateManyWithoutClientNestedInput
+  inferredPreferences?: Prisma.InferredPreferenceUncheckedUpdateManyWithoutClientNestedInput
+  followUpSuggestions?: Prisma.FollowUpSuggestionUncheckedUpdateManyWithoutClientNestedInput
+  vendorRequests?: Prisma.VendorRequestUncheckedUpdateManyWithoutClientNestedInput
 }
 
 export type ClientCreateWithoutTripRequestsInput = {
   id?: string
+  clientType?: $Enums.ClientType
   firstName: string
   lastName: string
   email?: string | null
@@ -1161,16 +1553,23 @@ export type ClientCreateWithoutTripRequestsInput = {
   organization: Prisma.OrganizationCreateNestedOneWithoutClientsInput
   owner: Prisma.UserCreateNestedOneWithoutOwnedClientsInput
   householdMembers?: Prisma.HouseholdMemberCreateNestedManyWithoutClientInput
+  familyMembers?: Prisma.FamilyMemberCreateNestedManyWithoutClientInput
   loyaltyBalances?: Prisma.ClientLoyaltyBalanceCreateNestedManyWithoutClientInput
   preferences?: Prisma.ClientPreferenceCreateNestedOneWithoutClientInput
+  intakes?: Prisma.ClientIntakeCreateNestedManyWithoutClientInput
   tripTravelers?: Prisma.TripTravelerCreateNestedManyWithoutClientInput
+  tripBriefs?: Prisma.TripBriefCreateNestedManyWithoutClientInput
   alertSubscriptions?: Prisma.AlertSubscriptionCreateNestedManyWithoutClientInput
+  inferredPreferences?: Prisma.InferredPreferenceCreateNestedManyWithoutClientInput
+  followUpSuggestions?: Prisma.FollowUpSuggestionCreateNestedManyWithoutClientInput
+  vendorRequests?: Prisma.VendorRequestCreateNestedManyWithoutClientInput
 }
 
 export type ClientUncheckedCreateWithoutTripRequestsInput = {
   id?: string
   organizationId: string
   ownerUserId: string
+  clientType?: $Enums.ClientType
   firstName: string
   lastName: string
   email?: string | null
@@ -1181,10 +1580,16 @@ export type ClientUncheckedCreateWithoutTripRequestsInput = {
   createdAt?: Date | string
   updatedAt?: Date | string
   householdMembers?: Prisma.HouseholdMemberUncheckedCreateNestedManyWithoutClientInput
+  familyMembers?: Prisma.FamilyMemberUncheckedCreateNestedManyWithoutClientInput
   loyaltyBalances?: Prisma.ClientLoyaltyBalanceUncheckedCreateNestedManyWithoutClientInput
   preferences?: Prisma.ClientPreferenceUncheckedCreateNestedOneWithoutClientInput
+  intakes?: Prisma.ClientIntakeUncheckedCreateNestedManyWithoutClientInput
   tripTravelers?: Prisma.TripTravelerUncheckedCreateNestedManyWithoutClientInput
+  tripBriefs?: Prisma.TripBriefUncheckedCreateNestedManyWithoutClientInput
   alertSubscriptions?: Prisma.AlertSubscriptionUncheckedCreateNestedManyWithoutClientInput
+  inferredPreferences?: Prisma.InferredPreferenceUncheckedCreateNestedManyWithoutClientInput
+  followUpSuggestions?: Prisma.FollowUpSuggestionUncheckedCreateNestedManyWithoutClientInput
+  vendorRequests?: Prisma.VendorRequestUncheckedCreateNestedManyWithoutClientInput
 }
 
 export type ClientCreateOrConnectWithoutTripRequestsInput = {
@@ -1205,6 +1610,7 @@ export type ClientUpdateToOneWithWhereWithoutTripRequestsInput = {
 
 export type ClientUpdateWithoutTripRequestsInput = {
   id?: Prisma.StringFieldUpdateOperationsInput | string
+  clientType?: Prisma.EnumClientTypeFieldUpdateOperationsInput | $Enums.ClientType
   firstName?: Prisma.StringFieldUpdateOperationsInput | string
   lastName?: Prisma.StringFieldUpdateOperationsInput | string
   email?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
@@ -1217,16 +1623,23 @@ export type ClientUpdateWithoutTripRequestsInput = {
   organization?: Prisma.OrganizationUpdateOneRequiredWithoutClientsNestedInput
   owner?: Prisma.UserUpdateOneRequiredWithoutOwnedClientsNestedInput
   householdMembers?: Prisma.HouseholdMemberUpdateManyWithoutClientNestedInput
+  familyMembers?: Prisma.FamilyMemberUpdateManyWithoutClientNestedInput
   loyaltyBalances?: Prisma.ClientLoyaltyBalanceUpdateManyWithoutClientNestedInput
   preferences?: Prisma.ClientPreferenceUpdateOneWithoutClientNestedInput
+  intakes?: Prisma.ClientIntakeUpdateManyWithoutClientNestedInput
   tripTravelers?: Prisma.TripTravelerUpdateManyWithoutClientNestedInput
+  tripBriefs?: Prisma.TripBriefUpdateManyWithoutClientNestedInput
   alertSubscriptions?: Prisma.AlertSubscriptionUpdateManyWithoutClientNestedInput
+  inferredPreferences?: Prisma.InferredPreferenceUpdateManyWithoutClientNestedInput
+  followUpSuggestions?: Prisma.FollowUpSuggestionUpdateManyWithoutClientNestedInput
+  vendorRequests?: Prisma.VendorRequestUpdateManyWithoutClientNestedInput
 }
 
 export type ClientUncheckedUpdateWithoutTripRequestsInput = {
   id?: Prisma.StringFieldUpdateOperationsInput | string
   organizationId?: Prisma.StringFieldUpdateOperationsInput | string
   ownerUserId?: Prisma.StringFieldUpdateOperationsInput | string
+  clientType?: Prisma.EnumClientTypeFieldUpdateOperationsInput | $Enums.ClientType
   firstName?: Prisma.StringFieldUpdateOperationsInput | string
   lastName?: Prisma.StringFieldUpdateOperationsInput | string
   email?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
@@ -1237,14 +1650,21 @@ export type ClientUncheckedUpdateWithoutTripRequestsInput = {
   createdAt?: Prisma.DateTimeFieldUpdateOperationsInput | Date | string
   updatedAt?: Prisma.DateTimeFieldUpdateOperationsInput | Date | string
   householdMembers?: Prisma.HouseholdMemberUncheckedUpdateManyWithoutClientNestedInput
+  familyMembers?: Prisma.FamilyMemberUncheckedUpdateManyWithoutClientNestedInput
   loyaltyBalances?: Prisma.ClientLoyaltyBalanceUncheckedUpdateManyWithoutClientNestedInput
   preferences?: Prisma.ClientPreferenceUncheckedUpdateOneWithoutClientNestedInput
+  intakes?: Prisma.ClientIntakeUncheckedUpdateManyWithoutClientNestedInput
   tripTravelers?: Prisma.TripTravelerUncheckedUpdateManyWithoutClientNestedInput
+  tripBriefs?: Prisma.TripBriefUncheckedUpdateManyWithoutClientNestedInput
   alertSubscriptions?: Prisma.AlertSubscriptionUncheckedUpdateManyWithoutClientNestedInput
+  inferredPreferences?: Prisma.InferredPreferenceUncheckedUpdateManyWithoutClientNestedInput
+  followUpSuggestions?: Prisma.FollowUpSuggestionUncheckedUpdateManyWithoutClientNestedInput
+  vendorRequests?: Prisma.VendorRequestUncheckedUpdateManyWithoutClientNestedInput
 }
 
 export type ClientCreateWithoutTripTravelersInput = {
   id?: string
+  clientType?: $Enums.ClientType
   firstName: string
   lastName: string
   email?: string | null
@@ -1257,16 +1677,23 @@ export type ClientCreateWithoutTripTravelersInput = {
   organization: Prisma.OrganizationCreateNestedOneWithoutClientsInput
   owner: Prisma.UserCreateNestedOneWithoutOwnedClientsInput
   householdMembers?: Prisma.HouseholdMemberCreateNestedManyWithoutClientInput
+  familyMembers?: Prisma.FamilyMemberCreateNestedManyWithoutClientInput
   loyaltyBalances?: Prisma.ClientLoyaltyBalanceCreateNestedManyWithoutClientInput
   preferences?: Prisma.ClientPreferenceCreateNestedOneWithoutClientInput
+  intakes?: Prisma.ClientIntakeCreateNestedManyWithoutClientInput
   tripRequests?: Prisma.TripRequestCreateNestedManyWithoutClientInput
+  tripBriefs?: Prisma.TripBriefCreateNestedManyWithoutClientInput
   alertSubscriptions?: Prisma.AlertSubscriptionCreateNestedManyWithoutClientInput
+  inferredPreferences?: Prisma.InferredPreferenceCreateNestedManyWithoutClientInput
+  followUpSuggestions?: Prisma.FollowUpSuggestionCreateNestedManyWithoutClientInput
+  vendorRequests?: Prisma.VendorRequestCreateNestedManyWithoutClientInput
 }
 
 export type ClientUncheckedCreateWithoutTripTravelersInput = {
   id?: string
   organizationId: string
   ownerUserId: string
+  clientType?: $Enums.ClientType
   firstName: string
   lastName: string
   email?: string | null
@@ -1277,10 +1704,16 @@ export type ClientUncheckedCreateWithoutTripTravelersInput = {
   createdAt?: Date | string
   updatedAt?: Date | string
   householdMembers?: Prisma.HouseholdMemberUncheckedCreateNestedManyWithoutClientInput
+  familyMembers?: Prisma.FamilyMemberUncheckedCreateNestedManyWithoutClientInput
   loyaltyBalances?: Prisma.ClientLoyaltyBalanceUncheckedCreateNestedManyWithoutClientInput
   preferences?: Prisma.ClientPreferenceUncheckedCreateNestedOneWithoutClientInput
+  intakes?: Prisma.ClientIntakeUncheckedCreateNestedManyWithoutClientInput
   tripRequests?: Prisma.TripRequestUncheckedCreateNestedManyWithoutClientInput
+  tripBriefs?: Prisma.TripBriefUncheckedCreateNestedManyWithoutClientInput
   alertSubscriptions?: Prisma.AlertSubscriptionUncheckedCreateNestedManyWithoutClientInput
+  inferredPreferences?: Prisma.InferredPreferenceUncheckedCreateNestedManyWithoutClientInput
+  followUpSuggestions?: Prisma.FollowUpSuggestionUncheckedCreateNestedManyWithoutClientInput
+  vendorRequests?: Prisma.VendorRequestUncheckedCreateNestedManyWithoutClientInput
 }
 
 export type ClientCreateOrConnectWithoutTripTravelersInput = {
@@ -1301,6 +1734,7 @@ export type ClientUpdateToOneWithWhereWithoutTripTravelersInput = {
 
 export type ClientUpdateWithoutTripTravelersInput = {
   id?: Prisma.StringFieldUpdateOperationsInput | string
+  clientType?: Prisma.EnumClientTypeFieldUpdateOperationsInput | $Enums.ClientType
   firstName?: Prisma.StringFieldUpdateOperationsInput | string
   lastName?: Prisma.StringFieldUpdateOperationsInput | string
   email?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
@@ -1313,16 +1747,23 @@ export type ClientUpdateWithoutTripTravelersInput = {
   organization?: Prisma.OrganizationUpdateOneRequiredWithoutClientsNestedInput
   owner?: Prisma.UserUpdateOneRequiredWithoutOwnedClientsNestedInput
   householdMembers?: Prisma.HouseholdMemberUpdateManyWithoutClientNestedInput
+  familyMembers?: Prisma.FamilyMemberUpdateManyWithoutClientNestedInput
   loyaltyBalances?: Prisma.ClientLoyaltyBalanceUpdateManyWithoutClientNestedInput
   preferences?: Prisma.ClientPreferenceUpdateOneWithoutClientNestedInput
+  intakes?: Prisma.ClientIntakeUpdateManyWithoutClientNestedInput
   tripRequests?: Prisma.TripRequestUpdateManyWithoutClientNestedInput
+  tripBriefs?: Prisma.TripBriefUpdateManyWithoutClientNestedInput
   alertSubscriptions?: Prisma.AlertSubscriptionUpdateManyWithoutClientNestedInput
+  inferredPreferences?: Prisma.InferredPreferenceUpdateManyWithoutClientNestedInput
+  followUpSuggestions?: Prisma.FollowUpSuggestionUpdateManyWithoutClientNestedInput
+  vendorRequests?: Prisma.VendorRequestUpdateManyWithoutClientNestedInput
 }
 
 export type ClientUncheckedUpdateWithoutTripTravelersInput = {
   id?: Prisma.StringFieldUpdateOperationsInput | string
   organizationId?: Prisma.StringFieldUpdateOperationsInput | string
   ownerUserId?: Prisma.StringFieldUpdateOperationsInput | string
+  clientType?: Prisma.EnumClientTypeFieldUpdateOperationsInput | $Enums.ClientType
   firstName?: Prisma.StringFieldUpdateOperationsInput | string
   lastName?: Prisma.StringFieldUpdateOperationsInput | string
   email?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
@@ -1333,14 +1774,21 @@ export type ClientUncheckedUpdateWithoutTripTravelersInput = {
   createdAt?: Prisma.DateTimeFieldUpdateOperationsInput | Date | string
   updatedAt?: Prisma.DateTimeFieldUpdateOperationsInput | Date | string
   householdMembers?: Prisma.HouseholdMemberUncheckedUpdateManyWithoutClientNestedInput
+  familyMembers?: Prisma.FamilyMemberUncheckedUpdateManyWithoutClientNestedInput
   loyaltyBalances?: Prisma.ClientLoyaltyBalanceUncheckedUpdateManyWithoutClientNestedInput
   preferences?: Prisma.ClientPreferenceUncheckedUpdateOneWithoutClientNestedInput
+  intakes?: Prisma.ClientIntakeUncheckedUpdateManyWithoutClientNestedInput
   tripRequests?: Prisma.TripRequestUncheckedUpdateManyWithoutClientNestedInput
+  tripBriefs?: Prisma.TripBriefUncheckedUpdateManyWithoutClientNestedInput
   alertSubscriptions?: Prisma.AlertSubscriptionUncheckedUpdateManyWithoutClientNestedInput
+  inferredPreferences?: Prisma.InferredPreferenceUncheckedUpdateManyWithoutClientNestedInput
+  followUpSuggestions?: Prisma.FollowUpSuggestionUncheckedUpdateManyWithoutClientNestedInput
+  vendorRequests?: Prisma.VendorRequestUncheckedUpdateManyWithoutClientNestedInput
 }
 
-export type ClientCreateWithoutAlertSubscriptionsInput = {
+export type ClientCreateWithoutIntakesInput = {
   id?: string
+  clientType?: $Enums.ClientType
   firstName: string
   lastName: string
   email?: string | null
@@ -1353,16 +1801,23 @@ export type ClientCreateWithoutAlertSubscriptionsInput = {
   organization: Prisma.OrganizationCreateNestedOneWithoutClientsInput
   owner: Prisma.UserCreateNestedOneWithoutOwnedClientsInput
   householdMembers?: Prisma.HouseholdMemberCreateNestedManyWithoutClientInput
+  familyMembers?: Prisma.FamilyMemberCreateNestedManyWithoutClientInput
   loyaltyBalances?: Prisma.ClientLoyaltyBalanceCreateNestedManyWithoutClientInput
   preferences?: Prisma.ClientPreferenceCreateNestedOneWithoutClientInput
   tripRequests?: Prisma.TripRequestCreateNestedManyWithoutClientInput
   tripTravelers?: Prisma.TripTravelerCreateNestedManyWithoutClientInput
+  tripBriefs?: Prisma.TripBriefCreateNestedManyWithoutClientInput
+  alertSubscriptions?: Prisma.AlertSubscriptionCreateNestedManyWithoutClientInput
+  inferredPreferences?: Prisma.InferredPreferenceCreateNestedManyWithoutClientInput
+  followUpSuggestions?: Prisma.FollowUpSuggestionCreateNestedManyWithoutClientInput
+  vendorRequests?: Prisma.VendorRequestCreateNestedManyWithoutClientInput
 }
 
-export type ClientUncheckedCreateWithoutAlertSubscriptionsInput = {
+export type ClientUncheckedCreateWithoutIntakesInput = {
   id?: string
   organizationId: string
   ownerUserId: string
+  clientType?: $Enums.ClientType
   firstName: string
   lastName: string
   email?: string | null
@@ -1373,10 +1828,264 @@ export type ClientUncheckedCreateWithoutAlertSubscriptionsInput = {
   createdAt?: Date | string
   updatedAt?: Date | string
   householdMembers?: Prisma.HouseholdMemberUncheckedCreateNestedManyWithoutClientInput
+  familyMembers?: Prisma.FamilyMemberUncheckedCreateNestedManyWithoutClientInput
   loyaltyBalances?: Prisma.ClientLoyaltyBalanceUncheckedCreateNestedManyWithoutClientInput
   preferences?: Prisma.ClientPreferenceUncheckedCreateNestedOneWithoutClientInput
   tripRequests?: Prisma.TripRequestUncheckedCreateNestedManyWithoutClientInput
   tripTravelers?: Prisma.TripTravelerUncheckedCreateNestedManyWithoutClientInput
+  tripBriefs?: Prisma.TripBriefUncheckedCreateNestedManyWithoutClientInput
+  alertSubscriptions?: Prisma.AlertSubscriptionUncheckedCreateNestedManyWithoutClientInput
+  inferredPreferences?: Prisma.InferredPreferenceUncheckedCreateNestedManyWithoutClientInput
+  followUpSuggestions?: Prisma.FollowUpSuggestionUncheckedCreateNestedManyWithoutClientInput
+  vendorRequests?: Prisma.VendorRequestUncheckedCreateNestedManyWithoutClientInput
+}
+
+export type ClientCreateOrConnectWithoutIntakesInput = {
+  where: Prisma.ClientWhereUniqueInput
+  create: Prisma.XOR<Prisma.ClientCreateWithoutIntakesInput, Prisma.ClientUncheckedCreateWithoutIntakesInput>
+}
+
+export type ClientUpsertWithoutIntakesInput = {
+  update: Prisma.XOR<Prisma.ClientUpdateWithoutIntakesInput, Prisma.ClientUncheckedUpdateWithoutIntakesInput>
+  create: Prisma.XOR<Prisma.ClientCreateWithoutIntakesInput, Prisma.ClientUncheckedCreateWithoutIntakesInput>
+  where?: Prisma.ClientWhereInput
+}
+
+export type ClientUpdateToOneWithWhereWithoutIntakesInput = {
+  where?: Prisma.ClientWhereInput
+  data: Prisma.XOR<Prisma.ClientUpdateWithoutIntakesInput, Prisma.ClientUncheckedUpdateWithoutIntakesInput>
+}
+
+export type ClientUpdateWithoutIntakesInput = {
+  id?: Prisma.StringFieldUpdateOperationsInput | string
+  clientType?: Prisma.EnumClientTypeFieldUpdateOperationsInput | $Enums.ClientType
+  firstName?: Prisma.StringFieldUpdateOperationsInput | string
+  lastName?: Prisma.StringFieldUpdateOperationsInput | string
+  email?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
+  phone?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
+  dateOfBirth?: Prisma.NullableDateTimeFieldUpdateOperationsInput | Date | string | null
+  notes?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
+  status?: Prisma.EnumClientStatusFieldUpdateOperationsInput | $Enums.ClientStatus
+  createdAt?: Prisma.DateTimeFieldUpdateOperationsInput | Date | string
+  updatedAt?: Prisma.DateTimeFieldUpdateOperationsInput | Date | string
+  organization?: Prisma.OrganizationUpdateOneRequiredWithoutClientsNestedInput
+  owner?: Prisma.UserUpdateOneRequiredWithoutOwnedClientsNestedInput
+  householdMembers?: Prisma.HouseholdMemberUpdateManyWithoutClientNestedInput
+  familyMembers?: Prisma.FamilyMemberUpdateManyWithoutClientNestedInput
+  loyaltyBalances?: Prisma.ClientLoyaltyBalanceUpdateManyWithoutClientNestedInput
+  preferences?: Prisma.ClientPreferenceUpdateOneWithoutClientNestedInput
+  tripRequests?: Prisma.TripRequestUpdateManyWithoutClientNestedInput
+  tripTravelers?: Prisma.TripTravelerUpdateManyWithoutClientNestedInput
+  tripBriefs?: Prisma.TripBriefUpdateManyWithoutClientNestedInput
+  alertSubscriptions?: Prisma.AlertSubscriptionUpdateManyWithoutClientNestedInput
+  inferredPreferences?: Prisma.InferredPreferenceUpdateManyWithoutClientNestedInput
+  followUpSuggestions?: Prisma.FollowUpSuggestionUpdateManyWithoutClientNestedInput
+  vendorRequests?: Prisma.VendorRequestUpdateManyWithoutClientNestedInput
+}
+
+export type ClientUncheckedUpdateWithoutIntakesInput = {
+  id?: Prisma.StringFieldUpdateOperationsInput | string
+  organizationId?: Prisma.StringFieldUpdateOperationsInput | string
+  ownerUserId?: Prisma.StringFieldUpdateOperationsInput | string
+  clientType?: Prisma.EnumClientTypeFieldUpdateOperationsInput | $Enums.ClientType
+  firstName?: Prisma.StringFieldUpdateOperationsInput | string
+  lastName?: Prisma.StringFieldUpdateOperationsInput | string
+  email?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
+  phone?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
+  dateOfBirth?: Prisma.NullableDateTimeFieldUpdateOperationsInput | Date | string | null
+  notes?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
+  status?: Prisma.EnumClientStatusFieldUpdateOperationsInput | $Enums.ClientStatus
+  createdAt?: Prisma.DateTimeFieldUpdateOperationsInput | Date | string
+  updatedAt?: Prisma.DateTimeFieldUpdateOperationsInput | Date | string
+  householdMembers?: Prisma.HouseholdMemberUncheckedUpdateManyWithoutClientNestedInput
+  familyMembers?: Prisma.FamilyMemberUncheckedUpdateManyWithoutClientNestedInput
+  loyaltyBalances?: Prisma.ClientLoyaltyBalanceUncheckedUpdateManyWithoutClientNestedInput
+  preferences?: Prisma.ClientPreferenceUncheckedUpdateOneWithoutClientNestedInput
+  tripRequests?: Prisma.TripRequestUncheckedUpdateManyWithoutClientNestedInput
+  tripTravelers?: Prisma.TripTravelerUncheckedUpdateManyWithoutClientNestedInput
+  tripBriefs?: Prisma.TripBriefUncheckedUpdateManyWithoutClientNestedInput
+  alertSubscriptions?: Prisma.AlertSubscriptionUncheckedUpdateManyWithoutClientNestedInput
+  inferredPreferences?: Prisma.InferredPreferenceUncheckedUpdateManyWithoutClientNestedInput
+  followUpSuggestions?: Prisma.FollowUpSuggestionUncheckedUpdateManyWithoutClientNestedInput
+  vendorRequests?: Prisma.VendorRequestUncheckedUpdateManyWithoutClientNestedInput
+}
+
+export type ClientCreateWithoutTripBriefsInput = {
+  id?: string
+  clientType?: $Enums.ClientType
+  firstName: string
+  lastName: string
+  email?: string | null
+  phone?: string | null
+  dateOfBirth?: Date | string | null
+  notes?: string | null
+  status?: $Enums.ClientStatus
+  createdAt?: Date | string
+  updatedAt?: Date | string
+  organization: Prisma.OrganizationCreateNestedOneWithoutClientsInput
+  owner: Prisma.UserCreateNestedOneWithoutOwnedClientsInput
+  householdMembers?: Prisma.HouseholdMemberCreateNestedManyWithoutClientInput
+  familyMembers?: Prisma.FamilyMemberCreateNestedManyWithoutClientInput
+  loyaltyBalances?: Prisma.ClientLoyaltyBalanceCreateNestedManyWithoutClientInput
+  preferences?: Prisma.ClientPreferenceCreateNestedOneWithoutClientInput
+  intakes?: Prisma.ClientIntakeCreateNestedManyWithoutClientInput
+  tripRequests?: Prisma.TripRequestCreateNestedManyWithoutClientInput
+  tripTravelers?: Prisma.TripTravelerCreateNestedManyWithoutClientInput
+  alertSubscriptions?: Prisma.AlertSubscriptionCreateNestedManyWithoutClientInput
+  inferredPreferences?: Prisma.InferredPreferenceCreateNestedManyWithoutClientInput
+  followUpSuggestions?: Prisma.FollowUpSuggestionCreateNestedManyWithoutClientInput
+  vendorRequests?: Prisma.VendorRequestCreateNestedManyWithoutClientInput
+}
+
+export type ClientUncheckedCreateWithoutTripBriefsInput = {
+  id?: string
+  organizationId: string
+  ownerUserId: string
+  clientType?: $Enums.ClientType
+  firstName: string
+  lastName: string
+  email?: string | null
+  phone?: string | null
+  dateOfBirth?: Date | string | null
+  notes?: string | null
+  status?: $Enums.ClientStatus
+  createdAt?: Date | string
+  updatedAt?: Date | string
+  householdMembers?: Prisma.HouseholdMemberUncheckedCreateNestedManyWithoutClientInput
+  familyMembers?: Prisma.FamilyMemberUncheckedCreateNestedManyWithoutClientInput
+  loyaltyBalances?: Prisma.ClientLoyaltyBalanceUncheckedCreateNestedManyWithoutClientInput
+  preferences?: Prisma.ClientPreferenceUncheckedCreateNestedOneWithoutClientInput
+  intakes?: Prisma.ClientIntakeUncheckedCreateNestedManyWithoutClientInput
+  tripRequests?: Prisma.TripRequestUncheckedCreateNestedManyWithoutClientInput
+  tripTravelers?: Prisma.TripTravelerUncheckedCreateNestedManyWithoutClientInput
+  alertSubscriptions?: Prisma.AlertSubscriptionUncheckedCreateNestedManyWithoutClientInput
+  inferredPreferences?: Prisma.InferredPreferenceUncheckedCreateNestedManyWithoutClientInput
+  followUpSuggestions?: Prisma.FollowUpSuggestionUncheckedCreateNestedManyWithoutClientInput
+  vendorRequests?: Prisma.VendorRequestUncheckedCreateNestedManyWithoutClientInput
+}
+
+export type ClientCreateOrConnectWithoutTripBriefsInput = {
+  where: Prisma.ClientWhereUniqueInput
+  create: Prisma.XOR<Prisma.ClientCreateWithoutTripBriefsInput, Prisma.ClientUncheckedCreateWithoutTripBriefsInput>
+}
+
+export type ClientUpsertWithoutTripBriefsInput = {
+  update: Prisma.XOR<Prisma.ClientUpdateWithoutTripBriefsInput, Prisma.ClientUncheckedUpdateWithoutTripBriefsInput>
+  create: Prisma.XOR<Prisma.ClientCreateWithoutTripBriefsInput, Prisma.ClientUncheckedCreateWithoutTripBriefsInput>
+  where?: Prisma.ClientWhereInput
+}
+
+export type ClientUpdateToOneWithWhereWithoutTripBriefsInput = {
+  where?: Prisma.ClientWhereInput
+  data: Prisma.XOR<Prisma.ClientUpdateWithoutTripBriefsInput, Prisma.ClientUncheckedUpdateWithoutTripBriefsInput>
+}
+
+export type ClientUpdateWithoutTripBriefsInput = {
+  id?: Prisma.StringFieldUpdateOperationsInput | string
+  clientType?: Prisma.EnumClientTypeFieldUpdateOperationsInput | $Enums.ClientType
+  firstName?: Prisma.StringFieldUpdateOperationsInput | string
+  lastName?: Prisma.StringFieldUpdateOperationsInput | string
+  email?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
+  phone?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
+  dateOfBirth?: Prisma.NullableDateTimeFieldUpdateOperationsInput | Date | string | null
+  notes?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
+  status?: Prisma.EnumClientStatusFieldUpdateOperationsInput | $Enums.ClientStatus
+  createdAt?: Prisma.DateTimeFieldUpdateOperationsInput | Date | string
+  updatedAt?: Prisma.DateTimeFieldUpdateOperationsInput | Date | string
+  organization?: Prisma.OrganizationUpdateOneRequiredWithoutClientsNestedInput
+  owner?: Prisma.UserUpdateOneRequiredWithoutOwnedClientsNestedInput
+  householdMembers?: Prisma.HouseholdMemberUpdateManyWithoutClientNestedInput
+  familyMembers?: Prisma.FamilyMemberUpdateManyWithoutClientNestedInput
+  loyaltyBalances?: Prisma.ClientLoyaltyBalanceUpdateManyWithoutClientNestedInput
+  preferences?: Prisma.ClientPreferenceUpdateOneWithoutClientNestedInput
+  intakes?: Prisma.ClientIntakeUpdateManyWithoutClientNestedInput
+  tripRequests?: Prisma.TripRequestUpdateManyWithoutClientNestedInput
+  tripTravelers?: Prisma.TripTravelerUpdateManyWithoutClientNestedInput
+  alertSubscriptions?: Prisma.AlertSubscriptionUpdateManyWithoutClientNestedInput
+  inferredPreferences?: Prisma.InferredPreferenceUpdateManyWithoutClientNestedInput
+  followUpSuggestions?: Prisma.FollowUpSuggestionUpdateManyWithoutClientNestedInput
+  vendorRequests?: Prisma.VendorRequestUpdateManyWithoutClientNestedInput
+}
+
+export type ClientUncheckedUpdateWithoutTripBriefsInput = {
+  id?: Prisma.StringFieldUpdateOperationsInput | string
+  organizationId?: Prisma.StringFieldUpdateOperationsInput | string
+  ownerUserId?: Prisma.StringFieldUpdateOperationsInput | string
+  clientType?: Prisma.EnumClientTypeFieldUpdateOperationsInput | $Enums.ClientType
+  firstName?: Prisma.StringFieldUpdateOperationsInput | string
+  lastName?: Prisma.StringFieldUpdateOperationsInput | string
+  email?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
+  phone?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
+  dateOfBirth?: Prisma.NullableDateTimeFieldUpdateOperationsInput | Date | string | null
+  notes?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
+  status?: Prisma.EnumClientStatusFieldUpdateOperationsInput | $Enums.ClientStatus
+  createdAt?: Prisma.DateTimeFieldUpdateOperationsInput | Date | string
+  updatedAt?: Prisma.DateTimeFieldUpdateOperationsInput | Date | string
+  householdMembers?: Prisma.HouseholdMemberUncheckedUpdateManyWithoutClientNestedInput
+  familyMembers?: Prisma.FamilyMemberUncheckedUpdateManyWithoutClientNestedInput
+  loyaltyBalances?: Prisma.ClientLoyaltyBalanceUncheckedUpdateManyWithoutClientNestedInput
+  preferences?: Prisma.ClientPreferenceUncheckedUpdateOneWithoutClientNestedInput
+  intakes?: Prisma.ClientIntakeUncheckedUpdateManyWithoutClientNestedInput
+  tripRequests?: Prisma.TripRequestUncheckedUpdateManyWithoutClientNestedInput
+  tripTravelers?: Prisma.TripTravelerUncheckedUpdateManyWithoutClientNestedInput
+  alertSubscriptions?: Prisma.AlertSubscriptionUncheckedUpdateManyWithoutClientNestedInput
+  inferredPreferences?: Prisma.InferredPreferenceUncheckedUpdateManyWithoutClientNestedInput
+  followUpSuggestions?: Prisma.FollowUpSuggestionUncheckedUpdateManyWithoutClientNestedInput
+  vendorRequests?: Prisma.VendorRequestUncheckedUpdateManyWithoutClientNestedInput
+}
+
+export type ClientCreateWithoutAlertSubscriptionsInput = {
+  id?: string
+  clientType?: $Enums.ClientType
+  firstName: string
+  lastName: string
+  email?: string | null
+  phone?: string | null
+  dateOfBirth?: Date | string | null
+  notes?: string | null
+  status?: $Enums.ClientStatus
+  createdAt?: Date | string
+  updatedAt?: Date | string
+  organization: Prisma.OrganizationCreateNestedOneWithoutClientsInput
+  owner: Prisma.UserCreateNestedOneWithoutOwnedClientsInput
+  householdMembers?: Prisma.HouseholdMemberCreateNestedManyWithoutClientInput
+  familyMembers?: Prisma.FamilyMemberCreateNestedManyWithoutClientInput
+  loyaltyBalances?: Prisma.ClientLoyaltyBalanceCreateNestedManyWithoutClientInput
+  preferences?: Prisma.ClientPreferenceCreateNestedOneWithoutClientInput
+  intakes?: Prisma.ClientIntakeCreateNestedManyWithoutClientInput
+  tripRequests?: Prisma.TripRequestCreateNestedManyWithoutClientInput
+  tripTravelers?: Prisma.TripTravelerCreateNestedManyWithoutClientInput
+  tripBriefs?: Prisma.TripBriefCreateNestedManyWithoutClientInput
+  inferredPreferences?: Prisma.InferredPreferenceCreateNestedManyWithoutClientInput
+  followUpSuggestions?: Prisma.FollowUpSuggestionCreateNestedManyWithoutClientInput
+  vendorRequests?: Prisma.VendorRequestCreateNestedManyWithoutClientInput
+}
+
+export type ClientUncheckedCreateWithoutAlertSubscriptionsInput = {
+  id?: string
+  organizationId: string
+  ownerUserId: string
+  clientType?: $Enums.ClientType
+  firstName: string
+  lastName: string
+  email?: string | null
+  phone?: string | null
+  dateOfBirth?: Date | string | null
+  notes?: string | null
+  status?: $Enums.ClientStatus
+  createdAt?: Date | string
+  updatedAt?: Date | string
+  householdMembers?: Prisma.HouseholdMemberUncheckedCreateNestedManyWithoutClientInput
+  familyMembers?: Prisma.FamilyMemberUncheckedCreateNestedManyWithoutClientInput
+  loyaltyBalances?: Prisma.ClientLoyaltyBalanceUncheckedCreateNestedManyWithoutClientInput
+  preferences?: Prisma.ClientPreferenceUncheckedCreateNestedOneWithoutClientInput
+  intakes?: Prisma.ClientIntakeUncheckedCreateNestedManyWithoutClientInput
+  tripRequests?: Prisma.TripRequestUncheckedCreateNestedManyWithoutClientInput
+  tripTravelers?: Prisma.TripTravelerUncheckedCreateNestedManyWithoutClientInput
+  tripBriefs?: Prisma.TripBriefUncheckedCreateNestedManyWithoutClientInput
+  inferredPreferences?: Prisma.InferredPreferenceUncheckedCreateNestedManyWithoutClientInput
+  followUpSuggestions?: Prisma.FollowUpSuggestionUncheckedCreateNestedManyWithoutClientInput
+  vendorRequests?: Prisma.VendorRequestUncheckedCreateNestedManyWithoutClientInput
 }
 
 export type ClientCreateOrConnectWithoutAlertSubscriptionsInput = {
@@ -1397,6 +2106,7 @@ export type ClientUpdateToOneWithWhereWithoutAlertSubscriptionsInput = {
 
 export type ClientUpdateWithoutAlertSubscriptionsInput = {
   id?: Prisma.StringFieldUpdateOperationsInput | string
+  clientType?: Prisma.EnumClientTypeFieldUpdateOperationsInput | $Enums.ClientType
   firstName?: Prisma.StringFieldUpdateOperationsInput | string
   lastName?: Prisma.StringFieldUpdateOperationsInput | string
   email?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
@@ -1409,16 +2119,23 @@ export type ClientUpdateWithoutAlertSubscriptionsInput = {
   organization?: Prisma.OrganizationUpdateOneRequiredWithoutClientsNestedInput
   owner?: Prisma.UserUpdateOneRequiredWithoutOwnedClientsNestedInput
   householdMembers?: Prisma.HouseholdMemberUpdateManyWithoutClientNestedInput
+  familyMembers?: Prisma.FamilyMemberUpdateManyWithoutClientNestedInput
   loyaltyBalances?: Prisma.ClientLoyaltyBalanceUpdateManyWithoutClientNestedInput
   preferences?: Prisma.ClientPreferenceUpdateOneWithoutClientNestedInput
+  intakes?: Prisma.ClientIntakeUpdateManyWithoutClientNestedInput
   tripRequests?: Prisma.TripRequestUpdateManyWithoutClientNestedInput
   tripTravelers?: Prisma.TripTravelerUpdateManyWithoutClientNestedInput
+  tripBriefs?: Prisma.TripBriefUpdateManyWithoutClientNestedInput
+  inferredPreferences?: Prisma.InferredPreferenceUpdateManyWithoutClientNestedInput
+  followUpSuggestions?: Prisma.FollowUpSuggestionUpdateManyWithoutClientNestedInput
+  vendorRequests?: Prisma.VendorRequestUpdateManyWithoutClientNestedInput
 }
 
 export type ClientUncheckedUpdateWithoutAlertSubscriptionsInput = {
   id?: Prisma.StringFieldUpdateOperationsInput | string
   organizationId?: Prisma.StringFieldUpdateOperationsInput | string
   ownerUserId?: Prisma.StringFieldUpdateOperationsInput | string
+  clientType?: Prisma.EnumClientTypeFieldUpdateOperationsInput | $Enums.ClientType
   firstName?: Prisma.StringFieldUpdateOperationsInput | string
   lastName?: Prisma.StringFieldUpdateOperationsInput | string
   email?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
@@ -1429,15 +2146,394 @@ export type ClientUncheckedUpdateWithoutAlertSubscriptionsInput = {
   createdAt?: Prisma.DateTimeFieldUpdateOperationsInput | Date | string
   updatedAt?: Prisma.DateTimeFieldUpdateOperationsInput | Date | string
   householdMembers?: Prisma.HouseholdMemberUncheckedUpdateManyWithoutClientNestedInput
+  familyMembers?: Prisma.FamilyMemberUncheckedUpdateManyWithoutClientNestedInput
   loyaltyBalances?: Prisma.ClientLoyaltyBalanceUncheckedUpdateManyWithoutClientNestedInput
   preferences?: Prisma.ClientPreferenceUncheckedUpdateOneWithoutClientNestedInput
+  intakes?: Prisma.ClientIntakeUncheckedUpdateManyWithoutClientNestedInput
   tripRequests?: Prisma.TripRequestUncheckedUpdateManyWithoutClientNestedInput
   tripTravelers?: Prisma.TripTravelerUncheckedUpdateManyWithoutClientNestedInput
+  tripBriefs?: Prisma.TripBriefUncheckedUpdateManyWithoutClientNestedInput
+  inferredPreferences?: Prisma.InferredPreferenceUncheckedUpdateManyWithoutClientNestedInput
+  followUpSuggestions?: Prisma.FollowUpSuggestionUncheckedUpdateManyWithoutClientNestedInput
+  vendorRequests?: Prisma.VendorRequestUncheckedUpdateManyWithoutClientNestedInput
+}
+
+export type ClientCreateWithoutInferredPreferencesInput = {
+  id?: string
+  clientType?: $Enums.ClientType
+  firstName: string
+  lastName: string
+  email?: string | null
+  phone?: string | null
+  dateOfBirth?: Date | string | null
+  notes?: string | null
+  status?: $Enums.ClientStatus
+  createdAt?: Date | string
+  updatedAt?: Date | string
+  organization: Prisma.OrganizationCreateNestedOneWithoutClientsInput
+  owner: Prisma.UserCreateNestedOneWithoutOwnedClientsInput
+  householdMembers?: Prisma.HouseholdMemberCreateNestedManyWithoutClientInput
+  familyMembers?: Prisma.FamilyMemberCreateNestedManyWithoutClientInput
+  loyaltyBalances?: Prisma.ClientLoyaltyBalanceCreateNestedManyWithoutClientInput
+  preferences?: Prisma.ClientPreferenceCreateNestedOneWithoutClientInput
+  intakes?: Prisma.ClientIntakeCreateNestedManyWithoutClientInput
+  tripRequests?: Prisma.TripRequestCreateNestedManyWithoutClientInput
+  tripTravelers?: Prisma.TripTravelerCreateNestedManyWithoutClientInput
+  tripBriefs?: Prisma.TripBriefCreateNestedManyWithoutClientInput
+  alertSubscriptions?: Prisma.AlertSubscriptionCreateNestedManyWithoutClientInput
+  followUpSuggestions?: Prisma.FollowUpSuggestionCreateNestedManyWithoutClientInput
+  vendorRequests?: Prisma.VendorRequestCreateNestedManyWithoutClientInput
+}
+
+export type ClientUncheckedCreateWithoutInferredPreferencesInput = {
+  id?: string
+  organizationId: string
+  ownerUserId: string
+  clientType?: $Enums.ClientType
+  firstName: string
+  lastName: string
+  email?: string | null
+  phone?: string | null
+  dateOfBirth?: Date | string | null
+  notes?: string | null
+  status?: $Enums.ClientStatus
+  createdAt?: Date | string
+  updatedAt?: Date | string
+  householdMembers?: Prisma.HouseholdMemberUncheckedCreateNestedManyWithoutClientInput
+  familyMembers?: Prisma.FamilyMemberUncheckedCreateNestedManyWithoutClientInput
+  loyaltyBalances?: Prisma.ClientLoyaltyBalanceUncheckedCreateNestedManyWithoutClientInput
+  preferences?: Prisma.ClientPreferenceUncheckedCreateNestedOneWithoutClientInput
+  intakes?: Prisma.ClientIntakeUncheckedCreateNestedManyWithoutClientInput
+  tripRequests?: Prisma.TripRequestUncheckedCreateNestedManyWithoutClientInput
+  tripTravelers?: Prisma.TripTravelerUncheckedCreateNestedManyWithoutClientInput
+  tripBriefs?: Prisma.TripBriefUncheckedCreateNestedManyWithoutClientInput
+  alertSubscriptions?: Prisma.AlertSubscriptionUncheckedCreateNestedManyWithoutClientInput
+  followUpSuggestions?: Prisma.FollowUpSuggestionUncheckedCreateNestedManyWithoutClientInput
+  vendorRequests?: Prisma.VendorRequestUncheckedCreateNestedManyWithoutClientInput
+}
+
+export type ClientCreateOrConnectWithoutInferredPreferencesInput = {
+  where: Prisma.ClientWhereUniqueInput
+  create: Prisma.XOR<Prisma.ClientCreateWithoutInferredPreferencesInput, Prisma.ClientUncheckedCreateWithoutInferredPreferencesInput>
+}
+
+export type ClientUpsertWithoutInferredPreferencesInput = {
+  update: Prisma.XOR<Prisma.ClientUpdateWithoutInferredPreferencesInput, Prisma.ClientUncheckedUpdateWithoutInferredPreferencesInput>
+  create: Prisma.XOR<Prisma.ClientCreateWithoutInferredPreferencesInput, Prisma.ClientUncheckedCreateWithoutInferredPreferencesInput>
+  where?: Prisma.ClientWhereInput
+}
+
+export type ClientUpdateToOneWithWhereWithoutInferredPreferencesInput = {
+  where?: Prisma.ClientWhereInput
+  data: Prisma.XOR<Prisma.ClientUpdateWithoutInferredPreferencesInput, Prisma.ClientUncheckedUpdateWithoutInferredPreferencesInput>
+}
+
+export type ClientUpdateWithoutInferredPreferencesInput = {
+  id?: Prisma.StringFieldUpdateOperationsInput | string
+  clientType?: Prisma.EnumClientTypeFieldUpdateOperationsInput | $Enums.ClientType
+  firstName?: Prisma.StringFieldUpdateOperationsInput | string
+  lastName?: Prisma.StringFieldUpdateOperationsInput | string
+  email?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
+  phone?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
+  dateOfBirth?: Prisma.NullableDateTimeFieldUpdateOperationsInput | Date | string | null
+  notes?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
+  status?: Prisma.EnumClientStatusFieldUpdateOperationsInput | $Enums.ClientStatus
+  createdAt?: Prisma.DateTimeFieldUpdateOperationsInput | Date | string
+  updatedAt?: Prisma.DateTimeFieldUpdateOperationsInput | Date | string
+  organization?: Prisma.OrganizationUpdateOneRequiredWithoutClientsNestedInput
+  owner?: Prisma.UserUpdateOneRequiredWithoutOwnedClientsNestedInput
+  householdMembers?: Prisma.HouseholdMemberUpdateManyWithoutClientNestedInput
+  familyMembers?: Prisma.FamilyMemberUpdateManyWithoutClientNestedInput
+  loyaltyBalances?: Prisma.ClientLoyaltyBalanceUpdateManyWithoutClientNestedInput
+  preferences?: Prisma.ClientPreferenceUpdateOneWithoutClientNestedInput
+  intakes?: Prisma.ClientIntakeUpdateManyWithoutClientNestedInput
+  tripRequests?: Prisma.TripRequestUpdateManyWithoutClientNestedInput
+  tripTravelers?: Prisma.TripTravelerUpdateManyWithoutClientNestedInput
+  tripBriefs?: Prisma.TripBriefUpdateManyWithoutClientNestedInput
+  alertSubscriptions?: Prisma.AlertSubscriptionUpdateManyWithoutClientNestedInput
+  followUpSuggestions?: Prisma.FollowUpSuggestionUpdateManyWithoutClientNestedInput
+  vendorRequests?: Prisma.VendorRequestUpdateManyWithoutClientNestedInput
+}
+
+export type ClientUncheckedUpdateWithoutInferredPreferencesInput = {
+  id?: Prisma.StringFieldUpdateOperationsInput | string
+  organizationId?: Prisma.StringFieldUpdateOperationsInput | string
+  ownerUserId?: Prisma.StringFieldUpdateOperationsInput | string
+  clientType?: Prisma.EnumClientTypeFieldUpdateOperationsInput | $Enums.ClientType
+  firstName?: Prisma.StringFieldUpdateOperationsInput | string
+  lastName?: Prisma.StringFieldUpdateOperationsInput | string
+  email?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
+  phone?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
+  dateOfBirth?: Prisma.NullableDateTimeFieldUpdateOperationsInput | Date | string | null
+  notes?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
+  status?: Prisma.EnumClientStatusFieldUpdateOperationsInput | $Enums.ClientStatus
+  createdAt?: Prisma.DateTimeFieldUpdateOperationsInput | Date | string
+  updatedAt?: Prisma.DateTimeFieldUpdateOperationsInput | Date | string
+  householdMembers?: Prisma.HouseholdMemberUncheckedUpdateManyWithoutClientNestedInput
+  familyMembers?: Prisma.FamilyMemberUncheckedUpdateManyWithoutClientNestedInput
+  loyaltyBalances?: Prisma.ClientLoyaltyBalanceUncheckedUpdateManyWithoutClientNestedInput
+  preferences?: Prisma.ClientPreferenceUncheckedUpdateOneWithoutClientNestedInput
+  intakes?: Prisma.ClientIntakeUncheckedUpdateManyWithoutClientNestedInput
+  tripRequests?: Prisma.TripRequestUncheckedUpdateManyWithoutClientNestedInput
+  tripTravelers?: Prisma.TripTravelerUncheckedUpdateManyWithoutClientNestedInput
+  tripBriefs?: Prisma.TripBriefUncheckedUpdateManyWithoutClientNestedInput
+  alertSubscriptions?: Prisma.AlertSubscriptionUncheckedUpdateManyWithoutClientNestedInput
+  followUpSuggestions?: Prisma.FollowUpSuggestionUncheckedUpdateManyWithoutClientNestedInput
+  vendorRequests?: Prisma.VendorRequestUncheckedUpdateManyWithoutClientNestedInput
+}
+
+export type ClientCreateWithoutFollowUpSuggestionsInput = {
+  id?: string
+  clientType?: $Enums.ClientType
+  firstName: string
+  lastName: string
+  email?: string | null
+  phone?: string | null
+  dateOfBirth?: Date | string | null
+  notes?: string | null
+  status?: $Enums.ClientStatus
+  createdAt?: Date | string
+  updatedAt?: Date | string
+  organization: Prisma.OrganizationCreateNestedOneWithoutClientsInput
+  owner: Prisma.UserCreateNestedOneWithoutOwnedClientsInput
+  householdMembers?: Prisma.HouseholdMemberCreateNestedManyWithoutClientInput
+  familyMembers?: Prisma.FamilyMemberCreateNestedManyWithoutClientInput
+  loyaltyBalances?: Prisma.ClientLoyaltyBalanceCreateNestedManyWithoutClientInput
+  preferences?: Prisma.ClientPreferenceCreateNestedOneWithoutClientInput
+  intakes?: Prisma.ClientIntakeCreateNestedManyWithoutClientInput
+  tripRequests?: Prisma.TripRequestCreateNestedManyWithoutClientInput
+  tripTravelers?: Prisma.TripTravelerCreateNestedManyWithoutClientInput
+  tripBriefs?: Prisma.TripBriefCreateNestedManyWithoutClientInput
+  alertSubscriptions?: Prisma.AlertSubscriptionCreateNestedManyWithoutClientInput
+  inferredPreferences?: Prisma.InferredPreferenceCreateNestedManyWithoutClientInput
+  vendorRequests?: Prisma.VendorRequestCreateNestedManyWithoutClientInput
+}
+
+export type ClientUncheckedCreateWithoutFollowUpSuggestionsInput = {
+  id?: string
+  organizationId: string
+  ownerUserId: string
+  clientType?: $Enums.ClientType
+  firstName: string
+  lastName: string
+  email?: string | null
+  phone?: string | null
+  dateOfBirth?: Date | string | null
+  notes?: string | null
+  status?: $Enums.ClientStatus
+  createdAt?: Date | string
+  updatedAt?: Date | string
+  householdMembers?: Prisma.HouseholdMemberUncheckedCreateNestedManyWithoutClientInput
+  familyMembers?: Prisma.FamilyMemberUncheckedCreateNestedManyWithoutClientInput
+  loyaltyBalances?: Prisma.ClientLoyaltyBalanceUncheckedCreateNestedManyWithoutClientInput
+  preferences?: Prisma.ClientPreferenceUncheckedCreateNestedOneWithoutClientInput
+  intakes?: Prisma.ClientIntakeUncheckedCreateNestedManyWithoutClientInput
+  tripRequests?: Prisma.TripRequestUncheckedCreateNestedManyWithoutClientInput
+  tripTravelers?: Prisma.TripTravelerUncheckedCreateNestedManyWithoutClientInput
+  tripBriefs?: Prisma.TripBriefUncheckedCreateNestedManyWithoutClientInput
+  alertSubscriptions?: Prisma.AlertSubscriptionUncheckedCreateNestedManyWithoutClientInput
+  inferredPreferences?: Prisma.InferredPreferenceUncheckedCreateNestedManyWithoutClientInput
+  vendorRequests?: Prisma.VendorRequestUncheckedCreateNestedManyWithoutClientInput
+}
+
+export type ClientCreateOrConnectWithoutFollowUpSuggestionsInput = {
+  where: Prisma.ClientWhereUniqueInput
+  create: Prisma.XOR<Prisma.ClientCreateWithoutFollowUpSuggestionsInput, Prisma.ClientUncheckedCreateWithoutFollowUpSuggestionsInput>
+}
+
+export type ClientUpsertWithoutFollowUpSuggestionsInput = {
+  update: Prisma.XOR<Prisma.ClientUpdateWithoutFollowUpSuggestionsInput, Prisma.ClientUncheckedUpdateWithoutFollowUpSuggestionsInput>
+  create: Prisma.XOR<Prisma.ClientCreateWithoutFollowUpSuggestionsInput, Prisma.ClientUncheckedCreateWithoutFollowUpSuggestionsInput>
+  where?: Prisma.ClientWhereInput
+}
+
+export type ClientUpdateToOneWithWhereWithoutFollowUpSuggestionsInput = {
+  where?: Prisma.ClientWhereInput
+  data: Prisma.XOR<Prisma.ClientUpdateWithoutFollowUpSuggestionsInput, Prisma.ClientUncheckedUpdateWithoutFollowUpSuggestionsInput>
+}
+
+export type ClientUpdateWithoutFollowUpSuggestionsInput = {
+  id?: Prisma.StringFieldUpdateOperationsInput | string
+  clientType?: Prisma.EnumClientTypeFieldUpdateOperationsInput | $Enums.ClientType
+  firstName?: Prisma.StringFieldUpdateOperationsInput | string
+  lastName?: Prisma.StringFieldUpdateOperationsInput | string
+  email?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
+  phone?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
+  dateOfBirth?: Prisma.NullableDateTimeFieldUpdateOperationsInput | Date | string | null
+  notes?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
+  status?: Prisma.EnumClientStatusFieldUpdateOperationsInput | $Enums.ClientStatus
+  createdAt?: Prisma.DateTimeFieldUpdateOperationsInput | Date | string
+  updatedAt?: Prisma.DateTimeFieldUpdateOperationsInput | Date | string
+  organization?: Prisma.OrganizationUpdateOneRequiredWithoutClientsNestedInput
+  owner?: Prisma.UserUpdateOneRequiredWithoutOwnedClientsNestedInput
+  householdMembers?: Prisma.HouseholdMemberUpdateManyWithoutClientNestedInput
+  familyMembers?: Prisma.FamilyMemberUpdateManyWithoutClientNestedInput
+  loyaltyBalances?: Prisma.ClientLoyaltyBalanceUpdateManyWithoutClientNestedInput
+  preferences?: Prisma.ClientPreferenceUpdateOneWithoutClientNestedInput
+  intakes?: Prisma.ClientIntakeUpdateManyWithoutClientNestedInput
+  tripRequests?: Prisma.TripRequestUpdateManyWithoutClientNestedInput
+  tripTravelers?: Prisma.TripTravelerUpdateManyWithoutClientNestedInput
+  tripBriefs?: Prisma.TripBriefUpdateManyWithoutClientNestedInput
+  alertSubscriptions?: Prisma.AlertSubscriptionUpdateManyWithoutClientNestedInput
+  inferredPreferences?: Prisma.InferredPreferenceUpdateManyWithoutClientNestedInput
+  vendorRequests?: Prisma.VendorRequestUpdateManyWithoutClientNestedInput
+}
+
+export type ClientUncheckedUpdateWithoutFollowUpSuggestionsInput = {
+  id?: Prisma.StringFieldUpdateOperationsInput | string
+  organizationId?: Prisma.StringFieldUpdateOperationsInput | string
+  ownerUserId?: Prisma.StringFieldUpdateOperationsInput | string
+  clientType?: Prisma.EnumClientTypeFieldUpdateOperationsInput | $Enums.ClientType
+  firstName?: Prisma.StringFieldUpdateOperationsInput | string
+  lastName?: Prisma.StringFieldUpdateOperationsInput | string
+  email?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
+  phone?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
+  dateOfBirth?: Prisma.NullableDateTimeFieldUpdateOperationsInput | Date | string | null
+  notes?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
+  status?: Prisma.EnumClientStatusFieldUpdateOperationsInput | $Enums.ClientStatus
+  createdAt?: Prisma.DateTimeFieldUpdateOperationsInput | Date | string
+  updatedAt?: Prisma.DateTimeFieldUpdateOperationsInput | Date | string
+  householdMembers?: Prisma.HouseholdMemberUncheckedUpdateManyWithoutClientNestedInput
+  familyMembers?: Prisma.FamilyMemberUncheckedUpdateManyWithoutClientNestedInput
+  loyaltyBalances?: Prisma.ClientLoyaltyBalanceUncheckedUpdateManyWithoutClientNestedInput
+  preferences?: Prisma.ClientPreferenceUncheckedUpdateOneWithoutClientNestedInput
+  intakes?: Prisma.ClientIntakeUncheckedUpdateManyWithoutClientNestedInput
+  tripRequests?: Prisma.TripRequestUncheckedUpdateManyWithoutClientNestedInput
+  tripTravelers?: Prisma.TripTravelerUncheckedUpdateManyWithoutClientNestedInput
+  tripBriefs?: Prisma.TripBriefUncheckedUpdateManyWithoutClientNestedInput
+  alertSubscriptions?: Prisma.AlertSubscriptionUncheckedUpdateManyWithoutClientNestedInput
+  inferredPreferences?: Prisma.InferredPreferenceUncheckedUpdateManyWithoutClientNestedInput
+  vendorRequests?: Prisma.VendorRequestUncheckedUpdateManyWithoutClientNestedInput
+}
+
+export type ClientCreateWithoutVendorRequestsInput = {
+  id?: string
+  clientType?: $Enums.ClientType
+  firstName: string
+  lastName: string
+  email?: string | null
+  phone?: string | null
+  dateOfBirth?: Date | string | null
+  notes?: string | null
+  status?: $Enums.ClientStatus
+  createdAt?: Date | string
+  updatedAt?: Date | string
+  organization: Prisma.OrganizationCreateNestedOneWithoutClientsInput
+  owner: Prisma.UserCreateNestedOneWithoutOwnedClientsInput
+  householdMembers?: Prisma.HouseholdMemberCreateNestedManyWithoutClientInput
+  familyMembers?: Prisma.FamilyMemberCreateNestedManyWithoutClientInput
+  loyaltyBalances?: Prisma.ClientLoyaltyBalanceCreateNestedManyWithoutClientInput
+  preferences?: Prisma.ClientPreferenceCreateNestedOneWithoutClientInput
+  intakes?: Prisma.ClientIntakeCreateNestedManyWithoutClientInput
+  tripRequests?: Prisma.TripRequestCreateNestedManyWithoutClientInput
+  tripTravelers?: Prisma.TripTravelerCreateNestedManyWithoutClientInput
+  tripBriefs?: Prisma.TripBriefCreateNestedManyWithoutClientInput
+  alertSubscriptions?: Prisma.AlertSubscriptionCreateNestedManyWithoutClientInput
+  inferredPreferences?: Prisma.InferredPreferenceCreateNestedManyWithoutClientInput
+  followUpSuggestions?: Prisma.FollowUpSuggestionCreateNestedManyWithoutClientInput
+}
+
+export type ClientUncheckedCreateWithoutVendorRequestsInput = {
+  id?: string
+  organizationId: string
+  ownerUserId: string
+  clientType?: $Enums.ClientType
+  firstName: string
+  lastName: string
+  email?: string | null
+  phone?: string | null
+  dateOfBirth?: Date | string | null
+  notes?: string | null
+  status?: $Enums.ClientStatus
+  createdAt?: Date | string
+  updatedAt?: Date | string
+  householdMembers?: Prisma.HouseholdMemberUncheckedCreateNestedManyWithoutClientInput
+  familyMembers?: Prisma.FamilyMemberUncheckedCreateNestedManyWithoutClientInput
+  loyaltyBalances?: Prisma.ClientLoyaltyBalanceUncheckedCreateNestedManyWithoutClientInput
+  preferences?: Prisma.ClientPreferenceUncheckedCreateNestedOneWithoutClientInput
+  intakes?: Prisma.ClientIntakeUncheckedCreateNestedManyWithoutClientInput
+  tripRequests?: Prisma.TripRequestUncheckedCreateNestedManyWithoutClientInput
+  tripTravelers?: Prisma.TripTravelerUncheckedCreateNestedManyWithoutClientInput
+  tripBriefs?: Prisma.TripBriefUncheckedCreateNestedManyWithoutClientInput
+  alertSubscriptions?: Prisma.AlertSubscriptionUncheckedCreateNestedManyWithoutClientInput
+  inferredPreferences?: Prisma.InferredPreferenceUncheckedCreateNestedManyWithoutClientInput
+  followUpSuggestions?: Prisma.FollowUpSuggestionUncheckedCreateNestedManyWithoutClientInput
+}
+
+export type ClientCreateOrConnectWithoutVendorRequestsInput = {
+  where: Prisma.ClientWhereUniqueInput
+  create: Prisma.XOR<Prisma.ClientCreateWithoutVendorRequestsInput, Prisma.ClientUncheckedCreateWithoutVendorRequestsInput>
+}
+
+export type ClientUpsertWithoutVendorRequestsInput = {
+  update: Prisma.XOR<Prisma.ClientUpdateWithoutVendorRequestsInput, Prisma.ClientUncheckedUpdateWithoutVendorRequestsInput>
+  create: Prisma.XOR<Prisma.ClientCreateWithoutVendorRequestsInput, Prisma.ClientUncheckedCreateWithoutVendorRequestsInput>
+  where?: Prisma.ClientWhereInput
+}
+
+export type ClientUpdateToOneWithWhereWithoutVendorRequestsInput = {
+  where?: Prisma.ClientWhereInput
+  data: Prisma.XOR<Prisma.ClientUpdateWithoutVendorRequestsInput, Prisma.ClientUncheckedUpdateWithoutVendorRequestsInput>
+}
+
+export type ClientUpdateWithoutVendorRequestsInput = {
+  id?: Prisma.StringFieldUpdateOperationsInput | string
+  clientType?: Prisma.EnumClientTypeFieldUpdateOperationsInput | $Enums.ClientType
+  firstName?: Prisma.StringFieldUpdateOperationsInput | string
+  lastName?: Prisma.StringFieldUpdateOperationsInput | string
+  email?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
+  phone?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
+  dateOfBirth?: Prisma.NullableDateTimeFieldUpdateOperationsInput | Date | string | null
+  notes?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
+  status?: Prisma.EnumClientStatusFieldUpdateOperationsInput | $Enums.ClientStatus
+  createdAt?: Prisma.DateTimeFieldUpdateOperationsInput | Date | string
+  updatedAt?: Prisma.DateTimeFieldUpdateOperationsInput | Date | string
+  organization?: Prisma.OrganizationUpdateOneRequiredWithoutClientsNestedInput
+  owner?: Prisma.UserUpdateOneRequiredWithoutOwnedClientsNestedInput
+  householdMembers?: Prisma.HouseholdMemberUpdateManyWithoutClientNestedInput
+  familyMembers?: Prisma.FamilyMemberUpdateManyWithoutClientNestedInput
+  loyaltyBalances?: Prisma.ClientLoyaltyBalanceUpdateManyWithoutClientNestedInput
+  preferences?: Prisma.ClientPreferenceUpdateOneWithoutClientNestedInput
+  intakes?: Prisma.ClientIntakeUpdateManyWithoutClientNestedInput
+  tripRequests?: Prisma.TripRequestUpdateManyWithoutClientNestedInput
+  tripTravelers?: Prisma.TripTravelerUpdateManyWithoutClientNestedInput
+  tripBriefs?: Prisma.TripBriefUpdateManyWithoutClientNestedInput
+  alertSubscriptions?: Prisma.AlertSubscriptionUpdateManyWithoutClientNestedInput
+  inferredPreferences?: Prisma.InferredPreferenceUpdateManyWithoutClientNestedInput
+  followUpSuggestions?: Prisma.FollowUpSuggestionUpdateManyWithoutClientNestedInput
+}
+
+export type ClientUncheckedUpdateWithoutVendorRequestsInput = {
+  id?: Prisma.StringFieldUpdateOperationsInput | string
+  organizationId?: Prisma.StringFieldUpdateOperationsInput | string
+  ownerUserId?: Prisma.StringFieldUpdateOperationsInput | string
+  clientType?: Prisma.EnumClientTypeFieldUpdateOperationsInput | $Enums.ClientType
+  firstName?: Prisma.StringFieldUpdateOperationsInput | string
+  lastName?: Prisma.StringFieldUpdateOperationsInput | string
+  email?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
+  phone?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
+  dateOfBirth?: Prisma.NullableDateTimeFieldUpdateOperationsInput | Date | string | null
+  notes?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
+  status?: Prisma.EnumClientStatusFieldUpdateOperationsInput | $Enums.ClientStatus
+  createdAt?: Prisma.DateTimeFieldUpdateOperationsInput | Date | string
+  updatedAt?: Prisma.DateTimeFieldUpdateOperationsInput | Date | string
+  householdMembers?: Prisma.HouseholdMemberUncheckedUpdateManyWithoutClientNestedInput
+  familyMembers?: Prisma.FamilyMemberUncheckedUpdateManyWithoutClientNestedInput
+  loyaltyBalances?: Prisma.ClientLoyaltyBalanceUncheckedUpdateManyWithoutClientNestedInput
+  preferences?: Prisma.ClientPreferenceUncheckedUpdateOneWithoutClientNestedInput
+  intakes?: Prisma.ClientIntakeUncheckedUpdateManyWithoutClientNestedInput
+  tripRequests?: Prisma.TripRequestUncheckedUpdateManyWithoutClientNestedInput
+  tripTravelers?: Prisma.TripTravelerUncheckedUpdateManyWithoutClientNestedInput
+  tripBriefs?: Prisma.TripBriefUncheckedUpdateManyWithoutClientNestedInput
+  alertSubscriptions?: Prisma.AlertSubscriptionUncheckedUpdateManyWithoutClientNestedInput
+  inferredPreferences?: Prisma.InferredPreferenceUncheckedUpdateManyWithoutClientNestedInput
+  followUpSuggestions?: Prisma.FollowUpSuggestionUncheckedUpdateManyWithoutClientNestedInput
 }
 
 export type ClientCreateManyOrganizationInput = {
   id?: string
   ownerUserId: string
+  clientType?: $Enums.ClientType
   firstName: string
   lastName: string
   email?: string | null
@@ -1451,6 +2547,7 @@ export type ClientCreateManyOrganizationInput = {
 
 export type ClientUpdateWithoutOrganizationInput = {
   id?: Prisma.StringFieldUpdateOperationsInput | string
+  clientType?: Prisma.EnumClientTypeFieldUpdateOperationsInput | $Enums.ClientType
   firstName?: Prisma.StringFieldUpdateOperationsInput | string
   lastName?: Prisma.StringFieldUpdateOperationsInput | string
   email?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
@@ -1462,16 +2559,23 @@ export type ClientUpdateWithoutOrganizationInput = {
   updatedAt?: Prisma.DateTimeFieldUpdateOperationsInput | Date | string
   owner?: Prisma.UserUpdateOneRequiredWithoutOwnedClientsNestedInput
   householdMembers?: Prisma.HouseholdMemberUpdateManyWithoutClientNestedInput
+  familyMembers?: Prisma.FamilyMemberUpdateManyWithoutClientNestedInput
   loyaltyBalances?: Prisma.ClientLoyaltyBalanceUpdateManyWithoutClientNestedInput
   preferences?: Prisma.ClientPreferenceUpdateOneWithoutClientNestedInput
+  intakes?: Prisma.ClientIntakeUpdateManyWithoutClientNestedInput
   tripRequests?: Prisma.TripRequestUpdateManyWithoutClientNestedInput
   tripTravelers?: Prisma.TripTravelerUpdateManyWithoutClientNestedInput
+  tripBriefs?: Prisma.TripBriefUpdateManyWithoutClientNestedInput
   alertSubscriptions?: Prisma.AlertSubscriptionUpdateManyWithoutClientNestedInput
+  inferredPreferences?: Prisma.InferredPreferenceUpdateManyWithoutClientNestedInput
+  followUpSuggestions?: Prisma.FollowUpSuggestionUpdateManyWithoutClientNestedInput
+  vendorRequests?: Prisma.VendorRequestUpdateManyWithoutClientNestedInput
 }
 
 export type ClientUncheckedUpdateWithoutOrganizationInput = {
   id?: Prisma.StringFieldUpdateOperationsInput | string
   ownerUserId?: Prisma.StringFieldUpdateOperationsInput | string
+  clientType?: Prisma.EnumClientTypeFieldUpdateOperationsInput | $Enums.ClientType
   firstName?: Prisma.StringFieldUpdateOperationsInput | string
   lastName?: Prisma.StringFieldUpdateOperationsInput | string
   email?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
@@ -1482,16 +2586,23 @@ export type ClientUncheckedUpdateWithoutOrganizationInput = {
   createdAt?: Prisma.DateTimeFieldUpdateOperationsInput | Date | string
   updatedAt?: Prisma.DateTimeFieldUpdateOperationsInput | Date | string
   householdMembers?: Prisma.HouseholdMemberUncheckedUpdateManyWithoutClientNestedInput
+  familyMembers?: Prisma.FamilyMemberUncheckedUpdateManyWithoutClientNestedInput
   loyaltyBalances?: Prisma.ClientLoyaltyBalanceUncheckedUpdateManyWithoutClientNestedInput
   preferences?: Prisma.ClientPreferenceUncheckedUpdateOneWithoutClientNestedInput
+  intakes?: Prisma.ClientIntakeUncheckedUpdateManyWithoutClientNestedInput
   tripRequests?: Prisma.TripRequestUncheckedUpdateManyWithoutClientNestedInput
   tripTravelers?: Prisma.TripTravelerUncheckedUpdateManyWithoutClientNestedInput
+  tripBriefs?: Prisma.TripBriefUncheckedUpdateManyWithoutClientNestedInput
   alertSubscriptions?: Prisma.AlertSubscriptionUncheckedUpdateManyWithoutClientNestedInput
+  inferredPreferences?: Prisma.InferredPreferenceUncheckedUpdateManyWithoutClientNestedInput
+  followUpSuggestions?: Prisma.FollowUpSuggestionUncheckedUpdateManyWithoutClientNestedInput
+  vendorRequests?: Prisma.VendorRequestUncheckedUpdateManyWithoutClientNestedInput
 }
 
 export type ClientUncheckedUpdateManyWithoutOrganizationInput = {
   id?: Prisma.StringFieldUpdateOperationsInput | string
   ownerUserId?: Prisma.StringFieldUpdateOperationsInput | string
+  clientType?: Prisma.EnumClientTypeFieldUpdateOperationsInput | $Enums.ClientType
   firstName?: Prisma.StringFieldUpdateOperationsInput | string
   lastName?: Prisma.StringFieldUpdateOperationsInput | string
   email?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
@@ -1506,6 +2617,7 @@ export type ClientUncheckedUpdateManyWithoutOrganizationInput = {
 export type ClientCreateManyOwnerInput = {
   id?: string
   organizationId: string
+  clientType?: $Enums.ClientType
   firstName: string
   lastName: string
   email?: string | null
@@ -1519,6 +2631,7 @@ export type ClientCreateManyOwnerInput = {
 
 export type ClientUpdateWithoutOwnerInput = {
   id?: Prisma.StringFieldUpdateOperationsInput | string
+  clientType?: Prisma.EnumClientTypeFieldUpdateOperationsInput | $Enums.ClientType
   firstName?: Prisma.StringFieldUpdateOperationsInput | string
   lastName?: Prisma.StringFieldUpdateOperationsInput | string
   email?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
@@ -1530,16 +2643,23 @@ export type ClientUpdateWithoutOwnerInput = {
   updatedAt?: Prisma.DateTimeFieldUpdateOperationsInput | Date | string
   organization?: Prisma.OrganizationUpdateOneRequiredWithoutClientsNestedInput
   householdMembers?: Prisma.HouseholdMemberUpdateManyWithoutClientNestedInput
+  familyMembers?: Prisma.FamilyMemberUpdateManyWithoutClientNestedInput
   loyaltyBalances?: Prisma.ClientLoyaltyBalanceUpdateManyWithoutClientNestedInput
   preferences?: Prisma.ClientPreferenceUpdateOneWithoutClientNestedInput
+  intakes?: Prisma.ClientIntakeUpdateManyWithoutClientNestedInput
   tripRequests?: Prisma.TripRequestUpdateManyWithoutClientNestedInput
   tripTravelers?: Prisma.TripTravelerUpdateManyWithoutClientNestedInput
+  tripBriefs?: Prisma.TripBriefUpdateManyWithoutClientNestedInput
   alertSubscriptions?: Prisma.AlertSubscriptionUpdateManyWithoutClientNestedInput
+  inferredPreferences?: Prisma.InferredPreferenceUpdateManyWithoutClientNestedInput
+  followUpSuggestions?: Prisma.FollowUpSuggestionUpdateManyWithoutClientNestedInput
+  vendorRequests?: Prisma.VendorRequestUpdateManyWithoutClientNestedInput
 }
 
 export type ClientUncheckedUpdateWithoutOwnerInput = {
   id?: Prisma.StringFieldUpdateOperationsInput | string
   organizationId?: Prisma.StringFieldUpdateOperationsInput | string
+  clientType?: Prisma.EnumClientTypeFieldUpdateOperationsInput | $Enums.ClientType
   firstName?: Prisma.StringFieldUpdateOperationsInput | string
   lastName?: Prisma.StringFieldUpdateOperationsInput | string
   email?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
@@ -1550,16 +2670,23 @@ export type ClientUncheckedUpdateWithoutOwnerInput = {
   createdAt?: Prisma.DateTimeFieldUpdateOperationsInput | Date | string
   updatedAt?: Prisma.DateTimeFieldUpdateOperationsInput | Date | string
   householdMembers?: Prisma.HouseholdMemberUncheckedUpdateManyWithoutClientNestedInput
+  familyMembers?: Prisma.FamilyMemberUncheckedUpdateManyWithoutClientNestedInput
   loyaltyBalances?: Prisma.ClientLoyaltyBalanceUncheckedUpdateManyWithoutClientNestedInput
   preferences?: Prisma.ClientPreferenceUncheckedUpdateOneWithoutClientNestedInput
+  intakes?: Prisma.ClientIntakeUncheckedUpdateManyWithoutClientNestedInput
   tripRequests?: Prisma.TripRequestUncheckedUpdateManyWithoutClientNestedInput
   tripTravelers?: Prisma.TripTravelerUncheckedUpdateManyWithoutClientNestedInput
+  tripBriefs?: Prisma.TripBriefUncheckedUpdateManyWithoutClientNestedInput
   alertSubscriptions?: Prisma.AlertSubscriptionUncheckedUpdateManyWithoutClientNestedInput
+  inferredPreferences?: Prisma.InferredPreferenceUncheckedUpdateManyWithoutClientNestedInput
+  followUpSuggestions?: Prisma.FollowUpSuggestionUncheckedUpdateManyWithoutClientNestedInput
+  vendorRequests?: Prisma.VendorRequestUncheckedUpdateManyWithoutClientNestedInput
 }
 
 export type ClientUncheckedUpdateManyWithoutOwnerInput = {
   id?: Prisma.StringFieldUpdateOperationsInput | string
   organizationId?: Prisma.StringFieldUpdateOperationsInput | string
+  clientType?: Prisma.EnumClientTypeFieldUpdateOperationsInput | $Enums.ClientType
   firstName?: Prisma.StringFieldUpdateOperationsInput | string
   lastName?: Prisma.StringFieldUpdateOperationsInput | string
   email?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
@@ -1578,18 +2705,30 @@ export type ClientUncheckedUpdateManyWithoutOwnerInput = {
 
 export type ClientCountOutputType = {
   householdMembers: number
+  familyMembers: number
   loyaltyBalances: number
+  intakes: number
   tripRequests: number
   tripTravelers: number
+  tripBriefs: number
   alertSubscriptions: number
+  inferredPreferences: number
+  followUpSuggestions: number
+  vendorRequests: number
 }
 
 export type ClientCountOutputTypeSelect<ExtArgs extends runtime.Types.Extensions.InternalArgs = runtime.Types.Extensions.DefaultArgs> = {
   householdMembers?: boolean | ClientCountOutputTypeCountHouseholdMembersArgs
+  familyMembers?: boolean | ClientCountOutputTypeCountFamilyMembersArgs
   loyaltyBalances?: boolean | ClientCountOutputTypeCountLoyaltyBalancesArgs
+  intakes?: boolean | ClientCountOutputTypeCountIntakesArgs
   tripRequests?: boolean | ClientCountOutputTypeCountTripRequestsArgs
   tripTravelers?: boolean | ClientCountOutputTypeCountTripTravelersArgs
+  tripBriefs?: boolean | ClientCountOutputTypeCountTripBriefsArgs
   alertSubscriptions?: boolean | ClientCountOutputTypeCountAlertSubscriptionsArgs
+  inferredPreferences?: boolean | ClientCountOutputTypeCountInferredPreferencesArgs
+  followUpSuggestions?: boolean | ClientCountOutputTypeCountFollowUpSuggestionsArgs
+  vendorRequests?: boolean | ClientCountOutputTypeCountVendorRequestsArgs
 }
 
 /**
@@ -1612,8 +2751,22 @@ export type ClientCountOutputTypeCountHouseholdMembersArgs<ExtArgs extends runti
 /**
  * ClientCountOutputType without action
  */
+export type ClientCountOutputTypeCountFamilyMembersArgs<ExtArgs extends runtime.Types.Extensions.InternalArgs = runtime.Types.Extensions.DefaultArgs> = {
+  where?: Prisma.FamilyMemberWhereInput
+}
+
+/**
+ * ClientCountOutputType without action
+ */
 export type ClientCountOutputTypeCountLoyaltyBalancesArgs<ExtArgs extends runtime.Types.Extensions.InternalArgs = runtime.Types.Extensions.DefaultArgs> = {
   where?: Prisma.ClientLoyaltyBalanceWhereInput
+}
+
+/**
+ * ClientCountOutputType without action
+ */
+export type ClientCountOutputTypeCountIntakesArgs<ExtArgs extends runtime.Types.Extensions.InternalArgs = runtime.Types.Extensions.DefaultArgs> = {
+  where?: Prisma.ClientIntakeWhereInput
 }
 
 /**
@@ -1633,8 +2786,36 @@ export type ClientCountOutputTypeCountTripTravelersArgs<ExtArgs extends runtime.
 /**
  * ClientCountOutputType without action
  */
+export type ClientCountOutputTypeCountTripBriefsArgs<ExtArgs extends runtime.Types.Extensions.InternalArgs = runtime.Types.Extensions.DefaultArgs> = {
+  where?: Prisma.TripBriefWhereInput
+}
+
+/**
+ * ClientCountOutputType without action
+ */
 export type ClientCountOutputTypeCountAlertSubscriptionsArgs<ExtArgs extends runtime.Types.Extensions.InternalArgs = runtime.Types.Extensions.DefaultArgs> = {
   where?: Prisma.AlertSubscriptionWhereInput
+}
+
+/**
+ * ClientCountOutputType without action
+ */
+export type ClientCountOutputTypeCountInferredPreferencesArgs<ExtArgs extends runtime.Types.Extensions.InternalArgs = runtime.Types.Extensions.DefaultArgs> = {
+  where?: Prisma.InferredPreferenceWhereInput
+}
+
+/**
+ * ClientCountOutputType without action
+ */
+export type ClientCountOutputTypeCountFollowUpSuggestionsArgs<ExtArgs extends runtime.Types.Extensions.InternalArgs = runtime.Types.Extensions.DefaultArgs> = {
+  where?: Prisma.FollowUpSuggestionWhereInput
+}
+
+/**
+ * ClientCountOutputType without action
+ */
+export type ClientCountOutputTypeCountVendorRequestsArgs<ExtArgs extends runtime.Types.Extensions.InternalArgs = runtime.Types.Extensions.DefaultArgs> = {
+  where?: Prisma.VendorRequestWhereInput
 }
 
 
@@ -1642,6 +2823,7 @@ export type ClientSelect<ExtArgs extends runtime.Types.Extensions.InternalArgs =
   id?: boolean
   organizationId?: boolean
   ownerUserId?: boolean
+  clientType?: boolean
   firstName?: boolean
   lastName?: boolean
   email?: boolean
@@ -1654,11 +2836,17 @@ export type ClientSelect<ExtArgs extends runtime.Types.Extensions.InternalArgs =
   organization?: boolean | Prisma.OrganizationDefaultArgs<ExtArgs>
   owner?: boolean | Prisma.UserDefaultArgs<ExtArgs>
   householdMembers?: boolean | Prisma.Client$householdMembersArgs<ExtArgs>
+  familyMembers?: boolean | Prisma.Client$familyMembersArgs<ExtArgs>
   loyaltyBalances?: boolean | Prisma.Client$loyaltyBalancesArgs<ExtArgs>
   preferences?: boolean | Prisma.Client$preferencesArgs<ExtArgs>
+  intakes?: boolean | Prisma.Client$intakesArgs<ExtArgs>
   tripRequests?: boolean | Prisma.Client$tripRequestsArgs<ExtArgs>
   tripTravelers?: boolean | Prisma.Client$tripTravelersArgs<ExtArgs>
+  tripBriefs?: boolean | Prisma.Client$tripBriefsArgs<ExtArgs>
   alertSubscriptions?: boolean | Prisma.Client$alertSubscriptionsArgs<ExtArgs>
+  inferredPreferences?: boolean | Prisma.Client$inferredPreferencesArgs<ExtArgs>
+  followUpSuggestions?: boolean | Prisma.Client$followUpSuggestionsArgs<ExtArgs>
+  vendorRequests?: boolean | Prisma.Client$vendorRequestsArgs<ExtArgs>
   _count?: boolean | Prisma.ClientCountOutputTypeDefaultArgs<ExtArgs>
 }, ExtArgs["result"]["client"]>
 
@@ -1666,6 +2854,7 @@ export type ClientSelectCreateManyAndReturn<ExtArgs extends runtime.Types.Extens
   id?: boolean
   organizationId?: boolean
   ownerUserId?: boolean
+  clientType?: boolean
   firstName?: boolean
   lastName?: boolean
   email?: boolean
@@ -1683,6 +2872,7 @@ export type ClientSelectUpdateManyAndReturn<ExtArgs extends runtime.Types.Extens
   id?: boolean
   organizationId?: boolean
   ownerUserId?: boolean
+  clientType?: boolean
   firstName?: boolean
   lastName?: boolean
   email?: boolean
@@ -1700,6 +2890,7 @@ export type ClientSelectScalar = {
   id?: boolean
   organizationId?: boolean
   ownerUserId?: boolean
+  clientType?: boolean
   firstName?: boolean
   lastName?: boolean
   email?: boolean
@@ -1711,16 +2902,22 @@ export type ClientSelectScalar = {
   updatedAt?: boolean
 }
 
-export type ClientOmit<ExtArgs extends runtime.Types.Extensions.InternalArgs = runtime.Types.Extensions.DefaultArgs> = runtime.Types.Extensions.GetOmit<"id" | "organizationId" | "ownerUserId" | "firstName" | "lastName" | "email" | "phone" | "dateOfBirth" | "notes" | "status" | "createdAt" | "updatedAt", ExtArgs["result"]["client"]>
+export type ClientOmit<ExtArgs extends runtime.Types.Extensions.InternalArgs = runtime.Types.Extensions.DefaultArgs> = runtime.Types.Extensions.GetOmit<"id" | "organizationId" | "ownerUserId" | "clientType" | "firstName" | "lastName" | "email" | "phone" | "dateOfBirth" | "notes" | "status" | "createdAt" | "updatedAt", ExtArgs["result"]["client"]>
 export type ClientInclude<ExtArgs extends runtime.Types.Extensions.InternalArgs = runtime.Types.Extensions.DefaultArgs> = {
   organization?: boolean | Prisma.OrganizationDefaultArgs<ExtArgs>
   owner?: boolean | Prisma.UserDefaultArgs<ExtArgs>
   householdMembers?: boolean | Prisma.Client$householdMembersArgs<ExtArgs>
+  familyMembers?: boolean | Prisma.Client$familyMembersArgs<ExtArgs>
   loyaltyBalances?: boolean | Prisma.Client$loyaltyBalancesArgs<ExtArgs>
   preferences?: boolean | Prisma.Client$preferencesArgs<ExtArgs>
+  intakes?: boolean | Prisma.Client$intakesArgs<ExtArgs>
   tripRequests?: boolean | Prisma.Client$tripRequestsArgs<ExtArgs>
   tripTravelers?: boolean | Prisma.Client$tripTravelersArgs<ExtArgs>
+  tripBriefs?: boolean | Prisma.Client$tripBriefsArgs<ExtArgs>
   alertSubscriptions?: boolean | Prisma.Client$alertSubscriptionsArgs<ExtArgs>
+  inferredPreferences?: boolean | Prisma.Client$inferredPreferencesArgs<ExtArgs>
+  followUpSuggestions?: boolean | Prisma.Client$followUpSuggestionsArgs<ExtArgs>
+  vendorRequests?: boolean | Prisma.Client$vendorRequestsArgs<ExtArgs>
   _count?: boolean | Prisma.ClientCountOutputTypeDefaultArgs<ExtArgs>
 }
 export type ClientIncludeCreateManyAndReturn<ExtArgs extends runtime.Types.Extensions.InternalArgs = runtime.Types.Extensions.DefaultArgs> = {
@@ -1738,16 +2935,23 @@ export type $ClientPayload<ExtArgs extends runtime.Types.Extensions.InternalArgs
     organization: Prisma.$OrganizationPayload<ExtArgs>
     owner: Prisma.$UserPayload<ExtArgs>
     householdMembers: Prisma.$HouseholdMemberPayload<ExtArgs>[]
+    familyMembers: Prisma.$FamilyMemberPayload<ExtArgs>[]
     loyaltyBalances: Prisma.$ClientLoyaltyBalancePayload<ExtArgs>[]
     preferences: Prisma.$ClientPreferencePayload<ExtArgs> | null
+    intakes: Prisma.$ClientIntakePayload<ExtArgs>[]
     tripRequests: Prisma.$TripRequestPayload<ExtArgs>[]
     tripTravelers: Prisma.$TripTravelerPayload<ExtArgs>[]
+    tripBriefs: Prisma.$TripBriefPayload<ExtArgs>[]
     alertSubscriptions: Prisma.$AlertSubscriptionPayload<ExtArgs>[]
+    inferredPreferences: Prisma.$InferredPreferencePayload<ExtArgs>[]
+    followUpSuggestions: Prisma.$FollowUpSuggestionPayload<ExtArgs>[]
+    vendorRequests: Prisma.$VendorRequestPayload<ExtArgs>[]
   }
   scalars: runtime.Types.Extensions.GetPayloadResult<{
     id: string
     organizationId: string
     ownerUserId: string
+    clientType: $Enums.ClientType
     firstName: string
     lastName: string
     email: string | null
@@ -2154,11 +3358,17 @@ export interface Prisma__ClientClient<T, Null = never, ExtArgs extends runtime.T
   organization<T extends Prisma.OrganizationDefaultArgs<ExtArgs> = {}>(args?: Prisma.Subset<T, Prisma.OrganizationDefaultArgs<ExtArgs>>): Prisma.Prisma__OrganizationClient<runtime.Types.Result.GetResult<Prisma.$OrganizationPayload<ExtArgs>, T, "findUniqueOrThrow", GlobalOmitOptions> | Null, Null, ExtArgs, GlobalOmitOptions>
   owner<T extends Prisma.UserDefaultArgs<ExtArgs> = {}>(args?: Prisma.Subset<T, Prisma.UserDefaultArgs<ExtArgs>>): Prisma.Prisma__UserClient<runtime.Types.Result.GetResult<Prisma.$UserPayload<ExtArgs>, T, "findUniqueOrThrow", GlobalOmitOptions> | Null, Null, ExtArgs, GlobalOmitOptions>
   householdMembers<T extends Prisma.Client$householdMembersArgs<ExtArgs> = {}>(args?: Prisma.Subset<T, Prisma.Client$householdMembersArgs<ExtArgs>>): Prisma.PrismaPromise<runtime.Types.Result.GetResult<Prisma.$HouseholdMemberPayload<ExtArgs>, T, "findMany", GlobalOmitOptions> | Null>
+  familyMembers<T extends Prisma.Client$familyMembersArgs<ExtArgs> = {}>(args?: Prisma.Subset<T, Prisma.Client$familyMembersArgs<ExtArgs>>): Prisma.PrismaPromise<runtime.Types.Result.GetResult<Prisma.$FamilyMemberPayload<ExtArgs>, T, "findMany", GlobalOmitOptions> | Null>
   loyaltyBalances<T extends Prisma.Client$loyaltyBalancesArgs<ExtArgs> = {}>(args?: Prisma.Subset<T, Prisma.Client$loyaltyBalancesArgs<ExtArgs>>): Prisma.PrismaPromise<runtime.Types.Result.GetResult<Prisma.$ClientLoyaltyBalancePayload<ExtArgs>, T, "findMany", GlobalOmitOptions> | Null>
   preferences<T extends Prisma.Client$preferencesArgs<ExtArgs> = {}>(args?: Prisma.Subset<T, Prisma.Client$preferencesArgs<ExtArgs>>): Prisma.Prisma__ClientPreferenceClient<runtime.Types.Result.GetResult<Prisma.$ClientPreferencePayload<ExtArgs>, T, "findUniqueOrThrow", GlobalOmitOptions> | null, null, ExtArgs, GlobalOmitOptions>
+  intakes<T extends Prisma.Client$intakesArgs<ExtArgs> = {}>(args?: Prisma.Subset<T, Prisma.Client$intakesArgs<ExtArgs>>): Prisma.PrismaPromise<runtime.Types.Result.GetResult<Prisma.$ClientIntakePayload<ExtArgs>, T, "findMany", GlobalOmitOptions> | Null>
   tripRequests<T extends Prisma.Client$tripRequestsArgs<ExtArgs> = {}>(args?: Prisma.Subset<T, Prisma.Client$tripRequestsArgs<ExtArgs>>): Prisma.PrismaPromise<runtime.Types.Result.GetResult<Prisma.$TripRequestPayload<ExtArgs>, T, "findMany", GlobalOmitOptions> | Null>
   tripTravelers<T extends Prisma.Client$tripTravelersArgs<ExtArgs> = {}>(args?: Prisma.Subset<T, Prisma.Client$tripTravelersArgs<ExtArgs>>): Prisma.PrismaPromise<runtime.Types.Result.GetResult<Prisma.$TripTravelerPayload<ExtArgs>, T, "findMany", GlobalOmitOptions> | Null>
+  tripBriefs<T extends Prisma.Client$tripBriefsArgs<ExtArgs> = {}>(args?: Prisma.Subset<T, Prisma.Client$tripBriefsArgs<ExtArgs>>): Prisma.PrismaPromise<runtime.Types.Result.GetResult<Prisma.$TripBriefPayload<ExtArgs>, T, "findMany", GlobalOmitOptions> | Null>
   alertSubscriptions<T extends Prisma.Client$alertSubscriptionsArgs<ExtArgs> = {}>(args?: Prisma.Subset<T, Prisma.Client$alertSubscriptionsArgs<ExtArgs>>): Prisma.PrismaPromise<runtime.Types.Result.GetResult<Prisma.$AlertSubscriptionPayload<ExtArgs>, T, "findMany", GlobalOmitOptions> | Null>
+  inferredPreferences<T extends Prisma.Client$inferredPreferencesArgs<ExtArgs> = {}>(args?: Prisma.Subset<T, Prisma.Client$inferredPreferencesArgs<ExtArgs>>): Prisma.PrismaPromise<runtime.Types.Result.GetResult<Prisma.$InferredPreferencePayload<ExtArgs>, T, "findMany", GlobalOmitOptions> | Null>
+  followUpSuggestions<T extends Prisma.Client$followUpSuggestionsArgs<ExtArgs> = {}>(args?: Prisma.Subset<T, Prisma.Client$followUpSuggestionsArgs<ExtArgs>>): Prisma.PrismaPromise<runtime.Types.Result.GetResult<Prisma.$FollowUpSuggestionPayload<ExtArgs>, T, "findMany", GlobalOmitOptions> | Null>
+  vendorRequests<T extends Prisma.Client$vendorRequestsArgs<ExtArgs> = {}>(args?: Prisma.Subset<T, Prisma.Client$vendorRequestsArgs<ExtArgs>>): Prisma.PrismaPromise<runtime.Types.Result.GetResult<Prisma.$VendorRequestPayload<ExtArgs>, T, "findMany", GlobalOmitOptions> | Null>
   /**
    * Attaches callbacks for the resolution and/or rejection of the Promise.
    * @param onfulfilled The callback to execute when the Promise is resolved.
@@ -2191,6 +3401,7 @@ export interface ClientFieldRefs {
   readonly id: Prisma.FieldRef<"Client", 'String'>
   readonly organizationId: Prisma.FieldRef<"Client", 'String'>
   readonly ownerUserId: Prisma.FieldRef<"Client", 'String'>
+  readonly clientType: Prisma.FieldRef<"Client", 'ClientType'>
   readonly firstName: Prisma.FieldRef<"Client", 'String'>
   readonly lastName: Prisma.FieldRef<"Client", 'String'>
   readonly email: Prisma.FieldRef<"Client", 'String'>
@@ -2625,6 +3836,30 @@ export type Client$householdMembersArgs<ExtArgs extends runtime.Types.Extensions
 }
 
 /**
+ * Client.familyMembers
+ */
+export type Client$familyMembersArgs<ExtArgs extends runtime.Types.Extensions.InternalArgs = runtime.Types.Extensions.DefaultArgs> = {
+  /**
+   * Select specific fields to fetch from the FamilyMember
+   */
+  select?: Prisma.FamilyMemberSelect<ExtArgs> | null
+  /**
+   * Omit specific fields from the FamilyMember
+   */
+  omit?: Prisma.FamilyMemberOmit<ExtArgs> | null
+  /**
+   * Choose, which related nodes to fetch as well
+   */
+  include?: Prisma.FamilyMemberInclude<ExtArgs> | null
+  where?: Prisma.FamilyMemberWhereInput
+  orderBy?: Prisma.FamilyMemberOrderByWithRelationInput | Prisma.FamilyMemberOrderByWithRelationInput[]
+  cursor?: Prisma.FamilyMemberWhereUniqueInput
+  take?: number
+  skip?: number
+  distinct?: Prisma.FamilyMemberScalarFieldEnum | Prisma.FamilyMemberScalarFieldEnum[]
+}
+
+/**
  * Client.loyaltyBalances
  */
 export type Client$loyaltyBalancesArgs<ExtArgs extends runtime.Types.Extensions.InternalArgs = runtime.Types.Extensions.DefaultArgs> = {
@@ -2665,6 +3900,30 @@ export type Client$preferencesArgs<ExtArgs extends runtime.Types.Extensions.Inte
    */
   include?: Prisma.ClientPreferenceInclude<ExtArgs> | null
   where?: Prisma.ClientPreferenceWhereInput
+}
+
+/**
+ * Client.intakes
+ */
+export type Client$intakesArgs<ExtArgs extends runtime.Types.Extensions.InternalArgs = runtime.Types.Extensions.DefaultArgs> = {
+  /**
+   * Select specific fields to fetch from the ClientIntake
+   */
+  select?: Prisma.ClientIntakeSelect<ExtArgs> | null
+  /**
+   * Omit specific fields from the ClientIntake
+   */
+  omit?: Prisma.ClientIntakeOmit<ExtArgs> | null
+  /**
+   * Choose, which related nodes to fetch as well
+   */
+  include?: Prisma.ClientIntakeInclude<ExtArgs> | null
+  where?: Prisma.ClientIntakeWhereInput
+  orderBy?: Prisma.ClientIntakeOrderByWithRelationInput | Prisma.ClientIntakeOrderByWithRelationInput[]
+  cursor?: Prisma.ClientIntakeWhereUniqueInput
+  take?: number
+  skip?: number
+  distinct?: Prisma.ClientIntakeScalarFieldEnum | Prisma.ClientIntakeScalarFieldEnum[]
 }
 
 /**
@@ -2716,6 +3975,30 @@ export type Client$tripTravelersArgs<ExtArgs extends runtime.Types.Extensions.In
 }
 
 /**
+ * Client.tripBriefs
+ */
+export type Client$tripBriefsArgs<ExtArgs extends runtime.Types.Extensions.InternalArgs = runtime.Types.Extensions.DefaultArgs> = {
+  /**
+   * Select specific fields to fetch from the TripBrief
+   */
+  select?: Prisma.TripBriefSelect<ExtArgs> | null
+  /**
+   * Omit specific fields from the TripBrief
+   */
+  omit?: Prisma.TripBriefOmit<ExtArgs> | null
+  /**
+   * Choose, which related nodes to fetch as well
+   */
+  include?: Prisma.TripBriefInclude<ExtArgs> | null
+  where?: Prisma.TripBriefWhereInput
+  orderBy?: Prisma.TripBriefOrderByWithRelationInput | Prisma.TripBriefOrderByWithRelationInput[]
+  cursor?: Prisma.TripBriefWhereUniqueInput
+  take?: number
+  skip?: number
+  distinct?: Prisma.TripBriefScalarFieldEnum | Prisma.TripBriefScalarFieldEnum[]
+}
+
+/**
  * Client.alertSubscriptions
  */
 export type Client$alertSubscriptionsArgs<ExtArgs extends runtime.Types.Extensions.InternalArgs = runtime.Types.Extensions.DefaultArgs> = {
@@ -2737,6 +4020,78 @@ export type Client$alertSubscriptionsArgs<ExtArgs extends runtime.Types.Extensio
   take?: number
   skip?: number
   distinct?: Prisma.AlertSubscriptionScalarFieldEnum | Prisma.AlertSubscriptionScalarFieldEnum[]
+}
+
+/**
+ * Client.inferredPreferences
+ */
+export type Client$inferredPreferencesArgs<ExtArgs extends runtime.Types.Extensions.InternalArgs = runtime.Types.Extensions.DefaultArgs> = {
+  /**
+   * Select specific fields to fetch from the InferredPreference
+   */
+  select?: Prisma.InferredPreferenceSelect<ExtArgs> | null
+  /**
+   * Omit specific fields from the InferredPreference
+   */
+  omit?: Prisma.InferredPreferenceOmit<ExtArgs> | null
+  /**
+   * Choose, which related nodes to fetch as well
+   */
+  include?: Prisma.InferredPreferenceInclude<ExtArgs> | null
+  where?: Prisma.InferredPreferenceWhereInput
+  orderBy?: Prisma.InferredPreferenceOrderByWithRelationInput | Prisma.InferredPreferenceOrderByWithRelationInput[]
+  cursor?: Prisma.InferredPreferenceWhereUniqueInput
+  take?: number
+  skip?: number
+  distinct?: Prisma.InferredPreferenceScalarFieldEnum | Prisma.InferredPreferenceScalarFieldEnum[]
+}
+
+/**
+ * Client.followUpSuggestions
+ */
+export type Client$followUpSuggestionsArgs<ExtArgs extends runtime.Types.Extensions.InternalArgs = runtime.Types.Extensions.DefaultArgs> = {
+  /**
+   * Select specific fields to fetch from the FollowUpSuggestion
+   */
+  select?: Prisma.FollowUpSuggestionSelect<ExtArgs> | null
+  /**
+   * Omit specific fields from the FollowUpSuggestion
+   */
+  omit?: Prisma.FollowUpSuggestionOmit<ExtArgs> | null
+  /**
+   * Choose, which related nodes to fetch as well
+   */
+  include?: Prisma.FollowUpSuggestionInclude<ExtArgs> | null
+  where?: Prisma.FollowUpSuggestionWhereInput
+  orderBy?: Prisma.FollowUpSuggestionOrderByWithRelationInput | Prisma.FollowUpSuggestionOrderByWithRelationInput[]
+  cursor?: Prisma.FollowUpSuggestionWhereUniqueInput
+  take?: number
+  skip?: number
+  distinct?: Prisma.FollowUpSuggestionScalarFieldEnum | Prisma.FollowUpSuggestionScalarFieldEnum[]
+}
+
+/**
+ * Client.vendorRequests
+ */
+export type Client$vendorRequestsArgs<ExtArgs extends runtime.Types.Extensions.InternalArgs = runtime.Types.Extensions.DefaultArgs> = {
+  /**
+   * Select specific fields to fetch from the VendorRequest
+   */
+  select?: Prisma.VendorRequestSelect<ExtArgs> | null
+  /**
+   * Omit specific fields from the VendorRequest
+   */
+  omit?: Prisma.VendorRequestOmit<ExtArgs> | null
+  /**
+   * Choose, which related nodes to fetch as well
+   */
+  include?: Prisma.VendorRequestInclude<ExtArgs> | null
+  where?: Prisma.VendorRequestWhereInput
+  orderBy?: Prisma.VendorRequestOrderByWithRelationInput | Prisma.VendorRequestOrderByWithRelationInput[]
+  cursor?: Prisma.VendorRequestWhereUniqueInput
+  take?: number
+  skip?: number
+  distinct?: Prisma.VendorRequestScalarFieldEnum | Prisma.VendorRequestScalarFieldEnum[]
 }
 
 /**

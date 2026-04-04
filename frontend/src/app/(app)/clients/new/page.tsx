@@ -3,12 +3,13 @@
 import { useState } from 'react';
 import { useRouter } from 'next/navigation';
 import Link from 'next/link';
-import { ArrowLeft, Loader2 } from 'lucide-react';
+import { ArrowLeft, Loader2, User, Building2 } from 'lucide-react';
 import { createClient } from '@/lib/api-client';
 
 export default function NewClientPage() {
   const router = useRouter();
   const [form, setForm] = useState({
+    clientType: 'individual' as 'individual' | 'business',
     firstName: '',
     lastName: '',
     email: '',
@@ -31,6 +32,7 @@ export default function NewClientPage() {
 
     try {
       const client = await createClient({
+        clientType: form.clientType,
         firstName: form.firstName.trim(),
         lastName: form.lastName.trim(),
         email: form.email.trim(),
@@ -64,12 +66,66 @@ export default function NewClientPage() {
       )}
 
       <form onSubmit={onSubmit} className="space-y-6">
+        {/* Client Type Selector */}
         <div className="rounded-xl border border-slate-200 bg-white p-6 shadow-sm">
-          <h2 className="mb-5 font-semibold text-slate-900">Client Details</h2>
+          <h2 className="mb-4 font-semibold text-slate-900">Client Type</h2>
+          <div className="grid grid-cols-2 gap-3">
+            <button
+              type="button"
+              onClick={() => setForm((f) => ({ ...f, clientType: 'individual' }))}
+              className={`flex items-center gap-3 rounded-lg border-2 p-4 text-left transition-all ${
+                form.clientType === 'individual'
+                  ? 'border-blue-600 bg-blue-50'
+                  : 'border-slate-200 hover:border-slate-300'
+              }`}
+            >
+              <div className={`flex h-10 w-10 items-center justify-center rounded-lg ${
+                form.clientType === 'individual' ? 'bg-blue-600 text-white' : 'bg-slate-100 text-slate-500'
+              }`}>
+                <User className="h-5 w-5" />
+              </div>
+              <div>
+                <p className={`font-medium ${form.clientType === 'individual' ? 'text-blue-900' : 'text-slate-900'}`}>
+                  Individual
+                </p>
+                <p className="text-xs text-slate-500">Person with family members</p>
+              </div>
+            </button>
+            <button
+              type="button"
+              onClick={() => setForm((f) => ({ ...f, clientType: 'business' }))}
+              className={`flex items-center gap-3 rounded-lg border-2 p-4 text-left transition-all ${
+                form.clientType === 'business'
+                  ? 'border-blue-600 bg-blue-50'
+                  : 'border-slate-200 hover:border-slate-300'
+              }`}
+            >
+              <div className={`flex h-10 w-10 items-center justify-center rounded-lg ${
+                form.clientType === 'business' ? 'bg-blue-600 text-white' : 'bg-slate-100 text-slate-500'
+              }`}>
+                <Building2 className="h-5 w-5" />
+              </div>
+              <div>
+                <p className={`font-medium ${form.clientType === 'business' ? 'text-blue-900' : 'text-slate-900'}`}>
+                  Business
+                </p>
+                <p className="text-xs text-slate-500">Company or organization</p>
+              </div>
+            </button>
+          </div>
+        </div>
+
+        {/* Client Details */}
+        <div className="rounded-xl border border-slate-200 bg-white p-6 shadow-sm">
+          <h2 className="mb-5 font-semibold text-slate-900">
+            {form.clientType === 'business' ? 'Business Details' : 'Client Details'}
+          </h2>
 
           <div className="grid grid-cols-2 gap-4">
             <div>
-              <label className="mb-1.5 block text-sm font-medium text-slate-700">First Name *</label>
+              <label className="mb-1.5 block text-sm font-medium text-slate-700">
+                {form.clientType === 'business' ? 'Company Name *' : 'First Name *'}
+              </label>
               <input
                 type="text"
                 name="firstName"
@@ -77,11 +133,13 @@ export default function NewClientPage() {
                 value={form.firstName}
                 onChange={onChange}
                 className="block w-full rounded-lg border border-slate-200 px-3 py-2.5 text-slate-900 placeholder:text-slate-400 focus:border-transparent focus:outline-none focus:ring-2 focus:ring-blue-600"
-                placeholder="John"
+                placeholder={form.clientType === 'business' ? 'Acme Corp' : 'John'}
               />
             </div>
             <div>
-              <label className="mb-1.5 block text-sm font-medium text-slate-700">Last Name *</label>
+              <label className="mb-1.5 block text-sm font-medium text-slate-700">
+                {form.clientType === 'business' ? 'Contact Name *' : 'Last Name *'}
+              </label>
               <input
                 type="text"
                 name="lastName"
@@ -89,7 +147,7 @@ export default function NewClientPage() {
                 value={form.lastName}
                 onChange={onChange}
                 className="block w-full rounded-lg border border-slate-200 px-3 py-2.5 text-slate-900 placeholder:text-slate-400 focus:border-transparent focus:outline-none focus:ring-2 focus:ring-blue-600"
-                placeholder="Smith"
+                placeholder={form.clientType === 'business' ? 'Jane Doe' : 'Smith'}
               />
             </div>
           </div>
@@ -103,7 +161,7 @@ export default function NewClientPage() {
                 value={form.email}
                 onChange={onChange}
                 className="block w-full rounded-lg border border-slate-200 px-3 py-2.5 text-slate-900 placeholder:text-slate-400 focus:border-transparent focus:outline-none focus:ring-2 focus:ring-blue-600"
-                placeholder="john@example.com"
+                placeholder={form.clientType === 'business' ? 'contact@acme.com' : 'john@example.com'}
               />
             </div>
             <div>
@@ -119,16 +177,18 @@ export default function NewClientPage() {
             </div>
           </div>
 
-          <div className="mt-4">
-            <label className="mb-1.5 block text-sm font-medium text-slate-700">Date of Birth</label>
-            <input
-              type="date"
-              name="dateOfBirth"
-              value={form.dateOfBirth}
-              onChange={onChange}
-              className="block w-full rounded-lg border border-slate-200 px-3 py-2.5 text-slate-900 focus:border-transparent focus:outline-none focus:ring-2 focus:ring-blue-600"
-            />
-          </div>
+          {form.clientType === 'individual' && (
+            <div className="mt-4">
+              <label className="mb-1.5 block text-sm font-medium text-slate-700">Date of Birth</label>
+              <input
+                type="date"
+                name="dateOfBirth"
+                value={form.dateOfBirth}
+                onChange={onChange}
+                className="block w-full rounded-lg border border-slate-200 px-3 py-2.5 text-slate-900 focus:border-transparent focus:outline-none focus:ring-2 focus:ring-blue-600"
+              />
+            </div>
+          )}
 
           <div className="mt-4">
             <label className="mb-1.5 block text-sm font-medium text-slate-700">Notes</label>
@@ -138,7 +198,11 @@ export default function NewClientPage() {
               onChange={onChange}
               rows={3}
               className="block w-full resize-none rounded-lg border border-slate-200 px-3 py-2.5 text-slate-900 placeholder:text-slate-400 focus:border-transparent focus:outline-none focus:ring-2 focus:ring-blue-600"
-              placeholder="Prefers business class, anniversary trip in June..."
+              placeholder={
+                form.clientType === 'business'
+                  ? 'Annual travel budget, preferred programs...'
+                  : 'Prefers business class, anniversary trip in June...'
+              }
             />
           </div>
         </div>
@@ -155,7 +219,7 @@ export default function NewClientPage() {
                 Creating...
               </>
             ) : (
-              'Create Client'
+              `Create ${form.clientType === 'business' ? 'Business' : 'Client'}`
             )}
           </button>
           <Link

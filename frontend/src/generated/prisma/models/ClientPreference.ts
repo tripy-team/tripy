@@ -41,9 +41,15 @@ export type ClientPreferenceMinAggregateOutputType = {
   prefersNonstop: boolean | null
   maxLayoverMinutes: number | null
   willingToReposition: boolean | null
-  redemptionStyle: $Enums.RedemptionStyle | null
   avoidBasicEconomy: boolean | null
+  locationPreferences: string | null
+  redemptionStyle: $Enums.RedemptionStyle | null
+  budgetSensitivity: $Enums.BudgetSensitivity | null
+  pointsVsCash: string | null
+  familyConsiderations: string | null
   notes: string | null
+  lastUpdatedSource: $Enums.PreferenceSource | null
+  mergeStrategy: $Enums.MergeStrategy | null
   createdAt: Date | null
   updatedAt: Date | null
 }
@@ -55,9 +61,15 @@ export type ClientPreferenceMaxAggregateOutputType = {
   prefersNonstop: boolean | null
   maxLayoverMinutes: number | null
   willingToReposition: boolean | null
-  redemptionStyle: $Enums.RedemptionStyle | null
   avoidBasicEconomy: boolean | null
+  locationPreferences: string | null
+  redemptionStyle: $Enums.RedemptionStyle | null
+  budgetSensitivity: $Enums.BudgetSensitivity | null
+  pointsVsCash: string | null
+  familyConsiderations: string | null
   notes: string | null
+  lastUpdatedSource: $Enums.PreferenceSource | null
+  mergeStrategy: $Enums.MergeStrategy | null
   createdAt: Date | null
   updatedAt: Date | null
 }
@@ -69,11 +81,25 @@ export type ClientPreferenceCountAggregateOutputType = {
   prefersNonstop: number
   maxLayoverMinutes: number
   willingToReposition: number
-  redemptionStyle: number
   avoidBasicEconomy: number
   preferredAirlines: number
   avoidedAirlines: number
+  preferredHotelTypes: number
+  roomPreferences: number
+  locationPreferences: number
+  redemptionStyle: number
+  budgetSensitivity: number
+  pointsVsCash: number
+  accessibilityNeeds: number
+  foodPreferences: number
+  activityPreferences: number
+  familyConsiderations: number
+  specialOccasions: number
+  dislikes: number
+  dealbreakers: number
   notes: number
+  lastUpdatedSource: number
+  mergeStrategy: number
   createdAt: number
   updatedAt: number
   _all: number
@@ -95,9 +121,15 @@ export type ClientPreferenceMinAggregateInputType = {
   prefersNonstop?: true
   maxLayoverMinutes?: true
   willingToReposition?: true
-  redemptionStyle?: true
   avoidBasicEconomy?: true
+  locationPreferences?: true
+  redemptionStyle?: true
+  budgetSensitivity?: true
+  pointsVsCash?: true
+  familyConsiderations?: true
   notes?: true
+  lastUpdatedSource?: true
+  mergeStrategy?: true
   createdAt?: true
   updatedAt?: true
 }
@@ -109,9 +141,15 @@ export type ClientPreferenceMaxAggregateInputType = {
   prefersNonstop?: true
   maxLayoverMinutes?: true
   willingToReposition?: true
-  redemptionStyle?: true
   avoidBasicEconomy?: true
+  locationPreferences?: true
+  redemptionStyle?: true
+  budgetSensitivity?: true
+  pointsVsCash?: true
+  familyConsiderations?: true
   notes?: true
+  lastUpdatedSource?: true
+  mergeStrategy?: true
   createdAt?: true
   updatedAt?: true
 }
@@ -123,11 +161,25 @@ export type ClientPreferenceCountAggregateInputType = {
   prefersNonstop?: true
   maxLayoverMinutes?: true
   willingToReposition?: true
-  redemptionStyle?: true
   avoidBasicEconomy?: true
   preferredAirlines?: true
   avoidedAirlines?: true
+  preferredHotelTypes?: true
+  roomPreferences?: true
+  locationPreferences?: true
+  redemptionStyle?: true
+  budgetSensitivity?: true
+  pointsVsCash?: true
+  accessibilityNeeds?: true
+  foodPreferences?: true
+  activityPreferences?: true
+  familyConsiderations?: true
+  specialOccasions?: true
+  dislikes?: true
+  dealbreakers?: true
   notes?: true
+  lastUpdatedSource?: true
+  mergeStrategy?: true
   createdAt?: true
   updatedAt?: true
   _all?: true
@@ -226,11 +278,25 @@ export type ClientPreferenceGroupByOutputType = {
   prefersNonstop: boolean
   maxLayoverMinutes: number | null
   willingToReposition: boolean
-  redemptionStyle: $Enums.RedemptionStyle
   avoidBasicEconomy: boolean
   preferredAirlines: runtime.JsonValue | null
   avoidedAirlines: runtime.JsonValue | null
+  preferredHotelTypes: runtime.JsonValue | null
+  roomPreferences: runtime.JsonValue | null
+  locationPreferences: string | null
+  redemptionStyle: $Enums.RedemptionStyle
+  budgetSensitivity: $Enums.BudgetSensitivity | null
+  pointsVsCash: string | null
+  accessibilityNeeds: runtime.JsonValue | null
+  foodPreferences: runtime.JsonValue | null
+  activityPreferences: runtime.JsonValue | null
+  familyConsiderations: string | null
+  specialOccasions: runtime.JsonValue | null
+  dislikes: runtime.JsonValue | null
+  dealbreakers: runtime.JsonValue | null
   notes: string | null
+  lastUpdatedSource: $Enums.PreferenceSource
+  mergeStrategy: $Enums.MergeStrategy
   createdAt: Date
   updatedAt: Date
   _count: ClientPreferenceCountAggregateOutputType | null
@@ -265,14 +331,29 @@ export type ClientPreferenceWhereInput = {
   prefersNonstop?: Prisma.BoolFilter<"ClientPreference"> | boolean
   maxLayoverMinutes?: Prisma.IntNullableFilter<"ClientPreference"> | number | null
   willingToReposition?: Prisma.BoolFilter<"ClientPreference"> | boolean
-  redemptionStyle?: Prisma.EnumRedemptionStyleFilter<"ClientPreference"> | $Enums.RedemptionStyle
   avoidBasicEconomy?: Prisma.BoolFilter<"ClientPreference"> | boolean
   preferredAirlines?: Prisma.JsonNullableFilter<"ClientPreference">
   avoidedAirlines?: Prisma.JsonNullableFilter<"ClientPreference">
+  preferredHotelTypes?: Prisma.JsonNullableFilter<"ClientPreference">
+  roomPreferences?: Prisma.JsonNullableFilter<"ClientPreference">
+  locationPreferences?: Prisma.StringNullableFilter<"ClientPreference"> | string | null
+  redemptionStyle?: Prisma.EnumRedemptionStyleFilter<"ClientPreference"> | $Enums.RedemptionStyle
+  budgetSensitivity?: Prisma.EnumBudgetSensitivityNullableFilter<"ClientPreference"> | $Enums.BudgetSensitivity | null
+  pointsVsCash?: Prisma.StringNullableFilter<"ClientPreference"> | string | null
+  accessibilityNeeds?: Prisma.JsonNullableFilter<"ClientPreference">
+  foodPreferences?: Prisma.JsonNullableFilter<"ClientPreference">
+  activityPreferences?: Prisma.JsonNullableFilter<"ClientPreference">
+  familyConsiderations?: Prisma.StringNullableFilter<"ClientPreference"> | string | null
+  specialOccasions?: Prisma.JsonNullableFilter<"ClientPreference">
+  dislikes?: Prisma.JsonNullableFilter<"ClientPreference">
+  dealbreakers?: Prisma.JsonNullableFilter<"ClientPreference">
   notes?: Prisma.StringNullableFilter<"ClientPreference"> | string | null
+  lastUpdatedSource?: Prisma.EnumPreferenceSourceFilter<"ClientPreference"> | $Enums.PreferenceSource
+  mergeStrategy?: Prisma.EnumMergeStrategyFilter<"ClientPreference"> | $Enums.MergeStrategy
   createdAt?: Prisma.DateTimeFilter<"ClientPreference"> | Date | string
   updatedAt?: Prisma.DateTimeFilter<"ClientPreference"> | Date | string
   client?: Prisma.XOR<Prisma.ClientScalarRelationFilter, Prisma.ClientWhereInput>
+  changelog?: Prisma.PreferenceChangeLogListRelationFilter
 }
 
 export type ClientPreferenceOrderByWithRelationInput = {
@@ -282,14 +363,29 @@ export type ClientPreferenceOrderByWithRelationInput = {
   prefersNonstop?: Prisma.SortOrder
   maxLayoverMinutes?: Prisma.SortOrderInput | Prisma.SortOrder
   willingToReposition?: Prisma.SortOrder
-  redemptionStyle?: Prisma.SortOrder
   avoidBasicEconomy?: Prisma.SortOrder
   preferredAirlines?: Prisma.SortOrderInput | Prisma.SortOrder
   avoidedAirlines?: Prisma.SortOrderInput | Prisma.SortOrder
+  preferredHotelTypes?: Prisma.SortOrderInput | Prisma.SortOrder
+  roomPreferences?: Prisma.SortOrderInput | Prisma.SortOrder
+  locationPreferences?: Prisma.SortOrderInput | Prisma.SortOrder
+  redemptionStyle?: Prisma.SortOrder
+  budgetSensitivity?: Prisma.SortOrderInput | Prisma.SortOrder
+  pointsVsCash?: Prisma.SortOrderInput | Prisma.SortOrder
+  accessibilityNeeds?: Prisma.SortOrderInput | Prisma.SortOrder
+  foodPreferences?: Prisma.SortOrderInput | Prisma.SortOrder
+  activityPreferences?: Prisma.SortOrderInput | Prisma.SortOrder
+  familyConsiderations?: Prisma.SortOrderInput | Prisma.SortOrder
+  specialOccasions?: Prisma.SortOrderInput | Prisma.SortOrder
+  dislikes?: Prisma.SortOrderInput | Prisma.SortOrder
+  dealbreakers?: Prisma.SortOrderInput | Prisma.SortOrder
   notes?: Prisma.SortOrderInput | Prisma.SortOrder
+  lastUpdatedSource?: Prisma.SortOrder
+  mergeStrategy?: Prisma.SortOrder
   createdAt?: Prisma.SortOrder
   updatedAt?: Prisma.SortOrder
   client?: Prisma.ClientOrderByWithRelationInput
+  changelog?: Prisma.PreferenceChangeLogOrderByRelationAggregateInput
 }
 
 export type ClientPreferenceWhereUniqueInput = Prisma.AtLeast<{
@@ -302,14 +398,29 @@ export type ClientPreferenceWhereUniqueInput = Prisma.AtLeast<{
   prefersNonstop?: Prisma.BoolFilter<"ClientPreference"> | boolean
   maxLayoverMinutes?: Prisma.IntNullableFilter<"ClientPreference"> | number | null
   willingToReposition?: Prisma.BoolFilter<"ClientPreference"> | boolean
-  redemptionStyle?: Prisma.EnumRedemptionStyleFilter<"ClientPreference"> | $Enums.RedemptionStyle
   avoidBasicEconomy?: Prisma.BoolFilter<"ClientPreference"> | boolean
   preferredAirlines?: Prisma.JsonNullableFilter<"ClientPreference">
   avoidedAirlines?: Prisma.JsonNullableFilter<"ClientPreference">
+  preferredHotelTypes?: Prisma.JsonNullableFilter<"ClientPreference">
+  roomPreferences?: Prisma.JsonNullableFilter<"ClientPreference">
+  locationPreferences?: Prisma.StringNullableFilter<"ClientPreference"> | string | null
+  redemptionStyle?: Prisma.EnumRedemptionStyleFilter<"ClientPreference"> | $Enums.RedemptionStyle
+  budgetSensitivity?: Prisma.EnumBudgetSensitivityNullableFilter<"ClientPreference"> | $Enums.BudgetSensitivity | null
+  pointsVsCash?: Prisma.StringNullableFilter<"ClientPreference"> | string | null
+  accessibilityNeeds?: Prisma.JsonNullableFilter<"ClientPreference">
+  foodPreferences?: Prisma.JsonNullableFilter<"ClientPreference">
+  activityPreferences?: Prisma.JsonNullableFilter<"ClientPreference">
+  familyConsiderations?: Prisma.StringNullableFilter<"ClientPreference"> | string | null
+  specialOccasions?: Prisma.JsonNullableFilter<"ClientPreference">
+  dislikes?: Prisma.JsonNullableFilter<"ClientPreference">
+  dealbreakers?: Prisma.JsonNullableFilter<"ClientPreference">
   notes?: Prisma.StringNullableFilter<"ClientPreference"> | string | null
+  lastUpdatedSource?: Prisma.EnumPreferenceSourceFilter<"ClientPreference"> | $Enums.PreferenceSource
+  mergeStrategy?: Prisma.EnumMergeStrategyFilter<"ClientPreference"> | $Enums.MergeStrategy
   createdAt?: Prisma.DateTimeFilter<"ClientPreference"> | Date | string
   updatedAt?: Prisma.DateTimeFilter<"ClientPreference"> | Date | string
   client?: Prisma.XOR<Prisma.ClientScalarRelationFilter, Prisma.ClientWhereInput>
+  changelog?: Prisma.PreferenceChangeLogListRelationFilter
 }, "id" | "clientId">
 
 export type ClientPreferenceOrderByWithAggregationInput = {
@@ -319,11 +430,25 @@ export type ClientPreferenceOrderByWithAggregationInput = {
   prefersNonstop?: Prisma.SortOrder
   maxLayoverMinutes?: Prisma.SortOrderInput | Prisma.SortOrder
   willingToReposition?: Prisma.SortOrder
-  redemptionStyle?: Prisma.SortOrder
   avoidBasicEconomy?: Prisma.SortOrder
   preferredAirlines?: Prisma.SortOrderInput | Prisma.SortOrder
   avoidedAirlines?: Prisma.SortOrderInput | Prisma.SortOrder
+  preferredHotelTypes?: Prisma.SortOrderInput | Prisma.SortOrder
+  roomPreferences?: Prisma.SortOrderInput | Prisma.SortOrder
+  locationPreferences?: Prisma.SortOrderInput | Prisma.SortOrder
+  redemptionStyle?: Prisma.SortOrder
+  budgetSensitivity?: Prisma.SortOrderInput | Prisma.SortOrder
+  pointsVsCash?: Prisma.SortOrderInput | Prisma.SortOrder
+  accessibilityNeeds?: Prisma.SortOrderInput | Prisma.SortOrder
+  foodPreferences?: Prisma.SortOrderInput | Prisma.SortOrder
+  activityPreferences?: Prisma.SortOrderInput | Prisma.SortOrder
+  familyConsiderations?: Prisma.SortOrderInput | Prisma.SortOrder
+  specialOccasions?: Prisma.SortOrderInput | Prisma.SortOrder
+  dislikes?: Prisma.SortOrderInput | Prisma.SortOrder
+  dealbreakers?: Prisma.SortOrderInput | Prisma.SortOrder
   notes?: Prisma.SortOrderInput | Prisma.SortOrder
+  lastUpdatedSource?: Prisma.SortOrder
+  mergeStrategy?: Prisma.SortOrder
   createdAt?: Prisma.SortOrder
   updatedAt?: Prisma.SortOrder
   _count?: Prisma.ClientPreferenceCountOrderByAggregateInput
@@ -343,11 +468,25 @@ export type ClientPreferenceScalarWhereWithAggregatesInput = {
   prefersNonstop?: Prisma.BoolWithAggregatesFilter<"ClientPreference"> | boolean
   maxLayoverMinutes?: Prisma.IntNullableWithAggregatesFilter<"ClientPreference"> | number | null
   willingToReposition?: Prisma.BoolWithAggregatesFilter<"ClientPreference"> | boolean
-  redemptionStyle?: Prisma.EnumRedemptionStyleWithAggregatesFilter<"ClientPreference"> | $Enums.RedemptionStyle
   avoidBasicEconomy?: Prisma.BoolWithAggregatesFilter<"ClientPreference"> | boolean
   preferredAirlines?: Prisma.JsonNullableWithAggregatesFilter<"ClientPreference">
   avoidedAirlines?: Prisma.JsonNullableWithAggregatesFilter<"ClientPreference">
+  preferredHotelTypes?: Prisma.JsonNullableWithAggregatesFilter<"ClientPreference">
+  roomPreferences?: Prisma.JsonNullableWithAggregatesFilter<"ClientPreference">
+  locationPreferences?: Prisma.StringNullableWithAggregatesFilter<"ClientPreference"> | string | null
+  redemptionStyle?: Prisma.EnumRedemptionStyleWithAggregatesFilter<"ClientPreference"> | $Enums.RedemptionStyle
+  budgetSensitivity?: Prisma.EnumBudgetSensitivityNullableWithAggregatesFilter<"ClientPreference"> | $Enums.BudgetSensitivity | null
+  pointsVsCash?: Prisma.StringNullableWithAggregatesFilter<"ClientPreference"> | string | null
+  accessibilityNeeds?: Prisma.JsonNullableWithAggregatesFilter<"ClientPreference">
+  foodPreferences?: Prisma.JsonNullableWithAggregatesFilter<"ClientPreference">
+  activityPreferences?: Prisma.JsonNullableWithAggregatesFilter<"ClientPreference">
+  familyConsiderations?: Prisma.StringNullableWithAggregatesFilter<"ClientPreference"> | string | null
+  specialOccasions?: Prisma.JsonNullableWithAggregatesFilter<"ClientPreference">
+  dislikes?: Prisma.JsonNullableWithAggregatesFilter<"ClientPreference">
+  dealbreakers?: Prisma.JsonNullableWithAggregatesFilter<"ClientPreference">
   notes?: Prisma.StringNullableWithAggregatesFilter<"ClientPreference"> | string | null
+  lastUpdatedSource?: Prisma.EnumPreferenceSourceWithAggregatesFilter<"ClientPreference"> | $Enums.PreferenceSource
+  mergeStrategy?: Prisma.EnumMergeStrategyWithAggregatesFilter<"ClientPreference"> | $Enums.MergeStrategy
   createdAt?: Prisma.DateTimeWithAggregatesFilter<"ClientPreference"> | Date | string
   updatedAt?: Prisma.DateTimeWithAggregatesFilter<"ClientPreference"> | Date | string
 }
@@ -358,14 +497,29 @@ export type ClientPreferenceCreateInput = {
   prefersNonstop?: boolean
   maxLayoverMinutes?: number | null
   willingToReposition?: boolean
-  redemptionStyle?: $Enums.RedemptionStyle
   avoidBasicEconomy?: boolean
   preferredAirlines?: Prisma.NullableJsonNullValueInput | runtime.InputJsonValue
   avoidedAirlines?: Prisma.NullableJsonNullValueInput | runtime.InputJsonValue
+  preferredHotelTypes?: Prisma.NullableJsonNullValueInput | runtime.InputJsonValue
+  roomPreferences?: Prisma.NullableJsonNullValueInput | runtime.InputJsonValue
+  locationPreferences?: string | null
+  redemptionStyle?: $Enums.RedemptionStyle
+  budgetSensitivity?: $Enums.BudgetSensitivity | null
+  pointsVsCash?: string | null
+  accessibilityNeeds?: Prisma.NullableJsonNullValueInput | runtime.InputJsonValue
+  foodPreferences?: Prisma.NullableJsonNullValueInput | runtime.InputJsonValue
+  activityPreferences?: Prisma.NullableJsonNullValueInput | runtime.InputJsonValue
+  familyConsiderations?: string | null
+  specialOccasions?: Prisma.NullableJsonNullValueInput | runtime.InputJsonValue
+  dislikes?: Prisma.NullableJsonNullValueInput | runtime.InputJsonValue
+  dealbreakers?: Prisma.NullableJsonNullValueInput | runtime.InputJsonValue
   notes?: string | null
+  lastUpdatedSource?: $Enums.PreferenceSource
+  mergeStrategy?: $Enums.MergeStrategy
   createdAt?: Date | string
   updatedAt?: Date | string
   client: Prisma.ClientCreateNestedOneWithoutPreferencesInput
+  changelog?: Prisma.PreferenceChangeLogCreateNestedManyWithoutPreferenceInput
 }
 
 export type ClientPreferenceUncheckedCreateInput = {
@@ -375,13 +529,28 @@ export type ClientPreferenceUncheckedCreateInput = {
   prefersNonstop?: boolean
   maxLayoverMinutes?: number | null
   willingToReposition?: boolean
-  redemptionStyle?: $Enums.RedemptionStyle
   avoidBasicEconomy?: boolean
   preferredAirlines?: Prisma.NullableJsonNullValueInput | runtime.InputJsonValue
   avoidedAirlines?: Prisma.NullableJsonNullValueInput | runtime.InputJsonValue
+  preferredHotelTypes?: Prisma.NullableJsonNullValueInput | runtime.InputJsonValue
+  roomPreferences?: Prisma.NullableJsonNullValueInput | runtime.InputJsonValue
+  locationPreferences?: string | null
+  redemptionStyle?: $Enums.RedemptionStyle
+  budgetSensitivity?: $Enums.BudgetSensitivity | null
+  pointsVsCash?: string | null
+  accessibilityNeeds?: Prisma.NullableJsonNullValueInput | runtime.InputJsonValue
+  foodPreferences?: Prisma.NullableJsonNullValueInput | runtime.InputJsonValue
+  activityPreferences?: Prisma.NullableJsonNullValueInput | runtime.InputJsonValue
+  familyConsiderations?: string | null
+  specialOccasions?: Prisma.NullableJsonNullValueInput | runtime.InputJsonValue
+  dislikes?: Prisma.NullableJsonNullValueInput | runtime.InputJsonValue
+  dealbreakers?: Prisma.NullableJsonNullValueInput | runtime.InputJsonValue
   notes?: string | null
+  lastUpdatedSource?: $Enums.PreferenceSource
+  mergeStrategy?: $Enums.MergeStrategy
   createdAt?: Date | string
   updatedAt?: Date | string
+  changelog?: Prisma.PreferenceChangeLogUncheckedCreateNestedManyWithoutPreferenceInput
 }
 
 export type ClientPreferenceUpdateInput = {
@@ -390,14 +559,29 @@ export type ClientPreferenceUpdateInput = {
   prefersNonstop?: Prisma.BoolFieldUpdateOperationsInput | boolean
   maxLayoverMinutes?: Prisma.NullableIntFieldUpdateOperationsInput | number | null
   willingToReposition?: Prisma.BoolFieldUpdateOperationsInput | boolean
-  redemptionStyle?: Prisma.EnumRedemptionStyleFieldUpdateOperationsInput | $Enums.RedemptionStyle
   avoidBasicEconomy?: Prisma.BoolFieldUpdateOperationsInput | boolean
   preferredAirlines?: Prisma.NullableJsonNullValueInput | runtime.InputJsonValue
   avoidedAirlines?: Prisma.NullableJsonNullValueInput | runtime.InputJsonValue
+  preferredHotelTypes?: Prisma.NullableJsonNullValueInput | runtime.InputJsonValue
+  roomPreferences?: Prisma.NullableJsonNullValueInput | runtime.InputJsonValue
+  locationPreferences?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
+  redemptionStyle?: Prisma.EnumRedemptionStyleFieldUpdateOperationsInput | $Enums.RedemptionStyle
+  budgetSensitivity?: Prisma.NullableEnumBudgetSensitivityFieldUpdateOperationsInput | $Enums.BudgetSensitivity | null
+  pointsVsCash?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
+  accessibilityNeeds?: Prisma.NullableJsonNullValueInput | runtime.InputJsonValue
+  foodPreferences?: Prisma.NullableJsonNullValueInput | runtime.InputJsonValue
+  activityPreferences?: Prisma.NullableJsonNullValueInput | runtime.InputJsonValue
+  familyConsiderations?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
+  specialOccasions?: Prisma.NullableJsonNullValueInput | runtime.InputJsonValue
+  dislikes?: Prisma.NullableJsonNullValueInput | runtime.InputJsonValue
+  dealbreakers?: Prisma.NullableJsonNullValueInput | runtime.InputJsonValue
   notes?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
+  lastUpdatedSource?: Prisma.EnumPreferenceSourceFieldUpdateOperationsInput | $Enums.PreferenceSource
+  mergeStrategy?: Prisma.EnumMergeStrategyFieldUpdateOperationsInput | $Enums.MergeStrategy
   createdAt?: Prisma.DateTimeFieldUpdateOperationsInput | Date | string
   updatedAt?: Prisma.DateTimeFieldUpdateOperationsInput | Date | string
   client?: Prisma.ClientUpdateOneRequiredWithoutPreferencesNestedInput
+  changelog?: Prisma.PreferenceChangeLogUpdateManyWithoutPreferenceNestedInput
 }
 
 export type ClientPreferenceUncheckedUpdateInput = {
@@ -407,13 +591,28 @@ export type ClientPreferenceUncheckedUpdateInput = {
   prefersNonstop?: Prisma.BoolFieldUpdateOperationsInput | boolean
   maxLayoverMinutes?: Prisma.NullableIntFieldUpdateOperationsInput | number | null
   willingToReposition?: Prisma.BoolFieldUpdateOperationsInput | boolean
-  redemptionStyle?: Prisma.EnumRedemptionStyleFieldUpdateOperationsInput | $Enums.RedemptionStyle
   avoidBasicEconomy?: Prisma.BoolFieldUpdateOperationsInput | boolean
   preferredAirlines?: Prisma.NullableJsonNullValueInput | runtime.InputJsonValue
   avoidedAirlines?: Prisma.NullableJsonNullValueInput | runtime.InputJsonValue
+  preferredHotelTypes?: Prisma.NullableJsonNullValueInput | runtime.InputJsonValue
+  roomPreferences?: Prisma.NullableJsonNullValueInput | runtime.InputJsonValue
+  locationPreferences?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
+  redemptionStyle?: Prisma.EnumRedemptionStyleFieldUpdateOperationsInput | $Enums.RedemptionStyle
+  budgetSensitivity?: Prisma.NullableEnumBudgetSensitivityFieldUpdateOperationsInput | $Enums.BudgetSensitivity | null
+  pointsVsCash?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
+  accessibilityNeeds?: Prisma.NullableJsonNullValueInput | runtime.InputJsonValue
+  foodPreferences?: Prisma.NullableJsonNullValueInput | runtime.InputJsonValue
+  activityPreferences?: Prisma.NullableJsonNullValueInput | runtime.InputJsonValue
+  familyConsiderations?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
+  specialOccasions?: Prisma.NullableJsonNullValueInput | runtime.InputJsonValue
+  dislikes?: Prisma.NullableJsonNullValueInput | runtime.InputJsonValue
+  dealbreakers?: Prisma.NullableJsonNullValueInput | runtime.InputJsonValue
   notes?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
+  lastUpdatedSource?: Prisma.EnumPreferenceSourceFieldUpdateOperationsInput | $Enums.PreferenceSource
+  mergeStrategy?: Prisma.EnumMergeStrategyFieldUpdateOperationsInput | $Enums.MergeStrategy
   createdAt?: Prisma.DateTimeFieldUpdateOperationsInput | Date | string
   updatedAt?: Prisma.DateTimeFieldUpdateOperationsInput | Date | string
+  changelog?: Prisma.PreferenceChangeLogUncheckedUpdateManyWithoutPreferenceNestedInput
 }
 
 export type ClientPreferenceCreateManyInput = {
@@ -423,11 +622,25 @@ export type ClientPreferenceCreateManyInput = {
   prefersNonstop?: boolean
   maxLayoverMinutes?: number | null
   willingToReposition?: boolean
-  redemptionStyle?: $Enums.RedemptionStyle
   avoidBasicEconomy?: boolean
   preferredAirlines?: Prisma.NullableJsonNullValueInput | runtime.InputJsonValue
   avoidedAirlines?: Prisma.NullableJsonNullValueInput | runtime.InputJsonValue
+  preferredHotelTypes?: Prisma.NullableJsonNullValueInput | runtime.InputJsonValue
+  roomPreferences?: Prisma.NullableJsonNullValueInput | runtime.InputJsonValue
+  locationPreferences?: string | null
+  redemptionStyle?: $Enums.RedemptionStyle
+  budgetSensitivity?: $Enums.BudgetSensitivity | null
+  pointsVsCash?: string | null
+  accessibilityNeeds?: Prisma.NullableJsonNullValueInput | runtime.InputJsonValue
+  foodPreferences?: Prisma.NullableJsonNullValueInput | runtime.InputJsonValue
+  activityPreferences?: Prisma.NullableJsonNullValueInput | runtime.InputJsonValue
+  familyConsiderations?: string | null
+  specialOccasions?: Prisma.NullableJsonNullValueInput | runtime.InputJsonValue
+  dislikes?: Prisma.NullableJsonNullValueInput | runtime.InputJsonValue
+  dealbreakers?: Prisma.NullableJsonNullValueInput | runtime.InputJsonValue
   notes?: string | null
+  lastUpdatedSource?: $Enums.PreferenceSource
+  mergeStrategy?: $Enums.MergeStrategy
   createdAt?: Date | string
   updatedAt?: Date | string
 }
@@ -438,11 +651,25 @@ export type ClientPreferenceUpdateManyMutationInput = {
   prefersNonstop?: Prisma.BoolFieldUpdateOperationsInput | boolean
   maxLayoverMinutes?: Prisma.NullableIntFieldUpdateOperationsInput | number | null
   willingToReposition?: Prisma.BoolFieldUpdateOperationsInput | boolean
-  redemptionStyle?: Prisma.EnumRedemptionStyleFieldUpdateOperationsInput | $Enums.RedemptionStyle
   avoidBasicEconomy?: Prisma.BoolFieldUpdateOperationsInput | boolean
   preferredAirlines?: Prisma.NullableJsonNullValueInput | runtime.InputJsonValue
   avoidedAirlines?: Prisma.NullableJsonNullValueInput | runtime.InputJsonValue
+  preferredHotelTypes?: Prisma.NullableJsonNullValueInput | runtime.InputJsonValue
+  roomPreferences?: Prisma.NullableJsonNullValueInput | runtime.InputJsonValue
+  locationPreferences?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
+  redemptionStyle?: Prisma.EnumRedemptionStyleFieldUpdateOperationsInput | $Enums.RedemptionStyle
+  budgetSensitivity?: Prisma.NullableEnumBudgetSensitivityFieldUpdateOperationsInput | $Enums.BudgetSensitivity | null
+  pointsVsCash?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
+  accessibilityNeeds?: Prisma.NullableJsonNullValueInput | runtime.InputJsonValue
+  foodPreferences?: Prisma.NullableJsonNullValueInput | runtime.InputJsonValue
+  activityPreferences?: Prisma.NullableJsonNullValueInput | runtime.InputJsonValue
+  familyConsiderations?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
+  specialOccasions?: Prisma.NullableJsonNullValueInput | runtime.InputJsonValue
+  dislikes?: Prisma.NullableJsonNullValueInput | runtime.InputJsonValue
+  dealbreakers?: Prisma.NullableJsonNullValueInput | runtime.InputJsonValue
   notes?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
+  lastUpdatedSource?: Prisma.EnumPreferenceSourceFieldUpdateOperationsInput | $Enums.PreferenceSource
+  mergeStrategy?: Prisma.EnumMergeStrategyFieldUpdateOperationsInput | $Enums.MergeStrategy
   createdAt?: Prisma.DateTimeFieldUpdateOperationsInput | Date | string
   updatedAt?: Prisma.DateTimeFieldUpdateOperationsInput | Date | string
 }
@@ -454,11 +681,25 @@ export type ClientPreferenceUncheckedUpdateManyInput = {
   prefersNonstop?: Prisma.BoolFieldUpdateOperationsInput | boolean
   maxLayoverMinutes?: Prisma.NullableIntFieldUpdateOperationsInput | number | null
   willingToReposition?: Prisma.BoolFieldUpdateOperationsInput | boolean
-  redemptionStyle?: Prisma.EnumRedemptionStyleFieldUpdateOperationsInput | $Enums.RedemptionStyle
   avoidBasicEconomy?: Prisma.BoolFieldUpdateOperationsInput | boolean
   preferredAirlines?: Prisma.NullableJsonNullValueInput | runtime.InputJsonValue
   avoidedAirlines?: Prisma.NullableJsonNullValueInput | runtime.InputJsonValue
+  preferredHotelTypes?: Prisma.NullableJsonNullValueInput | runtime.InputJsonValue
+  roomPreferences?: Prisma.NullableJsonNullValueInput | runtime.InputJsonValue
+  locationPreferences?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
+  redemptionStyle?: Prisma.EnumRedemptionStyleFieldUpdateOperationsInput | $Enums.RedemptionStyle
+  budgetSensitivity?: Prisma.NullableEnumBudgetSensitivityFieldUpdateOperationsInput | $Enums.BudgetSensitivity | null
+  pointsVsCash?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
+  accessibilityNeeds?: Prisma.NullableJsonNullValueInput | runtime.InputJsonValue
+  foodPreferences?: Prisma.NullableJsonNullValueInput | runtime.InputJsonValue
+  activityPreferences?: Prisma.NullableJsonNullValueInput | runtime.InputJsonValue
+  familyConsiderations?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
+  specialOccasions?: Prisma.NullableJsonNullValueInput | runtime.InputJsonValue
+  dislikes?: Prisma.NullableJsonNullValueInput | runtime.InputJsonValue
+  dealbreakers?: Prisma.NullableJsonNullValueInput | runtime.InputJsonValue
   notes?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
+  lastUpdatedSource?: Prisma.EnumPreferenceSourceFieldUpdateOperationsInput | $Enums.PreferenceSource
+  mergeStrategy?: Prisma.EnumMergeStrategyFieldUpdateOperationsInput | $Enums.MergeStrategy
   createdAt?: Prisma.DateTimeFieldUpdateOperationsInput | Date | string
   updatedAt?: Prisma.DateTimeFieldUpdateOperationsInput | Date | string
 }
@@ -475,11 +716,25 @@ export type ClientPreferenceCountOrderByAggregateInput = {
   prefersNonstop?: Prisma.SortOrder
   maxLayoverMinutes?: Prisma.SortOrder
   willingToReposition?: Prisma.SortOrder
-  redemptionStyle?: Prisma.SortOrder
   avoidBasicEconomy?: Prisma.SortOrder
   preferredAirlines?: Prisma.SortOrder
   avoidedAirlines?: Prisma.SortOrder
+  preferredHotelTypes?: Prisma.SortOrder
+  roomPreferences?: Prisma.SortOrder
+  locationPreferences?: Prisma.SortOrder
+  redemptionStyle?: Prisma.SortOrder
+  budgetSensitivity?: Prisma.SortOrder
+  pointsVsCash?: Prisma.SortOrder
+  accessibilityNeeds?: Prisma.SortOrder
+  foodPreferences?: Prisma.SortOrder
+  activityPreferences?: Prisma.SortOrder
+  familyConsiderations?: Prisma.SortOrder
+  specialOccasions?: Prisma.SortOrder
+  dislikes?: Prisma.SortOrder
+  dealbreakers?: Prisma.SortOrder
   notes?: Prisma.SortOrder
+  lastUpdatedSource?: Prisma.SortOrder
+  mergeStrategy?: Prisma.SortOrder
   createdAt?: Prisma.SortOrder
   updatedAt?: Prisma.SortOrder
 }
@@ -495,9 +750,15 @@ export type ClientPreferenceMaxOrderByAggregateInput = {
   prefersNonstop?: Prisma.SortOrder
   maxLayoverMinutes?: Prisma.SortOrder
   willingToReposition?: Prisma.SortOrder
-  redemptionStyle?: Prisma.SortOrder
   avoidBasicEconomy?: Prisma.SortOrder
+  locationPreferences?: Prisma.SortOrder
+  redemptionStyle?: Prisma.SortOrder
+  budgetSensitivity?: Prisma.SortOrder
+  pointsVsCash?: Prisma.SortOrder
+  familyConsiderations?: Prisma.SortOrder
   notes?: Prisma.SortOrder
+  lastUpdatedSource?: Prisma.SortOrder
+  mergeStrategy?: Prisma.SortOrder
   createdAt?: Prisma.SortOrder
   updatedAt?: Prisma.SortOrder
 }
@@ -509,15 +770,26 @@ export type ClientPreferenceMinOrderByAggregateInput = {
   prefersNonstop?: Prisma.SortOrder
   maxLayoverMinutes?: Prisma.SortOrder
   willingToReposition?: Prisma.SortOrder
-  redemptionStyle?: Prisma.SortOrder
   avoidBasicEconomy?: Prisma.SortOrder
+  locationPreferences?: Prisma.SortOrder
+  redemptionStyle?: Prisma.SortOrder
+  budgetSensitivity?: Prisma.SortOrder
+  pointsVsCash?: Prisma.SortOrder
+  familyConsiderations?: Prisma.SortOrder
   notes?: Prisma.SortOrder
+  lastUpdatedSource?: Prisma.SortOrder
+  mergeStrategy?: Prisma.SortOrder
   createdAt?: Prisma.SortOrder
   updatedAt?: Prisma.SortOrder
 }
 
 export type ClientPreferenceSumOrderByAggregateInput = {
   maxLayoverMinutes?: Prisma.SortOrder
+}
+
+export type ClientPreferenceScalarRelationFilter = {
+  is?: Prisma.ClientPreferenceWhereInput
+  isNot?: Prisma.ClientPreferenceWhereInput
 }
 
 export type ClientPreferenceCreateNestedOneWithoutClientInput = {
@@ -560,19 +832,60 @@ export type EnumRedemptionStyleFieldUpdateOperationsInput = {
   set?: $Enums.RedemptionStyle
 }
 
+export type NullableEnumBudgetSensitivityFieldUpdateOperationsInput = {
+  set?: $Enums.BudgetSensitivity | null
+}
+
+export type EnumPreferenceSourceFieldUpdateOperationsInput = {
+  set?: $Enums.PreferenceSource
+}
+
+export type EnumMergeStrategyFieldUpdateOperationsInput = {
+  set?: $Enums.MergeStrategy
+}
+
+export type ClientPreferenceCreateNestedOneWithoutChangelogInput = {
+  create?: Prisma.XOR<Prisma.ClientPreferenceCreateWithoutChangelogInput, Prisma.ClientPreferenceUncheckedCreateWithoutChangelogInput>
+  connectOrCreate?: Prisma.ClientPreferenceCreateOrConnectWithoutChangelogInput
+  connect?: Prisma.ClientPreferenceWhereUniqueInput
+}
+
+export type ClientPreferenceUpdateOneRequiredWithoutChangelogNestedInput = {
+  create?: Prisma.XOR<Prisma.ClientPreferenceCreateWithoutChangelogInput, Prisma.ClientPreferenceUncheckedCreateWithoutChangelogInput>
+  connectOrCreate?: Prisma.ClientPreferenceCreateOrConnectWithoutChangelogInput
+  upsert?: Prisma.ClientPreferenceUpsertWithoutChangelogInput
+  connect?: Prisma.ClientPreferenceWhereUniqueInput
+  update?: Prisma.XOR<Prisma.XOR<Prisma.ClientPreferenceUpdateToOneWithWhereWithoutChangelogInput, Prisma.ClientPreferenceUpdateWithoutChangelogInput>, Prisma.ClientPreferenceUncheckedUpdateWithoutChangelogInput>
+}
+
 export type ClientPreferenceCreateWithoutClientInput = {
   id?: string
   preferredCabin?: $Enums.CabinPreference
   prefersNonstop?: boolean
   maxLayoverMinutes?: number | null
   willingToReposition?: boolean
-  redemptionStyle?: $Enums.RedemptionStyle
   avoidBasicEconomy?: boolean
   preferredAirlines?: Prisma.NullableJsonNullValueInput | runtime.InputJsonValue
   avoidedAirlines?: Prisma.NullableJsonNullValueInput | runtime.InputJsonValue
+  preferredHotelTypes?: Prisma.NullableJsonNullValueInput | runtime.InputJsonValue
+  roomPreferences?: Prisma.NullableJsonNullValueInput | runtime.InputJsonValue
+  locationPreferences?: string | null
+  redemptionStyle?: $Enums.RedemptionStyle
+  budgetSensitivity?: $Enums.BudgetSensitivity | null
+  pointsVsCash?: string | null
+  accessibilityNeeds?: Prisma.NullableJsonNullValueInput | runtime.InputJsonValue
+  foodPreferences?: Prisma.NullableJsonNullValueInput | runtime.InputJsonValue
+  activityPreferences?: Prisma.NullableJsonNullValueInput | runtime.InputJsonValue
+  familyConsiderations?: string | null
+  specialOccasions?: Prisma.NullableJsonNullValueInput | runtime.InputJsonValue
+  dislikes?: Prisma.NullableJsonNullValueInput | runtime.InputJsonValue
+  dealbreakers?: Prisma.NullableJsonNullValueInput | runtime.InputJsonValue
   notes?: string | null
+  lastUpdatedSource?: $Enums.PreferenceSource
+  mergeStrategy?: $Enums.MergeStrategy
   createdAt?: Date | string
   updatedAt?: Date | string
+  changelog?: Prisma.PreferenceChangeLogCreateNestedManyWithoutPreferenceInput
 }
 
 export type ClientPreferenceUncheckedCreateWithoutClientInput = {
@@ -581,13 +894,28 @@ export type ClientPreferenceUncheckedCreateWithoutClientInput = {
   prefersNonstop?: boolean
   maxLayoverMinutes?: number | null
   willingToReposition?: boolean
-  redemptionStyle?: $Enums.RedemptionStyle
   avoidBasicEconomy?: boolean
   preferredAirlines?: Prisma.NullableJsonNullValueInput | runtime.InputJsonValue
   avoidedAirlines?: Prisma.NullableJsonNullValueInput | runtime.InputJsonValue
+  preferredHotelTypes?: Prisma.NullableJsonNullValueInput | runtime.InputJsonValue
+  roomPreferences?: Prisma.NullableJsonNullValueInput | runtime.InputJsonValue
+  locationPreferences?: string | null
+  redemptionStyle?: $Enums.RedemptionStyle
+  budgetSensitivity?: $Enums.BudgetSensitivity | null
+  pointsVsCash?: string | null
+  accessibilityNeeds?: Prisma.NullableJsonNullValueInput | runtime.InputJsonValue
+  foodPreferences?: Prisma.NullableJsonNullValueInput | runtime.InputJsonValue
+  activityPreferences?: Prisma.NullableJsonNullValueInput | runtime.InputJsonValue
+  familyConsiderations?: string | null
+  specialOccasions?: Prisma.NullableJsonNullValueInput | runtime.InputJsonValue
+  dislikes?: Prisma.NullableJsonNullValueInput | runtime.InputJsonValue
+  dealbreakers?: Prisma.NullableJsonNullValueInput | runtime.InputJsonValue
   notes?: string | null
+  lastUpdatedSource?: $Enums.PreferenceSource
+  mergeStrategy?: $Enums.MergeStrategy
   createdAt?: Date | string
   updatedAt?: Date | string
+  changelog?: Prisma.PreferenceChangeLogUncheckedCreateNestedManyWithoutPreferenceInput
 }
 
 export type ClientPreferenceCreateOrConnectWithoutClientInput = {
@@ -612,13 +940,28 @@ export type ClientPreferenceUpdateWithoutClientInput = {
   prefersNonstop?: Prisma.BoolFieldUpdateOperationsInput | boolean
   maxLayoverMinutes?: Prisma.NullableIntFieldUpdateOperationsInput | number | null
   willingToReposition?: Prisma.BoolFieldUpdateOperationsInput | boolean
-  redemptionStyle?: Prisma.EnumRedemptionStyleFieldUpdateOperationsInput | $Enums.RedemptionStyle
   avoidBasicEconomy?: Prisma.BoolFieldUpdateOperationsInput | boolean
   preferredAirlines?: Prisma.NullableJsonNullValueInput | runtime.InputJsonValue
   avoidedAirlines?: Prisma.NullableJsonNullValueInput | runtime.InputJsonValue
+  preferredHotelTypes?: Prisma.NullableJsonNullValueInput | runtime.InputJsonValue
+  roomPreferences?: Prisma.NullableJsonNullValueInput | runtime.InputJsonValue
+  locationPreferences?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
+  redemptionStyle?: Prisma.EnumRedemptionStyleFieldUpdateOperationsInput | $Enums.RedemptionStyle
+  budgetSensitivity?: Prisma.NullableEnumBudgetSensitivityFieldUpdateOperationsInput | $Enums.BudgetSensitivity | null
+  pointsVsCash?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
+  accessibilityNeeds?: Prisma.NullableJsonNullValueInput | runtime.InputJsonValue
+  foodPreferences?: Prisma.NullableJsonNullValueInput | runtime.InputJsonValue
+  activityPreferences?: Prisma.NullableJsonNullValueInput | runtime.InputJsonValue
+  familyConsiderations?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
+  specialOccasions?: Prisma.NullableJsonNullValueInput | runtime.InputJsonValue
+  dislikes?: Prisma.NullableJsonNullValueInput | runtime.InputJsonValue
+  dealbreakers?: Prisma.NullableJsonNullValueInput | runtime.InputJsonValue
   notes?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
+  lastUpdatedSource?: Prisma.EnumPreferenceSourceFieldUpdateOperationsInput | $Enums.PreferenceSource
+  mergeStrategy?: Prisma.EnumMergeStrategyFieldUpdateOperationsInput | $Enums.MergeStrategy
   createdAt?: Prisma.DateTimeFieldUpdateOperationsInput | Date | string
   updatedAt?: Prisma.DateTimeFieldUpdateOperationsInput | Date | string
+  changelog?: Prisma.PreferenceChangeLogUpdateManyWithoutPreferenceNestedInput
 }
 
 export type ClientPreferenceUncheckedUpdateWithoutClientInput = {
@@ -627,15 +970,195 @@ export type ClientPreferenceUncheckedUpdateWithoutClientInput = {
   prefersNonstop?: Prisma.BoolFieldUpdateOperationsInput | boolean
   maxLayoverMinutes?: Prisma.NullableIntFieldUpdateOperationsInput | number | null
   willingToReposition?: Prisma.BoolFieldUpdateOperationsInput | boolean
-  redemptionStyle?: Prisma.EnumRedemptionStyleFieldUpdateOperationsInput | $Enums.RedemptionStyle
   avoidBasicEconomy?: Prisma.BoolFieldUpdateOperationsInput | boolean
   preferredAirlines?: Prisma.NullableJsonNullValueInput | runtime.InputJsonValue
   avoidedAirlines?: Prisma.NullableJsonNullValueInput | runtime.InputJsonValue
+  preferredHotelTypes?: Prisma.NullableJsonNullValueInput | runtime.InputJsonValue
+  roomPreferences?: Prisma.NullableJsonNullValueInput | runtime.InputJsonValue
+  locationPreferences?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
+  redemptionStyle?: Prisma.EnumRedemptionStyleFieldUpdateOperationsInput | $Enums.RedemptionStyle
+  budgetSensitivity?: Prisma.NullableEnumBudgetSensitivityFieldUpdateOperationsInput | $Enums.BudgetSensitivity | null
+  pointsVsCash?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
+  accessibilityNeeds?: Prisma.NullableJsonNullValueInput | runtime.InputJsonValue
+  foodPreferences?: Prisma.NullableJsonNullValueInput | runtime.InputJsonValue
+  activityPreferences?: Prisma.NullableJsonNullValueInput | runtime.InputJsonValue
+  familyConsiderations?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
+  specialOccasions?: Prisma.NullableJsonNullValueInput | runtime.InputJsonValue
+  dislikes?: Prisma.NullableJsonNullValueInput | runtime.InputJsonValue
+  dealbreakers?: Prisma.NullableJsonNullValueInput | runtime.InputJsonValue
   notes?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
+  lastUpdatedSource?: Prisma.EnumPreferenceSourceFieldUpdateOperationsInput | $Enums.PreferenceSource
+  mergeStrategy?: Prisma.EnumMergeStrategyFieldUpdateOperationsInput | $Enums.MergeStrategy
+  createdAt?: Prisma.DateTimeFieldUpdateOperationsInput | Date | string
+  updatedAt?: Prisma.DateTimeFieldUpdateOperationsInput | Date | string
+  changelog?: Prisma.PreferenceChangeLogUncheckedUpdateManyWithoutPreferenceNestedInput
+}
+
+export type ClientPreferenceCreateWithoutChangelogInput = {
+  id?: string
+  preferredCabin?: $Enums.CabinPreference
+  prefersNonstop?: boolean
+  maxLayoverMinutes?: number | null
+  willingToReposition?: boolean
+  avoidBasicEconomy?: boolean
+  preferredAirlines?: Prisma.NullableJsonNullValueInput | runtime.InputJsonValue
+  avoidedAirlines?: Prisma.NullableJsonNullValueInput | runtime.InputJsonValue
+  preferredHotelTypes?: Prisma.NullableJsonNullValueInput | runtime.InputJsonValue
+  roomPreferences?: Prisma.NullableJsonNullValueInput | runtime.InputJsonValue
+  locationPreferences?: string | null
+  redemptionStyle?: $Enums.RedemptionStyle
+  budgetSensitivity?: $Enums.BudgetSensitivity | null
+  pointsVsCash?: string | null
+  accessibilityNeeds?: Prisma.NullableJsonNullValueInput | runtime.InputJsonValue
+  foodPreferences?: Prisma.NullableJsonNullValueInput | runtime.InputJsonValue
+  activityPreferences?: Prisma.NullableJsonNullValueInput | runtime.InputJsonValue
+  familyConsiderations?: string | null
+  specialOccasions?: Prisma.NullableJsonNullValueInput | runtime.InputJsonValue
+  dislikes?: Prisma.NullableJsonNullValueInput | runtime.InputJsonValue
+  dealbreakers?: Prisma.NullableJsonNullValueInput | runtime.InputJsonValue
+  notes?: string | null
+  lastUpdatedSource?: $Enums.PreferenceSource
+  mergeStrategy?: $Enums.MergeStrategy
+  createdAt?: Date | string
+  updatedAt?: Date | string
+  client: Prisma.ClientCreateNestedOneWithoutPreferencesInput
+}
+
+export type ClientPreferenceUncheckedCreateWithoutChangelogInput = {
+  id?: string
+  clientId: string
+  preferredCabin?: $Enums.CabinPreference
+  prefersNonstop?: boolean
+  maxLayoverMinutes?: number | null
+  willingToReposition?: boolean
+  avoidBasicEconomy?: boolean
+  preferredAirlines?: Prisma.NullableJsonNullValueInput | runtime.InputJsonValue
+  avoidedAirlines?: Prisma.NullableJsonNullValueInput | runtime.InputJsonValue
+  preferredHotelTypes?: Prisma.NullableJsonNullValueInput | runtime.InputJsonValue
+  roomPreferences?: Prisma.NullableJsonNullValueInput | runtime.InputJsonValue
+  locationPreferences?: string | null
+  redemptionStyle?: $Enums.RedemptionStyle
+  budgetSensitivity?: $Enums.BudgetSensitivity | null
+  pointsVsCash?: string | null
+  accessibilityNeeds?: Prisma.NullableJsonNullValueInput | runtime.InputJsonValue
+  foodPreferences?: Prisma.NullableJsonNullValueInput | runtime.InputJsonValue
+  activityPreferences?: Prisma.NullableJsonNullValueInput | runtime.InputJsonValue
+  familyConsiderations?: string | null
+  specialOccasions?: Prisma.NullableJsonNullValueInput | runtime.InputJsonValue
+  dislikes?: Prisma.NullableJsonNullValueInput | runtime.InputJsonValue
+  dealbreakers?: Prisma.NullableJsonNullValueInput | runtime.InputJsonValue
+  notes?: string | null
+  lastUpdatedSource?: $Enums.PreferenceSource
+  mergeStrategy?: $Enums.MergeStrategy
+  createdAt?: Date | string
+  updatedAt?: Date | string
+}
+
+export type ClientPreferenceCreateOrConnectWithoutChangelogInput = {
+  where: Prisma.ClientPreferenceWhereUniqueInput
+  create: Prisma.XOR<Prisma.ClientPreferenceCreateWithoutChangelogInput, Prisma.ClientPreferenceUncheckedCreateWithoutChangelogInput>
+}
+
+export type ClientPreferenceUpsertWithoutChangelogInput = {
+  update: Prisma.XOR<Prisma.ClientPreferenceUpdateWithoutChangelogInput, Prisma.ClientPreferenceUncheckedUpdateWithoutChangelogInput>
+  create: Prisma.XOR<Prisma.ClientPreferenceCreateWithoutChangelogInput, Prisma.ClientPreferenceUncheckedCreateWithoutChangelogInput>
+  where?: Prisma.ClientPreferenceWhereInput
+}
+
+export type ClientPreferenceUpdateToOneWithWhereWithoutChangelogInput = {
+  where?: Prisma.ClientPreferenceWhereInput
+  data: Prisma.XOR<Prisma.ClientPreferenceUpdateWithoutChangelogInput, Prisma.ClientPreferenceUncheckedUpdateWithoutChangelogInput>
+}
+
+export type ClientPreferenceUpdateWithoutChangelogInput = {
+  id?: Prisma.StringFieldUpdateOperationsInput | string
+  preferredCabin?: Prisma.EnumCabinPreferenceFieldUpdateOperationsInput | $Enums.CabinPreference
+  prefersNonstop?: Prisma.BoolFieldUpdateOperationsInput | boolean
+  maxLayoverMinutes?: Prisma.NullableIntFieldUpdateOperationsInput | number | null
+  willingToReposition?: Prisma.BoolFieldUpdateOperationsInput | boolean
+  avoidBasicEconomy?: Prisma.BoolFieldUpdateOperationsInput | boolean
+  preferredAirlines?: Prisma.NullableJsonNullValueInput | runtime.InputJsonValue
+  avoidedAirlines?: Prisma.NullableJsonNullValueInput | runtime.InputJsonValue
+  preferredHotelTypes?: Prisma.NullableJsonNullValueInput | runtime.InputJsonValue
+  roomPreferences?: Prisma.NullableJsonNullValueInput | runtime.InputJsonValue
+  locationPreferences?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
+  redemptionStyle?: Prisma.EnumRedemptionStyleFieldUpdateOperationsInput | $Enums.RedemptionStyle
+  budgetSensitivity?: Prisma.NullableEnumBudgetSensitivityFieldUpdateOperationsInput | $Enums.BudgetSensitivity | null
+  pointsVsCash?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
+  accessibilityNeeds?: Prisma.NullableJsonNullValueInput | runtime.InputJsonValue
+  foodPreferences?: Prisma.NullableJsonNullValueInput | runtime.InputJsonValue
+  activityPreferences?: Prisma.NullableJsonNullValueInput | runtime.InputJsonValue
+  familyConsiderations?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
+  specialOccasions?: Prisma.NullableJsonNullValueInput | runtime.InputJsonValue
+  dislikes?: Prisma.NullableJsonNullValueInput | runtime.InputJsonValue
+  dealbreakers?: Prisma.NullableJsonNullValueInput | runtime.InputJsonValue
+  notes?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
+  lastUpdatedSource?: Prisma.EnumPreferenceSourceFieldUpdateOperationsInput | $Enums.PreferenceSource
+  mergeStrategy?: Prisma.EnumMergeStrategyFieldUpdateOperationsInput | $Enums.MergeStrategy
+  createdAt?: Prisma.DateTimeFieldUpdateOperationsInput | Date | string
+  updatedAt?: Prisma.DateTimeFieldUpdateOperationsInput | Date | string
+  client?: Prisma.ClientUpdateOneRequiredWithoutPreferencesNestedInput
+}
+
+export type ClientPreferenceUncheckedUpdateWithoutChangelogInput = {
+  id?: Prisma.StringFieldUpdateOperationsInput | string
+  clientId?: Prisma.StringFieldUpdateOperationsInput | string
+  preferredCabin?: Prisma.EnumCabinPreferenceFieldUpdateOperationsInput | $Enums.CabinPreference
+  prefersNonstop?: Prisma.BoolFieldUpdateOperationsInput | boolean
+  maxLayoverMinutes?: Prisma.NullableIntFieldUpdateOperationsInput | number | null
+  willingToReposition?: Prisma.BoolFieldUpdateOperationsInput | boolean
+  avoidBasicEconomy?: Prisma.BoolFieldUpdateOperationsInput | boolean
+  preferredAirlines?: Prisma.NullableJsonNullValueInput | runtime.InputJsonValue
+  avoidedAirlines?: Prisma.NullableJsonNullValueInput | runtime.InputJsonValue
+  preferredHotelTypes?: Prisma.NullableJsonNullValueInput | runtime.InputJsonValue
+  roomPreferences?: Prisma.NullableJsonNullValueInput | runtime.InputJsonValue
+  locationPreferences?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
+  redemptionStyle?: Prisma.EnumRedemptionStyleFieldUpdateOperationsInput | $Enums.RedemptionStyle
+  budgetSensitivity?: Prisma.NullableEnumBudgetSensitivityFieldUpdateOperationsInput | $Enums.BudgetSensitivity | null
+  pointsVsCash?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
+  accessibilityNeeds?: Prisma.NullableJsonNullValueInput | runtime.InputJsonValue
+  foodPreferences?: Prisma.NullableJsonNullValueInput | runtime.InputJsonValue
+  activityPreferences?: Prisma.NullableJsonNullValueInput | runtime.InputJsonValue
+  familyConsiderations?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
+  specialOccasions?: Prisma.NullableJsonNullValueInput | runtime.InputJsonValue
+  dislikes?: Prisma.NullableJsonNullValueInput | runtime.InputJsonValue
+  dealbreakers?: Prisma.NullableJsonNullValueInput | runtime.InputJsonValue
+  notes?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
+  lastUpdatedSource?: Prisma.EnumPreferenceSourceFieldUpdateOperationsInput | $Enums.PreferenceSource
+  mergeStrategy?: Prisma.EnumMergeStrategyFieldUpdateOperationsInput | $Enums.MergeStrategy
   createdAt?: Prisma.DateTimeFieldUpdateOperationsInput | Date | string
   updatedAt?: Prisma.DateTimeFieldUpdateOperationsInput | Date | string
 }
 
+
+/**
+ * Count Type ClientPreferenceCountOutputType
+ */
+
+export type ClientPreferenceCountOutputType = {
+  changelog: number
+}
+
+export type ClientPreferenceCountOutputTypeSelect<ExtArgs extends runtime.Types.Extensions.InternalArgs = runtime.Types.Extensions.DefaultArgs> = {
+  changelog?: boolean | ClientPreferenceCountOutputTypeCountChangelogArgs
+}
+
+/**
+ * ClientPreferenceCountOutputType without action
+ */
+export type ClientPreferenceCountOutputTypeDefaultArgs<ExtArgs extends runtime.Types.Extensions.InternalArgs = runtime.Types.Extensions.DefaultArgs> = {
+  /**
+   * Select specific fields to fetch from the ClientPreferenceCountOutputType
+   */
+  select?: Prisma.ClientPreferenceCountOutputTypeSelect<ExtArgs> | null
+}
+
+/**
+ * ClientPreferenceCountOutputType without action
+ */
+export type ClientPreferenceCountOutputTypeCountChangelogArgs<ExtArgs extends runtime.Types.Extensions.InternalArgs = runtime.Types.Extensions.DefaultArgs> = {
+  where?: Prisma.PreferenceChangeLogWhereInput
+}
 
 
 export type ClientPreferenceSelect<ExtArgs extends runtime.Types.Extensions.InternalArgs = runtime.Types.Extensions.DefaultArgs> = runtime.Types.Extensions.GetSelect<{
@@ -645,14 +1168,30 @@ export type ClientPreferenceSelect<ExtArgs extends runtime.Types.Extensions.Inte
   prefersNonstop?: boolean
   maxLayoverMinutes?: boolean
   willingToReposition?: boolean
-  redemptionStyle?: boolean
   avoidBasicEconomy?: boolean
   preferredAirlines?: boolean
   avoidedAirlines?: boolean
+  preferredHotelTypes?: boolean
+  roomPreferences?: boolean
+  locationPreferences?: boolean
+  redemptionStyle?: boolean
+  budgetSensitivity?: boolean
+  pointsVsCash?: boolean
+  accessibilityNeeds?: boolean
+  foodPreferences?: boolean
+  activityPreferences?: boolean
+  familyConsiderations?: boolean
+  specialOccasions?: boolean
+  dislikes?: boolean
+  dealbreakers?: boolean
   notes?: boolean
+  lastUpdatedSource?: boolean
+  mergeStrategy?: boolean
   createdAt?: boolean
   updatedAt?: boolean
   client?: boolean | Prisma.ClientDefaultArgs<ExtArgs>
+  changelog?: boolean | Prisma.ClientPreference$changelogArgs<ExtArgs>
+  _count?: boolean | Prisma.ClientPreferenceCountOutputTypeDefaultArgs<ExtArgs>
 }, ExtArgs["result"]["clientPreference"]>
 
 export type ClientPreferenceSelectCreateManyAndReturn<ExtArgs extends runtime.Types.Extensions.InternalArgs = runtime.Types.Extensions.DefaultArgs> = runtime.Types.Extensions.GetSelect<{
@@ -662,11 +1201,25 @@ export type ClientPreferenceSelectCreateManyAndReturn<ExtArgs extends runtime.Ty
   prefersNonstop?: boolean
   maxLayoverMinutes?: boolean
   willingToReposition?: boolean
-  redemptionStyle?: boolean
   avoidBasicEconomy?: boolean
   preferredAirlines?: boolean
   avoidedAirlines?: boolean
+  preferredHotelTypes?: boolean
+  roomPreferences?: boolean
+  locationPreferences?: boolean
+  redemptionStyle?: boolean
+  budgetSensitivity?: boolean
+  pointsVsCash?: boolean
+  accessibilityNeeds?: boolean
+  foodPreferences?: boolean
+  activityPreferences?: boolean
+  familyConsiderations?: boolean
+  specialOccasions?: boolean
+  dislikes?: boolean
+  dealbreakers?: boolean
   notes?: boolean
+  lastUpdatedSource?: boolean
+  mergeStrategy?: boolean
   createdAt?: boolean
   updatedAt?: boolean
   client?: boolean | Prisma.ClientDefaultArgs<ExtArgs>
@@ -679,11 +1232,25 @@ export type ClientPreferenceSelectUpdateManyAndReturn<ExtArgs extends runtime.Ty
   prefersNonstop?: boolean
   maxLayoverMinutes?: boolean
   willingToReposition?: boolean
-  redemptionStyle?: boolean
   avoidBasicEconomy?: boolean
   preferredAirlines?: boolean
   avoidedAirlines?: boolean
+  preferredHotelTypes?: boolean
+  roomPreferences?: boolean
+  locationPreferences?: boolean
+  redemptionStyle?: boolean
+  budgetSensitivity?: boolean
+  pointsVsCash?: boolean
+  accessibilityNeeds?: boolean
+  foodPreferences?: boolean
+  activityPreferences?: boolean
+  familyConsiderations?: boolean
+  specialOccasions?: boolean
+  dislikes?: boolean
+  dealbreakers?: boolean
   notes?: boolean
+  lastUpdatedSource?: boolean
+  mergeStrategy?: boolean
   createdAt?: boolean
   updatedAt?: boolean
   client?: boolean | Prisma.ClientDefaultArgs<ExtArgs>
@@ -696,18 +1263,34 @@ export type ClientPreferenceSelectScalar = {
   prefersNonstop?: boolean
   maxLayoverMinutes?: boolean
   willingToReposition?: boolean
-  redemptionStyle?: boolean
   avoidBasicEconomy?: boolean
   preferredAirlines?: boolean
   avoidedAirlines?: boolean
+  preferredHotelTypes?: boolean
+  roomPreferences?: boolean
+  locationPreferences?: boolean
+  redemptionStyle?: boolean
+  budgetSensitivity?: boolean
+  pointsVsCash?: boolean
+  accessibilityNeeds?: boolean
+  foodPreferences?: boolean
+  activityPreferences?: boolean
+  familyConsiderations?: boolean
+  specialOccasions?: boolean
+  dislikes?: boolean
+  dealbreakers?: boolean
   notes?: boolean
+  lastUpdatedSource?: boolean
+  mergeStrategy?: boolean
   createdAt?: boolean
   updatedAt?: boolean
 }
 
-export type ClientPreferenceOmit<ExtArgs extends runtime.Types.Extensions.InternalArgs = runtime.Types.Extensions.DefaultArgs> = runtime.Types.Extensions.GetOmit<"id" | "clientId" | "preferredCabin" | "prefersNonstop" | "maxLayoverMinutes" | "willingToReposition" | "redemptionStyle" | "avoidBasicEconomy" | "preferredAirlines" | "avoidedAirlines" | "notes" | "createdAt" | "updatedAt", ExtArgs["result"]["clientPreference"]>
+export type ClientPreferenceOmit<ExtArgs extends runtime.Types.Extensions.InternalArgs = runtime.Types.Extensions.DefaultArgs> = runtime.Types.Extensions.GetOmit<"id" | "clientId" | "preferredCabin" | "prefersNonstop" | "maxLayoverMinutes" | "willingToReposition" | "avoidBasicEconomy" | "preferredAirlines" | "avoidedAirlines" | "preferredHotelTypes" | "roomPreferences" | "locationPreferences" | "redemptionStyle" | "budgetSensitivity" | "pointsVsCash" | "accessibilityNeeds" | "foodPreferences" | "activityPreferences" | "familyConsiderations" | "specialOccasions" | "dislikes" | "dealbreakers" | "notes" | "lastUpdatedSource" | "mergeStrategy" | "createdAt" | "updatedAt", ExtArgs["result"]["clientPreference"]>
 export type ClientPreferenceInclude<ExtArgs extends runtime.Types.Extensions.InternalArgs = runtime.Types.Extensions.DefaultArgs> = {
   client?: boolean | Prisma.ClientDefaultArgs<ExtArgs>
+  changelog?: boolean | Prisma.ClientPreference$changelogArgs<ExtArgs>
+  _count?: boolean | Prisma.ClientPreferenceCountOutputTypeDefaultArgs<ExtArgs>
 }
 export type ClientPreferenceIncludeCreateManyAndReturn<ExtArgs extends runtime.Types.Extensions.InternalArgs = runtime.Types.Extensions.DefaultArgs> = {
   client?: boolean | Prisma.ClientDefaultArgs<ExtArgs>
@@ -720,6 +1303,7 @@ export type $ClientPreferencePayload<ExtArgs extends runtime.Types.Extensions.In
   name: "ClientPreference"
   objects: {
     client: Prisma.$ClientPayload<ExtArgs>
+    changelog: Prisma.$PreferenceChangeLogPayload<ExtArgs>[]
   }
   scalars: runtime.Types.Extensions.GetPayloadResult<{
     id: string
@@ -728,11 +1312,25 @@ export type $ClientPreferencePayload<ExtArgs extends runtime.Types.Extensions.In
     prefersNonstop: boolean
     maxLayoverMinutes: number | null
     willingToReposition: boolean
-    redemptionStyle: $Enums.RedemptionStyle
     avoidBasicEconomy: boolean
     preferredAirlines: runtime.JsonValue | null
     avoidedAirlines: runtime.JsonValue | null
+    preferredHotelTypes: runtime.JsonValue | null
+    roomPreferences: runtime.JsonValue | null
+    locationPreferences: string | null
+    redemptionStyle: $Enums.RedemptionStyle
+    budgetSensitivity: $Enums.BudgetSensitivity | null
+    pointsVsCash: string | null
+    accessibilityNeeds: runtime.JsonValue | null
+    foodPreferences: runtime.JsonValue | null
+    activityPreferences: runtime.JsonValue | null
+    familyConsiderations: string | null
+    specialOccasions: runtime.JsonValue | null
+    dislikes: runtime.JsonValue | null
+    dealbreakers: runtime.JsonValue | null
     notes: string | null
+    lastUpdatedSource: $Enums.PreferenceSource
+    mergeStrategy: $Enums.MergeStrategy
     createdAt: Date
     updatedAt: Date
   }, ExtArgs["result"]["clientPreference"]>
@@ -1130,6 +1728,7 @@ readonly fields: ClientPreferenceFieldRefs;
 export interface Prisma__ClientPreferenceClient<T, Null = never, ExtArgs extends runtime.Types.Extensions.InternalArgs = runtime.Types.Extensions.DefaultArgs, GlobalOmitOptions = {}> extends Prisma.PrismaPromise<T> {
   readonly [Symbol.toStringTag]: "PrismaPromise"
   client<T extends Prisma.ClientDefaultArgs<ExtArgs> = {}>(args?: Prisma.Subset<T, Prisma.ClientDefaultArgs<ExtArgs>>): Prisma.Prisma__ClientClient<runtime.Types.Result.GetResult<Prisma.$ClientPayload<ExtArgs>, T, "findUniqueOrThrow", GlobalOmitOptions> | Null, Null, ExtArgs, GlobalOmitOptions>
+  changelog<T extends Prisma.ClientPreference$changelogArgs<ExtArgs> = {}>(args?: Prisma.Subset<T, Prisma.ClientPreference$changelogArgs<ExtArgs>>): Prisma.PrismaPromise<runtime.Types.Result.GetResult<Prisma.$PreferenceChangeLogPayload<ExtArgs>, T, "findMany", GlobalOmitOptions> | Null>
   /**
    * Attaches callbacks for the resolution and/or rejection of the Promise.
    * @param onfulfilled The callback to execute when the Promise is resolved.
@@ -1165,11 +1764,25 @@ export interface ClientPreferenceFieldRefs {
   readonly prefersNonstop: Prisma.FieldRef<"ClientPreference", 'Boolean'>
   readonly maxLayoverMinutes: Prisma.FieldRef<"ClientPreference", 'Int'>
   readonly willingToReposition: Prisma.FieldRef<"ClientPreference", 'Boolean'>
-  readonly redemptionStyle: Prisma.FieldRef<"ClientPreference", 'RedemptionStyle'>
   readonly avoidBasicEconomy: Prisma.FieldRef<"ClientPreference", 'Boolean'>
   readonly preferredAirlines: Prisma.FieldRef<"ClientPreference", 'Json'>
   readonly avoidedAirlines: Prisma.FieldRef<"ClientPreference", 'Json'>
+  readonly preferredHotelTypes: Prisma.FieldRef<"ClientPreference", 'Json'>
+  readonly roomPreferences: Prisma.FieldRef<"ClientPreference", 'Json'>
+  readonly locationPreferences: Prisma.FieldRef<"ClientPreference", 'String'>
+  readonly redemptionStyle: Prisma.FieldRef<"ClientPreference", 'RedemptionStyle'>
+  readonly budgetSensitivity: Prisma.FieldRef<"ClientPreference", 'BudgetSensitivity'>
+  readonly pointsVsCash: Prisma.FieldRef<"ClientPreference", 'String'>
+  readonly accessibilityNeeds: Prisma.FieldRef<"ClientPreference", 'Json'>
+  readonly foodPreferences: Prisma.FieldRef<"ClientPreference", 'Json'>
+  readonly activityPreferences: Prisma.FieldRef<"ClientPreference", 'Json'>
+  readonly familyConsiderations: Prisma.FieldRef<"ClientPreference", 'String'>
+  readonly specialOccasions: Prisma.FieldRef<"ClientPreference", 'Json'>
+  readonly dislikes: Prisma.FieldRef<"ClientPreference", 'Json'>
+  readonly dealbreakers: Prisma.FieldRef<"ClientPreference", 'Json'>
   readonly notes: Prisma.FieldRef<"ClientPreference", 'String'>
+  readonly lastUpdatedSource: Prisma.FieldRef<"ClientPreference", 'PreferenceSource'>
+  readonly mergeStrategy: Prisma.FieldRef<"ClientPreference", 'MergeStrategy'>
   readonly createdAt: Prisma.FieldRef<"ClientPreference", 'DateTime'>
   readonly updatedAt: Prisma.FieldRef<"ClientPreference", 'DateTime'>
 }
@@ -1570,6 +2183,30 @@ export type ClientPreferenceDeleteManyArgs<ExtArgs extends runtime.Types.Extensi
    * Limit how many ClientPreferences to delete.
    */
   limit?: number
+}
+
+/**
+ * ClientPreference.changelog
+ */
+export type ClientPreference$changelogArgs<ExtArgs extends runtime.Types.Extensions.InternalArgs = runtime.Types.Extensions.DefaultArgs> = {
+  /**
+   * Select specific fields to fetch from the PreferenceChangeLog
+   */
+  select?: Prisma.PreferenceChangeLogSelect<ExtArgs> | null
+  /**
+   * Omit specific fields from the PreferenceChangeLog
+   */
+  omit?: Prisma.PreferenceChangeLogOmit<ExtArgs> | null
+  /**
+   * Choose, which related nodes to fetch as well
+   */
+  include?: Prisma.PreferenceChangeLogInclude<ExtArgs> | null
+  where?: Prisma.PreferenceChangeLogWhereInput
+  orderBy?: Prisma.PreferenceChangeLogOrderByWithRelationInput | Prisma.PreferenceChangeLogOrderByWithRelationInput[]
+  cursor?: Prisma.PreferenceChangeLogWhereUniqueInput
+  take?: number
+  skip?: number
+  distinct?: Prisma.PreferenceChangeLogScalarFieldEnum | Prisma.PreferenceChangeLogScalarFieldEnum[]
 }
 
 /**

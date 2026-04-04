@@ -219,6 +219,10 @@ export type UserWhereInput = {
   tripRequests?: Prisma.TripRequestListRelationFilter
   recommendationRuns?: Prisma.RecommendationRunListRelationFilter
   ledgerEntries?: Prisma.BalanceLedgerEntryListRelationFilter
+  preferenceChangeLogs?: Prisma.PreferenceChangeLogListRelationFilter
+  resolvedInferences?: Prisma.InferredPreferenceListRelationFilter
+  tripBriefs?: Prisma.TripBriefListRelationFilter
+  vendorRequests?: Prisma.VendorRequestListRelationFilter
 }
 
 export type UserOrderByWithRelationInput = {
@@ -236,6 +240,10 @@ export type UserOrderByWithRelationInput = {
   tripRequests?: Prisma.TripRequestOrderByRelationAggregateInput
   recommendationRuns?: Prisma.RecommendationRunOrderByRelationAggregateInput
   ledgerEntries?: Prisma.BalanceLedgerEntryOrderByRelationAggregateInput
+  preferenceChangeLogs?: Prisma.PreferenceChangeLogOrderByRelationAggregateInput
+  resolvedInferences?: Prisma.InferredPreferenceOrderByRelationAggregateInput
+  tripBriefs?: Prisma.TripBriefOrderByRelationAggregateInput
+  vendorRequests?: Prisma.VendorRequestOrderByRelationAggregateInput
 }
 
 export type UserWhereUniqueInput = Prisma.AtLeast<{
@@ -256,6 +264,10 @@ export type UserWhereUniqueInput = Prisma.AtLeast<{
   tripRequests?: Prisma.TripRequestListRelationFilter
   recommendationRuns?: Prisma.RecommendationRunListRelationFilter
   ledgerEntries?: Prisma.BalanceLedgerEntryListRelationFilter
+  preferenceChangeLogs?: Prisma.PreferenceChangeLogListRelationFilter
+  resolvedInferences?: Prisma.InferredPreferenceListRelationFilter
+  tripBriefs?: Prisma.TripBriefListRelationFilter
+  vendorRequests?: Prisma.VendorRequestListRelationFilter
 }, "id" | "email">
 
 export type UserOrderByWithAggregationInput = {
@@ -302,6 +314,10 @@ export type UserCreateInput = {
   tripRequests?: Prisma.TripRequestCreateNestedManyWithoutOwnerInput
   recommendationRuns?: Prisma.RecommendationRunCreateNestedManyWithoutCreatedByInput
   ledgerEntries?: Prisma.BalanceLedgerEntryCreateNestedManyWithoutChangedByInput
+  preferenceChangeLogs?: Prisma.PreferenceChangeLogCreateNestedManyWithoutChangedByInput
+  resolvedInferences?: Prisma.InferredPreferenceCreateNestedManyWithoutResolvedByInput
+  tripBriefs?: Prisma.TripBriefCreateNestedManyWithoutGeneratedByInput
+  vendorRequests?: Prisma.VendorRequestCreateNestedManyWithoutCreatedByInput
 }
 
 export type UserUncheckedCreateInput = {
@@ -318,6 +334,10 @@ export type UserUncheckedCreateInput = {
   tripRequests?: Prisma.TripRequestUncheckedCreateNestedManyWithoutOwnerInput
   recommendationRuns?: Prisma.RecommendationRunUncheckedCreateNestedManyWithoutCreatedByInput
   ledgerEntries?: Prisma.BalanceLedgerEntryUncheckedCreateNestedManyWithoutChangedByInput
+  preferenceChangeLogs?: Prisma.PreferenceChangeLogUncheckedCreateNestedManyWithoutChangedByInput
+  resolvedInferences?: Prisma.InferredPreferenceUncheckedCreateNestedManyWithoutResolvedByInput
+  tripBriefs?: Prisma.TripBriefUncheckedCreateNestedManyWithoutGeneratedByInput
+  vendorRequests?: Prisma.VendorRequestUncheckedCreateNestedManyWithoutCreatedByInput
 }
 
 export type UserUpdateInput = {
@@ -334,6 +354,10 @@ export type UserUpdateInput = {
   tripRequests?: Prisma.TripRequestUpdateManyWithoutOwnerNestedInput
   recommendationRuns?: Prisma.RecommendationRunUpdateManyWithoutCreatedByNestedInput
   ledgerEntries?: Prisma.BalanceLedgerEntryUpdateManyWithoutChangedByNestedInput
+  preferenceChangeLogs?: Prisma.PreferenceChangeLogUpdateManyWithoutChangedByNestedInput
+  resolvedInferences?: Prisma.InferredPreferenceUpdateManyWithoutResolvedByNestedInput
+  tripBriefs?: Prisma.TripBriefUpdateManyWithoutGeneratedByNestedInput
+  vendorRequests?: Prisma.VendorRequestUpdateManyWithoutCreatedByNestedInput
 }
 
 export type UserUncheckedUpdateInput = {
@@ -350,6 +374,10 @@ export type UserUncheckedUpdateInput = {
   tripRequests?: Prisma.TripRequestUncheckedUpdateManyWithoutOwnerNestedInput
   recommendationRuns?: Prisma.RecommendationRunUncheckedUpdateManyWithoutCreatedByNestedInput
   ledgerEntries?: Prisma.BalanceLedgerEntryUncheckedUpdateManyWithoutChangedByNestedInput
+  preferenceChangeLogs?: Prisma.PreferenceChangeLogUncheckedUpdateManyWithoutChangedByNestedInput
+  resolvedInferences?: Prisma.InferredPreferenceUncheckedUpdateManyWithoutResolvedByNestedInput
+  tripBriefs?: Prisma.TripBriefUncheckedUpdateManyWithoutGeneratedByNestedInput
+  vendorRequests?: Prisma.VendorRequestUncheckedUpdateManyWithoutCreatedByNestedInput
 }
 
 export type UserCreateManyInput = {
@@ -438,6 +466,11 @@ export type UserScalarRelationFilter = {
   isNot?: Prisma.UserWhereInput
 }
 
+export type UserNullableScalarRelationFilter = {
+  is?: Prisma.UserWhereInput | null
+  isNot?: Prisma.UserWhereInput | null
+}
+
 export type UserCreateNestedManyWithoutOrganizationInput = {
   create?: Prisma.XOR<Prisma.UserCreateWithoutOrganizationInput, Prisma.UserUncheckedCreateWithoutOrganizationInput> | Prisma.UserCreateWithoutOrganizationInput[] | Prisma.UserUncheckedCreateWithoutOrganizationInput[]
   connectOrCreate?: Prisma.UserCreateOrConnectWithoutOrganizationInput | Prisma.UserCreateOrConnectWithoutOrganizationInput[]
@@ -512,6 +545,20 @@ export type UserUpdateOneRequiredWithoutLedgerEntriesNestedInput = {
   update?: Prisma.XOR<Prisma.XOR<Prisma.UserUpdateToOneWithWhereWithoutLedgerEntriesInput, Prisma.UserUpdateWithoutLedgerEntriesInput>, Prisma.UserUncheckedUpdateWithoutLedgerEntriesInput>
 }
 
+export type UserCreateNestedOneWithoutPreferenceChangeLogsInput = {
+  create?: Prisma.XOR<Prisma.UserCreateWithoutPreferenceChangeLogsInput, Prisma.UserUncheckedCreateWithoutPreferenceChangeLogsInput>
+  connectOrCreate?: Prisma.UserCreateOrConnectWithoutPreferenceChangeLogsInput
+  connect?: Prisma.UserWhereUniqueInput
+}
+
+export type UserUpdateOneRequiredWithoutPreferenceChangeLogsNestedInput = {
+  create?: Prisma.XOR<Prisma.UserCreateWithoutPreferenceChangeLogsInput, Prisma.UserUncheckedCreateWithoutPreferenceChangeLogsInput>
+  connectOrCreate?: Prisma.UserCreateOrConnectWithoutPreferenceChangeLogsInput
+  upsert?: Prisma.UserUpsertWithoutPreferenceChangeLogsInput
+  connect?: Prisma.UserWhereUniqueInput
+  update?: Prisma.XOR<Prisma.XOR<Prisma.UserUpdateToOneWithWhereWithoutPreferenceChangeLogsInput, Prisma.UserUpdateWithoutPreferenceChangeLogsInput>, Prisma.UserUncheckedUpdateWithoutPreferenceChangeLogsInput>
+}
+
 export type UserCreateNestedOneWithoutTripRequestsInput = {
   create?: Prisma.XOR<Prisma.UserCreateWithoutTripRequestsInput, Prisma.UserUncheckedCreateWithoutTripRequestsInput>
   connectOrCreate?: Prisma.UserCreateOrConnectWithoutTripRequestsInput
@@ -540,6 +587,50 @@ export type UserUpdateOneRequiredWithoutRecommendationRunsNestedInput = {
   update?: Prisma.XOR<Prisma.XOR<Prisma.UserUpdateToOneWithWhereWithoutRecommendationRunsInput, Prisma.UserUpdateWithoutRecommendationRunsInput>, Prisma.UserUncheckedUpdateWithoutRecommendationRunsInput>
 }
 
+export type UserCreateNestedOneWithoutTripBriefsInput = {
+  create?: Prisma.XOR<Prisma.UserCreateWithoutTripBriefsInput, Prisma.UserUncheckedCreateWithoutTripBriefsInput>
+  connectOrCreate?: Prisma.UserCreateOrConnectWithoutTripBriefsInput
+  connect?: Prisma.UserWhereUniqueInput
+}
+
+export type UserUpdateOneRequiredWithoutTripBriefsNestedInput = {
+  create?: Prisma.XOR<Prisma.UserCreateWithoutTripBriefsInput, Prisma.UserUncheckedCreateWithoutTripBriefsInput>
+  connectOrCreate?: Prisma.UserCreateOrConnectWithoutTripBriefsInput
+  upsert?: Prisma.UserUpsertWithoutTripBriefsInput
+  connect?: Prisma.UserWhereUniqueInput
+  update?: Prisma.XOR<Prisma.XOR<Prisma.UserUpdateToOneWithWhereWithoutTripBriefsInput, Prisma.UserUpdateWithoutTripBriefsInput>, Prisma.UserUncheckedUpdateWithoutTripBriefsInput>
+}
+
+export type UserCreateNestedOneWithoutResolvedInferencesInput = {
+  create?: Prisma.XOR<Prisma.UserCreateWithoutResolvedInferencesInput, Prisma.UserUncheckedCreateWithoutResolvedInferencesInput>
+  connectOrCreate?: Prisma.UserCreateOrConnectWithoutResolvedInferencesInput
+  connect?: Prisma.UserWhereUniqueInput
+}
+
+export type UserUpdateOneWithoutResolvedInferencesNestedInput = {
+  create?: Prisma.XOR<Prisma.UserCreateWithoutResolvedInferencesInput, Prisma.UserUncheckedCreateWithoutResolvedInferencesInput>
+  connectOrCreate?: Prisma.UserCreateOrConnectWithoutResolvedInferencesInput
+  upsert?: Prisma.UserUpsertWithoutResolvedInferencesInput
+  disconnect?: Prisma.UserWhereInput | boolean
+  delete?: Prisma.UserWhereInput | boolean
+  connect?: Prisma.UserWhereUniqueInput
+  update?: Prisma.XOR<Prisma.XOR<Prisma.UserUpdateToOneWithWhereWithoutResolvedInferencesInput, Prisma.UserUpdateWithoutResolvedInferencesInput>, Prisma.UserUncheckedUpdateWithoutResolvedInferencesInput>
+}
+
+export type UserCreateNestedOneWithoutVendorRequestsInput = {
+  create?: Prisma.XOR<Prisma.UserCreateWithoutVendorRequestsInput, Prisma.UserUncheckedCreateWithoutVendorRequestsInput>
+  connectOrCreate?: Prisma.UserCreateOrConnectWithoutVendorRequestsInput
+  connect?: Prisma.UserWhereUniqueInput
+}
+
+export type UserUpdateOneRequiredWithoutVendorRequestsNestedInput = {
+  create?: Prisma.XOR<Prisma.UserCreateWithoutVendorRequestsInput, Prisma.UserUncheckedCreateWithoutVendorRequestsInput>
+  connectOrCreate?: Prisma.UserCreateOrConnectWithoutVendorRequestsInput
+  upsert?: Prisma.UserUpsertWithoutVendorRequestsInput
+  connect?: Prisma.UserWhereUniqueInput
+  update?: Prisma.XOR<Prisma.XOR<Prisma.UserUpdateToOneWithWhereWithoutVendorRequestsInput, Prisma.UserUpdateWithoutVendorRequestsInput>, Prisma.UserUncheckedUpdateWithoutVendorRequestsInput>
+}
+
 export type UserCreateWithoutOrganizationInput = {
   id?: string
   firstName: string
@@ -553,6 +644,10 @@ export type UserCreateWithoutOrganizationInput = {
   tripRequests?: Prisma.TripRequestCreateNestedManyWithoutOwnerInput
   recommendationRuns?: Prisma.RecommendationRunCreateNestedManyWithoutCreatedByInput
   ledgerEntries?: Prisma.BalanceLedgerEntryCreateNestedManyWithoutChangedByInput
+  preferenceChangeLogs?: Prisma.PreferenceChangeLogCreateNestedManyWithoutChangedByInput
+  resolvedInferences?: Prisma.InferredPreferenceCreateNestedManyWithoutResolvedByInput
+  tripBriefs?: Prisma.TripBriefCreateNestedManyWithoutGeneratedByInput
+  vendorRequests?: Prisma.VendorRequestCreateNestedManyWithoutCreatedByInput
 }
 
 export type UserUncheckedCreateWithoutOrganizationInput = {
@@ -568,6 +663,10 @@ export type UserUncheckedCreateWithoutOrganizationInput = {
   tripRequests?: Prisma.TripRequestUncheckedCreateNestedManyWithoutOwnerInput
   recommendationRuns?: Prisma.RecommendationRunUncheckedCreateNestedManyWithoutCreatedByInput
   ledgerEntries?: Prisma.BalanceLedgerEntryUncheckedCreateNestedManyWithoutChangedByInput
+  preferenceChangeLogs?: Prisma.PreferenceChangeLogUncheckedCreateNestedManyWithoutChangedByInput
+  resolvedInferences?: Prisma.InferredPreferenceUncheckedCreateNestedManyWithoutResolvedByInput
+  tripBriefs?: Prisma.TripBriefUncheckedCreateNestedManyWithoutGeneratedByInput
+  vendorRequests?: Prisma.VendorRequestUncheckedCreateNestedManyWithoutCreatedByInput
 }
 
 export type UserCreateOrConnectWithoutOrganizationInput = {
@@ -624,6 +723,10 @@ export type UserCreateWithoutOwnedClientsInput = {
   tripRequests?: Prisma.TripRequestCreateNestedManyWithoutOwnerInput
   recommendationRuns?: Prisma.RecommendationRunCreateNestedManyWithoutCreatedByInput
   ledgerEntries?: Prisma.BalanceLedgerEntryCreateNestedManyWithoutChangedByInput
+  preferenceChangeLogs?: Prisma.PreferenceChangeLogCreateNestedManyWithoutChangedByInput
+  resolvedInferences?: Prisma.InferredPreferenceCreateNestedManyWithoutResolvedByInput
+  tripBriefs?: Prisma.TripBriefCreateNestedManyWithoutGeneratedByInput
+  vendorRequests?: Prisma.VendorRequestCreateNestedManyWithoutCreatedByInput
 }
 
 export type UserUncheckedCreateWithoutOwnedClientsInput = {
@@ -639,6 +742,10 @@ export type UserUncheckedCreateWithoutOwnedClientsInput = {
   tripRequests?: Prisma.TripRequestUncheckedCreateNestedManyWithoutOwnerInput
   recommendationRuns?: Prisma.RecommendationRunUncheckedCreateNestedManyWithoutCreatedByInput
   ledgerEntries?: Prisma.BalanceLedgerEntryUncheckedCreateNestedManyWithoutChangedByInput
+  preferenceChangeLogs?: Prisma.PreferenceChangeLogUncheckedCreateNestedManyWithoutChangedByInput
+  resolvedInferences?: Prisma.InferredPreferenceUncheckedCreateNestedManyWithoutResolvedByInput
+  tripBriefs?: Prisma.TripBriefUncheckedCreateNestedManyWithoutGeneratedByInput
+  vendorRequests?: Prisma.VendorRequestUncheckedCreateNestedManyWithoutCreatedByInput
 }
 
 export type UserCreateOrConnectWithoutOwnedClientsInput = {
@@ -670,6 +777,10 @@ export type UserUpdateWithoutOwnedClientsInput = {
   tripRequests?: Prisma.TripRequestUpdateManyWithoutOwnerNestedInput
   recommendationRuns?: Prisma.RecommendationRunUpdateManyWithoutCreatedByNestedInput
   ledgerEntries?: Prisma.BalanceLedgerEntryUpdateManyWithoutChangedByNestedInput
+  preferenceChangeLogs?: Prisma.PreferenceChangeLogUpdateManyWithoutChangedByNestedInput
+  resolvedInferences?: Prisma.InferredPreferenceUpdateManyWithoutResolvedByNestedInput
+  tripBriefs?: Prisma.TripBriefUpdateManyWithoutGeneratedByNestedInput
+  vendorRequests?: Prisma.VendorRequestUpdateManyWithoutCreatedByNestedInput
 }
 
 export type UserUncheckedUpdateWithoutOwnedClientsInput = {
@@ -685,6 +796,10 @@ export type UserUncheckedUpdateWithoutOwnedClientsInput = {
   tripRequests?: Prisma.TripRequestUncheckedUpdateManyWithoutOwnerNestedInput
   recommendationRuns?: Prisma.RecommendationRunUncheckedUpdateManyWithoutCreatedByNestedInput
   ledgerEntries?: Prisma.BalanceLedgerEntryUncheckedUpdateManyWithoutChangedByNestedInput
+  preferenceChangeLogs?: Prisma.PreferenceChangeLogUncheckedUpdateManyWithoutChangedByNestedInput
+  resolvedInferences?: Prisma.InferredPreferenceUncheckedUpdateManyWithoutResolvedByNestedInput
+  tripBriefs?: Prisma.TripBriefUncheckedUpdateManyWithoutGeneratedByNestedInput
+  vendorRequests?: Prisma.VendorRequestUncheckedUpdateManyWithoutCreatedByNestedInput
 }
 
 export type UserCreateWithoutLedgerEntriesInput = {
@@ -700,6 +815,10 @@ export type UserCreateWithoutLedgerEntriesInput = {
   ownedClients?: Prisma.ClientCreateNestedManyWithoutOwnerInput
   tripRequests?: Prisma.TripRequestCreateNestedManyWithoutOwnerInput
   recommendationRuns?: Prisma.RecommendationRunCreateNestedManyWithoutCreatedByInput
+  preferenceChangeLogs?: Prisma.PreferenceChangeLogCreateNestedManyWithoutChangedByInput
+  resolvedInferences?: Prisma.InferredPreferenceCreateNestedManyWithoutResolvedByInput
+  tripBriefs?: Prisma.TripBriefCreateNestedManyWithoutGeneratedByInput
+  vendorRequests?: Prisma.VendorRequestCreateNestedManyWithoutCreatedByInput
 }
 
 export type UserUncheckedCreateWithoutLedgerEntriesInput = {
@@ -715,6 +834,10 @@ export type UserUncheckedCreateWithoutLedgerEntriesInput = {
   ownedClients?: Prisma.ClientUncheckedCreateNestedManyWithoutOwnerInput
   tripRequests?: Prisma.TripRequestUncheckedCreateNestedManyWithoutOwnerInput
   recommendationRuns?: Prisma.RecommendationRunUncheckedCreateNestedManyWithoutCreatedByInput
+  preferenceChangeLogs?: Prisma.PreferenceChangeLogUncheckedCreateNestedManyWithoutChangedByInput
+  resolvedInferences?: Prisma.InferredPreferenceUncheckedCreateNestedManyWithoutResolvedByInput
+  tripBriefs?: Prisma.TripBriefUncheckedCreateNestedManyWithoutGeneratedByInput
+  vendorRequests?: Prisma.VendorRequestUncheckedCreateNestedManyWithoutCreatedByInput
 }
 
 export type UserCreateOrConnectWithoutLedgerEntriesInput = {
@@ -746,6 +869,10 @@ export type UserUpdateWithoutLedgerEntriesInput = {
   ownedClients?: Prisma.ClientUpdateManyWithoutOwnerNestedInput
   tripRequests?: Prisma.TripRequestUpdateManyWithoutOwnerNestedInput
   recommendationRuns?: Prisma.RecommendationRunUpdateManyWithoutCreatedByNestedInput
+  preferenceChangeLogs?: Prisma.PreferenceChangeLogUpdateManyWithoutChangedByNestedInput
+  resolvedInferences?: Prisma.InferredPreferenceUpdateManyWithoutResolvedByNestedInput
+  tripBriefs?: Prisma.TripBriefUpdateManyWithoutGeneratedByNestedInput
+  vendorRequests?: Prisma.VendorRequestUpdateManyWithoutCreatedByNestedInput
 }
 
 export type UserUncheckedUpdateWithoutLedgerEntriesInput = {
@@ -761,6 +888,102 @@ export type UserUncheckedUpdateWithoutLedgerEntriesInput = {
   ownedClients?: Prisma.ClientUncheckedUpdateManyWithoutOwnerNestedInput
   tripRequests?: Prisma.TripRequestUncheckedUpdateManyWithoutOwnerNestedInput
   recommendationRuns?: Prisma.RecommendationRunUncheckedUpdateManyWithoutCreatedByNestedInput
+  preferenceChangeLogs?: Prisma.PreferenceChangeLogUncheckedUpdateManyWithoutChangedByNestedInput
+  resolvedInferences?: Prisma.InferredPreferenceUncheckedUpdateManyWithoutResolvedByNestedInput
+  tripBriefs?: Prisma.TripBriefUncheckedUpdateManyWithoutGeneratedByNestedInput
+  vendorRequests?: Prisma.VendorRequestUncheckedUpdateManyWithoutCreatedByNestedInput
+}
+
+export type UserCreateWithoutPreferenceChangeLogsInput = {
+  id?: string
+  firstName: string
+  lastName: string
+  email: string
+  passwordHash: string
+  role?: $Enums.UserRole
+  createdAt?: Date | string
+  updatedAt?: Date | string
+  organization: Prisma.OrganizationCreateNestedOneWithoutUsersInput
+  ownedClients?: Prisma.ClientCreateNestedManyWithoutOwnerInput
+  tripRequests?: Prisma.TripRequestCreateNestedManyWithoutOwnerInput
+  recommendationRuns?: Prisma.RecommendationRunCreateNestedManyWithoutCreatedByInput
+  ledgerEntries?: Prisma.BalanceLedgerEntryCreateNestedManyWithoutChangedByInput
+  resolvedInferences?: Prisma.InferredPreferenceCreateNestedManyWithoutResolvedByInput
+  tripBriefs?: Prisma.TripBriefCreateNestedManyWithoutGeneratedByInput
+  vendorRequests?: Prisma.VendorRequestCreateNestedManyWithoutCreatedByInput
+}
+
+export type UserUncheckedCreateWithoutPreferenceChangeLogsInput = {
+  id?: string
+  organizationId: string
+  firstName: string
+  lastName: string
+  email: string
+  passwordHash: string
+  role?: $Enums.UserRole
+  createdAt?: Date | string
+  updatedAt?: Date | string
+  ownedClients?: Prisma.ClientUncheckedCreateNestedManyWithoutOwnerInput
+  tripRequests?: Prisma.TripRequestUncheckedCreateNestedManyWithoutOwnerInput
+  recommendationRuns?: Prisma.RecommendationRunUncheckedCreateNestedManyWithoutCreatedByInput
+  ledgerEntries?: Prisma.BalanceLedgerEntryUncheckedCreateNestedManyWithoutChangedByInput
+  resolvedInferences?: Prisma.InferredPreferenceUncheckedCreateNestedManyWithoutResolvedByInput
+  tripBriefs?: Prisma.TripBriefUncheckedCreateNestedManyWithoutGeneratedByInput
+  vendorRequests?: Prisma.VendorRequestUncheckedCreateNestedManyWithoutCreatedByInput
+}
+
+export type UserCreateOrConnectWithoutPreferenceChangeLogsInput = {
+  where: Prisma.UserWhereUniqueInput
+  create: Prisma.XOR<Prisma.UserCreateWithoutPreferenceChangeLogsInput, Prisma.UserUncheckedCreateWithoutPreferenceChangeLogsInput>
+}
+
+export type UserUpsertWithoutPreferenceChangeLogsInput = {
+  update: Prisma.XOR<Prisma.UserUpdateWithoutPreferenceChangeLogsInput, Prisma.UserUncheckedUpdateWithoutPreferenceChangeLogsInput>
+  create: Prisma.XOR<Prisma.UserCreateWithoutPreferenceChangeLogsInput, Prisma.UserUncheckedCreateWithoutPreferenceChangeLogsInput>
+  where?: Prisma.UserWhereInput
+}
+
+export type UserUpdateToOneWithWhereWithoutPreferenceChangeLogsInput = {
+  where?: Prisma.UserWhereInput
+  data: Prisma.XOR<Prisma.UserUpdateWithoutPreferenceChangeLogsInput, Prisma.UserUncheckedUpdateWithoutPreferenceChangeLogsInput>
+}
+
+export type UserUpdateWithoutPreferenceChangeLogsInput = {
+  id?: Prisma.StringFieldUpdateOperationsInput | string
+  firstName?: Prisma.StringFieldUpdateOperationsInput | string
+  lastName?: Prisma.StringFieldUpdateOperationsInput | string
+  email?: Prisma.StringFieldUpdateOperationsInput | string
+  passwordHash?: Prisma.StringFieldUpdateOperationsInput | string
+  role?: Prisma.EnumUserRoleFieldUpdateOperationsInput | $Enums.UserRole
+  createdAt?: Prisma.DateTimeFieldUpdateOperationsInput | Date | string
+  updatedAt?: Prisma.DateTimeFieldUpdateOperationsInput | Date | string
+  organization?: Prisma.OrganizationUpdateOneRequiredWithoutUsersNestedInput
+  ownedClients?: Prisma.ClientUpdateManyWithoutOwnerNestedInput
+  tripRequests?: Prisma.TripRequestUpdateManyWithoutOwnerNestedInput
+  recommendationRuns?: Prisma.RecommendationRunUpdateManyWithoutCreatedByNestedInput
+  ledgerEntries?: Prisma.BalanceLedgerEntryUpdateManyWithoutChangedByNestedInput
+  resolvedInferences?: Prisma.InferredPreferenceUpdateManyWithoutResolvedByNestedInput
+  tripBriefs?: Prisma.TripBriefUpdateManyWithoutGeneratedByNestedInput
+  vendorRequests?: Prisma.VendorRequestUpdateManyWithoutCreatedByNestedInput
+}
+
+export type UserUncheckedUpdateWithoutPreferenceChangeLogsInput = {
+  id?: Prisma.StringFieldUpdateOperationsInput | string
+  organizationId?: Prisma.StringFieldUpdateOperationsInput | string
+  firstName?: Prisma.StringFieldUpdateOperationsInput | string
+  lastName?: Prisma.StringFieldUpdateOperationsInput | string
+  email?: Prisma.StringFieldUpdateOperationsInput | string
+  passwordHash?: Prisma.StringFieldUpdateOperationsInput | string
+  role?: Prisma.EnumUserRoleFieldUpdateOperationsInput | $Enums.UserRole
+  createdAt?: Prisma.DateTimeFieldUpdateOperationsInput | Date | string
+  updatedAt?: Prisma.DateTimeFieldUpdateOperationsInput | Date | string
+  ownedClients?: Prisma.ClientUncheckedUpdateManyWithoutOwnerNestedInput
+  tripRequests?: Prisma.TripRequestUncheckedUpdateManyWithoutOwnerNestedInput
+  recommendationRuns?: Prisma.RecommendationRunUncheckedUpdateManyWithoutCreatedByNestedInput
+  ledgerEntries?: Prisma.BalanceLedgerEntryUncheckedUpdateManyWithoutChangedByNestedInput
+  resolvedInferences?: Prisma.InferredPreferenceUncheckedUpdateManyWithoutResolvedByNestedInput
+  tripBriefs?: Prisma.TripBriefUncheckedUpdateManyWithoutGeneratedByNestedInput
+  vendorRequests?: Prisma.VendorRequestUncheckedUpdateManyWithoutCreatedByNestedInput
 }
 
 export type UserCreateWithoutTripRequestsInput = {
@@ -776,6 +999,10 @@ export type UserCreateWithoutTripRequestsInput = {
   ownedClients?: Prisma.ClientCreateNestedManyWithoutOwnerInput
   recommendationRuns?: Prisma.RecommendationRunCreateNestedManyWithoutCreatedByInput
   ledgerEntries?: Prisma.BalanceLedgerEntryCreateNestedManyWithoutChangedByInput
+  preferenceChangeLogs?: Prisma.PreferenceChangeLogCreateNestedManyWithoutChangedByInput
+  resolvedInferences?: Prisma.InferredPreferenceCreateNestedManyWithoutResolvedByInput
+  tripBriefs?: Prisma.TripBriefCreateNestedManyWithoutGeneratedByInput
+  vendorRequests?: Prisma.VendorRequestCreateNestedManyWithoutCreatedByInput
 }
 
 export type UserUncheckedCreateWithoutTripRequestsInput = {
@@ -791,6 +1018,10 @@ export type UserUncheckedCreateWithoutTripRequestsInput = {
   ownedClients?: Prisma.ClientUncheckedCreateNestedManyWithoutOwnerInput
   recommendationRuns?: Prisma.RecommendationRunUncheckedCreateNestedManyWithoutCreatedByInput
   ledgerEntries?: Prisma.BalanceLedgerEntryUncheckedCreateNestedManyWithoutChangedByInput
+  preferenceChangeLogs?: Prisma.PreferenceChangeLogUncheckedCreateNestedManyWithoutChangedByInput
+  resolvedInferences?: Prisma.InferredPreferenceUncheckedCreateNestedManyWithoutResolvedByInput
+  tripBriefs?: Prisma.TripBriefUncheckedCreateNestedManyWithoutGeneratedByInput
+  vendorRequests?: Prisma.VendorRequestUncheckedCreateNestedManyWithoutCreatedByInput
 }
 
 export type UserCreateOrConnectWithoutTripRequestsInput = {
@@ -822,6 +1053,10 @@ export type UserUpdateWithoutTripRequestsInput = {
   ownedClients?: Prisma.ClientUpdateManyWithoutOwnerNestedInput
   recommendationRuns?: Prisma.RecommendationRunUpdateManyWithoutCreatedByNestedInput
   ledgerEntries?: Prisma.BalanceLedgerEntryUpdateManyWithoutChangedByNestedInput
+  preferenceChangeLogs?: Prisma.PreferenceChangeLogUpdateManyWithoutChangedByNestedInput
+  resolvedInferences?: Prisma.InferredPreferenceUpdateManyWithoutResolvedByNestedInput
+  tripBriefs?: Prisma.TripBriefUpdateManyWithoutGeneratedByNestedInput
+  vendorRequests?: Prisma.VendorRequestUpdateManyWithoutCreatedByNestedInput
 }
 
 export type UserUncheckedUpdateWithoutTripRequestsInput = {
@@ -837,6 +1072,10 @@ export type UserUncheckedUpdateWithoutTripRequestsInput = {
   ownedClients?: Prisma.ClientUncheckedUpdateManyWithoutOwnerNestedInput
   recommendationRuns?: Prisma.RecommendationRunUncheckedUpdateManyWithoutCreatedByNestedInput
   ledgerEntries?: Prisma.BalanceLedgerEntryUncheckedUpdateManyWithoutChangedByNestedInput
+  preferenceChangeLogs?: Prisma.PreferenceChangeLogUncheckedUpdateManyWithoutChangedByNestedInput
+  resolvedInferences?: Prisma.InferredPreferenceUncheckedUpdateManyWithoutResolvedByNestedInput
+  tripBriefs?: Prisma.TripBriefUncheckedUpdateManyWithoutGeneratedByNestedInput
+  vendorRequests?: Prisma.VendorRequestUncheckedUpdateManyWithoutCreatedByNestedInput
 }
 
 export type UserCreateWithoutRecommendationRunsInput = {
@@ -852,6 +1091,10 @@ export type UserCreateWithoutRecommendationRunsInput = {
   ownedClients?: Prisma.ClientCreateNestedManyWithoutOwnerInput
   tripRequests?: Prisma.TripRequestCreateNestedManyWithoutOwnerInput
   ledgerEntries?: Prisma.BalanceLedgerEntryCreateNestedManyWithoutChangedByInput
+  preferenceChangeLogs?: Prisma.PreferenceChangeLogCreateNestedManyWithoutChangedByInput
+  resolvedInferences?: Prisma.InferredPreferenceCreateNestedManyWithoutResolvedByInput
+  tripBriefs?: Prisma.TripBriefCreateNestedManyWithoutGeneratedByInput
+  vendorRequests?: Prisma.VendorRequestCreateNestedManyWithoutCreatedByInput
 }
 
 export type UserUncheckedCreateWithoutRecommendationRunsInput = {
@@ -867,6 +1110,10 @@ export type UserUncheckedCreateWithoutRecommendationRunsInput = {
   ownedClients?: Prisma.ClientUncheckedCreateNestedManyWithoutOwnerInput
   tripRequests?: Prisma.TripRequestUncheckedCreateNestedManyWithoutOwnerInput
   ledgerEntries?: Prisma.BalanceLedgerEntryUncheckedCreateNestedManyWithoutChangedByInput
+  preferenceChangeLogs?: Prisma.PreferenceChangeLogUncheckedCreateNestedManyWithoutChangedByInput
+  resolvedInferences?: Prisma.InferredPreferenceUncheckedCreateNestedManyWithoutResolvedByInput
+  tripBriefs?: Prisma.TripBriefUncheckedCreateNestedManyWithoutGeneratedByInput
+  vendorRequests?: Prisma.VendorRequestUncheckedCreateNestedManyWithoutCreatedByInput
 }
 
 export type UserCreateOrConnectWithoutRecommendationRunsInput = {
@@ -898,6 +1145,10 @@ export type UserUpdateWithoutRecommendationRunsInput = {
   ownedClients?: Prisma.ClientUpdateManyWithoutOwnerNestedInput
   tripRequests?: Prisma.TripRequestUpdateManyWithoutOwnerNestedInput
   ledgerEntries?: Prisma.BalanceLedgerEntryUpdateManyWithoutChangedByNestedInput
+  preferenceChangeLogs?: Prisma.PreferenceChangeLogUpdateManyWithoutChangedByNestedInput
+  resolvedInferences?: Prisma.InferredPreferenceUpdateManyWithoutResolvedByNestedInput
+  tripBriefs?: Prisma.TripBriefUpdateManyWithoutGeneratedByNestedInput
+  vendorRequests?: Prisma.VendorRequestUpdateManyWithoutCreatedByNestedInput
 }
 
 export type UserUncheckedUpdateWithoutRecommendationRunsInput = {
@@ -913,6 +1164,286 @@ export type UserUncheckedUpdateWithoutRecommendationRunsInput = {
   ownedClients?: Prisma.ClientUncheckedUpdateManyWithoutOwnerNestedInput
   tripRequests?: Prisma.TripRequestUncheckedUpdateManyWithoutOwnerNestedInput
   ledgerEntries?: Prisma.BalanceLedgerEntryUncheckedUpdateManyWithoutChangedByNestedInput
+  preferenceChangeLogs?: Prisma.PreferenceChangeLogUncheckedUpdateManyWithoutChangedByNestedInput
+  resolvedInferences?: Prisma.InferredPreferenceUncheckedUpdateManyWithoutResolvedByNestedInput
+  tripBriefs?: Prisma.TripBriefUncheckedUpdateManyWithoutGeneratedByNestedInput
+  vendorRequests?: Prisma.VendorRequestUncheckedUpdateManyWithoutCreatedByNestedInput
+}
+
+export type UserCreateWithoutTripBriefsInput = {
+  id?: string
+  firstName: string
+  lastName: string
+  email: string
+  passwordHash: string
+  role?: $Enums.UserRole
+  createdAt?: Date | string
+  updatedAt?: Date | string
+  organization: Prisma.OrganizationCreateNestedOneWithoutUsersInput
+  ownedClients?: Prisma.ClientCreateNestedManyWithoutOwnerInput
+  tripRequests?: Prisma.TripRequestCreateNestedManyWithoutOwnerInput
+  recommendationRuns?: Prisma.RecommendationRunCreateNestedManyWithoutCreatedByInput
+  ledgerEntries?: Prisma.BalanceLedgerEntryCreateNestedManyWithoutChangedByInput
+  preferenceChangeLogs?: Prisma.PreferenceChangeLogCreateNestedManyWithoutChangedByInput
+  resolvedInferences?: Prisma.InferredPreferenceCreateNestedManyWithoutResolvedByInput
+  vendorRequests?: Prisma.VendorRequestCreateNestedManyWithoutCreatedByInput
+}
+
+export type UserUncheckedCreateWithoutTripBriefsInput = {
+  id?: string
+  organizationId: string
+  firstName: string
+  lastName: string
+  email: string
+  passwordHash: string
+  role?: $Enums.UserRole
+  createdAt?: Date | string
+  updatedAt?: Date | string
+  ownedClients?: Prisma.ClientUncheckedCreateNestedManyWithoutOwnerInput
+  tripRequests?: Prisma.TripRequestUncheckedCreateNestedManyWithoutOwnerInput
+  recommendationRuns?: Prisma.RecommendationRunUncheckedCreateNestedManyWithoutCreatedByInput
+  ledgerEntries?: Prisma.BalanceLedgerEntryUncheckedCreateNestedManyWithoutChangedByInput
+  preferenceChangeLogs?: Prisma.PreferenceChangeLogUncheckedCreateNestedManyWithoutChangedByInput
+  resolvedInferences?: Prisma.InferredPreferenceUncheckedCreateNestedManyWithoutResolvedByInput
+  vendorRequests?: Prisma.VendorRequestUncheckedCreateNestedManyWithoutCreatedByInput
+}
+
+export type UserCreateOrConnectWithoutTripBriefsInput = {
+  where: Prisma.UserWhereUniqueInput
+  create: Prisma.XOR<Prisma.UserCreateWithoutTripBriefsInput, Prisma.UserUncheckedCreateWithoutTripBriefsInput>
+}
+
+export type UserUpsertWithoutTripBriefsInput = {
+  update: Prisma.XOR<Prisma.UserUpdateWithoutTripBriefsInput, Prisma.UserUncheckedUpdateWithoutTripBriefsInput>
+  create: Prisma.XOR<Prisma.UserCreateWithoutTripBriefsInput, Prisma.UserUncheckedCreateWithoutTripBriefsInput>
+  where?: Prisma.UserWhereInput
+}
+
+export type UserUpdateToOneWithWhereWithoutTripBriefsInput = {
+  where?: Prisma.UserWhereInput
+  data: Prisma.XOR<Prisma.UserUpdateWithoutTripBriefsInput, Prisma.UserUncheckedUpdateWithoutTripBriefsInput>
+}
+
+export type UserUpdateWithoutTripBriefsInput = {
+  id?: Prisma.StringFieldUpdateOperationsInput | string
+  firstName?: Prisma.StringFieldUpdateOperationsInput | string
+  lastName?: Prisma.StringFieldUpdateOperationsInput | string
+  email?: Prisma.StringFieldUpdateOperationsInput | string
+  passwordHash?: Prisma.StringFieldUpdateOperationsInput | string
+  role?: Prisma.EnumUserRoleFieldUpdateOperationsInput | $Enums.UserRole
+  createdAt?: Prisma.DateTimeFieldUpdateOperationsInput | Date | string
+  updatedAt?: Prisma.DateTimeFieldUpdateOperationsInput | Date | string
+  organization?: Prisma.OrganizationUpdateOneRequiredWithoutUsersNestedInput
+  ownedClients?: Prisma.ClientUpdateManyWithoutOwnerNestedInput
+  tripRequests?: Prisma.TripRequestUpdateManyWithoutOwnerNestedInput
+  recommendationRuns?: Prisma.RecommendationRunUpdateManyWithoutCreatedByNestedInput
+  ledgerEntries?: Prisma.BalanceLedgerEntryUpdateManyWithoutChangedByNestedInput
+  preferenceChangeLogs?: Prisma.PreferenceChangeLogUpdateManyWithoutChangedByNestedInput
+  resolvedInferences?: Prisma.InferredPreferenceUpdateManyWithoutResolvedByNestedInput
+  vendorRequests?: Prisma.VendorRequestUpdateManyWithoutCreatedByNestedInput
+}
+
+export type UserUncheckedUpdateWithoutTripBriefsInput = {
+  id?: Prisma.StringFieldUpdateOperationsInput | string
+  organizationId?: Prisma.StringFieldUpdateOperationsInput | string
+  firstName?: Prisma.StringFieldUpdateOperationsInput | string
+  lastName?: Prisma.StringFieldUpdateOperationsInput | string
+  email?: Prisma.StringFieldUpdateOperationsInput | string
+  passwordHash?: Prisma.StringFieldUpdateOperationsInput | string
+  role?: Prisma.EnumUserRoleFieldUpdateOperationsInput | $Enums.UserRole
+  createdAt?: Prisma.DateTimeFieldUpdateOperationsInput | Date | string
+  updatedAt?: Prisma.DateTimeFieldUpdateOperationsInput | Date | string
+  ownedClients?: Prisma.ClientUncheckedUpdateManyWithoutOwnerNestedInput
+  tripRequests?: Prisma.TripRequestUncheckedUpdateManyWithoutOwnerNestedInput
+  recommendationRuns?: Prisma.RecommendationRunUncheckedUpdateManyWithoutCreatedByNestedInput
+  ledgerEntries?: Prisma.BalanceLedgerEntryUncheckedUpdateManyWithoutChangedByNestedInput
+  preferenceChangeLogs?: Prisma.PreferenceChangeLogUncheckedUpdateManyWithoutChangedByNestedInput
+  resolvedInferences?: Prisma.InferredPreferenceUncheckedUpdateManyWithoutResolvedByNestedInput
+  vendorRequests?: Prisma.VendorRequestUncheckedUpdateManyWithoutCreatedByNestedInput
+}
+
+export type UserCreateWithoutResolvedInferencesInput = {
+  id?: string
+  firstName: string
+  lastName: string
+  email: string
+  passwordHash: string
+  role?: $Enums.UserRole
+  createdAt?: Date | string
+  updatedAt?: Date | string
+  organization: Prisma.OrganizationCreateNestedOneWithoutUsersInput
+  ownedClients?: Prisma.ClientCreateNestedManyWithoutOwnerInput
+  tripRequests?: Prisma.TripRequestCreateNestedManyWithoutOwnerInput
+  recommendationRuns?: Prisma.RecommendationRunCreateNestedManyWithoutCreatedByInput
+  ledgerEntries?: Prisma.BalanceLedgerEntryCreateNestedManyWithoutChangedByInput
+  preferenceChangeLogs?: Prisma.PreferenceChangeLogCreateNestedManyWithoutChangedByInput
+  tripBriefs?: Prisma.TripBriefCreateNestedManyWithoutGeneratedByInput
+  vendorRequests?: Prisma.VendorRequestCreateNestedManyWithoutCreatedByInput
+}
+
+export type UserUncheckedCreateWithoutResolvedInferencesInput = {
+  id?: string
+  organizationId: string
+  firstName: string
+  lastName: string
+  email: string
+  passwordHash: string
+  role?: $Enums.UserRole
+  createdAt?: Date | string
+  updatedAt?: Date | string
+  ownedClients?: Prisma.ClientUncheckedCreateNestedManyWithoutOwnerInput
+  tripRequests?: Prisma.TripRequestUncheckedCreateNestedManyWithoutOwnerInput
+  recommendationRuns?: Prisma.RecommendationRunUncheckedCreateNestedManyWithoutCreatedByInput
+  ledgerEntries?: Prisma.BalanceLedgerEntryUncheckedCreateNestedManyWithoutChangedByInput
+  preferenceChangeLogs?: Prisma.PreferenceChangeLogUncheckedCreateNestedManyWithoutChangedByInput
+  tripBriefs?: Prisma.TripBriefUncheckedCreateNestedManyWithoutGeneratedByInput
+  vendorRequests?: Prisma.VendorRequestUncheckedCreateNestedManyWithoutCreatedByInput
+}
+
+export type UserCreateOrConnectWithoutResolvedInferencesInput = {
+  where: Prisma.UserWhereUniqueInput
+  create: Prisma.XOR<Prisma.UserCreateWithoutResolvedInferencesInput, Prisma.UserUncheckedCreateWithoutResolvedInferencesInput>
+}
+
+export type UserUpsertWithoutResolvedInferencesInput = {
+  update: Prisma.XOR<Prisma.UserUpdateWithoutResolvedInferencesInput, Prisma.UserUncheckedUpdateWithoutResolvedInferencesInput>
+  create: Prisma.XOR<Prisma.UserCreateWithoutResolvedInferencesInput, Prisma.UserUncheckedCreateWithoutResolvedInferencesInput>
+  where?: Prisma.UserWhereInput
+}
+
+export type UserUpdateToOneWithWhereWithoutResolvedInferencesInput = {
+  where?: Prisma.UserWhereInput
+  data: Prisma.XOR<Prisma.UserUpdateWithoutResolvedInferencesInput, Prisma.UserUncheckedUpdateWithoutResolvedInferencesInput>
+}
+
+export type UserUpdateWithoutResolvedInferencesInput = {
+  id?: Prisma.StringFieldUpdateOperationsInput | string
+  firstName?: Prisma.StringFieldUpdateOperationsInput | string
+  lastName?: Prisma.StringFieldUpdateOperationsInput | string
+  email?: Prisma.StringFieldUpdateOperationsInput | string
+  passwordHash?: Prisma.StringFieldUpdateOperationsInput | string
+  role?: Prisma.EnumUserRoleFieldUpdateOperationsInput | $Enums.UserRole
+  createdAt?: Prisma.DateTimeFieldUpdateOperationsInput | Date | string
+  updatedAt?: Prisma.DateTimeFieldUpdateOperationsInput | Date | string
+  organization?: Prisma.OrganizationUpdateOneRequiredWithoutUsersNestedInput
+  ownedClients?: Prisma.ClientUpdateManyWithoutOwnerNestedInput
+  tripRequests?: Prisma.TripRequestUpdateManyWithoutOwnerNestedInput
+  recommendationRuns?: Prisma.RecommendationRunUpdateManyWithoutCreatedByNestedInput
+  ledgerEntries?: Prisma.BalanceLedgerEntryUpdateManyWithoutChangedByNestedInput
+  preferenceChangeLogs?: Prisma.PreferenceChangeLogUpdateManyWithoutChangedByNestedInput
+  tripBriefs?: Prisma.TripBriefUpdateManyWithoutGeneratedByNestedInput
+  vendorRequests?: Prisma.VendorRequestUpdateManyWithoutCreatedByNestedInput
+}
+
+export type UserUncheckedUpdateWithoutResolvedInferencesInput = {
+  id?: Prisma.StringFieldUpdateOperationsInput | string
+  organizationId?: Prisma.StringFieldUpdateOperationsInput | string
+  firstName?: Prisma.StringFieldUpdateOperationsInput | string
+  lastName?: Prisma.StringFieldUpdateOperationsInput | string
+  email?: Prisma.StringFieldUpdateOperationsInput | string
+  passwordHash?: Prisma.StringFieldUpdateOperationsInput | string
+  role?: Prisma.EnumUserRoleFieldUpdateOperationsInput | $Enums.UserRole
+  createdAt?: Prisma.DateTimeFieldUpdateOperationsInput | Date | string
+  updatedAt?: Prisma.DateTimeFieldUpdateOperationsInput | Date | string
+  ownedClients?: Prisma.ClientUncheckedUpdateManyWithoutOwnerNestedInput
+  tripRequests?: Prisma.TripRequestUncheckedUpdateManyWithoutOwnerNestedInput
+  recommendationRuns?: Prisma.RecommendationRunUncheckedUpdateManyWithoutCreatedByNestedInput
+  ledgerEntries?: Prisma.BalanceLedgerEntryUncheckedUpdateManyWithoutChangedByNestedInput
+  preferenceChangeLogs?: Prisma.PreferenceChangeLogUncheckedUpdateManyWithoutChangedByNestedInput
+  tripBriefs?: Prisma.TripBriefUncheckedUpdateManyWithoutGeneratedByNestedInput
+  vendorRequests?: Prisma.VendorRequestUncheckedUpdateManyWithoutCreatedByNestedInput
+}
+
+export type UserCreateWithoutVendorRequestsInput = {
+  id?: string
+  firstName: string
+  lastName: string
+  email: string
+  passwordHash: string
+  role?: $Enums.UserRole
+  createdAt?: Date | string
+  updatedAt?: Date | string
+  organization: Prisma.OrganizationCreateNestedOneWithoutUsersInput
+  ownedClients?: Prisma.ClientCreateNestedManyWithoutOwnerInput
+  tripRequests?: Prisma.TripRequestCreateNestedManyWithoutOwnerInput
+  recommendationRuns?: Prisma.RecommendationRunCreateNestedManyWithoutCreatedByInput
+  ledgerEntries?: Prisma.BalanceLedgerEntryCreateNestedManyWithoutChangedByInput
+  preferenceChangeLogs?: Prisma.PreferenceChangeLogCreateNestedManyWithoutChangedByInput
+  resolvedInferences?: Prisma.InferredPreferenceCreateNestedManyWithoutResolvedByInput
+  tripBriefs?: Prisma.TripBriefCreateNestedManyWithoutGeneratedByInput
+}
+
+export type UserUncheckedCreateWithoutVendorRequestsInput = {
+  id?: string
+  organizationId: string
+  firstName: string
+  lastName: string
+  email: string
+  passwordHash: string
+  role?: $Enums.UserRole
+  createdAt?: Date | string
+  updatedAt?: Date | string
+  ownedClients?: Prisma.ClientUncheckedCreateNestedManyWithoutOwnerInput
+  tripRequests?: Prisma.TripRequestUncheckedCreateNestedManyWithoutOwnerInput
+  recommendationRuns?: Prisma.RecommendationRunUncheckedCreateNestedManyWithoutCreatedByInput
+  ledgerEntries?: Prisma.BalanceLedgerEntryUncheckedCreateNestedManyWithoutChangedByInput
+  preferenceChangeLogs?: Prisma.PreferenceChangeLogUncheckedCreateNestedManyWithoutChangedByInput
+  resolvedInferences?: Prisma.InferredPreferenceUncheckedCreateNestedManyWithoutResolvedByInput
+  tripBriefs?: Prisma.TripBriefUncheckedCreateNestedManyWithoutGeneratedByInput
+}
+
+export type UserCreateOrConnectWithoutVendorRequestsInput = {
+  where: Prisma.UserWhereUniqueInput
+  create: Prisma.XOR<Prisma.UserCreateWithoutVendorRequestsInput, Prisma.UserUncheckedCreateWithoutVendorRequestsInput>
+}
+
+export type UserUpsertWithoutVendorRequestsInput = {
+  update: Prisma.XOR<Prisma.UserUpdateWithoutVendorRequestsInput, Prisma.UserUncheckedUpdateWithoutVendorRequestsInput>
+  create: Prisma.XOR<Prisma.UserCreateWithoutVendorRequestsInput, Prisma.UserUncheckedCreateWithoutVendorRequestsInput>
+  where?: Prisma.UserWhereInput
+}
+
+export type UserUpdateToOneWithWhereWithoutVendorRequestsInput = {
+  where?: Prisma.UserWhereInput
+  data: Prisma.XOR<Prisma.UserUpdateWithoutVendorRequestsInput, Prisma.UserUncheckedUpdateWithoutVendorRequestsInput>
+}
+
+export type UserUpdateWithoutVendorRequestsInput = {
+  id?: Prisma.StringFieldUpdateOperationsInput | string
+  firstName?: Prisma.StringFieldUpdateOperationsInput | string
+  lastName?: Prisma.StringFieldUpdateOperationsInput | string
+  email?: Prisma.StringFieldUpdateOperationsInput | string
+  passwordHash?: Prisma.StringFieldUpdateOperationsInput | string
+  role?: Prisma.EnumUserRoleFieldUpdateOperationsInput | $Enums.UserRole
+  createdAt?: Prisma.DateTimeFieldUpdateOperationsInput | Date | string
+  updatedAt?: Prisma.DateTimeFieldUpdateOperationsInput | Date | string
+  organization?: Prisma.OrganizationUpdateOneRequiredWithoutUsersNestedInput
+  ownedClients?: Prisma.ClientUpdateManyWithoutOwnerNestedInput
+  tripRequests?: Prisma.TripRequestUpdateManyWithoutOwnerNestedInput
+  recommendationRuns?: Prisma.RecommendationRunUpdateManyWithoutCreatedByNestedInput
+  ledgerEntries?: Prisma.BalanceLedgerEntryUpdateManyWithoutChangedByNestedInput
+  preferenceChangeLogs?: Prisma.PreferenceChangeLogUpdateManyWithoutChangedByNestedInput
+  resolvedInferences?: Prisma.InferredPreferenceUpdateManyWithoutResolvedByNestedInput
+  tripBriefs?: Prisma.TripBriefUpdateManyWithoutGeneratedByNestedInput
+}
+
+export type UserUncheckedUpdateWithoutVendorRequestsInput = {
+  id?: Prisma.StringFieldUpdateOperationsInput | string
+  organizationId?: Prisma.StringFieldUpdateOperationsInput | string
+  firstName?: Prisma.StringFieldUpdateOperationsInput | string
+  lastName?: Prisma.StringFieldUpdateOperationsInput | string
+  email?: Prisma.StringFieldUpdateOperationsInput | string
+  passwordHash?: Prisma.StringFieldUpdateOperationsInput | string
+  role?: Prisma.EnumUserRoleFieldUpdateOperationsInput | $Enums.UserRole
+  createdAt?: Prisma.DateTimeFieldUpdateOperationsInput | Date | string
+  updatedAt?: Prisma.DateTimeFieldUpdateOperationsInput | Date | string
+  ownedClients?: Prisma.ClientUncheckedUpdateManyWithoutOwnerNestedInput
+  tripRequests?: Prisma.TripRequestUncheckedUpdateManyWithoutOwnerNestedInput
+  recommendationRuns?: Prisma.RecommendationRunUncheckedUpdateManyWithoutCreatedByNestedInput
+  ledgerEntries?: Prisma.BalanceLedgerEntryUncheckedUpdateManyWithoutChangedByNestedInput
+  preferenceChangeLogs?: Prisma.PreferenceChangeLogUncheckedUpdateManyWithoutChangedByNestedInput
+  resolvedInferences?: Prisma.InferredPreferenceUncheckedUpdateManyWithoutResolvedByNestedInput
+  tripBriefs?: Prisma.TripBriefUncheckedUpdateManyWithoutGeneratedByNestedInput
 }
 
 export type UserCreateManyOrganizationInput = {
@@ -939,6 +1470,10 @@ export type UserUpdateWithoutOrganizationInput = {
   tripRequests?: Prisma.TripRequestUpdateManyWithoutOwnerNestedInput
   recommendationRuns?: Prisma.RecommendationRunUpdateManyWithoutCreatedByNestedInput
   ledgerEntries?: Prisma.BalanceLedgerEntryUpdateManyWithoutChangedByNestedInput
+  preferenceChangeLogs?: Prisma.PreferenceChangeLogUpdateManyWithoutChangedByNestedInput
+  resolvedInferences?: Prisma.InferredPreferenceUpdateManyWithoutResolvedByNestedInput
+  tripBriefs?: Prisma.TripBriefUpdateManyWithoutGeneratedByNestedInput
+  vendorRequests?: Prisma.VendorRequestUpdateManyWithoutCreatedByNestedInput
 }
 
 export type UserUncheckedUpdateWithoutOrganizationInput = {
@@ -954,6 +1489,10 @@ export type UserUncheckedUpdateWithoutOrganizationInput = {
   tripRequests?: Prisma.TripRequestUncheckedUpdateManyWithoutOwnerNestedInput
   recommendationRuns?: Prisma.RecommendationRunUncheckedUpdateManyWithoutCreatedByNestedInput
   ledgerEntries?: Prisma.BalanceLedgerEntryUncheckedUpdateManyWithoutChangedByNestedInput
+  preferenceChangeLogs?: Prisma.PreferenceChangeLogUncheckedUpdateManyWithoutChangedByNestedInput
+  resolvedInferences?: Prisma.InferredPreferenceUncheckedUpdateManyWithoutResolvedByNestedInput
+  tripBriefs?: Prisma.TripBriefUncheckedUpdateManyWithoutGeneratedByNestedInput
+  vendorRequests?: Prisma.VendorRequestUncheckedUpdateManyWithoutCreatedByNestedInput
 }
 
 export type UserUncheckedUpdateManyWithoutOrganizationInput = {
@@ -977,6 +1516,10 @@ export type UserCountOutputType = {
   tripRequests: number
   recommendationRuns: number
   ledgerEntries: number
+  preferenceChangeLogs: number
+  resolvedInferences: number
+  tripBriefs: number
+  vendorRequests: number
 }
 
 export type UserCountOutputTypeSelect<ExtArgs extends runtime.Types.Extensions.InternalArgs = runtime.Types.Extensions.DefaultArgs> = {
@@ -984,6 +1527,10 @@ export type UserCountOutputTypeSelect<ExtArgs extends runtime.Types.Extensions.I
   tripRequests?: boolean | UserCountOutputTypeCountTripRequestsArgs
   recommendationRuns?: boolean | UserCountOutputTypeCountRecommendationRunsArgs
   ledgerEntries?: boolean | UserCountOutputTypeCountLedgerEntriesArgs
+  preferenceChangeLogs?: boolean | UserCountOutputTypeCountPreferenceChangeLogsArgs
+  resolvedInferences?: boolean | UserCountOutputTypeCountResolvedInferencesArgs
+  tripBriefs?: boolean | UserCountOutputTypeCountTripBriefsArgs
+  vendorRequests?: boolean | UserCountOutputTypeCountVendorRequestsArgs
 }
 
 /**
@@ -1024,6 +1571,34 @@ export type UserCountOutputTypeCountLedgerEntriesArgs<ExtArgs extends runtime.Ty
   where?: Prisma.BalanceLedgerEntryWhereInput
 }
 
+/**
+ * UserCountOutputType without action
+ */
+export type UserCountOutputTypeCountPreferenceChangeLogsArgs<ExtArgs extends runtime.Types.Extensions.InternalArgs = runtime.Types.Extensions.DefaultArgs> = {
+  where?: Prisma.PreferenceChangeLogWhereInput
+}
+
+/**
+ * UserCountOutputType without action
+ */
+export type UserCountOutputTypeCountResolvedInferencesArgs<ExtArgs extends runtime.Types.Extensions.InternalArgs = runtime.Types.Extensions.DefaultArgs> = {
+  where?: Prisma.InferredPreferenceWhereInput
+}
+
+/**
+ * UserCountOutputType without action
+ */
+export type UserCountOutputTypeCountTripBriefsArgs<ExtArgs extends runtime.Types.Extensions.InternalArgs = runtime.Types.Extensions.DefaultArgs> = {
+  where?: Prisma.TripBriefWhereInput
+}
+
+/**
+ * UserCountOutputType without action
+ */
+export type UserCountOutputTypeCountVendorRequestsArgs<ExtArgs extends runtime.Types.Extensions.InternalArgs = runtime.Types.Extensions.DefaultArgs> = {
+  where?: Prisma.VendorRequestWhereInput
+}
+
 
 export type UserSelect<ExtArgs extends runtime.Types.Extensions.InternalArgs = runtime.Types.Extensions.DefaultArgs> = runtime.Types.Extensions.GetSelect<{
   id?: boolean
@@ -1040,6 +1615,10 @@ export type UserSelect<ExtArgs extends runtime.Types.Extensions.InternalArgs = r
   tripRequests?: boolean | Prisma.User$tripRequestsArgs<ExtArgs>
   recommendationRuns?: boolean | Prisma.User$recommendationRunsArgs<ExtArgs>
   ledgerEntries?: boolean | Prisma.User$ledgerEntriesArgs<ExtArgs>
+  preferenceChangeLogs?: boolean | Prisma.User$preferenceChangeLogsArgs<ExtArgs>
+  resolvedInferences?: boolean | Prisma.User$resolvedInferencesArgs<ExtArgs>
+  tripBriefs?: boolean | Prisma.User$tripBriefsArgs<ExtArgs>
+  vendorRequests?: boolean | Prisma.User$vendorRequestsArgs<ExtArgs>
   _count?: boolean | Prisma.UserCountOutputTypeDefaultArgs<ExtArgs>
 }, ExtArgs["result"]["user"]>
 
@@ -1088,6 +1667,10 @@ export type UserInclude<ExtArgs extends runtime.Types.Extensions.InternalArgs = 
   tripRequests?: boolean | Prisma.User$tripRequestsArgs<ExtArgs>
   recommendationRuns?: boolean | Prisma.User$recommendationRunsArgs<ExtArgs>
   ledgerEntries?: boolean | Prisma.User$ledgerEntriesArgs<ExtArgs>
+  preferenceChangeLogs?: boolean | Prisma.User$preferenceChangeLogsArgs<ExtArgs>
+  resolvedInferences?: boolean | Prisma.User$resolvedInferencesArgs<ExtArgs>
+  tripBriefs?: boolean | Prisma.User$tripBriefsArgs<ExtArgs>
+  vendorRequests?: boolean | Prisma.User$vendorRequestsArgs<ExtArgs>
   _count?: boolean | Prisma.UserCountOutputTypeDefaultArgs<ExtArgs>
 }
 export type UserIncludeCreateManyAndReturn<ExtArgs extends runtime.Types.Extensions.InternalArgs = runtime.Types.Extensions.DefaultArgs> = {
@@ -1105,6 +1688,10 @@ export type $UserPayload<ExtArgs extends runtime.Types.Extensions.InternalArgs =
     tripRequests: Prisma.$TripRequestPayload<ExtArgs>[]
     recommendationRuns: Prisma.$RecommendationRunPayload<ExtArgs>[]
     ledgerEntries: Prisma.$BalanceLedgerEntryPayload<ExtArgs>[]
+    preferenceChangeLogs: Prisma.$PreferenceChangeLogPayload<ExtArgs>[]
+    resolvedInferences: Prisma.$InferredPreferencePayload<ExtArgs>[]
+    tripBriefs: Prisma.$TripBriefPayload<ExtArgs>[]
+    vendorRequests: Prisma.$VendorRequestPayload<ExtArgs>[]
   }
   scalars: runtime.Types.Extensions.GetPayloadResult<{
     id: string
@@ -1515,6 +2102,10 @@ export interface Prisma__UserClient<T, Null = never, ExtArgs extends runtime.Typ
   tripRequests<T extends Prisma.User$tripRequestsArgs<ExtArgs> = {}>(args?: Prisma.Subset<T, Prisma.User$tripRequestsArgs<ExtArgs>>): Prisma.PrismaPromise<runtime.Types.Result.GetResult<Prisma.$TripRequestPayload<ExtArgs>, T, "findMany", GlobalOmitOptions> | Null>
   recommendationRuns<T extends Prisma.User$recommendationRunsArgs<ExtArgs> = {}>(args?: Prisma.Subset<T, Prisma.User$recommendationRunsArgs<ExtArgs>>): Prisma.PrismaPromise<runtime.Types.Result.GetResult<Prisma.$RecommendationRunPayload<ExtArgs>, T, "findMany", GlobalOmitOptions> | Null>
   ledgerEntries<T extends Prisma.User$ledgerEntriesArgs<ExtArgs> = {}>(args?: Prisma.Subset<T, Prisma.User$ledgerEntriesArgs<ExtArgs>>): Prisma.PrismaPromise<runtime.Types.Result.GetResult<Prisma.$BalanceLedgerEntryPayload<ExtArgs>, T, "findMany", GlobalOmitOptions> | Null>
+  preferenceChangeLogs<T extends Prisma.User$preferenceChangeLogsArgs<ExtArgs> = {}>(args?: Prisma.Subset<T, Prisma.User$preferenceChangeLogsArgs<ExtArgs>>): Prisma.PrismaPromise<runtime.Types.Result.GetResult<Prisma.$PreferenceChangeLogPayload<ExtArgs>, T, "findMany", GlobalOmitOptions> | Null>
+  resolvedInferences<T extends Prisma.User$resolvedInferencesArgs<ExtArgs> = {}>(args?: Prisma.Subset<T, Prisma.User$resolvedInferencesArgs<ExtArgs>>): Prisma.PrismaPromise<runtime.Types.Result.GetResult<Prisma.$InferredPreferencePayload<ExtArgs>, T, "findMany", GlobalOmitOptions> | Null>
+  tripBriefs<T extends Prisma.User$tripBriefsArgs<ExtArgs> = {}>(args?: Prisma.Subset<T, Prisma.User$tripBriefsArgs<ExtArgs>>): Prisma.PrismaPromise<runtime.Types.Result.GetResult<Prisma.$TripBriefPayload<ExtArgs>, T, "findMany", GlobalOmitOptions> | Null>
+  vendorRequests<T extends Prisma.User$vendorRequestsArgs<ExtArgs> = {}>(args?: Prisma.Subset<T, Prisma.User$vendorRequestsArgs<ExtArgs>>): Prisma.PrismaPromise<runtime.Types.Result.GetResult<Prisma.$VendorRequestPayload<ExtArgs>, T, "findMany", GlobalOmitOptions> | Null>
   /**
    * Attaches callbacks for the resolution and/or rejection of the Promise.
    * @param onfulfilled The callback to execute when the Promise is resolved.
@@ -2047,6 +2638,102 @@ export type User$ledgerEntriesArgs<ExtArgs extends runtime.Types.Extensions.Inte
   take?: number
   skip?: number
   distinct?: Prisma.BalanceLedgerEntryScalarFieldEnum | Prisma.BalanceLedgerEntryScalarFieldEnum[]
+}
+
+/**
+ * User.preferenceChangeLogs
+ */
+export type User$preferenceChangeLogsArgs<ExtArgs extends runtime.Types.Extensions.InternalArgs = runtime.Types.Extensions.DefaultArgs> = {
+  /**
+   * Select specific fields to fetch from the PreferenceChangeLog
+   */
+  select?: Prisma.PreferenceChangeLogSelect<ExtArgs> | null
+  /**
+   * Omit specific fields from the PreferenceChangeLog
+   */
+  omit?: Prisma.PreferenceChangeLogOmit<ExtArgs> | null
+  /**
+   * Choose, which related nodes to fetch as well
+   */
+  include?: Prisma.PreferenceChangeLogInclude<ExtArgs> | null
+  where?: Prisma.PreferenceChangeLogWhereInput
+  orderBy?: Prisma.PreferenceChangeLogOrderByWithRelationInput | Prisma.PreferenceChangeLogOrderByWithRelationInput[]
+  cursor?: Prisma.PreferenceChangeLogWhereUniqueInput
+  take?: number
+  skip?: number
+  distinct?: Prisma.PreferenceChangeLogScalarFieldEnum | Prisma.PreferenceChangeLogScalarFieldEnum[]
+}
+
+/**
+ * User.resolvedInferences
+ */
+export type User$resolvedInferencesArgs<ExtArgs extends runtime.Types.Extensions.InternalArgs = runtime.Types.Extensions.DefaultArgs> = {
+  /**
+   * Select specific fields to fetch from the InferredPreference
+   */
+  select?: Prisma.InferredPreferenceSelect<ExtArgs> | null
+  /**
+   * Omit specific fields from the InferredPreference
+   */
+  omit?: Prisma.InferredPreferenceOmit<ExtArgs> | null
+  /**
+   * Choose, which related nodes to fetch as well
+   */
+  include?: Prisma.InferredPreferenceInclude<ExtArgs> | null
+  where?: Prisma.InferredPreferenceWhereInput
+  orderBy?: Prisma.InferredPreferenceOrderByWithRelationInput | Prisma.InferredPreferenceOrderByWithRelationInput[]
+  cursor?: Prisma.InferredPreferenceWhereUniqueInput
+  take?: number
+  skip?: number
+  distinct?: Prisma.InferredPreferenceScalarFieldEnum | Prisma.InferredPreferenceScalarFieldEnum[]
+}
+
+/**
+ * User.tripBriefs
+ */
+export type User$tripBriefsArgs<ExtArgs extends runtime.Types.Extensions.InternalArgs = runtime.Types.Extensions.DefaultArgs> = {
+  /**
+   * Select specific fields to fetch from the TripBrief
+   */
+  select?: Prisma.TripBriefSelect<ExtArgs> | null
+  /**
+   * Omit specific fields from the TripBrief
+   */
+  omit?: Prisma.TripBriefOmit<ExtArgs> | null
+  /**
+   * Choose, which related nodes to fetch as well
+   */
+  include?: Prisma.TripBriefInclude<ExtArgs> | null
+  where?: Prisma.TripBriefWhereInput
+  orderBy?: Prisma.TripBriefOrderByWithRelationInput | Prisma.TripBriefOrderByWithRelationInput[]
+  cursor?: Prisma.TripBriefWhereUniqueInput
+  take?: number
+  skip?: number
+  distinct?: Prisma.TripBriefScalarFieldEnum | Prisma.TripBriefScalarFieldEnum[]
+}
+
+/**
+ * User.vendorRequests
+ */
+export type User$vendorRequestsArgs<ExtArgs extends runtime.Types.Extensions.InternalArgs = runtime.Types.Extensions.DefaultArgs> = {
+  /**
+   * Select specific fields to fetch from the VendorRequest
+   */
+  select?: Prisma.VendorRequestSelect<ExtArgs> | null
+  /**
+   * Omit specific fields from the VendorRequest
+   */
+  omit?: Prisma.VendorRequestOmit<ExtArgs> | null
+  /**
+   * Choose, which related nodes to fetch as well
+   */
+  include?: Prisma.VendorRequestInclude<ExtArgs> | null
+  where?: Prisma.VendorRequestWhereInput
+  orderBy?: Prisma.VendorRequestOrderByWithRelationInput | Prisma.VendorRequestOrderByWithRelationInput[]
+  cursor?: Prisma.VendorRequestWhereUniqueInput
+  take?: number
+  skip?: number
+  distinct?: Prisma.VendorRequestScalarFieldEnum | Prisma.VendorRequestScalarFieldEnum[]
 }
 
 /**

@@ -9,8 +9,29 @@ export async function GET(request: Request) {
     const clients = await prisma.client.findMany({
       where: { organizationId: user.organizationId, status: "active" },
       include: {
-        _count: { select: { loyaltyBalances: true } },
-        householdMembers: { include: { household: true } },
+        _count: { select: { loyaltyBalances: true, familyMembers: true, tripRequests: true } },
+        loyaltyBalances: {
+          select: {
+            id: true,
+            balance: true,
+            expirationDate: true,
+            loyaltyProgram: { select: { name: true, code: true, category: true } },
+          },
+          orderBy: { balance: "desc" },
+          take: 5,
+        },
+        tripRequests: {
+          select: {
+            id: true,
+            title: true,
+            destinationAirports: true,
+            departureDate: true,
+            returnDate: true,
+            status: true,
+          },
+          orderBy: { departureDate: "desc" },
+          take: 3,
+        },
       },
       orderBy: { createdAt: "desc" },
     });
@@ -28,16 +49,20 @@ export async function POST(request: Request) {
     if (!user) return errorResponse("Unauthorized", 401);
 
     const body = await request.json();
-    const { firstName, lastName, email, phone, dateOfBirth, notes } = body;
+    const { firstName, lastName, email, phone, dateOfBirth, notes, clientType } = body;
 
     if (!firstName || !lastName) {
       return errorResponse("First name and last name are required", 400);
     }
 
+    const validTypes = ["individual", "business"];
+    const type = validTypes.includes(clientType) ? clientType : "individual";
+
     const client = await prisma.client.create({
       data: {
         organizationId: user.organizationId,
         ownerUserId: user.id,
+        clientType: type,
         firstName,
         lastName,
         email: email || null,

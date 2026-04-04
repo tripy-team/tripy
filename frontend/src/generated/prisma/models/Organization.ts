@@ -195,6 +195,7 @@ export type OrganizationWhereInput = {
   households?: Prisma.HouseholdListRelationFilter
   tripRequests?: Prisma.TripRequestListRelationFilter
   alertSubscriptions?: Prisma.AlertSubscriptionListRelationFilter
+  vendorRequests?: Prisma.VendorRequestListRelationFilter
 }
 
 export type OrganizationOrderByWithRelationInput = {
@@ -209,6 +210,7 @@ export type OrganizationOrderByWithRelationInput = {
   households?: Prisma.HouseholdOrderByRelationAggregateInput
   tripRequests?: Prisma.TripRequestOrderByRelationAggregateInput
   alertSubscriptions?: Prisma.AlertSubscriptionOrderByRelationAggregateInput
+  vendorRequests?: Prisma.VendorRequestOrderByRelationAggregateInput
 }
 
 export type OrganizationWhereUniqueInput = Prisma.AtLeast<{
@@ -226,6 +228,7 @@ export type OrganizationWhereUniqueInput = Prisma.AtLeast<{
   households?: Prisma.HouseholdListRelationFilter
   tripRequests?: Prisma.TripRequestListRelationFilter
   alertSubscriptions?: Prisma.AlertSubscriptionListRelationFilter
+  vendorRequests?: Prisma.VendorRequestListRelationFilter
 }, "id" | "slug">
 
 export type OrganizationOrderByWithAggregationInput = {
@@ -264,6 +267,7 @@ export type OrganizationCreateInput = {
   households?: Prisma.HouseholdCreateNestedManyWithoutOrganizationInput
   tripRequests?: Prisma.TripRequestCreateNestedManyWithoutOrganizationInput
   alertSubscriptions?: Prisma.AlertSubscriptionCreateNestedManyWithoutOrganizationInput
+  vendorRequests?: Prisma.VendorRequestCreateNestedManyWithoutOrganizationInput
 }
 
 export type OrganizationUncheckedCreateInput = {
@@ -278,6 +282,7 @@ export type OrganizationUncheckedCreateInput = {
   households?: Prisma.HouseholdUncheckedCreateNestedManyWithoutOrganizationInput
   tripRequests?: Prisma.TripRequestUncheckedCreateNestedManyWithoutOrganizationInput
   alertSubscriptions?: Prisma.AlertSubscriptionUncheckedCreateNestedManyWithoutOrganizationInput
+  vendorRequests?: Prisma.VendorRequestUncheckedCreateNestedManyWithoutOrganizationInput
 }
 
 export type OrganizationUpdateInput = {
@@ -292,6 +297,7 @@ export type OrganizationUpdateInput = {
   households?: Prisma.HouseholdUpdateManyWithoutOrganizationNestedInput
   tripRequests?: Prisma.TripRequestUpdateManyWithoutOrganizationNestedInput
   alertSubscriptions?: Prisma.AlertSubscriptionUpdateManyWithoutOrganizationNestedInput
+  vendorRequests?: Prisma.VendorRequestUpdateManyWithoutOrganizationNestedInput
 }
 
 export type OrganizationUncheckedUpdateInput = {
@@ -306,6 +312,7 @@ export type OrganizationUncheckedUpdateInput = {
   households?: Prisma.HouseholdUncheckedUpdateManyWithoutOrganizationNestedInput
   tripRequests?: Prisma.TripRequestUncheckedUpdateManyWithoutOrganizationNestedInput
   alertSubscriptions?: Prisma.AlertSubscriptionUncheckedUpdateManyWithoutOrganizationNestedInput
+  vendorRequests?: Prisma.VendorRequestUncheckedUpdateManyWithoutOrganizationNestedInput
 }
 
 export type OrganizationCreateManyInput = {
@@ -445,6 +452,20 @@ export type OrganizationUpdateOneRequiredWithoutAlertSubscriptionsNestedInput = 
   update?: Prisma.XOR<Prisma.XOR<Prisma.OrganizationUpdateToOneWithWhereWithoutAlertSubscriptionsInput, Prisma.OrganizationUpdateWithoutAlertSubscriptionsInput>, Prisma.OrganizationUncheckedUpdateWithoutAlertSubscriptionsInput>
 }
 
+export type OrganizationCreateNestedOneWithoutVendorRequestsInput = {
+  create?: Prisma.XOR<Prisma.OrganizationCreateWithoutVendorRequestsInput, Prisma.OrganizationUncheckedCreateWithoutVendorRequestsInput>
+  connectOrCreate?: Prisma.OrganizationCreateOrConnectWithoutVendorRequestsInput
+  connect?: Prisma.OrganizationWhereUniqueInput
+}
+
+export type OrganizationUpdateOneRequiredWithoutVendorRequestsNestedInput = {
+  create?: Prisma.XOR<Prisma.OrganizationCreateWithoutVendorRequestsInput, Prisma.OrganizationUncheckedCreateWithoutVendorRequestsInput>
+  connectOrCreate?: Prisma.OrganizationCreateOrConnectWithoutVendorRequestsInput
+  upsert?: Prisma.OrganizationUpsertWithoutVendorRequestsInput
+  connect?: Prisma.OrganizationWhereUniqueInput
+  update?: Prisma.XOR<Prisma.XOR<Prisma.OrganizationUpdateToOneWithWhereWithoutVendorRequestsInput, Prisma.OrganizationUpdateWithoutVendorRequestsInput>, Prisma.OrganizationUncheckedUpdateWithoutVendorRequestsInput>
+}
+
 export type OrganizationCreateWithoutUsersInput = {
   id?: string
   name: string
@@ -456,6 +477,7 @@ export type OrganizationCreateWithoutUsersInput = {
   households?: Prisma.HouseholdCreateNestedManyWithoutOrganizationInput
   tripRequests?: Prisma.TripRequestCreateNestedManyWithoutOrganizationInput
   alertSubscriptions?: Prisma.AlertSubscriptionCreateNestedManyWithoutOrganizationInput
+  vendorRequests?: Prisma.VendorRequestCreateNestedManyWithoutOrganizationInput
 }
 
 export type OrganizationUncheckedCreateWithoutUsersInput = {
@@ -469,6 +491,7 @@ export type OrganizationUncheckedCreateWithoutUsersInput = {
   households?: Prisma.HouseholdUncheckedCreateNestedManyWithoutOrganizationInput
   tripRequests?: Prisma.TripRequestUncheckedCreateNestedManyWithoutOrganizationInput
   alertSubscriptions?: Prisma.AlertSubscriptionUncheckedCreateNestedManyWithoutOrganizationInput
+  vendorRequests?: Prisma.VendorRequestUncheckedCreateNestedManyWithoutOrganizationInput
 }
 
 export type OrganizationCreateOrConnectWithoutUsersInput = {
@@ -498,6 +521,7 @@ export type OrganizationUpdateWithoutUsersInput = {
   households?: Prisma.HouseholdUpdateManyWithoutOrganizationNestedInput
   tripRequests?: Prisma.TripRequestUpdateManyWithoutOrganizationNestedInput
   alertSubscriptions?: Prisma.AlertSubscriptionUpdateManyWithoutOrganizationNestedInput
+  vendorRequests?: Prisma.VendorRequestUpdateManyWithoutOrganizationNestedInput
 }
 
 export type OrganizationUncheckedUpdateWithoutUsersInput = {
@@ -511,6 +535,7 @@ export type OrganizationUncheckedUpdateWithoutUsersInput = {
   households?: Prisma.HouseholdUncheckedUpdateManyWithoutOrganizationNestedInput
   tripRequests?: Prisma.TripRequestUncheckedUpdateManyWithoutOrganizationNestedInput
   alertSubscriptions?: Prisma.AlertSubscriptionUncheckedUpdateManyWithoutOrganizationNestedInput
+  vendorRequests?: Prisma.VendorRequestUncheckedUpdateManyWithoutOrganizationNestedInput
 }
 
 export type OrganizationCreateWithoutClientsInput = {
@@ -524,6 +549,7 @@ export type OrganizationCreateWithoutClientsInput = {
   households?: Prisma.HouseholdCreateNestedManyWithoutOrganizationInput
   tripRequests?: Prisma.TripRequestCreateNestedManyWithoutOrganizationInput
   alertSubscriptions?: Prisma.AlertSubscriptionCreateNestedManyWithoutOrganizationInput
+  vendorRequests?: Prisma.VendorRequestCreateNestedManyWithoutOrganizationInput
 }
 
 export type OrganizationUncheckedCreateWithoutClientsInput = {
@@ -537,6 +563,7 @@ export type OrganizationUncheckedCreateWithoutClientsInput = {
   households?: Prisma.HouseholdUncheckedCreateNestedManyWithoutOrganizationInput
   tripRequests?: Prisma.TripRequestUncheckedCreateNestedManyWithoutOrganizationInput
   alertSubscriptions?: Prisma.AlertSubscriptionUncheckedCreateNestedManyWithoutOrganizationInput
+  vendorRequests?: Prisma.VendorRequestUncheckedCreateNestedManyWithoutOrganizationInput
 }
 
 export type OrganizationCreateOrConnectWithoutClientsInput = {
@@ -566,6 +593,7 @@ export type OrganizationUpdateWithoutClientsInput = {
   households?: Prisma.HouseholdUpdateManyWithoutOrganizationNestedInput
   tripRequests?: Prisma.TripRequestUpdateManyWithoutOrganizationNestedInput
   alertSubscriptions?: Prisma.AlertSubscriptionUpdateManyWithoutOrganizationNestedInput
+  vendorRequests?: Prisma.VendorRequestUpdateManyWithoutOrganizationNestedInput
 }
 
 export type OrganizationUncheckedUpdateWithoutClientsInput = {
@@ -579,6 +607,7 @@ export type OrganizationUncheckedUpdateWithoutClientsInput = {
   households?: Prisma.HouseholdUncheckedUpdateManyWithoutOrganizationNestedInput
   tripRequests?: Prisma.TripRequestUncheckedUpdateManyWithoutOrganizationNestedInput
   alertSubscriptions?: Prisma.AlertSubscriptionUncheckedUpdateManyWithoutOrganizationNestedInput
+  vendorRequests?: Prisma.VendorRequestUncheckedUpdateManyWithoutOrganizationNestedInput
 }
 
 export type OrganizationCreateWithoutHouseholdsInput = {
@@ -592,6 +621,7 @@ export type OrganizationCreateWithoutHouseholdsInput = {
   clients?: Prisma.ClientCreateNestedManyWithoutOrganizationInput
   tripRequests?: Prisma.TripRequestCreateNestedManyWithoutOrganizationInput
   alertSubscriptions?: Prisma.AlertSubscriptionCreateNestedManyWithoutOrganizationInput
+  vendorRequests?: Prisma.VendorRequestCreateNestedManyWithoutOrganizationInput
 }
 
 export type OrganizationUncheckedCreateWithoutHouseholdsInput = {
@@ -605,6 +635,7 @@ export type OrganizationUncheckedCreateWithoutHouseholdsInput = {
   clients?: Prisma.ClientUncheckedCreateNestedManyWithoutOrganizationInput
   tripRequests?: Prisma.TripRequestUncheckedCreateNestedManyWithoutOrganizationInput
   alertSubscriptions?: Prisma.AlertSubscriptionUncheckedCreateNestedManyWithoutOrganizationInput
+  vendorRequests?: Prisma.VendorRequestUncheckedCreateNestedManyWithoutOrganizationInput
 }
 
 export type OrganizationCreateOrConnectWithoutHouseholdsInput = {
@@ -634,6 +665,7 @@ export type OrganizationUpdateWithoutHouseholdsInput = {
   clients?: Prisma.ClientUpdateManyWithoutOrganizationNestedInput
   tripRequests?: Prisma.TripRequestUpdateManyWithoutOrganizationNestedInput
   alertSubscriptions?: Prisma.AlertSubscriptionUpdateManyWithoutOrganizationNestedInput
+  vendorRequests?: Prisma.VendorRequestUpdateManyWithoutOrganizationNestedInput
 }
 
 export type OrganizationUncheckedUpdateWithoutHouseholdsInput = {
@@ -647,6 +679,7 @@ export type OrganizationUncheckedUpdateWithoutHouseholdsInput = {
   clients?: Prisma.ClientUncheckedUpdateManyWithoutOrganizationNestedInput
   tripRequests?: Prisma.TripRequestUncheckedUpdateManyWithoutOrganizationNestedInput
   alertSubscriptions?: Prisma.AlertSubscriptionUncheckedUpdateManyWithoutOrganizationNestedInput
+  vendorRequests?: Prisma.VendorRequestUncheckedUpdateManyWithoutOrganizationNestedInput
 }
 
 export type OrganizationCreateWithoutTripRequestsInput = {
@@ -660,6 +693,7 @@ export type OrganizationCreateWithoutTripRequestsInput = {
   clients?: Prisma.ClientCreateNestedManyWithoutOrganizationInput
   households?: Prisma.HouseholdCreateNestedManyWithoutOrganizationInput
   alertSubscriptions?: Prisma.AlertSubscriptionCreateNestedManyWithoutOrganizationInput
+  vendorRequests?: Prisma.VendorRequestCreateNestedManyWithoutOrganizationInput
 }
 
 export type OrganizationUncheckedCreateWithoutTripRequestsInput = {
@@ -673,6 +707,7 @@ export type OrganizationUncheckedCreateWithoutTripRequestsInput = {
   clients?: Prisma.ClientUncheckedCreateNestedManyWithoutOrganizationInput
   households?: Prisma.HouseholdUncheckedCreateNestedManyWithoutOrganizationInput
   alertSubscriptions?: Prisma.AlertSubscriptionUncheckedCreateNestedManyWithoutOrganizationInput
+  vendorRequests?: Prisma.VendorRequestUncheckedCreateNestedManyWithoutOrganizationInput
 }
 
 export type OrganizationCreateOrConnectWithoutTripRequestsInput = {
@@ -702,6 +737,7 @@ export type OrganizationUpdateWithoutTripRequestsInput = {
   clients?: Prisma.ClientUpdateManyWithoutOrganizationNestedInput
   households?: Prisma.HouseholdUpdateManyWithoutOrganizationNestedInput
   alertSubscriptions?: Prisma.AlertSubscriptionUpdateManyWithoutOrganizationNestedInput
+  vendorRequests?: Prisma.VendorRequestUpdateManyWithoutOrganizationNestedInput
 }
 
 export type OrganizationUncheckedUpdateWithoutTripRequestsInput = {
@@ -715,6 +751,7 @@ export type OrganizationUncheckedUpdateWithoutTripRequestsInput = {
   clients?: Prisma.ClientUncheckedUpdateManyWithoutOrganizationNestedInput
   households?: Prisma.HouseholdUncheckedUpdateManyWithoutOrganizationNestedInput
   alertSubscriptions?: Prisma.AlertSubscriptionUncheckedUpdateManyWithoutOrganizationNestedInput
+  vendorRequests?: Prisma.VendorRequestUncheckedUpdateManyWithoutOrganizationNestedInput
 }
 
 export type OrganizationCreateWithoutAlertSubscriptionsInput = {
@@ -728,6 +765,7 @@ export type OrganizationCreateWithoutAlertSubscriptionsInput = {
   clients?: Prisma.ClientCreateNestedManyWithoutOrganizationInput
   households?: Prisma.HouseholdCreateNestedManyWithoutOrganizationInput
   tripRequests?: Prisma.TripRequestCreateNestedManyWithoutOrganizationInput
+  vendorRequests?: Prisma.VendorRequestCreateNestedManyWithoutOrganizationInput
 }
 
 export type OrganizationUncheckedCreateWithoutAlertSubscriptionsInput = {
@@ -741,6 +779,7 @@ export type OrganizationUncheckedCreateWithoutAlertSubscriptionsInput = {
   clients?: Prisma.ClientUncheckedCreateNestedManyWithoutOrganizationInput
   households?: Prisma.HouseholdUncheckedCreateNestedManyWithoutOrganizationInput
   tripRequests?: Prisma.TripRequestUncheckedCreateNestedManyWithoutOrganizationInput
+  vendorRequests?: Prisma.VendorRequestUncheckedCreateNestedManyWithoutOrganizationInput
 }
 
 export type OrganizationCreateOrConnectWithoutAlertSubscriptionsInput = {
@@ -770,6 +809,7 @@ export type OrganizationUpdateWithoutAlertSubscriptionsInput = {
   clients?: Prisma.ClientUpdateManyWithoutOrganizationNestedInput
   households?: Prisma.HouseholdUpdateManyWithoutOrganizationNestedInput
   tripRequests?: Prisma.TripRequestUpdateManyWithoutOrganizationNestedInput
+  vendorRequests?: Prisma.VendorRequestUpdateManyWithoutOrganizationNestedInput
 }
 
 export type OrganizationUncheckedUpdateWithoutAlertSubscriptionsInput = {
@@ -783,6 +823,79 @@ export type OrganizationUncheckedUpdateWithoutAlertSubscriptionsInput = {
   clients?: Prisma.ClientUncheckedUpdateManyWithoutOrganizationNestedInput
   households?: Prisma.HouseholdUncheckedUpdateManyWithoutOrganizationNestedInput
   tripRequests?: Prisma.TripRequestUncheckedUpdateManyWithoutOrganizationNestedInput
+  vendorRequests?: Prisma.VendorRequestUncheckedUpdateManyWithoutOrganizationNestedInput
+}
+
+export type OrganizationCreateWithoutVendorRequestsInput = {
+  id?: string
+  name: string
+  slug: string
+  planTier?: string
+  createdAt?: Date | string
+  updatedAt?: Date | string
+  users?: Prisma.UserCreateNestedManyWithoutOrganizationInput
+  clients?: Prisma.ClientCreateNestedManyWithoutOrganizationInput
+  households?: Prisma.HouseholdCreateNestedManyWithoutOrganizationInput
+  tripRequests?: Prisma.TripRequestCreateNestedManyWithoutOrganizationInput
+  alertSubscriptions?: Prisma.AlertSubscriptionCreateNestedManyWithoutOrganizationInput
+}
+
+export type OrganizationUncheckedCreateWithoutVendorRequestsInput = {
+  id?: string
+  name: string
+  slug: string
+  planTier?: string
+  createdAt?: Date | string
+  updatedAt?: Date | string
+  users?: Prisma.UserUncheckedCreateNestedManyWithoutOrganizationInput
+  clients?: Prisma.ClientUncheckedCreateNestedManyWithoutOrganizationInput
+  households?: Prisma.HouseholdUncheckedCreateNestedManyWithoutOrganizationInput
+  tripRequests?: Prisma.TripRequestUncheckedCreateNestedManyWithoutOrganizationInput
+  alertSubscriptions?: Prisma.AlertSubscriptionUncheckedCreateNestedManyWithoutOrganizationInput
+}
+
+export type OrganizationCreateOrConnectWithoutVendorRequestsInput = {
+  where: Prisma.OrganizationWhereUniqueInput
+  create: Prisma.XOR<Prisma.OrganizationCreateWithoutVendorRequestsInput, Prisma.OrganizationUncheckedCreateWithoutVendorRequestsInput>
+}
+
+export type OrganizationUpsertWithoutVendorRequestsInput = {
+  update: Prisma.XOR<Prisma.OrganizationUpdateWithoutVendorRequestsInput, Prisma.OrganizationUncheckedUpdateWithoutVendorRequestsInput>
+  create: Prisma.XOR<Prisma.OrganizationCreateWithoutVendorRequestsInput, Prisma.OrganizationUncheckedCreateWithoutVendorRequestsInput>
+  where?: Prisma.OrganizationWhereInput
+}
+
+export type OrganizationUpdateToOneWithWhereWithoutVendorRequestsInput = {
+  where?: Prisma.OrganizationWhereInput
+  data: Prisma.XOR<Prisma.OrganizationUpdateWithoutVendorRequestsInput, Prisma.OrganizationUncheckedUpdateWithoutVendorRequestsInput>
+}
+
+export type OrganizationUpdateWithoutVendorRequestsInput = {
+  id?: Prisma.StringFieldUpdateOperationsInput | string
+  name?: Prisma.StringFieldUpdateOperationsInput | string
+  slug?: Prisma.StringFieldUpdateOperationsInput | string
+  planTier?: Prisma.StringFieldUpdateOperationsInput | string
+  createdAt?: Prisma.DateTimeFieldUpdateOperationsInput | Date | string
+  updatedAt?: Prisma.DateTimeFieldUpdateOperationsInput | Date | string
+  users?: Prisma.UserUpdateManyWithoutOrganizationNestedInput
+  clients?: Prisma.ClientUpdateManyWithoutOrganizationNestedInput
+  households?: Prisma.HouseholdUpdateManyWithoutOrganizationNestedInput
+  tripRequests?: Prisma.TripRequestUpdateManyWithoutOrganizationNestedInput
+  alertSubscriptions?: Prisma.AlertSubscriptionUpdateManyWithoutOrganizationNestedInput
+}
+
+export type OrganizationUncheckedUpdateWithoutVendorRequestsInput = {
+  id?: Prisma.StringFieldUpdateOperationsInput | string
+  name?: Prisma.StringFieldUpdateOperationsInput | string
+  slug?: Prisma.StringFieldUpdateOperationsInput | string
+  planTier?: Prisma.StringFieldUpdateOperationsInput | string
+  createdAt?: Prisma.DateTimeFieldUpdateOperationsInput | Date | string
+  updatedAt?: Prisma.DateTimeFieldUpdateOperationsInput | Date | string
+  users?: Prisma.UserUncheckedUpdateManyWithoutOrganizationNestedInput
+  clients?: Prisma.ClientUncheckedUpdateManyWithoutOrganizationNestedInput
+  households?: Prisma.HouseholdUncheckedUpdateManyWithoutOrganizationNestedInput
+  tripRequests?: Prisma.TripRequestUncheckedUpdateManyWithoutOrganizationNestedInput
+  alertSubscriptions?: Prisma.AlertSubscriptionUncheckedUpdateManyWithoutOrganizationNestedInput
 }
 
 
@@ -796,6 +909,7 @@ export type OrganizationCountOutputType = {
   households: number
   tripRequests: number
   alertSubscriptions: number
+  vendorRequests: number
 }
 
 export type OrganizationCountOutputTypeSelect<ExtArgs extends runtime.Types.Extensions.InternalArgs = runtime.Types.Extensions.DefaultArgs> = {
@@ -804,6 +918,7 @@ export type OrganizationCountOutputTypeSelect<ExtArgs extends runtime.Types.Exte
   households?: boolean | OrganizationCountOutputTypeCountHouseholdsArgs
   tripRequests?: boolean | OrganizationCountOutputTypeCountTripRequestsArgs
   alertSubscriptions?: boolean | OrganizationCountOutputTypeCountAlertSubscriptionsArgs
+  vendorRequests?: boolean | OrganizationCountOutputTypeCountVendorRequestsArgs
 }
 
 /**
@@ -851,6 +966,13 @@ export type OrganizationCountOutputTypeCountAlertSubscriptionsArgs<ExtArgs exten
   where?: Prisma.AlertSubscriptionWhereInput
 }
 
+/**
+ * OrganizationCountOutputType without action
+ */
+export type OrganizationCountOutputTypeCountVendorRequestsArgs<ExtArgs extends runtime.Types.Extensions.InternalArgs = runtime.Types.Extensions.DefaultArgs> = {
+  where?: Prisma.VendorRequestWhereInput
+}
+
 
 export type OrganizationSelect<ExtArgs extends runtime.Types.Extensions.InternalArgs = runtime.Types.Extensions.DefaultArgs> = runtime.Types.Extensions.GetSelect<{
   id?: boolean
@@ -864,6 +986,7 @@ export type OrganizationSelect<ExtArgs extends runtime.Types.Extensions.Internal
   households?: boolean | Prisma.Organization$householdsArgs<ExtArgs>
   tripRequests?: boolean | Prisma.Organization$tripRequestsArgs<ExtArgs>
   alertSubscriptions?: boolean | Prisma.Organization$alertSubscriptionsArgs<ExtArgs>
+  vendorRequests?: boolean | Prisma.Organization$vendorRequestsArgs<ExtArgs>
   _count?: boolean | Prisma.OrganizationCountOutputTypeDefaultArgs<ExtArgs>
 }, ExtArgs["result"]["organization"]>
 
@@ -901,6 +1024,7 @@ export type OrganizationInclude<ExtArgs extends runtime.Types.Extensions.Interna
   households?: boolean | Prisma.Organization$householdsArgs<ExtArgs>
   tripRequests?: boolean | Prisma.Organization$tripRequestsArgs<ExtArgs>
   alertSubscriptions?: boolean | Prisma.Organization$alertSubscriptionsArgs<ExtArgs>
+  vendorRequests?: boolean | Prisma.Organization$vendorRequestsArgs<ExtArgs>
   _count?: boolean | Prisma.OrganizationCountOutputTypeDefaultArgs<ExtArgs>
 }
 export type OrganizationIncludeCreateManyAndReturn<ExtArgs extends runtime.Types.Extensions.InternalArgs = runtime.Types.Extensions.DefaultArgs> = {}
@@ -914,6 +1038,7 @@ export type $OrganizationPayload<ExtArgs extends runtime.Types.Extensions.Intern
     households: Prisma.$HouseholdPayload<ExtArgs>[]
     tripRequests: Prisma.$TripRequestPayload<ExtArgs>[]
     alertSubscriptions: Prisma.$AlertSubscriptionPayload<ExtArgs>[]
+    vendorRequests: Prisma.$VendorRequestPayload<ExtArgs>[]
   }
   scalars: runtime.Types.Extensions.GetPayloadResult<{
     id: string
@@ -1321,6 +1446,7 @@ export interface Prisma__OrganizationClient<T, Null = never, ExtArgs extends run
   households<T extends Prisma.Organization$householdsArgs<ExtArgs> = {}>(args?: Prisma.Subset<T, Prisma.Organization$householdsArgs<ExtArgs>>): Prisma.PrismaPromise<runtime.Types.Result.GetResult<Prisma.$HouseholdPayload<ExtArgs>, T, "findMany", GlobalOmitOptions> | Null>
   tripRequests<T extends Prisma.Organization$tripRequestsArgs<ExtArgs> = {}>(args?: Prisma.Subset<T, Prisma.Organization$tripRequestsArgs<ExtArgs>>): Prisma.PrismaPromise<runtime.Types.Result.GetResult<Prisma.$TripRequestPayload<ExtArgs>, T, "findMany", GlobalOmitOptions> | Null>
   alertSubscriptions<T extends Prisma.Organization$alertSubscriptionsArgs<ExtArgs> = {}>(args?: Prisma.Subset<T, Prisma.Organization$alertSubscriptionsArgs<ExtArgs>>): Prisma.PrismaPromise<runtime.Types.Result.GetResult<Prisma.$AlertSubscriptionPayload<ExtArgs>, T, "findMany", GlobalOmitOptions> | Null>
+  vendorRequests<T extends Prisma.Organization$vendorRequestsArgs<ExtArgs> = {}>(args?: Prisma.Subset<T, Prisma.Organization$vendorRequestsArgs<ExtArgs>>): Prisma.PrismaPromise<runtime.Types.Result.GetResult<Prisma.$VendorRequestPayload<ExtArgs>, T, "findMany", GlobalOmitOptions> | Null>
   /**
    * Attaches callbacks for the resolution and/or rejection of the Promise.
    * @param onfulfilled The callback to execute when the Promise is resolved.
@@ -1866,6 +1992,30 @@ export type Organization$alertSubscriptionsArgs<ExtArgs extends runtime.Types.Ex
   take?: number
   skip?: number
   distinct?: Prisma.AlertSubscriptionScalarFieldEnum | Prisma.AlertSubscriptionScalarFieldEnum[]
+}
+
+/**
+ * Organization.vendorRequests
+ */
+export type Organization$vendorRequestsArgs<ExtArgs extends runtime.Types.Extensions.InternalArgs = runtime.Types.Extensions.DefaultArgs> = {
+  /**
+   * Select specific fields to fetch from the VendorRequest
+   */
+  select?: Prisma.VendorRequestSelect<ExtArgs> | null
+  /**
+   * Omit specific fields from the VendorRequest
+   */
+  omit?: Prisma.VendorRequestOmit<ExtArgs> | null
+  /**
+   * Choose, which related nodes to fetch as well
+   */
+  include?: Prisma.VendorRequestInclude<ExtArgs> | null
+  where?: Prisma.VendorRequestWhereInput
+  orderBy?: Prisma.VendorRequestOrderByWithRelationInput | Prisma.VendorRequestOrderByWithRelationInput[]
+  cursor?: Prisma.VendorRequestWhereUniqueInput
+  take?: number
+  skip?: number
+  distinct?: Prisma.VendorRequestScalarFieldEnum | Prisma.VendorRequestScalarFieldEnum[]
 }
 
 /**

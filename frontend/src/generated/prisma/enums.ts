@@ -26,6 +26,14 @@ export const ClientStatus = {
 export type ClientStatus = (typeof ClientStatus)[keyof typeof ClientStatus]
 
 
+export const ClientType = {
+  individual: 'individual',
+  business: 'business'
+} as const
+
+export type ClientType = (typeof ClientType)[keyof typeof ClientType]
+
+
 export const ProgramCategory = {
   airline: 'airline',
   hotel: 'hotel',
@@ -153,3 +161,223 @@ export const AlertType = {
 } as const
 
 export type AlertType = (typeof AlertType)[keyof typeof AlertType]
+
+
+export const InferenceStatus = {
+  pending: 'pending',
+  accepted: 'accepted',
+  rejected: 'rejected'
+} as const
+
+export type InferenceStatus = (typeof InferenceStatus)[keyof typeof InferenceStatus]
+
+
+export const SuggestionStatus = {
+  pending: 'pending',
+  asked: 'asked',
+  answered: 'answered',
+  skipped: 'skipped'
+} as const
+
+export type SuggestionStatus = (typeof SuggestionStatus)[keyof typeof SuggestionStatus]
+
+
+export const SuggestionPriority = {
+  high: 'high',
+  medium: 'medium',
+  low: 'low'
+} as const
+
+export type SuggestionPriority = (typeof SuggestionPriority)[keyof typeof SuggestionPriority]
+
+
+export const SuggestionCategory = {
+  missing_intake: 'missing_intake',
+  ambiguous_preference: 'ambiguous_preference',
+  conflicting_constraint: 'conflicting_constraint',
+  budget_luxury_mismatch: 'budget_luxury_mismatch',
+  points_convenience_mismatch: 'points_convenience_mismatch',
+  destination_flexibility: 'destination_flexibility',
+  group_traveler_difference: 'group_traveler_difference'
+} as const
+
+export type SuggestionCategory = (typeof SuggestionCategory)[keyof typeof SuggestionCategory]
+
+
+export const InferenceCategory = {
+  cabin_choice: 'cabin_choice',
+  airline_preference: 'airline_preference',
+  nonstop_preference: 'nonstop_preference',
+  hotel_tier: 'hotel_tier',
+  budget_behavior: 'budget_behavior',
+  payment_style: 'payment_style',
+  destination_pattern: 'destination_pattern',
+  trip_style: 'trip_style'
+} as const
+
+export type InferenceCategory = (typeof InferenceCategory)[keyof typeof InferenceCategory]
+
+
+export const BudgetSensitivity = {
+  price_conscious: 'price_conscious',
+  moderate: 'moderate',
+  comfort_first: 'comfort_first',
+  luxury: 'luxury'
+} as const
+
+export type BudgetSensitivity = (typeof BudgetSensitivity)[keyof typeof BudgetSensitivity]
+
+
+export const PreferenceSource = {
+  manual: 'manual',
+  intake: 'intake',
+  inferred: 'inferred'
+} as const
+
+export type PreferenceSource = (typeof PreferenceSource)[keyof typeof PreferenceSource]
+
+
+export const MergeStrategy = {
+  overwrite: 'overwrite',
+  merge: 'merge',
+  suggest: 'suggest'
+} as const
+
+export type MergeStrategy = (typeof MergeStrategy)[keyof typeof MergeStrategy]
+
+
+export const IntakeStatus = {
+  draft: 'draft',
+  complete: 'complete'
+} as const
+
+export type IntakeStatus = (typeof IntakeStatus)[keyof typeof IntakeStatus]
+
+
+export const TripType = {
+  leisure: 'leisure',
+  business_travel: 'business_travel',
+  honeymoon: 'honeymoon',
+  family_vacation: 'family_vacation',
+  adventure: 'adventure',
+  luxury_getaway: 'luxury_getaway',
+  group_trip: 'group_trip',
+  destination_wedding: 'destination_wedding',
+  solo: 'solo',
+  other: 'other'
+} as const
+
+export type TripType = (typeof TripType)[keyof typeof TripType]
+
+
+export const DateFlexibility = {
+  exact: 'exact',
+  flexible_1_2_days: 'flexible_1_2_days',
+  flexible_week: 'flexible_week',
+  flexible_month: 'flexible_month',
+  fully_flexible: 'fully_flexible'
+} as const
+
+export type DateFlexibility = (typeof DateFlexibility)[keyof typeof DateFlexibility]
+
+
+export const TravelPace = {
+  relaxed: 'relaxed',
+  moderate: 'moderate',
+  active: 'active',
+  packed: 'packed'
+} as const
+
+export type TravelPace = (typeof TravelPace)[keyof typeof TravelPace]
+
+
+export const LayoverTolerance = {
+  nonstop_only: 'nonstop_only',
+  prefer_nonstop: 'prefer_nonstop',
+  no_preference: 'no_preference',
+  layovers_ok: 'layovers_ok'
+} as const
+
+export type LayoverTolerance = (typeof LayoverTolerance)[keyof typeof LayoverTolerance]
+
+
+export const LuxuryPreference = {
+  luxury: 'luxury',
+  upscale: 'upscale',
+  balanced: 'balanced',
+  value: 'value',
+  budget: 'budget'
+} as const
+
+export type LuxuryPreference = (typeof LuxuryPreference)[keyof typeof LuxuryPreference]
+
+
+export const VendorRequestType = {
+  room_upgrade: 'room_upgrade',
+  early_check_in: 'early_check_in',
+  late_check_out: 'late_check_out',
+  connecting_rooms: 'connecting_rooms',
+  airport_transfer: 'airport_transfer',
+  amenity_request: 'amenity_request',
+  dining_request: 'dining_request',
+  celebration_request: 'celebration_request',
+  quote_request: 'quote_request',
+  custom_request: 'custom_request'
+} as const
+
+export type VendorRequestType = (typeof VendorRequestType)[keyof typeof VendorRequestType]
+
+
+export const VendorRequestStatus = {
+  draft: 'draft',
+  needs_advisor_review: 'needs_advisor_review',
+  needs_client_approval: 'needs_client_approval',
+  approved_to_send: 'approved_to_send',
+  sent_to_vendor: 'sent_to_vendor',
+  awaiting_vendor_response: 'awaiting_vendor_response',
+  follow_up_needed: 'follow_up_needed',
+  confirmed: 'confirmed',
+  declined: 'declined',
+  complete: 'complete',
+  cancelled: 'cancelled'
+} as const
+
+export type VendorRequestStatus = (typeof VendorRequestStatus)[keyof typeof VendorRequestStatus]
+
+
+export const ReminderStatus = {
+  pending: 'pending',
+  completed: 'completed',
+  snoozed: 'snoozed',
+  auto_resolved: 'auto_resolved'
+} as const
+
+export type ReminderStatus = (typeof ReminderStatus)[keyof typeof ReminderStatus]
+
+
+export const DraftTone = {
+  gentle_nudge: 'gentle_nudge',
+  firm_reminder: 'firm_reminder',
+  escalation: 'escalation',
+  urgent_deadline: 'urgent_deadline'
+} as const
+
+export type DraftTone = (typeof DraftTone)[keyof typeof DraftTone]
+
+
+export const TemplateScope = {
+  system: 'system',
+  organization: 'organization'
+} as const
+
+export type TemplateScope = (typeof TemplateScope)[keyof typeof TemplateScope]
+
+
+export const VendorRequestUrgency = {
+  low: 'low',
+  medium: 'medium',
+  high: 'high',
+  urgent: 'urgent'
+} as const
+
+export type VendorRequestUrgency = (typeof VendorRequestUrgency)[keyof typeof VendorRequestUrgency]
