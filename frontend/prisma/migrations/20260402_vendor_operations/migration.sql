@@ -1,26 +1,65 @@
--- CreateEnum
+-- CreateEnum (vendor infrastructure enums)
+CREATE TYPE "VendorRequestType" AS ENUM ('room_upgrade', 'early_check_in', 'late_check_out', 'connecting_rooms', 'airport_transfer', 'amenity_request', 'dining_request', 'celebration_request', 'quote_request', 'custom_request');
+CREATE TYPE "VendorRequestUrgency" AS ENUM ('low', 'medium', 'high', 'urgent');
+CREATE TYPE "VendorRequestStatus" AS ENUM ('draft', 'needs_advisor_review', 'needs_client_approval', 'approved_to_send', 'sent_to_vendor', 'awaiting_vendor_response', 'follow_up_needed', 'confirmed', 'declined', 'complete', 'cancelled');
 CREATE TYPE "ReminderStatus" AS ENUM ('pending', 'completed', 'snoozed', 'auto_resolved');
 CREATE TYPE "DraftTone" AS ENUM ('gentle_nudge', 'firm_reminder', 'escalation', 'urgent_deadline');
 CREATE TYPE "TemplateScope" AS ENUM ('system', 'organization');
 
--- AlterEnum: extend VendorRequestStatus with new workflow states
-ALTER TYPE "VendorRequestStatus" ADD VALUE IF NOT EXISTS 'needs_advisor_review';
-ALTER TYPE "VendorRequestStatus" ADD VALUE IF NOT EXISTS 'needs_client_approval';
-ALTER TYPE "VendorRequestStatus" ADD VALUE IF NOT EXISTS 'approved_to_send';
-ALTER TYPE "VendorRequestStatus" ADD VALUE IF NOT EXISTS 'sent_to_vendor';
-ALTER TYPE "VendorRequestStatus" ADD VALUE IF NOT EXISTS 'awaiting_vendor_response';
-ALTER TYPE "VendorRequestStatus" ADD VALUE IF NOT EXISTS 'complete';
+-- CreateTable: vendor_requests
+CREATE TABLE "vendor_requests" (
+    "id" TEXT NOT NULL,
+    "organization_id" TEXT NOT NULL,
+    "trip_request_id" TEXT NOT NULL,
+    "client_id" TEXT,
+    "created_by_user_id" TEXT NOT NULL,
+    "template_id" TEXT,
+    "vendor_name" TEXT NOT NULL,
+    "vendor_contact" TEXT,
+    "request_type" "VendorRequestType" NOT NULL,
+    "request_details" TEXT,
+    "date_sent" TIMESTAMP(3),
+    "urgency" "VendorRequestUrgency" NOT NULL DEFAULT 'medium',
+    "due_date" TIMESTAMP(3),
+    "status" "VendorRequestStatus" NOT NULL DEFAULT 'draft',
+    "follow_up_count" INTEGER NOT NULL DEFAULT 0,
+    "internal_notes" TEXT,
+    "final_outcome" TEXT,
+    "archived_at" TIMESTAMP(3),
+    "first_response_at" TIMESTAMP(3),
+    "resolved_at" TIMESTAMP(3),
+    "created_at" TIMESTAMP(3) NOT NULL DEFAULT CURRENT_TIMESTAMP,
+    "updated_at" TIMESTAMP(3) NOT NULL,
 
--- Remove old enum values by renaming (Postgres doesn't support DROP VALUE)
--- If 'sent' and 'awaiting_reply' already exist, they are kept for backward compatibility
+    CONSTRAINT "vendor_requests_pkey" PRIMARY KEY ("id")
+);
 
--- AlterTable: add new columns to vendor_requests
-ALTER TABLE "vendor_requests" ADD COLUMN IF NOT EXISTS "template_id" TEXT;
-ALTER TABLE "vendor_requests" ADD COLUMN IF NOT EXISTS "first_response_at" TIMESTAMP(3);
-ALTER TABLE "vendor_requests" ADD COLUMN IF NOT EXISTS "resolved_at" TIMESTAMP(3);
+CREATE INDEX "vendor_requests_organization_id_idx" ON "vendor_requests"("organization_id");
+CREATE INDEX "vendor_requests_trip_request_id_idx" ON "vendor_requests"("trip_request_id");
+CREATE INDEX "vendor_requests_client_id_idx" ON "vendor_requests"("client_id");
+CREATE INDEX "vendor_requests_status_idx" ON "vendor_requests"("status");
+CREATE INDEX "vendor_requests_due_date_idx" ON "vendor_requests"("due_date");
+CREATE INDEX "vendor_requests_vendor_name_idx" ON "vendor_requests"("vendor_name");
 
--- CreateIndex
-CREATE INDEX IF NOT EXISTS "vendor_requests_vendor_name_idx" ON "vendor_requests"("vendor_name");
+ALTER TABLE "vendor_requests"
+    ADD CONSTRAINT "vendor_requests_organization_id_fkey"
+    FOREIGN KEY ("organization_id") REFERENCES "organizations"("id")
+    ON DELETE RESTRICT ON UPDATE CASCADE;
+
+ALTER TABLE "vendor_requests"
+    ADD CONSTRAINT "vendor_requests_trip_request_id_fkey"
+    FOREIGN KEY ("trip_request_id") REFERENCES "trip_requests"("id")
+    ON DELETE RESTRICT ON UPDATE CASCADE;
+
+ALTER TABLE "vendor_requests"
+    ADD CONSTRAINT "vendor_requests_client_id_fkey"
+    FOREIGN KEY ("client_id") REFERENCES "clients"("id")
+    ON DELETE SET NULL ON UPDATE CASCADE;
+
+ALTER TABLE "vendor_requests"
+    ADD CONSTRAINT "vendor_requests_created_by_user_id_fkey"
+    FOREIGN KEY ("created_by_user_id") REFERENCES "users"("id")
+    ON DELETE RESTRICT ON UPDATE CASCADE;
 
 -- CreateTable: vendor_request_reminders
 CREATE TABLE "vendor_request_reminders" (
