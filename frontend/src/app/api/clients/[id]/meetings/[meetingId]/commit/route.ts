@@ -1,4 +1,5 @@
 import { prisma } from "@/lib/prisma";
+import { Prisma } from "@/generated/prisma/client";
 import { requireAuth, json, errorResponse } from "@/lib/auth";
 
 const VALID_PREFERENCE_FIELDS = new Set([
@@ -122,14 +123,17 @@ export async function POST(
 
     let preference;
     if (existing) {
-      const changeLogs = validSuggestions.map((s) => ({
-        preferenceId: existing.id,
-        changedByUserId: user.id,
-        source: "inferred" as const,
-        fieldName: s.targetField,
-        oldValue: (existing as Record<string, unknown>)[s.targetField] ?? null,
-        newValue: s.suggestedValue,
-      }));
+      const changeLogs = validSuggestions.map((s) => {
+        const raw = (existing as Record<string, unknown>)[s.targetField];
+        return {
+          preferenceId: existing.id,
+          changedByUserId: user.id,
+          source: "inferred" as const,
+          fieldName: s.targetField,
+          oldValue: raw == null ? Prisma.DbNull : (raw as Prisma.InputJsonValue),
+          newValue: s.suggestedValue,
+        };
+      });
 
       preference = await prisma.clientPreference.update({
         where: { clientId },
