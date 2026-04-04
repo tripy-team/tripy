@@ -381,3 +381,31 @@ export const VendorRequestUrgency = {
 } as const
 
 export type VendorRequestUrgency = (typeof VendorRequestUrgency)[keyof typeof VendorRequestUrgency]
+
+
+export const MeetingSessionStatus = {
+  active: 'active',
+  completed: 'completed',
+  archived: 'archived'
+} as const
+
+export type MeetingSessionStatus = (typeof MeetingSessionStatus)[keyof typeof MeetingSessionStatus]
+
+
+export const MeetingEntryRole = {
+  advisor_note: 'advisor_note',
+  question_answer: 'question_answer',
+  system: 'system'
+} as const
+
+export type MeetingEntryRole = (typeof MeetingEntryRole)[keyof typeof MeetingEntryRole]
+
+
+export const ProfileSuggestionStatus = {
+  pending: 'pending',
+  approved: 'approved',
+  rejected: 'rejected',
+  committed: 'committed'
+} as const
+
+export type ProfileSuggestionStatus = (typeof ProfileSuggestionStatus)[keyof typeof ProfileSuggestionStatus]

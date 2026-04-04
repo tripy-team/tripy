@@ -418,7 +418,12 @@ export const ModelName = {
   VendorRequestApproval: 'VendorRequestApproval',
   VendorRequestTemplate: 'VendorRequestTemplate',
   VendorScoreSummary: 'VendorScoreSummary',
-  VendorRequestTimeline: 'VendorRequestTimeline'
+  VendorRequestTimeline: 'VendorRequestTimeline',
+  DiscoveryMeetingSession: 'DiscoveryMeetingSession',
+  MeetingEntry: 'MeetingEntry',
+  MeetingQuestionSuggestion: 'MeetingQuestionSuggestion',
+  MeetingProfileSuggestion: 'MeetingProfileSuggestion',
+  MeetingRecap: 'MeetingRecap'
 } as const
 
 export type ModelName = (typeof ModelName)[keyof typeof ModelName]
@@ -434,7 +439,7 @@ export type TypeMap<ExtArgs extends runtime.Types.Extensions.InternalArgs = runt
     omit: GlobalOmitOptions
   }
   meta: {
-    modelProps: "organization" | "user" | "client" | "household" | "householdMember" | "familyMember" | "loyaltyProgram" | "clientLoyaltyBalance" | "balanceLedgerEntry" | "programTransferRule" | "programPoolingRule" | "transferBonus" | "clientPreference" | "preferenceChangeLog" | "tripRequest" | "tripTradeoffRanking" | "tripTraveler" | "recommendationRun" | "recommendationOption" | "recommendationTravelerAllocation" | "recommendationInsight" | "recommendationMemo" | "clientIntake" | "tripBrief" | "alertSubscription" | "alertEvent" | "inferredPreference" | "followUpSuggestion" | "vendorRequest" | "vendorRequestReminder" | "vendorRequestDraft" | "vendorRequestApproval" | "vendorRequestTemplate" | "vendorScoreSummary" | "vendorRequestTimeline"
+    modelProps: "organization" | "user" | "client" | "household" | "householdMember" | "familyMember" | "loyaltyProgram" | "clientLoyaltyBalance" | "balanceLedgerEntry" | "programTransferRule" | "programPoolingRule" | "transferBonus" | "clientPreference" | "preferenceChangeLog" | "tripRequest" | "tripTradeoffRanking" | "tripTraveler" | "recommendationRun" | "recommendationOption" | "recommendationTravelerAllocation" | "recommendationInsight" | "recommendationMemo" | "clientIntake" | "tripBrief" | "alertSubscription" | "alertEvent" | "inferredPreference" | "followUpSuggestion" | "vendorRequest" | "vendorRequestReminder" | "vendorRequestDraft" | "vendorRequestApproval" | "vendorRequestTemplate" | "vendorScoreSummary" | "vendorRequestTimeline" | "discoveryMeetingSession" | "meetingEntry" | "meetingQuestionSuggestion" | "meetingProfileSuggestion" | "meetingRecap"
     txIsolationLevel: TransactionIsolationLevel
   }
   model: {
@@ -3028,6 +3033,376 @@ export type TypeMap<ExtArgs extends runtime.Types.Extensions.InternalArgs = runt
         }
       }
     }
+    DiscoveryMeetingSession: {
+      payload: Prisma.$DiscoveryMeetingSessionPayload<ExtArgs>
+      fields: Prisma.DiscoveryMeetingSessionFieldRefs
+      operations: {
+        findUnique: {
+          args: Prisma.DiscoveryMeetingSessionFindUniqueArgs<ExtArgs>
+          result: runtime.Types.Utils.PayloadToResult<Prisma.$DiscoveryMeetingSessionPayload> | null
+        }
+        findUniqueOrThrow: {
+          args: Prisma.DiscoveryMeetingSessionFindUniqueOrThrowArgs<ExtArgs>
+          result: runtime.Types.Utils.PayloadToResult<Prisma.$DiscoveryMeetingSessionPayload>
+        }
+        findFirst: {
+          args: Prisma.DiscoveryMeetingSessionFindFirstArgs<ExtArgs>
+          result: runtime.Types.Utils.PayloadToResult<Prisma.$DiscoveryMeetingSessionPayload> | null
+        }
+        findFirstOrThrow: {
+          args: Prisma.DiscoveryMeetingSessionFindFirstOrThrowArgs<ExtArgs>
+          result: runtime.Types.Utils.PayloadToResult<Prisma.$DiscoveryMeetingSessionPayload>
+        }
+        findMany: {
+          args: Prisma.DiscoveryMeetingSessionFindManyArgs<ExtArgs>
+          result: runtime.Types.Utils.PayloadToResult<Prisma.$DiscoveryMeetingSessionPayload>[]
+        }
+        create: {
+          args: Prisma.DiscoveryMeetingSessionCreateArgs<ExtArgs>
+          result: runtime.Types.Utils.PayloadToResult<Prisma.$DiscoveryMeetingSessionPayload>
+        }
+        createMany: {
+          args: Prisma.DiscoveryMeetingSessionCreateManyArgs<ExtArgs>
+          result: BatchPayload
+        }
+        createManyAndReturn: {
+          args: Prisma.DiscoveryMeetingSessionCreateManyAndReturnArgs<ExtArgs>
+          result: runtime.Types.Utils.PayloadToResult<Prisma.$DiscoveryMeetingSessionPayload>[]
+        }
+        delete: {
+          args: Prisma.DiscoveryMeetingSessionDeleteArgs<ExtArgs>
+          result: runtime.Types.Utils.PayloadToResult<Prisma.$DiscoveryMeetingSessionPayload>
+        }
+        update: {
+          args: Prisma.DiscoveryMeetingSessionUpdateArgs<ExtArgs>
+          result: runtime.Types.Utils.PayloadToResult<Prisma.$DiscoveryMeetingSessionPayload>
+        }
+        deleteMany: {
+          args: Prisma.DiscoveryMeetingSessionDeleteManyArgs<ExtArgs>
+          result: BatchPayload
+        }
+        updateMany: {
+          args: Prisma.DiscoveryMeetingSessionUpdateManyArgs<ExtArgs>
+          result: BatchPayload
+        }
+        updateManyAndReturn: {
+          args: Prisma.DiscoveryMeetingSessionUpdateManyAndReturnArgs<ExtArgs>
+          result: runtime.Types.Utils.PayloadToResult<Prisma.$DiscoveryMeetingSessionPayload>[]
+        }
+        upsert: {
+          args: Prisma.DiscoveryMeetingSessionUpsertArgs<ExtArgs>
+          result: runtime.Types.Utils.PayloadToResult<Prisma.$DiscoveryMeetingSessionPayload>
+        }
+        aggregate: {
+          args: Prisma.DiscoveryMeetingSessionAggregateArgs<ExtArgs>
+          result: runtime.Types.Utils.Optional<Prisma.AggregateDiscoveryMeetingSession>
+        }
+        groupBy: {
+          args: Prisma.DiscoveryMeetingSessionGroupByArgs<ExtArgs>
+          result: runtime.Types.Utils.Optional<Prisma.DiscoveryMeetingSessionGroupByOutputType>[]
+        }
+        count: {
+          args: Prisma.DiscoveryMeetingSessionCountArgs<ExtArgs>
+          result: runtime.Types.Utils.Optional<Prisma.DiscoveryMeetingSessionCountAggregateOutputType> | number
+        }
+      }
+    }
+    MeetingEntry: {
+      payload: Prisma.$MeetingEntryPayload<ExtArgs>
+      fields: Prisma.MeetingEntryFieldRefs
+      operations: {
+        findUnique: {
+          args: Prisma.MeetingEntryFindUniqueArgs<ExtArgs>
+          result: runtime.Types.Utils.PayloadToResult<Prisma.$MeetingEntryPayload> | null
+        }
+        findUniqueOrThrow: {
+          args: Prisma.MeetingEntryFindUniqueOrThrowArgs<ExtArgs>
+          result: runtime.Types.Utils.PayloadToResult<Prisma.$MeetingEntryPayload>
+        }
+        findFirst: {
+          args: Prisma.MeetingEntryFindFirstArgs<ExtArgs>
+          result: runtime.Types.Utils.PayloadToResult<Prisma.$MeetingEntryPayload> | null
+        }
+        findFirstOrThrow: {
+          args: Prisma.MeetingEntryFindFirstOrThrowArgs<ExtArgs>
+          result: runtime.Types.Utils.PayloadToResult<Prisma.$MeetingEntryPayload>
+        }
+        findMany: {
+          args: Prisma.MeetingEntryFindManyArgs<ExtArgs>
+          result: runtime.Types.Utils.PayloadToResult<Prisma.$MeetingEntryPayload>[]
+        }
+        create: {
+          args: Prisma.MeetingEntryCreateArgs<ExtArgs>
+          result: runtime.Types.Utils.PayloadToResult<Prisma.$MeetingEntryPayload>
+        }
+        createMany: {
+          args: Prisma.MeetingEntryCreateManyArgs<ExtArgs>
+          result: BatchPayload
+        }
+        createManyAndReturn: {
+          args: Prisma.MeetingEntryCreateManyAndReturnArgs<ExtArgs>
+          result: runtime.Types.Utils.PayloadToResult<Prisma.$MeetingEntryPayload>[]
+        }
+        delete: {
+          args: Prisma.MeetingEntryDeleteArgs<ExtArgs>
+          result: runtime.Types.Utils.PayloadToResult<Prisma.$MeetingEntryPayload>
+        }
+        update: {
+          args: Prisma.MeetingEntryUpdateArgs<ExtArgs>
+          result: runtime.Types.Utils.PayloadToResult<Prisma.$MeetingEntryPayload>
+        }
+        deleteMany: {
+          args: Prisma.MeetingEntryDeleteManyArgs<ExtArgs>
+          result: BatchPayload
+        }
+        updateMany: {
+          args: Prisma.MeetingEntryUpdateManyArgs<ExtArgs>
+          result: BatchPayload
+        }
+        updateManyAndReturn: {
+          args: Prisma.MeetingEntryUpdateManyAndReturnArgs<ExtArgs>
+          result: runtime.Types.Utils.PayloadToResult<Prisma.$MeetingEntryPayload>[]
+        }
+        upsert: {
+          args: Prisma.MeetingEntryUpsertArgs<ExtArgs>
+          result: runtime.Types.Utils.PayloadToResult<Prisma.$MeetingEntryPayload>
+        }
+        aggregate: {
+          args: Prisma.MeetingEntryAggregateArgs<ExtArgs>
+          result: runtime.Types.Utils.Optional<Prisma.AggregateMeetingEntry>
+        }
+        groupBy: {
+          args: Prisma.MeetingEntryGroupByArgs<ExtArgs>
+          result: runtime.Types.Utils.Optional<Prisma.MeetingEntryGroupByOutputType>[]
+        }
+        count: {
+          args: Prisma.MeetingEntryCountArgs<ExtArgs>
+          result: runtime.Types.Utils.Optional<Prisma.MeetingEntryCountAggregateOutputType> | number
+        }
+      }
+    }
+    MeetingQuestionSuggestion: {
+      payload: Prisma.$MeetingQuestionSuggestionPayload<ExtArgs>
+      fields: Prisma.MeetingQuestionSuggestionFieldRefs
+      operations: {
+        findUnique: {
+          args: Prisma.MeetingQuestionSuggestionFindUniqueArgs<ExtArgs>
+          result: runtime.Types.Utils.PayloadToResult<Prisma.$MeetingQuestionSuggestionPayload> | null
+        }
+        findUniqueOrThrow: {
+          args: Prisma.MeetingQuestionSuggestionFindUniqueOrThrowArgs<ExtArgs>
+          result: runtime.Types.Utils.PayloadToResult<Prisma.$MeetingQuestionSuggestionPayload>
+        }
+        findFirst: {
+          args: Prisma.MeetingQuestionSuggestionFindFirstArgs<ExtArgs>
+          result: runtime.Types.Utils.PayloadToResult<Prisma.$MeetingQuestionSuggestionPayload> | null
+        }
+        findFirstOrThrow: {
+          args: Prisma.MeetingQuestionSuggestionFindFirstOrThrowArgs<ExtArgs>
+          result: runtime.Types.Utils.PayloadToResult<Prisma.$MeetingQuestionSuggestionPayload>
+        }
+        findMany: {
+          args: Prisma.MeetingQuestionSuggestionFindManyArgs<ExtArgs>
+          result: runtime.Types.Utils.PayloadToResult<Prisma.$MeetingQuestionSuggestionPayload>[]
+        }
+        create: {
+          args: Prisma.MeetingQuestionSuggestionCreateArgs<ExtArgs>
+          result: runtime.Types.Utils.PayloadToResult<Prisma.$MeetingQuestionSuggestionPayload>
+        }
+        createMany: {
+          args: Prisma.MeetingQuestionSuggestionCreateManyArgs<ExtArgs>
+          result: BatchPayload
+        }
+        createManyAndReturn: {
+          args: Prisma.MeetingQuestionSuggestionCreateManyAndReturnArgs<ExtArgs>
+          result: runtime.Types.Utils.PayloadToResult<Prisma.$MeetingQuestionSuggestionPayload>[]
+        }
+        delete: {
+          args: Prisma.MeetingQuestionSuggestionDeleteArgs<ExtArgs>
+          result: runtime.Types.Utils.PayloadToResult<Prisma.$MeetingQuestionSuggestionPayload>
+        }
+        update: {
+          args: Prisma.MeetingQuestionSuggestionUpdateArgs<ExtArgs>
+          result: runtime.Types.Utils.PayloadToResult<Prisma.$MeetingQuestionSuggestionPayload>
+        }
+        deleteMany: {
+          args: Prisma.MeetingQuestionSuggestionDeleteManyArgs<ExtArgs>
+          result: BatchPayload
+        }
+        updateMany: {
+          args: Prisma.MeetingQuestionSuggestionUpdateManyArgs<ExtArgs>
+          result: BatchPayload
+        }
+        updateManyAndReturn: {
+          args: Prisma.MeetingQuestionSuggestionUpdateManyAndReturnArgs<ExtArgs>
+          result: runtime.Types.Utils.PayloadToResult<Prisma.$MeetingQuestionSuggestionPayload>[]
+        }
+        upsert: {
+          args: Prisma.MeetingQuestionSuggestionUpsertArgs<ExtArgs>
+          result: runtime.Types.Utils.PayloadToResult<Prisma.$MeetingQuestionSuggestionPayload>
+        }
+        aggregate: {
+          args: Prisma.MeetingQuestionSuggestionAggregateArgs<ExtArgs>
+          result: runtime.Types.Utils.Optional<Prisma.AggregateMeetingQuestionSuggestion>
+        }
+        groupBy: {
+          args: Prisma.MeetingQuestionSuggestionGroupByArgs<ExtArgs>
+          result: runtime.Types.Utils.Optional<Prisma.MeetingQuestionSuggestionGroupByOutputType>[]
+        }
+        count: {
+          args: Prisma.MeetingQuestionSuggestionCountArgs<ExtArgs>
+          result: runtime.Types.Utils.Optional<Prisma.MeetingQuestionSuggestionCountAggregateOutputType> | number
+        }
+      }
+    }
+    MeetingProfileSuggestion: {
+      payload: Prisma.$MeetingProfileSuggestionPayload<ExtArgs>
+      fields: Prisma.MeetingProfileSuggestionFieldRefs
+      operations: {
+        findUnique: {
+          args: Prisma.MeetingProfileSuggestionFindUniqueArgs<ExtArgs>
+          result: runtime.Types.Utils.PayloadToResult<Prisma.$MeetingProfileSuggestionPayload> | null
+        }
+        findUniqueOrThrow: {
+          args: Prisma.MeetingProfileSuggestionFindUniqueOrThrowArgs<ExtArgs>
+          result: runtime.Types.Utils.PayloadToResult<Prisma.$MeetingProfileSuggestionPayload>
+        }
+        findFirst: {
+          args: Prisma.MeetingProfileSuggestionFindFirstArgs<ExtArgs>
+          result: runtime.Types.Utils.PayloadToResult<Prisma.$MeetingProfileSuggestionPayload> | null
+        }
+        findFirstOrThrow: {
+          args: Prisma.MeetingProfileSuggestionFindFirstOrThrowArgs<ExtArgs>
+          result: runtime.Types.Utils.PayloadToResult<Prisma.$MeetingProfileSuggestionPayload>
+        }
+        findMany: {
+          args: Prisma.MeetingProfileSuggestionFindManyArgs<ExtArgs>
+          result: runtime.Types.Utils.PayloadToResult<Prisma.$MeetingProfileSuggestionPayload>[]
+        }
+        create: {
+          args: Prisma.MeetingProfileSuggestionCreateArgs<ExtArgs>
+          result: runtime.Types.Utils.PayloadToResult<Prisma.$MeetingProfileSuggestionPayload>
+        }
+        createMany: {
+          args: Prisma.MeetingProfileSuggestionCreateManyArgs<ExtArgs>
+          result: BatchPayload
+        }
+        createManyAndReturn: {
+          args: Prisma.MeetingProfileSuggestionCreateManyAndReturnArgs<ExtArgs>
+          result: runtime.Types.Utils.PayloadToResult<Prisma.$MeetingProfileSuggestionPayload>[]
+        }
+        delete: {
+          args: Prisma.MeetingProfileSuggestionDeleteArgs<ExtArgs>
+          result: runtime.Types.Utils.PayloadToResult<Prisma.$MeetingProfileSuggestionPayload>
+        }
+        update: {
+          args: Prisma.MeetingProfileSuggestionUpdateArgs<ExtArgs>
+          result: runtime.Types.Utils.PayloadToResult<Prisma.$MeetingProfileSuggestionPayload>
+        }
+        deleteMany: {
+          args: Prisma.MeetingProfileSuggestionDeleteManyArgs<ExtArgs>
+          result: BatchPayload
+        }
+        updateMany: {
+          args: Prisma.MeetingProfileSuggestionUpdateManyArgs<ExtArgs>
+          result: BatchPayload
+        }
+        updateManyAndReturn: {
+          args: Prisma.MeetingProfileSuggestionUpdateManyAndReturnArgs<ExtArgs>
+          result: runtime.Types.Utils.PayloadToResult<Prisma.$MeetingProfileSuggestionPayload>[]
+        }
+        upsert: {
+          args: Prisma.MeetingProfileSuggestionUpsertArgs<ExtArgs>
+          result: runtime.Types.Utils.PayloadToResult<Prisma.$MeetingProfileSuggestionPayload>
+        }
+        aggregate: {
+          args: Prisma.MeetingProfileSuggestionAggregateArgs<ExtArgs>
+          result: runtime.Types.Utils.Optional<Prisma.AggregateMeetingProfileSuggestion>
+        }
+        groupBy: {
+          args: Prisma.MeetingProfileSuggestionGroupByArgs<ExtArgs>
+          result: runtime.Types.Utils.Optional<Prisma.MeetingProfileSuggestionGroupByOutputType>[]
+        }
+        count: {
+          args: Prisma.MeetingProfileSuggestionCountArgs<ExtArgs>
+          result: runtime.Types.Utils.Optional<Prisma.MeetingProfileSuggestionCountAggregateOutputType> | number
+        }
+      }
+    }
+    MeetingRecap: {
+      payload: Prisma.$MeetingRecapPayload<ExtArgs>
+      fields: Prisma.MeetingRecapFieldRefs
+      operations: {
+        findUnique: {
+          args: Prisma.MeetingRecapFindUniqueArgs<ExtArgs>
+          result: runtime.Types.Utils.PayloadToResult<Prisma.$MeetingRecapPayload> | null
+        }
+        findUniqueOrThrow: {
+          args: Prisma.MeetingRecapFindUniqueOrThrowArgs<ExtArgs>
+          result: runtime.Types.Utils.PayloadToResult<Prisma.$MeetingRecapPayload>
+        }
+        findFirst: {
+          args: Prisma.MeetingRecapFindFirstArgs<ExtArgs>
+          result: runtime.Types.Utils.PayloadToResult<Prisma.$MeetingRecapPayload> | null
+        }
+        findFirstOrThrow: {
+          args: Prisma.MeetingRecapFindFirstOrThrowArgs<ExtArgs>
+          result: runtime.Types.Utils.PayloadToResult<Prisma.$MeetingRecapPayload>
+        }
+        findMany: {
+          args: Prisma.MeetingRecapFindManyArgs<ExtArgs>
+          result: runtime.Types.Utils.PayloadToResult<Prisma.$MeetingRecapPayload>[]
+        }
+        create: {
+          args: Prisma.MeetingRecapCreateArgs<ExtArgs>
+          result: runtime.Types.Utils.PayloadToResult<Prisma.$MeetingRecapPayload>
+        }
+        createMany: {
+          args: Prisma.MeetingRecapCreateManyArgs<ExtArgs>
+          result: BatchPayload
+        }
+        createManyAndReturn: {
+          args: Prisma.MeetingRecapCreateManyAndReturnArgs<ExtArgs>
+          result: runtime.Types.Utils.PayloadToResult<Prisma.$MeetingRecapPayload>[]
+        }
+        delete: {
+          args: Prisma.MeetingRecapDeleteArgs<ExtArgs>
+          result: runtime.Types.Utils.PayloadToResult<Prisma.$MeetingRecapPayload>
+        }
+        update: {
+          args: Prisma.MeetingRecapUpdateArgs<ExtArgs>
+          result: runtime.Types.Utils.PayloadToResult<Prisma.$MeetingRecapPayload>
+        }
+        deleteMany: {
+          args: Prisma.MeetingRecapDeleteManyArgs<ExtArgs>
+          result: BatchPayload
+        }
+        updateMany: {
+          args: Prisma.MeetingRecapUpdateManyArgs<ExtArgs>
+          result: BatchPayload
+        }
+        updateManyAndReturn: {
+          args: Prisma.MeetingRecapUpdateManyAndReturnArgs<ExtArgs>
+          result: runtime.Types.Utils.PayloadToResult<Prisma.$MeetingRecapPayload>[]
+        }
+        upsert: {
+          args: Prisma.MeetingRecapUpsertArgs<ExtArgs>
+          result: runtime.Types.Utils.PayloadToResult<Prisma.$MeetingRecapPayload>
+        }
+        aggregate: {
+          args: Prisma.MeetingRecapAggregateArgs<ExtArgs>
+          result: runtime.Types.Utils.Optional<Prisma.AggregateMeetingRecap>
+        }
+        groupBy: {
+          args: Prisma.MeetingRecapGroupByArgs<ExtArgs>
+          result: runtime.Types.Utils.Optional<Prisma.MeetingRecapGroupByOutputType>[]
+        }
+        count: {
+          args: Prisma.MeetingRecapCountArgs<ExtArgs>
+          result: runtime.Types.Utils.Optional<Prisma.MeetingRecapCountAggregateOutputType> | number
+        }
+      }
+    }
   }
 } & {
   other: {
@@ -3679,6 +4054,77 @@ export const VendorRequestTimelineScalarFieldEnum = {
 export type VendorRequestTimelineScalarFieldEnum = (typeof VendorRequestTimelineScalarFieldEnum)[keyof typeof VendorRequestTimelineScalarFieldEnum]
 
 
+export const DiscoveryMeetingSessionScalarFieldEnum = {
+  id: 'id',
+  clientId: 'clientId',
+  advisorUserId: 'advisorUserId',
+  title: 'title',
+  status: 'status',
+  summary: 'summary',
+  createdAt: 'createdAt',
+  updatedAt: 'updatedAt'
+} as const
+
+export type DiscoveryMeetingSessionScalarFieldEnum = (typeof DiscoveryMeetingSessionScalarFieldEnum)[keyof typeof DiscoveryMeetingSessionScalarFieldEnum]
+
+
+export const MeetingEntryScalarFieldEnum = {
+  id: 'id',
+  sessionId: 'sessionId',
+  role: 'role',
+  content: 'content',
+  metadata: 'metadata',
+  createdAt: 'createdAt'
+} as const
+
+export type MeetingEntryScalarFieldEnum = (typeof MeetingEntryScalarFieldEnum)[keyof typeof MeetingEntryScalarFieldEnum]
+
+
+export const MeetingQuestionSuggestionScalarFieldEnum = {
+  id: 'id',
+  sessionId: 'sessionId',
+  questionText: 'questionText',
+  category: 'category',
+  reason: 'reason',
+  priority: 'priority',
+  targetFields: 'targetFields',
+  isUsed: 'isUsed',
+  createdAt: 'createdAt'
+} as const
+
+export type MeetingQuestionSuggestionScalarFieldEnum = (typeof MeetingQuestionSuggestionScalarFieldEnum)[keyof typeof MeetingQuestionSuggestionScalarFieldEnum]
+
+
+export const MeetingProfileSuggestionScalarFieldEnum = {
+  id: 'id',
+  sessionId: 'sessionId',
+  targetField: 'targetField',
+  suggestedValue: 'suggestedValue',
+  confidence: 'confidence',
+  evidence: 'evidence',
+  rationale: 'rationale',
+  status: 'status',
+  resolvedAt: 'resolvedAt',
+  createdAt: 'createdAt'
+} as const
+
+export type MeetingProfileSuggestionScalarFieldEnum = (typeof MeetingProfileSuggestionScalarFieldEnum)[keyof typeof MeetingProfileSuggestionScalarFieldEnum]
+
+
+export const MeetingRecapScalarFieldEnum = {
+  id: 'id',
+  sessionId: 'sessionId',
+  travelerSummary: 'travelerSummary',
+  newPreferencesLearned: 'newPreferencesLearned',
+  unresolvedQuestions: 'unresolvedQuestions',
+  nextSteps: 'nextSteps',
+  createdAt: 'createdAt',
+  updatedAt: 'updatedAt'
+} as const
+
+export type MeetingRecapScalarFieldEnum = (typeof MeetingRecapScalarFieldEnum)[keyof typeof MeetingRecapScalarFieldEnum]
+
+
 export const SortOrder = {
   asc: 'asc',
   desc: 'desc'
@@ -4313,6 +4759,48 @@ export type EnumTemplateScopeFieldRefInput<$PrismaModel> = FieldRefInputType<$Pr
 export type ListEnumTemplateScopeFieldRefInput<$PrismaModel> = FieldRefInputType<$PrismaModel, 'TemplateScope[]'>
     
 
+
+/**
+ * Reference to a field of type 'MeetingSessionStatus'
+ */
+export type EnumMeetingSessionStatusFieldRefInput<$PrismaModel> = FieldRefInputType<$PrismaModel, 'MeetingSessionStatus'>
+    
+
+
+/**
+ * Reference to a field of type 'MeetingSessionStatus[]'
+ */
+export type ListEnumMeetingSessionStatusFieldRefInput<$PrismaModel> = FieldRefInputType<$PrismaModel, 'MeetingSessionStatus[]'>
+    
+
+
+/**
+ * Reference to a field of type 'MeetingEntryRole'
+ */
+export type EnumMeetingEntryRoleFieldRefInput<$PrismaModel> = FieldRefInputType<$PrismaModel, 'MeetingEntryRole'>
+    
+
+
+/**
+ * Reference to a field of type 'MeetingEntryRole[]'
+ */
+export type ListEnumMeetingEntryRoleFieldRefInput<$PrismaModel> = FieldRefInputType<$PrismaModel, 'MeetingEntryRole[]'>
+    
+
+
+/**
+ * Reference to a field of type 'ProfileSuggestionStatus'
+ */
+export type EnumProfileSuggestionStatusFieldRefInput<$PrismaModel> = FieldRefInputType<$PrismaModel, 'ProfileSuggestionStatus'>
+    
+
+
+/**
+ * Reference to a field of type 'ProfileSuggestionStatus[]'
+ */
+export type ListEnumProfileSuggestionStatusFieldRefInput<$PrismaModel> = FieldRefInputType<$PrismaModel, 'ProfileSuggestionStatus[]'>
+    
+
 /**
  * Batch Payload for updateMany & deleteMany & createMany
  */
@@ -4443,6 +4931,11 @@ export type GlobalOmitConfig = {
   vendorRequestTemplate?: Prisma.VendorRequestTemplateOmit
   vendorScoreSummary?: Prisma.VendorScoreSummaryOmit
   vendorRequestTimeline?: Prisma.VendorRequestTimelineOmit
+  discoveryMeetingSession?: Prisma.DiscoveryMeetingSessionOmit
+  meetingEntry?: Prisma.MeetingEntryOmit
+  meetingQuestionSuggestion?: Prisma.MeetingQuestionSuggestionOmit
+  meetingProfileSuggestion?: Prisma.MeetingProfileSuggestionOmit
+  meetingRecap?: Prisma.MeetingRecapOmit
 }
 
 /* Types for Logging */

@@ -85,7 +85,12 @@ export const ModelName = {
   VendorRequestApproval: 'VendorRequestApproval',
   VendorRequestTemplate: 'VendorRequestTemplate',
   VendorScoreSummary: 'VendorScoreSummary',
-  VendorRequestTimeline: 'VendorRequestTimeline'
+  VendorRequestTimeline: 'VendorRequestTimeline',
+  DiscoveryMeetingSession: 'DiscoveryMeetingSession',
+  MeetingEntry: 'MeetingEntry',
+  MeetingQuestionSuggestion: 'MeetingQuestionSuggestion',
+  MeetingProfileSuggestion: 'MeetingProfileSuggestion',
+  MeetingRecap: 'MeetingRecap'
 } as const
 
 export type ModelName = (typeof ModelName)[keyof typeof ModelName]
@@ -714,6 +719,77 @@ export const VendorRequestTimelineScalarFieldEnum = {
 } as const
 
 export type VendorRequestTimelineScalarFieldEnum = (typeof VendorRequestTimelineScalarFieldEnum)[keyof typeof VendorRequestTimelineScalarFieldEnum]
+
+
+export const DiscoveryMeetingSessionScalarFieldEnum = {
+  id: 'id',
+  clientId: 'clientId',
+  advisorUserId: 'advisorUserId',
+  title: 'title',
+  status: 'status',
+  summary: 'summary',
+  createdAt: 'createdAt',
+  updatedAt: 'updatedAt'
+} as const
+
+export type DiscoveryMeetingSessionScalarFieldEnum = (typeof DiscoveryMeetingSessionScalarFieldEnum)[keyof typeof DiscoveryMeetingSessionScalarFieldEnum]
+
+
+export const MeetingEntryScalarFieldEnum = {
+  id: 'id',
+  sessionId: 'sessionId',
+  role: 'role',
+  content: 'content',
+  metadata: 'metadata',
+  createdAt: 'createdAt'
+} as const
+
+export type MeetingEntryScalarFieldEnum = (typeof MeetingEntryScalarFieldEnum)[keyof typeof MeetingEntryScalarFieldEnum]
+
+
+export const MeetingQuestionSuggestionScalarFieldEnum = {
+  id: 'id',
+  sessionId: 'sessionId',
+  questionText: 'questionText',
+  category: 'category',
+  reason: 'reason',
+  priority: 'priority',
+  targetFields: 'targetFields',
+  isUsed: 'isUsed',
+  createdAt: 'createdAt'
+} as const
+
+export type MeetingQuestionSuggestionScalarFieldEnum = (typeof MeetingQuestionSuggestionScalarFieldEnum)[keyof typeof MeetingQuestionSuggestionScalarFieldEnum]
+
+
+export const MeetingProfileSuggestionScalarFieldEnum = {
+  id: 'id',
+  sessionId: 'sessionId',
+  targetField: 'targetField',
+  suggestedValue: 'suggestedValue',
+  confidence: 'confidence',
+  evidence: 'evidence',
+  rationale: 'rationale',
+  status: 'status',
+  resolvedAt: 'resolvedAt',
+  createdAt: 'createdAt'
+} as const
+
+export type MeetingProfileSuggestionScalarFieldEnum = (typeof MeetingProfileSuggestionScalarFieldEnum)[keyof typeof MeetingProfileSuggestionScalarFieldEnum]
+
+
+export const MeetingRecapScalarFieldEnum = {
+  id: 'id',
+  sessionId: 'sessionId',
+  travelerSummary: 'travelerSummary',
+  newPreferencesLearned: 'newPreferencesLearned',
+  unresolvedQuestions: 'unresolvedQuestions',
+  nextSteps: 'nextSteps',
+  createdAt: 'createdAt',
+  updatedAt: 'updatedAt'
+} as const
+
+export type MeetingRecapScalarFieldEnum = (typeof MeetingRecapScalarFieldEnum)[keyof typeof MeetingRecapScalarFieldEnum]
 
 
 export const SortOrder = {

@@ -1000,6 +1000,57 @@ export type EnumTemplateScopeWithAggregatesFilter<$PrismaModel = never> = {
   _max?: Prisma.NestedEnumTemplateScopeFilter<$PrismaModel>
 }
 
+export type EnumMeetingSessionStatusFilter<$PrismaModel = never> = {
+  equals?: $Enums.MeetingSessionStatus | Prisma.EnumMeetingSessionStatusFieldRefInput<$PrismaModel>
+  in?: $Enums.MeetingSessionStatus[] | Prisma.ListEnumMeetingSessionStatusFieldRefInput<$PrismaModel>
+  notIn?: $Enums.MeetingSessionStatus[] | Prisma.ListEnumMeetingSessionStatusFieldRefInput<$PrismaModel>
+  not?: Prisma.NestedEnumMeetingSessionStatusFilter<$PrismaModel> | $Enums.MeetingSessionStatus
+}
+
+export type EnumMeetingSessionStatusWithAggregatesFilter<$PrismaModel = never> = {
+  equals?: $Enums.MeetingSessionStatus | Prisma.EnumMeetingSessionStatusFieldRefInput<$PrismaModel>
+  in?: $Enums.MeetingSessionStatus[] | Prisma.ListEnumMeetingSessionStatusFieldRefInput<$PrismaModel>
+  notIn?: $Enums.MeetingSessionStatus[] | Prisma.ListEnumMeetingSessionStatusFieldRefInput<$PrismaModel>
+  not?: Prisma.NestedEnumMeetingSessionStatusWithAggregatesFilter<$PrismaModel> | $Enums.MeetingSessionStatus
+  _count?: Prisma.NestedIntFilter<$PrismaModel>
+  _min?: Prisma.NestedEnumMeetingSessionStatusFilter<$PrismaModel>
+  _max?: Prisma.NestedEnumMeetingSessionStatusFilter<$PrismaModel>
+}
+
+export type EnumMeetingEntryRoleFilter<$PrismaModel = never> = {
+  equals?: $Enums.MeetingEntryRole | Prisma.EnumMeetingEntryRoleFieldRefInput<$PrismaModel>
+  in?: $Enums.MeetingEntryRole[] | Prisma.ListEnumMeetingEntryRoleFieldRefInput<$PrismaModel>
+  notIn?: $Enums.MeetingEntryRole[] | Prisma.ListEnumMeetingEntryRoleFieldRefInput<$PrismaModel>
+  not?: Prisma.NestedEnumMeetingEntryRoleFilter<$PrismaModel> | $Enums.MeetingEntryRole
+}
+
+export type EnumMeetingEntryRoleWithAggregatesFilter<$PrismaModel = never> = {
+  equals?: $Enums.MeetingEntryRole | Prisma.EnumMeetingEntryRoleFieldRefInput<$PrismaModel>
+  in?: $Enums.MeetingEntryRole[] | Prisma.ListEnumMeetingEntryRoleFieldRefInput<$PrismaModel>
+  notIn?: $Enums.MeetingEntryRole[] | Prisma.ListEnumMeetingEntryRoleFieldRefInput<$PrismaModel>
+  not?: Prisma.NestedEnumMeetingEntryRoleWithAggregatesFilter<$PrismaModel> | $Enums.MeetingEntryRole
+  _count?: Prisma.NestedIntFilter<$PrismaModel>
+  _min?: Prisma.NestedEnumMeetingEntryRoleFilter<$PrismaModel>
+  _max?: Prisma.NestedEnumMeetingEntryRoleFilter<$PrismaModel>
+}
+
+export type EnumProfileSuggestionStatusFilter<$PrismaModel = never> = {
+  equals?: $Enums.ProfileSuggestionStatus | Prisma.EnumProfileSuggestionStatusFieldRefInput<$PrismaModel>
+  in?: $Enums.ProfileSuggestionStatus[] | Prisma.ListEnumProfileSuggestionStatusFieldRefInput<$PrismaModel>
+  notIn?: $Enums.ProfileSuggestionStatus[] | Prisma.ListEnumProfileSuggestionStatusFieldRefInput<$PrismaModel>
+  not?: Prisma.NestedEnumProfileSuggestionStatusFilter<$PrismaModel> | $Enums.ProfileSuggestionStatus
+}
+
+export type EnumProfileSuggestionStatusWithAggregatesFilter<$PrismaModel = never> = {
+  equals?: $Enums.ProfileSuggestionStatus | Prisma.EnumProfileSuggestionStatusFieldRefInput<$PrismaModel>
+  in?: $Enums.ProfileSuggestionStatus[] | Prisma.ListEnumProfileSuggestionStatusFieldRefInput<$PrismaModel>
+  notIn?: $Enums.ProfileSuggestionStatus[] | Prisma.ListEnumProfileSuggestionStatusFieldRefInput<$PrismaModel>
+  not?: Prisma.NestedEnumProfileSuggestionStatusWithAggregatesFilter<$PrismaModel> | $Enums.ProfileSuggestionStatus
+  _count?: Prisma.NestedIntFilter<$PrismaModel>
+  _min?: Prisma.NestedEnumProfileSuggestionStatusFilter<$PrismaModel>
+  _max?: Prisma.NestedEnumProfileSuggestionStatusFilter<$PrismaModel>
+}
+
 export type NestedStringFilter<$PrismaModel = never> = {
   equals?: string | Prisma.StringFieldRefInput<$PrismaModel>
   in?: string[] | Prisma.ListStringFieldRefInput<$PrismaModel>
@@ -1921,6 +1972,57 @@ export type NestedEnumTemplateScopeWithAggregatesFilter<$PrismaModel = never> = 
   _count?: Prisma.NestedIntFilter<$PrismaModel>
   _min?: Prisma.NestedEnumTemplateScopeFilter<$PrismaModel>
   _max?: Prisma.NestedEnumTemplateScopeFilter<$PrismaModel>
+}
+
+export type NestedEnumMeetingSessionStatusFilter<$PrismaModel = never> = {
+  equals?: $Enums.MeetingSessionStatus | Prisma.EnumMeetingSessionStatusFieldRefInput<$PrismaModel>
+  in?: $Enums.MeetingSessionStatus[] | Prisma.ListEnumMeetingSessionStatusFieldRefInput<$PrismaModel>
+  notIn?: $Enums.MeetingSessionStatus[] | Prisma.ListEnumMeetingSessionStatusFieldRefInput<$PrismaModel>
+  not?: Prisma.NestedEnumMeetingSessionStatusFilter<$PrismaModel> | $Enums.MeetingSessionStatus
+}
+
+export type NestedEnumMeetingSessionStatusWithAggregatesFilter<$PrismaModel = never> = {
+  equals?: $Enums.MeetingSessionStatus | Prisma.EnumMeetingSessionStatusFieldRefInput<$PrismaModel>
+  in?: $Enums.MeetingSessionStatus[] | Prisma.ListEnumMeetingSessionStatusFieldRefInput<$PrismaModel>
+  notIn?: $Enums.MeetingSessionStatus[] | Prisma.ListEnumMeetingSessionStatusFieldRefInput<$PrismaModel>
+  not?: Prisma.NestedEnumMeetingSessionStatusWithAggregatesFilter<$PrismaModel> | $Enums.MeetingSessionStatus
+  _count?: Prisma.NestedIntFilter<$PrismaModel>
+  _min?: Prisma.NestedEnumMeetingSessionStatusFilter<$PrismaModel>
+  _max?: Prisma.NestedEnumMeetingSessionStatusFilter<$PrismaModel>
+}
+
+export type NestedEnumMeetingEntryRoleFilter<$PrismaModel = never> = {
+  equals?: $Enums.MeetingEntryRole | Prisma.EnumMeetingEntryRoleFieldRefInput<$PrismaModel>
+  in?: $Enums.MeetingEntryRole[] | Prisma.ListEnumMeetingEntryRoleFieldRefInput<$PrismaModel>
+  notIn?: $Enums.MeetingEntryRole[] | Prisma.ListEnumMeetingEntryRoleFieldRefInput<$PrismaModel>
+  not?: Prisma.NestedEnumMeetingEntryRoleFilter<$PrismaModel> | $Enums.MeetingEntryRole
+}
+
+export type NestedEnumMeetingEntryRoleWithAggregatesFilter<$PrismaModel = never> = {
+  equals?: $Enums.MeetingEntryRole | Prisma.EnumMeetingEntryRoleFieldRefInput<$PrismaModel>
+  in?: $Enums.MeetingEntryRole[] | Prisma.ListEnumMeetingEntryRoleFieldRefInput<$PrismaModel>
+  notIn?: $Enums.MeetingEntryRole[] | Prisma.ListEnumMeetingEntryRoleFieldRefInput<$PrismaModel>
+  not?: Prisma.NestedEnumMeetingEntryRoleWithAggregatesFilter<$PrismaModel> | $Enums.MeetingEntryRole
+  _count?: Prisma.NestedIntFilter<$PrismaModel>
+  _min?: Prisma.NestedEnumMeetingEntryRoleFilter<$PrismaModel>
+  _max?: Prisma.NestedEnumMeetingEntryRoleFilter<$PrismaModel>
+}
+
+export type NestedEnumProfileSuggestionStatusFilter<$PrismaModel = never> = {
+  equals?: $Enums.ProfileSuggestionStatus | Prisma.EnumProfileSuggestionStatusFieldRefInput<$PrismaModel>
+  in?: $Enums.ProfileSuggestionStatus[] | Prisma.ListEnumProfileSuggestionStatusFieldRefInput<$PrismaModel>
+  notIn?: $Enums.ProfileSuggestionStatus[] | Prisma.ListEnumProfileSuggestionStatusFieldRefInput<$PrismaModel>
+  not?: Prisma.NestedEnumProfileSuggestionStatusFilter<$PrismaModel> | $Enums.ProfileSuggestionStatus
+}
+
+export type NestedEnumProfileSuggestionStatusWithAggregatesFilter<$PrismaModel = never> = {
+  equals?: $Enums.ProfileSuggestionStatus | Prisma.EnumProfileSuggestionStatusFieldRefInput<$PrismaModel>
+  in?: $Enums.ProfileSuggestionStatus[] | Prisma.ListEnumProfileSuggestionStatusFieldRefInput<$PrismaModel>
+  notIn?: $Enums.ProfileSuggestionStatus[] | Prisma.ListEnumProfileSuggestionStatusFieldRefInput<$PrismaModel>
+  not?: Prisma.NestedEnumProfileSuggestionStatusWithAggregatesFilter<$PrismaModel> | $Enums.ProfileSuggestionStatus
+  _count?: Prisma.NestedIntFilter<$PrismaModel>
+  _min?: Prisma.NestedEnumProfileSuggestionStatusFilter<$PrismaModel>
+  _max?: Prisma.NestedEnumProfileSuggestionStatusFilter<$PrismaModel>
 }
 
 

@@ -223,6 +223,7 @@ export type UserWhereInput = {
   resolvedInferences?: Prisma.InferredPreferenceListRelationFilter
   tripBriefs?: Prisma.TripBriefListRelationFilter
   vendorRequests?: Prisma.VendorRequestListRelationFilter
+  meetingSessions?: Prisma.DiscoveryMeetingSessionListRelationFilter
 }
 
 export type UserOrderByWithRelationInput = {
@@ -244,6 +245,7 @@ export type UserOrderByWithRelationInput = {
   resolvedInferences?: Prisma.InferredPreferenceOrderByRelationAggregateInput
   tripBriefs?: Prisma.TripBriefOrderByRelationAggregateInput
   vendorRequests?: Prisma.VendorRequestOrderByRelationAggregateInput
+  meetingSessions?: Prisma.DiscoveryMeetingSessionOrderByRelationAggregateInput
 }
 
 export type UserWhereUniqueInput = Prisma.AtLeast<{
@@ -268,6 +270,7 @@ export type UserWhereUniqueInput = Prisma.AtLeast<{
   resolvedInferences?: Prisma.InferredPreferenceListRelationFilter
   tripBriefs?: Prisma.TripBriefListRelationFilter
   vendorRequests?: Prisma.VendorRequestListRelationFilter
+  meetingSessions?: Prisma.DiscoveryMeetingSessionListRelationFilter
 }, "id" | "email">
 
 export type UserOrderByWithAggregationInput = {
@@ -318,6 +321,7 @@ export type UserCreateInput = {
   resolvedInferences?: Prisma.InferredPreferenceCreateNestedManyWithoutResolvedByInput
   tripBriefs?: Prisma.TripBriefCreateNestedManyWithoutGeneratedByInput
   vendorRequests?: Prisma.VendorRequestCreateNestedManyWithoutCreatedByInput
+  meetingSessions?: Prisma.DiscoveryMeetingSessionCreateNestedManyWithoutAdvisorInput
 }
 
 export type UserUncheckedCreateInput = {
@@ -338,6 +342,7 @@ export type UserUncheckedCreateInput = {
   resolvedInferences?: Prisma.InferredPreferenceUncheckedCreateNestedManyWithoutResolvedByInput
   tripBriefs?: Prisma.TripBriefUncheckedCreateNestedManyWithoutGeneratedByInput
   vendorRequests?: Prisma.VendorRequestUncheckedCreateNestedManyWithoutCreatedByInput
+  meetingSessions?: Prisma.DiscoveryMeetingSessionUncheckedCreateNestedManyWithoutAdvisorInput
 }
 
 export type UserUpdateInput = {
@@ -358,6 +363,7 @@ export type UserUpdateInput = {
   resolvedInferences?: Prisma.InferredPreferenceUpdateManyWithoutResolvedByNestedInput
   tripBriefs?: Prisma.TripBriefUpdateManyWithoutGeneratedByNestedInput
   vendorRequests?: Prisma.VendorRequestUpdateManyWithoutCreatedByNestedInput
+  meetingSessions?: Prisma.DiscoveryMeetingSessionUpdateManyWithoutAdvisorNestedInput
 }
 
 export type UserUncheckedUpdateInput = {
@@ -378,6 +384,7 @@ export type UserUncheckedUpdateInput = {
   resolvedInferences?: Prisma.InferredPreferenceUncheckedUpdateManyWithoutResolvedByNestedInput
   tripBriefs?: Prisma.TripBriefUncheckedUpdateManyWithoutGeneratedByNestedInput
   vendorRequests?: Prisma.VendorRequestUncheckedUpdateManyWithoutCreatedByNestedInput
+  meetingSessions?: Prisma.DiscoveryMeetingSessionUncheckedUpdateManyWithoutAdvisorNestedInput
 }
 
 export type UserCreateManyInput = {
@@ -631,6 +638,20 @@ export type UserUpdateOneRequiredWithoutVendorRequestsNestedInput = {
   update?: Prisma.XOR<Prisma.XOR<Prisma.UserUpdateToOneWithWhereWithoutVendorRequestsInput, Prisma.UserUpdateWithoutVendorRequestsInput>, Prisma.UserUncheckedUpdateWithoutVendorRequestsInput>
 }
 
+export type UserCreateNestedOneWithoutMeetingSessionsInput = {
+  create?: Prisma.XOR<Prisma.UserCreateWithoutMeetingSessionsInput, Prisma.UserUncheckedCreateWithoutMeetingSessionsInput>
+  connectOrCreate?: Prisma.UserCreateOrConnectWithoutMeetingSessionsInput
+  connect?: Prisma.UserWhereUniqueInput
+}
+
+export type UserUpdateOneRequiredWithoutMeetingSessionsNestedInput = {
+  create?: Prisma.XOR<Prisma.UserCreateWithoutMeetingSessionsInput, Prisma.UserUncheckedCreateWithoutMeetingSessionsInput>
+  connectOrCreate?: Prisma.UserCreateOrConnectWithoutMeetingSessionsInput
+  upsert?: Prisma.UserUpsertWithoutMeetingSessionsInput
+  connect?: Prisma.UserWhereUniqueInput
+  update?: Prisma.XOR<Prisma.XOR<Prisma.UserUpdateToOneWithWhereWithoutMeetingSessionsInput, Prisma.UserUpdateWithoutMeetingSessionsInput>, Prisma.UserUncheckedUpdateWithoutMeetingSessionsInput>
+}
+
 export type UserCreateWithoutOrganizationInput = {
   id?: string
   firstName: string
@@ -648,6 +669,7 @@ export type UserCreateWithoutOrganizationInput = {
   resolvedInferences?: Prisma.InferredPreferenceCreateNestedManyWithoutResolvedByInput
   tripBriefs?: Prisma.TripBriefCreateNestedManyWithoutGeneratedByInput
   vendorRequests?: Prisma.VendorRequestCreateNestedManyWithoutCreatedByInput
+  meetingSessions?: Prisma.DiscoveryMeetingSessionCreateNestedManyWithoutAdvisorInput
 }
 
 export type UserUncheckedCreateWithoutOrganizationInput = {
@@ -667,6 +689,7 @@ export type UserUncheckedCreateWithoutOrganizationInput = {
   resolvedInferences?: Prisma.InferredPreferenceUncheckedCreateNestedManyWithoutResolvedByInput
   tripBriefs?: Prisma.TripBriefUncheckedCreateNestedManyWithoutGeneratedByInput
   vendorRequests?: Prisma.VendorRequestUncheckedCreateNestedManyWithoutCreatedByInput
+  meetingSessions?: Prisma.DiscoveryMeetingSessionUncheckedCreateNestedManyWithoutAdvisorInput
 }
 
 export type UserCreateOrConnectWithoutOrganizationInput = {
@@ -727,6 +750,7 @@ export type UserCreateWithoutOwnedClientsInput = {
   resolvedInferences?: Prisma.InferredPreferenceCreateNestedManyWithoutResolvedByInput
   tripBriefs?: Prisma.TripBriefCreateNestedManyWithoutGeneratedByInput
   vendorRequests?: Prisma.VendorRequestCreateNestedManyWithoutCreatedByInput
+  meetingSessions?: Prisma.DiscoveryMeetingSessionCreateNestedManyWithoutAdvisorInput
 }
 
 export type UserUncheckedCreateWithoutOwnedClientsInput = {
@@ -746,6 +770,7 @@ export type UserUncheckedCreateWithoutOwnedClientsInput = {
   resolvedInferences?: Prisma.InferredPreferenceUncheckedCreateNestedManyWithoutResolvedByInput
   tripBriefs?: Prisma.TripBriefUncheckedCreateNestedManyWithoutGeneratedByInput
   vendorRequests?: Prisma.VendorRequestUncheckedCreateNestedManyWithoutCreatedByInput
+  meetingSessions?: Prisma.DiscoveryMeetingSessionUncheckedCreateNestedManyWithoutAdvisorInput
 }
 
 export type UserCreateOrConnectWithoutOwnedClientsInput = {
@@ -781,6 +806,7 @@ export type UserUpdateWithoutOwnedClientsInput = {
   resolvedInferences?: Prisma.InferredPreferenceUpdateManyWithoutResolvedByNestedInput
   tripBriefs?: Prisma.TripBriefUpdateManyWithoutGeneratedByNestedInput
   vendorRequests?: Prisma.VendorRequestUpdateManyWithoutCreatedByNestedInput
+  meetingSessions?: Prisma.DiscoveryMeetingSessionUpdateManyWithoutAdvisorNestedInput
 }
 
 export type UserUncheckedUpdateWithoutOwnedClientsInput = {
@@ -800,6 +826,7 @@ export type UserUncheckedUpdateWithoutOwnedClientsInput = {
   resolvedInferences?: Prisma.InferredPreferenceUncheckedUpdateManyWithoutResolvedByNestedInput
   tripBriefs?: Prisma.TripBriefUncheckedUpdateManyWithoutGeneratedByNestedInput
   vendorRequests?: Prisma.VendorRequestUncheckedUpdateManyWithoutCreatedByNestedInput
+  meetingSessions?: Prisma.DiscoveryMeetingSessionUncheckedUpdateManyWithoutAdvisorNestedInput
 }
 
 export type UserCreateWithoutLedgerEntriesInput = {
@@ -819,6 +846,7 @@ export type UserCreateWithoutLedgerEntriesInput = {
   resolvedInferences?: Prisma.InferredPreferenceCreateNestedManyWithoutResolvedByInput
   tripBriefs?: Prisma.TripBriefCreateNestedManyWithoutGeneratedByInput
   vendorRequests?: Prisma.VendorRequestCreateNestedManyWithoutCreatedByInput
+  meetingSessions?: Prisma.DiscoveryMeetingSessionCreateNestedManyWithoutAdvisorInput
 }
 
 export type UserUncheckedCreateWithoutLedgerEntriesInput = {
@@ -838,6 +866,7 @@ export type UserUncheckedCreateWithoutLedgerEntriesInput = {
   resolvedInferences?: Prisma.InferredPreferenceUncheckedCreateNestedManyWithoutResolvedByInput
   tripBriefs?: Prisma.TripBriefUncheckedCreateNestedManyWithoutGeneratedByInput
   vendorRequests?: Prisma.VendorRequestUncheckedCreateNestedManyWithoutCreatedByInput
+  meetingSessions?: Prisma.DiscoveryMeetingSessionUncheckedCreateNestedManyWithoutAdvisorInput
 }
 
 export type UserCreateOrConnectWithoutLedgerEntriesInput = {
@@ -873,6 +902,7 @@ export type UserUpdateWithoutLedgerEntriesInput = {
   resolvedInferences?: Prisma.InferredPreferenceUpdateManyWithoutResolvedByNestedInput
   tripBriefs?: Prisma.TripBriefUpdateManyWithoutGeneratedByNestedInput
   vendorRequests?: Prisma.VendorRequestUpdateManyWithoutCreatedByNestedInput
+  meetingSessions?: Prisma.DiscoveryMeetingSessionUpdateManyWithoutAdvisorNestedInput
 }
 
 export type UserUncheckedUpdateWithoutLedgerEntriesInput = {
@@ -892,6 +922,7 @@ export type UserUncheckedUpdateWithoutLedgerEntriesInput = {
   resolvedInferences?: Prisma.InferredPreferenceUncheckedUpdateManyWithoutResolvedByNestedInput
   tripBriefs?: Prisma.TripBriefUncheckedUpdateManyWithoutGeneratedByNestedInput
   vendorRequests?: Prisma.VendorRequestUncheckedUpdateManyWithoutCreatedByNestedInput
+  meetingSessions?: Prisma.DiscoveryMeetingSessionUncheckedUpdateManyWithoutAdvisorNestedInput
 }
 
 export type UserCreateWithoutPreferenceChangeLogsInput = {
@@ -911,6 +942,7 @@ export type UserCreateWithoutPreferenceChangeLogsInput = {
   resolvedInferences?: Prisma.InferredPreferenceCreateNestedManyWithoutResolvedByInput
   tripBriefs?: Prisma.TripBriefCreateNestedManyWithoutGeneratedByInput
   vendorRequests?: Prisma.VendorRequestCreateNestedManyWithoutCreatedByInput
+  meetingSessions?: Prisma.DiscoveryMeetingSessionCreateNestedManyWithoutAdvisorInput
 }
 
 export type UserUncheckedCreateWithoutPreferenceChangeLogsInput = {
@@ -930,6 +962,7 @@ export type UserUncheckedCreateWithoutPreferenceChangeLogsInput = {
   resolvedInferences?: Prisma.InferredPreferenceUncheckedCreateNestedManyWithoutResolvedByInput
   tripBriefs?: Prisma.TripBriefUncheckedCreateNestedManyWithoutGeneratedByInput
   vendorRequests?: Prisma.VendorRequestUncheckedCreateNestedManyWithoutCreatedByInput
+  meetingSessions?: Prisma.DiscoveryMeetingSessionUncheckedCreateNestedManyWithoutAdvisorInput
 }
 
 export type UserCreateOrConnectWithoutPreferenceChangeLogsInput = {
@@ -965,6 +998,7 @@ export type UserUpdateWithoutPreferenceChangeLogsInput = {
   resolvedInferences?: Prisma.InferredPreferenceUpdateManyWithoutResolvedByNestedInput
   tripBriefs?: Prisma.TripBriefUpdateManyWithoutGeneratedByNestedInput
   vendorRequests?: Prisma.VendorRequestUpdateManyWithoutCreatedByNestedInput
+  meetingSessions?: Prisma.DiscoveryMeetingSessionUpdateManyWithoutAdvisorNestedInput
 }
 
 export type UserUncheckedUpdateWithoutPreferenceChangeLogsInput = {
@@ -984,6 +1018,7 @@ export type UserUncheckedUpdateWithoutPreferenceChangeLogsInput = {
   resolvedInferences?: Prisma.InferredPreferenceUncheckedUpdateManyWithoutResolvedByNestedInput
   tripBriefs?: Prisma.TripBriefUncheckedUpdateManyWithoutGeneratedByNestedInput
   vendorRequests?: Prisma.VendorRequestUncheckedUpdateManyWithoutCreatedByNestedInput
+  meetingSessions?: Prisma.DiscoveryMeetingSessionUncheckedUpdateManyWithoutAdvisorNestedInput
 }
 
 export type UserCreateWithoutTripRequestsInput = {
@@ -1003,6 +1038,7 @@ export type UserCreateWithoutTripRequestsInput = {
   resolvedInferences?: Prisma.InferredPreferenceCreateNestedManyWithoutResolvedByInput
   tripBriefs?: Prisma.TripBriefCreateNestedManyWithoutGeneratedByInput
   vendorRequests?: Prisma.VendorRequestCreateNestedManyWithoutCreatedByInput
+  meetingSessions?: Prisma.DiscoveryMeetingSessionCreateNestedManyWithoutAdvisorInput
 }
 
 export type UserUncheckedCreateWithoutTripRequestsInput = {
@@ -1022,6 +1058,7 @@ export type UserUncheckedCreateWithoutTripRequestsInput = {
   resolvedInferences?: Prisma.InferredPreferenceUncheckedCreateNestedManyWithoutResolvedByInput
   tripBriefs?: Prisma.TripBriefUncheckedCreateNestedManyWithoutGeneratedByInput
   vendorRequests?: Prisma.VendorRequestUncheckedCreateNestedManyWithoutCreatedByInput
+  meetingSessions?: Prisma.DiscoveryMeetingSessionUncheckedCreateNestedManyWithoutAdvisorInput
 }
 
 export type UserCreateOrConnectWithoutTripRequestsInput = {
@@ -1057,6 +1094,7 @@ export type UserUpdateWithoutTripRequestsInput = {
   resolvedInferences?: Prisma.InferredPreferenceUpdateManyWithoutResolvedByNestedInput
   tripBriefs?: Prisma.TripBriefUpdateManyWithoutGeneratedByNestedInput
   vendorRequests?: Prisma.VendorRequestUpdateManyWithoutCreatedByNestedInput
+  meetingSessions?: Prisma.DiscoveryMeetingSessionUpdateManyWithoutAdvisorNestedInput
 }
 
 export type UserUncheckedUpdateWithoutTripRequestsInput = {
@@ -1076,6 +1114,7 @@ export type UserUncheckedUpdateWithoutTripRequestsInput = {
   resolvedInferences?: Prisma.InferredPreferenceUncheckedUpdateManyWithoutResolvedByNestedInput
   tripBriefs?: Prisma.TripBriefUncheckedUpdateManyWithoutGeneratedByNestedInput
   vendorRequests?: Prisma.VendorRequestUncheckedUpdateManyWithoutCreatedByNestedInput
+  meetingSessions?: Prisma.DiscoveryMeetingSessionUncheckedUpdateManyWithoutAdvisorNestedInput
 }
 
 export type UserCreateWithoutRecommendationRunsInput = {
@@ -1095,6 +1134,7 @@ export type UserCreateWithoutRecommendationRunsInput = {
   resolvedInferences?: Prisma.InferredPreferenceCreateNestedManyWithoutResolvedByInput
   tripBriefs?: Prisma.TripBriefCreateNestedManyWithoutGeneratedByInput
   vendorRequests?: Prisma.VendorRequestCreateNestedManyWithoutCreatedByInput
+  meetingSessions?: Prisma.DiscoveryMeetingSessionCreateNestedManyWithoutAdvisorInput
 }
 
 export type UserUncheckedCreateWithoutRecommendationRunsInput = {
@@ -1114,6 +1154,7 @@ export type UserUncheckedCreateWithoutRecommendationRunsInput = {
   resolvedInferences?: Prisma.InferredPreferenceUncheckedCreateNestedManyWithoutResolvedByInput
   tripBriefs?: Prisma.TripBriefUncheckedCreateNestedManyWithoutGeneratedByInput
   vendorRequests?: Prisma.VendorRequestUncheckedCreateNestedManyWithoutCreatedByInput
+  meetingSessions?: Prisma.DiscoveryMeetingSessionUncheckedCreateNestedManyWithoutAdvisorInput
 }
 
 export type UserCreateOrConnectWithoutRecommendationRunsInput = {
@@ -1149,6 +1190,7 @@ export type UserUpdateWithoutRecommendationRunsInput = {
   resolvedInferences?: Prisma.InferredPreferenceUpdateManyWithoutResolvedByNestedInput
   tripBriefs?: Prisma.TripBriefUpdateManyWithoutGeneratedByNestedInput
   vendorRequests?: Prisma.VendorRequestUpdateManyWithoutCreatedByNestedInput
+  meetingSessions?: Prisma.DiscoveryMeetingSessionUpdateManyWithoutAdvisorNestedInput
 }
 
 export type UserUncheckedUpdateWithoutRecommendationRunsInput = {
@@ -1168,6 +1210,7 @@ export type UserUncheckedUpdateWithoutRecommendationRunsInput = {
   resolvedInferences?: Prisma.InferredPreferenceUncheckedUpdateManyWithoutResolvedByNestedInput
   tripBriefs?: Prisma.TripBriefUncheckedUpdateManyWithoutGeneratedByNestedInput
   vendorRequests?: Prisma.VendorRequestUncheckedUpdateManyWithoutCreatedByNestedInput
+  meetingSessions?: Prisma.DiscoveryMeetingSessionUncheckedUpdateManyWithoutAdvisorNestedInput
 }
 
 export type UserCreateWithoutTripBriefsInput = {
@@ -1187,6 +1230,7 @@ export type UserCreateWithoutTripBriefsInput = {
   preferenceChangeLogs?: Prisma.PreferenceChangeLogCreateNestedManyWithoutChangedByInput
   resolvedInferences?: Prisma.InferredPreferenceCreateNestedManyWithoutResolvedByInput
   vendorRequests?: Prisma.VendorRequestCreateNestedManyWithoutCreatedByInput
+  meetingSessions?: Prisma.DiscoveryMeetingSessionCreateNestedManyWithoutAdvisorInput
 }
 
 export type UserUncheckedCreateWithoutTripBriefsInput = {
@@ -1206,6 +1250,7 @@ export type UserUncheckedCreateWithoutTripBriefsInput = {
   preferenceChangeLogs?: Prisma.PreferenceChangeLogUncheckedCreateNestedManyWithoutChangedByInput
   resolvedInferences?: Prisma.InferredPreferenceUncheckedCreateNestedManyWithoutResolvedByInput
   vendorRequests?: Prisma.VendorRequestUncheckedCreateNestedManyWithoutCreatedByInput
+  meetingSessions?: Prisma.DiscoveryMeetingSessionUncheckedCreateNestedManyWithoutAdvisorInput
 }
 
 export type UserCreateOrConnectWithoutTripBriefsInput = {
@@ -1241,6 +1286,7 @@ export type UserUpdateWithoutTripBriefsInput = {
   preferenceChangeLogs?: Prisma.PreferenceChangeLogUpdateManyWithoutChangedByNestedInput
   resolvedInferences?: Prisma.InferredPreferenceUpdateManyWithoutResolvedByNestedInput
   vendorRequests?: Prisma.VendorRequestUpdateManyWithoutCreatedByNestedInput
+  meetingSessions?: Prisma.DiscoveryMeetingSessionUpdateManyWithoutAdvisorNestedInput
 }
 
 export type UserUncheckedUpdateWithoutTripBriefsInput = {
@@ -1260,6 +1306,7 @@ export type UserUncheckedUpdateWithoutTripBriefsInput = {
   preferenceChangeLogs?: Prisma.PreferenceChangeLogUncheckedUpdateManyWithoutChangedByNestedInput
   resolvedInferences?: Prisma.InferredPreferenceUncheckedUpdateManyWithoutResolvedByNestedInput
   vendorRequests?: Prisma.VendorRequestUncheckedUpdateManyWithoutCreatedByNestedInput
+  meetingSessions?: Prisma.DiscoveryMeetingSessionUncheckedUpdateManyWithoutAdvisorNestedInput
 }
 
 export type UserCreateWithoutResolvedInferencesInput = {
@@ -1279,6 +1326,7 @@ export type UserCreateWithoutResolvedInferencesInput = {
   preferenceChangeLogs?: Prisma.PreferenceChangeLogCreateNestedManyWithoutChangedByInput
   tripBriefs?: Prisma.TripBriefCreateNestedManyWithoutGeneratedByInput
   vendorRequests?: Prisma.VendorRequestCreateNestedManyWithoutCreatedByInput
+  meetingSessions?: Prisma.DiscoveryMeetingSessionCreateNestedManyWithoutAdvisorInput
 }
 
 export type UserUncheckedCreateWithoutResolvedInferencesInput = {
@@ -1298,6 +1346,7 @@ export type UserUncheckedCreateWithoutResolvedInferencesInput = {
   preferenceChangeLogs?: Prisma.PreferenceChangeLogUncheckedCreateNestedManyWithoutChangedByInput
   tripBriefs?: Prisma.TripBriefUncheckedCreateNestedManyWithoutGeneratedByInput
   vendorRequests?: Prisma.VendorRequestUncheckedCreateNestedManyWithoutCreatedByInput
+  meetingSessions?: Prisma.DiscoveryMeetingSessionUncheckedCreateNestedManyWithoutAdvisorInput
 }
 
 export type UserCreateOrConnectWithoutResolvedInferencesInput = {
@@ -1333,6 +1382,7 @@ export type UserUpdateWithoutResolvedInferencesInput = {
   preferenceChangeLogs?: Prisma.PreferenceChangeLogUpdateManyWithoutChangedByNestedInput
   tripBriefs?: Prisma.TripBriefUpdateManyWithoutGeneratedByNestedInput
   vendorRequests?: Prisma.VendorRequestUpdateManyWithoutCreatedByNestedInput
+  meetingSessions?: Prisma.DiscoveryMeetingSessionUpdateManyWithoutAdvisorNestedInput
 }
 
 export type UserUncheckedUpdateWithoutResolvedInferencesInput = {
@@ -1352,6 +1402,7 @@ export type UserUncheckedUpdateWithoutResolvedInferencesInput = {
   preferenceChangeLogs?: Prisma.PreferenceChangeLogUncheckedUpdateManyWithoutChangedByNestedInput
   tripBriefs?: Prisma.TripBriefUncheckedUpdateManyWithoutGeneratedByNestedInput
   vendorRequests?: Prisma.VendorRequestUncheckedUpdateManyWithoutCreatedByNestedInput
+  meetingSessions?: Prisma.DiscoveryMeetingSessionUncheckedUpdateManyWithoutAdvisorNestedInput
 }
 
 export type UserCreateWithoutVendorRequestsInput = {
@@ -1371,6 +1422,7 @@ export type UserCreateWithoutVendorRequestsInput = {
   preferenceChangeLogs?: Prisma.PreferenceChangeLogCreateNestedManyWithoutChangedByInput
   resolvedInferences?: Prisma.InferredPreferenceCreateNestedManyWithoutResolvedByInput
   tripBriefs?: Prisma.TripBriefCreateNestedManyWithoutGeneratedByInput
+  meetingSessions?: Prisma.DiscoveryMeetingSessionCreateNestedManyWithoutAdvisorInput
 }
 
 export type UserUncheckedCreateWithoutVendorRequestsInput = {
@@ -1390,6 +1442,7 @@ export type UserUncheckedCreateWithoutVendorRequestsInput = {
   preferenceChangeLogs?: Prisma.PreferenceChangeLogUncheckedCreateNestedManyWithoutChangedByInput
   resolvedInferences?: Prisma.InferredPreferenceUncheckedCreateNestedManyWithoutResolvedByInput
   tripBriefs?: Prisma.TripBriefUncheckedCreateNestedManyWithoutGeneratedByInput
+  meetingSessions?: Prisma.DiscoveryMeetingSessionUncheckedCreateNestedManyWithoutAdvisorInput
 }
 
 export type UserCreateOrConnectWithoutVendorRequestsInput = {
@@ -1425,6 +1478,7 @@ export type UserUpdateWithoutVendorRequestsInput = {
   preferenceChangeLogs?: Prisma.PreferenceChangeLogUpdateManyWithoutChangedByNestedInput
   resolvedInferences?: Prisma.InferredPreferenceUpdateManyWithoutResolvedByNestedInput
   tripBriefs?: Prisma.TripBriefUpdateManyWithoutGeneratedByNestedInput
+  meetingSessions?: Prisma.DiscoveryMeetingSessionUpdateManyWithoutAdvisorNestedInput
 }
 
 export type UserUncheckedUpdateWithoutVendorRequestsInput = {
@@ -1444,6 +1498,103 @@ export type UserUncheckedUpdateWithoutVendorRequestsInput = {
   preferenceChangeLogs?: Prisma.PreferenceChangeLogUncheckedUpdateManyWithoutChangedByNestedInput
   resolvedInferences?: Prisma.InferredPreferenceUncheckedUpdateManyWithoutResolvedByNestedInput
   tripBriefs?: Prisma.TripBriefUncheckedUpdateManyWithoutGeneratedByNestedInput
+  meetingSessions?: Prisma.DiscoveryMeetingSessionUncheckedUpdateManyWithoutAdvisorNestedInput
+}
+
+export type UserCreateWithoutMeetingSessionsInput = {
+  id?: string
+  firstName: string
+  lastName: string
+  email: string
+  passwordHash: string
+  role?: $Enums.UserRole
+  createdAt?: Date | string
+  updatedAt?: Date | string
+  organization: Prisma.OrganizationCreateNestedOneWithoutUsersInput
+  ownedClients?: Prisma.ClientCreateNestedManyWithoutOwnerInput
+  tripRequests?: Prisma.TripRequestCreateNestedManyWithoutOwnerInput
+  recommendationRuns?: Prisma.RecommendationRunCreateNestedManyWithoutCreatedByInput
+  ledgerEntries?: Prisma.BalanceLedgerEntryCreateNestedManyWithoutChangedByInput
+  preferenceChangeLogs?: Prisma.PreferenceChangeLogCreateNestedManyWithoutChangedByInput
+  resolvedInferences?: Prisma.InferredPreferenceCreateNestedManyWithoutResolvedByInput
+  tripBriefs?: Prisma.TripBriefCreateNestedManyWithoutGeneratedByInput
+  vendorRequests?: Prisma.VendorRequestCreateNestedManyWithoutCreatedByInput
+}
+
+export type UserUncheckedCreateWithoutMeetingSessionsInput = {
+  id?: string
+  organizationId: string
+  firstName: string
+  lastName: string
+  email: string
+  passwordHash: string
+  role?: $Enums.UserRole
+  createdAt?: Date | string
+  updatedAt?: Date | string
+  ownedClients?: Prisma.ClientUncheckedCreateNestedManyWithoutOwnerInput
+  tripRequests?: Prisma.TripRequestUncheckedCreateNestedManyWithoutOwnerInput
+  recommendationRuns?: Prisma.RecommendationRunUncheckedCreateNestedManyWithoutCreatedByInput
+  ledgerEntries?: Prisma.BalanceLedgerEntryUncheckedCreateNestedManyWithoutChangedByInput
+  preferenceChangeLogs?: Prisma.PreferenceChangeLogUncheckedCreateNestedManyWithoutChangedByInput
+  resolvedInferences?: Prisma.InferredPreferenceUncheckedCreateNestedManyWithoutResolvedByInput
+  tripBriefs?: Prisma.TripBriefUncheckedCreateNestedManyWithoutGeneratedByInput
+  vendorRequests?: Prisma.VendorRequestUncheckedCreateNestedManyWithoutCreatedByInput
+}
+
+export type UserCreateOrConnectWithoutMeetingSessionsInput = {
+  where: Prisma.UserWhereUniqueInput
+  create: Prisma.XOR<Prisma.UserCreateWithoutMeetingSessionsInput, Prisma.UserUncheckedCreateWithoutMeetingSessionsInput>
+}
+
+export type UserUpsertWithoutMeetingSessionsInput = {
+  update: Prisma.XOR<Prisma.UserUpdateWithoutMeetingSessionsInput, Prisma.UserUncheckedUpdateWithoutMeetingSessionsInput>
+  create: Prisma.XOR<Prisma.UserCreateWithoutMeetingSessionsInput, Prisma.UserUncheckedCreateWithoutMeetingSessionsInput>
+  where?: Prisma.UserWhereInput
+}
+
+export type UserUpdateToOneWithWhereWithoutMeetingSessionsInput = {
+  where?: Prisma.UserWhereInput
+  data: Prisma.XOR<Prisma.UserUpdateWithoutMeetingSessionsInput, Prisma.UserUncheckedUpdateWithoutMeetingSessionsInput>
+}
+
+export type UserUpdateWithoutMeetingSessionsInput = {
+  id?: Prisma.StringFieldUpdateOperationsInput | string
+  firstName?: Prisma.StringFieldUpdateOperationsInput | string
+  lastName?: Prisma.StringFieldUpdateOperationsInput | string
+  email?: Prisma.StringFieldUpdateOperationsInput | string
+  passwordHash?: Prisma.StringFieldUpdateOperationsInput | string
+  role?: Prisma.EnumUserRoleFieldUpdateOperationsInput | $Enums.UserRole
+  createdAt?: Prisma.DateTimeFieldUpdateOperationsInput | Date | string
+  updatedAt?: Prisma.DateTimeFieldUpdateOperationsInput | Date | string
+  organization?: Prisma.OrganizationUpdateOneRequiredWithoutUsersNestedInput
+  ownedClients?: Prisma.ClientUpdateManyWithoutOwnerNestedInput
+  tripRequests?: Prisma.TripRequestUpdateManyWithoutOwnerNestedInput
+  recommendationRuns?: Prisma.RecommendationRunUpdateManyWithoutCreatedByNestedInput
+  ledgerEntries?: Prisma.BalanceLedgerEntryUpdateManyWithoutChangedByNestedInput
+  preferenceChangeLogs?: Prisma.PreferenceChangeLogUpdateManyWithoutChangedByNestedInput
+  resolvedInferences?: Prisma.InferredPreferenceUpdateManyWithoutResolvedByNestedInput
+  tripBriefs?: Prisma.TripBriefUpdateManyWithoutGeneratedByNestedInput
+  vendorRequests?: Prisma.VendorRequestUpdateManyWithoutCreatedByNestedInput
+}
+
+export type UserUncheckedUpdateWithoutMeetingSessionsInput = {
+  id?: Prisma.StringFieldUpdateOperationsInput | string
+  organizationId?: Prisma.StringFieldUpdateOperationsInput | string
+  firstName?: Prisma.StringFieldUpdateOperationsInput | string
+  lastName?: Prisma.StringFieldUpdateOperationsInput | string
+  email?: Prisma.StringFieldUpdateOperationsInput | string
+  passwordHash?: Prisma.StringFieldUpdateOperationsInput | string
+  role?: Prisma.EnumUserRoleFieldUpdateOperationsInput | $Enums.UserRole
+  createdAt?: Prisma.DateTimeFieldUpdateOperationsInput | Date | string
+  updatedAt?: Prisma.DateTimeFieldUpdateOperationsInput | Date | string
+  ownedClients?: Prisma.ClientUncheckedUpdateManyWithoutOwnerNestedInput
+  tripRequests?: Prisma.TripRequestUncheckedUpdateManyWithoutOwnerNestedInput
+  recommendationRuns?: Prisma.RecommendationRunUncheckedUpdateManyWithoutCreatedByNestedInput
+  ledgerEntries?: Prisma.BalanceLedgerEntryUncheckedUpdateManyWithoutChangedByNestedInput
+  preferenceChangeLogs?: Prisma.PreferenceChangeLogUncheckedUpdateManyWithoutChangedByNestedInput
+  resolvedInferences?: Prisma.InferredPreferenceUncheckedUpdateManyWithoutResolvedByNestedInput
+  tripBriefs?: Prisma.TripBriefUncheckedUpdateManyWithoutGeneratedByNestedInput
+  vendorRequests?: Prisma.VendorRequestUncheckedUpdateManyWithoutCreatedByNestedInput
 }
 
 export type UserCreateManyOrganizationInput = {
@@ -1474,6 +1625,7 @@ export type UserUpdateWithoutOrganizationInput = {
   resolvedInferences?: Prisma.InferredPreferenceUpdateManyWithoutResolvedByNestedInput
   tripBriefs?: Prisma.TripBriefUpdateManyWithoutGeneratedByNestedInput
   vendorRequests?: Prisma.VendorRequestUpdateManyWithoutCreatedByNestedInput
+  meetingSessions?: Prisma.DiscoveryMeetingSessionUpdateManyWithoutAdvisorNestedInput
 }
 
 export type UserUncheckedUpdateWithoutOrganizationInput = {
@@ -1493,6 +1645,7 @@ export type UserUncheckedUpdateWithoutOrganizationInput = {
   resolvedInferences?: Prisma.InferredPreferenceUncheckedUpdateManyWithoutResolvedByNestedInput
   tripBriefs?: Prisma.TripBriefUncheckedUpdateManyWithoutGeneratedByNestedInput
   vendorRequests?: Prisma.VendorRequestUncheckedUpdateManyWithoutCreatedByNestedInput
+  meetingSessions?: Prisma.DiscoveryMeetingSessionUncheckedUpdateManyWithoutAdvisorNestedInput
 }
 
 export type UserUncheckedUpdateManyWithoutOrganizationInput = {
@@ -1520,6 +1673,7 @@ export type UserCountOutputType = {
   resolvedInferences: number
   tripBriefs: number
   vendorRequests: number
+  meetingSessions: number
 }
 
 export type UserCountOutputTypeSelect<ExtArgs extends runtime.Types.Extensions.InternalArgs = runtime.Types.Extensions.DefaultArgs> = {
@@ -1531,6 +1685,7 @@ export type UserCountOutputTypeSelect<ExtArgs extends runtime.Types.Extensions.I
   resolvedInferences?: boolean | UserCountOutputTypeCountResolvedInferencesArgs
   tripBriefs?: boolean | UserCountOutputTypeCountTripBriefsArgs
   vendorRequests?: boolean | UserCountOutputTypeCountVendorRequestsArgs
+  meetingSessions?: boolean | UserCountOutputTypeCountMeetingSessionsArgs
 }
 
 /**
@@ -1599,6 +1754,13 @@ export type UserCountOutputTypeCountVendorRequestsArgs<ExtArgs extends runtime.T
   where?: Prisma.VendorRequestWhereInput
 }
 
+/**
+ * UserCountOutputType without action
+ */
+export type UserCountOutputTypeCountMeetingSessionsArgs<ExtArgs extends runtime.Types.Extensions.InternalArgs = runtime.Types.Extensions.DefaultArgs> = {
+  where?: Prisma.DiscoveryMeetingSessionWhereInput
+}
+
 
 export type UserSelect<ExtArgs extends runtime.Types.Extensions.InternalArgs = runtime.Types.Extensions.DefaultArgs> = runtime.Types.Extensions.GetSelect<{
   id?: boolean
@@ -1619,6 +1781,7 @@ export type UserSelect<ExtArgs extends runtime.Types.Extensions.InternalArgs = r
   resolvedInferences?: boolean | Prisma.User$resolvedInferencesArgs<ExtArgs>
   tripBriefs?: boolean | Prisma.User$tripBriefsArgs<ExtArgs>
   vendorRequests?: boolean | Prisma.User$vendorRequestsArgs<ExtArgs>
+  meetingSessions?: boolean | Prisma.User$meetingSessionsArgs<ExtArgs>
   _count?: boolean | Prisma.UserCountOutputTypeDefaultArgs<ExtArgs>
 }, ExtArgs["result"]["user"]>
 
@@ -1671,6 +1834,7 @@ export type UserInclude<ExtArgs extends runtime.Types.Extensions.InternalArgs = 
   resolvedInferences?: boolean | Prisma.User$resolvedInferencesArgs<ExtArgs>
   tripBriefs?: boolean | Prisma.User$tripBriefsArgs<ExtArgs>
   vendorRequests?: boolean | Prisma.User$vendorRequestsArgs<ExtArgs>
+  meetingSessions?: boolean | Prisma.User$meetingSessionsArgs<ExtArgs>
   _count?: boolean | Prisma.UserCountOutputTypeDefaultArgs<ExtArgs>
 }
 export type UserIncludeCreateManyAndReturn<ExtArgs extends runtime.Types.Extensions.InternalArgs = runtime.Types.Extensions.DefaultArgs> = {
@@ -1692,6 +1856,7 @@ export type $UserPayload<ExtArgs extends runtime.Types.Extensions.InternalArgs =
     resolvedInferences: Prisma.$InferredPreferencePayload<ExtArgs>[]
     tripBriefs: Prisma.$TripBriefPayload<ExtArgs>[]
     vendorRequests: Prisma.$VendorRequestPayload<ExtArgs>[]
+    meetingSessions: Prisma.$DiscoveryMeetingSessionPayload<ExtArgs>[]
   }
   scalars: runtime.Types.Extensions.GetPayloadResult<{
     id: string
@@ -2106,6 +2271,7 @@ export interface Prisma__UserClient<T, Null = never, ExtArgs extends runtime.Typ
   resolvedInferences<T extends Prisma.User$resolvedInferencesArgs<ExtArgs> = {}>(args?: Prisma.Subset<T, Prisma.User$resolvedInferencesArgs<ExtArgs>>): Prisma.PrismaPromise<runtime.Types.Result.GetResult<Prisma.$InferredPreferencePayload<ExtArgs>, T, "findMany", GlobalOmitOptions> | Null>
   tripBriefs<T extends Prisma.User$tripBriefsArgs<ExtArgs> = {}>(args?: Prisma.Subset<T, Prisma.User$tripBriefsArgs<ExtArgs>>): Prisma.PrismaPromise<runtime.Types.Result.GetResult<Prisma.$TripBriefPayload<ExtArgs>, T, "findMany", GlobalOmitOptions> | Null>
   vendorRequests<T extends Prisma.User$vendorRequestsArgs<ExtArgs> = {}>(args?: Prisma.Subset<T, Prisma.User$vendorRequestsArgs<ExtArgs>>): Prisma.PrismaPromise<runtime.Types.Result.GetResult<Prisma.$VendorRequestPayload<ExtArgs>, T, "findMany", GlobalOmitOptions> | Null>
+  meetingSessions<T extends Prisma.User$meetingSessionsArgs<ExtArgs> = {}>(args?: Prisma.Subset<T, Prisma.User$meetingSessionsArgs<ExtArgs>>): Prisma.PrismaPromise<runtime.Types.Result.GetResult<Prisma.$DiscoveryMeetingSessionPayload<ExtArgs>, T, "findMany", GlobalOmitOptions> | Null>
   /**
    * Attaches callbacks for the resolution and/or rejection of the Promise.
    * @param onfulfilled The callback to execute when the Promise is resolved.
@@ -2734,6 +2900,30 @@ export type User$vendorRequestsArgs<ExtArgs extends runtime.Types.Extensions.Int
   take?: number
   skip?: number
   distinct?: Prisma.VendorRequestScalarFieldEnum | Prisma.VendorRequestScalarFieldEnum[]
+}
+
+/**
+ * User.meetingSessions
+ */
+export type User$meetingSessionsArgs<ExtArgs extends runtime.Types.Extensions.InternalArgs = runtime.Types.Extensions.DefaultArgs> = {
+  /**
+   * Select specific fields to fetch from the DiscoveryMeetingSession
+   */
+  select?: Prisma.DiscoveryMeetingSessionSelect<ExtArgs> | null
+  /**
+   * Omit specific fields from the DiscoveryMeetingSession
+   */
+  omit?: Prisma.DiscoveryMeetingSessionOmit<ExtArgs> | null
+  /**
+   * Choose, which related nodes to fetch as well
+   */
+  include?: Prisma.DiscoveryMeetingSessionInclude<ExtArgs> | null
+  where?: Prisma.DiscoveryMeetingSessionWhereInput
+  orderBy?: Prisma.DiscoveryMeetingSessionOrderByWithRelationInput | Prisma.DiscoveryMeetingSessionOrderByWithRelationInput[]
+  cursor?: Prisma.DiscoveryMeetingSessionWhereUniqueInput
+  take?: number
+  skip?: number
+  distinct?: Prisma.DiscoveryMeetingSessionScalarFieldEnum | Prisma.DiscoveryMeetingSessionScalarFieldEnum[]
 }
 
 /**

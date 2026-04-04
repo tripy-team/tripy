@@ -9,7 +9,7 @@ export async function GET(request: Request) {
     const clients = await prisma.client.findMany({
       where: { organizationId: user.organizationId, status: "active" },
       include: {
-        _count: { select: { loyaltyBalances: true, familyMembers: true, tripRequests: true } },
+        _count: { select: { loyaltyBalances: true, tripRequests: true } },
         loyaltyBalances: {
           select: {
             id: true,

@@ -216,3 +216,28 @@ export type VendorScoreSummary = Prisma.VendorScoreSummaryModel
  * 
  */
 export type VendorRequestTimeline = Prisma.VendorRequestTimelineModel
+/**
+ * Model DiscoveryMeetingSession
+ * 
+ */
+export type DiscoveryMeetingSession = Prisma.DiscoveryMeetingSessionModel
+/**
+ * Model MeetingEntry
+ * 
+ */
+export type MeetingEntry = Prisma.MeetingEntryModel
+/**
+ * Model MeetingQuestionSuggestion
+ * 
+ */
+export type MeetingQuestionSuggestion = Prisma.MeetingQuestionSuggestionModel
+/**
+ * Model MeetingProfileSuggestion
+ * 
+ */
+export type MeetingProfileSuggestion = Prisma.MeetingProfileSuggestionModel
+/**
+ * Model MeetingRecap
+ * 
+ */
+export type MeetingRecap = Prisma.MeetingRecapModel
