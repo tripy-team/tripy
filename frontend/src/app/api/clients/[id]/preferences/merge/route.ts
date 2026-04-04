@@ -1,4 +1,6 @@
 import { prisma } from "@/lib/prisma";
+import { Prisma } from "@/generated/prisma/client";
+import type { CabinPreference, RedemptionStyle } from "@/generated/prisma/client";
 import { getAuthUser, json, errorResponse } from "@/lib/auth";
 
 const MERGEABLE_FIELDS = [
@@ -143,7 +145,7 @@ export async function POST(
         clientId: id,
         ...merged,
         preferredCabin:
-          (merged.preferredCabin as string) ?? "economy",
+          (merged.preferredCabin as CabinPreference) ?? "economy",
         prefersNonstop:
           (merged.prefersNonstop as boolean) ?? false,
         willingToReposition:
@@ -151,7 +153,7 @@ export async function POST(
         avoidBasicEconomy:
           (merged.avoidBasicEconomy as boolean) ?? false,
         redemptionStyle:
-          (merged.redemptionStyle as string) ?? "balanced",
+          (merged.redemptionStyle as RedemptionStyle) ?? "balanced",
         lastUpdatedSource: "intake",
       },
       update: merged,
@@ -162,8 +164,8 @@ export async function POST(
       changedByUserId: user.id,
       source: "intake" as const,
       fieldName: d.field,
-      oldValue: d.oldValue,
-      newValue: d.newValue,
+      oldValue: d.oldValue == null ? Prisma.DbNull : (d.oldValue as Prisma.InputJsonValue),
+      newValue: d.newValue == null ? Prisma.DbNull : (d.newValue as Prisma.InputJsonValue),
     }));
 
     if (changeLogs.length > 0) {
