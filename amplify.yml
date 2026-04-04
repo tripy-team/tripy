@@ -39,6 +39,13 @@ applications:
               echo "--- .env.production.local (keys only) ---"
               sed 's/=.*//' .env.production.local || true
               echo "============================="
+            - |
+              if [ -n "${DATABASE_URL:-}" ]; then
+                echo "Running Prisma migrations against production database..."
+                npx prisma migrate deploy
+              else
+                echo "SKIPPING migrations: DATABASE_URL is not set."
+              fi
         build:
           commands:
             - npm run build
