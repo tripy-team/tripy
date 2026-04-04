@@ -1,6 +1,34 @@
-import { PrismaClient } from "../src/generated/prisma/client";
+import "dotenv/config";
 
-const prisma = new PrismaClient();
+import { PrismaClient } from "../src/generated/prisma/client";
+import { PrismaPg } from "@prisma/adapter-pg";
+import { Pool } from "pg";
+
+function stripSslMode(url: string): string {
+  return url
+    .replace(/[?&]sslmode=[^&]*/g, "")
+    .replace(/\?&/, "?")
+    .replace(/\?$/, "");
+}
+
+function createPrismaClient() {
+  const url = process.env.DATABASE_URL;
+  if (!url) {
+    throw new Error(
+      "DATABASE_URL is not set. Add it to frontend/.env before seeding.",
+    );
+  }
+  const isAws =
+    url.includes(".rds.amazonaws.com") || url.includes(".cluster-");
+  const pool = new Pool({
+    connectionString: isAws ? stripSslMode(url) : url,
+    ...(isAws ? { ssl: { rejectUnauthorized: false } } : {}),
+  });
+  const adapter = new PrismaPg(pool);
+  return { prisma: new PrismaClient({ adapter }), pool };
+}
+
+const { prisma, pool } = createPrismaClient();
 
 const SYSTEM_TEMPLATES = [
   {
@@ -150,5 +178,11 @@ async function main() {
 }
 
 main()
-  .catch(console.error)
-  .finally(() => prisma.$disconnect());
+  .catch((e) => {
+    console.error(e);
+    process.exit(1);
+  })
+  .finally(async () => {
+    await prisma.$disconnect();
+    await pool.end();
+  });
