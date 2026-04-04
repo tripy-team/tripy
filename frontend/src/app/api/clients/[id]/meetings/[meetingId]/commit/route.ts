@@ -131,7 +131,7 @@ export async function POST(
           source: "inferred" as const,
           fieldName: s.targetField,
           oldValue: raw == null ? Prisma.DbNull : (raw as Prisma.InputJsonValue),
-          newValue: s.suggestedValue,
+          newValue: s.suggestedValue == null ? Prisma.DbNull : (s.suggestedValue as Prisma.InputJsonValue),
         };
       });
 
