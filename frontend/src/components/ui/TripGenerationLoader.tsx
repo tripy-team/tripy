@@ -99,6 +99,15 @@ interface TripGenerationLoaderProps {
   streamError?: { code: string; userMessage: string } | null;
 }
 
+const PHASE_MAP: Record<string, { stageIdx: number; baseProgress: number }> = {
+  loading:    { stageIdx: 0, baseProgress: 3 },
+  airports:   { stageIdx: 1, baseProgress: 10 },
+  flights:    { stageIdx: 1, baseProgress: 15 },
+  optimizing: { stageIdx: 3, baseProgress: 40 },
+  saving:     { stageIdx: 5, baseProgress: 80 },
+  tips:       { stageIdx: 5, baseProgress: 90 },
+};
+
 export function TripGenerationLoader({ 
   isVisible, 
   isComplete: apiComplete = false,
@@ -114,16 +123,6 @@ export function TripGenerationLoader({
   const [waitingForApi, setWaitingForApi] = useState(false);
 
   const isStreaming = streamPhase != null;
-
-  // Map backend phases to stage indices + progress for streaming mode
-  const PHASE_MAP: Record<string, { stageIdx: number; baseProgress: number }> = {
-    loading:    { stageIdx: 0, baseProgress: 3 },
-    airports:   { stageIdx: 1, baseProgress: 10 },
-    flights:    { stageIdx: 1, baseProgress: 15 },
-    optimizing: { stageIdx: 3, baseProgress: 40 },
-    saving:     { stageIdx: 5, baseProgress: 80 },
-    tips:       { stageIdx: 5, baseProgress: 90 },
-  };
 
   useEffect(() => {
     if (!isStreaming || !streamPhase) return;

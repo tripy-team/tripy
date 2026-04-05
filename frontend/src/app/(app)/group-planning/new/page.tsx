@@ -251,7 +251,6 @@ export default function NewGroupTripPage() {
     };
 
     loadProfile();
-  // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
 
   // ---- destination helpers --------------------------------------------------

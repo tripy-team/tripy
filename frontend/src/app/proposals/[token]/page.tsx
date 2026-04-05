@@ -2,6 +2,7 @@
 
 import { useEffect, useState } from 'react';
 import { useParams } from 'next/navigation';
+import Image from 'next/image';
 import { proposalsAPI } from '@/lib/api';
 
 interface Recommendation {
@@ -98,7 +99,7 @@ export default function ProposalPage() {
       >
         <div className="mx-auto max-w-3xl flex items-center gap-3">
           {branding.logoUrl && (
-            <img src={branding.logoUrl} alt={brandName} className="h-8 w-auto" />
+            <Image src={branding.logoUrl} alt={brandName} width={128} height={32} className="h-8 w-auto" unoptimized />
           )}
           <h1 className="text-lg font-semibold" style={{ color: brandColor }}>
             {brandName}

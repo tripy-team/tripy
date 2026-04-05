@@ -114,6 +114,29 @@ type TravelerEntry = {
 type Tab = 'overview' | 'balances' | 'preferences' | 'group' | 'trips' | 'discovery' | 'operations';
 type DiscoverySection = 'meetings' | 'intake' | 'insights' | 'follow_ups';
 
+const CATEGORY_ORDER: Record<string, number> = { airline: 0, hotel: 1, transferable_bank: 2 };
+const CATEGORY_LABELS: Record<string, string> = { airline: 'Airlines', hotel: 'Hotels', transferable_bank: 'Credit Cards' };
+const CATEGORY_COLORS: Record<string, { label: string; border: string; dot: string }> = {
+  airline: { label: 'text-sky-600', border: 'border-l-sky-400', dot: 'bg-sky-400' },
+  hotel: { label: 'text-amber-600', border: 'border-l-amber-400', dot: 'bg-amber-400' },
+  transferable_bank: { label: 'text-violet-600', border: 'border-l-violet-400', dot: 'bg-violet-400' },
+};
+const DEFAULT_CATEGORY_COLOR = { label: 'text-slate-500', border: 'border-l-slate-300', dot: 'bg-slate-300' };
+const RELATIONSHIP_ORDER: Record<string, number> = { spouse: 0, partner: 1, child: 2, parent: 3, sibling: 4, friend: 5, other: 6 };
+const RELATIONSHIP_LABELS: Record<string, string> = {
+  spouse: 'Spouse', partner: 'Partner', child: 'Children', parent: 'Parents', sibling: 'Siblings', friend: 'Friends', other: 'Other',
+};
+const RELATIONSHIP_COLORS: Record<string, { label: string; border: string; dot: string }> = {
+  spouse: { label: 'text-rose-600', border: 'border-l-rose-400', dot: 'bg-rose-400' },
+  partner: { label: 'text-pink-600', border: 'border-l-pink-400', dot: 'bg-pink-400' },
+  child: { label: 'text-amber-600', border: 'border-l-amber-400', dot: 'bg-amber-400' },
+  parent: { label: 'text-blue-600', border: 'border-l-blue-400', dot: 'bg-blue-400' },
+  sibling: { label: 'text-indigo-600', border: 'border-l-indigo-400', dot: 'bg-indigo-400' },
+  friend: { label: 'text-emerald-600', border: 'border-l-emerald-400', dot: 'bg-emerald-400' },
+  other: { label: 'text-slate-500', border: 'border-l-slate-300', dot: 'bg-slate-300' },
+};
+const DEFAULT_RELATIONSHIP_COLOR = { label: 'text-slate-500', border: 'border-l-slate-300', dot: 'bg-slate-300' };
+
 export default function ClientDetailPage() {
   const params = useParams();
   const router = useRouter();
@@ -756,30 +779,6 @@ export default function ClientDetailPage() {
     setCopiedDraft(true);
     setTimeout(() => setCopiedDraft(false), 2000);
   };
-
-  const CATEGORY_ORDER: Record<string, number> = { airline: 0, hotel: 1, transferable_bank: 2 };
-  const CATEGORY_LABELS: Record<string, string> = { airline: 'Airlines', hotel: 'Hotels', transferable_bank: 'Credit Cards' };
-  const CATEGORY_COLORS: Record<string, { label: string; border: string; dot: string }> = {
-    airline: { label: 'text-sky-600', border: 'border-l-sky-400', dot: 'bg-sky-400' },
-    hotel: { label: 'text-amber-600', border: 'border-l-amber-400', dot: 'bg-amber-400' },
-    transferable_bank: { label: 'text-violet-600', border: 'border-l-violet-400', dot: 'bg-violet-400' },
-  };
-  const DEFAULT_CATEGORY_COLOR = { label: 'text-slate-500', border: 'border-l-slate-300', dot: 'bg-slate-300' };
-
-  const RELATIONSHIP_ORDER: Record<string, number> = { spouse: 0, partner: 1, child: 2, parent: 3, sibling: 4, friend: 5, other: 6 };
-  const RELATIONSHIP_LABELS: Record<string, string> = {
-    spouse: 'Spouse', partner: 'Partner', child: 'Children', parent: 'Parents', sibling: 'Siblings', friend: 'Friends', other: 'Other',
-  };
-  const RELATIONSHIP_COLORS: Record<string, { label: string; border: string; dot: string }> = {
-    spouse: { label: 'text-rose-600', border: 'border-l-rose-400', dot: 'bg-rose-400' },
-    partner: { label: 'text-pink-600', border: 'border-l-pink-400', dot: 'bg-pink-400' },
-    child: { label: 'text-amber-600', border: 'border-l-amber-400', dot: 'bg-amber-400' },
-    parent: { label: 'text-blue-600', border: 'border-l-blue-400', dot: 'bg-blue-400' },
-    sibling: { label: 'text-indigo-600', border: 'border-l-indigo-400', dot: 'bg-indigo-400' },
-    friend: { label: 'text-emerald-600', border: 'border-l-emerald-400', dot: 'bg-emerald-400' },
-    other: { label: 'text-slate-500', border: 'border-l-slate-300', dot: 'bg-slate-300' },
-  };
-  const DEFAULT_RELATIONSHIP_COLOR = { label: 'text-slate-500', border: 'border-l-slate-300', dot: 'bg-slate-300' };
 
   const groupedBalances = useMemo(() => {
     const groups = new Map<string, LoyaltyBalance[]>();
@@ -1589,7 +1588,7 @@ export default function ClientDetailPage() {
                         </Link>
                       )}
                       <button
-                        onClick={(e) => { e.stopPropagation(); editingMemberId === member.id ? setEditingMemberId(null) : startEditMember(member); }}
+                        onClick={(e) => { e.stopPropagation(); if (editingMemberId === member.id) { setEditingMemberId(null); } else { startEditMember(member); } }}
                         className="rounded-lg p-1.5 text-slate-400 hover:bg-slate-100 hover:text-slate-600"
                       >
                         <Pencil className="h-4 w-4" />

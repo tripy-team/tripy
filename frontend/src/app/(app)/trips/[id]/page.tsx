@@ -2,6 +2,7 @@
 
 import { useParams } from 'next/navigation';
 import { useState, useEffect, useRef, useCallback } from 'react';
+import Image from 'next/image';
 import Link from 'next/link';
 import {
   ArrowLeft,
@@ -1625,7 +1626,7 @@ function CashFlightRow({ flight, isBest }: { flight: CashFlightOption; isBest: b
       <div className="flex items-center justify-between">
         <div className="flex items-center gap-3">
           {flight.airlineLogo && (
-            <img src={flight.airlineLogo} alt={flight.airline} className="h-5 w-5 rounded" />
+            <Image src={flight.airlineLogo} alt={flight.airline} width={20} height={20} className="h-5 w-5 rounded" unoptimized />
           )}
           <div>
             <p className="text-xs font-medium text-slate-900">{flight.airline}</p>
@@ -2313,7 +2314,17 @@ function DiscoveryTab({ trip }: { trip: TripRequest }) {
       setEntries(activeSession.entries ?? []);
 
       if (!activeSession.questionSuggestions?.length || activeSession.questionSuggestions.every((q) => q.isUsed)) {
-        await handleGenerateQuestions(activeSession.id, false);
+        setGeneratingQuestions(true);
+        try {
+          const result = await generateMeetingQuestions(clientId, activeSession.id, { followUp: false });
+          if (result.questions.length > 0) {
+            setQuestions((prev) => [...result.questions, ...prev]);
+          }
+        } catch (genErr) {
+          console.error('Failed to generate questions:', genErr);
+        } finally {
+          setGeneratingQuestions(false);
+        }
       }
     } catch (err) {
       console.error('Failed to init discovery session:', err);

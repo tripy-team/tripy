@@ -1,6 +1,6 @@
 'use client';
 
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useCallback } from 'react';
 import Link from 'next/link';
 import {
   Loader2,
@@ -56,7 +56,7 @@ export default function VendorRequestsListPage() {
   const [statusFilter, setStatusFilter] = useState('');
   const [searchTerm, setSearchTerm] = useState('');
 
-  const load = async () => {
+  const load = useCallback(async () => {
     setLoading(true);
     try {
       const params: Record<string, string> = {};
@@ -69,11 +69,11 @@ export default function VendorRequestsListPage() {
     } finally {
       setLoading(false);
     }
-  };
+  }, [statusFilter, searchTerm]);
 
   useEffect(() => {
     load();
-  }, [statusFilter]);
+  }, [load]);
 
   const handleSearch = () => {
     load();

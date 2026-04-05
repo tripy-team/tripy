@@ -412,10 +412,13 @@ function SoloBookingContent() {
                 const bestItinerary = cacheRes.itineraries[0]; // Best OOP itinerary
                 
                 // Extract bookingDetails from cache or best itinerary
+                let extractedBookingDetails = false;
                 if (cacheRes.bookingDetails) {
                   setBookingDetails(cacheRes.bookingDetails);
+                  extractedBookingDetails = true;
                 } else if (bestItinerary.bookingDetails) {
                   setBookingDetails(bestItinerary.bookingDetails);
+                  extractedBookingDetails = true;
                 }
                 
                 // Auto-select the best itinerary if none selected
@@ -440,8 +443,7 @@ function SoloBookingContent() {
                   setUsingSoloApi(true);
                   usedSoloApi = true;
                   
-                  // Extract bookingDetails from new snapshot if not already set
-                  if (!bookingDetails && newSnapshot.bookingDetails) {
+                  if (!extractedBookingDetails && newSnapshot.bookingDetails) {
                     setBookingDetails(newSnapshot.bookingDetails as BookingDetails);
                   }
                   

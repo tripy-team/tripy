@@ -514,7 +514,6 @@ function SoloTripSetupContent() {
       }
     };
     loadTrip();
-  // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [editTripId]);
 
   // Save credit cards when they change (only for authenticated users).
