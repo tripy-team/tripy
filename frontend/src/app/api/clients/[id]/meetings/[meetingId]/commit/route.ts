@@ -29,9 +29,13 @@ export async function GET(
         },
       });
     } catch {
-      approved = await prisma.meetingProfileSuggestion.findMany({
-        where: { sessionId: meetingId, status: "approved" },
-      });
+      try {
+        approved = await prisma.meetingProfileSuggestion.findMany({
+          where: { sessionId: meetingId, status: "approved" },
+        });
+      } catch {
+        approved = [];
+      }
     }
 
     if (approved.length === 0) {

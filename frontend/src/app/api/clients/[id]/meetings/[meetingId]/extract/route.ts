@@ -174,10 +174,14 @@ export async function POST(
         },
       });
     } catch {
-      allSuggestions = await prisma.meetingProfileSuggestion.findMany({
-        where: { sessionId: meetingId },
-        orderBy: { createdAt: "desc" },
-      });
+      try {
+        allSuggestions = await prisma.meetingProfileSuggestion.findMany({
+          where: { sessionId: meetingId },
+          orderBy: { createdAt: "desc" },
+        });
+      } catch {
+        allSuggestions = [];
+      }
     }
 
     return json(

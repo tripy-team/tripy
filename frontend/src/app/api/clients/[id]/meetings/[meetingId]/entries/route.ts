@@ -192,11 +192,15 @@ export async function POST(
             },
           });
         } catch {
-          recentSuggestions = await prisma.meetingProfileSuggestion.findMany({
-            where: { sessionId: meetingId },
-            orderBy: { createdAt: "desc" },
-            take: 20,
-          });
+          try {
+            recentSuggestions = await prisma.meetingProfileSuggestion.findMany({
+              where: { sessionId: meetingId },
+              orderBy: { createdAt: "desc" },
+              take: 20,
+            });
+          } catch {
+            recentSuggestions = [];
+          }
         }
 
         const cutoff = new Date(Date.now() - 5000);
@@ -417,12 +421,16 @@ export async function PATCH(
           },
         });
       } catch {
-        newSuggestions = await prisma.meetingProfileSuggestion.findMany({
-          where: {
-            sessionId: meetingId,
-            rationale: { contains: entryTagForFetch },
-          },
-        });
+        try {
+          newSuggestions = await prisma.meetingProfileSuggestion.findMany({
+            where: {
+              sessionId: meetingId,
+              rationale: { contains: entryTagForFetch },
+            },
+          });
+        } catch {
+          newSuggestions = [];
+        }
       }
     }
 

@@ -14,13 +14,21 @@ export async function GET(
     });
     if (!client) return errorResponse("Client not found", 404);
 
+    const baseInclude = {
+      entries: { orderBy: { createdAt: "asc" as const } },
+      questionSuggestions: { orderBy: { createdAt: "desc" as const } },
+      recap: true as const,
+      advisor: {
+        select: { id: true, firstName: true, lastName: true, email: true },
+      },
+    };
+
     let session;
     try {
       session = await prisma.discoveryMeetingSession.findFirst({
         where: { id: meetingId, clientId },
         include: {
-          entries: { orderBy: { createdAt: "asc" } },
-          questionSuggestions: { orderBy: { createdAt: "desc" } },
+          ...baseInclude,
           profileSuggestions: {
             orderBy: { createdAt: "desc" },
             include: {
@@ -29,25 +37,20 @@ export async function GET(
               },
             },
           },
-          recap: true,
-          advisor: {
-            select: { id: true, firstName: true, lastName: true, email: true },
-          },
         },
       });
-    } catch (prismaErr) {
-      session = await prisma.discoveryMeetingSession.findFirst({
-        where: { id: meetingId, clientId },
-        include: {
-          entries: { orderBy: { createdAt: "asc" } },
-          questionSuggestions: { orderBy: { createdAt: "desc" } },
-          profileSuggestions: { orderBy: { createdAt: "desc" } },
-          recap: true,
-          advisor: {
-            select: { id: true, firstName: true, lastName: true, email: true },
-          },
-        },
-      });
+    } catch {
+      try {
+        session = await prisma.discoveryMeetingSession.findFirst({
+          where: { id: meetingId, clientId },
+          include: { ...baseInclude, profileSuggestions: { orderBy: { createdAt: "desc" } } },
+        });
+      } catch {
+        session = await prisma.discoveryMeetingSession.findFirst({
+          where: { id: meetingId, clientId },
+          include: baseInclude,
+        });
+      }
     }
 
     if (!session) return errorResponse("Meeting session not found", 404);
