@@ -30,6 +30,7 @@ export type TripTravelerMinAggregateOutputType = {
   clientId: string | null
   travelerType: $Enums.TravelerType | null
   mustTravelWithClientId: string | null
+  useLeaderCities: boolean | null
   createdAt: Date | null
 }
 
@@ -39,6 +40,7 @@ export type TripTravelerMaxAggregateOutputType = {
   clientId: string | null
   travelerType: $Enums.TravelerType | null
   mustTravelWithClientId: string | null
+  useLeaderCities: boolean | null
   createdAt: Date | null
 }
 
@@ -48,6 +50,9 @@ export type TripTravelerCountAggregateOutputType = {
   clientId: number
   travelerType: number
   mustTravelWithClientId: number
+  originAirports: number
+  destinationAirports: number
+  useLeaderCities: number
   createdAt: number
   _all: number
 }
@@ -59,6 +64,7 @@ export type TripTravelerMinAggregateInputType = {
   clientId?: true
   travelerType?: true
   mustTravelWithClientId?: true
+  useLeaderCities?: true
   createdAt?: true
 }
 
@@ -68,6 +74,7 @@ export type TripTravelerMaxAggregateInputType = {
   clientId?: true
   travelerType?: true
   mustTravelWithClientId?: true
+  useLeaderCities?: true
   createdAt?: true
 }
 
@@ -77,6 +84,9 @@ export type TripTravelerCountAggregateInputType = {
   clientId?: true
   travelerType?: true
   mustTravelWithClientId?: true
+  originAirports?: true
+  destinationAirports?: true
+  useLeaderCities?: true
   createdAt?: true
   _all?: true
 }
@@ -159,6 +169,9 @@ export type TripTravelerGroupByOutputType = {
   clientId: string
   travelerType: $Enums.TravelerType
   mustTravelWithClientId: string | null
+  originAirports: runtime.JsonValue | null
+  destinationAirports: runtime.JsonValue | null
+  useLeaderCities: boolean
   createdAt: Date
   _count: TripTravelerCountAggregateOutputType | null
   _min: TripTravelerMinAggregateOutputType | null
@@ -189,6 +202,9 @@ export type TripTravelerWhereInput = {
   clientId?: Prisma.StringFilter<"TripTraveler"> | string
   travelerType?: Prisma.EnumTravelerTypeFilter<"TripTraveler"> | $Enums.TravelerType
   mustTravelWithClientId?: Prisma.StringNullableFilter<"TripTraveler"> | string | null
+  originAirports?: Prisma.JsonNullableFilter<"TripTraveler">
+  destinationAirports?: Prisma.JsonNullableFilter<"TripTraveler">
+  useLeaderCities?: Prisma.BoolFilter<"TripTraveler"> | boolean
   createdAt?: Prisma.DateTimeFilter<"TripTraveler"> | Date | string
   tripRequest?: Prisma.XOR<Prisma.TripRequestScalarRelationFilter, Prisma.TripRequestWhereInput>
   client?: Prisma.XOR<Prisma.ClientScalarRelationFilter, Prisma.ClientWhereInput>
@@ -201,6 +217,9 @@ export type TripTravelerOrderByWithRelationInput = {
   clientId?: Prisma.SortOrder
   travelerType?: Prisma.SortOrder
   mustTravelWithClientId?: Prisma.SortOrderInput | Prisma.SortOrder
+  originAirports?: Prisma.SortOrderInput | Prisma.SortOrder
+  destinationAirports?: Prisma.SortOrderInput | Prisma.SortOrder
+  useLeaderCities?: Prisma.SortOrder
   createdAt?: Prisma.SortOrder
   tripRequest?: Prisma.TripRequestOrderByWithRelationInput
   client?: Prisma.ClientOrderByWithRelationInput
@@ -216,6 +235,9 @@ export type TripTravelerWhereUniqueInput = Prisma.AtLeast<{
   clientId?: Prisma.StringFilter<"TripTraveler"> | string
   travelerType?: Prisma.EnumTravelerTypeFilter<"TripTraveler"> | $Enums.TravelerType
   mustTravelWithClientId?: Prisma.StringNullableFilter<"TripTraveler"> | string | null
+  originAirports?: Prisma.JsonNullableFilter<"TripTraveler">
+  destinationAirports?: Prisma.JsonNullableFilter<"TripTraveler">
+  useLeaderCities?: Prisma.BoolFilter<"TripTraveler"> | boolean
   createdAt?: Prisma.DateTimeFilter<"TripTraveler"> | Date | string
   tripRequest?: Prisma.XOR<Prisma.TripRequestScalarRelationFilter, Prisma.TripRequestWhereInput>
   client?: Prisma.XOR<Prisma.ClientScalarRelationFilter, Prisma.ClientWhereInput>
@@ -228,6 +250,9 @@ export type TripTravelerOrderByWithAggregationInput = {
   clientId?: Prisma.SortOrder
   travelerType?: Prisma.SortOrder
   mustTravelWithClientId?: Prisma.SortOrderInput | Prisma.SortOrder
+  originAirports?: Prisma.SortOrderInput | Prisma.SortOrder
+  destinationAirports?: Prisma.SortOrderInput | Prisma.SortOrder
+  useLeaderCities?: Prisma.SortOrder
   createdAt?: Prisma.SortOrder
   _count?: Prisma.TripTravelerCountOrderByAggregateInput
   _max?: Prisma.TripTravelerMaxOrderByAggregateInput
@@ -243,6 +268,9 @@ export type TripTravelerScalarWhereWithAggregatesInput = {
   clientId?: Prisma.StringWithAggregatesFilter<"TripTraveler"> | string
   travelerType?: Prisma.EnumTravelerTypeWithAggregatesFilter<"TripTraveler"> | $Enums.TravelerType
   mustTravelWithClientId?: Prisma.StringNullableWithAggregatesFilter<"TripTraveler"> | string | null
+  originAirports?: Prisma.JsonNullableWithAggregatesFilter<"TripTraveler">
+  destinationAirports?: Prisma.JsonNullableWithAggregatesFilter<"TripTraveler">
+  useLeaderCities?: Prisma.BoolWithAggregatesFilter<"TripTraveler"> | boolean
   createdAt?: Prisma.DateTimeWithAggregatesFilter<"TripTraveler"> | Date | string
 }
 
@@ -250,6 +278,9 @@ export type TripTravelerCreateInput = {
   id?: string
   travelerType?: $Enums.TravelerType
   mustTravelWithClientId?: string | null
+  originAirports?: Prisma.NullableJsonNullValueInput | runtime.InputJsonValue
+  destinationAirports?: Prisma.NullableJsonNullValueInput | runtime.InputJsonValue
+  useLeaderCities?: boolean
   createdAt?: Date | string
   tripRequest: Prisma.TripRequestCreateNestedOneWithoutTravelersInput
   client: Prisma.ClientCreateNestedOneWithoutTripTravelersInput
@@ -262,6 +293,9 @@ export type TripTravelerUncheckedCreateInput = {
   clientId: string
   travelerType?: $Enums.TravelerType
   mustTravelWithClientId?: string | null
+  originAirports?: Prisma.NullableJsonNullValueInput | runtime.InputJsonValue
+  destinationAirports?: Prisma.NullableJsonNullValueInput | runtime.InputJsonValue
+  useLeaderCities?: boolean
   createdAt?: Date | string
   allocations?: Prisma.RecommendationTravelerAllocationUncheckedCreateNestedManyWithoutTripTravelerInput
 }
@@ -270,6 +304,9 @@ export type TripTravelerUpdateInput = {
   id?: Prisma.StringFieldUpdateOperationsInput | string
   travelerType?: Prisma.EnumTravelerTypeFieldUpdateOperationsInput | $Enums.TravelerType
   mustTravelWithClientId?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
+  originAirports?: Prisma.NullableJsonNullValueInput | runtime.InputJsonValue
+  destinationAirports?: Prisma.NullableJsonNullValueInput | runtime.InputJsonValue
+  useLeaderCities?: Prisma.BoolFieldUpdateOperationsInput | boolean
   createdAt?: Prisma.DateTimeFieldUpdateOperationsInput | Date | string
   tripRequest?: Prisma.TripRequestUpdateOneRequiredWithoutTravelersNestedInput
   client?: Prisma.ClientUpdateOneRequiredWithoutTripTravelersNestedInput
@@ -282,6 +319,9 @@ export type TripTravelerUncheckedUpdateInput = {
   clientId?: Prisma.StringFieldUpdateOperationsInput | string
   travelerType?: Prisma.EnumTravelerTypeFieldUpdateOperationsInput | $Enums.TravelerType
   mustTravelWithClientId?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
+  originAirports?: Prisma.NullableJsonNullValueInput | runtime.InputJsonValue
+  destinationAirports?: Prisma.NullableJsonNullValueInput | runtime.InputJsonValue
+  useLeaderCities?: Prisma.BoolFieldUpdateOperationsInput | boolean
   createdAt?: Prisma.DateTimeFieldUpdateOperationsInput | Date | string
   allocations?: Prisma.RecommendationTravelerAllocationUncheckedUpdateManyWithoutTripTravelerNestedInput
 }
@@ -292,6 +332,9 @@ export type TripTravelerCreateManyInput = {
   clientId: string
   travelerType?: $Enums.TravelerType
   mustTravelWithClientId?: string | null
+  originAirports?: Prisma.NullableJsonNullValueInput | runtime.InputJsonValue
+  destinationAirports?: Prisma.NullableJsonNullValueInput | runtime.InputJsonValue
+  useLeaderCities?: boolean
   createdAt?: Date | string
 }
 
@@ -299,6 +342,9 @@ export type TripTravelerUpdateManyMutationInput = {
   id?: Prisma.StringFieldUpdateOperationsInput | string
   travelerType?: Prisma.EnumTravelerTypeFieldUpdateOperationsInput | $Enums.TravelerType
   mustTravelWithClientId?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
+  originAirports?: Prisma.NullableJsonNullValueInput | runtime.InputJsonValue
+  destinationAirports?: Prisma.NullableJsonNullValueInput | runtime.InputJsonValue
+  useLeaderCities?: Prisma.BoolFieldUpdateOperationsInput | boolean
   createdAt?: Prisma.DateTimeFieldUpdateOperationsInput | Date | string
 }
 
@@ -308,6 +354,9 @@ export type TripTravelerUncheckedUpdateManyInput = {
   clientId?: Prisma.StringFieldUpdateOperationsInput | string
   travelerType?: Prisma.EnumTravelerTypeFieldUpdateOperationsInput | $Enums.TravelerType
   mustTravelWithClientId?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
+  originAirports?: Prisma.NullableJsonNullValueInput | runtime.InputJsonValue
+  destinationAirports?: Prisma.NullableJsonNullValueInput | runtime.InputJsonValue
+  useLeaderCities?: Prisma.BoolFieldUpdateOperationsInput | boolean
   createdAt?: Prisma.DateTimeFieldUpdateOperationsInput | Date | string
 }
 
@@ -327,6 +376,9 @@ export type TripTravelerCountOrderByAggregateInput = {
   clientId?: Prisma.SortOrder
   travelerType?: Prisma.SortOrder
   mustTravelWithClientId?: Prisma.SortOrder
+  originAirports?: Prisma.SortOrder
+  destinationAirports?: Prisma.SortOrder
+  useLeaderCities?: Prisma.SortOrder
   createdAt?: Prisma.SortOrder
 }
 
@@ -336,6 +388,7 @@ export type TripTravelerMaxOrderByAggregateInput = {
   clientId?: Prisma.SortOrder
   travelerType?: Prisma.SortOrder
   mustTravelWithClientId?: Prisma.SortOrder
+  useLeaderCities?: Prisma.SortOrder
   createdAt?: Prisma.SortOrder
 }
 
@@ -345,6 +398,7 @@ export type TripTravelerMinOrderByAggregateInput = {
   clientId?: Prisma.SortOrder
   travelerType?: Prisma.SortOrder
   mustTravelWithClientId?: Prisma.SortOrder
+  useLeaderCities?: Prisma.SortOrder
   createdAt?: Prisma.SortOrder
 }
 
@@ -459,6 +513,9 @@ export type TripTravelerCreateWithoutClientInput = {
   id?: string
   travelerType?: $Enums.TravelerType
   mustTravelWithClientId?: string | null
+  originAirports?: Prisma.NullableJsonNullValueInput | runtime.InputJsonValue
+  destinationAirports?: Prisma.NullableJsonNullValueInput | runtime.InputJsonValue
+  useLeaderCities?: boolean
   createdAt?: Date | string
   tripRequest: Prisma.TripRequestCreateNestedOneWithoutTravelersInput
   allocations?: Prisma.RecommendationTravelerAllocationCreateNestedManyWithoutTripTravelerInput
@@ -469,6 +526,9 @@ export type TripTravelerUncheckedCreateWithoutClientInput = {
   tripRequestId: string
   travelerType?: $Enums.TravelerType
   mustTravelWithClientId?: string | null
+  originAirports?: Prisma.NullableJsonNullValueInput | runtime.InputJsonValue
+  destinationAirports?: Prisma.NullableJsonNullValueInput | runtime.InputJsonValue
+  useLeaderCities?: boolean
   createdAt?: Date | string
   allocations?: Prisma.RecommendationTravelerAllocationUncheckedCreateNestedManyWithoutTripTravelerInput
 }
@@ -508,6 +568,9 @@ export type TripTravelerScalarWhereInput = {
   clientId?: Prisma.StringFilter<"TripTraveler"> | string
   travelerType?: Prisma.EnumTravelerTypeFilter<"TripTraveler"> | $Enums.TravelerType
   mustTravelWithClientId?: Prisma.StringNullableFilter<"TripTraveler"> | string | null
+  originAirports?: Prisma.JsonNullableFilter<"TripTraveler">
+  destinationAirports?: Prisma.JsonNullableFilter<"TripTraveler">
+  useLeaderCities?: Prisma.BoolFilter<"TripTraveler"> | boolean
   createdAt?: Prisma.DateTimeFilter<"TripTraveler"> | Date | string
 }
 
@@ -515,6 +578,9 @@ export type TripTravelerCreateWithoutTripRequestInput = {
   id?: string
   travelerType?: $Enums.TravelerType
   mustTravelWithClientId?: string | null
+  originAirports?: Prisma.NullableJsonNullValueInput | runtime.InputJsonValue
+  destinationAirports?: Prisma.NullableJsonNullValueInput | runtime.InputJsonValue
+  useLeaderCities?: boolean
   createdAt?: Date | string
   client: Prisma.ClientCreateNestedOneWithoutTripTravelersInput
   allocations?: Prisma.RecommendationTravelerAllocationCreateNestedManyWithoutTripTravelerInput
@@ -525,6 +591,9 @@ export type TripTravelerUncheckedCreateWithoutTripRequestInput = {
   clientId: string
   travelerType?: $Enums.TravelerType
   mustTravelWithClientId?: string | null
+  originAirports?: Prisma.NullableJsonNullValueInput | runtime.InputJsonValue
+  destinationAirports?: Prisma.NullableJsonNullValueInput | runtime.InputJsonValue
+  useLeaderCities?: boolean
   createdAt?: Date | string
   allocations?: Prisma.RecommendationTravelerAllocationUncheckedCreateNestedManyWithoutTripTravelerInput
 }
@@ -559,6 +628,9 @@ export type TripTravelerCreateWithoutAllocationsInput = {
   id?: string
   travelerType?: $Enums.TravelerType
   mustTravelWithClientId?: string | null
+  originAirports?: Prisma.NullableJsonNullValueInput | runtime.InputJsonValue
+  destinationAirports?: Prisma.NullableJsonNullValueInput | runtime.InputJsonValue
+  useLeaderCities?: boolean
   createdAt?: Date | string
   tripRequest: Prisma.TripRequestCreateNestedOneWithoutTravelersInput
   client: Prisma.ClientCreateNestedOneWithoutTripTravelersInput
@@ -570,6 +642,9 @@ export type TripTravelerUncheckedCreateWithoutAllocationsInput = {
   clientId: string
   travelerType?: $Enums.TravelerType
   mustTravelWithClientId?: string | null
+  originAirports?: Prisma.NullableJsonNullValueInput | runtime.InputJsonValue
+  destinationAirports?: Prisma.NullableJsonNullValueInput | runtime.InputJsonValue
+  useLeaderCities?: boolean
   createdAt?: Date | string
 }
 
@@ -593,6 +668,9 @@ export type TripTravelerUpdateWithoutAllocationsInput = {
   id?: Prisma.StringFieldUpdateOperationsInput | string
   travelerType?: Prisma.EnumTravelerTypeFieldUpdateOperationsInput | $Enums.TravelerType
   mustTravelWithClientId?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
+  originAirports?: Prisma.NullableJsonNullValueInput | runtime.InputJsonValue
+  destinationAirports?: Prisma.NullableJsonNullValueInput | runtime.InputJsonValue
+  useLeaderCities?: Prisma.BoolFieldUpdateOperationsInput | boolean
   createdAt?: Prisma.DateTimeFieldUpdateOperationsInput | Date | string
   tripRequest?: Prisma.TripRequestUpdateOneRequiredWithoutTravelersNestedInput
   client?: Prisma.ClientUpdateOneRequiredWithoutTripTravelersNestedInput
@@ -604,6 +682,9 @@ export type TripTravelerUncheckedUpdateWithoutAllocationsInput = {
   clientId?: Prisma.StringFieldUpdateOperationsInput | string
   travelerType?: Prisma.EnumTravelerTypeFieldUpdateOperationsInput | $Enums.TravelerType
   mustTravelWithClientId?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
+  originAirports?: Prisma.NullableJsonNullValueInput | runtime.InputJsonValue
+  destinationAirports?: Prisma.NullableJsonNullValueInput | runtime.InputJsonValue
+  useLeaderCities?: Prisma.BoolFieldUpdateOperationsInput | boolean
   createdAt?: Prisma.DateTimeFieldUpdateOperationsInput | Date | string
 }
 
@@ -612,6 +693,9 @@ export type TripTravelerCreateManyClientInput = {
   tripRequestId: string
   travelerType?: $Enums.TravelerType
   mustTravelWithClientId?: string | null
+  originAirports?: Prisma.NullableJsonNullValueInput | runtime.InputJsonValue
+  destinationAirports?: Prisma.NullableJsonNullValueInput | runtime.InputJsonValue
+  useLeaderCities?: boolean
   createdAt?: Date | string
 }
 
@@ -619,6 +703,9 @@ export type TripTravelerUpdateWithoutClientInput = {
   id?: Prisma.StringFieldUpdateOperationsInput | string
   travelerType?: Prisma.EnumTravelerTypeFieldUpdateOperationsInput | $Enums.TravelerType
   mustTravelWithClientId?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
+  originAirports?: Prisma.NullableJsonNullValueInput | runtime.InputJsonValue
+  destinationAirports?: Prisma.NullableJsonNullValueInput | runtime.InputJsonValue
+  useLeaderCities?: Prisma.BoolFieldUpdateOperationsInput | boolean
   createdAt?: Prisma.DateTimeFieldUpdateOperationsInput | Date | string
   tripRequest?: Prisma.TripRequestUpdateOneRequiredWithoutTravelersNestedInput
   allocations?: Prisma.RecommendationTravelerAllocationUpdateManyWithoutTripTravelerNestedInput
@@ -629,6 +716,9 @@ export type TripTravelerUncheckedUpdateWithoutClientInput = {
   tripRequestId?: Prisma.StringFieldUpdateOperationsInput | string
   travelerType?: Prisma.EnumTravelerTypeFieldUpdateOperationsInput | $Enums.TravelerType
   mustTravelWithClientId?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
+  originAirports?: Prisma.NullableJsonNullValueInput | runtime.InputJsonValue
+  destinationAirports?: Prisma.NullableJsonNullValueInput | runtime.InputJsonValue
+  useLeaderCities?: Prisma.BoolFieldUpdateOperationsInput | boolean
   createdAt?: Prisma.DateTimeFieldUpdateOperationsInput | Date | string
   allocations?: Prisma.RecommendationTravelerAllocationUncheckedUpdateManyWithoutTripTravelerNestedInput
 }
@@ -638,6 +728,9 @@ export type TripTravelerUncheckedUpdateManyWithoutClientInput = {
   tripRequestId?: Prisma.StringFieldUpdateOperationsInput | string
   travelerType?: Prisma.EnumTravelerTypeFieldUpdateOperationsInput | $Enums.TravelerType
   mustTravelWithClientId?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
+  originAirports?: Prisma.NullableJsonNullValueInput | runtime.InputJsonValue
+  destinationAirports?: Prisma.NullableJsonNullValueInput | runtime.InputJsonValue
+  useLeaderCities?: Prisma.BoolFieldUpdateOperationsInput | boolean
   createdAt?: Prisma.DateTimeFieldUpdateOperationsInput | Date | string
 }
 
@@ -646,6 +739,9 @@ export type TripTravelerCreateManyTripRequestInput = {
   clientId: string
   travelerType?: $Enums.TravelerType
   mustTravelWithClientId?: string | null
+  originAirports?: Prisma.NullableJsonNullValueInput | runtime.InputJsonValue
+  destinationAirports?: Prisma.NullableJsonNullValueInput | runtime.InputJsonValue
+  useLeaderCities?: boolean
   createdAt?: Date | string
 }
 
@@ -653,6 +749,9 @@ export type TripTravelerUpdateWithoutTripRequestInput = {
   id?: Prisma.StringFieldUpdateOperationsInput | string
   travelerType?: Prisma.EnumTravelerTypeFieldUpdateOperationsInput | $Enums.TravelerType
   mustTravelWithClientId?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
+  originAirports?: Prisma.NullableJsonNullValueInput | runtime.InputJsonValue
+  destinationAirports?: Prisma.NullableJsonNullValueInput | runtime.InputJsonValue
+  useLeaderCities?: Prisma.BoolFieldUpdateOperationsInput | boolean
   createdAt?: Prisma.DateTimeFieldUpdateOperationsInput | Date | string
   client?: Prisma.ClientUpdateOneRequiredWithoutTripTravelersNestedInput
   allocations?: Prisma.RecommendationTravelerAllocationUpdateManyWithoutTripTravelerNestedInput
@@ -663,6 +762,9 @@ export type TripTravelerUncheckedUpdateWithoutTripRequestInput = {
   clientId?: Prisma.StringFieldUpdateOperationsInput | string
   travelerType?: Prisma.EnumTravelerTypeFieldUpdateOperationsInput | $Enums.TravelerType
   mustTravelWithClientId?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
+  originAirports?: Prisma.NullableJsonNullValueInput | runtime.InputJsonValue
+  destinationAirports?: Prisma.NullableJsonNullValueInput | runtime.InputJsonValue
+  useLeaderCities?: Prisma.BoolFieldUpdateOperationsInput | boolean
   createdAt?: Prisma.DateTimeFieldUpdateOperationsInput | Date | string
   allocations?: Prisma.RecommendationTravelerAllocationUncheckedUpdateManyWithoutTripTravelerNestedInput
 }
@@ -672,6 +774,9 @@ export type TripTravelerUncheckedUpdateManyWithoutTripRequestInput = {
   clientId?: Prisma.StringFieldUpdateOperationsInput | string
   travelerType?: Prisma.EnumTravelerTypeFieldUpdateOperationsInput | $Enums.TravelerType
   mustTravelWithClientId?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
+  originAirports?: Prisma.NullableJsonNullValueInput | runtime.InputJsonValue
+  destinationAirports?: Prisma.NullableJsonNullValueInput | runtime.InputJsonValue
+  useLeaderCities?: Prisma.BoolFieldUpdateOperationsInput | boolean
   createdAt?: Prisma.DateTimeFieldUpdateOperationsInput | Date | string
 }
 
@@ -712,6 +817,9 @@ export type TripTravelerSelect<ExtArgs extends runtime.Types.Extensions.Internal
   clientId?: boolean
   travelerType?: boolean
   mustTravelWithClientId?: boolean
+  originAirports?: boolean
+  destinationAirports?: boolean
+  useLeaderCities?: boolean
   createdAt?: boolean
   tripRequest?: boolean | Prisma.TripRequestDefaultArgs<ExtArgs>
   client?: boolean | Prisma.ClientDefaultArgs<ExtArgs>
@@ -725,6 +833,9 @@ export type TripTravelerSelectCreateManyAndReturn<ExtArgs extends runtime.Types.
   clientId?: boolean
   travelerType?: boolean
   mustTravelWithClientId?: boolean
+  originAirports?: boolean
+  destinationAirports?: boolean
+  useLeaderCities?: boolean
   createdAt?: boolean
   tripRequest?: boolean | Prisma.TripRequestDefaultArgs<ExtArgs>
   client?: boolean | Prisma.ClientDefaultArgs<ExtArgs>
@@ -736,6 +847,9 @@ export type TripTravelerSelectUpdateManyAndReturn<ExtArgs extends runtime.Types.
   clientId?: boolean
   travelerType?: boolean
   mustTravelWithClientId?: boolean
+  originAirports?: boolean
+  destinationAirports?: boolean
+  useLeaderCities?: boolean
   createdAt?: boolean
   tripRequest?: boolean | Prisma.TripRequestDefaultArgs<ExtArgs>
   client?: boolean | Prisma.ClientDefaultArgs<ExtArgs>
@@ -747,10 +861,13 @@ export type TripTravelerSelectScalar = {
   clientId?: boolean
   travelerType?: boolean
   mustTravelWithClientId?: boolean
+  originAirports?: boolean
+  destinationAirports?: boolean
+  useLeaderCities?: boolean
   createdAt?: boolean
 }
 
-export type TripTravelerOmit<ExtArgs extends runtime.Types.Extensions.InternalArgs = runtime.Types.Extensions.DefaultArgs> = runtime.Types.Extensions.GetOmit<"id" | "tripRequestId" | "clientId" | "travelerType" | "mustTravelWithClientId" | "createdAt", ExtArgs["result"]["tripTraveler"]>
+export type TripTravelerOmit<ExtArgs extends runtime.Types.Extensions.InternalArgs = runtime.Types.Extensions.DefaultArgs> = runtime.Types.Extensions.GetOmit<"id" | "tripRequestId" | "clientId" | "travelerType" | "mustTravelWithClientId" | "originAirports" | "destinationAirports" | "useLeaderCities" | "createdAt", ExtArgs["result"]["tripTraveler"]>
 export type TripTravelerInclude<ExtArgs extends runtime.Types.Extensions.InternalArgs = runtime.Types.Extensions.DefaultArgs> = {
   tripRequest?: boolean | Prisma.TripRequestDefaultArgs<ExtArgs>
   client?: boolean | Prisma.ClientDefaultArgs<ExtArgs>
@@ -779,6 +896,9 @@ export type $TripTravelerPayload<ExtArgs extends runtime.Types.Extensions.Intern
     clientId: string
     travelerType: $Enums.TravelerType
     mustTravelWithClientId: string | null
+    originAirports: runtime.JsonValue | null
+    destinationAirports: runtime.JsonValue | null
+    useLeaderCities: boolean
     createdAt: Date
   }, ExtArgs["result"]["tripTraveler"]>
   composites: {}
@@ -1211,6 +1331,9 @@ export interface TripTravelerFieldRefs {
   readonly clientId: Prisma.FieldRef<"TripTraveler", 'String'>
   readonly travelerType: Prisma.FieldRef<"TripTraveler", 'TravelerType'>
   readonly mustTravelWithClientId: Prisma.FieldRef<"TripTraveler", 'String'>
+  readonly originAirports: Prisma.FieldRef<"TripTraveler", 'Json'>
+  readonly destinationAirports: Prisma.FieldRef<"TripTraveler", 'Json'>
+  readonly useLeaderCities: Prisma.FieldRef<"TripTraveler", 'Boolean'>
   readonly createdAt: Prisma.FieldRef<"TripTraveler", 'DateTime'>
 }
     

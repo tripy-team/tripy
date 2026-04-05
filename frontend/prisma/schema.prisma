@@ -364,7 +364,8 @@ model Client {
   organization          Organization          @relation(fields: [organizationId], references: [id])
   owner                 User                  @relation(fields: [ownerUserId], references: [id])
   householdMembers      HouseholdMember[]
-  familyMembers         FamilyMember[]
+  familyMembers         FamilyMember[]  @relation("ClientFamilyMembers")
+  linkedFromFamilyMember FamilyMember?  @relation("LinkedFamilyMember")
   loyaltyBalances       ClientLoyaltyBalance[]
   preferences           ClientPreference?
   intakes               ClientIntake[]
@@ -376,6 +377,7 @@ model Client {
   followUpSuggestions   FollowUpSuggestion[]
   vendorRequests        VendorRequest[]
   meetingSessions       DiscoveryMeetingSession[]
+  crossClientSuggestions MeetingProfileSuggestion[] @relation("CrossClientSuggestions")
 
   @@index([organizationId])
   @@index([ownerUserId])
@@ -420,6 +422,7 @@ model HouseholdMember {
 model FamilyMember {
   id                String   @id @default(cuid())
   clientId          String   @map("client_id")
+  linkedClientId    String?  @unique @map("linked_client_id")
   name              String
   relationship      String
   email             String?
@@ -429,7 +432,8 @@ model FamilyMember {
   createdAt         DateTime @default(now()) @map("created_at")
   updatedAt         DateTime @updatedAt @map("updated_at")
 
-  client Client @relation(fields: [clientId], references: [id], onDelete: Cascade)
+  client       Client  @relation("ClientFamilyMembers", fields: [clientId], references: [id], onDelete: Cascade)
+  linkedClient Client? @relation("LinkedFamilyMember", fields: [linkedClientId], references: [id])
 
   @@index([clientId])
   @@map("family_members")
@@ -692,12 +696,15 @@ model TripTradeoffRanking {
 }
 
 model TripTraveler {
-  id                   String       @id @default(cuid())
-  tripRequestId        String       @map("trip_request_id")
-  clientId             String       @map("client_id")
-  travelerType         TravelerType @default(adult) @map("traveler_type")
-  mustTravelWithClientId String?    @map("must_travel_with_client_id")
-  createdAt            DateTime     @default(now()) @map("created_at")
+  id                     String       @id @default(cuid())
+  tripRequestId          String       @map("trip_request_id")
+  clientId               String       @map("client_id")
+  travelerType           TravelerType @default(adult) @map("traveler_type")
+  mustTravelWithClientId String?      @map("must_travel_with_client_id")
+  originAirports         Json?        @map("origin_airports")
+  destinationAirports    Json?        @map("destination_airports")
+  useLeaderCities        Boolean      @default(false) @map("use_leader_cities")
+  createdAt              DateTime     @default(now()) @map("created_at")
 
   tripRequest TripRequest @relation(fields: [tripRequestId], references: [id], onDelete: Cascade)
   client      Client      @relation(fields: [clientId], references: [id])
@@ -1178,6 +1185,7 @@ model MeetingQuestionSuggestion {
   priority        String
   targetFields    Json     @map("target_fields")
   isUsed          Boolean  @default(false) @map("is_used")
+  round           Int      @default(1)
   createdAt       DateTime @default(now()) @map("created_at")
 
   session DiscoveryMeetingSession @relation(fields: [sessionId], references: [id], onDelete: Cascade)
@@ -1187,21 +1195,25 @@ model MeetingQuestionSuggestion {
 }
 
 model MeetingProfileSuggestion {
-  id          String                  @id @default(cuid())
-  sessionId   String                  @map("session_id")
-  targetField String                  @map("target_field")
-  suggestedValue Json                 @map("suggested_value")
-  confidence  Float
-  evidence    String
-  rationale   String
-  status      ProfileSuggestionStatus @default(pending)
-  resolvedAt  DateTime?               @map("resolved_at")
-  createdAt   DateTime                @default(now()) @map("created_at")
+  id               String                  @id @default(cuid())
+  sessionId        String                  @map("session_id")
+  targetField      String                  @map("target_field")
+  suggestedValue   Json                    @map("suggested_value")
+  confidence       Float
+  evidence         String
+  rationale        String
+  status           ProfileSuggestionStatus @default(pending)
+  resolvedAt       DateTime?               @map("resolved_at")
+  targetClientId   String?                 @map("target_client_id")
+  sourceDescription String?                @map("source_description")
+  createdAt        DateTime                @default(now()) @map("created_at")
 
-  session DiscoveryMeetingSession @relation(fields: [sessionId], references: [id], onDelete: Cascade)
+  session      DiscoveryMeetingSession @relation(fields: [sessionId], references: [id], onDelete: Cascade)
+  targetClient Client?                 @relation("CrossClientSuggestions", fields: [targetClientId], references: [id])
 
   @@index([sessionId])
   @@index([sessionId, status])
+  @@index([targetClientId])
   @@map("meeting_profile_suggestions")
 }
 

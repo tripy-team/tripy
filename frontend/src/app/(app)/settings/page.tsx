@@ -16,6 +16,7 @@ import {
   createTransferBonus,
 } from '@/lib/api-client';
 import type { Organization, OrgUser, TransferBonus } from '@/lib/api-client';
+import SingleDatePicker from '@/components/ui/SingleDatePicker';
 
 export default function SettingsPage() {
   const [org, setOrg] = useState<Organization | null>(null);
@@ -294,22 +295,22 @@ export default function SettingsPage() {
                   <label className="mb-1 block text-xs font-medium text-slate-600">
                     Start Date
                   </label>
-                  <input
-                    type="date"
+                  <SingleDatePicker
+                    compact
                     value={bonusForm.startDate}
-                    onChange={(e) => setBonusForm((f) => ({ ...f, startDate: e.target.value }))}
-                    className="block w-full rounded-lg border border-slate-200 px-3 py-2 text-sm focus:border-transparent focus:outline-none focus:ring-2 focus:ring-blue-600"
+                    onChange={(v) => setBonusForm((f) => ({ ...f, startDate: v }))}
+                    minDate={null}
                   />
                 </div>
                 <div>
                   <label className="mb-1 block text-xs font-medium text-slate-600">
                     End Date
                   </label>
-                  <input
-                    type="date"
+                  <SingleDatePicker
+                    compact
                     value={bonusForm.endDate}
-                    onChange={(e) => setBonusForm((f) => ({ ...f, endDate: e.target.value }))}
-                    className="block w-full rounded-lg border border-slate-200 px-3 py-2 text-sm focus:border-transparent focus:outline-none focus:ring-2 focus:ring-blue-600"
+                    onChange={(v) => setBonusForm((f) => ({ ...f, endDate: v }))}
+                    minDate={null}
                   />
                 </div>
               </div>

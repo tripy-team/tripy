@@ -14,9 +14,21 @@ export async function GET(
     const trip = await prisma.tripRequest.findFirst({
       where: { id, organizationId: user.organizationId },
       include: {
-        client: true,
+        client: {
+          include: {
+            loyaltyBalances: { include: { loyaltyProgram: true } },
+          },
+        },
         household: true,
-        travelers: { include: { client: true } },
+        travelers: {
+          include: {
+            client: {
+              include: {
+                loyaltyBalances: { include: { loyaltyProgram: true } },
+              },
+            },
+          },
+        },
         recommendationRuns: {
           include: {
             options: {

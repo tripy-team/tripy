@@ -7,9 +7,13 @@ export async function GET(request: Request) {
     const { searchParams } = new URL(request.url);
     const status = searchParams.get("status") || "pending";
     const dueBefore = searchParams.get("dueBefore");
+    const clientId = searchParams.get("clientId");
+
+    const vrFilter: Record<string, unknown> = { organizationId: user.organizationId };
+    if (clientId) vrFilter.clientId = clientId;
 
     const where: Record<string, unknown> = {
-      vendorRequest: { organizationId: user.organizationId },
+      vendorRequest: vrFilter,
       status,
     };
 

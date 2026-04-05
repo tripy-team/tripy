@@ -4,7 +4,9 @@ import { getOperationsDashboard } from "@/lib/vendor-operations";
 export async function GET(request: Request) {
   try {
     const user = await requireAuth(request);
-    const data = await getOperationsDashboard(user.organizationId);
+    const { searchParams } = new URL(request.url);
+    const clientId = searchParams.get("clientId") ?? undefined;
+    const data = await getOperationsDashboard(user.organizationId, clientId);
     return json(data);
   } catch (error) {
     if (error instanceof Response) return error;

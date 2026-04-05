@@ -375,8 +375,14 @@ export interface OperationsDashboardData {
 
 export async function getOperationsDashboard(
   organizationId: string,
+  clientId?: string,
 ): Promise<OperationsDashboardData> {
   const now = new Date();
+
+  const vrWhere = {
+    organizationId,
+    ...(clientId ? { clientId } : {}),
+  };
 
   const [
     openRequests,
@@ -390,13 +396,13 @@ export async function getOperationsDashboard(
   ] = await Promise.all([
     prisma.vendorRequest.count({
       where: {
-        organizationId,
+        ...vrWhere,
         status: { notIn: TERMINAL_STATUSES },
       },
     }),
     prisma.vendorRequest.count({
       where: {
-        organizationId,
+        ...vrWhere,
         status: { notIn: TERMINAL_STATUSES },
         dueDate: { lt: now },
       },
@@ -405,17 +411,17 @@ export async function getOperationsDashboard(
       where: {
         status: "pending",
         remindAt: { lte: now },
-        vendorRequest: { organizationId },
+        vendorRequest: vrWhere,
       },
     }),
     prisma.vendorRequest.count({
       where: {
-        organizationId,
+        ...vrWhere,
         status: { in: ["needs_advisor_review", "needs_client_approval"] },
       },
     }),
     prisma.vendorRequestTimeline.findMany({
-      where: { vendorRequest: { organizationId } },
+      where: { vendorRequest: vrWhere },
       include: { vendorRequest: { select: { vendorName: true } } },
       orderBy: { createdAt: "desc" },
       take: 20,
@@ -423,6 +429,7 @@ export async function getOperationsDashboard(
     prisma.tripRequest.findMany({
       where: {
         organizationId,
+        ...(clientId ? { clientId } : {}),
         status: { in: ["draft", "analyzing", "complete"] },
         vendorRequests: { some: {} },
       },
@@ -443,7 +450,7 @@ export async function getOperationsDashboard(
     }),
     prisma.vendorRequest.groupBy({
       by: ["status"],
-      where: { organizationId },
+      where: vrWhere,
       _count: true,
     }),
   ]);

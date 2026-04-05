@@ -50,7 +50,7 @@ export default function EditIntakePage() {
           status: 'complete',
         });
         setIntake(updated);
-        router.push(`/clients/${clientId}?tab=intake`);
+        router.push(`/clients/${clientId}?tab=discovery`);
       } finally {
         setSaving(false);
       }
@@ -76,7 +76,7 @@ export default function EditIntakePage() {
       saving={saving}
       onSave={handleSave}
       onComplete={handleComplete}
-      onCancel={() => router.push(`/clients/${clientId}?tab=intake`)}
+      onCancel={() => router.push(`/clients/${clientId}?tab=discovery`)}
     />
   );
 }

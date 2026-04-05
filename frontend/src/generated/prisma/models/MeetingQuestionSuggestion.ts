@@ -20,8 +20,18 @@ export type MeetingQuestionSuggestionModel = runtime.Types.Result.DefaultSelecti
 
 export type AggregateMeetingQuestionSuggestion = {
   _count: MeetingQuestionSuggestionCountAggregateOutputType | null
+  _avg: MeetingQuestionSuggestionAvgAggregateOutputType | null
+  _sum: MeetingQuestionSuggestionSumAggregateOutputType | null
   _min: MeetingQuestionSuggestionMinAggregateOutputType | null
   _max: MeetingQuestionSuggestionMaxAggregateOutputType | null
+}
+
+export type MeetingQuestionSuggestionAvgAggregateOutputType = {
+  round: number | null
+}
+
+export type MeetingQuestionSuggestionSumAggregateOutputType = {
+  round: number | null
 }
 
 export type MeetingQuestionSuggestionMinAggregateOutputType = {
@@ -32,6 +42,7 @@ export type MeetingQuestionSuggestionMinAggregateOutputType = {
   reason: string | null
   priority: string | null
   isUsed: boolean | null
+  round: number | null
   createdAt: Date | null
 }
 
@@ -43,6 +54,7 @@ export type MeetingQuestionSuggestionMaxAggregateOutputType = {
   reason: string | null
   priority: string | null
   isUsed: boolean | null
+  round: number | null
   createdAt: Date | null
 }
 
@@ -55,10 +67,19 @@ export type MeetingQuestionSuggestionCountAggregateOutputType = {
   priority: number
   targetFields: number
   isUsed: number
+  round: number
   createdAt: number
   _all: number
 }
 
+
+export type MeetingQuestionSuggestionAvgAggregateInputType = {
+  round?: true
+}
+
+export type MeetingQuestionSuggestionSumAggregateInputType = {
+  round?: true
+}
 
 export type MeetingQuestionSuggestionMinAggregateInputType = {
   id?: true
@@ -68,6 +89,7 @@ export type MeetingQuestionSuggestionMinAggregateInputType = {
   reason?: true
   priority?: true
   isUsed?: true
+  round?: true
   createdAt?: true
 }
 
@@ -79,6 +101,7 @@ export type MeetingQuestionSuggestionMaxAggregateInputType = {
   reason?: true
   priority?: true
   isUsed?: true
+  round?: true
   createdAt?: true
 }
 
@@ -91,6 +114,7 @@ export type MeetingQuestionSuggestionCountAggregateInputType = {
   priority?: true
   targetFields?: true
   isUsed?: true
+  round?: true
   createdAt?: true
   _all?: true
 }
@@ -133,6 +157,18 @@ export type MeetingQuestionSuggestionAggregateArgs<ExtArgs extends runtime.Types
   /**
    * {@link https://www.prisma.io/docs/concepts/components/prisma-client/aggregations Aggregation Docs}
    * 
+   * Select which fields to average
+  **/
+  _avg?: MeetingQuestionSuggestionAvgAggregateInputType
+  /**
+   * {@link https://www.prisma.io/docs/concepts/components/prisma-client/aggregations Aggregation Docs}
+   * 
+   * Select which fields to sum
+  **/
+  _sum?: MeetingQuestionSuggestionSumAggregateInputType
+  /**
+   * {@link https://www.prisma.io/docs/concepts/components/prisma-client/aggregations Aggregation Docs}
+   * 
    * Select which fields to find the minimum value
   **/
   _min?: MeetingQuestionSuggestionMinAggregateInputType
@@ -163,6 +199,8 @@ export type MeetingQuestionSuggestionGroupByArgs<ExtArgs extends runtime.Types.E
   take?: number
   skip?: number
   _count?: MeetingQuestionSuggestionCountAggregateInputType | true
+  _avg?: MeetingQuestionSuggestionAvgAggregateInputType
+  _sum?: MeetingQuestionSuggestionSumAggregateInputType
   _min?: MeetingQuestionSuggestionMinAggregateInputType
   _max?: MeetingQuestionSuggestionMaxAggregateInputType
 }
@@ -176,8 +214,11 @@ export type MeetingQuestionSuggestionGroupByOutputType = {
   priority: string
   targetFields: runtime.JsonValue
   isUsed: boolean
+  round: number
   createdAt: Date
   _count: MeetingQuestionSuggestionCountAggregateOutputType | null
+  _avg: MeetingQuestionSuggestionAvgAggregateOutputType | null
+  _sum: MeetingQuestionSuggestionSumAggregateOutputType | null
   _min: MeetingQuestionSuggestionMinAggregateOutputType | null
   _max: MeetingQuestionSuggestionMaxAggregateOutputType | null
 }
@@ -209,6 +250,7 @@ export type MeetingQuestionSuggestionWhereInput = {
   priority?: Prisma.StringFilter<"MeetingQuestionSuggestion"> | string
   targetFields?: Prisma.JsonFilter<"MeetingQuestionSuggestion">
   isUsed?: Prisma.BoolFilter<"MeetingQuestionSuggestion"> | boolean
+  round?: Prisma.IntFilter<"MeetingQuestionSuggestion"> | number
   createdAt?: Prisma.DateTimeFilter<"MeetingQuestionSuggestion"> | Date | string
   session?: Prisma.XOR<Prisma.DiscoveryMeetingSessionScalarRelationFilter, Prisma.DiscoveryMeetingSessionWhereInput>
 }
@@ -222,6 +264,7 @@ export type MeetingQuestionSuggestionOrderByWithRelationInput = {
   priority?: Prisma.SortOrder
   targetFields?: Prisma.SortOrder
   isUsed?: Prisma.SortOrder
+  round?: Prisma.SortOrder
   createdAt?: Prisma.SortOrder
   session?: Prisma.DiscoveryMeetingSessionOrderByWithRelationInput
 }
@@ -238,6 +281,7 @@ export type MeetingQuestionSuggestionWhereUniqueInput = Prisma.AtLeast<{
   priority?: Prisma.StringFilter<"MeetingQuestionSuggestion"> | string
   targetFields?: Prisma.JsonFilter<"MeetingQuestionSuggestion">
   isUsed?: Prisma.BoolFilter<"MeetingQuestionSuggestion"> | boolean
+  round?: Prisma.IntFilter<"MeetingQuestionSuggestion"> | number
   createdAt?: Prisma.DateTimeFilter<"MeetingQuestionSuggestion"> | Date | string
   session?: Prisma.XOR<Prisma.DiscoveryMeetingSessionScalarRelationFilter, Prisma.DiscoveryMeetingSessionWhereInput>
 }, "id">
@@ -251,10 +295,13 @@ export type MeetingQuestionSuggestionOrderByWithAggregationInput = {
   priority?: Prisma.SortOrder
   targetFields?: Prisma.SortOrder
   isUsed?: Prisma.SortOrder
+  round?: Prisma.SortOrder
   createdAt?: Prisma.SortOrder
   _count?: Prisma.MeetingQuestionSuggestionCountOrderByAggregateInput
+  _avg?: Prisma.MeetingQuestionSuggestionAvgOrderByAggregateInput
   _max?: Prisma.MeetingQuestionSuggestionMaxOrderByAggregateInput
   _min?: Prisma.MeetingQuestionSuggestionMinOrderByAggregateInput
+  _sum?: Prisma.MeetingQuestionSuggestionSumOrderByAggregateInput
 }
 
 export type MeetingQuestionSuggestionScalarWhereWithAggregatesInput = {
@@ -269,6 +316,7 @@ export type MeetingQuestionSuggestionScalarWhereWithAggregatesInput = {
   priority?: Prisma.StringWithAggregatesFilter<"MeetingQuestionSuggestion"> | string
   targetFields?: Prisma.JsonWithAggregatesFilter<"MeetingQuestionSuggestion">
   isUsed?: Prisma.BoolWithAggregatesFilter<"MeetingQuestionSuggestion"> | boolean
+  round?: Prisma.IntWithAggregatesFilter<"MeetingQuestionSuggestion"> | number
   createdAt?: Prisma.DateTimeWithAggregatesFilter<"MeetingQuestionSuggestion"> | Date | string
 }
 
@@ -280,6 +328,7 @@ export type MeetingQuestionSuggestionCreateInput = {
   priority: string
   targetFields: Prisma.JsonNullValueInput | runtime.InputJsonValue
   isUsed?: boolean
+  round?: number
   createdAt?: Date | string
   session: Prisma.DiscoveryMeetingSessionCreateNestedOneWithoutQuestionSuggestionsInput
 }
@@ -293,6 +342,7 @@ export type MeetingQuestionSuggestionUncheckedCreateInput = {
   priority: string
   targetFields: Prisma.JsonNullValueInput | runtime.InputJsonValue
   isUsed?: boolean
+  round?: number
   createdAt?: Date | string
 }
 
@@ -304,6 +354,7 @@ export type MeetingQuestionSuggestionUpdateInput = {
   priority?: Prisma.StringFieldUpdateOperationsInput | string
   targetFields?: Prisma.JsonNullValueInput | runtime.InputJsonValue
   isUsed?: Prisma.BoolFieldUpdateOperationsInput | boolean
+  round?: Prisma.IntFieldUpdateOperationsInput | number
   createdAt?: Prisma.DateTimeFieldUpdateOperationsInput | Date | string
   session?: Prisma.DiscoveryMeetingSessionUpdateOneRequiredWithoutQuestionSuggestionsNestedInput
 }
@@ -317,6 +368,7 @@ export type MeetingQuestionSuggestionUncheckedUpdateInput = {
   priority?: Prisma.StringFieldUpdateOperationsInput | string
   targetFields?: Prisma.JsonNullValueInput | runtime.InputJsonValue
   isUsed?: Prisma.BoolFieldUpdateOperationsInput | boolean
+  round?: Prisma.IntFieldUpdateOperationsInput | number
   createdAt?: Prisma.DateTimeFieldUpdateOperationsInput | Date | string
 }
 
@@ -329,6 +381,7 @@ export type MeetingQuestionSuggestionCreateManyInput = {
   priority: string
   targetFields: Prisma.JsonNullValueInput | runtime.InputJsonValue
   isUsed?: boolean
+  round?: number
   createdAt?: Date | string
 }
 
@@ -340,6 +393,7 @@ export type MeetingQuestionSuggestionUpdateManyMutationInput = {
   priority?: Prisma.StringFieldUpdateOperationsInput | string
   targetFields?: Prisma.JsonNullValueInput | runtime.InputJsonValue
   isUsed?: Prisma.BoolFieldUpdateOperationsInput | boolean
+  round?: Prisma.IntFieldUpdateOperationsInput | number
   createdAt?: Prisma.DateTimeFieldUpdateOperationsInput | Date | string
 }
 
@@ -352,6 +406,7 @@ export type MeetingQuestionSuggestionUncheckedUpdateManyInput = {
   priority?: Prisma.StringFieldUpdateOperationsInput | string
   targetFields?: Prisma.JsonNullValueInput | runtime.InputJsonValue
   isUsed?: Prisma.BoolFieldUpdateOperationsInput | boolean
+  round?: Prisma.IntFieldUpdateOperationsInput | number
   createdAt?: Prisma.DateTimeFieldUpdateOperationsInput | Date | string
 }
 
@@ -374,7 +429,12 @@ export type MeetingQuestionSuggestionCountOrderByAggregateInput = {
   priority?: Prisma.SortOrder
   targetFields?: Prisma.SortOrder
   isUsed?: Prisma.SortOrder
+  round?: Prisma.SortOrder
   createdAt?: Prisma.SortOrder
+}
+
+export type MeetingQuestionSuggestionAvgOrderByAggregateInput = {
+  round?: Prisma.SortOrder
 }
 
 export type MeetingQuestionSuggestionMaxOrderByAggregateInput = {
@@ -385,6 +445,7 @@ export type MeetingQuestionSuggestionMaxOrderByAggregateInput = {
   reason?: Prisma.SortOrder
   priority?: Prisma.SortOrder
   isUsed?: Prisma.SortOrder
+  round?: Prisma.SortOrder
   createdAt?: Prisma.SortOrder
 }
 
@@ -396,7 +457,12 @@ export type MeetingQuestionSuggestionMinOrderByAggregateInput = {
   reason?: Prisma.SortOrder
   priority?: Prisma.SortOrder
   isUsed?: Prisma.SortOrder
+  round?: Prisma.SortOrder
   createdAt?: Prisma.SortOrder
+}
+
+export type MeetingQuestionSuggestionSumOrderByAggregateInput = {
+  round?: Prisma.SortOrder
 }
 
 export type MeetingQuestionSuggestionCreateNestedManyWithoutSessionInput = {
@@ -449,6 +515,7 @@ export type MeetingQuestionSuggestionCreateWithoutSessionInput = {
   priority: string
   targetFields: Prisma.JsonNullValueInput | runtime.InputJsonValue
   isUsed?: boolean
+  round?: number
   createdAt?: Date | string
 }
 
@@ -460,6 +527,7 @@ export type MeetingQuestionSuggestionUncheckedCreateWithoutSessionInput = {
   priority: string
   targetFields: Prisma.JsonNullValueInput | runtime.InputJsonValue
   isUsed?: boolean
+  round?: number
   createdAt?: Date | string
 }
 
@@ -501,6 +569,7 @@ export type MeetingQuestionSuggestionScalarWhereInput = {
   priority?: Prisma.StringFilter<"MeetingQuestionSuggestion"> | string
   targetFields?: Prisma.JsonFilter<"MeetingQuestionSuggestion">
   isUsed?: Prisma.BoolFilter<"MeetingQuestionSuggestion"> | boolean
+  round?: Prisma.IntFilter<"MeetingQuestionSuggestion"> | number
   createdAt?: Prisma.DateTimeFilter<"MeetingQuestionSuggestion"> | Date | string
 }
 
@@ -512,6 +581,7 @@ export type MeetingQuestionSuggestionCreateManySessionInput = {
   priority: string
   targetFields: Prisma.JsonNullValueInput | runtime.InputJsonValue
   isUsed?: boolean
+  round?: number
   createdAt?: Date | string
 }
 
@@ -523,6 +593,7 @@ export type MeetingQuestionSuggestionUpdateWithoutSessionInput = {
   priority?: Prisma.StringFieldUpdateOperationsInput | string
   targetFields?: Prisma.JsonNullValueInput | runtime.InputJsonValue
   isUsed?: Prisma.BoolFieldUpdateOperationsInput | boolean
+  round?: Prisma.IntFieldUpdateOperationsInput | number
   createdAt?: Prisma.DateTimeFieldUpdateOperationsInput | Date | string
 }
 
@@ -534,6 +605,7 @@ export type MeetingQuestionSuggestionUncheckedUpdateWithoutSessionInput = {
   priority?: Prisma.StringFieldUpdateOperationsInput | string
   targetFields?: Prisma.JsonNullValueInput | runtime.InputJsonValue
   isUsed?: Prisma.BoolFieldUpdateOperationsInput | boolean
+  round?: Prisma.IntFieldUpdateOperationsInput | number
   createdAt?: Prisma.DateTimeFieldUpdateOperationsInput | Date | string
 }
 
@@ -545,6 +617,7 @@ export type MeetingQuestionSuggestionUncheckedUpdateManyWithoutSessionInput = {
   priority?: Prisma.StringFieldUpdateOperationsInput | string
   targetFields?: Prisma.JsonNullValueInput | runtime.InputJsonValue
   isUsed?: Prisma.BoolFieldUpdateOperationsInput | boolean
+  round?: Prisma.IntFieldUpdateOperationsInput | number
   createdAt?: Prisma.DateTimeFieldUpdateOperationsInput | Date | string
 }
 
@@ -559,6 +632,7 @@ export type MeetingQuestionSuggestionSelect<ExtArgs extends runtime.Types.Extens
   priority?: boolean
   targetFields?: boolean
   isUsed?: boolean
+  round?: boolean
   createdAt?: boolean
   session?: boolean | Prisma.DiscoveryMeetingSessionDefaultArgs<ExtArgs>
 }, ExtArgs["result"]["meetingQuestionSuggestion"]>
@@ -572,6 +646,7 @@ export type MeetingQuestionSuggestionSelectCreateManyAndReturn<ExtArgs extends r
   priority?: boolean
   targetFields?: boolean
   isUsed?: boolean
+  round?: boolean
   createdAt?: boolean
   session?: boolean | Prisma.DiscoveryMeetingSessionDefaultArgs<ExtArgs>
 }, ExtArgs["result"]["meetingQuestionSuggestion"]>
@@ -585,6 +660,7 @@ export type MeetingQuestionSuggestionSelectUpdateManyAndReturn<ExtArgs extends r
   priority?: boolean
   targetFields?: boolean
   isUsed?: boolean
+  round?: boolean
   createdAt?: boolean
   session?: boolean | Prisma.DiscoveryMeetingSessionDefaultArgs<ExtArgs>
 }, ExtArgs["result"]["meetingQuestionSuggestion"]>
@@ -598,10 +674,11 @@ export type MeetingQuestionSuggestionSelectScalar = {
   priority?: boolean
   targetFields?: boolean
   isUsed?: boolean
+  round?: boolean
   createdAt?: boolean
 }
 
-export type MeetingQuestionSuggestionOmit<ExtArgs extends runtime.Types.Extensions.InternalArgs = runtime.Types.Extensions.DefaultArgs> = runtime.Types.Extensions.GetOmit<"id" | "sessionId" | "questionText" | "category" | "reason" | "priority" | "targetFields" | "isUsed" | "createdAt", ExtArgs["result"]["meetingQuestionSuggestion"]>
+export type MeetingQuestionSuggestionOmit<ExtArgs extends runtime.Types.Extensions.InternalArgs = runtime.Types.Extensions.DefaultArgs> = runtime.Types.Extensions.GetOmit<"id" | "sessionId" | "questionText" | "category" | "reason" | "priority" | "targetFields" | "isUsed" | "round" | "createdAt", ExtArgs["result"]["meetingQuestionSuggestion"]>
 export type MeetingQuestionSuggestionInclude<ExtArgs extends runtime.Types.Extensions.InternalArgs = runtime.Types.Extensions.DefaultArgs> = {
   session?: boolean | Prisma.DiscoveryMeetingSessionDefaultArgs<ExtArgs>
 }
@@ -626,6 +703,7 @@ export type $MeetingQuestionSuggestionPayload<ExtArgs extends runtime.Types.Exte
     priority: string
     targetFields: runtime.JsonValue
     isUsed: boolean
+    round: number
     createdAt: Date
   }, ExtArgs["result"]["meetingQuestionSuggestion"]>
   composites: {}
@@ -1059,6 +1137,7 @@ export interface MeetingQuestionSuggestionFieldRefs {
   readonly priority: Prisma.FieldRef<"MeetingQuestionSuggestion", 'String'>
   readonly targetFields: Prisma.FieldRef<"MeetingQuestionSuggestion", 'Json'>
   readonly isUsed: Prisma.FieldRef<"MeetingQuestionSuggestion", 'Boolean'>
+  readonly round: Prisma.FieldRef<"MeetingQuestionSuggestion", 'Int'>
   readonly createdAt: Prisma.FieldRef<"MeetingQuestionSuggestion", 'DateTime'>
 }
     

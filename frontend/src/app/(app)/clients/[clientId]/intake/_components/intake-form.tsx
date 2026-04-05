@@ -21,6 +21,7 @@ import {
   StickyNote,
 } from 'lucide-react';
 import type { Client, ClientIntake } from '@/lib/api-client';
+import SingleDatePicker from '@/components/ui/SingleDatePicker';
 
 // ---------------------------------------------------------------------------
 // Constants
@@ -393,20 +394,18 @@ export function IntakeForm({
             <div className="grid grid-cols-2 gap-4">
               <div>
                 <label className={labelCls}>Earliest Departure</label>
-                <input
-                  type="date"
+                <SingleDatePicker
+                  compact
                   value={(form.earliestDeparture as string) || ''}
-                  onChange={(e) => set('earliestDeparture', e.target.value || null)}
-                  className={inputCls}
+                  onChange={(v) => set('earliestDeparture', v || null)}
                 />
               </div>
               <div>
                 <label className={labelCls}>Latest Return</label>
-                <input
-                  type="date"
+                <SingleDatePicker
+                  compact
                   value={(form.latestReturn as string) || ''}
-                  onChange={(e) => set('latestReturn', e.target.value || null)}
-                  className={inputCls}
+                  onChange={(v) => set('latestReturn', v || null)}
                 />
               </div>
             </div>
@@ -837,7 +836,7 @@ export function IntakeForm({
     <div className="max-w-4xl">
       {/* Header */}
       <Link
-        href={`/clients/${client.id}?tab=intake`}
+        href={`/clients/${client.id}?tab=discovery`}
         className="mb-6 inline-flex items-center gap-1.5 text-sm text-slate-600 hover:text-slate-900"
       >
         <ArrowLeft className="h-4 w-4" />

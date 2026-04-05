@@ -6,6 +6,7 @@ import Link from 'next/link';
 import { ArrowLeft, Loader2 } from 'lucide-react';
 import { createTripRequest, getClients, getHouseholds } from '@/lib/api-client';
 import type { Client, Household } from '@/lib/api-client';
+import SingleDatePicker from '@/components/ui/SingleDatePicker';
 
 export default function NewTripRequestPage() {
   const router = useRouter();
@@ -200,23 +201,22 @@ export default function NewTripRequestPage() {
               <label className="mb-1.5 block text-sm font-medium text-slate-700">
                 Departure Date *
               </label>
-              <input
-                type="date"
-                name="departureDate"
-                required
+              <SingleDatePicker
+                compact
                 value={form.departureDate}
-                onChange={onChange}
-                className="block w-full rounded-lg border border-slate-200 px-3 py-2.5 text-sm focus:border-transparent focus:outline-none focus:ring-2 focus:ring-blue-600"
+                onChange={(v) => setForm((f) => ({ ...f, departureDate: v }))}
               />
             </div>
             <div>
               <label className="mb-1.5 block text-sm font-medium text-slate-700">Return Date</label>
-              <input
-                type="date"
-                name="returnDate"
+              <SingleDatePicker
+                compact
                 value={form.returnDate}
-                onChange={onChange}
-                className="block w-full rounded-lg border border-slate-200 px-3 py-2.5 text-sm focus:border-transparent focus:outline-none focus:ring-2 focus:ring-blue-600"
+                onChange={(v) => setForm((f) => ({ ...f, returnDate: v }))}
+                defaultFocusedDate={form.departureDate}
+                markedDate={form.departureDate}
+                markedDateLabel="Departure date"
+                minDate={form.departureDate || undefined}
               />
             </div>
           </div>

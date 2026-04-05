@@ -17,14 +17,28 @@ export async function POST(
     if (!trip) return errorResponse("Trip request not found", 404);
 
     const body = await request.json();
-    const { clientId, travelerType, mustTravelWithClientId } = body;
+    const { clientId, travelerType, mustTravelWithClientId, originAirports, destinationAirports, useLeaderCities } = body;
 
     if (!clientId) return errorResponse("clientId is required", 400);
+
+    if (!useLeaderCities) {
+      if (!originAirports || !Array.isArray(originAirports) || originAirports.length === 0) {
+        return errorResponse("Start location is required", 400);
+      }
+      if (!destinationAirports || !Array.isArray(destinationAirports) || destinationAirports.length === 0) {
+        return errorResponse("End location is required", 400);
+      }
+    }
 
     const client = await prisma.client.findFirst({
       where: { id: clientId, organizationId: user.organizationId },
     });
     if (!client) return errorResponse("Client not found", 404);
+
+    const existing = await prisma.tripTraveler.findFirst({
+      where: { tripRequestId: id, clientId },
+    });
+    if (existing) return errorResponse("This client is already a traveler on this trip", 409);
 
     const traveler = await prisma.tripTraveler.create({
       data: {
@@ -32,6 +46,9 @@ export async function POST(
         clientId,
         travelerType: travelerType ?? "adult",
         mustTravelWithClientId: mustTravelWithClientId || null,
+        useLeaderCities: !!useLeaderCities,
+        originAirports: useLeaderCities ? trip.originAirports : (originAirports ?? []),
+        destinationAirports: useLeaderCities ? trip.destinationAirports : (destinationAirports ?? []),
       },
       include: { client: true },
     });

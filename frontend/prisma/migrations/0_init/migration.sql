@@ -1,6 +1,3 @@
-npm warn Unknown env config "devdir". This will stop working in the next major version of npm.
-Loaded Prisma config from prisma.config.ts.
-
 -- CreateSchema
 CREATE SCHEMA IF NOT EXISTS "public";
 

@@ -16,16 +16,15 @@ export async function DELETE(
     });
     if (!client) return errorResponse("Client not found", 404);
 
-    const member = await prisma.familyMember.findFirst({
+    const { count } = await prisma.familyMember.deleteMany({
       where: { id: memberId, clientId },
     });
-    if (!member) return errorResponse("Family member not found", 404);
 
-    await prisma.familyMember.delete({ where: { id: memberId } });
+    if (count === 0) return errorResponse("Group member not found", 404);
 
     return json({ success: true });
   } catch (error) {
-    console.error("Delete family member error:", error);
+    console.error("Delete group member error:", error);
     return errorResponse("Internal server error", 500);
   }
 }
@@ -48,15 +47,20 @@ export async function PATCH(
     const existing = await prisma.familyMember.findFirst({
       where: { id: memberId, clientId },
     });
-    if (!existing) return errorResponse("Family member not found", 404);
+    if (!existing) return errorResponse("Group member not found", 404);
 
     const body = await request.json();
-    const { name, relationship, email, phone, dateOfBirth, notes } = body;
+    const { firstName, lastName, relationship, email, phone, dateOfBirth, notes } = body;
+
+    const nameUpdate =
+      firstName !== undefined || lastName !== undefined
+        ? { name: `${firstName ?? existing.name.split(" ")[0]} ${lastName ?? existing.name.split(" ").slice(1).join(" ")}`.trim() }
+        : {};
 
     const updated = await prisma.familyMember.update({
       where: { id: memberId },
       data: {
-        ...(name !== undefined && { name }),
+        ...nameUpdate,
         ...(relationship !== undefined && { relationship }),
         ...(email !== undefined && { email: email || null }),
         ...(phone !== undefined && { phone: phone || null }),
@@ -65,9 +69,44 @@ export async function PATCH(
       },
     });
 
+    if (existing.linkedClientId) {
+      const clientUpdate: Record<string, unknown> = {};
+      if (firstName !== undefined) clientUpdate.firstName = firstName;
+      if (lastName !== undefined) clientUpdate.lastName = lastName;
+      if (email !== undefined) clientUpdate.email = email || null;
+      if (phone !== undefined) clientUpdate.phone = phone || null;
+      if (dateOfBirth !== undefined)
+        clientUpdate.dateOfBirth = dateOfBirth ? new Date(dateOfBirth) : null;
+
+      if (Object.keys(clientUpdate).length > 0) {
+        await prisma.client.update({
+          where: { id: existing.linkedClientId },
+          data: clientUpdate,
+        });
+
+        // Also sync to any other FamilyMember rows referencing this linked client
+        const familySync: Record<string, unknown> = {};
+        if (firstName !== undefined || lastName !== undefined) {
+          familySync.name = updated.name;
+        }
+        if (email !== undefined) familySync.email = email || null;
+        if (phone !== undefined) familySync.phone = phone || null;
+        if (dateOfBirth !== undefined)
+          familySync.dateOfBirth = dateOfBirth ? new Date(dateOfBirth) : null;
+
+        await prisma.familyMember.updateMany({
+          where: {
+            linkedClientId: existing.linkedClientId,
+            id: { not: memberId },
+          },
+          data: familySync,
+        });
+      }
+    }
+
     return json(updated);
   } catch (error) {
-    console.error("Update family member error:", error);
+    console.error("Update group member error:", error);
     return errorResponse("Internal server error", 500);
   }
 }

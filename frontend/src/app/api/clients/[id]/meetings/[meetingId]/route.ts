@@ -19,7 +19,14 @@ export async function GET(
       include: {
         entries: { orderBy: { createdAt: "asc" } },
         questionSuggestions: { orderBy: { createdAt: "desc" } },
-        profileSuggestions: { orderBy: { createdAt: "desc" } },
+        profileSuggestions: {
+          orderBy: { createdAt: "desc" },
+          include: {
+            targetClient: {
+              select: { id: true, firstName: true, lastName: true },
+            },
+          },
+        },
         recap: true,
         advisor: {
           select: { id: true, firstName: true, lastName: true, email: true },

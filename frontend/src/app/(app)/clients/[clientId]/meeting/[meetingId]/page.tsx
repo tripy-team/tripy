@@ -1,6 +1,6 @@
 'use client';
 
-import { useState, useEffect, useCallback, useRef } from 'react';
+import { useState, useEffect, useCallback, useRef, useMemo } from 'react';
 import { useParams, useRouter } from 'next/navigation';
 import Link from 'next/link';
 import {
@@ -12,21 +12,23 @@ import {
   Check,
   X,
   CheckCircle2,
-  XCircle,
-  GitMerge,
   FileText,
   MessageSquare,
   HelpCircle,
   ChevronDown,
   ChevronRight,
-  AlertTriangle,
   RefreshCw,
   Mic,
-  Clock,
+  ArrowUp,
+  User,
+  AlertTriangle,
+  CircleCheck,
+  Pencil,
 } from 'lucide-react';
 import {
   getMeetingSession,
   appendMeetingEntry,
+  updateMeetingEntry,
   generateMeetingQuestions,
   extractMeetingProfileSuggestions,
   updateMeetingProfileSuggestion,
@@ -34,6 +36,7 @@ import {
   commitMeetingSuggestions,
   generateMeetingRecap,
   updateMeetingSession,
+  getClientPreferences,
 } from '@/lib/api-client';
 import type {
   MeetingSession,
@@ -42,9 +45,13 @@ import type {
   MeetingProfileSuggestion,
   MeetingCommitPreviewItem,
   MeetingRecap,
+  AnsweredQuestionPayload,
+  ClientPreference,
 } from '@/lib/api-client';
+import { computeProfileCompleteness, type ProfileCompletenessResult } from '@/lib/profile-completeness';
+import { getAllProfileFields, getCriticalFields, getFieldsByCategory, getFieldLabel } from '@/lib/profile-fields';
 
-type Panel = 'questions' | 'suggestions' | 'recap';
+type Panel = 'questions' | 'suggestions' | 'recap' | 'profile';
 
 export default function MeetingCopilotPage() {
   const params = useParams();
@@ -57,6 +64,7 @@ export default function MeetingCopilotPage() {
   const [questions, setQuestions] = useState<MeetingQuestionSuggestion[]>([]);
   const [suggestions, setSuggestions] = useState<MeetingProfileSuggestion[]>([]);
   const [recap, setRecap] = useState<MeetingRecap | null>(null);
+  const [clientPreferences, setClientPreferences] = useState<ClientPreference | null>(null);
 
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
@@ -76,17 +84,41 @@ export default function MeetingCopilotPage() {
   const [activePanel, setActivePanel] = useState<Panel>('questions');
   const [questionsExpanded, setQuestionsExpanded] = useState(true);
 
+  const [newQuestionsToast, setNewQuestionsToast] = useState<number | null>(null);
+  const [newExtractionsToast, setNewExtractionsToast] = useState<number | null>(null);
+  const [profileAutoSavedToast, setProfileAutoSavedToast] = useState<string[] | null>(null);
+
   const entriesEndRef = useRef<HTMLDivElement>(null);
   const textareaRef = useRef<HTMLTextAreaElement>(null);
+  const aiPanelScrollRef = useRef<HTMLDivElement>(null);
+
+  // Compute profile completeness from committed prefs + session suggestions
+  const profileCompleteness = useMemo<ProfileCompletenessResult>(() => {
+    const prefsRecord = clientPreferences
+      ? (JSON.parse(JSON.stringify(clientPreferences)) as Record<string, unknown>)
+      : null;
+    return computeProfileCompleteness(
+      prefsRecord,
+      suggestions.map((s) => ({
+        targetField: s.targetField,
+        suggestedValue: s.suggestedValue,
+        status: s.status,
+      })),
+    );
+  }, [clientPreferences, suggestions]);
 
   const loadSession = useCallback(async () => {
     try {
-      const data = await getMeetingSession(clientId, meetingId);
+      const [data, prefs] = await Promise.all([
+        getMeetingSession(clientId, meetingId),
+        getClientPreferences(clientId).catch(() => null),
+      ]);
       setSession(data);
       setEntries(data.entries || []);
       setQuestions(data.questionSuggestions || []);
       setSuggestions(data.profileSuggestions || []);
       setRecap(data.recap || null);
+      setClientPreferences(prefs);
     } catch (err) {
       setError(err instanceof Error ? err.message : 'Failed to load meeting session');
     } finally {
@@ -101,6 +133,24 @@ export default function MeetingCopilotPage() {
   useEffect(() => {
     entriesEndRef.current?.scrollIntoView({ behavior: 'smooth' });
   }, [entries]);
+
+  useEffect(() => {
+    if (newQuestionsToast === null) return;
+    const timer = setTimeout(() => setNewQuestionsToast(null), 6000);
+    return () => clearTimeout(timer);
+  }, [newQuestionsToast]);
+
+  useEffect(() => {
+    if (newExtractionsToast === null) return;
+    const timer = setTimeout(() => setNewExtractionsToast(null), 5000);
+    return () => clearTimeout(timer);
+  }, [newExtractionsToast]);
+
+  useEffect(() => {
+    if (profileAutoSavedToast === null) return;
+    const timer = setTimeout(() => setProfileAutoSavedToast(null), 5000);
+    return () => clearTimeout(timer);
+  }, [profileAutoSavedToast]);
 
   const handleSendNote = async () => {
     if (!noteInput.trim() || sendingNote) return;
@@ -120,32 +170,124 @@ export default function MeetingCopilotPage() {
     }
   };
 
-  const handleSendAnswer = async (questionText: string) => {
-    const answer = prompt(`Record answer for: "${questionText}"`);
-    if (!answer?.trim()) return;
+  const handleSendAnswer = async (questionId: string, questionText: string, answer: string, category?: string, targetFields?: string[]) => {
+    if (!answer.trim()) return;
     try {
-      const entry = await appendMeetingEntry(clientId, meetingId, {
+      const result = await appendMeetingEntry(clientId, meetingId, {
         role: 'question_answer',
         content: answer.trim(),
-        metadata: { questionText },
+        metadata: { questionText, targetFields },
       });
-      setEntries((prev) => [...prev, entry]);
+      setEntries((prev) => [...prev, result]);
+      setQuestions((prev) =>
+        prev.map((q) => (q.id === questionId ? { ...q, isUsed: true } : q)),
+      );
+
+      // Auto-committed suggestions come back already committed to the profile
+      if (result.extractedSuggestions && result.extractedSuggestions.length > 0) {
+        setSuggestions((prev) => [...result.extractedSuggestions!, ...prev]);
+      }
+
+      // Show auto-save toast with field names
+      if (result.autoCommittedFields && result.autoCommittedFields.length > 0) {
+        setProfileAutoSavedToast(result.autoCommittedFields);
+        getClientPreferences(clientId).then((prefs) => setClientPreferences(prefs)).catch(() => {});
+      }
+
+      // After answer + extraction, auto-generate 2-4 follow-up questions
+      try {
+        const followUpResult = await generateMeetingQuestions(clientId, meetingId, {
+          followUp: true,
+          answeredQuestions: [{ questionText, answer: answer.trim(), category }],
+        });
+        if (followUpResult.questions.length > 0) {
+          setQuestions((prev) => [...followUpResult.questions, ...prev]);
+          setNewQuestionsToast(followUpResult.questions.length);
+        }
+      } catch (followUpErr) {
+        console.error('Follow-up question generation failed (non-blocking):', followUpErr);
+      }
     } catch (err) {
       console.error('Failed to record answer:', err);
+    }
+  };
+
+  const handleEditAnswer = async (entryId: string, newContent: string) => {
+    if (!newContent.trim()) return;
+    try {
+      const result = await updateMeetingEntry(clientId, meetingId, entryId, newContent.trim());
+
+      // Update the entry in local state
+      setEntries((prev) =>
+        prev.map((e) => (e.id === entryId ? { ...e, content: newContent.trim() } : e)),
+      );
+
+      // Remove old suggestions from this entry and add new ones
+      if (result.extractedSuggestions && result.extractedSuggestions.length > 0) {
+        setSuggestions((prev) => {
+          const oldEntryTag = `[entry:${entryId}]`;
+          const withoutOld = prev.filter((s) => !s.rationale?.includes(oldEntryTag));
+          return [...result.extractedSuggestions!, ...withoutOld];
+        });
+      } else {
+        setSuggestions((prev) => {
+          const oldEntryTag = `[entry:${entryId}]`;
+          return prev.filter((s) => !s.rationale?.includes(oldEntryTag));
+        });
+      }
+
+      // Show auto-save toast
+      if (result.autoCommittedFields && result.autoCommittedFields.length > 0) {
+        setProfileAutoSavedToast(result.autoCommittedFields);
+        getClientPreferences(clientId).then((prefs) => setClientPreferences(prefs)).catch(() => {});
+      }
+
+      // Re-generate follow-up questions based on updated answer
+      const entryMeta = entries.find((e) => e.id === entryId)?.metadata;
+      const questionText = entryMeta?.questionText as string | undefined;
+      if (questionText) {
+        try {
+          const followUpResult = await generateMeetingQuestions(clientId, meetingId, {
+            followUp: true,
+            answeredQuestions: [{ questionText, answer: newContent.trim() }],
+          });
+          if (followUpResult.questions.length > 0) {
+            setQuestions((prev) => [...followUpResult.questions, ...prev]);
+            setNewQuestionsToast(followUpResult.questions.length);
+          }
+        } catch (followUpErr) {
+          console.error('Follow-up question re-generation failed (non-blocking):', followUpErr);
+        }
+      }
+    } catch (err) {
+      console.error('Failed to edit answer:', err);
     }
   };
 
   const handleGenerateQuestions = async (followUp = false) => {
     setGeneratingQuestions(true);
     try {
-      const lastEntry = entries[entries.length - 1];
+      let answeredQuestions: AnsweredQuestionPayload[] | undefined;
+      if (followUp) {
+        const qaEntries = entries.filter(
+          (e) => e.role === 'question_answer' && e.metadata?.questionText,
+        );
+        answeredQuestions = qaEntries.map((e) => ({
+          questionText: e.metadata!.questionText as string,
+          answer: e.content,
+        }));
+      }
       const result = await generateMeetingQuestions(clientId, meetingId, {
         followUp,
-        latestAnswer: followUp ? lastEntry?.content : undefined,
+        answeredQuestions: followUp ? answeredQuestions : undefined,
       });
+      const count = result.questions.length;
       setQuestions((prev) => [...result.questions, ...prev]);
       setActivePanel('questions');
       setQuestionsExpanded(true);
+      if (count > 0) {
+        setNewQuestionsToast(count);
+      }
     } catch (err) {
       console.error('Failed to generate questions:', err);
     } finally {
@@ -157,7 +299,7 @@ export default function MeetingCopilotPage() {
     setExtracting(true);
     try {
       const result = await extractMeetingProfileSuggestions(clientId, meetingId);
-      setSuggestions((prev) => [...result.suggestions, ...prev]);
+      setSuggestions(result.suggestions);
       setActivePanel('suggestions');
     } catch (err) {
       console.error('Failed to extract suggestions:', err);
@@ -187,6 +329,19 @@ export default function MeetingCopilotPage() {
 
   const handleShowCommitPreview = async () => {
     try {
+      const pendingIds = suggestions
+        .filter((s) => s.status === 'pending')
+        .map((s) => s.id);
+      for (const id of pendingIds) {
+        await updateMeetingProfileSuggestion(clientId, meetingId, id, 'approved');
+      }
+      if (pendingIds.length > 0) {
+        setSuggestions((prev) =>
+          prev.map((s) =>
+            pendingIds.includes(s.id) ? { ...s, status: 'approved' as const } : s,
+          ),
+        );
+      }
       const result = await getMeetingCommitPreview(clientId, meetingId);
       setCommitPreview(result.preview);
       setShowCommitModal(true);
@@ -351,7 +506,12 @@ export default function MeetingCopilotPage() {
             ) : (
               <div className="space-y-3">
                 {entries.map((entry) => (
-                  <EntryBubble key={entry.id} entry={entry} />
+                  <EntryBubble
+                    key={entry.id}
+                    entry={entry}
+                    isActive={isActive}
+                    onEdit={handleEditAnswer}
+                  />
                 ))}
                 <div ref={entriesEndRef} />
               </div>
@@ -434,7 +594,8 @@ export default function MeetingCopilotPage() {
             {(
               [
                 { key: 'questions' as Panel, label: 'Questions', icon: HelpCircle, count: questions.length },
-                { key: 'suggestions' as Panel, label: 'Suggestions', icon: Brain, count: pendingCount + approvedCount },
+                { key: 'suggestions' as Panel, label: 'Insights', icon: Brain, count: suggestions.filter((s) => s.status !== 'rejected').length },
+                { key: 'profile' as Panel, label: 'Profile', icon: User, count: profileCompleteness.overallPercent },
                 { key: 'recap' as Panel, label: 'Recap', icon: FileText, count: recap ? 1 : 0 },
               ] as const
             ).map((tab) => (
@@ -450,18 +611,28 @@ export default function MeetingCopilotPage() {
                 <tab.icon className={`mx-auto h-4 w-4 ${activePanel === tab.key ? 'text-blue-600' : 'text-slate-400'}`} />
                 <span className="mt-1 block">
                   {tab.label}
-                  {tab.count > 0 && (
+                  {tab.key === 'profile' ? (
+                    <span className={`ml-1 inline-flex h-4 min-w-4 items-center justify-center rounded-full px-1 text-[10px] font-bold ${
+                      profileCompleteness.readyForTripPlanning
+                        ? 'bg-emerald-100 text-emerald-700'
+                        : profileCompleteness.overallPercent > 50
+                          ? 'bg-amber-100 text-amber-700'
+                          : 'bg-red-100 text-red-700'
+                    }`}>
+                      {tab.count}%
+                    </span>
+                  ) : tab.count > 0 ? (
                     <span className="ml-1 inline-flex h-4 min-w-4 items-center justify-center rounded-full bg-blue-100 px-1 text-[10px] font-bold text-blue-700">
                       {tab.count}
                     </span>
-                  )}
+                  ) : null}
                 </span>
               </button>
             ))}
           </div>
 
           {/* Panel content */}
-          <div className="flex-1 overflow-y-auto p-4">
+          <div className="relative flex-1 overflow-y-auto p-4" ref={aiPanelScrollRef}>
             {activePanel === 'questions' && (
               <QuestionsPanel
                 questions={questions}
@@ -476,30 +647,85 @@ export default function MeetingCopilotPage() {
               <SuggestionsPanel
                 suggestions={suggestions}
                 updatingId={updatingSuggestionId}
-                onApprove={(id) => handleApproveSuggestion(id, 'approved')}
-                onReject={(id) => handleApproveSuggestion(id, 'rejected')}
+                onDismiss={(id) => handleApproveSuggestion(id, 'rejected')}
+                onRestore={(id) => handleApproveSuggestion(id, 'approved')}
                 approvedCount={approvedCount}
                 committedCount={committedCount}
-                onShowCommit={handleShowCommitPreview}
+                onSaveToProfile={handleShowCommitPreview}
+              />
+            )}
+
+            {activePanel === 'profile' && (
+              <ProfilePanel
+                completeness={profileCompleteness}
+                preferences={clientPreferences}
+                suggestions={suggestions}
               />
             )}
 
             {activePanel === 'recap' && (
               <RecapPanel recap={recap} />
             )}
+
+            {newExtractionsToast !== null && (
+              <div className="sticky bottom-14 z-10 flex justify-center">
+                <button
+                  onClick={() => {
+                    setActivePanel('suggestions');
+                    setNewExtractionsToast(null);
+                  }}
+                  className="flex items-center gap-2 rounded-full bg-emerald-600 px-4 py-2 text-sm font-medium text-white shadow-lg shadow-emerald-600/25 transition-all hover:bg-emerald-700 animate-in slide-in-from-bottom-4 fade-in duration-300"
+                >
+                  <Brain className="h-3.5 w-3.5" />
+                  {newExtractionsToast} new insight{newExtractionsToast !== 1 ? 's' : ''} extracted
+                </button>
+              </div>
+            )}
+
+            {newQuestionsToast !== null && (
+              <div className="sticky bottom-4 z-10 flex justify-center">
+                <button
+                  onClick={() => {
+                    aiPanelScrollRef.current?.scrollTo({ top: 0, behavior: 'smooth' });
+                    setActivePanel('questions');
+                    setQuestionsExpanded(true);
+                    setNewQuestionsToast(null);
+                  }}
+                  className="flex items-center gap-2 rounded-full bg-blue-600 px-4 py-2 text-sm font-medium text-white shadow-lg shadow-blue-600/25 transition-all hover:bg-blue-700 hover:shadow-xl hover:shadow-blue-600/30 animate-in slide-in-from-bottom-4 fade-in duration-300"
+                >
+                  <ArrowUp className="h-3.5 w-3.5" />
+                  {newQuestionsToast} new question{newQuestionsToast !== 1 ? 's' : ''} added
+                </button>
+              </div>
+            )}
+
+            {profileAutoSavedToast !== null && (
+              <div className="sticky bottom-24 z-10 flex justify-center">
+                <button
+                  onClick={() => {
+                    setActivePanel('profile');
+                    setProfileAutoSavedToast(null);
+                  }}
+                  className="flex items-center gap-2 rounded-full bg-emerald-600 px-4 py-2 text-sm font-medium text-white shadow-lg shadow-emerald-600/25 transition-all hover:bg-emerald-700 animate-in slide-in-from-bottom-4 fade-in duration-300"
+                >
+                  <CheckCircle2 className="h-3.5 w-3.5" />
+                  Profile auto-saved: {profileAutoSavedToast.map((f) => fieldLabel(f)).join(', ')}
+                </button>
+              </div>
+            )}
           </div>
         </div>
       </div>
 
-      {/* Commit Modal */}
+      {/* Save to Profile Modal */}
       {showCommitModal && commitPreview && (
         <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/40">
           <div className="mx-4 max-h-[80vh] w-full max-w-lg overflow-y-auto rounded-2xl bg-white p-6 shadow-2xl">
             <div className="mb-4 flex items-center justify-between">
               <div className="flex items-center gap-2">
-                <GitMerge className="h-5 w-5 text-blue-600" />
+                <CheckCircle2 className="h-5 w-5 text-blue-600" />
                 <h2 className="text-lg font-bold text-slate-900">
-                  Merge Preview
+                  Save to Client Profile
                 </h2>
               </div>
               <button
@@ -515,49 +741,63 @@ export default function MeetingCopilotPage() {
 
             {commitPreview.length === 0 ? (
               <p className="py-8 text-center text-sm text-slate-500">
-                No approved suggestions to commit.
+                No insights ready to save. Dismiss any you disagree with first.
               </p>
             ) : (
               <>
-                <p className="mb-4 text-sm text-slate-600">
-                  The following approved updates will be written to the client profile:
-                </p>
-                <div className="space-y-3">
-                  {commitPreview.map((item) => (
-                    <div
-                      key={item.id}
-                      className={`rounded-lg border p-3 ${
-                        item.willOverwrite
-                          ? 'border-amber-200 bg-amber-50'
-                          : 'border-emerald-200 bg-emerald-50'
-                      }`}
-                    >
-                      <div className="flex items-center justify-between">
-                        <span className="text-xs font-semibold text-slate-700">
-                          {fieldLabel(item.targetField)}
-                        </span>
-                        {item.willOverwrite && (
-                          <span className="rounded-full bg-amber-100 px-2 py-0.5 text-[10px] font-medium text-amber-700">
-                            Overwrite
-                          </span>
-                        )}
-                      </div>
-                      {item.willOverwrite && (
-                        <div className="mt-1 text-xs text-slate-500">
-                          Current: {formatValue(item.currentValue)}
+                {(() => {
+                  const primaryItems = commitPreview.filter((i) => !i.targetClientId);
+                  const crossClientItems = commitPreview.filter((i) => i.targetClientId);
+                  const crossGrouped = new Map<string, { name: string; items: typeof commitPreview }>();
+                  for (const item of crossClientItems) {
+                    const id = item.targetClientId!;
+                    if (!crossGrouped.has(id)) {
+                      crossGrouped.set(id, { name: item.targetClientName || 'Other client', items: [] });
+                    }
+                    crossGrouped.get(id)!.items.push(item);
+                  }
+
+                  return (
+                    <>
+                      {primaryItems.length > 0 && (
+                        <>
+                          <p className="mb-3 text-sm text-slate-600">
+                            For this client&apos;s profile:
+                          </p>
+                          <div className="space-y-2">
+                            {primaryItems.map((item) => (
+                              <CommitPreviewRow key={item.id} item={item} />
+                            ))}
+                          </div>
+                        </>
+                      )}
+
+                      {crossGrouped.size > 0 && (
+                        <div className={primaryItems.length > 0 ? 'mt-4' : ''}>
+                          {[...crossGrouped.entries()].map(([id, { name, items }]) => (
+                            <div key={id} className="mb-3">
+                              <div className="mb-2 flex items-center gap-2">
+                                <User className="h-3.5 w-3.5 text-indigo-500" />
+                                <span className="text-sm font-semibold text-indigo-700">
+                                  {name}&apos;s profile
+                                </span>
+                                <span className="rounded-full bg-indigo-100 px-1.5 py-0.5 text-[10px] font-medium text-indigo-600">
+                                  cross-client
+                                </span>
+                              </div>
+                              <div className="space-y-2">
+                                {items.map((item) => (
+                                  <CommitPreviewRow key={item.id} item={item} isCrossClient />
+                                ))}
+                              </div>
+                            </div>
+                          ))}
                         </div>
                       )}
-                      <div className="mt-1 text-xs font-medium text-slate-800">
-                        New: {formatValue(item.suggestedValue)}
-                      </div>
-                      <div className="mt-1 flex items-center gap-2 text-[10px] text-slate-500">
-                        <span>Confidence: {Math.round(item.confidence * 100)}%</span>
-                        <span>&middot;</span>
-                        <span className="italic">{item.evidence}</span>
-                      </div>
-                    </div>
-                  ))}
-                </div>
+                    </>
+                  );
+                })()}
+
                 <div className="mt-6 flex gap-3">
                   <button
                     onClick={handleCommit}
@@ -569,7 +809,7 @@ export default function MeetingCopilotPage() {
                     ) : (
                       <CheckCircle2 className="h-4 w-4" />
                     )}
-                    Commit to Profile
+                    Save {commitPreview.length} Insight{commitPreview.length !== 1 ? 's' : ''}
                   </button>
                   <button
                     onClick={() => {
@@ -578,7 +818,7 @@ export default function MeetingCopilotPage() {
                     }}
                     className="rounded-lg border border-slate-200 px-4 py-2.5 text-sm font-medium text-slate-600 hover:bg-slate-50"
                   >
-                    Cancel
+                    Not Yet
                   </button>
                 </div>
               </>
@@ -594,14 +834,48 @@ export default function MeetingCopilotPage() {
 // Sub-components
 // ---------------------------------------------------------------------------
 
-function EntryBubble({ entry }: { entry: MeetingEntryItem }) {
+function EntryBubble({
+  entry,
+  isActive,
+  onEdit,
+}: {
+  entry: MeetingEntryItem;
+  isActive: boolean;
+  onEdit: (entryId: string, newContent: string) => Promise<void>;
+}) {
   const isQuestion = entry.role === 'question_answer';
   const isSystem = entry.role === 'system';
   const questionText = entry.metadata?.questionText as string | undefined;
 
+  const [editing, setEditing] = useState(false);
+  const [editText, setEditText] = useState(entry.content);
+  const [saving, setSaving] = useState(false);
+  const editRef = useRef<HTMLTextAreaElement>(null);
+
+  useEffect(() => {
+    if (editing) editRef.current?.focus();
+  }, [editing]);
+
+  const handleSaveEdit = async () => {
+    if (!editText.trim() || editText.trim() === entry.content) {
+      setEditing(false);
+      setEditText(entry.content);
+      return;
+    }
+    setSaving(true);
+    try {
+      await onEdit(entry.id, editText.trim());
+      setEditing(false);
+    } catch {
+      // keep editing open on error
+    } finally {
+      setSaving(false);
+    }
+  };
+
   return (
     <div
-      className={`rounded-xl p-3.5 ${
+      className={`group rounded-xl p-3.5 ${
         isSystem
           ? 'bg-slate-100 text-slate-500'
           : isQuestion
@@ -620,6 +894,15 @@ function EntryBubble({ entry }: { entry: MeetingEntryItem }) {
         <span className="text-[10px] font-medium uppercase tracking-wider text-slate-400">
           {isQuestion ? 'Q&A' : isSystem ? 'System' : 'Advisor Note'}
         </span>
+        {isActive && isQuestion && !editing && (
+          <button
+            onClick={() => { setEditText(entry.content); setEditing(true); }}
+            className="rounded p-0.5 text-slate-300 opacity-0 transition-opacity hover:bg-indigo-100 hover:text-indigo-500 group-hover:opacity-100"
+            title="Edit answer"
+          >
+            <Pencil className="h-3 w-3" />
+          </button>
+        )}
         <span className="ml-auto text-[10px] text-slate-400">
           {new Date(entry.createdAt).toLocaleTimeString([], {
             hour: '2-digit',
@@ -632,7 +915,50 @@ function EntryBubble({ entry }: { entry: MeetingEntryItem }) {
           Q: {questionText}
         </p>
       )}
-      <p className="whitespace-pre-wrap text-sm text-slate-700">{entry.content}</p>
+      {editing ? (
+        <div className="mt-1 space-y-2">
+          <textarea
+            ref={editRef}
+            value={editText}
+            onChange={(e) => setEditText(e.target.value)}
+            onKeyDown={(e) => {
+              if (e.key === 'Enter' && !e.shiftKey) {
+                e.preventDefault();
+                handleSaveEdit();
+              }
+              if (e.key === 'Escape') {
+                setEditText(entry.content);
+                setEditing(false);
+              }
+            }}
+            rows={3}
+            className="w-full resize-none rounded-md border border-indigo-300 bg-white px-2.5 py-1.5 text-sm text-slate-800 placeholder:text-slate-400 focus:border-indigo-400 focus:outline-none focus:ring-1 focus:ring-indigo-400"
+          />
+          <div className="flex items-center gap-2">
+            <button
+              onClick={handleSaveEdit}
+              disabled={saving || !editText.trim()}
+              className="inline-flex items-center gap-1 rounded-md bg-indigo-600 px-2.5 py-1 text-xs font-medium text-white hover:bg-indigo-700 disabled:opacity-40"
+            >
+              {saving ? <Loader2 className="h-3 w-3 animate-spin" /> : <Check className="h-3 w-3" />}
+              Save &amp; Re-analyze
+            </button>
+            <button
+              onClick={() => { setEditText(entry.content); setEditing(false); }}
+              disabled={saving}
+              className="inline-flex items-center gap-1 rounded-md border border-slate-300 bg-white px-2.5 py-1 text-xs font-medium text-slate-600 hover:bg-slate-50"
+            >
+              <X className="h-3 w-3" />
+              Cancel
+            </button>
+            <span className="text-[10px] text-slate-400">
+              AI will re-extract preferences from updated answer
+            </span>
+          </div>
+        </div>
+      ) : (
+        <p className="whitespace-pre-wrap text-sm text-slate-700">{entry.content}</p>
+      )}
     </div>
   );
 }
@@ -647,18 +973,9 @@ function QuestionsPanel({
   questions: MeetingQuestionSuggestion[];
   expanded: boolean;
   onToggle: () => void;
-  onUseQuestion: (questionText: string) => void;
+  onUseQuestion: (questionId: string, questionText: string, answer: string, category?: string, targetFields?: string[]) => void;
   isActive: boolean;
 }) {
-  const priorityOrder = { high: 0, medium: 1, low: 2 };
-  const sorted = [...questions].sort(
-    (a, b) =>
-      (priorityOrder[a.priority as keyof typeof priorityOrder] ?? 1) -
-      (priorityOrder[b.priority as keyof typeof priorityOrder] ?? 1),
-  );
-  const unused = sorted.filter((q) => !q.isUsed);
-  const used = sorted.filter((q) => q.isUsed);
-
   if (questions.length === 0) {
     return (
       <div className="flex h-full items-center justify-center">
@@ -675,8 +992,15 @@ function QuestionsPanel({
     );
   }
 
+  const getRound = (q: MeetingQuestionSuggestion) => q.round ?? 1;
+  const rounds = Array.from(new Set(questions.map(getRound))).sort(
+    (a, b) => b - a,
+  );
+
+  const unusedCount = questions.filter((q) => !q.isUsed).length;
+
   return (
-    <div className="space-y-3">
+    <div className="space-y-4">
       <button
         onClick={onToggle}
         className="flex w-full items-center gap-2 text-xs font-semibold uppercase tracking-wider text-slate-500"
@@ -686,33 +1010,89 @@ function QuestionsPanel({
         ) : (
           <ChevronRight className="h-3.5 w-3.5" />
         )}
-        AI-Suggested Questions ({unused.length} remaining)
+        AI-Suggested Questions ({unusedCount} remaining)
       </button>
 
-      {expanded && (
-        <div className="space-y-2">
+      {expanded && rounds.map((round) => {
+        const roundQuestions = questions.filter((q) => getRound(q) === round);
+        const roundUnused = roundQuestions.filter((q) => !q.isUsed);
+        const roundUsed = roundQuestions.filter((q) => q.isUsed);
+
+        return (
+          <RoundGroup
+            key={`round-${round}`}
+            round={round}
+            latestRound={rounds[0]}
+            unused={roundUnused}
+            used={roundUsed}
+            onUseQuestion={onUseQuestion}
+            isActive={isActive}
+          />
+        );
+      })}
+    </div>
+  );
+}
+
+function RoundGroup({
+  round,
+  latestRound,
+  unused,
+  used,
+  onUseQuestion,
+  isActive,
+}: {
+  round: number;
+  latestRound: number;
+  unused: MeetingQuestionSuggestion[];
+  used: MeetingQuestionSuggestion[];
+  onUseQuestion: (questionId: string, questionText: string, answer: string, category?: string, targetFields?: string[]) => void;
+  isActive: boolean;
+}) {
+  const [collapsed, setCollapsed] = useState(round !== latestRound && unused.length === 0);
+  const isLatest = round === latestRound;
+  const label = round === 1 ? 'Initial Questions' : `Follow-Up Round ${round - 1}`;
+
+  return (
+    <div className={`rounded-xl border p-3 ${isLatest ? 'border-blue-200 bg-blue-50/30' : 'border-slate-200 bg-white'}`}>
+      <button
+        onClick={() => setCollapsed(!collapsed)}
+        className="flex w-full items-center gap-2"
+      >
+        {collapsed ? (
+          <ChevronRight className="h-3.5 w-3.5 text-slate-400" />
+        ) : (
+          <ChevronDown className="h-3.5 w-3.5 text-slate-400" />
+        )}
+        <span className="text-xs font-semibold text-slate-700">{label}</span>
+        {isLatest && (
+          <span className="rounded-full bg-blue-100 px-1.5 py-0.5 text-[10px] font-semibold text-blue-700">
+            Latest
+          </span>
+        )}
+        <span className="ml-auto text-[10px] text-slate-400">
+          {unused.length} remaining &middot; {used.length} answered
+        </span>
+      </button>
+
+      {!collapsed && (
+        <div className="mt-3 space-y-2">
           {unused.map((q) => (
             <QuestionCard
               key={q.id}
               question={q}
-              onUse={() => onUseQuestion(q.questionText)}
+              onUse={(answer) => onUseQuestion(q.id, q.questionText, answer, q.category, q.targetFields as string[])}
               isActive={isActive}
             />
           ))}
+          {used.length > 0 && (
+            <div className="space-y-2 opacity-50">
+              {used.map((q) => (
+                <QuestionCard key={q.id} question={q} onUse={() => {}} isActive={false} />
+              ))}
+            </div>
+          )}
         </div>
-      )}
-
-      {used.length > 0 && (
-        <>
-          <p className="mt-4 text-[10px] font-semibold uppercase tracking-wider text-slate-400">
-            Previously Used
-          </p>
-          <div className="space-y-2 opacity-60">
-            {used.map((q) => (
-              <QuestionCard key={q.id} question={q} onUse={() => {}} isActive={false} />
-            ))}
-          </div>
-        </>
       )}
     </div>
   );
@@ -724,9 +1104,24 @@ function QuestionCard({
   isActive,
 }: {
   question: MeetingQuestionSuggestion;
-  onUse: () => void;
+  onUse: (answer: string) => void;
   isActive: boolean;
 }) {
+  const [recording, setRecording] = useState(false);
+  const [answerText, setAnswerText] = useState('');
+  const inputRef = useRef<HTMLTextAreaElement>(null);
+
+  useEffect(() => {
+    if (recording) inputRef.current?.focus();
+  }, [recording]);
+
+  const handleSubmit = () => {
+    if (!answerText.trim()) return;
+    onUse(answerText.trim());
+    setAnswerText('');
+    setRecording(false);
+  };
+
   const priorityStyles: Record<string, string> = {
     high: 'border-red-200 bg-red-50',
     medium: 'border-amber-200 bg-amber-50',
@@ -772,40 +1167,134 @@ function QuestionCard({
           ))}
         </div>
       )}
-      {isActive && (
+      {isActive && !recording && (
         <button
-          onClick={onUse}
+          onClick={() => setRecording(true)}
           className="mt-2 inline-flex items-center gap-1 rounded-md bg-blue-600 px-2.5 py-1 text-xs font-medium text-white hover:bg-blue-700"
         >
           <MessageSquare className="h-3 w-3" />
           Record Answer
         </button>
       )}
+      {isActive && recording && (
+        <div className="mt-2 space-y-2">
+          <textarea
+            ref={inputRef}
+            value={answerText}
+            onChange={(e) => setAnswerText(e.target.value)}
+            onKeyDown={(e) => {
+              if (e.key === 'Enter' && !e.shiftKey) {
+                e.preventDefault();
+                handleSubmit();
+              }
+              if (e.key === 'Escape') {
+                setAnswerText('');
+                setRecording(false);
+              }
+            }}
+            placeholder="Type the client's answer..."
+            rows={2}
+            className="w-full resize-none rounded-md border border-slate-300 bg-white px-2.5 py-1.5 text-sm text-slate-800 placeholder:text-slate-400 focus:border-blue-400 focus:outline-none focus:ring-1 focus:ring-blue-400"
+          />
+          <div className="flex items-center gap-2">
+            <button
+              onClick={handleSubmit}
+              disabled={!answerText.trim()}
+              className="inline-flex items-center gap-1 rounded-md bg-blue-600 px-2.5 py-1 text-xs font-medium text-white hover:bg-blue-700 disabled:opacity-40"
+            >
+              <Check className="h-3 w-3" />
+              Save
+            </button>
+            <button
+              onClick={() => { setAnswerText(''); setRecording(false); }}
+              className="inline-flex items-center gap-1 rounded-md border border-slate-300 bg-white px-2.5 py-1 text-xs font-medium text-slate-600 hover:bg-slate-50"
+            >
+              <X className="h-3 w-3" />
+              Cancel
+            </button>
+          </div>
+        </div>
+      )}
     </div>
   );
+}
+
+const INSIGHT_CATEGORIES: { key: string; label: string; icon: string; color: string; bg: string; border: string }[] = [
+  { key: 'flights', label: 'Flights', icon: '✈', color: 'text-sky-700', bg: 'bg-sky-50', border: 'border-sky-200' },
+  { key: 'hotels', label: 'Hotels', icon: '🏨', color: 'text-violet-700', bg: 'bg-violet-50', border: 'border-violet-200' },
+  { key: 'budget', label: 'Budget & Points', icon: '💰', color: 'text-emerald-700', bg: 'bg-emerald-50', border: 'border-emerald-200' },
+  { key: 'experiences', label: 'Experiences', icon: '🎯', color: 'text-orange-700', bg: 'bg-orange-50', border: 'border-orange-200' },
+  { key: 'food_and_dining', label: 'Food & Dining', icon: '🍽', color: 'text-amber-700', bg: 'bg-amber-50', border: 'border-amber-200' },
+  { key: 'lifestyle', label: 'Lifestyle & Personality', icon: '🧭', color: 'text-teal-700', bg: 'bg-teal-50', border: 'border-teal-200' },
+  { key: 'emotional', label: 'Emotional Drivers', icon: '💜', color: 'text-purple-700', bg: 'bg-purple-50', border: 'border-purple-200' },
+  { key: 'family', label: 'Family & Group', icon: '👥', color: 'text-pink-700', bg: 'bg-pink-50', border: 'border-pink-200' },
+  { key: 'dealbreakers', label: 'Dealbreakers & Dislikes', icon: '🚫', color: 'text-red-700', bg: 'bg-red-50', border: 'border-red-200' },
+  { key: 'logistics', label: 'Logistics', icon: '📋', color: 'text-slate-700', bg: 'bg-slate-50', border: 'border-slate-200' },
+];
+
+function isCrossClient(s: MeetingProfileSuggestion): boolean {
+  return !!s.targetClientId;
+}
+
+function getCrossClientName(s: MeetingProfileSuggestion): string {
+  if (s.targetClient) return `${s.targetClient.firstName} ${s.targetClient.lastName}`;
+  return 'Another client';
+}
+
+function inferCategory(s: MeetingProfileSuggestion): string {
+  const field = s.targetField.toLowerCase();
+  const value = String(s.suggestedValue ?? '').toLowerCase();
+  const combined = `${field} ${value} ${s.rationale}`.toLowerCase();
+
+  if (field.match(/cabin|nonstop|layover|airline|reposition|basiceconomy|seat|legroom|lieflat|redeye|premiumeconomy/)) return 'flights';
+  if (field.match(/hotel|room|location/)) return 'hotels';
+  if (field.match(/budget|redemption|pointsvscash|splurge/)) return 'budget';
+  if (field.match(/food|dietary|dining/)) return 'food_and_dining';
+  if (field.match(/family|children/)) return 'family';
+  if (field.match(/accessibility|maxacceptable|travelpace|traveltime/)) return 'logistics';
+  if (field.match(/dealbreaker|dislike|avoid|badpast/)) return 'dealbreakers';
+  if (field.match(/activity|specialoccasion/)) return 'experiences';
+  if (field.match(/whatmakestrip|emotional/)) return 'emotional';
+  if (combined.match(/personality|style|spontaneous|planner/)) return 'lifestyle';
+  if (field === 'notes') {
+    if (combined.match(/deal.?break|avoid|hate|never|dislike/)) return 'dealbreakers';
+    if (combined.match(/family|partner|kids|spouse|group/)) return 'family';
+    if (combined.match(/food|dining|restaurant|eat|cuisine/)) return 'food_and_dining';
+    if (combined.match(/budget|cost|price|splurge|points/)) return 'budget';
+    if (combined.match(/flight|airline|cabin|seat/)) return 'flights';
+    if (combined.match(/hotel|room|resort|property/)) return 'hotels';
+    if (combined.match(/feel|emotion|dream|aspir|nostalg|escape/)) return 'emotional';
+    if (combined.match(/personal|lifestyle|pace|schedule/)) return 'lifestyle';
+    return 'experiences';
+  }
+  return 'experiences';
 }
 
 function SuggestionsPanel({
   suggestions,
   updatingId,
-  onApprove,
-  onReject,
+  onDismiss,
+  onRestore,
   approvedCount,
   committedCount,
-  onShowCommit,
+  onSaveToProfile,
 }: {
   suggestions: MeetingProfileSuggestion[];
   updatingId: string | null;
-  onApprove: (id: string) => void;
-  onReject: (id: string) => void;
+  onDismiss: (id: string) => void;
+  onRestore: (id: string) => void;
   approvedCount: number;
   committedCount: number;
-  onShowCommit: () => void;
+  onSaveToProfile: () => void;
 }) {
-  const pending = suggestions.filter((s) => s.status === 'pending');
-  const approved = suggestions.filter((s) => s.status === 'approved');
-  const committed = suggestions.filter((s) => s.status === 'committed');
-  const rejected = suggestions.filter((s) => s.status === 'rejected');
+  const [showDismissed, setShowDismissed] = useState(false);
+
+  const primaryActive = suggestions.filter((s) => s.status !== 'rejected' && !isCrossClient(s));
+  const crossClientActive = suggestions.filter((s) => s.status !== 'rejected' && isCrossClient(s));
+  const active = suggestions.filter((s) => s.status !== 'rejected');
+  const dismissed = suggestions.filter((s) => s.status === 'rejected');
+  const savedCount = suggestions.filter((s) => s.status === 'committed').length;
+  const readyToSave = suggestions.filter((s) => s.status === 'pending' || s.status === 'approved').length;
 
   if (suggestions.length === 0) {
     return (
@@ -813,184 +1302,450 @@ function SuggestionsPanel({
         <div className="text-center">
           <Brain className="mx-auto h-10 w-10 text-slate-300" />
           <p className="mt-3 text-sm font-medium text-slate-500">
-            No preferences extracted yet
+            No insights extracted yet
           </p>
           <p className="mt-1 text-xs text-slate-400">
-            Record notes, then click &ldquo;Extract Preferences&rdquo; to analyze
+            Record notes, then click &ldquo;Extract Preferences&rdquo; to build the client picture
           </p>
         </div>
       </div>
     );
   }
 
+  const grouped = new Map<string, MeetingProfileSuggestion[]>();
+  for (const s of primaryActive) {
+    const cat = inferCategory(s);
+    if (!grouped.has(cat)) grouped.set(cat, []);
+    grouped.get(cat)!.push(s);
+  }
+
+  const orderedCategories = INSIGHT_CATEGORIES.filter((c) => grouped.has(c.key));
+
+  // Group cross-client by target client
+  const crossClientGrouped = new Map<string, { name: string; suggestions: MeetingProfileSuggestion[] }>();
+  for (const s of crossClientActive) {
+    const clientId = s.targetClientId!;
+    if (!crossClientGrouped.has(clientId)) {
+      crossClientGrouped.set(clientId, { name: getCrossClientName(s), suggestions: [] });
+    }
+    crossClientGrouped.get(clientId)!.suggestions.push(s);
+  }
+
   return (
     <div className="space-y-4">
-      {approvedCount > 0 && (
-        <button
-          onClick={onShowCommit}
-          className="flex w-full items-center gap-3 rounded-xl border border-blue-200 bg-blue-50 p-3 text-left transition-colors hover:bg-blue-100"
-        >
-          <GitMerge className="h-5 w-5 text-blue-600" />
-          <div className="flex-1">
-            <p className="text-sm font-medium text-blue-900">
-              {approvedCount} approved update{approvedCount !== 1 ? 's' : ''} ready to commit
-            </p>
-            <p className="text-xs text-blue-600">
-              Preview merge before writing to client profile
-            </p>
-          </div>
-          <ChevronRight className="h-4 w-4 text-blue-400" />
-        </button>
-      )}
+      {/* Summary bar */}
+      <div className="flex items-center gap-3 rounded-xl border border-slate-200 bg-white p-3">
+        <div className="flex-1">
+          <p className="text-sm font-semibold text-slate-800">
+            {active.length} insight{active.length !== 1 ? 's' : ''} discovered
+          </p>
+          <p className="text-xs text-slate-500">
+            {orderedCategories.length} categor{orderedCategories.length !== 1 ? 'ies' : 'y'}
+            {crossClientActive.length > 0 && (
+              <span className="text-indigo-600"> · {crossClientActive.length} for other client{crossClientActive.length !== 1 ? 's' : ''}</span>
+            )}
+            {savedCount > 0 && <span className="text-emerald-600"> · {savedCount} saved</span>}
+            {dismissed.length > 0 && <span className="text-slate-400"> · {dismissed.length} dismissed</span>}
+          </p>
+        </div>
+        {readyToSave > 0 && (
+          <button
+            onClick={onSaveToProfile}
+            className="inline-flex items-center gap-1.5 rounded-lg bg-blue-600 px-3 py-1.5 text-xs font-medium text-white hover:bg-blue-700"
+          >
+            <CheckCircle2 className="h-3.5 w-3.5" />
+            Save to Profile
+          </button>
+        )}
+      </div>
 
-      {committedCount > 0 && (
-        <div className="flex items-center gap-2 rounded-lg bg-emerald-50 px-3 py-2 text-xs text-emerald-700">
-          <CheckCircle2 className="h-4 w-4" />
-          {committedCount} update{committedCount !== 1 ? 's' : ''} committed to profile
+      {/* Primary client category groups */}
+      {orderedCategories.map((cat) => {
+        const items = grouped.get(cat.key)!;
+        return (
+          <InsightCategoryGroup
+            key={cat.key}
+            category={cat}
+            items={items}
+            updatingId={updatingId}
+            onDismiss={onDismiss}
+          />
+        );
+      })}
+
+      {/* Cross-client insights */}
+      {crossClientGrouped.size > 0 && (
+        <div className="space-y-3">
+          <div className="flex items-center gap-2">
+            <div className="h-px flex-1 bg-indigo-200" />
+            <span className="text-[10px] font-semibold uppercase tracking-wider text-indigo-500">
+              Insights for Other Clients
+            </span>
+            <div className="h-px flex-1 bg-indigo-200" />
+          </div>
+
+          {[...crossClientGrouped.entries()].map(([targetId, { name, suggestions: crossSuggestions }]) => (
+            <div key={targetId} className="rounded-xl border border-indigo-200 bg-indigo-50/50 p-3">
+              <div className="mb-2.5 flex items-center gap-2">
+                <User className="h-3.5 w-3.5 text-indigo-500" />
+                <span className="text-xs font-semibold text-indigo-700">{name}</span>
+                <span className="ml-auto rounded-full bg-indigo-100 px-1.5 py-0.5 text-[10px] font-medium text-indigo-600">
+                  {crossSuggestions.length} insight{crossSuggestions.length !== 1 ? 's' : ''}
+                </span>
+              </div>
+              <div className="space-y-1.5">
+                {crossSuggestions.map((s) => (
+                  <InsightCard
+                    key={s.id}
+                    suggestion={s}
+                    updatingId={updatingId}
+                    onDismiss={onDismiss}
+                    isCrossClientInsight
+                  />
+                ))}
+              </div>
+            </div>
+          ))}
         </div>
       )}
 
-      {pending.length > 0 && (
-        <SuggestionGroup
-          title="Pending Review"
-          suggestions={pending}
-          updatingId={updatingId}
-          onApprove={onApprove}
-          onReject={onReject}
-          showActions
-        />
-      )}
-
-      {approved.length > 0 && (
-        <SuggestionGroup
-          title="Approved"
-          suggestions={approved}
-          updatingId={updatingId}
-          onApprove={onApprove}
-          onReject={onReject}
-          showActions={false}
-        />
-      )}
-
-      {committed.length > 0 && (
-        <SuggestionGroup
-          title="Committed"
-          suggestions={committed}
-          updatingId={null}
-          onApprove={() => {}}
-          onReject={() => {}}
-          showActions={false}
-        />
-      )}
-
-      {rejected.length > 0 && (
-        <SuggestionGroup
-          title="Rejected"
-          suggestions={rejected}
-          updatingId={null}
-          onApprove={() => {}}
-          onReject={() => {}}
-          showActions={false}
-        />
+      {/* Dismissed section */}
+      {dismissed.length > 0 && (
+        <div>
+          <button
+            onClick={() => setShowDismissed(!showDismissed)}
+            className="flex items-center gap-1.5 text-[10px] font-medium uppercase tracking-wider text-slate-400 hover:text-slate-500"
+          >
+            {showDismissed ? <ChevronDown className="h-3 w-3" /> : <ChevronRight className="h-3 w-3" />}
+            {dismissed.length} dismissed insight{dismissed.length !== 1 ? 's' : ''}
+          </button>
+          {showDismissed && (
+            <div className="mt-2 space-y-1.5">
+              {dismissed.map((s) => (
+                <div
+                  key={s.id}
+                  className={`flex items-center gap-2 rounded-lg border px-3 py-2 opacity-60 ${
+                    isCrossClient(s) ? 'border-indigo-100 bg-indigo-50/30' : 'border-slate-100 bg-slate-50/50'
+                  }`}
+                >
+                  <div className="flex-1 min-w-0">
+                    {isCrossClient(s) && (
+                      <span className="mr-1.5 text-[10px] font-medium text-indigo-500">
+                        [{getCrossClientName(s)}]
+                      </span>
+                    )}
+                    <span className="text-xs font-medium text-slate-500">{fieldLabel(s.targetField)}</span>
+                    <span className="mx-1.5 text-slate-300">·</span>
+                    <span className="text-xs text-slate-400">{formatValue(s.suggestedValue)}</span>
+                  </div>
+                  <button
+                    onClick={() => onRestore(s.id)}
+                    disabled={updatingId === s.id}
+                    className="shrink-0 rounded px-2 py-0.5 text-[10px] font-medium text-blue-600 hover:bg-blue-50"
+                  >
+                    Restore
+                  </button>
+                </div>
+              ))}
+            </div>
+          )}
+        </div>
       )}
     </div>
   );
 }
 
-function SuggestionGroup({
-  title,
-  suggestions,
+function InsightCategoryGroup({
+  category,
+  items,
   updatingId,
-  onApprove,
-  onReject,
-  showActions,
+  onDismiss,
 }: {
-  title: string;
-  suggestions: MeetingProfileSuggestion[];
+  category: { key: string; label: string; icon: string; color: string; bg: string; border: string };
+  items: MeetingProfileSuggestion[];
   updatingId: string | null;
-  onApprove: (id: string) => void;
-  onReject: (id: string) => void;
-  showActions: boolean;
+  onDismiss: (id: string) => void;
 }) {
+  const saved = items.filter((s) => s.status === 'committed');
+  const active = items.filter((s) => s.status !== 'committed');
+
   return (
-    <div>
-      <p className="mb-2 text-[10px] font-semibold uppercase tracking-wider text-slate-400">
-        {title} ({suggestions.length})
-      </p>
-      <div className="space-y-2">
-        {suggestions.map((s) => {
-          const isUpdating = updatingId === s.id;
-          const confidenceColor =
-            s.confidence >= 0.7
-              ? 'text-emerald-600'
-              : s.confidence >= 0.5
-                ? 'text-amber-600'
-                : 'text-slate-500';
-          const statusBg: Record<string, string> = {
-            pending: 'border-blue-100',
-            approved: 'border-emerald-200 bg-emerald-50/50',
-            committed: 'border-emerald-300 bg-emerald-50',
-            rejected: 'border-slate-100 opacity-60',
-          };
-
-          return (
-            <div
-              key={s.id}
-              className={`rounded-lg border p-3 ${statusBg[s.status] ?? 'border-slate-200'}`}
-            >
-              <div className="flex items-center justify-between">
-                <span className="text-xs font-semibold text-slate-700">
-                  {fieldLabel(s.targetField)}
-                </span>
-                <span className={`text-[10px] font-medium ${confidenceColor}`}>
-                  {Math.round(s.confidence * 100)}% confident
-                </span>
-              </div>
-              <div className="mt-1 text-sm font-medium text-slate-900">
-                {formatValue(s.suggestedValue)}
-              </div>
-              <p className="mt-1 text-xs italic text-slate-500">
-                &ldquo;{s.evidence}&rdquo;
-              </p>
-              <p className="mt-0.5 text-xs text-slate-500">{s.rationale}</p>
-
-              {showActions && (
-                <div className="mt-2 flex gap-2">
-                  <button
-                    onClick={() => onApprove(s.id)}
-                    disabled={isUpdating}
-                    className="inline-flex items-center gap-1 rounded-md bg-emerald-600 px-2.5 py-1 text-xs font-medium text-white hover:bg-emerald-700 disabled:opacity-60"
-                  >
-                    {isUpdating ? (
-                      <Loader2 className="h-3 w-3 animate-spin" />
-                    ) : (
-                      <Check className="h-3 w-3" />
-                    )}
-                    Approve
-                  </button>
-                  <button
-                    onClick={() => onReject(s.id)}
-                    disabled={isUpdating}
-                    className="inline-flex items-center gap-1 rounded-md bg-slate-100 px-2.5 py-1 text-xs font-medium text-slate-600 hover:bg-slate-200 disabled:opacity-60"
-                  >
-                    <XCircle className="h-3 w-3" />
-                    Reject
-                  </button>
-                </div>
-              )}
-
-              {s.status === 'committed' && (
-                <div className="mt-2 flex items-center gap-1 text-[10px] text-emerald-600">
-                  <CheckCircle2 className="h-3 w-3" />
-                  Written to profile
-                </div>
-              )}
-            </div>
-          );
-        })}
+    <div className={`rounded-xl border ${category.border} ${category.bg} p-3`}>
+      <div className="mb-2.5 flex items-center gap-2">
+        <span className="text-base">{category.icon}</span>
+        <span className={`text-xs font-semibold ${category.color}`}>{category.label}</span>
+        <span className="ml-auto text-[10px] text-slate-400">{items.length} insight{items.length !== 1 ? 's' : ''}</span>
+      </div>
+      <div className="space-y-1.5">
+        {active.map((s) => (
+          <InsightCard
+            key={s.id}
+            suggestion={s}
+            updatingId={updatingId}
+            onDismiss={onDismiss}
+          />
+        ))}
+        {saved.map((s) => (
+          <div
+            key={s.id}
+            className="flex items-center gap-2 rounded-lg bg-white/60 px-3 py-2"
+          >
+            <CheckCircle2 className="h-3 w-3 shrink-0 text-emerald-500" />
+            <span className="text-xs font-medium text-slate-600">{fieldLabel(s.targetField)}</span>
+            <span className="text-xs text-slate-500">{formatValue(s.suggestedValue)}</span>
+          </div>
+        ))}
       </div>
     </div>
   );
+}
+
+function InsightCard({
+  suggestion: s,
+  updatingId,
+  onDismiss,
+  isCrossClientInsight = false,
+}: {
+  suggestion: MeetingProfileSuggestion;
+  updatingId: string | null;
+  onDismiss: (id: string) => void;
+  isCrossClientInsight?: boolean;
+}) {
+  const [expanded, setExpanded] = useState(false);
+  const isUpdating = updatingId === s.id;
+  const confidenceWidth = Math.round(s.confidence * 100);
+
+  return (
+    <div className={`group rounded-lg border p-2.5 shadow-sm transition-shadow hover:shadow-md ${
+      isCrossClientInsight ? 'border-indigo-100 bg-white' : 'border-white/80 bg-white'
+    }`}>
+      <div className="flex items-start gap-2">
+        <div className="flex-1 min-w-0">
+          <div className="flex items-center gap-2">
+            <span className="text-xs font-semibold text-slate-700">
+              {fieldLabel(s.targetField)}
+            </span>
+            <div className="h-1 w-10 overflow-hidden rounded-full bg-slate-100" title={`${confidenceWidth}% confidence`}>
+              <div
+                className={`h-full rounded-full ${
+                  s.confidence >= 0.7 ? 'bg-emerald-400' : s.confidence >= 0.5 ? 'bg-amber-400' : 'bg-slate-300'
+                }`}
+                style={{ width: `${confidenceWidth}%` }}
+              />
+            </div>
+            {isCrossClientInsight && (
+              <span className="rounded bg-indigo-100 px-1 py-0.5 text-[9px] font-medium text-indigo-600">
+                second-hand
+              </span>
+            )}
+          </div>
+          <p className="mt-0.5 text-sm text-slate-900">{formatValue(s.suggestedValue)}</p>
+        </div>
+        <div className="flex shrink-0 items-center gap-1">
+          <button
+            onClick={() => setExpanded(!expanded)}
+            className="rounded p-1 text-slate-300 opacity-0 transition-opacity hover:bg-slate-100 hover:text-slate-500 group-hover:opacity-100"
+            title="Show evidence"
+          >
+            <HelpCircle className="h-3.5 w-3.5" />
+          </button>
+          <button
+            onClick={() => onDismiss(s.id)}
+            disabled={isUpdating}
+            className="rounded p-1 text-slate-300 opacity-0 transition-opacity hover:bg-red-50 hover:text-red-500 group-hover:opacity-100 disabled:opacity-30"
+            title="Dismiss this insight"
+          >
+            {isUpdating ? <Loader2 className="h-3.5 w-3.5 animate-spin" /> : <X className="h-3.5 w-3.5" />}
+          </button>
+        </div>
+      </div>
+      {expanded && (
+        <div className="mt-2 space-y-1 border-t border-slate-100 pt-2">
+          <p className="text-[11px] italic text-slate-500">&ldquo;{s.evidence}&rdquo;</p>
+          <p className="text-[11px] text-slate-400">{s.rationale}</p>
+          {s.sourceDescription && (
+            <p className="text-[10px] text-indigo-500">{s.sourceDescription}</p>
+          )}
+          <p className="text-[10px] text-slate-300">{Math.round(s.confidence * 100)}% confidence</p>
+        </div>
+      )}
+    </div>
+  );
+}
+
+function ProfilePanel({
+  completeness,
+  preferences,
+  suggestions,
+}: {
+  completeness: ProfileCompletenessResult;
+  preferences: ClientPreference | null;
+  suggestions: MeetingProfileSuggestion[];
+}) {
+  const criticalFields = getCriticalFields();
+  const categorized = getFieldsByCategory();
+  const sessionPending = suggestions.filter((s) => s.status === 'pending' || s.status === 'approved');
+
+  const prefsRecord = preferences
+    ? (JSON.parse(JSON.stringify(preferences)) as Record<string, unknown>)
+    : {};
+
+  const sessionValuesByField = new Map<string, unknown>();
+  for (const s of sessionPending) {
+    sessionValuesByField.set(s.targetField, s.suggestedValue);
+  }
+
+  return (
+    <div className="space-y-4">
+      {/* Readiness banner */}
+      <div className={`rounded-xl border p-4 ${
+        completeness.readyForTripPlanning
+          ? 'border-emerald-200 bg-emerald-50'
+          : 'border-amber-200 bg-amber-50'
+      }`}>
+        <div className="flex items-center gap-3">
+          {completeness.readyForTripPlanning ? (
+            <CircleCheck className="h-6 w-6 text-emerald-600" />
+          ) : (
+            <AlertTriangle className="h-6 w-6 text-amber-600" />
+          )}
+          <div>
+            <p className={`text-sm font-semibold ${
+              completeness.readyForTripPlanning ? 'text-emerald-800' : 'text-amber-800'
+            }`}>
+              {completeness.readyForTripPlanning
+                ? 'Ready for trip planning'
+                : 'Not yet ready for trip planning'}
+            </p>
+            <p className="text-xs text-slate-600">
+              {completeness.overallPercent}% profile completeness
+              {completeness.emptyCriticalFields.length > 0 &&
+                ` · ${completeness.emptyCriticalFields.length} critical gap${completeness.emptyCriticalFields.length !== 1 ? 's' : ''}`}
+            </p>
+          </div>
+        </div>
+        {/* Progress bar */}
+        <div className="mt-3 h-2 overflow-hidden rounded-full bg-white/60">
+          <div
+            className={`h-full rounded-full transition-all duration-500 ${
+              completeness.readyForTripPlanning ? 'bg-emerald-500' : completeness.overallPercent > 50 ? 'bg-amber-500' : 'bg-red-400'
+            }`}
+            style={{ width: `${completeness.overallPercent}%` }}
+          />
+        </div>
+      </div>
+
+      {/* Critical gaps */}
+      {completeness.emptyCriticalFields.length > 0 && (
+        <div className="rounded-xl border border-red-200 bg-red-50 p-3">
+          <p className="mb-2 text-xs font-semibold uppercase tracking-wider text-red-700">
+            Critical Gaps
+          </p>
+          <div className="space-y-1.5">
+            {criticalFields
+              .filter((f) => completeness.emptyCriticalFields.includes(f.key))
+              .map((f) => (
+                <div key={f.key} className="flex items-center gap-2 rounded-lg bg-white/70 px-3 py-2">
+                  <AlertTriangle className="h-3 w-3 text-red-500" />
+                  <span className="text-xs font-medium text-red-800">{f.label}</span>
+                  <span className="ml-auto text-[10px] text-red-500">{f.description}</span>
+                </div>
+              ))}
+          </div>
+        </div>
+      )}
+
+      {/* Category breakdown */}
+      {Object.entries(categorized).map(([cat, fields]) => {
+        const breakdown = completeness.categoryBreakdown[cat as keyof typeof completeness.categoryBreakdown];
+        if (!breakdown) return null;
+
+        return (
+          <div key={cat} className="rounded-xl border border-slate-200 bg-white p-3">
+            <div className="mb-2 flex items-center justify-between">
+              <span className="text-xs font-semibold capitalize text-slate-700">{cat}</span>
+              <span className="text-[10px] text-slate-400">
+                {breakdown.filled}/{breakdown.total} filled
+              </span>
+            </div>
+            <div className="space-y-1.5">
+              {fields.map((f) => {
+                const committed = prefsRecord[f.key];
+                const sessionVal = sessionValuesByField.get(f.key);
+                const isFilled = completeness.filledFields.includes(f.key);
+                const isSessionOnly = !isValuePresent(committed) && isValuePresent(sessionVal);
+
+                return (
+                  <div key={f.key} className="flex items-center gap-2 rounded-lg bg-slate-50 px-3 py-1.5">
+                    {isFilled ? (
+                      <CircleCheck className="h-3 w-3 shrink-0 text-emerald-500" />
+                    ) : (
+                      <div className="h-3 w-3 shrink-0 rounded-full border border-slate-300" />
+                    )}
+                    <span className={`text-xs font-medium ${isFilled ? 'text-slate-700' : 'text-slate-400'}`}>
+                      {f.label}
+                    </span>
+                    {isFilled && (
+                      <span className="ml-auto truncate text-[11px] text-slate-500" style={{ maxWidth: '45%' }}>
+                        {formatProfileValue(committed ?? sessionVal)}
+                        {isSessionOnly && (
+                          <span className="ml-1 text-[9px] text-amber-600">(session)</span>
+                        )}
+                      </span>
+                    )}
+                    {f.tripBlocking && !isFilled && (
+                      <span className="ml-auto rounded bg-red-100 px-1 py-0.5 text-[9px] font-medium text-red-600">
+                        required
+                      </span>
+                    )}
+                  </div>
+                );
+              })}
+            </div>
+          </div>
+        );
+      })}
+
+      {/* Session insights not yet committed */}
+      {sessionPending.length > 0 && (
+        <div className="rounded-xl border border-amber-200 bg-amber-50 p-3">
+          <p className="mb-2 text-xs font-semibold uppercase tracking-wider text-amber-700">
+            Session Insights (not yet saved)
+          </p>
+          <div className="space-y-1">
+            {sessionPending.slice(0, 10).map((s) => (
+              <div key={s.id} className="flex items-center gap-2 rounded-lg bg-white/70 px-3 py-1.5">
+                <span className="text-xs font-medium text-slate-700">{getFieldLabel(s.targetField)}</span>
+                <span className="ml-auto truncate text-[11px] text-slate-500" style={{ maxWidth: '50%' }}>
+                  {formatProfileValue(s.suggestedValue)}
+                </span>
+              </div>
+            ))}
+            {sessionPending.length > 10 && (
+              <p className="text-center text-[10px] text-amber-600">
+                +{sessionPending.length - 10} more
+              </p>
+            )}
+          </div>
+        </div>
+      )}
+    </div>
+  );
+}
+
+function isValuePresent(value: unknown): boolean {
+  if (value === null || value === undefined) return false;
+  if (typeof value === 'string' && value.trim() === '') return false;
+  if (Array.isArray(value) && value.length === 0) return false;
+  return true;
+}
+
+function formatProfileValue(value: unknown): string {
+  if (value === null || value === undefined) return '—';
+  if (typeof value === 'boolean') return value ? 'Yes' : 'No';
+  if (Array.isArray(value)) return value.join(', ');
+  if (typeof value === 'object') return JSON.stringify(value);
+  return String(value);
 }
 
 function RecapPanel({ recap }: { recap: MeetingRecap | null }) {
@@ -1042,35 +1797,55 @@ function RecapSection({ title, content }: { title: string; content: string }) {
   );
 }
 
+function CommitPreviewRow({
+  item,
+  isCrossClient = false,
+}: {
+  item: MeetingCommitPreviewItem;
+  isCrossClient?: boolean;
+}) {
+  return (
+    <div
+      className={`rounded-lg border p-3 ${
+        isCrossClient
+          ? item.willOverwrite
+            ? 'border-indigo-200 bg-indigo-50'
+            : 'border-indigo-100 bg-indigo-50/50'
+          : item.willOverwrite
+            ? 'border-amber-200 bg-amber-50'
+            : 'border-slate-100 bg-slate-50'
+      }`}
+    >
+      <div className="flex items-center justify-between">
+        <span className="text-xs font-semibold text-slate-700">
+          {fieldLabel(item.targetField)}
+        </span>
+        {item.willOverwrite && (
+          <span className={`rounded-full px-2 py-0.5 text-[10px] font-medium ${
+            isCrossClient ? 'bg-indigo-100 text-indigo-700' : 'bg-amber-100 text-amber-700'
+          }`}>
+            Updates existing
+          </span>
+        )}
+      </div>
+      {item.willOverwrite && (
+        <div className="mt-1 text-xs text-slate-500">
+          Currently: {formatValue(item.currentValue)}
+        </div>
+      )}
+      <div className="mt-1 text-sm font-medium text-slate-900">
+        {formatValue(item.suggestedValue)}
+      </div>
+    </div>
+  );
+}
+
 // ---------------------------------------------------------------------------
 // Helpers
 // ---------------------------------------------------------------------------
 
 function fieldLabel(field: string): string {
-  const labels: Record<string, string> = {
-    preferredCabin: 'Preferred Cabin',
-    prefersNonstop: 'Prefers Nonstop',
-    maxLayoverMinutes: 'Max Layover',
-    willingToReposition: 'Willing to Reposition',
-    avoidBasicEconomy: 'Avoid Basic Economy',
-    preferredAirlines: 'Preferred Airlines',
-    avoidedAirlines: 'Avoided Airlines',
-    preferredHotelTypes: 'Hotel Types',
-    roomPreferences: 'Room Preferences',
-    locationPreferences: 'Location Preferences',
-    redemptionStyle: 'Redemption Style',
-    budgetSensitivity: 'Budget Sensitivity',
-    pointsVsCash: 'Points vs Cash',
-    accessibilityNeeds: 'Accessibility Needs',
-    foodPreferences: 'Food Preferences',
-    activityPreferences: 'Activity Preferences',
-    familyConsiderations: 'Family Considerations',
-    specialOccasions: 'Special Occasions',
-    dislikes: 'Dislikes',
-    dealbreakers: 'Dealbreakers',
-    notes: 'Notes',
-  };
-  return labels[field] || field.replace(/([A-Z])/g, ' $1').replace(/^./, (s) => s.toUpperCase());
+  return getFieldLabel(field);
 }
 
 function formatValue(value: unknown): string {

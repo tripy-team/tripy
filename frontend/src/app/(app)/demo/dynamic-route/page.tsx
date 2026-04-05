@@ -22,6 +22,7 @@ import {
 import { useDynamicRoute } from '@/lib/hooks/useDynamicRoute';
 import { DynamicRouteResults } from '@/components/DynamicRouteResults';
 import { users as usersAPI } from '@/lib/api';
+import SingleDatePicker from '@/components/ui/SingleDatePicker';
 
 interface PointsEntry {
   program: string;
@@ -219,11 +220,10 @@ export default function DynamicRouteDemo() {
                 <Calendar className="w-4 h-4 inline mr-1" />
                 Travel Date
               </label>
-              <input
-                type="date"
+              <SingleDatePicker
+                compact
                 value={travelDate}
-                onChange={(e) => setTravelDate(e.target.value)}
-                className="w-full px-4 py-2.5 border border-slate-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
+                onChange={setTravelDate}
               />
             </div>
             

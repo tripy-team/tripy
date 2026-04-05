@@ -21,6 +21,7 @@ import type {
   VendorRequestType,
   VendorRequestUrgency,
 } from '@/lib/api-client';
+import SingleDatePicker from '@/components/ui/SingleDatePicker';
 
 const REQUEST_TYPES: { value: VendorRequestType; label: string }[] = [
   { value: 'early_check_in', label: 'Early Check-In' },
@@ -244,11 +245,11 @@ export default function NewVendorRequestPage() {
               <label className="block text-xs font-medium text-slate-600 mb-1">
                 Due Date
               </label>
-              <input
-                type="date"
+              <SingleDatePicker
+                compact
                 value={dueDate}
-                onChange={(e) => setDueDate(e.target.value)}
-                className="w-full rounded-lg border border-slate-200 px-3 py-2 text-sm focus:border-blue-300 focus:outline-none"
+                onChange={setDueDate}
+                minDate={null}
               />
             </div>
           </div>

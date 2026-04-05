@@ -43,6 +43,8 @@ export type MeetingProfileSuggestionMinAggregateOutputType = {
   rationale: string | null
   status: $Enums.ProfileSuggestionStatus | null
   resolvedAt: Date | null
+  targetClientId: string | null
+  sourceDescription: string | null
   createdAt: Date | null
 }
 
@@ -55,6 +57,8 @@ export type MeetingProfileSuggestionMaxAggregateOutputType = {
   rationale: string | null
   status: $Enums.ProfileSuggestionStatus | null
   resolvedAt: Date | null
+  targetClientId: string | null
+  sourceDescription: string | null
   createdAt: Date | null
 }
 
@@ -68,6 +72,8 @@ export type MeetingProfileSuggestionCountAggregateOutputType = {
   rationale: number
   status: number
   resolvedAt: number
+  targetClientId: number
+  sourceDescription: number
   createdAt: number
   _all: number
 }
@@ -90,6 +96,8 @@ export type MeetingProfileSuggestionMinAggregateInputType = {
   rationale?: true
   status?: true
   resolvedAt?: true
+  targetClientId?: true
+  sourceDescription?: true
   createdAt?: true
 }
 
@@ -102,6 +110,8 @@ export type MeetingProfileSuggestionMaxAggregateInputType = {
   rationale?: true
   status?: true
   resolvedAt?: true
+  targetClientId?: true
+  sourceDescription?: true
   createdAt?: true
 }
 
@@ -115,6 +125,8 @@ export type MeetingProfileSuggestionCountAggregateInputType = {
   rationale?: true
   status?: true
   resolvedAt?: true
+  targetClientId?: true
+  sourceDescription?: true
   createdAt?: true
   _all?: true
 }
@@ -215,6 +227,8 @@ export type MeetingProfileSuggestionGroupByOutputType = {
   rationale: string
   status: $Enums.ProfileSuggestionStatus
   resolvedAt: Date | null
+  targetClientId: string | null
+  sourceDescription: string | null
   createdAt: Date
   _count: MeetingProfileSuggestionCountAggregateOutputType | null
   _avg: MeetingProfileSuggestionAvgAggregateOutputType | null
@@ -251,8 +265,11 @@ export type MeetingProfileSuggestionWhereInput = {
   rationale?: Prisma.StringFilter<"MeetingProfileSuggestion"> | string
   status?: Prisma.EnumProfileSuggestionStatusFilter<"MeetingProfileSuggestion"> | $Enums.ProfileSuggestionStatus
   resolvedAt?: Prisma.DateTimeNullableFilter<"MeetingProfileSuggestion"> | Date | string | null
+  targetClientId?: Prisma.StringNullableFilter<"MeetingProfileSuggestion"> | string | null
+  sourceDescription?: Prisma.StringNullableFilter<"MeetingProfileSuggestion"> | string | null
   createdAt?: Prisma.DateTimeFilter<"MeetingProfileSuggestion"> | Date | string
   session?: Prisma.XOR<Prisma.DiscoveryMeetingSessionScalarRelationFilter, Prisma.DiscoveryMeetingSessionWhereInput>
+  targetClient?: Prisma.XOR<Prisma.ClientNullableScalarRelationFilter, Prisma.ClientWhereInput> | null
 }
 
 export type MeetingProfileSuggestionOrderByWithRelationInput = {
@@ -265,8 +282,11 @@ export type MeetingProfileSuggestionOrderByWithRelationInput = {
   rationale?: Prisma.SortOrder
   status?: Prisma.SortOrder
   resolvedAt?: Prisma.SortOrderInput | Prisma.SortOrder
+  targetClientId?: Prisma.SortOrderInput | Prisma.SortOrder
+  sourceDescription?: Prisma.SortOrderInput | Prisma.SortOrder
   createdAt?: Prisma.SortOrder
   session?: Prisma.DiscoveryMeetingSessionOrderByWithRelationInput
+  targetClient?: Prisma.ClientOrderByWithRelationInput
 }
 
 export type MeetingProfileSuggestionWhereUniqueInput = Prisma.AtLeast<{
@@ -282,8 +302,11 @@ export type MeetingProfileSuggestionWhereUniqueInput = Prisma.AtLeast<{
   rationale?: Prisma.StringFilter<"MeetingProfileSuggestion"> | string
   status?: Prisma.EnumProfileSuggestionStatusFilter<"MeetingProfileSuggestion"> | $Enums.ProfileSuggestionStatus
   resolvedAt?: Prisma.DateTimeNullableFilter<"MeetingProfileSuggestion"> | Date | string | null
+  targetClientId?: Prisma.StringNullableFilter<"MeetingProfileSuggestion"> | string | null
+  sourceDescription?: Prisma.StringNullableFilter<"MeetingProfileSuggestion"> | string | null
   createdAt?: Prisma.DateTimeFilter<"MeetingProfileSuggestion"> | Date | string
   session?: Prisma.XOR<Prisma.DiscoveryMeetingSessionScalarRelationFilter, Prisma.DiscoveryMeetingSessionWhereInput>
+  targetClient?: Prisma.XOR<Prisma.ClientNullableScalarRelationFilter, Prisma.ClientWhereInput> | null
 }, "id">
 
 export type MeetingProfileSuggestionOrderByWithAggregationInput = {
@@ -296,6 +319,8 @@ export type MeetingProfileSuggestionOrderByWithAggregationInput = {
   rationale?: Prisma.SortOrder
   status?: Prisma.SortOrder
   resolvedAt?: Prisma.SortOrderInput | Prisma.SortOrder
+  targetClientId?: Prisma.SortOrderInput | Prisma.SortOrder
+  sourceDescription?: Prisma.SortOrderInput | Prisma.SortOrder
   createdAt?: Prisma.SortOrder
   _count?: Prisma.MeetingProfileSuggestionCountOrderByAggregateInput
   _avg?: Prisma.MeetingProfileSuggestionAvgOrderByAggregateInput
@@ -317,6 +342,8 @@ export type MeetingProfileSuggestionScalarWhereWithAggregatesInput = {
   rationale?: Prisma.StringWithAggregatesFilter<"MeetingProfileSuggestion"> | string
   status?: Prisma.EnumProfileSuggestionStatusWithAggregatesFilter<"MeetingProfileSuggestion"> | $Enums.ProfileSuggestionStatus
   resolvedAt?: Prisma.DateTimeNullableWithAggregatesFilter<"MeetingProfileSuggestion"> | Date | string | null
+  targetClientId?: Prisma.StringNullableWithAggregatesFilter<"MeetingProfileSuggestion"> | string | null
+  sourceDescription?: Prisma.StringNullableWithAggregatesFilter<"MeetingProfileSuggestion"> | string | null
   createdAt?: Prisma.DateTimeWithAggregatesFilter<"MeetingProfileSuggestion"> | Date | string
 }
 
@@ -329,8 +356,10 @@ export type MeetingProfileSuggestionCreateInput = {
   rationale: string
   status?: $Enums.ProfileSuggestionStatus
   resolvedAt?: Date | string | null
+  sourceDescription?: string | null
   createdAt?: Date | string
   session: Prisma.DiscoveryMeetingSessionCreateNestedOneWithoutProfileSuggestionsInput
+  targetClient?: Prisma.ClientCreateNestedOneWithoutCrossClientSuggestionsInput
 }
 
 export type MeetingProfileSuggestionUncheckedCreateInput = {
@@ -343,6 +372,8 @@ export type MeetingProfileSuggestionUncheckedCreateInput = {
   rationale: string
   status?: $Enums.ProfileSuggestionStatus
   resolvedAt?: Date | string | null
+  targetClientId?: string | null
+  sourceDescription?: string | null
   createdAt?: Date | string
 }
 
@@ -355,8 +386,10 @@ export type MeetingProfileSuggestionUpdateInput = {
   rationale?: Prisma.StringFieldUpdateOperationsInput | string
   status?: Prisma.EnumProfileSuggestionStatusFieldUpdateOperationsInput | $Enums.ProfileSuggestionStatus
   resolvedAt?: Prisma.NullableDateTimeFieldUpdateOperationsInput | Date | string | null
+  sourceDescription?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
   createdAt?: Prisma.DateTimeFieldUpdateOperationsInput | Date | string
   session?: Prisma.DiscoveryMeetingSessionUpdateOneRequiredWithoutProfileSuggestionsNestedInput
+  targetClient?: Prisma.ClientUpdateOneWithoutCrossClientSuggestionsNestedInput
 }
 
 export type MeetingProfileSuggestionUncheckedUpdateInput = {
@@ -369,6 +402,8 @@ export type MeetingProfileSuggestionUncheckedUpdateInput = {
   rationale?: Prisma.StringFieldUpdateOperationsInput | string
   status?: Prisma.EnumProfileSuggestionStatusFieldUpdateOperationsInput | $Enums.ProfileSuggestionStatus
   resolvedAt?: Prisma.NullableDateTimeFieldUpdateOperationsInput | Date | string | null
+  targetClientId?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
+  sourceDescription?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
   createdAt?: Prisma.DateTimeFieldUpdateOperationsInput | Date | string
 }
 
@@ -382,6 +417,8 @@ export type MeetingProfileSuggestionCreateManyInput = {
   rationale: string
   status?: $Enums.ProfileSuggestionStatus
   resolvedAt?: Date | string | null
+  targetClientId?: string | null
+  sourceDescription?: string | null
   createdAt?: Date | string
 }
 
@@ -394,6 +431,7 @@ export type MeetingProfileSuggestionUpdateManyMutationInput = {
   rationale?: Prisma.StringFieldUpdateOperationsInput | string
   status?: Prisma.EnumProfileSuggestionStatusFieldUpdateOperationsInput | $Enums.ProfileSuggestionStatus
   resolvedAt?: Prisma.NullableDateTimeFieldUpdateOperationsInput | Date | string | null
+  sourceDescription?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
   createdAt?: Prisma.DateTimeFieldUpdateOperationsInput | Date | string
 }
 
@@ -407,6 +445,8 @@ export type MeetingProfileSuggestionUncheckedUpdateManyInput = {
   rationale?: Prisma.StringFieldUpdateOperationsInput | string
   status?: Prisma.EnumProfileSuggestionStatusFieldUpdateOperationsInput | $Enums.ProfileSuggestionStatus
   resolvedAt?: Prisma.NullableDateTimeFieldUpdateOperationsInput | Date | string | null
+  targetClientId?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
+  sourceDescription?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
   createdAt?: Prisma.DateTimeFieldUpdateOperationsInput | Date | string
 }
 
@@ -430,6 +470,8 @@ export type MeetingProfileSuggestionCountOrderByAggregateInput = {
   rationale?: Prisma.SortOrder
   status?: Prisma.SortOrder
   resolvedAt?: Prisma.SortOrder
+  targetClientId?: Prisma.SortOrder
+  sourceDescription?: Prisma.SortOrder
   createdAt?: Prisma.SortOrder
 }
 
@@ -446,6 +488,8 @@ export type MeetingProfileSuggestionMaxOrderByAggregateInput = {
   rationale?: Prisma.SortOrder
   status?: Prisma.SortOrder
   resolvedAt?: Prisma.SortOrder
+  targetClientId?: Prisma.SortOrder
+  sourceDescription?: Prisma.SortOrder
   createdAt?: Prisma.SortOrder
 }
 
@@ -458,11 +502,55 @@ export type MeetingProfileSuggestionMinOrderByAggregateInput = {
   rationale?: Prisma.SortOrder
   status?: Prisma.SortOrder
   resolvedAt?: Prisma.SortOrder
+  targetClientId?: Prisma.SortOrder
+  sourceDescription?: Prisma.SortOrder
   createdAt?: Prisma.SortOrder
 }
 
 export type MeetingProfileSuggestionSumOrderByAggregateInput = {
   confidence?: Prisma.SortOrder
+}
+
+export type MeetingProfileSuggestionCreateNestedManyWithoutTargetClientInput = {
+  create?: Prisma.XOR<Prisma.MeetingProfileSuggestionCreateWithoutTargetClientInput, Prisma.MeetingProfileSuggestionUncheckedCreateWithoutTargetClientInput> | Prisma.MeetingProfileSuggestionCreateWithoutTargetClientInput[] | Prisma.MeetingProfileSuggestionUncheckedCreateWithoutTargetClientInput[]
+  connectOrCreate?: Prisma.MeetingProfileSuggestionCreateOrConnectWithoutTargetClientInput | Prisma.MeetingProfileSuggestionCreateOrConnectWithoutTargetClientInput[]
+  createMany?: Prisma.MeetingProfileSuggestionCreateManyTargetClientInputEnvelope
+  connect?: Prisma.MeetingProfileSuggestionWhereUniqueInput | Prisma.MeetingProfileSuggestionWhereUniqueInput[]
+}
+
+export type MeetingProfileSuggestionUncheckedCreateNestedManyWithoutTargetClientInput = {
+  create?: Prisma.XOR<Prisma.MeetingProfileSuggestionCreateWithoutTargetClientInput, Prisma.MeetingProfileSuggestionUncheckedCreateWithoutTargetClientInput> | Prisma.MeetingProfileSuggestionCreateWithoutTargetClientInput[] | Prisma.MeetingProfileSuggestionUncheckedCreateWithoutTargetClientInput[]
+  connectOrCreate?: Prisma.MeetingProfileSuggestionCreateOrConnectWithoutTargetClientInput | Prisma.MeetingProfileSuggestionCreateOrConnectWithoutTargetClientInput[]
+  createMany?: Prisma.MeetingProfileSuggestionCreateManyTargetClientInputEnvelope
+  connect?: Prisma.MeetingProfileSuggestionWhereUniqueInput | Prisma.MeetingProfileSuggestionWhereUniqueInput[]
+}
+
+export type MeetingProfileSuggestionUpdateManyWithoutTargetClientNestedInput = {
+  create?: Prisma.XOR<Prisma.MeetingProfileSuggestionCreateWithoutTargetClientInput, Prisma.MeetingProfileSuggestionUncheckedCreateWithoutTargetClientInput> | Prisma.MeetingProfileSuggestionCreateWithoutTargetClientInput[] | Prisma.MeetingProfileSuggestionUncheckedCreateWithoutTargetClientInput[]
+  connectOrCreate?: Prisma.MeetingProfileSuggestionCreateOrConnectWithoutTargetClientInput | Prisma.MeetingProfileSuggestionCreateOrConnectWithoutTargetClientInput[]
+  upsert?: Prisma.MeetingProfileSuggestionUpsertWithWhereUniqueWithoutTargetClientInput | Prisma.MeetingProfileSuggestionUpsertWithWhereUniqueWithoutTargetClientInput[]
+  createMany?: Prisma.MeetingProfileSuggestionCreateManyTargetClientInputEnvelope
+  set?: Prisma.MeetingProfileSuggestionWhereUniqueInput | Prisma.MeetingProfileSuggestionWhereUniqueInput[]
+  disconnect?: Prisma.MeetingProfileSuggestionWhereUniqueInput | Prisma.MeetingProfileSuggestionWhereUniqueInput[]
+  delete?: Prisma.MeetingProfileSuggestionWhereUniqueInput | Prisma.MeetingProfileSuggestionWhereUniqueInput[]
+  connect?: Prisma.MeetingProfileSuggestionWhereUniqueInput | Prisma.MeetingProfileSuggestionWhereUniqueInput[]
+  update?: Prisma.MeetingProfileSuggestionUpdateWithWhereUniqueWithoutTargetClientInput | Prisma.MeetingProfileSuggestionUpdateWithWhereUniqueWithoutTargetClientInput[]
+  updateMany?: Prisma.MeetingProfileSuggestionUpdateManyWithWhereWithoutTargetClientInput | Prisma.MeetingProfileSuggestionUpdateManyWithWhereWithoutTargetClientInput[]
+  deleteMany?: Prisma.MeetingProfileSuggestionScalarWhereInput | Prisma.MeetingProfileSuggestionScalarWhereInput[]
+}
+
+export type MeetingProfileSuggestionUncheckedUpdateManyWithoutTargetClientNestedInput = {
+  create?: Prisma.XOR<Prisma.MeetingProfileSuggestionCreateWithoutTargetClientInput, Prisma.MeetingProfileSuggestionUncheckedCreateWithoutTargetClientInput> | Prisma.MeetingProfileSuggestionCreateWithoutTargetClientInput[] | Prisma.MeetingProfileSuggestionUncheckedCreateWithoutTargetClientInput[]
+  connectOrCreate?: Prisma.MeetingProfileSuggestionCreateOrConnectWithoutTargetClientInput | Prisma.MeetingProfileSuggestionCreateOrConnectWithoutTargetClientInput[]
+  upsert?: Prisma.MeetingProfileSuggestionUpsertWithWhereUniqueWithoutTargetClientInput | Prisma.MeetingProfileSuggestionUpsertWithWhereUniqueWithoutTargetClientInput[]
+  createMany?: Prisma.MeetingProfileSuggestionCreateManyTargetClientInputEnvelope
+  set?: Prisma.MeetingProfileSuggestionWhereUniqueInput | Prisma.MeetingProfileSuggestionWhereUniqueInput[]
+  disconnect?: Prisma.MeetingProfileSuggestionWhereUniqueInput | Prisma.MeetingProfileSuggestionWhereUniqueInput[]
+  delete?: Prisma.MeetingProfileSuggestionWhereUniqueInput | Prisma.MeetingProfileSuggestionWhereUniqueInput[]
+  connect?: Prisma.MeetingProfileSuggestionWhereUniqueInput | Prisma.MeetingProfileSuggestionWhereUniqueInput[]
+  update?: Prisma.MeetingProfileSuggestionUpdateWithWhereUniqueWithoutTargetClientInput | Prisma.MeetingProfileSuggestionUpdateWithWhereUniqueWithoutTargetClientInput[]
+  updateMany?: Prisma.MeetingProfileSuggestionUpdateManyWithWhereWithoutTargetClientInput | Prisma.MeetingProfileSuggestionUpdateManyWithWhereWithoutTargetClientInput[]
+  deleteMany?: Prisma.MeetingProfileSuggestionScalarWhereInput | Prisma.MeetingProfileSuggestionScalarWhereInput[]
 }
 
 export type MeetingProfileSuggestionCreateNestedManyWithoutSessionInput = {
@@ -511,6 +599,78 @@ export type EnumProfileSuggestionStatusFieldUpdateOperationsInput = {
   set?: $Enums.ProfileSuggestionStatus
 }
 
+export type MeetingProfileSuggestionCreateWithoutTargetClientInput = {
+  id?: string
+  targetField: string
+  suggestedValue: Prisma.JsonNullValueInput | runtime.InputJsonValue
+  confidence: number
+  evidence: string
+  rationale: string
+  status?: $Enums.ProfileSuggestionStatus
+  resolvedAt?: Date | string | null
+  sourceDescription?: string | null
+  createdAt?: Date | string
+  session: Prisma.DiscoveryMeetingSessionCreateNestedOneWithoutProfileSuggestionsInput
+}
+
+export type MeetingProfileSuggestionUncheckedCreateWithoutTargetClientInput = {
+  id?: string
+  sessionId: string
+  targetField: string
+  suggestedValue: Prisma.JsonNullValueInput | runtime.InputJsonValue
+  confidence: number
+  evidence: string
+  rationale: string
+  status?: $Enums.ProfileSuggestionStatus
+  resolvedAt?: Date | string | null
+  sourceDescription?: string | null
+  createdAt?: Date | string
+}
+
+export type MeetingProfileSuggestionCreateOrConnectWithoutTargetClientInput = {
+  where: Prisma.MeetingProfileSuggestionWhereUniqueInput
+  create: Prisma.XOR<Prisma.MeetingProfileSuggestionCreateWithoutTargetClientInput, Prisma.MeetingProfileSuggestionUncheckedCreateWithoutTargetClientInput>
+}
+
+export type MeetingProfileSuggestionCreateManyTargetClientInputEnvelope = {
+  data: Prisma.MeetingProfileSuggestionCreateManyTargetClientInput | Prisma.MeetingProfileSuggestionCreateManyTargetClientInput[]
+  skipDuplicates?: boolean
+}
+
+export type MeetingProfileSuggestionUpsertWithWhereUniqueWithoutTargetClientInput = {
+  where: Prisma.MeetingProfileSuggestionWhereUniqueInput
+  update: Prisma.XOR<Prisma.MeetingProfileSuggestionUpdateWithoutTargetClientInput, Prisma.MeetingProfileSuggestionUncheckedUpdateWithoutTargetClientInput>
+  create: Prisma.XOR<Prisma.MeetingProfileSuggestionCreateWithoutTargetClientInput, Prisma.MeetingProfileSuggestionUncheckedCreateWithoutTargetClientInput>
+}
+
+export type MeetingProfileSuggestionUpdateWithWhereUniqueWithoutTargetClientInput = {
+  where: Prisma.MeetingProfileSuggestionWhereUniqueInput
+  data: Prisma.XOR<Prisma.MeetingProfileSuggestionUpdateWithoutTargetClientInput, Prisma.MeetingProfileSuggestionUncheckedUpdateWithoutTargetClientInput>
+}
+
+export type MeetingProfileSuggestionUpdateManyWithWhereWithoutTargetClientInput = {
+  where: Prisma.MeetingProfileSuggestionScalarWhereInput
+  data: Prisma.XOR<Prisma.MeetingProfileSuggestionUpdateManyMutationInput, Prisma.MeetingProfileSuggestionUncheckedUpdateManyWithoutTargetClientInput>
+}
+
+export type MeetingProfileSuggestionScalarWhereInput = {
+  AND?: Prisma.MeetingProfileSuggestionScalarWhereInput | Prisma.MeetingProfileSuggestionScalarWhereInput[]
+  OR?: Prisma.MeetingProfileSuggestionScalarWhereInput[]
+  NOT?: Prisma.MeetingProfileSuggestionScalarWhereInput | Prisma.MeetingProfileSuggestionScalarWhereInput[]
+  id?: Prisma.StringFilter<"MeetingProfileSuggestion"> | string
+  sessionId?: Prisma.StringFilter<"MeetingProfileSuggestion"> | string
+  targetField?: Prisma.StringFilter<"MeetingProfileSuggestion"> | string
+  suggestedValue?: Prisma.JsonFilter<"MeetingProfileSuggestion">
+  confidence?: Prisma.FloatFilter<"MeetingProfileSuggestion"> | number
+  evidence?: Prisma.StringFilter<"MeetingProfileSuggestion"> | string
+  rationale?: Prisma.StringFilter<"MeetingProfileSuggestion"> | string
+  status?: Prisma.EnumProfileSuggestionStatusFilter<"MeetingProfileSuggestion"> | $Enums.ProfileSuggestionStatus
+  resolvedAt?: Prisma.DateTimeNullableFilter<"MeetingProfileSuggestion"> | Date | string | null
+  targetClientId?: Prisma.StringNullableFilter<"MeetingProfileSuggestion"> | string | null
+  sourceDescription?: Prisma.StringNullableFilter<"MeetingProfileSuggestion"> | string | null
+  createdAt?: Prisma.DateTimeFilter<"MeetingProfileSuggestion"> | Date | string
+}
+
 export type MeetingProfileSuggestionCreateWithoutSessionInput = {
   id?: string
   targetField: string
@@ -520,7 +680,9 @@ export type MeetingProfileSuggestionCreateWithoutSessionInput = {
   rationale: string
   status?: $Enums.ProfileSuggestionStatus
   resolvedAt?: Date | string | null
+  sourceDescription?: string | null
   createdAt?: Date | string
+  targetClient?: Prisma.ClientCreateNestedOneWithoutCrossClientSuggestionsInput
 }
 
 export type MeetingProfileSuggestionUncheckedCreateWithoutSessionInput = {
@@ -532,6 +694,8 @@ export type MeetingProfileSuggestionUncheckedCreateWithoutSessionInput = {
   rationale: string
   status?: $Enums.ProfileSuggestionStatus
   resolvedAt?: Date | string | null
+  targetClientId?: string | null
+  sourceDescription?: string | null
   createdAt?: Date | string
 }
 
@@ -561,20 +725,60 @@ export type MeetingProfileSuggestionUpdateManyWithWhereWithoutSessionInput = {
   data: Prisma.XOR<Prisma.MeetingProfileSuggestionUpdateManyMutationInput, Prisma.MeetingProfileSuggestionUncheckedUpdateManyWithoutSessionInput>
 }
 
-export type MeetingProfileSuggestionScalarWhereInput = {
-  AND?: Prisma.MeetingProfileSuggestionScalarWhereInput | Prisma.MeetingProfileSuggestionScalarWhereInput[]
-  OR?: Prisma.MeetingProfileSuggestionScalarWhereInput[]
-  NOT?: Prisma.MeetingProfileSuggestionScalarWhereInput | Prisma.MeetingProfileSuggestionScalarWhereInput[]
-  id?: Prisma.StringFilter<"MeetingProfileSuggestion"> | string
-  sessionId?: Prisma.StringFilter<"MeetingProfileSuggestion"> | string
-  targetField?: Prisma.StringFilter<"MeetingProfileSuggestion"> | string
-  suggestedValue?: Prisma.JsonFilter<"MeetingProfileSuggestion">
-  confidence?: Prisma.FloatFilter<"MeetingProfileSuggestion"> | number
-  evidence?: Prisma.StringFilter<"MeetingProfileSuggestion"> | string
-  rationale?: Prisma.StringFilter<"MeetingProfileSuggestion"> | string
-  status?: Prisma.EnumProfileSuggestionStatusFilter<"MeetingProfileSuggestion"> | $Enums.ProfileSuggestionStatus
-  resolvedAt?: Prisma.DateTimeNullableFilter<"MeetingProfileSuggestion"> | Date | string | null
-  createdAt?: Prisma.DateTimeFilter<"MeetingProfileSuggestion"> | Date | string
+export type MeetingProfileSuggestionCreateManyTargetClientInput = {
+  id?: string
+  sessionId: string
+  targetField: string
+  suggestedValue: Prisma.JsonNullValueInput | runtime.InputJsonValue
+  confidence: number
+  evidence: string
+  rationale: string
+  status?: $Enums.ProfileSuggestionStatus
+  resolvedAt?: Date | string | null
+  sourceDescription?: string | null
+  createdAt?: Date | string
+}
+
+export type MeetingProfileSuggestionUpdateWithoutTargetClientInput = {
+  id?: Prisma.StringFieldUpdateOperationsInput | string
+  targetField?: Prisma.StringFieldUpdateOperationsInput | string
+  suggestedValue?: Prisma.JsonNullValueInput | runtime.InputJsonValue
+  confidence?: Prisma.FloatFieldUpdateOperationsInput | number
+  evidence?: Prisma.StringFieldUpdateOperationsInput | string
+  rationale?: Prisma.StringFieldUpdateOperationsInput | string
+  status?: Prisma.EnumProfileSuggestionStatusFieldUpdateOperationsInput | $Enums.ProfileSuggestionStatus
+  resolvedAt?: Prisma.NullableDateTimeFieldUpdateOperationsInput | Date | string | null
+  sourceDescription?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
+  createdAt?: Prisma.DateTimeFieldUpdateOperationsInput | Date | string
+  session?: Prisma.DiscoveryMeetingSessionUpdateOneRequiredWithoutProfileSuggestionsNestedInput
+}
+
+export type MeetingProfileSuggestionUncheckedUpdateWithoutTargetClientInput = {
+  id?: Prisma.StringFieldUpdateOperationsInput | string
+  sessionId?: Prisma.StringFieldUpdateOperationsInput | string
+  targetField?: Prisma.StringFieldUpdateOperationsInput | string
+  suggestedValue?: Prisma.JsonNullValueInput | runtime.InputJsonValue
+  confidence?: Prisma.FloatFieldUpdateOperationsInput | number
+  evidence?: Prisma.StringFieldUpdateOperationsInput | string
+  rationale?: Prisma.StringFieldUpdateOperationsInput | string
+  status?: Prisma.EnumProfileSuggestionStatusFieldUpdateOperationsInput | $Enums.ProfileSuggestionStatus
+  resolvedAt?: Prisma.NullableDateTimeFieldUpdateOperationsInput | Date | string | null
+  sourceDescription?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
+  createdAt?: Prisma.DateTimeFieldUpdateOperationsInput | Date | string
+}
+
+export type MeetingProfileSuggestionUncheckedUpdateManyWithoutTargetClientInput = {
+  id?: Prisma.StringFieldUpdateOperationsInput | string
+  sessionId?: Prisma.StringFieldUpdateOperationsInput | string
+  targetField?: Prisma.StringFieldUpdateOperationsInput | string
+  suggestedValue?: Prisma.JsonNullValueInput | runtime.InputJsonValue
+  confidence?: Prisma.FloatFieldUpdateOperationsInput | number
+  evidence?: Prisma.StringFieldUpdateOperationsInput | string
+  rationale?: Prisma.StringFieldUpdateOperationsInput | string
+  status?: Prisma.EnumProfileSuggestionStatusFieldUpdateOperationsInput | $Enums.ProfileSuggestionStatus
+  resolvedAt?: Prisma.NullableDateTimeFieldUpdateOperationsInput | Date | string | null
+  sourceDescription?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
+  createdAt?: Prisma.DateTimeFieldUpdateOperationsInput | Date | string
 }
 
 export type MeetingProfileSuggestionCreateManySessionInput = {
@@ -586,6 +790,8 @@ export type MeetingProfileSuggestionCreateManySessionInput = {
   rationale: string
   status?: $Enums.ProfileSuggestionStatus
   resolvedAt?: Date | string | null
+  targetClientId?: string | null
+  sourceDescription?: string | null
   createdAt?: Date | string
 }
 
@@ -598,7 +804,9 @@ export type MeetingProfileSuggestionUpdateWithoutSessionInput = {
   rationale?: Prisma.StringFieldUpdateOperationsInput | string
   status?: Prisma.EnumProfileSuggestionStatusFieldUpdateOperationsInput | $Enums.ProfileSuggestionStatus
   resolvedAt?: Prisma.NullableDateTimeFieldUpdateOperationsInput | Date | string | null
+  sourceDescription?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
   createdAt?: Prisma.DateTimeFieldUpdateOperationsInput | Date | string
+  targetClient?: Prisma.ClientUpdateOneWithoutCrossClientSuggestionsNestedInput
 }
 
 export type MeetingProfileSuggestionUncheckedUpdateWithoutSessionInput = {
@@ -610,6 +818,8 @@ export type MeetingProfileSuggestionUncheckedUpdateWithoutSessionInput = {
   rationale?: Prisma.StringFieldUpdateOperationsInput | string
   status?: Prisma.EnumProfileSuggestionStatusFieldUpdateOperationsInput | $Enums.ProfileSuggestionStatus
   resolvedAt?: Prisma.NullableDateTimeFieldUpdateOperationsInput | Date | string | null
+  targetClientId?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
+  sourceDescription?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
   createdAt?: Prisma.DateTimeFieldUpdateOperationsInput | Date | string
 }
 
@@ -622,6 +832,8 @@ export type MeetingProfileSuggestionUncheckedUpdateManyWithoutSessionInput = {
   rationale?: Prisma.StringFieldUpdateOperationsInput | string
   status?: Prisma.EnumProfileSuggestionStatusFieldUpdateOperationsInput | $Enums.ProfileSuggestionStatus
   resolvedAt?: Prisma.NullableDateTimeFieldUpdateOperationsInput | Date | string | null
+  targetClientId?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
+  sourceDescription?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
   createdAt?: Prisma.DateTimeFieldUpdateOperationsInput | Date | string
 }
 
@@ -637,8 +849,11 @@ export type MeetingProfileSuggestionSelect<ExtArgs extends runtime.Types.Extensi
   rationale?: boolean
   status?: boolean
   resolvedAt?: boolean
+  targetClientId?: boolean
+  sourceDescription?: boolean
   createdAt?: boolean
   session?: boolean | Prisma.DiscoveryMeetingSessionDefaultArgs<ExtArgs>
+  targetClient?: boolean | Prisma.MeetingProfileSuggestion$targetClientArgs<ExtArgs>
 }, ExtArgs["result"]["meetingProfileSuggestion"]>
 
 export type MeetingProfileSuggestionSelectCreateManyAndReturn<ExtArgs extends runtime.Types.Extensions.InternalArgs = runtime.Types.Extensions.DefaultArgs> = runtime.Types.Extensions.GetSelect<{
@@ -651,8 +866,11 @@ export type MeetingProfileSuggestionSelectCreateManyAndReturn<ExtArgs extends ru
   rationale?: boolean
   status?: boolean
   resolvedAt?: boolean
+  targetClientId?: boolean
+  sourceDescription?: boolean
   createdAt?: boolean
   session?: boolean | Prisma.DiscoveryMeetingSessionDefaultArgs<ExtArgs>
+  targetClient?: boolean | Prisma.MeetingProfileSuggestion$targetClientArgs<ExtArgs>
 }, ExtArgs["result"]["meetingProfileSuggestion"]>
 
 export type MeetingProfileSuggestionSelectUpdateManyAndReturn<ExtArgs extends runtime.Types.Extensions.InternalArgs = runtime.Types.Extensions.DefaultArgs> = runtime.Types.Extensions.GetSelect<{
@@ -665,8 +883,11 @@ export type MeetingProfileSuggestionSelectUpdateManyAndReturn<ExtArgs extends ru
   rationale?: boolean
   status?: boolean
   resolvedAt?: boolean
+  targetClientId?: boolean
+  sourceDescription?: boolean
   createdAt?: boolean
   session?: boolean | Prisma.DiscoveryMeetingSessionDefaultArgs<ExtArgs>
+  targetClient?: boolean | Prisma.MeetingProfileSuggestion$targetClientArgs<ExtArgs>
 }, ExtArgs["result"]["meetingProfileSuggestion"]>
 
 export type MeetingProfileSuggestionSelectScalar = {
@@ -679,24 +900,30 @@ export type MeetingProfileSuggestionSelectScalar = {
   rationale?: boolean
   status?: boolean
   resolvedAt?: boolean
+  targetClientId?: boolean
+  sourceDescription?: boolean
   createdAt?: boolean
 }
 
-export type MeetingProfileSuggestionOmit<ExtArgs extends runtime.Types.Extensions.InternalArgs = runtime.Types.Extensions.DefaultArgs> = runtime.Types.Extensions.GetOmit<"id" | "sessionId" | "targetField" | "suggestedValue" | "confidence" | "evidence" | "rationale" | "status" | "resolvedAt" | "createdAt", ExtArgs["result"]["meetingProfileSuggestion"]>
+export type MeetingProfileSuggestionOmit<ExtArgs extends runtime.Types.Extensions.InternalArgs = runtime.Types.Extensions.DefaultArgs> = runtime.Types.Extensions.GetOmit<"id" | "sessionId" | "targetField" | "suggestedValue" | "confidence" | "evidence" | "rationale" | "status" | "resolvedAt" | "targetClientId" | "sourceDescription" | "createdAt", ExtArgs["result"]["meetingProfileSuggestion"]>
 export type MeetingProfileSuggestionInclude<ExtArgs extends runtime.Types.Extensions.InternalArgs = runtime.Types.Extensions.DefaultArgs> = {
   session?: boolean | Prisma.DiscoveryMeetingSessionDefaultArgs<ExtArgs>
+  targetClient?: boolean | Prisma.MeetingProfileSuggestion$targetClientArgs<ExtArgs>
 }
 export type MeetingProfileSuggestionIncludeCreateManyAndReturn<ExtArgs extends runtime.Types.Extensions.InternalArgs = runtime.Types.Extensions.DefaultArgs> = {
   session?: boolean | Prisma.DiscoveryMeetingSessionDefaultArgs<ExtArgs>
+  targetClient?: boolean | Prisma.MeetingProfileSuggestion$targetClientArgs<ExtArgs>
 }
 export type MeetingProfileSuggestionIncludeUpdateManyAndReturn<ExtArgs extends runtime.Types.Extensions.InternalArgs = runtime.Types.Extensions.DefaultArgs> = {
   session?: boolean | Prisma.DiscoveryMeetingSessionDefaultArgs<ExtArgs>
+  targetClient?: boolean | Prisma.MeetingProfileSuggestion$targetClientArgs<ExtArgs>
 }
 
 export type $MeetingProfileSuggestionPayload<ExtArgs extends runtime.Types.Extensions.InternalArgs = runtime.Types.Extensions.DefaultArgs> = {
   name: "MeetingProfileSuggestion"
   objects: {
     session: Prisma.$DiscoveryMeetingSessionPayload<ExtArgs>
+    targetClient: Prisma.$ClientPayload<ExtArgs> | null
   }
   scalars: runtime.Types.Extensions.GetPayloadResult<{
     id: string
@@ -708,6 +935,8 @@ export type $MeetingProfileSuggestionPayload<ExtArgs extends runtime.Types.Exten
     rationale: string
     status: $Enums.ProfileSuggestionStatus
     resolvedAt: Date | null
+    targetClientId: string | null
+    sourceDescription: string | null
     createdAt: Date
   }, ExtArgs["result"]["meetingProfileSuggestion"]>
   composites: {}
@@ -1104,6 +1333,7 @@ readonly fields: MeetingProfileSuggestionFieldRefs;
 export interface Prisma__MeetingProfileSuggestionClient<T, Null = never, ExtArgs extends runtime.Types.Extensions.InternalArgs = runtime.Types.Extensions.DefaultArgs, GlobalOmitOptions = {}> extends Prisma.PrismaPromise<T> {
   readonly [Symbol.toStringTag]: "PrismaPromise"
   session<T extends Prisma.DiscoveryMeetingSessionDefaultArgs<ExtArgs> = {}>(args?: Prisma.Subset<T, Prisma.DiscoveryMeetingSessionDefaultArgs<ExtArgs>>): Prisma.Prisma__DiscoveryMeetingSessionClient<runtime.Types.Result.GetResult<Prisma.$DiscoveryMeetingSessionPayload<ExtArgs>, T, "findUniqueOrThrow", GlobalOmitOptions> | Null, Null, ExtArgs, GlobalOmitOptions>
+  targetClient<T extends Prisma.MeetingProfileSuggestion$targetClientArgs<ExtArgs> = {}>(args?: Prisma.Subset<T, Prisma.MeetingProfileSuggestion$targetClientArgs<ExtArgs>>): Prisma.Prisma__ClientClient<runtime.Types.Result.GetResult<Prisma.$ClientPayload<ExtArgs>, T, "findUniqueOrThrow", GlobalOmitOptions> | null, null, ExtArgs, GlobalOmitOptions>
   /**
    * Attaches callbacks for the resolution and/or rejection of the Promise.
    * @param onfulfilled The callback to execute when the Promise is resolved.
@@ -1142,6 +1372,8 @@ export interface MeetingProfileSuggestionFieldRefs {
   readonly rationale: Prisma.FieldRef<"MeetingProfileSuggestion", 'String'>
   readonly status: Prisma.FieldRef<"MeetingProfileSuggestion", 'ProfileSuggestionStatus'>
   readonly resolvedAt: Prisma.FieldRef<"MeetingProfileSuggestion", 'DateTime'>
+  readonly targetClientId: Prisma.FieldRef<"MeetingProfileSuggestion", 'String'>
+  readonly sourceDescription: Prisma.FieldRef<"MeetingProfileSuggestion", 'String'>
   readonly createdAt: Prisma.FieldRef<"MeetingProfileSuggestion", 'DateTime'>
 }
     
@@ -1541,6 +1773,25 @@ export type MeetingProfileSuggestionDeleteManyArgs<ExtArgs extends runtime.Types
    * Limit how many MeetingProfileSuggestions to delete.
    */
   limit?: number
+}
+
+/**
+ * MeetingProfileSuggestion.targetClient
+ */
+export type MeetingProfileSuggestion$targetClientArgs<ExtArgs extends runtime.Types.Extensions.InternalArgs = runtime.Types.Extensions.DefaultArgs> = {
+  /**
+   * Select specific fields to fetch from the Client
+   */
+  select?: Prisma.ClientSelect<ExtArgs> | null
+  /**
+   * Omit specific fields from the Client
+   */
+  omit?: Prisma.ClientOmit<ExtArgs> | null
+  /**
+   * Choose, which related nodes to fetch as well
+   */
+  include?: Prisma.ClientInclude<ExtArgs> | null
+  where?: Prisma.ClientWhereInput
 }
 
 /**

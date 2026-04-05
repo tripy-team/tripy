@@ -27,6 +27,7 @@ export type AggregateFamilyMember = {
 export type FamilyMemberMinAggregateOutputType = {
   id: string | null
   clientId: string | null
+  linkedClientId: string | null
   name: string | null
   relationship: string | null
   email: string | null
@@ -40,6 +41,7 @@ export type FamilyMemberMinAggregateOutputType = {
 export type FamilyMemberMaxAggregateOutputType = {
   id: string | null
   clientId: string | null
+  linkedClientId: string | null
   name: string | null
   relationship: string | null
   email: string | null
@@ -53,6 +55,7 @@ export type FamilyMemberMaxAggregateOutputType = {
 export type FamilyMemberCountAggregateOutputType = {
   id: number
   clientId: number
+  linkedClientId: number
   name: number
   relationship: number
   email: number
@@ -68,6 +71,7 @@ export type FamilyMemberCountAggregateOutputType = {
 export type FamilyMemberMinAggregateInputType = {
   id?: true
   clientId?: true
+  linkedClientId?: true
   name?: true
   relationship?: true
   email?: true
@@ -81,6 +85,7 @@ export type FamilyMemberMinAggregateInputType = {
 export type FamilyMemberMaxAggregateInputType = {
   id?: true
   clientId?: true
+  linkedClientId?: true
   name?: true
   relationship?: true
   email?: true
@@ -94,6 +99,7 @@ export type FamilyMemberMaxAggregateInputType = {
 export type FamilyMemberCountAggregateInputType = {
   id?: true
   clientId?: true
+  linkedClientId?: true
   name?: true
   relationship?: true
   email?: true
@@ -180,6 +186,7 @@ export type FamilyMemberGroupByArgs<ExtArgs extends runtime.Types.Extensions.Int
 export type FamilyMemberGroupByOutputType = {
   id: string
   clientId: string
+  linkedClientId: string | null
   name: string
   relationship: string
   email: string | null
@@ -214,6 +221,7 @@ export type FamilyMemberWhereInput = {
   NOT?: Prisma.FamilyMemberWhereInput | Prisma.FamilyMemberWhereInput[]
   id?: Prisma.StringFilter<"FamilyMember"> | string
   clientId?: Prisma.StringFilter<"FamilyMember"> | string
+  linkedClientId?: Prisma.StringNullableFilter<"FamilyMember"> | string | null
   name?: Prisma.StringFilter<"FamilyMember"> | string
   relationship?: Prisma.StringFilter<"FamilyMember"> | string
   email?: Prisma.StringNullableFilter<"FamilyMember"> | string | null
@@ -223,11 +231,13 @@ export type FamilyMemberWhereInput = {
   createdAt?: Prisma.DateTimeFilter<"FamilyMember"> | Date | string
   updatedAt?: Prisma.DateTimeFilter<"FamilyMember"> | Date | string
   client?: Prisma.XOR<Prisma.ClientScalarRelationFilter, Prisma.ClientWhereInput>
+  linkedClient?: Prisma.XOR<Prisma.ClientNullableScalarRelationFilter, Prisma.ClientWhereInput> | null
 }
 
 export type FamilyMemberOrderByWithRelationInput = {
   id?: Prisma.SortOrder
   clientId?: Prisma.SortOrder
+  linkedClientId?: Prisma.SortOrderInput | Prisma.SortOrder
   name?: Prisma.SortOrder
   relationship?: Prisma.SortOrder
   email?: Prisma.SortOrderInput | Prisma.SortOrder
@@ -237,10 +247,12 @@ export type FamilyMemberOrderByWithRelationInput = {
   createdAt?: Prisma.SortOrder
   updatedAt?: Prisma.SortOrder
   client?: Prisma.ClientOrderByWithRelationInput
+  linkedClient?: Prisma.ClientOrderByWithRelationInput
 }
 
 export type FamilyMemberWhereUniqueInput = Prisma.AtLeast<{
   id?: string
+  linkedClientId?: string
   AND?: Prisma.FamilyMemberWhereInput | Prisma.FamilyMemberWhereInput[]
   OR?: Prisma.FamilyMemberWhereInput[]
   NOT?: Prisma.FamilyMemberWhereInput | Prisma.FamilyMemberWhereInput[]
@@ -254,11 +266,13 @@ export type FamilyMemberWhereUniqueInput = Prisma.AtLeast<{
   createdAt?: Prisma.DateTimeFilter<"FamilyMember"> | Date | string
   updatedAt?: Prisma.DateTimeFilter<"FamilyMember"> | Date | string
   client?: Prisma.XOR<Prisma.ClientScalarRelationFilter, Prisma.ClientWhereInput>
-}, "id">
+  linkedClient?: Prisma.XOR<Prisma.ClientNullableScalarRelationFilter, Prisma.ClientWhereInput> | null
+}, "id" | "linkedClientId">
 
 export type FamilyMemberOrderByWithAggregationInput = {
   id?: Prisma.SortOrder
   clientId?: Prisma.SortOrder
+  linkedClientId?: Prisma.SortOrderInput | Prisma.SortOrder
   name?: Prisma.SortOrder
   relationship?: Prisma.SortOrder
   email?: Prisma.SortOrderInput | Prisma.SortOrder
@@ -278,6 +292,7 @@ export type FamilyMemberScalarWhereWithAggregatesInput = {
   NOT?: Prisma.FamilyMemberScalarWhereWithAggregatesInput | Prisma.FamilyMemberScalarWhereWithAggregatesInput[]
   id?: Prisma.StringWithAggregatesFilter<"FamilyMember"> | string
   clientId?: Prisma.StringWithAggregatesFilter<"FamilyMember"> | string
+  linkedClientId?: Prisma.StringNullableWithAggregatesFilter<"FamilyMember"> | string | null
   name?: Prisma.StringWithAggregatesFilter<"FamilyMember"> | string
   relationship?: Prisma.StringWithAggregatesFilter<"FamilyMember"> | string
   email?: Prisma.StringNullableWithAggregatesFilter<"FamilyMember"> | string | null
@@ -299,11 +314,13 @@ export type FamilyMemberCreateInput = {
   createdAt?: Date | string
   updatedAt?: Date | string
   client: Prisma.ClientCreateNestedOneWithoutFamilyMembersInput
+  linkedClient?: Prisma.ClientCreateNestedOneWithoutLinkedFromFamilyMemberInput
 }
 
 export type FamilyMemberUncheckedCreateInput = {
   id?: string
   clientId: string
+  linkedClientId?: string | null
   name: string
   relationship: string
   email?: string | null
@@ -325,11 +342,13 @@ export type FamilyMemberUpdateInput = {
   createdAt?: Prisma.DateTimeFieldUpdateOperationsInput | Date | string
   updatedAt?: Prisma.DateTimeFieldUpdateOperationsInput | Date | string
   client?: Prisma.ClientUpdateOneRequiredWithoutFamilyMembersNestedInput
+  linkedClient?: Prisma.ClientUpdateOneWithoutLinkedFromFamilyMemberNestedInput
 }
 
 export type FamilyMemberUncheckedUpdateInput = {
   id?: Prisma.StringFieldUpdateOperationsInput | string
   clientId?: Prisma.StringFieldUpdateOperationsInput | string
+  linkedClientId?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
   name?: Prisma.StringFieldUpdateOperationsInput | string
   relationship?: Prisma.StringFieldUpdateOperationsInput | string
   email?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
@@ -343,6 +362,7 @@ export type FamilyMemberUncheckedUpdateInput = {
 export type FamilyMemberCreateManyInput = {
   id?: string
   clientId: string
+  linkedClientId?: string | null
   name: string
   relationship: string
   email?: string | null
@@ -368,6 +388,7 @@ export type FamilyMemberUpdateManyMutationInput = {
 export type FamilyMemberUncheckedUpdateManyInput = {
   id?: Prisma.StringFieldUpdateOperationsInput | string
   clientId?: Prisma.StringFieldUpdateOperationsInput | string
+  linkedClientId?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
   name?: Prisma.StringFieldUpdateOperationsInput | string
   relationship?: Prisma.StringFieldUpdateOperationsInput | string
   email?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
@@ -384,6 +405,11 @@ export type FamilyMemberListRelationFilter = {
   none?: Prisma.FamilyMemberWhereInput
 }
 
+export type FamilyMemberNullableScalarRelationFilter = {
+  is?: Prisma.FamilyMemberWhereInput | null
+  isNot?: Prisma.FamilyMemberWhereInput | null
+}
+
 export type FamilyMemberOrderByRelationAggregateInput = {
   _count?: Prisma.SortOrder
 }
@@ -391,6 +417,7 @@ export type FamilyMemberOrderByRelationAggregateInput = {
 export type FamilyMemberCountOrderByAggregateInput = {
   id?: Prisma.SortOrder
   clientId?: Prisma.SortOrder
+  linkedClientId?: Prisma.SortOrder
   name?: Prisma.SortOrder
   relationship?: Prisma.SortOrder
   email?: Prisma.SortOrder
@@ -404,6 +431,7 @@ export type FamilyMemberCountOrderByAggregateInput = {
 export type FamilyMemberMaxOrderByAggregateInput = {
   id?: Prisma.SortOrder
   clientId?: Prisma.SortOrder
+  linkedClientId?: Prisma.SortOrder
   name?: Prisma.SortOrder
   relationship?: Prisma.SortOrder
   email?: Prisma.SortOrder
@@ -417,6 +445,7 @@ export type FamilyMemberMaxOrderByAggregateInput = {
 export type FamilyMemberMinOrderByAggregateInput = {
   id?: Prisma.SortOrder
   clientId?: Prisma.SortOrder
+  linkedClientId?: Prisma.SortOrder
   name?: Prisma.SortOrder
   relationship?: Prisma.SortOrder
   email?: Prisma.SortOrder
@@ -434,11 +463,23 @@ export type FamilyMemberCreateNestedManyWithoutClientInput = {
   connect?: Prisma.FamilyMemberWhereUniqueInput | Prisma.FamilyMemberWhereUniqueInput[]
 }
 
+export type FamilyMemberCreateNestedOneWithoutLinkedClientInput = {
+  create?: Prisma.XOR<Prisma.FamilyMemberCreateWithoutLinkedClientInput, Prisma.FamilyMemberUncheckedCreateWithoutLinkedClientInput>
+  connectOrCreate?: Prisma.FamilyMemberCreateOrConnectWithoutLinkedClientInput
+  connect?: Prisma.FamilyMemberWhereUniqueInput
+}
+
 export type FamilyMemberUncheckedCreateNestedManyWithoutClientInput = {
   create?: Prisma.XOR<Prisma.FamilyMemberCreateWithoutClientInput, Prisma.FamilyMemberUncheckedCreateWithoutClientInput> | Prisma.FamilyMemberCreateWithoutClientInput[] | Prisma.FamilyMemberUncheckedCreateWithoutClientInput[]
   connectOrCreate?: Prisma.FamilyMemberCreateOrConnectWithoutClientInput | Prisma.FamilyMemberCreateOrConnectWithoutClientInput[]
   createMany?: Prisma.FamilyMemberCreateManyClientInputEnvelope
   connect?: Prisma.FamilyMemberWhereUniqueInput | Prisma.FamilyMemberWhereUniqueInput[]
+}
+
+export type FamilyMemberUncheckedCreateNestedOneWithoutLinkedClientInput = {
+  create?: Prisma.XOR<Prisma.FamilyMemberCreateWithoutLinkedClientInput, Prisma.FamilyMemberUncheckedCreateWithoutLinkedClientInput>
+  connectOrCreate?: Prisma.FamilyMemberCreateOrConnectWithoutLinkedClientInput
+  connect?: Prisma.FamilyMemberWhereUniqueInput
 }
 
 export type FamilyMemberUpdateManyWithoutClientNestedInput = {
@@ -455,6 +496,16 @@ export type FamilyMemberUpdateManyWithoutClientNestedInput = {
   deleteMany?: Prisma.FamilyMemberScalarWhereInput | Prisma.FamilyMemberScalarWhereInput[]
 }
 
+export type FamilyMemberUpdateOneWithoutLinkedClientNestedInput = {
+  create?: Prisma.XOR<Prisma.FamilyMemberCreateWithoutLinkedClientInput, Prisma.FamilyMemberUncheckedCreateWithoutLinkedClientInput>
+  connectOrCreate?: Prisma.FamilyMemberCreateOrConnectWithoutLinkedClientInput
+  upsert?: Prisma.FamilyMemberUpsertWithoutLinkedClientInput
+  disconnect?: Prisma.FamilyMemberWhereInput | boolean
+  delete?: Prisma.FamilyMemberWhereInput | boolean
+  connect?: Prisma.FamilyMemberWhereUniqueInput
+  update?: Prisma.XOR<Prisma.XOR<Prisma.FamilyMemberUpdateToOneWithWhereWithoutLinkedClientInput, Prisma.FamilyMemberUpdateWithoutLinkedClientInput>, Prisma.FamilyMemberUncheckedUpdateWithoutLinkedClientInput>
+}
+
 export type FamilyMemberUncheckedUpdateManyWithoutClientNestedInput = {
   create?: Prisma.XOR<Prisma.FamilyMemberCreateWithoutClientInput, Prisma.FamilyMemberUncheckedCreateWithoutClientInput> | Prisma.FamilyMemberCreateWithoutClientInput[] | Prisma.FamilyMemberUncheckedCreateWithoutClientInput[]
   connectOrCreate?: Prisma.FamilyMemberCreateOrConnectWithoutClientInput | Prisma.FamilyMemberCreateOrConnectWithoutClientInput[]
@@ -469,6 +520,16 @@ export type FamilyMemberUncheckedUpdateManyWithoutClientNestedInput = {
   deleteMany?: Prisma.FamilyMemberScalarWhereInput | Prisma.FamilyMemberScalarWhereInput[]
 }
 
+export type FamilyMemberUncheckedUpdateOneWithoutLinkedClientNestedInput = {
+  create?: Prisma.XOR<Prisma.FamilyMemberCreateWithoutLinkedClientInput, Prisma.FamilyMemberUncheckedCreateWithoutLinkedClientInput>
+  connectOrCreate?: Prisma.FamilyMemberCreateOrConnectWithoutLinkedClientInput
+  upsert?: Prisma.FamilyMemberUpsertWithoutLinkedClientInput
+  disconnect?: Prisma.FamilyMemberWhereInput | boolean
+  delete?: Prisma.FamilyMemberWhereInput | boolean
+  connect?: Prisma.FamilyMemberWhereUniqueInput
+  update?: Prisma.XOR<Prisma.XOR<Prisma.FamilyMemberUpdateToOneWithWhereWithoutLinkedClientInput, Prisma.FamilyMemberUpdateWithoutLinkedClientInput>, Prisma.FamilyMemberUncheckedUpdateWithoutLinkedClientInput>
+}
+
 export type FamilyMemberCreateWithoutClientInput = {
   id?: string
   name: string
@@ -479,10 +540,12 @@ export type FamilyMemberCreateWithoutClientInput = {
   notes?: string | null
   createdAt?: Date | string
   updatedAt?: Date | string
+  linkedClient?: Prisma.ClientCreateNestedOneWithoutLinkedFromFamilyMemberInput
 }
 
 export type FamilyMemberUncheckedCreateWithoutClientInput = {
   id?: string
+  linkedClientId?: string | null
   name: string
   relationship: string
   email?: string | null
@@ -501,6 +564,37 @@ export type FamilyMemberCreateOrConnectWithoutClientInput = {
 export type FamilyMemberCreateManyClientInputEnvelope = {
   data: Prisma.FamilyMemberCreateManyClientInput | Prisma.FamilyMemberCreateManyClientInput[]
   skipDuplicates?: boolean
+}
+
+export type FamilyMemberCreateWithoutLinkedClientInput = {
+  id?: string
+  name: string
+  relationship: string
+  email?: string | null
+  phone?: string | null
+  dateOfBirth?: Date | string | null
+  notes?: string | null
+  createdAt?: Date | string
+  updatedAt?: Date | string
+  client: Prisma.ClientCreateNestedOneWithoutFamilyMembersInput
+}
+
+export type FamilyMemberUncheckedCreateWithoutLinkedClientInput = {
+  id?: string
+  clientId: string
+  name: string
+  relationship: string
+  email?: string | null
+  phone?: string | null
+  dateOfBirth?: Date | string | null
+  notes?: string | null
+  createdAt?: Date | string
+  updatedAt?: Date | string
+}
+
+export type FamilyMemberCreateOrConnectWithoutLinkedClientInput = {
+  where: Prisma.FamilyMemberWhereUniqueInput
+  create: Prisma.XOR<Prisma.FamilyMemberCreateWithoutLinkedClientInput, Prisma.FamilyMemberUncheckedCreateWithoutLinkedClientInput>
 }
 
 export type FamilyMemberUpsertWithWhereUniqueWithoutClientInput = {
@@ -525,6 +619,7 @@ export type FamilyMemberScalarWhereInput = {
   NOT?: Prisma.FamilyMemberScalarWhereInput | Prisma.FamilyMemberScalarWhereInput[]
   id?: Prisma.StringFilter<"FamilyMember"> | string
   clientId?: Prisma.StringFilter<"FamilyMember"> | string
+  linkedClientId?: Prisma.StringNullableFilter<"FamilyMember"> | string | null
   name?: Prisma.StringFilter<"FamilyMember"> | string
   relationship?: Prisma.StringFilter<"FamilyMember"> | string
   email?: Prisma.StringNullableFilter<"FamilyMember"> | string | null
@@ -535,8 +630,46 @@ export type FamilyMemberScalarWhereInput = {
   updatedAt?: Prisma.DateTimeFilter<"FamilyMember"> | Date | string
 }
 
+export type FamilyMemberUpsertWithoutLinkedClientInput = {
+  update: Prisma.XOR<Prisma.FamilyMemberUpdateWithoutLinkedClientInput, Prisma.FamilyMemberUncheckedUpdateWithoutLinkedClientInput>
+  create: Prisma.XOR<Prisma.FamilyMemberCreateWithoutLinkedClientInput, Prisma.FamilyMemberUncheckedCreateWithoutLinkedClientInput>
+  where?: Prisma.FamilyMemberWhereInput
+}
+
+export type FamilyMemberUpdateToOneWithWhereWithoutLinkedClientInput = {
+  where?: Prisma.FamilyMemberWhereInput
+  data: Prisma.XOR<Prisma.FamilyMemberUpdateWithoutLinkedClientInput, Prisma.FamilyMemberUncheckedUpdateWithoutLinkedClientInput>
+}
+
+export type FamilyMemberUpdateWithoutLinkedClientInput = {
+  id?: Prisma.StringFieldUpdateOperationsInput | string
+  name?: Prisma.StringFieldUpdateOperationsInput | string
+  relationship?: Prisma.StringFieldUpdateOperationsInput | string
+  email?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
+  phone?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
+  dateOfBirth?: Prisma.NullableDateTimeFieldUpdateOperationsInput | Date | string | null
+  notes?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
+  createdAt?: Prisma.DateTimeFieldUpdateOperationsInput | Date | string
+  updatedAt?: Prisma.DateTimeFieldUpdateOperationsInput | Date | string
+  client?: Prisma.ClientUpdateOneRequiredWithoutFamilyMembersNestedInput
+}
+
+export type FamilyMemberUncheckedUpdateWithoutLinkedClientInput = {
+  id?: Prisma.StringFieldUpdateOperationsInput | string
+  clientId?: Prisma.StringFieldUpdateOperationsInput | string
+  name?: Prisma.StringFieldUpdateOperationsInput | string
+  relationship?: Prisma.StringFieldUpdateOperationsInput | string
+  email?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
+  phone?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
+  dateOfBirth?: Prisma.NullableDateTimeFieldUpdateOperationsInput | Date | string | null
+  notes?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
+  createdAt?: Prisma.DateTimeFieldUpdateOperationsInput | Date | string
+  updatedAt?: Prisma.DateTimeFieldUpdateOperationsInput | Date | string
+}
+
 export type FamilyMemberCreateManyClientInput = {
   id?: string
+  linkedClientId?: string | null
   name: string
   relationship: string
   email?: string | null
@@ -557,10 +690,12 @@ export type FamilyMemberUpdateWithoutClientInput = {
   notes?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
   createdAt?: Prisma.DateTimeFieldUpdateOperationsInput | Date | string
   updatedAt?: Prisma.DateTimeFieldUpdateOperationsInput | Date | string
+  linkedClient?: Prisma.ClientUpdateOneWithoutLinkedFromFamilyMemberNestedInput
 }
 
 export type FamilyMemberUncheckedUpdateWithoutClientInput = {
   id?: Prisma.StringFieldUpdateOperationsInput | string
+  linkedClientId?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
   name?: Prisma.StringFieldUpdateOperationsInput | string
   relationship?: Prisma.StringFieldUpdateOperationsInput | string
   email?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
@@ -573,6 +708,7 @@ export type FamilyMemberUncheckedUpdateWithoutClientInput = {
 
 export type FamilyMemberUncheckedUpdateManyWithoutClientInput = {
   id?: Prisma.StringFieldUpdateOperationsInput | string
+  linkedClientId?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
   name?: Prisma.StringFieldUpdateOperationsInput | string
   relationship?: Prisma.StringFieldUpdateOperationsInput | string
   email?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
@@ -588,6 +724,7 @@ export type FamilyMemberUncheckedUpdateManyWithoutClientInput = {
 export type FamilyMemberSelect<ExtArgs extends runtime.Types.Extensions.InternalArgs = runtime.Types.Extensions.DefaultArgs> = runtime.Types.Extensions.GetSelect<{
   id?: boolean
   clientId?: boolean
+  linkedClientId?: boolean
   name?: boolean
   relationship?: boolean
   email?: boolean
@@ -597,11 +734,13 @@ export type FamilyMemberSelect<ExtArgs extends runtime.Types.Extensions.Internal
   createdAt?: boolean
   updatedAt?: boolean
   client?: boolean | Prisma.ClientDefaultArgs<ExtArgs>
+  linkedClient?: boolean | Prisma.FamilyMember$linkedClientArgs<ExtArgs>
 }, ExtArgs["result"]["familyMember"]>
 
 export type FamilyMemberSelectCreateManyAndReturn<ExtArgs extends runtime.Types.Extensions.InternalArgs = runtime.Types.Extensions.DefaultArgs> = runtime.Types.Extensions.GetSelect<{
   id?: boolean
   clientId?: boolean
+  linkedClientId?: boolean
   name?: boolean
   relationship?: boolean
   email?: boolean
@@ -611,11 +750,13 @@ export type FamilyMemberSelectCreateManyAndReturn<ExtArgs extends runtime.Types.
   createdAt?: boolean
   updatedAt?: boolean
   client?: boolean | Prisma.ClientDefaultArgs<ExtArgs>
+  linkedClient?: boolean | Prisma.FamilyMember$linkedClientArgs<ExtArgs>
 }, ExtArgs["result"]["familyMember"]>
 
 export type FamilyMemberSelectUpdateManyAndReturn<ExtArgs extends runtime.Types.Extensions.InternalArgs = runtime.Types.Extensions.DefaultArgs> = runtime.Types.Extensions.GetSelect<{
   id?: boolean
   clientId?: boolean
+  linkedClientId?: boolean
   name?: boolean
   relationship?: boolean
   email?: boolean
@@ -625,11 +766,13 @@ export type FamilyMemberSelectUpdateManyAndReturn<ExtArgs extends runtime.Types.
   createdAt?: boolean
   updatedAt?: boolean
   client?: boolean | Prisma.ClientDefaultArgs<ExtArgs>
+  linkedClient?: boolean | Prisma.FamilyMember$linkedClientArgs<ExtArgs>
 }, ExtArgs["result"]["familyMember"]>
 
 export type FamilyMemberSelectScalar = {
   id?: boolean
   clientId?: boolean
+  linkedClientId?: boolean
   name?: boolean
   relationship?: boolean
   email?: boolean
@@ -640,25 +783,30 @@ export type FamilyMemberSelectScalar = {
   updatedAt?: boolean
 }
 
-export type FamilyMemberOmit<ExtArgs extends runtime.Types.Extensions.InternalArgs = runtime.Types.Extensions.DefaultArgs> = runtime.Types.Extensions.GetOmit<"id" | "clientId" | "name" | "relationship" | "email" | "phone" | "dateOfBirth" | "notes" | "createdAt" | "updatedAt", ExtArgs["result"]["familyMember"]>
+export type FamilyMemberOmit<ExtArgs extends runtime.Types.Extensions.InternalArgs = runtime.Types.Extensions.DefaultArgs> = runtime.Types.Extensions.GetOmit<"id" | "clientId" | "linkedClientId" | "name" | "relationship" | "email" | "phone" | "dateOfBirth" | "notes" | "createdAt" | "updatedAt", ExtArgs["result"]["familyMember"]>
 export type FamilyMemberInclude<ExtArgs extends runtime.Types.Extensions.InternalArgs = runtime.Types.Extensions.DefaultArgs> = {
   client?: boolean | Prisma.ClientDefaultArgs<ExtArgs>
+  linkedClient?: boolean | Prisma.FamilyMember$linkedClientArgs<ExtArgs>
 }
 export type FamilyMemberIncludeCreateManyAndReturn<ExtArgs extends runtime.Types.Extensions.InternalArgs = runtime.Types.Extensions.DefaultArgs> = {
   client?: boolean | Prisma.ClientDefaultArgs<ExtArgs>
+  linkedClient?: boolean | Prisma.FamilyMember$linkedClientArgs<ExtArgs>
 }
 export type FamilyMemberIncludeUpdateManyAndReturn<ExtArgs extends runtime.Types.Extensions.InternalArgs = runtime.Types.Extensions.DefaultArgs> = {
   client?: boolean | Prisma.ClientDefaultArgs<ExtArgs>
+  linkedClient?: boolean | Prisma.FamilyMember$linkedClientArgs<ExtArgs>
 }
 
 export type $FamilyMemberPayload<ExtArgs extends runtime.Types.Extensions.InternalArgs = runtime.Types.Extensions.DefaultArgs> = {
   name: "FamilyMember"
   objects: {
     client: Prisma.$ClientPayload<ExtArgs>
+    linkedClient: Prisma.$ClientPayload<ExtArgs> | null
   }
   scalars: runtime.Types.Extensions.GetPayloadResult<{
     id: string
     clientId: string
+    linkedClientId: string | null
     name: string
     relationship: string
     email: string | null
@@ -1062,6 +1210,7 @@ readonly fields: FamilyMemberFieldRefs;
 export interface Prisma__FamilyMemberClient<T, Null = never, ExtArgs extends runtime.Types.Extensions.InternalArgs = runtime.Types.Extensions.DefaultArgs, GlobalOmitOptions = {}> extends Prisma.PrismaPromise<T> {
   readonly [Symbol.toStringTag]: "PrismaPromise"
   client<T extends Prisma.ClientDefaultArgs<ExtArgs> = {}>(args?: Prisma.Subset<T, Prisma.ClientDefaultArgs<ExtArgs>>): Prisma.Prisma__ClientClient<runtime.Types.Result.GetResult<Prisma.$ClientPayload<ExtArgs>, T, "findUniqueOrThrow", GlobalOmitOptions> | Null, Null, ExtArgs, GlobalOmitOptions>
+  linkedClient<T extends Prisma.FamilyMember$linkedClientArgs<ExtArgs> = {}>(args?: Prisma.Subset<T, Prisma.FamilyMember$linkedClientArgs<ExtArgs>>): Prisma.Prisma__ClientClient<runtime.Types.Result.GetResult<Prisma.$ClientPayload<ExtArgs>, T, "findUniqueOrThrow", GlobalOmitOptions> | null, null, ExtArgs, GlobalOmitOptions>
   /**
    * Attaches callbacks for the resolution and/or rejection of the Promise.
    * @param onfulfilled The callback to execute when the Promise is resolved.
@@ -1093,6 +1242,7 @@ export interface Prisma__FamilyMemberClient<T, Null = never, ExtArgs extends run
 export interface FamilyMemberFieldRefs {
   readonly id: Prisma.FieldRef<"FamilyMember", 'String'>
   readonly clientId: Prisma.FieldRef<"FamilyMember", 'String'>
+  readonly linkedClientId: Prisma.FieldRef<"FamilyMember", 'String'>
   readonly name: Prisma.FieldRef<"FamilyMember", 'String'>
   readonly relationship: Prisma.FieldRef<"FamilyMember", 'String'>
   readonly email: Prisma.FieldRef<"FamilyMember", 'String'>
@@ -1499,6 +1649,25 @@ export type FamilyMemberDeleteManyArgs<ExtArgs extends runtime.Types.Extensions.
    * Limit how many FamilyMembers to delete.
    */
   limit?: number
+}
+
+/**
+ * FamilyMember.linkedClient
+ */
+export type FamilyMember$linkedClientArgs<ExtArgs extends runtime.Types.Extensions.InternalArgs = runtime.Types.Extensions.DefaultArgs> = {
+  /**
+   * Select specific fields to fetch from the Client
+   */
+  select?: Prisma.ClientSelect<ExtArgs> | null
+  /**
+   * Omit specific fields from the Client
+   */
+  omit?: Prisma.ClientOmit<ExtArgs> | null
+  /**
+   * Choose, which related nodes to fetch as well
+   */
+  include?: Prisma.ClientInclude<ExtArgs> | null
+  where?: Prisma.ClientWhereInput
 }
 
 /**

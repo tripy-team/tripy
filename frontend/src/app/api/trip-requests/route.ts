@@ -68,6 +68,19 @@ export async function POST(request: Request) {
         flexibilityDays: flexibilityDays ?? null,
         budgetCash: budgetCash ?? null,
         notes: notes || null,
+        ...(clientId
+          ? {
+              travelers: {
+                create: {
+                  clientId,
+                  travelerType: "adult",
+                  useLeaderCities: true,
+                  originAirports: originAirports ?? [],
+                  destinationAirports: destinationAirports ?? [],
+                },
+              },
+            }
+          : {}),
       },
     });
 

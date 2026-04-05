@@ -53,6 +53,13 @@ export interface Client {
   tripRequests?: ClientTripSummary[];
 }
 
+export interface InitialBalanceEntry {
+  loyaltyProgramId: string;
+  balance: number;
+  expirationDate?: string;
+  notes?: string;
+}
+
 export interface ClientCreatePayload {
   firstName: string;
   lastName: string;
@@ -61,11 +68,24 @@ export interface ClientCreatePayload {
   phone?: string;
   dateOfBirth?: string;
   notes?: string;
+  initialBalances?: InitialBalanceEntry[];
+}
+
+export interface LinkedClientSummary {
+  id: string;
+  firstName: string;
+  lastName: string;
+  email?: string;
+  phone?: string;
+  loyaltyBalances?: LoyaltyBalance[];
+  preferences?: ClientPreference;
 }
 
 export interface FamilyMember {
   id: string;
   clientId: string;
+  linkedClientId?: string;
+  linkedClient?: LinkedClientSummary;
   name: string;
   relationship: string;
   email?: string;
@@ -77,21 +97,45 @@ export interface FamilyMember {
 }
 
 export interface FamilyMemberCreatePayload {
-  name: string;
+  existingClientId?: string;
+  firstName: string;
+  lastName: string;
   relationship: string;
+  email: string;
+  phone?: string;
+  dateOfBirth?: string;
+  notes?: string;
+  loyaltyBalances?: { loyaltyProgramId: string; balance: number }[];
+}
+
+export interface FamilyMemberUpdatePayload {
+  firstName?: string;
+  lastName?: string;
+  relationship?: string;
   email?: string;
   phone?: string;
   dateOfBirth?: string;
   notes?: string;
 }
 
+export interface LoyaltyProgramRecord {
+  id: string;
+  code: string;
+  name: string;
+  category: string;
+  issuer?: string;
+}
+
 export interface LoyaltyBalance {
   id: string;
   clientId: string;
+  loyaltyProgramId: string;
+  loyaltyProgram?: LoyaltyProgramRecord;
   programName: string;
   balance: number;
   expirationDate?: string;
-  lastUpdated: string;
+  updatedAt: string;
+  createdAt: string;
   ledgerEntries?: LedgerEntry[];
 }
 
@@ -216,7 +260,7 @@ export interface TripRequest {
   travelerCount: number;
   cabinPreference?: string;
   flexibilityDays?: number;
-  budgetUsd?: number;
+  budgetCash?: number;
   notes?: string;
   status: 'draft' | 'analyzing' | 'complete' | 'archived';
   createdAt: string;
@@ -231,6 +275,9 @@ export interface TripTraveler {
   id: string;
   tripRequestId: string;
   clientId: string;
+  originAirports?: string[];
+  destinationAirports?: string[];
+  useLeaderCities?: boolean;
   client?: Client;
 }
 
@@ -245,7 +292,7 @@ export interface TripRequestCreatePayload {
   travelerCount: number;
   cabinPreference?: string;
   flexibilityDays?: number;
-  budgetUsd?: number;
+  budgetCash?: number;
   notes?: string;
 }
 
@@ -808,7 +855,14 @@ export interface MeetingQuestionSuggestion {
   priority: string;
   targetFields: string[];
   isUsed: boolean;
+  round: number;
   createdAt: string;
+}
+
+export interface AnsweredQuestionPayload {
+  questionText: string;
+  answer: string;
+  category?: string;
 }
 
 export interface MeetingProfileSuggestion {
@@ -821,6 +875,9 @@ export interface MeetingProfileSuggestion {
   rationale: string;
   status: ProfileSuggestionStatus;
   resolvedAt?: string | null;
+  targetClientId?: string | null;
+  targetClient?: { id: string; firstName: string; lastName: string } | null;
+  sourceDescription?: string | null;
   createdAt: string;
 }
 
@@ -844,6 +901,8 @@ export interface MeetingCommitPreviewItem {
   evidence: string;
   rationale: string;
   willOverwrite: boolean;
+  targetClientId?: string | null;
+  targetClientName?: string | null;
 }
 
 export interface MeetingCommitResult {
@@ -855,11 +914,27 @@ export interface MeetingCommitResult {
 export interface MeetingQuestionsResult {
   generated: number;
   questions: MeetingQuestionSuggestion[];
+  round: number;
+  profileCompleteness?: number;
 }
 
 export interface MeetingExtractResult {
   extracted: number;
   suggestions: MeetingProfileSuggestion[];
+}
+
+export interface MeetingEntryWithExtractions extends MeetingEntryItem {
+  extractedSuggestions?: MeetingProfileSuggestion[];
+  autoCommittedFields?: string[];
+}
+
+export interface ProfileCompletenessData {
+  overallPercent: number;
+  readyForTripPlanning: boolean;
+  filledFields: string[];
+  emptyFields: string[];
+  emptyCriticalFields: string[];
+  categoryBreakdown: Record<string, { filled: number; total: number; percent: number }>;
 }
 
 // ---------------------------------------------------------------------------
@@ -961,12 +1036,16 @@ export function getClientBalances(clientId: string) {
 
 export function addClientBalance(
   clientId: string,
-  payload: { programName: string; balance: number; expirationDate?: string },
+  payload: { loyaltyProgramId: string; balance: number; expirationDate?: string },
 ) {
   return apiFetch<LoyaltyBalance>(`/clients/${clientId}/balances`, {
     method: 'POST',
     body: JSON.stringify(payload),
   });
+}
+
+export function getLoyaltyPrograms() {
+  return apiFetch<LoyaltyProgramRecord[]>('/loyalty-programs');
 }
 
 export function getClientPreferences(clientId: string) {
@@ -1009,6 +1088,13 @@ export function getFamilyMembers(clientId: string) {
 export function addFamilyMember(clientId: string, payload: FamilyMemberCreatePayload) {
   return apiFetch<FamilyMember>(`/clients/${clientId}/family-members`, {
     method: 'POST',
+    body: JSON.stringify(payload),
+  });
+}
+
+export function updateFamilyMember(clientId: string, memberId: string, payload: FamilyMemberUpdatePayload) {
+  return apiFetch<FamilyMember>(`/clients/${clientId}/family-members/${memberId}`, {
+    method: 'PATCH',
     body: JSON.stringify(payload),
   });
 }
@@ -1121,10 +1207,18 @@ export function createTripRequest(payload: TripRequestCreatePayload) {
   });
 }
 
-export function addTripTraveler(tripId: string, clientId: string) {
+export function addTripTraveler(
+  tripId: string,
+  clientId: string,
+  options?: {
+    originAirports?: string[];
+    destinationAirports?: string[];
+    useLeaderCities?: boolean;
+  },
+) {
   return apiFetch<TripTraveler>(`/trip-requests/${tripId}/travelers`, {
     method: 'POST',
-    body: JSON.stringify({ clientId }),
+    body: JSON.stringify({ clientId, ...options }),
   });
 }
 
@@ -1140,6 +1234,156 @@ export function getTripConfidence(tripId: string) {
 
 export function analyzeTripRequest(tripId: string) {
   return apiFetch<RecommendationRunSummary>(`/trip-requests/${tripId}/analyze`, {
+    method: 'POST',
+  });
+}
+
+// ---------------------------------------------------------------------------
+// Itinerary Generation
+// ---------------------------------------------------------------------------
+
+export interface ItineraryFlightRecommendation {
+  segment: string;
+  airline: string;
+  flightExample: string;
+  cabin: string;
+  departureTime: string;
+  arrivalTime: string;
+  duration: string;
+  stops: number;
+  pointsOption?: {
+    program: string;
+    pointsRequired: number;
+    transferFrom?: string;
+    transferBonus?: string;
+    taxes: number;
+  };
+  cashOption?: {
+    estimatedPrice: number;
+    fareClass: string;
+  };
+  recommendation: string;
+  whyThisFlight: string;
+}
+
+export interface ItineraryHotelRecommendation {
+  destination: string;
+  hotelName: string;
+  hotelType: string;
+  starRating: number;
+  neighborhood: string;
+  checkIn: string;
+  checkOut: string;
+  nightCount: number;
+  pointsOption?: {
+    program: string;
+    pointsPerNight: number;
+    totalPoints: number;
+    transferFrom?: string;
+  };
+  cashOption?: {
+    estimatedPerNight: number;
+    estimatedTotal: number;
+  };
+  highlights: string[];
+  whyThisHotel: string;
+}
+
+export interface ItineraryDayPlan {
+  day: number;
+  date: string;
+  location: string;
+  theme: string;
+  morning: string;
+  afternoon: string;
+  evening: string;
+  diningRecommendation?: string;
+  tips?: string;
+}
+
+export interface ItineraryTransportationRecommendation {
+  type: string;
+  provider: string;
+  route: string;
+  estimatedCost: number;
+  duration: string;
+  notes: string;
+  bookingTip?: string;
+}
+
+export interface ItineraryBudgetBreakdown {
+  totalEstimatedCash: number;
+  totalPointsUsed: { program: string; points: number }[];
+  flightsCash: number;
+  flightsPoints: string;
+  hotelsCash: number;
+  hotelsPoints: string;
+  transportationCash: number;
+  activitiesAndDining: number;
+  savings: string;
+}
+
+export interface GeneratedItinerary {
+  summary: string;
+  flights: ItineraryFlightRecommendation[];
+  hotels: ItineraryHotelRecommendation[];
+  transportation: ItineraryTransportationRecommendation[];
+  dailyItinerary: ItineraryDayPlan[];
+  budgetBreakdown: ItineraryBudgetBreakdown;
+  pointsStrategy: string;
+  tips: string[];
+  travelerFlights?: TravelerFlightGroup[];
+}
+
+// Per-traveler real flight search results
+export interface TravelerFlightGroup {
+  travelerId: string;
+  travelerName: string;
+  clientId: string;
+  segments: TravelerFlightSegment[];
+}
+
+export interface TravelerFlightSegment {
+  segmentLabel: string;
+  origin: string;
+  destination: string;
+  date: string;
+  cashOptions: CashFlightOption[];
+  awardOptions: AwardFlightOption[];
+}
+
+export interface CashFlightOption {
+  airline: string;
+  airlineLogo?: string;
+  flightNumber: string;
+  departureAirport: string;
+  departureTime: string;
+  arrivalAirport: string;
+  arrivalTime: string;
+  duration: number;
+  stops: number;
+  layovers: { airport: string; durationMin: number }[];
+  price: number;
+  fareClass: string;
+  cabin: string;
+}
+
+export interface AwardFlightOption {
+  source: string;
+  origin: string;
+  destination: string;
+  date: string;
+  cabin: string;
+  milesRequired: number;
+  taxes: number;
+  seatsRemaining?: number;
+  isDirect: boolean;
+  airlines?: string;
+  program: string;
+}
+
+export function generateTripItinerary(tripId: string) {
+  return apiFetch<GeneratedItinerary>(`/trip-requests/${tripId}/generate-itinerary`, {
     method: 'POST',
   });
 }
@@ -1445,10 +1689,11 @@ export function createVendorRequestFromTemplate(payload: {
 // Reminders
 // ---------------------------------------------------------------------------
 
-export function getReminders(params?: { status?: string; dueBefore?: string }) {
+export function getReminders(params?: { status?: string; dueBefore?: string; clientId?: string }) {
   const sp = new URLSearchParams();
   if (params?.status) sp.set('status', params.status);
   if (params?.dueBefore) sp.set('dueBefore', params.dueBefore);
+  if (params?.clientId) sp.set('clientId', params.clientId);
   const qs = sp.toString();
   return apiFetch<VendorRequestReminder[]>(`/reminders${qs ? `?${qs}` : ''}`);
 }
@@ -1570,8 +1815,9 @@ export function getVendorStats(vendorName?: string) {
 // Operations Dashboard
 // ---------------------------------------------------------------------------
 
-export function getOperationsDashboard() {
-  return apiFetch<OperationsDashboardData>('/operations/dashboard');
+export function getOperationsDashboard(clientId?: string) {
+  const qs = clientId ? `?clientId=${encodeURIComponent(clientId)}` : '';
+  return apiFetch<OperationsDashboardData>(`/operations/dashboard${qs}`);
 }
 
 // ---------------------------------------------------------------------------
@@ -1625,16 +1871,28 @@ export function appendMeetingEntry(
   meetingId: string,
   payload: { role: MeetingEntryRole; content: string; metadata?: Record<string, unknown> },
 ) {
-  return apiFetch<MeetingEntryItem>(`/clients/${clientId}/meetings/${meetingId}/entries`, {
+  return apiFetch<MeetingEntryWithExtractions>(`/clients/${clientId}/meetings/${meetingId}/entries`, {
     method: 'POST',
     body: JSON.stringify(payload),
+  });
+}
+
+export function updateMeetingEntry(
+  clientId: string,
+  meetingId: string,
+  entryId: string,
+  content: string,
+) {
+  return apiFetch<MeetingEntryWithExtractions>(`/clients/${clientId}/meetings/${meetingId}/entries`, {
+    method: 'PATCH',
+    body: JSON.stringify({ entryId, content }),
   });
 }
 
 export function generateMeetingQuestions(
   clientId: string,
   meetingId: string,
-  options?: { followUp?: boolean; latestAnswer?: string },
+  options?: { followUp?: boolean; answeredQuestions?: AnsweredQuestionPayload[] },
 ) {
   return apiFetch<MeetingQuestionsResult>(
     `/clients/${clientId}/meetings/${meetingId}/questions`,

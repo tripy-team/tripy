@@ -61,6 +61,29 @@ export async function PATCH(
       },
     });
 
+    const nameChanged = firstName !== undefined || lastName !== undefined;
+    const contactChanged =
+      email !== undefined ||
+      phone !== undefined ||
+      dateOfBirth !== undefined;
+
+    if (nameChanged || contactChanged) {
+      const familyMemberUpdate: Record<string, unknown> = {};
+      if (nameChanged) {
+        familyMemberUpdate.name =
+          `${client.firstName} ${client.lastName}`.trim();
+      }
+      if (email !== undefined) familyMemberUpdate.email = client.email;
+      if (phone !== undefined) familyMemberUpdate.phone = client.phone;
+      if (dateOfBirth !== undefined)
+        familyMemberUpdate.dateOfBirth = client.dateOfBirth;
+
+      await prisma.familyMember.updateMany({
+        where: { linkedClientId: id },
+        data: familyMemberUpdate,
+      });
+    }
+
     return json(client);
   } catch (error) {
     console.error("Update client error:", error);

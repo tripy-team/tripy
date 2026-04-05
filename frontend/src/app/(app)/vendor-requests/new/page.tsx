@@ -15,6 +15,7 @@ import type {
   VendorRequestType,
   VendorRequestUrgency,
 } from '@/lib/api-client';
+import SingleDatePicker from '@/components/ui/SingleDatePicker';
 
 const REQUEST_TYPES: { value: VendorRequestType; label: string }[] = [
   { value: 'room_upgrade', label: 'Room Upgrade' },
@@ -260,11 +261,12 @@ export default function NewVendorRequestPage() {
 
             <div>
               <label className={labelCls}>Due Date</label>
-              <input
-                type="date"
+              <SingleDatePicker
+                compact
                 value={form.dueDate}
-                onChange={(e) => setForm((f) => ({ ...f, dueDate: e.target.value }))}
-                className={inputCls + ' max-w-xs'}
+                onChange={(v) => setForm((f) => ({ ...f, dueDate: v }))}
+                minDate={null}
+                className="max-w-xs"
               />
             </div>
           </div>

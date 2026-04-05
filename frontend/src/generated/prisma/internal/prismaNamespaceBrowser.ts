@@ -182,6 +182,7 @@ export type HouseholdMemberScalarFieldEnum = (typeof HouseholdMemberScalarFieldE
 export const FamilyMemberScalarFieldEnum = {
   id: 'id',
   clientId: 'clientId',
+  linkedClientId: 'linkedClientId',
   name: 'name',
   relationship: 'relationship',
   email: 'email',
@@ -385,6 +386,9 @@ export const TripTravelerScalarFieldEnum = {
   clientId: 'clientId',
   travelerType: 'travelerType',
   mustTravelWithClientId: 'mustTravelWithClientId',
+  originAirports: 'originAirports',
+  destinationAirports: 'destinationAirports',
+  useLeaderCities: 'useLeaderCities',
   createdAt: 'createdAt'
 } as const
 
@@ -756,6 +760,7 @@ export const MeetingQuestionSuggestionScalarFieldEnum = {
   priority: 'priority',
   targetFields: 'targetFields',
   isUsed: 'isUsed',
+  round: 'round',
   createdAt: 'createdAt'
 } as const
 
@@ -772,6 +777,8 @@ export const MeetingProfileSuggestionScalarFieldEnum = {
   rationale: 'rationale',
   status: 'status',
   resolvedAt: 'resolvedAt',
+  targetClientId: 'targetClientId',
+  sourceDescription: 'sourceDescription',
   createdAt: 'createdAt'
 } as const
 

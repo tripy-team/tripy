@@ -1,30 +1,6 @@
 import { prisma } from "@/lib/prisma";
-import { Prisma } from "@/generated/prisma/client";
 import { requireAuth, json, errorResponse } from "@/lib/auth";
-
-const VALID_PREFERENCE_FIELDS = new Set([
-  "preferredCabin",
-  "prefersNonstop",
-  "maxLayoverMinutes",
-  "willingToReposition",
-  "avoidBasicEconomy",
-  "preferredAirlines",
-  "avoidedAirlines",
-  "preferredHotelTypes",
-  "roomPreferences",
-  "locationPreferences",
-  "redemptionStyle",
-  "budgetSensitivity",
-  "pointsVsCash",
-  "accessibilityNeeds",
-  "foodPreferences",
-  "activityPreferences",
-  "familyConsiderations",
-  "specialOccasions",
-  "dislikes",
-  "dealbreakers",
-  "notes",
-]);
+import { VALID_PREFERENCE_FIELDS, commitSuggestionsForClient } from "@/lib/profile-commit";
 
 export async function GET(
   request: Request,
@@ -41,17 +17,26 @@ export async function GET(
 
     const approved = await prisma.meetingProfileSuggestion.findMany({
       where: { sessionId: meetingId, status: "approved" },
+      include: {
+        targetClient: {
+          select: { id: true, firstName: true, lastName: true },
+        },
+      },
     });
 
     if (approved.length === 0) {
       return json({ preview: [], message: "No approved suggestions to commit" });
     }
 
+    // Group by target client (null = primary client, otherwise cross-client)
+    const primarySuggestions = approved.filter((s) => !s.targetClientId);
+    const crossClientSuggestions = approved.filter((s) => s.targetClientId);
+
     const existing = await prisma.clientPreference.findUnique({
       where: { clientId },
     });
 
-    const preview = approved
+    const preview = primarySuggestions
       .filter((s) => VALID_PREFERENCE_FIELDS.has(s.targetField))
       .map((s) => {
         const currentValue = existing
@@ -66,8 +51,42 @@ export async function GET(
           evidence: s.evidence,
           rationale: s.rationale,
           willOverwrite: currentValue != null,
+          targetClientId: null as string | null,
+          targetClientName: null as string | null,
         };
       });
+
+    // Build cross-client preview
+    const crossClientIds = [...new Set(crossClientSuggestions.map((s) => s.targetClientId!))];
+    const crossPrefs = crossClientIds.length > 0
+      ? await prisma.clientPreference.findMany({
+          where: { clientId: { in: crossClientIds } },
+        })
+      : [];
+    const crossPrefMap = new Map(crossPrefs.map((p) => [p.clientId, p]));
+
+    for (const s of crossClientSuggestions) {
+      if (!VALID_PREFERENCE_FIELDS.has(s.targetField)) continue;
+      const targetPref = crossPrefMap.get(s.targetClientId!);
+      const currentValue = targetPref
+        ? (targetPref as Record<string, unknown>)[s.targetField]
+        : undefined;
+
+      preview.push({
+        id: s.id,
+        targetField: s.targetField,
+        currentValue,
+        suggestedValue: s.suggestedValue,
+        confidence: s.confidence,
+        evidence: s.evidence,
+        rationale: s.rationale,
+        willOverwrite: currentValue != null,
+        targetClientId: s.targetClientId,
+        targetClientName: s.targetClient
+          ? `${s.targetClient.firstName} ${s.targetClient.lastName}`
+          : null,
+      });
+    }
 
     return json({ preview });
   } catch (error) {
@@ -111,45 +130,36 @@ export async function POST(
       return errorResponse("No suggestions map to valid preference fields");
     }
 
-    const updateData: Record<string, unknown> = {};
-    for (const suggestion of validSuggestions) {
-      updateData[suggestion.targetField] = suggestion.suggestedValue;
-    }
-    updateData.lastUpdatedSource = "inferred";
+    // Group suggestions by target client
+    const primarySuggestions = validSuggestions.filter((s) => !s.targetClientId);
+    const crossClientMap = new Map<string, typeof validSuggestions>();
 
-    const existing = await prisma.clientPreference.findUnique({
-      where: { clientId },
-    });
-
-    let preference;
-    if (existing) {
-      const changeLogs = validSuggestions.map((s) => {
-        const raw = (existing as Record<string, unknown>)[s.targetField];
-        return {
-          preferenceId: existing.id,
-          changedByUserId: user.id,
-          source: "inferred" as const,
-          fieldName: s.targetField,
-          oldValue: raw == null ? Prisma.DbNull : (raw as Prisma.InputJsonValue),
-          newValue: s.suggestedValue == null ? Prisma.DbNull : (s.suggestedValue as Prisma.InputJsonValue),
-        };
-      });
-
-      preference = await prisma.clientPreference.update({
-        where: { clientId },
-        data: updateData,
-      });
-
-      if (changeLogs.length > 0) {
-        await prisma.preferenceChangeLog.createMany({ data: changeLogs });
+    for (const s of validSuggestions) {
+      if (s.targetClientId) {
+        const existing = crossClientMap.get(s.targetClientId) || [];
+        existing.push(s);
+        crossClientMap.set(s.targetClientId, existing);
       }
-    } else {
-      preference = await prisma.clientPreference.create({
-        data: {
-          clientId,
-          ...updateData,
-        },
+    }
+
+    let committedCount = 0;
+
+    // Commit primary client suggestions
+    if (primarySuggestions.length > 0) {
+      await commitSuggestionsForClient(clientId, primarySuggestions, user.id);
+      committedCount += primarySuggestions.length;
+    }
+
+    // Commit cross-client suggestions
+    for (const [targetId, suggestions] of crossClientMap) {
+      // Verify the target client belongs to the same organization
+      const targetClient = await prisma.client.findFirst({
+        where: { id: targetId, organizationId: user.organizationId },
       });
+      if (targetClient) {
+        await commitSuggestionsForClient(targetId, suggestions, user.id);
+        committedCount += suggestions.length;
+      }
     }
 
     await prisma.meetingProfileSuggestion.updateMany({
@@ -163,8 +173,9 @@ export async function POST(
     });
 
     return json({
-      committed: validSuggestions.length,
-      preference,
+      committed: committedCount,
+      primaryCommitted: primarySuggestions.length,
+      crossClientCommitted: committedCount - primarySuggestions.length,
       fields: validSuggestions.map((s) => s.targetField),
     });
   } catch (error) {

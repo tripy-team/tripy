@@ -33,6 +33,12 @@ const remotePatterns: Array<{
     hostname: 'tripy-city-images.s3.amazonaws.com',
     pathname: '/**',
   },
+  // Clearbit logos for loyalty program icons
+  {
+    protocol: 'https',
+    hostname: 'logo.clearbit.com',
+    pathname: '/**',
+  },
 ];
 
 // Add CDN domain if configured

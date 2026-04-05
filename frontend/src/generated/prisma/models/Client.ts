@@ -250,6 +250,7 @@ export type ClientWhereInput = {
   owner?: Prisma.XOR<Prisma.UserScalarRelationFilter, Prisma.UserWhereInput>
   householdMembers?: Prisma.HouseholdMemberListRelationFilter
   familyMembers?: Prisma.FamilyMemberListRelationFilter
+  linkedFromFamilyMember?: Prisma.XOR<Prisma.FamilyMemberNullableScalarRelationFilter, Prisma.FamilyMemberWhereInput> | null
   loyaltyBalances?: Prisma.ClientLoyaltyBalanceListRelationFilter
   preferences?: Prisma.XOR<Prisma.ClientPreferenceNullableScalarRelationFilter, Prisma.ClientPreferenceWhereInput> | null
   intakes?: Prisma.ClientIntakeListRelationFilter
@@ -261,6 +262,7 @@ export type ClientWhereInput = {
   followUpSuggestions?: Prisma.FollowUpSuggestionListRelationFilter
   vendorRequests?: Prisma.VendorRequestListRelationFilter
   meetingSessions?: Prisma.DiscoveryMeetingSessionListRelationFilter
+  crossClientSuggestions?: Prisma.MeetingProfileSuggestionListRelationFilter
 }
 
 export type ClientOrderByWithRelationInput = {
@@ -281,6 +283,7 @@ export type ClientOrderByWithRelationInput = {
   owner?: Prisma.UserOrderByWithRelationInput
   householdMembers?: Prisma.HouseholdMemberOrderByRelationAggregateInput
   familyMembers?: Prisma.FamilyMemberOrderByRelationAggregateInput
+  linkedFromFamilyMember?: Prisma.FamilyMemberOrderByWithRelationInput
   loyaltyBalances?: Prisma.ClientLoyaltyBalanceOrderByRelationAggregateInput
   preferences?: Prisma.ClientPreferenceOrderByWithRelationInput
   intakes?: Prisma.ClientIntakeOrderByRelationAggregateInput
@@ -292,6 +295,7 @@ export type ClientOrderByWithRelationInput = {
   followUpSuggestions?: Prisma.FollowUpSuggestionOrderByRelationAggregateInput
   vendorRequests?: Prisma.VendorRequestOrderByRelationAggregateInput
   meetingSessions?: Prisma.DiscoveryMeetingSessionOrderByRelationAggregateInput
+  crossClientSuggestions?: Prisma.MeetingProfileSuggestionOrderByRelationAggregateInput
 }
 
 export type ClientWhereUniqueInput = Prisma.AtLeast<{
@@ -315,6 +319,7 @@ export type ClientWhereUniqueInput = Prisma.AtLeast<{
   owner?: Prisma.XOR<Prisma.UserScalarRelationFilter, Prisma.UserWhereInput>
   householdMembers?: Prisma.HouseholdMemberListRelationFilter
   familyMembers?: Prisma.FamilyMemberListRelationFilter
+  linkedFromFamilyMember?: Prisma.XOR<Prisma.FamilyMemberNullableScalarRelationFilter, Prisma.FamilyMemberWhereInput> | null
   loyaltyBalances?: Prisma.ClientLoyaltyBalanceListRelationFilter
   preferences?: Prisma.XOR<Prisma.ClientPreferenceNullableScalarRelationFilter, Prisma.ClientPreferenceWhereInput> | null
   intakes?: Prisma.ClientIntakeListRelationFilter
@@ -326,6 +331,7 @@ export type ClientWhereUniqueInput = Prisma.AtLeast<{
   followUpSuggestions?: Prisma.FollowUpSuggestionListRelationFilter
   vendorRequests?: Prisma.VendorRequestListRelationFilter
   meetingSessions?: Prisma.DiscoveryMeetingSessionListRelationFilter
+  crossClientSuggestions?: Prisma.MeetingProfileSuggestionListRelationFilter
 }, "id">
 
 export type ClientOrderByWithAggregationInput = {
@@ -382,6 +388,7 @@ export type ClientCreateInput = {
   owner: Prisma.UserCreateNestedOneWithoutOwnedClientsInput
   householdMembers?: Prisma.HouseholdMemberCreateNestedManyWithoutClientInput
   familyMembers?: Prisma.FamilyMemberCreateNestedManyWithoutClientInput
+  linkedFromFamilyMember?: Prisma.FamilyMemberCreateNestedOneWithoutLinkedClientInput
   loyaltyBalances?: Prisma.ClientLoyaltyBalanceCreateNestedManyWithoutClientInput
   preferences?: Prisma.ClientPreferenceCreateNestedOneWithoutClientInput
   intakes?: Prisma.ClientIntakeCreateNestedManyWithoutClientInput
@@ -393,6 +400,7 @@ export type ClientCreateInput = {
   followUpSuggestions?: Prisma.FollowUpSuggestionCreateNestedManyWithoutClientInput
   vendorRequests?: Prisma.VendorRequestCreateNestedManyWithoutClientInput
   meetingSessions?: Prisma.DiscoveryMeetingSessionCreateNestedManyWithoutClientInput
+  crossClientSuggestions?: Prisma.MeetingProfileSuggestionCreateNestedManyWithoutTargetClientInput
 }
 
 export type ClientUncheckedCreateInput = {
@@ -411,6 +419,7 @@ export type ClientUncheckedCreateInput = {
   updatedAt?: Date | string
   householdMembers?: Prisma.HouseholdMemberUncheckedCreateNestedManyWithoutClientInput
   familyMembers?: Prisma.FamilyMemberUncheckedCreateNestedManyWithoutClientInput
+  linkedFromFamilyMember?: Prisma.FamilyMemberUncheckedCreateNestedOneWithoutLinkedClientInput
   loyaltyBalances?: Prisma.ClientLoyaltyBalanceUncheckedCreateNestedManyWithoutClientInput
   preferences?: Prisma.ClientPreferenceUncheckedCreateNestedOneWithoutClientInput
   intakes?: Prisma.ClientIntakeUncheckedCreateNestedManyWithoutClientInput
@@ -422,6 +431,7 @@ export type ClientUncheckedCreateInput = {
   followUpSuggestions?: Prisma.FollowUpSuggestionUncheckedCreateNestedManyWithoutClientInput
   vendorRequests?: Prisma.VendorRequestUncheckedCreateNestedManyWithoutClientInput
   meetingSessions?: Prisma.DiscoveryMeetingSessionUncheckedCreateNestedManyWithoutClientInput
+  crossClientSuggestions?: Prisma.MeetingProfileSuggestionUncheckedCreateNestedManyWithoutTargetClientInput
 }
 
 export type ClientUpdateInput = {
@@ -440,6 +450,7 @@ export type ClientUpdateInput = {
   owner?: Prisma.UserUpdateOneRequiredWithoutOwnedClientsNestedInput
   householdMembers?: Prisma.HouseholdMemberUpdateManyWithoutClientNestedInput
   familyMembers?: Prisma.FamilyMemberUpdateManyWithoutClientNestedInput
+  linkedFromFamilyMember?: Prisma.FamilyMemberUpdateOneWithoutLinkedClientNestedInput
   loyaltyBalances?: Prisma.ClientLoyaltyBalanceUpdateManyWithoutClientNestedInput
   preferences?: Prisma.ClientPreferenceUpdateOneWithoutClientNestedInput
   intakes?: Prisma.ClientIntakeUpdateManyWithoutClientNestedInput
@@ -451,6 +462,7 @@ export type ClientUpdateInput = {
   followUpSuggestions?: Prisma.FollowUpSuggestionUpdateManyWithoutClientNestedInput
   vendorRequests?: Prisma.VendorRequestUpdateManyWithoutClientNestedInput
   meetingSessions?: Prisma.DiscoveryMeetingSessionUpdateManyWithoutClientNestedInput
+  crossClientSuggestions?: Prisma.MeetingProfileSuggestionUpdateManyWithoutTargetClientNestedInput
 }
 
 export type ClientUncheckedUpdateInput = {
@@ -469,6 +481,7 @@ export type ClientUncheckedUpdateInput = {
   updatedAt?: Prisma.DateTimeFieldUpdateOperationsInput | Date | string
   householdMembers?: Prisma.HouseholdMemberUncheckedUpdateManyWithoutClientNestedInput
   familyMembers?: Prisma.FamilyMemberUncheckedUpdateManyWithoutClientNestedInput
+  linkedFromFamilyMember?: Prisma.FamilyMemberUncheckedUpdateOneWithoutLinkedClientNestedInput
   loyaltyBalances?: Prisma.ClientLoyaltyBalanceUncheckedUpdateManyWithoutClientNestedInput
   preferences?: Prisma.ClientPreferenceUncheckedUpdateOneWithoutClientNestedInput
   intakes?: Prisma.ClientIntakeUncheckedUpdateManyWithoutClientNestedInput
@@ -480,6 +493,7 @@ export type ClientUncheckedUpdateInput = {
   followUpSuggestions?: Prisma.FollowUpSuggestionUncheckedUpdateManyWithoutClientNestedInput
   vendorRequests?: Prisma.VendorRequestUncheckedUpdateManyWithoutClientNestedInput
   meetingSessions?: Prisma.DiscoveryMeetingSessionUncheckedUpdateManyWithoutClientNestedInput
+  crossClientSuggestions?: Prisma.MeetingProfileSuggestionUncheckedUpdateManyWithoutTargetClientNestedInput
 }
 
 export type ClientCreateManyInput = {
@@ -716,12 +730,28 @@ export type ClientCreateNestedOneWithoutFamilyMembersInput = {
   connect?: Prisma.ClientWhereUniqueInput
 }
 
+export type ClientCreateNestedOneWithoutLinkedFromFamilyMemberInput = {
+  create?: Prisma.XOR<Prisma.ClientCreateWithoutLinkedFromFamilyMemberInput, Prisma.ClientUncheckedCreateWithoutLinkedFromFamilyMemberInput>
+  connectOrCreate?: Prisma.ClientCreateOrConnectWithoutLinkedFromFamilyMemberInput
+  connect?: Prisma.ClientWhereUniqueInput
+}
+
 export type ClientUpdateOneRequiredWithoutFamilyMembersNestedInput = {
   create?: Prisma.XOR<Prisma.ClientCreateWithoutFamilyMembersInput, Prisma.ClientUncheckedCreateWithoutFamilyMembersInput>
   connectOrCreate?: Prisma.ClientCreateOrConnectWithoutFamilyMembersInput
   upsert?: Prisma.ClientUpsertWithoutFamilyMembersInput
   connect?: Prisma.ClientWhereUniqueInput
   update?: Prisma.XOR<Prisma.XOR<Prisma.ClientUpdateToOneWithWhereWithoutFamilyMembersInput, Prisma.ClientUpdateWithoutFamilyMembersInput>, Prisma.ClientUncheckedUpdateWithoutFamilyMembersInput>
+}
+
+export type ClientUpdateOneWithoutLinkedFromFamilyMemberNestedInput = {
+  create?: Prisma.XOR<Prisma.ClientCreateWithoutLinkedFromFamilyMemberInput, Prisma.ClientUncheckedCreateWithoutLinkedFromFamilyMemberInput>
+  connectOrCreate?: Prisma.ClientCreateOrConnectWithoutLinkedFromFamilyMemberInput
+  upsert?: Prisma.ClientUpsertWithoutLinkedFromFamilyMemberInput
+  disconnect?: Prisma.ClientWhereInput | boolean
+  delete?: Prisma.ClientWhereInput | boolean
+  connect?: Prisma.ClientWhereUniqueInput
+  update?: Prisma.XOR<Prisma.XOR<Prisma.ClientUpdateToOneWithWhereWithoutLinkedFromFamilyMemberInput, Prisma.ClientUpdateWithoutLinkedFromFamilyMemberInput>, Prisma.ClientUncheckedUpdateWithoutLinkedFromFamilyMemberInput>
 }
 
 export type ClientCreateNestedOneWithoutLoyaltyBalancesInput = {
@@ -884,6 +914,22 @@ export type ClientUpdateOneRequiredWithoutMeetingSessionsNestedInput = {
   update?: Prisma.XOR<Prisma.XOR<Prisma.ClientUpdateToOneWithWhereWithoutMeetingSessionsInput, Prisma.ClientUpdateWithoutMeetingSessionsInput>, Prisma.ClientUncheckedUpdateWithoutMeetingSessionsInput>
 }
 
+export type ClientCreateNestedOneWithoutCrossClientSuggestionsInput = {
+  create?: Prisma.XOR<Prisma.ClientCreateWithoutCrossClientSuggestionsInput, Prisma.ClientUncheckedCreateWithoutCrossClientSuggestionsInput>
+  connectOrCreate?: Prisma.ClientCreateOrConnectWithoutCrossClientSuggestionsInput
+  connect?: Prisma.ClientWhereUniqueInput
+}
+
+export type ClientUpdateOneWithoutCrossClientSuggestionsNestedInput = {
+  create?: Prisma.XOR<Prisma.ClientCreateWithoutCrossClientSuggestionsInput, Prisma.ClientUncheckedCreateWithoutCrossClientSuggestionsInput>
+  connectOrCreate?: Prisma.ClientCreateOrConnectWithoutCrossClientSuggestionsInput
+  upsert?: Prisma.ClientUpsertWithoutCrossClientSuggestionsInput
+  disconnect?: Prisma.ClientWhereInput | boolean
+  delete?: Prisma.ClientWhereInput | boolean
+  connect?: Prisma.ClientWhereUniqueInput
+  update?: Prisma.XOR<Prisma.XOR<Prisma.ClientUpdateToOneWithWhereWithoutCrossClientSuggestionsInput, Prisma.ClientUpdateWithoutCrossClientSuggestionsInput>, Prisma.ClientUncheckedUpdateWithoutCrossClientSuggestionsInput>
+}
+
 export type ClientCreateWithoutOrganizationInput = {
   id?: string
   clientType?: $Enums.ClientType
@@ -899,6 +945,7 @@ export type ClientCreateWithoutOrganizationInput = {
   owner: Prisma.UserCreateNestedOneWithoutOwnedClientsInput
   householdMembers?: Prisma.HouseholdMemberCreateNestedManyWithoutClientInput
   familyMembers?: Prisma.FamilyMemberCreateNestedManyWithoutClientInput
+  linkedFromFamilyMember?: Prisma.FamilyMemberCreateNestedOneWithoutLinkedClientInput
   loyaltyBalances?: Prisma.ClientLoyaltyBalanceCreateNestedManyWithoutClientInput
   preferences?: Prisma.ClientPreferenceCreateNestedOneWithoutClientInput
   intakes?: Prisma.ClientIntakeCreateNestedManyWithoutClientInput
@@ -910,6 +957,7 @@ export type ClientCreateWithoutOrganizationInput = {
   followUpSuggestions?: Prisma.FollowUpSuggestionCreateNestedManyWithoutClientInput
   vendorRequests?: Prisma.VendorRequestCreateNestedManyWithoutClientInput
   meetingSessions?: Prisma.DiscoveryMeetingSessionCreateNestedManyWithoutClientInput
+  crossClientSuggestions?: Prisma.MeetingProfileSuggestionCreateNestedManyWithoutTargetClientInput
 }
 
 export type ClientUncheckedCreateWithoutOrganizationInput = {
@@ -927,6 +975,7 @@ export type ClientUncheckedCreateWithoutOrganizationInput = {
   updatedAt?: Date | string
   householdMembers?: Prisma.HouseholdMemberUncheckedCreateNestedManyWithoutClientInput
   familyMembers?: Prisma.FamilyMemberUncheckedCreateNestedManyWithoutClientInput
+  linkedFromFamilyMember?: Prisma.FamilyMemberUncheckedCreateNestedOneWithoutLinkedClientInput
   loyaltyBalances?: Prisma.ClientLoyaltyBalanceUncheckedCreateNestedManyWithoutClientInput
   preferences?: Prisma.ClientPreferenceUncheckedCreateNestedOneWithoutClientInput
   intakes?: Prisma.ClientIntakeUncheckedCreateNestedManyWithoutClientInput
@@ -938,6 +987,7 @@ export type ClientUncheckedCreateWithoutOrganizationInput = {
   followUpSuggestions?: Prisma.FollowUpSuggestionUncheckedCreateNestedManyWithoutClientInput
   vendorRequests?: Prisma.VendorRequestUncheckedCreateNestedManyWithoutClientInput
   meetingSessions?: Prisma.DiscoveryMeetingSessionUncheckedCreateNestedManyWithoutClientInput
+  crossClientSuggestions?: Prisma.MeetingProfileSuggestionUncheckedCreateNestedManyWithoutTargetClientInput
 }
 
 export type ClientCreateOrConnectWithoutOrganizationInput = {
@@ -1000,6 +1050,7 @@ export type ClientCreateWithoutOwnerInput = {
   organization: Prisma.OrganizationCreateNestedOneWithoutClientsInput
   householdMembers?: Prisma.HouseholdMemberCreateNestedManyWithoutClientInput
   familyMembers?: Prisma.FamilyMemberCreateNestedManyWithoutClientInput
+  linkedFromFamilyMember?: Prisma.FamilyMemberCreateNestedOneWithoutLinkedClientInput
   loyaltyBalances?: Prisma.ClientLoyaltyBalanceCreateNestedManyWithoutClientInput
   preferences?: Prisma.ClientPreferenceCreateNestedOneWithoutClientInput
   intakes?: Prisma.ClientIntakeCreateNestedManyWithoutClientInput
@@ -1011,6 +1062,7 @@ export type ClientCreateWithoutOwnerInput = {
   followUpSuggestions?: Prisma.FollowUpSuggestionCreateNestedManyWithoutClientInput
   vendorRequests?: Prisma.VendorRequestCreateNestedManyWithoutClientInput
   meetingSessions?: Prisma.DiscoveryMeetingSessionCreateNestedManyWithoutClientInput
+  crossClientSuggestions?: Prisma.MeetingProfileSuggestionCreateNestedManyWithoutTargetClientInput
 }
 
 export type ClientUncheckedCreateWithoutOwnerInput = {
@@ -1028,6 +1080,7 @@ export type ClientUncheckedCreateWithoutOwnerInput = {
   updatedAt?: Date | string
   householdMembers?: Prisma.HouseholdMemberUncheckedCreateNestedManyWithoutClientInput
   familyMembers?: Prisma.FamilyMemberUncheckedCreateNestedManyWithoutClientInput
+  linkedFromFamilyMember?: Prisma.FamilyMemberUncheckedCreateNestedOneWithoutLinkedClientInput
   loyaltyBalances?: Prisma.ClientLoyaltyBalanceUncheckedCreateNestedManyWithoutClientInput
   preferences?: Prisma.ClientPreferenceUncheckedCreateNestedOneWithoutClientInput
   intakes?: Prisma.ClientIntakeUncheckedCreateNestedManyWithoutClientInput
@@ -1039,6 +1092,7 @@ export type ClientUncheckedCreateWithoutOwnerInput = {
   followUpSuggestions?: Prisma.FollowUpSuggestionUncheckedCreateNestedManyWithoutClientInput
   vendorRequests?: Prisma.VendorRequestUncheckedCreateNestedManyWithoutClientInput
   meetingSessions?: Prisma.DiscoveryMeetingSessionUncheckedCreateNestedManyWithoutClientInput
+  crossClientSuggestions?: Prisma.MeetingProfileSuggestionUncheckedCreateNestedManyWithoutTargetClientInput
 }
 
 export type ClientCreateOrConnectWithoutOwnerInput = {
@@ -1082,6 +1136,7 @@ export type ClientCreateWithoutHouseholdMembersInput = {
   organization: Prisma.OrganizationCreateNestedOneWithoutClientsInput
   owner: Prisma.UserCreateNestedOneWithoutOwnedClientsInput
   familyMembers?: Prisma.FamilyMemberCreateNestedManyWithoutClientInput
+  linkedFromFamilyMember?: Prisma.FamilyMemberCreateNestedOneWithoutLinkedClientInput
   loyaltyBalances?: Prisma.ClientLoyaltyBalanceCreateNestedManyWithoutClientInput
   preferences?: Prisma.ClientPreferenceCreateNestedOneWithoutClientInput
   intakes?: Prisma.ClientIntakeCreateNestedManyWithoutClientInput
@@ -1093,6 +1148,7 @@ export type ClientCreateWithoutHouseholdMembersInput = {
   followUpSuggestions?: Prisma.FollowUpSuggestionCreateNestedManyWithoutClientInput
   vendorRequests?: Prisma.VendorRequestCreateNestedManyWithoutClientInput
   meetingSessions?: Prisma.DiscoveryMeetingSessionCreateNestedManyWithoutClientInput
+  crossClientSuggestions?: Prisma.MeetingProfileSuggestionCreateNestedManyWithoutTargetClientInput
 }
 
 export type ClientUncheckedCreateWithoutHouseholdMembersInput = {
@@ -1110,6 +1166,7 @@ export type ClientUncheckedCreateWithoutHouseholdMembersInput = {
   createdAt?: Date | string
   updatedAt?: Date | string
   familyMembers?: Prisma.FamilyMemberUncheckedCreateNestedManyWithoutClientInput
+  linkedFromFamilyMember?: Prisma.FamilyMemberUncheckedCreateNestedOneWithoutLinkedClientInput
   loyaltyBalances?: Prisma.ClientLoyaltyBalanceUncheckedCreateNestedManyWithoutClientInput
   preferences?: Prisma.ClientPreferenceUncheckedCreateNestedOneWithoutClientInput
   intakes?: Prisma.ClientIntakeUncheckedCreateNestedManyWithoutClientInput
@@ -1121,6 +1178,7 @@ export type ClientUncheckedCreateWithoutHouseholdMembersInput = {
   followUpSuggestions?: Prisma.FollowUpSuggestionUncheckedCreateNestedManyWithoutClientInput
   vendorRequests?: Prisma.VendorRequestUncheckedCreateNestedManyWithoutClientInput
   meetingSessions?: Prisma.DiscoveryMeetingSessionUncheckedCreateNestedManyWithoutClientInput
+  crossClientSuggestions?: Prisma.MeetingProfileSuggestionUncheckedCreateNestedManyWithoutTargetClientInput
 }
 
 export type ClientCreateOrConnectWithoutHouseholdMembersInput = {
@@ -1154,6 +1212,7 @@ export type ClientUpdateWithoutHouseholdMembersInput = {
   organization?: Prisma.OrganizationUpdateOneRequiredWithoutClientsNestedInput
   owner?: Prisma.UserUpdateOneRequiredWithoutOwnedClientsNestedInput
   familyMembers?: Prisma.FamilyMemberUpdateManyWithoutClientNestedInput
+  linkedFromFamilyMember?: Prisma.FamilyMemberUpdateOneWithoutLinkedClientNestedInput
   loyaltyBalances?: Prisma.ClientLoyaltyBalanceUpdateManyWithoutClientNestedInput
   preferences?: Prisma.ClientPreferenceUpdateOneWithoutClientNestedInput
   intakes?: Prisma.ClientIntakeUpdateManyWithoutClientNestedInput
@@ -1165,6 +1224,7 @@ export type ClientUpdateWithoutHouseholdMembersInput = {
   followUpSuggestions?: Prisma.FollowUpSuggestionUpdateManyWithoutClientNestedInput
   vendorRequests?: Prisma.VendorRequestUpdateManyWithoutClientNestedInput
   meetingSessions?: Prisma.DiscoveryMeetingSessionUpdateManyWithoutClientNestedInput
+  crossClientSuggestions?: Prisma.MeetingProfileSuggestionUpdateManyWithoutTargetClientNestedInput
 }
 
 export type ClientUncheckedUpdateWithoutHouseholdMembersInput = {
@@ -1182,6 +1242,7 @@ export type ClientUncheckedUpdateWithoutHouseholdMembersInput = {
   createdAt?: Prisma.DateTimeFieldUpdateOperationsInput | Date | string
   updatedAt?: Prisma.DateTimeFieldUpdateOperationsInput | Date | string
   familyMembers?: Prisma.FamilyMemberUncheckedUpdateManyWithoutClientNestedInput
+  linkedFromFamilyMember?: Prisma.FamilyMemberUncheckedUpdateOneWithoutLinkedClientNestedInput
   loyaltyBalances?: Prisma.ClientLoyaltyBalanceUncheckedUpdateManyWithoutClientNestedInput
   preferences?: Prisma.ClientPreferenceUncheckedUpdateOneWithoutClientNestedInput
   intakes?: Prisma.ClientIntakeUncheckedUpdateManyWithoutClientNestedInput
@@ -1193,6 +1254,7 @@ export type ClientUncheckedUpdateWithoutHouseholdMembersInput = {
   followUpSuggestions?: Prisma.FollowUpSuggestionUncheckedUpdateManyWithoutClientNestedInput
   vendorRequests?: Prisma.VendorRequestUncheckedUpdateManyWithoutClientNestedInput
   meetingSessions?: Prisma.DiscoveryMeetingSessionUncheckedUpdateManyWithoutClientNestedInput
+  crossClientSuggestions?: Prisma.MeetingProfileSuggestionUncheckedUpdateManyWithoutTargetClientNestedInput
 }
 
 export type ClientCreateWithoutFamilyMembersInput = {
@@ -1210,6 +1272,7 @@ export type ClientCreateWithoutFamilyMembersInput = {
   organization: Prisma.OrganizationCreateNestedOneWithoutClientsInput
   owner: Prisma.UserCreateNestedOneWithoutOwnedClientsInput
   householdMembers?: Prisma.HouseholdMemberCreateNestedManyWithoutClientInput
+  linkedFromFamilyMember?: Prisma.FamilyMemberCreateNestedOneWithoutLinkedClientInput
   loyaltyBalances?: Prisma.ClientLoyaltyBalanceCreateNestedManyWithoutClientInput
   preferences?: Prisma.ClientPreferenceCreateNestedOneWithoutClientInput
   intakes?: Prisma.ClientIntakeCreateNestedManyWithoutClientInput
@@ -1221,6 +1284,7 @@ export type ClientCreateWithoutFamilyMembersInput = {
   followUpSuggestions?: Prisma.FollowUpSuggestionCreateNestedManyWithoutClientInput
   vendorRequests?: Prisma.VendorRequestCreateNestedManyWithoutClientInput
   meetingSessions?: Prisma.DiscoveryMeetingSessionCreateNestedManyWithoutClientInput
+  crossClientSuggestions?: Prisma.MeetingProfileSuggestionCreateNestedManyWithoutTargetClientInput
 }
 
 export type ClientUncheckedCreateWithoutFamilyMembersInput = {
@@ -1238,6 +1302,7 @@ export type ClientUncheckedCreateWithoutFamilyMembersInput = {
   createdAt?: Date | string
   updatedAt?: Date | string
   householdMembers?: Prisma.HouseholdMemberUncheckedCreateNestedManyWithoutClientInput
+  linkedFromFamilyMember?: Prisma.FamilyMemberUncheckedCreateNestedOneWithoutLinkedClientInput
   loyaltyBalances?: Prisma.ClientLoyaltyBalanceUncheckedCreateNestedManyWithoutClientInput
   preferences?: Prisma.ClientPreferenceUncheckedCreateNestedOneWithoutClientInput
   intakes?: Prisma.ClientIntakeUncheckedCreateNestedManyWithoutClientInput
@@ -1249,11 +1314,77 @@ export type ClientUncheckedCreateWithoutFamilyMembersInput = {
   followUpSuggestions?: Prisma.FollowUpSuggestionUncheckedCreateNestedManyWithoutClientInput
   vendorRequests?: Prisma.VendorRequestUncheckedCreateNestedManyWithoutClientInput
   meetingSessions?: Prisma.DiscoveryMeetingSessionUncheckedCreateNestedManyWithoutClientInput
+  crossClientSuggestions?: Prisma.MeetingProfileSuggestionUncheckedCreateNestedManyWithoutTargetClientInput
 }
 
 export type ClientCreateOrConnectWithoutFamilyMembersInput = {
   where: Prisma.ClientWhereUniqueInput
   create: Prisma.XOR<Prisma.ClientCreateWithoutFamilyMembersInput, Prisma.ClientUncheckedCreateWithoutFamilyMembersInput>
+}
+
+export type ClientCreateWithoutLinkedFromFamilyMemberInput = {
+  id?: string
+  clientType?: $Enums.ClientType
+  firstName: string
+  lastName: string
+  email?: string | null
+  phone?: string | null
+  dateOfBirth?: Date | string | null
+  notes?: string | null
+  status?: $Enums.ClientStatus
+  createdAt?: Date | string
+  updatedAt?: Date | string
+  organization: Prisma.OrganizationCreateNestedOneWithoutClientsInput
+  owner: Prisma.UserCreateNestedOneWithoutOwnedClientsInput
+  householdMembers?: Prisma.HouseholdMemberCreateNestedManyWithoutClientInput
+  familyMembers?: Prisma.FamilyMemberCreateNestedManyWithoutClientInput
+  loyaltyBalances?: Prisma.ClientLoyaltyBalanceCreateNestedManyWithoutClientInput
+  preferences?: Prisma.ClientPreferenceCreateNestedOneWithoutClientInput
+  intakes?: Prisma.ClientIntakeCreateNestedManyWithoutClientInput
+  tripRequests?: Prisma.TripRequestCreateNestedManyWithoutClientInput
+  tripTravelers?: Prisma.TripTravelerCreateNestedManyWithoutClientInput
+  tripBriefs?: Prisma.TripBriefCreateNestedManyWithoutClientInput
+  alertSubscriptions?: Prisma.AlertSubscriptionCreateNestedManyWithoutClientInput
+  inferredPreferences?: Prisma.InferredPreferenceCreateNestedManyWithoutClientInput
+  followUpSuggestions?: Prisma.FollowUpSuggestionCreateNestedManyWithoutClientInput
+  vendorRequests?: Prisma.VendorRequestCreateNestedManyWithoutClientInput
+  meetingSessions?: Prisma.DiscoveryMeetingSessionCreateNestedManyWithoutClientInput
+  crossClientSuggestions?: Prisma.MeetingProfileSuggestionCreateNestedManyWithoutTargetClientInput
+}
+
+export type ClientUncheckedCreateWithoutLinkedFromFamilyMemberInput = {
+  id?: string
+  organizationId: string
+  ownerUserId: string
+  clientType?: $Enums.ClientType
+  firstName: string
+  lastName: string
+  email?: string | null
+  phone?: string | null
+  dateOfBirth?: Date | string | null
+  notes?: string | null
+  status?: $Enums.ClientStatus
+  createdAt?: Date | string
+  updatedAt?: Date | string
+  householdMembers?: Prisma.HouseholdMemberUncheckedCreateNestedManyWithoutClientInput
+  familyMembers?: Prisma.FamilyMemberUncheckedCreateNestedManyWithoutClientInput
+  loyaltyBalances?: Prisma.ClientLoyaltyBalanceUncheckedCreateNestedManyWithoutClientInput
+  preferences?: Prisma.ClientPreferenceUncheckedCreateNestedOneWithoutClientInput
+  intakes?: Prisma.ClientIntakeUncheckedCreateNestedManyWithoutClientInput
+  tripRequests?: Prisma.TripRequestUncheckedCreateNestedManyWithoutClientInput
+  tripTravelers?: Prisma.TripTravelerUncheckedCreateNestedManyWithoutClientInput
+  tripBriefs?: Prisma.TripBriefUncheckedCreateNestedManyWithoutClientInput
+  alertSubscriptions?: Prisma.AlertSubscriptionUncheckedCreateNestedManyWithoutClientInput
+  inferredPreferences?: Prisma.InferredPreferenceUncheckedCreateNestedManyWithoutClientInput
+  followUpSuggestions?: Prisma.FollowUpSuggestionUncheckedCreateNestedManyWithoutClientInput
+  vendorRequests?: Prisma.VendorRequestUncheckedCreateNestedManyWithoutClientInput
+  meetingSessions?: Prisma.DiscoveryMeetingSessionUncheckedCreateNestedManyWithoutClientInput
+  crossClientSuggestions?: Prisma.MeetingProfileSuggestionUncheckedCreateNestedManyWithoutTargetClientInput
+}
+
+export type ClientCreateOrConnectWithoutLinkedFromFamilyMemberInput = {
+  where: Prisma.ClientWhereUniqueInput
+  create: Prisma.XOR<Prisma.ClientCreateWithoutLinkedFromFamilyMemberInput, Prisma.ClientUncheckedCreateWithoutLinkedFromFamilyMemberInput>
 }
 
 export type ClientUpsertWithoutFamilyMembersInput = {
@@ -1282,6 +1413,7 @@ export type ClientUpdateWithoutFamilyMembersInput = {
   organization?: Prisma.OrganizationUpdateOneRequiredWithoutClientsNestedInput
   owner?: Prisma.UserUpdateOneRequiredWithoutOwnedClientsNestedInput
   householdMembers?: Prisma.HouseholdMemberUpdateManyWithoutClientNestedInput
+  linkedFromFamilyMember?: Prisma.FamilyMemberUpdateOneWithoutLinkedClientNestedInput
   loyaltyBalances?: Prisma.ClientLoyaltyBalanceUpdateManyWithoutClientNestedInput
   preferences?: Prisma.ClientPreferenceUpdateOneWithoutClientNestedInput
   intakes?: Prisma.ClientIntakeUpdateManyWithoutClientNestedInput
@@ -1293,6 +1425,7 @@ export type ClientUpdateWithoutFamilyMembersInput = {
   followUpSuggestions?: Prisma.FollowUpSuggestionUpdateManyWithoutClientNestedInput
   vendorRequests?: Prisma.VendorRequestUpdateManyWithoutClientNestedInput
   meetingSessions?: Prisma.DiscoveryMeetingSessionUpdateManyWithoutClientNestedInput
+  crossClientSuggestions?: Prisma.MeetingProfileSuggestionUpdateManyWithoutTargetClientNestedInput
 }
 
 export type ClientUncheckedUpdateWithoutFamilyMembersInput = {
@@ -1310,6 +1443,7 @@ export type ClientUncheckedUpdateWithoutFamilyMembersInput = {
   createdAt?: Prisma.DateTimeFieldUpdateOperationsInput | Date | string
   updatedAt?: Prisma.DateTimeFieldUpdateOperationsInput | Date | string
   householdMembers?: Prisma.HouseholdMemberUncheckedUpdateManyWithoutClientNestedInput
+  linkedFromFamilyMember?: Prisma.FamilyMemberUncheckedUpdateOneWithoutLinkedClientNestedInput
   loyaltyBalances?: Prisma.ClientLoyaltyBalanceUncheckedUpdateManyWithoutClientNestedInput
   preferences?: Prisma.ClientPreferenceUncheckedUpdateOneWithoutClientNestedInput
   intakes?: Prisma.ClientIntakeUncheckedUpdateManyWithoutClientNestedInput
@@ -1321,6 +1455,78 @@ export type ClientUncheckedUpdateWithoutFamilyMembersInput = {
   followUpSuggestions?: Prisma.FollowUpSuggestionUncheckedUpdateManyWithoutClientNestedInput
   vendorRequests?: Prisma.VendorRequestUncheckedUpdateManyWithoutClientNestedInput
   meetingSessions?: Prisma.DiscoveryMeetingSessionUncheckedUpdateManyWithoutClientNestedInput
+  crossClientSuggestions?: Prisma.MeetingProfileSuggestionUncheckedUpdateManyWithoutTargetClientNestedInput
+}
+
+export type ClientUpsertWithoutLinkedFromFamilyMemberInput = {
+  update: Prisma.XOR<Prisma.ClientUpdateWithoutLinkedFromFamilyMemberInput, Prisma.ClientUncheckedUpdateWithoutLinkedFromFamilyMemberInput>
+  create: Prisma.XOR<Prisma.ClientCreateWithoutLinkedFromFamilyMemberInput, Prisma.ClientUncheckedCreateWithoutLinkedFromFamilyMemberInput>
+  where?: Prisma.ClientWhereInput
+}
+
+export type ClientUpdateToOneWithWhereWithoutLinkedFromFamilyMemberInput = {
+  where?: Prisma.ClientWhereInput
+  data: Prisma.XOR<Prisma.ClientUpdateWithoutLinkedFromFamilyMemberInput, Prisma.ClientUncheckedUpdateWithoutLinkedFromFamilyMemberInput>
+}
+
+export type ClientUpdateWithoutLinkedFromFamilyMemberInput = {
+  id?: Prisma.StringFieldUpdateOperationsInput | string
+  clientType?: Prisma.EnumClientTypeFieldUpdateOperationsInput | $Enums.ClientType
+  firstName?: Prisma.StringFieldUpdateOperationsInput | string
+  lastName?: Prisma.StringFieldUpdateOperationsInput | string
+  email?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
+  phone?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
+  dateOfBirth?: Prisma.NullableDateTimeFieldUpdateOperationsInput | Date | string | null
+  notes?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
+  status?: Prisma.EnumClientStatusFieldUpdateOperationsInput | $Enums.ClientStatus
+  createdAt?: Prisma.DateTimeFieldUpdateOperationsInput | Date | string
+  updatedAt?: Prisma.DateTimeFieldUpdateOperationsInput | Date | string
+  organization?: Prisma.OrganizationUpdateOneRequiredWithoutClientsNestedInput
+  owner?: Prisma.UserUpdateOneRequiredWithoutOwnedClientsNestedInput
+  householdMembers?: Prisma.HouseholdMemberUpdateManyWithoutClientNestedInput
+  familyMembers?: Prisma.FamilyMemberUpdateManyWithoutClientNestedInput
+  loyaltyBalances?: Prisma.ClientLoyaltyBalanceUpdateManyWithoutClientNestedInput
+  preferences?: Prisma.ClientPreferenceUpdateOneWithoutClientNestedInput
+  intakes?: Prisma.ClientIntakeUpdateManyWithoutClientNestedInput
+  tripRequests?: Prisma.TripRequestUpdateManyWithoutClientNestedInput
+  tripTravelers?: Prisma.TripTravelerUpdateManyWithoutClientNestedInput
+  tripBriefs?: Prisma.TripBriefUpdateManyWithoutClientNestedInput
+  alertSubscriptions?: Prisma.AlertSubscriptionUpdateManyWithoutClientNestedInput
+  inferredPreferences?: Prisma.InferredPreferenceUpdateManyWithoutClientNestedInput
+  followUpSuggestions?: Prisma.FollowUpSuggestionUpdateManyWithoutClientNestedInput
+  vendorRequests?: Prisma.VendorRequestUpdateManyWithoutClientNestedInput
+  meetingSessions?: Prisma.DiscoveryMeetingSessionUpdateManyWithoutClientNestedInput
+  crossClientSuggestions?: Prisma.MeetingProfileSuggestionUpdateManyWithoutTargetClientNestedInput
+}
+
+export type ClientUncheckedUpdateWithoutLinkedFromFamilyMemberInput = {
+  id?: Prisma.StringFieldUpdateOperationsInput | string
+  organizationId?: Prisma.StringFieldUpdateOperationsInput | string
+  ownerUserId?: Prisma.StringFieldUpdateOperationsInput | string
+  clientType?: Prisma.EnumClientTypeFieldUpdateOperationsInput | $Enums.ClientType
+  firstName?: Prisma.StringFieldUpdateOperationsInput | string
+  lastName?: Prisma.StringFieldUpdateOperationsInput | string
+  email?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
+  phone?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
+  dateOfBirth?: Prisma.NullableDateTimeFieldUpdateOperationsInput | Date | string | null
+  notes?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
+  status?: Prisma.EnumClientStatusFieldUpdateOperationsInput | $Enums.ClientStatus
+  createdAt?: Prisma.DateTimeFieldUpdateOperationsInput | Date | string
+  updatedAt?: Prisma.DateTimeFieldUpdateOperationsInput | Date | string
+  householdMembers?: Prisma.HouseholdMemberUncheckedUpdateManyWithoutClientNestedInput
+  familyMembers?: Prisma.FamilyMemberUncheckedUpdateManyWithoutClientNestedInput
+  loyaltyBalances?: Prisma.ClientLoyaltyBalanceUncheckedUpdateManyWithoutClientNestedInput
+  preferences?: Prisma.ClientPreferenceUncheckedUpdateOneWithoutClientNestedInput
+  intakes?: Prisma.ClientIntakeUncheckedUpdateManyWithoutClientNestedInput
+  tripRequests?: Prisma.TripRequestUncheckedUpdateManyWithoutClientNestedInput
+  tripTravelers?: Prisma.TripTravelerUncheckedUpdateManyWithoutClientNestedInput
+  tripBriefs?: Prisma.TripBriefUncheckedUpdateManyWithoutClientNestedInput
+  alertSubscriptions?: Prisma.AlertSubscriptionUncheckedUpdateManyWithoutClientNestedInput
+  inferredPreferences?: Prisma.InferredPreferenceUncheckedUpdateManyWithoutClientNestedInput
+  followUpSuggestions?: Prisma.FollowUpSuggestionUncheckedUpdateManyWithoutClientNestedInput
+  vendorRequests?: Prisma.VendorRequestUncheckedUpdateManyWithoutClientNestedInput
+  meetingSessions?: Prisma.DiscoveryMeetingSessionUncheckedUpdateManyWithoutClientNestedInput
+  crossClientSuggestions?: Prisma.MeetingProfileSuggestionUncheckedUpdateManyWithoutTargetClientNestedInput
 }
 
 export type ClientCreateWithoutLoyaltyBalancesInput = {
@@ -1339,6 +1545,7 @@ export type ClientCreateWithoutLoyaltyBalancesInput = {
   owner: Prisma.UserCreateNestedOneWithoutOwnedClientsInput
   householdMembers?: Prisma.HouseholdMemberCreateNestedManyWithoutClientInput
   familyMembers?: Prisma.FamilyMemberCreateNestedManyWithoutClientInput
+  linkedFromFamilyMember?: Prisma.FamilyMemberCreateNestedOneWithoutLinkedClientInput
   preferences?: Prisma.ClientPreferenceCreateNestedOneWithoutClientInput
   intakes?: Prisma.ClientIntakeCreateNestedManyWithoutClientInput
   tripRequests?: Prisma.TripRequestCreateNestedManyWithoutClientInput
@@ -1349,6 +1556,7 @@ export type ClientCreateWithoutLoyaltyBalancesInput = {
   followUpSuggestions?: Prisma.FollowUpSuggestionCreateNestedManyWithoutClientInput
   vendorRequests?: Prisma.VendorRequestCreateNestedManyWithoutClientInput
   meetingSessions?: Prisma.DiscoveryMeetingSessionCreateNestedManyWithoutClientInput
+  crossClientSuggestions?: Prisma.MeetingProfileSuggestionCreateNestedManyWithoutTargetClientInput
 }
 
 export type ClientUncheckedCreateWithoutLoyaltyBalancesInput = {
@@ -1367,6 +1575,7 @@ export type ClientUncheckedCreateWithoutLoyaltyBalancesInput = {
   updatedAt?: Date | string
   householdMembers?: Prisma.HouseholdMemberUncheckedCreateNestedManyWithoutClientInput
   familyMembers?: Prisma.FamilyMemberUncheckedCreateNestedManyWithoutClientInput
+  linkedFromFamilyMember?: Prisma.FamilyMemberUncheckedCreateNestedOneWithoutLinkedClientInput
   preferences?: Prisma.ClientPreferenceUncheckedCreateNestedOneWithoutClientInput
   intakes?: Prisma.ClientIntakeUncheckedCreateNestedManyWithoutClientInput
   tripRequests?: Prisma.TripRequestUncheckedCreateNestedManyWithoutClientInput
@@ -1377,6 +1586,7 @@ export type ClientUncheckedCreateWithoutLoyaltyBalancesInput = {
   followUpSuggestions?: Prisma.FollowUpSuggestionUncheckedCreateNestedManyWithoutClientInput
   vendorRequests?: Prisma.VendorRequestUncheckedCreateNestedManyWithoutClientInput
   meetingSessions?: Prisma.DiscoveryMeetingSessionUncheckedCreateNestedManyWithoutClientInput
+  crossClientSuggestions?: Prisma.MeetingProfileSuggestionUncheckedCreateNestedManyWithoutTargetClientInput
 }
 
 export type ClientCreateOrConnectWithoutLoyaltyBalancesInput = {
@@ -1411,6 +1621,7 @@ export type ClientUpdateWithoutLoyaltyBalancesInput = {
   owner?: Prisma.UserUpdateOneRequiredWithoutOwnedClientsNestedInput
   householdMembers?: Prisma.HouseholdMemberUpdateManyWithoutClientNestedInput
   familyMembers?: Prisma.FamilyMemberUpdateManyWithoutClientNestedInput
+  linkedFromFamilyMember?: Prisma.FamilyMemberUpdateOneWithoutLinkedClientNestedInput
   preferences?: Prisma.ClientPreferenceUpdateOneWithoutClientNestedInput
   intakes?: Prisma.ClientIntakeUpdateManyWithoutClientNestedInput
   tripRequests?: Prisma.TripRequestUpdateManyWithoutClientNestedInput
@@ -1421,6 +1632,7 @@ export type ClientUpdateWithoutLoyaltyBalancesInput = {
   followUpSuggestions?: Prisma.FollowUpSuggestionUpdateManyWithoutClientNestedInput
   vendorRequests?: Prisma.VendorRequestUpdateManyWithoutClientNestedInput
   meetingSessions?: Prisma.DiscoveryMeetingSessionUpdateManyWithoutClientNestedInput
+  crossClientSuggestions?: Prisma.MeetingProfileSuggestionUpdateManyWithoutTargetClientNestedInput
 }
 
 export type ClientUncheckedUpdateWithoutLoyaltyBalancesInput = {
@@ -1439,6 +1651,7 @@ export type ClientUncheckedUpdateWithoutLoyaltyBalancesInput = {
   updatedAt?: Prisma.DateTimeFieldUpdateOperationsInput | Date | string
   householdMembers?: Prisma.HouseholdMemberUncheckedUpdateManyWithoutClientNestedInput
   familyMembers?: Prisma.FamilyMemberUncheckedUpdateManyWithoutClientNestedInput
+  linkedFromFamilyMember?: Prisma.FamilyMemberUncheckedUpdateOneWithoutLinkedClientNestedInput
   preferences?: Prisma.ClientPreferenceUncheckedUpdateOneWithoutClientNestedInput
   intakes?: Prisma.ClientIntakeUncheckedUpdateManyWithoutClientNestedInput
   tripRequests?: Prisma.TripRequestUncheckedUpdateManyWithoutClientNestedInput
@@ -1449,6 +1662,7 @@ export type ClientUncheckedUpdateWithoutLoyaltyBalancesInput = {
   followUpSuggestions?: Prisma.FollowUpSuggestionUncheckedUpdateManyWithoutClientNestedInput
   vendorRequests?: Prisma.VendorRequestUncheckedUpdateManyWithoutClientNestedInput
   meetingSessions?: Prisma.DiscoveryMeetingSessionUncheckedUpdateManyWithoutClientNestedInput
+  crossClientSuggestions?: Prisma.MeetingProfileSuggestionUncheckedUpdateManyWithoutTargetClientNestedInput
 }
 
 export type ClientCreateWithoutPreferencesInput = {
@@ -1467,6 +1681,7 @@ export type ClientCreateWithoutPreferencesInput = {
   owner: Prisma.UserCreateNestedOneWithoutOwnedClientsInput
   householdMembers?: Prisma.HouseholdMemberCreateNestedManyWithoutClientInput
   familyMembers?: Prisma.FamilyMemberCreateNestedManyWithoutClientInput
+  linkedFromFamilyMember?: Prisma.FamilyMemberCreateNestedOneWithoutLinkedClientInput
   loyaltyBalances?: Prisma.ClientLoyaltyBalanceCreateNestedManyWithoutClientInput
   intakes?: Prisma.ClientIntakeCreateNestedManyWithoutClientInput
   tripRequests?: Prisma.TripRequestCreateNestedManyWithoutClientInput
@@ -1477,6 +1692,7 @@ export type ClientCreateWithoutPreferencesInput = {
   followUpSuggestions?: Prisma.FollowUpSuggestionCreateNestedManyWithoutClientInput
   vendorRequests?: Prisma.VendorRequestCreateNestedManyWithoutClientInput
   meetingSessions?: Prisma.DiscoveryMeetingSessionCreateNestedManyWithoutClientInput
+  crossClientSuggestions?: Prisma.MeetingProfileSuggestionCreateNestedManyWithoutTargetClientInput
 }
 
 export type ClientUncheckedCreateWithoutPreferencesInput = {
@@ -1495,6 +1711,7 @@ export type ClientUncheckedCreateWithoutPreferencesInput = {
   updatedAt?: Date | string
   householdMembers?: Prisma.HouseholdMemberUncheckedCreateNestedManyWithoutClientInput
   familyMembers?: Prisma.FamilyMemberUncheckedCreateNestedManyWithoutClientInput
+  linkedFromFamilyMember?: Prisma.FamilyMemberUncheckedCreateNestedOneWithoutLinkedClientInput
   loyaltyBalances?: Prisma.ClientLoyaltyBalanceUncheckedCreateNestedManyWithoutClientInput
   intakes?: Prisma.ClientIntakeUncheckedCreateNestedManyWithoutClientInput
   tripRequests?: Prisma.TripRequestUncheckedCreateNestedManyWithoutClientInput
@@ -1505,6 +1722,7 @@ export type ClientUncheckedCreateWithoutPreferencesInput = {
   followUpSuggestions?: Prisma.FollowUpSuggestionUncheckedCreateNestedManyWithoutClientInput
   vendorRequests?: Prisma.VendorRequestUncheckedCreateNestedManyWithoutClientInput
   meetingSessions?: Prisma.DiscoveryMeetingSessionUncheckedCreateNestedManyWithoutClientInput
+  crossClientSuggestions?: Prisma.MeetingProfileSuggestionUncheckedCreateNestedManyWithoutTargetClientInput
 }
 
 export type ClientCreateOrConnectWithoutPreferencesInput = {
@@ -1539,6 +1757,7 @@ export type ClientUpdateWithoutPreferencesInput = {
   owner?: Prisma.UserUpdateOneRequiredWithoutOwnedClientsNestedInput
   householdMembers?: Prisma.HouseholdMemberUpdateManyWithoutClientNestedInput
   familyMembers?: Prisma.FamilyMemberUpdateManyWithoutClientNestedInput
+  linkedFromFamilyMember?: Prisma.FamilyMemberUpdateOneWithoutLinkedClientNestedInput
   loyaltyBalances?: Prisma.ClientLoyaltyBalanceUpdateManyWithoutClientNestedInput
   intakes?: Prisma.ClientIntakeUpdateManyWithoutClientNestedInput
   tripRequests?: Prisma.TripRequestUpdateManyWithoutClientNestedInput
@@ -1549,6 +1768,7 @@ export type ClientUpdateWithoutPreferencesInput = {
   followUpSuggestions?: Prisma.FollowUpSuggestionUpdateManyWithoutClientNestedInput
   vendorRequests?: Prisma.VendorRequestUpdateManyWithoutClientNestedInput
   meetingSessions?: Prisma.DiscoveryMeetingSessionUpdateManyWithoutClientNestedInput
+  crossClientSuggestions?: Prisma.MeetingProfileSuggestionUpdateManyWithoutTargetClientNestedInput
 }
 
 export type ClientUncheckedUpdateWithoutPreferencesInput = {
@@ -1567,6 +1787,7 @@ export type ClientUncheckedUpdateWithoutPreferencesInput = {
   updatedAt?: Prisma.DateTimeFieldUpdateOperationsInput | Date | string
   householdMembers?: Prisma.HouseholdMemberUncheckedUpdateManyWithoutClientNestedInput
   familyMembers?: Prisma.FamilyMemberUncheckedUpdateManyWithoutClientNestedInput
+  linkedFromFamilyMember?: Prisma.FamilyMemberUncheckedUpdateOneWithoutLinkedClientNestedInput
   loyaltyBalances?: Prisma.ClientLoyaltyBalanceUncheckedUpdateManyWithoutClientNestedInput
   intakes?: Prisma.ClientIntakeUncheckedUpdateManyWithoutClientNestedInput
   tripRequests?: Prisma.TripRequestUncheckedUpdateManyWithoutClientNestedInput
@@ -1577,6 +1798,7 @@ export type ClientUncheckedUpdateWithoutPreferencesInput = {
   followUpSuggestions?: Prisma.FollowUpSuggestionUncheckedUpdateManyWithoutClientNestedInput
   vendorRequests?: Prisma.VendorRequestUncheckedUpdateManyWithoutClientNestedInput
   meetingSessions?: Prisma.DiscoveryMeetingSessionUncheckedUpdateManyWithoutClientNestedInput
+  crossClientSuggestions?: Prisma.MeetingProfileSuggestionUncheckedUpdateManyWithoutTargetClientNestedInput
 }
 
 export type ClientCreateWithoutTripRequestsInput = {
@@ -1595,6 +1817,7 @@ export type ClientCreateWithoutTripRequestsInput = {
   owner: Prisma.UserCreateNestedOneWithoutOwnedClientsInput
   householdMembers?: Prisma.HouseholdMemberCreateNestedManyWithoutClientInput
   familyMembers?: Prisma.FamilyMemberCreateNestedManyWithoutClientInput
+  linkedFromFamilyMember?: Prisma.FamilyMemberCreateNestedOneWithoutLinkedClientInput
   loyaltyBalances?: Prisma.ClientLoyaltyBalanceCreateNestedManyWithoutClientInput
   preferences?: Prisma.ClientPreferenceCreateNestedOneWithoutClientInput
   intakes?: Prisma.ClientIntakeCreateNestedManyWithoutClientInput
@@ -1605,6 +1828,7 @@ export type ClientCreateWithoutTripRequestsInput = {
   followUpSuggestions?: Prisma.FollowUpSuggestionCreateNestedManyWithoutClientInput
   vendorRequests?: Prisma.VendorRequestCreateNestedManyWithoutClientInput
   meetingSessions?: Prisma.DiscoveryMeetingSessionCreateNestedManyWithoutClientInput
+  crossClientSuggestions?: Prisma.MeetingProfileSuggestionCreateNestedManyWithoutTargetClientInput
 }
 
 export type ClientUncheckedCreateWithoutTripRequestsInput = {
@@ -1623,6 +1847,7 @@ export type ClientUncheckedCreateWithoutTripRequestsInput = {
   updatedAt?: Date | string
   householdMembers?: Prisma.HouseholdMemberUncheckedCreateNestedManyWithoutClientInput
   familyMembers?: Prisma.FamilyMemberUncheckedCreateNestedManyWithoutClientInput
+  linkedFromFamilyMember?: Prisma.FamilyMemberUncheckedCreateNestedOneWithoutLinkedClientInput
   loyaltyBalances?: Prisma.ClientLoyaltyBalanceUncheckedCreateNestedManyWithoutClientInput
   preferences?: Prisma.ClientPreferenceUncheckedCreateNestedOneWithoutClientInput
   intakes?: Prisma.ClientIntakeUncheckedCreateNestedManyWithoutClientInput
@@ -1633,6 +1858,7 @@ export type ClientUncheckedCreateWithoutTripRequestsInput = {
   followUpSuggestions?: Prisma.FollowUpSuggestionUncheckedCreateNestedManyWithoutClientInput
   vendorRequests?: Prisma.VendorRequestUncheckedCreateNestedManyWithoutClientInput
   meetingSessions?: Prisma.DiscoveryMeetingSessionUncheckedCreateNestedManyWithoutClientInput
+  crossClientSuggestions?: Prisma.MeetingProfileSuggestionUncheckedCreateNestedManyWithoutTargetClientInput
 }
 
 export type ClientCreateOrConnectWithoutTripRequestsInput = {
@@ -1667,6 +1893,7 @@ export type ClientUpdateWithoutTripRequestsInput = {
   owner?: Prisma.UserUpdateOneRequiredWithoutOwnedClientsNestedInput
   householdMembers?: Prisma.HouseholdMemberUpdateManyWithoutClientNestedInput
   familyMembers?: Prisma.FamilyMemberUpdateManyWithoutClientNestedInput
+  linkedFromFamilyMember?: Prisma.FamilyMemberUpdateOneWithoutLinkedClientNestedInput
   loyaltyBalances?: Prisma.ClientLoyaltyBalanceUpdateManyWithoutClientNestedInput
   preferences?: Prisma.ClientPreferenceUpdateOneWithoutClientNestedInput
   intakes?: Prisma.ClientIntakeUpdateManyWithoutClientNestedInput
@@ -1677,6 +1904,7 @@ export type ClientUpdateWithoutTripRequestsInput = {
   followUpSuggestions?: Prisma.FollowUpSuggestionUpdateManyWithoutClientNestedInput
   vendorRequests?: Prisma.VendorRequestUpdateManyWithoutClientNestedInput
   meetingSessions?: Prisma.DiscoveryMeetingSessionUpdateManyWithoutClientNestedInput
+  crossClientSuggestions?: Prisma.MeetingProfileSuggestionUpdateManyWithoutTargetClientNestedInput
 }
 
 export type ClientUncheckedUpdateWithoutTripRequestsInput = {
@@ -1695,6 +1923,7 @@ export type ClientUncheckedUpdateWithoutTripRequestsInput = {
   updatedAt?: Prisma.DateTimeFieldUpdateOperationsInput | Date | string
   householdMembers?: Prisma.HouseholdMemberUncheckedUpdateManyWithoutClientNestedInput
   familyMembers?: Prisma.FamilyMemberUncheckedUpdateManyWithoutClientNestedInput
+  linkedFromFamilyMember?: Prisma.FamilyMemberUncheckedUpdateOneWithoutLinkedClientNestedInput
   loyaltyBalances?: Prisma.ClientLoyaltyBalanceUncheckedUpdateManyWithoutClientNestedInput
   preferences?: Prisma.ClientPreferenceUncheckedUpdateOneWithoutClientNestedInput
   intakes?: Prisma.ClientIntakeUncheckedUpdateManyWithoutClientNestedInput
@@ -1705,6 +1934,7 @@ export type ClientUncheckedUpdateWithoutTripRequestsInput = {
   followUpSuggestions?: Prisma.FollowUpSuggestionUncheckedUpdateManyWithoutClientNestedInput
   vendorRequests?: Prisma.VendorRequestUncheckedUpdateManyWithoutClientNestedInput
   meetingSessions?: Prisma.DiscoveryMeetingSessionUncheckedUpdateManyWithoutClientNestedInput
+  crossClientSuggestions?: Prisma.MeetingProfileSuggestionUncheckedUpdateManyWithoutTargetClientNestedInput
 }
 
 export type ClientCreateWithoutTripTravelersInput = {
@@ -1723,6 +1953,7 @@ export type ClientCreateWithoutTripTravelersInput = {
   owner: Prisma.UserCreateNestedOneWithoutOwnedClientsInput
   householdMembers?: Prisma.HouseholdMemberCreateNestedManyWithoutClientInput
   familyMembers?: Prisma.FamilyMemberCreateNestedManyWithoutClientInput
+  linkedFromFamilyMember?: Prisma.FamilyMemberCreateNestedOneWithoutLinkedClientInput
   loyaltyBalances?: Prisma.ClientLoyaltyBalanceCreateNestedManyWithoutClientInput
   preferences?: Prisma.ClientPreferenceCreateNestedOneWithoutClientInput
   intakes?: Prisma.ClientIntakeCreateNestedManyWithoutClientInput
@@ -1733,6 +1964,7 @@ export type ClientCreateWithoutTripTravelersInput = {
   followUpSuggestions?: Prisma.FollowUpSuggestionCreateNestedManyWithoutClientInput
   vendorRequests?: Prisma.VendorRequestCreateNestedManyWithoutClientInput
   meetingSessions?: Prisma.DiscoveryMeetingSessionCreateNestedManyWithoutClientInput
+  crossClientSuggestions?: Prisma.MeetingProfileSuggestionCreateNestedManyWithoutTargetClientInput
 }
 
 export type ClientUncheckedCreateWithoutTripTravelersInput = {
@@ -1751,6 +1983,7 @@ export type ClientUncheckedCreateWithoutTripTravelersInput = {
   updatedAt?: Date | string
   householdMembers?: Prisma.HouseholdMemberUncheckedCreateNestedManyWithoutClientInput
   familyMembers?: Prisma.FamilyMemberUncheckedCreateNestedManyWithoutClientInput
+  linkedFromFamilyMember?: Prisma.FamilyMemberUncheckedCreateNestedOneWithoutLinkedClientInput
   loyaltyBalances?: Prisma.ClientLoyaltyBalanceUncheckedCreateNestedManyWithoutClientInput
   preferences?: Prisma.ClientPreferenceUncheckedCreateNestedOneWithoutClientInput
   intakes?: Prisma.ClientIntakeUncheckedCreateNestedManyWithoutClientInput
@@ -1761,6 +1994,7 @@ export type ClientUncheckedCreateWithoutTripTravelersInput = {
   followUpSuggestions?: Prisma.FollowUpSuggestionUncheckedCreateNestedManyWithoutClientInput
   vendorRequests?: Prisma.VendorRequestUncheckedCreateNestedManyWithoutClientInput
   meetingSessions?: Prisma.DiscoveryMeetingSessionUncheckedCreateNestedManyWithoutClientInput
+  crossClientSuggestions?: Prisma.MeetingProfileSuggestionUncheckedCreateNestedManyWithoutTargetClientInput
 }
 
 export type ClientCreateOrConnectWithoutTripTravelersInput = {
@@ -1795,6 +2029,7 @@ export type ClientUpdateWithoutTripTravelersInput = {
   owner?: Prisma.UserUpdateOneRequiredWithoutOwnedClientsNestedInput
   householdMembers?: Prisma.HouseholdMemberUpdateManyWithoutClientNestedInput
   familyMembers?: Prisma.FamilyMemberUpdateManyWithoutClientNestedInput
+  linkedFromFamilyMember?: Prisma.FamilyMemberUpdateOneWithoutLinkedClientNestedInput
   loyaltyBalances?: Prisma.ClientLoyaltyBalanceUpdateManyWithoutClientNestedInput
   preferences?: Prisma.ClientPreferenceUpdateOneWithoutClientNestedInput
   intakes?: Prisma.ClientIntakeUpdateManyWithoutClientNestedInput
@@ -1805,6 +2040,7 @@ export type ClientUpdateWithoutTripTravelersInput = {
   followUpSuggestions?: Prisma.FollowUpSuggestionUpdateManyWithoutClientNestedInput
   vendorRequests?: Prisma.VendorRequestUpdateManyWithoutClientNestedInput
   meetingSessions?: Prisma.DiscoveryMeetingSessionUpdateManyWithoutClientNestedInput
+  crossClientSuggestions?: Prisma.MeetingProfileSuggestionUpdateManyWithoutTargetClientNestedInput
 }
 
 export type ClientUncheckedUpdateWithoutTripTravelersInput = {
@@ -1823,6 +2059,7 @@ export type ClientUncheckedUpdateWithoutTripTravelersInput = {
   updatedAt?: Prisma.DateTimeFieldUpdateOperationsInput | Date | string
   householdMembers?: Prisma.HouseholdMemberUncheckedUpdateManyWithoutClientNestedInput
   familyMembers?: Prisma.FamilyMemberUncheckedUpdateManyWithoutClientNestedInput
+  linkedFromFamilyMember?: Prisma.FamilyMemberUncheckedUpdateOneWithoutLinkedClientNestedInput
   loyaltyBalances?: Prisma.ClientLoyaltyBalanceUncheckedUpdateManyWithoutClientNestedInput
   preferences?: Prisma.ClientPreferenceUncheckedUpdateOneWithoutClientNestedInput
   intakes?: Prisma.ClientIntakeUncheckedUpdateManyWithoutClientNestedInput
@@ -1833,6 +2070,7 @@ export type ClientUncheckedUpdateWithoutTripTravelersInput = {
   followUpSuggestions?: Prisma.FollowUpSuggestionUncheckedUpdateManyWithoutClientNestedInput
   vendorRequests?: Prisma.VendorRequestUncheckedUpdateManyWithoutClientNestedInput
   meetingSessions?: Prisma.DiscoveryMeetingSessionUncheckedUpdateManyWithoutClientNestedInput
+  crossClientSuggestions?: Prisma.MeetingProfileSuggestionUncheckedUpdateManyWithoutTargetClientNestedInput
 }
 
 export type ClientCreateWithoutIntakesInput = {
@@ -1851,6 +2089,7 @@ export type ClientCreateWithoutIntakesInput = {
   owner: Prisma.UserCreateNestedOneWithoutOwnedClientsInput
   householdMembers?: Prisma.HouseholdMemberCreateNestedManyWithoutClientInput
   familyMembers?: Prisma.FamilyMemberCreateNestedManyWithoutClientInput
+  linkedFromFamilyMember?: Prisma.FamilyMemberCreateNestedOneWithoutLinkedClientInput
   loyaltyBalances?: Prisma.ClientLoyaltyBalanceCreateNestedManyWithoutClientInput
   preferences?: Prisma.ClientPreferenceCreateNestedOneWithoutClientInput
   tripRequests?: Prisma.TripRequestCreateNestedManyWithoutClientInput
@@ -1861,6 +2100,7 @@ export type ClientCreateWithoutIntakesInput = {
   followUpSuggestions?: Prisma.FollowUpSuggestionCreateNestedManyWithoutClientInput
   vendorRequests?: Prisma.VendorRequestCreateNestedManyWithoutClientInput
   meetingSessions?: Prisma.DiscoveryMeetingSessionCreateNestedManyWithoutClientInput
+  crossClientSuggestions?: Prisma.MeetingProfileSuggestionCreateNestedManyWithoutTargetClientInput
 }
 
 export type ClientUncheckedCreateWithoutIntakesInput = {
@@ -1879,6 +2119,7 @@ export type ClientUncheckedCreateWithoutIntakesInput = {
   updatedAt?: Date | string
   householdMembers?: Prisma.HouseholdMemberUncheckedCreateNestedManyWithoutClientInput
   familyMembers?: Prisma.FamilyMemberUncheckedCreateNestedManyWithoutClientInput
+  linkedFromFamilyMember?: Prisma.FamilyMemberUncheckedCreateNestedOneWithoutLinkedClientInput
   loyaltyBalances?: Prisma.ClientLoyaltyBalanceUncheckedCreateNestedManyWithoutClientInput
   preferences?: Prisma.ClientPreferenceUncheckedCreateNestedOneWithoutClientInput
   tripRequests?: Prisma.TripRequestUncheckedCreateNestedManyWithoutClientInput
@@ -1889,6 +2130,7 @@ export type ClientUncheckedCreateWithoutIntakesInput = {
   followUpSuggestions?: Prisma.FollowUpSuggestionUncheckedCreateNestedManyWithoutClientInput
   vendorRequests?: Prisma.VendorRequestUncheckedCreateNestedManyWithoutClientInput
   meetingSessions?: Prisma.DiscoveryMeetingSessionUncheckedCreateNestedManyWithoutClientInput
+  crossClientSuggestions?: Prisma.MeetingProfileSuggestionUncheckedCreateNestedManyWithoutTargetClientInput
 }
 
 export type ClientCreateOrConnectWithoutIntakesInput = {
@@ -1923,6 +2165,7 @@ export type ClientUpdateWithoutIntakesInput = {
   owner?: Prisma.UserUpdateOneRequiredWithoutOwnedClientsNestedInput
   householdMembers?: Prisma.HouseholdMemberUpdateManyWithoutClientNestedInput
   familyMembers?: Prisma.FamilyMemberUpdateManyWithoutClientNestedInput
+  linkedFromFamilyMember?: Prisma.FamilyMemberUpdateOneWithoutLinkedClientNestedInput
   loyaltyBalances?: Prisma.ClientLoyaltyBalanceUpdateManyWithoutClientNestedInput
   preferences?: Prisma.ClientPreferenceUpdateOneWithoutClientNestedInput
   tripRequests?: Prisma.TripRequestUpdateManyWithoutClientNestedInput
@@ -1933,6 +2176,7 @@ export type ClientUpdateWithoutIntakesInput = {
   followUpSuggestions?: Prisma.FollowUpSuggestionUpdateManyWithoutClientNestedInput
   vendorRequests?: Prisma.VendorRequestUpdateManyWithoutClientNestedInput
   meetingSessions?: Prisma.DiscoveryMeetingSessionUpdateManyWithoutClientNestedInput
+  crossClientSuggestions?: Prisma.MeetingProfileSuggestionUpdateManyWithoutTargetClientNestedInput
 }
 
 export type ClientUncheckedUpdateWithoutIntakesInput = {
@@ -1951,6 +2195,7 @@ export type ClientUncheckedUpdateWithoutIntakesInput = {
   updatedAt?: Prisma.DateTimeFieldUpdateOperationsInput | Date | string
   householdMembers?: Prisma.HouseholdMemberUncheckedUpdateManyWithoutClientNestedInput
   familyMembers?: Prisma.FamilyMemberUncheckedUpdateManyWithoutClientNestedInput
+  linkedFromFamilyMember?: Prisma.FamilyMemberUncheckedUpdateOneWithoutLinkedClientNestedInput
   loyaltyBalances?: Prisma.ClientLoyaltyBalanceUncheckedUpdateManyWithoutClientNestedInput
   preferences?: Prisma.ClientPreferenceUncheckedUpdateOneWithoutClientNestedInput
   tripRequests?: Prisma.TripRequestUncheckedUpdateManyWithoutClientNestedInput
@@ -1961,6 +2206,7 @@ export type ClientUncheckedUpdateWithoutIntakesInput = {
   followUpSuggestions?: Prisma.FollowUpSuggestionUncheckedUpdateManyWithoutClientNestedInput
   vendorRequests?: Prisma.VendorRequestUncheckedUpdateManyWithoutClientNestedInput
   meetingSessions?: Prisma.DiscoveryMeetingSessionUncheckedUpdateManyWithoutClientNestedInput
+  crossClientSuggestions?: Prisma.MeetingProfileSuggestionUncheckedUpdateManyWithoutTargetClientNestedInput
 }
 
 export type ClientCreateWithoutTripBriefsInput = {
@@ -1979,6 +2225,7 @@ export type ClientCreateWithoutTripBriefsInput = {
   owner: Prisma.UserCreateNestedOneWithoutOwnedClientsInput
   householdMembers?: Prisma.HouseholdMemberCreateNestedManyWithoutClientInput
   familyMembers?: Prisma.FamilyMemberCreateNestedManyWithoutClientInput
+  linkedFromFamilyMember?: Prisma.FamilyMemberCreateNestedOneWithoutLinkedClientInput
   loyaltyBalances?: Prisma.ClientLoyaltyBalanceCreateNestedManyWithoutClientInput
   preferences?: Prisma.ClientPreferenceCreateNestedOneWithoutClientInput
   intakes?: Prisma.ClientIntakeCreateNestedManyWithoutClientInput
@@ -1989,6 +2236,7 @@ export type ClientCreateWithoutTripBriefsInput = {
   followUpSuggestions?: Prisma.FollowUpSuggestionCreateNestedManyWithoutClientInput
   vendorRequests?: Prisma.VendorRequestCreateNestedManyWithoutClientInput
   meetingSessions?: Prisma.DiscoveryMeetingSessionCreateNestedManyWithoutClientInput
+  crossClientSuggestions?: Prisma.MeetingProfileSuggestionCreateNestedManyWithoutTargetClientInput
 }
 
 export type ClientUncheckedCreateWithoutTripBriefsInput = {
@@ -2007,6 +2255,7 @@ export type ClientUncheckedCreateWithoutTripBriefsInput = {
   updatedAt?: Date | string
   householdMembers?: Prisma.HouseholdMemberUncheckedCreateNestedManyWithoutClientInput
   familyMembers?: Prisma.FamilyMemberUncheckedCreateNestedManyWithoutClientInput
+  linkedFromFamilyMember?: Prisma.FamilyMemberUncheckedCreateNestedOneWithoutLinkedClientInput
   loyaltyBalances?: Prisma.ClientLoyaltyBalanceUncheckedCreateNestedManyWithoutClientInput
   preferences?: Prisma.ClientPreferenceUncheckedCreateNestedOneWithoutClientInput
   intakes?: Prisma.ClientIntakeUncheckedCreateNestedManyWithoutClientInput
@@ -2017,6 +2266,7 @@ export type ClientUncheckedCreateWithoutTripBriefsInput = {
   followUpSuggestions?: Prisma.FollowUpSuggestionUncheckedCreateNestedManyWithoutClientInput
   vendorRequests?: Prisma.VendorRequestUncheckedCreateNestedManyWithoutClientInput
   meetingSessions?: Prisma.DiscoveryMeetingSessionUncheckedCreateNestedManyWithoutClientInput
+  crossClientSuggestions?: Prisma.MeetingProfileSuggestionUncheckedCreateNestedManyWithoutTargetClientInput
 }
 
 export type ClientCreateOrConnectWithoutTripBriefsInput = {
@@ -2051,6 +2301,7 @@ export type ClientUpdateWithoutTripBriefsInput = {
   owner?: Prisma.UserUpdateOneRequiredWithoutOwnedClientsNestedInput
   householdMembers?: Prisma.HouseholdMemberUpdateManyWithoutClientNestedInput
   familyMembers?: Prisma.FamilyMemberUpdateManyWithoutClientNestedInput
+  linkedFromFamilyMember?: Prisma.FamilyMemberUpdateOneWithoutLinkedClientNestedInput
   loyaltyBalances?: Prisma.ClientLoyaltyBalanceUpdateManyWithoutClientNestedInput
   preferences?: Prisma.ClientPreferenceUpdateOneWithoutClientNestedInput
   intakes?: Prisma.ClientIntakeUpdateManyWithoutClientNestedInput
@@ -2061,6 +2312,7 @@ export type ClientUpdateWithoutTripBriefsInput = {
   followUpSuggestions?: Prisma.FollowUpSuggestionUpdateManyWithoutClientNestedInput
   vendorRequests?: Prisma.VendorRequestUpdateManyWithoutClientNestedInput
   meetingSessions?: Prisma.DiscoveryMeetingSessionUpdateManyWithoutClientNestedInput
+  crossClientSuggestions?: Prisma.MeetingProfileSuggestionUpdateManyWithoutTargetClientNestedInput
 }
 
 export type ClientUncheckedUpdateWithoutTripBriefsInput = {
@@ -2079,6 +2331,7 @@ export type ClientUncheckedUpdateWithoutTripBriefsInput = {
   updatedAt?: Prisma.DateTimeFieldUpdateOperationsInput | Date | string
   householdMembers?: Prisma.HouseholdMemberUncheckedUpdateManyWithoutClientNestedInput
   familyMembers?: Prisma.FamilyMemberUncheckedUpdateManyWithoutClientNestedInput
+  linkedFromFamilyMember?: Prisma.FamilyMemberUncheckedUpdateOneWithoutLinkedClientNestedInput
   loyaltyBalances?: Prisma.ClientLoyaltyBalanceUncheckedUpdateManyWithoutClientNestedInput
   preferences?: Prisma.ClientPreferenceUncheckedUpdateOneWithoutClientNestedInput
   intakes?: Prisma.ClientIntakeUncheckedUpdateManyWithoutClientNestedInput
@@ -2089,6 +2342,7 @@ export type ClientUncheckedUpdateWithoutTripBriefsInput = {
   followUpSuggestions?: Prisma.FollowUpSuggestionUncheckedUpdateManyWithoutClientNestedInput
   vendorRequests?: Prisma.VendorRequestUncheckedUpdateManyWithoutClientNestedInput
   meetingSessions?: Prisma.DiscoveryMeetingSessionUncheckedUpdateManyWithoutClientNestedInput
+  crossClientSuggestions?: Prisma.MeetingProfileSuggestionUncheckedUpdateManyWithoutTargetClientNestedInput
 }
 
 export type ClientCreateWithoutAlertSubscriptionsInput = {
@@ -2107,6 +2361,7 @@ export type ClientCreateWithoutAlertSubscriptionsInput = {
   owner: Prisma.UserCreateNestedOneWithoutOwnedClientsInput
   householdMembers?: Prisma.HouseholdMemberCreateNestedManyWithoutClientInput
   familyMembers?: Prisma.FamilyMemberCreateNestedManyWithoutClientInput
+  linkedFromFamilyMember?: Prisma.FamilyMemberCreateNestedOneWithoutLinkedClientInput
   loyaltyBalances?: Prisma.ClientLoyaltyBalanceCreateNestedManyWithoutClientInput
   preferences?: Prisma.ClientPreferenceCreateNestedOneWithoutClientInput
   intakes?: Prisma.ClientIntakeCreateNestedManyWithoutClientInput
@@ -2117,6 +2372,7 @@ export type ClientCreateWithoutAlertSubscriptionsInput = {
   followUpSuggestions?: Prisma.FollowUpSuggestionCreateNestedManyWithoutClientInput
   vendorRequests?: Prisma.VendorRequestCreateNestedManyWithoutClientInput
   meetingSessions?: Prisma.DiscoveryMeetingSessionCreateNestedManyWithoutClientInput
+  crossClientSuggestions?: Prisma.MeetingProfileSuggestionCreateNestedManyWithoutTargetClientInput
 }
 
 export type ClientUncheckedCreateWithoutAlertSubscriptionsInput = {
@@ -2135,6 +2391,7 @@ export type ClientUncheckedCreateWithoutAlertSubscriptionsInput = {
   updatedAt?: Date | string
   householdMembers?: Prisma.HouseholdMemberUncheckedCreateNestedManyWithoutClientInput
   familyMembers?: Prisma.FamilyMemberUncheckedCreateNestedManyWithoutClientInput
+  linkedFromFamilyMember?: Prisma.FamilyMemberUncheckedCreateNestedOneWithoutLinkedClientInput
   loyaltyBalances?: Prisma.ClientLoyaltyBalanceUncheckedCreateNestedManyWithoutClientInput
   preferences?: Prisma.ClientPreferenceUncheckedCreateNestedOneWithoutClientInput
   intakes?: Prisma.ClientIntakeUncheckedCreateNestedManyWithoutClientInput
@@ -2145,6 +2402,7 @@ export type ClientUncheckedCreateWithoutAlertSubscriptionsInput = {
   followUpSuggestions?: Prisma.FollowUpSuggestionUncheckedCreateNestedManyWithoutClientInput
   vendorRequests?: Prisma.VendorRequestUncheckedCreateNestedManyWithoutClientInput
   meetingSessions?: Prisma.DiscoveryMeetingSessionUncheckedCreateNestedManyWithoutClientInput
+  crossClientSuggestions?: Prisma.MeetingProfileSuggestionUncheckedCreateNestedManyWithoutTargetClientInput
 }
 
 export type ClientCreateOrConnectWithoutAlertSubscriptionsInput = {
@@ -2179,6 +2437,7 @@ export type ClientUpdateWithoutAlertSubscriptionsInput = {
   owner?: Prisma.UserUpdateOneRequiredWithoutOwnedClientsNestedInput
   householdMembers?: Prisma.HouseholdMemberUpdateManyWithoutClientNestedInput
   familyMembers?: Prisma.FamilyMemberUpdateManyWithoutClientNestedInput
+  linkedFromFamilyMember?: Prisma.FamilyMemberUpdateOneWithoutLinkedClientNestedInput
   loyaltyBalances?: Prisma.ClientLoyaltyBalanceUpdateManyWithoutClientNestedInput
   preferences?: Prisma.ClientPreferenceUpdateOneWithoutClientNestedInput
   intakes?: Prisma.ClientIntakeUpdateManyWithoutClientNestedInput
@@ -2189,6 +2448,7 @@ export type ClientUpdateWithoutAlertSubscriptionsInput = {
   followUpSuggestions?: Prisma.FollowUpSuggestionUpdateManyWithoutClientNestedInput
   vendorRequests?: Prisma.VendorRequestUpdateManyWithoutClientNestedInput
   meetingSessions?: Prisma.DiscoveryMeetingSessionUpdateManyWithoutClientNestedInput
+  crossClientSuggestions?: Prisma.MeetingProfileSuggestionUpdateManyWithoutTargetClientNestedInput
 }
 
 export type ClientUncheckedUpdateWithoutAlertSubscriptionsInput = {
@@ -2207,6 +2467,7 @@ export type ClientUncheckedUpdateWithoutAlertSubscriptionsInput = {
   updatedAt?: Prisma.DateTimeFieldUpdateOperationsInput | Date | string
   householdMembers?: Prisma.HouseholdMemberUncheckedUpdateManyWithoutClientNestedInput
   familyMembers?: Prisma.FamilyMemberUncheckedUpdateManyWithoutClientNestedInput
+  linkedFromFamilyMember?: Prisma.FamilyMemberUncheckedUpdateOneWithoutLinkedClientNestedInput
   loyaltyBalances?: Prisma.ClientLoyaltyBalanceUncheckedUpdateManyWithoutClientNestedInput
   preferences?: Prisma.ClientPreferenceUncheckedUpdateOneWithoutClientNestedInput
   intakes?: Prisma.ClientIntakeUncheckedUpdateManyWithoutClientNestedInput
@@ -2217,6 +2478,7 @@ export type ClientUncheckedUpdateWithoutAlertSubscriptionsInput = {
   followUpSuggestions?: Prisma.FollowUpSuggestionUncheckedUpdateManyWithoutClientNestedInput
   vendorRequests?: Prisma.VendorRequestUncheckedUpdateManyWithoutClientNestedInput
   meetingSessions?: Prisma.DiscoveryMeetingSessionUncheckedUpdateManyWithoutClientNestedInput
+  crossClientSuggestions?: Prisma.MeetingProfileSuggestionUncheckedUpdateManyWithoutTargetClientNestedInput
 }
 
 export type ClientCreateWithoutInferredPreferencesInput = {
@@ -2235,6 +2497,7 @@ export type ClientCreateWithoutInferredPreferencesInput = {
   owner: Prisma.UserCreateNestedOneWithoutOwnedClientsInput
   householdMembers?: Prisma.HouseholdMemberCreateNestedManyWithoutClientInput
   familyMembers?: Prisma.FamilyMemberCreateNestedManyWithoutClientInput
+  linkedFromFamilyMember?: Prisma.FamilyMemberCreateNestedOneWithoutLinkedClientInput
   loyaltyBalances?: Prisma.ClientLoyaltyBalanceCreateNestedManyWithoutClientInput
   preferences?: Prisma.ClientPreferenceCreateNestedOneWithoutClientInput
   intakes?: Prisma.ClientIntakeCreateNestedManyWithoutClientInput
@@ -2245,6 +2508,7 @@ export type ClientCreateWithoutInferredPreferencesInput = {
   followUpSuggestions?: Prisma.FollowUpSuggestionCreateNestedManyWithoutClientInput
   vendorRequests?: Prisma.VendorRequestCreateNestedManyWithoutClientInput
   meetingSessions?: Prisma.DiscoveryMeetingSessionCreateNestedManyWithoutClientInput
+  crossClientSuggestions?: Prisma.MeetingProfileSuggestionCreateNestedManyWithoutTargetClientInput
 }
 
 export type ClientUncheckedCreateWithoutInferredPreferencesInput = {
@@ -2263,6 +2527,7 @@ export type ClientUncheckedCreateWithoutInferredPreferencesInput = {
   updatedAt?: Date | string
   householdMembers?: Prisma.HouseholdMemberUncheckedCreateNestedManyWithoutClientInput
   familyMembers?: Prisma.FamilyMemberUncheckedCreateNestedManyWithoutClientInput
+  linkedFromFamilyMember?: Prisma.FamilyMemberUncheckedCreateNestedOneWithoutLinkedClientInput
   loyaltyBalances?: Prisma.ClientLoyaltyBalanceUncheckedCreateNestedManyWithoutClientInput
   preferences?: Prisma.ClientPreferenceUncheckedCreateNestedOneWithoutClientInput
   intakes?: Prisma.ClientIntakeUncheckedCreateNestedManyWithoutClientInput
@@ -2273,6 +2538,7 @@ export type ClientUncheckedCreateWithoutInferredPreferencesInput = {
   followUpSuggestions?: Prisma.FollowUpSuggestionUncheckedCreateNestedManyWithoutClientInput
   vendorRequests?: Prisma.VendorRequestUncheckedCreateNestedManyWithoutClientInput
   meetingSessions?: Prisma.DiscoveryMeetingSessionUncheckedCreateNestedManyWithoutClientInput
+  crossClientSuggestions?: Prisma.MeetingProfileSuggestionUncheckedCreateNestedManyWithoutTargetClientInput
 }
 
 export type ClientCreateOrConnectWithoutInferredPreferencesInput = {
@@ -2307,6 +2573,7 @@ export type ClientUpdateWithoutInferredPreferencesInput = {
   owner?: Prisma.UserUpdateOneRequiredWithoutOwnedClientsNestedInput
   householdMembers?: Prisma.HouseholdMemberUpdateManyWithoutClientNestedInput
   familyMembers?: Prisma.FamilyMemberUpdateManyWithoutClientNestedInput
+  linkedFromFamilyMember?: Prisma.FamilyMemberUpdateOneWithoutLinkedClientNestedInput
   loyaltyBalances?: Prisma.ClientLoyaltyBalanceUpdateManyWithoutClientNestedInput
   preferences?: Prisma.ClientPreferenceUpdateOneWithoutClientNestedInput
   intakes?: Prisma.ClientIntakeUpdateManyWithoutClientNestedInput
@@ -2317,6 +2584,7 @@ export type ClientUpdateWithoutInferredPreferencesInput = {
   followUpSuggestions?: Prisma.FollowUpSuggestionUpdateManyWithoutClientNestedInput
   vendorRequests?: Prisma.VendorRequestUpdateManyWithoutClientNestedInput
   meetingSessions?: Prisma.DiscoveryMeetingSessionUpdateManyWithoutClientNestedInput
+  crossClientSuggestions?: Prisma.MeetingProfileSuggestionUpdateManyWithoutTargetClientNestedInput
 }
 
 export type ClientUncheckedUpdateWithoutInferredPreferencesInput = {
@@ -2335,6 +2603,7 @@ export type ClientUncheckedUpdateWithoutInferredPreferencesInput = {
   updatedAt?: Prisma.DateTimeFieldUpdateOperationsInput | Date | string
   householdMembers?: Prisma.HouseholdMemberUncheckedUpdateManyWithoutClientNestedInput
   familyMembers?: Prisma.FamilyMemberUncheckedUpdateManyWithoutClientNestedInput
+  linkedFromFamilyMember?: Prisma.FamilyMemberUncheckedUpdateOneWithoutLinkedClientNestedInput
   loyaltyBalances?: Prisma.ClientLoyaltyBalanceUncheckedUpdateManyWithoutClientNestedInput
   preferences?: Prisma.ClientPreferenceUncheckedUpdateOneWithoutClientNestedInput
   intakes?: Prisma.ClientIntakeUncheckedUpdateManyWithoutClientNestedInput
@@ -2345,6 +2614,7 @@ export type ClientUncheckedUpdateWithoutInferredPreferencesInput = {
   followUpSuggestions?: Prisma.FollowUpSuggestionUncheckedUpdateManyWithoutClientNestedInput
   vendorRequests?: Prisma.VendorRequestUncheckedUpdateManyWithoutClientNestedInput
   meetingSessions?: Prisma.DiscoveryMeetingSessionUncheckedUpdateManyWithoutClientNestedInput
+  crossClientSuggestions?: Prisma.MeetingProfileSuggestionUncheckedUpdateManyWithoutTargetClientNestedInput
 }
 
 export type ClientCreateWithoutFollowUpSuggestionsInput = {
@@ -2363,6 +2633,7 @@ export type ClientCreateWithoutFollowUpSuggestionsInput = {
   owner: Prisma.UserCreateNestedOneWithoutOwnedClientsInput
   householdMembers?: Prisma.HouseholdMemberCreateNestedManyWithoutClientInput
   familyMembers?: Prisma.FamilyMemberCreateNestedManyWithoutClientInput
+  linkedFromFamilyMember?: Prisma.FamilyMemberCreateNestedOneWithoutLinkedClientInput
   loyaltyBalances?: Prisma.ClientLoyaltyBalanceCreateNestedManyWithoutClientInput
   preferences?: Prisma.ClientPreferenceCreateNestedOneWithoutClientInput
   intakes?: Prisma.ClientIntakeCreateNestedManyWithoutClientInput
@@ -2373,6 +2644,7 @@ export type ClientCreateWithoutFollowUpSuggestionsInput = {
   inferredPreferences?: Prisma.InferredPreferenceCreateNestedManyWithoutClientInput
   vendorRequests?: Prisma.VendorRequestCreateNestedManyWithoutClientInput
   meetingSessions?: Prisma.DiscoveryMeetingSessionCreateNestedManyWithoutClientInput
+  crossClientSuggestions?: Prisma.MeetingProfileSuggestionCreateNestedManyWithoutTargetClientInput
 }
 
 export type ClientUncheckedCreateWithoutFollowUpSuggestionsInput = {
@@ -2391,6 +2663,7 @@ export type ClientUncheckedCreateWithoutFollowUpSuggestionsInput = {
   updatedAt?: Date | string
   householdMembers?: Prisma.HouseholdMemberUncheckedCreateNestedManyWithoutClientInput
   familyMembers?: Prisma.FamilyMemberUncheckedCreateNestedManyWithoutClientInput
+  linkedFromFamilyMember?: Prisma.FamilyMemberUncheckedCreateNestedOneWithoutLinkedClientInput
   loyaltyBalances?: Prisma.ClientLoyaltyBalanceUncheckedCreateNestedManyWithoutClientInput
   preferences?: Prisma.ClientPreferenceUncheckedCreateNestedOneWithoutClientInput
   intakes?: Prisma.ClientIntakeUncheckedCreateNestedManyWithoutClientInput
@@ -2401,6 +2674,7 @@ export type ClientUncheckedCreateWithoutFollowUpSuggestionsInput = {
   inferredPreferences?: Prisma.InferredPreferenceUncheckedCreateNestedManyWithoutClientInput
   vendorRequests?: Prisma.VendorRequestUncheckedCreateNestedManyWithoutClientInput
   meetingSessions?: Prisma.DiscoveryMeetingSessionUncheckedCreateNestedManyWithoutClientInput
+  crossClientSuggestions?: Prisma.MeetingProfileSuggestionUncheckedCreateNestedManyWithoutTargetClientInput
 }
 
 export type ClientCreateOrConnectWithoutFollowUpSuggestionsInput = {
@@ -2435,6 +2709,7 @@ export type ClientUpdateWithoutFollowUpSuggestionsInput = {
   owner?: Prisma.UserUpdateOneRequiredWithoutOwnedClientsNestedInput
   householdMembers?: Prisma.HouseholdMemberUpdateManyWithoutClientNestedInput
   familyMembers?: Prisma.FamilyMemberUpdateManyWithoutClientNestedInput
+  linkedFromFamilyMember?: Prisma.FamilyMemberUpdateOneWithoutLinkedClientNestedInput
   loyaltyBalances?: Prisma.ClientLoyaltyBalanceUpdateManyWithoutClientNestedInput
   preferences?: Prisma.ClientPreferenceUpdateOneWithoutClientNestedInput
   intakes?: Prisma.ClientIntakeUpdateManyWithoutClientNestedInput
@@ -2445,6 +2720,7 @@ export type ClientUpdateWithoutFollowUpSuggestionsInput = {
   inferredPreferences?: Prisma.InferredPreferenceUpdateManyWithoutClientNestedInput
   vendorRequests?: Prisma.VendorRequestUpdateManyWithoutClientNestedInput
   meetingSessions?: Prisma.DiscoveryMeetingSessionUpdateManyWithoutClientNestedInput
+  crossClientSuggestions?: Prisma.MeetingProfileSuggestionUpdateManyWithoutTargetClientNestedInput
 }
 
 export type ClientUncheckedUpdateWithoutFollowUpSuggestionsInput = {
@@ -2463,6 +2739,7 @@ export type ClientUncheckedUpdateWithoutFollowUpSuggestionsInput = {
   updatedAt?: Prisma.DateTimeFieldUpdateOperationsInput | Date | string
   householdMembers?: Prisma.HouseholdMemberUncheckedUpdateManyWithoutClientNestedInput
   familyMembers?: Prisma.FamilyMemberUncheckedUpdateManyWithoutClientNestedInput
+  linkedFromFamilyMember?: Prisma.FamilyMemberUncheckedUpdateOneWithoutLinkedClientNestedInput
   loyaltyBalances?: Prisma.ClientLoyaltyBalanceUncheckedUpdateManyWithoutClientNestedInput
   preferences?: Prisma.ClientPreferenceUncheckedUpdateOneWithoutClientNestedInput
   intakes?: Prisma.ClientIntakeUncheckedUpdateManyWithoutClientNestedInput
@@ -2473,6 +2750,7 @@ export type ClientUncheckedUpdateWithoutFollowUpSuggestionsInput = {
   inferredPreferences?: Prisma.InferredPreferenceUncheckedUpdateManyWithoutClientNestedInput
   vendorRequests?: Prisma.VendorRequestUncheckedUpdateManyWithoutClientNestedInput
   meetingSessions?: Prisma.DiscoveryMeetingSessionUncheckedUpdateManyWithoutClientNestedInput
+  crossClientSuggestions?: Prisma.MeetingProfileSuggestionUncheckedUpdateManyWithoutTargetClientNestedInput
 }
 
 export type ClientCreateWithoutVendorRequestsInput = {
@@ -2491,6 +2769,7 @@ export type ClientCreateWithoutVendorRequestsInput = {
   owner: Prisma.UserCreateNestedOneWithoutOwnedClientsInput
   householdMembers?: Prisma.HouseholdMemberCreateNestedManyWithoutClientInput
   familyMembers?: Prisma.FamilyMemberCreateNestedManyWithoutClientInput
+  linkedFromFamilyMember?: Prisma.FamilyMemberCreateNestedOneWithoutLinkedClientInput
   loyaltyBalances?: Prisma.ClientLoyaltyBalanceCreateNestedManyWithoutClientInput
   preferences?: Prisma.ClientPreferenceCreateNestedOneWithoutClientInput
   intakes?: Prisma.ClientIntakeCreateNestedManyWithoutClientInput
@@ -2501,6 +2780,7 @@ export type ClientCreateWithoutVendorRequestsInput = {
   inferredPreferences?: Prisma.InferredPreferenceCreateNestedManyWithoutClientInput
   followUpSuggestions?: Prisma.FollowUpSuggestionCreateNestedManyWithoutClientInput
   meetingSessions?: Prisma.DiscoveryMeetingSessionCreateNestedManyWithoutClientInput
+  crossClientSuggestions?: Prisma.MeetingProfileSuggestionCreateNestedManyWithoutTargetClientInput
 }
 
 export type ClientUncheckedCreateWithoutVendorRequestsInput = {
@@ -2519,6 +2799,7 @@ export type ClientUncheckedCreateWithoutVendorRequestsInput = {
   updatedAt?: Date | string
   householdMembers?: Prisma.HouseholdMemberUncheckedCreateNestedManyWithoutClientInput
   familyMembers?: Prisma.FamilyMemberUncheckedCreateNestedManyWithoutClientInput
+  linkedFromFamilyMember?: Prisma.FamilyMemberUncheckedCreateNestedOneWithoutLinkedClientInput
   loyaltyBalances?: Prisma.ClientLoyaltyBalanceUncheckedCreateNestedManyWithoutClientInput
   preferences?: Prisma.ClientPreferenceUncheckedCreateNestedOneWithoutClientInput
   intakes?: Prisma.ClientIntakeUncheckedCreateNestedManyWithoutClientInput
@@ -2529,6 +2810,7 @@ export type ClientUncheckedCreateWithoutVendorRequestsInput = {
   inferredPreferences?: Prisma.InferredPreferenceUncheckedCreateNestedManyWithoutClientInput
   followUpSuggestions?: Prisma.FollowUpSuggestionUncheckedCreateNestedManyWithoutClientInput
   meetingSessions?: Prisma.DiscoveryMeetingSessionUncheckedCreateNestedManyWithoutClientInput
+  crossClientSuggestions?: Prisma.MeetingProfileSuggestionUncheckedCreateNestedManyWithoutTargetClientInput
 }
 
 export type ClientCreateOrConnectWithoutVendorRequestsInput = {
@@ -2563,6 +2845,7 @@ export type ClientUpdateWithoutVendorRequestsInput = {
   owner?: Prisma.UserUpdateOneRequiredWithoutOwnedClientsNestedInput
   householdMembers?: Prisma.HouseholdMemberUpdateManyWithoutClientNestedInput
   familyMembers?: Prisma.FamilyMemberUpdateManyWithoutClientNestedInput
+  linkedFromFamilyMember?: Prisma.FamilyMemberUpdateOneWithoutLinkedClientNestedInput
   loyaltyBalances?: Prisma.ClientLoyaltyBalanceUpdateManyWithoutClientNestedInput
   preferences?: Prisma.ClientPreferenceUpdateOneWithoutClientNestedInput
   intakes?: Prisma.ClientIntakeUpdateManyWithoutClientNestedInput
@@ -2573,6 +2856,7 @@ export type ClientUpdateWithoutVendorRequestsInput = {
   inferredPreferences?: Prisma.InferredPreferenceUpdateManyWithoutClientNestedInput
   followUpSuggestions?: Prisma.FollowUpSuggestionUpdateManyWithoutClientNestedInput
   meetingSessions?: Prisma.DiscoveryMeetingSessionUpdateManyWithoutClientNestedInput
+  crossClientSuggestions?: Prisma.MeetingProfileSuggestionUpdateManyWithoutTargetClientNestedInput
 }
 
 export type ClientUncheckedUpdateWithoutVendorRequestsInput = {
@@ -2591,6 +2875,7 @@ export type ClientUncheckedUpdateWithoutVendorRequestsInput = {
   updatedAt?: Prisma.DateTimeFieldUpdateOperationsInput | Date | string
   householdMembers?: Prisma.HouseholdMemberUncheckedUpdateManyWithoutClientNestedInput
   familyMembers?: Prisma.FamilyMemberUncheckedUpdateManyWithoutClientNestedInput
+  linkedFromFamilyMember?: Prisma.FamilyMemberUncheckedUpdateOneWithoutLinkedClientNestedInput
   loyaltyBalances?: Prisma.ClientLoyaltyBalanceUncheckedUpdateManyWithoutClientNestedInput
   preferences?: Prisma.ClientPreferenceUncheckedUpdateOneWithoutClientNestedInput
   intakes?: Prisma.ClientIntakeUncheckedUpdateManyWithoutClientNestedInput
@@ -2601,6 +2886,7 @@ export type ClientUncheckedUpdateWithoutVendorRequestsInput = {
   inferredPreferences?: Prisma.InferredPreferenceUncheckedUpdateManyWithoutClientNestedInput
   followUpSuggestions?: Prisma.FollowUpSuggestionUncheckedUpdateManyWithoutClientNestedInput
   meetingSessions?: Prisma.DiscoveryMeetingSessionUncheckedUpdateManyWithoutClientNestedInput
+  crossClientSuggestions?: Prisma.MeetingProfileSuggestionUncheckedUpdateManyWithoutTargetClientNestedInput
 }
 
 export type ClientCreateWithoutMeetingSessionsInput = {
@@ -2619,6 +2905,7 @@ export type ClientCreateWithoutMeetingSessionsInput = {
   owner: Prisma.UserCreateNestedOneWithoutOwnedClientsInput
   householdMembers?: Prisma.HouseholdMemberCreateNestedManyWithoutClientInput
   familyMembers?: Prisma.FamilyMemberCreateNestedManyWithoutClientInput
+  linkedFromFamilyMember?: Prisma.FamilyMemberCreateNestedOneWithoutLinkedClientInput
   loyaltyBalances?: Prisma.ClientLoyaltyBalanceCreateNestedManyWithoutClientInput
   preferences?: Prisma.ClientPreferenceCreateNestedOneWithoutClientInput
   intakes?: Prisma.ClientIntakeCreateNestedManyWithoutClientInput
@@ -2629,6 +2916,7 @@ export type ClientCreateWithoutMeetingSessionsInput = {
   inferredPreferences?: Prisma.InferredPreferenceCreateNestedManyWithoutClientInput
   followUpSuggestions?: Prisma.FollowUpSuggestionCreateNestedManyWithoutClientInput
   vendorRequests?: Prisma.VendorRequestCreateNestedManyWithoutClientInput
+  crossClientSuggestions?: Prisma.MeetingProfileSuggestionCreateNestedManyWithoutTargetClientInput
 }
 
 export type ClientUncheckedCreateWithoutMeetingSessionsInput = {
@@ -2647,6 +2935,7 @@ export type ClientUncheckedCreateWithoutMeetingSessionsInput = {
   updatedAt?: Date | string
   householdMembers?: Prisma.HouseholdMemberUncheckedCreateNestedManyWithoutClientInput
   familyMembers?: Prisma.FamilyMemberUncheckedCreateNestedManyWithoutClientInput
+  linkedFromFamilyMember?: Prisma.FamilyMemberUncheckedCreateNestedOneWithoutLinkedClientInput
   loyaltyBalances?: Prisma.ClientLoyaltyBalanceUncheckedCreateNestedManyWithoutClientInput
   preferences?: Prisma.ClientPreferenceUncheckedCreateNestedOneWithoutClientInput
   intakes?: Prisma.ClientIntakeUncheckedCreateNestedManyWithoutClientInput
@@ -2657,6 +2946,7 @@ export type ClientUncheckedCreateWithoutMeetingSessionsInput = {
   inferredPreferences?: Prisma.InferredPreferenceUncheckedCreateNestedManyWithoutClientInput
   followUpSuggestions?: Prisma.FollowUpSuggestionUncheckedCreateNestedManyWithoutClientInput
   vendorRequests?: Prisma.VendorRequestUncheckedCreateNestedManyWithoutClientInput
+  crossClientSuggestions?: Prisma.MeetingProfileSuggestionUncheckedCreateNestedManyWithoutTargetClientInput
 }
 
 export type ClientCreateOrConnectWithoutMeetingSessionsInput = {
@@ -2691,6 +2981,7 @@ export type ClientUpdateWithoutMeetingSessionsInput = {
   owner?: Prisma.UserUpdateOneRequiredWithoutOwnedClientsNestedInput
   householdMembers?: Prisma.HouseholdMemberUpdateManyWithoutClientNestedInput
   familyMembers?: Prisma.FamilyMemberUpdateManyWithoutClientNestedInput
+  linkedFromFamilyMember?: Prisma.FamilyMemberUpdateOneWithoutLinkedClientNestedInput
   loyaltyBalances?: Prisma.ClientLoyaltyBalanceUpdateManyWithoutClientNestedInput
   preferences?: Prisma.ClientPreferenceUpdateOneWithoutClientNestedInput
   intakes?: Prisma.ClientIntakeUpdateManyWithoutClientNestedInput
@@ -2701,6 +2992,7 @@ export type ClientUpdateWithoutMeetingSessionsInput = {
   inferredPreferences?: Prisma.InferredPreferenceUpdateManyWithoutClientNestedInput
   followUpSuggestions?: Prisma.FollowUpSuggestionUpdateManyWithoutClientNestedInput
   vendorRequests?: Prisma.VendorRequestUpdateManyWithoutClientNestedInput
+  crossClientSuggestions?: Prisma.MeetingProfileSuggestionUpdateManyWithoutTargetClientNestedInput
 }
 
 export type ClientUncheckedUpdateWithoutMeetingSessionsInput = {
@@ -2719,6 +3011,7 @@ export type ClientUncheckedUpdateWithoutMeetingSessionsInput = {
   updatedAt?: Prisma.DateTimeFieldUpdateOperationsInput | Date | string
   householdMembers?: Prisma.HouseholdMemberUncheckedUpdateManyWithoutClientNestedInput
   familyMembers?: Prisma.FamilyMemberUncheckedUpdateManyWithoutClientNestedInput
+  linkedFromFamilyMember?: Prisma.FamilyMemberUncheckedUpdateOneWithoutLinkedClientNestedInput
   loyaltyBalances?: Prisma.ClientLoyaltyBalanceUncheckedUpdateManyWithoutClientNestedInput
   preferences?: Prisma.ClientPreferenceUncheckedUpdateOneWithoutClientNestedInput
   intakes?: Prisma.ClientIntakeUncheckedUpdateManyWithoutClientNestedInput
@@ -2729,6 +3022,143 @@ export type ClientUncheckedUpdateWithoutMeetingSessionsInput = {
   inferredPreferences?: Prisma.InferredPreferenceUncheckedUpdateManyWithoutClientNestedInput
   followUpSuggestions?: Prisma.FollowUpSuggestionUncheckedUpdateManyWithoutClientNestedInput
   vendorRequests?: Prisma.VendorRequestUncheckedUpdateManyWithoutClientNestedInput
+  crossClientSuggestions?: Prisma.MeetingProfileSuggestionUncheckedUpdateManyWithoutTargetClientNestedInput
+}
+
+export type ClientCreateWithoutCrossClientSuggestionsInput = {
+  id?: string
+  clientType?: $Enums.ClientType
+  firstName: string
+  lastName: string
+  email?: string | null
+  phone?: string | null
+  dateOfBirth?: Date | string | null
+  notes?: string | null
+  status?: $Enums.ClientStatus
+  createdAt?: Date | string
+  updatedAt?: Date | string
+  organization: Prisma.OrganizationCreateNestedOneWithoutClientsInput
+  owner: Prisma.UserCreateNestedOneWithoutOwnedClientsInput
+  householdMembers?: Prisma.HouseholdMemberCreateNestedManyWithoutClientInput
+  familyMembers?: Prisma.FamilyMemberCreateNestedManyWithoutClientInput
+  linkedFromFamilyMember?: Prisma.FamilyMemberCreateNestedOneWithoutLinkedClientInput
+  loyaltyBalances?: Prisma.ClientLoyaltyBalanceCreateNestedManyWithoutClientInput
+  preferences?: Prisma.ClientPreferenceCreateNestedOneWithoutClientInput
+  intakes?: Prisma.ClientIntakeCreateNestedManyWithoutClientInput
+  tripRequests?: Prisma.TripRequestCreateNestedManyWithoutClientInput
+  tripTravelers?: Prisma.TripTravelerCreateNestedManyWithoutClientInput
+  tripBriefs?: Prisma.TripBriefCreateNestedManyWithoutClientInput
+  alertSubscriptions?: Prisma.AlertSubscriptionCreateNestedManyWithoutClientInput
+  inferredPreferences?: Prisma.InferredPreferenceCreateNestedManyWithoutClientInput
+  followUpSuggestions?: Prisma.FollowUpSuggestionCreateNestedManyWithoutClientInput
+  vendorRequests?: Prisma.VendorRequestCreateNestedManyWithoutClientInput
+  meetingSessions?: Prisma.DiscoveryMeetingSessionCreateNestedManyWithoutClientInput
+}
+
+export type ClientUncheckedCreateWithoutCrossClientSuggestionsInput = {
+  id?: string
+  organizationId: string
+  ownerUserId: string
+  clientType?: $Enums.ClientType
+  firstName: string
+  lastName: string
+  email?: string | null
+  phone?: string | null
+  dateOfBirth?: Date | string | null
+  notes?: string | null
+  status?: $Enums.ClientStatus
+  createdAt?: Date | string
+  updatedAt?: Date | string
+  householdMembers?: Prisma.HouseholdMemberUncheckedCreateNestedManyWithoutClientInput
+  familyMembers?: Prisma.FamilyMemberUncheckedCreateNestedManyWithoutClientInput
+  linkedFromFamilyMember?: Prisma.FamilyMemberUncheckedCreateNestedOneWithoutLinkedClientInput
+  loyaltyBalances?: Prisma.ClientLoyaltyBalanceUncheckedCreateNestedManyWithoutClientInput
+  preferences?: Prisma.ClientPreferenceUncheckedCreateNestedOneWithoutClientInput
+  intakes?: Prisma.ClientIntakeUncheckedCreateNestedManyWithoutClientInput
+  tripRequests?: Prisma.TripRequestUncheckedCreateNestedManyWithoutClientInput
+  tripTravelers?: Prisma.TripTravelerUncheckedCreateNestedManyWithoutClientInput
+  tripBriefs?: Prisma.TripBriefUncheckedCreateNestedManyWithoutClientInput
+  alertSubscriptions?: Prisma.AlertSubscriptionUncheckedCreateNestedManyWithoutClientInput
+  inferredPreferences?: Prisma.InferredPreferenceUncheckedCreateNestedManyWithoutClientInput
+  followUpSuggestions?: Prisma.FollowUpSuggestionUncheckedCreateNestedManyWithoutClientInput
+  vendorRequests?: Prisma.VendorRequestUncheckedCreateNestedManyWithoutClientInput
+  meetingSessions?: Prisma.DiscoveryMeetingSessionUncheckedCreateNestedManyWithoutClientInput
+}
+
+export type ClientCreateOrConnectWithoutCrossClientSuggestionsInput = {
+  where: Prisma.ClientWhereUniqueInput
+  create: Prisma.XOR<Prisma.ClientCreateWithoutCrossClientSuggestionsInput, Prisma.ClientUncheckedCreateWithoutCrossClientSuggestionsInput>
+}
+
+export type ClientUpsertWithoutCrossClientSuggestionsInput = {
+  update: Prisma.XOR<Prisma.ClientUpdateWithoutCrossClientSuggestionsInput, Prisma.ClientUncheckedUpdateWithoutCrossClientSuggestionsInput>
+  create: Prisma.XOR<Prisma.ClientCreateWithoutCrossClientSuggestionsInput, Prisma.ClientUncheckedCreateWithoutCrossClientSuggestionsInput>
+  where?: Prisma.ClientWhereInput
+}
+
+export type ClientUpdateToOneWithWhereWithoutCrossClientSuggestionsInput = {
+  where?: Prisma.ClientWhereInput
+  data: Prisma.XOR<Prisma.ClientUpdateWithoutCrossClientSuggestionsInput, Prisma.ClientUncheckedUpdateWithoutCrossClientSuggestionsInput>
+}
+
+export type ClientUpdateWithoutCrossClientSuggestionsInput = {
+  id?: Prisma.StringFieldUpdateOperationsInput | string
+  clientType?: Prisma.EnumClientTypeFieldUpdateOperationsInput | $Enums.ClientType
+  firstName?: Prisma.StringFieldUpdateOperationsInput | string
+  lastName?: Prisma.StringFieldUpdateOperationsInput | string
+  email?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
+  phone?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
+  dateOfBirth?: Prisma.NullableDateTimeFieldUpdateOperationsInput | Date | string | null
+  notes?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
+  status?: Prisma.EnumClientStatusFieldUpdateOperationsInput | $Enums.ClientStatus
+  createdAt?: Prisma.DateTimeFieldUpdateOperationsInput | Date | string
+  updatedAt?: Prisma.DateTimeFieldUpdateOperationsInput | Date | string
+  organization?: Prisma.OrganizationUpdateOneRequiredWithoutClientsNestedInput
+  owner?: Prisma.UserUpdateOneRequiredWithoutOwnedClientsNestedInput
+  householdMembers?: Prisma.HouseholdMemberUpdateManyWithoutClientNestedInput
+  familyMembers?: Prisma.FamilyMemberUpdateManyWithoutClientNestedInput
+  linkedFromFamilyMember?: Prisma.FamilyMemberUpdateOneWithoutLinkedClientNestedInput
+  loyaltyBalances?: Prisma.ClientLoyaltyBalanceUpdateManyWithoutClientNestedInput
+  preferences?: Prisma.ClientPreferenceUpdateOneWithoutClientNestedInput
+  intakes?: Prisma.ClientIntakeUpdateManyWithoutClientNestedInput
+  tripRequests?: Prisma.TripRequestUpdateManyWithoutClientNestedInput
+  tripTravelers?: Prisma.TripTravelerUpdateManyWithoutClientNestedInput
+  tripBriefs?: Prisma.TripBriefUpdateManyWithoutClientNestedInput
+  alertSubscriptions?: Prisma.AlertSubscriptionUpdateManyWithoutClientNestedInput
+  inferredPreferences?: Prisma.InferredPreferenceUpdateManyWithoutClientNestedInput
+  followUpSuggestions?: Prisma.FollowUpSuggestionUpdateManyWithoutClientNestedInput
+  vendorRequests?: Prisma.VendorRequestUpdateManyWithoutClientNestedInput
+  meetingSessions?: Prisma.DiscoveryMeetingSessionUpdateManyWithoutClientNestedInput
+}
+
+export type ClientUncheckedUpdateWithoutCrossClientSuggestionsInput = {
+  id?: Prisma.StringFieldUpdateOperationsInput | string
+  organizationId?: Prisma.StringFieldUpdateOperationsInput | string
+  ownerUserId?: Prisma.StringFieldUpdateOperationsInput | string
+  clientType?: Prisma.EnumClientTypeFieldUpdateOperationsInput | $Enums.ClientType
+  firstName?: Prisma.StringFieldUpdateOperationsInput | string
+  lastName?: Prisma.StringFieldUpdateOperationsInput | string
+  email?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
+  phone?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
+  dateOfBirth?: Prisma.NullableDateTimeFieldUpdateOperationsInput | Date | string | null
+  notes?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
+  status?: Prisma.EnumClientStatusFieldUpdateOperationsInput | $Enums.ClientStatus
+  createdAt?: Prisma.DateTimeFieldUpdateOperationsInput | Date | string
+  updatedAt?: Prisma.DateTimeFieldUpdateOperationsInput | Date | string
+  householdMembers?: Prisma.HouseholdMemberUncheckedUpdateManyWithoutClientNestedInput
+  familyMembers?: Prisma.FamilyMemberUncheckedUpdateManyWithoutClientNestedInput
+  linkedFromFamilyMember?: Prisma.FamilyMemberUncheckedUpdateOneWithoutLinkedClientNestedInput
+  loyaltyBalances?: Prisma.ClientLoyaltyBalanceUncheckedUpdateManyWithoutClientNestedInput
+  preferences?: Prisma.ClientPreferenceUncheckedUpdateOneWithoutClientNestedInput
+  intakes?: Prisma.ClientIntakeUncheckedUpdateManyWithoutClientNestedInput
+  tripRequests?: Prisma.TripRequestUncheckedUpdateManyWithoutClientNestedInput
+  tripTravelers?: Prisma.TripTravelerUncheckedUpdateManyWithoutClientNestedInput
+  tripBriefs?: Prisma.TripBriefUncheckedUpdateManyWithoutClientNestedInput
+  alertSubscriptions?: Prisma.AlertSubscriptionUncheckedUpdateManyWithoutClientNestedInput
+  inferredPreferences?: Prisma.InferredPreferenceUncheckedUpdateManyWithoutClientNestedInput
+  followUpSuggestions?: Prisma.FollowUpSuggestionUncheckedUpdateManyWithoutClientNestedInput
+  vendorRequests?: Prisma.VendorRequestUncheckedUpdateManyWithoutClientNestedInput
+  meetingSessions?: Prisma.DiscoveryMeetingSessionUncheckedUpdateManyWithoutClientNestedInput
 }
 
 export type ClientCreateManyOrganizationInput = {
@@ -2761,6 +3191,7 @@ export type ClientUpdateWithoutOrganizationInput = {
   owner?: Prisma.UserUpdateOneRequiredWithoutOwnedClientsNestedInput
   householdMembers?: Prisma.HouseholdMemberUpdateManyWithoutClientNestedInput
   familyMembers?: Prisma.FamilyMemberUpdateManyWithoutClientNestedInput
+  linkedFromFamilyMember?: Prisma.FamilyMemberUpdateOneWithoutLinkedClientNestedInput
   loyaltyBalances?: Prisma.ClientLoyaltyBalanceUpdateManyWithoutClientNestedInput
   preferences?: Prisma.ClientPreferenceUpdateOneWithoutClientNestedInput
   intakes?: Prisma.ClientIntakeUpdateManyWithoutClientNestedInput
@@ -2772,6 +3203,7 @@ export type ClientUpdateWithoutOrganizationInput = {
   followUpSuggestions?: Prisma.FollowUpSuggestionUpdateManyWithoutClientNestedInput
   vendorRequests?: Prisma.VendorRequestUpdateManyWithoutClientNestedInput
   meetingSessions?: Prisma.DiscoveryMeetingSessionUpdateManyWithoutClientNestedInput
+  crossClientSuggestions?: Prisma.MeetingProfileSuggestionUpdateManyWithoutTargetClientNestedInput
 }
 
 export type ClientUncheckedUpdateWithoutOrganizationInput = {
@@ -2789,6 +3221,7 @@ export type ClientUncheckedUpdateWithoutOrganizationInput = {
   updatedAt?: Prisma.DateTimeFieldUpdateOperationsInput | Date | string
   householdMembers?: Prisma.HouseholdMemberUncheckedUpdateManyWithoutClientNestedInput
   familyMembers?: Prisma.FamilyMemberUncheckedUpdateManyWithoutClientNestedInput
+  linkedFromFamilyMember?: Prisma.FamilyMemberUncheckedUpdateOneWithoutLinkedClientNestedInput
   loyaltyBalances?: Prisma.ClientLoyaltyBalanceUncheckedUpdateManyWithoutClientNestedInput
   preferences?: Prisma.ClientPreferenceUncheckedUpdateOneWithoutClientNestedInput
   intakes?: Prisma.ClientIntakeUncheckedUpdateManyWithoutClientNestedInput
@@ -2800,6 +3233,7 @@ export type ClientUncheckedUpdateWithoutOrganizationInput = {
   followUpSuggestions?: Prisma.FollowUpSuggestionUncheckedUpdateManyWithoutClientNestedInput
   vendorRequests?: Prisma.VendorRequestUncheckedUpdateManyWithoutClientNestedInput
   meetingSessions?: Prisma.DiscoveryMeetingSessionUncheckedUpdateManyWithoutClientNestedInput
+  crossClientSuggestions?: Prisma.MeetingProfileSuggestionUncheckedUpdateManyWithoutTargetClientNestedInput
 }
 
 export type ClientUncheckedUpdateManyWithoutOrganizationInput = {
@@ -2847,6 +3281,7 @@ export type ClientUpdateWithoutOwnerInput = {
   organization?: Prisma.OrganizationUpdateOneRequiredWithoutClientsNestedInput
   householdMembers?: Prisma.HouseholdMemberUpdateManyWithoutClientNestedInput
   familyMembers?: Prisma.FamilyMemberUpdateManyWithoutClientNestedInput
+  linkedFromFamilyMember?: Prisma.FamilyMemberUpdateOneWithoutLinkedClientNestedInput
   loyaltyBalances?: Prisma.ClientLoyaltyBalanceUpdateManyWithoutClientNestedInput
   preferences?: Prisma.ClientPreferenceUpdateOneWithoutClientNestedInput
   intakes?: Prisma.ClientIntakeUpdateManyWithoutClientNestedInput
@@ -2858,6 +3293,7 @@ export type ClientUpdateWithoutOwnerInput = {
   followUpSuggestions?: Prisma.FollowUpSuggestionUpdateManyWithoutClientNestedInput
   vendorRequests?: Prisma.VendorRequestUpdateManyWithoutClientNestedInput
   meetingSessions?: Prisma.DiscoveryMeetingSessionUpdateManyWithoutClientNestedInput
+  crossClientSuggestions?: Prisma.MeetingProfileSuggestionUpdateManyWithoutTargetClientNestedInput
 }
 
 export type ClientUncheckedUpdateWithoutOwnerInput = {
@@ -2875,6 +3311,7 @@ export type ClientUncheckedUpdateWithoutOwnerInput = {
   updatedAt?: Prisma.DateTimeFieldUpdateOperationsInput | Date | string
   householdMembers?: Prisma.HouseholdMemberUncheckedUpdateManyWithoutClientNestedInput
   familyMembers?: Prisma.FamilyMemberUncheckedUpdateManyWithoutClientNestedInput
+  linkedFromFamilyMember?: Prisma.FamilyMemberUncheckedUpdateOneWithoutLinkedClientNestedInput
   loyaltyBalances?: Prisma.ClientLoyaltyBalanceUncheckedUpdateManyWithoutClientNestedInput
   preferences?: Prisma.ClientPreferenceUncheckedUpdateOneWithoutClientNestedInput
   intakes?: Prisma.ClientIntakeUncheckedUpdateManyWithoutClientNestedInput
@@ -2886,6 +3323,7 @@ export type ClientUncheckedUpdateWithoutOwnerInput = {
   followUpSuggestions?: Prisma.FollowUpSuggestionUncheckedUpdateManyWithoutClientNestedInput
   vendorRequests?: Prisma.VendorRequestUncheckedUpdateManyWithoutClientNestedInput
   meetingSessions?: Prisma.DiscoveryMeetingSessionUncheckedUpdateManyWithoutClientNestedInput
+  crossClientSuggestions?: Prisma.MeetingProfileSuggestionUncheckedUpdateManyWithoutTargetClientNestedInput
 }
 
 export type ClientUncheckedUpdateManyWithoutOwnerInput = {
@@ -2921,6 +3359,7 @@ export type ClientCountOutputType = {
   followUpSuggestions: number
   vendorRequests: number
   meetingSessions: number
+  crossClientSuggestions: number
 }
 
 export type ClientCountOutputTypeSelect<ExtArgs extends runtime.Types.Extensions.InternalArgs = runtime.Types.Extensions.DefaultArgs> = {
@@ -2936,6 +3375,7 @@ export type ClientCountOutputTypeSelect<ExtArgs extends runtime.Types.Extensions
   followUpSuggestions?: boolean | ClientCountOutputTypeCountFollowUpSuggestionsArgs
   vendorRequests?: boolean | ClientCountOutputTypeCountVendorRequestsArgs
   meetingSessions?: boolean | ClientCountOutputTypeCountMeetingSessionsArgs
+  crossClientSuggestions?: boolean | ClientCountOutputTypeCountCrossClientSuggestionsArgs
 }
 
 /**
@@ -3032,6 +3472,13 @@ export type ClientCountOutputTypeCountMeetingSessionsArgs<ExtArgs extends runtim
   where?: Prisma.DiscoveryMeetingSessionWhereInput
 }
 
+/**
+ * ClientCountOutputType without action
+ */
+export type ClientCountOutputTypeCountCrossClientSuggestionsArgs<ExtArgs extends runtime.Types.Extensions.InternalArgs = runtime.Types.Extensions.DefaultArgs> = {
+  where?: Prisma.MeetingProfileSuggestionWhereInput
+}
+
 
 export type ClientSelect<ExtArgs extends runtime.Types.Extensions.InternalArgs = runtime.Types.Extensions.DefaultArgs> = runtime.Types.Extensions.GetSelect<{
   id?: boolean
@@ -3051,6 +3498,7 @@ export type ClientSelect<ExtArgs extends runtime.Types.Extensions.InternalArgs =
   owner?: boolean | Prisma.UserDefaultArgs<ExtArgs>
   householdMembers?: boolean | Prisma.Client$householdMembersArgs<ExtArgs>
   familyMembers?: boolean | Prisma.Client$familyMembersArgs<ExtArgs>
+  linkedFromFamilyMember?: boolean | Prisma.Client$linkedFromFamilyMemberArgs<ExtArgs>
   loyaltyBalances?: boolean | Prisma.Client$loyaltyBalancesArgs<ExtArgs>
   preferences?: boolean | Prisma.Client$preferencesArgs<ExtArgs>
   intakes?: boolean | Prisma.Client$intakesArgs<ExtArgs>
@@ -3062,6 +3510,7 @@ export type ClientSelect<ExtArgs extends runtime.Types.Extensions.InternalArgs =
   followUpSuggestions?: boolean | Prisma.Client$followUpSuggestionsArgs<ExtArgs>
   vendorRequests?: boolean | Prisma.Client$vendorRequestsArgs<ExtArgs>
   meetingSessions?: boolean | Prisma.Client$meetingSessionsArgs<ExtArgs>
+  crossClientSuggestions?: boolean | Prisma.Client$crossClientSuggestionsArgs<ExtArgs>
   _count?: boolean | Prisma.ClientCountOutputTypeDefaultArgs<ExtArgs>
 }, ExtArgs["result"]["client"]>
 
@@ -3123,6 +3572,7 @@ export type ClientInclude<ExtArgs extends runtime.Types.Extensions.InternalArgs 
   owner?: boolean | Prisma.UserDefaultArgs<ExtArgs>
   householdMembers?: boolean | Prisma.Client$householdMembersArgs<ExtArgs>
   familyMembers?: boolean | Prisma.Client$familyMembersArgs<ExtArgs>
+  linkedFromFamilyMember?: boolean | Prisma.Client$linkedFromFamilyMemberArgs<ExtArgs>
   loyaltyBalances?: boolean | Prisma.Client$loyaltyBalancesArgs<ExtArgs>
   preferences?: boolean | Prisma.Client$preferencesArgs<ExtArgs>
   intakes?: boolean | Prisma.Client$intakesArgs<ExtArgs>
@@ -3134,6 +3584,7 @@ export type ClientInclude<ExtArgs extends runtime.Types.Extensions.InternalArgs 
   followUpSuggestions?: boolean | Prisma.Client$followUpSuggestionsArgs<ExtArgs>
   vendorRequests?: boolean | Prisma.Client$vendorRequestsArgs<ExtArgs>
   meetingSessions?: boolean | Prisma.Client$meetingSessionsArgs<ExtArgs>
+  crossClientSuggestions?: boolean | Prisma.Client$crossClientSuggestionsArgs<ExtArgs>
   _count?: boolean | Prisma.ClientCountOutputTypeDefaultArgs<ExtArgs>
 }
 export type ClientIncludeCreateManyAndReturn<ExtArgs extends runtime.Types.Extensions.InternalArgs = runtime.Types.Extensions.DefaultArgs> = {
@@ -3152,6 +3603,7 @@ export type $ClientPayload<ExtArgs extends runtime.Types.Extensions.InternalArgs
     owner: Prisma.$UserPayload<ExtArgs>
     householdMembers: Prisma.$HouseholdMemberPayload<ExtArgs>[]
     familyMembers: Prisma.$FamilyMemberPayload<ExtArgs>[]
+    linkedFromFamilyMember: Prisma.$FamilyMemberPayload<ExtArgs> | null
     loyaltyBalances: Prisma.$ClientLoyaltyBalancePayload<ExtArgs>[]
     preferences: Prisma.$ClientPreferencePayload<ExtArgs> | null
     intakes: Prisma.$ClientIntakePayload<ExtArgs>[]
@@ -3163,6 +3615,7 @@ export type $ClientPayload<ExtArgs extends runtime.Types.Extensions.InternalArgs
     followUpSuggestions: Prisma.$FollowUpSuggestionPayload<ExtArgs>[]
     vendorRequests: Prisma.$VendorRequestPayload<ExtArgs>[]
     meetingSessions: Prisma.$DiscoveryMeetingSessionPayload<ExtArgs>[]
+    crossClientSuggestions: Prisma.$MeetingProfileSuggestionPayload<ExtArgs>[]
   }
   scalars: runtime.Types.Extensions.GetPayloadResult<{
     id: string
@@ -3576,6 +4029,7 @@ export interface Prisma__ClientClient<T, Null = never, ExtArgs extends runtime.T
   owner<T extends Prisma.UserDefaultArgs<ExtArgs> = {}>(args?: Prisma.Subset<T, Prisma.UserDefaultArgs<ExtArgs>>): Prisma.Prisma__UserClient<runtime.Types.Result.GetResult<Prisma.$UserPayload<ExtArgs>, T, "findUniqueOrThrow", GlobalOmitOptions> | Null, Null, ExtArgs, GlobalOmitOptions>
   householdMembers<T extends Prisma.Client$householdMembersArgs<ExtArgs> = {}>(args?: Prisma.Subset<T, Prisma.Client$householdMembersArgs<ExtArgs>>): Prisma.PrismaPromise<runtime.Types.Result.GetResult<Prisma.$HouseholdMemberPayload<ExtArgs>, T, "findMany", GlobalOmitOptions> | Null>
   familyMembers<T extends Prisma.Client$familyMembersArgs<ExtArgs> = {}>(args?: Prisma.Subset<T, Prisma.Client$familyMembersArgs<ExtArgs>>): Prisma.PrismaPromise<runtime.Types.Result.GetResult<Prisma.$FamilyMemberPayload<ExtArgs>, T, "findMany", GlobalOmitOptions> | Null>
+  linkedFromFamilyMember<T extends Prisma.Client$linkedFromFamilyMemberArgs<ExtArgs> = {}>(args?: Prisma.Subset<T, Prisma.Client$linkedFromFamilyMemberArgs<ExtArgs>>): Prisma.Prisma__FamilyMemberClient<runtime.Types.Result.GetResult<Prisma.$FamilyMemberPayload<ExtArgs>, T, "findUniqueOrThrow", GlobalOmitOptions> | null, null, ExtArgs, GlobalOmitOptions>
   loyaltyBalances<T extends Prisma.Client$loyaltyBalancesArgs<ExtArgs> = {}>(args?: Prisma.Subset<T, Prisma.Client$loyaltyBalancesArgs<ExtArgs>>): Prisma.PrismaPromise<runtime.Types.Result.GetResult<Prisma.$ClientLoyaltyBalancePayload<ExtArgs>, T, "findMany", GlobalOmitOptions> | Null>
   preferences<T extends Prisma.Client$preferencesArgs<ExtArgs> = {}>(args?: Prisma.Subset<T, Prisma.Client$preferencesArgs<ExtArgs>>): Prisma.Prisma__ClientPreferenceClient<runtime.Types.Result.GetResult<Prisma.$ClientPreferencePayload<ExtArgs>, T, "findUniqueOrThrow", GlobalOmitOptions> | null, null, ExtArgs, GlobalOmitOptions>
   intakes<T extends Prisma.Client$intakesArgs<ExtArgs> = {}>(args?: Prisma.Subset<T, Prisma.Client$intakesArgs<ExtArgs>>): Prisma.PrismaPromise<runtime.Types.Result.GetResult<Prisma.$ClientIntakePayload<ExtArgs>, T, "findMany", GlobalOmitOptions> | Null>
@@ -3587,6 +4041,7 @@ export interface Prisma__ClientClient<T, Null = never, ExtArgs extends runtime.T
   followUpSuggestions<T extends Prisma.Client$followUpSuggestionsArgs<ExtArgs> = {}>(args?: Prisma.Subset<T, Prisma.Client$followUpSuggestionsArgs<ExtArgs>>): Prisma.PrismaPromise<runtime.Types.Result.GetResult<Prisma.$FollowUpSuggestionPayload<ExtArgs>, T, "findMany", GlobalOmitOptions> | Null>
   vendorRequests<T extends Prisma.Client$vendorRequestsArgs<ExtArgs> = {}>(args?: Prisma.Subset<T, Prisma.Client$vendorRequestsArgs<ExtArgs>>): Prisma.PrismaPromise<runtime.Types.Result.GetResult<Prisma.$VendorRequestPayload<ExtArgs>, T, "findMany", GlobalOmitOptions> | Null>
   meetingSessions<T extends Prisma.Client$meetingSessionsArgs<ExtArgs> = {}>(args?: Prisma.Subset<T, Prisma.Client$meetingSessionsArgs<ExtArgs>>): Prisma.PrismaPromise<runtime.Types.Result.GetResult<Prisma.$DiscoveryMeetingSessionPayload<ExtArgs>, T, "findMany", GlobalOmitOptions> | Null>
+  crossClientSuggestions<T extends Prisma.Client$crossClientSuggestionsArgs<ExtArgs> = {}>(args?: Prisma.Subset<T, Prisma.Client$crossClientSuggestionsArgs<ExtArgs>>): Prisma.PrismaPromise<runtime.Types.Result.GetResult<Prisma.$MeetingProfileSuggestionPayload<ExtArgs>, T, "findMany", GlobalOmitOptions> | Null>
   /**
    * Attaches callbacks for the resolution and/or rejection of the Promise.
    * @param onfulfilled The callback to execute when the Promise is resolved.
@@ -4078,6 +4533,25 @@ export type Client$familyMembersArgs<ExtArgs extends runtime.Types.Extensions.In
 }
 
 /**
+ * Client.linkedFromFamilyMember
+ */
+export type Client$linkedFromFamilyMemberArgs<ExtArgs extends runtime.Types.Extensions.InternalArgs = runtime.Types.Extensions.DefaultArgs> = {
+  /**
+   * Select specific fields to fetch from the FamilyMember
+   */
+  select?: Prisma.FamilyMemberSelect<ExtArgs> | null
+  /**
+   * Omit specific fields from the FamilyMember
+   */
+  omit?: Prisma.FamilyMemberOmit<ExtArgs> | null
+  /**
+   * Choose, which related nodes to fetch as well
+   */
+  include?: Prisma.FamilyMemberInclude<ExtArgs> | null
+  where?: Prisma.FamilyMemberWhereInput
+}
+
+/**
  * Client.loyaltyBalances
  */
 export type Client$loyaltyBalancesArgs<ExtArgs extends runtime.Types.Extensions.InternalArgs = runtime.Types.Extensions.DefaultArgs> = {
@@ -4334,6 +4808,30 @@ export type Client$meetingSessionsArgs<ExtArgs extends runtime.Types.Extensions.
   take?: number
   skip?: number
   distinct?: Prisma.DiscoveryMeetingSessionScalarFieldEnum | Prisma.DiscoveryMeetingSessionScalarFieldEnum[]
+}
+
+/**
+ * Client.crossClientSuggestions
+ */
+export type Client$crossClientSuggestionsArgs<ExtArgs extends runtime.Types.Extensions.InternalArgs = runtime.Types.Extensions.DefaultArgs> = {
+  /**
+   * Select specific fields to fetch from the MeetingProfileSuggestion
+   */
+  select?: Prisma.MeetingProfileSuggestionSelect<ExtArgs> | null
+  /**
+   * Omit specific fields from the MeetingProfileSuggestion
+   */
+  omit?: Prisma.MeetingProfileSuggestionOmit<ExtArgs> | null
+  /**
+   * Choose, which related nodes to fetch as well
+   */
+  include?: Prisma.MeetingProfileSuggestionInclude<ExtArgs> | null
+  where?: Prisma.MeetingProfileSuggestionWhereInput
+  orderBy?: Prisma.MeetingProfileSuggestionOrderByWithRelationInput | Prisma.MeetingProfileSuggestionOrderByWithRelationInput[]
+  cursor?: Prisma.MeetingProfileSuggestionWhereUniqueInput
+  take?: number
+  skip?: number
+  distinct?: Prisma.MeetingProfileSuggestionScalarFieldEnum | Prisma.MeetingProfileSuggestionScalarFieldEnum[]
 }
 
 /**

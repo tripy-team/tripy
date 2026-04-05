@@ -1,6 +1,7 @@
 'use client';
 
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useRef, useCallback } from 'react';
+import Image from 'next/image';
 import Link from 'next/link';
 import {
   Users,
@@ -11,7 +12,6 @@ import {
   Loader2,
   RefreshCw,
   ExternalLink,
-  Zap,
 } from 'lucide-react';
 import { getDashboard, scrapeTransferBonuses } from '@/lib/api-client';
 import type {
@@ -20,6 +20,75 @@ import type {
   AlertEvent,
   TransferBonusDetail,
 } from '@/lib/api-client';
+
+const PROGRAM_LOGO_DOMAIN: Record<string, string> = {
+  chase_ultimate_rewards: 'chase.com',
+  amex_membership_rewards: 'americanexpress.com',
+  citi_thankyou: 'citi.com',
+  capital_one_miles: 'capitalone.com',
+  bilt_rewards: 'biltrewards.com',
+  wells_fargo_rewards: 'wellsfargo.com',
+  united_mileageplus: 'united.com',
+  american_aadvantage: 'aa.com',
+  delta_skymiles: 'delta.com',
+  southwest_rapid_rewards: 'southwest.com',
+  jetblue_trueblue: 'jetblue.com',
+  alaska_mileage_plan: 'alaskaair.com',
+  british_airways_avios: 'britishairways.com',
+  flying_blue: 'airfrance.com',
+  virgin_atlantic: 'virginatlantic.com',
+  singapore_krisflyer: 'singaporeair.com',
+  cathay_pacific: 'cathaypacific.com',
+  ana_mileage_club: 'ana.co.jp',
+  emirates_skywards: 'emirates.com',
+  qatar_privilege_club: 'qatarairways.com',
+  turkish_milesandsmiles: 'turkishairlines.com',
+  avianca_lifemiles: 'avianca.com',
+  aeroplan: 'aircanada.com',
+  marriott_bonvoy: 'marriott.com',
+  hilton_honors: 'hilton.com',
+  hyatt: 'hyatt.com',
+  ihg_rewards: 'ihg.com',
+  etihad_guest: 'etihad.com',
+  qantas_frequent_flyer: 'qantas.com',
+  jal_mileage_bank: 'jal.co.jp',
+  sas_eurobonus: 'flysas.com',
+  rove_miles: 'rovemiles.com',
+  lufthansa_miles_and_more: 'lufthansa.com',
+};
+
+function programLogoUrl(code: string): string | null {
+  const domain = PROGRAM_LOGO_DOMAIN[code];
+  return domain ? `https://logo.clearbit.com/${domain}?size=64` : null;
+}
+
+function ProgramLogo({ code, name, size = 28 }: { code: string; name: string; size?: number }) {
+  const url = programLogoUrl(code);
+  const [failed, setFailed] = useState(false);
+
+  if (!url || failed) {
+    return (
+      <div
+        className="flex items-center justify-center rounded-full bg-slate-100 text-xs font-bold text-slate-500"
+        style={{ width: size, height: size }}
+      >
+        {name.charAt(0)}
+      </div>
+    );
+  }
+
+  return (
+    <Image
+      src={url}
+      alt={name}
+      width={size}
+      height={size}
+      className="rounded-full object-contain"
+      onError={() => setFailed(true)}
+      unoptimized
+    />
+  );
+}
 
 function StatCard({
   label,
@@ -79,15 +148,19 @@ function TransferBonusCard({ bonus }: { bonus: TransferBonusDetail }) {
   return (
     <div className="flex items-center justify-between rounded-lg border border-slate-100 bg-white px-4 py-3 transition-colors hover:border-green-200 hover:bg-green-50/30">
       <div className="flex items-center gap-3">
-        <div className="flex h-9 w-9 items-center justify-center rounded-lg bg-green-50">
-          <Zap className="h-4 w-4 text-green-600" />
+        <ProgramLogo code={bonus.fromProgramCode} name={bonus.fromProgram} size={32} />
+        <div className="flex items-center gap-1.5 text-slate-400">
+          <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+            <path d="M5 12h14M12 5l7 7-7 7" />
+          </svg>
         </div>
-        <div>
+        <ProgramLogo code={bonus.toProgramCode} name={bonus.toProgram} size={32} />
+        <div className="ml-1">
           <p className="text-sm font-medium text-slate-900">
             {bonus.fromProgram} → {bonus.toProgram}
           </p>
           <p className="text-xs text-slate-500">
-            {bonus.sourceLabel && <span>{bonus.sourceLabel}</span>}
+            {bonus.sourceLabel ?? 'Transfer bonus'}
           </p>
         </div>
       </div>
@@ -123,33 +196,30 @@ export default function DashboardPage() {
   const [data, setData] = useState<DashboardData | null>(null);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
-  const [scraping, setScraping] = useState(false);
-  const [scrapeMessage, setScrapeMessage] = useState<string | null>(null);
+  const [syncing, setSyncing] = useState(false);
+  const hasSynced = useRef(false);
 
-  const load = () => {
+  const load = useCallback(() => {
     setLoading(true);
     setError(null);
     getDashboard()
       .then(setData)
       .catch((err) => setError(err.message))
       .finally(() => setLoading(false));
-  };
+  }, []);
 
-  const handleScrapeTPG = async () => {
-    setScraping(true);
-    setScrapeMessage(null);
-    try {
-      const result = await scrapeTransferBonuses();
-      setScrapeMessage(result.message);
-      load();
-    } catch (err) {
-      setScrapeMessage(err instanceof Error ? err.message : 'Scrape failed');
-    } finally {
-      setScraping(false);
-    }
-  };
+  useEffect(load, [load]);
 
-  useEffect(load, []);
+  useEffect(() => {
+    if (!data || hasSynced.current) return;
+    hasSynced.current = true;
+    setSyncing(true);
+    scrapeTransferBonuses()
+      .then(() => getDashboard())
+      .then(setData)
+      .catch(() => {})
+      .finally(() => setSyncing(false));
+  }, [data]);
 
   if (loading) {
     return (
@@ -206,28 +276,22 @@ export default function DashboardPage() {
           <Plus className="h-4 w-4" />
           New Client
         </Link>
-        <button
-          onClick={handleScrapeTPG}
-          disabled={scraping}
-          className="inline-flex items-center gap-2 rounded-lg border border-slate-200 bg-white px-4 py-2 text-sm font-medium text-slate-700 shadow-sm hover:bg-slate-50 disabled:opacity-60"
-        >
-          {scraping ? <Loader2 className="h-4 w-4 animate-spin" /> : <RefreshCw className="h-4 w-4" />}
-          Sync TPG Bonuses
-        </button>
       </div>
-
-      {scrapeMessage && (
-        <div className="mb-6 rounded-lg bg-blue-50 px-4 py-3 text-sm text-blue-700">
-          {scrapeMessage}
-        </div>
-      )}
 
       {/* Transfer Bonuses Section */}
       <div className="mb-6 rounded-xl border border-slate-200 bg-white shadow-sm">
         <div className="flex items-center justify-between border-b border-slate-100 px-5 py-4">
-          <div>
-            <h2 className="font-semibold text-slate-900">Active Transfer Bonuses</h2>
-            <p className="text-xs text-slate-500">Current promotions across loyalty programs</p>
+          <div className="flex items-center gap-2">
+            <div>
+              <h2 className="font-semibold text-slate-900">Active Transfer Bonuses</h2>
+              <p className="text-xs text-slate-500">Current promotions across loyalty programs</p>
+            </div>
+            {syncing && (
+              <div className="flex items-center gap-1.5 rounded-full bg-blue-50 px-2.5 py-1">
+                <Loader2 className="h-3 w-3 animate-spin text-blue-500" />
+                <span className="text-xs text-blue-600">Syncing</span>
+              </div>
+            )}
           </div>
           <span className="rounded-full bg-green-100 px-2.5 py-0.5 text-xs font-semibold text-green-700">
             {transferBonuses.length} active
@@ -236,15 +300,17 @@ export default function DashboardPage() {
         <div className="divide-y divide-slate-50 p-3">
           {transferBonuses.length === 0 ? (
             <div className="py-8 text-center">
-              <ArrowRightLeft className="mx-auto h-8 w-8 text-slate-300" />
-              <p className="mt-2 text-sm text-slate-500">No active transfer bonuses</p>
-              <button
-                onClick={handleScrapeTPG}
-                disabled={scraping}
-                className="mt-3 text-sm font-medium text-blue-600 hover:text-blue-700"
-              >
-                Sync from TPG
-              </button>
+              {syncing ? (
+                <>
+                  <Loader2 className="mx-auto h-8 w-8 animate-spin text-blue-400" />
+                  <p className="mt-2 text-sm text-slate-500">Syncing transfer bonuses from TPG...</p>
+                </>
+              ) : (
+                <>
+                  <ArrowRightLeft className="mx-auto h-8 w-8 text-slate-300" />
+                  <p className="mt-2 text-sm text-slate-500">No active transfer bonuses</p>
+                </>
+              )}
             </div>
           ) : (
             transferBonuses.map((bonus: TransferBonusDetail) => (

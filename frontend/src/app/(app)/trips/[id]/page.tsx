@@ -1,708 +1,2859 @@
 'use client';
 
-import { useParams, useRouter } from 'next/navigation';
-import { useState, useEffect } from 'react';
-import Image from 'next/image';
-import { ArrowLeft, Calendar, MapPin, CreditCard, Users, User, Plane, CheckCircle, ChevronRight, ArrowRight, Sparkles, Wallet, Check, ExternalLink, LucideIcon } from 'lucide-react';
-import { trips as tripsAPI, itineraries, points as pointsAPI } from '@/lib/api';
-import { getOptimizedImageUrl } from '@/lib/image-utils';
-import { 
-    buildTransferStepsFromItinerary, 
-    getTransferTipsFromItems, 
-    type TransferStepResult,
-    type TransferTip,
-} from '@/lib/transfer-instructions';
+import { useParams } from 'next/navigation';
+import { useState, useEffect, useRef, useCallback } from 'react';
+import Link from 'next/link';
+import {
+  ArrowLeft,
+  Calendar,
+  MapPin,
+  Users,
+  User,
+  Plane,
+  Mail,
+  Phone,
+  Clock,
+  CreditCard,
+  ChevronRight,
+  Loader2,
+  StickyNote,
+  BarChart3,
+  Coins,
+  Copy,
+  Hash,
+  Sparkles,
+  Hotel,
+  Utensils,
+  Car,
+  Sun,
+  Moon,
+  Sunset,
+  DollarSign,
+  Star,
+  Lightbulb,
+  ChevronDown,
+  ChevronUp,
+  TrendingUp,
+  Wallet,
+  Route,
+  Train,
+  Navigation,
+  AlertCircle,
+  CheckCircle2,
+  Info,
+  MessageSquare,
+  Send,
+  ThumbsUp,
+  ThumbsDown,
+  Target,
+  RefreshCw,
+  Shield,
+  HelpCircle,
+  Zap,
+  Trash2,
+  Plus,
+  Search,
+  X,
+  UserPlus,
+} from 'lucide-react';
+import {
+  getTripRequest,
+  getTripConfidence,
+  generateTripItinerary,
+  createMeetingSession,
+  getMeetingSessions,
+  getMeetingSession,
+  appendMeetingEntry,
+  generateMeetingQuestions,
+  updateMeetingProfileSuggestion,
+  commitMeetingSuggestions,
+  getMeetingCommitPreview,
+  addTripTraveler,
+  removeTripTraveler,
+  getClients,
+} from '@/lib/api-client';
+import MultiAirportAutocomplete from '@/components/ui/MultiAirportAutocomplete';
+import type {
+  TripRequest,
+  TripTraveler,
+  Client,
+  ConfidenceResult,
+  GeneratedItinerary,
+  ItineraryFlightRecommendation,
+  ItineraryHotelRecommendation,
+  ItineraryTransportationRecommendation,
+  ItineraryDayPlan,
+  MeetingSession,
+  MeetingQuestionSuggestion,
+  MeetingProfileSuggestion,
+  MeetingEntryItem,
+  AnsweredQuestionPayload,
+  MeetingCommitPreviewItem,
+  TravelerFlightGroup,
+  TravelerFlightSegment,
+  CashFlightOption,
+  AwardFlightOption,
+} from '@/lib/api-client';
+import { ConfidenceBadge } from '@/components/ConfidenceMeter';
 
-interface Trip {
+const STATUS_STYLES: Record<string, { bg: string; text: string }> = {
+  draft: { bg: 'bg-slate-100', text: 'text-slate-700' },
+  analyzing: { bg: 'bg-amber-50', text: 'text-amber-700' },
+  complete: { bg: 'bg-emerald-50', text: 'text-emerald-700' },
+  archived: { bg: 'bg-slate-100', text: 'text-slate-500' },
+};
+
+type TripTab = 'overview' | 'discovery' | 'flights' | 'hotels' | 'food' | 'transportation' | 'daily' | 'budget';
+
+const TABS: { key: TripTab; label: string; icon: React.ReactNode }[] = [
+  { key: 'overview', label: 'Overview', icon: <Info className="h-4 w-4" /> },
+  { key: 'discovery', label: 'Discovery', icon: <MessageSquare className="h-4 w-4" /> },
+  { key: 'flights', label: 'Flights', icon: <Plane className="h-4 w-4" /> },
+  { key: 'hotels', label: 'Hotels', icon: <Hotel className="h-4 w-4" /> },
+  { key: 'food', label: 'Food & Dining', icon: <Utensils className="h-4 w-4" /> },
+  { key: 'transportation', label: 'Transportation', icon: <Car className="h-4 w-4" /> },
+  { key: 'daily', label: 'Daily Plan', icon: <Calendar className="h-4 w-4" /> },
+  { key: 'budget', label: 'Budget & Points', icon: <Wallet className="h-4 w-4" /> },
+];
+
+function formatDate(dateStr: string) {
+  return new Date(dateStr).toLocaleDateString('en-US', {
+    weekday: 'short',
+    month: 'long',
+    day: 'numeric',
+    year: 'numeric',
+  });
+}
+
+function formatDateShort(dateStr: string) {
+  return new Date(dateStr).toLocaleDateString('en-US', {
+    month: 'short',
+    day: 'numeric',
+    year: 'numeric',
+  });
+}
+
+function parseMultiCityLegs(notes: string | undefined) {
+  if (!notes) return null;
+  const match = notes.match(/\[MULTI_CITY:(\[.*?\])\]/);
+  if (!match) return null;
+  try {
+    return JSON.parse(match[1]) as { leg: number; from: string[]; to: string[]; date: string }[];
+  } catch {
+    return null;
+  }
+}
+
+type TravelerFlightData = {
+  id: string;
+  type: 'individual' | 'bulk';
+  clientId: string | null;
+  clientName: string | null;
+  quantity: number;
+  flightConfig: 'sameAsLeader' | 'sameAs' | 'custom';
+  sameAsId: string | null;
+  customTripType: string | null;
+  customLegs: { leg: number; from: string[]; to: string[]; date: string }[] | null;
+};
+
+function parseTravelerFlights(notes: string | undefined): TravelerFlightData[] | null {
+  if (!notes) return null;
+  const match = notes.match(/\[TRAVELER_FLIGHTS:(\[[\s\S]*?\])\]/);
+  if (!match) return null;
+  try {
+    return JSON.parse(match[1]) as TravelerFlightData[];
+  } catch {
+    return null;
+  }
+}
+
+type TravelerRouteInfo = {
+  leader: {
+    clientId: string;
+    clientName: string;
+    startingCity: string[];
+    endingCity: string[];
+  };
+  travelers: {
     id: string;
-    destination: string;
-    image: string;
-    dates: string;
-    status: 'upcoming' | 'completed';
-    pointsRedeemed: string;
-    type: 'Solo' | 'Group';
-    travelers: number;
-    location: string;
-    description: string;
-}
+    type: string;
+    clientId: string;
+    clientName: string;
+    quantity: number;
+    useLeaderCities: boolean;
+    startingCity: string[];
+    endingCity: string[];
+  }[];
+};
 
-interface ApiTrip {
-    tripId: string;
-    title: string;
-    startDate: string;
-    endDate: string;
-    status: string;
-    createdBy: string;
-    role?: string;
-    memberCount?: number;
-    destinations?: string[];
-    firstDestination?: string;
-}
+function parseTravelerRoutes(notes: string | undefined): TravelerRouteInfo | null {
+  if (!notes) return null;
+  const cleaned = notes
+    .replace(/\[MULTI_CITY:\[.*?\]\]\s*/g, '')
+    .replace(/\[TRAVELER_FLIGHTS:\[[\s\S]*?\]\]\s*/g, '')
+    .replace(/\[FLIGHT_PLAN:[\s\S]*?\]\s*/g, '')
+    .trim();
 
-interface Member {
-    id: string;
-    name: string;
-    initials: string;
-    totalPoints: number;
-    totalValue: number;
-    cards: Array<{ program: string; points: number; value?: number; centsPerPoint?: number }>;
-    budget: number;
-}
-
-interface Assignment {
-    category: string;
-    icon: LucideIcon;
-    assignedTo: string;
-    pointsUsed: number;
-    cashValue: number;
-    efficiency: number;
-    reason: string;
-    flightSegment?: string;
-}
-
-export default function TripDetails() {
-    const params = useParams();
-    const router = useRouter();
-    const tripId = params.id as string;
-    const [trip, setTrip] = useState<Trip | null>(null);
-    const [isLoading, setIsLoading] = useState(true);
-    const [isPaid, setIsPaid] = useState(true);
-    const [itineraryItems, setItineraryItems] = useState<Array<{ type?: string; [k: string]: unknown }>>([]);
-    const [membersForTransfers, setMembersForTransfers] = useState<Array<{ userId: string; name?: string }>>([]);
-    const [members, setMembers] = useState<Member[]>([]);
-
-    useEffect(() => {
-        const fetchTrip = async () => {
-            try {
-                setIsLoading(true);
-                const response = await tripsAPI.list();
-                const apiTrip = response.trips.find((t: ApiTrip) => t.tripId === tripId);
-
-                if (!apiTrip) {
-                    setTrip(null);
-                    return;
-                }
-
-                const startDate = apiTrip.startDate ? new Date(apiTrip.startDate) : null;
-                const endDate = apiTrip.endDate ? new Date(apiTrip.endDate) : null;
-                const now = new Date();
-
-                let datesStr = 'TBD';
-                if (startDate && endDate) {
-                    datesStr = `${startDate.toLocaleDateString('en-US', { month: 'short', day: 'numeric' })} - ${endDate.toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric' })}`;
-                } else if (startDate) {
-                    datesStr = startDate.toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric' });
-                }
-
-                const isCompleted = endDate ? endDate < now : false;
-                const status: 'upcoming' | 'completed' = isCompleted ? 'completed' : 'upcoming';
-
-                const memberCount = apiTrip.memberCount || 1;
-                const tripType: 'Solo' | 'Group' = memberCount > 1 ? 'Group' : 'Solo';
-
-                const destinationName = apiTrip.firstDestination || apiTrip.title || 'Trip';
-                const location = apiTrip.firstDestination || 'Location TBD';
-
-                // Fetch city-specific image
-                let imageUrl = '';
-                try {
-                    imageUrl = await getOptimizedImageUrl(destinationName, 'large');
-                } catch (err) {
-                    console.error('Error loading image for', destinationName, err);
-                }
-
-                const description = apiTrip.destinations && apiTrip.destinations.length > 0
-                    ? `Visiting ${apiTrip.destinations.join(', ')}`
-                    : `Your ${tripType.toLowerCase()} trip to ${destinationName}`;
-
-                setTrip({
-                    id: apiTrip.tripId,
-                    destination: apiTrip.title || destinationName,
-                    image: imageUrl || '/placeholder-trip.jpg',
-                    dates: datesStr,
-                    status: status,
-                    pointsRedeemed: '0', // TODO: Calculate from points data
-                    type: tripType,
-                    travelers: memberCount,
-                    location: location,
-                    description: description,
-                });
-            } catch (err) {
-                console.error('Error fetching trip:', err);
-                setTrip(null);
-            } finally {
-                setIsLoading(false);
-            }
-        };
-
-        if (tripId) {
-            fetchTrip();
-        }
-    }, [tripId]);
-
-    useEffect(() => {
-        if (!tripId) return;
-        let cancelled = false;
-        Promise.all([
-            itineraries.get(tripId).then((r) => r.items || []),
-            tripsAPI.listMembers(tripId).then((r) => r.members || []),
-            tripsAPI.getStrategyStatus(tripId).then((r) => r.strategy_paid || false).catch(() => false),
-            pointsAPI.summary(tripId).catch(() => ({ items: [] })),
-        ])
-            .then(([its, mems, paid, pointsResponse]) => {
-                if (cancelled) return;
-                setItineraryItems(Array.isArray(its) ? its : []);
-                setMembersForTransfers(Array.isArray(mems) ? mems : []);
-                setIsPaid(paid);
-                
-                // Transform members data with points info
-                const transformedMembers: Member[] = (mems || []).map((member: { userId: string; name?: string }, index: number) => {
-                    const userId = member.userId;
-                    const name = member.name || `Member ${index + 1}`;
-                    const initials = name.split(' ').map(n => n[0]).join('').toUpperCase().substring(0, 2) || userId.substring(0, 2).toUpperCase();
-                    
-                    // Get points for this user from points summary
-                    const userPoints = pointsResponse.items?.filter((item: { userId?: string }) => item.userId === userId) || [];
-                    const totalPoints = userPoints.reduce((sum: number, item: { balance?: number }) => sum + (item.balance || 0), 0);
-                    const totalValue = userPoints.reduce((sum: number, item: { value?: number | null }) => sum + (item.value ?? 0), 0);
-                    const cards = userPoints.map((item: { program?: string; balance?: number; value?: number | null; centsPerPoint?: number | null }) => ({
-                        program: item.program || 'Unknown',
-                        points: item.balance || 0,
-                        value: item.value ?? undefined,
-                        centsPerPoint: item.centsPerPoint ?? undefined,
-                    }));
-                    
-                    return {
-                        id: userId,
-                        name,
-                        initials,
-                        totalPoints,
-                        totalValue,
-                        cards,
-                        budget: 5000,
-                    };
-                });
-                
-                setMembers(transformedMembers);
-            })
-            .catch(() => {
-                if (cancelled) return;
-                setItineraryItems([]);
-                setMembersForTransfers([]);
-                setMembers([]);
-            });
-        return () => { cancelled = true; };
-    }, [tripId]);
-
-    if (isLoading) {
-        return (
-            <div className="min-h-screen flex items-center justify-center bg-slate-50">
-                <div className="text-center">
-                    <div className="inline-block animate-spin rounded-full h-8 w-8 border-b-2 border-blue-600"></div>
-                    <p className="mt-4 text-slate-600">Loading trip details...</p>
-                </div>
-            </div>
-        );
+  try {
+    const parsed = JSON.parse(cleaned);
+    if (parsed && typeof parsed === 'object' && parsed.leader) {
+      return parsed as TravelerRouteInfo;
     }
-
-    if (!trip) {
-        return (
-            <div className="min-h-screen flex items-center justify-center bg-slate-50">
-                <div className="text-center">
-                    <h2 className="text-2xl font-bold text-slate-900 mb-4">Trip Not Found</h2>
-                    <button
-                        onClick={() => router.push('/my-trips')}
-                        className="text-blue-600 hover:underline"
-                    >
-                        Back to My Trips
-                    </button>
-                </div>
-            </div>
-        );
+  } catch {
+    const match = cleaned.match(/\{[\s\S]*"leader"[\s\S]*\}/);
+    if (match) {
+      try {
+        const parsed = JSON.parse(match[0]);
+        if (parsed?.leader) return parsed as TravelerRouteInfo;
+      } catch { /* ignore */ }
     }
+  }
+  return null;
+}
 
-    // Tailored transfer instructions from itinerary (totals.transfers) and smart tips
-    const transfers: TransferStepResult[] = buildTransferStepsFromItinerary(itineraryItems, membersForTransfers);
-    const { transfer_tips } = getTransferTipsFromItems(itineraryItems);
+const TRANSPORT_ICONS: Record<string, React.ReactNode> = {
+  airport_transfer: <Car className="h-4 w-4" />,
+  car_rental: <Car className="h-4 w-4" />,
+  ride_service: <Navigation className="h-4 w-4" />,
+  train: <Train className="h-4 w-4" />,
+  private_car: <Car className="h-4 w-4" />,
+  shuttle: <Route className="h-4 w-4" />,
+};
 
-    // Build booking assignments from the actual transfer data
-    const assignments: Assignment[] = transfers.map((transfer) => {
-        let category = 'Flights';
-        if (transfer.flightSegment) {
-            category = transfer.flightSegment;
-        } else if (transfer.routeSegments && transfer.routeSegments.length > 0) {
-            category = transfer.routeSegments.join(' + ');
-        }
-        
-        const efficiency = transfer.centsPerPoint || 1.5;
-        const cashValue = transfer.pointsValue || Math.round((transfer.amount * efficiency) / 100);
-        
-        return {
-            category,
-            icon: Plane,
-            assignedTo: transfer.member,
-            pointsUsed: transfer.amount,
-            cashValue,
-            efficiency,
-            reason: `Transfer to ${transfer.partner} for best redemption value`,
-            flightSegment: transfer.flightSegment,
-        };
+function EmptyTabState({ icon, title, subtitle }: { icon: React.ReactNode; title: string; subtitle: string }) {
+  return (
+    <div className="flex flex-col items-center justify-center rounded-xl border border-dashed border-slate-300 bg-slate-50/50 py-16">
+      <div className="mb-3 rounded-xl bg-slate-100 p-4 text-slate-400">{icon}</div>
+      <p className="text-sm font-medium text-slate-600">{title}</p>
+      <p className="mt-1 max-w-sm text-center text-xs text-slate-400">{subtitle}</p>
+    </div>
+  );
+}
+
+export default function TripDetailPage() {
+  const params = useParams();
+  const tripId = params.id as string;
+
+  const [trip, setTrip] = useState<TripRequest | null>(null);
+  const [confidence, setConfidence] = useState<ConfidenceResult | null>(null);
+  const [loading, setLoading] = useState(true);
+  const [error, setError] = useState<string | null>(null);
+
+  const [activeTab, setActiveTab] = useState<TripTab>('overview');
+  const [itinerary, setItinerary] = useState<GeneratedItinerary | null>(null);
+  const [generatingItinerary, setGeneratingItinerary] = useState(false);
+  const [itineraryError, setItineraryError] = useState<string | null>(null);
+  const [expandedDays, setExpandedDays] = useState<Set<number>>(new Set());
+
+  const handleAddTraveler = async (
+    clientId: string,
+    options?: {
+      originAirports?: string[];
+      destinationAirports?: string[];
+      useLeaderCities?: boolean;
+    },
+  ) => {
+    try {
+      const newTraveler = await addTripTraveler(tripId, clientId, options);
+      const refreshed = await getTripRequest(tripId);
+      setTrip(refreshed);
+      return newTraveler;
+    } catch (err) {
+      console.error('Failed to add traveler:', err);
+      throw err;
+    }
+  };
+
+  const handleRemoveTraveler = async (travelerId: string) => {
+    try {
+      await removeTripTraveler(tripId, travelerId);
+      const refreshed = await getTripRequest(tripId);
+      setTrip(refreshed);
+    } catch (err) {
+      console.error('Failed to remove traveler:', err);
+      throw err;
+    }
+  };
+
+  const handleGenerateItinerary = async () => {
+    if (!tripId) return;
+    setGeneratingItinerary(true);
+    setItineraryError(null);
+    try {
+      const result = await generateTripItinerary(tripId);
+      setItinerary(result);
+      setExpandedDays(new Set([1]));
+    } catch (err) {
+      setItineraryError(err instanceof Error ? err.message : 'Failed to generate itinerary');
+    } finally {
+      setGeneratingItinerary(false);
+    }
+  };
+
+  const toggleDay = (day: number) => {
+    setExpandedDays((prev) => {
+      const next = new Set(prev);
+      if (next.has(day)) next.delete(day);
+      else next.add(day);
+      return next;
+    });
+  };
+
+  useEffect(() => {
+    if (!tripId) return;
+
+    Promise.all([
+      getTripRequest(tripId),
+      getTripConfidence(tripId).catch(() => null),
+    ])
+      .then(([tripData, conf]) => {
+        setTrip(tripData);
+        setConfidence(conf);
+      })
+      .catch((err) => setError(err.message))
+      .finally(() => setLoading(false));
+  }, [tripId]);
+
+  if (loading) {
+    return (
+      <div className="flex h-64 items-center justify-center">
+        <Loader2 className="h-6 w-6 animate-spin text-blue-600" />
+      </div>
+    );
+  }
+
+  if (error || !trip) {
+    return (
+      <div className="max-w-5xl">
+        <Link
+          href="/trips"
+          className="mb-6 inline-flex items-center gap-1.5 text-sm text-slate-600 hover:text-slate-900"
+        >
+          <ArrowLeft className="h-4 w-4" />
+          Back to trips
+        </Link>
+        <div className="rounded-xl border border-red-200 bg-red-50 p-8 text-center">
+          <Plane className="mx-auto h-10 w-10 text-red-300" />
+          <p className="mt-3 text-sm font-medium text-red-700">
+            {error || 'Trip not found'}
+          </p>
+          <Link
+            href="/trips"
+            className="mt-4 inline-flex text-sm font-medium text-blue-600 hover:text-blue-700"
+          >
+            Back to all trips
+          </Link>
+        </div>
+      </div>
+    );
+  }
+
+  const multiCityLegs = parseMultiCityLegs(trip.notes ?? undefined);
+  const isMultiCity = !!multiCityLegs;
+  const statusStyle = STATUS_STYLES[trip.status] ?? STATUS_STYLES.draft;
+
+  const origins = Array.isArray(trip.originAirports)
+    ? trip.originAirports.join(', ')
+    : trip.originAirports;
+  const destinations = Array.isArray(trip.destinationAirports)
+    ? trip.destinationAirports.join(', ')
+    : trip.destinationAirports;
+
+  const travelerFlights = parseTravelerFlights(trip.notes ?? undefined);
+  const travelerRoutes = parseTravelerRoutes(trip.notes ?? undefined);
+  const rawNotes = trip.notes
+    ?.replace(/\[MULTI_CITY:\[.*?\]\]\s*/g, '')
+    .replace(/\[TRAVELER_FLIGHTS:\[[\s\S]*?\]\]\s*/g, '')
+    .replace(/\[FLIGHT_PLAN:[\s\S]*?\]\s*/g, '')
+    .trim();
+
+  const cleanNotes = (() => {
+    if (!rawNotes) return undefined;
+    try {
+      const parsed = JSON.parse(rawNotes);
+      if (typeof parsed === 'object' && parsed !== null) return undefined;
+    } catch {
+      // not JSON — keep it
+    }
+    return rawNotes.replace(/\{\s*"leader"\s*:[\s\S]*?"travelers"\s*:\s*\[[\s\S]*?\]\s*\}/g, '').trim() || undefined;
+  })();
+
+  return (
+    <div className="max-w-5xl">
+      <Link
+        href="/trips"
+        className="mb-6 inline-flex items-center gap-1.5 text-sm text-slate-600 hover:text-slate-900"
+      >
+        <ArrowLeft className="h-4 w-4" />
+        Back to trips
+      </Link>
+
+      {/* Header */}
+      <div className="mb-6 flex items-start justify-between">
+        <div>
+          <h1 className="text-2xl font-bold text-slate-900">{trip.title}</h1>
+          <div className="mt-2 flex flex-wrap items-center gap-3">
+            <span
+              className={`inline-flex items-center rounded-full px-3 py-1 text-xs font-medium ${statusStyle.bg} ${statusStyle.text}`}
+            >
+              {trip.status}
+            </span>
+            {isMultiCity && (
+              <span className="inline-flex items-center rounded-full bg-purple-50 px-3 py-1 text-xs font-medium text-purple-700">
+                Multi-City
+              </span>
+            )}
+            {confidence && (
+              <ConfidenceBadge score={confidence.score} level={confidence.level} />
+            )}
+            <span className="text-xs text-slate-400">
+              {origins} → {destinations}
+            </span>
+            <span className="text-xs text-slate-400">
+              {formatDateShort(trip.departureDate)}
+              {trip.returnDate ? ` – ${formatDateShort(trip.returnDate)}` : ''}
+            </span>
+          </div>
+        </div>
+        <div className="flex items-center gap-2">
+          {trip.client && (
+            <Link
+              href={`/clients/${trip.client.id}?tab=trips`}
+              className="text-sm font-medium text-blue-600 hover:text-blue-700"
+            >
+              View Client
+              <ChevronRight className="ml-0.5 inline h-4 w-4" />
+            </Link>
+          )}
+        </div>
+      </div>
+
+      {/* Generate Itinerary Banner */}
+      {!itinerary && !generatingItinerary && (
+        <div className="mb-6 flex items-center justify-between rounded-xl border border-blue-200 bg-gradient-to-r from-blue-50 to-indigo-50 p-5">
+          <div className="flex items-center gap-3">
+            <div className="rounded-lg bg-blue-100 p-2.5">
+              <Sparkles className="h-5 w-5 text-blue-600" />
+            </div>
+            <div>
+              <p className="text-sm font-semibold text-slate-900">Generate Full Trip Plan</p>
+              <p className="text-xs text-slate-500">
+                AI will create flight, hotel, dining, transportation, and daily activity recommendations
+              </p>
+            </div>
+          </div>
+          <button
+            onClick={handleGenerateItinerary}
+            className="inline-flex items-center gap-2 rounded-lg bg-blue-600 px-5 py-2.5 text-sm font-medium text-white shadow-sm transition-colors hover:bg-blue-700"
+          >
+            <Sparkles className="h-4 w-4" />
+            Generate Plan
+          </button>
+        </div>
+      )}
+
+      {generatingItinerary && (
+        <div className="mb-6 flex items-center gap-3 rounded-xl border border-blue-200 bg-blue-50 p-5">
+          <Loader2 className="h-5 w-5 animate-spin text-blue-600" />
+          <div>
+            <p className="text-sm font-semibold text-blue-900">Generating your trip plan...</p>
+            <p className="text-xs text-blue-600">This may take a moment while we plan flights, hotels, dining, and activities</p>
+          </div>
+        </div>
+      )}
+
+      {itineraryError && (
+        <div className="mb-6 flex items-center gap-3 rounded-xl border border-red-200 bg-red-50 p-4">
+          <AlertCircle className="h-5 w-5 flex-shrink-0 text-red-500" />
+          <p className="text-sm text-red-700">{itineraryError}</p>
+          <button
+            onClick={handleGenerateItinerary}
+            className="ml-auto text-xs font-medium text-red-700 underline hover:text-red-800"
+          >
+            Retry
+          </button>
+        </div>
+      )}
+
+      {/* Tabs */}
+      <div className="mb-6 border-b border-slate-200">
+        <nav className="-mb-px flex gap-1 overflow-x-auto">
+          {TABS.map((tab) => (
+            <button
+              key={tab.key}
+              onClick={() => setActiveTab(tab.key)}
+              className={`flex items-center gap-2 whitespace-nowrap border-b-2 px-4 py-3 text-sm font-medium transition-colors ${
+                activeTab === tab.key
+                  ? 'border-blue-600 text-blue-600'
+                  : 'border-transparent text-slate-500 hover:border-slate-300 hover:text-slate-700'
+              }`}
+            >
+              {tab.icon}
+              {tab.label}
+            </button>
+          ))}
+        </nav>
+      </div>
+
+      {/* Tab Content */}
+      <div className="grid gap-6 lg:grid-cols-3">
+        <div className="space-y-6 lg:col-span-2">
+          {activeTab === 'overview' && (
+            <OverviewTab
+              trip={trip}
+              itinerary={itinerary}
+              multiCityLegs={multiCityLegs}
+              isMultiCity={isMultiCity}
+              origins={origins}
+              destinations={destinations}
+              travelerFlights={travelerFlights}
+              travelerRoutes={travelerRoutes}
+              cleanNotes={cleanNotes}
+              confidence={confidence}
+              onAddTraveler={handleAddTraveler}
+              onRemoveTraveler={handleRemoveTraveler}
+            />
+          )}
+          {activeTab === 'discovery' && (
+            <DiscoveryTab trip={trip} />
+          )}
+          {activeTab === 'flights' && (
+            <FlightsTab
+              itinerary={itinerary}
+              trip={trip}
+              multiCityLegs={multiCityLegs}
+              isMultiCity={isMultiCity}
+              origins={origins}
+              destinations={destinations}
+              travelerFlights={travelerFlights}
+            />
+          )}
+          {activeTab === 'hotels' && <HotelsTab itinerary={itinerary} />}
+          {activeTab === 'food' && <FoodTab itinerary={itinerary} />}
+          {activeTab === 'transportation' && <TransportationTab itinerary={itinerary} />}
+          {activeTab === 'daily' && (
+            <DailyPlanTab
+              itinerary={itinerary}
+              expandedDays={expandedDays}
+              toggleDay={toggleDay}
+            />
+          )}
+          {activeTab === 'budget' && <BudgetTab itinerary={itinerary} />}
+        </div>
+
+        {/* Sidebar */}
+        <div className="space-y-6">
+          {/* Client Card */}
+          {trip.client ? (
+            <div className="rounded-xl border border-slate-200 bg-white p-5 shadow-sm">
+              <h3 className="mb-3 text-xs font-semibold uppercase tracking-wider text-slate-400">
+                Client
+              </h3>
+              <Link href={`/clients/${trip.client.id}`} className="group block">
+                <div className="flex items-center gap-3">
+                  <div className="flex h-11 w-11 flex-shrink-0 items-center justify-center rounded-xl bg-blue-100 text-sm font-semibold text-blue-700">
+                    {trip.client.firstName?.[0]}
+                    {trip.client.lastName?.[0]}
+                  </div>
+                  <div className="min-w-0 flex-1">
+                    <p className="truncate text-sm font-semibold text-slate-900 group-hover:text-blue-700">
+                      {trip.client.firstName} {trip.client.lastName}
+                    </p>
+                    <p className="truncate text-xs text-slate-500">
+                      {trip.client.clientType === 'individual' ? 'Individual' : 'Business'}
+                    </p>
+                  </div>
+                </div>
+              </Link>
+              <div className="mt-3 space-y-2 border-t border-slate-100 pt-3">
+                {trip.client.email && (
+                  <div className="flex items-center gap-2 text-xs text-slate-600">
+                    <Mail className="h-3.5 w-3.5 text-slate-400" />
+                    <span className="truncate">{trip.client.email}</span>
+                  </div>
+                )}
+                {trip.client.phone && (
+                  <div className="flex items-center gap-2 text-xs text-slate-600">
+                    <Phone className="h-3.5 w-3.5 text-slate-400" />
+                    <span>{trip.client.phone}</span>
+                  </div>
+                )}
+              </div>
+              {trip.client.loyaltyBalances && trip.client.loyaltyBalances.length > 0 && (
+                <div className="mt-3 space-y-1.5 border-t border-slate-100 pt-3">
+                  <div className="flex items-center gap-1.5">
+                    <Coins className="h-3.5 w-3.5 text-amber-500" />
+                    <span className="text-xs font-medium text-slate-500">Points</span>
+                  </div>
+                  <div className="flex flex-wrap gap-1.5">
+                    {trip.client.loyaltyBalances.map((bal: { id: string; balance: number; loyaltyProgram?: { name: string }; programName?: string }) => (
+                      <span
+                        key={bal.id}
+                        className="inline-flex items-center gap-1 rounded-full bg-slate-50 px-2 py-0.5 text-[11px]"
+                      >
+                        <span className="font-medium text-slate-600">
+                          {bal.loyaltyProgram?.name ?? bal.programName}
+                        </span>
+                        <span className="font-semibold text-slate-800">
+                          {bal.balance.toLocaleString()}
+                        </span>
+                      </span>
+                    ))}
+                  </div>
+                </div>
+              )}
+            </div>
+          ) : (
+            <div className="rounded-xl border border-slate-200 bg-white p-5 shadow-sm">
+              <h3 className="mb-3 text-xs font-semibold uppercase tracking-wider text-slate-400">
+                Client
+              </h3>
+              <div className="flex items-center gap-2 text-sm text-slate-400">
+                <User className="h-4 w-4" />
+                No client assigned
+              </div>
+            </div>
+          )}
+
+          {/* Timeline */}
+          <div className="rounded-xl border border-slate-200 bg-white p-5 shadow-sm">
+            <h3 className="mb-3 text-xs font-semibold uppercase tracking-wider text-slate-400">
+              Timeline
+            </h3>
+            <div className="space-y-3">
+              <div className="flex items-center justify-between text-xs">
+                <span className="text-slate-500">Created</span>
+                <span className="font-medium text-slate-700">
+                  {formatDateShort(trip.createdAt)}
+                </span>
+              </div>
+              <div className="flex items-center justify-between text-xs">
+                <span className="text-slate-500">Last Updated</span>
+                <span className="font-medium text-slate-700">
+                  {formatDateShort(trip.updatedAt)}
+                </span>
+              </div>
+              <div className="flex items-center justify-between text-xs">
+                <span className="text-slate-500">Departure</span>
+                <span className="font-medium text-slate-700">
+                  {formatDateShort(trip.departureDate)}
+                </span>
+              </div>
+              {trip.returnDate && (
+                <div className="flex items-center justify-between text-xs">
+                  <span className="text-slate-500">Return</span>
+                  <span className="font-medium text-slate-700">
+                    {formatDateShort(trip.returnDate)}
+                  </span>
+                </div>
+              )}
+            </div>
+          </div>
+
+          {/* Quick Stats */}
+          {itinerary && (
+            <div className="rounded-xl border border-slate-200 bg-white p-5 shadow-sm">
+              <h3 className="mb-3 text-xs font-semibold uppercase tracking-wider text-slate-400">
+                Plan Summary
+              </h3>
+              <div className="space-y-2">
+                <div className="flex items-center justify-between text-xs">
+                  <span className="flex items-center gap-1.5 text-slate-500">
+                    <Plane className="h-3 w-3" /> Flights
+                  </span>
+                  <span className="font-medium text-slate-700">{itinerary.flights.length}</span>
+                </div>
+                <div className="flex items-center justify-between text-xs">
+                  <span className="flex items-center gap-1.5 text-slate-500">
+                    <Hotel className="h-3 w-3" /> Hotels
+                  </span>
+                  <span className="font-medium text-slate-700">{itinerary.hotels.length}</span>
+                </div>
+                <div className="flex items-center justify-between text-xs">
+                  <span className="flex items-center gap-1.5 text-slate-500">
+                    <Car className="h-3 w-3" /> Transport
+                  </span>
+                  <span className="font-medium text-slate-700">{itinerary.transportation?.length ?? 0}</span>
+                </div>
+                <div className="flex items-center justify-between text-xs">
+                  <span className="flex items-center gap-1.5 text-slate-500">
+                    <Calendar className="h-3 w-3" /> Days Planned
+                  </span>
+                  <span className="font-medium text-slate-700">{itinerary.dailyItinerary.length}</span>
+                </div>
+                {itinerary.budgetBreakdown.totalEstimatedCash > 0 && (
+                  <div className="mt-2 border-t border-slate-100 pt-2">
+                    <div className="flex items-center justify-between text-xs">
+                      <span className="flex items-center gap-1.5 font-medium text-slate-600">
+                        <DollarSign className="h-3 w-3" /> Est. Total
+                      </span>
+                      <span className="font-bold text-slate-900">
+                        ${itinerary.budgetBreakdown.totalEstimatedCash.toLocaleString()}
+                      </span>
+                    </div>
+                  </div>
+                )}
+              </div>
+            </div>
+          )}
+
+          {/* Actions */}
+          <div className="rounded-xl border border-slate-200 bg-white p-5 shadow-sm">
+            <h3 className="mb-3 text-xs font-semibold uppercase tracking-wider text-slate-400">
+              Actions
+            </h3>
+            <div className="space-y-2">
+              {itinerary ? (
+                <button
+                  onClick={handleGenerateItinerary}
+                  disabled={generatingItinerary}
+                  className="flex w-full items-center justify-between rounded-lg bg-blue-50 px-4 py-2.5 text-sm font-medium text-blue-700 transition-colors hover:bg-blue-100 disabled:opacity-50"
+                >
+                  <span className="flex items-center gap-2">
+                    <Sparkles className="h-4 w-4" />
+                    Regenerate Plan
+                  </span>
+                  {generatingItinerary && <Loader2 className="h-4 w-4 animate-spin" />}
+                </button>
+              ) : (
+                <button
+                  onClick={handleGenerateItinerary}
+                  disabled={generatingItinerary}
+                  className="flex w-full items-center justify-between rounded-lg bg-blue-50 px-4 py-2.5 text-sm font-medium text-blue-700 transition-colors hover:bg-blue-100 disabled:opacity-50"
+                >
+                  <span className="flex items-center gap-2">
+                    <Sparkles className="h-4 w-4" />
+                    Generate Plan
+                  </span>
+                  {generatingItinerary && <Loader2 className="h-4 w-4 animate-spin" />}
+                </button>
+              )}
+              {trip.client && (
+                <>
+                  <Link
+                    href={`/clients/${trip.client.id}?tab=trips`}
+                    className="flex w-full items-center justify-between rounded-lg bg-slate-50 px-4 py-2.5 text-sm font-medium text-slate-700 transition-colors hover:bg-slate-100"
+                  >
+                    View in Client
+                    <ChevronRight className="h-4 w-4 text-slate-400" />
+                  </Link>
+                  <Link
+                    href={`/clients/${trip.client.id}?tab=preferences`}
+                    className="flex w-full items-center justify-between rounded-lg bg-slate-50 px-4 py-2.5 text-sm font-medium text-slate-700 transition-colors hover:bg-slate-100"
+                  >
+                    Client Preferences
+                    <ChevronRight className="h-4 w-4 text-slate-400" />
+                  </Link>
+                </>
+              )}
+            </div>
+          </div>
+        </div>
+      </div>
+    </div>
+  );
+}
+
+/* ==========================================================================
+   TAB COMPONENTS
+   ========================================================================== */
+
+function OverviewTab({
+  trip,
+  itinerary,
+  multiCityLegs,
+  isMultiCity,
+  origins,
+  destinations,
+  travelerFlights,
+  travelerRoutes,
+  cleanNotes,
+  confidence,
+  onAddTraveler,
+  onRemoveTraveler,
+}: {
+  trip: TripRequest;
+  itinerary: GeneratedItinerary | null;
+  multiCityLegs: { leg: number; from: string[]; to: string[]; date: string }[] | null;
+  isMultiCity: boolean;
+  origins: string;
+  destinations: string;
+  travelerFlights: TravelerFlightData[] | null;
+  travelerRoutes: TravelerRouteInfo | null;
+  cleanNotes: string | undefined;
+  confidence: ConfidenceResult | null;
+  onAddTraveler: (clientId: string, options?: { originAirports?: string[]; destinationAirports?: string[]; useLeaderCities?: boolean }) => Promise<TripTraveler>;
+  onRemoveTraveler: (travelerId: string) => Promise<void>;
+}) {
+  const travelers = trip.travelers ?? [];
+  const leaderCities = travelerRoutes?.leader;
+  const defaultOrigins = trip.originAirports ?? [];
+  const defaultDestinations = trip.destinationAirports ?? [];
+
+  function getTravelerRoute(traveler: TripTraveler) {
+    const isLeader = traveler.clientId === trip.clientId;
+    if (isLeader && leaderCities) {
+      return { start: leaderCities.startingCity, end: leaderCities.endingCity };
+    }
+    const match = travelerRoutes?.travelers.find(
+      (t) => t.clientId === traveler.clientId,
+    );
+    if (match) {
+      if (match.useLeaderCities && leaderCities) {
+        return { start: leaderCities.startingCity, end: leaderCities.endingCity };
+      }
+      return { start: match.startingCity, end: match.endingCity };
+    }
+    return { start: defaultOrigins, end: defaultDestinations };
+  }
+
+  return (
+    <>
+      {/* AI Summary */}
+      {itinerary && (
+        <div className="rounded-xl border border-emerald-200 bg-gradient-to-br from-emerald-50 to-teal-50 p-6 shadow-sm">
+          <div className="mb-3 flex items-center gap-2">
+            <Sparkles className="h-4 w-4 text-emerald-600" />
+            <h2 className="text-sm font-semibold text-emerald-900">Trip Summary</h2>
+          </div>
+          <p className="text-sm leading-relaxed text-emerald-800">{itinerary.summary}</p>
+          {itinerary.tips.length > 0 && (
+            <div className="mt-4 space-y-1.5 border-t border-emerald-200/60 pt-3">
+              <p className="text-[11px] font-semibold uppercase tracking-wider text-emerald-600">Quick Tips</p>
+              {itinerary.tips.map((tip, i) => (
+                <div key={i} className="flex items-start gap-2 text-xs text-emerald-700">
+                  <Lightbulb className="mt-0.5 h-3 w-3 flex-shrink-0" />
+                  <span>{tip}</span>
+                </div>
+              ))}
+            </div>
+          )}
+        </div>
+      )}
+
+      {/* Group Members */}
+      <GroupMembersSection
+        trip={trip}
+        onAddTraveler={onAddTraveler}
+        onRemoveTraveler={onRemoveTraveler}
+      />
+
+      {/* Confidence Breakdown */}
+      {confidence && (
+        <div className="rounded-xl border border-slate-200 bg-white p-6 shadow-sm">
+          <h2 className="mb-4 text-sm font-semibold text-slate-900">
+            Confidence Breakdown
+          </h2>
+          <div className="space-y-3">
+            {confidence.dimensions.map((dim) => {
+              const pct = dim.maxScore > 0 ? (dim.score / dim.maxScore) * 100 : 0;
+              const statusColors: Record<string, string> = {
+                resolved: 'text-emerald-600',
+                ambiguous: 'text-amber-600',
+                missing: 'text-red-500',
+              };
+              return (
+                <div key={dim.key}>
+                  <div className="mb-1 flex items-center justify-between">
+                    <span className="text-xs font-medium text-slate-700">{dim.label}</span>
+                    <span className={`text-xs font-medium ${statusColors[dim.status] ?? 'text-slate-500'}`}>
+                      {dim.status}
+                    </span>
+                  </div>
+                  <div className="h-2 w-full rounded-full bg-slate-100">
+                    <div
+                      className={`h-2 rounded-full transition-all ${
+                        dim.status === 'resolved'
+                          ? 'bg-emerald-500'
+                          : dim.status === 'ambiguous'
+                          ? 'bg-amber-400'
+                          : 'bg-red-400'
+                      }`}
+                      style={{ width: `${pct}%` }}
+                    />
+                  </div>
+                </div>
+              );
+            })}
+          </div>
+        </div>
+      )}
+    </>
+  );
+}
+
+function GroupMembersSection({
+  trip,
+  onAddTraveler,
+  onRemoveTraveler,
+}: {
+  trip: TripRequest;
+  onAddTraveler: (clientId: string, options?: { originAirports?: string[]; destinationAirports?: string[]; useLeaderCities?: boolean }) => Promise<TripTraveler>;
+  onRemoveTraveler: (travelerId: string) => Promise<void>;
+}) {
+  const [showAddForm, setShowAddForm] = useState(false);
+  const [allClients, setAllClients] = useState<Client[]>([]);
+  const [searchQuery, setSearchQuery] = useState('');
+  const [loadingClients, setLoadingClients] = useState(false);
+  const [adding, setAdding] = useState(false);
+  const [removing, setRemoving] = useState<string | null>(null);
+
+  const [pendingClient, setPendingClient] = useState<Client | null>(null);
+  const [useLeaderCities, setUseLeaderCities] = useState(true);
+  const [originAirports, setOriginAirports] = useState<string[]>([]);
+  const [destinationAirports, setDestinationAirports] = useState<string[]>([]);
+  const [validationError, setValidationError] = useState<string | null>(null);
+
+  const leaderOrigins = Array.isArray(trip.originAirports) ? trip.originAirports as string[] : [];
+  const leaderDestinations = Array.isArray(trip.destinationAirports) ? trip.destinationAirports as string[] : [];
+  const leaderClient = trip.travelers?.find((t) => t.clientId === trip.clientId)?.client ?? trip.client;
+  const leaderName = leaderClient ? leaderClient.firstName : 'Leader';
+
+  const existingClientIds = new Set(
+    trip.travelers?.map((t) => t.clientId) ?? [],
+  );
+  if (trip.clientId) existingClientIds.add(trip.clientId);
+
+  const filteredClients = allClients
+    .filter((c) => !existingClientIds.has(c.id))
+    .filter((c) => {
+      if (!searchQuery.trim()) return true;
+      const q = searchQuery.toLowerCase();
+      return (
+        c.firstName.toLowerCase().includes(q) ||
+        c.lastName.toLowerCase().includes(q) ||
+        c.email.toLowerCase().includes(q)
+      );
     });
 
-    const totalPointsUsed = assignments.reduce((sum, a) => sum + a.pointsUsed, 0);
-    const totalCashValue = assignments.reduce((sum, a) => sum + a.cashValue, 0);
-    const averageEfficiency = assignments.length > 0 && assignments.filter(a => a.pointsUsed > 0).length > 0
-        ? assignments
-            .filter(a => a.pointsUsed > 0)
-            .reduce((sum, a) => sum + a.efficiency, 0) / assignments.filter(a => a.pointsUsed > 0).length
-        : 0;
+  const handleOpenAdd = async () => {
+    setShowAddForm(true);
+    setPendingClient(null);
+    setUseLeaderCities(true);
+    setOriginAirports([]);
+    setDestinationAirports([]);
+    setValidationError(null);
+    if (allClients.length === 0) {
+      setLoadingClients(true);
+      try {
+        const clients = await getClients();
+        setAllClients(clients);
+      } catch (err) {
+        console.error('Failed to load clients:', err);
+      } finally {
+        setLoadingClients(false);
+      }
+    }
+  };
 
-    return (
-        <div className="min-h-screen bg-slate-50 pb-20">
-            {/* Hero Header */}
-            <div className="relative h-64 md:h-80 bg-slate-900">
-                <Image
-                    src={trip.image}
-                    alt={trip.destination}
-                    fill
-                    className="object-cover opacity-60"
+  const handleSelectClient = (client: Client) => {
+    setPendingClient(client);
+    setSearchQuery('');
+    setValidationError(null);
+  };
+
+  const handleConfirmAdd = async () => {
+    if (!pendingClient) return;
+
+    if (!useLeaderCities) {
+      if (originAirports.length === 0) {
+        setValidationError('Start location is required');
+        return;
+      }
+      if (destinationAirports.length === 0) {
+        setValidationError('End location is required');
+        return;
+      }
+    }
+
+    setAdding(true);
+    setValidationError(null);
+    try {
+      await onAddTraveler(pendingClient.id, {
+        useLeaderCities,
+        originAirports: useLeaderCities ? leaderOrigins : originAirports,
+        destinationAirports: useLeaderCities ? leaderDestinations : destinationAirports,
+      });
+      setPendingClient(null);
+      setUseLeaderCities(true);
+      setOriginAirports([]);
+      setDestinationAirports([]);
+      setShowAddForm(false);
+    } catch {
+      // error handled upstream
+    } finally {
+      setAdding(false);
+    }
+  };
+
+  const handleCancelAdd = () => {
+    setShowAddForm(false);
+    setPendingClient(null);
+    setUseLeaderCities(true);
+    setOriginAirports([]);
+    setDestinationAirports([]);
+    setSearchQuery('');
+    setValidationError(null);
+  };
+
+  const handleRemove = async (travelerId: string) => {
+    setRemoving(travelerId);
+    try {
+      await onRemoveTraveler(travelerId);
+    } catch {
+      // error handled upstream
+    } finally {
+      setRemoving(null);
+    }
+  };
+
+  const rawTravelers = trip.travelers ?? [];
+  const leaderAlreadyIncluded = rawTravelers.some((t) => t.clientId === trip.clientId);
+  const travelers = leaderAlreadyIncluded
+    ? rawTravelers
+    : trip.clientId && leaderClient
+      ? [
+          {
+            id: `leader-${trip.clientId}`,
+            clientId: trip.clientId,
+            client: leaderClient,
+            useLeaderCities: true,
+            originAirports: leaderOrigins,
+            destinationAirports: leaderDestinations,
+            travelerType: 'adult',
+          } as unknown as TripTraveler,
+          ...rawTravelers,
+        ]
+      : rawTravelers;
+
+  return (
+    <div className="rounded-xl border border-slate-200 bg-white p-6 shadow-sm">
+      <div className="mb-4 flex items-center justify-between">
+        <h2 className="text-sm font-semibold text-slate-900">Group Members</h2>
+        <button
+          onClick={showAddForm ? handleCancelAdd : handleOpenAdd}
+          className="inline-flex items-center gap-1.5 rounded-lg bg-blue-50 px-3 py-1.5 text-xs font-medium text-blue-700 transition-colors hover:bg-blue-100"
+        >
+          {showAddForm ? (
+            <>
+              <X className="h-3.5 w-3.5" />
+              Cancel
+            </>
+          ) : (
+            <>
+              <UserPlus className="h-3.5 w-3.5" />
+              Add Member
+            </>
+          )}
+        </button>
+      </div>
+
+      {/* Add Member Form */}
+      {showAddForm && (
+        <div className="mb-4 rounded-lg border border-blue-200 bg-blue-50/50 p-4">
+          {!pendingClient ? (
+            <>
+              <p className="mb-2 text-xs font-medium text-slate-600">Step 1: Select a client</p>
+              <div className="relative">
+                <Search className="absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-slate-400" />
+                <input
+                  type="text"
+                  placeholder="Search clients by name or email..."
+                  value={searchQuery}
+                  onChange={(e) => setSearchQuery(e.target.value)}
+                  className="w-full rounded-lg border border-slate-200 bg-white py-2.5 pl-10 pr-4 text-sm placeholder:text-slate-400 focus:border-transparent focus:outline-none focus:ring-2 focus:ring-blue-600"
+                  autoFocus
                 />
-                <div className="absolute inset-0 bg-gradient-to-t from-slate-900/90 via-slate-900/40 to-transparent" />
+              </div>
 
-                <div className="absolute top-6 left-6 z-10">
-                    <button
-                        onClick={() => router.push('/my-trips')}
-                        className="flex items-center gap-2 text-white/90 hover:text-white bg-black/20 hover:bg-black/40 backdrop-blur-sm px-4 py-2 rounded-full transition-all text-sm font-medium"
-                    >
-                        <ArrowLeft className="w-4 h-4" />
-                        Back to Trips
-                    </button>
+              {loadingClients ? (
+                <div className="mt-3 flex items-center justify-center gap-2 py-4">
+                  <Loader2 className="h-4 w-4 animate-spin text-blue-600" />
+                  <span className="text-xs text-slate-500">Loading clients...</span>
                 </div>
-
-                <div className="absolute bottom-0 left-0 right-0 p-6 md:p-8 max-w-5xl mx-auto">
-                    <div className="flex flex-col md:flex-row md:items-end justify-between gap-4">
-                        <div>
-                            <div className="flex items-center gap-2 mb-2">
-                                <span className={`px-2.5 py-0.5 rounded-full text-xs font-bold uppercase tracking-wider ${
-                                    trip.status === 'upcoming' ? 'bg-blue-500 text-white' : 'bg-slate-600 text-slate-200'
-                                }`}>
-                                    {trip.status}
-                                </span>
-                                <span className="flex items-center gap-1 text-slate-300 text-sm">
-                                    {trip.type === 'Solo' ? <User className="w-3.5 h-3.5" /> : <Users className="w-3.5 h-3.5" />}
-                                    {trip.type} Trip
-                                </span>
-                            </div>
-                            <h1 className="text-3xl md:text-4xl font-bold text-white mb-2">{trip.destination}</h1>
-                            <div className="flex flex-wrap items-center gap-4 text-slate-300 text-sm">
-                                <span className="flex items-center gap-1.5">
-                                    <MapPin className="w-4 h-4 text-slate-400" />
-                                    {trip.location}
-                                </span>
-                                <span className="flex items-center gap-1.5">
-                                    <Calendar className="w-4 h-4 text-slate-400" />
-                                    {trip.dates}
-                                </span>
-                            </div>
+              ) : (
+                <div className="mt-3 max-h-48 space-y-1 overflow-y-auto">
+                  {filteredClients.length === 0 ? (
+                    <p className="py-3 text-center text-xs text-slate-400">
+                      {searchQuery ? 'No matching clients found' : 'No clients available to add'}
+                    </p>
+                  ) : (
+                    filteredClients.slice(0, 10).map((client) => (
+                      <button
+                        key={client.id}
+                        onClick={() => handleSelectClient(client)}
+                        className="flex w-full items-center gap-3 rounded-lg bg-white p-2.5 text-left transition-colors hover:bg-slate-50"
+                      >
+                        <div className="flex h-8 w-8 flex-shrink-0 items-center justify-center rounded-lg bg-blue-100 text-xs font-semibold text-blue-700">
+                          {client.firstName?.[0]}
+                          {client.lastName?.[0]}
                         </div>
-
-                        <div className="bg-white/10 backdrop-blur-md border border-white/20 rounded-xl p-4 min-w-[140px]">
-                            <div className="text-xs text-slate-300 uppercase tracking-wider font-semibold mb-1">Total Points</div>
-                            <div className="flex items-center gap-2 text-2xl font-bold text-white">
-                                <CreditCard className="w-6 h-6 text-emerald-400" />
-                                {trip.pointsRedeemed}
-                            </div>
+                        <div className="min-w-0 flex-1">
+                          <p className="truncate text-sm font-medium text-slate-900">
+                            {client.firstName} {client.lastName}
+                          </p>
+                          <p className="truncate text-xs text-slate-500">{client.email}</p>
                         </div>
-                    </div>
+                        <ChevronRight className="h-4 w-4 flex-shrink-0 text-slate-400" />
+                      </button>
+                    ))
+                  )}
                 </div>
-            </div>
+              )}
+            </>
+          ) : (
+            <>
+              <p className="mb-2 text-xs font-medium text-slate-600">Step 2: Set travel locations</p>
 
-            <div className="max-w-4xl mx-auto px-6 py-8 relative z-10">
-                <>
-                {/* Savings Summary */}
-                {totalCashValue > 0 && (
-                    <div className="bg-gradient-to-br from-blue-600 to-indigo-700 rounded-2xl p-8 text-white shadow-xl shadow-blue-900/10 relative overflow-hidden mb-8">
-                        <div className="absolute top-0 right-0 w-64 h-64 bg-white/10 rounded-full -mr-16 -mt-16 blur-3xl"></div>
-                        <div className="relative z-10">
-                            <div className="flex items-center gap-2 text-blue-100 mb-1">
-                                <Sparkles className="w-5 h-5" />
-                                <span className="font-medium">Estimated Savings</span>
-                            </div>
-                            <div className="flex items-baseline gap-2 mb-4">
-                                <span className="text-5xl font-bold">${totalCashValue.toLocaleString()}</span>
-                                <span className="text-blue-200">in flight value</span>
-                            </div>
-                            <div className="grid grid-cols-3 gap-4 bg-white/10 rounded-xl p-4 border border-white/10">
-                                <div>
-                                    <div className="text-blue-200 text-sm">Points Used</div>
-                                    <div className="text-xl font-semibold">{(totalPointsUsed / 1000).toFixed(0)}k</div>
-                                </div>
-                                <div>
-                                    <div className="text-blue-200 text-sm">Avg Value</div>
-                                    <div className="text-xl font-semibold">{averageEfficiency.toFixed(2)}¢/pt</div>
-                                </div>
-                                <div>
-                                    <div className="text-blue-200 text-sm">Travelers</div>
-                                    <div className="text-xl font-semibold">{members.length || trip.travelers}</div>
-                                </div>
-                            </div>
-                        </div>
-                    </div>
-                )}
-
-                {/* Step 1: Transfer Points */}
-                <div className="bg-white border border-slate-200 rounded-2xl overflow-hidden shadow-sm mb-8">
-                    <div className="p-6 border-b border-slate-100 flex justify-between items-center bg-slate-50/50">
-                        <h2 className="text-xl font-semibold text-slate-900 flex items-center gap-2">
-                            <Wallet className="w-5 h-5 text-blue-600" />
-                            Step 1: Transfer Points
-                        </h2>
-                        <span className="px-3 py-1 bg-green-100 text-green-700 text-xs font-bold uppercase tracking-wide rounded-full flex items-center gap-1">
-                            <Check className="w-3 h-3" /> Unlocked
-                        </span>
-                    </div>
-                    <div className="p-6">
-                        {transfers.length > 0 ? (
-                            <div className="space-y-4">
-                                {transfers.map((t, idx) => {
-                                    return (
-                                        <div key={t.id} className="bg-gradient-to-r from-blue-50 via-indigo-50 to-purple-50 rounded-2xl border border-blue-100 shadow-sm overflow-hidden">
-                                            <div className="p-4">
-                                                {/* Flight Route Header */}
-                                                {t.flightSegment && (
-                                                    <div className="mb-4 pb-3 border-b border-blue-100">
-                                                        <div className="flex items-center gap-2 mb-1">
-                                                            <Plane className="w-4 h-4 text-blue-600" />
-                                                            <span className="text-xs font-medium text-blue-600 uppercase tracking-wider">Flight Route</span>
-                                                        </div>
-                                                        <div className="text-lg font-bold text-slate-900">{t.flightSegment}</div>
-                                                        {t.segmentDescription && (
-                                                            <div className="text-sm text-slate-600 mt-1">{t.segmentDescription}</div>
-                                                        )}
-                                                    </div>
-                                                )}
-
-                                                <div className="flex items-center justify-between">
-                                                    <div className="flex items-center gap-4">
-                                                        <div className="w-10 h-10 rounded-full bg-gradient-to-br from-blue-500 to-indigo-600 text-white flex items-center justify-center font-bold text-lg shadow-lg flex-shrink-0">
-                                                            {idx + 1}
-                                                        </div>
-                                                        <div className="w-12 h-12 bg-white rounded-xl shadow-sm flex items-center justify-center">
-                                                            <CreditCard className="w-6 h-6 text-blue-600" />
-                                                        </div>
-                                                        <div>
-                                                            <div className="text-sm text-slate-500">From</div>
-                                                            <div className="font-bold text-slate-900">{t.program}</div>
-                                                        </div>
-                                                        <div className="flex items-center gap-2 px-3">
-                                                            <div className="w-8 h-px bg-slate-300"></div>
-                                                            <ArrowRight className="w-5 h-5 text-blue-500" />
-                                                            <div className="w-8 h-px bg-slate-300"></div>
-                                                        </div>
-                                                        <div>
-                                                            <div className="text-sm text-slate-500">To</div>
-                                                            <div className="font-bold text-slate-900">{t.partner}</div>
-                                                        </div>
-                                                    </div>
-                                                    <div className="text-right">
-                                                        <div className="text-2xl font-bold text-blue-600">{t.amount.toLocaleString()}</div>
-                                                        <div className="text-xs text-slate-500">points</div>
-                                                    </div>
-                                                </div>
-                                                
-                                                {/* Member tag and additional details */}
-                                                <div className="flex items-center justify-between mt-3 pt-3 border-t border-blue-100">
-                                                    <div className="flex items-center gap-2 text-sm text-slate-600">
-                                                        <span className="px-2 py-1 bg-white rounded-lg border border-slate-200 font-medium">{t.member}</span>
-                                                        {t.surcharge != null && t.surcharge > 0 && (
-                                                            <span className="px-2 py-1 bg-amber-100 text-amber-700 rounded-lg text-xs font-medium">
-                                                                +${Math.round(t.surcharge)} fees
-                                                            </span>
-                                                        )}
-                                                        {t.centsPerPoint != null && t.centsPerPoint > 0 && (
-                                                            <span className="px-2 py-1 bg-green-100 text-green-700 rounded-lg text-xs font-medium">
-                                                                {t.centsPerPoint.toFixed(1)}¢/pt
-                                                            </span>
-                                                        )}
-                                                    </div>
-                                                    {t.transferTime && (
-                                                        <div className="text-xs text-slate-500">
-                                                            Transfer: {t.transferTime}
-                                                        </div>
-                                                    )}
-                                                </div>
-                                            </div>
-                                        </div>
-                                    );
-                                })}
-                                <div className="pt-4">
-                                    <button
-                                        onClick={() => router.push(trip.type === 'Group' ? `/group/transfer-instructions?tripId=${tripId}` : `/solo/booking?tripId=${tripId}`)}
-                                        className="w-full py-3.5 bg-gradient-to-r from-blue-600 to-blue-700 hover:from-blue-700 hover:to-blue-800 text-white rounded-xl font-semibold text-sm transition-all shadow-lg shadow-blue-500/20 hover:shadow-blue-500/30 flex items-center justify-center gap-2"
-                                    >
-                                        <ExternalLink className="w-4 h-4" />
-                                        View Step-by-Step Transfer Guide
-                                    </button>
-                                </div>
-                            </div>
-                        ) : transfer_tips.length > 0 ? (
-                            <div className="space-y-4">
-                                <p className="text-slate-600 text-sm">Suggested transfers for your trip. Generate an optimized itinerary to see exact amounts per member.</p>
-                                {transfer_tips.map((tip: TransferTip, i: number) => (
-                                    <div key={i} className="p-4 rounded-xl bg-slate-50 border border-slate-200 flex flex-wrap items-center gap-2">
-                                        <span className="font-medium text-slate-700">{tip.from_program || 'Bank points'}</span>
-                                        <ArrowRight className="w-4 h-4 text-slate-400" />
-                                        <span className="font-medium text-blue-700">{tip.to_program || 'Partner'}</span>
-                                        {typeof tip.points === 'number' && tip.points > 0 && (
-                                            <span className="ml-2 text-slate-600 font-semibold">{tip.points.toLocaleString()} pts</span>
-                                        )}
-                                        {tip.best_for && <span className="px-2 py-0.5 bg-blue-50 text-blue-700 text-xs rounded-full">{tip.best_for}</span>}
-                                        {tip.note && <p className="w-full mt-2 text-sm text-slate-600">{tip.note}</p>}
-                                    </div>
-                                ))}
-                                <button
-                                    onClick={() => router.push(trip.type === 'Group' ? `/group/results?tripId=${tripId}` : `/solo/results?tripId=${tripId}`)}
-                                    className="text-blue-600 font-medium text-sm hover:text-blue-700"
-                                >
-                                    Generate itinerary for exact amounts <ChevronRight className="w-4 h-4 inline" />
-                                </button>
-                            </div>
-                        ) : (
-                            <div className="text-center py-8">
-                                <div className="w-16 h-16 bg-slate-100 rounded-full flex items-center justify-center mx-auto mb-4">
-                                    <CreditCard className="w-8 h-8 text-slate-400" />
-                                </div>
-                                <p className="text-slate-600 text-sm mb-4 max-w-md mx-auto">Generate an optimized itinerary from the Results page to see exactly which credit card to transfer from and how many points per member.</p>
-                                <button
-                                    onClick={() => router.push(trip.type === 'Group' ? `/group/results?tripId=${tripId}` : `/solo/results?tripId=${tripId}`)}
-                                    className="px-6 py-3 bg-blue-600 text-white rounded-xl hover:bg-blue-700 transition-colors font-medium"
-                                >
-                                    Go to Results
-                                </button>
-                            </div>
-                        )}
-                    </div>
+              {/* Selected client display */}
+              <div className="mb-3 flex items-center gap-3 rounded-lg border border-blue-200 bg-white p-3">
+                <div className="flex h-8 w-8 flex-shrink-0 items-center justify-center rounded-lg bg-blue-100 text-xs font-semibold text-blue-700">
+                  {pendingClient.firstName?.[0]}
+                  {pendingClient.lastName?.[0]}
                 </div>
-
-                {/* Step 2: Book Flights */}
-                {assignments.filter(a => a.pointsUsed > 0 || a.cashValue > 0).length > 0 && (
-                    <div className="bg-white border border-slate-200 rounded-2xl overflow-hidden shadow-sm mb-8">
-                        <div className="p-6 border-b border-slate-100 bg-slate-50/50">
-                            <h2 className="text-xl font-semibold text-slate-900 flex items-center gap-2">
-                                <Plane className="w-5 h-5 text-blue-600" />
-                                Step 2: Book Flights
-                            </h2>
-                            <p className="text-sm text-slate-500 mt-1">Who should book each flight segment after transfers complete</p>
-                        </div>
-
-                        <div className="divide-y divide-slate-100">
-                            {assignments.filter(a => a.pointsUsed > 0 || a.cashValue > 0).map((assignment, idx) => {
-                                const Icon = assignment.icon;
-                                const member = members.find(m => m.name === assignment.assignedTo);
-                                const matchingTransfer = transfers.find(t => t.member === assignment.assignedTo && t.flightSegment === assignment.flightSegment);
-
-                                return (
-                                    <div key={idx} className="p-5 hover:bg-slate-50/50 transition-colors">
-                                        <div className="flex items-center gap-4">
-                                            {/* Icon */}
-                                            <div className={`w-12 h-12 rounded-xl flex items-center justify-center flex-shrink-0 ${
-                                                assignment.pointsUsed > 0 ? 'bg-blue-100' : 'bg-slate-100'
-                                            }`}>
-                                                <Icon className={`w-6 h-6 ${assignment.pointsUsed > 0 ? 'text-blue-600' : 'text-slate-500'}`} />
-                                            </div>
-
-                                            {/* Content */}
-                                            <div className="flex-1 min-w-0">
-                                                {/* Flight Route */}
-                                                {assignment.flightSegment && (
-                                                    <div className="flex items-center gap-2 mb-2">
-                                                        <Plane className="w-4 h-4 text-blue-600" />
-                                                        <span className="text-lg font-bold text-slate-900">{assignment.flightSegment}</span>
-                                                        {assignment.efficiency > 0 && (
-                                                            <span className="px-2 py-0.5 bg-green-100 text-green-700 text-xs font-medium rounded-full">
-                                                                {assignment.efficiency.toFixed(2)}¢/pt
-                                                            </span>
-                                                        )}
-                                                    </div>
-                                                )}
-                                                {!assignment.flightSegment && (
-                                                    <div className="flex items-center gap-2 mb-1">
-                                                        <h3 className="font-semibold text-slate-900">{assignment.category}</h3>
-                                                        {assignment.efficiency > 0 && (
-                                                            <span className="px-2 py-0.5 bg-green-100 text-green-700 text-xs font-medium rounded-full">
-                                                                {assignment.efficiency.toFixed(2)}¢/pt
-                                                            </span>
-                                                        )}
-                                                    </div>
-                                                )}
-                                                <div className="flex items-center gap-2">
-                                                    <div className="w-6 h-6 bg-slate-700 text-white rounded-full flex items-center justify-center text-xs font-medium">
-                                                        {member?.initials || assignment.assignedTo.substring(0, 2).toUpperCase()}
-                                                    </div>
-                                                    <span className="text-sm text-slate-600">{assignment.assignedTo}</span>
-                                                    {matchingTransfer?.partner && (
-                                                        <span className="text-sm text-blue-600">• Book via {matchingTransfer.partner}</span>
-                                                    )}
-                                                </div>
-                                                <p className="text-xs text-slate-500 mt-2">{assignment.reason}</p>
-                                            </div>
-
-                                            {/* Points/Value */}
-                                            <div className="text-right flex-shrink-0">
-                                                {assignment.pointsUsed > 0 ? (
-                                                    <>
-                                                        <div className="text-xl font-bold text-blue-600">{assignment.pointsUsed.toLocaleString()}</div>
-                                                        <div className="text-xs text-slate-500">points</div>
-                                                        <div className="text-sm text-slate-600 mt-1">${assignment.cashValue.toLocaleString()} value</div>
-                                                    </>
-                                                ) : (
-                                                    <>
-                                                        <div className="text-xl font-bold text-slate-900">${assignment.cashValue.toLocaleString()}</div>
-                                                        <div className="text-xs text-slate-500">cash</div>
-                                                    </>
-                                                )}
-                                            </div>
-                                        </div>
-                                    </div>
-                                );
-                            })}
-                        </div>
-                    </div>
-                )}
-
-                {/* Member Points Overview */}
-                {members.length > 0 && (
-                    <div className="bg-white border border-slate-200 rounded-2xl overflow-hidden shadow-sm">
-                        <div className="p-6 border-b border-slate-100 bg-slate-50/50">
-                            <h2 className="text-xl font-semibold text-slate-900 flex items-center gap-2">
-                                <CreditCard className="w-5 h-5 text-blue-600" />
-                                Member Points Overview
-                            </h2>
-                            <p className="text-sm text-slate-500 mt-1">Available points and assigned bookings for each member</p>
-                        </div>
-
-                        <div className="divide-y divide-slate-100">
-                            {members.map((member) => {
-                                const memberAssignments = assignments.filter(a => a.assignedTo === member.name);
-                                const pointsUsed = memberAssignments.reduce((sum, a) => sum + a.pointsUsed, 0);
-                                const remainingPoints = member.totalPoints - pointsUsed;
-                                const usagePercent = member.totalPoints > 0 ? (pointsUsed / member.totalPoints) * 100 : 0;
-
-                                return (
-                                    <div key={member.id} className="p-5">
-                                        <div className="flex items-start justify-between mb-4">
-                                            <div className="flex items-center gap-3">
-                                                <div className="w-12 h-12 bg-gradient-to-br from-slate-700 to-slate-800 text-white rounded-xl flex items-center justify-center text-lg font-semibold shadow-sm">
-                                                    {member.initials}
-                                                </div>
-                                                <div>
-                                                    <h3 className="font-semibold text-slate-900">{member.name}</h3>
-                                                    <div className="text-sm text-slate-500">
-                                                        {member.totalPoints.toLocaleString()} total points
-                                                        {member.totalValue > 0 && (
-                                                            <span className="ml-1">(≈ ${member.totalValue.toLocaleString(undefined, { maximumFractionDigits: 0 })})</span>
-                                                        )}
-                                                    </div>
-                                                </div>
-                                            </div>
-
-                                            <div className="text-right">
-                                                <div className="text-sm text-slate-500 mb-1">Using</div>
-                                                <div className="text-lg font-bold text-blue-600">
-                                                    {pointsUsed.toLocaleString()} pts
-                                                </div>
-                                            </div>
-                                        </div>
-
-                                        {/* Progress bar */}
-                                        <div className="mb-4">
-                                            <div className="flex justify-between text-xs text-slate-500 mb-1.5">
-                                                <span>Points allocated</span>
-                                                <span>{remainingPoints.toLocaleString()} remaining</span>
-                                            </div>
-                                            <div className="w-full bg-slate-200 rounded-full h-2">
-                                                <div
-                                                    className="bg-gradient-to-r from-blue-500 to-blue-600 h-2 rounded-full transition-all"
-                                                    style={{ width: `${Math.min(usagePercent, 100)}%` }}
-                                                />
-                                            </div>
-                                        </div>
-
-                                        {/* Credit Cards */}
-                                        {member.cards.length > 0 && (
-                                            <div className="flex flex-wrap gap-2 mb-4">
-                                                {member.cards.map((card, idx) => (
-                                                    <div key={idx} className="flex items-center gap-2 px-3 py-2 bg-slate-50 rounded-lg border border-slate-200">
-                                                        <CreditCard className="w-4 h-4 text-slate-500" />
-                                                        <span className="text-sm font-medium text-slate-700">{card.program}</span>
-                                                        <span className="text-sm text-slate-500">{card.points.toLocaleString()} pts</span>
-                                                    </div>
-                                                ))}
-                                            </div>
-                                        )}
-
-                                        {/* Assignments - show flight segments */}
-                                        {memberAssignments.length > 0 && (
-                                            <div className="flex flex-wrap gap-2">
-                                                {memberAssignments.filter(a => a.pointsUsed > 0).map((assignment, idx) => (
-                                                    <div key={idx} className="flex items-center gap-1.5 px-3 py-1.5 bg-blue-100 text-blue-700 rounded-lg text-sm font-medium">
-                                                        <Plane className="w-4 h-4" />
-                                                        <span>{assignment.flightSegment || assignment.category}</span>
-                                                        <span className="text-blue-500 text-xs ml-1">({assignment.pointsUsed.toLocaleString()} pts)</span>
-                                                    </div>
-                                                ))}
-                                            </div>
-                                        )}
-                                    </div>
-                                );
-                            })}
-                        </div>
-                    </div>
-                )}
-
-                {/* Sidebar: Trip Details - moved to bottom */}
-                <div className="grid lg:grid-cols-2 gap-6 mt-8">
-                    <div className="bg-white rounded-2xl shadow-sm border border-slate-200 p-6">
-                        <h3 className="font-bold text-slate-900 mb-4">Trip Details</h3>
-                        <p className="text-sm text-slate-600 mb-6 leading-relaxed">
-                            {trip.description}
-                        </p>
-
-                        <div className="space-y-4">
-                            <div className="flex items-center gap-3 text-sm">
-                                <div className="w-8 h-8 rounded-lg bg-indigo-50 flex items-center justify-center">
-                                    <Users className="w-4 h-4 text-indigo-600" />
-                                </div>
-                                <div>
-                                    <div className="text-slate-500 text-xs">Travelers</div>
-                                    <div className="font-medium text-slate-900">{trip.travelers} People</div>
-                                </div>
-                            </div>
-                            <div className="flex items-center gap-3 text-sm">
-                                <div className="w-8 h-8 rounded-lg bg-emerald-50 flex items-center justify-center">
-                                    <CreditCard className="w-4 h-4 text-emerald-600" />
-                                </div>
-                                <div>
-                                    <div className="text-slate-500 text-xs">Total Points</div>
-                                    <div className="font-medium text-slate-900">{totalPointsUsed > 0 ? totalPointsUsed.toLocaleString() : trip.pointsRedeemed}</div>
-                                </div>
-                            </div>
-                        </div>
-                    </div>
-
-                    <div className="bg-blue-600 rounded-2xl shadow-lg shadow-blue-600/20 p-6 text-white overflow-hidden relative">
-                        <div className="absolute top-0 right-0 w-32 h-32 bg-white/10 rounded-full -mr-16 -mt-16 blur-2xl"></div>
-                        <h3 className="font-bold mb-2 relative z-10">Need Help?</h3>
-                        <p className="text-blue-100 text-sm mb-4 relative z-10">
-                            Having trouble with your transfer? Check out our guide on how to troubleshoot common issues.
-                        </p>
-                        <button className="text-xs font-bold bg-white text-blue-600 px-3 py-2 rounded-lg hover:bg-blue-50 transition-colors relative z-10">
-                            View Help Guide
-                        </button>
-                    </div>
+                <div className="min-w-0 flex-1">
+                  <p className="truncate text-sm font-medium text-slate-900">
+                    {pendingClient.firstName} {pendingClient.lastName}
+                  </p>
+                  <p className="truncate text-xs text-slate-500">{pendingClient.email}</p>
                 </div>
-                </>
-            </div>
+                <button
+                  type="button"
+                  onClick={() => { setPendingClient(null); setValidationError(null); }}
+                  className="rounded p-1 text-slate-400 hover:bg-red-50 hover:text-red-500"
+                  title="Pick a different client"
+                >
+                  <X className="h-4 w-4" />
+                </button>
+              </div>
+
+              {/* "Same as the leader" checkbox */}
+              <label className="mb-3 flex items-center gap-2.5 cursor-pointer rounded-lg border border-slate-200 bg-white p-3 transition-colors hover:bg-slate-50">
+                <input
+                  type="checkbox"
+                  checked={useLeaderCities}
+                  onChange={(e) => {
+                    setUseLeaderCities(e.target.checked);
+                    setValidationError(null);
+                  }}
+                  className="h-4 w-4 rounded border-slate-300 text-blue-600 focus:ring-blue-500"
+                />
+                <div>
+                  <span className="text-sm font-medium text-slate-700">
+                    Same as the leader of the trip
+                  </span>
+                  {leaderOrigins.length > 0 && (
+                    <p className="mt-0.5 text-[11px] text-slate-500">
+                      {leaderOrigins.join(', ')} → {leaderDestinations.join(', ')}
+                    </p>
+                  )}
+                </div>
+              </label>
+
+              {/* Custom location fields */}
+              {!useLeaderCities && (
+                <div className="space-y-3">
+                  <div>
+                    <label className="mb-1 block text-xs font-medium text-slate-700">
+                      Start Location <span className="text-red-500">*</span>
+                    </label>
+                    <MultiAirportAutocomplete
+                      value={originAirports}
+                      onChange={(v) => { setOriginAirports(v); setValidationError(null); }}
+                      placeholder="Flying from..."
+                      maxSelections={3}
+                    />
+                  </div>
+                  <div>
+                    <label className="mb-1 block text-xs font-medium text-slate-700">
+                      End Location <span className="text-red-500">*</span>
+                    </label>
+                    <MultiAirportAutocomplete
+                      value={destinationAirports}
+                      onChange={(v) => { setDestinationAirports(v); setValidationError(null); }}
+                      placeholder="Flying to..."
+                      maxSelections={3}
+                    />
+                  </div>
+                </div>
+              )}
+
+              {/* Validation error */}
+              {validationError && (
+                <div className="mt-2 flex items-center gap-1.5 rounded-lg bg-red-50 px-3 py-2 text-xs text-red-700">
+                  <AlertCircle className="h-3.5 w-3.5 flex-shrink-0" />
+                  {validationError}
+                </div>
+              )}
+
+              {/* Confirm / Back buttons */}
+              <div className="mt-3 flex items-center gap-2">
+                <button
+                  onClick={handleConfirmAdd}
+                  disabled={adding}
+                  className="inline-flex items-center gap-1.5 rounded-lg bg-blue-600 px-4 py-2 text-xs font-medium text-white transition-colors hover:bg-blue-700 disabled:opacity-60"
+                >
+                  {adding ? (
+                    <Loader2 className="h-3.5 w-3.5 animate-spin" />
+                  ) : (
+                    <Plus className="h-3.5 w-3.5" />
+                  )}
+                  Add to Trip
+                </button>
+                <button
+                  onClick={() => { setPendingClient(null); setValidationError(null); }}
+                  className="rounded-lg px-3 py-2 text-xs font-medium text-slate-600 transition-colors hover:bg-white"
+                >
+                  Back
+                </button>
+              </div>
+            </>
+          )}
         </div>
+      )}
+
+      {/* Member List */}
+      {travelers.length === 0 ? (
+        <div className="rounded-lg border border-dashed border-slate-300 bg-slate-50/50 py-8 text-center">
+          <Users className="mx-auto mb-2 h-7 w-7 text-slate-300" />
+          <p className="text-sm text-slate-500">No group members yet</p>
+          <p className="mt-0.5 text-xs text-slate-400">
+            Add clients to this trip to manage the travel group
+          </p>
+        </div>
+      ) : (
+        <div className="space-y-2">
+          {travelers.map((traveler) => {
+            const isRemoving = removing === traveler.id;
+            const isLeader = traveler.clientId === trip.clientId;
+            const travelerOrigins = Array.isArray(traveler.originAirports)
+              ? (traveler.originAirports as string[])
+              : isLeader ? leaderOrigins : [];
+            const travelerDests = Array.isArray(traveler.destinationAirports)
+              ? (traveler.destinationAirports as string[])
+              : isLeader ? leaderDestinations : [];
+            return (
+              <div
+                key={traveler.id}
+                className={`rounded-lg p-3 transition-colors ${
+                  isLeader ? 'bg-blue-50/70' : 'bg-slate-50'
+                } ${isRemoving ? 'opacity-50' : ''}`}
+              >
+                <div className="flex items-center gap-3">
+                  <div className={`flex h-9 w-9 flex-shrink-0 items-center justify-center rounded-lg text-xs font-semibold ${
+                    isLeader ? 'bg-blue-200 text-blue-800' : 'bg-slate-200 text-slate-700'
+                  }`}>
+                    {traveler.client?.firstName?.[0]}
+                    {traveler.client?.lastName?.[0]}
+                  </div>
+                  <div className="min-w-0 flex-1">
+                    <div className="flex items-center gap-2">
+                      <p className="truncate text-sm font-medium text-slate-900">
+                        {traveler.client
+                          ? `${traveler.client.firstName} ${traveler.client.lastName}`
+                          : 'Unknown traveler'}
+                      </p>
+                      {isLeader && (
+                        <span className="rounded-full bg-blue-100 px-2 py-0.5 text-[10px] font-semibold text-blue-700">
+                          Lead
+                        </span>
+                      )}
+                    </div>
+                    {traveler.client?.email && (
+                      <p className="truncate text-xs text-slate-500">{traveler.client.email}</p>
+                    )}
+                  </div>
+                  <div className="flex items-center gap-1.5">
+                    {traveler.client && (
+                      <Link
+                        href={`/clients/${traveler.client.id}`}
+                        className="rounded-md px-2 py-1 text-xs font-medium text-blue-600 transition-colors hover:bg-blue-50 hover:text-blue-700"
+                      >
+                        View
+                      </Link>
+                    )}
+                    {!isLeader && (
+                      <button
+                        onClick={() => handleRemove(traveler.id)}
+                        disabled={isRemoving}
+                        className="rounded-md p-1.5 text-slate-400 transition-colors hover:bg-red-50 hover:text-red-500"
+                        title="Remove from group"
+                      >
+                        {isRemoving ? (
+                          <Loader2 className="h-4 w-4 animate-spin" />
+                        ) : (
+                          <Trash2 className="h-4 w-4" />
+                        )}
+                      </button>
+                    )}
+                  </div>
+                </div>
+                {/* Traveler locations */}
+                {(travelerOrigins.length > 0 || travelerDests.length > 0) && (
+                  <div className="ml-12 mt-1.5 flex items-center gap-1.5 text-[11px] text-slate-500">
+                    <MapPin className="h-3 w-3 flex-shrink-0" />
+                    <span>
+                      {travelerOrigins.join(', ') || '—'} → {travelerDests.join(', ') || '—'}
+                    </span>
+                    {!isLeader && traveler.useLeaderCities && (
+                      <span className="rounded bg-slate-200 px-1.5 py-0.5 text-[10px] font-medium text-slate-600">
+                        Same as leader
+                      </span>
+                    )}
+                  </div>
+                )}
+              </div>
+            );
+          })}
+        </div>
+      )}
+
+      {/* Loyalty summary for all travelers */}
+      {travelers.some((t) => t.client?.loyaltyBalances && t.client.loyaltyBalances.length > 0) && (
+        <div className="mt-4 border-t border-slate-100 pt-4">
+          <div className="mb-2 flex items-center gap-1.5">
+            <Coins className="h-3.5 w-3.5 text-amber-500" />
+            <span className="text-xs font-semibold text-slate-500">Group Loyalty Balances</span>
+          </div>
+          <div className="space-y-2">
+            {travelers
+              .filter((t) => t.client?.loyaltyBalances && t.client.loyaltyBalances.length > 0)
+              .map((traveler) => (
+                <div key={traveler.id} className="flex items-start gap-2">
+                  <span className="mt-0.5 text-[11px] font-medium text-slate-600">
+                    {traveler.client?.firstName}:
+                  </span>
+                  <div className="flex flex-wrap gap-1.5">
+                    {traveler.client!.loyaltyBalances!.map((bal: { id: string; balance: number; loyaltyProgram?: { name: string }; programName?: string }) => (
+                      <span
+                        key={bal.id}
+                        className="inline-flex items-center gap-1 rounded-full bg-amber-50 px-2 py-0.5 text-[11px]"
+                      >
+                        <span className="font-medium text-amber-700">
+                          {bal.loyaltyProgram?.name ?? bal.programName}
+                        </span>
+                        <span className="font-semibold text-amber-900">
+                          {bal.balance.toLocaleString()}
+                        </span>
+                      </span>
+                    ))}
+                  </div>
+                </div>
+              ))}
+          </div>
+        </div>
+      )}
+    </div>
+  );
+}
+
+function FlightsTab({
+  itinerary,
+  trip,
+  multiCityLegs,
+  isMultiCity,
+  origins,
+  destinations,
+  travelerFlights: _legacyTravelerFlights,
+}: {
+  itinerary: GeneratedItinerary | null;
+  trip: TripRequest;
+  multiCityLegs: { leg: number; from: string[]; to: string[]; date: string }[] | null;
+  isMultiCity: boolean;
+  origins: string;
+  destinations: string;
+  travelerFlights: TravelerFlightData[] | null;
+}) {
+  const realTravelerFlights = itinerary?.travelerFlights;
+  const hasRealFlights = realTravelerFlights && realTravelerFlights.length > 0;
+
+  if (!itinerary) {
+    return (
+      <EmptyTabState
+        icon={<Plane className="h-8 w-8" />}
+        title="No flight recommendations yet"
+        subtitle="Generate a trip plan to get personalized flight recommendations with real pricing from Google Flights and award availability."
+      />
     );
+  }
+
+  if (hasRealFlights) {
+    return (
+      <div className="space-y-6">
+        {realTravelerFlights.map((group) => (
+          <TravelerFlightSection key={group.travelerId} group={group} />
+        ))}
+      </div>
+    );
+  }
+
+  // Fallback: show old-style AI flights if no real data
+  if (itinerary.flights.length > 0) {
+    return (
+      <div className="space-y-4">
+        <h2 className="text-sm font-semibold text-slate-900">Recommended Flights</h2>
+        <div className="rounded-lg border border-amber-200 bg-amber-50 p-3">
+          <p className="text-xs text-amber-700">
+            <AlertCircle className="mr-1 inline h-3.5 w-3.5" />
+            Flight prices below are AI estimates. Add SERPAPI_KEY and SEATS_AERO_API_KEY to your environment for real pricing data.
+          </p>
+        </div>
+        {itinerary.flights.map((flight, i) => (
+          <LegacyFlightCard key={i} flight={flight} />
+        ))}
+      </div>
+    );
+  }
+
+  return (
+    <EmptyTabState
+      icon={<Plane className="h-8 w-8" />}
+      title="No flight data available"
+      subtitle="Generate a trip plan to search for flights."
+    />
+  );
+}
+
+function formatDuration(minutes: number): string {
+  const h = Math.floor(minutes / 60);
+  const m = minutes % 60;
+  return m > 0 ? `${h}h ${m}m` : `${h}h`;
+}
+
+function formatFlightTime(timeStr: string): string {
+  if (!timeStr) return '';
+  const date = new Date(timeStr);
+  if (isNaN(date.getTime())) return timeStr;
+  return date.toLocaleTimeString('en-US', { hour: 'numeric', minute: '2-digit', hour12: true });
+}
+
+function TravelerFlightSection({ group }: { group: TravelerFlightGroup }) {
+  const initials = group.travelerName
+    .split(' ')
+    .map((n) => n[0])
+    .join('')
+    .toUpperCase();
+
+  return (
+    <div className="rounded-xl border border-slate-200 bg-white shadow-sm overflow-hidden">
+      {/* Traveler Header */}
+      <div className="flex items-center gap-3 border-b border-slate-100 bg-slate-50 px-5 py-3">
+        <div className="flex h-9 w-9 flex-shrink-0 items-center justify-center rounded-lg bg-blue-100 text-xs font-bold text-blue-700">
+          {initials}
+        </div>
+        <div>
+          <p className="text-sm font-semibold text-slate-900">{group.travelerName}</p>
+          <p className="text-[11px] text-slate-500">
+            {group.travelerId === 'leader' ? 'Lead Traveler' : 'Traveler'}
+          </p>
+        </div>
+      </div>
+
+      <div className="divide-y divide-slate-100">
+        {group.segments.map((segment, idx) => (
+          <SegmentSection key={idx} segment={segment} />
+        ))}
+      </div>
+    </div>
+  );
+}
+
+function SegmentSection({ segment }: { segment: TravelerFlightSegment }) {
+  const [showAllCash, setShowAllCash] = useState(false);
+  const [showAllAward, setShowAllAward] = useState(false);
+
+  const topCash = segment.cashOptions.slice(0, showAllCash ? 5 : 2);
+  const topAward = segment.awardOptions.slice(0, showAllAward ? 8 : 3);
+  const hasCash = segment.cashOptions.length > 0;
+  const hasAward = segment.awardOptions.length > 0;
+  const bestCash = segment.cashOptions[0];
+  const bestAward = segment.awardOptions[0];
+
+  return (
+    <div className="p-5">
+      {/* Segment header */}
+      <div className="mb-4 flex items-center gap-2">
+        <div className={`rounded-lg p-1.5 ${
+          segment.segmentLabel === 'Return' ? 'bg-purple-50' : 'bg-blue-50'
+        }`}>
+          <Plane className={`h-3.5 w-3.5 ${
+            segment.segmentLabel === 'Return' ? 'text-purple-600 rotate-180' : 'text-blue-600'
+          }`} />
+        </div>
+        <div>
+          <p className="text-sm font-semibold text-slate-900">{segment.segmentLabel}</p>
+          <p className="text-[11px] text-slate-500">
+            {segment.origin} → {segment.destination} · {formatDateShort(segment.date)}
+          </p>
+        </div>
+      </div>
+
+      {!hasCash && !hasAward && (
+        <p className="rounded-lg bg-slate-50 p-4 text-center text-xs text-slate-500">
+          No flight results found for this route. Try adjusting dates or airports.
+        </p>
+      )}
+
+      {/* Best options summary */}
+      {(hasCash || hasAward) && (
+        <div className="mb-4 grid grid-cols-2 gap-3">
+          {bestAward && (
+            <div className="rounded-lg border border-amber-200 bg-amber-50/50 p-3">
+              <div className="mb-1.5 flex items-center gap-1 text-[10px] font-semibold uppercase text-amber-600">
+                <Coins className="h-3 w-3" /> Best Award
+              </div>
+              <p className="text-lg font-bold text-amber-900">
+                {bestAward.milesRequired.toLocaleString()}
+              </p>
+              <p className="text-[11px] font-medium text-amber-700">miles</p>
+              <p className="mt-1 text-[11px] text-amber-700">{bestAward.program}</p>
+              <p className="text-[10px] text-amber-600">
+                + ${bestAward.taxes} taxes
+                {bestAward.seatsRemaining != null && ` · ${bestAward.seatsRemaining} seats left`}
+              </p>
+            </div>
+          )}
+          {bestCash && (
+            <div className="rounded-lg border border-slate-200 bg-slate-50/50 p-3">
+              <div className="mb-1.5 flex items-center gap-1 text-[10px] font-semibold uppercase text-slate-500">
+                <DollarSign className="h-3 w-3" /> Best Cash
+              </div>
+              <p className="text-lg font-bold text-slate-900">
+                ${bestCash.price.toLocaleString()}
+              </p>
+              <p className="text-[11px] font-medium text-slate-600">{bestCash.cabin}</p>
+              <p className="mt-1 text-[11px] text-slate-600">{bestCash.airline}</p>
+              <p className="text-[10px] text-slate-500">
+                {bestCash.flightNumber} · {bestCash.stops === 0 ? 'Nonstop' : `${bestCash.stops} stop${bestCash.stops > 1 ? 's' : ''}`}
+              </p>
+            </div>
+          )}
+        </div>
+      )}
+
+      {/* Award options list */}
+      {hasAward && (
+        <div className="mb-4">
+          <h4 className="mb-2 flex items-center gap-1.5 text-xs font-semibold text-slate-700">
+            <Coins className="h-3.5 w-3.5 text-amber-500" />
+            Award Availability ({segment.awardOptions.length} program{segment.awardOptions.length !== 1 ? 's' : ''})
+          </h4>
+          <div className="space-y-1.5">
+            {topAward.map((award, i) => (
+              <AwardOptionRow key={i} award={award} isBest={i === 0} />
+            ))}
+          </div>
+          {segment.awardOptions.length > 3 && (
+            <button
+              onClick={() => setShowAllAward(!showAllAward)}
+              className="mt-2 text-xs font-medium text-blue-600 hover:text-blue-700"
+            >
+              {showAllAward ? 'Show fewer' : `Show ${segment.awardOptions.length - 3} more programs`}
+            </button>
+          )}
+        </div>
+      )}
+
+      {/* Cash options list */}
+      {hasCash && (
+        <div>
+          <h4 className="mb-2 flex items-center gap-1.5 text-xs font-semibold text-slate-700">
+            <DollarSign className="h-3.5 w-3.5 text-emerald-500" />
+            Cash Flights ({segment.cashOptions.length} option{segment.cashOptions.length !== 1 ? 's' : ''})
+          </h4>
+          <div className="space-y-2">
+            {topCash.map((cash, i) => (
+              <CashFlightRow key={i} flight={cash} isBest={i === 0} />
+            ))}
+          </div>
+          {segment.cashOptions.length > 2 && (
+            <button
+              onClick={() => setShowAllCash(!showAllCash)}
+              className="mt-2 text-xs font-medium text-blue-600 hover:text-blue-700"
+            >
+              {showAllCash ? 'Show fewer' : `Show ${segment.cashOptions.length - 2} more flights`}
+            </button>
+          )}
+        </div>
+      )}
+    </div>
+  );
+}
+
+function AwardOptionRow({ award, isBest }: { award: AwardFlightOption; isBest: boolean }) {
+  return (
+    <div className={`flex items-center justify-between rounded-lg px-3 py-2 ${
+      isBest ? 'bg-amber-50 border border-amber-200' : 'bg-slate-50'
+    }`}>
+      <div className="flex items-center gap-3">
+        <div className="min-w-0">
+          <p className="text-xs font-medium text-slate-900">{award.program}</p>
+          <p className="text-[10px] text-slate-500">
+            {award.isDirect ? 'Direct' : 'Connecting'}
+            {award.airlines && ` · ${award.airlines}`}
+          </p>
+        </div>
+      </div>
+      <div className="flex items-center gap-3 text-right">
+        <div>
+          <p className="text-sm font-bold text-amber-900">
+            {award.milesRequired.toLocaleString()}
+          </p>
+          <p className="text-[10px] text-slate-500">miles + ${award.taxes}</p>
+        </div>
+        {award.seatsRemaining != null && (
+          <span className={`rounded-full px-2 py-0.5 text-[10px] font-medium ${
+            award.seatsRemaining <= 2
+              ? 'bg-red-50 text-red-700'
+              : award.seatsRemaining <= 5
+                ? 'bg-amber-50 text-amber-700'
+                : 'bg-emerald-50 text-emerald-700'
+          }`}>
+            {award.seatsRemaining} left
+          </span>
+        )}
+      </div>
+    </div>
+  );
+}
+
+function CashFlightRow({ flight, isBest }: { flight: CashFlightOption; isBest: boolean }) {
+  return (
+    <div className={`rounded-lg px-3 py-2.5 ${
+      isBest ? 'bg-emerald-50 border border-emerald-200' : 'bg-slate-50'
+    }`}>
+      <div className="flex items-center justify-between">
+        <div className="flex items-center gap-3">
+          {flight.airlineLogo && (
+            <img src={flight.airlineLogo} alt={flight.airline} className="h-5 w-5 rounded" />
+          )}
+          <div>
+            <p className="text-xs font-medium text-slate-900">{flight.airline}</p>
+            <p className="text-[10px] text-slate-500">{flight.flightNumber}</p>
+          </div>
+        </div>
+        <div className="flex items-center gap-4">
+          <div className="text-center">
+            <p className="text-xs font-medium text-slate-800">
+              {formatFlightTime(flight.departureTime)}
+            </p>
+            <p className="text-[10px] text-slate-400">{flight.departureAirport}</p>
+          </div>
+          <div className="flex flex-col items-center">
+            <p className="text-[10px] text-slate-400">{formatDuration(flight.duration)}</p>
+            <div className="flex items-center gap-1">
+              <div className="h-px w-10 bg-slate-300" />
+              <Plane className="h-2.5 w-2.5 text-slate-400" />
+            </div>
+            <p className="text-[10px] text-slate-400">
+              {flight.stops === 0 ? 'Nonstop' : `${flight.stops} stop${flight.stops > 1 ? 's' : ''}`}
+            </p>
+          </div>
+          <div className="text-center">
+            <p className="text-xs font-medium text-slate-800">
+              {formatFlightTime(flight.arrivalTime)}
+            </p>
+            <p className="text-[10px] text-slate-400">{flight.arrivalAirport}</p>
+          </div>
+          <div className="min-w-[60px] text-right">
+            <p className="text-sm font-bold text-slate-900">${flight.price.toLocaleString()}</p>
+            <p className="text-[10px] capitalize text-slate-500">{flight.fareClass}</p>
+          </div>
+        </div>
+      </div>
+      {flight.layovers.length > 0 && (
+        <div className="mt-1.5 flex gap-2">
+          {flight.layovers.map((l, i) => (
+            <span key={i} className="text-[10px] text-slate-400">
+              {l.airport} ({formatDuration(l.durationMin)})
+            </span>
+          ))}
+        </div>
+      )}
+    </div>
+  );
+}
+
+function LegacyFlightCard({ flight }: { flight: ItineraryFlightRecommendation }) {
+  const isPointsRec = flight.recommendation === 'points';
+  return (
+    <div className="rounded-xl border border-slate-200 bg-white p-5 shadow-sm">
+      <div className="mb-3 flex items-center justify-between">
+        <div className="flex items-center gap-2">
+          <div className="rounded-lg bg-blue-50 p-2">
+            <Plane className="h-4 w-4 text-blue-600" />
+          </div>
+          <div>
+            <p className="text-sm font-semibold text-slate-900">{flight.segment}</p>
+            <p className="text-xs text-slate-500">{flight.airline} · {flight.flightExample}</p>
+          </div>
+        </div>
+        <span className={`rounded-full px-2.5 py-1 text-[11px] font-medium ${
+          isPointsRec ? 'bg-amber-50 text-amber-700' : 'bg-emerald-50 text-emerald-700'
+        }`}>
+          {isPointsRec ? 'Points recommended' : 'Cash recommended'}
+        </span>
+      </div>
+
+      <div className="mb-3 grid grid-cols-4 gap-3 rounded-lg bg-slate-50 p-3">
+        <div>
+          <p className="text-[10px] font-medium text-slate-400">Cabin</p>
+          <p className="text-xs font-semibold capitalize text-slate-800">{flight.cabin}</p>
+        </div>
+        <div>
+          <p className="text-[10px] font-medium text-slate-400">Departs</p>
+          <p className="text-xs font-semibold text-slate-800">{flight.departureTime}</p>
+        </div>
+        <div>
+          <p className="text-[10px] font-medium text-slate-400">Arrives</p>
+          <p className="text-xs font-semibold text-slate-800">{flight.arrivalTime}</p>
+        </div>
+        <div>
+          <p className="text-[10px] font-medium text-slate-400">Duration</p>
+          <p className="text-xs font-semibold text-slate-800">
+            {flight.duration} · {flight.stops === 0 ? 'Nonstop' : `${flight.stops} stop${flight.stops > 1 ? 's' : ''}`}
+          </p>
+        </div>
+      </div>
+
+      <div className="grid grid-cols-2 gap-3">
+        {flight.pointsOption && (
+          <div className="rounded-lg border border-amber-200 bg-amber-50/50 p-3">
+            <div className="mb-1 flex items-center gap-1 text-[10px] font-semibold uppercase text-amber-600">
+              <Coins className="h-3 w-3" /> Points Option
+            </div>
+            <p className="text-sm font-bold text-amber-900">
+              {flight.pointsOption.pointsRequired.toLocaleString()} pts
+            </p>
+            <p className="text-[11px] text-amber-700">{flight.pointsOption.program}</p>
+            {flight.pointsOption.transferFrom && (
+              <p className="text-[10px] text-amber-600">Transfer from {flight.pointsOption.transferFrom}</p>
+            )}
+            <p className="text-[10px] text-amber-600">+ ${flight.pointsOption.taxes} taxes</p>
+          </div>
+        )}
+        {flight.cashOption && (
+          <div className="rounded-lg border border-slate-200 bg-slate-50/50 p-3">
+            <div className="mb-1 flex items-center gap-1 text-[10px] font-semibold uppercase text-slate-500">
+              <DollarSign className="h-3 w-3" /> Cash Option
+            </div>
+            <p className="text-sm font-bold text-slate-900">
+              ${flight.cashOption.estimatedPrice.toLocaleString()}
+            </p>
+            <p className="text-[11px] capitalize text-slate-600">{flight.cashOption.fareClass}</p>
+          </div>
+        )}
+      </div>
+
+      {flight.whyThisFlight && (
+        <p className="mt-3 text-xs leading-relaxed text-slate-600">
+          <Lightbulb className="mr-1 inline h-3 w-3 text-amber-500" />
+          {flight.whyThisFlight}
+        </p>
+      )}
+    </div>
+  );
+}
+
+function HotelsTab({ itinerary }: { itinerary: GeneratedItinerary | null }) {
+  if (!itinerary || itinerary.hotels.length === 0) {
+    return (
+      <EmptyTabState
+        icon={<Hotel className="h-8 w-8" />}
+        title="No hotel recommendations yet"
+        subtitle="Generate a trip plan to get personalized hotel recommendations with pricing, points options, and highlights."
+      />
+    );
+  }
+
+  return (
+    <div className="space-y-4">
+      <h2 className="text-sm font-semibold text-slate-900">Recommended Hotels</h2>
+      {itinerary.hotels.map((hotel, i) => (
+        <HotelCard key={i} hotel={hotel} />
+      ))}
+    </div>
+  );
+}
+
+function HotelCard({ hotel }: { hotel: ItineraryHotelRecommendation }) {
+  return (
+    <div className="rounded-xl border border-slate-200 bg-white p-5 shadow-sm">
+      <div className="mb-3 flex items-start justify-between">
+        <div className="flex items-center gap-3">
+          <div className="rounded-lg bg-purple-50 p-2">
+            <Hotel className="h-4 w-4 text-purple-600" />
+          </div>
+          <div>
+            <p className="text-sm font-semibold text-slate-900">{hotel.hotelName}</p>
+            <p className="text-xs text-slate-500">
+              {hotel.destination} · {hotel.neighborhood}
+            </p>
+          </div>
+        </div>
+        <div className="flex items-center gap-0.5">
+          {Array.from({ length: hotel.starRating }).map((_, i) => (
+            <Star key={i} className="h-3.5 w-3.5 fill-amber-400 text-amber-400" />
+          ))}
+        </div>
+      </div>
+
+      <div className="mb-3 grid grid-cols-4 gap-3 rounded-lg bg-slate-50 p-3">
+        <div>
+          <p className="text-[10px] font-medium text-slate-400">Type</p>
+          <p className="text-xs font-semibold capitalize text-slate-800">{hotel.hotelType}</p>
+        </div>
+        <div>
+          <p className="text-[10px] font-medium text-slate-400">Check-in</p>
+          <p className="text-xs font-semibold text-slate-800">{formatDateShort(hotel.checkIn)}</p>
+        </div>
+        <div>
+          <p className="text-[10px] font-medium text-slate-400">Check-out</p>
+          <p className="text-xs font-semibold text-slate-800">{formatDateShort(hotel.checkOut)}</p>
+        </div>
+        <div>
+          <p className="text-[10px] font-medium text-slate-400">Nights</p>
+          <p className="text-xs font-semibold text-slate-800">{hotel.nightCount}</p>
+        </div>
+      </div>
+
+      {hotel.highlights.length > 0 && (
+        <div className="mb-3 flex flex-wrap gap-1.5">
+          {hotel.highlights.map((h, i) => (
+            <span key={i} className="rounded-full bg-purple-50 px-2.5 py-1 text-[11px] font-medium text-purple-700">
+              {h}
+            </span>
+          ))}
+        </div>
+      )}
+
+      <div className="grid grid-cols-2 gap-3">
+        {hotel.pointsOption && (
+          <div className="rounded-lg border border-amber-200 bg-amber-50/50 p-3">
+            <div className="mb-1 flex items-center gap-1 text-[10px] font-semibold uppercase text-amber-600">
+              <Coins className="h-3 w-3" /> Points Option
+            </div>
+            <p className="text-sm font-bold text-amber-900">
+              {hotel.pointsOption.totalPoints.toLocaleString()} pts total
+            </p>
+            <p className="text-[11px] text-amber-700">
+              {hotel.pointsOption.pointsPerNight.toLocaleString()}/night · {hotel.pointsOption.program}
+            </p>
+            {hotel.pointsOption.transferFrom && (
+              <p className="text-[10px] text-amber-600">Transfer from {hotel.pointsOption.transferFrom}</p>
+            )}
+          </div>
+        )}
+        {hotel.cashOption && (
+          <div className="rounded-lg border border-slate-200 bg-slate-50/50 p-3">
+            <div className="mb-1 flex items-center gap-1 text-[10px] font-semibold uppercase text-slate-500">
+              <DollarSign className="h-3 w-3" /> Cash Option
+            </div>
+            <p className="text-sm font-bold text-slate-900">
+              ${hotel.cashOption.estimatedTotal.toLocaleString()} total
+            </p>
+            <p className="text-[11px] text-slate-600">
+              ${hotel.cashOption.estimatedPerNight.toLocaleString()}/night
+            </p>
+          </div>
+        )}
+      </div>
+
+      {hotel.whyThisHotel && (
+        <p className="mt-3 text-xs leading-relaxed text-slate-600">
+          <Lightbulb className="mr-1 inline h-3 w-3 text-amber-500" />
+          {hotel.whyThisHotel}
+        </p>
+      )}
+    </div>
+  );
+}
+
+function FoodTab({ itinerary }: { itinerary: GeneratedItinerary | null }) {
+  const diningDays = itinerary?.dailyItinerary.filter((d) => d.diningRecommendation) ?? [];
+
+  if (!itinerary || diningDays.length === 0) {
+    return (
+      <EmptyTabState
+        icon={<Utensils className="h-8 w-8" />}
+        title="No dining recommendations yet"
+        subtitle="Generate a trip plan to get daily restaurant and cuisine recommendations tailored to your preferences."
+      />
+    );
+  }
+
+  return (
+    <div className="space-y-4">
+      <h2 className="text-sm font-semibold text-slate-900">Dining Recommendations</h2>
+      <p className="text-xs text-slate-500">
+        Restaurant and cuisine suggestions for each day of your trip
+      </p>
+
+      <div className="space-y-3">
+        {diningDays.map((day) => (
+          <div key={day.day} className="rounded-xl border border-slate-200 bg-white p-5 shadow-sm">
+            <div className="mb-3 flex items-center justify-between">
+              <div className="flex items-center gap-3">
+                <div className="flex h-10 w-10 items-center justify-center rounded-lg bg-orange-50 text-sm font-bold text-orange-600">
+                  {day.day}
+                </div>
+                <div>
+                  <p className="text-sm font-semibold text-slate-900">Day {day.day} – {day.theme}</p>
+                  <p className="text-xs text-slate-500">{day.location} · {formatDateShort(day.date)}</p>
+                </div>
+              </div>
+            </div>
+
+            <div className="rounded-lg bg-orange-50/50 border border-orange-100 p-4">
+              <div className="mb-2 flex items-center gap-1.5">
+                <Utensils className="h-3.5 w-3.5 text-orange-600" />
+                <span className="text-xs font-semibold text-orange-700">Dining Recommendation</span>
+              </div>
+              <p className="text-sm leading-relaxed text-orange-900">{day.diningRecommendation}</p>
+            </div>
+
+            <div className="mt-3 grid grid-cols-3 gap-3">
+              <div className="rounded-lg bg-slate-50 p-3">
+                <div className="mb-1 flex items-center gap-1 text-[10px] font-semibold text-slate-400">
+                  <Sun className="h-3 w-3" /> Morning
+                </div>
+                <p className="text-xs text-slate-700">{day.morning}</p>
+              </div>
+              <div className="rounded-lg bg-slate-50 p-3">
+                <div className="mb-1 flex items-center gap-1 text-[10px] font-semibold text-slate-400">
+                  <Sunset className="h-3 w-3" /> Afternoon
+                </div>
+                <p className="text-xs text-slate-700">{day.afternoon}</p>
+              </div>
+              <div className="rounded-lg bg-slate-50 p-3">
+                <div className="mb-1 flex items-center gap-1 text-[10px] font-semibold text-slate-400">
+                  <Moon className="h-3 w-3" /> Evening
+                </div>
+                <p className="text-xs text-slate-700">{day.evening}</p>
+              </div>
+            </div>
+          </div>
+        ))}
+      </div>
+    </div>
+  );
+}
+
+function TransportationTab({ itinerary }: { itinerary: GeneratedItinerary | null }) {
+  const transports = itinerary?.transportation ?? [];
+
+  if (!itinerary || transports.length === 0) {
+    return (
+      <EmptyTabState
+        icon={<Car className="h-8 w-8" />}
+        title="No transportation recommendations yet"
+        subtitle="Generate a trip plan to get airport transfers, car rentals, ride services, and other ground transportation options."
+      />
+    );
+  }
+
+  const totalCost = transports.reduce((sum, t) => sum + (t.estimatedCost || 0), 0);
+
+  return (
+    <div className="space-y-4">
+      <div className="flex items-center justify-between">
+        <div>
+          <h2 className="text-sm font-semibold text-slate-900">Ground Transportation</h2>
+          <p className="text-xs text-slate-500">Airport transfers, car rentals, ride services & more</p>
+        </div>
+        {totalCost > 0 && (
+          <div className="rounded-lg bg-slate-100 px-3 py-1.5">
+            <p className="text-[10px] font-medium text-slate-500">Est. Total</p>
+            <p className="text-sm font-bold text-slate-900">${totalCost.toLocaleString()}</p>
+          </div>
+        )}
+      </div>
+
+      <div className="space-y-3">
+        {transports.map((transport, i) => (
+          <TransportCard key={i} transport={transport} />
+        ))}
+      </div>
+    </div>
+  );
+}
+
+function TransportCard({ transport }: { transport: ItineraryTransportationRecommendation }) {
+  const typeLabel = transport.type.replace(/_/g, ' ').replace(/\b\w/g, (c) => c.toUpperCase());
+  const icon = TRANSPORT_ICONS[transport.type] ?? <Car className="h-4 w-4" />;
+
+  return (
+    <div className="rounded-xl border border-slate-200 bg-white p-5 shadow-sm">
+      <div className="mb-3 flex items-center justify-between">
+        <div className="flex items-center gap-3">
+          <div className="rounded-lg bg-indigo-50 p-2">
+            {icon}
+          </div>
+          <div>
+            <p className="text-sm font-semibold text-slate-900">{typeLabel}</p>
+            <p className="text-xs text-slate-500">{transport.provider}</p>
+          </div>
+        </div>
+        {transport.estimatedCost > 0 && (
+          <span className="text-sm font-bold text-slate-900">
+            ${transport.estimatedCost.toLocaleString()}
+          </span>
+        )}
+      </div>
+
+      <div className="mb-3 rounded-lg bg-slate-50 p-3">
+        <div className="grid grid-cols-2 gap-3">
+          <div>
+            <p className="text-[10px] font-medium text-slate-400">Route</p>
+            <p className="text-xs font-medium text-slate-800">{transport.route}</p>
+          </div>
+          <div>
+            <p className="text-[10px] font-medium text-slate-400">Duration</p>
+            <p className="text-xs font-medium text-slate-800">{transport.duration}</p>
+          </div>
+        </div>
+      </div>
+
+      <p className="text-xs leading-relaxed text-slate-600">{transport.notes}</p>
+
+      {transport.bookingTip && (
+        <div className="mt-2 flex items-start gap-1.5 rounded-md bg-blue-50 p-2">
+          <Lightbulb className="mt-0.5 h-3 w-3 flex-shrink-0 text-blue-500" />
+          <p className="text-[11px] text-blue-700">{transport.bookingTip}</p>
+        </div>
+      )}
+    </div>
+  );
+}
+
+function DailyPlanTab({
+  itinerary,
+  expandedDays,
+  toggleDay,
+}: {
+  itinerary: GeneratedItinerary | null;
+  expandedDays: Set<number>;
+  toggleDay: (day: number) => void;
+}) {
+  if (!itinerary || itinerary.dailyItinerary.length === 0) {
+    return (
+      <EmptyTabState
+        icon={<Calendar className="h-8 w-8" />}
+        title="No daily plan yet"
+        subtitle="Generate a trip plan to get a detailed day-by-day itinerary with activities, dining, and practical tips."
+      />
+    );
+  }
+
+  return (
+    <div className="space-y-4">
+      <h2 className="text-sm font-semibold text-slate-900">Day-by-Day Itinerary</h2>
+      <p className="text-xs text-slate-500">
+        {itinerary.dailyItinerary.length} days planned · Click a day to expand
+      </p>
+
+      <div className="space-y-2">
+        {itinerary.dailyItinerary.map((day) => {
+          const isExpanded = expandedDays.has(day.day);
+          return (
+            <div key={day.day} className="rounded-xl border border-slate-200 bg-white shadow-sm overflow-hidden">
+              <button
+                onClick={() => toggleDay(day.day)}
+                className="flex w-full items-center justify-between p-4 text-left transition-colors hover:bg-slate-50"
+              >
+                <div className="flex items-center gap-3">
+                  <div className="flex h-10 w-10 items-center justify-center rounded-lg bg-blue-50 text-sm font-bold text-blue-600">
+                    {day.day}
+                  </div>
+                  <div>
+                    <p className="text-sm font-semibold text-slate-900">{day.theme}</p>
+                    <p className="text-xs text-slate-500">
+                      {day.location} · {formatDateShort(day.date)}
+                    </p>
+                  </div>
+                </div>
+                {isExpanded ? (
+                  <ChevronUp className="h-4 w-4 text-slate-400" />
+                ) : (
+                  <ChevronDown className="h-4 w-4 text-slate-400" />
+                )}
+              </button>
+
+              {isExpanded && (
+                <div className="border-t border-slate-100 p-5 pt-4 space-y-4">
+                  <div className="grid grid-cols-1 gap-3 sm:grid-cols-3">
+                    <div className="rounded-lg bg-amber-50/50 p-3">
+                      <div className="mb-1.5 flex items-center gap-1.5 text-[10px] font-semibold uppercase text-amber-600">
+                        <Sun className="h-3 w-3" /> Morning
+                      </div>
+                      <p className="text-xs leading-relaxed text-slate-700">{day.morning}</p>
+                    </div>
+                    <div className="rounded-lg bg-blue-50/50 p-3">
+                      <div className="mb-1.5 flex items-center gap-1.5 text-[10px] font-semibold uppercase text-blue-600">
+                        <Sunset className="h-3 w-3" /> Afternoon
+                      </div>
+                      <p className="text-xs leading-relaxed text-slate-700">{day.afternoon}</p>
+                    </div>
+                    <div className="rounded-lg bg-indigo-50/50 p-3">
+                      <div className="mb-1.5 flex items-center gap-1.5 text-[10px] font-semibold uppercase text-indigo-600">
+                        <Moon className="h-3 w-3" /> Evening
+                      </div>
+                      <p className="text-xs leading-relaxed text-slate-700">{day.evening}</p>
+                    </div>
+                  </div>
+
+                  {day.diningRecommendation && (
+                    <div className="flex items-start gap-2 rounded-lg bg-orange-50 p-3">
+                      <Utensils className="mt-0.5 h-3.5 w-3.5 flex-shrink-0 text-orange-500" />
+                      <div>
+                        <p className="text-[10px] font-semibold uppercase text-orange-600">Dining</p>
+                        <p className="text-xs text-orange-800">{day.diningRecommendation}</p>
+                      </div>
+                    </div>
+                  )}
+
+                  {day.tips && (
+                    <div className="flex items-start gap-2 rounded-lg bg-slate-50 p-3">
+                      <Lightbulb className="mt-0.5 h-3.5 w-3.5 flex-shrink-0 text-slate-400" />
+                      <p className="text-xs text-slate-600">{day.tips}</p>
+                    </div>
+                  )}
+                </div>
+              )}
+            </div>
+          );
+        })}
+      </div>
+    </div>
+  );
+}
+
+function BudgetTab({ itinerary }: { itinerary: GeneratedItinerary | null }) {
+  if (!itinerary) {
+    return (
+      <EmptyTabState
+        icon={<Wallet className="h-8 w-8" />}
+        title="No budget breakdown yet"
+        subtitle="Generate a trip plan to get a detailed cost analysis with points optimization strategy."
+      />
+    );
+  }
+
+  const budget = itinerary.budgetBreakdown;
+  const categories = [
+    { label: 'Flights', cash: budget.flightsCash, points: budget.flightsPoints, icon: <Plane className="h-4 w-4" />, color: 'bg-blue-500' },
+    { label: 'Hotels', cash: budget.hotelsCash, points: budget.hotelsPoints, icon: <Hotel className="h-4 w-4" />, color: 'bg-purple-500' },
+    { label: 'Transportation', cash: budget.transportationCash, points: null, icon: <Car className="h-4 w-4" />, color: 'bg-indigo-500' },
+    { label: 'Activities & Dining', cash: budget.activitiesAndDining, points: null, icon: <Utensils className="h-4 w-4" />, color: 'bg-orange-500' },
+  ];
+
+  const nonZeroCategories = categories.filter((c) => c.cash > 0);
+  const total = budget.totalEstimatedCash;
+
+  return (
+    <div className="space-y-6">
+      {/* Total */}
+      <div className="rounded-xl border border-slate-200 bg-gradient-to-br from-slate-50 to-blue-50 p-6 shadow-sm">
+        <div className="flex items-center justify-between">
+          <div>
+            <p className="text-xs font-medium text-slate-500">Estimated Total Cash Cost</p>
+            <p className="mt-1 text-3xl font-bold text-slate-900">
+              ${total.toLocaleString()}
+            </p>
+          </div>
+          {budget.savings && (
+            <div className="rounded-lg bg-emerald-50 border border-emerald-200 px-4 py-3 text-right">
+              <div className="flex items-center gap-1 text-[10px] font-semibold text-emerald-600">
+                <TrendingUp className="h-3 w-3" /> Savings
+              </div>
+              <p className="mt-0.5 text-xs font-medium text-emerald-800">{budget.savings}</p>
+            </div>
+          )}
+        </div>
+
+        {budget.totalPointsUsed.length > 0 && (
+          <div className="mt-4 flex flex-wrap gap-2 border-t border-slate-200/60 pt-3">
+            {budget.totalPointsUsed.map((p, i) => (
+              <span
+                key={i}
+                className="inline-flex items-center gap-1.5 rounded-full bg-amber-50 px-3 py-1 text-xs"
+              >
+                <Coins className="h-3 w-3 text-amber-500" />
+                <span className="font-medium text-amber-700">{p.program}</span>
+                <span className="font-bold text-amber-900">{p.points.toLocaleString()} pts</span>
+              </span>
+            ))}
+          </div>
+        )}
+      </div>
+
+      {/* Category Breakdown */}
+      <div className="rounded-xl border border-slate-200 bg-white p-6 shadow-sm">
+        <h2 className="mb-4 text-sm font-semibold text-slate-900">Cost Breakdown</h2>
+
+        {/* Bar chart */}
+        {total > 0 && (
+          <div className="mb-5 flex h-4 overflow-hidden rounded-full bg-slate-100">
+            {nonZeroCategories.map((cat, i) => {
+              const pct = (cat.cash / total) * 100;
+              return (
+                <div
+                  key={i}
+                  className={`${cat.color} transition-all`}
+                  style={{ width: `${pct}%` }}
+                  title={`${cat.label}: $${cat.cash.toLocaleString()}`}
+                />
+              );
+            })}
+          </div>
+        )}
+
+        <div className="space-y-3">
+          {categories.map((cat, i) => (
+            <div key={i} className="flex items-center justify-between rounded-lg bg-slate-50 p-3">
+              <div className="flex items-center gap-3">
+                <div className={`rounded-lg p-1.5 text-white ${cat.color}`}>
+                  {cat.icon}
+                </div>
+                <div>
+                  <p className="text-sm font-medium text-slate-800">{cat.label}</p>
+                  {cat.points && (
+                    <p className="text-[11px] text-slate-500">{cat.points}</p>
+                  )}
+                </div>
+              </div>
+              <p className="text-sm font-bold text-slate-900">
+                {cat.cash > 0 ? `$${cat.cash.toLocaleString()}` : '—'}
+              </p>
+            </div>
+          ))}
+        </div>
+      </div>
+
+      {/* Points Strategy */}
+      {itinerary.pointsStrategy && (
+        <div className="rounded-xl border border-amber-200 bg-amber-50/50 p-6 shadow-sm">
+          <div className="mb-3 flex items-center gap-2">
+            <TrendingUp className="h-4 w-4 text-amber-600" />
+            <h2 className="text-sm font-semibold text-amber-900">Points Strategy</h2>
+          </div>
+          <p className="text-sm leading-relaxed text-amber-800">{itinerary.pointsStrategy}</p>
+        </div>
+      )}
+    </div>
+  );
+}
+
+/* ==========================================================================
+   DISCOVERY TAB — AI Meeting Copilot
+   ========================================================================== */
+
+const PRIORITY_STYLES: Record<string, { bg: string; text: string; dot: string }> = {
+  high: { bg: 'bg-red-50', text: 'text-red-700', dot: 'bg-red-400' },
+  medium: { bg: 'bg-amber-50', text: 'text-amber-700', dot: 'bg-amber-400' },
+  low: { bg: 'bg-slate-50', text: 'text-slate-600', dot: 'bg-slate-400' },
+};
+
+const CATEGORY_ICONS: Record<string, React.ReactNode> = {
+  flight: <Plane className="h-3.5 w-3.5" />,
+  hotel: <Hotel className="h-3.5 w-3.5" />,
+  budget: <DollarSign className="h-3.5 w-3.5" />,
+  dining: <Utensils className="h-3.5 w-3.5" />,
+  activities: <Star className="h-3.5 w-3.5" />,
+  transportation: <Car className="h-3.5 w-3.5" />,
+  general: <HelpCircle className="h-3.5 w-3.5" />,
+  loyalty: <Coins className="h-3.5 w-3.5" />,
+  accessibility: <Shield className="h-3.5 w-3.5" />,
+  family: <Users className="h-3.5 w-3.5" />,
+};
+
+function DiscoveryTab({ trip }: { trip: TripRequest }) {
+  const clientId = trip.clientId ?? trip.client?.id;
+
+  const [session, setSession] = useState<MeetingSession | null>(null);
+  const [questions, setQuestions] = useState<MeetingQuestionSuggestion[]>([]);
+  const [suggestions, setSuggestions] = useState<MeetingProfileSuggestion[]>([]);
+  const [entries, setEntries] = useState<MeetingEntryItem[]>([]);
+  const [loading, setLoading] = useState(true);
+  const [generatingQuestions, setGeneratingQuestions] = useState(false);
+  const [answers, setAnswers] = useState<Record<string, string>>({});
+  const [sendingAnswer, setSendingAnswer] = useState<string | null>(null);
+  const [addingNote, setAddingNote] = useState(false);
+  const [noteText, setNoteText] = useState('');
+
+  const [commitPreview, setCommitPreview] = useState<MeetingCommitPreviewItem[] | null>(null);
+  const [committing, setCommitting] = useState(false);
+  const [commitResult, setCommitResult] = useState<{ committed: number; fields: string[] } | null>(null);
+
+  const answeredRef = useRef<HTMLDivElement>(null);
+
+  const initSession = useCallback(async () => {
+    if (!clientId) return;
+    setLoading(true);
+    try {
+      const sessions = await getMeetingSessions(clientId);
+      const tripSession = sessions.find(
+        (s) => s.title.includes(trip.id) || s.title.includes(trip.title),
+      );
+
+      let activeSession: MeetingSession;
+      if (tripSession) {
+        activeSession = await getMeetingSession(clientId, tripSession.id);
+      } else {
+        activeSession = await createMeetingSession(
+          clientId,
+          `Trip Discovery: ${trip.title}`,
+        );
+        activeSession = await getMeetingSession(clientId, activeSession.id);
+      }
+
+      setSession(activeSession);
+      setQuestions(activeSession.questionSuggestions ?? []);
+      setSuggestions(activeSession.profileSuggestions ?? []);
+      setEntries(activeSession.entries ?? []);
+
+      if (!activeSession.questionSuggestions?.length || activeSession.questionSuggestions.every((q) => q.isUsed)) {
+        await handleGenerateQuestions(activeSession.id, false);
+      }
+    } catch (err) {
+      console.error('Failed to init discovery session:', err);
+    } finally {
+      setLoading(false);
+    }
+  }, [clientId, trip.id, trip.title]);
+
+  useEffect(() => {
+    initSession();
+  }, [initSession]);
+
+  const handleGenerateQuestions = async (sessionId?: string, followUp = false) => {
+    if (!clientId) return;
+    const sid = sessionId ?? session?.id;
+    if (!sid) return;
+    setGeneratingQuestions(true);
+    try {
+      let answeredQuestions: AnsweredQuestionPayload[] | undefined;
+      if (followUp) {
+        const qaEntries = entries.filter(
+          (e) => e.role === 'question_answer' && e.metadata?.questionText,
+        );
+        answeredQuestions = qaEntries.map((e) => ({
+          questionText: e.metadata!.questionText as string,
+          answer: e.content,
+        }));
+      }
+      const result = await generateMeetingQuestions(clientId, sid, {
+        followUp,
+        answeredQuestions: followUp ? answeredQuestions : undefined,
+      });
+      if (result.questions.length > 0) {
+        setQuestions((prev) => [...result.questions, ...prev]);
+      }
+    } catch (err) {
+      console.error('Failed to generate questions:', err);
+    } finally {
+      setGeneratingQuestions(false);
+    }
+  };
+
+  const handleSendAnswer = async (question: MeetingQuestionSuggestion) => {
+    const answer = answers[question.id]?.trim();
+    if (!answer || !clientId || !session) return;
+    setSendingAnswer(question.id);
+    try {
+      const result = await appendMeetingEntry(clientId, session.id, {
+        role: 'question_answer',
+        content: answer,
+        metadata: {
+          questionText: question.questionText,
+          targetFields: question.targetFields,
+        },
+      });
+
+      setEntries((prev) => [...prev, result]);
+      setQuestions((prev) =>
+        prev.map((q) => (q.id === question.id ? { ...q, isUsed: true } : q)),
+      );
+      setAnswers((prev) => {
+        const next = { ...prev };
+        delete next[question.id];
+        return next;
+      });
+
+      if (result.extractedSuggestions && result.extractedSuggestions.length > 0) {
+        setSuggestions((prev) => [...result.extractedSuggestions!, ...prev]);
+      }
+
+      try {
+        const followUpResult = await generateMeetingQuestions(clientId, session.id, {
+          followUp: true,
+          answeredQuestions: [{ questionText: question.questionText, answer, category: question.category }],
+        });
+        if (followUpResult.questions.length > 0) {
+          setQuestions((prev) => [...followUpResult.questions, ...prev]);
+        }
+      } catch {
+        // Follow-up generation is non-blocking
+      }
+    } catch (err) {
+      console.error('Failed to send answer:', err);
+    } finally {
+      setSendingAnswer(null);
+    }
+  };
+
+  const handleAddNote = async () => {
+    if (!noteText.trim() || !clientId || !session) return;
+    setAddingNote(true);
+    try {
+      const result = await appendMeetingEntry(clientId, session.id, {
+        role: 'advisor_note',
+        content: noteText.trim(),
+      });
+      setEntries((prev) => [...prev, result]);
+      setNoteText('');
+    } catch (err) {
+      console.error('Failed to add note:', err);
+    } finally {
+      setAddingNote(false);
+    }
+  };
+
+  const handleSuggestionAction = async (suggestion: MeetingProfileSuggestion, action: 'approved' | 'rejected') => {
+    if (!clientId || !session) return;
+    try {
+      const updated = await updateMeetingProfileSuggestion(clientId, session.id, suggestion.id, action);
+      setSuggestions((prev) =>
+        prev.map((s) => (s.id === suggestion.id ? updated : s)),
+      );
+    } catch (err) {
+      console.error('Failed to update suggestion:', err);
+    }
+  };
+
+  const handleCommitPreview = async () => {
+    if (!clientId || !session) return;
+    try {
+      const result = await getMeetingCommitPreview(clientId, session.id);
+      setCommitPreview(result.preview);
+    } catch (err) {
+      console.error('Failed to get commit preview:', err);
+    }
+  };
+
+  const handleCommit = async () => {
+    if (!clientId || !session) return;
+    setCommitting(true);
+    try {
+      const result = await commitMeetingSuggestions(clientId, session.id);
+      setCommitResult({ committed: result.committed, fields: result.fields });
+      setSuggestions((prev) =>
+        prev.map((s) =>
+          s.status === 'approved' ? { ...s, status: 'committed' as const } : s,
+        ),
+      );
+      setCommitPreview(null);
+    } catch (err) {
+      console.error('Failed to commit suggestions:', err);
+    } finally {
+      setCommitting(false);
+    }
+  };
+
+  if (!clientId) {
+    return (
+      <EmptyTabState
+        icon={<MessageSquare className="h-8 w-8" />}
+        title="No client assigned"
+        subtitle="Assign a client to this trip to start a discovery session and generate questions."
+      />
+    );
+  }
+
+  if (loading) {
+    return (
+      <div className="flex items-center justify-center py-16">
+        <Loader2 className="h-6 w-6 animate-spin text-blue-600" />
+        <span className="ml-2 text-sm text-slate-500">Setting up discovery session...</span>
+      </div>
+    );
+  }
+
+  const unansweredQuestions = questions.filter((q) => !q.isUsed);
+  const answeredQuestionsList = entries.filter((e) => e.role === 'question_answer');
+  const pendingSuggestions = suggestions.filter((s) => s.status === 'pending');
+  const approvedSuggestions = suggestions.filter((s) => s.status === 'approved');
+  const committedSuggestions = suggestions.filter((s) => s.status === 'committed');
+
+  return (
+    <div className="space-y-6">
+      {/* Header */}
+      <div className="flex items-center justify-between">
+        <div>
+          <h2 className="text-sm font-semibold text-slate-900">Client Discovery</h2>
+          <p className="text-xs text-slate-500">
+            AI-generated questions to learn your client&apos;s preferences. Answers auto-update their profile.
+          </p>
+        </div>
+        <div className="flex items-center gap-2">
+          {answeredQuestionsList.length > 0 && (
+            <span className="rounded-full bg-emerald-50 px-2.5 py-1 text-[11px] font-medium text-emerald-700">
+              {answeredQuestionsList.length} answered
+            </span>
+          )}
+          {pendingSuggestions.length > 0 && (
+            <span className="rounded-full bg-amber-50 px-2.5 py-1 text-[11px] font-medium text-amber-700">
+              {pendingSuggestions.length} insights pending
+            </span>
+          )}
+        </div>
+      </div>
+
+      {/* Unanswered Questions */}
+      <div className="space-y-3">
+        <div className="flex items-center justify-between">
+          <h3 className="flex items-center gap-2 text-xs font-semibold uppercase tracking-wider text-slate-500">
+            <Zap className="h-3.5 w-3.5 text-blue-500" />
+            Questions to Ask
+            {unansweredQuestions.length > 0 && (
+              <span className="rounded-full bg-blue-100 px-2 py-0.5 text-[10px] font-bold text-blue-700">
+                {unansweredQuestions.length}
+              </span>
+            )}
+          </h3>
+          <button
+            onClick={() => handleGenerateQuestions(undefined, answeredQuestionsList.length > 0)}
+            disabled={generatingQuestions}
+            className="inline-flex items-center gap-1.5 rounded-md bg-slate-100 px-3 py-1.5 text-[11px] font-medium text-slate-600 transition-colors hover:bg-slate-200 disabled:opacity-50"
+          >
+            {generatingQuestions ? (
+              <Loader2 className="h-3 w-3 animate-spin" />
+            ) : (
+              <RefreshCw className="h-3 w-3" />
+            )}
+            {answeredQuestionsList.length > 0 ? 'More Questions' : 'Generate Questions'}
+          </button>
+        </div>
+
+        {generatingQuestions && unansweredQuestions.length === 0 && (
+          <div className="flex items-center gap-2 rounded-lg bg-blue-50 p-4">
+            <Loader2 className="h-4 w-4 animate-spin text-blue-600" />
+            <p className="text-xs text-blue-700">Generating personalized questions...</p>
+          </div>
+        )}
+
+        {unansweredQuestions.length === 0 && !generatingQuestions && (
+          <div className="rounded-xl border border-dashed border-slate-300 bg-slate-50/50 p-8 text-center">
+            <CheckCircle2 className="mx-auto mb-2 h-8 w-8 text-emerald-400" />
+            <p className="text-sm font-medium text-slate-600">All questions answered</p>
+            <p className="mt-1 text-xs text-slate-400">
+              Click &ldquo;More Questions&rdquo; to generate follow-up questions based on previous answers.
+            </p>
+          </div>
+        )}
+
+        {unansweredQuestions.map((question) => {
+          const priorityStyle = PRIORITY_STYLES[question.priority] ?? PRIORITY_STYLES.medium;
+          const categoryIcon = CATEGORY_ICONS[question.category] ?? CATEGORY_ICONS.general;
+          const isSending = sendingAnswer === question.id;
+
+          return (
+            <div key={question.id} className="rounded-xl border border-slate-200 bg-white p-5 shadow-sm">
+              <div className="mb-3 flex items-start justify-between gap-3">
+                <div className="flex-1">
+                  <div className="mb-2 flex flex-wrap items-center gap-2">
+                    <span className={`inline-flex items-center gap-1 rounded-full px-2 py-0.5 text-[10px] font-medium ${priorityStyle.bg} ${priorityStyle.text}`}>
+                      <span className={`h-1.5 w-1.5 rounded-full ${priorityStyle.dot}`} />
+                      {question.priority}
+                    </span>
+                    <span className="inline-flex items-center gap-1 rounded-full bg-slate-100 px-2 py-0.5 text-[10px] font-medium text-slate-600">
+                      {categoryIcon}
+                      {question.category}
+                    </span>
+                    {question.targetFields.length > 0 && (
+                      <span className="inline-flex items-center gap-1 rounded-full bg-blue-50 px-2 py-0.5 text-[10px] text-blue-600">
+                        <Target className="h-2.5 w-2.5" />
+                        {question.targetFields.slice(0, 2).join(', ')}
+                        {question.targetFields.length > 2 && ` +${question.targetFields.length - 2}`}
+                      </span>
+                    )}
+                  </div>
+                  <p className="text-sm font-medium text-slate-900">{question.questionText}</p>
+                  {question.reason && (
+                    <p className="mt-1 text-[11px] text-slate-400">{question.reason}</p>
+                  )}
+                </div>
+              </div>
+
+              <div className="flex gap-2">
+                <input
+                  type="text"
+                  placeholder="Type the client's response..."
+                  value={answers[question.id] ?? ''}
+                  onChange={(e) =>
+                    setAnswers((prev) => ({ ...prev, [question.id]: e.target.value }))
+                  }
+                  onKeyDown={(e) => {
+                    if (e.key === 'Enter' && !e.shiftKey) {
+                      e.preventDefault();
+                      handleSendAnswer(question);
+                    }
+                  }}
+                  disabled={isSending}
+                  className="flex-1 rounded-lg border border-slate-200 bg-slate-50 px-3 py-2.5 text-sm placeholder:text-slate-400 focus:border-transparent focus:bg-white focus:outline-none focus:ring-2 focus:ring-blue-600 disabled:opacity-50"
+                />
+                <button
+                  onClick={() => handleSendAnswer(question)}
+                  disabled={!answers[question.id]?.trim() || isSending}
+                  className="inline-flex items-center gap-1.5 rounded-lg bg-blue-600 px-4 py-2.5 text-sm font-medium text-white transition-colors hover:bg-blue-700 disabled:opacity-50"
+                >
+                  {isSending ? (
+                    <Loader2 className="h-4 w-4 animate-spin" />
+                  ) : (
+                    <Send className="h-4 w-4" />
+                  )}
+                </button>
+              </div>
+            </div>
+          );
+        })}
+      </div>
+
+      {/* Free-form Note */}
+      <div className="rounded-xl border border-slate-200 bg-white p-5 shadow-sm">
+        <h3 className="mb-3 flex items-center gap-2 text-xs font-semibold uppercase tracking-wider text-slate-500">
+          <StickyNote className="h-3.5 w-3.5 text-amber-500" />
+          Advisor Note
+        </h3>
+        <p className="mb-2 text-[11px] text-slate-400">
+          Capture additional observations or details from your meeting
+        </p>
+        <div className="flex gap-2">
+          <textarea
+            placeholder="Type a note from your meeting..."
+            value={noteText}
+            onChange={(e) => setNoteText(e.target.value)}
+            rows={2}
+            className="flex-1 resize-none rounded-lg border border-slate-200 bg-slate-50 px-3 py-2 text-sm placeholder:text-slate-400 focus:border-transparent focus:bg-white focus:outline-none focus:ring-2 focus:ring-blue-600"
+          />
+          <button
+            onClick={handleAddNote}
+            disabled={!noteText.trim() || addingNote}
+            className="self-end rounded-lg bg-slate-700 px-4 py-2.5 text-sm font-medium text-white transition-colors hover:bg-slate-800 disabled:opacity-50"
+          >
+            {addingNote ? <Loader2 className="h-4 w-4 animate-spin" /> : 'Add'}
+          </button>
+        </div>
+      </div>
+
+      {/* Profile Insights */}
+      {suggestions.length > 0 && (
+        <div className="rounded-xl border border-slate-200 bg-white p-5 shadow-sm">
+          <div className="mb-4 flex items-center justify-between">
+            <h3 className="flex items-center gap-2 text-xs font-semibold uppercase tracking-wider text-slate-500">
+              <Sparkles className="h-3.5 w-3.5 text-purple-500" />
+              Extracted Profile Insights
+            </h3>
+            {approvedSuggestions.length > 0 && !commitResult && (
+              <button
+                onClick={handleCommitPreview}
+                className="inline-flex items-center gap-1.5 rounded-md bg-emerald-50 px-3 py-1.5 text-[11px] font-medium text-emerald-700 transition-colors hover:bg-emerald-100"
+              >
+                <CheckCircle2 className="h-3 w-3" />
+                Commit {approvedSuggestions.length} to Profile
+              </button>
+            )}
+          </div>
+
+          {commitResult && (
+            <div className="mb-4 flex items-center gap-2 rounded-lg bg-emerald-50 border border-emerald-200 p-3">
+              <CheckCircle2 className="h-4 w-4 text-emerald-600" />
+              <p className="text-xs text-emerald-700">
+                Committed {commitResult.committed} preferences: {commitResult.fields.join(', ')}
+              </p>
+            </div>
+          )}
+
+          {/* Commit Preview Modal */}
+          {commitPreview && commitPreview.length > 0 && (
+            <div className="mb-4 rounded-lg border border-emerald-200 bg-emerald-50/50 p-4">
+              <p className="mb-3 text-xs font-semibold text-emerald-800">
+                The following preferences will be saved to the client&apos;s profile:
+              </p>
+              <div className="space-y-2">
+                {commitPreview.map((item) => (
+                  <div key={item.id} className="flex items-center justify-between rounded-md bg-white p-2.5">
+                    <div>
+                      <p className="text-xs font-medium text-slate-700">{item.targetField}</p>
+                      <p className="text-[11px] text-slate-500">
+                        {item.willOverwrite ? 'Overwriting' : 'Setting'}: {JSON.stringify(item.suggestedValue)}
+                      </p>
+                    </div>
+                    <span className="text-[10px] font-medium text-emerald-600">
+                      {Math.round(item.confidence * 100)}% confident
+                    </span>
+                  </div>
+                ))}
+              </div>
+              <div className="mt-3 flex items-center gap-2">
+                <button
+                  onClick={handleCommit}
+                  disabled={committing}
+                  className="inline-flex items-center gap-1.5 rounded-md bg-emerald-600 px-4 py-2 text-xs font-medium text-white hover:bg-emerald-700 disabled:opacity-50"
+                >
+                  {committing ? <Loader2 className="h-3 w-3 animate-spin" /> : <CheckCircle2 className="h-3 w-3" />}
+                  Confirm & Save
+                </button>
+                <button
+                  onClick={() => setCommitPreview(null)}
+                  className="rounded-md px-3 py-2 text-xs font-medium text-slate-600 hover:bg-slate-100"
+                >
+                  Cancel
+                </button>
+              </div>
+            </div>
+          )}
+
+          <div className="space-y-2" ref={answeredRef}>
+            {/* Pending suggestions first */}
+            {pendingSuggestions.map((suggestion) => (
+              <SuggestionCard
+                key={suggestion.id}
+                suggestion={suggestion}
+                onApprove={() => handleSuggestionAction(suggestion, 'approved')}
+                onReject={() => handleSuggestionAction(suggestion, 'rejected')}
+              />
+            ))}
+            {/* Approved */}
+            {approvedSuggestions.map((suggestion) => (
+              <SuggestionCard
+                key={suggestion.id}
+                suggestion={suggestion}
+                onApprove={() => {}}
+                onReject={() => handleSuggestionAction(suggestion, 'rejected')}
+              />
+            ))}
+            {/* Committed */}
+            {committedSuggestions.map((suggestion) => (
+              <SuggestionCard
+                key={suggestion.id}
+                suggestion={suggestion}
+                onApprove={() => {}}
+                onReject={() => {}}
+              />
+            ))}
+          </div>
+        </div>
+      )}
+
+      {/* Conversation History */}
+      {entries.length > 0 && (
+        <div className="rounded-xl border border-slate-200 bg-white p-5 shadow-sm">
+          <h3 className="mb-4 flex items-center gap-2 text-xs font-semibold uppercase tracking-wider text-slate-500">
+            <Clock className="h-3.5 w-3.5" />
+            Meeting Notes ({entries.length})
+          </h3>
+          <div className="space-y-3 max-h-96 overflow-y-auto">
+            {entries.map((entry) => (
+              <div
+                key={entry.id}
+                className={`rounded-lg p-3 ${
+                  entry.role === 'question_answer'
+                    ? 'border border-blue-100 bg-blue-50/50'
+                    : entry.role === 'advisor_note'
+                    ? 'border border-amber-100 bg-amber-50/50'
+                    : 'border border-slate-100 bg-slate-50'
+                }`}
+              >
+                <div className="mb-1 flex items-center gap-2">
+                  <span className={`text-[10px] font-semibold uppercase ${
+                    entry.role === 'question_answer' ? 'text-blue-600' : 'text-amber-600'
+                  }`}>
+                    {entry.role === 'question_answer' ? 'Q&A' : 'Note'}
+                  </span>
+                  <span className="text-[10px] text-slate-400">
+                    {new Date(entry.createdAt).toLocaleTimeString('en-US', {
+                      hour: 'numeric',
+                      minute: '2-digit',
+                    })}
+                  </span>
+                </div>
+                {(entry.metadata?.questionText as string | undefined) && (
+                  <p className="mb-1 text-[11px] font-medium text-slate-500">
+                    Q: {String(entry.metadata?.questionText)}
+                  </p>
+                )}
+                <p className="text-sm text-slate-800">{entry.content}</p>
+              </div>
+            ))}
+          </div>
+        </div>
+      )}
+    </div>
+  );
+}
+
+function SuggestionCard({
+  suggestion,
+  onApprove,
+  onReject,
+}: {
+  suggestion: MeetingProfileSuggestion;
+  onApprove: () => void;
+  onReject: () => void;
+}) {
+  const statusStyles: Record<string, { bg: string; text: string; label: string }> = {
+    pending: { bg: 'border-amber-200 bg-amber-50/30', text: 'text-amber-600', label: 'Pending Review' },
+    approved: { bg: 'border-emerald-200 bg-emerald-50/30', text: 'text-emerald-600', label: 'Approved' },
+    rejected: { bg: 'border-slate-200 bg-slate-50/30', text: 'text-slate-400', label: 'Rejected' },
+    committed: { bg: 'border-emerald-200 bg-emerald-50/50', text: 'text-emerald-700', label: 'Saved to Profile' },
+  };
+
+  const style = statusStyles[suggestion.status] ?? statusStyles.pending;
+  const displayValue =
+    typeof suggestion.suggestedValue === 'string'
+      ? suggestion.suggestedValue
+      : JSON.stringify(suggestion.suggestedValue);
+
+  return (
+    <div className={`rounded-lg border p-3 ${style.bg}`}>
+      <div className="flex items-start justify-between gap-3">
+        <div className="flex-1 min-w-0">
+          <div className="mb-1 flex items-center gap-2">
+            <span className="text-xs font-semibold text-slate-700">
+              {suggestion.targetField.replace(/([A-Z])/g, ' $1').replace(/^./, (s) => s.toUpperCase())}
+            </span>
+            <span className={`text-[10px] font-medium ${style.text}`}>
+              {style.label}
+            </span>
+            <span className="text-[10px] text-slate-400">
+              {Math.round(suggestion.confidence * 100)}% confident
+            </span>
+          </div>
+          <p className="text-sm font-medium text-slate-900 break-words">{displayValue}</p>
+          {suggestion.evidence && (
+            <p className="mt-1 text-[11px] text-slate-500">{suggestion.evidence}</p>
+          )}
+        </div>
+        {suggestion.status === 'pending' && (
+          <div className="flex items-center gap-1 flex-shrink-0">
+            <button
+              onClick={onApprove}
+              className="rounded-md p-1.5 text-emerald-500 transition-colors hover:bg-emerald-100"
+              title="Approve"
+            >
+              <ThumbsUp className="h-4 w-4" />
+            </button>
+            <button
+              onClick={onReject}
+              className="rounded-md p-1.5 text-red-400 transition-colors hover:bg-red-100"
+              title="Reject"
+            >
+              <ThumbsDown className="h-4 w-4" />
+            </button>
+          </div>
+        )}
+      </div>
+    </div>
+  );
 }

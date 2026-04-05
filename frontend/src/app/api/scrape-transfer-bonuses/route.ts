@@ -2,7 +2,7 @@ import { prisma } from "@/lib/prisma";
 import { getAuthUser, json, errorResponse } from "@/lib/auth";
 
 const TPG_TRANSFER_BONUSES_URL =
-  "https://thepointsguy.com/loyalty-programs/transfer-bonuses/";
+  "https://thepointsguy.com/loyalty-programs/current-transfer-bonuses/";
 
 const BANK_NAME_MAP: Record<string, string> = {
   "chase ultimate rewards": "chase_ultimate_rewards",
@@ -11,6 +11,7 @@ const BANK_NAME_MAP: Record<string, string> = {
   "amex membership rewards": "amex_membership_rewards",
   "amex": "amex_membership_rewards",
   "citi thankyou points": "citi_thankyou",
+  "citi thankyou rewards": "citi_thankyou",
   "citi thankyou": "citi_thankyou",
   "citi": "citi_thankyou",
   "capital one miles": "capital_one_miles",
@@ -18,6 +19,8 @@ const BANK_NAME_MAP: Record<string, string> = {
   "bilt rewards": "bilt_rewards",
   "bilt": "bilt_rewards",
   "wells fargo rewards": "wells_fargo_rewards",
+  "rove miles": "rove_miles",
+  "rove": "rove_miles",
 };
 
 const PROGRAM_NAME_MAP: Record<string, string> = {
@@ -68,6 +71,14 @@ const PROGRAM_NAME_MAP: Record<string, string> = {
   "etihad": "etihad_guest",
   "qantas frequent flyer": "qantas_frequent_flyer",
   "qantas": "qantas_frequent_flyer",
+  "japan airlines mileage bank": "jal_mileage_bank",
+  "japan airlines": "jal_mileage_bank",
+  "jal mileage bank": "jal_mileage_bank",
+  "jal": "jal_mileage_bank",
+  "sas eurobonus": "sas_eurobonus",
+  "sas": "sas_eurobonus",
+  "lufthansa miles & more": "lufthansa_miles_and_more",
+  "miles & more": "lufthansa_miles_and_more",
 };
 
 function normalizeBank(raw: string): string | null {
@@ -100,7 +111,24 @@ function parseBonusPct(raw: string): number | null {
 function parseDate(raw: string): Date | null {
   const cleaned = raw.trim().replace(/\.$/, "");
   const d = new Date(cleaned);
-  return isNaN(d.getTime()) ? null : d;
+  if (!isNaN(d.getTime())) {
+    // "April 30" without a year defaults to 2001 in V8; fix by
+    // checking if the input lacked a 4-digit year and attaching the
+    // current (or next) year so the date lands in the future.
+    if (!/\d{4}/.test(cleaned)) {
+      const now = new Date();
+      d.setFullYear(now.getFullYear());
+      if (d.getTime() < now.getTime() - 7 * 86400000) {
+        d.setFullYear(now.getFullYear() + 1);
+      }
+    }
+    return d;
+  }
+  // Try appending the current year for formats like "April 30"
+  const withYear = `${cleaned}, ${new Date().getFullYear()}`;
+  const d2 = new Date(withYear);
+  if (!isNaN(d2.getTime())) return d2;
+  return null;
 }
 
 interface ScrapedBonus {
@@ -198,18 +226,19 @@ function parseTPGHtml(html: string): ScrapedBonus[] {
   return results;
 }
 
+const HOTEL_CODES = ["marriott", "hilton", "hyatt", "ihg"];
+const BANK_CODES = ["chase", "amex", "citi", "capital", "bilt", "wells", "rove"];
+
 async function findOrCreateProgram(code: string, name: string) {
   let program = await prisma.loyaltyProgram.findUnique({ where: { code } });
   if (!program) {
+    const isHotel = HOTEL_CODES.some((h) => code.includes(h));
+    const isBank = BANK_CODES.some((b) => code.includes(b));
     program = await prisma.loyaltyProgram.create({
       data: {
         code,
         name,
-        category: code.includes("hotel") || code.includes("marriott") || code.includes("hilton") || code.includes("hyatt") || code.includes("ihg")
-          ? "hotel"
-          : code.includes("chase") || code.includes("amex") || code.includes("citi") || code.includes("capital") || code.includes("bilt") || code.includes("wells")
-            ? "transferable_bank"
-            : "airline",
+        category: isHotel ? "hotel" : isBank ? "transferable_bank" : "airline",
         supportsTransfer: true,
       },
     });
@@ -239,8 +268,10 @@ export async function POST(request: Request) {
     const html = await res.text();
     const scraped = parseTPGHtml(html);
 
+    const now = new Date();
     let synced = 0;
     let skipped = 0;
+    const keepIds: string[] = [];
 
     for (const bonus of scraped) {
       const fromProgram = await findOrCreateProgram(
@@ -252,7 +283,6 @@ export async function POST(request: Request) {
         bonus.toDisplay,
       );
 
-      const now = new Date();
       const startsAt = bonus.startsAt ?? now;
       const endsAt =
         bonus.endsAt ?? new Date(now.getTime() + 90 * 24 * 60 * 60 * 1000);
@@ -263,16 +293,21 @@ export async function POST(request: Request) {
           toProgramId: toProgram.id,
           bonusPercent: bonus.bonusPercent,
           isActive: true,
-          endsAt: { gte: now },
         },
       });
 
       if (existing) {
+        // Update end date in case it changed, and keep it active
+        await prisma.transferBonus.update({
+          where: { id: existing.id },
+          data: { endsAt },
+        });
+        keepIds.push(existing.id);
         skipped++;
         continue;
       }
 
-      await prisma.transferBonus.create({
+      const created = await prisma.transferBonus.create({
         data: {
           fromProgramId: fromProgram.id,
           toProgramId: toProgram.id,
@@ -284,15 +319,26 @@ export async function POST(request: Request) {
           isActive: true,
         },
       });
+      keepIds.push(created.id);
       synced++;
     }
+
+    // Deactivate any bonuses that are no longer on the current TPG page
+    const deactivated = await prisma.transferBonus.updateMany({
+      where: {
+        isActive: true,
+        id: { notIn: keepIds },
+      },
+      data: { isActive: false },
+    });
 
     return json({
       success: true,
       scraped: scraped.length,
       synced,
       skipped,
-      message: `Scraped ${scraped.length} bonuses from TPG. ${synced} new, ${skipped} already existed.`,
+      deactivated: deactivated.count,
+      message: `Scraped ${scraped.length} bonuses from TPG. ${synced} new, ${skipped} already existed, ${deactivated.count} stale removed.`,
     });
   } catch (error) {
     console.error("TPG scrape error:", error);
