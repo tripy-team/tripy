@@ -15,14 +15,21 @@ export async function GET(
     });
     if (!client) return errorResponse("Client not found", 404);
 
-    const approved = await prisma.meetingProfileSuggestion.findMany({
-      where: { sessionId: meetingId, status: "approved" },
-      include: {
-        targetClient: {
-          select: { id: true, firstName: true, lastName: true },
+    let approved;
+    try {
+      approved = await prisma.meetingProfileSuggestion.findMany({
+        where: { sessionId: meetingId, status: "approved" },
+        include: {
+          targetClient: {
+            select: { id: true, firstName: true, lastName: true },
+          },
         },
-      },
-    });
+      });
+    } catch {
+      approved = await prisma.meetingProfileSuggestion.findMany({
+        where: { sessionId: meetingId, status: "approved" },
+      });
+    }
 
     if (approved.length === 0) {
       return json({ preview: [], message: "No approved suggestions to commit" });

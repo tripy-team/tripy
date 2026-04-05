@@ -179,17 +179,25 @@ export async function POST(
           console.error("Cross-client per-answer extraction failed (non-blocking):", crossErr);
         }
 
-        // Fetch all newly created suggestions including cross-client ones
-        const recentSuggestions = await prisma.meetingProfileSuggestion.findMany({
-          where: { sessionId: meetingId },
-          orderBy: { createdAt: "desc" },
-          take: 20,
-          include: {
-            targetClient: {
-              select: { id: true, firstName: true, lastName: true },
+        let recentSuggestions;
+        try {
+          recentSuggestions = await prisma.meetingProfileSuggestion.findMany({
+            where: { sessionId: meetingId },
+            orderBy: { createdAt: "desc" },
+            take: 20,
+            include: {
+              targetClient: {
+                select: { id: true, firstName: true, lastName: true },
+              },
             },
-          },
-        });
+          });
+        } catch {
+          recentSuggestions = await prisma.meetingProfileSuggestion.findMany({
+            where: { sessionId: meetingId },
+            orderBy: { createdAt: "desc" },
+            take: 20,
+          });
+        }
 
         const cutoff = new Date(Date.now() - 5000);
         extractedSuggestions = recentSuggestions.filter(
@@ -395,19 +403,27 @@ export async function PATCH(
         console.error("Re-extraction failed (non-blocking):", extractErr);
       }
 
-      // Fetch all new suggestions for this entry
       const entryTagForFetch = `[entry:${entryId}]`;
-      newSuggestions = await prisma.meetingProfileSuggestion.findMany({
-        where: {
-          sessionId: meetingId,
-          rationale: { contains: entryTagForFetch },
-        },
-        include: {
-          targetClient: {
-            select: { id: true, firstName: true, lastName: true },
+      try {
+        newSuggestions = await prisma.meetingProfileSuggestion.findMany({
+          where: {
+            sessionId: meetingId,
+            rationale: { contains: entryTagForFetch },
           },
-        },
-      });
+          include: {
+            targetClient: {
+              select: { id: true, firstName: true, lastName: true },
+            },
+          },
+        });
+      } catch {
+        newSuggestions = await prisma.meetingProfileSuggestion.findMany({
+          where: {
+            sessionId: meetingId,
+            rationale: { contains: entryTagForFetch },
+          },
+        });
+      }
     }
 
     return json({

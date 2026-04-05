@@ -14,25 +14,41 @@ export async function GET(
     });
     if (!client) return errorResponse("Client not found", 404);
 
-    const session = await prisma.discoveryMeetingSession.findFirst({
-      where: { id: meetingId, clientId },
-      include: {
-        entries: { orderBy: { createdAt: "asc" } },
-        questionSuggestions: { orderBy: { createdAt: "desc" } },
-        profileSuggestions: {
-          orderBy: { createdAt: "desc" },
-          include: {
-            targetClient: {
-              select: { id: true, firstName: true, lastName: true },
+    let session;
+    try {
+      session = await prisma.discoveryMeetingSession.findFirst({
+        where: { id: meetingId, clientId },
+        include: {
+          entries: { orderBy: { createdAt: "asc" } },
+          questionSuggestions: { orderBy: { createdAt: "desc" } },
+          profileSuggestions: {
+            orderBy: { createdAt: "desc" },
+            include: {
+              targetClient: {
+                select: { id: true, firstName: true, lastName: true },
+              },
             },
           },
+          recap: true,
+          advisor: {
+            select: { id: true, firstName: true, lastName: true, email: true },
+          },
         },
-        recap: true,
-        advisor: {
-          select: { id: true, firstName: true, lastName: true, email: true },
+      });
+    } catch (prismaErr) {
+      session = await prisma.discoveryMeetingSession.findFirst({
+        where: { id: meetingId, clientId },
+        include: {
+          entries: { orderBy: { createdAt: "asc" } },
+          questionSuggestions: { orderBy: { createdAt: "desc" } },
+          profileSuggestions: { orderBy: { createdAt: "desc" } },
+          recap: true,
+          advisor: {
+            select: { id: true, firstName: true, lastName: true, email: true },
+          },
         },
-      },
-    });
+      });
+    }
 
     if (!session) return errorResponse("Meeting session not found", 404);
 
