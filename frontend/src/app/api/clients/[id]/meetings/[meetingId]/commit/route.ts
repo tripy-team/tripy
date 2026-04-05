@@ -15,7 +15,10 @@ export async function GET(
     });
     if (!client) return errorResponse("Client not found", 404);
 
-    let approved;
+    let approved: Array<
+      Awaited<ReturnType<typeof prisma.meetingProfileSuggestion.findMany>>[number] &
+      { targetClient?: { id: string; firstName: string; lastName: string } | null }
+    >;
     try {
       approved = await prisma.meetingProfileSuggestion.findMany({
         where: { sessionId: meetingId, status: "approved" },
