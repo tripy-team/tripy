@@ -693,7 +693,7 @@ export default function ClientDetailPage() {
         travelerCount: totalTravelerCount,
         cabinPreference: tripForm.cabinPreference || undefined,
         flexibilityDays: tripForm.flexibilityDays ? parseInt(tripForm.flexibilityDays) : undefined,
-        budgetUsd: tripForm.budgetUsd ? parseFloat(tripForm.budgetUsd) : undefined,
+        budgetCash: tripForm.budgetUsd ? parseFloat(tripForm.budgetUsd) : undefined,
         notes,
       });
       setTrips((prev) => [trip, ...prev]);
