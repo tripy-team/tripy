@@ -69,7 +69,7 @@ export default function NewTripRequestPage() {
         travelerCount: parseInt(form.travelerCount) || 1,
         cabinPreference: form.cabinPreference || undefined,
         flexibilityDays: form.flexibilityDays ? parseInt(form.flexibilityDays) : undefined,
-        budgetUsd: form.budgetUsd ? parseFloat(form.budgetUsd) : undefined,
+        budgetCash: form.budgetUsd ? parseFloat(form.budgetUsd) : undefined,
         notes: form.notes.trim() || undefined,
       });
       router.push(`/trip-requests/${trip.id}`);

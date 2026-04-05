@@ -209,7 +209,7 @@ export default function TripRequestDetailPage() {
         <div className="rounded-xl border border-slate-200 bg-white p-4 shadow-sm">
           <p className="text-xs text-slate-500">Budget</p>
           <p className="mt-1 text-lg font-bold text-slate-900">
-            {trip.budgetUsd ? `$${trip.budgetUsd.toLocaleString()}` : 'Open'}
+            {trip.budgetCash ? `$${trip.budgetCash.toLocaleString()}` : 'Open'}
           </p>
         </div>
       </div>
