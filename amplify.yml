@@ -48,6 +48,7 @@ applications:
               fi
         build:
           commands:
+            - rm -rf .next/cache
             - npm run build
             - cp .env.production.local .next/.env.production.local
       artifacts:
@@ -56,6 +57,5 @@ applications:
           - '**/*'
       cache:
         paths:
-          - .next/cache/**/*
           - .npm/**/*
           - node_modules/**/*
