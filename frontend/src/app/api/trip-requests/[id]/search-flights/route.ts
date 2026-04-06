@@ -88,7 +88,7 @@ export async function POST(
       trip.cabinPreference ?? "economy",
     );
 
-    // Persist results into the latest completed itinerary job if one exists
+    // Persist results into the latest completed itinerary job (create one if none exists)
     const latestJob = await prisma.itineraryJob.findFirst({
       where: { tripRequestId: id, status: "complete" },
       orderBy: { completedAt: "desc" },
@@ -100,6 +100,35 @@ export async function POST(
         data: {
           result: {
             ...existing,
+            travelerFlights,
+          } as unknown as Prisma.InputJsonValue,
+        },
+      });
+    } else {
+      await prisma.itineraryJob.create({
+        data: {
+          tripRequestId: id,
+          status: "complete",
+          completedAt: new Date(),
+          result: {
+            summary: "",
+            flights: [],
+            hotels: [],
+            transportation: [],
+            dailyItinerary: [],
+            budgetBreakdown: {
+              totalEstimatedCash: 0,
+              totalPointsUsed: [],
+              flightsCash: 0,
+              flightsPoints: "",
+              hotelsCash: 0,
+              hotelsPoints: "",
+              transportationCash: 0,
+              activitiesAndDining: 0,
+              savings: "",
+            },
+            pointsStrategy: "",
+            tips: [],
             travelerFlights,
           } as unknown as Prisma.InputJsonValue,
         },

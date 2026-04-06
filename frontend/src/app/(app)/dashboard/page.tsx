@@ -339,7 +339,7 @@ export default function DashboardPage() {
               activeTripAnalyses.map((trip: TripRequest) => (
                 <Link
                   key={trip.id}
-                  href={`/trip-requests/${trip.id}`}
+                  href={`/trips/${trip.id}`}
                   className="flex items-center justify-between px-5 py-3 hover:bg-slate-50 transition-colors"
                 >
                   <div>

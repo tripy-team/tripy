@@ -1556,6 +1556,7 @@ function FlightsTab({
   const [flights, setFlights] = useState<TravelerFlightGroup[]>(itinerary?.travelerFlights ?? []);
   const [loading, setLoading] = useState(false);
   const [searchError, setSearchError] = useState<string | null>(null);
+  const didAutoSearch = useRef(false);
 
   useEffect(() => {
     if (itinerary?.travelerFlights) {
@@ -1563,7 +1564,8 @@ function FlightsTab({
     }
   }, [itinerary?.travelerFlights]);
 
-  const hasRealFlights = flights.length > 0;
+  const hasRealFlights = flights.length > 0 &&
+    flights.some((g) => g.segments.some((s) => s.cashOptions.length > 0 || s.awardOptions.length > 0));
 
   const handleSearchFlights = async () => {
     setLoading(true);
@@ -1578,6 +1580,13 @@ function FlightsTab({
       setLoading(false);
     }
   };
+
+  useEffect(() => {
+    if (!hasRealFlights && !didAutoSearch.current && !loading) {
+      didAutoSearch.current = true;
+      handleSearchFlights();
+    }
+  }, []);
 
   if (!itinerary && !hasRealFlights) {
     return (

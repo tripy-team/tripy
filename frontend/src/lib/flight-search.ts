@@ -266,7 +266,22 @@ export async function searchCashFlights(
   }
 
   const cabin = SERP_CABIN_MAP[params.cabinClass ?? "economy"] ?? 1;
+  const results = await _fetchSerpFlights(params, cabin);
 
+  if (results.length > 0) return results;
+
+  if (cabin > 1) {
+    console.log(`SerpAPI: retrying ${params.origin}->${params.destination} with economy (original cabin ${cabin} returned 0 results)`);
+    return _fetchSerpFlights(params, 1);
+  }
+
+  return results;
+}
+
+async function _fetchSerpFlights(
+  params: FlightSearchParams,
+  cabinCode: number,
+): Promise<CashFlightResult[]> {
   const url = new URL("https://serpapi.com/search");
   url.searchParams.set("engine", "google_flights");
   url.searchParams.set("api_key", SERPAPI_KEY);
@@ -274,7 +289,7 @@ export async function searchCashFlights(
   url.searchParams.set("arrival_id", params.destination);
   url.searchParams.set("outbound_date", params.date);
   url.searchParams.set("type", "2"); // one-way
-  url.searchParams.set("travel_class", String(cabin));
+  url.searchParams.set("travel_class", String(cabinCode));
   url.searchParams.set("adults", String(params.adults ?? 1));
   url.searchParams.set("currency", "USD");
   url.searchParams.set("hl", "en");
@@ -286,16 +301,18 @@ export async function searchCashFlights(
       return [];
     }
     const data: SerpApiResponse = await res.json();
-    if (data.error) {
-      console.error("SerpAPI error:", data.error);
-      return [];
-    }
 
-    const results: CashFlightResult[] = [];
     const allFlights = [
       ...(data.best_flights ?? []),
       ...(data.other_flights ?? []),
     ];
+
+    if (allFlights.length === 0) {
+      if (data.error) console.warn(`SerpAPI: ${params.origin}->${params.destination} cabin=${cabinCode}: ${data.error}`);
+      return [];
+    }
+
+    const results: CashFlightResult[] = [];
 
     for (const group of allFlights.slice(0, 15)) {
       const firstLeg = group.flights[0];
