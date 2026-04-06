@@ -6,7 +6,7 @@ import {
   searchFlightsForTravelers,
   type TravelerSearchInput,
 } from "@/lib/flight-search";
-import type { Prisma } from "@prisma/client";
+import type { Prisma } from "@/generated/prisma/client";
 
 export const maxDuration = 60;
 
