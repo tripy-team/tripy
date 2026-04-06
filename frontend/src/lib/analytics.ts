@@ -47,7 +47,11 @@ function initRum(): void {
         sessionSampleRate: 1,
         identityPoolId: RUM_IDENTITY_POOL_ID,
         endpoint: `https://dataplane.rum.${RUM_REGION}.amazonaws.com`,
-        telemetries: ['performance', 'errors', 'http'],
+        telemetries: [
+          'performance',
+          'errors',
+          ['http', { urlsToExclude: [/dataplane\.rum\./] }],
+        ],
         allowCookies: true,
         enableXRay: false,
         signing: true,
