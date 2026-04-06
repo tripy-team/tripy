@@ -389,7 +389,7 @@ export function deriveStayWindows(
   const remainder = totalNights % destinations.length;
 
   const windows: StayWindow[] = [];
-  let cursor = new Date(departureDate + "T12:00:00Z");
+  const cursor = new Date(departureDate + "T12:00:00Z");
 
   for (let i = 0; i < destinations.length; i++) {
     const n = nightsPer + (i < remainder ? 1 : 0);
