@@ -361,6 +361,32 @@ RULES: Only suggest transfers listed above. Chase≠Delta/AA/Emirates/ANA/Turkis
 // 8 parallel micro-generators — each produces one section
 // ---------------------------------------------------------------------------
 
+function repairJson(raw: string): string {
+  let s = raw.trim();
+  if (!s) return "{}";
+
+  const openBraces = (s.match(/{/g) || []).length;
+  const closeBraces = (s.match(/}/g) || []).length;
+  const openBrackets = (s.match(/\[/g) || []).length;
+  const closeBrackets = (s.match(/]/g) || []).length;
+
+  // Truncated inside a string value — close it
+  if ((s.match(/"/g) || []).length % 2 !== 0) {
+    s += '"';
+  }
+
+  // Close any trailing unclosed key-value (e.g. truncated mid-value)
+  const tail = s.slice(-1);
+  if (tail === ":" || tail === ",") {
+    s += '""';
+  }
+
+  for (let i = 0; i < openBrackets - closeBrackets; i++) s += "]";
+  for (let i = 0; i < openBraces - closeBraces; i++) s += "}";
+
+  return s;
+}
+
 function aiCall(prompt: string, maxTokens: number): Promise<string> {
   return openai.chat.completions.create({
     model: "gpt-4o-mini",
@@ -371,7 +397,14 @@ function aiCall(prompt: string, maxTokens: number): Promise<string> {
     response_format: { type: "json_object" },
     temperature: 0.5,
     max_tokens: maxTokens,
-  }).then((r) => r.choices[0]?.message?.content || "{}");
+  }).then((r) => {
+    const raw = r.choices[0]?.message?.content || "{}";
+    if (r.choices[0]?.finish_reason === "length") {
+      console.warn("OpenAI response truncated (max_tokens hit), attempting repair");
+      return repairJson(raw);
+    }
+    return raw;
+  });
 }
 
 async function genFlights(input: ItineraryInput, header: string): Promise<FlightRecommendation[]> {
@@ -385,7 +418,7 @@ ${buildTransferContext(input)}
 
 Return {"flights":[...]} where each has: segment, airline, flightExample, cabin, departureTime, arrivalTime, duration, stops, pointsOption:{program,pointsRequired,transferFrom,transferBonus,taxes}, cashOption:{estimatedPrice,fareClass}, recommendation("points"/"cash"), whyThisFlight. Use 2024-2025 pricing. Prioritize points >1.5cpp.`;
 
-  const parsed = JSON.parse(await aiCall(prompt, 1024));
+  const parsed = JSON.parse(await aiCall(prompt, 2048));
   return (parsed.flights || []).map(normalizeFlightRec);
 }
 
@@ -400,7 +433,7 @@ ${buildTransferContext(input)}
 
 Return {"hotels":[...]} where each has: destination, hotelName, hotelType, starRating(1-5), neighborhood, checkIn, checkOut, nightCount, pointsOption:{program,pointsPerNight,totalPoints,transferFrom}, cashOption:{estimatedPerNight,estimatedTotal}, highlights(3-4), whyThisHotel. Use 2024-2025 pricing. Prioritize points >0.7cpp.`;
 
-  const parsed = JSON.parse(await aiCall(prompt, 1024));
+  const parsed = JSON.parse(await aiCall(prompt, 2048));
   return (parsed.hotels || []).map(normalizeHotelRec);
 }
 
@@ -413,7 +446,7 @@ ${buildTransferContext(input)}
 
 Return {"pointsStrategy":"..."} — 2-3 sentences on which programs to transfer from, ratios, and any active bonuses.`;
 
-  const parsed = JSON.parse(await aiCall(prompt, 256));
+  const parsed = JSON.parse(await aiCall(prompt, 512));
   return parsed.pointsStrategy || parsed.points_strategy || "";
 }
 
@@ -424,7 +457,7 @@ ${header}
 
 Return {"transportation":[...]} where each has: type("airport_transfer"/"car_rental"/"ride_service"/"train"/"private_car"/"shuttle"), provider, route, estimatedCost(USD), duration, notes, bookingTip. Use 2024-2025 pricing.`;
 
-  const parsed = JSON.parse(await aiCall(prompt, 512));
+  const parsed = JSON.parse(await aiCall(prompt, 1024));
   return (parsed.transportation || []).map(normalizeTransportRec);
 }
 
@@ -437,7 +470,7 @@ ${prefs ? `Preferences: ${prefs}` : ""}
 
 Return {"dailyItinerary":[...]} where each day has: day(number), date, location, theme, morning, afternoon, evening, diningRecommendation, tips. Personalize for client preferences.`;
 
-  const parsed = JSON.parse(await aiCall(prompt, 1536));
+  const parsed = JSON.parse(await aiCall(prompt, 3072));
   return (parsed.dailyItinerary || parsed.daily_itinerary || []).map(normalizeDayPlan);
 }
 
@@ -448,7 +481,7 @@ ${header}
 
 Return {"tips":["...", ...]}`;
 
-  const parsed = JSON.parse(await aiCall(prompt, 256));
+  const parsed = JSON.parse(await aiCall(prompt, 512));
   return parsed.tips || [];
 }
 
@@ -461,7 +494,7 @@ ${hasPoints ? `Loyalty: ${buildLoyaltyBlock(input)}` : ""}
 
 Return {"summary":"..."} mentioning key highlights and travel strategy.`;
 
-  const parsed = JSON.parse(await aiCall(prompt, 256));
+  const parsed = JSON.parse(await aiCall(prompt, 512));
   return parsed.summary || "";
 }
 
@@ -474,7 +507,7 @@ Transfer Bonuses: ${buildBonusBlock(input)}
 
 Return {"budgetBreakdown":{totalEstimatedCash, totalPointsUsed:[{program,points}], flightsCash, flightsPoints(string), hotelsCash, hotelsPoints(string), transportationCash, activitiesAndDining, savings(string)}}. Use 2024-2025 pricing.`;
 
-  const parsed = JSON.parse(await aiCall(prompt, 512));
+  const parsed = JSON.parse(await aiCall(prompt, 1024));
   return normalizeBudget(parsed.budgetBreakdown || parsed.budget_breakdown || {});
 }
 
