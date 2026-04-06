@@ -1643,6 +1643,22 @@ export async function searchTripRestaurants(tripId: string): Promise<RestaurantR
 }
 
 // ---------------------------------------------------------------------------
+// Flight Search
+// ---------------------------------------------------------------------------
+
+interface FlightSearchResult {
+  travelerFlights: TravelerFlightGroup[];
+}
+
+export async function searchTripFlights(tripId: string): Promise<TravelerFlightGroup[]> {
+  const res = await apiFetch<FlightSearchResult>(
+    `/trip-requests/${tripId}/search-flights`,
+    { method: 'POST' },
+  );
+  return res.travelerFlights || [];
+}
+
+// ---------------------------------------------------------------------------
 // Trip Tradeoff Rankings
 // ---------------------------------------------------------------------------
 

@@ -90,8 +90,9 @@ import {
   removeTripTraveler,
   getClients,
   searchTripRestaurants,
+  searchTripFlights,
 } from '@/lib/api-client';
-import type { ItineraryProgressUpdate } from '@/lib/api-client';
+import type { ItineraryProgressUpdate, TravelerFlightGroup } from '@/lib/api-client';
 import MultiAirportAutocomplete from '@/components/ui/MultiAirportAutocomplete';
 import type {
   TripRequest,
@@ -671,6 +672,10 @@ export default function TripDetailPage() {
                 origins={origins}
                 destinations={destinations}
                 travelerFlights={travelerFlights}
+                tripId={tripId}
+                onFlightsUpdated={(flights) => {
+                  setItinerary((prev) => prev ? { ...prev, travelerFlights: flights } : prev);
+                }}
               />
             )
           )}
@@ -1535,6 +1540,8 @@ function FlightsTab({
   origins,
   destinations,
   travelerFlights: _legacyTravelerFlights,
+  tripId,
+  onFlightsUpdated,
 }: {
   itinerary: GeneratedItinerary | null;
   trip: TripRequest;
@@ -1543,39 +1550,146 @@ function FlightsTab({
   origins: string;
   destinations: string;
   travelerFlights: TravelerFlightData[] | null;
+  tripId: string;
+  onFlightsUpdated?: (flights: TravelerFlightGroup[]) => void;
 }) {
-  const realTravelerFlights = itinerary?.travelerFlights;
-  const hasRealFlights = realTravelerFlights && realTravelerFlights.length > 0;
+  const [flights, setFlights] = useState<TravelerFlightGroup[]>(itinerary?.travelerFlights ?? []);
+  const [loading, setLoading] = useState(false);
+  const [searchError, setSearchError] = useState<string | null>(null);
 
-  if (!itinerary) {
+  useEffect(() => {
+    if (itinerary?.travelerFlights) {
+      setFlights(itinerary.travelerFlights);
+    }
+  }, [itinerary?.travelerFlights]);
+
+  const hasRealFlights = flights.length > 0;
+
+  const handleSearchFlights = async () => {
+    setLoading(true);
+    setSearchError(null);
+    try {
+      const results = await searchTripFlights(tripId);
+      setFlights(results);
+      onFlightsUpdated?.(results);
+    } catch (err) {
+      setSearchError(err instanceof Error ? err.message : 'Failed to search flights');
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  if (!itinerary && !hasRealFlights) {
     return (
-      <EmptyTabState
-        icon={<Plane className="h-8 w-8" />}
-        title="No flight recommendations yet"
-        subtitle="Generate a trip plan to get personalized flight recommendations with real pricing from Google Flights and award availability."
-      />
+      <div className="space-y-5">
+        <div className="flex flex-col items-center justify-center rounded-xl border border-dashed border-slate-300 bg-slate-50/50 py-16">
+          <div className="mb-3 rounded-xl bg-slate-100 p-4 text-slate-400">
+            <Plane className="h-8 w-8" />
+          </div>
+          <p className="text-sm font-medium text-slate-600">No flight recommendations yet</p>
+          <p className="mt-1 mb-4 max-w-sm text-center text-xs text-slate-400">
+            Search for real flight pricing from Google Flights and award availability, or generate a full trip plan.
+          </p>
+          <button
+            onClick={handleSearchFlights}
+            disabled={loading}
+            className="flex items-center gap-2 rounded-lg bg-blue-600 px-5 py-2.5 text-sm font-semibold text-white shadow-sm transition hover:bg-blue-700 disabled:opacity-50"
+          >
+            {loading ? (
+              <>
+                <Loader2 className="h-4 w-4 animate-spin" />
+                Searching Flights…
+              </>
+            ) : (
+              <>
+                <Search className="h-4 w-4" />
+                Search Flights
+              </>
+            )}
+          </button>
+          {searchError && (
+            <p className="mt-3 text-xs text-red-600">{searchError}</p>
+          )}
+        </div>
+      </div>
     );
   }
 
   if (hasRealFlights) {
     return (
-      <div className="space-y-6">
-        {realTravelerFlights.map((group) => (
-          <TravelerFlightSection key={group.travelerId} group={group} />
-        ))}
+      <div className="space-y-5">
+        <div className="flex items-center justify-between">
+          <div>
+            <h2 className="text-sm font-semibold text-slate-900">Flight Results</h2>
+            <p className="text-xs text-slate-500">
+              {flights.length} traveler{flights.length !== 1 ? 's' : ''} with flight options
+            </p>
+          </div>
+          <button
+            onClick={handleSearchFlights}
+            disabled={loading}
+            className="flex items-center gap-2 rounded-lg bg-blue-600 px-4 py-2 text-xs font-semibold text-white shadow-sm transition hover:bg-blue-700 disabled:opacity-50"
+          >
+            {loading ? (
+              <>
+                <Loader2 className="h-3.5 w-3.5 animate-spin" />
+                Searching…
+              </>
+            ) : (
+              <>
+                <RefreshCw className="h-3.5 w-3.5" />
+                Refresh Flights
+              </>
+            )}
+          </button>
+        </div>
+        {searchError && (
+          <div className="rounded-lg border border-red-200 bg-red-50 p-3">
+            <p className="text-xs text-red-700">{searchError}</p>
+          </div>
+        )}
+        <div className="space-y-6">
+          {flights.map((group) => (
+            <TravelerFlightSection key={group.travelerId} group={group} />
+          ))}
+        </div>
       </div>
     );
   }
 
   // Fallback: show old-style AI flights if no real data
-  if (itinerary.flights.length > 0) {
+  if (itinerary && itinerary.flights.length > 0) {
     return (
       <div className="space-y-4">
-        <h2 className="text-sm font-semibold text-slate-900">Recommended Flights</h2>
+        <div className="flex items-center justify-between">
+          <h2 className="text-sm font-semibold text-slate-900">Recommended Flights</h2>
+          <button
+            onClick={handleSearchFlights}
+            disabled={loading}
+            className="flex items-center gap-2 rounded-lg bg-blue-600 px-4 py-2 text-xs font-semibold text-white shadow-sm transition hover:bg-blue-700 disabled:opacity-50"
+          >
+            {loading ? (
+              <>
+                <Loader2 className="h-3.5 w-3.5 animate-spin" />
+                Searching…
+              </>
+            ) : (
+              <>
+                <Search className="h-3.5 w-3.5" />
+                Search Real Flights
+              </>
+            )}
+          </button>
+        </div>
+        {searchError && (
+          <div className="rounded-lg border border-red-200 bg-red-50 p-3">
+            <p className="text-xs text-red-700">{searchError}</p>
+          </div>
+        )}
         <div className="rounded-lg border border-amber-200 bg-amber-50 p-3">
           <p className="text-xs text-amber-700">
             <AlertCircle className="mr-1 inline h-3.5 w-3.5" />
-            Flight prices below are AI estimates. Add SERPAPI_KEY and SEATS_AERO_API_KEY to your environment for real pricing data.
+            Flight prices below are AI estimates. Click &quot;Search Real Flights&quot; for live pricing from Google Flights and award availability.
           </p>
         </div>
         {itinerary.flights.map((flight, i) => (
@@ -1586,11 +1700,37 @@ function FlightsTab({
   }
 
   return (
-    <EmptyTabState
-      icon={<Plane className="h-8 w-8" />}
-      title="No flight data available"
-      subtitle="Generate a trip plan to search for flights."
-    />
+    <div className="space-y-5">
+      <div className="flex flex-col items-center justify-center rounded-xl border border-dashed border-slate-300 bg-slate-50/50 py-16">
+        <div className="mb-3 rounded-xl bg-slate-100 p-4 text-slate-400">
+          <Plane className="h-8 w-8" />
+        </div>
+        <p className="text-sm font-medium text-slate-600">No flight data available</p>
+        <p className="mt-1 mb-4 max-w-sm text-center text-xs text-slate-400">
+          Search for flights with real pricing and award availability.
+        </p>
+        <button
+          onClick={handleSearchFlights}
+          disabled={loading}
+          className="flex items-center gap-2 rounded-lg bg-blue-600 px-5 py-2.5 text-sm font-semibold text-white shadow-sm transition hover:bg-blue-700 disabled:opacity-50"
+        >
+          {loading ? (
+            <>
+              <Loader2 className="h-4 w-4 animate-spin" />
+              Searching Flights…
+            </>
+          ) : (
+            <>
+              <Search className="h-4 w-4" />
+              Search Flights
+            </>
+          )}
+        </button>
+        {searchError && (
+          <p className="mt-3 text-xs text-red-600">{searchError}</p>
+        )}
+      </div>
+    </div>
   );
 }
 
