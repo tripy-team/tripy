@@ -137,7 +137,12 @@ export async function POST(
     );
   } catch (error) {
     if (error instanceof Response) return error;
-    console.error("Meeting questions POST error:", error);
+    const info = {
+      name: error instanceof Error ? error.name : "Unknown",
+      message: error instanceof Error ? error.message : String(error),
+      ...(error instanceof Error && error.stack ? { stack: error.stack.split("\n").slice(0, 5).join(" | ") } : {}),
+    };
+    console.error("[MeetingQuestions] POST failed:", JSON.stringify(info));
     return errorResponse("Internal server error", 500);
   }
 }

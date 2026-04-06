@@ -1,13 +1,26 @@
 import { prisma } from "@/lib/prisma";
 import { requireAuth, json, errorResponse } from "@/lib/auth";
 
+function logError(method: string, stage: string, error: unknown, meta?: Record<string, string>) {
+  const info = {
+    method,
+    stage,
+    ...meta,
+    name: error instanceof Error ? error.name : "Unknown",
+    message: error instanceof Error ? error.message : String(error),
+    ...(error instanceof Error && error.stack ? { stack: error.stack.split("\n").slice(0, 5).join(" | ") } : {}),
+  };
+  console.error(`[MeetingSessions] ${method} failed at ${stage}:`, JSON.stringify(info));
+}
+
 export async function GET(
   request: Request,
   { params }: { params: Promise<{ id: string }> },
 ) {
+  let clientId = "unknown";
   try {
     const user = await requireAuth(request);
-    const { id: clientId } = await params;
+    ({ id: clientId } = await params);
 
     const client = await prisma.client.findFirst({
       where: { id: clientId, organizationId: user.organizationId },
@@ -26,7 +39,7 @@ export async function GET(
     return json(sessions);
   } catch (error) {
     if (error instanceof Response) return error;
-    console.error("Meeting sessions GET error:", error);
+    logError("GET", "outer_catch", error, { clientId });
     return errorResponse("Internal server error", 500);
   }
 }
@@ -35,9 +48,10 @@ export async function POST(
   request: Request,
   { params }: { params: Promise<{ id: string }> },
 ) {
+  let clientId = "unknown";
   try {
     const user = await requireAuth(request);
-    const { id: clientId } = await params;
+    ({ id: clientId } = await params);
     const body = await request.json();
     const { title } = body;
 
@@ -64,7 +78,7 @@ export async function POST(
     return json(session, 201);
   } catch (error) {
     if (error instanceof Response) return error;
-    console.error("Meeting session POST error:", error);
+    logError("POST", "outer_catch", error, { clientId });
     return errorResponse("Internal server error", 500);
   }
 }

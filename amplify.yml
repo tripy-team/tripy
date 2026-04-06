@@ -36,6 +36,27 @@ applications:
               if [ -n "${OPENAI_API_KEY:-}" ]; then
                 echo "OPENAI_API_KEY=$OPENAI_API_KEY" >> .env.production.local
               fi
+              if [ -n "${SERPAPI_KEY:-}" ]; then
+                echo "SERPAPI_KEY=$SERPAPI_KEY" >> .env.production.local
+              fi
+
+              # CloudWatch RUM analytics
+              if [ -n "${NEXT_PUBLIC_RUM_APP_MONITOR_ID:-}" ]; then
+                echo "NEXT_PUBLIC_RUM_APP_MONITOR_ID=$NEXT_PUBLIC_RUM_APP_MONITOR_ID" >> .env.production.local
+              fi
+              if [ -n "${NEXT_PUBLIC_RUM_IDENTITY_POOL_ID:-}" ]; then
+                echo "NEXT_PUBLIC_RUM_IDENTITY_POOL_ID=$NEXT_PUBLIC_RUM_IDENTITY_POOL_ID" >> .env.production.local
+              fi
+              if [ -n "${NEXT_PUBLIC_RUM_REGION:-}" ]; then
+                echo "NEXT_PUBLIC_RUM_REGION=$NEXT_PUBLIC_RUM_REGION" >> .env.production.local
+              fi
+              if [ -n "${NEXT_PUBLIC_ANALYTICS_ENABLED:-}" ]; then
+                echo "NEXT_PUBLIC_ANALYTICS_ENABLED=$NEXT_PUBLIC_ANALYTICS_ENABLED" >> .env.production.local
+              fi
+              if [ -n "${NEXT_PUBLIC_APP_VERSION:-}" ]; then
+                echo "NEXT_PUBLIC_APP_VERSION=$NEXT_PUBLIC_APP_VERSION" >> .env.production.local
+              fi
+
               echo "--- .env.production.local (keys only) ---"
               sed 's/=.*//' .env.production.local || true
               echo "============================="
