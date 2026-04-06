@@ -162,7 +162,7 @@ export async function POST(
       console.error("Cross-client extraction failed (non-blocking):", crossErr);
     }
 
-    let allSuggestions;
+    let allSuggestions: unknown[] = [];
     try {
       allSuggestions = await prisma.meetingProfileSuggestion.findMany({
         where: { sessionId: meetingId },
