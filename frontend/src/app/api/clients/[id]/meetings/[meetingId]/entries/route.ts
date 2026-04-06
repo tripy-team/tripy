@@ -54,6 +54,7 @@ export async function POST(
       confidence: number;
       evidence: string;
       status: string;
+      createdAt?: Date | string;
       targetClientId?: string | null;
       targetClient?: { id: string; firstName: string; lastName: string } | null;
       sourceDescription?: string | null;
@@ -286,6 +287,7 @@ export async function PATCH(
       confidence: number;
       evidence: string;
       status: string;
+      createdAt?: Date | string;
       targetClientId?: string | null;
       targetClient?: { id: string; firstName: string; lastName: string } | null;
       sourceDescription?: string | null;
