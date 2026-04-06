@@ -179,7 +179,7 @@ export async function POST(
           console.error("Cross-client per-answer extraction failed (non-blocking):", crossErr);
         }
 
-        let recentSuggestions: unknown[] = [];
+        let recentSuggestions: typeof extractedSuggestions = [];
         try {
           recentSuggestions = await prisma.meetingProfileSuggestion.findMany({
             where: { sessionId: meetingId },
