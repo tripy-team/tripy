@@ -1289,6 +1289,18 @@ export interface ItineraryHotelRecommendation {
   whyThisHotel: string;
 }
 
+export interface AttractionRecommendation {
+  name: string;
+  type: string;
+  timeSlot: string;
+  duration: string;
+  estimatedCost: number;
+  ticketUrl?: string;
+  requiresAdvanceBooking: boolean;
+  highlights: string[];
+  tips?: string;
+}
+
 export interface ItineraryDayPlan {
   day: number;
   date: string;
@@ -1297,6 +1309,7 @@ export interface ItineraryDayPlan {
   morning: string;
   afternoon: string;
   evening: string;
+  attractions: AttractionRecommendation[];
   diningRecommendation?: string;
   tips?: string;
 }
@@ -1323,6 +1336,73 @@ export interface ItineraryBudgetBreakdown {
   savings: string;
 }
 
+export interface RestaurantRecommendation {
+  name: string;
+  cuisine: string;
+  mealType: string;
+  priceLevel: string;
+  whyRecommended: string;
+  matchedPreferences: string[];
+  day?: number;
+  date?: string;
+  location?: string;
+  address?: string;
+  phone?: string;
+  website?: string;
+  reservationUrl?: string;
+  rating?: number;
+  reviewCount?: number;
+  hours?: string[];
+  thumbnailUrl?: string;
+  mapsUrl?: string;
+}
+
+// Per-traveler multi-modal transport search results
+export type TransportMode =
+  | "flight" | "train" | "bus" | "ferry"
+  | "rideshare" | "driving" | "shuttle" | "walk";
+
+export interface ScoredTransportOption {
+  mode: TransportMode;
+  provider: string;
+  origin: string;
+  destination: string;
+  departureTime?: string;
+  arrivalTime?: string;
+  durationMinutes: number;
+  price: number;
+  priceRange?: { low: number; high: number };
+  stops: number;
+  co2Kg?: number;
+  bookingUrl?: string;
+  source: string;
+  compositeScore: number;
+  costScore: number;
+  timeScore: number;
+  comfortScore: number;
+  convenienceScore: number;
+  rationale: string;
+  recommendation: "best_value" | "fastest" | "most_comfortable" | "budget" | null;
+}
+
+export interface TransportSegment {
+  segmentLabel: string;
+  origin: string;
+  destination: string;
+  date: string;
+  options: ScoredTransportOption[];
+  bestOverall: ScoredTransportOption | null;
+  bestBudget: ScoredTransportOption | null;
+  fastest: ScoredTransportOption | null;
+}
+
+export interface TravelerTransportGroup {
+  travelerId: string;
+  travelerName: string;
+  clientId: string;
+  segments: TransportSegment[];
+}
+
 export interface GeneratedItinerary {
   summary: string;
   flights: ItineraryFlightRecommendation[];
@@ -1333,6 +1413,8 @@ export interface GeneratedItinerary {
   pointsStrategy: string;
   tips: string[];
   travelerFlights?: TravelerFlightGroup[];
+  travelerTransport?: TravelerTransportGroup[];
+  restaurants?: RestaurantRecommendation[];
 }
 
 // Per-traveler real flight search results
@@ -1366,6 +1448,9 @@ export interface CashFlightOption {
   price: number;
   fareClass: string;
   cabin: string;
+  hasCarrierChange?: boolean;
+  isRedeye?: boolean;
+  score?: number;
 }
 
 export interface AwardFlightOption {
@@ -1380,6 +1465,8 @@ export interface AwardFlightOption {
   isDirect: boolean;
   airlines?: string;
   program: string;
+  cppValue?: number;
+  score?: number;
 }
 
 interface ItineraryGenerationResult {
@@ -1396,6 +1483,22 @@ export async function generateTripItinerary(tripId: string): Promise<GeneratedIt
     throw new Error('No itinerary returned from server');
   }
   return res.result;
+}
+
+// ---------------------------------------------------------------------------
+// Restaurant Search
+// ---------------------------------------------------------------------------
+
+interface RestaurantSearchResult {
+  restaurants: RestaurantRecommendation[];
+}
+
+export async function searchTripRestaurants(tripId: string): Promise<RestaurantRecommendation[]> {
+  const res = await apiFetch<RestaurantSearchResult>(
+    `/trip-requests/${tripId}/restaurants`,
+    { method: 'POST' },
+  );
+  return res.restaurants || [];
 }
 
 // ---------------------------------------------------------------------------

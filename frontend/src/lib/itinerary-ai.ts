@@ -13,13 +13,13 @@ interface TransferPartner {
   transferTime: string;
 }
 
-interface BankTransferPartners {
+export interface BankTransferPartners {
   name: string;
   airlinePartners: Record<string, TransferPartner>;
   hotelPartners: Record<string, TransferPartner>;
 }
 
-const TRANSFER_PARTNERS: Record<string, BankTransferPartners> = {
+export const TRANSFER_PARTNERS: Record<string, BankTransferPartners> = {
   chase: {
     name: "Chase Ultimate Rewards",
     airlinePartners: {
@@ -262,6 +262,18 @@ export interface HotelRecommendation {
   whyThisHotel: string;
 }
 
+export interface AttractionRecommendation {
+  name: string;
+  type: string;
+  timeSlot: string;
+  duration: string;
+  estimatedCost: number;
+  ticketUrl?: string;
+  requiresAdvanceBooking: boolean;
+  highlights: string[];
+  tips?: string;
+}
+
 export interface DayPlan {
   day: number;
   date: string;
@@ -270,6 +282,7 @@ export interface DayPlan {
   morning: string;
   afternoon: string;
   evening: string;
+  attractions: AttractionRecommendation[];
   diningRecommendation?: string;
   tips?: string;
 }
@@ -306,6 +319,9 @@ export interface GeneratedItinerary {
   pointsStrategy: string;
   tips: string[];
   travelerFlights?: import("./flight-search").TravelerFlightGroup[];
+  travelerHotels?: import("./hotel-search").TravelerHotelGroup[];
+  travelerTransport?: import("./transport-search").TravelerTransportGroup[];
+  restaurants?: import("./restaurant-search").RestaurantRecommendation[];
 }
 
 // ---------------------------------------------------------------------------
@@ -463,14 +479,29 @@ Return {"transportation":[...]} where each has: type("airport_transfer"/"car_ren
 
 async function genDailyItinerary(input: ItineraryInput, header: string): Promise<DayPlan[]> {
   const prefs = input.preferences ? buildPreferencesBlock(input.preferences) : "";
-  const prompt = `Travel advisor: create a day-by-day itinerary as JSON.
+  const prompt = `Travel advisor: create a day-by-day itinerary focused ONLY on attractions, sightseeing, and ticketed activities. Do NOT include restaurants, dining, food, or transportation recommendations — those are handled separately.
 
 ${header}
 ${prefs ? `Preferences: ${prefs}` : ""}
 
-Return {"dailyItinerary":[...]} where each day has: day(number), date, location, theme, morning, afternoon, evening, diningRecommendation, tips. Personalize for client preferences.`;
+Return {"dailyItinerary":[...]} where each day has:
+- day(number), date, location, theme
+- morning (attraction/activity description), afternoon (attraction/activity description), evening (attraction/activity description)
+- attractions: array of specific attractions/activities for that day, each with:
+  - name (attraction name)
+  - type ("museum"|"landmark"|"tour"|"park"|"show"|"cultural"|"adventure"|"market"|"historic_site"|"viewpoint"|"theme_park"|"gallery"|"festival"|"workshop"|"cruise")
+  - timeSlot ("morning"|"afternoon"|"evening"|"full_day")
+  - duration (e.g. "2 hours")
+  - estimatedCost (USD number, 0 if free)
+  - ticketUrl (booking URL if applicable, or empty string)
+  - requiresAdvanceBooking (boolean)
+  - highlights (2-3 string highlights of the attraction)
+  - tips (practical tip for visiting)
+- tips (general day tips)
 
-  const parsed = JSON.parse(await aiCall(prompt, 3072));
+Focus on top-rated local attractions, hidden gems, museums, landmarks, tours, shows, and experiences. Include ticket prices and booking info where applicable.`;
+
+  const parsed = JSON.parse(await aiCall(prompt, 4096));
   return (parsed.dailyItinerary || parsed.daily_itinerary || []).map(normalizeDayPlan);
 }
 
@@ -515,7 +546,8 @@ Return {"budgetBreakdown":{totalEstimatedCash, totalPointsUsed:[{program,points}
 }
 
 // ---------------------------------------------------------------------------
-// Main generation — fires 8 independent AI calls in parallel
+// Main generation — AI handles food/dining, transportation, and daily plan
+// only.  Flights come from the real search algorithm (flight-search.ts).
 // ---------------------------------------------------------------------------
 
 export async function generateItinerary(
@@ -527,19 +559,40 @@ export async function generateItinerary(
 
   const header = buildTripHeader(input);
 
-  const [flights, hotels, pointsStrategy, transportation, dailyItinerary, tips, summary, budgetBreakdown] =
-    await Promise.all([
-      genFlights(input, header),
-      genHotels(input, header),
-      genPointsStrategy(input, header),
-      genTransportation(input, header),
-      genDailyItinerary(input, header),
-      genTips(input, header),
-      genSummary(input, header),
-      genBudget(input, header),
-    ]);
+  const [transportation, dailyItinerary] = await Promise.all([
+    genTransportation(input, header),
+    genDailyItinerary(input, header),
+  ]);
 
-  return { summary, flights, hotels, transportation, dailyItinerary, budgetBreakdown, pointsStrategy, tips };
+  const origin = input.originAirports.join("/");
+  const dest = input.destinationAirports.join("/");
+  const tripDays = input.returnDate
+    ? Math.ceil(
+        (new Date(input.returnDate).getTime() - new Date(input.departureDate).getTime()) /
+          (1000 * 60 * 60 * 24),
+      )
+    : null;
+
+  return {
+    summary: `A ${tripDays ?? "multi"}-day trip from ${origin} to ${dest} for ${input.travelerCount} traveler${input.travelerCount > 1 ? "s" : ""}. Flight options sourced from live pricing data. See the Flights tab for real-time cash and award availability.`,
+    flights: [],
+    hotels: [],
+    transportation,
+    dailyItinerary,
+    budgetBreakdown: {
+      totalEstimatedCash: 0,
+      totalPointsUsed: [],
+      flightsCash: 0,
+      flightsPoints: "See Flights tab for live pricing",
+      hotelsCash: 0,
+      hotelsPoints: "",
+      transportationCash: transportation.reduce((sum, t) => sum + (t.estimatedCost || 0), 0),
+      activitiesAndDining: 0,
+      savings: "",
+    },
+    pointsStrategy: "",
+    tips: [],
+  };
 }
 
 // ---------------------------------------------------------------------------
@@ -618,7 +671,22 @@ function normalizeTransportRec(t: Record<string, unknown>): TransportationRecomm
   };
 }
 
+function normalizeAttraction(a: Record<string, unknown>): AttractionRecommendation {
+  return {
+    name: (a.name as string) || "",
+    type: (a.type as string) || "landmark",
+    timeSlot: (a.timeSlot as string) || (a.time_slot as string) || "morning",
+    duration: (a.duration as string) || "",
+    estimatedCost: (a.estimatedCost as number) ?? (a.estimated_cost as number) ?? 0,
+    ticketUrl: (a.ticketUrl as string) || (a.ticket_url as string) || undefined,
+    requiresAdvanceBooking: (a.requiresAdvanceBooking as boolean) ?? (a.requires_advance_booking as boolean) ?? false,
+    highlights: (a.highlights as string[]) || [],
+    tips: (a.tips as string) || undefined,
+  };
+}
+
 function normalizeDayPlan(d: Record<string, unknown>): DayPlan {
+  const rawAttractions = (d.attractions as Record<string, unknown>[]) || [];
   return {
     day: (d.day as number) ?? 1,
     date: (d.date as string) || "",
@@ -627,6 +695,7 @@ function normalizeDayPlan(d: Record<string, unknown>): DayPlan {
     morning: (d.morning as string) || "",
     afternoon: (d.afternoon as string) || "",
     evening: (d.evening as string) || "",
+    attractions: rawAttractions.map(normalizeAttraction),
     diningRecommendation: (d.diningRecommendation as string) || (d.dining_recommendation as string) || undefined,
     tips: (d.tips as string) || undefined,
   };
@@ -653,7 +722,6 @@ function normalizeBudget(b: Record<string, unknown>): BudgetBreakdown {
 function generateFallbackItinerary(input: ItineraryInput): GeneratedItinerary {
   const origin = input.originAirports.join("/");
   const dest = input.destinationAirports.join("/");
-  const cabin = input.cabinPreference || input.preferences?.preferredCabin || "economy";
   const tripDays = input.returnDate
     ? Math.ceil(
       (new Date(input.returnDate).getTime() - new Date(input.departureDate).getTime()) /
@@ -671,64 +739,18 @@ function generateFallbackItinerary(input: ItineraryInput): GeneratedItinerary {
       location: dest,
       theme: i === 0 ? "Arrival & Settle In" : i === tripDays - 1 ? "Departure Day" : "Exploration Day",
       morning: i === 0 ? "Arrive and check into hotel. Freshen up and get oriented." : "Explore local sights and attractions.",
-      afternoon: i === 0 ? "Light neighborhood walk to acclimate. Visit a nearby café." : "Guided tour or cultural experience.",
-      evening: "Dinner at a recommended local restaurant.",
+      afternoon: i === 0 ? "Light neighborhood walk to acclimate. Visit a nearby landmark." : "Guided tour or cultural experience.",
+      evening: "Evening attractions and entertainment.",
+      attractions: [],
       diningRecommendation: "Ask your concierge for current top-rated restaurants in the area.",
       tips: i === 0 ? "Keep your first day light to adjust to the time zone." : undefined,
     });
   }
 
-  const hasPoints = input.loyaltyBalances && input.loyaltyBalances.length > 0;
-
   return {
-    summary: `A ${tripDays}-day trip from ${origin} to ${dest} for ${input.travelerCount} traveler${input.travelerCount > 1 ? "s" : ""} in ${cabin} class. ${hasPoints ? "Points redemption opportunities available from your loyalty accounts." : "Cash bookings recommended."} Set up your OpenAI API key for detailed, personalized recommendations.`,
-    flights: [
-      {
-        segment: "Outbound",
-        airline: "Major carrier on this route",
-        flightExample: `${origin} → ${dest}`,
-        cabin: cabin.replace("_", " "),
-        departureTime: "Morning departure recommended",
-        arrivalTime: "Check specific flight schedules",
-        duration: "Varies by route",
-        stops: 0,
-        cashOption: { estimatedPrice: 0, fareClass: cabin },
-        recommendation: "cash",
-        whyThisFlight: "Connect your OpenAI API key for specific flight recommendations with pricing.",
-      },
-      ...(input.returnDate
-        ? [
-          {
-            segment: "Return" as const,
-            airline: "Major carrier on this route",
-            flightExample: `${dest} → ${origin}`,
-            cabin: cabin.replace("_", " "),
-            departureTime: "Afternoon departure recommended",
-            arrivalTime: "Check specific flight schedules",
-            duration: "Varies by route",
-            stops: 0,
-            cashOption: { estimatedPrice: 0, fareClass: cabin },
-            recommendation: "cash" as const,
-            whyThisFlight: "Connect your OpenAI API key for specific flight recommendations with pricing.",
-          },
-        ]
-        : []),
-    ],
-    hotels: [
-      {
-        destination: dest,
-        hotelName: "Top-rated hotel in destination",
-        hotelType: input.preferences?.preferredHotelTypes?.[0] || "luxury",
-        starRating: 4,
-        neighborhood: "Central location recommended",
-        checkIn: input.departureDate,
-        checkOut: input.returnDate || input.departureDate,
-        nightCount: Math.max(1, tripDays - 1),
-        cashOption: { estimatedPerNight: 0, estimatedTotal: 0 },
-        highlights: ["Central location", "Highly rated", "Matches your style preferences"],
-        whyThisHotel: "Connect your OpenAI API key for specific hotel recommendations with pricing.",
-      },
-    ],
+    summary: `A ${tripDays}-day trip from ${origin} to ${dest} for ${input.travelerCount} traveler${input.travelerCount > 1 ? "s" : ""}. Flight options sourced from live pricing data. Set up your OpenAI API key for personalized dining and activity recommendations.`,
+    flights: [],
+    hotels: [],
     transportation: [
       {
         type: "airport_transfer",
@@ -744,22 +766,14 @@ function generateFallbackItinerary(input: ItineraryInput): GeneratedItinerary {
       totalEstimatedCash: 0,
       totalPointsUsed: [],
       flightsCash: 0,
-      flightsPoints: "Connect OpenAI for points analysis",
+      flightsPoints: "See Flights tab for live pricing",
       hotelsCash: 0,
-      hotelsPoints: "Connect OpenAI for points analysis",
+      hotelsPoints: "",
       transportationCash: 0,
       activitiesAndDining: 0,
-      savings: "Connect your OpenAI API key for detailed budget analysis",
+      savings: "",
     },
-    pointsStrategy: hasPoints
-      ? `You have loyalty balances that could be used for this trip. Connect your OpenAI API key for a detailed points optimization strategy.`
-      : "No loyalty balances found. Cash bookings will be recommended.",
-    tips: [
-      "Check passport validity — many countries require 6 months remaining.",
-      "Research visa requirements for your destination well in advance.",
-      "Consider travel insurance for trip protection.",
-      "Download offline maps for your destination.",
-      "Connect your OpenAI API key for personalized, destination-specific tips.",
-    ],
+    pointsStrategy: "",
+    tips: [],
   };
 }

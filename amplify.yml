@@ -39,6 +39,9 @@ applications:
               if [ -n "${SERPAPI_KEY:-}" ]; then
                 echo "SERPAPI_KEY=$SERPAPI_KEY" >> .env.production.local
               fi
+              if [ -n "${GOOGLE_MAPS_API_KEY:-}" ]; then
+                echo "GOOGLE_MAPS_API_KEY=$GOOGLE_MAPS_API_KEY" >> .env.production.local
+              fi
 
               # CloudWatch RUM analytics
               if [ -n "${NEXT_PUBLIC_RUM_APP_MONITOR_ID:-}" ]; then

@@ -33,6 +33,9 @@ export interface CashFlightResult {
   fareClass: string;
   cabin: string;
   bookingToken?: string;
+  hasCarrierChange?: boolean;
+  isRedeye?: boolean;
+  score?: number;
 }
 
 export interface AwardFlightResult {
@@ -47,6 +50,8 @@ export interface AwardFlightResult {
   isDirect: boolean;
   airlines?: string;
   program: string;
+  cppValue?: number;
+  score?: number;
 }
 
 export interface TravelerFlightGroup {
@@ -108,6 +113,105 @@ const PROGRAM_NAMES: Record<string, string> = {
   eurobonus: "SAS EuroBonus",
   avios: "British Airways Avios",
 };
+
+// ---------------------------------------------------------------------------
+// Flight scoring — ported from backend optimization/pruning.py
+//
+// Multi-criteria scoring adapted from the MILP solver's objective functions:
+//   OOP mode:  minimize(cash + surcharges + stop_penalty)
+//   CPP mode:  maximize(points_value - quality_penalties)
+//   Balanced:  value * time_factor * connection_factor * carrier_factor * redeye_factor
+// ---------------------------------------------------------------------------
+
+function detectRedeye(departureTime: string, arrivalTime: string): boolean {
+  const depHour = parseHour(departureTime);
+  if (depHour === -1) return false;
+  return depHour >= 21 || depHour < 5;
+}
+
+function parseHour(timeStr: string): number {
+  if (!timeStr) return -1;
+  const match = timeStr.match(/(\d{1,2}):(\d{2})/);
+  if (!match) return -1;
+  return parseInt(match[1], 10);
+}
+
+/**
+ * Multi-criteria score for cash flights.
+ *
+ * Mirrors backend pruning.py `_flight_combined_score` with weights adjusted
+ * for the B2B context (no award-value or time-preference dimensions at this
+ * stage, so cash + time take larger shares).
+ *
+ * Higher score = better flight.
+ */
+function scoreCashFlight(flight: CashFlightResult): number {
+  const cashScore = 1.0 - Math.min(1.0, flight.price / 5000);
+  const timeScore = 1.0 - Math.min(1.0, flight.duration / (24 * 60));
+  const nonstopBonus = flight.stops === 0 ? 0.3 : -0.15 * flight.stops;
+  const carrierPenalty = flight.hasCarrierChange ? 0.1 : 0;
+  const redeyePenalty = flight.isRedeye ? 0.15 : 0;
+
+  return (
+    0.35 * cashScore +
+    0.35 * timeScore +
+    nonstopBonus -
+    carrierPenalty -
+    redeyePenalty
+  );
+}
+
+/**
+ * CPP-based score for award flights.
+ *
+ * Mirrors backend precompute.py `_precompute_flight_award_values` balanced
+ * mode: value * connection_factor * availability_factor.
+ */
+function scoreAwardFlight(
+  award: AwardFlightResult,
+  bestCashPrice: number,
+): number {
+  if (bestCashPrice <= 0 || award.milesRequired <= 0) return 0;
+
+  const cpp = ((bestCashPrice - award.taxes) / award.milesRequired) * 100;
+  if (cpp <= 0) return 0;
+
+  const connectionFactor = award.isDirect
+    ? 1.0
+    : 1.0 / (1.0 + 1 * 0.20); // 20% penalty per stop (assume 1 stop if not direct)
+
+  const availabilityFactor =
+    award.seatsRemaining != null && award.seatsRemaining < 3
+      ? 1.0 - 0.30 * ((3 - award.seatsRemaining) / 3)
+      : 1.0;
+
+  return cpp * connectionFactor * availabilityFactor;
+}
+
+/**
+ * Post-process flight results for a route: re-rank awards using CPP from
+ * the best cash price, matching the backend solver's value calculation.
+ */
+function rankRouteFlights(
+  cash: CashFlightResult[],
+  awards: AwardFlightResult[],
+): { cash: CashFlightResult[]; award: AwardFlightResult[] } {
+  const bestCashPrice =
+    cash.length > 0 ? Math.min(...cash.map((c) => c.price)) : 0;
+
+  for (const a of awards) {
+    const cpp =
+      bestCashPrice > 0 && a.milesRequired > 0
+        ? ((bestCashPrice - a.taxes) / a.milesRequired) * 100
+        : 0;
+    a.cppValue = Math.round(cpp * 100) / 100;
+    a.score = scoreAwardFlight(a, bestCashPrice);
+  }
+
+  awards.sort((a, b) => (b.score ?? 0) - (a.score ?? 0));
+
+  return { cash, award: awards };
+}
 
 // ---------------------------------------------------------------------------
 // SerpAPI — Google Flights (cash pricing)
@@ -180,10 +284,18 @@ export async function searchCashFlights(
       ...(data.other_flights ?? []),
     ];
 
-    for (const group of allFlights.slice(0, 8)) {
+    for (const group of allFlights.slice(0, 15)) {
       const firstLeg = group.flights[0];
       const lastLeg = group.flights[group.flights.length - 1];
       if (!firstLeg || !lastLeg) continue;
+
+      const hasCarrierChange = group.flights.length > 1 &&
+        group.flights.some((f, i) => i > 0 && f.airline !== group.flights[i - 1].airline);
+
+      const isRedeye = detectRedeye(
+        firstLeg.departure_airport.time,
+        lastLeg.arrival_airport.time,
+      );
 
       results.push({
         airline: firstLeg.airline,
@@ -203,10 +315,17 @@ export async function searchCashFlights(
         fareClass: firstLeg.travel_class,
         cabin: firstLeg.travel_class,
         bookingToken: group.booking_token,
+        hasCarrierChange,
+        isRedeye,
       });
     }
 
-    return results;
+    for (const r of results) {
+      r.score = scoreCashFlight(r);
+    }
+    results.sort((a, b) => (b.score ?? 0) - (a.score ?? 0));
+
+    return results.slice(0, 8);
   } catch (err) {
     console.error("SerpAPI fetch failed:", err);
     return [];
@@ -314,7 +433,7 @@ export async function searchAwardFlights(
     }
 
     results.sort((a, b) => a.milesRequired - b.milesRequired);
-    return results.slice(0, 10);
+    return results.slice(0, 15);
   } catch (err) {
     console.error("Seats.aero fetch failed:", err);
     return [];
@@ -390,7 +509,8 @@ export async function searchFlightsForTravelers(
         searchCashFlights({ origin, destination: dest, date, cabinClass: cabin }),
         searchAwardFlights({ origin, destination: dest, date, cabinClass: cabin }),
       ]);
-      return [key, { cash, award }] as const;
+      const ranked = rankRouteFlights(cash, award);
+      return [key, { cash: ranked.cash, award: ranked.award }] as const;
     }),
   );
 

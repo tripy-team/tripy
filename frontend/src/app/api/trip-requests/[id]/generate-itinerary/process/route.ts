@@ -7,6 +7,11 @@ import {
   searchFlightsForTravelers,
   type TravelerSearchInput,
 } from "@/lib/flight-search";
+import {
+  searchAndScoreTransportForTravelers,
+  type TransportScoringContext,
+} from "@/lib/transport-scoring";
+import type { TransportSearchInput } from "@/lib/transport-search";
 import type { Prisma } from "@/generated/prisma/client";
 
 export const maxDuration = 60;
@@ -178,7 +183,25 @@ export async function POST(
         });
       }
 
-      const [itinerary, travelerFlights] = await Promise.all([
+      const transportTravelerInputs: TransportSearchInput[] = travelerInputs.map((t) => ({
+        travelerId: t.travelerId,
+        travelerName: t.travelerName,
+        clientId: t.clientId,
+        originAirports: t.originAirports,
+        destinationAirports: t.destinationAirports,
+      }));
+
+      const transportScoringContext: TransportScoringContext = {
+        clientName: trip.client ? `${trip.client.firstName} ${trip.client.lastName}` : "Guest",
+        tripTitle: trip.title,
+        travelerCount: trip.travelerCount,
+        budgetCash: trip.budgetCash ?? undefined,
+        preferences: {
+          budgetSensitivity: prefs?.budgetSensitivity ?? undefined,
+        },
+      };
+
+      const [itinerary, travelerFlights, travelerTransport] = await Promise.all([
         generateItinerary(input),
         searchFlightsForTravelers(
           travelerInputs,
@@ -189,9 +212,20 @@ export async function POST(
           console.error("Flight search failed (non-fatal):", err);
           return [];
         }),
+        searchAndScoreTransportForTravelers(
+          transportTravelerInputs,
+          departureDate,
+          returnDate,
+          transportScoringContext,
+          trip.cabinPreference ?? "economy",
+        ).catch((err) => {
+          console.error("Transport search failed (non-fatal):", err);
+          return [];
+        }),
       ]);
 
       itinerary.travelerFlights = travelerFlights;
+      itinerary.travelerTransport = travelerTransport;
 
       await prisma.itineraryJob.update({
         where: { id: jobId },
