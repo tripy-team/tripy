@@ -1406,7 +1406,7 @@ export function pollItineraryStatus(tripId: string, jobId: string) {
 }
 
 const POLL_INTERVAL_MS = 2000;
-const POLL_MAX_ATTEMPTS = 45;
+const POLL_MAX_ATTEMPTS = 75;
 
 export async function generateTripItinerary(tripId: string): Promise<GeneratedItinerary> {
   const { jobId } = await startItineraryGeneration(tripId);

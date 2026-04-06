@@ -309,12 +309,21 @@ export interface GeneratedItinerary {
 }
 
 // ---------------------------------------------------------------------------
-// Main generation function
+// Shared context builder for parallel prompts
 // ---------------------------------------------------------------------------
 
-export async function generateItinerary(
-  input: ItineraryInput,
-): Promise<GeneratedItinerary> {
+interface SharedContext {
+  prefsBlock: string;
+  balancesBlock: string;
+  transferPartnersBlock: string;
+  bonusesBlock: string;
+  routeBlock: string;
+  tripDuration: number | null;
+  tripHeader: string;
+  transferRules: string;
+}
+
+function buildSharedContext(input: ItineraryInput): SharedContext {
   const prefsBlock = input.preferences
     ? buildPreferencesBlock(input.preferences)
     : "No preferences on file.";
@@ -352,9 +361,7 @@ export async function generateItinerary(
     )
     : null;
 
-  const prompt = `You are an elite luxury travel advisor AI. Generate a comprehensive, personalized trip itinerary based on the following trip request and client profile.
-
-TRIP DETAILS:
+  const tripHeader = `TRIP DETAILS:
 - Title: ${input.tripTitle}
 - Route:
 ${routeBlock}
@@ -364,76 +371,9 @@ ${routeBlock}
 ${input.budgetCash ? `- Budget: $${input.budgetCash.toLocaleString()}` : ""}
 ${input.flexibilityDays ? `- Date Flexibility: ±${input.flexibilityDays} days` : ""}
 ${input.notes ? `- Notes: ${input.notes}` : ""}
-${input.clientName ? `- Client: ${input.clientName}` : ""}
+${input.clientName ? `- Client: ${input.clientName}` : ""}`;
 
-CLIENT PREFERENCES:
-${prefsBlock}
-
-LOYALTY BALANCES:
-${balancesBlock}
-
-CREDIT CARD TRANSFER PARTNERS (authoritative — only these transfers are possible):
-${transferPartnersBlock}
-
-ACTIVE TRANSFER BONUSES:
-${bonusesBlock}
-
-INSTRUCTIONS:
-Generate a detailed itinerary as a JSON object with these sections:
-
-1. **summary**: 3-4 sentence executive summary of the trip plan, mentioning key highlights and the overall travel strategy (points vs cash).
-
-2. **flights**: Array of flight recommendations. For each flight segment:
-   - segment: "Outbound" / "Return" / "Leg 1" etc.
-   - airline: Recommended airline
-   - flightExample: Example flight number or route description
-   - cabin: Cabin class recommendation
-   - departureTime: Approximate departure time
-   - arrivalTime: Approximate arrival time
-   - duration: Flight duration
-   - stops: Number of stops (0 = nonstop)
-   - pointsOption: If loyalty balances support it, include { program, pointsRequired, transferFrom (if transfer partner), transferBonus (e.g. "+30% bonus through June"), taxes (estimated in USD) }. Only suggest this if the client has enough points or can transfer.
-   - cashOption: { estimatedPrice (USD), fareClass }
-   - recommendation: "points" or "cash" — which is the better value
-   - whyThisFlight: 1-2 sentences on why this flight suits this traveler
-
-3. **hotels**: Array of hotel recommendations for each destination/stop:
-   - destination, hotelName, hotelType (boutique/resort/luxury chain/etc.), starRating (1-5)
-   - neighborhood: Area description
-   - checkIn, checkOut dates, nightCount
-   - pointsOption: If applicable, { program, pointsPerNight, totalPoints, transferFrom }
-   - cashOption: { estimatedPerNight, estimatedTotal } in USD
-   - highlights: 3-4 feature highlights
-   - whyThisHotel: 1-2 sentences on why this hotel matches the client
-
-4. **transportation**: Array of ground transportation recommendations (airport transfers, car rentals, trains, ride services, etc.):
-   - type: "airport_transfer" / "car_rental" / "ride_service" / "train" / "private_car" / "shuttle"
-   - provider: Specific provider name (e.g., "Uber Black", "Hertz", "Amtrak")
-   - route: Description of the route (e.g., "JFK Airport → Manhattan Hotel")
-   - estimatedCost: Cost in USD
-   - duration: Estimated travel time
-   - notes: Why this option is recommended
-   - bookingTip: Optional booking tip (promo codes, timing advice, etc.)
-
-5. **dailyItinerary**: Array of day-by-day plans:
-   - day (number), date, location, theme (e.g., "Arrival & Exploration")
-   - morning, afternoon, evening: Activity descriptions
-   - diningRecommendation: Restaurant or cuisine suggestion
-   - tips: Practical tips for that day
-
-6. **budgetBreakdown**: Overall budget summary:
-   - totalEstimatedCash: Total out-of-pocket in USD
-   - totalPointsUsed: Array of { program, points } used
-   - flightsCash, flightsPoints (summary string), hotelsCash, hotelsPoints (summary string)
-   - transportationCash: Total ground transportation estimate
-   - activitiesAndDining: Estimated daily activities/food budget
-   - savings: Description of savings from points usage
-
-7. **pointsStrategy**: 2-3 sentences explaining the points/transfer strategy, including which programs to transfer from, the transfer ratios, and any current transfer bonuses to take advantage of. Mention specific transfer partnerships used.
-
-8. **tips**: Array of 4-6 practical travel tips specific to this trip (visa requirements, weather, packing, local customs, transportation, etc.)
-
-CRITICAL TRANSFER RULES — YOU MUST FOLLOW THESE:
+  const transferRules = `CRITICAL TRANSFER RULES — YOU MUST FOLLOW THESE:
 - ONLY suggest transfers that appear in the CREDIT CARD TRANSFER PARTNERS list above. If a bank→airline or bank→hotel path is not listed, it does NOT exist.
 - Chase CANNOT transfer to Delta, American, Emirates, ANA, Turkish, Qatar, Etihad, Cathay Pacific, or Alaska.
 - Amex CANNOT transfer to United, American, Southwest, or Alaska.
@@ -442,46 +382,254 @@ CRITICAL TRANSFER RULES — YOU MUST FOLLOW THESE:
 - Bilt CANNOT transfer to Delta, American, or Alaska.
 - When a transfer bonus is active, factor it into the value calculation (e.g., a 30% bonus means 100k points become 130k miles).
 - Include the transfer ratio in pointsOption.transferFrom (e.g., "Chase Ultimate Rewards (1:1)").
-- If the best airline for a route is not a transfer partner of the client's bank, recommend the best available partner airline or suggest paying cash.
+- If the best airline for a route is not a transfer partner of the client's bank, recommend the best available partner airline or suggest paying cash.`;
 
-ADDITIONAL RULES:
-- Be realistic with pricing estimates (as of 2024-2025 market rates)
-- If the client has loyalty points, prioritize using them where they get the best value (aim for >1.5 cpp on flights, >0.7 cpp on hotels)
-- Respect all client preferences and dealbreakers
-- Match the cabin class to the client's preference or stored preference
-- If client prefers nonstop, prioritize direct flights
-- Personalize activities based on activityPreferences, foodPreferences, and dislikes
-- Account for familyConsiderations and specialOccasions if present
-- For multi-city trips, plan logistics between cities
+  return { prefsBlock, balancesBlock, transferPartnersBlock, bonusesBlock, routeBlock, tripDuration, tripHeader, transferRules };
+}
 
-Return ONLY a valid JSON object matching the structure above.`;
+// ---------------------------------------------------------------------------
+// Parallel sub-generators
+// ---------------------------------------------------------------------------
 
-  if (!process.env.OPENAI_API_KEY) {
-    return generateFallbackItinerary(input);
-  }
+async function generateFlightsAndStrategy(
+  ctx: SharedContext,
+  input: ItineraryInput,
+): Promise<{ flights: FlightRecommendation[]; pointsStrategy: string }> {
+  const prompt = `You are an elite luxury travel advisor AI. Generate flight recommendations and points strategy.
+
+${ctx.tripHeader}
+
+CLIENT PREFERENCES:
+${ctx.prefsBlock}
+
+LOYALTY BALANCES:
+${ctx.balancesBlock}
+
+CREDIT CARD TRANSFER PARTNERS (authoritative — only these transfers are possible):
+${ctx.transferPartnersBlock}
+
+ACTIVE TRANSFER BONUSES:
+${ctx.bonusesBlock}
+
+${ctx.transferRules}
+
+Return a JSON object with:
+1. "flights": Array of flight recommendations. For each flight segment:
+   - segment: "Outbound" / "Return" / "Leg 1" etc.
+   - airline, flightExample, cabin, departureTime, arrivalTime, duration
+   - stops: Number of stops (0 = nonstop)
+   - pointsOption: If loyalty balances support it, { program, pointsRequired, transferFrom, transferBonus, taxes }
+   - cashOption: { estimatedPrice (USD), fareClass }
+   - recommendation: "points" or "cash"
+   - whyThisFlight: 1-2 sentences
+
+2. "pointsStrategy": 2-3 sentences explaining the points/transfer strategy used.
+
+RULES:
+- Be realistic with 2024-2025 market rate pricing
+- Prioritize points where value >1.5 cpp
+- Respect cabin preference, nonstop preference, airline preferences/avoidances
+- For multi-city trips, include all legs
+
+Return ONLY valid JSON.`;
 
   const response = await openai.chat.completions.create({
     model: "gpt-4o-mini",
     messages: [{ role: "user", content: prompt }],
     response_format: { type: "json_object" },
     temperature: 0.7,
-    max_tokens: 4096,
+    max_tokens: 2048,
   });
+  const parsed = JSON.parse(response.choices[0]?.message?.content || "{}");
+  return {
+    flights: (parsed.flights || []).map(normalizeFlightRec),
+    pointsStrategy: parsed.pointsStrategy || parsed.points_strategy || "",
+  };
+}
 
-  const content = response.choices[0]?.message?.content;
-  if (!content) throw new Error("No response from OpenAI");
+async function generateHotels(
+  ctx: SharedContext,
+  input: ItineraryInput,
+): Promise<HotelRecommendation[]> {
+  const prompt = `You are an elite luxury travel advisor AI. Generate hotel recommendations.
 
-  const parsed = JSON.parse(content);
+${ctx.tripHeader}
 
+CLIENT PREFERENCES:
+${ctx.prefsBlock}
+
+LOYALTY BALANCES:
+${ctx.balancesBlock}
+
+CREDIT CARD TRANSFER PARTNERS (authoritative — only these transfers are possible):
+${ctx.transferPartnersBlock}
+
+ACTIVE TRANSFER BONUSES:
+${ctx.bonusesBlock}
+
+${ctx.transferRules}
+
+Return a JSON object with "hotels": Array of hotel recommendations for each destination/stop:
+- destination, hotelName, hotelType (boutique/resort/luxury chain/etc.), starRating (1-5)
+- neighborhood: Area description
+- checkIn, checkOut dates, nightCount
+- pointsOption: If applicable, { program, pointsPerNight, totalPoints, transferFrom }
+- cashOption: { estimatedPerNight, estimatedTotal } in USD
+- highlights: 3-4 feature highlights
+- whyThisHotel: 1-2 sentences
+
+RULES:
+- Be realistic with 2024-2025 pricing
+- Prioritize points where value >0.7 cpp
+- Match hotel types and location preferences
+- Respect dealbreakers
+
+Return ONLY valid JSON.`;
+
+  const response = await openai.chat.completions.create({
+    model: "gpt-4o-mini",
+    messages: [{ role: "user", content: prompt }],
+    response_format: { type: "json_object" },
+    temperature: 0.7,
+    max_tokens: 1536,
+  });
+  const parsed = JSON.parse(response.choices[0]?.message?.content || "{}");
+  return (parsed.hotels || []).map(normalizeHotelRec);
+}
+
+async function generateDailyPlanAndTransport(
+  ctx: SharedContext,
+  input: ItineraryInput,
+): Promise<{ dailyItinerary: DayPlan[]; transportation: TransportationRecommendation[]; tips: string[] }> {
+  const prompt = `You are an elite luxury travel advisor AI. Generate a day-by-day itinerary, ground transportation, and travel tips.
+
+${ctx.tripHeader}
+
+CLIENT PREFERENCES:
+${ctx.prefsBlock}
+
+Return a JSON object with:
+1. "dailyItinerary": Array of day-by-day plans:
+   - day (number), date, location, theme (e.g., "Arrival & Exploration")
+   - morning, afternoon, evening: Activity descriptions
+   - diningRecommendation: Restaurant or cuisine suggestion
+   - tips: Practical tips for that day
+
+2. "transportation": Array of ground transportation recommendations:
+   - type: "airport_transfer" / "car_rental" / "ride_service" / "train" / "private_car" / "shuttle"
+   - provider: Specific provider name
+   - route: Description of the route
+   - estimatedCost: Cost in USD
+   - duration: Estimated travel time
+   - notes: Why this option is recommended
+   - bookingTip: Optional booking tip
+
+3. "tips": Array of 4-6 practical travel tips specific to this trip (visa, weather, packing, customs, etc.)
+
+RULES:
+- Personalize activities based on food preferences, activity preferences, and dislikes
+- Account for family considerations and special occasions
+- For multi-city trips, plan logistics between cities
+- Be realistic with transportation pricing
+
+Return ONLY valid JSON.`;
+
+  const response = await openai.chat.completions.create({
+    model: "gpt-4o-mini",
+    messages: [{ role: "user", content: prompt }],
+    response_format: { type: "json_object" },
+    temperature: 0.7,
+    max_tokens: 2048,
+  });
+  const parsed = JSON.parse(response.choices[0]?.message?.content || "{}");
+  return {
+    dailyItinerary: (parsed.dailyItinerary || parsed.daily_itinerary || []).map(normalizeDayPlan),
+    transportation: (parsed.transportation || []).map(normalizeTransportRec),
+    tips: parsed.tips || [],
+  };
+}
+
+async function generateSummaryAndBudget(
+  ctx: SharedContext,
+  input: ItineraryInput,
+): Promise<{ summary: string; budgetBreakdown: BudgetBreakdown }> {
+  const prompt = `You are an elite luxury travel advisor AI. Generate an executive trip summary and budget breakdown.
+
+${ctx.tripHeader}
+
+CLIENT PREFERENCES:
+${ctx.prefsBlock}
+
+LOYALTY BALANCES:
+${ctx.balancesBlock}
+
+CREDIT CARD TRANSFER PARTNERS (authoritative):
+${ctx.transferPartnersBlock}
+
+ACTIVE TRANSFER BONUSES:
+${ctx.bonusesBlock}
+
+Return a JSON object with:
+1. "summary": 3-4 sentence executive summary of the trip plan, mentioning key highlights and overall strategy (points vs cash).
+
+2. "budgetBreakdown":
+   - totalEstimatedCash: Total out-of-pocket in USD
+   - totalPointsUsed: Array of { program, points } used
+   - flightsCash, flightsPoints (summary string), hotelsCash, hotelsPoints (summary string)
+   - transportationCash: Total ground transportation estimate
+   - activitiesAndDining: Estimated daily activities/food budget
+   - savings: Description of savings from points usage
+
+RULES:
+- Be realistic with 2024-2025 pricing
+- Factor in loyalty balances and transfer bonuses for savings estimates
+- If client has points, show how they reduce out-of-pocket costs
+
+Return ONLY valid JSON.`;
+
+  const response = await openai.chat.completions.create({
+    model: "gpt-4o-mini",
+    messages: [{ role: "user", content: prompt }],
+    response_format: { type: "json_object" },
+    temperature: 0.7,
+    max_tokens: 1024,
+  });
+  const parsed = JSON.parse(response.choices[0]?.message?.content || "{}");
   return {
     summary: parsed.summary || "",
-    flights: (parsed.flights || []).map(normalizeFlightRec),
-    hotels: (parsed.hotels || []).map(normalizeHotelRec),
-    transportation: (parsed.transportation || []).map(normalizeTransportRec),
-    dailyItinerary: (parsed.dailyItinerary || parsed.daily_itinerary || []).map(normalizeDayPlan),
     budgetBreakdown: normalizeBudget(parsed.budgetBreakdown || parsed.budget_breakdown || {}),
-    pointsStrategy: parsed.pointsStrategy || parsed.points_strategy || "",
-    tips: parsed.tips || [],
+  };
+}
+
+// ---------------------------------------------------------------------------
+// Main generation function — runs 4 focused AI calls in parallel
+// ---------------------------------------------------------------------------
+
+export async function generateItinerary(
+  input: ItineraryInput,
+): Promise<GeneratedItinerary> {
+  if (!process.env.OPENAI_API_KEY) {
+    return generateFallbackItinerary(input);
+  }
+
+  const ctx = buildSharedContext(input);
+
+  const [flightsResult, hotels, dailyResult, summaryResult] = await Promise.all([
+    generateFlightsAndStrategy(ctx, input),
+    generateHotels(ctx, input),
+    generateDailyPlanAndTransport(ctx, input),
+    generateSummaryAndBudget(ctx, input),
+  ]);
+
+  return {
+    summary: summaryResult.summary,
+    flights: flightsResult.flights,
+    hotels,
+    transportation: dailyResult.transportation,
+    dailyItinerary: dailyResult.dailyItinerary,
+    budgetBreakdown: summaryResult.budgetBreakdown,
+    pointsStrategy: flightsResult.pointsStrategy,
+    tips: dailyResult.tips,
   };
 }
 
