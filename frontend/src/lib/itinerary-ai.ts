@@ -364,7 +364,10 @@ RULES: Only suggest transfers listed above. Chase≠Delta/AA/Emirates/ANA/Turkis
 function aiCall(prompt: string, maxTokens: number): Promise<string> {
   return openai.chat.completions.create({
     model: "gpt-4o-mini",
-    messages: [{ role: "user", content: prompt }],
+    messages: [
+      { role: "system", content: "Respond with valid JSON only." },
+      { role: "user", content: prompt },
+    ],
     response_format: { type: "json_object" },
     temperature: 0.5,
     max_tokens: maxTokens,
