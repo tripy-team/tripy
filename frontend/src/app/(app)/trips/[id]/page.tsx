@@ -144,6 +144,13 @@ const TABS: { key: TripTab; label: string; icon: React.ReactNode }[] = [
   { key: 'itinerary', label: 'Itinerary', icon: <ClipboardList className="h-4 w-4" /> },
 ];
 
+// eslint-disable-next-line @typescript-eslint/no-explicit-any
+function tipToString(tip: any): string {
+  if (typeof tip === 'string') return tip;
+  if (tip && typeof tip === 'object' && typeof tip.tip === 'string') return tip.tip;
+  return JSON.stringify(tip);
+}
+
 function formatDate(dateStr: string) {
   return new Date(dateStr).toLocaleDateString('en-US', {
     weekday: 'short',
@@ -996,7 +1003,7 @@ function OverviewTab({
               {itinerary.tips.map((tip, i) => (
                 <div key={i} className="flex items-start gap-2 text-xs text-emerald-700">
                   <Lightbulb className="mt-0.5 h-3 w-3 flex-shrink-0" />
-                  <span>{tip}</span>
+                  <span>{tipToString(tip)}</span>
                 </div>
               ))}
             </div>
@@ -3526,7 +3533,7 @@ function ItinerarySummaryTab({
             {itinerary.tips.map((tip, i) => (
               <div key={i} className="flex items-start gap-2 rounded-lg bg-slate-50 p-3">
                 <CheckCircle2 className="mt-0.5 h-3.5 w-3.5 flex-shrink-0 text-emerald-500" />
-                <p className="text-xs text-slate-700">{tip}</p>
+                <p className="text-xs text-slate-700">{tipToString(tip)}</p>
               </div>
             ))}
           </div>

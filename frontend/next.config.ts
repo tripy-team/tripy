@@ -33,11 +33,11 @@ const remotePatterns: Array<{
     hostname: 'tripy-city-images.s3.amazonaws.com',
     pathname: '/**',
   },
-  // Clearbit logos for loyalty program icons
+  // Google favicon service for loyalty program icons
   {
     protocol: 'https',
-    hostname: 'logo.clearbit.com',
-    pathname: '/**',
+    hostname: 'www.google.com',
+    pathname: '/s2/favicons/**',
   },
 ];
 

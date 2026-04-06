@@ -59,7 +59,7 @@ const PROGRAM_LOGO_DOMAIN: Record<string, string> = {
 
 function programLogoUrl(code: string): string | null {
   const domain = PROGRAM_LOGO_DOMAIN[code];
-  return domain ? `https://logo.clearbit.com/${domain}?size=64` : null;
+  return domain ? `https://www.google.com/s2/favicons?domain=${domain}&sz=64` : null;
 }
 
 function ProgramLogo({ code, name, size = 28 }: { code: string; name: string; size?: number }) {
