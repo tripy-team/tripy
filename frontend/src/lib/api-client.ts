@@ -278,6 +278,9 @@ export interface TripTraveler {
   originAirports?: string[];
   destinationAirports?: string[];
   useLeaderCities?: boolean;
+  departureDate?: string;
+  returnDate?: string;
+  cabinPreference?: string;
   client?: Client;
 }
 
@@ -321,7 +324,7 @@ export interface RecommendationOption {
   id: string;
   runId: string;
   strategyTitle: string;
-  strategyType: 'points_only' | 'cash_only' | 'mixed' | 'hold_and_wait';
+  strategyType: 'points_only' | 'cash_only' | 'mixed' | 'hold_and_wait' | 'group_pooled';
   totalCashCost: number;
   pointsUsedSummary: string;
   score: number;
@@ -1214,6 +1217,9 @@ export function addTripTraveler(
     originAirports?: string[];
     destinationAirports?: string[];
     useLeaderCities?: boolean;
+    departureDate?: string;
+    returnDate?: string;
+    cabinPreference?: string;
   },
 ) {
   return apiFetch<TripTraveler>(`/trip-requests/${tripId}/travelers`, {
@@ -1403,6 +1409,71 @@ export interface TravelerTransportGroup {
   segments: TransportSegment[];
 }
 
+// Per-traveler hotel search results
+export interface ScoredHotel {
+  hotel: MergedHotelResult;
+  compositeScore: number;
+  valueScore: number;
+  locationScore: number;
+  loyaltyScore: number;
+  preferenceScore: number;
+  qualityScore: number;
+  rationale: string;
+  paymentRecommendation: "points" | "cash" | "mixed";
+  highlights: string[];
+  cppValue?: number;
+  estimatedSavings?: number;
+}
+
+export interface MergedHotelResult {
+  hotelId: string;
+  name: string;
+  destination: string;
+  checkIn: string;
+  checkOut: string;
+  nights: number;
+  cashPerNight: number | null;
+  cashTotal: number | null;
+  awardOption?: {
+    program: string;
+    programDisplayName: string;
+    pointsPerNight: number;
+    pointsTotal: number;
+    surcharge: number;
+    category?: number;
+    transferSources: {
+      bank: string;
+      bankDisplayName: string;
+      ratio: number;
+      transferTime: string;
+    }[];
+  };
+  starRating?: number;
+  overallRating?: number;
+  neighborhood?: string;
+  amenities: string[];
+  thumbnailUrl?: string;
+  bookingUrl?: string;
+  cppValue?: number;
+}
+
+export interface HotelStayGroup {
+  destination: string;
+  checkIn: string;
+  checkOut: string;
+  nights: number;
+  cashOptions: unknown[];
+  awardOptions: unknown[];
+  scoredOptions?: ScoredHotel[];
+}
+
+export interface TravelerHotelGroup {
+  travelerId: string;
+  travelerName: string;
+  clientId: string;
+  stays: HotelStayGroup[];
+}
+
 export interface GeneratedItinerary {
   summary: string;
   flights: ItineraryFlightRecommendation[];
@@ -1413,6 +1484,7 @@ export interface GeneratedItinerary {
   pointsStrategy: string;
   tips: string[];
   travelerFlights?: TravelerFlightGroup[];
+  travelerHotels?: TravelerHotelGroup[];
   travelerTransport?: TravelerTransportGroup[];
   restaurants?: RestaurantRecommendation[];
 }
@@ -1469,20 +1541,89 @@ export interface AwardFlightOption {
   score?: number;
 }
 
-interface ItineraryGenerationResult {
-  status: 'complete';
-  result: GeneratedItinerary;
+interface ItineraryJobStartResult {
+  status: 'processing';
+  jobId: string;
 }
 
-export async function generateTripItinerary(tripId: string): Promise<GeneratedItinerary> {
-  const res = await apiFetch<ItineraryGenerationResult>(
+interface ItineraryStatusResult {
+  status: 'processing' | 'complete' | 'failed';
+  result?: GeneratedItinerary;
+  partialResult?: Partial<GeneratedItinerary>;
+  completedSections?: string[];
+  pendingSections?: string[];
+  error?: string;
+}
+
+export interface ItineraryProgressUpdate {
+  partialItinerary: Partial<GeneratedItinerary>;
+  completedSections: string[];
+  pendingSections: string[];
+}
+
+interface SavedItineraryResult {
+  exists: boolean;
+  result: GeneratedItinerary | null;
+}
+
+export async function getSavedItinerary(
+  tripId: string,
+): Promise<GeneratedItinerary | null> {
+  const data = await apiFetch<SavedItineraryResult>(
+    `/trip-requests/${tripId}/generate-itinerary`,
+  );
+  return data.exists ? data.result : null;
+}
+
+export async function generateTripItinerary(
+  tripId: string,
+  onProgress?: (update: ItineraryProgressUpdate) => void,
+): Promise<GeneratedItinerary> {
+  const start = await apiFetch<ItineraryJobStartResult>(
     `/trip-requests/${tripId}/generate-itinerary`,
     { method: 'POST' },
   );
-  if (!res.result) {
-    throw new Error('No itinerary returned from server');
+
+  if (!start.jobId) {
+    throw new Error('Server did not return a job ID');
   }
-  return res.result;
+
+  const maxWaitMs = 120_000;
+  const pollIntervalMs = 2_000;
+  const deadline = Date.now() + maxWaitMs;
+  let lastSectionCount = 0;
+
+  while (Date.now() < deadline) {
+    await new Promise((r) => setTimeout(r, pollIntervalMs));
+
+    const status = await apiFetch<ItineraryStatusResult>(
+      `/trip-requests/${tripId}/generate-itinerary/status?jobId=${start.jobId}`,
+    );
+
+    if (status.status === 'complete') {
+      if (!status.result) throw new Error('No itinerary returned from server');
+      return status.result;
+    }
+
+    if (status.status === 'failed') {
+      throw new Error(status.error || 'Itinerary generation failed on the server');
+    }
+
+    const completed = status.completedSections ?? [];
+    const pending = status.pendingSections ?? [];
+    if (onProgress && status.partialResult && completed.length > lastSectionCount) {
+      lastSectionCount = completed.length;
+      const { _completedSections, _pendingSections, ...cleanPartial } =
+        status.partialResult as Partial<GeneratedItinerary> & Record<string, unknown>;
+      onProgress({
+        partialItinerary: cleanPartial as Partial<GeneratedItinerary>,
+        completedSections: completed,
+        pendingSections: pending,
+      });
+    }
+  }
+
+  throw new Error('Itinerary generation timed out — please try again');
 }
 
 // ---------------------------------------------------------------------------
@@ -2077,4 +2218,124 @@ export function generateMeetingRecap(
     `/clients/${clientId}/meetings/${meetingId}/recap`,
     { method: 'POST' },
   );
+}
+
+// ---------------------------------------------------------------------------
+// Group Travel Optimization & Settlement
+// ---------------------------------------------------------------------------
+
+export interface GroupSegmentAssignment {
+  segmentId: string;
+  segmentLabel: string;
+  travelerId: string;
+  travelerName: string;
+  paymentType: 'cash' | 'points' | 'mixed';
+  cashAmount: number;
+  pointsUsed: number;
+  pointsProgram: string | null;
+  pointsProgramName: string | null;
+  pointsOwnerId: string;
+  pointsOwnerName: string;
+  transferFrom?: string;
+  transferFromName?: string;
+  transferPointsNeeded?: number;
+  transferRatio?: number;
+  cppAchieved: number;
+}
+
+export interface GroupAllocationResult {
+  assignments: GroupSegmentAssignment[];
+  totalCashCost: number;
+  totalCashBaseline: number;
+  cashSavedVsAllCash: number;
+  savingsPercent: number;
+}
+
+export interface SettlementContribution {
+  travelerId: string;
+  travelerName: string;
+  cashPaid: number;
+  pointsContributed: {
+    program: string;
+    programName: string;
+    points: number;
+    valueCents: number;
+    usedForTravelerId: string;
+    usedForTravelerName: string;
+    usedForSegmentId: string;
+    usedForSegmentLabel: string;
+  }[];
+  totalContributionCents: number;
+}
+
+export interface SettlementFairShare {
+  travelerId: string;
+  travelerName: string;
+  fairShareCents: number;
+  segmentBreakdown: { segmentId: string; segmentLabel: string; cashEquivalent: number }[];
+}
+
+export interface SettlementTransferItem {
+  fromTravelerId: string;
+  fromName: string;
+  toTravelerId: string;
+  toName: string;
+  amountCents: number;
+  reason: string;
+  breakdown: string[];
+}
+
+export interface SettlementResult {
+  contributions: SettlementContribution[];
+  fairShares: SettlementFairShare[];
+  transfers: SettlementTransferItem[];
+  memo: string;
+}
+
+export interface GroupOptimizeResult {
+  allocation: GroupAllocationResult;
+  settlement: SettlementResult;
+}
+
+export interface GroupSettlementRecord {
+  id: string;
+  tripRequestId: string;
+  splitMethod: string;
+  pointValuationMethod: string;
+  contributions: SettlementContribution[];
+  fairShares: SettlementFairShare[];
+  transfers: SettlementTransferItem[];
+  memo: string;
+  createdAt: string;
+}
+
+export function runGroupOptimization(
+  tripId: string,
+  options?: {
+    splitMethod?: 'equal' | 'proportional_to_cost' | 'custom';
+    waivedTravelerIds?: string[];
+  },
+) {
+  return apiFetch<GroupOptimizeResult>(`/trip-requests/${tripId}/group-optimize`, {
+    method: 'POST',
+    body: JSON.stringify(options ?? {}),
+  });
+}
+
+export function getGroupSettlement(tripId: string) {
+  return apiFetch<GroupSettlementRecord>(`/trip-requests/${tripId}/settlement`);
+}
+
+export function updateGroupSettlement(
+  tripId: string,
+  payload: {
+    splitMethod?: 'equal' | 'proportional_to_cost' | 'custom';
+    pointValuationMethod?: 'actual_redemption' | 'benchmark_cpp' | 'tpg_market';
+    memo?: string;
+  },
+) {
+  return apiFetch<Partial<GroupSettlementRecord>>(`/trip-requests/${tripId}/settlement`, {
+    method: 'PATCH',
+    body: JSON.stringify(payload),
+  });
 }

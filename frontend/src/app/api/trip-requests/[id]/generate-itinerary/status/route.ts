@@ -27,7 +27,12 @@ export async function GET(
     if (!job) return errorResponse("Job not found", 404);
 
     if (job.status === "complete") {
-      return json({ status: "complete", result: job.result });
+      const result = job.result as Record<string, unknown> | null;
+      if (result) {
+        delete result._completedSections;
+        delete result._pendingSections;
+      }
+      return json({ status: "complete", result });
     }
 
     if (job.status === "failed") {
@@ -43,7 +48,13 @@ export async function GET(
       return json({ status: "failed", error: "Processing timed out on server — please try again" });
     }
 
-    return json({ status: "processing" });
+    const partial = job.result as Record<string, unknown> | null;
+    return json({
+      status: "processing",
+      partialResult: partial ?? undefined,
+      completedSections: (partial?._completedSections as string[]) ?? [],
+      pendingSections: (partial?._pendingSections as string[]) ?? ["itinerary", "flights", "hotels", "transport", "restaurants"],
+    });
   } catch (error) {
     console.error("Itinerary status error:", error);
     return errorResponse("Failed to check status", 500);

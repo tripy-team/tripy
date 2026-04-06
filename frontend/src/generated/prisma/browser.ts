@@ -128,6 +128,11 @@ export type RecommendationInsight = Prisma.RecommendationInsightModel
  */
 export type RecommendationMemo = Prisma.RecommendationMemoModel
 /**
+ * Model GroupSettlement
+ * 
+ */
+export type GroupSettlement = Prisma.GroupSettlementModel
+/**
  * Model ClientIntake
  * 
  */

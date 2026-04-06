@@ -406,6 +406,7 @@ export const ModelName = {
   RecommendationTravelerAllocation: 'RecommendationTravelerAllocation',
   RecommendationInsight: 'RecommendationInsight',
   RecommendationMemo: 'RecommendationMemo',
+  GroupSettlement: 'GroupSettlement',
   ClientIntake: 'ClientIntake',
   TripBrief: 'TripBrief',
   AlertSubscription: 'AlertSubscription',
@@ -440,7 +441,7 @@ export type TypeMap<ExtArgs extends runtime.Types.Extensions.InternalArgs = runt
     omit: GlobalOmitOptions
   }
   meta: {
-    modelProps: "organization" | "user" | "client" | "household" | "householdMember" | "familyMember" | "loyaltyProgram" | "clientLoyaltyBalance" | "balanceLedgerEntry" | "programTransferRule" | "programPoolingRule" | "transferBonus" | "clientPreference" | "preferenceChangeLog" | "tripRequest" | "tripTradeoffRanking" | "tripTraveler" | "recommendationRun" | "recommendationOption" | "recommendationTravelerAllocation" | "recommendationInsight" | "recommendationMemo" | "clientIntake" | "tripBrief" | "alertSubscription" | "alertEvent" | "inferredPreference" | "followUpSuggestion" | "vendorRequest" | "vendorRequestReminder" | "vendorRequestDraft" | "vendorRequestApproval" | "vendorRequestTemplate" | "vendorScoreSummary" | "vendorRequestTimeline" | "itineraryJob" | "discoveryMeetingSession" | "meetingEntry" | "meetingQuestionSuggestion" | "meetingProfileSuggestion" | "meetingRecap"
+    modelProps: "organization" | "user" | "client" | "household" | "householdMember" | "familyMember" | "loyaltyProgram" | "clientLoyaltyBalance" | "balanceLedgerEntry" | "programTransferRule" | "programPoolingRule" | "transferBonus" | "clientPreference" | "preferenceChangeLog" | "tripRequest" | "tripTradeoffRanking" | "tripTraveler" | "recommendationRun" | "recommendationOption" | "recommendationTravelerAllocation" | "recommendationInsight" | "recommendationMemo" | "groupSettlement" | "clientIntake" | "tripBrief" | "alertSubscription" | "alertEvent" | "inferredPreference" | "followUpSuggestion" | "vendorRequest" | "vendorRequestReminder" | "vendorRequestDraft" | "vendorRequestApproval" | "vendorRequestTemplate" | "vendorScoreSummary" | "vendorRequestTimeline" | "itineraryJob" | "discoveryMeetingSession" | "meetingEntry" | "meetingQuestionSuggestion" | "meetingProfileSuggestion" | "meetingRecap"
     txIsolationLevel: TransactionIsolationLevel
   }
   model: {
@@ -2069,6 +2070,80 @@ export type TypeMap<ExtArgs extends runtime.Types.Extensions.InternalArgs = runt
         count: {
           args: Prisma.RecommendationMemoCountArgs<ExtArgs>
           result: runtime.Types.Utils.Optional<Prisma.RecommendationMemoCountAggregateOutputType> | number
+        }
+      }
+    }
+    GroupSettlement: {
+      payload: Prisma.$GroupSettlementPayload<ExtArgs>
+      fields: Prisma.GroupSettlementFieldRefs
+      operations: {
+        findUnique: {
+          args: Prisma.GroupSettlementFindUniqueArgs<ExtArgs>
+          result: runtime.Types.Utils.PayloadToResult<Prisma.$GroupSettlementPayload> | null
+        }
+        findUniqueOrThrow: {
+          args: Prisma.GroupSettlementFindUniqueOrThrowArgs<ExtArgs>
+          result: runtime.Types.Utils.PayloadToResult<Prisma.$GroupSettlementPayload>
+        }
+        findFirst: {
+          args: Prisma.GroupSettlementFindFirstArgs<ExtArgs>
+          result: runtime.Types.Utils.PayloadToResult<Prisma.$GroupSettlementPayload> | null
+        }
+        findFirstOrThrow: {
+          args: Prisma.GroupSettlementFindFirstOrThrowArgs<ExtArgs>
+          result: runtime.Types.Utils.PayloadToResult<Prisma.$GroupSettlementPayload>
+        }
+        findMany: {
+          args: Prisma.GroupSettlementFindManyArgs<ExtArgs>
+          result: runtime.Types.Utils.PayloadToResult<Prisma.$GroupSettlementPayload>[]
+        }
+        create: {
+          args: Prisma.GroupSettlementCreateArgs<ExtArgs>
+          result: runtime.Types.Utils.PayloadToResult<Prisma.$GroupSettlementPayload>
+        }
+        createMany: {
+          args: Prisma.GroupSettlementCreateManyArgs<ExtArgs>
+          result: BatchPayload
+        }
+        createManyAndReturn: {
+          args: Prisma.GroupSettlementCreateManyAndReturnArgs<ExtArgs>
+          result: runtime.Types.Utils.PayloadToResult<Prisma.$GroupSettlementPayload>[]
+        }
+        delete: {
+          args: Prisma.GroupSettlementDeleteArgs<ExtArgs>
+          result: runtime.Types.Utils.PayloadToResult<Prisma.$GroupSettlementPayload>
+        }
+        update: {
+          args: Prisma.GroupSettlementUpdateArgs<ExtArgs>
+          result: runtime.Types.Utils.PayloadToResult<Prisma.$GroupSettlementPayload>
+        }
+        deleteMany: {
+          args: Prisma.GroupSettlementDeleteManyArgs<ExtArgs>
+          result: BatchPayload
+        }
+        updateMany: {
+          args: Prisma.GroupSettlementUpdateManyArgs<ExtArgs>
+          result: BatchPayload
+        }
+        updateManyAndReturn: {
+          args: Prisma.GroupSettlementUpdateManyAndReturnArgs<ExtArgs>
+          result: runtime.Types.Utils.PayloadToResult<Prisma.$GroupSettlementPayload>[]
+        }
+        upsert: {
+          args: Prisma.GroupSettlementUpsertArgs<ExtArgs>
+          result: runtime.Types.Utils.PayloadToResult<Prisma.$GroupSettlementPayload>
+        }
+        aggregate: {
+          args: Prisma.GroupSettlementAggregateArgs<ExtArgs>
+          result: runtime.Types.Utils.Optional<Prisma.AggregateGroupSettlement>
+        }
+        groupBy: {
+          args: Prisma.GroupSettlementGroupByArgs<ExtArgs>
+          result: runtime.Types.Utils.Optional<Prisma.GroupSettlementGroupByOutputType>[]
+        }
+        count: {
+          args: Prisma.GroupSettlementCountArgs<ExtArgs>
+          result: runtime.Types.Utils.Optional<Prisma.GroupSettlementCountAggregateOutputType> | number
         }
       }
     }
@@ -3797,6 +3872,9 @@ export const TripTravelerScalarFieldEnum = {
   originAirports: 'originAirports',
   destinationAirports: 'destinationAirports',
   useLeaderCities: 'useLeaderCities',
+  departureDate: 'departureDate',
+  returnDate: 'returnDate',
+  cabinPreference: 'cabinPreference',
   createdAt: 'createdAt'
 } as const
 
@@ -3845,7 +3923,9 @@ export const RecommendationTravelerAllocationScalarFieldEnum = {
   cashUsed: 'cashUsed',
   taxesAndFees: 'taxesAndFees',
   rationale: 'rationale',
-  createdAt: 'createdAt'
+  createdAt: 'createdAt',
+  pointSourceClientId: 'pointSourceClientId',
+  pointValueCents: 'pointValueCents'
 } as const
 
 export type RecommendationTravelerAllocationScalarFieldEnum = (typeof RecommendationTravelerAllocationScalarFieldEnum)[keyof typeof RecommendationTravelerAllocationScalarFieldEnum]
@@ -3877,6 +3957,23 @@ export const RecommendationMemoScalarFieldEnum = {
 } as const
 
 export type RecommendationMemoScalarFieldEnum = (typeof RecommendationMemoScalarFieldEnum)[keyof typeof RecommendationMemoScalarFieldEnum]
+
+
+export const GroupSettlementScalarFieldEnum = {
+  id: 'id',
+  tripRequestId: 'tripRequestId',
+  createdByClientId: 'createdByClientId',
+  splitMethod: 'splitMethod',
+  pointValuationMethod: 'pointValuationMethod',
+  contributionLedger: 'contributionLedger',
+  fairShares: 'fairShares',
+  transfers: 'transfers',
+  memo: 'memo',
+  engineVersion: 'engineVersion',
+  createdAt: 'createdAt'
+} as const
+
+export type GroupSettlementScalarFieldEnum = (typeof GroupSettlementScalarFieldEnum)[keyof typeof GroupSettlementScalarFieldEnum]
 
 
 export const ClientIntakeScalarFieldEnum = {
@@ -4604,6 +4701,34 @@ export type ListEnumSeverityFieldRefInput<$PrismaModel> = FieldRefInputType<$Pri
 
 
 /**
+ * Reference to a field of type 'SettlementSplitMethod'
+ */
+export type EnumSettlementSplitMethodFieldRefInput<$PrismaModel> = FieldRefInputType<$PrismaModel, 'SettlementSplitMethod'>
+    
+
+
+/**
+ * Reference to a field of type 'SettlementSplitMethod[]'
+ */
+export type ListEnumSettlementSplitMethodFieldRefInput<$PrismaModel> = FieldRefInputType<$PrismaModel, 'SettlementSplitMethod[]'>
+    
+
+
+/**
+ * Reference to a field of type 'PointValuationMethod'
+ */
+export type EnumPointValuationMethodFieldRefInput<$PrismaModel> = FieldRefInputType<$PrismaModel, 'PointValuationMethod'>
+    
+
+
+/**
+ * Reference to a field of type 'PointValuationMethod[]'
+ */
+export type ListEnumPointValuationMethodFieldRefInput<$PrismaModel> = FieldRefInputType<$PrismaModel, 'PointValuationMethod[]'>
+    
+
+
+/**
  * Reference to a field of type 'IntakeStatus'
  */
 export type EnumIntakeStatusFieldRefInput<$PrismaModel> = FieldRefInputType<$PrismaModel, 'IntakeStatus'>
@@ -5027,6 +5152,7 @@ export type GlobalOmitConfig = {
   recommendationTravelerAllocation?: Prisma.RecommendationTravelerAllocationOmit
   recommendationInsight?: Prisma.RecommendationInsightOmit
   recommendationMemo?: Prisma.RecommendationMemoOmit
+  groupSettlement?: Prisma.GroupSettlementOmit
   clientIntake?: Prisma.ClientIntakeOmit
   tripBrief?: Prisma.TripBriefOmit
   alertSubscription?: Prisma.AlertSubscriptionOmit

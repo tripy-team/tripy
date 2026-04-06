@@ -5,6 +5,17 @@ import type {
   InsightType,
   Severity,
 } from "@/generated/prisma/client";
+import { optimizeGroupTravel } from "./group-optimizer";
+import { computeSettlement } from "./settlement";
+import type {
+  GroupTraveler,
+  GroupSegment,
+  TransferRule,
+  ActiveBonus,
+  PoolingRule,
+  GroupOptimizerInput,
+  SettlementInput,
+} from "./group-optimizer-types";
 
 interface TravelerWithBalances {
   travelerId: string;
@@ -301,6 +312,19 @@ function generateStrategies(
         travelers,
         totalEstimatedCash,
         cashPerTraveler,
+        activeBonuses,
+      ),
+    );
+  }
+
+  // Strategy 6: Group Pooled Points (if multiple travelers)
+  if (travelers.length >= 2) {
+    strategies.push(
+      generateGroupPooledStrategy(
+        travelers,
+        totalEstimatedCash,
+        cashPerTraveler,
+        transferPaths,
         activeBonuses,
       ),
     );
@@ -651,6 +675,177 @@ function generateWaitStrategy(
     allocations,
     insights,
   };
+}
+
+function generateGroupPooledStrategy(
+  travelers: TravelerWithBalances[],
+  totalCash: number,
+  cashPerTraveler: number,
+  transferPaths: TransferPath[],
+  activeBonuses: { fromProgramId: string; toProgramId: string; bonusPercent: number }[],
+): StrategyCandidate {
+  const groupTravelers: GroupTraveler[] = travelers.map((t) => ({
+    id: t.travelerId,
+    clientId: t.clientId,
+    name: t.clientName,
+    balances: t.balances.map((b) => ({
+      programId: b.programId,
+      programCode: b.programCode,
+      programName: b.programName,
+      category: b.category,
+      balance: b.balance,
+      pointValueCents: b.pointValueCents,
+    })),
+  }));
+
+  // Build synthetic segments — one per traveler (outbound flight estimate)
+  const segments: GroupSegment[] = travelers.map((t) => ({
+    id: `flight_${t.travelerId}`,
+    travelerId: t.travelerId,
+    segmentType: "flight" as const,
+    label: `Flight for ${t.clientName}`,
+    bestCashPrice: cashPerTraveler / 100,
+    awardOptions: buildSyntheticAwardOptions(t, cashPerTraveler),
+  }));
+
+  const transferRules: TransferRule[] = transferPaths.map((p) => ({
+    fromProgramId: p.fromProgramId,
+    fromProgramCode: p.fromProgramId,
+    toProgramId: p.toProgramId,
+    toProgramCode: p.toProgramId,
+    ratio: p.ratio,
+    isIrreversible: p.isIrreversible,
+  }));
+
+  const bonuses: ActiveBonus[] = activeBonuses.map((b) => ({
+    fromProgramId: b.fromProgramId,
+    toProgramId: b.toProgramId,
+    bonusPercent: b.bonusPercent,
+  }));
+
+  const poolingRules: PoolingRule[] = [];
+
+  const pointValuations: Record<string, number> = {};
+  for (const t of travelers) {
+    for (const b of t.balances) {
+      if (!pointValuations[b.programCode]) {
+        pointValuations[b.programCode] = b.pointValueCents;
+      }
+    }
+  }
+
+  const input: GroupOptimizerInput = {
+    travelers: groupTravelers,
+    segments,
+    transferRules,
+    activeBonuses: bonuses,
+    poolingRules,
+    pointValuations,
+    householdClientIds: travelers.map((t) => t.clientId),
+  };
+
+  const allocation = optimizeGroupTravel(input);
+
+  const settlementInput: SettlementInput = {
+    assignments: allocation.assignments,
+    travelers: groupTravelers,
+    splitMethod: "proportional_to_cost",
+    pointValuations,
+  };
+  const settlement = computeSettlement(settlementInput);
+
+  const allocations: StrategyCandidate["allocations"] = allocation.assignments.map((a) => ({
+    tripTravelerId: a.travelerId,
+    paymentType: a.paymentType as PaymentType,
+    loyaltyProgramId: a.pointsProgram,
+    pointsUsed: a.pointsUsed,
+    cashUsed: Math.round(a.cashAmount * 100),
+    taxesAndFees: a.paymentType !== "cash" ? Math.round(a.cashAmount * 100) : Math.round(a.cashAmount * 12),
+    rationale: a.pointsOwnerId !== a.travelerId && a.pointsUsed > 0
+      ? `${a.pointsOwnerName}'s ${a.pointsProgramName ?? "points"} cover ${a.travelerName}'s booking (${a.pointsUsed.toLocaleString()} pts at ${a.cppAchieved.toFixed(1)}¢/pt)`
+      : a.pointsUsed > 0
+        ? `${a.pointsProgramName} award: ${a.pointsUsed.toLocaleString()} pts at ${a.cppAchieved.toFixed(1)}¢/pt`
+        : `Cash booking for ${a.travelerName}`,
+  }));
+
+  const totalPointsUsed: Record<string, number> = {};
+  for (const a of allocation.assignments) {
+    if (a.pointsUsed > 0 && a.pointsProgram) {
+      const key = a.transferFrom ?? a.pointsProgram;
+      totalPointsUsed[key] = (totalPointsUsed[key] ?? 0) + (a.transferPointsNeeded ?? a.pointsUsed);
+    }
+  }
+
+  const insights: StrategyCandidate["insights"] = [];
+
+  const crossTravelerAssignments = allocation.assignments.filter(
+    (a) => a.pointsOwnerId !== a.travelerId && a.pointsUsed > 0,
+  );
+  if (crossTravelerAssignments.length > 0) {
+    insights.push({
+      insightType: "convenience_tradeoff",
+      title: "Cross-traveler point pooling active",
+      body: `${crossTravelerAssignments.length} booking(s) use another traveler's points. Settlement transfers will be needed.`,
+      severity: "info",
+    });
+  }
+
+  if (settlement.transfers.length > 0) {
+    for (const t of settlement.transfers) {
+      insights.push({
+        insightType: "convenience_tradeoff",
+        title: `${t.fromName} owes ${t.toName}: $${(t.amountCents / 100).toFixed(0)}`,
+        body: t.breakdown.join(". ") || t.reason,
+        severity: "info",
+      });
+    }
+  }
+
+  const actualCash = Math.round(allocation.totalCashCost * 100);
+
+  return {
+    title: "Group Pooled Points",
+    strategyType: "group_pooled",
+    totalCashCost: actualCash,
+    totalPointsUsed,
+    estimatedTotalValueCents: totalCash,
+    weightedScore: scoreStrategy(
+      totalCash,
+      actualCash,
+      allocation.savingsPercent > 50 ? 1.8 : 1.2,
+      crossTravelerAssignments.length > 0 ? 0.15 : 0,
+      crossTravelerAssignments.length > 0 ? 0.2 : 0,
+    ),
+    isRecommended: false,
+    summary: `Pool points across ${travelers.length} travelers to minimize total cash. ` +
+      `Saves $${(allocation.cashSavedVsAllCash).toFixed(0)} (${allocation.savingsPercent}%) vs all-cash. ` +
+      (settlement.transfers.length > 0
+        ? `Settlement: ${settlement.transfers.map((t) => `${t.fromName} owes ${t.toName} $${(t.amountCents / 100).toFixed(0)}`).join("; ")}.`
+        : "No settlement needed — contributions are balanced."),
+    allocations,
+    insights,
+  };
+}
+
+function buildSyntheticAwardOptions(
+  traveler: TravelerWithBalances,
+  cashPerTravelerCents: number,
+) {
+  const options: { program: string; programName: string; pointsRequired: number; taxes: number }[] = [];
+  for (const bal of traveler.balances) {
+    if (bal.balance <= 0 || bal.pointValueCents <= 0) continue;
+    const pointsNeeded = Math.ceil((cashPerTravelerCents * 0.95) / (bal.pointValueCents * 100));
+    const taxes = Math.round(cashPerTravelerCents * 0.05) / 100;
+    if (pointsNeeded > 0) {
+      options.push({
+        program: bal.programCode,
+        programName: bal.programName,
+        pointsRequired: pointsNeeded,
+        taxes,
+      });
+    }
+  }
+  return options;
 }
 
 function scoreStrategy(

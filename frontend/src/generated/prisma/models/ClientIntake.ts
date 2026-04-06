@@ -1187,10 +1187,6 @@ export type NullableEnumDateFlexibilityFieldUpdateOperationsInput = {
   set?: $Enums.DateFlexibility | null
 }
 
-export type NullableEnumCabinPreferenceFieldUpdateOperationsInput = {
-  set?: $Enums.CabinPreference | null
-}
-
 export type NullableEnumTravelPaceFieldUpdateOperationsInput = {
   set?: $Enums.TravelPace | null
 }

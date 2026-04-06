@@ -17,7 +17,7 @@ export async function POST(
     if (!trip) return errorResponse("Trip request not found", 404);
 
     const body = await request.json();
-    const { clientId, travelerType, mustTravelWithClientId, originAirports, destinationAirports, useLeaderCities } = body;
+    const { clientId, travelerType, mustTravelWithClientId, originAirports, destinationAirports, useLeaderCities, departureDate, returnDate, cabinPreference } = body;
 
     if (!clientId) return errorResponse("clientId is required", 400);
 
@@ -49,6 +49,9 @@ export async function POST(
         useLeaderCities: !!useLeaderCities,
         originAirports: useLeaderCities ? trip.originAirports : (originAirports ?? []),
         destinationAirports: useLeaderCities ? trip.destinationAirports : (destinationAirports ?? []),
+        departureDate: departureDate ? new Date(departureDate) : null,
+        returnDate: returnDate ? new Date(returnDate) : null,
+        cabinPreference: cabinPreference || null,
       },
       include: { client: true },
     });

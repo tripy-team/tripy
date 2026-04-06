@@ -77,6 +77,7 @@ import {
   getTripRequest,
   getTripConfidence,
   generateTripItinerary,
+  getSavedItinerary,
   createMeetingSession,
   getMeetingSessions,
   getMeetingSession,
@@ -90,6 +91,7 @@ import {
   getClients,
   searchTripRestaurants,
 } from '@/lib/api-client';
+import type { ItineraryProgressUpdate } from '@/lib/api-client';
 import MultiAirportAutocomplete from '@/components/ui/MultiAirportAutocomplete';
 import type {
   TripRequest,
@@ -116,6 +118,8 @@ import type {
   TravelerTransportGroup,
   TransportSegment as TransportSegmentType,
   ScoredTransportOption,
+  TravelerHotelGroup,
+  ScoredHotel,
 } from '@/lib/api-client';
 import { ConfidenceBadge } from '@/components/ConfidenceMeter';
 
@@ -254,6 +258,19 @@ function EmptyTabState({ icon, title, subtitle }: { icon: React.ReactNode; title
   );
 }
 
+function SectionLoadingState({ icon, title }: { icon: React.ReactNode; title: string }) {
+  return (
+    <div className="flex flex-col items-center justify-center rounded-xl border border-blue-200 bg-gradient-to-br from-blue-50 to-indigo-50 py-16">
+      <div className="relative mb-3 rounded-xl bg-blue-100 p-4 text-blue-500">
+        {icon}
+        <Loader2 className="absolute -right-1 -top-1 h-4 w-4 animate-spin text-blue-600" />
+      </div>
+      <p className="text-sm font-medium text-blue-800">{title}</p>
+      <p className="mt-1 text-xs text-blue-500">This section is being generated...</p>
+    </div>
+  );
+}
+
 export default function TripDetailPage() {
   const params = useParams();
   const tripId = params.id as string;
@@ -268,6 +285,8 @@ export default function TripDetailPage() {
   const [generatingItinerary, setGeneratingItinerary] = useState(false);
   const [itineraryError, setItineraryError] = useState<string | null>(null);
   const [expandedDays, setExpandedDays] = useState<Set<number>>(new Set());
+  const [completedSections, setCompletedSections] = useState<string[]>([]);
+  const [pendingSections, setPendingSections] = useState<string[]>([]);
 
   const handleAddTraveler = async (
     clientId: string,
@@ -303,9 +322,38 @@ export default function TripDetailPage() {
     if (!tripId) return;
     setGeneratingItinerary(true);
     setItineraryError(null);
+    setCompletedSections([]);
+    setPendingSections(['itinerary', 'flights', 'hotels', 'transport', 'restaurants']);
     try {
-      const result = await generateTripItinerary(tripId);
+      const result = await generateTripItinerary(tripId, (update: ItineraryProgressUpdate) => {
+        setCompletedSections(update.completedSections);
+        setPendingSections(update.pendingSections);
+        setItinerary((prev) => ({
+          summary: '',
+          flights: [],
+          hotels: [],
+          transportation: [],
+          dailyItinerary: [],
+          budgetBreakdown: {
+            totalEstimatedCash: 0,
+            totalPointsUsed: [],
+            flightsCash: 0,
+            flightsPoints: '',
+            hotelsCash: 0,
+            hotelsPoints: '',
+            transportationCash: 0,
+            activitiesAndDining: 0,
+            savings: '',
+          },
+          pointsStrategy: '',
+          tips: [],
+          ...prev,
+          ...update.partialItinerary,
+        }));
+      });
       setItinerary(result);
+      setCompletedSections(['itinerary', 'flights', 'hotels', 'transport', 'restaurants']);
+      setPendingSections([]);
       setExpandedDays(new Set([1]));
     } catch (err) {
       setItineraryError(err instanceof Error ? err.message : 'Failed to generate itinerary');
@@ -329,10 +377,17 @@ export default function TripDetailPage() {
     Promise.all([
       getTripRequest(tripId),
       getTripConfidence(tripId).catch(() => null),
+      getSavedItinerary(tripId).catch(() => null),
     ])
-      .then(([tripData, conf]) => {
+      .then(([tripData, conf, savedItinerary]) => {
         setTrip(tripData);
         setConfidence(conf);
+        if (savedItinerary) {
+          setItinerary(savedItinerary);
+          setCompletedSections(['itinerary', 'flights', 'hotels', 'transport', 'restaurants']);
+          setPendingSections([]);
+          setExpandedDays(new Set([1]));
+        }
       })
       .catch((err) => setError(err.message))
       .finally(() => setLoading(false));
@@ -477,11 +532,48 @@ export default function TripDetailPage() {
       )}
 
       {generatingItinerary && (
-        <div className="mb-6 flex items-center gap-3 rounded-xl border border-blue-200 bg-blue-50 p-5">
-          <Loader2 className="h-5 w-5 animate-spin text-blue-600" />
-          <div>
-            <p className="text-sm font-semibold text-blue-900">Generating your trip plan...</p>
-            <p className="text-xs text-blue-600">This may take a moment while we plan flights, hotels, dining, and activities</p>
+        <div className="mb-6 rounded-xl border border-blue-200 bg-blue-50 p-5">
+          <div className="mb-3 flex items-center gap-3">
+            <Loader2 className="h-5 w-5 animate-spin text-blue-600" />
+            <div>
+              <p className="text-sm font-semibold text-blue-900">Generating your trip plan...</p>
+              <p className="text-xs text-blue-600">
+                {completedSections.length === 0
+                  ? 'Starting up — searching flights, hotels, dining, and activities'
+                  : `${completedSections.length} of 5 sections ready`}
+              </p>
+            </div>
+          </div>
+          <div className="grid grid-cols-5 gap-2">
+            {[
+              { key: 'flights', label: 'Flights', icon: <Plane className="h-3.5 w-3.5" /> },
+              { key: 'hotels', label: 'Hotels', icon: <Hotel className="h-3.5 w-3.5" /> },
+              { key: 'restaurants', label: 'Dining', icon: <Utensils className="h-3.5 w-3.5" /> },
+              { key: 'transport', label: 'Transport', icon: <Car className="h-3.5 w-3.5" /> },
+              { key: 'itinerary', label: 'Activities', icon: <MapPin className="h-3.5 w-3.5" /> },
+            ].map((section) => {
+              const done = completedSections.includes(section.key);
+              return (
+                <div
+                  key={section.key}
+                  className={`flex flex-col items-center gap-1 rounded-lg px-2 py-2 text-center transition-all ${
+                    done
+                      ? 'bg-emerald-100 text-emerald-700'
+                      : 'bg-white/60 text-slate-400'
+                  }`}
+                >
+                  <div className="flex items-center gap-1">
+                    {done ? (
+                      <CheckCircle2 className="h-3.5 w-3.5 text-emerald-500" />
+                    ) : (
+                      <Loader2 className="h-3.5 w-3.5 animate-spin" />
+                    )}
+                    {section.icon}
+                  </div>
+                  <span className="text-[10px] font-medium leading-tight">{section.label}</span>
+                </div>
+              );
+            })}
           </div>
         </div>
       )}
@@ -502,20 +594,39 @@ export default function TripDetailPage() {
       {/* Tabs */}
       <div className="mb-6 border-b border-slate-200">
         <nav className="-mb-px flex gap-1 overflow-x-auto">
-          {TABS.map((tab) => (
-            <button
-              key={tab.key}
-              onClick={() => setActiveTab(tab.key)}
-              className={`flex items-center gap-2 whitespace-nowrap border-b-2 px-4 py-3 text-sm font-medium transition-colors ${
-                activeTab === tab.key
-                  ? 'border-blue-600 text-blue-600'
-                  : 'border-transparent text-slate-500 hover:border-slate-300 hover:text-slate-700'
-              }`}
-            >
-              {tab.icon}
-              {tab.label}
-            </button>
-          ))}
+          {TABS.map((tab) => {
+            const tabSectionMap: Record<string, string> = {
+              flights: 'flights',
+              hotels: 'hotels',
+              food: 'restaurants',
+              transportation: 'transport',
+              daily: 'itinerary',
+            };
+            const sectionKey = tabSectionMap[tab.key];
+            const sectionDone = sectionKey ? completedSections.includes(sectionKey) : false;
+            const sectionLoading = generatingItinerary && sectionKey ? !sectionDone && pendingSections.includes(sectionKey) : false;
+
+            return (
+              <button
+                key={tab.key}
+                onClick={() => setActiveTab(tab.key)}
+                className={`flex items-center gap-2 whitespace-nowrap border-b-2 px-4 py-3 text-sm font-medium transition-colors ${
+                  activeTab === tab.key
+                    ? 'border-blue-600 text-blue-600'
+                    : 'border-transparent text-slate-500 hover:border-slate-300 hover:text-slate-700'
+                }`}
+              >
+                {tab.icon}
+                {tab.label}
+                {sectionLoading && (
+                  <Loader2 className="h-3 w-3 animate-spin text-blue-400" />
+                )}
+                {sectionDone && generatingItinerary && (
+                  <CheckCircle2 className="h-3 w-3 text-emerald-500" />
+                )}
+              </button>
+            );
+          })}
         </nav>
       </div>
 
@@ -542,25 +653,51 @@ export default function TripDetailPage() {
             <DiscoveryTab trip={trip} />
           )}
           {activeTab === 'flights' && (
-            <FlightsTab
-              itinerary={itinerary}
-              trip={trip}
-              multiCityLegs={multiCityLegs}
-              isMultiCity={isMultiCity}
-              origins={origins}
-              destinations={destinations}
-              travelerFlights={travelerFlights}
-            />
+            generatingItinerary && !completedSections.includes('flights') ? (
+              <SectionLoadingState icon={<Plane className="h-8 w-8" />} title="Searching flights..." />
+            ) : (
+              <FlightsTab
+                itinerary={itinerary}
+                trip={trip}
+                multiCityLegs={multiCityLegs}
+                isMultiCity={isMultiCity}
+                origins={origins}
+                destinations={destinations}
+                travelerFlights={travelerFlights}
+              />
+            )
           )}
-          {activeTab === 'hotels' && <HotelsTab itinerary={itinerary} />}
-          {activeTab === 'food' && <FoodTab itinerary={itinerary} tripId={tripId} />}
-          {activeTab === 'transportation' && <TransportationTab itinerary={itinerary} />}
+          {activeTab === 'hotels' && (
+            generatingItinerary && !completedSections.includes('hotels') ? (
+              <SectionLoadingState icon={<Hotel className="h-8 w-8" />} title="Searching hotels..." />
+            ) : (
+              <HotelsTab itinerary={itinerary} />
+            )
+          )}
+          {activeTab === 'food' && (
+            generatingItinerary && !completedSections.includes('restaurants') ? (
+              <SectionLoadingState icon={<Utensils className="h-8 w-8" />} title="Finding restaurants..." />
+            ) : (
+              <FoodTab itinerary={itinerary} tripId={tripId} />
+            )
+          )}
+          {activeTab === 'transportation' && (
+            generatingItinerary && !completedSections.includes('transport') ? (
+              <SectionLoadingState icon={<Car className="h-8 w-8" />} title="Searching transport options..." />
+            ) : (
+              <TransportationTab itinerary={itinerary} />
+            )
+          )}
           {activeTab === 'daily' && (
-            <DailyPlanTab
-              itinerary={itinerary}
-              expandedDays={expandedDays}
-              toggleDay={toggleDay}
-            />
+            generatingItinerary && !completedSections.includes('itinerary') ? (
+              <SectionLoadingState icon={<MapPin className="h-8 w-8" />} title="Planning daily activities..." />
+            ) : (
+              <DailyPlanTab
+                itinerary={itinerary}
+                expandedDays={expandedDays}
+                toggleDay={toggleDay}
+              />
+            )
           )}
           {activeTab === 'budget' && <BudgetTab itinerary={itinerary} />}
           {activeTab === 'itinerary' && (
@@ -697,7 +834,10 @@ export default function TripDetailPage() {
                   <span className="flex items-center gap-1.5 text-slate-500">
                     <Hotel className="h-3 w-3" /> Hotels
                   </span>
-                  <span className="font-medium text-slate-700">{itinerary.hotels.length}</span>
+                  <span className="font-medium text-slate-700">{
+                    (itinerary.travelerHotels?.[0]?.stays?.reduce((sum, s) => sum + (s.scoredOptions?.length ?? 0), 0) ?? 0) ||
+                    itinerary.hotels.length
+                  }</span>
                 </div>
                 <div className="flex items-center justify-between text-xs">
                   <span className="flex items-center gap-1.5 text-slate-500">
@@ -1813,7 +1953,11 @@ function LegacyFlightCard({ flight }: { flight: ItineraryFlightRecommendation })
 }
 
 function HotelsTab({ itinerary }: { itinerary: GeneratedItinerary | null }) {
-  if (!itinerary || itinerary.hotels.length === 0) {
+  const travelerHotels = itinerary?.travelerHotels ?? [];
+  const hasScored = travelerHotels.length > 0 && travelerHotels.some((g) => g.stays.some((s) => (s.scoredOptions?.length ?? 0) > 0));
+  const legacyHotels = itinerary?.hotels ?? [];
+
+  if (!itinerary || (!hasScored && legacyHotels.length === 0)) {
     return (
       <EmptyTabState
         icon={<Hotel className="h-8 w-8" />}
@@ -1823,17 +1967,185 @@ function HotelsTab({ itinerary }: { itinerary: GeneratedItinerary | null }) {
     );
   }
 
+  if (hasScored) {
+    const stays = travelerHotels[0]?.stays ?? [];
+    return (
+      <div className="space-y-6">
+        {stays.map((stay, si) => {
+          const scored = stay.scoredOptions ?? [];
+          if (scored.length === 0) return null;
+          return (
+            <div key={si} className="space-y-4">
+              <div className="flex items-center gap-2">
+                <Hotel className="h-4 w-4 text-purple-600" />
+                <h2 className="text-sm font-semibold text-slate-900">
+                  {stay.destination} · {formatDateShort(stay.checkIn)} – {formatDateShort(stay.checkOut)} ({stay.nights} nights)
+                </h2>
+              </div>
+              {scored.map((sh, hi) => (
+                <ScoredHotelCard key={hi} scored={sh} rank={hi + 1} />
+              ))}
+            </div>
+          );
+        })}
+      </div>
+    );
+  }
+
   return (
     <div className="space-y-4">
       <h2 className="text-sm font-semibold text-slate-900">Recommended Hotels</h2>
-      {itinerary.hotels.map((hotel, i) => (
-        <HotelCard key={i} hotel={hotel} />
+      {legacyHotels.map((hotel, i) => (
+        <LegacyHotelCard key={i} hotel={hotel} />
       ))}
     </div>
   );
 }
 
-function HotelCard({ hotel }: { hotel: ItineraryHotelRecommendation }) {
+function ScoredHotelCard({ scored, rank }: { scored: ScoredHotel; rank: number }) {
+  const h = scored.hotel;
+  const payColor =
+    scored.paymentRecommendation === 'points' ? 'text-amber-700 bg-amber-50 border-amber-200'
+      : scored.paymentRecommendation === 'mixed' ? 'text-indigo-700 bg-indigo-50 border-indigo-200'
+        : 'text-slate-700 bg-slate-50 border-slate-200';
+
+  return (
+    <div className="rounded-xl border border-slate-200 bg-white p-5 shadow-sm">
+      <div className="mb-3 flex items-start justify-between">
+        <div className="flex items-center gap-3">
+          <div className="flex h-7 w-7 items-center justify-center rounded-lg bg-purple-100 text-xs font-bold text-purple-700">
+            #{rank}
+          </div>
+          <div className="flex items-center gap-2">
+            {h.thumbnailUrl && (
+              <img src={h.thumbnailUrl} alt="" className="h-10 w-10 rounded-lg object-cover" />
+            )}
+            <div>
+              <p className="text-sm font-semibold text-slate-900">{h.name}</p>
+              <p className="text-xs text-slate-500">
+                {h.neighborhood ? `${h.neighborhood} · ` : ''}{h.destination}
+              </p>
+            </div>
+          </div>
+        </div>
+        <div className="flex items-center gap-2">
+          {h.starRating != null && (
+            <div className="flex items-center gap-0.5">
+              {Array.from({ length: h.starRating }).map((_, i) => (
+                <Star key={i} className="h-3 w-3 fill-amber-400 text-amber-400" />
+              ))}
+            </div>
+          )}
+          {h.overallRating != null && (
+            <span className="rounded-md bg-emerald-50 px-1.5 py-0.5 text-[11px] font-semibold text-emerald-700">
+              {h.overallRating}
+            </span>
+          )}
+        </div>
+      </div>
+
+      <div className="mb-3 flex items-center gap-2">
+        <div className="flex h-8 w-8 items-center justify-center rounded-full bg-purple-100">
+          <span className="text-xs font-bold text-purple-700">{scored.compositeScore}</span>
+        </div>
+        <div className="flex-1">
+          <div className="mb-1 h-1.5 w-full rounded-full bg-slate-100">
+            <div
+              className="h-1.5 rounded-full bg-purple-500"
+              style={{ width: `${scored.compositeScore}%` }}
+            />
+          </div>
+          <div className="flex gap-3 text-[10px] text-slate-400">
+            <span>Value {scored.valueScore}</span>
+            <span>Location {scored.locationScore}</span>
+            <span>Loyalty {scored.loyaltyScore}</span>
+            <span>Preference {scored.preferenceScore}</span>
+            <span>Quality {scored.qualityScore}</span>
+          </div>
+        </div>
+        <span className={`rounded-full border px-2 py-0.5 text-[10px] font-semibold ${payColor}`}>
+          {scored.paymentRecommendation === 'points' ? 'Use Points' : scored.paymentRecommendation === 'mixed' ? 'Mixed' : 'Pay Cash'}
+        </span>
+      </div>
+
+      {scored.highlights.length > 0 && (
+        <div className="mb-3 flex flex-wrap gap-1.5">
+          {scored.highlights.map((hl, i) => (
+            <span key={i} className="rounded-full bg-purple-50 px-2.5 py-1 text-[11px] font-medium text-purple-700">
+              {hl}
+            </span>
+          ))}
+        </div>
+      )}
+
+      <div className="mb-3 grid grid-cols-2 gap-3">
+        {h.awardOption && (
+          <div className="rounded-lg border border-amber-200 bg-amber-50/50 p-3">
+            <div className="mb-1 flex items-center gap-1 text-[10px] font-semibold uppercase text-amber-600">
+              <Coins className="h-3 w-3" /> Points Option
+            </div>
+            <p className="text-sm font-bold text-amber-900">
+              {h.awardOption.pointsTotal.toLocaleString()} pts total
+            </p>
+            <p className="text-[11px] text-amber-700">
+              {h.awardOption.pointsPerNight.toLocaleString()}/night · {h.awardOption.programDisplayName}
+            </p>
+            {h.awardOption.transferSources.length > 0 && (
+              <p className="text-[10px] text-amber-600">
+                Transfer from {h.awardOption.transferSources.map((s) => s.bankDisplayName).join(', ')}
+              </p>
+            )}
+            {h.cppValue != null && (
+              <p className="mt-1 text-[10px] font-semibold text-amber-800">{h.cppValue.toFixed(1)} cpp</p>
+            )}
+          </div>
+        )}
+        {h.cashTotal != null && (
+          <div className="rounded-lg border border-slate-200 bg-slate-50/50 p-3">
+            <div className="mb-1 flex items-center gap-1 text-[10px] font-semibold uppercase text-slate-500">
+              <DollarSign className="h-3 w-3" /> Cash Option
+            </div>
+            <p className="text-sm font-bold text-slate-900">
+              ${h.cashTotal.toLocaleString()} total
+            </p>
+            {h.cashPerNight != null && (
+              <p className="text-[11px] text-slate-600">
+                ${h.cashPerNight.toLocaleString()}/night
+              </p>
+            )}
+          </div>
+        )}
+      </div>
+
+      {scored.estimatedSavings != null && scored.estimatedSavings > 0 && (
+        <div className="mb-3 flex items-center gap-1.5 rounded-lg bg-emerald-50 px-3 py-1.5 text-xs font-medium text-emerald-700">
+          <Trophy className="h-3.5 w-3.5" />
+          Save ~${scored.estimatedSavings.toLocaleString()} by using points
+        </div>
+      )}
+
+      {scored.rationale && (
+        <p className="text-xs leading-relaxed text-slate-600">
+          <Lightbulb className="mr-1 inline h-3 w-3 text-amber-500" />
+          {scored.rationale}
+        </p>
+      )}
+
+      {h.bookingUrl && (
+        <a
+          href={h.bookingUrl}
+          target="_blank"
+          rel="noopener noreferrer"
+          className="mt-3 inline-flex items-center gap-1 text-xs font-medium text-blue-600 hover:text-blue-700"
+        >
+          View on Google Hotels →
+        </a>
+      )}
+    </div>
+  );
+}
+
+function LegacyHotelCard({ hotel }: { hotel: ItineraryHotelRecommendation }) {
   return (
     <div className="rounded-xl border border-slate-200 bg-white p-5 shadow-sm">
       <div className="mb-3 flex items-start justify-between">

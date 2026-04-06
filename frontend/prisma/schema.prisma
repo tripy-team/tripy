@@ -85,6 +85,19 @@ enum StrategyType {
   cash_only
   mixed
   hold_and_wait
+  group_pooled
+}
+
+enum SettlementSplitMethod {
+  equal
+  proportional_to_cost
+  custom
+}
+
+enum PointValuationMethod {
+  actual_redemption
+  benchmark_cpp
+  tpg_market
 }
 
 enum PaymentType {
@@ -384,6 +397,8 @@ model Client {
   vendorRequests        VendorRequest[]
   meetingSessions       DiscoveryMeetingSession[]
   crossClientSuggestions MeetingProfileSuggestion[] @relation("CrossClientSuggestions")
+  pointSourceAllocations RecommendationTravelerAllocation[] @relation("PointSource")
+  groupSettlements       GroupSettlement[]
 
   @@index([organizationId])
   @@index([ownerUserId])
@@ -676,6 +691,7 @@ model TripRequest {
   tradeoffRanking    TripTradeoffRanking?
   vendorRequests     VendorRequest[]
   itineraryJobs      ItineraryJob[]
+  settlements        GroupSettlement[]
 
   @@index([organizationId])
   @@index([clientId])
@@ -703,15 +719,18 @@ model TripTradeoffRanking {
 }
 
 model TripTraveler {
-  id                     String       @id @default(cuid())
-  tripRequestId          String       @map("trip_request_id")
-  clientId               String       @map("client_id")
-  travelerType           TravelerType @default(adult) @map("traveler_type")
-  mustTravelWithClientId String?      @map("must_travel_with_client_id")
-  originAirports         Json?        @map("origin_airports")
-  destinationAirports    Json?        @map("destination_airports")
-  useLeaderCities        Boolean      @default(false) @map("use_leader_cities")
-  createdAt              DateTime     @default(now()) @map("created_at")
+  id                     String          @id @default(cuid())
+  tripRequestId          String          @map("trip_request_id")
+  clientId               String          @map("client_id")
+  travelerType           TravelerType    @default(adult) @map("traveler_type")
+  mustTravelWithClientId String?         @map("must_travel_with_client_id")
+  originAirports         Json?           @map("origin_airports")
+  destinationAirports    Json?           @map("destination_airports")
+  useLeaderCities        Boolean         @default(false) @map("use_leader_cities")
+  departureDate          DateTime?       @map("departure_date")
+  returnDate             DateTime?       @map("return_date")
+  cabinPreference        CabinPreference? @map("cabin_preference")
+  createdAt              DateTime        @default(now()) @map("created_at")
 
   tripRequest TripRequest @relation(fields: [tripRequestId], references: [id], onDelete: Cascade)
   client      Client      @relation(fields: [clientId], references: [id])
@@ -775,9 +794,13 @@ model RecommendationTravelerAllocation {
   rationale              String?
   createdAt              DateTime    @default(now()) @map("created_at")
 
+  pointSourceClientId  String?     @map("point_source_client_id")
+  pointValueCents      Float?      @map("point_value_cents")
+
   recommendationOption RecommendationOption @relation(fields: [recommendationOptionId], references: [id], onDelete: Cascade)
   tripTraveler         TripTraveler         @relation(fields: [tripTravelerId], references: [id])
   loyaltyProgram       LoyaltyProgram?      @relation(fields: [loyaltyProgramId], references: [id])
+  pointSourceClient    Client?              @relation("PointSource", fields: [pointSourceClientId], references: [id])
 
   @@map("recommendation_traveler_allocations")
 }
@@ -810,6 +833,28 @@ model RecommendationMemo {
   recommendationRun RecommendationRun @relation(fields: [recommendationRunId], references: [id])
 
   @@map("recommendation_memos")
+}
+
+// ─── Group Settlement ────────────────────────────────
+
+model GroupSettlement {
+  id                    String                @id @default(cuid())
+  tripRequestId         String                @map("trip_request_id")
+  createdByClientId     String?               @map("created_by_client_id")
+  splitMethod           SettlementSplitMethod @default(proportional_to_cost) @map("split_method")
+  pointValuationMethod  PointValuationMethod  @default(actual_redemption) @map("point_valuation_method")
+  contributionLedger    Json                  @map("contribution_ledger")
+  fairShares            Json                  @map("fair_shares")
+  transfers             Json
+  memo                  String?
+  engineVersion         String                @default("v1") @map("engine_version")
+  createdAt             DateTime              @default(now()) @map("created_at")
+
+  tripRequest TripRequest @relation(fields: [tripRequestId], references: [id], onDelete: Cascade)
+  createdBy   Client?     @relation(fields: [createdByClientId], references: [id])
+
+  @@index([tripRequestId])
+  @@map("group_settlements")
 }
 
 // ─── Client Intake ───────────────────────────────────

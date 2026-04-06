@@ -117,10 +117,29 @@ export const StrategyType = {
   points_only: 'points_only',
   cash_only: 'cash_only',
   mixed: 'mixed',
-  hold_and_wait: 'hold_and_wait'
+  hold_and_wait: 'hold_and_wait',
+  group_pooled: 'group_pooled'
 } as const
 
 export type StrategyType = (typeof StrategyType)[keyof typeof StrategyType]
+
+
+export const SettlementSplitMethod = {
+  equal: 'equal',
+  proportional_to_cost: 'proportional_to_cost',
+  custom: 'custom'
+} as const
+
+export type SettlementSplitMethod = (typeof SettlementSplitMethod)[keyof typeof SettlementSplitMethod]
+
+
+export const PointValuationMethod = {
+  actual_redemption: 'actual_redemption',
+  benchmark_cpp: 'benchmark_cpp',
+  tpg_market: 'tpg_market'
+} as const
+
+export type PointValuationMethod = (typeof PointValuationMethod)[keyof typeof PointValuationMethod]
 
 
 export const PaymentType = {

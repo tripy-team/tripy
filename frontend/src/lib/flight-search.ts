@@ -1,9 +1,10 @@
 // ---------------------------------------------------------------------------
-// Flight Search — SerpAPI (cash) + Seats.aero (award/points)
+// Flight Search — SerpAPI (cash) + Seats.aero / AwardTool (award/points)
 // ---------------------------------------------------------------------------
 
 const SERPAPI_KEY = process.env.SERPAPI_KEY ?? "";
 const SEATS_AERO_KEY = process.env.SEATS_AERO_API_KEY ?? "";
+const AWARDTOOL_KEY = process.env.AWARDTOOL_API_KEY ?? "";
 
 // ---------------------------------------------------------------------------
 // Types
@@ -87,6 +88,18 @@ const SEATS_CABIN_CODE: Record<string, string> = {
   business: "J",
   first: "F",
 };
+
+const AWARDTOOL_CABIN_MAP: Record<string, string> = {
+  economy: "Economy",
+  premium_economy: "Premium Economy",
+  business: "Business",
+  first: "First",
+};
+
+const AWARDTOOL_DEFAULT_PROGRAMS = [
+  "UA", "AA", "DL", "AS", "AC", "EK", "EY", "QR", "VS", "SQ",
+  "TK", "AV", "AF", "QF", "B6", "BA",
+];
 
 const PROGRAM_NAMES: Record<string, string> = {
   united: "United MileagePlus",
@@ -371,11 +384,19 @@ interface SeatsAeroResponse {
 export async function searchAwardFlights(
   params: FlightSearchParams,
 ): Promise<AwardFlightResult[]> {
-  if (!SEATS_AERO_KEY) {
-    console.warn("SEATS_AERO_API_KEY not set — skipping award search");
-    return [];
+  if (SEATS_AERO_KEY) {
+    return searchAwardFlightsSeatsAero(params);
   }
+  if (AWARDTOOL_KEY) {
+    return searchAwardFlightsAwardTool(params);
+  }
+  console.warn("No award search key set (SEATS_AERO_API_KEY or AWARDTOOL_API_KEY) — skipping award search");
+  return [];
+}
 
+async function searchAwardFlightsSeatsAero(
+  params: FlightSearchParams,
+): Promise<AwardFlightResult[]> {
   const url = new URL("https://seats.aero/partnerapi/search");
   url.searchParams.set("origin_airport", params.origin);
   url.searchParams.set("destination_airport", params.destination);
@@ -440,6 +461,149 @@ export async function searchAwardFlights(
   }
 }
 
+// ---------------------------------------------------------------------------
+// AwardTool — Award availability fallback (V1 API)
+// ---------------------------------------------------------------------------
+
+interface AwardToolItem {
+  program_code?: string;
+  airline_code?: string;
+  award_points?: number;
+  surcharge?: number;
+  cabin_type?: string;
+  cash_fare?: number;
+  date?: string;
+  departure_time?: string;
+  arrival_time?: string;
+  duration_minutes?: number;
+  travel_minutes?: number;
+  stops?: number;
+  flight_numbers?: string[];
+  fare?: {
+    products?: {
+      origin?: string;
+      destination?: string;
+      flight_number?: string;
+      departure_time?: string;
+      arrival_time?: string;
+      travel_minutes?: number;
+      cabin?: string;
+    }[];
+    travel_minutes_total?: number;
+  };
+}
+
+interface AwardToolResponse {
+  status?: number;
+  data?: AwardToolItem[];
+}
+
+async function searchAwardFlightsAwardTool(
+  params: FlightSearchParams,
+): Promise<AwardFlightResult[]> {
+  const cabin = AWARDTOOL_CABIN_MAP[params.cabinClass ?? "economy"] ?? "Economy";
+
+  const payload = {
+    origin: params.origin.toUpperCase(),
+    destination: params.destination.toUpperCase(),
+    date: params.date,
+    programs: AWARDTOOL_DEFAULT_PROGRAMS,
+    cabins: [cabin],
+    pax: String(params.adults ?? 1),
+    api_key: AWARDTOOL_KEY,
+  };
+
+  try {
+    const res = await fetch("https://www.awardtool-api.com/search_real_time", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify(payload),
+      signal: AbortSignal.timeout(30_000),
+    });
+
+    if (!res.ok) {
+      console.error(`AwardTool error: ${res.status} ${res.statusText}`);
+      return [];
+    }
+
+    const data: AwardToolResponse = await res.json();
+    const items = data.data ?? [];
+    const results: AwardFlightResult[] = [];
+
+    for (const item of items) {
+      if (typeof item !== "object" || !item) continue;
+
+      // V2 flat format (airline_code at top level)
+      if (item.airline_code) {
+        const prog = (item.airline_code ?? "").toUpperCase();
+        const pts = item.award_points;
+        if (!pts || pts <= 0) continue;
+        const sur = item.surcharge != null && item.surcharge >= 0 ? item.surcharge : 0;
+
+        results.push({
+          source: prog.toLowerCase(),
+          origin: params.origin,
+          destination: params.destination,
+          date: item.date ?? params.date,
+          cabin: params.cabinClass ?? "economy",
+          milesRequired: pts,
+          taxes: sur || estimateTaxes(params.origin, params.destination),
+          isDirect: item.stops === 0,
+          program: PROGRAM_NAMES[prog.toLowerCase()] ?? prog,
+        });
+        continue;
+      }
+
+      // V1 nested format (fare.products)
+      const fare = item.fare;
+      const products = fare?.products ?? [];
+      const prog = (item.program_code ?? "").toUpperCase();
+      const pts = item.award_points;
+      if (!pts || pts <= 0) continue;
+      const sur = item.surcharge != null && item.surcharge >= 0 ? item.surcharge : 0;
+
+      if (products.length > 0) {
+        const first = products[0];
+        const dep = (first.origin ?? "").toUpperCase();
+        const arr = (first.destination ?? "").toUpperCase();
+        if (dep && arr && dep !== params.origin.toUpperCase()) continue;
+
+        results.push({
+          source: prog.toLowerCase(),
+          origin: dep || params.origin,
+          destination: arr || params.destination,
+          date: params.date,
+          cabin: params.cabinClass ?? "economy",
+          milesRequired: pts,
+          taxes: sur || estimateTaxes(params.origin, params.destination),
+          isDirect: products.length <= 1,
+          airlines: prog,
+          program: PROGRAM_NAMES[prog.toLowerCase()] ?? prog,
+        });
+      } else {
+        results.push({
+          source: prog.toLowerCase(),
+          origin: params.origin,
+          destination: params.destination,
+          date: params.date,
+          cabin: params.cabinClass ?? "economy",
+          milesRequired: pts,
+          taxes: sur || estimateTaxes(params.origin, params.destination),
+          isDirect: false,
+          program: PROGRAM_NAMES[prog.toLowerCase()] ?? prog,
+        });
+      }
+    }
+
+    console.log(`AwardTool: ${params.origin}->${params.destination} on ${params.date}: ${results.length} award options`);
+    results.sort((a, b) => a.milesRequired - b.milesRequired);
+    return results.slice(0, 15);
+  } catch (err) {
+    console.error("AwardTool fetch failed:", err);
+    return [];
+  }
+}
+
 function estimateTaxes(origin: string, destination: string): number {
   const intl =
     origin.length === 3 &&
@@ -470,6 +634,9 @@ export interface TravelerSearchInput {
   clientId: string;
   originAirports: string[];
   destinationAirports: string[];
+  departureDate?: string;
+  returnDate?: string;
+  cabinPreference?: string;
 }
 
 export async function searchFlightsForTravelers(
@@ -478,25 +645,45 @@ export async function searchFlightsForTravelers(
   returnDate: string | undefined,
   cabinClass: string,
 ): Promise<TravelerFlightGroup[]> {
-  const cabin = normalizeCabin(cabinClass);
+  const tripCabin = normalizeCabin(cabinClass);
 
-  // Deduplicate routes — many travelers share the same origin/dest
-  const uniqueRoutes = new Map<string, { origin: string; dest: string; date: string }>();
+  // Deduplicate routes — travelers may share routes but can have different dates.
+  // SerpAPI Google Flights supports comma-separated airport codes for multi-airport
+  // search, so we join them. Award APIs only accept single codes, so we pick the
+  // first major commercial airport (filtering out private/GA airports like LBG).
+  const uniqueRoutes = new Map<string, {
+    originCash: string; destCash: string;
+    originAward: string; destAward: string;
+    date: string; cabin: typeof tripCabin;
+  }>();
 
   for (const traveler of travelers) {
-    const origin = traveler.originAirports[0] ?? "";
-    const dest = traveler.destinationAirports[0] ?? "";
-    if (!origin || !dest) continue;
+    const origins = traveler.originAirports.filter(Boolean);
+    const dests = traveler.destinationAirports.filter(Boolean);
+    if (!origins.length || !dests.length) continue;
 
-    const outKey = `${origin}-${dest}-${departureDate}-${cabin}`;
+    const originCash = origins.join(",");
+    const destCash = dests.join(",");
+    const originAward = pickCommercialAirport(origins);
+    const destAward = pickCommercialAirport(dests);
+
+    const tDep = traveler.departureDate ?? departureDate;
+    const tRet = traveler.returnDate ?? returnDate;
+    const tCabin = traveler.cabinPreference ? normalizeCabin(traveler.cabinPreference) : tripCabin;
+
+    const outKey = `${originCash}-${destCash}-${tDep}-${tCabin}`;
     if (!uniqueRoutes.has(outKey)) {
-      uniqueRoutes.set(outKey, { origin, dest, date: departureDate });
+      uniqueRoutes.set(outKey, { originCash, destCash, originAward, destAward, date: tDep, cabin: tCabin });
     }
 
-    if (returnDate) {
-      const retKey = `${dest}-${origin}-${returnDate}-${cabin}`;
+    if (tRet) {
+      const retKey = `${destCash}-${originCash}-${tRet}-${tCabin}`;
       if (!uniqueRoutes.has(retKey)) {
-        uniqueRoutes.set(retKey, { origin: dest, dest: origin, date: returnDate });
+        uniqueRoutes.set(retKey, {
+          originCash: destCash, destCash: originCash,
+          originAward: destAward, destAward: originAward,
+          date: tRet, cabin: tCabin,
+        });
       }
     }
   }
@@ -504,10 +691,10 @@ export async function searchFlightsForTravelers(
   // Fire ALL route searches in parallel (cash + award per route)
   const routeEntries = Array.from(uniqueRoutes.entries());
   const routeResults = await Promise.all(
-    routeEntries.map(async ([key, { origin, dest, date }]) => {
+    routeEntries.map(async ([key, { originCash, destCash, originAward, destAward, date, cabin }]) => {
       const [cash, award] = await Promise.all([
-        searchCashFlights({ origin, destination: dest, date, cabinClass: cabin }),
-        searchAwardFlights({ origin, destination: dest, date, cabinClass: cabin }),
+        searchCashFlights({ origin: originCash, destination: destCash, date, cabinClass: cabin }),
+        searchAwardFlights({ origin: originAward, destination: destAward, date, cabinClass: cabin }),
       ]);
       const ranked = rankRouteFlights(cash, award);
       return [key, { cash: ranked.cash, award: ranked.award }] as const;
@@ -516,38 +703,47 @@ export async function searchFlightsForTravelers(
 
   const routeCache = new Map(routeResults);
 
-  // Assemble results per traveler (all data already fetched, pure mapping)
+  // Assemble results per traveler using their specific dates
   const groups: TravelerFlightGroup[] = [];
 
   for (const traveler of travelers) {
-    const origin = traveler.originAirports[0] ?? "";
-    const dest = traveler.destinationAirports[0] ?? "";
-    if (!origin || !dest) continue;
+    const origins = traveler.originAirports.filter(Boolean);
+    const dests = traveler.destinationAirports.filter(Boolean);
+    if (!origins.length || !dests.length) continue;
+
+    const originCash = origins.join(",");
+    const destCash = dests.join(",");
+
+    const tDep = traveler.departureDate ?? departureDate;
+    const tRet = traveler.returnDate ?? returnDate;
+    const tCabin = traveler.cabinPreference ? normalizeCabin(traveler.cabinPreference) : tripCabin;
 
     const segments: FlightSegment[] = [];
+    const primaryOrigin = pickCommercialAirport(origins);
+    const primaryDest = pickCommercialAirport(dests);
 
-    const outKey = `${origin}-${dest}-${departureDate}-${cabin}`;
+    const outKey = `${originCash}-${destCash}-${tDep}-${tCabin}`;
     const outData = routeCache.get(outKey);
     if (outData) {
       segments.push({
         segmentLabel: "Outbound",
-        origin,
-        destination: dest,
-        date: departureDate,
+        origin: primaryOrigin,
+        destination: primaryDest,
+        date: tDep,
         cashOptions: outData.cash,
         awardOptions: outData.award,
       });
     }
 
-    if (returnDate) {
-      const retKey = `${dest}-${origin}-${returnDate}-${cabin}`;
+    if (tRet) {
+      const retKey = `${destCash}-${originCash}-${tRet}-${tCabin}`;
       const retData = routeCache.get(retKey);
       if (retData) {
         segments.push({
           segmentLabel: "Return",
-          origin: dest,
-          destination: origin,
-          date: returnDate,
+          origin: primaryDest,
+          destination: primaryOrigin,
+          date: tRet,
           cashOptions: retData.cash,
           awardOptions: retData.award,
         });
@@ -563,6 +759,17 @@ export async function searchFlightsForTravelers(
   }
 
   return groups;
+}
+
+// Private/GA airports that lack commercial service on Google Flights / award APIs
+const NON_COMMERCIAL_AIRPORTS = new Set([
+  "LBG", "VNY", "TEB", "SDL", "HPN", "BED", "FRG", "APC", "CRQ", "OPF",
+  "MMU", "SUS", "PWK", "DAL", "FTW", "ADS",
+]);
+
+function pickCommercialAirport(codes: string[]): string {
+  const commercial = codes.filter((c) => !NON_COMMERCIAL_AIRPORTS.has(c.toUpperCase()));
+  return commercial[0] ?? codes[0] ?? "";
 }
 
 function normalizeCabin(

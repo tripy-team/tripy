@@ -73,6 +73,7 @@ export const ModelName = {
   RecommendationTravelerAllocation: 'RecommendationTravelerAllocation',
   RecommendationInsight: 'RecommendationInsight',
   RecommendationMemo: 'RecommendationMemo',
+  GroupSettlement: 'GroupSettlement',
   ClientIntake: 'ClientIntake',
   TripBrief: 'TripBrief',
   AlertSubscription: 'AlertSubscription',
@@ -390,6 +391,9 @@ export const TripTravelerScalarFieldEnum = {
   originAirports: 'originAirports',
   destinationAirports: 'destinationAirports',
   useLeaderCities: 'useLeaderCities',
+  departureDate: 'departureDate',
+  returnDate: 'returnDate',
+  cabinPreference: 'cabinPreference',
   createdAt: 'createdAt'
 } as const
 
@@ -438,7 +442,9 @@ export const RecommendationTravelerAllocationScalarFieldEnum = {
   cashUsed: 'cashUsed',
   taxesAndFees: 'taxesAndFees',
   rationale: 'rationale',
-  createdAt: 'createdAt'
+  createdAt: 'createdAt',
+  pointSourceClientId: 'pointSourceClientId',
+  pointValueCents: 'pointValueCents'
 } as const
 
 export type RecommendationTravelerAllocationScalarFieldEnum = (typeof RecommendationTravelerAllocationScalarFieldEnum)[keyof typeof RecommendationTravelerAllocationScalarFieldEnum]
@@ -470,6 +476,23 @@ export const RecommendationMemoScalarFieldEnum = {
 } as const
 
 export type RecommendationMemoScalarFieldEnum = (typeof RecommendationMemoScalarFieldEnum)[keyof typeof RecommendationMemoScalarFieldEnum]
+
+
+export const GroupSettlementScalarFieldEnum = {
+  id: 'id',
+  tripRequestId: 'tripRequestId',
+  createdByClientId: 'createdByClientId',
+  splitMethod: 'splitMethod',
+  pointValuationMethod: 'pointValuationMethod',
+  contributionLedger: 'contributionLedger',
+  fairShares: 'fairShares',
+  transfers: 'transfers',
+  memo: 'memo',
+  engineVersion: 'engineVersion',
+  createdAt: 'createdAt'
+} as const
+
+export type GroupSettlementScalarFieldEnum = (typeof GroupSettlementScalarFieldEnum)[keyof typeof GroupSettlementScalarFieldEnum]
 
 
 export const ClientIntakeScalarFieldEnum = {
