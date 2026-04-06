@@ -6,6 +6,7 @@ import {
   searchFlightsForTravelers,
   type TravelerSearchInput,
 } from "@/lib/flight-search";
+import type { Prisma } from "@prisma/client";
 
 export const maxDuration = 60;
 
@@ -191,7 +192,7 @@ export async function POST(
       where: { id: jobId },
       data: {
         status: "complete",
-        result: itinerary as unknown as Record<string, unknown>,
+        result: itinerary as unknown as Prisma.InputJsonValue,
         completedAt: new Date(),
       },
     });
