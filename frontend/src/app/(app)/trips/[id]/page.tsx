@@ -92,7 +92,7 @@ import {
   searchTripRestaurants,
   searchTripFlights,
 } from '@/lib/api-client';
-import type { ItineraryProgressUpdate, TravelerFlightGroup } from '@/lib/api-client';
+import type { ItineraryProgressUpdate } from '@/lib/api-client';
 import MultiAirportAutocomplete from '@/components/ui/MultiAirportAutocomplete';
 import type {
   TripRequest,
