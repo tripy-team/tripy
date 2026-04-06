@@ -1000,6 +1000,23 @@ export type EnumTemplateScopeWithAggregatesFilter<$PrismaModel = never> = {
   _max?: Prisma.NestedEnumTemplateScopeFilter<$PrismaModel>
 }
 
+export type EnumItineraryJobStatusFilter<$PrismaModel = never> = {
+  equals?: $Enums.ItineraryJobStatus | Prisma.EnumItineraryJobStatusFieldRefInput<$PrismaModel>
+  in?: $Enums.ItineraryJobStatus[] | Prisma.ListEnumItineraryJobStatusFieldRefInput<$PrismaModel>
+  notIn?: $Enums.ItineraryJobStatus[] | Prisma.ListEnumItineraryJobStatusFieldRefInput<$PrismaModel>
+  not?: Prisma.NestedEnumItineraryJobStatusFilter<$PrismaModel> | $Enums.ItineraryJobStatus
+}
+
+export type EnumItineraryJobStatusWithAggregatesFilter<$PrismaModel = never> = {
+  equals?: $Enums.ItineraryJobStatus | Prisma.EnumItineraryJobStatusFieldRefInput<$PrismaModel>
+  in?: $Enums.ItineraryJobStatus[] | Prisma.ListEnumItineraryJobStatusFieldRefInput<$PrismaModel>
+  notIn?: $Enums.ItineraryJobStatus[] | Prisma.ListEnumItineraryJobStatusFieldRefInput<$PrismaModel>
+  not?: Prisma.NestedEnumItineraryJobStatusWithAggregatesFilter<$PrismaModel> | $Enums.ItineraryJobStatus
+  _count?: Prisma.NestedIntFilter<$PrismaModel>
+  _min?: Prisma.NestedEnumItineraryJobStatusFilter<$PrismaModel>
+  _max?: Prisma.NestedEnumItineraryJobStatusFilter<$PrismaModel>
+}
+
 export type EnumMeetingSessionStatusFilter<$PrismaModel = never> = {
   equals?: $Enums.MeetingSessionStatus | Prisma.EnumMeetingSessionStatusFieldRefInput<$PrismaModel>
   in?: $Enums.MeetingSessionStatus[] | Prisma.ListEnumMeetingSessionStatusFieldRefInput<$PrismaModel>
@@ -1972,6 +1989,23 @@ export type NestedEnumTemplateScopeWithAggregatesFilter<$PrismaModel = never> = 
   _count?: Prisma.NestedIntFilter<$PrismaModel>
   _min?: Prisma.NestedEnumTemplateScopeFilter<$PrismaModel>
   _max?: Prisma.NestedEnumTemplateScopeFilter<$PrismaModel>
+}
+
+export type NestedEnumItineraryJobStatusFilter<$PrismaModel = never> = {
+  equals?: $Enums.ItineraryJobStatus | Prisma.EnumItineraryJobStatusFieldRefInput<$PrismaModel>
+  in?: $Enums.ItineraryJobStatus[] | Prisma.ListEnumItineraryJobStatusFieldRefInput<$PrismaModel>
+  notIn?: $Enums.ItineraryJobStatus[] | Prisma.ListEnumItineraryJobStatusFieldRefInput<$PrismaModel>
+  not?: Prisma.NestedEnumItineraryJobStatusFilter<$PrismaModel> | $Enums.ItineraryJobStatus
+}
+
+export type NestedEnumItineraryJobStatusWithAggregatesFilter<$PrismaModel = never> = {
+  equals?: $Enums.ItineraryJobStatus | Prisma.EnumItineraryJobStatusFieldRefInput<$PrismaModel>
+  in?: $Enums.ItineraryJobStatus[] | Prisma.ListEnumItineraryJobStatusFieldRefInput<$PrismaModel>
+  notIn?: $Enums.ItineraryJobStatus[] | Prisma.ListEnumItineraryJobStatusFieldRefInput<$PrismaModel>
+  not?: Prisma.NestedEnumItineraryJobStatusWithAggregatesFilter<$PrismaModel> | $Enums.ItineraryJobStatus
+  _count?: Prisma.NestedIntFilter<$PrismaModel>
+  _min?: Prisma.NestedEnumItineraryJobStatusFilter<$PrismaModel>
+  _max?: Prisma.NestedEnumItineraryJobStatusFilter<$PrismaModel>
 }
 
 export type NestedEnumMeetingSessionStatusFilter<$PrismaModel = never> = {

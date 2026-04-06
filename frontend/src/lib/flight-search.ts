@@ -360,9 +360,44 @@ export async function searchFlightsForTravelers(
   cabinClass: string,
 ): Promise<TravelerFlightGroup[]> {
   const cabin = normalizeCabin(cabinClass);
-  const groups: TravelerFlightGroup[] = [];
 
-  const routeCache = new Map<string, { cash: CashFlightResult[]; award: AwardFlightResult[] }>();
+  // Deduplicate routes — many travelers share the same origin/dest
+  const uniqueRoutes = new Map<string, { origin: string; dest: string; date: string }>();
+
+  for (const traveler of travelers) {
+    const origin = traveler.originAirports[0] ?? "";
+    const dest = traveler.destinationAirports[0] ?? "";
+    if (!origin || !dest) continue;
+
+    const outKey = `${origin}-${dest}-${departureDate}-${cabin}`;
+    if (!uniqueRoutes.has(outKey)) {
+      uniqueRoutes.set(outKey, { origin, dest, date: departureDate });
+    }
+
+    if (returnDate) {
+      const retKey = `${dest}-${origin}-${returnDate}-${cabin}`;
+      if (!uniqueRoutes.has(retKey)) {
+        uniqueRoutes.set(retKey, { origin: dest, dest: origin, date: returnDate });
+      }
+    }
+  }
+
+  // Fire ALL route searches in parallel (cash + award per route)
+  const routeEntries = Array.from(uniqueRoutes.entries());
+  const routeResults = await Promise.all(
+    routeEntries.map(async ([key, { origin, dest, date }]) => {
+      const [cash, award] = await Promise.all([
+        searchCashFlights({ origin, destination: dest, date, cabinClass: cabin }),
+        searchAwardFlights({ origin, destination: dest, date, cabinClass: cabin }),
+      ]);
+      return [key, { cash, award }] as const;
+    }),
+  );
+
+  const routeCache = new Map(routeResults);
+
+  // Assemble results per traveler (all data already fetched, pure mapping)
+  const groups: TravelerFlightGroup[] = [];
 
   for (const traveler of travelers) {
     const origin = traveler.originAirports[0] ?? "";
@@ -371,44 +406,32 @@ export async function searchFlightsForTravelers(
 
     const segments: FlightSegment[] = [];
 
-    // Outbound
     const outKey = `${origin}-${dest}-${departureDate}-${cabin}`;
-    if (!routeCache.has(outKey)) {
-      const [cash, award] = await Promise.all([
-        searchCashFlights({ origin, destination: dest, date: departureDate, cabinClass: cabin }),
-        searchAwardFlights({ origin, destination: dest, date: departureDate, cabinClass: cabin }),
-      ]);
-      routeCache.set(outKey, { cash, award });
+    const outData = routeCache.get(outKey);
+    if (outData) {
+      segments.push({
+        segmentLabel: "Outbound",
+        origin,
+        destination: dest,
+        date: departureDate,
+        cashOptions: outData.cash,
+        awardOptions: outData.award,
+      });
     }
-    const outData = routeCache.get(outKey)!;
-    segments.push({
-      segmentLabel: "Outbound",
-      origin,
-      destination: dest,
-      date: departureDate,
-      cashOptions: outData.cash,
-      awardOptions: outData.award,
-    });
 
-    // Return
     if (returnDate) {
       const retKey = `${dest}-${origin}-${returnDate}-${cabin}`;
-      if (!routeCache.has(retKey)) {
-        const [cash, award] = await Promise.all([
-          searchCashFlights({ origin: dest, destination: origin, date: returnDate, cabinClass: cabin }),
-          searchAwardFlights({ origin: dest, destination: origin, date: returnDate, cabinClass: cabin }),
-        ]);
-        routeCache.set(retKey, { cash, award });
+      const retData = routeCache.get(retKey);
+      if (retData) {
+        segments.push({
+          segmentLabel: "Return",
+          origin: dest,
+          destination: origin,
+          date: returnDate,
+          cashOptions: retData.cash,
+          awardOptions: retData.award,
+        });
       }
-      const retData = routeCache.get(retKey)!;
-      segments.push({
-        segmentLabel: "Return",
-        origin: dest,
-        destination: origin,
-        date: returnDate,
-        cashOptions: retData.cash,
-        awardOptions: retData.award,
-      });
     }
 
     groups.push({

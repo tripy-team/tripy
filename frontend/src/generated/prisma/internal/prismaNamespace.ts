@@ -419,6 +419,7 @@ export const ModelName = {
   VendorRequestTemplate: 'VendorRequestTemplate',
   VendorScoreSummary: 'VendorScoreSummary',
   VendorRequestTimeline: 'VendorRequestTimeline',
+  ItineraryJob: 'ItineraryJob',
   DiscoveryMeetingSession: 'DiscoveryMeetingSession',
   MeetingEntry: 'MeetingEntry',
   MeetingQuestionSuggestion: 'MeetingQuestionSuggestion',
@@ -439,7 +440,7 @@ export type TypeMap<ExtArgs extends runtime.Types.Extensions.InternalArgs = runt
     omit: GlobalOmitOptions
   }
   meta: {
-    modelProps: "organization" | "user" | "client" | "household" | "householdMember" | "familyMember" | "loyaltyProgram" | "clientLoyaltyBalance" | "balanceLedgerEntry" | "programTransferRule" | "programPoolingRule" | "transferBonus" | "clientPreference" | "preferenceChangeLog" | "tripRequest" | "tripTradeoffRanking" | "tripTraveler" | "recommendationRun" | "recommendationOption" | "recommendationTravelerAllocation" | "recommendationInsight" | "recommendationMemo" | "clientIntake" | "tripBrief" | "alertSubscription" | "alertEvent" | "inferredPreference" | "followUpSuggestion" | "vendorRequest" | "vendorRequestReminder" | "vendorRequestDraft" | "vendorRequestApproval" | "vendorRequestTemplate" | "vendorScoreSummary" | "vendorRequestTimeline" | "discoveryMeetingSession" | "meetingEntry" | "meetingQuestionSuggestion" | "meetingProfileSuggestion" | "meetingRecap"
+    modelProps: "organization" | "user" | "client" | "household" | "householdMember" | "familyMember" | "loyaltyProgram" | "clientLoyaltyBalance" | "balanceLedgerEntry" | "programTransferRule" | "programPoolingRule" | "transferBonus" | "clientPreference" | "preferenceChangeLog" | "tripRequest" | "tripTradeoffRanking" | "tripTraveler" | "recommendationRun" | "recommendationOption" | "recommendationTravelerAllocation" | "recommendationInsight" | "recommendationMemo" | "clientIntake" | "tripBrief" | "alertSubscription" | "alertEvent" | "inferredPreference" | "followUpSuggestion" | "vendorRequest" | "vendorRequestReminder" | "vendorRequestDraft" | "vendorRequestApproval" | "vendorRequestTemplate" | "vendorScoreSummary" | "vendorRequestTimeline" | "itineraryJob" | "discoveryMeetingSession" | "meetingEntry" | "meetingQuestionSuggestion" | "meetingProfileSuggestion" | "meetingRecap"
     txIsolationLevel: TransactionIsolationLevel
   }
   model: {
@@ -3033,6 +3034,80 @@ export type TypeMap<ExtArgs extends runtime.Types.Extensions.InternalArgs = runt
         }
       }
     }
+    ItineraryJob: {
+      payload: Prisma.$ItineraryJobPayload<ExtArgs>
+      fields: Prisma.ItineraryJobFieldRefs
+      operations: {
+        findUnique: {
+          args: Prisma.ItineraryJobFindUniqueArgs<ExtArgs>
+          result: runtime.Types.Utils.PayloadToResult<Prisma.$ItineraryJobPayload> | null
+        }
+        findUniqueOrThrow: {
+          args: Prisma.ItineraryJobFindUniqueOrThrowArgs<ExtArgs>
+          result: runtime.Types.Utils.PayloadToResult<Prisma.$ItineraryJobPayload>
+        }
+        findFirst: {
+          args: Prisma.ItineraryJobFindFirstArgs<ExtArgs>
+          result: runtime.Types.Utils.PayloadToResult<Prisma.$ItineraryJobPayload> | null
+        }
+        findFirstOrThrow: {
+          args: Prisma.ItineraryJobFindFirstOrThrowArgs<ExtArgs>
+          result: runtime.Types.Utils.PayloadToResult<Prisma.$ItineraryJobPayload>
+        }
+        findMany: {
+          args: Prisma.ItineraryJobFindManyArgs<ExtArgs>
+          result: runtime.Types.Utils.PayloadToResult<Prisma.$ItineraryJobPayload>[]
+        }
+        create: {
+          args: Prisma.ItineraryJobCreateArgs<ExtArgs>
+          result: runtime.Types.Utils.PayloadToResult<Prisma.$ItineraryJobPayload>
+        }
+        createMany: {
+          args: Prisma.ItineraryJobCreateManyArgs<ExtArgs>
+          result: BatchPayload
+        }
+        createManyAndReturn: {
+          args: Prisma.ItineraryJobCreateManyAndReturnArgs<ExtArgs>
+          result: runtime.Types.Utils.PayloadToResult<Prisma.$ItineraryJobPayload>[]
+        }
+        delete: {
+          args: Prisma.ItineraryJobDeleteArgs<ExtArgs>
+          result: runtime.Types.Utils.PayloadToResult<Prisma.$ItineraryJobPayload>
+        }
+        update: {
+          args: Prisma.ItineraryJobUpdateArgs<ExtArgs>
+          result: runtime.Types.Utils.PayloadToResult<Prisma.$ItineraryJobPayload>
+        }
+        deleteMany: {
+          args: Prisma.ItineraryJobDeleteManyArgs<ExtArgs>
+          result: BatchPayload
+        }
+        updateMany: {
+          args: Prisma.ItineraryJobUpdateManyArgs<ExtArgs>
+          result: BatchPayload
+        }
+        updateManyAndReturn: {
+          args: Prisma.ItineraryJobUpdateManyAndReturnArgs<ExtArgs>
+          result: runtime.Types.Utils.PayloadToResult<Prisma.$ItineraryJobPayload>[]
+        }
+        upsert: {
+          args: Prisma.ItineraryJobUpsertArgs<ExtArgs>
+          result: runtime.Types.Utils.PayloadToResult<Prisma.$ItineraryJobPayload>
+        }
+        aggregate: {
+          args: Prisma.ItineraryJobAggregateArgs<ExtArgs>
+          result: runtime.Types.Utils.Optional<Prisma.AggregateItineraryJob>
+        }
+        groupBy: {
+          args: Prisma.ItineraryJobGroupByArgs<ExtArgs>
+          result: runtime.Types.Utils.Optional<Prisma.ItineraryJobGroupByOutputType>[]
+        }
+        count: {
+          args: Prisma.ItineraryJobCountArgs<ExtArgs>
+          result: runtime.Types.Utils.Optional<Prisma.ItineraryJobCountAggregateOutputType> | number
+        }
+      }
+    }
     DiscoveryMeetingSession: {
       payload: Prisma.$DiscoveryMeetingSessionPayload<ExtArgs>
       fields: Prisma.DiscoveryMeetingSessionFieldRefs
@@ -4058,6 +4133,19 @@ export const VendorRequestTimelineScalarFieldEnum = {
 export type VendorRequestTimelineScalarFieldEnum = (typeof VendorRequestTimelineScalarFieldEnum)[keyof typeof VendorRequestTimelineScalarFieldEnum]
 
 
+export const ItineraryJobScalarFieldEnum = {
+  id: 'id',
+  tripRequestId: 'tripRequestId',
+  status: 'status',
+  result: 'result',
+  error: 'error',
+  createdAt: 'createdAt',
+  completedAt: 'completedAt'
+} as const
+
+export type ItineraryJobScalarFieldEnum = (typeof ItineraryJobScalarFieldEnum)[keyof typeof ItineraryJobScalarFieldEnum]
+
+
 export const DiscoveryMeetingSessionScalarFieldEnum = {
   id: 'id',
   clientId: 'clientId',
@@ -4768,6 +4856,20 @@ export type ListEnumTemplateScopeFieldRefInput<$PrismaModel> = FieldRefInputType
 
 
 /**
+ * Reference to a field of type 'ItineraryJobStatus'
+ */
+export type EnumItineraryJobStatusFieldRefInput<$PrismaModel> = FieldRefInputType<$PrismaModel, 'ItineraryJobStatus'>
+    
+
+
+/**
+ * Reference to a field of type 'ItineraryJobStatus[]'
+ */
+export type ListEnumItineraryJobStatusFieldRefInput<$PrismaModel> = FieldRefInputType<$PrismaModel, 'ItineraryJobStatus[]'>
+    
+
+
+/**
  * Reference to a field of type 'MeetingSessionStatus'
  */
 export type EnumMeetingSessionStatusFieldRefInput<$PrismaModel> = FieldRefInputType<$PrismaModel, 'MeetingSessionStatus'>
@@ -4938,6 +5040,7 @@ export type GlobalOmitConfig = {
   vendorRequestTemplate?: Prisma.VendorRequestTemplateOmit
   vendorScoreSummary?: Prisma.VendorScoreSummaryOmit
   vendorRequestTimeline?: Prisma.VendorRequestTimelineOmit
+  itineraryJob?: Prisma.ItineraryJobOmit
   discoveryMeetingSession?: Prisma.DiscoveryMeetingSessionOmit
   meetingEntry?: Prisma.MeetingEntryOmit
   meetingQuestionSuggestion?: Prisma.MeetingQuestionSuggestionOmit

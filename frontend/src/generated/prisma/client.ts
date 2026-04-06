@@ -217,6 +217,11 @@ export type VendorScoreSummary = Prisma.VendorScoreSummaryModel
  */
 export type VendorRequestTimeline = Prisma.VendorRequestTimelineModel
 /**
+ * Model ItineraryJob
+ * 
+ */
+export type ItineraryJob = Prisma.ItineraryJobModel
+/**
  * Model DiscoveryMeetingSession
  * 
  */

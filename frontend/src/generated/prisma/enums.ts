@@ -383,6 +383,15 @@ export const VendorRequestUrgency = {
 export type VendorRequestUrgency = (typeof VendorRequestUrgency)[keyof typeof VendorRequestUrgency]
 
 
+export const ItineraryJobStatus = {
+  processing: 'processing',
+  complete: 'complete',
+  failed: 'failed'
+} as const
+
+export type ItineraryJobStatus = (typeof ItineraryJobStatus)[keyof typeof ItineraryJobStatus]
+
+
 export const MeetingSessionStatus = {
   active: 'active',
   completed: 'completed',

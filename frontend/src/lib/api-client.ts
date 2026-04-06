@@ -1382,10 +1382,49 @@ export interface AwardFlightOption {
   program: string;
 }
 
-export function generateTripItinerary(tripId: string) {
-  return apiFetch<GeneratedItinerary>(`/trip-requests/${tripId}/generate-itinerary`, {
+interface ItineraryJobStart {
+  jobId: string;
+  status: 'processing';
+}
+
+interface ItineraryJobPoll {
+  status: 'processing' | 'complete' | 'failed';
+  result?: GeneratedItinerary;
+  error?: string;
+}
+
+export function startItineraryGeneration(tripId: string) {
+  return apiFetch<ItineraryJobStart>(`/trip-requests/${tripId}/generate-itinerary`, {
     method: 'POST',
   });
+}
+
+export function pollItineraryStatus(tripId: string, jobId: string) {
+  return apiFetch<ItineraryJobPoll>(
+    `/trip-requests/${tripId}/generate-itinerary/status?jobId=${jobId}`,
+  );
+}
+
+const POLL_INTERVAL_MS = 2000;
+const POLL_MAX_ATTEMPTS = 45;
+
+export async function generateTripItinerary(tripId: string): Promise<GeneratedItinerary> {
+  const { jobId } = await startItineraryGeneration(tripId);
+
+  for (let attempt = 0; attempt < POLL_MAX_ATTEMPTS; attempt++) {
+    await new Promise((r) => setTimeout(r, POLL_INTERVAL_MS));
+
+    const poll = await pollItineraryStatus(tripId, jobId);
+
+    if (poll.status === 'complete' && poll.result) {
+      return poll.result;
+    }
+    if (poll.status === 'failed') {
+      throw new Error(poll.error || 'Itinerary generation failed');
+    }
+  }
+
+  throw new Error('Itinerary generation timed out — please try again');
 }
 
 // ---------------------------------------------------------------------------

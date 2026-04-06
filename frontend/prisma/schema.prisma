@@ -275,6 +275,12 @@ enum VendorRequestUrgency {
   urgent
 }
 
+enum ItineraryJobStatus {
+  processing
+  complete
+  failed
+}
+
 // ─── Meeting Copilot Enums ───────────────────────────────
 
 enum MeetingSessionStatus {
@@ -669,6 +675,7 @@ model TripRequest {
   alertSubscriptions AlertSubscription[]
   tradeoffRanking    TripTradeoffRanking?
   vendorRequests     VendorRequest[]
+  itineraryJobs      ItineraryJob[]
 
   @@index([organizationId])
   @@index([clientId])
@@ -1136,6 +1143,23 @@ model VendorRequestTimeline {
 
   @@index([vendorRequestId])
   @@map("vendor_request_timeline")
+}
+
+// ─── Itinerary Jobs (async generation) ──────────────────
+
+model ItineraryJob {
+  id              String              @id @default(cuid())
+  tripRequestId   String              @map("trip_request_id")
+  status          ItineraryJobStatus  @default(processing)
+  result          Json?
+  error           String?
+  createdAt       DateTime            @default(now()) @map("created_at")
+  completedAt     DateTime?           @map("completed_at")
+
+  tripRequest     TripRequest         @relation(fields: [tripRequestId], references: [id], onDelete: Cascade)
+
+  @@index([tripRequestId])
+  @@map("itinerary_jobs")
 }
 
 // ─── Meeting Copilot ─────────────────────────────────────

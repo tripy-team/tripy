@@ -86,6 +86,7 @@ export const ModelName = {
   VendorRequestTemplate: 'VendorRequestTemplate',
   VendorScoreSummary: 'VendorScoreSummary',
   VendorRequestTimeline: 'VendorRequestTimeline',
+  ItineraryJob: 'ItineraryJob',
   DiscoveryMeetingSession: 'DiscoveryMeetingSession',
   MeetingEntry: 'MeetingEntry',
   MeetingQuestionSuggestion: 'MeetingQuestionSuggestion',
@@ -723,6 +724,19 @@ export const VendorRequestTimelineScalarFieldEnum = {
 } as const
 
 export type VendorRequestTimelineScalarFieldEnum = (typeof VendorRequestTimelineScalarFieldEnum)[keyof typeof VendorRequestTimelineScalarFieldEnum]
+
+
+export const ItineraryJobScalarFieldEnum = {
+  id: 'id',
+  tripRequestId: 'tripRequestId',
+  status: 'status',
+  result: 'result',
+  error: 'error',
+  createdAt: 'createdAt',
+  completedAt: 'completedAt'
+} as const
+
+export type ItineraryJobScalarFieldEnum = (typeof ItineraryJobScalarFieldEnum)[keyof typeof ItineraryJobScalarFieldEnum]
 
 
 export const DiscoveryMeetingSessionScalarFieldEnum = {
