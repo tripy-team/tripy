@@ -479,10 +479,13 @@ async function genTips(input: ItineraryInput, header: string): Promise<string[]>
 
 ${header}
 
-Return {"tips":["...", ...]}`;
+Return {"tips":["tip string 1", "tip string 2", ...]} — each tip must be a plain string, NOT an object.`;
 
   const parsed = JSON.parse(await aiCall(prompt, 512));
-  return parsed.tips || [];
+  const raw: unknown[] = parsed.tips || [];
+  return raw.map((t) =>
+    typeof t === "string" ? t : (t as Record<string, unknown>)?.tip as string ?? JSON.stringify(t),
+  );
 }
 
 async function genSummary(input: ItineraryInput, header: string): Promise<string> {
