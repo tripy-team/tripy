@@ -1382,65 +1382,20 @@ export interface AwardFlightOption {
   program: string;
 }
 
-interface ItineraryJobStart {
-  jobId: string;
-  status: 'processing';
+interface ItineraryGenerationResult {
+  status: 'complete';
+  result: GeneratedItinerary;
 }
-
-interface ItineraryJobPoll {
-  status: 'processing' | 'complete' | 'failed';
-  result?: GeneratedItinerary;
-  error?: string;
-}
-
-export function startItineraryGeneration(tripId: string) {
-  return apiFetch<ItineraryJobStart>(`/trip-requests/${tripId}/generate-itinerary`, {
-    method: 'POST',
-  });
-}
-
-function triggerProcessing(tripId: string, jobId: string) {
-  const token = typeof window !== 'undefined' ? localStorage.getItem('tripy_token') : null;
-  fetch(`/api/trip-requests/${tripId}/generate-itinerary/process`, {
-    method: 'POST',
-    headers: {
-      'Content-Type': 'application/json',
-      ...(token ? { Authorization: `Bearer ${token}` } : {}),
-    },
-    body: JSON.stringify({ jobId }),
-  }).catch(() => {
-    // Fire-and-forget: the server processes independently.
-  });
-}
-
-export function pollItineraryStatus(tripId: string, jobId: string) {
-  return apiFetch<ItineraryJobPoll>(
-    `/trip-requests/${tripId}/generate-itinerary/status?jobId=${jobId}`,
-  );
-}
-
-const POLL_INTERVAL_MS = 2000;
-const POLL_MAX_ATTEMPTS = 75;
 
 export async function generateTripItinerary(tripId: string): Promise<GeneratedItinerary> {
-  const { jobId } = await startItineraryGeneration(tripId);
-
-  triggerProcessing(tripId, jobId);
-
-  for (let attempt = 0; attempt < POLL_MAX_ATTEMPTS; attempt++) {
-    await new Promise((r) => setTimeout(r, POLL_INTERVAL_MS));
-
-    const poll = await pollItineraryStatus(tripId, jobId);
-
-    if (poll.status === 'complete' && poll.result) {
-      return poll.result;
-    }
-    if (poll.status === 'failed') {
-      throw new Error(poll.error || 'Itinerary generation failed');
-    }
+  const res = await apiFetch<ItineraryGenerationResult>(
+    `/trip-requests/${tripId}/generate-itinerary`,
+    { method: 'POST' },
+  );
+  if (!res.result) {
+    throw new Error('No itinerary returned from server');
   }
-
-  throw new Error('Itinerary generation timed out — please try again');
+  return res.result;
 }
 
 // ---------------------------------------------------------------------------
