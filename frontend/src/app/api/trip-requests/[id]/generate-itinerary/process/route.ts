@@ -183,7 +183,10 @@ export async function POST(
         departureDate,
         returnDate,
         trip.cabinPreference ?? "economy",
-      ),
+      ).catch((err) => {
+        console.error("Flight search failed (non-fatal):", err);
+        return [];
+      }),
     ]);
 
     itinerary.travelerFlights = travelerFlights;

@@ -34,6 +34,15 @@ export async function GET(
       return json({ status: "failed", error: job.error });
     }
 
+    const ageMs = Date.now() - new Date(job.createdAt).getTime();
+    if (ageMs > 120_000) {
+      await prisma.itineraryJob.update({
+        where: { id: jobId },
+        data: { status: "failed", error: "Processing timed out on server", completedAt: new Date() },
+      }).catch(() => {});
+      return json({ status: "failed", error: "Processing timed out on server — please try again" });
+    }
+
     return json({ status: "processing" });
   } catch (error) {
     console.error("Itinerary status error:", error);

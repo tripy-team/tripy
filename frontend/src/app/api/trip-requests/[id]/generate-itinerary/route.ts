@@ -21,22 +21,6 @@ export async function POST(
       data: { tripRequestId: id },
     });
 
-    const origin = new URL(request.url).origin;
-    const processUrl = `${origin}/api/trip-requests/${id}/generate-itinerary/process`;
-
-    fetch(processUrl, {
-      method: "POST",
-      headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ jobId: job.id }),
-      signal: AbortSignal.timeout(3000),
-    }).catch(() => {
-      // Fire-and-forget: the processing Lambda runs independently.
-      // The abort only affects THIS side of the connection.
-    });
-
-    // Small wait to ensure the HTTP request is dispatched
-    await new Promise((r) => setTimeout(r, 200));
-
     return json({ jobId: job.id, status: "processing" });
   } catch (error) {
     console.error("Generate itinerary kick-off error:", error);

@@ -1399,6 +1399,20 @@ export function startItineraryGeneration(tripId: string) {
   });
 }
 
+function triggerProcessing(tripId: string, jobId: string) {
+  const token = typeof window !== 'undefined' ? localStorage.getItem('tripy_token') : null;
+  fetch(`/api/trip-requests/${tripId}/generate-itinerary/process`, {
+    method: 'POST',
+    headers: {
+      'Content-Type': 'application/json',
+      ...(token ? { Authorization: `Bearer ${token}` } : {}),
+    },
+    body: JSON.stringify({ jobId }),
+  }).catch(() => {
+    // Fire-and-forget: the server processes independently.
+  });
+}
+
 export function pollItineraryStatus(tripId: string, jobId: string) {
   return apiFetch<ItineraryJobPoll>(
     `/trip-requests/${tripId}/generate-itinerary/status?jobId=${jobId}`,
@@ -1410,6 +1424,8 @@ const POLL_MAX_ATTEMPTS = 75;
 
 export async function generateTripItinerary(tripId: string): Promise<GeneratedItinerary> {
   const { jobId } = await startItineraryGeneration(tripId);
+
+  triggerProcessing(tripId, jobId);
 
   for (let attempt = 0; attempt < POLL_MAX_ATTEMPTS; attempt++) {
     await new Promise((r) => setTimeout(r, POLL_INTERVAL_MS));
