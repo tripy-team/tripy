@@ -74,6 +74,14 @@ run:
     - name: RATE_LIMIT_TABLE
       value: "tripy-rate-limit-counters"
 
+    # SerpAPI (flight/hotel cash pricing, organic search)
+    - name: SERPAPI_KEY
+      value: "760dbefc74bbc995a203fe6e043dca076eb2b15cac50fc6fdf77df9758764335"
+
+    # AwardTool (award flight search)
+    - name: AWARDTOOL_API_KEY
+      value: "0363cfd0-ba6a-4302-ba14-9f86186eb0c7"
+
     # Streaming generation (SSE + SQS)
     - name: GENERATION_QUEUE_URL
       value: ""
