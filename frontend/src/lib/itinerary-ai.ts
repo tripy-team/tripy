@@ -1,9 +1,3 @@
-import OpenAI from "openai";
-
-const openai = new OpenAI({
-  apiKey: process.env.OPENAI_API_KEY || "",
-});
-
 // ---------------------------------------------------------------------------
 // Transfer partner reference (mirrors backend/src/config/programs.yml)
 // ---------------------------------------------------------------------------
@@ -138,30 +132,6 @@ export const TRANSFER_PARTNERS: Record<string, BankTransferPartners> = {
   },
 };
 
-function buildTransferPartnerBlock(): string {
-  const lines: string[] = [];
-  for (const [, bank] of Object.entries(TRANSFER_PARTNERS)) {
-    lines.push(`\n${bank.name}:`);
-    const airlineNames = Object.entries(bank.airlinePartners)
-      .map(([name, p]) => `${name} (${p.ratio}:1, ${p.transferTime})`)
-      .join(", ");
-    lines.push(`  Airlines: ${airlineNames}`);
-    const hotelNames = Object.entries(bank.hotelPartners)
-      .map(([name, p]) => `${name} (${p.ratio}:1, ${p.transferTime})`)
-      .join(", ");
-    lines.push(`  Hotels: ${hotelNames}`);
-  }
-  lines.push(`\nNON-TRANSFERABLE PROGRAMS (cannot transfer to partners):`);
-  lines.push(`  Discover Miles, Bank of America Points, Wells Fargo Points, US Bank Rewards — portal/statement credit only`);
-  lines.push(`\nKEY EXCLUSIONS (common mistakes to avoid):`);
-  lines.push(`  - Chase CANNOT transfer to Delta, American, Emirates, Cathay Pacific, ANA, Turkish, Qatar, Etihad`);
-  lines.push(`  - Amex CANNOT transfer to United, American, Southwest, Alaska`);
-  lines.push(`  - Citi CANNOT transfer to Delta, United, Southwest, Alaska, British Airways`);
-  lines.push(`  - Capital One CANNOT transfer to Delta, United, American, Southwest, Alaska, JetBlue`);
-  lines.push(`  - Bilt CANNOT transfer to Delta, American, Alaska`);
-  return lines.join("\n");
-}
-
 // ---------------------------------------------------------------------------
 // Types
 // ---------------------------------------------------------------------------
@@ -262,41 +232,6 @@ export interface HotelRecommendation {
   whyThisHotel: string;
 }
 
-export interface AttractionRecommendation {
-  name: string;
-  type: string;
-  timeSlot: string;
-  duration: string;
-  estimatedCost: number;
-  ticketUrl?: string;
-  requiresAdvanceBooking: boolean;
-  highlights: string[];
-  tips?: string;
-}
-
-export interface DayPlan {
-  day: number;
-  date: string;
-  location: string;
-  theme: string;
-  morning: string;
-  afternoon: string;
-  evening: string;
-  attractions: AttractionRecommendation[];
-  diningRecommendation?: string;
-  tips?: string;
-}
-
-export interface TransportationRecommendation {
-  type: string;
-  provider: string;
-  route: string;
-  estimatedCost: number;
-  duration: string;
-  notes: string;
-  bookingTip?: string;
-}
-
 export interface BudgetBreakdown {
   totalEstimatedCash: number;
   totalPointsUsed: { program: string; points: number }[];
@@ -304,8 +239,6 @@ export interface BudgetBreakdown {
   flightsPoints: string;
   hotelsCash: number;
   hotelsPoints: string;
-  transportationCash: number;
-  activitiesAndDining: number;
   savings: string;
 }
 
@@ -313,257 +246,27 @@ export interface GeneratedItinerary {
   summary: string;
   flights: FlightRecommendation[];
   hotels: HotelRecommendation[];
-  transportation: TransportationRecommendation[];
-  dailyItinerary: DayPlan[];
   budgetBreakdown: BudgetBreakdown;
   pointsStrategy: string;
   tips: string[];
   travelerFlights?: import("./flight-search").TravelerFlightGroup[];
   travelerHotels?: import("./hotel-search").TravelerHotelGroup[];
-  travelerTransport?: import("./transport-search").TravelerTransportGroup[];
-  restaurants?: import("./restaurant-search").RestaurantRecommendation[];
 }
 
 // ---------------------------------------------------------------------------
-// Shared context builders — each call gets ONLY the context it needs
+// Main generation — AI-powered personalized trip summary + strategy.
+// Flights and hotels come from live search algorithms in parallel.
 // ---------------------------------------------------------------------------
 
-function buildTripHeader(input: ItineraryInput): string {
-  const routeBlock = input.multiCityLegs?.length
-    ? input.multiCityLegs
-      .map((l) => `  Leg ${l.leg}: ${l.from.join("/")} → ${l.to.join("/")} on ${l.date}`)
-      .join("\n")
-    : `  ${input.originAirports.join("/")} → ${input.destinationAirports.join("/")}`;
+import OpenAI from "openai";
 
-  const tripDuration = input.returnDate
-    ? Math.ceil(
-      (new Date(input.returnDate).getTime() - new Date(input.departureDate).getTime()) /
-      (1000 * 60 * 60 * 24),
-    )
-    : null;
-
-  return `Route: ${routeBlock.trim()}
-Departure: ${input.departureDate}${input.returnDate ? ` | Return: ${input.returnDate}` : " (one-way)"}${tripDuration ? ` | ${tripDuration} days` : ""}
-Travelers: ${input.travelerCount} | Cabin: ${input.cabinPreference || "any"}${input.budgetCash ? ` | Budget: $${input.budgetCash.toLocaleString()}` : ""}${input.notes ? `\nNotes: ${input.notes}` : ""}`;
-}
-
-function buildLoyaltyBlock(input: ItineraryInput): string {
-  return input.loyaltyBalances?.length
-    ? input.loyaltyBalances
-      .map((b) => `${b.programName}: ${b.balance.toLocaleString()} pts`)
-      .join(", ")
-    : "None";
-}
-
-function buildBonusBlock(input: ItineraryInput): string {
-  return input.transferBonuses?.length
-    ? input.transferBonuses
-      .map((b) => `${b.fromProgram}→${b.toProgram}: +${b.bonusPercent}% (exp ${b.endsAt})`)
-      .join("; ")
-    : "None";
-}
-
-// Only flights & hotels need this heavy block
-function buildTransferContext(input: ItineraryInput): string {
-  return `TRANSFER PARTNERS (authoritative):
-${buildTransferPartnerBlock()}
-
-TRANSFER BONUSES: ${buildBonusBlock(input)}
-
-RULES: Only suggest transfers listed above. Chase≠Delta/AA/Emirates/ANA/Turkish/Qatar/Etihad/Cathay/Alaska. Amex≠United/AA/Southwest/Alaska. Citi≠Delta/United/Southwest/Alaska. CapOne≠Delta/United/AA/Southwest/Alaska/JetBlue. Bilt≠Delta/AA/Alaska. Include transfer ratio in transferFrom field.`;
-}
-
-// ---------------------------------------------------------------------------
-// 8 parallel micro-generators — each produces one section
-// ---------------------------------------------------------------------------
-
-function repairJson(raw: string): string {
-  let s = raw.trim();
-  if (!s) return "{}";
-
-  const openBraces = (s.match(/{/g) || []).length;
-  const closeBraces = (s.match(/}/g) || []).length;
-  const openBrackets = (s.match(/\[/g) || []).length;
-  const closeBrackets = (s.match(/]/g) || []).length;
-
-  // Truncated inside a string value — close it
-  if ((s.match(/"/g) || []).length % 2 !== 0) {
-    s += '"';
-  }
-
-  // Close any trailing unclosed key-value (e.g. truncated mid-value)
-  const tail = s.slice(-1);
-  if (tail === ":" || tail === ",") {
-    s += '""';
-  }
-
-  for (let i = 0; i < openBrackets - closeBrackets; i++) s += "]";
-  for (let i = 0; i < openBraces - closeBraces; i++) s += "}";
-
-  return s;
-}
-
-function aiCall(prompt: string, maxTokens: number): Promise<string> {
-  return openai.chat.completions.create({
-    model: "gpt-4o-mini",
-    messages: [
-      { role: "system", content: "Respond with valid JSON only." },
-      { role: "user", content: prompt },
-    ],
-    response_format: { type: "json_object" },
-    temperature: 0.5,
-    max_tokens: maxTokens,
-  }).then((r) => {
-    const raw = r.choices[0]?.message?.content || "{}";
-    if (r.choices[0]?.finish_reason === "length") {
-      console.warn("OpenAI response truncated (max_tokens hit), attempting repair");
-      return repairJson(raw);
-    }
-    return raw;
-  });
-}
-
-async function genFlights(input: ItineraryInput, header: string): Promise<FlightRecommendation[]> {
-  const prefs = input.preferences ? buildPreferencesBlock(input.preferences) : "";
-  const prompt = `Travel advisor: recommend flights as JSON.
-
-${header}
-${prefs ? `Preferences: ${prefs}` : ""}
-Loyalty: ${buildLoyaltyBlock(input)}
-${buildTransferContext(input)}
-
-Return {"flights":[...]} where each has: segment, airline, flightExample, cabin, departureTime, arrivalTime, duration, stops, pointsOption:{program,pointsRequired,transferFrom,transferBonus,taxes}, cashOption:{estimatedPrice,fareClass}, recommendation("points"/"cash"), whyThisFlight. Use 2024-2025 pricing. Prioritize points >1.5cpp.`;
-
-  const parsed = JSON.parse(await aiCall(prompt, 2048));
-  return (parsed.flights || []).map(normalizeFlightRec);
-}
-
-async function genHotels(input: ItineraryInput, header: string): Promise<HotelRecommendation[]> {
-  const prefs = input.preferences ? buildPreferencesBlock(input.preferences) : "";
-  const prompt = `Travel advisor: recommend hotels as JSON.
-
-${header}
-${prefs ? `Preferences: ${prefs}` : ""}
-Loyalty: ${buildLoyaltyBlock(input)}
-${buildTransferContext(input)}
-
-Return {"hotels":[...]} where each has: destination, hotelName, hotelType, starRating(1-5), neighborhood, checkIn, checkOut, nightCount, pointsOption:{program,pointsPerNight,totalPoints,transferFrom}, cashOption:{estimatedPerNight,estimatedTotal}, highlights(3-4), whyThisHotel. Use 2024-2025 pricing. Prioritize points >0.7cpp.`;
-
-  const parsed = JSON.parse(await aiCall(prompt, 2048));
-  return (parsed.hotels || []).map(normalizeHotelRec);
-}
-
-async function genPointsStrategy(input: ItineraryInput, header: string): Promise<string> {
-  const prompt = `Travel advisor: write a points/transfer strategy for this trip.
-
-${header}
-Loyalty: ${buildLoyaltyBlock(input)}
-${buildTransferContext(input)}
-
-Return {"pointsStrategy":"..."} — 2-3 sentences on which programs to transfer from, ratios, and any active bonuses.`;
-
-  const parsed = JSON.parse(await aiCall(prompt, 512));
-  return parsed.pointsStrategy || parsed.points_strategy || "";
-}
-
-async function genTransportation(input: ItineraryInput, header: string): Promise<TransportationRecommendation[]> {
-  const prompt = `Travel advisor: recommend ground transportation as JSON.
-
-${header}
-
-Return {"transportation":[...]} where each has: type("airport_transfer"/"car_rental"/"ride_service"/"train"/"private_car"/"shuttle"), provider, route, estimatedCost(USD), duration, notes, bookingTip. Use 2024-2025 pricing.`;
-
-  const parsed = JSON.parse(await aiCall(prompt, 1024));
-  return (parsed.transportation || []).map(normalizeTransportRec);
-}
-
-async function genDailyItinerary(input: ItineraryInput, header: string): Promise<DayPlan[]> {
-  const prefs = input.preferences ? buildPreferencesBlock(input.preferences) : "";
-  const prompt = `Travel advisor: create a day-by-day itinerary focused ONLY on attractions, sightseeing, and ticketed activities. Do NOT include restaurants, dining, food, or transportation recommendations — those are handled separately.
-
-${header}
-${prefs ? `Preferences: ${prefs}` : ""}
-
-Return {"dailyItinerary":[...]} where each day has:
-- day(number), date, location, theme
-- morning (attraction/activity description), afternoon (attraction/activity description), evening (attraction/activity description)
-- attractions: array of specific attractions/activities for that day, each with:
-  - name (attraction name)
-  - type ("museum"|"landmark"|"tour"|"park"|"show"|"cultural"|"adventure"|"market"|"historic_site"|"viewpoint"|"theme_park"|"gallery"|"festival"|"workshop"|"cruise")
-  - timeSlot ("morning"|"afternoon"|"evening"|"full_day")
-  - duration (e.g. "2 hours")
-  - estimatedCost (USD number, 0 if free)
-  - ticketUrl (booking URL if applicable, or empty string)
-  - requiresAdvanceBooking (boolean)
-  - highlights (2-3 string highlights of the attraction)
-  - tips (practical tip for visiting)
-- tips (general day tips)
-
-Focus on top-rated local attractions, hidden gems, museums, landmarks, tours, shows, and experiences. Include ticket prices and booking info where applicable.`;
-
-  const parsed = JSON.parse(await aiCall(prompt, 4096));
-  return (parsed.dailyItinerary || parsed.daily_itinerary || []).map(normalizeDayPlan);
-}
-
-async function genTips(input: ItineraryInput, header: string): Promise<string[]> {
-  const prompt = `Travel advisor: give 4-6 practical travel tips for this trip (visa, weather, packing, customs, transport).
-
-${header}
-
-Return {"tips":["tip string 1", "tip string 2", ...]} — each tip must be a plain string, NOT an object.`;
-
-  const parsed = JSON.parse(await aiCall(prompt, 512));
-  const raw: unknown[] = parsed.tips || [];
-  return raw.map((t) =>
-    typeof t === "string" ? t : (t as Record<string, unknown>)?.tip as string ?? JSON.stringify(t),
-  );
-}
-
-async function genSummary(input: ItineraryInput, header: string): Promise<string> {
-  const hasPoints = input.loyaltyBalances && input.loyaltyBalances.length > 0;
-  const prompt = `Travel advisor: write a 3-4 sentence executive trip summary.
-
-${header}
-${hasPoints ? `Loyalty: ${buildLoyaltyBlock(input)}` : ""}
-
-Return {"summary":"..."} mentioning key highlights and travel strategy.`;
-
-  const parsed = JSON.parse(await aiCall(prompt, 512));
-  return parsed.summary || "";
-}
-
-async function genBudget(input: ItineraryInput, header: string): Promise<BudgetBreakdown> {
-  const prompt = `Travel advisor: estimate a budget breakdown as JSON.
-
-${header}
-Loyalty: ${buildLoyaltyBlock(input)}
-Transfer Bonuses: ${buildBonusBlock(input)}
-
-Return {"budgetBreakdown":{totalEstimatedCash, totalPointsUsed:[{program,points}], flightsCash, flightsPoints(string), hotelsCash, hotelsPoints(string), transportationCash, activitiesAndDining, savings(string)}}. Use 2024-2025 pricing.`;
-
-  const parsed = JSON.parse(await aiCall(prompt, 1024));
-  return normalizeBudget(parsed.budgetBreakdown || parsed.budget_breakdown || {});
-}
-
-// ---------------------------------------------------------------------------
-// Main generation — AI handles food/dining, transportation, and daily plan
-// only.  Flights come from the real search algorithm (flight-search.ts).
-// ---------------------------------------------------------------------------
+const openai = new OpenAI({
+  apiKey: process.env.OPENAI_API_KEY || "",
+});
 
 export async function generateItinerary(
   input: ItineraryInput,
 ): Promise<GeneratedItinerary> {
-  if (!process.env.OPENAI_API_KEY) {
-    return generateFallbackItinerary(input);
-  }
-
-  const header = buildTripHeader(input);
-
-  const [transportation, dailyItinerary] = await Promise.all([
-    genTransportation(input, header),
-    genDailyItinerary(input, header),
-  ]);
-
   const origin = input.originAirports.join("/");
   const dest = input.destinationAirports.join("/");
   const tripDays = input.returnDate
@@ -573,207 +276,190 @@ export async function generateItinerary(
       )
     : null;
 
+  if (!process.env.OPENAI_API_KEY) {
+    return buildFallbackItinerary(input, origin, dest, tripDays);
+  }
+
+  try {
+    return await generateWithAI(input, origin, dest, tripDays);
+  } catch (err) {
+    console.error("AI itinerary generation failed, using fallback:", err);
+    return buildFallbackItinerary(input, origin, dest, tripDays);
+  }
+}
+
+async function generateWithAI(
+  input: ItineraryInput,
+  origin: string,
+  dest: string,
+  tripDays: number | null,
+): Promise<GeneratedItinerary> {
+  const prefs = input.preferences;
+  const balances = input.loyaltyBalances ?? [];
+  const bonuses = input.transferBonuses ?? [];
+
+  const loyaltyBlock = balances.length > 0
+    ? balances.map((b) => `  ${b.programName} (${b.category}): ${b.balance.toLocaleString()} pts`).join("\n")
+    : "  None";
+
+  const bonusBlock = bonuses.length > 0
+    ? bonuses.map((b) => `  ${b.fromProgram} → ${b.toProgram}: +${b.bonusPercent}% (exp ${b.endsAt})`).join("\n")
+    : "  None";
+
+  const prefsBlock = prefs
+    ? [
+        prefs.preferredCabin ? `Cabin: ${prefs.preferredCabin}` : null,
+        prefs.prefersNonstop ? "Prefers nonstop flights" : null,
+        prefs.preferredAirlines?.length ? `Preferred airlines: ${prefs.preferredAirlines.join(", ")}` : null,
+        prefs.avoidedAirlines?.length ? `Avoid airlines: ${prefs.avoidedAirlines.join(", ")}` : null,
+        prefs.avoidBasicEconomy ? "Avoid basic economy" : null,
+        prefs.maxLayoverMinutes ? `Max layover: ${prefs.maxLayoverMinutes} min` : null,
+        prefs.preferredHotelTypes?.length ? `Hotel types: ${prefs.preferredHotelTypes.join(", ")}` : null,
+        prefs.roomPreferences?.length ? `Room prefs: ${prefs.roomPreferences.join(", ")}` : null,
+        prefs.locationPreferences ? `Location: ${prefs.locationPreferences}` : null,
+        prefs.redemptionStyle ? `Redemption style: ${prefs.redemptionStyle}` : null,
+        prefs.budgetSensitivity ? `Budget sensitivity: ${prefs.budgetSensitivity}` : null,
+        prefs.pointsVsCash ? `Points vs cash: ${prefs.pointsVsCash}` : null,
+        prefs.foodPreferences?.length ? `Food: ${prefs.foodPreferences.join(", ")}` : null,
+        prefs.activityPreferences?.length ? `Activities: ${prefs.activityPreferences.join(", ")}` : null,
+        prefs.familyConsiderations ? `Family: ${prefs.familyConsiderations}` : null,
+        prefs.specialOccasions?.length ? `Occasions: ${prefs.specialOccasions.join(", ")}` : null,
+        prefs.dislikes?.length ? `Dislikes: ${prefs.dislikes.join(", ")}` : null,
+        prefs.dealbreakers?.length ? `Dealbreakers: ${prefs.dealbreakers.join(", ")}` : null,
+        prefs.notes ? `Notes: ${prefs.notes}` : null,
+      ]
+        .filter(Boolean)
+        .map((l) => `  ${l}`)
+        .join("\n") || "  No preferences recorded"
+    : "  No preferences recorded";
+
+  const transferPartnersBlock = Object.entries(TRANSFER_PARTNERS)
+    .map(([, bank]) => {
+      const airlines = Object.entries(bank.airlinePartners)
+        .map(([name, p]) => `${name} (${p.ratio}:1)`)
+        .join(", ");
+      return `  ${bank.name}: ${airlines}`;
+    })
+    .join("\n");
+
+  const prompt = `You are an expert luxury travel advisor creating a personalized trip plan.
+
+TRIP:
+- Client: ${input.clientName ?? "Guest"}
+- Title: ${input.tripTitle}
+- From: ${origin} → ${dest}
+- Dates: ${input.departureDate}${input.returnDate ? ` to ${input.returnDate}` : " (one-way)"}${tripDays ? ` (${tripDays} days)` : ""}
+- Travelers: ${input.travelerCount}${input.cabinPreference ? `\n- Cabin preference: ${input.cabinPreference}` : ""}${input.budgetCash ? `\n- Budget: $${input.budgetCash.toLocaleString()}` : ""}${input.notes ? `\n- Notes: ${input.notes}` : ""}
+
+CLIENT PREFERENCES:
+${prefsBlock}
+
+LOYALTY PORTFOLIO:
+${loyaltyBlock}
+
+TRANSFER PARTNERS:
+${transferPartnersBlock}
+
+ACTIVE TRANSFER BONUSES:
+${bonusBlock}
+
+Generate a JSON response with this structure:
+{
+  "summary": "2-4 sentence personalized trip overview referencing the client's preferences, loyalty portfolio, and best strategies",
+  "pointsStrategy": "2-3 sentence strategy explaining the best way to use their points/miles for this trip, including specific transfer partner recommendations",
+  "tips": ["3-5 actionable, personalized tips for this specific trip and client"]
+}
+
+Be specific. Reference their actual loyalty programs, preferences, and any active bonuses. If they have preferences for nonstop flights, mention that. If they have strong airline preferences, factor those in. The summary should feel like it was written by their personal travel advisor who knows them well.`;
+
+  const response = await openai.chat.completions.create({
+    model: "gpt-4o-mini",
+    messages: [
+      { role: "system", content: "Respond with valid JSON only. Be concise but specific." },
+      { role: "user", content: prompt },
+    ],
+    response_format: { type: "json_object" },
+    temperature: 0.6,
+    max_tokens: 1024,
+  });
+
+  const raw = response.choices[0]?.message?.content || "{}";
+  const parsed = JSON.parse(raw);
+
   return {
-    summary: `A ${tripDays ?? "multi"}-day trip from ${origin} to ${dest} for ${input.travelerCount} traveler${input.travelerCount > 1 ? "s" : ""}. Flight options sourced from live pricing data. See the Flights tab for real-time cash and award availability.`,
+    summary: parsed.summary || `A ${tripDays ?? "multi"}-day trip from ${origin} to ${dest}.`,
     flights: [],
     hotels: [],
-    transportation,
-    dailyItinerary,
     budgetBreakdown: {
       totalEstimatedCash: 0,
       totalPointsUsed: [],
       flightsCash: 0,
       flightsPoints: "See Flights tab for live pricing",
       hotelsCash: 0,
-      hotelsPoints: "",
-      transportationCash: transportation.reduce((sum, t) => sum + (t.estimatedCost || 0), 0),
-      activitiesAndDining: 0,
+      hotelsPoints: "See Hotels tab for live pricing",
       savings: "",
     },
-    pointsStrategy: "",
-    tips: [],
+    pointsStrategy: parsed.pointsStrategy || "",
+    tips: parsed.tips || [],
   };
 }
 
-// ---------------------------------------------------------------------------
-// Helpers
-// ---------------------------------------------------------------------------
+function buildFallbackItinerary(
+  input: ItineraryInput,
+  origin: string,
+  dest: string,
+  tripDays: number | null,
+): GeneratedItinerary {
+  const prefs = input.preferences;
+  const balances = input.loyaltyBalances ?? [];
+  const tips: string[] = [];
 
-function buildPreferencesBlock(prefs: NonNullable<ItineraryInput["preferences"]>): string {
-  const lines: string[] = [];
+  let summary = `A ${tripDays ?? "multi"}-day trip from ${origin} to ${dest} for ${input.travelerCount} traveler${input.travelerCount > 1 ? "s" : ""}.`;
+  if (prefs?.preferredCabin) {
+    summary += ` ${prefs.preferredCabin.charAt(0).toUpperCase() + prefs.preferredCabin.slice(1)} cabin preferred.`;
+  }
+  if (prefs?.prefersNonstop) {
+    summary += " Nonstop flights prioritized.";
+  }
+  summary += " Flight and hotel options sourced from live pricing data.";
 
-  if (prefs.preferredCabin) lines.push(`Preferred Cabin: ${prefs.preferredCabin}`);
-  if (prefs.prefersNonstop != null) lines.push(`Prefers Nonstop: ${prefs.prefersNonstop ? "Yes" : "No"}`);
-  if (prefs.maxLayoverMinutes) lines.push(`Max Layover: ${prefs.maxLayoverMinutes} min`);
-  if (prefs.avoidBasicEconomy) lines.push(`Avoid Basic Economy: Yes`);
-  if (prefs.preferredAirlines?.length) lines.push(`Preferred Airlines: ${prefs.preferredAirlines.join(", ")}`);
-  if (prefs.avoidedAirlines?.length) lines.push(`Avoided Airlines: ${prefs.avoidedAirlines.join(", ")}`);
-  if (prefs.preferredHotelTypes?.length) lines.push(`Hotel Types: ${prefs.preferredHotelTypes.join(", ")}`);
-  if (prefs.roomPreferences?.length) lines.push(`Room Preferences: ${prefs.roomPreferences.join(", ")}`);
-  if (prefs.locationPreferences) lines.push(`Location Preference: ${prefs.locationPreferences}`);
-  if (prefs.redemptionStyle) lines.push(`Redemption Style: ${prefs.redemptionStyle}`);
-  if (prefs.budgetSensitivity) lines.push(`Budget Sensitivity: ${prefs.budgetSensitivity}`);
-  if (prefs.pointsVsCash) lines.push(`Points vs Cash: ${prefs.pointsVsCash}`);
-  if (prefs.foodPreferences?.length) lines.push(`Food: ${prefs.foodPreferences.join(", ")}`);
-  if (prefs.activityPreferences?.length) lines.push(`Activities: ${prefs.activityPreferences.join(", ")}`);
-  if (prefs.familyConsiderations) lines.push(`Family: ${prefs.familyConsiderations}`);
-  if (prefs.specialOccasions?.length) lines.push(`Occasions: ${prefs.specialOccasions.join(", ")}`);
-  if (prefs.dislikes?.length) lines.push(`Dislikes: ${prefs.dislikes.join(", ")}`);
-  if (prefs.dealbreakers?.length) lines.push(`Dealbreakers: ${prefs.dealbreakers.join(", ")}`);
-  if (prefs.notes) lines.push(`Notes: ${prefs.notes}`);
+  if (prefs?.prefersNonstop) tips.push("Nonstop flights have been prioritized in search results per your preference.");
+  if (prefs?.preferredAirlines?.length) tips.push(`Results ranked to favor ${prefs.preferredAirlines.join(", ")}.`);
+  if (prefs?.avoidedAirlines?.length) tips.push(`Flights on ${prefs.avoidedAirlines.join(", ")} have been deprioritized.`);
 
-  return lines.length > 0 ? lines.join("\n") : "No preferences on file.";
-}
+  const bankBalances = balances.filter((b) => b.category?.toLowerCase() === "transferable_bank");
+  if (bankBalances.length > 0) {
+    tips.push(`Check transfer partner rates for ${bankBalances.map((b) => b.programName).join(", ")} — award flights may offer excellent value.`);
+  }
 
-function normalizeFlightRec(f: Record<string, unknown>): FlightRecommendation {
-  return {
-    segment: (f.segment as string) || "",
-    airline: (f.airline as string) || "",
-    flightExample: (f.flightExample as string) || (f.flight_example as string) || "",
-    cabin: (f.cabin as string) || "",
-    departureTime: (f.departureTime as string) || (f.departure_time as string) || "",
-    arrivalTime: (f.arrivalTime as string) || (f.arrival_time as string) || "",
-    duration: (f.duration as string) || "",
-    stops: (f.stops as number) ?? 0,
-    pointsOption: f.pointsOption as FlightRecommendation["pointsOption"] ?? f.points_option as FlightRecommendation["pointsOption"] ?? undefined,
-    cashOption: f.cashOption as FlightRecommendation["cashOption"] ?? f.cash_option as FlightRecommendation["cashOption"] ?? undefined,
-    recommendation: (f.recommendation as string) || "cash",
-    whyThisFlight: (f.whyThisFlight as string) || (f.why_this_flight as string) || "",
-  };
-}
+  const bonuses = input.transferBonuses ?? [];
+  if (bonuses.length > 0) {
+    tips.push(`Active transfer bonus: ${bonuses[0].fromProgram} → ${bonuses[0].toProgram} +${bonuses[0].bonusPercent}% (expires ${bonuses[0].endsAt}).`);
+  }
 
-function normalizeHotelRec(h: Record<string, unknown>): HotelRecommendation {
-  return {
-    destination: (h.destination as string) || "",
-    hotelName: (h.hotelName as string) || (h.hotel_name as string) || "",
-    hotelType: (h.hotelType as string) || (h.hotel_type as string) || "",
-    starRating: (h.starRating as number) ?? (h.star_rating as number) ?? 4,
-    neighborhood: (h.neighborhood as string) || "",
-    checkIn: (h.checkIn as string) || (h.check_in as string) || "",
-    checkOut: (h.checkOut as string) || (h.check_out as string) || "",
-    nightCount: (h.nightCount as number) ?? (h.night_count as number) ?? 1,
-    pointsOption: h.pointsOption as HotelRecommendation["pointsOption"] ?? h.points_option as HotelRecommendation["pointsOption"] ?? undefined,
-    cashOption: h.cashOption as HotelRecommendation["cashOption"] ?? h.cash_option as HotelRecommendation["cashOption"] ?? undefined,
-    highlights: (h.highlights as string[]) || [],
-    whyThisHotel: (h.whyThisHotel as string) || (h.why_this_hotel as string) || "",
-  };
-}
+  if (tips.length === 0) tips.push("Compare cash and award pricing in the Flights tab for the best deal.");
 
-function normalizeTransportRec(t: Record<string, unknown>): TransportationRecommendation {
-  return {
-    type: (t.type as string) || "car_rental",
-    provider: (t.provider as string) || "",
-    route: (t.route as string) || "",
-    estimatedCost: (t.estimatedCost as number) ?? (t.estimated_cost as number) ?? 0,
-    duration: (t.duration as string) || "",
-    notes: (t.notes as string) || "",
-    bookingTip: (t.bookingTip as string) || (t.booking_tip as string) || undefined,
-  };
-}
-
-function normalizeAttraction(a: Record<string, unknown>): AttractionRecommendation {
-  return {
-    name: (a.name as string) || "",
-    type: (a.type as string) || "landmark",
-    timeSlot: (a.timeSlot as string) || (a.time_slot as string) || "morning",
-    duration: (a.duration as string) || "",
-    estimatedCost: (a.estimatedCost as number) ?? (a.estimated_cost as number) ?? 0,
-    ticketUrl: (a.ticketUrl as string) || (a.ticket_url as string) || undefined,
-    requiresAdvanceBooking: (a.requiresAdvanceBooking as boolean) ?? (a.requires_advance_booking as boolean) ?? false,
-    highlights: (a.highlights as string[]) || [],
-    tips: (a.tips as string) || undefined,
-  };
-}
-
-function normalizeDayPlan(d: Record<string, unknown>): DayPlan {
-  const rawAttractions = (d.attractions as Record<string, unknown>[]) || [];
-  return {
-    day: (d.day as number) ?? 1,
-    date: (d.date as string) || "",
-    location: (d.location as string) || "",
-    theme: (d.theme as string) || "",
-    morning: (d.morning as string) || "",
-    afternoon: (d.afternoon as string) || "",
-    evening: (d.evening as string) || "",
-    attractions: rawAttractions.map(normalizeAttraction),
-    diningRecommendation: (d.diningRecommendation as string) || (d.dining_recommendation as string) || undefined,
-    tips: (d.tips as string) || undefined,
-  };
-}
-
-function normalizeBudget(b: Record<string, unknown>): BudgetBreakdown {
-  return {
-    totalEstimatedCash: (b.totalEstimatedCash as number) ?? (b.total_estimated_cash as number) ?? 0,
-    totalPointsUsed: (b.totalPointsUsed as BudgetBreakdown["totalPointsUsed"]) ?? (b.total_points_used as BudgetBreakdown["totalPointsUsed"]) ?? [],
-    flightsCash: (b.flightsCash as number) ?? (b.flights_cash as number) ?? 0,
-    flightsPoints: (b.flightsPoints as string) ?? (b.flights_points as string) ?? "",
-    hotelsCash: (b.hotelsCash as number) ?? (b.hotels_cash as number) ?? 0,
-    hotelsPoints: (b.hotelsPoints as string) ?? (b.hotels_points as string) ?? "",
-    transportationCash: (b.transportationCash as number) ?? (b.transportation_cash as number) ?? 0,
-    activitiesAndDining: (b.activitiesAndDining as number) ?? (b.activities_and_dining as number) ?? 0,
-    savings: (b.savings as string) ?? "",
-  };
-}
-
-// ---------------------------------------------------------------------------
-// Fallback (no OpenAI key)
-// ---------------------------------------------------------------------------
-
-function generateFallbackItinerary(input: ItineraryInput): GeneratedItinerary {
-  const origin = input.originAirports.join("/");
-  const dest = input.destinationAirports.join("/");
-  const tripDays = input.returnDate
-    ? Math.ceil(
-      (new Date(input.returnDate).getTime() - new Date(input.departureDate).getTime()) /
-      (1000 * 60 * 60 * 24),
-    )
-    : 3;
-
-  const dailyPlans: DayPlan[] = [];
-  for (let i = 0; i < tripDays; i++) {
-    const date = new Date(input.departureDate);
-    date.setDate(date.getDate() + i);
-    dailyPlans.push({
-      day: i + 1,
-      date: date.toISOString().split("T")[0],
-      location: dest,
-      theme: i === 0 ? "Arrival & Settle In" : i === tripDays - 1 ? "Departure Day" : "Exploration Day",
-      morning: i === 0 ? "Arrive and check into hotel. Freshen up and get oriented." : "Explore local sights and attractions.",
-      afternoon: i === 0 ? "Light neighborhood walk to acclimate. Visit a nearby landmark." : "Guided tour or cultural experience.",
-      evening: "Evening attractions and entertainment.",
-      attractions: [],
-      diningRecommendation: "Ask your concierge for current top-rated restaurants in the area.",
-      tips: i === 0 ? "Keep your first day light to adjust to the time zone." : undefined,
-    });
+  let pointsStrategy = "";
+  if (balances.length > 0) {
+    const topBalance = [...balances].sort((a, b) => b.balance - a.balance)[0];
+    pointsStrategy = `Your largest balance is ${topBalance.programName} with ${topBalance.balance.toLocaleString()} points. Check the Flights and Hotels tabs for award redemption options.`;
   }
 
   return {
-    summary: `A ${tripDays}-day trip from ${origin} to ${dest} for ${input.travelerCount} traveler${input.travelerCount > 1 ? "s" : ""}. Flight options sourced from live pricing data. Set up your OpenAI API key for personalized dining and activity recommendations.`,
+    summary,
     flights: [],
     hotels: [],
-    transportation: [
-      {
-        type: "airport_transfer",
-        provider: "Recommended car service",
-        route: `${dest} Airport → Hotel`,
-        estimatedCost: 0,
-        duration: "Varies",
-        notes: "Connect your OpenAI API key for specific transportation recommendations.",
-      },
-    ],
-    dailyItinerary: dailyPlans,
     budgetBreakdown: {
       totalEstimatedCash: 0,
       totalPointsUsed: [],
       flightsCash: 0,
       flightsPoints: "See Flights tab for live pricing",
       hotelsCash: 0,
-      hotelsPoints: "",
-      transportationCash: 0,
-      activitiesAndDining: 0,
+      hotelsPoints: "See Hotels tab for live pricing",
       savings: "",
     },
-    pointsStrategy: "",
-    tips: [],
+    pointsStrategy,
+    tips,
   };
 }
+

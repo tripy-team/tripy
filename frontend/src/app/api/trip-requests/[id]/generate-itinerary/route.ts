@@ -6,20 +6,12 @@ import type { ItineraryInput } from "@/lib/itinerary-ai";
 import {
   searchFlightsForTravelers,
   type TravelerSearchInput,
+  type FlightPreferences,
 } from "@/lib/flight-search";
 import { deriveStayWindows } from "@/lib/hotel-search";
 import type { TravelerHotelSearchInput } from "@/lib/hotel-search";
 import { searchAndScoreHotelsForTravelers } from "@/lib/hotel-scoring";
 import type { HotelScoringContext } from "@/lib/hotel-scoring";
-import {
-  searchRestaurantsForTrip,
-  type RestaurantSearchInput,
-} from "@/lib/restaurant-search";
-import {
-  searchAndScoreTransportForTravelers,
-  type TransportScoringContext,
-} from "@/lib/transport-scoring";
-import type { TransportSearchInput } from "@/lib/transport-search";
 import type { Prisma } from "@/generated/prisma/client";
 
 export const maxDuration = 60;
@@ -287,50 +279,9 @@ export async function POST(
           transferPartners: TRANSFER_PARTNERS,
         };
 
-        // --- Transport search setup ---
-        const transportTravelerInputs: TransportSearchInput[] = travelerInputs.map((t) => ({
-          travelerId: t.travelerId,
-          travelerName: t.travelerName,
-          clientId: t.clientId,
-          originAirports: t.originAirports,
-          destinationAirports: t.destinationAirports,
-        }));
-
-        const transportScoringContext: TransportScoringContext = {
-          clientName: trip.client ? `${trip.client.firstName} ${trip.client.lastName}` : "Guest",
-          tripTitle: trip.title,
-          travelerCount: trip.travelerCount,
-          budgetCash: trip.budgetCash ?? undefined,
-          preferences: {
-            budgetSensitivity: prefs?.budgetSensitivity ?? undefined,
-            notes: cleanNotes || undefined,
-          },
-        };
-
-        // --- Restaurant search setup ---
-        const restaurantInput: RestaurantSearchInput = {
-          destination: destinations.join(", "),
-          departureDate,
-          returnDate,
-          travelerCount: trip.travelerCount,
-          clientName: trip.client ? `${trip.client.firstName} ${trip.client.lastName}` : undefined,
-          preferences: prefs
-            ? {
-                foodPreferences: (prefs.foodPreferences as string[]) ?? undefined,
-                activityPreferences: (prefs.activityPreferences as string[]) ?? undefined,
-                budgetSensitivity: prefs.budgetSensitivity ?? undefined,
-                dislikes: (prefs.dislikes as string[]) ?? undefined,
-                dealbreakers: (prefs.dealbreakers as string[]) ?? undefined,
-                familyConsiderations: prefs.familyConsiderations ?? undefined,
-                specialOccasions: (prefs.specialOccasions as string[]) ?? undefined,
-                notes: prefs.notes ?? undefined,
-              }
-            : undefined,
-        };
-
         // --- Run searches independently, saving partial results as each completes ---
         const completedSections: string[] = [];
-        const pendingSections = ["itinerary", "flights", "hotels", "transport", "restaurants"];
+        const pendingSections = ["itinerary", "flights", "hotels"];
         let saveLock: Promise<void> = Promise.resolve();
 
         const savePartial = (
@@ -365,8 +316,6 @@ export async function POST(
             summary: itinerary.summary,
             flights: itinerary.flights,
             hotels: itinerary.hotels,
-            transportation: itinerary.transportation,
-            dailyItinerary: itinerary.dailyItinerary,
             budgetBreakdown: itinerary.budgetBreakdown,
             pointsStrategy: itinerary.pointsStrategy,
             tips: itinerary.tips,
@@ -374,8 +323,21 @@ export async function POST(
           return itinerary;
         });
 
+        const flightPrefs: FlightPreferences | undefined = prefs
+          ? {
+              prefersNonstop: prefs.prefersNonstop ?? undefined,
+              maxLayoverMinutes: prefs.maxLayoverMinutes ?? undefined,
+              avoidBasicEconomy: prefs.avoidBasicEconomy ?? undefined,
+              preferredAirlines: (prefs.preferredAirlines as string[]) ?? undefined,
+              avoidedAirlines: (prefs.avoidedAirlines as string[]) ?? undefined,
+              willingToReposition: prefs.willingToReposition ?? undefined,
+              redemptionStyle: prefs.redemptionStyle ?? undefined,
+              budgetSensitivity: prefs.budgetSensitivity ?? undefined,
+            }
+          : undefined;
+
         const flightsPromise = searchFlightsForTravelers(
-          travelerInputs, departureDate, returnDate, trip.cabinPreference ?? "economy",
+          travelerInputs, departureDate, returnDate, trip.cabinPreference ?? "economy", flightPrefs,
         ).catch((err) => {
           console.error("Flight search failed (non-fatal):", err);
           return [] as Awaited<ReturnType<typeof searchFlightsForTravelers>>;
@@ -394,31 +356,10 @@ export async function POST(
           return travelerHotels;
         });
 
-        const transportPromise = searchAndScoreTransportForTravelers(
-          transportTravelerInputs, departureDate, returnDate, transportScoringContext,
-          trip.cabinPreference ?? "economy",
-        ).catch((err) => {
-          console.error("Transport search failed (non-fatal):", err);
-          return [] as Awaited<ReturnType<typeof searchAndScoreTransportForTravelers>>;
-        }).then(async (travelerTransport) => {
-          await savePartial("transport", { travelerTransport });
-          return travelerTransport;
-        });
-
-        const restaurantsPromise = searchRestaurantsForTrip(restaurantInput).catch((err) => {
-          console.error("Restaurant search failed (non-fatal):", err);
-          return [] as Awaited<ReturnType<typeof searchRestaurantsForTrip>>;
-        }).then(async (restaurants) => {
-          await savePartial("restaurants", { restaurants });
-          return restaurants;
-        });
-
         await Promise.all([
           itineraryPromise,
           flightsPromise,
           hotelsPromise,
-          transportPromise,
-          restaurantsPromise,
         ]);
       } catch (error) {
         console.error("Generate itinerary background error:", error);

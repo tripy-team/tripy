@@ -3,6 +3,7 @@ import { getAuthUser, json, errorResponse } from "@/lib/auth";
 import {
   searchFlightsForTravelers,
   type TravelerSearchInput,
+  type FlightPreferences,
 } from "@/lib/flight-search";
 import type { Prisma } from "@/generated/prisma/client";
 
@@ -95,11 +96,26 @@ export async function POST(
       });
     }
 
+    const prefs = trip.client?.preferences;
+    const flightPrefs: FlightPreferences | undefined = prefs
+      ? {
+          prefersNonstop: prefs.prefersNonstop ?? undefined,
+          maxLayoverMinutes: prefs.maxLayoverMinutes ?? undefined,
+          avoidBasicEconomy: prefs.avoidBasicEconomy ?? undefined,
+          preferredAirlines: (prefs.preferredAirlines as string[]) ?? undefined,
+          avoidedAirlines: (prefs.avoidedAirlines as string[]) ?? undefined,
+          willingToReposition: prefs.willingToReposition ?? undefined,
+          redemptionStyle: prefs.redemptionStyle ?? undefined,
+          budgetSensitivity: prefs.budgetSensitivity ?? undefined,
+        }
+      : undefined;
+
     const travelerFlights = await searchFlightsForTravelers(
       travelerInputs,
       departureDate,
       returnDate,
       trip.cabinPreference ?? "economy",
+      flightPrefs,
     );
 
     // Persist results into the latest completed itinerary job (create one if none exists)
@@ -128,8 +144,6 @@ export async function POST(
             summary: "",
             flights: [],
             hotels: [],
-            transportation: [],
-            dailyItinerary: [],
             budgetBreakdown: {
               totalEstimatedCash: 0,
               totalPointsUsed: [],
@@ -137,8 +151,6 @@ export async function POST(
               flightsPoints: "",
               hotelsCash: 0,
               hotelsPoints: "",
-              transportationCash: 0,
-              activitiesAndDining: 0,
               savings: "",
             },
             pointsStrategy: "",

@@ -89,7 +89,6 @@ import {
   addTripTraveler,
   removeTripTraveler,
   getClients,
-  searchTripRestaurants,
   searchTripFlights,
 } from '@/lib/api-client';
 import type { ItineraryProgressUpdate } from '@/lib/api-client';
@@ -101,9 +100,6 @@ import type {
   ConfidenceResult,
   GeneratedItinerary,
   ItineraryHotelRecommendation,
-  ItineraryTransportationRecommendation,
-  ItineraryDayPlan,
-  AttractionRecommendation,
   MeetingSession,
   MeetingQuestionSuggestion,
   MeetingProfileSuggestion,
@@ -114,10 +110,6 @@ import type {
   TravelerFlightSegment,
   CashFlightOption,
   AwardFlightOption,
-  RestaurantRecommendation,
-  TravelerTransportGroup,
-  TransportSegment as TransportSegmentType,
-  ScoredTransportOption,
   TravelerHotelGroup,
   ScoredHotel,
 } from '@/lib/api-client';
@@ -130,16 +122,13 @@ const STATUS_STYLES: Record<string, { bg: string; text: string }> = {
   archived: { bg: 'bg-slate-100', text: 'text-slate-500' },
 };
 
-type TripTab = 'overview' | 'discovery' | 'flights' | 'hotels' | 'food' | 'transportation' | 'daily' | 'budget' | 'itinerary';
+type TripTab = 'overview' | 'discovery' | 'flights' | 'hotels' | 'budget' | 'itinerary';
 
 const TABS: { key: TripTab; label: string; icon: React.ReactNode }[] = [
   { key: 'overview', label: 'Overview', icon: <Info className="h-4 w-4" /> },
   { key: 'discovery', label: 'Discovery', icon: <MessageSquare className="h-4 w-4" /> },
   { key: 'flights', label: 'Flights', icon: <Plane className="h-4 w-4" /> },
   { key: 'hotels', label: 'Hotels', icon: <Hotel className="h-4 w-4" /> },
-  { key: 'food', label: 'Food & Dining', icon: <Utensils className="h-4 w-4" /> },
-  { key: 'transportation', label: 'Transportation', icon: <Car className="h-4 w-4" /> },
-  { key: 'daily', label: 'Attractions & Tickets', icon: <Ticket className="h-4 w-4" /> },
   { key: 'budget', label: 'Budget & Points', icon: <Wallet className="h-4 w-4" /> },
   { key: 'itinerary', label: 'Itinerary', icon: <ClipboardList className="h-4 w-4" /> },
 ];
@@ -291,7 +280,6 @@ export default function TripDetailPage() {
   const [itinerary, setItinerary] = useState<GeneratedItinerary | null>(null);
   const [generatingItinerary, setGeneratingItinerary] = useState(false);
   const [itineraryError, setItineraryError] = useState<string | null>(null);
-  const [expandedDays, setExpandedDays] = useState<Set<number>>(new Set());
   const [completedSections, setCompletedSections] = useState<string[]>([]);
   const [pendingSections, setPendingSections] = useState<string[]>([]);
 
@@ -330,7 +318,7 @@ export default function TripDetailPage() {
     setGeneratingItinerary(true);
     setItineraryError(null);
     setCompletedSections([]);
-    setPendingSections(['itinerary', 'flights', 'hotels', 'transport', 'restaurants']);
+    setPendingSections(['itinerary', 'flights', 'hotels']);
     try {
       const result = await generateTripItinerary(tripId, (update: ItineraryProgressUpdate) => {
         setCompletedSections(update.completedSections);
@@ -339,8 +327,6 @@ export default function TripDetailPage() {
           summary: '',
           flights: [],
           hotels: [],
-          transportation: [],
-          dailyItinerary: [],
           budgetBreakdown: {
             totalEstimatedCash: 0,
             totalPointsUsed: [],
@@ -348,8 +334,6 @@ export default function TripDetailPage() {
             flightsPoints: '',
             hotelsCash: 0,
             hotelsPoints: '',
-            transportationCash: 0,
-            activitiesAndDining: 0,
             savings: '',
           },
           pointsStrategy: '',
@@ -359,23 +343,13 @@ export default function TripDetailPage() {
         }));
       });
       setItinerary(result);
-      setCompletedSections(['itinerary', 'flights', 'hotels', 'transport', 'restaurants']);
+      setCompletedSections(['itinerary', 'flights', 'hotels']);
       setPendingSections([]);
-      setExpandedDays(new Set([1]));
     } catch (err) {
       setItineraryError(err instanceof Error ? err.message : 'Failed to generate itinerary');
     } finally {
       setGeneratingItinerary(false);
     }
-  };
-
-  const toggleDay = (day: number) => {
-    setExpandedDays((prev) => {
-      const next = new Set(prev);
-      if (next.has(day)) next.delete(day);
-      else next.add(day);
-      return next;
-    });
   };
 
   useEffect(() => {
@@ -391,9 +365,8 @@ export default function TripDetailPage() {
         setConfidence(conf);
         if (savedItinerary) {
           setItinerary(savedItinerary);
-          setCompletedSections(['itinerary', 'flights', 'hotels', 'transport', 'restaurants']);
+          setCompletedSections(['itinerary', 'flights', 'hotels']);
           setPendingSections([]);
-          setExpandedDays(new Set([1]));
         }
       })
       .catch((err) => setError(err.message))
@@ -524,7 +497,7 @@ export default function TripDetailPage() {
             <div>
               <p className="text-sm font-semibold text-slate-900">Generate Full Trip Plan</p>
               <p className="text-xs text-slate-500">
-                AI will create flight, hotel, dining, transportation, and daily activity recommendations
+                Search for live flight and hotel options with AI-powered scoring
               </p>
             </div>
           </div>
@@ -546,18 +519,16 @@ export default function TripDetailPage() {
               <p className="text-sm font-semibold text-blue-900">Generating your trip plan...</p>
               <p className="text-xs text-blue-600">
                 {completedSections.length === 0
-                  ? 'Starting up — searching flights, hotels, dining, and activities'
-                  : `${completedSections.length} of 5 sections ready`}
+                  ? 'Starting up — searching flights and hotels'
+                  : `${completedSections.length} of 3 sections ready`}
               </p>
             </div>
           </div>
-          <div className="grid grid-cols-5 gap-2">
+          <div className="grid grid-cols-3 gap-2">
             {[
               { key: 'flights', label: 'Flights', icon: <Plane className="h-3.5 w-3.5" /> },
               { key: 'hotels', label: 'Hotels', icon: <Hotel className="h-3.5 w-3.5" /> },
-              { key: 'restaurants', label: 'Dining', icon: <Utensils className="h-3.5 w-3.5" /> },
-              { key: 'transport', label: 'Transport', icon: <Car className="h-3.5 w-3.5" /> },
-              { key: 'itinerary', label: 'Activities', icon: <MapPin className="h-3.5 w-3.5" /> },
+              { key: 'itinerary', label: 'Summary', icon: <MapPin className="h-3.5 w-3.5" /> },
             ].map((section) => {
               const done = completedSections.includes(section.key);
               return (
@@ -605,9 +576,6 @@ export default function TripDetailPage() {
             const tabSectionMap: Record<string, string> = {
               flights: 'flights',
               hotels: 'hotels',
-              food: 'restaurants',
-              transportation: 'transport',
-              daily: 'itinerary',
             };
             const sectionKey = tabSectionMap[tab.key];
             const sectionDone = sectionKey ? completedSections.includes(sectionKey) : false;
@@ -683,31 +651,6 @@ export default function TripDetailPage() {
               <SectionLoadingState icon={<Hotel className="h-8 w-8" />} title="Searching hotels..." />
             ) : (
               <HotelsTab itinerary={itinerary} />
-            )
-          )}
-          {activeTab === 'food' && (
-            generatingItinerary && !completedSections.includes('restaurants') ? (
-              <SectionLoadingState icon={<Utensils className="h-8 w-8" />} title="Finding restaurants..." />
-            ) : (
-              <FoodTab itinerary={itinerary} tripId={tripId} />
-            )
-          )}
-          {activeTab === 'transportation' && (
-            generatingItinerary && !completedSections.includes('transport') ? (
-              <SectionLoadingState icon={<Car className="h-8 w-8" />} title="Searching transport options..." />
-            ) : (
-              <TransportationTab itinerary={itinerary} />
-            )
-          )}
-          {activeTab === 'daily' && (
-            generatingItinerary && !completedSections.includes('itinerary') ? (
-              <SectionLoadingState icon={<MapPin className="h-8 w-8" />} title="Planning daily activities..." />
-            ) : (
-              <DailyPlanTab
-                itinerary={itinerary}
-                expandedDays={expandedDays}
-                toggleDay={toggleDay}
-              />
             )
           )}
           {activeTab === 'budget' && <BudgetTab itinerary={itinerary} />}
@@ -850,21 +793,7 @@ export default function TripDetailPage() {
                     itinerary.hotels.length
                   }</span>
                 </div>
-                <div className="flex items-center justify-between text-xs">
-                  <span className="flex items-center gap-1.5 text-slate-500">
-                    <Car className="h-3 w-3" /> Transport
-                  </span>
-                  <span className="font-medium text-slate-700">{
-                    (itinerary.travelerTransport?.[0]?.segments?.reduce((sum, s) => sum + s.options.length, 0) ?? 0) ||
-                    (itinerary.transportation?.length ?? 0)
-                  }</span>
-                </div>
-                <div className="flex items-center justify-between text-xs">
-                  <span className="flex items-center gap-1.5 text-slate-500">
-                    <Calendar className="h-3 w-3" /> Days Planned
-                  </span>
-                  <span className="font-medium text-slate-700">{itinerary.dailyItinerary.length}</span>
-                </div>
+ 
                 {itinerary.budgetBreakdown.totalEstimatedCash > 0 && (
                   <div className="mt-2 border-t border-slate-100 pt-2">
                     <div className="flex items-center justify-between text-xs">
@@ -1573,6 +1502,16 @@ function FlightsTab({
       const results = await searchTripFlights(tripId);
       setFlights(results);
       onFlightsUpdated?.(results);
+
+      const anyOptions = results.some((g) =>
+        g.segments.some((s) => s.cashOptions.length > 0 || s.awardOptions.length > 0),
+      );
+      if (!anyOptions && results.length > 0) {
+        setSearchError(
+          'Flight search completed but no pricing was found for this route and date. ' +
+          'Try adjusting the dates or airports, then refresh.'
+        );
+      }
     } catch (err) {
       setSearchError(err instanceof Error ? err.message : 'Failed to search flights');
     } finally {
@@ -2277,827 +2216,6 @@ function LegacyHotelCard({ hotel }: { hotel: ItineraryHotelRecommendation }) {
   );
 }
 
-function FoodTab({ itinerary, tripId }: { itinerary: GeneratedItinerary | null; tripId: string }) {
-  const [restaurants, setRestaurants] = useState<RestaurantRecommendation[]>(itinerary?.restaurants ?? []);
-  const [loading, setLoading] = useState(false);
-  const [searchError, setSearchError] = useState<string | null>(null);
-  const [activeFilter, setActiveFilter] = useState<string>('all');
-
-  const hasRestaurants = restaurants.length > 0;
-  const diningDays = itinerary?.dailyItinerary.filter((d) => d.diningRecommendation) ?? [];
-
-  const handleSearchRestaurants = async () => {
-    setLoading(true);
-    setSearchError(null);
-    try {
-      const results = await searchTripRestaurants(tripId);
-      setRestaurants(results);
-    } catch (err) {
-      setSearchError(err instanceof Error ? err.message : 'Failed to search restaurants');
-    } finally {
-      setLoading(false);
-    }
-  };
-
-  const filteredRestaurants = activeFilter === 'all'
-    ? restaurants
-    : restaurants.filter((r) => r.mealType === activeFilter);
-
-  const groupedByDay = filteredRestaurants.reduce<Record<number, RestaurantRecommendation[]>>((acc, r) => {
-    const day = r.day ?? 0;
-    if (!acc[day]) acc[day] = [];
-    acc[day].push(r);
-    return acc;
-  }, {});
-
-  const mealCounts = {
-    all: restaurants.length,
-    breakfast: restaurants.filter((r) => r.mealType === 'breakfast').length,
-    brunch: restaurants.filter((r) => r.mealType === 'brunch').length,
-    lunch: restaurants.filter((r) => r.mealType === 'lunch').length,
-    dinner: restaurants.filter((r) => r.mealType === 'dinner').length,
-  };
-
-  if (!itinerary && !hasRestaurants) {
-    return (
-      <EmptyTabState
-        icon={<Utensils className="h-8 w-8" />}
-        title="No dining recommendations yet"
-        subtitle="Generate a trip plan to get daily restaurant and cuisine recommendations tailored to your preferences."
-      />
-    );
-  }
-
-  return (
-    <div className="space-y-5">
-      {/* Header */}
-      <div className="flex items-center justify-between">
-        <div>
-          <h2 className="text-sm font-semibold text-slate-900">Food & Dining</h2>
-          <p className="text-xs text-slate-500">
-            {hasRestaurants
-              ? `${restaurants.length} restaurant recommendations based on your profile`
-              : 'AI-powered restaurant suggestions tailored to your preferences'}
-          </p>
-        </div>
-        <button
-          onClick={handleSearchRestaurants}
-          disabled={loading}
-          className="flex items-center gap-2 rounded-lg bg-orange-600 px-4 py-2 text-xs font-semibold text-white shadow-sm transition hover:bg-orange-700 disabled:opacity-50"
-        >
-          {loading ? (
-            <>
-              <Loader2 className="h-3.5 w-3.5 animate-spin" />
-              Searching…
-            </>
-          ) : (
-            <>
-              <Sparkles className="h-3.5 w-3.5" />
-              {hasRestaurants ? 'Refresh Suggestions' : 'Find Restaurants'}
-            </>
-          )}
-        </button>
-      </div>
-
-      {searchError && (
-        <div className="flex items-center gap-2 rounded-lg border border-red-200 bg-red-50 px-4 py-3 text-xs text-red-700">
-          <AlertCircle className="h-4 w-4 flex-shrink-0" />
-          {searchError}
-        </div>
-      )}
-
-      {/* Restaurant cards */}
-      {hasRestaurants && (
-        <>
-          {/* Meal type filter */}
-          <div className="flex gap-2 overflow-x-auto">
-            {(['all', 'breakfast', 'brunch', 'lunch', 'dinner'] as const).map((filter) => {
-              const count = mealCounts[filter];
-              if (filter !== 'all' && count === 0) return null;
-              return (
-                <button
-                  key={filter}
-                  onClick={() => setActiveFilter(filter)}
-                  className={`flex items-center gap-1.5 rounded-full px-3 py-1.5 text-xs font-medium transition ${
-                    activeFilter === filter
-                      ? 'bg-orange-600 text-white'
-                      : 'bg-slate-100 text-slate-600 hover:bg-slate-200'
-                  }`}
-                >
-                  {filter === 'all' ? 'All' : filter.charAt(0).toUpperCase() + filter.slice(1)}
-                  <span className={`rounded-full px-1.5 py-0.5 text-[10px] font-bold ${
-                    activeFilter === filter ? 'bg-orange-700 text-orange-100' : 'bg-slate-200 text-slate-500'
-                  }`}>
-                    {count}
-                  </span>
-                </button>
-              );
-            })}
-          </div>
-
-          {/* Grouped by day */}
-          <div className="space-y-4">
-            {Object.entries(groupedByDay)
-              .sort(([a], [b]) => Number(a) - Number(b))
-              .map(([dayNum, dayRestaurants]) => {
-                const dayInfo = itinerary?.dailyItinerary.find((d) => d.day === Number(dayNum));
-                return (
-                  <div key={dayNum} className="space-y-3">
-                    {Number(dayNum) > 0 && (
-                      <div className="flex items-center gap-3">
-                        <div className="flex h-8 w-8 items-center justify-center rounded-lg bg-orange-50 text-xs font-bold text-orange-600">
-                          {dayNum}
-                        </div>
-                        <div>
-                          <p className="text-xs font-semibold text-slate-900">
-                            Day {dayNum}{dayInfo ? ` – ${dayInfo.theme}` : ''}
-                          </p>
-                          {dayInfo && (
-                            <p className="text-[10px] text-slate-500">
-                              {dayInfo.location} · {formatDateShort(dayInfo.date)}
-                            </p>
-                          )}
-                        </div>
-                      </div>
-                    )}
-                    <div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-1 xl:grid-cols-2">
-                      {dayRestaurants.map((restaurant, idx) => (
-                        <RestaurantCard key={`${dayNum}-${idx}`} restaurant={restaurant} />
-                      ))}
-                    </div>
-                  </div>
-                );
-              })}
-          </div>
-        </>
-      )}
-
-      {/* Fallback: legacy daily dining recommendations */}
-      {!hasRestaurants && diningDays.length > 0 && (
-        <div className="space-y-3">
-          <div className="rounded-lg border border-amber-200 bg-amber-50 p-3">
-            <p className="text-xs text-amber-700">
-              <Sparkles className="mb-0.5 mr-1 inline h-3 w-3" />
-              These are basic AI-generated dining ideas. Click <strong>Find Restaurants</strong> above to get real restaurants with phone numbers, ratings, and reservation links.
-            </p>
-          </div>
-          {diningDays.map((day) => (
-            <div key={day.day} className="rounded-xl border border-slate-200 bg-white p-5 shadow-sm">
-              <div className="mb-3 flex items-center gap-3">
-                <div className="flex h-10 w-10 items-center justify-center rounded-lg bg-orange-50 text-sm font-bold text-orange-600">
-                  {day.day}
-                </div>
-                <div>
-                  <p className="text-sm font-semibold text-slate-900">Day {day.day} – {day.theme}</p>
-                  <p className="text-xs text-slate-500">{day.location} · {formatDateShort(day.date)}</p>
-                </div>
-              </div>
-              <div className="rounded-lg border border-orange-100 bg-orange-50/50 p-4">
-                <div className="mb-2 flex items-center gap-1.5">
-                  <Utensils className="h-3.5 w-3.5 text-orange-600" />
-                  <span className="text-xs font-semibold text-orange-700">Dining Suggestion</span>
-                </div>
-                <p className="text-sm leading-relaxed text-orange-900">{day.diningRecommendation}</p>
-              </div>
-            </div>
-          ))}
-        </div>
-      )}
-    </div>
-  );
-}
-
-const MEAL_TYPE_COLORS: Record<string, { bg: string; text: string; border: string }> = {
-  breakfast: { bg: 'bg-amber-50', text: 'text-amber-700', border: 'border-amber-200' },
-  brunch: { bg: 'bg-yellow-50', text: 'text-yellow-700', border: 'border-yellow-200' },
-  lunch: { bg: 'bg-emerald-50', text: 'text-emerald-700', border: 'border-emerald-200' },
-  dinner: { bg: 'bg-indigo-50', text: 'text-indigo-700', border: 'border-indigo-200' },
-  any: { bg: 'bg-slate-50', text: 'text-slate-700', border: 'border-slate-200' },
-};
-
-function RestaurantCard({ restaurant }: { restaurant: RestaurantRecommendation }) {
-  const mealColors = MEAL_TYPE_COLORS[restaurant.mealType] || MEAL_TYPE_COLORS.any;
-
-  return (
-    <div className="rounded-xl border border-slate-200 bg-white p-4 shadow-sm transition hover:shadow-md">
-      {/* Header */}
-      <div className="mb-3 flex items-start justify-between gap-2">
-        <div className="min-w-0 flex-1">
-          <h3 className="text-sm font-semibold text-slate-900 leading-tight">{restaurant.name}</h3>
-          <p className="mt-0.5 text-xs text-slate-500">{restaurant.cuisine}</p>
-        </div>
-        <div className="flex flex-shrink-0 items-center gap-1.5">
-          <span className={`rounded-full px-2 py-0.5 text-[10px] font-semibold ${mealColors.bg} ${mealColors.text} border ${mealColors.border}`}>
-            {restaurant.mealType.charAt(0).toUpperCase() + restaurant.mealType.slice(1)}
-          </span>
-          {restaurant.priceLevel && (
-            <span className="rounded-full bg-slate-100 px-2 py-0.5 text-[10px] font-semibold text-slate-600">
-              {restaurant.priceLevel}
-            </span>
-          )}
-        </div>
-      </div>
-
-      {/* Rating */}
-      {restaurant.rating && (
-        <div className="mb-3 flex items-center gap-2">
-          <div className="flex items-center gap-1">
-            <Star className="h-3.5 w-3.5 fill-amber-400 text-amber-400" />
-            <span className="text-xs font-semibold text-slate-800">{restaurant.rating.toFixed(1)}</span>
-          </div>
-          {restaurant.reviewCount && (
-            <span className="text-[10px] text-slate-400">({restaurant.reviewCount.toLocaleString()} reviews)</span>
-          )}
-        </div>
-      )}
-
-      {/* Why recommended */}
-      <div className="mb-3 rounded-lg bg-orange-50/60 border border-orange-100 p-2.5">
-        <p className="text-xs leading-relaxed text-orange-800">
-          <Sparkles className="mr-1 inline h-3 w-3 text-orange-500" />
-          {restaurant.whyRecommended}
-        </p>
-      </div>
-
-      {/* Matched preferences tags */}
-      {restaurant.matchedPreferences.length > 0 && (
-        <div className="mb-3 flex flex-wrap gap-1">
-          {restaurant.matchedPreferences.map((pref, i) => (
-            <span
-              key={i}
-              className="rounded-full bg-blue-50 px-2 py-0.5 text-[10px] font-medium text-blue-600 border border-blue-100"
-            >
-              {pref}
-            </span>
-          ))}
-        </div>
-      )}
-
-      {/* Contact info */}
-      <div className="space-y-1.5">
-        {restaurant.address && (
-          <div className="flex items-start gap-2 text-xs text-slate-600">
-            <MapPin className="mt-0.5 h-3 w-3 flex-shrink-0 text-slate-400" />
-            <span className="leading-relaxed">{restaurant.address}</span>
-          </div>
-        )}
-        {restaurant.phone && (
-          <div className="flex items-center gap-2 text-xs text-slate-600">
-            <Phone className="h-3 w-3 flex-shrink-0 text-slate-400" />
-            <a href={`tel:${restaurant.phone}`} className="text-blue-600 hover:underline">
-              {restaurant.phone}
-            </a>
-          </div>
-        )}
-      </div>
-
-      {/* Action buttons */}
-      <div className="mt-3 flex flex-wrap gap-2 border-t border-slate-100 pt-3">
-        {restaurant.reservationUrl && (
-          <a
-            href={restaurant.reservationUrl}
-            target="_blank"
-            rel="noopener noreferrer"
-            className="flex items-center gap-1 rounded-lg bg-orange-600 px-3 py-1.5 text-[10px] font-semibold text-white transition hover:bg-orange-700"
-          >
-            <ExternalLink className="h-3 w-3" />
-            Reserve
-          </a>
-        )}
-        {restaurant.website && (
-          <a
-            href={restaurant.website}
-            target="_blank"
-            rel="noopener noreferrer"
-            className="flex items-center gap-1 rounded-lg border border-slate-200 bg-white px-3 py-1.5 text-[10px] font-semibold text-slate-600 transition hover:bg-slate-50"
-          >
-            <Globe className="h-3 w-3" />
-            Website
-          </a>
-        )}
-        {restaurant.mapsUrl && (
-          <a
-            href={restaurant.mapsUrl}
-            target="_blank"
-            rel="noopener noreferrer"
-            className="flex items-center gap-1 rounded-lg border border-slate-200 bg-white px-3 py-1.5 text-[10px] font-semibold text-slate-600 transition hover:bg-slate-50"
-          >
-            <MapPin className="h-3 w-3" />
-            Map
-          </a>
-        )}
-      </div>
-    </div>
-  );
-}
-
-function TransportationTab({ itinerary }: { itinerary: GeneratedItinerary | null }) {
-  const travelerTransport = itinerary?.travelerTransport ?? [];
-  const legacyTransports = itinerary?.transportation ?? [];
-  const hasScored = travelerTransport.length > 0 && travelerTransport[0]?.segments?.length > 0;
-
-  if (!itinerary || (!hasScored && legacyTransports.length === 0)) {
-    return (
-      <EmptyTabState
-        icon={<Car className="h-8 w-8" />}
-        title="No transportation recommendations yet"
-        subtitle="Generate a trip plan to get scored multi-modal options (flights, trains, buses, rideshare, driving) for each leg of the trip."
-      />
-    );
-  }
-
-  if (hasScored) {
-    const segments = travelerTransport[0].segments;
-    return (
-      <div className="space-y-6">
-        <div>
-          <h2 className="text-sm font-semibold text-slate-900">Multi-Modal Transportation</h2>
-          <p className="text-xs text-slate-500">
-            AI-scored options across flights, trains, buses, rideshare & driving for each leg
-          </p>
-        </div>
-        {segments.map((seg, i) => (
-          <ScoredTransportSegment key={i} segment={seg} />
-        ))}
-      </div>
-    );
-  }
-
-  const totalCost = legacyTransports.reduce((sum, t) => sum + (t.estimatedCost || 0), 0);
-  return (
-    <div className="space-y-4">
-      <div className="flex items-center justify-between">
-        <div>
-          <h2 className="text-sm font-semibold text-slate-900">Ground Transportation</h2>
-          <p className="text-xs text-slate-500">Airport transfers, car rentals, ride services & more</p>
-        </div>
-        {totalCost > 0 && (
-          <div className="rounded-lg bg-slate-100 px-3 py-1.5">
-            <p className="text-[10px] font-medium text-slate-500">Est. Total</p>
-            <p className="text-sm font-bold text-slate-900">${totalCost.toLocaleString()}</p>
-          </div>
-        )}
-      </div>
-      <div className="space-y-3">
-        {legacyTransports.map((transport, i) => (
-          <LegacyTransportCard key={i} transport={transport} />
-        ))}
-      </div>
-    </div>
-  );
-}
-
-const SCORED_TRANSPORT_ICONS: Record<string, React.ReactNode> = {
-  flight: <Plane className="h-4 w-4" />,
-  train: <Train className="h-4 w-4" />,
-  bus: <Bus className="h-4 w-4" />,
-  ferry: <Ship className="h-4 w-4" />,
-  rideshare: <Navigation className="h-4 w-4" />,
-  driving: <Car className="h-4 w-4" />,
-  shuttle: <Route className="h-4 w-4" />,
-  walk: <Footprints className="h-4 w-4" />,
-};
-
-const RECOMMENDATION_BADGES: Record<string, { label: string; color: string; icon: React.ReactNode }> = {
-  best_value: { label: 'Best Value', color: 'bg-emerald-50 text-emerald-700 border-emerald-200', icon: <Trophy className="h-3 w-3" /> },
-  fastest: { label: 'Fastest', color: 'bg-blue-50 text-blue-700 border-blue-200', icon: <Timer className="h-3 w-3" /> },
-  most_comfortable: { label: 'Most Comfortable', color: 'bg-purple-50 text-purple-700 border-purple-200', icon: <Star className="h-3 w-3" /> },
-  budget: { label: 'Budget Pick', color: 'bg-amber-50 text-amber-700 border-amber-200', icon: <DollarSign className="h-3 w-3" /> },
-};
-
-function ScoreBadge({ score }: { score: number }) {
-  const color =
-    score >= 75 ? 'bg-emerald-500' :
-    score >= 55 ? 'bg-blue-500' :
-    score >= 35 ? 'bg-amber-500' : 'bg-slate-400';
-  return (
-    <div className={`flex items-center gap-1 rounded-full ${color} px-2 py-0.5`}>
-      <Gauge className="h-2.5 w-2.5 text-white" />
-      <span className="text-[10px] font-bold text-white">{score}</span>
-    </div>
-  );
-}
-
-function ScoredTransportSegment({ segment }: { segment: TransportSegmentType }) {
-  const [showAll, setShowAll] = useState(false);
-  const topOptions = showAll ? segment.options : segment.options.slice(0, 4);
-
-  return (
-    <div className="rounded-xl border border-slate-200 bg-white shadow-sm">
-      <div className="border-b border-slate-100 px-5 py-4">
-        <div className="flex items-center justify-between">
-          <div className="flex items-center gap-2">
-            <div className="rounded-lg bg-indigo-50 p-1.5">
-              <Route className="h-4 w-4 text-indigo-600" />
-            </div>
-            <div>
-              <p className="text-sm font-semibold text-slate-900">{segment.segmentLabel}</p>
-              <p className="text-xs text-slate-500">{segment.date}</p>
-            </div>
-          </div>
-          <span className="rounded-full bg-slate-100 px-2.5 py-0.5 text-[10px] font-medium text-slate-600">
-            {segment.options.length} option{segment.options.length !== 1 ? 's' : ''}
-          </span>
-        </div>
-      </div>
-
-      <div className="divide-y divide-slate-100">
-        {topOptions.map((opt, i) => (
-          <ScoredTransportOptionCard key={i} option={opt} rank={i + 1} />
-        ))}
-      </div>
-
-      {segment.options.length > 4 && (
-        <button
-          onClick={() => setShowAll(!showAll)}
-          className="w-full border-t border-slate-100 py-2.5 text-center text-xs font-medium text-indigo-600 hover:bg-slate-50"
-        >
-          {showAll ? 'Show fewer' : `Show ${segment.options.length - 4} more options`}
-        </button>
-      )}
-    </div>
-  );
-}
-
-function ScoredTransportOptionCard({ option, rank }: { option: ScoredTransportOption; rank: number }) {
-  const [expanded, setExpanded] = useState(false);
-  const icon = SCORED_TRANSPORT_ICONS[option.mode] ?? <Car className="h-4 w-4" />;
-  const modeLabel = option.mode.charAt(0).toUpperCase() + option.mode.slice(1);
-  const badge = option.recommendation ? RECOMMENDATION_BADGES[option.recommendation] : null;
-
-  return (
-    <div
-      className={`px-5 py-4 transition-colors ${rank === 1 ? 'bg-indigo-50/30' : 'hover:bg-slate-50'}`}
-    >
-      <div className="flex items-start justify-between gap-3">
-        <div className="flex items-start gap-3">
-          <div className="mt-0.5 rounded-lg bg-white p-1.5 shadow-sm border border-slate-200">
-            {icon}
-          </div>
-          <div className="min-w-0">
-            <div className="flex flex-wrap items-center gap-2">
-              <p className="text-sm font-semibold text-slate-900">{modeLabel}</p>
-              {badge && (
-                <span className={`inline-flex items-center gap-1 rounded-full border px-2 py-0.5 text-[10px] font-medium ${badge.color}`}>
-                  {badge.icon}
-                  {badge.label}
-                </span>
-              )}
-            </div>
-            <p className="text-xs text-slate-500">{option.provider}</p>
-          </div>
-        </div>
-
-        <div className="flex items-center gap-3 flex-shrink-0">
-          <ScoreBadge score={option.compositeScore} />
-          {option.price > 0 && (
-            <span className="text-sm font-bold text-slate-900">
-              ${option.price.toLocaleString()}
-            </span>
-          )}
-        </div>
-      </div>
-
-      <div className="mt-3 flex items-center gap-4 text-xs text-slate-500">
-        <span className="flex items-center gap-1">
-          <Clock className="h-3 w-3" />
-          {formatDuration(option.durationMinutes)}
-        </span>
-        <span className="flex items-center gap-1">
-          <Route className="h-3 w-3" />
-          {option.stops === 0 ? 'Direct' : `${option.stops} stop${option.stops > 1 ? 's' : ''}`}
-        </span>
-        {option.priceRange && (
-          <span className="text-slate-400">
-            ${option.priceRange.low}–${option.priceRange.high}
-          </span>
-        )}
-        {option.co2Kg != null && option.co2Kg > 0 && (
-          <span className="flex items-center gap-1 text-emerald-600">
-            <Globe className="h-3 w-3" />
-            {option.co2Kg.toFixed(1)} kg CO₂
-          </span>
-        )}
-        <span className="text-slate-300">via {option.source}</span>
-      </div>
-
-      {option.rationale && (
-        <button
-          onClick={() => setExpanded(!expanded)}
-          className="mt-2 flex items-center gap-1 text-[11px] font-medium text-indigo-600 hover:text-indigo-700"
-        >
-          <Lightbulb className="h-3 w-3" />
-          {expanded ? 'Hide details' : 'Why this option?'}
-          {expanded ? <ChevronUp className="h-3 w-3" /> : <ChevronDown className="h-3 w-3" />}
-        </button>
-      )}
-
-      {expanded && (
-        <div className="mt-2 space-y-3">
-          <p className="text-xs leading-relaxed text-slate-600">{option.rationale}</p>
-          <div className="grid grid-cols-4 gap-2">
-            {([
-              ['Cost', option.costScore, 'text-emerald-600'],
-              ['Time', option.timeScore, 'text-blue-600'],
-              ['Comfort', option.comfortScore, 'text-purple-600'],
-              ['Convenience', option.convenienceScore, 'text-amber-600'],
-            ] as const).map(([label, score, color]) => (
-              <div key={label} className="rounded-lg bg-slate-50 p-2 text-center">
-                <p className="text-[10px] font-medium text-slate-400">{label}</p>
-                <p className={`text-sm font-bold ${color}`}>{score}</p>
-              </div>
-            ))}
-          </div>
-          {option.bookingUrl && (
-            <a
-              href={option.bookingUrl}
-              target="_blank"
-              rel="noopener noreferrer"
-              className="inline-flex items-center gap-1 rounded-md bg-indigo-600 px-3 py-1.5 text-xs font-medium text-white hover:bg-indigo-700"
-            >
-              Book Now <ExternalLink className="h-3 w-3" />
-            </a>
-          )}
-        </div>
-      )}
-    </div>
-  );
-}
-
-function LegacyTransportCard({ transport }: { transport: ItineraryTransportationRecommendation }) {
-  const typeLabel = transport.type.replace(/_/g, ' ').replace(/\b\w/g, (c) => c.toUpperCase());
-  const icon = TRANSPORT_ICONS[transport.type] ?? <Car className="h-4 w-4" />;
-
-  return (
-    <div className="rounded-xl border border-slate-200 bg-white p-5 shadow-sm">
-      <div className="mb-3 flex items-center justify-between">
-        <div className="flex items-center gap-3">
-          <div className="rounded-lg bg-indigo-50 p-2">
-            {icon}
-          </div>
-          <div>
-            <p className="text-sm font-semibold text-slate-900">{typeLabel}</p>
-            <p className="text-xs text-slate-500">{transport.provider}</p>
-          </div>
-        </div>
-        {transport.estimatedCost > 0 && (
-          <span className="text-sm font-bold text-slate-900">
-            ${transport.estimatedCost.toLocaleString()}
-          </span>
-        )}
-      </div>
-
-      <div className="mb-3 rounded-lg bg-slate-50 p-3">
-        <div className="grid grid-cols-2 gap-3">
-          <div>
-            <p className="text-[10px] font-medium text-slate-400">Route</p>
-            <p className="text-xs font-medium text-slate-800">{transport.route}</p>
-          </div>
-          <div>
-            <p className="text-[10px] font-medium text-slate-400">Duration</p>
-            <p className="text-xs font-medium text-slate-800">{transport.duration}</p>
-          </div>
-        </div>
-      </div>
-
-      <p className="text-xs leading-relaxed text-slate-600">{transport.notes}</p>
-
-      {transport.bookingTip && (
-        <div className="mt-2 flex items-start gap-1.5 rounded-md bg-blue-50 p-2">
-          <Lightbulb className="mt-0.5 h-3 w-3 flex-shrink-0 text-blue-500" />
-          <p className="text-[11px] text-blue-700">{transport.bookingTip}</p>
-        </div>
-      )}
-    </div>
-  );
-}
-
-const ATTRACTION_TYPE_ICONS: Record<string, React.ReactNode> = {
-  museum: <Palette className="h-4 w-4" />,
-  landmark: <Landmark className="h-4 w-4" />,
-  tour: <Map className="h-4 w-4" />,
-  park: <Mountain className="h-4 w-4" />,
-  show: <Star className="h-4 w-4" />,
-  cultural: <Globe className="h-4 w-4" />,
-  adventure: <Mountain className="h-4 w-4" />,
-  market: <MapPin className="h-4 w-4" />,
-  historic_site: <Landmark className="h-4 w-4" />,
-  viewpoint: <Eye className="h-4 w-4" />,
-  theme_park: <Star className="h-4 w-4" />,
-  gallery: <Palette className="h-4 w-4" />,
-  festival: <Sparkles className="h-4 w-4" />,
-  workshop: <Lightbulb className="h-4 w-4" />,
-  cruise: <Navigation className="h-4 w-4" />,
-};
-
-function AttractionCard({ attraction }: { attraction: AttractionRecommendation }) {
-  const icon = ATTRACTION_TYPE_ICONS[attraction.type] ?? <Ticket className="h-4 w-4" />;
-  const typeLabel = attraction.type.replace(/_/g, ' ').replace(/\b\w/g, (c) => c.toUpperCase());
-
-  const slotColors: Record<string, { bg: string; text: string }> = {
-    morning: { bg: 'bg-amber-50', text: 'text-amber-700' },
-    afternoon: { bg: 'bg-blue-50', text: 'text-blue-700' },
-    evening: { bg: 'bg-indigo-50', text: 'text-indigo-700' },
-    full_day: { bg: 'bg-emerald-50', text: 'text-emerald-700' },
-  };
-  const slotStyle = slotColors[attraction.timeSlot] ?? slotColors.morning;
-
-  return (
-    <div className="rounded-lg border border-slate-200 bg-white p-4 shadow-sm transition-shadow hover:shadow-md">
-      <div className="mb-3 flex items-start justify-between">
-        <div className="flex items-center gap-3">
-          <div className="rounded-lg bg-violet-50 p-2 text-violet-600">
-            {icon}
-          </div>
-          <div>
-            <p className="text-sm font-semibold text-slate-900">{attraction.name}</p>
-            <div className="mt-1 flex items-center gap-2">
-              <span className="rounded-full bg-slate-100 px-2 py-0.5 text-[10px] font-medium text-slate-600">
-                {typeLabel}
-              </span>
-              <span className={`rounded-full px-2 py-0.5 text-[10px] font-medium ${slotStyle.bg} ${slotStyle.text}`}>
-                {attraction.timeSlot.replace('_', ' ')}
-              </span>
-              {attraction.requiresAdvanceBooking && (
-                <span className="rounded-full bg-red-50 px-2 py-0.5 text-[10px] font-medium text-red-600">
-                  Book ahead
-                </span>
-              )}
-            </div>
-          </div>
-        </div>
-        <div className="text-right">
-          <p className="text-sm font-bold text-slate-900">
-            {attraction.estimatedCost > 0 ? `$${attraction.estimatedCost}` : 'Free'}
-          </p>
-          <p className="text-[10px] text-slate-500">{attraction.duration}</p>
-        </div>
-      </div>
-
-      {attraction.highlights.length > 0 && (
-        <div className="mb-3 flex flex-wrap gap-1.5">
-          {attraction.highlights.map((h, i) => (
-            <span key={i} className="rounded-full bg-violet-50 px-2.5 py-1 text-[11px] font-medium text-violet-700">
-              {h}
-            </span>
-          ))}
-        </div>
-      )}
-
-      <div className="flex items-center justify-between">
-        {attraction.tips && (
-          <div className="flex items-start gap-1.5">
-            <Lightbulb className="mt-0.5 h-3 w-3 flex-shrink-0 text-amber-500" />
-            <p className="text-[11px] text-slate-600">{attraction.tips}</p>
-          </div>
-        )}
-        {attraction.ticketUrl && (
-          <a
-            href={attraction.ticketUrl}
-            target="_blank"
-            rel="noopener noreferrer"
-            className="ml-auto inline-flex items-center gap-1 rounded-lg bg-blue-600 px-3 py-1.5 text-[11px] font-medium text-white transition-colors hover:bg-blue-700"
-          >
-            <Ticket className="h-3 w-3" />
-            Get Tickets
-          </a>
-        )}
-      </div>
-    </div>
-  );
-}
-
-function DailyPlanTab({
-  itinerary,
-  expandedDays,
-  toggleDay,
-}: {
-  itinerary: GeneratedItinerary | null;
-  expandedDays: Set<number>;
-  toggleDay: (day: number) => void;
-}) {
-  if (!itinerary || itinerary.dailyItinerary.length === 0) {
-    return (
-      <EmptyTabState
-        icon={<Ticket className="h-8 w-8" />}
-        title="No attractions plan yet"
-        subtitle="Generate a trip plan to get AI-curated attractions, sightseeing, and ticket reservations for each day."
-      />
-    );
-  }
-
-  const totalAttractions = itinerary.dailyItinerary.reduce(
-    (sum, d) => sum + (d.attractions?.length ?? 0), 0
-  );
-  const totalCost = itinerary.dailyItinerary.reduce(
-    (sum, d) => sum + (d.attractions ?? []).reduce((s, a) => s + (a.estimatedCost || 0), 0), 0
-  );
-
-  return (
-    <div className="space-y-4">
-      <div className="flex items-center justify-between">
-        <div>
-          <h2 className="text-sm font-semibold text-slate-900">Attractions & Ticket Reservations</h2>
-          <p className="text-xs text-slate-500">
-            {itinerary.dailyItinerary.length} days · {totalAttractions} attractions · Click a day to expand
-          </p>
-        </div>
-        {totalCost > 0 && (
-          <div className="rounded-lg bg-violet-50 px-3 py-1.5">
-            <p className="text-[10px] font-medium text-violet-500">Est. Attractions</p>
-            <p className="text-sm font-bold text-violet-900">${totalCost.toLocaleString()}</p>
-          </div>
-        )}
-      </div>
-
-      <div className="space-y-2">
-        {itinerary.dailyItinerary.map((day) => {
-          const isExpanded = expandedDays.has(day.day);
-          const dayAttractions = day.attractions ?? [];
-          const dayCost = dayAttractions.reduce((s, a) => s + (a.estimatedCost || 0), 0);
-
-          return (
-            <div key={day.day} className="rounded-xl border border-slate-200 bg-white shadow-sm overflow-hidden">
-              <button
-                onClick={() => toggleDay(day.day)}
-                className="flex w-full items-center justify-between p-4 text-left transition-colors hover:bg-slate-50"
-              >
-                <div className="flex items-center gap-3">
-                  <div className="flex h-10 w-10 items-center justify-center rounded-lg bg-violet-50 text-sm font-bold text-violet-600">
-                    {day.day}
-                  </div>
-                  <div>
-                    <p className="text-sm font-semibold text-slate-900">{day.theme}</p>
-                    <p className="text-xs text-slate-500">
-                      {day.location} · {formatDateShort(day.date)}
-                      {dayAttractions.length > 0 && ` · ${dayAttractions.length} attraction${dayAttractions.length !== 1 ? 's' : ''}`}
-                    </p>
-                  </div>
-                </div>
-                <div className="flex items-center gap-3">
-                  {dayCost > 0 && (
-                    <span className="text-xs font-semibold text-slate-600">${dayCost}</span>
-                  )}
-                  {isExpanded ? (
-                    <ChevronUp className="h-4 w-4 text-slate-400" />
-                  ) : (
-                    <ChevronDown className="h-4 w-4 text-slate-400" />
-                  )}
-                </div>
-              </button>
-
-              {isExpanded && (
-                <div className="border-t border-slate-100 p-5 pt-4 space-y-4">
-                  <div className="grid grid-cols-1 gap-3 sm:grid-cols-3">
-                    <div className="rounded-lg bg-amber-50/50 p-3">
-                      <div className="mb-1.5 flex items-center gap-1.5 text-[10px] font-semibold uppercase text-amber-600">
-                        <Sun className="h-3 w-3" /> Morning
-                      </div>
-                      <p className="text-xs leading-relaxed text-slate-700">{day.morning}</p>
-                    </div>
-                    <div className="rounded-lg bg-blue-50/50 p-3">
-                      <div className="mb-1.5 flex items-center gap-1.5 text-[10px] font-semibold uppercase text-blue-600">
-                        <Sunset className="h-3 w-3" /> Afternoon
-                      </div>
-                      <p className="text-xs leading-relaxed text-slate-700">{day.afternoon}</p>
-                    </div>
-                    <div className="rounded-lg bg-indigo-50/50 p-3">
-                      <div className="mb-1.5 flex items-center gap-1.5 text-[10px] font-semibold uppercase text-indigo-600">
-                        <Moon className="h-3 w-3" /> Evening
-                      </div>
-                      <p className="text-xs leading-relaxed text-slate-700">{day.evening}</p>
-                    </div>
-                  </div>
-
-                  {dayAttractions.length > 0 && (
-                    <div className="space-y-3">
-                      <div className="flex items-center gap-1.5">
-                        <Ticket className="h-3.5 w-3.5 text-violet-600" />
-                        <span className="text-xs font-semibold text-slate-700">
-                          Attractions & Activities ({dayAttractions.length})
-                        </span>
-                      </div>
-                      {dayAttractions.map((attraction, i) => (
-                        <AttractionCard key={i} attraction={attraction} />
-                      ))}
-                    </div>
-                  )}
-
-                  {day.tips && (
-                    <div className="flex items-start gap-2 rounded-lg bg-slate-50 p-3">
-                      <Lightbulb className="mt-0.5 h-3.5 w-3.5 flex-shrink-0 text-slate-400" />
-                      <p className="text-xs text-slate-600">{day.tips}</p>
-                    </div>
-                  )}
-                </div>
-              )}
-            </div>
-          );
-        })}
-      </div>
-    </div>
-  );
-}
 
 function BudgetTab({ itinerary }: { itinerary: GeneratedItinerary | null }) {
   if (!itinerary) {
@@ -3114,8 +2232,6 @@ function BudgetTab({ itinerary }: { itinerary: GeneratedItinerary | null }) {
   const categories = [
     { label: 'Flights', cash: budget.flightsCash, points: budget.flightsPoints, icon: <Plane className="h-4 w-4" />, color: 'bg-blue-500' },
     { label: 'Hotels', cash: budget.hotelsCash, points: budget.hotelsPoints, icon: <Hotel className="h-4 w-4" />, color: 'bg-purple-500' },
-    { label: 'Transportation', cash: budget.transportationCash, points: null, icon: <Car className="h-4 w-4" />, color: 'bg-indigo-500' },
-    { label: 'Activities & Dining', cash: budget.activitiesAndDining, points: null, icon: <Utensils className="h-4 w-4" />, color: 'bg-orange-500' },
   ];
 
   const nonZeroCategories = categories.filter((c) => c.cash > 0);
@@ -3231,21 +2347,12 @@ function ItinerarySummaryTab({
       <EmptyTabState
         icon={<ClipboardList className="h-8 w-8" />}
         title="No itinerary yet"
-        subtitle="Generate a trip plan to see a complete summary of your food, transportation, daily plans, budget, and points."
+        subtitle="Generate a trip plan to see a complete summary of your flights, hotels, budget, and points."
       />
     );
   }
 
   const budget = itinerary.budgetBreakdown;
-  const dailyPlans = itinerary.dailyItinerary ?? [];
-  const transports = itinerary.transportation ?? [];
-  const diningDays = dailyPlans.filter((d) => d.diningRecommendation);
-  const restaurants = itinerary.restaurants ?? [];
-  const totalAttractions = dailyPlans.reduce((s, d) => s + (d.attractions?.length ?? 0), 0);
-  const attractionsCost = dailyPlans.reduce(
-    (s, d) => s + (d.attractions ?? []).reduce((a, att) => a + (att.estimatedCost || 0), 0), 0
-  );
-  const transportCost = transports.reduce((s, t) => s + (t.estimatedCost || 0), 0);
 
   const origins = Array.isArray(trip.originAirports)
     ? trip.originAirports.join(', ')
@@ -3275,193 +2382,22 @@ function ItinerarySummaryTab({
         )}
       </div>
 
-      {/* Quick Stats Grid */}
-      <div className="grid grid-cols-2 gap-3 sm:grid-cols-4">
-        <div className="rounded-xl border border-slate-200 bg-white p-4 shadow-sm">
-          <div className="flex items-center gap-2 text-violet-600">
-            <Ticket className="h-4 w-4" />
-            <span className="text-[10px] font-semibold uppercase tracking-wider">Attractions</span>
-          </div>
-          <p className="mt-2 text-2xl font-bold text-slate-900">{totalAttractions}</p>
-          {attractionsCost > 0 && (
-            <p className="text-[11px] text-slate-500">~${attractionsCost.toLocaleString()} est.</p>
-          )}
-        </div>
-        <div className="rounded-xl border border-slate-200 bg-white p-4 shadow-sm">
-          <div className="flex items-center gap-2 text-orange-600">
-            <Utensils className="h-4 w-4" />
-            <span className="text-[10px] font-semibold uppercase tracking-wider">Dining</span>
-          </div>
-          <p className="mt-2 text-2xl font-bold text-slate-900">{restaurants.length || diningDays.length}</p>
-          <p className="text-[11px] text-slate-500">
-            {restaurants.length > 0 ? 'restaurants' : 'days with recs'}
-          </p>
-        </div>
-        <div className="rounded-xl border border-slate-200 bg-white p-4 shadow-sm">
-          <div className="flex items-center gap-2 text-indigo-600">
-            <Car className="h-4 w-4" />
-            <span className="text-[10px] font-semibold uppercase tracking-wider">Transport</span>
-          </div>
-          <p className="mt-2 text-2xl font-bold text-slate-900">{transports.length}</p>
-          {transportCost > 0 && (
-            <p className="text-[11px] text-slate-500">~${transportCost.toLocaleString()} est.</p>
-          )}
-        </div>
-        <div className="rounded-xl border border-slate-200 bg-white p-4 shadow-sm">
-          <div className="flex items-center gap-2 text-emerald-600">
-            <Wallet className="h-4 w-4" />
-            <span className="text-[10px] font-semibold uppercase tracking-wider">Total Budget</span>
-          </div>
-          <p className="mt-2 text-2xl font-bold text-slate-900">
-            {budget.totalEstimatedCash > 0 ? `$${budget.totalEstimatedCash.toLocaleString()}` : '—'}
-          </p>
-          {budget.totalPointsUsed.length > 0 && (
-            <p className="text-[11px] text-slate-500">
-              + {budget.totalPointsUsed.reduce((s, p) => s + p.points, 0).toLocaleString()} pts
+      {/* Quick Stats */}
+      {(budget.totalEstimatedCash > 0 || budget.totalPointsUsed.length > 0) && (
+        <div className="grid grid-cols-2 gap-3 sm:grid-cols-2">
+          <div className="rounded-xl border border-slate-200 bg-white p-4 shadow-sm">
+            <div className="flex items-center gap-2 text-emerald-600">
+              <Wallet className="h-4 w-4" />
+              <span className="text-[10px] font-semibold uppercase tracking-wider">Total Budget</span>
+            </div>
+            <p className="mt-2 text-2xl font-bold text-slate-900">
+              {budget.totalEstimatedCash > 0 ? `$${budget.totalEstimatedCash.toLocaleString()}` : '—'}
             </p>
-          )}
-        </div>
-      </div>
-
-      {/* Daily Plan Summary */}
-      {dailyPlans.length > 0 && (
-        <div className="rounded-xl border border-slate-200 bg-white p-6 shadow-sm">
-          <div className="mb-4 flex items-center gap-2">
-            <Ticket className="h-4 w-4 text-violet-600" />
-            <h3 className="text-sm font-semibold text-slate-900">Daily Attractions & Activities</h3>
-          </div>
-          <div className="space-y-3">
-            {dailyPlans.map((day) => (
-              <div key={day.day} className="rounded-lg border border-slate-100 bg-slate-50/50 p-4">
-                <div className="mb-2 flex items-center justify-between">
-                  <div className="flex items-center gap-2">
-                    <span className="flex h-7 w-7 items-center justify-center rounded-md bg-violet-100 text-xs font-bold text-violet-700">
-                      {day.day}
-                    </span>
-                    <div>
-                      <p className="text-xs font-semibold text-slate-800">{day.theme}</p>
-                      <p className="text-[10px] text-slate-500">{day.location} · {formatDateShort(day.date)}</p>
-                    </div>
-                  </div>
-                  {(day.attractions?.length ?? 0) > 0 && (
-                    <span className="rounded-full bg-violet-50 px-2 py-0.5 text-[10px] font-medium text-violet-700">
-                      {day.attractions.length} attraction{day.attractions.length !== 1 ? 's' : ''}
-                    </span>
-                  )}
-                </div>
-                <div className="grid grid-cols-3 gap-2">
-                  <div className="text-[11px]">
-                    <span className="font-medium text-amber-600">AM:</span>{' '}
-                    <span className="text-slate-600">{day.morning}</span>
-                  </div>
-                  <div className="text-[11px]">
-                    <span className="font-medium text-blue-600">PM:</span>{' '}
-                    <span className="text-slate-600">{day.afternoon}</span>
-                  </div>
-                  <div className="text-[11px]">
-                    <span className="font-medium text-indigo-600">EVE:</span>{' '}
-                    <span className="text-slate-600">{day.evening}</span>
-                  </div>
-                </div>
-                {(day.attractions?.length ?? 0) > 0 && (
-                  <div className="mt-2 flex flex-wrap gap-1.5">
-                    {day.attractions.map((a, i) => (
-                      <span key={i} className="inline-flex items-center gap-1 rounded-full bg-white px-2.5 py-1 text-[10px] font-medium text-slate-700 border border-slate-200">
-                        <Ticket className="h-2.5 w-2.5 text-violet-500" />
-                        {a.name}
-                        {a.estimatedCost > 0 && <span className="text-slate-400"> · ${a.estimatedCost}</span>}
-                      </span>
-                    ))}
-                  </div>
-                )}
-              </div>
-            ))}
-          </div>
-        </div>
-      )}
-
-      {/* Food & Dining Summary */}
-      {(restaurants.length > 0 || diningDays.length > 0) && (
-        <div className="rounded-xl border border-slate-200 bg-white p-6 shadow-sm">
-          <div className="mb-4 flex items-center gap-2">
-            <Utensils className="h-4 w-4 text-orange-600" />
-            <h3 className="text-sm font-semibold text-slate-900">Food & Dining</h3>
-          </div>
-
-          {restaurants.length > 0 ? (
-            <div className="space-y-2">
-              {restaurants.map((r, i) => (
-                <div key={i} className="flex items-center justify-between rounded-lg border border-slate-100 bg-slate-50/50 p-3">
-                  <div className="flex items-center gap-3">
-                    <div className="flex h-8 w-8 items-center justify-center rounded-lg bg-orange-50">
-                      <Utensils className="h-3.5 w-3.5 text-orange-500" />
-                    </div>
-                    <div>
-                      <p className="text-xs font-semibold text-slate-800">{r.name}</p>
-                      <p className="text-[10px] text-slate-500">
-                        {r.cuisine} · {r.mealType} · {r.priceLevel}
-                        {r.day ? ` · Day ${r.day}` : ''}
-                      </p>
-                    </div>
-                  </div>
-                  {r.rating && (
-                    <div className="flex items-center gap-1">
-                      <Star className="h-3 w-3 fill-amber-400 text-amber-400" />
-                      <span className="text-xs font-medium text-slate-700">{r.rating}</span>
-                    </div>
-                  )}
-                </div>
-              ))}
-            </div>
-          ) : (
-            <div className="space-y-2">
-              {diningDays.map((day) => (
-                <div key={day.day} className="rounded-lg border border-slate-100 bg-orange-50/30 p-3">
-                  <div className="flex items-center gap-2">
-                    <span className="flex h-6 w-6 items-center justify-center rounded-md bg-orange-100 text-[10px] font-bold text-orange-700">
-                      {day.day}
-                    </span>
-                    <p className="text-xs text-slate-700">{day.diningRecommendation}</p>
-                  </div>
-                </div>
-              ))}
-            </div>
-          )}
-        </div>
-      )}
-
-      {/* Transportation Summary */}
-      {transports.length > 0 && (
-        <div className="rounded-xl border border-slate-200 bg-white p-6 shadow-sm">
-          <div className="mb-4 flex items-center justify-between">
-            <div className="flex items-center gap-2">
-              <Car className="h-4 w-4 text-indigo-600" />
-              <h3 className="text-sm font-semibold text-slate-900">Transportation</h3>
-            </div>
-            {transportCost > 0 && (
-              <span className="text-xs font-semibold text-slate-600">${transportCost.toLocaleString()} est.</span>
+            {budget.totalPointsUsed.length > 0 && (
+              <p className="text-[11px] text-slate-500">
+                + {budget.totalPointsUsed.reduce((s, p) => s + p.points, 0).toLocaleString()} pts
+              </p>
             )}
-          </div>
-          <div className="space-y-2">
-            {transports.map((t, i) => {
-              const typeLabel = t.type.replace(/_/g, ' ').replace(/\b\w/g, (c: string) => c.toUpperCase());
-              return (
-                <div key={i} className="flex items-center justify-between rounded-lg border border-slate-100 bg-slate-50/50 p-3">
-                  <div className="flex items-center gap-3">
-                    <div className="flex h-8 w-8 items-center justify-center rounded-lg bg-indigo-50">
-                      <Car className="h-3.5 w-3.5 text-indigo-500" />
-                    </div>
-                    <div>
-                      <p className="text-xs font-semibold text-slate-800">{typeLabel}</p>
-                      <p className="text-[10px] text-slate-500">{t.route} · {t.duration}</p>
-                    </div>
-                  </div>
-                  {t.estimatedCost > 0 && (
-                    <span className="text-xs font-bold text-slate-700">${t.estimatedCost.toLocaleString()}</span>
-                  )}
-                </div>
-              );
-            })}
           </div>
         </div>
       )}
@@ -3473,7 +2409,7 @@ function ItinerarySummaryTab({
           <h3 className="text-sm font-semibold text-slate-900">Budget & Points</h3>
         </div>
 
-        <div className="mb-4 grid grid-cols-2 gap-3 sm:grid-cols-4">
+        <div className="mb-4 grid grid-cols-2 gap-3">
           <div className="rounded-lg bg-blue-50/50 p-3 text-center">
             <Plane className="mx-auto h-4 w-4 text-blue-500" />
             <p className="mt-1 text-sm font-bold text-slate-900">
@@ -3493,20 +2429,6 @@ function ItinerarySummaryTab({
             {budget.hotelsPoints && (
               <p className="text-[10px] text-purple-600">{budget.hotelsPoints}</p>
             )}
-          </div>
-          <div className="rounded-lg bg-indigo-50/50 p-3 text-center">
-            <Car className="mx-auto h-4 w-4 text-indigo-500" />
-            <p className="mt-1 text-sm font-bold text-slate-900">
-              {budget.transportationCash > 0 ? `$${budget.transportationCash.toLocaleString()}` : '—'}
-            </p>
-            <p className="text-[10px] text-slate-500">Transport</p>
-          </div>
-          <div className="rounded-lg bg-orange-50/50 p-3 text-center">
-            <Utensils className="mx-auto h-4 w-4 text-orange-500" />
-            <p className="mt-1 text-sm font-bold text-slate-900">
-              {budget.activitiesAndDining > 0 ? `$${budget.activitiesAndDining.toLocaleString()}` : '—'}
-            </p>
-            <p className="text-[10px] text-slate-500">Activities & Dining</p>
           </div>
         </div>
 

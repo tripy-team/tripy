@@ -4386,3 +4386,58 @@ async def get_google_flights_url(
         "destination": destination,
         "date": date,
     }
+
+
+# =============================================================================
+# HOTEL SEARCH
+# =============================================================================
+
+
+class HotelSearchRequest(BaseModel):
+    destination: str
+    check_in: str
+    check_out: str
+    programs: Optional[list] = None
+    guests: int = 2
+    rooms: int = 1
+
+
+@app.post("/api/hotels/search")
+async def api_hotels_search(body: HotelSearchRequest):
+    """
+    Search for hotel options — cash (SerpAPI Google Hotels) + award (AwardTool).
+
+    Returns both cash and award hotel options in a unified format.
+    """
+    from .services.serp_api_functions import get_google_hotels, optimize_hotels_out_of_pocket
+
+    try:
+        result = optimize_hotels_out_of_pocket(
+            destination=body.destination,
+            check_in=body.check_in,
+            check_out=body.check_out,
+            programs=body.programs,
+            guests=body.guests,
+        )
+
+        cash_options = []
+        award_options = []
+
+        for opt in result.get("options", []):
+            if opt.get("source") == "google_hotels":
+                cash_options.append(opt)
+            else:
+                award_options.append(opt)
+
+        return {
+            "cashOptions": cash_options,
+            "awardOptions": award_options,
+            "options": result.get("options", []),
+            "bestByCash": result.get("best_by_cash"),
+            "bestByPoints": result.get("best_by_surcharge"),
+            "bestOverall": result.get("best_overall"),
+            "searchDurationMs": 0,
+        }
+    except Exception as e:
+        logger.error(f"Hotel search error: {e}", exc_info=True)
+        raise HTTPException(status_code=500, detail=str(e))

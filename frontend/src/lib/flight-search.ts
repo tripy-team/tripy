@@ -325,24 +325,63 @@ function parseHour(timeStr: string): number {
  * Multi-criteria score for cash flights.
  *
  * Mirrors backend pruning.py `_flight_combined_score` with weights adjusted
- * for the B2B context (no award-value or time-preference dimensions at this
- * stage, so cash + time take larger shares).
+ * for the B2B context. When client preferences are available, they shift
+ * weights toward nonstop, preferred airlines, and layover tolerance.
  *
  * Higher score = better flight.
  */
-function scoreCashFlight(flight: CashFlightResult): number {
+function scoreCashFlight(flight: CashFlightResult, prefs?: FlightPreferences): number {
   const cashScore = 1.0 - Math.min(1.0, flight.price / 5000);
   const timeScore = 1.0 - Math.min(1.0, flight.duration / (24 * 60));
-  const nonstopBonus = flight.stops === 0 ? 0.3 : -0.15 * flight.stops;
+
+  let nonstopBonus = flight.stops === 0 ? 0.3 : -0.15 * flight.stops;
+  if (prefs?.prefersNonstop) {
+    nonstopBonus = flight.stops === 0 ? 0.5 : -0.25 * flight.stops;
+  }
+
   const carrierPenalty = flight.hasCarrierChange ? 0.1 : 0;
   const redeyePenalty = flight.isRedeye ? 0.15 : 0;
 
+  let airlineBonus = 0;
+  if (prefs?.preferredAirlines?.length) {
+    const airlineLower = flight.airline.toLowerCase();
+    if (prefs.preferredAirlines.some((a) => airlineLower.includes(a.toLowerCase()))) {
+      airlineBonus = 0.2;
+    }
+  }
+  if (prefs?.avoidedAirlines?.length) {
+    const airlineLower = flight.airline.toLowerCase();
+    if (prefs.avoidedAirlines.some((a) => airlineLower.includes(a.toLowerCase()))) {
+      airlineBonus = -0.5;
+    }
+  }
+
+  let layoverPenalty = 0;
+  if (prefs?.maxLayoverMinutes && flight.layovers?.length) {
+    for (const lay of flight.layovers) {
+      if (lay.durationMin > prefs.maxLayoverMinutes) {
+        layoverPenalty += 0.15;
+      }
+    }
+  }
+
+  let basicEconomyPenalty = 0;
+  if (prefs?.avoidBasicEconomy && flight.fareClass?.toLowerCase().includes("basic")) {
+    basicEconomyPenalty = 0.3;
+  }
+
+  const budgetWeight = prefs?.budgetSensitivity === "high" ? 0.45 : 0.35;
+  const timeWeight = 1.0 - budgetWeight;
+
   return (
-    0.35 * cashScore +
-    0.35 * timeScore +
-    nonstopBonus -
+    budgetWeight * cashScore +
+    timeWeight * timeScore +
+    nonstopBonus +
+    airlineBonus -
     carrierPenalty -
-    redeyePenalty
+    redeyePenalty -
+    layoverPenalty -
+    basicEconomyPenalty
   );
 }
 
@@ -350,39 +389,64 @@ function scoreCashFlight(flight: CashFlightResult): number {
  * CPP-based score for award flights.
  *
  * Mirrors backend precompute.py `_precompute_flight_award_values` balanced
- * mode: value * connection_factor * availability_factor.
+ * mode: value * connection_factor * availability_factor. When preferences
+ * are supplied, nonstop preference and redemption style shift the score.
  */
 function scoreAwardFlight(
   award: AwardFlightResult,
   bestCashPrice: number,
+  prefs?: FlightPreferences,
 ): number {
   if (bestCashPrice <= 0 || award.milesRequired <= 0) return 0;
 
   const cpp = ((bestCashPrice - award.taxes) / award.milesRequired) * 100;
   if (cpp <= 0) return 0;
 
-  const connectionFactor = award.isDirect
+  let connectionFactor = award.isDirect
     ? 1.0
-    : 1.0 / (1.0 + 1 * 0.20); // 20% penalty per stop (assume 1 stop if not direct)
+    : 1.0 / (1.0 + 1 * 0.20);
+
+  if (prefs?.prefersNonstop) {
+    connectionFactor = award.isDirect ? 1.15 : connectionFactor * 0.7;
+  }
 
   const availabilityFactor =
     award.seatsRemaining != null && award.seatsRemaining < 3
       ? 1.0 - 0.30 * ((3 - award.seatsRemaining) / 3)
       : 1.0;
 
-  return cpp * connectionFactor * availabilityFactor;
+  let redemptionBoost = 1.0;
+  if (prefs?.redemptionStyle === "maximize_points") redemptionBoost = 1.2;
+  else if (prefs?.redemptionStyle === "minimize_cash") redemptionBoost = 1.1;
+
+  return cpp * connectionFactor * availabilityFactor * redemptionBoost;
 }
 
 /**
- * Post-process flight results for a route: re-rank awards using CPP from
- * the best cash price, matching the backend solver's value calculation.
+ * Post-process flight results for a route: re-rank using CPP from the best
+ * cash price, and apply client preferences to scoring/filtering.
  */
 function rankRouteFlights(
   cash: CashFlightResult[],
   awards: AwardFlightResult[],
+  prefs?: FlightPreferences,
 ): { cash: CashFlightResult[]; award: AwardFlightResult[] } {
+  let filteredCash = cash;
+  if (prefs?.avoidedAirlines?.length) {
+    const avoided = prefs.avoidedAirlines.map((a) => a.toLowerCase());
+    filteredCash = cash.filter(
+      (f) => !avoided.some((a) => f.airline.toLowerCase().includes(a)),
+    );
+    if (filteredCash.length === 0) filteredCash = cash;
+  }
+
+  for (const r of filteredCash) {
+    r.score = scoreCashFlight(r, prefs);
+  }
+  filteredCash.sort((a, b) => (b.score ?? 0) - (a.score ?? 0));
+
   const bestCashPrice =
-    cash.length > 0 ? Math.min(...cash.map((c) => c.price)) : 0;
+    filteredCash.length > 0 ? Math.min(...filteredCash.map((c) => c.price)) : 0;
 
   for (const a of awards) {
     const cpp =
@@ -390,12 +454,12 @@ function rankRouteFlights(
         ? ((bestCashPrice - a.taxes) / a.milesRequired) * 100
         : 0;
     a.cppValue = Math.round(cpp * 100) / 100;
-    a.score = scoreAwardFlight(a, bestCashPrice);
+    a.score = scoreAwardFlight(a, bestCashPrice, prefs);
   }
 
   awards.sort((a, b) => (b.score ?? 0) - (a.score ?? 0));
 
-  return { cash, award: awards };
+  return { cash: filteredCash, award: awards };
 }
 
 // ---------------------------------------------------------------------------
@@ -438,13 +502,29 @@ export async function searchCashFlights(
   }
 
   const cabin = SERP_CABIN_MAP[params.cabinClass ?? "economy"] ?? 1;
-  const results = await _fetchSerpFlights(params, cabin);
+  let results = await _fetchSerpFlights(params, cabin);
 
-  if (results.length > 0) return results;
-
-  if (cabin > 1) {
+  // Retry with economy cabin if higher cabin returned nothing
+  if (results.length === 0 && cabin > 1) {
     console.log(`SerpAPI: retrying ${params.origin}->${params.destination} with economy (original cabin ${cabin} returned 0 results)`);
-    return _fetchSerpFlights(params, 1);
+    results = await _fetchSerpFlights(params, 1);
+  }
+
+  // Retry with individual airport codes if comma-separated codes returned nothing.
+  // Google Flights sometimes fails with multi-airport queries.
+  if (results.length === 0) {
+    const origins = params.origin.split(",").map((s) => s.trim()).filter(Boolean);
+    const dests = params.destination.split(",").map((s) => s.trim()).filter(Boolean);
+    const hasMultiOrigin = origins.length > 1;
+    const hasMultiDest = dests.length > 1;
+
+    if (hasMultiOrigin || hasMultiDest) {
+      console.log(`SerpAPI: retrying with individual airports (${origins[0]}->${dests[0]}) after multi-airport query returned 0 results`);
+      results = await _fetchSerpFlights(
+        { ...params, origin: origins[0], destination: dests[0] },
+        cabin > 1 ? 1 : cabin,
+      );
+    }
   }
 
   return results;
@@ -480,7 +560,8 @@ async function _fetchSerpFlights(
     ];
 
     if (allFlights.length === 0) {
-      if (data.error) console.warn(`SerpAPI: ${params.origin}->${params.destination} cabin=${cabinCode}: ${data.error}`);
+      const errMsg = data.error || "no flights returned";
+      console.warn(`SerpAPI: ${params.origin}->${params.destination} on ${params.date} cabin=${cabinCode}: ${errMsg}`);
       return [];
     }
 
@@ -522,12 +603,7 @@ async function _fetchSerpFlights(
       });
     }
 
-    for (const r of results) {
-      r.score = scoreCashFlight(r);
-    }
-    results.sort((a, b) => (b.score ?? 0) - (a.score ?? 0));
-
-    return results.slice(0, 8);
+    return results.slice(0, 15);
   } catch (err) {
     console.error("SerpAPI fetch failed:", err);
     return [];
@@ -852,6 +928,17 @@ export interface LoyaltyBalance {
   balance: number;
 }
 
+export interface FlightPreferences {
+  prefersNonstop?: boolean;
+  maxLayoverMinutes?: number;
+  avoidBasicEconomy?: boolean;
+  preferredAirlines?: string[];
+  avoidedAirlines?: string[];
+  willingToReposition?: boolean;
+  redemptionStyle?: string;
+  budgetSensitivity?: string;
+}
+
 export interface TravelerSearchInput {
   travelerId: string;
   travelerName: string;
@@ -869,6 +956,7 @@ export async function searchFlightsForTravelers(
   departureDate: string,
   returnDate: string | undefined,
   cabinClass: string,
+  preferences?: FlightPreferences,
 ): Promise<TravelerFlightGroup[]> {
   const tripCabin = normalizeCabin(cabinClass);
 
@@ -929,7 +1017,7 @@ export async function searchFlightsForTravelers(
         searchCashFlights({ origin: originCash, destination: destCash, date, cabinClass: cabin }),
         searchAwardFlights({ origin: originAward, destination: destAward, date, cabinClass: cabin }, reachable),
       ]);
-      const ranked = rankRouteFlights(cash, award);
+      const ranked = rankRouteFlights(cash, award, preferences);
       return [key, { cash: ranked.cash, award: ranked.award }] as const;
     }),
   );

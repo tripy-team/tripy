@@ -1295,41 +1295,6 @@ export interface ItineraryHotelRecommendation {
   whyThisHotel: string;
 }
 
-export interface AttractionRecommendation {
-  name: string;
-  type: string;
-  timeSlot: string;
-  duration: string;
-  estimatedCost: number;
-  ticketUrl?: string;
-  requiresAdvanceBooking: boolean;
-  highlights: string[];
-  tips?: string;
-}
-
-export interface ItineraryDayPlan {
-  day: number;
-  date: string;
-  location: string;
-  theme: string;
-  morning: string;
-  afternoon: string;
-  evening: string;
-  attractions: AttractionRecommendation[];
-  diningRecommendation?: string;
-  tips?: string;
-}
-
-export interface ItineraryTransportationRecommendation {
-  type: string;
-  provider: string;
-  route: string;
-  estimatedCost: number;
-  duration: string;
-  notes: string;
-  bookingTip?: string;
-}
-
 export interface ItineraryBudgetBreakdown {
   totalEstimatedCash: number;
   totalPointsUsed: { program: string; points: number }[];
@@ -1337,76 +1302,7 @@ export interface ItineraryBudgetBreakdown {
   flightsPoints: string;
   hotelsCash: number;
   hotelsPoints: string;
-  transportationCash: number;
-  activitiesAndDining: number;
   savings: string;
-}
-
-export interface RestaurantRecommendation {
-  name: string;
-  cuisine: string;
-  mealType: string;
-  priceLevel: string;
-  whyRecommended: string;
-  matchedPreferences: string[];
-  day?: number;
-  date?: string;
-  location?: string;
-  address?: string;
-  phone?: string;
-  website?: string;
-  reservationUrl?: string;
-  rating?: number;
-  reviewCount?: number;
-  hours?: string[];
-  thumbnailUrl?: string;
-  mapsUrl?: string;
-}
-
-// Per-traveler multi-modal transport search results
-export type TransportMode =
-  | "flight" | "train" | "bus" | "ferry"
-  | "rideshare" | "driving" | "shuttle" | "walk";
-
-export interface ScoredTransportOption {
-  mode: TransportMode;
-  provider: string;
-  origin: string;
-  destination: string;
-  departureTime?: string;
-  arrivalTime?: string;
-  durationMinutes: number;
-  price: number;
-  priceRange?: { low: number; high: number };
-  stops: number;
-  co2Kg?: number;
-  bookingUrl?: string;
-  source: string;
-  compositeScore: number;
-  costScore: number;
-  timeScore: number;
-  comfortScore: number;
-  convenienceScore: number;
-  rationale: string;
-  recommendation: "best_value" | "fastest" | "most_comfortable" | "budget" | null;
-}
-
-export interface TransportSegment {
-  segmentLabel: string;
-  origin: string;
-  destination: string;
-  date: string;
-  options: ScoredTransportOption[];
-  bestOverall: ScoredTransportOption | null;
-  bestBudget: ScoredTransportOption | null;
-  fastest: ScoredTransportOption | null;
-}
-
-export interface TravelerTransportGroup {
-  travelerId: string;
-  travelerName: string;
-  clientId: string;
-  segments: TransportSegment[];
 }
 
 // Per-traveler hotel search results
@@ -1478,15 +1374,11 @@ export interface GeneratedItinerary {
   summary: string;
   flights: ItineraryFlightRecommendation[];
   hotels: ItineraryHotelRecommendation[];
-  transportation: ItineraryTransportationRecommendation[];
-  dailyItinerary: ItineraryDayPlan[];
   budgetBreakdown: ItineraryBudgetBreakdown;
   pointsStrategy: string;
   tips: string[];
   travelerFlights?: TravelerFlightGroup[];
   travelerHotels?: TravelerHotelGroup[];
-  travelerTransport?: TravelerTransportGroup[];
-  restaurants?: RestaurantRecommendation[];
 }
 
 // Per-traveler real flight search results
@@ -1625,22 +1517,6 @@ export async function generateTripItinerary(
   }
 
   throw new Error('Itinerary generation timed out — please try again');
-}
-
-// ---------------------------------------------------------------------------
-// Restaurant Search
-// ---------------------------------------------------------------------------
-
-interface RestaurantSearchResult {
-  restaurants: RestaurantRecommendation[];
-}
-
-export async function searchTripRestaurants(tripId: string): Promise<RestaurantRecommendation[]> {
-  const res = await apiFetch<RestaurantSearchResult>(
-    `/trip-requests/${tripId}/restaurants`,
-    { method: 'POST' },
-  );
-  return res.restaurants || [];
 }
 
 // ---------------------------------------------------------------------------

@@ -53,7 +53,7 @@ export async function GET(
       status: "processing",
       partialResult: partial ?? undefined,
       completedSections: (partial?._completedSections as string[]) ?? [],
-      pendingSections: (partial?._pendingSections as string[]) ?? ["itinerary", "flights", "hotels", "transport", "restaurants"],
+      pendingSections: (partial?._pendingSections as string[]) ?? ["itinerary", "flights", "hotels"],
     });
   } catch (error) {
     console.error("Itinerary status error:", error);
