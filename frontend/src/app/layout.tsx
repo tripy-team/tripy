@@ -3,9 +3,9 @@ import type { Metadata } from "next";
 import { PageViewTracker } from "@/components/analytics/PageViewTracker";
 
 export const metadata: Metadata = {
-	title: "Tripy — Loyalty Optimization for Travel Advisors",
+	title: "Tripy — Loyalty Strategy Copilot for Travel Advisors",
 	description:
-		"The loyalty optimization workspace for travel advisors. Store client points, generate cash + points strategies, and deliver branded booking guides.",
+		"Tripy helps advisors decide the best way to book with cash, points, or both. Compare redemption paths, optimize every trip, and deliver client-ready guidance.",
 };
 
 export default function RootLayout({

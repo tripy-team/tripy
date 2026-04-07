@@ -100,7 +100,6 @@ import type {
   Client,
   ConfidenceResult,
   GeneratedItinerary,
-  ItineraryFlightRecommendation,
   ItineraryHotelRecommendation,
   ItineraryTransportationRecommendation,
   ItineraryDayPlan,
@@ -1666,48 +1665,6 @@ function FlightsTab({
     );
   }
 
-  // Fallback: show old-style AI flights if no real data
-  if (itinerary && itinerary.flights.length > 0) {
-    return (
-      <div className="space-y-4">
-        <div className="flex items-center justify-between">
-          <h2 className="text-sm font-semibold text-slate-900">Recommended Flights</h2>
-          <button
-            onClick={handleSearchFlights}
-            disabled={loading}
-            className="flex items-center gap-2 rounded-lg bg-blue-600 px-4 py-2 text-xs font-semibold text-white shadow-sm transition hover:bg-blue-700 disabled:opacity-50"
-          >
-            {loading ? (
-              <>
-                <Loader2 className="h-3.5 w-3.5 animate-spin" />
-                Searching…
-              </>
-            ) : (
-              <>
-                <Search className="h-3.5 w-3.5" />
-                Search Real Flights
-              </>
-            )}
-          </button>
-        </div>
-        {searchError && (
-          <div className="rounded-lg border border-red-200 bg-red-50 p-3">
-            <p className="text-xs text-red-700">{searchError}</p>
-          </div>
-        )}
-        <div className="rounded-lg border border-amber-200 bg-amber-50 p-3">
-          <p className="text-xs text-amber-700">
-            <AlertCircle className="mr-1 inline h-3.5 w-3.5" />
-            Flight prices below are AI estimates. Click &quot;Search Real Flights&quot; for live pricing from Google Flights and award availability.
-          </p>
-        </div>
-        {itinerary.flights.map((flight, i) => (
-          <LegacyFlightCard key={i} flight={flight} />
-        ))}
-      </div>
-    );
-  }
-
   return (
     <div className="space-y-5">
       <div className="flex flex-col items-center justify-center rounded-xl border border-dashed border-slate-300 bg-slate-50/50 py-16">
@@ -1838,6 +1795,9 @@ function SegmentSection({ segment }: { segment: TravelerFlightSegment }) {
               </p>
               <p className="text-[11px] font-medium text-amber-700">miles</p>
               <p className="mt-1 text-[11px] text-amber-700">{bestAward.program}</p>
+              {bestAward.transferSource && bestAward.transferSource !== 'Direct' && (
+                <p className="text-[10px] text-amber-600">Transfer from {bestAward.transferSource}</p>
+              )}
               <p className="text-[10px] text-amber-600">
                 + ${bestAward.taxes} taxes
                 {bestAward.seatsRemaining != null && ` · ${bestAward.seatsRemaining} seats left`}
@@ -1930,6 +1890,9 @@ function AwardOptionRow({ award, isBest }: { award: AwardFlightOption; isBest: b
             {award.isDirect ? 'Direct' : 'Connecting'}
             {award.airlines && ` · ${award.airlines}`}
           </p>
+          {award.transferSource && award.transferSource !== 'Direct' && (
+            <p className="text-[10px] text-amber-600">Transfer from {award.transferSource}</p>
+          )}
         </div>
       </div>
       <div className="flex items-center gap-3 text-right">
@@ -2027,86 +1990,6 @@ function CashFlightRow({ flight, isBest }: { flight: CashFlightOption; isBest: b
   );
 }
 
-function LegacyFlightCard({ flight }: { flight: ItineraryFlightRecommendation }) {
-  const isPointsRec = flight.recommendation === 'points';
-  return (
-    <div className="rounded-xl border border-slate-200 bg-white p-5 shadow-sm">
-      <div className="mb-3 flex items-center justify-between">
-        <div className="flex items-center gap-2">
-          <div className="rounded-lg bg-blue-50 p-2">
-            <Plane className="h-4 w-4 text-blue-600" />
-          </div>
-          <div>
-            <p className="text-sm font-semibold text-slate-900">{flight.segment}</p>
-            <p className="text-xs text-slate-500">{flight.airline} · {flight.flightExample}</p>
-          </div>
-        </div>
-        <span className={`rounded-full px-2.5 py-1 text-[11px] font-medium ${
-          isPointsRec ? 'bg-amber-50 text-amber-700' : 'bg-emerald-50 text-emerald-700'
-        }`}>
-          {isPointsRec ? 'Points recommended' : 'Cash recommended'}
-        </span>
-      </div>
-
-      <div className="mb-3 grid grid-cols-4 gap-3 rounded-lg bg-slate-50 p-3">
-        <div>
-          <p className="text-[10px] font-medium text-slate-400">Cabin</p>
-          <p className="text-xs font-semibold capitalize text-slate-800">{flight.cabin}</p>
-        </div>
-        <div>
-          <p className="text-[10px] font-medium text-slate-400">Departs</p>
-          <p className="text-xs font-semibold text-slate-800">{flight.departureTime}</p>
-        </div>
-        <div>
-          <p className="text-[10px] font-medium text-slate-400">Arrives</p>
-          <p className="text-xs font-semibold text-slate-800">{flight.arrivalTime}</p>
-        </div>
-        <div>
-          <p className="text-[10px] font-medium text-slate-400">Duration</p>
-          <p className="text-xs font-semibold text-slate-800">
-            {flight.duration} · {flight.stops === 0 ? 'Nonstop' : `${flight.stops} stop${flight.stops > 1 ? 's' : ''}`}
-          </p>
-        </div>
-      </div>
-
-      <div className="grid grid-cols-2 gap-3">
-        {flight.pointsOption && (
-          <div className="rounded-lg border border-amber-200 bg-amber-50/50 p-3">
-            <div className="mb-1 flex items-center gap-1 text-[10px] font-semibold uppercase text-amber-600">
-              <Coins className="h-3 w-3" /> Points Option
-            </div>
-            <p className="text-sm font-bold text-amber-900">
-              {flight.pointsOption.pointsRequired.toLocaleString()} pts
-            </p>
-            <p className="text-[11px] text-amber-700">{flight.pointsOption.program}</p>
-            {flight.pointsOption.transferFrom && (
-              <p className="text-[10px] text-amber-600">Transfer from {flight.pointsOption.transferFrom}</p>
-            )}
-            <p className="text-[10px] text-amber-600">+ ${flight.pointsOption.taxes} taxes</p>
-          </div>
-        )}
-        {flight.cashOption && (
-          <div className="rounded-lg border border-slate-200 bg-slate-50/50 p-3">
-            <div className="mb-1 flex items-center gap-1 text-[10px] font-semibold uppercase text-slate-500">
-              <DollarSign className="h-3 w-3" /> Cash Option
-            </div>
-            <p className="text-sm font-bold text-slate-900">
-              ${flight.cashOption.estimatedPrice.toLocaleString()}
-            </p>
-            <p className="text-[11px] capitalize text-slate-600">{flight.cashOption.fareClass}</p>
-          </div>
-        )}
-      </div>
-
-      {flight.whyThisFlight && (
-        <p className="mt-3 text-xs leading-relaxed text-slate-600">
-          <Lightbulb className="mr-1 inline h-3 w-3 text-amber-500" />
-          {flight.whyThisFlight}
-        </p>
-      )}
-    </div>
-  );
-}
 
 function HotelsTab({ itinerary }: { itinerary: GeneratedItinerary | null }) {
   const travelerHotels = itinerary?.travelerHotels ?? [];

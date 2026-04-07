@@ -48,6 +48,12 @@ export async function POST(
       : undefined;
 
     const travelerInputs: TravelerSearchInput[] = [];
+    const clientBalances = (trip.client?.loyaltyBalances ?? []).map((b) => ({
+      programName: b.loyaltyProgram?.name ?? "Unknown",
+      programCode: b.loyaltyProgram?.code ?? "",
+      category: b.loyaltyProgram?.category ?? "",
+      balance: b.balance,
+    }));
     if (trip.client) {
       travelerInputs.push({
         travelerId: "leader",
@@ -55,10 +61,17 @@ export async function POST(
         clientId: trip.client.id,
         originAirports: tripOrigins,
         destinationAirports: tripDests,
+        loyaltyBalances: clientBalances,
       });
     }
     for (const t of trip.travelers ?? []) {
       if (!t.client) continue;
+      const tBalances = (t.client.loyaltyBalances ?? []).map((b) => ({
+        programName: b.loyaltyProgram?.name ?? "Unknown",
+        programCode: b.loyaltyProgram?.code ?? "",
+        category: b.loyaltyProgram?.category ?? "",
+        balance: b.balance,
+      }));
       travelerInputs.push({
         travelerId: t.id,
         travelerName: `${t.client.firstName} ${t.client.lastName}`,
@@ -78,6 +91,7 @@ export async function POST(
           ? t.returnDate.toISOString().split("T")[0]
           : undefined,
         cabinPreference: t.cabinPreference ?? undefined,
+        loyaltyBalances: tBalances,
       });
     }
 

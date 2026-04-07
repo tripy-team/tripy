@@ -191,6 +191,12 @@ export async function POST(
         const returnDate = trip.returnDate ? trip.returnDate.toISOString().split("T")[0] : undefined;
 
         // --- Flight search setup ---
+        const clientLoyaltyBalances = balances.map((b) => ({
+          programName: b.loyaltyProgram?.name ?? "Unknown",
+          programCode: b.loyaltyProgram?.code ?? "",
+          category: b.loyaltyProgram?.category ?? "",
+          balance: b.balance,
+        }));
         const travelerInputs: TravelerSearchInput[] = [];
         if (trip.client) {
           travelerInputs.push({
@@ -199,10 +205,17 @@ export async function POST(
             clientId: trip.client.id,
             originAirports: tripOrigins,
             destinationAirports: tripDests,
+            loyaltyBalances: clientLoyaltyBalances,
           });
         }
         for (const t of trip.travelers ?? []) {
           if (!t.client) continue;
+          const tBalances = (t.client.loyaltyBalances ?? []).map((b) => ({
+            programName: b.loyaltyProgram?.name ?? "Unknown",
+            programCode: b.loyaltyProgram?.code ?? "",
+            category: b.loyaltyProgram?.category ?? "",
+            balance: b.balance,
+          }));
           travelerInputs.push({
             travelerId: t.id,
             travelerName: `${t.client.firstName} ${t.client.lastName}`,
@@ -212,6 +225,7 @@ export async function POST(
             departureDate: t.departureDate ? t.departureDate.toISOString().split("T")[0] : undefined,
             returnDate: t.returnDate ? t.returnDate.toISOString().split("T")[0] : undefined,
             cabinPreference: t.cabinPreference ?? undefined,
+            loyaltyBalances: tBalances,
           });
         }
 

@@ -28,67 +28,67 @@ import Footer from '@/components/footer';
 
 const CORE_FEATURES = [
     {
-        icon: Wallet,
-        title: 'Loyalty Portfolio Management',
-        description:
-            'Store and manage client loyalty balances across Chase, Amex, Citi, Bilt, and 15+ major programs. Enter balances once, reuse across every trip.',
-    },
-    {
         icon: Brain,
-        title: 'AI-Powered Recommendation Engine',
+        title: 'Ranked Redemption Strategies',
         description:
-            'Generate 3\u20135 ranked strategies per trip\u2014points only, cash only, mixed, or hold-and-wait\u2014with per-traveler allocation breakdowns.',
+            'Generate 3\u20135 ranked options per trip\u2014points only, cash only, mixed, or hold-and-wait\u2014with per-traveler allocation breakdowns and clear reasoning.',
     },
     {
         icon: Repeat,
-        title: 'Transfer & Pooling Rules Engine',
+        title: 'Transfer & Pooling Intelligence',
         description:
-            'Built-in knowledge of which bank currencies transfer to which airlines and hotels, at what ratios, and whether household pooling applies.',
+            'Built-in knowledge of which bank currencies transfer where, at what ratios, and whether household pooling applies\u2014so you never miss the best route.',
     },
     {
         icon: FileText,
         title: 'Client-Ready Memos & Exports',
         description:
-            'Auto-generate advisor-facing summaries, client-facing explanations, copyable email drafts, and shareable PDF booking guides.',
+            'Auto-generate polished summaries, client-facing explanations, copyable email drafts, and shareable PDF booking guides your clients can follow.',
+    },
+    {
+        icon: Wallet,
+        title: 'Client Loyalty Wallet',
+        description:
+            'Store client balances across Chase, Amex, Citi, Bilt, and 15+ programs. Enter once, and every future recommendation draws from the latest data.',
     },
     {
         icon: Bell,
-        title: 'Alerts & Monitoring',
+        title: 'Opportunity Alerts',
         description:
-            'Get notified about live transfer bonuses, expiring balances, and time-sensitive redemption opportunities across your client base.',
+            'Get notified about live transfer bonuses, expiring balances, and time-sensitive redemption windows so you can act before they disappear.',
     },
     {
         icon: PieChart,
-        title: 'Portfolio Analytics & Insights',
+        title: 'Portfolio Insights',
         description:
-            'See concentration risk, estimated portfolio value, flexible vs. locked currency ratios, and underutilized programs at a glance.',
+            'See concentration risk, estimated value, flexible vs. locked currency ratios, and underutilized programs\u2014so you can guide clients proactively.',
     },
 ];
 
 const HOW_IT_WORKS = [
     {
         number: '01',
-        title: 'Add Your Clients & Households',
+        title: 'Load the Loyalty Wallet',
         description:
-            'Create client profiles with loyalty balances across programs. Group families into households to unlock pooling and cross-traveler strategies.',
+            'Add client balances across Chase, Amex, Citi, airlines, and hotels. Group families into households to unlock pooling and cross-traveler strategies.',
     },
     {
         number: '02',
-        title: 'Submit a Trip Request',
+        title: 'Describe the Trip',
         description:
             'Enter origin, destination, dates, cabin preference, and budget. Assign travelers from a client or household to the trip.',
     },
     {
         number: '03',
-        title: 'Get Ranked Strategies',
+        title: 'Compare Ranked Strategies',
         description:
-            'Tripy\u2019s engine analyzes every transfer route, bonus opportunity, and traveler balance to produce optimized cash + points strategies.',
+            'Tripy\u2019s engine analyzes every transfer route, bonus opportunity, and traveler balance to recommend the best cash + points path.',
     },
     {
         number: '04',
-        title: 'Share the Recommendation',
+        title: 'Send the Recommendation',
         description:
-            'Send a polished memo with clear explanations your client can follow\u2014including why this strategy won and what the alternatives were.',
+            'Deliver a polished, client-ready memo with clear reasoning\u2014why this strategy wins, what the alternatives were, and exactly how to book.',
     },
 ];
 
@@ -200,23 +200,22 @@ export default function LandingPage() {
                     <div className="mb-6 inline-flex items-center gap-2 rounded-full border border-blue-200 bg-blue-50 px-4 py-1.5">
                         <Sparkles className="h-4 w-4 text-blue-600" />
                         <span className="text-sm font-medium text-blue-700">
-                            AI-Powered Loyalty Point Wealth Management
+                            AI-Powered Loyalty Strategy Copilot
                         </span>
                     </div>
 
                     <h1 className="mb-6 text-5xl font-bold leading-tight tracking-tight text-slate-900 sm:text-6xl lg:text-7xl">
-                        The loyalty optimization
+                        Make smarter cash vs.&nbsp;points
                         <br />
                         <span className="bg-gradient-to-r from-blue-600 to-cyan-500 bg-clip-text text-transparent">
-                            workspace for advisors
+                            decisions for every client
                         </span>
                     </h1>
 
                     <p className="mx-auto mb-10 max-w-2xl text-lg leading-relaxed text-slate-600 sm:text-xl">
-                        Tripy helps travel advisors manage client loyalty portfolios,
-                        recommend the best cash&nbsp;vs.&nbsp;points redemption strategies,
-                        and deliver polished booking guidance with clear AI-generated
-                        explanations&mdash;all in one platform.
+                        Store balances once, compare redemption paths instantly,
+                        and generate client-ready booking guidance&mdash;so you
+                        always know which points to use, save, or transfer.
                     </p>
 
                     <div className="flex flex-col items-center gap-4 sm:flex-row sm:justify-center">
@@ -235,7 +234,7 @@ export default function LandingPage() {
                     </div>
 
                     <p className="mt-6 text-sm text-slate-400">
-                        No credit card required. Built for independent advisors and small teams.
+                        No credit card required. Built for advisors who want to book smarter.
                     </p>
                 </div>
             </section>
@@ -264,20 +263,68 @@ export default function LandingPage() {
                 </div>
             </section>
 
-            {/* What is Tripy */}
+            {/* Three Pillars */}
             <section className="py-24">
+                <div className="mx-auto max-w-6xl px-6">
+                    <div className="grid gap-8 md:grid-cols-3">
+                        <div className="rounded-2xl border border-slate-200 bg-white p-8 transition-all hover:border-blue-100 hover:shadow-lg hover:shadow-blue-600/5">
+                            <div className="mb-5 flex h-12 w-12 items-center justify-center rounded-xl bg-blue-50 text-blue-600">
+                                <Wallet className="h-6 w-6" />
+                            </div>
+                            <h3 className="mb-2 text-xl font-semibold text-slate-900">
+                                Client Loyalty Wallet
+                            </h3>
+                            <p className="leading-relaxed text-slate-600">
+                                Store Chase, Amex, Citi, Bilt, airline, and hotel
+                                balances in one place. Enter once, reuse across
+                                every trip.
+                            </p>
+                        </div>
+
+                        <div className="rounded-2xl border border-blue-200 bg-blue-50/30 p-8 shadow-lg shadow-blue-600/5">
+                            <div className="mb-5 flex h-12 w-12 items-center justify-center rounded-xl bg-blue-600 text-white">
+                                <Brain className="h-6 w-6" />
+                            </div>
+                            <h3 className="mb-2 text-xl font-semibold text-slate-900">
+                                Redemption Strategy Engine
+                            </h3>
+                            <p className="leading-relaxed text-slate-600">
+                                Compare cash, points, and mixed-payment paths
+                                based on value, flexibility, and client
+                                goals&mdash;ranked with clear reasoning.
+                            </p>
+                        </div>
+
+                        <div className="rounded-2xl border border-slate-200 bg-white p-8 transition-all hover:border-blue-100 hover:shadow-lg hover:shadow-blue-600/5">
+                            <div className="mb-5 flex h-12 w-12 items-center justify-center rounded-xl bg-blue-50 text-blue-600">
+                                <FileText className="h-6 w-6" />
+                            </div>
+                            <h3 className="mb-2 text-xl font-semibold text-slate-900">
+                                Advisor-Ready Output
+                            </h3>
+                            <p className="leading-relaxed text-slate-600">
+                                Turn analysis into a polished recommendation you
+                                can send or present immediately&mdash;email
+                                drafts, PDFs, and client-facing summaries.
+                            </p>
+                        </div>
+                    </div>
+                </div>
+            </section>
+
+            {/* What is Tripy */}
+            <section className="py-24 pt-0">
                 <div className="mx-auto max-w-4xl px-6 text-center">
                     <h2 className="mb-4 text-4xl font-bold text-slate-900">
                         What is Tripy?
                     </h2>
                     <p className="mx-auto max-w-3xl text-lg leading-relaxed text-slate-600">
-                        Tripy is a <strong>loyalty portfolio management and redemption
-                        strategy platform</strong> purpose-built for travel advisors.
-                        It&apos;s not a generic travel CRM&mdash;it&apos;s a specialized
-                        workspace that helps you track client loyalty assets like a
-                        portfolio, analyze every transfer route and bonus opportunity,
-                        and recommend the smartest way to book each trip using cash,
-                        points, or a mix of both.
+                        Tripy is a <strong>loyalty strategy copilot</strong> purpose-built
+                        for travel advisors. It analyzes every transfer route, bonus
+                        opportunity, and client balance to recommend the smartest way
+                        to book each trip&mdash;cash, points, or a mix of both. Balances
+                        go in once; optimized, client-ready recommendations come out
+                        every time.
                     </p>
                 </div>
             </section>
@@ -287,10 +334,10 @@ export default function LandingPage() {
                 <div className="mx-auto max-w-6xl px-6">
                     <div className="mx-auto mb-16 max-w-2xl text-center">
                         <h2 className="mb-4 text-4xl font-bold text-slate-900">
-                            Everything advisors need, nothing they don&apos;t
+                            Every tool you need to decide, none you don&apos;t
                         </h2>
                         <p className="text-lg text-slate-600">
-                            From portfolio tracking to AI-powered explanations,
+                            From redemption analysis to client-ready output,
                             Tripy handles the hard parts of loyalty optimization.
                         </p>
                     </div>
@@ -321,10 +368,10 @@ export default function LandingPage() {
                 <div className="mx-auto max-w-5xl px-6">
                     <div className="mx-auto mb-16 max-w-2xl text-center">
                         <h2 className="mb-4 text-4xl font-bold text-slate-900">
-                            From trip request to client recommendation in minutes
+                            From trip request to booking recommendation in minutes
                         </h2>
                         <p className="text-lg text-slate-600">
-                            Four steps to impress every client with data-backed booking guidance.
+                            Four steps to a data-backed decision your client can act on.
                         </p>
                     </div>
 
@@ -579,12 +626,12 @@ export default function LandingPage() {
             <section className="bg-gradient-to-br from-blue-600 to-blue-700 py-24">
                 <div className="mx-auto max-w-3xl px-6 text-center">
                     <h2 className="mb-4 text-4xl font-bold text-white sm:text-5xl">
-                        Ready to optimize smarter?
+                        Ready to decide smarter?
                     </h2>
                     <p className="mx-auto mb-10 max-w-xl text-lg leading-relaxed text-blue-100">
-                        Create your free account and start managing client loyalty
-                        portfolios, generating optimized recommendations, and
-                        delivering polished booking guidance today.
+                        Create your free account and start recommending the best
+                        cash&nbsp;vs.&nbsp;points path for every client trip&mdash;with
+                        polished, client-ready guidance in minutes.
                     </p>
                     <div className="flex flex-col items-center justify-center gap-4 sm:flex-row">
                         <Link
@@ -601,7 +648,7 @@ export default function LandingPage() {
                         </Link>
                     </div>
                     <p className="mt-6 text-sm text-blue-200">
-                        No credit card required. Start with a free workspace.
+                        No credit card required. Start deciding smarter today.
                     </p>
                 </div>
             </section>

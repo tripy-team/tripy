@@ -1,6 +1,12 @@
 // ---------------------------------------------------------------------------
 // Flight Search — SerpAPI (cash) + Seats.aero / AwardTool (award/points)
+//
+// Award results are filtered to programs the client can actually reach,
+// either directly (airline loyalty balance) or via transfer from a bank
+// program (Chase UR, Amex MR, etc.).
 // ---------------------------------------------------------------------------
+
+import { TRANSFER_PARTNERS } from "./itinerary-ai";
 
 const SERPAPI_KEY = process.env.SERPAPI_KEY ?? "";
 const SEATS_AERO_KEY = process.env.SEATS_AERO_API_KEY ?? "";
@@ -53,6 +59,7 @@ export interface AwardFlightResult {
   program: string;
   cppValue?: number;
   score?: number;
+  transferSource?: string;
 }
 
 export interface TravelerFlightGroup {
@@ -126,6 +133,171 @@ const PROGRAM_NAMES: Record<string, string> = {
   eurobonus: "SAS EuroBonus",
   avios: "British Airways Avios",
 };
+
+// ---------------------------------------------------------------------------
+// Loyalty-aware program reachability
+//
+// Maps airline partner names (from TRANSFER_PARTNERS) to the identifiers
+// used by AwardTool (IATA codes) and Seats.aero (source slugs).
+// ---------------------------------------------------------------------------
+
+const PARTNER_NAME_TO_CODES: Record<string, { iata: string; source: string }> = {
+  "United MileagePlus": { iata: "UA", source: "united" },
+  "Southwest Rapid Rewards": { iata: "WN", source: "southwest" },
+  "JetBlue TrueBlue": { iata: "B6", source: "jetblue" },
+  "Air Canada Aeroplan": { iata: "AC", source: "aeroplan" },
+  "Air France-KLM Flying Blue": { iata: "AF", source: "flyingblue" },
+  "British Airways Avios": { iata: "BA", source: "avios" },
+  "Iberia Avios": { iata: "IB", source: "iberia" },
+  "Aer Lingus AerClub": { iata: "EI", source: "aerlingus" },
+  "Singapore Airlines KrisFlyer": { iata: "SQ", source: "singapore" },
+  "Virgin Atlantic Flying Club": { iata: "VS", source: "virgin_atlantic" },
+  "Delta SkyMiles": { iata: "DL", source: "delta" },
+  "Cathay Pacific Asia Miles": { iata: "CX", source: "cathay" },
+  "ANA Mileage Club": { iata: "NH", source: "ana" },
+  "Emirates Skywards": { iata: "EK", source: "emirates" },
+  "Etihad Guest": { iata: "EY", source: "etihad" },
+  "Qantas Frequent Flyer": { iata: "QF", source: "qantas" },
+  "Avianca LifeMiles": { iata: "AV", source: "lifemiles" },
+  "American Airlines AAdvantage": { iata: "AA", source: "american" },
+  "Qatar Airways Privilege Club": { iata: "QR", source: "qatar" },
+  "Turkish Airlines Miles&Smiles": { iata: "TK", source: "turkish" },
+  "Alaska Mileage Plan": { iata: "AS", source: "alaska" },
+  "Finnair Plus": { iata: "AY", source: "finnair" },
+  "TAP Miles&Go": { iata: "TP", source: "tap" },
+  "Aeromexico Club Premier": { iata: "AM", source: "aeromexico" },
+  "Japan Airlines Mileage Bank": { iata: "JL", source: "jal" },
+};
+
+const IATA_TO_SOURCE: Record<string, string> = {};
+for (const [, { iata, source }] of Object.entries(PARTNER_NAME_TO_CODES)) {
+  IATA_TO_SOURCE[iata] = source;
+}
+
+interface ReachablePrograms {
+  awardToolCodes: string[];
+  seatsAeroSources: Set<string>;
+  /** IATA code → "Direct" or bank display name */
+  annotations: Map<string, string>;
+  /** source slug → "Direct" or bank display name */
+  sourceAnnotations: Map<string, string>;
+}
+
+function findBankKey(programName: string, programCode: string): string | undefined {
+  const nameLower = programName.toLowerCase();
+  const codeLower = programCode.toLowerCase();
+
+  for (const [key, bank] of Object.entries(TRANSFER_PARTNERS)) {
+    if (bank.name.toLowerCase() === nameLower) return key;
+  }
+
+  if (codeLower.includes("chase") || codeLower === "ur" || codeLower === "chase_ur") return "chase";
+  if (codeLower.includes("amex") || codeLower === "mr" || codeLower === "amex_mr") return "amex";
+  if (codeLower.includes("citi") || codeLower === "typ" || codeLower === "citi_typ") return "citi";
+  if (codeLower.includes("capital") || codeLower === "c1" || codeLower === "capitalone_miles") return "capitalone";
+  if (codeLower.includes("bilt")) return "bilt";
+
+  return undefined;
+}
+
+function findProgramCodes(
+  programName: string,
+  programCode: string,
+): { iata: string; source: string } | undefined {
+  if (PARTNER_NAME_TO_CODES[programName]) return PARTNER_NAME_TO_CODES[programName];
+
+  const nameLower = programName.toLowerCase();
+  for (const [name, codes] of Object.entries(PARTNER_NAME_TO_CODES)) {
+    if (name.toLowerCase() === nameLower) return codes;
+  }
+
+  const codeLower = programCode.toLowerCase();
+  for (const [source, displayName] of Object.entries(PROGRAM_NAMES)) {
+    if (source === codeLower || displayName.toLowerCase() === nameLower) {
+      for (const [, codes] of Object.entries(PARTNER_NAME_TO_CODES)) {
+        if (codes.source === source) return codes;
+      }
+    }
+  }
+
+  return undefined;
+}
+
+/**
+ * Determines which airline award programs a set of travelers can actually
+ * reach — either via direct loyalty balances or by transferring from a
+ * bank program.  Returns null when no loyalty data exists (skip awards).
+ */
+function computeReachablePrograms(
+  balances: LoyaltyBalance[],
+): ReachablePrograms | null {
+  if (balances.length === 0) return null;
+
+  const iataCodes = new Set<string>();
+  const sources = new Set<string>();
+  const annotations = new Map<string, string>();
+  const sourceAnnotations = new Map<string, string>();
+
+  for (const bal of balances) {
+    const cat = bal.category?.toLowerCase() ?? "";
+
+    if (cat === "airline") {
+      const codes = findProgramCodes(bal.programName, bal.programCode);
+      if (codes) {
+        iataCodes.add(codes.iata);
+        sources.add(codes.source);
+        annotations.set(codes.iata, "Direct");
+        sourceAnnotations.set(codes.source, "Direct");
+      }
+    } else if (cat === "transferable_bank") {
+      const bankKey = findBankKey(bal.programName, bal.programCode);
+      if (bankKey && TRANSFER_PARTNERS[bankKey]) {
+        const bank = TRANSFER_PARTNERS[bankKey];
+        for (const airlineName of Object.keys(bank.airlinePartners)) {
+          const codes = PARTNER_NAME_TO_CODES[airlineName];
+          if (codes) {
+            iataCodes.add(codes.iata);
+            sources.add(codes.source);
+            if (!annotations.has(codes.iata)) {
+              annotations.set(codes.iata, bank.name);
+              sourceAnnotations.set(codes.source, bank.name);
+            }
+          }
+        }
+      }
+    }
+  }
+
+  if (iataCodes.size === 0 && sources.size === 0) return null;
+
+  return { awardToolCodes: Array.from(iataCodes), seatsAeroSources: sources, annotations, sourceAnnotations };
+}
+
+function filterAndAnnotateAwards(
+  results: AwardFlightResult[],
+  reachable: ReachablePrograms,
+): AwardFlightResult[] {
+  return results
+    .filter((r) => {
+      const src = r.source?.toLowerCase() ?? "";
+      return reachable.seatsAeroSources.has(src) ||
+        reachable.awardToolCodes.some((c) => IATA_TO_SOURCE[c]?.toLowerCase() === src) ||
+        reachable.awardToolCodes.some((c) => c.toLowerCase() === src);
+    })
+    .map((r) => {
+      const src = r.source?.toLowerCase() ?? "";
+      let annotation = reachable.sourceAnnotations.get(src);
+      if (!annotation) {
+        for (const [iata, s] of Object.entries(IATA_TO_SOURCE)) {
+          if (s === src && reachable.annotations.has(iata)) {
+            annotation = reachable.annotations.get(iata);
+            break;
+          }
+        }
+      }
+      return { ...r, transferSource: annotation };
+    });
+}
 
 // ---------------------------------------------------------------------------
 // Flight scoring — ported from backend optimization/pruning.py
@@ -398,17 +570,39 @@ interface SeatsAeroResponse {
   count?: number;
 }
 
+/**
+ * Search for award flights, optionally filtering to programs the client can
+ * actually use.
+ *
+ * @param reachable  undefined → search all programs (backward compat)
+ *                   null      → client has no loyalty, skip award search
+ *                   object    → filter to those programs only
+ */
 export async function searchAwardFlights(
   params: FlightSearchParams,
+  reachable?: ReachablePrograms | null,
 ): Promise<AwardFlightResult[]> {
+  if (reachable === null) return [];
+
+  let results: AwardFlightResult[];
+
   if (SEATS_AERO_KEY) {
-    return searchAwardFlightsSeatsAero(params);
+    results = await searchAwardFlightsSeatsAero(params);
+  } else if (AWARDTOOL_KEY) {
+    results = await searchAwardFlightsAwardTool(
+      params,
+      reachable?.awardToolCodes,
+    );
+  } else {
+    console.warn("No award search key set (SEATS_AERO_API_KEY or AWARDTOOL_API_KEY) — skipping award search");
+    return [];
   }
-  if (AWARDTOOL_KEY) {
-    return searchAwardFlightsAwardTool(params);
+
+  if (reachable) {
+    results = filterAndAnnotateAwards(results, reachable);
   }
-  console.warn("No award search key set (SEATS_AERO_API_KEY or AWARDTOOL_API_KEY) — skipping award search");
-  return [];
+
+  return results;
 }
 
 async function searchAwardFlightsSeatsAero(
@@ -517,14 +711,20 @@ interface AwardToolResponse {
 
 async function searchAwardFlightsAwardTool(
   params: FlightSearchParams,
+  programCodes?: string[],
 ): Promise<AwardFlightResult[]> {
   const cabin = AWARDTOOL_CABIN_MAP[params.cabinClass ?? "economy"] ?? "Economy";
+  const programs = programCodes && programCodes.length > 0
+    ? programCodes
+    : AWARDTOOL_DEFAULT_PROGRAMS;
+
+  if (programs.length === 0) return [];
 
   const payload = {
     origin: params.origin.toUpperCase(),
     destination: params.destination.toUpperCase(),
     date: params.date,
-    programs: AWARDTOOL_DEFAULT_PROGRAMS,
+    programs,
     cabins: [cabin],
     pax: String(params.adults ?? 1),
     api_key: AWARDTOOL_KEY,
@@ -645,6 +845,13 @@ function isDomesticUS(a: string, b: string) {
 // Combined search — per-traveler
 // ---------------------------------------------------------------------------
 
+export interface LoyaltyBalance {
+  programName: string;
+  programCode: string;
+  category: string;
+  balance: number;
+}
+
 export interface TravelerSearchInput {
   travelerId: string;
   travelerName: string;
@@ -654,6 +861,7 @@ export interface TravelerSearchInput {
   departureDate?: string;
   returnDate?: string;
   cabinPreference?: string;
+  loyaltyBalances?: LoyaltyBalance[];
 }
 
 export async function searchFlightsForTravelers(
@@ -663,6 +871,14 @@ export async function searchFlightsForTravelers(
   cabinClass: string,
 ): Promise<TravelerFlightGroup[]> {
   const tripCabin = normalizeCabin(cabinClass);
+
+  // Build the union of all travelers' loyalty balances to determine which
+  // airline award programs are reachable (directly or via bank transfer).
+  // When no traveler has loyalty data the award search is skipped entirely.
+  const allBalances = travelers.flatMap((t) => t.loyaltyBalances ?? []);
+  const reachable = allBalances.length > 0
+    ? computeReachablePrograms(allBalances)
+    : null;
 
   // Deduplicate routes — travelers may share routes but can have different dates.
   // SerpAPI Google Flights supports comma-separated airport codes for multi-airport
@@ -711,7 +927,7 @@ export async function searchFlightsForTravelers(
     routeEntries.map(async ([key, { originCash, destCash, originAward, destAward, date, cabin }]) => {
       const [cash, award] = await Promise.all([
         searchCashFlights({ origin: originCash, destination: destCash, date, cabinClass: cabin }),
-        searchAwardFlights({ origin: originAward, destination: destAward, date, cabinClass: cabin }),
+        searchAwardFlights({ origin: originAward, destination: destAward, date, cabinClass: cabin }, reachable),
       ]);
       const ranked = rankRouteFlights(cash, award);
       return [key, { cash: ranked.cash, award: ranked.award }] as const;
