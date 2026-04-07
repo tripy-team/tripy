@@ -435,7 +435,7 @@ function rankRouteFlights(
   awards: AwardFlightResult[],
   prefs?: FlightPreferences,
 ): { cash: CashFlightResult[]; award: AwardFlightResult[] } {
-  let filteredCash = applyConstraintsCash(cash, prefs);
+  const filteredCash = applyConstraintsCash(cash, prefs);
 
   for (const r of filteredCash) {
     r.score = scoreCashFlight(r, prefs);
@@ -445,7 +445,7 @@ function rankRouteFlights(
   const bestCashPrice =
     filteredCash.length > 0 ? Math.min(...filteredCash.map((c) => c.price)) : 0;
 
-  let filteredAwards = applyConstraintsAward(awards, prefs);
+  const filteredAwards = applyConstraintsAward(awards, prefs);
   for (const a of filteredAwards) {
     const cpp =
       bestCashPrice > 0 && a.milesRequired > 0
