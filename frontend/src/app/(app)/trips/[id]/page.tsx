@@ -63,7 +63,7 @@ import {
   Landmark,
   Mountain,
   Palette,
-  Map,
+  Map as MapIcon,
   Eye,
   Ship,
   Bus,
