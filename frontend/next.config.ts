@@ -70,6 +70,9 @@ const serverEnv: Record<string, string> = {};
 if (process.env.DATABASE_URL) serverEnv.DATABASE_URL = process.env.DATABASE_URL;
 if (process.env.JWT_SECRET) serverEnv.JWT_SECRET = process.env.JWT_SECRET;
 if (process.env.OPENAI_API_KEY) serverEnv.OPENAI_API_KEY = process.env.OPENAI_API_KEY;
+if (process.env.SERPAPI_KEY) serverEnv.SERPAPI_KEY = process.env.SERPAPI_KEY;
+if (process.env.SEATS_AERO_API_KEY) serverEnv.SEATS_AERO_API_KEY = process.env.SEATS_AERO_API_KEY;
+if (process.env.AWARDTOOL_API_KEY) serverEnv.AWARDTOOL_API_KEY = process.env.AWARDTOOL_API_KEY;
 
 const nextConfig: NextConfig = {
   env: serverEnv,

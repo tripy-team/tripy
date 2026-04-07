@@ -59,7 +59,6 @@ import {
   ExternalLink,
   Globe,
   Ticket,
-  ClipboardList,
   Camera,
   Landmark,
   Mountain,
@@ -122,7 +121,7 @@ const STATUS_STYLES: Record<string, { bg: string; text: string }> = {
   archived: { bg: 'bg-slate-100', text: 'text-slate-500' },
 };
 
-type TripTab = 'overview' | 'discovery' | 'flights' | 'hotels' | 'budget' | 'itinerary';
+type TripTab = 'overview' | 'discovery' | 'flights' | 'hotels' | 'budget';
 
 const TABS: { key: TripTab; label: string; icon: React.ReactNode }[] = [
   { key: 'overview', label: 'Overview', icon: <Info className="h-4 w-4" /> },
@@ -130,7 +129,6 @@ const TABS: { key: TripTab; label: string; icon: React.ReactNode }[] = [
   { key: 'flights', label: 'Flights', icon: <Plane className="h-4 w-4" /> },
   { key: 'hotels', label: 'Hotels', icon: <Hotel className="h-4 w-4" /> },
   { key: 'budget', label: 'Budget & Points', icon: <Wallet className="h-4 w-4" /> },
-  { key: 'itinerary', label: 'Itinerary', icon: <ClipboardList className="h-4 w-4" /> },
 ];
 
 // eslint-disable-next-line @typescript-eslint/no-explicit-any
@@ -318,7 +316,7 @@ export default function TripDetailPage() {
     setGeneratingItinerary(true);
     setItineraryError(null);
     setCompletedSections([]);
-    setPendingSections(['itinerary', 'flights', 'hotels']);
+    setPendingSections(['flights', 'hotels']);
     try {
       const result = await generateTripItinerary(tripId, (update: ItineraryProgressUpdate) => {
         setCompletedSections(update.completedSections);
@@ -343,7 +341,7 @@ export default function TripDetailPage() {
         }));
       });
       setItinerary(result);
-      setCompletedSections(['itinerary', 'flights', 'hotels']);
+      setCompletedSections(['flights', 'hotels']);
       setPendingSections([]);
     } catch (err) {
       setItineraryError(err instanceof Error ? err.message : 'Failed to generate itinerary');
@@ -365,7 +363,7 @@ export default function TripDetailPage() {
         setConfidence(conf);
         if (savedItinerary) {
           setItinerary(savedItinerary);
-          setCompletedSections(['itinerary', 'flights', 'hotels']);
+          setCompletedSections(['flights', 'hotels']);
           setPendingSections([]);
         }
       })
@@ -524,11 +522,10 @@ export default function TripDetailPage() {
               </p>
             </div>
           </div>
-          <div className="grid grid-cols-3 gap-2">
+          <div className="grid grid-cols-2 gap-2">
             {[
               { key: 'flights', label: 'Flights', icon: <Plane className="h-3.5 w-3.5" /> },
               { key: 'hotels', label: 'Hotels', icon: <Hotel className="h-3.5 w-3.5" /> },
-              { key: 'itinerary', label: 'Summary', icon: <MapPin className="h-3.5 w-3.5" /> },
             ].map((section) => {
               const done = completedSections.includes(section.key);
               return (
@@ -653,13 +650,7 @@ export default function TripDetailPage() {
               <HotelsTab itinerary={itinerary} />
             )
           )}
-          {activeTab === 'budget' && <BudgetTab itinerary={itinerary} />}
-          {activeTab === 'itinerary' && (
-            <ItinerarySummaryTab
-              itinerary={itinerary}
-              trip={trip}
-            />
-          )}
+          {activeTab === 'budget' && <BudgetTab itinerary={itinerary} trip={trip} />}
         </div>
 
         {/* Sidebar */}
@@ -1686,11 +1677,8 @@ function TravelerFlightSection({ group }: { group: TravelerFlightGroup }) {
 }
 
 function SegmentSection({ segment }: { segment: TravelerFlightSegment }) {
-  const [showAllCash, setShowAllCash] = useState(false);
-  const [showAllAward, setShowAllAward] = useState(false);
-
-  const topCash = segment.cashOptions.slice(0, showAllCash ? 5 : 2);
-  const topAward = segment.awardOptions.slice(0, showAllAward ? 8 : 3);
+  const topCash = segment.cashOptions.slice(0, 5);
+  const topAward = segment.awardOptions.slice(0, 5);
   const hasCash = segment.cashOptions.length > 0;
   const hasAward = segment.awardOptions.length > 0;
   const bestCash = segment.cashOptions[0];
@@ -1773,20 +1761,17 @@ function SegmentSection({ segment }: { segment: TravelerFlightSegment }) {
         <div className="mb-4">
           <h4 className="mb-2 flex items-center gap-1.5 text-xs font-semibold text-slate-700">
             <Coins className="h-3.5 w-3.5 text-amber-500" />
-            Award Availability ({segment.awardOptions.length} program{segment.awardOptions.length !== 1 ? 's' : ''})
+            Award Availability ({topAward.length} program{topAward.length !== 1 ? 's' : ''})
           </h4>
           <div className="space-y-1.5">
             {topAward.map((award, i) => (
               <AwardOptionRow key={i} award={award} isBest={i === 0} />
             ))}
           </div>
-          {segment.awardOptions.length > 3 && (
-            <button
-              onClick={() => setShowAllAward(!showAllAward)}
-              className="mt-2 text-xs font-medium text-blue-600 hover:text-blue-700"
-            >
-              {showAllAward ? 'Show fewer' : `Show ${segment.awardOptions.length - 3} more programs`}
-            </button>
+          {segment.awardOptions.length > 5 && (
+            <p className="mt-2 text-[10px] text-slate-400">
+              Showing top {topAward.length} of {segment.awardOptions.length} programs
+            </p>
           )}
         </div>
       )}
@@ -1796,20 +1781,17 @@ function SegmentSection({ segment }: { segment: TravelerFlightSegment }) {
         <div>
           <h4 className="mb-2 flex items-center gap-1.5 text-xs font-semibold text-slate-700">
             <DollarSign className="h-3.5 w-3.5 text-emerald-500" />
-            Cash Flights ({segment.cashOptions.length} option{segment.cashOptions.length !== 1 ? 's' : ''})
+            Cash Flights ({topCash.length} option{topCash.length !== 1 ? 's' : ''})
           </h4>
           <div className="space-y-2">
             {topCash.map((cash, i) => (
               <CashFlightRow key={i} flight={cash} isBest={i === 0} />
             ))}
           </div>
-          {segment.cashOptions.length > 2 && (
-            <button
-              onClick={() => setShowAllCash(!showAllCash)}
-              className="mt-2 text-xs font-medium text-blue-600 hover:text-blue-700"
-            >
-              {showAllCash ? 'Show fewer' : `Show ${segment.cashOptions.length - 2} more flights`}
-            </button>
+          {segment.cashOptions.length > 5 && (
+            <p className="mt-2 text-[10px] text-slate-400">
+              Showing top {topCash.length} of {segment.cashOptions.length} flights
+            </p>
           )}
         </div>
       )}
@@ -1956,9 +1938,14 @@ function HotelsTab({ itinerary }: { itinerary: GeneratedItinerary | null }) {
             <div key={si} className="space-y-4">
               <div className="flex items-center gap-2">
                 <Hotel className="h-4 w-4 text-purple-600" />
-                <h2 className="text-sm font-semibold text-slate-900">
-                  {stay.destination} · {formatDateShort(stay.checkIn)} – {formatDateShort(stay.checkOut)} ({stay.nights} nights)
-                </h2>
+                <div>
+                  <h2 className="text-sm font-semibold text-slate-900">
+                    {stay.destination} · {formatDateShort(stay.checkIn)} – {formatDateShort(stay.checkOut)} ({stay.nights} nights)
+                  </h2>
+                  <p className="text-[11px] text-slate-500">
+                    Top {scored.length} hotel{scored.length !== 1 ? 's' : ''} matching your preferences
+                  </p>
+                </div>
               </div>
               {scored.map((sh, hi) => (
                 <ScoredHotelCard key={hi} scored={sh} rank={hi + 1} />
@@ -2217,7 +2204,157 @@ function LegacyHotelCard({ hotel }: { hotel: ItineraryHotelRecommendation }) {
 }
 
 
-function BudgetTab({ itinerary }: { itinerary: GeneratedItinerary | null }) {
+function computeLiveBudget(itinerary: GeneratedItinerary, trip: TripRequest) {
+  const travelerFlights = itinerary.travelerFlights ?? [];
+  const travelerHotels = itinerary.travelerHotels ?? [];
+
+  type TravelerCost = {
+    travelerId: string;
+    travelerName: string;
+    flightCash: number;
+    flightAward: { program: string; miles: number; taxes: number } | null;
+    hotelCash: number;
+    hotelAward: { program: string; points: number; programDisplayName: string } | null;
+    hotelPaymentRec: string | null;
+  };
+
+  const perTraveler: TravelerCost[] = [];
+
+  for (const tg of travelerFlights) {
+    let flightCash = 0;
+    let bestAward: TravelerCost['flightAward'] = null;
+    let totalMiles = 0;
+    let totalTaxes = 0;
+    let awardProgram = '';
+
+    for (const seg of tg.segments) {
+      const cheapestCash = seg.cashOptions.length > 0
+        ? seg.cashOptions.reduce((min, o) => (o.price < min.price ? o : min), seg.cashOptions[0])
+        : null;
+      if (cheapestCash) flightCash += cheapestCash.price;
+
+      const bestAwardOpt = seg.awardOptions.length > 0 ? seg.awardOptions[0] : null;
+      if (bestAwardOpt) {
+        totalMiles += bestAwardOpt.milesRequired;
+        totalTaxes += bestAwardOpt.taxes;
+        if (!awardProgram) awardProgram = bestAwardOpt.program;
+      }
+    }
+    if (totalMiles > 0) {
+      bestAward = { program: awardProgram, miles: totalMiles, taxes: totalTaxes };
+    }
+
+    const existing = perTraveler.find((p) => p.travelerId === tg.travelerId);
+    if (existing) {
+      existing.flightCash = flightCash;
+      existing.flightAward = bestAward;
+    } else {
+      perTraveler.push({
+        travelerId: tg.travelerId,
+        travelerName: tg.travelerName,
+        flightCash,
+        flightAward: bestAward,
+        hotelCash: 0,
+        hotelAward: null,
+        hotelPaymentRec: null,
+      });
+    }
+  }
+
+  for (const hg of travelerHotels) {
+    let hotelCash = 0;
+    let hotelAward: TravelerCost['hotelAward'] = null;
+    let paymentRec: string | null = null;
+
+    for (const stay of hg.stays) {
+      const topScored = (stay.scoredOptions ?? [])[0];
+      if (topScored) {
+        const h = topScored.hotel;
+        if (h.cashTotal != null) hotelCash += h.cashTotal;
+        if (h.awardOption && !hotelAward) {
+          hotelAward = {
+            program: h.awardOption.program,
+            points: h.awardOption.pointsTotal,
+            programDisplayName: h.awardOption.programDisplayName,
+          };
+        } else if (h.awardOption && hotelAward) {
+          hotelAward.points += h.awardOption.pointsTotal;
+        }
+        if (!paymentRec) paymentRec = topScored.paymentRecommendation;
+      }
+    }
+
+    const existing = perTraveler.find((p) => p.travelerId === hg.travelerId);
+    if (existing) {
+      existing.hotelCash = hotelCash;
+      existing.hotelAward = hotelAward;
+      existing.hotelPaymentRec = paymentRec;
+    } else {
+      perTraveler.push({
+        travelerId: hg.travelerId,
+        travelerName: hg.travelerName,
+        flightCash: 0,
+        flightAward: null,
+        hotelCash,
+        hotelAward: hotelAward,
+        hotelPaymentRec: paymentRec,
+      });
+    }
+  }
+
+  const totalFlightCash = perTraveler.reduce((s, t) => s + t.flightCash, 0);
+  const totalHotelCash = perTraveler.reduce((s, t) => s + t.hotelCash, 0);
+  const totalCash = totalFlightCash + totalHotelCash;
+
+  const pointsUsedMap = new Map<string, number>();
+  for (const t of perTraveler) {
+    if (t.flightAward) {
+      const key = t.flightAward.program;
+      pointsUsedMap.set(key, (pointsUsedMap.get(key) ?? 0) + t.flightAward.miles);
+    }
+    if (t.hotelAward) {
+      const key = t.hotelAward.programDisplayName || t.hotelAward.program;
+      pointsUsedMap.set(key, (pointsUsedMap.get(key) ?? 0) + t.hotelAward.points);
+    }
+  }
+  const pointsUsed = Array.from(pointsUsedMap.entries()).map(([program, points]) => ({ program, points }));
+
+  type AvailableBalance = { program: string; balance: number; travelerName: string };
+  const availableBalances: AvailableBalance[] = [];
+  const travelers = trip.travelers ?? [];
+  const seenBalanceIds = new Set<string>();
+
+  for (const traveler of travelers) {
+    const balances = traveler.client?.loyaltyBalances ?? [];
+    for (const bal of balances) {
+      if (seenBalanceIds.has(bal.id)) continue;
+      seenBalanceIds.add(bal.id);
+      availableBalances.push({
+        program: (bal as { loyaltyProgram?: { name: string }; programName?: string }).loyaltyProgram?.name ?? (bal as { programName?: string }).programName ?? 'Unknown',
+        balance: bal.balance,
+        travelerName: `${traveler.client?.firstName ?? ''} ${traveler.client?.lastName ?? ''}`.trim(),
+      });
+    }
+  }
+
+  if (trip.client?.loyaltyBalances) {
+    for (const bal of trip.client.loyaltyBalances) {
+      if (seenBalanceIds.has(bal.id)) continue;
+      seenBalanceIds.add(bal.id);
+      availableBalances.push({
+        program: (bal as { loyaltyProgram?: { name: string }; programName?: string }).loyaltyProgram?.name ?? (bal as { programName?: string }).programName ?? 'Unknown',
+        balance: bal.balance,
+        travelerName: `${trip.client.firstName} ${trip.client.lastName}`.trim(),
+      });
+    }
+  }
+
+  const hasLiveData = travelerFlights.length > 0 || travelerHotels.length > 0;
+
+  return { perTraveler, totalFlightCash, totalHotelCash, totalCash, pointsUsed, availableBalances, hasLiveData };
+}
+
+function BudgetTab({ itinerary, trip }: { itinerary: GeneratedItinerary | null; trip: TripRequest }) {
   if (!itinerary) {
     return (
       <EmptyTabState
@@ -2228,14 +2365,48 @@ function BudgetTab({ itinerary }: { itinerary: GeneratedItinerary | null }) {
     );
   }
 
+  const live = computeLiveBudget(itinerary, trip);
   const budget = itinerary.budgetBreakdown;
+
+  const flightsCash = live.hasLiveData ? live.totalFlightCash : budget.flightsCash;
+  const hotelsCash = live.hasLiveData ? live.totalHotelCash : budget.hotelsCash;
+  const totalCash = live.hasLiveData ? live.totalCash : budget.totalEstimatedCash;
+  const pointsUsed = live.hasLiveData && live.pointsUsed.length > 0 ? live.pointsUsed : budget.totalPointsUsed;
+
+  const flightsPointsLabel = live.hasLiveData
+    ? live.perTraveler
+        .filter((t) => t.flightAward)
+        .map((t) => `${t.flightAward!.miles.toLocaleString()} ${t.flightAward!.program} miles + $${t.flightAward!.taxes} taxes`)
+        .join('; ') || undefined
+    : budget.flightsPoints || undefined;
+
+  const hotelsPointsLabel = live.hasLiveData
+    ? live.perTraveler
+        .filter((t) => t.hotelAward)
+        .map((t) => `${t.hotelAward!.points.toLocaleString()} ${t.hotelAward!.programDisplayName} pts`)
+        .join('; ') || undefined
+    : budget.hotelsPoints || undefined;
+
   const categories = [
-    { label: 'Flights', cash: budget.flightsCash, points: budget.flightsPoints, icon: <Plane className="h-4 w-4" />, color: 'bg-blue-500' },
-    { label: 'Hotels', cash: budget.hotelsCash, points: budget.hotelsPoints, icon: <Hotel className="h-4 w-4" />, color: 'bg-purple-500' },
+    { label: 'Flights', cash: flightsCash, points: flightsPointsLabel, icon: <Plane className="h-4 w-4" />, color: 'bg-blue-500' },
+    { label: 'Hotels', cash: hotelsCash, points: hotelsPointsLabel, icon: <Hotel className="h-4 w-4" />, color: 'bg-purple-500' },
   ];
 
   const nonZeroCategories = categories.filter((c) => c.cash > 0);
-  const total = budget.totalEstimatedCash;
+
+  const pointsSufficiency = pointsUsed.map((pu) => {
+    const matching = live.availableBalances.filter(
+      (ab) => ab.program.toLowerCase().includes(pu.program.toLowerCase()) || pu.program.toLowerCase().includes(ab.program.toLowerCase()),
+    );
+    const totalAvailable = matching.reduce((s, m) => s + m.balance, 0);
+    return {
+      ...pu,
+      available: totalAvailable,
+      sufficient: totalAvailable >= pu.points,
+      shortfall: Math.max(0, pu.points - totalAvailable),
+      sources: matching,
+    };
+  });
 
   return (
     <div className="space-y-6">
@@ -2245,8 +2416,11 @@ function BudgetTab({ itinerary }: { itinerary: GeneratedItinerary | null }) {
           <div>
             <p className="text-xs font-medium text-slate-500">Estimated Total Cash Cost</p>
             <p className="mt-1 text-3xl font-bold text-slate-900">
-              ${total.toLocaleString()}
+              {totalCash > 0 ? `$${totalCash.toLocaleString()}` : '—'}
             </p>
+            {live.hasLiveData && (
+              <p className="mt-1 text-[10px] text-blue-600 font-medium">Based on live flight & hotel search results</p>
+            )}
           </div>
           {budget.savings && (
             <div className="rounded-lg bg-emerald-50 border border-emerald-200 px-4 py-3 text-right">
@@ -2258,9 +2432,9 @@ function BudgetTab({ itinerary }: { itinerary: GeneratedItinerary | null }) {
           )}
         </div>
 
-        {budget.totalPointsUsed.length > 0 && (
+        {pointsUsed.length > 0 && (
           <div className="mt-4 flex flex-wrap gap-2 border-t border-slate-200/60 pt-3">
-            {budget.totalPointsUsed.map((p, i) => (
+            {pointsUsed.map((p, i) => (
               <span
                 key={i}
                 className="inline-flex items-center gap-1.5 rounded-full bg-amber-50 px-3 py-1 text-xs"
@@ -2278,11 +2452,10 @@ function BudgetTab({ itinerary }: { itinerary: GeneratedItinerary | null }) {
       <div className="rounded-xl border border-slate-200 bg-white p-6 shadow-sm">
         <h2 className="mb-4 text-sm font-semibold text-slate-900">Cost Breakdown</h2>
 
-        {/* Bar chart */}
-        {total > 0 && (
+        {totalCash > 0 && (
           <div className="mb-5 flex h-4 overflow-hidden rounded-full bg-slate-100">
             {nonZeroCategories.map((cat, i) => {
-              const pct = (cat.cash / total) * 100;
+              const pct = (cat.cash / totalCash) * 100;
               return (
                 <div
                   key={i}
@@ -2317,6 +2490,170 @@ function BudgetTab({ itinerary }: { itinerary: GeneratedItinerary | null }) {
         </div>
       </div>
 
+      {/* Per-Traveler Breakdown */}
+      {live.hasLiveData && live.perTraveler.length > 0 && (
+        <div className="rounded-xl border border-slate-200 bg-white p-6 shadow-sm">
+          <h2 className="mb-4 text-sm font-semibold text-slate-900">Per-Traveler Breakdown</h2>
+          <div className="space-y-4">
+            {live.perTraveler.map((traveler) => {
+              const travelerTotal = traveler.flightCash + traveler.hotelCash;
+              return (
+                <div key={traveler.travelerId} className="rounded-lg border border-slate-100 p-4">
+                  <div className="mb-3 flex items-center gap-2">
+                    <div className="flex h-7 w-7 items-center justify-center rounded-lg bg-blue-100 text-[10px] font-bold text-blue-700">
+                      {traveler.travelerName.split(' ').map((n) => n[0]).join('').toUpperCase()}
+                    </div>
+                    <p className="text-sm font-semibold text-slate-900">{traveler.travelerName}</p>
+                    {travelerTotal > 0 && (
+                      <span className="ml-auto text-sm font-bold text-slate-900">
+                        ${travelerTotal.toLocaleString()} cash
+                      </span>
+                    )}
+                  </div>
+                  <div className="grid grid-cols-2 gap-3">
+                    <div className="rounded-lg bg-blue-50/50 p-3">
+                      <div className="mb-1 flex items-center gap-1 text-[10px] font-semibold uppercase text-blue-600">
+                        <Plane className="h-3 w-3" /> Flights
+                      </div>
+                      {traveler.flightCash > 0 && (
+                        <p className="text-sm font-bold text-slate-900">${traveler.flightCash.toLocaleString()}</p>
+                      )}
+                      {traveler.flightAward && (
+                        <p className="text-[11px] text-amber-700">
+                          {traveler.flightAward.miles.toLocaleString()} {traveler.flightAward.program} miles
+                          {traveler.flightAward.taxes > 0 && ` + $${traveler.flightAward.taxes}`}
+                        </p>
+                      )}
+                      {!traveler.flightCash && !traveler.flightAward && (
+                        <p className="text-[11px] text-slate-400">No data</p>
+                      )}
+                    </div>
+                    <div className="rounded-lg bg-purple-50/50 p-3">
+                      <div className="mb-1 flex items-center gap-1 text-[10px] font-semibold uppercase text-purple-600">
+                        <Hotel className="h-3 w-3" /> Hotels
+                      </div>
+                      {traveler.hotelCash > 0 && (
+                        <p className="text-sm font-bold text-slate-900">${traveler.hotelCash.toLocaleString()}</p>
+                      )}
+                      {traveler.hotelAward && (
+                        <p className="text-[11px] text-amber-700">
+                          {traveler.hotelAward.points.toLocaleString()} {traveler.hotelAward.programDisplayName} pts
+                        </p>
+                      )}
+                      {traveler.hotelPaymentRec && (
+                        <span className={`mt-1 inline-block rounded-full border px-2 py-0.5 text-[10px] font-semibold ${
+                          traveler.hotelPaymentRec === 'points'
+                            ? 'text-amber-700 bg-amber-50 border-amber-200'
+                            : traveler.hotelPaymentRec === 'mixed'
+                              ? 'text-indigo-700 bg-indigo-50 border-indigo-200'
+                              : 'text-slate-700 bg-slate-50 border-slate-200'
+                        }`}>
+                          {traveler.hotelPaymentRec === 'points' ? 'Use Points' : traveler.hotelPaymentRec === 'mixed' ? 'Mixed' : 'Pay Cash'}
+                        </span>
+                      )}
+                      {!traveler.hotelCash && !traveler.hotelAward && (
+                        <p className="text-[11px] text-slate-400">No data</p>
+                      )}
+                    </div>
+                  </div>
+                </div>
+              );
+            })}
+          </div>
+        </div>
+      )}
+
+      {/* Available Points & Sufficiency */}
+      {(live.availableBalances.length > 0 || pointsSufficiency.length > 0) && (
+        <div className="rounded-xl border border-slate-200 bg-white p-6 shadow-sm">
+          <div className="mb-4 flex items-center gap-2">
+            <Coins className="h-4 w-4 text-amber-500" />
+            <h2 className="text-sm font-semibold text-slate-900">Points Availability</h2>
+          </div>
+
+          {pointsSufficiency.length > 0 && (
+            <div className="mb-4 space-y-3">
+              {pointsSufficiency.map((ps, i) => (
+                <div key={i} className={`rounded-lg border p-3 ${
+                  ps.sufficient ? 'border-emerald-200 bg-emerald-50/50' : 'border-red-200 bg-red-50/50'
+                }`}>
+                  <div className="flex items-center justify-between">
+                    <div className="flex items-center gap-2">
+                      {ps.sufficient ? (
+                        <CheckCircle2 className="h-4 w-4 text-emerald-500" />
+                      ) : (
+                        <AlertCircle className="h-4 w-4 text-red-500" />
+                      )}
+                      <span className="text-sm font-medium text-slate-900">{ps.program}</span>
+                    </div>
+                    <span className={`text-xs font-semibold ${ps.sufficient ? 'text-emerald-700' : 'text-red-700'}`}>
+                      {ps.sufficient ? 'Sufficient' : `Short ${ps.shortfall.toLocaleString()} pts`}
+                    </span>
+                  </div>
+                  <div className="mt-2 flex items-center gap-4 text-[11px]">
+                    <span className="text-slate-600">
+                      Need: <span className="font-semibold text-slate-900">{ps.points.toLocaleString()}</span>
+                    </span>
+                    <span className="text-slate-600">
+                      Have: <span className="font-semibold text-slate-900">{ps.available.toLocaleString()}</span>
+                    </span>
+                  </div>
+                  {ps.available > 0 && (
+                    <div className="mt-2 h-1.5 w-full rounded-full bg-slate-200">
+                      <div
+                        className={`h-1.5 rounded-full transition-all ${ps.sufficient ? 'bg-emerald-500' : 'bg-red-400'}`}
+                        style={{ width: `${Math.min(100, (ps.available / ps.points) * 100)}%` }}
+                      />
+                    </div>
+                  )}
+                  {ps.sources.length > 0 && (
+                    <div className="mt-2 flex flex-wrap gap-1.5">
+                      {ps.sources.map((src, j) => (
+                        <span key={j} className="inline-flex items-center gap-1 rounded-full bg-white px-2 py-0.5 text-[10px] border border-slate-200">
+                          <span className="text-slate-500">{src.travelerName}:</span>
+                          <span className="font-semibold text-slate-800">{src.balance.toLocaleString()}</span>
+                        </span>
+                      ))}
+                    </div>
+                  )}
+                </div>
+              ))}
+            </div>
+          )}
+
+          {live.availableBalances.length > 0 && (
+            <div>
+              <h3 className="mb-2 text-xs font-medium text-slate-500">All Loyalty Balances</h3>
+              <div className="space-y-2">
+                {Array.from(
+                  live.availableBalances.reduce((map, b) => {
+                    const list = map.get(b.travelerName) ?? [];
+                    list.push(b);
+                    map.set(b.travelerName, list);
+                    return map;
+                  }, new Map<string, typeof live.availableBalances>()),
+                ).map(([name, balances]) => (
+                  <div key={name} className="flex items-start gap-2">
+                    <span className="mt-0.5 text-[11px] font-medium text-slate-600 whitespace-nowrap">{name}:</span>
+                    <div className="flex flex-wrap gap-1.5">
+                      {balances.map((bal, j) => (
+                        <span
+                          key={j}
+                          className="inline-flex items-center gap-1 rounded-full bg-amber-50 px-2 py-0.5 text-[11px]"
+                        >
+                          <span className="font-medium text-amber-700">{bal.program}</span>
+                          <span className="font-semibold text-amber-900">{bal.balance.toLocaleString()}</span>
+                        </span>
+                      ))}
+                    </div>
+                  </div>
+                ))}
+              </div>
+            </div>
+          )}
+        </div>
+      )}
+
       {/* Points Strategy */}
       {itinerary.pointsStrategy && (
         <div className="rounded-xl border border-amber-200 bg-amber-50/50 p-6 shadow-sm">
@@ -2325,172 +2662,6 @@ function BudgetTab({ itinerary }: { itinerary: GeneratedItinerary | null }) {
             <h2 className="text-sm font-semibold text-amber-900">Points Strategy</h2>
           </div>
           <p className="text-sm leading-relaxed text-amber-800">{itinerary.pointsStrategy}</p>
-        </div>
-      )}
-    </div>
-  );
-}
-
-/* ==========================================================================
-   ITINERARY SUMMARY TAB — Consolidates all user choices
-   ========================================================================== */
-
-function ItinerarySummaryTab({
-  itinerary,
-  trip,
-}: {
-  itinerary: GeneratedItinerary | null;
-  trip: TripRequest;
-}) {
-  if (!itinerary) {
-    return (
-      <EmptyTabState
-        icon={<ClipboardList className="h-8 w-8" />}
-        title="No itinerary yet"
-        subtitle="Generate a trip plan to see a complete summary of your flights, hotels, budget, and points."
-      />
-    );
-  }
-
-  const budget = itinerary.budgetBreakdown;
-
-  const origins = Array.isArray(trip.originAirports)
-    ? trip.originAirports.join(', ')
-    : trip.originAirports;
-  const destinations = Array.isArray(trip.destinationAirports)
-    ? trip.destinationAirports.join(', ')
-    : trip.destinationAirports;
-
-  return (
-    <div className="space-y-6">
-      {/* Trip Header Summary */}
-      <div className="rounded-xl border border-slate-200 bg-gradient-to-br from-blue-50 via-indigo-50 to-violet-50 p-6 shadow-sm">
-        <div className="mb-4 flex items-center gap-3">
-          <div className="rounded-lg bg-blue-100 p-2.5">
-            <ClipboardList className="h-5 w-5 text-blue-600" />
-          </div>
-          <div>
-            <h2 className="text-lg font-bold text-slate-900">{trip.title}</h2>
-            <p className="text-xs text-slate-500">
-              {origins} → {destinations} · {formatDateShort(trip.departureDate)}
-              {trip.returnDate ? ` – ${formatDateShort(trip.returnDate)}` : ''} · {trip.travelerCount} traveler{trip.travelerCount !== 1 ? 's' : ''}
-            </p>
-          </div>
-        </div>
-        {itinerary.summary && (
-          <p className="text-sm leading-relaxed text-slate-700">{itinerary.summary}</p>
-        )}
-      </div>
-
-      {/* Quick Stats */}
-      {(budget.totalEstimatedCash > 0 || budget.totalPointsUsed.length > 0) && (
-        <div className="grid grid-cols-2 gap-3 sm:grid-cols-2">
-          <div className="rounded-xl border border-slate-200 bg-white p-4 shadow-sm">
-            <div className="flex items-center gap-2 text-emerald-600">
-              <Wallet className="h-4 w-4" />
-              <span className="text-[10px] font-semibold uppercase tracking-wider">Total Budget</span>
-            </div>
-            <p className="mt-2 text-2xl font-bold text-slate-900">
-              {budget.totalEstimatedCash > 0 ? `$${budget.totalEstimatedCash.toLocaleString()}` : '—'}
-            </p>
-            {budget.totalPointsUsed.length > 0 && (
-              <p className="text-[11px] text-slate-500">
-                + {budget.totalPointsUsed.reduce((s, p) => s + p.points, 0).toLocaleString()} pts
-              </p>
-            )}
-          </div>
-        </div>
-      )}
-
-      {/* Budget & Points Summary */}
-      <div className="rounded-xl border border-slate-200 bg-white p-6 shadow-sm">
-        <div className="mb-4 flex items-center gap-2">
-          <Wallet className="h-4 w-4 text-emerald-600" />
-          <h3 className="text-sm font-semibold text-slate-900">Budget & Points</h3>
-        </div>
-
-        <div className="mb-4 grid grid-cols-2 gap-3">
-          <div className="rounded-lg bg-blue-50/50 p-3 text-center">
-            <Plane className="mx-auto h-4 w-4 text-blue-500" />
-            <p className="mt-1 text-sm font-bold text-slate-900">
-              {budget.flightsCash > 0 ? `$${budget.flightsCash.toLocaleString()}` : '—'}
-            </p>
-            <p className="text-[10px] text-slate-500">Flights</p>
-            {budget.flightsPoints && (
-              <p className="text-[10px] text-blue-600">{budget.flightsPoints}</p>
-            )}
-          </div>
-          <div className="rounded-lg bg-purple-50/50 p-3 text-center">
-            <Hotel className="mx-auto h-4 w-4 text-purple-500" />
-            <p className="mt-1 text-sm font-bold text-slate-900">
-              {budget.hotelsCash > 0 ? `$${budget.hotelsCash.toLocaleString()}` : '—'}
-            </p>
-            <p className="text-[10px] text-slate-500">Hotels</p>
-            {budget.hotelsPoints && (
-              <p className="text-[10px] text-purple-600">{budget.hotelsPoints}</p>
-            )}
-          </div>
-        </div>
-
-        <div className="flex items-center justify-between rounded-lg bg-gradient-to-r from-emerald-50 to-blue-50 p-4">
-          <div>
-            <p className="text-xs font-medium text-slate-500">Total Estimated Cost</p>
-            <p className="text-xl font-bold text-slate-900">
-              {budget.totalEstimatedCash > 0 ? `$${budget.totalEstimatedCash.toLocaleString()}` : 'See individual tabs'}
-            </p>
-          </div>
-          {budget.savings && (
-            <div className="text-right">
-              <div className="flex items-center gap-1 text-[10px] font-semibold text-emerald-600">
-                <TrendingUp className="h-3 w-3" /> Savings
-              </div>
-              <p className="text-xs font-medium text-emerald-800">{budget.savings}</p>
-            </div>
-          )}
-        </div>
-
-        {budget.totalPointsUsed.length > 0 && (
-          <div className="mt-3 flex flex-wrap gap-2">
-            {budget.totalPointsUsed.map((p, i) => (
-              <span
-                key={i}
-                className="inline-flex items-center gap-1.5 rounded-full bg-amber-50 px-3 py-1 text-xs"
-              >
-                <Coins className="h-3 w-3 text-amber-500" />
-                <span className="font-medium text-amber-700">{p.program}</span>
-                <span className="font-bold text-amber-900">{p.points.toLocaleString()} pts</span>
-              </span>
-            ))}
-          </div>
-        )}
-      </div>
-
-      {/* Points Strategy */}
-      {itinerary.pointsStrategy && (
-        <div className="rounded-xl border border-amber-200 bg-amber-50/50 p-6 shadow-sm">
-          <div className="mb-3 flex items-center gap-2">
-            <TrendingUp className="h-4 w-4 text-amber-600" />
-            <h3 className="text-sm font-semibold text-amber-900">Points Strategy</h3>
-          </div>
-          <p className="text-sm leading-relaxed text-amber-800">{itinerary.pointsStrategy}</p>
-        </div>
-      )}
-
-      {/* Tips */}
-      {itinerary.tips && itinerary.tips.length > 0 && (
-        <div className="rounded-xl border border-slate-200 bg-white p-6 shadow-sm">
-          <div className="mb-3 flex items-center gap-2">
-            <Lightbulb className="h-4 w-4 text-blue-500" />
-            <h3 className="text-sm font-semibold text-slate-900">Travel Tips</h3>
-          </div>
-          <div className="space-y-2">
-            {itinerary.tips.map((tip, i) => (
-              <div key={i} className="flex items-start gap-2 rounded-lg bg-slate-50 p-3">
-                <CheckCircle2 className="mt-0.5 h-3.5 w-3.5 flex-shrink-0 text-emerald-500" />
-                <p className="text-xs text-slate-700">{tipToString(tip)}</p>
-              </div>
-            ))}
-          </div>
         </div>
       )}
     </div>

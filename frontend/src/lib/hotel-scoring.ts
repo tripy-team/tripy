@@ -395,7 +395,8 @@ export async function searchAndScoreHotelsForTravelers(
       if (merged.length === 0) continue;
 
       const scored = await scoreHotelsAI(merged, context, stayWindow);
-      stay.scoredOptions = scored.sort((a, b) => b.compositeScore - a.compositeScore);
+      const sorted = scored.sort((a, b) => b.compositeScore - a.compositeScore);
+      stay.scoredOptions = sorted.slice(0, 5);
     }
   }
 

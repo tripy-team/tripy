@@ -2,7 +2,7 @@
 // Hotel Search — SerpAPI (cash) + Backend Award Search
 // ---------------------------------------------------------------------------
 
-const SERPAPI_KEY = process.env.SERPAPI_KEY ?? "";
+function getSerpApiKey() { return process.env.SERPAPI_KEY ?? ""; }
 const BACKEND_URL = process.env.NEXT_PUBLIC_BACKEND_URL ?? "http://localhost:8000";
 
 // ---------------------------------------------------------------------------
@@ -178,7 +178,7 @@ interface SerpApiHotelResponse {
 export async function searchCashHotels(
   params: HotelSearchParams,
 ): Promise<CashHotelResult[]> {
-  if (!SERPAPI_KEY) {
+  if (!getSerpApiKey()) {
     console.warn("SERPAPI_KEY not set — skipping cash hotel search");
     return [];
   }
@@ -186,7 +186,7 @@ export async function searchCashHotels(
 
   const url = new URL("https://serpapi.com/search");
   url.searchParams.set("engine", "google_hotels");
-  url.searchParams.set("api_key", SERPAPI_KEY);
+  url.searchParams.set("api_key", getSerpApiKey());
   url.searchParams.set("q", params.destination);
   url.searchParams.set("check_in_date", params.checkIn);
   url.searchParams.set("check_out_date", params.checkOut);

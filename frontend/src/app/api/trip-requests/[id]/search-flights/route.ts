@@ -110,6 +110,8 @@ export async function POST(
         }
       : undefined;
 
+    console.log(`[FlightSearch] Trip ${id}: ${tripOrigins.join(",")} → ${tripDests.join(",")} on ${departureDate}${returnDate ? ` – ${returnDate}` : ""}, cabin=${trip.cabinPreference ?? "economy"}, travelers=${travelerInputs.length}, SERPAPI_KEY=${process.env.SERPAPI_KEY ? `set(${process.env.SERPAPI_KEY.length}chars)` : "MISSING"}`);
+
     const travelerFlights = await searchFlightsForTravelers(
       travelerInputs,
       departureDate,
@@ -117,6 +119,10 @@ export async function POST(
       trip.cabinPreference ?? "economy",
       flightPrefs,
     );
+
+    const totalCash = travelerFlights.reduce((sum, g) => sum + g.segments.reduce((s2, seg) => s2 + seg.cashOptions.length, 0), 0);
+    const totalAward = travelerFlights.reduce((sum, g) => sum + g.segments.reduce((s2, seg) => s2 + seg.awardOptions.length, 0), 0);
+    console.log(`[FlightSearch] Trip ${id}: Done. ${travelerFlights.length} traveler groups, ${totalCash} cash options, ${totalAward} award options`);
 
     // Persist results into the latest completed itinerary job (create one if none exists)
     const latestJob = await prisma.itineraryJob.findFirst({

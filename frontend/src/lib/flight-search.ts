@@ -8,9 +8,9 @@
 
 import { TRANSFER_PARTNERS } from "./itinerary-ai";
 
-const SERPAPI_KEY = process.env.SERPAPI_KEY ?? "";
-const SEATS_AERO_KEY = process.env.SEATS_AERO_API_KEY ?? "";
-const AWARDTOOL_KEY = process.env.AWARDTOOL_API_KEY ?? "";
+function getSerpApiKey() { return process.env.SERPAPI_KEY ?? ""; }
+function getSeatsAeroKey() { return process.env.SEATS_AERO_API_KEY ?? ""; }
+function getAwardToolKey() { return process.env.AWARDTOOL_API_KEY ?? ""; }
 
 // ---------------------------------------------------------------------------
 // Types
@@ -423,22 +423,19 @@ function scoreAwardFlight(
 }
 
 /**
- * Post-process flight results for a route: re-rank using CPP from the best
- * cash price, and apply client preferences to scoring/filtering.
+ * Post-process flight results for a route: apply client preference constraints
+ * as hard filters, re-rank by score, and return the top 5 per type.
+ *
+ * Constraint filtering keeps only flights the client would actually want.
+ * If filtering leaves zero results, we fall back to the full list so the
+ * advisor always sees some options.
  */
 function rankRouteFlights(
   cash: CashFlightResult[],
   awards: AwardFlightResult[],
   prefs?: FlightPreferences,
 ): { cash: CashFlightResult[]; award: AwardFlightResult[] } {
-  let filteredCash = cash;
-  if (prefs?.avoidedAirlines?.length) {
-    const avoided = prefs.avoidedAirlines.map((a) => a.toLowerCase());
-    filteredCash = cash.filter(
-      (f) => !avoided.some((a) => f.airline.toLowerCase().includes(a)),
-    );
-    if (filteredCash.length === 0) filteredCash = cash;
-  }
+  let filteredCash = applyConstraintsCash(cash, prefs);
 
   for (const r of filteredCash) {
     r.score = scoreCashFlight(r, prefs);
@@ -448,7 +445,8 @@ function rankRouteFlights(
   const bestCashPrice =
     filteredCash.length > 0 ? Math.min(...filteredCash.map((c) => c.price)) : 0;
 
-  for (const a of awards) {
+  let filteredAwards = applyConstraintsAward(awards, prefs);
+  for (const a of filteredAwards) {
     const cpp =
       bestCashPrice > 0 && a.milesRequired > 0
         ? ((bestCashPrice - a.taxes) / a.milesRequired) * 100
@@ -456,10 +454,67 @@ function rankRouteFlights(
     a.cppValue = Math.round(cpp * 100) / 100;
     a.score = scoreAwardFlight(a, bestCashPrice, prefs);
   }
+  filteredAwards.sort((a, b) => (b.score ?? 0) - (a.score ?? 0));
 
-  awards.sort((a, b) => (b.score ?? 0) - (a.score ?? 0));
+  return {
+    cash: filteredCash.slice(0, 5),
+    award: filteredAwards.slice(0, 5),
+  };
+}
 
-  return { cash: filteredCash, award: awards };
+function applyConstraintsCash(
+  flights: CashFlightResult[],
+  prefs?: FlightPreferences,
+): CashFlightResult[] {
+  if (!prefs) return flights;
+
+  let filtered = [...flights];
+
+  if (prefs.avoidedAirlines?.length) {
+    const avoided = prefs.avoidedAirlines.map((a) => a.toLowerCase());
+    const pass = filtered.filter(
+      (f) => !avoided.some((a) => f.airline.toLowerCase().includes(a)),
+    );
+    if (pass.length > 0) filtered = pass;
+  }
+
+  if (prefs.avoidBasicEconomy) {
+    const pass = filtered.filter(
+      (f) => !f.fareClass?.toLowerCase().includes("basic"),
+    );
+    if (pass.length > 0) filtered = pass;
+  }
+
+  if (prefs.maxLayoverMinutes) {
+    const maxMin = prefs.maxLayoverMinutes;
+    const pass = filtered.filter(
+      (f) => !f.layovers?.some((l) => l.durationMin > maxMin),
+    );
+    if (pass.length > 0) filtered = pass;
+  }
+
+  if (prefs.prefersNonstop) {
+    const nonstop = filtered.filter((f) => f.stops === 0);
+    if (nonstop.length > 0) filtered = nonstop;
+  }
+
+  return filtered;
+}
+
+function applyConstraintsAward(
+  awards: AwardFlightResult[],
+  prefs?: FlightPreferences,
+): AwardFlightResult[] {
+  if (!prefs) return awards;
+
+  let filtered = [...awards];
+
+  if (prefs.prefersNonstop) {
+    const direct = filtered.filter((a) => a.isDirect);
+    if (direct.length > 0) filtered = direct;
+  }
+
+  return filtered;
 }
 
 // ---------------------------------------------------------------------------
@@ -496,7 +551,7 @@ interface SerpApiResponse {
 export async function searchCashFlights(
   params: FlightSearchParams,
 ): Promise<CashFlightResult[]> {
-  if (!SERPAPI_KEY) {
+  if (!getSerpApiKey()) {
     console.warn("SERPAPI_KEY not set — skipping cash flight search");
     return [];
   }
@@ -536,7 +591,7 @@ async function _fetchSerpFlights(
 ): Promise<CashFlightResult[]> {
   const url = new URL("https://serpapi.com/search");
   url.searchParams.set("engine", "google_flights");
-  url.searchParams.set("api_key", SERPAPI_KEY);
+  url.searchParams.set("api_key", getSerpApiKey());
   url.searchParams.set("departure_id", params.origin);
   url.searchParams.set("arrival_id", params.destination);
   url.searchParams.set("outbound_date", params.date);
@@ -662,9 +717,9 @@ export async function searchAwardFlights(
 
   let results: AwardFlightResult[];
 
-  if (SEATS_AERO_KEY) {
+  if (getSeatsAeroKey()) {
     results = await searchAwardFlightsSeatsAero(params);
-  } else if (AWARDTOOL_KEY) {
+  } else if (getAwardToolKey()) {
     results = await searchAwardFlightsAwardTool(
       params,
       reachable?.awardToolCodes,
@@ -693,7 +748,7 @@ async function searchAwardFlightsSeatsAero(
 
   try {
     const res = await fetch(url.toString(), {
-      headers: { "Partner-Authorization": SEATS_AERO_KEY },
+      headers: { "Partner-Authorization": getSeatsAeroKey() },
       signal: AbortSignal.timeout(15000),
     });
     if (!res.ok) {
@@ -803,7 +858,7 @@ async function searchAwardFlightsAwardTool(
     programs,
     cabins: [cabin],
     pax: String(params.adults ?? 1),
-    api_key: AWARDTOOL_KEY,
+    api_key: getAwardToolKey(),
   };
 
   try {
