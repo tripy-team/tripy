@@ -6,8 +6,6 @@ import Link from 'next/link';
 import {
   Users,
   ArrowRightLeft,
-  Plane,
-  Bell,
   Plus,
   Loader2,
   RefreshCw,
@@ -16,8 +14,6 @@ import {
 import { getDashboard, scrapeTransferBonuses } from '@/lib/api-client';
 import type {
   DashboardData,
-  TripRequest,
-  AlertEvent,
   TransferBonusDetail,
 } from '@/lib/api-client';
 
@@ -124,20 +120,6 @@ function StatCard({
         </div>
       </div>
     </div>
-  );
-}
-
-function StatusBadge({ status }: { status: string }) {
-  const styles: Record<string, string> = {
-    draft: 'bg-slate-100 text-slate-600',
-    analyzing: 'bg-yellow-50 text-yellow-700',
-    complete: 'bg-green-50 text-green-700',
-    archived: 'bg-slate-100 text-slate-500',
-  };
-  return (
-    <span className={`inline-block rounded-full px-2.5 py-0.5 text-xs font-medium ${styles[status] ?? styles.draft}`}>
-      {status}
-    </span>
   );
 }
 
@@ -253,8 +235,6 @@ export default function DashboardPage() {
   if (!data) return null;
 
   const transferBonuses = Array.isArray(data.transferBonuses) ? data.transferBonuses : [];
-  const activeTripAnalyses = Array.isArray(data.activeTripAnalyses) ? data.activeTripAnalyses : [];
-  const recentAlerts = Array.isArray(data.recentAlerts) ? data.recentAlerts : [];
 
   return (
     <div className="max-w-6xl">
@@ -322,80 +302,6 @@ export default function DashboardPage() {
               <TransferBonusCard key={bonus.id} bonus={bonus} />
             ))
           )}
-        </div>
-      </div>
-
-      <div className="grid grid-cols-1 gap-6 lg:grid-cols-2">
-        {/* Active Trip Analyses */}
-        <div className="rounded-xl border border-slate-200 bg-white shadow-sm">
-          <div className="flex items-center justify-between border-b border-slate-100 px-5 py-4">
-            <h2 className="font-semibold text-slate-900">Active Trip Analyses</h2>
-            <Link href="/trip-requests" className="text-sm font-medium text-blue-600 hover:text-blue-700">
-              View all
-            </Link>
-          </div>
-          <div className="divide-y divide-slate-100">
-            {activeTripAnalyses.length === 0 ? (
-              <div className="px-5 py-8 text-center">
-                <Plane className="mx-auto h-8 w-8 text-slate-300" />
-                <p className="mt-2 text-sm text-slate-500">No active analyses</p>
-              </div>
-            ) : (
-              activeTripAnalyses.map((trip: TripRequest) => (
-                <Link
-                  key={trip.id}
-                  href={`/trips/${trip.id}`}
-                  className="flex items-center justify-between px-5 py-3 hover:bg-slate-50 transition-colors"
-                >
-                  <div>
-                    <p className="text-sm font-medium text-slate-900">{trip.title}</p>
-                    <p className="text-xs text-slate-500">
-                      {trip.originAirports?.join(', ')} → {trip.destinationAirports?.join(', ')}
-                    </p>
-                  </div>
-                  <StatusBadge status={trip.status} />
-                </Link>
-              ))
-            )}
-          </div>
-        </div>
-
-        {/* Recent Alerts */}
-        <div className="rounded-xl border border-slate-200 bg-white shadow-sm">
-          <div className="flex items-center justify-between border-b border-slate-100 px-5 py-4">
-            <h2 className="font-semibold text-slate-900">Recent Alerts</h2>
-            <Link href="/alerts" className="text-sm font-medium text-blue-600 hover:text-blue-700">
-              View all
-            </Link>
-          </div>
-          <div className="divide-y divide-slate-100">
-            {recentAlerts.length === 0 ? (
-              <div className="px-5 py-8 text-center">
-                <Bell className="mx-auto h-8 w-8 text-slate-300" />
-                <p className="mt-2 text-sm text-slate-500">No recent alerts</p>
-              </div>
-            ) : (
-              recentAlerts.slice(0, 5).map((alert: AlertEvent) => {
-                const severityColors: Record<string, string> = {
-                  info: 'bg-blue-500',
-                  warning: 'bg-amber-500',
-                  critical: 'bg-red-500',
-                };
-                return (
-                  <div key={alert.id} className="flex items-start gap-3 px-5 py-3">
-                    <div className={`mt-1.5 h-2 w-2 flex-shrink-0 rounded-full ${severityColors[alert.severity] ?? severityColors.info}`} />
-                    <div className="min-w-0 flex-1">
-                      <p className="text-sm font-medium text-slate-900">{alert.title}</p>
-                      <p className="truncate text-xs text-slate-500">{alert.body}</p>
-                    </div>
-                    <span className="flex-shrink-0 text-xs text-slate-400">
-                      {new Date(alert.createdAt).toLocaleDateString('en-US', { month: 'short', day: 'numeric' })}
-                    </span>
-                  </div>
-                );
-              })
-            )}
-          </div>
         </div>
       </div>
     </div>

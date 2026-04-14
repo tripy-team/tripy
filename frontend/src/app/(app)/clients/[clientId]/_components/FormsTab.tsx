@@ -1,19 +1,22 @@
 'use client';
 
 import { useState, useEffect } from 'react';
-import { Plus, ClipboardList, FileQuestion, ChevronDown, ChevronRight, Loader2, ExternalLink, RefreshCw, Trash2, Check, Clock, AlertCircle, Mail } from 'lucide-react';
+import { Plus, ClipboardList, FileQuestion, ChevronDown, ChevronRight, Loader2, ExternalLink, RefreshCw, Trash2, Check, Clock, AlertCircle, Mail, Send, X } from 'lucide-react';
 import Link from 'next/link';
 import {
   getIntakeInvitations,
   resendIntakeInvitation,
   revokeIntakeInvitation,
   deleteClientIntake,
+  createClientIntake,
+  sendIntakeInvitations,
   type IntakeInvitation,
   type ClientIntake,
   type Client,
 } from '@/lib/api-client';
 import IntakeInvitationsPanel from './IntakeInvitationsPanel';
 import CustomFormPanel from './CustomFormPanel';
+import { IntakeForm } from '../intake/_components/intake-form';
 
 // ---------------------------------------------------------------------------
 // Status helpers
@@ -47,14 +50,19 @@ interface Props {
 // ---------------------------------------------------------------------------
 
 export default function FormsTab({ client, clientId, intakes, setIntakes }: Props) {
-  const [section, setSection] = useState<'profile' | 'custom'>('profile');
-
   // Custom form state
   const [customForms, setCustomForms] = useState<IntakeInvitation[]>([]);
   const [customLoading, setCustomLoading] = useState(true);
   const [showNewCustomForm, setShowNewCustomForm] = useState(false);
 
-  // Profile intake collapse state
+  // Build profile modal state
+  const [showBuildModal, setShowBuildModal] = useState(false);
+  const [savingIntake, setSavingIntake] = useState(false);
+  const [createdIntake, setCreatedIntake] = useState<ClientIntake | null>(null);
+  const [sharing, setSharing] = useState(false);
+  const [shareSuccess, setShareSuccess] = useState(false);
+
+  // Collapse states
   const [profileOpen, setProfileOpen] = useState(true);
   const [customOpen, setCustomOpen] = useState(true);
 
@@ -69,241 +77,402 @@ export default function FormsTab({ client, clientId, intakes, setIntakes }: Prop
     setShowNewCustomForm(false);
   }
 
+  async function handleBuildIntakeSave(data: Record<string, unknown>) {
+    setSavingIntake(true);
+    try {
+      const intake = await createClientIntake(clientId, data);
+      setCreatedIntake(intake);
+      setIntakes((prev) => [intake, ...prev]);
+    } finally {
+      setSavingIntake(false);
+    }
+  }
+
+  async function handleShareWithClient() {
+    if (!client.email) return;
+    setSharing(true);
+    try {
+      await sendIntakeInvitations(clientId, [
+        {
+          email: client.email,
+          name: `${client.firstName} ${client.lastName}`.trim() || undefined,
+          formVariant: 'individual',
+        },
+      ]);
+      setShareSuccess(true);
+    } catch {
+      // ignore
+    } finally {
+      setSharing(false);
+    }
+  }
+
+  function handleCloseBuildModal() {
+    setShowBuildModal(false);
+    setCreatedIntake(null);
+    setShareSuccess(false);
+    setSavingIntake(false);
+  }
+
   const pendingCustom = customForms.filter((f) => f.status === 'pending' || f.status === 'opened').length;
 
   return (
     <div className="space-y-5">
 
-      {/* ── Section switcher tabs ── */}
-      <div className="flex gap-1 rounded-xl border border-slate-200 bg-slate-50 p-1">
-        <button
-          onClick={() => setSection('profile')}
-          className={`flex flex-1 items-center justify-center gap-2 rounded-lg py-2.5 text-sm font-medium transition-all ${
-            section === 'profile'
-              ? 'bg-white text-slate-900 shadow-sm'
-              : 'text-slate-500 hover:text-slate-700'
-          }`}
-        >
-          <ClipboardList className="h-4 w-4" />
-          Profile Intake
-        </button>
-        <button
-          onClick={() => setSection('custom')}
-          className={`flex flex-1 items-center justify-center gap-2 rounded-lg py-2.5 text-sm font-medium transition-all ${
-            section === 'custom'
-              ? 'bg-white text-slate-900 shadow-sm'
-              : 'text-slate-500 hover:text-slate-700'
-          }`}
-        >
-          <FileQuestion className="h-4 w-4" />
-          Custom Form
-          {pendingCustom > 0 && (
-            <span className="rounded-full bg-violet-100 px-1.5 py-0.5 text-[10px] font-semibold text-violet-700">
-              {pendingCustom}
-            </span>
-          )}
-        </button>
+      {/* ── Build Profile Modal ── */}
+      {showBuildModal && (
+        <BuildProfileModal
+          client={client}
+          clientId={clientId}
+          saving={savingIntake}
+          createdIntake={createdIntake}
+          sharing={sharing}
+          shareSuccess={shareSuccess}
+          onSave={handleBuildIntakeSave}
+          onShare={handleShareWithClient}
+          onClose={handleCloseBuildModal}
+        />
+      )}
+
+      {/* ── Build Profiles Section ── */}
+      <div className="rounded-xl border border-slate-200 bg-white shadow-sm">
+        <div className="flex items-center justify-between p-5">
+          <div className="flex items-center gap-3">
+            <div className="flex h-9 w-9 items-center justify-center rounded-lg bg-emerald-50">
+              <ClipboardList className="h-4.5 w-4.5 text-emerald-600" />
+            </div>
+            <div>
+              <h2 className="font-semibold text-slate-900">Build Profiles</h2>
+              <p className="text-xs text-slate-500">
+                {intakes.length} profile{intakes.length !== 1 ? 's' : ''} built by advisor
+              </p>
+            </div>
+          </div>
+          <button
+            onClick={() => setShowBuildModal(true)}
+            className="inline-flex items-center gap-1.5 rounded-lg bg-emerald-600 px-3 py-1.5 text-sm font-medium text-white hover:bg-emerald-700"
+          >
+            <Plus className="h-4 w-4" />
+            Build Profile
+          </button>
+        </div>
+
+        {intakes.length === 0 ? (
+          <div className="border-t border-slate-100 px-5 pb-8 pt-6 text-center">
+            <ClipboardList className="mx-auto h-8 w-8 text-slate-300" />
+            <p className="mt-2 text-sm text-slate-500">No profiles built yet</p>
+            <p className="mt-1 text-xs text-slate-400">
+              Build a reusable preference profile to power smarter trip planning
+            </p>
+            <button
+              onClick={() => setShowBuildModal(true)}
+              className="mt-3 inline-flex items-center gap-1.5 text-sm font-medium text-blue-600 hover:text-blue-700"
+            >
+              <Plus className="h-4 w-4" />
+              Build first profile
+            </button>
+          </div>
+        ) : (
+          <div className="border-t border-slate-100 px-5 pb-4 pt-4">
+            <div className="space-y-3">
+              {intakes.map((intake) => {
+                const isDraft = intake.status === 'draft';
+                const profileLabel = intake.templateName || 'Client Profile';
+                const subtitleParts: string[] = [];
+                if (intake.travelPace) subtitleParts.push(intake.travelPace.replace(/_/g, ' '));
+                if (intake.luxuryPreference) subtitleParts.push(intake.luxuryPreference.replace(/_/g, ' '));
+                const subtitle = subtitleParts.length
+                  ? subtitleParts.join(' · ')
+                  : `Updated ${new Date(intake.updatedAt).toLocaleDateString()}`;
+                return (
+                  <div
+                    key={intake.id}
+                    className="flex items-center justify-between rounded-lg border border-slate-200 bg-slate-50/50 p-4 transition-colors hover:border-slate-300"
+                  >
+                    <Link href={`/clients/${clientId}/intake/${intake.id}`} className="min-w-0 flex-1">
+                      <div className="flex items-center gap-3">
+                        <div
+                          className={`flex h-10 w-10 shrink-0 items-center justify-center rounded-lg ${isDraft ? 'bg-amber-50' : 'bg-green-50'}`}
+                        >
+                          <ClipboardList className={`h-5 w-5 ${isDraft ? 'text-amber-500' : 'text-green-600'}`} />
+                        </div>
+                        <div className="min-w-0">
+                          <div className="flex items-center gap-2">
+                            <span className="font-medium text-slate-900">{profileLabel}</span>
+                            <span
+                              className={`rounded-full px-2 py-0.5 text-xs font-medium ${isDraft ? 'bg-amber-50 text-amber-700' : 'bg-green-50 text-green-700'}`}
+                            >
+                              {isDraft ? 'Draft' : 'Complete'}
+                            </span>
+                            {intake.isTemplate && (
+                              <span className="rounded-full bg-purple-50 px-2 py-0.5 text-xs font-medium text-purple-700">
+                                Template
+                              </span>
+                            )}
+                          </div>
+                          <p className="mt-0.5 truncate text-xs capitalize text-slate-500">{subtitle}</p>
+                        </div>
+                      </div>
+                    </Link>
+                    <div className="ml-3 flex items-center gap-1">
+                      <button
+                        onClick={async () => {
+                          if (!confirm('Delete this profile?')) return;
+                          try {
+                            await deleteClientIntake(clientId, intake.id);
+                            setIntakes((prev) => prev.filter((i) => i.id !== intake.id));
+                          } catch {
+                            /* */
+                          }
+                        }}
+                        title="Delete"
+                        className="rounded-lg p-2 text-slate-400 hover:bg-red-50 hover:text-red-600"
+                      >
+                        <Trash2 className="h-4 w-4" />
+                      </button>
+                    </div>
+                  </div>
+                );
+              })}
+            </div>
+          </div>
+        )}
       </div>
 
-      {/* ── Profile Intake Section ── */}
-      {section === 'profile' && (
-        <div className="space-y-5">
-          {/* Send invitations */}
-          <div className="rounded-xl border border-slate-200 bg-white shadow-sm">
-            <button
-              onClick={() => setProfileOpen((v) => !v)}
-              className="flex w-full items-center justify-between p-5 text-left"
-            >
-              <div className="flex items-center gap-3">
-                <div className="flex h-9 w-9 items-center justify-center rounded-lg bg-blue-50">
-                  <Mail className="h-4.5 w-4.5 text-blue-600" />
-                </div>
-                <div>
-                  <h2 className="font-semibold text-slate-900">Send Profile Form</h2>
-                  <p className="text-xs text-slate-500">Email the standard preference intake to your client</p>
-                </div>
-              </div>
-              {profileOpen ? <ChevronDown className="h-4 w-4 text-slate-400" /> : <ChevronRight className="h-4 w-4 text-slate-400" />}
-            </button>
-            {profileOpen && (
-              <div className="border-t border-slate-100 p-5">
-                <IntakeInvitationsPanel client={client} />
-              </div>
-            )}
+      {/* ── Send Profile Form Section ── */}
+      <div className="rounded-xl border border-slate-200 bg-white shadow-sm">
+        <button
+          onClick={() => setProfileOpen((v) => !v)}
+          className="flex w-full items-center justify-between p-5 text-left"
+        >
+          <div className="flex items-center gap-3">
+            <div className="flex h-9 w-9 items-center justify-center rounded-lg bg-blue-50">
+              <Mail className="h-4.5 w-4.5 text-blue-600" />
+            </div>
+            <div>
+              <h2 className="font-semibold text-slate-900">Send Profile Form</h2>
+              <p className="text-xs text-slate-500">Email the standard preference intake to your client</p>
+            </div>
           </div>
+          {profileOpen ? (
+            <ChevronDown className="h-4 w-4 text-slate-400" />
+          ) : (
+            <ChevronRight className="h-4 w-4 text-slate-400" />
+          )}
+        </button>
+        {profileOpen && (
+          <div className="border-t border-slate-100 p-5">
+            <IntakeInvitationsPanel client={client} />
+          </div>
+        )}
+      </div>
 
-          {/* Built profiles */}
+      {/* ── Custom Forms Section ── */}
+      <div className="space-y-5">
+        {/* New custom form builder */}
+        {showNewCustomForm ? (
+          <CustomFormPanel
+            client={client}
+            onCreated={handleCustomFormCreated}
+            onCancel={() => setShowNewCustomForm(false)}
+          />
+        ) : (
           <div className="rounded-xl border border-slate-200 bg-white shadow-sm">
             <div className="flex items-center justify-between p-5">
               <div className="flex items-center gap-3">
-                <div className="flex h-9 w-9 items-center justify-center rounded-lg bg-emerald-50">
-                  <ClipboardList className="h-4.5 w-4.5 text-emerald-600" />
+                <div className="flex h-9 w-9 items-center justify-center rounded-lg bg-violet-50">
+                  <FileQuestion className="h-4.5 w-4.5 text-violet-600" />
                 </div>
                 <div>
-                  <h2 className="font-semibold text-slate-900">Built Profiles</h2>
-                  <p className="text-xs text-slate-500">{intakes.length} profile{intakes.length !== 1 ? 's' : ''} built by advisor</p>
+                  <h2 className="font-semibold text-slate-900">Custom Forms</h2>
+                  <p className="text-xs text-slate-500">
+                    Build a form with your own questions or let AI generate them
+                  </p>
                 </div>
               </div>
-              <Link
-                href={`/clients/${clientId}/intake/new`}
-                className="inline-flex items-center gap-1.5 rounded-lg bg-emerald-600 px-3 py-1.5 text-sm font-medium text-white hover:bg-emerald-700"
+              <button
+                onClick={() => setShowNewCustomForm(true)}
+                className="inline-flex items-center gap-1.5 rounded-lg bg-violet-600 px-3 py-1.5 text-sm font-medium text-white hover:bg-violet-700"
               >
                 <Plus className="h-4 w-4" />
-                Build Profile
-              </Link>
+                New Form
+              </button>
             </div>
-
-            {intakes.length === 0 ? (
-              <div className="border-t border-slate-100 px-5 pb-8 pt-6 text-center">
-                <ClipboardList className="mx-auto h-8 w-8 text-slate-300" />
-                <p className="mt-2 text-sm text-slate-500">No profiles built yet</p>
-                <p className="mt-1 text-xs text-slate-400">Build a reusable preference profile to power smarter trip planning</p>
-                <Link
-                  href={`/clients/${clientId}/intake/new`}
-                  className="mt-3 inline-flex items-center gap-1.5 text-sm font-medium text-blue-600 hover:text-blue-700"
-                >
-                  <Plus className="h-4 w-4" />Build first profile
-                </Link>
-              </div>
-            ) : (
-              <div className="border-t border-slate-100 px-5 pb-4 pt-4">
-                <div className="space-y-3">
-                  {intakes.map((intake) => {
-                    const isDraft = intake.status === 'draft';
-                    const profileLabel = intake.templateName || 'Client Profile';
-                    const subtitleParts: string[] = [];
-                    if (intake.travelPace) subtitleParts.push(intake.travelPace.replace(/_/g, ' '));
-                    if (intake.luxuryPreference) subtitleParts.push(intake.luxuryPreference.replace(/_/g, ' '));
-                    const subtitle = subtitleParts.length
-                      ? subtitleParts.join(' · ')
-                      : `Updated ${new Date(intake.updatedAt).toLocaleDateString()}`;
-                    return (
-                      <div key={intake.id} className="flex items-center justify-between rounded-lg border border-slate-200 bg-slate-50/50 p-4 transition-colors hover:border-slate-300">
-                        <Link href={`/clients/${clientId}/intake/${intake.id}`} className="min-w-0 flex-1">
-                          <div className="flex items-center gap-3">
-                            <div className={`flex h-10 w-10 shrink-0 items-center justify-center rounded-lg ${isDraft ? 'bg-amber-50' : 'bg-green-50'}`}>
-                              <ClipboardList className={`h-5 w-5 ${isDraft ? 'text-amber-500' : 'text-green-600'}`} />
-                            </div>
-                            <div className="min-w-0">
-                              <div className="flex items-center gap-2">
-                                <span className="font-medium text-slate-900">{profileLabel}</span>
-                                <span className={`rounded-full px-2 py-0.5 text-xs font-medium ${isDraft ? 'bg-amber-50 text-amber-700' : 'bg-green-50 text-green-700'}`}>
-                                  {isDraft ? 'Draft' : 'Complete'}
-                                </span>
-                                {intake.isTemplate && (
-                                  <span className="rounded-full bg-purple-50 px-2 py-0.5 text-xs font-medium text-purple-700">Template</span>
-                                )}
-                              </div>
-                              <p className="mt-0.5 truncate text-xs capitalize text-slate-500">
-                                {subtitle}
-                              </p>
-                            </div>
-                          </div>
-                        </Link>
-                        <div className="ml-3 flex items-center gap-1">
-                          <button
-                            onClick={async () => {
-                              if (!confirm('Delete this profile?')) return;
-                              try {
-                                await deleteClientIntake(clientId, intake.id);
-                                setIntakes((prev) => prev.filter((i) => i.id !== intake.id));
-                              } catch { /* */ }
-                            }}
-                            title="Delete"
-                            className="rounded-lg p-2 text-slate-400 hover:bg-red-50 hover:text-red-600"
-                          >
-                            <Trash2 className="h-4 w-4" />
-                          </button>
-                        </div>
-                      </div>
-                    );
-                  })}
-                </div>
-              </div>
-            )}
           </div>
-        </div>
-      )}
+        )}
 
-      {/* ── Custom Form Section ── */}
-      {section === 'custom' && (
-        <div className="space-y-5">
-          {/* New custom form builder */}
-          {showNewCustomForm ? (
-            <CustomFormPanel
-              client={client}
-              onCreated={handleCustomFormCreated}
-              onCancel={() => setShowNewCustomForm(false)}
-            />
-          ) : (
-            <div className="rounded-xl border border-slate-200 bg-white shadow-sm">
-              <div className="flex items-center justify-between p-5">
-                <div className="flex items-center gap-3">
-                  <div className="flex h-9 w-9 items-center justify-center rounded-lg bg-violet-50">
-                    <FileQuestion className="h-4.5 w-4.5 text-violet-600" />
-                  </div>
-                  <div>
-                    <h2 className="font-semibold text-slate-900">Custom Forms</h2>
-                    <p className="text-xs text-slate-500">Build a form with your own questions or let AI generate them</p>
-                  </div>
+        {/* Sent custom forms list */}
+        <div className="rounded-xl border border-slate-200 bg-white shadow-sm">
+          <button
+            onClick={() => setCustomOpen((v) => !v)}
+            className="flex w-full items-center justify-between p-5 text-left"
+          >
+            <div>
+              <h3 className="font-semibold text-slate-900">
+                Sent Forms
+                {pendingCustom > 0 && (
+                  <span className="ml-2 rounded-full bg-violet-100 px-1.5 py-0.5 text-[10px] font-semibold text-violet-700">
+                    {pendingCustom}
+                  </span>
+                )}
+              </h3>
+              <p className="text-xs text-slate-500">
+                {customForms.length} custom form{customForms.length !== 1 ? 's' : ''} sent
+              </p>
+            </div>
+            {customOpen ? (
+              <ChevronDown className="h-4 w-4 text-slate-400" />
+            ) : (
+              <ChevronRight className="h-4 w-4 text-slate-400" />
+            )}
+          </button>
+
+          {customOpen && (
+            <div className="border-t border-slate-100 p-5">
+              {customLoading ? (
+                <div className="flex justify-center py-6">
+                  <Loader2 className="h-5 w-5 animate-spin text-slate-400" />
                 </div>
-                <button
-                  onClick={() => setShowNewCustomForm(true)}
-                  className="inline-flex items-center gap-1.5 rounded-lg bg-violet-600 px-3 py-1.5 text-sm font-medium text-white hover:bg-violet-700"
-                >
-                  <Plus className="h-4 w-4" />
-                  New Form
-                </button>
-              </div>
+              ) : customForms.length === 0 ? (
+                <div className="rounded-lg border border-dashed border-slate-200 py-10 text-center">
+                  <FileQuestion className="mx-auto h-8 w-8 text-slate-300" />
+                  <p className="mt-2 text-sm text-slate-500">No custom forms sent yet</p>
+                  <p className="mt-1 text-xs text-slate-400">
+                    Click &ldquo;New Form&rdquo; to build and send a custom form to your client
+                  </p>
+                </div>
+              ) : (
+                <div className="space-y-2">
+                  {customForms.map((form) => (
+                    <CustomFormRow
+                      key={form.id}
+                      form={form}
+                      onResend={(id) =>
+                        resendIntakeInvitation(id).then((updated) =>
+                          setCustomForms((prev) => prev.map((f) => (f.id === id ? updated : f))),
+                        )
+                      }
+                      onRevoke={(id) =>
+                        revokeIntakeInvitation(id).then(() =>
+                          setCustomForms((prev) => prev.filter((f) => f.id !== id)),
+                        )
+                      }
+                    />
+                  ))}
+                </div>
+              )}
             </div>
           )}
+        </div>
+      </div>
+    </div>
+  );
+}
 
-          {/* Sent custom forms list */}
-          <div className="rounded-xl border border-slate-200 bg-white shadow-sm">
-            <button
-              onClick={() => setCustomOpen((v) => !v)}
-              className="flex w-full items-center justify-between p-5 text-left"
-            >
-              <div>
-                <h3 className="font-semibold text-slate-900">Sent Forms</h3>
-                <p className="text-xs text-slate-500">{customForms.length} custom form{customForms.length !== 1 ? 's' : ''} sent</p>
-              </div>
-              {customOpen ? <ChevronDown className="h-4 w-4 text-slate-400" /> : <ChevronRight className="h-4 w-4 text-slate-400" />}
-            </button>
+// ---------------------------------------------------------------------------
+// Build Profile Modal
+// ---------------------------------------------------------------------------
 
-            {customOpen && (
-              <div className="border-t border-slate-100 p-5">
-                {customLoading ? (
-                  <div className="flex justify-center py-6">
-                    <Loader2 className="h-5 w-5 animate-spin text-slate-400" />
-                  </div>
-                ) : customForms.length === 0 ? (
-                  <div className="rounded-lg border border-dashed border-slate-200 py-10 text-center">
-                    <FileQuestion className="mx-auto h-8 w-8 text-slate-300" />
-                    <p className="mt-2 text-sm text-slate-500">No custom forms sent yet</p>
-                    <p className="mt-1 text-xs text-slate-400">Click "New Form" to build and send a custom form to your client</p>
-                  </div>
+interface BuildProfileModalProps {
+  client: Client;
+  clientId: string;
+  saving: boolean;
+  createdIntake: ClientIntake | null;
+  sharing: boolean;
+  shareSuccess: boolean;
+  onSave: (data: Record<string, unknown>) => Promise<void>;
+  onShare: () => Promise<void>;
+  onClose: () => void;
+}
+
+function BuildProfileModal({
+  client,
+  clientId,
+  saving,
+  createdIntake,
+  sharing,
+  shareSuccess,
+  onSave,
+  onShare,
+  onClose,
+}: BuildProfileModalProps) {
+  return (
+    <div className="fixed inset-0 z-50 flex items-start justify-center overflow-y-auto bg-black/50 p-4 py-8">
+      <div className="relative flex w-full max-w-4xl flex-col rounded-2xl bg-white shadow-2xl">
+        {/* Modal header */}
+        <div className="flex items-center justify-between border-b border-slate-200 px-6 py-4">
+          <h2 className="text-lg font-semibold text-slate-900">Build Client Profile</h2>
+          <div className="flex items-center gap-3">
+            {createdIntake && !shareSuccess && (
+              <button
+                onClick={onShare}
+                disabled={sharing || !client.email}
+                title={!client.email ? 'No email on file for this client' : undefined}
+                className="inline-flex items-center gap-1.5 rounded-lg bg-blue-600 px-4 py-2 text-sm font-medium text-white hover:bg-blue-700 disabled:opacity-60"
+              >
+                {sharing ? (
+                  <Loader2 className="h-4 w-4 animate-spin" />
                 ) : (
-                  <div className="space-y-2">
-                    {customForms.map((form) => (
-                      <CustomFormRow
-                        key={form.id}
-                        form={form}
-                        onResend={(id) => resendIntakeInvitation(id).then((updated) =>
-                          setCustomForms((prev) => prev.map((f) => f.id === id ? updated : f))
-                        )}
-                        onRevoke={(id) => revokeIntakeInvitation(id).then(() =>
-                          setCustomForms((prev) => prev.filter((f) => f.id !== id))
-                        )}
-                      />
-                    ))}
-                  </div>
+                  <Send className="h-4 w-4" />
                 )}
-              </div>
+                {sharing ? 'Sharing…' : `Share with ${client.email || 'client'}`}
+              </button>
             )}
+            {shareSuccess && (
+              <span className="inline-flex items-center gap-1.5 rounded-lg bg-emerald-50 px-4 py-2 text-sm font-medium text-emerald-700">
+                <Check className="h-4 w-4" />
+                Shared with {client.email}
+              </span>
+            )}
+            <button
+              onClick={onClose}
+              className="rounded-lg p-2 text-slate-400 hover:bg-slate-100 hover:text-slate-600"
+            >
+              <X className="h-5 w-5" />
+            </button>
           </div>
         </div>
-      )}
+
+        {/* Modal body */}
+        {createdIntake ? (
+          <div className="flex flex-col items-center justify-center px-6 py-14">
+            <div className="flex h-14 w-14 items-center justify-center rounded-full bg-emerald-100">
+              <Check className="h-7 w-7 text-emerald-600" />
+            </div>
+            <h3 className="mt-5 text-lg font-semibold text-slate-900">Profile saved!</h3>
+            <p className="mt-1 text-sm text-slate-500">
+              {client.email
+                ? 'Click "Share" above to email the intake form to the client.'
+                : 'The profile has been saved.'}
+            </p>
+            <div className="mt-5 flex items-center gap-4">
+              <Link
+                href={`/clients/${clientId}/intake/${createdIntake.id}`}
+                className="text-sm font-medium text-blue-600 hover:text-blue-700"
+                onClick={onClose}
+              >
+                Open full editor →
+              </Link>
+              <button
+                onClick={onClose}
+                className="rounded-lg border border-slate-200 px-4 py-2 text-sm text-slate-600 hover:bg-slate-50"
+              >
+                Done
+              </button>
+            </div>
+          </div>
+        ) : (
+          <div className="overflow-y-auto">
+            <IntakeForm
+              client={client}
+              isNew
+              saving={saving}
+              onSave={onSave}
+              onCancel={onClose}
+            />
+          </div>
+        )}
+      </div>
     </div>
   );
 }
@@ -326,9 +495,7 @@ function CustomFormRow({
   const [showAnswers, setShowAnswers] = useState(false);
 
   const hasAnswers =
-    form.status === 'completed' &&
-    form.formAnswers &&
-    Object.keys(form.formAnswers).length > 0;
+    form.status === 'completed' && form.formAnswers && Object.keys(form.formAnswers).length > 0;
 
   const formLink =
     typeof window !== 'undefined'
@@ -346,15 +513,28 @@ function CustomFormRow({
               {form.recipientName || form.recipientEmail}
             </p>
             <span className={`inline-flex items-center gap-1 rounded-full px-2 py-0.5 text-xs font-medium ${cfg.color}`}>
-              <Icon className="h-3 w-3" />{cfg.label}
+              <Icon className="h-3 w-3" />
+              {cfg.label}
             </span>
           </div>
           <div className="mt-0.5 flex items-center gap-2 text-xs text-slate-400">
-            <span>{questionCount} question{questionCount !== 1 ? 's' : ''}</span>
+            <span>
+              {questionCount} question{questionCount !== 1 ? 's' : ''}
+            </span>
             <span>·</span>
             <span>Sent {formatDate(form.sentAt)}</span>
-            {form.openedAt && <><span>·</span><span>Opened {formatDate(form.openedAt)}</span></>}
-            {form.completedAt && <><span>·</span><span>Completed {formatDate(form.completedAt)}</span></>}
+            {form.openedAt && (
+              <>
+                <span>·</span>
+                <span>Opened {formatDate(form.openedAt)}</span>
+              </>
+            )}
+            {form.completedAt && (
+              <>
+                <span>·</span>
+                <span>Completed {formatDate(form.completedAt)}</span>
+              </>
+            )}
           </div>
         </div>
         <div className="flex items-center gap-1">
@@ -364,7 +544,11 @@ function CustomFormRow({
               title={showAnswers ? 'Hide answers' : 'View answers'}
               className="rounded p-1.5 text-slate-400 hover:bg-slate-100 hover:text-slate-600"
             >
-              {showAnswers ? <ChevronDown className="h-3.5 w-3.5" /> : <ChevronRight className="h-3.5 w-3.5" />}
+              {showAnswers ? (
+                <ChevronDown className="h-3.5 w-3.5" />
+              ) : (
+                <ChevronRight className="h-3.5 w-3.5" />
+              )}
             </button>
           )}
           {form.status !== 'completed' && (
@@ -404,20 +588,23 @@ function CustomFormRow({
         <div className="border-t border-slate-100 px-4 py-4">
           <p className="mb-3 text-xs font-medium uppercase tracking-wide text-slate-400">Responses</p>
           <div className="space-y-2.5">
-            {Object.entries(form.formAnswers!).filter(([, v]) => v?.trim()).map(([key, value]) => {
-              const question = form.customQuestions?.find((q) => q.id === key);
-              const label = question?.label ?? key.replace(/_/g, ' ').replace(/\b\w/g, (c) => c.toUpperCase());
-              return (
-                <div key={key} className="grid grid-cols-[2fr,3fr] gap-3">
-                  <span className="text-xs font-medium text-slate-500">{label}</span>
-                  <span className="text-xs text-slate-800 break-words">{value}</span>
-                </div>
-              );
-            })}
+            {Object.entries(form.formAnswers!)
+              .filter(([, v]) => v?.trim())
+              .map(([key, value]) => {
+                const question = form.customQuestions?.find((q) => q.id === key);
+                const label =
+                  question?.label ??
+                  key.replace(/_/g, ' ').replace(/\b\w/g, (c) => c.toUpperCase());
+                return (
+                  <div key={key} className="grid grid-cols-[2fr,3fr] gap-3">
+                    <span className="text-xs font-medium text-slate-500">{label}</span>
+                    <span className="break-words text-xs text-slate-800">{value}</span>
+                  </div>
+                );
+              })}
           </div>
         </div>
       )}
     </div>
   );
 }
-

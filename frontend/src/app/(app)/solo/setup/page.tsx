@@ -185,6 +185,9 @@ function SoloTripSetupContent() {
     return `${h - 12}:00 PM`;
   };
 
+  // User State
+  const [firstName, setFirstName] = useState('');
+
   // Estimates
   const [estimatedCost, setEstimatedCost] = useState(0);
   const [estimatedPoints, setEstimatedPoints] = useState(0);
@@ -394,14 +397,18 @@ function SoloTripSetupContent() {
         }
         setIsUserAuthenticated(true);
 
+        const profile = await usersAPI.getProfile();
+
+        if (profile.name) {
+          setFirstName(profile.name.split(' ')[0]);
+        }
+
         // Skip profile credit-card loading in edit mode — the trip's
         // stored points will be loaded by the trip-loader useEffect.
         if (editTripId) {
           return;
         }
-        
-        const profile = await usersAPI.getProfile();
-        
+
         if (profile.credit_cards && profile.credit_cards.length > 0) {
           const profileCards = profile.credit_cards.map(card => ({
             id: card.id,
@@ -875,9 +882,10 @@ function SoloTripSetupContent() {
     setError(null);
 
     try {
-      const tripTitle = cities.length > 0 
-        ? `Solo Trip to ${cities[0]}${cities.length > 1 ? ` + ${cities.length - 1} more` : ''}` 
-        : 'Solo Trip';
+      const namePrefix = firstName || 'My';
+      const tripTitle = cities.length > 0
+        ? `${namePrefix} trip to ${cities[0]}${cities.length > 1 ? ` + ${cities.length - 1} more` : ''}`
+        : `${namePrefix} trip`;
       
       const effectiveStartDate = startDate;
       const effectiveEndDate = endDate;

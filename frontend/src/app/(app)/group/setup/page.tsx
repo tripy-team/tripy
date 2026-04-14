@@ -64,6 +64,9 @@ export default function GroupTripSetup() {
   const [showInviteModal, setShowInviteModal] = useState(false);
   const [isRegenerating, setIsRegenerating] = useState(false);
 
+  // User State
+  const [firstName, setFirstName] = useState('');
+
   // UI State
   const [isGenerating, setIsGenerating] = useState(false);
   const [error, setError] = useState<string | null>(null);
@@ -118,10 +121,14 @@ export default function GroupTripSetup() {
       try {
         setIsLoadingProfile(true);
         const profile = await usersAPI.getProfile();
-        
+
         // Max budget is now per-trip, not stored in profile
         // User will set it manually for each trip
-        
+
+        if (profile.name) {
+          setFirstName(profile.name.split(' ')[0]);
+        }
+
         if (profile.credit_cards && profile.credit_cards.length > 0) {
           setCreditCards(profile.credit_cards.map(card => ({
             id: card.id,
@@ -246,9 +253,10 @@ export default function GroupTripSetup() {
 
     try {
       // 1. Create trip
-      const tripTitle = cities.length > 0 
-        ? `Group Trip to ${cities[0]}${cities.length > 1 ? ` + ${cities.length - 1} more` : ''}` 
-        : 'Group Trip';
+      const namePrefix = firstName || 'My';
+      const tripTitle = cities.length > 0
+        ? `${namePrefix} trip to ${cities[0]}${cities.length > 1 ? ` + ${cities.length - 1} more` : ''}`
+        : `${namePrefix} trip`;
       const trip = await createTrip({
         title: tripTitle,
         start_date: startDate,
@@ -534,7 +542,7 @@ export default function GroupTripSetup() {
                         <div className={`flex-1 ${isMultiCity && !isLastCity ? 'grid grid-cols-1 md:grid-cols-2 gap-4' : ''} -mt-1`}>
                           <div className="relative">
                             <label className="block text-xs text-slate-500 mb-2 uppercase font-bold tracking-wider">
-                              Destination {index + 1}
+                              Shared Destination {index + 1}
                             </label>
                             <div className="flex gap-2">
                               <div className="flex-1 px-4 py-3 bg-blue-50 border border-blue-200 rounded-xl text-sm text-slate-900 font-medium">
@@ -569,69 +577,99 @@ export default function GroupTripSetup() {
                     );
                   })}
                   
-                  {/* ADD DESTINATION BUTTON */}
-                  <div className="flex gap-6 py-4">
-                    {/* Timeline connector */}
-                    <div className="flex flex-col items-center">
-                      <div className="w-6 h-6 rounded-full bg-white border-2 border-dashed border-slate-300 z-10" />
-                    </div>
-                    
-                    {/* Add button and dropdown */}
-                    <div className="flex-1 -mt-1 relative">
-                      <button
-                        type="button"
-                        onClick={() => setShowAddDestination(!showAddDestination)}
-                        className="flex items-center gap-2 text-blue-600 hover:text-blue-700 font-medium text-sm"
-                      >
-                        <Plus className="w-4 h-4" />
-                        Add Another Destination
-                      </button>
-                      
-                      {/* Dropdown popup */}
-                      {showAddDestination && (
-                        <>
-                          {/* Backdrop to close on click outside */}
-                          <div 
-                            className="fixed inset-0 z-40" 
-                            onClick={() => {
-                              setShowAddDestination(false);
+                  {/* ADD DESTINATION — inline when empty, button when cities exist */}
+                  {cities.length === 0 ? (
+                    <div className="flex gap-6 py-4">
+                      {/* Timeline dot */}
+                      <div className="flex flex-col items-center">
+                        <div className="w-6 h-6 rounded-full bg-blue-100 border-2 border-blue-300 z-10 flex items-center justify-center">
+                          <MapPin className="w-3 h-3 text-blue-500" />
+                        </div>
+                      </div>
+
+                      {/* Inline autocomplete */}
+                      <div className="flex-1 -mt-1">
+                        <label className="block text-xs text-slate-500 mb-1 uppercase font-bold tracking-wider">
+                          Shared Destinations
+                        </label>
+                        <p className="text-xs text-slate-400 mb-2">Cities every group member will visit together</p>
+                        <DestinationAutocomplete
+                          value={newCity}
+                          onChange={setNewCity}
+                          onSelect={(city) => {
+                            if (city && !cities.includes(city)) {
+                              setCities(prevCities => [...prevCities, city]);
                               setNewCity('');
-                            }}
-                          />
-                          <div className="absolute top-full left-0 right-0 mt-2 bg-white border border-slate-200 rounded-xl shadow-lg p-4 z-50">
-                            <div className="flex items-center justify-between mb-2">
-                              <label className="text-xs text-slate-500 font-medium uppercase tracking-wider">
-                                Search for a city
-                              </label>
-                              <button
-                                type="button"
-                                onClick={() => {
-                                  setShowAddDestination(false);
-                                  setNewCity('');
-                                }}
-                                className="text-slate-400 hover:text-slate-600"
-                              >
-                                <X className="w-4 h-4" />
-                              </button>
-                            </div>
-                            <DestinationAutocomplete
-                              value={newCity}
-                              onChange={setNewCity}
-                              autoFocus
-                              onSelect={(city) => {
-                                if (city && !cities.includes(city)) {
-                                  setCities(prevCities => [...prevCities, city]);
-                                  setNewCity('');
-                                  setShowAddDestination(false);
-                                }
-                              }}
-                              placeholder="e.g., Paris, Rome, Tokyo..."
-                            />
-                          </div>
-                        </>
-                      )}
+                            }
+                          }}
+                          placeholder="Search a city, e.g. Paris, Rome, Tokyo..."
+                        />
+                      </div>
                     </div>
-                  </div>
+                  ) : (
+                    <div className="flex gap-6 py-4">
+                      {/* Timeline connector */}
+                      <div className="flex flex-col items-center">
+                        <div className="w-6 h-6 rounded-full bg-white border-2 border-dashed border-slate-300 z-10" />
+                      </div>
+
+                      {/* Add button and dropdown */}
+                      <div className="flex-1 -mt-1 relative">
+                        <button
+                          type="button"
+                          onClick={() => setShowAddDestination(!showAddDestination)}
+                          className="flex items-center gap-2 text-blue-600 hover:text-blue-700 font-medium text-sm"
+                        >
+                          <Plus className="w-4 h-4" />
+                          Add Another Destination
+                        </button>
+
+                        {/* Dropdown popup */}
+                        {showAddDestination && (
+                          <>
+                            {/* Backdrop to close on click outside */}
+                            <div
+                              className="fixed inset-0 z-40"
+                              onClick={() => {
+                                setShowAddDestination(false);
+                                setNewCity('');
+                              }}
+                            />
+                            <div className="absolute top-full left-0 right-0 mt-2 bg-white border border-slate-200 rounded-xl shadow-lg p-4 z-50">
+                              <div className="flex items-center justify-between mb-2">
+                                <label className="text-xs text-slate-500 font-medium uppercase tracking-wider">
+                                  Search for a city
+                                </label>
+                                <button
+                                  type="button"
+                                  onClick={() => {
+                                    setShowAddDestination(false);
+                                    setNewCity('');
+                                  }}
+                                  className="text-slate-400 hover:text-slate-600"
+                                >
+                                  <X className="w-4 h-4" />
+                                </button>
+                              </div>
+                              <DestinationAutocomplete
+                                value={newCity}
+                                onChange={setNewCity}
+                                autoFocus
+                                onSelect={(city) => {
+                                  if (city && !cities.includes(city)) {
+                                    setCities(prevCities => [...prevCities, city]);
+                                    setNewCity('');
+                                    setShowAddDestination(false);
+                                  }
+                                }}
+                                placeholder="e.g., Paris, Rome, Tokyo..."
+                              />
+                            </div>
+                          </>
+                        )}
+                      </div>
+                    </div>
+                  )}
                   
                   {/* FINAL DESTINATION */}
                   <div className="flex gap-6 pt-4">
