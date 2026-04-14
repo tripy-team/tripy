@@ -1,5 +1,5 @@
 import jwt from "jsonwebtoken";
-import { createPublicKey } from "crypto";
+import { createPublicKey, type JsonWebKey } from "crypto";
 import { prisma } from "./prisma";
 import type { UserRole } from "@/generated/prisma/client";
 
@@ -21,11 +21,11 @@ async function getPublicKeyPem(kid: string): Promise<string | null> {
     try {
       const res = await fetch(JWKS_URL);
       if (!res.ok) return null;
-      const body = (await res.json()) as { keys: Array<Record<string, unknown>> };
+      const body = (await res.json()) as { keys: Array<JsonWebKey & { kid?: string }> };
       jwksCache = {};
       for (const jwk of body.keys) {
-        const pubKey = createPublicKey({ key: jwk as Parameters<typeof createPublicKey>[0], format: "jwk" });
-        jwksCache[jwk.kid as string] = pubKey.export({ type: "spki", format: "pem" }) as string;
+        const pubKey = createPublicKey({ key: jwk, format: "jwk" });
+        jwksCache[jwk.kid ?? ""] = pubKey.export({ type: "spki", format: "pem" }) as string;
       }
       jwksCacheTime = now;
     } catch {
