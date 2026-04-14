@@ -46,7 +46,7 @@ async function verifyCognitoToken(token: string): Promise<CognitoTokenData | nul
   const decoded = jwt.decode(token, { complete: true });
   if (!decoded || typeof decoded === "string") return null;
 
-  const kid = (decoded.header as Record<string, string>).kid;
+  const kid = decoded.header.kid;
   if (!kid) return null;
 
   const pem = await getPublicKeyPem(kid);
