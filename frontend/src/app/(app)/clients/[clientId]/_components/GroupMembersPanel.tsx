@@ -69,7 +69,7 @@ export default function GroupMembersPanel({ clientId, client }: { clientId: stri
   }, [clientSearch, allClients, members]);
 
   const handleSelectLinked = (c: Client) => {
-    setSelectedLinked(c);
+    setSelectedLinked({ id: c.id, firstName: c.firstName, lastName: c.lastName, email: c.email, phone: c.phone });
     setAddForm((f) => ({ ...f, name: `${c.firstName} ${c.lastName}`, email: c.email ?? '' }));
     setClientSearch('');
     setShowClientDropdown(false);
