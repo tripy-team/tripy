@@ -18,7 +18,6 @@ export default function NewTripRequestPage() {
   const [form, setForm] = useState({
     entityType: 'client' as 'client' | 'household',
     entityId: '',
-    title: '',
     originAirports: '',
     destinationAirports: '',
     departureDate: '',
@@ -47,7 +46,6 @@ export default function NewTripRequestPage() {
 
   const onSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
-    if (!form.title.trim()) return;
     setSubmitting(true);
     setError(null);
 
@@ -55,7 +53,9 @@ export default function NewTripRequestPage() {
       const trip = await createTripRequest({
         clientId: form.entityType === 'client' && form.entityId ? form.entityId : undefined,
         householdId: form.entityType === 'household' && form.entityId ? form.entityId : undefined,
-        title: form.title.trim(),
+        title: form.destinationAirports.trim()
+          ? `Trip to ${form.destinationAirports.split(',').map((a) => a.trim().toUpperCase()).filter(Boolean).join(', ')}`
+          : 'Trip Request',
         originAirports: form.originAirports
           .split(',')
           .map((a) => a.trim().toUpperCase())
@@ -151,19 +151,6 @@ export default function NewTripRequestPage() {
         {/* Trip details */}
         <div className="rounded-xl border border-slate-200 bg-white p-6 shadow-sm">
           <h2 className="mb-4 font-semibold text-slate-900">Trip Details</h2>
-
-          <div>
-            <label className="mb-1.5 block text-sm font-medium text-slate-700">Trip Title *</label>
-            <input
-              type="text"
-              name="title"
-              required
-              value={form.title}
-              onChange={onChange}
-              className="block w-full rounded-lg border border-slate-200 px-3 py-2.5 text-sm placeholder:text-slate-400 focus:border-transparent focus:outline-none focus:ring-2 focus:ring-blue-600"
-              placeholder="Smith Family Hawaii Trip"
-            />
-          </div>
 
           <div className="mt-4 grid grid-cols-2 gap-4">
             <div>
@@ -296,7 +283,7 @@ export default function NewTripRequestPage() {
         <div className="flex gap-3">
           <button
             type="submit"
-            disabled={submitting || !form.title.trim()}
+            disabled={submitting}
             className="flex flex-1 items-center justify-center gap-2 rounded-lg bg-blue-600 px-4 py-3 font-medium text-white hover:bg-blue-700 disabled:cursor-not-allowed disabled:opacity-60"
           >
             {submitting ? (

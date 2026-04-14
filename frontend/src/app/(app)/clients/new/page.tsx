@@ -6,6 +6,7 @@ import Link from 'next/link';
 import { ArrowLeft, Loader2, User, Users } from 'lucide-react';
 import { createClient, type GroupType } from '@/lib/api-client';
 import SingleDatePicker from '@/components/ui/SingleDatePicker';
+import { TextInputWithExtraction } from '@/components/TextInputWithExtraction';
 
 const GROUP_TYPES: { value: GroupType; label: string }[] = [
   { value: 'leisure_friends', label: 'Friends / Leisure' },
@@ -23,10 +24,12 @@ export default function NewClientPage() {
     firstName: '',
     lastName: '',
     email: '',
+    confirmEmail: '',
     phone: '',
     dateOfBirth: '',
     notes: '',
   });
+  const [emailMismatch, setEmailMismatch] = useState(false);
   const [groupForm, setGroupForm] = useState({
     groupType: 'leisure_friends' as GroupType,
     estimatedSize: '',
@@ -43,6 +46,10 @@ export default function NewClientPage() {
   const onSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     if (!form.firstName.trim() || !form.lastName.trim() || !form.email.trim()) return;
+    if (form.email.trim() !== form.confirmEmail.trim()) {
+      setEmailMismatch(true);
+      return;
+    }
     setSubmitting(true);
     setError(null);
     setDuplicateClientId(null);
@@ -159,19 +166,32 @@ export default function NewClientPage() {
             <div>
               <label className="mb-1.5 block text-sm font-medium text-slate-700">Email *</label>
               <input
-                type="email" name="email" required value={form.email} onChange={onChange}
+                type="email" name="email" required value={form.email}
+                onChange={(e) => { onChange(e); setEmailMismatch(false); }}
                 className="block w-full rounded-lg border border-slate-200 px-3 py-2.5 text-slate-900 placeholder:text-slate-400 focus:border-transparent focus:outline-none focus:ring-2 focus:ring-blue-600"
                 placeholder={form.clientType === 'group' ? 'organizer@example.com' : 'john@example.com'}
               />
             </div>
             <div>
-              <label className="mb-1.5 block text-sm font-medium text-slate-700">Phone</label>
+              <label className="mb-1.5 block text-sm font-medium text-slate-700">Confirm Email *</label>
               <input
-                type="tel" name="phone" value={form.phone} onChange={onChange}
-                className="block w-full rounded-lg border border-slate-200 px-3 py-2.5 text-slate-900 placeholder:text-slate-400 focus:border-transparent focus:outline-none focus:ring-2 focus:ring-blue-600"
-                placeholder="+1 (555) 123-4567"
+                type="email" name="confirmEmail" required value={form.confirmEmail}
+                onChange={(e) => { onChange(e); setEmailMismatch(false); }}
+                onBlur={() => setEmailMismatch(!!form.confirmEmail && form.email.trim() !== form.confirmEmail.trim())}
+                className={`block w-full rounded-lg border px-3 py-2.5 text-slate-900 placeholder:text-slate-400 focus:border-transparent focus:outline-none focus:ring-2 focus:ring-blue-600 ${emailMismatch ? 'border-red-400 bg-red-50' : 'border-slate-200'}`}
+                placeholder={form.clientType === 'group' ? 'organizer@example.com' : 'john@example.com'}
               />
+              {emailMismatch && <p className="mt-1 text-xs text-red-600">Emails do not match</p>}
             </div>
+          </div>
+
+          <div className="mt-4">
+            <label className="mb-1.5 block text-sm font-medium text-slate-700">Phone</label>
+            <input
+              type="tel" name="phone" value={form.phone} onChange={onChange}
+              className="block w-full rounded-lg border border-slate-200 px-3 py-2.5 text-slate-900 placeholder:text-slate-400 focus:border-transparent focus:outline-none focus:ring-2 focus:ring-blue-600"
+              placeholder="+1 (555) 123-4567"
+            />
           </div>
 
           {form.clientType === 'individual' && (
@@ -182,14 +202,19 @@ export default function NewClientPage() {
           )}
 
           <div className="mt-4">
-            <label className="mb-1.5 block text-sm font-medium text-slate-700">Notes</label>
-            <textarea
-              name="notes" value={form.notes} onChange={onChange} rows={3}
-              className="block w-full resize-none rounded-lg border border-slate-200 px-3 py-2.5 text-slate-900 placeholder:text-slate-400 focus:border-transparent focus:outline-none focus:ring-2 focus:ring-blue-600"
+            <TextInputWithExtraction
+              multiline
+              rows={3}
+              fieldName="notes"
+              label="Notes"
+              value={form.notes}
+              onChange={(v) => setForm((f) => ({ ...f, notes: v }))}
               placeholder={
-                form.clientType === 'group' ? 'Annual friends trip, typically luxury beach destinations...' :
-                'Prefers business class, anniversary trip in June...'
+                form.clientType === 'group'
+                  ? 'Annual friends trip, typically luxury beach destinations...'
+                  : 'Prefers business class, anniversary trip in June...'
               }
+              inputClassName="block w-full resize-none rounded-lg border border-slate-200 px-3 py-2.5 text-slate-900 placeholder:text-slate-400 focus:border-transparent focus:outline-none focus:ring-2 focus:ring-blue-600"
             />
           </div>
         </div>
@@ -235,7 +260,7 @@ export default function NewClientPage() {
         <div className="flex items-center gap-3">
           <button
             type="submit"
-            disabled={submitting || !form.firstName.trim() || !form.lastName.trim() || !form.email.trim()}
+            disabled={submitting || !form.firstName.trim() || !form.lastName.trim() || !form.email.trim() || !form.confirmEmail.trim() || form.email.trim() !== form.confirmEmail.trim()}
             className="flex flex-1 items-center justify-center gap-2 rounded-lg bg-blue-600 px-4 py-3 font-medium text-white transition-colors hover:bg-blue-700 disabled:cursor-not-allowed disabled:opacity-60"
           >
             {submitting ? <><Loader2 className="h-4 w-4 animate-spin" />Creating...</> : `Create ${form.clientType === 'group' ? 'Group' : 'Client'}`}

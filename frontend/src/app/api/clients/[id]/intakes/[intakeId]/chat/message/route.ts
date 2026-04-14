@@ -31,13 +31,15 @@ export async function POST(
       advisorMessage,
       messageHistory = [],
       intakeData = {},
+      generateOnly = false,
     } = body as {
       advisorMessage: string;
       messageHistory: IntakeChatMessage[];
       intakeData: IntakeData;
+      generateOnly?: boolean;
     };
 
-    if (!advisorMessage?.trim()) {
+    if (!generateOnly && !advisorMessage?.trim()) {
       return errorResponse("advisorMessage is required", 400);
     }
 
@@ -46,7 +48,8 @@ export async function POST(
       clientName,
       intakeData,
       messageHistory,
-      advisorMessage,
+      advisorMessage ?? "",
+      generateOnly,
     );
 
     return json({ message });

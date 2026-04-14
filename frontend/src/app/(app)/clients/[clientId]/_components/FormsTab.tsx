@@ -462,7 +462,7 @@ function BuildProfileModal({
             </div>
           </div>
         ) : (
-          <div className="overflow-y-auto">
+          <div className="overflow-y-auto px-18 pt-6 pb-18">
             <IntakeForm
               client={client}
               isNew

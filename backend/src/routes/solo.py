@@ -400,6 +400,89 @@ def _get_trip_with_anon_fallback(
 # Trip Endpoints
 # ============================================================================
 
+_MIN_CPP_BY_MODE = {
+    "money_saving": 0.0,
+    "oop": 0.0,
+    "balanced": 0.5,
+    "cpp": 1.5,
+}
+
+
+async def _apply_date_flexibility(trip: Dict, request: SoloCreateTripRequest) -> None:
+    """Resolve flexible dates in-place and persist the summary on the trip item.
+
+    Best-effort: any failure is logged and the trip is left untouched so that
+    draft creation never fails on network errors.
+    """
+    try:
+        from ..handlers.date_flexibility import (
+            find_lowest_oop_dates,
+            optimize_multi_segment_dates,
+            find_best_dates_summary,
+        )
+        from ..repos.ddb import put_item
+        from ..services.solo_trip_service import get_solo_table
+
+        flex_days = request.flexibility_days or 3
+        min_cpp = _MIN_CPP_BY_MODE.get(request.optimization_mode.value, 0.5)
+        destinations = request.destinations or []
+        if not destinations:
+            return
+
+        is_multi = len(destinations) > 1 or request.trip_type.value == "round_trip"
+        summary: Optional[Dict] = None
+
+        if is_multi:
+            segments = [(request.origin, destinations[0])]
+            for i in range(len(destinations) - 1):
+                segments.append((destinations[i], destinations[i + 1]))
+            final_dest = request.final_destination or (
+                request.origin if request.trip_type.value == "round_trip" else destinations[-1]
+            )
+            segments.append((destinations[-1], final_dest))
+
+            base_dates = list(request.leg_dates or [])
+            if len(base_dates) < len(segments):
+                # Fall back: space legs from start_date if leg_dates missing
+                try:
+                    start_dt = datetime.strptime(request.start_date, "%Y-%m-%d")
+                except ValueError:
+                    return
+                while len(base_dates) < len(segments):
+                    base_dates.append(
+                        (start_dt + timedelta(days=len(base_dates) * 2)).strftime("%Y-%m-%d")
+                    )
+
+            result = await optimize_multi_segment_dates(
+                segments, base_dates[: len(segments)], flexibility_days=flex_days
+            )
+            if result.get("success"):
+                resolved = [seg["date"] for seg in result["segments"]]
+                trip["legDates"] = resolved
+                trip["startDate"] = resolved[0]
+                trip["endDate"] = resolved[-1]
+                summary = result
+        else:
+            scores = await find_lowest_oop_dates(
+                request.origin,
+                destinations[0],
+                request.start_date,
+                flexibility_days=flex_days,
+                min_cpp=min_cpp,
+            )
+            if scores:
+                summary = find_best_dates_summary(scores)
+                best = summary.get("best_date")
+                if best and best.get("date"):
+                    trip["startDate"] = best["date"]
+
+        if summary is not None:
+            trip["flexibilitySummary"] = summary
+            put_item(get_solo_table(), trip)
+    except Exception as e:
+        logger.warning(f"Date flexibility resolution failed for trip {trip.get('tripId')}: {e}")
+
+
 @router.post("/trips", response_model=TripResponse)
 async def create_solo_trip(
     request: SoloCreateTripRequest,
@@ -419,6 +502,8 @@ async def create_solo_trip(
     """
     try:
         trip = solo_trip_service.create_solo_trip(user_id, request)
+        if (request.flexibility_days or 0) > 0 and request.start_date:
+            await _apply_date_flexibility(trip, request)
         # Convert camelCase storage to snake_case API response
         return trip_storage_to_response(trip)
     except Exception as e:

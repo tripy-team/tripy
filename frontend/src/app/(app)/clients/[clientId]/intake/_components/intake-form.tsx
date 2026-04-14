@@ -20,8 +20,21 @@ import {
   Bot,
   Plus,
   X,
+  ChevronDown,
 } from 'lucide-react';
 import type { Client, ClientIntake } from '@/lib/api-client';
+import {
+  TextInputWithExtraction,
+  type ConfirmedToken,
+} from '@/components/TextInputWithExtraction';
+
+const EXTRACTABLE_FIELDS = [
+  'diningPreferences',
+  'accessibilityNeeds',
+  'dietaryNeeds',
+  'notes',
+] as const;
+type ExtractableField = (typeof EXTRACTABLE_FIELDS)[number];
 
 // ---------------------------------------------------------------------------
 // Constants
@@ -124,6 +137,7 @@ interface IntakeFormProps {
   saving: boolean;
   onSave: (data: Record<string, unknown>) => Promise<void>;
   onComplete?: (data: Record<string, unknown>) => Promise<void>;
+  onAnalyzed?: () => void;
   onCancel: () => void;
 }
 
@@ -138,6 +152,150 @@ interface LoyaltyEntry {
   points: string;
 }
 
+const LOYALTY_PROGRAM_OPTIONS: { group: string; options: string[] }[] = [
+  {
+    group: 'Credit Card Rewards',
+    options: [
+      'Chase Ultimate Rewards',
+      'Amex Membership Rewards',
+      'Citi ThankYou Points',
+      'Capital One Miles',
+      'Bilt Rewards',
+      'Bank of America Points',
+      'Wells Fargo Points',
+      'Discover Miles',
+      'US Bank Rewards',
+    ],
+  },
+  {
+    group: 'Airlines',
+    options: [
+      'United MileagePlus',
+      'American AAdvantage',
+      'Delta SkyMiles',
+      'Southwest Rapid Rewards',
+      'JetBlue TrueBlue',
+      'Alaska Mileage Plan',
+      'British Airways Avios',
+      'Virgin Atlantic Flying Club',
+      'Air France-KLM Flying Blue',
+      'Singapore KrisFlyer',
+      'ANA Mileage Club',
+      'Aeroplan',
+      'Avianca LifeMiles',
+      'Emirates Skywards',
+    ],
+  },
+  {
+    group: 'Hotels',
+    options: [
+      'Marriott Bonvoy',
+      'Hilton Honors',
+      'World of Hyatt',
+      'IHG One Rewards',
+    ],
+  },
+];
+
+function LoyaltyProgramCombobox({
+  value,
+  onChange,
+}: {
+  value: string;
+  onChange: (v: string) => void;
+}) {
+  const [open, setOpen] = useState(false);
+  const [query, setQuery] = useState('');
+  const rootRef = useRef<HTMLDivElement>(null);
+
+  useEffect(() => {
+    if (!open) return;
+    const handler = (e: MouseEvent) => {
+      if (!rootRef.current?.contains(e.target as Node)) setOpen(false);
+    };
+    document.addEventListener('mousedown', handler);
+    return () => document.removeEventListener('mousedown', handler);
+  }, [open]);
+
+  const q = query.trim().toLowerCase();
+  const filtered = LOYALTY_PROGRAM_OPTIONS.map((g) => ({
+    group: g.group,
+    options: q ? g.options.filter((o) => o.toLowerCase().includes(q)) : g.options,
+  })).filter((g) => g.options.length > 0);
+
+  return (
+    <div ref={rootRef} className="relative flex-1">
+      <button
+        type="button"
+        onClick={() => setOpen((o) => !o)}
+        className={`flex w-full items-center justify-between rounded-lg border bg-white px-3 py-2.5 text-left text-sm shadow-sm transition-colors ${
+          open
+            ? 'border-transparent ring-2 ring-blue-600'
+            : 'border-slate-200 hover:border-slate-300'
+        } ${value ? 'text-slate-900' : 'text-slate-400'}`}
+      >
+        <span className="truncate">{value || 'Select a program…'}</span>
+        <ChevronDown
+          className={`ml-2 h-4 w-4 shrink-0 text-slate-400 transition-transform ${
+            open ? 'rotate-180' : ''
+          }`}
+        />
+      </button>
+
+      {open && (
+        <div className="absolute left-0 right-0 top-full z-20 mt-1.5 overflow-hidden rounded-lg border border-slate-200 bg-white shadow-lg">
+          <div className="border-b border-slate-100 p-2">
+            <input
+              autoFocus
+              value={query}
+              onChange={(e) => setQuery(e.target.value)}
+              placeholder="Search programs…"
+              className="block w-full rounded-md border border-slate-200 bg-slate-50 px-2.5 py-1.5 text-sm placeholder:text-slate-400 focus:border-transparent focus:outline-none focus:ring-2 focus:ring-blue-600"
+            />
+          </div>
+          <div className="max-h-64 overflow-y-auto py-1">
+            {filtered.length === 0 ? (
+              <p className="px-3 py-4 text-center text-xs text-slate-400">
+                No programs found
+              </p>
+            ) : (
+              filtered.map((g) => (
+                <div key={g.group}>
+                  <p className="px-3 pb-1 pt-2 text-[10px] font-semibold uppercase tracking-wider text-slate-400">
+                    {g.group}
+                  </p>
+                  {g.options.map((opt) => {
+                    const selected = opt === value;
+                    return (
+                      <button
+                        key={opt}
+                        type="button"
+                        onClick={() => {
+                          onChange(opt);
+                          setOpen(false);
+                          setQuery('');
+                        }}
+                        className={`flex w-full items-center justify-between px-3 py-2 text-left text-sm transition-colors ${
+                          selected
+                            ? 'bg-blue-50 text-blue-700'
+                            : 'text-slate-700 hover:bg-slate-50'
+                        }`}
+                      >
+                        <span>{opt}</span>
+                        {selected && <Check className="h-4 w-4 text-blue-600" />}
+                      </button>
+                    );
+                  })}
+                </div>
+              ))
+            )}
+          </div>
+        </div>
+      )}
+    </div>
+  );
+}
+
 export interface ChatMessage {
   role: 'assistant' | 'advisor';
   content: string;
@@ -149,7 +307,7 @@ const STEPS: StepDef[] = [
   { id: 'flights', label: 'Flight Preferences', icon: Plane },
   { id: 'accommodation', label: 'Accommodation', icon: Hotel },
   { id: 'experiences', label: 'Experiences & Interests', icon: Heart },
-  { id: 'needs', label: 'Special Needs', icon: Accessibility },
+  { id: 'needs', label: 'Accessibility', icon: Accessibility },
   { id: 'dealbreakers', label: 'Dealbreakers', icon: ShieldAlert },
   { id: 'chat', label: 'AI Discovery', icon: Sparkles },
 ];
@@ -188,14 +346,43 @@ export function IntakeForm({
   saving,
   onSave,
   onComplete,
+  onAnalyzed,
   onCancel,
 }: IntakeFormProps) {
+  const [analyzing, setAnalyzing] = useState(false);
+  const [analyzeError, setAnalyzeError] = useState<string | null>(null);
   const [step, setStep] = useState(0);
+  const [visitedNeeds, setVisitedNeeds] = useState(false);
+  useEffect(() => {
+    if (STEPS[step]?.id === 'needs') setVisitedNeeds(true);
+  }, [step]);
+  const topRef = useRef<HTMLDivElement>(null);
   const [form, setForm] = useState<FormData>(() => toFormData(initialData));
   const [lastSaved, setLastSaved] = useState<Date | null>(null);
   const [autoSaveTimer, setAutoSaveTimer] = useState<ReturnType<typeof setTimeout> | null>(null);
   const formRef = useRef(form);
   formRef.current = form;
+
+  const [confirmedTokens, setConfirmedTokens] = useState<
+    Record<ExtractableField, ConfirmedToken[]>
+  >({
+    diningPreferences: [],
+    accessibilityNeeds: [],
+    dietaryNeeds: [],
+    notes: [],
+  });
+  const [dirtyExtractFields, setDirtyExtractFields] = useState<Set<ExtractableField>>(
+    new Set(),
+  );
+  const lastExtractedText = useRef<Record<ExtractableField, string>>({
+    diningPreferences: '',
+    accessibilityNeeds: '',
+    dietaryNeeds: '',
+    notes: '',
+  });
+  const [extractingFields, setExtractingFields] = useState<Set<ExtractableField>>(
+    new Set(),
+  );
 
   // Chat state
   const [chatMessages, setChatMessages] = useState<ChatMessage[]>([]);
@@ -207,6 +394,25 @@ export function IntakeForm({
   const set = useCallback((key: string, value: unknown) => {
     setForm((f) => ({ ...f, [key]: value }));
   }, []);
+
+  const setExtractableField = useCallback(
+    (key: ExtractableField, value: string) => {
+      set(key, value);
+      setDirtyExtractFields((prev) => {
+        if (value === lastExtractedText.current[key]) {
+          if (!prev.has(key)) return prev;
+          const next = new Set(prev);
+          next.delete(key);
+          return next;
+        }
+        if (prev.has(key)) return prev;
+        const next = new Set(prev);
+        next.add(key);
+        return next;
+      });
+    },
+    [set],
+  );
 
   const toggleArrayItem = useCallback((key: string, item: string) => {
     setForm((f) => {
@@ -269,6 +475,30 @@ export function IntakeForm({
   const handleComplete = async () => {
     if (onComplete) {
       await onComplete(form);
+    }
+  };
+
+  const handleAnalyze = async () => {
+    if (!intakeId || analyzing) return;
+    setAnalyzing(true);
+    setAnalyzeError(null);
+    try {
+      if (onSave) {
+        try { await onSave(form); } catch { /* autosave will retry */ }
+      }
+      const res = await fetch(`/api/clients/${client.id}/intakes/${intakeId}/analyze`, {
+        method: 'POST',
+        headers: getAuthHeaders(),
+        body: JSON.stringify({ intakeData: form, chatTranscript: chatMessages }),
+      });
+      if (!res.ok) throw new Error('Failed to analyze intake');
+      if (onAnalyzed) onAnalyzed();
+      else if (onComplete) await onComplete(form);
+    } catch (err) {
+      console.error('[IntakeForm] analyze failed', err);
+      setAnalyzeError('Unable to analyze right now. Please try again.');
+    } finally {
+      setAnalyzing(false);
     }
   };
 
@@ -348,11 +578,108 @@ export function IntakeForm({
     }
   };
 
+  const generateMoreQuestions = async () => {
+    if (chatLoading || !intakeId) return;
+    setChatLoading(true);
+    try {
+      const res = await fetch(`/api/clients/${client.id}/intakes/${intakeId}/chat/message`, {
+        method: 'POST',
+        headers: getAuthHeaders(),
+        body: JSON.stringify({
+          advisorMessage: '',
+          messageHistory: chatMessages,
+          intakeData: form,
+          generateOnly: true,
+        }),
+      });
+      if (!res.ok) throw new Error('Failed to generate questions');
+      const data = await res.json();
+      setChatMessages((prev) => [...prev, data.message]);
+    } catch {
+      setChatMessages((prev) => [
+        ...prev,
+        {
+          role: 'assistant',
+          content: 'Unable to generate more questions right now. Please try again.',
+          timestamp: new Date().toISOString(),
+        },
+      ]);
+    } finally {
+      setChatLoading(false);
+    }
+  };
+
+  const runExtraction = useCallback(async () => {
+    const fieldsToSend: ExtractableField[] = Array.from(dirtyExtractFields).filter(
+      (k) => ((formRef.current[k] as string) || '').trim().length > 0,
+    );
+    if (fieldsToSend.length === 0) {
+      if (dirtyExtractFields.size > 0) setDirtyExtractFields(new Set());
+      return;
+    }
+
+    setExtractingFields(new Set(fieldsToSend));
+    try {
+      const res = await fetch(
+        `/api/clients/${client.id}/extract-text-inferences`,
+        {
+          method: 'POST',
+          headers: getAuthHeaders(),
+          body: JSON.stringify({
+            fields: fieldsToSend.map((k) => ({
+              fieldName: k,
+              text: (formRef.current[k] as string) || '',
+            })),
+          }),
+        },
+      );
+      if (!res.ok) throw new Error('extract failed');
+      const data = (await res.json()) as {
+        tokensByField: Record<string, { token: string; category: string }[]>;
+      };
+
+      setConfirmedTokens((prev) => {
+        const next = { ...prev };
+        for (const k of fieldsToSend) {
+          const incoming = data.tokensByField?.[k] ?? [];
+          const merged = new Map<string, string>();
+          for (const t of prev[k]) merged.set(t.token, t.category);
+          for (const t of incoming) merged.set(t.token, t.category);
+          next[k] = Array.from(merged, ([token, category]) => ({
+            token,
+            category,
+          }));
+        }
+        return next;
+      });
+      for (const k of fieldsToSend) {
+        lastExtractedText.current[k] = (formRef.current[k] as string) || '';
+      }
+      setDirtyExtractFields((prev) => {
+        const next = new Set(prev);
+        for (const k of fieldsToSend) next.delete(k);
+        return next;
+      });
+    } catch {
+      // Silent — chips stay pending; editing again will retry.
+    } finally {
+      setExtractingFields(new Set());
+    }
+  }, [dirtyExtractFields, client.id]);
+
   const canGoNext = step < STEPS.length - 1;
   const canGoPrev = step > 0;
 
-  const goNext = () => canGoNext && setStep((s) => s + 1);
+  const goNext = () => {
+    if (!canGoNext) return;
+    void runExtraction();
+    setStep((s) => s + 1);
+  };
   const goPrev = () => canGoPrev && setStep((s) => s - 1);
+
+  useEffect(() => {
+    topRef.current?.scrollIntoView({ behavior: 'smooth', block: 'start' });
+  }, [step]);
 
   const isCompleted = initialData?.status === 'complete';
   const hasFamilyMembers =
@@ -624,18 +951,15 @@ export function IntakeForm({
                 <div className="mb-3 space-y-2">
                   {loyaltyEntries.map((entry, idx) => (
                     <div key={idx} className="flex items-center gap-2">
-                      <input
-                        type="text"
+                      <LoyaltyProgramCombobox
                         value={entry.program}
-                        onChange={(e) => {
+                        onChange={(v) => {
                           const updated = loyaltyEntries.map((r, i) =>
-                            i === idx ? { ...r, program: e.target.value } : r,
+                            i === idx ? { ...r, program: v } : r,
                           );
                           setLoyaltyEntries(updated);
                           syncLoyaltyToForm(updated, loyaltyFreeText);
                         }}
-                        placeholder="Program name (e.g. United MileagePlus)"
-                        className={`flex-1 ${inputCls}`}
                       />
                       <input
                         type="number"
@@ -801,12 +1125,17 @@ export function IntakeForm({
                 <Utensils className="mr-1 inline h-4 w-4 text-slate-400" />
                 Dining preferences
               </label>
-              <textarea
+              <TextInputWithExtraction
+                multiline
                 rows={2}
+                fieldName="diningPreferences"
                 value={(form.diningPreferences as string) || ''}
-                onChange={(e) => set('diningPreferences', e.target.value)}
+                onChange={(v) => setExtractableField('diningPreferences', v)}
                 placeholder="e.g. Loves local street food, always wants a Michelin-starred meal, avoids chains..."
-                className={`resize-none ${inputCls}`}
+                confirmedTokens={confirmedTokens.diningPreferences}
+                extracting={extractingFields.has('diningPreferences')}
+                inputClassName={`resize-none ${inputCls}`}
+                labelClassName={labelCls}
               />
             </div>
 
@@ -840,12 +1169,17 @@ export function IntakeForm({
                 <Accessibility className="mr-1 inline h-4 w-4 text-slate-400" />
                 Accessibility needs
               </label>
-              <textarea
+              <TextInputWithExtraction
+                multiline
                 rows={3}
+                fieldName="accessibilityNeeds"
                 value={(form.accessibilityNeeds as string) || ''}
-                onChange={(e) => set('accessibilityNeeds', e.target.value)}
+                onChange={(v) => setExtractableField('accessibilityNeeds', v)}
                 placeholder="e.g. Wheelchair accessible rooms, ground-floor only, elevator access required..."
-                className={`resize-none ${inputCls}`}
+                confirmedTokens={confirmedTokens.accessibilityNeeds}
+                extracting={extractingFields.has('accessibilityNeeds')}
+                inputClassName={`resize-none ${inputCls}`}
+                labelClassName={labelCls}
               />
             </div>
 
@@ -854,12 +1188,17 @@ export function IntakeForm({
                 <Utensils className="mr-1 inline h-4 w-4 text-slate-400" />
                 Dietary restrictions
               </label>
-              <textarea
+              <TextInputWithExtraction
+                multiline
                 rows={2}
+                fieldName="dietaryNeeds"
                 value={(form.dietaryNeeds as string) || ''}
-                onChange={(e) => set('dietaryNeeds', e.target.value)}
+                onChange={(v) => setExtractableField('dietaryNeeds', v)}
                 placeholder="e.g. Gluten-free, vegetarian, nut allergy, kosher, halal..."
-                className={`resize-none ${inputCls}`}
+                confirmedTokens={confirmedTokens.dietaryNeeds}
+                extracting={extractingFields.has('dietaryNeeds')}
+                inputClassName={`resize-none ${inputCls}`}
+                labelClassName={labelCls}
               />
             </div>
 
@@ -914,35 +1253,20 @@ export function IntakeForm({
 
             <div>
               <label className={labelCls}>Advisor notes</label>
-              <textarea
+              <TextInputWithExtraction
+                multiline
                 rows={3}
+                fieldName="notes"
                 value={(form.notes as string) || ''}
-                onChange={(e) => set('notes', e.target.value)}
+                onChange={(v) => setExtractableField('notes', v)}
                 placeholder="Anything else worth remembering — special occasions they celebrate, surprise preferences, past feedback..."
-                className={`resize-none ${inputCls}`}
+                confirmedTokens={confirmedTokens.notes}
+                extracting={extractingFields.has('notes')}
+                inputClassName={`resize-none ${inputCls}`}
+                labelClassName={labelCls}
               />
             </div>
 
-            <div className="rounded-xl border border-slate-200 bg-slate-50 p-4">
-              <label className="flex items-center gap-2 text-sm font-medium text-slate-700">
-                <input
-                  type="checkbox"
-                  checked={(form.isTemplate as boolean) || false}
-                  onChange={(e) => set('isTemplate', e.target.checked)}
-                  className="rounded border-slate-300 text-blue-600 focus:ring-blue-600"
-                />
-                Save as reusable template
-              </label>
-              {(form.isTemplate as boolean) && (
-                <input
-                  type="text"
-                  value={(form.templateName as string) || ''}
-                  onChange={(e) => set('templateName', e.target.value)}
-                  placeholder="Template name (e.g. 'Luxury Family Traveler')"
-                  className={`mt-3 ${inputCls}`}
-                />
-              )}
-            </div>
           </div>
         );
 
@@ -1110,10 +1434,26 @@ export function IntakeForm({
                   </button>
                 </div>
 
-                <p className="text-xs text-slate-400">
-                  {chatMessages.filter((m) => m.role === 'advisor').length} response
-                  {chatMessages.filter((m) => m.role === 'advisor').length !== 1 ? 's' : ''} recorded
-                </p>
+                <div className="flex items-center justify-between">
+                  <p className="text-xs text-slate-400">
+                    {chatMessages.filter((m) => m.role === 'advisor').length} response
+                    {chatMessages.filter((m) => m.role === 'advisor').length !== 1 ? 's' : ''} recorded
+                  </p>
+                  <button
+                    type="button"
+                    onClick={generateMoreQuestions}
+                    disabled={chatLoading || chatMessages.filter((m) => m.role === 'advisor').length === 0}
+                    title="Generate fresh follow-up questions based on the answers so far"
+                    className="inline-flex items-center gap-1.5 rounded-lg border border-blue-200 bg-white px-3 py-1.5 text-xs font-medium text-blue-700 hover:bg-blue-50 disabled:opacity-50"
+                  >
+                    {chatLoading ? (
+                      <Loader2 className="h-3.5 w-3.5 animate-spin" />
+                    ) : (
+                      <Sparkles className="h-3.5 w-3.5" />
+                    )}
+                    Generate follow-up questions
+                  </button>
+                </div>
               </div>
             )}
           </div>
@@ -1139,7 +1479,10 @@ export function IntakeForm({
       case 'experiences':
         return !!((form.desiredExperiences as string[])?.length);
       case 'needs':
-        return !!(form.accessibilityNeeds || form.dietaryNeeds || form.notes);
+        return (
+          visitedNeeds ||
+          !!(form.accessibilityNeeds || form.dietaryNeeds || form.notes)
+        );
       case 'dealbreakers':
         return !!((form.dealbreakers as string[])?.length);
       case 'chat':
@@ -1157,7 +1500,7 @@ export function IntakeForm({
   // ---------------------------------------------------------------------------
 
   return (
-    <div className="max-w-4xl">
+    <div ref={topRef} className="max-w-4xl">
       {/* Header */}
       <Link
         href={`/clients/${client.id}?tab=discovery`}
@@ -1295,16 +1638,19 @@ export function IntakeForm({
                 Cancel
               </button>
 
-              {step === STEPS.length - 1 && onComplete && !isCompleted ? (
-                <button
-                  type="button"
-                  onClick={handleComplete}
-                  disabled={saving}
-                  className="inline-flex items-center gap-1.5 rounded-lg bg-green-600 px-5 py-2 text-sm font-medium text-white shadow-sm hover:bg-green-700 disabled:opacity-60"
-                >
-                  {saving ? <Loader2 className="h-3.5 w-3.5 animate-spin" /> : <Check className="h-4 w-4" />}
-                  Complete Profile
-                </button>
+              {step === STEPS.length - 1 && !isCompleted ? (
+                <div className="flex flex-col items-end gap-1">
+                  <button
+                    type="button"
+                    onClick={intakeId ? handleAnalyze : handleManualSave}
+                    disabled={saving || analyzing}
+                    className="inline-flex items-center gap-1.5 rounded-lg bg-green-600 px-5 py-2 text-sm font-medium text-white shadow-sm hover:bg-green-700 disabled:opacity-60"
+                  >
+                    {analyzing ? <Loader2 className="h-3.5 w-3.5 animate-spin" /> : <Sparkles className="h-4 w-4" />}
+                    {analyzing ? 'Analyzing…' : 'Analyze'}
+                  </button>
+                  {analyzeError && <span className="text-xs text-red-600">{analyzeError}</span>}
+                </div>
               ) : (
                 <button
                   type="button"

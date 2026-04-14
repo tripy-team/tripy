@@ -2640,6 +2640,7 @@ export interface SoloCreateTripRequest {
   startDate?: string;
   endDate?: string;
   durationDays?: number;
+  flexibilityDays?: number;
   includeHotels?: boolean;
   maxBudget?: number;
   adults?: number;
@@ -2670,6 +2671,7 @@ export interface SoloUpdateTripRequest {
   startDate?: string;
   endDate?: string;
   durationDays?: number;
+  flexibilityDays?: number;
   legDates?: string[];
   maxBudget?: number;
   adults?: number;
@@ -2693,6 +2695,8 @@ export interface SoloTripResponse {
   startDate?: string;
   endDate?: string;
   durationDays?: number;
+  flexibilityDays?: number;
+  flexibilitySummary?: Record<string, unknown>;
   legDates?: string[];
   includeHotels: boolean;
   maxBudget?: number;
@@ -3059,6 +3063,7 @@ export const solo = {
         start_date: request.startDate,
         end_date: request.endDate,
         duration_days: request.durationDays,
+        flexibility_days: request.flexibilityDays ?? 0,
         include_hotels: request.includeHotels,
         max_budget: request.maxBudget,
         adults: request.adults,
@@ -3108,6 +3113,7 @@ export const solo = {
     if (request.startDate !== undefined) body.start_date = request.startDate;
     if (request.endDate !== undefined) body.end_date = request.endDate;
     if (request.durationDays !== undefined) body.duration_days = request.durationDays;
+    if (request.flexibilityDays !== undefined) body.flexibility_days = request.flexibilityDays;
     if (request.legDates !== undefined) body.leg_dates = request.legDates;
     if (request.maxBudget !== undefined) body.max_budget = request.maxBudget;
     if (request.adults !== undefined) body.adults = request.adults;

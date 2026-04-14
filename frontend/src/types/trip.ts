@@ -12,6 +12,35 @@ export type FlightClass = 'basic_economy' | 'economy' | 'premium' | 'business' |
 export type TimePreference = 'any' | 'morning' | 'afternoon' | 'evening' | 'night';
 export type TripStatus = 'draft' | 'optimized' | 'selected' | 'instructions_unlocked' | 'completed' | 'cancelled';
 
+export interface FlexibilitySummary {
+  bestDate?: {
+    date: string;
+    oop: number;
+    hasAward: boolean;
+    savings: number;
+    cpp?: number | null;
+  } | null;
+  topAwardDates?: Array<{ date: string; oop: number; points?: number | null; cpp?: number | null }>;
+  topCashDates?: Array<{ date: string; price?: number | null }>;
+  flexibilitySavings?: number;
+  hasFlexibilitySavings?: boolean;
+  // multi-segment case (from optimize_multi_segment_dates)
+  segments?: Array<{
+    segment: string;
+    date: string;
+    oop: number;
+    hasAward: boolean;
+    cashPrice?: number | null;
+    awardPoints?: number | null;
+    savings: number;
+    cpp?: number | null;
+  }>;
+  totalOop?: number;
+  totalSavings?: number;
+  totalPoints?: number;
+  averageCpp?: number;
+}
+
 /**
  * Request to create a new solo trip
  */
@@ -30,7 +59,8 @@ export interface CreateTripRequest {
   endDate?: string;
   // Only used if dateMode === "flexible"
   durationDays?: number;
-  
+  flexibilityDays?: number;
+
   maxBudget?: number;
   
   adults?: number;
@@ -56,6 +86,8 @@ export interface Trip {
   startDate?: string;
   endDate?: string;
   durationDays?: number;
+  flexibilityDays?: number;
+  flexibilitySummary?: FlexibilitySummary;
   maxBudget?: number;
   adults: number;
   children: number;

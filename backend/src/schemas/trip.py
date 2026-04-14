@@ -49,6 +49,8 @@ class CreateTripRequest(BaseModel):
     end_date: Optional[str] = None
     # Only used if date_mode == "flexible"
     duration_days: Optional[int] = None
+    # +/- days to scan around start_date. 0 = exact date (default).
+    flexibility_days: int = 0
     
     # Multi-city leg dates: departure date for each flight segment
     # Leg 0: origin → destinations[0], Leg 1: destinations[0] → destinations[1], etc.
@@ -88,7 +90,9 @@ class TripResponse(BaseModel):
     start_date: Optional[str] = None
     end_date: Optional[str] = None
     duration_days: Optional[int] = None
+    flexibility_days: Optional[int] = None
     leg_dates: Optional[List[str]] = None  # Multi-city leg dates
+    flexibility_summary: Optional[dict] = None
     include_hotels: bool
     max_budget: Optional[float] = None
     adults: int
@@ -140,6 +144,7 @@ class UpdateTripRequest(BaseModel):
     start_date: Optional[str] = None
     end_date: Optional[str] = None
     duration_days: Optional[int] = None
+    flexibility_days: Optional[int] = None
     leg_dates: Optional[List[str]] = None
     max_budget: Optional[float] = None
     adults: Optional[int] = None

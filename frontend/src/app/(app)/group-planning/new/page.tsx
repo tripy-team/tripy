@@ -165,7 +165,6 @@ export default function NewGroupTripPage() {
   const router = useRouter();
 
   // Trip basics
-  const [tripName, setTripName] = useState('');
   const [destinations, setDestinations] = useState<string[]>([]);
   const [showAddDestination, setShowAddDestination] = useState(false);
   const [newCity, setNewCity] = useState('');
@@ -413,7 +412,6 @@ export default function NewGroupTripPage() {
   // ---- submit ---------------------------------------------------------------
 
   const canSubmit =
-    tripName.trim() !== '' &&
     destinations.length > 0 &&
     startDate !== '' &&
     endDate !== '' &&
@@ -428,7 +426,7 @@ export default function NewGroupTripPage() {
     try {
       setProgress('Creating trip...');
       const trip = await groupPlanning.createTrip({
-        name: tripName.trim(),
+        name: destinations.length > 0 ? `Group Trip to ${destinations.join(', ')}` : 'Group Trip',
         destination: destinations.join(', '),
         startDate,
         endDate,
@@ -531,22 +529,6 @@ export default function NewGroupTripPage() {
           {/* LEFT COLUMN — Main Form                                        */}
           {/* ============================================================== */}
           <div className="lg:col-span-2 space-y-6">
-
-            {/* ---- Trip Name ---- */}
-            <div className="bg-white border border-slate-200 rounded-2xl p-5 shadow-sm">
-              <div className="space-y-2">
-                <label className="block text-xs text-slate-500 font-medium uppercase tracking-wider">
-                  Trip Name
-                </label>
-                <input
-                  type="text"
-                  value={tripName}
-                  onChange={(e) => setTripName(e.target.value)}
-                  placeholder="e.g., Summer Japan 2026, Europe Family Trip"
-                  className="w-full px-4 py-3 bg-white border border-slate-200 rounded-xl focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-blue-500 text-sm font-medium text-slate-900"
-                />
-              </div>
-            </div>
 
             {/* ---- Shared Destinations & Dates ---- */}
             <div className="relative z-40 bg-white border border-slate-200 rounded-2xl p-8 shadow-sm">
@@ -798,6 +780,7 @@ export default function NewGroupTripPage() {
                       updatePreferences(traveler.id, patch)
                     }
                     canRemove={travelers.length > 1}
+                    destinations={destinations}
                   />
                 ))}
               </div>
@@ -1200,6 +1183,7 @@ interface TravelerCardProps {
   onRemoveBalance: (id: string) => void;
   onUpdatePreferences: (patch: Partial<PreferencesDraft>) => void;
   canRemove: boolean;
+  destinations: string[];
 }
 
 function TravelerCard({
@@ -1213,6 +1197,7 @@ function TravelerCard({
   onRemoveBalance,
   onUpdatePreferences,
   canRemove,
+  destinations,
 }: TravelerCardProps) {
   const [showPrefs, setShowPrefs] = useState(false);
   const [showAddPointsModal, setShowAddPointsModal] = useState(false);
@@ -1347,57 +1332,57 @@ function TravelerCard({
                 />
               </div>
 
-              <div className="space-y-2">
+              <div className="sm:col-span-2 space-y-2">
                 <label className="flex items-center gap-1.5 text-sm font-medium text-slate-700">
                   <Plane className="w-3.5 h-3.5 text-slate-400" />
-                  Starting Airport
+                  Flying from
                 </label>
-                <AirportAutocomplete
-                  value={traveler.originAirport}
-                  onValueChange={(v) => {
-                    onUpdate({ originAirport: v });
-                    if (traveler.isRoundTrip) onUpdate({ originAirport: v, returnAirport: v });
-                  }}
-                  placeholder="e.g., SEA, MIA, JFK"
-                />
-              </div>
-
-              <div className="space-y-2">
-                <label className="flex items-center gap-1.5 text-sm font-medium text-slate-700">
-                  <Plane className="w-3.5 h-3.5 text-slate-400" />
-                  Ending Airport
-                </label>
-                {traveler.isRoundTrip ? (
-                  <div className="px-4 py-3 bg-slate-50 border border-slate-200 rounded-xl text-sm text-slate-500">
-                    {traveler.originAirport || 'Same as starting airport'}
+                <div className="flex items-stretch gap-2">
+                  <div className="flex-1">
+                    <AirportAutocomplete
+                      value={traveler.originAirport}
+                      onValueChange={(v) => {
+                        if (traveler.isRoundTrip) {
+                          onUpdate({ originAirport: v, returnAirport: v });
+                        } else {
+                          onUpdate({ originAirport: v });
+                        }
+                      }}
+                      placeholder="e.g., SEA, JFK"
+                    />
                   </div>
-                ) : (
-                  <AirportAutocomplete
-                    value={traveler.returnAirport}
-                    onValueChange={(v) => onUpdate({ returnAirport: v })}
-                    placeholder="e.g., LAX, ORD, BOS"
-                  />
-                )}
-              </div>
-
-              <div className="sm:col-span-2">
-                <label className="flex items-center gap-2 cursor-pointer select-none group">
-                  <input
-                    type="checkbox"
-                    checked={traveler.isRoundTrip}
-                    onChange={(e) => {
-                      const checked = e.target.checked;
+                  <button
+                    type="button"
+                    onClick={() => {
+                      const nextRoundTrip = !traveler.isRoundTrip;
                       onUpdate({
-                        isRoundTrip: checked,
-                        returnAirport: checked ? traveler.originAirport : '',
+                        isRoundTrip: nextRoundTrip,
+                        returnAirport: nextRoundTrip ? traveler.originAirport : '',
                       });
                     }}
-                    className="w-4 h-4 rounded border-slate-300 text-blue-600 focus:ring-blue-500"
-                  />
-                  <span className="text-sm text-slate-600 group-hover:text-slate-900 transition-colors">
-                    Return to same airport
-                  </span>
-                </label>
+                    title={traveler.isRoundTrip ? 'Round trip — click for one-way / different return' : 'One-way / different return — click for round trip'}
+                    className="px-3 flex items-center justify-center rounded-xl border border-slate-200 bg-white text-slate-500 hover:text-blue-600 hover:border-blue-300 transition-colors text-base font-semibold"
+                  >
+                    {traveler.isRoundTrip ? '⇄' : '→'}
+                  </button>
+                  <div className="flex-1 px-4 py-3 bg-slate-50 border border-slate-200 rounded-xl text-sm text-slate-600 flex items-center truncate">
+                    {destinations.length > 0 ? destinations.join(' · ') : (
+                      <span className="text-slate-400 italic">Add a destination above</span>
+                    )}
+                  </div>
+                </div>
+                {!traveler.isRoundTrip && (
+                  <div className="pt-2 space-y-2">
+                    <label className="block text-xs font-medium text-slate-500 uppercase tracking-wide">
+                      Return to a different airport
+                    </label>
+                    <AirportAutocomplete
+                      value={traveler.returnAirport}
+                      onValueChange={(v) => onUpdate({ returnAirport: v })}
+                      placeholder="e.g., LAX, ORD, BOS"
+                    />
+                  </div>
+                )}
               </div>
 
               <div className="space-y-2">

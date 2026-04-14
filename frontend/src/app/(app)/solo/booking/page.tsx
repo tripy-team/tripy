@@ -286,7 +286,19 @@ function SoloBookingContent() {
 
   const [isPaid, setIsPaid] = useState(true);
   const [isProcessing, setIsProcessing] = useState(false);
-  const [trip, setTrip] = useState<{ startDate?: string; endDate?: string; destinations?: string[]; adults?: number; children?: number } | null>(null);
+  const [trip, setTrip] = useState<{
+    startDate?: string;
+    endDate?: string;
+    destinations?: string[];
+    adults?: number;
+    children?: number;
+    flexibilitySummary?: {
+      bestDate?: { date: string; oop: number; hasAward: boolean; savings: number } | null;
+      topAwardDates?: Array<{ date: string; oop: number; points?: number | null; cpp?: number | null }>;
+      flexibilitySavings?: number;
+      hasFlexibilitySavings?: boolean;
+    };
+  } | null>(null);
   const [items, setItems] = useState<Record<string, unknown>[]>([]);
   const [destinationMap, setDestinationMap] = useState<Map<string, string>>(new Map());
   const [loading, setLoading] = useState(true);
@@ -1145,6 +1157,28 @@ function SoloBookingContent() {
             )}
           </div>
           <TransferInfoBanner />
+          {trip?.flexibilitySummary?.hasFlexibilitySavings && trip.flexibilitySummary.bestDate && (
+            <div className="mt-4 rounded-xl border border-emerald-200 bg-emerald-50 px-4 py-3">
+              <div className="flex items-start justify-between gap-3">
+                <div>
+                  <div className="text-sm font-semibold text-emerald-900">
+                    Flexible dates saved ${trip.flexibilitySummary.flexibilitySavings?.toFixed(0)}
+                  </div>
+                  <div className="text-xs text-emerald-800 mt-0.5">
+                    Best departure: <span className="font-medium">{trip.flexibilitySummary.bestDate.date}</span>
+                    {trip.flexibilitySummary.bestDate.hasAward ? ' · award seat' : ' · cash fare'}
+                  </div>
+                </div>
+                {trip.flexibilitySummary.topAwardDates && trip.flexibilitySummary.topAwardDates.length > 1 && (
+                  <div className="text-[11px] text-emerald-700 text-right">
+                    {trip.flexibilitySummary.topAwardDates.slice(0, 3).map(d => (
+                      <div key={d.date}>{d.date} · ${d.oop.toFixed(0)}</div>
+                    ))}
+                  </div>
+                )}
+              </div>
+            </div>
+          )}
         </div>
       </div>
 

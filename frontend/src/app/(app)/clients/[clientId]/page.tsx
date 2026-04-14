@@ -271,7 +271,6 @@ export default function ClientDetailPage() {
   const [showAddTrip, setShowAddTrip] = useState(false);
   const [tripType, setTripType] = useState<TripType>('roundTrip');
   const [tripForm, setTripForm] = useState({
-    title: '',
     originAirports: [] as string[],
     destinationAirports: [] as string[],
     departureDate: '',
@@ -639,7 +638,6 @@ export default function ClientDetailPage() {
   }, [allClients, clientId, travelers, travelerClientSearch]);
 
   const isTripFormValid = useMemo(() => {
-    if (!tripForm.title.trim()) return false;
     if (tripType === 'multiCity') {
       return multiCityLegs.every((leg) => leg.originAirports.length > 0 && leg.destinationAirports.length > 0 && leg.departureDate);
     }
@@ -706,7 +704,9 @@ export default function ClientDetailPage() {
       }
 
       const trip = await createClientTrip(clientId, {
-        title: tripForm.title.trim(),
+        title: destinationAirports.length > 0
+          ? `Trip to ${destinationAirports.join(', ')}`
+          : 'Trip',
         originAirports,
         destinationAirports,
         departureDate,
@@ -867,7 +867,7 @@ export default function ClientDetailPage() {
     {
       key: 'group',
       label: isGroupClient ? `Members (${groupMemberCount})` : isBusinessClient ? 'Travelers & Policy' : `Group (${familyMembers.length})`,
-      show: isIndividual || isGroupClient || isBusinessClient,
+      show: isGroupClient || isBusinessClient,
     },
     { key: 'trips', label: `Trips (${trips.length})`, show: true },
     { key: 'discovery', label: `Forms${intakes.length > 0 ? ` (${intakes.length})` : ''}`, show: true },
@@ -1847,18 +1847,6 @@ export default function ClientDetailPage() {
                     </div>
                   </div>
                 )}
-
-                {/* Trip Title */}
-                <div>
-                  <label className="mb-1 block text-xs font-medium text-slate-700">Trip Title *</label>
-                  <input
-                    type="text"
-                    placeholder="e.g., Summer Hawaii Trip"
-                    value={tripForm.title}
-                    onChange={(e) => setTripForm((f) => ({ ...f, title: e.target.value }))}
-                    className="block w-full rounded-lg border border-slate-200 bg-white px-3 py-2 text-sm placeholder:text-slate-400 focus:border-transparent focus:outline-none focus:ring-2 focus:ring-blue-600"
-                  />
-                </div>
 
                 {/* Trip Type Selector */}
                 <div>

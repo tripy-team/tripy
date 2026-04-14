@@ -45,6 +45,8 @@ export type InferredPreferenceMinAggregateOutputType = {
   resolvedAt: Date | null
   resolvedByUserId: string | null
   appliedToProfile: boolean | null
+  source: string | null
+  sourceField: string | null
   createdAt: Date | null
   updatedAt: Date | null
 }
@@ -60,6 +62,8 @@ export type InferredPreferenceMaxAggregateOutputType = {
   resolvedAt: Date | null
   resolvedByUserId: string | null
   appliedToProfile: boolean | null
+  source: string | null
+  sourceField: string | null
   createdAt: Date | null
   updatedAt: Date | null
 }
@@ -76,6 +80,8 @@ export type InferredPreferenceCountAggregateOutputType = {
   resolvedAt: number
   resolvedByUserId: number
   appliedToProfile: number
+  source: number
+  sourceField: number
   createdAt: number
   updatedAt: number
   _all: number
@@ -101,6 +107,8 @@ export type InferredPreferenceMinAggregateInputType = {
   resolvedAt?: true
   resolvedByUserId?: true
   appliedToProfile?: true
+  source?: true
+  sourceField?: true
   createdAt?: true
   updatedAt?: true
 }
@@ -116,6 +124,8 @@ export type InferredPreferenceMaxAggregateInputType = {
   resolvedAt?: true
   resolvedByUserId?: true
   appliedToProfile?: true
+  source?: true
+  sourceField?: true
   createdAt?: true
   updatedAt?: true
 }
@@ -132,6 +142,8 @@ export type InferredPreferenceCountAggregateInputType = {
   resolvedAt?: true
   resolvedByUserId?: true
   appliedToProfile?: true
+  source?: true
+  sourceField?: true
   createdAt?: true
   updatedAt?: true
   _all?: true
@@ -235,6 +247,8 @@ export type InferredPreferenceGroupByOutputType = {
   resolvedAt: Date | null
   resolvedByUserId: string | null
   appliedToProfile: boolean
+  source: string
+  sourceField: string | null
   createdAt: Date
   updatedAt: Date
   _count: InferredPreferenceCountAggregateOutputType | null
@@ -274,6 +288,8 @@ export type InferredPreferenceWhereInput = {
   resolvedAt?: Prisma.DateTimeNullableFilter<"InferredPreference"> | Date | string | null
   resolvedByUserId?: Prisma.StringNullableFilter<"InferredPreference"> | string | null
   appliedToProfile?: Prisma.BoolFilter<"InferredPreference"> | boolean
+  source?: Prisma.StringFilter<"InferredPreference"> | string
+  sourceField?: Prisma.StringNullableFilter<"InferredPreference"> | string | null
   createdAt?: Prisma.DateTimeFilter<"InferredPreference"> | Date | string
   updatedAt?: Prisma.DateTimeFilter<"InferredPreference"> | Date | string
   client?: Prisma.XOR<Prisma.ClientScalarRelationFilter, Prisma.ClientWhereInput>
@@ -292,6 +308,8 @@ export type InferredPreferenceOrderByWithRelationInput = {
   resolvedAt?: Prisma.SortOrderInput | Prisma.SortOrder
   resolvedByUserId?: Prisma.SortOrderInput | Prisma.SortOrder
   appliedToProfile?: Prisma.SortOrder
+  source?: Prisma.SortOrder
+  sourceField?: Prisma.SortOrderInput | Prisma.SortOrder
   createdAt?: Prisma.SortOrder
   updatedAt?: Prisma.SortOrder
   client?: Prisma.ClientOrderByWithRelationInput
@@ -313,6 +331,8 @@ export type InferredPreferenceWhereUniqueInput = Prisma.AtLeast<{
   resolvedAt?: Prisma.DateTimeNullableFilter<"InferredPreference"> | Date | string | null
   resolvedByUserId?: Prisma.StringNullableFilter<"InferredPreference"> | string | null
   appliedToProfile?: Prisma.BoolFilter<"InferredPreference"> | boolean
+  source?: Prisma.StringFilter<"InferredPreference"> | string
+  sourceField?: Prisma.StringNullableFilter<"InferredPreference"> | string | null
   createdAt?: Prisma.DateTimeFilter<"InferredPreference"> | Date | string
   updatedAt?: Prisma.DateTimeFilter<"InferredPreference"> | Date | string
   client?: Prisma.XOR<Prisma.ClientScalarRelationFilter, Prisma.ClientWhereInput>
@@ -331,6 +351,8 @@ export type InferredPreferenceOrderByWithAggregationInput = {
   resolvedAt?: Prisma.SortOrderInput | Prisma.SortOrder
   resolvedByUserId?: Prisma.SortOrderInput | Prisma.SortOrder
   appliedToProfile?: Prisma.SortOrder
+  source?: Prisma.SortOrder
+  sourceField?: Prisma.SortOrderInput | Prisma.SortOrder
   createdAt?: Prisma.SortOrder
   updatedAt?: Prisma.SortOrder
   _count?: Prisma.InferredPreferenceCountOrderByAggregateInput
@@ -355,6 +377,8 @@ export type InferredPreferenceScalarWhereWithAggregatesInput = {
   resolvedAt?: Prisma.DateTimeNullableWithAggregatesFilter<"InferredPreference"> | Date | string | null
   resolvedByUserId?: Prisma.StringNullableWithAggregatesFilter<"InferredPreference"> | string | null
   appliedToProfile?: Prisma.BoolWithAggregatesFilter<"InferredPreference"> | boolean
+  source?: Prisma.StringWithAggregatesFilter<"InferredPreference"> | string
+  sourceField?: Prisma.StringNullableWithAggregatesFilter<"InferredPreference"> | string | null
   createdAt?: Prisma.DateTimeWithAggregatesFilter<"InferredPreference"> | Date | string
   updatedAt?: Prisma.DateTimeWithAggregatesFilter<"InferredPreference"> | Date | string
 }
@@ -369,6 +393,8 @@ export type InferredPreferenceCreateInput = {
   status?: $Enums.InferenceStatus
   resolvedAt?: Date | string | null
   appliedToProfile?: boolean
+  source?: string
+  sourceField?: string | null
   createdAt?: Date | string
   updatedAt?: Date | string
   client: Prisma.ClientCreateNestedOneWithoutInferredPreferencesInput
@@ -387,6 +413,8 @@ export type InferredPreferenceUncheckedCreateInput = {
   resolvedAt?: Date | string | null
   resolvedByUserId?: string | null
   appliedToProfile?: boolean
+  source?: string
+  sourceField?: string | null
   createdAt?: Date | string
   updatedAt?: Date | string
 }
@@ -401,6 +429,8 @@ export type InferredPreferenceUpdateInput = {
   status?: Prisma.EnumInferenceStatusFieldUpdateOperationsInput | $Enums.InferenceStatus
   resolvedAt?: Prisma.NullableDateTimeFieldUpdateOperationsInput | Date | string | null
   appliedToProfile?: Prisma.BoolFieldUpdateOperationsInput | boolean
+  source?: Prisma.StringFieldUpdateOperationsInput | string
+  sourceField?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
   createdAt?: Prisma.DateTimeFieldUpdateOperationsInput | Date | string
   updatedAt?: Prisma.DateTimeFieldUpdateOperationsInput | Date | string
   client?: Prisma.ClientUpdateOneRequiredWithoutInferredPreferencesNestedInput
@@ -419,6 +449,8 @@ export type InferredPreferenceUncheckedUpdateInput = {
   resolvedAt?: Prisma.NullableDateTimeFieldUpdateOperationsInput | Date | string | null
   resolvedByUserId?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
   appliedToProfile?: Prisma.BoolFieldUpdateOperationsInput | boolean
+  source?: Prisma.StringFieldUpdateOperationsInput | string
+  sourceField?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
   createdAt?: Prisma.DateTimeFieldUpdateOperationsInput | Date | string
   updatedAt?: Prisma.DateTimeFieldUpdateOperationsInput | Date | string
 }
@@ -435,6 +467,8 @@ export type InferredPreferenceCreateManyInput = {
   resolvedAt?: Date | string | null
   resolvedByUserId?: string | null
   appliedToProfile?: boolean
+  source?: string
+  sourceField?: string | null
   createdAt?: Date | string
   updatedAt?: Date | string
 }
@@ -449,6 +483,8 @@ export type InferredPreferenceUpdateManyMutationInput = {
   status?: Prisma.EnumInferenceStatusFieldUpdateOperationsInput | $Enums.InferenceStatus
   resolvedAt?: Prisma.NullableDateTimeFieldUpdateOperationsInput | Date | string | null
   appliedToProfile?: Prisma.BoolFieldUpdateOperationsInput | boolean
+  source?: Prisma.StringFieldUpdateOperationsInput | string
+  sourceField?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
   createdAt?: Prisma.DateTimeFieldUpdateOperationsInput | Date | string
   updatedAt?: Prisma.DateTimeFieldUpdateOperationsInput | Date | string
 }
@@ -465,6 +501,8 @@ export type InferredPreferenceUncheckedUpdateManyInput = {
   resolvedAt?: Prisma.NullableDateTimeFieldUpdateOperationsInput | Date | string | null
   resolvedByUserId?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
   appliedToProfile?: Prisma.BoolFieldUpdateOperationsInput | boolean
+  source?: Prisma.StringFieldUpdateOperationsInput | string
+  sourceField?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
   createdAt?: Prisma.DateTimeFieldUpdateOperationsInput | Date | string
   updatedAt?: Prisma.DateTimeFieldUpdateOperationsInput | Date | string
 }
@@ -491,6 +529,8 @@ export type InferredPreferenceCountOrderByAggregateInput = {
   resolvedAt?: Prisma.SortOrder
   resolvedByUserId?: Prisma.SortOrder
   appliedToProfile?: Prisma.SortOrder
+  source?: Prisma.SortOrder
+  sourceField?: Prisma.SortOrder
   createdAt?: Prisma.SortOrder
   updatedAt?: Prisma.SortOrder
 }
@@ -510,6 +550,8 @@ export type InferredPreferenceMaxOrderByAggregateInput = {
   resolvedAt?: Prisma.SortOrder
   resolvedByUserId?: Prisma.SortOrder
   appliedToProfile?: Prisma.SortOrder
+  source?: Prisma.SortOrder
+  sourceField?: Prisma.SortOrder
   createdAt?: Prisma.SortOrder
   updatedAt?: Prisma.SortOrder
 }
@@ -525,6 +567,8 @@ export type InferredPreferenceMinOrderByAggregateInput = {
   resolvedAt?: Prisma.SortOrder
   resolvedByUserId?: Prisma.SortOrder
   appliedToProfile?: Prisma.SortOrder
+  source?: Prisma.SortOrder
+  sourceField?: Prisma.SortOrder
   createdAt?: Prisma.SortOrder
   updatedAt?: Prisma.SortOrder
 }
@@ -643,6 +687,8 @@ export type InferredPreferenceCreateWithoutResolvedByInput = {
   status?: $Enums.InferenceStatus
   resolvedAt?: Date | string | null
   appliedToProfile?: boolean
+  source?: string
+  sourceField?: string | null
   createdAt?: Date | string
   updatedAt?: Date | string
   client: Prisma.ClientCreateNestedOneWithoutInferredPreferencesInput
@@ -659,6 +705,8 @@ export type InferredPreferenceUncheckedCreateWithoutResolvedByInput = {
   status?: $Enums.InferenceStatus
   resolvedAt?: Date | string | null
   appliedToProfile?: boolean
+  source?: string
+  sourceField?: string | null
   createdAt?: Date | string
   updatedAt?: Date | string
 }
@@ -704,6 +752,8 @@ export type InferredPreferenceScalarWhereInput = {
   resolvedAt?: Prisma.DateTimeNullableFilter<"InferredPreference"> | Date | string | null
   resolvedByUserId?: Prisma.StringNullableFilter<"InferredPreference"> | string | null
   appliedToProfile?: Prisma.BoolFilter<"InferredPreference"> | boolean
+  source?: Prisma.StringFilter<"InferredPreference"> | string
+  sourceField?: Prisma.StringNullableFilter<"InferredPreference"> | string | null
   createdAt?: Prisma.DateTimeFilter<"InferredPreference"> | Date | string
   updatedAt?: Prisma.DateTimeFilter<"InferredPreference"> | Date | string
 }
@@ -718,6 +768,8 @@ export type InferredPreferenceCreateWithoutClientInput = {
   status?: $Enums.InferenceStatus
   resolvedAt?: Date | string | null
   appliedToProfile?: boolean
+  source?: string
+  sourceField?: string | null
   createdAt?: Date | string
   updatedAt?: Date | string
   resolvedBy?: Prisma.UserCreateNestedOneWithoutResolvedInferencesInput
@@ -734,6 +786,8 @@ export type InferredPreferenceUncheckedCreateWithoutClientInput = {
   resolvedAt?: Date | string | null
   resolvedByUserId?: string | null
   appliedToProfile?: boolean
+  source?: string
+  sourceField?: string | null
   createdAt?: Date | string
   updatedAt?: Date | string
 }
@@ -775,6 +829,8 @@ export type InferredPreferenceCreateManyResolvedByInput = {
   status?: $Enums.InferenceStatus
   resolvedAt?: Date | string | null
   appliedToProfile?: boolean
+  source?: string
+  sourceField?: string | null
   createdAt?: Date | string
   updatedAt?: Date | string
 }
@@ -789,6 +845,8 @@ export type InferredPreferenceUpdateWithoutResolvedByInput = {
   status?: Prisma.EnumInferenceStatusFieldUpdateOperationsInput | $Enums.InferenceStatus
   resolvedAt?: Prisma.NullableDateTimeFieldUpdateOperationsInput | Date | string | null
   appliedToProfile?: Prisma.BoolFieldUpdateOperationsInput | boolean
+  source?: Prisma.StringFieldUpdateOperationsInput | string
+  sourceField?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
   createdAt?: Prisma.DateTimeFieldUpdateOperationsInput | Date | string
   updatedAt?: Prisma.DateTimeFieldUpdateOperationsInput | Date | string
   client?: Prisma.ClientUpdateOneRequiredWithoutInferredPreferencesNestedInput
@@ -805,6 +863,8 @@ export type InferredPreferenceUncheckedUpdateWithoutResolvedByInput = {
   status?: Prisma.EnumInferenceStatusFieldUpdateOperationsInput | $Enums.InferenceStatus
   resolvedAt?: Prisma.NullableDateTimeFieldUpdateOperationsInput | Date | string | null
   appliedToProfile?: Prisma.BoolFieldUpdateOperationsInput | boolean
+  source?: Prisma.StringFieldUpdateOperationsInput | string
+  sourceField?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
   createdAt?: Prisma.DateTimeFieldUpdateOperationsInput | Date | string
   updatedAt?: Prisma.DateTimeFieldUpdateOperationsInput | Date | string
 }
@@ -820,6 +880,8 @@ export type InferredPreferenceUncheckedUpdateManyWithoutResolvedByInput = {
   status?: Prisma.EnumInferenceStatusFieldUpdateOperationsInput | $Enums.InferenceStatus
   resolvedAt?: Prisma.NullableDateTimeFieldUpdateOperationsInput | Date | string | null
   appliedToProfile?: Prisma.BoolFieldUpdateOperationsInput | boolean
+  source?: Prisma.StringFieldUpdateOperationsInput | string
+  sourceField?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
   createdAt?: Prisma.DateTimeFieldUpdateOperationsInput | Date | string
   updatedAt?: Prisma.DateTimeFieldUpdateOperationsInput | Date | string
 }
@@ -835,6 +897,8 @@ export type InferredPreferenceCreateManyClientInput = {
   resolvedAt?: Date | string | null
   resolvedByUserId?: string | null
   appliedToProfile?: boolean
+  source?: string
+  sourceField?: string | null
   createdAt?: Date | string
   updatedAt?: Date | string
 }
@@ -849,6 +913,8 @@ export type InferredPreferenceUpdateWithoutClientInput = {
   status?: Prisma.EnumInferenceStatusFieldUpdateOperationsInput | $Enums.InferenceStatus
   resolvedAt?: Prisma.NullableDateTimeFieldUpdateOperationsInput | Date | string | null
   appliedToProfile?: Prisma.BoolFieldUpdateOperationsInput | boolean
+  source?: Prisma.StringFieldUpdateOperationsInput | string
+  sourceField?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
   createdAt?: Prisma.DateTimeFieldUpdateOperationsInput | Date | string
   updatedAt?: Prisma.DateTimeFieldUpdateOperationsInput | Date | string
   resolvedBy?: Prisma.UserUpdateOneWithoutResolvedInferencesNestedInput
@@ -865,6 +931,8 @@ export type InferredPreferenceUncheckedUpdateWithoutClientInput = {
   resolvedAt?: Prisma.NullableDateTimeFieldUpdateOperationsInput | Date | string | null
   resolvedByUserId?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
   appliedToProfile?: Prisma.BoolFieldUpdateOperationsInput | boolean
+  source?: Prisma.StringFieldUpdateOperationsInput | string
+  sourceField?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
   createdAt?: Prisma.DateTimeFieldUpdateOperationsInput | Date | string
   updatedAt?: Prisma.DateTimeFieldUpdateOperationsInput | Date | string
 }
@@ -880,6 +948,8 @@ export type InferredPreferenceUncheckedUpdateManyWithoutClientInput = {
   resolvedAt?: Prisma.NullableDateTimeFieldUpdateOperationsInput | Date | string | null
   resolvedByUserId?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
   appliedToProfile?: Prisma.BoolFieldUpdateOperationsInput | boolean
+  source?: Prisma.StringFieldUpdateOperationsInput | string
+  sourceField?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
   createdAt?: Prisma.DateTimeFieldUpdateOperationsInput | Date | string
   updatedAt?: Prisma.DateTimeFieldUpdateOperationsInput | Date | string
 }
@@ -898,6 +968,8 @@ export type InferredPreferenceSelect<ExtArgs extends runtime.Types.Extensions.In
   resolvedAt?: boolean
   resolvedByUserId?: boolean
   appliedToProfile?: boolean
+  source?: boolean
+  sourceField?: boolean
   createdAt?: boolean
   updatedAt?: boolean
   client?: boolean | Prisma.ClientDefaultArgs<ExtArgs>
@@ -916,6 +988,8 @@ export type InferredPreferenceSelectCreateManyAndReturn<ExtArgs extends runtime.
   resolvedAt?: boolean
   resolvedByUserId?: boolean
   appliedToProfile?: boolean
+  source?: boolean
+  sourceField?: boolean
   createdAt?: boolean
   updatedAt?: boolean
   client?: boolean | Prisma.ClientDefaultArgs<ExtArgs>
@@ -934,6 +1008,8 @@ export type InferredPreferenceSelectUpdateManyAndReturn<ExtArgs extends runtime.
   resolvedAt?: boolean
   resolvedByUserId?: boolean
   appliedToProfile?: boolean
+  source?: boolean
+  sourceField?: boolean
   createdAt?: boolean
   updatedAt?: boolean
   client?: boolean | Prisma.ClientDefaultArgs<ExtArgs>
@@ -952,11 +1028,13 @@ export type InferredPreferenceSelectScalar = {
   resolvedAt?: boolean
   resolvedByUserId?: boolean
   appliedToProfile?: boolean
+  source?: boolean
+  sourceField?: boolean
   createdAt?: boolean
   updatedAt?: boolean
 }
 
-export type InferredPreferenceOmit<ExtArgs extends runtime.Types.Extensions.InternalArgs = runtime.Types.Extensions.DefaultArgs> = runtime.Types.Extensions.GetOmit<"id" | "clientId" | "category" | "label" | "description" | "confidence" | "evidence" | "status" | "resolvedAt" | "resolvedByUserId" | "appliedToProfile" | "createdAt" | "updatedAt", ExtArgs["result"]["inferredPreference"]>
+export type InferredPreferenceOmit<ExtArgs extends runtime.Types.Extensions.InternalArgs = runtime.Types.Extensions.DefaultArgs> = runtime.Types.Extensions.GetOmit<"id" | "clientId" | "category" | "label" | "description" | "confidence" | "evidence" | "status" | "resolvedAt" | "resolvedByUserId" | "appliedToProfile" | "source" | "sourceField" | "createdAt" | "updatedAt", ExtArgs["result"]["inferredPreference"]>
 export type InferredPreferenceInclude<ExtArgs extends runtime.Types.Extensions.InternalArgs = runtime.Types.Extensions.DefaultArgs> = {
   client?: boolean | Prisma.ClientDefaultArgs<ExtArgs>
   resolvedBy?: boolean | Prisma.InferredPreference$resolvedByArgs<ExtArgs>
@@ -988,6 +1066,8 @@ export type $InferredPreferencePayload<ExtArgs extends runtime.Types.Extensions.
     resolvedAt: Date | null
     resolvedByUserId: string | null
     appliedToProfile: boolean
+    source: string
+    sourceField: string | null
     createdAt: Date
     updatedAt: Date
   }, ExtArgs["result"]["inferredPreference"]>
@@ -1426,6 +1506,8 @@ export interface InferredPreferenceFieldRefs {
   readonly resolvedAt: Prisma.FieldRef<"InferredPreference", 'DateTime'>
   readonly resolvedByUserId: Prisma.FieldRef<"InferredPreference", 'String'>
   readonly appliedToProfile: Prisma.FieldRef<"InferredPreference", 'Boolean'>
+  readonly source: Prisma.FieldRef<"InferredPreference", 'String'>
+  readonly sourceField: Prisma.FieldRef<"InferredPreference", 'String'>
   readonly createdAt: Prisma.FieldRef<"InferredPreference", 'DateTime'>
   readonly updatedAt: Prisma.FieldRef<"InferredPreference", 'DateTime'>
 }

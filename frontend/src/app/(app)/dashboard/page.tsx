@@ -252,17 +252,6 @@ export default function DashboardPage() {
         <StatCard label="Active Transfer Bonuses" value={data.transferBonusCount ?? 0} icon={ArrowRightLeft} color="green" />
       </div>
 
-      {/* Quick Actions */}
-      <div className="mb-8 flex flex-wrap gap-3">
-        <Link
-          href="/clients/new"
-          className="inline-flex items-center gap-2 rounded-lg bg-blue-600 px-4 py-2 text-sm font-medium text-white shadow-sm hover:bg-blue-700"
-        >
-          <Plus className="h-4 w-4" />
-          New Client
-        </Link>
-      </div>
-
       {/* Transfer Bonuses Section */}
       <div className="mb-6 rounded-xl border border-slate-200 bg-white shadow-sm">
         <div className="flex items-center justify-between border-b border-slate-100 px-5 py-4">

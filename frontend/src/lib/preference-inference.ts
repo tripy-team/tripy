@@ -106,6 +106,7 @@ export async function runAndPersistInferences(clientId: string): Promise<number>
       description: c.description,
       confidence: c.confidence,
       evidence: c.evidence as Prisma.InputJsonValue,
+      source: "trip_history",
     })),
   });
 
@@ -529,6 +530,58 @@ export async function applyInferenceToProfile(
       const label = inference.label.toLowerCase();
       if (label.includes("points")) updates.redemptionStyle = "maximize_experience";
       else if (label.includes("cash")) updates.redemptionStyle = "save_points";
+      break;
+    }
+    case "dining_preference": {
+      const tokens = (evidence.tokens as string[]) ?? [];
+      if (tokens.length > 0) {
+        const existing = await prisma.clientPreference.findUnique({
+          where: { clientId: inference.clientId },
+          select: { foodPreferences: true },
+        });
+        const current = (existing?.foodPreferences as string[] | null) ?? [];
+        const merged = Array.from(new Set([...current, ...tokens]));
+        updates.foodPreferences = merged;
+      }
+      break;
+    }
+    case "dietary_restriction": {
+      const tokens = (evidence.tokens as string[]) ?? [];
+      if (tokens.length > 0) {
+        const existing = await prisma.clientPreference.findUnique({
+          where: { clientId: inference.clientId },
+          select: { foodPreferences: true },
+        });
+        const current = (existing?.foodPreferences as string[] | null) ?? [];
+        const merged = Array.from(new Set([...current, ...tokens]));
+        updates.foodPreferences = merged;
+      }
+      break;
+    }
+    case "experience_interest": {
+      const tokens = (evidence.tokens as string[]) ?? [];
+      if (tokens.length > 0) {
+        const existing = await prisma.clientPreference.findUnique({
+          where: { clientId: inference.clientId },
+          select: { activityPreferences: true },
+        });
+        const current = (existing?.activityPreferences as string[] | null) ?? [];
+        const merged = Array.from(new Set([...current, ...tokens]));
+        updates.activityPreferences = merged;
+      }
+      break;
+    }
+    case "accessibility_need": {
+      const tokens = (evidence.tokens as string[]) ?? [];
+      if (tokens.length > 0) {
+        const existing = await prisma.clientPreference.findUnique({
+          where: { clientId: inference.clientId },
+          select: { accessibilityNeeds: true },
+        });
+        const current = (existing?.accessibilityNeeds as string[] | null) ?? [];
+        const merged = Array.from(new Set([...current, ...tokens]));
+        updates.accessibilityNeeds = merged;
+      }
       break;
     }
     default:

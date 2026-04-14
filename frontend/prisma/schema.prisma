@@ -616,6 +616,8 @@ model InferredPreference {
   resolvedAt       DateTime?         @map("resolved_at")
   resolvedByUserId String?           @map("resolved_by_user_id")
   appliedToProfile Boolean           @default(false) @map("applied_to_profile")
+  source           String            @default("trip_history")
+  sourceField      String?           @map("source_field")
   createdAt        DateTime          @default(now()) @map("created_at")
   updatedAt        DateTime          @updatedAt @map("updated_at")
   client           Client            @relation(fields: [clientId], references: [id], onDelete: Cascade)
@@ -1176,6 +1178,10 @@ enum InferenceCategory {
   payment_style
   destination_pattern
   trip_style
+  dining_preference
+  dietary_restriction
+  experience_interest
+  accessibility_need
 }
 
 enum BudgetSensitivity {

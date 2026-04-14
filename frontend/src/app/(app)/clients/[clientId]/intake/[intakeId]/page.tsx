@@ -133,6 +133,7 @@ export default function EditIntakePage() {
       saving={saving}
       onSave={handleSave}
       onComplete={handleComplete}
+      onAnalyzed={() => router.push(`/clients/${clientId}?tab=preferences`)}
       onCancel={() => router.push(`/clients/${clientId}?tab=discovery`)}
     />
   );

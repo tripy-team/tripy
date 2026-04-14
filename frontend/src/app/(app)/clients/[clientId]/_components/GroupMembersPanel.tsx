@@ -36,7 +36,7 @@ export default function GroupMembersPanel({ clientId, client, onMembersChange }:
   const [selectedLinked, setSelectedLinked] = useState<LinkedClientSummary | null>(null);
   const clientSearchRef = useRef<HTMLDivElement>(null);
 
-  const [addForm, setAddForm] = useState({ name: '', email: '', isOrganizer: false });
+  const [addForm, setAddForm] = useState({ name: '', email: '' });
 
   useEffect(() => {
     Promise.all([getGroupProfile(clientId), getGroupMembers(clientId), getClients()])
@@ -83,15 +83,11 @@ export default function GroupMembersPanel({ clientId, client, onMembersChange }:
         linkedClientId: selectedLinked?.id,
         name: addForm.name.trim() || `${selectedLinked?.firstName} ${selectedLinked?.lastName}`,
         email: addForm.email.trim() || undefined,
-        isOrganizer: addForm.isOrganizer,
       });
-      setMembers((prev) => {
-        const next = [...prev, member];
-        onMembersChange?.(next.length);
-        return next;
-      });
+      setMembers((prev) => [...prev, member]);
+      onMembersChange?.(members.length + 1);
       setShowAdd(false);
-      setAddForm({ name: '', email: '', isOrganizer: false });
+      setAddForm({ name: '', email: '' });
       setSelectedLinked(null);
 
       // Update estimated size if profile exists
@@ -109,11 +105,8 @@ export default function GroupMembersPanel({ clientId, client, onMembersChange }:
 
   const handleRemove = async (memberId: string) => {
     await removeGroupMember(clientId, memberId);
-    setMembers((prev) => {
-      const next = prev.filter((m) => m.id !== memberId);
-      onMembersChange?.(next.length);
-      return next;
-    });
+    setMembers((prev) => prev.filter((m) => m.id !== memberId));
+    onMembersChange?.(members.filter((m) => m.id !== memberId).length);
   };
 
   const handleToggleOrganizer = async (member: GroupMember) => {
@@ -210,10 +203,6 @@ export default function GroupMembersPanel({ clientId, client, onMembersChange }:
                 className="rounded-lg border border-slate-200 bg-white px-3 py-2 text-sm disabled:bg-slate-100 disabled:text-slate-500 focus:border-transparent focus:outline-none focus:ring-2 focus:ring-blue-600" />
               <input type="email" placeholder="Email" value={addForm.email} onChange={(e) => setAddForm((f) => ({ ...f, email: e.target.value }))}
                 className="rounded-lg border border-slate-200 bg-white px-3 py-2 text-sm focus:border-transparent focus:outline-none focus:ring-2 focus:ring-blue-600" />
-              <label className="flex items-center gap-2 rounded-lg border border-slate-200 bg-white px-3 py-2">
-                <input type="checkbox" checked={addForm.isOrganizer} onChange={(e) => setAddForm((f) => ({ ...f, isOrganizer: e.target.checked }))} className="h-4 w-4 rounded text-blue-600" />
-                <span className="text-sm text-slate-700">Group organizer</span>
-              </label>
             </div>
 
             <div className="mt-3 flex gap-2">
@@ -222,7 +211,7 @@ export default function GroupMembersPanel({ clientId, client, onMembersChange }:
                 {saving ? <Loader2 className="h-3.5 w-3.5 animate-spin" /> : <Plus className="h-3.5 w-3.5" />}
                 Add
               </button>
-              <button onClick={() => { setShowAdd(false); setSelectedLinked(null); setAddForm({ name: '', email: '', isOrganizer: false }); }}
+              <button onClick={() => { setShowAdd(false); setSelectedLinked(null); setAddForm({ name: '', email: '' }); }}
                 className="rounded-lg border border-slate-200 px-4 py-2 text-sm text-slate-600 hover:bg-slate-50">
                 Cancel
               </button>
@@ -245,11 +234,6 @@ export default function GroupMembersPanel({ clientId, client, onMembersChange }:
                 <div className="min-w-0 flex-1">
                   <div className="flex items-center gap-2">
                     <p className="text-sm font-medium text-slate-900">{m.name}</p>
-                    {m.isOrganizer && (
-                      <span className="inline-flex items-center gap-1 rounded-full bg-amber-50 px-2 py-0.5 text-xs font-medium text-amber-700">
-                        <Star className="h-3 w-3" />Organizer
-                      </span>
-                    )}
                     {m.linkedClientId && (
                       <span className="rounded-full bg-blue-50 px-2 py-0.5 text-xs text-blue-600">Linked</span>
                     )}

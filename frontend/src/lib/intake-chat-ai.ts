@@ -83,10 +83,12 @@ function formatIntakeForPrompt(intake: IntakeData, clientName: string): string {
   if (intake.activityLevel)
     lines.push(`Activity level: ${intake.activityLevel}`);
 
-  if (intake.accessibilityNeeds)
-    lines.push(`Accessibility needs: ${intake.accessibilityNeeds}`);
-  if (intake.dietaryNeeds)
-    lines.push(`Dietary restrictions: ${intake.dietaryNeeds}`);
+  lines.push(
+    `Accessibility needs: ${intake.accessibilityNeeds?.trim() || "none"}`,
+  );
+  lines.push(
+    `Dietary restrictions: ${intake.dietaryNeeds?.trim() || "none"}`,
+  );
   if (intake.hardConstraints?.length)
     lines.push(`Hard constraints: ${intake.hardConstraints.join("; ")}`);
 
@@ -155,6 +157,7 @@ export async function continueDiscoveryChat(
   intakeData: IntakeData,
   messageHistory: IntakeChatMessage[],
   advisorMessage: string,
+  generateOnly: boolean = false,
 ): Promise<IntakeChatMessage> {
   const profileSummary = formatIntakeForPrompt(intakeData, clientName);
 
@@ -181,10 +184,18 @@ export async function continueDiscoveryChat(
   }
 
   // Add the new advisor message
-  claudeMessages.push({
-    role: "user",
-    content: `The client answered: ${advisorMessage}`,
-  });
+  if (generateOnly) {
+    claudeMessages.push({
+      role: "user",
+      content:
+        "The advisor is asking you to generate a fresh round of 2-3 follow-up questions based on everything the client has shared so far in this conversation and the profile form. Do not ask the advisor to answer anything first — just produce new, specific questions that build on the existing answers and surface nuance or resolve ambiguity. If the conversation has covered enough ground, you may instead offer the brief Discovery Summary described in your instructions.",
+    });
+  } else {
+    claudeMessages.push({
+      role: "user",
+      content: `The client answered: ${advisorMessage}`,
+    });
+  }
 
   const response = await anthropic.messages.create({
     model: "claude-sonnet-4-6",
@@ -201,4 +212,102 @@ export async function continueDiscoveryChat(
     content,
     timestamp: new Date().toISOString(),
   };
+}
+
+// ---------------------------------------------------------------------------
+// Analyze intake + discovery chat into a structured preference profile
+// ---------------------------------------------------------------------------
+
+export interface AnalyzedPreferences {
+  preferredCabin?: "economy" | "premium_economy" | "business" | "first" | "flexible";
+  prefersNonstop?: boolean;
+  maxLayoverMinutes?: number;
+  willingToReposition?: boolean;
+  avoidBasicEconomy?: boolean;
+  preferredAirlines?: string[];
+  avoidedAirlines?: string[];
+  preferredHotelTypes?: string[];
+  redemptionStyle?: "save_points" | "maximize_experience" | "balanced";
+  budgetSensitivity?: "price_conscious" | "moderate" | "comfort_first" | "luxury";
+  accessibilityNeeds?: string;
+  foodPreferences?: string;
+  activityPreferences?: string[];
+  familyConsiderations?: string;
+  dealbreakers?: string[];
+  notes?: string;
+}
+
+const ANALYZE_SYSTEM_PROMPT = `You are a travel advisor's assistant. Given a structured intake form and any discovery chat transcript, extract a client preference profile as a JSON object via the provided tool.
+
+Rules:
+- Only include fields the intake or chat clearly supports. Omit fields when evidence is weak.
+- Normalize free text into the enums given in the tool schema. Leave out enum fields if the value is ambiguous.
+- The "notes" field should be a 2-3 sentence advisor-facing summary of anything important that didn't fit into a structured field.
+- Never invent facts. If a field is missing from the intake, omit it.`;
+
+export async function analyzeIntakeForPreferences(
+  clientName: string,
+  intakeData: IntakeData,
+  chatTranscript: IntakeChatMessage[],
+): Promise<AnalyzedPreferences> {
+  const profileSummary = formatIntakeForPrompt(intakeData, clientName);
+
+  const transcriptText = chatTranscript.length
+    ? chatTranscript
+        .map((m) => `${m.role === "assistant" ? "Assistant" : "Advisor/Client"}: ${m.content}`)
+        .join("\n")
+    : "(no discovery chat)";
+
+  const userContent = `Intake form:\n\n${profileSummary}\n\nDiscovery chat transcript:\n\n${transcriptText}\n\nExtract the client's preference profile using the save_client_preferences tool.`;
+
+  const response = await anthropic.messages.create({
+    model: "claude-sonnet-4-6",
+    max_tokens: 1200,
+    system: ANALYZE_SYSTEM_PROMPT,
+    tools: [
+      {
+        name: "save_client_preferences",
+        description:
+          "Save the client's travel preference profile based on the intake form and discovery chat.",
+        input_schema: {
+          type: "object",
+          properties: {
+            preferredCabin: {
+              type: "string",
+              enum: ["economy", "premium_economy", "business", "first", "flexible"],
+            },
+            prefersNonstop: { type: "boolean" },
+            maxLayoverMinutes: { type: "number" },
+            willingToReposition: { type: "boolean" },
+            avoidBasicEconomy: { type: "boolean" },
+            preferredAirlines: { type: "array", items: { type: "string" } },
+            avoidedAirlines: { type: "array", items: { type: "string" } },
+            preferredHotelTypes: { type: "array", items: { type: "string" } },
+            redemptionStyle: {
+              type: "string",
+              enum: ["save_points", "maximize_experience", "balanced"],
+            },
+            budgetSensitivity: {
+              type: "string",
+              enum: ["price_conscious", "moderate", "comfort_first", "luxury"],
+            },
+            accessibilityNeeds: { type: "string" },
+            foodPreferences: { type: "string" },
+            activityPreferences: { type: "array", items: { type: "string" } },
+            familyConsiderations: { type: "string" },
+            dealbreakers: { type: "array", items: { type: "string" } },
+            notes: { type: "string" },
+          },
+        },
+      },
+    ],
+    tool_choice: { type: "tool", name: "save_client_preferences" },
+    messages: [{ role: "user", content: userContent }],
+  });
+
+  const toolUse = response.content.find((b) => b.type === "tool_use");
+  if (!toolUse || toolUse.type !== "tool_use") {
+    return {};
+  }
+  return toolUse.input as AnalyzedPreferences;
 }

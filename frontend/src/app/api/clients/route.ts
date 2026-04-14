@@ -1,4 +1,5 @@
 import { prisma } from "@/lib/prisma";
+import { Prisma } from "@/generated/prisma/client";
 import { getAuthUser, json, errorResponse } from "@/lib/auth";
 
 export async function GET(request: Request) {
@@ -110,7 +111,7 @@ export async function POST(request: Request) {
           data: {
             clientId: client.id,
             groupType: groupProfile.groupType || "leisure_friends",
-            estimatedSize: groupProfile.estimatedSize ? Number(groupProfile.estimatedSize) : null,
+            estimatedSize: groupProfile.estimatedSize ? Math.round(Number(groupProfile.estimatedSize)) : null,
             ageSpread: groupProfile.ageSpread || null,
             decisionStyle: groupProfile.decisionStyle || "consensus",
             roomArrangement: groupProfile.roomArrangement || null,
@@ -130,7 +131,7 @@ export async function POST(request: Request) {
             billingContactName: businessProfile.billingContactName || null,
             billingContactEmail: businessProfile.billingContactEmail || null,
             requiresPreApproval: businessProfile.requiresPreApproval ?? false,
-            maxNightlyRateUsd: businessProfile.maxNightlyRateUsd ? Number(businessProfile.maxNightlyRateUsd) : null,
+            maxNightlyRateUsd: businessProfile.maxNightlyRateUsd ? Math.round(Number(businessProfile.maxNightlyRateUsd)) : null,
             travelPolicyNotes: businessProfile.travelPolicyNotes || null,
           },
         });
@@ -141,7 +142,24 @@ export async function POST(request: Request) {
 
     return json(result, 201);
   } catch (error) {
-    console.error("Create client error:", error);
-    return errorResponse("Internal server error", 500);
+    const err = error as Error & { code?: string; meta?: unknown };
+    console.error("Create client error:", err.constructor?.name, err.code, err.message, err.meta ?? "");
+    if (error instanceof Prisma.PrismaClientKnownRequestError) {
+      if (error.code === "P2002") {
+        return json({ error: "A client with this email already exists." }, 409);
+      }
+      return errorResponse(`Database error: ${error.code}`, 400);
+    }
+    if (error instanceof Prisma.PrismaClientValidationError) {
+      return errorResponse(`Validation error: ${error.message}`, 400);
+    }
+    if (error instanceof Prisma.PrismaClientInitializationError) {
+      return errorResponse("Database connection failed", 503);
+    }
+    if (error instanceof Prisma.PrismaClientUnknownRequestError) {
+      return errorResponse("Internal server error", 500);
+    }
+    const message = process.env.NODE_ENV === "development" ? (err.message ?? "Internal server error") : "Internal server error";
+    return errorResponse(message, 500);
   }
 }

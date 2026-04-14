@@ -107,6 +107,7 @@ def create_solo_trip(user_id: str, request: CreateTripRequest) -> Dict[str, Any]
         "startDate": request.start_date or "",
         "endDate": request.end_date or "",
         "durationDays": request.duration_days,
+        "flexibilityDays": request.flexibility_days,
         "legDates": request.leg_dates or [],  # Multi-city leg dates
         "includeHotels": request.include_hotels,
         "maxBudget": request.max_budget,
@@ -216,6 +217,7 @@ def update_solo_trip(trip_id: str, user_id: str, request: UpdateTripRequest, org
         "startDate": request.start_date,
         "endDate": request.end_date,
         "durationDays": request.duration_days,
+        "flexibilityDays": request.flexibility_days,
         "legDates": request.leg_dates,
         "maxBudget": request.max_budget,
         "adults": request.adults,

@@ -144,6 +144,7 @@ function SoloTripSetupContent() {
   const [endDate, setEndDate] = useState(s?.endDate ?? '');
   const [isOneWay, setIsOneWay] = useState(false);
   const [flexibleDuration, setFlexibleDuration] = useState(s?.flexibleDuration ?? 7); // Default days if flexible
+  const [dateWiggleDays, setDateWiggleDays] = useState<number>(0); // ±N days around fixed start_date
   
   // Multi-city leg dates: each element is the departure date for that leg
   // Leg 0: origin → city[0], Leg 1: city[0] → city[1], ..., Last leg: city[n-1] → final destination
@@ -902,6 +903,7 @@ function SoloTripSetupContent() {
         startDate: isFlexible ? undefined : effectiveStartDate,
         endDate: isFlexible ? undefined : (isRoundTrip ? effectiveEndDate : undefined),
         durationDays: isFlexible ? flexibleDuration : undefined,
+        flexibilityDays: !isFlexible && dateWiggleDays > 0 ? dateWiggleDays : undefined,
         includeHotels: includeHotels,
         maxBudget: maxBudget as number,
         adults: adults,
@@ -1132,6 +1134,32 @@ function SoloTripSetupContent() {
                           minDate={new Date().toISOString().split('T')[0]}
                           placeholder="Select date"
                         />
+                        {!isFlexible && startDate && (
+                          <div className="mt-3">
+                            <label className="block text-[11px] text-slate-500 mb-1 uppercase font-bold tracking-wider">
+                              Date flexibility
+                            </label>
+                            <div className="flex items-center gap-3">
+                              <input
+                                type="range"
+                                min={0}
+                                max={7}
+                                step={1}
+                                value={dateWiggleDays}
+                                onChange={(e) => setDateWiggleDays(Number(e.target.value))}
+                                className="flex-1 accent-blue-600"
+                              />
+                              <span className="text-xs text-slate-600 w-16 text-right">
+                                {dateWiggleDays === 0 ? 'Exact' : `±${dateWiggleDays} day${dateWiggleDays === 1 ? '' : 's'}`}
+                              </span>
+                            </div>
+                            {dateWiggleDays > 0 && (
+                              <p className="text-[11px] text-slate-500 mt-1">
+                                We'll scan {dateWiggleDays * 2 + 1} dates around your departure and pick the lowest out-of-pocket option.
+                              </p>
+                            )}
+                          </div>
+                        )}
                       </div>
                     </div>
                   </div>

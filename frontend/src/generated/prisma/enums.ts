@@ -275,7 +275,11 @@ export const InferenceCategory = {
   budget_behavior: 'budget_behavior',
   payment_style: 'payment_style',
   destination_pattern: 'destination_pattern',
-  trip_style: 'trip_style'
+  trip_style: 'trip_style',
+  dining_preference: 'dining_preference',
+  dietary_restriction: 'dietary_restriction',
+  experience_interest: 'experience_interest',
+  accessibility_need: 'accessibility_need'
 } as const
 
 export type InferenceCategory = (typeof InferenceCategory)[keyof typeof InferenceCategory]

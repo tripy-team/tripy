@@ -62,7 +62,6 @@ function formatDateShort(dateStr: string) {
 }
 
 const EMPTY_FORM = {
-  title: '',
   sharedDestinations: [] as string[],
   leaderStartingCity: [] as string[],
   leaderEndingCity: [] as string[],
@@ -201,7 +200,6 @@ export default function TripsPage() {
 
   const isFormValid = useMemo(() => {
     if (!selectedClient) return false;
-    if (!tripForm.title.trim()) return false;
     if (tripForm.sharedDestinations.length === 0) return false;
     if (tripForm.leaderStartingCity.length === 0) return false;
     if (!tripForm.departureDate) return false;
@@ -272,7 +270,9 @@ export default function TripsPage() {
 
       const payload: TripRequestCreatePayload = {
         clientId: selectedClient.id,
-        title: tripForm.title.trim(),
+        title: tripForm.sharedDestinations.length > 0
+          ? `Trip to ${tripForm.sharedDestinations.join(', ')}`
+          : 'Trip Request',
         originAirports: tripForm.leaderStartingCity,
         destinationAirports: tripForm.sharedDestinations,
         departureDate: tripForm.departureDate,
@@ -460,18 +460,6 @@ export default function TripsPage() {
                   )}
                 </div>
               )}
-            </div>
-
-            {/* Trip Title */}
-            <div>
-              <label className="mb-1 block text-xs font-medium text-slate-700">Trip Title *</label>
-              <input
-                type="text"
-                placeholder="e.g., Summer Hawaii Trip"
-                value={tripForm.title}
-                onChange={(e) => setTripForm((f) => ({ ...f, title: e.target.value }))}
-                className="block w-full rounded-lg border border-slate-200 bg-white px-3 py-2 text-sm placeholder:text-slate-400 focus:border-transparent focus:outline-none focus:ring-2 focus:ring-blue-600"
-              />
             </div>
 
             {/* Shared Destinations */}

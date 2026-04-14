@@ -366,7 +366,7 @@ ${bonusBlock}
 Generate a JSON response with this structure:
 {
   "summary": "2-4 sentence personalized trip overview referencing the client's preferences, loyalty portfolio, and best strategies",
-  "pointsStrategy": "2-3 sentence strategy explaining the best way to use their points/miles for this trip, including specific transfer partner recommendations",
+  "pointsStrategy": ${balances.length > 0 ? `"2-3 sentence strategy explaining the best way to use their points/miles for this trip, including specific transfer partner recommendations"` : `"1-2 sentence cash-focused travel tip — no loyalty balances are on file so focus on getting the best cash price"`},
   "tips": ["3-5 actionable, personalized tips for this specific trip and client"]
 }
 
@@ -439,10 +439,12 @@ function buildFallbackItinerary(
 
   if (tips.length === 0) tips.push("Compare cash and award pricing in the Flights tab for the best deal.");
 
-  let pointsStrategy = "";
+  let pointsStrategy: string;
   if (balances.length > 0) {
     const topBalance = [...balances].sort((a, b) => b.balance - a.balance)[0];
     pointsStrategy = `Your largest balance is ${topBalance.programName} with ${topBalance.balance.toLocaleString()} points. Check the Flights and Hotels tabs for award redemption options.`;
+  } else {
+    pointsStrategy = "No loyalty balances on file — this trip is priced in cash. Check the Flights and Hotels tabs for the best available rates.";
   }
 
   return {

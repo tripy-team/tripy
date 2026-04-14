@@ -609,6 +609,8 @@ export const InferredPreferenceScalarFieldEnum = {
   resolvedAt: 'resolvedAt',
   resolvedByUserId: 'resolvedByUserId',
   appliedToProfile: 'appliedToProfile',
+  source: 'source',
+  sourceField: 'sourceField',
   createdAt: 'createdAt',
   updatedAt: 'updatedAt'
 } as const

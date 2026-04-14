@@ -442,7 +442,7 @@ export async function searchHotelsForTravelers(
       };
       const [cash, award] = await Promise.all([
         searchCashHotels(params),
-        searchAwardHotels(params, Array.from(allPrograms)),
+        allPrograms.size > 0 ? searchAwardHotels(params, Array.from(allPrograms)) : Promise.resolve([] as AwardHotelResult[]),
       ]);
       return [key, { cash, award, window: w }] as const;
     }),
