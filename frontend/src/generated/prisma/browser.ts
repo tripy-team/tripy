@@ -227,3 +227,28 @@ export type MeetingProfileSuggestion = Prisma.MeetingProfileSuggestionModel
  * 
  */
 export type MeetingRecap = Prisma.MeetingRecapModel
+/**
+ * Model GroupProfile
+ * 
+ */
+export type GroupProfile = Prisma.GroupProfileModel
+/**
+ * Model GroupMember
+ * 
+ */
+export type GroupMember = Prisma.GroupMemberModel
+/**
+ * Model BusinessProfile
+ * 
+ */
+export type BusinessProfile = Prisma.BusinessProfileModel
+/**
+ * Model BusinessTraveler
+ * 
+ */
+export type BusinessTraveler = Prisma.BusinessTravelerModel
+/**
+ * Model IntakeFormToken
+ * 
+ */
+export type IntakeFormToken = Prisma.IntakeFormTokenModel

@@ -284,10 +284,10 @@ export type RecommendationTravelerAllocationWhereInput = {
   createdAt?: Prisma.DateTimeFilter<"RecommendationTravelerAllocation"> | Date | string
   pointSourceClientId?: Prisma.StringNullableFilter<"RecommendationTravelerAllocation"> | string | null
   pointValueCents?: Prisma.FloatNullableFilter<"RecommendationTravelerAllocation"> | number | null
-  recommendationOption?: Prisma.XOR<Prisma.RecommendationOptionScalarRelationFilter, Prisma.RecommendationOptionWhereInput>
-  tripTraveler?: Prisma.XOR<Prisma.TripTravelerScalarRelationFilter, Prisma.TripTravelerWhereInput>
   loyaltyProgram?: Prisma.XOR<Prisma.LoyaltyProgramNullableScalarRelationFilter, Prisma.LoyaltyProgramWhereInput> | null
   pointSourceClient?: Prisma.XOR<Prisma.ClientNullableScalarRelationFilter, Prisma.ClientWhereInput> | null
+  recommendationOption?: Prisma.XOR<Prisma.RecommendationOptionScalarRelationFilter, Prisma.RecommendationOptionWhereInput>
+  tripTraveler?: Prisma.XOR<Prisma.TripTravelerScalarRelationFilter, Prisma.TripTravelerWhereInput>
 }
 
 export type RecommendationTravelerAllocationOrderByWithRelationInput = {
@@ -303,10 +303,10 @@ export type RecommendationTravelerAllocationOrderByWithRelationInput = {
   createdAt?: Prisma.SortOrder
   pointSourceClientId?: Prisma.SortOrderInput | Prisma.SortOrder
   pointValueCents?: Prisma.SortOrderInput | Prisma.SortOrder
-  recommendationOption?: Prisma.RecommendationOptionOrderByWithRelationInput
-  tripTraveler?: Prisma.TripTravelerOrderByWithRelationInput
   loyaltyProgram?: Prisma.LoyaltyProgramOrderByWithRelationInput
   pointSourceClient?: Prisma.ClientOrderByWithRelationInput
+  recommendationOption?: Prisma.RecommendationOptionOrderByWithRelationInput
+  tripTraveler?: Prisma.TripTravelerOrderByWithRelationInput
 }
 
 export type RecommendationTravelerAllocationWhereUniqueInput = Prisma.AtLeast<{
@@ -325,10 +325,10 @@ export type RecommendationTravelerAllocationWhereUniqueInput = Prisma.AtLeast<{
   createdAt?: Prisma.DateTimeFilter<"RecommendationTravelerAllocation"> | Date | string
   pointSourceClientId?: Prisma.StringNullableFilter<"RecommendationTravelerAllocation"> | string | null
   pointValueCents?: Prisma.FloatNullableFilter<"RecommendationTravelerAllocation"> | number | null
-  recommendationOption?: Prisma.XOR<Prisma.RecommendationOptionScalarRelationFilter, Prisma.RecommendationOptionWhereInput>
-  tripTraveler?: Prisma.XOR<Prisma.TripTravelerScalarRelationFilter, Prisma.TripTravelerWhereInput>
   loyaltyProgram?: Prisma.XOR<Prisma.LoyaltyProgramNullableScalarRelationFilter, Prisma.LoyaltyProgramWhereInput> | null
   pointSourceClient?: Prisma.XOR<Prisma.ClientNullableScalarRelationFilter, Prisma.ClientWhereInput> | null
+  recommendationOption?: Prisma.XOR<Prisma.RecommendationOptionScalarRelationFilter, Prisma.RecommendationOptionWhereInput>
+  tripTraveler?: Prisma.XOR<Prisma.TripTravelerScalarRelationFilter, Prisma.TripTravelerWhereInput>
 }, "id">
 
 export type RecommendationTravelerAllocationOrderByWithAggregationInput = {
@@ -378,10 +378,10 @@ export type RecommendationTravelerAllocationCreateInput = {
   rationale?: string | null
   createdAt?: Date | string
   pointValueCents?: number | null
-  recommendationOption: Prisma.RecommendationOptionCreateNestedOneWithoutTravelerAllocationsInput
-  tripTraveler: Prisma.TripTravelerCreateNestedOneWithoutAllocationsInput
   loyaltyProgram?: Prisma.LoyaltyProgramCreateNestedOneWithoutTravelerAllocationsInput
   pointSourceClient?: Prisma.ClientCreateNestedOneWithoutPointSourceAllocationsInput
+  recommendationOption: Prisma.RecommendationOptionCreateNestedOneWithoutTravelerAllocationsInput
+  tripTraveler: Prisma.TripTravelerCreateNestedOneWithoutAllocationsInput
 }
 
 export type RecommendationTravelerAllocationUncheckedCreateInput = {
@@ -408,10 +408,10 @@ export type RecommendationTravelerAllocationUpdateInput = {
   rationale?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
   createdAt?: Prisma.DateTimeFieldUpdateOperationsInput | Date | string
   pointValueCents?: Prisma.NullableFloatFieldUpdateOperationsInput | number | null
-  recommendationOption?: Prisma.RecommendationOptionUpdateOneRequiredWithoutTravelerAllocationsNestedInput
-  tripTraveler?: Prisma.TripTravelerUpdateOneRequiredWithoutAllocationsNestedInput
   loyaltyProgram?: Prisma.LoyaltyProgramUpdateOneWithoutTravelerAllocationsNestedInput
   pointSourceClient?: Prisma.ClientUpdateOneWithoutPointSourceAllocationsNestedInput
+  recommendationOption?: Prisma.RecommendationOptionUpdateOneRequiredWithoutTravelerAllocationsNestedInput
+  tripTraveler?: Prisma.TripTravelerUpdateOneRequiredWithoutAllocationsNestedInput
 }
 
 export type RecommendationTravelerAllocationUncheckedUpdateInput = {
@@ -720,9 +720,9 @@ export type RecommendationTravelerAllocationCreateWithoutPointSourceClientInput 
   rationale?: string | null
   createdAt?: Date | string
   pointValueCents?: number | null
+  loyaltyProgram?: Prisma.LoyaltyProgramCreateNestedOneWithoutTravelerAllocationsInput
   recommendationOption: Prisma.RecommendationOptionCreateNestedOneWithoutTravelerAllocationsInput
   tripTraveler: Prisma.TripTravelerCreateNestedOneWithoutAllocationsInput
-  loyaltyProgram?: Prisma.LoyaltyProgramCreateNestedOneWithoutTravelerAllocationsInput
 }
 
 export type RecommendationTravelerAllocationUncheckedCreateWithoutPointSourceClientInput = {
@@ -792,9 +792,9 @@ export type RecommendationTravelerAllocationCreateWithoutLoyaltyProgramInput = {
   rationale?: string | null
   createdAt?: Date | string
   pointValueCents?: number | null
+  pointSourceClient?: Prisma.ClientCreateNestedOneWithoutPointSourceAllocationsInput
   recommendationOption: Prisma.RecommendationOptionCreateNestedOneWithoutTravelerAllocationsInput
   tripTraveler: Prisma.TripTravelerCreateNestedOneWithoutAllocationsInput
-  pointSourceClient?: Prisma.ClientCreateNestedOneWithoutPointSourceAllocationsInput
 }
 
 export type RecommendationTravelerAllocationUncheckedCreateWithoutLoyaltyProgramInput = {
@@ -846,9 +846,9 @@ export type RecommendationTravelerAllocationCreateWithoutTripTravelerInput = {
   rationale?: string | null
   createdAt?: Date | string
   pointValueCents?: number | null
-  recommendationOption: Prisma.RecommendationOptionCreateNestedOneWithoutTravelerAllocationsInput
   loyaltyProgram?: Prisma.LoyaltyProgramCreateNestedOneWithoutTravelerAllocationsInput
   pointSourceClient?: Prisma.ClientCreateNestedOneWithoutPointSourceAllocationsInput
+  recommendationOption: Prisma.RecommendationOptionCreateNestedOneWithoutTravelerAllocationsInput
 }
 
 export type RecommendationTravelerAllocationUncheckedCreateWithoutTripTravelerInput = {
@@ -900,9 +900,9 @@ export type RecommendationTravelerAllocationCreateWithoutRecommendationOptionInp
   rationale?: string | null
   createdAt?: Date | string
   pointValueCents?: number | null
-  tripTraveler: Prisma.TripTravelerCreateNestedOneWithoutAllocationsInput
   loyaltyProgram?: Prisma.LoyaltyProgramCreateNestedOneWithoutTravelerAllocationsInput
   pointSourceClient?: Prisma.ClientCreateNestedOneWithoutPointSourceAllocationsInput
+  tripTraveler: Prisma.TripTravelerCreateNestedOneWithoutAllocationsInput
 }
 
 export type RecommendationTravelerAllocationUncheckedCreateWithoutRecommendationOptionInput = {
@@ -968,9 +968,9 @@ export type RecommendationTravelerAllocationUpdateWithoutPointSourceClientInput 
   rationale?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
   createdAt?: Prisma.DateTimeFieldUpdateOperationsInput | Date | string
   pointValueCents?: Prisma.NullableFloatFieldUpdateOperationsInput | number | null
+  loyaltyProgram?: Prisma.LoyaltyProgramUpdateOneWithoutTravelerAllocationsNestedInput
   recommendationOption?: Prisma.RecommendationOptionUpdateOneRequiredWithoutTravelerAllocationsNestedInput
   tripTraveler?: Prisma.TripTravelerUpdateOneRequiredWithoutAllocationsNestedInput
-  loyaltyProgram?: Prisma.LoyaltyProgramUpdateOneWithoutTravelerAllocationsNestedInput
 }
 
 export type RecommendationTravelerAllocationUncheckedUpdateWithoutPointSourceClientInput = {
@@ -1024,9 +1024,9 @@ export type RecommendationTravelerAllocationUpdateWithoutLoyaltyProgramInput = {
   rationale?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
   createdAt?: Prisma.DateTimeFieldUpdateOperationsInput | Date | string
   pointValueCents?: Prisma.NullableFloatFieldUpdateOperationsInput | number | null
+  pointSourceClient?: Prisma.ClientUpdateOneWithoutPointSourceAllocationsNestedInput
   recommendationOption?: Prisma.RecommendationOptionUpdateOneRequiredWithoutTravelerAllocationsNestedInput
   tripTraveler?: Prisma.TripTravelerUpdateOneRequiredWithoutAllocationsNestedInput
-  pointSourceClient?: Prisma.ClientUpdateOneWithoutPointSourceAllocationsNestedInput
 }
 
 export type RecommendationTravelerAllocationUncheckedUpdateWithoutLoyaltyProgramInput = {
@@ -1080,9 +1080,9 @@ export type RecommendationTravelerAllocationUpdateWithoutTripTravelerInput = {
   rationale?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
   createdAt?: Prisma.DateTimeFieldUpdateOperationsInput | Date | string
   pointValueCents?: Prisma.NullableFloatFieldUpdateOperationsInput | number | null
-  recommendationOption?: Prisma.RecommendationOptionUpdateOneRequiredWithoutTravelerAllocationsNestedInput
   loyaltyProgram?: Prisma.LoyaltyProgramUpdateOneWithoutTravelerAllocationsNestedInput
   pointSourceClient?: Prisma.ClientUpdateOneWithoutPointSourceAllocationsNestedInput
+  recommendationOption?: Prisma.RecommendationOptionUpdateOneRequiredWithoutTravelerAllocationsNestedInput
 }
 
 export type RecommendationTravelerAllocationUncheckedUpdateWithoutTripTravelerInput = {
@@ -1136,9 +1136,9 @@ export type RecommendationTravelerAllocationUpdateWithoutRecommendationOptionInp
   rationale?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
   createdAt?: Prisma.DateTimeFieldUpdateOperationsInput | Date | string
   pointValueCents?: Prisma.NullableFloatFieldUpdateOperationsInput | number | null
-  tripTraveler?: Prisma.TripTravelerUpdateOneRequiredWithoutAllocationsNestedInput
   loyaltyProgram?: Prisma.LoyaltyProgramUpdateOneWithoutTravelerAllocationsNestedInput
   pointSourceClient?: Prisma.ClientUpdateOneWithoutPointSourceAllocationsNestedInput
+  tripTraveler?: Prisma.TripTravelerUpdateOneRequiredWithoutAllocationsNestedInput
 }
 
 export type RecommendationTravelerAllocationUncheckedUpdateWithoutRecommendationOptionInput = {
@@ -1184,10 +1184,10 @@ export type RecommendationTravelerAllocationSelect<ExtArgs extends runtime.Types
   createdAt?: boolean
   pointSourceClientId?: boolean
   pointValueCents?: boolean
-  recommendationOption?: boolean | Prisma.RecommendationOptionDefaultArgs<ExtArgs>
-  tripTraveler?: boolean | Prisma.TripTravelerDefaultArgs<ExtArgs>
   loyaltyProgram?: boolean | Prisma.RecommendationTravelerAllocation$loyaltyProgramArgs<ExtArgs>
   pointSourceClient?: boolean | Prisma.RecommendationTravelerAllocation$pointSourceClientArgs<ExtArgs>
+  recommendationOption?: boolean | Prisma.RecommendationOptionDefaultArgs<ExtArgs>
+  tripTraveler?: boolean | Prisma.TripTravelerDefaultArgs<ExtArgs>
 }, ExtArgs["result"]["recommendationTravelerAllocation"]>
 
 export type RecommendationTravelerAllocationSelectCreateManyAndReturn<ExtArgs extends runtime.Types.Extensions.InternalArgs = runtime.Types.Extensions.DefaultArgs> = runtime.Types.Extensions.GetSelect<{
@@ -1203,10 +1203,10 @@ export type RecommendationTravelerAllocationSelectCreateManyAndReturn<ExtArgs ex
   createdAt?: boolean
   pointSourceClientId?: boolean
   pointValueCents?: boolean
-  recommendationOption?: boolean | Prisma.RecommendationOptionDefaultArgs<ExtArgs>
-  tripTraveler?: boolean | Prisma.TripTravelerDefaultArgs<ExtArgs>
   loyaltyProgram?: boolean | Prisma.RecommendationTravelerAllocation$loyaltyProgramArgs<ExtArgs>
   pointSourceClient?: boolean | Prisma.RecommendationTravelerAllocation$pointSourceClientArgs<ExtArgs>
+  recommendationOption?: boolean | Prisma.RecommendationOptionDefaultArgs<ExtArgs>
+  tripTraveler?: boolean | Prisma.TripTravelerDefaultArgs<ExtArgs>
 }, ExtArgs["result"]["recommendationTravelerAllocation"]>
 
 export type RecommendationTravelerAllocationSelectUpdateManyAndReturn<ExtArgs extends runtime.Types.Extensions.InternalArgs = runtime.Types.Extensions.DefaultArgs> = runtime.Types.Extensions.GetSelect<{
@@ -1222,10 +1222,10 @@ export type RecommendationTravelerAllocationSelectUpdateManyAndReturn<ExtArgs ex
   createdAt?: boolean
   pointSourceClientId?: boolean
   pointValueCents?: boolean
-  recommendationOption?: boolean | Prisma.RecommendationOptionDefaultArgs<ExtArgs>
-  tripTraveler?: boolean | Prisma.TripTravelerDefaultArgs<ExtArgs>
   loyaltyProgram?: boolean | Prisma.RecommendationTravelerAllocation$loyaltyProgramArgs<ExtArgs>
   pointSourceClient?: boolean | Prisma.RecommendationTravelerAllocation$pointSourceClientArgs<ExtArgs>
+  recommendationOption?: boolean | Prisma.RecommendationOptionDefaultArgs<ExtArgs>
+  tripTraveler?: boolean | Prisma.TripTravelerDefaultArgs<ExtArgs>
 }, ExtArgs["result"]["recommendationTravelerAllocation"]>
 
 export type RecommendationTravelerAllocationSelectScalar = {
@@ -1245,31 +1245,31 @@ export type RecommendationTravelerAllocationSelectScalar = {
 
 export type RecommendationTravelerAllocationOmit<ExtArgs extends runtime.Types.Extensions.InternalArgs = runtime.Types.Extensions.DefaultArgs> = runtime.Types.Extensions.GetOmit<"id" | "recommendationOptionId" | "tripTravelerId" | "paymentType" | "loyaltyProgramId" | "pointsUsed" | "cashUsed" | "taxesAndFees" | "rationale" | "createdAt" | "pointSourceClientId" | "pointValueCents", ExtArgs["result"]["recommendationTravelerAllocation"]>
 export type RecommendationTravelerAllocationInclude<ExtArgs extends runtime.Types.Extensions.InternalArgs = runtime.Types.Extensions.DefaultArgs> = {
-  recommendationOption?: boolean | Prisma.RecommendationOptionDefaultArgs<ExtArgs>
-  tripTraveler?: boolean | Prisma.TripTravelerDefaultArgs<ExtArgs>
   loyaltyProgram?: boolean | Prisma.RecommendationTravelerAllocation$loyaltyProgramArgs<ExtArgs>
   pointSourceClient?: boolean | Prisma.RecommendationTravelerAllocation$pointSourceClientArgs<ExtArgs>
+  recommendationOption?: boolean | Prisma.RecommendationOptionDefaultArgs<ExtArgs>
+  tripTraveler?: boolean | Prisma.TripTravelerDefaultArgs<ExtArgs>
 }
 export type RecommendationTravelerAllocationIncludeCreateManyAndReturn<ExtArgs extends runtime.Types.Extensions.InternalArgs = runtime.Types.Extensions.DefaultArgs> = {
-  recommendationOption?: boolean | Prisma.RecommendationOptionDefaultArgs<ExtArgs>
-  tripTraveler?: boolean | Prisma.TripTravelerDefaultArgs<ExtArgs>
   loyaltyProgram?: boolean | Prisma.RecommendationTravelerAllocation$loyaltyProgramArgs<ExtArgs>
   pointSourceClient?: boolean | Prisma.RecommendationTravelerAllocation$pointSourceClientArgs<ExtArgs>
+  recommendationOption?: boolean | Prisma.RecommendationOptionDefaultArgs<ExtArgs>
+  tripTraveler?: boolean | Prisma.TripTravelerDefaultArgs<ExtArgs>
 }
 export type RecommendationTravelerAllocationIncludeUpdateManyAndReturn<ExtArgs extends runtime.Types.Extensions.InternalArgs = runtime.Types.Extensions.DefaultArgs> = {
-  recommendationOption?: boolean | Prisma.RecommendationOptionDefaultArgs<ExtArgs>
-  tripTraveler?: boolean | Prisma.TripTravelerDefaultArgs<ExtArgs>
   loyaltyProgram?: boolean | Prisma.RecommendationTravelerAllocation$loyaltyProgramArgs<ExtArgs>
   pointSourceClient?: boolean | Prisma.RecommendationTravelerAllocation$pointSourceClientArgs<ExtArgs>
+  recommendationOption?: boolean | Prisma.RecommendationOptionDefaultArgs<ExtArgs>
+  tripTraveler?: boolean | Prisma.TripTravelerDefaultArgs<ExtArgs>
 }
 
 export type $RecommendationTravelerAllocationPayload<ExtArgs extends runtime.Types.Extensions.InternalArgs = runtime.Types.Extensions.DefaultArgs> = {
   name: "RecommendationTravelerAllocation"
   objects: {
-    recommendationOption: Prisma.$RecommendationOptionPayload<ExtArgs>
-    tripTraveler: Prisma.$TripTravelerPayload<ExtArgs>
     loyaltyProgram: Prisma.$LoyaltyProgramPayload<ExtArgs> | null
     pointSourceClient: Prisma.$ClientPayload<ExtArgs> | null
+    recommendationOption: Prisma.$RecommendationOptionPayload<ExtArgs>
+    tripTraveler: Prisma.$TripTravelerPayload<ExtArgs>
   }
   scalars: runtime.Types.Extensions.GetPayloadResult<{
     id: string
@@ -1678,10 +1678,10 @@ readonly fields: RecommendationTravelerAllocationFieldRefs;
  */
 export interface Prisma__RecommendationTravelerAllocationClient<T, Null = never, ExtArgs extends runtime.Types.Extensions.InternalArgs = runtime.Types.Extensions.DefaultArgs, GlobalOmitOptions = {}> extends Prisma.PrismaPromise<T> {
   readonly [Symbol.toStringTag]: "PrismaPromise"
-  recommendationOption<T extends Prisma.RecommendationOptionDefaultArgs<ExtArgs> = {}>(args?: Prisma.Subset<T, Prisma.RecommendationOptionDefaultArgs<ExtArgs>>): Prisma.Prisma__RecommendationOptionClient<runtime.Types.Result.GetResult<Prisma.$RecommendationOptionPayload<ExtArgs>, T, "findUniqueOrThrow", GlobalOmitOptions> | Null, Null, ExtArgs, GlobalOmitOptions>
-  tripTraveler<T extends Prisma.TripTravelerDefaultArgs<ExtArgs> = {}>(args?: Prisma.Subset<T, Prisma.TripTravelerDefaultArgs<ExtArgs>>): Prisma.Prisma__TripTravelerClient<runtime.Types.Result.GetResult<Prisma.$TripTravelerPayload<ExtArgs>, T, "findUniqueOrThrow", GlobalOmitOptions> | Null, Null, ExtArgs, GlobalOmitOptions>
   loyaltyProgram<T extends Prisma.RecommendationTravelerAllocation$loyaltyProgramArgs<ExtArgs> = {}>(args?: Prisma.Subset<T, Prisma.RecommendationTravelerAllocation$loyaltyProgramArgs<ExtArgs>>): Prisma.Prisma__LoyaltyProgramClient<runtime.Types.Result.GetResult<Prisma.$LoyaltyProgramPayload<ExtArgs>, T, "findUniqueOrThrow", GlobalOmitOptions> | null, null, ExtArgs, GlobalOmitOptions>
   pointSourceClient<T extends Prisma.RecommendationTravelerAllocation$pointSourceClientArgs<ExtArgs> = {}>(args?: Prisma.Subset<T, Prisma.RecommendationTravelerAllocation$pointSourceClientArgs<ExtArgs>>): Prisma.Prisma__ClientClient<runtime.Types.Result.GetResult<Prisma.$ClientPayload<ExtArgs>, T, "findUniqueOrThrow", GlobalOmitOptions> | null, null, ExtArgs, GlobalOmitOptions>
+  recommendationOption<T extends Prisma.RecommendationOptionDefaultArgs<ExtArgs> = {}>(args?: Prisma.Subset<T, Prisma.RecommendationOptionDefaultArgs<ExtArgs>>): Prisma.Prisma__RecommendationOptionClient<runtime.Types.Result.GetResult<Prisma.$RecommendationOptionPayload<ExtArgs>, T, "findUniqueOrThrow", GlobalOmitOptions> | Null, Null, ExtArgs, GlobalOmitOptions>
+  tripTraveler<T extends Prisma.TripTravelerDefaultArgs<ExtArgs> = {}>(args?: Prisma.Subset<T, Prisma.TripTravelerDefaultArgs<ExtArgs>>): Prisma.Prisma__TripTravelerClient<runtime.Types.Result.GetResult<Prisma.$TripTravelerPayload<ExtArgs>, T, "findUniqueOrThrow", GlobalOmitOptions> | Null, Null, ExtArgs, GlobalOmitOptions>
   /**
    * Attaches callbacks for the resolution and/or rejection of the Promise.
    * @param onfulfilled The callback to execute when the Promise is resolved.

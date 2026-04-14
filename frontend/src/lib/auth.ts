@@ -44,17 +44,27 @@ interface CognitoTokenData {
 
 async function verifyCognitoToken(token: string): Promise<CognitoTokenData | null> {
   const decoded = jwt.decode(token, { complete: true });
-  if (!decoded || typeof decoded === "string") return null;
+  if (!decoded || typeof decoded === "string") {
+    console.error("[auth] Failed to decode token");
+    return null;
+  }
 
   const kid = decoded.header.kid;
-  if (!kid) return null;
+  if (!kid) {
+    console.error("[auth] Token missing kid header");
+    return null;
+  }
 
   const pem = await getPublicKeyPem(kid);
-  if (!pem) return null;
+  if (!pem) {
+    console.error(`[auth] Could not get public key for kid=${kid}. COGNITO_USER_POOL_ID="${COGNITO_USER_POOL_ID}", JWKS_URL="${JWKS_URL}"`);
+    return null;
+  }
 
   try {
     jwt.verify(token, pem, { algorithms: ["RS256"] });
-  } catch {
+  } catch (err) {
+    console.error("[auth] Token signature verification failed:", err);
     return null;
   }
 
@@ -140,7 +150,8 @@ export async function getAuthUser(request: Request) {
 
   try {
     return await findOrCreatePrismaUser(cognitoData);
-  } catch {
+  } catch (err) {
+    console.error("[auth] findOrCreatePrismaUser failed (is PostgreSQL running and migrated?):", err);
     return null;
   }
 }

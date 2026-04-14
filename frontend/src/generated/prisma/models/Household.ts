@@ -190,11 +190,11 @@ export type HouseholdWhereInput = {
   notes?: Prisma.StringNullableFilter<"Household"> | string | null
   createdAt?: Prisma.DateTimeFilter<"Household"> | Date | string
   updatedAt?: Prisma.DateTimeFilter<"Household"> | Date | string
-  organization?: Prisma.XOR<Prisma.OrganizationScalarRelationFilter, Prisma.OrganizationWhereInput>
-  members?: Prisma.HouseholdMemberListRelationFilter
-  loyaltyBalances?: Prisma.ClientLoyaltyBalanceListRelationFilter
-  tripRequests?: Prisma.TripRequestListRelationFilter
   alertSubscriptions?: Prisma.AlertSubscriptionListRelationFilter
+  loyaltyBalances?: Prisma.ClientLoyaltyBalanceListRelationFilter
+  members?: Prisma.HouseholdMemberListRelationFilter
+  organization?: Prisma.XOR<Prisma.OrganizationScalarRelationFilter, Prisma.OrganizationWhereInput>
+  tripRequests?: Prisma.TripRequestListRelationFilter
 }
 
 export type HouseholdOrderByWithRelationInput = {
@@ -204,11 +204,11 @@ export type HouseholdOrderByWithRelationInput = {
   notes?: Prisma.SortOrderInput | Prisma.SortOrder
   createdAt?: Prisma.SortOrder
   updatedAt?: Prisma.SortOrder
-  organization?: Prisma.OrganizationOrderByWithRelationInput
-  members?: Prisma.HouseholdMemberOrderByRelationAggregateInput
-  loyaltyBalances?: Prisma.ClientLoyaltyBalanceOrderByRelationAggregateInput
-  tripRequests?: Prisma.TripRequestOrderByRelationAggregateInput
   alertSubscriptions?: Prisma.AlertSubscriptionOrderByRelationAggregateInput
+  loyaltyBalances?: Prisma.ClientLoyaltyBalanceOrderByRelationAggregateInput
+  members?: Prisma.HouseholdMemberOrderByRelationAggregateInput
+  organization?: Prisma.OrganizationOrderByWithRelationInput
+  tripRequests?: Prisma.TripRequestOrderByRelationAggregateInput
 }
 
 export type HouseholdWhereUniqueInput = Prisma.AtLeast<{
@@ -221,11 +221,11 @@ export type HouseholdWhereUniqueInput = Prisma.AtLeast<{
   notes?: Prisma.StringNullableFilter<"Household"> | string | null
   createdAt?: Prisma.DateTimeFilter<"Household"> | Date | string
   updatedAt?: Prisma.DateTimeFilter<"Household"> | Date | string
-  organization?: Prisma.XOR<Prisma.OrganizationScalarRelationFilter, Prisma.OrganizationWhereInput>
-  members?: Prisma.HouseholdMemberListRelationFilter
-  loyaltyBalances?: Prisma.ClientLoyaltyBalanceListRelationFilter
-  tripRequests?: Prisma.TripRequestListRelationFilter
   alertSubscriptions?: Prisma.AlertSubscriptionListRelationFilter
+  loyaltyBalances?: Prisma.ClientLoyaltyBalanceListRelationFilter
+  members?: Prisma.HouseholdMemberListRelationFilter
+  organization?: Prisma.XOR<Prisma.OrganizationScalarRelationFilter, Prisma.OrganizationWhereInput>
+  tripRequests?: Prisma.TripRequestListRelationFilter
 }, "id">
 
 export type HouseholdOrderByWithAggregationInput = {
@@ -258,11 +258,11 @@ export type HouseholdCreateInput = {
   notes?: string | null
   createdAt?: Date | string
   updatedAt?: Date | string
-  organization: Prisma.OrganizationCreateNestedOneWithoutHouseholdsInput
-  members?: Prisma.HouseholdMemberCreateNestedManyWithoutHouseholdInput
-  loyaltyBalances?: Prisma.ClientLoyaltyBalanceCreateNestedManyWithoutHouseholdInput
-  tripRequests?: Prisma.TripRequestCreateNestedManyWithoutHouseholdInput
   alertSubscriptions?: Prisma.AlertSubscriptionCreateNestedManyWithoutHouseholdInput
+  loyaltyBalances?: Prisma.ClientLoyaltyBalanceCreateNestedManyWithoutHouseholdInput
+  members?: Prisma.HouseholdMemberCreateNestedManyWithoutHouseholdInput
+  organization: Prisma.OrganizationCreateNestedOneWithoutHouseholdsInput
+  tripRequests?: Prisma.TripRequestCreateNestedManyWithoutHouseholdInput
 }
 
 export type HouseholdUncheckedCreateInput = {
@@ -272,10 +272,10 @@ export type HouseholdUncheckedCreateInput = {
   notes?: string | null
   createdAt?: Date | string
   updatedAt?: Date | string
-  members?: Prisma.HouseholdMemberUncheckedCreateNestedManyWithoutHouseholdInput
-  loyaltyBalances?: Prisma.ClientLoyaltyBalanceUncheckedCreateNestedManyWithoutHouseholdInput
-  tripRequests?: Prisma.TripRequestUncheckedCreateNestedManyWithoutHouseholdInput
   alertSubscriptions?: Prisma.AlertSubscriptionUncheckedCreateNestedManyWithoutHouseholdInput
+  loyaltyBalances?: Prisma.ClientLoyaltyBalanceUncheckedCreateNestedManyWithoutHouseholdInput
+  members?: Prisma.HouseholdMemberUncheckedCreateNestedManyWithoutHouseholdInput
+  tripRequests?: Prisma.TripRequestUncheckedCreateNestedManyWithoutHouseholdInput
 }
 
 export type HouseholdUpdateInput = {
@@ -284,11 +284,11 @@ export type HouseholdUpdateInput = {
   notes?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
   createdAt?: Prisma.DateTimeFieldUpdateOperationsInput | Date | string
   updatedAt?: Prisma.DateTimeFieldUpdateOperationsInput | Date | string
-  organization?: Prisma.OrganizationUpdateOneRequiredWithoutHouseholdsNestedInput
-  members?: Prisma.HouseholdMemberUpdateManyWithoutHouseholdNestedInput
-  loyaltyBalances?: Prisma.ClientLoyaltyBalanceUpdateManyWithoutHouseholdNestedInput
-  tripRequests?: Prisma.TripRequestUpdateManyWithoutHouseholdNestedInput
   alertSubscriptions?: Prisma.AlertSubscriptionUpdateManyWithoutHouseholdNestedInput
+  loyaltyBalances?: Prisma.ClientLoyaltyBalanceUpdateManyWithoutHouseholdNestedInput
+  members?: Prisma.HouseholdMemberUpdateManyWithoutHouseholdNestedInput
+  organization?: Prisma.OrganizationUpdateOneRequiredWithoutHouseholdsNestedInput
+  tripRequests?: Prisma.TripRequestUpdateManyWithoutHouseholdNestedInput
 }
 
 export type HouseholdUncheckedUpdateInput = {
@@ -298,10 +298,10 @@ export type HouseholdUncheckedUpdateInput = {
   notes?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
   createdAt?: Prisma.DateTimeFieldUpdateOperationsInput | Date | string
   updatedAt?: Prisma.DateTimeFieldUpdateOperationsInput | Date | string
-  members?: Prisma.HouseholdMemberUncheckedUpdateManyWithoutHouseholdNestedInput
-  loyaltyBalances?: Prisma.ClientLoyaltyBalanceUncheckedUpdateManyWithoutHouseholdNestedInput
-  tripRequests?: Prisma.TripRequestUncheckedUpdateManyWithoutHouseholdNestedInput
   alertSubscriptions?: Prisma.AlertSubscriptionUncheckedUpdateManyWithoutHouseholdNestedInput
+  loyaltyBalances?: Prisma.ClientLoyaltyBalanceUncheckedUpdateManyWithoutHouseholdNestedInput
+  members?: Prisma.HouseholdMemberUncheckedUpdateManyWithoutHouseholdNestedInput
+  tripRequests?: Prisma.TripRequestUncheckedUpdateManyWithoutHouseholdNestedInput
 }
 
 export type HouseholdCreateManyInput = {
@@ -487,10 +487,10 @@ export type HouseholdCreateWithoutOrganizationInput = {
   notes?: string | null
   createdAt?: Date | string
   updatedAt?: Date | string
-  members?: Prisma.HouseholdMemberCreateNestedManyWithoutHouseholdInput
-  loyaltyBalances?: Prisma.ClientLoyaltyBalanceCreateNestedManyWithoutHouseholdInput
-  tripRequests?: Prisma.TripRequestCreateNestedManyWithoutHouseholdInput
   alertSubscriptions?: Prisma.AlertSubscriptionCreateNestedManyWithoutHouseholdInput
+  loyaltyBalances?: Prisma.ClientLoyaltyBalanceCreateNestedManyWithoutHouseholdInput
+  members?: Prisma.HouseholdMemberCreateNestedManyWithoutHouseholdInput
+  tripRequests?: Prisma.TripRequestCreateNestedManyWithoutHouseholdInput
 }
 
 export type HouseholdUncheckedCreateWithoutOrganizationInput = {
@@ -499,10 +499,10 @@ export type HouseholdUncheckedCreateWithoutOrganizationInput = {
   notes?: string | null
   createdAt?: Date | string
   updatedAt?: Date | string
-  members?: Prisma.HouseholdMemberUncheckedCreateNestedManyWithoutHouseholdInput
-  loyaltyBalances?: Prisma.ClientLoyaltyBalanceUncheckedCreateNestedManyWithoutHouseholdInput
-  tripRequests?: Prisma.TripRequestUncheckedCreateNestedManyWithoutHouseholdInput
   alertSubscriptions?: Prisma.AlertSubscriptionUncheckedCreateNestedManyWithoutHouseholdInput
+  loyaltyBalances?: Prisma.ClientLoyaltyBalanceUncheckedCreateNestedManyWithoutHouseholdInput
+  members?: Prisma.HouseholdMemberUncheckedCreateNestedManyWithoutHouseholdInput
+  tripRequests?: Prisma.TripRequestUncheckedCreateNestedManyWithoutHouseholdInput
 }
 
 export type HouseholdCreateOrConnectWithoutOrganizationInput = {
@@ -549,10 +549,10 @@ export type HouseholdCreateWithoutMembersInput = {
   notes?: string | null
   createdAt?: Date | string
   updatedAt?: Date | string
-  organization: Prisma.OrganizationCreateNestedOneWithoutHouseholdsInput
-  loyaltyBalances?: Prisma.ClientLoyaltyBalanceCreateNestedManyWithoutHouseholdInput
-  tripRequests?: Prisma.TripRequestCreateNestedManyWithoutHouseholdInput
   alertSubscriptions?: Prisma.AlertSubscriptionCreateNestedManyWithoutHouseholdInput
+  loyaltyBalances?: Prisma.ClientLoyaltyBalanceCreateNestedManyWithoutHouseholdInput
+  organization: Prisma.OrganizationCreateNestedOneWithoutHouseholdsInput
+  tripRequests?: Prisma.TripRequestCreateNestedManyWithoutHouseholdInput
 }
 
 export type HouseholdUncheckedCreateWithoutMembersInput = {
@@ -562,9 +562,9 @@ export type HouseholdUncheckedCreateWithoutMembersInput = {
   notes?: string | null
   createdAt?: Date | string
   updatedAt?: Date | string
+  alertSubscriptions?: Prisma.AlertSubscriptionUncheckedCreateNestedManyWithoutHouseholdInput
   loyaltyBalances?: Prisma.ClientLoyaltyBalanceUncheckedCreateNestedManyWithoutHouseholdInput
   tripRequests?: Prisma.TripRequestUncheckedCreateNestedManyWithoutHouseholdInput
-  alertSubscriptions?: Prisma.AlertSubscriptionUncheckedCreateNestedManyWithoutHouseholdInput
 }
 
 export type HouseholdCreateOrConnectWithoutMembersInput = {
@@ -589,10 +589,10 @@ export type HouseholdUpdateWithoutMembersInput = {
   notes?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
   createdAt?: Prisma.DateTimeFieldUpdateOperationsInput | Date | string
   updatedAt?: Prisma.DateTimeFieldUpdateOperationsInput | Date | string
-  organization?: Prisma.OrganizationUpdateOneRequiredWithoutHouseholdsNestedInput
-  loyaltyBalances?: Prisma.ClientLoyaltyBalanceUpdateManyWithoutHouseholdNestedInput
-  tripRequests?: Prisma.TripRequestUpdateManyWithoutHouseholdNestedInput
   alertSubscriptions?: Prisma.AlertSubscriptionUpdateManyWithoutHouseholdNestedInput
+  loyaltyBalances?: Prisma.ClientLoyaltyBalanceUpdateManyWithoutHouseholdNestedInput
+  organization?: Prisma.OrganizationUpdateOneRequiredWithoutHouseholdsNestedInput
+  tripRequests?: Prisma.TripRequestUpdateManyWithoutHouseholdNestedInput
 }
 
 export type HouseholdUncheckedUpdateWithoutMembersInput = {
@@ -602,9 +602,9 @@ export type HouseholdUncheckedUpdateWithoutMembersInput = {
   notes?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
   createdAt?: Prisma.DateTimeFieldUpdateOperationsInput | Date | string
   updatedAt?: Prisma.DateTimeFieldUpdateOperationsInput | Date | string
+  alertSubscriptions?: Prisma.AlertSubscriptionUncheckedUpdateManyWithoutHouseholdNestedInput
   loyaltyBalances?: Prisma.ClientLoyaltyBalanceUncheckedUpdateManyWithoutHouseholdNestedInput
   tripRequests?: Prisma.TripRequestUncheckedUpdateManyWithoutHouseholdNestedInput
-  alertSubscriptions?: Prisma.AlertSubscriptionUncheckedUpdateManyWithoutHouseholdNestedInput
 }
 
 export type HouseholdCreateWithoutLoyaltyBalancesInput = {
@@ -613,10 +613,10 @@ export type HouseholdCreateWithoutLoyaltyBalancesInput = {
   notes?: string | null
   createdAt?: Date | string
   updatedAt?: Date | string
-  organization: Prisma.OrganizationCreateNestedOneWithoutHouseholdsInput
-  members?: Prisma.HouseholdMemberCreateNestedManyWithoutHouseholdInput
-  tripRequests?: Prisma.TripRequestCreateNestedManyWithoutHouseholdInput
   alertSubscriptions?: Prisma.AlertSubscriptionCreateNestedManyWithoutHouseholdInput
+  members?: Prisma.HouseholdMemberCreateNestedManyWithoutHouseholdInput
+  organization: Prisma.OrganizationCreateNestedOneWithoutHouseholdsInput
+  tripRequests?: Prisma.TripRequestCreateNestedManyWithoutHouseholdInput
 }
 
 export type HouseholdUncheckedCreateWithoutLoyaltyBalancesInput = {
@@ -626,9 +626,9 @@ export type HouseholdUncheckedCreateWithoutLoyaltyBalancesInput = {
   notes?: string | null
   createdAt?: Date | string
   updatedAt?: Date | string
+  alertSubscriptions?: Prisma.AlertSubscriptionUncheckedCreateNestedManyWithoutHouseholdInput
   members?: Prisma.HouseholdMemberUncheckedCreateNestedManyWithoutHouseholdInput
   tripRequests?: Prisma.TripRequestUncheckedCreateNestedManyWithoutHouseholdInput
-  alertSubscriptions?: Prisma.AlertSubscriptionUncheckedCreateNestedManyWithoutHouseholdInput
 }
 
 export type HouseholdCreateOrConnectWithoutLoyaltyBalancesInput = {
@@ -653,10 +653,10 @@ export type HouseholdUpdateWithoutLoyaltyBalancesInput = {
   notes?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
   createdAt?: Prisma.DateTimeFieldUpdateOperationsInput | Date | string
   updatedAt?: Prisma.DateTimeFieldUpdateOperationsInput | Date | string
-  organization?: Prisma.OrganizationUpdateOneRequiredWithoutHouseholdsNestedInput
-  members?: Prisma.HouseholdMemberUpdateManyWithoutHouseholdNestedInput
-  tripRequests?: Prisma.TripRequestUpdateManyWithoutHouseholdNestedInput
   alertSubscriptions?: Prisma.AlertSubscriptionUpdateManyWithoutHouseholdNestedInput
+  members?: Prisma.HouseholdMemberUpdateManyWithoutHouseholdNestedInput
+  organization?: Prisma.OrganizationUpdateOneRequiredWithoutHouseholdsNestedInput
+  tripRequests?: Prisma.TripRequestUpdateManyWithoutHouseholdNestedInput
 }
 
 export type HouseholdUncheckedUpdateWithoutLoyaltyBalancesInput = {
@@ -666,9 +666,9 @@ export type HouseholdUncheckedUpdateWithoutLoyaltyBalancesInput = {
   notes?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
   createdAt?: Prisma.DateTimeFieldUpdateOperationsInput | Date | string
   updatedAt?: Prisma.DateTimeFieldUpdateOperationsInput | Date | string
+  alertSubscriptions?: Prisma.AlertSubscriptionUncheckedUpdateManyWithoutHouseholdNestedInput
   members?: Prisma.HouseholdMemberUncheckedUpdateManyWithoutHouseholdNestedInput
   tripRequests?: Prisma.TripRequestUncheckedUpdateManyWithoutHouseholdNestedInput
-  alertSubscriptions?: Prisma.AlertSubscriptionUncheckedUpdateManyWithoutHouseholdNestedInput
 }
 
 export type HouseholdCreateWithoutTripRequestsInput = {
@@ -677,10 +677,10 @@ export type HouseholdCreateWithoutTripRequestsInput = {
   notes?: string | null
   createdAt?: Date | string
   updatedAt?: Date | string
-  organization: Prisma.OrganizationCreateNestedOneWithoutHouseholdsInput
-  members?: Prisma.HouseholdMemberCreateNestedManyWithoutHouseholdInput
-  loyaltyBalances?: Prisma.ClientLoyaltyBalanceCreateNestedManyWithoutHouseholdInput
   alertSubscriptions?: Prisma.AlertSubscriptionCreateNestedManyWithoutHouseholdInput
+  loyaltyBalances?: Prisma.ClientLoyaltyBalanceCreateNestedManyWithoutHouseholdInput
+  members?: Prisma.HouseholdMemberCreateNestedManyWithoutHouseholdInput
+  organization: Prisma.OrganizationCreateNestedOneWithoutHouseholdsInput
 }
 
 export type HouseholdUncheckedCreateWithoutTripRequestsInput = {
@@ -690,9 +690,9 @@ export type HouseholdUncheckedCreateWithoutTripRequestsInput = {
   notes?: string | null
   createdAt?: Date | string
   updatedAt?: Date | string
-  members?: Prisma.HouseholdMemberUncheckedCreateNestedManyWithoutHouseholdInput
-  loyaltyBalances?: Prisma.ClientLoyaltyBalanceUncheckedCreateNestedManyWithoutHouseholdInput
   alertSubscriptions?: Prisma.AlertSubscriptionUncheckedCreateNestedManyWithoutHouseholdInput
+  loyaltyBalances?: Prisma.ClientLoyaltyBalanceUncheckedCreateNestedManyWithoutHouseholdInput
+  members?: Prisma.HouseholdMemberUncheckedCreateNestedManyWithoutHouseholdInput
 }
 
 export type HouseholdCreateOrConnectWithoutTripRequestsInput = {
@@ -717,10 +717,10 @@ export type HouseholdUpdateWithoutTripRequestsInput = {
   notes?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
   createdAt?: Prisma.DateTimeFieldUpdateOperationsInput | Date | string
   updatedAt?: Prisma.DateTimeFieldUpdateOperationsInput | Date | string
-  organization?: Prisma.OrganizationUpdateOneRequiredWithoutHouseholdsNestedInput
-  members?: Prisma.HouseholdMemberUpdateManyWithoutHouseholdNestedInput
-  loyaltyBalances?: Prisma.ClientLoyaltyBalanceUpdateManyWithoutHouseholdNestedInput
   alertSubscriptions?: Prisma.AlertSubscriptionUpdateManyWithoutHouseholdNestedInput
+  loyaltyBalances?: Prisma.ClientLoyaltyBalanceUpdateManyWithoutHouseholdNestedInput
+  members?: Prisma.HouseholdMemberUpdateManyWithoutHouseholdNestedInput
+  organization?: Prisma.OrganizationUpdateOneRequiredWithoutHouseholdsNestedInput
 }
 
 export type HouseholdUncheckedUpdateWithoutTripRequestsInput = {
@@ -730,9 +730,9 @@ export type HouseholdUncheckedUpdateWithoutTripRequestsInput = {
   notes?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
   createdAt?: Prisma.DateTimeFieldUpdateOperationsInput | Date | string
   updatedAt?: Prisma.DateTimeFieldUpdateOperationsInput | Date | string
-  members?: Prisma.HouseholdMemberUncheckedUpdateManyWithoutHouseholdNestedInput
-  loyaltyBalances?: Prisma.ClientLoyaltyBalanceUncheckedUpdateManyWithoutHouseholdNestedInput
   alertSubscriptions?: Prisma.AlertSubscriptionUncheckedUpdateManyWithoutHouseholdNestedInput
+  loyaltyBalances?: Prisma.ClientLoyaltyBalanceUncheckedUpdateManyWithoutHouseholdNestedInput
+  members?: Prisma.HouseholdMemberUncheckedUpdateManyWithoutHouseholdNestedInput
 }
 
 export type HouseholdCreateWithoutAlertSubscriptionsInput = {
@@ -741,9 +741,9 @@ export type HouseholdCreateWithoutAlertSubscriptionsInput = {
   notes?: string | null
   createdAt?: Date | string
   updatedAt?: Date | string
-  organization: Prisma.OrganizationCreateNestedOneWithoutHouseholdsInput
-  members?: Prisma.HouseholdMemberCreateNestedManyWithoutHouseholdInput
   loyaltyBalances?: Prisma.ClientLoyaltyBalanceCreateNestedManyWithoutHouseholdInput
+  members?: Prisma.HouseholdMemberCreateNestedManyWithoutHouseholdInput
+  organization: Prisma.OrganizationCreateNestedOneWithoutHouseholdsInput
   tripRequests?: Prisma.TripRequestCreateNestedManyWithoutHouseholdInput
 }
 
@@ -754,8 +754,8 @@ export type HouseholdUncheckedCreateWithoutAlertSubscriptionsInput = {
   notes?: string | null
   createdAt?: Date | string
   updatedAt?: Date | string
-  members?: Prisma.HouseholdMemberUncheckedCreateNestedManyWithoutHouseholdInput
   loyaltyBalances?: Prisma.ClientLoyaltyBalanceUncheckedCreateNestedManyWithoutHouseholdInput
+  members?: Prisma.HouseholdMemberUncheckedCreateNestedManyWithoutHouseholdInput
   tripRequests?: Prisma.TripRequestUncheckedCreateNestedManyWithoutHouseholdInput
 }
 
@@ -781,9 +781,9 @@ export type HouseholdUpdateWithoutAlertSubscriptionsInput = {
   notes?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
   createdAt?: Prisma.DateTimeFieldUpdateOperationsInput | Date | string
   updatedAt?: Prisma.DateTimeFieldUpdateOperationsInput | Date | string
-  organization?: Prisma.OrganizationUpdateOneRequiredWithoutHouseholdsNestedInput
-  members?: Prisma.HouseholdMemberUpdateManyWithoutHouseholdNestedInput
   loyaltyBalances?: Prisma.ClientLoyaltyBalanceUpdateManyWithoutHouseholdNestedInput
+  members?: Prisma.HouseholdMemberUpdateManyWithoutHouseholdNestedInput
+  organization?: Prisma.OrganizationUpdateOneRequiredWithoutHouseholdsNestedInput
   tripRequests?: Prisma.TripRequestUpdateManyWithoutHouseholdNestedInput
 }
 
@@ -794,8 +794,8 @@ export type HouseholdUncheckedUpdateWithoutAlertSubscriptionsInput = {
   notes?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
   createdAt?: Prisma.DateTimeFieldUpdateOperationsInput | Date | string
   updatedAt?: Prisma.DateTimeFieldUpdateOperationsInput | Date | string
-  members?: Prisma.HouseholdMemberUncheckedUpdateManyWithoutHouseholdNestedInput
   loyaltyBalances?: Prisma.ClientLoyaltyBalanceUncheckedUpdateManyWithoutHouseholdNestedInput
+  members?: Prisma.HouseholdMemberUncheckedUpdateManyWithoutHouseholdNestedInput
   tripRequests?: Prisma.TripRequestUncheckedUpdateManyWithoutHouseholdNestedInput
 }
 
@@ -813,10 +813,10 @@ export type HouseholdUpdateWithoutOrganizationInput = {
   notes?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
   createdAt?: Prisma.DateTimeFieldUpdateOperationsInput | Date | string
   updatedAt?: Prisma.DateTimeFieldUpdateOperationsInput | Date | string
-  members?: Prisma.HouseholdMemberUpdateManyWithoutHouseholdNestedInput
-  loyaltyBalances?: Prisma.ClientLoyaltyBalanceUpdateManyWithoutHouseholdNestedInput
-  tripRequests?: Prisma.TripRequestUpdateManyWithoutHouseholdNestedInput
   alertSubscriptions?: Prisma.AlertSubscriptionUpdateManyWithoutHouseholdNestedInput
+  loyaltyBalances?: Prisma.ClientLoyaltyBalanceUpdateManyWithoutHouseholdNestedInput
+  members?: Prisma.HouseholdMemberUpdateManyWithoutHouseholdNestedInput
+  tripRequests?: Prisma.TripRequestUpdateManyWithoutHouseholdNestedInput
 }
 
 export type HouseholdUncheckedUpdateWithoutOrganizationInput = {
@@ -825,10 +825,10 @@ export type HouseholdUncheckedUpdateWithoutOrganizationInput = {
   notes?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
   createdAt?: Prisma.DateTimeFieldUpdateOperationsInput | Date | string
   updatedAt?: Prisma.DateTimeFieldUpdateOperationsInput | Date | string
-  members?: Prisma.HouseholdMemberUncheckedUpdateManyWithoutHouseholdNestedInput
-  loyaltyBalances?: Prisma.ClientLoyaltyBalanceUncheckedUpdateManyWithoutHouseholdNestedInput
-  tripRequests?: Prisma.TripRequestUncheckedUpdateManyWithoutHouseholdNestedInput
   alertSubscriptions?: Prisma.AlertSubscriptionUncheckedUpdateManyWithoutHouseholdNestedInput
+  loyaltyBalances?: Prisma.ClientLoyaltyBalanceUncheckedUpdateManyWithoutHouseholdNestedInput
+  members?: Prisma.HouseholdMemberUncheckedUpdateManyWithoutHouseholdNestedInput
+  tripRequests?: Prisma.TripRequestUncheckedUpdateManyWithoutHouseholdNestedInput
 }
 
 export type HouseholdUncheckedUpdateManyWithoutOrganizationInput = {
@@ -845,17 +845,17 @@ export type HouseholdUncheckedUpdateManyWithoutOrganizationInput = {
  */
 
 export type HouseholdCountOutputType = {
-  members: number
-  loyaltyBalances: number
-  tripRequests: number
   alertSubscriptions: number
+  loyaltyBalances: number
+  members: number
+  tripRequests: number
 }
 
 export type HouseholdCountOutputTypeSelect<ExtArgs extends runtime.Types.Extensions.InternalArgs = runtime.Types.Extensions.DefaultArgs> = {
-  members?: boolean | HouseholdCountOutputTypeCountMembersArgs
-  loyaltyBalances?: boolean | HouseholdCountOutputTypeCountLoyaltyBalancesArgs
-  tripRequests?: boolean | HouseholdCountOutputTypeCountTripRequestsArgs
   alertSubscriptions?: boolean | HouseholdCountOutputTypeCountAlertSubscriptionsArgs
+  loyaltyBalances?: boolean | HouseholdCountOutputTypeCountLoyaltyBalancesArgs
+  members?: boolean | HouseholdCountOutputTypeCountMembersArgs
+  tripRequests?: boolean | HouseholdCountOutputTypeCountTripRequestsArgs
 }
 
 /**
@@ -871,8 +871,8 @@ export type HouseholdCountOutputTypeDefaultArgs<ExtArgs extends runtime.Types.Ex
 /**
  * HouseholdCountOutputType without action
  */
-export type HouseholdCountOutputTypeCountMembersArgs<ExtArgs extends runtime.Types.Extensions.InternalArgs = runtime.Types.Extensions.DefaultArgs> = {
-  where?: Prisma.HouseholdMemberWhereInput
+export type HouseholdCountOutputTypeCountAlertSubscriptionsArgs<ExtArgs extends runtime.Types.Extensions.InternalArgs = runtime.Types.Extensions.DefaultArgs> = {
+  where?: Prisma.AlertSubscriptionWhereInput
 }
 
 /**
@@ -885,15 +885,15 @@ export type HouseholdCountOutputTypeCountLoyaltyBalancesArgs<ExtArgs extends run
 /**
  * HouseholdCountOutputType without action
  */
-export type HouseholdCountOutputTypeCountTripRequestsArgs<ExtArgs extends runtime.Types.Extensions.InternalArgs = runtime.Types.Extensions.DefaultArgs> = {
-  where?: Prisma.TripRequestWhereInput
+export type HouseholdCountOutputTypeCountMembersArgs<ExtArgs extends runtime.Types.Extensions.InternalArgs = runtime.Types.Extensions.DefaultArgs> = {
+  where?: Prisma.HouseholdMemberWhereInput
 }
 
 /**
  * HouseholdCountOutputType without action
  */
-export type HouseholdCountOutputTypeCountAlertSubscriptionsArgs<ExtArgs extends runtime.Types.Extensions.InternalArgs = runtime.Types.Extensions.DefaultArgs> = {
-  where?: Prisma.AlertSubscriptionWhereInput
+export type HouseholdCountOutputTypeCountTripRequestsArgs<ExtArgs extends runtime.Types.Extensions.InternalArgs = runtime.Types.Extensions.DefaultArgs> = {
+  where?: Prisma.TripRequestWhereInput
 }
 
 
@@ -904,11 +904,11 @@ export type HouseholdSelect<ExtArgs extends runtime.Types.Extensions.InternalArg
   notes?: boolean
   createdAt?: boolean
   updatedAt?: boolean
-  organization?: boolean | Prisma.OrganizationDefaultArgs<ExtArgs>
-  members?: boolean | Prisma.Household$membersArgs<ExtArgs>
-  loyaltyBalances?: boolean | Prisma.Household$loyaltyBalancesArgs<ExtArgs>
-  tripRequests?: boolean | Prisma.Household$tripRequestsArgs<ExtArgs>
   alertSubscriptions?: boolean | Prisma.Household$alertSubscriptionsArgs<ExtArgs>
+  loyaltyBalances?: boolean | Prisma.Household$loyaltyBalancesArgs<ExtArgs>
+  members?: boolean | Prisma.Household$membersArgs<ExtArgs>
+  organization?: boolean | Prisma.OrganizationDefaultArgs<ExtArgs>
+  tripRequests?: boolean | Prisma.Household$tripRequestsArgs<ExtArgs>
   _count?: boolean | Prisma.HouseholdCountOutputTypeDefaultArgs<ExtArgs>
 }, ExtArgs["result"]["household"]>
 
@@ -943,11 +943,11 @@ export type HouseholdSelectScalar = {
 
 export type HouseholdOmit<ExtArgs extends runtime.Types.Extensions.InternalArgs = runtime.Types.Extensions.DefaultArgs> = runtime.Types.Extensions.GetOmit<"id" | "organizationId" | "name" | "notes" | "createdAt" | "updatedAt", ExtArgs["result"]["household"]>
 export type HouseholdInclude<ExtArgs extends runtime.Types.Extensions.InternalArgs = runtime.Types.Extensions.DefaultArgs> = {
-  organization?: boolean | Prisma.OrganizationDefaultArgs<ExtArgs>
-  members?: boolean | Prisma.Household$membersArgs<ExtArgs>
-  loyaltyBalances?: boolean | Prisma.Household$loyaltyBalancesArgs<ExtArgs>
-  tripRequests?: boolean | Prisma.Household$tripRequestsArgs<ExtArgs>
   alertSubscriptions?: boolean | Prisma.Household$alertSubscriptionsArgs<ExtArgs>
+  loyaltyBalances?: boolean | Prisma.Household$loyaltyBalancesArgs<ExtArgs>
+  members?: boolean | Prisma.Household$membersArgs<ExtArgs>
+  organization?: boolean | Prisma.OrganizationDefaultArgs<ExtArgs>
+  tripRequests?: boolean | Prisma.Household$tripRequestsArgs<ExtArgs>
   _count?: boolean | Prisma.HouseholdCountOutputTypeDefaultArgs<ExtArgs>
 }
 export type HouseholdIncludeCreateManyAndReturn<ExtArgs extends runtime.Types.Extensions.InternalArgs = runtime.Types.Extensions.DefaultArgs> = {
@@ -960,11 +960,11 @@ export type HouseholdIncludeUpdateManyAndReturn<ExtArgs extends runtime.Types.Ex
 export type $HouseholdPayload<ExtArgs extends runtime.Types.Extensions.InternalArgs = runtime.Types.Extensions.DefaultArgs> = {
   name: "Household"
   objects: {
-    organization: Prisma.$OrganizationPayload<ExtArgs>
-    members: Prisma.$HouseholdMemberPayload<ExtArgs>[]
-    loyaltyBalances: Prisma.$ClientLoyaltyBalancePayload<ExtArgs>[]
-    tripRequests: Prisma.$TripRequestPayload<ExtArgs>[]
     alertSubscriptions: Prisma.$AlertSubscriptionPayload<ExtArgs>[]
+    loyaltyBalances: Prisma.$ClientLoyaltyBalancePayload<ExtArgs>[]
+    members: Prisma.$HouseholdMemberPayload<ExtArgs>[]
+    organization: Prisma.$OrganizationPayload<ExtArgs>
+    tripRequests: Prisma.$TripRequestPayload<ExtArgs>[]
   }
   scalars: runtime.Types.Extensions.GetPayloadResult<{
     id: string
@@ -1367,11 +1367,11 @@ readonly fields: HouseholdFieldRefs;
  */
 export interface Prisma__HouseholdClient<T, Null = never, ExtArgs extends runtime.Types.Extensions.InternalArgs = runtime.Types.Extensions.DefaultArgs, GlobalOmitOptions = {}> extends Prisma.PrismaPromise<T> {
   readonly [Symbol.toStringTag]: "PrismaPromise"
-  organization<T extends Prisma.OrganizationDefaultArgs<ExtArgs> = {}>(args?: Prisma.Subset<T, Prisma.OrganizationDefaultArgs<ExtArgs>>): Prisma.Prisma__OrganizationClient<runtime.Types.Result.GetResult<Prisma.$OrganizationPayload<ExtArgs>, T, "findUniqueOrThrow", GlobalOmitOptions> | Null, Null, ExtArgs, GlobalOmitOptions>
-  members<T extends Prisma.Household$membersArgs<ExtArgs> = {}>(args?: Prisma.Subset<T, Prisma.Household$membersArgs<ExtArgs>>): Prisma.PrismaPromise<runtime.Types.Result.GetResult<Prisma.$HouseholdMemberPayload<ExtArgs>, T, "findMany", GlobalOmitOptions> | Null>
-  loyaltyBalances<T extends Prisma.Household$loyaltyBalancesArgs<ExtArgs> = {}>(args?: Prisma.Subset<T, Prisma.Household$loyaltyBalancesArgs<ExtArgs>>): Prisma.PrismaPromise<runtime.Types.Result.GetResult<Prisma.$ClientLoyaltyBalancePayload<ExtArgs>, T, "findMany", GlobalOmitOptions> | Null>
-  tripRequests<T extends Prisma.Household$tripRequestsArgs<ExtArgs> = {}>(args?: Prisma.Subset<T, Prisma.Household$tripRequestsArgs<ExtArgs>>): Prisma.PrismaPromise<runtime.Types.Result.GetResult<Prisma.$TripRequestPayload<ExtArgs>, T, "findMany", GlobalOmitOptions> | Null>
   alertSubscriptions<T extends Prisma.Household$alertSubscriptionsArgs<ExtArgs> = {}>(args?: Prisma.Subset<T, Prisma.Household$alertSubscriptionsArgs<ExtArgs>>): Prisma.PrismaPromise<runtime.Types.Result.GetResult<Prisma.$AlertSubscriptionPayload<ExtArgs>, T, "findMany", GlobalOmitOptions> | Null>
+  loyaltyBalances<T extends Prisma.Household$loyaltyBalancesArgs<ExtArgs> = {}>(args?: Prisma.Subset<T, Prisma.Household$loyaltyBalancesArgs<ExtArgs>>): Prisma.PrismaPromise<runtime.Types.Result.GetResult<Prisma.$ClientLoyaltyBalancePayload<ExtArgs>, T, "findMany", GlobalOmitOptions> | Null>
+  members<T extends Prisma.Household$membersArgs<ExtArgs> = {}>(args?: Prisma.Subset<T, Prisma.Household$membersArgs<ExtArgs>>): Prisma.PrismaPromise<runtime.Types.Result.GetResult<Prisma.$HouseholdMemberPayload<ExtArgs>, T, "findMany", GlobalOmitOptions> | Null>
+  organization<T extends Prisma.OrganizationDefaultArgs<ExtArgs> = {}>(args?: Prisma.Subset<T, Prisma.OrganizationDefaultArgs<ExtArgs>>): Prisma.Prisma__OrganizationClient<runtime.Types.Result.GetResult<Prisma.$OrganizationPayload<ExtArgs>, T, "findUniqueOrThrow", GlobalOmitOptions> | Null, Null, ExtArgs, GlobalOmitOptions>
+  tripRequests<T extends Prisma.Household$tripRequestsArgs<ExtArgs> = {}>(args?: Prisma.Subset<T, Prisma.Household$tripRequestsArgs<ExtArgs>>): Prisma.PrismaPromise<runtime.Types.Result.GetResult<Prisma.$TripRequestPayload<ExtArgs>, T, "findMany", GlobalOmitOptions> | Null>
   /**
    * Attaches callbacks for the resolution and/or rejection of the Promise.
    * @param onfulfilled The callback to execute when the Promise is resolved.
@@ -1808,27 +1808,27 @@ export type HouseholdDeleteManyArgs<ExtArgs extends runtime.Types.Extensions.Int
 }
 
 /**
- * Household.members
+ * Household.alertSubscriptions
  */
-export type Household$membersArgs<ExtArgs extends runtime.Types.Extensions.InternalArgs = runtime.Types.Extensions.DefaultArgs> = {
+export type Household$alertSubscriptionsArgs<ExtArgs extends runtime.Types.Extensions.InternalArgs = runtime.Types.Extensions.DefaultArgs> = {
   /**
-   * Select specific fields to fetch from the HouseholdMember
+   * Select specific fields to fetch from the AlertSubscription
    */
-  select?: Prisma.HouseholdMemberSelect<ExtArgs> | null
+  select?: Prisma.AlertSubscriptionSelect<ExtArgs> | null
   /**
-   * Omit specific fields from the HouseholdMember
+   * Omit specific fields from the AlertSubscription
    */
-  omit?: Prisma.HouseholdMemberOmit<ExtArgs> | null
+  omit?: Prisma.AlertSubscriptionOmit<ExtArgs> | null
   /**
    * Choose, which related nodes to fetch as well
    */
-  include?: Prisma.HouseholdMemberInclude<ExtArgs> | null
-  where?: Prisma.HouseholdMemberWhereInput
-  orderBy?: Prisma.HouseholdMemberOrderByWithRelationInput | Prisma.HouseholdMemberOrderByWithRelationInput[]
-  cursor?: Prisma.HouseholdMemberWhereUniqueInput
+  include?: Prisma.AlertSubscriptionInclude<ExtArgs> | null
+  where?: Prisma.AlertSubscriptionWhereInput
+  orderBy?: Prisma.AlertSubscriptionOrderByWithRelationInput | Prisma.AlertSubscriptionOrderByWithRelationInput[]
+  cursor?: Prisma.AlertSubscriptionWhereUniqueInput
   take?: number
   skip?: number
-  distinct?: Prisma.HouseholdMemberScalarFieldEnum | Prisma.HouseholdMemberScalarFieldEnum[]
+  distinct?: Prisma.AlertSubscriptionScalarFieldEnum | Prisma.AlertSubscriptionScalarFieldEnum[]
 }
 
 /**
@@ -1856,6 +1856,30 @@ export type Household$loyaltyBalancesArgs<ExtArgs extends runtime.Types.Extensio
 }
 
 /**
+ * Household.members
+ */
+export type Household$membersArgs<ExtArgs extends runtime.Types.Extensions.InternalArgs = runtime.Types.Extensions.DefaultArgs> = {
+  /**
+   * Select specific fields to fetch from the HouseholdMember
+   */
+  select?: Prisma.HouseholdMemberSelect<ExtArgs> | null
+  /**
+   * Omit specific fields from the HouseholdMember
+   */
+  omit?: Prisma.HouseholdMemberOmit<ExtArgs> | null
+  /**
+   * Choose, which related nodes to fetch as well
+   */
+  include?: Prisma.HouseholdMemberInclude<ExtArgs> | null
+  where?: Prisma.HouseholdMemberWhereInput
+  orderBy?: Prisma.HouseholdMemberOrderByWithRelationInput | Prisma.HouseholdMemberOrderByWithRelationInput[]
+  cursor?: Prisma.HouseholdMemberWhereUniqueInput
+  take?: number
+  skip?: number
+  distinct?: Prisma.HouseholdMemberScalarFieldEnum | Prisma.HouseholdMemberScalarFieldEnum[]
+}
+
+/**
  * Household.tripRequests
  */
 export type Household$tripRequestsArgs<ExtArgs extends runtime.Types.Extensions.InternalArgs = runtime.Types.Extensions.DefaultArgs> = {
@@ -1877,30 +1901,6 @@ export type Household$tripRequestsArgs<ExtArgs extends runtime.Types.Extensions.
   take?: number
   skip?: number
   distinct?: Prisma.TripRequestScalarFieldEnum | Prisma.TripRequestScalarFieldEnum[]
-}
-
-/**
- * Household.alertSubscriptions
- */
-export type Household$alertSubscriptionsArgs<ExtArgs extends runtime.Types.Extensions.InternalArgs = runtime.Types.Extensions.DefaultArgs> = {
-  /**
-   * Select specific fields to fetch from the AlertSubscription
-   */
-  select?: Prisma.AlertSubscriptionSelect<ExtArgs> | null
-  /**
-   * Omit specific fields from the AlertSubscription
-   */
-  omit?: Prisma.AlertSubscriptionOmit<ExtArgs> | null
-  /**
-   * Choose, which related nodes to fetch as well
-   */
-  include?: Prisma.AlertSubscriptionInclude<ExtArgs> | null
-  where?: Prisma.AlertSubscriptionWhereInput
-  orderBy?: Prisma.AlertSubscriptionOrderByWithRelationInput | Prisma.AlertSubscriptionOrderByWithRelationInput[]
-  cursor?: Prisma.AlertSubscriptionWhereUniqueInput
-  take?: number
-  skip?: number
-  distinct?: Prisma.AlertSubscriptionScalarFieldEnum | Prisma.AlertSubscriptionScalarFieldEnum[]
 }
 
 /**

@@ -425,7 +425,12 @@ export const ModelName = {
   MeetingEntry: 'MeetingEntry',
   MeetingQuestionSuggestion: 'MeetingQuestionSuggestion',
   MeetingProfileSuggestion: 'MeetingProfileSuggestion',
-  MeetingRecap: 'MeetingRecap'
+  MeetingRecap: 'MeetingRecap',
+  GroupProfile: 'GroupProfile',
+  GroupMember: 'GroupMember',
+  BusinessProfile: 'BusinessProfile',
+  BusinessTraveler: 'BusinessTraveler',
+  IntakeFormToken: 'IntakeFormToken'
 } as const
 
 export type ModelName = (typeof ModelName)[keyof typeof ModelName]
@@ -441,7 +446,7 @@ export type TypeMap<ExtArgs extends runtime.Types.Extensions.InternalArgs = runt
     omit: GlobalOmitOptions
   }
   meta: {
-    modelProps: "organization" | "user" | "client" | "household" | "householdMember" | "familyMember" | "loyaltyProgram" | "clientLoyaltyBalance" | "balanceLedgerEntry" | "programTransferRule" | "programPoolingRule" | "transferBonus" | "clientPreference" | "preferenceChangeLog" | "tripRequest" | "tripTradeoffRanking" | "tripTraveler" | "recommendationRun" | "recommendationOption" | "recommendationTravelerAllocation" | "recommendationInsight" | "recommendationMemo" | "groupSettlement" | "clientIntake" | "tripBrief" | "alertSubscription" | "alertEvent" | "inferredPreference" | "followUpSuggestion" | "vendorRequest" | "vendorRequestReminder" | "vendorRequestDraft" | "vendorRequestApproval" | "vendorRequestTemplate" | "vendorScoreSummary" | "vendorRequestTimeline" | "itineraryJob" | "discoveryMeetingSession" | "meetingEntry" | "meetingQuestionSuggestion" | "meetingProfileSuggestion" | "meetingRecap"
+    modelProps: "organization" | "user" | "client" | "household" | "householdMember" | "familyMember" | "loyaltyProgram" | "clientLoyaltyBalance" | "balanceLedgerEntry" | "programTransferRule" | "programPoolingRule" | "transferBonus" | "clientPreference" | "preferenceChangeLog" | "tripRequest" | "tripTradeoffRanking" | "tripTraveler" | "recommendationRun" | "recommendationOption" | "recommendationTravelerAllocation" | "recommendationInsight" | "recommendationMemo" | "groupSettlement" | "clientIntake" | "tripBrief" | "alertSubscription" | "alertEvent" | "inferredPreference" | "followUpSuggestion" | "vendorRequest" | "vendorRequestReminder" | "vendorRequestDraft" | "vendorRequestApproval" | "vendorRequestTemplate" | "vendorScoreSummary" | "vendorRequestTimeline" | "itineraryJob" | "discoveryMeetingSession" | "meetingEntry" | "meetingQuestionSuggestion" | "meetingProfileSuggestion" | "meetingRecap" | "groupProfile" | "groupMember" | "businessProfile" | "businessTraveler" | "intakeFormToken"
     txIsolationLevel: TransactionIsolationLevel
   }
   model: {
@@ -3553,6 +3558,376 @@ export type TypeMap<ExtArgs extends runtime.Types.Extensions.InternalArgs = runt
         }
       }
     }
+    GroupProfile: {
+      payload: Prisma.$GroupProfilePayload<ExtArgs>
+      fields: Prisma.GroupProfileFieldRefs
+      operations: {
+        findUnique: {
+          args: Prisma.GroupProfileFindUniqueArgs<ExtArgs>
+          result: runtime.Types.Utils.PayloadToResult<Prisma.$GroupProfilePayload> | null
+        }
+        findUniqueOrThrow: {
+          args: Prisma.GroupProfileFindUniqueOrThrowArgs<ExtArgs>
+          result: runtime.Types.Utils.PayloadToResult<Prisma.$GroupProfilePayload>
+        }
+        findFirst: {
+          args: Prisma.GroupProfileFindFirstArgs<ExtArgs>
+          result: runtime.Types.Utils.PayloadToResult<Prisma.$GroupProfilePayload> | null
+        }
+        findFirstOrThrow: {
+          args: Prisma.GroupProfileFindFirstOrThrowArgs<ExtArgs>
+          result: runtime.Types.Utils.PayloadToResult<Prisma.$GroupProfilePayload>
+        }
+        findMany: {
+          args: Prisma.GroupProfileFindManyArgs<ExtArgs>
+          result: runtime.Types.Utils.PayloadToResult<Prisma.$GroupProfilePayload>[]
+        }
+        create: {
+          args: Prisma.GroupProfileCreateArgs<ExtArgs>
+          result: runtime.Types.Utils.PayloadToResult<Prisma.$GroupProfilePayload>
+        }
+        createMany: {
+          args: Prisma.GroupProfileCreateManyArgs<ExtArgs>
+          result: BatchPayload
+        }
+        createManyAndReturn: {
+          args: Prisma.GroupProfileCreateManyAndReturnArgs<ExtArgs>
+          result: runtime.Types.Utils.PayloadToResult<Prisma.$GroupProfilePayload>[]
+        }
+        delete: {
+          args: Prisma.GroupProfileDeleteArgs<ExtArgs>
+          result: runtime.Types.Utils.PayloadToResult<Prisma.$GroupProfilePayload>
+        }
+        update: {
+          args: Prisma.GroupProfileUpdateArgs<ExtArgs>
+          result: runtime.Types.Utils.PayloadToResult<Prisma.$GroupProfilePayload>
+        }
+        deleteMany: {
+          args: Prisma.GroupProfileDeleteManyArgs<ExtArgs>
+          result: BatchPayload
+        }
+        updateMany: {
+          args: Prisma.GroupProfileUpdateManyArgs<ExtArgs>
+          result: BatchPayload
+        }
+        updateManyAndReturn: {
+          args: Prisma.GroupProfileUpdateManyAndReturnArgs<ExtArgs>
+          result: runtime.Types.Utils.PayloadToResult<Prisma.$GroupProfilePayload>[]
+        }
+        upsert: {
+          args: Prisma.GroupProfileUpsertArgs<ExtArgs>
+          result: runtime.Types.Utils.PayloadToResult<Prisma.$GroupProfilePayload>
+        }
+        aggregate: {
+          args: Prisma.GroupProfileAggregateArgs<ExtArgs>
+          result: runtime.Types.Utils.Optional<Prisma.AggregateGroupProfile>
+        }
+        groupBy: {
+          args: Prisma.GroupProfileGroupByArgs<ExtArgs>
+          result: runtime.Types.Utils.Optional<Prisma.GroupProfileGroupByOutputType>[]
+        }
+        count: {
+          args: Prisma.GroupProfileCountArgs<ExtArgs>
+          result: runtime.Types.Utils.Optional<Prisma.GroupProfileCountAggregateOutputType> | number
+        }
+      }
+    }
+    GroupMember: {
+      payload: Prisma.$GroupMemberPayload<ExtArgs>
+      fields: Prisma.GroupMemberFieldRefs
+      operations: {
+        findUnique: {
+          args: Prisma.GroupMemberFindUniqueArgs<ExtArgs>
+          result: runtime.Types.Utils.PayloadToResult<Prisma.$GroupMemberPayload> | null
+        }
+        findUniqueOrThrow: {
+          args: Prisma.GroupMemberFindUniqueOrThrowArgs<ExtArgs>
+          result: runtime.Types.Utils.PayloadToResult<Prisma.$GroupMemberPayload>
+        }
+        findFirst: {
+          args: Prisma.GroupMemberFindFirstArgs<ExtArgs>
+          result: runtime.Types.Utils.PayloadToResult<Prisma.$GroupMemberPayload> | null
+        }
+        findFirstOrThrow: {
+          args: Prisma.GroupMemberFindFirstOrThrowArgs<ExtArgs>
+          result: runtime.Types.Utils.PayloadToResult<Prisma.$GroupMemberPayload>
+        }
+        findMany: {
+          args: Prisma.GroupMemberFindManyArgs<ExtArgs>
+          result: runtime.Types.Utils.PayloadToResult<Prisma.$GroupMemberPayload>[]
+        }
+        create: {
+          args: Prisma.GroupMemberCreateArgs<ExtArgs>
+          result: runtime.Types.Utils.PayloadToResult<Prisma.$GroupMemberPayload>
+        }
+        createMany: {
+          args: Prisma.GroupMemberCreateManyArgs<ExtArgs>
+          result: BatchPayload
+        }
+        createManyAndReturn: {
+          args: Prisma.GroupMemberCreateManyAndReturnArgs<ExtArgs>
+          result: runtime.Types.Utils.PayloadToResult<Prisma.$GroupMemberPayload>[]
+        }
+        delete: {
+          args: Prisma.GroupMemberDeleteArgs<ExtArgs>
+          result: runtime.Types.Utils.PayloadToResult<Prisma.$GroupMemberPayload>
+        }
+        update: {
+          args: Prisma.GroupMemberUpdateArgs<ExtArgs>
+          result: runtime.Types.Utils.PayloadToResult<Prisma.$GroupMemberPayload>
+        }
+        deleteMany: {
+          args: Prisma.GroupMemberDeleteManyArgs<ExtArgs>
+          result: BatchPayload
+        }
+        updateMany: {
+          args: Prisma.GroupMemberUpdateManyArgs<ExtArgs>
+          result: BatchPayload
+        }
+        updateManyAndReturn: {
+          args: Prisma.GroupMemberUpdateManyAndReturnArgs<ExtArgs>
+          result: runtime.Types.Utils.PayloadToResult<Prisma.$GroupMemberPayload>[]
+        }
+        upsert: {
+          args: Prisma.GroupMemberUpsertArgs<ExtArgs>
+          result: runtime.Types.Utils.PayloadToResult<Prisma.$GroupMemberPayload>
+        }
+        aggregate: {
+          args: Prisma.GroupMemberAggregateArgs<ExtArgs>
+          result: runtime.Types.Utils.Optional<Prisma.AggregateGroupMember>
+        }
+        groupBy: {
+          args: Prisma.GroupMemberGroupByArgs<ExtArgs>
+          result: runtime.Types.Utils.Optional<Prisma.GroupMemberGroupByOutputType>[]
+        }
+        count: {
+          args: Prisma.GroupMemberCountArgs<ExtArgs>
+          result: runtime.Types.Utils.Optional<Prisma.GroupMemberCountAggregateOutputType> | number
+        }
+      }
+    }
+    BusinessProfile: {
+      payload: Prisma.$BusinessProfilePayload<ExtArgs>
+      fields: Prisma.BusinessProfileFieldRefs
+      operations: {
+        findUnique: {
+          args: Prisma.BusinessProfileFindUniqueArgs<ExtArgs>
+          result: runtime.Types.Utils.PayloadToResult<Prisma.$BusinessProfilePayload> | null
+        }
+        findUniqueOrThrow: {
+          args: Prisma.BusinessProfileFindUniqueOrThrowArgs<ExtArgs>
+          result: runtime.Types.Utils.PayloadToResult<Prisma.$BusinessProfilePayload>
+        }
+        findFirst: {
+          args: Prisma.BusinessProfileFindFirstArgs<ExtArgs>
+          result: runtime.Types.Utils.PayloadToResult<Prisma.$BusinessProfilePayload> | null
+        }
+        findFirstOrThrow: {
+          args: Prisma.BusinessProfileFindFirstOrThrowArgs<ExtArgs>
+          result: runtime.Types.Utils.PayloadToResult<Prisma.$BusinessProfilePayload>
+        }
+        findMany: {
+          args: Prisma.BusinessProfileFindManyArgs<ExtArgs>
+          result: runtime.Types.Utils.PayloadToResult<Prisma.$BusinessProfilePayload>[]
+        }
+        create: {
+          args: Prisma.BusinessProfileCreateArgs<ExtArgs>
+          result: runtime.Types.Utils.PayloadToResult<Prisma.$BusinessProfilePayload>
+        }
+        createMany: {
+          args: Prisma.BusinessProfileCreateManyArgs<ExtArgs>
+          result: BatchPayload
+        }
+        createManyAndReturn: {
+          args: Prisma.BusinessProfileCreateManyAndReturnArgs<ExtArgs>
+          result: runtime.Types.Utils.PayloadToResult<Prisma.$BusinessProfilePayload>[]
+        }
+        delete: {
+          args: Prisma.BusinessProfileDeleteArgs<ExtArgs>
+          result: runtime.Types.Utils.PayloadToResult<Prisma.$BusinessProfilePayload>
+        }
+        update: {
+          args: Prisma.BusinessProfileUpdateArgs<ExtArgs>
+          result: runtime.Types.Utils.PayloadToResult<Prisma.$BusinessProfilePayload>
+        }
+        deleteMany: {
+          args: Prisma.BusinessProfileDeleteManyArgs<ExtArgs>
+          result: BatchPayload
+        }
+        updateMany: {
+          args: Prisma.BusinessProfileUpdateManyArgs<ExtArgs>
+          result: BatchPayload
+        }
+        updateManyAndReturn: {
+          args: Prisma.BusinessProfileUpdateManyAndReturnArgs<ExtArgs>
+          result: runtime.Types.Utils.PayloadToResult<Prisma.$BusinessProfilePayload>[]
+        }
+        upsert: {
+          args: Prisma.BusinessProfileUpsertArgs<ExtArgs>
+          result: runtime.Types.Utils.PayloadToResult<Prisma.$BusinessProfilePayload>
+        }
+        aggregate: {
+          args: Prisma.BusinessProfileAggregateArgs<ExtArgs>
+          result: runtime.Types.Utils.Optional<Prisma.AggregateBusinessProfile>
+        }
+        groupBy: {
+          args: Prisma.BusinessProfileGroupByArgs<ExtArgs>
+          result: runtime.Types.Utils.Optional<Prisma.BusinessProfileGroupByOutputType>[]
+        }
+        count: {
+          args: Prisma.BusinessProfileCountArgs<ExtArgs>
+          result: runtime.Types.Utils.Optional<Prisma.BusinessProfileCountAggregateOutputType> | number
+        }
+      }
+    }
+    BusinessTraveler: {
+      payload: Prisma.$BusinessTravelerPayload<ExtArgs>
+      fields: Prisma.BusinessTravelerFieldRefs
+      operations: {
+        findUnique: {
+          args: Prisma.BusinessTravelerFindUniqueArgs<ExtArgs>
+          result: runtime.Types.Utils.PayloadToResult<Prisma.$BusinessTravelerPayload> | null
+        }
+        findUniqueOrThrow: {
+          args: Prisma.BusinessTravelerFindUniqueOrThrowArgs<ExtArgs>
+          result: runtime.Types.Utils.PayloadToResult<Prisma.$BusinessTravelerPayload>
+        }
+        findFirst: {
+          args: Prisma.BusinessTravelerFindFirstArgs<ExtArgs>
+          result: runtime.Types.Utils.PayloadToResult<Prisma.$BusinessTravelerPayload> | null
+        }
+        findFirstOrThrow: {
+          args: Prisma.BusinessTravelerFindFirstOrThrowArgs<ExtArgs>
+          result: runtime.Types.Utils.PayloadToResult<Prisma.$BusinessTravelerPayload>
+        }
+        findMany: {
+          args: Prisma.BusinessTravelerFindManyArgs<ExtArgs>
+          result: runtime.Types.Utils.PayloadToResult<Prisma.$BusinessTravelerPayload>[]
+        }
+        create: {
+          args: Prisma.BusinessTravelerCreateArgs<ExtArgs>
+          result: runtime.Types.Utils.PayloadToResult<Prisma.$BusinessTravelerPayload>
+        }
+        createMany: {
+          args: Prisma.BusinessTravelerCreateManyArgs<ExtArgs>
+          result: BatchPayload
+        }
+        createManyAndReturn: {
+          args: Prisma.BusinessTravelerCreateManyAndReturnArgs<ExtArgs>
+          result: runtime.Types.Utils.PayloadToResult<Prisma.$BusinessTravelerPayload>[]
+        }
+        delete: {
+          args: Prisma.BusinessTravelerDeleteArgs<ExtArgs>
+          result: runtime.Types.Utils.PayloadToResult<Prisma.$BusinessTravelerPayload>
+        }
+        update: {
+          args: Prisma.BusinessTravelerUpdateArgs<ExtArgs>
+          result: runtime.Types.Utils.PayloadToResult<Prisma.$BusinessTravelerPayload>
+        }
+        deleteMany: {
+          args: Prisma.BusinessTravelerDeleteManyArgs<ExtArgs>
+          result: BatchPayload
+        }
+        updateMany: {
+          args: Prisma.BusinessTravelerUpdateManyArgs<ExtArgs>
+          result: BatchPayload
+        }
+        updateManyAndReturn: {
+          args: Prisma.BusinessTravelerUpdateManyAndReturnArgs<ExtArgs>
+          result: runtime.Types.Utils.PayloadToResult<Prisma.$BusinessTravelerPayload>[]
+        }
+        upsert: {
+          args: Prisma.BusinessTravelerUpsertArgs<ExtArgs>
+          result: runtime.Types.Utils.PayloadToResult<Prisma.$BusinessTravelerPayload>
+        }
+        aggregate: {
+          args: Prisma.BusinessTravelerAggregateArgs<ExtArgs>
+          result: runtime.Types.Utils.Optional<Prisma.AggregateBusinessTraveler>
+        }
+        groupBy: {
+          args: Prisma.BusinessTravelerGroupByArgs<ExtArgs>
+          result: runtime.Types.Utils.Optional<Prisma.BusinessTravelerGroupByOutputType>[]
+        }
+        count: {
+          args: Prisma.BusinessTravelerCountArgs<ExtArgs>
+          result: runtime.Types.Utils.Optional<Prisma.BusinessTravelerCountAggregateOutputType> | number
+        }
+      }
+    }
+    IntakeFormToken: {
+      payload: Prisma.$IntakeFormTokenPayload<ExtArgs>
+      fields: Prisma.IntakeFormTokenFieldRefs
+      operations: {
+        findUnique: {
+          args: Prisma.IntakeFormTokenFindUniqueArgs<ExtArgs>
+          result: runtime.Types.Utils.PayloadToResult<Prisma.$IntakeFormTokenPayload> | null
+        }
+        findUniqueOrThrow: {
+          args: Prisma.IntakeFormTokenFindUniqueOrThrowArgs<ExtArgs>
+          result: runtime.Types.Utils.PayloadToResult<Prisma.$IntakeFormTokenPayload>
+        }
+        findFirst: {
+          args: Prisma.IntakeFormTokenFindFirstArgs<ExtArgs>
+          result: runtime.Types.Utils.PayloadToResult<Prisma.$IntakeFormTokenPayload> | null
+        }
+        findFirstOrThrow: {
+          args: Prisma.IntakeFormTokenFindFirstOrThrowArgs<ExtArgs>
+          result: runtime.Types.Utils.PayloadToResult<Prisma.$IntakeFormTokenPayload>
+        }
+        findMany: {
+          args: Prisma.IntakeFormTokenFindManyArgs<ExtArgs>
+          result: runtime.Types.Utils.PayloadToResult<Prisma.$IntakeFormTokenPayload>[]
+        }
+        create: {
+          args: Prisma.IntakeFormTokenCreateArgs<ExtArgs>
+          result: runtime.Types.Utils.PayloadToResult<Prisma.$IntakeFormTokenPayload>
+        }
+        createMany: {
+          args: Prisma.IntakeFormTokenCreateManyArgs<ExtArgs>
+          result: BatchPayload
+        }
+        createManyAndReturn: {
+          args: Prisma.IntakeFormTokenCreateManyAndReturnArgs<ExtArgs>
+          result: runtime.Types.Utils.PayloadToResult<Prisma.$IntakeFormTokenPayload>[]
+        }
+        delete: {
+          args: Prisma.IntakeFormTokenDeleteArgs<ExtArgs>
+          result: runtime.Types.Utils.PayloadToResult<Prisma.$IntakeFormTokenPayload>
+        }
+        update: {
+          args: Prisma.IntakeFormTokenUpdateArgs<ExtArgs>
+          result: runtime.Types.Utils.PayloadToResult<Prisma.$IntakeFormTokenPayload>
+        }
+        deleteMany: {
+          args: Prisma.IntakeFormTokenDeleteManyArgs<ExtArgs>
+          result: BatchPayload
+        }
+        updateMany: {
+          args: Prisma.IntakeFormTokenUpdateManyArgs<ExtArgs>
+          result: BatchPayload
+        }
+        updateManyAndReturn: {
+          args: Prisma.IntakeFormTokenUpdateManyAndReturnArgs<ExtArgs>
+          result: runtime.Types.Utils.PayloadToResult<Prisma.$IntakeFormTokenPayload>[]
+        }
+        upsert: {
+          args: Prisma.IntakeFormTokenUpsertArgs<ExtArgs>
+          result: runtime.Types.Utils.PayloadToResult<Prisma.$IntakeFormTokenPayload>
+        }
+        aggregate: {
+          args: Prisma.IntakeFormTokenAggregateArgs<ExtArgs>
+          result: runtime.Types.Utils.Optional<Prisma.AggregateIntakeFormToken>
+        }
+        groupBy: {
+          args: Prisma.IntakeFormTokenGroupByArgs<ExtArgs>
+          result: runtime.Types.Utils.Optional<Prisma.IntakeFormTokenGroupByOutputType>[]
+        }
+        count: {
+          args: Prisma.IntakeFormTokenCountArgs<ExtArgs>
+          result: runtime.Types.Utils.Optional<Prisma.IntakeFormTokenCountAggregateOutputType> | number
+        }
+      }
+    }
   }
 } & {
   other: {
@@ -3623,7 +3998,6 @@ export const ClientScalarFieldEnum = {
   id: 'id',
   organizationId: 'organizationId',
   ownerUserId: 'ownerUserId',
-  clientType: 'clientType',
   firstName: 'firstName',
   lastName: 'lastName',
   email: 'email',
@@ -3632,7 +4006,8 @@ export const ClientScalarFieldEnum = {
   notes: 'notes',
   status: 'status',
   createdAt: 'createdAt',
-  updatedAt: 'updatedAt'
+  updatedAt: 'updatedAt',
+  clientType: 'clientType'
 } as const
 
 export type ClientScalarFieldEnum = (typeof ClientScalarFieldEnum)[keyof typeof ClientScalarFieldEnum]
@@ -3665,7 +4040,6 @@ export type HouseholdMemberScalarFieldEnum = (typeof HouseholdMemberScalarFieldE
 export const FamilyMemberScalarFieldEnum = {
   id: 'id',
   clientId: 'clientId',
-  linkedClientId: 'linkedClientId',
   name: 'name',
   relationship: 'relationship',
   email: 'email',
@@ -3673,7 +4047,8 @@ export const FamilyMemberScalarFieldEnum = {
   dateOfBirth: 'dateOfBirth',
   notes: 'notes',
   createdAt: 'createdAt',
-  updatedAt: 'updatedAt'
+  updatedAt: 'updatedAt',
+  linkedClientId: 'linkedClientId'
 } as const
 
 export type FamilyMemberScalarFieldEnum = (typeof FamilyMemberScalarFieldEnum)[keyof typeof FamilyMemberScalarFieldEnum]
@@ -3781,27 +4156,27 @@ export const ClientPreferenceScalarFieldEnum = {
   prefersNonstop: 'prefersNonstop',
   maxLayoverMinutes: 'maxLayoverMinutes',
   willingToReposition: 'willingToReposition',
+  redemptionStyle: 'redemptionStyle',
   avoidBasicEconomy: 'avoidBasicEconomy',
   preferredAirlines: 'preferredAirlines',
   avoidedAirlines: 'avoidedAirlines',
+  notes: 'notes',
+  createdAt: 'createdAt',
+  updatedAt: 'updatedAt',
+  accessibilityNeeds: 'accessibilityNeeds',
+  activityPreferences: 'activityPreferences',
+  budgetSensitivity: 'budgetSensitivity',
+  dealbreakers: 'dealbreakers',
+  dislikes: 'dislikes',
+  familyConsiderations: 'familyConsiderations',
+  foodPreferences: 'foodPreferences',
+  lastUpdatedSource: 'lastUpdatedSource',
+  locationPreferences: 'locationPreferences',
+  mergeStrategy: 'mergeStrategy',
+  pointsVsCash: 'pointsVsCash',
   preferredHotelTypes: 'preferredHotelTypes',
   roomPreferences: 'roomPreferences',
-  locationPreferences: 'locationPreferences',
-  redemptionStyle: 'redemptionStyle',
-  budgetSensitivity: 'budgetSensitivity',
-  pointsVsCash: 'pointsVsCash',
-  accessibilityNeeds: 'accessibilityNeeds',
-  foodPreferences: 'foodPreferences',
-  activityPreferences: 'activityPreferences',
-  familyConsiderations: 'familyConsiderations',
-  specialOccasions: 'specialOccasions',
-  dislikes: 'dislikes',
-  dealbreakers: 'dealbreakers',
-  notes: 'notes',
-  lastUpdatedSource: 'lastUpdatedSource',
-  mergeStrategy: 'mergeStrategy',
-  createdAt: 'createdAt',
-  updatedAt: 'updatedAt'
+  specialOccasions: 'specialOccasions'
 } as const
 
 export type ClientPreferenceScalarFieldEnum = (typeof ClientPreferenceScalarFieldEnum)[keyof typeof ClientPreferenceScalarFieldEnum]
@@ -3869,13 +4244,13 @@ export const TripTravelerScalarFieldEnum = {
   clientId: 'clientId',
   travelerType: 'travelerType',
   mustTravelWithClientId: 'mustTravelWithClientId',
+  createdAt: 'createdAt',
   originAirports: 'originAirports',
   destinationAirports: 'destinationAirports',
   useLeaderCities: 'useLeaderCities',
-  departureDate: 'departureDate',
-  returnDate: 'returnDate',
   cabinPreference: 'cabinPreference',
-  createdAt: 'createdAt'
+  departureDate: 'departureDate',
+  returnDate: 'returnDate'
 } as const
 
 export type TripTravelerScalarFieldEnum = (typeof TripTravelerScalarFieldEnum)[keyof typeof TripTravelerScalarFieldEnum]
@@ -4116,7 +4491,6 @@ export const VendorRequestScalarFieldEnum = {
   tripRequestId: 'tripRequestId',
   clientId: 'clientId',
   createdByUserId: 'createdByUserId',
-  templateId: 'templateId',
   vendorName: 'vendorName',
   vendorContact: 'vendorContact',
   requestType: 'requestType',
@@ -4129,10 +4503,11 @@ export const VendorRequestScalarFieldEnum = {
   internalNotes: 'internalNotes',
   finalOutcome: 'finalOutcome',
   archivedAt: 'archivedAt',
-  firstResponseAt: 'firstResponseAt',
-  resolvedAt: 'resolvedAt',
   createdAt: 'createdAt',
-  updatedAt: 'updatedAt'
+  updatedAt: 'updatedAt',
+  templateId: 'templateId',
+  firstResponseAt: 'firstResponseAt',
+  resolvedAt: 'resolvedAt'
 } as const
 
 export type VendorRequestScalarFieldEnum = (typeof VendorRequestScalarFieldEnum)[keyof typeof VendorRequestScalarFieldEnum]
@@ -4278,8 +4653,8 @@ export const MeetingQuestionSuggestionScalarFieldEnum = {
   priority: 'priority',
   targetFields: 'targetFields',
   isUsed: 'isUsed',
-  round: 'round',
-  createdAt: 'createdAt'
+  createdAt: 'createdAt',
+  round: 'round'
 } as const
 
 export type MeetingQuestionSuggestionScalarFieldEnum = (typeof MeetingQuestionSuggestionScalarFieldEnum)[keyof typeof MeetingQuestionSuggestionScalarFieldEnum]
@@ -4295,9 +4670,9 @@ export const MeetingProfileSuggestionScalarFieldEnum = {
   rationale: 'rationale',
   status: 'status',
   resolvedAt: 'resolvedAt',
+  createdAt: 'createdAt',
   targetClientId: 'targetClientId',
-  sourceDescription: 'sourceDescription',
-  createdAt: 'createdAt'
+  sourceDescription: 'sourceDescription'
 } as const
 
 export type MeetingProfileSuggestionScalarFieldEnum = (typeof MeetingProfileSuggestionScalarFieldEnum)[keyof typeof MeetingProfileSuggestionScalarFieldEnum]
@@ -4315,6 +4690,94 @@ export const MeetingRecapScalarFieldEnum = {
 } as const
 
 export type MeetingRecapScalarFieldEnum = (typeof MeetingRecapScalarFieldEnum)[keyof typeof MeetingRecapScalarFieldEnum]
+
+
+export const GroupProfileScalarFieldEnum = {
+  id: 'id',
+  clientId: 'clientId',
+  groupType: 'groupType',
+  estimatedSize: 'estimatedSize',
+  ageSpread: 'ageSpread',
+  decisionStyle: 'decisionStyle',
+  roomArrangement: 'roomArrangement',
+  sharedBilling: 'sharedBilling',
+  notes: 'notes',
+  createdAt: 'createdAt',
+  updatedAt: 'updatedAt'
+} as const
+
+export type GroupProfileScalarFieldEnum = (typeof GroupProfileScalarFieldEnum)[keyof typeof GroupProfileScalarFieldEnum]
+
+
+export const GroupMemberScalarFieldEnum = {
+  id: 'id',
+  groupProfileId: 'groupProfileId',
+  linkedClientId: 'linkedClientId',
+  name: 'name',
+  email: 'email',
+  departureCity: 'departureCity',
+  isOrganizer: 'isOrganizer',
+  notes: 'notes',
+  createdAt: 'createdAt',
+  updatedAt: 'updatedAt'
+} as const
+
+export type GroupMemberScalarFieldEnum = (typeof GroupMemberScalarFieldEnum)[keyof typeof GroupMemberScalarFieldEnum]
+
+
+export const BusinessProfileScalarFieldEnum = {
+  id: 'id',
+  clientId: 'clientId',
+  companyName: 'companyName',
+  industry: 'industry',
+  companySize: 'companySize',
+  billingContactName: 'billingContactName',
+  billingContactEmail: 'billingContactEmail',
+  requiresPreApproval: 'requiresPreApproval',
+  maxNightlyRateUsd: 'maxNightlyRateUsd',
+  travelPolicyNotes: 'travelPolicyNotes',
+  corporateAccountIds: 'corporateAccountIds',
+  createdAt: 'createdAt',
+  updatedAt: 'updatedAt'
+} as const
+
+export type BusinessProfileScalarFieldEnum = (typeof BusinessProfileScalarFieldEnum)[keyof typeof BusinessProfileScalarFieldEnum]
+
+
+export const BusinessTravelerScalarFieldEnum = {
+  id: 'id',
+  businessProfileId: 'businessProfileId',
+  linkedClientId: 'linkedClientId',
+  name: 'name',
+  email: 'email',
+  role: 'role',
+  seniorityTier: 'seniorityTier',
+  notes: 'notes',
+  createdAt: 'createdAt',
+  updatedAt: 'updatedAt'
+} as const
+
+export type BusinessTravelerScalarFieldEnum = (typeof BusinessTravelerScalarFieldEnum)[keyof typeof BusinessTravelerScalarFieldEnum]
+
+
+export const IntakeFormTokenScalarFieldEnum = {
+  id: 'id',
+  token: 'token',
+  clientId: 'clientId',
+  intakeId: 'intakeId',
+  recipientEmail: 'recipientEmail',
+  recipientName: 'recipientName',
+  formVariant: 'formVariant',
+  groupSize: 'groupSize',
+  sentAt: 'sentAt',
+  openedAt: 'openedAt',
+  completedAt: 'completedAt',
+  expiresAt: 'expiresAt',
+  reminderSentAt: 'reminderSentAt',
+  createdAt: 'createdAt'
+} as const
+
+export type IntakeFormTokenScalarFieldEnum = (typeof IntakeFormTokenScalarFieldEnum)[keyof typeof IntakeFormTokenScalarFieldEnum]
 
 
 export const SortOrder = {
@@ -4414,20 +4877,6 @@ export type ListEnumUserRoleFieldRefInput<$PrismaModel> = FieldRefInputType<$Pri
 
 
 /**
- * Reference to a field of type 'ClientType'
- */
-export type EnumClientTypeFieldRefInput<$PrismaModel> = FieldRefInputType<$PrismaModel, 'ClientType'>
-    
-
-
-/**
- * Reference to a field of type 'ClientType[]'
- */
-export type ListEnumClientTypeFieldRefInput<$PrismaModel> = FieldRefInputType<$PrismaModel, 'ClientType[]'>
-    
-
-
-/**
  * Reference to a field of type 'ClientStatus'
  */
 export type EnumClientStatusFieldRefInput<$PrismaModel> = FieldRefInputType<$PrismaModel, 'ClientStatus'>
@@ -4438,6 +4887,20 @@ export type EnumClientStatusFieldRefInput<$PrismaModel> = FieldRefInputType<$Pri
  * Reference to a field of type 'ClientStatus[]'
  */
 export type ListEnumClientStatusFieldRefInput<$PrismaModel> = FieldRefInputType<$PrismaModel, 'ClientStatus[]'>
+    
+
+
+/**
+ * Reference to a field of type 'ClientType'
+ */
+export type EnumClientTypeFieldRefInput<$PrismaModel> = FieldRefInputType<$PrismaModel, 'ClientType'>
+    
+
+
+/**
+ * Reference to a field of type 'ClientType[]'
+ */
+export type ListEnumClientTypeFieldRefInput<$PrismaModel> = FieldRefInputType<$PrismaModel, 'ClientType[]'>
     
 
 
@@ -4533,20 +4996,6 @@ export type ListEnumCabinPreferenceFieldRefInput<$PrismaModel> = FieldRefInputTy
 
 
 /**
- * Reference to a field of type 'Json'
- */
-export type JsonFieldRefInput<$PrismaModel> = FieldRefInputType<$PrismaModel, 'Json'>
-    
-
-
-/**
- * Reference to a field of type 'QueryMode'
- */
-export type EnumQueryModeFieldRefInput<$PrismaModel> = FieldRefInputType<$PrismaModel, 'QueryMode'>
-    
-
-
-/**
  * Reference to a field of type 'RedemptionStyle'
  */
 export type EnumRedemptionStyleFieldRefInput<$PrismaModel> = FieldRefInputType<$PrismaModel, 'RedemptionStyle'>
@@ -4557,6 +5006,20 @@ export type EnumRedemptionStyleFieldRefInput<$PrismaModel> = FieldRefInputType<$
  * Reference to a field of type 'RedemptionStyle[]'
  */
 export type ListEnumRedemptionStyleFieldRefInput<$PrismaModel> = FieldRefInputType<$PrismaModel, 'RedemptionStyle[]'>
+    
+
+
+/**
+ * Reference to a field of type 'Json'
+ */
+export type JsonFieldRefInput<$PrismaModel> = FieldRefInputType<$PrismaModel, 'Json'>
+    
+
+
+/**
+ * Reference to a field of type 'QueryMode'
+ */
+export type EnumQueryModeFieldRefInput<$PrismaModel> = FieldRefInputType<$PrismaModel, 'QueryMode'>
     
 
 
@@ -5035,6 +5498,48 @@ export type EnumProfileSuggestionStatusFieldRefInput<$PrismaModel> = FieldRefInp
 export type ListEnumProfileSuggestionStatusFieldRefInput<$PrismaModel> = FieldRefInputType<$PrismaModel, 'ProfileSuggestionStatus[]'>
     
 
+
+/**
+ * Reference to a field of type 'GroupType'
+ */
+export type EnumGroupTypeFieldRefInput<$PrismaModel> = FieldRefInputType<$PrismaModel, 'GroupType'>
+    
+
+
+/**
+ * Reference to a field of type 'GroupType[]'
+ */
+export type ListEnumGroupTypeFieldRefInput<$PrismaModel> = FieldRefInputType<$PrismaModel, 'GroupType[]'>
+    
+
+
+/**
+ * Reference to a field of type 'GroupDecisionStyle'
+ */
+export type EnumGroupDecisionStyleFieldRefInput<$PrismaModel> = FieldRefInputType<$PrismaModel, 'GroupDecisionStyle'>
+    
+
+
+/**
+ * Reference to a field of type 'GroupDecisionStyle[]'
+ */
+export type ListEnumGroupDecisionStyleFieldRefInput<$PrismaModel> = FieldRefInputType<$PrismaModel, 'GroupDecisionStyle[]'>
+    
+
+
+/**
+ * Reference to a field of type 'IntakeFormVariant'
+ */
+export type EnumIntakeFormVariantFieldRefInput<$PrismaModel> = FieldRefInputType<$PrismaModel, 'IntakeFormVariant'>
+    
+
+
+/**
+ * Reference to a field of type 'IntakeFormVariant[]'
+ */
+export type ListEnumIntakeFormVariantFieldRefInput<$PrismaModel> = FieldRefInputType<$PrismaModel, 'IntakeFormVariant[]'>
+    
+
 /**
  * Batch Payload for updateMany & deleteMany & createMany
  */
@@ -5172,6 +5677,11 @@ export type GlobalOmitConfig = {
   meetingQuestionSuggestion?: Prisma.MeetingQuestionSuggestionOmit
   meetingProfileSuggestion?: Prisma.MeetingProfileSuggestionOmit
   meetingRecap?: Prisma.MeetingRecapOmit
+  groupProfile?: Prisma.GroupProfileOmit
+  groupMember?: Prisma.GroupMemberOmit
+  businessProfile?: Prisma.BusinessProfileOmit
+  businessTraveler?: Prisma.BusinessTravelerOmit
+  intakeFormToken?: Prisma.IntakeFormTokenOmit
 }
 
 /* Types for Logging */

@@ -280,9 +280,9 @@ export type RecommendationOptionWhereInput = {
   isRecommended?: Prisma.BoolFilter<"RecommendationOption"> | boolean
   summary?: Prisma.StringFilter<"RecommendationOption"> | string
   createdAt?: Prisma.DateTimeFilter<"RecommendationOption"> | Date | string
+  insights?: Prisma.RecommendationInsightListRelationFilter
   recommendationRun?: Prisma.XOR<Prisma.RecommendationRunScalarRelationFilter, Prisma.RecommendationRunWhereInput>
   travelerAllocations?: Prisma.RecommendationTravelerAllocationListRelationFilter
-  insights?: Prisma.RecommendationInsightListRelationFilter
 }
 
 export type RecommendationOptionOrderByWithRelationInput = {
@@ -298,9 +298,9 @@ export type RecommendationOptionOrderByWithRelationInput = {
   isRecommended?: Prisma.SortOrder
   summary?: Prisma.SortOrder
   createdAt?: Prisma.SortOrder
+  insights?: Prisma.RecommendationInsightOrderByRelationAggregateInput
   recommendationRun?: Prisma.RecommendationRunOrderByWithRelationInput
   travelerAllocations?: Prisma.RecommendationTravelerAllocationOrderByRelationAggregateInput
-  insights?: Prisma.RecommendationInsightOrderByRelationAggregateInput
 }
 
 export type RecommendationOptionWhereUniqueInput = Prisma.AtLeast<{
@@ -319,9 +319,9 @@ export type RecommendationOptionWhereUniqueInput = Prisma.AtLeast<{
   isRecommended?: Prisma.BoolFilter<"RecommendationOption"> | boolean
   summary?: Prisma.StringFilter<"RecommendationOption"> | string
   createdAt?: Prisma.DateTimeFilter<"RecommendationOption"> | Date | string
+  insights?: Prisma.RecommendationInsightListRelationFilter
   recommendationRun?: Prisma.XOR<Prisma.RecommendationRunScalarRelationFilter, Prisma.RecommendationRunWhereInput>
   travelerAllocations?: Prisma.RecommendationTravelerAllocationListRelationFilter
-  insights?: Prisma.RecommendationInsightListRelationFilter
 }, "id">
 
 export type RecommendationOptionOrderByWithAggregationInput = {
@@ -374,9 +374,9 @@ export type RecommendationOptionCreateInput = {
   isRecommended?: boolean
   summary: string
   createdAt?: Date | string
+  insights?: Prisma.RecommendationInsightCreateNestedManyWithoutRecommendationOptionInput
   recommendationRun: Prisma.RecommendationRunCreateNestedOneWithoutOptionsInput
   travelerAllocations?: Prisma.RecommendationTravelerAllocationCreateNestedManyWithoutRecommendationOptionInput
-  insights?: Prisma.RecommendationInsightCreateNestedManyWithoutRecommendationOptionInput
 }
 
 export type RecommendationOptionUncheckedCreateInput = {
@@ -392,8 +392,8 @@ export type RecommendationOptionUncheckedCreateInput = {
   isRecommended?: boolean
   summary: string
   createdAt?: Date | string
-  travelerAllocations?: Prisma.RecommendationTravelerAllocationUncheckedCreateNestedManyWithoutRecommendationOptionInput
   insights?: Prisma.RecommendationInsightUncheckedCreateNestedManyWithoutRecommendationOptionInput
+  travelerAllocations?: Prisma.RecommendationTravelerAllocationUncheckedCreateNestedManyWithoutRecommendationOptionInput
 }
 
 export type RecommendationOptionUpdateInput = {
@@ -408,9 +408,9 @@ export type RecommendationOptionUpdateInput = {
   isRecommended?: Prisma.BoolFieldUpdateOperationsInput | boolean
   summary?: Prisma.StringFieldUpdateOperationsInput | string
   createdAt?: Prisma.DateTimeFieldUpdateOperationsInput | Date | string
+  insights?: Prisma.RecommendationInsightUpdateManyWithoutRecommendationOptionNestedInput
   recommendationRun?: Prisma.RecommendationRunUpdateOneRequiredWithoutOptionsNestedInput
   travelerAllocations?: Prisma.RecommendationTravelerAllocationUpdateManyWithoutRecommendationOptionNestedInput
-  insights?: Prisma.RecommendationInsightUpdateManyWithoutRecommendationOptionNestedInput
 }
 
 export type RecommendationOptionUncheckedUpdateInput = {
@@ -426,8 +426,8 @@ export type RecommendationOptionUncheckedUpdateInput = {
   isRecommended?: Prisma.BoolFieldUpdateOperationsInput | boolean
   summary?: Prisma.StringFieldUpdateOperationsInput | string
   createdAt?: Prisma.DateTimeFieldUpdateOperationsInput | Date | string
-  travelerAllocations?: Prisma.RecommendationTravelerAllocationUncheckedUpdateManyWithoutRecommendationOptionNestedInput
   insights?: Prisma.RecommendationInsightUncheckedUpdateManyWithoutRecommendationOptionNestedInput
+  travelerAllocations?: Prisma.RecommendationTravelerAllocationUncheckedUpdateManyWithoutRecommendationOptionNestedInput
 }
 
 export type RecommendationOptionCreateManyInput = {
@@ -632,8 +632,8 @@ export type RecommendationOptionCreateWithoutRecommendationRunInput = {
   isRecommended?: boolean
   summary: string
   createdAt?: Date | string
-  travelerAllocations?: Prisma.RecommendationTravelerAllocationCreateNestedManyWithoutRecommendationOptionInput
   insights?: Prisma.RecommendationInsightCreateNestedManyWithoutRecommendationOptionInput
+  travelerAllocations?: Prisma.RecommendationTravelerAllocationCreateNestedManyWithoutRecommendationOptionInput
 }
 
 export type RecommendationOptionUncheckedCreateWithoutRecommendationRunInput = {
@@ -648,8 +648,8 @@ export type RecommendationOptionUncheckedCreateWithoutRecommendationRunInput = {
   isRecommended?: boolean
   summary: string
   createdAt?: Date | string
-  travelerAllocations?: Prisma.RecommendationTravelerAllocationUncheckedCreateNestedManyWithoutRecommendationOptionInput
   insights?: Prisma.RecommendationInsightUncheckedCreateNestedManyWithoutRecommendationOptionInput
+  travelerAllocations?: Prisma.RecommendationTravelerAllocationUncheckedCreateNestedManyWithoutRecommendationOptionInput
 }
 
 export type RecommendationOptionCreateOrConnectWithoutRecommendationRunInput = {
@@ -708,8 +708,8 @@ export type RecommendationOptionCreateWithoutTravelerAllocationsInput = {
   isRecommended?: boolean
   summary: string
   createdAt?: Date | string
-  recommendationRun: Prisma.RecommendationRunCreateNestedOneWithoutOptionsInput
   insights?: Prisma.RecommendationInsightCreateNestedManyWithoutRecommendationOptionInput
+  recommendationRun: Prisma.RecommendationRunCreateNestedOneWithoutOptionsInput
 }
 
 export type RecommendationOptionUncheckedCreateWithoutTravelerAllocationsInput = {
@@ -756,8 +756,8 @@ export type RecommendationOptionUpdateWithoutTravelerAllocationsInput = {
   isRecommended?: Prisma.BoolFieldUpdateOperationsInput | boolean
   summary?: Prisma.StringFieldUpdateOperationsInput | string
   createdAt?: Prisma.DateTimeFieldUpdateOperationsInput | Date | string
-  recommendationRun?: Prisma.RecommendationRunUpdateOneRequiredWithoutOptionsNestedInput
   insights?: Prisma.RecommendationInsightUpdateManyWithoutRecommendationOptionNestedInput
+  recommendationRun?: Prisma.RecommendationRunUpdateOneRequiredWithoutOptionsNestedInput
 }
 
 export type RecommendationOptionUncheckedUpdateWithoutTravelerAllocationsInput = {
@@ -882,8 +882,8 @@ export type RecommendationOptionUpdateWithoutRecommendationRunInput = {
   isRecommended?: Prisma.BoolFieldUpdateOperationsInput | boolean
   summary?: Prisma.StringFieldUpdateOperationsInput | string
   createdAt?: Prisma.DateTimeFieldUpdateOperationsInput | Date | string
-  travelerAllocations?: Prisma.RecommendationTravelerAllocationUpdateManyWithoutRecommendationOptionNestedInput
   insights?: Prisma.RecommendationInsightUpdateManyWithoutRecommendationOptionNestedInput
+  travelerAllocations?: Prisma.RecommendationTravelerAllocationUpdateManyWithoutRecommendationOptionNestedInput
 }
 
 export type RecommendationOptionUncheckedUpdateWithoutRecommendationRunInput = {
@@ -898,8 +898,8 @@ export type RecommendationOptionUncheckedUpdateWithoutRecommendationRunInput = {
   isRecommended?: Prisma.BoolFieldUpdateOperationsInput | boolean
   summary?: Prisma.StringFieldUpdateOperationsInput | string
   createdAt?: Prisma.DateTimeFieldUpdateOperationsInput | Date | string
-  travelerAllocations?: Prisma.RecommendationTravelerAllocationUncheckedUpdateManyWithoutRecommendationOptionNestedInput
   insights?: Prisma.RecommendationInsightUncheckedUpdateManyWithoutRecommendationOptionNestedInput
+  travelerAllocations?: Prisma.RecommendationTravelerAllocationUncheckedUpdateManyWithoutRecommendationOptionNestedInput
 }
 
 export type RecommendationOptionUncheckedUpdateManyWithoutRecommendationRunInput = {
@@ -922,13 +922,13 @@ export type RecommendationOptionUncheckedUpdateManyWithoutRecommendationRunInput
  */
 
 export type RecommendationOptionCountOutputType = {
-  travelerAllocations: number
   insights: number
+  travelerAllocations: number
 }
 
 export type RecommendationOptionCountOutputTypeSelect<ExtArgs extends runtime.Types.Extensions.InternalArgs = runtime.Types.Extensions.DefaultArgs> = {
-  travelerAllocations?: boolean | RecommendationOptionCountOutputTypeCountTravelerAllocationsArgs
   insights?: boolean | RecommendationOptionCountOutputTypeCountInsightsArgs
+  travelerAllocations?: boolean | RecommendationOptionCountOutputTypeCountTravelerAllocationsArgs
 }
 
 /**
@@ -944,15 +944,15 @@ export type RecommendationOptionCountOutputTypeDefaultArgs<ExtArgs extends runti
 /**
  * RecommendationOptionCountOutputType without action
  */
-export type RecommendationOptionCountOutputTypeCountTravelerAllocationsArgs<ExtArgs extends runtime.Types.Extensions.InternalArgs = runtime.Types.Extensions.DefaultArgs> = {
-  where?: Prisma.RecommendationTravelerAllocationWhereInput
+export type RecommendationOptionCountOutputTypeCountInsightsArgs<ExtArgs extends runtime.Types.Extensions.InternalArgs = runtime.Types.Extensions.DefaultArgs> = {
+  where?: Prisma.RecommendationInsightWhereInput
 }
 
 /**
  * RecommendationOptionCountOutputType without action
  */
-export type RecommendationOptionCountOutputTypeCountInsightsArgs<ExtArgs extends runtime.Types.Extensions.InternalArgs = runtime.Types.Extensions.DefaultArgs> = {
-  where?: Prisma.RecommendationInsightWhereInput
+export type RecommendationOptionCountOutputTypeCountTravelerAllocationsArgs<ExtArgs extends runtime.Types.Extensions.InternalArgs = runtime.Types.Extensions.DefaultArgs> = {
+  where?: Prisma.RecommendationTravelerAllocationWhereInput
 }
 
 
@@ -969,9 +969,9 @@ export type RecommendationOptionSelect<ExtArgs extends runtime.Types.Extensions.
   isRecommended?: boolean
   summary?: boolean
   createdAt?: boolean
+  insights?: boolean | Prisma.RecommendationOption$insightsArgs<ExtArgs>
   recommendationRun?: boolean | Prisma.RecommendationRunDefaultArgs<ExtArgs>
   travelerAllocations?: boolean | Prisma.RecommendationOption$travelerAllocationsArgs<ExtArgs>
-  insights?: boolean | Prisma.RecommendationOption$insightsArgs<ExtArgs>
   _count?: boolean | Prisma.RecommendationOptionCountOutputTypeDefaultArgs<ExtArgs>
 }, ExtArgs["result"]["recommendationOption"]>
 
@@ -1024,9 +1024,9 @@ export type RecommendationOptionSelectScalar = {
 
 export type RecommendationOptionOmit<ExtArgs extends runtime.Types.Extensions.InternalArgs = runtime.Types.Extensions.DefaultArgs> = runtime.Types.Extensions.GetOmit<"id" | "recommendationRunId" | "rank" | "title" | "strategyType" | "totalCashCost" | "totalPointsUsed" | "estimatedTotalValueCents" | "weightedScore" | "isRecommended" | "summary" | "createdAt", ExtArgs["result"]["recommendationOption"]>
 export type RecommendationOptionInclude<ExtArgs extends runtime.Types.Extensions.InternalArgs = runtime.Types.Extensions.DefaultArgs> = {
+  insights?: boolean | Prisma.RecommendationOption$insightsArgs<ExtArgs>
   recommendationRun?: boolean | Prisma.RecommendationRunDefaultArgs<ExtArgs>
   travelerAllocations?: boolean | Prisma.RecommendationOption$travelerAllocationsArgs<ExtArgs>
-  insights?: boolean | Prisma.RecommendationOption$insightsArgs<ExtArgs>
   _count?: boolean | Prisma.RecommendationOptionCountOutputTypeDefaultArgs<ExtArgs>
 }
 export type RecommendationOptionIncludeCreateManyAndReturn<ExtArgs extends runtime.Types.Extensions.InternalArgs = runtime.Types.Extensions.DefaultArgs> = {
@@ -1039,9 +1039,9 @@ export type RecommendationOptionIncludeUpdateManyAndReturn<ExtArgs extends runti
 export type $RecommendationOptionPayload<ExtArgs extends runtime.Types.Extensions.InternalArgs = runtime.Types.Extensions.DefaultArgs> = {
   name: "RecommendationOption"
   objects: {
+    insights: Prisma.$RecommendationInsightPayload<ExtArgs>[]
     recommendationRun: Prisma.$RecommendationRunPayload<ExtArgs>
     travelerAllocations: Prisma.$RecommendationTravelerAllocationPayload<ExtArgs>[]
-    insights: Prisma.$RecommendationInsightPayload<ExtArgs>[]
   }
   scalars: runtime.Types.Extensions.GetPayloadResult<{
     id: string
@@ -1450,9 +1450,9 @@ readonly fields: RecommendationOptionFieldRefs;
  */
 export interface Prisma__RecommendationOptionClient<T, Null = never, ExtArgs extends runtime.Types.Extensions.InternalArgs = runtime.Types.Extensions.DefaultArgs, GlobalOmitOptions = {}> extends Prisma.PrismaPromise<T> {
   readonly [Symbol.toStringTag]: "PrismaPromise"
+  insights<T extends Prisma.RecommendationOption$insightsArgs<ExtArgs> = {}>(args?: Prisma.Subset<T, Prisma.RecommendationOption$insightsArgs<ExtArgs>>): Prisma.PrismaPromise<runtime.Types.Result.GetResult<Prisma.$RecommendationInsightPayload<ExtArgs>, T, "findMany", GlobalOmitOptions> | Null>
   recommendationRun<T extends Prisma.RecommendationRunDefaultArgs<ExtArgs> = {}>(args?: Prisma.Subset<T, Prisma.RecommendationRunDefaultArgs<ExtArgs>>): Prisma.Prisma__RecommendationRunClient<runtime.Types.Result.GetResult<Prisma.$RecommendationRunPayload<ExtArgs>, T, "findUniqueOrThrow", GlobalOmitOptions> | Null, Null, ExtArgs, GlobalOmitOptions>
   travelerAllocations<T extends Prisma.RecommendationOption$travelerAllocationsArgs<ExtArgs> = {}>(args?: Prisma.Subset<T, Prisma.RecommendationOption$travelerAllocationsArgs<ExtArgs>>): Prisma.PrismaPromise<runtime.Types.Result.GetResult<Prisma.$RecommendationTravelerAllocationPayload<ExtArgs>, T, "findMany", GlobalOmitOptions> | Null>
-  insights<T extends Prisma.RecommendationOption$insightsArgs<ExtArgs> = {}>(args?: Prisma.Subset<T, Prisma.RecommendationOption$insightsArgs<ExtArgs>>): Prisma.PrismaPromise<runtime.Types.Result.GetResult<Prisma.$RecommendationInsightPayload<ExtArgs>, T, "findMany", GlobalOmitOptions> | Null>
   /**
    * Attaches callbacks for the resolution and/or rejection of the Promise.
    * @param onfulfilled The callback to execute when the Promise is resolved.
@@ -1895,30 +1895,6 @@ export type RecommendationOptionDeleteManyArgs<ExtArgs extends runtime.Types.Ext
 }
 
 /**
- * RecommendationOption.travelerAllocations
- */
-export type RecommendationOption$travelerAllocationsArgs<ExtArgs extends runtime.Types.Extensions.InternalArgs = runtime.Types.Extensions.DefaultArgs> = {
-  /**
-   * Select specific fields to fetch from the RecommendationTravelerAllocation
-   */
-  select?: Prisma.RecommendationTravelerAllocationSelect<ExtArgs> | null
-  /**
-   * Omit specific fields from the RecommendationTravelerAllocation
-   */
-  omit?: Prisma.RecommendationTravelerAllocationOmit<ExtArgs> | null
-  /**
-   * Choose, which related nodes to fetch as well
-   */
-  include?: Prisma.RecommendationTravelerAllocationInclude<ExtArgs> | null
-  where?: Prisma.RecommendationTravelerAllocationWhereInput
-  orderBy?: Prisma.RecommendationTravelerAllocationOrderByWithRelationInput | Prisma.RecommendationTravelerAllocationOrderByWithRelationInput[]
-  cursor?: Prisma.RecommendationTravelerAllocationWhereUniqueInput
-  take?: number
-  skip?: number
-  distinct?: Prisma.RecommendationTravelerAllocationScalarFieldEnum | Prisma.RecommendationTravelerAllocationScalarFieldEnum[]
-}
-
-/**
  * RecommendationOption.insights
  */
 export type RecommendationOption$insightsArgs<ExtArgs extends runtime.Types.Extensions.InternalArgs = runtime.Types.Extensions.DefaultArgs> = {
@@ -1940,6 +1916,30 @@ export type RecommendationOption$insightsArgs<ExtArgs extends runtime.Types.Exte
   take?: number
   skip?: number
   distinct?: Prisma.RecommendationInsightScalarFieldEnum | Prisma.RecommendationInsightScalarFieldEnum[]
+}
+
+/**
+ * RecommendationOption.travelerAllocations
+ */
+export type RecommendationOption$travelerAllocationsArgs<ExtArgs extends runtime.Types.Extensions.InternalArgs = runtime.Types.Extensions.DefaultArgs> = {
+  /**
+   * Select specific fields to fetch from the RecommendationTravelerAllocation
+   */
+  select?: Prisma.RecommendationTravelerAllocationSelect<ExtArgs> | null
+  /**
+   * Omit specific fields from the RecommendationTravelerAllocation
+   */
+  omit?: Prisma.RecommendationTravelerAllocationOmit<ExtArgs> | null
+  /**
+   * Choose, which related nodes to fetch as well
+   */
+  include?: Prisma.RecommendationTravelerAllocationInclude<ExtArgs> | null
+  where?: Prisma.RecommendationTravelerAllocationWhereInput
+  orderBy?: Prisma.RecommendationTravelerAllocationOrderByWithRelationInput | Prisma.RecommendationTravelerAllocationOrderByWithRelationInput[]
+  cursor?: Prisma.RecommendationTravelerAllocationWhereUniqueInput
+  take?: number
+  skip?: number
+  distinct?: Prisma.RecommendationTravelerAllocationScalarFieldEnum | Prisma.RecommendationTravelerAllocationScalarFieldEnum[]
 }
 
 /**

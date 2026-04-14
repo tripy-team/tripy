@@ -190,8 +190,8 @@ export type HouseholdMemberWhereInput = {
   relationshipLabel?: Prisma.StringNullableFilter<"HouseholdMember"> | string | null
   canRedeemForHousehold?: Prisma.BoolFilter<"HouseholdMember"> | boolean
   createdAt?: Prisma.DateTimeFilter<"HouseholdMember"> | Date | string
-  household?: Prisma.XOR<Prisma.HouseholdScalarRelationFilter, Prisma.HouseholdWhereInput>
   client?: Prisma.XOR<Prisma.ClientScalarRelationFilter, Prisma.ClientWhereInput>
+  household?: Prisma.XOR<Prisma.HouseholdScalarRelationFilter, Prisma.HouseholdWhereInput>
 }
 
 export type HouseholdMemberOrderByWithRelationInput = {
@@ -201,8 +201,8 @@ export type HouseholdMemberOrderByWithRelationInput = {
   relationshipLabel?: Prisma.SortOrderInput | Prisma.SortOrder
   canRedeemForHousehold?: Prisma.SortOrder
   createdAt?: Prisma.SortOrder
-  household?: Prisma.HouseholdOrderByWithRelationInput
   client?: Prisma.ClientOrderByWithRelationInput
+  household?: Prisma.HouseholdOrderByWithRelationInput
 }
 
 export type HouseholdMemberWhereUniqueInput = Prisma.AtLeast<{
@@ -216,8 +216,8 @@ export type HouseholdMemberWhereUniqueInput = Prisma.AtLeast<{
   relationshipLabel?: Prisma.StringNullableFilter<"HouseholdMember"> | string | null
   canRedeemForHousehold?: Prisma.BoolFilter<"HouseholdMember"> | boolean
   createdAt?: Prisma.DateTimeFilter<"HouseholdMember"> | Date | string
-  household?: Prisma.XOR<Prisma.HouseholdScalarRelationFilter, Prisma.HouseholdWhereInput>
   client?: Prisma.XOR<Prisma.ClientScalarRelationFilter, Prisma.ClientWhereInput>
+  household?: Prisma.XOR<Prisma.HouseholdScalarRelationFilter, Prisma.HouseholdWhereInput>
 }, "id" | "householdId_clientId">
 
 export type HouseholdMemberOrderByWithAggregationInput = {
@@ -249,8 +249,8 @@ export type HouseholdMemberCreateInput = {
   relationshipLabel?: string | null
   canRedeemForHousehold?: boolean
   createdAt?: Date | string
-  household: Prisma.HouseholdCreateNestedOneWithoutMembersInput
   client: Prisma.ClientCreateNestedOneWithoutHouseholdMembersInput
+  household: Prisma.HouseholdCreateNestedOneWithoutMembersInput
 }
 
 export type HouseholdMemberUncheckedCreateInput = {
@@ -267,8 +267,8 @@ export type HouseholdMemberUpdateInput = {
   relationshipLabel?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
   canRedeemForHousehold?: Prisma.BoolFieldUpdateOperationsInput | boolean
   createdAt?: Prisma.DateTimeFieldUpdateOperationsInput | Date | string
-  household?: Prisma.HouseholdUpdateOneRequiredWithoutMembersNestedInput
   client?: Prisma.ClientUpdateOneRequiredWithoutHouseholdMembersNestedInput
+  household?: Prisma.HouseholdUpdateOneRequiredWithoutMembersNestedInput
 }
 
 export type HouseholdMemberUncheckedUpdateInput = {
@@ -604,8 +604,8 @@ export type HouseholdMemberSelect<ExtArgs extends runtime.Types.Extensions.Inter
   relationshipLabel?: boolean
   canRedeemForHousehold?: boolean
   createdAt?: boolean
-  household?: boolean | Prisma.HouseholdDefaultArgs<ExtArgs>
   client?: boolean | Prisma.ClientDefaultArgs<ExtArgs>
+  household?: boolean | Prisma.HouseholdDefaultArgs<ExtArgs>
 }, ExtArgs["result"]["householdMember"]>
 
 export type HouseholdMemberSelectCreateManyAndReturn<ExtArgs extends runtime.Types.Extensions.InternalArgs = runtime.Types.Extensions.DefaultArgs> = runtime.Types.Extensions.GetSelect<{
@@ -615,8 +615,8 @@ export type HouseholdMemberSelectCreateManyAndReturn<ExtArgs extends runtime.Typ
   relationshipLabel?: boolean
   canRedeemForHousehold?: boolean
   createdAt?: boolean
-  household?: boolean | Prisma.HouseholdDefaultArgs<ExtArgs>
   client?: boolean | Prisma.ClientDefaultArgs<ExtArgs>
+  household?: boolean | Prisma.HouseholdDefaultArgs<ExtArgs>
 }, ExtArgs["result"]["householdMember"]>
 
 export type HouseholdMemberSelectUpdateManyAndReturn<ExtArgs extends runtime.Types.Extensions.InternalArgs = runtime.Types.Extensions.DefaultArgs> = runtime.Types.Extensions.GetSelect<{
@@ -626,8 +626,8 @@ export type HouseholdMemberSelectUpdateManyAndReturn<ExtArgs extends runtime.Typ
   relationshipLabel?: boolean
   canRedeemForHousehold?: boolean
   createdAt?: boolean
-  household?: boolean | Prisma.HouseholdDefaultArgs<ExtArgs>
   client?: boolean | Prisma.ClientDefaultArgs<ExtArgs>
+  household?: boolean | Prisma.HouseholdDefaultArgs<ExtArgs>
 }, ExtArgs["result"]["householdMember"]>
 
 export type HouseholdMemberSelectScalar = {
@@ -641,23 +641,23 @@ export type HouseholdMemberSelectScalar = {
 
 export type HouseholdMemberOmit<ExtArgs extends runtime.Types.Extensions.InternalArgs = runtime.Types.Extensions.DefaultArgs> = runtime.Types.Extensions.GetOmit<"id" | "householdId" | "clientId" | "relationshipLabel" | "canRedeemForHousehold" | "createdAt", ExtArgs["result"]["householdMember"]>
 export type HouseholdMemberInclude<ExtArgs extends runtime.Types.Extensions.InternalArgs = runtime.Types.Extensions.DefaultArgs> = {
-  household?: boolean | Prisma.HouseholdDefaultArgs<ExtArgs>
   client?: boolean | Prisma.ClientDefaultArgs<ExtArgs>
+  household?: boolean | Prisma.HouseholdDefaultArgs<ExtArgs>
 }
 export type HouseholdMemberIncludeCreateManyAndReturn<ExtArgs extends runtime.Types.Extensions.InternalArgs = runtime.Types.Extensions.DefaultArgs> = {
-  household?: boolean | Prisma.HouseholdDefaultArgs<ExtArgs>
   client?: boolean | Prisma.ClientDefaultArgs<ExtArgs>
+  household?: boolean | Prisma.HouseholdDefaultArgs<ExtArgs>
 }
 export type HouseholdMemberIncludeUpdateManyAndReturn<ExtArgs extends runtime.Types.Extensions.InternalArgs = runtime.Types.Extensions.DefaultArgs> = {
-  household?: boolean | Prisma.HouseholdDefaultArgs<ExtArgs>
   client?: boolean | Prisma.ClientDefaultArgs<ExtArgs>
+  household?: boolean | Prisma.HouseholdDefaultArgs<ExtArgs>
 }
 
 export type $HouseholdMemberPayload<ExtArgs extends runtime.Types.Extensions.InternalArgs = runtime.Types.Extensions.DefaultArgs> = {
   name: "HouseholdMember"
   objects: {
-    household: Prisma.$HouseholdPayload<ExtArgs>
     client: Prisma.$ClientPayload<ExtArgs>
+    household: Prisma.$HouseholdPayload<ExtArgs>
   }
   scalars: runtime.Types.Extensions.GetPayloadResult<{
     id: string
@@ -1060,8 +1060,8 @@ readonly fields: HouseholdMemberFieldRefs;
  */
 export interface Prisma__HouseholdMemberClient<T, Null = never, ExtArgs extends runtime.Types.Extensions.InternalArgs = runtime.Types.Extensions.DefaultArgs, GlobalOmitOptions = {}> extends Prisma.PrismaPromise<T> {
   readonly [Symbol.toStringTag]: "PrismaPromise"
-  household<T extends Prisma.HouseholdDefaultArgs<ExtArgs> = {}>(args?: Prisma.Subset<T, Prisma.HouseholdDefaultArgs<ExtArgs>>): Prisma.Prisma__HouseholdClient<runtime.Types.Result.GetResult<Prisma.$HouseholdPayload<ExtArgs>, T, "findUniqueOrThrow", GlobalOmitOptions> | Null, Null, ExtArgs, GlobalOmitOptions>
   client<T extends Prisma.ClientDefaultArgs<ExtArgs> = {}>(args?: Prisma.Subset<T, Prisma.ClientDefaultArgs<ExtArgs>>): Prisma.Prisma__ClientClient<runtime.Types.Result.GetResult<Prisma.$ClientPayload<ExtArgs>, T, "findUniqueOrThrow", GlobalOmitOptions> | Null, Null, ExtArgs, GlobalOmitOptions>
+  household<T extends Prisma.HouseholdDefaultArgs<ExtArgs> = {}>(args?: Prisma.Subset<T, Prisma.HouseholdDefaultArgs<ExtArgs>>): Prisma.Prisma__HouseholdClient<runtime.Types.Result.GetResult<Prisma.$HouseholdPayload<ExtArgs>, T, "findUniqueOrThrow", GlobalOmitOptions> | Null, Null, ExtArgs, GlobalOmitOptions>
   /**
    * Attaches callbacks for the resolution and/or rejection of the Promise.
    * @param onfulfilled The callback to execute when the Promise is resolved.

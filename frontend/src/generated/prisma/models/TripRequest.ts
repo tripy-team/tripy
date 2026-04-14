@@ -320,18 +320,18 @@ export type TripRequestWhereInput = {
   status?: Prisma.EnumTripStatusFilter<"TripRequest"> | $Enums.TripStatus
   createdAt?: Prisma.DateTimeFilter<"TripRequest"> | Date | string
   updatedAt?: Prisma.DateTimeFilter<"TripRequest"> | Date | string
-  organization?: Prisma.XOR<Prisma.OrganizationScalarRelationFilter, Prisma.OrganizationWhereInput>
-  owner?: Prisma.XOR<Prisma.UserScalarRelationFilter, Prisma.UserWhereInput>
-  client?: Prisma.XOR<Prisma.ClientNullableScalarRelationFilter, Prisma.ClientWhereInput> | null
-  household?: Prisma.XOR<Prisma.HouseholdNullableScalarRelationFilter, Prisma.HouseholdWhereInput> | null
-  travelers?: Prisma.TripTravelerListRelationFilter
+  alertSubscriptions?: Prisma.AlertSubscriptionListRelationFilter
+  settlements?: Prisma.GroupSettlementListRelationFilter
+  itineraryJobs?: Prisma.ItineraryJobListRelationFilter
   recommendationRuns?: Prisma.RecommendationRunListRelationFilter
   tripBriefs?: Prisma.TripBriefListRelationFilter
-  alertSubscriptions?: Prisma.AlertSubscriptionListRelationFilter
+  client?: Prisma.XOR<Prisma.ClientNullableScalarRelationFilter, Prisma.ClientWhereInput> | null
+  household?: Prisma.XOR<Prisma.HouseholdNullableScalarRelationFilter, Prisma.HouseholdWhereInput> | null
+  organization?: Prisma.XOR<Prisma.OrganizationScalarRelationFilter, Prisma.OrganizationWhereInput>
+  owner?: Prisma.XOR<Prisma.UserScalarRelationFilter, Prisma.UserWhereInput>
   tradeoffRanking?: Prisma.XOR<Prisma.TripTradeoffRankingNullableScalarRelationFilter, Prisma.TripTradeoffRankingWhereInput> | null
+  travelers?: Prisma.TripTravelerListRelationFilter
   vendorRequests?: Prisma.VendorRequestListRelationFilter
-  itineraryJobs?: Prisma.ItineraryJobListRelationFilter
-  settlements?: Prisma.GroupSettlementListRelationFilter
 }
 
 export type TripRequestOrderByWithRelationInput = {
@@ -353,18 +353,18 @@ export type TripRequestOrderByWithRelationInput = {
   status?: Prisma.SortOrder
   createdAt?: Prisma.SortOrder
   updatedAt?: Prisma.SortOrder
-  organization?: Prisma.OrganizationOrderByWithRelationInput
-  owner?: Prisma.UserOrderByWithRelationInput
-  client?: Prisma.ClientOrderByWithRelationInput
-  household?: Prisma.HouseholdOrderByWithRelationInput
-  travelers?: Prisma.TripTravelerOrderByRelationAggregateInput
+  alertSubscriptions?: Prisma.AlertSubscriptionOrderByRelationAggregateInput
+  settlements?: Prisma.GroupSettlementOrderByRelationAggregateInput
+  itineraryJobs?: Prisma.ItineraryJobOrderByRelationAggregateInput
   recommendationRuns?: Prisma.RecommendationRunOrderByRelationAggregateInput
   tripBriefs?: Prisma.TripBriefOrderByRelationAggregateInput
-  alertSubscriptions?: Prisma.AlertSubscriptionOrderByRelationAggregateInput
+  client?: Prisma.ClientOrderByWithRelationInput
+  household?: Prisma.HouseholdOrderByWithRelationInput
+  organization?: Prisma.OrganizationOrderByWithRelationInput
+  owner?: Prisma.UserOrderByWithRelationInput
   tradeoffRanking?: Prisma.TripTradeoffRankingOrderByWithRelationInput
+  travelers?: Prisma.TripTravelerOrderByRelationAggregateInput
   vendorRequests?: Prisma.VendorRequestOrderByRelationAggregateInput
-  itineraryJobs?: Prisma.ItineraryJobOrderByRelationAggregateInput
-  settlements?: Prisma.GroupSettlementOrderByRelationAggregateInput
 }
 
 export type TripRequestWhereUniqueInput = Prisma.AtLeast<{
@@ -389,18 +389,18 @@ export type TripRequestWhereUniqueInput = Prisma.AtLeast<{
   status?: Prisma.EnumTripStatusFilter<"TripRequest"> | $Enums.TripStatus
   createdAt?: Prisma.DateTimeFilter<"TripRequest"> | Date | string
   updatedAt?: Prisma.DateTimeFilter<"TripRequest"> | Date | string
-  organization?: Prisma.XOR<Prisma.OrganizationScalarRelationFilter, Prisma.OrganizationWhereInput>
-  owner?: Prisma.XOR<Prisma.UserScalarRelationFilter, Prisma.UserWhereInput>
-  client?: Prisma.XOR<Prisma.ClientNullableScalarRelationFilter, Prisma.ClientWhereInput> | null
-  household?: Prisma.XOR<Prisma.HouseholdNullableScalarRelationFilter, Prisma.HouseholdWhereInput> | null
-  travelers?: Prisma.TripTravelerListRelationFilter
+  alertSubscriptions?: Prisma.AlertSubscriptionListRelationFilter
+  settlements?: Prisma.GroupSettlementListRelationFilter
+  itineraryJobs?: Prisma.ItineraryJobListRelationFilter
   recommendationRuns?: Prisma.RecommendationRunListRelationFilter
   tripBriefs?: Prisma.TripBriefListRelationFilter
-  alertSubscriptions?: Prisma.AlertSubscriptionListRelationFilter
+  client?: Prisma.XOR<Prisma.ClientNullableScalarRelationFilter, Prisma.ClientWhereInput> | null
+  household?: Prisma.XOR<Prisma.HouseholdNullableScalarRelationFilter, Prisma.HouseholdWhereInput> | null
+  organization?: Prisma.XOR<Prisma.OrganizationScalarRelationFilter, Prisma.OrganizationWhereInput>
+  owner?: Prisma.XOR<Prisma.UserScalarRelationFilter, Prisma.UserWhereInput>
   tradeoffRanking?: Prisma.XOR<Prisma.TripTradeoffRankingNullableScalarRelationFilter, Prisma.TripTradeoffRankingWhereInput> | null
+  travelers?: Prisma.TripTravelerListRelationFilter
   vendorRequests?: Prisma.VendorRequestListRelationFilter
-  itineraryJobs?: Prisma.ItineraryJobListRelationFilter
-  settlements?: Prisma.GroupSettlementListRelationFilter
 }, "id">
 
 export type TripRequestOrderByWithAggregationInput = {
@@ -468,18 +468,18 @@ export type TripRequestCreateInput = {
   status?: $Enums.TripStatus
   createdAt?: Date | string
   updatedAt?: Date | string
-  organization: Prisma.OrganizationCreateNestedOneWithoutTripRequestsInput
-  owner: Prisma.UserCreateNestedOneWithoutTripRequestsInput
-  client?: Prisma.ClientCreateNestedOneWithoutTripRequestsInput
-  household?: Prisma.HouseholdCreateNestedOneWithoutTripRequestsInput
-  travelers?: Prisma.TripTravelerCreateNestedManyWithoutTripRequestInput
+  alertSubscriptions?: Prisma.AlertSubscriptionCreateNestedManyWithoutTripRequestInput
+  settlements?: Prisma.GroupSettlementCreateNestedManyWithoutTripRequestInput
+  itineraryJobs?: Prisma.ItineraryJobCreateNestedManyWithoutTripRequestInput
   recommendationRuns?: Prisma.RecommendationRunCreateNestedManyWithoutTripRequestInput
   tripBriefs?: Prisma.TripBriefCreateNestedManyWithoutTripRequestInput
-  alertSubscriptions?: Prisma.AlertSubscriptionCreateNestedManyWithoutTripRequestInput
+  client?: Prisma.ClientCreateNestedOneWithoutTripRequestsInput
+  household?: Prisma.HouseholdCreateNestedOneWithoutTripRequestsInput
+  organization: Prisma.OrganizationCreateNestedOneWithoutTripRequestsInput
+  owner: Prisma.UserCreateNestedOneWithoutTripRequestsInput
   tradeoffRanking?: Prisma.TripTradeoffRankingCreateNestedOneWithoutTripRequestInput
+  travelers?: Prisma.TripTravelerCreateNestedManyWithoutTripRequestInput
   vendorRequests?: Prisma.VendorRequestCreateNestedManyWithoutTripRequestInput
-  itineraryJobs?: Prisma.ItineraryJobCreateNestedManyWithoutTripRequestInput
-  settlements?: Prisma.GroupSettlementCreateNestedManyWithoutTripRequestInput
 }
 
 export type TripRequestUncheckedCreateInput = {
@@ -501,14 +501,14 @@ export type TripRequestUncheckedCreateInput = {
   status?: $Enums.TripStatus
   createdAt?: Date | string
   updatedAt?: Date | string
-  travelers?: Prisma.TripTravelerUncheckedCreateNestedManyWithoutTripRequestInput
+  alertSubscriptions?: Prisma.AlertSubscriptionUncheckedCreateNestedManyWithoutTripRequestInput
+  settlements?: Prisma.GroupSettlementUncheckedCreateNestedManyWithoutTripRequestInput
+  itineraryJobs?: Prisma.ItineraryJobUncheckedCreateNestedManyWithoutTripRequestInput
   recommendationRuns?: Prisma.RecommendationRunUncheckedCreateNestedManyWithoutTripRequestInput
   tripBriefs?: Prisma.TripBriefUncheckedCreateNestedManyWithoutTripRequestInput
-  alertSubscriptions?: Prisma.AlertSubscriptionUncheckedCreateNestedManyWithoutTripRequestInput
   tradeoffRanking?: Prisma.TripTradeoffRankingUncheckedCreateNestedOneWithoutTripRequestInput
+  travelers?: Prisma.TripTravelerUncheckedCreateNestedManyWithoutTripRequestInput
   vendorRequests?: Prisma.VendorRequestUncheckedCreateNestedManyWithoutTripRequestInput
-  itineraryJobs?: Prisma.ItineraryJobUncheckedCreateNestedManyWithoutTripRequestInput
-  settlements?: Prisma.GroupSettlementUncheckedCreateNestedManyWithoutTripRequestInput
 }
 
 export type TripRequestUpdateInput = {
@@ -526,18 +526,18 @@ export type TripRequestUpdateInput = {
   status?: Prisma.EnumTripStatusFieldUpdateOperationsInput | $Enums.TripStatus
   createdAt?: Prisma.DateTimeFieldUpdateOperationsInput | Date | string
   updatedAt?: Prisma.DateTimeFieldUpdateOperationsInput | Date | string
-  organization?: Prisma.OrganizationUpdateOneRequiredWithoutTripRequestsNestedInput
-  owner?: Prisma.UserUpdateOneRequiredWithoutTripRequestsNestedInput
-  client?: Prisma.ClientUpdateOneWithoutTripRequestsNestedInput
-  household?: Prisma.HouseholdUpdateOneWithoutTripRequestsNestedInput
-  travelers?: Prisma.TripTravelerUpdateManyWithoutTripRequestNestedInput
+  alertSubscriptions?: Prisma.AlertSubscriptionUpdateManyWithoutTripRequestNestedInput
+  settlements?: Prisma.GroupSettlementUpdateManyWithoutTripRequestNestedInput
+  itineraryJobs?: Prisma.ItineraryJobUpdateManyWithoutTripRequestNestedInput
   recommendationRuns?: Prisma.RecommendationRunUpdateManyWithoutTripRequestNestedInput
   tripBriefs?: Prisma.TripBriefUpdateManyWithoutTripRequestNestedInput
-  alertSubscriptions?: Prisma.AlertSubscriptionUpdateManyWithoutTripRequestNestedInput
+  client?: Prisma.ClientUpdateOneWithoutTripRequestsNestedInput
+  household?: Prisma.HouseholdUpdateOneWithoutTripRequestsNestedInput
+  organization?: Prisma.OrganizationUpdateOneRequiredWithoutTripRequestsNestedInput
+  owner?: Prisma.UserUpdateOneRequiredWithoutTripRequestsNestedInput
   tradeoffRanking?: Prisma.TripTradeoffRankingUpdateOneWithoutTripRequestNestedInput
+  travelers?: Prisma.TripTravelerUpdateManyWithoutTripRequestNestedInput
   vendorRequests?: Prisma.VendorRequestUpdateManyWithoutTripRequestNestedInput
-  itineraryJobs?: Prisma.ItineraryJobUpdateManyWithoutTripRequestNestedInput
-  settlements?: Prisma.GroupSettlementUpdateManyWithoutTripRequestNestedInput
 }
 
 export type TripRequestUncheckedUpdateInput = {
@@ -559,14 +559,14 @@ export type TripRequestUncheckedUpdateInput = {
   status?: Prisma.EnumTripStatusFieldUpdateOperationsInput | $Enums.TripStatus
   createdAt?: Prisma.DateTimeFieldUpdateOperationsInput | Date | string
   updatedAt?: Prisma.DateTimeFieldUpdateOperationsInput | Date | string
-  travelers?: Prisma.TripTravelerUncheckedUpdateManyWithoutTripRequestNestedInput
+  alertSubscriptions?: Prisma.AlertSubscriptionUncheckedUpdateManyWithoutTripRequestNestedInput
+  settlements?: Prisma.GroupSettlementUncheckedUpdateManyWithoutTripRequestNestedInput
+  itineraryJobs?: Prisma.ItineraryJobUncheckedUpdateManyWithoutTripRequestNestedInput
   recommendationRuns?: Prisma.RecommendationRunUncheckedUpdateManyWithoutTripRequestNestedInput
   tripBriefs?: Prisma.TripBriefUncheckedUpdateManyWithoutTripRequestNestedInput
-  alertSubscriptions?: Prisma.AlertSubscriptionUncheckedUpdateManyWithoutTripRequestNestedInput
   tradeoffRanking?: Prisma.TripTradeoffRankingUncheckedUpdateOneWithoutTripRequestNestedInput
+  travelers?: Prisma.TripTravelerUncheckedUpdateManyWithoutTripRequestNestedInput
   vendorRequests?: Prisma.VendorRequestUncheckedUpdateManyWithoutTripRequestNestedInput
-  itineraryJobs?: Prisma.ItineraryJobUncheckedUpdateManyWithoutTripRequestNestedInput
-  settlements?: Prisma.GroupSettlementUncheckedUpdateManyWithoutTripRequestNestedInput
 }
 
 export type TripRequestCreateManyInput = {
@@ -1022,17 +1022,17 @@ export type TripRequestCreateWithoutOrganizationInput = {
   status?: $Enums.TripStatus
   createdAt?: Date | string
   updatedAt?: Date | string
-  owner: Prisma.UserCreateNestedOneWithoutTripRequestsInput
-  client?: Prisma.ClientCreateNestedOneWithoutTripRequestsInput
-  household?: Prisma.HouseholdCreateNestedOneWithoutTripRequestsInput
-  travelers?: Prisma.TripTravelerCreateNestedManyWithoutTripRequestInput
+  alertSubscriptions?: Prisma.AlertSubscriptionCreateNestedManyWithoutTripRequestInput
+  settlements?: Prisma.GroupSettlementCreateNestedManyWithoutTripRequestInput
+  itineraryJobs?: Prisma.ItineraryJobCreateNestedManyWithoutTripRequestInput
   recommendationRuns?: Prisma.RecommendationRunCreateNestedManyWithoutTripRequestInput
   tripBriefs?: Prisma.TripBriefCreateNestedManyWithoutTripRequestInput
-  alertSubscriptions?: Prisma.AlertSubscriptionCreateNestedManyWithoutTripRequestInput
+  client?: Prisma.ClientCreateNestedOneWithoutTripRequestsInput
+  household?: Prisma.HouseholdCreateNestedOneWithoutTripRequestsInput
+  owner: Prisma.UserCreateNestedOneWithoutTripRequestsInput
   tradeoffRanking?: Prisma.TripTradeoffRankingCreateNestedOneWithoutTripRequestInput
+  travelers?: Prisma.TripTravelerCreateNestedManyWithoutTripRequestInput
   vendorRequests?: Prisma.VendorRequestCreateNestedManyWithoutTripRequestInput
-  itineraryJobs?: Prisma.ItineraryJobCreateNestedManyWithoutTripRequestInput
-  settlements?: Prisma.GroupSettlementCreateNestedManyWithoutTripRequestInput
 }
 
 export type TripRequestUncheckedCreateWithoutOrganizationInput = {
@@ -1053,14 +1053,14 @@ export type TripRequestUncheckedCreateWithoutOrganizationInput = {
   status?: $Enums.TripStatus
   createdAt?: Date | string
   updatedAt?: Date | string
-  travelers?: Prisma.TripTravelerUncheckedCreateNestedManyWithoutTripRequestInput
+  alertSubscriptions?: Prisma.AlertSubscriptionUncheckedCreateNestedManyWithoutTripRequestInput
+  settlements?: Prisma.GroupSettlementUncheckedCreateNestedManyWithoutTripRequestInput
+  itineraryJobs?: Prisma.ItineraryJobUncheckedCreateNestedManyWithoutTripRequestInput
   recommendationRuns?: Prisma.RecommendationRunUncheckedCreateNestedManyWithoutTripRequestInput
   tripBriefs?: Prisma.TripBriefUncheckedCreateNestedManyWithoutTripRequestInput
-  alertSubscriptions?: Prisma.AlertSubscriptionUncheckedCreateNestedManyWithoutTripRequestInput
   tradeoffRanking?: Prisma.TripTradeoffRankingUncheckedCreateNestedOneWithoutTripRequestInput
+  travelers?: Prisma.TripTravelerUncheckedCreateNestedManyWithoutTripRequestInput
   vendorRequests?: Prisma.VendorRequestUncheckedCreateNestedManyWithoutTripRequestInput
-  itineraryJobs?: Prisma.ItineraryJobUncheckedCreateNestedManyWithoutTripRequestInput
-  settlements?: Prisma.GroupSettlementUncheckedCreateNestedManyWithoutTripRequestInput
 }
 
 export type TripRequestCreateOrConnectWithoutOrganizationInput = {
@@ -1128,17 +1128,17 @@ export type TripRequestCreateWithoutOwnerInput = {
   status?: $Enums.TripStatus
   createdAt?: Date | string
   updatedAt?: Date | string
-  organization: Prisma.OrganizationCreateNestedOneWithoutTripRequestsInput
-  client?: Prisma.ClientCreateNestedOneWithoutTripRequestsInput
-  household?: Prisma.HouseholdCreateNestedOneWithoutTripRequestsInput
-  travelers?: Prisma.TripTravelerCreateNestedManyWithoutTripRequestInput
+  alertSubscriptions?: Prisma.AlertSubscriptionCreateNestedManyWithoutTripRequestInput
+  settlements?: Prisma.GroupSettlementCreateNestedManyWithoutTripRequestInput
+  itineraryJobs?: Prisma.ItineraryJobCreateNestedManyWithoutTripRequestInput
   recommendationRuns?: Prisma.RecommendationRunCreateNestedManyWithoutTripRequestInput
   tripBriefs?: Prisma.TripBriefCreateNestedManyWithoutTripRequestInput
-  alertSubscriptions?: Prisma.AlertSubscriptionCreateNestedManyWithoutTripRequestInput
+  client?: Prisma.ClientCreateNestedOneWithoutTripRequestsInput
+  household?: Prisma.HouseholdCreateNestedOneWithoutTripRequestsInput
+  organization: Prisma.OrganizationCreateNestedOneWithoutTripRequestsInput
   tradeoffRanking?: Prisma.TripTradeoffRankingCreateNestedOneWithoutTripRequestInput
+  travelers?: Prisma.TripTravelerCreateNestedManyWithoutTripRequestInput
   vendorRequests?: Prisma.VendorRequestCreateNestedManyWithoutTripRequestInput
-  itineraryJobs?: Prisma.ItineraryJobCreateNestedManyWithoutTripRequestInput
-  settlements?: Prisma.GroupSettlementCreateNestedManyWithoutTripRequestInput
 }
 
 export type TripRequestUncheckedCreateWithoutOwnerInput = {
@@ -1159,14 +1159,14 @@ export type TripRequestUncheckedCreateWithoutOwnerInput = {
   status?: $Enums.TripStatus
   createdAt?: Date | string
   updatedAt?: Date | string
-  travelers?: Prisma.TripTravelerUncheckedCreateNestedManyWithoutTripRequestInput
+  alertSubscriptions?: Prisma.AlertSubscriptionUncheckedCreateNestedManyWithoutTripRequestInput
+  settlements?: Prisma.GroupSettlementUncheckedCreateNestedManyWithoutTripRequestInput
+  itineraryJobs?: Prisma.ItineraryJobUncheckedCreateNestedManyWithoutTripRequestInput
   recommendationRuns?: Prisma.RecommendationRunUncheckedCreateNestedManyWithoutTripRequestInput
   tripBriefs?: Prisma.TripBriefUncheckedCreateNestedManyWithoutTripRequestInput
-  alertSubscriptions?: Prisma.AlertSubscriptionUncheckedCreateNestedManyWithoutTripRequestInput
   tradeoffRanking?: Prisma.TripTradeoffRankingUncheckedCreateNestedOneWithoutTripRequestInput
+  travelers?: Prisma.TripTravelerUncheckedCreateNestedManyWithoutTripRequestInput
   vendorRequests?: Prisma.VendorRequestUncheckedCreateNestedManyWithoutTripRequestInput
-  itineraryJobs?: Prisma.ItineraryJobUncheckedCreateNestedManyWithoutTripRequestInput
-  settlements?: Prisma.GroupSettlementUncheckedCreateNestedManyWithoutTripRequestInput
 }
 
 export type TripRequestCreateOrConnectWithoutOwnerInput = {
@@ -1210,17 +1210,17 @@ export type TripRequestCreateWithoutClientInput = {
   status?: $Enums.TripStatus
   createdAt?: Date | string
   updatedAt?: Date | string
-  organization: Prisma.OrganizationCreateNestedOneWithoutTripRequestsInput
-  owner: Prisma.UserCreateNestedOneWithoutTripRequestsInput
-  household?: Prisma.HouseholdCreateNestedOneWithoutTripRequestsInput
-  travelers?: Prisma.TripTravelerCreateNestedManyWithoutTripRequestInput
+  alertSubscriptions?: Prisma.AlertSubscriptionCreateNestedManyWithoutTripRequestInput
+  settlements?: Prisma.GroupSettlementCreateNestedManyWithoutTripRequestInput
+  itineraryJobs?: Prisma.ItineraryJobCreateNestedManyWithoutTripRequestInput
   recommendationRuns?: Prisma.RecommendationRunCreateNestedManyWithoutTripRequestInput
   tripBriefs?: Prisma.TripBriefCreateNestedManyWithoutTripRequestInput
-  alertSubscriptions?: Prisma.AlertSubscriptionCreateNestedManyWithoutTripRequestInput
+  household?: Prisma.HouseholdCreateNestedOneWithoutTripRequestsInput
+  organization: Prisma.OrganizationCreateNestedOneWithoutTripRequestsInput
+  owner: Prisma.UserCreateNestedOneWithoutTripRequestsInput
   tradeoffRanking?: Prisma.TripTradeoffRankingCreateNestedOneWithoutTripRequestInput
+  travelers?: Prisma.TripTravelerCreateNestedManyWithoutTripRequestInput
   vendorRequests?: Prisma.VendorRequestCreateNestedManyWithoutTripRequestInput
-  itineraryJobs?: Prisma.ItineraryJobCreateNestedManyWithoutTripRequestInput
-  settlements?: Prisma.GroupSettlementCreateNestedManyWithoutTripRequestInput
 }
 
 export type TripRequestUncheckedCreateWithoutClientInput = {
@@ -1241,14 +1241,14 @@ export type TripRequestUncheckedCreateWithoutClientInput = {
   status?: $Enums.TripStatus
   createdAt?: Date | string
   updatedAt?: Date | string
-  travelers?: Prisma.TripTravelerUncheckedCreateNestedManyWithoutTripRequestInput
+  alertSubscriptions?: Prisma.AlertSubscriptionUncheckedCreateNestedManyWithoutTripRequestInput
+  settlements?: Prisma.GroupSettlementUncheckedCreateNestedManyWithoutTripRequestInput
+  itineraryJobs?: Prisma.ItineraryJobUncheckedCreateNestedManyWithoutTripRequestInput
   recommendationRuns?: Prisma.RecommendationRunUncheckedCreateNestedManyWithoutTripRequestInput
   tripBriefs?: Prisma.TripBriefUncheckedCreateNestedManyWithoutTripRequestInput
-  alertSubscriptions?: Prisma.AlertSubscriptionUncheckedCreateNestedManyWithoutTripRequestInput
   tradeoffRanking?: Prisma.TripTradeoffRankingUncheckedCreateNestedOneWithoutTripRequestInput
+  travelers?: Prisma.TripTravelerUncheckedCreateNestedManyWithoutTripRequestInput
   vendorRequests?: Prisma.VendorRequestUncheckedCreateNestedManyWithoutTripRequestInput
-  itineraryJobs?: Prisma.ItineraryJobUncheckedCreateNestedManyWithoutTripRequestInput
-  settlements?: Prisma.GroupSettlementUncheckedCreateNestedManyWithoutTripRequestInput
 }
 
 export type TripRequestCreateOrConnectWithoutClientInput = {
@@ -1292,17 +1292,17 @@ export type TripRequestCreateWithoutHouseholdInput = {
   status?: $Enums.TripStatus
   createdAt?: Date | string
   updatedAt?: Date | string
-  organization: Prisma.OrganizationCreateNestedOneWithoutTripRequestsInput
-  owner: Prisma.UserCreateNestedOneWithoutTripRequestsInput
-  client?: Prisma.ClientCreateNestedOneWithoutTripRequestsInput
-  travelers?: Prisma.TripTravelerCreateNestedManyWithoutTripRequestInput
+  alertSubscriptions?: Prisma.AlertSubscriptionCreateNestedManyWithoutTripRequestInput
+  settlements?: Prisma.GroupSettlementCreateNestedManyWithoutTripRequestInput
+  itineraryJobs?: Prisma.ItineraryJobCreateNestedManyWithoutTripRequestInput
   recommendationRuns?: Prisma.RecommendationRunCreateNestedManyWithoutTripRequestInput
   tripBriefs?: Prisma.TripBriefCreateNestedManyWithoutTripRequestInput
-  alertSubscriptions?: Prisma.AlertSubscriptionCreateNestedManyWithoutTripRequestInput
+  client?: Prisma.ClientCreateNestedOneWithoutTripRequestsInput
+  organization: Prisma.OrganizationCreateNestedOneWithoutTripRequestsInput
+  owner: Prisma.UserCreateNestedOneWithoutTripRequestsInput
   tradeoffRanking?: Prisma.TripTradeoffRankingCreateNestedOneWithoutTripRequestInput
+  travelers?: Prisma.TripTravelerCreateNestedManyWithoutTripRequestInput
   vendorRequests?: Prisma.VendorRequestCreateNestedManyWithoutTripRequestInput
-  itineraryJobs?: Prisma.ItineraryJobCreateNestedManyWithoutTripRequestInput
-  settlements?: Prisma.GroupSettlementCreateNestedManyWithoutTripRequestInput
 }
 
 export type TripRequestUncheckedCreateWithoutHouseholdInput = {
@@ -1323,14 +1323,14 @@ export type TripRequestUncheckedCreateWithoutHouseholdInput = {
   status?: $Enums.TripStatus
   createdAt?: Date | string
   updatedAt?: Date | string
-  travelers?: Prisma.TripTravelerUncheckedCreateNestedManyWithoutTripRequestInput
+  alertSubscriptions?: Prisma.AlertSubscriptionUncheckedCreateNestedManyWithoutTripRequestInput
+  settlements?: Prisma.GroupSettlementUncheckedCreateNestedManyWithoutTripRequestInput
+  itineraryJobs?: Prisma.ItineraryJobUncheckedCreateNestedManyWithoutTripRequestInput
   recommendationRuns?: Prisma.RecommendationRunUncheckedCreateNestedManyWithoutTripRequestInput
   tripBriefs?: Prisma.TripBriefUncheckedCreateNestedManyWithoutTripRequestInput
-  alertSubscriptions?: Prisma.AlertSubscriptionUncheckedCreateNestedManyWithoutTripRequestInput
   tradeoffRanking?: Prisma.TripTradeoffRankingUncheckedCreateNestedOneWithoutTripRequestInput
+  travelers?: Prisma.TripTravelerUncheckedCreateNestedManyWithoutTripRequestInput
   vendorRequests?: Prisma.VendorRequestUncheckedCreateNestedManyWithoutTripRequestInput
-  itineraryJobs?: Prisma.ItineraryJobUncheckedCreateNestedManyWithoutTripRequestInput
-  settlements?: Prisma.GroupSettlementUncheckedCreateNestedManyWithoutTripRequestInput
 }
 
 export type TripRequestCreateOrConnectWithoutHouseholdInput = {
@@ -1374,17 +1374,17 @@ export type TripRequestCreateWithoutTradeoffRankingInput = {
   status?: $Enums.TripStatus
   createdAt?: Date | string
   updatedAt?: Date | string
-  organization: Prisma.OrganizationCreateNestedOneWithoutTripRequestsInput
-  owner: Prisma.UserCreateNestedOneWithoutTripRequestsInput
-  client?: Prisma.ClientCreateNestedOneWithoutTripRequestsInput
-  household?: Prisma.HouseholdCreateNestedOneWithoutTripRequestsInput
-  travelers?: Prisma.TripTravelerCreateNestedManyWithoutTripRequestInput
+  alertSubscriptions?: Prisma.AlertSubscriptionCreateNestedManyWithoutTripRequestInput
+  settlements?: Prisma.GroupSettlementCreateNestedManyWithoutTripRequestInput
+  itineraryJobs?: Prisma.ItineraryJobCreateNestedManyWithoutTripRequestInput
   recommendationRuns?: Prisma.RecommendationRunCreateNestedManyWithoutTripRequestInput
   tripBriefs?: Prisma.TripBriefCreateNestedManyWithoutTripRequestInput
-  alertSubscriptions?: Prisma.AlertSubscriptionCreateNestedManyWithoutTripRequestInput
+  client?: Prisma.ClientCreateNestedOneWithoutTripRequestsInput
+  household?: Prisma.HouseholdCreateNestedOneWithoutTripRequestsInput
+  organization: Prisma.OrganizationCreateNestedOneWithoutTripRequestsInput
+  owner: Prisma.UserCreateNestedOneWithoutTripRequestsInput
+  travelers?: Prisma.TripTravelerCreateNestedManyWithoutTripRequestInput
   vendorRequests?: Prisma.VendorRequestCreateNestedManyWithoutTripRequestInput
-  itineraryJobs?: Prisma.ItineraryJobCreateNestedManyWithoutTripRequestInput
-  settlements?: Prisma.GroupSettlementCreateNestedManyWithoutTripRequestInput
 }
 
 export type TripRequestUncheckedCreateWithoutTradeoffRankingInput = {
@@ -1406,13 +1406,13 @@ export type TripRequestUncheckedCreateWithoutTradeoffRankingInput = {
   status?: $Enums.TripStatus
   createdAt?: Date | string
   updatedAt?: Date | string
-  travelers?: Prisma.TripTravelerUncheckedCreateNestedManyWithoutTripRequestInput
+  alertSubscriptions?: Prisma.AlertSubscriptionUncheckedCreateNestedManyWithoutTripRequestInput
+  settlements?: Prisma.GroupSettlementUncheckedCreateNestedManyWithoutTripRequestInput
+  itineraryJobs?: Prisma.ItineraryJobUncheckedCreateNestedManyWithoutTripRequestInput
   recommendationRuns?: Prisma.RecommendationRunUncheckedCreateNestedManyWithoutTripRequestInput
   tripBriefs?: Prisma.TripBriefUncheckedCreateNestedManyWithoutTripRequestInput
-  alertSubscriptions?: Prisma.AlertSubscriptionUncheckedCreateNestedManyWithoutTripRequestInput
+  travelers?: Prisma.TripTravelerUncheckedCreateNestedManyWithoutTripRequestInput
   vendorRequests?: Prisma.VendorRequestUncheckedCreateNestedManyWithoutTripRequestInput
-  itineraryJobs?: Prisma.ItineraryJobUncheckedCreateNestedManyWithoutTripRequestInput
-  settlements?: Prisma.GroupSettlementUncheckedCreateNestedManyWithoutTripRequestInput
 }
 
 export type TripRequestCreateOrConnectWithoutTradeoffRankingInput = {
@@ -1446,17 +1446,17 @@ export type TripRequestUpdateWithoutTradeoffRankingInput = {
   status?: Prisma.EnumTripStatusFieldUpdateOperationsInput | $Enums.TripStatus
   createdAt?: Prisma.DateTimeFieldUpdateOperationsInput | Date | string
   updatedAt?: Prisma.DateTimeFieldUpdateOperationsInput | Date | string
-  organization?: Prisma.OrganizationUpdateOneRequiredWithoutTripRequestsNestedInput
-  owner?: Prisma.UserUpdateOneRequiredWithoutTripRequestsNestedInput
-  client?: Prisma.ClientUpdateOneWithoutTripRequestsNestedInput
-  household?: Prisma.HouseholdUpdateOneWithoutTripRequestsNestedInput
-  travelers?: Prisma.TripTravelerUpdateManyWithoutTripRequestNestedInput
+  alertSubscriptions?: Prisma.AlertSubscriptionUpdateManyWithoutTripRequestNestedInput
+  settlements?: Prisma.GroupSettlementUpdateManyWithoutTripRequestNestedInput
+  itineraryJobs?: Prisma.ItineraryJobUpdateManyWithoutTripRequestNestedInput
   recommendationRuns?: Prisma.RecommendationRunUpdateManyWithoutTripRequestNestedInput
   tripBriefs?: Prisma.TripBriefUpdateManyWithoutTripRequestNestedInput
-  alertSubscriptions?: Prisma.AlertSubscriptionUpdateManyWithoutTripRequestNestedInput
+  client?: Prisma.ClientUpdateOneWithoutTripRequestsNestedInput
+  household?: Prisma.HouseholdUpdateOneWithoutTripRequestsNestedInput
+  organization?: Prisma.OrganizationUpdateOneRequiredWithoutTripRequestsNestedInput
+  owner?: Prisma.UserUpdateOneRequiredWithoutTripRequestsNestedInput
+  travelers?: Prisma.TripTravelerUpdateManyWithoutTripRequestNestedInput
   vendorRequests?: Prisma.VendorRequestUpdateManyWithoutTripRequestNestedInput
-  itineraryJobs?: Prisma.ItineraryJobUpdateManyWithoutTripRequestNestedInput
-  settlements?: Prisma.GroupSettlementUpdateManyWithoutTripRequestNestedInput
 }
 
 export type TripRequestUncheckedUpdateWithoutTradeoffRankingInput = {
@@ -1478,13 +1478,13 @@ export type TripRequestUncheckedUpdateWithoutTradeoffRankingInput = {
   status?: Prisma.EnumTripStatusFieldUpdateOperationsInput | $Enums.TripStatus
   createdAt?: Prisma.DateTimeFieldUpdateOperationsInput | Date | string
   updatedAt?: Prisma.DateTimeFieldUpdateOperationsInput | Date | string
-  travelers?: Prisma.TripTravelerUncheckedUpdateManyWithoutTripRequestNestedInput
+  alertSubscriptions?: Prisma.AlertSubscriptionUncheckedUpdateManyWithoutTripRequestNestedInput
+  settlements?: Prisma.GroupSettlementUncheckedUpdateManyWithoutTripRequestNestedInput
+  itineraryJobs?: Prisma.ItineraryJobUncheckedUpdateManyWithoutTripRequestNestedInput
   recommendationRuns?: Prisma.RecommendationRunUncheckedUpdateManyWithoutTripRequestNestedInput
   tripBriefs?: Prisma.TripBriefUncheckedUpdateManyWithoutTripRequestNestedInput
-  alertSubscriptions?: Prisma.AlertSubscriptionUncheckedUpdateManyWithoutTripRequestNestedInput
+  travelers?: Prisma.TripTravelerUncheckedUpdateManyWithoutTripRequestNestedInput
   vendorRequests?: Prisma.VendorRequestUncheckedUpdateManyWithoutTripRequestNestedInput
-  itineraryJobs?: Prisma.ItineraryJobUncheckedUpdateManyWithoutTripRequestNestedInput
-  settlements?: Prisma.GroupSettlementUncheckedUpdateManyWithoutTripRequestNestedInput
 }
 
 export type TripRequestCreateWithoutTravelersInput = {
@@ -1502,17 +1502,17 @@ export type TripRequestCreateWithoutTravelersInput = {
   status?: $Enums.TripStatus
   createdAt?: Date | string
   updatedAt?: Date | string
-  organization: Prisma.OrganizationCreateNestedOneWithoutTripRequestsInput
-  owner: Prisma.UserCreateNestedOneWithoutTripRequestsInput
-  client?: Prisma.ClientCreateNestedOneWithoutTripRequestsInput
-  household?: Prisma.HouseholdCreateNestedOneWithoutTripRequestsInput
+  alertSubscriptions?: Prisma.AlertSubscriptionCreateNestedManyWithoutTripRequestInput
+  settlements?: Prisma.GroupSettlementCreateNestedManyWithoutTripRequestInput
+  itineraryJobs?: Prisma.ItineraryJobCreateNestedManyWithoutTripRequestInput
   recommendationRuns?: Prisma.RecommendationRunCreateNestedManyWithoutTripRequestInput
   tripBriefs?: Prisma.TripBriefCreateNestedManyWithoutTripRequestInput
-  alertSubscriptions?: Prisma.AlertSubscriptionCreateNestedManyWithoutTripRequestInput
+  client?: Prisma.ClientCreateNestedOneWithoutTripRequestsInput
+  household?: Prisma.HouseholdCreateNestedOneWithoutTripRequestsInput
+  organization: Prisma.OrganizationCreateNestedOneWithoutTripRequestsInput
+  owner: Prisma.UserCreateNestedOneWithoutTripRequestsInput
   tradeoffRanking?: Prisma.TripTradeoffRankingCreateNestedOneWithoutTripRequestInput
   vendorRequests?: Prisma.VendorRequestCreateNestedManyWithoutTripRequestInput
-  itineraryJobs?: Prisma.ItineraryJobCreateNestedManyWithoutTripRequestInput
-  settlements?: Prisma.GroupSettlementCreateNestedManyWithoutTripRequestInput
 }
 
 export type TripRequestUncheckedCreateWithoutTravelersInput = {
@@ -1534,13 +1534,13 @@ export type TripRequestUncheckedCreateWithoutTravelersInput = {
   status?: $Enums.TripStatus
   createdAt?: Date | string
   updatedAt?: Date | string
+  alertSubscriptions?: Prisma.AlertSubscriptionUncheckedCreateNestedManyWithoutTripRequestInput
+  settlements?: Prisma.GroupSettlementUncheckedCreateNestedManyWithoutTripRequestInput
+  itineraryJobs?: Prisma.ItineraryJobUncheckedCreateNestedManyWithoutTripRequestInput
   recommendationRuns?: Prisma.RecommendationRunUncheckedCreateNestedManyWithoutTripRequestInput
   tripBriefs?: Prisma.TripBriefUncheckedCreateNestedManyWithoutTripRequestInput
-  alertSubscriptions?: Prisma.AlertSubscriptionUncheckedCreateNestedManyWithoutTripRequestInput
   tradeoffRanking?: Prisma.TripTradeoffRankingUncheckedCreateNestedOneWithoutTripRequestInput
   vendorRequests?: Prisma.VendorRequestUncheckedCreateNestedManyWithoutTripRequestInput
-  itineraryJobs?: Prisma.ItineraryJobUncheckedCreateNestedManyWithoutTripRequestInput
-  settlements?: Prisma.GroupSettlementUncheckedCreateNestedManyWithoutTripRequestInput
 }
 
 export type TripRequestCreateOrConnectWithoutTravelersInput = {
@@ -1574,17 +1574,17 @@ export type TripRequestUpdateWithoutTravelersInput = {
   status?: Prisma.EnumTripStatusFieldUpdateOperationsInput | $Enums.TripStatus
   createdAt?: Prisma.DateTimeFieldUpdateOperationsInput | Date | string
   updatedAt?: Prisma.DateTimeFieldUpdateOperationsInput | Date | string
-  organization?: Prisma.OrganizationUpdateOneRequiredWithoutTripRequestsNestedInput
-  owner?: Prisma.UserUpdateOneRequiredWithoutTripRequestsNestedInput
-  client?: Prisma.ClientUpdateOneWithoutTripRequestsNestedInput
-  household?: Prisma.HouseholdUpdateOneWithoutTripRequestsNestedInput
+  alertSubscriptions?: Prisma.AlertSubscriptionUpdateManyWithoutTripRequestNestedInput
+  settlements?: Prisma.GroupSettlementUpdateManyWithoutTripRequestNestedInput
+  itineraryJobs?: Prisma.ItineraryJobUpdateManyWithoutTripRequestNestedInput
   recommendationRuns?: Prisma.RecommendationRunUpdateManyWithoutTripRequestNestedInput
   tripBriefs?: Prisma.TripBriefUpdateManyWithoutTripRequestNestedInput
-  alertSubscriptions?: Prisma.AlertSubscriptionUpdateManyWithoutTripRequestNestedInput
+  client?: Prisma.ClientUpdateOneWithoutTripRequestsNestedInput
+  household?: Prisma.HouseholdUpdateOneWithoutTripRequestsNestedInput
+  organization?: Prisma.OrganizationUpdateOneRequiredWithoutTripRequestsNestedInput
+  owner?: Prisma.UserUpdateOneRequiredWithoutTripRequestsNestedInput
   tradeoffRanking?: Prisma.TripTradeoffRankingUpdateOneWithoutTripRequestNestedInput
   vendorRequests?: Prisma.VendorRequestUpdateManyWithoutTripRequestNestedInput
-  itineraryJobs?: Prisma.ItineraryJobUpdateManyWithoutTripRequestNestedInput
-  settlements?: Prisma.GroupSettlementUpdateManyWithoutTripRequestNestedInput
 }
 
 export type TripRequestUncheckedUpdateWithoutTravelersInput = {
@@ -1606,13 +1606,13 @@ export type TripRequestUncheckedUpdateWithoutTravelersInput = {
   status?: Prisma.EnumTripStatusFieldUpdateOperationsInput | $Enums.TripStatus
   createdAt?: Prisma.DateTimeFieldUpdateOperationsInput | Date | string
   updatedAt?: Prisma.DateTimeFieldUpdateOperationsInput | Date | string
+  alertSubscriptions?: Prisma.AlertSubscriptionUncheckedUpdateManyWithoutTripRequestNestedInput
+  settlements?: Prisma.GroupSettlementUncheckedUpdateManyWithoutTripRequestNestedInput
+  itineraryJobs?: Prisma.ItineraryJobUncheckedUpdateManyWithoutTripRequestNestedInput
   recommendationRuns?: Prisma.RecommendationRunUncheckedUpdateManyWithoutTripRequestNestedInput
   tripBriefs?: Prisma.TripBriefUncheckedUpdateManyWithoutTripRequestNestedInput
-  alertSubscriptions?: Prisma.AlertSubscriptionUncheckedUpdateManyWithoutTripRequestNestedInput
   tradeoffRanking?: Prisma.TripTradeoffRankingUncheckedUpdateOneWithoutTripRequestNestedInput
   vendorRequests?: Prisma.VendorRequestUncheckedUpdateManyWithoutTripRequestNestedInput
-  itineraryJobs?: Prisma.ItineraryJobUncheckedUpdateManyWithoutTripRequestNestedInput
-  settlements?: Prisma.GroupSettlementUncheckedUpdateManyWithoutTripRequestNestedInput
 }
 
 export type TripRequestCreateWithoutRecommendationRunsInput = {
@@ -1630,17 +1630,17 @@ export type TripRequestCreateWithoutRecommendationRunsInput = {
   status?: $Enums.TripStatus
   createdAt?: Date | string
   updatedAt?: Date | string
-  organization: Prisma.OrganizationCreateNestedOneWithoutTripRequestsInput
-  owner: Prisma.UserCreateNestedOneWithoutTripRequestsInput
+  alertSubscriptions?: Prisma.AlertSubscriptionCreateNestedManyWithoutTripRequestInput
+  settlements?: Prisma.GroupSettlementCreateNestedManyWithoutTripRequestInput
+  itineraryJobs?: Prisma.ItineraryJobCreateNestedManyWithoutTripRequestInput
+  tripBriefs?: Prisma.TripBriefCreateNestedManyWithoutTripRequestInput
   client?: Prisma.ClientCreateNestedOneWithoutTripRequestsInput
   household?: Prisma.HouseholdCreateNestedOneWithoutTripRequestsInput
-  travelers?: Prisma.TripTravelerCreateNestedManyWithoutTripRequestInput
-  tripBriefs?: Prisma.TripBriefCreateNestedManyWithoutTripRequestInput
-  alertSubscriptions?: Prisma.AlertSubscriptionCreateNestedManyWithoutTripRequestInput
+  organization: Prisma.OrganizationCreateNestedOneWithoutTripRequestsInput
+  owner: Prisma.UserCreateNestedOneWithoutTripRequestsInput
   tradeoffRanking?: Prisma.TripTradeoffRankingCreateNestedOneWithoutTripRequestInput
+  travelers?: Prisma.TripTravelerCreateNestedManyWithoutTripRequestInput
   vendorRequests?: Prisma.VendorRequestCreateNestedManyWithoutTripRequestInput
-  itineraryJobs?: Prisma.ItineraryJobCreateNestedManyWithoutTripRequestInput
-  settlements?: Prisma.GroupSettlementCreateNestedManyWithoutTripRequestInput
 }
 
 export type TripRequestUncheckedCreateWithoutRecommendationRunsInput = {
@@ -1662,13 +1662,13 @@ export type TripRequestUncheckedCreateWithoutRecommendationRunsInput = {
   status?: $Enums.TripStatus
   createdAt?: Date | string
   updatedAt?: Date | string
-  travelers?: Prisma.TripTravelerUncheckedCreateNestedManyWithoutTripRequestInput
-  tripBriefs?: Prisma.TripBriefUncheckedCreateNestedManyWithoutTripRequestInput
   alertSubscriptions?: Prisma.AlertSubscriptionUncheckedCreateNestedManyWithoutTripRequestInput
-  tradeoffRanking?: Prisma.TripTradeoffRankingUncheckedCreateNestedOneWithoutTripRequestInput
-  vendorRequests?: Prisma.VendorRequestUncheckedCreateNestedManyWithoutTripRequestInput
-  itineraryJobs?: Prisma.ItineraryJobUncheckedCreateNestedManyWithoutTripRequestInput
   settlements?: Prisma.GroupSettlementUncheckedCreateNestedManyWithoutTripRequestInput
+  itineraryJobs?: Prisma.ItineraryJobUncheckedCreateNestedManyWithoutTripRequestInput
+  tripBriefs?: Prisma.TripBriefUncheckedCreateNestedManyWithoutTripRequestInput
+  tradeoffRanking?: Prisma.TripTradeoffRankingUncheckedCreateNestedOneWithoutTripRequestInput
+  travelers?: Prisma.TripTravelerUncheckedCreateNestedManyWithoutTripRequestInput
+  vendorRequests?: Prisma.VendorRequestUncheckedCreateNestedManyWithoutTripRequestInput
 }
 
 export type TripRequestCreateOrConnectWithoutRecommendationRunsInput = {
@@ -1702,17 +1702,17 @@ export type TripRequestUpdateWithoutRecommendationRunsInput = {
   status?: Prisma.EnumTripStatusFieldUpdateOperationsInput | $Enums.TripStatus
   createdAt?: Prisma.DateTimeFieldUpdateOperationsInput | Date | string
   updatedAt?: Prisma.DateTimeFieldUpdateOperationsInput | Date | string
-  organization?: Prisma.OrganizationUpdateOneRequiredWithoutTripRequestsNestedInput
-  owner?: Prisma.UserUpdateOneRequiredWithoutTripRequestsNestedInput
+  alertSubscriptions?: Prisma.AlertSubscriptionUpdateManyWithoutTripRequestNestedInput
+  settlements?: Prisma.GroupSettlementUpdateManyWithoutTripRequestNestedInput
+  itineraryJobs?: Prisma.ItineraryJobUpdateManyWithoutTripRequestNestedInput
+  tripBriefs?: Prisma.TripBriefUpdateManyWithoutTripRequestNestedInput
   client?: Prisma.ClientUpdateOneWithoutTripRequestsNestedInput
   household?: Prisma.HouseholdUpdateOneWithoutTripRequestsNestedInput
-  travelers?: Prisma.TripTravelerUpdateManyWithoutTripRequestNestedInput
-  tripBriefs?: Prisma.TripBriefUpdateManyWithoutTripRequestNestedInput
-  alertSubscriptions?: Prisma.AlertSubscriptionUpdateManyWithoutTripRequestNestedInput
+  organization?: Prisma.OrganizationUpdateOneRequiredWithoutTripRequestsNestedInput
+  owner?: Prisma.UserUpdateOneRequiredWithoutTripRequestsNestedInput
   tradeoffRanking?: Prisma.TripTradeoffRankingUpdateOneWithoutTripRequestNestedInput
+  travelers?: Prisma.TripTravelerUpdateManyWithoutTripRequestNestedInput
   vendorRequests?: Prisma.VendorRequestUpdateManyWithoutTripRequestNestedInput
-  itineraryJobs?: Prisma.ItineraryJobUpdateManyWithoutTripRequestNestedInput
-  settlements?: Prisma.GroupSettlementUpdateManyWithoutTripRequestNestedInput
 }
 
 export type TripRequestUncheckedUpdateWithoutRecommendationRunsInput = {
@@ -1734,13 +1734,13 @@ export type TripRequestUncheckedUpdateWithoutRecommendationRunsInput = {
   status?: Prisma.EnumTripStatusFieldUpdateOperationsInput | $Enums.TripStatus
   createdAt?: Prisma.DateTimeFieldUpdateOperationsInput | Date | string
   updatedAt?: Prisma.DateTimeFieldUpdateOperationsInput | Date | string
-  travelers?: Prisma.TripTravelerUncheckedUpdateManyWithoutTripRequestNestedInput
-  tripBriefs?: Prisma.TripBriefUncheckedUpdateManyWithoutTripRequestNestedInput
   alertSubscriptions?: Prisma.AlertSubscriptionUncheckedUpdateManyWithoutTripRequestNestedInput
-  tradeoffRanking?: Prisma.TripTradeoffRankingUncheckedUpdateOneWithoutTripRequestNestedInput
-  vendorRequests?: Prisma.VendorRequestUncheckedUpdateManyWithoutTripRequestNestedInput
-  itineraryJobs?: Prisma.ItineraryJobUncheckedUpdateManyWithoutTripRequestNestedInput
   settlements?: Prisma.GroupSettlementUncheckedUpdateManyWithoutTripRequestNestedInput
+  itineraryJobs?: Prisma.ItineraryJobUncheckedUpdateManyWithoutTripRequestNestedInput
+  tripBriefs?: Prisma.TripBriefUncheckedUpdateManyWithoutTripRequestNestedInput
+  tradeoffRanking?: Prisma.TripTradeoffRankingUncheckedUpdateOneWithoutTripRequestNestedInput
+  travelers?: Prisma.TripTravelerUncheckedUpdateManyWithoutTripRequestNestedInput
+  vendorRequests?: Prisma.VendorRequestUncheckedUpdateManyWithoutTripRequestNestedInput
 }
 
 export type TripRequestCreateWithoutSettlementsInput = {
@@ -1758,17 +1758,17 @@ export type TripRequestCreateWithoutSettlementsInput = {
   status?: $Enums.TripStatus
   createdAt?: Date | string
   updatedAt?: Date | string
-  organization: Prisma.OrganizationCreateNestedOneWithoutTripRequestsInput
-  owner: Prisma.UserCreateNestedOneWithoutTripRequestsInput
-  client?: Prisma.ClientCreateNestedOneWithoutTripRequestsInput
-  household?: Prisma.HouseholdCreateNestedOneWithoutTripRequestsInput
-  travelers?: Prisma.TripTravelerCreateNestedManyWithoutTripRequestInput
+  alertSubscriptions?: Prisma.AlertSubscriptionCreateNestedManyWithoutTripRequestInput
+  itineraryJobs?: Prisma.ItineraryJobCreateNestedManyWithoutTripRequestInput
   recommendationRuns?: Prisma.RecommendationRunCreateNestedManyWithoutTripRequestInput
   tripBriefs?: Prisma.TripBriefCreateNestedManyWithoutTripRequestInput
-  alertSubscriptions?: Prisma.AlertSubscriptionCreateNestedManyWithoutTripRequestInput
+  client?: Prisma.ClientCreateNestedOneWithoutTripRequestsInput
+  household?: Prisma.HouseholdCreateNestedOneWithoutTripRequestsInput
+  organization: Prisma.OrganizationCreateNestedOneWithoutTripRequestsInput
+  owner: Prisma.UserCreateNestedOneWithoutTripRequestsInput
   tradeoffRanking?: Prisma.TripTradeoffRankingCreateNestedOneWithoutTripRequestInput
+  travelers?: Prisma.TripTravelerCreateNestedManyWithoutTripRequestInput
   vendorRequests?: Prisma.VendorRequestCreateNestedManyWithoutTripRequestInput
-  itineraryJobs?: Prisma.ItineraryJobCreateNestedManyWithoutTripRequestInput
 }
 
 export type TripRequestUncheckedCreateWithoutSettlementsInput = {
@@ -1790,13 +1790,13 @@ export type TripRequestUncheckedCreateWithoutSettlementsInput = {
   status?: $Enums.TripStatus
   createdAt?: Date | string
   updatedAt?: Date | string
-  travelers?: Prisma.TripTravelerUncheckedCreateNestedManyWithoutTripRequestInput
+  alertSubscriptions?: Prisma.AlertSubscriptionUncheckedCreateNestedManyWithoutTripRequestInput
+  itineraryJobs?: Prisma.ItineraryJobUncheckedCreateNestedManyWithoutTripRequestInput
   recommendationRuns?: Prisma.RecommendationRunUncheckedCreateNestedManyWithoutTripRequestInput
   tripBriefs?: Prisma.TripBriefUncheckedCreateNestedManyWithoutTripRequestInput
-  alertSubscriptions?: Prisma.AlertSubscriptionUncheckedCreateNestedManyWithoutTripRequestInput
   tradeoffRanking?: Prisma.TripTradeoffRankingUncheckedCreateNestedOneWithoutTripRequestInput
+  travelers?: Prisma.TripTravelerUncheckedCreateNestedManyWithoutTripRequestInput
   vendorRequests?: Prisma.VendorRequestUncheckedCreateNestedManyWithoutTripRequestInput
-  itineraryJobs?: Prisma.ItineraryJobUncheckedCreateNestedManyWithoutTripRequestInput
 }
 
 export type TripRequestCreateOrConnectWithoutSettlementsInput = {
@@ -1830,17 +1830,17 @@ export type TripRequestUpdateWithoutSettlementsInput = {
   status?: Prisma.EnumTripStatusFieldUpdateOperationsInput | $Enums.TripStatus
   createdAt?: Prisma.DateTimeFieldUpdateOperationsInput | Date | string
   updatedAt?: Prisma.DateTimeFieldUpdateOperationsInput | Date | string
-  organization?: Prisma.OrganizationUpdateOneRequiredWithoutTripRequestsNestedInput
-  owner?: Prisma.UserUpdateOneRequiredWithoutTripRequestsNestedInput
-  client?: Prisma.ClientUpdateOneWithoutTripRequestsNestedInput
-  household?: Prisma.HouseholdUpdateOneWithoutTripRequestsNestedInput
-  travelers?: Prisma.TripTravelerUpdateManyWithoutTripRequestNestedInput
+  alertSubscriptions?: Prisma.AlertSubscriptionUpdateManyWithoutTripRequestNestedInput
+  itineraryJobs?: Prisma.ItineraryJobUpdateManyWithoutTripRequestNestedInput
   recommendationRuns?: Prisma.RecommendationRunUpdateManyWithoutTripRequestNestedInput
   tripBriefs?: Prisma.TripBriefUpdateManyWithoutTripRequestNestedInput
-  alertSubscriptions?: Prisma.AlertSubscriptionUpdateManyWithoutTripRequestNestedInput
+  client?: Prisma.ClientUpdateOneWithoutTripRequestsNestedInput
+  household?: Prisma.HouseholdUpdateOneWithoutTripRequestsNestedInput
+  organization?: Prisma.OrganizationUpdateOneRequiredWithoutTripRequestsNestedInput
+  owner?: Prisma.UserUpdateOneRequiredWithoutTripRequestsNestedInput
   tradeoffRanking?: Prisma.TripTradeoffRankingUpdateOneWithoutTripRequestNestedInput
+  travelers?: Prisma.TripTravelerUpdateManyWithoutTripRequestNestedInput
   vendorRequests?: Prisma.VendorRequestUpdateManyWithoutTripRequestNestedInput
-  itineraryJobs?: Prisma.ItineraryJobUpdateManyWithoutTripRequestNestedInput
 }
 
 export type TripRequestUncheckedUpdateWithoutSettlementsInput = {
@@ -1862,13 +1862,13 @@ export type TripRequestUncheckedUpdateWithoutSettlementsInput = {
   status?: Prisma.EnumTripStatusFieldUpdateOperationsInput | $Enums.TripStatus
   createdAt?: Prisma.DateTimeFieldUpdateOperationsInput | Date | string
   updatedAt?: Prisma.DateTimeFieldUpdateOperationsInput | Date | string
-  travelers?: Prisma.TripTravelerUncheckedUpdateManyWithoutTripRequestNestedInput
+  alertSubscriptions?: Prisma.AlertSubscriptionUncheckedUpdateManyWithoutTripRequestNestedInput
+  itineraryJobs?: Prisma.ItineraryJobUncheckedUpdateManyWithoutTripRequestNestedInput
   recommendationRuns?: Prisma.RecommendationRunUncheckedUpdateManyWithoutTripRequestNestedInput
   tripBriefs?: Prisma.TripBriefUncheckedUpdateManyWithoutTripRequestNestedInput
-  alertSubscriptions?: Prisma.AlertSubscriptionUncheckedUpdateManyWithoutTripRequestNestedInput
   tradeoffRanking?: Prisma.TripTradeoffRankingUncheckedUpdateOneWithoutTripRequestNestedInput
+  travelers?: Prisma.TripTravelerUncheckedUpdateManyWithoutTripRequestNestedInput
   vendorRequests?: Prisma.VendorRequestUncheckedUpdateManyWithoutTripRequestNestedInput
-  itineraryJobs?: Prisma.ItineraryJobUncheckedUpdateManyWithoutTripRequestNestedInput
 }
 
 export type TripRequestCreateWithoutTripBriefsInput = {
@@ -1886,17 +1886,17 @@ export type TripRequestCreateWithoutTripBriefsInput = {
   status?: $Enums.TripStatus
   createdAt?: Date | string
   updatedAt?: Date | string
-  organization: Prisma.OrganizationCreateNestedOneWithoutTripRequestsInput
-  owner: Prisma.UserCreateNestedOneWithoutTripRequestsInput
+  alertSubscriptions?: Prisma.AlertSubscriptionCreateNestedManyWithoutTripRequestInput
+  settlements?: Prisma.GroupSettlementCreateNestedManyWithoutTripRequestInput
+  itineraryJobs?: Prisma.ItineraryJobCreateNestedManyWithoutTripRequestInput
+  recommendationRuns?: Prisma.RecommendationRunCreateNestedManyWithoutTripRequestInput
   client?: Prisma.ClientCreateNestedOneWithoutTripRequestsInput
   household?: Prisma.HouseholdCreateNestedOneWithoutTripRequestsInput
-  travelers?: Prisma.TripTravelerCreateNestedManyWithoutTripRequestInput
-  recommendationRuns?: Prisma.RecommendationRunCreateNestedManyWithoutTripRequestInput
-  alertSubscriptions?: Prisma.AlertSubscriptionCreateNestedManyWithoutTripRequestInput
+  organization: Prisma.OrganizationCreateNestedOneWithoutTripRequestsInput
+  owner: Prisma.UserCreateNestedOneWithoutTripRequestsInput
   tradeoffRanking?: Prisma.TripTradeoffRankingCreateNestedOneWithoutTripRequestInput
+  travelers?: Prisma.TripTravelerCreateNestedManyWithoutTripRequestInput
   vendorRequests?: Prisma.VendorRequestCreateNestedManyWithoutTripRequestInput
-  itineraryJobs?: Prisma.ItineraryJobCreateNestedManyWithoutTripRequestInput
-  settlements?: Prisma.GroupSettlementCreateNestedManyWithoutTripRequestInput
 }
 
 export type TripRequestUncheckedCreateWithoutTripBriefsInput = {
@@ -1918,13 +1918,13 @@ export type TripRequestUncheckedCreateWithoutTripBriefsInput = {
   status?: $Enums.TripStatus
   createdAt?: Date | string
   updatedAt?: Date | string
-  travelers?: Prisma.TripTravelerUncheckedCreateNestedManyWithoutTripRequestInput
-  recommendationRuns?: Prisma.RecommendationRunUncheckedCreateNestedManyWithoutTripRequestInput
   alertSubscriptions?: Prisma.AlertSubscriptionUncheckedCreateNestedManyWithoutTripRequestInput
-  tradeoffRanking?: Prisma.TripTradeoffRankingUncheckedCreateNestedOneWithoutTripRequestInput
-  vendorRequests?: Prisma.VendorRequestUncheckedCreateNestedManyWithoutTripRequestInput
-  itineraryJobs?: Prisma.ItineraryJobUncheckedCreateNestedManyWithoutTripRequestInput
   settlements?: Prisma.GroupSettlementUncheckedCreateNestedManyWithoutTripRequestInput
+  itineraryJobs?: Prisma.ItineraryJobUncheckedCreateNestedManyWithoutTripRequestInput
+  recommendationRuns?: Prisma.RecommendationRunUncheckedCreateNestedManyWithoutTripRequestInput
+  tradeoffRanking?: Prisma.TripTradeoffRankingUncheckedCreateNestedOneWithoutTripRequestInput
+  travelers?: Prisma.TripTravelerUncheckedCreateNestedManyWithoutTripRequestInput
+  vendorRequests?: Prisma.VendorRequestUncheckedCreateNestedManyWithoutTripRequestInput
 }
 
 export type TripRequestCreateOrConnectWithoutTripBriefsInput = {
@@ -1958,17 +1958,17 @@ export type TripRequestUpdateWithoutTripBriefsInput = {
   status?: Prisma.EnumTripStatusFieldUpdateOperationsInput | $Enums.TripStatus
   createdAt?: Prisma.DateTimeFieldUpdateOperationsInput | Date | string
   updatedAt?: Prisma.DateTimeFieldUpdateOperationsInput | Date | string
-  organization?: Prisma.OrganizationUpdateOneRequiredWithoutTripRequestsNestedInput
-  owner?: Prisma.UserUpdateOneRequiredWithoutTripRequestsNestedInput
+  alertSubscriptions?: Prisma.AlertSubscriptionUpdateManyWithoutTripRequestNestedInput
+  settlements?: Prisma.GroupSettlementUpdateManyWithoutTripRequestNestedInput
+  itineraryJobs?: Prisma.ItineraryJobUpdateManyWithoutTripRequestNestedInput
+  recommendationRuns?: Prisma.RecommendationRunUpdateManyWithoutTripRequestNestedInput
   client?: Prisma.ClientUpdateOneWithoutTripRequestsNestedInput
   household?: Prisma.HouseholdUpdateOneWithoutTripRequestsNestedInput
-  travelers?: Prisma.TripTravelerUpdateManyWithoutTripRequestNestedInput
-  recommendationRuns?: Prisma.RecommendationRunUpdateManyWithoutTripRequestNestedInput
-  alertSubscriptions?: Prisma.AlertSubscriptionUpdateManyWithoutTripRequestNestedInput
+  organization?: Prisma.OrganizationUpdateOneRequiredWithoutTripRequestsNestedInput
+  owner?: Prisma.UserUpdateOneRequiredWithoutTripRequestsNestedInput
   tradeoffRanking?: Prisma.TripTradeoffRankingUpdateOneWithoutTripRequestNestedInput
+  travelers?: Prisma.TripTravelerUpdateManyWithoutTripRequestNestedInput
   vendorRequests?: Prisma.VendorRequestUpdateManyWithoutTripRequestNestedInput
-  itineraryJobs?: Prisma.ItineraryJobUpdateManyWithoutTripRequestNestedInput
-  settlements?: Prisma.GroupSettlementUpdateManyWithoutTripRequestNestedInput
 }
 
 export type TripRequestUncheckedUpdateWithoutTripBriefsInput = {
@@ -1990,13 +1990,13 @@ export type TripRequestUncheckedUpdateWithoutTripBriefsInput = {
   status?: Prisma.EnumTripStatusFieldUpdateOperationsInput | $Enums.TripStatus
   createdAt?: Prisma.DateTimeFieldUpdateOperationsInput | Date | string
   updatedAt?: Prisma.DateTimeFieldUpdateOperationsInput | Date | string
-  travelers?: Prisma.TripTravelerUncheckedUpdateManyWithoutTripRequestNestedInput
-  recommendationRuns?: Prisma.RecommendationRunUncheckedUpdateManyWithoutTripRequestNestedInput
   alertSubscriptions?: Prisma.AlertSubscriptionUncheckedUpdateManyWithoutTripRequestNestedInput
-  tradeoffRanking?: Prisma.TripTradeoffRankingUncheckedUpdateOneWithoutTripRequestNestedInput
-  vendorRequests?: Prisma.VendorRequestUncheckedUpdateManyWithoutTripRequestNestedInput
-  itineraryJobs?: Prisma.ItineraryJobUncheckedUpdateManyWithoutTripRequestNestedInput
   settlements?: Prisma.GroupSettlementUncheckedUpdateManyWithoutTripRequestNestedInput
+  itineraryJobs?: Prisma.ItineraryJobUncheckedUpdateManyWithoutTripRequestNestedInput
+  recommendationRuns?: Prisma.RecommendationRunUncheckedUpdateManyWithoutTripRequestNestedInput
+  tradeoffRanking?: Prisma.TripTradeoffRankingUncheckedUpdateOneWithoutTripRequestNestedInput
+  travelers?: Prisma.TripTravelerUncheckedUpdateManyWithoutTripRequestNestedInput
+  vendorRequests?: Prisma.VendorRequestUncheckedUpdateManyWithoutTripRequestNestedInput
 }
 
 export type TripRequestCreateWithoutAlertSubscriptionsInput = {
@@ -2014,17 +2014,17 @@ export type TripRequestCreateWithoutAlertSubscriptionsInput = {
   status?: $Enums.TripStatus
   createdAt?: Date | string
   updatedAt?: Date | string
-  organization: Prisma.OrganizationCreateNestedOneWithoutTripRequestsInput
-  owner: Prisma.UserCreateNestedOneWithoutTripRequestsInput
-  client?: Prisma.ClientCreateNestedOneWithoutTripRequestsInput
-  household?: Prisma.HouseholdCreateNestedOneWithoutTripRequestsInput
-  travelers?: Prisma.TripTravelerCreateNestedManyWithoutTripRequestInput
+  settlements?: Prisma.GroupSettlementCreateNestedManyWithoutTripRequestInput
+  itineraryJobs?: Prisma.ItineraryJobCreateNestedManyWithoutTripRequestInput
   recommendationRuns?: Prisma.RecommendationRunCreateNestedManyWithoutTripRequestInput
   tripBriefs?: Prisma.TripBriefCreateNestedManyWithoutTripRequestInput
+  client?: Prisma.ClientCreateNestedOneWithoutTripRequestsInput
+  household?: Prisma.HouseholdCreateNestedOneWithoutTripRequestsInput
+  organization: Prisma.OrganizationCreateNestedOneWithoutTripRequestsInput
+  owner: Prisma.UserCreateNestedOneWithoutTripRequestsInput
   tradeoffRanking?: Prisma.TripTradeoffRankingCreateNestedOneWithoutTripRequestInput
+  travelers?: Prisma.TripTravelerCreateNestedManyWithoutTripRequestInput
   vendorRequests?: Prisma.VendorRequestCreateNestedManyWithoutTripRequestInput
-  itineraryJobs?: Prisma.ItineraryJobCreateNestedManyWithoutTripRequestInput
-  settlements?: Prisma.GroupSettlementCreateNestedManyWithoutTripRequestInput
 }
 
 export type TripRequestUncheckedCreateWithoutAlertSubscriptionsInput = {
@@ -2046,13 +2046,13 @@ export type TripRequestUncheckedCreateWithoutAlertSubscriptionsInput = {
   status?: $Enums.TripStatus
   createdAt?: Date | string
   updatedAt?: Date | string
-  travelers?: Prisma.TripTravelerUncheckedCreateNestedManyWithoutTripRequestInput
+  settlements?: Prisma.GroupSettlementUncheckedCreateNestedManyWithoutTripRequestInput
+  itineraryJobs?: Prisma.ItineraryJobUncheckedCreateNestedManyWithoutTripRequestInput
   recommendationRuns?: Prisma.RecommendationRunUncheckedCreateNestedManyWithoutTripRequestInput
   tripBriefs?: Prisma.TripBriefUncheckedCreateNestedManyWithoutTripRequestInput
   tradeoffRanking?: Prisma.TripTradeoffRankingUncheckedCreateNestedOneWithoutTripRequestInput
+  travelers?: Prisma.TripTravelerUncheckedCreateNestedManyWithoutTripRequestInput
   vendorRequests?: Prisma.VendorRequestUncheckedCreateNestedManyWithoutTripRequestInput
-  itineraryJobs?: Prisma.ItineraryJobUncheckedCreateNestedManyWithoutTripRequestInput
-  settlements?: Prisma.GroupSettlementUncheckedCreateNestedManyWithoutTripRequestInput
 }
 
 export type TripRequestCreateOrConnectWithoutAlertSubscriptionsInput = {
@@ -2086,17 +2086,17 @@ export type TripRequestUpdateWithoutAlertSubscriptionsInput = {
   status?: Prisma.EnumTripStatusFieldUpdateOperationsInput | $Enums.TripStatus
   createdAt?: Prisma.DateTimeFieldUpdateOperationsInput | Date | string
   updatedAt?: Prisma.DateTimeFieldUpdateOperationsInput | Date | string
-  organization?: Prisma.OrganizationUpdateOneRequiredWithoutTripRequestsNestedInput
-  owner?: Prisma.UserUpdateOneRequiredWithoutTripRequestsNestedInput
-  client?: Prisma.ClientUpdateOneWithoutTripRequestsNestedInput
-  household?: Prisma.HouseholdUpdateOneWithoutTripRequestsNestedInput
-  travelers?: Prisma.TripTravelerUpdateManyWithoutTripRequestNestedInput
+  settlements?: Prisma.GroupSettlementUpdateManyWithoutTripRequestNestedInput
+  itineraryJobs?: Prisma.ItineraryJobUpdateManyWithoutTripRequestNestedInput
   recommendationRuns?: Prisma.RecommendationRunUpdateManyWithoutTripRequestNestedInput
   tripBriefs?: Prisma.TripBriefUpdateManyWithoutTripRequestNestedInput
+  client?: Prisma.ClientUpdateOneWithoutTripRequestsNestedInput
+  household?: Prisma.HouseholdUpdateOneWithoutTripRequestsNestedInput
+  organization?: Prisma.OrganizationUpdateOneRequiredWithoutTripRequestsNestedInput
+  owner?: Prisma.UserUpdateOneRequiredWithoutTripRequestsNestedInput
   tradeoffRanking?: Prisma.TripTradeoffRankingUpdateOneWithoutTripRequestNestedInput
+  travelers?: Prisma.TripTravelerUpdateManyWithoutTripRequestNestedInput
   vendorRequests?: Prisma.VendorRequestUpdateManyWithoutTripRequestNestedInput
-  itineraryJobs?: Prisma.ItineraryJobUpdateManyWithoutTripRequestNestedInput
-  settlements?: Prisma.GroupSettlementUpdateManyWithoutTripRequestNestedInput
 }
 
 export type TripRequestUncheckedUpdateWithoutAlertSubscriptionsInput = {
@@ -2118,13 +2118,13 @@ export type TripRequestUncheckedUpdateWithoutAlertSubscriptionsInput = {
   status?: Prisma.EnumTripStatusFieldUpdateOperationsInput | $Enums.TripStatus
   createdAt?: Prisma.DateTimeFieldUpdateOperationsInput | Date | string
   updatedAt?: Prisma.DateTimeFieldUpdateOperationsInput | Date | string
-  travelers?: Prisma.TripTravelerUncheckedUpdateManyWithoutTripRequestNestedInput
+  settlements?: Prisma.GroupSettlementUncheckedUpdateManyWithoutTripRequestNestedInput
+  itineraryJobs?: Prisma.ItineraryJobUncheckedUpdateManyWithoutTripRequestNestedInput
   recommendationRuns?: Prisma.RecommendationRunUncheckedUpdateManyWithoutTripRequestNestedInput
   tripBriefs?: Prisma.TripBriefUncheckedUpdateManyWithoutTripRequestNestedInput
   tradeoffRanking?: Prisma.TripTradeoffRankingUncheckedUpdateOneWithoutTripRequestNestedInput
+  travelers?: Prisma.TripTravelerUncheckedUpdateManyWithoutTripRequestNestedInput
   vendorRequests?: Prisma.VendorRequestUncheckedUpdateManyWithoutTripRequestNestedInput
-  itineraryJobs?: Prisma.ItineraryJobUncheckedUpdateManyWithoutTripRequestNestedInput
-  settlements?: Prisma.GroupSettlementUncheckedUpdateManyWithoutTripRequestNestedInput
 }
 
 export type TripRequestCreateWithoutVendorRequestsInput = {
@@ -2142,17 +2142,17 @@ export type TripRequestCreateWithoutVendorRequestsInput = {
   status?: $Enums.TripStatus
   createdAt?: Date | string
   updatedAt?: Date | string
-  organization: Prisma.OrganizationCreateNestedOneWithoutTripRequestsInput
-  owner: Prisma.UserCreateNestedOneWithoutTripRequestsInput
-  client?: Prisma.ClientCreateNestedOneWithoutTripRequestsInput
-  household?: Prisma.HouseholdCreateNestedOneWithoutTripRequestsInput
-  travelers?: Prisma.TripTravelerCreateNestedManyWithoutTripRequestInput
+  alertSubscriptions?: Prisma.AlertSubscriptionCreateNestedManyWithoutTripRequestInput
+  settlements?: Prisma.GroupSettlementCreateNestedManyWithoutTripRequestInput
+  itineraryJobs?: Prisma.ItineraryJobCreateNestedManyWithoutTripRequestInput
   recommendationRuns?: Prisma.RecommendationRunCreateNestedManyWithoutTripRequestInput
   tripBriefs?: Prisma.TripBriefCreateNestedManyWithoutTripRequestInput
-  alertSubscriptions?: Prisma.AlertSubscriptionCreateNestedManyWithoutTripRequestInput
+  client?: Prisma.ClientCreateNestedOneWithoutTripRequestsInput
+  household?: Prisma.HouseholdCreateNestedOneWithoutTripRequestsInput
+  organization: Prisma.OrganizationCreateNestedOneWithoutTripRequestsInput
+  owner: Prisma.UserCreateNestedOneWithoutTripRequestsInput
   tradeoffRanking?: Prisma.TripTradeoffRankingCreateNestedOneWithoutTripRequestInput
-  itineraryJobs?: Prisma.ItineraryJobCreateNestedManyWithoutTripRequestInput
-  settlements?: Prisma.GroupSettlementCreateNestedManyWithoutTripRequestInput
+  travelers?: Prisma.TripTravelerCreateNestedManyWithoutTripRequestInput
 }
 
 export type TripRequestUncheckedCreateWithoutVendorRequestsInput = {
@@ -2174,13 +2174,13 @@ export type TripRequestUncheckedCreateWithoutVendorRequestsInput = {
   status?: $Enums.TripStatus
   createdAt?: Date | string
   updatedAt?: Date | string
-  travelers?: Prisma.TripTravelerUncheckedCreateNestedManyWithoutTripRequestInput
+  alertSubscriptions?: Prisma.AlertSubscriptionUncheckedCreateNestedManyWithoutTripRequestInput
+  settlements?: Prisma.GroupSettlementUncheckedCreateNestedManyWithoutTripRequestInput
+  itineraryJobs?: Prisma.ItineraryJobUncheckedCreateNestedManyWithoutTripRequestInput
   recommendationRuns?: Prisma.RecommendationRunUncheckedCreateNestedManyWithoutTripRequestInput
   tripBriefs?: Prisma.TripBriefUncheckedCreateNestedManyWithoutTripRequestInput
-  alertSubscriptions?: Prisma.AlertSubscriptionUncheckedCreateNestedManyWithoutTripRequestInput
   tradeoffRanking?: Prisma.TripTradeoffRankingUncheckedCreateNestedOneWithoutTripRequestInput
-  itineraryJobs?: Prisma.ItineraryJobUncheckedCreateNestedManyWithoutTripRequestInput
-  settlements?: Prisma.GroupSettlementUncheckedCreateNestedManyWithoutTripRequestInput
+  travelers?: Prisma.TripTravelerUncheckedCreateNestedManyWithoutTripRequestInput
 }
 
 export type TripRequestCreateOrConnectWithoutVendorRequestsInput = {
@@ -2214,17 +2214,17 @@ export type TripRequestUpdateWithoutVendorRequestsInput = {
   status?: Prisma.EnumTripStatusFieldUpdateOperationsInput | $Enums.TripStatus
   createdAt?: Prisma.DateTimeFieldUpdateOperationsInput | Date | string
   updatedAt?: Prisma.DateTimeFieldUpdateOperationsInput | Date | string
-  organization?: Prisma.OrganizationUpdateOneRequiredWithoutTripRequestsNestedInput
-  owner?: Prisma.UserUpdateOneRequiredWithoutTripRequestsNestedInput
-  client?: Prisma.ClientUpdateOneWithoutTripRequestsNestedInput
-  household?: Prisma.HouseholdUpdateOneWithoutTripRequestsNestedInput
-  travelers?: Prisma.TripTravelerUpdateManyWithoutTripRequestNestedInput
+  alertSubscriptions?: Prisma.AlertSubscriptionUpdateManyWithoutTripRequestNestedInput
+  settlements?: Prisma.GroupSettlementUpdateManyWithoutTripRequestNestedInput
+  itineraryJobs?: Prisma.ItineraryJobUpdateManyWithoutTripRequestNestedInput
   recommendationRuns?: Prisma.RecommendationRunUpdateManyWithoutTripRequestNestedInput
   tripBriefs?: Prisma.TripBriefUpdateManyWithoutTripRequestNestedInput
-  alertSubscriptions?: Prisma.AlertSubscriptionUpdateManyWithoutTripRequestNestedInput
+  client?: Prisma.ClientUpdateOneWithoutTripRequestsNestedInput
+  household?: Prisma.HouseholdUpdateOneWithoutTripRequestsNestedInput
+  organization?: Prisma.OrganizationUpdateOneRequiredWithoutTripRequestsNestedInput
+  owner?: Prisma.UserUpdateOneRequiredWithoutTripRequestsNestedInput
   tradeoffRanking?: Prisma.TripTradeoffRankingUpdateOneWithoutTripRequestNestedInput
-  itineraryJobs?: Prisma.ItineraryJobUpdateManyWithoutTripRequestNestedInput
-  settlements?: Prisma.GroupSettlementUpdateManyWithoutTripRequestNestedInput
+  travelers?: Prisma.TripTravelerUpdateManyWithoutTripRequestNestedInput
 }
 
 export type TripRequestUncheckedUpdateWithoutVendorRequestsInput = {
@@ -2246,13 +2246,13 @@ export type TripRequestUncheckedUpdateWithoutVendorRequestsInput = {
   status?: Prisma.EnumTripStatusFieldUpdateOperationsInput | $Enums.TripStatus
   createdAt?: Prisma.DateTimeFieldUpdateOperationsInput | Date | string
   updatedAt?: Prisma.DateTimeFieldUpdateOperationsInput | Date | string
-  travelers?: Prisma.TripTravelerUncheckedUpdateManyWithoutTripRequestNestedInput
+  alertSubscriptions?: Prisma.AlertSubscriptionUncheckedUpdateManyWithoutTripRequestNestedInput
+  settlements?: Prisma.GroupSettlementUncheckedUpdateManyWithoutTripRequestNestedInput
+  itineraryJobs?: Prisma.ItineraryJobUncheckedUpdateManyWithoutTripRequestNestedInput
   recommendationRuns?: Prisma.RecommendationRunUncheckedUpdateManyWithoutTripRequestNestedInput
   tripBriefs?: Prisma.TripBriefUncheckedUpdateManyWithoutTripRequestNestedInput
-  alertSubscriptions?: Prisma.AlertSubscriptionUncheckedUpdateManyWithoutTripRequestNestedInput
   tradeoffRanking?: Prisma.TripTradeoffRankingUncheckedUpdateOneWithoutTripRequestNestedInput
-  itineraryJobs?: Prisma.ItineraryJobUncheckedUpdateManyWithoutTripRequestNestedInput
-  settlements?: Prisma.GroupSettlementUncheckedUpdateManyWithoutTripRequestNestedInput
+  travelers?: Prisma.TripTravelerUncheckedUpdateManyWithoutTripRequestNestedInput
 }
 
 export type TripRequestCreateWithoutItineraryJobsInput = {
@@ -2270,17 +2270,17 @@ export type TripRequestCreateWithoutItineraryJobsInput = {
   status?: $Enums.TripStatus
   createdAt?: Date | string
   updatedAt?: Date | string
-  organization: Prisma.OrganizationCreateNestedOneWithoutTripRequestsInput
-  owner: Prisma.UserCreateNestedOneWithoutTripRequestsInput
-  client?: Prisma.ClientCreateNestedOneWithoutTripRequestsInput
-  household?: Prisma.HouseholdCreateNestedOneWithoutTripRequestsInput
-  travelers?: Prisma.TripTravelerCreateNestedManyWithoutTripRequestInput
+  alertSubscriptions?: Prisma.AlertSubscriptionCreateNestedManyWithoutTripRequestInput
+  settlements?: Prisma.GroupSettlementCreateNestedManyWithoutTripRequestInput
   recommendationRuns?: Prisma.RecommendationRunCreateNestedManyWithoutTripRequestInput
   tripBriefs?: Prisma.TripBriefCreateNestedManyWithoutTripRequestInput
-  alertSubscriptions?: Prisma.AlertSubscriptionCreateNestedManyWithoutTripRequestInput
+  client?: Prisma.ClientCreateNestedOneWithoutTripRequestsInput
+  household?: Prisma.HouseholdCreateNestedOneWithoutTripRequestsInput
+  organization: Prisma.OrganizationCreateNestedOneWithoutTripRequestsInput
+  owner: Prisma.UserCreateNestedOneWithoutTripRequestsInput
   tradeoffRanking?: Prisma.TripTradeoffRankingCreateNestedOneWithoutTripRequestInput
+  travelers?: Prisma.TripTravelerCreateNestedManyWithoutTripRequestInput
   vendorRequests?: Prisma.VendorRequestCreateNestedManyWithoutTripRequestInput
-  settlements?: Prisma.GroupSettlementCreateNestedManyWithoutTripRequestInput
 }
 
 export type TripRequestUncheckedCreateWithoutItineraryJobsInput = {
@@ -2302,13 +2302,13 @@ export type TripRequestUncheckedCreateWithoutItineraryJobsInput = {
   status?: $Enums.TripStatus
   createdAt?: Date | string
   updatedAt?: Date | string
-  travelers?: Prisma.TripTravelerUncheckedCreateNestedManyWithoutTripRequestInput
+  alertSubscriptions?: Prisma.AlertSubscriptionUncheckedCreateNestedManyWithoutTripRequestInput
+  settlements?: Prisma.GroupSettlementUncheckedCreateNestedManyWithoutTripRequestInput
   recommendationRuns?: Prisma.RecommendationRunUncheckedCreateNestedManyWithoutTripRequestInput
   tripBriefs?: Prisma.TripBriefUncheckedCreateNestedManyWithoutTripRequestInput
-  alertSubscriptions?: Prisma.AlertSubscriptionUncheckedCreateNestedManyWithoutTripRequestInput
   tradeoffRanking?: Prisma.TripTradeoffRankingUncheckedCreateNestedOneWithoutTripRequestInput
+  travelers?: Prisma.TripTravelerUncheckedCreateNestedManyWithoutTripRequestInput
   vendorRequests?: Prisma.VendorRequestUncheckedCreateNestedManyWithoutTripRequestInput
-  settlements?: Prisma.GroupSettlementUncheckedCreateNestedManyWithoutTripRequestInput
 }
 
 export type TripRequestCreateOrConnectWithoutItineraryJobsInput = {
@@ -2342,17 +2342,17 @@ export type TripRequestUpdateWithoutItineraryJobsInput = {
   status?: Prisma.EnumTripStatusFieldUpdateOperationsInput | $Enums.TripStatus
   createdAt?: Prisma.DateTimeFieldUpdateOperationsInput | Date | string
   updatedAt?: Prisma.DateTimeFieldUpdateOperationsInput | Date | string
-  organization?: Prisma.OrganizationUpdateOneRequiredWithoutTripRequestsNestedInput
-  owner?: Prisma.UserUpdateOneRequiredWithoutTripRequestsNestedInput
-  client?: Prisma.ClientUpdateOneWithoutTripRequestsNestedInput
-  household?: Prisma.HouseholdUpdateOneWithoutTripRequestsNestedInput
-  travelers?: Prisma.TripTravelerUpdateManyWithoutTripRequestNestedInput
+  alertSubscriptions?: Prisma.AlertSubscriptionUpdateManyWithoutTripRequestNestedInput
+  settlements?: Prisma.GroupSettlementUpdateManyWithoutTripRequestNestedInput
   recommendationRuns?: Prisma.RecommendationRunUpdateManyWithoutTripRequestNestedInput
   tripBriefs?: Prisma.TripBriefUpdateManyWithoutTripRequestNestedInput
-  alertSubscriptions?: Prisma.AlertSubscriptionUpdateManyWithoutTripRequestNestedInput
+  client?: Prisma.ClientUpdateOneWithoutTripRequestsNestedInput
+  household?: Prisma.HouseholdUpdateOneWithoutTripRequestsNestedInput
+  organization?: Prisma.OrganizationUpdateOneRequiredWithoutTripRequestsNestedInput
+  owner?: Prisma.UserUpdateOneRequiredWithoutTripRequestsNestedInput
   tradeoffRanking?: Prisma.TripTradeoffRankingUpdateOneWithoutTripRequestNestedInput
+  travelers?: Prisma.TripTravelerUpdateManyWithoutTripRequestNestedInput
   vendorRequests?: Prisma.VendorRequestUpdateManyWithoutTripRequestNestedInput
-  settlements?: Prisma.GroupSettlementUpdateManyWithoutTripRequestNestedInput
 }
 
 export type TripRequestUncheckedUpdateWithoutItineraryJobsInput = {
@@ -2374,13 +2374,13 @@ export type TripRequestUncheckedUpdateWithoutItineraryJobsInput = {
   status?: Prisma.EnumTripStatusFieldUpdateOperationsInput | $Enums.TripStatus
   createdAt?: Prisma.DateTimeFieldUpdateOperationsInput | Date | string
   updatedAt?: Prisma.DateTimeFieldUpdateOperationsInput | Date | string
-  travelers?: Prisma.TripTravelerUncheckedUpdateManyWithoutTripRequestNestedInput
+  alertSubscriptions?: Prisma.AlertSubscriptionUncheckedUpdateManyWithoutTripRequestNestedInput
+  settlements?: Prisma.GroupSettlementUncheckedUpdateManyWithoutTripRequestNestedInput
   recommendationRuns?: Prisma.RecommendationRunUncheckedUpdateManyWithoutTripRequestNestedInput
   tripBriefs?: Prisma.TripBriefUncheckedUpdateManyWithoutTripRequestNestedInput
-  alertSubscriptions?: Prisma.AlertSubscriptionUncheckedUpdateManyWithoutTripRequestNestedInput
   tradeoffRanking?: Prisma.TripTradeoffRankingUncheckedUpdateOneWithoutTripRequestNestedInput
+  travelers?: Prisma.TripTravelerUncheckedUpdateManyWithoutTripRequestNestedInput
   vendorRequests?: Prisma.VendorRequestUncheckedUpdateManyWithoutTripRequestNestedInput
-  settlements?: Prisma.GroupSettlementUncheckedUpdateManyWithoutTripRequestNestedInput
 }
 
 export type TripRequestCreateManyOrganizationInput = {
@@ -2418,17 +2418,17 @@ export type TripRequestUpdateWithoutOrganizationInput = {
   status?: Prisma.EnumTripStatusFieldUpdateOperationsInput | $Enums.TripStatus
   createdAt?: Prisma.DateTimeFieldUpdateOperationsInput | Date | string
   updatedAt?: Prisma.DateTimeFieldUpdateOperationsInput | Date | string
-  owner?: Prisma.UserUpdateOneRequiredWithoutTripRequestsNestedInput
-  client?: Prisma.ClientUpdateOneWithoutTripRequestsNestedInput
-  household?: Prisma.HouseholdUpdateOneWithoutTripRequestsNestedInput
-  travelers?: Prisma.TripTravelerUpdateManyWithoutTripRequestNestedInput
+  alertSubscriptions?: Prisma.AlertSubscriptionUpdateManyWithoutTripRequestNestedInput
+  settlements?: Prisma.GroupSettlementUpdateManyWithoutTripRequestNestedInput
+  itineraryJobs?: Prisma.ItineraryJobUpdateManyWithoutTripRequestNestedInput
   recommendationRuns?: Prisma.RecommendationRunUpdateManyWithoutTripRequestNestedInput
   tripBriefs?: Prisma.TripBriefUpdateManyWithoutTripRequestNestedInput
-  alertSubscriptions?: Prisma.AlertSubscriptionUpdateManyWithoutTripRequestNestedInput
+  client?: Prisma.ClientUpdateOneWithoutTripRequestsNestedInput
+  household?: Prisma.HouseholdUpdateOneWithoutTripRequestsNestedInput
+  owner?: Prisma.UserUpdateOneRequiredWithoutTripRequestsNestedInput
   tradeoffRanking?: Prisma.TripTradeoffRankingUpdateOneWithoutTripRequestNestedInput
+  travelers?: Prisma.TripTravelerUpdateManyWithoutTripRequestNestedInput
   vendorRequests?: Prisma.VendorRequestUpdateManyWithoutTripRequestNestedInput
-  itineraryJobs?: Prisma.ItineraryJobUpdateManyWithoutTripRequestNestedInput
-  settlements?: Prisma.GroupSettlementUpdateManyWithoutTripRequestNestedInput
 }
 
 export type TripRequestUncheckedUpdateWithoutOrganizationInput = {
@@ -2449,14 +2449,14 @@ export type TripRequestUncheckedUpdateWithoutOrganizationInput = {
   status?: Prisma.EnumTripStatusFieldUpdateOperationsInput | $Enums.TripStatus
   createdAt?: Prisma.DateTimeFieldUpdateOperationsInput | Date | string
   updatedAt?: Prisma.DateTimeFieldUpdateOperationsInput | Date | string
-  travelers?: Prisma.TripTravelerUncheckedUpdateManyWithoutTripRequestNestedInput
+  alertSubscriptions?: Prisma.AlertSubscriptionUncheckedUpdateManyWithoutTripRequestNestedInput
+  settlements?: Prisma.GroupSettlementUncheckedUpdateManyWithoutTripRequestNestedInput
+  itineraryJobs?: Prisma.ItineraryJobUncheckedUpdateManyWithoutTripRequestNestedInput
   recommendationRuns?: Prisma.RecommendationRunUncheckedUpdateManyWithoutTripRequestNestedInput
   tripBriefs?: Prisma.TripBriefUncheckedUpdateManyWithoutTripRequestNestedInput
-  alertSubscriptions?: Prisma.AlertSubscriptionUncheckedUpdateManyWithoutTripRequestNestedInput
   tradeoffRanking?: Prisma.TripTradeoffRankingUncheckedUpdateOneWithoutTripRequestNestedInput
+  travelers?: Prisma.TripTravelerUncheckedUpdateManyWithoutTripRequestNestedInput
   vendorRequests?: Prisma.VendorRequestUncheckedUpdateManyWithoutTripRequestNestedInput
-  itineraryJobs?: Prisma.ItineraryJobUncheckedUpdateManyWithoutTripRequestNestedInput
-  settlements?: Prisma.GroupSettlementUncheckedUpdateManyWithoutTripRequestNestedInput
 }
 
 export type TripRequestUncheckedUpdateManyWithoutOrganizationInput = {
@@ -2514,17 +2514,17 @@ export type TripRequestUpdateWithoutOwnerInput = {
   status?: Prisma.EnumTripStatusFieldUpdateOperationsInput | $Enums.TripStatus
   createdAt?: Prisma.DateTimeFieldUpdateOperationsInput | Date | string
   updatedAt?: Prisma.DateTimeFieldUpdateOperationsInput | Date | string
-  organization?: Prisma.OrganizationUpdateOneRequiredWithoutTripRequestsNestedInput
-  client?: Prisma.ClientUpdateOneWithoutTripRequestsNestedInput
-  household?: Prisma.HouseholdUpdateOneWithoutTripRequestsNestedInput
-  travelers?: Prisma.TripTravelerUpdateManyWithoutTripRequestNestedInput
+  alertSubscriptions?: Prisma.AlertSubscriptionUpdateManyWithoutTripRequestNestedInput
+  settlements?: Prisma.GroupSettlementUpdateManyWithoutTripRequestNestedInput
+  itineraryJobs?: Prisma.ItineraryJobUpdateManyWithoutTripRequestNestedInput
   recommendationRuns?: Prisma.RecommendationRunUpdateManyWithoutTripRequestNestedInput
   tripBriefs?: Prisma.TripBriefUpdateManyWithoutTripRequestNestedInput
-  alertSubscriptions?: Prisma.AlertSubscriptionUpdateManyWithoutTripRequestNestedInput
+  client?: Prisma.ClientUpdateOneWithoutTripRequestsNestedInput
+  household?: Prisma.HouseholdUpdateOneWithoutTripRequestsNestedInput
+  organization?: Prisma.OrganizationUpdateOneRequiredWithoutTripRequestsNestedInput
   tradeoffRanking?: Prisma.TripTradeoffRankingUpdateOneWithoutTripRequestNestedInput
+  travelers?: Prisma.TripTravelerUpdateManyWithoutTripRequestNestedInput
   vendorRequests?: Prisma.VendorRequestUpdateManyWithoutTripRequestNestedInput
-  itineraryJobs?: Prisma.ItineraryJobUpdateManyWithoutTripRequestNestedInput
-  settlements?: Prisma.GroupSettlementUpdateManyWithoutTripRequestNestedInput
 }
 
 export type TripRequestUncheckedUpdateWithoutOwnerInput = {
@@ -2545,14 +2545,14 @@ export type TripRequestUncheckedUpdateWithoutOwnerInput = {
   status?: Prisma.EnumTripStatusFieldUpdateOperationsInput | $Enums.TripStatus
   createdAt?: Prisma.DateTimeFieldUpdateOperationsInput | Date | string
   updatedAt?: Prisma.DateTimeFieldUpdateOperationsInput | Date | string
-  travelers?: Prisma.TripTravelerUncheckedUpdateManyWithoutTripRequestNestedInput
+  alertSubscriptions?: Prisma.AlertSubscriptionUncheckedUpdateManyWithoutTripRequestNestedInput
+  settlements?: Prisma.GroupSettlementUncheckedUpdateManyWithoutTripRequestNestedInput
+  itineraryJobs?: Prisma.ItineraryJobUncheckedUpdateManyWithoutTripRequestNestedInput
   recommendationRuns?: Prisma.RecommendationRunUncheckedUpdateManyWithoutTripRequestNestedInput
   tripBriefs?: Prisma.TripBriefUncheckedUpdateManyWithoutTripRequestNestedInput
-  alertSubscriptions?: Prisma.AlertSubscriptionUncheckedUpdateManyWithoutTripRequestNestedInput
   tradeoffRanking?: Prisma.TripTradeoffRankingUncheckedUpdateOneWithoutTripRequestNestedInput
+  travelers?: Prisma.TripTravelerUncheckedUpdateManyWithoutTripRequestNestedInput
   vendorRequests?: Prisma.VendorRequestUncheckedUpdateManyWithoutTripRequestNestedInput
-  itineraryJobs?: Prisma.ItineraryJobUncheckedUpdateManyWithoutTripRequestNestedInput
-  settlements?: Prisma.GroupSettlementUncheckedUpdateManyWithoutTripRequestNestedInput
 }
 
 export type TripRequestUncheckedUpdateManyWithoutOwnerInput = {
@@ -2610,17 +2610,17 @@ export type TripRequestUpdateWithoutClientInput = {
   status?: Prisma.EnumTripStatusFieldUpdateOperationsInput | $Enums.TripStatus
   createdAt?: Prisma.DateTimeFieldUpdateOperationsInput | Date | string
   updatedAt?: Prisma.DateTimeFieldUpdateOperationsInput | Date | string
-  organization?: Prisma.OrganizationUpdateOneRequiredWithoutTripRequestsNestedInput
-  owner?: Prisma.UserUpdateOneRequiredWithoutTripRequestsNestedInput
-  household?: Prisma.HouseholdUpdateOneWithoutTripRequestsNestedInput
-  travelers?: Prisma.TripTravelerUpdateManyWithoutTripRequestNestedInput
+  alertSubscriptions?: Prisma.AlertSubscriptionUpdateManyWithoutTripRequestNestedInput
+  settlements?: Prisma.GroupSettlementUpdateManyWithoutTripRequestNestedInput
+  itineraryJobs?: Prisma.ItineraryJobUpdateManyWithoutTripRequestNestedInput
   recommendationRuns?: Prisma.RecommendationRunUpdateManyWithoutTripRequestNestedInput
   tripBriefs?: Prisma.TripBriefUpdateManyWithoutTripRequestNestedInput
-  alertSubscriptions?: Prisma.AlertSubscriptionUpdateManyWithoutTripRequestNestedInput
+  household?: Prisma.HouseholdUpdateOneWithoutTripRequestsNestedInput
+  organization?: Prisma.OrganizationUpdateOneRequiredWithoutTripRequestsNestedInput
+  owner?: Prisma.UserUpdateOneRequiredWithoutTripRequestsNestedInput
   tradeoffRanking?: Prisma.TripTradeoffRankingUpdateOneWithoutTripRequestNestedInput
+  travelers?: Prisma.TripTravelerUpdateManyWithoutTripRequestNestedInput
   vendorRequests?: Prisma.VendorRequestUpdateManyWithoutTripRequestNestedInput
-  itineraryJobs?: Prisma.ItineraryJobUpdateManyWithoutTripRequestNestedInput
-  settlements?: Prisma.GroupSettlementUpdateManyWithoutTripRequestNestedInput
 }
 
 export type TripRequestUncheckedUpdateWithoutClientInput = {
@@ -2641,14 +2641,14 @@ export type TripRequestUncheckedUpdateWithoutClientInput = {
   status?: Prisma.EnumTripStatusFieldUpdateOperationsInput | $Enums.TripStatus
   createdAt?: Prisma.DateTimeFieldUpdateOperationsInput | Date | string
   updatedAt?: Prisma.DateTimeFieldUpdateOperationsInput | Date | string
-  travelers?: Prisma.TripTravelerUncheckedUpdateManyWithoutTripRequestNestedInput
+  alertSubscriptions?: Prisma.AlertSubscriptionUncheckedUpdateManyWithoutTripRequestNestedInput
+  settlements?: Prisma.GroupSettlementUncheckedUpdateManyWithoutTripRequestNestedInput
+  itineraryJobs?: Prisma.ItineraryJobUncheckedUpdateManyWithoutTripRequestNestedInput
   recommendationRuns?: Prisma.RecommendationRunUncheckedUpdateManyWithoutTripRequestNestedInput
   tripBriefs?: Prisma.TripBriefUncheckedUpdateManyWithoutTripRequestNestedInput
-  alertSubscriptions?: Prisma.AlertSubscriptionUncheckedUpdateManyWithoutTripRequestNestedInput
   tradeoffRanking?: Prisma.TripTradeoffRankingUncheckedUpdateOneWithoutTripRequestNestedInput
+  travelers?: Prisma.TripTravelerUncheckedUpdateManyWithoutTripRequestNestedInput
   vendorRequests?: Prisma.VendorRequestUncheckedUpdateManyWithoutTripRequestNestedInput
-  itineraryJobs?: Prisma.ItineraryJobUncheckedUpdateManyWithoutTripRequestNestedInput
-  settlements?: Prisma.GroupSettlementUncheckedUpdateManyWithoutTripRequestNestedInput
 }
 
 export type TripRequestUncheckedUpdateManyWithoutClientInput = {
@@ -2706,17 +2706,17 @@ export type TripRequestUpdateWithoutHouseholdInput = {
   status?: Prisma.EnumTripStatusFieldUpdateOperationsInput | $Enums.TripStatus
   createdAt?: Prisma.DateTimeFieldUpdateOperationsInput | Date | string
   updatedAt?: Prisma.DateTimeFieldUpdateOperationsInput | Date | string
-  organization?: Prisma.OrganizationUpdateOneRequiredWithoutTripRequestsNestedInput
-  owner?: Prisma.UserUpdateOneRequiredWithoutTripRequestsNestedInput
-  client?: Prisma.ClientUpdateOneWithoutTripRequestsNestedInput
-  travelers?: Prisma.TripTravelerUpdateManyWithoutTripRequestNestedInput
+  alertSubscriptions?: Prisma.AlertSubscriptionUpdateManyWithoutTripRequestNestedInput
+  settlements?: Prisma.GroupSettlementUpdateManyWithoutTripRequestNestedInput
+  itineraryJobs?: Prisma.ItineraryJobUpdateManyWithoutTripRequestNestedInput
   recommendationRuns?: Prisma.RecommendationRunUpdateManyWithoutTripRequestNestedInput
   tripBriefs?: Prisma.TripBriefUpdateManyWithoutTripRequestNestedInput
-  alertSubscriptions?: Prisma.AlertSubscriptionUpdateManyWithoutTripRequestNestedInput
+  client?: Prisma.ClientUpdateOneWithoutTripRequestsNestedInput
+  organization?: Prisma.OrganizationUpdateOneRequiredWithoutTripRequestsNestedInput
+  owner?: Prisma.UserUpdateOneRequiredWithoutTripRequestsNestedInput
   tradeoffRanking?: Prisma.TripTradeoffRankingUpdateOneWithoutTripRequestNestedInput
+  travelers?: Prisma.TripTravelerUpdateManyWithoutTripRequestNestedInput
   vendorRequests?: Prisma.VendorRequestUpdateManyWithoutTripRequestNestedInput
-  itineraryJobs?: Prisma.ItineraryJobUpdateManyWithoutTripRequestNestedInput
-  settlements?: Prisma.GroupSettlementUpdateManyWithoutTripRequestNestedInput
 }
 
 export type TripRequestUncheckedUpdateWithoutHouseholdInput = {
@@ -2737,14 +2737,14 @@ export type TripRequestUncheckedUpdateWithoutHouseholdInput = {
   status?: Prisma.EnumTripStatusFieldUpdateOperationsInput | $Enums.TripStatus
   createdAt?: Prisma.DateTimeFieldUpdateOperationsInput | Date | string
   updatedAt?: Prisma.DateTimeFieldUpdateOperationsInput | Date | string
-  travelers?: Prisma.TripTravelerUncheckedUpdateManyWithoutTripRequestNestedInput
+  alertSubscriptions?: Prisma.AlertSubscriptionUncheckedUpdateManyWithoutTripRequestNestedInput
+  settlements?: Prisma.GroupSettlementUncheckedUpdateManyWithoutTripRequestNestedInput
+  itineraryJobs?: Prisma.ItineraryJobUncheckedUpdateManyWithoutTripRequestNestedInput
   recommendationRuns?: Prisma.RecommendationRunUncheckedUpdateManyWithoutTripRequestNestedInput
   tripBriefs?: Prisma.TripBriefUncheckedUpdateManyWithoutTripRequestNestedInput
-  alertSubscriptions?: Prisma.AlertSubscriptionUncheckedUpdateManyWithoutTripRequestNestedInput
   tradeoffRanking?: Prisma.TripTradeoffRankingUncheckedUpdateOneWithoutTripRequestNestedInput
+  travelers?: Prisma.TripTravelerUncheckedUpdateManyWithoutTripRequestNestedInput
   vendorRequests?: Prisma.VendorRequestUncheckedUpdateManyWithoutTripRequestNestedInput
-  itineraryJobs?: Prisma.ItineraryJobUncheckedUpdateManyWithoutTripRequestNestedInput
-  settlements?: Prisma.GroupSettlementUncheckedUpdateManyWithoutTripRequestNestedInput
 }
 
 export type TripRequestUncheckedUpdateManyWithoutHouseholdInput = {
@@ -2773,23 +2773,23 @@ export type TripRequestUncheckedUpdateManyWithoutHouseholdInput = {
  */
 
 export type TripRequestCountOutputType = {
-  travelers: number
+  alertSubscriptions: number
+  settlements: number
+  itineraryJobs: number
   recommendationRuns: number
   tripBriefs: number
-  alertSubscriptions: number
+  travelers: number
   vendorRequests: number
-  itineraryJobs: number
-  settlements: number
 }
 
 export type TripRequestCountOutputTypeSelect<ExtArgs extends runtime.Types.Extensions.InternalArgs = runtime.Types.Extensions.DefaultArgs> = {
-  travelers?: boolean | TripRequestCountOutputTypeCountTravelersArgs
+  alertSubscriptions?: boolean | TripRequestCountOutputTypeCountAlertSubscriptionsArgs
+  settlements?: boolean | TripRequestCountOutputTypeCountSettlementsArgs
+  itineraryJobs?: boolean | TripRequestCountOutputTypeCountItineraryJobsArgs
   recommendationRuns?: boolean | TripRequestCountOutputTypeCountRecommendationRunsArgs
   tripBriefs?: boolean | TripRequestCountOutputTypeCountTripBriefsArgs
-  alertSubscriptions?: boolean | TripRequestCountOutputTypeCountAlertSubscriptionsArgs
+  travelers?: boolean | TripRequestCountOutputTypeCountTravelersArgs
   vendorRequests?: boolean | TripRequestCountOutputTypeCountVendorRequestsArgs
-  itineraryJobs?: boolean | TripRequestCountOutputTypeCountItineraryJobsArgs
-  settlements?: boolean | TripRequestCountOutputTypeCountSettlementsArgs
 }
 
 /**
@@ -2805,8 +2805,22 @@ export type TripRequestCountOutputTypeDefaultArgs<ExtArgs extends runtime.Types.
 /**
  * TripRequestCountOutputType without action
  */
-export type TripRequestCountOutputTypeCountTravelersArgs<ExtArgs extends runtime.Types.Extensions.InternalArgs = runtime.Types.Extensions.DefaultArgs> = {
-  where?: Prisma.TripTravelerWhereInput
+export type TripRequestCountOutputTypeCountAlertSubscriptionsArgs<ExtArgs extends runtime.Types.Extensions.InternalArgs = runtime.Types.Extensions.DefaultArgs> = {
+  where?: Prisma.AlertSubscriptionWhereInput
+}
+
+/**
+ * TripRequestCountOutputType without action
+ */
+export type TripRequestCountOutputTypeCountSettlementsArgs<ExtArgs extends runtime.Types.Extensions.InternalArgs = runtime.Types.Extensions.DefaultArgs> = {
+  where?: Prisma.GroupSettlementWhereInput
+}
+
+/**
+ * TripRequestCountOutputType without action
+ */
+export type TripRequestCountOutputTypeCountItineraryJobsArgs<ExtArgs extends runtime.Types.Extensions.InternalArgs = runtime.Types.Extensions.DefaultArgs> = {
+  where?: Prisma.ItineraryJobWhereInput
 }
 
 /**
@@ -2826,8 +2840,8 @@ export type TripRequestCountOutputTypeCountTripBriefsArgs<ExtArgs extends runtim
 /**
  * TripRequestCountOutputType without action
  */
-export type TripRequestCountOutputTypeCountAlertSubscriptionsArgs<ExtArgs extends runtime.Types.Extensions.InternalArgs = runtime.Types.Extensions.DefaultArgs> = {
-  where?: Prisma.AlertSubscriptionWhereInput
+export type TripRequestCountOutputTypeCountTravelersArgs<ExtArgs extends runtime.Types.Extensions.InternalArgs = runtime.Types.Extensions.DefaultArgs> = {
+  where?: Prisma.TripTravelerWhereInput
 }
 
 /**
@@ -2835,20 +2849,6 @@ export type TripRequestCountOutputTypeCountAlertSubscriptionsArgs<ExtArgs extend
  */
 export type TripRequestCountOutputTypeCountVendorRequestsArgs<ExtArgs extends runtime.Types.Extensions.InternalArgs = runtime.Types.Extensions.DefaultArgs> = {
   where?: Prisma.VendorRequestWhereInput
-}
-
-/**
- * TripRequestCountOutputType without action
- */
-export type TripRequestCountOutputTypeCountItineraryJobsArgs<ExtArgs extends runtime.Types.Extensions.InternalArgs = runtime.Types.Extensions.DefaultArgs> = {
-  where?: Prisma.ItineraryJobWhereInput
-}
-
-/**
- * TripRequestCountOutputType without action
- */
-export type TripRequestCountOutputTypeCountSettlementsArgs<ExtArgs extends runtime.Types.Extensions.InternalArgs = runtime.Types.Extensions.DefaultArgs> = {
-  where?: Prisma.GroupSettlementWhereInput
 }
 
 
@@ -2871,18 +2871,18 @@ export type TripRequestSelect<ExtArgs extends runtime.Types.Extensions.InternalA
   status?: boolean
   createdAt?: boolean
   updatedAt?: boolean
-  organization?: boolean | Prisma.OrganizationDefaultArgs<ExtArgs>
-  owner?: boolean | Prisma.UserDefaultArgs<ExtArgs>
-  client?: boolean | Prisma.TripRequest$clientArgs<ExtArgs>
-  household?: boolean | Prisma.TripRequest$householdArgs<ExtArgs>
-  travelers?: boolean | Prisma.TripRequest$travelersArgs<ExtArgs>
+  alertSubscriptions?: boolean | Prisma.TripRequest$alertSubscriptionsArgs<ExtArgs>
+  settlements?: boolean | Prisma.TripRequest$settlementsArgs<ExtArgs>
+  itineraryJobs?: boolean | Prisma.TripRequest$itineraryJobsArgs<ExtArgs>
   recommendationRuns?: boolean | Prisma.TripRequest$recommendationRunsArgs<ExtArgs>
   tripBriefs?: boolean | Prisma.TripRequest$tripBriefsArgs<ExtArgs>
-  alertSubscriptions?: boolean | Prisma.TripRequest$alertSubscriptionsArgs<ExtArgs>
+  client?: boolean | Prisma.TripRequest$clientArgs<ExtArgs>
+  household?: boolean | Prisma.TripRequest$householdArgs<ExtArgs>
+  organization?: boolean | Prisma.OrganizationDefaultArgs<ExtArgs>
+  owner?: boolean | Prisma.UserDefaultArgs<ExtArgs>
   tradeoffRanking?: boolean | Prisma.TripRequest$tradeoffRankingArgs<ExtArgs>
+  travelers?: boolean | Prisma.TripRequest$travelersArgs<ExtArgs>
   vendorRequests?: boolean | Prisma.TripRequest$vendorRequestsArgs<ExtArgs>
-  itineraryJobs?: boolean | Prisma.TripRequest$itineraryJobsArgs<ExtArgs>
-  settlements?: boolean | Prisma.TripRequest$settlementsArgs<ExtArgs>
   _count?: boolean | Prisma.TripRequestCountOutputTypeDefaultArgs<ExtArgs>
 }, ExtArgs["result"]["tripRequest"]>
 
@@ -2905,10 +2905,10 @@ export type TripRequestSelectCreateManyAndReturn<ExtArgs extends runtime.Types.E
   status?: boolean
   createdAt?: boolean
   updatedAt?: boolean
-  organization?: boolean | Prisma.OrganizationDefaultArgs<ExtArgs>
-  owner?: boolean | Prisma.UserDefaultArgs<ExtArgs>
   client?: boolean | Prisma.TripRequest$clientArgs<ExtArgs>
   household?: boolean | Prisma.TripRequest$householdArgs<ExtArgs>
+  organization?: boolean | Prisma.OrganizationDefaultArgs<ExtArgs>
+  owner?: boolean | Prisma.UserDefaultArgs<ExtArgs>
 }, ExtArgs["result"]["tripRequest"]>
 
 export type TripRequestSelectUpdateManyAndReturn<ExtArgs extends runtime.Types.Extensions.InternalArgs = runtime.Types.Extensions.DefaultArgs> = runtime.Types.Extensions.GetSelect<{
@@ -2930,10 +2930,10 @@ export type TripRequestSelectUpdateManyAndReturn<ExtArgs extends runtime.Types.E
   status?: boolean
   createdAt?: boolean
   updatedAt?: boolean
-  organization?: boolean | Prisma.OrganizationDefaultArgs<ExtArgs>
-  owner?: boolean | Prisma.UserDefaultArgs<ExtArgs>
   client?: boolean | Prisma.TripRequest$clientArgs<ExtArgs>
   household?: boolean | Prisma.TripRequest$householdArgs<ExtArgs>
+  organization?: boolean | Prisma.OrganizationDefaultArgs<ExtArgs>
+  owner?: boolean | Prisma.UserDefaultArgs<ExtArgs>
 }, ExtArgs["result"]["tripRequest"]>
 
 export type TripRequestSelectScalar = {
@@ -2959,48 +2959,48 @@ export type TripRequestSelectScalar = {
 
 export type TripRequestOmit<ExtArgs extends runtime.Types.Extensions.InternalArgs = runtime.Types.Extensions.DefaultArgs> = runtime.Types.Extensions.GetOmit<"id" | "organizationId" | "ownerUserId" | "clientId" | "householdId" | "title" | "originAirports" | "destinationAirports" | "departureDate" | "returnDate" | "travelerCount" | "cabinPreference" | "flexibilityDays" | "budgetCash" | "notes" | "status" | "createdAt" | "updatedAt", ExtArgs["result"]["tripRequest"]>
 export type TripRequestInclude<ExtArgs extends runtime.Types.Extensions.InternalArgs = runtime.Types.Extensions.DefaultArgs> = {
-  organization?: boolean | Prisma.OrganizationDefaultArgs<ExtArgs>
-  owner?: boolean | Prisma.UserDefaultArgs<ExtArgs>
-  client?: boolean | Prisma.TripRequest$clientArgs<ExtArgs>
-  household?: boolean | Prisma.TripRequest$householdArgs<ExtArgs>
-  travelers?: boolean | Prisma.TripRequest$travelersArgs<ExtArgs>
+  alertSubscriptions?: boolean | Prisma.TripRequest$alertSubscriptionsArgs<ExtArgs>
+  settlements?: boolean | Prisma.TripRequest$settlementsArgs<ExtArgs>
+  itineraryJobs?: boolean | Prisma.TripRequest$itineraryJobsArgs<ExtArgs>
   recommendationRuns?: boolean | Prisma.TripRequest$recommendationRunsArgs<ExtArgs>
   tripBriefs?: boolean | Prisma.TripRequest$tripBriefsArgs<ExtArgs>
-  alertSubscriptions?: boolean | Prisma.TripRequest$alertSubscriptionsArgs<ExtArgs>
+  client?: boolean | Prisma.TripRequest$clientArgs<ExtArgs>
+  household?: boolean | Prisma.TripRequest$householdArgs<ExtArgs>
+  organization?: boolean | Prisma.OrganizationDefaultArgs<ExtArgs>
+  owner?: boolean | Prisma.UserDefaultArgs<ExtArgs>
   tradeoffRanking?: boolean | Prisma.TripRequest$tradeoffRankingArgs<ExtArgs>
+  travelers?: boolean | Prisma.TripRequest$travelersArgs<ExtArgs>
   vendorRequests?: boolean | Prisma.TripRequest$vendorRequestsArgs<ExtArgs>
-  itineraryJobs?: boolean | Prisma.TripRequest$itineraryJobsArgs<ExtArgs>
-  settlements?: boolean | Prisma.TripRequest$settlementsArgs<ExtArgs>
   _count?: boolean | Prisma.TripRequestCountOutputTypeDefaultArgs<ExtArgs>
 }
 export type TripRequestIncludeCreateManyAndReturn<ExtArgs extends runtime.Types.Extensions.InternalArgs = runtime.Types.Extensions.DefaultArgs> = {
-  organization?: boolean | Prisma.OrganizationDefaultArgs<ExtArgs>
-  owner?: boolean | Prisma.UserDefaultArgs<ExtArgs>
   client?: boolean | Prisma.TripRequest$clientArgs<ExtArgs>
   household?: boolean | Prisma.TripRequest$householdArgs<ExtArgs>
+  organization?: boolean | Prisma.OrganizationDefaultArgs<ExtArgs>
+  owner?: boolean | Prisma.UserDefaultArgs<ExtArgs>
 }
 export type TripRequestIncludeUpdateManyAndReturn<ExtArgs extends runtime.Types.Extensions.InternalArgs = runtime.Types.Extensions.DefaultArgs> = {
-  organization?: boolean | Prisma.OrganizationDefaultArgs<ExtArgs>
-  owner?: boolean | Prisma.UserDefaultArgs<ExtArgs>
   client?: boolean | Prisma.TripRequest$clientArgs<ExtArgs>
   household?: boolean | Prisma.TripRequest$householdArgs<ExtArgs>
+  organization?: boolean | Prisma.OrganizationDefaultArgs<ExtArgs>
+  owner?: boolean | Prisma.UserDefaultArgs<ExtArgs>
 }
 
 export type $TripRequestPayload<ExtArgs extends runtime.Types.Extensions.InternalArgs = runtime.Types.Extensions.DefaultArgs> = {
   name: "TripRequest"
   objects: {
-    organization: Prisma.$OrganizationPayload<ExtArgs>
-    owner: Prisma.$UserPayload<ExtArgs>
-    client: Prisma.$ClientPayload<ExtArgs> | null
-    household: Prisma.$HouseholdPayload<ExtArgs> | null
-    travelers: Prisma.$TripTravelerPayload<ExtArgs>[]
+    alertSubscriptions: Prisma.$AlertSubscriptionPayload<ExtArgs>[]
+    settlements: Prisma.$GroupSettlementPayload<ExtArgs>[]
+    itineraryJobs: Prisma.$ItineraryJobPayload<ExtArgs>[]
     recommendationRuns: Prisma.$RecommendationRunPayload<ExtArgs>[]
     tripBriefs: Prisma.$TripBriefPayload<ExtArgs>[]
-    alertSubscriptions: Prisma.$AlertSubscriptionPayload<ExtArgs>[]
+    client: Prisma.$ClientPayload<ExtArgs> | null
+    household: Prisma.$HouseholdPayload<ExtArgs> | null
+    organization: Prisma.$OrganizationPayload<ExtArgs>
+    owner: Prisma.$UserPayload<ExtArgs>
     tradeoffRanking: Prisma.$TripTradeoffRankingPayload<ExtArgs> | null
+    travelers: Prisma.$TripTravelerPayload<ExtArgs>[]
     vendorRequests: Prisma.$VendorRequestPayload<ExtArgs>[]
-    itineraryJobs: Prisma.$ItineraryJobPayload<ExtArgs>[]
-    settlements: Prisma.$GroupSettlementPayload<ExtArgs>[]
   }
   scalars: runtime.Types.Extensions.GetPayloadResult<{
     id: string
@@ -3415,18 +3415,18 @@ readonly fields: TripRequestFieldRefs;
  */
 export interface Prisma__TripRequestClient<T, Null = never, ExtArgs extends runtime.Types.Extensions.InternalArgs = runtime.Types.Extensions.DefaultArgs, GlobalOmitOptions = {}> extends Prisma.PrismaPromise<T> {
   readonly [Symbol.toStringTag]: "PrismaPromise"
-  organization<T extends Prisma.OrganizationDefaultArgs<ExtArgs> = {}>(args?: Prisma.Subset<T, Prisma.OrganizationDefaultArgs<ExtArgs>>): Prisma.Prisma__OrganizationClient<runtime.Types.Result.GetResult<Prisma.$OrganizationPayload<ExtArgs>, T, "findUniqueOrThrow", GlobalOmitOptions> | Null, Null, ExtArgs, GlobalOmitOptions>
-  owner<T extends Prisma.UserDefaultArgs<ExtArgs> = {}>(args?: Prisma.Subset<T, Prisma.UserDefaultArgs<ExtArgs>>): Prisma.Prisma__UserClient<runtime.Types.Result.GetResult<Prisma.$UserPayload<ExtArgs>, T, "findUniqueOrThrow", GlobalOmitOptions> | Null, Null, ExtArgs, GlobalOmitOptions>
-  client<T extends Prisma.TripRequest$clientArgs<ExtArgs> = {}>(args?: Prisma.Subset<T, Prisma.TripRequest$clientArgs<ExtArgs>>): Prisma.Prisma__ClientClient<runtime.Types.Result.GetResult<Prisma.$ClientPayload<ExtArgs>, T, "findUniqueOrThrow", GlobalOmitOptions> | null, null, ExtArgs, GlobalOmitOptions>
-  household<T extends Prisma.TripRequest$householdArgs<ExtArgs> = {}>(args?: Prisma.Subset<T, Prisma.TripRequest$householdArgs<ExtArgs>>): Prisma.Prisma__HouseholdClient<runtime.Types.Result.GetResult<Prisma.$HouseholdPayload<ExtArgs>, T, "findUniqueOrThrow", GlobalOmitOptions> | null, null, ExtArgs, GlobalOmitOptions>
-  travelers<T extends Prisma.TripRequest$travelersArgs<ExtArgs> = {}>(args?: Prisma.Subset<T, Prisma.TripRequest$travelersArgs<ExtArgs>>): Prisma.PrismaPromise<runtime.Types.Result.GetResult<Prisma.$TripTravelerPayload<ExtArgs>, T, "findMany", GlobalOmitOptions> | Null>
+  alertSubscriptions<T extends Prisma.TripRequest$alertSubscriptionsArgs<ExtArgs> = {}>(args?: Prisma.Subset<T, Prisma.TripRequest$alertSubscriptionsArgs<ExtArgs>>): Prisma.PrismaPromise<runtime.Types.Result.GetResult<Prisma.$AlertSubscriptionPayload<ExtArgs>, T, "findMany", GlobalOmitOptions> | Null>
+  settlements<T extends Prisma.TripRequest$settlementsArgs<ExtArgs> = {}>(args?: Prisma.Subset<T, Prisma.TripRequest$settlementsArgs<ExtArgs>>): Prisma.PrismaPromise<runtime.Types.Result.GetResult<Prisma.$GroupSettlementPayload<ExtArgs>, T, "findMany", GlobalOmitOptions> | Null>
+  itineraryJobs<T extends Prisma.TripRequest$itineraryJobsArgs<ExtArgs> = {}>(args?: Prisma.Subset<T, Prisma.TripRequest$itineraryJobsArgs<ExtArgs>>): Prisma.PrismaPromise<runtime.Types.Result.GetResult<Prisma.$ItineraryJobPayload<ExtArgs>, T, "findMany", GlobalOmitOptions> | Null>
   recommendationRuns<T extends Prisma.TripRequest$recommendationRunsArgs<ExtArgs> = {}>(args?: Prisma.Subset<T, Prisma.TripRequest$recommendationRunsArgs<ExtArgs>>): Prisma.PrismaPromise<runtime.Types.Result.GetResult<Prisma.$RecommendationRunPayload<ExtArgs>, T, "findMany", GlobalOmitOptions> | Null>
   tripBriefs<T extends Prisma.TripRequest$tripBriefsArgs<ExtArgs> = {}>(args?: Prisma.Subset<T, Prisma.TripRequest$tripBriefsArgs<ExtArgs>>): Prisma.PrismaPromise<runtime.Types.Result.GetResult<Prisma.$TripBriefPayload<ExtArgs>, T, "findMany", GlobalOmitOptions> | Null>
-  alertSubscriptions<T extends Prisma.TripRequest$alertSubscriptionsArgs<ExtArgs> = {}>(args?: Prisma.Subset<T, Prisma.TripRequest$alertSubscriptionsArgs<ExtArgs>>): Prisma.PrismaPromise<runtime.Types.Result.GetResult<Prisma.$AlertSubscriptionPayload<ExtArgs>, T, "findMany", GlobalOmitOptions> | Null>
+  client<T extends Prisma.TripRequest$clientArgs<ExtArgs> = {}>(args?: Prisma.Subset<T, Prisma.TripRequest$clientArgs<ExtArgs>>): Prisma.Prisma__ClientClient<runtime.Types.Result.GetResult<Prisma.$ClientPayload<ExtArgs>, T, "findUniqueOrThrow", GlobalOmitOptions> | null, null, ExtArgs, GlobalOmitOptions>
+  household<T extends Prisma.TripRequest$householdArgs<ExtArgs> = {}>(args?: Prisma.Subset<T, Prisma.TripRequest$householdArgs<ExtArgs>>): Prisma.Prisma__HouseholdClient<runtime.Types.Result.GetResult<Prisma.$HouseholdPayload<ExtArgs>, T, "findUniqueOrThrow", GlobalOmitOptions> | null, null, ExtArgs, GlobalOmitOptions>
+  organization<T extends Prisma.OrganizationDefaultArgs<ExtArgs> = {}>(args?: Prisma.Subset<T, Prisma.OrganizationDefaultArgs<ExtArgs>>): Prisma.Prisma__OrganizationClient<runtime.Types.Result.GetResult<Prisma.$OrganizationPayload<ExtArgs>, T, "findUniqueOrThrow", GlobalOmitOptions> | Null, Null, ExtArgs, GlobalOmitOptions>
+  owner<T extends Prisma.UserDefaultArgs<ExtArgs> = {}>(args?: Prisma.Subset<T, Prisma.UserDefaultArgs<ExtArgs>>): Prisma.Prisma__UserClient<runtime.Types.Result.GetResult<Prisma.$UserPayload<ExtArgs>, T, "findUniqueOrThrow", GlobalOmitOptions> | Null, Null, ExtArgs, GlobalOmitOptions>
   tradeoffRanking<T extends Prisma.TripRequest$tradeoffRankingArgs<ExtArgs> = {}>(args?: Prisma.Subset<T, Prisma.TripRequest$tradeoffRankingArgs<ExtArgs>>): Prisma.Prisma__TripTradeoffRankingClient<runtime.Types.Result.GetResult<Prisma.$TripTradeoffRankingPayload<ExtArgs>, T, "findUniqueOrThrow", GlobalOmitOptions> | null, null, ExtArgs, GlobalOmitOptions>
+  travelers<T extends Prisma.TripRequest$travelersArgs<ExtArgs> = {}>(args?: Prisma.Subset<T, Prisma.TripRequest$travelersArgs<ExtArgs>>): Prisma.PrismaPromise<runtime.Types.Result.GetResult<Prisma.$TripTravelerPayload<ExtArgs>, T, "findMany", GlobalOmitOptions> | Null>
   vendorRequests<T extends Prisma.TripRequest$vendorRequestsArgs<ExtArgs> = {}>(args?: Prisma.Subset<T, Prisma.TripRequest$vendorRequestsArgs<ExtArgs>>): Prisma.PrismaPromise<runtime.Types.Result.GetResult<Prisma.$VendorRequestPayload<ExtArgs>, T, "findMany", GlobalOmitOptions> | Null>
-  itineraryJobs<T extends Prisma.TripRequest$itineraryJobsArgs<ExtArgs> = {}>(args?: Prisma.Subset<T, Prisma.TripRequest$itineraryJobsArgs<ExtArgs>>): Prisma.PrismaPromise<runtime.Types.Result.GetResult<Prisma.$ItineraryJobPayload<ExtArgs>, T, "findMany", GlobalOmitOptions> | Null>
-  settlements<T extends Prisma.TripRequest$settlementsArgs<ExtArgs> = {}>(args?: Prisma.Subset<T, Prisma.TripRequest$settlementsArgs<ExtArgs>>): Prisma.PrismaPromise<runtime.Types.Result.GetResult<Prisma.$GroupSettlementPayload<ExtArgs>, T, "findMany", GlobalOmitOptions> | Null>
   /**
    * Attaches callbacks for the resolution and/or rejection of the Promise.
    * @param onfulfilled The callback to execute when the Promise is resolved.
@@ -3875,65 +3875,75 @@ export type TripRequestDeleteManyArgs<ExtArgs extends runtime.Types.Extensions.I
 }
 
 /**
- * TripRequest.client
+ * TripRequest.alertSubscriptions
  */
-export type TripRequest$clientArgs<ExtArgs extends runtime.Types.Extensions.InternalArgs = runtime.Types.Extensions.DefaultArgs> = {
+export type TripRequest$alertSubscriptionsArgs<ExtArgs extends runtime.Types.Extensions.InternalArgs = runtime.Types.Extensions.DefaultArgs> = {
   /**
-   * Select specific fields to fetch from the Client
+   * Select specific fields to fetch from the AlertSubscription
    */
-  select?: Prisma.ClientSelect<ExtArgs> | null
+  select?: Prisma.AlertSubscriptionSelect<ExtArgs> | null
   /**
-   * Omit specific fields from the Client
+   * Omit specific fields from the AlertSubscription
    */
-  omit?: Prisma.ClientOmit<ExtArgs> | null
+  omit?: Prisma.AlertSubscriptionOmit<ExtArgs> | null
   /**
    * Choose, which related nodes to fetch as well
    */
-  include?: Prisma.ClientInclude<ExtArgs> | null
-  where?: Prisma.ClientWhereInput
-}
-
-/**
- * TripRequest.household
- */
-export type TripRequest$householdArgs<ExtArgs extends runtime.Types.Extensions.InternalArgs = runtime.Types.Extensions.DefaultArgs> = {
-  /**
-   * Select specific fields to fetch from the Household
-   */
-  select?: Prisma.HouseholdSelect<ExtArgs> | null
-  /**
-   * Omit specific fields from the Household
-   */
-  omit?: Prisma.HouseholdOmit<ExtArgs> | null
-  /**
-   * Choose, which related nodes to fetch as well
-   */
-  include?: Prisma.HouseholdInclude<ExtArgs> | null
-  where?: Prisma.HouseholdWhereInput
-}
-
-/**
- * TripRequest.travelers
- */
-export type TripRequest$travelersArgs<ExtArgs extends runtime.Types.Extensions.InternalArgs = runtime.Types.Extensions.DefaultArgs> = {
-  /**
-   * Select specific fields to fetch from the TripTraveler
-   */
-  select?: Prisma.TripTravelerSelect<ExtArgs> | null
-  /**
-   * Omit specific fields from the TripTraveler
-   */
-  omit?: Prisma.TripTravelerOmit<ExtArgs> | null
-  /**
-   * Choose, which related nodes to fetch as well
-   */
-  include?: Prisma.TripTravelerInclude<ExtArgs> | null
-  where?: Prisma.TripTravelerWhereInput
-  orderBy?: Prisma.TripTravelerOrderByWithRelationInput | Prisma.TripTravelerOrderByWithRelationInput[]
-  cursor?: Prisma.TripTravelerWhereUniqueInput
+  include?: Prisma.AlertSubscriptionInclude<ExtArgs> | null
+  where?: Prisma.AlertSubscriptionWhereInput
+  orderBy?: Prisma.AlertSubscriptionOrderByWithRelationInput | Prisma.AlertSubscriptionOrderByWithRelationInput[]
+  cursor?: Prisma.AlertSubscriptionWhereUniqueInput
   take?: number
   skip?: number
-  distinct?: Prisma.TripTravelerScalarFieldEnum | Prisma.TripTravelerScalarFieldEnum[]
+  distinct?: Prisma.AlertSubscriptionScalarFieldEnum | Prisma.AlertSubscriptionScalarFieldEnum[]
+}
+
+/**
+ * TripRequest.settlements
+ */
+export type TripRequest$settlementsArgs<ExtArgs extends runtime.Types.Extensions.InternalArgs = runtime.Types.Extensions.DefaultArgs> = {
+  /**
+   * Select specific fields to fetch from the GroupSettlement
+   */
+  select?: Prisma.GroupSettlementSelect<ExtArgs> | null
+  /**
+   * Omit specific fields from the GroupSettlement
+   */
+  omit?: Prisma.GroupSettlementOmit<ExtArgs> | null
+  /**
+   * Choose, which related nodes to fetch as well
+   */
+  include?: Prisma.GroupSettlementInclude<ExtArgs> | null
+  where?: Prisma.GroupSettlementWhereInput
+  orderBy?: Prisma.GroupSettlementOrderByWithRelationInput | Prisma.GroupSettlementOrderByWithRelationInput[]
+  cursor?: Prisma.GroupSettlementWhereUniqueInput
+  take?: number
+  skip?: number
+  distinct?: Prisma.GroupSettlementScalarFieldEnum | Prisma.GroupSettlementScalarFieldEnum[]
+}
+
+/**
+ * TripRequest.itineraryJobs
+ */
+export type TripRequest$itineraryJobsArgs<ExtArgs extends runtime.Types.Extensions.InternalArgs = runtime.Types.Extensions.DefaultArgs> = {
+  /**
+   * Select specific fields to fetch from the ItineraryJob
+   */
+  select?: Prisma.ItineraryJobSelect<ExtArgs> | null
+  /**
+   * Omit specific fields from the ItineraryJob
+   */
+  omit?: Prisma.ItineraryJobOmit<ExtArgs> | null
+  /**
+   * Choose, which related nodes to fetch as well
+   */
+  include?: Prisma.ItineraryJobInclude<ExtArgs> | null
+  where?: Prisma.ItineraryJobWhereInput
+  orderBy?: Prisma.ItineraryJobOrderByWithRelationInput | Prisma.ItineraryJobOrderByWithRelationInput[]
+  cursor?: Prisma.ItineraryJobWhereUniqueInput
+  take?: number
+  skip?: number
+  distinct?: Prisma.ItineraryJobScalarFieldEnum | Prisma.ItineraryJobScalarFieldEnum[]
 }
 
 /**
@@ -3985,27 +3995,41 @@ export type TripRequest$tripBriefsArgs<ExtArgs extends runtime.Types.Extensions.
 }
 
 /**
- * TripRequest.alertSubscriptions
+ * TripRequest.client
  */
-export type TripRequest$alertSubscriptionsArgs<ExtArgs extends runtime.Types.Extensions.InternalArgs = runtime.Types.Extensions.DefaultArgs> = {
+export type TripRequest$clientArgs<ExtArgs extends runtime.Types.Extensions.InternalArgs = runtime.Types.Extensions.DefaultArgs> = {
   /**
-   * Select specific fields to fetch from the AlertSubscription
+   * Select specific fields to fetch from the Client
    */
-  select?: Prisma.AlertSubscriptionSelect<ExtArgs> | null
+  select?: Prisma.ClientSelect<ExtArgs> | null
   /**
-   * Omit specific fields from the AlertSubscription
+   * Omit specific fields from the Client
    */
-  omit?: Prisma.AlertSubscriptionOmit<ExtArgs> | null
+  omit?: Prisma.ClientOmit<ExtArgs> | null
   /**
    * Choose, which related nodes to fetch as well
    */
-  include?: Prisma.AlertSubscriptionInclude<ExtArgs> | null
-  where?: Prisma.AlertSubscriptionWhereInput
-  orderBy?: Prisma.AlertSubscriptionOrderByWithRelationInput | Prisma.AlertSubscriptionOrderByWithRelationInput[]
-  cursor?: Prisma.AlertSubscriptionWhereUniqueInput
-  take?: number
-  skip?: number
-  distinct?: Prisma.AlertSubscriptionScalarFieldEnum | Prisma.AlertSubscriptionScalarFieldEnum[]
+  include?: Prisma.ClientInclude<ExtArgs> | null
+  where?: Prisma.ClientWhereInput
+}
+
+/**
+ * TripRequest.household
+ */
+export type TripRequest$householdArgs<ExtArgs extends runtime.Types.Extensions.InternalArgs = runtime.Types.Extensions.DefaultArgs> = {
+  /**
+   * Select specific fields to fetch from the Household
+   */
+  select?: Prisma.HouseholdSelect<ExtArgs> | null
+  /**
+   * Omit specific fields from the Household
+   */
+  omit?: Prisma.HouseholdOmit<ExtArgs> | null
+  /**
+   * Choose, which related nodes to fetch as well
+   */
+  include?: Prisma.HouseholdInclude<ExtArgs> | null
+  where?: Prisma.HouseholdWhereInput
 }
 
 /**
@@ -4025,6 +4049,30 @@ export type TripRequest$tradeoffRankingArgs<ExtArgs extends runtime.Types.Extens
    */
   include?: Prisma.TripTradeoffRankingInclude<ExtArgs> | null
   where?: Prisma.TripTradeoffRankingWhereInput
+}
+
+/**
+ * TripRequest.travelers
+ */
+export type TripRequest$travelersArgs<ExtArgs extends runtime.Types.Extensions.InternalArgs = runtime.Types.Extensions.DefaultArgs> = {
+  /**
+   * Select specific fields to fetch from the TripTraveler
+   */
+  select?: Prisma.TripTravelerSelect<ExtArgs> | null
+  /**
+   * Omit specific fields from the TripTraveler
+   */
+  omit?: Prisma.TripTravelerOmit<ExtArgs> | null
+  /**
+   * Choose, which related nodes to fetch as well
+   */
+  include?: Prisma.TripTravelerInclude<ExtArgs> | null
+  where?: Prisma.TripTravelerWhereInput
+  orderBy?: Prisma.TripTravelerOrderByWithRelationInput | Prisma.TripTravelerOrderByWithRelationInput[]
+  cursor?: Prisma.TripTravelerWhereUniqueInput
+  take?: number
+  skip?: number
+  distinct?: Prisma.TripTravelerScalarFieldEnum | Prisma.TripTravelerScalarFieldEnum[]
 }
 
 /**
@@ -4049,54 +4097,6 @@ export type TripRequest$vendorRequestsArgs<ExtArgs extends runtime.Types.Extensi
   take?: number
   skip?: number
   distinct?: Prisma.VendorRequestScalarFieldEnum | Prisma.VendorRequestScalarFieldEnum[]
-}
-
-/**
- * TripRequest.itineraryJobs
- */
-export type TripRequest$itineraryJobsArgs<ExtArgs extends runtime.Types.Extensions.InternalArgs = runtime.Types.Extensions.DefaultArgs> = {
-  /**
-   * Select specific fields to fetch from the ItineraryJob
-   */
-  select?: Prisma.ItineraryJobSelect<ExtArgs> | null
-  /**
-   * Omit specific fields from the ItineraryJob
-   */
-  omit?: Prisma.ItineraryJobOmit<ExtArgs> | null
-  /**
-   * Choose, which related nodes to fetch as well
-   */
-  include?: Prisma.ItineraryJobInclude<ExtArgs> | null
-  where?: Prisma.ItineraryJobWhereInput
-  orderBy?: Prisma.ItineraryJobOrderByWithRelationInput | Prisma.ItineraryJobOrderByWithRelationInput[]
-  cursor?: Prisma.ItineraryJobWhereUniqueInput
-  take?: number
-  skip?: number
-  distinct?: Prisma.ItineraryJobScalarFieldEnum | Prisma.ItineraryJobScalarFieldEnum[]
-}
-
-/**
- * TripRequest.settlements
- */
-export type TripRequest$settlementsArgs<ExtArgs extends runtime.Types.Extensions.InternalArgs = runtime.Types.Extensions.DefaultArgs> = {
-  /**
-   * Select specific fields to fetch from the GroupSettlement
-   */
-  select?: Prisma.GroupSettlementSelect<ExtArgs> | null
-  /**
-   * Omit specific fields from the GroupSettlement
-   */
-  omit?: Prisma.GroupSettlementOmit<ExtArgs> | null
-  /**
-   * Choose, which related nodes to fetch as well
-   */
-  include?: Prisma.GroupSettlementInclude<ExtArgs> | null
-  where?: Prisma.GroupSettlementWhereInput
-  orderBy?: Prisma.GroupSettlementOrderByWithRelationInput | Prisma.GroupSettlementOrderByWithRelationInput[]
-  cursor?: Prisma.GroupSettlementWhereUniqueInput
-  take?: number
-  skip?: number
-  distinct?: Prisma.GroupSettlementScalarFieldEnum | Prisma.GroupSettlementScalarFieldEnum[]
 }
 
 /**

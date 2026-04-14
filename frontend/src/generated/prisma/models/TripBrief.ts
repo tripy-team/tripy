@@ -304,10 +304,10 @@ export type TripBriefWhereInput = {
   isEdited?: Prisma.BoolFilter<"TripBrief"> | boolean
   createdAt?: Prisma.DateTimeFilter<"TripBrief"> | Date | string
   updatedAt?: Prisma.DateTimeFilter<"TripBrief"> | Date | string
-  tripRequest?: Prisma.XOR<Prisma.TripRequestNullableScalarRelationFilter, Prisma.TripRequestWhereInput> | null
   client?: Prisma.XOR<Prisma.ClientScalarRelationFilter, Prisma.ClientWhereInput>
-  intake?: Prisma.XOR<Prisma.ClientIntakeNullableScalarRelationFilter, Prisma.ClientIntakeWhereInput> | null
   generatedBy?: Prisma.XOR<Prisma.UserScalarRelationFilter, Prisma.UserWhereInput>
+  intake?: Prisma.XOR<Prisma.ClientIntakeNullableScalarRelationFilter, Prisma.ClientIntakeWhereInput> | null
+  tripRequest?: Prisma.XOR<Prisma.TripRequestNullableScalarRelationFilter, Prisma.TripRequestWhereInput> | null
 }
 
 export type TripBriefOrderByWithRelationInput = {
@@ -327,10 +327,10 @@ export type TripBriefOrderByWithRelationInput = {
   isEdited?: Prisma.SortOrder
   createdAt?: Prisma.SortOrder
   updatedAt?: Prisma.SortOrder
-  tripRequest?: Prisma.TripRequestOrderByWithRelationInput
   client?: Prisma.ClientOrderByWithRelationInput
-  intake?: Prisma.ClientIntakeOrderByWithRelationInput
   generatedBy?: Prisma.UserOrderByWithRelationInput
+  intake?: Prisma.ClientIntakeOrderByWithRelationInput
+  tripRequest?: Prisma.TripRequestOrderByWithRelationInput
 }
 
 export type TripBriefWhereUniqueInput = Prisma.AtLeast<{
@@ -353,10 +353,10 @@ export type TripBriefWhereUniqueInput = Prisma.AtLeast<{
   isEdited?: Prisma.BoolFilter<"TripBrief"> | boolean
   createdAt?: Prisma.DateTimeFilter<"TripBrief"> | Date | string
   updatedAt?: Prisma.DateTimeFilter<"TripBrief"> | Date | string
-  tripRequest?: Prisma.XOR<Prisma.TripRequestNullableScalarRelationFilter, Prisma.TripRequestWhereInput> | null
   client?: Prisma.XOR<Prisma.ClientScalarRelationFilter, Prisma.ClientWhereInput>
-  intake?: Prisma.XOR<Prisma.ClientIntakeNullableScalarRelationFilter, Prisma.ClientIntakeWhereInput> | null
   generatedBy?: Prisma.XOR<Prisma.UserScalarRelationFilter, Prisma.UserWhereInput>
+  intake?: Prisma.XOR<Prisma.ClientIntakeNullableScalarRelationFilter, Prisma.ClientIntakeWhereInput> | null
+  tripRequest?: Prisma.XOR<Prisma.TripRequestNullableScalarRelationFilter, Prisma.TripRequestWhereInput> | null
 }, "id">
 
 export type TripBriefOrderByWithAggregationInput = {
@@ -418,10 +418,10 @@ export type TripBriefCreateInput = {
   isEdited?: boolean
   createdAt?: Date | string
   updatedAt?: Date | string
-  tripRequest?: Prisma.TripRequestCreateNestedOneWithoutTripBriefsInput
   client: Prisma.ClientCreateNestedOneWithoutTripBriefsInput
-  intake?: Prisma.ClientIntakeCreateNestedOneWithoutTripBriefsInput
   generatedBy: Prisma.UserCreateNestedOneWithoutTripBriefsInput
+  intake?: Prisma.ClientIntakeCreateNestedOneWithoutTripBriefsInput
+  tripRequest?: Prisma.TripRequestCreateNestedOneWithoutTripBriefsInput
 }
 
 export type TripBriefUncheckedCreateInput = {
@@ -456,10 +456,10 @@ export type TripBriefUpdateInput = {
   isEdited?: Prisma.BoolFieldUpdateOperationsInput | boolean
   createdAt?: Prisma.DateTimeFieldUpdateOperationsInput | Date | string
   updatedAt?: Prisma.DateTimeFieldUpdateOperationsInput | Date | string
-  tripRequest?: Prisma.TripRequestUpdateOneWithoutTripBriefsNestedInput
   client?: Prisma.ClientUpdateOneRequiredWithoutTripBriefsNestedInput
-  intake?: Prisma.ClientIntakeUpdateOneWithoutTripBriefsNestedInput
   generatedBy?: Prisma.UserUpdateOneRequiredWithoutTripBriefsNestedInput
+  intake?: Prisma.ClientIntakeUpdateOneWithoutTripBriefsNestedInput
+  tripRequest?: Prisma.TripRequestUpdateOneWithoutTripBriefsNestedInput
 }
 
 export type TripBriefUncheckedUpdateInput = {
@@ -790,9 +790,9 @@ export type TripBriefCreateWithoutGeneratedByInput = {
   isEdited?: boolean
   createdAt?: Date | string
   updatedAt?: Date | string
-  tripRequest?: Prisma.TripRequestCreateNestedOneWithoutTripBriefsInput
   client: Prisma.ClientCreateNestedOneWithoutTripBriefsInput
   intake?: Prisma.ClientIntakeCreateNestedOneWithoutTripBriefsInput
+  tripRequest?: Prisma.TripRequestCreateNestedOneWithoutTripBriefsInput
 }
 
 export type TripBriefUncheckedCreateWithoutGeneratedByInput = {
@@ -874,9 +874,9 @@ export type TripBriefCreateWithoutClientInput = {
   isEdited?: boolean
   createdAt?: Date | string
   updatedAt?: Date | string
-  tripRequest?: Prisma.TripRequestCreateNestedOneWithoutTripBriefsInput
-  intake?: Prisma.ClientIntakeCreateNestedOneWithoutTripBriefsInput
   generatedBy: Prisma.UserCreateNestedOneWithoutTripBriefsInput
+  intake?: Prisma.ClientIntakeCreateNestedOneWithoutTripBriefsInput
+  tripRequest?: Prisma.TripRequestCreateNestedOneWithoutTripBriefsInput
 }
 
 export type TripBriefUncheckedCreateWithoutClientInput = {
@@ -937,8 +937,8 @@ export type TripBriefCreateWithoutTripRequestInput = {
   createdAt?: Date | string
   updatedAt?: Date | string
   client: Prisma.ClientCreateNestedOneWithoutTripBriefsInput
-  intake?: Prisma.ClientIntakeCreateNestedOneWithoutTripBriefsInput
   generatedBy: Prisma.UserCreateNestedOneWithoutTripBriefsInput
+  intake?: Prisma.ClientIntakeCreateNestedOneWithoutTripBriefsInput
 }
 
 export type TripBriefUncheckedCreateWithoutTripRequestInput = {
@@ -998,9 +998,9 @@ export type TripBriefCreateWithoutIntakeInput = {
   isEdited?: boolean
   createdAt?: Date | string
   updatedAt?: Date | string
-  tripRequest?: Prisma.TripRequestCreateNestedOneWithoutTripBriefsInput
   client: Prisma.ClientCreateNestedOneWithoutTripBriefsInput
   generatedBy: Prisma.UserCreateNestedOneWithoutTripBriefsInput
+  tripRequest?: Prisma.TripRequestCreateNestedOneWithoutTripBriefsInput
 }
 
 export type TripBriefUncheckedCreateWithoutIntakeInput = {
@@ -1078,9 +1078,9 @@ export type TripBriefUpdateWithoutGeneratedByInput = {
   isEdited?: Prisma.BoolFieldUpdateOperationsInput | boolean
   createdAt?: Prisma.DateTimeFieldUpdateOperationsInput | Date | string
   updatedAt?: Prisma.DateTimeFieldUpdateOperationsInput | Date | string
-  tripRequest?: Prisma.TripRequestUpdateOneWithoutTripBriefsNestedInput
   client?: Prisma.ClientUpdateOneRequiredWithoutTripBriefsNestedInput
   intake?: Prisma.ClientIntakeUpdateOneWithoutTripBriefsNestedInput
+  tripRequest?: Prisma.TripRequestUpdateOneWithoutTripBriefsNestedInput
 }
 
 export type TripBriefUncheckedUpdateWithoutGeneratedByInput = {
@@ -1150,9 +1150,9 @@ export type TripBriefUpdateWithoutClientInput = {
   isEdited?: Prisma.BoolFieldUpdateOperationsInput | boolean
   createdAt?: Prisma.DateTimeFieldUpdateOperationsInput | Date | string
   updatedAt?: Prisma.DateTimeFieldUpdateOperationsInput | Date | string
-  tripRequest?: Prisma.TripRequestUpdateOneWithoutTripBriefsNestedInput
-  intake?: Prisma.ClientIntakeUpdateOneWithoutTripBriefsNestedInput
   generatedBy?: Prisma.UserUpdateOneRequiredWithoutTripBriefsNestedInput
+  intake?: Prisma.ClientIntakeUpdateOneWithoutTripBriefsNestedInput
+  tripRequest?: Prisma.TripRequestUpdateOneWithoutTripBriefsNestedInput
 }
 
 export type TripBriefUncheckedUpdateWithoutClientInput = {
@@ -1223,8 +1223,8 @@ export type TripBriefUpdateWithoutTripRequestInput = {
   createdAt?: Prisma.DateTimeFieldUpdateOperationsInput | Date | string
   updatedAt?: Prisma.DateTimeFieldUpdateOperationsInput | Date | string
   client?: Prisma.ClientUpdateOneRequiredWithoutTripBriefsNestedInput
-  intake?: Prisma.ClientIntakeUpdateOneWithoutTripBriefsNestedInput
   generatedBy?: Prisma.UserUpdateOneRequiredWithoutTripBriefsNestedInput
+  intake?: Prisma.ClientIntakeUpdateOneWithoutTripBriefsNestedInput
 }
 
 export type TripBriefUncheckedUpdateWithoutTripRequestInput = {
@@ -1294,9 +1294,9 @@ export type TripBriefUpdateWithoutIntakeInput = {
   isEdited?: Prisma.BoolFieldUpdateOperationsInput | boolean
   createdAt?: Prisma.DateTimeFieldUpdateOperationsInput | Date | string
   updatedAt?: Prisma.DateTimeFieldUpdateOperationsInput | Date | string
-  tripRequest?: Prisma.TripRequestUpdateOneWithoutTripBriefsNestedInput
   client?: Prisma.ClientUpdateOneRequiredWithoutTripBriefsNestedInput
   generatedBy?: Prisma.UserUpdateOneRequiredWithoutTripBriefsNestedInput
+  tripRequest?: Prisma.TripRequestUpdateOneWithoutTripBriefsNestedInput
 }
 
 export type TripBriefUncheckedUpdateWithoutIntakeInput = {
@@ -1354,10 +1354,10 @@ export type TripBriefSelect<ExtArgs extends runtime.Types.Extensions.InternalArg
   isEdited?: boolean
   createdAt?: boolean
   updatedAt?: boolean
-  tripRequest?: boolean | Prisma.TripBrief$tripRequestArgs<ExtArgs>
   client?: boolean | Prisma.ClientDefaultArgs<ExtArgs>
-  intake?: boolean | Prisma.TripBrief$intakeArgs<ExtArgs>
   generatedBy?: boolean | Prisma.UserDefaultArgs<ExtArgs>
+  intake?: boolean | Prisma.TripBrief$intakeArgs<ExtArgs>
+  tripRequest?: boolean | Prisma.TripBrief$tripRequestArgs<ExtArgs>
 }, ExtArgs["result"]["tripBrief"]>
 
 export type TripBriefSelectCreateManyAndReturn<ExtArgs extends runtime.Types.Extensions.InternalArgs = runtime.Types.Extensions.DefaultArgs> = runtime.Types.Extensions.GetSelect<{
@@ -1377,10 +1377,10 @@ export type TripBriefSelectCreateManyAndReturn<ExtArgs extends runtime.Types.Ext
   isEdited?: boolean
   createdAt?: boolean
   updatedAt?: boolean
-  tripRequest?: boolean | Prisma.TripBrief$tripRequestArgs<ExtArgs>
   client?: boolean | Prisma.ClientDefaultArgs<ExtArgs>
-  intake?: boolean | Prisma.TripBrief$intakeArgs<ExtArgs>
   generatedBy?: boolean | Prisma.UserDefaultArgs<ExtArgs>
+  intake?: boolean | Prisma.TripBrief$intakeArgs<ExtArgs>
+  tripRequest?: boolean | Prisma.TripBrief$tripRequestArgs<ExtArgs>
 }, ExtArgs["result"]["tripBrief"]>
 
 export type TripBriefSelectUpdateManyAndReturn<ExtArgs extends runtime.Types.Extensions.InternalArgs = runtime.Types.Extensions.DefaultArgs> = runtime.Types.Extensions.GetSelect<{
@@ -1400,10 +1400,10 @@ export type TripBriefSelectUpdateManyAndReturn<ExtArgs extends runtime.Types.Ext
   isEdited?: boolean
   createdAt?: boolean
   updatedAt?: boolean
-  tripRequest?: boolean | Prisma.TripBrief$tripRequestArgs<ExtArgs>
   client?: boolean | Prisma.ClientDefaultArgs<ExtArgs>
-  intake?: boolean | Prisma.TripBrief$intakeArgs<ExtArgs>
   generatedBy?: boolean | Prisma.UserDefaultArgs<ExtArgs>
+  intake?: boolean | Prisma.TripBrief$intakeArgs<ExtArgs>
+  tripRequest?: boolean | Prisma.TripBrief$tripRequestArgs<ExtArgs>
 }, ExtArgs["result"]["tripBrief"]>
 
 export type TripBriefSelectScalar = {
@@ -1427,31 +1427,31 @@ export type TripBriefSelectScalar = {
 
 export type TripBriefOmit<ExtArgs extends runtime.Types.Extensions.InternalArgs = runtime.Types.Extensions.DefaultArgs> = runtime.Types.Extensions.GetOmit<"id" | "tripRequestId" | "clientId" | "intakeId" | "generatedByUserId" | "version" | "executiveSummary" | "hardConstraints" | "softPreferences" | "pointsCashPosture" | "acceptableTradeoffs" | "doNotRecommend" | "operationalNotes" | "isEdited" | "createdAt" | "updatedAt", ExtArgs["result"]["tripBrief"]>
 export type TripBriefInclude<ExtArgs extends runtime.Types.Extensions.InternalArgs = runtime.Types.Extensions.DefaultArgs> = {
-  tripRequest?: boolean | Prisma.TripBrief$tripRequestArgs<ExtArgs>
   client?: boolean | Prisma.ClientDefaultArgs<ExtArgs>
-  intake?: boolean | Prisma.TripBrief$intakeArgs<ExtArgs>
   generatedBy?: boolean | Prisma.UserDefaultArgs<ExtArgs>
+  intake?: boolean | Prisma.TripBrief$intakeArgs<ExtArgs>
+  tripRequest?: boolean | Prisma.TripBrief$tripRequestArgs<ExtArgs>
 }
 export type TripBriefIncludeCreateManyAndReturn<ExtArgs extends runtime.Types.Extensions.InternalArgs = runtime.Types.Extensions.DefaultArgs> = {
-  tripRequest?: boolean | Prisma.TripBrief$tripRequestArgs<ExtArgs>
   client?: boolean | Prisma.ClientDefaultArgs<ExtArgs>
-  intake?: boolean | Prisma.TripBrief$intakeArgs<ExtArgs>
   generatedBy?: boolean | Prisma.UserDefaultArgs<ExtArgs>
+  intake?: boolean | Prisma.TripBrief$intakeArgs<ExtArgs>
+  tripRequest?: boolean | Prisma.TripBrief$tripRequestArgs<ExtArgs>
 }
 export type TripBriefIncludeUpdateManyAndReturn<ExtArgs extends runtime.Types.Extensions.InternalArgs = runtime.Types.Extensions.DefaultArgs> = {
-  tripRequest?: boolean | Prisma.TripBrief$tripRequestArgs<ExtArgs>
   client?: boolean | Prisma.ClientDefaultArgs<ExtArgs>
-  intake?: boolean | Prisma.TripBrief$intakeArgs<ExtArgs>
   generatedBy?: boolean | Prisma.UserDefaultArgs<ExtArgs>
+  intake?: boolean | Prisma.TripBrief$intakeArgs<ExtArgs>
+  tripRequest?: boolean | Prisma.TripBrief$tripRequestArgs<ExtArgs>
 }
 
 export type $TripBriefPayload<ExtArgs extends runtime.Types.Extensions.InternalArgs = runtime.Types.Extensions.DefaultArgs> = {
   name: "TripBrief"
   objects: {
-    tripRequest: Prisma.$TripRequestPayload<ExtArgs> | null
     client: Prisma.$ClientPayload<ExtArgs>
-    intake: Prisma.$ClientIntakePayload<ExtArgs> | null
     generatedBy: Prisma.$UserPayload<ExtArgs>
+    intake: Prisma.$ClientIntakePayload<ExtArgs> | null
+    tripRequest: Prisma.$TripRequestPayload<ExtArgs> | null
   }
   scalars: runtime.Types.Extensions.GetPayloadResult<{
     id: string
@@ -1864,10 +1864,10 @@ readonly fields: TripBriefFieldRefs;
  */
 export interface Prisma__TripBriefClient<T, Null = never, ExtArgs extends runtime.Types.Extensions.InternalArgs = runtime.Types.Extensions.DefaultArgs, GlobalOmitOptions = {}> extends Prisma.PrismaPromise<T> {
   readonly [Symbol.toStringTag]: "PrismaPromise"
-  tripRequest<T extends Prisma.TripBrief$tripRequestArgs<ExtArgs> = {}>(args?: Prisma.Subset<T, Prisma.TripBrief$tripRequestArgs<ExtArgs>>): Prisma.Prisma__TripRequestClient<runtime.Types.Result.GetResult<Prisma.$TripRequestPayload<ExtArgs>, T, "findUniqueOrThrow", GlobalOmitOptions> | null, null, ExtArgs, GlobalOmitOptions>
   client<T extends Prisma.ClientDefaultArgs<ExtArgs> = {}>(args?: Prisma.Subset<T, Prisma.ClientDefaultArgs<ExtArgs>>): Prisma.Prisma__ClientClient<runtime.Types.Result.GetResult<Prisma.$ClientPayload<ExtArgs>, T, "findUniqueOrThrow", GlobalOmitOptions> | Null, Null, ExtArgs, GlobalOmitOptions>
-  intake<T extends Prisma.TripBrief$intakeArgs<ExtArgs> = {}>(args?: Prisma.Subset<T, Prisma.TripBrief$intakeArgs<ExtArgs>>): Prisma.Prisma__ClientIntakeClient<runtime.Types.Result.GetResult<Prisma.$ClientIntakePayload<ExtArgs>, T, "findUniqueOrThrow", GlobalOmitOptions> | null, null, ExtArgs, GlobalOmitOptions>
   generatedBy<T extends Prisma.UserDefaultArgs<ExtArgs> = {}>(args?: Prisma.Subset<T, Prisma.UserDefaultArgs<ExtArgs>>): Prisma.Prisma__UserClient<runtime.Types.Result.GetResult<Prisma.$UserPayload<ExtArgs>, T, "findUniqueOrThrow", GlobalOmitOptions> | Null, Null, ExtArgs, GlobalOmitOptions>
+  intake<T extends Prisma.TripBrief$intakeArgs<ExtArgs> = {}>(args?: Prisma.Subset<T, Prisma.TripBrief$intakeArgs<ExtArgs>>): Prisma.Prisma__ClientIntakeClient<runtime.Types.Result.GetResult<Prisma.$ClientIntakePayload<ExtArgs>, T, "findUniqueOrThrow", GlobalOmitOptions> | null, null, ExtArgs, GlobalOmitOptions>
+  tripRequest<T extends Prisma.TripBrief$tripRequestArgs<ExtArgs> = {}>(args?: Prisma.Subset<T, Prisma.TripBrief$tripRequestArgs<ExtArgs>>): Prisma.Prisma__TripRequestClient<runtime.Types.Result.GetResult<Prisma.$TripRequestPayload<ExtArgs>, T, "findUniqueOrThrow", GlobalOmitOptions> | null, null, ExtArgs, GlobalOmitOptions>
   /**
    * Attaches callbacks for the resolution and/or rejection of the Promise.
    * @param onfulfilled The callback to execute when the Promise is resolved.
@@ -2314,25 +2314,6 @@ export type TripBriefDeleteManyArgs<ExtArgs extends runtime.Types.Extensions.Int
 }
 
 /**
- * TripBrief.tripRequest
- */
-export type TripBrief$tripRequestArgs<ExtArgs extends runtime.Types.Extensions.InternalArgs = runtime.Types.Extensions.DefaultArgs> = {
-  /**
-   * Select specific fields to fetch from the TripRequest
-   */
-  select?: Prisma.TripRequestSelect<ExtArgs> | null
-  /**
-   * Omit specific fields from the TripRequest
-   */
-  omit?: Prisma.TripRequestOmit<ExtArgs> | null
-  /**
-   * Choose, which related nodes to fetch as well
-   */
-  include?: Prisma.TripRequestInclude<ExtArgs> | null
-  where?: Prisma.TripRequestWhereInput
-}
-
-/**
  * TripBrief.intake
  */
 export type TripBrief$intakeArgs<ExtArgs extends runtime.Types.Extensions.InternalArgs = runtime.Types.Extensions.DefaultArgs> = {
@@ -2349,6 +2330,25 @@ export type TripBrief$intakeArgs<ExtArgs extends runtime.Types.Extensions.Intern
    */
   include?: Prisma.ClientIntakeInclude<ExtArgs> | null
   where?: Prisma.ClientIntakeWhereInput
+}
+
+/**
+ * TripBrief.tripRequest
+ */
+export type TripBrief$tripRequestArgs<ExtArgs extends runtime.Types.Extensions.InternalArgs = runtime.Types.Extensions.DefaultArgs> = {
+  /**
+   * Select specific fields to fetch from the TripRequest
+   */
+  select?: Prisma.TripRequestSelect<ExtArgs> | null
+  /**
+   * Omit specific fields from the TripRequest
+   */
+  omit?: Prisma.TripRequestOmit<ExtArgs> | null
+  /**
+   * Choose, which related nodes to fetch as well
+   */
+  include?: Prisma.TripRequestInclude<ExtArgs> | null
+  where?: Prisma.TripRequestWhereInput
 }
 
 /**

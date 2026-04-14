@@ -190,11 +190,11 @@ export type OrganizationWhereInput = {
   planTier?: Prisma.StringFilter<"Organization"> | string
   createdAt?: Prisma.DateTimeFilter<"Organization"> | Date | string
   updatedAt?: Prisma.DateTimeFilter<"Organization"> | Date | string
-  users?: Prisma.UserListRelationFilter
+  alertSubscriptions?: Prisma.AlertSubscriptionListRelationFilter
   clients?: Prisma.ClientListRelationFilter
   households?: Prisma.HouseholdListRelationFilter
   tripRequests?: Prisma.TripRequestListRelationFilter
-  alertSubscriptions?: Prisma.AlertSubscriptionListRelationFilter
+  users?: Prisma.UserListRelationFilter
   vendorRequests?: Prisma.VendorRequestListRelationFilter
 }
 
@@ -205,11 +205,11 @@ export type OrganizationOrderByWithRelationInput = {
   planTier?: Prisma.SortOrder
   createdAt?: Prisma.SortOrder
   updatedAt?: Prisma.SortOrder
-  users?: Prisma.UserOrderByRelationAggregateInput
+  alertSubscriptions?: Prisma.AlertSubscriptionOrderByRelationAggregateInput
   clients?: Prisma.ClientOrderByRelationAggregateInput
   households?: Prisma.HouseholdOrderByRelationAggregateInput
   tripRequests?: Prisma.TripRequestOrderByRelationAggregateInput
-  alertSubscriptions?: Prisma.AlertSubscriptionOrderByRelationAggregateInput
+  users?: Prisma.UserOrderByRelationAggregateInput
   vendorRequests?: Prisma.VendorRequestOrderByRelationAggregateInput
 }
 
@@ -223,11 +223,11 @@ export type OrganizationWhereUniqueInput = Prisma.AtLeast<{
   planTier?: Prisma.StringFilter<"Organization"> | string
   createdAt?: Prisma.DateTimeFilter<"Organization"> | Date | string
   updatedAt?: Prisma.DateTimeFilter<"Organization"> | Date | string
-  users?: Prisma.UserListRelationFilter
+  alertSubscriptions?: Prisma.AlertSubscriptionListRelationFilter
   clients?: Prisma.ClientListRelationFilter
   households?: Prisma.HouseholdListRelationFilter
   tripRequests?: Prisma.TripRequestListRelationFilter
-  alertSubscriptions?: Prisma.AlertSubscriptionListRelationFilter
+  users?: Prisma.UserListRelationFilter
   vendorRequests?: Prisma.VendorRequestListRelationFilter
 }, "id" | "slug">
 
@@ -262,11 +262,11 @@ export type OrganizationCreateInput = {
   planTier?: string
   createdAt?: Date | string
   updatedAt?: Date | string
-  users?: Prisma.UserCreateNestedManyWithoutOrganizationInput
+  alertSubscriptions?: Prisma.AlertSubscriptionCreateNestedManyWithoutOrganizationInput
   clients?: Prisma.ClientCreateNestedManyWithoutOrganizationInput
   households?: Prisma.HouseholdCreateNestedManyWithoutOrganizationInput
   tripRequests?: Prisma.TripRequestCreateNestedManyWithoutOrganizationInput
-  alertSubscriptions?: Prisma.AlertSubscriptionCreateNestedManyWithoutOrganizationInput
+  users?: Prisma.UserCreateNestedManyWithoutOrganizationInput
   vendorRequests?: Prisma.VendorRequestCreateNestedManyWithoutOrganizationInput
 }
 
@@ -277,11 +277,11 @@ export type OrganizationUncheckedCreateInput = {
   planTier?: string
   createdAt?: Date | string
   updatedAt?: Date | string
-  users?: Prisma.UserUncheckedCreateNestedManyWithoutOrganizationInput
+  alertSubscriptions?: Prisma.AlertSubscriptionUncheckedCreateNestedManyWithoutOrganizationInput
   clients?: Prisma.ClientUncheckedCreateNestedManyWithoutOrganizationInput
   households?: Prisma.HouseholdUncheckedCreateNestedManyWithoutOrganizationInput
   tripRequests?: Prisma.TripRequestUncheckedCreateNestedManyWithoutOrganizationInput
-  alertSubscriptions?: Prisma.AlertSubscriptionUncheckedCreateNestedManyWithoutOrganizationInput
+  users?: Prisma.UserUncheckedCreateNestedManyWithoutOrganizationInput
   vendorRequests?: Prisma.VendorRequestUncheckedCreateNestedManyWithoutOrganizationInput
 }
 
@@ -292,11 +292,11 @@ export type OrganizationUpdateInput = {
   planTier?: Prisma.StringFieldUpdateOperationsInput | string
   createdAt?: Prisma.DateTimeFieldUpdateOperationsInput | Date | string
   updatedAt?: Prisma.DateTimeFieldUpdateOperationsInput | Date | string
-  users?: Prisma.UserUpdateManyWithoutOrganizationNestedInput
+  alertSubscriptions?: Prisma.AlertSubscriptionUpdateManyWithoutOrganizationNestedInput
   clients?: Prisma.ClientUpdateManyWithoutOrganizationNestedInput
   households?: Prisma.HouseholdUpdateManyWithoutOrganizationNestedInput
   tripRequests?: Prisma.TripRequestUpdateManyWithoutOrganizationNestedInput
-  alertSubscriptions?: Prisma.AlertSubscriptionUpdateManyWithoutOrganizationNestedInput
+  users?: Prisma.UserUpdateManyWithoutOrganizationNestedInput
   vendorRequests?: Prisma.VendorRequestUpdateManyWithoutOrganizationNestedInput
 }
 
@@ -307,11 +307,11 @@ export type OrganizationUncheckedUpdateInput = {
   planTier?: Prisma.StringFieldUpdateOperationsInput | string
   createdAt?: Prisma.DateTimeFieldUpdateOperationsInput | Date | string
   updatedAt?: Prisma.DateTimeFieldUpdateOperationsInput | Date | string
-  users?: Prisma.UserUncheckedUpdateManyWithoutOrganizationNestedInput
+  alertSubscriptions?: Prisma.AlertSubscriptionUncheckedUpdateManyWithoutOrganizationNestedInput
   clients?: Prisma.ClientUncheckedUpdateManyWithoutOrganizationNestedInput
   households?: Prisma.HouseholdUncheckedUpdateManyWithoutOrganizationNestedInput
   tripRequests?: Prisma.TripRequestUncheckedUpdateManyWithoutOrganizationNestedInput
-  alertSubscriptions?: Prisma.AlertSubscriptionUncheckedUpdateManyWithoutOrganizationNestedInput
+  users?: Prisma.UserUncheckedUpdateManyWithoutOrganizationNestedInput
   vendorRequests?: Prisma.VendorRequestUncheckedUpdateManyWithoutOrganizationNestedInput
 }
 
@@ -473,10 +473,10 @@ export type OrganizationCreateWithoutUsersInput = {
   planTier?: string
   createdAt?: Date | string
   updatedAt?: Date | string
+  alertSubscriptions?: Prisma.AlertSubscriptionCreateNestedManyWithoutOrganizationInput
   clients?: Prisma.ClientCreateNestedManyWithoutOrganizationInput
   households?: Prisma.HouseholdCreateNestedManyWithoutOrganizationInput
   tripRequests?: Prisma.TripRequestCreateNestedManyWithoutOrganizationInput
-  alertSubscriptions?: Prisma.AlertSubscriptionCreateNestedManyWithoutOrganizationInput
   vendorRequests?: Prisma.VendorRequestCreateNestedManyWithoutOrganizationInput
 }
 
@@ -487,10 +487,10 @@ export type OrganizationUncheckedCreateWithoutUsersInput = {
   planTier?: string
   createdAt?: Date | string
   updatedAt?: Date | string
+  alertSubscriptions?: Prisma.AlertSubscriptionUncheckedCreateNestedManyWithoutOrganizationInput
   clients?: Prisma.ClientUncheckedCreateNestedManyWithoutOrganizationInput
   households?: Prisma.HouseholdUncheckedCreateNestedManyWithoutOrganizationInput
   tripRequests?: Prisma.TripRequestUncheckedCreateNestedManyWithoutOrganizationInput
-  alertSubscriptions?: Prisma.AlertSubscriptionUncheckedCreateNestedManyWithoutOrganizationInput
   vendorRequests?: Prisma.VendorRequestUncheckedCreateNestedManyWithoutOrganizationInput
 }
 
@@ -517,10 +517,10 @@ export type OrganizationUpdateWithoutUsersInput = {
   planTier?: Prisma.StringFieldUpdateOperationsInput | string
   createdAt?: Prisma.DateTimeFieldUpdateOperationsInput | Date | string
   updatedAt?: Prisma.DateTimeFieldUpdateOperationsInput | Date | string
+  alertSubscriptions?: Prisma.AlertSubscriptionUpdateManyWithoutOrganizationNestedInput
   clients?: Prisma.ClientUpdateManyWithoutOrganizationNestedInput
   households?: Prisma.HouseholdUpdateManyWithoutOrganizationNestedInput
   tripRequests?: Prisma.TripRequestUpdateManyWithoutOrganizationNestedInput
-  alertSubscriptions?: Prisma.AlertSubscriptionUpdateManyWithoutOrganizationNestedInput
   vendorRequests?: Prisma.VendorRequestUpdateManyWithoutOrganizationNestedInput
 }
 
@@ -531,10 +531,10 @@ export type OrganizationUncheckedUpdateWithoutUsersInput = {
   planTier?: Prisma.StringFieldUpdateOperationsInput | string
   createdAt?: Prisma.DateTimeFieldUpdateOperationsInput | Date | string
   updatedAt?: Prisma.DateTimeFieldUpdateOperationsInput | Date | string
+  alertSubscriptions?: Prisma.AlertSubscriptionUncheckedUpdateManyWithoutOrganizationNestedInput
   clients?: Prisma.ClientUncheckedUpdateManyWithoutOrganizationNestedInput
   households?: Prisma.HouseholdUncheckedUpdateManyWithoutOrganizationNestedInput
   tripRequests?: Prisma.TripRequestUncheckedUpdateManyWithoutOrganizationNestedInput
-  alertSubscriptions?: Prisma.AlertSubscriptionUncheckedUpdateManyWithoutOrganizationNestedInput
   vendorRequests?: Prisma.VendorRequestUncheckedUpdateManyWithoutOrganizationNestedInput
 }
 
@@ -545,10 +545,10 @@ export type OrganizationCreateWithoutClientsInput = {
   planTier?: string
   createdAt?: Date | string
   updatedAt?: Date | string
-  users?: Prisma.UserCreateNestedManyWithoutOrganizationInput
+  alertSubscriptions?: Prisma.AlertSubscriptionCreateNestedManyWithoutOrganizationInput
   households?: Prisma.HouseholdCreateNestedManyWithoutOrganizationInput
   tripRequests?: Prisma.TripRequestCreateNestedManyWithoutOrganizationInput
-  alertSubscriptions?: Prisma.AlertSubscriptionCreateNestedManyWithoutOrganizationInput
+  users?: Prisma.UserCreateNestedManyWithoutOrganizationInput
   vendorRequests?: Prisma.VendorRequestCreateNestedManyWithoutOrganizationInput
 }
 
@@ -559,10 +559,10 @@ export type OrganizationUncheckedCreateWithoutClientsInput = {
   planTier?: string
   createdAt?: Date | string
   updatedAt?: Date | string
-  users?: Prisma.UserUncheckedCreateNestedManyWithoutOrganizationInput
+  alertSubscriptions?: Prisma.AlertSubscriptionUncheckedCreateNestedManyWithoutOrganizationInput
   households?: Prisma.HouseholdUncheckedCreateNestedManyWithoutOrganizationInput
   tripRequests?: Prisma.TripRequestUncheckedCreateNestedManyWithoutOrganizationInput
-  alertSubscriptions?: Prisma.AlertSubscriptionUncheckedCreateNestedManyWithoutOrganizationInput
+  users?: Prisma.UserUncheckedCreateNestedManyWithoutOrganizationInput
   vendorRequests?: Prisma.VendorRequestUncheckedCreateNestedManyWithoutOrganizationInput
 }
 
@@ -589,10 +589,10 @@ export type OrganizationUpdateWithoutClientsInput = {
   planTier?: Prisma.StringFieldUpdateOperationsInput | string
   createdAt?: Prisma.DateTimeFieldUpdateOperationsInput | Date | string
   updatedAt?: Prisma.DateTimeFieldUpdateOperationsInput | Date | string
-  users?: Prisma.UserUpdateManyWithoutOrganizationNestedInput
+  alertSubscriptions?: Prisma.AlertSubscriptionUpdateManyWithoutOrganizationNestedInput
   households?: Prisma.HouseholdUpdateManyWithoutOrganizationNestedInput
   tripRequests?: Prisma.TripRequestUpdateManyWithoutOrganizationNestedInput
-  alertSubscriptions?: Prisma.AlertSubscriptionUpdateManyWithoutOrganizationNestedInput
+  users?: Prisma.UserUpdateManyWithoutOrganizationNestedInput
   vendorRequests?: Prisma.VendorRequestUpdateManyWithoutOrganizationNestedInput
 }
 
@@ -603,10 +603,10 @@ export type OrganizationUncheckedUpdateWithoutClientsInput = {
   planTier?: Prisma.StringFieldUpdateOperationsInput | string
   createdAt?: Prisma.DateTimeFieldUpdateOperationsInput | Date | string
   updatedAt?: Prisma.DateTimeFieldUpdateOperationsInput | Date | string
-  users?: Prisma.UserUncheckedUpdateManyWithoutOrganizationNestedInput
+  alertSubscriptions?: Prisma.AlertSubscriptionUncheckedUpdateManyWithoutOrganizationNestedInput
   households?: Prisma.HouseholdUncheckedUpdateManyWithoutOrganizationNestedInput
   tripRequests?: Prisma.TripRequestUncheckedUpdateManyWithoutOrganizationNestedInput
-  alertSubscriptions?: Prisma.AlertSubscriptionUncheckedUpdateManyWithoutOrganizationNestedInput
+  users?: Prisma.UserUncheckedUpdateManyWithoutOrganizationNestedInput
   vendorRequests?: Prisma.VendorRequestUncheckedUpdateManyWithoutOrganizationNestedInput
 }
 
@@ -617,10 +617,10 @@ export type OrganizationCreateWithoutHouseholdsInput = {
   planTier?: string
   createdAt?: Date | string
   updatedAt?: Date | string
-  users?: Prisma.UserCreateNestedManyWithoutOrganizationInput
+  alertSubscriptions?: Prisma.AlertSubscriptionCreateNestedManyWithoutOrganizationInput
   clients?: Prisma.ClientCreateNestedManyWithoutOrganizationInput
   tripRequests?: Prisma.TripRequestCreateNestedManyWithoutOrganizationInput
-  alertSubscriptions?: Prisma.AlertSubscriptionCreateNestedManyWithoutOrganizationInput
+  users?: Prisma.UserCreateNestedManyWithoutOrganizationInput
   vendorRequests?: Prisma.VendorRequestCreateNestedManyWithoutOrganizationInput
 }
 
@@ -631,10 +631,10 @@ export type OrganizationUncheckedCreateWithoutHouseholdsInput = {
   planTier?: string
   createdAt?: Date | string
   updatedAt?: Date | string
-  users?: Prisma.UserUncheckedCreateNestedManyWithoutOrganizationInput
+  alertSubscriptions?: Prisma.AlertSubscriptionUncheckedCreateNestedManyWithoutOrganizationInput
   clients?: Prisma.ClientUncheckedCreateNestedManyWithoutOrganizationInput
   tripRequests?: Prisma.TripRequestUncheckedCreateNestedManyWithoutOrganizationInput
-  alertSubscriptions?: Prisma.AlertSubscriptionUncheckedCreateNestedManyWithoutOrganizationInput
+  users?: Prisma.UserUncheckedCreateNestedManyWithoutOrganizationInput
   vendorRequests?: Prisma.VendorRequestUncheckedCreateNestedManyWithoutOrganizationInput
 }
 
@@ -661,10 +661,10 @@ export type OrganizationUpdateWithoutHouseholdsInput = {
   planTier?: Prisma.StringFieldUpdateOperationsInput | string
   createdAt?: Prisma.DateTimeFieldUpdateOperationsInput | Date | string
   updatedAt?: Prisma.DateTimeFieldUpdateOperationsInput | Date | string
-  users?: Prisma.UserUpdateManyWithoutOrganizationNestedInput
+  alertSubscriptions?: Prisma.AlertSubscriptionUpdateManyWithoutOrganizationNestedInput
   clients?: Prisma.ClientUpdateManyWithoutOrganizationNestedInput
   tripRequests?: Prisma.TripRequestUpdateManyWithoutOrganizationNestedInput
-  alertSubscriptions?: Prisma.AlertSubscriptionUpdateManyWithoutOrganizationNestedInput
+  users?: Prisma.UserUpdateManyWithoutOrganizationNestedInput
   vendorRequests?: Prisma.VendorRequestUpdateManyWithoutOrganizationNestedInput
 }
 
@@ -675,10 +675,10 @@ export type OrganizationUncheckedUpdateWithoutHouseholdsInput = {
   planTier?: Prisma.StringFieldUpdateOperationsInput | string
   createdAt?: Prisma.DateTimeFieldUpdateOperationsInput | Date | string
   updatedAt?: Prisma.DateTimeFieldUpdateOperationsInput | Date | string
-  users?: Prisma.UserUncheckedUpdateManyWithoutOrganizationNestedInput
+  alertSubscriptions?: Prisma.AlertSubscriptionUncheckedUpdateManyWithoutOrganizationNestedInput
   clients?: Prisma.ClientUncheckedUpdateManyWithoutOrganizationNestedInput
   tripRequests?: Prisma.TripRequestUncheckedUpdateManyWithoutOrganizationNestedInput
-  alertSubscriptions?: Prisma.AlertSubscriptionUncheckedUpdateManyWithoutOrganizationNestedInput
+  users?: Prisma.UserUncheckedUpdateManyWithoutOrganizationNestedInput
   vendorRequests?: Prisma.VendorRequestUncheckedUpdateManyWithoutOrganizationNestedInput
 }
 
@@ -689,10 +689,10 @@ export type OrganizationCreateWithoutTripRequestsInput = {
   planTier?: string
   createdAt?: Date | string
   updatedAt?: Date | string
-  users?: Prisma.UserCreateNestedManyWithoutOrganizationInput
+  alertSubscriptions?: Prisma.AlertSubscriptionCreateNestedManyWithoutOrganizationInput
   clients?: Prisma.ClientCreateNestedManyWithoutOrganizationInput
   households?: Prisma.HouseholdCreateNestedManyWithoutOrganizationInput
-  alertSubscriptions?: Prisma.AlertSubscriptionCreateNestedManyWithoutOrganizationInput
+  users?: Prisma.UserCreateNestedManyWithoutOrganizationInput
   vendorRequests?: Prisma.VendorRequestCreateNestedManyWithoutOrganizationInput
 }
 
@@ -703,10 +703,10 @@ export type OrganizationUncheckedCreateWithoutTripRequestsInput = {
   planTier?: string
   createdAt?: Date | string
   updatedAt?: Date | string
-  users?: Prisma.UserUncheckedCreateNestedManyWithoutOrganizationInput
+  alertSubscriptions?: Prisma.AlertSubscriptionUncheckedCreateNestedManyWithoutOrganizationInput
   clients?: Prisma.ClientUncheckedCreateNestedManyWithoutOrganizationInput
   households?: Prisma.HouseholdUncheckedCreateNestedManyWithoutOrganizationInput
-  alertSubscriptions?: Prisma.AlertSubscriptionUncheckedCreateNestedManyWithoutOrganizationInput
+  users?: Prisma.UserUncheckedCreateNestedManyWithoutOrganizationInput
   vendorRequests?: Prisma.VendorRequestUncheckedCreateNestedManyWithoutOrganizationInput
 }
 
@@ -733,10 +733,10 @@ export type OrganizationUpdateWithoutTripRequestsInput = {
   planTier?: Prisma.StringFieldUpdateOperationsInput | string
   createdAt?: Prisma.DateTimeFieldUpdateOperationsInput | Date | string
   updatedAt?: Prisma.DateTimeFieldUpdateOperationsInput | Date | string
-  users?: Prisma.UserUpdateManyWithoutOrganizationNestedInput
+  alertSubscriptions?: Prisma.AlertSubscriptionUpdateManyWithoutOrganizationNestedInput
   clients?: Prisma.ClientUpdateManyWithoutOrganizationNestedInput
   households?: Prisma.HouseholdUpdateManyWithoutOrganizationNestedInput
-  alertSubscriptions?: Prisma.AlertSubscriptionUpdateManyWithoutOrganizationNestedInput
+  users?: Prisma.UserUpdateManyWithoutOrganizationNestedInput
   vendorRequests?: Prisma.VendorRequestUpdateManyWithoutOrganizationNestedInput
 }
 
@@ -747,10 +747,10 @@ export type OrganizationUncheckedUpdateWithoutTripRequestsInput = {
   planTier?: Prisma.StringFieldUpdateOperationsInput | string
   createdAt?: Prisma.DateTimeFieldUpdateOperationsInput | Date | string
   updatedAt?: Prisma.DateTimeFieldUpdateOperationsInput | Date | string
-  users?: Prisma.UserUncheckedUpdateManyWithoutOrganizationNestedInput
+  alertSubscriptions?: Prisma.AlertSubscriptionUncheckedUpdateManyWithoutOrganizationNestedInput
   clients?: Prisma.ClientUncheckedUpdateManyWithoutOrganizationNestedInput
   households?: Prisma.HouseholdUncheckedUpdateManyWithoutOrganizationNestedInput
-  alertSubscriptions?: Prisma.AlertSubscriptionUncheckedUpdateManyWithoutOrganizationNestedInput
+  users?: Prisma.UserUncheckedUpdateManyWithoutOrganizationNestedInput
   vendorRequests?: Prisma.VendorRequestUncheckedUpdateManyWithoutOrganizationNestedInput
 }
 
@@ -761,10 +761,10 @@ export type OrganizationCreateWithoutAlertSubscriptionsInput = {
   planTier?: string
   createdAt?: Date | string
   updatedAt?: Date | string
-  users?: Prisma.UserCreateNestedManyWithoutOrganizationInput
   clients?: Prisma.ClientCreateNestedManyWithoutOrganizationInput
   households?: Prisma.HouseholdCreateNestedManyWithoutOrganizationInput
   tripRequests?: Prisma.TripRequestCreateNestedManyWithoutOrganizationInput
+  users?: Prisma.UserCreateNestedManyWithoutOrganizationInput
   vendorRequests?: Prisma.VendorRequestCreateNestedManyWithoutOrganizationInput
 }
 
@@ -775,10 +775,10 @@ export type OrganizationUncheckedCreateWithoutAlertSubscriptionsInput = {
   planTier?: string
   createdAt?: Date | string
   updatedAt?: Date | string
-  users?: Prisma.UserUncheckedCreateNestedManyWithoutOrganizationInput
   clients?: Prisma.ClientUncheckedCreateNestedManyWithoutOrganizationInput
   households?: Prisma.HouseholdUncheckedCreateNestedManyWithoutOrganizationInput
   tripRequests?: Prisma.TripRequestUncheckedCreateNestedManyWithoutOrganizationInput
+  users?: Prisma.UserUncheckedCreateNestedManyWithoutOrganizationInput
   vendorRequests?: Prisma.VendorRequestUncheckedCreateNestedManyWithoutOrganizationInput
 }
 
@@ -805,10 +805,10 @@ export type OrganizationUpdateWithoutAlertSubscriptionsInput = {
   planTier?: Prisma.StringFieldUpdateOperationsInput | string
   createdAt?: Prisma.DateTimeFieldUpdateOperationsInput | Date | string
   updatedAt?: Prisma.DateTimeFieldUpdateOperationsInput | Date | string
-  users?: Prisma.UserUpdateManyWithoutOrganizationNestedInput
   clients?: Prisma.ClientUpdateManyWithoutOrganizationNestedInput
   households?: Prisma.HouseholdUpdateManyWithoutOrganizationNestedInput
   tripRequests?: Prisma.TripRequestUpdateManyWithoutOrganizationNestedInput
+  users?: Prisma.UserUpdateManyWithoutOrganizationNestedInput
   vendorRequests?: Prisma.VendorRequestUpdateManyWithoutOrganizationNestedInput
 }
 
@@ -819,10 +819,10 @@ export type OrganizationUncheckedUpdateWithoutAlertSubscriptionsInput = {
   planTier?: Prisma.StringFieldUpdateOperationsInput | string
   createdAt?: Prisma.DateTimeFieldUpdateOperationsInput | Date | string
   updatedAt?: Prisma.DateTimeFieldUpdateOperationsInput | Date | string
-  users?: Prisma.UserUncheckedUpdateManyWithoutOrganizationNestedInput
   clients?: Prisma.ClientUncheckedUpdateManyWithoutOrganizationNestedInput
   households?: Prisma.HouseholdUncheckedUpdateManyWithoutOrganizationNestedInput
   tripRequests?: Prisma.TripRequestUncheckedUpdateManyWithoutOrganizationNestedInput
+  users?: Prisma.UserUncheckedUpdateManyWithoutOrganizationNestedInput
   vendorRequests?: Prisma.VendorRequestUncheckedUpdateManyWithoutOrganizationNestedInput
 }
 
@@ -833,11 +833,11 @@ export type OrganizationCreateWithoutVendorRequestsInput = {
   planTier?: string
   createdAt?: Date | string
   updatedAt?: Date | string
-  users?: Prisma.UserCreateNestedManyWithoutOrganizationInput
+  alertSubscriptions?: Prisma.AlertSubscriptionCreateNestedManyWithoutOrganizationInput
   clients?: Prisma.ClientCreateNestedManyWithoutOrganizationInput
   households?: Prisma.HouseholdCreateNestedManyWithoutOrganizationInput
   tripRequests?: Prisma.TripRequestCreateNestedManyWithoutOrganizationInput
-  alertSubscriptions?: Prisma.AlertSubscriptionCreateNestedManyWithoutOrganizationInput
+  users?: Prisma.UserCreateNestedManyWithoutOrganizationInput
 }
 
 export type OrganizationUncheckedCreateWithoutVendorRequestsInput = {
@@ -847,11 +847,11 @@ export type OrganizationUncheckedCreateWithoutVendorRequestsInput = {
   planTier?: string
   createdAt?: Date | string
   updatedAt?: Date | string
-  users?: Prisma.UserUncheckedCreateNestedManyWithoutOrganizationInput
+  alertSubscriptions?: Prisma.AlertSubscriptionUncheckedCreateNestedManyWithoutOrganizationInput
   clients?: Prisma.ClientUncheckedCreateNestedManyWithoutOrganizationInput
   households?: Prisma.HouseholdUncheckedCreateNestedManyWithoutOrganizationInput
   tripRequests?: Prisma.TripRequestUncheckedCreateNestedManyWithoutOrganizationInput
-  alertSubscriptions?: Prisma.AlertSubscriptionUncheckedCreateNestedManyWithoutOrganizationInput
+  users?: Prisma.UserUncheckedCreateNestedManyWithoutOrganizationInput
 }
 
 export type OrganizationCreateOrConnectWithoutVendorRequestsInput = {
@@ -877,11 +877,11 @@ export type OrganizationUpdateWithoutVendorRequestsInput = {
   planTier?: Prisma.StringFieldUpdateOperationsInput | string
   createdAt?: Prisma.DateTimeFieldUpdateOperationsInput | Date | string
   updatedAt?: Prisma.DateTimeFieldUpdateOperationsInput | Date | string
-  users?: Prisma.UserUpdateManyWithoutOrganizationNestedInput
+  alertSubscriptions?: Prisma.AlertSubscriptionUpdateManyWithoutOrganizationNestedInput
   clients?: Prisma.ClientUpdateManyWithoutOrganizationNestedInput
   households?: Prisma.HouseholdUpdateManyWithoutOrganizationNestedInput
   tripRequests?: Prisma.TripRequestUpdateManyWithoutOrganizationNestedInput
-  alertSubscriptions?: Prisma.AlertSubscriptionUpdateManyWithoutOrganizationNestedInput
+  users?: Prisma.UserUpdateManyWithoutOrganizationNestedInput
 }
 
 export type OrganizationUncheckedUpdateWithoutVendorRequestsInput = {
@@ -891,11 +891,11 @@ export type OrganizationUncheckedUpdateWithoutVendorRequestsInput = {
   planTier?: Prisma.StringFieldUpdateOperationsInput | string
   createdAt?: Prisma.DateTimeFieldUpdateOperationsInput | Date | string
   updatedAt?: Prisma.DateTimeFieldUpdateOperationsInput | Date | string
-  users?: Prisma.UserUncheckedUpdateManyWithoutOrganizationNestedInput
+  alertSubscriptions?: Prisma.AlertSubscriptionUncheckedUpdateManyWithoutOrganizationNestedInput
   clients?: Prisma.ClientUncheckedUpdateManyWithoutOrganizationNestedInput
   households?: Prisma.HouseholdUncheckedUpdateManyWithoutOrganizationNestedInput
   tripRequests?: Prisma.TripRequestUncheckedUpdateManyWithoutOrganizationNestedInput
-  alertSubscriptions?: Prisma.AlertSubscriptionUncheckedUpdateManyWithoutOrganizationNestedInput
+  users?: Prisma.UserUncheckedUpdateManyWithoutOrganizationNestedInput
 }
 
 
@@ -904,20 +904,20 @@ export type OrganizationUncheckedUpdateWithoutVendorRequestsInput = {
  */
 
 export type OrganizationCountOutputType = {
-  users: number
+  alertSubscriptions: number
   clients: number
   households: number
   tripRequests: number
-  alertSubscriptions: number
+  users: number
   vendorRequests: number
 }
 
 export type OrganizationCountOutputTypeSelect<ExtArgs extends runtime.Types.Extensions.InternalArgs = runtime.Types.Extensions.DefaultArgs> = {
-  users?: boolean | OrganizationCountOutputTypeCountUsersArgs
+  alertSubscriptions?: boolean | OrganizationCountOutputTypeCountAlertSubscriptionsArgs
   clients?: boolean | OrganizationCountOutputTypeCountClientsArgs
   households?: boolean | OrganizationCountOutputTypeCountHouseholdsArgs
   tripRequests?: boolean | OrganizationCountOutputTypeCountTripRequestsArgs
-  alertSubscriptions?: boolean | OrganizationCountOutputTypeCountAlertSubscriptionsArgs
+  users?: boolean | OrganizationCountOutputTypeCountUsersArgs
   vendorRequests?: boolean | OrganizationCountOutputTypeCountVendorRequestsArgs
 }
 
@@ -934,8 +934,8 @@ export type OrganizationCountOutputTypeDefaultArgs<ExtArgs extends runtime.Types
 /**
  * OrganizationCountOutputType without action
  */
-export type OrganizationCountOutputTypeCountUsersArgs<ExtArgs extends runtime.Types.Extensions.InternalArgs = runtime.Types.Extensions.DefaultArgs> = {
-  where?: Prisma.UserWhereInput
+export type OrganizationCountOutputTypeCountAlertSubscriptionsArgs<ExtArgs extends runtime.Types.Extensions.InternalArgs = runtime.Types.Extensions.DefaultArgs> = {
+  where?: Prisma.AlertSubscriptionWhereInput
 }
 
 /**
@@ -962,8 +962,8 @@ export type OrganizationCountOutputTypeCountTripRequestsArgs<ExtArgs extends run
 /**
  * OrganizationCountOutputType without action
  */
-export type OrganizationCountOutputTypeCountAlertSubscriptionsArgs<ExtArgs extends runtime.Types.Extensions.InternalArgs = runtime.Types.Extensions.DefaultArgs> = {
-  where?: Prisma.AlertSubscriptionWhereInput
+export type OrganizationCountOutputTypeCountUsersArgs<ExtArgs extends runtime.Types.Extensions.InternalArgs = runtime.Types.Extensions.DefaultArgs> = {
+  where?: Prisma.UserWhereInput
 }
 
 /**
@@ -981,11 +981,11 @@ export type OrganizationSelect<ExtArgs extends runtime.Types.Extensions.Internal
   planTier?: boolean
   createdAt?: boolean
   updatedAt?: boolean
-  users?: boolean | Prisma.Organization$usersArgs<ExtArgs>
+  alertSubscriptions?: boolean | Prisma.Organization$alertSubscriptionsArgs<ExtArgs>
   clients?: boolean | Prisma.Organization$clientsArgs<ExtArgs>
   households?: boolean | Prisma.Organization$householdsArgs<ExtArgs>
   tripRequests?: boolean | Prisma.Organization$tripRequestsArgs<ExtArgs>
-  alertSubscriptions?: boolean | Prisma.Organization$alertSubscriptionsArgs<ExtArgs>
+  users?: boolean | Prisma.Organization$usersArgs<ExtArgs>
   vendorRequests?: boolean | Prisma.Organization$vendorRequestsArgs<ExtArgs>
   _count?: boolean | Prisma.OrganizationCountOutputTypeDefaultArgs<ExtArgs>
 }, ExtArgs["result"]["organization"]>
@@ -1019,11 +1019,11 @@ export type OrganizationSelectScalar = {
 
 export type OrganizationOmit<ExtArgs extends runtime.Types.Extensions.InternalArgs = runtime.Types.Extensions.DefaultArgs> = runtime.Types.Extensions.GetOmit<"id" | "name" | "slug" | "planTier" | "createdAt" | "updatedAt", ExtArgs["result"]["organization"]>
 export type OrganizationInclude<ExtArgs extends runtime.Types.Extensions.InternalArgs = runtime.Types.Extensions.DefaultArgs> = {
-  users?: boolean | Prisma.Organization$usersArgs<ExtArgs>
+  alertSubscriptions?: boolean | Prisma.Organization$alertSubscriptionsArgs<ExtArgs>
   clients?: boolean | Prisma.Organization$clientsArgs<ExtArgs>
   households?: boolean | Prisma.Organization$householdsArgs<ExtArgs>
   tripRequests?: boolean | Prisma.Organization$tripRequestsArgs<ExtArgs>
-  alertSubscriptions?: boolean | Prisma.Organization$alertSubscriptionsArgs<ExtArgs>
+  users?: boolean | Prisma.Organization$usersArgs<ExtArgs>
   vendorRequests?: boolean | Prisma.Organization$vendorRequestsArgs<ExtArgs>
   _count?: boolean | Prisma.OrganizationCountOutputTypeDefaultArgs<ExtArgs>
 }
@@ -1033,11 +1033,11 @@ export type OrganizationIncludeUpdateManyAndReturn<ExtArgs extends runtime.Types
 export type $OrganizationPayload<ExtArgs extends runtime.Types.Extensions.InternalArgs = runtime.Types.Extensions.DefaultArgs> = {
   name: "Organization"
   objects: {
-    users: Prisma.$UserPayload<ExtArgs>[]
+    alertSubscriptions: Prisma.$AlertSubscriptionPayload<ExtArgs>[]
     clients: Prisma.$ClientPayload<ExtArgs>[]
     households: Prisma.$HouseholdPayload<ExtArgs>[]
     tripRequests: Prisma.$TripRequestPayload<ExtArgs>[]
-    alertSubscriptions: Prisma.$AlertSubscriptionPayload<ExtArgs>[]
+    users: Prisma.$UserPayload<ExtArgs>[]
     vendorRequests: Prisma.$VendorRequestPayload<ExtArgs>[]
   }
   scalars: runtime.Types.Extensions.GetPayloadResult<{
@@ -1441,11 +1441,11 @@ readonly fields: OrganizationFieldRefs;
  */
 export interface Prisma__OrganizationClient<T, Null = never, ExtArgs extends runtime.Types.Extensions.InternalArgs = runtime.Types.Extensions.DefaultArgs, GlobalOmitOptions = {}> extends Prisma.PrismaPromise<T> {
   readonly [Symbol.toStringTag]: "PrismaPromise"
-  users<T extends Prisma.Organization$usersArgs<ExtArgs> = {}>(args?: Prisma.Subset<T, Prisma.Organization$usersArgs<ExtArgs>>): Prisma.PrismaPromise<runtime.Types.Result.GetResult<Prisma.$UserPayload<ExtArgs>, T, "findMany", GlobalOmitOptions> | Null>
+  alertSubscriptions<T extends Prisma.Organization$alertSubscriptionsArgs<ExtArgs> = {}>(args?: Prisma.Subset<T, Prisma.Organization$alertSubscriptionsArgs<ExtArgs>>): Prisma.PrismaPromise<runtime.Types.Result.GetResult<Prisma.$AlertSubscriptionPayload<ExtArgs>, T, "findMany", GlobalOmitOptions> | Null>
   clients<T extends Prisma.Organization$clientsArgs<ExtArgs> = {}>(args?: Prisma.Subset<T, Prisma.Organization$clientsArgs<ExtArgs>>): Prisma.PrismaPromise<runtime.Types.Result.GetResult<Prisma.$ClientPayload<ExtArgs>, T, "findMany", GlobalOmitOptions> | Null>
   households<T extends Prisma.Organization$householdsArgs<ExtArgs> = {}>(args?: Prisma.Subset<T, Prisma.Organization$householdsArgs<ExtArgs>>): Prisma.PrismaPromise<runtime.Types.Result.GetResult<Prisma.$HouseholdPayload<ExtArgs>, T, "findMany", GlobalOmitOptions> | Null>
   tripRequests<T extends Prisma.Organization$tripRequestsArgs<ExtArgs> = {}>(args?: Prisma.Subset<T, Prisma.Organization$tripRequestsArgs<ExtArgs>>): Prisma.PrismaPromise<runtime.Types.Result.GetResult<Prisma.$TripRequestPayload<ExtArgs>, T, "findMany", GlobalOmitOptions> | Null>
-  alertSubscriptions<T extends Prisma.Organization$alertSubscriptionsArgs<ExtArgs> = {}>(args?: Prisma.Subset<T, Prisma.Organization$alertSubscriptionsArgs<ExtArgs>>): Prisma.PrismaPromise<runtime.Types.Result.GetResult<Prisma.$AlertSubscriptionPayload<ExtArgs>, T, "findMany", GlobalOmitOptions> | Null>
+  users<T extends Prisma.Organization$usersArgs<ExtArgs> = {}>(args?: Prisma.Subset<T, Prisma.Organization$usersArgs<ExtArgs>>): Prisma.PrismaPromise<runtime.Types.Result.GetResult<Prisma.$UserPayload<ExtArgs>, T, "findMany", GlobalOmitOptions> | Null>
   vendorRequests<T extends Prisma.Organization$vendorRequestsArgs<ExtArgs> = {}>(args?: Prisma.Subset<T, Prisma.Organization$vendorRequestsArgs<ExtArgs>>): Prisma.PrismaPromise<runtime.Types.Result.GetResult<Prisma.$VendorRequestPayload<ExtArgs>, T, "findMany", GlobalOmitOptions> | Null>
   /**
    * Attaches callbacks for the resolution and/or rejection of the Promise.
@@ -1875,27 +1875,27 @@ export type OrganizationDeleteManyArgs<ExtArgs extends runtime.Types.Extensions.
 }
 
 /**
- * Organization.users
+ * Organization.alertSubscriptions
  */
-export type Organization$usersArgs<ExtArgs extends runtime.Types.Extensions.InternalArgs = runtime.Types.Extensions.DefaultArgs> = {
+export type Organization$alertSubscriptionsArgs<ExtArgs extends runtime.Types.Extensions.InternalArgs = runtime.Types.Extensions.DefaultArgs> = {
   /**
-   * Select specific fields to fetch from the User
+   * Select specific fields to fetch from the AlertSubscription
    */
-  select?: Prisma.UserSelect<ExtArgs> | null
+  select?: Prisma.AlertSubscriptionSelect<ExtArgs> | null
   /**
-   * Omit specific fields from the User
+   * Omit specific fields from the AlertSubscription
    */
-  omit?: Prisma.UserOmit<ExtArgs> | null
+  omit?: Prisma.AlertSubscriptionOmit<ExtArgs> | null
   /**
    * Choose, which related nodes to fetch as well
    */
-  include?: Prisma.UserInclude<ExtArgs> | null
-  where?: Prisma.UserWhereInput
-  orderBy?: Prisma.UserOrderByWithRelationInput | Prisma.UserOrderByWithRelationInput[]
-  cursor?: Prisma.UserWhereUniqueInput
+  include?: Prisma.AlertSubscriptionInclude<ExtArgs> | null
+  where?: Prisma.AlertSubscriptionWhereInput
+  orderBy?: Prisma.AlertSubscriptionOrderByWithRelationInput | Prisma.AlertSubscriptionOrderByWithRelationInput[]
+  cursor?: Prisma.AlertSubscriptionWhereUniqueInput
   take?: number
   skip?: number
-  distinct?: Prisma.UserScalarFieldEnum | Prisma.UserScalarFieldEnum[]
+  distinct?: Prisma.AlertSubscriptionScalarFieldEnum | Prisma.AlertSubscriptionScalarFieldEnum[]
 }
 
 /**
@@ -1971,27 +1971,27 @@ export type Organization$tripRequestsArgs<ExtArgs extends runtime.Types.Extensio
 }
 
 /**
- * Organization.alertSubscriptions
+ * Organization.users
  */
-export type Organization$alertSubscriptionsArgs<ExtArgs extends runtime.Types.Extensions.InternalArgs = runtime.Types.Extensions.DefaultArgs> = {
+export type Organization$usersArgs<ExtArgs extends runtime.Types.Extensions.InternalArgs = runtime.Types.Extensions.DefaultArgs> = {
   /**
-   * Select specific fields to fetch from the AlertSubscription
+   * Select specific fields to fetch from the User
    */
-  select?: Prisma.AlertSubscriptionSelect<ExtArgs> | null
+  select?: Prisma.UserSelect<ExtArgs> | null
   /**
-   * Omit specific fields from the AlertSubscription
+   * Omit specific fields from the User
    */
-  omit?: Prisma.AlertSubscriptionOmit<ExtArgs> | null
+  omit?: Prisma.UserOmit<ExtArgs> | null
   /**
    * Choose, which related nodes to fetch as well
    */
-  include?: Prisma.AlertSubscriptionInclude<ExtArgs> | null
-  where?: Prisma.AlertSubscriptionWhereInput
-  orderBy?: Prisma.AlertSubscriptionOrderByWithRelationInput | Prisma.AlertSubscriptionOrderByWithRelationInput[]
-  cursor?: Prisma.AlertSubscriptionWhereUniqueInput
+  include?: Prisma.UserInclude<ExtArgs> | null
+  where?: Prisma.UserWhereInput
+  orderBy?: Prisma.UserOrderByWithRelationInput | Prisma.UserOrderByWithRelationInput[]
+  cursor?: Prisma.UserWhereUniqueInput
   take?: number
   skip?: number
-  distinct?: Prisma.AlertSubscriptionScalarFieldEnum | Prisma.AlertSubscriptionScalarFieldEnum[]
+  distinct?: Prisma.UserScalarFieldEnum | Prisma.UserScalarFieldEnum[]
 }
 
 /**

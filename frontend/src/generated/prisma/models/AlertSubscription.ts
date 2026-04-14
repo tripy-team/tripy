@@ -226,12 +226,12 @@ export type AlertSubscriptionWhereInput = {
   isActive?: Prisma.BoolFilter<"AlertSubscription"> | boolean
   createdAt?: Prisma.DateTimeFilter<"AlertSubscription"> | Date | string
   updatedAt?: Prisma.DateTimeFilter<"AlertSubscription"> | Date | string
-  organization?: Prisma.XOR<Prisma.OrganizationScalarRelationFilter, Prisma.OrganizationWhereInput>
+  events?: Prisma.AlertEventListRelationFilter
   client?: Prisma.XOR<Prisma.ClientNullableScalarRelationFilter, Prisma.ClientWhereInput> | null
   household?: Prisma.XOR<Prisma.HouseholdNullableScalarRelationFilter, Prisma.HouseholdWhereInput> | null
-  tripRequest?: Prisma.XOR<Prisma.TripRequestNullableScalarRelationFilter, Prisma.TripRequestWhereInput> | null
+  organization?: Prisma.XOR<Prisma.OrganizationScalarRelationFilter, Prisma.OrganizationWhereInput>
   targetProgram?: Prisma.XOR<Prisma.LoyaltyProgramNullableScalarRelationFilter, Prisma.LoyaltyProgramWhereInput> | null
-  events?: Prisma.AlertEventListRelationFilter
+  tripRequest?: Prisma.XOR<Prisma.TripRequestNullableScalarRelationFilter, Prisma.TripRequestWhereInput> | null
 }
 
 export type AlertSubscriptionOrderByWithRelationInput = {
@@ -246,12 +246,12 @@ export type AlertSubscriptionOrderByWithRelationInput = {
   isActive?: Prisma.SortOrder
   createdAt?: Prisma.SortOrder
   updatedAt?: Prisma.SortOrder
-  organization?: Prisma.OrganizationOrderByWithRelationInput
+  events?: Prisma.AlertEventOrderByRelationAggregateInput
   client?: Prisma.ClientOrderByWithRelationInput
   household?: Prisma.HouseholdOrderByWithRelationInput
-  tripRequest?: Prisma.TripRequestOrderByWithRelationInput
+  organization?: Prisma.OrganizationOrderByWithRelationInput
   targetProgram?: Prisma.LoyaltyProgramOrderByWithRelationInput
-  events?: Prisma.AlertEventOrderByRelationAggregateInput
+  tripRequest?: Prisma.TripRequestOrderByWithRelationInput
 }
 
 export type AlertSubscriptionWhereUniqueInput = Prisma.AtLeast<{
@@ -269,12 +269,12 @@ export type AlertSubscriptionWhereUniqueInput = Prisma.AtLeast<{
   isActive?: Prisma.BoolFilter<"AlertSubscription"> | boolean
   createdAt?: Prisma.DateTimeFilter<"AlertSubscription"> | Date | string
   updatedAt?: Prisma.DateTimeFilter<"AlertSubscription"> | Date | string
-  organization?: Prisma.XOR<Prisma.OrganizationScalarRelationFilter, Prisma.OrganizationWhereInput>
+  events?: Prisma.AlertEventListRelationFilter
   client?: Prisma.XOR<Prisma.ClientNullableScalarRelationFilter, Prisma.ClientWhereInput> | null
   household?: Prisma.XOR<Prisma.HouseholdNullableScalarRelationFilter, Prisma.HouseholdWhereInput> | null
-  tripRequest?: Prisma.XOR<Prisma.TripRequestNullableScalarRelationFilter, Prisma.TripRequestWhereInput> | null
+  organization?: Prisma.XOR<Prisma.OrganizationScalarRelationFilter, Prisma.OrganizationWhereInput>
   targetProgram?: Prisma.XOR<Prisma.LoyaltyProgramNullableScalarRelationFilter, Prisma.LoyaltyProgramWhereInput> | null
-  events?: Prisma.AlertEventListRelationFilter
+  tripRequest?: Prisma.XOR<Prisma.TripRequestNullableScalarRelationFilter, Prisma.TripRequestWhereInput> | null
 }, "id">
 
 export type AlertSubscriptionOrderByWithAggregationInput = {
@@ -318,12 +318,12 @@ export type AlertSubscriptionCreateInput = {
   isActive?: boolean
   createdAt?: Date | string
   updatedAt?: Date | string
-  organization: Prisma.OrganizationCreateNestedOneWithoutAlertSubscriptionsInput
+  events?: Prisma.AlertEventCreateNestedManyWithoutAlertSubscriptionInput
   client?: Prisma.ClientCreateNestedOneWithoutAlertSubscriptionsInput
   household?: Prisma.HouseholdCreateNestedOneWithoutAlertSubscriptionsInput
-  tripRequest?: Prisma.TripRequestCreateNestedOneWithoutAlertSubscriptionsInput
+  organization: Prisma.OrganizationCreateNestedOneWithoutAlertSubscriptionsInput
   targetProgram?: Prisma.LoyaltyProgramCreateNestedOneWithoutAlertSubscriptionsInput
-  events?: Prisma.AlertEventCreateNestedManyWithoutAlertSubscriptionInput
+  tripRequest?: Prisma.TripRequestCreateNestedOneWithoutAlertSubscriptionsInput
 }
 
 export type AlertSubscriptionUncheckedCreateInput = {
@@ -348,12 +348,12 @@ export type AlertSubscriptionUpdateInput = {
   isActive?: Prisma.BoolFieldUpdateOperationsInput | boolean
   createdAt?: Prisma.DateTimeFieldUpdateOperationsInput | Date | string
   updatedAt?: Prisma.DateTimeFieldUpdateOperationsInput | Date | string
-  organization?: Prisma.OrganizationUpdateOneRequiredWithoutAlertSubscriptionsNestedInput
+  events?: Prisma.AlertEventUpdateManyWithoutAlertSubscriptionNestedInput
   client?: Prisma.ClientUpdateOneWithoutAlertSubscriptionsNestedInput
   household?: Prisma.HouseholdUpdateOneWithoutAlertSubscriptionsNestedInput
-  tripRequest?: Prisma.TripRequestUpdateOneWithoutAlertSubscriptionsNestedInput
+  organization?: Prisma.OrganizationUpdateOneRequiredWithoutAlertSubscriptionsNestedInput
   targetProgram?: Prisma.LoyaltyProgramUpdateOneWithoutAlertSubscriptionsNestedInput
-  events?: Prisma.AlertEventUpdateManyWithoutAlertSubscriptionNestedInput
+  tripRequest?: Prisma.TripRequestUpdateOneWithoutAlertSubscriptionsNestedInput
 }
 
 export type AlertSubscriptionUncheckedUpdateInput = {
@@ -698,11 +698,11 @@ export type AlertSubscriptionCreateWithoutOrganizationInput = {
   isActive?: boolean
   createdAt?: Date | string
   updatedAt?: Date | string
+  events?: Prisma.AlertEventCreateNestedManyWithoutAlertSubscriptionInput
   client?: Prisma.ClientCreateNestedOneWithoutAlertSubscriptionsInput
   household?: Prisma.HouseholdCreateNestedOneWithoutAlertSubscriptionsInput
-  tripRequest?: Prisma.TripRequestCreateNestedOneWithoutAlertSubscriptionsInput
   targetProgram?: Prisma.LoyaltyProgramCreateNestedOneWithoutAlertSubscriptionsInput
-  events?: Prisma.AlertEventCreateNestedManyWithoutAlertSubscriptionInput
+  tripRequest?: Prisma.TripRequestCreateNestedOneWithoutAlertSubscriptionsInput
 }
 
 export type AlertSubscriptionUncheckedCreateWithoutOrganizationInput = {
@@ -769,11 +769,11 @@ export type AlertSubscriptionCreateWithoutClientInput = {
   isActive?: boolean
   createdAt?: Date | string
   updatedAt?: Date | string
-  organization: Prisma.OrganizationCreateNestedOneWithoutAlertSubscriptionsInput
-  household?: Prisma.HouseholdCreateNestedOneWithoutAlertSubscriptionsInput
-  tripRequest?: Prisma.TripRequestCreateNestedOneWithoutAlertSubscriptionsInput
-  targetProgram?: Prisma.LoyaltyProgramCreateNestedOneWithoutAlertSubscriptionsInput
   events?: Prisma.AlertEventCreateNestedManyWithoutAlertSubscriptionInput
+  household?: Prisma.HouseholdCreateNestedOneWithoutAlertSubscriptionsInput
+  organization: Prisma.OrganizationCreateNestedOneWithoutAlertSubscriptionsInput
+  targetProgram?: Prisma.LoyaltyProgramCreateNestedOneWithoutAlertSubscriptionsInput
+  tripRequest?: Prisma.TripRequestCreateNestedOneWithoutAlertSubscriptionsInput
 }
 
 export type AlertSubscriptionUncheckedCreateWithoutClientInput = {
@@ -823,11 +823,11 @@ export type AlertSubscriptionCreateWithoutHouseholdInput = {
   isActive?: boolean
   createdAt?: Date | string
   updatedAt?: Date | string
-  organization: Prisma.OrganizationCreateNestedOneWithoutAlertSubscriptionsInput
-  client?: Prisma.ClientCreateNestedOneWithoutAlertSubscriptionsInput
-  tripRequest?: Prisma.TripRequestCreateNestedOneWithoutAlertSubscriptionsInput
-  targetProgram?: Prisma.LoyaltyProgramCreateNestedOneWithoutAlertSubscriptionsInput
   events?: Prisma.AlertEventCreateNestedManyWithoutAlertSubscriptionInput
+  client?: Prisma.ClientCreateNestedOneWithoutAlertSubscriptionsInput
+  organization: Prisma.OrganizationCreateNestedOneWithoutAlertSubscriptionsInput
+  targetProgram?: Prisma.LoyaltyProgramCreateNestedOneWithoutAlertSubscriptionsInput
+  tripRequest?: Prisma.TripRequestCreateNestedOneWithoutAlertSubscriptionsInput
 }
 
 export type AlertSubscriptionUncheckedCreateWithoutHouseholdInput = {
@@ -877,11 +877,11 @@ export type AlertSubscriptionCreateWithoutTargetProgramInput = {
   isActive?: boolean
   createdAt?: Date | string
   updatedAt?: Date | string
-  organization: Prisma.OrganizationCreateNestedOneWithoutAlertSubscriptionsInput
+  events?: Prisma.AlertEventCreateNestedManyWithoutAlertSubscriptionInput
   client?: Prisma.ClientCreateNestedOneWithoutAlertSubscriptionsInput
   household?: Prisma.HouseholdCreateNestedOneWithoutAlertSubscriptionsInput
+  organization: Prisma.OrganizationCreateNestedOneWithoutAlertSubscriptionsInput
   tripRequest?: Prisma.TripRequestCreateNestedOneWithoutAlertSubscriptionsInput
-  events?: Prisma.AlertEventCreateNestedManyWithoutAlertSubscriptionInput
 }
 
 export type AlertSubscriptionUncheckedCreateWithoutTargetProgramInput = {
@@ -931,11 +931,11 @@ export type AlertSubscriptionCreateWithoutTripRequestInput = {
   isActive?: boolean
   createdAt?: Date | string
   updatedAt?: Date | string
-  organization: Prisma.OrganizationCreateNestedOneWithoutAlertSubscriptionsInput
+  events?: Prisma.AlertEventCreateNestedManyWithoutAlertSubscriptionInput
   client?: Prisma.ClientCreateNestedOneWithoutAlertSubscriptionsInput
   household?: Prisma.HouseholdCreateNestedOneWithoutAlertSubscriptionsInput
+  organization: Prisma.OrganizationCreateNestedOneWithoutAlertSubscriptionsInput
   targetProgram?: Prisma.LoyaltyProgramCreateNestedOneWithoutAlertSubscriptionsInput
-  events?: Prisma.AlertEventCreateNestedManyWithoutAlertSubscriptionInput
 }
 
 export type AlertSubscriptionUncheckedCreateWithoutTripRequestInput = {
@@ -985,11 +985,11 @@ export type AlertSubscriptionCreateWithoutEventsInput = {
   isActive?: boolean
   createdAt?: Date | string
   updatedAt?: Date | string
-  organization: Prisma.OrganizationCreateNestedOneWithoutAlertSubscriptionsInput
   client?: Prisma.ClientCreateNestedOneWithoutAlertSubscriptionsInput
   household?: Prisma.HouseholdCreateNestedOneWithoutAlertSubscriptionsInput
-  tripRequest?: Prisma.TripRequestCreateNestedOneWithoutAlertSubscriptionsInput
+  organization: Prisma.OrganizationCreateNestedOneWithoutAlertSubscriptionsInput
   targetProgram?: Prisma.LoyaltyProgramCreateNestedOneWithoutAlertSubscriptionsInput
+  tripRequest?: Prisma.TripRequestCreateNestedOneWithoutAlertSubscriptionsInput
 }
 
 export type AlertSubscriptionUncheckedCreateWithoutEventsInput = {
@@ -1029,11 +1029,11 @@ export type AlertSubscriptionUpdateWithoutEventsInput = {
   isActive?: Prisma.BoolFieldUpdateOperationsInput | boolean
   createdAt?: Prisma.DateTimeFieldUpdateOperationsInput | Date | string
   updatedAt?: Prisma.DateTimeFieldUpdateOperationsInput | Date | string
-  organization?: Prisma.OrganizationUpdateOneRequiredWithoutAlertSubscriptionsNestedInput
   client?: Prisma.ClientUpdateOneWithoutAlertSubscriptionsNestedInput
   household?: Prisma.HouseholdUpdateOneWithoutAlertSubscriptionsNestedInput
-  tripRequest?: Prisma.TripRequestUpdateOneWithoutAlertSubscriptionsNestedInput
+  organization?: Prisma.OrganizationUpdateOneRequiredWithoutAlertSubscriptionsNestedInput
   targetProgram?: Prisma.LoyaltyProgramUpdateOneWithoutAlertSubscriptionsNestedInput
+  tripRequest?: Prisma.TripRequestUpdateOneWithoutAlertSubscriptionsNestedInput
 }
 
 export type AlertSubscriptionUncheckedUpdateWithoutEventsInput = {
@@ -1070,11 +1070,11 @@ export type AlertSubscriptionUpdateWithoutOrganizationInput = {
   isActive?: Prisma.BoolFieldUpdateOperationsInput | boolean
   createdAt?: Prisma.DateTimeFieldUpdateOperationsInput | Date | string
   updatedAt?: Prisma.DateTimeFieldUpdateOperationsInput | Date | string
+  events?: Prisma.AlertEventUpdateManyWithoutAlertSubscriptionNestedInput
   client?: Prisma.ClientUpdateOneWithoutAlertSubscriptionsNestedInput
   household?: Prisma.HouseholdUpdateOneWithoutAlertSubscriptionsNestedInput
-  tripRequest?: Prisma.TripRequestUpdateOneWithoutAlertSubscriptionsNestedInput
   targetProgram?: Prisma.LoyaltyProgramUpdateOneWithoutAlertSubscriptionsNestedInput
-  events?: Prisma.AlertEventUpdateManyWithoutAlertSubscriptionNestedInput
+  tripRequest?: Prisma.TripRequestUpdateOneWithoutAlertSubscriptionsNestedInput
 }
 
 export type AlertSubscriptionUncheckedUpdateWithoutOrganizationInput = {
@@ -1124,11 +1124,11 @@ export type AlertSubscriptionUpdateWithoutClientInput = {
   isActive?: Prisma.BoolFieldUpdateOperationsInput | boolean
   createdAt?: Prisma.DateTimeFieldUpdateOperationsInput | Date | string
   updatedAt?: Prisma.DateTimeFieldUpdateOperationsInput | Date | string
-  organization?: Prisma.OrganizationUpdateOneRequiredWithoutAlertSubscriptionsNestedInput
-  household?: Prisma.HouseholdUpdateOneWithoutAlertSubscriptionsNestedInput
-  tripRequest?: Prisma.TripRequestUpdateOneWithoutAlertSubscriptionsNestedInput
-  targetProgram?: Prisma.LoyaltyProgramUpdateOneWithoutAlertSubscriptionsNestedInput
   events?: Prisma.AlertEventUpdateManyWithoutAlertSubscriptionNestedInput
+  household?: Prisma.HouseholdUpdateOneWithoutAlertSubscriptionsNestedInput
+  organization?: Prisma.OrganizationUpdateOneRequiredWithoutAlertSubscriptionsNestedInput
+  targetProgram?: Prisma.LoyaltyProgramUpdateOneWithoutAlertSubscriptionsNestedInput
+  tripRequest?: Prisma.TripRequestUpdateOneWithoutAlertSubscriptionsNestedInput
 }
 
 export type AlertSubscriptionUncheckedUpdateWithoutClientInput = {
@@ -1178,11 +1178,11 @@ export type AlertSubscriptionUpdateWithoutHouseholdInput = {
   isActive?: Prisma.BoolFieldUpdateOperationsInput | boolean
   createdAt?: Prisma.DateTimeFieldUpdateOperationsInput | Date | string
   updatedAt?: Prisma.DateTimeFieldUpdateOperationsInput | Date | string
-  organization?: Prisma.OrganizationUpdateOneRequiredWithoutAlertSubscriptionsNestedInput
-  client?: Prisma.ClientUpdateOneWithoutAlertSubscriptionsNestedInput
-  tripRequest?: Prisma.TripRequestUpdateOneWithoutAlertSubscriptionsNestedInput
-  targetProgram?: Prisma.LoyaltyProgramUpdateOneWithoutAlertSubscriptionsNestedInput
   events?: Prisma.AlertEventUpdateManyWithoutAlertSubscriptionNestedInput
+  client?: Prisma.ClientUpdateOneWithoutAlertSubscriptionsNestedInput
+  organization?: Prisma.OrganizationUpdateOneRequiredWithoutAlertSubscriptionsNestedInput
+  targetProgram?: Prisma.LoyaltyProgramUpdateOneWithoutAlertSubscriptionsNestedInput
+  tripRequest?: Prisma.TripRequestUpdateOneWithoutAlertSubscriptionsNestedInput
 }
 
 export type AlertSubscriptionUncheckedUpdateWithoutHouseholdInput = {
@@ -1232,11 +1232,11 @@ export type AlertSubscriptionUpdateWithoutTargetProgramInput = {
   isActive?: Prisma.BoolFieldUpdateOperationsInput | boolean
   createdAt?: Prisma.DateTimeFieldUpdateOperationsInput | Date | string
   updatedAt?: Prisma.DateTimeFieldUpdateOperationsInput | Date | string
-  organization?: Prisma.OrganizationUpdateOneRequiredWithoutAlertSubscriptionsNestedInput
+  events?: Prisma.AlertEventUpdateManyWithoutAlertSubscriptionNestedInput
   client?: Prisma.ClientUpdateOneWithoutAlertSubscriptionsNestedInput
   household?: Prisma.HouseholdUpdateOneWithoutAlertSubscriptionsNestedInput
+  organization?: Prisma.OrganizationUpdateOneRequiredWithoutAlertSubscriptionsNestedInput
   tripRequest?: Prisma.TripRequestUpdateOneWithoutAlertSubscriptionsNestedInput
-  events?: Prisma.AlertEventUpdateManyWithoutAlertSubscriptionNestedInput
 }
 
 export type AlertSubscriptionUncheckedUpdateWithoutTargetProgramInput = {
@@ -1286,11 +1286,11 @@ export type AlertSubscriptionUpdateWithoutTripRequestInput = {
   isActive?: Prisma.BoolFieldUpdateOperationsInput | boolean
   createdAt?: Prisma.DateTimeFieldUpdateOperationsInput | Date | string
   updatedAt?: Prisma.DateTimeFieldUpdateOperationsInput | Date | string
-  organization?: Prisma.OrganizationUpdateOneRequiredWithoutAlertSubscriptionsNestedInput
+  events?: Prisma.AlertEventUpdateManyWithoutAlertSubscriptionNestedInput
   client?: Prisma.ClientUpdateOneWithoutAlertSubscriptionsNestedInput
   household?: Prisma.HouseholdUpdateOneWithoutAlertSubscriptionsNestedInput
+  organization?: Prisma.OrganizationUpdateOneRequiredWithoutAlertSubscriptionsNestedInput
   targetProgram?: Prisma.LoyaltyProgramUpdateOneWithoutAlertSubscriptionsNestedInput
-  events?: Prisma.AlertEventUpdateManyWithoutAlertSubscriptionNestedInput
 }
 
 export type AlertSubscriptionUncheckedUpdateWithoutTripRequestInput = {
@@ -1363,12 +1363,12 @@ export type AlertSubscriptionSelect<ExtArgs extends runtime.Types.Extensions.Int
   isActive?: boolean
   createdAt?: boolean
   updatedAt?: boolean
-  organization?: boolean | Prisma.OrganizationDefaultArgs<ExtArgs>
+  events?: boolean | Prisma.AlertSubscription$eventsArgs<ExtArgs>
   client?: boolean | Prisma.AlertSubscription$clientArgs<ExtArgs>
   household?: boolean | Prisma.AlertSubscription$householdArgs<ExtArgs>
-  tripRequest?: boolean | Prisma.AlertSubscription$tripRequestArgs<ExtArgs>
+  organization?: boolean | Prisma.OrganizationDefaultArgs<ExtArgs>
   targetProgram?: boolean | Prisma.AlertSubscription$targetProgramArgs<ExtArgs>
-  events?: boolean | Prisma.AlertSubscription$eventsArgs<ExtArgs>
+  tripRequest?: boolean | Prisma.AlertSubscription$tripRequestArgs<ExtArgs>
   _count?: boolean | Prisma.AlertSubscriptionCountOutputTypeDefaultArgs<ExtArgs>
 }, ExtArgs["result"]["alertSubscription"]>
 
@@ -1384,11 +1384,11 @@ export type AlertSubscriptionSelectCreateManyAndReturn<ExtArgs extends runtime.T
   isActive?: boolean
   createdAt?: boolean
   updatedAt?: boolean
-  organization?: boolean | Prisma.OrganizationDefaultArgs<ExtArgs>
   client?: boolean | Prisma.AlertSubscription$clientArgs<ExtArgs>
   household?: boolean | Prisma.AlertSubscription$householdArgs<ExtArgs>
-  tripRequest?: boolean | Prisma.AlertSubscription$tripRequestArgs<ExtArgs>
+  organization?: boolean | Prisma.OrganizationDefaultArgs<ExtArgs>
   targetProgram?: boolean | Prisma.AlertSubscription$targetProgramArgs<ExtArgs>
+  tripRequest?: boolean | Prisma.AlertSubscription$tripRequestArgs<ExtArgs>
 }, ExtArgs["result"]["alertSubscription"]>
 
 export type AlertSubscriptionSelectUpdateManyAndReturn<ExtArgs extends runtime.Types.Extensions.InternalArgs = runtime.Types.Extensions.DefaultArgs> = runtime.Types.Extensions.GetSelect<{
@@ -1403,11 +1403,11 @@ export type AlertSubscriptionSelectUpdateManyAndReturn<ExtArgs extends runtime.T
   isActive?: boolean
   createdAt?: boolean
   updatedAt?: boolean
-  organization?: boolean | Prisma.OrganizationDefaultArgs<ExtArgs>
   client?: boolean | Prisma.AlertSubscription$clientArgs<ExtArgs>
   household?: boolean | Prisma.AlertSubscription$householdArgs<ExtArgs>
-  tripRequest?: boolean | Prisma.AlertSubscription$tripRequestArgs<ExtArgs>
+  organization?: boolean | Prisma.OrganizationDefaultArgs<ExtArgs>
   targetProgram?: boolean | Prisma.AlertSubscription$targetProgramArgs<ExtArgs>
+  tripRequest?: boolean | Prisma.AlertSubscription$tripRequestArgs<ExtArgs>
 }, ExtArgs["result"]["alertSubscription"]>
 
 export type AlertSubscriptionSelectScalar = {
@@ -1426,38 +1426,38 @@ export type AlertSubscriptionSelectScalar = {
 
 export type AlertSubscriptionOmit<ExtArgs extends runtime.Types.Extensions.InternalArgs = runtime.Types.Extensions.DefaultArgs> = runtime.Types.Extensions.GetOmit<"id" | "organizationId" | "clientId" | "householdId" | "tripRequestId" | "alertType" | "targetProgramId" | "targetRoute" | "isActive" | "createdAt" | "updatedAt", ExtArgs["result"]["alertSubscription"]>
 export type AlertSubscriptionInclude<ExtArgs extends runtime.Types.Extensions.InternalArgs = runtime.Types.Extensions.DefaultArgs> = {
-  organization?: boolean | Prisma.OrganizationDefaultArgs<ExtArgs>
+  events?: boolean | Prisma.AlertSubscription$eventsArgs<ExtArgs>
   client?: boolean | Prisma.AlertSubscription$clientArgs<ExtArgs>
   household?: boolean | Prisma.AlertSubscription$householdArgs<ExtArgs>
-  tripRequest?: boolean | Prisma.AlertSubscription$tripRequestArgs<ExtArgs>
+  organization?: boolean | Prisma.OrganizationDefaultArgs<ExtArgs>
   targetProgram?: boolean | Prisma.AlertSubscription$targetProgramArgs<ExtArgs>
-  events?: boolean | Prisma.AlertSubscription$eventsArgs<ExtArgs>
+  tripRequest?: boolean | Prisma.AlertSubscription$tripRequestArgs<ExtArgs>
   _count?: boolean | Prisma.AlertSubscriptionCountOutputTypeDefaultArgs<ExtArgs>
 }
 export type AlertSubscriptionIncludeCreateManyAndReturn<ExtArgs extends runtime.Types.Extensions.InternalArgs = runtime.Types.Extensions.DefaultArgs> = {
-  organization?: boolean | Prisma.OrganizationDefaultArgs<ExtArgs>
   client?: boolean | Prisma.AlertSubscription$clientArgs<ExtArgs>
   household?: boolean | Prisma.AlertSubscription$householdArgs<ExtArgs>
-  tripRequest?: boolean | Prisma.AlertSubscription$tripRequestArgs<ExtArgs>
+  organization?: boolean | Prisma.OrganizationDefaultArgs<ExtArgs>
   targetProgram?: boolean | Prisma.AlertSubscription$targetProgramArgs<ExtArgs>
+  tripRequest?: boolean | Prisma.AlertSubscription$tripRequestArgs<ExtArgs>
 }
 export type AlertSubscriptionIncludeUpdateManyAndReturn<ExtArgs extends runtime.Types.Extensions.InternalArgs = runtime.Types.Extensions.DefaultArgs> = {
-  organization?: boolean | Prisma.OrganizationDefaultArgs<ExtArgs>
   client?: boolean | Prisma.AlertSubscription$clientArgs<ExtArgs>
   household?: boolean | Prisma.AlertSubscription$householdArgs<ExtArgs>
-  tripRequest?: boolean | Prisma.AlertSubscription$tripRequestArgs<ExtArgs>
+  organization?: boolean | Prisma.OrganizationDefaultArgs<ExtArgs>
   targetProgram?: boolean | Prisma.AlertSubscription$targetProgramArgs<ExtArgs>
+  tripRequest?: boolean | Prisma.AlertSubscription$tripRequestArgs<ExtArgs>
 }
 
 export type $AlertSubscriptionPayload<ExtArgs extends runtime.Types.Extensions.InternalArgs = runtime.Types.Extensions.DefaultArgs> = {
   name: "AlertSubscription"
   objects: {
-    organization: Prisma.$OrganizationPayload<ExtArgs>
+    events: Prisma.$AlertEventPayload<ExtArgs>[]
     client: Prisma.$ClientPayload<ExtArgs> | null
     household: Prisma.$HouseholdPayload<ExtArgs> | null
-    tripRequest: Prisma.$TripRequestPayload<ExtArgs> | null
+    organization: Prisma.$OrganizationPayload<ExtArgs>
     targetProgram: Prisma.$LoyaltyProgramPayload<ExtArgs> | null
-    events: Prisma.$AlertEventPayload<ExtArgs>[]
+    tripRequest: Prisma.$TripRequestPayload<ExtArgs> | null
   }
   scalars: runtime.Types.Extensions.GetPayloadResult<{
     id: string
@@ -1865,12 +1865,12 @@ readonly fields: AlertSubscriptionFieldRefs;
  */
 export interface Prisma__AlertSubscriptionClient<T, Null = never, ExtArgs extends runtime.Types.Extensions.InternalArgs = runtime.Types.Extensions.DefaultArgs, GlobalOmitOptions = {}> extends Prisma.PrismaPromise<T> {
   readonly [Symbol.toStringTag]: "PrismaPromise"
-  organization<T extends Prisma.OrganizationDefaultArgs<ExtArgs> = {}>(args?: Prisma.Subset<T, Prisma.OrganizationDefaultArgs<ExtArgs>>): Prisma.Prisma__OrganizationClient<runtime.Types.Result.GetResult<Prisma.$OrganizationPayload<ExtArgs>, T, "findUniqueOrThrow", GlobalOmitOptions> | Null, Null, ExtArgs, GlobalOmitOptions>
+  events<T extends Prisma.AlertSubscription$eventsArgs<ExtArgs> = {}>(args?: Prisma.Subset<T, Prisma.AlertSubscription$eventsArgs<ExtArgs>>): Prisma.PrismaPromise<runtime.Types.Result.GetResult<Prisma.$AlertEventPayload<ExtArgs>, T, "findMany", GlobalOmitOptions> | Null>
   client<T extends Prisma.AlertSubscription$clientArgs<ExtArgs> = {}>(args?: Prisma.Subset<T, Prisma.AlertSubscription$clientArgs<ExtArgs>>): Prisma.Prisma__ClientClient<runtime.Types.Result.GetResult<Prisma.$ClientPayload<ExtArgs>, T, "findUniqueOrThrow", GlobalOmitOptions> | null, null, ExtArgs, GlobalOmitOptions>
   household<T extends Prisma.AlertSubscription$householdArgs<ExtArgs> = {}>(args?: Prisma.Subset<T, Prisma.AlertSubscription$householdArgs<ExtArgs>>): Prisma.Prisma__HouseholdClient<runtime.Types.Result.GetResult<Prisma.$HouseholdPayload<ExtArgs>, T, "findUniqueOrThrow", GlobalOmitOptions> | null, null, ExtArgs, GlobalOmitOptions>
-  tripRequest<T extends Prisma.AlertSubscription$tripRequestArgs<ExtArgs> = {}>(args?: Prisma.Subset<T, Prisma.AlertSubscription$tripRequestArgs<ExtArgs>>): Prisma.Prisma__TripRequestClient<runtime.Types.Result.GetResult<Prisma.$TripRequestPayload<ExtArgs>, T, "findUniqueOrThrow", GlobalOmitOptions> | null, null, ExtArgs, GlobalOmitOptions>
+  organization<T extends Prisma.OrganizationDefaultArgs<ExtArgs> = {}>(args?: Prisma.Subset<T, Prisma.OrganizationDefaultArgs<ExtArgs>>): Prisma.Prisma__OrganizationClient<runtime.Types.Result.GetResult<Prisma.$OrganizationPayload<ExtArgs>, T, "findUniqueOrThrow", GlobalOmitOptions> | Null, Null, ExtArgs, GlobalOmitOptions>
   targetProgram<T extends Prisma.AlertSubscription$targetProgramArgs<ExtArgs> = {}>(args?: Prisma.Subset<T, Prisma.AlertSubscription$targetProgramArgs<ExtArgs>>): Prisma.Prisma__LoyaltyProgramClient<runtime.Types.Result.GetResult<Prisma.$LoyaltyProgramPayload<ExtArgs>, T, "findUniqueOrThrow", GlobalOmitOptions> | null, null, ExtArgs, GlobalOmitOptions>
-  events<T extends Prisma.AlertSubscription$eventsArgs<ExtArgs> = {}>(args?: Prisma.Subset<T, Prisma.AlertSubscription$eventsArgs<ExtArgs>>): Prisma.PrismaPromise<runtime.Types.Result.GetResult<Prisma.$AlertEventPayload<ExtArgs>, T, "findMany", GlobalOmitOptions> | Null>
+  tripRequest<T extends Prisma.AlertSubscription$tripRequestArgs<ExtArgs> = {}>(args?: Prisma.Subset<T, Prisma.AlertSubscription$tripRequestArgs<ExtArgs>>): Prisma.Prisma__TripRequestClient<runtime.Types.Result.GetResult<Prisma.$TripRequestPayload<ExtArgs>, T, "findUniqueOrThrow", GlobalOmitOptions> | null, null, ExtArgs, GlobalOmitOptions>
   /**
    * Attaches callbacks for the resolution and/or rejection of the Promise.
    * @param onfulfilled The callback to execute when the Promise is resolved.
@@ -2312,6 +2312,30 @@ export type AlertSubscriptionDeleteManyArgs<ExtArgs extends runtime.Types.Extens
 }
 
 /**
+ * AlertSubscription.events
+ */
+export type AlertSubscription$eventsArgs<ExtArgs extends runtime.Types.Extensions.InternalArgs = runtime.Types.Extensions.DefaultArgs> = {
+  /**
+   * Select specific fields to fetch from the AlertEvent
+   */
+  select?: Prisma.AlertEventSelect<ExtArgs> | null
+  /**
+   * Omit specific fields from the AlertEvent
+   */
+  omit?: Prisma.AlertEventOmit<ExtArgs> | null
+  /**
+   * Choose, which related nodes to fetch as well
+   */
+  include?: Prisma.AlertEventInclude<ExtArgs> | null
+  where?: Prisma.AlertEventWhereInput
+  orderBy?: Prisma.AlertEventOrderByWithRelationInput | Prisma.AlertEventOrderByWithRelationInput[]
+  cursor?: Prisma.AlertEventWhereUniqueInput
+  take?: number
+  skip?: number
+  distinct?: Prisma.AlertEventScalarFieldEnum | Prisma.AlertEventScalarFieldEnum[]
+}
+
+/**
  * AlertSubscription.client
  */
 export type AlertSubscription$clientArgs<ExtArgs extends runtime.Types.Extensions.InternalArgs = runtime.Types.Extensions.DefaultArgs> = {
@@ -2350,25 +2374,6 @@ export type AlertSubscription$householdArgs<ExtArgs extends runtime.Types.Extens
 }
 
 /**
- * AlertSubscription.tripRequest
- */
-export type AlertSubscription$tripRequestArgs<ExtArgs extends runtime.Types.Extensions.InternalArgs = runtime.Types.Extensions.DefaultArgs> = {
-  /**
-   * Select specific fields to fetch from the TripRequest
-   */
-  select?: Prisma.TripRequestSelect<ExtArgs> | null
-  /**
-   * Omit specific fields from the TripRequest
-   */
-  omit?: Prisma.TripRequestOmit<ExtArgs> | null
-  /**
-   * Choose, which related nodes to fetch as well
-   */
-  include?: Prisma.TripRequestInclude<ExtArgs> | null
-  where?: Prisma.TripRequestWhereInput
-}
-
-/**
  * AlertSubscription.targetProgram
  */
 export type AlertSubscription$targetProgramArgs<ExtArgs extends runtime.Types.Extensions.InternalArgs = runtime.Types.Extensions.DefaultArgs> = {
@@ -2388,27 +2393,22 @@ export type AlertSubscription$targetProgramArgs<ExtArgs extends runtime.Types.Ex
 }
 
 /**
- * AlertSubscription.events
+ * AlertSubscription.tripRequest
  */
-export type AlertSubscription$eventsArgs<ExtArgs extends runtime.Types.Extensions.InternalArgs = runtime.Types.Extensions.DefaultArgs> = {
+export type AlertSubscription$tripRequestArgs<ExtArgs extends runtime.Types.Extensions.InternalArgs = runtime.Types.Extensions.DefaultArgs> = {
   /**
-   * Select specific fields to fetch from the AlertEvent
+   * Select specific fields to fetch from the TripRequest
    */
-  select?: Prisma.AlertEventSelect<ExtArgs> | null
+  select?: Prisma.TripRequestSelect<ExtArgs> | null
   /**
-   * Omit specific fields from the AlertEvent
+   * Omit specific fields from the TripRequest
    */
-  omit?: Prisma.AlertEventOmit<ExtArgs> | null
+  omit?: Prisma.TripRequestOmit<ExtArgs> | null
   /**
    * Choose, which related nodes to fetch as well
    */
-  include?: Prisma.AlertEventInclude<ExtArgs> | null
-  where?: Prisma.AlertEventWhereInput
-  orderBy?: Prisma.AlertEventOrderByWithRelationInput | Prisma.AlertEventOrderByWithRelationInput[]
-  cursor?: Prisma.AlertEventWhereUniqueInput
-  take?: number
-  skip?: number
-  distinct?: Prisma.AlertEventScalarFieldEnum | Prisma.AlertEventScalarFieldEnum[]
+  include?: Prisma.TripRequestInclude<ExtArgs> | null
+  where?: Prisma.TripRequestWhereInput
 }
 
 /**

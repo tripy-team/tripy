@@ -40,7 +40,6 @@ export type VendorRequestMinAggregateOutputType = {
   tripRequestId: string | null
   clientId: string | null
   createdByUserId: string | null
-  templateId: string | null
   vendorName: string | null
   vendorContact: string | null
   requestType: $Enums.VendorRequestType | null
@@ -53,10 +52,11 @@ export type VendorRequestMinAggregateOutputType = {
   internalNotes: string | null
   finalOutcome: string | null
   archivedAt: Date | null
-  firstResponseAt: Date | null
-  resolvedAt: Date | null
   createdAt: Date | null
   updatedAt: Date | null
+  templateId: string | null
+  firstResponseAt: Date | null
+  resolvedAt: Date | null
 }
 
 export type VendorRequestMaxAggregateOutputType = {
@@ -65,7 +65,6 @@ export type VendorRequestMaxAggregateOutputType = {
   tripRequestId: string | null
   clientId: string | null
   createdByUserId: string | null
-  templateId: string | null
   vendorName: string | null
   vendorContact: string | null
   requestType: $Enums.VendorRequestType | null
@@ -78,10 +77,11 @@ export type VendorRequestMaxAggregateOutputType = {
   internalNotes: string | null
   finalOutcome: string | null
   archivedAt: Date | null
-  firstResponseAt: Date | null
-  resolvedAt: Date | null
   createdAt: Date | null
   updatedAt: Date | null
+  templateId: string | null
+  firstResponseAt: Date | null
+  resolvedAt: Date | null
 }
 
 export type VendorRequestCountAggregateOutputType = {
@@ -90,7 +90,6 @@ export type VendorRequestCountAggregateOutputType = {
   tripRequestId: number
   clientId: number
   createdByUserId: number
-  templateId: number
   vendorName: number
   vendorContact: number
   requestType: number
@@ -103,10 +102,11 @@ export type VendorRequestCountAggregateOutputType = {
   internalNotes: number
   finalOutcome: number
   archivedAt: number
-  firstResponseAt: number
-  resolvedAt: number
   createdAt: number
   updatedAt: number
+  templateId: number
+  firstResponseAt: number
+  resolvedAt: number
   _all: number
 }
 
@@ -125,7 +125,6 @@ export type VendorRequestMinAggregateInputType = {
   tripRequestId?: true
   clientId?: true
   createdByUserId?: true
-  templateId?: true
   vendorName?: true
   vendorContact?: true
   requestType?: true
@@ -138,10 +137,11 @@ export type VendorRequestMinAggregateInputType = {
   internalNotes?: true
   finalOutcome?: true
   archivedAt?: true
-  firstResponseAt?: true
-  resolvedAt?: true
   createdAt?: true
   updatedAt?: true
+  templateId?: true
+  firstResponseAt?: true
+  resolvedAt?: true
 }
 
 export type VendorRequestMaxAggregateInputType = {
@@ -150,7 +150,6 @@ export type VendorRequestMaxAggregateInputType = {
   tripRequestId?: true
   clientId?: true
   createdByUserId?: true
-  templateId?: true
   vendorName?: true
   vendorContact?: true
   requestType?: true
@@ -163,10 +162,11 @@ export type VendorRequestMaxAggregateInputType = {
   internalNotes?: true
   finalOutcome?: true
   archivedAt?: true
-  firstResponseAt?: true
-  resolvedAt?: true
   createdAt?: true
   updatedAt?: true
+  templateId?: true
+  firstResponseAt?: true
+  resolvedAt?: true
 }
 
 export type VendorRequestCountAggregateInputType = {
@@ -175,7 +175,6 @@ export type VendorRequestCountAggregateInputType = {
   tripRequestId?: true
   clientId?: true
   createdByUserId?: true
-  templateId?: true
   vendorName?: true
   vendorContact?: true
   requestType?: true
@@ -188,10 +187,11 @@ export type VendorRequestCountAggregateInputType = {
   internalNotes?: true
   finalOutcome?: true
   archivedAt?: true
-  firstResponseAt?: true
-  resolvedAt?: true
   createdAt?: true
   updatedAt?: true
+  templateId?: true
+  firstResponseAt?: true
+  resolvedAt?: true
   _all?: true
 }
 
@@ -287,7 +287,6 @@ export type VendorRequestGroupByOutputType = {
   tripRequestId: string
   clientId: string | null
   createdByUserId: string
-  templateId: string | null
   vendorName: string
   vendorContact: string | null
   requestType: $Enums.VendorRequestType
@@ -300,10 +299,11 @@ export type VendorRequestGroupByOutputType = {
   internalNotes: string | null
   finalOutcome: string | null
   archivedAt: Date | null
-  firstResponseAt: Date | null
-  resolvedAt: Date | null
   createdAt: Date
   updatedAt: Date
+  templateId: string | null
+  firstResponseAt: Date | null
+  resolvedAt: Date | null
   _count: VendorRequestCountAggregateOutputType | null
   _avg: VendorRequestAvgAggregateOutputType | null
   _sum: VendorRequestSumAggregateOutputType | null
@@ -335,7 +335,6 @@ export type VendorRequestWhereInput = {
   tripRequestId?: Prisma.StringFilter<"VendorRequest"> | string
   clientId?: Prisma.StringNullableFilter<"VendorRequest"> | string | null
   createdByUserId?: Prisma.StringFilter<"VendorRequest"> | string
-  templateId?: Prisma.StringNullableFilter<"VendorRequest"> | string | null
   vendorName?: Prisma.StringFilter<"VendorRequest"> | string
   vendorContact?: Prisma.StringNullableFilter<"VendorRequest"> | string | null
   requestType?: Prisma.EnumVendorRequestTypeFilter<"VendorRequest"> | $Enums.VendorRequestType
@@ -348,18 +347,19 @@ export type VendorRequestWhereInput = {
   internalNotes?: Prisma.StringNullableFilter<"VendorRequest"> | string | null
   finalOutcome?: Prisma.StringNullableFilter<"VendorRequest"> | string | null
   archivedAt?: Prisma.DateTimeNullableFilter<"VendorRequest"> | Date | string | null
-  firstResponseAt?: Prisma.DateTimeNullableFilter<"VendorRequest"> | Date | string | null
-  resolvedAt?: Prisma.DateTimeNullableFilter<"VendorRequest"> | Date | string | null
   createdAt?: Prisma.DateTimeFilter<"VendorRequest"> | Date | string
   updatedAt?: Prisma.DateTimeFilter<"VendorRequest"> | Date | string
-  organization?: Prisma.XOR<Prisma.OrganizationScalarRelationFilter, Prisma.OrganizationWhereInput>
-  tripRequest?: Prisma.XOR<Prisma.TripRequestScalarRelationFilter, Prisma.TripRequestWhereInput>
+  templateId?: Prisma.StringNullableFilter<"VendorRequest"> | string | null
+  firstResponseAt?: Prisma.DateTimeNullableFilter<"VendorRequest"> | Date | string | null
+  resolvedAt?: Prisma.DateTimeNullableFilter<"VendorRequest"> | Date | string | null
+  approvals?: Prisma.VendorRequestApprovalListRelationFilter
+  drafts?: Prisma.VendorRequestDraftListRelationFilter
+  reminders?: Prisma.VendorRequestReminderListRelationFilter
+  timeline?: Prisma.VendorRequestTimelineListRelationFilter
   client?: Prisma.XOR<Prisma.ClientNullableScalarRelationFilter, Prisma.ClientWhereInput> | null
   createdBy?: Prisma.XOR<Prisma.UserScalarRelationFilter, Prisma.UserWhereInput>
-  reminders?: Prisma.VendorRequestReminderListRelationFilter
-  drafts?: Prisma.VendorRequestDraftListRelationFilter
-  approvals?: Prisma.VendorRequestApprovalListRelationFilter
-  timeline?: Prisma.VendorRequestTimelineListRelationFilter
+  organization?: Prisma.XOR<Prisma.OrganizationScalarRelationFilter, Prisma.OrganizationWhereInput>
+  tripRequest?: Prisma.XOR<Prisma.TripRequestScalarRelationFilter, Prisma.TripRequestWhereInput>
 }
 
 export type VendorRequestOrderByWithRelationInput = {
@@ -368,7 +368,6 @@ export type VendorRequestOrderByWithRelationInput = {
   tripRequestId?: Prisma.SortOrder
   clientId?: Prisma.SortOrderInput | Prisma.SortOrder
   createdByUserId?: Prisma.SortOrder
-  templateId?: Prisma.SortOrderInput | Prisma.SortOrder
   vendorName?: Prisma.SortOrder
   vendorContact?: Prisma.SortOrderInput | Prisma.SortOrder
   requestType?: Prisma.SortOrder
@@ -381,18 +380,19 @@ export type VendorRequestOrderByWithRelationInput = {
   internalNotes?: Prisma.SortOrderInput | Prisma.SortOrder
   finalOutcome?: Prisma.SortOrderInput | Prisma.SortOrder
   archivedAt?: Prisma.SortOrderInput | Prisma.SortOrder
-  firstResponseAt?: Prisma.SortOrderInput | Prisma.SortOrder
-  resolvedAt?: Prisma.SortOrderInput | Prisma.SortOrder
   createdAt?: Prisma.SortOrder
   updatedAt?: Prisma.SortOrder
-  organization?: Prisma.OrganizationOrderByWithRelationInput
-  tripRequest?: Prisma.TripRequestOrderByWithRelationInput
+  templateId?: Prisma.SortOrderInput | Prisma.SortOrder
+  firstResponseAt?: Prisma.SortOrderInput | Prisma.SortOrder
+  resolvedAt?: Prisma.SortOrderInput | Prisma.SortOrder
+  approvals?: Prisma.VendorRequestApprovalOrderByRelationAggregateInput
+  drafts?: Prisma.VendorRequestDraftOrderByRelationAggregateInput
+  reminders?: Prisma.VendorRequestReminderOrderByRelationAggregateInput
+  timeline?: Prisma.VendorRequestTimelineOrderByRelationAggregateInput
   client?: Prisma.ClientOrderByWithRelationInput
   createdBy?: Prisma.UserOrderByWithRelationInput
-  reminders?: Prisma.VendorRequestReminderOrderByRelationAggregateInput
-  drafts?: Prisma.VendorRequestDraftOrderByRelationAggregateInput
-  approvals?: Prisma.VendorRequestApprovalOrderByRelationAggregateInput
-  timeline?: Prisma.VendorRequestTimelineOrderByRelationAggregateInput
+  organization?: Prisma.OrganizationOrderByWithRelationInput
+  tripRequest?: Prisma.TripRequestOrderByWithRelationInput
 }
 
 export type VendorRequestWhereUniqueInput = Prisma.AtLeast<{
@@ -404,7 +404,6 @@ export type VendorRequestWhereUniqueInput = Prisma.AtLeast<{
   tripRequestId?: Prisma.StringFilter<"VendorRequest"> | string
   clientId?: Prisma.StringNullableFilter<"VendorRequest"> | string | null
   createdByUserId?: Prisma.StringFilter<"VendorRequest"> | string
-  templateId?: Prisma.StringNullableFilter<"VendorRequest"> | string | null
   vendorName?: Prisma.StringFilter<"VendorRequest"> | string
   vendorContact?: Prisma.StringNullableFilter<"VendorRequest"> | string | null
   requestType?: Prisma.EnumVendorRequestTypeFilter<"VendorRequest"> | $Enums.VendorRequestType
@@ -417,18 +416,19 @@ export type VendorRequestWhereUniqueInput = Prisma.AtLeast<{
   internalNotes?: Prisma.StringNullableFilter<"VendorRequest"> | string | null
   finalOutcome?: Prisma.StringNullableFilter<"VendorRequest"> | string | null
   archivedAt?: Prisma.DateTimeNullableFilter<"VendorRequest"> | Date | string | null
-  firstResponseAt?: Prisma.DateTimeNullableFilter<"VendorRequest"> | Date | string | null
-  resolvedAt?: Prisma.DateTimeNullableFilter<"VendorRequest"> | Date | string | null
   createdAt?: Prisma.DateTimeFilter<"VendorRequest"> | Date | string
   updatedAt?: Prisma.DateTimeFilter<"VendorRequest"> | Date | string
-  organization?: Prisma.XOR<Prisma.OrganizationScalarRelationFilter, Prisma.OrganizationWhereInput>
-  tripRequest?: Prisma.XOR<Prisma.TripRequestScalarRelationFilter, Prisma.TripRequestWhereInput>
+  templateId?: Prisma.StringNullableFilter<"VendorRequest"> | string | null
+  firstResponseAt?: Prisma.DateTimeNullableFilter<"VendorRequest"> | Date | string | null
+  resolvedAt?: Prisma.DateTimeNullableFilter<"VendorRequest"> | Date | string | null
+  approvals?: Prisma.VendorRequestApprovalListRelationFilter
+  drafts?: Prisma.VendorRequestDraftListRelationFilter
+  reminders?: Prisma.VendorRequestReminderListRelationFilter
+  timeline?: Prisma.VendorRequestTimelineListRelationFilter
   client?: Prisma.XOR<Prisma.ClientNullableScalarRelationFilter, Prisma.ClientWhereInput> | null
   createdBy?: Prisma.XOR<Prisma.UserScalarRelationFilter, Prisma.UserWhereInput>
-  reminders?: Prisma.VendorRequestReminderListRelationFilter
-  drafts?: Prisma.VendorRequestDraftListRelationFilter
-  approvals?: Prisma.VendorRequestApprovalListRelationFilter
-  timeline?: Prisma.VendorRequestTimelineListRelationFilter
+  organization?: Prisma.XOR<Prisma.OrganizationScalarRelationFilter, Prisma.OrganizationWhereInput>
+  tripRequest?: Prisma.XOR<Prisma.TripRequestScalarRelationFilter, Prisma.TripRequestWhereInput>
 }, "id">
 
 export type VendorRequestOrderByWithAggregationInput = {
@@ -437,7 +437,6 @@ export type VendorRequestOrderByWithAggregationInput = {
   tripRequestId?: Prisma.SortOrder
   clientId?: Prisma.SortOrderInput | Prisma.SortOrder
   createdByUserId?: Prisma.SortOrder
-  templateId?: Prisma.SortOrderInput | Prisma.SortOrder
   vendorName?: Prisma.SortOrder
   vendorContact?: Prisma.SortOrderInput | Prisma.SortOrder
   requestType?: Prisma.SortOrder
@@ -450,10 +449,11 @@ export type VendorRequestOrderByWithAggregationInput = {
   internalNotes?: Prisma.SortOrderInput | Prisma.SortOrder
   finalOutcome?: Prisma.SortOrderInput | Prisma.SortOrder
   archivedAt?: Prisma.SortOrderInput | Prisma.SortOrder
-  firstResponseAt?: Prisma.SortOrderInput | Prisma.SortOrder
-  resolvedAt?: Prisma.SortOrderInput | Prisma.SortOrder
   createdAt?: Prisma.SortOrder
   updatedAt?: Prisma.SortOrder
+  templateId?: Prisma.SortOrderInput | Prisma.SortOrder
+  firstResponseAt?: Prisma.SortOrderInput | Prisma.SortOrder
+  resolvedAt?: Prisma.SortOrderInput | Prisma.SortOrder
   _count?: Prisma.VendorRequestCountOrderByAggregateInput
   _avg?: Prisma.VendorRequestAvgOrderByAggregateInput
   _max?: Prisma.VendorRequestMaxOrderByAggregateInput
@@ -470,7 +470,6 @@ export type VendorRequestScalarWhereWithAggregatesInput = {
   tripRequestId?: Prisma.StringWithAggregatesFilter<"VendorRequest"> | string
   clientId?: Prisma.StringNullableWithAggregatesFilter<"VendorRequest"> | string | null
   createdByUserId?: Prisma.StringWithAggregatesFilter<"VendorRequest"> | string
-  templateId?: Prisma.StringNullableWithAggregatesFilter<"VendorRequest"> | string | null
   vendorName?: Prisma.StringWithAggregatesFilter<"VendorRequest"> | string
   vendorContact?: Prisma.StringNullableWithAggregatesFilter<"VendorRequest"> | string | null
   requestType?: Prisma.EnumVendorRequestTypeWithAggregatesFilter<"VendorRequest"> | $Enums.VendorRequestType
@@ -483,15 +482,15 @@ export type VendorRequestScalarWhereWithAggregatesInput = {
   internalNotes?: Prisma.StringNullableWithAggregatesFilter<"VendorRequest"> | string | null
   finalOutcome?: Prisma.StringNullableWithAggregatesFilter<"VendorRequest"> | string | null
   archivedAt?: Prisma.DateTimeNullableWithAggregatesFilter<"VendorRequest"> | Date | string | null
-  firstResponseAt?: Prisma.DateTimeNullableWithAggregatesFilter<"VendorRequest"> | Date | string | null
-  resolvedAt?: Prisma.DateTimeNullableWithAggregatesFilter<"VendorRequest"> | Date | string | null
   createdAt?: Prisma.DateTimeWithAggregatesFilter<"VendorRequest"> | Date | string
   updatedAt?: Prisma.DateTimeWithAggregatesFilter<"VendorRequest"> | Date | string
+  templateId?: Prisma.StringNullableWithAggregatesFilter<"VendorRequest"> | string | null
+  firstResponseAt?: Prisma.DateTimeNullableWithAggregatesFilter<"VendorRequest"> | Date | string | null
+  resolvedAt?: Prisma.DateTimeNullableWithAggregatesFilter<"VendorRequest"> | Date | string | null
 }
 
 export type VendorRequestCreateInput = {
   id?: string
-  templateId?: string | null
   vendorName: string
   vendorContact?: string | null
   requestType: $Enums.VendorRequestType
@@ -504,18 +503,19 @@ export type VendorRequestCreateInput = {
   internalNotes?: string | null
   finalOutcome?: string | null
   archivedAt?: Date | string | null
-  firstResponseAt?: Date | string | null
-  resolvedAt?: Date | string | null
   createdAt?: Date | string
   updatedAt?: Date | string
-  organization: Prisma.OrganizationCreateNestedOneWithoutVendorRequestsInput
-  tripRequest: Prisma.TripRequestCreateNestedOneWithoutVendorRequestsInput
+  templateId?: string | null
+  firstResponseAt?: Date | string | null
+  resolvedAt?: Date | string | null
+  approvals?: Prisma.VendorRequestApprovalCreateNestedManyWithoutVendorRequestInput
+  drafts?: Prisma.VendorRequestDraftCreateNestedManyWithoutVendorRequestInput
+  reminders?: Prisma.VendorRequestReminderCreateNestedManyWithoutVendorRequestInput
+  timeline?: Prisma.VendorRequestTimelineCreateNestedManyWithoutVendorRequestInput
   client?: Prisma.ClientCreateNestedOneWithoutVendorRequestsInput
   createdBy: Prisma.UserCreateNestedOneWithoutVendorRequestsInput
-  reminders?: Prisma.VendorRequestReminderCreateNestedManyWithoutVendorRequestInput
-  drafts?: Prisma.VendorRequestDraftCreateNestedManyWithoutVendorRequestInput
-  approvals?: Prisma.VendorRequestApprovalCreateNestedManyWithoutVendorRequestInput
-  timeline?: Prisma.VendorRequestTimelineCreateNestedManyWithoutVendorRequestInput
+  organization: Prisma.OrganizationCreateNestedOneWithoutVendorRequestsInput
+  tripRequest: Prisma.TripRequestCreateNestedOneWithoutVendorRequestsInput
 }
 
 export type VendorRequestUncheckedCreateInput = {
@@ -524,7 +524,6 @@ export type VendorRequestUncheckedCreateInput = {
   tripRequestId: string
   clientId?: string | null
   createdByUserId: string
-  templateId?: string | null
   vendorName: string
   vendorContact?: string | null
   requestType: $Enums.VendorRequestType
@@ -537,19 +536,19 @@ export type VendorRequestUncheckedCreateInput = {
   internalNotes?: string | null
   finalOutcome?: string | null
   archivedAt?: Date | string | null
-  firstResponseAt?: Date | string | null
-  resolvedAt?: Date | string | null
   createdAt?: Date | string
   updatedAt?: Date | string
-  reminders?: Prisma.VendorRequestReminderUncheckedCreateNestedManyWithoutVendorRequestInput
-  drafts?: Prisma.VendorRequestDraftUncheckedCreateNestedManyWithoutVendorRequestInput
+  templateId?: string | null
+  firstResponseAt?: Date | string | null
+  resolvedAt?: Date | string | null
   approvals?: Prisma.VendorRequestApprovalUncheckedCreateNestedManyWithoutVendorRequestInput
+  drafts?: Prisma.VendorRequestDraftUncheckedCreateNestedManyWithoutVendorRequestInput
+  reminders?: Prisma.VendorRequestReminderUncheckedCreateNestedManyWithoutVendorRequestInput
   timeline?: Prisma.VendorRequestTimelineUncheckedCreateNestedManyWithoutVendorRequestInput
 }
 
 export type VendorRequestUpdateInput = {
   id?: Prisma.StringFieldUpdateOperationsInput | string
-  templateId?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
   vendorName?: Prisma.StringFieldUpdateOperationsInput | string
   vendorContact?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
   requestType?: Prisma.EnumVendorRequestTypeFieldUpdateOperationsInput | $Enums.VendorRequestType
@@ -562,18 +561,19 @@ export type VendorRequestUpdateInput = {
   internalNotes?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
   finalOutcome?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
   archivedAt?: Prisma.NullableDateTimeFieldUpdateOperationsInput | Date | string | null
-  firstResponseAt?: Prisma.NullableDateTimeFieldUpdateOperationsInput | Date | string | null
-  resolvedAt?: Prisma.NullableDateTimeFieldUpdateOperationsInput | Date | string | null
   createdAt?: Prisma.DateTimeFieldUpdateOperationsInput | Date | string
   updatedAt?: Prisma.DateTimeFieldUpdateOperationsInput | Date | string
-  organization?: Prisma.OrganizationUpdateOneRequiredWithoutVendorRequestsNestedInput
-  tripRequest?: Prisma.TripRequestUpdateOneRequiredWithoutVendorRequestsNestedInput
+  templateId?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
+  firstResponseAt?: Prisma.NullableDateTimeFieldUpdateOperationsInput | Date | string | null
+  resolvedAt?: Prisma.NullableDateTimeFieldUpdateOperationsInput | Date | string | null
+  approvals?: Prisma.VendorRequestApprovalUpdateManyWithoutVendorRequestNestedInput
+  drafts?: Prisma.VendorRequestDraftUpdateManyWithoutVendorRequestNestedInput
+  reminders?: Prisma.VendorRequestReminderUpdateManyWithoutVendorRequestNestedInput
+  timeline?: Prisma.VendorRequestTimelineUpdateManyWithoutVendorRequestNestedInput
   client?: Prisma.ClientUpdateOneWithoutVendorRequestsNestedInput
   createdBy?: Prisma.UserUpdateOneRequiredWithoutVendorRequestsNestedInput
-  reminders?: Prisma.VendorRequestReminderUpdateManyWithoutVendorRequestNestedInput
-  drafts?: Prisma.VendorRequestDraftUpdateManyWithoutVendorRequestNestedInput
-  approvals?: Prisma.VendorRequestApprovalUpdateManyWithoutVendorRequestNestedInput
-  timeline?: Prisma.VendorRequestTimelineUpdateManyWithoutVendorRequestNestedInput
+  organization?: Prisma.OrganizationUpdateOneRequiredWithoutVendorRequestsNestedInput
+  tripRequest?: Prisma.TripRequestUpdateOneRequiredWithoutVendorRequestsNestedInput
 }
 
 export type VendorRequestUncheckedUpdateInput = {
@@ -582,7 +582,6 @@ export type VendorRequestUncheckedUpdateInput = {
   tripRequestId?: Prisma.StringFieldUpdateOperationsInput | string
   clientId?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
   createdByUserId?: Prisma.StringFieldUpdateOperationsInput | string
-  templateId?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
   vendorName?: Prisma.StringFieldUpdateOperationsInput | string
   vendorContact?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
   requestType?: Prisma.EnumVendorRequestTypeFieldUpdateOperationsInput | $Enums.VendorRequestType
@@ -595,13 +594,14 @@ export type VendorRequestUncheckedUpdateInput = {
   internalNotes?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
   finalOutcome?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
   archivedAt?: Prisma.NullableDateTimeFieldUpdateOperationsInput | Date | string | null
-  firstResponseAt?: Prisma.NullableDateTimeFieldUpdateOperationsInput | Date | string | null
-  resolvedAt?: Prisma.NullableDateTimeFieldUpdateOperationsInput | Date | string | null
   createdAt?: Prisma.DateTimeFieldUpdateOperationsInput | Date | string
   updatedAt?: Prisma.DateTimeFieldUpdateOperationsInput | Date | string
-  reminders?: Prisma.VendorRequestReminderUncheckedUpdateManyWithoutVendorRequestNestedInput
-  drafts?: Prisma.VendorRequestDraftUncheckedUpdateManyWithoutVendorRequestNestedInput
+  templateId?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
+  firstResponseAt?: Prisma.NullableDateTimeFieldUpdateOperationsInput | Date | string | null
+  resolvedAt?: Prisma.NullableDateTimeFieldUpdateOperationsInput | Date | string | null
   approvals?: Prisma.VendorRequestApprovalUncheckedUpdateManyWithoutVendorRequestNestedInput
+  drafts?: Prisma.VendorRequestDraftUncheckedUpdateManyWithoutVendorRequestNestedInput
+  reminders?: Prisma.VendorRequestReminderUncheckedUpdateManyWithoutVendorRequestNestedInput
   timeline?: Prisma.VendorRequestTimelineUncheckedUpdateManyWithoutVendorRequestNestedInput
 }
 
@@ -611,7 +611,6 @@ export type VendorRequestCreateManyInput = {
   tripRequestId: string
   clientId?: string | null
   createdByUserId: string
-  templateId?: string | null
   vendorName: string
   vendorContact?: string | null
   requestType: $Enums.VendorRequestType
@@ -624,15 +623,15 @@ export type VendorRequestCreateManyInput = {
   internalNotes?: string | null
   finalOutcome?: string | null
   archivedAt?: Date | string | null
-  firstResponseAt?: Date | string | null
-  resolvedAt?: Date | string | null
   createdAt?: Date | string
   updatedAt?: Date | string
+  templateId?: string | null
+  firstResponseAt?: Date | string | null
+  resolvedAt?: Date | string | null
 }
 
 export type VendorRequestUpdateManyMutationInput = {
   id?: Prisma.StringFieldUpdateOperationsInput | string
-  templateId?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
   vendorName?: Prisma.StringFieldUpdateOperationsInput | string
   vendorContact?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
   requestType?: Prisma.EnumVendorRequestTypeFieldUpdateOperationsInput | $Enums.VendorRequestType
@@ -645,10 +644,11 @@ export type VendorRequestUpdateManyMutationInput = {
   internalNotes?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
   finalOutcome?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
   archivedAt?: Prisma.NullableDateTimeFieldUpdateOperationsInput | Date | string | null
-  firstResponseAt?: Prisma.NullableDateTimeFieldUpdateOperationsInput | Date | string | null
-  resolvedAt?: Prisma.NullableDateTimeFieldUpdateOperationsInput | Date | string | null
   createdAt?: Prisma.DateTimeFieldUpdateOperationsInput | Date | string
   updatedAt?: Prisma.DateTimeFieldUpdateOperationsInput | Date | string
+  templateId?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
+  firstResponseAt?: Prisma.NullableDateTimeFieldUpdateOperationsInput | Date | string | null
+  resolvedAt?: Prisma.NullableDateTimeFieldUpdateOperationsInput | Date | string | null
 }
 
 export type VendorRequestUncheckedUpdateManyInput = {
@@ -657,7 +657,6 @@ export type VendorRequestUncheckedUpdateManyInput = {
   tripRequestId?: Prisma.StringFieldUpdateOperationsInput | string
   clientId?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
   createdByUserId?: Prisma.StringFieldUpdateOperationsInput | string
-  templateId?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
   vendorName?: Prisma.StringFieldUpdateOperationsInput | string
   vendorContact?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
   requestType?: Prisma.EnumVendorRequestTypeFieldUpdateOperationsInput | $Enums.VendorRequestType
@@ -670,10 +669,11 @@ export type VendorRequestUncheckedUpdateManyInput = {
   internalNotes?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
   finalOutcome?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
   archivedAt?: Prisma.NullableDateTimeFieldUpdateOperationsInput | Date | string | null
-  firstResponseAt?: Prisma.NullableDateTimeFieldUpdateOperationsInput | Date | string | null
-  resolvedAt?: Prisma.NullableDateTimeFieldUpdateOperationsInput | Date | string | null
   createdAt?: Prisma.DateTimeFieldUpdateOperationsInput | Date | string
   updatedAt?: Prisma.DateTimeFieldUpdateOperationsInput | Date | string
+  templateId?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
+  firstResponseAt?: Prisma.NullableDateTimeFieldUpdateOperationsInput | Date | string | null
+  resolvedAt?: Prisma.NullableDateTimeFieldUpdateOperationsInput | Date | string | null
 }
 
 export type VendorRequestListRelationFilter = {
@@ -692,7 +692,6 @@ export type VendorRequestCountOrderByAggregateInput = {
   tripRequestId?: Prisma.SortOrder
   clientId?: Prisma.SortOrder
   createdByUserId?: Prisma.SortOrder
-  templateId?: Prisma.SortOrder
   vendorName?: Prisma.SortOrder
   vendorContact?: Prisma.SortOrder
   requestType?: Prisma.SortOrder
@@ -705,10 +704,11 @@ export type VendorRequestCountOrderByAggregateInput = {
   internalNotes?: Prisma.SortOrder
   finalOutcome?: Prisma.SortOrder
   archivedAt?: Prisma.SortOrder
-  firstResponseAt?: Prisma.SortOrder
-  resolvedAt?: Prisma.SortOrder
   createdAt?: Prisma.SortOrder
   updatedAt?: Prisma.SortOrder
+  templateId?: Prisma.SortOrder
+  firstResponseAt?: Prisma.SortOrder
+  resolvedAt?: Prisma.SortOrder
 }
 
 export type VendorRequestAvgOrderByAggregateInput = {
@@ -721,7 +721,6 @@ export type VendorRequestMaxOrderByAggregateInput = {
   tripRequestId?: Prisma.SortOrder
   clientId?: Prisma.SortOrder
   createdByUserId?: Prisma.SortOrder
-  templateId?: Prisma.SortOrder
   vendorName?: Prisma.SortOrder
   vendorContact?: Prisma.SortOrder
   requestType?: Prisma.SortOrder
@@ -734,10 +733,11 @@ export type VendorRequestMaxOrderByAggregateInput = {
   internalNotes?: Prisma.SortOrder
   finalOutcome?: Prisma.SortOrder
   archivedAt?: Prisma.SortOrder
-  firstResponseAt?: Prisma.SortOrder
-  resolvedAt?: Prisma.SortOrder
   createdAt?: Prisma.SortOrder
   updatedAt?: Prisma.SortOrder
+  templateId?: Prisma.SortOrder
+  firstResponseAt?: Prisma.SortOrder
+  resolvedAt?: Prisma.SortOrder
 }
 
 export type VendorRequestMinOrderByAggregateInput = {
@@ -746,7 +746,6 @@ export type VendorRequestMinOrderByAggregateInput = {
   tripRequestId?: Prisma.SortOrder
   clientId?: Prisma.SortOrder
   createdByUserId?: Prisma.SortOrder
-  templateId?: Prisma.SortOrder
   vendorName?: Prisma.SortOrder
   vendorContact?: Prisma.SortOrder
   requestType?: Prisma.SortOrder
@@ -759,10 +758,11 @@ export type VendorRequestMinOrderByAggregateInput = {
   internalNotes?: Prisma.SortOrder
   finalOutcome?: Prisma.SortOrder
   archivedAt?: Prisma.SortOrder
-  firstResponseAt?: Prisma.SortOrder
-  resolvedAt?: Prisma.SortOrder
   createdAt?: Prisma.SortOrder
   updatedAt?: Prisma.SortOrder
+  templateId?: Prisma.SortOrder
+  firstResponseAt?: Prisma.SortOrder
+  resolvedAt?: Prisma.SortOrder
 }
 
 export type VendorRequestSumOrderByAggregateInput = {
@@ -1012,7 +1012,6 @@ export type VendorRequestUpdateOneRequiredWithoutTimelineNestedInput = {
 
 export type VendorRequestCreateWithoutOrganizationInput = {
   id?: string
-  templateId?: string | null
   vendorName: string
   vendorContact?: string | null
   requestType: $Enums.VendorRequestType
@@ -1025,17 +1024,18 @@ export type VendorRequestCreateWithoutOrganizationInput = {
   internalNotes?: string | null
   finalOutcome?: string | null
   archivedAt?: Date | string | null
-  firstResponseAt?: Date | string | null
-  resolvedAt?: Date | string | null
   createdAt?: Date | string
   updatedAt?: Date | string
-  tripRequest: Prisma.TripRequestCreateNestedOneWithoutVendorRequestsInput
+  templateId?: string | null
+  firstResponseAt?: Date | string | null
+  resolvedAt?: Date | string | null
+  approvals?: Prisma.VendorRequestApprovalCreateNestedManyWithoutVendorRequestInput
+  drafts?: Prisma.VendorRequestDraftCreateNestedManyWithoutVendorRequestInput
+  reminders?: Prisma.VendorRequestReminderCreateNestedManyWithoutVendorRequestInput
+  timeline?: Prisma.VendorRequestTimelineCreateNestedManyWithoutVendorRequestInput
   client?: Prisma.ClientCreateNestedOneWithoutVendorRequestsInput
   createdBy: Prisma.UserCreateNestedOneWithoutVendorRequestsInput
-  reminders?: Prisma.VendorRequestReminderCreateNestedManyWithoutVendorRequestInput
-  drafts?: Prisma.VendorRequestDraftCreateNestedManyWithoutVendorRequestInput
-  approvals?: Prisma.VendorRequestApprovalCreateNestedManyWithoutVendorRequestInput
-  timeline?: Prisma.VendorRequestTimelineCreateNestedManyWithoutVendorRequestInput
+  tripRequest: Prisma.TripRequestCreateNestedOneWithoutVendorRequestsInput
 }
 
 export type VendorRequestUncheckedCreateWithoutOrganizationInput = {
@@ -1043,7 +1043,6 @@ export type VendorRequestUncheckedCreateWithoutOrganizationInput = {
   tripRequestId: string
   clientId?: string | null
   createdByUserId: string
-  templateId?: string | null
   vendorName: string
   vendorContact?: string | null
   requestType: $Enums.VendorRequestType
@@ -1056,13 +1055,14 @@ export type VendorRequestUncheckedCreateWithoutOrganizationInput = {
   internalNotes?: string | null
   finalOutcome?: string | null
   archivedAt?: Date | string | null
-  firstResponseAt?: Date | string | null
-  resolvedAt?: Date | string | null
   createdAt?: Date | string
   updatedAt?: Date | string
-  reminders?: Prisma.VendorRequestReminderUncheckedCreateNestedManyWithoutVendorRequestInput
-  drafts?: Prisma.VendorRequestDraftUncheckedCreateNestedManyWithoutVendorRequestInput
+  templateId?: string | null
+  firstResponseAt?: Date | string | null
+  resolvedAt?: Date | string | null
   approvals?: Prisma.VendorRequestApprovalUncheckedCreateNestedManyWithoutVendorRequestInput
+  drafts?: Prisma.VendorRequestDraftUncheckedCreateNestedManyWithoutVendorRequestInput
+  reminders?: Prisma.VendorRequestReminderUncheckedCreateNestedManyWithoutVendorRequestInput
   timeline?: Prisma.VendorRequestTimelineUncheckedCreateNestedManyWithoutVendorRequestInput
 }
 
@@ -1101,7 +1101,6 @@ export type VendorRequestScalarWhereInput = {
   tripRequestId?: Prisma.StringFilter<"VendorRequest"> | string
   clientId?: Prisma.StringNullableFilter<"VendorRequest"> | string | null
   createdByUserId?: Prisma.StringFilter<"VendorRequest"> | string
-  templateId?: Prisma.StringNullableFilter<"VendorRequest"> | string | null
   vendorName?: Prisma.StringFilter<"VendorRequest"> | string
   vendorContact?: Prisma.StringNullableFilter<"VendorRequest"> | string | null
   requestType?: Prisma.EnumVendorRequestTypeFilter<"VendorRequest"> | $Enums.VendorRequestType
@@ -1114,15 +1113,15 @@ export type VendorRequestScalarWhereInput = {
   internalNotes?: Prisma.StringNullableFilter<"VendorRequest"> | string | null
   finalOutcome?: Prisma.StringNullableFilter<"VendorRequest"> | string | null
   archivedAt?: Prisma.DateTimeNullableFilter<"VendorRequest"> | Date | string | null
-  firstResponseAt?: Prisma.DateTimeNullableFilter<"VendorRequest"> | Date | string | null
-  resolvedAt?: Prisma.DateTimeNullableFilter<"VendorRequest"> | Date | string | null
   createdAt?: Prisma.DateTimeFilter<"VendorRequest"> | Date | string
   updatedAt?: Prisma.DateTimeFilter<"VendorRequest"> | Date | string
+  templateId?: Prisma.StringNullableFilter<"VendorRequest"> | string | null
+  firstResponseAt?: Prisma.DateTimeNullableFilter<"VendorRequest"> | Date | string | null
+  resolvedAt?: Prisma.DateTimeNullableFilter<"VendorRequest"> | Date | string | null
 }
 
 export type VendorRequestCreateWithoutCreatedByInput = {
   id?: string
-  templateId?: string | null
   vendorName: string
   vendorContact?: string | null
   requestType: $Enums.VendorRequestType
@@ -1135,17 +1134,18 @@ export type VendorRequestCreateWithoutCreatedByInput = {
   internalNotes?: string | null
   finalOutcome?: string | null
   archivedAt?: Date | string | null
-  firstResponseAt?: Date | string | null
-  resolvedAt?: Date | string | null
   createdAt?: Date | string
   updatedAt?: Date | string
+  templateId?: string | null
+  firstResponseAt?: Date | string | null
+  resolvedAt?: Date | string | null
+  approvals?: Prisma.VendorRequestApprovalCreateNestedManyWithoutVendorRequestInput
+  drafts?: Prisma.VendorRequestDraftCreateNestedManyWithoutVendorRequestInput
+  reminders?: Prisma.VendorRequestReminderCreateNestedManyWithoutVendorRequestInput
+  timeline?: Prisma.VendorRequestTimelineCreateNestedManyWithoutVendorRequestInput
+  client?: Prisma.ClientCreateNestedOneWithoutVendorRequestsInput
   organization: Prisma.OrganizationCreateNestedOneWithoutVendorRequestsInput
   tripRequest: Prisma.TripRequestCreateNestedOneWithoutVendorRequestsInput
-  client?: Prisma.ClientCreateNestedOneWithoutVendorRequestsInput
-  reminders?: Prisma.VendorRequestReminderCreateNestedManyWithoutVendorRequestInput
-  drafts?: Prisma.VendorRequestDraftCreateNestedManyWithoutVendorRequestInput
-  approvals?: Prisma.VendorRequestApprovalCreateNestedManyWithoutVendorRequestInput
-  timeline?: Prisma.VendorRequestTimelineCreateNestedManyWithoutVendorRequestInput
 }
 
 export type VendorRequestUncheckedCreateWithoutCreatedByInput = {
@@ -1153,7 +1153,6 @@ export type VendorRequestUncheckedCreateWithoutCreatedByInput = {
   organizationId: string
   tripRequestId: string
   clientId?: string | null
-  templateId?: string | null
   vendorName: string
   vendorContact?: string | null
   requestType: $Enums.VendorRequestType
@@ -1166,13 +1165,14 @@ export type VendorRequestUncheckedCreateWithoutCreatedByInput = {
   internalNotes?: string | null
   finalOutcome?: string | null
   archivedAt?: Date | string | null
-  firstResponseAt?: Date | string | null
-  resolvedAt?: Date | string | null
   createdAt?: Date | string
   updatedAt?: Date | string
-  reminders?: Prisma.VendorRequestReminderUncheckedCreateNestedManyWithoutVendorRequestInput
-  drafts?: Prisma.VendorRequestDraftUncheckedCreateNestedManyWithoutVendorRequestInput
+  templateId?: string | null
+  firstResponseAt?: Date | string | null
+  resolvedAt?: Date | string | null
   approvals?: Prisma.VendorRequestApprovalUncheckedCreateNestedManyWithoutVendorRequestInput
+  drafts?: Prisma.VendorRequestDraftUncheckedCreateNestedManyWithoutVendorRequestInput
+  reminders?: Prisma.VendorRequestReminderUncheckedCreateNestedManyWithoutVendorRequestInput
   timeline?: Prisma.VendorRequestTimelineUncheckedCreateNestedManyWithoutVendorRequestInput
 }
 
@@ -1204,7 +1204,6 @@ export type VendorRequestUpdateManyWithWhereWithoutCreatedByInput = {
 
 export type VendorRequestCreateWithoutClientInput = {
   id?: string
-  templateId?: string | null
   vendorName: string
   vendorContact?: string | null
   requestType: $Enums.VendorRequestType
@@ -1217,17 +1216,18 @@ export type VendorRequestCreateWithoutClientInput = {
   internalNotes?: string | null
   finalOutcome?: string | null
   archivedAt?: Date | string | null
-  firstResponseAt?: Date | string | null
-  resolvedAt?: Date | string | null
   createdAt?: Date | string
   updatedAt?: Date | string
+  templateId?: string | null
+  firstResponseAt?: Date | string | null
+  resolvedAt?: Date | string | null
+  approvals?: Prisma.VendorRequestApprovalCreateNestedManyWithoutVendorRequestInput
+  drafts?: Prisma.VendorRequestDraftCreateNestedManyWithoutVendorRequestInput
+  reminders?: Prisma.VendorRequestReminderCreateNestedManyWithoutVendorRequestInput
+  timeline?: Prisma.VendorRequestTimelineCreateNestedManyWithoutVendorRequestInput
+  createdBy: Prisma.UserCreateNestedOneWithoutVendorRequestsInput
   organization: Prisma.OrganizationCreateNestedOneWithoutVendorRequestsInput
   tripRequest: Prisma.TripRequestCreateNestedOneWithoutVendorRequestsInput
-  createdBy: Prisma.UserCreateNestedOneWithoutVendorRequestsInput
-  reminders?: Prisma.VendorRequestReminderCreateNestedManyWithoutVendorRequestInput
-  drafts?: Prisma.VendorRequestDraftCreateNestedManyWithoutVendorRequestInput
-  approvals?: Prisma.VendorRequestApprovalCreateNestedManyWithoutVendorRequestInput
-  timeline?: Prisma.VendorRequestTimelineCreateNestedManyWithoutVendorRequestInput
 }
 
 export type VendorRequestUncheckedCreateWithoutClientInput = {
@@ -1235,7 +1235,6 @@ export type VendorRequestUncheckedCreateWithoutClientInput = {
   organizationId: string
   tripRequestId: string
   createdByUserId: string
-  templateId?: string | null
   vendorName: string
   vendorContact?: string | null
   requestType: $Enums.VendorRequestType
@@ -1248,13 +1247,14 @@ export type VendorRequestUncheckedCreateWithoutClientInput = {
   internalNotes?: string | null
   finalOutcome?: string | null
   archivedAt?: Date | string | null
-  firstResponseAt?: Date | string | null
-  resolvedAt?: Date | string | null
   createdAt?: Date | string
   updatedAt?: Date | string
-  reminders?: Prisma.VendorRequestReminderUncheckedCreateNestedManyWithoutVendorRequestInput
-  drafts?: Prisma.VendorRequestDraftUncheckedCreateNestedManyWithoutVendorRequestInput
+  templateId?: string | null
+  firstResponseAt?: Date | string | null
+  resolvedAt?: Date | string | null
   approvals?: Prisma.VendorRequestApprovalUncheckedCreateNestedManyWithoutVendorRequestInput
+  drafts?: Prisma.VendorRequestDraftUncheckedCreateNestedManyWithoutVendorRequestInput
+  reminders?: Prisma.VendorRequestReminderUncheckedCreateNestedManyWithoutVendorRequestInput
   timeline?: Prisma.VendorRequestTimelineUncheckedCreateNestedManyWithoutVendorRequestInput
 }
 
@@ -1286,7 +1286,6 @@ export type VendorRequestUpdateManyWithWhereWithoutClientInput = {
 
 export type VendorRequestCreateWithoutTripRequestInput = {
   id?: string
-  templateId?: string | null
   vendorName: string
   vendorContact?: string | null
   requestType: $Enums.VendorRequestType
@@ -1299,17 +1298,18 @@ export type VendorRequestCreateWithoutTripRequestInput = {
   internalNotes?: string | null
   finalOutcome?: string | null
   archivedAt?: Date | string | null
-  firstResponseAt?: Date | string | null
-  resolvedAt?: Date | string | null
   createdAt?: Date | string
   updatedAt?: Date | string
-  organization: Prisma.OrganizationCreateNestedOneWithoutVendorRequestsInput
+  templateId?: string | null
+  firstResponseAt?: Date | string | null
+  resolvedAt?: Date | string | null
+  approvals?: Prisma.VendorRequestApprovalCreateNestedManyWithoutVendorRequestInput
+  drafts?: Prisma.VendorRequestDraftCreateNestedManyWithoutVendorRequestInput
+  reminders?: Prisma.VendorRequestReminderCreateNestedManyWithoutVendorRequestInput
+  timeline?: Prisma.VendorRequestTimelineCreateNestedManyWithoutVendorRequestInput
   client?: Prisma.ClientCreateNestedOneWithoutVendorRequestsInput
   createdBy: Prisma.UserCreateNestedOneWithoutVendorRequestsInput
-  reminders?: Prisma.VendorRequestReminderCreateNestedManyWithoutVendorRequestInput
-  drafts?: Prisma.VendorRequestDraftCreateNestedManyWithoutVendorRequestInput
-  approvals?: Prisma.VendorRequestApprovalCreateNestedManyWithoutVendorRequestInput
-  timeline?: Prisma.VendorRequestTimelineCreateNestedManyWithoutVendorRequestInput
+  organization: Prisma.OrganizationCreateNestedOneWithoutVendorRequestsInput
 }
 
 export type VendorRequestUncheckedCreateWithoutTripRequestInput = {
@@ -1317,7 +1317,6 @@ export type VendorRequestUncheckedCreateWithoutTripRequestInput = {
   organizationId: string
   clientId?: string | null
   createdByUserId: string
-  templateId?: string | null
   vendorName: string
   vendorContact?: string | null
   requestType: $Enums.VendorRequestType
@@ -1330,13 +1329,14 @@ export type VendorRequestUncheckedCreateWithoutTripRequestInput = {
   internalNotes?: string | null
   finalOutcome?: string | null
   archivedAt?: Date | string | null
-  firstResponseAt?: Date | string | null
-  resolvedAt?: Date | string | null
   createdAt?: Date | string
   updatedAt?: Date | string
-  reminders?: Prisma.VendorRequestReminderUncheckedCreateNestedManyWithoutVendorRequestInput
-  drafts?: Prisma.VendorRequestDraftUncheckedCreateNestedManyWithoutVendorRequestInput
+  templateId?: string | null
+  firstResponseAt?: Date | string | null
+  resolvedAt?: Date | string | null
   approvals?: Prisma.VendorRequestApprovalUncheckedCreateNestedManyWithoutVendorRequestInput
+  drafts?: Prisma.VendorRequestDraftUncheckedCreateNestedManyWithoutVendorRequestInput
+  reminders?: Prisma.VendorRequestReminderUncheckedCreateNestedManyWithoutVendorRequestInput
   timeline?: Prisma.VendorRequestTimelineUncheckedCreateNestedManyWithoutVendorRequestInput
 }
 
@@ -1368,7 +1368,6 @@ export type VendorRequestUpdateManyWithWhereWithoutTripRequestInput = {
 
 export type VendorRequestCreateWithoutRemindersInput = {
   id?: string
-  templateId?: string | null
   vendorName: string
   vendorContact?: string | null
   requestType: $Enums.VendorRequestType
@@ -1381,17 +1380,18 @@ export type VendorRequestCreateWithoutRemindersInput = {
   internalNotes?: string | null
   finalOutcome?: string | null
   archivedAt?: Date | string | null
-  firstResponseAt?: Date | string | null
-  resolvedAt?: Date | string | null
   createdAt?: Date | string
   updatedAt?: Date | string
-  organization: Prisma.OrganizationCreateNestedOneWithoutVendorRequestsInput
-  tripRequest: Prisma.TripRequestCreateNestedOneWithoutVendorRequestsInput
+  templateId?: string | null
+  firstResponseAt?: Date | string | null
+  resolvedAt?: Date | string | null
+  approvals?: Prisma.VendorRequestApprovalCreateNestedManyWithoutVendorRequestInput
+  drafts?: Prisma.VendorRequestDraftCreateNestedManyWithoutVendorRequestInput
+  timeline?: Prisma.VendorRequestTimelineCreateNestedManyWithoutVendorRequestInput
   client?: Prisma.ClientCreateNestedOneWithoutVendorRequestsInput
   createdBy: Prisma.UserCreateNestedOneWithoutVendorRequestsInput
-  drafts?: Prisma.VendorRequestDraftCreateNestedManyWithoutVendorRequestInput
-  approvals?: Prisma.VendorRequestApprovalCreateNestedManyWithoutVendorRequestInput
-  timeline?: Prisma.VendorRequestTimelineCreateNestedManyWithoutVendorRequestInput
+  organization: Prisma.OrganizationCreateNestedOneWithoutVendorRequestsInput
+  tripRequest: Prisma.TripRequestCreateNestedOneWithoutVendorRequestsInput
 }
 
 export type VendorRequestUncheckedCreateWithoutRemindersInput = {
@@ -1400,7 +1400,6 @@ export type VendorRequestUncheckedCreateWithoutRemindersInput = {
   tripRequestId: string
   clientId?: string | null
   createdByUserId: string
-  templateId?: string | null
   vendorName: string
   vendorContact?: string | null
   requestType: $Enums.VendorRequestType
@@ -1413,12 +1412,13 @@ export type VendorRequestUncheckedCreateWithoutRemindersInput = {
   internalNotes?: string | null
   finalOutcome?: string | null
   archivedAt?: Date | string | null
-  firstResponseAt?: Date | string | null
-  resolvedAt?: Date | string | null
   createdAt?: Date | string
   updatedAt?: Date | string
-  drafts?: Prisma.VendorRequestDraftUncheckedCreateNestedManyWithoutVendorRequestInput
+  templateId?: string | null
+  firstResponseAt?: Date | string | null
+  resolvedAt?: Date | string | null
   approvals?: Prisma.VendorRequestApprovalUncheckedCreateNestedManyWithoutVendorRequestInput
+  drafts?: Prisma.VendorRequestDraftUncheckedCreateNestedManyWithoutVendorRequestInput
   timeline?: Prisma.VendorRequestTimelineUncheckedCreateNestedManyWithoutVendorRequestInput
 }
 
@@ -1440,7 +1440,6 @@ export type VendorRequestUpdateToOneWithWhereWithoutRemindersInput = {
 
 export type VendorRequestUpdateWithoutRemindersInput = {
   id?: Prisma.StringFieldUpdateOperationsInput | string
-  templateId?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
   vendorName?: Prisma.StringFieldUpdateOperationsInput | string
   vendorContact?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
   requestType?: Prisma.EnumVendorRequestTypeFieldUpdateOperationsInput | $Enums.VendorRequestType
@@ -1453,17 +1452,18 @@ export type VendorRequestUpdateWithoutRemindersInput = {
   internalNotes?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
   finalOutcome?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
   archivedAt?: Prisma.NullableDateTimeFieldUpdateOperationsInput | Date | string | null
-  firstResponseAt?: Prisma.NullableDateTimeFieldUpdateOperationsInput | Date | string | null
-  resolvedAt?: Prisma.NullableDateTimeFieldUpdateOperationsInput | Date | string | null
   createdAt?: Prisma.DateTimeFieldUpdateOperationsInput | Date | string
   updatedAt?: Prisma.DateTimeFieldUpdateOperationsInput | Date | string
-  organization?: Prisma.OrganizationUpdateOneRequiredWithoutVendorRequestsNestedInput
-  tripRequest?: Prisma.TripRequestUpdateOneRequiredWithoutVendorRequestsNestedInput
+  templateId?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
+  firstResponseAt?: Prisma.NullableDateTimeFieldUpdateOperationsInput | Date | string | null
+  resolvedAt?: Prisma.NullableDateTimeFieldUpdateOperationsInput | Date | string | null
+  approvals?: Prisma.VendorRequestApprovalUpdateManyWithoutVendorRequestNestedInput
+  drafts?: Prisma.VendorRequestDraftUpdateManyWithoutVendorRequestNestedInput
+  timeline?: Prisma.VendorRequestTimelineUpdateManyWithoutVendorRequestNestedInput
   client?: Prisma.ClientUpdateOneWithoutVendorRequestsNestedInput
   createdBy?: Prisma.UserUpdateOneRequiredWithoutVendorRequestsNestedInput
-  drafts?: Prisma.VendorRequestDraftUpdateManyWithoutVendorRequestNestedInput
-  approvals?: Prisma.VendorRequestApprovalUpdateManyWithoutVendorRequestNestedInput
-  timeline?: Prisma.VendorRequestTimelineUpdateManyWithoutVendorRequestNestedInput
+  organization?: Prisma.OrganizationUpdateOneRequiredWithoutVendorRequestsNestedInput
+  tripRequest?: Prisma.TripRequestUpdateOneRequiredWithoutVendorRequestsNestedInput
 }
 
 export type VendorRequestUncheckedUpdateWithoutRemindersInput = {
@@ -1472,7 +1472,6 @@ export type VendorRequestUncheckedUpdateWithoutRemindersInput = {
   tripRequestId?: Prisma.StringFieldUpdateOperationsInput | string
   clientId?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
   createdByUserId?: Prisma.StringFieldUpdateOperationsInput | string
-  templateId?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
   vendorName?: Prisma.StringFieldUpdateOperationsInput | string
   vendorContact?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
   requestType?: Prisma.EnumVendorRequestTypeFieldUpdateOperationsInput | $Enums.VendorRequestType
@@ -1485,18 +1484,18 @@ export type VendorRequestUncheckedUpdateWithoutRemindersInput = {
   internalNotes?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
   finalOutcome?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
   archivedAt?: Prisma.NullableDateTimeFieldUpdateOperationsInput | Date | string | null
-  firstResponseAt?: Prisma.NullableDateTimeFieldUpdateOperationsInput | Date | string | null
-  resolvedAt?: Prisma.NullableDateTimeFieldUpdateOperationsInput | Date | string | null
   createdAt?: Prisma.DateTimeFieldUpdateOperationsInput | Date | string
   updatedAt?: Prisma.DateTimeFieldUpdateOperationsInput | Date | string
-  drafts?: Prisma.VendorRequestDraftUncheckedUpdateManyWithoutVendorRequestNestedInput
+  templateId?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
+  firstResponseAt?: Prisma.NullableDateTimeFieldUpdateOperationsInput | Date | string | null
+  resolvedAt?: Prisma.NullableDateTimeFieldUpdateOperationsInput | Date | string | null
   approvals?: Prisma.VendorRequestApprovalUncheckedUpdateManyWithoutVendorRequestNestedInput
+  drafts?: Prisma.VendorRequestDraftUncheckedUpdateManyWithoutVendorRequestNestedInput
   timeline?: Prisma.VendorRequestTimelineUncheckedUpdateManyWithoutVendorRequestNestedInput
 }
 
 export type VendorRequestCreateWithoutDraftsInput = {
   id?: string
-  templateId?: string | null
   vendorName: string
   vendorContact?: string | null
   requestType: $Enums.VendorRequestType
@@ -1509,17 +1508,18 @@ export type VendorRequestCreateWithoutDraftsInput = {
   internalNotes?: string | null
   finalOutcome?: string | null
   archivedAt?: Date | string | null
-  firstResponseAt?: Date | string | null
-  resolvedAt?: Date | string | null
   createdAt?: Date | string
   updatedAt?: Date | string
-  organization: Prisma.OrganizationCreateNestedOneWithoutVendorRequestsInput
-  tripRequest: Prisma.TripRequestCreateNestedOneWithoutVendorRequestsInput
+  templateId?: string | null
+  firstResponseAt?: Date | string | null
+  resolvedAt?: Date | string | null
+  approvals?: Prisma.VendorRequestApprovalCreateNestedManyWithoutVendorRequestInput
+  reminders?: Prisma.VendorRequestReminderCreateNestedManyWithoutVendorRequestInput
+  timeline?: Prisma.VendorRequestTimelineCreateNestedManyWithoutVendorRequestInput
   client?: Prisma.ClientCreateNestedOneWithoutVendorRequestsInput
   createdBy: Prisma.UserCreateNestedOneWithoutVendorRequestsInput
-  reminders?: Prisma.VendorRequestReminderCreateNestedManyWithoutVendorRequestInput
-  approvals?: Prisma.VendorRequestApprovalCreateNestedManyWithoutVendorRequestInput
-  timeline?: Prisma.VendorRequestTimelineCreateNestedManyWithoutVendorRequestInput
+  organization: Prisma.OrganizationCreateNestedOneWithoutVendorRequestsInput
+  tripRequest: Prisma.TripRequestCreateNestedOneWithoutVendorRequestsInput
 }
 
 export type VendorRequestUncheckedCreateWithoutDraftsInput = {
@@ -1528,7 +1528,6 @@ export type VendorRequestUncheckedCreateWithoutDraftsInput = {
   tripRequestId: string
   clientId?: string | null
   createdByUserId: string
-  templateId?: string | null
   vendorName: string
   vendorContact?: string | null
   requestType: $Enums.VendorRequestType
@@ -1541,12 +1540,13 @@ export type VendorRequestUncheckedCreateWithoutDraftsInput = {
   internalNotes?: string | null
   finalOutcome?: string | null
   archivedAt?: Date | string | null
-  firstResponseAt?: Date | string | null
-  resolvedAt?: Date | string | null
   createdAt?: Date | string
   updatedAt?: Date | string
-  reminders?: Prisma.VendorRequestReminderUncheckedCreateNestedManyWithoutVendorRequestInput
+  templateId?: string | null
+  firstResponseAt?: Date | string | null
+  resolvedAt?: Date | string | null
   approvals?: Prisma.VendorRequestApprovalUncheckedCreateNestedManyWithoutVendorRequestInput
+  reminders?: Prisma.VendorRequestReminderUncheckedCreateNestedManyWithoutVendorRequestInput
   timeline?: Prisma.VendorRequestTimelineUncheckedCreateNestedManyWithoutVendorRequestInput
 }
 
@@ -1568,7 +1568,6 @@ export type VendorRequestUpdateToOneWithWhereWithoutDraftsInput = {
 
 export type VendorRequestUpdateWithoutDraftsInput = {
   id?: Prisma.StringFieldUpdateOperationsInput | string
-  templateId?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
   vendorName?: Prisma.StringFieldUpdateOperationsInput | string
   vendorContact?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
   requestType?: Prisma.EnumVendorRequestTypeFieldUpdateOperationsInput | $Enums.VendorRequestType
@@ -1581,17 +1580,18 @@ export type VendorRequestUpdateWithoutDraftsInput = {
   internalNotes?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
   finalOutcome?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
   archivedAt?: Prisma.NullableDateTimeFieldUpdateOperationsInput | Date | string | null
-  firstResponseAt?: Prisma.NullableDateTimeFieldUpdateOperationsInput | Date | string | null
-  resolvedAt?: Prisma.NullableDateTimeFieldUpdateOperationsInput | Date | string | null
   createdAt?: Prisma.DateTimeFieldUpdateOperationsInput | Date | string
   updatedAt?: Prisma.DateTimeFieldUpdateOperationsInput | Date | string
-  organization?: Prisma.OrganizationUpdateOneRequiredWithoutVendorRequestsNestedInput
-  tripRequest?: Prisma.TripRequestUpdateOneRequiredWithoutVendorRequestsNestedInput
+  templateId?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
+  firstResponseAt?: Prisma.NullableDateTimeFieldUpdateOperationsInput | Date | string | null
+  resolvedAt?: Prisma.NullableDateTimeFieldUpdateOperationsInput | Date | string | null
+  approvals?: Prisma.VendorRequestApprovalUpdateManyWithoutVendorRequestNestedInput
+  reminders?: Prisma.VendorRequestReminderUpdateManyWithoutVendorRequestNestedInput
+  timeline?: Prisma.VendorRequestTimelineUpdateManyWithoutVendorRequestNestedInput
   client?: Prisma.ClientUpdateOneWithoutVendorRequestsNestedInput
   createdBy?: Prisma.UserUpdateOneRequiredWithoutVendorRequestsNestedInput
-  reminders?: Prisma.VendorRequestReminderUpdateManyWithoutVendorRequestNestedInput
-  approvals?: Prisma.VendorRequestApprovalUpdateManyWithoutVendorRequestNestedInput
-  timeline?: Prisma.VendorRequestTimelineUpdateManyWithoutVendorRequestNestedInput
+  organization?: Prisma.OrganizationUpdateOneRequiredWithoutVendorRequestsNestedInput
+  tripRequest?: Prisma.TripRequestUpdateOneRequiredWithoutVendorRequestsNestedInput
 }
 
 export type VendorRequestUncheckedUpdateWithoutDraftsInput = {
@@ -1600,7 +1600,6 @@ export type VendorRequestUncheckedUpdateWithoutDraftsInput = {
   tripRequestId?: Prisma.StringFieldUpdateOperationsInput | string
   clientId?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
   createdByUserId?: Prisma.StringFieldUpdateOperationsInput | string
-  templateId?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
   vendorName?: Prisma.StringFieldUpdateOperationsInput | string
   vendorContact?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
   requestType?: Prisma.EnumVendorRequestTypeFieldUpdateOperationsInput | $Enums.VendorRequestType
@@ -1613,18 +1612,18 @@ export type VendorRequestUncheckedUpdateWithoutDraftsInput = {
   internalNotes?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
   finalOutcome?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
   archivedAt?: Prisma.NullableDateTimeFieldUpdateOperationsInput | Date | string | null
-  firstResponseAt?: Prisma.NullableDateTimeFieldUpdateOperationsInput | Date | string | null
-  resolvedAt?: Prisma.NullableDateTimeFieldUpdateOperationsInput | Date | string | null
   createdAt?: Prisma.DateTimeFieldUpdateOperationsInput | Date | string
   updatedAt?: Prisma.DateTimeFieldUpdateOperationsInput | Date | string
-  reminders?: Prisma.VendorRequestReminderUncheckedUpdateManyWithoutVendorRequestNestedInput
+  templateId?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
+  firstResponseAt?: Prisma.NullableDateTimeFieldUpdateOperationsInput | Date | string | null
+  resolvedAt?: Prisma.NullableDateTimeFieldUpdateOperationsInput | Date | string | null
   approvals?: Prisma.VendorRequestApprovalUncheckedUpdateManyWithoutVendorRequestNestedInput
+  reminders?: Prisma.VendorRequestReminderUncheckedUpdateManyWithoutVendorRequestNestedInput
   timeline?: Prisma.VendorRequestTimelineUncheckedUpdateManyWithoutVendorRequestNestedInput
 }
 
 export type VendorRequestCreateWithoutApprovalsInput = {
   id?: string
-  templateId?: string | null
   vendorName: string
   vendorContact?: string | null
   requestType: $Enums.VendorRequestType
@@ -1637,17 +1636,18 @@ export type VendorRequestCreateWithoutApprovalsInput = {
   internalNotes?: string | null
   finalOutcome?: string | null
   archivedAt?: Date | string | null
-  firstResponseAt?: Date | string | null
-  resolvedAt?: Date | string | null
   createdAt?: Date | string
   updatedAt?: Date | string
-  organization: Prisma.OrganizationCreateNestedOneWithoutVendorRequestsInput
-  tripRequest: Prisma.TripRequestCreateNestedOneWithoutVendorRequestsInput
+  templateId?: string | null
+  firstResponseAt?: Date | string | null
+  resolvedAt?: Date | string | null
+  drafts?: Prisma.VendorRequestDraftCreateNestedManyWithoutVendorRequestInput
+  reminders?: Prisma.VendorRequestReminderCreateNestedManyWithoutVendorRequestInput
+  timeline?: Prisma.VendorRequestTimelineCreateNestedManyWithoutVendorRequestInput
   client?: Prisma.ClientCreateNestedOneWithoutVendorRequestsInput
   createdBy: Prisma.UserCreateNestedOneWithoutVendorRequestsInput
-  reminders?: Prisma.VendorRequestReminderCreateNestedManyWithoutVendorRequestInput
-  drafts?: Prisma.VendorRequestDraftCreateNestedManyWithoutVendorRequestInput
-  timeline?: Prisma.VendorRequestTimelineCreateNestedManyWithoutVendorRequestInput
+  organization: Prisma.OrganizationCreateNestedOneWithoutVendorRequestsInput
+  tripRequest: Prisma.TripRequestCreateNestedOneWithoutVendorRequestsInput
 }
 
 export type VendorRequestUncheckedCreateWithoutApprovalsInput = {
@@ -1656,7 +1656,6 @@ export type VendorRequestUncheckedCreateWithoutApprovalsInput = {
   tripRequestId: string
   clientId?: string | null
   createdByUserId: string
-  templateId?: string | null
   vendorName: string
   vendorContact?: string | null
   requestType: $Enums.VendorRequestType
@@ -1669,12 +1668,13 @@ export type VendorRequestUncheckedCreateWithoutApprovalsInput = {
   internalNotes?: string | null
   finalOutcome?: string | null
   archivedAt?: Date | string | null
-  firstResponseAt?: Date | string | null
-  resolvedAt?: Date | string | null
   createdAt?: Date | string
   updatedAt?: Date | string
-  reminders?: Prisma.VendorRequestReminderUncheckedCreateNestedManyWithoutVendorRequestInput
+  templateId?: string | null
+  firstResponseAt?: Date | string | null
+  resolvedAt?: Date | string | null
   drafts?: Prisma.VendorRequestDraftUncheckedCreateNestedManyWithoutVendorRequestInput
+  reminders?: Prisma.VendorRequestReminderUncheckedCreateNestedManyWithoutVendorRequestInput
   timeline?: Prisma.VendorRequestTimelineUncheckedCreateNestedManyWithoutVendorRequestInput
 }
 
@@ -1696,7 +1696,6 @@ export type VendorRequestUpdateToOneWithWhereWithoutApprovalsInput = {
 
 export type VendorRequestUpdateWithoutApprovalsInput = {
   id?: Prisma.StringFieldUpdateOperationsInput | string
-  templateId?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
   vendorName?: Prisma.StringFieldUpdateOperationsInput | string
   vendorContact?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
   requestType?: Prisma.EnumVendorRequestTypeFieldUpdateOperationsInput | $Enums.VendorRequestType
@@ -1709,17 +1708,18 @@ export type VendorRequestUpdateWithoutApprovalsInput = {
   internalNotes?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
   finalOutcome?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
   archivedAt?: Prisma.NullableDateTimeFieldUpdateOperationsInput | Date | string | null
-  firstResponseAt?: Prisma.NullableDateTimeFieldUpdateOperationsInput | Date | string | null
-  resolvedAt?: Prisma.NullableDateTimeFieldUpdateOperationsInput | Date | string | null
   createdAt?: Prisma.DateTimeFieldUpdateOperationsInput | Date | string
   updatedAt?: Prisma.DateTimeFieldUpdateOperationsInput | Date | string
-  organization?: Prisma.OrganizationUpdateOneRequiredWithoutVendorRequestsNestedInput
-  tripRequest?: Prisma.TripRequestUpdateOneRequiredWithoutVendorRequestsNestedInput
+  templateId?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
+  firstResponseAt?: Prisma.NullableDateTimeFieldUpdateOperationsInput | Date | string | null
+  resolvedAt?: Prisma.NullableDateTimeFieldUpdateOperationsInput | Date | string | null
+  drafts?: Prisma.VendorRequestDraftUpdateManyWithoutVendorRequestNestedInput
+  reminders?: Prisma.VendorRequestReminderUpdateManyWithoutVendorRequestNestedInput
+  timeline?: Prisma.VendorRequestTimelineUpdateManyWithoutVendorRequestNestedInput
   client?: Prisma.ClientUpdateOneWithoutVendorRequestsNestedInput
   createdBy?: Prisma.UserUpdateOneRequiredWithoutVendorRequestsNestedInput
-  reminders?: Prisma.VendorRequestReminderUpdateManyWithoutVendorRequestNestedInput
-  drafts?: Prisma.VendorRequestDraftUpdateManyWithoutVendorRequestNestedInput
-  timeline?: Prisma.VendorRequestTimelineUpdateManyWithoutVendorRequestNestedInput
+  organization?: Prisma.OrganizationUpdateOneRequiredWithoutVendorRequestsNestedInput
+  tripRequest?: Prisma.TripRequestUpdateOneRequiredWithoutVendorRequestsNestedInput
 }
 
 export type VendorRequestUncheckedUpdateWithoutApprovalsInput = {
@@ -1728,7 +1728,6 @@ export type VendorRequestUncheckedUpdateWithoutApprovalsInput = {
   tripRequestId?: Prisma.StringFieldUpdateOperationsInput | string
   clientId?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
   createdByUserId?: Prisma.StringFieldUpdateOperationsInput | string
-  templateId?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
   vendorName?: Prisma.StringFieldUpdateOperationsInput | string
   vendorContact?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
   requestType?: Prisma.EnumVendorRequestTypeFieldUpdateOperationsInput | $Enums.VendorRequestType
@@ -1741,18 +1740,18 @@ export type VendorRequestUncheckedUpdateWithoutApprovalsInput = {
   internalNotes?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
   finalOutcome?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
   archivedAt?: Prisma.NullableDateTimeFieldUpdateOperationsInput | Date | string | null
-  firstResponseAt?: Prisma.NullableDateTimeFieldUpdateOperationsInput | Date | string | null
-  resolvedAt?: Prisma.NullableDateTimeFieldUpdateOperationsInput | Date | string | null
   createdAt?: Prisma.DateTimeFieldUpdateOperationsInput | Date | string
   updatedAt?: Prisma.DateTimeFieldUpdateOperationsInput | Date | string
-  reminders?: Prisma.VendorRequestReminderUncheckedUpdateManyWithoutVendorRequestNestedInput
+  templateId?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
+  firstResponseAt?: Prisma.NullableDateTimeFieldUpdateOperationsInput | Date | string | null
+  resolvedAt?: Prisma.NullableDateTimeFieldUpdateOperationsInput | Date | string | null
   drafts?: Prisma.VendorRequestDraftUncheckedUpdateManyWithoutVendorRequestNestedInput
+  reminders?: Prisma.VendorRequestReminderUncheckedUpdateManyWithoutVendorRequestNestedInput
   timeline?: Prisma.VendorRequestTimelineUncheckedUpdateManyWithoutVendorRequestNestedInput
 }
 
 export type VendorRequestCreateWithoutTimelineInput = {
   id?: string
-  templateId?: string | null
   vendorName: string
   vendorContact?: string | null
   requestType: $Enums.VendorRequestType
@@ -1765,17 +1764,18 @@ export type VendorRequestCreateWithoutTimelineInput = {
   internalNotes?: string | null
   finalOutcome?: string | null
   archivedAt?: Date | string | null
-  firstResponseAt?: Date | string | null
-  resolvedAt?: Date | string | null
   createdAt?: Date | string
   updatedAt?: Date | string
-  organization: Prisma.OrganizationCreateNestedOneWithoutVendorRequestsInput
-  tripRequest: Prisma.TripRequestCreateNestedOneWithoutVendorRequestsInput
+  templateId?: string | null
+  firstResponseAt?: Date | string | null
+  resolvedAt?: Date | string | null
+  approvals?: Prisma.VendorRequestApprovalCreateNestedManyWithoutVendorRequestInput
+  drafts?: Prisma.VendorRequestDraftCreateNestedManyWithoutVendorRequestInput
+  reminders?: Prisma.VendorRequestReminderCreateNestedManyWithoutVendorRequestInput
   client?: Prisma.ClientCreateNestedOneWithoutVendorRequestsInput
   createdBy: Prisma.UserCreateNestedOneWithoutVendorRequestsInput
-  reminders?: Prisma.VendorRequestReminderCreateNestedManyWithoutVendorRequestInput
-  drafts?: Prisma.VendorRequestDraftCreateNestedManyWithoutVendorRequestInput
-  approvals?: Prisma.VendorRequestApprovalCreateNestedManyWithoutVendorRequestInput
+  organization: Prisma.OrganizationCreateNestedOneWithoutVendorRequestsInput
+  tripRequest: Prisma.TripRequestCreateNestedOneWithoutVendorRequestsInput
 }
 
 export type VendorRequestUncheckedCreateWithoutTimelineInput = {
@@ -1784,7 +1784,6 @@ export type VendorRequestUncheckedCreateWithoutTimelineInput = {
   tripRequestId: string
   clientId?: string | null
   createdByUserId: string
-  templateId?: string | null
   vendorName: string
   vendorContact?: string | null
   requestType: $Enums.VendorRequestType
@@ -1797,13 +1796,14 @@ export type VendorRequestUncheckedCreateWithoutTimelineInput = {
   internalNotes?: string | null
   finalOutcome?: string | null
   archivedAt?: Date | string | null
-  firstResponseAt?: Date | string | null
-  resolvedAt?: Date | string | null
   createdAt?: Date | string
   updatedAt?: Date | string
-  reminders?: Prisma.VendorRequestReminderUncheckedCreateNestedManyWithoutVendorRequestInput
-  drafts?: Prisma.VendorRequestDraftUncheckedCreateNestedManyWithoutVendorRequestInput
+  templateId?: string | null
+  firstResponseAt?: Date | string | null
+  resolvedAt?: Date | string | null
   approvals?: Prisma.VendorRequestApprovalUncheckedCreateNestedManyWithoutVendorRequestInput
+  drafts?: Prisma.VendorRequestDraftUncheckedCreateNestedManyWithoutVendorRequestInput
+  reminders?: Prisma.VendorRequestReminderUncheckedCreateNestedManyWithoutVendorRequestInput
 }
 
 export type VendorRequestCreateOrConnectWithoutTimelineInput = {
@@ -1824,7 +1824,6 @@ export type VendorRequestUpdateToOneWithWhereWithoutTimelineInput = {
 
 export type VendorRequestUpdateWithoutTimelineInput = {
   id?: Prisma.StringFieldUpdateOperationsInput | string
-  templateId?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
   vendorName?: Prisma.StringFieldUpdateOperationsInput | string
   vendorContact?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
   requestType?: Prisma.EnumVendorRequestTypeFieldUpdateOperationsInput | $Enums.VendorRequestType
@@ -1837,17 +1836,18 @@ export type VendorRequestUpdateWithoutTimelineInput = {
   internalNotes?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
   finalOutcome?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
   archivedAt?: Prisma.NullableDateTimeFieldUpdateOperationsInput | Date | string | null
-  firstResponseAt?: Prisma.NullableDateTimeFieldUpdateOperationsInput | Date | string | null
-  resolvedAt?: Prisma.NullableDateTimeFieldUpdateOperationsInput | Date | string | null
   createdAt?: Prisma.DateTimeFieldUpdateOperationsInput | Date | string
   updatedAt?: Prisma.DateTimeFieldUpdateOperationsInput | Date | string
-  organization?: Prisma.OrganizationUpdateOneRequiredWithoutVendorRequestsNestedInput
-  tripRequest?: Prisma.TripRequestUpdateOneRequiredWithoutVendorRequestsNestedInput
+  templateId?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
+  firstResponseAt?: Prisma.NullableDateTimeFieldUpdateOperationsInput | Date | string | null
+  resolvedAt?: Prisma.NullableDateTimeFieldUpdateOperationsInput | Date | string | null
+  approvals?: Prisma.VendorRequestApprovalUpdateManyWithoutVendorRequestNestedInput
+  drafts?: Prisma.VendorRequestDraftUpdateManyWithoutVendorRequestNestedInput
+  reminders?: Prisma.VendorRequestReminderUpdateManyWithoutVendorRequestNestedInput
   client?: Prisma.ClientUpdateOneWithoutVendorRequestsNestedInput
   createdBy?: Prisma.UserUpdateOneRequiredWithoutVendorRequestsNestedInput
-  reminders?: Prisma.VendorRequestReminderUpdateManyWithoutVendorRequestNestedInput
-  drafts?: Prisma.VendorRequestDraftUpdateManyWithoutVendorRequestNestedInput
-  approvals?: Prisma.VendorRequestApprovalUpdateManyWithoutVendorRequestNestedInput
+  organization?: Prisma.OrganizationUpdateOneRequiredWithoutVendorRequestsNestedInput
+  tripRequest?: Prisma.TripRequestUpdateOneRequiredWithoutVendorRequestsNestedInput
 }
 
 export type VendorRequestUncheckedUpdateWithoutTimelineInput = {
@@ -1856,7 +1856,6 @@ export type VendorRequestUncheckedUpdateWithoutTimelineInput = {
   tripRequestId?: Prisma.StringFieldUpdateOperationsInput | string
   clientId?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
   createdByUserId?: Prisma.StringFieldUpdateOperationsInput | string
-  templateId?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
   vendorName?: Prisma.StringFieldUpdateOperationsInput | string
   vendorContact?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
   requestType?: Prisma.EnumVendorRequestTypeFieldUpdateOperationsInput | $Enums.VendorRequestType
@@ -1869,13 +1868,14 @@ export type VendorRequestUncheckedUpdateWithoutTimelineInput = {
   internalNotes?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
   finalOutcome?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
   archivedAt?: Prisma.NullableDateTimeFieldUpdateOperationsInput | Date | string | null
-  firstResponseAt?: Prisma.NullableDateTimeFieldUpdateOperationsInput | Date | string | null
-  resolvedAt?: Prisma.NullableDateTimeFieldUpdateOperationsInput | Date | string | null
   createdAt?: Prisma.DateTimeFieldUpdateOperationsInput | Date | string
   updatedAt?: Prisma.DateTimeFieldUpdateOperationsInput | Date | string
-  reminders?: Prisma.VendorRequestReminderUncheckedUpdateManyWithoutVendorRequestNestedInput
-  drafts?: Prisma.VendorRequestDraftUncheckedUpdateManyWithoutVendorRequestNestedInput
+  templateId?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
+  firstResponseAt?: Prisma.NullableDateTimeFieldUpdateOperationsInput | Date | string | null
+  resolvedAt?: Prisma.NullableDateTimeFieldUpdateOperationsInput | Date | string | null
   approvals?: Prisma.VendorRequestApprovalUncheckedUpdateManyWithoutVendorRequestNestedInput
+  drafts?: Prisma.VendorRequestDraftUncheckedUpdateManyWithoutVendorRequestNestedInput
+  reminders?: Prisma.VendorRequestReminderUncheckedUpdateManyWithoutVendorRequestNestedInput
 }
 
 export type VendorRequestCreateManyOrganizationInput = {
@@ -1883,7 +1883,6 @@ export type VendorRequestCreateManyOrganizationInput = {
   tripRequestId: string
   clientId?: string | null
   createdByUserId: string
-  templateId?: string | null
   vendorName: string
   vendorContact?: string | null
   requestType: $Enums.VendorRequestType
@@ -1896,15 +1895,15 @@ export type VendorRequestCreateManyOrganizationInput = {
   internalNotes?: string | null
   finalOutcome?: string | null
   archivedAt?: Date | string | null
-  firstResponseAt?: Date | string | null
-  resolvedAt?: Date | string | null
   createdAt?: Date | string
   updatedAt?: Date | string
+  templateId?: string | null
+  firstResponseAt?: Date | string | null
+  resolvedAt?: Date | string | null
 }
 
 export type VendorRequestUpdateWithoutOrganizationInput = {
   id?: Prisma.StringFieldUpdateOperationsInput | string
-  templateId?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
   vendorName?: Prisma.StringFieldUpdateOperationsInput | string
   vendorContact?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
   requestType?: Prisma.EnumVendorRequestTypeFieldUpdateOperationsInput | $Enums.VendorRequestType
@@ -1917,17 +1916,18 @@ export type VendorRequestUpdateWithoutOrganizationInput = {
   internalNotes?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
   finalOutcome?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
   archivedAt?: Prisma.NullableDateTimeFieldUpdateOperationsInput | Date | string | null
-  firstResponseAt?: Prisma.NullableDateTimeFieldUpdateOperationsInput | Date | string | null
-  resolvedAt?: Prisma.NullableDateTimeFieldUpdateOperationsInput | Date | string | null
   createdAt?: Prisma.DateTimeFieldUpdateOperationsInput | Date | string
   updatedAt?: Prisma.DateTimeFieldUpdateOperationsInput | Date | string
-  tripRequest?: Prisma.TripRequestUpdateOneRequiredWithoutVendorRequestsNestedInput
+  templateId?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
+  firstResponseAt?: Prisma.NullableDateTimeFieldUpdateOperationsInput | Date | string | null
+  resolvedAt?: Prisma.NullableDateTimeFieldUpdateOperationsInput | Date | string | null
+  approvals?: Prisma.VendorRequestApprovalUpdateManyWithoutVendorRequestNestedInput
+  drafts?: Prisma.VendorRequestDraftUpdateManyWithoutVendorRequestNestedInput
+  reminders?: Prisma.VendorRequestReminderUpdateManyWithoutVendorRequestNestedInput
+  timeline?: Prisma.VendorRequestTimelineUpdateManyWithoutVendorRequestNestedInput
   client?: Prisma.ClientUpdateOneWithoutVendorRequestsNestedInput
   createdBy?: Prisma.UserUpdateOneRequiredWithoutVendorRequestsNestedInput
-  reminders?: Prisma.VendorRequestReminderUpdateManyWithoutVendorRequestNestedInput
-  drafts?: Prisma.VendorRequestDraftUpdateManyWithoutVendorRequestNestedInput
-  approvals?: Prisma.VendorRequestApprovalUpdateManyWithoutVendorRequestNestedInput
-  timeline?: Prisma.VendorRequestTimelineUpdateManyWithoutVendorRequestNestedInput
+  tripRequest?: Prisma.TripRequestUpdateOneRequiredWithoutVendorRequestsNestedInput
 }
 
 export type VendorRequestUncheckedUpdateWithoutOrganizationInput = {
@@ -1935,7 +1935,6 @@ export type VendorRequestUncheckedUpdateWithoutOrganizationInput = {
   tripRequestId?: Prisma.StringFieldUpdateOperationsInput | string
   clientId?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
   createdByUserId?: Prisma.StringFieldUpdateOperationsInput | string
-  templateId?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
   vendorName?: Prisma.StringFieldUpdateOperationsInput | string
   vendorContact?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
   requestType?: Prisma.EnumVendorRequestTypeFieldUpdateOperationsInput | $Enums.VendorRequestType
@@ -1948,13 +1947,14 @@ export type VendorRequestUncheckedUpdateWithoutOrganizationInput = {
   internalNotes?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
   finalOutcome?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
   archivedAt?: Prisma.NullableDateTimeFieldUpdateOperationsInput | Date | string | null
-  firstResponseAt?: Prisma.NullableDateTimeFieldUpdateOperationsInput | Date | string | null
-  resolvedAt?: Prisma.NullableDateTimeFieldUpdateOperationsInput | Date | string | null
   createdAt?: Prisma.DateTimeFieldUpdateOperationsInput | Date | string
   updatedAt?: Prisma.DateTimeFieldUpdateOperationsInput | Date | string
-  reminders?: Prisma.VendorRequestReminderUncheckedUpdateManyWithoutVendorRequestNestedInput
-  drafts?: Prisma.VendorRequestDraftUncheckedUpdateManyWithoutVendorRequestNestedInput
+  templateId?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
+  firstResponseAt?: Prisma.NullableDateTimeFieldUpdateOperationsInput | Date | string | null
+  resolvedAt?: Prisma.NullableDateTimeFieldUpdateOperationsInput | Date | string | null
   approvals?: Prisma.VendorRequestApprovalUncheckedUpdateManyWithoutVendorRequestNestedInput
+  drafts?: Prisma.VendorRequestDraftUncheckedUpdateManyWithoutVendorRequestNestedInput
+  reminders?: Prisma.VendorRequestReminderUncheckedUpdateManyWithoutVendorRequestNestedInput
   timeline?: Prisma.VendorRequestTimelineUncheckedUpdateManyWithoutVendorRequestNestedInput
 }
 
@@ -1963,7 +1963,6 @@ export type VendorRequestUncheckedUpdateManyWithoutOrganizationInput = {
   tripRequestId?: Prisma.StringFieldUpdateOperationsInput | string
   clientId?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
   createdByUserId?: Prisma.StringFieldUpdateOperationsInput | string
-  templateId?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
   vendorName?: Prisma.StringFieldUpdateOperationsInput | string
   vendorContact?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
   requestType?: Prisma.EnumVendorRequestTypeFieldUpdateOperationsInput | $Enums.VendorRequestType
@@ -1976,10 +1975,11 @@ export type VendorRequestUncheckedUpdateManyWithoutOrganizationInput = {
   internalNotes?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
   finalOutcome?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
   archivedAt?: Prisma.NullableDateTimeFieldUpdateOperationsInput | Date | string | null
-  firstResponseAt?: Prisma.NullableDateTimeFieldUpdateOperationsInput | Date | string | null
-  resolvedAt?: Prisma.NullableDateTimeFieldUpdateOperationsInput | Date | string | null
   createdAt?: Prisma.DateTimeFieldUpdateOperationsInput | Date | string
   updatedAt?: Prisma.DateTimeFieldUpdateOperationsInput | Date | string
+  templateId?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
+  firstResponseAt?: Prisma.NullableDateTimeFieldUpdateOperationsInput | Date | string | null
+  resolvedAt?: Prisma.NullableDateTimeFieldUpdateOperationsInput | Date | string | null
 }
 
 export type VendorRequestCreateManyCreatedByInput = {
@@ -1987,7 +1987,6 @@ export type VendorRequestCreateManyCreatedByInput = {
   organizationId: string
   tripRequestId: string
   clientId?: string | null
-  templateId?: string | null
   vendorName: string
   vendorContact?: string | null
   requestType: $Enums.VendorRequestType
@@ -2000,15 +1999,15 @@ export type VendorRequestCreateManyCreatedByInput = {
   internalNotes?: string | null
   finalOutcome?: string | null
   archivedAt?: Date | string | null
-  firstResponseAt?: Date | string | null
-  resolvedAt?: Date | string | null
   createdAt?: Date | string
   updatedAt?: Date | string
+  templateId?: string | null
+  firstResponseAt?: Date | string | null
+  resolvedAt?: Date | string | null
 }
 
 export type VendorRequestUpdateWithoutCreatedByInput = {
   id?: Prisma.StringFieldUpdateOperationsInput | string
-  templateId?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
   vendorName?: Prisma.StringFieldUpdateOperationsInput | string
   vendorContact?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
   requestType?: Prisma.EnumVendorRequestTypeFieldUpdateOperationsInput | $Enums.VendorRequestType
@@ -2021,17 +2020,18 @@ export type VendorRequestUpdateWithoutCreatedByInput = {
   internalNotes?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
   finalOutcome?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
   archivedAt?: Prisma.NullableDateTimeFieldUpdateOperationsInput | Date | string | null
-  firstResponseAt?: Prisma.NullableDateTimeFieldUpdateOperationsInput | Date | string | null
-  resolvedAt?: Prisma.NullableDateTimeFieldUpdateOperationsInput | Date | string | null
   createdAt?: Prisma.DateTimeFieldUpdateOperationsInput | Date | string
   updatedAt?: Prisma.DateTimeFieldUpdateOperationsInput | Date | string
+  templateId?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
+  firstResponseAt?: Prisma.NullableDateTimeFieldUpdateOperationsInput | Date | string | null
+  resolvedAt?: Prisma.NullableDateTimeFieldUpdateOperationsInput | Date | string | null
+  approvals?: Prisma.VendorRequestApprovalUpdateManyWithoutVendorRequestNestedInput
+  drafts?: Prisma.VendorRequestDraftUpdateManyWithoutVendorRequestNestedInput
+  reminders?: Prisma.VendorRequestReminderUpdateManyWithoutVendorRequestNestedInput
+  timeline?: Prisma.VendorRequestTimelineUpdateManyWithoutVendorRequestNestedInput
+  client?: Prisma.ClientUpdateOneWithoutVendorRequestsNestedInput
   organization?: Prisma.OrganizationUpdateOneRequiredWithoutVendorRequestsNestedInput
   tripRequest?: Prisma.TripRequestUpdateOneRequiredWithoutVendorRequestsNestedInput
-  client?: Prisma.ClientUpdateOneWithoutVendorRequestsNestedInput
-  reminders?: Prisma.VendorRequestReminderUpdateManyWithoutVendorRequestNestedInput
-  drafts?: Prisma.VendorRequestDraftUpdateManyWithoutVendorRequestNestedInput
-  approvals?: Prisma.VendorRequestApprovalUpdateManyWithoutVendorRequestNestedInput
-  timeline?: Prisma.VendorRequestTimelineUpdateManyWithoutVendorRequestNestedInput
 }
 
 export type VendorRequestUncheckedUpdateWithoutCreatedByInput = {
@@ -2039,7 +2039,6 @@ export type VendorRequestUncheckedUpdateWithoutCreatedByInput = {
   organizationId?: Prisma.StringFieldUpdateOperationsInput | string
   tripRequestId?: Prisma.StringFieldUpdateOperationsInput | string
   clientId?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
-  templateId?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
   vendorName?: Prisma.StringFieldUpdateOperationsInput | string
   vendorContact?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
   requestType?: Prisma.EnumVendorRequestTypeFieldUpdateOperationsInput | $Enums.VendorRequestType
@@ -2052,13 +2051,14 @@ export type VendorRequestUncheckedUpdateWithoutCreatedByInput = {
   internalNotes?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
   finalOutcome?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
   archivedAt?: Prisma.NullableDateTimeFieldUpdateOperationsInput | Date | string | null
-  firstResponseAt?: Prisma.NullableDateTimeFieldUpdateOperationsInput | Date | string | null
-  resolvedAt?: Prisma.NullableDateTimeFieldUpdateOperationsInput | Date | string | null
   createdAt?: Prisma.DateTimeFieldUpdateOperationsInput | Date | string
   updatedAt?: Prisma.DateTimeFieldUpdateOperationsInput | Date | string
-  reminders?: Prisma.VendorRequestReminderUncheckedUpdateManyWithoutVendorRequestNestedInput
-  drafts?: Prisma.VendorRequestDraftUncheckedUpdateManyWithoutVendorRequestNestedInput
+  templateId?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
+  firstResponseAt?: Prisma.NullableDateTimeFieldUpdateOperationsInput | Date | string | null
+  resolvedAt?: Prisma.NullableDateTimeFieldUpdateOperationsInput | Date | string | null
   approvals?: Prisma.VendorRequestApprovalUncheckedUpdateManyWithoutVendorRequestNestedInput
+  drafts?: Prisma.VendorRequestDraftUncheckedUpdateManyWithoutVendorRequestNestedInput
+  reminders?: Prisma.VendorRequestReminderUncheckedUpdateManyWithoutVendorRequestNestedInput
   timeline?: Prisma.VendorRequestTimelineUncheckedUpdateManyWithoutVendorRequestNestedInput
 }
 
@@ -2067,7 +2067,6 @@ export type VendorRequestUncheckedUpdateManyWithoutCreatedByInput = {
   organizationId?: Prisma.StringFieldUpdateOperationsInput | string
   tripRequestId?: Prisma.StringFieldUpdateOperationsInput | string
   clientId?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
-  templateId?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
   vendorName?: Prisma.StringFieldUpdateOperationsInput | string
   vendorContact?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
   requestType?: Prisma.EnumVendorRequestTypeFieldUpdateOperationsInput | $Enums.VendorRequestType
@@ -2080,10 +2079,11 @@ export type VendorRequestUncheckedUpdateManyWithoutCreatedByInput = {
   internalNotes?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
   finalOutcome?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
   archivedAt?: Prisma.NullableDateTimeFieldUpdateOperationsInput | Date | string | null
-  firstResponseAt?: Prisma.NullableDateTimeFieldUpdateOperationsInput | Date | string | null
-  resolvedAt?: Prisma.NullableDateTimeFieldUpdateOperationsInput | Date | string | null
   createdAt?: Prisma.DateTimeFieldUpdateOperationsInput | Date | string
   updatedAt?: Prisma.DateTimeFieldUpdateOperationsInput | Date | string
+  templateId?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
+  firstResponseAt?: Prisma.NullableDateTimeFieldUpdateOperationsInput | Date | string | null
+  resolvedAt?: Prisma.NullableDateTimeFieldUpdateOperationsInput | Date | string | null
 }
 
 export type VendorRequestCreateManyClientInput = {
@@ -2091,7 +2091,6 @@ export type VendorRequestCreateManyClientInput = {
   organizationId: string
   tripRequestId: string
   createdByUserId: string
-  templateId?: string | null
   vendorName: string
   vendorContact?: string | null
   requestType: $Enums.VendorRequestType
@@ -2104,15 +2103,15 @@ export type VendorRequestCreateManyClientInput = {
   internalNotes?: string | null
   finalOutcome?: string | null
   archivedAt?: Date | string | null
-  firstResponseAt?: Date | string | null
-  resolvedAt?: Date | string | null
   createdAt?: Date | string
   updatedAt?: Date | string
+  templateId?: string | null
+  firstResponseAt?: Date | string | null
+  resolvedAt?: Date | string | null
 }
 
 export type VendorRequestUpdateWithoutClientInput = {
   id?: Prisma.StringFieldUpdateOperationsInput | string
-  templateId?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
   vendorName?: Prisma.StringFieldUpdateOperationsInput | string
   vendorContact?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
   requestType?: Prisma.EnumVendorRequestTypeFieldUpdateOperationsInput | $Enums.VendorRequestType
@@ -2125,17 +2124,18 @@ export type VendorRequestUpdateWithoutClientInput = {
   internalNotes?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
   finalOutcome?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
   archivedAt?: Prisma.NullableDateTimeFieldUpdateOperationsInput | Date | string | null
-  firstResponseAt?: Prisma.NullableDateTimeFieldUpdateOperationsInput | Date | string | null
-  resolvedAt?: Prisma.NullableDateTimeFieldUpdateOperationsInput | Date | string | null
   createdAt?: Prisma.DateTimeFieldUpdateOperationsInput | Date | string
   updatedAt?: Prisma.DateTimeFieldUpdateOperationsInput | Date | string
+  templateId?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
+  firstResponseAt?: Prisma.NullableDateTimeFieldUpdateOperationsInput | Date | string | null
+  resolvedAt?: Prisma.NullableDateTimeFieldUpdateOperationsInput | Date | string | null
+  approvals?: Prisma.VendorRequestApprovalUpdateManyWithoutVendorRequestNestedInput
+  drafts?: Prisma.VendorRequestDraftUpdateManyWithoutVendorRequestNestedInput
+  reminders?: Prisma.VendorRequestReminderUpdateManyWithoutVendorRequestNestedInput
+  timeline?: Prisma.VendorRequestTimelineUpdateManyWithoutVendorRequestNestedInput
+  createdBy?: Prisma.UserUpdateOneRequiredWithoutVendorRequestsNestedInput
   organization?: Prisma.OrganizationUpdateOneRequiredWithoutVendorRequestsNestedInput
   tripRequest?: Prisma.TripRequestUpdateOneRequiredWithoutVendorRequestsNestedInput
-  createdBy?: Prisma.UserUpdateOneRequiredWithoutVendorRequestsNestedInput
-  reminders?: Prisma.VendorRequestReminderUpdateManyWithoutVendorRequestNestedInput
-  drafts?: Prisma.VendorRequestDraftUpdateManyWithoutVendorRequestNestedInput
-  approvals?: Prisma.VendorRequestApprovalUpdateManyWithoutVendorRequestNestedInput
-  timeline?: Prisma.VendorRequestTimelineUpdateManyWithoutVendorRequestNestedInput
 }
 
 export type VendorRequestUncheckedUpdateWithoutClientInput = {
@@ -2143,7 +2143,6 @@ export type VendorRequestUncheckedUpdateWithoutClientInput = {
   organizationId?: Prisma.StringFieldUpdateOperationsInput | string
   tripRequestId?: Prisma.StringFieldUpdateOperationsInput | string
   createdByUserId?: Prisma.StringFieldUpdateOperationsInput | string
-  templateId?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
   vendorName?: Prisma.StringFieldUpdateOperationsInput | string
   vendorContact?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
   requestType?: Prisma.EnumVendorRequestTypeFieldUpdateOperationsInput | $Enums.VendorRequestType
@@ -2156,13 +2155,14 @@ export type VendorRequestUncheckedUpdateWithoutClientInput = {
   internalNotes?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
   finalOutcome?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
   archivedAt?: Prisma.NullableDateTimeFieldUpdateOperationsInput | Date | string | null
-  firstResponseAt?: Prisma.NullableDateTimeFieldUpdateOperationsInput | Date | string | null
-  resolvedAt?: Prisma.NullableDateTimeFieldUpdateOperationsInput | Date | string | null
   createdAt?: Prisma.DateTimeFieldUpdateOperationsInput | Date | string
   updatedAt?: Prisma.DateTimeFieldUpdateOperationsInput | Date | string
-  reminders?: Prisma.VendorRequestReminderUncheckedUpdateManyWithoutVendorRequestNestedInput
-  drafts?: Prisma.VendorRequestDraftUncheckedUpdateManyWithoutVendorRequestNestedInput
+  templateId?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
+  firstResponseAt?: Prisma.NullableDateTimeFieldUpdateOperationsInput | Date | string | null
+  resolvedAt?: Prisma.NullableDateTimeFieldUpdateOperationsInput | Date | string | null
   approvals?: Prisma.VendorRequestApprovalUncheckedUpdateManyWithoutVendorRequestNestedInput
+  drafts?: Prisma.VendorRequestDraftUncheckedUpdateManyWithoutVendorRequestNestedInput
+  reminders?: Prisma.VendorRequestReminderUncheckedUpdateManyWithoutVendorRequestNestedInput
   timeline?: Prisma.VendorRequestTimelineUncheckedUpdateManyWithoutVendorRequestNestedInput
 }
 
@@ -2171,7 +2171,6 @@ export type VendorRequestUncheckedUpdateManyWithoutClientInput = {
   organizationId?: Prisma.StringFieldUpdateOperationsInput | string
   tripRequestId?: Prisma.StringFieldUpdateOperationsInput | string
   createdByUserId?: Prisma.StringFieldUpdateOperationsInput | string
-  templateId?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
   vendorName?: Prisma.StringFieldUpdateOperationsInput | string
   vendorContact?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
   requestType?: Prisma.EnumVendorRequestTypeFieldUpdateOperationsInput | $Enums.VendorRequestType
@@ -2184,10 +2183,11 @@ export type VendorRequestUncheckedUpdateManyWithoutClientInput = {
   internalNotes?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
   finalOutcome?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
   archivedAt?: Prisma.NullableDateTimeFieldUpdateOperationsInput | Date | string | null
-  firstResponseAt?: Prisma.NullableDateTimeFieldUpdateOperationsInput | Date | string | null
-  resolvedAt?: Prisma.NullableDateTimeFieldUpdateOperationsInput | Date | string | null
   createdAt?: Prisma.DateTimeFieldUpdateOperationsInput | Date | string
   updatedAt?: Prisma.DateTimeFieldUpdateOperationsInput | Date | string
+  templateId?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
+  firstResponseAt?: Prisma.NullableDateTimeFieldUpdateOperationsInput | Date | string | null
+  resolvedAt?: Prisma.NullableDateTimeFieldUpdateOperationsInput | Date | string | null
 }
 
 export type VendorRequestCreateManyTripRequestInput = {
@@ -2195,7 +2195,6 @@ export type VendorRequestCreateManyTripRequestInput = {
   organizationId: string
   clientId?: string | null
   createdByUserId: string
-  templateId?: string | null
   vendorName: string
   vendorContact?: string | null
   requestType: $Enums.VendorRequestType
@@ -2208,15 +2207,15 @@ export type VendorRequestCreateManyTripRequestInput = {
   internalNotes?: string | null
   finalOutcome?: string | null
   archivedAt?: Date | string | null
-  firstResponseAt?: Date | string | null
-  resolvedAt?: Date | string | null
   createdAt?: Date | string
   updatedAt?: Date | string
+  templateId?: string | null
+  firstResponseAt?: Date | string | null
+  resolvedAt?: Date | string | null
 }
 
 export type VendorRequestUpdateWithoutTripRequestInput = {
   id?: Prisma.StringFieldUpdateOperationsInput | string
-  templateId?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
   vendorName?: Prisma.StringFieldUpdateOperationsInput | string
   vendorContact?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
   requestType?: Prisma.EnumVendorRequestTypeFieldUpdateOperationsInput | $Enums.VendorRequestType
@@ -2229,17 +2228,18 @@ export type VendorRequestUpdateWithoutTripRequestInput = {
   internalNotes?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
   finalOutcome?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
   archivedAt?: Prisma.NullableDateTimeFieldUpdateOperationsInput | Date | string | null
-  firstResponseAt?: Prisma.NullableDateTimeFieldUpdateOperationsInput | Date | string | null
-  resolvedAt?: Prisma.NullableDateTimeFieldUpdateOperationsInput | Date | string | null
   createdAt?: Prisma.DateTimeFieldUpdateOperationsInput | Date | string
   updatedAt?: Prisma.DateTimeFieldUpdateOperationsInput | Date | string
-  organization?: Prisma.OrganizationUpdateOneRequiredWithoutVendorRequestsNestedInput
+  templateId?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
+  firstResponseAt?: Prisma.NullableDateTimeFieldUpdateOperationsInput | Date | string | null
+  resolvedAt?: Prisma.NullableDateTimeFieldUpdateOperationsInput | Date | string | null
+  approvals?: Prisma.VendorRequestApprovalUpdateManyWithoutVendorRequestNestedInput
+  drafts?: Prisma.VendorRequestDraftUpdateManyWithoutVendorRequestNestedInput
+  reminders?: Prisma.VendorRequestReminderUpdateManyWithoutVendorRequestNestedInput
+  timeline?: Prisma.VendorRequestTimelineUpdateManyWithoutVendorRequestNestedInput
   client?: Prisma.ClientUpdateOneWithoutVendorRequestsNestedInput
   createdBy?: Prisma.UserUpdateOneRequiredWithoutVendorRequestsNestedInput
-  reminders?: Prisma.VendorRequestReminderUpdateManyWithoutVendorRequestNestedInput
-  drafts?: Prisma.VendorRequestDraftUpdateManyWithoutVendorRequestNestedInput
-  approvals?: Prisma.VendorRequestApprovalUpdateManyWithoutVendorRequestNestedInput
-  timeline?: Prisma.VendorRequestTimelineUpdateManyWithoutVendorRequestNestedInput
+  organization?: Prisma.OrganizationUpdateOneRequiredWithoutVendorRequestsNestedInput
 }
 
 export type VendorRequestUncheckedUpdateWithoutTripRequestInput = {
@@ -2247,7 +2247,6 @@ export type VendorRequestUncheckedUpdateWithoutTripRequestInput = {
   organizationId?: Prisma.StringFieldUpdateOperationsInput | string
   clientId?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
   createdByUserId?: Prisma.StringFieldUpdateOperationsInput | string
-  templateId?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
   vendorName?: Prisma.StringFieldUpdateOperationsInput | string
   vendorContact?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
   requestType?: Prisma.EnumVendorRequestTypeFieldUpdateOperationsInput | $Enums.VendorRequestType
@@ -2260,13 +2259,14 @@ export type VendorRequestUncheckedUpdateWithoutTripRequestInput = {
   internalNotes?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
   finalOutcome?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
   archivedAt?: Prisma.NullableDateTimeFieldUpdateOperationsInput | Date | string | null
-  firstResponseAt?: Prisma.NullableDateTimeFieldUpdateOperationsInput | Date | string | null
-  resolvedAt?: Prisma.NullableDateTimeFieldUpdateOperationsInput | Date | string | null
   createdAt?: Prisma.DateTimeFieldUpdateOperationsInput | Date | string
   updatedAt?: Prisma.DateTimeFieldUpdateOperationsInput | Date | string
-  reminders?: Prisma.VendorRequestReminderUncheckedUpdateManyWithoutVendorRequestNestedInput
-  drafts?: Prisma.VendorRequestDraftUncheckedUpdateManyWithoutVendorRequestNestedInput
+  templateId?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
+  firstResponseAt?: Prisma.NullableDateTimeFieldUpdateOperationsInput | Date | string | null
+  resolvedAt?: Prisma.NullableDateTimeFieldUpdateOperationsInput | Date | string | null
   approvals?: Prisma.VendorRequestApprovalUncheckedUpdateManyWithoutVendorRequestNestedInput
+  drafts?: Prisma.VendorRequestDraftUncheckedUpdateManyWithoutVendorRequestNestedInput
+  reminders?: Prisma.VendorRequestReminderUncheckedUpdateManyWithoutVendorRequestNestedInput
   timeline?: Prisma.VendorRequestTimelineUncheckedUpdateManyWithoutVendorRequestNestedInput
 }
 
@@ -2275,7 +2275,6 @@ export type VendorRequestUncheckedUpdateManyWithoutTripRequestInput = {
   organizationId?: Prisma.StringFieldUpdateOperationsInput | string
   clientId?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
   createdByUserId?: Prisma.StringFieldUpdateOperationsInput | string
-  templateId?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
   vendorName?: Prisma.StringFieldUpdateOperationsInput | string
   vendorContact?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
   requestType?: Prisma.EnumVendorRequestTypeFieldUpdateOperationsInput | $Enums.VendorRequestType
@@ -2288,10 +2287,11 @@ export type VendorRequestUncheckedUpdateManyWithoutTripRequestInput = {
   internalNotes?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
   finalOutcome?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
   archivedAt?: Prisma.NullableDateTimeFieldUpdateOperationsInput | Date | string | null
-  firstResponseAt?: Prisma.NullableDateTimeFieldUpdateOperationsInput | Date | string | null
-  resolvedAt?: Prisma.NullableDateTimeFieldUpdateOperationsInput | Date | string | null
   createdAt?: Prisma.DateTimeFieldUpdateOperationsInput | Date | string
   updatedAt?: Prisma.DateTimeFieldUpdateOperationsInput | Date | string
+  templateId?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
+  firstResponseAt?: Prisma.NullableDateTimeFieldUpdateOperationsInput | Date | string | null
+  resolvedAt?: Prisma.NullableDateTimeFieldUpdateOperationsInput | Date | string | null
 }
 
 
@@ -2300,16 +2300,16 @@ export type VendorRequestUncheckedUpdateManyWithoutTripRequestInput = {
  */
 
 export type VendorRequestCountOutputType = {
-  reminders: number
-  drafts: number
   approvals: number
+  drafts: number
+  reminders: number
   timeline: number
 }
 
 export type VendorRequestCountOutputTypeSelect<ExtArgs extends runtime.Types.Extensions.InternalArgs = runtime.Types.Extensions.DefaultArgs> = {
-  reminders?: boolean | VendorRequestCountOutputTypeCountRemindersArgs
-  drafts?: boolean | VendorRequestCountOutputTypeCountDraftsArgs
   approvals?: boolean | VendorRequestCountOutputTypeCountApprovalsArgs
+  drafts?: boolean | VendorRequestCountOutputTypeCountDraftsArgs
+  reminders?: boolean | VendorRequestCountOutputTypeCountRemindersArgs
   timeline?: boolean | VendorRequestCountOutputTypeCountTimelineArgs
 }
 
@@ -2326,8 +2326,8 @@ export type VendorRequestCountOutputTypeDefaultArgs<ExtArgs extends runtime.Type
 /**
  * VendorRequestCountOutputType without action
  */
-export type VendorRequestCountOutputTypeCountRemindersArgs<ExtArgs extends runtime.Types.Extensions.InternalArgs = runtime.Types.Extensions.DefaultArgs> = {
-  where?: Prisma.VendorRequestReminderWhereInput
+export type VendorRequestCountOutputTypeCountApprovalsArgs<ExtArgs extends runtime.Types.Extensions.InternalArgs = runtime.Types.Extensions.DefaultArgs> = {
+  where?: Prisma.VendorRequestApprovalWhereInput
 }
 
 /**
@@ -2340,8 +2340,8 @@ export type VendorRequestCountOutputTypeCountDraftsArgs<ExtArgs extends runtime.
 /**
  * VendorRequestCountOutputType without action
  */
-export type VendorRequestCountOutputTypeCountApprovalsArgs<ExtArgs extends runtime.Types.Extensions.InternalArgs = runtime.Types.Extensions.DefaultArgs> = {
-  where?: Prisma.VendorRequestApprovalWhereInput
+export type VendorRequestCountOutputTypeCountRemindersArgs<ExtArgs extends runtime.Types.Extensions.InternalArgs = runtime.Types.Extensions.DefaultArgs> = {
+  where?: Prisma.VendorRequestReminderWhereInput
 }
 
 /**
@@ -2358,7 +2358,6 @@ export type VendorRequestSelect<ExtArgs extends runtime.Types.Extensions.Interna
   tripRequestId?: boolean
   clientId?: boolean
   createdByUserId?: boolean
-  templateId?: boolean
   vendorName?: boolean
   vendorContact?: boolean
   requestType?: boolean
@@ -2371,18 +2370,19 @@ export type VendorRequestSelect<ExtArgs extends runtime.Types.Extensions.Interna
   internalNotes?: boolean
   finalOutcome?: boolean
   archivedAt?: boolean
-  firstResponseAt?: boolean
-  resolvedAt?: boolean
   createdAt?: boolean
   updatedAt?: boolean
-  organization?: boolean | Prisma.OrganizationDefaultArgs<ExtArgs>
-  tripRequest?: boolean | Prisma.TripRequestDefaultArgs<ExtArgs>
+  templateId?: boolean
+  firstResponseAt?: boolean
+  resolvedAt?: boolean
+  approvals?: boolean | Prisma.VendorRequest$approvalsArgs<ExtArgs>
+  drafts?: boolean | Prisma.VendorRequest$draftsArgs<ExtArgs>
+  reminders?: boolean | Prisma.VendorRequest$remindersArgs<ExtArgs>
+  timeline?: boolean | Prisma.VendorRequest$timelineArgs<ExtArgs>
   client?: boolean | Prisma.VendorRequest$clientArgs<ExtArgs>
   createdBy?: boolean | Prisma.UserDefaultArgs<ExtArgs>
-  reminders?: boolean | Prisma.VendorRequest$remindersArgs<ExtArgs>
-  drafts?: boolean | Prisma.VendorRequest$draftsArgs<ExtArgs>
-  approvals?: boolean | Prisma.VendorRequest$approvalsArgs<ExtArgs>
-  timeline?: boolean | Prisma.VendorRequest$timelineArgs<ExtArgs>
+  organization?: boolean | Prisma.OrganizationDefaultArgs<ExtArgs>
+  tripRequest?: boolean | Prisma.TripRequestDefaultArgs<ExtArgs>
   _count?: boolean | Prisma.VendorRequestCountOutputTypeDefaultArgs<ExtArgs>
 }, ExtArgs["result"]["vendorRequest"]>
 
@@ -2392,7 +2392,6 @@ export type VendorRequestSelectCreateManyAndReturn<ExtArgs extends runtime.Types
   tripRequestId?: boolean
   clientId?: boolean
   createdByUserId?: boolean
-  templateId?: boolean
   vendorName?: boolean
   vendorContact?: boolean
   requestType?: boolean
@@ -2405,14 +2404,15 @@ export type VendorRequestSelectCreateManyAndReturn<ExtArgs extends runtime.Types
   internalNotes?: boolean
   finalOutcome?: boolean
   archivedAt?: boolean
-  firstResponseAt?: boolean
-  resolvedAt?: boolean
   createdAt?: boolean
   updatedAt?: boolean
-  organization?: boolean | Prisma.OrganizationDefaultArgs<ExtArgs>
-  tripRequest?: boolean | Prisma.TripRequestDefaultArgs<ExtArgs>
+  templateId?: boolean
+  firstResponseAt?: boolean
+  resolvedAt?: boolean
   client?: boolean | Prisma.VendorRequest$clientArgs<ExtArgs>
   createdBy?: boolean | Prisma.UserDefaultArgs<ExtArgs>
+  organization?: boolean | Prisma.OrganizationDefaultArgs<ExtArgs>
+  tripRequest?: boolean | Prisma.TripRequestDefaultArgs<ExtArgs>
 }, ExtArgs["result"]["vendorRequest"]>
 
 export type VendorRequestSelectUpdateManyAndReturn<ExtArgs extends runtime.Types.Extensions.InternalArgs = runtime.Types.Extensions.DefaultArgs> = runtime.Types.Extensions.GetSelect<{
@@ -2421,7 +2421,6 @@ export type VendorRequestSelectUpdateManyAndReturn<ExtArgs extends runtime.Types
   tripRequestId?: boolean
   clientId?: boolean
   createdByUserId?: boolean
-  templateId?: boolean
   vendorName?: boolean
   vendorContact?: boolean
   requestType?: boolean
@@ -2434,14 +2433,15 @@ export type VendorRequestSelectUpdateManyAndReturn<ExtArgs extends runtime.Types
   internalNotes?: boolean
   finalOutcome?: boolean
   archivedAt?: boolean
-  firstResponseAt?: boolean
-  resolvedAt?: boolean
   createdAt?: boolean
   updatedAt?: boolean
-  organization?: boolean | Prisma.OrganizationDefaultArgs<ExtArgs>
-  tripRequest?: boolean | Prisma.TripRequestDefaultArgs<ExtArgs>
+  templateId?: boolean
+  firstResponseAt?: boolean
+  resolvedAt?: boolean
   client?: boolean | Prisma.VendorRequest$clientArgs<ExtArgs>
   createdBy?: boolean | Prisma.UserDefaultArgs<ExtArgs>
+  organization?: boolean | Prisma.OrganizationDefaultArgs<ExtArgs>
+  tripRequest?: boolean | Prisma.TripRequestDefaultArgs<ExtArgs>
 }, ExtArgs["result"]["vendorRequest"]>
 
 export type VendorRequestSelectScalar = {
@@ -2450,7 +2450,6 @@ export type VendorRequestSelectScalar = {
   tripRequestId?: boolean
   clientId?: boolean
   createdByUserId?: boolean
-  templateId?: boolean
   vendorName?: boolean
   vendorContact?: boolean
   requestType?: boolean
@@ -2463,48 +2462,49 @@ export type VendorRequestSelectScalar = {
   internalNotes?: boolean
   finalOutcome?: boolean
   archivedAt?: boolean
-  firstResponseAt?: boolean
-  resolvedAt?: boolean
   createdAt?: boolean
   updatedAt?: boolean
+  templateId?: boolean
+  firstResponseAt?: boolean
+  resolvedAt?: boolean
 }
 
-export type VendorRequestOmit<ExtArgs extends runtime.Types.Extensions.InternalArgs = runtime.Types.Extensions.DefaultArgs> = runtime.Types.Extensions.GetOmit<"id" | "organizationId" | "tripRequestId" | "clientId" | "createdByUserId" | "templateId" | "vendorName" | "vendorContact" | "requestType" | "requestDetails" | "dateSent" | "urgency" | "dueDate" | "status" | "followUpCount" | "internalNotes" | "finalOutcome" | "archivedAt" | "firstResponseAt" | "resolvedAt" | "createdAt" | "updatedAt", ExtArgs["result"]["vendorRequest"]>
+export type VendorRequestOmit<ExtArgs extends runtime.Types.Extensions.InternalArgs = runtime.Types.Extensions.DefaultArgs> = runtime.Types.Extensions.GetOmit<"id" | "organizationId" | "tripRequestId" | "clientId" | "createdByUserId" | "vendorName" | "vendorContact" | "requestType" | "requestDetails" | "dateSent" | "urgency" | "dueDate" | "status" | "followUpCount" | "internalNotes" | "finalOutcome" | "archivedAt" | "createdAt" | "updatedAt" | "templateId" | "firstResponseAt" | "resolvedAt", ExtArgs["result"]["vendorRequest"]>
 export type VendorRequestInclude<ExtArgs extends runtime.Types.Extensions.InternalArgs = runtime.Types.Extensions.DefaultArgs> = {
-  organization?: boolean | Prisma.OrganizationDefaultArgs<ExtArgs>
-  tripRequest?: boolean | Prisma.TripRequestDefaultArgs<ExtArgs>
+  approvals?: boolean | Prisma.VendorRequest$approvalsArgs<ExtArgs>
+  drafts?: boolean | Prisma.VendorRequest$draftsArgs<ExtArgs>
+  reminders?: boolean | Prisma.VendorRequest$remindersArgs<ExtArgs>
+  timeline?: boolean | Prisma.VendorRequest$timelineArgs<ExtArgs>
   client?: boolean | Prisma.VendorRequest$clientArgs<ExtArgs>
   createdBy?: boolean | Prisma.UserDefaultArgs<ExtArgs>
-  reminders?: boolean | Prisma.VendorRequest$remindersArgs<ExtArgs>
-  drafts?: boolean | Prisma.VendorRequest$draftsArgs<ExtArgs>
-  approvals?: boolean | Prisma.VendorRequest$approvalsArgs<ExtArgs>
-  timeline?: boolean | Prisma.VendorRequest$timelineArgs<ExtArgs>
+  organization?: boolean | Prisma.OrganizationDefaultArgs<ExtArgs>
+  tripRequest?: boolean | Prisma.TripRequestDefaultArgs<ExtArgs>
   _count?: boolean | Prisma.VendorRequestCountOutputTypeDefaultArgs<ExtArgs>
 }
 export type VendorRequestIncludeCreateManyAndReturn<ExtArgs extends runtime.Types.Extensions.InternalArgs = runtime.Types.Extensions.DefaultArgs> = {
-  organization?: boolean | Prisma.OrganizationDefaultArgs<ExtArgs>
-  tripRequest?: boolean | Prisma.TripRequestDefaultArgs<ExtArgs>
   client?: boolean | Prisma.VendorRequest$clientArgs<ExtArgs>
   createdBy?: boolean | Prisma.UserDefaultArgs<ExtArgs>
+  organization?: boolean | Prisma.OrganizationDefaultArgs<ExtArgs>
+  tripRequest?: boolean | Prisma.TripRequestDefaultArgs<ExtArgs>
 }
 export type VendorRequestIncludeUpdateManyAndReturn<ExtArgs extends runtime.Types.Extensions.InternalArgs = runtime.Types.Extensions.DefaultArgs> = {
-  organization?: boolean | Prisma.OrganizationDefaultArgs<ExtArgs>
-  tripRequest?: boolean | Prisma.TripRequestDefaultArgs<ExtArgs>
   client?: boolean | Prisma.VendorRequest$clientArgs<ExtArgs>
   createdBy?: boolean | Prisma.UserDefaultArgs<ExtArgs>
+  organization?: boolean | Prisma.OrganizationDefaultArgs<ExtArgs>
+  tripRequest?: boolean | Prisma.TripRequestDefaultArgs<ExtArgs>
 }
 
 export type $VendorRequestPayload<ExtArgs extends runtime.Types.Extensions.InternalArgs = runtime.Types.Extensions.DefaultArgs> = {
   name: "VendorRequest"
   objects: {
-    organization: Prisma.$OrganizationPayload<ExtArgs>
-    tripRequest: Prisma.$TripRequestPayload<ExtArgs>
+    approvals: Prisma.$VendorRequestApprovalPayload<ExtArgs>[]
+    drafts: Prisma.$VendorRequestDraftPayload<ExtArgs>[]
+    reminders: Prisma.$VendorRequestReminderPayload<ExtArgs>[]
+    timeline: Prisma.$VendorRequestTimelinePayload<ExtArgs>[]
     client: Prisma.$ClientPayload<ExtArgs> | null
     createdBy: Prisma.$UserPayload<ExtArgs>
-    reminders: Prisma.$VendorRequestReminderPayload<ExtArgs>[]
-    drafts: Prisma.$VendorRequestDraftPayload<ExtArgs>[]
-    approvals: Prisma.$VendorRequestApprovalPayload<ExtArgs>[]
-    timeline: Prisma.$VendorRequestTimelinePayload<ExtArgs>[]
+    organization: Prisma.$OrganizationPayload<ExtArgs>
+    tripRequest: Prisma.$TripRequestPayload<ExtArgs>
   }
   scalars: runtime.Types.Extensions.GetPayloadResult<{
     id: string
@@ -2512,7 +2512,6 @@ export type $VendorRequestPayload<ExtArgs extends runtime.Types.Extensions.Inter
     tripRequestId: string
     clientId: string | null
     createdByUserId: string
-    templateId: string | null
     vendorName: string
     vendorContact: string | null
     requestType: $Enums.VendorRequestType
@@ -2525,10 +2524,11 @@ export type $VendorRequestPayload<ExtArgs extends runtime.Types.Extensions.Inter
     internalNotes: string | null
     finalOutcome: string | null
     archivedAt: Date | null
-    firstResponseAt: Date | null
-    resolvedAt: Date | null
     createdAt: Date
     updatedAt: Date
+    templateId: string | null
+    firstResponseAt: Date | null
+    resolvedAt: Date | null
   }, ExtArgs["result"]["vendorRequest"]>
   composites: {}
 }
@@ -2923,14 +2923,14 @@ readonly fields: VendorRequestFieldRefs;
  */
 export interface Prisma__VendorRequestClient<T, Null = never, ExtArgs extends runtime.Types.Extensions.InternalArgs = runtime.Types.Extensions.DefaultArgs, GlobalOmitOptions = {}> extends Prisma.PrismaPromise<T> {
   readonly [Symbol.toStringTag]: "PrismaPromise"
-  organization<T extends Prisma.OrganizationDefaultArgs<ExtArgs> = {}>(args?: Prisma.Subset<T, Prisma.OrganizationDefaultArgs<ExtArgs>>): Prisma.Prisma__OrganizationClient<runtime.Types.Result.GetResult<Prisma.$OrganizationPayload<ExtArgs>, T, "findUniqueOrThrow", GlobalOmitOptions> | Null, Null, ExtArgs, GlobalOmitOptions>
-  tripRequest<T extends Prisma.TripRequestDefaultArgs<ExtArgs> = {}>(args?: Prisma.Subset<T, Prisma.TripRequestDefaultArgs<ExtArgs>>): Prisma.Prisma__TripRequestClient<runtime.Types.Result.GetResult<Prisma.$TripRequestPayload<ExtArgs>, T, "findUniqueOrThrow", GlobalOmitOptions> | Null, Null, ExtArgs, GlobalOmitOptions>
+  approvals<T extends Prisma.VendorRequest$approvalsArgs<ExtArgs> = {}>(args?: Prisma.Subset<T, Prisma.VendorRequest$approvalsArgs<ExtArgs>>): Prisma.PrismaPromise<runtime.Types.Result.GetResult<Prisma.$VendorRequestApprovalPayload<ExtArgs>, T, "findMany", GlobalOmitOptions> | Null>
+  drafts<T extends Prisma.VendorRequest$draftsArgs<ExtArgs> = {}>(args?: Prisma.Subset<T, Prisma.VendorRequest$draftsArgs<ExtArgs>>): Prisma.PrismaPromise<runtime.Types.Result.GetResult<Prisma.$VendorRequestDraftPayload<ExtArgs>, T, "findMany", GlobalOmitOptions> | Null>
+  reminders<T extends Prisma.VendorRequest$remindersArgs<ExtArgs> = {}>(args?: Prisma.Subset<T, Prisma.VendorRequest$remindersArgs<ExtArgs>>): Prisma.PrismaPromise<runtime.Types.Result.GetResult<Prisma.$VendorRequestReminderPayload<ExtArgs>, T, "findMany", GlobalOmitOptions> | Null>
+  timeline<T extends Prisma.VendorRequest$timelineArgs<ExtArgs> = {}>(args?: Prisma.Subset<T, Prisma.VendorRequest$timelineArgs<ExtArgs>>): Prisma.PrismaPromise<runtime.Types.Result.GetResult<Prisma.$VendorRequestTimelinePayload<ExtArgs>, T, "findMany", GlobalOmitOptions> | Null>
   client<T extends Prisma.VendorRequest$clientArgs<ExtArgs> = {}>(args?: Prisma.Subset<T, Prisma.VendorRequest$clientArgs<ExtArgs>>): Prisma.Prisma__ClientClient<runtime.Types.Result.GetResult<Prisma.$ClientPayload<ExtArgs>, T, "findUniqueOrThrow", GlobalOmitOptions> | null, null, ExtArgs, GlobalOmitOptions>
   createdBy<T extends Prisma.UserDefaultArgs<ExtArgs> = {}>(args?: Prisma.Subset<T, Prisma.UserDefaultArgs<ExtArgs>>): Prisma.Prisma__UserClient<runtime.Types.Result.GetResult<Prisma.$UserPayload<ExtArgs>, T, "findUniqueOrThrow", GlobalOmitOptions> | Null, Null, ExtArgs, GlobalOmitOptions>
-  reminders<T extends Prisma.VendorRequest$remindersArgs<ExtArgs> = {}>(args?: Prisma.Subset<T, Prisma.VendorRequest$remindersArgs<ExtArgs>>): Prisma.PrismaPromise<runtime.Types.Result.GetResult<Prisma.$VendorRequestReminderPayload<ExtArgs>, T, "findMany", GlobalOmitOptions> | Null>
-  drafts<T extends Prisma.VendorRequest$draftsArgs<ExtArgs> = {}>(args?: Prisma.Subset<T, Prisma.VendorRequest$draftsArgs<ExtArgs>>): Prisma.PrismaPromise<runtime.Types.Result.GetResult<Prisma.$VendorRequestDraftPayload<ExtArgs>, T, "findMany", GlobalOmitOptions> | Null>
-  approvals<T extends Prisma.VendorRequest$approvalsArgs<ExtArgs> = {}>(args?: Prisma.Subset<T, Prisma.VendorRequest$approvalsArgs<ExtArgs>>): Prisma.PrismaPromise<runtime.Types.Result.GetResult<Prisma.$VendorRequestApprovalPayload<ExtArgs>, T, "findMany", GlobalOmitOptions> | Null>
-  timeline<T extends Prisma.VendorRequest$timelineArgs<ExtArgs> = {}>(args?: Prisma.Subset<T, Prisma.VendorRequest$timelineArgs<ExtArgs>>): Prisma.PrismaPromise<runtime.Types.Result.GetResult<Prisma.$VendorRequestTimelinePayload<ExtArgs>, T, "findMany", GlobalOmitOptions> | Null>
+  organization<T extends Prisma.OrganizationDefaultArgs<ExtArgs> = {}>(args?: Prisma.Subset<T, Prisma.OrganizationDefaultArgs<ExtArgs>>): Prisma.Prisma__OrganizationClient<runtime.Types.Result.GetResult<Prisma.$OrganizationPayload<ExtArgs>, T, "findUniqueOrThrow", GlobalOmitOptions> | Null, Null, ExtArgs, GlobalOmitOptions>
+  tripRequest<T extends Prisma.TripRequestDefaultArgs<ExtArgs> = {}>(args?: Prisma.Subset<T, Prisma.TripRequestDefaultArgs<ExtArgs>>): Prisma.Prisma__TripRequestClient<runtime.Types.Result.GetResult<Prisma.$TripRequestPayload<ExtArgs>, T, "findUniqueOrThrow", GlobalOmitOptions> | Null, Null, ExtArgs, GlobalOmitOptions>
   /**
    * Attaches callbacks for the resolution and/or rejection of the Promise.
    * @param onfulfilled The callback to execute when the Promise is resolved.
@@ -2965,7 +2965,6 @@ export interface VendorRequestFieldRefs {
   readonly tripRequestId: Prisma.FieldRef<"VendorRequest", 'String'>
   readonly clientId: Prisma.FieldRef<"VendorRequest", 'String'>
   readonly createdByUserId: Prisma.FieldRef<"VendorRequest", 'String'>
-  readonly templateId: Prisma.FieldRef<"VendorRequest", 'String'>
   readonly vendorName: Prisma.FieldRef<"VendorRequest", 'String'>
   readonly vendorContact: Prisma.FieldRef<"VendorRequest", 'String'>
   readonly requestType: Prisma.FieldRef<"VendorRequest", 'VendorRequestType'>
@@ -2978,10 +2977,11 @@ export interface VendorRequestFieldRefs {
   readonly internalNotes: Prisma.FieldRef<"VendorRequest", 'String'>
   readonly finalOutcome: Prisma.FieldRef<"VendorRequest", 'String'>
   readonly archivedAt: Prisma.FieldRef<"VendorRequest", 'DateTime'>
-  readonly firstResponseAt: Prisma.FieldRef<"VendorRequest", 'DateTime'>
-  readonly resolvedAt: Prisma.FieldRef<"VendorRequest", 'DateTime'>
   readonly createdAt: Prisma.FieldRef<"VendorRequest", 'DateTime'>
   readonly updatedAt: Prisma.FieldRef<"VendorRequest", 'DateTime'>
+  readonly templateId: Prisma.FieldRef<"VendorRequest", 'String'>
+  readonly firstResponseAt: Prisma.FieldRef<"VendorRequest", 'DateTime'>
+  readonly resolvedAt: Prisma.FieldRef<"VendorRequest", 'DateTime'>
 }
     
 
@@ -3383,46 +3383,27 @@ export type VendorRequestDeleteManyArgs<ExtArgs extends runtime.Types.Extensions
 }
 
 /**
- * VendorRequest.client
+ * VendorRequest.approvals
  */
-export type VendorRequest$clientArgs<ExtArgs extends runtime.Types.Extensions.InternalArgs = runtime.Types.Extensions.DefaultArgs> = {
+export type VendorRequest$approvalsArgs<ExtArgs extends runtime.Types.Extensions.InternalArgs = runtime.Types.Extensions.DefaultArgs> = {
   /**
-   * Select specific fields to fetch from the Client
+   * Select specific fields to fetch from the VendorRequestApproval
    */
-  select?: Prisma.ClientSelect<ExtArgs> | null
+  select?: Prisma.VendorRequestApprovalSelect<ExtArgs> | null
   /**
-   * Omit specific fields from the Client
+   * Omit specific fields from the VendorRequestApproval
    */
-  omit?: Prisma.ClientOmit<ExtArgs> | null
+  omit?: Prisma.VendorRequestApprovalOmit<ExtArgs> | null
   /**
    * Choose, which related nodes to fetch as well
    */
-  include?: Prisma.ClientInclude<ExtArgs> | null
-  where?: Prisma.ClientWhereInput
-}
-
-/**
- * VendorRequest.reminders
- */
-export type VendorRequest$remindersArgs<ExtArgs extends runtime.Types.Extensions.InternalArgs = runtime.Types.Extensions.DefaultArgs> = {
-  /**
-   * Select specific fields to fetch from the VendorRequestReminder
-   */
-  select?: Prisma.VendorRequestReminderSelect<ExtArgs> | null
-  /**
-   * Omit specific fields from the VendorRequestReminder
-   */
-  omit?: Prisma.VendorRequestReminderOmit<ExtArgs> | null
-  /**
-   * Choose, which related nodes to fetch as well
-   */
-  include?: Prisma.VendorRequestReminderInclude<ExtArgs> | null
-  where?: Prisma.VendorRequestReminderWhereInput
-  orderBy?: Prisma.VendorRequestReminderOrderByWithRelationInput | Prisma.VendorRequestReminderOrderByWithRelationInput[]
-  cursor?: Prisma.VendorRequestReminderWhereUniqueInput
+  include?: Prisma.VendorRequestApprovalInclude<ExtArgs> | null
+  where?: Prisma.VendorRequestApprovalWhereInput
+  orderBy?: Prisma.VendorRequestApprovalOrderByWithRelationInput | Prisma.VendorRequestApprovalOrderByWithRelationInput[]
+  cursor?: Prisma.VendorRequestApprovalWhereUniqueInput
   take?: number
   skip?: number
-  distinct?: Prisma.VendorRequestReminderScalarFieldEnum | Prisma.VendorRequestReminderScalarFieldEnum[]
+  distinct?: Prisma.VendorRequestApprovalScalarFieldEnum | Prisma.VendorRequestApprovalScalarFieldEnum[]
 }
 
 /**
@@ -3450,27 +3431,27 @@ export type VendorRequest$draftsArgs<ExtArgs extends runtime.Types.Extensions.In
 }
 
 /**
- * VendorRequest.approvals
+ * VendorRequest.reminders
  */
-export type VendorRequest$approvalsArgs<ExtArgs extends runtime.Types.Extensions.InternalArgs = runtime.Types.Extensions.DefaultArgs> = {
+export type VendorRequest$remindersArgs<ExtArgs extends runtime.Types.Extensions.InternalArgs = runtime.Types.Extensions.DefaultArgs> = {
   /**
-   * Select specific fields to fetch from the VendorRequestApproval
+   * Select specific fields to fetch from the VendorRequestReminder
    */
-  select?: Prisma.VendorRequestApprovalSelect<ExtArgs> | null
+  select?: Prisma.VendorRequestReminderSelect<ExtArgs> | null
   /**
-   * Omit specific fields from the VendorRequestApproval
+   * Omit specific fields from the VendorRequestReminder
    */
-  omit?: Prisma.VendorRequestApprovalOmit<ExtArgs> | null
+  omit?: Prisma.VendorRequestReminderOmit<ExtArgs> | null
   /**
    * Choose, which related nodes to fetch as well
    */
-  include?: Prisma.VendorRequestApprovalInclude<ExtArgs> | null
-  where?: Prisma.VendorRequestApprovalWhereInput
-  orderBy?: Prisma.VendorRequestApprovalOrderByWithRelationInput | Prisma.VendorRequestApprovalOrderByWithRelationInput[]
-  cursor?: Prisma.VendorRequestApprovalWhereUniqueInput
+  include?: Prisma.VendorRequestReminderInclude<ExtArgs> | null
+  where?: Prisma.VendorRequestReminderWhereInput
+  orderBy?: Prisma.VendorRequestReminderOrderByWithRelationInput | Prisma.VendorRequestReminderOrderByWithRelationInput[]
+  cursor?: Prisma.VendorRequestReminderWhereUniqueInput
   take?: number
   skip?: number
-  distinct?: Prisma.VendorRequestApprovalScalarFieldEnum | Prisma.VendorRequestApprovalScalarFieldEnum[]
+  distinct?: Prisma.VendorRequestReminderScalarFieldEnum | Prisma.VendorRequestReminderScalarFieldEnum[]
 }
 
 /**
@@ -3495,6 +3476,25 @@ export type VendorRequest$timelineArgs<ExtArgs extends runtime.Types.Extensions.
   take?: number
   skip?: number
   distinct?: Prisma.VendorRequestTimelineScalarFieldEnum | Prisma.VendorRequestTimelineScalarFieldEnum[]
+}
+
+/**
+ * VendorRequest.client
+ */
+export type VendorRequest$clientArgs<ExtArgs extends runtime.Types.Extensions.InternalArgs = runtime.Types.Extensions.DefaultArgs> = {
+  /**
+   * Select specific fields to fetch from the Client
+   */
+  select?: Prisma.ClientSelect<ExtArgs> | null
+  /**
+   * Omit specific fields from the Client
+   */
+  omit?: Prisma.ClientOmit<ExtArgs> | null
+  /**
+   * Choose, which related nodes to fetch as well
+   */
+  include?: Prisma.ClientInclude<ExtArgs> | null
+  where?: Prisma.ClientWhereInput
 }
 
 /**

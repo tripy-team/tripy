@@ -475,8 +475,9 @@ export type ClientIntakeWhereInput = {
   client?: Prisma.XOR<Prisma.ClientScalarRelationFilter, Prisma.ClientWhereInput>
   duplicatedFrom?: Prisma.XOR<Prisma.ClientIntakeNullableScalarRelationFilter, Prisma.ClientIntakeWhereInput> | null
   duplicates?: Prisma.ClientIntakeListRelationFilter
-  tripBriefs?: Prisma.TripBriefListRelationFilter
   followUpSuggestions?: Prisma.FollowUpSuggestionListRelationFilter
+  formTokens?: Prisma.IntakeFormTokenListRelationFilter
+  tripBriefs?: Prisma.TripBriefListRelationFilter
 }
 
 export type ClientIntakeOrderByWithRelationInput = {
@@ -522,8 +523,9 @@ export type ClientIntakeOrderByWithRelationInput = {
   client?: Prisma.ClientOrderByWithRelationInput
   duplicatedFrom?: Prisma.ClientIntakeOrderByWithRelationInput
   duplicates?: Prisma.ClientIntakeOrderByRelationAggregateInput
-  tripBriefs?: Prisma.TripBriefOrderByRelationAggregateInput
   followUpSuggestions?: Prisma.FollowUpSuggestionOrderByRelationAggregateInput
+  formTokens?: Prisma.IntakeFormTokenOrderByRelationAggregateInput
+  tripBriefs?: Prisma.TripBriefOrderByRelationAggregateInput
 }
 
 export type ClientIntakeWhereUniqueInput = Prisma.AtLeast<{
@@ -572,8 +574,9 @@ export type ClientIntakeWhereUniqueInput = Prisma.AtLeast<{
   client?: Prisma.XOR<Prisma.ClientScalarRelationFilter, Prisma.ClientWhereInput>
   duplicatedFrom?: Prisma.XOR<Prisma.ClientIntakeNullableScalarRelationFilter, Prisma.ClientIntakeWhereInput> | null
   duplicates?: Prisma.ClientIntakeListRelationFilter
-  tripBriefs?: Prisma.TripBriefListRelationFilter
   followUpSuggestions?: Prisma.FollowUpSuggestionListRelationFilter
+  formTokens?: Prisma.IntakeFormTokenListRelationFilter
+  tripBriefs?: Prisma.TripBriefListRelationFilter
 }, "id">
 
 export type ClientIntakeOrderByWithAggregationInput = {
@@ -709,8 +712,9 @@ export type ClientIntakeCreateInput = {
   client: Prisma.ClientCreateNestedOneWithoutIntakesInput
   duplicatedFrom?: Prisma.ClientIntakeCreateNestedOneWithoutDuplicatesInput
   duplicates?: Prisma.ClientIntakeCreateNestedManyWithoutDuplicatedFromInput
-  tripBriefs?: Prisma.TripBriefCreateNestedManyWithoutIntakeInput
   followUpSuggestions?: Prisma.FollowUpSuggestionCreateNestedManyWithoutIntakeInput
+  formTokens?: Prisma.IntakeFormTokenCreateNestedManyWithoutIntakeInput
+  tripBriefs?: Prisma.TripBriefCreateNestedManyWithoutIntakeInput
 }
 
 export type ClientIntakeUncheckedCreateInput = {
@@ -754,8 +758,9 @@ export type ClientIntakeUncheckedCreateInput = {
   createdAt?: Date | string
   updatedAt?: Date | string
   duplicates?: Prisma.ClientIntakeUncheckedCreateNestedManyWithoutDuplicatedFromInput
-  tripBriefs?: Prisma.TripBriefUncheckedCreateNestedManyWithoutIntakeInput
   followUpSuggestions?: Prisma.FollowUpSuggestionUncheckedCreateNestedManyWithoutIntakeInput
+  formTokens?: Prisma.IntakeFormTokenUncheckedCreateNestedManyWithoutIntakeInput
+  tripBriefs?: Prisma.TripBriefUncheckedCreateNestedManyWithoutIntakeInput
 }
 
 export type ClientIntakeUpdateInput = {
@@ -799,8 +804,9 @@ export type ClientIntakeUpdateInput = {
   client?: Prisma.ClientUpdateOneRequiredWithoutIntakesNestedInput
   duplicatedFrom?: Prisma.ClientIntakeUpdateOneWithoutDuplicatesNestedInput
   duplicates?: Prisma.ClientIntakeUpdateManyWithoutDuplicatedFromNestedInput
-  tripBriefs?: Prisma.TripBriefUpdateManyWithoutIntakeNestedInput
   followUpSuggestions?: Prisma.FollowUpSuggestionUpdateManyWithoutIntakeNestedInput
+  formTokens?: Prisma.IntakeFormTokenUpdateManyWithoutIntakeNestedInput
+  tripBriefs?: Prisma.TripBriefUpdateManyWithoutIntakeNestedInput
 }
 
 export type ClientIntakeUncheckedUpdateInput = {
@@ -844,8 +850,9 @@ export type ClientIntakeUncheckedUpdateInput = {
   createdAt?: Prisma.DateTimeFieldUpdateOperationsInput | Date | string
   updatedAt?: Prisma.DateTimeFieldUpdateOperationsInput | Date | string
   duplicates?: Prisma.ClientIntakeUncheckedUpdateManyWithoutDuplicatedFromNestedInput
-  tripBriefs?: Prisma.TripBriefUncheckedUpdateManyWithoutIntakeNestedInput
   followUpSuggestions?: Prisma.FollowUpSuggestionUncheckedUpdateManyWithoutIntakeNestedInput
+  formTokens?: Prisma.IntakeFormTokenUncheckedUpdateManyWithoutIntakeNestedInput
+  tripBriefs?: Prisma.TripBriefUncheckedUpdateManyWithoutIntakeNestedInput
 }
 
 export type ClientIntakeCreateManyInput = {
@@ -1273,6 +1280,22 @@ export type ClientIntakeUpdateOneWithoutFollowUpSuggestionsNestedInput = {
   update?: Prisma.XOR<Prisma.XOR<Prisma.ClientIntakeUpdateToOneWithWhereWithoutFollowUpSuggestionsInput, Prisma.ClientIntakeUpdateWithoutFollowUpSuggestionsInput>, Prisma.ClientIntakeUncheckedUpdateWithoutFollowUpSuggestionsInput>
 }
 
+export type ClientIntakeCreateNestedOneWithoutFormTokensInput = {
+  create?: Prisma.XOR<Prisma.ClientIntakeCreateWithoutFormTokensInput, Prisma.ClientIntakeUncheckedCreateWithoutFormTokensInput>
+  connectOrCreate?: Prisma.ClientIntakeCreateOrConnectWithoutFormTokensInput
+  connect?: Prisma.ClientIntakeWhereUniqueInput
+}
+
+export type ClientIntakeUpdateOneWithoutFormTokensNestedInput = {
+  create?: Prisma.XOR<Prisma.ClientIntakeCreateWithoutFormTokensInput, Prisma.ClientIntakeUncheckedCreateWithoutFormTokensInput>
+  connectOrCreate?: Prisma.ClientIntakeCreateOrConnectWithoutFormTokensInput
+  upsert?: Prisma.ClientIntakeUpsertWithoutFormTokensInput
+  disconnect?: Prisma.ClientIntakeWhereInput | boolean
+  delete?: Prisma.ClientIntakeWhereInput | boolean
+  connect?: Prisma.ClientIntakeWhereUniqueInput
+  update?: Prisma.XOR<Prisma.XOR<Prisma.ClientIntakeUpdateToOneWithWhereWithoutFormTokensInput, Prisma.ClientIntakeUpdateWithoutFormTokensInput>, Prisma.ClientIntakeUncheckedUpdateWithoutFormTokensInput>
+}
+
 export type ClientIntakeCreateWithoutClientInput = {
   id?: string
   createdByUserId: string
@@ -1313,8 +1336,9 @@ export type ClientIntakeCreateWithoutClientInput = {
   updatedAt?: Date | string
   duplicatedFrom?: Prisma.ClientIntakeCreateNestedOneWithoutDuplicatesInput
   duplicates?: Prisma.ClientIntakeCreateNestedManyWithoutDuplicatedFromInput
-  tripBriefs?: Prisma.TripBriefCreateNestedManyWithoutIntakeInput
   followUpSuggestions?: Prisma.FollowUpSuggestionCreateNestedManyWithoutIntakeInput
+  formTokens?: Prisma.IntakeFormTokenCreateNestedManyWithoutIntakeInput
+  tripBriefs?: Prisma.TripBriefCreateNestedManyWithoutIntakeInput
 }
 
 export type ClientIntakeUncheckedCreateWithoutClientInput = {
@@ -1357,8 +1381,9 @@ export type ClientIntakeUncheckedCreateWithoutClientInput = {
   createdAt?: Date | string
   updatedAt?: Date | string
   duplicates?: Prisma.ClientIntakeUncheckedCreateNestedManyWithoutDuplicatedFromInput
-  tripBriefs?: Prisma.TripBriefUncheckedCreateNestedManyWithoutIntakeInput
   followUpSuggestions?: Prisma.FollowUpSuggestionUncheckedCreateNestedManyWithoutIntakeInput
+  formTokens?: Prisma.IntakeFormTokenUncheckedCreateNestedManyWithoutIntakeInput
+  tripBriefs?: Prisma.TripBriefUncheckedCreateNestedManyWithoutIntakeInput
 }
 
 export type ClientIntakeCreateOrConnectWithoutClientInput = {
@@ -1472,8 +1497,9 @@ export type ClientIntakeCreateWithoutDuplicatesInput = {
   updatedAt?: Date | string
   client: Prisma.ClientCreateNestedOneWithoutIntakesInput
   duplicatedFrom?: Prisma.ClientIntakeCreateNestedOneWithoutDuplicatesInput
-  tripBriefs?: Prisma.TripBriefCreateNestedManyWithoutIntakeInput
   followUpSuggestions?: Prisma.FollowUpSuggestionCreateNestedManyWithoutIntakeInput
+  formTokens?: Prisma.IntakeFormTokenCreateNestedManyWithoutIntakeInput
+  tripBriefs?: Prisma.TripBriefCreateNestedManyWithoutIntakeInput
 }
 
 export type ClientIntakeUncheckedCreateWithoutDuplicatesInput = {
@@ -1516,8 +1542,9 @@ export type ClientIntakeUncheckedCreateWithoutDuplicatesInput = {
   completedAt?: Date | string | null
   createdAt?: Date | string
   updatedAt?: Date | string
-  tripBriefs?: Prisma.TripBriefUncheckedCreateNestedManyWithoutIntakeInput
   followUpSuggestions?: Prisma.FollowUpSuggestionUncheckedCreateNestedManyWithoutIntakeInput
+  formTokens?: Prisma.IntakeFormTokenUncheckedCreateNestedManyWithoutIntakeInput
+  tripBriefs?: Prisma.TripBriefUncheckedCreateNestedManyWithoutIntakeInput
 }
 
 export type ClientIntakeCreateOrConnectWithoutDuplicatesInput = {
@@ -1565,8 +1592,9 @@ export type ClientIntakeCreateWithoutDuplicatedFromInput = {
   updatedAt?: Date | string
   client: Prisma.ClientCreateNestedOneWithoutIntakesInput
   duplicates?: Prisma.ClientIntakeCreateNestedManyWithoutDuplicatedFromInput
-  tripBriefs?: Prisma.TripBriefCreateNestedManyWithoutIntakeInput
   followUpSuggestions?: Prisma.FollowUpSuggestionCreateNestedManyWithoutIntakeInput
+  formTokens?: Prisma.IntakeFormTokenCreateNestedManyWithoutIntakeInput
+  tripBriefs?: Prisma.TripBriefCreateNestedManyWithoutIntakeInput
 }
 
 export type ClientIntakeUncheckedCreateWithoutDuplicatedFromInput = {
@@ -1609,8 +1637,9 @@ export type ClientIntakeUncheckedCreateWithoutDuplicatedFromInput = {
   createdAt?: Date | string
   updatedAt?: Date | string
   duplicates?: Prisma.ClientIntakeUncheckedCreateNestedManyWithoutDuplicatedFromInput
-  tripBriefs?: Prisma.TripBriefUncheckedCreateNestedManyWithoutIntakeInput
   followUpSuggestions?: Prisma.FollowUpSuggestionUncheckedCreateNestedManyWithoutIntakeInput
+  formTokens?: Prisma.IntakeFormTokenUncheckedCreateNestedManyWithoutIntakeInput
+  tripBriefs?: Prisma.TripBriefUncheckedCreateNestedManyWithoutIntakeInput
 }
 
 export type ClientIntakeCreateOrConnectWithoutDuplicatedFromInput = {
@@ -1674,8 +1703,9 @@ export type ClientIntakeUpdateWithoutDuplicatesInput = {
   updatedAt?: Prisma.DateTimeFieldUpdateOperationsInput | Date | string
   client?: Prisma.ClientUpdateOneRequiredWithoutIntakesNestedInput
   duplicatedFrom?: Prisma.ClientIntakeUpdateOneWithoutDuplicatesNestedInput
-  tripBriefs?: Prisma.TripBriefUpdateManyWithoutIntakeNestedInput
   followUpSuggestions?: Prisma.FollowUpSuggestionUpdateManyWithoutIntakeNestedInput
+  formTokens?: Prisma.IntakeFormTokenUpdateManyWithoutIntakeNestedInput
+  tripBriefs?: Prisma.TripBriefUpdateManyWithoutIntakeNestedInput
 }
 
 export type ClientIntakeUncheckedUpdateWithoutDuplicatesInput = {
@@ -1718,8 +1748,9 @@ export type ClientIntakeUncheckedUpdateWithoutDuplicatesInput = {
   completedAt?: Prisma.NullableDateTimeFieldUpdateOperationsInput | Date | string | null
   createdAt?: Prisma.DateTimeFieldUpdateOperationsInput | Date | string
   updatedAt?: Prisma.DateTimeFieldUpdateOperationsInput | Date | string
-  tripBriefs?: Prisma.TripBriefUncheckedUpdateManyWithoutIntakeNestedInput
   followUpSuggestions?: Prisma.FollowUpSuggestionUncheckedUpdateManyWithoutIntakeNestedInput
+  formTokens?: Prisma.IntakeFormTokenUncheckedUpdateManyWithoutIntakeNestedInput
+  tripBriefs?: Prisma.TripBriefUncheckedUpdateManyWithoutIntakeNestedInput
 }
 
 export type ClientIntakeUpsertWithWhereUniqueWithoutDuplicatedFromInput = {
@@ -1780,6 +1811,7 @@ export type ClientIntakeCreateWithoutTripBriefsInput = {
   duplicatedFrom?: Prisma.ClientIntakeCreateNestedOneWithoutDuplicatesInput
   duplicates?: Prisma.ClientIntakeCreateNestedManyWithoutDuplicatedFromInput
   followUpSuggestions?: Prisma.FollowUpSuggestionCreateNestedManyWithoutIntakeInput
+  formTokens?: Prisma.IntakeFormTokenCreateNestedManyWithoutIntakeInput
 }
 
 export type ClientIntakeUncheckedCreateWithoutTripBriefsInput = {
@@ -1824,6 +1856,7 @@ export type ClientIntakeUncheckedCreateWithoutTripBriefsInput = {
   updatedAt?: Date | string
   duplicates?: Prisma.ClientIntakeUncheckedCreateNestedManyWithoutDuplicatedFromInput
   followUpSuggestions?: Prisma.FollowUpSuggestionUncheckedCreateNestedManyWithoutIntakeInput
+  formTokens?: Prisma.IntakeFormTokenUncheckedCreateNestedManyWithoutIntakeInput
 }
 
 export type ClientIntakeCreateOrConnectWithoutTripBriefsInput = {
@@ -1884,6 +1917,7 @@ export type ClientIntakeUpdateWithoutTripBriefsInput = {
   duplicatedFrom?: Prisma.ClientIntakeUpdateOneWithoutDuplicatesNestedInput
   duplicates?: Prisma.ClientIntakeUpdateManyWithoutDuplicatedFromNestedInput
   followUpSuggestions?: Prisma.FollowUpSuggestionUpdateManyWithoutIntakeNestedInput
+  formTokens?: Prisma.IntakeFormTokenUpdateManyWithoutIntakeNestedInput
 }
 
 export type ClientIntakeUncheckedUpdateWithoutTripBriefsInput = {
@@ -1928,6 +1962,7 @@ export type ClientIntakeUncheckedUpdateWithoutTripBriefsInput = {
   updatedAt?: Prisma.DateTimeFieldUpdateOperationsInput | Date | string
   duplicates?: Prisma.ClientIntakeUncheckedUpdateManyWithoutDuplicatedFromNestedInput
   followUpSuggestions?: Prisma.FollowUpSuggestionUncheckedUpdateManyWithoutIntakeNestedInput
+  formTokens?: Prisma.IntakeFormTokenUncheckedUpdateManyWithoutIntakeNestedInput
 }
 
 export type ClientIntakeCreateWithoutFollowUpSuggestionsInput = {
@@ -1971,6 +2006,7 @@ export type ClientIntakeCreateWithoutFollowUpSuggestionsInput = {
   client: Prisma.ClientCreateNestedOneWithoutIntakesInput
   duplicatedFrom?: Prisma.ClientIntakeCreateNestedOneWithoutDuplicatesInput
   duplicates?: Prisma.ClientIntakeCreateNestedManyWithoutDuplicatedFromInput
+  formTokens?: Prisma.IntakeFormTokenCreateNestedManyWithoutIntakeInput
   tripBriefs?: Prisma.TripBriefCreateNestedManyWithoutIntakeInput
 }
 
@@ -2015,6 +2051,7 @@ export type ClientIntakeUncheckedCreateWithoutFollowUpSuggestionsInput = {
   createdAt?: Date | string
   updatedAt?: Date | string
   duplicates?: Prisma.ClientIntakeUncheckedCreateNestedManyWithoutDuplicatedFromInput
+  formTokens?: Prisma.IntakeFormTokenUncheckedCreateNestedManyWithoutIntakeInput
   tripBriefs?: Prisma.TripBriefUncheckedCreateNestedManyWithoutIntakeInput
 }
 
@@ -2075,6 +2112,7 @@ export type ClientIntakeUpdateWithoutFollowUpSuggestionsInput = {
   client?: Prisma.ClientUpdateOneRequiredWithoutIntakesNestedInput
   duplicatedFrom?: Prisma.ClientIntakeUpdateOneWithoutDuplicatesNestedInput
   duplicates?: Prisma.ClientIntakeUpdateManyWithoutDuplicatedFromNestedInput
+  formTokens?: Prisma.IntakeFormTokenUpdateManyWithoutIntakeNestedInput
   tripBriefs?: Prisma.TripBriefUpdateManyWithoutIntakeNestedInput
 }
 
@@ -2119,6 +2157,203 @@ export type ClientIntakeUncheckedUpdateWithoutFollowUpSuggestionsInput = {
   createdAt?: Prisma.DateTimeFieldUpdateOperationsInput | Date | string
   updatedAt?: Prisma.DateTimeFieldUpdateOperationsInput | Date | string
   duplicates?: Prisma.ClientIntakeUncheckedUpdateManyWithoutDuplicatedFromNestedInput
+  formTokens?: Prisma.IntakeFormTokenUncheckedUpdateManyWithoutIntakeNestedInput
+  tripBriefs?: Prisma.TripBriefUncheckedUpdateManyWithoutIntakeNestedInput
+}
+
+export type ClientIntakeCreateWithoutFormTokensInput = {
+  id?: string
+  createdByUserId: string
+  status?: $Enums.IntakeStatus
+  isTemplate?: boolean
+  templateName?: string | null
+  tripType?: $Enums.TripType | null
+  tripTypeOther?: string | null
+  destinations?: Prisma.NullableJsonNullValueInput | runtime.InputJsonValue
+  departureAirports?: Prisma.NullableJsonNullValueInput | runtime.InputJsonValue
+  dateFlexibility?: $Enums.DateFlexibility | null
+  earliestDeparture?: Date | string | null
+  latestReturn?: Date | string | null
+  tripDurationDays?: number | null
+  budgetMin?: number | null
+  budgetMax?: number | null
+  budgetCurrency?: string
+  budgetNotes?: string | null
+  cabinPreference?: $Enums.CabinPreference | null
+  hotelStyles?: Prisma.NullableJsonNullValueInput | runtime.InputJsonValue
+  loyaltyNotes?: string | null
+  accessibilityNeeds?: string | null
+  dietaryNeeds?: string | null
+  travelPace?: $Enums.TravelPace | null
+  layoverTolerance?: $Enums.LayoverTolerance | null
+  luxuryPreference?: $Enums.LuxuryPreference | null
+  familyFriendly?: boolean | null
+  travelerCount?: number | null
+  childrenCount?: number | null
+  childrenAges?: Prisma.NullableJsonNullValueInput | runtime.InputJsonValue
+  desiredExperiences?: Prisma.NullableJsonNullValueInput | runtime.InputJsonValue
+  dealbreakers?: Prisma.NullableJsonNullValueInput | runtime.InputJsonValue
+  preferredAirlines?: Prisma.NullableJsonNullValueInput | runtime.InputJsonValue
+  avoidedAirlines?: Prisma.NullableJsonNullValueInput | runtime.InputJsonValue
+  notes?: string | null
+  completedAt?: Date | string | null
+  createdAt?: Date | string
+  updatedAt?: Date | string
+  client: Prisma.ClientCreateNestedOneWithoutIntakesInput
+  duplicatedFrom?: Prisma.ClientIntakeCreateNestedOneWithoutDuplicatesInput
+  duplicates?: Prisma.ClientIntakeCreateNestedManyWithoutDuplicatedFromInput
+  followUpSuggestions?: Prisma.FollowUpSuggestionCreateNestedManyWithoutIntakeInput
+  tripBriefs?: Prisma.TripBriefCreateNestedManyWithoutIntakeInput
+}
+
+export type ClientIntakeUncheckedCreateWithoutFormTokensInput = {
+  id?: string
+  clientId: string
+  createdByUserId: string
+  status?: $Enums.IntakeStatus
+  isTemplate?: boolean
+  templateName?: string | null
+  duplicatedFromId?: string | null
+  tripType?: $Enums.TripType | null
+  tripTypeOther?: string | null
+  destinations?: Prisma.NullableJsonNullValueInput | runtime.InputJsonValue
+  departureAirports?: Prisma.NullableJsonNullValueInput | runtime.InputJsonValue
+  dateFlexibility?: $Enums.DateFlexibility | null
+  earliestDeparture?: Date | string | null
+  latestReturn?: Date | string | null
+  tripDurationDays?: number | null
+  budgetMin?: number | null
+  budgetMax?: number | null
+  budgetCurrency?: string
+  budgetNotes?: string | null
+  cabinPreference?: $Enums.CabinPreference | null
+  hotelStyles?: Prisma.NullableJsonNullValueInput | runtime.InputJsonValue
+  loyaltyNotes?: string | null
+  accessibilityNeeds?: string | null
+  dietaryNeeds?: string | null
+  travelPace?: $Enums.TravelPace | null
+  layoverTolerance?: $Enums.LayoverTolerance | null
+  luxuryPreference?: $Enums.LuxuryPreference | null
+  familyFriendly?: boolean | null
+  travelerCount?: number | null
+  childrenCount?: number | null
+  childrenAges?: Prisma.NullableJsonNullValueInput | runtime.InputJsonValue
+  desiredExperiences?: Prisma.NullableJsonNullValueInput | runtime.InputJsonValue
+  dealbreakers?: Prisma.NullableJsonNullValueInput | runtime.InputJsonValue
+  preferredAirlines?: Prisma.NullableJsonNullValueInput | runtime.InputJsonValue
+  avoidedAirlines?: Prisma.NullableJsonNullValueInput | runtime.InputJsonValue
+  notes?: string | null
+  completedAt?: Date | string | null
+  createdAt?: Date | string
+  updatedAt?: Date | string
+  duplicates?: Prisma.ClientIntakeUncheckedCreateNestedManyWithoutDuplicatedFromInput
+  followUpSuggestions?: Prisma.FollowUpSuggestionUncheckedCreateNestedManyWithoutIntakeInput
+  tripBriefs?: Prisma.TripBriefUncheckedCreateNestedManyWithoutIntakeInput
+}
+
+export type ClientIntakeCreateOrConnectWithoutFormTokensInput = {
+  where: Prisma.ClientIntakeWhereUniqueInput
+  create: Prisma.XOR<Prisma.ClientIntakeCreateWithoutFormTokensInput, Prisma.ClientIntakeUncheckedCreateWithoutFormTokensInput>
+}
+
+export type ClientIntakeUpsertWithoutFormTokensInput = {
+  update: Prisma.XOR<Prisma.ClientIntakeUpdateWithoutFormTokensInput, Prisma.ClientIntakeUncheckedUpdateWithoutFormTokensInput>
+  create: Prisma.XOR<Prisma.ClientIntakeCreateWithoutFormTokensInput, Prisma.ClientIntakeUncheckedCreateWithoutFormTokensInput>
+  where?: Prisma.ClientIntakeWhereInput
+}
+
+export type ClientIntakeUpdateToOneWithWhereWithoutFormTokensInput = {
+  where?: Prisma.ClientIntakeWhereInput
+  data: Prisma.XOR<Prisma.ClientIntakeUpdateWithoutFormTokensInput, Prisma.ClientIntakeUncheckedUpdateWithoutFormTokensInput>
+}
+
+export type ClientIntakeUpdateWithoutFormTokensInput = {
+  id?: Prisma.StringFieldUpdateOperationsInput | string
+  createdByUserId?: Prisma.StringFieldUpdateOperationsInput | string
+  status?: Prisma.EnumIntakeStatusFieldUpdateOperationsInput | $Enums.IntakeStatus
+  isTemplate?: Prisma.BoolFieldUpdateOperationsInput | boolean
+  templateName?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
+  tripType?: Prisma.NullableEnumTripTypeFieldUpdateOperationsInput | $Enums.TripType | null
+  tripTypeOther?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
+  destinations?: Prisma.NullableJsonNullValueInput | runtime.InputJsonValue
+  departureAirports?: Prisma.NullableJsonNullValueInput | runtime.InputJsonValue
+  dateFlexibility?: Prisma.NullableEnumDateFlexibilityFieldUpdateOperationsInput | $Enums.DateFlexibility | null
+  earliestDeparture?: Prisma.NullableDateTimeFieldUpdateOperationsInput | Date | string | null
+  latestReturn?: Prisma.NullableDateTimeFieldUpdateOperationsInput | Date | string | null
+  tripDurationDays?: Prisma.NullableIntFieldUpdateOperationsInput | number | null
+  budgetMin?: Prisma.NullableIntFieldUpdateOperationsInput | number | null
+  budgetMax?: Prisma.NullableIntFieldUpdateOperationsInput | number | null
+  budgetCurrency?: Prisma.StringFieldUpdateOperationsInput | string
+  budgetNotes?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
+  cabinPreference?: Prisma.NullableEnumCabinPreferenceFieldUpdateOperationsInput | $Enums.CabinPreference | null
+  hotelStyles?: Prisma.NullableJsonNullValueInput | runtime.InputJsonValue
+  loyaltyNotes?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
+  accessibilityNeeds?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
+  dietaryNeeds?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
+  travelPace?: Prisma.NullableEnumTravelPaceFieldUpdateOperationsInput | $Enums.TravelPace | null
+  layoverTolerance?: Prisma.NullableEnumLayoverToleranceFieldUpdateOperationsInput | $Enums.LayoverTolerance | null
+  luxuryPreference?: Prisma.NullableEnumLuxuryPreferenceFieldUpdateOperationsInput | $Enums.LuxuryPreference | null
+  familyFriendly?: Prisma.NullableBoolFieldUpdateOperationsInput | boolean | null
+  travelerCount?: Prisma.NullableIntFieldUpdateOperationsInput | number | null
+  childrenCount?: Prisma.NullableIntFieldUpdateOperationsInput | number | null
+  childrenAges?: Prisma.NullableJsonNullValueInput | runtime.InputJsonValue
+  desiredExperiences?: Prisma.NullableJsonNullValueInput | runtime.InputJsonValue
+  dealbreakers?: Prisma.NullableJsonNullValueInput | runtime.InputJsonValue
+  preferredAirlines?: Prisma.NullableJsonNullValueInput | runtime.InputJsonValue
+  avoidedAirlines?: Prisma.NullableJsonNullValueInput | runtime.InputJsonValue
+  notes?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
+  completedAt?: Prisma.NullableDateTimeFieldUpdateOperationsInput | Date | string | null
+  createdAt?: Prisma.DateTimeFieldUpdateOperationsInput | Date | string
+  updatedAt?: Prisma.DateTimeFieldUpdateOperationsInput | Date | string
+  client?: Prisma.ClientUpdateOneRequiredWithoutIntakesNestedInput
+  duplicatedFrom?: Prisma.ClientIntakeUpdateOneWithoutDuplicatesNestedInput
+  duplicates?: Prisma.ClientIntakeUpdateManyWithoutDuplicatedFromNestedInput
+  followUpSuggestions?: Prisma.FollowUpSuggestionUpdateManyWithoutIntakeNestedInput
+  tripBriefs?: Prisma.TripBriefUpdateManyWithoutIntakeNestedInput
+}
+
+export type ClientIntakeUncheckedUpdateWithoutFormTokensInput = {
+  id?: Prisma.StringFieldUpdateOperationsInput | string
+  clientId?: Prisma.StringFieldUpdateOperationsInput | string
+  createdByUserId?: Prisma.StringFieldUpdateOperationsInput | string
+  status?: Prisma.EnumIntakeStatusFieldUpdateOperationsInput | $Enums.IntakeStatus
+  isTemplate?: Prisma.BoolFieldUpdateOperationsInput | boolean
+  templateName?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
+  duplicatedFromId?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
+  tripType?: Prisma.NullableEnumTripTypeFieldUpdateOperationsInput | $Enums.TripType | null
+  tripTypeOther?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
+  destinations?: Prisma.NullableJsonNullValueInput | runtime.InputJsonValue
+  departureAirports?: Prisma.NullableJsonNullValueInput | runtime.InputJsonValue
+  dateFlexibility?: Prisma.NullableEnumDateFlexibilityFieldUpdateOperationsInput | $Enums.DateFlexibility | null
+  earliestDeparture?: Prisma.NullableDateTimeFieldUpdateOperationsInput | Date | string | null
+  latestReturn?: Prisma.NullableDateTimeFieldUpdateOperationsInput | Date | string | null
+  tripDurationDays?: Prisma.NullableIntFieldUpdateOperationsInput | number | null
+  budgetMin?: Prisma.NullableIntFieldUpdateOperationsInput | number | null
+  budgetMax?: Prisma.NullableIntFieldUpdateOperationsInput | number | null
+  budgetCurrency?: Prisma.StringFieldUpdateOperationsInput | string
+  budgetNotes?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
+  cabinPreference?: Prisma.NullableEnumCabinPreferenceFieldUpdateOperationsInput | $Enums.CabinPreference | null
+  hotelStyles?: Prisma.NullableJsonNullValueInput | runtime.InputJsonValue
+  loyaltyNotes?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
+  accessibilityNeeds?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
+  dietaryNeeds?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
+  travelPace?: Prisma.NullableEnumTravelPaceFieldUpdateOperationsInput | $Enums.TravelPace | null
+  layoverTolerance?: Prisma.NullableEnumLayoverToleranceFieldUpdateOperationsInput | $Enums.LayoverTolerance | null
+  luxuryPreference?: Prisma.NullableEnumLuxuryPreferenceFieldUpdateOperationsInput | $Enums.LuxuryPreference | null
+  familyFriendly?: Prisma.NullableBoolFieldUpdateOperationsInput | boolean | null
+  travelerCount?: Prisma.NullableIntFieldUpdateOperationsInput | number | null
+  childrenCount?: Prisma.NullableIntFieldUpdateOperationsInput | number | null
+  childrenAges?: Prisma.NullableJsonNullValueInput | runtime.InputJsonValue
+  desiredExperiences?: Prisma.NullableJsonNullValueInput | runtime.InputJsonValue
+  dealbreakers?: Prisma.NullableJsonNullValueInput | runtime.InputJsonValue
+  preferredAirlines?: Prisma.NullableJsonNullValueInput | runtime.InputJsonValue
+  avoidedAirlines?: Prisma.NullableJsonNullValueInput | runtime.InputJsonValue
+  notes?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
+  completedAt?: Prisma.NullableDateTimeFieldUpdateOperationsInput | Date | string | null
+  createdAt?: Prisma.DateTimeFieldUpdateOperationsInput | Date | string
+  updatedAt?: Prisma.DateTimeFieldUpdateOperationsInput | Date | string
+  duplicates?: Prisma.ClientIntakeUncheckedUpdateManyWithoutDuplicatedFromNestedInput
+  followUpSuggestions?: Prisma.FollowUpSuggestionUncheckedUpdateManyWithoutIntakeNestedInput
   tripBriefs?: Prisma.TripBriefUncheckedUpdateManyWithoutIntakeNestedInput
 }
 
@@ -2203,8 +2438,9 @@ export type ClientIntakeUpdateWithoutClientInput = {
   updatedAt?: Prisma.DateTimeFieldUpdateOperationsInput | Date | string
   duplicatedFrom?: Prisma.ClientIntakeUpdateOneWithoutDuplicatesNestedInput
   duplicates?: Prisma.ClientIntakeUpdateManyWithoutDuplicatedFromNestedInput
-  tripBriefs?: Prisma.TripBriefUpdateManyWithoutIntakeNestedInput
   followUpSuggestions?: Prisma.FollowUpSuggestionUpdateManyWithoutIntakeNestedInput
+  formTokens?: Prisma.IntakeFormTokenUpdateManyWithoutIntakeNestedInput
+  tripBriefs?: Prisma.TripBriefUpdateManyWithoutIntakeNestedInput
 }
 
 export type ClientIntakeUncheckedUpdateWithoutClientInput = {
@@ -2247,8 +2483,9 @@ export type ClientIntakeUncheckedUpdateWithoutClientInput = {
   createdAt?: Prisma.DateTimeFieldUpdateOperationsInput | Date | string
   updatedAt?: Prisma.DateTimeFieldUpdateOperationsInput | Date | string
   duplicates?: Prisma.ClientIntakeUncheckedUpdateManyWithoutDuplicatedFromNestedInput
-  tripBriefs?: Prisma.TripBriefUncheckedUpdateManyWithoutIntakeNestedInput
   followUpSuggestions?: Prisma.FollowUpSuggestionUncheckedUpdateManyWithoutIntakeNestedInput
+  formTokens?: Prisma.IntakeFormTokenUncheckedUpdateManyWithoutIntakeNestedInput
+  tripBriefs?: Prisma.TripBriefUncheckedUpdateManyWithoutIntakeNestedInput
 }
 
 export type ClientIntakeUncheckedUpdateManyWithoutClientInput = {
@@ -2373,8 +2610,9 @@ export type ClientIntakeUpdateWithoutDuplicatedFromInput = {
   updatedAt?: Prisma.DateTimeFieldUpdateOperationsInput | Date | string
   client?: Prisma.ClientUpdateOneRequiredWithoutIntakesNestedInput
   duplicates?: Prisma.ClientIntakeUpdateManyWithoutDuplicatedFromNestedInput
-  tripBriefs?: Prisma.TripBriefUpdateManyWithoutIntakeNestedInput
   followUpSuggestions?: Prisma.FollowUpSuggestionUpdateManyWithoutIntakeNestedInput
+  formTokens?: Prisma.IntakeFormTokenUpdateManyWithoutIntakeNestedInput
+  tripBriefs?: Prisma.TripBriefUpdateManyWithoutIntakeNestedInput
 }
 
 export type ClientIntakeUncheckedUpdateWithoutDuplicatedFromInput = {
@@ -2417,8 +2655,9 @@ export type ClientIntakeUncheckedUpdateWithoutDuplicatedFromInput = {
   createdAt?: Prisma.DateTimeFieldUpdateOperationsInput | Date | string
   updatedAt?: Prisma.DateTimeFieldUpdateOperationsInput | Date | string
   duplicates?: Prisma.ClientIntakeUncheckedUpdateManyWithoutDuplicatedFromNestedInput
-  tripBriefs?: Prisma.TripBriefUncheckedUpdateManyWithoutIntakeNestedInput
   followUpSuggestions?: Prisma.FollowUpSuggestionUncheckedUpdateManyWithoutIntakeNestedInput
+  formTokens?: Prisma.IntakeFormTokenUncheckedUpdateManyWithoutIntakeNestedInput
+  tripBriefs?: Prisma.TripBriefUncheckedUpdateManyWithoutIntakeNestedInput
 }
 
 export type ClientIntakeUncheckedUpdateManyWithoutDuplicatedFromInput = {
@@ -2469,14 +2708,16 @@ export type ClientIntakeUncheckedUpdateManyWithoutDuplicatedFromInput = {
 
 export type ClientIntakeCountOutputType = {
   duplicates: number
-  tripBriefs: number
   followUpSuggestions: number
+  formTokens: number
+  tripBriefs: number
 }
 
 export type ClientIntakeCountOutputTypeSelect<ExtArgs extends runtime.Types.Extensions.InternalArgs = runtime.Types.Extensions.DefaultArgs> = {
   duplicates?: boolean | ClientIntakeCountOutputTypeCountDuplicatesArgs
-  tripBriefs?: boolean | ClientIntakeCountOutputTypeCountTripBriefsArgs
   followUpSuggestions?: boolean | ClientIntakeCountOutputTypeCountFollowUpSuggestionsArgs
+  formTokens?: boolean | ClientIntakeCountOutputTypeCountFormTokensArgs
+  tripBriefs?: boolean | ClientIntakeCountOutputTypeCountTripBriefsArgs
 }
 
 /**
@@ -2499,15 +2740,22 @@ export type ClientIntakeCountOutputTypeCountDuplicatesArgs<ExtArgs extends runti
 /**
  * ClientIntakeCountOutputType without action
  */
-export type ClientIntakeCountOutputTypeCountTripBriefsArgs<ExtArgs extends runtime.Types.Extensions.InternalArgs = runtime.Types.Extensions.DefaultArgs> = {
-  where?: Prisma.TripBriefWhereInput
+export type ClientIntakeCountOutputTypeCountFollowUpSuggestionsArgs<ExtArgs extends runtime.Types.Extensions.InternalArgs = runtime.Types.Extensions.DefaultArgs> = {
+  where?: Prisma.FollowUpSuggestionWhereInput
 }
 
 /**
  * ClientIntakeCountOutputType without action
  */
-export type ClientIntakeCountOutputTypeCountFollowUpSuggestionsArgs<ExtArgs extends runtime.Types.Extensions.InternalArgs = runtime.Types.Extensions.DefaultArgs> = {
-  where?: Prisma.FollowUpSuggestionWhereInput
+export type ClientIntakeCountOutputTypeCountFormTokensArgs<ExtArgs extends runtime.Types.Extensions.InternalArgs = runtime.Types.Extensions.DefaultArgs> = {
+  where?: Prisma.IntakeFormTokenWhereInput
+}
+
+/**
+ * ClientIntakeCountOutputType without action
+ */
+export type ClientIntakeCountOutputTypeCountTripBriefsArgs<ExtArgs extends runtime.Types.Extensions.InternalArgs = runtime.Types.Extensions.DefaultArgs> = {
+  where?: Prisma.TripBriefWhereInput
 }
 
 
@@ -2554,8 +2802,9 @@ export type ClientIntakeSelect<ExtArgs extends runtime.Types.Extensions.Internal
   client?: boolean | Prisma.ClientDefaultArgs<ExtArgs>
   duplicatedFrom?: boolean | Prisma.ClientIntake$duplicatedFromArgs<ExtArgs>
   duplicates?: boolean | Prisma.ClientIntake$duplicatesArgs<ExtArgs>
-  tripBriefs?: boolean | Prisma.ClientIntake$tripBriefsArgs<ExtArgs>
   followUpSuggestions?: boolean | Prisma.ClientIntake$followUpSuggestionsArgs<ExtArgs>
+  formTokens?: boolean | Prisma.ClientIntake$formTokensArgs<ExtArgs>
+  tripBriefs?: boolean | Prisma.ClientIntake$tripBriefsArgs<ExtArgs>
   _count?: boolean | Prisma.ClientIntakeCountOutputTypeDefaultArgs<ExtArgs>
 }, ExtArgs["result"]["clientIntake"]>
 
@@ -2694,8 +2943,9 @@ export type ClientIntakeInclude<ExtArgs extends runtime.Types.Extensions.Interna
   client?: boolean | Prisma.ClientDefaultArgs<ExtArgs>
   duplicatedFrom?: boolean | Prisma.ClientIntake$duplicatedFromArgs<ExtArgs>
   duplicates?: boolean | Prisma.ClientIntake$duplicatesArgs<ExtArgs>
-  tripBriefs?: boolean | Prisma.ClientIntake$tripBriefsArgs<ExtArgs>
   followUpSuggestions?: boolean | Prisma.ClientIntake$followUpSuggestionsArgs<ExtArgs>
+  formTokens?: boolean | Prisma.ClientIntake$formTokensArgs<ExtArgs>
+  tripBriefs?: boolean | Prisma.ClientIntake$tripBriefsArgs<ExtArgs>
   _count?: boolean | Prisma.ClientIntakeCountOutputTypeDefaultArgs<ExtArgs>
 }
 export type ClientIntakeIncludeCreateManyAndReturn<ExtArgs extends runtime.Types.Extensions.InternalArgs = runtime.Types.Extensions.DefaultArgs> = {
@@ -2713,8 +2963,9 @@ export type $ClientIntakePayload<ExtArgs extends runtime.Types.Extensions.Intern
     client: Prisma.$ClientPayload<ExtArgs>
     duplicatedFrom: Prisma.$ClientIntakePayload<ExtArgs> | null
     duplicates: Prisma.$ClientIntakePayload<ExtArgs>[]
-    tripBriefs: Prisma.$TripBriefPayload<ExtArgs>[]
     followUpSuggestions: Prisma.$FollowUpSuggestionPayload<ExtArgs>[]
+    formTokens: Prisma.$IntakeFormTokenPayload<ExtArgs>[]
+    tripBriefs: Prisma.$TripBriefPayload<ExtArgs>[]
   }
   scalars: runtime.Types.Extensions.GetPayloadResult<{
     id: string
@@ -3153,8 +3404,9 @@ export interface Prisma__ClientIntakeClient<T, Null = never, ExtArgs extends run
   client<T extends Prisma.ClientDefaultArgs<ExtArgs> = {}>(args?: Prisma.Subset<T, Prisma.ClientDefaultArgs<ExtArgs>>): Prisma.Prisma__ClientClient<runtime.Types.Result.GetResult<Prisma.$ClientPayload<ExtArgs>, T, "findUniqueOrThrow", GlobalOmitOptions> | Null, Null, ExtArgs, GlobalOmitOptions>
   duplicatedFrom<T extends Prisma.ClientIntake$duplicatedFromArgs<ExtArgs> = {}>(args?: Prisma.Subset<T, Prisma.ClientIntake$duplicatedFromArgs<ExtArgs>>): Prisma.Prisma__ClientIntakeClient<runtime.Types.Result.GetResult<Prisma.$ClientIntakePayload<ExtArgs>, T, "findUniqueOrThrow", GlobalOmitOptions> | null, null, ExtArgs, GlobalOmitOptions>
   duplicates<T extends Prisma.ClientIntake$duplicatesArgs<ExtArgs> = {}>(args?: Prisma.Subset<T, Prisma.ClientIntake$duplicatesArgs<ExtArgs>>): Prisma.PrismaPromise<runtime.Types.Result.GetResult<Prisma.$ClientIntakePayload<ExtArgs>, T, "findMany", GlobalOmitOptions> | Null>
-  tripBriefs<T extends Prisma.ClientIntake$tripBriefsArgs<ExtArgs> = {}>(args?: Prisma.Subset<T, Prisma.ClientIntake$tripBriefsArgs<ExtArgs>>): Prisma.PrismaPromise<runtime.Types.Result.GetResult<Prisma.$TripBriefPayload<ExtArgs>, T, "findMany", GlobalOmitOptions> | Null>
   followUpSuggestions<T extends Prisma.ClientIntake$followUpSuggestionsArgs<ExtArgs> = {}>(args?: Prisma.Subset<T, Prisma.ClientIntake$followUpSuggestionsArgs<ExtArgs>>): Prisma.PrismaPromise<runtime.Types.Result.GetResult<Prisma.$FollowUpSuggestionPayload<ExtArgs>, T, "findMany", GlobalOmitOptions> | Null>
+  formTokens<T extends Prisma.ClientIntake$formTokensArgs<ExtArgs> = {}>(args?: Prisma.Subset<T, Prisma.ClientIntake$formTokensArgs<ExtArgs>>): Prisma.PrismaPromise<runtime.Types.Result.GetResult<Prisma.$IntakeFormTokenPayload<ExtArgs>, T, "findMany", GlobalOmitOptions> | Null>
+  tripBriefs<T extends Prisma.ClientIntake$tripBriefsArgs<ExtArgs> = {}>(args?: Prisma.Subset<T, Prisma.ClientIntake$tripBriefsArgs<ExtArgs>>): Prisma.PrismaPromise<runtime.Types.Result.GetResult<Prisma.$TripBriefPayload<ExtArgs>, T, "findMany", GlobalOmitOptions> | Null>
   /**
    * Attaches callbacks for the resolution and/or rejection of the Promise.
    * @param onfulfilled The callback to execute when the Promise is resolved.
@@ -3667,30 +3919,6 @@ export type ClientIntake$duplicatesArgs<ExtArgs extends runtime.Types.Extensions
 }
 
 /**
- * ClientIntake.tripBriefs
- */
-export type ClientIntake$tripBriefsArgs<ExtArgs extends runtime.Types.Extensions.InternalArgs = runtime.Types.Extensions.DefaultArgs> = {
-  /**
-   * Select specific fields to fetch from the TripBrief
-   */
-  select?: Prisma.TripBriefSelect<ExtArgs> | null
-  /**
-   * Omit specific fields from the TripBrief
-   */
-  omit?: Prisma.TripBriefOmit<ExtArgs> | null
-  /**
-   * Choose, which related nodes to fetch as well
-   */
-  include?: Prisma.TripBriefInclude<ExtArgs> | null
-  where?: Prisma.TripBriefWhereInput
-  orderBy?: Prisma.TripBriefOrderByWithRelationInput | Prisma.TripBriefOrderByWithRelationInput[]
-  cursor?: Prisma.TripBriefWhereUniqueInput
-  take?: number
-  skip?: number
-  distinct?: Prisma.TripBriefScalarFieldEnum | Prisma.TripBriefScalarFieldEnum[]
-}
-
-/**
  * ClientIntake.followUpSuggestions
  */
 export type ClientIntake$followUpSuggestionsArgs<ExtArgs extends runtime.Types.Extensions.InternalArgs = runtime.Types.Extensions.DefaultArgs> = {
@@ -3712,6 +3940,54 @@ export type ClientIntake$followUpSuggestionsArgs<ExtArgs extends runtime.Types.E
   take?: number
   skip?: number
   distinct?: Prisma.FollowUpSuggestionScalarFieldEnum | Prisma.FollowUpSuggestionScalarFieldEnum[]
+}
+
+/**
+ * ClientIntake.formTokens
+ */
+export type ClientIntake$formTokensArgs<ExtArgs extends runtime.Types.Extensions.InternalArgs = runtime.Types.Extensions.DefaultArgs> = {
+  /**
+   * Select specific fields to fetch from the IntakeFormToken
+   */
+  select?: Prisma.IntakeFormTokenSelect<ExtArgs> | null
+  /**
+   * Omit specific fields from the IntakeFormToken
+   */
+  omit?: Prisma.IntakeFormTokenOmit<ExtArgs> | null
+  /**
+   * Choose, which related nodes to fetch as well
+   */
+  include?: Prisma.IntakeFormTokenInclude<ExtArgs> | null
+  where?: Prisma.IntakeFormTokenWhereInput
+  orderBy?: Prisma.IntakeFormTokenOrderByWithRelationInput | Prisma.IntakeFormTokenOrderByWithRelationInput[]
+  cursor?: Prisma.IntakeFormTokenWhereUniqueInput
+  take?: number
+  skip?: number
+  distinct?: Prisma.IntakeFormTokenScalarFieldEnum | Prisma.IntakeFormTokenScalarFieldEnum[]
+}
+
+/**
+ * ClientIntake.tripBriefs
+ */
+export type ClientIntake$tripBriefsArgs<ExtArgs extends runtime.Types.Extensions.InternalArgs = runtime.Types.Extensions.DefaultArgs> = {
+  /**
+   * Select specific fields to fetch from the TripBrief
+   */
+  select?: Prisma.TripBriefSelect<ExtArgs> | null
+  /**
+   * Omit specific fields from the TripBrief
+   */
+  omit?: Prisma.TripBriefOmit<ExtArgs> | null
+  /**
+   * Choose, which related nodes to fetch as well
+   */
+  include?: Prisma.TripBriefInclude<ExtArgs> | null
+  where?: Prisma.TripBriefWhereInput
+  orderBy?: Prisma.TripBriefOrderByWithRelationInput | Prisma.TripBriefOrderByWithRelationInput[]
+  cursor?: Prisma.TripBriefWhereUniqueInput
+  take?: number
+  skip?: number
+  distinct?: Prisma.TripBriefScalarFieldEnum | Prisma.TripBriefScalarFieldEnum[]
 }
 
 /**

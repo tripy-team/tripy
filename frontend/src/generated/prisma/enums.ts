@@ -28,10 +28,53 @@ export type ClientStatus = (typeof ClientStatus)[keyof typeof ClientStatus]
 
 export const ClientType = {
   individual: 'individual',
-  business: 'business'
+  business: 'business',
+  group: 'group'
 } as const
 
 export type ClientType = (typeof ClientType)[keyof typeof ClientType]
+
+
+export const GroupType = {
+  leisure_friends: 'leisure_friends',
+  destination_wedding: 'destination_wedding',
+  family_reunion: 'family_reunion',
+  corporate_offsite: 'corporate_offsite',
+  multi_generational: 'multi_generational',
+  other: 'other'
+} as const
+
+export type GroupType = (typeof GroupType)[keyof typeof GroupType]
+
+
+export const GroupDecisionStyle = {
+  organizer_decides: 'organizer_decides',
+  consensus: 'consensus',
+  advisor_recommends: 'advisor_recommends'
+} as const
+
+export type GroupDecisionStyle = (typeof GroupDecisionStyle)[keyof typeof GroupDecisionStyle]
+
+
+export const IntakeFormVariant = {
+  individual: 'individual',
+  group_member: 'group_member',
+  group_organizer: 'group_organizer',
+  business_policy: 'business_policy',
+  business_traveler: 'business_traveler'
+} as const
+
+export type IntakeFormVariant = (typeof IntakeFormVariant)[keyof typeof IntakeFormVariant]
+
+
+export const IntakeFormStatus = {
+  pending: 'pending',
+  opened: 'opened',
+  completed: 'completed',
+  expired: 'expired'
+} as const
+
+export type IntakeFormStatus = (typeof IntakeFormStatus)[keyof typeof IntakeFormStatus]
 
 
 export const ProgramCategory = {

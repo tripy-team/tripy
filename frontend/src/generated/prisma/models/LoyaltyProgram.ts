@@ -264,14 +264,14 @@ export type LoyaltyProgramWhereInput = {
   defaultPointValueCents?: Prisma.FloatNullableFilter<"LoyaltyProgram"> | number | null
   createdAt?: Prisma.DateTimeFilter<"LoyaltyProgram"> | Date | string
   updatedAt?: Prisma.DateTimeFilter<"LoyaltyProgram"> | Date | string
+  alertSubscriptions?: Prisma.AlertSubscriptionListRelationFilter
   balances?: Prisma.ClientLoyaltyBalanceListRelationFilter
+  poolingRules?: Prisma.ProgramPoolingRuleListRelationFilter
   transferRulesFrom?: Prisma.ProgramTransferRuleListRelationFilter
   transferRulesTo?: Prisma.ProgramTransferRuleListRelationFilter
-  poolingRules?: Prisma.ProgramPoolingRuleListRelationFilter
+  travelerAllocations?: Prisma.RecommendationTravelerAllocationListRelationFilter
   transferBonusesFrom?: Prisma.TransferBonusListRelationFilter
   transferBonusesTo?: Prisma.TransferBonusListRelationFilter
-  alertSubscriptions?: Prisma.AlertSubscriptionListRelationFilter
-  travelerAllocations?: Prisma.RecommendationTravelerAllocationListRelationFilter
 }
 
 export type LoyaltyProgramOrderByWithRelationInput = {
@@ -286,14 +286,14 @@ export type LoyaltyProgramOrderByWithRelationInput = {
   defaultPointValueCents?: Prisma.SortOrderInput | Prisma.SortOrder
   createdAt?: Prisma.SortOrder
   updatedAt?: Prisma.SortOrder
+  alertSubscriptions?: Prisma.AlertSubscriptionOrderByRelationAggregateInput
   balances?: Prisma.ClientLoyaltyBalanceOrderByRelationAggregateInput
+  poolingRules?: Prisma.ProgramPoolingRuleOrderByRelationAggregateInput
   transferRulesFrom?: Prisma.ProgramTransferRuleOrderByRelationAggregateInput
   transferRulesTo?: Prisma.ProgramTransferRuleOrderByRelationAggregateInput
-  poolingRules?: Prisma.ProgramPoolingRuleOrderByRelationAggregateInput
+  travelerAllocations?: Prisma.RecommendationTravelerAllocationOrderByRelationAggregateInput
   transferBonusesFrom?: Prisma.TransferBonusOrderByRelationAggregateInput
   transferBonusesTo?: Prisma.TransferBonusOrderByRelationAggregateInput
-  alertSubscriptions?: Prisma.AlertSubscriptionOrderByRelationAggregateInput
-  travelerAllocations?: Prisma.RecommendationTravelerAllocationOrderByRelationAggregateInput
 }
 
 export type LoyaltyProgramWhereUniqueInput = Prisma.AtLeast<{
@@ -311,14 +311,14 @@ export type LoyaltyProgramWhereUniqueInput = Prisma.AtLeast<{
   defaultPointValueCents?: Prisma.FloatNullableFilter<"LoyaltyProgram"> | number | null
   createdAt?: Prisma.DateTimeFilter<"LoyaltyProgram"> | Date | string
   updatedAt?: Prisma.DateTimeFilter<"LoyaltyProgram"> | Date | string
+  alertSubscriptions?: Prisma.AlertSubscriptionListRelationFilter
   balances?: Prisma.ClientLoyaltyBalanceListRelationFilter
+  poolingRules?: Prisma.ProgramPoolingRuleListRelationFilter
   transferRulesFrom?: Prisma.ProgramTransferRuleListRelationFilter
   transferRulesTo?: Prisma.ProgramTransferRuleListRelationFilter
-  poolingRules?: Prisma.ProgramPoolingRuleListRelationFilter
+  travelerAllocations?: Prisma.RecommendationTravelerAllocationListRelationFilter
   transferBonusesFrom?: Prisma.TransferBonusListRelationFilter
   transferBonusesTo?: Prisma.TransferBonusListRelationFilter
-  alertSubscriptions?: Prisma.AlertSubscriptionListRelationFilter
-  travelerAllocations?: Prisma.RecommendationTravelerAllocationListRelationFilter
 }, "id" | "code">
 
 export type LoyaltyProgramOrderByWithAggregationInput = {
@@ -369,14 +369,14 @@ export type LoyaltyProgramCreateInput = {
   defaultPointValueCents?: number | null
   createdAt?: Date | string
   updatedAt?: Date | string
+  alertSubscriptions?: Prisma.AlertSubscriptionCreateNestedManyWithoutTargetProgramInput
   balances?: Prisma.ClientLoyaltyBalanceCreateNestedManyWithoutLoyaltyProgramInput
+  poolingRules?: Prisma.ProgramPoolingRuleCreateNestedManyWithoutLoyaltyProgramInput
   transferRulesFrom?: Prisma.ProgramTransferRuleCreateNestedManyWithoutFromProgramInput
   transferRulesTo?: Prisma.ProgramTransferRuleCreateNestedManyWithoutToProgramInput
-  poolingRules?: Prisma.ProgramPoolingRuleCreateNestedManyWithoutLoyaltyProgramInput
+  travelerAllocations?: Prisma.RecommendationTravelerAllocationCreateNestedManyWithoutLoyaltyProgramInput
   transferBonusesFrom?: Prisma.TransferBonusCreateNestedManyWithoutFromProgramInput
   transferBonusesTo?: Prisma.TransferBonusCreateNestedManyWithoutToProgramInput
-  alertSubscriptions?: Prisma.AlertSubscriptionCreateNestedManyWithoutTargetProgramInput
-  travelerAllocations?: Prisma.RecommendationTravelerAllocationCreateNestedManyWithoutLoyaltyProgramInput
 }
 
 export type LoyaltyProgramUncheckedCreateInput = {
@@ -391,14 +391,14 @@ export type LoyaltyProgramUncheckedCreateInput = {
   defaultPointValueCents?: number | null
   createdAt?: Date | string
   updatedAt?: Date | string
+  alertSubscriptions?: Prisma.AlertSubscriptionUncheckedCreateNestedManyWithoutTargetProgramInput
   balances?: Prisma.ClientLoyaltyBalanceUncheckedCreateNestedManyWithoutLoyaltyProgramInput
+  poolingRules?: Prisma.ProgramPoolingRuleUncheckedCreateNestedManyWithoutLoyaltyProgramInput
   transferRulesFrom?: Prisma.ProgramTransferRuleUncheckedCreateNestedManyWithoutFromProgramInput
   transferRulesTo?: Prisma.ProgramTransferRuleUncheckedCreateNestedManyWithoutToProgramInput
-  poolingRules?: Prisma.ProgramPoolingRuleUncheckedCreateNestedManyWithoutLoyaltyProgramInput
+  travelerAllocations?: Prisma.RecommendationTravelerAllocationUncheckedCreateNestedManyWithoutLoyaltyProgramInput
   transferBonusesFrom?: Prisma.TransferBonusUncheckedCreateNestedManyWithoutFromProgramInput
   transferBonusesTo?: Prisma.TransferBonusUncheckedCreateNestedManyWithoutToProgramInput
-  alertSubscriptions?: Prisma.AlertSubscriptionUncheckedCreateNestedManyWithoutTargetProgramInput
-  travelerAllocations?: Prisma.RecommendationTravelerAllocationUncheckedCreateNestedManyWithoutLoyaltyProgramInput
 }
 
 export type LoyaltyProgramUpdateInput = {
@@ -413,14 +413,14 @@ export type LoyaltyProgramUpdateInput = {
   defaultPointValueCents?: Prisma.NullableFloatFieldUpdateOperationsInput | number | null
   createdAt?: Prisma.DateTimeFieldUpdateOperationsInput | Date | string
   updatedAt?: Prisma.DateTimeFieldUpdateOperationsInput | Date | string
+  alertSubscriptions?: Prisma.AlertSubscriptionUpdateManyWithoutTargetProgramNestedInput
   balances?: Prisma.ClientLoyaltyBalanceUpdateManyWithoutLoyaltyProgramNestedInput
+  poolingRules?: Prisma.ProgramPoolingRuleUpdateManyWithoutLoyaltyProgramNestedInput
   transferRulesFrom?: Prisma.ProgramTransferRuleUpdateManyWithoutFromProgramNestedInput
   transferRulesTo?: Prisma.ProgramTransferRuleUpdateManyWithoutToProgramNestedInput
-  poolingRules?: Prisma.ProgramPoolingRuleUpdateManyWithoutLoyaltyProgramNestedInput
+  travelerAllocations?: Prisma.RecommendationTravelerAllocationUpdateManyWithoutLoyaltyProgramNestedInput
   transferBonusesFrom?: Prisma.TransferBonusUpdateManyWithoutFromProgramNestedInput
   transferBonusesTo?: Prisma.TransferBonusUpdateManyWithoutToProgramNestedInput
-  alertSubscriptions?: Prisma.AlertSubscriptionUpdateManyWithoutTargetProgramNestedInput
-  travelerAllocations?: Prisma.RecommendationTravelerAllocationUpdateManyWithoutLoyaltyProgramNestedInput
 }
 
 export type LoyaltyProgramUncheckedUpdateInput = {
@@ -435,14 +435,14 @@ export type LoyaltyProgramUncheckedUpdateInput = {
   defaultPointValueCents?: Prisma.NullableFloatFieldUpdateOperationsInput | number | null
   createdAt?: Prisma.DateTimeFieldUpdateOperationsInput | Date | string
   updatedAt?: Prisma.DateTimeFieldUpdateOperationsInput | Date | string
+  alertSubscriptions?: Prisma.AlertSubscriptionUncheckedUpdateManyWithoutTargetProgramNestedInput
   balances?: Prisma.ClientLoyaltyBalanceUncheckedUpdateManyWithoutLoyaltyProgramNestedInput
+  poolingRules?: Prisma.ProgramPoolingRuleUncheckedUpdateManyWithoutLoyaltyProgramNestedInput
   transferRulesFrom?: Prisma.ProgramTransferRuleUncheckedUpdateManyWithoutFromProgramNestedInput
   transferRulesTo?: Prisma.ProgramTransferRuleUncheckedUpdateManyWithoutToProgramNestedInput
-  poolingRules?: Prisma.ProgramPoolingRuleUncheckedUpdateManyWithoutLoyaltyProgramNestedInput
+  travelerAllocations?: Prisma.RecommendationTravelerAllocationUncheckedUpdateManyWithoutLoyaltyProgramNestedInput
   transferBonusesFrom?: Prisma.TransferBonusUncheckedUpdateManyWithoutFromProgramNestedInput
   transferBonusesTo?: Prisma.TransferBonusUncheckedUpdateManyWithoutToProgramNestedInput
-  alertSubscriptions?: Prisma.AlertSubscriptionUncheckedUpdateManyWithoutTargetProgramNestedInput
-  travelerAllocations?: Prisma.RecommendationTravelerAllocationUncheckedUpdateManyWithoutLoyaltyProgramNestedInput
 }
 
 export type LoyaltyProgramCreateManyInput = {
@@ -687,13 +687,13 @@ export type LoyaltyProgramCreateWithoutBalancesInput = {
   defaultPointValueCents?: number | null
   createdAt?: Date | string
   updatedAt?: Date | string
+  alertSubscriptions?: Prisma.AlertSubscriptionCreateNestedManyWithoutTargetProgramInput
+  poolingRules?: Prisma.ProgramPoolingRuleCreateNestedManyWithoutLoyaltyProgramInput
   transferRulesFrom?: Prisma.ProgramTransferRuleCreateNestedManyWithoutFromProgramInput
   transferRulesTo?: Prisma.ProgramTransferRuleCreateNestedManyWithoutToProgramInput
-  poolingRules?: Prisma.ProgramPoolingRuleCreateNestedManyWithoutLoyaltyProgramInput
+  travelerAllocations?: Prisma.RecommendationTravelerAllocationCreateNestedManyWithoutLoyaltyProgramInput
   transferBonusesFrom?: Prisma.TransferBonusCreateNestedManyWithoutFromProgramInput
   transferBonusesTo?: Prisma.TransferBonusCreateNestedManyWithoutToProgramInput
-  alertSubscriptions?: Prisma.AlertSubscriptionCreateNestedManyWithoutTargetProgramInput
-  travelerAllocations?: Prisma.RecommendationTravelerAllocationCreateNestedManyWithoutLoyaltyProgramInput
 }
 
 export type LoyaltyProgramUncheckedCreateWithoutBalancesInput = {
@@ -708,13 +708,13 @@ export type LoyaltyProgramUncheckedCreateWithoutBalancesInput = {
   defaultPointValueCents?: number | null
   createdAt?: Date | string
   updatedAt?: Date | string
+  alertSubscriptions?: Prisma.AlertSubscriptionUncheckedCreateNestedManyWithoutTargetProgramInput
+  poolingRules?: Prisma.ProgramPoolingRuleUncheckedCreateNestedManyWithoutLoyaltyProgramInput
   transferRulesFrom?: Prisma.ProgramTransferRuleUncheckedCreateNestedManyWithoutFromProgramInput
   transferRulesTo?: Prisma.ProgramTransferRuleUncheckedCreateNestedManyWithoutToProgramInput
-  poolingRules?: Prisma.ProgramPoolingRuleUncheckedCreateNestedManyWithoutLoyaltyProgramInput
+  travelerAllocations?: Prisma.RecommendationTravelerAllocationUncheckedCreateNestedManyWithoutLoyaltyProgramInput
   transferBonusesFrom?: Prisma.TransferBonusUncheckedCreateNestedManyWithoutFromProgramInput
   transferBonusesTo?: Prisma.TransferBonusUncheckedCreateNestedManyWithoutToProgramInput
-  alertSubscriptions?: Prisma.AlertSubscriptionUncheckedCreateNestedManyWithoutTargetProgramInput
-  travelerAllocations?: Prisma.RecommendationTravelerAllocationUncheckedCreateNestedManyWithoutLoyaltyProgramInput
 }
 
 export type LoyaltyProgramCreateOrConnectWithoutBalancesInput = {
@@ -745,13 +745,13 @@ export type LoyaltyProgramUpdateWithoutBalancesInput = {
   defaultPointValueCents?: Prisma.NullableFloatFieldUpdateOperationsInput | number | null
   createdAt?: Prisma.DateTimeFieldUpdateOperationsInput | Date | string
   updatedAt?: Prisma.DateTimeFieldUpdateOperationsInput | Date | string
+  alertSubscriptions?: Prisma.AlertSubscriptionUpdateManyWithoutTargetProgramNestedInput
+  poolingRules?: Prisma.ProgramPoolingRuleUpdateManyWithoutLoyaltyProgramNestedInput
   transferRulesFrom?: Prisma.ProgramTransferRuleUpdateManyWithoutFromProgramNestedInput
   transferRulesTo?: Prisma.ProgramTransferRuleUpdateManyWithoutToProgramNestedInput
-  poolingRules?: Prisma.ProgramPoolingRuleUpdateManyWithoutLoyaltyProgramNestedInput
+  travelerAllocations?: Prisma.RecommendationTravelerAllocationUpdateManyWithoutLoyaltyProgramNestedInput
   transferBonusesFrom?: Prisma.TransferBonusUpdateManyWithoutFromProgramNestedInput
   transferBonusesTo?: Prisma.TransferBonusUpdateManyWithoutToProgramNestedInput
-  alertSubscriptions?: Prisma.AlertSubscriptionUpdateManyWithoutTargetProgramNestedInput
-  travelerAllocations?: Prisma.RecommendationTravelerAllocationUpdateManyWithoutLoyaltyProgramNestedInput
 }
 
 export type LoyaltyProgramUncheckedUpdateWithoutBalancesInput = {
@@ -766,13 +766,13 @@ export type LoyaltyProgramUncheckedUpdateWithoutBalancesInput = {
   defaultPointValueCents?: Prisma.NullableFloatFieldUpdateOperationsInput | number | null
   createdAt?: Prisma.DateTimeFieldUpdateOperationsInput | Date | string
   updatedAt?: Prisma.DateTimeFieldUpdateOperationsInput | Date | string
+  alertSubscriptions?: Prisma.AlertSubscriptionUncheckedUpdateManyWithoutTargetProgramNestedInput
+  poolingRules?: Prisma.ProgramPoolingRuleUncheckedUpdateManyWithoutLoyaltyProgramNestedInput
   transferRulesFrom?: Prisma.ProgramTransferRuleUncheckedUpdateManyWithoutFromProgramNestedInput
   transferRulesTo?: Prisma.ProgramTransferRuleUncheckedUpdateManyWithoutToProgramNestedInput
-  poolingRules?: Prisma.ProgramPoolingRuleUncheckedUpdateManyWithoutLoyaltyProgramNestedInput
+  travelerAllocations?: Prisma.RecommendationTravelerAllocationUncheckedUpdateManyWithoutLoyaltyProgramNestedInput
   transferBonusesFrom?: Prisma.TransferBonusUncheckedUpdateManyWithoutFromProgramNestedInput
   transferBonusesTo?: Prisma.TransferBonusUncheckedUpdateManyWithoutToProgramNestedInput
-  alertSubscriptions?: Prisma.AlertSubscriptionUncheckedUpdateManyWithoutTargetProgramNestedInput
-  travelerAllocations?: Prisma.RecommendationTravelerAllocationUncheckedUpdateManyWithoutLoyaltyProgramNestedInput
 }
 
 export type LoyaltyProgramCreateWithoutTransferRulesFromInput = {
@@ -787,13 +787,13 @@ export type LoyaltyProgramCreateWithoutTransferRulesFromInput = {
   defaultPointValueCents?: number | null
   createdAt?: Date | string
   updatedAt?: Date | string
+  alertSubscriptions?: Prisma.AlertSubscriptionCreateNestedManyWithoutTargetProgramInput
   balances?: Prisma.ClientLoyaltyBalanceCreateNestedManyWithoutLoyaltyProgramInput
-  transferRulesTo?: Prisma.ProgramTransferRuleCreateNestedManyWithoutToProgramInput
   poolingRules?: Prisma.ProgramPoolingRuleCreateNestedManyWithoutLoyaltyProgramInput
+  transferRulesTo?: Prisma.ProgramTransferRuleCreateNestedManyWithoutToProgramInput
+  travelerAllocations?: Prisma.RecommendationTravelerAllocationCreateNestedManyWithoutLoyaltyProgramInput
   transferBonusesFrom?: Prisma.TransferBonusCreateNestedManyWithoutFromProgramInput
   transferBonusesTo?: Prisma.TransferBonusCreateNestedManyWithoutToProgramInput
-  alertSubscriptions?: Prisma.AlertSubscriptionCreateNestedManyWithoutTargetProgramInput
-  travelerAllocations?: Prisma.RecommendationTravelerAllocationCreateNestedManyWithoutLoyaltyProgramInput
 }
 
 export type LoyaltyProgramUncheckedCreateWithoutTransferRulesFromInput = {
@@ -808,13 +808,13 @@ export type LoyaltyProgramUncheckedCreateWithoutTransferRulesFromInput = {
   defaultPointValueCents?: number | null
   createdAt?: Date | string
   updatedAt?: Date | string
+  alertSubscriptions?: Prisma.AlertSubscriptionUncheckedCreateNestedManyWithoutTargetProgramInput
   balances?: Prisma.ClientLoyaltyBalanceUncheckedCreateNestedManyWithoutLoyaltyProgramInput
-  transferRulesTo?: Prisma.ProgramTransferRuleUncheckedCreateNestedManyWithoutToProgramInput
   poolingRules?: Prisma.ProgramPoolingRuleUncheckedCreateNestedManyWithoutLoyaltyProgramInput
+  transferRulesTo?: Prisma.ProgramTransferRuleUncheckedCreateNestedManyWithoutToProgramInput
+  travelerAllocations?: Prisma.RecommendationTravelerAllocationUncheckedCreateNestedManyWithoutLoyaltyProgramInput
   transferBonusesFrom?: Prisma.TransferBonusUncheckedCreateNestedManyWithoutFromProgramInput
   transferBonusesTo?: Prisma.TransferBonusUncheckedCreateNestedManyWithoutToProgramInput
-  alertSubscriptions?: Prisma.AlertSubscriptionUncheckedCreateNestedManyWithoutTargetProgramInput
-  travelerAllocations?: Prisma.RecommendationTravelerAllocationUncheckedCreateNestedManyWithoutLoyaltyProgramInput
 }
 
 export type LoyaltyProgramCreateOrConnectWithoutTransferRulesFromInput = {
@@ -834,13 +834,13 @@ export type LoyaltyProgramCreateWithoutTransferRulesToInput = {
   defaultPointValueCents?: number | null
   createdAt?: Date | string
   updatedAt?: Date | string
+  alertSubscriptions?: Prisma.AlertSubscriptionCreateNestedManyWithoutTargetProgramInput
   balances?: Prisma.ClientLoyaltyBalanceCreateNestedManyWithoutLoyaltyProgramInput
-  transferRulesFrom?: Prisma.ProgramTransferRuleCreateNestedManyWithoutFromProgramInput
   poolingRules?: Prisma.ProgramPoolingRuleCreateNestedManyWithoutLoyaltyProgramInput
+  transferRulesFrom?: Prisma.ProgramTransferRuleCreateNestedManyWithoutFromProgramInput
+  travelerAllocations?: Prisma.RecommendationTravelerAllocationCreateNestedManyWithoutLoyaltyProgramInput
   transferBonusesFrom?: Prisma.TransferBonusCreateNestedManyWithoutFromProgramInput
   transferBonusesTo?: Prisma.TransferBonusCreateNestedManyWithoutToProgramInput
-  alertSubscriptions?: Prisma.AlertSubscriptionCreateNestedManyWithoutTargetProgramInput
-  travelerAllocations?: Prisma.RecommendationTravelerAllocationCreateNestedManyWithoutLoyaltyProgramInput
 }
 
 export type LoyaltyProgramUncheckedCreateWithoutTransferRulesToInput = {
@@ -855,13 +855,13 @@ export type LoyaltyProgramUncheckedCreateWithoutTransferRulesToInput = {
   defaultPointValueCents?: number | null
   createdAt?: Date | string
   updatedAt?: Date | string
+  alertSubscriptions?: Prisma.AlertSubscriptionUncheckedCreateNestedManyWithoutTargetProgramInput
   balances?: Prisma.ClientLoyaltyBalanceUncheckedCreateNestedManyWithoutLoyaltyProgramInput
-  transferRulesFrom?: Prisma.ProgramTransferRuleUncheckedCreateNestedManyWithoutFromProgramInput
   poolingRules?: Prisma.ProgramPoolingRuleUncheckedCreateNestedManyWithoutLoyaltyProgramInput
+  transferRulesFrom?: Prisma.ProgramTransferRuleUncheckedCreateNestedManyWithoutFromProgramInput
+  travelerAllocations?: Prisma.RecommendationTravelerAllocationUncheckedCreateNestedManyWithoutLoyaltyProgramInput
   transferBonusesFrom?: Prisma.TransferBonusUncheckedCreateNestedManyWithoutFromProgramInput
   transferBonusesTo?: Prisma.TransferBonusUncheckedCreateNestedManyWithoutToProgramInput
-  alertSubscriptions?: Prisma.AlertSubscriptionUncheckedCreateNestedManyWithoutTargetProgramInput
-  travelerAllocations?: Prisma.RecommendationTravelerAllocationUncheckedCreateNestedManyWithoutLoyaltyProgramInput
 }
 
 export type LoyaltyProgramCreateOrConnectWithoutTransferRulesToInput = {
@@ -892,13 +892,13 @@ export type LoyaltyProgramUpdateWithoutTransferRulesFromInput = {
   defaultPointValueCents?: Prisma.NullableFloatFieldUpdateOperationsInput | number | null
   createdAt?: Prisma.DateTimeFieldUpdateOperationsInput | Date | string
   updatedAt?: Prisma.DateTimeFieldUpdateOperationsInput | Date | string
+  alertSubscriptions?: Prisma.AlertSubscriptionUpdateManyWithoutTargetProgramNestedInput
   balances?: Prisma.ClientLoyaltyBalanceUpdateManyWithoutLoyaltyProgramNestedInput
-  transferRulesTo?: Prisma.ProgramTransferRuleUpdateManyWithoutToProgramNestedInput
   poolingRules?: Prisma.ProgramPoolingRuleUpdateManyWithoutLoyaltyProgramNestedInput
+  transferRulesTo?: Prisma.ProgramTransferRuleUpdateManyWithoutToProgramNestedInput
+  travelerAllocations?: Prisma.RecommendationTravelerAllocationUpdateManyWithoutLoyaltyProgramNestedInput
   transferBonusesFrom?: Prisma.TransferBonusUpdateManyWithoutFromProgramNestedInput
   transferBonusesTo?: Prisma.TransferBonusUpdateManyWithoutToProgramNestedInput
-  alertSubscriptions?: Prisma.AlertSubscriptionUpdateManyWithoutTargetProgramNestedInput
-  travelerAllocations?: Prisma.RecommendationTravelerAllocationUpdateManyWithoutLoyaltyProgramNestedInput
 }
 
 export type LoyaltyProgramUncheckedUpdateWithoutTransferRulesFromInput = {
@@ -913,13 +913,13 @@ export type LoyaltyProgramUncheckedUpdateWithoutTransferRulesFromInput = {
   defaultPointValueCents?: Prisma.NullableFloatFieldUpdateOperationsInput | number | null
   createdAt?: Prisma.DateTimeFieldUpdateOperationsInput | Date | string
   updatedAt?: Prisma.DateTimeFieldUpdateOperationsInput | Date | string
+  alertSubscriptions?: Prisma.AlertSubscriptionUncheckedUpdateManyWithoutTargetProgramNestedInput
   balances?: Prisma.ClientLoyaltyBalanceUncheckedUpdateManyWithoutLoyaltyProgramNestedInput
-  transferRulesTo?: Prisma.ProgramTransferRuleUncheckedUpdateManyWithoutToProgramNestedInput
   poolingRules?: Prisma.ProgramPoolingRuleUncheckedUpdateManyWithoutLoyaltyProgramNestedInput
+  transferRulesTo?: Prisma.ProgramTransferRuleUncheckedUpdateManyWithoutToProgramNestedInput
+  travelerAllocations?: Prisma.RecommendationTravelerAllocationUncheckedUpdateManyWithoutLoyaltyProgramNestedInput
   transferBonusesFrom?: Prisma.TransferBonusUncheckedUpdateManyWithoutFromProgramNestedInput
   transferBonusesTo?: Prisma.TransferBonusUncheckedUpdateManyWithoutToProgramNestedInput
-  alertSubscriptions?: Prisma.AlertSubscriptionUncheckedUpdateManyWithoutTargetProgramNestedInput
-  travelerAllocations?: Prisma.RecommendationTravelerAllocationUncheckedUpdateManyWithoutLoyaltyProgramNestedInput
 }
 
 export type LoyaltyProgramUpsertWithoutTransferRulesToInput = {
@@ -945,13 +945,13 @@ export type LoyaltyProgramUpdateWithoutTransferRulesToInput = {
   defaultPointValueCents?: Prisma.NullableFloatFieldUpdateOperationsInput | number | null
   createdAt?: Prisma.DateTimeFieldUpdateOperationsInput | Date | string
   updatedAt?: Prisma.DateTimeFieldUpdateOperationsInput | Date | string
+  alertSubscriptions?: Prisma.AlertSubscriptionUpdateManyWithoutTargetProgramNestedInput
   balances?: Prisma.ClientLoyaltyBalanceUpdateManyWithoutLoyaltyProgramNestedInput
-  transferRulesFrom?: Prisma.ProgramTransferRuleUpdateManyWithoutFromProgramNestedInput
   poolingRules?: Prisma.ProgramPoolingRuleUpdateManyWithoutLoyaltyProgramNestedInput
+  transferRulesFrom?: Prisma.ProgramTransferRuleUpdateManyWithoutFromProgramNestedInput
+  travelerAllocations?: Prisma.RecommendationTravelerAllocationUpdateManyWithoutLoyaltyProgramNestedInput
   transferBonusesFrom?: Prisma.TransferBonusUpdateManyWithoutFromProgramNestedInput
   transferBonusesTo?: Prisma.TransferBonusUpdateManyWithoutToProgramNestedInput
-  alertSubscriptions?: Prisma.AlertSubscriptionUpdateManyWithoutTargetProgramNestedInput
-  travelerAllocations?: Prisma.RecommendationTravelerAllocationUpdateManyWithoutLoyaltyProgramNestedInput
 }
 
 export type LoyaltyProgramUncheckedUpdateWithoutTransferRulesToInput = {
@@ -966,13 +966,13 @@ export type LoyaltyProgramUncheckedUpdateWithoutTransferRulesToInput = {
   defaultPointValueCents?: Prisma.NullableFloatFieldUpdateOperationsInput | number | null
   createdAt?: Prisma.DateTimeFieldUpdateOperationsInput | Date | string
   updatedAt?: Prisma.DateTimeFieldUpdateOperationsInput | Date | string
+  alertSubscriptions?: Prisma.AlertSubscriptionUncheckedUpdateManyWithoutTargetProgramNestedInput
   balances?: Prisma.ClientLoyaltyBalanceUncheckedUpdateManyWithoutLoyaltyProgramNestedInput
-  transferRulesFrom?: Prisma.ProgramTransferRuleUncheckedUpdateManyWithoutFromProgramNestedInput
   poolingRules?: Prisma.ProgramPoolingRuleUncheckedUpdateManyWithoutLoyaltyProgramNestedInput
+  transferRulesFrom?: Prisma.ProgramTransferRuleUncheckedUpdateManyWithoutFromProgramNestedInput
+  travelerAllocations?: Prisma.RecommendationTravelerAllocationUncheckedUpdateManyWithoutLoyaltyProgramNestedInput
   transferBonusesFrom?: Prisma.TransferBonusUncheckedUpdateManyWithoutFromProgramNestedInput
   transferBonusesTo?: Prisma.TransferBonusUncheckedUpdateManyWithoutToProgramNestedInput
-  alertSubscriptions?: Prisma.AlertSubscriptionUncheckedUpdateManyWithoutTargetProgramNestedInput
-  travelerAllocations?: Prisma.RecommendationTravelerAllocationUncheckedUpdateManyWithoutLoyaltyProgramNestedInput
 }
 
 export type LoyaltyProgramCreateWithoutPoolingRulesInput = {
@@ -987,13 +987,13 @@ export type LoyaltyProgramCreateWithoutPoolingRulesInput = {
   defaultPointValueCents?: number | null
   createdAt?: Date | string
   updatedAt?: Date | string
+  alertSubscriptions?: Prisma.AlertSubscriptionCreateNestedManyWithoutTargetProgramInput
   balances?: Prisma.ClientLoyaltyBalanceCreateNestedManyWithoutLoyaltyProgramInput
   transferRulesFrom?: Prisma.ProgramTransferRuleCreateNestedManyWithoutFromProgramInput
   transferRulesTo?: Prisma.ProgramTransferRuleCreateNestedManyWithoutToProgramInput
+  travelerAllocations?: Prisma.RecommendationTravelerAllocationCreateNestedManyWithoutLoyaltyProgramInput
   transferBonusesFrom?: Prisma.TransferBonusCreateNestedManyWithoutFromProgramInput
   transferBonusesTo?: Prisma.TransferBonusCreateNestedManyWithoutToProgramInput
-  alertSubscriptions?: Prisma.AlertSubscriptionCreateNestedManyWithoutTargetProgramInput
-  travelerAllocations?: Prisma.RecommendationTravelerAllocationCreateNestedManyWithoutLoyaltyProgramInput
 }
 
 export type LoyaltyProgramUncheckedCreateWithoutPoolingRulesInput = {
@@ -1008,13 +1008,13 @@ export type LoyaltyProgramUncheckedCreateWithoutPoolingRulesInput = {
   defaultPointValueCents?: number | null
   createdAt?: Date | string
   updatedAt?: Date | string
+  alertSubscriptions?: Prisma.AlertSubscriptionUncheckedCreateNestedManyWithoutTargetProgramInput
   balances?: Prisma.ClientLoyaltyBalanceUncheckedCreateNestedManyWithoutLoyaltyProgramInput
   transferRulesFrom?: Prisma.ProgramTransferRuleUncheckedCreateNestedManyWithoutFromProgramInput
   transferRulesTo?: Prisma.ProgramTransferRuleUncheckedCreateNestedManyWithoutToProgramInput
+  travelerAllocations?: Prisma.RecommendationTravelerAllocationUncheckedCreateNestedManyWithoutLoyaltyProgramInput
   transferBonusesFrom?: Prisma.TransferBonusUncheckedCreateNestedManyWithoutFromProgramInput
   transferBonusesTo?: Prisma.TransferBonusUncheckedCreateNestedManyWithoutToProgramInput
-  alertSubscriptions?: Prisma.AlertSubscriptionUncheckedCreateNestedManyWithoutTargetProgramInput
-  travelerAllocations?: Prisma.RecommendationTravelerAllocationUncheckedCreateNestedManyWithoutLoyaltyProgramInput
 }
 
 export type LoyaltyProgramCreateOrConnectWithoutPoolingRulesInput = {
@@ -1045,13 +1045,13 @@ export type LoyaltyProgramUpdateWithoutPoolingRulesInput = {
   defaultPointValueCents?: Prisma.NullableFloatFieldUpdateOperationsInput | number | null
   createdAt?: Prisma.DateTimeFieldUpdateOperationsInput | Date | string
   updatedAt?: Prisma.DateTimeFieldUpdateOperationsInput | Date | string
+  alertSubscriptions?: Prisma.AlertSubscriptionUpdateManyWithoutTargetProgramNestedInput
   balances?: Prisma.ClientLoyaltyBalanceUpdateManyWithoutLoyaltyProgramNestedInput
   transferRulesFrom?: Prisma.ProgramTransferRuleUpdateManyWithoutFromProgramNestedInput
   transferRulesTo?: Prisma.ProgramTransferRuleUpdateManyWithoutToProgramNestedInput
+  travelerAllocations?: Prisma.RecommendationTravelerAllocationUpdateManyWithoutLoyaltyProgramNestedInput
   transferBonusesFrom?: Prisma.TransferBonusUpdateManyWithoutFromProgramNestedInput
   transferBonusesTo?: Prisma.TransferBonusUpdateManyWithoutToProgramNestedInput
-  alertSubscriptions?: Prisma.AlertSubscriptionUpdateManyWithoutTargetProgramNestedInput
-  travelerAllocations?: Prisma.RecommendationTravelerAllocationUpdateManyWithoutLoyaltyProgramNestedInput
 }
 
 export type LoyaltyProgramUncheckedUpdateWithoutPoolingRulesInput = {
@@ -1066,13 +1066,13 @@ export type LoyaltyProgramUncheckedUpdateWithoutPoolingRulesInput = {
   defaultPointValueCents?: Prisma.NullableFloatFieldUpdateOperationsInput | number | null
   createdAt?: Prisma.DateTimeFieldUpdateOperationsInput | Date | string
   updatedAt?: Prisma.DateTimeFieldUpdateOperationsInput | Date | string
+  alertSubscriptions?: Prisma.AlertSubscriptionUncheckedUpdateManyWithoutTargetProgramNestedInput
   balances?: Prisma.ClientLoyaltyBalanceUncheckedUpdateManyWithoutLoyaltyProgramNestedInput
   transferRulesFrom?: Prisma.ProgramTransferRuleUncheckedUpdateManyWithoutFromProgramNestedInput
   transferRulesTo?: Prisma.ProgramTransferRuleUncheckedUpdateManyWithoutToProgramNestedInput
+  travelerAllocations?: Prisma.RecommendationTravelerAllocationUncheckedUpdateManyWithoutLoyaltyProgramNestedInput
   transferBonusesFrom?: Prisma.TransferBonusUncheckedUpdateManyWithoutFromProgramNestedInput
   transferBonusesTo?: Prisma.TransferBonusUncheckedUpdateManyWithoutToProgramNestedInput
-  alertSubscriptions?: Prisma.AlertSubscriptionUncheckedUpdateManyWithoutTargetProgramNestedInput
-  travelerAllocations?: Prisma.RecommendationTravelerAllocationUncheckedUpdateManyWithoutLoyaltyProgramNestedInput
 }
 
 export type LoyaltyProgramCreateWithoutTransferBonusesFromInput = {
@@ -1087,13 +1087,13 @@ export type LoyaltyProgramCreateWithoutTransferBonusesFromInput = {
   defaultPointValueCents?: number | null
   createdAt?: Date | string
   updatedAt?: Date | string
+  alertSubscriptions?: Prisma.AlertSubscriptionCreateNestedManyWithoutTargetProgramInput
   balances?: Prisma.ClientLoyaltyBalanceCreateNestedManyWithoutLoyaltyProgramInput
+  poolingRules?: Prisma.ProgramPoolingRuleCreateNestedManyWithoutLoyaltyProgramInput
   transferRulesFrom?: Prisma.ProgramTransferRuleCreateNestedManyWithoutFromProgramInput
   transferRulesTo?: Prisma.ProgramTransferRuleCreateNestedManyWithoutToProgramInput
-  poolingRules?: Prisma.ProgramPoolingRuleCreateNestedManyWithoutLoyaltyProgramInput
-  transferBonusesTo?: Prisma.TransferBonusCreateNestedManyWithoutToProgramInput
-  alertSubscriptions?: Prisma.AlertSubscriptionCreateNestedManyWithoutTargetProgramInput
   travelerAllocations?: Prisma.RecommendationTravelerAllocationCreateNestedManyWithoutLoyaltyProgramInput
+  transferBonusesTo?: Prisma.TransferBonusCreateNestedManyWithoutToProgramInput
 }
 
 export type LoyaltyProgramUncheckedCreateWithoutTransferBonusesFromInput = {
@@ -1108,13 +1108,13 @@ export type LoyaltyProgramUncheckedCreateWithoutTransferBonusesFromInput = {
   defaultPointValueCents?: number | null
   createdAt?: Date | string
   updatedAt?: Date | string
+  alertSubscriptions?: Prisma.AlertSubscriptionUncheckedCreateNestedManyWithoutTargetProgramInput
   balances?: Prisma.ClientLoyaltyBalanceUncheckedCreateNestedManyWithoutLoyaltyProgramInput
+  poolingRules?: Prisma.ProgramPoolingRuleUncheckedCreateNestedManyWithoutLoyaltyProgramInput
   transferRulesFrom?: Prisma.ProgramTransferRuleUncheckedCreateNestedManyWithoutFromProgramInput
   transferRulesTo?: Prisma.ProgramTransferRuleUncheckedCreateNestedManyWithoutToProgramInput
-  poolingRules?: Prisma.ProgramPoolingRuleUncheckedCreateNestedManyWithoutLoyaltyProgramInput
-  transferBonusesTo?: Prisma.TransferBonusUncheckedCreateNestedManyWithoutToProgramInput
-  alertSubscriptions?: Prisma.AlertSubscriptionUncheckedCreateNestedManyWithoutTargetProgramInput
   travelerAllocations?: Prisma.RecommendationTravelerAllocationUncheckedCreateNestedManyWithoutLoyaltyProgramInput
+  transferBonusesTo?: Prisma.TransferBonusUncheckedCreateNestedManyWithoutToProgramInput
 }
 
 export type LoyaltyProgramCreateOrConnectWithoutTransferBonusesFromInput = {
@@ -1134,13 +1134,13 @@ export type LoyaltyProgramCreateWithoutTransferBonusesToInput = {
   defaultPointValueCents?: number | null
   createdAt?: Date | string
   updatedAt?: Date | string
+  alertSubscriptions?: Prisma.AlertSubscriptionCreateNestedManyWithoutTargetProgramInput
   balances?: Prisma.ClientLoyaltyBalanceCreateNestedManyWithoutLoyaltyProgramInput
+  poolingRules?: Prisma.ProgramPoolingRuleCreateNestedManyWithoutLoyaltyProgramInput
   transferRulesFrom?: Prisma.ProgramTransferRuleCreateNestedManyWithoutFromProgramInput
   transferRulesTo?: Prisma.ProgramTransferRuleCreateNestedManyWithoutToProgramInput
-  poolingRules?: Prisma.ProgramPoolingRuleCreateNestedManyWithoutLoyaltyProgramInput
-  transferBonusesFrom?: Prisma.TransferBonusCreateNestedManyWithoutFromProgramInput
-  alertSubscriptions?: Prisma.AlertSubscriptionCreateNestedManyWithoutTargetProgramInput
   travelerAllocations?: Prisma.RecommendationTravelerAllocationCreateNestedManyWithoutLoyaltyProgramInput
+  transferBonusesFrom?: Prisma.TransferBonusCreateNestedManyWithoutFromProgramInput
 }
 
 export type LoyaltyProgramUncheckedCreateWithoutTransferBonusesToInput = {
@@ -1155,13 +1155,13 @@ export type LoyaltyProgramUncheckedCreateWithoutTransferBonusesToInput = {
   defaultPointValueCents?: number | null
   createdAt?: Date | string
   updatedAt?: Date | string
+  alertSubscriptions?: Prisma.AlertSubscriptionUncheckedCreateNestedManyWithoutTargetProgramInput
   balances?: Prisma.ClientLoyaltyBalanceUncheckedCreateNestedManyWithoutLoyaltyProgramInput
+  poolingRules?: Prisma.ProgramPoolingRuleUncheckedCreateNestedManyWithoutLoyaltyProgramInput
   transferRulesFrom?: Prisma.ProgramTransferRuleUncheckedCreateNestedManyWithoutFromProgramInput
   transferRulesTo?: Prisma.ProgramTransferRuleUncheckedCreateNestedManyWithoutToProgramInput
-  poolingRules?: Prisma.ProgramPoolingRuleUncheckedCreateNestedManyWithoutLoyaltyProgramInput
-  transferBonusesFrom?: Prisma.TransferBonusUncheckedCreateNestedManyWithoutFromProgramInput
-  alertSubscriptions?: Prisma.AlertSubscriptionUncheckedCreateNestedManyWithoutTargetProgramInput
   travelerAllocations?: Prisma.RecommendationTravelerAllocationUncheckedCreateNestedManyWithoutLoyaltyProgramInput
+  transferBonusesFrom?: Prisma.TransferBonusUncheckedCreateNestedManyWithoutFromProgramInput
 }
 
 export type LoyaltyProgramCreateOrConnectWithoutTransferBonusesToInput = {
@@ -1192,13 +1192,13 @@ export type LoyaltyProgramUpdateWithoutTransferBonusesFromInput = {
   defaultPointValueCents?: Prisma.NullableFloatFieldUpdateOperationsInput | number | null
   createdAt?: Prisma.DateTimeFieldUpdateOperationsInput | Date | string
   updatedAt?: Prisma.DateTimeFieldUpdateOperationsInput | Date | string
+  alertSubscriptions?: Prisma.AlertSubscriptionUpdateManyWithoutTargetProgramNestedInput
   balances?: Prisma.ClientLoyaltyBalanceUpdateManyWithoutLoyaltyProgramNestedInput
+  poolingRules?: Prisma.ProgramPoolingRuleUpdateManyWithoutLoyaltyProgramNestedInput
   transferRulesFrom?: Prisma.ProgramTransferRuleUpdateManyWithoutFromProgramNestedInput
   transferRulesTo?: Prisma.ProgramTransferRuleUpdateManyWithoutToProgramNestedInput
-  poolingRules?: Prisma.ProgramPoolingRuleUpdateManyWithoutLoyaltyProgramNestedInput
-  transferBonusesTo?: Prisma.TransferBonusUpdateManyWithoutToProgramNestedInput
-  alertSubscriptions?: Prisma.AlertSubscriptionUpdateManyWithoutTargetProgramNestedInput
   travelerAllocations?: Prisma.RecommendationTravelerAllocationUpdateManyWithoutLoyaltyProgramNestedInput
+  transferBonusesTo?: Prisma.TransferBonusUpdateManyWithoutToProgramNestedInput
 }
 
 export type LoyaltyProgramUncheckedUpdateWithoutTransferBonusesFromInput = {
@@ -1213,13 +1213,13 @@ export type LoyaltyProgramUncheckedUpdateWithoutTransferBonusesFromInput = {
   defaultPointValueCents?: Prisma.NullableFloatFieldUpdateOperationsInput | number | null
   createdAt?: Prisma.DateTimeFieldUpdateOperationsInput | Date | string
   updatedAt?: Prisma.DateTimeFieldUpdateOperationsInput | Date | string
+  alertSubscriptions?: Prisma.AlertSubscriptionUncheckedUpdateManyWithoutTargetProgramNestedInput
   balances?: Prisma.ClientLoyaltyBalanceUncheckedUpdateManyWithoutLoyaltyProgramNestedInput
+  poolingRules?: Prisma.ProgramPoolingRuleUncheckedUpdateManyWithoutLoyaltyProgramNestedInput
   transferRulesFrom?: Prisma.ProgramTransferRuleUncheckedUpdateManyWithoutFromProgramNestedInput
   transferRulesTo?: Prisma.ProgramTransferRuleUncheckedUpdateManyWithoutToProgramNestedInput
-  poolingRules?: Prisma.ProgramPoolingRuleUncheckedUpdateManyWithoutLoyaltyProgramNestedInput
-  transferBonusesTo?: Prisma.TransferBonusUncheckedUpdateManyWithoutToProgramNestedInput
-  alertSubscriptions?: Prisma.AlertSubscriptionUncheckedUpdateManyWithoutTargetProgramNestedInput
   travelerAllocations?: Prisma.RecommendationTravelerAllocationUncheckedUpdateManyWithoutLoyaltyProgramNestedInput
+  transferBonusesTo?: Prisma.TransferBonusUncheckedUpdateManyWithoutToProgramNestedInput
 }
 
 export type LoyaltyProgramUpsertWithoutTransferBonusesToInput = {
@@ -1245,13 +1245,13 @@ export type LoyaltyProgramUpdateWithoutTransferBonusesToInput = {
   defaultPointValueCents?: Prisma.NullableFloatFieldUpdateOperationsInput | number | null
   createdAt?: Prisma.DateTimeFieldUpdateOperationsInput | Date | string
   updatedAt?: Prisma.DateTimeFieldUpdateOperationsInput | Date | string
+  alertSubscriptions?: Prisma.AlertSubscriptionUpdateManyWithoutTargetProgramNestedInput
   balances?: Prisma.ClientLoyaltyBalanceUpdateManyWithoutLoyaltyProgramNestedInput
+  poolingRules?: Prisma.ProgramPoolingRuleUpdateManyWithoutLoyaltyProgramNestedInput
   transferRulesFrom?: Prisma.ProgramTransferRuleUpdateManyWithoutFromProgramNestedInput
   transferRulesTo?: Prisma.ProgramTransferRuleUpdateManyWithoutToProgramNestedInput
-  poolingRules?: Prisma.ProgramPoolingRuleUpdateManyWithoutLoyaltyProgramNestedInput
-  transferBonusesFrom?: Prisma.TransferBonusUpdateManyWithoutFromProgramNestedInput
-  alertSubscriptions?: Prisma.AlertSubscriptionUpdateManyWithoutTargetProgramNestedInput
   travelerAllocations?: Prisma.RecommendationTravelerAllocationUpdateManyWithoutLoyaltyProgramNestedInput
+  transferBonusesFrom?: Prisma.TransferBonusUpdateManyWithoutFromProgramNestedInput
 }
 
 export type LoyaltyProgramUncheckedUpdateWithoutTransferBonusesToInput = {
@@ -1266,13 +1266,13 @@ export type LoyaltyProgramUncheckedUpdateWithoutTransferBonusesToInput = {
   defaultPointValueCents?: Prisma.NullableFloatFieldUpdateOperationsInput | number | null
   createdAt?: Prisma.DateTimeFieldUpdateOperationsInput | Date | string
   updatedAt?: Prisma.DateTimeFieldUpdateOperationsInput | Date | string
+  alertSubscriptions?: Prisma.AlertSubscriptionUncheckedUpdateManyWithoutTargetProgramNestedInput
   balances?: Prisma.ClientLoyaltyBalanceUncheckedUpdateManyWithoutLoyaltyProgramNestedInput
+  poolingRules?: Prisma.ProgramPoolingRuleUncheckedUpdateManyWithoutLoyaltyProgramNestedInput
   transferRulesFrom?: Prisma.ProgramTransferRuleUncheckedUpdateManyWithoutFromProgramNestedInput
   transferRulesTo?: Prisma.ProgramTransferRuleUncheckedUpdateManyWithoutToProgramNestedInput
-  poolingRules?: Prisma.ProgramPoolingRuleUncheckedUpdateManyWithoutLoyaltyProgramNestedInput
-  transferBonusesFrom?: Prisma.TransferBonusUncheckedUpdateManyWithoutFromProgramNestedInput
-  alertSubscriptions?: Prisma.AlertSubscriptionUncheckedUpdateManyWithoutTargetProgramNestedInput
   travelerAllocations?: Prisma.RecommendationTravelerAllocationUncheckedUpdateManyWithoutLoyaltyProgramNestedInput
+  transferBonusesFrom?: Prisma.TransferBonusUncheckedUpdateManyWithoutFromProgramNestedInput
 }
 
 export type LoyaltyProgramCreateWithoutTravelerAllocationsInput = {
@@ -1287,13 +1287,13 @@ export type LoyaltyProgramCreateWithoutTravelerAllocationsInput = {
   defaultPointValueCents?: number | null
   createdAt?: Date | string
   updatedAt?: Date | string
+  alertSubscriptions?: Prisma.AlertSubscriptionCreateNestedManyWithoutTargetProgramInput
   balances?: Prisma.ClientLoyaltyBalanceCreateNestedManyWithoutLoyaltyProgramInput
+  poolingRules?: Prisma.ProgramPoolingRuleCreateNestedManyWithoutLoyaltyProgramInput
   transferRulesFrom?: Prisma.ProgramTransferRuleCreateNestedManyWithoutFromProgramInput
   transferRulesTo?: Prisma.ProgramTransferRuleCreateNestedManyWithoutToProgramInput
-  poolingRules?: Prisma.ProgramPoolingRuleCreateNestedManyWithoutLoyaltyProgramInput
   transferBonusesFrom?: Prisma.TransferBonusCreateNestedManyWithoutFromProgramInput
   transferBonusesTo?: Prisma.TransferBonusCreateNestedManyWithoutToProgramInput
-  alertSubscriptions?: Prisma.AlertSubscriptionCreateNestedManyWithoutTargetProgramInput
 }
 
 export type LoyaltyProgramUncheckedCreateWithoutTravelerAllocationsInput = {
@@ -1308,13 +1308,13 @@ export type LoyaltyProgramUncheckedCreateWithoutTravelerAllocationsInput = {
   defaultPointValueCents?: number | null
   createdAt?: Date | string
   updatedAt?: Date | string
+  alertSubscriptions?: Prisma.AlertSubscriptionUncheckedCreateNestedManyWithoutTargetProgramInput
   balances?: Prisma.ClientLoyaltyBalanceUncheckedCreateNestedManyWithoutLoyaltyProgramInput
+  poolingRules?: Prisma.ProgramPoolingRuleUncheckedCreateNestedManyWithoutLoyaltyProgramInput
   transferRulesFrom?: Prisma.ProgramTransferRuleUncheckedCreateNestedManyWithoutFromProgramInput
   transferRulesTo?: Prisma.ProgramTransferRuleUncheckedCreateNestedManyWithoutToProgramInput
-  poolingRules?: Prisma.ProgramPoolingRuleUncheckedCreateNestedManyWithoutLoyaltyProgramInput
   transferBonusesFrom?: Prisma.TransferBonusUncheckedCreateNestedManyWithoutFromProgramInput
   transferBonusesTo?: Prisma.TransferBonusUncheckedCreateNestedManyWithoutToProgramInput
-  alertSubscriptions?: Prisma.AlertSubscriptionUncheckedCreateNestedManyWithoutTargetProgramInput
 }
 
 export type LoyaltyProgramCreateOrConnectWithoutTravelerAllocationsInput = {
@@ -1345,13 +1345,13 @@ export type LoyaltyProgramUpdateWithoutTravelerAllocationsInput = {
   defaultPointValueCents?: Prisma.NullableFloatFieldUpdateOperationsInput | number | null
   createdAt?: Prisma.DateTimeFieldUpdateOperationsInput | Date | string
   updatedAt?: Prisma.DateTimeFieldUpdateOperationsInput | Date | string
+  alertSubscriptions?: Prisma.AlertSubscriptionUpdateManyWithoutTargetProgramNestedInput
   balances?: Prisma.ClientLoyaltyBalanceUpdateManyWithoutLoyaltyProgramNestedInput
+  poolingRules?: Prisma.ProgramPoolingRuleUpdateManyWithoutLoyaltyProgramNestedInput
   transferRulesFrom?: Prisma.ProgramTransferRuleUpdateManyWithoutFromProgramNestedInput
   transferRulesTo?: Prisma.ProgramTransferRuleUpdateManyWithoutToProgramNestedInput
-  poolingRules?: Prisma.ProgramPoolingRuleUpdateManyWithoutLoyaltyProgramNestedInput
   transferBonusesFrom?: Prisma.TransferBonusUpdateManyWithoutFromProgramNestedInput
   transferBonusesTo?: Prisma.TransferBonusUpdateManyWithoutToProgramNestedInput
-  alertSubscriptions?: Prisma.AlertSubscriptionUpdateManyWithoutTargetProgramNestedInput
 }
 
 export type LoyaltyProgramUncheckedUpdateWithoutTravelerAllocationsInput = {
@@ -1366,13 +1366,13 @@ export type LoyaltyProgramUncheckedUpdateWithoutTravelerAllocationsInput = {
   defaultPointValueCents?: Prisma.NullableFloatFieldUpdateOperationsInput | number | null
   createdAt?: Prisma.DateTimeFieldUpdateOperationsInput | Date | string
   updatedAt?: Prisma.DateTimeFieldUpdateOperationsInput | Date | string
+  alertSubscriptions?: Prisma.AlertSubscriptionUncheckedUpdateManyWithoutTargetProgramNestedInput
   balances?: Prisma.ClientLoyaltyBalanceUncheckedUpdateManyWithoutLoyaltyProgramNestedInput
+  poolingRules?: Prisma.ProgramPoolingRuleUncheckedUpdateManyWithoutLoyaltyProgramNestedInput
   transferRulesFrom?: Prisma.ProgramTransferRuleUncheckedUpdateManyWithoutFromProgramNestedInput
   transferRulesTo?: Prisma.ProgramTransferRuleUncheckedUpdateManyWithoutToProgramNestedInput
-  poolingRules?: Prisma.ProgramPoolingRuleUncheckedUpdateManyWithoutLoyaltyProgramNestedInput
   transferBonusesFrom?: Prisma.TransferBonusUncheckedUpdateManyWithoutFromProgramNestedInput
   transferBonusesTo?: Prisma.TransferBonusUncheckedUpdateManyWithoutToProgramNestedInput
-  alertSubscriptions?: Prisma.AlertSubscriptionUncheckedUpdateManyWithoutTargetProgramNestedInput
 }
 
 export type LoyaltyProgramCreateWithoutAlertSubscriptionsInput = {
@@ -1388,12 +1388,12 @@ export type LoyaltyProgramCreateWithoutAlertSubscriptionsInput = {
   createdAt?: Date | string
   updatedAt?: Date | string
   balances?: Prisma.ClientLoyaltyBalanceCreateNestedManyWithoutLoyaltyProgramInput
+  poolingRules?: Prisma.ProgramPoolingRuleCreateNestedManyWithoutLoyaltyProgramInput
   transferRulesFrom?: Prisma.ProgramTransferRuleCreateNestedManyWithoutFromProgramInput
   transferRulesTo?: Prisma.ProgramTransferRuleCreateNestedManyWithoutToProgramInput
-  poolingRules?: Prisma.ProgramPoolingRuleCreateNestedManyWithoutLoyaltyProgramInput
+  travelerAllocations?: Prisma.RecommendationTravelerAllocationCreateNestedManyWithoutLoyaltyProgramInput
   transferBonusesFrom?: Prisma.TransferBonusCreateNestedManyWithoutFromProgramInput
   transferBonusesTo?: Prisma.TransferBonusCreateNestedManyWithoutToProgramInput
-  travelerAllocations?: Prisma.RecommendationTravelerAllocationCreateNestedManyWithoutLoyaltyProgramInput
 }
 
 export type LoyaltyProgramUncheckedCreateWithoutAlertSubscriptionsInput = {
@@ -1409,12 +1409,12 @@ export type LoyaltyProgramUncheckedCreateWithoutAlertSubscriptionsInput = {
   createdAt?: Date | string
   updatedAt?: Date | string
   balances?: Prisma.ClientLoyaltyBalanceUncheckedCreateNestedManyWithoutLoyaltyProgramInput
+  poolingRules?: Prisma.ProgramPoolingRuleUncheckedCreateNestedManyWithoutLoyaltyProgramInput
   transferRulesFrom?: Prisma.ProgramTransferRuleUncheckedCreateNestedManyWithoutFromProgramInput
   transferRulesTo?: Prisma.ProgramTransferRuleUncheckedCreateNestedManyWithoutToProgramInput
-  poolingRules?: Prisma.ProgramPoolingRuleUncheckedCreateNestedManyWithoutLoyaltyProgramInput
+  travelerAllocations?: Prisma.RecommendationTravelerAllocationUncheckedCreateNestedManyWithoutLoyaltyProgramInput
   transferBonusesFrom?: Prisma.TransferBonusUncheckedCreateNestedManyWithoutFromProgramInput
   transferBonusesTo?: Prisma.TransferBonusUncheckedCreateNestedManyWithoutToProgramInput
-  travelerAllocations?: Prisma.RecommendationTravelerAllocationUncheckedCreateNestedManyWithoutLoyaltyProgramInput
 }
 
 export type LoyaltyProgramCreateOrConnectWithoutAlertSubscriptionsInput = {
@@ -1446,12 +1446,12 @@ export type LoyaltyProgramUpdateWithoutAlertSubscriptionsInput = {
   createdAt?: Prisma.DateTimeFieldUpdateOperationsInput | Date | string
   updatedAt?: Prisma.DateTimeFieldUpdateOperationsInput | Date | string
   balances?: Prisma.ClientLoyaltyBalanceUpdateManyWithoutLoyaltyProgramNestedInput
+  poolingRules?: Prisma.ProgramPoolingRuleUpdateManyWithoutLoyaltyProgramNestedInput
   transferRulesFrom?: Prisma.ProgramTransferRuleUpdateManyWithoutFromProgramNestedInput
   transferRulesTo?: Prisma.ProgramTransferRuleUpdateManyWithoutToProgramNestedInput
-  poolingRules?: Prisma.ProgramPoolingRuleUpdateManyWithoutLoyaltyProgramNestedInput
+  travelerAllocations?: Prisma.RecommendationTravelerAllocationUpdateManyWithoutLoyaltyProgramNestedInput
   transferBonusesFrom?: Prisma.TransferBonusUpdateManyWithoutFromProgramNestedInput
   transferBonusesTo?: Prisma.TransferBonusUpdateManyWithoutToProgramNestedInput
-  travelerAllocations?: Prisma.RecommendationTravelerAllocationUpdateManyWithoutLoyaltyProgramNestedInput
 }
 
 export type LoyaltyProgramUncheckedUpdateWithoutAlertSubscriptionsInput = {
@@ -1467,12 +1467,12 @@ export type LoyaltyProgramUncheckedUpdateWithoutAlertSubscriptionsInput = {
   createdAt?: Prisma.DateTimeFieldUpdateOperationsInput | Date | string
   updatedAt?: Prisma.DateTimeFieldUpdateOperationsInput | Date | string
   balances?: Prisma.ClientLoyaltyBalanceUncheckedUpdateManyWithoutLoyaltyProgramNestedInput
+  poolingRules?: Prisma.ProgramPoolingRuleUncheckedUpdateManyWithoutLoyaltyProgramNestedInput
   transferRulesFrom?: Prisma.ProgramTransferRuleUncheckedUpdateManyWithoutFromProgramNestedInput
   transferRulesTo?: Prisma.ProgramTransferRuleUncheckedUpdateManyWithoutToProgramNestedInput
-  poolingRules?: Prisma.ProgramPoolingRuleUncheckedUpdateManyWithoutLoyaltyProgramNestedInput
+  travelerAllocations?: Prisma.RecommendationTravelerAllocationUncheckedUpdateManyWithoutLoyaltyProgramNestedInput
   transferBonusesFrom?: Prisma.TransferBonusUncheckedUpdateManyWithoutFromProgramNestedInput
   transferBonusesTo?: Prisma.TransferBonusUncheckedUpdateManyWithoutToProgramNestedInput
-  travelerAllocations?: Prisma.RecommendationTravelerAllocationUncheckedUpdateManyWithoutLoyaltyProgramNestedInput
 }
 
 
@@ -1481,25 +1481,25 @@ export type LoyaltyProgramUncheckedUpdateWithoutAlertSubscriptionsInput = {
  */
 
 export type LoyaltyProgramCountOutputType = {
+  alertSubscriptions: number
   balances: number
+  poolingRules: number
   transferRulesFrom: number
   transferRulesTo: number
-  poolingRules: number
+  travelerAllocations: number
   transferBonusesFrom: number
   transferBonusesTo: number
-  alertSubscriptions: number
-  travelerAllocations: number
 }
 
 export type LoyaltyProgramCountOutputTypeSelect<ExtArgs extends runtime.Types.Extensions.InternalArgs = runtime.Types.Extensions.DefaultArgs> = {
+  alertSubscriptions?: boolean | LoyaltyProgramCountOutputTypeCountAlertSubscriptionsArgs
   balances?: boolean | LoyaltyProgramCountOutputTypeCountBalancesArgs
+  poolingRules?: boolean | LoyaltyProgramCountOutputTypeCountPoolingRulesArgs
   transferRulesFrom?: boolean | LoyaltyProgramCountOutputTypeCountTransferRulesFromArgs
   transferRulesTo?: boolean | LoyaltyProgramCountOutputTypeCountTransferRulesToArgs
-  poolingRules?: boolean | LoyaltyProgramCountOutputTypeCountPoolingRulesArgs
+  travelerAllocations?: boolean | LoyaltyProgramCountOutputTypeCountTravelerAllocationsArgs
   transferBonusesFrom?: boolean | LoyaltyProgramCountOutputTypeCountTransferBonusesFromArgs
   transferBonusesTo?: boolean | LoyaltyProgramCountOutputTypeCountTransferBonusesToArgs
-  alertSubscriptions?: boolean | LoyaltyProgramCountOutputTypeCountAlertSubscriptionsArgs
-  travelerAllocations?: boolean | LoyaltyProgramCountOutputTypeCountTravelerAllocationsArgs
 }
 
 /**
@@ -1515,8 +1515,22 @@ export type LoyaltyProgramCountOutputTypeDefaultArgs<ExtArgs extends runtime.Typ
 /**
  * LoyaltyProgramCountOutputType without action
  */
+export type LoyaltyProgramCountOutputTypeCountAlertSubscriptionsArgs<ExtArgs extends runtime.Types.Extensions.InternalArgs = runtime.Types.Extensions.DefaultArgs> = {
+  where?: Prisma.AlertSubscriptionWhereInput
+}
+
+/**
+ * LoyaltyProgramCountOutputType without action
+ */
 export type LoyaltyProgramCountOutputTypeCountBalancesArgs<ExtArgs extends runtime.Types.Extensions.InternalArgs = runtime.Types.Extensions.DefaultArgs> = {
   where?: Prisma.ClientLoyaltyBalanceWhereInput
+}
+
+/**
+ * LoyaltyProgramCountOutputType without action
+ */
+export type LoyaltyProgramCountOutputTypeCountPoolingRulesArgs<ExtArgs extends runtime.Types.Extensions.InternalArgs = runtime.Types.Extensions.DefaultArgs> = {
+  where?: Prisma.ProgramPoolingRuleWhereInput
 }
 
 /**
@@ -1536,8 +1550,8 @@ export type LoyaltyProgramCountOutputTypeCountTransferRulesToArgs<ExtArgs extend
 /**
  * LoyaltyProgramCountOutputType without action
  */
-export type LoyaltyProgramCountOutputTypeCountPoolingRulesArgs<ExtArgs extends runtime.Types.Extensions.InternalArgs = runtime.Types.Extensions.DefaultArgs> = {
-  where?: Prisma.ProgramPoolingRuleWhereInput
+export type LoyaltyProgramCountOutputTypeCountTravelerAllocationsArgs<ExtArgs extends runtime.Types.Extensions.InternalArgs = runtime.Types.Extensions.DefaultArgs> = {
+  where?: Prisma.RecommendationTravelerAllocationWhereInput
 }
 
 /**
@@ -1554,20 +1568,6 @@ export type LoyaltyProgramCountOutputTypeCountTransferBonusesToArgs<ExtArgs exte
   where?: Prisma.TransferBonusWhereInput
 }
 
-/**
- * LoyaltyProgramCountOutputType without action
- */
-export type LoyaltyProgramCountOutputTypeCountAlertSubscriptionsArgs<ExtArgs extends runtime.Types.Extensions.InternalArgs = runtime.Types.Extensions.DefaultArgs> = {
-  where?: Prisma.AlertSubscriptionWhereInput
-}
-
-/**
- * LoyaltyProgramCountOutputType without action
- */
-export type LoyaltyProgramCountOutputTypeCountTravelerAllocationsArgs<ExtArgs extends runtime.Types.Extensions.InternalArgs = runtime.Types.Extensions.DefaultArgs> = {
-  where?: Prisma.RecommendationTravelerAllocationWhereInput
-}
-
 
 export type LoyaltyProgramSelect<ExtArgs extends runtime.Types.Extensions.InternalArgs = runtime.Types.Extensions.DefaultArgs> = runtime.Types.Extensions.GetSelect<{
   id?: boolean
@@ -1581,14 +1581,14 @@ export type LoyaltyProgramSelect<ExtArgs extends runtime.Types.Extensions.Intern
   defaultPointValueCents?: boolean
   createdAt?: boolean
   updatedAt?: boolean
+  alertSubscriptions?: boolean | Prisma.LoyaltyProgram$alertSubscriptionsArgs<ExtArgs>
   balances?: boolean | Prisma.LoyaltyProgram$balancesArgs<ExtArgs>
+  poolingRules?: boolean | Prisma.LoyaltyProgram$poolingRulesArgs<ExtArgs>
   transferRulesFrom?: boolean | Prisma.LoyaltyProgram$transferRulesFromArgs<ExtArgs>
   transferRulesTo?: boolean | Prisma.LoyaltyProgram$transferRulesToArgs<ExtArgs>
-  poolingRules?: boolean | Prisma.LoyaltyProgram$poolingRulesArgs<ExtArgs>
+  travelerAllocations?: boolean | Prisma.LoyaltyProgram$travelerAllocationsArgs<ExtArgs>
   transferBonusesFrom?: boolean | Prisma.LoyaltyProgram$transferBonusesFromArgs<ExtArgs>
   transferBonusesTo?: boolean | Prisma.LoyaltyProgram$transferBonusesToArgs<ExtArgs>
-  alertSubscriptions?: boolean | Prisma.LoyaltyProgram$alertSubscriptionsArgs<ExtArgs>
-  travelerAllocations?: boolean | Prisma.LoyaltyProgram$travelerAllocationsArgs<ExtArgs>
   _count?: boolean | Prisma.LoyaltyProgramCountOutputTypeDefaultArgs<ExtArgs>
 }, ExtArgs["result"]["loyaltyProgram"]>
 
@@ -1636,14 +1636,14 @@ export type LoyaltyProgramSelectScalar = {
 
 export type LoyaltyProgramOmit<ExtArgs extends runtime.Types.Extensions.InternalArgs = runtime.Types.Extensions.DefaultArgs> = runtime.Types.Extensions.GetOmit<"id" | "code" | "name" | "category" | "issuer" | "supportsTransfer" | "supportsPooling" | "supportsExpiration" | "defaultPointValueCents" | "createdAt" | "updatedAt", ExtArgs["result"]["loyaltyProgram"]>
 export type LoyaltyProgramInclude<ExtArgs extends runtime.Types.Extensions.InternalArgs = runtime.Types.Extensions.DefaultArgs> = {
+  alertSubscriptions?: boolean | Prisma.LoyaltyProgram$alertSubscriptionsArgs<ExtArgs>
   balances?: boolean | Prisma.LoyaltyProgram$balancesArgs<ExtArgs>
+  poolingRules?: boolean | Prisma.LoyaltyProgram$poolingRulesArgs<ExtArgs>
   transferRulesFrom?: boolean | Prisma.LoyaltyProgram$transferRulesFromArgs<ExtArgs>
   transferRulesTo?: boolean | Prisma.LoyaltyProgram$transferRulesToArgs<ExtArgs>
-  poolingRules?: boolean | Prisma.LoyaltyProgram$poolingRulesArgs<ExtArgs>
+  travelerAllocations?: boolean | Prisma.LoyaltyProgram$travelerAllocationsArgs<ExtArgs>
   transferBonusesFrom?: boolean | Prisma.LoyaltyProgram$transferBonusesFromArgs<ExtArgs>
   transferBonusesTo?: boolean | Prisma.LoyaltyProgram$transferBonusesToArgs<ExtArgs>
-  alertSubscriptions?: boolean | Prisma.LoyaltyProgram$alertSubscriptionsArgs<ExtArgs>
-  travelerAllocations?: boolean | Prisma.LoyaltyProgram$travelerAllocationsArgs<ExtArgs>
   _count?: boolean | Prisma.LoyaltyProgramCountOutputTypeDefaultArgs<ExtArgs>
 }
 export type LoyaltyProgramIncludeCreateManyAndReturn<ExtArgs extends runtime.Types.Extensions.InternalArgs = runtime.Types.Extensions.DefaultArgs> = {}
@@ -1652,14 +1652,14 @@ export type LoyaltyProgramIncludeUpdateManyAndReturn<ExtArgs extends runtime.Typ
 export type $LoyaltyProgramPayload<ExtArgs extends runtime.Types.Extensions.InternalArgs = runtime.Types.Extensions.DefaultArgs> = {
   name: "LoyaltyProgram"
   objects: {
+    alertSubscriptions: Prisma.$AlertSubscriptionPayload<ExtArgs>[]
     balances: Prisma.$ClientLoyaltyBalancePayload<ExtArgs>[]
+    poolingRules: Prisma.$ProgramPoolingRulePayload<ExtArgs>[]
     transferRulesFrom: Prisma.$ProgramTransferRulePayload<ExtArgs>[]
     transferRulesTo: Prisma.$ProgramTransferRulePayload<ExtArgs>[]
-    poolingRules: Prisma.$ProgramPoolingRulePayload<ExtArgs>[]
+    travelerAllocations: Prisma.$RecommendationTravelerAllocationPayload<ExtArgs>[]
     transferBonusesFrom: Prisma.$TransferBonusPayload<ExtArgs>[]
     transferBonusesTo: Prisma.$TransferBonusPayload<ExtArgs>[]
-    alertSubscriptions: Prisma.$AlertSubscriptionPayload<ExtArgs>[]
-    travelerAllocations: Prisma.$RecommendationTravelerAllocationPayload<ExtArgs>[]
   }
   scalars: runtime.Types.Extensions.GetPayloadResult<{
     id: string
@@ -2067,14 +2067,14 @@ readonly fields: LoyaltyProgramFieldRefs;
  */
 export interface Prisma__LoyaltyProgramClient<T, Null = never, ExtArgs extends runtime.Types.Extensions.InternalArgs = runtime.Types.Extensions.DefaultArgs, GlobalOmitOptions = {}> extends Prisma.PrismaPromise<T> {
   readonly [Symbol.toStringTag]: "PrismaPromise"
+  alertSubscriptions<T extends Prisma.LoyaltyProgram$alertSubscriptionsArgs<ExtArgs> = {}>(args?: Prisma.Subset<T, Prisma.LoyaltyProgram$alertSubscriptionsArgs<ExtArgs>>): Prisma.PrismaPromise<runtime.Types.Result.GetResult<Prisma.$AlertSubscriptionPayload<ExtArgs>, T, "findMany", GlobalOmitOptions> | Null>
   balances<T extends Prisma.LoyaltyProgram$balancesArgs<ExtArgs> = {}>(args?: Prisma.Subset<T, Prisma.LoyaltyProgram$balancesArgs<ExtArgs>>): Prisma.PrismaPromise<runtime.Types.Result.GetResult<Prisma.$ClientLoyaltyBalancePayload<ExtArgs>, T, "findMany", GlobalOmitOptions> | Null>
+  poolingRules<T extends Prisma.LoyaltyProgram$poolingRulesArgs<ExtArgs> = {}>(args?: Prisma.Subset<T, Prisma.LoyaltyProgram$poolingRulesArgs<ExtArgs>>): Prisma.PrismaPromise<runtime.Types.Result.GetResult<Prisma.$ProgramPoolingRulePayload<ExtArgs>, T, "findMany", GlobalOmitOptions> | Null>
   transferRulesFrom<T extends Prisma.LoyaltyProgram$transferRulesFromArgs<ExtArgs> = {}>(args?: Prisma.Subset<T, Prisma.LoyaltyProgram$transferRulesFromArgs<ExtArgs>>): Prisma.PrismaPromise<runtime.Types.Result.GetResult<Prisma.$ProgramTransferRulePayload<ExtArgs>, T, "findMany", GlobalOmitOptions> | Null>
   transferRulesTo<T extends Prisma.LoyaltyProgram$transferRulesToArgs<ExtArgs> = {}>(args?: Prisma.Subset<T, Prisma.LoyaltyProgram$transferRulesToArgs<ExtArgs>>): Prisma.PrismaPromise<runtime.Types.Result.GetResult<Prisma.$ProgramTransferRulePayload<ExtArgs>, T, "findMany", GlobalOmitOptions> | Null>
-  poolingRules<T extends Prisma.LoyaltyProgram$poolingRulesArgs<ExtArgs> = {}>(args?: Prisma.Subset<T, Prisma.LoyaltyProgram$poolingRulesArgs<ExtArgs>>): Prisma.PrismaPromise<runtime.Types.Result.GetResult<Prisma.$ProgramPoolingRulePayload<ExtArgs>, T, "findMany", GlobalOmitOptions> | Null>
+  travelerAllocations<T extends Prisma.LoyaltyProgram$travelerAllocationsArgs<ExtArgs> = {}>(args?: Prisma.Subset<T, Prisma.LoyaltyProgram$travelerAllocationsArgs<ExtArgs>>): Prisma.PrismaPromise<runtime.Types.Result.GetResult<Prisma.$RecommendationTravelerAllocationPayload<ExtArgs>, T, "findMany", GlobalOmitOptions> | Null>
   transferBonusesFrom<T extends Prisma.LoyaltyProgram$transferBonusesFromArgs<ExtArgs> = {}>(args?: Prisma.Subset<T, Prisma.LoyaltyProgram$transferBonusesFromArgs<ExtArgs>>): Prisma.PrismaPromise<runtime.Types.Result.GetResult<Prisma.$TransferBonusPayload<ExtArgs>, T, "findMany", GlobalOmitOptions> | Null>
   transferBonusesTo<T extends Prisma.LoyaltyProgram$transferBonusesToArgs<ExtArgs> = {}>(args?: Prisma.Subset<T, Prisma.LoyaltyProgram$transferBonusesToArgs<ExtArgs>>): Prisma.PrismaPromise<runtime.Types.Result.GetResult<Prisma.$TransferBonusPayload<ExtArgs>, T, "findMany", GlobalOmitOptions> | Null>
-  alertSubscriptions<T extends Prisma.LoyaltyProgram$alertSubscriptionsArgs<ExtArgs> = {}>(args?: Prisma.Subset<T, Prisma.LoyaltyProgram$alertSubscriptionsArgs<ExtArgs>>): Prisma.PrismaPromise<runtime.Types.Result.GetResult<Prisma.$AlertSubscriptionPayload<ExtArgs>, T, "findMany", GlobalOmitOptions> | Null>
-  travelerAllocations<T extends Prisma.LoyaltyProgram$travelerAllocationsArgs<ExtArgs> = {}>(args?: Prisma.Subset<T, Prisma.LoyaltyProgram$travelerAllocationsArgs<ExtArgs>>): Prisma.PrismaPromise<runtime.Types.Result.GetResult<Prisma.$RecommendationTravelerAllocationPayload<ExtArgs>, T, "findMany", GlobalOmitOptions> | Null>
   /**
    * Attaches callbacks for the resolution and/or rejection of the Promise.
    * @param onfulfilled The callback to execute when the Promise is resolved.
@@ -2508,6 +2508,30 @@ export type LoyaltyProgramDeleteManyArgs<ExtArgs extends runtime.Types.Extension
 }
 
 /**
+ * LoyaltyProgram.alertSubscriptions
+ */
+export type LoyaltyProgram$alertSubscriptionsArgs<ExtArgs extends runtime.Types.Extensions.InternalArgs = runtime.Types.Extensions.DefaultArgs> = {
+  /**
+   * Select specific fields to fetch from the AlertSubscription
+   */
+  select?: Prisma.AlertSubscriptionSelect<ExtArgs> | null
+  /**
+   * Omit specific fields from the AlertSubscription
+   */
+  omit?: Prisma.AlertSubscriptionOmit<ExtArgs> | null
+  /**
+   * Choose, which related nodes to fetch as well
+   */
+  include?: Prisma.AlertSubscriptionInclude<ExtArgs> | null
+  where?: Prisma.AlertSubscriptionWhereInput
+  orderBy?: Prisma.AlertSubscriptionOrderByWithRelationInput | Prisma.AlertSubscriptionOrderByWithRelationInput[]
+  cursor?: Prisma.AlertSubscriptionWhereUniqueInput
+  take?: number
+  skip?: number
+  distinct?: Prisma.AlertSubscriptionScalarFieldEnum | Prisma.AlertSubscriptionScalarFieldEnum[]
+}
+
+/**
  * LoyaltyProgram.balances
  */
 export type LoyaltyProgram$balancesArgs<ExtArgs extends runtime.Types.Extensions.InternalArgs = runtime.Types.Extensions.DefaultArgs> = {
@@ -2529,6 +2553,30 @@ export type LoyaltyProgram$balancesArgs<ExtArgs extends runtime.Types.Extensions
   take?: number
   skip?: number
   distinct?: Prisma.ClientLoyaltyBalanceScalarFieldEnum | Prisma.ClientLoyaltyBalanceScalarFieldEnum[]
+}
+
+/**
+ * LoyaltyProgram.poolingRules
+ */
+export type LoyaltyProgram$poolingRulesArgs<ExtArgs extends runtime.Types.Extensions.InternalArgs = runtime.Types.Extensions.DefaultArgs> = {
+  /**
+   * Select specific fields to fetch from the ProgramPoolingRule
+   */
+  select?: Prisma.ProgramPoolingRuleSelect<ExtArgs> | null
+  /**
+   * Omit specific fields from the ProgramPoolingRule
+   */
+  omit?: Prisma.ProgramPoolingRuleOmit<ExtArgs> | null
+  /**
+   * Choose, which related nodes to fetch as well
+   */
+  include?: Prisma.ProgramPoolingRuleInclude<ExtArgs> | null
+  where?: Prisma.ProgramPoolingRuleWhereInput
+  orderBy?: Prisma.ProgramPoolingRuleOrderByWithRelationInput | Prisma.ProgramPoolingRuleOrderByWithRelationInput[]
+  cursor?: Prisma.ProgramPoolingRuleWhereUniqueInput
+  take?: number
+  skip?: number
+  distinct?: Prisma.ProgramPoolingRuleScalarFieldEnum | Prisma.ProgramPoolingRuleScalarFieldEnum[]
 }
 
 /**
@@ -2580,27 +2628,27 @@ export type LoyaltyProgram$transferRulesToArgs<ExtArgs extends runtime.Types.Ext
 }
 
 /**
- * LoyaltyProgram.poolingRules
+ * LoyaltyProgram.travelerAllocations
  */
-export type LoyaltyProgram$poolingRulesArgs<ExtArgs extends runtime.Types.Extensions.InternalArgs = runtime.Types.Extensions.DefaultArgs> = {
+export type LoyaltyProgram$travelerAllocationsArgs<ExtArgs extends runtime.Types.Extensions.InternalArgs = runtime.Types.Extensions.DefaultArgs> = {
   /**
-   * Select specific fields to fetch from the ProgramPoolingRule
+   * Select specific fields to fetch from the RecommendationTravelerAllocation
    */
-  select?: Prisma.ProgramPoolingRuleSelect<ExtArgs> | null
+  select?: Prisma.RecommendationTravelerAllocationSelect<ExtArgs> | null
   /**
-   * Omit specific fields from the ProgramPoolingRule
+   * Omit specific fields from the RecommendationTravelerAllocation
    */
-  omit?: Prisma.ProgramPoolingRuleOmit<ExtArgs> | null
+  omit?: Prisma.RecommendationTravelerAllocationOmit<ExtArgs> | null
   /**
    * Choose, which related nodes to fetch as well
    */
-  include?: Prisma.ProgramPoolingRuleInclude<ExtArgs> | null
-  where?: Prisma.ProgramPoolingRuleWhereInput
-  orderBy?: Prisma.ProgramPoolingRuleOrderByWithRelationInput | Prisma.ProgramPoolingRuleOrderByWithRelationInput[]
-  cursor?: Prisma.ProgramPoolingRuleWhereUniqueInput
+  include?: Prisma.RecommendationTravelerAllocationInclude<ExtArgs> | null
+  where?: Prisma.RecommendationTravelerAllocationWhereInput
+  orderBy?: Prisma.RecommendationTravelerAllocationOrderByWithRelationInput | Prisma.RecommendationTravelerAllocationOrderByWithRelationInput[]
+  cursor?: Prisma.RecommendationTravelerAllocationWhereUniqueInput
   take?: number
   skip?: number
-  distinct?: Prisma.ProgramPoolingRuleScalarFieldEnum | Prisma.ProgramPoolingRuleScalarFieldEnum[]
+  distinct?: Prisma.RecommendationTravelerAllocationScalarFieldEnum | Prisma.RecommendationTravelerAllocationScalarFieldEnum[]
 }
 
 /**
@@ -2649,54 +2697,6 @@ export type LoyaltyProgram$transferBonusesToArgs<ExtArgs extends runtime.Types.E
   take?: number
   skip?: number
   distinct?: Prisma.TransferBonusScalarFieldEnum | Prisma.TransferBonusScalarFieldEnum[]
-}
-
-/**
- * LoyaltyProgram.alertSubscriptions
- */
-export type LoyaltyProgram$alertSubscriptionsArgs<ExtArgs extends runtime.Types.Extensions.InternalArgs = runtime.Types.Extensions.DefaultArgs> = {
-  /**
-   * Select specific fields to fetch from the AlertSubscription
-   */
-  select?: Prisma.AlertSubscriptionSelect<ExtArgs> | null
-  /**
-   * Omit specific fields from the AlertSubscription
-   */
-  omit?: Prisma.AlertSubscriptionOmit<ExtArgs> | null
-  /**
-   * Choose, which related nodes to fetch as well
-   */
-  include?: Prisma.AlertSubscriptionInclude<ExtArgs> | null
-  where?: Prisma.AlertSubscriptionWhereInput
-  orderBy?: Prisma.AlertSubscriptionOrderByWithRelationInput | Prisma.AlertSubscriptionOrderByWithRelationInput[]
-  cursor?: Prisma.AlertSubscriptionWhereUniqueInput
-  take?: number
-  skip?: number
-  distinct?: Prisma.AlertSubscriptionScalarFieldEnum | Prisma.AlertSubscriptionScalarFieldEnum[]
-}
-
-/**
- * LoyaltyProgram.travelerAllocations
- */
-export type LoyaltyProgram$travelerAllocationsArgs<ExtArgs extends runtime.Types.Extensions.InternalArgs = runtime.Types.Extensions.DefaultArgs> = {
-  /**
-   * Select specific fields to fetch from the RecommendationTravelerAllocation
-   */
-  select?: Prisma.RecommendationTravelerAllocationSelect<ExtArgs> | null
-  /**
-   * Omit specific fields from the RecommendationTravelerAllocation
-   */
-  omit?: Prisma.RecommendationTravelerAllocationOmit<ExtArgs> | null
-  /**
-   * Choose, which related nodes to fetch as well
-   */
-  include?: Prisma.RecommendationTravelerAllocationInclude<ExtArgs> | null
-  where?: Prisma.RecommendationTravelerAllocationWhereInput
-  orderBy?: Prisma.RecommendationTravelerAllocationOrderByWithRelationInput | Prisma.RecommendationTravelerAllocationOrderByWithRelationInput[]
-  cursor?: Prisma.RecommendationTravelerAllocationWhereUniqueInput
-  take?: number
-  skip?: number
-  distinct?: Prisma.RecommendationTravelerAllocationScalarFieldEnum | Prisma.RecommendationTravelerAllocationScalarFieldEnum[]
 }
 
 /**

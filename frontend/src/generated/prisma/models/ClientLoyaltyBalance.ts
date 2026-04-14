@@ -264,10 +264,10 @@ export type ClientLoyaltyBalanceWhereInput = {
   notes?: Prisma.StringNullableFilter<"ClientLoyaltyBalance"> | string | null
   createdAt?: Prisma.DateTimeFilter<"ClientLoyaltyBalance"> | Date | string
   updatedAt?: Prisma.DateTimeFilter<"ClientLoyaltyBalance"> | Date | string
+  ledgerEntries?: Prisma.BalanceLedgerEntryListRelationFilter
   client?: Prisma.XOR<Prisma.ClientScalarRelationFilter, Prisma.ClientWhereInput>
   household?: Prisma.XOR<Prisma.HouseholdNullableScalarRelationFilter, Prisma.HouseholdWhereInput> | null
   loyaltyProgram?: Prisma.XOR<Prisma.LoyaltyProgramScalarRelationFilter, Prisma.LoyaltyProgramWhereInput>
-  ledgerEntries?: Prisma.BalanceLedgerEntryListRelationFilter
 }
 
 export type ClientLoyaltyBalanceOrderByWithRelationInput = {
@@ -282,10 +282,10 @@ export type ClientLoyaltyBalanceOrderByWithRelationInput = {
   notes?: Prisma.SortOrderInput | Prisma.SortOrder
   createdAt?: Prisma.SortOrder
   updatedAt?: Prisma.SortOrder
+  ledgerEntries?: Prisma.BalanceLedgerEntryOrderByRelationAggregateInput
   client?: Prisma.ClientOrderByWithRelationInput
   household?: Prisma.HouseholdOrderByWithRelationInput
   loyaltyProgram?: Prisma.LoyaltyProgramOrderByWithRelationInput
-  ledgerEntries?: Prisma.BalanceLedgerEntryOrderByRelationAggregateInput
 }
 
 export type ClientLoyaltyBalanceWhereUniqueInput = Prisma.AtLeast<{
@@ -303,10 +303,10 @@ export type ClientLoyaltyBalanceWhereUniqueInput = Prisma.AtLeast<{
   notes?: Prisma.StringNullableFilter<"ClientLoyaltyBalance"> | string | null
   createdAt?: Prisma.DateTimeFilter<"ClientLoyaltyBalance"> | Date | string
   updatedAt?: Prisma.DateTimeFilter<"ClientLoyaltyBalance"> | Date | string
+  ledgerEntries?: Prisma.BalanceLedgerEntryListRelationFilter
   client?: Prisma.XOR<Prisma.ClientScalarRelationFilter, Prisma.ClientWhereInput>
   household?: Prisma.XOR<Prisma.HouseholdNullableScalarRelationFilter, Prisma.HouseholdWhereInput> | null
   loyaltyProgram?: Prisma.XOR<Prisma.LoyaltyProgramScalarRelationFilter, Prisma.LoyaltyProgramWhereInput>
-  ledgerEntries?: Prisma.BalanceLedgerEntryListRelationFilter
 }, "id">
 
 export type ClientLoyaltyBalanceOrderByWithAggregationInput = {
@@ -354,10 +354,10 @@ export type ClientLoyaltyBalanceCreateInput = {
   notes?: string | null
   createdAt?: Date | string
   updatedAt?: Date | string
+  ledgerEntries?: Prisma.BalanceLedgerEntryCreateNestedManyWithoutBalanceInput
   client: Prisma.ClientCreateNestedOneWithoutLoyaltyBalancesInput
   household?: Prisma.HouseholdCreateNestedOneWithoutLoyaltyBalancesInput
   loyaltyProgram: Prisma.LoyaltyProgramCreateNestedOneWithoutBalancesInput
-  ledgerEntries?: Prisma.BalanceLedgerEntryCreateNestedManyWithoutBalanceInput
 }
 
 export type ClientLoyaltyBalanceUncheckedCreateInput = {
@@ -384,10 +384,10 @@ export type ClientLoyaltyBalanceUpdateInput = {
   notes?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
   createdAt?: Prisma.DateTimeFieldUpdateOperationsInput | Date | string
   updatedAt?: Prisma.DateTimeFieldUpdateOperationsInput | Date | string
+  ledgerEntries?: Prisma.BalanceLedgerEntryUpdateManyWithoutBalanceNestedInput
   client?: Prisma.ClientUpdateOneRequiredWithoutLoyaltyBalancesNestedInput
   household?: Prisma.HouseholdUpdateOneWithoutLoyaltyBalancesNestedInput
   loyaltyProgram?: Prisma.LoyaltyProgramUpdateOneRequiredWithoutBalancesNestedInput
-  ledgerEntries?: Prisma.BalanceLedgerEntryUpdateManyWithoutBalanceNestedInput
 }
 
 export type ClientLoyaltyBalanceUncheckedUpdateInput = {
@@ -670,9 +670,9 @@ export type ClientLoyaltyBalanceCreateWithoutClientInput = {
   notes?: string | null
   createdAt?: Date | string
   updatedAt?: Date | string
+  ledgerEntries?: Prisma.BalanceLedgerEntryCreateNestedManyWithoutBalanceInput
   household?: Prisma.HouseholdCreateNestedOneWithoutLoyaltyBalancesInput
   loyaltyProgram: Prisma.LoyaltyProgramCreateNestedOneWithoutBalancesInput
-  ledgerEntries?: Prisma.BalanceLedgerEntryCreateNestedManyWithoutBalanceInput
 }
 
 export type ClientLoyaltyBalanceUncheckedCreateWithoutClientInput = {
@@ -741,9 +741,9 @@ export type ClientLoyaltyBalanceCreateWithoutHouseholdInput = {
   notes?: string | null
   createdAt?: Date | string
   updatedAt?: Date | string
+  ledgerEntries?: Prisma.BalanceLedgerEntryCreateNestedManyWithoutBalanceInput
   client: Prisma.ClientCreateNestedOneWithoutLoyaltyBalancesInput
   loyaltyProgram: Prisma.LoyaltyProgramCreateNestedOneWithoutBalancesInput
-  ledgerEntries?: Prisma.BalanceLedgerEntryCreateNestedManyWithoutBalanceInput
 }
 
 export type ClientLoyaltyBalanceUncheckedCreateWithoutHouseholdInput = {
@@ -795,9 +795,9 @@ export type ClientLoyaltyBalanceCreateWithoutLoyaltyProgramInput = {
   notes?: string | null
   createdAt?: Date | string
   updatedAt?: Date | string
+  ledgerEntries?: Prisma.BalanceLedgerEntryCreateNestedManyWithoutBalanceInput
   client: Prisma.ClientCreateNestedOneWithoutLoyaltyBalancesInput
   household?: Prisma.HouseholdCreateNestedOneWithoutLoyaltyBalancesInput
-  ledgerEntries?: Prisma.BalanceLedgerEntryCreateNestedManyWithoutBalanceInput
 }
 
 export type ClientLoyaltyBalanceUncheckedCreateWithoutLoyaltyProgramInput = {
@@ -934,9 +934,9 @@ export type ClientLoyaltyBalanceUpdateWithoutClientInput = {
   notes?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
   createdAt?: Prisma.DateTimeFieldUpdateOperationsInput | Date | string
   updatedAt?: Prisma.DateTimeFieldUpdateOperationsInput | Date | string
+  ledgerEntries?: Prisma.BalanceLedgerEntryUpdateManyWithoutBalanceNestedInput
   household?: Prisma.HouseholdUpdateOneWithoutLoyaltyBalancesNestedInput
   loyaltyProgram?: Prisma.LoyaltyProgramUpdateOneRequiredWithoutBalancesNestedInput
-  ledgerEntries?: Prisma.BalanceLedgerEntryUpdateManyWithoutBalanceNestedInput
 }
 
 export type ClientLoyaltyBalanceUncheckedUpdateWithoutClientInput = {
@@ -988,9 +988,9 @@ export type ClientLoyaltyBalanceUpdateWithoutHouseholdInput = {
   notes?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
   createdAt?: Prisma.DateTimeFieldUpdateOperationsInput | Date | string
   updatedAt?: Prisma.DateTimeFieldUpdateOperationsInput | Date | string
+  ledgerEntries?: Prisma.BalanceLedgerEntryUpdateManyWithoutBalanceNestedInput
   client?: Prisma.ClientUpdateOneRequiredWithoutLoyaltyBalancesNestedInput
   loyaltyProgram?: Prisma.LoyaltyProgramUpdateOneRequiredWithoutBalancesNestedInput
-  ledgerEntries?: Prisma.BalanceLedgerEntryUpdateManyWithoutBalanceNestedInput
 }
 
 export type ClientLoyaltyBalanceUncheckedUpdateWithoutHouseholdInput = {
@@ -1042,9 +1042,9 @@ export type ClientLoyaltyBalanceUpdateWithoutLoyaltyProgramInput = {
   notes?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
   createdAt?: Prisma.DateTimeFieldUpdateOperationsInput | Date | string
   updatedAt?: Prisma.DateTimeFieldUpdateOperationsInput | Date | string
+  ledgerEntries?: Prisma.BalanceLedgerEntryUpdateManyWithoutBalanceNestedInput
   client?: Prisma.ClientUpdateOneRequiredWithoutLoyaltyBalancesNestedInput
   household?: Prisma.HouseholdUpdateOneWithoutLoyaltyBalancesNestedInput
-  ledgerEntries?: Prisma.BalanceLedgerEntryUpdateManyWithoutBalanceNestedInput
 }
 
 export type ClientLoyaltyBalanceUncheckedUpdateWithoutLoyaltyProgramInput = {
@@ -1117,10 +1117,10 @@ export type ClientLoyaltyBalanceSelect<ExtArgs extends runtime.Types.Extensions.
   notes?: boolean
   createdAt?: boolean
   updatedAt?: boolean
+  ledgerEntries?: boolean | Prisma.ClientLoyaltyBalance$ledgerEntriesArgs<ExtArgs>
   client?: boolean | Prisma.ClientDefaultArgs<ExtArgs>
   household?: boolean | Prisma.ClientLoyaltyBalance$householdArgs<ExtArgs>
   loyaltyProgram?: boolean | Prisma.LoyaltyProgramDefaultArgs<ExtArgs>
-  ledgerEntries?: boolean | Prisma.ClientLoyaltyBalance$ledgerEntriesArgs<ExtArgs>
   _count?: boolean | Prisma.ClientLoyaltyBalanceCountOutputTypeDefaultArgs<ExtArgs>
 }, ExtArgs["result"]["clientLoyaltyBalance"]>
 
@@ -1174,10 +1174,10 @@ export type ClientLoyaltyBalanceSelectScalar = {
 
 export type ClientLoyaltyBalanceOmit<ExtArgs extends runtime.Types.Extensions.InternalArgs = runtime.Types.Extensions.DefaultArgs> = runtime.Types.Extensions.GetOmit<"id" | "clientId" | "householdId" | "loyaltyProgramId" | "balance" | "expirationDate" | "source" | "lastVerifiedAt" | "notes" | "createdAt" | "updatedAt", ExtArgs["result"]["clientLoyaltyBalance"]>
 export type ClientLoyaltyBalanceInclude<ExtArgs extends runtime.Types.Extensions.InternalArgs = runtime.Types.Extensions.DefaultArgs> = {
+  ledgerEntries?: boolean | Prisma.ClientLoyaltyBalance$ledgerEntriesArgs<ExtArgs>
   client?: boolean | Prisma.ClientDefaultArgs<ExtArgs>
   household?: boolean | Prisma.ClientLoyaltyBalance$householdArgs<ExtArgs>
   loyaltyProgram?: boolean | Prisma.LoyaltyProgramDefaultArgs<ExtArgs>
-  ledgerEntries?: boolean | Prisma.ClientLoyaltyBalance$ledgerEntriesArgs<ExtArgs>
   _count?: boolean | Prisma.ClientLoyaltyBalanceCountOutputTypeDefaultArgs<ExtArgs>
 }
 export type ClientLoyaltyBalanceIncludeCreateManyAndReturn<ExtArgs extends runtime.Types.Extensions.InternalArgs = runtime.Types.Extensions.DefaultArgs> = {
@@ -1194,10 +1194,10 @@ export type ClientLoyaltyBalanceIncludeUpdateManyAndReturn<ExtArgs extends runti
 export type $ClientLoyaltyBalancePayload<ExtArgs extends runtime.Types.Extensions.InternalArgs = runtime.Types.Extensions.DefaultArgs> = {
   name: "ClientLoyaltyBalance"
   objects: {
+    ledgerEntries: Prisma.$BalanceLedgerEntryPayload<ExtArgs>[]
     client: Prisma.$ClientPayload<ExtArgs>
     household: Prisma.$HouseholdPayload<ExtArgs> | null
     loyaltyProgram: Prisma.$LoyaltyProgramPayload<ExtArgs>
-    ledgerEntries: Prisma.$BalanceLedgerEntryPayload<ExtArgs>[]
   }
   scalars: runtime.Types.Extensions.GetPayloadResult<{
     id: string
@@ -1605,10 +1605,10 @@ readonly fields: ClientLoyaltyBalanceFieldRefs;
  */
 export interface Prisma__ClientLoyaltyBalanceClient<T, Null = never, ExtArgs extends runtime.Types.Extensions.InternalArgs = runtime.Types.Extensions.DefaultArgs, GlobalOmitOptions = {}> extends Prisma.PrismaPromise<T> {
   readonly [Symbol.toStringTag]: "PrismaPromise"
+  ledgerEntries<T extends Prisma.ClientLoyaltyBalance$ledgerEntriesArgs<ExtArgs> = {}>(args?: Prisma.Subset<T, Prisma.ClientLoyaltyBalance$ledgerEntriesArgs<ExtArgs>>): Prisma.PrismaPromise<runtime.Types.Result.GetResult<Prisma.$BalanceLedgerEntryPayload<ExtArgs>, T, "findMany", GlobalOmitOptions> | Null>
   client<T extends Prisma.ClientDefaultArgs<ExtArgs> = {}>(args?: Prisma.Subset<T, Prisma.ClientDefaultArgs<ExtArgs>>): Prisma.Prisma__ClientClient<runtime.Types.Result.GetResult<Prisma.$ClientPayload<ExtArgs>, T, "findUniqueOrThrow", GlobalOmitOptions> | Null, Null, ExtArgs, GlobalOmitOptions>
   household<T extends Prisma.ClientLoyaltyBalance$householdArgs<ExtArgs> = {}>(args?: Prisma.Subset<T, Prisma.ClientLoyaltyBalance$householdArgs<ExtArgs>>): Prisma.Prisma__HouseholdClient<runtime.Types.Result.GetResult<Prisma.$HouseholdPayload<ExtArgs>, T, "findUniqueOrThrow", GlobalOmitOptions> | null, null, ExtArgs, GlobalOmitOptions>
   loyaltyProgram<T extends Prisma.LoyaltyProgramDefaultArgs<ExtArgs> = {}>(args?: Prisma.Subset<T, Prisma.LoyaltyProgramDefaultArgs<ExtArgs>>): Prisma.Prisma__LoyaltyProgramClient<runtime.Types.Result.GetResult<Prisma.$LoyaltyProgramPayload<ExtArgs>, T, "findUniqueOrThrow", GlobalOmitOptions> | Null, Null, ExtArgs, GlobalOmitOptions>
-  ledgerEntries<T extends Prisma.ClientLoyaltyBalance$ledgerEntriesArgs<ExtArgs> = {}>(args?: Prisma.Subset<T, Prisma.ClientLoyaltyBalance$ledgerEntriesArgs<ExtArgs>>): Prisma.PrismaPromise<runtime.Types.Result.GetResult<Prisma.$BalanceLedgerEntryPayload<ExtArgs>, T, "findMany", GlobalOmitOptions> | Null>
   /**
    * Attaches callbacks for the resolution and/or rejection of the Promise.
    * @param onfulfilled The callback to execute when the Promise is resolved.
@@ -2050,25 +2050,6 @@ export type ClientLoyaltyBalanceDeleteManyArgs<ExtArgs extends runtime.Types.Ext
 }
 
 /**
- * ClientLoyaltyBalance.household
- */
-export type ClientLoyaltyBalance$householdArgs<ExtArgs extends runtime.Types.Extensions.InternalArgs = runtime.Types.Extensions.DefaultArgs> = {
-  /**
-   * Select specific fields to fetch from the Household
-   */
-  select?: Prisma.HouseholdSelect<ExtArgs> | null
-  /**
-   * Omit specific fields from the Household
-   */
-  omit?: Prisma.HouseholdOmit<ExtArgs> | null
-  /**
-   * Choose, which related nodes to fetch as well
-   */
-  include?: Prisma.HouseholdInclude<ExtArgs> | null
-  where?: Prisma.HouseholdWhereInput
-}
-
-/**
  * ClientLoyaltyBalance.ledgerEntries
  */
 export type ClientLoyaltyBalance$ledgerEntriesArgs<ExtArgs extends runtime.Types.Extensions.InternalArgs = runtime.Types.Extensions.DefaultArgs> = {
@@ -2090,6 +2071,25 @@ export type ClientLoyaltyBalance$ledgerEntriesArgs<ExtArgs extends runtime.Types
   take?: number
   skip?: number
   distinct?: Prisma.BalanceLedgerEntryScalarFieldEnum | Prisma.BalanceLedgerEntryScalarFieldEnum[]
+}
+
+/**
+ * ClientLoyaltyBalance.household
+ */
+export type ClientLoyaltyBalance$householdArgs<ExtArgs extends runtime.Types.Extensions.InternalArgs = runtime.Types.Extensions.DefaultArgs> = {
+  /**
+   * Select specific fields to fetch from the Household
+   */
+  select?: Prisma.HouseholdSelect<ExtArgs> | null
+  /**
+   * Omit specific fields from the Household
+   */
+  omit?: Prisma.HouseholdOmit<ExtArgs> | null
+  /**
+   * Choose, which related nodes to fetch as well
+   */
+  include?: Prisma.HouseholdInclude<ExtArgs> | null
+  where?: Prisma.HouseholdWhereInput
 }
 
 /**

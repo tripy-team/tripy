@@ -92,7 +92,12 @@ export const ModelName = {
   MeetingEntry: 'MeetingEntry',
   MeetingQuestionSuggestion: 'MeetingQuestionSuggestion',
   MeetingProfileSuggestion: 'MeetingProfileSuggestion',
-  MeetingRecap: 'MeetingRecap'
+  MeetingRecap: 'MeetingRecap',
+  GroupProfile: 'GroupProfile',
+  GroupMember: 'GroupMember',
+  BusinessProfile: 'BusinessProfile',
+  BusinessTraveler: 'BusinessTraveler',
+  IntakeFormToken: 'IntakeFormToken'
 } as const
 
 export type ModelName = (typeof ModelName)[keyof typeof ModelName]
@@ -142,7 +147,6 @@ export const ClientScalarFieldEnum = {
   id: 'id',
   organizationId: 'organizationId',
   ownerUserId: 'ownerUserId',
-  clientType: 'clientType',
   firstName: 'firstName',
   lastName: 'lastName',
   email: 'email',
@@ -151,7 +155,8 @@ export const ClientScalarFieldEnum = {
   notes: 'notes',
   status: 'status',
   createdAt: 'createdAt',
-  updatedAt: 'updatedAt'
+  updatedAt: 'updatedAt',
+  clientType: 'clientType'
 } as const
 
 export type ClientScalarFieldEnum = (typeof ClientScalarFieldEnum)[keyof typeof ClientScalarFieldEnum]
@@ -184,7 +189,6 @@ export type HouseholdMemberScalarFieldEnum = (typeof HouseholdMemberScalarFieldE
 export const FamilyMemberScalarFieldEnum = {
   id: 'id',
   clientId: 'clientId',
-  linkedClientId: 'linkedClientId',
   name: 'name',
   relationship: 'relationship',
   email: 'email',
@@ -192,7 +196,8 @@ export const FamilyMemberScalarFieldEnum = {
   dateOfBirth: 'dateOfBirth',
   notes: 'notes',
   createdAt: 'createdAt',
-  updatedAt: 'updatedAt'
+  updatedAt: 'updatedAt',
+  linkedClientId: 'linkedClientId'
 } as const
 
 export type FamilyMemberScalarFieldEnum = (typeof FamilyMemberScalarFieldEnum)[keyof typeof FamilyMemberScalarFieldEnum]
@@ -300,27 +305,27 @@ export const ClientPreferenceScalarFieldEnum = {
   prefersNonstop: 'prefersNonstop',
   maxLayoverMinutes: 'maxLayoverMinutes',
   willingToReposition: 'willingToReposition',
+  redemptionStyle: 'redemptionStyle',
   avoidBasicEconomy: 'avoidBasicEconomy',
   preferredAirlines: 'preferredAirlines',
   avoidedAirlines: 'avoidedAirlines',
+  notes: 'notes',
+  createdAt: 'createdAt',
+  updatedAt: 'updatedAt',
+  accessibilityNeeds: 'accessibilityNeeds',
+  activityPreferences: 'activityPreferences',
+  budgetSensitivity: 'budgetSensitivity',
+  dealbreakers: 'dealbreakers',
+  dislikes: 'dislikes',
+  familyConsiderations: 'familyConsiderations',
+  foodPreferences: 'foodPreferences',
+  lastUpdatedSource: 'lastUpdatedSource',
+  locationPreferences: 'locationPreferences',
+  mergeStrategy: 'mergeStrategy',
+  pointsVsCash: 'pointsVsCash',
   preferredHotelTypes: 'preferredHotelTypes',
   roomPreferences: 'roomPreferences',
-  locationPreferences: 'locationPreferences',
-  redemptionStyle: 'redemptionStyle',
-  budgetSensitivity: 'budgetSensitivity',
-  pointsVsCash: 'pointsVsCash',
-  accessibilityNeeds: 'accessibilityNeeds',
-  foodPreferences: 'foodPreferences',
-  activityPreferences: 'activityPreferences',
-  familyConsiderations: 'familyConsiderations',
-  specialOccasions: 'specialOccasions',
-  dislikes: 'dislikes',
-  dealbreakers: 'dealbreakers',
-  notes: 'notes',
-  lastUpdatedSource: 'lastUpdatedSource',
-  mergeStrategy: 'mergeStrategy',
-  createdAt: 'createdAt',
-  updatedAt: 'updatedAt'
+  specialOccasions: 'specialOccasions'
 } as const
 
 export type ClientPreferenceScalarFieldEnum = (typeof ClientPreferenceScalarFieldEnum)[keyof typeof ClientPreferenceScalarFieldEnum]
@@ -388,13 +393,13 @@ export const TripTravelerScalarFieldEnum = {
   clientId: 'clientId',
   travelerType: 'travelerType',
   mustTravelWithClientId: 'mustTravelWithClientId',
+  createdAt: 'createdAt',
   originAirports: 'originAirports',
   destinationAirports: 'destinationAirports',
   useLeaderCities: 'useLeaderCities',
-  departureDate: 'departureDate',
-  returnDate: 'returnDate',
   cabinPreference: 'cabinPreference',
-  createdAt: 'createdAt'
+  departureDate: 'departureDate',
+  returnDate: 'returnDate'
 } as const
 
 export type TripTravelerScalarFieldEnum = (typeof TripTravelerScalarFieldEnum)[keyof typeof TripTravelerScalarFieldEnum]
@@ -635,7 +640,6 @@ export const VendorRequestScalarFieldEnum = {
   tripRequestId: 'tripRequestId',
   clientId: 'clientId',
   createdByUserId: 'createdByUserId',
-  templateId: 'templateId',
   vendorName: 'vendorName',
   vendorContact: 'vendorContact',
   requestType: 'requestType',
@@ -648,10 +652,11 @@ export const VendorRequestScalarFieldEnum = {
   internalNotes: 'internalNotes',
   finalOutcome: 'finalOutcome',
   archivedAt: 'archivedAt',
-  firstResponseAt: 'firstResponseAt',
-  resolvedAt: 'resolvedAt',
   createdAt: 'createdAt',
-  updatedAt: 'updatedAt'
+  updatedAt: 'updatedAt',
+  templateId: 'templateId',
+  firstResponseAt: 'firstResponseAt',
+  resolvedAt: 'resolvedAt'
 } as const
 
 export type VendorRequestScalarFieldEnum = (typeof VendorRequestScalarFieldEnum)[keyof typeof VendorRequestScalarFieldEnum]
@@ -797,8 +802,8 @@ export const MeetingQuestionSuggestionScalarFieldEnum = {
   priority: 'priority',
   targetFields: 'targetFields',
   isUsed: 'isUsed',
-  round: 'round',
-  createdAt: 'createdAt'
+  createdAt: 'createdAt',
+  round: 'round'
 } as const
 
 export type MeetingQuestionSuggestionScalarFieldEnum = (typeof MeetingQuestionSuggestionScalarFieldEnum)[keyof typeof MeetingQuestionSuggestionScalarFieldEnum]
@@ -814,9 +819,9 @@ export const MeetingProfileSuggestionScalarFieldEnum = {
   rationale: 'rationale',
   status: 'status',
   resolvedAt: 'resolvedAt',
+  createdAt: 'createdAt',
   targetClientId: 'targetClientId',
-  sourceDescription: 'sourceDescription',
-  createdAt: 'createdAt'
+  sourceDescription: 'sourceDescription'
 } as const
 
 export type MeetingProfileSuggestionScalarFieldEnum = (typeof MeetingProfileSuggestionScalarFieldEnum)[keyof typeof MeetingProfileSuggestionScalarFieldEnum]
@@ -834,6 +839,94 @@ export const MeetingRecapScalarFieldEnum = {
 } as const
 
 export type MeetingRecapScalarFieldEnum = (typeof MeetingRecapScalarFieldEnum)[keyof typeof MeetingRecapScalarFieldEnum]
+
+
+export const GroupProfileScalarFieldEnum = {
+  id: 'id',
+  clientId: 'clientId',
+  groupType: 'groupType',
+  estimatedSize: 'estimatedSize',
+  ageSpread: 'ageSpread',
+  decisionStyle: 'decisionStyle',
+  roomArrangement: 'roomArrangement',
+  sharedBilling: 'sharedBilling',
+  notes: 'notes',
+  createdAt: 'createdAt',
+  updatedAt: 'updatedAt'
+} as const
+
+export type GroupProfileScalarFieldEnum = (typeof GroupProfileScalarFieldEnum)[keyof typeof GroupProfileScalarFieldEnum]
+
+
+export const GroupMemberScalarFieldEnum = {
+  id: 'id',
+  groupProfileId: 'groupProfileId',
+  linkedClientId: 'linkedClientId',
+  name: 'name',
+  email: 'email',
+  departureCity: 'departureCity',
+  isOrganizer: 'isOrganizer',
+  notes: 'notes',
+  createdAt: 'createdAt',
+  updatedAt: 'updatedAt'
+} as const
+
+export type GroupMemberScalarFieldEnum = (typeof GroupMemberScalarFieldEnum)[keyof typeof GroupMemberScalarFieldEnum]
+
+
+export const BusinessProfileScalarFieldEnum = {
+  id: 'id',
+  clientId: 'clientId',
+  companyName: 'companyName',
+  industry: 'industry',
+  companySize: 'companySize',
+  billingContactName: 'billingContactName',
+  billingContactEmail: 'billingContactEmail',
+  requiresPreApproval: 'requiresPreApproval',
+  maxNightlyRateUsd: 'maxNightlyRateUsd',
+  travelPolicyNotes: 'travelPolicyNotes',
+  corporateAccountIds: 'corporateAccountIds',
+  createdAt: 'createdAt',
+  updatedAt: 'updatedAt'
+} as const
+
+export type BusinessProfileScalarFieldEnum = (typeof BusinessProfileScalarFieldEnum)[keyof typeof BusinessProfileScalarFieldEnum]
+
+
+export const BusinessTravelerScalarFieldEnum = {
+  id: 'id',
+  businessProfileId: 'businessProfileId',
+  linkedClientId: 'linkedClientId',
+  name: 'name',
+  email: 'email',
+  role: 'role',
+  seniorityTier: 'seniorityTier',
+  notes: 'notes',
+  createdAt: 'createdAt',
+  updatedAt: 'updatedAt'
+} as const
+
+export type BusinessTravelerScalarFieldEnum = (typeof BusinessTravelerScalarFieldEnum)[keyof typeof BusinessTravelerScalarFieldEnum]
+
+
+export const IntakeFormTokenScalarFieldEnum = {
+  id: 'id',
+  token: 'token',
+  clientId: 'clientId',
+  intakeId: 'intakeId',
+  recipientEmail: 'recipientEmail',
+  recipientName: 'recipientName',
+  formVariant: 'formVariant',
+  groupSize: 'groupSize',
+  sentAt: 'sentAt',
+  openedAt: 'openedAt',
+  completedAt: 'completedAt',
+  expiresAt: 'expiresAt',
+  reminderSentAt: 'reminderSentAt',
+  createdAt: 'createdAt'
+} as const
+
+export type IntakeFormTokenScalarFieldEnum = (typeof IntakeFormTokenScalarFieldEnum)[keyof typeof IntakeFormTokenScalarFieldEnum]
 
 
 export const SortOrder = {

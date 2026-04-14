@@ -218,8 +218,8 @@ export type GroupSettlementWhereInput = {
   memo?: Prisma.StringNullableFilter<"GroupSettlement"> | string | null
   engineVersion?: Prisma.StringFilter<"GroupSettlement"> | string
   createdAt?: Prisma.DateTimeFilter<"GroupSettlement"> | Date | string
-  tripRequest?: Prisma.XOR<Prisma.TripRequestScalarRelationFilter, Prisma.TripRequestWhereInput>
   createdBy?: Prisma.XOR<Prisma.ClientNullableScalarRelationFilter, Prisma.ClientWhereInput> | null
+  tripRequest?: Prisma.XOR<Prisma.TripRequestScalarRelationFilter, Prisma.TripRequestWhereInput>
 }
 
 export type GroupSettlementOrderByWithRelationInput = {
@@ -234,8 +234,8 @@ export type GroupSettlementOrderByWithRelationInput = {
   memo?: Prisma.SortOrderInput | Prisma.SortOrder
   engineVersion?: Prisma.SortOrder
   createdAt?: Prisma.SortOrder
-  tripRequest?: Prisma.TripRequestOrderByWithRelationInput
   createdBy?: Prisma.ClientOrderByWithRelationInput
+  tripRequest?: Prisma.TripRequestOrderByWithRelationInput
 }
 
 export type GroupSettlementWhereUniqueInput = Prisma.AtLeast<{
@@ -253,8 +253,8 @@ export type GroupSettlementWhereUniqueInput = Prisma.AtLeast<{
   memo?: Prisma.StringNullableFilter<"GroupSettlement"> | string | null
   engineVersion?: Prisma.StringFilter<"GroupSettlement"> | string
   createdAt?: Prisma.DateTimeFilter<"GroupSettlement"> | Date | string
-  tripRequest?: Prisma.XOR<Prisma.TripRequestScalarRelationFilter, Prisma.TripRequestWhereInput>
   createdBy?: Prisma.XOR<Prisma.ClientNullableScalarRelationFilter, Prisma.ClientWhereInput> | null
+  tripRequest?: Prisma.XOR<Prisma.TripRequestScalarRelationFilter, Prisma.TripRequestWhereInput>
 }, "id">
 
 export type GroupSettlementOrderByWithAggregationInput = {
@@ -301,8 +301,8 @@ export type GroupSettlementCreateInput = {
   memo?: string | null
   engineVersion?: string
   createdAt?: Date | string
-  tripRequest: Prisma.TripRequestCreateNestedOneWithoutSettlementsInput
   createdBy?: Prisma.ClientCreateNestedOneWithoutGroupSettlementsInput
+  tripRequest: Prisma.TripRequestCreateNestedOneWithoutSettlementsInput
 }
 
 export type GroupSettlementUncheckedCreateInput = {
@@ -329,8 +329,8 @@ export type GroupSettlementUpdateInput = {
   memo?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
   engineVersion?: Prisma.StringFieldUpdateOperationsInput | string
   createdAt?: Prisma.DateTimeFieldUpdateOperationsInput | Date | string
-  tripRequest?: Prisma.TripRequestUpdateOneRequiredWithoutSettlementsNestedInput
   createdBy?: Prisma.ClientUpdateOneWithoutGroupSettlementsNestedInput
+  tripRequest?: Prisma.TripRequestUpdateOneRequiredWithoutSettlementsNestedInput
 }
 
 export type GroupSettlementUncheckedUpdateInput = {
@@ -764,8 +764,8 @@ export type GroupSettlementSelect<ExtArgs extends runtime.Types.Extensions.Inter
   memo?: boolean
   engineVersion?: boolean
   createdAt?: boolean
-  tripRequest?: boolean | Prisma.TripRequestDefaultArgs<ExtArgs>
   createdBy?: boolean | Prisma.GroupSettlement$createdByArgs<ExtArgs>
+  tripRequest?: boolean | Prisma.TripRequestDefaultArgs<ExtArgs>
 }, ExtArgs["result"]["groupSettlement"]>
 
 export type GroupSettlementSelectCreateManyAndReturn<ExtArgs extends runtime.Types.Extensions.InternalArgs = runtime.Types.Extensions.DefaultArgs> = runtime.Types.Extensions.GetSelect<{
@@ -780,8 +780,8 @@ export type GroupSettlementSelectCreateManyAndReturn<ExtArgs extends runtime.Typ
   memo?: boolean
   engineVersion?: boolean
   createdAt?: boolean
-  tripRequest?: boolean | Prisma.TripRequestDefaultArgs<ExtArgs>
   createdBy?: boolean | Prisma.GroupSettlement$createdByArgs<ExtArgs>
+  tripRequest?: boolean | Prisma.TripRequestDefaultArgs<ExtArgs>
 }, ExtArgs["result"]["groupSettlement"]>
 
 export type GroupSettlementSelectUpdateManyAndReturn<ExtArgs extends runtime.Types.Extensions.InternalArgs = runtime.Types.Extensions.DefaultArgs> = runtime.Types.Extensions.GetSelect<{
@@ -796,8 +796,8 @@ export type GroupSettlementSelectUpdateManyAndReturn<ExtArgs extends runtime.Typ
   memo?: boolean
   engineVersion?: boolean
   createdAt?: boolean
-  tripRequest?: boolean | Prisma.TripRequestDefaultArgs<ExtArgs>
   createdBy?: boolean | Prisma.GroupSettlement$createdByArgs<ExtArgs>
+  tripRequest?: boolean | Prisma.TripRequestDefaultArgs<ExtArgs>
 }, ExtArgs["result"]["groupSettlement"]>
 
 export type GroupSettlementSelectScalar = {
@@ -816,23 +816,23 @@ export type GroupSettlementSelectScalar = {
 
 export type GroupSettlementOmit<ExtArgs extends runtime.Types.Extensions.InternalArgs = runtime.Types.Extensions.DefaultArgs> = runtime.Types.Extensions.GetOmit<"id" | "tripRequestId" | "createdByClientId" | "splitMethod" | "pointValuationMethod" | "contributionLedger" | "fairShares" | "transfers" | "memo" | "engineVersion" | "createdAt", ExtArgs["result"]["groupSettlement"]>
 export type GroupSettlementInclude<ExtArgs extends runtime.Types.Extensions.InternalArgs = runtime.Types.Extensions.DefaultArgs> = {
-  tripRequest?: boolean | Prisma.TripRequestDefaultArgs<ExtArgs>
   createdBy?: boolean | Prisma.GroupSettlement$createdByArgs<ExtArgs>
+  tripRequest?: boolean | Prisma.TripRequestDefaultArgs<ExtArgs>
 }
 export type GroupSettlementIncludeCreateManyAndReturn<ExtArgs extends runtime.Types.Extensions.InternalArgs = runtime.Types.Extensions.DefaultArgs> = {
-  tripRequest?: boolean | Prisma.TripRequestDefaultArgs<ExtArgs>
   createdBy?: boolean | Prisma.GroupSettlement$createdByArgs<ExtArgs>
+  tripRequest?: boolean | Prisma.TripRequestDefaultArgs<ExtArgs>
 }
 export type GroupSettlementIncludeUpdateManyAndReturn<ExtArgs extends runtime.Types.Extensions.InternalArgs = runtime.Types.Extensions.DefaultArgs> = {
-  tripRequest?: boolean | Prisma.TripRequestDefaultArgs<ExtArgs>
   createdBy?: boolean | Prisma.GroupSettlement$createdByArgs<ExtArgs>
+  tripRequest?: boolean | Prisma.TripRequestDefaultArgs<ExtArgs>
 }
 
 export type $GroupSettlementPayload<ExtArgs extends runtime.Types.Extensions.InternalArgs = runtime.Types.Extensions.DefaultArgs> = {
   name: "GroupSettlement"
   objects: {
-    tripRequest: Prisma.$TripRequestPayload<ExtArgs>
     createdBy: Prisma.$ClientPayload<ExtArgs> | null
+    tripRequest: Prisma.$TripRequestPayload<ExtArgs>
   }
   scalars: runtime.Types.Extensions.GetPayloadResult<{
     id: string
@@ -1240,8 +1240,8 @@ readonly fields: GroupSettlementFieldRefs;
  */
 export interface Prisma__GroupSettlementClient<T, Null = never, ExtArgs extends runtime.Types.Extensions.InternalArgs = runtime.Types.Extensions.DefaultArgs, GlobalOmitOptions = {}> extends Prisma.PrismaPromise<T> {
   readonly [Symbol.toStringTag]: "PrismaPromise"
-  tripRequest<T extends Prisma.TripRequestDefaultArgs<ExtArgs> = {}>(args?: Prisma.Subset<T, Prisma.TripRequestDefaultArgs<ExtArgs>>): Prisma.Prisma__TripRequestClient<runtime.Types.Result.GetResult<Prisma.$TripRequestPayload<ExtArgs>, T, "findUniqueOrThrow", GlobalOmitOptions> | Null, Null, ExtArgs, GlobalOmitOptions>
   createdBy<T extends Prisma.GroupSettlement$createdByArgs<ExtArgs> = {}>(args?: Prisma.Subset<T, Prisma.GroupSettlement$createdByArgs<ExtArgs>>): Prisma.Prisma__ClientClient<runtime.Types.Result.GetResult<Prisma.$ClientPayload<ExtArgs>, T, "findUniqueOrThrow", GlobalOmitOptions> | null, null, ExtArgs, GlobalOmitOptions>
+  tripRequest<T extends Prisma.TripRequestDefaultArgs<ExtArgs> = {}>(args?: Prisma.Subset<T, Prisma.TripRequestDefaultArgs<ExtArgs>>): Prisma.Prisma__TripRequestClient<runtime.Types.Result.GetResult<Prisma.$TripRequestPayload<ExtArgs>, T, "findUniqueOrThrow", GlobalOmitOptions> | Null, Null, ExtArgs, GlobalOmitOptions>
   /**
    * Attaches callbacks for the resolution and/or rejection of the Promise.
    * @param onfulfilled The callback to execute when the Promise is resolved.

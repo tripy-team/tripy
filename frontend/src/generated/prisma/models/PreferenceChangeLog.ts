@@ -198,8 +198,8 @@ export type PreferenceChangeLogWhereInput = {
   oldValue?: Prisma.JsonNullableFilter<"PreferenceChangeLog">
   newValue?: Prisma.JsonNullableFilter<"PreferenceChangeLog">
   createdAt?: Prisma.DateTimeFilter<"PreferenceChangeLog"> | Date | string
-  preference?: Prisma.XOR<Prisma.ClientPreferenceScalarRelationFilter, Prisma.ClientPreferenceWhereInput>
   changedBy?: Prisma.XOR<Prisma.UserScalarRelationFilter, Prisma.UserWhereInput>
+  preference?: Prisma.XOR<Prisma.ClientPreferenceScalarRelationFilter, Prisma.ClientPreferenceWhereInput>
 }
 
 export type PreferenceChangeLogOrderByWithRelationInput = {
@@ -211,8 +211,8 @@ export type PreferenceChangeLogOrderByWithRelationInput = {
   oldValue?: Prisma.SortOrderInput | Prisma.SortOrder
   newValue?: Prisma.SortOrderInput | Prisma.SortOrder
   createdAt?: Prisma.SortOrder
-  preference?: Prisma.ClientPreferenceOrderByWithRelationInput
   changedBy?: Prisma.UserOrderByWithRelationInput
+  preference?: Prisma.ClientPreferenceOrderByWithRelationInput
 }
 
 export type PreferenceChangeLogWhereUniqueInput = Prisma.AtLeast<{
@@ -227,8 +227,8 @@ export type PreferenceChangeLogWhereUniqueInput = Prisma.AtLeast<{
   oldValue?: Prisma.JsonNullableFilter<"PreferenceChangeLog">
   newValue?: Prisma.JsonNullableFilter<"PreferenceChangeLog">
   createdAt?: Prisma.DateTimeFilter<"PreferenceChangeLog"> | Date | string
-  preference?: Prisma.XOR<Prisma.ClientPreferenceScalarRelationFilter, Prisma.ClientPreferenceWhereInput>
   changedBy?: Prisma.XOR<Prisma.UserScalarRelationFilter, Prisma.UserWhereInput>
+  preference?: Prisma.XOR<Prisma.ClientPreferenceScalarRelationFilter, Prisma.ClientPreferenceWhereInput>
 }, "id">
 
 export type PreferenceChangeLogOrderByWithAggregationInput = {
@@ -266,8 +266,8 @@ export type PreferenceChangeLogCreateInput = {
   oldValue?: Prisma.NullableJsonNullValueInput | runtime.InputJsonValue
   newValue?: Prisma.NullableJsonNullValueInput | runtime.InputJsonValue
   createdAt?: Date | string
-  preference: Prisma.ClientPreferenceCreateNestedOneWithoutChangelogInput
   changedBy: Prisma.UserCreateNestedOneWithoutPreferenceChangeLogsInput
+  preference: Prisma.ClientPreferenceCreateNestedOneWithoutChangelogInput
 }
 
 export type PreferenceChangeLogUncheckedCreateInput = {
@@ -288,8 +288,8 @@ export type PreferenceChangeLogUpdateInput = {
   oldValue?: Prisma.NullableJsonNullValueInput | runtime.InputJsonValue
   newValue?: Prisma.NullableJsonNullValueInput | runtime.InputJsonValue
   createdAt?: Prisma.DateTimeFieldUpdateOperationsInput | Date | string
-  preference?: Prisma.ClientPreferenceUpdateOneRequiredWithoutChangelogNestedInput
   changedBy?: Prisma.UserUpdateOneRequiredWithoutPreferenceChangeLogsNestedInput
+  preference?: Prisma.ClientPreferenceUpdateOneRequiredWithoutChangelogNestedInput
 }
 
 export type PreferenceChangeLogUncheckedUpdateInput = {
@@ -654,8 +654,8 @@ export type PreferenceChangeLogSelect<ExtArgs extends runtime.Types.Extensions.I
   oldValue?: boolean
   newValue?: boolean
   createdAt?: boolean
-  preference?: boolean | Prisma.ClientPreferenceDefaultArgs<ExtArgs>
   changedBy?: boolean | Prisma.UserDefaultArgs<ExtArgs>
+  preference?: boolean | Prisma.ClientPreferenceDefaultArgs<ExtArgs>
 }, ExtArgs["result"]["preferenceChangeLog"]>
 
 export type PreferenceChangeLogSelectCreateManyAndReturn<ExtArgs extends runtime.Types.Extensions.InternalArgs = runtime.Types.Extensions.DefaultArgs> = runtime.Types.Extensions.GetSelect<{
@@ -667,8 +667,8 @@ export type PreferenceChangeLogSelectCreateManyAndReturn<ExtArgs extends runtime
   oldValue?: boolean
   newValue?: boolean
   createdAt?: boolean
-  preference?: boolean | Prisma.ClientPreferenceDefaultArgs<ExtArgs>
   changedBy?: boolean | Prisma.UserDefaultArgs<ExtArgs>
+  preference?: boolean | Prisma.ClientPreferenceDefaultArgs<ExtArgs>
 }, ExtArgs["result"]["preferenceChangeLog"]>
 
 export type PreferenceChangeLogSelectUpdateManyAndReturn<ExtArgs extends runtime.Types.Extensions.InternalArgs = runtime.Types.Extensions.DefaultArgs> = runtime.Types.Extensions.GetSelect<{
@@ -680,8 +680,8 @@ export type PreferenceChangeLogSelectUpdateManyAndReturn<ExtArgs extends runtime
   oldValue?: boolean
   newValue?: boolean
   createdAt?: boolean
-  preference?: boolean | Prisma.ClientPreferenceDefaultArgs<ExtArgs>
   changedBy?: boolean | Prisma.UserDefaultArgs<ExtArgs>
+  preference?: boolean | Prisma.ClientPreferenceDefaultArgs<ExtArgs>
 }, ExtArgs["result"]["preferenceChangeLog"]>
 
 export type PreferenceChangeLogSelectScalar = {
@@ -697,23 +697,23 @@ export type PreferenceChangeLogSelectScalar = {
 
 export type PreferenceChangeLogOmit<ExtArgs extends runtime.Types.Extensions.InternalArgs = runtime.Types.Extensions.DefaultArgs> = runtime.Types.Extensions.GetOmit<"id" | "preferenceId" | "changedByUserId" | "source" | "fieldName" | "oldValue" | "newValue" | "createdAt", ExtArgs["result"]["preferenceChangeLog"]>
 export type PreferenceChangeLogInclude<ExtArgs extends runtime.Types.Extensions.InternalArgs = runtime.Types.Extensions.DefaultArgs> = {
-  preference?: boolean | Prisma.ClientPreferenceDefaultArgs<ExtArgs>
   changedBy?: boolean | Prisma.UserDefaultArgs<ExtArgs>
+  preference?: boolean | Prisma.ClientPreferenceDefaultArgs<ExtArgs>
 }
 export type PreferenceChangeLogIncludeCreateManyAndReturn<ExtArgs extends runtime.Types.Extensions.InternalArgs = runtime.Types.Extensions.DefaultArgs> = {
-  preference?: boolean | Prisma.ClientPreferenceDefaultArgs<ExtArgs>
   changedBy?: boolean | Prisma.UserDefaultArgs<ExtArgs>
+  preference?: boolean | Prisma.ClientPreferenceDefaultArgs<ExtArgs>
 }
 export type PreferenceChangeLogIncludeUpdateManyAndReturn<ExtArgs extends runtime.Types.Extensions.InternalArgs = runtime.Types.Extensions.DefaultArgs> = {
-  preference?: boolean | Prisma.ClientPreferenceDefaultArgs<ExtArgs>
   changedBy?: boolean | Prisma.UserDefaultArgs<ExtArgs>
+  preference?: boolean | Prisma.ClientPreferenceDefaultArgs<ExtArgs>
 }
 
 export type $PreferenceChangeLogPayload<ExtArgs extends runtime.Types.Extensions.InternalArgs = runtime.Types.Extensions.DefaultArgs> = {
   name: "PreferenceChangeLog"
   objects: {
-    preference: Prisma.$ClientPreferencePayload<ExtArgs>
     changedBy: Prisma.$UserPayload<ExtArgs>
+    preference: Prisma.$ClientPreferencePayload<ExtArgs>
   }
   scalars: runtime.Types.Extensions.GetPayloadResult<{
     id: string
@@ -1118,8 +1118,8 @@ readonly fields: PreferenceChangeLogFieldRefs;
  */
 export interface Prisma__PreferenceChangeLogClient<T, Null = never, ExtArgs extends runtime.Types.Extensions.InternalArgs = runtime.Types.Extensions.DefaultArgs, GlobalOmitOptions = {}> extends Prisma.PrismaPromise<T> {
   readonly [Symbol.toStringTag]: "PrismaPromise"
-  preference<T extends Prisma.ClientPreferenceDefaultArgs<ExtArgs> = {}>(args?: Prisma.Subset<T, Prisma.ClientPreferenceDefaultArgs<ExtArgs>>): Prisma.Prisma__ClientPreferenceClient<runtime.Types.Result.GetResult<Prisma.$ClientPreferencePayload<ExtArgs>, T, "findUniqueOrThrow", GlobalOmitOptions> | Null, Null, ExtArgs, GlobalOmitOptions>
   changedBy<T extends Prisma.UserDefaultArgs<ExtArgs> = {}>(args?: Prisma.Subset<T, Prisma.UserDefaultArgs<ExtArgs>>): Prisma.Prisma__UserClient<runtime.Types.Result.GetResult<Prisma.$UserPayload<ExtArgs>, T, "findUniqueOrThrow", GlobalOmitOptions> | Null, Null, ExtArgs, GlobalOmitOptions>
+  preference<T extends Prisma.ClientPreferenceDefaultArgs<ExtArgs> = {}>(args?: Prisma.Subset<T, Prisma.ClientPreferenceDefaultArgs<ExtArgs>>): Prisma.Prisma__ClientPreferenceClient<runtime.Types.Result.GetResult<Prisma.$ClientPreferencePayload<ExtArgs>, T, "findUniqueOrThrow", GlobalOmitOptions> | Null, Null, ExtArgs, GlobalOmitOptions>
   /**
    * Attaches callbacks for the resolution and/or rejection of the Promise.
    * @param onfulfilled The callback to execute when the Promise is resolved.

@@ -206,10 +206,10 @@ export type RecommendationRunWhereInput = {
   engineVersion?: Prisma.StringFilter<"RecommendationRun"> | string
   createdAt?: Prisma.DateTimeFilter<"RecommendationRun"> | Date | string
   completedAt?: Prisma.DateTimeNullableFilter<"RecommendationRun"> | Date | string | null
-  tripRequest?: Prisma.XOR<Prisma.TripRequestScalarRelationFilter, Prisma.TripRequestWhereInput>
-  createdBy?: Prisma.XOR<Prisma.UserScalarRelationFilter, Prisma.UserWhereInput>
-  options?: Prisma.RecommendationOptionListRelationFilter
   memo?: Prisma.XOR<Prisma.RecommendationMemoNullableScalarRelationFilter, Prisma.RecommendationMemoWhereInput> | null
+  options?: Prisma.RecommendationOptionListRelationFilter
+  createdBy?: Prisma.XOR<Prisma.UserScalarRelationFilter, Prisma.UserWhereInput>
+  tripRequest?: Prisma.XOR<Prisma.TripRequestScalarRelationFilter, Prisma.TripRequestWhereInput>
 }
 
 export type RecommendationRunOrderByWithRelationInput = {
@@ -221,10 +221,10 @@ export type RecommendationRunOrderByWithRelationInput = {
   engineVersion?: Prisma.SortOrder
   createdAt?: Prisma.SortOrder
   completedAt?: Prisma.SortOrderInput | Prisma.SortOrder
-  tripRequest?: Prisma.TripRequestOrderByWithRelationInput
-  createdBy?: Prisma.UserOrderByWithRelationInput
-  options?: Prisma.RecommendationOptionOrderByRelationAggregateInput
   memo?: Prisma.RecommendationMemoOrderByWithRelationInput
+  options?: Prisma.RecommendationOptionOrderByRelationAggregateInput
+  createdBy?: Prisma.UserOrderByWithRelationInput
+  tripRequest?: Prisma.TripRequestOrderByWithRelationInput
 }
 
 export type RecommendationRunWhereUniqueInput = Prisma.AtLeast<{
@@ -239,10 +239,10 @@ export type RecommendationRunWhereUniqueInput = Prisma.AtLeast<{
   engineVersion?: Prisma.StringFilter<"RecommendationRun"> | string
   createdAt?: Prisma.DateTimeFilter<"RecommendationRun"> | Date | string
   completedAt?: Prisma.DateTimeNullableFilter<"RecommendationRun"> | Date | string | null
-  tripRequest?: Prisma.XOR<Prisma.TripRequestScalarRelationFilter, Prisma.TripRequestWhereInput>
-  createdBy?: Prisma.XOR<Prisma.UserScalarRelationFilter, Prisma.UserWhereInput>
-  options?: Prisma.RecommendationOptionListRelationFilter
   memo?: Prisma.XOR<Prisma.RecommendationMemoNullableScalarRelationFilter, Prisma.RecommendationMemoWhereInput> | null
+  options?: Prisma.RecommendationOptionListRelationFilter
+  createdBy?: Prisma.XOR<Prisma.UserScalarRelationFilter, Prisma.UserWhereInput>
+  tripRequest?: Prisma.XOR<Prisma.TripRequestScalarRelationFilter, Prisma.TripRequestWhereInput>
 }, "id">
 
 export type RecommendationRunOrderByWithAggregationInput = {
@@ -280,10 +280,10 @@ export type RecommendationRunCreateInput = {
   engineVersion?: string
   createdAt?: Date | string
   completedAt?: Date | string | null
-  tripRequest: Prisma.TripRequestCreateNestedOneWithoutRecommendationRunsInput
-  createdBy: Prisma.UserCreateNestedOneWithoutRecommendationRunsInput
-  options?: Prisma.RecommendationOptionCreateNestedManyWithoutRecommendationRunInput
   memo?: Prisma.RecommendationMemoCreateNestedOneWithoutRecommendationRunInput
+  options?: Prisma.RecommendationOptionCreateNestedManyWithoutRecommendationRunInput
+  createdBy: Prisma.UserCreateNestedOneWithoutRecommendationRunsInput
+  tripRequest: Prisma.TripRequestCreateNestedOneWithoutRecommendationRunsInput
 }
 
 export type RecommendationRunUncheckedCreateInput = {
@@ -295,8 +295,8 @@ export type RecommendationRunUncheckedCreateInput = {
   engineVersion?: string
   createdAt?: Date | string
   completedAt?: Date | string | null
-  options?: Prisma.RecommendationOptionUncheckedCreateNestedManyWithoutRecommendationRunInput
   memo?: Prisma.RecommendationMemoUncheckedCreateNestedOneWithoutRecommendationRunInput
+  options?: Prisma.RecommendationOptionUncheckedCreateNestedManyWithoutRecommendationRunInput
 }
 
 export type RecommendationRunUpdateInput = {
@@ -306,10 +306,10 @@ export type RecommendationRunUpdateInput = {
   engineVersion?: Prisma.StringFieldUpdateOperationsInput | string
   createdAt?: Prisma.DateTimeFieldUpdateOperationsInput | Date | string
   completedAt?: Prisma.NullableDateTimeFieldUpdateOperationsInput | Date | string | null
-  tripRequest?: Prisma.TripRequestUpdateOneRequiredWithoutRecommendationRunsNestedInput
-  createdBy?: Prisma.UserUpdateOneRequiredWithoutRecommendationRunsNestedInput
-  options?: Prisma.RecommendationOptionUpdateManyWithoutRecommendationRunNestedInput
   memo?: Prisma.RecommendationMemoUpdateOneWithoutRecommendationRunNestedInput
+  options?: Prisma.RecommendationOptionUpdateManyWithoutRecommendationRunNestedInput
+  createdBy?: Prisma.UserUpdateOneRequiredWithoutRecommendationRunsNestedInput
+  tripRequest?: Prisma.TripRequestUpdateOneRequiredWithoutRecommendationRunsNestedInput
 }
 
 export type RecommendationRunUncheckedUpdateInput = {
@@ -321,8 +321,8 @@ export type RecommendationRunUncheckedUpdateInput = {
   engineVersion?: Prisma.StringFieldUpdateOperationsInput | string
   createdAt?: Prisma.DateTimeFieldUpdateOperationsInput | Date | string
   completedAt?: Prisma.NullableDateTimeFieldUpdateOperationsInput | Date | string | null
-  options?: Prisma.RecommendationOptionUncheckedUpdateManyWithoutRecommendationRunNestedInput
   memo?: Prisma.RecommendationMemoUncheckedUpdateOneWithoutRecommendationRunNestedInput
+  options?: Prisma.RecommendationOptionUncheckedUpdateManyWithoutRecommendationRunNestedInput
 }
 
 export type RecommendationRunCreateManyInput = {
@@ -527,9 +527,9 @@ export type RecommendationRunCreateWithoutCreatedByInput = {
   engineVersion?: string
   createdAt?: Date | string
   completedAt?: Date | string | null
-  tripRequest: Prisma.TripRequestCreateNestedOneWithoutRecommendationRunsInput
-  options?: Prisma.RecommendationOptionCreateNestedManyWithoutRecommendationRunInput
   memo?: Prisma.RecommendationMemoCreateNestedOneWithoutRecommendationRunInput
+  options?: Prisma.RecommendationOptionCreateNestedManyWithoutRecommendationRunInput
+  tripRequest: Prisma.TripRequestCreateNestedOneWithoutRecommendationRunsInput
 }
 
 export type RecommendationRunUncheckedCreateWithoutCreatedByInput = {
@@ -540,8 +540,8 @@ export type RecommendationRunUncheckedCreateWithoutCreatedByInput = {
   engineVersion?: string
   createdAt?: Date | string
   completedAt?: Date | string | null
-  options?: Prisma.RecommendationOptionUncheckedCreateNestedManyWithoutRecommendationRunInput
   memo?: Prisma.RecommendationMemoUncheckedCreateNestedOneWithoutRecommendationRunInput
+  options?: Prisma.RecommendationOptionUncheckedCreateNestedManyWithoutRecommendationRunInput
 }
 
 export type RecommendationRunCreateOrConnectWithoutCreatedByInput = {
@@ -591,9 +591,9 @@ export type RecommendationRunCreateWithoutTripRequestInput = {
   engineVersion?: string
   createdAt?: Date | string
   completedAt?: Date | string | null
-  createdBy: Prisma.UserCreateNestedOneWithoutRecommendationRunsInput
-  options?: Prisma.RecommendationOptionCreateNestedManyWithoutRecommendationRunInput
   memo?: Prisma.RecommendationMemoCreateNestedOneWithoutRecommendationRunInput
+  options?: Prisma.RecommendationOptionCreateNestedManyWithoutRecommendationRunInput
+  createdBy: Prisma.UserCreateNestedOneWithoutRecommendationRunsInput
 }
 
 export type RecommendationRunUncheckedCreateWithoutTripRequestInput = {
@@ -604,8 +604,8 @@ export type RecommendationRunUncheckedCreateWithoutTripRequestInput = {
   engineVersion?: string
   createdAt?: Date | string
   completedAt?: Date | string | null
-  options?: Prisma.RecommendationOptionUncheckedCreateNestedManyWithoutRecommendationRunInput
   memo?: Prisma.RecommendationMemoUncheckedCreateNestedOneWithoutRecommendationRunInput
+  options?: Prisma.RecommendationOptionUncheckedCreateNestedManyWithoutRecommendationRunInput
 }
 
 export type RecommendationRunCreateOrConnectWithoutTripRequestInput = {
@@ -641,9 +641,9 @@ export type RecommendationRunCreateWithoutOptionsInput = {
   engineVersion?: string
   createdAt?: Date | string
   completedAt?: Date | string | null
-  tripRequest: Prisma.TripRequestCreateNestedOneWithoutRecommendationRunsInput
-  createdBy: Prisma.UserCreateNestedOneWithoutRecommendationRunsInput
   memo?: Prisma.RecommendationMemoCreateNestedOneWithoutRecommendationRunInput
+  createdBy: Prisma.UserCreateNestedOneWithoutRecommendationRunsInput
+  tripRequest: Prisma.TripRequestCreateNestedOneWithoutRecommendationRunsInput
 }
 
 export type RecommendationRunUncheckedCreateWithoutOptionsInput = {
@@ -681,9 +681,9 @@ export type RecommendationRunUpdateWithoutOptionsInput = {
   engineVersion?: Prisma.StringFieldUpdateOperationsInput | string
   createdAt?: Prisma.DateTimeFieldUpdateOperationsInput | Date | string
   completedAt?: Prisma.NullableDateTimeFieldUpdateOperationsInput | Date | string | null
-  tripRequest?: Prisma.TripRequestUpdateOneRequiredWithoutRecommendationRunsNestedInput
-  createdBy?: Prisma.UserUpdateOneRequiredWithoutRecommendationRunsNestedInput
   memo?: Prisma.RecommendationMemoUpdateOneWithoutRecommendationRunNestedInput
+  createdBy?: Prisma.UserUpdateOneRequiredWithoutRecommendationRunsNestedInput
+  tripRequest?: Prisma.TripRequestUpdateOneRequiredWithoutRecommendationRunsNestedInput
 }
 
 export type RecommendationRunUncheckedUpdateWithoutOptionsInput = {
@@ -705,9 +705,9 @@ export type RecommendationRunCreateWithoutMemoInput = {
   engineVersion?: string
   createdAt?: Date | string
   completedAt?: Date | string | null
-  tripRequest: Prisma.TripRequestCreateNestedOneWithoutRecommendationRunsInput
-  createdBy: Prisma.UserCreateNestedOneWithoutRecommendationRunsInput
   options?: Prisma.RecommendationOptionCreateNestedManyWithoutRecommendationRunInput
+  createdBy: Prisma.UserCreateNestedOneWithoutRecommendationRunsInput
+  tripRequest: Prisma.TripRequestCreateNestedOneWithoutRecommendationRunsInput
 }
 
 export type RecommendationRunUncheckedCreateWithoutMemoInput = {
@@ -745,9 +745,9 @@ export type RecommendationRunUpdateWithoutMemoInput = {
   engineVersion?: Prisma.StringFieldUpdateOperationsInput | string
   createdAt?: Prisma.DateTimeFieldUpdateOperationsInput | Date | string
   completedAt?: Prisma.NullableDateTimeFieldUpdateOperationsInput | Date | string | null
-  tripRequest?: Prisma.TripRequestUpdateOneRequiredWithoutRecommendationRunsNestedInput
-  createdBy?: Prisma.UserUpdateOneRequiredWithoutRecommendationRunsNestedInput
   options?: Prisma.RecommendationOptionUpdateManyWithoutRecommendationRunNestedInput
+  createdBy?: Prisma.UserUpdateOneRequiredWithoutRecommendationRunsNestedInput
+  tripRequest?: Prisma.TripRequestUpdateOneRequiredWithoutRecommendationRunsNestedInput
 }
 
 export type RecommendationRunUncheckedUpdateWithoutMemoInput = {
@@ -779,9 +779,9 @@ export type RecommendationRunUpdateWithoutCreatedByInput = {
   engineVersion?: Prisma.StringFieldUpdateOperationsInput | string
   createdAt?: Prisma.DateTimeFieldUpdateOperationsInput | Date | string
   completedAt?: Prisma.NullableDateTimeFieldUpdateOperationsInput | Date | string | null
-  tripRequest?: Prisma.TripRequestUpdateOneRequiredWithoutRecommendationRunsNestedInput
-  options?: Prisma.RecommendationOptionUpdateManyWithoutRecommendationRunNestedInput
   memo?: Prisma.RecommendationMemoUpdateOneWithoutRecommendationRunNestedInput
+  options?: Prisma.RecommendationOptionUpdateManyWithoutRecommendationRunNestedInput
+  tripRequest?: Prisma.TripRequestUpdateOneRequiredWithoutRecommendationRunsNestedInput
 }
 
 export type RecommendationRunUncheckedUpdateWithoutCreatedByInput = {
@@ -792,8 +792,8 @@ export type RecommendationRunUncheckedUpdateWithoutCreatedByInput = {
   engineVersion?: Prisma.StringFieldUpdateOperationsInput | string
   createdAt?: Prisma.DateTimeFieldUpdateOperationsInput | Date | string
   completedAt?: Prisma.NullableDateTimeFieldUpdateOperationsInput | Date | string | null
-  options?: Prisma.RecommendationOptionUncheckedUpdateManyWithoutRecommendationRunNestedInput
   memo?: Prisma.RecommendationMemoUncheckedUpdateOneWithoutRecommendationRunNestedInput
+  options?: Prisma.RecommendationOptionUncheckedUpdateManyWithoutRecommendationRunNestedInput
 }
 
 export type RecommendationRunUncheckedUpdateManyWithoutCreatedByInput = {
@@ -823,9 +823,9 @@ export type RecommendationRunUpdateWithoutTripRequestInput = {
   engineVersion?: Prisma.StringFieldUpdateOperationsInput | string
   createdAt?: Prisma.DateTimeFieldUpdateOperationsInput | Date | string
   completedAt?: Prisma.NullableDateTimeFieldUpdateOperationsInput | Date | string | null
-  createdBy?: Prisma.UserUpdateOneRequiredWithoutRecommendationRunsNestedInput
-  options?: Prisma.RecommendationOptionUpdateManyWithoutRecommendationRunNestedInput
   memo?: Prisma.RecommendationMemoUpdateOneWithoutRecommendationRunNestedInput
+  options?: Prisma.RecommendationOptionUpdateManyWithoutRecommendationRunNestedInput
+  createdBy?: Prisma.UserUpdateOneRequiredWithoutRecommendationRunsNestedInput
 }
 
 export type RecommendationRunUncheckedUpdateWithoutTripRequestInput = {
@@ -836,8 +836,8 @@ export type RecommendationRunUncheckedUpdateWithoutTripRequestInput = {
   engineVersion?: Prisma.StringFieldUpdateOperationsInput | string
   createdAt?: Prisma.DateTimeFieldUpdateOperationsInput | Date | string
   completedAt?: Prisma.NullableDateTimeFieldUpdateOperationsInput | Date | string | null
-  options?: Prisma.RecommendationOptionUncheckedUpdateManyWithoutRecommendationRunNestedInput
   memo?: Prisma.RecommendationMemoUncheckedUpdateOneWithoutRecommendationRunNestedInput
+  options?: Prisma.RecommendationOptionUncheckedUpdateManyWithoutRecommendationRunNestedInput
 }
 
 export type RecommendationRunUncheckedUpdateManyWithoutTripRequestInput = {
@@ -890,10 +890,10 @@ export type RecommendationRunSelect<ExtArgs extends runtime.Types.Extensions.Int
   engineVersion?: boolean
   createdAt?: boolean
   completedAt?: boolean
-  tripRequest?: boolean | Prisma.TripRequestDefaultArgs<ExtArgs>
-  createdBy?: boolean | Prisma.UserDefaultArgs<ExtArgs>
-  options?: boolean | Prisma.RecommendationRun$optionsArgs<ExtArgs>
   memo?: boolean | Prisma.RecommendationRun$memoArgs<ExtArgs>
+  options?: boolean | Prisma.RecommendationRun$optionsArgs<ExtArgs>
+  createdBy?: boolean | Prisma.UserDefaultArgs<ExtArgs>
+  tripRequest?: boolean | Prisma.TripRequestDefaultArgs<ExtArgs>
   _count?: boolean | Prisma.RecommendationRunCountOutputTypeDefaultArgs<ExtArgs>
 }, ExtArgs["result"]["recommendationRun"]>
 
@@ -906,8 +906,8 @@ export type RecommendationRunSelectCreateManyAndReturn<ExtArgs extends runtime.T
   engineVersion?: boolean
   createdAt?: boolean
   completedAt?: boolean
-  tripRequest?: boolean | Prisma.TripRequestDefaultArgs<ExtArgs>
   createdBy?: boolean | Prisma.UserDefaultArgs<ExtArgs>
+  tripRequest?: boolean | Prisma.TripRequestDefaultArgs<ExtArgs>
 }, ExtArgs["result"]["recommendationRun"]>
 
 export type RecommendationRunSelectUpdateManyAndReturn<ExtArgs extends runtime.Types.Extensions.InternalArgs = runtime.Types.Extensions.DefaultArgs> = runtime.Types.Extensions.GetSelect<{
@@ -919,8 +919,8 @@ export type RecommendationRunSelectUpdateManyAndReturn<ExtArgs extends runtime.T
   engineVersion?: boolean
   createdAt?: boolean
   completedAt?: boolean
-  tripRequest?: boolean | Prisma.TripRequestDefaultArgs<ExtArgs>
   createdBy?: boolean | Prisma.UserDefaultArgs<ExtArgs>
+  tripRequest?: boolean | Prisma.TripRequestDefaultArgs<ExtArgs>
 }, ExtArgs["result"]["recommendationRun"]>
 
 export type RecommendationRunSelectScalar = {
@@ -936,28 +936,28 @@ export type RecommendationRunSelectScalar = {
 
 export type RecommendationRunOmit<ExtArgs extends runtime.Types.Extensions.InternalArgs = runtime.Types.Extensions.DefaultArgs> = runtime.Types.Extensions.GetOmit<"id" | "tripRequestId" | "createdByUserId" | "status" | "modelVersion" | "engineVersion" | "createdAt" | "completedAt", ExtArgs["result"]["recommendationRun"]>
 export type RecommendationRunInclude<ExtArgs extends runtime.Types.Extensions.InternalArgs = runtime.Types.Extensions.DefaultArgs> = {
-  tripRequest?: boolean | Prisma.TripRequestDefaultArgs<ExtArgs>
-  createdBy?: boolean | Prisma.UserDefaultArgs<ExtArgs>
-  options?: boolean | Prisma.RecommendationRun$optionsArgs<ExtArgs>
   memo?: boolean | Prisma.RecommendationRun$memoArgs<ExtArgs>
+  options?: boolean | Prisma.RecommendationRun$optionsArgs<ExtArgs>
+  createdBy?: boolean | Prisma.UserDefaultArgs<ExtArgs>
+  tripRequest?: boolean | Prisma.TripRequestDefaultArgs<ExtArgs>
   _count?: boolean | Prisma.RecommendationRunCountOutputTypeDefaultArgs<ExtArgs>
 }
 export type RecommendationRunIncludeCreateManyAndReturn<ExtArgs extends runtime.Types.Extensions.InternalArgs = runtime.Types.Extensions.DefaultArgs> = {
-  tripRequest?: boolean | Prisma.TripRequestDefaultArgs<ExtArgs>
   createdBy?: boolean | Prisma.UserDefaultArgs<ExtArgs>
+  tripRequest?: boolean | Prisma.TripRequestDefaultArgs<ExtArgs>
 }
 export type RecommendationRunIncludeUpdateManyAndReturn<ExtArgs extends runtime.Types.Extensions.InternalArgs = runtime.Types.Extensions.DefaultArgs> = {
-  tripRequest?: boolean | Prisma.TripRequestDefaultArgs<ExtArgs>
   createdBy?: boolean | Prisma.UserDefaultArgs<ExtArgs>
+  tripRequest?: boolean | Prisma.TripRequestDefaultArgs<ExtArgs>
 }
 
 export type $RecommendationRunPayload<ExtArgs extends runtime.Types.Extensions.InternalArgs = runtime.Types.Extensions.DefaultArgs> = {
   name: "RecommendationRun"
   objects: {
-    tripRequest: Prisma.$TripRequestPayload<ExtArgs>
-    createdBy: Prisma.$UserPayload<ExtArgs>
-    options: Prisma.$RecommendationOptionPayload<ExtArgs>[]
     memo: Prisma.$RecommendationMemoPayload<ExtArgs> | null
+    options: Prisma.$RecommendationOptionPayload<ExtArgs>[]
+    createdBy: Prisma.$UserPayload<ExtArgs>
+    tripRequest: Prisma.$TripRequestPayload<ExtArgs>
   }
   scalars: runtime.Types.Extensions.GetPayloadResult<{
     id: string
@@ -1362,10 +1362,10 @@ readonly fields: RecommendationRunFieldRefs;
  */
 export interface Prisma__RecommendationRunClient<T, Null = never, ExtArgs extends runtime.Types.Extensions.InternalArgs = runtime.Types.Extensions.DefaultArgs, GlobalOmitOptions = {}> extends Prisma.PrismaPromise<T> {
   readonly [Symbol.toStringTag]: "PrismaPromise"
-  tripRequest<T extends Prisma.TripRequestDefaultArgs<ExtArgs> = {}>(args?: Prisma.Subset<T, Prisma.TripRequestDefaultArgs<ExtArgs>>): Prisma.Prisma__TripRequestClient<runtime.Types.Result.GetResult<Prisma.$TripRequestPayload<ExtArgs>, T, "findUniqueOrThrow", GlobalOmitOptions> | Null, Null, ExtArgs, GlobalOmitOptions>
-  createdBy<T extends Prisma.UserDefaultArgs<ExtArgs> = {}>(args?: Prisma.Subset<T, Prisma.UserDefaultArgs<ExtArgs>>): Prisma.Prisma__UserClient<runtime.Types.Result.GetResult<Prisma.$UserPayload<ExtArgs>, T, "findUniqueOrThrow", GlobalOmitOptions> | Null, Null, ExtArgs, GlobalOmitOptions>
-  options<T extends Prisma.RecommendationRun$optionsArgs<ExtArgs> = {}>(args?: Prisma.Subset<T, Prisma.RecommendationRun$optionsArgs<ExtArgs>>): Prisma.PrismaPromise<runtime.Types.Result.GetResult<Prisma.$RecommendationOptionPayload<ExtArgs>, T, "findMany", GlobalOmitOptions> | Null>
   memo<T extends Prisma.RecommendationRun$memoArgs<ExtArgs> = {}>(args?: Prisma.Subset<T, Prisma.RecommendationRun$memoArgs<ExtArgs>>): Prisma.Prisma__RecommendationMemoClient<runtime.Types.Result.GetResult<Prisma.$RecommendationMemoPayload<ExtArgs>, T, "findUniqueOrThrow", GlobalOmitOptions> | null, null, ExtArgs, GlobalOmitOptions>
+  options<T extends Prisma.RecommendationRun$optionsArgs<ExtArgs> = {}>(args?: Prisma.Subset<T, Prisma.RecommendationRun$optionsArgs<ExtArgs>>): Prisma.PrismaPromise<runtime.Types.Result.GetResult<Prisma.$RecommendationOptionPayload<ExtArgs>, T, "findMany", GlobalOmitOptions> | Null>
+  createdBy<T extends Prisma.UserDefaultArgs<ExtArgs> = {}>(args?: Prisma.Subset<T, Prisma.UserDefaultArgs<ExtArgs>>): Prisma.Prisma__UserClient<runtime.Types.Result.GetResult<Prisma.$UserPayload<ExtArgs>, T, "findUniqueOrThrow", GlobalOmitOptions> | Null, Null, ExtArgs, GlobalOmitOptions>
+  tripRequest<T extends Prisma.TripRequestDefaultArgs<ExtArgs> = {}>(args?: Prisma.Subset<T, Prisma.TripRequestDefaultArgs<ExtArgs>>): Prisma.Prisma__TripRequestClient<runtime.Types.Result.GetResult<Prisma.$TripRequestPayload<ExtArgs>, T, "findUniqueOrThrow", GlobalOmitOptions> | Null, Null, ExtArgs, GlobalOmitOptions>
   /**
    * Attaches callbacks for the resolution and/or rejection of the Promise.
    * @param onfulfilled The callback to execute when the Promise is resolved.
@@ -1804,6 +1804,25 @@ export type RecommendationRunDeleteManyArgs<ExtArgs extends runtime.Types.Extens
 }
 
 /**
+ * RecommendationRun.memo
+ */
+export type RecommendationRun$memoArgs<ExtArgs extends runtime.Types.Extensions.InternalArgs = runtime.Types.Extensions.DefaultArgs> = {
+  /**
+   * Select specific fields to fetch from the RecommendationMemo
+   */
+  select?: Prisma.RecommendationMemoSelect<ExtArgs> | null
+  /**
+   * Omit specific fields from the RecommendationMemo
+   */
+  omit?: Prisma.RecommendationMemoOmit<ExtArgs> | null
+  /**
+   * Choose, which related nodes to fetch as well
+   */
+  include?: Prisma.RecommendationMemoInclude<ExtArgs> | null
+  where?: Prisma.RecommendationMemoWhereInput
+}
+
+/**
  * RecommendationRun.options
  */
 export type RecommendationRun$optionsArgs<ExtArgs extends runtime.Types.Extensions.InternalArgs = runtime.Types.Extensions.DefaultArgs> = {
@@ -1825,25 +1844,6 @@ export type RecommendationRun$optionsArgs<ExtArgs extends runtime.Types.Extensio
   take?: number
   skip?: number
   distinct?: Prisma.RecommendationOptionScalarFieldEnum | Prisma.RecommendationOptionScalarFieldEnum[]
-}
-
-/**
- * RecommendationRun.memo
- */
-export type RecommendationRun$memoArgs<ExtArgs extends runtime.Types.Extensions.InternalArgs = runtime.Types.Extensions.DefaultArgs> = {
-  /**
-   * Select specific fields to fetch from the RecommendationMemo
-   */
-  select?: Prisma.RecommendationMemoSelect<ExtArgs> | null
-  /**
-   * Omit specific fields from the RecommendationMemo
-   */
-  omit?: Prisma.RecommendationMemoOmit<ExtArgs> | null
-  /**
-   * Choose, which related nodes to fetch as well
-   */
-  include?: Prisma.RecommendationMemoInclude<ExtArgs> | null
-  where?: Prisma.RecommendationMemoWhereInput
 }
 
 /**

@@ -27,7 +27,6 @@ export type AggregateFamilyMember = {
 export type FamilyMemberMinAggregateOutputType = {
   id: string | null
   clientId: string | null
-  linkedClientId: string | null
   name: string | null
   relationship: string | null
   email: string | null
@@ -36,12 +35,12 @@ export type FamilyMemberMinAggregateOutputType = {
   notes: string | null
   createdAt: Date | null
   updatedAt: Date | null
+  linkedClientId: string | null
 }
 
 export type FamilyMemberMaxAggregateOutputType = {
   id: string | null
   clientId: string | null
-  linkedClientId: string | null
   name: string | null
   relationship: string | null
   email: string | null
@@ -50,12 +49,12 @@ export type FamilyMemberMaxAggregateOutputType = {
   notes: string | null
   createdAt: Date | null
   updatedAt: Date | null
+  linkedClientId: string | null
 }
 
 export type FamilyMemberCountAggregateOutputType = {
   id: number
   clientId: number
-  linkedClientId: number
   name: number
   relationship: number
   email: number
@@ -64,6 +63,7 @@ export type FamilyMemberCountAggregateOutputType = {
   notes: number
   createdAt: number
   updatedAt: number
+  linkedClientId: number
   _all: number
 }
 
@@ -71,7 +71,6 @@ export type FamilyMemberCountAggregateOutputType = {
 export type FamilyMemberMinAggregateInputType = {
   id?: true
   clientId?: true
-  linkedClientId?: true
   name?: true
   relationship?: true
   email?: true
@@ -80,12 +79,12 @@ export type FamilyMemberMinAggregateInputType = {
   notes?: true
   createdAt?: true
   updatedAt?: true
+  linkedClientId?: true
 }
 
 export type FamilyMemberMaxAggregateInputType = {
   id?: true
   clientId?: true
-  linkedClientId?: true
   name?: true
   relationship?: true
   email?: true
@@ -94,12 +93,12 @@ export type FamilyMemberMaxAggregateInputType = {
   notes?: true
   createdAt?: true
   updatedAt?: true
+  linkedClientId?: true
 }
 
 export type FamilyMemberCountAggregateInputType = {
   id?: true
   clientId?: true
-  linkedClientId?: true
   name?: true
   relationship?: true
   email?: true
@@ -108,6 +107,7 @@ export type FamilyMemberCountAggregateInputType = {
   notes?: true
   createdAt?: true
   updatedAt?: true
+  linkedClientId?: true
   _all?: true
 }
 
@@ -186,7 +186,6 @@ export type FamilyMemberGroupByArgs<ExtArgs extends runtime.Types.Extensions.Int
 export type FamilyMemberGroupByOutputType = {
   id: string
   clientId: string
-  linkedClientId: string | null
   name: string
   relationship: string
   email: string | null
@@ -195,6 +194,7 @@ export type FamilyMemberGroupByOutputType = {
   notes: string | null
   createdAt: Date
   updatedAt: Date
+  linkedClientId: string | null
   _count: FamilyMemberCountAggregateOutputType | null
   _min: FamilyMemberMinAggregateOutputType | null
   _max: FamilyMemberMaxAggregateOutputType | null
@@ -221,7 +221,6 @@ export type FamilyMemberWhereInput = {
   NOT?: Prisma.FamilyMemberWhereInput | Prisma.FamilyMemberWhereInput[]
   id?: Prisma.StringFilter<"FamilyMember"> | string
   clientId?: Prisma.StringFilter<"FamilyMember"> | string
-  linkedClientId?: Prisma.StringNullableFilter<"FamilyMember"> | string | null
   name?: Prisma.StringFilter<"FamilyMember"> | string
   relationship?: Prisma.StringFilter<"FamilyMember"> | string
   email?: Prisma.StringNullableFilter<"FamilyMember"> | string | null
@@ -230,6 +229,7 @@ export type FamilyMemberWhereInput = {
   notes?: Prisma.StringNullableFilter<"FamilyMember"> | string | null
   createdAt?: Prisma.DateTimeFilter<"FamilyMember"> | Date | string
   updatedAt?: Prisma.DateTimeFilter<"FamilyMember"> | Date | string
+  linkedClientId?: Prisma.StringNullableFilter<"FamilyMember"> | string | null
   client?: Prisma.XOR<Prisma.ClientScalarRelationFilter, Prisma.ClientWhereInput>
   linkedClient?: Prisma.XOR<Prisma.ClientNullableScalarRelationFilter, Prisma.ClientWhereInput> | null
 }
@@ -237,7 +237,6 @@ export type FamilyMemberWhereInput = {
 export type FamilyMemberOrderByWithRelationInput = {
   id?: Prisma.SortOrder
   clientId?: Prisma.SortOrder
-  linkedClientId?: Prisma.SortOrderInput | Prisma.SortOrder
   name?: Prisma.SortOrder
   relationship?: Prisma.SortOrder
   email?: Prisma.SortOrderInput | Prisma.SortOrder
@@ -246,6 +245,7 @@ export type FamilyMemberOrderByWithRelationInput = {
   notes?: Prisma.SortOrderInput | Prisma.SortOrder
   createdAt?: Prisma.SortOrder
   updatedAt?: Prisma.SortOrder
+  linkedClientId?: Prisma.SortOrderInput | Prisma.SortOrder
   client?: Prisma.ClientOrderByWithRelationInput
   linkedClient?: Prisma.ClientOrderByWithRelationInput
 }
@@ -272,7 +272,6 @@ export type FamilyMemberWhereUniqueInput = Prisma.AtLeast<{
 export type FamilyMemberOrderByWithAggregationInput = {
   id?: Prisma.SortOrder
   clientId?: Prisma.SortOrder
-  linkedClientId?: Prisma.SortOrderInput | Prisma.SortOrder
   name?: Prisma.SortOrder
   relationship?: Prisma.SortOrder
   email?: Prisma.SortOrderInput | Prisma.SortOrder
@@ -281,6 +280,7 @@ export type FamilyMemberOrderByWithAggregationInput = {
   notes?: Prisma.SortOrderInput | Prisma.SortOrder
   createdAt?: Prisma.SortOrder
   updatedAt?: Prisma.SortOrder
+  linkedClientId?: Prisma.SortOrderInput | Prisma.SortOrder
   _count?: Prisma.FamilyMemberCountOrderByAggregateInput
   _max?: Prisma.FamilyMemberMaxOrderByAggregateInput
   _min?: Prisma.FamilyMemberMinOrderByAggregateInput
@@ -292,7 +292,6 @@ export type FamilyMemberScalarWhereWithAggregatesInput = {
   NOT?: Prisma.FamilyMemberScalarWhereWithAggregatesInput | Prisma.FamilyMemberScalarWhereWithAggregatesInput[]
   id?: Prisma.StringWithAggregatesFilter<"FamilyMember"> | string
   clientId?: Prisma.StringWithAggregatesFilter<"FamilyMember"> | string
-  linkedClientId?: Prisma.StringNullableWithAggregatesFilter<"FamilyMember"> | string | null
   name?: Prisma.StringWithAggregatesFilter<"FamilyMember"> | string
   relationship?: Prisma.StringWithAggregatesFilter<"FamilyMember"> | string
   email?: Prisma.StringNullableWithAggregatesFilter<"FamilyMember"> | string | null
@@ -301,6 +300,7 @@ export type FamilyMemberScalarWhereWithAggregatesInput = {
   notes?: Prisma.StringNullableWithAggregatesFilter<"FamilyMember"> | string | null
   createdAt?: Prisma.DateTimeWithAggregatesFilter<"FamilyMember"> | Date | string
   updatedAt?: Prisma.DateTimeWithAggregatesFilter<"FamilyMember"> | Date | string
+  linkedClientId?: Prisma.StringNullableWithAggregatesFilter<"FamilyMember"> | string | null
 }
 
 export type FamilyMemberCreateInput = {
@@ -320,7 +320,6 @@ export type FamilyMemberCreateInput = {
 export type FamilyMemberUncheckedCreateInput = {
   id?: string
   clientId: string
-  linkedClientId?: string | null
   name: string
   relationship: string
   email?: string | null
@@ -329,6 +328,7 @@ export type FamilyMemberUncheckedCreateInput = {
   notes?: string | null
   createdAt?: Date | string
   updatedAt?: Date | string
+  linkedClientId?: string | null
 }
 
 export type FamilyMemberUpdateInput = {
@@ -348,7 +348,6 @@ export type FamilyMemberUpdateInput = {
 export type FamilyMemberUncheckedUpdateInput = {
   id?: Prisma.StringFieldUpdateOperationsInput | string
   clientId?: Prisma.StringFieldUpdateOperationsInput | string
-  linkedClientId?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
   name?: Prisma.StringFieldUpdateOperationsInput | string
   relationship?: Prisma.StringFieldUpdateOperationsInput | string
   email?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
@@ -357,12 +356,12 @@ export type FamilyMemberUncheckedUpdateInput = {
   notes?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
   createdAt?: Prisma.DateTimeFieldUpdateOperationsInput | Date | string
   updatedAt?: Prisma.DateTimeFieldUpdateOperationsInput | Date | string
+  linkedClientId?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
 }
 
 export type FamilyMemberCreateManyInput = {
   id?: string
   clientId: string
-  linkedClientId?: string | null
   name: string
   relationship: string
   email?: string | null
@@ -371,6 +370,7 @@ export type FamilyMemberCreateManyInput = {
   notes?: string | null
   createdAt?: Date | string
   updatedAt?: Date | string
+  linkedClientId?: string | null
 }
 
 export type FamilyMemberUpdateManyMutationInput = {
@@ -388,7 +388,6 @@ export type FamilyMemberUpdateManyMutationInput = {
 export type FamilyMemberUncheckedUpdateManyInput = {
   id?: Prisma.StringFieldUpdateOperationsInput | string
   clientId?: Prisma.StringFieldUpdateOperationsInput | string
-  linkedClientId?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
   name?: Prisma.StringFieldUpdateOperationsInput | string
   relationship?: Prisma.StringFieldUpdateOperationsInput | string
   email?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
@@ -397,6 +396,7 @@ export type FamilyMemberUncheckedUpdateManyInput = {
   notes?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
   createdAt?: Prisma.DateTimeFieldUpdateOperationsInput | Date | string
   updatedAt?: Prisma.DateTimeFieldUpdateOperationsInput | Date | string
+  linkedClientId?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
 }
 
 export type FamilyMemberListRelationFilter = {
@@ -417,7 +417,6 @@ export type FamilyMemberOrderByRelationAggregateInput = {
 export type FamilyMemberCountOrderByAggregateInput = {
   id?: Prisma.SortOrder
   clientId?: Prisma.SortOrder
-  linkedClientId?: Prisma.SortOrder
   name?: Prisma.SortOrder
   relationship?: Prisma.SortOrder
   email?: Prisma.SortOrder
@@ -426,12 +425,12 @@ export type FamilyMemberCountOrderByAggregateInput = {
   notes?: Prisma.SortOrder
   createdAt?: Prisma.SortOrder
   updatedAt?: Prisma.SortOrder
+  linkedClientId?: Prisma.SortOrder
 }
 
 export type FamilyMemberMaxOrderByAggregateInput = {
   id?: Prisma.SortOrder
   clientId?: Prisma.SortOrder
-  linkedClientId?: Prisma.SortOrder
   name?: Prisma.SortOrder
   relationship?: Prisma.SortOrder
   email?: Prisma.SortOrder
@@ -440,12 +439,12 @@ export type FamilyMemberMaxOrderByAggregateInput = {
   notes?: Prisma.SortOrder
   createdAt?: Prisma.SortOrder
   updatedAt?: Prisma.SortOrder
+  linkedClientId?: Prisma.SortOrder
 }
 
 export type FamilyMemberMinOrderByAggregateInput = {
   id?: Prisma.SortOrder
   clientId?: Prisma.SortOrder
-  linkedClientId?: Prisma.SortOrder
   name?: Prisma.SortOrder
   relationship?: Prisma.SortOrder
   email?: Prisma.SortOrder
@@ -454,6 +453,7 @@ export type FamilyMemberMinOrderByAggregateInput = {
   notes?: Prisma.SortOrder
   createdAt?: Prisma.SortOrder
   updatedAt?: Prisma.SortOrder
+  linkedClientId?: Prisma.SortOrder
 }
 
 export type FamilyMemberCreateNestedManyWithoutClientInput = {
@@ -545,7 +545,6 @@ export type FamilyMemberCreateWithoutClientInput = {
 
 export type FamilyMemberUncheckedCreateWithoutClientInput = {
   id?: string
-  linkedClientId?: string | null
   name: string
   relationship: string
   email?: string | null
@@ -554,6 +553,7 @@ export type FamilyMemberUncheckedCreateWithoutClientInput = {
   notes?: string | null
   createdAt?: Date | string
   updatedAt?: Date | string
+  linkedClientId?: string | null
 }
 
 export type FamilyMemberCreateOrConnectWithoutClientInput = {
@@ -619,7 +619,6 @@ export type FamilyMemberScalarWhereInput = {
   NOT?: Prisma.FamilyMemberScalarWhereInput | Prisma.FamilyMemberScalarWhereInput[]
   id?: Prisma.StringFilter<"FamilyMember"> | string
   clientId?: Prisma.StringFilter<"FamilyMember"> | string
-  linkedClientId?: Prisma.StringNullableFilter<"FamilyMember"> | string | null
   name?: Prisma.StringFilter<"FamilyMember"> | string
   relationship?: Prisma.StringFilter<"FamilyMember"> | string
   email?: Prisma.StringNullableFilter<"FamilyMember"> | string | null
@@ -628,6 +627,7 @@ export type FamilyMemberScalarWhereInput = {
   notes?: Prisma.StringNullableFilter<"FamilyMember"> | string | null
   createdAt?: Prisma.DateTimeFilter<"FamilyMember"> | Date | string
   updatedAt?: Prisma.DateTimeFilter<"FamilyMember"> | Date | string
+  linkedClientId?: Prisma.StringNullableFilter<"FamilyMember"> | string | null
 }
 
 export type FamilyMemberUpsertWithoutLinkedClientInput = {
@@ -669,7 +669,6 @@ export type FamilyMemberUncheckedUpdateWithoutLinkedClientInput = {
 
 export type FamilyMemberCreateManyClientInput = {
   id?: string
-  linkedClientId?: string | null
   name: string
   relationship: string
   email?: string | null
@@ -678,6 +677,7 @@ export type FamilyMemberCreateManyClientInput = {
   notes?: string | null
   createdAt?: Date | string
   updatedAt?: Date | string
+  linkedClientId?: string | null
 }
 
 export type FamilyMemberUpdateWithoutClientInput = {
@@ -695,7 +695,6 @@ export type FamilyMemberUpdateWithoutClientInput = {
 
 export type FamilyMemberUncheckedUpdateWithoutClientInput = {
   id?: Prisma.StringFieldUpdateOperationsInput | string
-  linkedClientId?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
   name?: Prisma.StringFieldUpdateOperationsInput | string
   relationship?: Prisma.StringFieldUpdateOperationsInput | string
   email?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
@@ -704,11 +703,11 @@ export type FamilyMemberUncheckedUpdateWithoutClientInput = {
   notes?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
   createdAt?: Prisma.DateTimeFieldUpdateOperationsInput | Date | string
   updatedAt?: Prisma.DateTimeFieldUpdateOperationsInput | Date | string
+  linkedClientId?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
 }
 
 export type FamilyMemberUncheckedUpdateManyWithoutClientInput = {
   id?: Prisma.StringFieldUpdateOperationsInput | string
-  linkedClientId?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
   name?: Prisma.StringFieldUpdateOperationsInput | string
   relationship?: Prisma.StringFieldUpdateOperationsInput | string
   email?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
@@ -717,6 +716,7 @@ export type FamilyMemberUncheckedUpdateManyWithoutClientInput = {
   notes?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
   createdAt?: Prisma.DateTimeFieldUpdateOperationsInput | Date | string
   updatedAt?: Prisma.DateTimeFieldUpdateOperationsInput | Date | string
+  linkedClientId?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
 }
 
 
@@ -724,7 +724,6 @@ export type FamilyMemberUncheckedUpdateManyWithoutClientInput = {
 export type FamilyMemberSelect<ExtArgs extends runtime.Types.Extensions.InternalArgs = runtime.Types.Extensions.DefaultArgs> = runtime.Types.Extensions.GetSelect<{
   id?: boolean
   clientId?: boolean
-  linkedClientId?: boolean
   name?: boolean
   relationship?: boolean
   email?: boolean
@@ -733,6 +732,7 @@ export type FamilyMemberSelect<ExtArgs extends runtime.Types.Extensions.Internal
   notes?: boolean
   createdAt?: boolean
   updatedAt?: boolean
+  linkedClientId?: boolean
   client?: boolean | Prisma.ClientDefaultArgs<ExtArgs>
   linkedClient?: boolean | Prisma.FamilyMember$linkedClientArgs<ExtArgs>
 }, ExtArgs["result"]["familyMember"]>
@@ -740,7 +740,6 @@ export type FamilyMemberSelect<ExtArgs extends runtime.Types.Extensions.Internal
 export type FamilyMemberSelectCreateManyAndReturn<ExtArgs extends runtime.Types.Extensions.InternalArgs = runtime.Types.Extensions.DefaultArgs> = runtime.Types.Extensions.GetSelect<{
   id?: boolean
   clientId?: boolean
-  linkedClientId?: boolean
   name?: boolean
   relationship?: boolean
   email?: boolean
@@ -749,6 +748,7 @@ export type FamilyMemberSelectCreateManyAndReturn<ExtArgs extends runtime.Types.
   notes?: boolean
   createdAt?: boolean
   updatedAt?: boolean
+  linkedClientId?: boolean
   client?: boolean | Prisma.ClientDefaultArgs<ExtArgs>
   linkedClient?: boolean | Prisma.FamilyMember$linkedClientArgs<ExtArgs>
 }, ExtArgs["result"]["familyMember"]>
@@ -756,7 +756,6 @@ export type FamilyMemberSelectCreateManyAndReturn<ExtArgs extends runtime.Types.
 export type FamilyMemberSelectUpdateManyAndReturn<ExtArgs extends runtime.Types.Extensions.InternalArgs = runtime.Types.Extensions.DefaultArgs> = runtime.Types.Extensions.GetSelect<{
   id?: boolean
   clientId?: boolean
-  linkedClientId?: boolean
   name?: boolean
   relationship?: boolean
   email?: boolean
@@ -765,6 +764,7 @@ export type FamilyMemberSelectUpdateManyAndReturn<ExtArgs extends runtime.Types.
   notes?: boolean
   createdAt?: boolean
   updatedAt?: boolean
+  linkedClientId?: boolean
   client?: boolean | Prisma.ClientDefaultArgs<ExtArgs>
   linkedClient?: boolean | Prisma.FamilyMember$linkedClientArgs<ExtArgs>
 }, ExtArgs["result"]["familyMember"]>
@@ -772,7 +772,6 @@ export type FamilyMemberSelectUpdateManyAndReturn<ExtArgs extends runtime.Types.
 export type FamilyMemberSelectScalar = {
   id?: boolean
   clientId?: boolean
-  linkedClientId?: boolean
   name?: boolean
   relationship?: boolean
   email?: boolean
@@ -781,9 +780,10 @@ export type FamilyMemberSelectScalar = {
   notes?: boolean
   createdAt?: boolean
   updatedAt?: boolean
+  linkedClientId?: boolean
 }
 
-export type FamilyMemberOmit<ExtArgs extends runtime.Types.Extensions.InternalArgs = runtime.Types.Extensions.DefaultArgs> = runtime.Types.Extensions.GetOmit<"id" | "clientId" | "linkedClientId" | "name" | "relationship" | "email" | "phone" | "dateOfBirth" | "notes" | "createdAt" | "updatedAt", ExtArgs["result"]["familyMember"]>
+export type FamilyMemberOmit<ExtArgs extends runtime.Types.Extensions.InternalArgs = runtime.Types.Extensions.DefaultArgs> = runtime.Types.Extensions.GetOmit<"id" | "clientId" | "name" | "relationship" | "email" | "phone" | "dateOfBirth" | "notes" | "createdAt" | "updatedAt" | "linkedClientId", ExtArgs["result"]["familyMember"]>
 export type FamilyMemberInclude<ExtArgs extends runtime.Types.Extensions.InternalArgs = runtime.Types.Extensions.DefaultArgs> = {
   client?: boolean | Prisma.ClientDefaultArgs<ExtArgs>
   linkedClient?: boolean | Prisma.FamilyMember$linkedClientArgs<ExtArgs>
@@ -806,7 +806,6 @@ export type $FamilyMemberPayload<ExtArgs extends runtime.Types.Extensions.Intern
   scalars: runtime.Types.Extensions.GetPayloadResult<{
     id: string
     clientId: string
-    linkedClientId: string | null
     name: string
     relationship: string
     email: string | null
@@ -815,6 +814,7 @@ export type $FamilyMemberPayload<ExtArgs extends runtime.Types.Extensions.Intern
     notes: string | null
     createdAt: Date
     updatedAt: Date
+    linkedClientId: string | null
   }, ExtArgs["result"]["familyMember"]>
   composites: {}
 }
@@ -1242,7 +1242,6 @@ export interface Prisma__FamilyMemberClient<T, Null = never, ExtArgs extends run
 export interface FamilyMemberFieldRefs {
   readonly id: Prisma.FieldRef<"FamilyMember", 'String'>
   readonly clientId: Prisma.FieldRef<"FamilyMember", 'String'>
-  readonly linkedClientId: Prisma.FieldRef<"FamilyMember", 'String'>
   readonly name: Prisma.FieldRef<"FamilyMember", 'String'>
   readonly relationship: Prisma.FieldRef<"FamilyMember", 'String'>
   readonly email: Prisma.FieldRef<"FamilyMember", 'String'>
@@ -1251,6 +1250,7 @@ export interface FamilyMemberFieldRefs {
   readonly notes: Prisma.FieldRef<"FamilyMember", 'String'>
   readonly createdAt: Prisma.FieldRef<"FamilyMember", 'DateTime'>
   readonly updatedAt: Prisma.FieldRef<"FamilyMember", 'DateTime'>
+  readonly linkedClientId: Prisma.FieldRef<"FamilyMember", 'String'>
 }
     
 

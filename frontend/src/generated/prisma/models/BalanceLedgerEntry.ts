@@ -236,8 +236,8 @@ export type BalanceLedgerEntryWhereInput = {
   changeReason?: Prisma.StringFilter<"BalanceLedgerEntry"> | string
   changedByUserId?: Prisma.StringFilter<"BalanceLedgerEntry"> | string
   createdAt?: Prisma.DateTimeFilter<"BalanceLedgerEntry"> | Date | string
-  balance?: Prisma.XOR<Prisma.ClientLoyaltyBalanceScalarRelationFilter, Prisma.ClientLoyaltyBalanceWhereInput>
   changedBy?: Prisma.XOR<Prisma.UserScalarRelationFilter, Prisma.UserWhereInput>
+  balance?: Prisma.XOR<Prisma.ClientLoyaltyBalanceScalarRelationFilter, Prisma.ClientLoyaltyBalanceWhereInput>
 }
 
 export type BalanceLedgerEntryOrderByWithRelationInput = {
@@ -248,8 +248,8 @@ export type BalanceLedgerEntryOrderByWithRelationInput = {
   changeReason?: Prisma.SortOrder
   changedByUserId?: Prisma.SortOrder
   createdAt?: Prisma.SortOrder
-  balance?: Prisma.ClientLoyaltyBalanceOrderByWithRelationInput
   changedBy?: Prisma.UserOrderByWithRelationInput
+  balance?: Prisma.ClientLoyaltyBalanceOrderByWithRelationInput
 }
 
 export type BalanceLedgerEntryWhereUniqueInput = Prisma.AtLeast<{
@@ -263,8 +263,8 @@ export type BalanceLedgerEntryWhereUniqueInput = Prisma.AtLeast<{
   changeReason?: Prisma.StringFilter<"BalanceLedgerEntry"> | string
   changedByUserId?: Prisma.StringFilter<"BalanceLedgerEntry"> | string
   createdAt?: Prisma.DateTimeFilter<"BalanceLedgerEntry"> | Date | string
-  balance?: Prisma.XOR<Prisma.ClientLoyaltyBalanceScalarRelationFilter, Prisma.ClientLoyaltyBalanceWhereInput>
   changedBy?: Prisma.XOR<Prisma.UserScalarRelationFilter, Prisma.UserWhereInput>
+  balance?: Prisma.XOR<Prisma.ClientLoyaltyBalanceScalarRelationFilter, Prisma.ClientLoyaltyBalanceWhereInput>
 }, "id">
 
 export type BalanceLedgerEntryOrderByWithAggregationInput = {
@@ -301,8 +301,8 @@ export type BalanceLedgerEntryCreateInput = {
   newBalance: number
   changeReason: string
   createdAt?: Date | string
-  balance: Prisma.ClientLoyaltyBalanceCreateNestedOneWithoutLedgerEntriesInput
   changedBy: Prisma.UserCreateNestedOneWithoutLedgerEntriesInput
+  balance: Prisma.ClientLoyaltyBalanceCreateNestedOneWithoutLedgerEntriesInput
 }
 
 export type BalanceLedgerEntryUncheckedCreateInput = {
@@ -321,8 +321,8 @@ export type BalanceLedgerEntryUpdateInput = {
   newBalance?: Prisma.IntFieldUpdateOperationsInput | number
   changeReason?: Prisma.StringFieldUpdateOperationsInput | string
   createdAt?: Prisma.DateTimeFieldUpdateOperationsInput | Date | string
-  balance?: Prisma.ClientLoyaltyBalanceUpdateOneRequiredWithoutLedgerEntriesNestedInput
   changedBy?: Prisma.UserUpdateOneRequiredWithoutLedgerEntriesNestedInput
+  balance?: Prisma.ClientLoyaltyBalanceUpdateOneRequiredWithoutLedgerEntriesNestedInput
 }
 
 export type BalanceLedgerEntryUncheckedUpdateInput = {
@@ -680,8 +680,8 @@ export type BalanceLedgerEntrySelect<ExtArgs extends runtime.Types.Extensions.In
   changeReason?: boolean
   changedByUserId?: boolean
   createdAt?: boolean
-  balance?: boolean | Prisma.ClientLoyaltyBalanceDefaultArgs<ExtArgs>
   changedBy?: boolean | Prisma.UserDefaultArgs<ExtArgs>
+  balance?: boolean | Prisma.ClientLoyaltyBalanceDefaultArgs<ExtArgs>
 }, ExtArgs["result"]["balanceLedgerEntry"]>
 
 export type BalanceLedgerEntrySelectCreateManyAndReturn<ExtArgs extends runtime.Types.Extensions.InternalArgs = runtime.Types.Extensions.DefaultArgs> = runtime.Types.Extensions.GetSelect<{
@@ -692,8 +692,8 @@ export type BalanceLedgerEntrySelectCreateManyAndReturn<ExtArgs extends runtime.
   changeReason?: boolean
   changedByUserId?: boolean
   createdAt?: boolean
-  balance?: boolean | Prisma.ClientLoyaltyBalanceDefaultArgs<ExtArgs>
   changedBy?: boolean | Prisma.UserDefaultArgs<ExtArgs>
+  balance?: boolean | Prisma.ClientLoyaltyBalanceDefaultArgs<ExtArgs>
 }, ExtArgs["result"]["balanceLedgerEntry"]>
 
 export type BalanceLedgerEntrySelectUpdateManyAndReturn<ExtArgs extends runtime.Types.Extensions.InternalArgs = runtime.Types.Extensions.DefaultArgs> = runtime.Types.Extensions.GetSelect<{
@@ -704,8 +704,8 @@ export type BalanceLedgerEntrySelectUpdateManyAndReturn<ExtArgs extends runtime.
   changeReason?: boolean
   changedByUserId?: boolean
   createdAt?: boolean
-  balance?: boolean | Prisma.ClientLoyaltyBalanceDefaultArgs<ExtArgs>
   changedBy?: boolean | Prisma.UserDefaultArgs<ExtArgs>
+  balance?: boolean | Prisma.ClientLoyaltyBalanceDefaultArgs<ExtArgs>
 }, ExtArgs["result"]["balanceLedgerEntry"]>
 
 export type BalanceLedgerEntrySelectScalar = {
@@ -720,23 +720,23 @@ export type BalanceLedgerEntrySelectScalar = {
 
 export type BalanceLedgerEntryOmit<ExtArgs extends runtime.Types.Extensions.InternalArgs = runtime.Types.Extensions.DefaultArgs> = runtime.Types.Extensions.GetOmit<"id" | "clientLoyaltyBalanceId" | "previousBalance" | "newBalance" | "changeReason" | "changedByUserId" | "createdAt", ExtArgs["result"]["balanceLedgerEntry"]>
 export type BalanceLedgerEntryInclude<ExtArgs extends runtime.Types.Extensions.InternalArgs = runtime.Types.Extensions.DefaultArgs> = {
-  balance?: boolean | Prisma.ClientLoyaltyBalanceDefaultArgs<ExtArgs>
   changedBy?: boolean | Prisma.UserDefaultArgs<ExtArgs>
+  balance?: boolean | Prisma.ClientLoyaltyBalanceDefaultArgs<ExtArgs>
 }
 export type BalanceLedgerEntryIncludeCreateManyAndReturn<ExtArgs extends runtime.Types.Extensions.InternalArgs = runtime.Types.Extensions.DefaultArgs> = {
-  balance?: boolean | Prisma.ClientLoyaltyBalanceDefaultArgs<ExtArgs>
   changedBy?: boolean | Prisma.UserDefaultArgs<ExtArgs>
+  balance?: boolean | Prisma.ClientLoyaltyBalanceDefaultArgs<ExtArgs>
 }
 export type BalanceLedgerEntryIncludeUpdateManyAndReturn<ExtArgs extends runtime.Types.Extensions.InternalArgs = runtime.Types.Extensions.DefaultArgs> = {
-  balance?: boolean | Prisma.ClientLoyaltyBalanceDefaultArgs<ExtArgs>
   changedBy?: boolean | Prisma.UserDefaultArgs<ExtArgs>
+  balance?: boolean | Prisma.ClientLoyaltyBalanceDefaultArgs<ExtArgs>
 }
 
 export type $BalanceLedgerEntryPayload<ExtArgs extends runtime.Types.Extensions.InternalArgs = runtime.Types.Extensions.DefaultArgs> = {
   name: "BalanceLedgerEntry"
   objects: {
-    balance: Prisma.$ClientLoyaltyBalancePayload<ExtArgs>
     changedBy: Prisma.$UserPayload<ExtArgs>
+    balance: Prisma.$ClientLoyaltyBalancePayload<ExtArgs>
   }
   scalars: runtime.Types.Extensions.GetPayloadResult<{
     id: string
@@ -1140,8 +1140,8 @@ readonly fields: BalanceLedgerEntryFieldRefs;
  */
 export interface Prisma__BalanceLedgerEntryClient<T, Null = never, ExtArgs extends runtime.Types.Extensions.InternalArgs = runtime.Types.Extensions.DefaultArgs, GlobalOmitOptions = {}> extends Prisma.PrismaPromise<T> {
   readonly [Symbol.toStringTag]: "PrismaPromise"
-  balance<T extends Prisma.ClientLoyaltyBalanceDefaultArgs<ExtArgs> = {}>(args?: Prisma.Subset<T, Prisma.ClientLoyaltyBalanceDefaultArgs<ExtArgs>>): Prisma.Prisma__ClientLoyaltyBalanceClient<runtime.Types.Result.GetResult<Prisma.$ClientLoyaltyBalancePayload<ExtArgs>, T, "findUniqueOrThrow", GlobalOmitOptions> | Null, Null, ExtArgs, GlobalOmitOptions>
   changedBy<T extends Prisma.UserDefaultArgs<ExtArgs> = {}>(args?: Prisma.Subset<T, Prisma.UserDefaultArgs<ExtArgs>>): Prisma.Prisma__UserClient<runtime.Types.Result.GetResult<Prisma.$UserPayload<ExtArgs>, T, "findUniqueOrThrow", GlobalOmitOptions> | Null, Null, ExtArgs, GlobalOmitOptions>
+  balance<T extends Prisma.ClientLoyaltyBalanceDefaultArgs<ExtArgs> = {}>(args?: Prisma.Subset<T, Prisma.ClientLoyaltyBalanceDefaultArgs<ExtArgs>>): Prisma.Prisma__ClientLoyaltyBalanceClient<runtime.Types.Result.GetResult<Prisma.$ClientLoyaltyBalancePayload<ExtArgs>, T, "findUniqueOrThrow", GlobalOmitOptions> | Null, Null, ExtArgs, GlobalOmitOptions>
   /**
    * Attaches callbacks for the resolution and/or rejection of the Promise.
    * @param onfulfilled The callback to execute when the Promise is resolved.
