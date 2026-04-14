@@ -12,7 +12,8 @@
     "deploy:diff": "./deploy.sh diff"
   },
   "dependencies": {
-    "next": "^15.5.9"
+    "next": "^15.5.9",
+    "prisma": "^7.7.0"
   },
   "devDependencies": {
     "concurrently": "^8.2.2"
