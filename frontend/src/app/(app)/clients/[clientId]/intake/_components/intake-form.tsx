@@ -18,6 +18,8 @@ import {
   Sparkles,
   Send,
   Bot,
+  Plus,
+  X,
 } from 'lucide-react';
 import type { Client, ClientIntake } from '@/lib/api-client';
 
@@ -131,6 +133,11 @@ interface StepDef {
   icon: React.ElementType;
 }
 
+interface LoyaltyEntry {
+  program: string;
+  points: string;
+}
+
 export interface ChatMessage {
   role: 'assistant' | 'advisor';
   content: string;
@@ -210,6 +217,29 @@ export function IntakeForm({
       };
     });
   }, []);
+
+  // Loyalty entries state — parsed from loyaltyNotes on init, serialized back on change
+  const [loyaltyEntries, setLoyaltyEntries] = useState<LoyaltyEntry[]>(() => {
+    try {
+      const parsed = JSON.parse((initialData?.loyaltyNotes as string) || '');
+      if (parsed?.entries && Array.isArray(parsed.entries)) return parsed.entries;
+    } catch {}
+    return [];
+  });
+  const [loyaltyFreeText, setLoyaltyFreeText] = useState<string>(() => {
+    try {
+      const parsed = JSON.parse((initialData?.loyaltyNotes as string) || '');
+      if (parsed?.entries) return parsed.freeText || '';
+    } catch {}
+    return (initialData?.loyaltyNotes as string) || '';
+  });
+
+  const syncLoyaltyToForm = useCallback((entries: LoyaltyEntry[], freeText: string) => {
+    const value = (entries.length > 0 || freeText)
+      ? JSON.stringify({ entries, freeText })
+      : '';
+    set('loyaltyNotes', value);
+  }, [set]);
 
   // Autosave (debounced 3s after edits, only for existing intakes)
   useEffect(() => {
@@ -585,14 +615,84 @@ export function IntakeForm({
             </div>
 
             <div>
-              <label className={labelCls}>Loyalty programs &amp; points notes</label>
-              <textarea
-                rows={3}
-                value={(form.loyaltyNotes as string) || ''}
-                onChange={(e) => set('loyaltyNotes', e.target.value)}
-                placeholder="e.g. Marriott Bonvoy Platinum, 250k Hilton points, prefers Hyatt properties, willing to transfer Chase points..."
-                className={`resize-none ${inputCls}`}
-              />
+              <label className={labelCls}>Loyalty Programs &amp; Point Balances</label>
+              <p className="mb-3 text-xs text-slate-400">
+                Enter each loyalty program membership and current point balance
+              </p>
+
+              {loyaltyEntries.length > 0 && (
+                <div className="mb-3 space-y-2">
+                  {loyaltyEntries.map((entry, idx) => (
+                    <div key={idx} className="flex items-center gap-2">
+                      <input
+                        type="text"
+                        value={entry.program}
+                        onChange={(e) => {
+                          const updated = loyaltyEntries.map((r, i) =>
+                            i === idx ? { ...r, program: e.target.value } : r,
+                          );
+                          setLoyaltyEntries(updated);
+                          syncLoyaltyToForm(updated, loyaltyFreeText);
+                        }}
+                        placeholder="Program name (e.g. United MileagePlus)"
+                        className={`flex-1 ${inputCls}`}
+                      />
+                      <input
+                        type="number"
+                        value={entry.points}
+                        onChange={(e) => {
+                          const updated = loyaltyEntries.map((r, i) =>
+                            i === idx ? { ...r, points: e.target.value } : r,
+                          );
+                          setLoyaltyEntries(updated);
+                          syncLoyaltyToForm(updated, loyaltyFreeText);
+                        }}
+                        placeholder="Points"
+                        min="0"
+                        className="w-36 rounded-lg border border-slate-200 bg-white px-3 py-2.5 text-right text-sm text-slate-900 placeholder:text-slate-400 focus:border-transparent focus:outline-none focus:ring-2 focus:ring-blue-600"
+                      />
+                      <button
+                        type="button"
+                        onClick={() => {
+                          const updated = loyaltyEntries.filter((_, i) => i !== idx);
+                          setLoyaltyEntries(updated);
+                          syncLoyaltyToForm(updated, loyaltyFreeText);
+                        }}
+                        className="rounded p-1 text-slate-400 hover:bg-slate-100 hover:text-slate-600"
+                      >
+                        <X className="h-4 w-4" />
+                      </button>
+                    </div>
+                  ))}
+                </div>
+              )}
+
+              <button
+                type="button"
+                onClick={() => {
+                  const updated = [...loyaltyEntries, { program: '', points: '' }];
+                  setLoyaltyEntries(updated);
+                  syncLoyaltyToForm(updated, loyaltyFreeText);
+                }}
+                className="inline-flex items-center gap-1.5 rounded-lg border border-dashed border-slate-300 px-3 py-2 text-sm text-slate-500 transition-colors hover:border-slate-400 hover:text-slate-700"
+              >
+                <Plus className="h-3.5 w-3.5" />
+                Add loyalty program
+              </button>
+
+              <div className="mt-4">
+                <label className={labelCls}>Additional loyalty notes</label>
+                <textarea
+                  rows={2}
+                  value={loyaltyFreeText}
+                  onChange={(e) => {
+                    setLoyaltyFreeText(e.target.value);
+                    syncLoyaltyToForm(loyaltyEntries, e.target.value);
+                  }}
+                  placeholder="e.g. Prefers Hyatt properties, willing to transfer Chase points, Marriott Bonvoy Platinum status..."
+                  className={`resize-none ${inputCls}`}
+                />
+              </div>
             </div>
 
             <div>

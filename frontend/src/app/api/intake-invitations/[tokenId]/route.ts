@@ -1,7 +1,8 @@
 import { prisma } from "@/lib/prisma";
 import { getAuthUser, json, errorResponse } from "@/lib/auth";
+import { sendFormInvitation, buildFormLink } from "@/lib/email";
 
-// Resend — resets expiry, marks reminder sent
+// Resend — resets expiry, marks reminder sent, re-emails client
 export async function POST(
   request: Request,
   { params }: { params: Promise<{ tokenId: string }> },
@@ -26,6 +27,29 @@ export async function POST(
       where: { id: tokenId },
       data: { expiresAt: newExpiry, reminderSentAt: new Date(), sentAt: new Date() },
     });
+
+    // Re-send the invitation email
+    const advisorName = `${user.firstName} ${user.lastName}`.trim() || user.email;
+    const clientName = `${token.client.firstName} ${token.client.lastName}`.trim();
+    const VARIANT_TITLES: Record<string, string> = {
+      individual: "Travel Preferences Form",
+      group_member: "Group Trip Preferences",
+      group_organizer: "Group Trip Details",
+      business_policy: "Company Travel Policy",
+      business_traveler: "Business Travel Preferences",
+      custom_form: "Travel Form",
+    };
+    const formTitle = VARIANT_TITLES[token.formVariant] ?? "Travel Form";
+
+    sendFormInvitation({
+      recipientEmail: token.recipientEmail,
+      recipientName: token.recipientName ?? undefined,
+      clientName,
+      advisorName,
+      formTitle,
+      formLink: buildFormLink(token.token),
+      expiresAt: newExpiry,
+    }).catch((e) => console.error("[email] Resend failed:", e));
 
     return json(updated);
   } catch (error) {

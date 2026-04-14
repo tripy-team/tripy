@@ -61,7 +61,8 @@ export const IntakeFormVariant = {
   group_member: 'group_member',
   group_organizer: 'group_organizer',
   business_policy: 'business_policy',
-  business_traveler: 'business_traveler'
+  business_traveler: 'business_traveler',
+  custom_form: 'custom_form'
 } as const
 
 export type IntakeFormVariant = (typeof IntakeFormVariant)[keyof typeof IntakeFormVariant]

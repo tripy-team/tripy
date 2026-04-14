@@ -156,7 +156,7 @@ function ClientCard({ client, onClick }: { client: Client; onClick: () => void }
                 }`}
               >
                 {isIndividual ? <User className="h-3 w-3" /> : <Building2 className="h-3 w-3" />}
-                {isIndividual ? 'Individual' : 'Business'}
+                {isIndividual ? 'Individual' : 'Group'}
               </span>
               {client.email && (
                 <span className="flex items-center gap-1 truncate">
@@ -353,7 +353,7 @@ export default function ClientsPage() {
           <p className="mt-1 text-sm text-slate-500">
             {clients.length} client{clients.length !== 1 ? 's' : ''} &middot;{' '}
             {individualCount} individual{individualCount !== 1 ? 's' : ''},{' '}
-            {businessCount} business{businessCount !== 1 ? 'es' : ''}
+            {businessCount} group{businessCount !== 1 ? 's' : ''}
             {totalPoints > 0 && (
               <>
                 {' '}&middot; {formatPoints(totalPoints)} total points managed
@@ -394,7 +394,7 @@ export default function ClientsPage() {
                     : 'text-slate-600 hover:bg-slate-50'
                 }`}
               >
-                {t === 'all' ? 'All' : t === 'individual' ? 'Individuals' : 'Businesses'}
+                {t === 'all' ? 'All' : t === 'individual' ? 'Individuals' : 'Groups'}
               </button>
             ))}
           </div>

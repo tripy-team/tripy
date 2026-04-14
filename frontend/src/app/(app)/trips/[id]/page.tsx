@@ -89,8 +89,9 @@ import {
   removeTripTraveler,
   getClients,
   searchTripFlights,
+  getClientPreferences,
 } from '@/lib/api-client';
-import type { ItineraryProgressUpdate } from '@/lib/api-client';
+import type { ItineraryProgressUpdate, ClientPreference } from '@/lib/api-client';
 import MultiAirportAutocomplete from '@/components/ui/MultiAirportAutocomplete';
 import type {
   TripRequest,
@@ -275,6 +276,7 @@ export default function TripDetailPage() {
   const [error, setError] = useState<string | null>(null);
 
   const [activeTab, setActiveTab] = useState<TripTab>('overview');
+  const [clientPreferences, setClientPreferences] = useState<ClientPreference | null>(null);
   const [itinerary, setItinerary] = useState<GeneratedItinerary | null>(null);
   const [generatingItinerary, setGeneratingItinerary] = useState(false);
   const [itineraryError, setItineraryError] = useState<string | null>(null);
@@ -365,6 +367,10 @@ export default function TripDetailPage() {
           setItinerary(savedItinerary);
           setCompletedSections(['flights', 'hotels']);
           setPendingSections([]);
+        }
+        // Fetch client preferences once we know the client
+        if (tripData.clientId) {
+          getClientPreferences(tripData.clientId).then(setClientPreferences).catch(() => {});
         }
       })
       .catch((err) => setError(err.message))
@@ -727,6 +733,99 @@ export default function TripDetailPage() {
             </div>
           )}
 
+          {/* Client Preferences Snapshot */}
+          {trip.client && clientPreferences && (
+            <div className="rounded-xl border border-slate-200 bg-white p-5 shadow-sm">
+              <div className="mb-3 flex items-center justify-between">
+                <h3 className="text-xs font-semibold uppercase tracking-wider text-slate-400">
+                  Preferences
+                </h3>
+                <Link
+                  href={`/clients/${trip.client.id}?tab=preferences`}
+                  className="text-xs font-medium text-blue-600 hover:text-blue-700"
+                >
+                  Edit
+                </Link>
+              </div>
+              <div className="space-y-2">
+                {clientPreferences.preferredCabin && (
+                  <div className="flex items-center justify-between text-xs">
+                    <span className="flex items-center gap-1.5 text-slate-500">
+                      <Plane className="h-3 w-3" /> Cabin
+                    </span>
+                    <span className="font-medium capitalize text-slate-700">
+                      {clientPreferences.preferredCabin.replace(/_/g, ' ')}
+                    </span>
+                  </div>
+                )}
+                {clientPreferences.prefersNonstop !== undefined && (
+                  <div className="flex items-center justify-between text-xs">
+                    <span className="text-slate-500">Nonstop</span>
+                    <span className="font-medium text-slate-700">
+                      {clientPreferences.prefersNonstop ? 'Preferred' : 'Flexible'}
+                    </span>
+                  </div>
+                )}
+                {clientPreferences.preferredAirlines && clientPreferences.preferredAirlines.length > 0 && (
+                  <div className="flex items-start justify-between gap-2 text-xs">
+                    <span className="shrink-0 text-slate-500">Airlines</span>
+                    <span className="text-right font-medium text-slate-700">
+                      {clientPreferences.preferredAirlines.slice(0, 3).join(', ')}
+                      {clientPreferences.preferredAirlines.length > 3 && ` +${clientPreferences.preferredAirlines.length - 3} more`}
+                    </span>
+                  </div>
+                )}
+                {clientPreferences.preferredHotelTypes && clientPreferences.preferredHotelTypes.length > 0 && (
+                  <div className="flex items-start justify-between gap-2 text-xs">
+                    <span className="flex items-center gap-1.5 shrink-0 text-slate-500">
+                      <Hotel className="h-3 w-3" /> Hotels
+                    </span>
+                    <span className="text-right font-medium text-slate-700">
+                      {clientPreferences.preferredHotelTypes.slice(0, 2).join(', ')}
+                      {clientPreferences.preferredHotelTypes.length > 2 && ` +${clientPreferences.preferredHotelTypes.length - 2}`}
+                    </span>
+                  </div>
+                )}
+                {clientPreferences.budgetSensitivity && (
+                  <div className="flex items-center justify-between text-xs">
+                    <span className="text-slate-500">Budget Style</span>
+                    <span className="font-medium capitalize text-slate-700">
+                      {clientPreferences.budgetSensitivity.replace(/_/g, ' ')}
+                    </span>
+                  </div>
+                )}
+                {clientPreferences.activityPreferences && clientPreferences.activityPreferences.length > 0 && (
+                  <div className="flex items-start justify-between gap-2 text-xs">
+                    <span className="shrink-0 text-slate-500">Activities</span>
+                    <span className="text-right font-medium text-slate-700">
+                      {clientPreferences.activityPreferences.slice(0, 2).join(', ')}
+                      {clientPreferences.activityPreferences.length > 2 && ` +${clientPreferences.activityPreferences.length - 2}`}
+                    </span>
+                  </div>
+                )}
+                {clientPreferences.dealbreakers && clientPreferences.dealbreakers.length > 0 && (
+                  <div className="flex items-start justify-between gap-2 text-xs">
+                    <span className="shrink-0 text-red-400">Dealbreakers</span>
+                    <span className="text-right font-medium text-red-600">
+                      {clientPreferences.dealbreakers.slice(0, 2).join(', ')}
+                      {clientPreferences.dealbreakers.length > 2 && ` +${clientPreferences.dealbreakers.length - 2}`}
+                    </span>
+                  </div>
+                )}
+                {clientPreferences.lastUpdatedSource && (
+                  <div className="mt-2 border-t border-slate-100 pt-2">
+                    <span className="text-[10px] text-slate-400">
+                      Last updated via{' '}
+                      <span className="font-medium">
+                        {clientPreferences.lastUpdatedSource === 'intake' ? 'intake form' : clientPreferences.lastUpdatedSource}
+                      </span>
+                    </span>
+                  </div>
+                )}
+              </div>
+            </div>
+          )}
+
           {/* Timeline */}
           <div className="rounded-xl border border-slate-200 bg-white p-5 shadow-sm">
             <h3 className="mb-3 text-xs font-semibold uppercase tracking-wider text-slate-400">
@@ -833,22 +932,13 @@ export default function TripDetailPage() {
                 </button>
               )}
               {trip.client && (
-                <>
-                  <Link
-                    href={`/clients/${trip.client.id}?tab=trips`}
-                    className="flex w-full items-center justify-between rounded-lg bg-slate-50 px-4 py-2.5 text-sm font-medium text-slate-700 transition-colors hover:bg-slate-100"
-                  >
-                    View in Client
-                    <ChevronRight className="h-4 w-4 text-slate-400" />
-                  </Link>
-                  <Link
-                    href={`/clients/${trip.client.id}?tab=preferences`}
-                    className="flex w-full items-center justify-between rounded-lg bg-slate-50 px-4 py-2.5 text-sm font-medium text-slate-700 transition-colors hover:bg-slate-100"
-                  >
-                    Client Preferences
-                    <ChevronRight className="h-4 w-4 text-slate-400" />
-                  </Link>
-                </>
+                <Link
+                  href={`/clients/${trip.client.id}?tab=trips`}
+                  className="flex w-full items-center justify-between rounded-lg bg-slate-50 px-4 py-2.5 text-sm font-medium text-slate-700 transition-colors hover:bg-slate-100"
+                >
+                  View in Client
+                  <ChevronRight className="h-4 w-4 text-slate-400" />
+                </Link>
               )}
             </div>
           </div>

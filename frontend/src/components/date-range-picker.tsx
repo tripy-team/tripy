@@ -49,6 +49,7 @@ function MyPopover(props: PopoverProps) {
   return (
     <Popover
       {...props}
+      isNonModal
       className={({ isEntering, isExiting }) =>
         [
           'z-50 rounded-xl bg-white border border-slate-200 shadow-lg !max-h-none',
@@ -102,6 +103,15 @@ export default function DateRangePicker({
   const startRef = useRef<HTMLDivElement>(null);
   const endRef = useRef<HTMLDivElement>(null);
   const [isOpen, setIsOpen] = useState(false);
+
+  // When opening the end-date calendar, focus on the start date's month so the
+  // user doesn't have to navigate there manually.
+  const focusedCalendarValue = useMemo(() => {
+    if (activeField === 'end') {
+      return range?.end ?? range?.start ?? minValue;
+    }
+    return range?.start ?? minValue;
+  }, [activeField, range, minValue]);
 
   // ---- COMPACT: inline field that opens range calendar on click ----
   if (compact) {
@@ -170,7 +180,7 @@ export default function DateRangePicker({
 
         <MyPopover placement="bottom start" offset={8}>
           <Dialog className="p-4 text-slate-950 outline-none">
-            <RangeCalendar>
+            <RangeCalendar defaultFocusedValue={range?.start ?? minValue}>
               <header className="flex w-full items-center gap-1 px-1 pb-4">
                 <Heading className="ml-2 flex-1 font-semibold text-slate-900" />
                 <RoundButton slot="previous">
@@ -409,7 +419,7 @@ export default function DateRangePicker({
             onOpenChange={setIsOpen}
           >
             <Dialog className="p-4 text-slate-950">
-              <RangeCalendar>
+              <RangeCalendar defaultFocusedValue={focusedCalendarValue}>
               <header className="flex w-full items-center gap-1 px-1 pb-4">
                 <Heading className="ml-2 flex-1 font-semibold text-slate-900" />
                 <RoundButton slot="previous">

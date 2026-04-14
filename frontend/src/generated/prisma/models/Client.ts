@@ -314,6 +314,7 @@ export type ClientOrderByWithRelationInput = {
 
 export type ClientWhereUniqueInput = Prisma.AtLeast<{
   id?: string
+  organizationId_email?: Prisma.ClientOrganizationIdEmailCompoundUniqueInput
   AND?: Prisma.ClientWhereInput | Prisma.ClientWhereInput[]
   OR?: Prisma.ClientWhereInput[]
   NOT?: Prisma.ClientWhereInput | Prisma.ClientWhereInput[]
@@ -353,7 +354,7 @@ export type ClientWhereUniqueInput = Prisma.AtLeast<{
   tripRequests?: Prisma.TripRequestListRelationFilter
   tripTravelers?: Prisma.TripTravelerListRelationFilter
   vendorRequests?: Prisma.VendorRequestListRelationFilter
-}, "id">
+}, "id" | "organizationId_email">
 
 export type ClientOrderByWithAggregationInput = {
   id?: Prisma.SortOrder
@@ -599,6 +600,11 @@ export type ClientListRelationFilter = {
 
 export type ClientOrderByRelationAggregateInput = {
   _count?: Prisma.SortOrder
+}
+
+export type ClientOrganizationIdEmailCompoundUniqueInput = {
+  organizationId: string
+  email: string
 }
 
 export type ClientCountOrderByAggregateInput = {

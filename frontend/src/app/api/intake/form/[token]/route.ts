@@ -1,10 +1,22 @@
 import { prisma } from "@/lib/prisma";
 import { json, errorResponse } from "@/lib/auth";
+import { sendFormCompletionNotification, sendFormSubmissionConfirmation, buildClientUrl } from "@/lib/email";
 
-function getQuestions(variant: string, groupSize: number | null) {
+// ---------------------------------------------------------------------------
+// Question banks
+// ---------------------------------------------------------------------------
+
+interface Question {
+  id: string;
+  label: string;
+  type: "text" | "textarea" | "select";
+  options?: string[];
+}
+
+function getQuestions(variant: string, groupSize: number | null): Question[] {
   const size = groupSize ?? 1;
 
-  const universal = [
+  const universal: Question[] = [
     { id: "departure_city", label: "What city will you be departing from?", type: "text" },
     { id: "cabin_preference", label: "What is your preferred cabin class?", type: "select", options: ["Economy", "Premium Economy", "Business", "First", "Flexible"] },
     { id: "hotel_preference", label: "What type of accommodation do you prefer?", type: "select", options: ["Budget", "Standard", "Upscale", "Luxury"] },
@@ -25,7 +37,7 @@ function getQuestions(variant: string, groupSize: number | null) {
   }
 
   if (variant === "group_organizer") {
-    const base = [
+    const base: Question[] = [
       { id: "destination_flexibility", label: "How flexible is the group on destination?", type: "select", options: ["Fixed destination", "Open to suggestions", "Flexible"] },
       { id: "budget_per_person", label: "Approximate budget per person (USD)?", type: "text" },
       { id: "decision_timeline", label: "When do you need to finalize the trip?", type: "text" },
@@ -43,7 +55,7 @@ function getQuestions(variant: string, groupSize: number | null) {
   }
 
   if (variant === "group_member") {
-    const base = [
+    const base: Question[] = [
       ...universal,
       { id: "budget_comfort", label: "What is your personal budget comfort level for this trip?", type: "select", options: ["Budget", "Moderate", "Comfortable", "Luxury"] },
       { id: "activity_preferences", label: "What activities are you most interested in?", type: "textarea" },
@@ -59,7 +71,7 @@ function getQuestions(variant: string, groupSize: number | null) {
   }
 
   if (variant === "business_policy") {
-    const base = [
+    const base: Question[] = [
       { id: "preferred_cabin_domestic", label: "Permitted cabin class for domestic flights?", type: "select", options: ["Economy", "Economy Plus", "Business", "No restriction"] },
       { id: "preferred_cabin_international", label: "Permitted cabin class for international flights?", type: "select", options: ["Economy", "Premium Economy", "Business", "First", "By seniority"] },
       { id: "max_nightly_rate", label: "Maximum nightly hotel rate (USD)?", type: "text" },
@@ -91,6 +103,91 @@ function getQuestions(variant: string, groupSize: number | null) {
   return universal;
 }
 
+// ---------------------------------------------------------------------------
+// Preference mapping helpers
+// ---------------------------------------------------------------------------
+
+function mapAnswersToPreferenceData(answers: Record<string, string>): Record<string, unknown> {
+  const prefs: Record<string, unknown> = {};
+
+  if (answers.cabin_preference) {
+    const cabinMap: Record<string, string> = {
+      "Economy": "economy",
+      "Premium Economy": "premium_economy",
+      "Business": "business",
+      "First": "first",
+      "Flexible": "flexible",
+    };
+    prefs.preferredCabin = (cabinMap[answers.cabin_preference] ?? "economy") as never;
+  }
+
+  if (answers.layover_tolerance) {
+    const layoverMap: Record<string, boolean> = {
+      "Nonstop only": true,
+      "Prefer nonstop": true,
+      "No preference": false,
+      "Layovers fine if cheaper": false,
+    };
+    prefs.prefersNonstop = layoverMap[answers.layover_tolerance] ?? false;
+  }
+
+  if (answers.hotel_preference) {
+    const hotelMap: Record<string, string[]> = {
+      "Budget": ["budget"],
+      "Standard": ["standard"],
+      "Upscale": ["upscale", "boutique"],
+      "Luxury": ["luxury", "ultra_luxury"],
+    };
+    prefs.preferredHotelTypes = hotelMap[answers.hotel_preference] ?? [];
+  }
+
+  if (answers.dietary_needs && answers.dietary_needs.trim()) {
+    prefs.foodPreferences = [answers.dietary_needs.trim()];
+  }
+
+  if (answers.accessibility_needs && answers.accessibility_needs.trim()) {
+    prefs.accessibilityNeeds = [answers.accessibility_needs.trim()];
+  }
+
+  if (answers.preferred_airlines && answers.preferred_airlines.trim()) {
+    prefs.preferredAirlines = answers.preferred_airlines
+      .split(/[,;]+/)
+      .map((s) => s.trim())
+      .filter(Boolean);
+  }
+
+  if (answers.activity_preferences && answers.activity_preferences.trim()) {
+    prefs.activityPreferences = answers.activity_preferences
+      .split(/[,;\n]+/)
+      .map((s) => s.trim())
+      .filter(Boolean);
+  }
+
+  if (answers.special_occasions && answers.special_occasions.trim()) {
+    prefs.specialOccasions = [answers.special_occasions.trim()];
+  }
+
+  if (answers.hard_constraints && answers.hard_constraints.trim()) {
+    prefs.dealbreakers = [answers.hard_constraints.trim()];
+  }
+
+  if (answers.budget_comfort) {
+    const budgetMap: Record<string, string> = {
+      "Budget": "budget",
+      "Moderate": "moderate",
+      "Comfortable": "comfortable",
+      "Luxury": "luxury",
+    };
+    prefs.budgetSensitivity = (budgetMap[answers.budget_comfort] ?? "moderate") as never;
+  }
+
+  return prefs;
+}
+
+// ---------------------------------------------------------------------------
+// GET — serve form metadata + questions
+// ---------------------------------------------------------------------------
+
 export async function GET(
   _request: Request,
   { params }: { params: Promise<{ token: string }> },
@@ -104,7 +201,12 @@ export async function GET(
     });
 
     if (!record) return errorResponse("Invalid or expired link", 404);
-    if (record.completedAt) return json({ status: "completed" });
+    if (record.completedAt) {
+      return json({
+        status: "completed",
+        formAnswers: record.formAnswers ?? null,
+      });
+    }
     if (record.expiresAt < new Date()) return json({ status: "expired" });
 
     // Mark opened on first view
@@ -112,7 +214,11 @@ export async function GET(
       await prisma.intakeFormToken.update({ where: { token }, data: { openedAt: new Date() } });
     }
 
-    const questions = getQuestions(record.formVariant, record.groupSize);
+    // For custom forms, serve the stored custom questions
+    const questions =
+      record.formVariant === "custom_form"
+        ? (record.customQuestions as Question[] | null) ?? []
+        : getQuestions(record.formVariant, record.groupSize);
 
     return json({
       status: "pending",
@@ -127,6 +233,10 @@ export async function GET(
   }
 }
 
+// ---------------------------------------------------------------------------
+// POST — submit answers
+// ---------------------------------------------------------------------------
+
 export async function POST(
   request: Request,
   { params }: { params: Promise<{ token: string }> },
@@ -134,7 +244,10 @@ export async function POST(
   try {
     const { token } = await params;
 
-    const record = await prisma.intakeFormToken.findUnique({ where: { token } });
+    const record = await prisma.intakeFormToken.findUnique({
+      where: { token },
+      include: { client: { include: { owner: true } } },
+    });
     if (!record) return errorResponse("Invalid or expired link", 404);
     if (record.completedAt) return errorResponse("Form already submitted", 400);
     if (record.expiresAt < new Date()) return errorResponse("Link has expired", 410);
@@ -143,44 +256,87 @@ export async function POST(
     const { answers } = body as { answers: Record<string, string> };
     if (!answers || typeof answers !== "object") return errorResponse("answers object is required", 400);
 
-    // Find or create the associated intake record
-    let intakeId = record.intakeId;
-    if (!intakeId) {
-      // Get the org's system user to act as creator (we don't have auth here)
-      const clientRecord = await prisma.client.findUnique({
-        where: { id: record.clientId },
-        include: { owner: true },
-      });
-      if (!clientRecord) return errorResponse("Client not found", 404);
+    const client = record.client;
+    const clientName = `${client.firstName} ${client.lastName}`;
+    const advisor = client.owner;
 
-      const intake = await prisma.clientIntake.create({
-        data: {
-          clientId: record.clientId,
-          createdByUserId: clientRecord.ownerUserId,
-          status: "complete",
-          notes: `Submitted via intake form by ${record.recipientName || record.recipientEmail}. Answers: ${JSON.stringify(answers)}`,
-          completedAt: new Date(),
-          // Map known answer keys to structured fields
-          ...(answers.cabin_preference && {
-            cabinPreference: mapCabin(answers.cabin_preference),
-          }),
-          ...(answers.travel_pace && {
-            travelPace: mapPace(answers.travel_pace),
-          }),
-          ...(answers.layover_tolerance && {
-            layoverTolerance: mapLayover(answers.layover_tolerance),
-          }),
-          ...(answers.dietary_needs && { dietaryNeeds: answers.dietary_needs }),
-          ...(answers.accessibility_needs && { accessibilityNeeds: answers.accessibility_needs }),
-        },
-      });
-      intakeId = intake.id;
+    // Determine intake creation based on variant
+    let intakeId = record.intakeId;
+
+    if (record.formVariant !== "custom_form") {
+      // Profile intake: create/update a structured ClientIntake
+      if (!intakeId) {
+        const intake = await prisma.clientIntake.create({
+          data: {
+            clientId: record.clientId,
+            createdByUserId: advisor.id,
+            status: "complete",
+            notes: `Submitted via intake form by ${record.recipientName || record.recipientEmail}.\nAnswers: ${JSON.stringify(answers, null, 2)}`,
+            completedAt: new Date(),
+            ...(answers.cabin_preference && { cabinPreference: mapCabin(answers.cabin_preference) }),
+            ...(answers.travel_pace && { travelPace: mapPace(answers.travel_pace) }),
+            ...(answers.layover_tolerance && { layoverTolerance: mapLayover(answers.layover_tolerance) }),
+            ...(answers.dietary_needs && { dietaryNeeds: answers.dietary_needs }),
+            ...(answers.accessibility_needs && { accessibilityNeeds: answers.accessibility_needs }),
+            ...(answers.preferred_airlines && { preferredAirlines: answers.preferred_airlines }),
+          },
+        });
+        intakeId = intake.id;
+      }
     }
 
+    // Store raw answers on the token (works for both profile and custom)
     await prisma.intakeFormToken.update({
       where: { token },
-      data: { completedAt: new Date(), intakeId },
+      data: {
+        completedAt: new Date(),
+        intakeId: intakeId ?? undefined,
+        formAnswers: answers as never,
+      },
     });
+
+    // Auto-merge preference data into client profile
+    const prefData = mapAnswersToPreferenceData(answers);
+    if (Object.keys(prefData).length > 0) {
+      await mergeIntoPreferences(record.clientId, prefData, advisor.id);
+    }
+
+    // Send completion email to advisor
+    const advisorEmail = record.advisorEmail || advisor.email;
+    const advisorName = `${advisor.firstName} ${advisor.lastName}`.trim() || advisor.email;
+    const formTitle =
+      record.formVariant === "custom_form"
+        ? "Custom Form"
+        : VARIANT_TITLES[record.formVariant] ?? "Travel Form";
+
+    if (advisorEmail) {
+      await sendFormCompletionNotification({
+        advisorEmail,
+        advisorName,
+        clientName,
+        formTitle,
+        clientUrl: buildClientUrl(record.clientId),
+        formVariant: record.formVariant,
+      }).catch((e) => console.error("[email] Completion notification failed:", e));
+    }
+
+    // Send submission confirmation to the recipient
+    if (record.recipientEmail) {
+      const questions =
+        record.formVariant === "custom_form"
+          ? ((record.customQuestions as { id: string; label: string }[] | null) ?? [])
+          : getQuestions(record.formVariant, record.groupSize);
+      const labeledAnswers = questions
+        .filter((q) => answers[q.id] !== undefined && answers[q.id] !== "")
+        .map((q) => ({ label: q.label, value: answers[q.id] }));
+      await sendFormSubmissionConfirmation({
+        recipientEmail: record.recipientEmail,
+        recipientName: record.recipientName ?? undefined,
+        advisorName,
+        formTitle,
+        answers: labeledAnswers,
+      }).catch((e) => console.error("[email] Submission confirmation failed:", e));
+    }
 
     return json({ status: "completed" });
   } catch (error) {
@@ -189,17 +345,117 @@ export async function POST(
   }
 }
 
+// ---------------------------------------------------------------------------
+// Preference merge helper
+// ---------------------------------------------------------------------------
+
+async function mergeIntoPreferences(
+  clientId: string,
+  prefData: Record<string, unknown>,
+  changedByUserId: string,
+): Promise<void> {
+  try {
+    const existing = await prisma.clientPreference.findUnique({ where: { clientId } });
+
+    const ARRAY_FIELDS = new Set([
+      "preferredAirlines", "avoidedAirlines", "preferredHotelTypes",
+      "roomPreferences", "accessibilityNeeds", "foodPreferences",
+      "activityPreferences", "specialOccasions", "dislikes", "dealbreakers",
+    ]);
+
+    const merged: Record<string, unknown> = {};
+    const existingRecord = existing as Record<string, unknown> | null;
+
+    for (const [field, incoming] of Object.entries(prefData)) {
+      const existing_val = existingRecord?.[field] ?? null;
+      if (ARRAY_FIELDS.has(field)) {
+        const existingArr = Array.isArray(existing_val) ? existing_val : [];
+        const incomingArr = Array.isArray(incoming) ? incoming : [incoming].filter(Boolean);
+        merged[field] = [...new Set([...existingArr, ...incomingArr])];
+      } else {
+        // Keep existing scalar if already set
+        merged[field] = existing_val ?? incoming;
+      }
+    }
+
+    merged.lastUpdatedSource = "intake";
+
+    const pref = await prisma.clientPreference.upsert({
+      where: { clientId },
+      create: {
+        clientId,
+        ...merged,
+        preferredCabin: (merged.preferredCabin as never) ?? "economy",
+        prefersNonstop: (merged.prefersNonstop as boolean) ?? false,
+        willingToReposition: false,
+        avoidBasicEconomy: false,
+        redemptionStyle: "balanced",
+        lastUpdatedSource: "intake",
+      },
+      update: merged,
+    });
+
+    // Log changes
+    if (pref && existing) {
+      const diffs = Object.entries(merged)
+        .filter(([k]) => k !== "lastUpdatedSource")
+        .map(([field, newVal]) => ({
+          preferenceId: pref.id,
+          changedByUserId,
+          source: "intake" as const,
+          fieldName: field,
+          oldValue: (existingRecord?.[field] ?? null) as never,
+          newValue: newVal as never,
+        }));
+      if (diffs.length > 0) {
+        await prisma.preferenceChangeLog.createMany({ data: diffs }).catch(() => {});
+      }
+    }
+  } catch (err) {
+    console.error("[pref-merge] Failed to merge preferences:", err);
+  }
+}
+
+// ---------------------------------------------------------------------------
+// Value mappers
+// ---------------------------------------------------------------------------
+
+const VARIANT_TITLES: Record<string, string> = {
+  individual: "Travel Preferences Form",
+  group_member: "Group Trip Preferences",
+  group_organizer: "Group Trip Details",
+  business_policy: "Company Travel Policy",
+  business_traveler: "Business Travel Preferences",
+  custom_form: "Custom Form",
+};
+
 function mapCabin(v: string) {
-  const m: Record<string, string> = { "Economy": "economy", "Premium Economy": "premium_economy", "Business": "business", "First": "first", "Flexible": "flexible" };
+  const m: Record<string, string> = {
+    "Economy": "economy",
+    "Premium Economy": "premium_economy",
+    "Business": "business",
+    "First": "first",
+    "Flexible": "flexible",
+  };
   return (m[v] as never) ?? "economy";
 }
 
 function mapPace(v: string) {
-  const m: Record<string, string> = { "Relaxed": "relaxed", "Moderate": "moderate", "Active": "active", "Packed": "packed" };
+  const m: Record<string, string> = {
+    "Relaxed": "relaxed",
+    "Moderate": "moderate",
+    "Active": "active",
+    "Packed": "packed",
+  };
   return (m[v] as never) ?? undefined;
 }
 
 function mapLayover(v: string) {
-  const m: Record<string, string> = { "Nonstop only": "nonstop_only", "Prefer nonstop": "prefer_nonstop", "No preference": "no_preference", "Layovers fine if cheaper": "layovers_ok" };
+  const m: Record<string, string> = {
+    "Nonstop only": "nonstop_only",
+    "Prefer nonstop": "prefer_nonstop",
+    "No preference": "no_preference",
+    "Layovers fine if cheaper": "layovers_ok",
+  };
   return (m[v] as never) ?? undefined;
 }

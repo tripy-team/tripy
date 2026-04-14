@@ -92,7 +92,7 @@ import PreferenceProfile from '@/components/PreferenceProfile';
 import ProfileCompletenessScore from '@/components/ProfileCompletenessScore';
 import GroupMembersPanel from './_components/GroupMembersPanel';
 import BusinessProfilePanel from './_components/BusinessProfilePanel';
-import IntakeInvitationsPanel from './_components/IntakeInvitationsPanel';
+import FormsTab from './_components/FormsTab';
 import MultiAirportAutocomplete from '@/components/ui/MultiAirportAutocomplete';
 import SingleDatePicker from '@/components/ui/SingleDatePicker';
 import { proposalsAPI } from '@/lib/api';
@@ -151,13 +151,19 @@ export default function ClientDetailPage() {
   const [loyaltyPrograms, setLoyaltyPrograms] = useState<LoyaltyProgramRecord[]>([]);
   const [familyMembers, setFamilyMembers] = useState<FamilyMember[]>([]);
   const [trips, setTrips] = useState<TripRequest[]>([]);
+  const [groupMemberCount, setGroupMemberCount] = useState(0);
   const [intakes, setIntakes] = useState<ClientIntake[]>([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
   const [activeTab, setActiveTab] = useState<Tab>(() => {
     if (typeof window !== 'undefined') {
       const p = new URLSearchParams(window.location.search);
-      if (p.get('tab') === 'intake' || p.get('tab') === 'discovery') return 'discovery';
+      const tab = p.get('tab');
+      if (tab === 'intake' || tab === 'discovery' || tab === 'forms') return 'discovery';
+      if (tab === 'preferences') return 'preferences';
+      if (tab === 'balances') return 'balances';
+      if (tab === 'trips') return 'trips';
+      if (tab === 'group') return 'group';
     }
     return 'overview';
   });
@@ -330,6 +336,7 @@ export default function ClientDetailPage() {
         getClients().catch(() => []),
       ]);
       setClient(c);
+      setGroupMemberCount(c.groupProfile?.members?.length ?? 0);
       setBalances(b);
       setLoyaltyPrograms(progs);
       setFamilyMembers(fm);
@@ -853,10 +860,6 @@ export default function ClientDetailPage() {
   const pendingInferences = inferences.filter((i) => i.status === 'pending');
   const pendingSuggestions = suggestions.filter((s) => s.status === 'pending');
 
-  const groupMemberCount = isGroupClient
-    ? (client.groupProfile?.members?.length ?? 0)
-    : familyMembers.length;
-
   const tabs: { key: Tab; label: string; show: boolean }[] = [
     { key: 'overview', label: 'Overview', show: true },
     { key: 'balances', label: 'Balances', show: true },
@@ -867,7 +870,7 @@ export default function ClientDetailPage() {
       show: isIndividual || isGroupClient || isBusinessClient,
     },
     { key: 'trips', label: `Trips (${trips.length})`, show: true },
-    { key: 'discovery', label: `Discovery${(pendingInferences.length + pendingSuggestions.length) > 0 ? ` (${pendingInferences.length + pendingSuggestions.length})` : ''}`, show: true },
+    { key: 'discovery', label: `Forms${intakes.length > 0 ? ` (${intakes.length})` : ''}`, show: true },
   ];
 
   const expiringBalances = balances.filter((b) => {
@@ -1293,7 +1296,7 @@ export default function ClientDetailPage() {
       )}
 
       {activeTab === 'group' && isGroupClient && (
-        <GroupMembersPanel clientId={clientId} client={client} />
+        <GroupMembersPanel clientId={clientId} client={client} onMembersChange={setGroupMemberCount} />
       )}
 
       {activeTab === 'group' && isBusinessClient && (
@@ -2571,601 +2574,12 @@ export default function ClientDetailPage() {
       )}
 
       {activeTab === 'discovery' && (
-        <div className="space-y-6">
-          {/* ── Meetings Section ── */}
-          <div className="rounded-xl border border-slate-200 bg-white shadow-sm">
-            <button
-              onClick={() => toggleDiscoverySection('meetings')}
-              className="flex w-full items-center justify-between p-5 text-left"
-            >
-              <div className="flex items-center gap-3">
-                <div className="flex h-9 w-9 items-center justify-center rounded-lg bg-blue-50">
-                  <Sparkles className="h-4.5 w-4.5 text-blue-600" />
-                </div>
-                <div>
-                  <h2 className="font-semibold text-slate-900">AI Discovery Sessions</h2>
-                  <p className="text-xs text-slate-500">AI-powered discovery conversations &middot; {meetings.length} session{meetings.length !== 1 ? 's' : ''}</p>
-                </div>
-              </div>
-              {expandedDiscoverySections.has('meetings') ? (
-                <ChevronDown className="h-4 w-4 text-slate-400" />
-              ) : (
-                <ChevronRight className="h-4 w-4 text-slate-400" />
-              )}
-            </button>
-            {expandedDiscoverySections.has('meetings') && (
-              <div className="border-t border-slate-100 p-5 pt-4">
-                <div className="mb-4 flex justify-end">
-                  <button
-                    onClick={() => setCreatingMeeting(true)}
-                    className="inline-flex items-center gap-1.5 rounded-lg bg-blue-600 px-4 py-2 text-sm font-medium text-white shadow-sm hover:bg-blue-700"
-                  >
-                    <Plus className="h-4 w-4" />
-                    New Session
-                  </button>
-                </div>
-
-                {creatingMeeting && (
-                  <div className="mb-4 rounded-xl border border-blue-200 bg-blue-50/50 p-4">
-                    <label className="mb-1 block text-xs font-medium text-slate-700">Meeting Title</label>
-                    <input
-                      type="text"
-                      placeholder="e.g., Initial discovery call, Annual review"
-                      value={meetingTitle}
-                      onChange={(e) => setMeetingTitle(e.target.value)}
-                      className="mb-3 block w-full rounded-lg border border-slate-200 px-3 py-2 text-sm placeholder:text-slate-400 focus:border-transparent focus:outline-none focus:ring-2 focus:ring-blue-600"
-                      autoFocus
-                      onKeyDown={(e) => {
-                        if (e.key === 'Enter' && meetingTitle.trim()) {
-                          createMeetingSession(clientId, meetingTitle.trim()).then((session) => {
-                            router.push(`/clients/${clientId}/meeting/${session.id}`);
-                          });
-                        }
-                      }}
-                    />
-                    <div className="flex gap-2">
-                      <button
-                        onClick={async () => {
-                          if (!meetingTitle.trim()) return;
-                          const session = await createMeetingSession(clientId, meetingTitle.trim());
-                          router.push(`/clients/${clientId}/meeting/${session.id}`);
-                        }}
-                        disabled={!meetingTitle.trim()}
-                        className="inline-flex items-center gap-1.5 rounded-lg bg-blue-600 px-4 py-2 text-sm font-medium text-white hover:bg-blue-700 disabled:opacity-60"
-                      >
-                        <Sparkles className="h-3.5 w-3.5" />
-                        Start Session
-                      </button>
-                      <button
-                        onClick={() => { setCreatingMeeting(false); setMeetingTitle(''); }}
-                        className="rounded-lg bg-white px-4 py-2 text-sm font-medium text-slate-600 hover:bg-slate-50"
-                      >
-                        Cancel
-                      </button>
-                    </div>
-                  </div>
-                )}
-
-                {meetings.length === 0 && !creatingMeeting ? (
-                  <div className="rounded-lg border border-dashed border-slate-200 py-10 text-center">
-                    <Sparkles className="mx-auto h-8 w-8 text-slate-300" />
-                    <p className="mt-2 text-sm text-slate-500">No discovery sessions yet</p>
-                    <p className="mt-1 text-xs text-slate-400">Start a session to let AI help uncover and capture client preferences in real time</p>
-                    <button
-                      onClick={() => setCreatingMeeting(true)}
-                      className="mt-3 inline-flex items-center gap-1.5 text-sm font-medium text-blue-600 hover:text-blue-700"
-                    >
-                      <Plus className="h-4 w-4" />
-                      Start first session
-                    </button>
-                  </div>
-                ) : meetings.length > 0 && (
-                  <div className="space-y-3">
-                    {meetings.map((meeting) => {
-                      const statusStyles: Record<string, { bg: string; text: string }> = {
-                        active: { bg: 'bg-green-50', text: 'text-green-700' },
-                        completed: { bg: 'bg-blue-50', text: 'text-blue-700' },
-                        archived: { bg: 'bg-slate-100', text: 'text-slate-500' },
-                      };
-                      const style = statusStyles[meeting.status] ?? statusStyles.active;
-                      return (
-                        <Link
-                          key={meeting.id}
-                          href={`/clients/${clientId}/meeting/${meeting.id}`}
-                          className="flex items-center justify-between rounded-lg border border-slate-200 bg-slate-50/50 p-4 transition-colors hover:border-blue-200 hover:bg-blue-50/30"
-                        >
-                          <div className="flex items-center gap-3">
-                            <div className={`flex h-10 w-10 shrink-0 items-center justify-center rounded-lg ${meeting.status === 'active' ? 'bg-blue-50' : 'bg-slate-50'}`}>
-                              <Sparkles className={`h-5 w-5 ${meeting.status === 'active' ? 'text-blue-600' : 'text-slate-400'}`} />
-                            </div>
-                            <div>
-                              <p className="font-medium text-slate-900">{meeting.title}</p>
-                              <div className="mt-0.5 flex items-center gap-3 text-xs text-slate-500">
-                                <span className={`rounded-full px-2 py-0.5 text-[10px] font-medium ${style.bg} ${style.text}`}>
-                                  {meeting.status}
-                                </span>
-                                <span>{meeting._count?.entries || 0} notes</span>
-                                <span>{meeting._count?.profileSuggestions || 0} suggestions</span>
-                                <span>{new Date(meeting.createdAt).toLocaleDateString()}</span>
-                              </div>
-                            </div>
-                          </div>
-                          <ChevronRight className="h-4 w-4 text-slate-400" />
-                        </Link>
-                      );
-                    })}
-                  </div>
-                )}
-              </div>
-            )}
-          </div>
-
-          {/* ── Profile Intakes Section ── */}
-          <div className="rounded-xl border border-slate-200 bg-white shadow-sm">
-            <button
-              onClick={() => toggleDiscoverySection('intake')}
-              className="flex w-full items-center justify-between p-5 text-left"
-            >
-              <div className="flex items-center gap-3">
-                <div className="flex h-9 w-9 items-center justify-center rounded-lg bg-emerald-50">
-                  <ClipboardList className="h-4.5 w-4.5 text-emerald-600" />
-                </div>
-                <div>
-                  <h2 className="font-semibold text-slate-900">Profile Intakes</h2>
-                  <p className="text-xs text-slate-500">Reusable client preference profiles &middot; {intakes.length} profile{intakes.length !== 1 ? 's' : ''}</p>
-                </div>
-              </div>
-              {expandedDiscoverySections.has('intake') ? (
-                <ChevronDown className="h-4 w-4 text-slate-400" />
-              ) : (
-                <ChevronRight className="h-4 w-4 text-slate-400" />
-              )}
-            </button>
-            {expandedDiscoverySections.has('intake') && (
-              <div className="border-t border-slate-100 p-5 pt-4">
-                <div className="mb-6">
-                  <IntakeInvitationsPanel client={client} />
-                </div>
-                <div className="mb-4 flex justify-end">
-                  <Link
-                    href={`/clients/${clientId}/intake/new`}
-                    className="inline-flex items-center gap-1.5 rounded-lg bg-blue-600 px-4 py-2 text-sm font-medium text-white shadow-sm hover:bg-blue-700"
-                  >
-                    <Plus className="h-4 w-4" />
-                    Build Profile
-                  </Link>
-                </div>
-
-                {intakes.length === 0 ? (
-                  <div className="rounded-lg border border-dashed border-slate-200 py-10 text-center">
-                    <ClipboardList className="mx-auto h-8 w-8 text-slate-300" />
-                    <p className="mt-2 text-sm text-slate-500">No client profiles yet</p>
-                    <p className="mt-1 text-xs text-slate-400">Build a reusable preference profile to power smarter trip planning</p>
-                    <Link
-                      href={`/clients/${clientId}/intake/new`}
-                      className="mt-3 inline-flex items-center gap-1.5 text-sm font-medium text-blue-600 hover:text-blue-700"
-                    >
-                      <Plus className="h-4 w-4" />
-                      Build first profile
-                    </Link>
-                  </div>
-                ) : (
-                  <div className="space-y-3">
-                    {intakes.map((intake) => {
-                      const isDraft = intake.status === 'draft';
-                      const profileLabel = intake.templateName || `Client Profile`;
-                      const subtitleParts: string[] = [];
-                      if (intake.travelPace) subtitleParts.push(intake.travelPace.replace(/_/g, ' '));
-                      if (intake.luxuryPreference) subtitleParts.push(intake.luxuryPreference.replace(/_/g, ' '));
-                      const subtitle = subtitleParts.length
-                        ? subtitleParts.join(' · ')
-                        : `Updated ${new Date(intake.updatedAt).toLocaleDateString()}`;
-                      return (
-                        <div
-                          key={intake.id}
-                          className="flex items-center justify-between rounded-lg border border-slate-200 bg-slate-50/50 p-4 transition-colors hover:border-slate-300"
-                        >
-                          <Link
-                            href={`/clients/${clientId}/intake/${intake.id}`}
-                            className="min-w-0 flex-1"
-                          >
-                            <div className="flex items-center gap-3">
-                              <div className={`flex h-10 w-10 shrink-0 items-center justify-center rounded-lg ${isDraft ? 'bg-amber-50' : 'bg-green-50'}`}>
-                                <ClipboardList className={`h-5 w-5 ${isDraft ? 'text-amber-500' : 'text-green-600'}`} />
-                              </div>
-                              <div className="min-w-0">
-                                <div className="flex items-center gap-2">
-                                  <span className="font-medium text-slate-900">{profileLabel}</span>
-                                  <span className={`rounded-full px-2 py-0.5 text-xs font-medium ${isDraft ? 'bg-amber-50 text-amber-700' : 'bg-green-50 text-green-700'}`}>
-                                    {isDraft ? 'Draft' : 'Complete'}
-                                  </span>
-                                  {intake.isTemplate && (
-                                    <span className="rounded-full bg-purple-50 px-2 py-0.5 text-xs font-medium text-purple-700">
-                                      Template
-                                    </span>
-                                  )}
-                                </div>
-                                <p className="mt-0.5 truncate text-xs capitalize text-slate-500">
-                                  {subtitle} &middot; Updated {new Date(intake.updatedAt).toLocaleDateString()}
-                                </p>
-                              </div>
-                            </div>
-                          </Link>
-                          <div className="ml-3 flex items-center gap-1">
-                            <button
-                              onClick={async () => {
-                                if (!confirm('Delete this profile?')) return;
-                                try {
-                                  await deleteClientIntake(clientId, intake.id);
-                                  setIntakes((prev) => prev.filter((i) => i.id !== intake.id));
-                                } catch { /* */ }
-                              }}
-                              title="Delete"
-                              className="rounded-lg p-2 text-slate-400 hover:bg-red-50 hover:text-red-600"
-                            >
-                              <Trash2 className="h-4 w-4" />
-                            </button>
-                          </div>
-                        </div>
-                      );
-                    })}
-                  </div>
-                )}
-              </div>
-            )}
-          </div>
-
-          {/* ── Insights Section ── */}
-          <div className="rounded-xl border border-slate-200 bg-white shadow-sm">
-            <button
-              onClick={() => toggleDiscoverySection('insights')}
-              className="flex w-full items-center justify-between p-5 text-left"
-            >
-              <div className="flex items-center gap-3">
-                <div className="flex h-9 w-9 items-center justify-center rounded-lg bg-amber-50">
-                  <Lightbulb className="h-4.5 w-4.5 text-amber-600" />
-                </div>
-                <div>
-                  <div className="flex items-center gap-2">
-                    <h2 className="font-semibold text-slate-900">Insights</h2>
-                    {pendingInferences.length > 0 && (
-                      <span className="rounded-full bg-blue-100 px-2 py-0.5 text-[10px] font-semibold text-blue-700">
-                        {pendingInferences.length} pending
-                      </span>
-                    )}
-                  </div>
-                  <p className="text-xs text-slate-500">Preferences inferred from prior trip data</p>
-                </div>
-              </div>
-              {expandedDiscoverySections.has('insights') ? (
-                <ChevronDown className="h-4 w-4 text-slate-400" />
-              ) : (
-                <ChevronRight className="h-4 w-4 text-slate-400" />
-              )}
-            </button>
-            {expandedDiscoverySections.has('insights') && (
-              <div className="border-t border-slate-100 p-5 pt-4">
-                <div className="mb-4 flex justify-end">
-                  <button
-                    onClick={handleRunInference}
-                    disabled={inferenceLoading}
-                    className="inline-flex items-center gap-1.5 rounded-lg bg-blue-600 px-4 py-2 text-sm font-medium text-white hover:bg-blue-700 disabled:opacity-60"
-                  >
-                    {inferenceLoading ? (
-                      <Loader2 className="h-3.5 w-3.5 animate-spin" />
-                    ) : (
-                      <RefreshCw className="h-3.5 w-3.5" />
-                    )}
-                    Analyze Trips
-                  </button>
-                </div>
-
-                {inferences.length === 0 ? (
-                  <div className="rounded-lg border border-dashed border-slate-200 py-10 text-center">
-                    <Lightbulb className="mx-auto h-8 w-8 text-slate-300" />
-                    <p className="mt-2 text-sm text-slate-500">No inferred preferences yet</p>
-                    <p className="mt-1 text-xs text-slate-400">
-                      {trips.length < 2
-                        ? 'At least 2 trips are needed to detect patterns.'
-                        : 'Click "Analyze Trips" to detect patterns from trip history.'}
-                    </p>
-                  </div>
-                ) : (
-                  <div className="space-y-3">
-                    {pendingInferences.length > 0 && (
-                      <div className="space-y-3">
-                        {pendingInferences.map((inf) => (
-                          <InferenceCard
-                            key={inf.id}
-                            inference={inf}
-                            resolving={resolvingId === inf.id}
-                            onAccept={() => handleResolveInference(inf.id, 'accepted')}
-                            onReject={() => handleResolveInference(inf.id, 'rejected')}
-                          />
-                        ))}
-                      </div>
-                    )}
-                    {inferences.filter((i) => i.status !== 'pending').length > 0 && (
-                      <div>
-                        <p className="mb-2 mt-4 text-xs font-medium uppercase tracking-wider text-slate-400">
-                          Previously reviewed
-                        </p>
-                        <div className="space-y-2">
-                          {inferences
-                            .filter((i) => i.status !== 'pending')
-                            .map((inf) => (
-                              <InferenceCard
-                                key={inf.id}
-                                inference={inf}
-                                resolving={false}
-                                onAccept={() => {}}
-                                onReject={() => {}}
-                              />
-                            ))}
-                        </div>
-                      </div>
-                    )}
-                  </div>
-                )}
-              </div>
-            )}
-          </div>
-
-          {/* ── Open Questions Section ── */}
-          <div className="rounded-xl border border-slate-200 bg-white shadow-sm">
-            <button
-              onClick={() => toggleDiscoverySection('follow_ups')}
-              className="flex w-full items-center justify-between p-5 text-left"
-            >
-              <div className="flex items-center gap-3">
-                <div className="flex h-9 w-9 items-center justify-center rounded-lg bg-indigo-50">
-                  <HelpCircle className="h-4.5 w-4.5 text-indigo-600" />
-                </div>
-                <div>
-                  <div className="flex items-center gap-2">
-                    <h2 className="font-semibold text-slate-900">Open Questions</h2>
-                    {pendingSuggestions.length > 0 && (
-                      <span className="rounded-full bg-indigo-100 px-2 py-0.5 text-[10px] font-semibold text-indigo-700">
-                        {pendingSuggestions.length} pending
-                      </span>
-                    )}
-                  </div>
-                  <p className="text-xs text-slate-500">Profile gaps and unanswered questions flagged by AI</p>
-                </div>
-              </div>
-              {expandedDiscoverySections.has('follow_ups') ? (
-                <ChevronDown className="h-4 w-4 text-slate-400" />
-              ) : (
-                <ChevronRight className="h-4 w-4 text-slate-400" />
-              )}
-            </button>
-            {expandedDiscoverySections.has('follow_ups') && (
-              <div className="border-t border-slate-100 p-5 pt-4">
-                <div className="mb-4 flex justify-end">
-                  <button
-                    onClick={handleGenerateSuggestions}
-                    disabled={suggestionsGenerating}
-                    className="inline-flex items-center gap-1.5 rounded-lg bg-blue-600 px-4 py-2 text-sm font-medium text-white shadow-sm hover:bg-blue-700 disabled:opacity-60"
-                  >
-                    {suggestionsGenerating ? (
-                      <Loader2 className="h-4 w-4 animate-spin" />
-                    ) : (
-                      <RefreshCw className="h-4 w-4" />
-                    )}
-                    {suggestions.length === 0 ? 'Generate' : 'Refresh'}
-                  </button>
-                </div>
-
-                {suggestions.length > 0 && (
-                  <div className="mb-4 flex items-center gap-2">
-                    {(['all', 'pending', 'asked', 'answered', 'skipped'] as const).map((f) => {
-                      const count =
-                        f === 'all'
-                          ? suggestions.length
-                          : suggestions.filter((s) => s.status === f).length;
-                      return (
-                        <button
-                          key={f}
-                          onClick={() => setSuggestionsFilter(f)}
-                          className={`rounded-full px-3 py-1 text-xs font-medium transition-colors ${
-                            suggestionsFilter === f
-                              ? 'bg-blue-100 text-blue-700'
-                              : 'bg-slate-100 text-slate-600 hover:bg-slate-200'
-                          }`}
-                        >
-                          {f === 'all' ? 'All' : f.charAt(0).toUpperCase() + f.slice(1)} ({count})
-                        </button>
-                      );
-                    })}
-                  </div>
-                )}
-
-                {messageDraft && (
-                  <div className="mb-4 rounded-xl border border-blue-200 bg-blue-50/50 p-5">
-                    <div className="mb-3 flex items-center justify-between">
-                      <h3 className="text-sm font-semibold text-slate-900">Message Draft</h3>
-                      <button
-                        onClick={() => setMessageDraft(null)}
-                        className="rounded-lg p-1 text-slate-400 hover:bg-slate-200 hover:text-slate-600"
-                      >
-                        <X className="h-4 w-4" />
-                      </button>
-                    </div>
-                    <div className="rounded-lg border border-slate-200 bg-white p-4">
-                      <p className="mb-1 text-xs font-medium text-slate-500">Subject</p>
-                      <p className="mb-3 text-sm font-medium text-slate-900">{messageDraft.subject}</p>
-                      <p className="mb-1 text-xs font-medium text-slate-500">Body</p>
-                      <pre className="whitespace-pre-wrap text-sm text-slate-700 font-sans">{messageDraft.body}</pre>
-                    </div>
-                    <div className="mt-3 flex gap-2">
-                      <button
-                        onClick={handleCopyDraft}
-                        className="inline-flex items-center gap-1.5 rounded-lg bg-blue-600 px-4 py-2 text-sm font-medium text-white hover:bg-blue-700"
-                      >
-                        {copiedDraft ? (
-                          <>
-                            <Check className="h-3.5 w-3.5" />
-                            Copied
-                          </>
-                        ) : (
-                          <>
-                            <Copy className="h-3.5 w-3.5" />
-                            Copy to clipboard
-                          </>
-                        )}
-                      </button>
-                      <button
-                        onClick={() => setMessageDraft(null)}
-                        className="rounded-lg bg-white px-4 py-2 text-sm font-medium text-slate-600 hover:bg-slate-100"
-                      >
-                        Close
-                      </button>
-                    </div>
-                  </div>
-                )}
-
-                {suggestions.length === 0 ? (
-                  <div className="rounded-lg border border-dashed border-slate-200 py-10 text-center">
-                    <HelpCircle className="mx-auto h-8 w-8 text-slate-300" />
-                    <p className="mt-2 text-sm text-slate-500">No open questions yet</p>
-                    <p className="mt-1 text-xs text-slate-400">
-                      Click &ldquo;Generate&rdquo; to analyze the client profile for gaps and conflicts.
-                    </p>
-                  </div>
-                ) : (
-                  <div className="space-y-3">
-                    {suggestions
-                      .filter((s) => suggestionsFilter === 'all' || s.status === suggestionsFilter)
-                      .map((suggestion) => {
-                        const priorityStyles: Record<string, { border: string; badge: string; badgeText: string }> = {
-                          high: { border: 'border-red-200', badge: 'bg-red-50 text-red-700', badgeText: 'High' },
-                          medium: { border: 'border-amber-200', badge: 'bg-amber-50 text-amber-700', badgeText: 'Medium' },
-                          low: { border: 'border-slate-200', badge: 'bg-slate-100 text-slate-600', badgeText: 'Low' },
-                        };
-                        const statusStyles: Record<string, { badge: string; badgeText: string }> = {
-                          pending: { badge: 'bg-blue-50 text-blue-700', badgeText: 'Pending' },
-                          asked: { badge: 'bg-purple-50 text-purple-700', badgeText: 'Asked' },
-                          answered: { badge: 'bg-green-50 text-green-700', badgeText: 'Answered' },
-                          skipped: { badge: 'bg-slate-100 text-slate-500', badgeText: 'Skipped' },
-                        };
-                        const pStyle = priorityStyles[suggestion.priority] ?? priorityStyles.low;
-                        const sStyle = statusStyles[suggestion.status] ?? statusStyles.pending;
-                        const isUpdating = statusUpdating === suggestion.id;
-                        const isDraftLoading = draftLoading === suggestion.id;
-
-                        const categoryLabels: Record<string, string> = {
-                          missing_intake: 'Missing Info',
-                          ambiguous_preference: 'Ambiguous',
-                          conflicting_constraint: 'Conflict',
-                          budget_luxury_mismatch: 'Budget vs Luxury',
-                          points_convenience_mismatch: 'Points vs Convenience',
-                          destination_flexibility: 'Destination',
-                          group_traveler_difference: 'Group Travel',
-                        };
-
-                        return (
-                          <div
-                            key={suggestion.id}
-                            className={`rounded-xl border bg-white p-5 shadow-sm transition-colors ${
-                              suggestion.status === 'answered' || suggestion.status === 'skipped'
-                                ? 'border-slate-100 opacity-60'
-                                : pStyle.border
-                            }`}
-                          >
-                            <div className="mb-3 flex items-start justify-between gap-3">
-                              <div className="flex flex-wrap items-center gap-2">
-                                <span className={`rounded-full px-2 py-0.5 text-[10px] font-semibold uppercase tracking-wide ${pStyle.badge}`}>
-                                  {pStyle.badgeText}
-                                </span>
-                                <span className={`rounded-full px-2 py-0.5 text-[10px] font-semibold uppercase tracking-wide ${sStyle.badge}`}>
-                                  {sStyle.badgeText}
-                                </span>
-                                <span className="rounded-full bg-slate-50 px-2 py-0.5 text-[10px] font-medium text-slate-500">
-                                  {categoryLabels[suggestion.category] ?? suggestion.category}
-                                </span>
-                              </div>
-                            </div>
-
-                            <p className="mb-2 text-sm font-medium text-slate-900">
-                              {suggestion.questionText}
-                            </p>
-                            <p className="mb-4 text-xs text-slate-500">
-                              <span className="font-medium text-slate-600">Why this matters:</span>{' '}
-                              {suggestion.reason}
-                            </p>
-
-                            <div className="flex flex-wrap items-center gap-2">
-                              {suggestion.status === 'pending' && (
-                                <>
-                                  <button
-                                    onClick={() => handleUpdateSuggestionStatus(suggestion.id, 'asked')}
-                                    disabled={isUpdating}
-                                    className="inline-flex items-center gap-1 rounded-lg bg-blue-50 px-3 py-1.5 text-xs font-medium text-blue-700 hover:bg-blue-100 disabled:opacity-60"
-                                  >
-                                    <MessageSquare className="h-3 w-3" />
-                                    Mark Asked
-                                  </button>
-                                  <button
-                                    onClick={() => handleUpdateSuggestionStatus(suggestion.id, 'answered')}
-                                    disabled={isUpdating}
-                                    className="inline-flex items-center gap-1 rounded-lg bg-green-50 px-3 py-1.5 text-xs font-medium text-green-700 hover:bg-green-100 disabled:opacity-60"
-                                  >
-                                    <Check className="h-3 w-3" />
-                                    Mark Answered
-                                  </button>
-                                  <button
-                                    onClick={() => handleUpdateSuggestionStatus(suggestion.id, 'skipped')}
-                                    disabled={isUpdating}
-                                    className="inline-flex items-center gap-1 rounded-lg bg-slate-50 px-3 py-1.5 text-xs font-medium text-slate-600 hover:bg-slate-100 disabled:opacity-60"
-                                  >
-                                    <SkipForward className="h-3 w-3" />
-                                    Skip
-                                  </button>
-                                </>
-                              )}
-                              {suggestion.status === 'asked' && (
-                                <button
-                                  onClick={() => handleUpdateSuggestionStatus(suggestion.id, 'answered')}
-                                  disabled={isUpdating}
-                                  className="inline-flex items-center gap-1 rounded-lg bg-green-50 px-3 py-1.5 text-xs font-medium text-green-700 hover:bg-green-100 disabled:opacity-60"
-                                >
-                                  <Check className="h-3 w-3" />
-                                  Mark Answered
-                                </button>
-                              )}
-                              {(suggestion.status === 'skipped' || suggestion.status === 'answered') && (
-                                <button
-                                  onClick={() => handleUpdateSuggestionStatus(suggestion.id, 'pending')}
-                                  disabled={isUpdating}
-                                  className="inline-flex items-center gap-1 rounded-lg bg-slate-50 px-3 py-1.5 text-xs font-medium text-slate-600 hover:bg-slate-100 disabled:opacity-60"
-                                >
-                                  <RefreshCw className="h-3 w-3" />
-                                  Reopen
-                                </button>
-                              )}
-                              <div className="mx-1 h-4 w-px bg-slate-200" />
-                              <button
-                                onClick={() => handleCreateMessageDraft(suggestion.id)}
-                                disabled={isDraftLoading}
-                                className="inline-flex items-center gap-1 rounded-lg bg-purple-50 px-3 py-1.5 text-xs font-medium text-purple-700 hover:bg-purple-100 disabled:opacity-60"
-                              >
-                                {isDraftLoading ? (
-                                  <Loader2 className="h-3 w-3 animate-spin" />
-                                ) : (
-                                  <Send className="h-3 w-3" />
-                                )}
-                                Use in Message
-                              </button>
-                            </div>
-                          </div>
-                        );
-                      })}
-                  </div>
-                )}
-              </div>
-            )}
-          </div>
-        </div>
+        <FormsTab
+          client={client}
+          clientId={clientId}
+          intakes={intakes}
+          setIntakes={setIntakes}
+        />
       )}
 
       {/* ── Proposal Creation Modal ── */}

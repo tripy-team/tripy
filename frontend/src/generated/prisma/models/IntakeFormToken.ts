@@ -43,6 +43,7 @@ export type IntakeFormTokenMinAggregateOutputType = {
   recipientName: string | null
   formVariant: $Enums.IntakeFormVariant | null
   groupSize: number | null
+  advisorEmail: string | null
   sentAt: Date | null
   openedAt: Date | null
   completedAt: Date | null
@@ -60,6 +61,7 @@ export type IntakeFormTokenMaxAggregateOutputType = {
   recipientName: string | null
   formVariant: $Enums.IntakeFormVariant | null
   groupSize: number | null
+  advisorEmail: string | null
   sentAt: Date | null
   openedAt: Date | null
   completedAt: Date | null
@@ -77,6 +79,9 @@ export type IntakeFormTokenCountAggregateOutputType = {
   recipientName: number
   formVariant: number
   groupSize: number
+  customQuestions: number
+  formAnswers: number
+  advisorEmail: number
   sentAt: number
   openedAt: number
   completedAt: number
@@ -104,6 +109,7 @@ export type IntakeFormTokenMinAggregateInputType = {
   recipientName?: true
   formVariant?: true
   groupSize?: true
+  advisorEmail?: true
   sentAt?: true
   openedAt?: true
   completedAt?: true
@@ -121,6 +127,7 @@ export type IntakeFormTokenMaxAggregateInputType = {
   recipientName?: true
   formVariant?: true
   groupSize?: true
+  advisorEmail?: true
   sentAt?: true
   openedAt?: true
   completedAt?: true
@@ -138,6 +145,9 @@ export type IntakeFormTokenCountAggregateInputType = {
   recipientName?: true
   formVariant?: true
   groupSize?: true
+  customQuestions?: true
+  formAnswers?: true
+  advisorEmail?: true
   sentAt?: true
   openedAt?: true
   completedAt?: true
@@ -242,6 +252,9 @@ export type IntakeFormTokenGroupByOutputType = {
   recipientName: string | null
   formVariant: $Enums.IntakeFormVariant
   groupSize: number | null
+  customQuestions: runtime.JsonValue | null
+  formAnswers: runtime.JsonValue | null
+  advisorEmail: string | null
   sentAt: Date | null
   openedAt: Date | null
   completedAt: Date | null
@@ -282,6 +295,9 @@ export type IntakeFormTokenWhereInput = {
   recipientName?: Prisma.StringNullableFilter<"IntakeFormToken"> | string | null
   formVariant?: Prisma.EnumIntakeFormVariantFilter<"IntakeFormToken"> | $Enums.IntakeFormVariant
   groupSize?: Prisma.IntNullableFilter<"IntakeFormToken"> | number | null
+  customQuestions?: Prisma.JsonNullableFilter<"IntakeFormToken">
+  formAnswers?: Prisma.JsonNullableFilter<"IntakeFormToken">
+  advisorEmail?: Prisma.StringNullableFilter<"IntakeFormToken"> | string | null
   sentAt?: Prisma.DateTimeNullableFilter<"IntakeFormToken"> | Date | string | null
   openedAt?: Prisma.DateTimeNullableFilter<"IntakeFormToken"> | Date | string | null
   completedAt?: Prisma.DateTimeNullableFilter<"IntakeFormToken"> | Date | string | null
@@ -301,6 +317,9 @@ export type IntakeFormTokenOrderByWithRelationInput = {
   recipientName?: Prisma.SortOrderInput | Prisma.SortOrder
   formVariant?: Prisma.SortOrder
   groupSize?: Prisma.SortOrderInput | Prisma.SortOrder
+  customQuestions?: Prisma.SortOrderInput | Prisma.SortOrder
+  formAnswers?: Prisma.SortOrderInput | Prisma.SortOrder
+  advisorEmail?: Prisma.SortOrderInput | Prisma.SortOrder
   sentAt?: Prisma.SortOrderInput | Prisma.SortOrder
   openedAt?: Prisma.SortOrderInput | Prisma.SortOrder
   completedAt?: Prisma.SortOrderInput | Prisma.SortOrder
@@ -323,6 +342,9 @@ export type IntakeFormTokenWhereUniqueInput = Prisma.AtLeast<{
   recipientName?: Prisma.StringNullableFilter<"IntakeFormToken"> | string | null
   formVariant?: Prisma.EnumIntakeFormVariantFilter<"IntakeFormToken"> | $Enums.IntakeFormVariant
   groupSize?: Prisma.IntNullableFilter<"IntakeFormToken"> | number | null
+  customQuestions?: Prisma.JsonNullableFilter<"IntakeFormToken">
+  formAnswers?: Prisma.JsonNullableFilter<"IntakeFormToken">
+  advisorEmail?: Prisma.StringNullableFilter<"IntakeFormToken"> | string | null
   sentAt?: Prisma.DateTimeNullableFilter<"IntakeFormToken"> | Date | string | null
   openedAt?: Prisma.DateTimeNullableFilter<"IntakeFormToken"> | Date | string | null
   completedAt?: Prisma.DateTimeNullableFilter<"IntakeFormToken"> | Date | string | null
@@ -342,6 +364,9 @@ export type IntakeFormTokenOrderByWithAggregationInput = {
   recipientName?: Prisma.SortOrderInput | Prisma.SortOrder
   formVariant?: Prisma.SortOrder
   groupSize?: Prisma.SortOrderInput | Prisma.SortOrder
+  customQuestions?: Prisma.SortOrderInput | Prisma.SortOrder
+  formAnswers?: Prisma.SortOrderInput | Prisma.SortOrder
+  advisorEmail?: Prisma.SortOrderInput | Prisma.SortOrder
   sentAt?: Prisma.SortOrderInput | Prisma.SortOrder
   openedAt?: Prisma.SortOrderInput | Prisma.SortOrder
   completedAt?: Prisma.SortOrderInput | Prisma.SortOrder
@@ -367,6 +392,9 @@ export type IntakeFormTokenScalarWhereWithAggregatesInput = {
   recipientName?: Prisma.StringNullableWithAggregatesFilter<"IntakeFormToken"> | string | null
   formVariant?: Prisma.EnumIntakeFormVariantWithAggregatesFilter<"IntakeFormToken"> | $Enums.IntakeFormVariant
   groupSize?: Prisma.IntNullableWithAggregatesFilter<"IntakeFormToken"> | number | null
+  customQuestions?: Prisma.JsonNullableWithAggregatesFilter<"IntakeFormToken">
+  formAnswers?: Prisma.JsonNullableWithAggregatesFilter<"IntakeFormToken">
+  advisorEmail?: Prisma.StringNullableWithAggregatesFilter<"IntakeFormToken"> | string | null
   sentAt?: Prisma.DateTimeNullableWithAggregatesFilter<"IntakeFormToken"> | Date | string | null
   openedAt?: Prisma.DateTimeNullableWithAggregatesFilter<"IntakeFormToken"> | Date | string | null
   completedAt?: Prisma.DateTimeNullableWithAggregatesFilter<"IntakeFormToken"> | Date | string | null
@@ -382,6 +410,9 @@ export type IntakeFormTokenCreateInput = {
   recipientName?: string | null
   formVariant: $Enums.IntakeFormVariant
   groupSize?: number | null
+  customQuestions?: Prisma.NullableJsonNullValueInput | runtime.InputJsonValue
+  formAnswers?: Prisma.NullableJsonNullValueInput | runtime.InputJsonValue
+  advisorEmail?: string | null
   sentAt?: Date | string | null
   openedAt?: Date | string | null
   completedAt?: Date | string | null
@@ -401,6 +432,9 @@ export type IntakeFormTokenUncheckedCreateInput = {
   recipientName?: string | null
   formVariant: $Enums.IntakeFormVariant
   groupSize?: number | null
+  customQuestions?: Prisma.NullableJsonNullValueInput | runtime.InputJsonValue
+  formAnswers?: Prisma.NullableJsonNullValueInput | runtime.InputJsonValue
+  advisorEmail?: string | null
   sentAt?: Date | string | null
   openedAt?: Date | string | null
   completedAt?: Date | string | null
@@ -416,6 +450,9 @@ export type IntakeFormTokenUpdateInput = {
   recipientName?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
   formVariant?: Prisma.EnumIntakeFormVariantFieldUpdateOperationsInput | $Enums.IntakeFormVariant
   groupSize?: Prisma.NullableIntFieldUpdateOperationsInput | number | null
+  customQuestions?: Prisma.NullableJsonNullValueInput | runtime.InputJsonValue
+  formAnswers?: Prisma.NullableJsonNullValueInput | runtime.InputJsonValue
+  advisorEmail?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
   sentAt?: Prisma.NullableDateTimeFieldUpdateOperationsInput | Date | string | null
   openedAt?: Prisma.NullableDateTimeFieldUpdateOperationsInput | Date | string | null
   completedAt?: Prisma.NullableDateTimeFieldUpdateOperationsInput | Date | string | null
@@ -435,6 +472,9 @@ export type IntakeFormTokenUncheckedUpdateInput = {
   recipientName?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
   formVariant?: Prisma.EnumIntakeFormVariantFieldUpdateOperationsInput | $Enums.IntakeFormVariant
   groupSize?: Prisma.NullableIntFieldUpdateOperationsInput | number | null
+  customQuestions?: Prisma.NullableJsonNullValueInput | runtime.InputJsonValue
+  formAnswers?: Prisma.NullableJsonNullValueInput | runtime.InputJsonValue
+  advisorEmail?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
   sentAt?: Prisma.NullableDateTimeFieldUpdateOperationsInput | Date | string | null
   openedAt?: Prisma.NullableDateTimeFieldUpdateOperationsInput | Date | string | null
   completedAt?: Prisma.NullableDateTimeFieldUpdateOperationsInput | Date | string | null
@@ -452,6 +492,9 @@ export type IntakeFormTokenCreateManyInput = {
   recipientName?: string | null
   formVariant: $Enums.IntakeFormVariant
   groupSize?: number | null
+  customQuestions?: Prisma.NullableJsonNullValueInput | runtime.InputJsonValue
+  formAnswers?: Prisma.NullableJsonNullValueInput | runtime.InputJsonValue
+  advisorEmail?: string | null
   sentAt?: Date | string | null
   openedAt?: Date | string | null
   completedAt?: Date | string | null
@@ -467,6 +510,9 @@ export type IntakeFormTokenUpdateManyMutationInput = {
   recipientName?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
   formVariant?: Prisma.EnumIntakeFormVariantFieldUpdateOperationsInput | $Enums.IntakeFormVariant
   groupSize?: Prisma.NullableIntFieldUpdateOperationsInput | number | null
+  customQuestions?: Prisma.NullableJsonNullValueInput | runtime.InputJsonValue
+  formAnswers?: Prisma.NullableJsonNullValueInput | runtime.InputJsonValue
+  advisorEmail?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
   sentAt?: Prisma.NullableDateTimeFieldUpdateOperationsInput | Date | string | null
   openedAt?: Prisma.NullableDateTimeFieldUpdateOperationsInput | Date | string | null
   completedAt?: Prisma.NullableDateTimeFieldUpdateOperationsInput | Date | string | null
@@ -484,6 +530,9 @@ export type IntakeFormTokenUncheckedUpdateManyInput = {
   recipientName?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
   formVariant?: Prisma.EnumIntakeFormVariantFieldUpdateOperationsInput | $Enums.IntakeFormVariant
   groupSize?: Prisma.NullableIntFieldUpdateOperationsInput | number | null
+  customQuestions?: Prisma.NullableJsonNullValueInput | runtime.InputJsonValue
+  formAnswers?: Prisma.NullableJsonNullValueInput | runtime.InputJsonValue
+  advisorEmail?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
   sentAt?: Prisma.NullableDateTimeFieldUpdateOperationsInput | Date | string | null
   openedAt?: Prisma.NullableDateTimeFieldUpdateOperationsInput | Date | string | null
   completedAt?: Prisma.NullableDateTimeFieldUpdateOperationsInput | Date | string | null
@@ -511,6 +560,9 @@ export type IntakeFormTokenCountOrderByAggregateInput = {
   recipientName?: Prisma.SortOrder
   formVariant?: Prisma.SortOrder
   groupSize?: Prisma.SortOrder
+  customQuestions?: Prisma.SortOrder
+  formAnswers?: Prisma.SortOrder
+  advisorEmail?: Prisma.SortOrder
   sentAt?: Prisma.SortOrder
   openedAt?: Prisma.SortOrder
   completedAt?: Prisma.SortOrder
@@ -532,6 +584,7 @@ export type IntakeFormTokenMaxOrderByAggregateInput = {
   recipientName?: Prisma.SortOrder
   formVariant?: Prisma.SortOrder
   groupSize?: Prisma.SortOrder
+  advisorEmail?: Prisma.SortOrder
   sentAt?: Prisma.SortOrder
   openedAt?: Prisma.SortOrder
   completedAt?: Prisma.SortOrder
@@ -549,6 +602,7 @@ export type IntakeFormTokenMinOrderByAggregateInput = {
   recipientName?: Prisma.SortOrder
   formVariant?: Prisma.SortOrder
   groupSize?: Prisma.SortOrder
+  advisorEmail?: Prisma.SortOrder
   sentAt?: Prisma.SortOrder
   openedAt?: Prisma.SortOrder
   completedAt?: Prisma.SortOrder
@@ -656,6 +710,9 @@ export type IntakeFormTokenCreateWithoutClientInput = {
   recipientName?: string | null
   formVariant: $Enums.IntakeFormVariant
   groupSize?: number | null
+  customQuestions?: Prisma.NullableJsonNullValueInput | runtime.InputJsonValue
+  formAnswers?: Prisma.NullableJsonNullValueInput | runtime.InputJsonValue
+  advisorEmail?: string | null
   sentAt?: Date | string | null
   openedAt?: Date | string | null
   completedAt?: Date | string | null
@@ -673,6 +730,9 @@ export type IntakeFormTokenUncheckedCreateWithoutClientInput = {
   recipientName?: string | null
   formVariant: $Enums.IntakeFormVariant
   groupSize?: number | null
+  customQuestions?: Prisma.NullableJsonNullValueInput | runtime.InputJsonValue
+  formAnswers?: Prisma.NullableJsonNullValueInput | runtime.InputJsonValue
+  advisorEmail?: string | null
   sentAt?: Date | string | null
   openedAt?: Date | string | null
   completedAt?: Date | string | null
@@ -719,6 +779,9 @@ export type IntakeFormTokenScalarWhereInput = {
   recipientName?: Prisma.StringNullableFilter<"IntakeFormToken"> | string | null
   formVariant?: Prisma.EnumIntakeFormVariantFilter<"IntakeFormToken"> | $Enums.IntakeFormVariant
   groupSize?: Prisma.IntNullableFilter<"IntakeFormToken"> | number | null
+  customQuestions?: Prisma.JsonNullableFilter<"IntakeFormToken">
+  formAnswers?: Prisma.JsonNullableFilter<"IntakeFormToken">
+  advisorEmail?: Prisma.StringNullableFilter<"IntakeFormToken"> | string | null
   sentAt?: Prisma.DateTimeNullableFilter<"IntakeFormToken"> | Date | string | null
   openedAt?: Prisma.DateTimeNullableFilter<"IntakeFormToken"> | Date | string | null
   completedAt?: Prisma.DateTimeNullableFilter<"IntakeFormToken"> | Date | string | null
@@ -734,6 +797,9 @@ export type IntakeFormTokenCreateWithoutIntakeInput = {
   recipientName?: string | null
   formVariant: $Enums.IntakeFormVariant
   groupSize?: number | null
+  customQuestions?: Prisma.NullableJsonNullValueInput | runtime.InputJsonValue
+  formAnswers?: Prisma.NullableJsonNullValueInput | runtime.InputJsonValue
+  advisorEmail?: string | null
   sentAt?: Date | string | null
   openedAt?: Date | string | null
   completedAt?: Date | string | null
@@ -751,6 +817,9 @@ export type IntakeFormTokenUncheckedCreateWithoutIntakeInput = {
   recipientName?: string | null
   formVariant: $Enums.IntakeFormVariant
   groupSize?: number | null
+  customQuestions?: Prisma.NullableJsonNullValueInput | runtime.InputJsonValue
+  formAnswers?: Prisma.NullableJsonNullValueInput | runtime.InputJsonValue
+  advisorEmail?: string | null
   sentAt?: Date | string | null
   openedAt?: Date | string | null
   completedAt?: Date | string | null
@@ -793,6 +862,9 @@ export type IntakeFormTokenCreateManyClientInput = {
   recipientName?: string | null
   formVariant: $Enums.IntakeFormVariant
   groupSize?: number | null
+  customQuestions?: Prisma.NullableJsonNullValueInput | runtime.InputJsonValue
+  formAnswers?: Prisma.NullableJsonNullValueInput | runtime.InputJsonValue
+  advisorEmail?: string | null
   sentAt?: Date | string | null
   openedAt?: Date | string | null
   completedAt?: Date | string | null
@@ -808,6 +880,9 @@ export type IntakeFormTokenUpdateWithoutClientInput = {
   recipientName?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
   formVariant?: Prisma.EnumIntakeFormVariantFieldUpdateOperationsInput | $Enums.IntakeFormVariant
   groupSize?: Prisma.NullableIntFieldUpdateOperationsInput | number | null
+  customQuestions?: Prisma.NullableJsonNullValueInput | runtime.InputJsonValue
+  formAnswers?: Prisma.NullableJsonNullValueInput | runtime.InputJsonValue
+  advisorEmail?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
   sentAt?: Prisma.NullableDateTimeFieldUpdateOperationsInput | Date | string | null
   openedAt?: Prisma.NullableDateTimeFieldUpdateOperationsInput | Date | string | null
   completedAt?: Prisma.NullableDateTimeFieldUpdateOperationsInput | Date | string | null
@@ -825,6 +900,9 @@ export type IntakeFormTokenUncheckedUpdateWithoutClientInput = {
   recipientName?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
   formVariant?: Prisma.EnumIntakeFormVariantFieldUpdateOperationsInput | $Enums.IntakeFormVariant
   groupSize?: Prisma.NullableIntFieldUpdateOperationsInput | number | null
+  customQuestions?: Prisma.NullableJsonNullValueInput | runtime.InputJsonValue
+  formAnswers?: Prisma.NullableJsonNullValueInput | runtime.InputJsonValue
+  advisorEmail?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
   sentAt?: Prisma.NullableDateTimeFieldUpdateOperationsInput | Date | string | null
   openedAt?: Prisma.NullableDateTimeFieldUpdateOperationsInput | Date | string | null
   completedAt?: Prisma.NullableDateTimeFieldUpdateOperationsInput | Date | string | null
@@ -841,6 +919,9 @@ export type IntakeFormTokenUncheckedUpdateManyWithoutClientInput = {
   recipientName?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
   formVariant?: Prisma.EnumIntakeFormVariantFieldUpdateOperationsInput | $Enums.IntakeFormVariant
   groupSize?: Prisma.NullableIntFieldUpdateOperationsInput | number | null
+  customQuestions?: Prisma.NullableJsonNullValueInput | runtime.InputJsonValue
+  formAnswers?: Prisma.NullableJsonNullValueInput | runtime.InputJsonValue
+  advisorEmail?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
   sentAt?: Prisma.NullableDateTimeFieldUpdateOperationsInput | Date | string | null
   openedAt?: Prisma.NullableDateTimeFieldUpdateOperationsInput | Date | string | null
   completedAt?: Prisma.NullableDateTimeFieldUpdateOperationsInput | Date | string | null
@@ -857,6 +938,9 @@ export type IntakeFormTokenCreateManyIntakeInput = {
   recipientName?: string | null
   formVariant: $Enums.IntakeFormVariant
   groupSize?: number | null
+  customQuestions?: Prisma.NullableJsonNullValueInput | runtime.InputJsonValue
+  formAnswers?: Prisma.NullableJsonNullValueInput | runtime.InputJsonValue
+  advisorEmail?: string | null
   sentAt?: Date | string | null
   openedAt?: Date | string | null
   completedAt?: Date | string | null
@@ -872,6 +956,9 @@ export type IntakeFormTokenUpdateWithoutIntakeInput = {
   recipientName?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
   formVariant?: Prisma.EnumIntakeFormVariantFieldUpdateOperationsInput | $Enums.IntakeFormVariant
   groupSize?: Prisma.NullableIntFieldUpdateOperationsInput | number | null
+  customQuestions?: Prisma.NullableJsonNullValueInput | runtime.InputJsonValue
+  formAnswers?: Prisma.NullableJsonNullValueInput | runtime.InputJsonValue
+  advisorEmail?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
   sentAt?: Prisma.NullableDateTimeFieldUpdateOperationsInput | Date | string | null
   openedAt?: Prisma.NullableDateTimeFieldUpdateOperationsInput | Date | string | null
   completedAt?: Prisma.NullableDateTimeFieldUpdateOperationsInput | Date | string | null
@@ -889,6 +976,9 @@ export type IntakeFormTokenUncheckedUpdateWithoutIntakeInput = {
   recipientName?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
   formVariant?: Prisma.EnumIntakeFormVariantFieldUpdateOperationsInput | $Enums.IntakeFormVariant
   groupSize?: Prisma.NullableIntFieldUpdateOperationsInput | number | null
+  customQuestions?: Prisma.NullableJsonNullValueInput | runtime.InputJsonValue
+  formAnswers?: Prisma.NullableJsonNullValueInput | runtime.InputJsonValue
+  advisorEmail?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
   sentAt?: Prisma.NullableDateTimeFieldUpdateOperationsInput | Date | string | null
   openedAt?: Prisma.NullableDateTimeFieldUpdateOperationsInput | Date | string | null
   completedAt?: Prisma.NullableDateTimeFieldUpdateOperationsInput | Date | string | null
@@ -905,6 +995,9 @@ export type IntakeFormTokenUncheckedUpdateManyWithoutIntakeInput = {
   recipientName?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
   formVariant?: Prisma.EnumIntakeFormVariantFieldUpdateOperationsInput | $Enums.IntakeFormVariant
   groupSize?: Prisma.NullableIntFieldUpdateOperationsInput | number | null
+  customQuestions?: Prisma.NullableJsonNullValueInput | runtime.InputJsonValue
+  formAnswers?: Prisma.NullableJsonNullValueInput | runtime.InputJsonValue
+  advisorEmail?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
   sentAt?: Prisma.NullableDateTimeFieldUpdateOperationsInput | Date | string | null
   openedAt?: Prisma.NullableDateTimeFieldUpdateOperationsInput | Date | string | null
   completedAt?: Prisma.NullableDateTimeFieldUpdateOperationsInput | Date | string | null
@@ -924,6 +1017,9 @@ export type IntakeFormTokenSelect<ExtArgs extends runtime.Types.Extensions.Inter
   recipientName?: boolean
   formVariant?: boolean
   groupSize?: boolean
+  customQuestions?: boolean
+  formAnswers?: boolean
+  advisorEmail?: boolean
   sentAt?: boolean
   openedAt?: boolean
   completedAt?: boolean
@@ -943,6 +1039,9 @@ export type IntakeFormTokenSelectCreateManyAndReturn<ExtArgs extends runtime.Typ
   recipientName?: boolean
   formVariant?: boolean
   groupSize?: boolean
+  customQuestions?: boolean
+  formAnswers?: boolean
+  advisorEmail?: boolean
   sentAt?: boolean
   openedAt?: boolean
   completedAt?: boolean
@@ -962,6 +1061,9 @@ export type IntakeFormTokenSelectUpdateManyAndReturn<ExtArgs extends runtime.Typ
   recipientName?: boolean
   formVariant?: boolean
   groupSize?: boolean
+  customQuestions?: boolean
+  formAnswers?: boolean
+  advisorEmail?: boolean
   sentAt?: boolean
   openedAt?: boolean
   completedAt?: boolean
@@ -981,6 +1083,9 @@ export type IntakeFormTokenSelectScalar = {
   recipientName?: boolean
   formVariant?: boolean
   groupSize?: boolean
+  customQuestions?: boolean
+  formAnswers?: boolean
+  advisorEmail?: boolean
   sentAt?: boolean
   openedAt?: boolean
   completedAt?: boolean
@@ -989,7 +1094,7 @@ export type IntakeFormTokenSelectScalar = {
   createdAt?: boolean
 }
 
-export type IntakeFormTokenOmit<ExtArgs extends runtime.Types.Extensions.InternalArgs = runtime.Types.Extensions.DefaultArgs> = runtime.Types.Extensions.GetOmit<"id" | "token" | "clientId" | "intakeId" | "recipientEmail" | "recipientName" | "formVariant" | "groupSize" | "sentAt" | "openedAt" | "completedAt" | "expiresAt" | "reminderSentAt" | "createdAt", ExtArgs["result"]["intakeFormToken"]>
+export type IntakeFormTokenOmit<ExtArgs extends runtime.Types.Extensions.InternalArgs = runtime.Types.Extensions.DefaultArgs> = runtime.Types.Extensions.GetOmit<"id" | "token" | "clientId" | "intakeId" | "recipientEmail" | "recipientName" | "formVariant" | "groupSize" | "customQuestions" | "formAnswers" | "advisorEmail" | "sentAt" | "openedAt" | "completedAt" | "expiresAt" | "reminderSentAt" | "createdAt", ExtArgs["result"]["intakeFormToken"]>
 export type IntakeFormTokenInclude<ExtArgs extends runtime.Types.Extensions.InternalArgs = runtime.Types.Extensions.DefaultArgs> = {
   client?: boolean | Prisma.ClientDefaultArgs<ExtArgs>
   intake?: boolean | Prisma.IntakeFormToken$intakeArgs<ExtArgs>
@@ -1018,6 +1123,9 @@ export type $IntakeFormTokenPayload<ExtArgs extends runtime.Types.Extensions.Int
     recipientName: string | null
     formVariant: $Enums.IntakeFormVariant
     groupSize: number | null
+    customQuestions: runtime.JsonValue | null
+    formAnswers: runtime.JsonValue | null
+    advisorEmail: string | null
     sentAt: Date | null
     openedAt: Date | null
     completedAt: Date | null
@@ -1457,6 +1565,9 @@ export interface IntakeFormTokenFieldRefs {
   readonly recipientName: Prisma.FieldRef<"IntakeFormToken", 'String'>
   readonly formVariant: Prisma.FieldRef<"IntakeFormToken", 'IntakeFormVariant'>
   readonly groupSize: Prisma.FieldRef<"IntakeFormToken", 'Int'>
+  readonly customQuestions: Prisma.FieldRef<"IntakeFormToken", 'Json'>
+  readonly formAnswers: Prisma.FieldRef<"IntakeFormToken", 'Json'>
+  readonly advisorEmail: Prisma.FieldRef<"IntakeFormToken", 'String'>
   readonly sentAt: Prisma.FieldRef<"IntakeFormToken", 'DateTime'>
   readonly openedAt: Prisma.FieldRef<"IntakeFormToken", 'DateTime'>
   readonly completedAt: Prisma.FieldRef<"IntakeFormToken", 'DateTime'>

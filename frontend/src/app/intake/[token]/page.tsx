@@ -25,6 +25,7 @@ const VARIANT_TITLES: Record<string, string> = {
   group_organizer: 'Group Trip Details',
   business_policy: 'Company Travel Policy',
   business_traveler: 'Your Business Travel Preferences',
+  custom_form: 'Travel Questions',
 };
 
 const VARIANT_SUBTITLES: Record<string, string> = {
@@ -33,6 +34,7 @@ const VARIANT_SUBTITLES: Record<string, string> = {
   group_organizer: 'A few logistics questions to help plan your group trip.',
   business_policy: 'Share your company travel guidelines so your advisor can book within policy.',
   business_traveler: 'Tell your advisor your preferences for business travel.',
+  custom_form: 'Your advisor has a few questions to help plan your trip.',
 };
 
 export default function IntakeFormPage() {

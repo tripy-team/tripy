@@ -53,6 +53,7 @@ function StyledPopover(props: PopoverProps) {
   return (
     <Popover
       {...props}
+      isNonModal
       className={({ isEntering, isExiting }) =>
         [
           'z-50 rounded-xl bg-white border border-slate-200 shadow-lg !max-h-none',

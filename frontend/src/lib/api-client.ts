@@ -952,6 +952,7 @@ class ApiError extends Error {
   constructor(
     message: string,
     public status: number,
+    public data?: Record<string, unknown>,
   ) {
     super(message);
     this.name = 'ApiError';
@@ -970,7 +971,7 @@ async function apiFetch<T>(path: string, options?: RequestInit): Promise<T> {
   });
   if (!res.ok) {
     const err = await res.json().catch(() => ({ error: 'Request failed' }));
-    throw new ApiError(err.error || err.message || 'Request failed', res.status);
+    throw new ApiError(err.error || err.message || 'Request failed', res.status, err);
   }
   return res.json();
 }
@@ -2477,9 +2478,17 @@ export type IntakeFormVariant =
   | 'group_member'
   | 'group_organizer'
   | 'business_policy'
-  | 'business_traveler';
+  | 'business_traveler'
+  | 'custom_form';
 
 export type IntakeInvitationStatus = 'pending' | 'opened' | 'completed' | 'expired';
+
+export interface CustomFormQuestion {
+  id: string;
+  label: string;
+  type: 'text' | 'textarea' | 'select';
+  options?: string[];
+}
 
 export interface IntakeInvitation {
   id: string;
@@ -2490,6 +2499,9 @@ export interface IntakeInvitation {
   recipientName?: string;
   formVariant: IntakeFormVariant;
   groupSize?: number;
+  customQuestions?: CustomFormQuestion[] | null;
+  formAnswers?: Record<string, string> | null;
+  advisorEmail?: string | null;
   sentAt?: string;
   openedAt?: string;
   completedAt?: string;
@@ -2543,4 +2555,36 @@ export function resendIntakeInvitation(tokenId: string) {
 
 export function revokeIntakeInvitation(tokenId: string) {
   return apiFetch<void>(`/intake-invitations/${tokenId}`, { method: 'DELETE' });
+}
+
+// ---------------------------------------------------------------------------
+// Custom Forms
+// ---------------------------------------------------------------------------
+
+export interface CustomFormPayload {
+  title: string;
+  recipientEmail: string;
+  recipientName?: string;
+  questions: CustomFormQuestion[];
+  expiresInDays?: number;
+}
+
+export function createCustomForm(clientId: string, payload: CustomFormPayload) {
+  return apiFetch<IntakeInvitation>(`/clients/${clientId}/custom-forms`, {
+    method: 'POST',
+    body: JSON.stringify(payload),
+  });
+}
+
+export function generateCustomFormQuestions(
+  clientId: string,
+  prompt?: string,
+): Promise<{ questions: CustomFormQuestion[] }> {
+  return apiFetch<{ questions: CustomFormQuestion[] }>(
+    `/clients/${clientId}/custom-forms/generate`,
+    {
+      method: 'POST',
+      body: JSON.stringify({ prompt: prompt ?? '' }),
+    },
+  );
 }

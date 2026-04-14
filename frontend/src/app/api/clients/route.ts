@@ -51,8 +51,16 @@ export async function POST(request: Request) {
     const body = await request.json();
     const { firstName, lastName, email, phone, dateOfBirth, notes, clientType, initialBalances, groupProfile, businessProfile } = body;
 
-    if (!firstName || !lastName) {
-      return errorResponse("First name and last name are required", 400);
+    if (!firstName || !lastName || !email) {
+      return errorResponse("First name, last name, and email are required", 400);
+    }
+
+    const existing = await prisma.client.findFirst({
+      where: { organizationId: user.organizationId, email },
+      select: { id: true },
+    });
+    if (existing) {
+      return json({ error: "A client with this email already exists.", existingClientId: existing.id }, 409);
     }
 
     const validTypes = ["individual", "group", "business"];
@@ -66,7 +74,7 @@ export async function POST(request: Request) {
           clientType: type,
           firstName,
           lastName,
-          email: email || null,
+          email: email,
           phone: phone || null,
           dateOfBirth: dateOfBirth ? new Date(dateOfBirth) : null,
           notes: notes || null,

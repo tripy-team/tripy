@@ -1179,6 +1179,7 @@ function SoloTripSetupContent() {
                                 value={endDate}
                                 onChange={(date) => setEndDate(date)}
                                 minDate={getMinDateForLeg(index + 1)}
+                                defaultFocusedDate={getMinDateForLeg(index + 1)}
                                 disabled={isFlexible}
                                 placeholder="Select date"
                               />
@@ -1187,6 +1188,7 @@ function SoloTripSetupContent() {
                                 value={legDates[index + 1] || ''}
                                 onChange={(date) => updateLegDate(index + 1, date)}
                                 minDate={getMinDateForLeg(index + 1)}
+                                defaultFocusedDate={getMinDateForLeg(index + 1)}
                                 disabled={isFlexible}
                                 placeholder="Select date"
                               />
@@ -1301,6 +1303,7 @@ function SoloTripSetupContent() {
                             value={endDate}
                             onChange={(date) => setEndDate(date)}
                             minDate={startDate || new Date().toISOString().split('T')[0]}
+                            defaultFocusedDate={startDate}
                             placeholder="Select date"
                           />
                         </div>

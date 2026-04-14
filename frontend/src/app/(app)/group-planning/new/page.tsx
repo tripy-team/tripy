@@ -550,32 +550,58 @@ export default function NewGroupTripPage() {
 
             {/* ---- Shared Destinations & Dates ---- */}
             <div className="relative z-40 bg-white border border-slate-200 rounded-2xl p-8 shadow-sm">
-              <div className="flex items-center gap-3 mb-2">
+              <div className="flex items-center gap-3 mb-6">
                 <div className="w-10 h-10 bg-blue-600 rounded-xl flex items-center justify-center">
                   <Globe className="w-5 h-5 text-white" />
                 </div>
                 <div>
                   <h2 className="text-xl text-slate-900 font-semibold">Shared Destinations</h2>
-                  <p className="text-sm text-slate-500">Where is the group meeting up, and when?</p>
+                  <p className="text-sm text-slate-500">Build your group itinerary by adding destinations and dates</p>
                 </div>
               </div>
 
-              <div className="mt-2 mb-6 p-3 bg-blue-50 border border-blue-100 rounded-xl flex items-start gap-2.5">
-                <Info className="w-4 h-4 text-blue-500 flex-shrink-0 mt-0.5" />
-                <p className="text-xs text-blue-700">
-                  Add the cities everyone will visit together and set dates for each stop. Each traveler&apos;s starting airport is set in their profile below — you don&apos;t need to include start or end locations here.
-                </p>
-              </div>
-
               <div className="relative">
-                {destinations.length > 0 && (
-                  <div className="absolute left-[11px] top-4 bottom-4 w-0.5 bg-blue-200 z-0" />
-                )}
+                {/* Timeline connector line */}
+                <div className="absolute left-[11px] top-8 bottom-8 w-0.5 bg-blue-200 z-0" />
 
                 <div className="space-y-0 relative z-10">
+                  {/* GROUP ARRIVAL — fixed top row */}
+                  <div className="flex gap-6 pb-4">
+                    <div className="flex flex-col items-center">
+                      <div className="w-6 h-6 rounded-full bg-blue-600 border-4 border-white shadow-sm z-10" />
+                    </div>
+                    <div className="flex-1 grid grid-cols-1 md:grid-cols-2 gap-4 -mt-1">
+                      <div>
+                        <label className="block text-xs text-slate-500 mb-2 uppercase font-bold tracking-wider">
+                          Group Arrival Date
+                        </label>
+                        <SingleDatePicker
+                          value={startDate}
+                          onChange={(date) => setStartDate(date)}
+                          minDate={new Date().toISOString().split('T')[0]}
+                          placeholder="When does the group arrive?"
+                        />
+                      </div>
+                      {/* When no destinations, show final departure date here */}
+                      {destinations.length === 0 && (
+                        <div>
+                          <label className="block text-xs text-slate-500 mb-2 uppercase font-bold tracking-wider">
+                            Final Departure Date
+                          </label>
+                          <SingleDatePicker
+                            value={endDate}
+                            onChange={(date) => setEndDate(date)}
+                            minDate={startDate || new Date().toISOString().split('T')[0]}
+                            placeholder="When does the group leave?"
+                          />
+                        </div>
+                      )}
+                    </div>
+                  </div>
+
+                  {/* DESTINATION ROWS */}
                   {destinations.map((city, index) => {
                     const isLast = index === destinations.length - 1;
-                    const isOnly = destinations.length === 1;
 
                     return (
                       <div key={`dest-${index}`} className="flex gap-6 py-4">
@@ -586,70 +612,55 @@ export default function NewGroupTripPage() {
                           </div>
                         </div>
 
-                        {/* Content: city + dates */}
-                        <div className="flex-1 -mt-1 space-y-3">
-                          {/* City name + remove */}
-                          <div className="flex items-center gap-2">
-                            <div className="flex-1 px-4 py-3 bg-blue-50 border border-blue-200 rounded-xl text-sm text-slate-900 font-medium flex items-center gap-2">
-                              <MapPin className="w-4 h-4 text-blue-500 flex-shrink-0" />
-                              {city}
+                        {/* Content: city + departure date side by side */}
+                        <div className="flex-1 grid grid-cols-1 md:grid-cols-2 gap-4 -mt-1">
+                          <div>
+                            <label className="block text-xs text-slate-500 mb-2 uppercase font-bold tracking-wider">
+                              Destination {index + 1}
+                            </label>
+                            <div className="flex gap-2">
+                              <div className="flex-1 px-4 py-3 bg-blue-50 border border-blue-200 rounded-xl text-sm text-slate-900 font-medium flex items-center gap-2">
+                                <MapPin className="w-4 h-4 text-blue-500 flex-shrink-0" />
+                                {city}
+                              </div>
+                              <button
+                                type="button"
+                                onClick={() => removeDestination(index)}
+                                className="px-3 py-2 text-slate-400 hover:text-red-500 hover:bg-red-50 rounded-xl transition-colors"
+                                title="Remove destination"
+                              >
+                                <X className="w-4 h-4" />
+                              </button>
                             </div>
-                            <button
-                              type="button"
-                              onClick={() => removeDestination(index)}
-                              className="px-3 py-2 text-slate-400 hover:text-red-500 hover:bg-red-50 rounded-xl transition-colors"
-                              title="Remove destination"
-                            >
-                              <X className="w-4 h-4" />
-                            </button>
                           </div>
 
-                          {/* Dates row */}
-                          <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
-                            {/* Arrival date — only shown for the first destination */}
-                            {index === 0 && (
-                              <div>
-                                <label className="block text-xs text-slate-500 mb-1.5 uppercase font-bold tracking-wider">
-                                  Arrival Date
-                                </label>
-                                <SingleDatePicker
-                                  value={startDate}
-                                  onChange={(date) => setStartDate(date)}
-                                  minDate={new Date().toISOString().split('T')[0]}
-                                  placeholder="When does the group arrive?"
-                                />
-                              </div>
+                          <div>
+                            <label className="block text-xs text-slate-500 mb-2 uppercase font-bold tracking-wider">
+                              {isLast ? 'Final Departure' : `Depart for ${destinations[index + 1]}`}
+                            </label>
+                            {isLast ? (
+                              <SingleDatePicker
+                                value={endDate}
+                                onChange={(date) => setEndDate(date)}
+                                minDate={
+                                  index === 0
+                                    ? startDate || new Date().toISOString().split('T')[0]
+                                    : legDates[index - 1] || startDate || new Date().toISOString().split('T')[0]
+                                }
+                                placeholder="When does the group leave?"
+                              />
+                            ) : (
+                              <SingleDatePicker
+                                value={legDates[index] || ''}
+                                onChange={(date) => updateLegDate(index, date)}
+                                minDate={
+                                  index === 0
+                                    ? startDate || new Date().toISOString().split('T')[0]
+                                    : legDates[index - 1] || startDate || new Date().toISOString().split('T')[0]
+                                }
+                                placeholder="Select date"
+                              />
                             )}
-
-                            {/* Departure date */}
-                            <div>
-                              <label className="block text-xs text-slate-500 mb-1.5 uppercase font-bold tracking-wider">
-                                {isOnly ? 'Departure Date' : isLast ? 'Final Departure' : `Depart for ${destinations[index + 1]}`}
-                              </label>
-                              {isLast ? (
-                                <SingleDatePicker
-                                  value={endDate}
-                                  onChange={(date) => setEndDate(date)}
-                                  minDate={
-                                    index === 0
-                                      ? startDate || new Date().toISOString().split('T')[0]
-                                      : legDates[index - 1] || startDate || new Date().toISOString().split('T')[0]
-                                  }
-                                  placeholder="When does the group leave?"
-                                />
-                              ) : (
-                                <SingleDatePicker
-                                  value={legDates[index] || ''}
-                                  onChange={(date) => updateLegDate(index, date)}
-                                  minDate={
-                                    index === 0
-                                      ? startDate || new Date().toISOString().split('T')[0]
-                                      : legDates[index - 1] || startDate || new Date().toISOString().split('T')[0]
-                                  }
-                                  placeholder="Select date"
-                                />
-                              )}
-                            </div>
                           </div>
                         </div>
                       </div>
@@ -657,11 +668,11 @@ export default function NewGroupTripPage() {
                   })}
 
                   {/* ADD DESTINATION */}
-                  <div className="flex gap-6 py-3">
+                  <div className="flex gap-6 py-4">
                     <div className="flex flex-col items-center">
                       <div className="w-6 h-6 rounded-full bg-white border-2 border-dashed border-slate-300 z-10" />
                     </div>
-                    <div className="flex-1 -mt-0.5 relative">
+                    <div className="flex-1 -mt-1 relative">
                       <button
                         type="button"
                         onClick={() => setShowAddDestination(!showAddDestination)}
@@ -717,11 +728,12 @@ export default function NewGroupTripPage() {
                 </div>
               </div>
 
-              {destinations.length === 0 && (
-                <p className="mt-4 text-xs text-slate-400">
-                  Add at least one destination where the group will meet.
+              <div className="mt-4 pt-4 border-t border-slate-100 flex items-start gap-2.5">
+                <Info className="w-4 h-4 text-blue-400 flex-shrink-0 mt-0.5" />
+                <p className="text-xs text-slate-500">
+                  Each traveler&apos;s starting airport is set in their profile below — add only the cities everyone will visit together here.
                 </p>
-              )}
+              </div>
             </div>
 
             {/* ---- Travelers ---- */}

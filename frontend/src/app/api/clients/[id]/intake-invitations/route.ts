@@ -1,14 +1,15 @@
 import { prisma } from "@/lib/prisma";
 import { getAuthUser, json, errorResponse } from "@/lib/auth";
+import { sendFormInvitation, buildFormLink } from "@/lib/email";
 import crypto from "crypto";
 
 function generateToken(): string {
   return crypto.randomBytes(32).toString("hex");
 }
 
-function defaultExpiry(): Date {
+function defaultExpiry(days = 14): Date {
   const d = new Date();
-  d.setDate(d.getDate() + 14);
+  d.setDate(d.getDate() + days);
   return d;
 }
 
@@ -29,7 +30,6 @@ export async function GET(
       orderBy: { createdAt: "desc" },
     });
 
-    // Annotate with computed status
     const now = new Date();
     const annotated = tokens.map((t) => ({
       ...t,
@@ -65,8 +65,9 @@ export async function POST(
       return errorResponse("recipients array is required", 400);
     }
 
-    const expiresAt = new Date();
-    expiresAt.setDate(expiresAt.getDate() + expiresInDays);
+    const expiresAt = defaultExpiry(expiresInDays);
+    const advisorName = `${user.firstName} ${user.lastName}`.trim() || user.email;
+    const clientName = `${client.firstName} ${client.lastName}`.trim();
 
     const created = await prisma.$transaction(
       recipients.map((r) =>
@@ -78,12 +79,38 @@ export async function POST(
             recipientName: r.name || null,
             formVariant: r.formVariant as never,
             groupSize: r.groupSize ? Number(r.groupSize) : null,
+            advisorEmail: user.email,
             sentAt: new Date(),
             expiresAt,
           },
         }),
       ),
     );
+
+    // Send emails to each recipient (fire and forget)
+    for (const tokenRecord of created) {
+      const recipient = recipients.find((r) => r.email === tokenRecord.recipientEmail);
+      const formLink = buildFormLink(tokenRecord.token);
+      const VARIANT_TITLES: Record<string, string> = {
+        individual: "Travel Preferences Form",
+        group_member: "Group Trip Preferences",
+        group_organizer: "Group Trip Details",
+        business_policy: "Company Travel Policy",
+        business_traveler: "Business Travel Preferences",
+        custom_form: "Travel Form",
+      };
+      const formTitle = VARIANT_TITLES[tokenRecord.formVariant] ?? "Travel Form";
+      sendFormInvitation({
+        recipientEmail: tokenRecord.recipientEmail,
+        recipientName: tokenRecord.recipientName ?? undefined,
+        clientName,
+        advisorName,
+        formTitle,
+        formLink,
+        expiresAt,
+      }).catch((e) => console.error("[email] Invitation send failed:", e));
+      void recipient; // suppress unused warning
+    }
 
     return json(created, 201);
   } catch (error) {

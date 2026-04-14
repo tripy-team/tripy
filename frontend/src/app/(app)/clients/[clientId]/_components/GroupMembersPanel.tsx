@@ -23,7 +23,7 @@ const DECISION_LABELS: Record<GroupDecisionStyle, string> = {
   advisor_recommends: 'Advisor recommends',
 };
 
-export default function GroupMembersPanel({ clientId, client }: { clientId: string; client: Client }) {
+export default function GroupMembersPanel({ clientId, client, onMembersChange }: { clientId: string; client: Client; onMembersChange?: (count: number) => void }) {
   const [profile, setProfile] = useState<GroupProfile | null>(null);
   const [members, setMembers] = useState<GroupMember[]>([]);
   const [loading, setLoading] = useState(true);
@@ -36,7 +36,7 @@ export default function GroupMembersPanel({ clientId, client }: { clientId: stri
   const [selectedLinked, setSelectedLinked] = useState<LinkedClientSummary | null>(null);
   const clientSearchRef = useRef<HTMLDivElement>(null);
 
-  const [addForm, setAddForm] = useState({ name: '', email: '', departureCity: '', isOrganizer: false });
+  const [addForm, setAddForm] = useState({ name: '', email: '', isOrganizer: false });
 
   useEffect(() => {
     Promise.all([getGroupProfile(clientId), getGroupMembers(clientId), getClients()])
@@ -83,12 +83,15 @@ export default function GroupMembersPanel({ clientId, client }: { clientId: stri
         linkedClientId: selectedLinked?.id,
         name: addForm.name.trim() || `${selectedLinked?.firstName} ${selectedLinked?.lastName}`,
         email: addForm.email.trim() || undefined,
-        departureCity: addForm.departureCity.trim() || undefined,
         isOrganizer: addForm.isOrganizer,
       });
-      setMembers((prev) => [...prev, member]);
+      setMembers((prev) => {
+        const next = [...prev, member];
+        onMembersChange?.(next.length);
+        return next;
+      });
       setShowAdd(false);
-      setAddForm({ name: '', email: '', departureCity: '', isOrganizer: false });
+      setAddForm({ name: '', email: '', isOrganizer: false });
       setSelectedLinked(null);
 
       // Update estimated size if profile exists
@@ -106,7 +109,11 @@ export default function GroupMembersPanel({ clientId, client }: { clientId: stri
 
   const handleRemove = async (memberId: string) => {
     await removeGroupMember(clientId, memberId);
-    setMembers((prev) => prev.filter((m) => m.id !== memberId));
+    setMembers((prev) => {
+      const next = prev.filter((m) => m.id !== memberId);
+      onMembersChange?.(next.length);
+      return next;
+    });
   };
 
   const handleToggleOrganizer = async (member: GroupMember) => {
@@ -203,8 +210,6 @@ export default function GroupMembersPanel({ clientId, client }: { clientId: stri
                 className="rounded-lg border border-slate-200 bg-white px-3 py-2 text-sm disabled:bg-slate-100 disabled:text-slate-500 focus:border-transparent focus:outline-none focus:ring-2 focus:ring-blue-600" />
               <input type="email" placeholder="Email" value={addForm.email} onChange={(e) => setAddForm((f) => ({ ...f, email: e.target.value }))}
                 className="rounded-lg border border-slate-200 bg-white px-3 py-2 text-sm focus:border-transparent focus:outline-none focus:ring-2 focus:ring-blue-600" />
-              <input type="text" placeholder="Departure city" value={addForm.departureCity} onChange={(e) => setAddForm((f) => ({ ...f, departureCity: e.target.value }))}
-                className="rounded-lg border border-slate-200 bg-white px-3 py-2 text-sm focus:border-transparent focus:outline-none focus:ring-2 focus:ring-blue-600" />
               <label className="flex items-center gap-2 rounded-lg border border-slate-200 bg-white px-3 py-2">
                 <input type="checkbox" checked={addForm.isOrganizer} onChange={(e) => setAddForm((f) => ({ ...f, isOrganizer: e.target.checked }))} className="h-4 w-4 rounded text-blue-600" />
                 <span className="text-sm text-slate-700">Group organizer</span>
@@ -217,7 +222,7 @@ export default function GroupMembersPanel({ clientId, client }: { clientId: stri
                 {saving ? <Loader2 className="h-3.5 w-3.5 animate-spin" /> : <Plus className="h-3.5 w-3.5" />}
                 Add
               </button>
-              <button onClick={() => { setShowAdd(false); setSelectedLinked(null); setAddForm({ name: '', email: '', departureCity: '', isOrganizer: false }); }}
+              <button onClick={() => { setShowAdd(false); setSelectedLinked(null); setAddForm({ name: '', email: '', isOrganizer: false }); }}
                 className="rounded-lg border border-slate-200 px-4 py-2 text-sm text-slate-600 hover:bg-slate-50">
                 Cancel
               </button>
