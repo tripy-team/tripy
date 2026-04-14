@@ -250,9 +250,33 @@ function ClientCard({ client, onClick }: { client: Client; onClick: () => void }
 
       {/* Card Footer */}
       <div className="mt-auto flex items-center justify-between border-t border-slate-100 px-5 py-3 mt-4">
-        <span className="text-[10px] text-slate-300">
-          Added {new Date(client.createdAt).toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric' })}
-        </span>
+        {/* Lightweight readiness indicator using list-available data */}
+        {(() => {
+          const hasPrograms = balances.length > 0;
+          const hasTrips = tripCount > 0;
+          if (hasPrograms && hasTrips) {
+            return (
+              <span className="flex items-center gap-1 text-[10px] font-medium text-emerald-600">
+                <span className="inline-block h-1.5 w-1.5 rounded-full bg-emerald-500" />
+                Profile active
+              </span>
+            );
+          }
+          if (hasPrograms) {
+            return (
+              <span className="flex items-center gap-1 text-[10px] font-medium text-amber-600">
+                <span className="inline-block h-1.5 w-1.5 rounded-full bg-amber-400" />
+                No trips yet
+              </span>
+            );
+          }
+          return (
+            <span className="flex items-center gap-1 text-[10px] font-medium text-slate-400">
+              <span className="inline-block h-1.5 w-1.5 rounded-full bg-slate-300" />
+              Needs setup
+            </span>
+          );
+        })()}
         <span className="flex items-center gap-1 text-[11px] font-medium text-blue-600 opacity-0 transition-opacity group-hover:opacity-100">
           View Profile
           <ChevronRight className="h-3 w-3" />

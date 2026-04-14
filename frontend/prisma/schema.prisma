@@ -22,7 +22,38 @@ enum ClientStatus {
 
 enum ClientType {
   individual
+  group
   business
+}
+
+enum GroupType {
+  leisure_friends
+  destination_wedding
+  family_reunion
+  corporate_offsite
+  multi_generational
+  other
+}
+
+enum GroupDecisionStyle {
+  organizer_decides
+  consensus
+  advisor_recommends
+}
+
+enum IntakeFormVariant {
+  individual
+  group_member
+  group_organizer
+  business_policy
+  business_traveler
+}
+
+enum IntakeFormStatus {
+  pending
+  opened
+  completed
+  expired
 }
 
 enum ProgramCategory {
@@ -399,6 +430,11 @@ model Client {
   crossClientSuggestions MeetingProfileSuggestion[] @relation("CrossClientSuggestions")
   pointSourceAllocations RecommendationTravelerAllocation[] @relation("PointSource")
   groupSettlements       GroupSettlement[]
+  groupProfile           GroupProfile?
+  businessProfile        BusinessProfile?
+  groupMemberships       GroupMember[]   @relation("GroupMemberLinkedClient")
+  businessTravelerLinks  BusinessTraveler[] @relation("BusinessTravelerLinkedClient")
+  intakeFormTokens       IntakeFormToken[]
 
   @@index([organizationId])
   @@index([ownerUserId])
@@ -913,6 +949,7 @@ model ClientIntake {
   duplicates            ClientIntake[]   @relation("IntakeDuplicate")
   tripBriefs            TripBrief[]
   followUpSuggestions   FollowUpSuggestion[]
+  formTokens            IntakeFormToken[]
 
   @@index([clientId])
   @@index([createdByUserId])
@@ -1299,4 +1336,112 @@ model MeetingRecap {
   session DiscoveryMeetingSession @relation(fields: [sessionId], references: [id], onDelete: Cascade)
 
   @@map("meeting_recaps")
+}
+
+// ─── Group Profile ───────────────────────────────────────
+
+model GroupProfile {
+  id              String             @id @default(cuid())
+  clientId        String             @unique @map("client_id")
+  groupType       GroupType          @default(leisure_friends) @map("group_type")
+  estimatedSize   Int?               @map("estimated_size")
+  ageSpread       String?            @map("age_spread")
+  decisionStyle   GroupDecisionStyle @default(consensus) @map("decision_style")
+  roomArrangement String?            @map("room_arrangement")
+  sharedBilling   Boolean            @default(false) @map("shared_billing")
+  notes           String?
+  createdAt       DateTime           @default(now()) @map("created_at")
+  updatedAt       DateTime           @updatedAt @map("updated_at")
+
+  client  Client        @relation(fields: [clientId], references: [id], onDelete: Cascade)
+  members GroupMember[]
+
+  @@map("group_profiles")
+}
+
+model GroupMember {
+  id             String   @id @default(cuid())
+  groupProfileId String   @map("group_profile_id")
+  linkedClientId String?  @map("linked_client_id")
+  name           String
+  email          String?
+  departureCity  String?  @map("departure_city")
+  isOrganizer    Boolean  @default(false) @map("is_organizer")
+  notes          String?
+  createdAt      DateTime @default(now()) @map("created_at")
+  updatedAt      DateTime @updatedAt @map("updated_at")
+
+  groupProfile GroupProfile @relation(fields: [groupProfileId], references: [id], onDelete: Cascade)
+  linkedClient Client?      @relation("GroupMemberLinkedClient", fields: [linkedClientId], references: [id])
+
+  @@index([groupProfileId])
+  @@map("group_members")
+}
+
+// ─── Business Profile ────────────────────────────────────
+
+model BusinessProfile {
+  id                  String   @id @default(cuid())
+  clientId            String   @unique @map("client_id")
+  companyName         String   @map("company_name")
+  industry            String?
+  companySize         String?  @map("company_size")
+  billingContactName  String?  @map("billing_contact_name")
+  billingContactEmail String?  @map("billing_contact_email")
+  requiresPreApproval Boolean  @default(false) @map("requires_pre_approval")
+  maxNightlyRateUsd   Int?     @map("max_nightly_rate_usd")
+  travelPolicyNotes   String?  @map("travel_policy_notes")
+  corporateAccountIds Json?    @map("corporate_account_ids")
+  createdAt           DateTime @default(now()) @map("created_at")
+  updatedAt           DateTime @updatedAt @map("updated_at")
+
+  client    Client             @relation(fields: [clientId], references: [id], onDelete: Cascade)
+  travelers BusinessTraveler[]
+
+  @@map("business_profiles")
+}
+
+model BusinessTraveler {
+  id                String   @id @default(cuid())
+  businessProfileId String   @map("business_profile_id")
+  linkedClientId    String?  @map("linked_client_id")
+  name              String
+  email             String?
+  role              String?
+  seniorityTier     String?  @map("seniority_tier")
+  notes             String?
+  createdAt         DateTime @default(now()) @map("created_at")
+  updatedAt         DateTime @updatedAt @map("updated_at")
+
+  businessProfile BusinessProfile @relation(fields: [businessProfileId], references: [id], onDelete: Cascade)
+  linkedClient    Client?         @relation("BusinessTravelerLinkedClient", fields: [linkedClientId], references: [id])
+
+  @@index([businessProfileId])
+  @@map("business_travelers")
+}
+
+// ─── Intake Form Tokens ──────────────────────────────────
+
+model IntakeFormToken {
+  id             String            @id @default(cuid())
+  token          String            @unique
+  clientId       String            @map("client_id")
+  intakeId       String?           @map("intake_id")
+  recipientEmail String            @map("recipient_email")
+  recipientName  String?           @map("recipient_name")
+  formVariant    IntakeFormVariant @map("form_variant")
+  groupSize      Int?              @map("group_size")
+  sentAt         DateTime?         @map("sent_at")
+  openedAt       DateTime?         @map("opened_at")
+  completedAt    DateTime?         @map("completed_at")
+  expiresAt      DateTime          @map("expires_at")
+  reminderSentAt DateTime?         @map("reminder_sent_at")
+  createdAt      DateTime          @default(now()) @map("created_at")
+
+  client Client        @relation(fields: [clientId], references: [id], onDelete: Cascade)
+  intake ClientIntake? @relation(fields: [intakeId], references: [id])
+
+  @@index([clientId])
+  @@index([token])
+  @@map("intake_form_tokens")
 }

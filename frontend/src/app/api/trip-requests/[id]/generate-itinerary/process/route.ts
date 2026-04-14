@@ -1,6 +1,6 @@
 import { after } from "next/server";
 import { prisma } from "@/lib/prisma";
-import { json, errorResponse } from "@/lib/auth";
+import { getAuthUser, json, errorResponse } from "@/lib/auth";
 import { generateItinerary } from "@/lib/itinerary-ai";
 import type { ItineraryInput } from "@/lib/itinerary-ai";
 import {
@@ -16,6 +16,9 @@ export async function POST(
   request: Request,
   { params }: { params: Promise<{ id: string }> },
 ) {
+  const user = await getAuthUser(request);
+  if (!user) return errorResponse("Unauthorized", 401);
+
   const body = await request.json();
   const jobId: string | undefined = body.jobId;
   if (!jobId) return errorResponse("Missing jobId", 400);

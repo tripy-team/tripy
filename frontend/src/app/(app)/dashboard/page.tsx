@@ -57,7 +57,12 @@ const PROGRAM_LOGO_DOMAIN: Record<string, string> = {
   lufthansa_miles_and_more: 'lufthansa.com',
 };
 
+const PROGRAM_LOGO_OVERRIDE: Record<string, string> = {
+  capital_one_miles: '/capital-one-logo.png',
+};
+
 function programLogoUrl(code: string): string | null {
+  if (PROGRAM_LOGO_OVERRIDE[code]) return PROGRAM_LOGO_OVERRIDE[code];
   const domain = PROGRAM_LOGO_DOMAIN[code];
   return domain ? `https://www.google.com/s2/favicons?domain=${domain}&sz=64` : null;
 }

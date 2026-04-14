@@ -68,7 +68,7 @@ export async function GET(request: Request) {
     }));
 
     return json({
-      advisorName: `${user.firstName} ${user.lastName}`,
+      advisorName: user.lastName ? `${user.firstName} ${user.lastName[0]}.` : user.firstName,
       totalClients,
       transferBonuses: transferBonusDetails,
       transferBonusCount: transferBonusDetails.length,

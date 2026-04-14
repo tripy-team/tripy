@@ -18,6 +18,8 @@ export async function GET(
         preferences: true,
         householdMembers: { include: { household: true } },
         tripRequests: { orderBy: { createdAt: "desc" } },
+        groupProfile: { include: { members: { include: { linkedClient: { select: { id: true, firstName: true, lastName: true, email: true } } } } } },
+        businessProfile: { include: { travelers: { include: { linkedClient: { select: { id: true, firstName: true, lastName: true, email: true } } } } } },
       },
     });
 

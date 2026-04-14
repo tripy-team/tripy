@@ -73,6 +73,7 @@ export default function EditIntakePage() {
     <IntakeForm
       client={client}
       initialData={intake}
+      intakeId={intakeId}
       saving={saving}
       onSave={handleSave}
       onComplete={handleComplete}

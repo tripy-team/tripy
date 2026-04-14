@@ -4,7 +4,7 @@ import Link from "next/link";
 import { useState, Suspense } from "react";
 import { useRouter, useSearchParams } from "next/navigation";
 import { Plane, Mail, Lock, ArrowRight, Eye, EyeOff } from "lucide-react";
-import { loginApi } from "@/lib/api-client";
+import { auth } from "@/lib/api";
 
 function LoginForm() {
 	const router = useRouter();
@@ -38,29 +38,22 @@ function LoginForm() {
 		setErrors({});
 
 		try {
-			const response = await loginApi(form.email, form.password);
-
-			localStorage.setItem('tripy_token', response.token);
+			const response = await auth.login({ email: form.email, password: form.password });
+			localStorage.setItem('tripy_token', response.tokens.id_token);
 			localStorage.setItem('tripy_user', JSON.stringify(response.user));
-
-			// Also store for the legacy nav component
 			localStorage.setItem('user', JSON.stringify({
-				name: `${response.user.firstName} ${response.user.lastName}`,
+				name: response.user.name,
 				email: response.user.email,
 				userId: response.user.userId,
 			}));
-			localStorage.setItem('access_token', response.token);
 			window.dispatchEvent(new Event('tripy_auth_change'));
-
 			router.push(redirectPath || "/dashboard");
 		} catch (err) {
 			let message = "Invalid email or password.";
 			if (err instanceof Error) {
 				const msg = err.message.toLowerCase();
 				if (msg.includes('not confirmed')) message = "Your account is not confirmed. Please check your email.";
-				else if (msg.includes('not found')) message = "No account found with this email.";
 				else if (msg.includes('too many')) message = "Too many attempts. Please try again later.";
-				else message = err.message;
 			}
 			setErrors({ general: message });
 		} finally {
@@ -197,13 +190,41 @@ export default function LoginPage() {
 				</Suspense>
 			</div>
 
-			<div className="hidden lg:block flex-1 bg-slate-50 relative overflow-hidden">
-				<div className="absolute inset-0 bg-gradient-to-br from-blue-600/90 to-blue-800/90 mix-blend-multiply z-10"></div>
-				<div className="absolute inset-0 bg-[url('https://images.unsplash.com/photo-1488646953014-85cb44e25828?q=80&w=2070&auto=format&fit=crop')] bg-cover bg-center"></div>
-				<div className="relative z-20 flex items-center justify-center h-full text-white text-center px-12">
-					<div>
-						<h2 className="text-4xl font-bold mb-4">Welcome back to Tripy</h2>
-						<p className="text-xl text-blue-100">Your advisor workspace awaits.</p>
+			<div className="hidden lg:flex flex-1 flex-col items-center justify-center bg-blue-700 relative overflow-hidden">
+				{/* Large faint background quote mark for depth */}
+				<span className="absolute -top-8 -left-4 text-[22rem] font-serif text-white/[0.04] leading-none select-none pointer-events-none">"</span>
+
+				<div className="relative px-14 w-full max-w-[26rem]">
+					{/* Opening quote mark */}
+					<div className="text-blue-300 text-5xl font-serif leading-none mb-4 select-none">"</div>
+
+					{/* Quote */}
+					<blockquote className="text-white text-2xl font-light leading-relaxed" style={{ fontFamily: "Georgia, 'Times New Roman', serif" }}>
+						Better travel planning starts with better understanding of the traveler.
+					</blockquote>
+
+					{/* Rule */}
+					<div className="mt-8 w-10 border-t-2 border-blue-300/50" />
+
+					{/* Body */}
+					<p className="mt-6 text-blue-100 text-sm leading-relaxed">
+						Tripy gives travel advisors a structured workspace to capture client preferences, build lasting profiles, and plan trips that feel effortlessly personal.
+					</p>
+
+					{/* Feature tags */}
+					<div className="mt-8 flex items-center gap-5">
+						<div className="flex items-center gap-2">
+							<div className="w-1.5 h-1.5 rounded-full bg-blue-200" />
+							<span className="text-blue-100 text-xs tracking-wide">Discovery</span>
+						</div>
+						<div className="flex items-center gap-2">
+							<div className="w-1.5 h-1.5 rounded-full bg-blue-200" />
+							<span className="text-blue-100 text-xs tracking-wide">Profiles</span>
+						</div>
+						<div className="flex items-center gap-2">
+							<div className="w-1.5 h-1.5 rounded-full bg-blue-200" />
+							<span className="text-blue-100 text-xs tracking-wide">Planning</span>
+						</div>
 					</div>
 				</div>
 			</div>

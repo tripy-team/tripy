@@ -1,6 +1,6 @@
 'use client';
 
-import { Bell, LogOut, Settings, User, Menu, X } from 'lucide-react';
+import { Bell, HelpCircle, LogOut, User, Menu, X } from 'lucide-react';
 import { Suspense, useEffect, useState } from 'react';
 import Link from 'next/link';
 import { usePathname, useRouter, useSearchParams } from 'next/navigation';
@@ -143,10 +143,22 @@ function NavigationInner() {
     router.push('/');
   };
 
-  const getInitials = (name: string) => {
-    return name
+  const isUUID = (str: string) =>
+    /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i.test(str);
+
+  const getDisplayName = (name?: string, email?: string): string => {
+    if (!name || isUUID(name)) {
+      if (email) return email.split('@')[0];
+      return 'Advisor';
+    }
+    return name;
+  };
+
+  const getInitials = (name?: string, email?: string): string => {
+    const display = getDisplayName(name, email);
+    return display
       .split(' ')
-      .map(part => part[0])
+      .map((part) => part[0])
       .join('')
       .toUpperCase()
       .slice(0, 2);
@@ -197,17 +209,6 @@ function NavigationInner() {
                         </NavigationMenuLink>
                       </NavigationMenuItem>
 
-                      <NavigationMenuItem>
-                        <NavigationMenuLink asChild className={cn(navigationMenuTriggerStyle(), pathname.startsWith('/alerts') && "bg-slate-100 text-slate-900")}>
-                          <Link href="/alerts">Alerts</Link>
-                        </NavigationMenuLink>
-                      </NavigationMenuItem>
-
-                      <NavigationMenuItem>
-                        <NavigationMenuLink asChild className={cn(navigationMenuTriggerStyle(), isActive('/settings') && "bg-slate-100 text-slate-900")}>
-                          <Link href="/settings">Settings</Link>
-                        </NavigationMenuLink>
-                      </NavigationMenuItem>
                     </>
                   ) : (
                     <>
@@ -236,13 +237,13 @@ function NavigationInner() {
               <DropdownMenu>
                 <DropdownMenuTrigger className="outline-none">
                   <div className="w-10 h-10 bg-blue-600 rounded-xl flex items-center justify-center text-white font-medium shadow-lg shadow-blue-600/20 hover:bg-blue-700 transition-colors cursor-pointer">
-                    {getInitials(user.name)}
+                    {getInitials(user.name, user.email)}
                   </div>
                 </DropdownMenuTrigger>
                 <DropdownMenuContent align="end" className="w-56">
                   <DropdownMenuLabel>
                     <div className="flex flex-col space-y-1">
-                      <p className="text-sm font-medium leading-none">{user.name}</p>
+                      <p className="text-sm font-medium leading-none">{getDisplayName(user.name, user.email)}</p>
                       <p className="text-xs leading-none text-slate-500">
                         {user.email}
                       </p>
@@ -251,11 +252,11 @@ function NavigationInner() {
                   <DropdownMenuSeparator />
                   <DropdownMenuItem onClick={() => router.push('/profile')}>
                     <User className="mr-2 h-4 w-4" />
-                    <span>Profile</span>
+                    <span>Profile & Settings</span>
                   </DropdownMenuItem>
-                  <DropdownMenuItem onClick={() => router.push('/settings')}>
-                    <Settings className="mr-2 h-4 w-4" />
-                    <span>Settings</span>
+                  <DropdownMenuItem onClick={() => router.push('/help')}>
+                    <HelpCircle className="mr-2 h-4 w-4" />
+                    <span>Help Center</span>
                   </DropdownMenuItem>
                   <DropdownMenuSeparator />
                   <DropdownMenuItem onClick={handleLogout} className="text-red-600 focus:text-red-600">
@@ -349,28 +350,6 @@ function NavigationInner() {
                 >
                   Trips
                 </Link>
-                <Link
-                  href="/alerts"
-                  onClick={() => setMobileMenuOpen(false)}
-                  className={`block pl-3 pr-4 py-2 border-l-4 text-base font-medium ${
-                    pathname.startsWith('/alerts')
-                      ? 'bg-blue-50 border-blue-500 text-blue-700'
-                      : 'border-transparent text-slate-500 hover:bg-slate-50 hover:border-slate-300 hover:text-slate-700'
-                  }`}
-                >
-                  Alerts
-                </Link>
-                <Link
-                  href="/settings"
-                  onClick={() => setMobileMenuOpen(false)}
-                  className={`block pl-3 pr-4 py-2 border-l-4 text-base font-medium ${
-                    isActive('/settings')
-                      ? 'bg-blue-50 border-blue-500 text-blue-700'
-                      : 'border-transparent text-slate-500 hover:bg-slate-50 hover:border-slate-300 hover:text-slate-700'
-                  }`}
-                >
-                  Settings
-                </Link>
               </>
             ) : (
               <>
@@ -394,11 +373,11 @@ function NavigationInner() {
                 <div className="flex items-center">
                   <div className="flex-shrink-0">
                     <div className="w-10 h-10 bg-blue-600 rounded-xl flex items-center justify-center text-white font-medium">
-                      {getInitials(user.name)}
+                      {getInitials(user.name, user.email)}
                     </div>
                   </div>
                   <div className="ml-3">
-                    <div className="text-base font-medium text-slate-800">{user.name}</div>
+                    <div className="text-base font-medium text-slate-800">{getDisplayName(user.name, user.email)}</div>
                     <div className="text-sm font-medium text-slate-500">{user.email}</div>
                   </div>
                 </div>
@@ -410,7 +389,16 @@ function NavigationInner() {
                     }}
                     className="block w-full text-left px-4 py-2 text-base font-medium text-slate-500 hover:text-slate-800 hover:bg-slate-100 rounded-md"
                   >
-                    Profile
+                    Profile & Settings
+                  </button>
+                  <button
+                    onClick={() => {
+                      router.push('/help');
+                      setMobileMenuOpen(false);
+                    }}
+                    className="block w-full text-left px-4 py-2 text-base font-medium text-slate-500 hover:text-slate-800 hover:bg-slate-100 rounded-md"
+                  >
+                    Help Center
                   </button>
                   <button
                     onClick={handleLogout}

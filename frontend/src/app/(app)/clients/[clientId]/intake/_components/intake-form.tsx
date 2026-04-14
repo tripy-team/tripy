@@ -9,36 +9,21 @@ import {
   Loader2,
   Save,
   Plane,
-  MapPin,
-  Calendar,
-  DollarSign,
   Hotel,
   Heart,
   Utensils,
   Accessibility,
-  Zap,
   ShieldAlert,
-  StickyNote,
+  Users,
+  Sparkles,
+  Send,
+  Bot,
 } from 'lucide-react';
 import type { Client, ClientIntake } from '@/lib/api-client';
-import SingleDatePicker from '@/components/ui/SingleDatePicker';
 
 // ---------------------------------------------------------------------------
 // Constants
 // ---------------------------------------------------------------------------
-
-const TRIP_TYPES = [
-  { value: 'leisure', label: 'Leisure' },
-  { value: 'business_travel', label: 'Business Travel' },
-  { value: 'honeymoon', label: 'Honeymoon' },
-  { value: 'family_vacation', label: 'Family Vacation' },
-  { value: 'adventure', label: 'Adventure' },
-  { value: 'luxury_getaway', label: 'Luxury Getaway' },
-  { value: 'group_trip', label: 'Group Trip' },
-  { value: 'destination_wedding', label: 'Destination Wedding' },
-  { value: 'solo', label: 'Solo Travel' },
-  { value: 'other', label: 'Other' },
-];
 
 const CABIN_OPTIONS = [
   { value: 'economy', label: 'Economy' },
@@ -59,14 +44,6 @@ const HOTEL_STYLES = [
   'Hostel / Budget',
   'Luxury / 5-Star',
   'Bed & Breakfast',
-];
-
-const DATE_FLEXIBILITY = [
-  { value: 'exact', label: 'Exact dates' },
-  { value: 'flexible_1_2_days', label: '± 1–2 days' },
-  { value: 'flexible_week', label: '± 1 week' },
-  { value: 'flexible_month', label: '± 1 month' },
-  { value: 'fully_flexible', label: 'Fully flexible' },
 ];
 
 const PACE_OPTIONS = [
@@ -112,6 +89,27 @@ const EXPERIENCE_SUGGESTIONS = [
   'Road Trips',
 ];
 
+const PARTY_TYPE_OPTIONS = [
+  { value: 'solo', label: 'Solo' },
+  { value: 'couple', label: 'Couple' },
+  { value: 'family', label: 'Family with Kids' },
+  { value: 'extended_family', label: 'Extended Family' },
+  { value: 'group', label: 'Group of Friends' },
+  { value: 'mixed', label: 'Varies by Trip' },
+];
+
+const REPOSITION_OPTIONS = [
+  { value: 'yes', label: 'Yes — happy to reposition for better value' },
+  { value: 'maybe', label: 'Maybe — open if savings are significant' },
+  { value: 'no', label: 'No — prefer departing from home airport' },
+];
+
+const ACTIVITY_OPTIONS = [
+  { value: 'low', label: 'Low — mostly relaxation, minimal walking' },
+  { value: 'medium', label: 'Medium — mix of activities and downtime' },
+  { value: 'high', label: 'High — active days, physical activities welcome' },
+];
+
 // ---------------------------------------------------------------------------
 // Types
 // ---------------------------------------------------------------------------
@@ -119,6 +117,7 @@ const EXPERIENCE_SUGGESTIONS = [
 interface IntakeFormProps {
   client: Client;
   initialData?: Partial<ClientIntake>;
+  intakeId?: string;
   isNew?: boolean;
   saving: boolean;
   onSave: (data: Record<string, unknown>) => Promise<void>;
@@ -132,16 +131,20 @@ interface StepDef {
   icon: React.ElementType;
 }
 
+export interface ChatMessage {
+  role: 'assistant' | 'advisor';
+  content: string;
+  timestamp: string;
+}
+
 const STEPS: StepDef[] = [
-  { id: 'trip', label: 'Trip Basics', icon: Plane },
-  { id: 'dates', label: 'Dates & Budget', icon: Calendar },
-  { id: 'flights', label: 'Flight Preferences', icon: MapPin },
+  { id: 'traveler', label: 'About the Traveler', icon: Users },
+  { id: 'flights', label: 'Flight Preferences', icon: Plane },
   { id: 'accommodation', label: 'Accommodation', icon: Hotel },
-  { id: 'style', label: 'Travel Style', icon: Heart },
+  { id: 'experiences', label: 'Experiences & Interests', icon: Heart },
   { id: 'needs', label: 'Special Needs', icon: Accessibility },
-  { id: 'experiences', label: 'Experiences', icon: Zap },
   { id: 'dealbreakers', label: 'Dealbreakers', icon: ShieldAlert },
-  { id: 'notes', label: 'Additional Notes', icon: StickyNote },
+  { id: 'chat', label: 'AI Discovery', icon: Sparkles },
 ];
 
 type FormData = Record<string, unknown>;
@@ -150,24 +153,17 @@ function toFormData(intake?: Partial<ClientIntake>): FormData {
   if (!intake) return {};
   const d: FormData = {};
   const keys: (keyof ClientIntake)[] = [
-    'tripType', 'tripTypeOther', 'destinations', 'departureAirports',
-    'dateFlexibility', 'earliestDeparture', 'latestReturn', 'tripDurationDays',
-    'budgetMin', 'budgetMax', 'budgetCurrency', 'budgetNotes',
     'cabinPreference', 'hotelStyles', 'loyaltyNotes',
     'accessibilityNeeds', 'dietaryNeeds',
     'travelPace', 'layoverTolerance', 'luxuryPreference',
     'familyFriendly', 'travelerCount', 'childrenCount', 'childrenAges',
     'desiredExperiences', 'dealbreakers', 'preferredAirlines', 'avoidedAirlines',
+    'departureAirports',
     'notes', 'isTemplate', 'templateName',
   ];
   for (const k of keys) {
     if (intake[k] !== undefined && intake[k] !== null) {
-      if (k === 'earliestDeparture' || k === 'latestReturn') {
-        const v = intake[k] as string;
-        d[k] = v ? v.slice(0, 10) : '';
-      } else {
-        d[k] = intake[k];
-      }
+      d[k] = intake[k];
     }
   }
   return d;
@@ -180,6 +176,7 @@ function toFormData(intake?: Partial<ClientIntake>): FormData {
 export function IntakeForm({
   client,
   initialData,
+  intakeId,
   isNew,
   saving,
   onSave,
@@ -192,6 +189,13 @@ export function IntakeForm({
   const [autoSaveTimer, setAutoSaveTimer] = useState<ReturnType<typeof setTimeout> | null>(null);
   const formRef = useRef(form);
   formRef.current = form;
+
+  // Chat state
+  const [chatMessages, setChatMessages] = useState<ChatMessage[]>([]);
+  const [chatInput, setChatInput] = useState('');
+  const [chatLoading, setChatLoading] = useState(false);
+  const [chatStarted, setChatStarted] = useState(false);
+  const chatBottomRef = useRef<HTMLDivElement>(null);
 
   const set = useCallback((key: string, value: unknown) => {
     setForm((f) => ({ ...f, [key]: value }));
@@ -222,6 +226,11 @@ export function IntakeForm({
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [form, isNew]);
 
+  // Scroll chat to bottom when new messages arrive
+  useEffect(() => {
+    chatBottomRef.current?.scrollIntoView({ behavior: 'smooth' });
+  }, [chatMessages]);
+
   const handleManualSave = async () => {
     await onSave(form);
     setLastSaved(new Date());
@@ -233,6 +242,82 @@ export function IntakeForm({
     }
   };
 
+  // ---------------------------------------------------------------------------
+  // Chat handlers
+  // ---------------------------------------------------------------------------
+
+  const getAuthHeaders = (): Record<string, string> => {
+    const token = typeof window !== 'undefined' ? localStorage.getItem('tripy_token') : null;
+    const headers: Record<string, string> = { 'Content-Type': 'application/json' };
+    if (token) headers['Authorization'] = `Bearer ${token}`;
+    return headers;
+  };
+
+  const startChat = async () => {
+    if (!intakeId) return;
+    setChatLoading(true);
+    try {
+      const res = await fetch(`/api/clients/${client.id}/intakes/${intakeId}/chat/start`, {
+        method: 'POST',
+        headers: getAuthHeaders(),
+        body: JSON.stringify({ intakeData: form }),
+      });
+      if (!res.ok) throw new Error('Failed to start chat');
+      const data = await res.json();
+      setChatMessages(data.messages ?? []);
+      setChatStarted(true);
+    } catch {
+      setChatMessages([{
+        role: 'assistant',
+        content: 'Unable to connect to the AI discovery assistant. Please save the profile and try again.',
+        timestamp: new Date().toISOString(),
+      }]);
+      setChatStarted(true);
+    } finally {
+      setChatLoading(false);
+    }
+  };
+
+  const sendChatMessage = async () => {
+    const text = chatInput.trim();
+    if (!text || chatLoading || !intakeId) return;
+
+    const advisorMsg: ChatMessage = {
+      role: 'advisor',
+      content: text,
+      timestamp: new Date().toISOString(),
+    };
+    setChatMessages((prev) => [...prev, advisorMsg]);
+    setChatInput('');
+    setChatLoading(true);
+
+    try {
+      const res = await fetch(`/api/clients/${client.id}/intakes/${intakeId}/chat/message`, {
+        method: 'POST',
+        headers: getAuthHeaders(),
+        body: JSON.stringify({
+          advisorMessage: text,
+          messageHistory: [...chatMessages, advisorMsg],
+          intakeData: form,
+        }),
+      });
+      if (!res.ok) throw new Error('Failed to send message');
+      const data = await res.json();
+      setChatMessages((prev) => [...prev, data.message]);
+    } catch {
+      setChatMessages((prev) => [
+        ...prev,
+        {
+          role: 'assistant',
+          content: 'Something went wrong. Please try again.',
+          timestamp: new Date().toISOString(),
+        },
+      ]);
+    } finally {
+      setChatLoading(false);
+    }
+  };
+
   const canGoNext = step < STEPS.length - 1;
   const canGoPrev = step > 0;
 
@@ -240,12 +325,12 @@ export function IntakeForm({
   const goPrev = () => canGoPrev && setStep((s) => s - 1);
 
   const isCompleted = initialData?.status === 'complete';
+  const hasFamilyMembers =
+    (form.partyType as string) === 'family' || (form.partyType as string) === 'extended_family';
 
-  // Helper renderers
+  // Helper class shorthands
   const inputCls =
     'block w-full rounded-lg border border-slate-200 px-3 py-2.5 text-sm placeholder:text-slate-400 focus:border-transparent focus:outline-none focus:ring-2 focus:ring-blue-600 bg-white';
-  const selectCls =
-    'block w-full rounded-lg border border-slate-200 bg-white px-3 py-2.5 text-sm focus:border-transparent focus:outline-none focus:ring-2 focus:ring-blue-600';
   const labelCls = 'mb-1.5 block text-sm font-medium text-slate-700';
   const chipCls = (active: boolean) =>
     `inline-flex cursor-pointer items-center rounded-full border px-3 py-1.5 text-sm font-medium transition-colors ${
@@ -253,63 +338,41 @@ export function IntakeForm({
         ? 'border-blue-600 bg-blue-50 text-blue-700'
         : 'border-slate-200 bg-white text-slate-600 hover:border-slate-300 hover:bg-slate-50'
     }`;
+  const radioRowCls = (active: boolean) =>
+    `flex w-full items-center rounded-lg border px-4 py-3 text-left text-sm transition-colors cursor-pointer ${
+      active
+        ? 'border-blue-600 bg-blue-50 text-blue-700'
+        : 'border-slate-200 bg-white text-slate-700 hover:border-slate-300'
+    }`;
+
+  // ---------------------------------------------------------------------------
+  // Step renderers
+  // ---------------------------------------------------------------------------
 
   const renderStep = () => {
     switch (STEPS[step].id) {
-      case 'trip':
+
+      // ── Step 1: About the Traveler ─────────────────────────────────────────
+      case 'traveler':
         return (
           <div className="space-y-6">
             <div>
-              <label className={labelCls}>Trip Type</label>
+              <label className={labelCls}>Who typically travels with this client?</label>
               <div className="flex flex-wrap gap-2">
-                {TRIP_TYPES.map((t) => (
+                {PARTY_TYPE_OPTIONS.map((opt) => (
                   <button
-                    key={t.value}
+                    key={opt.value}
                     type="button"
-                    onClick={() => set('tripType', t.value)}
-                    className={chipCls(form.tripType === t.value)}
+                    onClick={() => set('partyType', opt.value)}
+                    className={chipCls(form.partyType === opt.value)}
                   >
-                    {t.label}
+                    {opt.label}
                   </button>
                 ))}
               </div>
-              {form.tripType === 'other' && (
-                <input
-                  type="text"
-                  placeholder="Describe the trip type..."
-                  value={(form.tripTypeOther as string) || ''}
-                  onChange={(e) => set('tripTypeOther', e.target.value)}
-                  className={`mt-3 ${inputCls}`}
-                />
-              )}
             </div>
 
-            <div className="grid grid-cols-2 gap-4">
-              <div>
-                <label className={labelCls}>Number of Travelers</label>
-                <input
-                  type="number"
-                  min="1"
-                  value={(form.travelerCount as number) || ''}
-                  onChange={(e) => set('travelerCount', e.target.value ? parseInt(e.target.value) : null)}
-                  placeholder="2"
-                  className={inputCls}
-                />
-              </div>
-              <div>
-                <label className={labelCls}>Children</label>
-                <input
-                  type="number"
-                  min="0"
-                  value={(form.childrenCount as number) ?? ''}
-                  onChange={(e) => set('childrenCount', e.target.value ? parseInt(e.target.value) : null)}
-                  placeholder="0"
-                  className={inputCls}
-                />
-              </div>
-            </div>
-
-            {(form.childrenCount as number) > 0 && (
+            {hasFamilyMembers && (
               <div>
                 <label className={labelCls}>Children&apos;s Ages (comma-separated)</label>
                 <input
@@ -331,27 +394,98 @@ export function IntakeForm({
             )}
 
             <div>
-              <label className={labelCls}>Destination Preferences</label>
-              <input
-                type="text"
-                value={((form.destinations as string[]) || []).join(', ')}
-                onChange={(e) =>
-                  set(
-                    'destinations',
-                    e.target.value
-                      .split(',')
-                      .map((v) => v.trim())
-                      .filter(Boolean),
-                  )
-                }
-                placeholder="e.g. Hawaii, Japan, Italy"
-                className={inputCls}
-              />
-              <p className="mt-1 text-xs text-slate-400">Separate multiple with commas</p>
+              <label className={labelCls}>Typical pace of travel</label>
+              <div className="space-y-2">
+                {PACE_OPTIONS.map((p) => (
+                  <button
+                    key={p.value}
+                    type="button"
+                    onClick={() => set('travelPace', p.value)}
+                    className={radioRowCls(form.travelPace === p.value)}
+                  >
+                    {form.travelPace === p.value && (
+                      <Check className="mr-2 h-4 w-4 text-blue-600" />
+                    )}
+                    {p.label}
+                  </button>
+                ))}
+              </div>
             </div>
 
             <div>
-              <label className={labelCls}>Departure Airports</label>
+              <label className={labelCls}>Luxury vs. Value orientation</label>
+              <div className="space-y-2">
+                {LUXURY_OPTIONS.map((l) => (
+                  <button
+                    key={l.value}
+                    type="button"
+                    onClick={() => set('luxuryPreference', l.value)}
+                    className={radioRowCls(form.luxuryPreference === l.value)}
+                  >
+                    {form.luxuryPreference === l.value && (
+                      <Check className="mr-2 h-4 w-4 text-blue-600" />
+                    )}
+                    {l.label}
+                  </button>
+                ))}
+              </div>
+            </div>
+
+            <div>
+              <label className="flex items-center gap-2 text-sm font-medium text-slate-700">
+                <input
+                  type="checkbox"
+                  checked={(form.familyFriendly as boolean) || false}
+                  onChange={(e) => set('familyFriendly', e.target.checked)}
+                  className="rounded border-slate-300 text-blue-600 focus:ring-blue-600"
+                />
+                Prioritize family-friendly options
+              </label>
+              <p className="ml-6 mt-1 text-xs text-slate-400">
+                Kid-friendly venues, activities, and scheduling
+              </p>
+            </div>
+          </div>
+        );
+
+      // ── Step 2: Flight Preferences ─────────────────────────────────────────
+      case 'flights':
+        return (
+          <div className="space-y-6">
+            <div>
+              <label className={labelCls}>Preferred cabin class</label>
+              <div className="flex flex-wrap gap-2">
+                {CABIN_OPTIONS.map((c) => (
+                  <button
+                    key={c.value}
+                    type="button"
+                    onClick={() => set('cabinPreference', c.value)}
+                    className={chipCls(form.cabinPreference === c.value)}
+                  >
+                    {c.label}
+                  </button>
+                ))}
+              </div>
+            </div>
+
+            <div>
+              <label className={labelCls}>Layover preference</label>
+              <div className="flex flex-wrap gap-2">
+                {LAYOVER_OPTIONS.map((l) => (
+                  <button
+                    key={l.value}
+                    type="button"
+                    onClick={() => set('layoverTolerance', l.value)}
+                    className={chipCls(form.layoverTolerance === l.value)}
+                  >
+                    {l.label}
+                  </button>
+                ))}
+              </div>
+            </div>
+
+            <div>
+              <label className={labelCls}>Home / preferred departure airports</label>
               <input
                 type="text"
                 value={((form.departureAirports as string[]) || []).join(', ')}
@@ -369,136 +503,28 @@ export function IntakeForm({
               />
               <p className="mt-1 text-xs text-slate-400">IATA codes, separated by commas</p>
             </div>
-          </div>
-        );
 
-      case 'dates':
-        return (
-          <div className="space-y-6">
             <div>
-              <label className={labelCls}>Date Flexibility</label>
-              <div className="flex flex-wrap gap-2">
-                {DATE_FLEXIBILITY.map((d) => (
+              <label className={labelCls}>Willing to reposition for a better deal?</label>
+              <div className="space-y-2">
+                {REPOSITION_OPTIONS.map((r) => (
                   <button
-                    key={d.value}
+                    key={r.value}
                     type="button"
-                    onClick={() => set('dateFlexibility', d.value)}
-                    className={chipCls(form.dateFlexibility === d.value)}
+                    onClick={() => set('willingToReposition', r.value)}
+                    className={radioRowCls(form.willingToReposition === r.value)}
                   >
-                    {d.label}
-                  </button>
-                ))}
-              </div>
-            </div>
-
-            <div className="grid grid-cols-2 gap-4">
-              <div>
-                <label className={labelCls}>Earliest Departure</label>
-                <SingleDatePicker
-                  compact
-                  value={(form.earliestDeparture as string) || ''}
-                  onChange={(v) => set('earliestDeparture', v || null)}
-                />
-              </div>
-              <div>
-                <label className={labelCls}>Latest Return</label>
-                <SingleDatePicker
-                  compact
-                  value={(form.latestReturn as string) || ''}
-                  onChange={(v) => set('latestReturn', v || null)}
-                />
-              </div>
-            </div>
-
-            <div>
-              <label className={labelCls}>Trip Duration (days)</label>
-              <input
-                type="number"
-                min="1"
-                value={(form.tripDurationDays as number) || ''}
-                onChange={(e) => set('tripDurationDays', e.target.value ? parseInt(e.target.value) : null)}
-                placeholder="e.g. 7"
-                className={inputCls}
-              />
-            </div>
-
-            <hr className="border-slate-100" />
-
-            <div>
-              <label className={labelCls}>
-                <DollarSign className="mr-1 inline h-4 w-4 text-slate-400" />
-                Budget Range (USD)
-              </label>
-              <div className="grid grid-cols-2 gap-4">
-                <input
-                  type="number"
-                  min="0"
-                  value={(form.budgetMin as number) ?? ''}
-                  onChange={(e) => set('budgetMin', e.target.value ? parseInt(e.target.value) : null)}
-                  placeholder="Min"
-                  className={inputCls}
-                />
-                <input
-                  type="number"
-                  min="0"
-                  value={(form.budgetMax as number) ?? ''}
-                  onChange={(e) => set('budgetMax', e.target.value ? parseInt(e.target.value) : null)}
-                  placeholder="Max"
-                  className={inputCls}
-                />
-              </div>
-            </div>
-
-            <div>
-              <label className={labelCls}>Budget Notes</label>
-              <textarea
-                rows={2}
-                value={(form.budgetNotes as string) || ''}
-                onChange={(e) => set('budgetNotes', e.target.value)}
-                placeholder="e.g. Willing to splurge on flights, keep hotels moderate..."
-                className={`resize-none ${inputCls}`}
-              />
-            </div>
-          </div>
-        );
-
-      case 'flights':
-        return (
-          <div className="space-y-6">
-            <div>
-              <label className={labelCls}>Cabin Class</label>
-              <div className="flex flex-wrap gap-2">
-                {CABIN_OPTIONS.map((c) => (
-                  <button
-                    key={c.value}
-                    type="button"
-                    onClick={() => set('cabinPreference', c.value)}
-                    className={chipCls(form.cabinPreference === c.value)}
-                  >
-                    {c.label}
+                    {form.willingToReposition === r.value && (
+                      <Check className="mr-2 h-4 w-4 text-blue-600" />
+                    )}
+                    {r.label}
                   </button>
                 ))}
               </div>
             </div>
 
             <div>
-              <label className={labelCls}>Layover Tolerance</label>
-              <div className="flex flex-wrap gap-2">
-                {LAYOVER_OPTIONS.map((l) => (
-                  <button
-                    key={l.value}
-                    type="button"
-                    onClick={() => set('layoverTolerance', l.value)}
-                    className={chipCls(form.layoverTolerance === l.value)}
-                  >
-                    {l.label}
-                  </button>
-                ))}
-              </div>
-            </div>
-
-            <div>
-              <label className={labelCls}>Preferred Airlines</label>
+              <label className={labelCls}>Preferred airlines</label>
               <input
                 type="text"
                 value={((form.preferredAirlines as string[]) || []).join(', ')}
@@ -517,7 +543,7 @@ export function IntakeForm({
             </div>
 
             <div>
-              <label className={labelCls}>Airlines to Avoid</label>
+              <label className={labelCls}>Airlines to avoid</label>
               <input
                 type="text"
                 value={((form.avoidedAirlines as string[]) || []).join(', ')}
@@ -537,11 +563,12 @@ export function IntakeForm({
           </div>
         );
 
+      // ── Step 3: Accommodation ──────────────────────────────────────────────
       case 'accommodation':
         return (
           <div className="space-y-6">
             <div>
-              <label className={labelCls}>Hotel / Accommodation Style</label>
+              <label className={labelCls}>Hotel / accommodation style</label>
               <p className="mb-3 text-xs text-slate-400">Select all that apply</p>
               <div className="flex flex-wrap gap-2">
                 {HOTEL_STYLES.map((style) => (
@@ -558,123 +585,74 @@ export function IntakeForm({
             </div>
 
             <div>
-              <label className={labelCls}>Loyalty Programs & Points Notes</label>
+              <label className={labelCls}>Loyalty programs &amp; points notes</label>
               <textarea
                 rows={3}
                 value={(form.loyaltyNotes as string) || ''}
                 onChange={(e) => set('loyaltyNotes', e.target.value)}
-                placeholder="e.g. Marriott Bonvoy Platinum, 250k Hilton points, prefer Hyatt properties..."
+                placeholder="e.g. Marriott Bonvoy Platinum, 250k Hilton points, prefers Hyatt properties, willing to transfer Chase points..."
                 className={`resize-none ${inputCls}`}
               />
             </div>
-          </div>
-        );
 
-      case 'style':
-        return (
-          <div className="space-y-6">
             <div>
-              <label className={labelCls}>Pace of Travel</label>
+              <label className={labelCls}>Accommodation brands / chains to avoid</label>
               <div className="space-y-2">
-                {PACE_OPTIONS.map((p) => (
-                  <button
-                    key={p.value}
-                    type="button"
-                    onClick={() => set('travelPace', p.value)}
-                    className={`flex w-full items-center rounded-lg border px-4 py-3 text-left text-sm transition-colors ${
-                      form.travelPace === p.value
-                        ? 'border-blue-600 bg-blue-50 text-blue-700'
-                        : 'border-slate-200 bg-white text-slate-700 hover:border-slate-300'
-                    }`}
-                  >
-                    {form.travelPace === p.value && (
-                      <Check className="mr-2 h-4 w-4 text-blue-600" />
-                    )}
-                    {p.label}
-                  </button>
+                {((form.accommodationDealbreakers as string[]) || []).map((item, idx) => (
+                  <div key={idx} className="flex items-center gap-2">
+                    <span className="flex-1 rounded-lg border border-amber-100 bg-amber-50 px-3 py-2 text-sm text-amber-700">
+                      {item}
+                    </span>
+                    <button
+                      type="button"
+                      onClick={() =>
+                        setForm((f) => ({
+                          ...f,
+                          accommodationDealbreakers: (
+                            (f.accommodationDealbreakers as string[]) || []
+                          ).filter((_, i) => i !== idx),
+                        }))
+                      }
+                      className="rounded p-1 text-amber-400 hover:bg-amber-50 hover:text-amber-600"
+                    >
+                      ×
+                    </button>
+                  </div>
                 ))}
               </div>
-            </div>
-
-            <div>
-              <label className={labelCls}>Luxury vs. Value</label>
-              <div className="space-y-2">
-                {LUXURY_OPTIONS.map((l) => (
-                  <button
-                    key={l.value}
-                    type="button"
-                    onClick={() => set('luxuryPreference', l.value)}
-                    className={`flex w-full items-center rounded-lg border px-4 py-3 text-left text-sm transition-colors ${
-                      form.luxuryPreference === l.value
-                        ? 'border-blue-600 bg-blue-50 text-blue-700'
-                        : 'border-slate-200 bg-white text-slate-700 hover:border-slate-300'
-                    }`}
-                  >
-                    {form.luxuryPreference === l.value && (
-                      <Check className="mr-2 h-4 w-4 text-blue-600" />
-                    )}
-                    {l.label}
-                  </button>
-                ))}
-              </div>
-            </div>
-
-            <div>
-              <label className="flex items-center gap-2 text-sm font-medium text-slate-700">
-                <input
-                  type="checkbox"
-                  checked={(form.familyFriendly as boolean) || false}
-                  onChange={(e) => set('familyFriendly', e.target.checked)}
-                  className="rounded border-slate-300 text-blue-600 focus:ring-blue-600"
-                />
-                Family-friendly trip
-              </label>
-              <p className="ml-6 mt-1 text-xs text-slate-400">
-                Prioritize kid-friendly venues, activities, and scheduling
-              </p>
+              <input
+                type="text"
+                placeholder="Type a brand to avoid and press Enter..."
+                className={`mt-2 ${inputCls}`}
+                onKeyDown={(e) => {
+                  if (e.key === 'Enter') {
+                    e.preventDefault();
+                    const val = (e.target as HTMLInputElement).value.trim();
+                    if (val) {
+                      setForm((f) => ({
+                        ...f,
+                        accommodationDealbreakers: [
+                          ...((f.accommodationDealbreakers as string[]) || []),
+                          val,
+                        ],
+                      }));
+                      (e.target as HTMLInputElement).value = '';
+                    }
+                  }
+                }}
+              />
+              <p className="mt-1 text-xs text-slate-400">Press Enter to add</p>
             </div>
           </div>
         );
 
-      case 'needs':
-        return (
-          <div className="space-y-6">
-            <div>
-              <label className={labelCls}>
-                <Accessibility className="mr-1 inline h-4 w-4 text-slate-400" />
-                Accessibility Needs
-              </label>
-              <textarea
-                rows={3}
-                value={(form.accessibilityNeeds as string) || ''}
-                onChange={(e) => set('accessibilityNeeds', e.target.value)}
-                placeholder="e.g. Wheelchair accessible rooms, ground-floor only, elevator access required..."
-                className={`resize-none ${inputCls}`}
-              />
-            </div>
-
-            <div>
-              <label className={labelCls}>
-                <Utensils className="mr-1 inline h-4 w-4 text-slate-400" />
-                Dietary Needs
-              </label>
-              <textarea
-                rows={3}
-                value={(form.dietaryNeeds as string) || ''}
-                onChange={(e) => set('dietaryNeeds', e.target.value)}
-                placeholder="e.g. Gluten-free, vegetarian, nut allergy, kosher, halal..."
-                className={`resize-none ${inputCls}`}
-              />
-            </div>
-          </div>
-        );
-
+      // ── Step 4: Experiences & Interests ───────────────────────────────────
       case 'experiences':
         return (
           <div className="space-y-6">
             <div>
-              <label className={labelCls}>Desired Experiences</label>
-              <p className="mb-3 text-xs text-slate-400">Select all that interest the traveler, or type custom ones below</p>
+              <label className={labelCls}>What do they enjoy on trips?</label>
+              <p className="mb-3 text-xs text-slate-400">Select all that interest the traveler, or add custom ones below</p>
               <div className="flex flex-wrap gap-2">
                 {EXPERIENCE_SUGGESTIONS.map((exp) => (
                   <button
@@ -690,10 +668,10 @@ export function IntakeForm({
             </div>
 
             <div>
-              <label className={labelCls}>Custom Experiences</label>
+              <label className={labelCls}>Custom interests</label>
               <input
                 type="text"
-                placeholder="Add more, comma-separated..."
+                placeholder="Add more, comma-separated, then press Enter..."
                 onKeyDown={(e) => {
                   if (e.key === 'Enter') {
                     e.preventDefault();
@@ -704,7 +682,9 @@ export function IntakeForm({
                         ...f,
                         desiredExperiences: [
                           ...((f.desiredExperiences as string[]) || []),
-                          ...items.filter((i) => !((f.desiredExperiences as string[]) || []).includes(i)),
+                          ...items.filter(
+                            (i) => !((f.desiredExperiences as string[]) || []).includes(i),
+                          ),
                         ],
                       }));
                       (e.target as HTMLInputElement).value = '';
@@ -715,9 +695,158 @@ export function IntakeForm({
               />
               <p className="mt-1 text-xs text-slate-400">Press Enter to add</p>
             </div>
+
+            <div>
+              <label className={labelCls}>
+                <Utensils className="mr-1 inline h-4 w-4 text-slate-400" />
+                Dining preferences
+              </label>
+              <textarea
+                rows={2}
+                value={(form.diningPreferences as string) || ''}
+                onChange={(e) => set('diningPreferences', e.target.value)}
+                placeholder="e.g. Loves local street food, always wants a Michelin-starred meal, avoids chains..."
+                className={`resize-none ${inputCls}`}
+              />
+            </div>
+
+            <div>
+              <label className={labelCls}>Physical activity level</label>
+              <div className="space-y-2">
+                {ACTIVITY_OPTIONS.map((a) => (
+                  <button
+                    key={a.value}
+                    type="button"
+                    onClick={() => set('activityLevel', a.value)}
+                    className={radioRowCls(form.activityLevel === a.value)}
+                  >
+                    {form.activityLevel === a.value && (
+                      <Check className="mr-2 h-4 w-4 text-blue-600" />
+                    )}
+                    {a.label}
+                  </button>
+                ))}
+              </div>
+            </div>
           </div>
         );
 
+      // ── Step 5: Special Needs & Constraints ───────────────────────────────
+      case 'needs':
+        return (
+          <div className="space-y-6">
+            <div>
+              <label className={labelCls}>
+                <Accessibility className="mr-1 inline h-4 w-4 text-slate-400" />
+                Accessibility needs
+              </label>
+              <textarea
+                rows={3}
+                value={(form.accessibilityNeeds as string) || ''}
+                onChange={(e) => set('accessibilityNeeds', e.target.value)}
+                placeholder="e.g. Wheelchair accessible rooms, ground-floor only, elevator access required..."
+                className={`resize-none ${inputCls}`}
+              />
+            </div>
+
+            <div>
+              <label className={labelCls}>
+                <Utensils className="mr-1 inline h-4 w-4 text-slate-400" />
+                Dietary restrictions
+              </label>
+              <textarea
+                rows={2}
+                value={(form.dietaryNeeds as string) || ''}
+                onChange={(e) => set('dietaryNeeds', e.target.value)}
+                placeholder="e.g. Gluten-free, vegetarian, nut allergy, kosher, halal..."
+                className={`resize-none ${inputCls}`}
+              />
+            </div>
+
+            <div>
+              <label className={labelCls}>Hard constraints</label>
+              <p className="mb-2 text-xs text-slate-400">
+                Non-negotiable travel conditions (e.g. &quot;no red-eyes&quot;, &quot;max 14-hour travel day&quot;)
+              </p>
+              <div className="space-y-2">
+                {((form.hardConstraints as string[]) || []).map((item, idx) => (
+                  <div key={idx} className="flex items-center gap-2">
+                    <span className="flex-1 rounded-lg border border-slate-200 bg-slate-50 px-3 py-2 text-sm text-slate-700">
+                      {item}
+                    </span>
+                    <button
+                      type="button"
+                      onClick={() =>
+                        setForm((f) => ({
+                          ...f,
+                          hardConstraints: (
+                            (f.hardConstraints as string[]) || []
+                          ).filter((_, i) => i !== idx),
+                        }))
+                      }
+                      className="rounded p-1 text-slate-400 hover:bg-slate-100 hover:text-slate-600"
+                    >
+                      ×
+                    </button>
+                  </div>
+                ))}
+              </div>
+              <input
+                type="text"
+                placeholder="Type a constraint and press Enter..."
+                className={`mt-2 ${inputCls}`}
+                onKeyDown={(e) => {
+                  if (e.key === 'Enter') {
+                    e.preventDefault();
+                    const val = (e.target as HTMLInputElement).value.trim();
+                    if (val) {
+                      setForm((f) => ({
+                        ...f,
+                        hardConstraints: [...((f.hardConstraints as string[]) || []), val],
+                      }));
+                      (e.target as HTMLInputElement).value = '';
+                    }
+                  }
+                }}
+              />
+              <p className="mt-1 text-xs text-slate-400">Press Enter to add</p>
+            </div>
+
+            <div>
+              <label className={labelCls}>Advisor notes</label>
+              <textarea
+                rows={3}
+                value={(form.notes as string) || ''}
+                onChange={(e) => set('notes', e.target.value)}
+                placeholder="Anything else worth remembering — special occasions they celebrate, surprise preferences, past feedback..."
+                className={`resize-none ${inputCls}`}
+              />
+            </div>
+
+            <div className="rounded-xl border border-slate-200 bg-slate-50 p-4">
+              <label className="flex items-center gap-2 text-sm font-medium text-slate-700">
+                <input
+                  type="checkbox"
+                  checked={(form.isTemplate as boolean) || false}
+                  onChange={(e) => set('isTemplate', e.target.checked)}
+                  className="rounded border-slate-300 text-blue-600 focus:ring-blue-600"
+                />
+                Save as reusable template
+              </label>
+              {(form.isTemplate as boolean) && (
+                <input
+                  type="text"
+                  value={(form.templateName as string) || ''}
+                  onChange={(e) => set('templateName', e.target.value)}
+                  placeholder="Template name (e.g. 'Luxury Family Traveler')"
+                  className={`mt-3 ${inputCls}`}
+                />
+              )}
+            </div>
+          </div>
+        );
+
+      // ── Step 6: Dealbreakers ───────────────────────────────────────────────
       case 'dealbreakers':
         return (
           <div className="space-y-6">
@@ -727,7 +856,8 @@ export function IntakeForm({
                 Dealbreakers / Do-Not-Book
               </label>
               <p className="mb-3 text-xs text-slate-400">
-                Airlines, hotels, destinations, or conditions the client absolutely does not want
+                Airlines, hotels, destinations, or conditions this client absolutely does not want —
+                these apply across all future trips
               </p>
               <div className="space-y-2">
                 {((form.dealbreakers as string[]) || []).map((item, idx) => (
@@ -740,7 +870,9 @@ export function IntakeForm({
                       onClick={() =>
                         setForm((f) => ({
                           ...f,
-                          dealbreakers: ((f.dealbreakers as string[]) || []).filter((_, i) => i !== idx),
+                          dealbreakers: (
+                            (f.dealbreakers as string[]) || []
+                          ).filter((_, i) => i !== idx),
                         }))
                       }
                       className="rounded p-1 text-red-400 hover:bg-red-50 hover:text-red-600"
@@ -768,44 +900,122 @@ export function IntakeForm({
                   }
                 }}
               />
+              <p className="mt-1 text-xs text-slate-400">Press Enter to add</p>
             </div>
           </div>
         );
 
-      case 'notes':
+      // ── Step 7: AI Discovery Chat ──────────────────────────────────────────
+      case 'chat':
         return (
-          <div className="space-y-6">
-            <div>
-              <label className={labelCls}>Additional Notes</label>
-              <textarea
-                rows={6}
-                value={(form.notes as string) || ''}
-                onChange={(e) => set('notes', e.target.value)}
-                placeholder="Anything else the advisor should know — special occasions, celebrations, surprise elements, specific hotel/flight requests, timing considerations..."
-                className={`resize-none ${inputCls}`}
-              />
+          <div className="space-y-5">
+            <div className="rounded-xl border border-blue-100 bg-blue-50 p-4">
+              <p className="text-sm text-blue-800">
+                <Bot className="mr-1.5 inline h-4 w-4" />
+                <strong>AI Discovery Assistant</strong> — Based on the profile you&apos;ve built,
+                the AI will generate follow-up questions for you to ask your client. Type their
+                answers and the AI will refine its questions in real time.
+              </p>
             </div>
 
-            <div className="rounded-xl border border-slate-200 bg-slate-50 p-4">
-              <label className="flex items-center gap-2 text-sm font-medium text-slate-700">
-                <input
-                  type="checkbox"
-                  checked={(form.isTemplate as boolean) || false}
-                  onChange={(e) => set('isTemplate', e.target.checked)}
-                  className="rounded border-slate-300 text-blue-600 focus:ring-blue-600"
-                />
-                Save as reusable template
-              </label>
-              {(form.isTemplate as boolean) ? (
-                <input
-                  type="text"
-                  value={(form.templateName as string) || ''}
-                  onChange={(e) => set('templateName', e.target.value)}
-                  placeholder="Template name (e.g. 'Luxury Beach Getaway')"
-                  className={`mt-3 ${inputCls}`}
-                />
-              ) : null}
-            </div>
+            {!chatStarted ? (
+              <div className="flex flex-col items-center gap-4 py-10">
+                <Sparkles className="h-10 w-10 text-blue-300" />
+                <p className="text-center text-sm text-slate-500">
+                  Ready to generate personalized discovery questions
+                  <br />
+                  based on {client.firstName}&apos;s profile so far.
+                </p>
+                {!intakeId ? (
+                  <p className="text-xs text-amber-600">
+                    Save the profile draft first to enable AI discovery.
+                  </p>
+                ) : (
+                  <button
+                    type="button"
+                    onClick={startChat}
+                    disabled={chatLoading}
+                    className="inline-flex items-center gap-2 rounded-lg bg-blue-600 px-5 py-2.5 text-sm font-medium text-white hover:bg-blue-700 disabled:opacity-60"
+                  >
+                    {chatLoading ? (
+                      <Loader2 className="h-4 w-4 animate-spin" />
+                    ) : (
+                      <Sparkles className="h-4 w-4" />
+                    )}
+                    Generate Discovery Questions
+                  </button>
+                )}
+              </div>
+            ) : (
+              <div className="flex flex-col gap-4">
+                {/* Message thread */}
+                <div className="h-80 overflow-y-auto rounded-xl border border-slate-200 bg-slate-50 p-4 space-y-4">
+                  {chatMessages.map((msg, idx) => (
+                    <div
+                      key={idx}
+                      className={`flex gap-3 ${msg.role === 'advisor' ? 'justify-end' : 'justify-start'}`}
+                    >
+                      {msg.role === 'assistant' && (
+                        <div className="flex h-7 w-7 shrink-0 items-center justify-center rounded-full bg-blue-100">
+                          <Bot className="h-4 w-4 text-blue-600" />
+                        </div>
+                      )}
+                      <div
+                        className={`max-w-[80%] rounded-2xl px-4 py-2.5 text-sm whitespace-pre-wrap ${
+                          msg.role === 'advisor'
+                            ? 'rounded-tr-sm bg-blue-600 text-white'
+                            : 'rounded-tl-sm bg-white border border-slate-200 text-slate-800'
+                        }`}
+                      >
+                        {msg.content}
+                      </div>
+                    </div>
+                  ))}
+                  {chatLoading && (
+                    <div className="flex gap-3">
+                      <div className="flex h-7 w-7 shrink-0 items-center justify-center rounded-full bg-blue-100">
+                        <Bot className="h-4 w-4 text-blue-600" />
+                      </div>
+                      <div className="rounded-2xl rounded-tl-sm border border-slate-200 bg-white px-4 py-2.5">
+                        <Loader2 className="h-4 w-4 animate-spin text-slate-400" />
+                      </div>
+                    </div>
+                  )}
+                  <div ref={chatBottomRef} />
+                </div>
+
+                {/* Input */}
+                <div className="flex gap-2">
+                  <textarea
+                    rows={2}
+                    value={chatInput}
+                    onChange={(e) => setChatInput(e.target.value)}
+                    onKeyDown={(e) => {
+                      if (e.key === 'Enter' && !e.shiftKey) {
+                        e.preventDefault();
+                        sendChatMessage();
+                      }
+                    }}
+                    placeholder="Type the client's response here… (Enter to send, Shift+Enter for new line)"
+                    className={`flex-1 resize-none ${inputCls}`}
+                    disabled={chatLoading}
+                  />
+                  <button
+                    type="button"
+                    onClick={sendChatMessage}
+                    disabled={chatLoading || !chatInput.trim()}
+                    className="self-end rounded-lg bg-blue-600 p-2.5 text-white hover:bg-blue-700 disabled:opacity-40"
+                  >
+                    <Send className="h-4 w-4" />
+                  </button>
+                </div>
+
+                <p className="text-xs text-slate-400">
+                  {chatMessages.filter((m) => m.role === 'advisor').length} response
+                  {chatMessages.filter((m) => m.role === 'advisor').length !== 1 ? 's' : ''} recorded
+                </p>
+              </div>
+            )}
           </div>
         );
 
@@ -814,23 +1024,37 @@ export function IntakeForm({
     }
   };
 
+  // ---------------------------------------------------------------------------
+  // Progress tracking
+  // ---------------------------------------------------------------------------
+
   const filledSteps = STEPS.map((s) => {
     switch (s.id) {
-      case 'trip': return !!(form.tripType || form.destinations);
-      case 'dates': return !!(form.dateFlexibility || form.earliestDeparture || form.budgetMin || form.budgetMax);
-      case 'flights': return !!(form.cabinPreference || form.layoverTolerance);
-      case 'accommodation': return !!((form.hotelStyles as string[])?.length);
-      case 'style': return !!(form.travelPace || form.luxuryPreference);
-      case 'needs': return !!(form.accessibilityNeeds || form.dietaryNeeds);
-      case 'experiences': return !!((form.desiredExperiences as string[])?.length);
-      case 'dealbreakers': return !!((form.dealbreakers as string[])?.length);
-      case 'notes': return !!(form.notes);
-      default: return false;
+      case 'traveler':
+        return !!(form.partyType || form.travelPace || form.luxuryPreference);
+      case 'flights':
+        return !!(form.cabinPreference || form.layoverTolerance || form.departureAirports);
+      case 'accommodation':
+        return !!((form.hotelStyles as string[])?.length || form.loyaltyNotes);
+      case 'experiences':
+        return !!((form.desiredExperiences as string[])?.length);
+      case 'needs':
+        return !!(form.accessibilityNeeds || form.dietaryNeeds || form.notes);
+      case 'dealbreakers':
+        return !!((form.dealbreakers as string[])?.length);
+      case 'chat':
+        return chatMessages.filter((m) => m.role === 'advisor').length > 0;
+      default:
+        return false;
     }
   });
 
   const completedStepCount = filledSteps.filter(Boolean).length;
   const progressPct = Math.round((completedStepCount / STEPS.length) * 100);
+
+  // ---------------------------------------------------------------------------
+  // Render
+  // ---------------------------------------------------------------------------
 
   return (
     <div className="max-w-4xl">
@@ -846,7 +1070,7 @@ export function IntakeForm({
       <div className="mb-6 flex items-center justify-between">
         <div>
           <h1 className="text-2xl font-bold text-slate-900">
-            {isNew ? 'New Client Intake' : 'Edit Intake'}
+            {isNew ? 'Build Client Profile' : 'Edit Client Profile'}
           </h1>
           <p className="mt-1 text-sm text-slate-500">
             {client.firstName} {client.lastName}
@@ -873,7 +1097,7 @@ export function IntakeForm({
             ) : (
               <Save className="h-3.5 w-3.5" />
             )}
-            {isNew ? 'Create Draft' : 'Save Draft'}
+            {isNew ? 'Save Draft' : 'Save'}
           </button>
         </div>
       </div>
@@ -913,7 +1137,11 @@ export function IntakeForm({
                         : 'text-slate-400 hover:bg-slate-50 hover:text-slate-600'
                   }`}
                 >
-                  <Icon className={`h-4 w-4 ${isCurrent ? 'text-blue-600' : isFilled ? 'text-green-500' : 'text-slate-300'}`} />
+                  <Icon
+                    className={`h-4 w-4 ${
+                      isCurrent ? 'text-blue-600' : isFilled ? 'text-green-500' : 'text-slate-300'
+                    }`}
+                  />
                   {s.label}
                   {isFilled && !isCurrent && (
                     <Check className="ml-auto h-3.5 w-3.5 text-green-500" />
@@ -936,7 +1164,10 @@ export function IntakeForm({
 
           <div className="rounded-xl border border-slate-200 bg-white p-6 shadow-sm">
             <h2 className="mb-6 flex items-center gap-2 text-lg font-semibold text-slate-900">
-              {(() => { const Icon = STEPS[step].icon; return <Icon className="h-5 w-5 text-blue-600" />; })()}
+              {(() => {
+                const Icon = STEPS[step].icon;
+                return <Icon className="h-5 w-5 text-blue-600" />;
+              })()}
               {STEPS[step].label}
             </h2>
 
@@ -972,7 +1203,7 @@ export function IntakeForm({
                   className="inline-flex items-center gap-1.5 rounded-lg bg-green-600 px-5 py-2 text-sm font-medium text-white shadow-sm hover:bg-green-700 disabled:opacity-60"
                 >
                   {saving ? <Loader2 className="h-3.5 w-3.5 animate-spin" /> : <Check className="h-4 w-4" />}
-                  Complete Intake
+                  Complete Profile
                 </button>
               ) : (
                 <button

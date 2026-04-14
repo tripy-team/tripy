@@ -15,6 +15,7 @@
 		"test:e2e:debug": "playwright test --debug"
 	},
 	"dependencies": {
+		"@anthropic-ai/sdk": "^0.88.0",
 		"@floating-ui/core": "^1.7.3",
 		"@floating-ui/dom": "^1.7.4",
 		"@floating-ui/utils": "^0.2.10",

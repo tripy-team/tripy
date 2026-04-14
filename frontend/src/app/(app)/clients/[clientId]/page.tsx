@@ -89,9 +89,13 @@ import type {
 } from '@/lib/api-client';
 import { ConfidenceBadge } from '@/components/ConfidenceMeter';
 import PreferenceProfile from '@/components/PreferenceProfile';
+import ProfileCompletenessScore from '@/components/ProfileCompletenessScore';
+import GroupMembersPanel from './_components/GroupMembersPanel';
+import BusinessProfilePanel from './_components/BusinessProfilePanel';
+import IntakeInvitationsPanel from './_components/IntakeInvitationsPanel';
 import MultiAirportAutocomplete from '@/components/ui/MultiAirportAutocomplete';
-import ClientOperationsPanel from '@/components/ClientOperationsPanel';
 import SingleDatePicker from '@/components/ui/SingleDatePicker';
+import { proposalsAPI } from '@/lib/api';
 
 type TripType = 'roundTrip' | 'oneWay' | 'multiCity';
 type TripLeg = {
@@ -111,7 +115,7 @@ type TravelerEntry = {
   customLegs: TripLeg[];
 };
 
-type Tab = 'overview' | 'balances' | 'preferences' | 'group' | 'trips' | 'discovery' | 'operations';
+type Tab = 'overview' | 'balances' | 'preferences' | 'group' | 'trips' | 'discovery';
 type DiscoverySection = 'meetings' | 'intake' | 'insights' | 'follow_ups';
 
 const CATEGORY_ORDER: Record<string, number> = { airline: 0, hotel: 1, transferable_bank: 2 };
@@ -302,6 +306,16 @@ export default function ClientDetailPage() {
   const [statusUpdating, setStatusUpdating] = useState<string | null>(null);
   const [suggestionsFilter, setSuggestionsFilter] = useState<SuggestionStatus | 'all'>('all');
   const [copiedDraft, setCopiedDraft] = useState(false);
+
+  // Proposal creation state
+  type ProposalRec = { label: string; whyThisOption: string; priceSummary: string; tradeoffs: string };
+  const [proposalTripId, setProposalTripId] = useState<string | null>(null);
+  const [proposalNote, setProposalNote] = useState('');
+  const [proposalSummary, setProposalSummary] = useState('');
+  const [proposalRecs, setProposalRecs] = useState<ProposalRec[]>([{ label: '', whyThisOption: '', priceSummary: '', tradeoffs: '' }]);
+  const [creatingProposal, setCreatingProposal] = useState(false);
+  const [proposalResult, setProposalResult] = useState<{ shareUrl: string } | null>(null);
+  const [proposalCopied, setProposalCopied] = useState(false);
 
   const loadData = useCallback(async () => {
     try {
@@ -833,17 +847,26 @@ export default function ClientDetailPage() {
   }
 
   const isIndividual = client.clientType === 'individual';
+  const isGroupClient = client.clientType === 'group';
+  const isBusinessClient = client.clientType === 'business';
 
   const pendingInferences = inferences.filter((i) => i.status === 'pending');
   const pendingSuggestions = suggestions.filter((s) => s.status === 'pending');
+
+  const groupMemberCount = isGroupClient
+    ? (client.groupProfile?.members?.length ?? 0)
+    : familyMembers.length;
 
   const tabs: { key: Tab; label: string; show: boolean }[] = [
     { key: 'overview', label: 'Overview', show: true },
     { key: 'balances', label: 'Balances', show: true },
     { key: 'preferences', label: 'Preference Profile', show: true },
-    { key: 'group', label: `Group (${familyMembers.length})`, show: isIndividual },
+    {
+      key: 'group',
+      label: isGroupClient ? `Members (${groupMemberCount})` : isBusinessClient ? 'Travelers & Policy' : `Group (${familyMembers.length})`,
+      show: isIndividual || isGroupClient || isBusinessClient,
+    },
     { key: 'trips', label: `Trips (${trips.length})`, show: true },
-    { key: 'operations', label: 'Operations', show: true },
     { key: 'discovery', label: `Discovery${(pendingInferences.length + pendingSuggestions.length) > 0 ? ` (${pendingInferences.length + pendingSuggestions.length})` : ''}`, show: true },
   ];
 
@@ -867,7 +890,7 @@ export default function ClientDetailPage() {
       <div className="mb-6 flex items-start justify-between">
         <div className="flex items-start gap-4">
           <div className={`flex h-12 w-12 items-center justify-center rounded-xl text-lg font-semibold ${
-            isIndividual ? 'bg-blue-50 text-blue-600' : 'bg-purple-50 text-purple-600'
+            isIndividual ? 'bg-blue-50 text-blue-600' : isGroupClient ? 'bg-emerald-50 text-emerald-600' : 'bg-purple-50 text-purple-600'
           }`}>
             {isIndividual ? (
               <>{client.firstName?.[0]}{client.lastName?.[0]}</>
@@ -881,9 +904,9 @@ export default function ClientDetailPage() {
             </h1>
             <div className="mt-1 flex items-center gap-4 text-sm text-slate-500">
               <span className={`inline-flex items-center gap-1 rounded-full px-2 py-0.5 text-xs font-medium ${
-                isIndividual ? 'bg-blue-50 text-blue-700' : 'bg-purple-50 text-purple-700'
+                isIndividual ? 'bg-blue-50 text-blue-700' : isGroupClient ? 'bg-emerald-50 text-emerald-700' : 'bg-purple-50 text-purple-700'
               }`}>
-                {isIndividual ? 'Individual' : 'Business'}
+                {isIndividual ? 'Individual' : isGroupClient ? 'Group' : 'Business'}
               </span>
               {client.email && (
                 <span className="flex items-center gap-1">
@@ -1063,6 +1086,13 @@ export default function ClientDetailPage() {
               )}
             </div>
           </div>
+
+          <ProfileCompletenessScore
+            clientId={clientId}
+            balances={balances}
+            familyMembers={familyMembers}
+            onTabChange={(tab) => setActiveTab(tab)}
+          />
 
           {pendingSuggestions.length > 0 && (
             <button
@@ -1260,6 +1290,14 @@ export default function ClientDetailPage() {
 
       {activeTab === 'preferences' && (
         <PreferenceProfile clientId={clientId} />
+      )}
+
+      {activeTab === 'group' && isGroupClient && (
+        <GroupMembersPanel clientId={clientId} client={client} />
+      )}
+
+      {activeTab === 'group' && isBusinessClient && (
+        <BusinessProfilePanel clientId={clientId} client={client} />
       )}
 
       {activeTab === 'group' && isIndividual && (
@@ -2422,6 +2460,7 @@ export default function ClientDetailPage() {
                     <th className="px-5 py-3 text-left font-medium text-slate-600">Cabin</th>
                     <th className="px-5 py-3 text-left font-medium text-slate-600">Confidence</th>
                     <th className="px-5 py-3 text-left font-medium text-slate-600">Status</th>
+                    <th className="px-5 py-3 text-left font-medium text-slate-600">Actions</th>
                   </tr>
                 </thead>
                 <tbody className="divide-y divide-slate-100">
@@ -2506,6 +2545,21 @@ export default function ClientDetailPage() {
                             {trip.status}
                           </span>
                         </td>
+                        <td className="px-5 py-3.5" onClick={(e) => e.stopPropagation()}>
+                          <button
+                            onClick={() => {
+                              setProposalTripId(trip.id);
+                              setProposalNote('');
+                              setProposalSummary('');
+                              setProposalRecs([{ label: '', whyThisOption: '', priceSummary: '', tradeoffs: '' }]);
+                              setProposalResult(null);
+                            }}
+                            className="inline-flex items-center gap-1 rounded-lg border border-blue-200 bg-blue-50 px-2.5 py-1 text-xs font-medium text-blue-700 hover:bg-blue-100 transition-colors"
+                          >
+                            <Send className="h-3 w-3" />
+                            Propose
+                          </button>
+                        </td>
                       </tr>
                     );
                   })}
@@ -2514,13 +2568,6 @@ export default function ClientDetailPage() {
             </div>
           )}
         </div>
-      )}
-
-      {activeTab === 'operations' && (
-        <ClientOperationsPanel
-          clientId={clientId}
-          clientName={client.firstName && client.lastName ? `${client.firstName} ${client.lastName}` : undefined}
-        />
       )}
 
       {activeTab === 'discovery' && (
@@ -2536,8 +2583,8 @@ export default function ClientDetailPage() {
                   <Sparkles className="h-4.5 w-4.5 text-blue-600" />
                 </div>
                 <div>
-                  <h2 className="font-semibold text-slate-900">Meetings</h2>
-                  <p className="text-xs text-slate-500">AI-powered discovery sessions &middot; {meetings.length} session{meetings.length !== 1 ? 's' : ''}</p>
+                  <h2 className="font-semibold text-slate-900">AI Discovery Sessions</h2>
+                  <p className="text-xs text-slate-500">AI-powered discovery conversations &middot; {meetings.length} session{meetings.length !== 1 ? 's' : ''}</p>
                 </div>
               </div>
               {expandedDiscoverySections.has('meetings') ? (
@@ -2554,7 +2601,7 @@ export default function ClientDetailPage() {
                     className="inline-flex items-center gap-1.5 rounded-lg bg-blue-600 px-4 py-2 text-sm font-medium text-white shadow-sm hover:bg-blue-700"
                   >
                     <Plus className="h-4 w-4" />
-                    New Meeting
+                    New Session
                   </button>
                 </div>
 
@@ -2563,7 +2610,7 @@ export default function ClientDetailPage() {
                     <label className="mb-1 block text-xs font-medium text-slate-700">Meeting Title</label>
                     <input
                       type="text"
-                      placeholder="e.g., Initial discovery call, Pre-trip check-in"
+                      placeholder="e.g., Initial discovery call, Annual review"
                       value={meetingTitle}
                       onChange={(e) => setMeetingTitle(e.target.value)}
                       className="mb-3 block w-full rounded-lg border border-slate-200 px-3 py-2 text-sm placeholder:text-slate-400 focus:border-transparent focus:outline-none focus:ring-2 focus:ring-blue-600"
@@ -2587,7 +2634,7 @@ export default function ClientDetailPage() {
                         className="inline-flex items-center gap-1.5 rounded-lg bg-blue-600 px-4 py-2 text-sm font-medium text-white hover:bg-blue-700 disabled:opacity-60"
                       >
                         <Sparkles className="h-3.5 w-3.5" />
-                        Start Meeting
+                        Start Session
                       </button>
                       <button
                         onClick={() => { setCreatingMeeting(false); setMeetingTitle(''); }}
@@ -2602,14 +2649,14 @@ export default function ClientDetailPage() {
                 {meetings.length === 0 && !creatingMeeting ? (
                   <div className="rounded-lg border border-dashed border-slate-200 py-10 text-center">
                     <Sparkles className="mx-auto h-8 w-8 text-slate-300" />
-                    <p className="mt-2 text-sm text-slate-500">No meeting sessions yet</p>
-                    <p className="mt-1 text-xs text-slate-400">Start a discovery meeting to let AI help uncover client preferences</p>
+                    <p className="mt-2 text-sm text-slate-500">No discovery sessions yet</p>
+                    <p className="mt-1 text-xs text-slate-400">Start a session to let AI help uncover and capture client preferences in real time</p>
                     <button
                       onClick={() => setCreatingMeeting(true)}
                       className="mt-3 inline-flex items-center gap-1.5 text-sm font-medium text-blue-600 hover:text-blue-700"
                     >
                       <Plus className="h-4 w-4" />
-                      Start first meeting
+                      Start first session
                     </button>
                   </div>
                 ) : meetings.length > 0 && (
@@ -2653,7 +2700,7 @@ export default function ClientDetailPage() {
             )}
           </div>
 
-          {/* ── Intake Section ── */}
+          {/* ── Profile Intakes Section ── */}
           <div className="rounded-xl border border-slate-200 bg-white shadow-sm">
             <button
               onClick={() => toggleDiscoverySection('intake')}
@@ -2664,8 +2711,8 @@ export default function ClientDetailPage() {
                   <ClipboardList className="h-4.5 w-4.5 text-emerald-600" />
                 </div>
                 <div>
-                  <h2 className="font-semibold text-slate-900">Intake Questionnaires</h2>
-                  <p className="text-xs text-slate-500">Structured travel preference capture &middot; {intakes.length} intake{intakes.length !== 1 ? 's' : ''}</p>
+                  <h2 className="font-semibold text-slate-900">Profile Intakes</h2>
+                  <p className="text-xs text-slate-500">Reusable client preference profiles &middot; {intakes.length} profile{intakes.length !== 1 ? 's' : ''}</p>
                 </div>
               </div>
               {expandedDiscoverySections.has('intake') ? (
@@ -2676,37 +2723,43 @@ export default function ClientDetailPage() {
             </button>
             {expandedDiscoverySections.has('intake') && (
               <div className="border-t border-slate-100 p-5 pt-4">
+                <div className="mb-6">
+                  <IntakeInvitationsPanel client={client} />
+                </div>
                 <div className="mb-4 flex justify-end">
                   <Link
                     href={`/clients/${clientId}/intake/new`}
                     className="inline-flex items-center gap-1.5 rounded-lg bg-blue-600 px-4 py-2 text-sm font-medium text-white shadow-sm hover:bg-blue-700"
                   >
                     <Plus className="h-4 w-4" />
-                    New Intake
+                    Build Profile
                   </Link>
                 </div>
 
                 {intakes.length === 0 ? (
                   <div className="rounded-lg border border-dashed border-slate-200 py-10 text-center">
                     <ClipboardList className="mx-auto h-8 w-8 text-slate-300" />
-                    <p className="mt-2 text-sm text-slate-500">No intake questionnaires yet</p>
-                    <p className="mt-1 text-xs text-slate-400">Capture travel preferences in a structured way before planning a trip</p>
+                    <p className="mt-2 text-sm text-slate-500">No client profiles yet</p>
+                    <p className="mt-1 text-xs text-slate-400">Build a reusable preference profile to power smarter trip planning</p>
                     <Link
                       href={`/clients/${clientId}/intake/new`}
                       className="mt-3 inline-flex items-center gap-1.5 text-sm font-medium text-blue-600 hover:text-blue-700"
                     >
                       <Plus className="h-4 w-4" />
-                      Start first intake
+                      Build first profile
                     </Link>
                   </div>
                 ) : (
                   <div className="space-y-3">
                     {intakes.map((intake) => {
                       const isDraft = intake.status === 'draft';
-                      const tripLabel = intake.tripType
-                        ? intake.tripType.replace(/_/g, ' ').replace(/\b\w/g, (c) => c.toUpperCase())
-                        : 'General';
-                      const destStr = (intake.destinations || []).join(', ') || 'No destinations';
+                      const profileLabel = intake.templateName || `Client Profile`;
+                      const subtitleParts: string[] = [];
+                      if (intake.travelPace) subtitleParts.push(intake.travelPace.replace(/_/g, ' '));
+                      if (intake.luxuryPreference) subtitleParts.push(intake.luxuryPreference.replace(/_/g, ' '));
+                      const subtitle = subtitleParts.length
+                        ? subtitleParts.join(' · ')
+                        : `Updated ${new Date(intake.updatedAt).toLocaleDateString()}`;
                       return (
                         <div
                           key={intake.id}
@@ -2722,7 +2775,7 @@ export default function ClientDetailPage() {
                               </div>
                               <div className="min-w-0">
                                 <div className="flex items-center gap-2">
-                                  <span className="font-medium text-slate-900">{tripLabel}</span>
+                                  <span className="font-medium text-slate-900">{profileLabel}</span>
                                   <span className={`rounded-full px-2 py-0.5 text-xs font-medium ${isDraft ? 'bg-amber-50 text-amber-700' : 'bg-green-50 text-green-700'}`}>
                                     {isDraft ? 'Draft' : 'Complete'}
                                   </span>
@@ -2732,8 +2785,8 @@ export default function ClientDetailPage() {
                                     </span>
                                   )}
                                 </div>
-                                <p className="mt-0.5 truncate text-xs text-slate-500">
-                                  {destStr} &middot; Updated {new Date(intake.updatedAt).toLocaleDateString()}
+                                <p className="mt-0.5 truncate text-xs capitalize text-slate-500">
+                                  {subtitle} &middot; Updated {new Date(intake.updatedAt).toLocaleDateString()}
                                 </p>
                               </div>
                             </div>
@@ -2741,19 +2794,7 @@ export default function ClientDetailPage() {
                           <div className="ml-3 flex items-center gap-1">
                             <button
                               onClick={async () => {
-                                try {
-                                  const dup = await duplicateClientIntake(clientId, intake.id);
-                                  setIntakes((prev) => [dup, ...prev]);
-                                } catch { /* */ }
-                              }}
-                              title="Duplicate"
-                              className="rounded-lg p-2 text-slate-400 hover:bg-slate-50 hover:text-slate-600"
-                            >
-                              <Copy className="h-4 w-4" />
-                            </button>
-                            <button
-                              onClick={async () => {
-                                if (!confirm('Delete this intake?')) return;
+                                if (!confirm('Delete this profile?')) return;
                                 try {
                                   await deleteClientIntake(clientId, intake.id);
                                   setIntakes((prev) => prev.filter((i) => i.id !== intake.id));
@@ -2870,7 +2911,7 @@ export default function ClientDetailPage() {
             )}
           </div>
 
-          {/* ── Follow-Ups Section ── */}
+          {/* ── Open Questions Section ── */}
           <div className="rounded-xl border border-slate-200 bg-white shadow-sm">
             <button
               onClick={() => toggleDiscoverySection('follow_ups')}
@@ -2882,14 +2923,14 @@ export default function ClientDetailPage() {
                 </div>
                 <div>
                   <div className="flex items-center gap-2">
-                    <h2 className="font-semibold text-slate-900">Follow-Up Questions</h2>
+                    <h2 className="font-semibold text-slate-900">Open Questions</h2>
                     {pendingSuggestions.length > 0 && (
                       <span className="rounded-full bg-indigo-100 px-2 py-0.5 text-[10px] font-semibold text-indigo-700">
                         {pendingSuggestions.length} pending
                       </span>
                     )}
                   </div>
-                  <p className="text-xs text-slate-500">Questions to ask when preferences are unclear or conflicting</p>
+                  <p className="text-xs text-slate-500">Profile gaps and unanswered questions flagged by AI</p>
                 </div>
               </div>
               {expandedDiscoverySections.has('follow_ups') ? (
@@ -2986,9 +3027,9 @@ export default function ClientDetailPage() {
                 {suggestions.length === 0 ? (
                   <div className="rounded-lg border border-dashed border-slate-200 py-10 text-center">
                     <HelpCircle className="mx-auto h-8 w-8 text-slate-300" />
-                    <p className="mt-2 text-sm text-slate-500">No follow-up suggestions yet</p>
+                    <p className="mt-2 text-sm text-slate-500">No open questions yet</p>
                     <p className="mt-1 text-xs text-slate-400">
-                      Click &ldquo;Generate&rdquo; to analyze this client&apos;s profile for gaps and conflicts.
+                      Click &ldquo;Generate&rdquo; to analyze the client profile for gaps and conflicts.
                     </p>
                   </div>
                 ) : (
@@ -3123,6 +3164,239 @@ export default function ClientDetailPage() {
                 )}
               </div>
             )}
+          </div>
+        </div>
+      )}
+
+      {/* ── Proposal Creation Modal ── */}
+      {proposalTripId && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/40 p-4">
+          <div className="relative w-full max-w-xl max-h-[90vh] overflow-y-auto rounded-2xl bg-white shadow-2xl">
+            {/* Header */}
+            <div className="sticky top-0 z-10 flex items-center justify-between border-b border-slate-200 bg-white px-6 py-4">
+              <div>
+                <h2 className="font-semibold text-slate-900">Create Proposal</h2>
+                <p className="text-xs text-slate-500 mt-0.5">
+                  {trips.find((t) => t.id === proposalTripId)?.title ?? 'Trip'}
+                </p>
+              </div>
+              <button
+                onClick={() => { setProposalTripId(null); setProposalResult(null); }}
+                className="rounded-lg p-1.5 text-slate-400 hover:bg-slate-100 hover:text-slate-600"
+              >
+                <X className="h-4 w-4" />
+              </button>
+            </div>
+
+            <div className="px-6 py-5 space-y-5">
+              {proposalResult ? (
+                /* Success state */
+                <div className="space-y-4">
+                  <div className="rounded-xl border border-emerald-200 bg-emerald-50 p-5 text-center">
+                    <Check className="mx-auto h-8 w-8 text-emerald-600 mb-2" />
+                    <p className="font-semibold text-emerald-800">Proposal created!</p>
+                    <p className="mt-1 text-sm text-emerald-700">Share this link with your client</p>
+                  </div>
+                  <div className="flex items-center gap-2 rounded-lg border border-slate-200 bg-slate-50 px-4 py-3">
+                    <span className="flex-1 truncate text-sm text-slate-700">
+                      {`${window.location.origin}${proposalResult.shareUrl}`}
+                    </span>
+                    <button
+                      onClick={() => {
+                        navigator.clipboard.writeText(`${window.location.origin}${proposalResult.shareUrl}`);
+                        setProposalCopied(true);
+                        setTimeout(() => setProposalCopied(false), 2000);
+                      }}
+                      className="shrink-0 rounded-lg bg-blue-600 px-3 py-1.5 text-xs font-medium text-white hover:bg-blue-700"
+                    >
+                      {proposalCopied ? 'Copied!' : 'Copy Link'}
+                    </button>
+                  </div>
+                  <a
+                    href={proposalResult.shareUrl}
+                    target="_blank"
+                    rel="noopener noreferrer"
+                    className="flex items-center justify-center gap-1.5 text-sm text-blue-600 hover:text-blue-700"
+                  >
+                    <ExternalLink className="h-3.5 w-3.5" />
+                    Preview proposal
+                  </a>
+                </div>
+              ) : (
+                /* Creation form */
+                <>
+                  {/* Advisor note */}
+                  <div>
+                    <label className="mb-1 block text-xs font-medium text-slate-700">
+                      Advisor Note <span className="text-slate-400">(shown to client)</span>
+                    </label>
+                    <textarea
+                      rows={3}
+                      placeholder="Hi! Based on your preferences, here are my top recommendations for your trip..."
+                      value={proposalNote}
+                      onChange={(e) => setProposalNote(e.target.value)}
+                      className="block w-full rounded-lg border border-slate-200 px-3 py-2 text-sm placeholder:text-slate-400 focus:border-transparent focus:outline-none focus:ring-2 focus:ring-blue-600 resize-none"
+                    />
+                  </div>
+
+                  {/* Trip summary */}
+                  <div>
+                    <label className="mb-1 block text-xs font-medium text-slate-700">
+                      Trip Summary <span className="text-slate-400">(optional)</span>
+                    </label>
+                    <input
+                      type="text"
+                      placeholder="e.g., 7-night Paris trip, May 10–17, Business class"
+                      value={proposalSummary}
+                      onChange={(e) => setProposalSummary(e.target.value)}
+                      className="block w-full rounded-lg border border-slate-200 px-3 py-2 text-sm placeholder:text-slate-400 focus:border-transparent focus:outline-none focus:ring-2 focus:ring-blue-600"
+                    />
+                  </div>
+
+                  {/* Recommendations */}
+                  <div>
+                    <div className="mb-2 flex items-center justify-between">
+                      <label className="text-xs font-medium text-slate-700">
+                        Recommendations <span className="text-slate-400">(at least one required)</span>
+                      </label>
+                      {proposalRecs.length < 3 && (
+                        <button
+                          onClick={() => setProposalRecs((prev) => [...prev, { label: '', whyThisOption: '', priceSummary: '', tradeoffs: '' }])}
+                          className="text-xs font-medium text-blue-600 hover:text-blue-700"
+                        >
+                          + Add option
+                        </button>
+                      )}
+                    </div>
+                    <div className="space-y-3">
+                      {proposalRecs.map((rec, idx) => (
+                        <div key={idx} className="rounded-lg border border-slate-200 bg-slate-50 p-4 space-y-3">
+                          <div className="flex items-center justify-between">
+                            <span className="text-xs font-semibold text-slate-500">
+                              Option {idx + 1}
+                            </span>
+                            {proposalRecs.length > 1 && (
+                              <button
+                                onClick={() => setProposalRecs((prev) => prev.filter((_, i) => i !== idx))}
+                                className="text-slate-400 hover:text-red-500"
+                              >
+                                <X className="h-3.5 w-3.5" />
+                              </button>
+                            )}
+                          </div>
+                          <div className="grid grid-cols-2 gap-2">
+                            <div>
+                              <label className="mb-1 block text-[10px] font-medium text-slate-600">Label *</label>
+                              <input
+                                type="text"
+                                placeholder="e.g., Best Value"
+                                value={rec.label}
+                                onChange={(e) => setProposalRecs((prev) => prev.map((r, i) => i === idx ? { ...r, label: e.target.value } : r))}
+                                className="block w-full rounded-md border border-slate-200 bg-white px-2.5 py-1.5 text-xs placeholder:text-slate-400 focus:border-transparent focus:outline-none focus:ring-2 focus:ring-blue-600"
+                              />
+                            </div>
+                            <div>
+                              <label className="mb-1 block text-[10px] font-medium text-slate-600">Price / Cost</label>
+                              <input
+                                type="text"
+                                placeholder="e.g., ~75,000 pts + $56 taxes"
+                                value={rec.priceSummary}
+                                onChange={(e) => setProposalRecs((prev) => prev.map((r, i) => i === idx ? { ...r, priceSummary: e.target.value } : r))}
+                                className="block w-full rounded-md border border-slate-200 bg-white px-2.5 py-1.5 text-xs placeholder:text-slate-400 focus:border-transparent focus:outline-none focus:ring-2 focus:ring-blue-600"
+                              />
+                            </div>
+                          </div>
+                          <div>
+                            <label className="mb-1 block text-[10px] font-medium text-slate-600">Why this option *</label>
+                            <textarea
+                              rows={2}
+                              placeholder="This uses your AA miles at 1.8¢ each and books the Flagship Business cabin..."
+                              value={rec.whyThisOption}
+                              onChange={(e) => setProposalRecs((prev) => prev.map((r, i) => i === idx ? { ...r, whyThisOption: e.target.value } : r))}
+                              className="block w-full rounded-md border border-slate-200 bg-white px-2.5 py-1.5 text-xs placeholder:text-slate-400 focus:border-transparent focus:outline-none focus:ring-2 focus:ring-blue-600 resize-none"
+                            />
+                          </div>
+                          <div>
+                            <label className="mb-1 block text-[10px] font-medium text-slate-600">
+                              Tradeoffs <span className="font-normal text-slate-400">(one per line, optional)</span>
+                            </label>
+                            <textarea
+                              rows={2}
+                              placeholder={"Requires connecting in Dallas\nLimited award space — book soon"}
+                              value={rec.tradeoffs}
+                              onChange={(e) => setProposalRecs((prev) => prev.map((r, i) => i === idx ? { ...r, tradeoffs: e.target.value } : r))}
+                              className="block w-full rounded-md border border-slate-200 bg-white px-2.5 py-1.5 text-xs placeholder:text-slate-400 focus:border-transparent focus:outline-none focus:ring-2 focus:ring-blue-600 resize-none"
+                            />
+                          </div>
+                        </div>
+                      ))}
+                    </div>
+                  </div>
+
+                  {/* Submit */}
+                  <div className="flex gap-2 pt-1">
+                    <button
+                      onClick={async () => {
+                        const trip = trips.find((t) => t.id === proposalTripId);
+                        if (!trip || !client) return;
+                        const validRecs = proposalRecs.filter((r) => r.label.trim() && r.whyThisOption.trim());
+                        if (validRecs.length === 0) return;
+                        setCreatingProposal(true);
+                        try {
+                          const origins = Array.isArray(trip.originAirports) ? trip.originAirports.join('/') : trip.originAirports;
+                          const dests = Array.isArray(trip.destinationAirports) ? trip.destinationAirports.join('/') : trip.destinationAirports;
+                          const result = await proposalsAPI.create({
+                            tripId: trip.id,
+                            clientId: client.id,
+                            clientName: `${client.firstName} ${client.lastName}`,
+                            advisorNote: proposalNote,
+                            tripSummary: proposalSummary,
+                            recommendations: validRecs.map((r, i) => ({
+                              category: i === 0 ? 'recommended' : 'alternative',
+                              label: r.label,
+                              route_summary: `${origins} → ${dests}`,
+                              price_summary: r.priceSummary,
+                              why_this_option: r.whyThisOption,
+                              tradeoffs: r.tradeoffs.split('\n').map((s) => s.trim()).filter(Boolean),
+                              risks: [],
+                              flights: [],
+                            })),
+                          });
+                          const shareUrl = (result as Record<string, unknown>).share_url as string | undefined;
+                          if (shareUrl) {
+                            setProposalResult({ shareUrl });
+                          }
+                        } catch (err) {
+                          console.error('Failed to create proposal:', err);
+                        } finally {
+                          setCreatingProposal(false);
+                        }
+                      }}
+                      disabled={creatingProposal || proposalRecs.every((r) => !r.label.trim() || !r.whyThisOption.trim())}
+                      className="flex-1 inline-flex items-center justify-center gap-2 rounded-lg bg-blue-600 px-4 py-2.5 text-sm font-medium text-white hover:bg-blue-700 disabled:opacity-60 disabled:cursor-not-allowed"
+                    >
+                      {creatingProposal ? (
+                        <>
+                          <Loader2 className="h-4 w-4 animate-spin" />
+                          Creating...
+                        </>
+                      ) : (
+                        <>
+                          <Send className="h-4 w-4" />
+                          Create Proposal
+                        </>
+                      )}
+                    </button>
+                    <button
+                      onClick={() => { setProposalTripId(null); setProposalResult(null); }}
+                      className="rounded-lg border border-slate-200 px-4 py-2.5 text-sm font-medium text-slate-600 hover:bg-slate-50"
+                    >
+                      Cancel
+                    </button>
+                  </div>
+                </>
+              )}
+            </div>
           </div>
         </div>
       )}

@@ -38,7 +38,7 @@ export interface ClientTripSummary {
 export interface Client {
   id: string;
   orgId: string;
-  clientType: 'individual' | 'business';
+  clientType: 'individual' | 'group' | 'business';
   firstName: string;
   lastName: string;
   email: string;
@@ -51,6 +51,8 @@ export interface Client {
   _count?: { loyaltyBalances: number; familyMembers: number; tripRequests?: number };
   loyaltyBalances?: ClientBalanceSummary[];
   tripRequests?: ClientTripSummary[];
+  groupProfile?: GroupProfile | null;
+  businessProfile?: BusinessProfile | null;
 }
 
 export interface InitialBalanceEntry {
@@ -64,11 +66,13 @@ export interface ClientCreatePayload {
   firstName: string;
   lastName: string;
   email: string;
-  clientType?: 'individual' | 'business';
+  clientType?: 'individual' | 'group' | 'business';
   phone?: string;
   dateOfBirth?: string;
   notes?: string;
   initialBalances?: InitialBalanceEntry[];
+  groupProfile?: Partial<GroupProfilePayload>;
+  businessProfile?: Partial<BusinessProfilePayload>;
 }
 
 export interface LinkedClientSummary {
@@ -1747,6 +1751,53 @@ export function duplicateClientIntake(clientId: string, intakeId: string, target
   });
 }
 
+export interface IntakeChatMessage {
+  role: 'assistant' | 'advisor';
+  content: string;
+  timestamp: string;
+}
+
+export interface IntakeChatStartResponse {
+  sessionId: string;
+  messages: IntakeChatMessage[];
+}
+
+export interface IntakeChatMessageResponse {
+  message: IntakeChatMessage;
+}
+
+export function startIntakeChat(
+  clientId: string,
+  intakeId: string,
+  intakeData: Record<string, unknown>,
+) {
+  return apiFetch<IntakeChatStartResponse>(
+    `/clients/${clientId}/intakes/${intakeId}/chat/start`,
+    {
+      method: 'POST',
+      body: JSON.stringify({ intakeData }),
+    },
+  );
+}
+
+export function sendIntakeChatMessage(
+  clientId: string,
+  intakeId: string,
+  payload: {
+    advisorMessage: string;
+    messageHistory: IntakeChatMessage[];
+    intakeData: Record<string, unknown>;
+  },
+) {
+  return apiFetch<IntakeChatMessageResponse>(
+    `/clients/${clientId}/intakes/${intakeId}/chat/message`,
+    {
+      method: 'POST',
+      body: JSON.stringify(payload),
+    },
+  );
+}
+
 // ---------------------------------------------------------------------------
 // Vendor Requests
 // ---------------------------------------------------------------------------
@@ -2231,4 +2282,265 @@ export function updateGroupSettlement(
     method: 'PATCH',
     body: JSON.stringify(payload),
   });
+}
+
+// ---------------------------------------------------------------------------
+// Group Profile
+// ---------------------------------------------------------------------------
+
+export type GroupType =
+  | 'leisure_friends'
+  | 'destination_wedding'
+  | 'family_reunion'
+  | 'corporate_offsite'
+  | 'multi_generational'
+  | 'other';
+
+export type GroupDecisionStyle = 'organizer_decides' | 'consensus' | 'advisor_recommends';
+
+export interface GroupMember {
+  id: string;
+  groupProfileId: string;
+  linkedClientId?: string;
+  linkedClient?: LinkedClientSummary;
+  name: string;
+  email?: string;
+  departureCity?: string;
+  isOrganizer: boolean;
+  notes?: string;
+  createdAt: string;
+  updatedAt: string;
+}
+
+export interface GroupProfile {
+  id: string;
+  clientId: string;
+  groupType: GroupType;
+  estimatedSize?: number;
+  ageSpread?: string;
+  decisionStyle: GroupDecisionStyle;
+  roomArrangement?: string;
+  sharedBilling: boolean;
+  notes?: string;
+  createdAt: string;
+  updatedAt: string;
+  members?: GroupMember[];
+}
+
+export interface GroupProfilePayload {
+  groupType: GroupType;
+  estimatedSize?: number;
+  ageSpread?: string;
+  decisionStyle: GroupDecisionStyle;
+  roomArrangement?: string;
+  sharedBilling?: boolean;
+  notes?: string;
+}
+
+export interface GroupMemberPayload {
+  linkedClientId?: string;
+  name?: string;
+  email?: string;
+  departureCity?: string;
+  isOrganizer?: boolean;
+  notes?: string;
+}
+
+export function getGroupProfile(clientId: string) {
+  return apiFetch<GroupProfile | null>(`/clients/${clientId}/group-profile`);
+}
+
+export function upsertGroupProfile(clientId: string, payload: Partial<GroupProfilePayload>) {
+  return apiFetch<GroupProfile>(`/clients/${clientId}/group-profile`, {
+    method: 'PUT',
+    body: JSON.stringify(payload),
+  });
+}
+
+export function getGroupMembers(clientId: string) {
+  return apiFetch<GroupMember[]>(`/clients/${clientId}/group-members`);
+}
+
+export function addGroupMember(clientId: string, payload: GroupMemberPayload) {
+  return apiFetch<GroupMember>(`/clients/${clientId}/group-members`, {
+    method: 'POST',
+    body: JSON.stringify(payload),
+  });
+}
+
+export function updateGroupMember(clientId: string, memberId: string, payload: Partial<GroupMemberPayload>) {
+  return apiFetch<GroupMember>(`/clients/${clientId}/group-members/${memberId}`, {
+    method: 'PATCH',
+    body: JSON.stringify(payload),
+  });
+}
+
+export function removeGroupMember(clientId: string, memberId: string) {
+  return apiFetch<void>(`/clients/${clientId}/group-members/${memberId}`, { method: 'DELETE' });
+}
+
+// ---------------------------------------------------------------------------
+// Business Profile
+// ---------------------------------------------------------------------------
+
+export interface BusinessTraveler {
+  id: string;
+  businessProfileId: string;
+  linkedClientId?: string;
+  linkedClient?: LinkedClientSummary;
+  name: string;
+  email?: string;
+  role?: string;
+  seniorityTier?: string;
+  notes?: string;
+  createdAt: string;
+  updatedAt: string;
+}
+
+export interface BusinessProfile {
+  id: string;
+  clientId: string;
+  companyName: string;
+  industry?: string;
+  companySize?: string;
+  billingContactName?: string;
+  billingContactEmail?: string;
+  requiresPreApproval: boolean;
+  maxNightlyRateUsd?: number;
+  travelPolicyNotes?: string;
+  corporateAccountIds?: Record<string, string>;
+  createdAt: string;
+  updatedAt: string;
+  travelers?: BusinessTraveler[];
+}
+
+export interface BusinessProfilePayload {
+  companyName: string;
+  industry?: string;
+  companySize?: string;
+  billingContactName?: string;
+  billingContactEmail?: string;
+  requiresPreApproval?: boolean;
+  maxNightlyRateUsd?: number;
+  travelPolicyNotes?: string;
+  corporateAccountIds?: Record<string, string>;
+}
+
+export interface BusinessTravelerPayload {
+  linkedClientId?: string;
+  name?: string;
+  email?: string;
+  role?: string;
+  seniorityTier?: string;
+  notes?: string;
+}
+
+export function getBusinessProfile(clientId: string) {
+  return apiFetch<BusinessProfile | null>(`/clients/${clientId}/business-profile`);
+}
+
+export function upsertBusinessProfile(clientId: string, payload: Partial<BusinessProfilePayload>) {
+  return apiFetch<BusinessProfile>(`/clients/${clientId}/business-profile`, {
+    method: 'PUT',
+    body: JSON.stringify(payload),
+  });
+}
+
+export function getBusinessTravelers(clientId: string) {
+  return apiFetch<BusinessTraveler[]>(`/clients/${clientId}/business-travelers`);
+}
+
+export function addBusinessTraveler(clientId: string, payload: BusinessTravelerPayload) {
+  return apiFetch<BusinessTraveler>(`/clients/${clientId}/business-travelers`, {
+    method: 'POST',
+    body: JSON.stringify(payload),
+  });
+}
+
+export function updateBusinessTraveler(clientId: string, travelerId: string, payload: Partial<BusinessTravelerPayload>) {
+  return apiFetch<BusinessTraveler>(`/clients/${clientId}/business-travelers/${travelerId}`, {
+    method: 'PATCH',
+    body: JSON.stringify(payload),
+  });
+}
+
+export function removeBusinessTraveler(clientId: string, travelerId: string) {
+  return apiFetch<void>(`/clients/${clientId}/business-travelers/${travelerId}`, { method: 'DELETE' });
+}
+
+// ---------------------------------------------------------------------------
+// Intake Invitations
+// ---------------------------------------------------------------------------
+
+export type IntakeFormVariant =
+  | 'individual'
+  | 'group_member'
+  | 'group_organizer'
+  | 'business_policy'
+  | 'business_traveler';
+
+export type IntakeInvitationStatus = 'pending' | 'opened' | 'completed' | 'expired';
+
+export interface IntakeInvitation {
+  id: string;
+  token: string;
+  clientId: string;
+  intakeId?: string;
+  recipientEmail: string;
+  recipientName?: string;
+  formVariant: IntakeFormVariant;
+  groupSize?: number;
+  sentAt?: string;
+  openedAt?: string;
+  completedAt?: string;
+  expiresAt: string;
+  reminderSentAt?: string;
+  createdAt: string;
+  status: IntakeInvitationStatus;
+}
+
+export interface IntakeInvitationRecipient {
+  email: string;
+  name?: string;
+  formVariant: IntakeFormVariant;
+  groupSize?: number;
+}
+
+export function getIntakeInvitations(clientId: string) {
+  return apiFetch<IntakeInvitation[]>(`/clients/${clientId}/intake-invitations`);
+}
+
+export function sendIntakeInvitations(
+  clientId: string,
+  recipients: IntakeInvitationRecipient[],
+  expiresInDays = 14,
+) {
+  return apiFetch<IntakeInvitation[]>(`/clients/${clientId}/intake-invitations`, {
+    method: 'POST',
+    body: JSON.stringify({ recipients, expiresInDays }),
+  });
+}
+
+export function sendGroupBatchInvitations(
+  clientId: string,
+  payload: {
+    organizerEmail: string;
+    organizerName?: string;
+    members: Array<{ email: string; name?: string }>;
+    groupSize: number;
+    expiresInDays?: number;
+  },
+) {
+  return apiFetch<IntakeInvitation[]>(`/clients/${clientId}/intake-invitations/group-batch`, {
+    method: 'POST',
+    body: JSON.stringify(payload),
+  });
+}
+
+export function resendIntakeInvitation(tokenId: string) {
+  return apiFetch<IntakeInvitation>(`/intake-invitations/${tokenId}`, { method: 'POST' });
+}
+
+export function revokeIntakeInvitation(tokenId: string) {
+  return apiFetch<void>(`/intake-invitations/${tokenId}`, { method: 'DELETE' });
 }

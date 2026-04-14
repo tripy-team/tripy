@@ -49,13 +49,13 @@ export async function POST(request: Request) {
     if (!user) return errorResponse("Unauthorized", 401);
 
     const body = await request.json();
-    const { firstName, lastName, email, phone, dateOfBirth, notes, clientType, initialBalances } = body;
+    const { firstName, lastName, email, phone, dateOfBirth, notes, clientType, initialBalances, groupProfile, businessProfile } = body;
 
     if (!firstName || !lastName) {
       return errorResponse("First name and last name are required", 400);
     }
 
-    const validTypes = ["individual", "business"];
+    const validTypes = ["individual", "group", "business"];
     const type = validTypes.includes(clientType) ? clientType : "individual";
 
     const result = await prisma.$transaction(async (tx) => {
@@ -95,6 +95,37 @@ export async function POST(request: Request) {
             },
           });
         }
+      }
+
+      if (type === "group" && groupProfile) {
+        await tx.groupProfile.create({
+          data: {
+            clientId: client.id,
+            groupType: groupProfile.groupType || "leisure_friends",
+            estimatedSize: groupProfile.estimatedSize ? Number(groupProfile.estimatedSize) : null,
+            ageSpread: groupProfile.ageSpread || null,
+            decisionStyle: groupProfile.decisionStyle || "consensus",
+            roomArrangement: groupProfile.roomArrangement || null,
+            sharedBilling: groupProfile.sharedBilling ?? false,
+            notes: groupProfile.notes || null,
+          },
+        });
+      }
+
+      if (type === "business" && businessProfile) {
+        await tx.businessProfile.create({
+          data: {
+            clientId: client.id,
+            companyName: businessProfile.companyName || firstName,
+            industry: businessProfile.industry || null,
+            companySize: businessProfile.companySize || null,
+            billingContactName: businessProfile.billingContactName || null,
+            billingContactEmail: businessProfile.billingContactEmail || null,
+            requiresPreApproval: businessProfile.requiresPreApproval ?? false,
+            maxNightlyRateUsd: businessProfile.maxNightlyRateUsd ? Number(businessProfile.maxNightlyRateUsd) : null,
+            travelPolicyNotes: businessProfile.travelPolicyNotes || null,
+          },
+        });
       }
 
       return client;
