@@ -48,6 +48,7 @@ from .services import (
     image_service,
     email_service,
 )
+from .services.auth_service import AuthenticationError
 from .utils.analytics import (
     track_user_login,
     track_trip_created,
@@ -755,12 +756,15 @@ async def login(request: LoginRequest):
                 "expires_in": auth_result["ExpiresIn"],
             },
         }
-    except ValueError as e:
-        logger.warning(f"Login validation error: {str(e)}")
-        raise HTTPException(status_code=400, detail=str(e))
-    except Exception as e:
-        logger.error(f"Login error: {str(e)}")
+    except AuthenticationError as e:
+        logger.warning(f"Login failed for {request.email}: {str(e)}")
         raise HTTPException(status_code=401, detail=str(e))
+    except ValueError as e:
+        logger.error(f"Login config error: {str(e)}")
+        raise HTTPException(status_code=503, detail=f"Authentication service misconfigured: {str(e)}")
+    except Exception as e:
+        logger.error(f"Login infrastructure error: {str(e)}")
+        raise HTTPException(status_code=500, detail=str(e))
 
 
 @app.post("/auth/signup")

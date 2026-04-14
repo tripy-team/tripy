@@ -9,6 +9,11 @@ from src.config import USER_POOL_ID, USER_POOL_CLIENT_ID, AWS_REGION
 _cognito_client = None
 
 
+class AuthenticationError(Exception):
+    """Raised when authentication fails due to user credentials or account state (not infra)."""
+    pass
+
+
 def get_cognito_client():
     """Get or create Cognito client"""
     global _cognito_client
@@ -78,13 +83,14 @@ def authenticate_user(email: str, password: str) -> Dict[str, Any]:
         error_message = e.response.get("Error", {}).get("Message", "")
 
         if error_code == "NotAuthorizedException":
-            raise Exception("Invalid email or password")
+            raise AuthenticationError("Invalid email or password")
         elif error_code == "UserNotConfirmedException":
-            raise Exception("User account is not confirmed. Please check your email.")
+            raise AuthenticationError("User account is not confirmed. Please check your email.")
         elif error_code == "UserNotFoundException":
-            raise Exception("User not found")
+            raise AuthenticationError("Invalid email or password")
         else:
-            raise Exception(f"Authentication failed: {error_message}")
+            # Configuration / infrastructure errors (e.g. USER_PASSWORD_AUTH not enabled)
+            raise Exception(f"Authentication service error: {error_message}")
 
 
 def get_user_from_token(access_token: str) -> Dict[str, Any]:

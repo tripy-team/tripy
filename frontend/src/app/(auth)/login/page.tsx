@@ -49,11 +49,20 @@ function LoginForm() {
 			window.dispatchEvent(new Event('tripy_auth_change'));
 			router.push(redirectPath || "/dashboard");
 		} catch (err) {
-			let message = "Invalid email or password.";
+			let message = "Login failed. Please try again.";
 			if (err instanceof Error) {
-				const msg = err.message.toLowerCase();
-				if (msg.includes('not confirmed')) message = "Your account is not confirmed. Please check your email.";
-				else if (msg.includes('too many')) message = "Too many attempts. Please try again later.";
+				const msg = err.message;
+				const lower = msg.toLowerCase();
+				if (lower.includes('not confirmed')) {
+					message = "Your account is not confirmed. Please check your email.";
+				} else if (lower.includes('too many')) {
+					message = "Too many attempts. Please try again later.";
+				} else if (lower.includes('invalid email or password')) {
+					message = "Invalid email or password.";
+				} else {
+					// Show the actual error so infrastructure/config problems are visible
+					message = msg;
+				}
 			}
 			setErrors({ general: message });
 		} finally {
