@@ -3,8 +3,8 @@ import { createPublicKey, type JsonWebKey } from "crypto";
 import { prisma } from "./prisma";
 import type { UserRole } from "@/generated/prisma/client";
 
-const COGNITO_REGION = process.env.COGNITO_REGION || "us-east-1";
-const COGNITO_USER_POOL_ID = process.env.COGNITO_USER_POOL_ID || "";
+const COGNITO_REGION = process.env.NEXT_PUBLIC_COGNITO_REGION || process.env.COGNITO_REGION || "us-east-1";
+const COGNITO_USER_POOL_ID = process.env.NEXT_PUBLIC_COGNITO_USER_POOL_ID || process.env.COGNITO_USER_POOL_ID || "";
 const JWKS_URL = COGNITO_USER_POOL_ID
   ? `https://cognito-idp.${COGNITO_REGION}.amazonaws.com/${COGNITO_USER_POOL_ID}/.well-known/jwks.json`
   : "";

@@ -43,12 +43,14 @@ applications:
                 echo "GOOGLE_MAPS_API_KEY=$GOOGLE_MAPS_API_KEY" >> .env.production.local
               fi
 
-              # Cognito (server-side JWT verification)
+              # Cognito (server-side JWT verification — NEXT_PUBLIC_ prefix ensures Lambda runtime access)
               if [ -n "${COGNITO_USER_POOL_ID:-}" ]; then
                 echo "COGNITO_USER_POOL_ID=$COGNITO_USER_POOL_ID" >> .env.production.local
+                echo "NEXT_PUBLIC_COGNITO_USER_POOL_ID=$COGNITO_USER_POOL_ID" >> .env.production.local
               fi
               if [ -n "${COGNITO_REGION:-}" ]; then
                 echo "COGNITO_REGION=$COGNITO_REGION" >> .env.production.local
+                echo "NEXT_PUBLIC_COGNITO_REGION=$COGNITO_REGION" >> .env.production.local
               fi
 
               # CloudWatch RUM analytics
