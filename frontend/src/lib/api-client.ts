@@ -1542,6 +1542,18 @@ export async function searchTripFlights(tripId: string): Promise<TravelerFlightG
   return res.travelerFlights || [];
 }
 
+interface HotelSearchResult {
+  travelerHotels: TravelerHotelGroup[];
+}
+
+export async function searchTripHotels(tripId: string): Promise<TravelerHotelGroup[]> {
+  const res = await apiFetch<HotelSearchResult>(
+    `/trip-requests/${tripId}/search-hotels`,
+    { method: 'POST' },
+  );
+  return res.travelerHotels || [];
+}
+
 // ---------------------------------------------------------------------------
 // Trip Tradeoff Rankings
 // ---------------------------------------------------------------------------

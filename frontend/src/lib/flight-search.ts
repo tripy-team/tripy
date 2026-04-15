@@ -559,26 +559,19 @@ export async function searchCashFlights(
   const cabin = SERP_CABIN_MAP[params.cabinClass ?? "economy"] ?? 1;
   let results = await _fetchSerpFlights(params, cabin);
 
-  // Retry with economy cabin if higher cabin returned nothing
-  if (results.length === 0 && cabin > 1) {
-    console.log(`SerpAPI: retrying ${params.origin}->${params.destination} with economy (original cabin ${cabin} returned 0 results)`);
-    results = await _fetchSerpFlights(params, 1);
-  }
-
-  // Retry with individual airport codes if comma-separated codes returned nothing.
-  // Google Flights sometimes fails with multi-airport queries.
+  // Single retry path: if the primary query came back empty, pick the most
+  // likely fix (multi-airport fan-out OR cabin downgrade) but not both, to
+  // keep the total budget bounded under Amplify's CloudFront timeout.
   if (results.length === 0) {
     const origins = params.origin.split(",").map((s) => s.trim()).filter(Boolean);
     const dests = params.destination.split(",").map((s) => s.trim()).filter(Boolean);
-    const hasMultiOrigin = origins.length > 1;
-    const hasMultiDest = dests.length > 1;
-
-    if (hasMultiOrigin || hasMultiDest) {
-      console.log(`SerpAPI: retrying with individual airports (${origins[0]}->${dests[0]}) after multi-airport query returned 0 results`);
+    if (origins.length > 1 || dests.length > 1) {
       results = await _fetchSerpFlights(
         { ...params, origin: origins[0], destination: dests[0] },
         cabin > 1 ? 1 : cabin,
       );
+    } else if (cabin > 1) {
+      results = await _fetchSerpFlights(params, 1);
     }
   }
 
@@ -602,7 +595,7 @@ async function _fetchSerpFlights(
   url.searchParams.set("hl", "en");
 
   try {
-    const res = await fetch(url.toString(), { signal: AbortSignal.timeout(15000) });
+    const res = await fetch(url.toString(), { signal: AbortSignal.timeout(9000) });
     if (!res.ok) {
       console.error(`SerpAPI error: ${res.status} ${res.statusText}`);
       return [];

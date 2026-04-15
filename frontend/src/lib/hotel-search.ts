@@ -198,7 +198,7 @@ export async function searchCashHotels(
   url.searchParams.set("sort_by", String(SORT_MAP[params.sortBy ?? "price"] ?? 3));
 
   try {
-    const res = await fetch(url.toString(), { signal: AbortSignal.timeout(15_000) });
+    const res = await fetch(url.toString(), { signal: AbortSignal.timeout(9_000) });
     if (!res.ok) {
       console.error(`SerpAPI hotel error: ${res.status} ${res.statusText}`);
       return [];
@@ -291,7 +291,7 @@ export async function searchAwardHotels(
         guests: params.adults ?? 2,
         rooms: params.rooms ?? 1,
       }),
-      signal: AbortSignal.timeout(20_000),
+      signal: AbortSignal.timeout(12_000),
     });
 
     if (!res.ok) {

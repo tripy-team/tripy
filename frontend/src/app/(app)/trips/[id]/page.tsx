@@ -89,9 +89,11 @@ import {
   removeTripTraveler,
   getClients,
   searchTripFlights,
+  searchTripHotels,
   getClientPreferences,
 } from '@/lib/api-client';
 import type { ItineraryProgressUpdate, ClientPreference } from '@/lib/api-client';
+import type { CashHotelResult, AwardHotelResult } from '@/lib/hotel-search';
 import MultiAirportAutocomplete from '@/components/ui/MultiAirportAutocomplete';
 import type {
   TripRequest,
@@ -653,7 +655,13 @@ export default function TripDetailPage() {
             generatingItinerary && !completedSections.includes('hotels') ? (
               <SectionLoadingState icon={<Hotel className="h-8 w-8" />} title="Searching hotels..." />
             ) : (
-              <HotelsTab itinerary={itinerary} />
+              <HotelsTab
+                itinerary={itinerary}
+                tripId={tripId}
+                onHotelsUpdated={(hotels) => {
+                  setItinerary((prev) => prev ? { ...prev, travelerHotels: hotels } : prev);
+                }}
+              />
             )
           )}
           {activeTab === 'budget' && <BudgetTab itinerary={itinerary} trip={trip} />}
@@ -2002,22 +2010,100 @@ function CashFlightRow({ flight, isBest }: { flight: CashFlightOption; isBest: b
 }
 
 
-function HotelsTab({ itinerary }: { itinerary: GeneratedItinerary | null }) {
-  const travelerHotels = itinerary?.travelerHotels ?? [];
-  const hasScored = travelerHotels.length > 0 && travelerHotels.some((g) => g.stays.some((s) => (s.scoredOptions?.length ?? 0) > 0));
+function HotelsTab({
+  itinerary,
+  tripId,
+  onHotelsUpdated,
+}: {
+  itinerary: GeneratedItinerary | null;
+  tripId: string;
+  onHotelsUpdated?: (hotels: TravelerHotelGroup[]) => void;
+}) {
+  const [hotels, setHotels] = useState<TravelerHotelGroup[]>(itinerary?.travelerHotels ?? []);
+  const [loading, setLoading] = useState(false);
+  const [searchError, setSearchError] = useState<string | null>(null);
+  const didAutoSearch = useRef(false);
+
+  useEffect(() => {
+    if (itinerary?.travelerHotels) {
+      setHotels(itinerary.travelerHotels);
+    }
+  }, [itinerary?.travelerHotels]);
+
+  const hasScored = hotels.length > 0 && hotels.some((g) => g.stays.some((s) => (s.scoredOptions?.length ?? 0) > 0));
+  const hasRawOptions = hotels.length > 0 && hotels.some((g) => g.stays.some((s) => s.cashOptions.length > 0 || s.awardOptions.length > 0));
   const legacyHotels = itinerary?.hotels ?? [];
 
-  if (!itinerary || (!hasScored && legacyHotels.length === 0)) {
+  const handleSearchHotels = async () => {
+    setLoading(true);
+    setSearchError(null);
+    try {
+      const results = await searchTripHotels(tripId);
+      setHotels(results);
+      onHotelsUpdated?.(results);
+
+      const anyOptions = results.some((g) =>
+        g.stays.some((s) => s.cashOptions.length > 0 || s.awardOptions.length > 0 || (s.scoredOptions?.length ?? 0) > 0),
+      );
+      if (!anyOptions && results.length > 0) {
+        setSearchError(
+          'Hotel search completed but no pricing was found for these destinations and dates. ' +
+          'Try adjusting the dates or destinations, then refresh.',
+        );
+      }
+    } catch (err) {
+      setSearchError(err instanceof Error ? err.message : 'Failed to search hotels');
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  useEffect(() => {
+    if (!hasScored && !hasRawOptions && !didAutoSearch.current && !loading) {
+      didAutoSearch.current = true;
+      handleSearchHotels();
+    }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []);
+
+  if (!hasScored && !hasRawOptions && legacyHotels.length === 0) {
     return (
-      <EmptyTabState
-        icon={<Hotel className="h-8 w-8" />}
-        title="No hotel recommendations yet"
-        subtitle="Generate a trip plan to get personalized hotel recommendations with pricing, points options, and highlights."
-      />
+      <div className="space-y-5">
+        <div className="flex flex-col items-center justify-center rounded-xl border border-dashed border-slate-300 bg-slate-50/50 py-16">
+          <div className="mb-3 rounded-xl bg-slate-100 p-4 text-slate-400">
+            <Hotel className="h-8 w-8" />
+          </div>
+          <p className="text-sm font-medium text-slate-600">No hotel recommendations yet</p>
+          <p className="mt-1 mb-4 max-w-sm text-center text-xs text-slate-400">
+            Search for real hotel pricing from Google Hotels and award availability.
+          </p>
+          <button
+            onClick={handleSearchHotels}
+            disabled={loading}
+            className="flex items-center gap-2 rounded-lg bg-purple-600 px-5 py-2.5 text-sm font-semibold text-white shadow-sm transition hover:bg-purple-700 disabled:opacity-50"
+          >
+            {loading ? (
+              <>
+                <Loader2 className="h-4 w-4 animate-spin" />
+                Searching Hotels…
+              </>
+            ) : (
+              <>
+                <Search className="h-4 w-4" />
+                Search Hotels
+              </>
+            )}
+          </button>
+          {searchError && (
+            <p className="mt-3 text-xs text-red-600">{searchError}</p>
+          )}
+        </div>
+      </div>
     );
   }
 
   if (hasScored) {
+    const travelerHotels = hotels;
     const stays = travelerHotels[0]?.stays ?? [];
     return (
       <div className="space-y-6">
@@ -2047,12 +2133,108 @@ function HotelsTab({ itinerary }: { itinerary: GeneratedItinerary | null }) {
     );
   }
 
+  if (hasRawOptions) {
+    const stays = hotels[0]?.stays ?? [];
+    return (
+      <div className="space-y-6">
+        <div className="flex items-center justify-between">
+          <p className="text-xs text-slate-500">
+            Showing live pricing from Google Hotels. Generate the full itinerary for AI-ranked recommendations.
+          </p>
+          <button
+            onClick={handleSearchHotels}
+            disabled={loading}
+            className="flex items-center gap-1.5 rounded-md border border-slate-200 bg-white px-3 py-1.5 text-xs font-medium text-slate-700 shadow-sm hover:bg-slate-50 disabled:opacity-50"
+          >
+            {loading ? <Loader2 className="h-3 w-3 animate-spin" /> : <Search className="h-3 w-3" />}
+            Refresh
+          </button>
+        </div>
+        {stays.map((stay, si) => {
+          const cash = (stay.cashOptions as CashHotelResult[]) ?? [];
+          const award = (stay.awardOptions as AwardHotelResult[]) ?? [];
+          if (cash.length === 0 && award.length === 0) return null;
+          return (
+            <div key={si} className="space-y-3">
+              <div className="flex items-center gap-2">
+                <Hotel className="h-4 w-4 text-purple-600" />
+                <h2 className="text-sm font-semibold text-slate-900">
+                  {stay.destination} · {formatDateShort(stay.checkIn)} – {formatDateShort(stay.checkOut)} ({stay.nights} nights)
+                </h2>
+              </div>
+              {cash.slice(0, 8).map((h, hi) => (
+                <RawHotelCard key={`c-${hi}`} hotel={h} nights={stay.nights} />
+              ))}
+              {award.length > 0 && (
+                <div className="mt-2 text-[11px] font-semibold uppercase tracking-wide text-amber-700">
+                  Award availability
+                </div>
+              )}
+              {award.slice(0, 5).map((h, hi) => (
+                <div key={`a-${hi}`} className="rounded-lg border border-amber-200 bg-amber-50/40 p-3">
+                  <p className="text-sm font-semibold text-slate-900">{h.name}</p>
+                  <p className="text-xs text-amber-800">
+                    {h.pointsTotal.toLocaleString()} pts total · {h.pointsPerNight.toLocaleString()}/night · {h.programDisplayName}
+                  </p>
+                  {h.surcharge > 0 && (
+                    <p className="text-[11px] text-amber-700">+ ${h.surcharge.toLocaleString()} in taxes/fees</p>
+                  )}
+                </div>
+              ))}
+            </div>
+          );
+        })}
+      </div>
+    );
+  }
+
   return (
     <div className="space-y-4">
       <h2 className="text-sm font-semibold text-slate-900">Recommended Hotels</h2>
       {legacyHotels.map((hotel, i) => (
         <LegacyHotelCard key={i} hotel={hotel} />
       ))}
+    </div>
+  );
+}
+
+function RawHotelCard({ hotel, nights }: { hotel: CashHotelResult; nights: number }) {
+  return (
+    <div className="flex items-start gap-3 rounded-xl border border-slate-200 bg-white p-4 shadow-sm">
+      {hotel.thumbnailUrl && (
+        // eslint-disable-next-line @next/next/no-img-element
+        <img src={hotel.thumbnailUrl} alt="" className="h-16 w-16 flex-shrink-0 rounded-lg object-cover" />
+      )}
+      <div className="min-w-0 flex-1">
+        <div className="flex items-start justify-between gap-3">
+          <div className="min-w-0">
+            <p className="truncate text-sm font-semibold text-slate-900">{hotel.name}</p>
+            <p className="truncate text-[11px] text-slate-500">
+              {hotel.neighborhood ? `${hotel.neighborhood} · ` : ''}
+              {hotel.starRating ? `${hotel.starRating}★` : ''}
+              {hotel.overallRating != null ? ` · ${hotel.overallRating} rating` : ''}
+            </p>
+          </div>
+          <div className="text-right">
+            {hotel.cashTotal != null && (
+              <p className="text-sm font-bold text-slate-900">${hotel.cashTotal.toLocaleString()}</p>
+            )}
+            <p className="text-[11px] text-slate-500">
+              ${hotel.cashPerNight.toLocaleString()}/night · {nights}n
+            </p>
+          </div>
+        </div>
+        {hotel.bookingUrl && (
+          <a
+            href={hotel.bookingUrl}
+            target="_blank"
+            rel="noopener noreferrer"
+            className="mt-2 inline-flex items-center gap-1 text-[11px] font-medium text-blue-600 hover:text-blue-700"
+          >
+            View on Google Hotels →
+          </a>
+        )}
+      </div>
     </div>
   );
 }
