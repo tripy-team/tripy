@@ -1006,14 +1006,31 @@ export interface TravelerSearchInput {
   loyaltyBalances?: LoyaltyBalance[];
 }
 
+export interface MultiCityLeg {
+  leg: number;
+  from: string[];
+  to: string[];
+  date: string;
+}
+
 export async function searchFlightsForTravelers(
   travelers: TravelerSearchInput[],
   departureDate: string,
   returnDate: string | undefined,
   cabinClass: string,
   preferences?: FlightPreferences,
+  multiCityLegs?: MultiCityLeg[] | null,
 ): Promise<TravelerFlightGroup[]> {
   const tripCabin = normalizeCabin(cabinClass);
+
+  if (multiCityLegs && multiCityLegs.length > 0) {
+    return searchMultiCityFlights(
+      travelers,
+      multiCityLegs,
+      tripCabin,
+      preferences,
+    );
+  }
 
   // Build the union of all travelers' loyalty balances to determine which
   // airline award programs are reachable (directly or via bank transfer).
@@ -1135,6 +1152,54 @@ export async function searchFlightsForTravelers(
   }
 
   return groups;
+}
+
+async function searchMultiCityFlights(
+  travelers: TravelerSearchInput[],
+  legs: MultiCityLeg[],
+  tripCabin: "economy" | "premium_economy" | "business" | "first",
+  preferences?: FlightPreferences,
+): Promise<TravelerFlightGroup[]> {
+  const allBalances = travelers.flatMap((t) => t.loyaltyBalances ?? []);
+  const reachable = allBalances.length > 0
+    ? computeReachablePrograms(allBalances)
+    : null;
+
+  const legSearches = await Promise.all(
+    legs.map(async (leg) => {
+      const from = (leg.from ?? []).filter(Boolean);
+      const to = (leg.to ?? []).filter(Boolean);
+      if (!from.length || !to.length) {
+        return { leg, cash: [], award: [] };
+      }
+      const originCash = from.join(",");
+      const destCash = to.join(",");
+      const originAward = pickCommercialAirport(from);
+      const destAward = pickCommercialAirport(to);
+      const [cash, award] = await Promise.all([
+        searchCashFlights({ origin: originCash, destination: destCash, date: leg.date, cabinClass: tripCabin }),
+        searchAwardFlights({ origin: originAward, destination: destAward, date: leg.date, cabinClass: tripCabin }, reachable),
+      ]);
+      const ranked = rankRouteFlights(cash, award, preferences);
+      return { leg, cash: ranked.cash, award: ranked.award, originAward, destAward };
+    }),
+  );
+
+  const segments: FlightSegment[] = legSearches.map(({ leg, cash, award, originAward, destAward }) => ({
+    segmentLabel: `Leg ${leg.leg}: ${(leg.from ?? []).join("/")} → ${(leg.to ?? []).join("/")}`,
+    origin: originAward ?? (leg.from?.[0] ?? ""),
+    destination: destAward ?? (leg.to?.[0] ?? ""),
+    date: leg.date,
+    cashOptions: cash,
+    awardOptions: award,
+  }));
+
+  return travelers.map((traveler) => ({
+    travelerId: traveler.travelerId,
+    travelerName: traveler.travelerName,
+    clientId: traveler.clientId,
+    segments,
+  }));
 }
 
 // Private/GA airports that lack commercial service on Google Flights / award APIs

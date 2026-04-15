@@ -4,6 +4,7 @@ import {
   searchFlightsForTravelers,
   type TravelerSearchInput,
   type FlightPreferences,
+  type MultiCityLeg,
 } from "@/lib/flight-search";
 import type { Prisma } from "@/generated/prisma/client";
 
@@ -47,6 +48,16 @@ export async function POST(
     const returnDate = trip.returnDate
       ? trip.returnDate.toISOString().split("T")[0]
       : undefined;
+
+    let multiCityLegs: MultiCityLeg[] | null = null;
+    const multiCityMatch = trip.notes?.match(/\[MULTI_CITY:(\[.*?\])\]/);
+    if (multiCityMatch) {
+      try {
+        multiCityLegs = JSON.parse(multiCityMatch[1]) as MultiCityLeg[];
+      } catch {
+        multiCityLegs = null;
+      }
+    }
 
     const travelerInputs: TravelerSearchInput[] = [];
     const clientBalances = (trip.client?.loyaltyBalances ?? []).map((b) => ({
@@ -110,7 +121,10 @@ export async function POST(
         }
       : undefined;
 
-    console.log(`[FlightSearch] Trip ${id}: ${tripOrigins.join(",")} → ${tripDests.join(",")} on ${departureDate}${returnDate ? ` – ${returnDate}` : ""}, cabin=${trip.cabinPreference ?? "economy"}, travelers=${travelerInputs.length}, SERPAPI_KEY=${process.env.SERPAPI_KEY ? `set(${process.env.SERPAPI_KEY.length}chars)` : "MISSING"}`);
+    const routeDesc = multiCityLegs
+      ? multiCityLegs.map((l) => `${l.from.join("/")}→${l.to.join("/")}@${l.date}`).join(" | ")
+      : `${tripOrigins.join(",")} → ${tripDests.join(",")} on ${departureDate}${returnDate ? ` – ${returnDate}` : ""}`;
+    console.log(`[FlightSearch] Trip ${id}: ${routeDesc}, cabin=${trip.cabinPreference ?? "economy"}, travelers=${travelerInputs.length}, multiCity=${!!multiCityLegs}, SERPAPI_KEY=${process.env.SERPAPI_KEY ? `set(${process.env.SERPAPI_KEY.length}chars)` : "MISSING"}`);
 
     const travelerFlights = await searchFlightsForTravelers(
       travelerInputs,
@@ -118,6 +132,7 @@ export async function POST(
       returnDate,
       trip.cabinPreference ?? "economy",
       flightPrefs,
+      multiCityLegs,
     );
 
     const totalCash = travelerFlights.reduce((sum, g) => sum + g.segments.reduce((s2, seg) => s2 + seg.cashOptions.length, 0), 0);
