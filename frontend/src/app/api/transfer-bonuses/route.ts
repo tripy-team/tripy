@@ -7,11 +7,12 @@ export async function GET(request: Request) {
     if (!user) return errorResponse("Unauthorized", 401);
 
     const now = new Date();
+    const maxEndsAt = new Date(now.getTime() + 365 * 24 * 60 * 60 * 1000);
 
     const bonuses = await prisma.transferBonus.findMany({
       where: {
         isActive: true,
-        endsAt: { gte: now },
+        endsAt: { gte: now, lte: maxEndsAt },
       },
       include: {
         fromProgram: true,

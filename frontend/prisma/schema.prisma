@@ -525,6 +525,8 @@ model ClientIntake {
   dealbreakers        Json?
   preferredAirlines   Json?                @map("preferred_airlines")
   avoidedAirlines     Json?                @map("avoided_airlines")
+  preferredAccommodationBrands Json?       @map("preferred_accommodation_brands")
+  accommodationDealbreakers    Json?       @map("accommodation_dealbreakers")
   notes               String?
   completedAt         DateTime?            @map("completed_at")
   createdAt           DateTime             @default(now()) @map("created_at")
@@ -1028,6 +1030,7 @@ enum IntakeFormVariant {
   business_policy
   business_traveler
   custom_form
+  profile_link
 }
 
 enum IntakeFormStatus {
@@ -1182,6 +1185,7 @@ enum InferenceCategory {
   dietary_restriction
   experience_interest
   accessibility_need
+  accommodation_preference
 }
 
 enum BudgetSensitivity {

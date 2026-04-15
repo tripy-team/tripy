@@ -584,6 +584,19 @@ export async function applyInferenceToProfile(
       }
       break;
     }
+    case "accommodation_preference": {
+      const tokens = (evidence.tokens as string[]) ?? [];
+      if (tokens.length > 0) {
+        const existing = await prisma.clientPreference.findUnique({
+          where: { clientId: inference.clientId },
+          select: { preferredHotelTypes: true },
+        });
+        const current = (existing?.preferredHotelTypes as string[] | null) ?? [];
+        const merged = Array.from(new Set([...current, ...tokens]));
+        updates.preferredHotelTypes = merged;
+      }
+      break;
+    }
     default:
       break;
   }

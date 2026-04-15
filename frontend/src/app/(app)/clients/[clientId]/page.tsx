@@ -2567,6 +2567,8 @@ export default function ClientDetailPage() {
           clientId={clientId}
           intakes={intakes}
           setIntakes={setIntakes}
+          trips={trips}
+          onTripCreated={(trip) => setTrips((prev) => [trip, ...prev])}
         />
       )}
 
@@ -2825,6 +2827,11 @@ const CATEGORY_ICONS: Record<string, string> = {
   payment_style: 'Payment',
   destination_pattern: 'Destination',
   trip_style: 'Style',
+  dining_preference: 'Dining',
+  dietary_restriction: 'Dietary',
+  experience_interest: 'Interest',
+  accessibility_need: 'Accessibility',
+  accommodation_preference: 'Accommodation brand',
 };
 
 function getConfidenceLevel(confidence: number): 'high' | 'medium' | 'low' {

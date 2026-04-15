@@ -112,19 +112,14 @@ function parseDate(raw: string): Date | null {
   const cleaned = raw.trim().replace(/\.$/, "");
   const d = new Date(cleaned);
   if (!isNaN(d.getTime())) {
-    // "April 30" without a year defaults to 2001 in V8; fix by
-    // checking if the input lacked a 4-digit year and attaching the
-    // current (or next) year so the date lands in the future.
+    // TPG only lists month/day (no year). Always pin to the current year —
+    // per spec, any resulting date before today is treated as outdated and
+    // rejected downstream rather than rolled into next year.
     if (!/\d{4}/.test(cleaned)) {
-      const now = new Date();
-      d.setFullYear(now.getFullYear());
-      if (d.getTime() < now.getTime() - 7 * 86400000) {
-        d.setFullYear(now.getFullYear() + 1);
-      }
+      d.setFullYear(new Date().getFullYear());
     }
     return d;
   }
-  // Try appending the current year for formats like "April 30"
   const withYear = `${cleaned}, ${new Date().getFullYear()}`;
   const d2 = new Date(withYear);
   if (!isNaN(d2.getTime())) return d2;
@@ -269,11 +264,33 @@ export async function POST(request: Request) {
     const scraped = parseTPGHtml(html);
 
     const now = new Date();
+    const maxEndsAt = new Date(now.getTime() + 365 * 24 * 60 * 60 * 1000);
     let synced = 0;
     let skipped = 0;
+    let rejected = 0;
     const keepIds: string[] = [];
 
-    for (const bonus of scraped) {
+    const validBonuses = scraped.filter((b) => {
+      if (!b.endsAt) {
+        rejected++;
+        return false;
+      }
+      if (b.endsAt.getTime() < now.getTime()) {
+        rejected++;
+        return false;
+      }
+      if (b.endsAt.getTime() > maxEndsAt.getTime()) {
+        rejected++;
+        return false;
+      }
+      if (b.startsAt && b.startsAt.getTime() > maxEndsAt.getTime()) {
+        rejected++;
+        return false;
+      }
+      return true;
+    });
+
+    for (const bonus of validBonuses) {
       const fromProgram = await findOrCreateProgram(
         bonus.fromProgramCode,
         bonus.fromDisplay,
@@ -284,8 +301,7 @@ export async function POST(request: Request) {
       );
 
       const startsAt = bonus.startsAt ?? now;
-      const endsAt =
-        bonus.endsAt ?? new Date(now.getTime() + 90 * 24 * 60 * 60 * 1000);
+      const endsAt = bonus.endsAt!;
 
       const existing = await prisma.transferBonus.findFirst({
         where: {
@@ -323,11 +339,16 @@ export async function POST(request: Request) {
       synced++;
     }
 
-    // Deactivate any bonuses that are no longer on the current TPG page
+    // Deactivate any bonuses that are no longer on the current TPG page,
+    // or that are expired / more than a year from now.
     const deactivated = await prisma.transferBonus.updateMany({
       where: {
         isActive: true,
-        id: { notIn: keepIds },
+        OR: [
+          { id: { notIn: keepIds } },
+          { endsAt: { lt: now } },
+          { endsAt: { gt: maxEndsAt } },
+        ],
       },
       data: { isActive: false },
     });
@@ -335,10 +356,12 @@ export async function POST(request: Request) {
     return json({
       success: true,
       scraped: scraped.length,
+      validated: validBonuses.length,
+      rejected,
       synced,
       skipped,
       deactivated: deactivated.count,
-      message: `Scraped ${scraped.length} bonuses from TPG. ${synced} new, ${skipped} already existed, ${deactivated.count} stale removed.`,
+      message: `Scraped ${scraped.length} bonuses from TPG (${rejected} rejected as past/>1yr). ${synced} new, ${skipped} already existed, ${deactivated.count} stale removed.`,
     });
   } catch (error) {
     console.error("TPG scrape error:", error);

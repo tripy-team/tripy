@@ -30,6 +30,8 @@ const INTAKE_FIELDS = [
   "dealbreakers",
   "preferredAirlines",
   "avoidedAirlines",
+  "preferredAccommodationBrands",
+  "accommodationDealbreakers",
   "notes",
   "isTemplate",
   "templateName",

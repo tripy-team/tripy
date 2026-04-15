@@ -54,3 +54,4 @@ class IntakeParseResponse(BaseModel):
     result: TripIntakeResult
     client_context_applied: bool = False
     suggestions: List[str] = []
+    preferences_updated: bool = False

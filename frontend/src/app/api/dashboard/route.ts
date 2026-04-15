@@ -8,6 +8,7 @@ export async function GET(request: Request) {
 
     const orgId = user.organizationId;
     const now = new Date();
+    const maxEndsAt = new Date(now.getTime() + 365 * 24 * 60 * 60 * 1000);
 
     const [
       totalClients,
@@ -23,7 +24,7 @@ export async function GET(request: Request) {
         where: {
           isActive: true,
           startsAt: { lte: now },
-          endsAt: { gte: now },
+          endsAt: { gte: now, lte: maxEndsAt },
         },
         include: { fromProgram: true, toProgram: true },
         orderBy: { endsAt: "asc" },

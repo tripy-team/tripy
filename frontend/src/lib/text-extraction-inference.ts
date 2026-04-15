@@ -35,6 +35,10 @@ const EXTRACTABLE_CATEGORIES: InferenceCategory[] = [
   "airline_preference",
   "nonstop_preference",
   "trip_style",
+  "hotel_tier",
+  "budget_behavior",
+  "destination_pattern",
+  "accommodation_preference",
 ];
 
 // ---------------------------------------------------------------------------
@@ -72,9 +76,25 @@ You will receive one or more (fieldName, text) pairs. For each, identify concret
 - dietary_restriction ("vegetarian", "gluten-free", "halal", "no shellfish")
 - experience_interest (activities/interests: "hiking", "museums", "scuba diving")
 - accessibility_need ("wheelchair", "mobility issues", "limited walking")
-- airline_preference (specific airline names)
+- airline_preference (specific airline brand names: "united", "singapore airlines", "delta")
 - nonstop_preference (mentions of nonstop/direct/no-layover)
-- trip_style ("luxury", "budget", "family-oriented", "romantic")
+- trip_style ("luxury", "budget", "family-oriented", "romantic", "adventurous")
+- hotel_tier (accommodation tier/category words: "luxury", "boutique", "budget", "5-star", "all-inclusive")
+- accommodation_preference (specific hotel/chain/brand names OR category phrases tied to a brand experience: "hyatt", "four seasons", "aman resorts", "marriott", "motels", "casino resorts", "budget hotels")
+- budget_behavior (explicit budget posture: "price-conscious", "splurge for experiences", "avoids luxury markup")
+- destination_pattern (recurring destination or region preferences: "asia", "caribbean winters")
+
+Known fieldName signals — use these to bias interpretation:
+- preferredAccommodationBrands: POSITIVE accommodation_preference signals. Emit one accommodation_preference inference per distinct brand or category (e.g. "hyatt", "budget hotels", "four seasons"). If the token is clearly a tier phrase rather than a brand ("5-star"), use hotel_tier instead.
+- accommodationDealbreakers: NEGATIVE accommodation_preference signals — still emit accommodation_preference inferences but phrase the description as avoidance ("Client avoids motels") and prefix the label with "Avoids:". Confidence should reflect the negation.
+- preferredAirlines / avoidedAirlines: airline_preference (use description to note preference vs avoidance).
+- diningPreferences: dining_preference + occasionally dietary_restriction.
+- accessibilityNeeds: accessibility_need.
+- dietaryNeeds: dietary_restriction.
+- desiredExperiences: experience_interest + occasionally trip_style.
+- notes: any category that clearly fits.
+
+Handle GENERAL category statements (e.g. "budget hotels", "boutique hotels", "luxury resorts") as first-class tokens — do not require a specific brand name. These still become hotel_tier inferences with the category phrase as the token.
 
 Output strict JSON matching this shape exactly:
 {"inferences": [{"category": "<enum>", "label": "<short human label>", "description": "<one sentence explaining what was detected>", "confidence": <0.0-1.0>, "tokens": ["<normalized token>", ...], "sourceField": "<fieldName from input>"}]}
@@ -82,7 +102,7 @@ Output strict JSON matching this shape exactly:
 Rules:
 - Only output inferences you are reasonably confident about (>= 0.5).
 - Group related tokens into one inference per category+field (e.g. all cuisines from a dining field → one dining_preference inference with multiple tokens).
-- Normalize tokens: lowercase, no trailing punctuation, canonical form ("veggie" → "vegetarian").
+- Normalize tokens: lowercase, no trailing punctuation, canonical form ("veggie" → "vegetarian", "four seasons hotels" → "four seasons").
 - If no signals found, return {"inferences": []}.
 - Do not invent tokens not grounded in the text.
 - Do not output prose, markdown, or anything outside the JSON object.`;

@@ -21,20 +21,159 @@ import {
   Plus,
   X,
   ChevronDown,
+  Share2,
+  Mail,
 } from 'lucide-react';
 import type { Client, ClientIntake } from '@/lib/api-client';
-import {
-  TextInputWithExtraction,
-  type ConfirmedToken,
-} from '@/components/TextInputWithExtraction';
+import { type ConfirmedToken } from '@/components/TextInputWithExtraction';
 
 const EXTRACTABLE_FIELDS = [
   'diningPreferences',
   'accessibilityNeeds',
   'dietaryNeeds',
   'notes',
+  'preferredAccommodationBrands',
+  'accommodationDealbreakers',
+  'desiredExperiences',
 ] as const;
 type ExtractableField = (typeof EXTRACTABLE_FIELDS)[number];
+
+const ARRAY_EXTRACTABLE_FIELDS: ReadonlySet<ExtractableField> = new Set([
+  'preferredAccommodationBrands',
+  'accommodationDealbreakers',
+  'desiredExperiences',
+]);
+
+const CHIP_DELIMITER = '\n';
+
+function splitChips(value: string): string[] {
+  if (!value) return [];
+  return value
+    .split(CHIP_DELIMITER)
+    .map((s) => s.trim())
+    .filter(Boolean);
+}
+
+function joinChips(chips: string[]): string {
+  return chips.join(CHIP_DELIMITER);
+}
+
+const CHIP_TONES = {
+  slate: {
+    chip: 'border-slate-200 bg-slate-50 text-slate-700',
+    x: 'text-slate-400 hover:bg-slate-100 hover:text-slate-600',
+  },
+  blue: {
+    chip: 'border-blue-100 bg-blue-50 text-blue-700',
+    x: 'text-blue-400 hover:bg-blue-50 hover:text-blue-600',
+  },
+  amber: {
+    chip: 'border-amber-100 bg-amber-50 text-amber-700',
+    x: 'text-amber-400 hover:bg-amber-50 hover:text-amber-600',
+  },
+  red: {
+    chip: 'border-red-100 bg-red-50 text-red-700',
+    x: 'text-red-400 hover:bg-red-50 hover:text-red-600',
+  },
+};
+
+function StringChipInput({
+  value,
+  onChange,
+  placeholder,
+  tone = 'slate',
+  inputCls,
+}: {
+  value: string;
+  onChange: (v: string) => void;
+  placeholder: string;
+  tone?: keyof typeof CHIP_TONES;
+  inputCls: string;
+}) {
+  const chips = splitChips(value);
+  const palette = CHIP_TONES[tone];
+  return (
+    <>
+      {chips.length > 0 && (
+        <div className="space-y-2">
+          {chips.map((item, idx) => (
+            <div key={`${idx}-${item}`} className="flex items-start gap-2">
+              <span
+                className={`flex-1 whitespace-pre-wrap rounded-lg border px-3 py-2 text-sm ${palette.chip}`}
+              >
+                {item}
+              </span>
+              <button
+                type="button"
+                onClick={() => onChange(joinChips(chips.filter((_, i) => i !== idx)))}
+                className={`rounded p-1 ${palette.x}`}
+              >
+                ×
+              </button>
+            </div>
+          ))}
+        </div>
+      )}
+      <input
+        type="text"
+        placeholder={placeholder}
+        className={`mt-2 ${inputCls}`}
+        onKeyDown={(e) => {
+          if (e.key === 'Enter') {
+            e.preventDefault();
+            const val = (e.target as HTMLInputElement).value.trim();
+            if (val) {
+              onChange(joinChips([...chips, val]));
+              (e.target as HTMLInputElement).value = '';
+            }
+          }
+        }}
+      />
+      <p className="mt-1 inline-flex items-center gap-1 text-xs text-slate-400">
+        <kbd className="rounded border border-slate-200 bg-slate-50 px-1 font-mono text-[10px] text-slate-500">
+          Enter
+        </kbd>
+        to chipify — type a phrase or full sentence, then press Enter
+      </p>
+    </>
+  );
+}
+
+function ExtractedTokensRow({
+  tokens,
+  extracting,
+  pendingCount,
+}: {
+  tokens: ConfirmedToken[] | undefined;
+  extracting: boolean;
+  pendingCount: number;
+}) {
+  if ((!tokens || tokens.length === 0) && !extracting && pendingCount === 0) return null;
+  return (
+    <div className="mt-2 flex flex-wrap items-center gap-1.5">
+      <span className="inline-flex items-center gap-1 text-[11px] font-medium text-slate-500">
+        <Sparkles className="h-3 w-3" />
+        {extracting ? 'AI is reading…' : 'Learned'}
+      </span>
+      {(tokens ?? []).map((t) => (
+        <span
+          key={t.token}
+          title={`Saved as ${t.category.replace(/_/g, ' ')}`}
+          className="inline-flex items-center gap-1 rounded-full bg-blue-50 px-2 py-0.5 text-[11px] font-medium text-blue-700 ring-1 ring-blue-200"
+        >
+          <Check className="h-3 w-3" />
+          {t.token}
+        </span>
+      ))}
+      {extracting && (
+        <span className="inline-flex items-center gap-1 rounded-full bg-slate-100 px-2 py-0.5 text-[11px] font-medium text-slate-600 ring-1 ring-slate-200">
+          <Loader2 className="h-3 w-3 animate-spin" />
+          analyzing
+        </span>
+      )}
+    </div>
+  );
+}
 
 // ---------------------------------------------------------------------------
 // Constants
@@ -139,6 +278,13 @@ interface IntakeFormProps {
   onComplete?: (data: Record<string, unknown>) => Promise<void>;
   onAnalyzed?: () => void;
   onCancel: () => void;
+  /**
+   * When set, the form runs in public/client-facing mode behind a share
+   * token. All network calls go to `/api/intake/profile-fill/{token}/*`
+   * instead of `/api/clients/{id}/*`, and advisor-only UI (Share, Analyze,
+   * Cancel, sidebar navigation) is hidden.
+   */
+  publicMode?: { token: string };
 }
 
 interface StepDef {
@@ -317,18 +463,20 @@ type FormData = Record<string, unknown>;
 function toFormData(intake?: Partial<ClientIntake>): FormData {
   if (!intake) return {};
   const d: FormData = {};
-  const keys: (keyof ClientIntake)[] = [
+  const keys: string[] = [
     'cabinPreference', 'hotelStyles', 'loyaltyNotes',
     'accessibilityNeeds', 'dietaryNeeds',
     'travelPace', 'layoverTolerance', 'luxuryPreference',
     'familyFriendly', 'travelerCount', 'childrenCount', 'childrenAges',
     'desiredExperiences', 'dealbreakers', 'preferredAirlines', 'avoidedAirlines',
     'departureAirports',
+    'preferredAccommodationBrands', 'accommodationDealbreakers',
     'notes', 'isTemplate', 'templateName',
   ];
+  const intakeRec = intake as Record<string, unknown>;
   for (const k of keys) {
-    if (intake[k] !== undefined && intake[k] !== null) {
-      d[k] = intake[k];
+    if (intakeRec[k] !== undefined && intakeRec[k] !== null) {
+      d[k] = intakeRec[k];
     }
   }
   return d;
@@ -339,6 +487,7 @@ function toFormData(intake?: Partial<ClientIntake>): FormData {
 // ---------------------------------------------------------------------------
 
 export function IntakeForm({
+  publicMode,
   client,
   initialData,
   intakeId,
@@ -370,6 +519,9 @@ export function IntakeForm({
     accessibilityNeeds: [],
     dietaryNeeds: [],
     notes: [],
+    preferredAccommodationBrands: [],
+    accommodationDealbreakers: [],
+    desiredExperiences: [],
   });
   const [dirtyExtractFields, setDirtyExtractFields] = useState<Set<ExtractableField>>(
     new Set(),
@@ -379,6 +531,9 @@ export function IntakeForm({
     accessibilityNeeds: '',
     dietaryNeeds: '',
     notes: '',
+    preferredAccommodationBrands: '',
+    accommodationDealbreakers: '',
+    desiredExperiences: '',
   });
   const [extractingFields, setExtractingFields] = useState<Set<ExtractableField>>(
     new Set(),
@@ -390,6 +545,14 @@ export function IntakeForm({
   const [chatLoading, setChatLoading] = useState(false);
   const [chatStarted, setChatStarted] = useState(false);
   const chatBottomRef = useRef<HTMLDivElement>(null);
+
+  // Share dialog state
+  const [shareOpen, setShareOpen] = useState(false);
+  const [shareEmail, setShareEmail] = useState<string>(client.email || '');
+  const [sharing, setSharing] = useState(false);
+  const [shareStatus, setShareStatus] = useState<
+    { kind: 'idle' } | { kind: 'ok'; to: string } | { kind: 'error'; msg: string }
+  >({ kind: 'idle' });
 
   const set = useCallback((key: string, value: unknown) => {
     setForm((f) => ({ ...f, [key]: value }));
@@ -414,6 +577,15 @@ export function IntakeForm({
     [set],
   );
 
+  const markArrayExtractableDirty = useCallback((key: ExtractableField) => {
+    setDirtyExtractFields((prev) => {
+      if (prev.has(key)) return prev;
+      const next = new Set(prev);
+      next.add(key);
+      return next;
+    });
+  }, []);
+
   const toggleArrayItem = useCallback((key: string, item: string) => {
     setForm((f) => {
       const arr = (f[key] as string[]) || [];
@@ -432,18 +604,9 @@ export function IntakeForm({
     } catch {}
     return [];
   });
-  const [loyaltyFreeText, setLoyaltyFreeText] = useState<string>(() => {
-    try {
-      const parsed = JSON.parse((initialData?.loyaltyNotes as string) || '');
-      if (parsed?.entries) return parsed.freeText || '';
-    } catch {}
-    return (initialData?.loyaltyNotes as string) || '';
-  });
 
-  const syncLoyaltyToForm = useCallback((entries: LoyaltyEntry[], freeText: string) => {
-    const value = (entries.length > 0 || freeText)
-      ? JSON.stringify({ entries, freeText })
-      : '';
+  const syncLoyaltyToForm = useCallback((entries: LoyaltyEntry[]) => {
+    const value = entries.length > 0 ? JSON.stringify({ entries }) : '';
     set('loyaltyNotes', value);
   }, [set]);
 
@@ -472,6 +635,46 @@ export function IntakeForm({
     setLastSaved(new Date());
   };
 
+  const handleShareConfirm = async () => {
+    if (!intakeId || sharing) return;
+    const to = shareEmail.trim();
+    if (!to) {
+      setShareStatus({ kind: 'error', msg: 'Recipient email required' });
+      return;
+    }
+    setSharing(true);
+    setShareStatus({ kind: 'idle' });
+    try {
+      // Autosave current draft before sending the link so the recipient sees
+      // the latest content.
+      try { await onSave(form); } catch { /* non-fatal */ }
+      const res = await fetch(
+        `/api/clients/${client.id}/intakes/${intakeId}/share`,
+        {
+          method: 'POST',
+          headers: getAuthHeaders(),
+          body: JSON.stringify({ recipientEmail: to }),
+        },
+      );
+      if (!res.ok) {
+        const body = await res.json().catch(() => ({}));
+        throw new Error(body?.error || 'Failed to send invitation');
+      }
+      setShareStatus({ kind: 'ok', to });
+      setTimeout(() => {
+        setShareOpen(false);
+        setShareStatus({ kind: 'idle' });
+      }, 1600);
+    } catch (err) {
+      setShareStatus({
+        kind: 'error',
+        msg: err instanceof Error ? err.message : 'Send failed',
+      });
+    } finally {
+      setSharing(false);
+    }
+  };
+
   const handleComplete = async () => {
     if (onComplete) {
       await onComplete(form);
@@ -486,12 +689,16 @@ export function IntakeForm({
       if (onSave) {
         try { await onSave(form); } catch { /* autosave will retry */ }
       }
-      const res = await fetch(`/api/clients/${client.id}/intakes/${intakeId}/analyze`, {
+      const res = await fetch(analyzeUrl, {
         method: 'POST',
         headers: getAuthHeaders(),
-        body: JSON.stringify({ intakeData: form, chatTranscript: chatMessages }),
+        body: JSON.stringify(
+          isPublic
+            ? form
+            : { intakeData: form, chatTranscript: chatMessages },
+        ),
       });
-      if (!res.ok) throw new Error('Failed to analyze intake');
+      if (!res.ok) throw new Error(isPublic ? 'Failed to submit' : 'Failed to analyze intake');
       if (onAnalyzed) onAnalyzed();
       else if (onComplete) await onComplete(form);
     } catch (err) {
@@ -506,18 +713,35 @@ export function IntakeForm({
   // Chat handlers
   // ---------------------------------------------------------------------------
 
+  const publicToken = publicMode?.token;
+  const isPublic = Boolean(publicToken);
+
+  const chatMessageUrl = publicToken
+    ? `/api/intake/profile-fill/${publicToken}/chat/message`
+    : `/api/clients/${client.id}/intakes/${intakeId}/chat/message`;
+  const chatStartUrl = publicToken
+    ? `/api/intake/profile-fill/${publicToken}/chat/start`
+    : `/api/clients/${client.id}/intakes/${intakeId}/chat/start`;
+  const extractUrl = publicToken
+    ? `/api/intake/profile-fill/${publicToken}/extract`
+    : `/api/clients/${client.id}/extract-text-inferences`;
+  const analyzeUrl = publicToken
+    ? `/api/intake/profile-fill/${publicToken}` // POST finalizes in public mode
+    : `/api/clients/${client.id}/intakes/${intakeId}/analyze`;
+
   const getAuthHeaders = (): Record<string, string> => {
-    const token = typeof window !== 'undefined' ? localStorage.getItem('tripy_token') : null;
     const headers: Record<string, string> = { 'Content-Type': 'application/json' };
+    if (isPublic) return headers;
+    const token = typeof window !== 'undefined' ? localStorage.getItem('tripy_token') : null;
     if (token) headers['Authorization'] = `Bearer ${token}`;
     return headers;
   };
 
   const startChat = async () => {
-    if (!intakeId) return;
+    if (!intakeId && !isPublic) return;
     setChatLoading(true);
     try {
-      const res = await fetch(`/api/clients/${client.id}/intakes/${intakeId}/chat/start`, {
+      const res = await fetch(chatStartUrl, {
         method: 'POST',
         headers: getAuthHeaders(),
         body: JSON.stringify({ intakeData: form }),
@@ -540,7 +764,7 @@ export function IntakeForm({
 
   const sendChatMessage = async () => {
     const text = chatInput.trim();
-    if (!text || chatLoading || !intakeId) return;
+    if (!text || chatLoading || (!intakeId && !isPublic)) return;
 
     const advisorMsg: ChatMessage = {
       role: 'advisor',
@@ -552,7 +776,7 @@ export function IntakeForm({
     setChatLoading(true);
 
     try {
-      const res = await fetch(`/api/clients/${client.id}/intakes/${intakeId}/chat/message`, {
+      const res = await fetch(chatMessageUrl, {
         method: 'POST',
         headers: getAuthHeaders(),
         body: JSON.stringify({
@@ -579,10 +803,10 @@ export function IntakeForm({
   };
 
   const generateMoreQuestions = async () => {
-    if (chatLoading || !intakeId) return;
+    if (chatLoading || (!intakeId && !isPublic)) return;
     setChatLoading(true);
     try {
-      const res = await fetch(`/api/clients/${client.id}/intakes/${intakeId}/chat/message`, {
+      const res = await fetch(chatMessageUrl, {
         method: 'POST',
         headers: getAuthHeaders(),
         body: JSON.stringify({
@@ -609,9 +833,17 @@ export function IntakeForm({
     }
   };
 
+  const getExtractableText = useCallback((k: ExtractableField): string => {
+    const v = formRef.current[k];
+    if (ARRAY_EXTRACTABLE_FIELDS.has(k)) {
+      return Array.isArray(v) ? (v as string[]).join(', ') : '';
+    }
+    return (v as string) || '';
+  }, []);
+
   const runExtraction = useCallback(async () => {
     const fieldsToSend: ExtractableField[] = Array.from(dirtyExtractFields).filter(
-      (k) => ((formRef.current[k] as string) || '').trim().length > 0,
+      (k) => getExtractableText(k).trim().length > 0,
     );
     if (fieldsToSend.length === 0) {
       if (dirtyExtractFields.size > 0) setDirtyExtractFields(new Set());
@@ -621,14 +853,14 @@ export function IntakeForm({
     setExtractingFields(new Set(fieldsToSend));
     try {
       const res = await fetch(
-        `/api/clients/${client.id}/extract-text-inferences`,
+        extractUrl,
         {
           method: 'POST',
           headers: getAuthHeaders(),
           body: JSON.stringify({
             fields: fieldsToSend.map((k) => ({
               fieldName: k,
-              text: (formRef.current[k] as string) || '',
+              text: getExtractableText(k),
             })),
           }),
         },
@@ -653,7 +885,7 @@ export function IntakeForm({
         return next;
       });
       for (const k of fieldsToSend) {
-        lastExtractedText.current[k] = (formRef.current[k] as string) || '';
+        lastExtractedText.current[k] = getExtractableText(k);
       }
       setDirtyExtractFields((prev) => {
         const next = new Set(prev);
@@ -665,7 +897,7 @@ export function IntakeForm({
     } finally {
       setExtractingFields(new Set());
     }
-  }, [dirtyExtractFields, client.id]);
+  }, [dirtyExtractFields, client.id, getExtractableText]);
 
   const canGoNext = step < STEPS.length - 1;
   const canGoPrev = step > 0;
@@ -731,22 +963,51 @@ export function IntakeForm({
 
             {hasFamilyMembers && (
               <div>
-                <label className={labelCls}>Children&apos;s Ages (comma-separated)</label>
+                <label className={labelCls}>Children&apos;s Ages</label>
+                <div className="space-y-2">
+                  {((form.childrenAges as number[]) || []).map((item, idx) => (
+                    <div key={idx} className="flex items-center gap-2">
+                      <span className="flex-1 rounded-lg border border-slate-200 bg-slate-50 px-3 py-2 text-sm text-slate-700">
+                        {item}
+                      </span>
+                      <button
+                        type="button"
+                        onClick={() =>
+                          setForm((f) => ({
+                            ...f,
+                            childrenAges: ((f.childrenAges as number[]) || []).filter(
+                              (_, i) => i !== idx,
+                            ),
+                          }))
+                        }
+                        className="rounded p-1 text-slate-400 hover:bg-slate-100 hover:text-slate-600"
+                      >
+                        ×
+                      </button>
+                    </div>
+                  ))}
+                </div>
                 <input
                   type="text"
-                  value={((form.childrenAges as number[]) || []).join(', ')}
-                  onChange={(e) =>
-                    set(
-                      'childrenAges',
-                      e.target.value
-                        .split(',')
-                        .map((v) => parseInt(v.trim()))
-                        .filter((v) => !isNaN(v)),
-                    )
-                  }
-                  placeholder="e.g. 4, 7, 12"
-                  className={inputCls}
+                  inputMode="numeric"
+                  placeholder="Type an age and press Enter..."
+                  className={`mt-2 ${inputCls}`}
+                  onKeyDown={(e) => {
+                    if (e.key === 'Enter') {
+                      e.preventDefault();
+                      const raw = (e.target as HTMLInputElement).value.trim();
+                      const val = parseInt(raw);
+                      if (!isNaN(val)) {
+                        setForm((f) => ({
+                          ...f,
+                          childrenAges: [...((f.childrenAges as number[]) || []), val],
+                        }));
+                        (e.target as HTMLInputElement).value = '';
+                      }
+                    }
+                  }}
                 />
+                <p className="mt-1 text-xs text-slate-400">Press Enter to add</p>
               </div>
             )}
 
@@ -843,22 +1104,53 @@ export function IntakeForm({
 
             <div>
               <label className={labelCls}>Home / preferred departure airports</label>
+              <div className="space-y-2">
+                {((form.departureAirports as string[]) || []).map((item, idx) => (
+                  <div key={idx} className="flex items-center gap-2">
+                    <span className="flex-1 rounded-lg border border-slate-200 bg-slate-50 px-3 py-2 text-sm text-slate-700">
+                      {item}
+                    </span>
+                    <button
+                      type="button"
+                      onClick={() =>
+                        setForm((f) => ({
+                          ...f,
+                          departureAirports: (
+                            (f.departureAirports as string[]) || []
+                          ).filter((_, i) => i !== idx),
+                        }))
+                      }
+                      className="rounded p-1 text-slate-400 hover:bg-slate-100 hover:text-slate-600"
+                    >
+                      ×
+                    </button>
+                  </div>
+                ))}
+              </div>
               <input
                 type="text"
-                value={((form.departureAirports as string[]) || []).join(', ')}
-                onChange={(e) =>
-                  set(
-                    'departureAirports',
-                    e.target.value
-                      .split(',')
-                      .map((v) => v.trim().toUpperCase())
-                      .filter(Boolean),
-                  )
-                }
-                placeholder="e.g. JFK, EWR, LGA"
-                className={inputCls}
+                placeholder="Type an airport code and press Enter..."
+                className={`mt-2 ${inputCls}`}
+                onKeyDown={(e) => {
+                  if (e.key === 'Enter') {
+                    e.preventDefault();
+                    const val = (e.target as HTMLInputElement).value.trim().toUpperCase();
+                    if (val) {
+                      setForm((f) => ({
+                        ...f,
+                        departureAirports: [
+                          ...((f.departureAirports as string[]) || []),
+                          val,
+                        ],
+                      }));
+                      (e.target as HTMLInputElement).value = '';
+                    }
+                  }
+                }}
               />
-              <p className="mt-1 text-xs text-slate-400">IATA codes, separated by commas</p>
+              <p className="mt-1 text-xs text-slate-400">
+                IATA codes — press Enter to add
+              </p>
             </div>
 
             <div>
@@ -882,40 +1174,100 @@ export function IntakeForm({
 
             <div>
               <label className={labelCls}>Preferred airlines</label>
+              <div className="space-y-2">
+                {((form.preferredAirlines as string[]) || []).map((item, idx) => (
+                  <div key={idx} className="flex items-center gap-2">
+                    <span className="flex-1 rounded-lg border border-slate-200 bg-slate-50 px-3 py-2 text-sm text-slate-700">
+                      {item}
+                    </span>
+                    <button
+                      type="button"
+                      onClick={() =>
+                        setForm((f) => ({
+                          ...f,
+                          preferredAirlines: (
+                            (f.preferredAirlines as string[]) || []
+                          ).filter((_, i) => i !== idx),
+                        }))
+                      }
+                      className="rounded p-1 text-slate-400 hover:bg-slate-100 hover:text-slate-600"
+                    >
+                      ×
+                    </button>
+                  </div>
+                ))}
+              </div>
               <input
                 type="text"
-                value={((form.preferredAirlines as string[]) || []).join(', ')}
-                onChange={(e) =>
-                  set(
-                    'preferredAirlines',
-                    e.target.value
-                      .split(',')
-                      .map((v) => v.trim())
-                      .filter(Boolean),
-                  )
-                }
-                placeholder="e.g. United, Delta, Singapore"
-                className={inputCls}
+                placeholder="Type an airline and press Enter..."
+                className={`mt-2 ${inputCls}`}
+                onKeyDown={(e) => {
+                  if (e.key === 'Enter') {
+                    e.preventDefault();
+                    const val = (e.target as HTMLInputElement).value.trim();
+                    if (val) {
+                      setForm((f) => ({
+                        ...f,
+                        preferredAirlines: [
+                          ...((f.preferredAirlines as string[]) || []),
+                          val,
+                        ],
+                      }));
+                      (e.target as HTMLInputElement).value = '';
+                    }
+                  }
+                }}
               />
+              <p className="mt-1 text-xs text-slate-400">Press Enter to add</p>
             </div>
 
             <div>
               <label className={labelCls}>Airlines to avoid</label>
+              <div className="space-y-2">
+                {((form.avoidedAirlines as string[]) || []).map((item, idx) => (
+                  <div key={idx} className="flex items-center gap-2">
+                    <span className="flex-1 rounded-lg border border-red-100 bg-red-50 px-3 py-2 text-sm text-red-700">
+                      {item}
+                    </span>
+                    <button
+                      type="button"
+                      onClick={() =>
+                        setForm((f) => ({
+                          ...f,
+                          avoidedAirlines: (
+                            (f.avoidedAirlines as string[]) || []
+                          ).filter((_, i) => i !== idx),
+                        }))
+                      }
+                      className="rounded p-1 text-red-400 hover:bg-red-50 hover:text-red-600"
+                    >
+                      ×
+                    </button>
+                  </div>
+                ))}
+              </div>
               <input
                 type="text"
-                value={((form.avoidedAirlines as string[]) || []).join(', ')}
-                onChange={(e) =>
-                  set(
-                    'avoidedAirlines',
-                    e.target.value
-                      .split(',')
-                      .map((v) => v.trim())
-                      .filter(Boolean),
-                  )
-                }
-                placeholder="e.g. Spirit, Frontier"
-                className={inputCls}
+                placeholder="Type an airline and press Enter..."
+                className={`mt-2 ${inputCls}`}
+                onKeyDown={(e) => {
+                  if (e.key === 'Enter') {
+                    e.preventDefault();
+                    const val = (e.target as HTMLInputElement).value.trim();
+                    if (val) {
+                      setForm((f) => ({
+                        ...f,
+                        avoidedAirlines: [
+                          ...((f.avoidedAirlines as string[]) || []),
+                          val,
+                        ],
+                      }));
+                      (e.target as HTMLInputElement).value = '';
+                    }
+                  }
+                }}
               />
+              <p className="mt-1 text-xs text-slate-400">Press Enter to add</p>
             </div>
           </div>
         );
@@ -958,7 +1310,7 @@ export function IntakeForm({
                             i === idx ? { ...r, program: v } : r,
                           );
                           setLoyaltyEntries(updated);
-                          syncLoyaltyToForm(updated, loyaltyFreeText);
+                          syncLoyaltyToForm(updated);
                         }}
                       />
                       <input
@@ -969,7 +1321,7 @@ export function IntakeForm({
                             i === idx ? { ...r, points: e.target.value } : r,
                           );
                           setLoyaltyEntries(updated);
-                          syncLoyaltyToForm(updated, loyaltyFreeText);
+                          syncLoyaltyToForm(updated);
                         }}
                         placeholder="Points"
                         min="0"
@@ -980,7 +1332,7 @@ export function IntakeForm({
                         onClick={() => {
                           const updated = loyaltyEntries.filter((_, i) => i !== idx);
                           setLoyaltyEntries(updated);
-                          syncLoyaltyToForm(updated, loyaltyFreeText);
+                          syncLoyaltyToForm(updated);
                         }}
                         className="rounded p-1 text-slate-400 hover:bg-slate-100 hover:text-slate-600"
                       >
@@ -996,7 +1348,7 @@ export function IntakeForm({
                 onClick={() => {
                   const updated = [...loyaltyEntries, { program: '', points: '' }];
                   setLoyaltyEntries(updated);
-                  syncLoyaltyToForm(updated, loyaltyFreeText);
+                  syncLoyaltyToForm(updated);
                 }}
                 className="inline-flex items-center gap-1.5 rounded-lg border border-dashed border-slate-300 px-3 py-2 text-sm text-slate-500 transition-colors hover:border-slate-400 hover:text-slate-700"
               >
@@ -1004,23 +1356,75 @@ export function IntakeForm({
                 Add loyalty program
               </button>
 
-              <div className="mt-4">
-                <label className={labelCls}>Additional loyalty notes</label>
-                <textarea
-                  rows={2}
-                  value={loyaltyFreeText}
-                  onChange={(e) => {
-                    setLoyaltyFreeText(e.target.value);
-                    syncLoyaltyToForm(loyaltyEntries, e.target.value);
-                  }}
-                  placeholder="e.g. Prefers Hyatt properties, willing to transfer Chase points, Marriott Bonvoy Platinum status..."
-                  className={`resize-none ${inputCls}`}
-                />
+            </div>
+
+            <div>
+              <label className={labelCls}>Preferred accommodation brands / chains</label>
+              <p className="mb-2 text-xs text-slate-400">
+                Specific brands (e.g. &quot;Hyatt&quot;, &quot;Four Seasons&quot;) or general
+                preferences (e.g. &quot;boutique hotels&quot;, &quot;budget hotels&quot;) — each
+                entry is learned as a preference
+              </p>
+              <div className="space-y-2">
+                {((form.preferredAccommodationBrands as string[]) || []).map((item, idx) => (
+                  <div key={idx} className="flex items-center gap-2">
+                    <span className="flex-1 rounded-lg border border-blue-100 bg-blue-50 px-3 py-2 text-sm text-blue-700">
+                      {item}
+                    </span>
+                    <button
+                      type="button"
+                      onClick={() => {
+                        setForm((f) => ({
+                          ...f,
+                          preferredAccommodationBrands: (
+                            (f.preferredAccommodationBrands as string[]) || []
+                          ).filter((_, i) => i !== idx),
+                        }));
+                        markArrayExtractableDirty('preferredAccommodationBrands');
+                      }}
+                      className="rounded p-1 text-blue-400 hover:bg-blue-50 hover:text-blue-600"
+                    >
+                      ×
+                    </button>
+                  </div>
+                ))}
               </div>
+              <input
+                type="text"
+                placeholder="Type a brand or preference and press Enter..."
+                className={`mt-2 ${inputCls}`}
+                onKeyDown={(e) => {
+                  if (e.key === 'Enter') {
+                    e.preventDefault();
+                    const val = (e.target as HTMLInputElement).value.trim();
+                    if (val) {
+                      setForm((f) => ({
+                        ...f,
+                        preferredAccommodationBrands: [
+                          ...((f.preferredAccommodationBrands as string[]) || []),
+                          val,
+                        ],
+                      }));
+                      markArrayExtractableDirty('preferredAccommodationBrands');
+                      (e.target as HTMLInputElement).value = '';
+                    }
+                  }
+                }}
+              />
+              <p className="mt-1 text-xs text-slate-400">Press Enter to add</p>
+              <ExtractedTokensRow
+                tokens={confirmedTokens.preferredAccommodationBrands}
+                extracting={extractingFields.has('preferredAccommodationBrands')}
+                pendingCount={dirtyExtractFields.has('preferredAccommodationBrands') ? 1 : 0}
+              />
             </div>
 
             <div>
               <label className={labelCls}>Accommodation brands / chains to avoid</label>
+              <p className="mb-2 text-xs text-slate-400">
+                Specific brands or general categories (e.g. &quot;motels&quot;, &quot;casino
+                resorts&quot;) — each entry is learned
+              </p>
               <div className="space-y-2">
                 {((form.accommodationDealbreakers as string[]) || []).map((item, idx) => (
                   <div key={idx} className="flex items-center gap-2">
@@ -1029,14 +1433,15 @@ export function IntakeForm({
                     </span>
                     <button
                       type="button"
-                      onClick={() =>
+                      onClick={() => {
                         setForm((f) => ({
                           ...f,
                           accommodationDealbreakers: (
                             (f.accommodationDealbreakers as string[]) || []
                           ).filter((_, i) => i !== idx),
-                        }))
-                      }
+                        }));
+                        markArrayExtractableDirty('accommodationDealbreakers');
+                      }}
                       className="rounded p-1 text-amber-400 hover:bg-amber-50 hover:text-amber-600"
                     >
                       ×
@@ -1046,7 +1451,7 @@ export function IntakeForm({
               </div>
               <input
                 type="text"
-                placeholder="Type a brand to avoid and press Enter..."
+                placeholder="Type a brand or category to avoid and press Enter..."
                 className={`mt-2 ${inputCls}`}
                 onKeyDown={(e) => {
                   if (e.key === 'Enter') {
@@ -1060,12 +1465,18 @@ export function IntakeForm({
                           val,
                         ],
                       }));
+                      markArrayExtractableDirty('accommodationDealbreakers');
                       (e.target as HTMLInputElement).value = '';
                     }
                   }
                 }}
               />
               <p className="mt-1 text-xs text-slate-400">Press Enter to add</p>
+              <ExtractedTokensRow
+                tokens={confirmedTokens.accommodationDealbreakers}
+                extracting={extractingFields.has('accommodationDealbreakers')}
+                pendingCount={dirtyExtractFields.has('accommodationDealbreakers') ? 1 : 0}
+              />
             </div>
           </div>
         );
@@ -1082,7 +1493,10 @@ export function IntakeForm({
                   <button
                     key={exp}
                     type="button"
-                    onClick={() => toggleArrayItem('desiredExperiences', exp)}
+                    onClick={() => {
+                      toggleArrayItem('desiredExperiences', exp);
+                      markArrayExtractableDirty('desiredExperiences');
+                    }}
                     className={chipCls(((form.desiredExperiences as string[]) || []).includes(exp))}
                   >
                     {exp}
@@ -1093,31 +1507,72 @@ export function IntakeForm({
 
             <div>
               <label className={labelCls}>Custom interests</label>
+              <p className="mb-2 text-xs text-slate-400">
+                Phrases or full sentences like &quot;loves hiking volcanoes&quot; — each Enter
+                becomes a chip that the AI learns
+              </p>
+              <div className="space-y-2">
+                {((form.desiredExperiences as string[]) || [])
+                  .filter((x) => !EXPERIENCE_SUGGESTIONS.includes(x))
+                  .map((item) => {
+                    const idx = ((form.desiredExperiences as string[]) || []).indexOf(item);
+                    return (
+                      <div key={`${idx}-${item}`} className="flex items-start gap-2">
+                        <span className="flex-1 whitespace-pre-wrap rounded-lg border border-slate-200 bg-slate-50 px-3 py-2 text-sm text-slate-700">
+                          {item}
+                        </span>
+                        <button
+                          type="button"
+                          onClick={() => {
+                            setForm((f) => ({
+                              ...f,
+                              desiredExperiences: (
+                                (f.desiredExperiences as string[]) || []
+                              ).filter((_, i) => i !== idx),
+                            }));
+                            markArrayExtractableDirty('desiredExperiences');
+                          }}
+                          className="rounded p-1 text-slate-400 hover:bg-slate-100 hover:text-slate-600"
+                        >
+                          ×
+                        </button>
+                      </div>
+                    );
+                  })}
+              </div>
               <input
                 type="text"
-                placeholder="Add more, comma-separated, then press Enter..."
+                placeholder="Type a phrase or sentence and press Enter..."
                 onKeyDown={(e) => {
                   if (e.key === 'Enter') {
                     e.preventDefault();
                     const val = (e.target as HTMLInputElement).value.trim();
                     if (val) {
-                      const items = val.split(',').map((v) => v.trim()).filter(Boolean);
                       setForm((f) => ({
                         ...f,
                         desiredExperiences: [
                           ...((f.desiredExperiences as string[]) || []),
-                          ...items.filter(
-                            (i) => !((f.desiredExperiences as string[]) || []).includes(i),
-                          ),
+                          val,
                         ],
                       }));
+                      markArrayExtractableDirty('desiredExperiences');
                       (e.target as HTMLInputElement).value = '';
                     }
                   }
                 }}
-                className={inputCls}
+                className={`mt-2 ${inputCls}`}
               />
-              <p className="mt-1 text-xs text-slate-400">Press Enter to add</p>
+              <p className="mt-1 inline-flex items-center gap-1 text-xs text-slate-400">
+                <kbd className="rounded border border-slate-200 bg-slate-50 px-1 font-mono text-[10px] text-slate-500">
+                  Enter
+                </kbd>
+                to chipify
+              </p>
+              <ExtractedTokensRow
+                tokens={confirmedTokens.desiredExperiences}
+                extracting={extractingFields.has('desiredExperiences')}
+                pendingCount={dirtyExtractFields.has('desiredExperiences') ? 1 : 0}
+              />
             </div>
 
             <div>
@@ -1125,17 +1580,17 @@ export function IntakeForm({
                 <Utensils className="mr-1 inline h-4 w-4 text-slate-400" />
                 Dining preferences
               </label>
-              <TextInputWithExtraction
-                multiline
-                rows={2}
-                fieldName="diningPreferences"
+              <StringChipInput
                 value={(form.diningPreferences as string) || ''}
                 onChange={(v) => setExtractableField('diningPreferences', v)}
-                placeholder="e.g. Loves local street food, always wants a Michelin-starred meal, avoids chains..."
-                confirmedTokens={confirmedTokens.diningPreferences}
+                placeholder="e.g. Loves local street food. Always wants a Michelin-starred meal."
+                tone="slate"
+                inputCls={inputCls}
+              />
+              <ExtractedTokensRow
+                tokens={confirmedTokens.diningPreferences}
                 extracting={extractingFields.has('diningPreferences')}
-                inputClassName={`resize-none ${inputCls}`}
-                labelClassName={labelCls}
+                pendingCount={dirtyExtractFields.has('diningPreferences') ? 1 : 0}
               />
             </div>
 
@@ -1169,17 +1624,17 @@ export function IntakeForm({
                 <Accessibility className="mr-1 inline h-4 w-4 text-slate-400" />
                 Accessibility needs
               </label>
-              <TextInputWithExtraction
-                multiline
-                rows={3}
-                fieldName="accessibilityNeeds"
+              <StringChipInput
                 value={(form.accessibilityNeeds as string) || ''}
                 onChange={(v) => setExtractableField('accessibilityNeeds', v)}
-                placeholder="e.g. Wheelchair accessible rooms, ground-floor only, elevator access required..."
-                confirmedTokens={confirmedTokens.accessibilityNeeds}
+                placeholder="e.g. Wheelchair accessible rooms. Ground-floor only."
+                tone="slate"
+                inputCls={inputCls}
+              />
+              <ExtractedTokensRow
+                tokens={confirmedTokens.accessibilityNeeds}
                 extracting={extractingFields.has('accessibilityNeeds')}
-                inputClassName={`resize-none ${inputCls}`}
-                labelClassName={labelCls}
+                pendingCount={dirtyExtractFields.has('accessibilityNeeds') ? 1 : 0}
               />
             </div>
 
@@ -1188,17 +1643,17 @@ export function IntakeForm({
                 <Utensils className="mr-1 inline h-4 w-4 text-slate-400" />
                 Dietary restrictions
               </label>
-              <TextInputWithExtraction
-                multiline
-                rows={2}
-                fieldName="dietaryNeeds"
+              <StringChipInput
                 value={(form.dietaryNeeds as string) || ''}
                 onChange={(v) => setExtractableField('dietaryNeeds', v)}
-                placeholder="e.g. Gluten-free, vegetarian, nut allergy, kosher, halal..."
-                confirmedTokens={confirmedTokens.dietaryNeeds}
+                placeholder="e.g. Gluten-free. Severe nut allergy."
+                tone="slate"
+                inputCls={inputCls}
+              />
+              <ExtractedTokensRow
+                tokens={confirmedTokens.dietaryNeeds}
                 extracting={extractingFields.has('dietaryNeeds')}
-                inputClassName={`resize-none ${inputCls}`}
-                labelClassName={labelCls}
+                pendingCount={dirtyExtractFields.has('dietaryNeeds') ? 1 : 0}
               />
             </div>
 
@@ -1253,17 +1708,17 @@ export function IntakeForm({
 
             <div>
               <label className={labelCls}>Advisor notes</label>
-              <TextInputWithExtraction
-                multiline
-                rows={3}
-                fieldName="notes"
+              <StringChipInput
                 value={(form.notes as string) || ''}
                 onChange={(v) => setExtractableField('notes', v)}
-                placeholder="Anything else worth remembering — special occasions they celebrate, surprise preferences, past feedback..."
-                confirmedTokens={confirmedTokens.notes}
+                placeholder="e.g. Celebrates anniversary every October. Hated their last cruise."
+                tone="slate"
+                inputCls={inputCls}
+              />
+              <ExtractedTokensRow
+                tokens={confirmedTokens.notes}
                 extracting={extractingFields.has('notes')}
-                inputClassName={`resize-none ${inputCls}`}
-                labelClassName={labelCls}
+                pendingCount={dirtyExtractFields.has('notes') ? 1 : 0}
               />
             </div>
 
@@ -1502,48 +1957,154 @@ export function IntakeForm({
   return (
     <div ref={topRef} className="max-w-4xl">
       {/* Header */}
-      <Link
-        href={`/clients/${client.id}?tab=discovery`}
-        className="mb-6 inline-flex items-center gap-1.5 text-sm text-slate-600 hover:text-slate-900"
-      >
-        <ArrowLeft className="h-4 w-4" />
-        Back to {client.firstName} {client.lastName}
-      </Link>
+      {!isPublic && (
+        <Link
+          href={`/clients/${client.id}?tab=discovery`}
+          className="mb-6 inline-flex items-center gap-1.5 text-sm text-slate-600 hover:text-slate-900"
+        >
+          <ArrowLeft className="h-4 w-4" />
+          Back to {client.firstName} {client.lastName}
+        </Link>
+      )}
 
       <div className="mb-6 flex items-center justify-between">
         <div>
           <h1 className="text-2xl font-bold text-slate-900">
-            {isNew ? 'Build Client Profile' : 'Edit Client Profile'}
+            {isPublic
+              ? `Hi ${client.firstName} — tell us about your travel style`
+              : isNew
+                ? 'Build Client Profile'
+                : 'Edit Client Profile'}
           </h1>
           <p className="mt-1 text-sm text-slate-500">
-            {client.firstName} {client.lastName}
-            {isCompleted && (
-              <span className="ml-2 inline-flex items-center rounded-full bg-green-50 px-2 py-0.5 text-xs font-medium text-green-700">
-                <Check className="mr-1 h-3 w-3" /> Completed
-              </span>
+            {isPublic ? (
+              <>Your answers save automatically. Submit when you&apos;re done.</>
+            ) : (
+              <>
+                {client.firstName} {client.lastName}
+                {isCompleted && (
+                  <span className="ml-2 inline-flex items-center rounded-full bg-green-50 px-2 py-0.5 text-xs font-medium text-green-700">
+                    <Check className="mr-1 h-3 w-3" /> Completed
+                  </span>
+                )}
+              </>
             )}
           </p>
         </div>
         <div className="flex items-center gap-3">
           {lastSaved && (
             <span className="text-xs text-slate-400">
-              Saved {lastSaved.toLocaleTimeString()}
+              {isPublic ? 'Saved' : 'Saved'} {lastSaved.toLocaleTimeString()}
             </span>
           )}
-          <button
-            onClick={handleManualSave}
-            disabled={saving}
-            className="inline-flex items-center gap-1.5 rounded-lg border border-slate-200 bg-white px-4 py-2 text-sm font-medium text-slate-700 shadow-sm hover:bg-slate-50 disabled:opacity-60"
-          >
-            {saving ? (
-              <Loader2 className="h-3.5 w-3.5 animate-spin" />
-            ) : (
-              <Save className="h-3.5 w-3.5" />
-            )}
-            {isNew ? 'Save Draft' : 'Save'}
-          </button>
+          {!isPublic && (
+            <>
+              <button
+                onClick={() => {
+                  setShareEmail(client.email || '');
+                  setShareStatus({ kind: 'idle' });
+                  setShareOpen(true);
+                }}
+                disabled={!intakeId}
+                title={
+                  intakeId
+                    ? 'Share this form with the client'
+                    : 'Save a draft first to share the form'
+                }
+                className="inline-flex items-center gap-1.5 rounded-lg border border-slate-200 bg-white px-4 py-2 text-sm font-medium text-slate-700 shadow-sm hover:bg-slate-50 disabled:cursor-not-allowed disabled:opacity-50"
+              >
+                <Share2 className="h-3.5 w-3.5" />
+                Share with client
+              </button>
+              <button
+                onClick={handleManualSave}
+                disabled={saving}
+                className="inline-flex items-center gap-1.5 rounded-lg border border-slate-200 bg-white px-4 py-2 text-sm font-medium text-slate-700 shadow-sm hover:bg-slate-50 disabled:opacity-60"
+              >
+                {saving ? (
+                  <Loader2 className="h-3.5 w-3.5 animate-spin" />
+                ) : (
+                  <Save className="h-3.5 w-3.5" />
+                )}
+                {isNew ? 'Save Draft' : 'Save'}
+              </button>
+            </>
+          )}
+          {isPublic && saving && (
+            <span className="inline-flex items-center gap-1 text-xs text-slate-400">
+              <Loader2 className="h-3 w-3 animate-spin" /> saving…
+            </span>
+          )}
         </div>
       </div>
+
+      {shareOpen && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-slate-900/40 p-4">
+          <div className="w-full max-w-md rounded-2xl bg-white p-6 shadow-xl">
+            <div className="flex items-start gap-3">
+              <div className="flex h-10 w-10 shrink-0 items-center justify-center rounded-full bg-blue-50">
+                <Mail className="h-5 w-5 text-blue-600" />
+              </div>
+              <div className="flex-1">
+                <h3 className="text-base font-semibold text-slate-900">
+                  Share this form with {client.firstName}?
+                </h3>
+                <p className="mt-1 text-sm text-slate-600">
+                  We&apos;ll email {client.firstName} a link to fill out this same form
+                  live — any answers they add will appear here as they type. Are you
+                  sure you want to send it now?
+                </p>
+              </div>
+            </div>
+
+            <label className="mt-5 block text-xs font-medium text-slate-600">
+              Send to
+            </label>
+            <input
+              type="email"
+              value={shareEmail}
+              onChange={(e) => setShareEmail(e.target.value)}
+              placeholder="client@example.com"
+              className="mt-1 block w-full rounded-lg border border-slate-200 bg-white px-3 py-2 text-sm text-slate-900 placeholder:text-slate-400 focus:border-transparent focus:outline-none focus:ring-2 focus:ring-blue-600"
+              disabled={sharing}
+            />
+
+            {shareStatus.kind === 'error' && (
+              <p className="mt-2 text-xs text-red-600">{shareStatus.msg}</p>
+            )}
+            {shareStatus.kind === 'ok' && (
+              <p className="mt-2 inline-flex items-center gap-1 text-xs text-green-600">
+                <Check className="h-3 w-3" />
+                Sent to {shareStatus.to}
+              </p>
+            )}
+
+            <div className="mt-6 flex items-center justify-end gap-2">
+              <button
+                type="button"
+                onClick={() => setShareOpen(false)}
+                disabled={sharing}
+                className="rounded-lg px-4 py-2 text-sm font-medium text-slate-600 hover:bg-slate-50 disabled:opacity-60"
+              >
+                Cancel
+              </button>
+              <button
+                type="button"
+                onClick={handleShareConfirm}
+                disabled={sharing || shareStatus.kind === 'ok'}
+                className="inline-flex items-center gap-1.5 rounded-lg bg-blue-600 px-4 py-2 text-sm font-medium text-white shadow-sm hover:bg-blue-700 disabled:opacity-60"
+              >
+                {sharing ? (
+                  <Loader2 className="h-3.5 w-3.5 animate-spin" />
+                ) : (
+                  <Send className="h-3.5 w-3.5" />
+                )}
+                Yes, send invitation
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
 
       {/* Progress Bar */}
       <div className="mb-6">
@@ -1630,24 +2191,38 @@ export function IntakeForm({
             </button>
 
             <div className="flex items-center gap-3">
-              <button
-                type="button"
-                onClick={onCancel}
-                className="rounded-lg px-4 py-2 text-sm font-medium text-slate-500 hover:text-slate-700"
-              >
-                Cancel
-              </button>
+              {!isPublic && (
+                <button
+                  type="button"
+                  onClick={onCancel}
+                  className="rounded-lg px-4 py-2 text-sm font-medium text-slate-500 hover:text-slate-700"
+                >
+                  Cancel
+                </button>
+              )}
 
               {step === STEPS.length - 1 && !isCompleted ? (
                 <div className="flex flex-col items-end gap-1">
                   <button
                     type="button"
-                    onClick={intakeId ? handleAnalyze : handleManualSave}
+                    onClick={isPublic ? handleAnalyze : intakeId ? handleAnalyze : handleManualSave}
                     disabled={saving || analyzing}
                     className="inline-flex items-center gap-1.5 rounded-lg bg-green-600 px-5 py-2 text-sm font-medium text-white shadow-sm hover:bg-green-700 disabled:opacity-60"
                   >
-                    {analyzing ? <Loader2 className="h-3.5 w-3.5 animate-spin" /> : <Sparkles className="h-4 w-4" />}
-                    {analyzing ? 'Analyzing…' : 'Analyze'}
+                    {analyzing ? (
+                      <Loader2 className="h-3.5 w-3.5 animate-spin" />
+                    ) : isPublic ? (
+                      <Send className="h-4 w-4" />
+                    ) : (
+                      <Sparkles className="h-4 w-4" />
+                    )}
+                    {analyzing
+                      ? isPublic
+                        ? 'Submitting…'
+                        : 'Analyzing…'
+                      : isPublic
+                        ? 'Submit to advisor'
+                        : 'Analyze'}
                   </button>
                   {analyzeError && <span className="text-xs text-red-600">{analyzeError}</span>}
                 </div>

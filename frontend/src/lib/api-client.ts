@@ -480,6 +480,8 @@ export interface ClientIntake {
   dealbreakers?: string[];
   preferredAirlines?: string[];
   avoidedAirlines?: string[];
+  preferredAccommodationBrands?: string[];
+  accommodationDealbreakers?: string[];
 
   notes?: string;
 

@@ -62,7 +62,8 @@ export const IntakeFormVariant = {
   group_organizer: 'group_organizer',
   business_policy: 'business_policy',
   business_traveler: 'business_traveler',
-  custom_form: 'custom_form'
+  custom_form: 'custom_form',
+  profile_link: 'profile_link'
 } as const
 
 export type IntakeFormVariant = (typeof IntakeFormVariant)[keyof typeof IntakeFormVariant]
@@ -279,7 +280,8 @@ export const InferenceCategory = {
   dining_preference: 'dining_preference',
   dietary_restriction: 'dietary_restriction',
   experience_interest: 'experience_interest',
-  accessibility_need: 'accessibility_need'
+  accessibility_need: 'accessibility_need',
+  accommodation_preference: 'accommodation_preference'
 } as const
 
 export type InferenceCategory = (typeof InferenceCategory)[keyof typeof InferenceCategory]

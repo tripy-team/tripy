@@ -1,7 +1,7 @@
 'use client';
 
 import { useState, useEffect } from 'react';
-import { Plus, ClipboardList, FileQuestion, ChevronDown, ChevronRight, Loader2, ExternalLink, RefreshCw, Trash2, Check, Clock, AlertCircle, Mail, Send, X } from 'lucide-react';
+import { Plus, ClipboardList, FileQuestion, ChevronDown, ChevronRight, Loader2, ExternalLink, RefreshCw, Trash2, Check, Clock, AlertCircle, Mail, Send, X, Plane } from 'lucide-react';
 import Link from 'next/link';
 import {
   getIntakeInvitations,
@@ -13,9 +13,10 @@ import {
   type IntakeInvitation,
   type ClientIntake,
   type Client,
+  type TripRequest,
 } from '@/lib/api-client';
-import IntakeInvitationsPanel from './IntakeInvitationsPanel';
 import CustomFormPanel from './CustomFormPanel';
+import TripIntakePanel from './TripIntakePanel';
 import { IntakeForm } from '../intake/_components/intake-form';
 
 // ---------------------------------------------------------------------------
@@ -43,17 +44,22 @@ interface Props {
   clientId: string;
   intakes: ClientIntake[];
   setIntakes: (fn: (prev: ClientIntake[]) => ClientIntake[]) => void;
+  trips: TripRequest[];
+  onTripCreated: (trip: TripRequest) => void;
 }
 
 // ---------------------------------------------------------------------------
 // FormsTab
 // ---------------------------------------------------------------------------
 
-export default function FormsTab({ client, clientId, intakes, setIntakes }: Props) {
-  // Custom form state
-  const [customForms, setCustomForms] = useState<IntakeInvitation[]>([]);
-  const [customLoading, setCustomLoading] = useState(true);
+type SentForm = IntakeInvitation & { linkedTripId?: string };
+
+export default function FormsTab({ client, clientId, intakes, setIntakes, trips, onTripCreated }: Props) {
+  // Unified sent forms state (custom forms + trip intake forms)
+  const [sentForms, setSentForms] = useState<SentForm[]>([]);
+  const [sentFormsLoading, setSentFormsLoading] = useState(true);
   const [showNewCustomForm, setShowNewCustomForm] = useState(false);
+  const [showNewTripForm, setShowNewTripForm] = useState(false);
 
   // Build profile modal state
   const [showBuildModal, setShowBuildModal] = useState(false);
@@ -62,19 +68,48 @@ export default function FormsTab({ client, clientId, intakes, setIntakes }: Prop
   const [sharing, setSharing] = useState(false);
   const [shareSuccess, setShareSuccess] = useState(false);
 
-  // Collapse states
-  const [profileOpen, setProfileOpen] = useState(true);
-  const [customOpen, setCustomOpen] = useState(true);
+  // Collapse state
+  const [sentOpen, setSentOpen] = useState(true);
 
   useEffect(() => {
     getIntakeInvitations(clientId)
-      .then((all) => setCustomForms(all.filter((inv) => inv.formVariant === 'custom_form')))
-      .finally(() => setCustomLoading(false));
+      .then((all) => {
+        setSentForms(
+          all
+            .filter((inv) => inv.formVariant === 'custom_form' || inv.formVariant === 'individual')
+            .sort((a, b) => {
+              const ta = a.sentAt ? new Date(a.sentAt).getTime() : 0;
+              const tb = b.sentAt ? new Date(b.sentAt).getTime() : 0;
+              return tb - ta;
+            }),
+        );
+      })
+      .finally(() => setSentFormsLoading(false));
   }, [clientId]);
 
+  function handleTripFormCreated(inv: IntakeInvitation, trip?: TripRequest) {
+    setSentForms((prev) => [{ ...inv, linkedTripId: trip?.id }, ...prev]);
+    setShowNewTripForm(false);
+    if (trip) onTripCreated(trip);
+  }
+
   function handleCustomFormCreated(inv: IntakeInvitation) {
-    setCustomForms((prev) => [inv, ...prev]);
+    setSentForms((prev) => [inv, ...prev]);
     setShowNewCustomForm(false);
+  }
+
+  function handleResend(id: string) {
+    return resendIntakeInvitation(id).then((updated) =>
+      setSentForms((prev) =>
+        prev.map((f) => (f.id === id ? { ...updated, linkedTripId: f.linkedTripId } : f)),
+      ),
+    );
+  }
+
+  function handleRevoke(id: string) {
+    return revokeIntakeInvitation(id).then(() =>
+      setSentForms((prev) => prev.filter((f) => f.id !== id)),
+    );
   }
 
   async function handleBuildIntakeSave(data: Record<string, unknown>) {
@@ -114,7 +149,7 @@ export default function FormsTab({ client, clientId, intakes, setIntakes }: Prop
     setSavingIntake(false);
   }
 
-  const pendingCustom = customForms.filter((f) => f.status === 'pending' || f.status === 'opened').length;
+  const pendingSent = sentForms.filter((f) => f.status === 'pending' || f.status === 'opened').length;
 
   return (
     <div className="space-y-5">
@@ -239,30 +274,37 @@ export default function FormsTab({ client, clientId, intakes, setIntakes }: Prop
         )}
       </div>
 
-      {/* ── Send Profile Form Section ── */}
-      <div className="rounded-xl border border-slate-200 bg-white shadow-sm">
-        <button
-          onClick={() => setProfileOpen((v) => !v)}
-          className="flex w-full items-center justify-between p-5 text-left"
-        >
-          <div className="flex items-center gap-3">
-            <div className="flex h-9 w-9 items-center justify-center rounded-lg bg-blue-50">
-              <Mail className="h-4.5 w-4.5 text-blue-600" />
+      {/* ── Trip Intake Form Section ── */}
+      <div className="space-y-5">
+        {showNewTripForm ? (
+          <TripIntakePanel
+            client={client}
+            existingTrips={trips}
+            onCreated={handleTripFormCreated}
+            onCancel={() => setShowNewTripForm(false)}
+          />
+        ) : (
+          <div className="rounded-xl border border-slate-200 bg-white shadow-sm">
+            <div className="flex items-center justify-between p-5">
+              <div className="flex items-center gap-3">
+                <div className="flex h-9 w-9 items-center justify-center rounded-lg bg-blue-50">
+                  <Plane className="h-4.5 w-4.5 text-blue-600" />
+                </div>
+                <div>
+                  <h2 className="font-semibold text-slate-900">Trip Intake Forms</h2>
+                  <p className="text-xs text-slate-500">
+                    Send a trip intake to gather destinations, dates, and preferences — links to a trip in the Trips tab
+                  </p>
+                </div>
+              </div>
+              <button
+                onClick={() => setShowNewTripForm(true)}
+                className="inline-flex items-center gap-1.5 rounded-lg bg-blue-600 px-3 py-1.5 text-sm font-medium text-white hover:bg-blue-700"
+              >
+                <Plus className="h-4 w-4" />
+                New Trip Form
+              </button>
             </div>
-            <div>
-              <h2 className="font-semibold text-slate-900">Send Profile Form</h2>
-              <p className="text-xs text-slate-500">Email the standard preference intake to your client</p>
-            </div>
-          </div>
-          {profileOpen ? (
-            <ChevronDown className="h-4 w-4 text-slate-400" />
-          ) : (
-            <ChevronRight className="h-4 w-4 text-slate-400" />
-          )}
-        </button>
-        {profileOpen && (
-          <div className="border-t border-slate-100 p-5">
-            <IntakeInvitationsPanel client={client} />
           </div>
         )}
       </div>
@@ -301,62 +343,55 @@ export default function FormsTab({ client, clientId, intakes, setIntakes }: Prop
           </div>
         )}
 
-        {/* Sent custom forms list */}
+        {/* Sent forms list (unified: custom + trip intake) */}
         <div className="rounded-xl border border-slate-200 bg-white shadow-sm">
           <button
-            onClick={() => setCustomOpen((v) => !v)}
+            onClick={() => setSentOpen((v) => !v)}
             className="flex w-full items-center justify-between p-5 text-left"
           >
             <div>
               <h3 className="font-semibold text-slate-900">
                 Sent Forms
-                {pendingCustom > 0 && (
+                {pendingSent > 0 && (
                   <span className="ml-2 rounded-full bg-violet-100 px-1.5 py-0.5 text-[10px] font-semibold text-violet-700">
-                    {pendingCustom}
+                    {pendingSent}
                   </span>
                 )}
               </h3>
               <p className="text-xs text-slate-500">
-                {customForms.length} custom form{customForms.length !== 1 ? 's' : ''} sent
+                {sentForms.length} form{sentForms.length !== 1 ? 's' : ''} sent
               </p>
             </div>
-            {customOpen ? (
+            {sentOpen ? (
               <ChevronDown className="h-4 w-4 text-slate-400" />
             ) : (
               <ChevronRight className="h-4 w-4 text-slate-400" />
             )}
           </button>
 
-          {customOpen && (
+          {sentOpen && (
             <div className="border-t border-slate-100 p-5">
-              {customLoading ? (
+              {sentFormsLoading ? (
                 <div className="flex justify-center py-6">
                   <Loader2 className="h-5 w-5 animate-spin text-slate-400" />
                 </div>
-              ) : customForms.length === 0 ? (
+              ) : sentForms.length === 0 ? (
                 <div className="rounded-lg border border-dashed border-slate-200 py-10 text-center">
                   <FileQuestion className="mx-auto h-8 w-8 text-slate-300" />
-                  <p className="mt-2 text-sm text-slate-500">No custom forms sent yet</p>
+                  <p className="mt-2 text-sm text-slate-500">No forms sent yet</p>
                   <p className="mt-1 text-xs text-slate-400">
-                    Click &ldquo;New Form&rdquo; to build and send a custom form to your client
+                    Send a trip intake or build a custom form above
                   </p>
                 </div>
               ) : (
                 <div className="space-y-2">
-                  {customForms.map((form) => (
-                    <CustomFormRow
+                  {sentForms.map((form) => (
+                    <SentFormRow
                       key={form.id}
                       form={form}
-                      onResend={(id) =>
-                        resendIntakeInvitation(id).then((updated) =>
-                          setCustomForms((prev) => prev.map((f) => (f.id === id ? updated : f))),
-                        )
-                      }
-                      onRevoke={(id) =>
-                        revokeIntakeInvitation(id).then(() =>
-                          setCustomForms((prev) => prev.filter((f) => f.id !== id)),
-                        )
-                      }
+                      trips={trips}
+                      onResend={handleResend}
+                      onRevoke={handleRevoke}
                     />
                   ))}
                 </div>
@@ -481,18 +516,23 @@ function BuildProfileModal({
 // Custom form row (with answers expansion)
 // ---------------------------------------------------------------------------
 
-function CustomFormRow({
+function SentFormRow({
   form,
+  trips,
   onResend,
   onRevoke,
 }: {
-  form: IntakeInvitation;
+  form: SentForm;
+  trips: TripRequest[];
   onResend: (id: string) => void;
   onRevoke: (id: string) => void;
 }) {
   const cfg = STATUS_CONFIG[form.status] ?? STATUS_CONFIG.pending;
   const Icon = cfg.icon;
   const [showAnswers, setShowAnswers] = useState(false);
+
+  const isTripIntake = form.formVariant === 'individual';
+  const linkedTrip = form.linkedTripId ? trips.find((t) => t.id === form.linkedTripId) : undefined;
 
   const hasAnswers =
     form.status === 'completed' && form.formAnswers && Object.keys(form.formAnswers).length > 0;
@@ -512,15 +552,27 @@ function CustomFormRow({
             <p className="truncate text-sm font-medium text-slate-900">
               {form.recipientName || form.recipientEmail}
             </p>
+            <span
+              className={`inline-flex items-center gap-1 rounded-full px-2 py-0.5 text-xs font-medium ${
+                isTripIntake ? 'bg-blue-50 text-blue-700' : 'bg-violet-50 text-violet-700'
+              }`}
+            >
+              {isTripIntake ? <Plane className="h-3 w-3" /> : <FileQuestion className="h-3 w-3" />}
+              {isTripIntake ? 'Trip intake' : 'Custom'}
+            </span>
             <span className={`inline-flex items-center gap-1 rounded-full px-2 py-0.5 text-xs font-medium ${cfg.color}`}>
               <Icon className="h-3 w-3" />
               {cfg.label}
             </span>
           </div>
           <div className="mt-0.5 flex items-center gap-2 text-xs text-slate-400">
-            <span>
-              {questionCount} question{questionCount !== 1 ? 's' : ''}
-            </span>
+            {isTripIntake ? (
+              <span>{linkedTrip ? `Trip: ${linkedTrip.title}` : 'No trip linked'}</span>
+            ) : (
+              <span>
+                {questionCount} question{questionCount !== 1 ? 's' : ''}
+              </span>
+            )}
             <span>·</span>
             <span>Sent {formatDate(form.sentAt)}</span>
             {form.openedAt && (

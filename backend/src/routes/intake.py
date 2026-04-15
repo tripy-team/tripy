@@ -79,6 +79,80 @@ Return JSON with this structure:
 }}"""
 
 
+def _persist_intake_preferences(
+    org_id: str,
+    client_id: str,
+    advisor_id: str,
+    result: TripIntakeResult,
+) -> bool:
+    """Fold intake results into the client's preference profile.
+
+    Hard-writes only unambiguous fields (strong cabin preference, verbatim
+    special constraints). The full intake is also logged as a
+    `client_preference_set` signal so the preference graph can weight it
+    alongside advisor behavior signals.
+    """
+    try:
+        from ..repos import client_repo
+        from ..services.preference_graph import record_signal
+    except Exception as e:
+        logger.warning(f"Preference persistence unavailable: {e}")
+        return False
+
+    changed = False
+    try:
+        client = client_repo.get_client(org_id, client_id)
+        if client:
+            prefs = dict(client.get("preferences") or {})
+
+            qualifier = (result.cabin_qualifier or "").lower()
+            cabin = result.cabin_preference
+            if cabin and cabin != "flexible":
+                strong = qualifier in ("must be", "prefer")
+                if (strong or not prefs.get("cabinDefault")) and prefs.get("cabinDefault") != cabin:
+                    prefs["cabinDefault"] = cabin
+                    changed = True
+
+            if result.special_constraints:
+                existing = list(prefs.get("avoidConstraints") or [])
+                seen = {c.strip().lower() for c in existing if isinstance(c, str)}
+                for c in result.special_constraints:
+                    key = (c or "").strip().lower()
+                    if key and key not in seen:
+                        existing.append(c.strip())
+                        seen.add(key)
+                        changed = True
+                prefs["avoidConstraints"] = existing
+
+            if changed:
+                client_repo.update_client(org_id, client_id, {"preferences": prefs})
+    except Exception as e:
+        logger.warning(f"Could not hard-write intake preferences: {e}")
+
+    try:
+        record_signal(
+            org_id=org_id,
+            advisor_id=advisor_id,
+            signal_type="client_preference_set",
+            context={"source": "intake_form"},
+            signal_data={
+                "cabin_preference": result.cabin_preference,
+                "cabin_qualifier": result.cabin_qualifier,
+                "points_preference": result.points_preference,
+                "budget_type": result.budget.budget_type if result.budget else None,
+                "budget_amount": result.budget.amount if result.budget else None,
+                "special_constraints": result.special_constraints,
+                "destinations": result.destinations,
+                "confidence": result.confidence,
+            },
+            client_id=client_id,
+        )
+    except Exception as e:
+        logger.warning(f"Could not log intake signal: {e}")
+
+    return changed
+
+
 def _build_client_context(org_id: str, client_id: str) -> str:
     """Fetch client profile to provide context for extraction."""
     try:
@@ -226,10 +300,17 @@ async def parse_intake(
         if not date_range or (not date_range.start_date and not date_range.duration_days):
             suggestions.append("No dates detected — when is the trip planned?")
 
+        preferences_updated = False
+        if request.client_id and request.org_id:
+            preferences_updated = _persist_intake_preferences(
+                request.org_id, request.client_id, user_id, result
+            )
+
         return IntakeParseResponse(
             result=result,
             client_context_applied=client_context_applied,
             suggestions=suggestions,
+            preferences_updated=preferences_updated,
         )
 
     except json.JSONDecodeError:

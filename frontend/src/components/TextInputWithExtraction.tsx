@@ -38,6 +38,7 @@ type CommonProps = {
   extracting?: boolean;
   inputClassName?: string;
   labelClassName?: string;
+  hideChips?: boolean;
 };
 
 type Props =
@@ -59,6 +60,7 @@ export function TextInputWithExtraction(props: Props) {
     extracting,
     inputClassName = DEFAULT_INPUT_CLS,
     labelClassName = DEFAULT_LABEL_CLS,
+    hideChips,
   } = props;
 
   const [focused, setFocused] = useState(false);
@@ -71,7 +73,8 @@ export function TextInputWithExtraction(props: Props) {
     return m;
   }, [confirmedTokens]);
 
-  const showChips = pendingTokens.length > 0 || (confirmedTokens?.length ?? 0) > 0;
+  const showChips =
+    !hideChips && (pendingTokens.length > 0 || (confirmedTokens?.length ?? 0) > 0);
 
   return (
     <div>
