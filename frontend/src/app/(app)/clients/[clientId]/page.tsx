@@ -496,7 +496,7 @@ export default function ClientDetailPage() {
   };
 
   const resetTripForm = () => {
-    setTripForm({ title: '', originAirports: [], destinationAirports: [], departureDate: '', returnDate: '', travelerCount: '1', cabinPreference: '', flexibilityDays: '', budgetUsd: '', notes: '' });
+    setTripForm({ originAirports: [], destinationAirports: [], departureDate: '', returnDate: '', travelerCount: '1', cabinPreference: '', flexibilityDays: '', budgetUsd: '', notes: '' });
     setTripType('roundTrip');
     setMultiCityLegs([
       { originAirports: [], destinationAirports: [], departureDate: '' },
