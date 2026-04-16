@@ -1,5 +1,6 @@
 import { prisma } from "@/lib/prisma";
 import { getAuthUser, json, errorResponse } from "@/lib/auth";
+import { sendFormInvitation, buildFormLink } from "@/lib/email";
 import crypto from "crypto";
 
 function generateToken(): string {

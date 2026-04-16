@@ -349,13 +349,13 @@ export default function TripsPage() {
             All trip requests across your clients
           </p>
         </div>
-        <button
-          onClick={() => setShowCreateForm(true)}
+        <Link
+          href="/trips/new"
           className="inline-flex items-center gap-1.5 rounded-lg bg-blue-600 px-4 py-2.5 text-sm font-medium text-white shadow-sm hover:bg-blue-700 transition-colors"
         >
           <Plus className="h-4 w-4" />
           New Trip
-        </button>
+        </Link>
       </div>
 
       {/* Create Trip Form */}
@@ -911,13 +911,13 @@ export default function TripsPage() {
               : 'Try adjusting your search or filters.'}
           </p>
           {trips.length === 0 && (
-            <button
-              onClick={() => setShowCreateForm(true)}
+            <Link
+              href="/trips/new"
               className="mt-4 inline-flex items-center gap-1.5 text-sm font-medium text-blue-600 hover:text-blue-700"
             >
               <Plus className="h-4 w-4" />
               Create a trip request
-            </button>
+            </Link>
           )}
         </div>
       ) : (

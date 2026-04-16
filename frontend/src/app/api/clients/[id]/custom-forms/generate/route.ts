@@ -1,6 +1,6 @@
 /**
  * POST /api/clients/[id]/custom-forms/generate
- * Uses Claude to generate custom form questions based on the client's profile.
+ * Uses Claude to generate custom form questions grouped into sections based on the client's profile.
  *
  * Body: { prompt?: string }  — advisor can optionally describe what they want to learn
  *

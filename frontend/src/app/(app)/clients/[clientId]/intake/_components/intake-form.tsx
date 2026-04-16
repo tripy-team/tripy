@@ -179,6 +179,13 @@ function ExtractedTokensRow({
 // Constants
 // ---------------------------------------------------------------------------
 
+const FLIGHT_ROUTING_OPTIONS = [
+  { value: 'round_trip', label: 'Round Trip' },
+  { value: 'one_way', label: 'One Way' },
+  { value: 'multi_city', label: 'Multi-City' },
+  { value: 'no_preference', label: 'No Preference' },
+];
+
 const CABIN_OPTIONS = [
   { value: 'economy', label: 'Economy' },
   { value: 'premium_economy', label: 'Premium Economy' },
@@ -470,6 +477,7 @@ function toFormData(intake?: Partial<ClientIntake>): FormData {
     'familyFriendly', 'travelerCount', 'childrenCount', 'childrenAges',
     'desiredExperiences', 'dealbreakers', 'preferredAirlines', 'avoidedAirlines',
     'departureAirports',
+    'preferredFlightRouting',
     'preferredAccommodationBrands', 'accommodationDealbreakers',
     'notes', 'isTemplate', 'templateName',
   ];
@@ -1070,6 +1078,25 @@ export function IntakeForm({
       case 'flights':
         return (
           <div className="space-y-6">
+            <div>
+              <label className={labelCls}>Flight routing preference</label>
+              <div className="flex flex-wrap gap-2">
+                {FLIGHT_ROUTING_OPTIONS.map((r) => (
+                  <button
+                    key={r.value}
+                    type="button"
+                    onClick={() => set('preferredFlightRouting', r.value)}
+                    className={chipCls(form.preferredFlightRouting === r.value)}
+                  >
+                    {r.label}
+                  </button>
+                ))}
+              </div>
+              <p className="mt-1 text-xs text-slate-400">
+                How the client typically prefers their flights structured
+              </p>
+            </div>
+
             <div>
               <label className={labelCls}>Preferred cabin class</label>
               <div className="flex flex-wrap gap-2">
@@ -1928,7 +1955,7 @@ export function IntakeForm({
       case 'traveler':
         return !!(form.partyType || form.travelPace || form.luxuryPreference);
       case 'flights':
-        return !!(form.cabinPreference || form.layoverTolerance || form.departureAirports);
+        return !!(form.preferredFlightRouting || form.cabinPreference || form.layoverTolerance || form.departureAirports);
       case 'accommodation':
         return !!((form.hotelStyles as string[])?.length || form.loyaltyNotes);
       case 'experiences':

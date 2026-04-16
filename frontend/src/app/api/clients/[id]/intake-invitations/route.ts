@@ -31,10 +31,25 @@ export async function GET(
     });
 
     const now = new Date();
-    const annotated = tokens.map((t) => ({
-      ...t,
-      status: t.completedAt ? "completed" : t.expiresAt < now ? "expired" : t.openedAt ? "opened" : "pending",
-    }));
+    const annotated = tokens.map((t) => {
+      // Extract sections from customQuestions JSON for sectioned custom forms
+      const raw = t.customQuestions as
+        | Array<{ id: string; label: string }>
+        | { sections: Array<{ id: string; title: string; questions: Array<{ id: string; label: string }> }> }
+        | null;
+      const customSections =
+        raw && !Array.isArray(raw) && Array.isArray((raw as { sections?: unknown }).sections)
+          ? (raw as { sections: Array<{ id: string; title: string; questions: Array<{ id: string; label: string }> }> }).sections
+          : undefined;
+      const customQuestions =
+        raw && Array.isArray(raw) ? raw : undefined;
+      return {
+        ...t,
+        customQuestions,
+        customSections,
+        status: t.completedAt ? "completed" : t.expiresAt < now ? "expired" : t.openedAt ? "opened" : "pending",
+      };
+    });
 
     return json(annotated);
   } catch (error) {

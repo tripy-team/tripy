@@ -42,6 +42,7 @@ export async function POST(request: Request) {
       cabinPreference,
       flexibilityDays,
       budgetCash,
+      pointBalances,
       notes,
     } = body;
 
@@ -67,6 +68,7 @@ export async function POST(request: Request) {
         cabinPreference: cabinPreference ?? "economy",
         flexibilityDays: flexibilityDays ?? null,
         budgetCash: budgetCash ?? null,
+        pointBalances: Array.isArray(pointBalances) && pointBalances.length > 0 ? pointBalances : undefined,
         notes: notes || null,
         ...(clientId
           ? {

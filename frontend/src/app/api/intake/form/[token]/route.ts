@@ -214,11 +214,34 @@ export async function GET(
       await prisma.intakeFormToken.update({ where: { token }, data: { openedAt: new Date() } });
     }
 
-    // For custom forms, serve the stored custom questions
-    const questions =
-      record.formVariant === "custom_form"
-        ? (record.customQuestions as Question[] | null) ?? []
-        : getQuestions(record.formVariant, record.groupSize);
+    // For custom forms, serve the stored custom questions (supports both
+    // legacy flat array and new sectioned format)
+    if (record.formVariant === "custom_form") {
+      const raw = record.customQuestions as
+        | Question[]
+        | { sections: Array<{ id: string; title: string; questions: Question[] }> }
+        | null;
+
+      // New sectioned format: { sections: [...] }
+      if (raw && !Array.isArray(raw) && Array.isArray((raw as { sections?: unknown }).sections)) {
+        return json({
+          status: "pending",
+          recipientName: record.recipientName,
+          formVariant: record.formVariant,
+          sections: (raw as { sections: Array<{ id: string; title: string; questions: Question[] }> }).sections,
+        });
+      }
+
+      // Legacy flat array
+      return json({
+        status: "pending",
+        recipientName: record.recipientName,
+        formVariant: record.formVariant,
+        questions: Array.isArray(raw) ? raw : [],
+      });
+    }
+
+    const questions = getQuestions(record.formVariant, record.groupSize);
 
     return json({
       status: "pending",
@@ -322,10 +345,20 @@ export async function POST(
 
     // Send submission confirmation to the recipient
     if (record.recipientEmail) {
-      const questions =
-        record.formVariant === "custom_form"
-          ? ((record.customQuestions as { id: string; label: string }[] | null) ?? [])
-          : getQuestions(record.formVariant, record.groupSize);
+      let questions: { id: string; label: string }[] = [];
+      if (record.formVariant === "custom_form") {
+        const raw = record.customQuestions as
+          | { id: string; label: string }[]
+          | { sections: Array<{ questions: { id: string; label: string }[] }> }
+          | null;
+        if (raw && !Array.isArray(raw) && Array.isArray((raw as { sections?: unknown }).sections)) {
+          questions = (raw as { sections: Array<{ questions: { id: string; label: string }[] }> }).sections.flatMap((s) => s.questions);
+        } else if (Array.isArray(raw)) {
+          questions = raw;
+        }
+      } else {
+        questions = getQuestions(record.formVariant, record.groupSize);
+      }
       const labeledAnswers = questions
         .filter((q) => answers[q.id] !== undefined && answers[q.id] !== "")
         .map((q) => ({ label: q.label, value: answers[q.id] }));

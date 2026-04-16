@@ -13,7 +13,7 @@ from src.config import is_awardtool_dummy_mode, AWARDTOOL_API_KEY as _CONFIG_AWA
 AWARD_TOOL_API_KEY = _CONFIG_AWARDTOOL or os.getenv("AWARD_TOOL_API_KEY") or os.getenv("AWARDTOOL_API_KEY")
 AWARD_CAL_URL = "https://www.awardtool-api.com/panorama/panorama_calendar_data"
 
-TIMEOUT = httpx.Timeout(connect=5.0, read=20.0, write=5.0, pool=5)
+TIMEOUT = httpx.Timeout(connect=10.0, read=120.0, write=10.0, pool=60.0)
 
 # y=economy, w=premium economy, j=business, f=first
 _CABIN_KEYS = [

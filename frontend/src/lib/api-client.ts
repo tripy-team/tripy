@@ -300,6 +300,7 @@ export interface TripRequestCreatePayload {
   cabinPreference?: string;
   flexibilityDays?: number;
   budgetCash?: number;
+  pointBalances?: { loyaltyProgramId: string; programName: string; balance: number }[];
   notes?: string;
 }
 
@@ -461,6 +462,7 @@ export interface ClientIntake {
   budgetCurrency: string;
   budgetNotes?: string;
 
+  preferredFlightRouting?: string;
   cabinPreference?: string;
   hotelStyles?: string[];
   loyaltyNotes?: string;
@@ -961,21 +963,34 @@ class ApiError extends Error {
   }
 }
 
-async function apiFetch<T>(path: string, options?: RequestInit): Promise<T> {
+async function apiFetch<T>(path: string, options?: RequestInit & { timeoutMs?: number }): Promise<T> {
   const token = typeof window !== 'undefined' ? localStorage.getItem('tripy_token') : null;
-  const res = await fetch(`/api${path}`, {
-    ...options,
-    headers: {
-      'Content-Type': 'application/json',
-      ...(token ? { Authorization: `Bearer ${token}` } : {}),
-      ...options?.headers,
-    },
-  });
-  if (!res.ok) {
-    const err = await res.json().catch(() => ({ error: 'Request failed' }));
-    throw new ApiError(err.error || err.message || 'Request failed', res.status, err);
+  const { timeoutMs = 10000, ...fetchOptions } = options ?? {};
+  const controller = new AbortController();
+  const timer = timeoutMs > 0 ? setTimeout(() => controller.abort(), timeoutMs) : null;
+  try {
+    const res = await fetch(`/api${path}`, {
+      ...fetchOptions,
+      signal: controller.signal,
+      headers: {
+        'Content-Type': 'application/json',
+        ...(token ? { Authorization: `Bearer ${token}` } : {}),
+        ...fetchOptions?.headers,
+      },
+    });
+    if (!res.ok) {
+      const err = await res.json().catch(() => ({ error: 'Request failed' }));
+      throw new ApiError(err.error || err.message || 'Request failed', res.status, err);
+    }
+    return res.json();
+  } catch (e) {
+    if (e instanceof DOMException && e.name === 'AbortError') {
+      throw new ApiError('Request timed out', 408);
+    }
+    throw e;
+  } finally {
+    if (timer) clearTimeout(timer);
   }
-  return res.json();
 }
 
 // ---------------------------------------------------------------------------
@@ -1537,7 +1552,7 @@ interface FlightSearchResult {
 export async function searchTripFlights(tripId: string): Promise<TravelerFlightGroup[]> {
   const res = await apiFetch<FlightSearchResult>(
     `/trip-requests/${tripId}/search-flights`,
-    { method: 'POST' },
+    { method: 'POST', timeoutMs: 0 },
   );
   return res.travelerFlights || [];
 }
@@ -2504,6 +2519,12 @@ export interface CustomFormQuestion {
   options?: string[];
 }
 
+export interface CustomFormSection {
+  id: string;
+  title: string;
+  questions: CustomFormQuestion[];
+}
+
 export interface IntakeInvitation {
   id: string;
   token: string;
@@ -2514,6 +2535,7 @@ export interface IntakeInvitation {
   formVariant: IntakeFormVariant;
   groupSize?: number;
   customQuestions?: CustomFormQuestion[] | null;
+  customSections?: CustomFormSection[] | null;
   formAnswers?: Record<string, string> | null;
   advisorEmail?: string | null;
   sentAt?: string;
@@ -2579,7 +2601,7 @@ export interface CustomFormPayload {
   title: string;
   recipientEmail: string;
   recipientName?: string;
-  questions: CustomFormQuestion[];
+  sections: CustomFormSection[];
   expiresInDays?: number;
 }
 

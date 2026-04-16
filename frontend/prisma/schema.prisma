@@ -321,6 +321,7 @@ model TripRequest {
   cabinPreference     CabinPreference      @default(economy) @map("cabin_preference")
   flexibilityDays     Int?                 @map("flexibility_days")
   budgetCash          Int?                 @map("budget_cash")
+  pointBalances       Json?                @map("point_balances")
   notes               String?
   status              TripStatus           @default(draft)
   createdAt           DateTime             @default(now()) @map("created_at")
@@ -509,6 +510,7 @@ model ClientIntake {
   budgetMax           Int?                 @map("budget_max")
   budgetCurrency      String               @default("USD") @map("budget_currency")
   budgetNotes         String?              @map("budget_notes")
+  preferredFlightRouting String?            @map("preferred_flight_routing")
   cabinPreference     CabinPreference?     @map("cabin_preference")
   hotelStyles         Json?                @map("hotel_styles")
   loyaltyNotes        String?              @map("loyalty_notes")

@@ -1,12 +1,12 @@
 /**
  * POST /api/clients/[id]/custom-forms
- * Creates a custom form token with advisor-defined questions, then sends email.
+ * Creates a custom form token with advisor-defined sections & questions, then sends email.
  *
  * Body: {
  *   title: string;
  *   recipientEmail: string;
  *   recipientName?: string;
- *   questions: Array<{ id: string; label: string; type: 'text'|'textarea'|'select'; options?: string[] }>;
+ *   sections: Array<{ id: string; title: string; questions: Array<{ id: string; label: string; type: 'text'|'textarea'|'select'; options?: string[] }> }>;
  *   expiresInDays?: number;
  * }
  */
@@ -35,25 +35,35 @@ export async function POST(
       title,
       recipientEmail,
       recipientName,
-      questions,
+      sections,
       expiresInDays = 14,
     } = body as {
       title: string;
       recipientEmail: string;
       recipientName?: string;
-      questions: Array<{
+      sections?: Array<{
         id: string;
-        label: string;
-        type: "text" | "textarea" | "select";
-        options?: string[];
+        title: string;
+        questions: Array<{
+          id: string;
+          label: string;
+          type: "text" | "textarea" | "select";
+          options?: string[];
+        }>;
       }>;
       expiresInDays?: number;
     };
 
     if (!title?.trim()) return errorResponse("title is required", 400);
     if (!recipientEmail?.trim()) return errorResponse("recipientEmail is required", 400);
-    if (!Array.isArray(questions) || questions.length === 0) {
-      return errorResponse("questions array is required", 400);
+
+    // Validate sections
+    if (!Array.isArray(sections) || sections.length === 0) {
+      return errorResponse("sections array is required", 400);
+    }
+    const allQuestions = sections.flatMap((s) => s.questions);
+    if (allQuestions.length === 0) {
+      return errorResponse("At least one question is required", 400);
     }
 
     const expiresAt = new Date();
@@ -67,7 +77,7 @@ export async function POST(
         recipientEmail: recipientEmail.trim(),
         recipientName: recipientName?.trim() || null,
         formVariant: "custom_form",
-        customQuestions: questions as never,
+        customQuestions: { sections } as never,
         advisorEmail: user.email,
         sentAt: new Date(),
         expiresAt,
@@ -91,6 +101,7 @@ export async function POST(
     return json(
       {
         ...tokenRecord,
+        customSections: sections,
         status: "pending",
         formTitle: title.trim(),
       },

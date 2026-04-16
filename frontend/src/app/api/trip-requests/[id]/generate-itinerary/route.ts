@@ -107,7 +107,22 @@ export async function POST(
         }
 
         const prefs = trip.client?.preferences;
-        const balances = trip.client?.loyaltyBalances || [];
+        const clientBalances = trip.client?.loyaltyBalances || [];
+
+        // Use trip-level point balance overrides if set, otherwise use client balances
+        type TripPointBalance = { loyaltyProgramId: string; programName: string; balance: number };
+        const tripPointBalances = (trip.pointBalances as TripPointBalance[] | null) ?? [];
+
+        const balances = tripPointBalances.length > 0
+          ? clientBalances.map((b) => {
+              const override = tripPointBalances.find((tp) => tp.loyaltyProgramId === b.loyaltyProgramId);
+              if (override) {
+                return { ...b, balance: override.balance };
+              }
+              // If this program wasn't enabled for the trip, exclude it by setting balance to 0
+              return { ...b, balance: 0 };
+            })
+          : clientBalances;
 
         const activeBonuses = await prisma.transferBonus.findMany({
           where: { isActive: true, endsAt: { gte: new Date() } },

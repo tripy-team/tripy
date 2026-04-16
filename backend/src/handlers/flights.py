@@ -198,7 +198,7 @@ else:
     logger.info("AWARD_TOOL_API_KEY configured (length=%d)", len(AWARD_TOOL_API_KEY))
 
 # ==== HTTP clients ====
-TIMEOUT = httpx.Timeout(connect=5.0, read=25.0, write=5.0, pool=20)
+TIMEOUT = httpx.Timeout(connect=10.0, read=120.0, write=10.0, pool=60.0)
 
 
 def _normalize_flightnum(x):

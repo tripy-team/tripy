@@ -346,13 +346,55 @@ def get_all_cached_bonuses() -> List[TransferBonusRecord]:
         return list(_cache.bonuses)
 
 
+def _fetch_bonuses_from_frontend() -> Optional[Dict[Tuple[str, str], float]]:
+    """
+    Fetch transfer bonuses from the frontend's Prisma DB via the internal API.
+    This is the same data source the dashboard displays, ensuring consistency.
+    Returns None if the frontend is unreachable.
+    """
+    import os
+    frontend_url = os.environ.get("FRONTEND_URL", "https://tripy.app")
+    url = f"{frontend_url}/api/internal/transfer-bonuses"
+
+    try:
+        resp = httpx.get(url, timeout=5.0)
+        resp.raise_for_status()
+        data = resp.json()
+        result: Dict[Tuple[str, str], float] = {}
+        for key_str, multiplier in data.get("bonuses", {}).items():
+            parts = key_str.split("|", 1)
+            if len(parts) == 2:
+                result[(parts[0], parts[1])] = float(multiplier)
+        if result:
+            logger.info(
+                "Loaded %d transfer bonuses from frontend Prisma DB", len(result),
+            )
+        return result
+    except Exception:
+        logger.warning(
+            "Could not fetch transfer bonuses from frontend (%s), "
+            "falling back to NerdWallet scraper cache",
+            url,
+        )
+        return None
+
+
 def get_ilp_transfer_bonuses() -> Dict[Tuple[str, str], float]:
     """
     Return active bonuses in the format the ILP adapter expects:
     {(bank_code, program_code): multiplier}
 
     e.g. {("chase", "VS"): 1.4}  for a 40% bonus.
+
+    Primary source: frontend Prisma DB (same data the dashboard shows).
+    Fallback: NerdWallet scraper in-memory cache.
     """
+    # Try frontend DB first — this is the source of truth for the dashboard
+    from_frontend = _fetch_bonuses_from_frontend()
+    if from_frontend is not None:
+        return from_frontend
+
+    # Fall back to NerdWallet scraper cache
     result: Dict[Tuple[str, str], float] = {}
     for b in get_active_bonuses():
         key = (b.bank_code, b.program_code)

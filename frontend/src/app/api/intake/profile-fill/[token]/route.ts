@@ -1,6 +1,13 @@
 import { prisma } from "@/lib/prisma";
 import { json, errorResponse } from "@/lib/auth";
 import { sendFormCompletionNotification, buildClientUrl } from "@/lib/email";
+import {
+  analyzeIntakeForPreferences,
+  type IntakeData,
+} from "@/lib/intake-chat-ai";
+
+/** Variants that use the rich IntakeForm (same UI as advisor). */
+const RICH_FORM_VARIANTS = new Set(["profile_link", "individual"]);
 
 // Fields the public recipient is allowed to modify. Mirrors the advisor
 // PATCH allowlist but excludes admin-only fields (isTemplate, templateName).
@@ -17,6 +24,7 @@ const ALLOWED_FIELDS = [
   "budgetMax",
   "budgetCurrency",
   "budgetNotes",
+  "preferredFlightRouting",
   "cabinPreference",
   "hotelStyles",
   "loyaltyNotes",
@@ -82,7 +90,7 @@ export async function GET(
     const { token } = await params;
     const record = await loadToken(token);
     if (!record) return errorResponse("Invalid or expired link", 404);
-    if (record.formVariant !== "profile_link") {
+    if (!RICH_FORM_VARIANTS.has(record.formVariant)) {
       return errorResponse("This link is not a profile-fill link", 400);
     }
     if (record.expiresAt < new Date()) return json({ status: "expired" });
@@ -99,6 +107,27 @@ export async function GET(
         data: { openedAt: new Date() },
       });
     }
+
+    // For `individual` variant tokens that don't yet have a linked intake,
+    // auto-create one so the rich form has something to save into.
+    let intake = record.intake;
+    if (!intake && record.formVariant === "individual") {
+      const advisorId = record.client.owner?.id;
+      if (advisorId) {
+        intake = await prisma.clientIntake.create({
+          data: {
+            clientId: record.clientId,
+            createdByUserId: advisorId,
+            status: "draft",
+          },
+        });
+        await prisma.intakeFormToken.update({
+          where: { token },
+          data: { intakeId: intake.id },
+        });
+      }
+    }
+
     return json({
       status: "pending",
       clientName: record.recipientName,
@@ -107,7 +136,7 @@ export async function GET(
         [record.client.owner?.firstName, record.client.owner?.lastName]
           .filter(Boolean)
           .join(" ") || record.client.owner?.email || "your travel advisor",
-      intake: record.intake,
+      intake,
     });
   } catch (error) {
     console.error("[profile-fill] GET error:", error);
@@ -132,7 +161,7 @@ export async function PATCH(
     if (!record || !record.intakeId) {
       return errorResponse("Invalid link", 404);
     }
-    if (record.formVariant !== "profile_link") {
+    if (!RICH_FORM_VARIANTS.has(record.formVariant)) {
       return errorResponse("This link is not a profile-fill link", 400);
     }
     if (record.completedAt) {
@@ -177,7 +206,7 @@ export async function POST(
     if (!record || !record.intakeId) {
       return errorResponse("Invalid link", 404);
     }
-    if (record.formVariant !== "profile_link") {
+    if (!RICH_FORM_VARIANTS.has(record.formVariant)) {
       return errorResponse("This link is not a profile-fill link", 400);
     }
     if (record.completedAt) {
@@ -205,8 +234,58 @@ export async function POST(
       data: { completedAt: new Date(), formAnswers: data as never },
     });
 
-    // Notify the advisor
+    // ── AI preference analysis ──────────────────────────────────────────
+    // Use AI to analyze the submitted intake data and update the client's
+    // preference profile so the advisor sees learned preferences immediately.
+    const clientName = `${record.client.firstName} ${record.client.lastName}`.trim();
     const advisor = record.client.owner;
+    try {
+      const intakeData = data as unknown as IntakeData;
+      const analyzed = await analyzeIntakeForPreferences(clientName, intakeData, []);
+
+      const PREFERENCE_FIELDS = [
+        "preferredCabin", "prefersNonstop", "maxLayoverMinutes",
+        "willingToReposition", "avoidBasicEconomy", "preferredAirlines",
+        "avoidedAirlines", "preferredHotelTypes", "redemptionStyle",
+        "budgetSensitivity", "accessibilityNeeds", "foodPreferences",
+        "activityPreferences", "familyConsiderations", "dealbreakers", "notes",
+      ] as const;
+
+      const updateData: Record<string, unknown> = {};
+      for (const field of PREFERENCE_FIELDS) {
+        const value = (analyzed as Record<string, unknown>)[field];
+        if (value !== undefined) updateData[field] = value;
+      }
+      updateData.lastUpdatedSource = "intake";
+
+      if (Object.keys(updateData).length > 1) {
+        await prisma.clientPreference.upsert({
+          where: { clientId: record.clientId },
+          create: {
+            clientId: record.clientId,
+            preferredCabin: (analyzed.preferredCabin as string) ?? "economy",
+            prefersNonstop: analyzed.prefersNonstop ?? false,
+            willingToReposition: analyzed.willingToReposition ?? false,
+            avoidBasicEconomy: analyzed.avoidBasicEconomy ?? false,
+            redemptionStyle: (analyzed.redemptionStyle as string) ?? "balanced",
+            mergeStrategy: "merge",
+            lastUpdatedSource: "intake",
+            ...Object.fromEntries(
+              PREFERENCE_FIELDS
+                .filter((f) => (analyzed as Record<string, unknown>)[f] !== undefined)
+                .map((f) => [f, (analyzed as Record<string, unknown>)[f]]),
+            ),
+          } as never,
+          update: updateData,
+        });
+      }
+    } catch (e) {
+      // Non-fatal — the intake is already saved; preference extraction can
+      // be retried by the advisor via the Analyze button.
+      console.error("[profile-fill] AI preference analysis failed:", e);
+    }
+
+    // Notify the advisor
     if (advisor?.email) {
       const advisorName =
         `${advisor.firstName ?? ""} ${advisor.lastName ?? ""}`.trim() ||
@@ -214,10 +293,10 @@ export async function POST(
       await sendFormCompletionNotification({
         advisorEmail: advisor.email,
         advisorName,
-        clientName: `${record.client.firstName} ${record.client.lastName}`.trim(),
+        clientName,
         formTitle: "Travel Profile",
         clientUrl: buildClientUrl(record.clientId),
-        formVariant: "profile_link",
+        formVariant: record.formVariant,
       }).catch((e) =>
         console.error("[profile-fill] completion email failed:", e),
       );

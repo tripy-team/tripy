@@ -274,74 +274,73 @@ export default function FormsTab({ client, clientId, intakes, setIntakes, trips,
         )}
       </div>
 
+      {/* ── Trip Intake Modal ── */}
+      {showNewTripForm && (
+        <TripIntakePanel
+          client={client}
+          existingTrips={trips}
+          onCreated={handleTripFormCreated}
+          onCancel={() => setShowNewTripForm(false)}
+        />
+      )}
+
+      {/* ── Custom Form Modal ── */}
+      {showNewCustomForm && (
+        <CustomFormPanel
+          client={client}
+          onCreated={handleCustomFormCreated}
+          onCancel={() => setShowNewCustomForm(false)}
+        />
+      )}
+
       {/* ── Trip Intake Form Section ── */}
-      <div className="space-y-5">
-        {showNewTripForm ? (
-          <TripIntakePanel
-            client={client}
-            existingTrips={trips}
-            onCreated={handleTripFormCreated}
-            onCancel={() => setShowNewTripForm(false)}
-          />
-        ) : (
-          <div className="rounded-xl border border-slate-200 bg-white shadow-sm">
-            <div className="flex items-center justify-between p-5">
-              <div className="flex items-center gap-3">
-                <div className="flex h-9 w-9 items-center justify-center rounded-lg bg-blue-50">
-                  <Plane className="h-4.5 w-4.5 text-blue-600" />
-                </div>
-                <div>
-                  <h2 className="font-semibold text-slate-900">Trip Intake Forms</h2>
-                  <p className="text-xs text-slate-500">
-                    Send a trip intake to gather destinations, dates, and preferences — links to a trip in the Trips tab
-                  </p>
-                </div>
-              </div>
-              <button
-                onClick={() => setShowNewTripForm(true)}
-                className="inline-flex items-center gap-1.5 rounded-lg bg-blue-600 px-3 py-1.5 text-sm font-medium text-white hover:bg-blue-700"
-              >
-                <Plus className="h-4 w-4" />
-                New Trip Form
-              </button>
+      <div className="rounded-xl border border-slate-200 bg-white shadow-sm">
+        <div className="flex items-center justify-between p-5">
+          <div className="flex items-center gap-3">
+            <div className="flex h-9 w-9 items-center justify-center rounded-lg bg-blue-50">
+              <Plane className="h-4.5 w-4.5 text-blue-600" />
+            </div>
+            <div>
+              <h2 className="font-semibold text-slate-900">Trip Intake Forms</h2>
+              <p className="text-xs text-slate-500">
+                Send a trip intake to gather destinations, dates, and preferences — links to a trip in the Trips tab
+              </p>
             </div>
           </div>
-        )}
+          <button
+            onClick={() => setShowNewTripForm(true)}
+            className="inline-flex items-center gap-1.5 rounded-lg bg-blue-600 px-3 py-1.5 text-sm font-medium text-white hover:bg-blue-700"
+          >
+            <Plus className="h-4 w-4" />
+            New Trip Form
+          </button>
+        </div>
       </div>
 
       {/* ── Custom Forms Section ── */}
       <div className="space-y-5">
-        {/* New custom form builder */}
-        {showNewCustomForm ? (
-          <CustomFormPanel
-            client={client}
-            onCreated={handleCustomFormCreated}
-            onCancel={() => setShowNewCustomForm(false)}
-          />
-        ) : (
-          <div className="rounded-xl border border-slate-200 bg-white shadow-sm">
-            <div className="flex items-center justify-between p-5">
-              <div className="flex items-center gap-3">
-                <div className="flex h-9 w-9 items-center justify-center rounded-lg bg-violet-50">
-                  <FileQuestion className="h-4.5 w-4.5 text-violet-600" />
-                </div>
-                <div>
-                  <h2 className="font-semibold text-slate-900">Custom Forms</h2>
-                  <p className="text-xs text-slate-500">
-                    Build a form with your own questions or let AI generate them
-                  </p>
-                </div>
+        <div className="rounded-xl border border-slate-200 bg-white shadow-sm">
+          <div className="flex items-center justify-between p-5">
+            <div className="flex items-center gap-3">
+              <div className="flex h-9 w-9 items-center justify-center rounded-lg bg-violet-50">
+                <FileQuestion className="h-4.5 w-4.5 text-violet-600" />
               </div>
-              <button
-                onClick={() => setShowNewCustomForm(true)}
-                className="inline-flex items-center gap-1.5 rounded-lg bg-violet-600 px-3 py-1.5 text-sm font-medium text-white hover:bg-violet-700"
-              >
-                <Plus className="h-4 w-4" />
-                New Form
-              </button>
+              <div>
+                <h2 className="font-semibold text-slate-900">Custom Forms</h2>
+                <p className="text-xs text-slate-500">
+                  Build a form with your own questions or let AI generate them
+                </p>
+              </div>
             </div>
+            <button
+              onClick={() => setShowNewCustomForm(true)}
+              className="inline-flex items-center gap-1.5 rounded-lg bg-violet-600 px-3 py-1.5 text-sm font-medium text-white hover:bg-violet-700"
+            >
+              <Plus className="h-4 w-4" />
+              New Form
+            </button>
           </div>
-        )}
+        </div>
 
         {/* Sent forms list (unified: custom + trip intake) */}
         <div className="rounded-xl border border-slate-200 bg-white shadow-sm">
@@ -542,7 +541,9 @@ function SentFormRow({
       ? `${window.location.protocol}//${window.location.host}/intake/${form.token}`
       : `/intake/${form.token}`;
 
-  const questionCount = form.customQuestions?.length ?? 0;
+  const questionCount = form.customSections
+    ? form.customSections.reduce((acc, s) => acc + s.questions.length, 0)
+    : form.customQuestions?.length ?? 0;
 
   return (
     <div className="rounded-lg border border-slate-200 bg-white">
@@ -643,7 +644,14 @@ function SentFormRow({
             {Object.entries(form.formAnswers!)
               .filter(([, v]) => v?.trim())
               .map(([key, value]) => {
-                const question = form.customQuestions?.find((q) => q.id === key);
+                // Look up question label from flat array or sections
+                let question = form.customQuestions?.find((q) => q.id === key);
+                if (!question && form.customSections) {
+                  for (const sec of form.customSections) {
+                    const found = sec.questions.find((q) => q.id === key);
+                    if (found) { question = found; break; }
+                  }
+                }
                 const label =
                   question?.label ??
                   key.replace(/_/g, ' ').replace(/\b\w/g, (c) => c.toUpperCase());

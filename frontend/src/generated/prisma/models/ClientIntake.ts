@@ -60,6 +60,7 @@ export type ClientIntakeMinAggregateOutputType = {
   budgetMax: number | null
   budgetCurrency: string | null
   budgetNotes: string | null
+  preferredFlightRouting: string | null
   cabinPreference: $Enums.CabinPreference | null
   loyaltyNotes: string | null
   accessibilityNeeds: string | null
@@ -94,6 +95,7 @@ export type ClientIntakeMaxAggregateOutputType = {
   budgetMax: number | null
   budgetCurrency: string | null
   budgetNotes: string | null
+  preferredFlightRouting: string | null
   cabinPreference: $Enums.CabinPreference | null
   loyaltyNotes: string | null
   accessibilityNeeds: string | null
@@ -130,6 +132,7 @@ export type ClientIntakeCountAggregateOutputType = {
   budgetMax: number
   budgetCurrency: number
   budgetNotes: number
+  preferredFlightRouting: number
   cabinPreference: number
   hotelStyles: number
   loyaltyNotes: number
@@ -146,6 +149,8 @@ export type ClientIntakeCountAggregateOutputType = {
   dealbreakers: number
   preferredAirlines: number
   avoidedAirlines: number
+  preferredAccommodationBrands: number
+  accommodationDealbreakers: number
   notes: number
   completedAt: number
   createdAt: number
@@ -188,6 +193,7 @@ export type ClientIntakeMinAggregateInputType = {
   budgetMax?: true
   budgetCurrency?: true
   budgetNotes?: true
+  preferredFlightRouting?: true
   cabinPreference?: true
   loyaltyNotes?: true
   accessibilityNeeds?: true
@@ -222,6 +228,7 @@ export type ClientIntakeMaxAggregateInputType = {
   budgetMax?: true
   budgetCurrency?: true
   budgetNotes?: true
+  preferredFlightRouting?: true
   cabinPreference?: true
   loyaltyNotes?: true
   accessibilityNeeds?: true
@@ -258,6 +265,7 @@ export type ClientIntakeCountAggregateInputType = {
   budgetMax?: true
   budgetCurrency?: true
   budgetNotes?: true
+  preferredFlightRouting?: true
   cabinPreference?: true
   hotelStyles?: true
   loyaltyNotes?: true
@@ -274,6 +282,8 @@ export type ClientIntakeCountAggregateInputType = {
   dealbreakers?: true
   preferredAirlines?: true
   avoidedAirlines?: true
+  preferredAccommodationBrands?: true
+  accommodationDealbreakers?: true
   notes?: true
   completedAt?: true
   createdAt?: true
@@ -387,6 +397,7 @@ export type ClientIntakeGroupByOutputType = {
   budgetMax: number | null
   budgetCurrency: string
   budgetNotes: string | null
+  preferredFlightRouting: string | null
   cabinPreference: $Enums.CabinPreference | null
   hotelStyles: runtime.JsonValue | null
   loyaltyNotes: string | null
@@ -403,6 +414,8 @@ export type ClientIntakeGroupByOutputType = {
   dealbreakers: runtime.JsonValue | null
   preferredAirlines: runtime.JsonValue | null
   avoidedAirlines: runtime.JsonValue | null
+  preferredAccommodationBrands: runtime.JsonValue | null
+  accommodationDealbreakers: runtime.JsonValue | null
   notes: string | null
   completedAt: Date | null
   createdAt: Date
@@ -452,6 +465,7 @@ export type ClientIntakeWhereInput = {
   budgetMax?: Prisma.IntNullableFilter<"ClientIntake"> | number | null
   budgetCurrency?: Prisma.StringFilter<"ClientIntake"> | string
   budgetNotes?: Prisma.StringNullableFilter<"ClientIntake"> | string | null
+  preferredFlightRouting?: Prisma.StringNullableFilter<"ClientIntake"> | string | null
   cabinPreference?: Prisma.EnumCabinPreferenceNullableFilter<"ClientIntake"> | $Enums.CabinPreference | null
   hotelStyles?: Prisma.JsonNullableFilter<"ClientIntake">
   loyaltyNotes?: Prisma.StringNullableFilter<"ClientIntake"> | string | null
@@ -468,6 +482,8 @@ export type ClientIntakeWhereInput = {
   dealbreakers?: Prisma.JsonNullableFilter<"ClientIntake">
   preferredAirlines?: Prisma.JsonNullableFilter<"ClientIntake">
   avoidedAirlines?: Prisma.JsonNullableFilter<"ClientIntake">
+  preferredAccommodationBrands?: Prisma.JsonNullableFilter<"ClientIntake">
+  accommodationDealbreakers?: Prisma.JsonNullableFilter<"ClientIntake">
   notes?: Prisma.StringNullableFilter<"ClientIntake"> | string | null
   completedAt?: Prisma.DateTimeNullableFilter<"ClientIntake"> | Date | string | null
   createdAt?: Prisma.DateTimeFilter<"ClientIntake"> | Date | string
@@ -500,6 +516,7 @@ export type ClientIntakeOrderByWithRelationInput = {
   budgetMax?: Prisma.SortOrderInput | Prisma.SortOrder
   budgetCurrency?: Prisma.SortOrder
   budgetNotes?: Prisma.SortOrderInput | Prisma.SortOrder
+  preferredFlightRouting?: Prisma.SortOrderInput | Prisma.SortOrder
   cabinPreference?: Prisma.SortOrderInput | Prisma.SortOrder
   hotelStyles?: Prisma.SortOrderInput | Prisma.SortOrder
   loyaltyNotes?: Prisma.SortOrderInput | Prisma.SortOrder
@@ -516,6 +533,8 @@ export type ClientIntakeOrderByWithRelationInput = {
   dealbreakers?: Prisma.SortOrderInput | Prisma.SortOrder
   preferredAirlines?: Prisma.SortOrderInput | Prisma.SortOrder
   avoidedAirlines?: Prisma.SortOrderInput | Prisma.SortOrder
+  preferredAccommodationBrands?: Prisma.SortOrderInput | Prisma.SortOrder
+  accommodationDealbreakers?: Prisma.SortOrderInput | Prisma.SortOrder
   notes?: Prisma.SortOrderInput | Prisma.SortOrder
   completedAt?: Prisma.SortOrderInput | Prisma.SortOrder
   createdAt?: Prisma.SortOrder
@@ -551,6 +570,7 @@ export type ClientIntakeWhereUniqueInput = Prisma.AtLeast<{
   budgetMax?: Prisma.IntNullableFilter<"ClientIntake"> | number | null
   budgetCurrency?: Prisma.StringFilter<"ClientIntake"> | string
   budgetNotes?: Prisma.StringNullableFilter<"ClientIntake"> | string | null
+  preferredFlightRouting?: Prisma.StringNullableFilter<"ClientIntake"> | string | null
   cabinPreference?: Prisma.EnumCabinPreferenceNullableFilter<"ClientIntake"> | $Enums.CabinPreference | null
   hotelStyles?: Prisma.JsonNullableFilter<"ClientIntake">
   loyaltyNotes?: Prisma.StringNullableFilter<"ClientIntake"> | string | null
@@ -567,6 +587,8 @@ export type ClientIntakeWhereUniqueInput = Prisma.AtLeast<{
   dealbreakers?: Prisma.JsonNullableFilter<"ClientIntake">
   preferredAirlines?: Prisma.JsonNullableFilter<"ClientIntake">
   avoidedAirlines?: Prisma.JsonNullableFilter<"ClientIntake">
+  preferredAccommodationBrands?: Prisma.JsonNullableFilter<"ClientIntake">
+  accommodationDealbreakers?: Prisma.JsonNullableFilter<"ClientIntake">
   notes?: Prisma.StringNullableFilter<"ClientIntake"> | string | null
   completedAt?: Prisma.DateTimeNullableFilter<"ClientIntake"> | Date | string | null
   createdAt?: Prisma.DateTimeFilter<"ClientIntake"> | Date | string
@@ -599,6 +621,7 @@ export type ClientIntakeOrderByWithAggregationInput = {
   budgetMax?: Prisma.SortOrderInput | Prisma.SortOrder
   budgetCurrency?: Prisma.SortOrder
   budgetNotes?: Prisma.SortOrderInput | Prisma.SortOrder
+  preferredFlightRouting?: Prisma.SortOrderInput | Prisma.SortOrder
   cabinPreference?: Prisma.SortOrderInput | Prisma.SortOrder
   hotelStyles?: Prisma.SortOrderInput | Prisma.SortOrder
   loyaltyNotes?: Prisma.SortOrderInput | Prisma.SortOrder
@@ -615,6 +638,8 @@ export type ClientIntakeOrderByWithAggregationInput = {
   dealbreakers?: Prisma.SortOrderInput | Prisma.SortOrder
   preferredAirlines?: Prisma.SortOrderInput | Prisma.SortOrder
   avoidedAirlines?: Prisma.SortOrderInput | Prisma.SortOrder
+  preferredAccommodationBrands?: Prisma.SortOrderInput | Prisma.SortOrder
+  accommodationDealbreakers?: Prisma.SortOrderInput | Prisma.SortOrder
   notes?: Prisma.SortOrderInput | Prisma.SortOrder
   completedAt?: Prisma.SortOrderInput | Prisma.SortOrder
   createdAt?: Prisma.SortOrder
@@ -649,6 +674,7 @@ export type ClientIntakeScalarWhereWithAggregatesInput = {
   budgetMax?: Prisma.IntNullableWithAggregatesFilter<"ClientIntake"> | number | null
   budgetCurrency?: Prisma.StringWithAggregatesFilter<"ClientIntake"> | string
   budgetNotes?: Prisma.StringNullableWithAggregatesFilter<"ClientIntake"> | string | null
+  preferredFlightRouting?: Prisma.StringNullableWithAggregatesFilter<"ClientIntake"> | string | null
   cabinPreference?: Prisma.EnumCabinPreferenceNullableWithAggregatesFilter<"ClientIntake"> | $Enums.CabinPreference | null
   hotelStyles?: Prisma.JsonNullableWithAggregatesFilter<"ClientIntake">
   loyaltyNotes?: Prisma.StringNullableWithAggregatesFilter<"ClientIntake"> | string | null
@@ -665,6 +691,8 @@ export type ClientIntakeScalarWhereWithAggregatesInput = {
   dealbreakers?: Prisma.JsonNullableWithAggregatesFilter<"ClientIntake">
   preferredAirlines?: Prisma.JsonNullableWithAggregatesFilter<"ClientIntake">
   avoidedAirlines?: Prisma.JsonNullableWithAggregatesFilter<"ClientIntake">
+  preferredAccommodationBrands?: Prisma.JsonNullableWithAggregatesFilter<"ClientIntake">
+  accommodationDealbreakers?: Prisma.JsonNullableWithAggregatesFilter<"ClientIntake">
   notes?: Prisma.StringNullableWithAggregatesFilter<"ClientIntake"> | string | null
   completedAt?: Prisma.DateTimeNullableWithAggregatesFilter<"ClientIntake"> | Date | string | null
   createdAt?: Prisma.DateTimeWithAggregatesFilter<"ClientIntake"> | Date | string
@@ -689,6 +717,7 @@ export type ClientIntakeCreateInput = {
   budgetMax?: number | null
   budgetCurrency?: string
   budgetNotes?: string | null
+  preferredFlightRouting?: string | null
   cabinPreference?: $Enums.CabinPreference | null
   hotelStyles?: Prisma.NullableJsonNullValueInput | runtime.InputJsonValue
   loyaltyNotes?: string | null
@@ -705,6 +734,8 @@ export type ClientIntakeCreateInput = {
   dealbreakers?: Prisma.NullableJsonNullValueInput | runtime.InputJsonValue
   preferredAirlines?: Prisma.NullableJsonNullValueInput | runtime.InputJsonValue
   avoidedAirlines?: Prisma.NullableJsonNullValueInput | runtime.InputJsonValue
+  preferredAccommodationBrands?: Prisma.NullableJsonNullValueInput | runtime.InputJsonValue
+  accommodationDealbreakers?: Prisma.NullableJsonNullValueInput | runtime.InputJsonValue
   notes?: string | null
   completedAt?: Date | string | null
   createdAt?: Date | string
@@ -737,6 +768,7 @@ export type ClientIntakeUncheckedCreateInput = {
   budgetMax?: number | null
   budgetCurrency?: string
   budgetNotes?: string | null
+  preferredFlightRouting?: string | null
   cabinPreference?: $Enums.CabinPreference | null
   hotelStyles?: Prisma.NullableJsonNullValueInput | runtime.InputJsonValue
   loyaltyNotes?: string | null
@@ -753,6 +785,8 @@ export type ClientIntakeUncheckedCreateInput = {
   dealbreakers?: Prisma.NullableJsonNullValueInput | runtime.InputJsonValue
   preferredAirlines?: Prisma.NullableJsonNullValueInput | runtime.InputJsonValue
   avoidedAirlines?: Prisma.NullableJsonNullValueInput | runtime.InputJsonValue
+  preferredAccommodationBrands?: Prisma.NullableJsonNullValueInput | runtime.InputJsonValue
+  accommodationDealbreakers?: Prisma.NullableJsonNullValueInput | runtime.InputJsonValue
   notes?: string | null
   completedAt?: Date | string | null
   createdAt?: Date | string
@@ -781,6 +815,7 @@ export type ClientIntakeUpdateInput = {
   budgetMax?: Prisma.NullableIntFieldUpdateOperationsInput | number | null
   budgetCurrency?: Prisma.StringFieldUpdateOperationsInput | string
   budgetNotes?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
+  preferredFlightRouting?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
   cabinPreference?: Prisma.NullableEnumCabinPreferenceFieldUpdateOperationsInput | $Enums.CabinPreference | null
   hotelStyles?: Prisma.NullableJsonNullValueInput | runtime.InputJsonValue
   loyaltyNotes?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
@@ -797,6 +832,8 @@ export type ClientIntakeUpdateInput = {
   dealbreakers?: Prisma.NullableJsonNullValueInput | runtime.InputJsonValue
   preferredAirlines?: Prisma.NullableJsonNullValueInput | runtime.InputJsonValue
   avoidedAirlines?: Prisma.NullableJsonNullValueInput | runtime.InputJsonValue
+  preferredAccommodationBrands?: Prisma.NullableJsonNullValueInput | runtime.InputJsonValue
+  accommodationDealbreakers?: Prisma.NullableJsonNullValueInput | runtime.InputJsonValue
   notes?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
   completedAt?: Prisma.NullableDateTimeFieldUpdateOperationsInput | Date | string | null
   createdAt?: Prisma.DateTimeFieldUpdateOperationsInput | Date | string
@@ -829,6 +866,7 @@ export type ClientIntakeUncheckedUpdateInput = {
   budgetMax?: Prisma.NullableIntFieldUpdateOperationsInput | number | null
   budgetCurrency?: Prisma.StringFieldUpdateOperationsInput | string
   budgetNotes?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
+  preferredFlightRouting?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
   cabinPreference?: Prisma.NullableEnumCabinPreferenceFieldUpdateOperationsInput | $Enums.CabinPreference | null
   hotelStyles?: Prisma.NullableJsonNullValueInput | runtime.InputJsonValue
   loyaltyNotes?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
@@ -845,6 +883,8 @@ export type ClientIntakeUncheckedUpdateInput = {
   dealbreakers?: Prisma.NullableJsonNullValueInput | runtime.InputJsonValue
   preferredAirlines?: Prisma.NullableJsonNullValueInput | runtime.InputJsonValue
   avoidedAirlines?: Prisma.NullableJsonNullValueInput | runtime.InputJsonValue
+  preferredAccommodationBrands?: Prisma.NullableJsonNullValueInput | runtime.InputJsonValue
+  accommodationDealbreakers?: Prisma.NullableJsonNullValueInput | runtime.InputJsonValue
   notes?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
   completedAt?: Prisma.NullableDateTimeFieldUpdateOperationsInput | Date | string | null
   createdAt?: Prisma.DateTimeFieldUpdateOperationsInput | Date | string
@@ -875,6 +915,7 @@ export type ClientIntakeCreateManyInput = {
   budgetMax?: number | null
   budgetCurrency?: string
   budgetNotes?: string | null
+  preferredFlightRouting?: string | null
   cabinPreference?: $Enums.CabinPreference | null
   hotelStyles?: Prisma.NullableJsonNullValueInput | runtime.InputJsonValue
   loyaltyNotes?: string | null
@@ -891,6 +932,8 @@ export type ClientIntakeCreateManyInput = {
   dealbreakers?: Prisma.NullableJsonNullValueInput | runtime.InputJsonValue
   preferredAirlines?: Prisma.NullableJsonNullValueInput | runtime.InputJsonValue
   avoidedAirlines?: Prisma.NullableJsonNullValueInput | runtime.InputJsonValue
+  preferredAccommodationBrands?: Prisma.NullableJsonNullValueInput | runtime.InputJsonValue
+  accommodationDealbreakers?: Prisma.NullableJsonNullValueInput | runtime.InputJsonValue
   notes?: string | null
   completedAt?: Date | string | null
   createdAt?: Date | string
@@ -915,6 +958,7 @@ export type ClientIntakeUpdateManyMutationInput = {
   budgetMax?: Prisma.NullableIntFieldUpdateOperationsInput | number | null
   budgetCurrency?: Prisma.StringFieldUpdateOperationsInput | string
   budgetNotes?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
+  preferredFlightRouting?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
   cabinPreference?: Prisma.NullableEnumCabinPreferenceFieldUpdateOperationsInput | $Enums.CabinPreference | null
   hotelStyles?: Prisma.NullableJsonNullValueInput | runtime.InputJsonValue
   loyaltyNotes?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
@@ -931,6 +975,8 @@ export type ClientIntakeUpdateManyMutationInput = {
   dealbreakers?: Prisma.NullableJsonNullValueInput | runtime.InputJsonValue
   preferredAirlines?: Prisma.NullableJsonNullValueInput | runtime.InputJsonValue
   avoidedAirlines?: Prisma.NullableJsonNullValueInput | runtime.InputJsonValue
+  preferredAccommodationBrands?: Prisma.NullableJsonNullValueInput | runtime.InputJsonValue
+  accommodationDealbreakers?: Prisma.NullableJsonNullValueInput | runtime.InputJsonValue
   notes?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
   completedAt?: Prisma.NullableDateTimeFieldUpdateOperationsInput | Date | string | null
   createdAt?: Prisma.DateTimeFieldUpdateOperationsInput | Date | string
@@ -957,6 +1003,7 @@ export type ClientIntakeUncheckedUpdateManyInput = {
   budgetMax?: Prisma.NullableIntFieldUpdateOperationsInput | number | null
   budgetCurrency?: Prisma.StringFieldUpdateOperationsInput | string
   budgetNotes?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
+  preferredFlightRouting?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
   cabinPreference?: Prisma.NullableEnumCabinPreferenceFieldUpdateOperationsInput | $Enums.CabinPreference | null
   hotelStyles?: Prisma.NullableJsonNullValueInput | runtime.InputJsonValue
   loyaltyNotes?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
@@ -973,6 +1020,8 @@ export type ClientIntakeUncheckedUpdateManyInput = {
   dealbreakers?: Prisma.NullableJsonNullValueInput | runtime.InputJsonValue
   preferredAirlines?: Prisma.NullableJsonNullValueInput | runtime.InputJsonValue
   avoidedAirlines?: Prisma.NullableJsonNullValueInput | runtime.InputJsonValue
+  preferredAccommodationBrands?: Prisma.NullableJsonNullValueInput | runtime.InputJsonValue
+  accommodationDealbreakers?: Prisma.NullableJsonNullValueInput | runtime.InputJsonValue
   notes?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
   completedAt?: Prisma.NullableDateTimeFieldUpdateOperationsInput | Date | string | null
   createdAt?: Prisma.DateTimeFieldUpdateOperationsInput | Date | string
@@ -1014,6 +1063,7 @@ export type ClientIntakeCountOrderByAggregateInput = {
   budgetMax?: Prisma.SortOrder
   budgetCurrency?: Prisma.SortOrder
   budgetNotes?: Prisma.SortOrder
+  preferredFlightRouting?: Prisma.SortOrder
   cabinPreference?: Prisma.SortOrder
   hotelStyles?: Prisma.SortOrder
   loyaltyNotes?: Prisma.SortOrder
@@ -1030,6 +1080,8 @@ export type ClientIntakeCountOrderByAggregateInput = {
   dealbreakers?: Prisma.SortOrder
   preferredAirlines?: Prisma.SortOrder
   avoidedAirlines?: Prisma.SortOrder
+  preferredAccommodationBrands?: Prisma.SortOrder
+  accommodationDealbreakers?: Prisma.SortOrder
   notes?: Prisma.SortOrder
   completedAt?: Prisma.SortOrder
   createdAt?: Prisma.SortOrder
@@ -1062,6 +1114,7 @@ export type ClientIntakeMaxOrderByAggregateInput = {
   budgetMax?: Prisma.SortOrder
   budgetCurrency?: Prisma.SortOrder
   budgetNotes?: Prisma.SortOrder
+  preferredFlightRouting?: Prisma.SortOrder
   cabinPreference?: Prisma.SortOrder
   loyaltyNotes?: Prisma.SortOrder
   accessibilityNeeds?: Prisma.SortOrder
@@ -1096,6 +1149,7 @@ export type ClientIntakeMinOrderByAggregateInput = {
   budgetMax?: Prisma.SortOrder
   budgetCurrency?: Prisma.SortOrder
   budgetNotes?: Prisma.SortOrder
+  preferredFlightRouting?: Prisma.SortOrder
   cabinPreference?: Prisma.SortOrder
   loyaltyNotes?: Prisma.SortOrder
   accessibilityNeeds?: Prisma.SortOrder
@@ -1314,6 +1368,7 @@ export type ClientIntakeCreateWithoutClientInput = {
   budgetMax?: number | null
   budgetCurrency?: string
   budgetNotes?: string | null
+  preferredFlightRouting?: string | null
   cabinPreference?: $Enums.CabinPreference | null
   hotelStyles?: Prisma.NullableJsonNullValueInput | runtime.InputJsonValue
   loyaltyNotes?: string | null
@@ -1330,6 +1385,8 @@ export type ClientIntakeCreateWithoutClientInput = {
   dealbreakers?: Prisma.NullableJsonNullValueInput | runtime.InputJsonValue
   preferredAirlines?: Prisma.NullableJsonNullValueInput | runtime.InputJsonValue
   avoidedAirlines?: Prisma.NullableJsonNullValueInput | runtime.InputJsonValue
+  preferredAccommodationBrands?: Prisma.NullableJsonNullValueInput | runtime.InputJsonValue
+  accommodationDealbreakers?: Prisma.NullableJsonNullValueInput | runtime.InputJsonValue
   notes?: string | null
   completedAt?: Date | string | null
   createdAt?: Date | string
@@ -1360,6 +1417,7 @@ export type ClientIntakeUncheckedCreateWithoutClientInput = {
   budgetMax?: number | null
   budgetCurrency?: string
   budgetNotes?: string | null
+  preferredFlightRouting?: string | null
   cabinPreference?: $Enums.CabinPreference | null
   hotelStyles?: Prisma.NullableJsonNullValueInput | runtime.InputJsonValue
   loyaltyNotes?: string | null
@@ -1376,6 +1434,8 @@ export type ClientIntakeUncheckedCreateWithoutClientInput = {
   dealbreakers?: Prisma.NullableJsonNullValueInput | runtime.InputJsonValue
   preferredAirlines?: Prisma.NullableJsonNullValueInput | runtime.InputJsonValue
   avoidedAirlines?: Prisma.NullableJsonNullValueInput | runtime.InputJsonValue
+  preferredAccommodationBrands?: Prisma.NullableJsonNullValueInput | runtime.InputJsonValue
+  accommodationDealbreakers?: Prisma.NullableJsonNullValueInput | runtime.InputJsonValue
   notes?: string | null
   completedAt?: Date | string | null
   createdAt?: Date | string
@@ -1435,6 +1495,7 @@ export type ClientIntakeScalarWhereInput = {
   budgetMax?: Prisma.IntNullableFilter<"ClientIntake"> | number | null
   budgetCurrency?: Prisma.StringFilter<"ClientIntake"> | string
   budgetNotes?: Prisma.StringNullableFilter<"ClientIntake"> | string | null
+  preferredFlightRouting?: Prisma.StringNullableFilter<"ClientIntake"> | string | null
   cabinPreference?: Prisma.EnumCabinPreferenceNullableFilter<"ClientIntake"> | $Enums.CabinPreference | null
   hotelStyles?: Prisma.JsonNullableFilter<"ClientIntake">
   loyaltyNotes?: Prisma.StringNullableFilter<"ClientIntake"> | string | null
@@ -1451,6 +1512,8 @@ export type ClientIntakeScalarWhereInput = {
   dealbreakers?: Prisma.JsonNullableFilter<"ClientIntake">
   preferredAirlines?: Prisma.JsonNullableFilter<"ClientIntake">
   avoidedAirlines?: Prisma.JsonNullableFilter<"ClientIntake">
+  preferredAccommodationBrands?: Prisma.JsonNullableFilter<"ClientIntake">
+  accommodationDealbreakers?: Prisma.JsonNullableFilter<"ClientIntake">
   notes?: Prisma.StringNullableFilter<"ClientIntake"> | string | null
   completedAt?: Prisma.DateTimeNullableFilter<"ClientIntake"> | Date | string | null
   createdAt?: Prisma.DateTimeFilter<"ClientIntake"> | Date | string
@@ -1475,6 +1538,7 @@ export type ClientIntakeCreateWithoutDuplicatesInput = {
   budgetMax?: number | null
   budgetCurrency?: string
   budgetNotes?: string | null
+  preferredFlightRouting?: string | null
   cabinPreference?: $Enums.CabinPreference | null
   hotelStyles?: Prisma.NullableJsonNullValueInput | runtime.InputJsonValue
   loyaltyNotes?: string | null
@@ -1491,6 +1555,8 @@ export type ClientIntakeCreateWithoutDuplicatesInput = {
   dealbreakers?: Prisma.NullableJsonNullValueInput | runtime.InputJsonValue
   preferredAirlines?: Prisma.NullableJsonNullValueInput | runtime.InputJsonValue
   avoidedAirlines?: Prisma.NullableJsonNullValueInput | runtime.InputJsonValue
+  preferredAccommodationBrands?: Prisma.NullableJsonNullValueInput | runtime.InputJsonValue
+  accommodationDealbreakers?: Prisma.NullableJsonNullValueInput | runtime.InputJsonValue
   notes?: string | null
   completedAt?: Date | string | null
   createdAt?: Date | string
@@ -1522,6 +1588,7 @@ export type ClientIntakeUncheckedCreateWithoutDuplicatesInput = {
   budgetMax?: number | null
   budgetCurrency?: string
   budgetNotes?: string | null
+  preferredFlightRouting?: string | null
   cabinPreference?: $Enums.CabinPreference | null
   hotelStyles?: Prisma.NullableJsonNullValueInput | runtime.InputJsonValue
   loyaltyNotes?: string | null
@@ -1538,6 +1605,8 @@ export type ClientIntakeUncheckedCreateWithoutDuplicatesInput = {
   dealbreakers?: Prisma.NullableJsonNullValueInput | runtime.InputJsonValue
   preferredAirlines?: Prisma.NullableJsonNullValueInput | runtime.InputJsonValue
   avoidedAirlines?: Prisma.NullableJsonNullValueInput | runtime.InputJsonValue
+  preferredAccommodationBrands?: Prisma.NullableJsonNullValueInput | runtime.InputJsonValue
+  accommodationDealbreakers?: Prisma.NullableJsonNullValueInput | runtime.InputJsonValue
   notes?: string | null
   completedAt?: Date | string | null
   createdAt?: Date | string
@@ -1570,6 +1639,7 @@ export type ClientIntakeCreateWithoutDuplicatedFromInput = {
   budgetMax?: number | null
   budgetCurrency?: string
   budgetNotes?: string | null
+  preferredFlightRouting?: string | null
   cabinPreference?: $Enums.CabinPreference | null
   hotelStyles?: Prisma.NullableJsonNullValueInput | runtime.InputJsonValue
   loyaltyNotes?: string | null
@@ -1586,6 +1656,8 @@ export type ClientIntakeCreateWithoutDuplicatedFromInput = {
   dealbreakers?: Prisma.NullableJsonNullValueInput | runtime.InputJsonValue
   preferredAirlines?: Prisma.NullableJsonNullValueInput | runtime.InputJsonValue
   avoidedAirlines?: Prisma.NullableJsonNullValueInput | runtime.InputJsonValue
+  preferredAccommodationBrands?: Prisma.NullableJsonNullValueInput | runtime.InputJsonValue
+  accommodationDealbreakers?: Prisma.NullableJsonNullValueInput | runtime.InputJsonValue
   notes?: string | null
   completedAt?: Date | string | null
   createdAt?: Date | string
@@ -1616,6 +1688,7 @@ export type ClientIntakeUncheckedCreateWithoutDuplicatedFromInput = {
   budgetMax?: number | null
   budgetCurrency?: string
   budgetNotes?: string | null
+  preferredFlightRouting?: string | null
   cabinPreference?: $Enums.CabinPreference | null
   hotelStyles?: Prisma.NullableJsonNullValueInput | runtime.InputJsonValue
   loyaltyNotes?: string | null
@@ -1632,6 +1705,8 @@ export type ClientIntakeUncheckedCreateWithoutDuplicatedFromInput = {
   dealbreakers?: Prisma.NullableJsonNullValueInput | runtime.InputJsonValue
   preferredAirlines?: Prisma.NullableJsonNullValueInput | runtime.InputJsonValue
   avoidedAirlines?: Prisma.NullableJsonNullValueInput | runtime.InputJsonValue
+  preferredAccommodationBrands?: Prisma.NullableJsonNullValueInput | runtime.InputJsonValue
+  accommodationDealbreakers?: Prisma.NullableJsonNullValueInput | runtime.InputJsonValue
   notes?: string | null
   completedAt?: Date | string | null
   createdAt?: Date | string
@@ -1681,6 +1756,7 @@ export type ClientIntakeUpdateWithoutDuplicatesInput = {
   budgetMax?: Prisma.NullableIntFieldUpdateOperationsInput | number | null
   budgetCurrency?: Prisma.StringFieldUpdateOperationsInput | string
   budgetNotes?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
+  preferredFlightRouting?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
   cabinPreference?: Prisma.NullableEnumCabinPreferenceFieldUpdateOperationsInput | $Enums.CabinPreference | null
   hotelStyles?: Prisma.NullableJsonNullValueInput | runtime.InputJsonValue
   loyaltyNotes?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
@@ -1697,6 +1773,8 @@ export type ClientIntakeUpdateWithoutDuplicatesInput = {
   dealbreakers?: Prisma.NullableJsonNullValueInput | runtime.InputJsonValue
   preferredAirlines?: Prisma.NullableJsonNullValueInput | runtime.InputJsonValue
   avoidedAirlines?: Prisma.NullableJsonNullValueInput | runtime.InputJsonValue
+  preferredAccommodationBrands?: Prisma.NullableJsonNullValueInput | runtime.InputJsonValue
+  accommodationDealbreakers?: Prisma.NullableJsonNullValueInput | runtime.InputJsonValue
   notes?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
   completedAt?: Prisma.NullableDateTimeFieldUpdateOperationsInput | Date | string | null
   createdAt?: Prisma.DateTimeFieldUpdateOperationsInput | Date | string
@@ -1728,6 +1806,7 @@ export type ClientIntakeUncheckedUpdateWithoutDuplicatesInput = {
   budgetMax?: Prisma.NullableIntFieldUpdateOperationsInput | number | null
   budgetCurrency?: Prisma.StringFieldUpdateOperationsInput | string
   budgetNotes?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
+  preferredFlightRouting?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
   cabinPreference?: Prisma.NullableEnumCabinPreferenceFieldUpdateOperationsInput | $Enums.CabinPreference | null
   hotelStyles?: Prisma.NullableJsonNullValueInput | runtime.InputJsonValue
   loyaltyNotes?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
@@ -1744,6 +1823,8 @@ export type ClientIntakeUncheckedUpdateWithoutDuplicatesInput = {
   dealbreakers?: Prisma.NullableJsonNullValueInput | runtime.InputJsonValue
   preferredAirlines?: Prisma.NullableJsonNullValueInput | runtime.InputJsonValue
   avoidedAirlines?: Prisma.NullableJsonNullValueInput | runtime.InputJsonValue
+  preferredAccommodationBrands?: Prisma.NullableJsonNullValueInput | runtime.InputJsonValue
+  accommodationDealbreakers?: Prisma.NullableJsonNullValueInput | runtime.InputJsonValue
   notes?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
   completedAt?: Prisma.NullableDateTimeFieldUpdateOperationsInput | Date | string | null
   createdAt?: Prisma.DateTimeFieldUpdateOperationsInput | Date | string
@@ -1787,6 +1868,7 @@ export type ClientIntakeCreateWithoutTripBriefsInput = {
   budgetMax?: number | null
   budgetCurrency?: string
   budgetNotes?: string | null
+  preferredFlightRouting?: string | null
   cabinPreference?: $Enums.CabinPreference | null
   hotelStyles?: Prisma.NullableJsonNullValueInput | runtime.InputJsonValue
   loyaltyNotes?: string | null
@@ -1803,6 +1885,8 @@ export type ClientIntakeCreateWithoutTripBriefsInput = {
   dealbreakers?: Prisma.NullableJsonNullValueInput | runtime.InputJsonValue
   preferredAirlines?: Prisma.NullableJsonNullValueInput | runtime.InputJsonValue
   avoidedAirlines?: Prisma.NullableJsonNullValueInput | runtime.InputJsonValue
+  preferredAccommodationBrands?: Prisma.NullableJsonNullValueInput | runtime.InputJsonValue
+  accommodationDealbreakers?: Prisma.NullableJsonNullValueInput | runtime.InputJsonValue
   notes?: string | null
   completedAt?: Date | string | null
   createdAt?: Date | string
@@ -1834,6 +1918,7 @@ export type ClientIntakeUncheckedCreateWithoutTripBriefsInput = {
   budgetMax?: number | null
   budgetCurrency?: string
   budgetNotes?: string | null
+  preferredFlightRouting?: string | null
   cabinPreference?: $Enums.CabinPreference | null
   hotelStyles?: Prisma.NullableJsonNullValueInput | runtime.InputJsonValue
   loyaltyNotes?: string | null
@@ -1850,6 +1935,8 @@ export type ClientIntakeUncheckedCreateWithoutTripBriefsInput = {
   dealbreakers?: Prisma.NullableJsonNullValueInput | runtime.InputJsonValue
   preferredAirlines?: Prisma.NullableJsonNullValueInput | runtime.InputJsonValue
   avoidedAirlines?: Prisma.NullableJsonNullValueInput | runtime.InputJsonValue
+  preferredAccommodationBrands?: Prisma.NullableJsonNullValueInput | runtime.InputJsonValue
+  accommodationDealbreakers?: Prisma.NullableJsonNullValueInput | runtime.InputJsonValue
   notes?: string | null
   completedAt?: Date | string | null
   createdAt?: Date | string
@@ -1893,6 +1980,7 @@ export type ClientIntakeUpdateWithoutTripBriefsInput = {
   budgetMax?: Prisma.NullableIntFieldUpdateOperationsInput | number | null
   budgetCurrency?: Prisma.StringFieldUpdateOperationsInput | string
   budgetNotes?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
+  preferredFlightRouting?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
   cabinPreference?: Prisma.NullableEnumCabinPreferenceFieldUpdateOperationsInput | $Enums.CabinPreference | null
   hotelStyles?: Prisma.NullableJsonNullValueInput | runtime.InputJsonValue
   loyaltyNotes?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
@@ -1909,6 +1997,8 @@ export type ClientIntakeUpdateWithoutTripBriefsInput = {
   dealbreakers?: Prisma.NullableJsonNullValueInput | runtime.InputJsonValue
   preferredAirlines?: Prisma.NullableJsonNullValueInput | runtime.InputJsonValue
   avoidedAirlines?: Prisma.NullableJsonNullValueInput | runtime.InputJsonValue
+  preferredAccommodationBrands?: Prisma.NullableJsonNullValueInput | runtime.InputJsonValue
+  accommodationDealbreakers?: Prisma.NullableJsonNullValueInput | runtime.InputJsonValue
   notes?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
   completedAt?: Prisma.NullableDateTimeFieldUpdateOperationsInput | Date | string | null
   createdAt?: Prisma.DateTimeFieldUpdateOperationsInput | Date | string
@@ -1940,6 +2030,7 @@ export type ClientIntakeUncheckedUpdateWithoutTripBriefsInput = {
   budgetMax?: Prisma.NullableIntFieldUpdateOperationsInput | number | null
   budgetCurrency?: Prisma.StringFieldUpdateOperationsInput | string
   budgetNotes?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
+  preferredFlightRouting?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
   cabinPreference?: Prisma.NullableEnumCabinPreferenceFieldUpdateOperationsInput | $Enums.CabinPreference | null
   hotelStyles?: Prisma.NullableJsonNullValueInput | runtime.InputJsonValue
   loyaltyNotes?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
@@ -1956,6 +2047,8 @@ export type ClientIntakeUncheckedUpdateWithoutTripBriefsInput = {
   dealbreakers?: Prisma.NullableJsonNullValueInput | runtime.InputJsonValue
   preferredAirlines?: Prisma.NullableJsonNullValueInput | runtime.InputJsonValue
   avoidedAirlines?: Prisma.NullableJsonNullValueInput | runtime.InputJsonValue
+  preferredAccommodationBrands?: Prisma.NullableJsonNullValueInput | runtime.InputJsonValue
+  accommodationDealbreakers?: Prisma.NullableJsonNullValueInput | runtime.InputJsonValue
   notes?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
   completedAt?: Prisma.NullableDateTimeFieldUpdateOperationsInput | Date | string | null
   createdAt?: Prisma.DateTimeFieldUpdateOperationsInput | Date | string
@@ -1983,6 +2076,7 @@ export type ClientIntakeCreateWithoutFollowUpSuggestionsInput = {
   budgetMax?: number | null
   budgetCurrency?: string
   budgetNotes?: string | null
+  preferredFlightRouting?: string | null
   cabinPreference?: $Enums.CabinPreference | null
   hotelStyles?: Prisma.NullableJsonNullValueInput | runtime.InputJsonValue
   loyaltyNotes?: string | null
@@ -1999,6 +2093,8 @@ export type ClientIntakeCreateWithoutFollowUpSuggestionsInput = {
   dealbreakers?: Prisma.NullableJsonNullValueInput | runtime.InputJsonValue
   preferredAirlines?: Prisma.NullableJsonNullValueInput | runtime.InputJsonValue
   avoidedAirlines?: Prisma.NullableJsonNullValueInput | runtime.InputJsonValue
+  preferredAccommodationBrands?: Prisma.NullableJsonNullValueInput | runtime.InputJsonValue
+  accommodationDealbreakers?: Prisma.NullableJsonNullValueInput | runtime.InputJsonValue
   notes?: string | null
   completedAt?: Date | string | null
   createdAt?: Date | string
@@ -2030,6 +2126,7 @@ export type ClientIntakeUncheckedCreateWithoutFollowUpSuggestionsInput = {
   budgetMax?: number | null
   budgetCurrency?: string
   budgetNotes?: string | null
+  preferredFlightRouting?: string | null
   cabinPreference?: $Enums.CabinPreference | null
   hotelStyles?: Prisma.NullableJsonNullValueInput | runtime.InputJsonValue
   loyaltyNotes?: string | null
@@ -2046,6 +2143,8 @@ export type ClientIntakeUncheckedCreateWithoutFollowUpSuggestionsInput = {
   dealbreakers?: Prisma.NullableJsonNullValueInput | runtime.InputJsonValue
   preferredAirlines?: Prisma.NullableJsonNullValueInput | runtime.InputJsonValue
   avoidedAirlines?: Prisma.NullableJsonNullValueInput | runtime.InputJsonValue
+  preferredAccommodationBrands?: Prisma.NullableJsonNullValueInput | runtime.InputJsonValue
+  accommodationDealbreakers?: Prisma.NullableJsonNullValueInput | runtime.InputJsonValue
   notes?: string | null
   completedAt?: Date | string | null
   createdAt?: Date | string
@@ -2089,6 +2188,7 @@ export type ClientIntakeUpdateWithoutFollowUpSuggestionsInput = {
   budgetMax?: Prisma.NullableIntFieldUpdateOperationsInput | number | null
   budgetCurrency?: Prisma.StringFieldUpdateOperationsInput | string
   budgetNotes?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
+  preferredFlightRouting?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
   cabinPreference?: Prisma.NullableEnumCabinPreferenceFieldUpdateOperationsInput | $Enums.CabinPreference | null
   hotelStyles?: Prisma.NullableJsonNullValueInput | runtime.InputJsonValue
   loyaltyNotes?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
@@ -2105,6 +2205,8 @@ export type ClientIntakeUpdateWithoutFollowUpSuggestionsInput = {
   dealbreakers?: Prisma.NullableJsonNullValueInput | runtime.InputJsonValue
   preferredAirlines?: Prisma.NullableJsonNullValueInput | runtime.InputJsonValue
   avoidedAirlines?: Prisma.NullableJsonNullValueInput | runtime.InputJsonValue
+  preferredAccommodationBrands?: Prisma.NullableJsonNullValueInput | runtime.InputJsonValue
+  accommodationDealbreakers?: Prisma.NullableJsonNullValueInput | runtime.InputJsonValue
   notes?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
   completedAt?: Prisma.NullableDateTimeFieldUpdateOperationsInput | Date | string | null
   createdAt?: Prisma.DateTimeFieldUpdateOperationsInput | Date | string
@@ -2136,6 +2238,7 @@ export type ClientIntakeUncheckedUpdateWithoutFollowUpSuggestionsInput = {
   budgetMax?: Prisma.NullableIntFieldUpdateOperationsInput | number | null
   budgetCurrency?: Prisma.StringFieldUpdateOperationsInput | string
   budgetNotes?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
+  preferredFlightRouting?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
   cabinPreference?: Prisma.NullableEnumCabinPreferenceFieldUpdateOperationsInput | $Enums.CabinPreference | null
   hotelStyles?: Prisma.NullableJsonNullValueInput | runtime.InputJsonValue
   loyaltyNotes?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
@@ -2152,6 +2255,8 @@ export type ClientIntakeUncheckedUpdateWithoutFollowUpSuggestionsInput = {
   dealbreakers?: Prisma.NullableJsonNullValueInput | runtime.InputJsonValue
   preferredAirlines?: Prisma.NullableJsonNullValueInput | runtime.InputJsonValue
   avoidedAirlines?: Prisma.NullableJsonNullValueInput | runtime.InputJsonValue
+  preferredAccommodationBrands?: Prisma.NullableJsonNullValueInput | runtime.InputJsonValue
+  accommodationDealbreakers?: Prisma.NullableJsonNullValueInput | runtime.InputJsonValue
   notes?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
   completedAt?: Prisma.NullableDateTimeFieldUpdateOperationsInput | Date | string | null
   createdAt?: Prisma.DateTimeFieldUpdateOperationsInput | Date | string
@@ -2179,6 +2284,7 @@ export type ClientIntakeCreateWithoutFormTokensInput = {
   budgetMax?: number | null
   budgetCurrency?: string
   budgetNotes?: string | null
+  preferredFlightRouting?: string | null
   cabinPreference?: $Enums.CabinPreference | null
   hotelStyles?: Prisma.NullableJsonNullValueInput | runtime.InputJsonValue
   loyaltyNotes?: string | null
@@ -2195,6 +2301,8 @@ export type ClientIntakeCreateWithoutFormTokensInput = {
   dealbreakers?: Prisma.NullableJsonNullValueInput | runtime.InputJsonValue
   preferredAirlines?: Prisma.NullableJsonNullValueInput | runtime.InputJsonValue
   avoidedAirlines?: Prisma.NullableJsonNullValueInput | runtime.InputJsonValue
+  preferredAccommodationBrands?: Prisma.NullableJsonNullValueInput | runtime.InputJsonValue
+  accommodationDealbreakers?: Prisma.NullableJsonNullValueInput | runtime.InputJsonValue
   notes?: string | null
   completedAt?: Date | string | null
   createdAt?: Date | string
@@ -2226,6 +2334,7 @@ export type ClientIntakeUncheckedCreateWithoutFormTokensInput = {
   budgetMax?: number | null
   budgetCurrency?: string
   budgetNotes?: string | null
+  preferredFlightRouting?: string | null
   cabinPreference?: $Enums.CabinPreference | null
   hotelStyles?: Prisma.NullableJsonNullValueInput | runtime.InputJsonValue
   loyaltyNotes?: string | null
@@ -2242,6 +2351,8 @@ export type ClientIntakeUncheckedCreateWithoutFormTokensInput = {
   dealbreakers?: Prisma.NullableJsonNullValueInput | runtime.InputJsonValue
   preferredAirlines?: Prisma.NullableJsonNullValueInput | runtime.InputJsonValue
   avoidedAirlines?: Prisma.NullableJsonNullValueInput | runtime.InputJsonValue
+  preferredAccommodationBrands?: Prisma.NullableJsonNullValueInput | runtime.InputJsonValue
+  accommodationDealbreakers?: Prisma.NullableJsonNullValueInput | runtime.InputJsonValue
   notes?: string | null
   completedAt?: Date | string | null
   createdAt?: Date | string
@@ -2285,6 +2396,7 @@ export type ClientIntakeUpdateWithoutFormTokensInput = {
   budgetMax?: Prisma.NullableIntFieldUpdateOperationsInput | number | null
   budgetCurrency?: Prisma.StringFieldUpdateOperationsInput | string
   budgetNotes?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
+  preferredFlightRouting?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
   cabinPreference?: Prisma.NullableEnumCabinPreferenceFieldUpdateOperationsInput | $Enums.CabinPreference | null
   hotelStyles?: Prisma.NullableJsonNullValueInput | runtime.InputJsonValue
   loyaltyNotes?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
@@ -2301,6 +2413,8 @@ export type ClientIntakeUpdateWithoutFormTokensInput = {
   dealbreakers?: Prisma.NullableJsonNullValueInput | runtime.InputJsonValue
   preferredAirlines?: Prisma.NullableJsonNullValueInput | runtime.InputJsonValue
   avoidedAirlines?: Prisma.NullableJsonNullValueInput | runtime.InputJsonValue
+  preferredAccommodationBrands?: Prisma.NullableJsonNullValueInput | runtime.InputJsonValue
+  accommodationDealbreakers?: Prisma.NullableJsonNullValueInput | runtime.InputJsonValue
   notes?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
   completedAt?: Prisma.NullableDateTimeFieldUpdateOperationsInput | Date | string | null
   createdAt?: Prisma.DateTimeFieldUpdateOperationsInput | Date | string
@@ -2332,6 +2446,7 @@ export type ClientIntakeUncheckedUpdateWithoutFormTokensInput = {
   budgetMax?: Prisma.NullableIntFieldUpdateOperationsInput | number | null
   budgetCurrency?: Prisma.StringFieldUpdateOperationsInput | string
   budgetNotes?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
+  preferredFlightRouting?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
   cabinPreference?: Prisma.NullableEnumCabinPreferenceFieldUpdateOperationsInput | $Enums.CabinPreference | null
   hotelStyles?: Prisma.NullableJsonNullValueInput | runtime.InputJsonValue
   loyaltyNotes?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
@@ -2348,6 +2463,8 @@ export type ClientIntakeUncheckedUpdateWithoutFormTokensInput = {
   dealbreakers?: Prisma.NullableJsonNullValueInput | runtime.InputJsonValue
   preferredAirlines?: Prisma.NullableJsonNullValueInput | runtime.InputJsonValue
   avoidedAirlines?: Prisma.NullableJsonNullValueInput | runtime.InputJsonValue
+  preferredAccommodationBrands?: Prisma.NullableJsonNullValueInput | runtime.InputJsonValue
+  accommodationDealbreakers?: Prisma.NullableJsonNullValueInput | runtime.InputJsonValue
   notes?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
   completedAt?: Prisma.NullableDateTimeFieldUpdateOperationsInput | Date | string | null
   createdAt?: Prisma.DateTimeFieldUpdateOperationsInput | Date | string
@@ -2376,6 +2493,7 @@ export type ClientIntakeCreateManyClientInput = {
   budgetMax?: number | null
   budgetCurrency?: string
   budgetNotes?: string | null
+  preferredFlightRouting?: string | null
   cabinPreference?: $Enums.CabinPreference | null
   hotelStyles?: Prisma.NullableJsonNullValueInput | runtime.InputJsonValue
   loyaltyNotes?: string | null
@@ -2392,6 +2510,8 @@ export type ClientIntakeCreateManyClientInput = {
   dealbreakers?: Prisma.NullableJsonNullValueInput | runtime.InputJsonValue
   preferredAirlines?: Prisma.NullableJsonNullValueInput | runtime.InputJsonValue
   avoidedAirlines?: Prisma.NullableJsonNullValueInput | runtime.InputJsonValue
+  preferredAccommodationBrands?: Prisma.NullableJsonNullValueInput | runtime.InputJsonValue
+  accommodationDealbreakers?: Prisma.NullableJsonNullValueInput | runtime.InputJsonValue
   notes?: string | null
   completedAt?: Date | string | null
   createdAt?: Date | string
@@ -2416,6 +2536,7 @@ export type ClientIntakeUpdateWithoutClientInput = {
   budgetMax?: Prisma.NullableIntFieldUpdateOperationsInput | number | null
   budgetCurrency?: Prisma.StringFieldUpdateOperationsInput | string
   budgetNotes?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
+  preferredFlightRouting?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
   cabinPreference?: Prisma.NullableEnumCabinPreferenceFieldUpdateOperationsInput | $Enums.CabinPreference | null
   hotelStyles?: Prisma.NullableJsonNullValueInput | runtime.InputJsonValue
   loyaltyNotes?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
@@ -2432,6 +2553,8 @@ export type ClientIntakeUpdateWithoutClientInput = {
   dealbreakers?: Prisma.NullableJsonNullValueInput | runtime.InputJsonValue
   preferredAirlines?: Prisma.NullableJsonNullValueInput | runtime.InputJsonValue
   avoidedAirlines?: Prisma.NullableJsonNullValueInput | runtime.InputJsonValue
+  preferredAccommodationBrands?: Prisma.NullableJsonNullValueInput | runtime.InputJsonValue
+  accommodationDealbreakers?: Prisma.NullableJsonNullValueInput | runtime.InputJsonValue
   notes?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
   completedAt?: Prisma.NullableDateTimeFieldUpdateOperationsInput | Date | string | null
   createdAt?: Prisma.DateTimeFieldUpdateOperationsInput | Date | string
@@ -2462,6 +2585,7 @@ export type ClientIntakeUncheckedUpdateWithoutClientInput = {
   budgetMax?: Prisma.NullableIntFieldUpdateOperationsInput | number | null
   budgetCurrency?: Prisma.StringFieldUpdateOperationsInput | string
   budgetNotes?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
+  preferredFlightRouting?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
   cabinPreference?: Prisma.NullableEnumCabinPreferenceFieldUpdateOperationsInput | $Enums.CabinPreference | null
   hotelStyles?: Prisma.NullableJsonNullValueInput | runtime.InputJsonValue
   loyaltyNotes?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
@@ -2478,6 +2602,8 @@ export type ClientIntakeUncheckedUpdateWithoutClientInput = {
   dealbreakers?: Prisma.NullableJsonNullValueInput | runtime.InputJsonValue
   preferredAirlines?: Prisma.NullableJsonNullValueInput | runtime.InputJsonValue
   avoidedAirlines?: Prisma.NullableJsonNullValueInput | runtime.InputJsonValue
+  preferredAccommodationBrands?: Prisma.NullableJsonNullValueInput | runtime.InputJsonValue
+  accommodationDealbreakers?: Prisma.NullableJsonNullValueInput | runtime.InputJsonValue
   notes?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
   completedAt?: Prisma.NullableDateTimeFieldUpdateOperationsInput | Date | string | null
   createdAt?: Prisma.DateTimeFieldUpdateOperationsInput | Date | string
@@ -2507,6 +2633,7 @@ export type ClientIntakeUncheckedUpdateManyWithoutClientInput = {
   budgetMax?: Prisma.NullableIntFieldUpdateOperationsInput | number | null
   budgetCurrency?: Prisma.StringFieldUpdateOperationsInput | string
   budgetNotes?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
+  preferredFlightRouting?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
   cabinPreference?: Prisma.NullableEnumCabinPreferenceFieldUpdateOperationsInput | $Enums.CabinPreference | null
   hotelStyles?: Prisma.NullableJsonNullValueInput | runtime.InputJsonValue
   loyaltyNotes?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
@@ -2523,6 +2650,8 @@ export type ClientIntakeUncheckedUpdateManyWithoutClientInput = {
   dealbreakers?: Prisma.NullableJsonNullValueInput | runtime.InputJsonValue
   preferredAirlines?: Prisma.NullableJsonNullValueInput | runtime.InputJsonValue
   avoidedAirlines?: Prisma.NullableJsonNullValueInput | runtime.InputJsonValue
+  preferredAccommodationBrands?: Prisma.NullableJsonNullValueInput | runtime.InputJsonValue
+  accommodationDealbreakers?: Prisma.NullableJsonNullValueInput | runtime.InputJsonValue
   notes?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
   completedAt?: Prisma.NullableDateTimeFieldUpdateOperationsInput | Date | string | null
   createdAt?: Prisma.DateTimeFieldUpdateOperationsInput | Date | string
@@ -2548,6 +2677,7 @@ export type ClientIntakeCreateManyDuplicatedFromInput = {
   budgetMax?: number | null
   budgetCurrency?: string
   budgetNotes?: string | null
+  preferredFlightRouting?: string | null
   cabinPreference?: $Enums.CabinPreference | null
   hotelStyles?: Prisma.NullableJsonNullValueInput | runtime.InputJsonValue
   loyaltyNotes?: string | null
@@ -2564,6 +2694,8 @@ export type ClientIntakeCreateManyDuplicatedFromInput = {
   dealbreakers?: Prisma.NullableJsonNullValueInput | runtime.InputJsonValue
   preferredAirlines?: Prisma.NullableJsonNullValueInput | runtime.InputJsonValue
   avoidedAirlines?: Prisma.NullableJsonNullValueInput | runtime.InputJsonValue
+  preferredAccommodationBrands?: Prisma.NullableJsonNullValueInput | runtime.InputJsonValue
+  accommodationDealbreakers?: Prisma.NullableJsonNullValueInput | runtime.InputJsonValue
   notes?: string | null
   completedAt?: Date | string | null
   createdAt?: Date | string
@@ -2588,6 +2720,7 @@ export type ClientIntakeUpdateWithoutDuplicatedFromInput = {
   budgetMax?: Prisma.NullableIntFieldUpdateOperationsInput | number | null
   budgetCurrency?: Prisma.StringFieldUpdateOperationsInput | string
   budgetNotes?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
+  preferredFlightRouting?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
   cabinPreference?: Prisma.NullableEnumCabinPreferenceFieldUpdateOperationsInput | $Enums.CabinPreference | null
   hotelStyles?: Prisma.NullableJsonNullValueInput | runtime.InputJsonValue
   loyaltyNotes?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
@@ -2604,6 +2737,8 @@ export type ClientIntakeUpdateWithoutDuplicatedFromInput = {
   dealbreakers?: Prisma.NullableJsonNullValueInput | runtime.InputJsonValue
   preferredAirlines?: Prisma.NullableJsonNullValueInput | runtime.InputJsonValue
   avoidedAirlines?: Prisma.NullableJsonNullValueInput | runtime.InputJsonValue
+  preferredAccommodationBrands?: Prisma.NullableJsonNullValueInput | runtime.InputJsonValue
+  accommodationDealbreakers?: Prisma.NullableJsonNullValueInput | runtime.InputJsonValue
   notes?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
   completedAt?: Prisma.NullableDateTimeFieldUpdateOperationsInput | Date | string | null
   createdAt?: Prisma.DateTimeFieldUpdateOperationsInput | Date | string
@@ -2634,6 +2769,7 @@ export type ClientIntakeUncheckedUpdateWithoutDuplicatedFromInput = {
   budgetMax?: Prisma.NullableIntFieldUpdateOperationsInput | number | null
   budgetCurrency?: Prisma.StringFieldUpdateOperationsInput | string
   budgetNotes?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
+  preferredFlightRouting?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
   cabinPreference?: Prisma.NullableEnumCabinPreferenceFieldUpdateOperationsInput | $Enums.CabinPreference | null
   hotelStyles?: Prisma.NullableJsonNullValueInput | runtime.InputJsonValue
   loyaltyNotes?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
@@ -2650,6 +2786,8 @@ export type ClientIntakeUncheckedUpdateWithoutDuplicatedFromInput = {
   dealbreakers?: Prisma.NullableJsonNullValueInput | runtime.InputJsonValue
   preferredAirlines?: Prisma.NullableJsonNullValueInput | runtime.InputJsonValue
   avoidedAirlines?: Prisma.NullableJsonNullValueInput | runtime.InputJsonValue
+  preferredAccommodationBrands?: Prisma.NullableJsonNullValueInput | runtime.InputJsonValue
+  accommodationDealbreakers?: Prisma.NullableJsonNullValueInput | runtime.InputJsonValue
   notes?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
   completedAt?: Prisma.NullableDateTimeFieldUpdateOperationsInput | Date | string | null
   createdAt?: Prisma.DateTimeFieldUpdateOperationsInput | Date | string
@@ -2679,6 +2817,7 @@ export type ClientIntakeUncheckedUpdateManyWithoutDuplicatedFromInput = {
   budgetMax?: Prisma.NullableIntFieldUpdateOperationsInput | number | null
   budgetCurrency?: Prisma.StringFieldUpdateOperationsInput | string
   budgetNotes?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
+  preferredFlightRouting?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
   cabinPreference?: Prisma.NullableEnumCabinPreferenceFieldUpdateOperationsInput | $Enums.CabinPreference | null
   hotelStyles?: Prisma.NullableJsonNullValueInput | runtime.InputJsonValue
   loyaltyNotes?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
@@ -2695,6 +2834,8 @@ export type ClientIntakeUncheckedUpdateManyWithoutDuplicatedFromInput = {
   dealbreakers?: Prisma.NullableJsonNullValueInput | runtime.InputJsonValue
   preferredAirlines?: Prisma.NullableJsonNullValueInput | runtime.InputJsonValue
   avoidedAirlines?: Prisma.NullableJsonNullValueInput | runtime.InputJsonValue
+  preferredAccommodationBrands?: Prisma.NullableJsonNullValueInput | runtime.InputJsonValue
+  accommodationDealbreakers?: Prisma.NullableJsonNullValueInput | runtime.InputJsonValue
   notes?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
   completedAt?: Prisma.NullableDateTimeFieldUpdateOperationsInput | Date | string | null
   createdAt?: Prisma.DateTimeFieldUpdateOperationsInput | Date | string
@@ -2779,6 +2920,7 @@ export type ClientIntakeSelect<ExtArgs extends runtime.Types.Extensions.Internal
   budgetMax?: boolean
   budgetCurrency?: boolean
   budgetNotes?: boolean
+  preferredFlightRouting?: boolean
   cabinPreference?: boolean
   hotelStyles?: boolean
   loyaltyNotes?: boolean
@@ -2795,6 +2937,8 @@ export type ClientIntakeSelect<ExtArgs extends runtime.Types.Extensions.Internal
   dealbreakers?: boolean
   preferredAirlines?: boolean
   avoidedAirlines?: boolean
+  preferredAccommodationBrands?: boolean
+  accommodationDealbreakers?: boolean
   notes?: boolean
   completedAt?: boolean
   createdAt?: boolean
@@ -2828,6 +2972,7 @@ export type ClientIntakeSelectCreateManyAndReturn<ExtArgs extends runtime.Types.
   budgetMax?: boolean
   budgetCurrency?: boolean
   budgetNotes?: boolean
+  preferredFlightRouting?: boolean
   cabinPreference?: boolean
   hotelStyles?: boolean
   loyaltyNotes?: boolean
@@ -2844,6 +2989,8 @@ export type ClientIntakeSelectCreateManyAndReturn<ExtArgs extends runtime.Types.
   dealbreakers?: boolean
   preferredAirlines?: boolean
   avoidedAirlines?: boolean
+  preferredAccommodationBrands?: boolean
+  accommodationDealbreakers?: boolean
   notes?: boolean
   completedAt?: boolean
   createdAt?: boolean
@@ -2872,6 +3019,7 @@ export type ClientIntakeSelectUpdateManyAndReturn<ExtArgs extends runtime.Types.
   budgetMax?: boolean
   budgetCurrency?: boolean
   budgetNotes?: boolean
+  preferredFlightRouting?: boolean
   cabinPreference?: boolean
   hotelStyles?: boolean
   loyaltyNotes?: boolean
@@ -2888,6 +3036,8 @@ export type ClientIntakeSelectUpdateManyAndReturn<ExtArgs extends runtime.Types.
   dealbreakers?: boolean
   preferredAirlines?: boolean
   avoidedAirlines?: boolean
+  preferredAccommodationBrands?: boolean
+  accommodationDealbreakers?: boolean
   notes?: boolean
   completedAt?: boolean
   createdAt?: boolean
@@ -2916,6 +3066,7 @@ export type ClientIntakeSelectScalar = {
   budgetMax?: boolean
   budgetCurrency?: boolean
   budgetNotes?: boolean
+  preferredFlightRouting?: boolean
   cabinPreference?: boolean
   hotelStyles?: boolean
   loyaltyNotes?: boolean
@@ -2932,13 +3083,15 @@ export type ClientIntakeSelectScalar = {
   dealbreakers?: boolean
   preferredAirlines?: boolean
   avoidedAirlines?: boolean
+  preferredAccommodationBrands?: boolean
+  accommodationDealbreakers?: boolean
   notes?: boolean
   completedAt?: boolean
   createdAt?: boolean
   updatedAt?: boolean
 }
 
-export type ClientIntakeOmit<ExtArgs extends runtime.Types.Extensions.InternalArgs = runtime.Types.Extensions.DefaultArgs> = runtime.Types.Extensions.GetOmit<"id" | "clientId" | "createdByUserId" | "status" | "isTemplate" | "templateName" | "duplicatedFromId" | "tripType" | "tripTypeOther" | "destinations" | "departureAirports" | "dateFlexibility" | "earliestDeparture" | "latestReturn" | "tripDurationDays" | "budgetMin" | "budgetMax" | "budgetCurrency" | "budgetNotes" | "cabinPreference" | "hotelStyles" | "loyaltyNotes" | "accessibilityNeeds" | "dietaryNeeds" | "travelPace" | "layoverTolerance" | "luxuryPreference" | "familyFriendly" | "travelerCount" | "childrenCount" | "childrenAges" | "desiredExperiences" | "dealbreakers" | "preferredAirlines" | "avoidedAirlines" | "notes" | "completedAt" | "createdAt" | "updatedAt", ExtArgs["result"]["clientIntake"]>
+export type ClientIntakeOmit<ExtArgs extends runtime.Types.Extensions.InternalArgs = runtime.Types.Extensions.DefaultArgs> = runtime.Types.Extensions.GetOmit<"id" | "clientId" | "createdByUserId" | "status" | "isTemplate" | "templateName" | "duplicatedFromId" | "tripType" | "tripTypeOther" | "destinations" | "departureAirports" | "dateFlexibility" | "earliestDeparture" | "latestReturn" | "tripDurationDays" | "budgetMin" | "budgetMax" | "budgetCurrency" | "budgetNotes" | "preferredFlightRouting" | "cabinPreference" | "hotelStyles" | "loyaltyNotes" | "accessibilityNeeds" | "dietaryNeeds" | "travelPace" | "layoverTolerance" | "luxuryPreference" | "familyFriendly" | "travelerCount" | "childrenCount" | "childrenAges" | "desiredExperiences" | "dealbreakers" | "preferredAirlines" | "avoidedAirlines" | "preferredAccommodationBrands" | "accommodationDealbreakers" | "notes" | "completedAt" | "createdAt" | "updatedAt", ExtArgs["result"]["clientIntake"]>
 export type ClientIntakeInclude<ExtArgs extends runtime.Types.Extensions.InternalArgs = runtime.Types.Extensions.DefaultArgs> = {
   client?: boolean | Prisma.ClientDefaultArgs<ExtArgs>
   duplicatedFrom?: boolean | Prisma.ClientIntake$duplicatedFromArgs<ExtArgs>
@@ -2987,6 +3140,7 @@ export type $ClientIntakePayload<ExtArgs extends runtime.Types.Extensions.Intern
     budgetMax: number | null
     budgetCurrency: string
     budgetNotes: string | null
+    preferredFlightRouting: string | null
     cabinPreference: $Enums.CabinPreference | null
     hotelStyles: runtime.JsonValue | null
     loyaltyNotes: string | null
@@ -3003,6 +3157,8 @@ export type $ClientIntakePayload<ExtArgs extends runtime.Types.Extensions.Intern
     dealbreakers: runtime.JsonValue | null
     preferredAirlines: runtime.JsonValue | null
     avoidedAirlines: runtime.JsonValue | null
+    preferredAccommodationBrands: runtime.JsonValue | null
+    accommodationDealbreakers: runtime.JsonValue | null
     notes: string | null
     completedAt: Date | null
     createdAt: Date
@@ -3455,6 +3611,7 @@ export interface ClientIntakeFieldRefs {
   readonly budgetMax: Prisma.FieldRef<"ClientIntake", 'Int'>
   readonly budgetCurrency: Prisma.FieldRef<"ClientIntake", 'String'>
   readonly budgetNotes: Prisma.FieldRef<"ClientIntake", 'String'>
+  readonly preferredFlightRouting: Prisma.FieldRef<"ClientIntake", 'String'>
   readonly cabinPreference: Prisma.FieldRef<"ClientIntake", 'CabinPreference'>
   readonly hotelStyles: Prisma.FieldRef<"ClientIntake", 'Json'>
   readonly loyaltyNotes: Prisma.FieldRef<"ClientIntake", 'String'>
@@ -3471,6 +3628,8 @@ export interface ClientIntakeFieldRefs {
   readonly dealbreakers: Prisma.FieldRef<"ClientIntake", 'Json'>
   readonly preferredAirlines: Prisma.FieldRef<"ClientIntake", 'Json'>
   readonly avoidedAirlines: Prisma.FieldRef<"ClientIntake", 'Json'>
+  readonly preferredAccommodationBrands: Prisma.FieldRef<"ClientIntake", 'Json'>
+  readonly accommodationDealbreakers: Prisma.FieldRef<"ClientIntake", 'Json'>
   readonly notes: Prisma.FieldRef<"ClientIntake", 'String'>
   readonly completedAt: Prisma.FieldRef<"ClientIntake", 'DateTime'>
   readonly createdAt: Prisma.FieldRef<"ClientIntake", 'DateTime'>

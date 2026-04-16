@@ -14,6 +14,7 @@ const INTAKE_FIELDS = [
   "budgetMax",
   "budgetCurrency",
   "budgetNotes",
+  "preferredFlightRouting",
   "cabinPreference",
   "hotelStyles",
   "loyaltyNotes",

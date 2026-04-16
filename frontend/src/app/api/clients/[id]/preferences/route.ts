@@ -38,14 +38,16 @@ export async function GET(
 
     const { id } = await params;
 
-    const client = await prisma.client.findFirst({
-      where: { id, organizationId: user.organizationId },
-    });
+    const [client, preferences] = await Promise.all([
+      prisma.client.findFirst({
+        where: { id, organizationId: user.organizationId },
+        select: { id: true },
+      }),
+      prisma.clientPreference.findUnique({
+        where: { clientId: id },
+      }),
+    ]);
     if (!client) return errorResponse("Client not found", 404);
-
-    const preferences = await prisma.clientPreference.findUnique({
-      where: { clientId: id },
-    });
 
     return json(preferences);
   } catch (error) {

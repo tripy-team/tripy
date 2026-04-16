@@ -22,8 +22,9 @@ export async function POST(
     const record = await prisma.intakeFormToken.findUnique({
       where: { token },
     });
+    const RICH_FORM_VARIANTS = new Set(["profile_link", "individual"]);
     if (!record) return errorResponse("Invalid link", 404);
-    if (record.formVariant !== "profile_link") {
+    if (!RICH_FORM_VARIANTS.has(record.formVariant)) {
       return errorResponse("This link is not a profile-fill link", 400);
     }
     if (record.expiresAt < new Date()) return errorResponse("Link expired", 410);

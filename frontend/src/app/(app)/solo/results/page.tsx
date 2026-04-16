@@ -135,20 +135,33 @@ export default function SoloResults() {
     const [feedbackText, setFeedbackText] = useState('');
     const [feedbackSubmitted, setFeedbackSubmitted] = useState(false);
 
+    // Build a fingerprint string for a solo itinerary (used for dedup and diff-detection).
+    const itineraryFingerprint = (itin: SoloRankedItinerary): string => {
+        const segKey = (itin.segments || [])
+            .map((s) => `${s.origin}-${s.destination}|${s.airline}|${s.flightNumber || ''}|${s.departureTime || ''}`)
+            .join(';;');
+        const oop = itin.oopMetrics?.totalOutOfPocket ?? 0;
+        return `${(itin.route || []).join(',')}||${segKey}||${Math.round(oop * 100)}`;
+    };
+
     // Deduplicate itineraries that share the same route + segments + OOP.
     // This handles cached results that were stored before backend dedup was added.
     const deduplicateItineraries = (items: SoloRankedItinerary[]): SoloRankedItinerary[] => {
         const seen = new Set<string>();
         return items.filter((itin) => {
-            const segKey = (itin.segments || [])
-                .map((s) => `${s.origin}-${s.destination}|${s.airline}|${s.flightNumber || ''}|${s.departureTime || ''}`)
-                .join(';;');
-            const oop = itin.oopMetrics?.totalOutOfPocket ?? 0;
-            const fp = `${(itin.route || []).join(',')}||${segKey}||${Math.round(oop * 100)}`;
+            const fp = itineraryFingerprint(itin);
             if (seen.has(fp)) return false;
             seen.add(fp);
             return true;
         });
+    };
+
+    // Compare two arrays of solo itineraries by fingerprint to detect meaningful changes.
+    const soloItinerariesChanged = (prev: SoloRankedItinerary[], next: SoloRankedItinerary[]): boolean => {
+        if (prev.length !== next.length) return true;
+        const prevFps = prev.map(itineraryFingerprint).sort();
+        const nextFps = next.map(itineraryFingerprint).sort();
+        return prevFps.some((fp, i) => fp !== nextFps[i]);
     };
 
     useEffect(() => {
@@ -162,19 +175,25 @@ export default function SoloResults() {
             // play its completion animation before we hide it.
             let loaderHandlesTransition = false;
 
+            // Only show loading spinner & reset state on first load (no data yet).
+            // On subsequent loads we fetch in the background and diff the results.
+            const isFirstLoad = soloItineraries.length === 0 && itineraries.length === 0;
+
             try {
-                setLoading(true);
-                setApiComplete(false);
-                setAiSuggestions([]);
-                setIsAiSuggested(false);
-                setOutOfPocket(null);
-                setUserConstraints(null);
-                setRelaxedMessage(null);
-                setBudgetWarning(null);
-                setOptimizationWarning(null);
-                setFallbackWarning(null);
-                setUsingSoloOptimizer(false);
-                setSoloItineraries([]);
+                if (isFirstLoad) {
+                    setLoading(true);
+                    setApiComplete(false);
+                    setAiSuggestions([]);
+                    setIsAiSuggested(false);
+                    setOutOfPocket(null);
+                    setUserConstraints(null);
+                    setRelaxedMessage(null);
+                    setBudgetWarning(null);
+                    setOptimizationWarning(null);
+                    setFallbackWarning(null);
+                    setUsingSoloOptimizer(false);
+                    setSoloItineraries([]);
+                }
                 
                 // ============================================================
                 // Shared plan path: use the public endpoint when share_token
@@ -329,43 +348,52 @@ export default function SoloResults() {
                             });
                         }
                         
-                        setOptimizeResponse(optimizeResult);
                         trackEvent(EVENTS.TRIP_RESULT_VIEWED, { tripId, itineraryCount: optimizeResult.itineraries?.length || 0, hasDecisionSummary: !!optimizeResult.decisionSummary });
-                        
+
                         if (optimizeResult.itineraries && optimizeResult.itineraries.length > 0) {
                             const uniqueItineraries = deduplicateItineraries(optimizeResult.itineraries);
-                            setSoloItineraries(uniqueItineraries);
-                            setSelectedSoloId(optimizeResult.bestOption || uniqueItineraries[0].id);
-                            setUsingSoloOptimizer(true);
+
+                            // On subsequent loads, only update if the itineraries actually changed.
+                            // This avoids re-rendering the whole page when the same cached data returns.
+                            const dataChanged = isFirstLoad || soloItinerariesChanged(soloItineraries, uniqueItineraries);
+
+                            if (dataChanged) {
+                                setOptimizeResponse(optimizeResult);
+                                setSoloItineraries(uniqueItineraries);
+                                setSelectedSoloId(optimizeResult.bestOption || uniqueItineraries[0].id);
+                                setUsingSoloOptimizer(true);
+                            }
                             usedSoloOptimizer = true;
-                            
+
                             // Set warnings from optimizer (prefer structured, fall back to flat)
-                            if (optimizeResult.structuredWarnings) {
-                                setStructuredWarnings(optimizeResult.structuredWarnings);
-                            } else if (optimizeResult.warnings && optimizeResult.warnings.length > 0) {
-                                // Backward compat: join flat warnings (legacy path)
-                                setOptimizationWarning(optimizeResult.warnings.join(' '));
+                            if (dataChanged) {
+                                if (optimizeResult.structuredWarnings) {
+                                    setStructuredWarnings(optimizeResult.structuredWarnings);
+                                } else if (optimizeResult.warnings && optimizeResult.warnings.length > 0) {
+                                    // Backward compat: join flat warnings (legacy path)
+                                    setOptimizationWarning(optimizeResult.warnings.join(' '));
+                                }
+
+                                // Check for budget warnings in itineraries (when budget was infeasible)
+                                const itin = optimizeResult.itineraries[0];
+                                if (itin.budgetWarning) {
+                                    // Extract budget info from the warning if available
+                                    const userBudget = (tripData as { maxBudget?: number }).maxBudget;
+                                    const oopCost = itin.oopMetrics?.totalOutOfPocket;
+                                    setBudgetWarning({
+                                        message: itin.budgetWarning,
+                                        user_budget: userBudget,
+                                        recommended_budget: oopCost ? Math.ceil(oopCost) : undefined,
+                                    });
+                                }
                             }
-                            
-                            // Check for budget warnings in itineraries (when budget was infeasible)
-                            const itin = optimizeResult.itineraries[0];
-                            if (itin.budgetWarning) {
-                                // Extract budget info from the warning if available
-                                const userBudget = (tripData as { maxBudget?: number }).maxBudget;
-                                const oopCost = itin.oopMetrics?.totalOutOfPocket;
-                                setBudgetWarning({
-                                    message: itin.budgetWarning,
-                                    user_budget: userBudget,
-                                    recommended_budget: oopCost ? Math.ceil(oopCost) : undefined,
-                                });
-                            }
-                            
-                            // Build duration label
+
+                            // Always update trip metadata (cheap and avoids stale context)
                             let durationLabel = '—';
                             const startDate = (tripData as { startDate?: string }).startDate;
                             const endDate = (tripData as { endDate?: string }).endDate;
                             const durationDays = (tripData as { durationDays?: number }).durationDays;
-                            
+
                             if (startDate && endDate) {
                                 const start = new Date(startDate);
                                 const end = new Date(endDate);
@@ -376,24 +404,26 @@ export default function SoloResults() {
                             } else if (durationDays != null && durationDays > 0) {
                                 durationLabel = `${durationDays} days (flexible)`;
                             }
-                            
+
                             setTrip(tripData as Trip);
-                            
+
                             // Extract party size from trip data
                             const adults = (tripData as { adults?: number }).adults || 1;
                             const children = (tripData as { children?: number }).children || 0;
                             setPartySize({ adults, children, total: adults + children });
-                            
+
                             setUserConstraints({
                                 maxBudget: (tripData as { maxBudget?: number }).maxBudget,
                                 totalPoints: pointsSummary.totalPoints,
                                 durationLabel,
                             });
-                            
+
                             // Signal the loader to play its completion animation
                             // (onComplete callback will set loading=false after animation)
-                            loaderHandlesTransition = true;
-                            setApiComplete(true);
+                            if (isFirstLoad) {
+                                loaderHandlesTransition = true;
+                                setApiComplete(true);
+                            }
                             return;
                         }
                     }
@@ -722,13 +752,16 @@ export default function SoloResults() {
             // When the solo optimizer succeeds, the TripGenerationLoader
             // plays its completion animation first, then calls onComplete
             // which sets loading=false.
-            if (!loaderHandlesTransition) {
+            // On background refreshes (non-first loads) we never set loading=true,
+            // so there is nothing to reset.
+            if (isFirstLoad && !loaderHandlesTransition) {
                 setLoading(false);
             }
         }
     };
 
         fetchItineraries();
+    // eslint-disable-next-line react-hooks/exhaustive-deps
     }, [tripId, shareToken, refetchTrigger]);
 
     const stepIcon = (method: string) => {

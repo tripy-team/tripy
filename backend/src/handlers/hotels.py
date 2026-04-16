@@ -161,7 +161,7 @@ def search_hotels(
         payload["hotel_class"] = hotel_class
 
     try:
-        with httpx.Client(timeout=30.0) as client:
+        with httpx.Client(timeout=120.0) as client:
             resp = client.post(
                 HOTEL_SEARCH_URL,
                 json=payload,

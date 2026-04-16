@@ -91,6 +91,7 @@ export type TripRequestCountAggregateOutputType = {
   cabinPreference: number
   flexibilityDays: number
   budgetCash: number
+  pointBalances: number
   notes: number
   status: number
   createdAt: number
@@ -164,6 +165,7 @@ export type TripRequestCountAggregateInputType = {
   cabinPreference?: true
   flexibilityDays?: true
   budgetCash?: true
+  pointBalances?: true
   notes?: true
   status?: true
   createdAt?: true
@@ -272,6 +274,7 @@ export type TripRequestGroupByOutputType = {
   cabinPreference: $Enums.CabinPreference
   flexibilityDays: number | null
   budgetCash: number | null
+  pointBalances: runtime.JsonValue | null
   notes: string | null
   status: $Enums.TripStatus
   createdAt: Date
@@ -316,6 +319,7 @@ export type TripRequestWhereInput = {
   cabinPreference?: Prisma.EnumCabinPreferenceFilter<"TripRequest"> | $Enums.CabinPreference
   flexibilityDays?: Prisma.IntNullableFilter<"TripRequest"> | number | null
   budgetCash?: Prisma.IntNullableFilter<"TripRequest"> | number | null
+  pointBalances?: Prisma.JsonNullableFilter<"TripRequest">
   notes?: Prisma.StringNullableFilter<"TripRequest"> | string | null
   status?: Prisma.EnumTripStatusFilter<"TripRequest"> | $Enums.TripStatus
   createdAt?: Prisma.DateTimeFilter<"TripRequest"> | Date | string
@@ -349,6 +353,7 @@ export type TripRequestOrderByWithRelationInput = {
   cabinPreference?: Prisma.SortOrder
   flexibilityDays?: Prisma.SortOrderInput | Prisma.SortOrder
   budgetCash?: Prisma.SortOrderInput | Prisma.SortOrder
+  pointBalances?: Prisma.SortOrderInput | Prisma.SortOrder
   notes?: Prisma.SortOrderInput | Prisma.SortOrder
   status?: Prisma.SortOrder
   createdAt?: Prisma.SortOrder
@@ -385,6 +390,7 @@ export type TripRequestWhereUniqueInput = Prisma.AtLeast<{
   cabinPreference?: Prisma.EnumCabinPreferenceFilter<"TripRequest"> | $Enums.CabinPreference
   flexibilityDays?: Prisma.IntNullableFilter<"TripRequest"> | number | null
   budgetCash?: Prisma.IntNullableFilter<"TripRequest"> | number | null
+  pointBalances?: Prisma.JsonNullableFilter<"TripRequest">
   notes?: Prisma.StringNullableFilter<"TripRequest"> | string | null
   status?: Prisma.EnumTripStatusFilter<"TripRequest"> | $Enums.TripStatus
   createdAt?: Prisma.DateTimeFilter<"TripRequest"> | Date | string
@@ -418,6 +424,7 @@ export type TripRequestOrderByWithAggregationInput = {
   cabinPreference?: Prisma.SortOrder
   flexibilityDays?: Prisma.SortOrderInput | Prisma.SortOrder
   budgetCash?: Prisma.SortOrderInput | Prisma.SortOrder
+  pointBalances?: Prisma.SortOrderInput | Prisma.SortOrder
   notes?: Prisma.SortOrderInput | Prisma.SortOrder
   status?: Prisma.SortOrder
   createdAt?: Prisma.SortOrder
@@ -447,6 +454,7 @@ export type TripRequestScalarWhereWithAggregatesInput = {
   cabinPreference?: Prisma.EnumCabinPreferenceWithAggregatesFilter<"TripRequest"> | $Enums.CabinPreference
   flexibilityDays?: Prisma.IntNullableWithAggregatesFilter<"TripRequest"> | number | null
   budgetCash?: Prisma.IntNullableWithAggregatesFilter<"TripRequest"> | number | null
+  pointBalances?: Prisma.JsonNullableWithAggregatesFilter<"TripRequest">
   notes?: Prisma.StringNullableWithAggregatesFilter<"TripRequest"> | string | null
   status?: Prisma.EnumTripStatusWithAggregatesFilter<"TripRequest"> | $Enums.TripStatus
   createdAt?: Prisma.DateTimeWithAggregatesFilter<"TripRequest"> | Date | string
@@ -464,6 +472,7 @@ export type TripRequestCreateInput = {
   cabinPreference?: $Enums.CabinPreference
   flexibilityDays?: number | null
   budgetCash?: number | null
+  pointBalances?: Prisma.NullableJsonNullValueInput | runtime.InputJsonValue
   notes?: string | null
   status?: $Enums.TripStatus
   createdAt?: Date | string
@@ -497,6 +506,7 @@ export type TripRequestUncheckedCreateInput = {
   cabinPreference?: $Enums.CabinPreference
   flexibilityDays?: number | null
   budgetCash?: number | null
+  pointBalances?: Prisma.NullableJsonNullValueInput | runtime.InputJsonValue
   notes?: string | null
   status?: $Enums.TripStatus
   createdAt?: Date | string
@@ -522,6 +532,7 @@ export type TripRequestUpdateInput = {
   cabinPreference?: Prisma.EnumCabinPreferenceFieldUpdateOperationsInput | $Enums.CabinPreference
   flexibilityDays?: Prisma.NullableIntFieldUpdateOperationsInput | number | null
   budgetCash?: Prisma.NullableIntFieldUpdateOperationsInput | number | null
+  pointBalances?: Prisma.NullableJsonNullValueInput | runtime.InputJsonValue
   notes?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
   status?: Prisma.EnumTripStatusFieldUpdateOperationsInput | $Enums.TripStatus
   createdAt?: Prisma.DateTimeFieldUpdateOperationsInput | Date | string
@@ -555,6 +566,7 @@ export type TripRequestUncheckedUpdateInput = {
   cabinPreference?: Prisma.EnumCabinPreferenceFieldUpdateOperationsInput | $Enums.CabinPreference
   flexibilityDays?: Prisma.NullableIntFieldUpdateOperationsInput | number | null
   budgetCash?: Prisma.NullableIntFieldUpdateOperationsInput | number | null
+  pointBalances?: Prisma.NullableJsonNullValueInput | runtime.InputJsonValue
   notes?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
   status?: Prisma.EnumTripStatusFieldUpdateOperationsInput | $Enums.TripStatus
   createdAt?: Prisma.DateTimeFieldUpdateOperationsInput | Date | string
@@ -584,6 +596,7 @@ export type TripRequestCreateManyInput = {
   cabinPreference?: $Enums.CabinPreference
   flexibilityDays?: number | null
   budgetCash?: number | null
+  pointBalances?: Prisma.NullableJsonNullValueInput | runtime.InputJsonValue
   notes?: string | null
   status?: $Enums.TripStatus
   createdAt?: Date | string
@@ -601,6 +614,7 @@ export type TripRequestUpdateManyMutationInput = {
   cabinPreference?: Prisma.EnumCabinPreferenceFieldUpdateOperationsInput | $Enums.CabinPreference
   flexibilityDays?: Prisma.NullableIntFieldUpdateOperationsInput | number | null
   budgetCash?: Prisma.NullableIntFieldUpdateOperationsInput | number | null
+  pointBalances?: Prisma.NullableJsonNullValueInput | runtime.InputJsonValue
   notes?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
   status?: Prisma.EnumTripStatusFieldUpdateOperationsInput | $Enums.TripStatus
   createdAt?: Prisma.DateTimeFieldUpdateOperationsInput | Date | string
@@ -622,6 +636,7 @@ export type TripRequestUncheckedUpdateManyInput = {
   cabinPreference?: Prisma.EnumCabinPreferenceFieldUpdateOperationsInput | $Enums.CabinPreference
   flexibilityDays?: Prisma.NullableIntFieldUpdateOperationsInput | number | null
   budgetCash?: Prisma.NullableIntFieldUpdateOperationsInput | number | null
+  pointBalances?: Prisma.NullableJsonNullValueInput | runtime.InputJsonValue
   notes?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
   status?: Prisma.EnumTripStatusFieldUpdateOperationsInput | $Enums.TripStatus
   createdAt?: Prisma.DateTimeFieldUpdateOperationsInput | Date | string
@@ -653,6 +668,7 @@ export type TripRequestCountOrderByAggregateInput = {
   cabinPreference?: Prisma.SortOrder
   flexibilityDays?: Prisma.SortOrder
   budgetCash?: Prisma.SortOrder
+  pointBalances?: Prisma.SortOrder
   notes?: Prisma.SortOrder
   status?: Prisma.SortOrder
   createdAt?: Prisma.SortOrder
@@ -1018,6 +1034,7 @@ export type TripRequestCreateWithoutOrganizationInput = {
   cabinPreference?: $Enums.CabinPreference
   flexibilityDays?: number | null
   budgetCash?: number | null
+  pointBalances?: Prisma.NullableJsonNullValueInput | runtime.InputJsonValue
   notes?: string | null
   status?: $Enums.TripStatus
   createdAt?: Date | string
@@ -1049,6 +1066,7 @@ export type TripRequestUncheckedCreateWithoutOrganizationInput = {
   cabinPreference?: $Enums.CabinPreference
   flexibilityDays?: number | null
   budgetCash?: number | null
+  pointBalances?: Prisma.NullableJsonNullValueInput | runtime.InputJsonValue
   notes?: string | null
   status?: $Enums.TripStatus
   createdAt?: Date | string
@@ -1107,6 +1125,7 @@ export type TripRequestScalarWhereInput = {
   cabinPreference?: Prisma.EnumCabinPreferenceFilter<"TripRequest"> | $Enums.CabinPreference
   flexibilityDays?: Prisma.IntNullableFilter<"TripRequest"> | number | null
   budgetCash?: Prisma.IntNullableFilter<"TripRequest"> | number | null
+  pointBalances?: Prisma.JsonNullableFilter<"TripRequest">
   notes?: Prisma.StringNullableFilter<"TripRequest"> | string | null
   status?: Prisma.EnumTripStatusFilter<"TripRequest"> | $Enums.TripStatus
   createdAt?: Prisma.DateTimeFilter<"TripRequest"> | Date | string
@@ -1124,6 +1143,7 @@ export type TripRequestCreateWithoutOwnerInput = {
   cabinPreference?: $Enums.CabinPreference
   flexibilityDays?: number | null
   budgetCash?: number | null
+  pointBalances?: Prisma.NullableJsonNullValueInput | runtime.InputJsonValue
   notes?: string | null
   status?: $Enums.TripStatus
   createdAt?: Date | string
@@ -1155,6 +1175,7 @@ export type TripRequestUncheckedCreateWithoutOwnerInput = {
   cabinPreference?: $Enums.CabinPreference
   flexibilityDays?: number | null
   budgetCash?: number | null
+  pointBalances?: Prisma.NullableJsonNullValueInput | runtime.InputJsonValue
   notes?: string | null
   status?: $Enums.TripStatus
   createdAt?: Date | string
@@ -1206,6 +1227,7 @@ export type TripRequestCreateWithoutClientInput = {
   cabinPreference?: $Enums.CabinPreference
   flexibilityDays?: number | null
   budgetCash?: number | null
+  pointBalances?: Prisma.NullableJsonNullValueInput | runtime.InputJsonValue
   notes?: string | null
   status?: $Enums.TripStatus
   createdAt?: Date | string
@@ -1237,6 +1259,7 @@ export type TripRequestUncheckedCreateWithoutClientInput = {
   cabinPreference?: $Enums.CabinPreference
   flexibilityDays?: number | null
   budgetCash?: number | null
+  pointBalances?: Prisma.NullableJsonNullValueInput | runtime.InputJsonValue
   notes?: string | null
   status?: $Enums.TripStatus
   createdAt?: Date | string
@@ -1288,6 +1311,7 @@ export type TripRequestCreateWithoutHouseholdInput = {
   cabinPreference?: $Enums.CabinPreference
   flexibilityDays?: number | null
   budgetCash?: number | null
+  pointBalances?: Prisma.NullableJsonNullValueInput | runtime.InputJsonValue
   notes?: string | null
   status?: $Enums.TripStatus
   createdAt?: Date | string
@@ -1319,6 +1343,7 @@ export type TripRequestUncheckedCreateWithoutHouseholdInput = {
   cabinPreference?: $Enums.CabinPreference
   flexibilityDays?: number | null
   budgetCash?: number | null
+  pointBalances?: Prisma.NullableJsonNullValueInput | runtime.InputJsonValue
   notes?: string | null
   status?: $Enums.TripStatus
   createdAt?: Date | string
@@ -1370,6 +1395,7 @@ export type TripRequestCreateWithoutTradeoffRankingInput = {
   cabinPreference?: $Enums.CabinPreference
   flexibilityDays?: number | null
   budgetCash?: number | null
+  pointBalances?: Prisma.NullableJsonNullValueInput | runtime.InputJsonValue
   notes?: string | null
   status?: $Enums.TripStatus
   createdAt?: Date | string
@@ -1402,6 +1428,7 @@ export type TripRequestUncheckedCreateWithoutTradeoffRankingInput = {
   cabinPreference?: $Enums.CabinPreference
   flexibilityDays?: number | null
   budgetCash?: number | null
+  pointBalances?: Prisma.NullableJsonNullValueInput | runtime.InputJsonValue
   notes?: string | null
   status?: $Enums.TripStatus
   createdAt?: Date | string
@@ -1442,6 +1469,7 @@ export type TripRequestUpdateWithoutTradeoffRankingInput = {
   cabinPreference?: Prisma.EnumCabinPreferenceFieldUpdateOperationsInput | $Enums.CabinPreference
   flexibilityDays?: Prisma.NullableIntFieldUpdateOperationsInput | number | null
   budgetCash?: Prisma.NullableIntFieldUpdateOperationsInput | number | null
+  pointBalances?: Prisma.NullableJsonNullValueInput | runtime.InputJsonValue
   notes?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
   status?: Prisma.EnumTripStatusFieldUpdateOperationsInput | $Enums.TripStatus
   createdAt?: Prisma.DateTimeFieldUpdateOperationsInput | Date | string
@@ -1474,6 +1502,7 @@ export type TripRequestUncheckedUpdateWithoutTradeoffRankingInput = {
   cabinPreference?: Prisma.EnumCabinPreferenceFieldUpdateOperationsInput | $Enums.CabinPreference
   flexibilityDays?: Prisma.NullableIntFieldUpdateOperationsInput | number | null
   budgetCash?: Prisma.NullableIntFieldUpdateOperationsInput | number | null
+  pointBalances?: Prisma.NullableJsonNullValueInput | runtime.InputJsonValue
   notes?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
   status?: Prisma.EnumTripStatusFieldUpdateOperationsInput | $Enums.TripStatus
   createdAt?: Prisma.DateTimeFieldUpdateOperationsInput | Date | string
@@ -1498,6 +1527,7 @@ export type TripRequestCreateWithoutTravelersInput = {
   cabinPreference?: $Enums.CabinPreference
   flexibilityDays?: number | null
   budgetCash?: number | null
+  pointBalances?: Prisma.NullableJsonNullValueInput | runtime.InputJsonValue
   notes?: string | null
   status?: $Enums.TripStatus
   createdAt?: Date | string
@@ -1530,6 +1560,7 @@ export type TripRequestUncheckedCreateWithoutTravelersInput = {
   cabinPreference?: $Enums.CabinPreference
   flexibilityDays?: number | null
   budgetCash?: number | null
+  pointBalances?: Prisma.NullableJsonNullValueInput | runtime.InputJsonValue
   notes?: string | null
   status?: $Enums.TripStatus
   createdAt?: Date | string
@@ -1570,6 +1601,7 @@ export type TripRequestUpdateWithoutTravelersInput = {
   cabinPreference?: Prisma.EnumCabinPreferenceFieldUpdateOperationsInput | $Enums.CabinPreference
   flexibilityDays?: Prisma.NullableIntFieldUpdateOperationsInput | number | null
   budgetCash?: Prisma.NullableIntFieldUpdateOperationsInput | number | null
+  pointBalances?: Prisma.NullableJsonNullValueInput | runtime.InputJsonValue
   notes?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
   status?: Prisma.EnumTripStatusFieldUpdateOperationsInput | $Enums.TripStatus
   createdAt?: Prisma.DateTimeFieldUpdateOperationsInput | Date | string
@@ -1602,6 +1634,7 @@ export type TripRequestUncheckedUpdateWithoutTravelersInput = {
   cabinPreference?: Prisma.EnumCabinPreferenceFieldUpdateOperationsInput | $Enums.CabinPreference
   flexibilityDays?: Prisma.NullableIntFieldUpdateOperationsInput | number | null
   budgetCash?: Prisma.NullableIntFieldUpdateOperationsInput | number | null
+  pointBalances?: Prisma.NullableJsonNullValueInput | runtime.InputJsonValue
   notes?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
   status?: Prisma.EnumTripStatusFieldUpdateOperationsInput | $Enums.TripStatus
   createdAt?: Prisma.DateTimeFieldUpdateOperationsInput | Date | string
@@ -1626,6 +1659,7 @@ export type TripRequestCreateWithoutRecommendationRunsInput = {
   cabinPreference?: $Enums.CabinPreference
   flexibilityDays?: number | null
   budgetCash?: number | null
+  pointBalances?: Prisma.NullableJsonNullValueInput | runtime.InputJsonValue
   notes?: string | null
   status?: $Enums.TripStatus
   createdAt?: Date | string
@@ -1658,6 +1692,7 @@ export type TripRequestUncheckedCreateWithoutRecommendationRunsInput = {
   cabinPreference?: $Enums.CabinPreference
   flexibilityDays?: number | null
   budgetCash?: number | null
+  pointBalances?: Prisma.NullableJsonNullValueInput | runtime.InputJsonValue
   notes?: string | null
   status?: $Enums.TripStatus
   createdAt?: Date | string
@@ -1698,6 +1733,7 @@ export type TripRequestUpdateWithoutRecommendationRunsInput = {
   cabinPreference?: Prisma.EnumCabinPreferenceFieldUpdateOperationsInput | $Enums.CabinPreference
   flexibilityDays?: Prisma.NullableIntFieldUpdateOperationsInput | number | null
   budgetCash?: Prisma.NullableIntFieldUpdateOperationsInput | number | null
+  pointBalances?: Prisma.NullableJsonNullValueInput | runtime.InputJsonValue
   notes?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
   status?: Prisma.EnumTripStatusFieldUpdateOperationsInput | $Enums.TripStatus
   createdAt?: Prisma.DateTimeFieldUpdateOperationsInput | Date | string
@@ -1730,6 +1766,7 @@ export type TripRequestUncheckedUpdateWithoutRecommendationRunsInput = {
   cabinPreference?: Prisma.EnumCabinPreferenceFieldUpdateOperationsInput | $Enums.CabinPreference
   flexibilityDays?: Prisma.NullableIntFieldUpdateOperationsInput | number | null
   budgetCash?: Prisma.NullableIntFieldUpdateOperationsInput | number | null
+  pointBalances?: Prisma.NullableJsonNullValueInput | runtime.InputJsonValue
   notes?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
   status?: Prisma.EnumTripStatusFieldUpdateOperationsInput | $Enums.TripStatus
   createdAt?: Prisma.DateTimeFieldUpdateOperationsInput | Date | string
@@ -1754,6 +1791,7 @@ export type TripRequestCreateWithoutSettlementsInput = {
   cabinPreference?: $Enums.CabinPreference
   flexibilityDays?: number | null
   budgetCash?: number | null
+  pointBalances?: Prisma.NullableJsonNullValueInput | runtime.InputJsonValue
   notes?: string | null
   status?: $Enums.TripStatus
   createdAt?: Date | string
@@ -1786,6 +1824,7 @@ export type TripRequestUncheckedCreateWithoutSettlementsInput = {
   cabinPreference?: $Enums.CabinPreference
   flexibilityDays?: number | null
   budgetCash?: number | null
+  pointBalances?: Prisma.NullableJsonNullValueInput | runtime.InputJsonValue
   notes?: string | null
   status?: $Enums.TripStatus
   createdAt?: Date | string
@@ -1826,6 +1865,7 @@ export type TripRequestUpdateWithoutSettlementsInput = {
   cabinPreference?: Prisma.EnumCabinPreferenceFieldUpdateOperationsInput | $Enums.CabinPreference
   flexibilityDays?: Prisma.NullableIntFieldUpdateOperationsInput | number | null
   budgetCash?: Prisma.NullableIntFieldUpdateOperationsInput | number | null
+  pointBalances?: Prisma.NullableJsonNullValueInput | runtime.InputJsonValue
   notes?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
   status?: Prisma.EnumTripStatusFieldUpdateOperationsInput | $Enums.TripStatus
   createdAt?: Prisma.DateTimeFieldUpdateOperationsInput | Date | string
@@ -1858,6 +1898,7 @@ export type TripRequestUncheckedUpdateWithoutSettlementsInput = {
   cabinPreference?: Prisma.EnumCabinPreferenceFieldUpdateOperationsInput | $Enums.CabinPreference
   flexibilityDays?: Prisma.NullableIntFieldUpdateOperationsInput | number | null
   budgetCash?: Prisma.NullableIntFieldUpdateOperationsInput | number | null
+  pointBalances?: Prisma.NullableJsonNullValueInput | runtime.InputJsonValue
   notes?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
   status?: Prisma.EnumTripStatusFieldUpdateOperationsInput | $Enums.TripStatus
   createdAt?: Prisma.DateTimeFieldUpdateOperationsInput | Date | string
@@ -1882,6 +1923,7 @@ export type TripRequestCreateWithoutTripBriefsInput = {
   cabinPreference?: $Enums.CabinPreference
   flexibilityDays?: number | null
   budgetCash?: number | null
+  pointBalances?: Prisma.NullableJsonNullValueInput | runtime.InputJsonValue
   notes?: string | null
   status?: $Enums.TripStatus
   createdAt?: Date | string
@@ -1914,6 +1956,7 @@ export type TripRequestUncheckedCreateWithoutTripBriefsInput = {
   cabinPreference?: $Enums.CabinPreference
   flexibilityDays?: number | null
   budgetCash?: number | null
+  pointBalances?: Prisma.NullableJsonNullValueInput | runtime.InputJsonValue
   notes?: string | null
   status?: $Enums.TripStatus
   createdAt?: Date | string
@@ -1954,6 +1997,7 @@ export type TripRequestUpdateWithoutTripBriefsInput = {
   cabinPreference?: Prisma.EnumCabinPreferenceFieldUpdateOperationsInput | $Enums.CabinPreference
   flexibilityDays?: Prisma.NullableIntFieldUpdateOperationsInput | number | null
   budgetCash?: Prisma.NullableIntFieldUpdateOperationsInput | number | null
+  pointBalances?: Prisma.NullableJsonNullValueInput | runtime.InputJsonValue
   notes?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
   status?: Prisma.EnumTripStatusFieldUpdateOperationsInput | $Enums.TripStatus
   createdAt?: Prisma.DateTimeFieldUpdateOperationsInput | Date | string
@@ -1986,6 +2030,7 @@ export type TripRequestUncheckedUpdateWithoutTripBriefsInput = {
   cabinPreference?: Prisma.EnumCabinPreferenceFieldUpdateOperationsInput | $Enums.CabinPreference
   flexibilityDays?: Prisma.NullableIntFieldUpdateOperationsInput | number | null
   budgetCash?: Prisma.NullableIntFieldUpdateOperationsInput | number | null
+  pointBalances?: Prisma.NullableJsonNullValueInput | runtime.InputJsonValue
   notes?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
   status?: Prisma.EnumTripStatusFieldUpdateOperationsInput | $Enums.TripStatus
   createdAt?: Prisma.DateTimeFieldUpdateOperationsInput | Date | string
@@ -2010,6 +2055,7 @@ export type TripRequestCreateWithoutAlertSubscriptionsInput = {
   cabinPreference?: $Enums.CabinPreference
   flexibilityDays?: number | null
   budgetCash?: number | null
+  pointBalances?: Prisma.NullableJsonNullValueInput | runtime.InputJsonValue
   notes?: string | null
   status?: $Enums.TripStatus
   createdAt?: Date | string
@@ -2042,6 +2088,7 @@ export type TripRequestUncheckedCreateWithoutAlertSubscriptionsInput = {
   cabinPreference?: $Enums.CabinPreference
   flexibilityDays?: number | null
   budgetCash?: number | null
+  pointBalances?: Prisma.NullableJsonNullValueInput | runtime.InputJsonValue
   notes?: string | null
   status?: $Enums.TripStatus
   createdAt?: Date | string
@@ -2082,6 +2129,7 @@ export type TripRequestUpdateWithoutAlertSubscriptionsInput = {
   cabinPreference?: Prisma.EnumCabinPreferenceFieldUpdateOperationsInput | $Enums.CabinPreference
   flexibilityDays?: Prisma.NullableIntFieldUpdateOperationsInput | number | null
   budgetCash?: Prisma.NullableIntFieldUpdateOperationsInput | number | null
+  pointBalances?: Prisma.NullableJsonNullValueInput | runtime.InputJsonValue
   notes?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
   status?: Prisma.EnumTripStatusFieldUpdateOperationsInput | $Enums.TripStatus
   createdAt?: Prisma.DateTimeFieldUpdateOperationsInput | Date | string
@@ -2114,6 +2162,7 @@ export type TripRequestUncheckedUpdateWithoutAlertSubscriptionsInput = {
   cabinPreference?: Prisma.EnumCabinPreferenceFieldUpdateOperationsInput | $Enums.CabinPreference
   flexibilityDays?: Prisma.NullableIntFieldUpdateOperationsInput | number | null
   budgetCash?: Prisma.NullableIntFieldUpdateOperationsInput | number | null
+  pointBalances?: Prisma.NullableJsonNullValueInput | runtime.InputJsonValue
   notes?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
   status?: Prisma.EnumTripStatusFieldUpdateOperationsInput | $Enums.TripStatus
   createdAt?: Prisma.DateTimeFieldUpdateOperationsInput | Date | string
@@ -2138,6 +2187,7 @@ export type TripRequestCreateWithoutVendorRequestsInput = {
   cabinPreference?: $Enums.CabinPreference
   flexibilityDays?: number | null
   budgetCash?: number | null
+  pointBalances?: Prisma.NullableJsonNullValueInput | runtime.InputJsonValue
   notes?: string | null
   status?: $Enums.TripStatus
   createdAt?: Date | string
@@ -2170,6 +2220,7 @@ export type TripRequestUncheckedCreateWithoutVendorRequestsInput = {
   cabinPreference?: $Enums.CabinPreference
   flexibilityDays?: number | null
   budgetCash?: number | null
+  pointBalances?: Prisma.NullableJsonNullValueInput | runtime.InputJsonValue
   notes?: string | null
   status?: $Enums.TripStatus
   createdAt?: Date | string
@@ -2210,6 +2261,7 @@ export type TripRequestUpdateWithoutVendorRequestsInput = {
   cabinPreference?: Prisma.EnumCabinPreferenceFieldUpdateOperationsInput | $Enums.CabinPreference
   flexibilityDays?: Prisma.NullableIntFieldUpdateOperationsInput | number | null
   budgetCash?: Prisma.NullableIntFieldUpdateOperationsInput | number | null
+  pointBalances?: Prisma.NullableJsonNullValueInput | runtime.InputJsonValue
   notes?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
   status?: Prisma.EnumTripStatusFieldUpdateOperationsInput | $Enums.TripStatus
   createdAt?: Prisma.DateTimeFieldUpdateOperationsInput | Date | string
@@ -2242,6 +2294,7 @@ export type TripRequestUncheckedUpdateWithoutVendorRequestsInput = {
   cabinPreference?: Prisma.EnumCabinPreferenceFieldUpdateOperationsInput | $Enums.CabinPreference
   flexibilityDays?: Prisma.NullableIntFieldUpdateOperationsInput | number | null
   budgetCash?: Prisma.NullableIntFieldUpdateOperationsInput | number | null
+  pointBalances?: Prisma.NullableJsonNullValueInput | runtime.InputJsonValue
   notes?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
   status?: Prisma.EnumTripStatusFieldUpdateOperationsInput | $Enums.TripStatus
   createdAt?: Prisma.DateTimeFieldUpdateOperationsInput | Date | string
@@ -2266,6 +2319,7 @@ export type TripRequestCreateWithoutItineraryJobsInput = {
   cabinPreference?: $Enums.CabinPreference
   flexibilityDays?: number | null
   budgetCash?: number | null
+  pointBalances?: Prisma.NullableJsonNullValueInput | runtime.InputJsonValue
   notes?: string | null
   status?: $Enums.TripStatus
   createdAt?: Date | string
@@ -2298,6 +2352,7 @@ export type TripRequestUncheckedCreateWithoutItineraryJobsInput = {
   cabinPreference?: $Enums.CabinPreference
   flexibilityDays?: number | null
   budgetCash?: number | null
+  pointBalances?: Prisma.NullableJsonNullValueInput | runtime.InputJsonValue
   notes?: string | null
   status?: $Enums.TripStatus
   createdAt?: Date | string
@@ -2338,6 +2393,7 @@ export type TripRequestUpdateWithoutItineraryJobsInput = {
   cabinPreference?: Prisma.EnumCabinPreferenceFieldUpdateOperationsInput | $Enums.CabinPreference
   flexibilityDays?: Prisma.NullableIntFieldUpdateOperationsInput | number | null
   budgetCash?: Prisma.NullableIntFieldUpdateOperationsInput | number | null
+  pointBalances?: Prisma.NullableJsonNullValueInput | runtime.InputJsonValue
   notes?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
   status?: Prisma.EnumTripStatusFieldUpdateOperationsInput | $Enums.TripStatus
   createdAt?: Prisma.DateTimeFieldUpdateOperationsInput | Date | string
@@ -2370,6 +2426,7 @@ export type TripRequestUncheckedUpdateWithoutItineraryJobsInput = {
   cabinPreference?: Prisma.EnumCabinPreferenceFieldUpdateOperationsInput | $Enums.CabinPreference
   flexibilityDays?: Prisma.NullableIntFieldUpdateOperationsInput | number | null
   budgetCash?: Prisma.NullableIntFieldUpdateOperationsInput | number | null
+  pointBalances?: Prisma.NullableJsonNullValueInput | runtime.InputJsonValue
   notes?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
   status?: Prisma.EnumTripStatusFieldUpdateOperationsInput | $Enums.TripStatus
   createdAt?: Prisma.DateTimeFieldUpdateOperationsInput | Date | string
@@ -2397,6 +2454,7 @@ export type TripRequestCreateManyOrganizationInput = {
   cabinPreference?: $Enums.CabinPreference
   flexibilityDays?: number | null
   budgetCash?: number | null
+  pointBalances?: Prisma.NullableJsonNullValueInput | runtime.InputJsonValue
   notes?: string | null
   status?: $Enums.TripStatus
   createdAt?: Date | string
@@ -2414,6 +2472,7 @@ export type TripRequestUpdateWithoutOrganizationInput = {
   cabinPreference?: Prisma.EnumCabinPreferenceFieldUpdateOperationsInput | $Enums.CabinPreference
   flexibilityDays?: Prisma.NullableIntFieldUpdateOperationsInput | number | null
   budgetCash?: Prisma.NullableIntFieldUpdateOperationsInput | number | null
+  pointBalances?: Prisma.NullableJsonNullValueInput | runtime.InputJsonValue
   notes?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
   status?: Prisma.EnumTripStatusFieldUpdateOperationsInput | $Enums.TripStatus
   createdAt?: Prisma.DateTimeFieldUpdateOperationsInput | Date | string
@@ -2445,6 +2504,7 @@ export type TripRequestUncheckedUpdateWithoutOrganizationInput = {
   cabinPreference?: Prisma.EnumCabinPreferenceFieldUpdateOperationsInput | $Enums.CabinPreference
   flexibilityDays?: Prisma.NullableIntFieldUpdateOperationsInput | number | null
   budgetCash?: Prisma.NullableIntFieldUpdateOperationsInput | number | null
+  pointBalances?: Prisma.NullableJsonNullValueInput | runtime.InputJsonValue
   notes?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
   status?: Prisma.EnumTripStatusFieldUpdateOperationsInput | $Enums.TripStatus
   createdAt?: Prisma.DateTimeFieldUpdateOperationsInput | Date | string
@@ -2473,6 +2533,7 @@ export type TripRequestUncheckedUpdateManyWithoutOrganizationInput = {
   cabinPreference?: Prisma.EnumCabinPreferenceFieldUpdateOperationsInput | $Enums.CabinPreference
   flexibilityDays?: Prisma.NullableIntFieldUpdateOperationsInput | number | null
   budgetCash?: Prisma.NullableIntFieldUpdateOperationsInput | number | null
+  pointBalances?: Prisma.NullableJsonNullValueInput | runtime.InputJsonValue
   notes?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
   status?: Prisma.EnumTripStatusFieldUpdateOperationsInput | $Enums.TripStatus
   createdAt?: Prisma.DateTimeFieldUpdateOperationsInput | Date | string
@@ -2493,6 +2554,7 @@ export type TripRequestCreateManyOwnerInput = {
   cabinPreference?: $Enums.CabinPreference
   flexibilityDays?: number | null
   budgetCash?: number | null
+  pointBalances?: Prisma.NullableJsonNullValueInput | runtime.InputJsonValue
   notes?: string | null
   status?: $Enums.TripStatus
   createdAt?: Date | string
@@ -2510,6 +2572,7 @@ export type TripRequestUpdateWithoutOwnerInput = {
   cabinPreference?: Prisma.EnumCabinPreferenceFieldUpdateOperationsInput | $Enums.CabinPreference
   flexibilityDays?: Prisma.NullableIntFieldUpdateOperationsInput | number | null
   budgetCash?: Prisma.NullableIntFieldUpdateOperationsInput | number | null
+  pointBalances?: Prisma.NullableJsonNullValueInput | runtime.InputJsonValue
   notes?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
   status?: Prisma.EnumTripStatusFieldUpdateOperationsInput | $Enums.TripStatus
   createdAt?: Prisma.DateTimeFieldUpdateOperationsInput | Date | string
@@ -2541,6 +2604,7 @@ export type TripRequestUncheckedUpdateWithoutOwnerInput = {
   cabinPreference?: Prisma.EnumCabinPreferenceFieldUpdateOperationsInput | $Enums.CabinPreference
   flexibilityDays?: Prisma.NullableIntFieldUpdateOperationsInput | number | null
   budgetCash?: Prisma.NullableIntFieldUpdateOperationsInput | number | null
+  pointBalances?: Prisma.NullableJsonNullValueInput | runtime.InputJsonValue
   notes?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
   status?: Prisma.EnumTripStatusFieldUpdateOperationsInput | $Enums.TripStatus
   createdAt?: Prisma.DateTimeFieldUpdateOperationsInput | Date | string
@@ -2569,6 +2633,7 @@ export type TripRequestUncheckedUpdateManyWithoutOwnerInput = {
   cabinPreference?: Prisma.EnumCabinPreferenceFieldUpdateOperationsInput | $Enums.CabinPreference
   flexibilityDays?: Prisma.NullableIntFieldUpdateOperationsInput | number | null
   budgetCash?: Prisma.NullableIntFieldUpdateOperationsInput | number | null
+  pointBalances?: Prisma.NullableJsonNullValueInput | runtime.InputJsonValue
   notes?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
   status?: Prisma.EnumTripStatusFieldUpdateOperationsInput | $Enums.TripStatus
   createdAt?: Prisma.DateTimeFieldUpdateOperationsInput | Date | string
@@ -2589,6 +2654,7 @@ export type TripRequestCreateManyClientInput = {
   cabinPreference?: $Enums.CabinPreference
   flexibilityDays?: number | null
   budgetCash?: number | null
+  pointBalances?: Prisma.NullableJsonNullValueInput | runtime.InputJsonValue
   notes?: string | null
   status?: $Enums.TripStatus
   createdAt?: Date | string
@@ -2606,6 +2672,7 @@ export type TripRequestUpdateWithoutClientInput = {
   cabinPreference?: Prisma.EnumCabinPreferenceFieldUpdateOperationsInput | $Enums.CabinPreference
   flexibilityDays?: Prisma.NullableIntFieldUpdateOperationsInput | number | null
   budgetCash?: Prisma.NullableIntFieldUpdateOperationsInput | number | null
+  pointBalances?: Prisma.NullableJsonNullValueInput | runtime.InputJsonValue
   notes?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
   status?: Prisma.EnumTripStatusFieldUpdateOperationsInput | $Enums.TripStatus
   createdAt?: Prisma.DateTimeFieldUpdateOperationsInput | Date | string
@@ -2637,6 +2704,7 @@ export type TripRequestUncheckedUpdateWithoutClientInput = {
   cabinPreference?: Prisma.EnumCabinPreferenceFieldUpdateOperationsInput | $Enums.CabinPreference
   flexibilityDays?: Prisma.NullableIntFieldUpdateOperationsInput | number | null
   budgetCash?: Prisma.NullableIntFieldUpdateOperationsInput | number | null
+  pointBalances?: Prisma.NullableJsonNullValueInput | runtime.InputJsonValue
   notes?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
   status?: Prisma.EnumTripStatusFieldUpdateOperationsInput | $Enums.TripStatus
   createdAt?: Prisma.DateTimeFieldUpdateOperationsInput | Date | string
@@ -2665,6 +2733,7 @@ export type TripRequestUncheckedUpdateManyWithoutClientInput = {
   cabinPreference?: Prisma.EnumCabinPreferenceFieldUpdateOperationsInput | $Enums.CabinPreference
   flexibilityDays?: Prisma.NullableIntFieldUpdateOperationsInput | number | null
   budgetCash?: Prisma.NullableIntFieldUpdateOperationsInput | number | null
+  pointBalances?: Prisma.NullableJsonNullValueInput | runtime.InputJsonValue
   notes?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
   status?: Prisma.EnumTripStatusFieldUpdateOperationsInput | $Enums.TripStatus
   createdAt?: Prisma.DateTimeFieldUpdateOperationsInput | Date | string
@@ -2685,6 +2754,7 @@ export type TripRequestCreateManyHouseholdInput = {
   cabinPreference?: $Enums.CabinPreference
   flexibilityDays?: number | null
   budgetCash?: number | null
+  pointBalances?: Prisma.NullableJsonNullValueInput | runtime.InputJsonValue
   notes?: string | null
   status?: $Enums.TripStatus
   createdAt?: Date | string
@@ -2702,6 +2772,7 @@ export type TripRequestUpdateWithoutHouseholdInput = {
   cabinPreference?: Prisma.EnumCabinPreferenceFieldUpdateOperationsInput | $Enums.CabinPreference
   flexibilityDays?: Prisma.NullableIntFieldUpdateOperationsInput | number | null
   budgetCash?: Prisma.NullableIntFieldUpdateOperationsInput | number | null
+  pointBalances?: Prisma.NullableJsonNullValueInput | runtime.InputJsonValue
   notes?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
   status?: Prisma.EnumTripStatusFieldUpdateOperationsInput | $Enums.TripStatus
   createdAt?: Prisma.DateTimeFieldUpdateOperationsInput | Date | string
@@ -2733,6 +2804,7 @@ export type TripRequestUncheckedUpdateWithoutHouseholdInput = {
   cabinPreference?: Prisma.EnumCabinPreferenceFieldUpdateOperationsInput | $Enums.CabinPreference
   flexibilityDays?: Prisma.NullableIntFieldUpdateOperationsInput | number | null
   budgetCash?: Prisma.NullableIntFieldUpdateOperationsInput | number | null
+  pointBalances?: Prisma.NullableJsonNullValueInput | runtime.InputJsonValue
   notes?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
   status?: Prisma.EnumTripStatusFieldUpdateOperationsInput | $Enums.TripStatus
   createdAt?: Prisma.DateTimeFieldUpdateOperationsInput | Date | string
@@ -2761,6 +2833,7 @@ export type TripRequestUncheckedUpdateManyWithoutHouseholdInput = {
   cabinPreference?: Prisma.EnumCabinPreferenceFieldUpdateOperationsInput | $Enums.CabinPreference
   flexibilityDays?: Prisma.NullableIntFieldUpdateOperationsInput | number | null
   budgetCash?: Prisma.NullableIntFieldUpdateOperationsInput | number | null
+  pointBalances?: Prisma.NullableJsonNullValueInput | runtime.InputJsonValue
   notes?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
   status?: Prisma.EnumTripStatusFieldUpdateOperationsInput | $Enums.TripStatus
   createdAt?: Prisma.DateTimeFieldUpdateOperationsInput | Date | string
@@ -2867,6 +2940,7 @@ export type TripRequestSelect<ExtArgs extends runtime.Types.Extensions.InternalA
   cabinPreference?: boolean
   flexibilityDays?: boolean
   budgetCash?: boolean
+  pointBalances?: boolean
   notes?: boolean
   status?: boolean
   createdAt?: boolean
@@ -2901,6 +2975,7 @@ export type TripRequestSelectCreateManyAndReturn<ExtArgs extends runtime.Types.E
   cabinPreference?: boolean
   flexibilityDays?: boolean
   budgetCash?: boolean
+  pointBalances?: boolean
   notes?: boolean
   status?: boolean
   createdAt?: boolean
@@ -2926,6 +3001,7 @@ export type TripRequestSelectUpdateManyAndReturn<ExtArgs extends runtime.Types.E
   cabinPreference?: boolean
   flexibilityDays?: boolean
   budgetCash?: boolean
+  pointBalances?: boolean
   notes?: boolean
   status?: boolean
   createdAt?: boolean
@@ -2951,13 +3027,14 @@ export type TripRequestSelectScalar = {
   cabinPreference?: boolean
   flexibilityDays?: boolean
   budgetCash?: boolean
+  pointBalances?: boolean
   notes?: boolean
   status?: boolean
   createdAt?: boolean
   updatedAt?: boolean
 }
 
-export type TripRequestOmit<ExtArgs extends runtime.Types.Extensions.InternalArgs = runtime.Types.Extensions.DefaultArgs> = runtime.Types.Extensions.GetOmit<"id" | "organizationId" | "ownerUserId" | "clientId" | "householdId" | "title" | "originAirports" | "destinationAirports" | "departureDate" | "returnDate" | "travelerCount" | "cabinPreference" | "flexibilityDays" | "budgetCash" | "notes" | "status" | "createdAt" | "updatedAt", ExtArgs["result"]["tripRequest"]>
+export type TripRequestOmit<ExtArgs extends runtime.Types.Extensions.InternalArgs = runtime.Types.Extensions.DefaultArgs> = runtime.Types.Extensions.GetOmit<"id" | "organizationId" | "ownerUserId" | "clientId" | "householdId" | "title" | "originAirports" | "destinationAirports" | "departureDate" | "returnDate" | "travelerCount" | "cabinPreference" | "flexibilityDays" | "budgetCash" | "pointBalances" | "notes" | "status" | "createdAt" | "updatedAt", ExtArgs["result"]["tripRequest"]>
 export type TripRequestInclude<ExtArgs extends runtime.Types.Extensions.InternalArgs = runtime.Types.Extensions.DefaultArgs> = {
   alertSubscriptions?: boolean | Prisma.TripRequest$alertSubscriptionsArgs<ExtArgs>
   settlements?: boolean | Prisma.TripRequest$settlementsArgs<ExtArgs>
@@ -3017,6 +3094,7 @@ export type $TripRequestPayload<ExtArgs extends runtime.Types.Extensions.Interna
     cabinPreference: $Enums.CabinPreference
     flexibilityDays: number | null
     budgetCash: number | null
+    pointBalances: runtime.JsonValue | null
     notes: string | null
     status: $Enums.TripStatus
     createdAt: Date
@@ -3470,6 +3548,7 @@ export interface TripRequestFieldRefs {
   readonly cabinPreference: Prisma.FieldRef<"TripRequest", 'CabinPreference'>
   readonly flexibilityDays: Prisma.FieldRef<"TripRequest", 'Int'>
   readonly budgetCash: Prisma.FieldRef<"TripRequest", 'Int'>
+  readonly pointBalances: Prisma.FieldRef<"TripRequest", 'Json'>
   readonly notes: Prisma.FieldRef<"TripRequest", 'String'>
   readonly status: Prisma.FieldRef<"TripRequest", 'TripStatus'>
   readonly createdAt: Prisma.FieldRef<"TripRequest", 'DateTime'>

@@ -19,11 +19,11 @@ logger = logging.getLogger(__name__)
 # TTL for cached SerpAPI organic results (6h) so benefits stay reasonably up to date
 SERP_ORGANIC_CACHE_TTL = 6 * 3600
 # httpx 0.27+ requires Timeout to have a default or all four: connect, read, write, pool
-SERP_ORGANIC_TIMEOUT = httpx.Timeout(connect=5.0, read=20.0, write=5.0, pool=5.0)
+SERP_ORGANIC_TIMEOUT = httpx.Timeout(connect=10.0, read=120.0, write=10.0, pool=60.0)
 
 # TTL for cached Google Flights results (15m - reduced for fresher flight data)
 SERP_FLIGHTS_CACHE_TTL = 15 * 60
-SERP_FLIGHTS_TIMEOUT = httpx.Timeout(connect=5.0, read=25.0, write=5.0, pool=5.0)
+SERP_FLIGHTS_TIMEOUT = httpx.Timeout(connect=10.0, read=120.0, write=10.0, pool=60.0)
 
 
 def _serp_api_key() -> Optional[str]:
