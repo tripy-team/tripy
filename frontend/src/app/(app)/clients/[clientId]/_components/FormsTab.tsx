@@ -1,7 +1,7 @@
 'use client';
 
 import { useState, useEffect } from 'react';
-import { Plus, ClipboardList, FileQuestion, ChevronDown, ChevronRight, Loader2, ExternalLink, RefreshCw, Trash2, Check, Clock, AlertCircle, Mail, Send, X, Plane } from 'lucide-react';
+import { Plus, ClipboardList, FileQuestion, ChevronDown, ChevronRight, Loader2, ExternalLink, RefreshCw, Trash2, Check, Clock, AlertCircle, Mail, Send, X, Plane, Users, Briefcase } from 'lucide-react';
 import Link from 'next/link';
 import {
   getIntakeInvitations,
@@ -76,7 +76,6 @@ export default function FormsTab({ client, clientId, intakes, setIntakes, trips,
       .then((all) => {
         setSentForms(
           all
-            .filter((inv) => inv.formVariant === 'custom_form' || inv.formVariant === 'individual')
             .sort((a, b) => {
               const ta = a.sentAt ? new Date(a.sentAt).getTime() : 0;
               const tb = b.sentAt ? new Date(b.sentAt).getTime() : 0;
@@ -530,6 +529,17 @@ function SentFormRow({
   const Icon = cfg.icon;
   const [showAnswers, setShowAnswers] = useState(false);
 
+  const VARIANT_CONFIG: Record<string, { label: string; icon: React.ElementType; colorClass: string }> = {
+    individual: { label: 'Trip intake', icon: Plane, colorClass: 'bg-blue-50 text-blue-700' },
+    custom_form: { label: 'Custom', icon: FileQuestion, colorClass: 'bg-violet-50 text-violet-700' },
+    group_organizer: { label: 'Group organizer', icon: Users, colorClass: 'bg-emerald-50 text-emerald-700' },
+    group_member: { label: 'Group member', icon: Users, colorClass: 'bg-teal-50 text-teal-700' },
+    business_policy: { label: 'Business policy', icon: Briefcase, colorClass: 'bg-amber-50 text-amber-700' },
+    business_traveler: { label: 'Business traveler', icon: Briefcase, colorClass: 'bg-orange-50 text-orange-700' },
+  };
+  const variantCfg = VARIANT_CONFIG[form.formVariant] ?? VARIANT_CONFIG.custom_form;
+  const VariantIcon = variantCfg.icon;
+
   const isTripIntake = form.formVariant === 'individual';
   const linkedTrip = form.linkedTripId ? trips.find((t) => t.id === form.linkedTripId) : undefined;
 
@@ -554,12 +564,10 @@ function SentFormRow({
               {form.recipientName || form.recipientEmail}
             </p>
             <span
-              className={`inline-flex items-center gap-1 rounded-full px-2 py-0.5 text-xs font-medium ${
-                isTripIntake ? 'bg-blue-50 text-blue-700' : 'bg-violet-50 text-violet-700'
-              }`}
+              className={`inline-flex items-center gap-1 rounded-full px-2 py-0.5 text-xs font-medium ${variantCfg.colorClass}`}
             >
-              {isTripIntake ? <Plane className="h-3 w-3" /> : <FileQuestion className="h-3 w-3" />}
-              {isTripIntake ? 'Trip intake' : 'Custom'}
+              <VariantIcon className="h-3 w-3" />
+              {variantCfg.label}
             </span>
             <span className={`inline-flex items-center gap-1 rounded-full px-2 py-0.5 text-xs font-medium ${cfg.color}`}>
               <Icon className="h-3 w-3" />

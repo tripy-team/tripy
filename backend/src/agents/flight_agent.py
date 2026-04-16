@@ -58,12 +58,15 @@ Return JSON with: {"programs": ["UA", "AA", ...], "reasoning": "..."}"""
         
         # Step 2: Execute parallel searches
         tasks = []
-        
-        # Award searches
-        for program in programs:
+
+        # Award search: single batched call with ALL programs
+        # (AwardTool v2 handles program batching internally via prime+poll)
+        # Previously this created 12 separate calls, each with its own 60s poll
+        # cycle — now one call handles all programs in ~25s.
+        if programs:
             tasks.append(self._search_award_flights(
                 request.origin, request.destination, request.date,
-                [program], request.cabin_classes
+                programs, request.cabin_classes
             ))
         
         # Cash searches
@@ -77,7 +80,7 @@ Return JSON with: {"programs": ["UA", "AA", ...], "reasoning": "..."}"""
                 arrival_hour_range=request.arrival_hour_range,
             ))
         
-        logger.info(f"[FlightAgent] Total tasks: {len(tasks)} (award: {len(programs)}, cash: {len(request.cabin_classes)})")
+        logger.info(f"[FlightAgent] Total tasks: {len(tasks)} (award: 1 batch of {len(programs)} programs, cash: {len(request.cabin_classes)})")
         
         # Step 3: Gather results
         results = await asyncio.gather(*tasks, return_exceptions=True)

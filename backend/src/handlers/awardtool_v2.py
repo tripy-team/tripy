@@ -37,7 +37,7 @@ POLLING_ENDPOINT = "https://apisv2.awardtoolapi.com/flight_retrieval/search_resu
 
 # Default polling configuration
 DEFAULT_POLL_INTERVAL = int(os.getenv("AWARDTOOL_POLL_INTERVAL", "5"))  # seconds
-DEFAULT_MAX_POLL_TIME = int(os.getenv("AWARDTOOL_MAX_POLL_TIME", "60"))  # seconds
+DEFAULT_MAX_POLL_TIME = int(os.getenv("AWARDTOOL_MAX_POLL_TIME", "25"))  # seconds (reduced from 60s to avoid downstream timeouts; partial results returned on timeout)
 DEFAULT_POLL_TIMEOUT = 10  # timeout per poll request
 DEFAULT_PRIME_TIMEOUT = 10  # timeout per prime request
 

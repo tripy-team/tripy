@@ -139,6 +139,9 @@ async function callOptimize(
     forceRefresh: forceRefresh ?? false,
   });
   
+  const controller = new AbortController();
+  const timer = setTimeout(() => controller.abort(), 90_000); // 90s timeout for points optimization
+
   const response = await fetch(`${BACKEND_URL}/solo/optimize`, {
     method: 'POST',
     headers: {
@@ -146,7 +149,10 @@ async function callOptimize(
       ...(token ? { 'Authorization': `Bearer ${token}` } : {}),
     },
     body: JSON.stringify(requestBody),
+    signal: controller.signal,
   });
+
+  clearTimeout(timer);
   
   if (!response.ok) {
     const errorText = await response.text().catch(() => '');
@@ -212,7 +218,12 @@ export function useSoloOptimization(): UseSoloOptimizationResult {
       
     } catch (err) {
       console.error('Solo optimization error:', err);
-      setError(err instanceof Error ? err.message : 'Optimization failed');
+      const isTimeout = err instanceof DOMException && err.name === 'AbortError';
+      setError(
+        isTimeout
+          ? 'Optimization timed out — please try again or reduce the number of destinations'
+          : err instanceof Error ? err.message : 'Optimization failed'
+      );
       setItineraries([]);
     } finally {
       setIsLoading(false);

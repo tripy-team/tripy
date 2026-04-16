@@ -67,6 +67,26 @@ export async function POST(
       tokensToCreate.map((data) => prisma.intakeFormToken.create({ data })),
     );
 
+    // Send invitation emails to each recipient
+    const advisorName = `${user.firstName} ${user.lastName}`.trim() || user.email;
+    const clientName = `${client.firstName} ${client.lastName}`.trim();
+    const VARIANT_TITLES: Record<string, string> = {
+      group_organizer: "Group Trip Details",
+      group_member: "Group Trip Preferences",
+    };
+    for (const tokenRecord of created) {
+      const formTitle = VARIANT_TITLES[tokenRecord.formVariant] ?? "Group Travel Form";
+      sendFormInvitation({
+        recipientEmail: tokenRecord.recipientEmail,
+        recipientName: tokenRecord.recipientName ?? undefined,
+        clientName,
+        advisorName,
+        formTitle,
+        formLink: buildFormLink(tokenRecord.token),
+        expiresAt,
+      }).catch((e) => console.error("[email] Group batch invitation send failed:", e));
+    }
+
     return json(created, 201);
   } catch (error) {
     console.error("Group batch invitation error:", error);
