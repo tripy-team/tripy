@@ -113,6 +113,7 @@ import type {
   CashFlightOption,
   AwardFlightOption,
   TravelerHotelGroup,
+  HotelStayGroup,
   ScoredHotel,
 } from '@/lib/api-client';
 import { ConfidenceBadge } from '@/components/ConfidenceMeter';
@@ -2102,88 +2103,46 @@ function HotelsTab({
     );
   }
 
-  if (hasScored) {
-    const travelerHotels = hotels;
-    const stays = travelerHotels[0]?.stays ?? [];
-    return (
-      <div className="space-y-6">
-        {stays.map((stay, si) => {
-          const scored = stay.scoredOptions ?? [];
-          if (scored.length === 0) return null;
-          return (
-            <div key={si} className="space-y-4">
-              <div className="flex items-center gap-2">
-                <Hotel className="h-4 w-4 text-purple-600" />
-                <div>
-                  <h2 className="text-sm font-semibold text-slate-900">
-                    {stay.destination} · {formatDateShort(stay.checkIn)} – {formatDateShort(stay.checkOut)} ({stay.nights} nights)
-                  </h2>
-                  <p className="text-[11px] text-slate-500">
-                    Top {scored.length} hotel{scored.length !== 1 ? 's' : ''} matching your preferences
-                  </p>
-                </div>
-              </div>
-              {scored.map((sh, hi) => (
-                <ScoredHotelCard key={hi} scored={sh} rank={hi + 1} />
-              ))}
-            </div>
-          );
-        })}
-      </div>
-    );
-  }
-
-  if (hasRawOptions) {
+  if (hasScored || hasRawOptions) {
     const stays = hotels[0]?.stays ?? [];
     return (
-      <div className="space-y-6">
+      <div className="space-y-5">
         <div className="flex items-center justify-between">
-          <p className="text-xs text-slate-500">
-            Showing live pricing from Google Hotels. Generate the full itinerary for AI-ranked recommendations.
-          </p>
+          <div>
+            <h2 className="text-sm font-semibold text-slate-900">Hotel Results</h2>
+            <p className="text-xs text-slate-500">
+              {stays.length} destination{stays.length !== 1 ? 's' : ''} with hotel options
+              {hasScored ? '' : ' · Generate full itinerary for AI-ranked recommendations'}
+            </p>
+          </div>
           <button
             onClick={handleSearchHotels}
             disabled={loading}
-            className="flex items-center gap-1.5 rounded-md border border-slate-200 bg-white px-3 py-1.5 text-xs font-medium text-slate-700 shadow-sm hover:bg-slate-50 disabled:opacity-50"
+            className="flex items-center gap-2 rounded-lg bg-purple-600 px-4 py-2 text-xs font-semibold text-white shadow-sm transition hover:bg-purple-700 disabled:opacity-50"
           >
-            {loading ? <Loader2 className="h-3 w-3 animate-spin" /> : <Search className="h-3 w-3" />}
-            Refresh
+            {loading ? (
+              <>
+                <Loader2 className="h-3.5 w-3.5 animate-spin" />
+                Searching…
+              </>
+            ) : (
+              <>
+                <RefreshCw className="h-3.5 w-3.5" />
+                Refresh Hotels
+              </>
+            )}
           </button>
         </div>
-        {stays.map((stay, si) => {
-          const cash = (stay.cashOptions as CashHotelResult[]) ?? [];
-          const award = (stay.awardOptions as AwardHotelResult[]) ?? [];
-          if (cash.length === 0 && award.length === 0) return null;
-          return (
-            <div key={si} className="space-y-3">
-              <div className="flex items-center gap-2">
-                <Hotel className="h-4 w-4 text-purple-600" />
-                <h2 className="text-sm font-semibold text-slate-900">
-                  {stay.destination} · {formatDateShort(stay.checkIn)} – {formatDateShort(stay.checkOut)} ({stay.nights} nights)
-                </h2>
-              </div>
-              {cash.slice(0, 8).map((h, hi) => (
-                <RawHotelCard key={`c-${hi}`} hotel={h} nights={stay.nights} />
-              ))}
-              {award.length > 0 && (
-                <div className="mt-2 text-[11px] font-semibold uppercase tracking-wide text-amber-700">
-                  Award availability
-                </div>
-              )}
-              {award.slice(0, 5).map((h, hi) => (
-                <div key={`a-${hi}`} className="rounded-lg border border-amber-200 bg-amber-50/40 p-3">
-                  <p className="text-sm font-semibold text-slate-900">{h.name}</p>
-                  <p className="text-xs text-amber-800">
-                    {h.pointsTotal.toLocaleString()} pts total · {h.pointsPerNight.toLocaleString()}/night · {h.programDisplayName}
-                  </p>
-                  {h.surcharge > 0 && (
-                    <p className="text-[11px] text-amber-700">+ ${h.surcharge.toLocaleString()} in taxes/fees</p>
-                  )}
-                </div>
-              ))}
-            </div>
-          );
-        })}
+        {searchError && (
+          <div className="rounded-lg border border-red-200 bg-red-50 p-3">
+            <p className="text-xs text-red-700">{searchError}</p>
+          </div>
+        )}
+        <div className="space-y-6">
+          {stays.map((stay, si) => (
+            <DestinationHotelSection key={si} stay={stay} isScored={hasScored} index={si} />
+          ))}
+        </div>
       </div>
     );
   }
@@ -2194,6 +2153,73 @@ function HotelsTab({
       {legacyHotels.map((hotel, i) => (
         <LegacyHotelCard key={i} hotel={hotel} />
       ))}
+    </div>
+  );
+}
+
+function DestinationHotelSection({ stay, isScored, index }: { stay: HotelStayGroup; isScored: boolean; index: number }) {
+  const scored = stay.scoredOptions ?? [];
+  const cash = (stay.cashOptions as CashHotelResult[]) ?? [];
+  const award = (stay.awardOptions as AwardHotelResult[]) ?? [];
+  const hasOptions = scored.length > 0 || cash.length > 0 || award.length > 0;
+
+  return (
+    <div className="rounded-xl border border-slate-200 bg-white shadow-sm overflow-hidden">
+      {/* Destination Header */}
+      <div className="flex items-center gap-3 border-b border-slate-100 bg-slate-50 px-5 py-3">
+        <div className="flex h-9 w-9 flex-shrink-0 items-center justify-center rounded-lg bg-purple-100 text-xs font-bold text-purple-700">
+          {index + 1}
+        </div>
+        <div>
+          <p className="text-sm font-semibold text-slate-900">{stay.destination}</p>
+          <p className="text-[11px] text-slate-500">
+            {formatDateShort(stay.checkIn)} – {formatDateShort(stay.checkOut)} · {stay.nights} night{stay.nights !== 1 ? 's' : ''}
+          </p>
+        </div>
+      </div>
+
+      <div className="p-5">
+        {!hasOptions && (
+          <p className="rounded-lg bg-slate-50 p-4 text-center text-xs text-slate-500">
+            No hotel results found for this destination. Try adjusting dates or destination.
+          </p>
+        )}
+
+        {isScored && scored.length > 0 && (
+          <div className="space-y-4">
+            <p className="text-[11px] text-slate-500">
+              Top {scored.length} hotel{scored.length !== 1 ? 's' : ''} matching your preferences
+            </p>
+            {scored.map((sh, hi) => (
+              <ScoredHotelCard key={hi} scored={sh} rank={hi + 1} />
+            ))}
+          </div>
+        )}
+
+        {!isScored && (cash.length > 0 || award.length > 0) && (
+          <div className="space-y-3">
+            {cash.slice(0, 8).map((h, hi) => (
+              <RawHotelCard key={`c-${hi}`} hotel={h} nights={stay.nights} />
+            ))}
+            {award.length > 0 && (
+              <div className="mt-2 text-[11px] font-semibold uppercase tracking-wide text-amber-700">
+                Award availability
+              </div>
+            )}
+            {award.slice(0, 5).map((h, hi) => (
+              <div key={`a-${hi}`} className="rounded-lg border border-amber-200 bg-amber-50/40 p-3">
+                <p className="text-sm font-semibold text-slate-900">{h.name}</p>
+                <p className="text-xs text-amber-800">
+                  {h.pointsTotal.toLocaleString()} pts total · {h.pointsPerNight.toLocaleString()}/night · {h.programDisplayName}
+                </p>
+                {h.surcharge > 0 && (
+                  <p className="text-[11px] text-amber-700">+ ${h.surcharge.toLocaleString()} in taxes/fees</p>
+                )}
+              </div>
+            ))}
+          </div>
+        )}
+      </div>
     </div>
   );
 }
