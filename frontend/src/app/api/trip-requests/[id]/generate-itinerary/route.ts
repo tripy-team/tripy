@@ -8,7 +8,7 @@ import {
   type TravelerSearchInput,
   type FlightPreferences,
 } from "@/lib/flight-search";
-import { deriveStayWindows } from "@/lib/hotel-search";
+import { deriveStayWindows, buildMultiCityStayWindows } from "@/lib/hotel-search";
 import type { TravelerHotelSearchInput } from "@/lib/hotel-search";
 import { searchAndScoreHotelsForTravelers } from "@/lib/hotel-scoring";
 import type { HotelScoringContext } from "@/lib/hotel-scoring";
@@ -238,7 +238,9 @@ export async function POST(
 
         // --- Hotel search setup ---
         const destinations = trip.destinationAirports as string[];
-        const stayWindows = deriveStayWindows(destinations, departureDate, returnDate);
+        const stayWindows = multiCityLegs && multiCityLegs.length >= 2
+          ? buildMultiCityStayWindows(multiCityLegs)
+          : deriveStayWindows(destinations, departureDate, returnDate);
 
         const hotelPrograms: string[] = [];
         for (const b of balances) {

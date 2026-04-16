@@ -3,6 +3,7 @@ import { getAuthUser, json, errorResponse } from "@/lib/auth";
 import {
   searchHotelsForTravelers,
   deriveStayWindows,
+  buildMultiCityStayWindows,
   type TravelerHotelSearchInput,
   type StayWindow,
 } from "@/lib/hotel-search";
@@ -171,27 +172,3 @@ export async function POST(
   }
 }
 
-function buildMultiCityStayWindows(legs: MultiCityLeg[]): StayWindow[] {
-  // Each leg represents a flight: we stay at leg.to until the NEXT leg's date.
-  // The final leg is the return home — no hotel there.
-  const windows: StayWindow[] = [];
-  for (let i = 0; i < legs.length - 1; i++) {
-    const leg = legs[i];
-    const nextLeg = legs[i + 1];
-    const dest = leg.to?.[0];
-    const checkIn = leg.date;
-    const checkOut = nextLeg.date;
-    if (!dest || !checkIn || !checkOut) continue;
-    const nights = computeNightsBetween(checkIn, checkOut);
-    if (nights <= 0) continue;
-    windows.push({ destination: dest, checkIn, checkOut, nights });
-  }
-  return windows;
-}
-
-function computeNightsBetween(checkIn: string, checkOut: string): number {
-  const a = new Date(checkIn + "T12:00:00Z").getTime();
-  const b = new Date(checkOut + "T12:00:00Z").getTime();
-  if (isNaN(a) || isNaN(b)) return 0;
-  return Math.max(0, Math.round((b - a) / (1000 * 60 * 60 * 24)));
-}

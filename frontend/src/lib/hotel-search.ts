@@ -349,6 +349,26 @@ const HOTEL_PROGRAM_NAMES: Record<string, string> = {
 // Stay Window Derivation
 // ---------------------------------------------------------------------------
 
+export function buildMultiCityStayWindows(
+  legs: { leg: number; from: string[]; to: string[]; date: string }[],
+): StayWindow[] {
+  // Each leg represents a flight: we stay at leg.to until the NEXT leg's date.
+  // The final leg is the return home — no hotel there.
+  const windows: StayWindow[] = [];
+  for (let i = 0; i < legs.length - 1; i++) {
+    const leg = legs[i];
+    const nextLeg = legs[i + 1];
+    const dest = leg.to?.[0];
+    const checkIn = leg.date;
+    const checkOut = nextLeg.date;
+    if (!dest || !checkIn || !checkOut) continue;
+    const nights = computeNights(checkIn, checkOut);
+    if (nights <= 0) continue;
+    windows.push({ destination: dest, checkIn, checkOut, nights });
+  }
+  return windows;
+}
+
 export function deriveStayWindows(
   destinations: string[],
   departureDate: string,
