@@ -908,9 +908,21 @@ async def optimize_solo(
         logger.info(f"[solo/optimize] Running orchestrator for trip {request.trip_id} with optimization_mode={mode}, budget=${budget if budget else 'unlimited'}")
         
         # Call the real orchestrator with safe degradation (Task 17)
+        # Wrapped in asyncio.wait_for to hard-cap at 75s — prevents infinite hangs.
+        import asyncio as _aio
+        OPTIMIZE_TIMEOUT_S = 75
         degradation_warnings = []
         try:
-            agent_response = await orchestrator.optimize_solo(agent_request)
+            agent_response = await _aio.wait_for(
+                orchestrator.optimize_solo(agent_request),
+                timeout=OPTIMIZE_TIMEOUT_S,
+            )
+        except _aio.TimeoutError:
+            logger.error(f"[solo/optimize] Orchestrator timed out after {OPTIMIZE_TIMEOUT_S}s for trip {request.trip_id}")
+            raise HTTPException(
+                status_code=504,
+                detail=f"Optimization timed out after {OPTIMIZE_TIMEOUT_S}s. Please try again — results may be cached on retry.",
+            )
         except Exception as search_err:
             logger.warning(f"[solo/optimize] Primary search failed: {search_err}. Attempting cash-only fallback.")
             degradation_warnings.append(

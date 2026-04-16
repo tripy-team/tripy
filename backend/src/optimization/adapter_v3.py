@@ -1962,9 +1962,11 @@ async def run_v3_optimization(
     
     # ═══════════════════════════════════════════════════════════════════
     # CROSS-VALIDATE FLIGHTS WITH SERPAPI
+    # (guarded by VALIDATION_TIMEOUT_S to prevent blocking the pipeline)
     # ═══════════════════════════════════════════════════════════════════
+    VALIDATION_TIMEOUT_S = 30  # max seconds for the entire validation phase
     if validate_flights:
-        logger.info(f"[V3 Adapter] Cross-validating {len(flights)} flights against Google Flights...")
+        logger.info(f"[V3 Adapter] Cross-validating {len(flights)} flights against Google Flights (timeout={VALIDATION_TIMEOUT_S}s)...")
         
         # Group flights by leg for validation
         flights_by_leg = {}
@@ -2046,18 +2048,30 @@ async def run_v3_optimization(
             )
             
             try:
-                # Fetch SerpAPI data for all selected pairs and merge lookups
-                serp_flights = []
-                for origin, dest in pairs_to_validate:
-                    pair_serp = get_google_flights(
-                        origin=origin,
-                        destination=dest,
-                        outbound_date=dep_date,
-                        return_date=None,
-                        travel_class=1,
+                # Fetch SerpAPI data for all selected pairs IN PARALLEL
+                # (previously sequential — each call blocks 10-30s, causing timeouts)
+                import asyncio as _aio
+                loop = _aio.get_event_loop()
+
+                async def _fetch_pair(o, d):
+                    return await _aio.wait_for(
+                        loop.run_in_executor(
+                            None,
+                            lambda: get_google_flights(origin=o, destination=d, outbound_date=dep_date, return_date=None, travel_class=1),
+                        ),
+                        timeout=VALIDATION_TIMEOUT_S,
                     )
-                    if pair_serp:
-                        serp_flights.extend(pair_serp)
+
+                pair_results = await _aio.gather(
+                    *[_fetch_pair(o, d) for o, d in pairs_to_validate],
+                    return_exceptions=True,
+                )
+                serp_flights = []
+                for pr in pair_results:
+                    if isinstance(pr, Exception):
+                        logger.warning(f"[V3 Adapter] SerpAPI pair validation failed: {pr}")
+                    elif pr:
+                        serp_flights.extend(pr)
                 
                 if serp_flights:
                     logger.info(f"[V3 Adapter] Leg {leg_id}: Got {len(serp_flights)} Google Flights for validation")
