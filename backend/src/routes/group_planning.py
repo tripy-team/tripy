@@ -271,6 +271,16 @@ async def get_ledger(
     return [svc._ledger_to_response(e) for e in entries]
 
 
+@router.get("/{group_trip_id}/settlement/reimbursements")
+async def get_reimbursements(
+    group_trip_id: str,
+    user_id: str = Depends(get_current_user_id),
+):
+    """Compute who-owes-whom reimbursement transfers."""
+    from src.services.group_split_calculator import compute_reimbursements as _reimburse
+    return _reimburse(group_trip_id, user_id)
+
+
 @router.post("/{group_trip_id}/settlement/manual-adjustment", status_code=201)
 async def manual_adjustment(
     group_trip_id: str,
@@ -279,3 +289,89 @@ async def manual_adjustment(
 ):
     from src.services.group_split_calculator import add_manual_adjustment as _adjust
     return _adjust(group_trip_id, user_id, body)
+
+
+# =============================================================================
+# POOL SUMMARY
+# =============================================================================
+
+@router.get("/{group_trip_id}/pool-summary")
+async def pool_summary(
+    group_trip_id: str,
+    user_id: str = Depends(get_current_user_id),
+):
+    """Get aggregated points pool summary for the group."""
+    from src.services.group_optimization_service import get_pool_summary as _pool
+    return _pool(group_trip_id, user_id)
+
+
+# =============================================================================
+# TRANSFER INSTRUCTIONS
+# =============================================================================
+
+@router.get("/{group_trip_id}/transfer-instructions")
+async def transfer_instructions(
+    group_trip_id: str,
+    user_id: str = Depends(get_current_user_id),
+):
+    """Get transfer instructions for cross-member point usage."""
+    from src.services.group_optimization_service import get_transfer_instructions as _xfer
+    return _xfer(group_trip_id, user_id)
+
+
+# =============================================================================
+# BOOKING CHECKLIST
+# =============================================================================
+
+@router.get("/{group_trip_id}/booking-checklist")
+async def booking_checklist(
+    group_trip_id: str,
+    user_id: str = Depends(get_current_user_id),
+):
+    """Get per-traveler booking checklist with tasks."""
+    from src.services.group_optimization_service import get_booking_checklist as _checklist
+    return _checklist(group_trip_id, user_id)
+
+
+# =============================================================================
+# POOLING SCOPE
+# =============================================================================
+
+@router.patch("/{group_trip_id}/pooling-scope")
+async def update_pooling_scope(
+    group_trip_id: str,
+    body: dict,
+    user_id: str = Depends(get_current_user_id),
+):
+    """Update the trip's pooling scope (individual_only, household_only, full_group, sponsors_only)."""
+    from fastapi import HTTPException
+    from datetime import datetime
+    from src.repos import group_planning_repo as repo
+
+    trip = repo.get_group_trip(group_trip_id)
+    if not trip:
+        raise HTTPException(status_code=404, detail="Group trip not found.")
+    if trip.get("ownerUserId") != user_id:
+        raise HTTPException(status_code=403, detail="Only the trip owner can update pooling scope.")
+
+    scope = body.get("pooling_scope", "full_group")
+    valid_scopes = {"individual_only", "household_only", "full_group", "sponsors_only"}
+    if scope not in valid_scopes:
+        raise HTTPException(status_code=400, detail=f"Invalid pooling scope. Must be one of: {valid_scopes}")
+
+    previous = trip.get("poolingScope", "individual_only")
+    trip["poolingScope"] = scope
+    trip["updatedAt"] = datetime.utcnow().isoformat() + "Z"
+    repo.put_group_trip(trip)
+
+    # Invalidate existing optimization if scope changed
+    plan_invalidated = previous != scope and trip.get("status") == "ready"
+    if plan_invalidated:
+        trip["status"] = "draft"
+        repo.put_group_trip(trip)
+
+    return {
+        "ok": True,
+        "pooling_scope": scope,
+        "plan_invalidated": plan_invalidated,
+    }

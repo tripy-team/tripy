@@ -2,8 +2,30 @@
 // Hotel Search — SerpAPI (cash) + Backend Award Search
 // ---------------------------------------------------------------------------
 
+import { POPULAR_AIRPORTS } from "./autocomplete-fallback-data";
+
 function getSerpApiKey() { return process.env.SERPAPI_KEY ?? ""; }
 const BACKEND_URL = process.env.NEXT_PUBLIC_BACKEND_URL ?? "http://localhost:8000";
+
+// ---------------------------------------------------------------------------
+// Airport Code → City Name Resolution
+// ---------------------------------------------------------------------------
+
+const airportToCityMap = new Map<string, string>();
+for (const a of POPULAR_AIRPORTS) {
+  if (!airportToCityMap.has(a.iata_code)) {
+    airportToCityMap.set(a.iata_code, a.city);
+  }
+}
+
+/**
+ * Convert an IATA airport code to a city name for hotel search queries.
+ * Falls back to the raw code if not found in the lookup table.
+ */
+export function resolveHotelDestination(codeOrCity: string): string {
+  const upper = codeOrCity.trim().toUpperCase();
+  return airportToCityMap.get(upper) ?? codeOrCity;
+}
 
 // ---------------------------------------------------------------------------
 // Types
@@ -358,13 +380,13 @@ export function buildMultiCityStayWindows(
   for (let i = 0; i < legs.length - 1; i++) {
     const leg = legs[i];
     const nextLeg = legs[i + 1];
-    const dest = leg.to?.[0];
+    const rawDest = leg.to?.[0];
     const checkIn = leg.date;
     const checkOut = nextLeg.date;
-    if (!dest || !checkIn || !checkOut) continue;
+    if (!rawDest || !checkIn || !checkOut) continue;
     const nights = computeNights(checkIn, checkOut);
     if (nights <= 0) continue;
-    windows.push({ destination: dest, checkIn, checkOut, nights });
+    windows.push({ destination: resolveHotelDestination(rawDest), checkIn, checkOut, nights });
   }
   return windows;
 }
@@ -378,19 +400,22 @@ export function deriveStayWindows(
   if (!destinations.length || !departureDate) return [];
   const endDate = returnDate ?? departureDate;
 
-  if (destinations.length === 1) {
+  // Resolve airport codes to city names for hotel search
+  const resolved = destinations.map(resolveHotelDestination);
+
+  if (resolved.length === 1) {
     const nights = computeNights(departureDate, endDate);
     if (nights <= 0) return [];
     return [{
-      destination: destinations[0],
+      destination: resolved[0],
       checkIn: departureDate,
       checkOut: endDate,
       nights,
     }];
   }
 
-  if (legDates && legDates.length >= destinations.length) {
-    return destinations.map((dest, i) => {
+  if (legDates && legDates.length >= resolved.length) {
+    return resolved.map((dest, i) => {
       const checkIn = legDates[i];
       const checkOut = legDates[i + 1] ?? endDate;
       return {
@@ -405,13 +430,13 @@ export function deriveStayWindows(
   // Evenly split total days across destinations
   const totalNights = computeNights(departureDate, endDate);
   if (totalNights <= 0) return [];
-  const nightsPer = Math.floor(totalNights / destinations.length);
-  const remainder = totalNights % destinations.length;
+  const nightsPer = Math.floor(totalNights / resolved.length);
+  const remainder = totalNights % resolved.length;
 
   const windows: StayWindow[] = [];
   const cursor = new Date(departureDate + "T12:00:00Z");
 
-  for (let i = 0; i < destinations.length; i++) {
+  for (let i = 0; i < resolved.length; i++) {
     const n = nightsPer + (i < remainder ? 1 : 0);
     if (n <= 0) continue;
     const checkIn = cursor.toISOString().split("T")[0];
@@ -419,7 +444,7 @@ export function deriveStayWindows(
     const checkOut = cursor.toISOString().split("T")[0];
 
     windows.push({
-      destination: destinations[i],
+      destination: resolved[i],
       checkIn,
       checkOut,
       nights: n,

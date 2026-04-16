@@ -286,6 +286,102 @@ def calculate_split(group_trip_id: str, user_id: str) -> Dict[str, Any]:
     }
 
 
+def compute_reimbursements(group_trip_id: str, user_id: str) -> Dict[str, Any]:
+    """
+    Compute who-owes-whom reimbursement transfers using the settlement engine.
+
+    This bridges the persisted assignments/ledger into the pure-function
+    settlement engine for a complete settlement with reimbursement transfers.
+    """
+    from src.services.settlement_engine import (
+        compute_settlement,
+        settlement_result_to_dict,
+    )
+
+    trip = repo.get_group_trip(group_trip_id)
+    if not trip:
+        raise HTTPException(status_code=404, detail="Group trip not found.")
+    if trip.get("ownerUserId") != user_id:
+        raise HTTPException(status_code=403, detail="Only the trip owner can compute reimbursements.")
+
+    travelers = repo.get_travelers_for_trip(group_trip_id)
+    if not travelers:
+        raise HTTPException(status_code=400, detail="No travelers found.")
+
+    assignments = repo.get_assignments_for_trip(group_trip_id)
+    ledger = repo.get_ledger_for_trip(group_trip_id)
+
+    # Build tickets from assignments
+    tickets = []
+    for a in assignments:
+        tickets.append({
+            "passenger_id": a.get("travelerProfileId", ""),
+            "base_fare_cash": float(a.get("cashCost", 0)),
+            "taxes_fees_cash": 0,
+        })
+
+    # Build allocations from ledger
+    allocations = []
+    for entry in ledger:
+        entry_type = entry.get("entryType", "")
+        if entry_type == "points_used":
+            allocations.append({
+                "payer_user_id": entry.get("travelerProfileId", ""),
+                "payment_type": "points",
+                "points_program": entry.get("pointsProgram", ""),
+                "points_used": int(entry.get("pointsAmount") or 0),
+                "surcharge": 0,
+            })
+        elif entry_type in ("cash_paid", "tax_paid"):
+            allocations.append({
+                "payer_user_id": entry.get("travelerProfileId", ""),
+                "payment_type": "cash",
+                "cash_amount": float(entry.get("amountUsd", 0)),
+            })
+
+    # Build passengers (one per traveler for group planning)
+    passengers = [
+        {
+            "passenger_id": t["travelerId"],
+            "guardian_user_id": t["travelerId"],
+            "full_name": t.get("displayName", ""),
+        }
+        for t in travelers
+    ]
+
+    # Build members
+    members = [
+        {
+            "user_id": t["travelerId"],
+            "name": t.get("displayName", ""),
+            "household_id": t.get("roomShareGroupId"),
+        }
+        for t in travelers
+    ]
+
+    # Settlement policy from trip config
+    policy = trip.get("settlementPolicy", "pay_your_own")
+    valuation_config = {
+        "mode": trip.get("valuationMode", "market_implied"),
+        "fixed_rates_cpp": trip.get("fixedRatesCpp", {}),
+        "min_cpp": 0.5,
+        "max_cpp": 5.0,
+        "reimburse_points_value": True,
+        "include_taxes_in_split": True,
+    }
+
+    result = compute_settlement(
+        tickets=tickets,
+        allocations=allocations,
+        passengers=passengers,
+        members=members,
+        policy=policy,
+        valuation_config=valuation_config,
+    )
+
+    return settlement_result_to_dict(result)
+
+
 def add_manual_adjustment(
     group_trip_id: str, user_id: str, body: Any
 ) -> Dict[str, Any]:

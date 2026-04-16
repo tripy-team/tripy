@@ -2163,6 +2163,32 @@ function DestinationHotelSection({ stay, isScored, index }: { stay: HotelStayGro
   const award = (stay.awardOptions as AwardHotelResult[]) ?? [];
   const hasOptions = scored.length > 0 || cash.length > 0 || award.length > 0;
 
+  // Build a lookup from normalized hotel name → award option for matching
+  const awardByName = new Map<string, AwardHotelResult>();
+  for (const a of award) {
+    const key = a.name.toLowerCase().replace(/[^a-z0-9]/g, '');
+    if (!awardByName.has(key)) awardByName.set(key, a);
+  }
+
+  // Track which award options matched a cash hotel
+  const matchedAwardKeys = new Set<string>();
+
+  const findAwardMatch = (cashName: string): AwardHotelResult | undefined => {
+    const key = cashName.toLowerCase().replace(/[^a-z0-9]/g, '');
+    const match = awardByName.get(key);
+    if (match) matchedAwardKeys.add(key);
+    return match;
+  };
+
+  // Pre-compute matches so we know which awards are unmatched
+  const cashWithAward = cash.slice(0, 8).map((h) => ({
+    hotel: h,
+    awardMatch: findAwardMatch(h.name),
+  }));
+  const unmatchedAward = award.filter(
+    (a) => !matchedAwardKeys.has(a.name.toLowerCase().replace(/[^a-z0-9]/g, '')),
+  );
+
   return (
     <div className="rounded-xl border border-slate-200 bg-white shadow-sm overflow-hidden">
       {/* Destination Header */}
@@ -2198,15 +2224,15 @@ function DestinationHotelSection({ stay, isScored, index }: { stay: HotelStayGro
 
         {!isScored && (cash.length > 0 || award.length > 0) && (
           <div className="space-y-3">
-            {cash.slice(0, 8).map((h, hi) => (
-              <RawHotelCard key={`c-${hi}`} hotel={h} nights={stay.nights} />
+            {cashWithAward.map(({ hotel: h, awardMatch }, hi) => (
+              <RawHotelCard key={`c-${hi}`} hotel={h} nights={stay.nights} awardMatch={awardMatch} />
             ))}
-            {award.length > 0 && (
+            {unmatchedAward.length > 0 && (
               <div className="mt-2 text-[11px] font-semibold uppercase tracking-wide text-amber-700">
-                Award availability
+                Points-only availability
               </div>
             )}
-            {award.slice(0, 5).map((h, hi) => (
+            {unmatchedAward.slice(0, 5).map((h, hi) => (
               <div key={`a-${hi}`} className="rounded-lg border border-amber-200 bg-amber-50/40 p-3">
                 <p className="text-sm font-semibold text-slate-900">{h.name}</p>
                 <p className="text-xs text-amber-800">
@@ -2224,42 +2250,73 @@ function DestinationHotelSection({ stay, isScored, index }: { stay: HotelStayGro
   );
 }
 
-function RawHotelCard({ hotel, nights }: { hotel: CashHotelResult; nights: number }) {
+function RawHotelCard({ hotel, nights, awardMatch }: { hotel: CashHotelResult; nights: number; awardMatch?: AwardHotelResult }) {
+  const cppValue = (awardMatch && hotel.cashTotal && awardMatch.pointsTotal > 0)
+    ? ((hotel.cashTotal - awardMatch.surcharge) / awardMatch.pointsTotal)
+    : undefined;
+
   return (
-    <div className="flex items-start gap-3 rounded-xl border border-slate-200 bg-white p-4 shadow-sm">
-      {hotel.thumbnailUrl && (
-        // eslint-disable-next-line @next/next/no-img-element
-        <img src={hotel.thumbnailUrl} alt="" className="h-16 w-16 flex-shrink-0 rounded-lg object-cover" />
-      )}
-      <div className="min-w-0 flex-1">
-        <div className="flex items-start justify-between gap-3">
-          <div className="min-w-0">
-            <p className="truncate text-sm font-semibold text-slate-900">{hotel.name}</p>
-            <p className="truncate text-[11px] text-slate-500">
-              {hotel.neighborhood ? `${hotel.neighborhood} · ` : ''}
-              {hotel.starRating ? `${hotel.starRating}★` : ''}
-              {hotel.overallRating != null ? ` · ${hotel.overallRating} rating` : ''}
-            </p>
-          </div>
-          <div className="text-right">
-            {hotel.cashTotal != null && (
-              <p className="text-sm font-bold text-slate-900">${hotel.cashTotal.toLocaleString()}</p>
-            )}
-            <p className="text-[11px] text-slate-500">
-              ${hotel.cashPerNight.toLocaleString()}/night · {nights}n
-            </p>
-          </div>
-        </div>
-        {hotel.bookingUrl && (
-          <a
-            href={hotel.bookingUrl}
-            target="_blank"
-            rel="noopener noreferrer"
-            className="mt-2 inline-flex items-center gap-1 text-[11px] font-medium text-blue-600 hover:text-blue-700"
-          >
-            View on Google Hotels →
-          </a>
+    <div className={`rounded-xl border p-4 shadow-sm ${awardMatch ? 'border-amber-200 bg-amber-50/20' : 'border-slate-200 bg-white'}`}>
+      <div className="flex items-start gap-3">
+        {hotel.thumbnailUrl && (
+          // eslint-disable-next-line @next/next/no-img-element
+          <img src={hotel.thumbnailUrl} alt="" className="h-16 w-16 flex-shrink-0 rounded-lg object-cover" />
         )}
+        <div className="min-w-0 flex-1">
+          <div className="flex items-start justify-between gap-3">
+            <div className="min-w-0">
+              <p className="truncate text-sm font-semibold text-slate-900">{hotel.name}</p>
+              <p className="truncate text-[11px] text-slate-500">
+                {hotel.neighborhood ? `${hotel.neighborhood} · ` : ''}
+                {hotel.starRating ? `${hotel.starRating}★` : ''}
+                {hotel.overallRating != null ? ` · ${hotel.overallRating} rating` : ''}
+              </p>
+            </div>
+            <div className="text-right">
+              {hotel.cashTotal != null && (
+                <p className="text-sm font-bold text-slate-900">${hotel.cashTotal.toLocaleString()}</p>
+              )}
+              <p className="text-[11px] text-slate-500">
+                ${hotel.cashPerNight.toLocaleString()}/night · {nights}n
+              </p>
+            </div>
+          </div>
+          {awardMatch && (
+            <div className="mt-2 flex items-center gap-2 rounded-lg border border-amber-200 bg-amber-50 px-3 py-1.5">
+              <Coins className="h-3.5 w-3.5 flex-shrink-0 text-amber-600" />
+              <div className="min-w-0 flex-1">
+                <p className="text-xs font-semibold text-amber-900">
+                  {awardMatch.pointsTotal.toLocaleString()} pts
+                  <span className="font-normal text-amber-700">
+                    {' '}· {awardMatch.pointsPerNight.toLocaleString()}/night · {awardMatch.programDisplayName}
+                  </span>
+                </p>
+                <div className="flex items-center gap-2">
+                  {awardMatch.surcharge > 0 && (
+                    <span className="text-[10px] text-amber-700">+ ${awardMatch.surcharge.toLocaleString()} taxes/fees</span>
+                  )}
+                  {cppValue != null && cppValue > 0 && (
+                    <span className={`text-[10px] font-semibold ${
+                      cppValue >= 1.5 ? 'text-emerald-600' : cppValue >= 1.0 ? 'text-amber-700' : 'text-slate-500'
+                    }`}>
+                      {cppValue.toFixed(1)}¢/pt value
+                    </span>
+                  )}
+                </div>
+              </div>
+            </div>
+          )}
+          {hotel.bookingUrl && (
+            <a
+              href={hotel.bookingUrl}
+              target="_blank"
+              rel="noopener noreferrer"
+              className="mt-2 inline-flex items-center gap-1 text-[11px] font-medium text-blue-600 hover:text-blue-700"
+            >
+              View on Google Hotels →
+            </a>
+          )}
+        </div>
       </div>
     </div>
   );
