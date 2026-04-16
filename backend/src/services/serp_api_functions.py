@@ -523,6 +523,86 @@ def optimize_itinerary_out_of_pocket(
 # --- Google Hotels (SerpAPI) ---
 
 
+def _resolve_airport_code_to_city(code: str) -> str:
+    """
+    Convert an IATA airport code to a city name for hotel search queries.
+
+    If the input is a 3-letter uppercase code, look it up in the programs config
+    (airports data) or a built-in fallback map. Returns the city name if found,
+    otherwise returns the input unchanged.
+    """
+    stripped = (code or "").strip()
+    upper = stripped.upper()
+
+    # Only attempt resolution for 3-letter codes that look like IATA codes
+    if len(stripped) != 3 or not stripped.isalpha():
+        return stripped
+
+    # Built-in fallback map for common airports not in the programs config
+    _AIRPORT_CITY_MAP = {
+        "AMS": "Amsterdam", "ATH": "Athens", "ATL": "Atlanta",
+        "AUS": "Austin", "BCN": "Barcelona", "BER": "Berlin",
+        "BFI": "Seattle", "BKK": "Bangkok", "BNA": "Nashville",
+        "BOM": "Mumbai", "BOS": "Boston", "BRU": "Brussels",
+        "CAI": "Cairo", "CDG": "Paris", "CLT": "Charlotte",
+        "CPH": "Copenhagen", "CUN": "Cancun", "DAL": "Dallas",
+        "DCA": "Washington", "DEL": "Delhi", "DEN": "Denver",
+        "DFW": "Dallas", "DOH": "Doha", "DUB": "Dublin",
+        "DXB": "Dubai", "EWR": "New York", "EZE": "Buenos Aires",
+        "FCO": "Rome", "FLL": "Fort Lauderdale", "FRA": "Frankfurt",
+        "GIG": "Rio de Janeiro", "GRU": "Sao Paulo",
+        "HKG": "Hong Kong", "HND": "Tokyo", "HNL": "Honolulu",
+        "IAD": "Washington", "IAH": "Houston",
+        "ICN": "Seoul", "IST": "Istanbul",
+        "JFK": "New York", "JNB": "Johannesburg",
+        "KEF": "Reykjavik",
+        "KUL": "Kuala Lumpur", "LAS": "Las Vegas",
+        "LAX": "Los Angeles", "LGA": "New York",
+        "LGW": "London", "LHR": "London", "LIS": "Lisbon",
+        "MAD": "Madrid", "MAN": "Manchester",
+        "MCO": "Orlando", "MDW": "Chicago",
+        "MEX": "Mexico City", "MIA": "Miami",
+        "MNL": "Manila", "MSP": "Minneapolis",
+        "MUC": "Munich", "MXP": "Milan",
+        "NAP": "Naples", "NCE": "Nice", "NRT": "Tokyo",
+        "OAK": "Oakland", "OGG": "Maui",
+        "ORD": "Chicago", "ORY": "Paris", "OSL": "Oslo",
+        "PDX": "Portland", "PEK": "Beijing",
+        "PHL": "Philadelphia", "PHX": "Phoenix",
+        "PMI": "Palma de Mallorca", "PRG": "Prague",
+        "PTY": "Panama City", "PVG": "Shanghai",
+        "RDU": "Raleigh", "SAN": "San Diego",
+        "SAT": "San Antonio", "SCL": "Santiago",
+        "SEA": "Seattle", "SFO": "San Francisco",
+        "SIN": "Singapore", "SJC": "San Jose",
+        "SLC": "Salt Lake City", "SNA": "Orange County",
+        "STL": "St. Louis", "SYD": "Sydney",
+        "TLV": "Tel Aviv", "TPA": "Tampa",
+        "VIE": "Vienna", "YUL": "Montreal",
+        "YVR": "Vancouver", "YYZ": "Toronto",
+        "ZRH": "Zurich",
+    }
+
+    city = _AIRPORT_CITY_MAP.get(upper)
+    if city:
+        import logging
+        logging.getLogger(__name__).info(
+            "Resolved airport code %s → %s for hotel search", upper, city
+        )
+        return city
+
+    # Try loading from programs config (has airline/airport data)
+    try:
+        from src.config.programs import get_airline_name
+        name = get_airline_name(upper)
+        if name and name != upper:
+            return name
+    except Exception:
+        pass
+
+    return stripped
+
+
 def get_google_hotels(
     q: str,
     check_in_date: str,
@@ -558,6 +638,9 @@ def get_google_hotels(
             })
         return out
     
+    # Resolve airport codes to city names (e.g., "KEF" → "Reykjavik")
+    q = _resolve_airport_code_to_city(q)
+
     key = _serp_key()
     if not key or not (q or "").strip() or not check_in_date or not check_out_date:
         return []
@@ -643,6 +726,9 @@ def optimize_hotels_out_of_pocket(
     Out-of-pocket = min(cash, surcharge) when points available, else cash.
     Returns: { best_by_cash, best_by_points, best_overall, options, destination, check_in, check_out }
     """
+    # Resolve airport codes to city names for hotel search
+    destination = _resolve_airport_code_to_city(destination)
+
     options: List[Dict[str, Any]] = []
 
     # 1) AwardTool: cash, points, surcharge
