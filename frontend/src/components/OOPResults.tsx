@@ -9,6 +9,7 @@ import {
 import { useOOPOptimization } from '@/lib/hooks/useOOPOptimization';
 import { OOPSummaryCard } from '@/components/ui/OOPSummaryCard';
 import { SegmentBreakdown } from '@/components/ui/SegmentBreakdown';
+import { PointsStrategyCard } from '@/components/ui/PointsStrategy';
 import type { RankedItinerary } from '@/types/optimization';
 
 interface OOPResultsProps {
@@ -209,6 +210,7 @@ export function OOPResults({
               <div key={itinerary.id}>
                 <OOPSummaryCard
                   metrics={itinerary.oopMetrics}
+                  pointsStrategy={itinerary.pointsStrategy}
                   rank={index + 1}
                   isSelected={selectedItinerary?.id === itinerary.id}
                   onClick={() => setSelectedId(itinerary.id)}
@@ -249,6 +251,11 @@ export function OOPResults({
           {selectedItinerary && (
             <div className="lg:col-span-1">
               <div className="sticky top-8 space-y-6">
+                {/* Points Strategy - consolidated transfer & booking plan */}
+                {selectedItinerary.pointsStrategy && selectedItinerary.pointsStrategy.programs && selectedItinerary.pointsStrategy.programs.length > 0 && (
+                  <PointsStrategyCard strategy={selectedItinerary.pointsStrategy} />
+                )}
+
                 {/* Segment Breakdown */}
                 <div className="bg-white border border-slate-200 rounded-2xl p-6">
                   <SegmentBreakdown

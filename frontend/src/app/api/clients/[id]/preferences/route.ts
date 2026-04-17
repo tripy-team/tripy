@@ -56,6 +56,12 @@ export async function GET(
   }
 }
 
+const ARRAY_PREFERENCE_FIELDS = new Set([
+  "preferredAirlines", "avoidedAirlines", "preferredHotelTypes",
+  "roomPreferences", "accessibilityNeeds", "foodPreferences",
+  "activityPreferences", "specialOccasions", "dislikes", "dealbreakers",
+]);
+
 export async function PUT(
   request: Request,
   { params }: { params: Promise<{ id: string }> },
@@ -77,11 +83,18 @@ export async function PUT(
     const existing = await prisma.clientPreference.findUnique({
       where: { clientId: id },
     });
+    const existingRecord = existing as Record<string, unknown> | null;
 
     const updateData: Record<string, unknown> = {};
     for (const field of PREFERENCE_FIELDS) {
       if (body[field] !== undefined) {
-        updateData[field] = body[field];
+        if (ARRAY_PREFERENCE_FIELDS.has(field)) {
+          const existingArr = Array.isArray(existingRecord?.[field]) ? (existingRecord![field] as unknown[]) : [];
+          const incomingArr = Array.isArray(body[field]) ? body[field] : [];
+          updateData[field] = [...new Set([...existingArr, ...incomingArr])];
+        } else {
+          updateData[field] = body[field];
+        }
       }
     }
     updateData.lastUpdatedSource = source;

@@ -71,6 +71,9 @@ import {
   Gauge,
   Timer,
   Trophy,
+  Pencil,
+  Check,
+  ClipboardList,
 } from 'lucide-react';
 import {
   getTripRequest,
@@ -91,8 +94,11 @@ import {
   searchTripFlights,
   searchTripHotels,
   getClientPreferences,
+  getClientIntakes,
+  updateClientIntake,
+  mergeIntakeIntoPreferences,
 } from '@/lib/api-client';
-import type { ItineraryProgressUpdate, ClientPreference } from '@/lib/api-client';
+import type { ItineraryProgressUpdate, ClientPreference, ClientIntake } from '@/lib/api-client';
 import type { CashHotelResult, AwardHotelResult } from '@/lib/hotel-search';
 import MultiAirportAutocomplete from '@/components/ui/MultiAirportAutocomplete';
 import type {
@@ -126,6 +132,13 @@ const STATUS_STYLES: Record<string, { bg: string; text: string }> = {
 };
 
 type TripTab = 'overview' | 'discovery' | 'flights' | 'hotels' | 'budget';
+
+type FlightSelection = { type: 'cash' | 'award'; index: number };
+type HotelSelection = { type: 'scored' | 'cash' | 'award'; index: number };
+// Keys: `${travelerId}-${segmentIdx}`
+type FlightSelections = Record<string, FlightSelection>;
+// Keys: `${stayIdx}`
+type HotelSelections = Record<string, HotelSelection>;
 
 const TABS: { key: TripTab; label: string; icon: React.ReactNode }[] = [
   { key: 'overview', label: 'Overview', icon: <Info className="h-4 w-4" /> },
@@ -285,6 +298,9 @@ export default function TripDetailPage() {
   const [itineraryError, setItineraryError] = useState<string | null>(null);
   const [completedSections, setCompletedSections] = useState<string[]>([]);
   const [pendingSections, setPendingSections] = useState<string[]>([]);
+  const [flightSelections, setFlightSelections] = useState<FlightSelections>({});
+  const [hotelSelections, setHotelSelections] = useState<HotelSelections>({});
+  const [clientIntake, setClientIntake] = useState<ClientIntake | null>(null);
 
   const handleAddTraveler = async (
     clientId: string,
@@ -371,9 +387,17 @@ export default function TripDetailPage() {
           setCompletedSections(['flights', 'hotels']);
           setPendingSections([]);
         }
-        // Fetch client preferences once we know the client
+        // Fetch client preferences and latest intake once we know the client
         if (tripData.clientId) {
           getClientPreferences(tripData.clientId).then(setClientPreferences).catch(() => {});
+          getClientIntakes(tripData.clientId)
+            .then((intakes) => {
+              // Use the most recent completed intake, or most recent overall
+              const sorted = intakes.sort((a, b) => new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime());
+              const completed = sorted.find((i) => i.status === 'complete');
+              setClientIntake(completed ?? sorted[0] ?? null);
+            })
+            .catch(() => {});
         }
       })
       .catch((err) => setError(err.message))
@@ -628,6 +652,17 @@ export default function TripDetailPage() {
               confidence={confidence}
               onAddTraveler={handleAddTraveler}
               onRemoveTraveler={handleRemoveTraveler}
+              clientIntake={clientIntake}
+              onIntakeUpdate={async (updated) => {
+                setClientIntake(updated);
+                // Merge updated intake into client preferences so AI uses them
+                if (trip.clientId) {
+                  await mergeIntakeIntoPreferences(trip.clientId, updated as unknown as Record<string, unknown>, 'overwrite').catch(() => {});
+                  // Refresh client preferences
+                  getClientPreferences(trip.clientId).then(setClientPreferences).catch(() => {});
+                }
+              }}
+              onRegenerateItinerary={handleGenerateItinerary}
             />
           )}
           {activeTab === 'discovery' && (
@@ -646,6 +681,18 @@ export default function TripDetailPage() {
                 destinations={destinations}
                 travelerFlights={travelerFlights}
                 tripId={tripId}
+                flightSelections={flightSelections}
+                onFlightSelect={(key, sel) => {
+                  setFlightSelections((prev) => {
+                    const next = { ...prev };
+                    if (prev[key]?.type === sel.type && prev[key]?.index === sel.index) {
+                      delete next[key];
+                    } else {
+                      next[key] = sel;
+                    }
+                    return next;
+                  });
+                }}
                 onFlightsUpdated={(flights) => {
                   setItinerary((prev) => prev ? { ...prev, travelerFlights: flights } : prev);
                 }}
@@ -659,13 +706,25 @@ export default function TripDetailPage() {
               <HotelsTab
                 itinerary={itinerary}
                 tripId={tripId}
+                hotelSelections={hotelSelections}
+                onHotelSelect={(key, sel) => {
+                  setHotelSelections((prev) => {
+                    const next = { ...prev };
+                    if (prev[key]?.type === sel.type && prev[key]?.index === sel.index) {
+                      delete next[key];
+                    } else {
+                      next[key] = sel;
+                    }
+                    return next;
+                  });
+                }}
                 onHotelsUpdated={(hotels) => {
                   setItinerary((prev) => prev ? { ...prev, travelerHotels: hotels } : prev);
                 }}
               />
             )
           )}
-          {activeTab === 'budget' && <BudgetTab itinerary={itinerary} trip={trip} />}
+          {activeTab === 'budget' && <BudgetTab itinerary={itinerary} trip={trip} flightSelections={flightSelections} hotelSelections={hotelSelections} />}
         </div>
 
         {/* Sidebar */}
@@ -974,6 +1033,9 @@ function OverviewTab({
   confidence,
   onAddTraveler,
   onRemoveTraveler,
+  clientIntake,
+  onIntakeUpdate,
+  onRegenerateItinerary,
 }: {
   trip: TripRequest;
   itinerary: GeneratedItinerary | null;
@@ -987,6 +1049,9 @@ function OverviewTab({
   confidence: ConfidenceResult | null;
   onAddTraveler: (clientId: string, options?: { originAirports?: string[]; destinationAirports?: string[]; useLeaderCities?: boolean }) => Promise<TripTraveler>;
   onRemoveTraveler: (travelerId: string) => Promise<void>;
+  clientIntake: ClientIntake | null;
+  onIntakeUpdate: (updated: ClientIntake) => Promise<void>;
+  onRegenerateItinerary: () => Promise<void>;
 }) {
   const travelers = trip.travelers ?? [];
   const leaderCities = travelerRoutes?.leader;
@@ -1080,6 +1145,16 @@ function OverviewTab({
             })}
           </div>
         </div>
+      )}
+
+      {/* Intake Preferences */}
+      {clientIntake && (
+        <IntakePreferencesSection
+          intake={clientIntake}
+          clientId={trip.clientId}
+          onIntakeUpdate={onIntakeUpdate}
+          onRegenerateItinerary={onRegenerateItinerary}
+        />
       )}
     </>
   );
@@ -1559,6 +1634,8 @@ function FlightsTab({
   destinations,
   travelerFlights: _legacyTravelerFlights,
   tripId,
+  flightSelections,
+  onFlightSelect,
   onFlightsUpdated,
 }: {
   itinerary: GeneratedItinerary | null;
@@ -1569,6 +1646,8 @@ function FlightsTab({
   destinations: string;
   travelerFlights: TravelerFlightData[] | null;
   tripId: string;
+  flightSelections: FlightSelections;
+  onFlightSelect: (key: string, sel: FlightSelection) => void;
   onFlightsUpdated?: (flights: TravelerFlightGroup[]) => void;
 }) {
   const [flights, setFlights] = useState<TravelerFlightGroup[]>(itinerary?.travelerFlights ?? []);
@@ -1687,7 +1766,12 @@ function FlightsTab({
         )}
         <div className="space-y-6">
           {flights.map((group) => (
-            <TravelerFlightSection key={group.travelerId} group={group} />
+            <TravelerFlightSection
+              key={group.travelerId}
+              group={group}
+              flightSelections={flightSelections}
+              onFlightSelect={onFlightSelect}
+            />
           ))}
         </div>
       </div>
@@ -1744,7 +1828,15 @@ function formatFlightTime(timeStr: string): string {
   return date.toLocaleTimeString('en-US', { hour: 'numeric', minute: '2-digit', hour12: true });
 }
 
-function TravelerFlightSection({ group }: { group: TravelerFlightGroup }) {
+function TravelerFlightSection({
+  group,
+  flightSelections,
+  onFlightSelect,
+}: {
+  group: TravelerFlightGroup;
+  flightSelections: FlightSelections;
+  onFlightSelect: (key: string, sel: FlightSelection) => void;
+}) {
   const initials = group.travelerName
     .split(' ')
     .map((n) => n[0])
@@ -1767,15 +1859,34 @@ function TravelerFlightSection({ group }: { group: TravelerFlightGroup }) {
       </div>
 
       <div className="divide-y divide-slate-100">
-        {group.segments.map((segment, idx) => (
-          <SegmentSection key={idx} segment={segment} />
-        ))}
+        {group.segments.map((segment, idx) => {
+          const selKey = `${group.travelerId}-${idx}`;
+          return (
+            <SegmentSection
+              key={idx}
+              segment={segment}
+              selectionKey={selKey}
+              selection={flightSelections[selKey] ?? null}
+              onSelect={(sel) => onFlightSelect(selKey, sel)}
+            />
+          );
+        })}
       </div>
     </div>
   );
 }
 
-function SegmentSection({ segment }: { segment: TravelerFlightSegment }) {
+function SegmentSection({
+  segment,
+  selectionKey,
+  selection,
+  onSelect,
+}: {
+  segment: TravelerFlightSegment;
+  selectionKey: string;
+  selection: FlightSelection | null;
+  onSelect: (sel: FlightSelection) => void;
+}) {
   const topCash = segment.cashOptions.slice(0, 5);
   const topAward = segment.awardOptions.slice(0, 5);
   const hasCash = segment.cashOptions.length > 0;
@@ -1800,6 +1911,12 @@ function SegmentSection({ segment }: { segment: TravelerFlightSegment }) {
             {segment.origin} → {segment.destination} · {formatDateShort(segment.date)}
           </p>
         </div>
+        {selection && (
+          <span className="ml-auto inline-flex items-center gap-1 rounded-full bg-blue-50 border border-blue-200 px-2.5 py-0.5 text-[10px] font-semibold text-blue-700">
+            <CheckCircle2 className="h-3 w-3" />
+            {selection.type === 'cash' ? 'Cash' : 'Award'} selected
+          </span>
+        )}
       </div>
 
       {!hasCash && !hasAward && (
@@ -1864,7 +1981,13 @@ function SegmentSection({ segment }: { segment: TravelerFlightSegment }) {
           </h4>
           <div className="space-y-1.5">
             {topAward.map((award, i) => (
-              <AwardOptionRow key={i} award={award} isBest={i === 0} />
+              <AwardOptionRow
+                key={i}
+                award={award}
+                isBest={i === 0}
+                isSelected={selection?.type === 'award' && selection.index === i}
+                onSelect={() => onSelect({ type: 'award', index: i })}
+              />
             ))}
           </div>
           {segment.awardOptions.length > 5 && (
@@ -1884,7 +2007,13 @@ function SegmentSection({ segment }: { segment: TravelerFlightSegment }) {
           </h4>
           <div className="space-y-2">
             {topCash.map((cash, i) => (
-              <CashFlightRow key={i} flight={cash} isBest={i === 0} />
+              <CashFlightRow
+                key={i}
+                flight={cash}
+                isBest={i === 0}
+                isSelected={selection?.type === 'cash' && selection.index === i}
+                onSelect={() => onSelect({ type: 'cash', index: i })}
+              />
             ))}
           </div>
           {segment.cashOptions.length > 5 && (
@@ -1898,12 +2027,19 @@ function SegmentSection({ segment }: { segment: TravelerFlightSegment }) {
   );
 }
 
-function AwardOptionRow({ award, isBest }: { award: AwardFlightOption; isBest: boolean }) {
+function AwardOptionRow({ award, isBest, isSelected, onSelect }: { award: AwardFlightOption; isBest: boolean; isSelected?: boolean; onSelect?: () => void }) {
   return (
-    <div className={`flex items-center justify-between rounded-lg px-3 py-2 ${
-      isBest ? 'bg-amber-50 border border-amber-200' : 'bg-slate-50'
-    }`}>
+    <div
+      onClick={onSelect}
+      className={`flex items-center justify-between rounded-lg px-3 py-2 cursor-pointer transition-all ${
+        isSelected
+          ? 'bg-blue-50 border-2 border-blue-500 ring-1 ring-blue-200'
+          : isBest ? 'bg-amber-50 border border-amber-200 hover:border-amber-300' : 'bg-slate-50 border border-transparent hover:border-slate-200'
+      }`}>
       <div className="flex items-center gap-3">
+        {isSelected && (
+          <CheckCircle2 className="h-4 w-4 flex-shrink-0 text-blue-600" />
+        )}
         <div className="min-w-0">
           <p className="text-xs font-medium text-slate-900">{award.program}</p>
           <p className="text-[10px] text-slate-500">
@@ -1945,13 +2081,20 @@ function AwardOptionRow({ award, isBest }: { award: AwardFlightOption; isBest: b
   );
 }
 
-function CashFlightRow({ flight, isBest }: { flight: CashFlightOption; isBest: boolean }) {
+function CashFlightRow({ flight, isBest, isSelected, onSelect }: { flight: CashFlightOption; isBest: boolean; isSelected?: boolean; onSelect?: () => void }) {
   return (
-    <div className={`rounded-lg px-3 py-2.5 ${
-      isBest ? 'bg-emerald-50 border border-emerald-200' : 'bg-slate-50'
-    }`}>
+    <div
+      onClick={onSelect}
+      className={`rounded-lg px-3 py-2.5 cursor-pointer transition-all ${
+        isSelected
+          ? 'bg-blue-50 border-2 border-blue-500 ring-1 ring-blue-200'
+          : isBest ? 'bg-emerald-50 border border-emerald-200 hover:border-emerald-300' : 'bg-slate-50 border border-transparent hover:border-slate-200'
+      }`}>
       <div className="flex items-center justify-between">
         <div className="flex items-center gap-3">
+          {isSelected && (
+            <CheckCircle2 className="h-4 w-4 flex-shrink-0 text-blue-600" />
+          )}
           {flight.airlineLogo && (
             <Image src={flight.airlineLogo} alt={flight.airline} width={20} height={20} className="h-5 w-5 rounded" unoptimized />
           )}
@@ -2014,10 +2157,14 @@ function CashFlightRow({ flight, isBest }: { flight: CashFlightOption; isBest: b
 function HotelsTab({
   itinerary,
   tripId,
+  hotelSelections,
+  onHotelSelect,
   onHotelsUpdated,
 }: {
   itinerary: GeneratedItinerary | null;
   tripId: string;
+  hotelSelections: HotelSelections;
+  onHotelSelect: (key: string, sel: HotelSelection) => void;
   onHotelsUpdated?: (hotels: TravelerHotelGroup[]) => void;
 }) {
   const [hotels, setHotels] = useState<TravelerHotelGroup[]>(itinerary?.travelerHotels ?? []);
@@ -2140,7 +2287,14 @@ function HotelsTab({
         )}
         <div className="space-y-6">
           {stays.map((stay, si) => (
-            <DestinationHotelSection key={si} stay={stay} isScored={hasScored} index={si} />
+            <DestinationHotelSection
+              key={si}
+              stay={stay}
+              isScored={hasScored}
+              index={si}
+              selection={hotelSelections[`${si}`] ?? null}
+              onSelect={(sel) => onHotelSelect(`${si}`, sel)}
+            />
           ))}
         </div>
       </div>
@@ -2157,7 +2311,7 @@ function HotelsTab({
   );
 }
 
-function DestinationHotelSection({ stay, isScored, index }: { stay: HotelStayGroup; isScored: boolean; index: number }) {
+function DestinationHotelSection({ stay, isScored, index, selection, onSelect }: { stay: HotelStayGroup; isScored: boolean; index: number; selection: HotelSelection | null; onSelect: (sel: HotelSelection) => void }) {
   const scored = stay.scoredOptions ?? [];
   const cash = (stay.cashOptions as CashHotelResult[]) ?? [];
   const award = (stay.awardOptions as AwardHotelResult[]) ?? [];
@@ -2202,6 +2356,12 @@ function DestinationHotelSection({ stay, isScored, index }: { stay: HotelStayGro
             {formatDateShort(stay.checkIn)} – {formatDateShort(stay.checkOut)} · {stay.nights} night{stay.nights !== 1 ? 's' : ''}
           </p>
         </div>
+        {selection && (
+          <span className="ml-auto inline-flex items-center gap-1 rounded-full bg-blue-50 border border-blue-200 px-2.5 py-0.5 text-[10px] font-semibold text-blue-700">
+            <CheckCircle2 className="h-3 w-3" />
+            Hotel selected
+          </span>
+        )}
       </div>
 
       <div className="p-5">
@@ -2214,10 +2374,16 @@ function DestinationHotelSection({ stay, isScored, index }: { stay: HotelStayGro
         {isScored && scored.length > 0 && (
           <div className="space-y-4">
             <p className="text-[11px] text-slate-500">
-              Top {scored.length} hotel{scored.length !== 1 ? 's' : ''} matching your preferences
+              Top {scored.length} hotel{scored.length !== 1 ? 's' : ''} matching your preferences — click to select for budget
             </p>
             {scored.map((sh, hi) => (
-              <ScoredHotelCard key={hi} scored={sh} rank={hi + 1} />
+              <ScoredHotelCard
+                key={hi}
+                scored={sh}
+                rank={hi + 1}
+                isSelected={selection?.type === 'scored' && selection.index === hi}
+                onSelect={() => onSelect({ type: 'scored', index: hi })}
+              />
             ))}
           </div>
         )}
@@ -2225,7 +2391,14 @@ function DestinationHotelSection({ stay, isScored, index }: { stay: HotelStayGro
         {!isScored && (cash.length > 0 || award.length > 0) && (
           <div className="space-y-3">
             {cashWithAward.map(({ hotel: h, awardMatch }, hi) => (
-              <RawHotelCard key={`c-${hi}`} hotel={h} nights={stay.nights} awardMatch={awardMatch} />
+              <RawHotelCard
+                key={`c-${hi}`}
+                hotel={h}
+                nights={stay.nights}
+                awardMatch={awardMatch}
+                isSelected={selection?.type === 'cash' && selection.index === hi}
+                onSelect={() => onSelect({ type: 'cash', index: hi })}
+              />
             ))}
             {unmatchedAward.length > 0 && (
               <div className="mt-2 text-[11px] font-semibold uppercase tracking-wide text-amber-700">
@@ -2250,14 +2423,23 @@ function DestinationHotelSection({ stay, isScored, index }: { stay: HotelStayGro
   );
 }
 
-function RawHotelCard({ hotel, nights, awardMatch }: { hotel: CashHotelResult; nights: number; awardMatch?: AwardHotelResult }) {
+function RawHotelCard({ hotel, nights, awardMatch, isSelected, onSelect }: { hotel: CashHotelResult; nights: number; awardMatch?: AwardHotelResult; isSelected?: boolean; onSelect?: () => void }) {
   const cppValue = (awardMatch && hotel.cashTotal && awardMatch.pointsTotal > 0)
     ? ((hotel.cashTotal - awardMatch.surcharge) / awardMatch.pointsTotal)
     : undefined;
 
   return (
-    <div className={`rounded-xl border p-4 shadow-sm ${awardMatch ? 'border-amber-200 bg-amber-50/20' : 'border-slate-200 bg-white'}`}>
+    <div
+      onClick={onSelect}
+      className={`rounded-xl border p-4 shadow-sm cursor-pointer transition-all ${
+        isSelected
+          ? 'border-2 border-blue-500 ring-1 ring-blue-200 bg-blue-50/30'
+          : awardMatch ? 'border-amber-200 bg-amber-50/20 hover:border-amber-300' : 'border-slate-200 bg-white hover:border-slate-300'
+      }`}>
       <div className="flex items-start gap-3">
+        {isSelected && (
+          <CheckCircle2 className="h-5 w-5 flex-shrink-0 text-blue-600 mt-0.5" />
+        )}
         {hotel.thumbnailUrl && (
           // eslint-disable-next-line @next/next/no-img-element
           <img src={hotel.thumbnailUrl} alt="" className="h-16 w-16 flex-shrink-0 rounded-lg object-cover" />
@@ -2311,6 +2493,7 @@ function RawHotelCard({ hotel, nights, awardMatch }: { hotel: CashHotelResult; n
               href={hotel.bookingUrl}
               target="_blank"
               rel="noopener noreferrer"
+              onClick={(e) => e.stopPropagation()}
               className="mt-2 inline-flex items-center gap-1 text-[11px] font-medium text-blue-600 hover:text-blue-700"
             >
               View on Google Hotels →
@@ -2322,7 +2505,7 @@ function RawHotelCard({ hotel, nights, awardMatch }: { hotel: CashHotelResult; n
   );
 }
 
-function ScoredHotelCard({ scored, rank }: { scored: ScoredHotel; rank: number }) {
+function ScoredHotelCard({ scored, rank, isSelected, onSelect }: { scored: ScoredHotel; rank: number; isSelected?: boolean; onSelect?: () => void }) {
   const h = scored.hotel;
   const payColor =
     scored.paymentRecommendation === 'points' ? 'text-amber-700 bg-amber-50 border-amber-200'
@@ -2330,12 +2513,24 @@ function ScoredHotelCard({ scored, rank }: { scored: ScoredHotel; rank: number }
         : 'text-slate-700 bg-slate-50 border-slate-200';
 
   return (
-    <div className="rounded-xl border border-slate-200 bg-white p-5 shadow-sm">
+    <div
+      onClick={onSelect}
+      className={`rounded-xl p-5 shadow-sm cursor-pointer transition-all ${
+        isSelected
+          ? 'border-2 border-blue-500 ring-1 ring-blue-200 bg-blue-50/30'
+          : 'border border-slate-200 bg-white hover:border-slate-300'
+      }`}>
       <div className="mb-3 flex items-start justify-between">
         <div className="flex items-center gap-3">
-          <div className="flex h-7 w-7 items-center justify-center rounded-lg bg-purple-100 text-xs font-bold text-purple-700">
-            #{rank}
-          </div>
+          {isSelected ? (
+            <div className="flex h-7 w-7 items-center justify-center rounded-lg bg-blue-100">
+              <CheckCircle2 className="h-4 w-4 text-blue-600" />
+            </div>
+          ) : (
+            <div className="flex h-7 w-7 items-center justify-center rounded-lg bg-purple-100 text-xs font-bold text-purple-700">
+              #{rank}
+            </div>
+          )}
           <div className="flex items-center gap-2">
             {h.thumbnailUrl && (
               <img src={h.thumbnailUrl} alt="" className="h-10 w-10 rounded-lg object-cover" />
@@ -2456,6 +2651,7 @@ function ScoredHotelCard({ scored, rank }: { scored: ScoredHotel; rank: number }
           href={h.bookingUrl}
           target="_blank"
           rel="noopener noreferrer"
+          onClick={(e) => e.stopPropagation()}
           className="mt-3 inline-flex items-center gap-1 text-xs font-medium text-blue-600 hover:text-blue-700"
         >
           View on Google Hotels →
@@ -2559,7 +2755,12 @@ function LegacyHotelCard({ hotel }: { hotel: ItineraryHotelRecommendation }) {
 }
 
 
-function computeLiveBudget(itinerary: GeneratedItinerary, trip: TripRequest) {
+function computeLiveBudget(
+  itinerary: GeneratedItinerary,
+  trip: TripRequest,
+  flightSelections: FlightSelections = {},
+  hotelSelections: HotelSelections = {},
+) {
   const travelerFlights = itinerary.travelerFlights ?? [];
   const travelerHotels = itinerary.travelerHotels ?? [];
 
@@ -2574,6 +2775,8 @@ function computeLiveBudget(itinerary: GeneratedItinerary, trip: TripRequest) {
   };
 
   const perTraveler: TravelerCost[] = [];
+  const hasFlightSelections = Object.keys(flightSelections).length > 0;
+  const hasHotelSelections = Object.keys(hotelSelections).length > 0;
 
   for (const tg of travelerFlights) {
     let flightCash = 0;
@@ -2582,18 +2785,36 @@ function computeLiveBudget(itinerary: GeneratedItinerary, trip: TripRequest) {
     let totalTaxes = 0;
     let awardProgram = '';
 
-    for (const seg of tg.segments) {
-      const cheapestCash = seg.cashOptions.length > 0
-        ? seg.cashOptions.reduce((min, o) => (o.price < min.price ? o : min), seg.cashOptions[0])
-        : null;
-      if (cheapestCash) flightCash += cheapestCash.price;
+    for (let segIdx = 0; segIdx < tg.segments.length; segIdx++) {
+      const seg = tg.segments[segIdx];
+      const selKey = `${tg.travelerId}-${segIdx}`;
+      const sel = flightSelections[selKey];
 
-      const bestAwardOpt = seg.awardOptions.length > 0 ? seg.awardOptions[0] : null;
-      if (bestAwardOpt) {
-        totalMiles += bestAwardOpt.milesRequired;
-        totalTaxes += bestAwardOpt.taxes;
-        if (!awardProgram) awardProgram = bestAwardOpt.program;
+      if (sel) {
+        // User has selected a specific option for this segment
+        if (sel.type === 'cash' && seg.cashOptions[sel.index]) {
+          flightCash += seg.cashOptions[sel.index].price;
+        } else if (sel.type === 'award' && seg.awardOptions[sel.index]) {
+          const award = seg.awardOptions[sel.index];
+          totalMiles += award.milesRequired;
+          totalTaxes += award.taxes;
+          if (!awardProgram) awardProgram = award.program;
+        }
+      } else if (!hasFlightSelections) {
+        // No selections at all — use default (cheapest cash + best award)
+        const cheapestCash = seg.cashOptions.length > 0
+          ? seg.cashOptions.reduce((min, o) => (o.price < min.price ? o : min), seg.cashOptions[0])
+          : null;
+        if (cheapestCash) flightCash += cheapestCash.price;
+
+        const bestAwardOpt = seg.awardOptions.length > 0 ? seg.awardOptions[0] : null;
+        if (bestAwardOpt) {
+          totalMiles += bestAwardOpt.milesRequired;
+          totalTaxes += bestAwardOpt.taxes;
+          if (!awardProgram) awardProgram = bestAwardOpt.program;
+        }
       }
+      // If there are selections but this segment has none, it contributes $0
     }
     if (totalMiles > 0) {
       bestAward = { program: awardProgram, miles: totalMiles, taxes: totalTaxes };
@@ -2621,21 +2842,50 @@ function computeLiveBudget(itinerary: GeneratedItinerary, trip: TripRequest) {
     let hotelAward: TravelerCost['hotelAward'] = null;
     let paymentRec: string | null = null;
 
-    for (const stay of hg.stays) {
-      const topScored = (stay.scoredOptions ?? [])[0];
-      if (topScored) {
-        const h = topScored.hotel;
-        if (h.cashTotal != null) hotelCash += h.cashTotal;
-        if (h.awardOption && !hotelAward) {
-          hotelAward = {
-            program: h.awardOption.program,
-            points: h.awardOption.pointsTotal,
-            programDisplayName: h.awardOption.programDisplayName,
-          };
-        } else if (h.awardOption && hotelAward) {
-          hotelAward.points += h.awardOption.pointsTotal;
+    for (let stayIdx = 0; stayIdx < hg.stays.length; stayIdx++) {
+      const stay = hg.stays[stayIdx];
+      const sel = hotelSelections[`${stayIdx}`];
+
+      if (sel) {
+        // User selected a specific hotel
+        if (sel.type === 'scored' && (stay.scoredOptions ?? [])[sel.index]) {
+          const scored = stay.scoredOptions![sel.index];
+          const h = scored.hotel;
+          if (h.cashTotal != null) hotelCash += h.cashTotal;
+          if (h.awardOption) {
+            if (!hotelAward) {
+              hotelAward = {
+                program: h.awardOption.program,
+                points: h.awardOption.pointsTotal,
+                programDisplayName: h.awardOption.programDisplayName,
+              };
+            } else {
+              hotelAward.points += h.awardOption.pointsTotal;
+            }
+          }
+          if (!paymentRec) paymentRec = scored.paymentRecommendation;
+        } else if (sel.type === 'cash') {
+          const cashOptions = (stay.cashOptions as CashHotelResult[]) ?? [];
+          const cashHotel = cashOptions[sel.index];
+          if (cashHotel?.cashTotal != null) hotelCash += cashHotel.cashTotal;
         }
-        if (!paymentRec) paymentRec = topScored.paymentRecommendation;
+      } else if (!hasHotelSelections) {
+        // No selections at all — use default (top scored)
+        const topScored = (stay.scoredOptions ?? [])[0];
+        if (topScored) {
+          const h = topScored.hotel;
+          if (h.cashTotal != null) hotelCash += h.cashTotal;
+          if (h.awardOption && !hotelAward) {
+            hotelAward = {
+              program: h.awardOption.program,
+              points: h.awardOption.pointsTotal,
+              programDisplayName: h.awardOption.programDisplayName,
+            };
+          } else if (h.awardOption && hotelAward) {
+            hotelAward.points += h.awardOption.pointsTotal;
+          }
+          if (!paymentRec) paymentRec = topScored.paymentRecommendation;
+        }
       }
     }
 
@@ -2709,7 +2959,7 @@ function computeLiveBudget(itinerary: GeneratedItinerary, trip: TripRequest) {
   return { perTraveler, totalFlightCash, totalHotelCash, totalCash, pointsUsed, availableBalances, hasLiveData };
 }
 
-function BudgetTab({ itinerary, trip }: { itinerary: GeneratedItinerary | null; trip: TripRequest }) {
+function BudgetTab({ itinerary, trip, flightSelections, hotelSelections }: { itinerary: GeneratedItinerary | null; trip: TripRequest; flightSelections: FlightSelections; hotelSelections: HotelSelections }) {
   if (!itinerary) {
     return (
       <EmptyTabState
@@ -2720,7 +2970,8 @@ function BudgetTab({ itinerary, trip }: { itinerary: GeneratedItinerary | null; 
     );
   }
 
-  const live = computeLiveBudget(itinerary, trip);
+  const hasSelections = Object.keys(flightSelections).length > 0 || Object.keys(hotelSelections).length > 0;
+  const live = computeLiveBudget(itinerary, trip, flightSelections, hotelSelections);
   const budget = itinerary.budgetBreakdown;
 
   const flightsCash = live.hasLiveData ? live.totalFlightCash : budget.flightsCash;
@@ -2774,7 +3025,11 @@ function BudgetTab({ itinerary, trip }: { itinerary: GeneratedItinerary | null; 
               {totalCash > 0 ? `$${totalCash.toLocaleString()}` : '—'}
             </p>
             {live.hasLiveData && (
-              <p className="mt-1 text-[10px] text-blue-600 font-medium">Based on live flight & hotel search results</p>
+              <p className="mt-1 text-[10px] text-blue-600 font-medium">
+                {hasSelections
+                  ? 'Based on your selected flights & hotels'
+                  : 'Based on live flight & hotel search results'}
+              </p>
             )}
           </div>
           {budget.savings && (
@@ -2802,6 +3057,28 @@ function BudgetTab({ itinerary, trip }: { itinerary: GeneratedItinerary | null; 
           </div>
         )}
       </div>
+
+      {/* Selection indicator */}
+      {hasSelections && (
+        <div className="rounded-xl border border-blue-200 bg-blue-50/50 p-4 shadow-sm">
+          <div className="flex items-center gap-2">
+            <CheckCircle2 className="h-4 w-4 text-blue-600" />
+            <p className="text-sm font-medium text-blue-900">
+              Budget reflects your selections
+            </p>
+          </div>
+          <p className="mt-1 ml-6 text-xs text-blue-700">
+            {Object.keys(flightSelections).length > 0 && (
+              <span>{Object.keys(flightSelections).length} flight{Object.keys(flightSelections).length !== 1 ? 's' : ''} selected</span>
+            )}
+            {Object.keys(flightSelections).length > 0 && Object.keys(hotelSelections).length > 0 && ' · '}
+            {Object.keys(hotelSelections).length > 0 && (
+              <span>{Object.keys(hotelSelections).length} hotel{Object.keys(hotelSelections).length !== 1 ? 's' : ''} selected</span>
+            )}
+            {' — click options in the Flights or Hotels tabs to update'}
+          </p>
+        </div>
+      )}
 
       {/* Category Breakdown */}
       <div className="rounded-xl border border-slate-200 bg-white p-6 shadow-sm">
@@ -3643,6 +3920,479 @@ function SuggestionCard({
           </div>
         )}
       </div>
+    </div>
+  );
+}
+
+/* ==========================================================================
+   INTAKE PREFERENCES SECTION
+   ========================================================================== */
+
+const CABIN_OPTIONS = ['economy', 'premium', 'business', 'first'] as const;
+const TRAVEL_PACE_OPTIONS = ['relaxed', 'moderate', 'fast-paced'] as const;
+const LAYOVER_OPTIONS = ['none', 'short', 'flexible'] as const;
+const LUXURY_OPTIONS = ['budget', 'moderate', 'luxury', 'ultra-luxury'] as const;
+
+function IntakePreferencesSection({
+  intake,
+  clientId,
+  onIntakeUpdate,
+  onRegenerateItinerary,
+}: {
+  intake: ClientIntake;
+  clientId?: string;
+  onIntakeUpdate: (updated: ClientIntake) => Promise<void>;
+  onRegenerateItinerary: () => Promise<void>;
+}) {
+  const [editing, setEditing] = useState(false);
+  const [saving, setSaving] = useState(false);
+  const [draft, setDraft] = useState<Partial<ClientIntake>>({});
+  const [showRegenPrompt, setShowRegenPrompt] = useState(false);
+
+  const startEditing = () => {
+    setDraft({
+      cabinPreference: intake.cabinPreference ?? '',
+      hotelStyles: intake.hotelStyles ?? [],
+      preferredAirlines: intake.preferredAirlines ?? [],
+      avoidedAirlines: intake.avoidedAirlines ?? [],
+      travelPace: intake.travelPace ?? '',
+      layoverTolerance: intake.layoverTolerance ?? '',
+      luxuryPreference: intake.luxuryPreference ?? '',
+      budgetMin: intake.budgetMin,
+      budgetMax: intake.budgetMax,
+      budgetNotes: intake.budgetNotes ?? '',
+      desiredExperiences: intake.desiredExperiences ?? [],
+      dealbreakers: intake.dealbreakers ?? [],
+      accessibilityNeeds: intake.accessibilityNeeds ?? '',
+      dietaryNeeds: intake.dietaryNeeds ?? '',
+      preferredAccommodationBrands: intake.preferredAccommodationBrands ?? [],
+      accommodationDealbreakers: intake.accommodationDealbreakers ?? [],
+      preferredFlightRouting: intake.preferredFlightRouting ?? '',
+      familyFriendly: intake.familyFriendly,
+      notes: intake.notes ?? '',
+    });
+    setEditing(true);
+  };
+
+  const handleSave = async () => {
+    if (!clientId) return;
+    setSaving(true);
+    try {
+      const updated: ClientIntake = { ...intake, ...draft };
+      await updateClientIntake(clientId, intake.id, draft);
+      await onIntakeUpdate(updated);
+      setEditing(false);
+      setShowRegenPrompt(true);
+    } catch (err) {
+      console.error('Failed to save intake preferences:', err);
+    } finally {
+      setSaving(false);
+    }
+  };
+
+  const handleCancel = () => {
+    setEditing(false);
+    setDraft({});
+  };
+
+  const updateDraftField = <K extends keyof ClientIntake>(key: K, value: ClientIntake[K]) => {
+    setDraft((prev) => ({ ...prev, [key]: value }));
+  };
+
+  const updateDraftList = (key: keyof ClientIntake, value: string) => {
+    const list = value.split(',').map((s) => s.trim()).filter(Boolean);
+    setDraft((prev) => ({ ...prev, [key]: list }));
+  };
+
+  const val = <K extends keyof ClientIntake>(key: K): ClientIntake[K] =>
+    (editing ? (draft[key] ?? intake[key]) : intake[key]) as ClientIntake[K];
+
+  return (
+    <>
+      <div className="rounded-xl border border-slate-200 bg-white p-6 shadow-sm">
+        <div className="mb-4 flex items-center justify-between">
+          <div className="flex items-center gap-2">
+            <ClipboardList className="h-4 w-4 text-blue-600" />
+            <h2 className="text-sm font-semibold text-slate-900">Intake Preferences</h2>
+            <span className="rounded-full bg-slate-100 px-2 py-0.5 text-[10px] font-medium text-slate-500">
+              {intake.status === 'complete' ? 'Completed' : 'Draft'}
+            </span>
+          </div>
+          {!editing ? (
+            <button
+              onClick={startEditing}
+              className="inline-flex items-center gap-1.5 rounded-lg bg-blue-50 px-3 py-1.5 text-xs font-medium text-blue-700 transition-colors hover:bg-blue-100"
+            >
+              <Pencil className="h-3 w-3" />
+              Edit
+            </button>
+          ) : (
+            <div className="flex items-center gap-2">
+              <button
+                onClick={handleCancel}
+                className="inline-flex items-center gap-1 rounded-lg bg-slate-100 px-3 py-1.5 text-xs font-medium text-slate-600 transition-colors hover:bg-slate-200"
+              >
+                <X className="h-3 w-3" />
+                Cancel
+              </button>
+              <button
+                onClick={handleSave}
+                disabled={saving}
+                className="inline-flex items-center gap-1 rounded-lg bg-blue-600 px-3 py-1.5 text-xs font-medium text-white transition-colors hover:bg-blue-700 disabled:opacity-50"
+              >
+                {saving ? <Loader2 className="h-3 w-3 animate-spin" /> : <Check className="h-3 w-3" />}
+                Save
+              </button>
+            </div>
+          )}
+        </div>
+
+        <div className="space-y-4">
+          {/* Flight Preferences */}
+          <div>
+            <h3 className="mb-2 text-xs font-semibold uppercase tracking-wider text-slate-400">
+              Flight Preferences
+            </h3>
+            <div className="grid grid-cols-2 gap-3">
+              <IntakeField
+                label="Cabin"
+                icon={<Plane className="h-3 w-3" />}
+                editing={editing}
+                value={val('cabinPreference') ?? ''}
+                type="select"
+                options={CABIN_OPTIONS as unknown as string[]}
+                onChange={(v) => updateDraftField('cabinPreference', v)}
+              />
+              <IntakeField
+                label="Layover Tolerance"
+                icon={<Clock className="h-3 w-3" />}
+                editing={editing}
+                value={val('layoverTolerance') ?? ''}
+                type="select"
+                options={LAYOVER_OPTIONS as unknown as string[]}
+                onChange={(v) => updateDraftField('layoverTolerance', v)}
+              />
+              <IntakeField
+                label="Preferred Airlines"
+                editing={editing}
+                value={(val('preferredAirlines') ?? []).join(', ')}
+                type="text"
+                placeholder="e.g. United, Delta"
+                onChange={(v) => updateDraftList('preferredAirlines', v)}
+              />
+              <IntakeField
+                label="Avoided Airlines"
+                editing={editing}
+                value={(val('avoidedAirlines') ?? []).join(', ')}
+                type="text"
+                placeholder="e.g. Spirit, Frontier"
+                onChange={(v) => updateDraftList('avoidedAirlines', v)}
+              />
+              <IntakeField
+                label="Routing Preference"
+                editing={editing}
+                value={val('preferredFlightRouting') ?? ''}
+                type="text"
+                placeholder="e.g. nonstop preferred"
+                onChange={(v) => updateDraftField('preferredFlightRouting', v)}
+              />
+            </div>
+          </div>
+
+          {/* Hotel Preferences */}
+          <div>
+            <h3 className="mb-2 text-xs font-semibold uppercase tracking-wider text-slate-400">
+              Hotel Preferences
+            </h3>
+            <div className="grid grid-cols-2 gap-3">
+              <IntakeField
+                label="Hotel Styles"
+                icon={<Hotel className="h-3 w-3" />}
+                editing={editing}
+                value={(val('hotelStyles') ?? []).join(', ')}
+                type="text"
+                placeholder="e.g. boutique, resort"
+                onChange={(v) => updateDraftList('hotelStyles', v)}
+              />
+              <IntakeField
+                label="Luxury Preference"
+                icon={<Star className="h-3 w-3" />}
+                editing={editing}
+                value={val('luxuryPreference') ?? ''}
+                type="select"
+                options={LUXURY_OPTIONS as unknown as string[]}
+                onChange={(v) => updateDraftField('luxuryPreference', v)}
+              />
+              <IntakeField
+                label="Preferred Brands"
+                editing={editing}
+                value={(val('preferredAccommodationBrands') ?? []).join(', ')}
+                type="text"
+                placeholder="e.g. Marriott, Hilton"
+                onChange={(v) => updateDraftList('preferredAccommodationBrands', v)}
+              />
+              <IntakeField
+                label="Accommodation Dealbreakers"
+                editing={editing}
+                value={(val('accommodationDealbreakers') ?? []).join(', ')}
+                type="text"
+                placeholder="e.g. no shared bathrooms"
+                onChange={(v) => updateDraftList('accommodationDealbreakers', v)}
+              />
+            </div>
+          </div>
+
+          {/* Budget */}
+          <div>
+            <h3 className="mb-2 text-xs font-semibold uppercase tracking-wider text-slate-400">
+              Budget
+            </h3>
+            <div className="grid grid-cols-2 gap-3">
+              <IntakeField
+                label="Budget Min"
+                icon={<DollarSign className="h-3 w-3" />}
+                editing={editing}
+                value={val('budgetMin') != null ? String(val('budgetMin')) : ''}
+                type="number"
+                placeholder="Min"
+                onChange={(v) => updateDraftField('budgetMin', v ? Number(v) : undefined)}
+              />
+              <IntakeField
+                label="Budget Max"
+                icon={<DollarSign className="h-3 w-3" />}
+                editing={editing}
+                value={val('budgetMax') != null ? String(val('budgetMax')) : ''}
+                type="number"
+                placeholder="Max"
+                onChange={(v) => updateDraftField('budgetMax', v ? Number(v) : undefined)}
+              />
+              <div className="col-span-2">
+                <IntakeField
+                  label="Budget Notes"
+                  editing={editing}
+                  value={val('budgetNotes') ?? ''}
+                  type="text"
+                  placeholder="Any budget notes..."
+                  onChange={(v) => updateDraftField('budgetNotes', v)}
+                />
+              </div>
+            </div>
+          </div>
+
+          {/* Travel Style */}
+          <div>
+            <h3 className="mb-2 text-xs font-semibold uppercase tracking-wider text-slate-400">
+              Travel Style
+            </h3>
+            <div className="grid grid-cols-2 gap-3">
+              <IntakeField
+                label="Travel Pace"
+                icon={<Gauge className="h-3 w-3" />}
+                editing={editing}
+                value={val('travelPace') ?? ''}
+                type="select"
+                options={TRAVEL_PACE_OPTIONS as unknown as string[]}
+                onChange={(v) => updateDraftField('travelPace', v)}
+              />
+              <IntakeField
+                label="Family Friendly"
+                editing={editing}
+                value={val('familyFriendly') ? 'Yes' : 'No'}
+                type="select"
+                options={['Yes', 'No']}
+                onChange={(v) => updateDraftField('familyFriendly', v === 'Yes')}
+              />
+              <IntakeField
+                label="Desired Experiences"
+                icon={<Sparkles className="h-3 w-3" />}
+                editing={editing}
+                value={(val('desiredExperiences') ?? []).join(', ')}
+                type="text"
+                placeholder="e.g. beach, culture, nightlife"
+                onChange={(v) => updateDraftList('desiredExperiences', v)}
+              />
+              <IntakeField
+                label="Dealbreakers"
+                icon={<AlertCircle className="h-3 w-3" />}
+                editing={editing}
+                value={(val('dealbreakers') ?? []).join(', ')}
+                type="text"
+                placeholder="e.g. long layovers, red-eye"
+                onChange={(v) => updateDraftList('dealbreakers', v)}
+              />
+            </div>
+          </div>
+
+          {/* Special Needs */}
+          {(editing || val('accessibilityNeeds') || val('dietaryNeeds')) && (
+            <div>
+              <h3 className="mb-2 text-xs font-semibold uppercase tracking-wider text-slate-400">
+                Special Needs
+              </h3>
+              <div className="grid grid-cols-2 gap-3">
+                <IntakeField
+                  label="Accessibility"
+                  editing={editing}
+                  value={val('accessibilityNeeds') ?? ''}
+                  type="text"
+                  placeholder="Any accessibility needs..."
+                  onChange={(v) => updateDraftField('accessibilityNeeds', v)}
+                />
+                <IntakeField
+                  label="Dietary"
+                  editing={editing}
+                  value={val('dietaryNeeds') ?? ''}
+                  type="text"
+                  placeholder="Any dietary needs..."
+                  onChange={(v) => updateDraftField('dietaryNeeds', v)}
+                />
+              </div>
+            </div>
+          )}
+
+          {/* Notes */}
+          {(editing || val('notes')) && (
+            <div>
+              <h3 className="mb-2 text-xs font-semibold uppercase tracking-wider text-slate-400">
+                Additional Notes
+              </h3>
+              <IntakeField
+                label="Notes"
+                editing={editing}
+                value={val('notes') ?? ''}
+                type="textarea"
+                placeholder="Any additional notes from the client..."
+                onChange={(v) => updateDraftField('notes', v)}
+              />
+            </div>
+          )}
+        </div>
+      </div>
+
+      {/* Regeneration Prompt */}
+      {showRegenPrompt && (
+        <div className="flex items-center justify-between rounded-xl border border-amber-200 bg-amber-50 p-4">
+          <div className="flex items-center gap-3">
+            <RefreshCw className="h-4 w-4 text-amber-600" />
+            <div>
+              <p className="text-sm font-medium text-amber-900">Preferences updated</p>
+              <p className="text-xs text-amber-600">
+                Regenerate the trip plan to apply updated preferences to flights and hotels.
+              </p>
+            </div>
+          </div>
+          <div className="flex items-center gap-2">
+            <button
+              onClick={() => setShowRegenPrompt(false)}
+              className="text-xs font-medium text-amber-700 hover:text-amber-800"
+            >
+              Dismiss
+            </button>
+            <button
+              onClick={() => {
+                setShowRegenPrompt(false);
+                onRegenerateItinerary();
+              }}
+              className="inline-flex items-center gap-1.5 rounded-lg bg-amber-600 px-3 py-1.5 text-xs font-medium text-white transition-colors hover:bg-amber-700"
+            >
+              <Sparkles className="h-3 w-3" />
+              Regenerate Plan
+            </button>
+          </div>
+        </div>
+      )}
+    </>
+  );
+}
+
+function IntakeField({
+  label,
+  icon,
+  editing,
+  value,
+  type = 'text',
+  options,
+  placeholder,
+  onChange,
+}: {
+  label: string;
+  icon?: React.ReactNode;
+  editing: boolean;
+  value: string;
+  type?: 'text' | 'select' | 'number' | 'textarea';
+  options?: string[];
+  placeholder?: string;
+  onChange: (value: string) => void;
+}) {
+  if (!editing) {
+    if (!value) return null;
+    return (
+      <div className="flex items-start justify-between gap-2 text-xs">
+        <span className="flex items-center gap-1.5 shrink-0 text-slate-500">
+          {icon}
+          {label}
+        </span>
+        <span className="text-right font-medium capitalize text-slate-700">
+          {value.replace(/_/g, ' ')}
+        </span>
+      </div>
+    );
+  }
+
+  if (type === 'select' && options) {
+    return (
+      <div>
+        <label className="mb-1 flex items-center gap-1.5 text-[11px] font-medium text-slate-500">
+          {icon}
+          {label}
+        </label>
+        <select
+          value={value}
+          onChange={(e) => onChange(e.target.value)}
+          className="w-full rounded-lg border border-slate-200 bg-white px-2.5 py-1.5 text-xs text-slate-700 focus:border-blue-400 focus:outline-none focus:ring-1 focus:ring-blue-400"
+        >
+          <option value="">—</option>
+          {options.map((opt) => (
+            <option key={opt} value={opt}>
+              {opt.replace(/_/g, ' ').replace(/\b\w/g, (c) => c.toUpperCase())}
+            </option>
+          ))}
+        </select>
+      </div>
+    );
+  }
+
+  if (type === 'textarea') {
+    return (
+      <div>
+        <label className="mb-1 flex items-center gap-1.5 text-[11px] font-medium text-slate-500">
+          {icon}
+          {label}
+        </label>
+        <textarea
+          value={value}
+          onChange={(e) => onChange(e.target.value)}
+          placeholder={placeholder}
+          rows={2}
+          className="w-full rounded-lg border border-slate-200 bg-white px-2.5 py-1.5 text-xs text-slate-700 placeholder:text-slate-300 focus:border-blue-400 focus:outline-none focus:ring-1 focus:ring-blue-400"
+        />
+      </div>
+    );
+  }
+
+  return (
+    <div>
+      <label className="mb-1 flex items-center gap-1.5 text-[11px] font-medium text-slate-500">
+        {icon}
+        {label}
+      </label>
+      <input
+        type={type}
+        value={value}
+        onChange={(e) => onChange(e.target.value)}
+        placeholder={placeholder}
+        className="w-full rounded-lg border border-slate-200 bg-white px-2.5 py-1.5 text-xs text-slate-700 placeholder:text-slate-300 focus:border-blue-400 focus:outline-none focus:ring-1 focus:ring-blue-400"
+      />
     </div>
   );
 }

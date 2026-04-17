@@ -264,7 +264,7 @@ async def optimize_solo_trip(
         # Convert to JSON-serializable dict with consistent camelCase
         response = {
             "tripId": result.trip_id,
-            "itineraries": [_serialize_itinerary(it) for it in result.itineraries],
+            "itineraries": [_serialize_itinerary(it, available_points=validated_points) for it in result.itineraries],
             "bestOption": result.best_option,
             "warnings": result.warnings,
             "policySummary": policy_summary,
@@ -926,11 +926,11 @@ def _serialize_segment(seg) -> dict:
     return result
 
 
-def _serialize_itinerary(itinerary: RankedItinerary) -> dict:
+def _serialize_itinerary(itinerary: RankedItinerary, available_points: dict | None = None) -> dict:
     """Convert RankedItinerary to JSON-serializable dict with camelCase keys."""
     if not itinerary:
         return None
-    
+
     segments = [_serialize_segment(seg) for seg in itinerary.segments]
     transfers = [_serialize_transfer(t) for t in itinerary.transfers]
     
@@ -984,12 +984,31 @@ def _serialize_itinerary(itinerary: RankedItinerary) -> dict:
         "withinBudget": itinerary.within_budget,
         "withinPoints": itinerary.within_points,
         "summary": itinerary.summary,
+        # Points strategy: consolidated transfer + booking plan with additive balances
+        "pointsStrategy": _compute_itinerary_points_strategy(itinerary, available_points or {}),
         # Policy fields
         "policyEvaluation": policy_evaluation,
         "disabled": getattr(itinerary, 'disabled', False),
         "disableReason": getattr(itinerary, 'disable_reason', None),
         "bookingStructureRecommendation": getattr(itinerary, 'booking_structure_recommendation', None),
     }
+
+
+def _compute_itinerary_points_strategy(itinerary: RankedItinerary, available_points: dict) -> dict | None:
+    """Compute the points strategy for an itinerary, showing additive balances."""
+    # Only compute if there are points being used
+    if not itinerary.oop_metrics.total_points_used:
+        return None
+    try:
+        from ..handlers.transfer_strategy import compute_points_strategy
+        return compute_points_strategy(
+            segments=itinerary.segments,
+            transfers=itinerary.transfers,
+            available_points=available_points,
+        )
+    except Exception as e:
+        logger.warning(f"Failed to compute points strategy: {e}")
+        return None
 
 
 def _serialize_policy_message(msg) -> dict:

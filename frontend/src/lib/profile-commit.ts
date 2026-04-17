@@ -25,6 +25,12 @@ export const VALID_PREFERENCE_FIELDS = new Set([
   "notes",
 ]);
 
+const ARRAY_PREFERENCE_FIELDS = new Set([
+  "preferredAirlines", "avoidedAirlines", "preferredHotelTypes",
+  "roomPreferences", "accessibilityNeeds", "foodPreferences",
+  "activityPreferences", "specialOccasions", "dislikes", "dealbreakers",
+]);
+
 export async function commitSuggestionsForClient(
   targetClientId: string,
   suggestions: Array<{ id: string; targetField: string; suggestedValue: unknown }>,
@@ -33,26 +39,33 @@ export async function commitSuggestionsForClient(
   const valid = suggestions.filter((s) => VALID_PREFERENCE_FIELDS.has(s.targetField));
   if (valid.length === 0) return 0;
 
-  const updateData: Record<string, unknown> = {};
-  for (const s of valid) {
-    updateData[s.targetField] = s.suggestedValue;
-  }
-  updateData.lastUpdatedSource = "inferred";
-
   const existing = await prisma.clientPreference.findUnique({
     where: { clientId: targetClientId },
   });
+  const existingRecord = existing as Record<string, unknown> | null;
+
+  const updateData: Record<string, unknown> = {};
+  for (const s of valid) {
+    if (ARRAY_PREFERENCE_FIELDS.has(s.targetField)) {
+      const existingArr = Array.isArray(existingRecord?.[s.targetField]) ? (existingRecord![s.targetField] as unknown[]) : [];
+      const incomingArr = Array.isArray(s.suggestedValue) ? s.suggestedValue : [];
+      updateData[s.targetField] = [...new Set([...existingArr, ...incomingArr])];
+    } else {
+      updateData[s.targetField] = s.suggestedValue;
+    }
+  }
+  updateData.lastUpdatedSource = "inferred";
 
   if (existing) {
     const changeLogs = valid.map((s) => {
-      const raw = (existing as Record<string, unknown>)[s.targetField];
+      const raw = existingRecord![s.targetField];
       return {
         preferenceId: existing.id,
         changedByUserId: userId,
         source: "inferred" as const,
         fieldName: s.targetField,
         oldValue: raw == null ? Prisma.DbNull : (raw as Prisma.InputJsonValue),
-        newValue: s.suggestedValue == null ? Prisma.DbNull : (s.suggestedValue as Prisma.InputJsonValue),
+        newValue: updateData[s.targetField] == null ? Prisma.DbNull : (updateData[s.targetField] as Prisma.InputJsonValue),
       };
     });
 

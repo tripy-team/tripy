@@ -346,6 +346,52 @@ class TransferInstruction(BaseModel):
     is_direct: bool = False
 
 
+# =============================================================================
+# POINTS STRATEGY (consolidated transfer + booking plan)
+# =============================================================================
+
+class PointsSource(BaseModel):
+    """A single source contributing points to an airline program."""
+    source_program: str  # e.g., "Amex MR" or "Delta SkyMiles"
+    source_program_display: str  # Human-friendly name
+    points_from_source: int  # Points to transfer/use from this source
+    transfer_ratio: float = 1.0  # 1.0 means 1:1
+    resulting_points: int  # Points received in the airline program after ratio
+    is_transfer: bool = False  # True if transfer needed, False if direct balance
+    transfer_time: str = ""  # e.g., "Instant", "1-2 business days"
+    portal_url: str = ""  # Where to initiate the transfer
+
+
+class AirlineProgramStrategy(BaseModel):
+    """
+    Consolidated strategy for a single airline program.
+    Shows how to assemble points from multiple sources (direct + transfers).
+    Example: 40k Delta existing + 1k Amex→Delta transfer = 41k Delta total
+    """
+    airline_program: str  # e.g., "DL" or "UA"
+    airline_program_display: str  # e.g., "Delta SkyMiles"
+    points_needed: int  # Total points needed for booking(s)
+    sources: list[PointsSource] = []  # All sources contributing to this program
+    total_points_available: int = 0  # Sum of resulting_points from all sources
+    surplus_points: int = 0  # total_points_available - points_needed
+    covers_flights: list[str] = []  # Flight descriptions this program covers
+    booking_url: str = ""  # Where to book with this program
+
+
+class PointsStrategy(BaseModel):
+    """
+    Complete points strategy for an itinerary.
+    Tells the user exactly which loyalty points to use, which flights to book,
+    and how to transfer points (including additive balances).
+    """
+    programs: list[AirlineProgramStrategy] = []
+    total_transfers_needed: int = 0
+    total_points_transferred: int = 0  # Total bank points being moved
+    total_airline_points_used: int = 0  # Total airline points redeemed
+    total_surcharges: float = 0.0
+    action_summary: list[str] = []  # Plain-English action steps
+
+
 class CashPayment(BaseModel):
     """Cash payment for a segment."""
     method: Literal["cash"] = "cash"

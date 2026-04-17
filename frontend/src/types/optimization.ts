@@ -196,6 +196,66 @@ export interface FlightSegment {
 export type TripSegment = FlightSegment;
 
 // =============================================================================
+// POINTS STRATEGY (consolidated transfer + booking plan)
+// =============================================================================
+
+/** A single source contributing points to an airline program */
+export interface PointsSource {
+  /** Source program key (e.g., "amex" or "DL") */
+  source_program: string;
+  /** Human-friendly name (e.g., "Amex Membership Rewards") */
+  source_program_display: string;
+  /** Points to transfer/use from this source */
+  points_from_source: number;
+  /** Transfer ratio (1.0 = 1:1) */
+  transfer_ratio: number;
+  /** Points received in the airline program after ratio */
+  resulting_points: number;
+  /** True if transfer is needed, false if using direct balance */
+  is_transfer: boolean;
+  /** Transfer time estimate */
+  transfer_time: string;
+  /** Portal URL to initiate transfer */
+  portal_url: string;
+}
+
+/** Strategy for a single airline program, showing how to assemble points */
+export interface AirlineProgramStrategy {
+  /** Airline program code (e.g., "DL", "UA") */
+  airline_program: string;
+  /** Display name (e.g., "Delta SkyMiles") */
+  airline_program_display: string;
+  /** Total points needed for booking(s) */
+  points_needed: number;
+  /** All sources contributing to this program (direct balance + transfers) */
+  sources: PointsSource[];
+  /** Sum of resulting_points from all sources */
+  total_points_available: number;
+  /** Surplus: total_points_available - points_needed */
+  surplus_points: number;
+  /** Flight descriptions covered by this program */
+  covers_flights: string[];
+  /** Booking URL for this program */
+  booking_url: string;
+}
+
+/** Complete points strategy for an itinerary */
+export interface PointsStrategy {
+  /** Per-airline-program breakdown with additive sources */
+  programs: AirlineProgramStrategy[];
+  /** Number of transfer operations needed */
+  total_transfers_needed: number;
+  /** Total bank points being moved */
+  total_points_transferred: number;
+  /** Total airline points redeemed */
+  total_airline_points_used: number;
+  /** Total surcharges/taxes */
+  total_surcharges: number;
+  /** Plain-English action steps */
+  action_summary: string[];
+}
+
+// =============================================================================
 // RANKED ITINERARY
 // =============================================================================
 
@@ -203,18 +263,21 @@ export interface RankedItinerary {
   id: string;
   rank: number;
   name: string;
-  
+
   route: string[];
   segments: TripSegment[];
-  
+
   oopMetrics: OOPMetrics;
   transfers: TransferInstruction[];
-  
+
+  /** Consolidated points strategy with additive balances and transfer instructions */
+  pointsStrategy?: PointsStrategy | null;
+
   withinBudget: boolean;
   withinPoints: boolean;
-  
+
   summary?: string;
-  
+
   /** Warning message when itinerary exceeds user's budget */
   budgetWarning?: string;
 }

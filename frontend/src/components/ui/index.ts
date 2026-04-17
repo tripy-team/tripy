@@ -44,6 +44,7 @@ export { TripGenerationLoader } from './TripGenerationLoader';
 // OOP Optimization components
 export { OOPSummaryCard } from './OOPSummaryCard';
 export { SegmentBreakdown } from './SegmentBreakdown';
+export { PointsStrategyCard, PointsStrategySummary } from './PointsStrategy';
 
 // Solo Booking components
 export { ValueInsightCard } from './ValueInsightCard';

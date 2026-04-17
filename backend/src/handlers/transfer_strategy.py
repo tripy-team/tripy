@@ -15,6 +15,7 @@ from src.config.programs import (
     BANK_METADATA,
     PROGRAM_METADATA,
     CREDIT_CARD_DETAILS,
+    PROGRAM_DISPLAY_NAMES,
 )
 
 
@@ -476,7 +477,233 @@ def generate_complete_transfer_plan(
         "total_out_of_pocket": total_out_of_pocket,
         "warnings": warnings,
         "credit_card_tips": get_credit_card_recommendations(
-            available_points, 
+            available_points,
             list(set([a.get("program", "").upper() for a in flight_awards]))
         ),
     }
+
+
+# =============================================================================
+# POINTS STRATEGY COMPUTATION
+# =============================================================================
+
+def _get_display_name(program_key: str) -> str:
+    """Get display name for a program key, handling various formats."""
+    # Try exact match first
+    if program_key in PROGRAM_DISPLAY_NAMES:
+        return PROGRAM_DISPLAY_NAMES[program_key]
+    # Try uppercase (airline codes)
+    if program_key.upper() in PROGRAM_DISPLAY_NAMES:
+        return PROGRAM_DISPLAY_NAMES[program_key.upper()]
+    # Try lowercase (bank codes)
+    if program_key.lower() in PROGRAM_DISPLAY_NAMES:
+        return PROGRAM_DISPLAY_NAMES[program_key.lower()]
+    # Check PROGRAM_METADATA
+    meta = PROGRAM_METADATA.get(program_key.upper(), {})
+    if meta.get("name"):
+        return meta["name"]
+    # Check BANK_METADATA
+    bmeta = BANK_METADATA.get(program_key.lower(), {})
+    if bmeta.get("name"):
+        return bmeta["name"]
+    return program_key
+
+
+def compute_points_strategy(
+    segments: List[Any],
+    transfers: List[Any],
+    available_points: Dict[str, int],
+) -> Dict[str, Any]:
+    """
+    Compute a consolidated points strategy for an itinerary.
+
+    Shows for each airline program used:
+    - Existing direct balance the user has
+    - Transfer amounts from each bank (additive)
+    - Total effective balance
+    - Which flights it covers
+
+    Args:
+        segments: List of flight segments (from RankedItinerary.segments)
+        transfers: List of TransferInstruction objects (from RankedItinerary.transfers)
+        available_points: User's original point balances {program: balance}
+
+    Returns:
+        Dict matching the PointsStrategy model structure.
+    """
+    from src.agents.models import PointsStrategy, AirlineProgramStrategy, PointsSource
+
+    # 1. Collect points needs per airline program from segments
+    # airline_program -> { points_needed, flights, surcharges }
+    program_needs: Dict[str, Dict[str, Any]] = {}
+
+    for seg in segments:
+        payment = seg.payment if hasattr(seg, 'payment') else seg.get("payment", {})
+        method = payment.method if hasattr(payment, 'method') else payment.get("method", "cash")
+
+        if method != "points":
+            continue
+
+        program = (payment.program if hasattr(payment, 'program')
+                   else payment.get("program", ""))
+        points_used = (payment.points_used if hasattr(payment, 'points_used')
+                       else payment.get("pointsUsed", 0))
+        surcharge = (payment.surcharge if hasattr(payment, 'surcharge')
+                     else payment.get("surcharge", 0))
+
+        # Build flight description
+        if hasattr(seg, 'origin'):
+            origin = seg.origin
+            dest = seg.destination
+            airline = getattr(seg, 'airline', '')
+        else:
+            origin = seg.get("origin", "?")
+            dest = seg.get("destination", "?")
+            airline = seg.get("airline", "")
+
+        flight_desc = f"{origin} → {dest}"
+        if airline:
+            flight_desc += f" ({airline})"
+
+        prog_key = program.upper() if program else ""
+        if not prog_key:
+            continue
+
+        if prog_key not in program_needs:
+            program_needs[prog_key] = {
+                "points_needed": 0,
+                "flights": [],
+                "surcharges": 0.0,
+            }
+        program_needs[prog_key]["points_needed"] += points_used
+        program_needs[prog_key]["flights"].append(flight_desc)
+        program_needs[prog_key]["surcharges"] += surcharge
+
+    if not program_needs:
+        return PointsStrategy().model_dump()
+
+    # 2. Build sources for each airline program
+    # First, index transfers by target program
+    # transfer.to_program -> [(from_program, points_to_transfer, ratio, ...)]
+    transfers_by_target: Dict[str, List[Any]] = {}
+    for t in transfers:
+        to_prog = (t.to_program if hasattr(t, 'to_program')
+                   else t.get("toProgram", t.get("to_program", "")))
+        is_direct = (t.is_direct if hasattr(t, 'is_direct')
+                     else t.get("isDirect", t.get("is_direct", False)))
+        if is_direct:
+            continue  # Direct use is handled separately below
+        to_key = to_prog.upper() if to_prog else ""
+        if to_key not in transfers_by_target:
+            transfers_by_target[to_key] = []
+        transfers_by_target[to_key].append(t)
+
+    programs: List[AirlineProgramStrategy] = []
+    total_transfers_needed = 0
+    total_points_transferred = 0
+    total_airline_points_used = 0
+    total_surcharges = 0.0
+    action_steps: List[str] = []
+
+    for prog_key, needs in program_needs.items():
+        points_needed = needs["points_needed"]
+        flights = needs["flights"]
+        surcharges = needs["surcharges"]
+        total_airline_points_used += points_needed
+        total_surcharges += surcharges
+
+        prog_display = _get_display_name(prog_key)
+        booking_url = PROGRAM_METADATA.get(prog_key, {}).get("booking_url", "")
+
+        sources: List[PointsSource] = []
+
+        # a) Check for direct balance in this airline program
+        direct_balance = 0
+        for key, bal in available_points.items():
+            if key.upper() == prog_key or key.lower() == prog_key.lower():
+                direct_balance = bal
+                break
+
+        # b) Collect transfer sources from the itinerary's transfers
+        transfer_entries = transfers_by_target.get(prog_key, [])
+        total_transferred_in = 0
+
+        for t in transfer_entries:
+            from_prog = (t.from_program if hasattr(t, 'from_program')
+                         else t.get("fromProgram", t.get("from_program", "")))
+            pts = (t.points_to_transfer if hasattr(t, 'points_to_transfer')
+                   else t.get("pointsToTransfer", t.get("points_to_transfer", 0)))
+            ratio = (t.ratio if hasattr(t, 'ratio') else t.get("ratio", 1.0))
+            time_str = (t.transfer_time if hasattr(t, 'transfer_time')
+                        else t.get("transferTime", t.get("transfer_time", "")))
+            portal = (t.portal_url if hasattr(t, 'portal_url')
+                      else t.get("portalUrl", t.get("portal_url", "")))
+
+            resulting = int(pts * ratio)
+            total_transferred_in += resulting
+            total_transfers_needed += 1
+            total_points_transferred += pts
+
+            from_display = _get_display_name(from_prog)
+
+            sources.append(PointsSource(
+                source_program=from_prog,
+                source_program_display=from_display,
+                points_from_source=pts,
+                transfer_ratio=ratio,
+                resulting_points=resulting,
+                is_transfer=True,
+                transfer_time=time_str,
+                portal_url=portal,
+            ))
+
+            action_steps.append(
+                f"Transfer {pts:,} {from_display} points to {prog_display} "
+                f"(ratio {ratio}:1 → {resulting:,} {prog_display} points, {time_str})"
+            )
+
+        # c) If there's a direct balance and it's being used, add it as a source
+        # The direct balance used = points_needed - total_transferred_in
+        direct_used = max(0, points_needed - total_transferred_in)
+        if direct_used > 0 and direct_balance > 0:
+            actual_direct_used = min(direct_used, direct_balance)
+            sources.insert(0, PointsSource(
+                source_program=prog_key,
+                source_program_display=prog_display,
+                points_from_source=actual_direct_used,
+                transfer_ratio=1.0,
+                resulting_points=actual_direct_used,
+                is_transfer=False,
+            ))
+
+        total_available = sum(s.resulting_points for s in sources)
+        surplus = total_available - points_needed
+
+        programs.append(AirlineProgramStrategy(
+            airline_program=prog_key,
+            airline_program_display=prog_display,
+            points_needed=points_needed,
+            sources=sources,
+            total_points_available=total_available,
+            surplus_points=surplus,
+            covers_flights=flights,
+            booking_url=booking_url,
+        ))
+
+        # Build booking action step
+        flight_list = ", ".join(flights)
+        action_steps.append(
+            f"Book {flight_list} using {points_needed:,} {prog_display} points"
+            + (f" + ${surcharges:,.0f} in taxes/fees" if surcharges > 0 else "")
+        )
+
+    strategy = PointsStrategy(
+        programs=programs,
+        total_transfers_needed=total_transfers_needed,
+        total_points_transferred=total_points_transferred,
+        total_airline_points_used=total_airline_points_used,
+        total_surcharges=total_surcharges,
+        action_summary=action_steps,
+    )
+
+    return strategy.model_dump()

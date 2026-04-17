@@ -1,16 +1,17 @@
 'use client';
 
-import { DollarSign, Zap, TrendingDown, Sparkles } from 'lucide-react';
-import { OOPMetrics } from '@/types/optimization';
+import { DollarSign, Zap, TrendingDown, Sparkles, ArrowRightLeft } from 'lucide-react';
+import { OOPMetrics, PointsStrategy } from '@/types/optimization';
 
 interface OOPSummaryCardProps {
   metrics: OOPMetrics;
+  pointsStrategy?: PointsStrategy | null;
   rank?: number;
   isSelected?: boolean;
   onClick?: () => void;
 }
 
-export function OOPSummaryCard({ metrics, rank, isSelected, onClick }: OOPSummaryCardProps) {
+export function OOPSummaryCard({ metrics, pointsStrategy, rank, isSelected, onClick }: OOPSummaryCardProps) {
   return (
     <div
       onClick={onClick}
@@ -108,7 +109,7 @@ export function OOPSummaryCard({ metrics, rank, isSelected, onClick }: OOPSummar
           <div className="text-xs text-slate-500 mb-2">Points from your cards:</div>
           <div className="flex flex-wrap gap-2">
             {Object.entries(metrics.bankCurrenciesUsed).map(([bank, points]) => {
-              const bankLabel = bank === 'amex' ? 'Amex MR' 
+              const bankLabel = bank === 'amex' ? 'Amex MR'
                 : bank === 'chase' ? 'Chase UR'
                 : bank === 'citi' ? 'Citi TYP'
                 : bank === 'capital_one' ? 'Capital One'
@@ -119,7 +120,7 @@ export function OOPSummaryCard({ metrics, rank, isSelected, onClick }: OOPSummar
                 : bank === 'us_bank' ? 'US Bank'
                 : typeof bank === 'string' ? bank : String(bank);
               return (
-                <span 
+                <span
                   key={bank}
                   className="px-2 py-1 bg-purple-50 text-purple-700 rounded-lg text-xs font-medium"
                 >
@@ -130,8 +131,53 @@ export function OOPSummaryCard({ metrics, rank, isSelected, onClick }: OOPSummar
           </div>
         </div>
       )}
+
+      {/* Transfer Summary (from points strategy) */}
+      {pointsStrategy && pointsStrategy.programs && pointsStrategy.programs.length > 0 && (
+        <div className="mt-3 pt-3 border-t border-slate-100">
+          <div className="text-xs text-slate-500 mb-2 flex items-center gap-1">
+            <ArrowRightLeft className="w-3 h-3" />
+            Points plan:
+          </div>
+          <div className="space-y-1">
+            {pointsStrategy.programs.map((prog) => {
+              const hasTransfers = prog.sources.some((s) => s.is_transfer);
+              const transferSources = prog.sources.filter((s) => s.is_transfer);
+              const directSource = prog.sources.find((s) => !s.is_transfer);
+              return (
+                <div key={prog.airline_program} className="text-xs text-slate-700">
+                  {hasTransfers && transferSources.map((src, i) => (
+                    <div key={i} className="flex items-center gap-1 text-purple-700">
+                      <span>Transfer {formatCardPoints(src.points_from_source)} {src.source_program_display}</span>
+                      <span className="text-slate-400">&rarr;</span>
+                      <span>{prog.airline_program_display}</span>
+                    </div>
+                  ))}
+                  {hasTransfers && directSource && (
+                    <div className="text-indigo-700">
+                      + {formatCardPoints(directSource.resulting_points)} existing {prog.airline_program_display}
+                      <span className="font-semibold"> = {formatCardPoints(prog.total_points_available)} total</span>
+                    </div>
+                  )}
+                  <div className="text-slate-600">
+                    {prog.covers_flights.join(', ')}
+                  </div>
+                </div>
+              );
+            })}
+          </div>
+        </div>
+      )}
     </div>
   );
+}
+
+function formatCardPoints(points: number): string {
+  if (points >= 1000) {
+    if (points % 1000 === 0) return `${points / 1000}k`;
+    return `${(points / 1000).toFixed(1)}k`;
+  }
+  return points.toLocaleString();
 }
 
 export default OOPSummaryCard;

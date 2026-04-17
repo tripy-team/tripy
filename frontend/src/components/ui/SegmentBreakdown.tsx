@@ -80,8 +80,18 @@ export function SegmentBreakdown({ segments, transfers }: SegmentBreakdownProps)
                   <div className="font-medium text-slate-900">
                     {routeDisplay}
                   </div>
-                  <div className="text-sm text-slate-500 flex items-center gap-2">
+                  <div className="text-sm text-slate-500 flex items-center gap-2 flex-wrap">
                     <span>{flightSegment.cabinClass} · {flightSegment.airline}</span>
+                    {flightSegment.flightNumber && (
+                      <span className="text-xs text-slate-600 font-medium">
+                        {flightSegment.flightNumber}
+                      </span>
+                    )}
+                    {flightSegment.durationMinutes && flightSegment.durationMinutes > 0 && (
+                      <span className="text-xs text-slate-500">
+                        {formatDuration(flightSegment.durationMinutes)}
+                      </span>
+                    )}
                     {hasConnections && (
                       <span className={`text-xs px-1.5 py-0.5 rounded ${getConnectionStatusColor(flightSegment)}`}>
                         {flightSegment.stops} stop{flightSegment.stops !== 1 ? 's' : ''}
@@ -104,6 +114,11 @@ export function SegmentBreakdown({ segments, transfers }: SegmentBreakdownProps)
                       <Zap className="w-4 h-4" />
                       {((segment.payment as any).pointsUsed / 1000).toFixed(0)}k pts
                     </div>
+                    {(segment.payment as any).program && (
+                      <div className="text-xs text-blue-500">
+                        {(segment.payment as any).program}
+                      </div>
+                    )}
                     <div className="text-sm text-slate-500">
                       +${(segment.payment as any).surcharge} surcharge
                     </div>

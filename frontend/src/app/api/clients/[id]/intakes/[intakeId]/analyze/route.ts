@@ -59,16 +59,30 @@ export async function POST(
       chatTranscript,
     );
 
-    const updateData: Record<string, unknown> = {};
-    for (const field of PREFERENCE_FIELDS) {
-      const value = (analyzed as Record<string, unknown>)[field];
-      if (value !== undefined) updateData[field] = value;
-    }
-    updateData.lastUpdatedSource = "intake";
+    const ARRAY_FIELDS = new Set([
+      "preferredAirlines", "avoidedAirlines", "preferredHotelTypes",
+      "roomPreferences", "accessibilityNeeds", "foodPreferences",
+      "activityPreferences", "specialOccasions", "dislikes", "dealbreakers",
+    ]);
 
     const existing = await prisma.clientPreference.findUnique({
       where: { clientId },
     });
+    const existingRecord = existing as Record<string, unknown> | null;
+
+    const updateData: Record<string, unknown> = {};
+    for (const field of PREFERENCE_FIELDS) {
+      const value = (analyzed as Record<string, unknown>)[field];
+      if (value === undefined) continue;
+      if (ARRAY_FIELDS.has(field)) {
+        const existingArr = Array.isArray(existingRecord?.[field]) ? (existingRecord![field] as unknown[]) : [];
+        const incomingArr = Array.isArray(value) ? value : [];
+        updateData[field] = [...new Set([...existingArr, ...incomingArr])];
+      } else {
+        updateData[field] = value;
+      }
+    }
+    updateData.lastUpdatedSource = "intake";
 
     const preferences = await prisma.clientPreference.upsert({
       where: { clientId },
