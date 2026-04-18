@@ -81,6 +81,7 @@ model Client {
   householdMembers       HouseholdMember[]
   inferredPreferences    InferredPreference[]
   intakeFormTokens       IntakeFormToken[]
+  meetingInvitations     MeetingInvitation[]
   crossClientSuggestions MeetingProfileSuggestion[]         @relation("CrossClientSuggestions")
   pointSourceAllocations RecommendationTravelerAllocation[] @relation("PointSource")
   tripBriefs             TripBrief[]
@@ -818,6 +819,7 @@ model DiscoveryMeetingSession {
   advisor             User                        @relation(fields: [advisorUserId], references: [id])
   client              Client                      @relation(fields: [clientId], references: [id], onDelete: Cascade)
   entries             MeetingEntry[]
+  invitations         MeetingInvitation[]
   liveCallSessions    LiveCallSession[]
   profileSuggestions  MeetingProfileSuggestion[]
   questionSuggestions MeetingQuestionSuggestion[]
@@ -992,6 +994,28 @@ model IntakeFormToken {
   @@index([clientId])
   @@index([token])
   @@map("intake_form_tokens")
+}
+
+model MeetingInvitation {
+  id               String                  @id @default(cuid())
+  token            String                  @unique
+  clientId         String                  @map("client_id")
+  meetingSessionId String                  @map("meeting_session_id")
+  recipientEmail   String                  @map("recipient_email")
+  recipientName    String?                 @map("recipient_name")
+  advisorEmail     String?                 @map("advisor_email")
+  sentAt           DateTime?               @map("sent_at")
+  openedAt         DateTime?               @map("opened_at")
+  joinedAt         DateTime?               @map("joined_at")
+  expiresAt        DateTime                @map("expires_at")
+  createdAt        DateTime                @default(now()) @map("created_at")
+  client           Client                  @relation(fields: [clientId], references: [id], onDelete: Cascade)
+  meetingSession   DiscoveryMeetingSession @relation(fields: [meetingSessionId], references: [id], onDelete: Cascade)
+
+  @@index([clientId])
+  @@index([meetingSessionId])
+  @@index([token])
+  @@map("meeting_invitations")
 }
 
 enum UserRole {

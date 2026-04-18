@@ -98,6 +98,7 @@ export const ModelName = {
   BusinessProfile: 'BusinessProfile',
   BusinessTraveler: 'BusinessTraveler',
   IntakeFormToken: 'IntakeFormToken',
+  MeetingInvitation: 'MeetingInvitation',
   LiveCallSession: 'LiveCallSession',
   TranscriptChunk: 'TranscriptChunk'
 } as const
@@ -938,6 +939,24 @@ export const IntakeFormTokenScalarFieldEnum = {
 } as const
 
 export type IntakeFormTokenScalarFieldEnum = (typeof IntakeFormTokenScalarFieldEnum)[keyof typeof IntakeFormTokenScalarFieldEnum]
+
+
+export const MeetingInvitationScalarFieldEnum = {
+  id: 'id',
+  token: 'token',
+  clientId: 'clientId',
+  meetingSessionId: 'meetingSessionId',
+  recipientEmail: 'recipientEmail',
+  recipientName: 'recipientName',
+  advisorEmail: 'advisorEmail',
+  sentAt: 'sentAt',
+  openedAt: 'openedAt',
+  joinedAt: 'joinedAt',
+  expiresAt: 'expiresAt',
+  createdAt: 'createdAt'
+} as const
+
+export type MeetingInvitationScalarFieldEnum = (typeof MeetingInvitationScalarFieldEnum)[keyof typeof MeetingInvitationScalarFieldEnum]
 
 
 export const LiveCallSessionScalarFieldEnum = {

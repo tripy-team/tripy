@@ -277,6 +277,11 @@ export type BusinessTraveler = Prisma.BusinessTravelerModel
  */
 export type IntakeFormToken = Prisma.IntakeFormTokenModel
 /**
+ * Model MeetingInvitation
+ * 
+ */
+export type MeetingInvitation = Prisma.MeetingInvitationModel
+/**
  * Model LiveCallSession
  * 
  */

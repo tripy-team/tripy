@@ -25,6 +25,10 @@ import {
   CircleCheck,
   Pencil,
   Video,
+  Mail,
+  Copy,
+  Clock,
+  Trash2,
 } from 'lucide-react';
 import {
   getMeetingSession,
@@ -40,6 +44,11 @@ import {
   getClientPreferences,
   startLiveCall,
   stopLiveCall,
+  getClient,
+  getMeetingInvitations,
+  createMeetingInvitation,
+  resendMeetingInvitation,
+  revokeMeetingInvitation,
 } from '@/lib/api-client';
 import type {
   MeetingSession,
@@ -50,6 +59,8 @@ import type {
   MeetingRecap,
   AnsweredQuestionPayload,
   ClientPreference,
+  Client,
+  MeetingInvitation,
 } from '@/lib/api-client';
 import { computeProfileCompleteness, type ProfileCompletenessResult } from '@/lib/profile-completeness';
 import { getAllProfileFields, getCriticalFields, getFieldsByCategory, getFieldLabel } from '@/lib/profile-fields';
@@ -168,6 +179,13 @@ export default function MeetingCopilotPage() {
   );
   const [profileAutoSavedToast, setProfileAutoSavedToast] = useState<string[] | null>(null);
 
+  // Client invitation modal state
+  const [client, setClient] = useState<Client | null>(null);
+  const [showInviteModal, setShowInviteModal] = useState(false);
+  const [invitations, setInvitations] = useState<MeetingInvitation[]>([]);
+  const [invitationsLoading, setInvitationsLoading] = useState(false);
+  const [sendingInvite, setSendingInvite] = useState(false);
+
   const entriesEndRef = useRef<HTMLDivElement>(null);
   const textareaRef = useRef<HTMLTextAreaElement>(null);
   const aiPanelScrollRef = useRef<HTMLDivElement>(null);
@@ -189,9 +207,10 @@ export default function MeetingCopilotPage() {
 
   const loadSession = useCallback(async () => {
     try {
-      const [data, prefs] = await Promise.all([
+      const [data, prefs, clientData] = await Promise.all([
         getMeetingSession(clientId, meetingId),
         getClientPreferences(clientId).catch(() => null),
+        getClient(clientId).catch(() => null),
       ]);
       setSession(data);
       setEntries(data.entries || []);
@@ -199,12 +218,63 @@ export default function MeetingCopilotPage() {
       setSuggestions(data.profileSuggestions || []);
       setRecap(data.recap || null);
       setClientPreferences(prefs);
+      setClient(clientData);
     } catch (err) {
       setError(err instanceof Error ? err.message : 'Failed to load meeting session');
     } finally {
       setLoading(false);
     }
   }, [clientId, meetingId]);
+
+  const loadInvitations = useCallback(async () => {
+    setInvitationsLoading(true);
+    try {
+      const list = await getMeetingInvitations(clientId, meetingId);
+      setInvitations(list);
+    } catch (err) {
+      console.error('Failed to load meeting invitations:', err);
+    } finally {
+      setInvitationsLoading(false);
+    }
+  }, [clientId, meetingId]);
+
+  const handleOpenInviteModal = useCallback(() => {
+    setShowInviteModal(true);
+    loadInvitations();
+  }, [loadInvitations]);
+
+  const handleSendInvite = useCallback(
+    async (recipientEmail: string, recipientName?: string) => {
+      setSendingInvite(true);
+      try {
+        const created = await createMeetingInvitation(clientId, meetingId, {
+          recipientEmail,
+          recipientName,
+        });
+        setInvitations((prev) => [created, ...prev]);
+        return created;
+      } finally {
+        setSendingInvite(false);
+      }
+    },
+    [clientId, meetingId],
+  );
+
+  const handleResendInvite = useCallback(
+    async (invitationId: string) => {
+      const updated = await resendMeetingInvitation(clientId, meetingId, invitationId);
+      setInvitations((prev) => prev.map((i) => (i.id === invitationId ? updated : i)));
+    },
+    [clientId, meetingId],
+  );
+
+  const handleRevokeInvite = useCallback(
+    async (invitationId: string) => {
+      await revokeMeetingInvitation(clientId, meetingId, invitationId);
+      setInvitations((prev) => prev.filter((i) => i.id !== invitationId));
+    },
+    [clientId, meetingId],
+  );
 
   useEffect(() => {
     loadSession();
@@ -514,6 +584,21 @@ export default function MeetingCopilotPage() {
 
   return (
     <div className="flex h-[calc(100vh-4rem)] flex-col">
+      {/* Invite Client Modal */}
+      {showInviteModal && client && session && (
+        <InviteClientModal
+          client={client}
+          meetingTitle={session.title}
+          invitations={invitations}
+          invitationsLoading={invitationsLoading}
+          sending={sendingInvite}
+          onSend={handleSendInvite}
+          onResend={handleResendInvite}
+          onRevoke={handleRevokeInvite}
+          onClose={() => setShowInviteModal(false)}
+        />
+      )}
+
       {/* Header */}
       <div className="flex items-center justify-between border-b border-slate-200 bg-white px-6 py-3">
         <div className="flex items-center gap-4">
@@ -542,6 +627,15 @@ export default function MeetingCopilotPage() {
           </div>
         </div>
         <div className="flex items-center gap-2">
+          {isActive && (
+            <button
+              onClick={handleOpenInviteModal}
+              className="inline-flex items-center gap-1.5 rounded-lg bg-blue-600 px-3 py-1.5 text-xs font-medium text-white hover:bg-blue-700"
+            >
+              <Mail className="h-3.5 w-3.5" />
+              Invite Client
+            </button>
+          )}
           {isActive && meetingMode === 'notes' && (
             <button
               onClick={() => {
@@ -1967,4 +2061,354 @@ function formatValue(value: unknown): string {
   if (Array.isArray(value)) return value.join(', ');
   if (typeof value === 'object') return JSON.stringify(value);
   return String(value);
+}
+
+// ---------------------------------------------------------------------------
+// Invite Client Modal — styled to match FormsTab.BuildProfileModal
+// ---------------------------------------------------------------------------
+
+const INVITE_STATUS_CONFIG: Record<
+  MeetingInvitation['status'],
+  { label: string; color: string; Icon: React.ElementType }
+> = {
+  pending: { label: 'Sent', color: 'bg-amber-50 text-amber-700', Icon: Clock },
+  opened: { label: 'Opened', color: 'bg-blue-50 text-blue-700', Icon: Mail },
+  joined: { label: 'Joined', color: 'bg-emerald-50 text-emerald-700', Icon: Check },
+  expired: { label: 'Expired', color: 'bg-slate-100 text-slate-600', Icon: AlertTriangle },
+};
+
+function formatInviteDate(s?: string | null): string {
+  if (!s) return '—';
+  return new Date(s).toLocaleDateString(undefined, {
+    month: 'short',
+    day: 'numeric',
+    year: 'numeric',
+  });
+}
+
+function InviteClientModal({
+  client,
+  meetingTitle,
+  invitations,
+  invitationsLoading,
+  sending,
+  onSend,
+  onResend,
+  onRevoke,
+  onClose,
+}: {
+  client: Client;
+  meetingTitle: string;
+  invitations: MeetingInvitation[];
+  invitationsLoading: boolean;
+  sending: boolean;
+  onSend: (email: string, name?: string) => Promise<MeetingInvitation>;
+  onResend: (id: string) => Promise<void>;
+  onRevoke: (id: string) => Promise<void>;
+  onClose: () => void;
+}) {
+  const defaultName = `${client.firstName} ${client.lastName}`.trim();
+  const [email, setEmail] = useState(client.email ?? '');
+  const [name, setName] = useState(defaultName);
+  const [sendError, setSendError] = useState<string | null>(null);
+  const [lastSent, setLastSent] = useState<MeetingInvitation | null>(null);
+  const [copied, setCopied] = useState(false);
+
+  const inviteLink = lastSent
+    ? typeof window !== 'undefined'
+      ? `${window.location.protocol}//${window.location.host}/meeting/${lastSent.token}`
+      : `/meeting/${lastSent.token}`
+    : '';
+
+  async function handleSubmit(e: React.FormEvent) {
+    e.preventDefault();
+    setSendError(null);
+    if (!email.trim()) {
+      setSendError('Enter a recipient email');
+      return;
+    }
+    try {
+      const created = await onSend(email.trim(), name.trim() || undefined);
+      setLastSent(created);
+    } catch (err) {
+      setSendError(err instanceof Error ? err.message : 'Failed to send invitation');
+    }
+  }
+
+  async function handleCopy() {
+    if (!inviteLink) return;
+    try {
+      await navigator.clipboard.writeText(inviteLink);
+      setCopied(true);
+      setTimeout(() => setCopied(false), 2000);
+    } catch {
+      /* ignore */
+    }
+  }
+
+  return (
+    <div className="fixed inset-0 z-50 flex items-start justify-center overflow-y-auto bg-black/50 p-4 py-8">
+      <div className="relative flex w-full max-w-2xl flex-col rounded-2xl bg-white shadow-2xl">
+        {/* Modal header */}
+        <div className="flex items-center justify-between border-b border-slate-200 px-6 py-4">
+          <div>
+            <h2 className="text-lg font-semibold text-slate-900">Invite Client to Meeting</h2>
+            <p className="text-xs text-slate-500">{meetingTitle}</p>
+          </div>
+          <button
+            onClick={onClose}
+            className="rounded-lg p-2 text-slate-400 hover:bg-slate-100 hover:text-slate-600"
+          >
+            <X className="h-5 w-5" />
+          </button>
+        </div>
+
+        {/* Modal body */}
+        <div className="space-y-6 px-6 py-6">
+          {/* Send form */}
+          <div className="rounded-xl border border-slate-200 bg-slate-50/50 p-5">
+            <div className="mb-4 flex items-center gap-3">
+              <div className="flex h-9 w-9 items-center justify-center rounded-lg bg-blue-50">
+                <Mail className="h-4.5 w-4.5 text-blue-600" />
+              </div>
+              <div>
+                <h3 className="text-sm font-semibold text-slate-900">Email a join link</h3>
+                <p className="text-xs text-slate-500">
+                  The client receives a link that opens the call directly.
+                </p>
+              </div>
+            </div>
+            <form onSubmit={handleSubmit} className="space-y-3">
+              <div className="grid grid-cols-1 gap-3 sm:grid-cols-[1fr,1.5fr]">
+                <div>
+                  <label className="mb-1 block text-xs font-medium text-slate-600">
+                    Recipient name
+                  </label>
+                  <input
+                    type="text"
+                    value={name}
+                    onChange={(e) => setName(e.target.value)}
+                    placeholder={defaultName || 'Client'}
+                    className="w-full rounded-lg border border-slate-200 bg-white px-3 py-2 text-sm focus:border-transparent focus:outline-none focus:ring-2 focus:ring-blue-600"
+                  />
+                </div>
+                <div>
+                  <label className="mb-1 block text-xs font-medium text-slate-600">
+                    Recipient email
+                  </label>
+                  <input
+                    type="email"
+                    value={email}
+                    onChange={(e) => setEmail(e.target.value)}
+                    placeholder="client@example.com"
+                    required
+                    className="w-full rounded-lg border border-slate-200 bg-white px-3 py-2 text-sm focus:border-transparent focus:outline-none focus:ring-2 focus:ring-blue-600"
+                  />
+                </div>
+              </div>
+              {sendError && (
+                <div className="rounded-lg bg-red-50 px-3 py-2 text-xs text-red-700">
+                  {sendError}
+                </div>
+              )}
+              <div className="flex items-center justify-end gap-2">
+                <button
+                  type="submit"
+                  disabled={sending || !email.trim()}
+                  className="inline-flex items-center gap-1.5 rounded-lg bg-blue-600 px-4 py-2 text-sm font-medium text-white hover:bg-blue-700 disabled:opacity-60"
+                >
+                  {sending ? (
+                    <Loader2 className="h-4 w-4 animate-spin" />
+                  ) : (
+                    <Send className="h-4 w-4" />
+                  )}
+                  {sending ? 'Sending…' : 'Send Invitation'}
+                </button>
+              </div>
+            </form>
+
+            {/* Success panel with copyable link */}
+            {lastSent && (
+              <div className="mt-4 rounded-lg border border-emerald-200 bg-emerald-50 p-3">
+                <div className="flex items-start gap-2">
+                  <CheckCircle2 className="mt-0.5 h-4 w-4 shrink-0 text-emerald-600" />
+                  <div className="min-w-0 flex-1">
+                    <p className="text-sm font-medium text-emerald-900">
+                      Invitation sent to {lastSent.recipientEmail}
+                    </p>
+                    <div className="mt-2 flex items-center gap-2">
+                      <code className="min-w-0 flex-1 truncate rounded bg-white px-2 py-1 text-xs text-slate-700">
+                        {inviteLink}
+                      </code>
+                      <button
+                        onClick={handleCopy}
+                        className="inline-flex items-center gap-1 rounded-lg border border-emerald-200 bg-white px-2.5 py-1 text-xs font-medium text-emerald-700 hover:bg-emerald-50"
+                      >
+                        {copied ? (
+                          <>
+                            <Check className="h-3 w-3" />
+                            Copied
+                          </>
+                        ) : (
+                          <>
+                            <Copy className="h-3 w-3" />
+                            Copy
+                          </>
+                        )}
+                      </button>
+                    </div>
+                  </div>
+                </div>
+              </div>
+            )}
+          </div>
+
+          {/* Existing invitations list */}
+          <div>
+            <h3 className="mb-3 text-sm font-semibold text-slate-900">
+              Sent invitations
+              {invitations.length > 0 && (
+                <span className="ml-2 text-xs font-normal text-slate-500">
+                  {invitations.length}
+                </span>
+              )}
+            </h3>
+            {invitationsLoading ? (
+              <div className="flex justify-center py-6">
+                <Loader2 className="h-5 w-5 animate-spin text-slate-400" />
+              </div>
+            ) : invitations.length === 0 ? (
+              <div className="rounded-lg border border-dashed border-slate-200 py-8 text-center">
+                <Mail className="mx-auto h-7 w-7 text-slate-300" />
+                <p className="mt-2 text-sm text-slate-500">No invitations sent yet</p>
+              </div>
+            ) : (
+              <div className="space-y-2">
+                {invitations.map((inv) => (
+                  <InvitationRow
+                    key={inv.id}
+                    invitation={inv}
+                    onResend={onResend}
+                    onRevoke={onRevoke}
+                  />
+                ))}
+              </div>
+            )}
+          </div>
+        </div>
+      </div>
+    </div>
+  );
+}
+
+function InvitationRow({
+  invitation,
+  onResend,
+  onRevoke,
+}: {
+  invitation: MeetingInvitation;
+  onResend: (id: string) => Promise<void>;
+  onRevoke: (id: string) => Promise<void>;
+}) {
+  const cfg = INVITE_STATUS_CONFIG[invitation.status] ?? INVITE_STATUS_CONFIG.pending;
+  const StatusIcon = cfg.Icon;
+  const [working, setWorking] = useState<'resend' | 'revoke' | null>(null);
+
+  const meetingLink =
+    typeof window !== 'undefined'
+      ? `${window.location.protocol}//${window.location.host}/meeting/${invitation.token}`
+      : `/meeting/${invitation.token}`;
+
+  async function handleResend() {
+    setWorking('resend');
+    try {
+      await onResend(invitation.id);
+    } finally {
+      setWorking(null);
+    }
+  }
+
+  async function handleRevoke() {
+    if (!confirm('Revoke this invitation? The link will stop working.')) return;
+    setWorking('revoke');
+    try {
+      await onRevoke(invitation.id);
+    } finally {
+      setWorking(null);
+    }
+  }
+
+  const canAct = invitation.status !== 'joined';
+
+  return (
+    <div className="flex items-center gap-3 rounded-lg border border-slate-200 bg-white px-4 py-3">
+      <div className="min-w-0 flex-1">
+        <div className="flex items-center gap-2">
+          <p className="truncate text-sm font-medium text-slate-900">
+            {invitation.recipientName || invitation.recipientEmail}
+          </p>
+          <span
+            className={`inline-flex items-center gap-1 rounded-full px-2 py-0.5 text-xs font-medium ${cfg.color}`}
+          >
+            <StatusIcon className="h-3 w-3" />
+            {cfg.label}
+          </span>
+        </div>
+        <div className="mt-0.5 flex flex-wrap items-center gap-2 text-xs text-slate-400">
+          <span>Sent {formatInviteDate(invitation.sentAt)}</span>
+          {invitation.openedAt && (
+            <>
+              <span>·</span>
+              <span>Opened {formatInviteDate(invitation.openedAt)}</span>
+            </>
+          )}
+          {invitation.joinedAt && (
+            <>
+              <span>·</span>
+              <span>Joined {formatInviteDate(invitation.joinedAt)}</span>
+            </>
+          )}
+        </div>
+      </div>
+      <div className="flex items-center gap-1">
+        <a
+          href={meetingLink}
+          target="_blank"
+          rel="noopener noreferrer"
+          title="Open link"
+          className="rounded p-1.5 text-slate-400 hover:bg-slate-100 hover:text-slate-600"
+        >
+          <Copy className="h-3.5 w-3.5" />
+        </a>
+        {canAct && (
+          <button
+            onClick={handleResend}
+            disabled={working !== null}
+            title="Resend"
+            className="rounded p-1.5 text-slate-400 hover:bg-slate-100 hover:text-slate-600 disabled:opacity-60"
+          >
+            {working === 'resend' ? (
+              <Loader2 className="h-3.5 w-3.5 animate-spin" />
+            ) : (
+              <RefreshCw className="h-3.5 w-3.5" />
+            )}
+          </button>
+        )}
+        {canAct && (
+          <button
+            onClick={handleRevoke}
+            disabled={working !== null}
+            title="Revoke"
+            className="rounded p-1.5 text-slate-400 hover:bg-red-50 hover:text-red-500 disabled:opacity-60"
+          >
+            {working === 'revoke' ? (
+              <Loader2 className="h-3.5 w-3.5 animate-spin" />
+            ) : (
+              <Trash2 className="h-3.5 w-3.5" />
+            )}
+          </button>
+        )}
+      </div>
+    </div>
+  );
 }

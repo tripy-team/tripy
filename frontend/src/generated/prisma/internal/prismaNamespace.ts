@@ -431,6 +431,7 @@ export const ModelName = {
   BusinessProfile: 'BusinessProfile',
   BusinessTraveler: 'BusinessTraveler',
   IntakeFormToken: 'IntakeFormToken',
+  MeetingInvitation: 'MeetingInvitation',
   LiveCallSession: 'LiveCallSession',
   TranscriptChunk: 'TranscriptChunk'
 } as const
@@ -448,7 +449,7 @@ export type TypeMap<ExtArgs extends runtime.Types.Extensions.InternalArgs = runt
     omit: GlobalOmitOptions
   }
   meta: {
-    modelProps: "organization" | "user" | "client" | "household" | "householdMember" | "familyMember" | "loyaltyProgram" | "clientLoyaltyBalance" | "balanceLedgerEntry" | "programTransferRule" | "programPoolingRule" | "transferBonus" | "clientPreference" | "preferenceChangeLog" | "tripRequest" | "tripTradeoffRanking" | "tripTraveler" | "recommendationRun" | "recommendationOption" | "recommendationTravelerAllocation" | "recommendationInsight" | "recommendationMemo" | "groupSettlement" | "clientIntake" | "tripBrief" | "alertSubscription" | "alertEvent" | "inferredPreference" | "followUpSuggestion" | "vendorRequest" | "vendorRequestReminder" | "vendorRequestDraft" | "vendorRequestApproval" | "vendorRequestTemplate" | "vendorScoreSummary" | "vendorRequestTimeline" | "itineraryJob" | "discoveryMeetingSession" | "meetingEntry" | "meetingQuestionSuggestion" | "meetingProfileSuggestion" | "meetingRecap" | "groupProfile" | "groupMember" | "businessProfile" | "businessTraveler" | "intakeFormToken" | "liveCallSession" | "transcriptChunk"
+    modelProps: "organization" | "user" | "client" | "household" | "householdMember" | "familyMember" | "loyaltyProgram" | "clientLoyaltyBalance" | "balanceLedgerEntry" | "programTransferRule" | "programPoolingRule" | "transferBonus" | "clientPreference" | "preferenceChangeLog" | "tripRequest" | "tripTradeoffRanking" | "tripTraveler" | "recommendationRun" | "recommendationOption" | "recommendationTravelerAllocation" | "recommendationInsight" | "recommendationMemo" | "groupSettlement" | "clientIntake" | "tripBrief" | "alertSubscription" | "alertEvent" | "inferredPreference" | "followUpSuggestion" | "vendorRequest" | "vendorRequestReminder" | "vendorRequestDraft" | "vendorRequestApproval" | "vendorRequestTemplate" | "vendorScoreSummary" | "vendorRequestTimeline" | "itineraryJob" | "discoveryMeetingSession" | "meetingEntry" | "meetingQuestionSuggestion" | "meetingProfileSuggestion" | "meetingRecap" | "groupProfile" | "groupMember" | "businessProfile" | "businessTraveler" | "intakeFormToken" | "meetingInvitation" | "liveCallSession" | "transcriptChunk"
     txIsolationLevel: TransactionIsolationLevel
   }
   model: {
@@ -3930,6 +3931,80 @@ export type TypeMap<ExtArgs extends runtime.Types.Extensions.InternalArgs = runt
         }
       }
     }
+    MeetingInvitation: {
+      payload: Prisma.$MeetingInvitationPayload<ExtArgs>
+      fields: Prisma.MeetingInvitationFieldRefs
+      operations: {
+        findUnique: {
+          args: Prisma.MeetingInvitationFindUniqueArgs<ExtArgs>
+          result: runtime.Types.Utils.PayloadToResult<Prisma.$MeetingInvitationPayload> | null
+        }
+        findUniqueOrThrow: {
+          args: Prisma.MeetingInvitationFindUniqueOrThrowArgs<ExtArgs>
+          result: runtime.Types.Utils.PayloadToResult<Prisma.$MeetingInvitationPayload>
+        }
+        findFirst: {
+          args: Prisma.MeetingInvitationFindFirstArgs<ExtArgs>
+          result: runtime.Types.Utils.PayloadToResult<Prisma.$MeetingInvitationPayload> | null
+        }
+        findFirstOrThrow: {
+          args: Prisma.MeetingInvitationFindFirstOrThrowArgs<ExtArgs>
+          result: runtime.Types.Utils.PayloadToResult<Prisma.$MeetingInvitationPayload>
+        }
+        findMany: {
+          args: Prisma.MeetingInvitationFindManyArgs<ExtArgs>
+          result: runtime.Types.Utils.PayloadToResult<Prisma.$MeetingInvitationPayload>[]
+        }
+        create: {
+          args: Prisma.MeetingInvitationCreateArgs<ExtArgs>
+          result: runtime.Types.Utils.PayloadToResult<Prisma.$MeetingInvitationPayload>
+        }
+        createMany: {
+          args: Prisma.MeetingInvitationCreateManyArgs<ExtArgs>
+          result: BatchPayload
+        }
+        createManyAndReturn: {
+          args: Prisma.MeetingInvitationCreateManyAndReturnArgs<ExtArgs>
+          result: runtime.Types.Utils.PayloadToResult<Prisma.$MeetingInvitationPayload>[]
+        }
+        delete: {
+          args: Prisma.MeetingInvitationDeleteArgs<ExtArgs>
+          result: runtime.Types.Utils.PayloadToResult<Prisma.$MeetingInvitationPayload>
+        }
+        update: {
+          args: Prisma.MeetingInvitationUpdateArgs<ExtArgs>
+          result: runtime.Types.Utils.PayloadToResult<Prisma.$MeetingInvitationPayload>
+        }
+        deleteMany: {
+          args: Prisma.MeetingInvitationDeleteManyArgs<ExtArgs>
+          result: BatchPayload
+        }
+        updateMany: {
+          args: Prisma.MeetingInvitationUpdateManyArgs<ExtArgs>
+          result: BatchPayload
+        }
+        updateManyAndReturn: {
+          args: Prisma.MeetingInvitationUpdateManyAndReturnArgs<ExtArgs>
+          result: runtime.Types.Utils.PayloadToResult<Prisma.$MeetingInvitationPayload>[]
+        }
+        upsert: {
+          args: Prisma.MeetingInvitationUpsertArgs<ExtArgs>
+          result: runtime.Types.Utils.PayloadToResult<Prisma.$MeetingInvitationPayload>
+        }
+        aggregate: {
+          args: Prisma.MeetingInvitationAggregateArgs<ExtArgs>
+          result: runtime.Types.Utils.Optional<Prisma.AggregateMeetingInvitation>
+        }
+        groupBy: {
+          args: Prisma.MeetingInvitationGroupByArgs<ExtArgs>
+          result: runtime.Types.Utils.Optional<Prisma.MeetingInvitationGroupByOutputType>[]
+        }
+        count: {
+          args: Prisma.MeetingInvitationCountArgs<ExtArgs>
+          result: runtime.Types.Utils.Optional<Prisma.MeetingInvitationCountAggregateOutputType> | number
+        }
+      }
+    }
     LiveCallSession: {
       payload: Prisma.$LiveCallSessionPayload<ExtArgs>
       fields: Prisma.LiveCallSessionFieldRefs
@@ -4939,6 +5014,24 @@ export const IntakeFormTokenScalarFieldEnum = {
 export type IntakeFormTokenScalarFieldEnum = (typeof IntakeFormTokenScalarFieldEnum)[keyof typeof IntakeFormTokenScalarFieldEnum]
 
 
+export const MeetingInvitationScalarFieldEnum = {
+  id: 'id',
+  token: 'token',
+  clientId: 'clientId',
+  meetingSessionId: 'meetingSessionId',
+  recipientEmail: 'recipientEmail',
+  recipientName: 'recipientName',
+  advisorEmail: 'advisorEmail',
+  sentAt: 'sentAt',
+  openedAt: 'openedAt',
+  joinedAt: 'joinedAt',
+  expiresAt: 'expiresAt',
+  createdAt: 'createdAt'
+} as const
+
+export type MeetingInvitationScalarFieldEnum = (typeof MeetingInvitationScalarFieldEnum)[keyof typeof MeetingInvitationScalarFieldEnum]
+
+
 export const LiveCallSessionScalarFieldEnum = {
   id: 'id',
   meetingSessionId: 'meetingSessionId',
@@ -5885,6 +5978,7 @@ export type GlobalOmitConfig = {
   businessProfile?: Prisma.BusinessProfileOmit
   businessTraveler?: Prisma.BusinessTravelerOmit
   intakeFormToken?: Prisma.IntakeFormTokenOmit
+  meetingInvitation?: Prisma.MeetingInvitationOmit
   liveCallSession?: Prisma.LiveCallSessionOmit
   transcriptChunk?: Prisma.TranscriptChunkOmit
 }

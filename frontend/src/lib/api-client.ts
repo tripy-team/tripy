@@ -2195,6 +2195,67 @@ export function generateMeetingRecap(
 }
 
 // ---------------------------------------------------------------------------
+// Meeting Invitations (client-facing join links emailed to the client)
+// ---------------------------------------------------------------------------
+
+export type MeetingInvitationStatus = 'pending' | 'opened' | 'joined' | 'expired';
+
+export interface MeetingInvitation {
+  id: string;
+  token: string;
+  clientId: string;
+  meetingSessionId: string;
+  recipientEmail: string;
+  recipientName: string | null;
+  advisorEmail: string | null;
+  sentAt: string | null;
+  openedAt: string | null;
+  joinedAt: string | null;
+  expiresAt: string;
+  createdAt: string;
+  status: MeetingInvitationStatus;
+}
+
+export function getMeetingInvitations(clientId: string, meetingId: string) {
+  return apiFetch<MeetingInvitation[]>(
+    `/clients/${clientId}/meetings/${meetingId}/invitations`,
+  );
+}
+
+export function createMeetingInvitation(
+  clientId: string,
+  meetingId: string,
+  payload: { recipientEmail?: string; recipientName?: string; expiresInDays?: number } = {},
+) {
+  return apiFetch<MeetingInvitation>(
+    `/clients/${clientId}/meetings/${meetingId}/invitations`,
+    { method: 'POST', body: JSON.stringify(payload) },
+  );
+}
+
+export function resendMeetingInvitation(
+  clientId: string,
+  meetingId: string,
+  invitationId: string,
+) {
+  return apiFetch<MeetingInvitation>(
+    `/clients/${clientId}/meetings/${meetingId}/invitations/${invitationId}`,
+    { method: 'POST' },
+  );
+}
+
+export function revokeMeetingInvitation(
+  clientId: string,
+  meetingId: string,
+  invitationId: string,
+) {
+  return apiFetch<void>(
+    `/clients/${clientId}/meetings/${meetingId}/invitations/${invitationId}`,
+    { method: 'DELETE' },
+  );
+}
+
+// ---------------------------------------------------------------------------
 // Live Call
 // ---------------------------------------------------------------------------
 
