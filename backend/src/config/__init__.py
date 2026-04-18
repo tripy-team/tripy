@@ -210,6 +210,10 @@ STREAM_QUEUE_PAIR_THRESHOLD = int(os.environ.get("STREAM_QUEUE_PAIR_THRESHOLD", 
 # Stale lock timeout in seconds (locks older than this are considered abandoned)
 GENERATION_LOCK_STALE_SECONDS = int(os.environ.get("GENERATION_LOCK_STALE_SECONDS", "300"))
 
+# Solo flight optimization: stale-lock timeout for in-process async jobs.
+# If a job's heartbeat is older than this, a new refresh will re-enqueue.
+SOLO_OPTIMIZE_LOCK_STALE_SECONDS = int(os.environ.get("SOLO_OPTIMIZE_LOCK_STALE_SECONDS", "300"))
+
 if FEATURE_STREAM_GENERATION:
     logger.info("[CONFIG] STREAM GENERATION: Enabled (FEATURE_STREAM_GENERATION=true)")
 else:

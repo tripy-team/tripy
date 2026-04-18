@@ -2952,6 +2952,18 @@ export interface SoloOptimizeResponse {
   expiresAt: string;
 }
 
+/**
+ * Result of POST /solo/optimize/async or GET /solo/optimize/jobs/{trip}/{job}.
+ * When `status === 'complete'`, `result` holds the full optimization response.
+ */
+export interface SoloOptimizeJobResult {
+  status: 'queued' | 'processing' | 'complete' | 'error';
+  jobId?: string;
+  message?: string;
+  result?: SoloOptimizeResponse;
+  error?: { code?: string; userMessage?: string };
+}
+
 export interface SoloSelectItineraryRequest {
   itineraryId: string;
   itinerarySnapshot: unknown;
@@ -3221,6 +3233,73 @@ export const solo = {
       }
     }
     return toCamelCase<SoloOptimizeResponse>(response);
+  },
+
+  /**
+   * Kick off an async optimization job. Returns immediately — call
+   * getOptimizeJob(tripId, jobId) to poll unless status is 'complete'
+   * (cache hit, returned inline).
+   */
+  optimizeAsync: async (request: SoloOptimizeRequest): Promise<SoloOptimizeJobResult> => {
+    const response = await apiRequest<Record<string, unknown>>('/solo/optimize/async', {
+      method: 'POST',
+      body: JSON.stringify({
+        trip_id: request.tripId,
+        points: request.points,
+        ...(request.payerPoints ? { payer_points: request.payerPoints } : {}),
+        optimization_mode_override: request.optimizationModeOverride,
+        force_refresh: request.forceRefresh ?? false,
+      }),
+    });
+    return toCamelCase<SoloOptimizeJobResult>(response);
+  },
+
+  /**
+   * Poll the status of an async optimization job.
+   */
+  getOptimizeJob: async (tripId: string, jobId: string): Promise<SoloOptimizeJobResult> => {
+    const response = await apiRequest<Record<string, unknown>>(
+      `/solo/optimize/jobs/${encodeURIComponent(tripId)}/${encodeURIComponent(jobId)}`,
+      { method: 'GET' },
+    );
+    return toCamelCase<SoloOptimizeJobResult>(response);
+  },
+
+  /**
+   * Run optimize asynchronously and wait for completion (polling).
+   * Short-circuits to the cached result if the backend already has one.
+   */
+  optimizeWithPolling: async (
+    request: SoloOptimizeRequest,
+    options?: { pollIntervalMs?: number; timeoutMs?: number; onStatus?: (s: SoloOptimizeJobResult) => void },
+  ): Promise<SoloOptimizeResponse> => {
+    const pollInterval = options?.pollIntervalMs ?? 2000;
+    const timeoutMs = options?.timeoutMs ?? 5 * 60 * 1000;
+    const kick = await solo.optimizeAsync(request);
+    options?.onStatus?.(kick);
+    if (kick.status === 'complete' && kick.result) {
+      return kick.result;
+    }
+    if (kick.status === 'error') {
+      throw new Error(kick.error?.userMessage || 'Optimization failed');
+    }
+    if (!kick.jobId) {
+      throw new Error('Optimization did not return a job id');
+    }
+    const deadline = Date.now() + timeoutMs;
+    let job: SoloOptimizeJobResult = kick;
+    while (Date.now() < deadline) {
+      await new Promise((r) => setTimeout(r, pollInterval));
+      job = await solo.getOptimizeJob(request.tripId, kick.jobId);
+      options?.onStatus?.(job);
+      if (job.status === 'complete' && job.result) {
+        return job.result;
+      }
+      if (job.status === 'error') {
+        throw new Error(job.error?.userMessage || 'Optimization failed');
+      }
+    }
+    throw new Error('Optimization polling timed out');
   },
 
   /**

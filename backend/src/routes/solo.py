@@ -774,6 +774,47 @@ async def upsert_trip_points(
 # Optimization Endpoints
 # ============================================================================
 
+def _compute_request_cache_key(request: OptimizeSoloRequest, trip: dict) -> tuple[str, str]:
+    """Compute (mode, cache_key) for an OptimizeSoloRequest against a trip."""
+    mode = request.optimization_mode_override or trip.get("optimizationMode", "balanced")
+    cache_points = request.points
+    if request.payer_points:
+        merged: Dict[str, int] = {}
+        for payer_id, payer_balances in request.payer_points.items():
+            for program, balance in payer_balances.items():
+                merged[f"{payer_id}:{program}"] = balance
+        cache_points = merged
+    cache_key = solo_trip_service.compute_cache_key(
+        request.trip_id, trip, cache_points, mode
+    )
+    return mode, cache_key
+
+
+async def _run_optimize_core(
+    trip: dict,
+    user_id: str,
+    request: OptimizeSoloRequest,
+) -> OptimizeSoloResponse:
+    """Core optimization runner — called from both the sync endpoint and the
+    async worker. Handles cache check, orchestrator call, transform, cache
+    write, and status update. Does NOT fetch the trip (caller handles anon).
+    """
+    mode, cache_key = _compute_request_cache_key(request, trip)
+    force_refresh = getattr(request, 'force_refresh', False)
+
+    if not force_refresh:
+        cached = solo_trip_service.get_cached_optimization(request.trip_id, cache_key)
+        if cached and not solo_trip_service.is_cache_expired(cached):
+            logger.info(f"[solo/optimize] Returning cached results for trip {request.trip_id}")
+            return _build_response_from_cached(cached)
+    else:
+        logger.info(f"[solo/optimize] Force refresh requested - bypassing cache for trip {request.trip_id}")
+
+    return await _run_orchestration_and_cache(
+        trip, user_id, request, mode, cache_key
+    )
+
+
 @router.post("/optimize", response_model=OptimizeSoloResponse)
 async def optimize_solo(
     request: OptimizeSoloRequest,
@@ -783,46 +824,34 @@ async def optimize_solo(
     """
     Optimize a solo trip using the real ILP-based orchestrator.
     Supports anonymous sessions — no sign-in required.
-    
-    Fixup 3: Uses trip preferences from backend (source of truth).
-    Only tripId + points + optional mode override come from request.
     """
     try:
-        # Get trip to load preferences (with anon fallback for pre-sign-in trips)
         trip = _get_trip_with_anon_fallback(request.trip_id, user_id, http_request)
         if not trip:
             raise HTTPException(status_code=404, detail="Trip not found")
-        
-        # Resolve mode: override takes precedence, else trip setting
-        mode = request.optimization_mode_override or trip.get("optimizationMode", "balanced")
-        
-        # Check cache (unless force_refresh is requested)
-        force_refresh = getattr(request, 'force_refresh', False)
-        
-        # Build cache-key points: merge payer_points if present for consistent hashing
-        cache_points = request.points
-        if request.payer_points:
-            merged = {}
-            for payer_id, payer_balances in request.payer_points.items():
-                for program, balance in payer_balances.items():
-                    # Include payer_id in key to distinguish "alice:amex 50k" from "bob:amex 50k"
-                    merged[f"{payer_id}:{program}"] = balance
-            cache_points = merged
-        
-        cache_key = solo_trip_service.compute_cache_key(
-            request.trip_id, 
-            trip, 
-            cache_points, 
-            mode
-        )
-        
-        if not force_refresh:
-            cached = solo_trip_service.get_cached_optimization(request.trip_id, cache_key)
-            if cached and not solo_trip_service.is_cache_expired(cached):
-                logger.info(f"[solo/optimize] Returning cached results for trip {request.trip_id}")
-                return _build_response_from_cached(cached)
-        else:
-            logger.info(f"[solo/optimize] Force refresh requested - bypassing cache for trip {request.trip_id}")
+        return await _run_optimize_core(trip, user_id, request)
+    except PermissionError as e:
+        raise HTTPException(status_code=403, detail=str(e))
+    except HTTPException:
+        raise
+    except Exception as e:
+        logger.error(f"Error optimizing solo trip: {str(e)}", exc_info=True)
+        raise HTTPException(status_code=500, detail=str(e))
+
+
+async def _run_orchestration_and_cache(
+    trip: dict,
+    user_id: str,
+    request: OptimizeSoloRequest,
+    mode: str,
+    cache_key: str,
+) -> OptimizeSoloResponse:
+    """Run the ILP orchestrator for a given (trip, request) and persist results.
+
+    This is the heavy path (30–60s). Extracted so both the sync endpoint and
+    the async SQS worker can invoke the same code.
+    """
+    try:
         
         # Run REAL optimization using the orchestrator
         orchestrator = get_orchestrator()
@@ -1107,6 +1136,156 @@ async def optimize_solo(
         raise
     except Exception as e:
         logger.error(f"Error optimizing solo trip: {str(e)}", exc_info=True)
+        raise HTTPException(status_code=500, detail=str(e))
+
+
+# ============================================================================
+# Async Optimization Endpoints
+# ----------------------------------------------------------------------------
+# The synchronous /optimize endpoint above is subject to the API Gateway 30s
+# integration timeout. For real flight searches (SerpAPI + AwardTool) this is
+# routinely exceeded and surfaces to the user as a 504. These async endpoints
+# offload optimization to a dedicated worker Lambda (5min timeout) and return
+# a job_id that the frontend polls.
+#
+# Fast-path optimizations:
+#   1. Cache hit → return result inline, no queue roundtrip.
+#   2. In-flight dedupe → a second refresh while a job is running reuses
+#      the existing job_id rather than spawning a parallel worker.
+# ============================================================================
+
+class OptimizeJobResponse(BaseModel):
+    """Response for async optimize kick-off or poll."""
+    status: str  # queued | processing | complete | error
+    job_id: Optional[str] = None
+    message: Optional[str] = None
+    result: Optional[OptimizeSoloResponse] = None
+    error: Optional[Dict] = None
+
+
+@router.post("/optimize/async", response_model=OptimizeJobResponse)
+async def optimize_solo_async(
+    request: OptimizeSoloRequest,
+    http_request: Request,
+    background_tasks: BackgroundTasks,
+    user_id: str = Depends(get_user_or_anon_id),
+):
+    """Kick off a solo optimization.
+
+    - If a fresh cached result exists (and force_refresh is false), returns
+      status=complete with the result inline — no job created.
+    - If a job with the same cache key is already in flight, returns its id.
+    - Otherwise schedules a background task and returns status=queued with job_id.
+    """
+    try:
+        trip = _get_trip_with_anon_fallback(request.trip_id, user_id, http_request)
+        if not trip:
+            raise HTTPException(status_code=404, detail="Trip not found")
+
+        mode, cache_key = _compute_request_cache_key(request, trip)
+        force_refresh = getattr(request, 'force_refresh', False)
+
+        # Fast path 1 — cache hit
+        if not force_refresh:
+            cached = solo_trip_service.get_cached_optimization(request.trip_id, cache_key)
+            if cached and not solo_trip_service.is_cache_expired(cached):
+                logger.info(
+                    f"[solo/optimize/async] Cache hit for trip {request.trip_id} — returning inline"
+                )
+                return OptimizeJobResponse(
+                    status="complete",
+                    result=_build_response_from_cached(cached),
+                )
+
+        # Fast path 2 — dedupe: reuse in-flight job with the same cache_key
+        from ..services import solo_optimize_jobs
+        active = solo_optimize_jobs.get_active_job_for_cache_key(
+            request.trip_id, cache_key
+        )
+        if active:
+            logger.info(
+                f"[solo/optimize/async] Reusing in-flight job {active.get('jobId')} "
+                f"for trip {request.trip_id}"
+            )
+            return OptimizeJobResponse(
+                status=active.get("status", "queued"),
+                job_id=active.get("jobId"),
+                message=active.get("message"),
+            )
+
+        # Schedule fresh job on the same App Runner process
+        request_payload = request.model_dump()
+        job_id = solo_optimize_jobs.enqueue_job(
+            trip_id=request.trip_id,
+            user_id=user_id,
+            cache_key=cache_key,
+            request_payload=request_payload,
+            background_tasks=background_tasks,
+        )
+        return OptimizeJobResponse(
+            status="queued",
+            job_id=job_id,
+            message="Optimization queued",
+        )
+    except PermissionError as e:
+        raise HTTPException(status_code=403, detail=str(e))
+    except HTTPException:
+        raise
+    except Exception as e:
+        logger.error(f"[solo/optimize/async] Error: {e}", exc_info=True)
+        raise HTTPException(status_code=500, detail=str(e))
+
+
+@router.get("/optimize/jobs/{trip_id}/{job_id}", response_model=OptimizeJobResponse)
+async def get_optimize_job(
+    trip_id: str,
+    job_id: str,
+    http_request: Request,
+    user_id: str = Depends(get_user_or_anon_id),
+):
+    """Poll the status of an async optimization job.
+
+    When status is complete, the `result` field contains the full
+    OptimizeSoloResponse. When error, the `error` field has details.
+    """
+    try:
+        trip = _get_trip_with_anon_fallback(trip_id, user_id, http_request)
+        if not trip:
+            raise HTTPException(status_code=404, detail="Trip not found")
+
+        from ..services import solo_optimize_jobs
+        job = solo_optimize_jobs.get_job(trip_id, job_id)
+        if not job:
+            raise HTTPException(status_code=404, detail="Job not found")
+
+        # When complete, rehydrate the full response from optimizationCache
+        # (single source of truth — worker writes to cache, polling reads it).
+        result_obj: Optional[OptimizeSoloResponse] = None
+        if job.get("status") == "complete":
+            cache_key = job.get("cacheKey")
+            if cache_key:
+                cached = solo_trip_service.get_cached_optimization(trip_id, cache_key)
+                if cached:
+                    try:
+                        result_obj = _build_response_from_cached(cached)
+                    except Exception as build_err:
+                        logger.warning(
+                            f"[solo/optimize/jobs] Failed to build cached response for job {job_id}: {build_err}"
+                        )
+
+        return OptimizeJobResponse(
+            status=job.get("status", "queued"),
+            job_id=job_id,
+            message=job.get("message"),
+            result=result_obj,
+            error=job.get("error"),
+        )
+    except PermissionError as e:
+        raise HTTPException(status_code=403, detail=str(e))
+    except HTTPException:
+        raise
+    except Exception as e:
+        logger.error(f"[solo/optimize/jobs] Error: {e}", exc_info=True)
         raise HTTPException(status_code=500, detail=str(e))
 
 

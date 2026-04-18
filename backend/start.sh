@@ -21,6 +21,22 @@ else
   exit 1
 fi
 
+# --- Virtual environment setup ---
+VENV_DIR="$SCRIPT_DIR/venv"
+
+if [ ! -d "$VENV_DIR" ]; then
+  echo "Creating virtual environment..."
+  "$PY" -m venv "$VENV_DIR"
+fi
+
+# Activate the venv so pip/python resolve inside it
+# shellcheck disable=SC1091
+source "$VENV_DIR/bin/activate"
+
+echo "Installing dependencies..."
+pip install --upgrade pip -q
+pip install -r "$SCRIPT_DIR/requirements.txt" -q
+
 # PYTHONPATH so "import src" works
 export PYTHONPATH="$SCRIPT_DIR${PYTHONPATH:+:$PYTHONPATH}"
 

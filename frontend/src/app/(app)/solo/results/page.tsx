@@ -341,11 +341,22 @@ export default function SoloResults() {
                             const storedPayerPoints = sessionStorage.getItem(`payer_points_${tripId}`);
                             const payerPoints = storedPayerPoints ? JSON.parse(storedPayerPoints) as Record<string, Record<string, number>> : undefined;
 
-                            optimizeResult = await solo.optimize({
-                                tripId,
-                                points: pointsMap,
-                                ...(payerPoints ? { payerPoints } : {}),
-                            });
+                            // Use async + polling path — dodges API Gateway's 30s cap.
+                            // Cache hits still return inline (first call) so this is
+                            // fast in the common case.
+                            optimizeResult = await solo.optimizeWithPolling(
+                                {
+                                    tripId,
+                                    points: pointsMap,
+                                    ...(payerPoints ? { payerPoints } : {}),
+                                    // If this run is a user-triggered refresh, force a fresh search.
+                                    forceRefresh: refetchTrigger > 0,
+                                },
+                                {
+                                    pollIntervalMs: 2000,
+                                    timeoutMs: 5 * 60 * 1000,
+                                },
+                            );
                         }
                         
                         trackEvent(EVENTS.TRIP_RESULT_VIEWED, { tripId, itineraryCount: optimizeResult.itineraries?.length || 0, hasDecisionSummary: !!optimizeResult.decisionSummary });
