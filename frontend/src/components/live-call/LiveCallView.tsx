@@ -24,7 +24,7 @@ import {
   buildRoomName,
   fetchAdvisorToken,
 } from '@/lib/livekit-room';
-import { startLiveCall, stopLiveCall } from '@/lib/live-call-api';
+import { startLiveCall } from '@/lib/live-call-api';
 
 export interface LiveCallConfig {
   clientId: string;
@@ -94,7 +94,6 @@ export default function LiveCallView({
   const roomNameRef = useRef<string>(
     buildRoomName(config.clientId, config.meetingId),
   );
-  const liveCallIdRef = useRef<string | null>(null);
 
   // New question/extraction toast
   const [newQuestionCount, setNewQuestionCount] = useState<number | null>(null);
@@ -141,8 +140,7 @@ export default function LiveCallView({
 
       // 1. Persist the session row so transcript chunks can be saved later
       try {
-        const started = await startLiveCall(config.clientId, config.meetingId);
-        liveCallIdRef.current = started.id;
+        await startLiveCall(config.clientId, config.meetingId);
       } catch (e) {
         console.warn('[LiveCallView] startLiveCall failed; continuing', e);
       }
@@ -295,22 +293,13 @@ export default function LiveCallView({
       clearInterval(durationIntervalRef.current);
     }
 
-    // Persist session results so they survive tab close. Fire-and-forget:
-    // even if this fails, the UI continues to the PostCallReview phase so
-    // the advisor can still see what Gemma captured in-memory.
-    if (liveCallIdRef.current) {
-      const snapshot: { transcript: typeof transcript; commitReady: FinalEvent['commitReady'] } = {
-        transcript,
-        commitReady: finalData?.commitReady ?? [],
-      };
-      void stopLiveCall(config.clientId, config.meetingId, snapshot);
-    }
-
+    // Persistence (POST /live/stop) is owned by the parent's onCallEnd
+    // handler so it can await the request and then refresh the meeting view.
     setPhase('ended');
     if (finalData) {
       onCallEnd(finalData);
     }
-  }, [localStream, finalData, transcript, config.clientId, config.meetingId, onCallEnd]);
+  }, [localStream, finalData, onCallEnd]);
 
   const toggleMute = useCallback(() => {
     const next = !isMuted;

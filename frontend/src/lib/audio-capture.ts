@@ -1,14 +1,26 @@
 /**
  * Audio capture pipeline for live call transcription.
  *
- * Captures audio from getUserMedia, downsamples to 16kHz mono PCM,
- * and sends chunks to the Cactus WebSocket server.
+ * Captures audio from a MediaStream, downsamples to 16 kHz mono PCM via an
+ * AudioWorklet, and forwards the PCM chunks (with a channel-id prefix byte)
+ * over a WebSocket to the Cactus server.
  */
+
+const WORKLET_MODULE_URL = '/worklets/pcm-capture-worklet.js';
+const WORKLET_PROCESSOR_NAME = 'pcm-capture-processor';
+
+const registeredContexts = new WeakSet<AudioContext>();
+
+async function ensureWorkletRegistered(context: AudioContext): Promise<void> {
+  if (registeredContexts.has(context)) return;
+  await context.audioWorklet.addModule(WORKLET_MODULE_URL);
+  registeredContexts.add(context);
+}
 
 export class AudioCapturePipeline {
   private context: AudioContext | null = null;
   private sourceNode: MediaStreamAudioSourceNode | null = null;
-  private workletNode: ScriptProcessorNode | null = null;
+  private workletNode: AudioWorkletNode | null = null;
   private ws: WebSocket | null = null;
   private channel: 'local' | 'remote';
   private _active = false;
@@ -24,35 +36,34 @@ export class AudioCapturePipeline {
   async start(stream: MediaStream, ws: WebSocket): Promise<void> {
     this.ws = ws;
     this.context = new AudioContext({ sampleRate: 16000 });
+    await ensureWorkletRegistered(this.context);
+
     this.sourceNode = this.context.createMediaStreamSource(stream);
+    this.workletNode = new AudioWorkletNode(this.context, WORKLET_PROCESSOR_NAME, {
+      numberOfInputs: 1,
+      numberOfOutputs: 0,
+      channelCount: 1,
+    });
 
-    // Use ScriptProcessorNode for broad compatibility (AudioWorklet requires HTTPS)
-    const bufferSize = 4096;
-    this.workletNode = this.context.createScriptProcessor(bufferSize, 1, 1);
+    const channelByte = this.channel === 'local' ? 0 : 1;
 
-    this.workletNode.onaudioprocess = (event: AudioProcessingEvent) => {
+    this.workletNode.port.onmessage = (event: MessageEvent<ArrayBuffer>) => {
       if (!this._active || !this.ws || this.ws.readyState !== WebSocket.OPEN) return;
-
-      const inputData = event.inputBuffer.getChannelData(0);
-      const pcm16 = float32ToPCM16(inputData);
-
-      // Prepend channel byte: 0 = advisor (local), 1 = client (remote)
-      const channelByte = this.channel === 'local' ? 0 : 1;
+      const pcm16 = event.data;
       const packet = new Uint8Array(1 + pcm16.byteLength);
       packet[0] = channelByte;
       packet.set(new Uint8Array(pcm16), 1);
-
       this.ws.send(packet.buffer);
     };
 
     this.sourceNode.connect(this.workletNode);
-    this.workletNode.connect(this.context.destination);
     this._active = true;
   }
 
   stop(): void {
     this._active = false;
     if (this.workletNode) {
+      this.workletNode.port.onmessage = null;
       this.workletNode.disconnect();
       this.workletNode = null;
     }
@@ -61,7 +72,7 @@ export class AudioCapturePipeline {
       this.sourceNode = null;
     }
     if (this.context) {
-      this.context.close();
+      void this.context.close();
       this.context = null;
     }
   }
@@ -73,19 +84,6 @@ export class AudioCapturePipeline {
   resume(): void {
     this._active = true;
   }
-}
-
-/**
- * Convert Float32Array audio samples to 16-bit PCM ArrayBuffer.
- */
-function float32ToPCM16(float32: Float32Array): ArrayBuffer {
-  const buffer = new ArrayBuffer(float32.length * 2);
-  const view = new DataView(buffer);
-  for (let i = 0; i < float32.length; i++) {
-    const s = Math.max(-1, Math.min(1, float32[i]));
-    view.setInt16(i * 2, s < 0 ? s * 0x8000 : s * 0x7fff, true);
-  }
-  return buffer;
 }
 
 /**

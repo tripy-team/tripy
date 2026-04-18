@@ -124,13 +124,13 @@ export class LiveKitSession {
 
     try {
       await room.connect(url, token);
-      callbacks.onConnected?.();
     } catch (e) {
       callbacks.onError?.(e as Error);
       throw e;
     }
 
-    // Publish mic + camera so the other side sees/hears us
+    // Acquire mic + camera BEFORE firing onConnected so the caller can read
+    // the local preview stream immediately in that callback.
     try {
       this.localTracks = await createLocalTracks({
         audio: true,
@@ -142,6 +142,8 @@ export class LiveKitSession {
     } catch (e) {
       callbacks.onError?.(e as Error);
     }
+
+    callbacks.onConnected?.();
 
     // If a remote participant is already in the room, surface their tracks now
     for (const participant of room.remoteParticipants.values()) {
