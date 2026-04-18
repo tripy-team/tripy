@@ -781,6 +781,7 @@ export const DiscoveryMeetingSessionScalarFieldEnum = {
   clientId: 'clientId',
   advisorUserId: 'advisorUserId',
   title: 'title',
+  contextPrompt: 'contextPrompt',
   status: 'status',
   summary: 'summary',
   createdAt: 'createdAt',

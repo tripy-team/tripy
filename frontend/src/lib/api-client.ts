@@ -836,6 +836,7 @@ export interface MeetingSession {
   clientId: string;
   advisorUserId: string;
   title: string;
+  contextPrompt?: string | null;
   status: MeetingSessionStatus;
   summary?: string | null;
   createdAt: string;
@@ -2076,10 +2077,14 @@ export function getMeetingSession(clientId: string, meetingId: string) {
   return apiFetch<MeetingSession>(`/clients/${clientId}/meetings/${meetingId}`);
 }
 
-export function createMeetingSession(clientId: string, title: string) {
+export function createMeetingSession(
+  clientId: string,
+  title: string,
+  contextPrompt?: string,
+) {
   return apiFetch<MeetingSession>(`/clients/${clientId}/meetings`, {
     method: 'POST',
-    body: JSON.stringify({ title }),
+    body: JSON.stringify({ title, contextPrompt }),
   });
 }
 

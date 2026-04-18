@@ -812,6 +812,7 @@ model DiscoveryMeetingSession {
   clientId            String                      @map("client_id")
   advisorUserId       String                      @map("advisor_user_id")
   title               String
+  contextPrompt       String?                     @map("context_prompt")
   status              MeetingSessionStatus        @default(active)
   summary             String?
   createdAt           DateTime                    @default(now()) @map("created_at")

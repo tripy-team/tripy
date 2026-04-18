@@ -29,6 +29,7 @@ export type DiscoveryMeetingSessionMinAggregateOutputType = {
   clientId: string | null
   advisorUserId: string | null
   title: string | null
+  contextPrompt: string | null
   status: $Enums.MeetingSessionStatus | null
   summary: string | null
   createdAt: Date | null
@@ -40,6 +41,7 @@ export type DiscoveryMeetingSessionMaxAggregateOutputType = {
   clientId: string | null
   advisorUserId: string | null
   title: string | null
+  contextPrompt: string | null
   status: $Enums.MeetingSessionStatus | null
   summary: string | null
   createdAt: Date | null
@@ -51,6 +53,7 @@ export type DiscoveryMeetingSessionCountAggregateOutputType = {
   clientId: number
   advisorUserId: number
   title: number
+  contextPrompt: number
   status: number
   summary: number
   createdAt: number
@@ -64,6 +67,7 @@ export type DiscoveryMeetingSessionMinAggregateInputType = {
   clientId?: true
   advisorUserId?: true
   title?: true
+  contextPrompt?: true
   status?: true
   summary?: true
   createdAt?: true
@@ -75,6 +79,7 @@ export type DiscoveryMeetingSessionMaxAggregateInputType = {
   clientId?: true
   advisorUserId?: true
   title?: true
+  contextPrompt?: true
   status?: true
   summary?: true
   createdAt?: true
@@ -86,6 +91,7 @@ export type DiscoveryMeetingSessionCountAggregateInputType = {
   clientId?: true
   advisorUserId?: true
   title?: true
+  contextPrompt?: true
   status?: true
   summary?: true
   createdAt?: true
@@ -170,6 +176,7 @@ export type DiscoveryMeetingSessionGroupByOutputType = {
   clientId: string
   advisorUserId: string
   title: string
+  contextPrompt: string | null
   status: $Enums.MeetingSessionStatus
   summary: string | null
   createdAt: Date
@@ -202,6 +209,7 @@ export type DiscoveryMeetingSessionWhereInput = {
   clientId?: Prisma.StringFilter<"DiscoveryMeetingSession"> | string
   advisorUserId?: Prisma.StringFilter<"DiscoveryMeetingSession"> | string
   title?: Prisma.StringFilter<"DiscoveryMeetingSession"> | string
+  contextPrompt?: Prisma.StringNullableFilter<"DiscoveryMeetingSession"> | string | null
   status?: Prisma.EnumMeetingSessionStatusFilter<"DiscoveryMeetingSession"> | $Enums.MeetingSessionStatus
   summary?: Prisma.StringNullableFilter<"DiscoveryMeetingSession"> | string | null
   createdAt?: Prisma.DateTimeFilter<"DiscoveryMeetingSession"> | Date | string
@@ -221,6 +229,7 @@ export type DiscoveryMeetingSessionOrderByWithRelationInput = {
   clientId?: Prisma.SortOrder
   advisorUserId?: Prisma.SortOrder
   title?: Prisma.SortOrder
+  contextPrompt?: Prisma.SortOrderInput | Prisma.SortOrder
   status?: Prisma.SortOrder
   summary?: Prisma.SortOrderInput | Prisma.SortOrder
   createdAt?: Prisma.SortOrder
@@ -243,6 +252,7 @@ export type DiscoveryMeetingSessionWhereUniqueInput = Prisma.AtLeast<{
   clientId?: Prisma.StringFilter<"DiscoveryMeetingSession"> | string
   advisorUserId?: Prisma.StringFilter<"DiscoveryMeetingSession"> | string
   title?: Prisma.StringFilter<"DiscoveryMeetingSession"> | string
+  contextPrompt?: Prisma.StringNullableFilter<"DiscoveryMeetingSession"> | string | null
   status?: Prisma.EnumMeetingSessionStatusFilter<"DiscoveryMeetingSession"> | $Enums.MeetingSessionStatus
   summary?: Prisma.StringNullableFilter<"DiscoveryMeetingSession"> | string | null
   createdAt?: Prisma.DateTimeFilter<"DiscoveryMeetingSession"> | Date | string
@@ -262,6 +272,7 @@ export type DiscoveryMeetingSessionOrderByWithAggregationInput = {
   clientId?: Prisma.SortOrder
   advisorUserId?: Prisma.SortOrder
   title?: Prisma.SortOrder
+  contextPrompt?: Prisma.SortOrderInput | Prisma.SortOrder
   status?: Prisma.SortOrder
   summary?: Prisma.SortOrderInput | Prisma.SortOrder
   createdAt?: Prisma.SortOrder
@@ -279,6 +290,7 @@ export type DiscoveryMeetingSessionScalarWhereWithAggregatesInput = {
   clientId?: Prisma.StringWithAggregatesFilter<"DiscoveryMeetingSession"> | string
   advisorUserId?: Prisma.StringWithAggregatesFilter<"DiscoveryMeetingSession"> | string
   title?: Prisma.StringWithAggregatesFilter<"DiscoveryMeetingSession"> | string
+  contextPrompt?: Prisma.StringNullableWithAggregatesFilter<"DiscoveryMeetingSession"> | string | null
   status?: Prisma.EnumMeetingSessionStatusWithAggregatesFilter<"DiscoveryMeetingSession"> | $Enums.MeetingSessionStatus
   summary?: Prisma.StringNullableWithAggregatesFilter<"DiscoveryMeetingSession"> | string | null
   createdAt?: Prisma.DateTimeWithAggregatesFilter<"DiscoveryMeetingSession"> | Date | string
@@ -288,6 +300,7 @@ export type DiscoveryMeetingSessionScalarWhereWithAggregatesInput = {
 export type DiscoveryMeetingSessionCreateInput = {
   id?: string
   title: string
+  contextPrompt?: string | null
   status?: $Enums.MeetingSessionStatus
   summary?: string | null
   createdAt?: Date | string
@@ -307,6 +320,7 @@ export type DiscoveryMeetingSessionUncheckedCreateInput = {
   clientId: string
   advisorUserId: string
   title: string
+  contextPrompt?: string | null
   status?: $Enums.MeetingSessionStatus
   summary?: string | null
   createdAt?: Date | string
@@ -322,6 +336,7 @@ export type DiscoveryMeetingSessionUncheckedCreateInput = {
 export type DiscoveryMeetingSessionUpdateInput = {
   id?: Prisma.StringFieldUpdateOperationsInput | string
   title?: Prisma.StringFieldUpdateOperationsInput | string
+  contextPrompt?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
   status?: Prisma.EnumMeetingSessionStatusFieldUpdateOperationsInput | $Enums.MeetingSessionStatus
   summary?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
   createdAt?: Prisma.DateTimeFieldUpdateOperationsInput | Date | string
@@ -341,6 +356,7 @@ export type DiscoveryMeetingSessionUncheckedUpdateInput = {
   clientId?: Prisma.StringFieldUpdateOperationsInput | string
   advisorUserId?: Prisma.StringFieldUpdateOperationsInput | string
   title?: Prisma.StringFieldUpdateOperationsInput | string
+  contextPrompt?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
   status?: Prisma.EnumMeetingSessionStatusFieldUpdateOperationsInput | $Enums.MeetingSessionStatus
   summary?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
   createdAt?: Prisma.DateTimeFieldUpdateOperationsInput | Date | string
@@ -358,6 +374,7 @@ export type DiscoveryMeetingSessionCreateManyInput = {
   clientId: string
   advisorUserId: string
   title: string
+  contextPrompt?: string | null
   status?: $Enums.MeetingSessionStatus
   summary?: string | null
   createdAt?: Date | string
@@ -367,6 +384,7 @@ export type DiscoveryMeetingSessionCreateManyInput = {
 export type DiscoveryMeetingSessionUpdateManyMutationInput = {
   id?: Prisma.StringFieldUpdateOperationsInput | string
   title?: Prisma.StringFieldUpdateOperationsInput | string
+  contextPrompt?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
   status?: Prisma.EnumMeetingSessionStatusFieldUpdateOperationsInput | $Enums.MeetingSessionStatus
   summary?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
   createdAt?: Prisma.DateTimeFieldUpdateOperationsInput | Date | string
@@ -378,6 +396,7 @@ export type DiscoveryMeetingSessionUncheckedUpdateManyInput = {
   clientId?: Prisma.StringFieldUpdateOperationsInput | string
   advisorUserId?: Prisma.StringFieldUpdateOperationsInput | string
   title?: Prisma.StringFieldUpdateOperationsInput | string
+  contextPrompt?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
   status?: Prisma.EnumMeetingSessionStatusFieldUpdateOperationsInput | $Enums.MeetingSessionStatus
   summary?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
   createdAt?: Prisma.DateTimeFieldUpdateOperationsInput | Date | string
@@ -399,6 +418,7 @@ export type DiscoveryMeetingSessionCountOrderByAggregateInput = {
   clientId?: Prisma.SortOrder
   advisorUserId?: Prisma.SortOrder
   title?: Prisma.SortOrder
+  contextPrompt?: Prisma.SortOrder
   status?: Prisma.SortOrder
   summary?: Prisma.SortOrder
   createdAt?: Prisma.SortOrder
@@ -410,6 +430,7 @@ export type DiscoveryMeetingSessionMaxOrderByAggregateInput = {
   clientId?: Prisma.SortOrder
   advisorUserId?: Prisma.SortOrder
   title?: Prisma.SortOrder
+  contextPrompt?: Prisma.SortOrder
   status?: Prisma.SortOrder
   summary?: Prisma.SortOrder
   createdAt?: Prisma.SortOrder
@@ -421,6 +442,7 @@ export type DiscoveryMeetingSessionMinOrderByAggregateInput = {
   clientId?: Prisma.SortOrder
   advisorUserId?: Prisma.SortOrder
   title?: Prisma.SortOrder
+  contextPrompt?: Prisma.SortOrder
   status?: Prisma.SortOrder
   summary?: Prisma.SortOrder
   createdAt?: Prisma.SortOrder
@@ -607,6 +629,7 @@ export type DiscoveryMeetingSessionUpdateOneRequiredWithoutLiveCallSessionsNeste
 export type DiscoveryMeetingSessionCreateWithoutAdvisorInput = {
   id?: string
   title: string
+  contextPrompt?: string | null
   status?: $Enums.MeetingSessionStatus
   summary?: string | null
   createdAt?: Date | string
@@ -624,6 +647,7 @@ export type DiscoveryMeetingSessionUncheckedCreateWithoutAdvisorInput = {
   id?: string
   clientId: string
   title: string
+  contextPrompt?: string | null
   status?: $Enums.MeetingSessionStatus
   summary?: string | null
   createdAt?: Date | string
@@ -670,6 +694,7 @@ export type DiscoveryMeetingSessionScalarWhereInput = {
   clientId?: Prisma.StringFilter<"DiscoveryMeetingSession"> | string
   advisorUserId?: Prisma.StringFilter<"DiscoveryMeetingSession"> | string
   title?: Prisma.StringFilter<"DiscoveryMeetingSession"> | string
+  contextPrompt?: Prisma.StringNullableFilter<"DiscoveryMeetingSession"> | string | null
   status?: Prisma.EnumMeetingSessionStatusFilter<"DiscoveryMeetingSession"> | $Enums.MeetingSessionStatus
   summary?: Prisma.StringNullableFilter<"DiscoveryMeetingSession"> | string | null
   createdAt?: Prisma.DateTimeFilter<"DiscoveryMeetingSession"> | Date | string
@@ -679,6 +704,7 @@ export type DiscoveryMeetingSessionScalarWhereInput = {
 export type DiscoveryMeetingSessionCreateWithoutClientInput = {
   id?: string
   title: string
+  contextPrompt?: string | null
   status?: $Enums.MeetingSessionStatus
   summary?: string | null
   createdAt?: Date | string
@@ -696,6 +722,7 @@ export type DiscoveryMeetingSessionUncheckedCreateWithoutClientInput = {
   id?: string
   advisorUserId: string
   title: string
+  contextPrompt?: string | null
   status?: $Enums.MeetingSessionStatus
   summary?: string | null
   createdAt?: Date | string
@@ -737,6 +764,7 @@ export type DiscoveryMeetingSessionUpdateManyWithWhereWithoutClientInput = {
 export type DiscoveryMeetingSessionCreateWithoutEntriesInput = {
   id?: string
   title: string
+  contextPrompt?: string | null
   status?: $Enums.MeetingSessionStatus
   summary?: string | null
   createdAt?: Date | string
@@ -755,6 +783,7 @@ export type DiscoveryMeetingSessionUncheckedCreateWithoutEntriesInput = {
   clientId: string
   advisorUserId: string
   title: string
+  contextPrompt?: string | null
   status?: $Enums.MeetingSessionStatus
   summary?: string | null
   createdAt?: Date | string
@@ -785,6 +814,7 @@ export type DiscoveryMeetingSessionUpdateToOneWithWhereWithoutEntriesInput = {
 export type DiscoveryMeetingSessionUpdateWithoutEntriesInput = {
   id?: Prisma.StringFieldUpdateOperationsInput | string
   title?: Prisma.StringFieldUpdateOperationsInput | string
+  contextPrompt?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
   status?: Prisma.EnumMeetingSessionStatusFieldUpdateOperationsInput | $Enums.MeetingSessionStatus
   summary?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
   createdAt?: Prisma.DateTimeFieldUpdateOperationsInput | Date | string
@@ -803,6 +833,7 @@ export type DiscoveryMeetingSessionUncheckedUpdateWithoutEntriesInput = {
   clientId?: Prisma.StringFieldUpdateOperationsInput | string
   advisorUserId?: Prisma.StringFieldUpdateOperationsInput | string
   title?: Prisma.StringFieldUpdateOperationsInput | string
+  contextPrompt?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
   status?: Prisma.EnumMeetingSessionStatusFieldUpdateOperationsInput | $Enums.MeetingSessionStatus
   summary?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
   createdAt?: Prisma.DateTimeFieldUpdateOperationsInput | Date | string
@@ -817,6 +848,7 @@ export type DiscoveryMeetingSessionUncheckedUpdateWithoutEntriesInput = {
 export type DiscoveryMeetingSessionCreateWithoutQuestionSuggestionsInput = {
   id?: string
   title: string
+  contextPrompt?: string | null
   status?: $Enums.MeetingSessionStatus
   summary?: string | null
   createdAt?: Date | string
@@ -835,6 +867,7 @@ export type DiscoveryMeetingSessionUncheckedCreateWithoutQuestionSuggestionsInpu
   clientId: string
   advisorUserId: string
   title: string
+  contextPrompt?: string | null
   status?: $Enums.MeetingSessionStatus
   summary?: string | null
   createdAt?: Date | string
@@ -865,6 +898,7 @@ export type DiscoveryMeetingSessionUpdateToOneWithWhereWithoutQuestionSuggestion
 export type DiscoveryMeetingSessionUpdateWithoutQuestionSuggestionsInput = {
   id?: Prisma.StringFieldUpdateOperationsInput | string
   title?: Prisma.StringFieldUpdateOperationsInput | string
+  contextPrompt?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
   status?: Prisma.EnumMeetingSessionStatusFieldUpdateOperationsInput | $Enums.MeetingSessionStatus
   summary?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
   createdAt?: Prisma.DateTimeFieldUpdateOperationsInput | Date | string
@@ -883,6 +917,7 @@ export type DiscoveryMeetingSessionUncheckedUpdateWithoutQuestionSuggestionsInpu
   clientId?: Prisma.StringFieldUpdateOperationsInput | string
   advisorUserId?: Prisma.StringFieldUpdateOperationsInput | string
   title?: Prisma.StringFieldUpdateOperationsInput | string
+  contextPrompt?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
   status?: Prisma.EnumMeetingSessionStatusFieldUpdateOperationsInput | $Enums.MeetingSessionStatus
   summary?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
   createdAt?: Prisma.DateTimeFieldUpdateOperationsInput | Date | string
@@ -897,6 +932,7 @@ export type DiscoveryMeetingSessionUncheckedUpdateWithoutQuestionSuggestionsInpu
 export type DiscoveryMeetingSessionCreateWithoutProfileSuggestionsInput = {
   id?: string
   title: string
+  contextPrompt?: string | null
   status?: $Enums.MeetingSessionStatus
   summary?: string | null
   createdAt?: Date | string
@@ -915,6 +951,7 @@ export type DiscoveryMeetingSessionUncheckedCreateWithoutProfileSuggestionsInput
   clientId: string
   advisorUserId: string
   title: string
+  contextPrompt?: string | null
   status?: $Enums.MeetingSessionStatus
   summary?: string | null
   createdAt?: Date | string
@@ -945,6 +982,7 @@ export type DiscoveryMeetingSessionUpdateToOneWithWhereWithoutProfileSuggestions
 export type DiscoveryMeetingSessionUpdateWithoutProfileSuggestionsInput = {
   id?: Prisma.StringFieldUpdateOperationsInput | string
   title?: Prisma.StringFieldUpdateOperationsInput | string
+  contextPrompt?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
   status?: Prisma.EnumMeetingSessionStatusFieldUpdateOperationsInput | $Enums.MeetingSessionStatus
   summary?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
   createdAt?: Prisma.DateTimeFieldUpdateOperationsInput | Date | string
@@ -963,6 +1001,7 @@ export type DiscoveryMeetingSessionUncheckedUpdateWithoutProfileSuggestionsInput
   clientId?: Prisma.StringFieldUpdateOperationsInput | string
   advisorUserId?: Prisma.StringFieldUpdateOperationsInput | string
   title?: Prisma.StringFieldUpdateOperationsInput | string
+  contextPrompt?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
   status?: Prisma.EnumMeetingSessionStatusFieldUpdateOperationsInput | $Enums.MeetingSessionStatus
   summary?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
   createdAt?: Prisma.DateTimeFieldUpdateOperationsInput | Date | string
@@ -977,6 +1016,7 @@ export type DiscoveryMeetingSessionUncheckedUpdateWithoutProfileSuggestionsInput
 export type DiscoveryMeetingSessionCreateWithoutRecapInput = {
   id?: string
   title: string
+  contextPrompt?: string | null
   status?: $Enums.MeetingSessionStatus
   summary?: string | null
   createdAt?: Date | string
@@ -995,6 +1035,7 @@ export type DiscoveryMeetingSessionUncheckedCreateWithoutRecapInput = {
   clientId: string
   advisorUserId: string
   title: string
+  contextPrompt?: string | null
   status?: $Enums.MeetingSessionStatus
   summary?: string | null
   createdAt?: Date | string
@@ -1025,6 +1066,7 @@ export type DiscoveryMeetingSessionUpdateToOneWithWhereWithoutRecapInput = {
 export type DiscoveryMeetingSessionUpdateWithoutRecapInput = {
   id?: Prisma.StringFieldUpdateOperationsInput | string
   title?: Prisma.StringFieldUpdateOperationsInput | string
+  contextPrompt?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
   status?: Prisma.EnumMeetingSessionStatusFieldUpdateOperationsInput | $Enums.MeetingSessionStatus
   summary?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
   createdAt?: Prisma.DateTimeFieldUpdateOperationsInput | Date | string
@@ -1043,6 +1085,7 @@ export type DiscoveryMeetingSessionUncheckedUpdateWithoutRecapInput = {
   clientId?: Prisma.StringFieldUpdateOperationsInput | string
   advisorUserId?: Prisma.StringFieldUpdateOperationsInput | string
   title?: Prisma.StringFieldUpdateOperationsInput | string
+  contextPrompt?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
   status?: Prisma.EnumMeetingSessionStatusFieldUpdateOperationsInput | $Enums.MeetingSessionStatus
   summary?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
   createdAt?: Prisma.DateTimeFieldUpdateOperationsInput | Date | string
@@ -1057,6 +1100,7 @@ export type DiscoveryMeetingSessionUncheckedUpdateWithoutRecapInput = {
 export type DiscoveryMeetingSessionCreateWithoutInvitationsInput = {
   id?: string
   title: string
+  contextPrompt?: string | null
   status?: $Enums.MeetingSessionStatus
   summary?: string | null
   createdAt?: Date | string
@@ -1075,6 +1119,7 @@ export type DiscoveryMeetingSessionUncheckedCreateWithoutInvitationsInput = {
   clientId: string
   advisorUserId: string
   title: string
+  contextPrompt?: string | null
   status?: $Enums.MeetingSessionStatus
   summary?: string | null
   createdAt?: Date | string
@@ -1105,6 +1150,7 @@ export type DiscoveryMeetingSessionUpdateToOneWithWhereWithoutInvitationsInput =
 export type DiscoveryMeetingSessionUpdateWithoutInvitationsInput = {
   id?: Prisma.StringFieldUpdateOperationsInput | string
   title?: Prisma.StringFieldUpdateOperationsInput | string
+  contextPrompt?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
   status?: Prisma.EnumMeetingSessionStatusFieldUpdateOperationsInput | $Enums.MeetingSessionStatus
   summary?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
   createdAt?: Prisma.DateTimeFieldUpdateOperationsInput | Date | string
@@ -1123,6 +1169,7 @@ export type DiscoveryMeetingSessionUncheckedUpdateWithoutInvitationsInput = {
   clientId?: Prisma.StringFieldUpdateOperationsInput | string
   advisorUserId?: Prisma.StringFieldUpdateOperationsInput | string
   title?: Prisma.StringFieldUpdateOperationsInput | string
+  contextPrompt?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
   status?: Prisma.EnumMeetingSessionStatusFieldUpdateOperationsInput | $Enums.MeetingSessionStatus
   summary?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
   createdAt?: Prisma.DateTimeFieldUpdateOperationsInput | Date | string
@@ -1137,6 +1184,7 @@ export type DiscoveryMeetingSessionUncheckedUpdateWithoutInvitationsInput = {
 export type DiscoveryMeetingSessionCreateWithoutLiveCallSessionsInput = {
   id?: string
   title: string
+  contextPrompt?: string | null
   status?: $Enums.MeetingSessionStatus
   summary?: string | null
   createdAt?: Date | string
@@ -1155,6 +1203,7 @@ export type DiscoveryMeetingSessionUncheckedCreateWithoutLiveCallSessionsInput =
   clientId: string
   advisorUserId: string
   title: string
+  contextPrompt?: string | null
   status?: $Enums.MeetingSessionStatus
   summary?: string | null
   createdAt?: Date | string
@@ -1185,6 +1234,7 @@ export type DiscoveryMeetingSessionUpdateToOneWithWhereWithoutLiveCallSessionsIn
 export type DiscoveryMeetingSessionUpdateWithoutLiveCallSessionsInput = {
   id?: Prisma.StringFieldUpdateOperationsInput | string
   title?: Prisma.StringFieldUpdateOperationsInput | string
+  contextPrompt?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
   status?: Prisma.EnumMeetingSessionStatusFieldUpdateOperationsInput | $Enums.MeetingSessionStatus
   summary?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
   createdAt?: Prisma.DateTimeFieldUpdateOperationsInput | Date | string
@@ -1203,6 +1253,7 @@ export type DiscoveryMeetingSessionUncheckedUpdateWithoutLiveCallSessionsInput =
   clientId?: Prisma.StringFieldUpdateOperationsInput | string
   advisorUserId?: Prisma.StringFieldUpdateOperationsInput | string
   title?: Prisma.StringFieldUpdateOperationsInput | string
+  contextPrompt?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
   status?: Prisma.EnumMeetingSessionStatusFieldUpdateOperationsInput | $Enums.MeetingSessionStatus
   summary?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
   createdAt?: Prisma.DateTimeFieldUpdateOperationsInput | Date | string
@@ -1218,6 +1269,7 @@ export type DiscoveryMeetingSessionCreateManyAdvisorInput = {
   id?: string
   clientId: string
   title: string
+  contextPrompt?: string | null
   status?: $Enums.MeetingSessionStatus
   summary?: string | null
   createdAt?: Date | string
@@ -1227,6 +1279,7 @@ export type DiscoveryMeetingSessionCreateManyAdvisorInput = {
 export type DiscoveryMeetingSessionUpdateWithoutAdvisorInput = {
   id?: Prisma.StringFieldUpdateOperationsInput | string
   title?: Prisma.StringFieldUpdateOperationsInput | string
+  contextPrompt?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
   status?: Prisma.EnumMeetingSessionStatusFieldUpdateOperationsInput | $Enums.MeetingSessionStatus
   summary?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
   createdAt?: Prisma.DateTimeFieldUpdateOperationsInput | Date | string
@@ -1244,6 +1297,7 @@ export type DiscoveryMeetingSessionUncheckedUpdateWithoutAdvisorInput = {
   id?: Prisma.StringFieldUpdateOperationsInput | string
   clientId?: Prisma.StringFieldUpdateOperationsInput | string
   title?: Prisma.StringFieldUpdateOperationsInput | string
+  contextPrompt?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
   status?: Prisma.EnumMeetingSessionStatusFieldUpdateOperationsInput | $Enums.MeetingSessionStatus
   summary?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
   createdAt?: Prisma.DateTimeFieldUpdateOperationsInput | Date | string
@@ -1260,6 +1314,7 @@ export type DiscoveryMeetingSessionUncheckedUpdateManyWithoutAdvisorInput = {
   id?: Prisma.StringFieldUpdateOperationsInput | string
   clientId?: Prisma.StringFieldUpdateOperationsInput | string
   title?: Prisma.StringFieldUpdateOperationsInput | string
+  contextPrompt?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
   status?: Prisma.EnumMeetingSessionStatusFieldUpdateOperationsInput | $Enums.MeetingSessionStatus
   summary?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
   createdAt?: Prisma.DateTimeFieldUpdateOperationsInput | Date | string
@@ -1270,6 +1325,7 @@ export type DiscoveryMeetingSessionCreateManyClientInput = {
   id?: string
   advisorUserId: string
   title: string
+  contextPrompt?: string | null
   status?: $Enums.MeetingSessionStatus
   summary?: string | null
   createdAt?: Date | string
@@ -1279,6 +1335,7 @@ export type DiscoveryMeetingSessionCreateManyClientInput = {
 export type DiscoveryMeetingSessionUpdateWithoutClientInput = {
   id?: Prisma.StringFieldUpdateOperationsInput | string
   title?: Prisma.StringFieldUpdateOperationsInput | string
+  contextPrompt?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
   status?: Prisma.EnumMeetingSessionStatusFieldUpdateOperationsInput | $Enums.MeetingSessionStatus
   summary?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
   createdAt?: Prisma.DateTimeFieldUpdateOperationsInput | Date | string
@@ -1296,6 +1353,7 @@ export type DiscoveryMeetingSessionUncheckedUpdateWithoutClientInput = {
   id?: Prisma.StringFieldUpdateOperationsInput | string
   advisorUserId?: Prisma.StringFieldUpdateOperationsInput | string
   title?: Prisma.StringFieldUpdateOperationsInput | string
+  contextPrompt?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
   status?: Prisma.EnumMeetingSessionStatusFieldUpdateOperationsInput | $Enums.MeetingSessionStatus
   summary?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
   createdAt?: Prisma.DateTimeFieldUpdateOperationsInput | Date | string
@@ -1312,6 +1370,7 @@ export type DiscoveryMeetingSessionUncheckedUpdateManyWithoutClientInput = {
   id?: Prisma.StringFieldUpdateOperationsInput | string
   advisorUserId?: Prisma.StringFieldUpdateOperationsInput | string
   title?: Prisma.StringFieldUpdateOperationsInput | string
+  contextPrompt?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
   status?: Prisma.EnumMeetingSessionStatusFieldUpdateOperationsInput | $Enums.MeetingSessionStatus
   summary?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
   createdAt?: Prisma.DateTimeFieldUpdateOperationsInput | Date | string
@@ -1390,6 +1449,7 @@ export type DiscoveryMeetingSessionSelect<ExtArgs extends runtime.Types.Extensio
   clientId?: boolean
   advisorUserId?: boolean
   title?: boolean
+  contextPrompt?: boolean
   status?: boolean
   summary?: boolean
   createdAt?: boolean
@@ -1410,6 +1470,7 @@ export type DiscoveryMeetingSessionSelectCreateManyAndReturn<ExtArgs extends run
   clientId?: boolean
   advisorUserId?: boolean
   title?: boolean
+  contextPrompt?: boolean
   status?: boolean
   summary?: boolean
   createdAt?: boolean
@@ -1423,6 +1484,7 @@ export type DiscoveryMeetingSessionSelectUpdateManyAndReturn<ExtArgs extends run
   clientId?: boolean
   advisorUserId?: boolean
   title?: boolean
+  contextPrompt?: boolean
   status?: boolean
   summary?: boolean
   createdAt?: boolean
@@ -1436,13 +1498,14 @@ export type DiscoveryMeetingSessionSelectScalar = {
   clientId?: boolean
   advisorUserId?: boolean
   title?: boolean
+  contextPrompt?: boolean
   status?: boolean
   summary?: boolean
   createdAt?: boolean
   updatedAt?: boolean
 }
 
-export type DiscoveryMeetingSessionOmit<ExtArgs extends runtime.Types.Extensions.InternalArgs = runtime.Types.Extensions.DefaultArgs> = runtime.Types.Extensions.GetOmit<"id" | "clientId" | "advisorUserId" | "title" | "status" | "summary" | "createdAt" | "updatedAt", ExtArgs["result"]["discoveryMeetingSession"]>
+export type DiscoveryMeetingSessionOmit<ExtArgs extends runtime.Types.Extensions.InternalArgs = runtime.Types.Extensions.DefaultArgs> = runtime.Types.Extensions.GetOmit<"id" | "clientId" | "advisorUserId" | "title" | "contextPrompt" | "status" | "summary" | "createdAt" | "updatedAt", ExtArgs["result"]["discoveryMeetingSession"]>
 export type DiscoveryMeetingSessionInclude<ExtArgs extends runtime.Types.Extensions.InternalArgs = runtime.Types.Extensions.DefaultArgs> = {
   advisor?: boolean | Prisma.UserDefaultArgs<ExtArgs>
   client?: boolean | Prisma.ClientDefaultArgs<ExtArgs>
@@ -1480,6 +1543,7 @@ export type $DiscoveryMeetingSessionPayload<ExtArgs extends runtime.Types.Extens
     clientId: string
     advisorUserId: string
     title: string
+    contextPrompt: string | null
     status: $Enums.MeetingSessionStatus
     summary: string | null
     createdAt: Date
@@ -1919,6 +1983,7 @@ export interface DiscoveryMeetingSessionFieldRefs {
   readonly clientId: Prisma.FieldRef<"DiscoveryMeetingSession", 'String'>
   readonly advisorUserId: Prisma.FieldRef<"DiscoveryMeetingSession", 'String'>
   readonly title: Prisma.FieldRef<"DiscoveryMeetingSession", 'String'>
+  readonly contextPrompt: Prisma.FieldRef<"DiscoveryMeetingSession", 'String'>
   readonly status: Prisma.FieldRef<"DiscoveryMeetingSession", 'MeetingSessionStatus'>
   readonly summary: Prisma.FieldRef<"DiscoveryMeetingSession", 'String'>
   readonly createdAt: Prisma.FieldRef<"DiscoveryMeetingSession", 'DateTime'>

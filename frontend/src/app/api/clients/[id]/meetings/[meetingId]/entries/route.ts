@@ -69,7 +69,12 @@ export async function POST(
     if (role === "question_answer" && questionText) {
       try {
         const extracted = await extractFromSingleAnswer(
-          { questionText, answer: content.trim(), targetFields },
+          {
+            questionText,
+            answer: content.trim(),
+            targetFields,
+            contextPrompt: session.contextPrompt ?? undefined,
+          },
           clientName,
         );
 
@@ -313,7 +318,12 @@ export async function PATCH(
       // Re-extract from updated answer
       try {
         const extracted = await extractFromSingleAnswer(
-          { questionText, answer: content.trim(), targetFields },
+          {
+            questionText,
+            answer: content.trim(),
+            targetFields,
+            contextPrompt: session.contextPrompt ?? undefined,
+          },
           clientName,
         );
 

@@ -15,6 +15,7 @@ export interface MeetingContext {
   conversationSoFar: { role: string; content: string }[];
   previousQuestions?: string[];
   profileSnapshot?: ProfileSnapshot;
+  contextPrompt?: string;
 }
 
 export interface AnsweredQuestion {
@@ -27,6 +28,7 @@ export interface SingleAnswerExtractionInput {
   questionText: string;
   answer: string;
   targetFields?: string[];
+  contextPrompt?: string;
 }
 
 export interface RelatedClient {
@@ -166,6 +168,12 @@ function buildProfileAwarenessBlock(snapshot?: ProfileSnapshot): string {
   return lines.join("\n");
 }
 
+function buildContextPromptBlock(contextPrompt?: string): string {
+  const trimmed = contextPrompt?.trim();
+  if (!trimmed) return "";
+  return `\n--- ADVISOR'S PRE-MEETING CONTEXT ---\nThe advisor wrote this before the meeting to describe what they want to cover:\n"""\n${trimmed}\n"""\nUse this to prioritize what you ask about and what you extract. Stay relevant to this context.\n--- END PRE-MEETING CONTEXT ---\n`;
+}
+
 function questionCountForCompleteness(overallPercent: number): string {
   if (overallPercent < 30) return "5-7";
   if (overallPercent < 70) return "3-5";
@@ -198,6 +206,7 @@ export async function generateMeetingQuestions(
     : "";
 
   const profileBlock = buildProfileAwarenessBlock(context.profileSnapshot);
+  const contextBlock = buildContextPromptBlock(context.contextPrompt);
   const questionCount = context.profileSnapshot
     ? questionCountForCompleteness(context.profileSnapshot.completeness.overallPercent)
     : "5-8";
@@ -205,7 +214,7 @@ export async function generateMeetingQuestions(
   const prompt = `You are a Meeting Copilot for a luxury travel advisor. During a live client discovery meeting, generate the most valuable questions the advisor should ask next.
 
 ${TRAVEL_PREFERENCE_FIELDS}
-${profileBlock}
+${profileBlock}${contextBlock}
 Client: ${context.clientName}
 
 Known preferences:
@@ -299,6 +308,7 @@ export async function generateFollowUpQuestions(
     : "";
 
   const profileBlock = buildProfileAwarenessBlock(context.profileSnapshot);
+  const contextBlock = buildContextPromptBlock(context.contextPrompt);
   const questionCount = context.profileSnapshot
     ? questionCountForCompleteness(context.profileSnapshot.completeness.overallPercent)
     : "4-6";
@@ -306,7 +316,7 @@ export async function generateFollowUpQuestions(
   const prompt = `You are a Meeting Copilot for a luxury travel advisor. The advisor has asked questions and recorded client answers. Now generate the NEXT round of deeper follow-up questions based on what the client revealed.
 
 ${TRAVEL_PREFERENCE_FIELDS}
-${profileBlock}
+${profileBlock}${contextBlock}
 Client: ${context.clientName}
 
 Known preferences:
@@ -385,10 +395,12 @@ export async function extractProfileSuggestions(
         .join("\n")}`
     : "";
 
+  const contextBlock = buildContextPromptBlock(context.contextPrompt);
+
   const prompt = `You are an AI assistant for a luxury travel advisor. Analyze the meeting conversation below and extract COMPREHENSIVE traveler preferences and insights that should be saved to the client profile.
 
 ${TRAVEL_PREFERENCE_FIELDS}
-
+${contextBlock}
 Client: ${context.clientName}
 
 Meeting conversation:
@@ -466,10 +478,12 @@ export async function extractFromSingleAnswer(
     ? `\nThe question was designed to discover these fields: ${input.targetFields.join(", ")}. Focus extraction on these fields, but also extract any other clearly stated preferences.`
     : "";
 
+  const contextBlock = buildContextPromptBlock(input.contextPrompt);
+
   const prompt = `You are a precise preference extraction engine for a luxury travel advisor platform. Extract structured client preferences from a single question-answer pair.
 
 ${TRAVEL_PREFERENCE_FIELDS}
-
+${contextBlock}
 Client: ${clientName}
 
 Question asked: "${input.questionText}"

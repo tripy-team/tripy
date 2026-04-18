@@ -53,11 +53,16 @@ export async function POST(
     const user = await requireAuth(request);
     ({ id: clientId } = await params);
     const body = await request.json();
-    const { title } = body;
+    const { title, contextPrompt } = body;
 
     if (!title || typeof title !== "string" || !title.trim()) {
       return errorResponse("Title is required");
     }
+
+    const trimmedContext =
+      typeof contextPrompt === "string" && contextPrompt.trim()
+        ? contextPrompt.trim()
+        : null;
 
     const client = await prisma.client.findFirst({
       where: { id: clientId, organizationId: user.organizationId },
@@ -69,6 +74,7 @@ export async function POST(
         clientId,
         advisorUserId: user.id,
         title: title.trim(),
+        contextPrompt: trimmedContext,
       },
       include: {
         _count: { select: { entries: true, profileSuggestions: true } },

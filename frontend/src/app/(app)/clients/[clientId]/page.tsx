@@ -303,6 +303,8 @@ export default function ClientDetailPage() {
   const [meetings, setMeetings] = useState<MeetingSession[]>([]);
   const [creatingMeeting, setCreatingMeeting] = useState(false);
   const [meetingTitle, setMeetingTitle] = useState('');
+  const [meetingContextPrompt, setMeetingContextPrompt] = useState('');
+  const [submittingMeeting, setSubmittingMeeting] = useState(false);
 
   const [suggestions, setSuggestions] = useState<FollowUpSuggestion[]>([]);
   const [suggestionsLoading, setSuggestionsLoading] = useState(false);
@@ -2564,60 +2566,110 @@ export default function ClientDetailPage() {
 
       {activeTab === 'discovery' && (
         <>
+          {creatingMeeting && (
+            <div className="fixed inset-0 z-50 flex items-start justify-center overflow-y-auto bg-black/50 p-4 py-8">
+              <div className="relative flex w-full max-w-xl flex-col rounded-2xl bg-white shadow-2xl">
+                <div className="flex items-center justify-between border-b border-slate-200 px-6 py-4">
+                  <h2 className="text-lg font-semibold text-slate-900">New Meeting</h2>
+                  <button
+                    onClick={() => {
+                      if (submittingMeeting) return;
+                      setCreatingMeeting(false);
+                      setMeetingTitle('');
+                      setMeetingContextPrompt('');
+                    }}
+                    className="rounded-lg p-2 text-slate-400 hover:bg-slate-100 hover:text-slate-600"
+                  >
+                    <X className="h-5 w-5" />
+                  </button>
+                </div>
+                <div className="flex flex-col gap-5 px-6 py-6">
+                  <div>
+                    <label className="mb-1.5 block text-xs font-medium text-slate-700">
+                      Meeting title
+                    </label>
+                    <input
+                      type="text"
+                      placeholder="e.g. Discovery call — Italy trip"
+                      value={meetingTitle}
+                      onChange={(e) => setMeetingTitle(e.target.value)}
+                      className="w-full rounded-lg border border-slate-200 px-3 py-2 text-sm focus:border-transparent focus:outline-none focus:ring-2 focus:ring-blue-600"
+                      autoFocus
+                    />
+                  </div>
+                  <div>
+                    <label className="mb-1.5 block text-xs font-medium text-slate-700">
+                      What do you want to cover? <span className="font-normal text-slate-400">(optional)</span>
+                    </label>
+                    <textarea
+                      placeholder="Brief the AI on the meeting's focus — e.g. 'Honeymoon to Japan in May, want to dig into hotel style and food preferences. They fly business and hate red-eyes.'"
+                      value={meetingContextPrompt}
+                      onChange={(e) => setMeetingContextPrompt(e.target.value)}
+                      rows={5}
+                      className="w-full resize-none rounded-lg border border-slate-200 px-3 py-2 text-sm focus:border-transparent focus:outline-none focus:ring-2 focus:ring-blue-600"
+                    />
+                    <p className="mt-1.5 text-[11px] text-slate-500">
+                      This context guides which questions Tripy suggests and what it extracts into the client&apos;s preference profile.
+                    </p>
+                  </div>
+                </div>
+                <div className="flex items-center justify-end gap-2 border-t border-slate-100 px-6 py-4">
+                  <button
+                    onClick={() => {
+                      if (submittingMeeting) return;
+                      setCreatingMeeting(false);
+                      setMeetingTitle('');
+                      setMeetingContextPrompt('');
+                    }}
+                    className="rounded-lg border border-slate-200 px-4 py-2 text-sm text-slate-600 hover:bg-slate-50"
+                  >
+                    Cancel
+                  </button>
+                  <button
+                    onClick={async () => {
+                      if (!meetingTitle.trim() || submittingMeeting) return;
+                      setSubmittingMeeting(true);
+                      try {
+                        const m = await createMeetingSession(
+                          clientId,
+                          meetingTitle.trim(),
+                          meetingContextPrompt.trim() || undefined,
+                        );
+                        setMeetings((prev) => [m, ...prev]);
+                        setMeetingTitle('');
+                        setMeetingContextPrompt('');
+                        setCreatingMeeting(false);
+                        router.push(`/clients/${clientId}/meeting/${m.id}`);
+                      } finally {
+                        setSubmittingMeeting(false);
+                      }
+                    }}
+                    disabled={!meetingTitle.trim() || submittingMeeting}
+                    className="inline-flex items-center gap-1.5 rounded-lg bg-blue-600 px-4 py-2 text-sm font-medium text-white hover:bg-blue-700 disabled:opacity-50"
+                  >
+                    {submittingMeeting ? (
+                      <Loader2 className="h-4 w-4 animate-spin" />
+                    ) : (
+                      <Plus className="h-4 w-4" />
+                    )}
+                    {submittingMeeting ? 'Creating…' : 'Start Meeting'}
+                  </button>
+                </div>
+              </div>
+            </div>
+          )}
           {/* Meetings & Live Calls Section */}
           <div className="mb-6 rounded-xl border border-slate-200 bg-white">
             <div className="flex items-center justify-between border-b border-slate-100 px-5 py-3">
               <h3 className="text-sm font-semibold text-slate-800">Meetings & Live Calls</h3>
               <div className="flex items-center gap-2">
-                {!creatingMeeting ? (
-                  <button
-                    onClick={() => setCreatingMeeting(true)}
-                    className="inline-flex items-center gap-1.5 rounded-lg bg-blue-600 px-3 py-1.5 text-xs font-medium text-white hover:bg-blue-700"
-                  >
-                    <Plus className="h-3.5 w-3.5" />
-                    New Meeting
-                  </button>
-                ) : (
-                  <div className="flex items-center gap-2">
-                    <input
-                      type="text"
-                      placeholder="Meeting title..."
-                      value={meetingTitle}
-                      onChange={(e) => setMeetingTitle(e.target.value)}
-                      onKeyDown={async (e) => {
-                        if (e.key === 'Enter' && meetingTitle.trim()) {
-                          const m = await createMeetingSession(clientId, meetingTitle.trim());
-                          setMeetings((prev) => [m, ...prev]);
-                          setMeetingTitle('');
-                          setCreatingMeeting(false);
-                          router.push(`/clients/${clientId}/meeting/${m.id}`);
-                        }
-                      }}
-                      className="rounded-lg border border-slate-200 px-2.5 py-1.5 text-xs focus:border-transparent focus:outline-none focus:ring-2 focus:ring-blue-600"
-                      autoFocus
-                    />
-                    <button
-                      onClick={async () => {
-                        if (!meetingTitle.trim()) return;
-                        const m = await createMeetingSession(clientId, meetingTitle.trim());
-                        setMeetings((prev) => [m, ...prev]);
-                        setMeetingTitle('');
-                        setCreatingMeeting(false);
-                        router.push(`/clients/${clientId}/meeting/${m.id}`);
-                      }}
-                      disabled={!meetingTitle.trim()}
-                      className="rounded-lg bg-blue-600 px-2.5 py-1.5 text-xs font-medium text-white hover:bg-blue-700 disabled:opacity-50"
-                    >
-                      Create
-                    </button>
-                    <button
-                      onClick={() => { setCreatingMeeting(false); setMeetingTitle(''); }}
-                      className="rounded-lg p-1 text-slate-400 hover:bg-slate-100"
-                    >
-                      <X className="h-3.5 w-3.5" />
-                    </button>
-                  </div>
-                )}
+                <button
+                  onClick={() => setCreatingMeeting(true)}
+                  className="inline-flex items-center gap-1.5 rounded-lg bg-blue-600 px-3 py-1.5 text-xs font-medium text-white hover:bg-blue-700"
+                >
+                  <Plus className="h-3.5 w-3.5" />
+                  New Meeting
+                </button>
               </div>
             </div>
             <div className="px-5 py-3">

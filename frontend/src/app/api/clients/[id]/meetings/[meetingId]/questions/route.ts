@@ -77,6 +77,7 @@ export async function POST(
       })),
       previousQuestions: session.questionSuggestions.map((q) => q.questionText),
       profileSnapshot,
+      contextPrompt: session.contextPrompt ?? undefined,
     };
 
     const questions =

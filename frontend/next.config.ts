@@ -73,6 +73,8 @@ if (process.env.OPENAI_API_KEY) serverEnv.OPENAI_API_KEY = process.env.OPENAI_AP
 if (process.env.SERPAPI_KEY) serverEnv.SERPAPI_KEY = process.env.SERPAPI_KEY;
 if (process.env.SEATS_AERO_API_KEY) serverEnv.SEATS_AERO_API_KEY = process.env.SEATS_AERO_API_KEY;
 if (process.env.AWARDTOOL_API_KEY) serverEnv.AWARDTOOL_API_KEY = process.env.AWARDTOOL_API_KEY;
+if (process.env.LIVEKIT_API_KEY) serverEnv.LIVEKIT_API_KEY = process.env.LIVEKIT_API_KEY;
+if (process.env.LIVEKIT_API_SECRET) serverEnv.LIVEKIT_API_SECRET = process.env.LIVEKIT_API_SECRET;
 
 const nextConfig: NextConfig = {
   env: serverEnv,

@@ -46,6 +46,7 @@ export async function POST(
         role: e.role,
         content: e.content,
       })),
+      contextPrompt: session.contextPrompt ?? undefined,
     };
 
     const suggestions = await extractProfileSuggestions(
