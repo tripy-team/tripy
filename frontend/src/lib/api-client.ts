@@ -828,7 +828,7 @@ export interface WorkflowInfo {
 // ---------------------------------------------------------------------------
 
 export type MeetingSessionStatus = 'active' | 'completed' | 'archived';
-export type MeetingEntryRole = 'advisor_note' | 'question_answer' | 'system';
+export type MeetingEntryRole = 'advisor_note' | 'question_answer' | 'system' | 'live_transcript';
 export type ProfileSuggestionStatus = 'pending' | 'approved' | 'rejected' | 'committed';
 
 export interface MeetingSession {
@@ -2191,6 +2191,93 @@ export function generateMeetingRecap(
   return apiFetch<MeetingRecap>(
     `/clients/${clientId}/meetings/${meetingId}/recap`,
     { method: 'POST' },
+  );
+}
+
+// ---------------------------------------------------------------------------
+// Live Call
+// ---------------------------------------------------------------------------
+
+export type LiveCallStatus = 'waiting' | 'connecting' | 'active' | 'paused' | 'ended';
+
+export interface LiveCallSession {
+  id: string;
+  meetingSessionId: string;
+  status: LiveCallStatus;
+  videoProvider: string;
+  startedAt: string | null;
+  endedAt: string | null;
+  duration: number | null;
+  createdAt: string;
+  updatedAt: string;
+}
+
+export interface LiveCallTranscriptChunk {
+  id: string;
+  liveCallId: string;
+  speaker: string;
+  text: string;
+  startMs: number;
+  endMs: number;
+  confidence: number;
+  processed: boolean;
+  createdAt: string;
+}
+
+export interface LiveCallStopResult extends LiveCallSession {
+  transcriptSaved: number;
+  suggestionsSaved: number;
+}
+
+export interface LiveCallTranscriptResult {
+  liveCall: {
+    id: string;
+    status: LiveCallStatus;
+    startedAt: string | null;
+    endedAt: string | null;
+    duration: number | null;
+  } | null;
+  chunks: LiveCallTranscriptChunk[];
+}
+
+export function startLiveCall(clientId: string, meetingId: string) {
+  return apiFetch<LiveCallSession>(
+    `/clients/${clientId}/meetings/${meetingId}/live/start`,
+    { method: 'POST' },
+  );
+}
+
+export function stopLiveCall(
+  clientId: string,
+  meetingId: string,
+  payload: {
+    transcript?: Array<{
+      speaker: string;
+      text: string;
+      startMs: number;
+      endMs: number;
+      confidence: number;
+    }>;
+    commitReady?: Array<{
+      targetField: string;
+      suggestedValue: unknown;
+      confidence: number;
+      evidence: string;
+    }>;
+  },
+) {
+  return apiFetch<LiveCallStopResult>(
+    `/clients/${clientId}/meetings/${meetingId}/live/stop`,
+    {
+      method: 'POST',
+      body: JSON.stringify(payload),
+    },
+  );
+}
+
+export function getLiveCallTranscript(clientId: string, meetingId: string) {
+  return apiFetch<LiveCallTranscriptResult>(
+    `/clients/${clientId}/meetings/${meetingId}/live/transcript`,
   );
 }
 

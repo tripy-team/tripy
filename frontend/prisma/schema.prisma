@@ -818,6 +818,7 @@ model DiscoveryMeetingSession {
   advisor             User                        @relation(fields: [advisorUserId], references: [id])
   client              Client                      @relation(fields: [clientId], references: [id], onDelete: Cascade)
   entries             MeetingEntry[]
+  liveCallSessions    LiveCallSession[]
   profileSuggestions  MeetingProfileSuggestion[]
   questionSuggestions MeetingQuestionSuggestion[]
   recap               MeetingRecap?
@@ -1326,6 +1327,49 @@ enum MeetingEntryRole {
   advisor_note
   question_answer
   system
+  live_transcript
+}
+
+enum LiveCallStatus {
+  waiting
+  connecting
+  active
+  paused
+  ended
+}
+
+model LiveCallSession {
+  id               String                  @id @default(cuid())
+  meetingSessionId String                  @map("meeting_session_id")
+  status           LiveCallStatus          @default(waiting)
+  videoProvider    String                  @default("webrtc") @map("video_provider")
+  startedAt        DateTime?               @map("started_at")
+  endedAt          DateTime?               @map("ended_at")
+  duration         Int?
+  createdAt        DateTime                @default(now()) @map("created_at")
+  updatedAt        DateTime                @updatedAt @map("updated_at")
+  meetingSession   DiscoveryMeetingSession  @relation(fields: [meetingSessionId], references: [id], onDelete: Cascade)
+  transcriptChunks TranscriptChunk[]
+
+  @@index([meetingSessionId])
+  @@map("live_call_sessions")
+}
+
+model TranscriptChunk {
+  id         String          @id @default(cuid())
+  liveCallId String          @map("live_call_id")
+  speaker    String
+  text       String
+  startMs    Int             @map("start_ms")
+  endMs      Int             @map("end_ms")
+  confidence Float           @default(0)
+  processed  Boolean         @default(false)
+  createdAt  DateTime        @default(now()) @map("created_at")
+  liveCall   LiveCallSession @relation(fields: [liveCallId], references: [id], onDelete: Cascade)
+
+  @@index([liveCallId])
+  @@index([liveCallId, processed])
+  @@map("transcript_chunks")
 }
 
 enum ProfileSuggestionStatus {

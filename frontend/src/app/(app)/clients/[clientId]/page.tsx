@@ -44,6 +44,7 @@ import {
   UserPlus,
   Hash,
   Minus,
+  Video,
 } from 'lucide-react';
 import {
   getClient,
@@ -2562,14 +2563,122 @@ export default function ClientDetailPage() {
       )}
 
       {activeTab === 'discovery' && (
-        <FormsTab
-          client={client}
-          clientId={clientId}
-          intakes={intakes}
-          setIntakes={setIntakes}
-          trips={trips}
-          onTripCreated={(trip) => setTrips((prev) => [trip, ...prev])}
-        />
+        <>
+          {/* Meetings & Live Calls Section */}
+          <div className="mb-6 rounded-xl border border-slate-200 bg-white">
+            <div className="flex items-center justify-between border-b border-slate-100 px-5 py-3">
+              <h3 className="text-sm font-semibold text-slate-800">Meetings & Live Calls</h3>
+              <div className="flex items-center gap-2">
+                {!creatingMeeting ? (
+                  <button
+                    onClick={() => setCreatingMeeting(true)}
+                    className="inline-flex items-center gap-1.5 rounded-lg bg-blue-600 px-3 py-1.5 text-xs font-medium text-white hover:bg-blue-700"
+                  >
+                    <Plus className="h-3.5 w-3.5" />
+                    New Meeting
+                  </button>
+                ) : (
+                  <div className="flex items-center gap-2">
+                    <input
+                      type="text"
+                      placeholder="Meeting title..."
+                      value={meetingTitle}
+                      onChange={(e) => setMeetingTitle(e.target.value)}
+                      onKeyDown={async (e) => {
+                        if (e.key === 'Enter' && meetingTitle.trim()) {
+                          const m = await createMeetingSession(clientId, meetingTitle.trim());
+                          setMeetings((prev) => [m, ...prev]);
+                          setMeetingTitle('');
+                          setCreatingMeeting(false);
+                          router.push(`/clients/${clientId}/meeting/${m.id}`);
+                        }
+                      }}
+                      className="rounded-lg border border-slate-200 px-2.5 py-1.5 text-xs focus:border-transparent focus:outline-none focus:ring-2 focus:ring-blue-600"
+                      autoFocus
+                    />
+                    <button
+                      onClick={async () => {
+                        if (!meetingTitle.trim()) return;
+                        const m = await createMeetingSession(clientId, meetingTitle.trim());
+                        setMeetings((prev) => [m, ...prev]);
+                        setMeetingTitle('');
+                        setCreatingMeeting(false);
+                        router.push(`/clients/${clientId}/meeting/${m.id}`);
+                      }}
+                      disabled={!meetingTitle.trim()}
+                      className="rounded-lg bg-blue-600 px-2.5 py-1.5 text-xs font-medium text-white hover:bg-blue-700 disabled:opacity-50"
+                    >
+                      Create
+                    </button>
+                    <button
+                      onClick={() => { setCreatingMeeting(false); setMeetingTitle(''); }}
+                      className="rounded-lg p-1 text-slate-400 hover:bg-slate-100"
+                    >
+                      <X className="h-3.5 w-3.5" />
+                    </button>
+                  </div>
+                )}
+              </div>
+            </div>
+            <div className="px-5 py-3">
+              {meetings.length === 0 ? (
+                <p className="py-4 text-center text-xs text-slate-400">
+                  No meetings yet. Start one to discover client preferences with AI assistance.
+                </p>
+              ) : (
+                <div className="space-y-2">
+                  {meetings.map((m) => (
+                    <div
+                      key={m.id}
+                      className="flex items-center justify-between rounded-lg border border-slate-100 px-4 py-2.5 hover:bg-slate-50"
+                    >
+                      <div>
+                        <Link
+                          href={`/clients/${clientId}/meeting/${m.id}`}
+                          className="text-sm font-medium text-blue-600 hover:text-blue-700"
+                        >
+                          {m.title}
+                        </Link>
+                        <p className="text-[10px] text-slate-400">
+                          {new Date(m.createdAt).toLocaleDateString()} &middot;{' '}
+                          {m._count?.entries ?? 0} entries &middot;{' '}
+                          {m._count?.profileSuggestions ?? 0} insights
+                        </p>
+                      </div>
+                      <div className="flex items-center gap-2">
+                        <span
+                          className={`rounded-full px-2 py-0.5 text-[10px] font-medium ${
+                            m.status === 'active'
+                              ? 'bg-green-50 text-green-700'
+                              : 'bg-slate-100 text-slate-500'
+                          }`}
+                        >
+                          {m.status}
+                        </span>
+                        <Link
+                          href={`/clients/${clientId}/meeting/${m.id}`}
+                          className="inline-flex items-center gap-1 rounded-lg bg-emerald-50 px-2.5 py-1 text-[10px] font-medium text-emerald-700 hover:bg-emerald-100"
+                        >
+                          <Video className="h-3 w-3" />
+                          Open
+                        </Link>
+                      </div>
+                    </div>
+                  ))}
+                </div>
+              )}
+            </div>
+          </div>
+
+          <FormsTab
+            client={client}
+            clientId={clientId}
+            intakes={intakes}
+            setIntakes={setIntakes}
+            trips={trips}
+            onTripCreated={(trip) => setTrips((prev) => [trip, ...prev])}
+          />
+        </>
       )}
 
       {/* ── Proposal Creation Modal ── */}

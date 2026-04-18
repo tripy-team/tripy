@@ -1,7 +1,7 @@
 'use client';
 
 import { useState, useEffect, useCallback, useRef, useMemo } from 'react';
-import { useParams, useRouter } from 'next/navigation';
+import { useParams, useRouter, useSearchParams } from 'next/navigation';
 import Link from 'next/link';
 import {
   ArrowLeft,
@@ -24,6 +24,7 @@ import {
   AlertTriangle,
   CircleCheck,
   Pencil,
+  Video,
 } from 'lucide-react';
 import {
   getMeetingSession,
@@ -37,6 +38,8 @@ import {
   generateMeetingRecap,
   updateMeetingSession,
   getClientPreferences,
+  startLiveCall,
+  stopLiveCall,
 } from '@/lib/api-client';
 import type {
   MeetingSession,
@@ -50,14 +53,24 @@ import type {
 } from '@/lib/api-client';
 import { computeProfileCompleteness, type ProfileCompletenessResult } from '@/lib/profile-completeness';
 import { getAllProfileFields, getCriticalFields, getFieldsByCategory, getFieldLabel } from '@/lib/profile-fields';
+import LiveCallView from '@/components/live-call/LiveCallView';
+import type { LiveCallConfig } from '@/components/live-call/LiveCallView';
+import type { FinalEvent } from '@/lib/cactus-ws';
 
 type Panel = 'questions' | 'suggestions' | 'recap' | 'profile';
+type MeetingMode = 'notes' | 'live-call';
 
 export default function MeetingCopilotPage() {
   const params = useParams();
   const router = useRouter();
+  const searchParams = useSearchParams();
   const clientId = params.clientId as string;
   const meetingId = params.meetingId as string;
+
+  // Trip context from URL params (when navigated from trips page)
+  const tripId = searchParams.get('tripId');
+  const tripDestinations = searchParams.get('destinations');
+  const tripDates = searchParams.get('dates');
 
   const [session, setSession] = useState<MeetingSession | null>(null);
   const [entries, setEntries] = useState<MeetingEntryItem[]>([]);
@@ -86,6 +99,73 @@ export default function MeetingCopilotPage() {
 
   const [newQuestionsToast, setNewQuestionsToast] = useState<number | null>(null);
   const [newExtractionsToast, setNewExtractionsToast] = useState<number | null>(null);
+
+  // Live call state — auto-open live call when navigated from trips page
+  const [meetingMode, setMeetingMode] = useState<MeetingMode>(tripId ? 'live-call' : 'notes');
+
+  const cactusWsUrl = process.env.NEXT_PUBLIC_CACTUS_WS_URL || 'ws://localhost:8765/ws/live-transcribe';
+
+  const liveCallConfig: LiveCallConfig | null = session
+    ? {
+        clientId,
+        meetingId,
+        clientName: session.title,
+        existingPreferences: clientPreferences
+          ? (JSON.parse(JSON.stringify(clientPreferences)) as Record<string, unknown>)
+          : {},
+        cactusWsUrl,
+        tripContext: tripId
+          ? {
+              destinations: tripDestinations || '',
+              travelDates: tripDates || '',
+              travelerNames: session.title,
+              status: 'planning',
+            }
+          : null,
+      }
+    : null;
+
+  const handleLiveCallEnd = useCallback(
+    async (finalData: FinalEvent) => {
+      // Persist transcript and suggestions via the stop endpoint
+      try {
+        await stopLiveCall(clientId, meetingId, {
+          transcript: finalData.transcript.map((c) => ({
+            speaker: c.speaker,
+            text: c.text,
+            startMs: c.startMs,
+            endMs: c.endMs,
+            confidence: c.confidence,
+          })),
+          commitReady: finalData.commitReady,
+        });
+        // Reload the session to get new entries and suggestions
+        loadSession();
+      } catch (err) {
+        console.error('Failed to save live call data:', err);
+      }
+    },
+    [clientId, meetingId],
+  );
+
+  const handleCommitLiveSuggestions = useCallback(
+    async (commitReadySuggestions: FinalEvent['commitReady']) => {
+      // The suggestions were already persisted by stopLiveCall.
+      // Now commit them via the existing commit flow.
+      try {
+        await commitMeetingSuggestions(clientId, meetingId);
+        // Refresh preferences
+        const prefs = await getClientPreferences(clientId).catch(() => null);
+        setClientPreferences(prefs);
+        // Switch back to notes mode to see the updated state
+        setMeetingMode('notes');
+        loadSession();
+      } catch (err) {
+        console.error('Failed to commit live call suggestions:', err);
+      }
+    },
+    [clientId, meetingId],
+  );
   const [profileAutoSavedToast, setProfileAutoSavedToast] = useState<string[] | null>(null);
 
   const entriesEndRef = useRef<HTMLDivElement>(null);
@@ -462,6 +542,26 @@ export default function MeetingCopilotPage() {
           </div>
         </div>
         <div className="flex items-center gap-2">
+          {isActive && meetingMode === 'notes' && (
+            <button
+              onClick={() => {
+                startLiveCall(clientId, meetingId).catch(console.error);
+                setMeetingMode('live-call');
+              }}
+              className="inline-flex items-center gap-1.5 rounded-lg bg-emerald-600 px-3 py-1.5 text-xs font-medium text-white hover:bg-emerald-700"
+            >
+              <Video className="h-3.5 w-3.5" />
+              Start Live Call
+            </button>
+          )}
+          {isActive && meetingMode === 'live-call' && (
+            <button
+              onClick={() => setMeetingMode('notes')}
+              className="rounded-lg border border-slate-200 px-3 py-1.5 text-xs font-medium text-slate-600 hover:bg-slate-50"
+            >
+              Back to Notes
+            </button>
+          )}
           {isActive && (
             <button
               onClick={handleEndMeeting}
@@ -485,7 +585,19 @@ export default function MeetingCopilotPage() {
         </div>
       </div>
 
-      {/* Main layout: two columns */}
+      {/* Live Call Mode */}
+      {meetingMode === 'live-call' && liveCallConfig && (
+        <div className="flex-1 overflow-hidden">
+          <LiveCallView
+            config={liveCallConfig}
+            onCallEnd={handleLiveCallEnd}
+            onCommitSuggestions={handleCommitLiveSuggestions}
+          />
+        </div>
+      )}
+
+      {/* Notes Mode: Main layout two columns */}
+      {meetingMode === 'notes' && (
       <div className="flex flex-1 overflow-hidden">
         {/* Left: Conversation */}
         <div className="flex w-1/2 flex-col border-r border-slate-200">
@@ -716,6 +828,7 @@ export default function MeetingCopilotPage() {
           </div>
         </div>
       </div>
+      )}
 
       {/* Save to Profile Modal */}
       {showCommitModal && commitPreview && (
