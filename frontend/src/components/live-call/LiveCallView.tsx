@@ -17,6 +17,14 @@ import type {
   ReactiveQuestion,
   FinalEvent,
 } from '@/lib/cactus-ws';
+import { VideoFrameCapture } from '@/lib/video-frame-capture';
+import {
+  LiveKitSession,
+  buildJoinUrl,
+  buildRoomName,
+  fetchAdvisorToken,
+} from '@/lib/livekit-room';
+import { startLiveCall, stopLiveCall } from '@/lib/live-call-api';
 
 export interface LiveCallConfig {
   clientId: string;
@@ -72,7 +80,21 @@ export default function LiveCallView({
   // Refs for cleanup
   const cactusClientRef = useRef<CactusWSClient | null>(null);
   const localCaptureRef = useRef<AudioCapturePipeline | null>(null);
+  const remoteCaptureRef = useRef<AudioCapturePipeline | null>(null);
+  const videoFrameCaptureRef = useRef<VideoFrameCapture | null>(null);
+  const livekitSessionRef = useRef<LiveKitSession | null>(null);
   const durationIntervalRef = useRef<ReturnType<typeof setInterval> | null>(null);
+
+  // Gemma 4 vision
+  const [visualInsight, setVisualInsight] = useState<string | null>(null);
+
+  // LiveKit
+  const [joinLink, setJoinLink] = useState<string | null>(null);
+  const [linkCopied, setLinkCopied] = useState(false);
+  const roomNameRef = useRef<string>(
+    buildRoomName(config.clientId, config.meetingId),
+  );
+  const liveCallIdRef = useRef<string | null>(null);
 
   // New question/extraction toast
   const [newQuestionCount, setNewQuestionCount] = useState<number | null>(null);
@@ -110,18 +132,35 @@ export default function LiveCallView({
     setPhase('connecting');
 
     try {
-      // Get local media
-      const stream = await navigator.mediaDevices.getUserMedia({
-        video: true,
-        audio: true,
-      });
-      setLocalStream(stream);
-
-      if (localVideoRef.current) {
-        localVideoRef.current.srcObject = stream;
+      const livekitUrl = process.env.NEXT_PUBLIC_LIVEKIT_URL;
+      if (!livekitUrl) {
+        throw new Error(
+          'NEXT_PUBLIC_LIVEKIT_URL is not set. Check frontend/.env.local',
+        );
       }
 
-      // Connect to Cactus WebSocket
+      // 1. Persist the session row so transcript chunks can be saved later
+      try {
+        const started = await startLiveCall(config.clientId, config.meetingId);
+        liveCallIdRef.current = started.id;
+      } catch (e) {
+        console.warn('[LiveCallView] startLiveCall failed; continuing', e);
+      }
+
+      // 2. Mint LiveKit token (auth'd, verifies advisor owns the client)
+      const roomName = roomNameRef.current;
+      const { token, joinLink: signedParts } = await fetchAdvisorToken({
+        roomName,
+        participantName: 'Advisor',
+        clientId: config.clientId,
+      });
+
+      // 3. Generate a signed shareable link for the client (shown in the UI below)
+      setJoinLink(buildJoinUrl(roomName, config.clientName, signedParts));
+
+      // 4. Connect to the Cactus WS up front so it's ready when remote audio
+      //    starts flowing. Remote audio (the client's voice) is piped in, not
+      //    the advisor's mic.
       const cactusClient = new CactusWSClient({
         url: config.cactusWsUrl,
         clientName: config.clientName,
@@ -132,7 +171,7 @@ export default function LiveCallView({
         },
         onExtraction: (exts) => {
           setExtractions((prev) => [...prev, ...exts]);
-          setContradictions([]); // Will be updated from final data
+          setContradictions([]);
           setNewExtractionCount(exts.length);
         },
         onQuestions: (qs) => {
@@ -155,12 +194,10 @@ export default function LiveCallView({
           setCactusStatus(status);
           if (status === 'ready') {
             setPhase('active');
-
-            // Start audio capture pipeline
-            const localCapture = new AudioCapturePipeline('local');
-            localCapture.start(stream, cactusClient.socket!);
-            localCaptureRef.current = localCapture;
           }
+        },
+        onVisualInsight: (insight) => {
+          setVisualInsight(insight);
         },
         onError: (err) => {
           console.error('Cactus WS error:', err);
@@ -173,6 +210,63 @@ export default function LiveCallView({
 
       cactusClient.connect();
       cactusClientRef.current = cactusClient;
+
+      // 5. Join the LiveKit room — publishes advisor's mic+camera and sets up
+      //    handlers for when the client's tracks arrive.
+      const lkSession = new LiveKitSession();
+      livekitSessionRef.current = lkSession;
+
+      await lkSession.connect(livekitUrl, token, {
+        onConnected: () => {
+          const localPreview = lkSession.getLocalPreviewStream();
+          if (localPreview) {
+            setLocalStream(localPreview);
+            if (localVideoRef.current) {
+              localVideoRef.current.srcObject = localPreview;
+            }
+          }
+        },
+        onRemoteAudio: (remoteAudioStream) => {
+          // This is the CLIENT's voice — pipe straight into Gemma 4
+          if (!cactusClient.socket) return;
+          if (remoteCaptureRef.current) {
+            remoteCaptureRef.current.stop();
+          }
+          const capture = new AudioCapturePipeline('remote');
+          void capture.start(remoteAudioStream, cactusClient.socket);
+          remoteCaptureRef.current = capture;
+        },
+        onRemoteVideo: (videoEl) => {
+          // Attach the client's video to the big tile
+          if (remoteVideoRef.current) {
+            remoteVideoRef.current.srcObject = videoEl.srcObject;
+            void remoteVideoRef.current.play().catch(() => {});
+          }
+          setHasRemoteVideo(true);
+
+          // Start Gemma 4 vision frame capture on the CLIENT's video
+          if (videoFrameCaptureRef.current) {
+            videoFrameCaptureRef.current.stop();
+          }
+          const frameCapture = new VideoFrameCapture(
+            remoteVideoRef.current ?? videoEl,
+            (dataUrl) => cactusClient.sendVideoFrame(dataUrl),
+            { intervalMs: 5000, maxWidth: 512, quality: 0.7 },
+          );
+          frameCapture.start();
+          videoFrameCaptureRef.current = frameCapture;
+        },
+        onRemoteDisconnect: () => {
+          setHasRemoteVideo(false);
+          remoteCaptureRef.current?.stop();
+          remoteCaptureRef.current = null;
+          videoFrameCaptureRef.current?.stop();
+          videoFrameCaptureRef.current = null;
+        },
+        onError: (err) => {
+          console.error('LiveKit error:', err);
+        },
+      });
     } catch (err) {
       console.error('Failed to start call:', err);
       setPhase('setup');
@@ -180,53 +274,55 @@ export default function LiveCallView({
   }, [config]);
 
   const endCall = useCallback(() => {
-    // Stop audio capture
-    if (localCaptureRef.current) {
-      localCaptureRef.current.stop();
-      localCaptureRef.current = null;
-    }
+    remoteCaptureRef.current?.stop();
+    remoteCaptureRef.current = null;
+    localCaptureRef.current?.stop();
+    localCaptureRef.current = null;
+    videoFrameCaptureRef.current?.stop();
+    videoFrameCaptureRef.current = null;
 
-    // Send stop to Cactus and wait for final data
-    if (cactusClientRef.current) {
-      cactusClientRef.current.sendStop();
-    }
+    cactusClientRef.current?.sendStop();
 
-    // Stop local media
+    void livekitSessionRef.current?.disconnect();
+    livekitSessionRef.current = null;
+
     if (localStream) {
       localStream.getTracks().forEach((t) => t.stop());
       setLocalStream(null);
     }
 
-    // Stop duration timer
     if (durationIntervalRef.current) {
       clearInterval(durationIntervalRef.current);
+    }
+
+    // Persist session results so they survive tab close. Fire-and-forget:
+    // even if this fails, the UI continues to the PostCallReview phase so
+    // the advisor can still see what Gemma captured in-memory.
+    if (liveCallIdRef.current) {
+      const snapshot: { transcript: typeof transcript; commitReady: FinalEvent['commitReady'] } = {
+        transcript,
+        commitReady: finalData?.commitReady ?? [],
+      };
+      void stopLiveCall(config.clientId, config.meetingId, snapshot);
     }
 
     setPhase('ended');
     if (finalData) {
       onCallEnd(finalData);
     }
-  }, [localStream, finalData, onCallEnd]);
+  }, [localStream, finalData, transcript, config.clientId, config.meetingId, onCallEnd]);
 
   const toggleMute = useCallback(() => {
-    if (localStream) {
-      const audioTrack = localStream.getAudioTracks()[0];
-      if (audioTrack) {
-        audioTrack.enabled = !audioTrack.enabled;
-        setIsMuted(!audioTrack.enabled);
-      }
-    }
-  }, [localStream]);
+    const next = !isMuted;
+    livekitSessionRef.current?.setMicEnabled(!next);
+    setIsMuted(next);
+  }, [isMuted]);
 
   const toggleCamera = useCallback(() => {
-    if (localStream) {
-      const videoTrack = localStream.getVideoTracks()[0];
-      if (videoTrack) {
-        videoTrack.enabled = !videoTrack.enabled;
-        setIsCameraOff(!videoTrack.enabled);
-      }
-    }
-  }, [localStream]);
+    const next = !isCameraOff;
+    livekitSessionRef.current?.setCameraEnabled(!next);
+    setIsCameraOff(next);
+  }, [isCameraOff]);
 
   const togglePause = useCallback(() => {
     if (localCaptureRef.current) {
@@ -259,8 +355,11 @@ export default function LiveCallView({
   // Cleanup on unmount
   useEffect(() => {
     return () => {
+      remoteCaptureRef.current?.stop();
       localCaptureRef.current?.stop();
+      videoFrameCaptureRef.current?.stop();
       cactusClientRef.current?.disconnect();
+      void livekitSessionRef.current?.disconnect();
       if (localStream) {
         localStream.getTracks().forEach((t) => t.stop());
       }
@@ -388,6 +487,42 @@ export default function LiveCallView({
                 className="h-full w-full object-cover"
               />
             </div>
+
+            {/* Gemma 4 vision insight strip */}
+            {visualInsight && (
+              <div className="absolute left-3 top-3 max-w-[70%] rounded-md bg-black/60 px-2 py-1 text-[11px] font-medium text-emerald-200 backdrop-blur-sm">
+                <span className="mr-1 font-bold text-emerald-300">Gemma 4</span>
+                {visualInsight}
+              </div>
+            )}
+
+            {/* Shareable client join link — visible while waiting for the client */}
+            {joinLink && !hasRemoteVideo && (
+              <div className="absolute bottom-3 left-3 max-w-[80%] rounded-md bg-black/70 px-3 py-2 text-[11px] text-slate-100 backdrop-blur-sm">
+                <div className="mb-1 font-semibold text-blue-300">
+                  Send this link to {config.clientName}:
+                </div>
+                <div className="flex items-center gap-2">
+                  <code className="truncate rounded bg-slate-800 px-2 py-0.5 text-[10px] text-slate-200">
+                    {joinLink}
+                  </code>
+                  <button
+                    onClick={async () => {
+                      try {
+                        await navigator.clipboard.writeText(joinLink);
+                        setLinkCopied(true);
+                        setTimeout(() => setLinkCopied(false), 2000);
+                      } catch {
+                        /* ignore clipboard errors */
+                      }
+                    }}
+                    className="rounded bg-blue-600 px-2 py-0.5 text-[10px] font-medium text-white hover:bg-blue-700"
+                  >
+                    {linkCopied ? 'Copied!' : 'Copy'}
+                  </button>
+                </div>
+              </div>
+            )}
           </div>
 
           {/* Call controls */}

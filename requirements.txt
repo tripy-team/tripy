@@ -36,5 +36,9 @@ openai
 SerpAPI
 beautifulsoup4
 rapidfuzz>=3.0.0
-pulp>=2.7.0 
+pulp>=2.7.0
+
+# Gemma 4 cloud fallback for the Cactus live-call engines (uses OpenAI;
+# `openai` is already pinned above).
+
 

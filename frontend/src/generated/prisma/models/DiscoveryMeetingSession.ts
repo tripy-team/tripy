@@ -209,6 +209,7 @@ export type DiscoveryMeetingSessionWhereInput = {
   advisor?: Prisma.XOR<Prisma.UserScalarRelationFilter, Prisma.UserWhereInput>
   client?: Prisma.XOR<Prisma.ClientScalarRelationFilter, Prisma.ClientWhereInput>
   entries?: Prisma.MeetingEntryListRelationFilter
+  liveCallSessions?: Prisma.LiveCallSessionListRelationFilter
   profileSuggestions?: Prisma.MeetingProfileSuggestionListRelationFilter
   questionSuggestions?: Prisma.MeetingQuestionSuggestionListRelationFilter
   recap?: Prisma.XOR<Prisma.MeetingRecapNullableScalarRelationFilter, Prisma.MeetingRecapWhereInput> | null
@@ -226,6 +227,7 @@ export type DiscoveryMeetingSessionOrderByWithRelationInput = {
   advisor?: Prisma.UserOrderByWithRelationInput
   client?: Prisma.ClientOrderByWithRelationInput
   entries?: Prisma.MeetingEntryOrderByRelationAggregateInput
+  liveCallSessions?: Prisma.LiveCallSessionOrderByRelationAggregateInput
   profileSuggestions?: Prisma.MeetingProfileSuggestionOrderByRelationAggregateInput
   questionSuggestions?: Prisma.MeetingQuestionSuggestionOrderByRelationAggregateInput
   recap?: Prisma.MeetingRecapOrderByWithRelationInput
@@ -246,6 +248,7 @@ export type DiscoveryMeetingSessionWhereUniqueInput = Prisma.AtLeast<{
   advisor?: Prisma.XOR<Prisma.UserScalarRelationFilter, Prisma.UserWhereInput>
   client?: Prisma.XOR<Prisma.ClientScalarRelationFilter, Prisma.ClientWhereInput>
   entries?: Prisma.MeetingEntryListRelationFilter
+  liveCallSessions?: Prisma.LiveCallSessionListRelationFilter
   profileSuggestions?: Prisma.MeetingProfileSuggestionListRelationFilter
   questionSuggestions?: Prisma.MeetingQuestionSuggestionListRelationFilter
   recap?: Prisma.XOR<Prisma.MeetingRecapNullableScalarRelationFilter, Prisma.MeetingRecapWhereInput> | null
@@ -289,6 +292,7 @@ export type DiscoveryMeetingSessionCreateInput = {
   advisor: Prisma.UserCreateNestedOneWithoutMeetingSessionsInput
   client: Prisma.ClientCreateNestedOneWithoutMeetingSessionsInput
   entries?: Prisma.MeetingEntryCreateNestedManyWithoutSessionInput
+  liveCallSessions?: Prisma.LiveCallSessionCreateNestedManyWithoutMeetingSessionInput
   profileSuggestions?: Prisma.MeetingProfileSuggestionCreateNestedManyWithoutSessionInput
   questionSuggestions?: Prisma.MeetingQuestionSuggestionCreateNestedManyWithoutSessionInput
   recap?: Prisma.MeetingRecapCreateNestedOneWithoutSessionInput
@@ -304,6 +308,7 @@ export type DiscoveryMeetingSessionUncheckedCreateInput = {
   createdAt?: Date | string
   updatedAt?: Date | string
   entries?: Prisma.MeetingEntryUncheckedCreateNestedManyWithoutSessionInput
+  liveCallSessions?: Prisma.LiveCallSessionUncheckedCreateNestedManyWithoutMeetingSessionInput
   profileSuggestions?: Prisma.MeetingProfileSuggestionUncheckedCreateNestedManyWithoutSessionInput
   questionSuggestions?: Prisma.MeetingQuestionSuggestionUncheckedCreateNestedManyWithoutSessionInput
   recap?: Prisma.MeetingRecapUncheckedCreateNestedOneWithoutSessionInput
@@ -319,6 +324,7 @@ export type DiscoveryMeetingSessionUpdateInput = {
   advisor?: Prisma.UserUpdateOneRequiredWithoutMeetingSessionsNestedInput
   client?: Prisma.ClientUpdateOneRequiredWithoutMeetingSessionsNestedInput
   entries?: Prisma.MeetingEntryUpdateManyWithoutSessionNestedInput
+  liveCallSessions?: Prisma.LiveCallSessionUpdateManyWithoutMeetingSessionNestedInput
   profileSuggestions?: Prisma.MeetingProfileSuggestionUpdateManyWithoutSessionNestedInput
   questionSuggestions?: Prisma.MeetingQuestionSuggestionUpdateManyWithoutSessionNestedInput
   recap?: Prisma.MeetingRecapUpdateOneWithoutSessionNestedInput
@@ -334,6 +340,7 @@ export type DiscoveryMeetingSessionUncheckedUpdateInput = {
   createdAt?: Prisma.DateTimeFieldUpdateOperationsInput | Date | string
   updatedAt?: Prisma.DateTimeFieldUpdateOperationsInput | Date | string
   entries?: Prisma.MeetingEntryUncheckedUpdateManyWithoutSessionNestedInput
+  liveCallSessions?: Prisma.LiveCallSessionUncheckedUpdateManyWithoutMeetingSessionNestedInput
   profileSuggestions?: Prisma.MeetingProfileSuggestionUncheckedUpdateManyWithoutSessionNestedInput
   questionSuggestions?: Prisma.MeetingQuestionSuggestionUncheckedUpdateManyWithoutSessionNestedInput
   recap?: Prisma.MeetingRecapUncheckedUpdateOneWithoutSessionNestedInput
@@ -562,6 +569,20 @@ export type DiscoveryMeetingSessionUpdateOneRequiredWithoutRecapNestedInput = {
   update?: Prisma.XOR<Prisma.XOR<Prisma.DiscoveryMeetingSessionUpdateToOneWithWhereWithoutRecapInput, Prisma.DiscoveryMeetingSessionUpdateWithoutRecapInput>, Prisma.DiscoveryMeetingSessionUncheckedUpdateWithoutRecapInput>
 }
 
+export type DiscoveryMeetingSessionCreateNestedOneWithoutLiveCallSessionsInput = {
+  create?: Prisma.XOR<Prisma.DiscoveryMeetingSessionCreateWithoutLiveCallSessionsInput, Prisma.DiscoveryMeetingSessionUncheckedCreateWithoutLiveCallSessionsInput>
+  connectOrCreate?: Prisma.DiscoveryMeetingSessionCreateOrConnectWithoutLiveCallSessionsInput
+  connect?: Prisma.DiscoveryMeetingSessionWhereUniqueInput
+}
+
+export type DiscoveryMeetingSessionUpdateOneRequiredWithoutLiveCallSessionsNestedInput = {
+  create?: Prisma.XOR<Prisma.DiscoveryMeetingSessionCreateWithoutLiveCallSessionsInput, Prisma.DiscoveryMeetingSessionUncheckedCreateWithoutLiveCallSessionsInput>
+  connectOrCreate?: Prisma.DiscoveryMeetingSessionCreateOrConnectWithoutLiveCallSessionsInput
+  upsert?: Prisma.DiscoveryMeetingSessionUpsertWithoutLiveCallSessionsInput
+  connect?: Prisma.DiscoveryMeetingSessionWhereUniqueInput
+  update?: Prisma.XOR<Prisma.XOR<Prisma.DiscoveryMeetingSessionUpdateToOneWithWhereWithoutLiveCallSessionsInput, Prisma.DiscoveryMeetingSessionUpdateWithoutLiveCallSessionsInput>, Prisma.DiscoveryMeetingSessionUncheckedUpdateWithoutLiveCallSessionsInput>
+}
+
 export type DiscoveryMeetingSessionCreateWithoutAdvisorInput = {
   id?: string
   title: string
@@ -571,6 +592,7 @@ export type DiscoveryMeetingSessionCreateWithoutAdvisorInput = {
   updatedAt?: Date | string
   client: Prisma.ClientCreateNestedOneWithoutMeetingSessionsInput
   entries?: Prisma.MeetingEntryCreateNestedManyWithoutSessionInput
+  liveCallSessions?: Prisma.LiveCallSessionCreateNestedManyWithoutMeetingSessionInput
   profileSuggestions?: Prisma.MeetingProfileSuggestionCreateNestedManyWithoutSessionInput
   questionSuggestions?: Prisma.MeetingQuestionSuggestionCreateNestedManyWithoutSessionInput
   recap?: Prisma.MeetingRecapCreateNestedOneWithoutSessionInput
@@ -585,6 +607,7 @@ export type DiscoveryMeetingSessionUncheckedCreateWithoutAdvisorInput = {
   createdAt?: Date | string
   updatedAt?: Date | string
   entries?: Prisma.MeetingEntryUncheckedCreateNestedManyWithoutSessionInput
+  liveCallSessions?: Prisma.LiveCallSessionUncheckedCreateNestedManyWithoutMeetingSessionInput
   profileSuggestions?: Prisma.MeetingProfileSuggestionUncheckedCreateNestedManyWithoutSessionInput
   questionSuggestions?: Prisma.MeetingQuestionSuggestionUncheckedCreateNestedManyWithoutSessionInput
   recap?: Prisma.MeetingRecapUncheckedCreateNestedOneWithoutSessionInput
@@ -639,6 +662,7 @@ export type DiscoveryMeetingSessionCreateWithoutClientInput = {
   updatedAt?: Date | string
   advisor: Prisma.UserCreateNestedOneWithoutMeetingSessionsInput
   entries?: Prisma.MeetingEntryCreateNestedManyWithoutSessionInput
+  liveCallSessions?: Prisma.LiveCallSessionCreateNestedManyWithoutMeetingSessionInput
   profileSuggestions?: Prisma.MeetingProfileSuggestionCreateNestedManyWithoutSessionInput
   questionSuggestions?: Prisma.MeetingQuestionSuggestionCreateNestedManyWithoutSessionInput
   recap?: Prisma.MeetingRecapCreateNestedOneWithoutSessionInput
@@ -653,6 +677,7 @@ export type DiscoveryMeetingSessionUncheckedCreateWithoutClientInput = {
   createdAt?: Date | string
   updatedAt?: Date | string
   entries?: Prisma.MeetingEntryUncheckedCreateNestedManyWithoutSessionInput
+  liveCallSessions?: Prisma.LiveCallSessionUncheckedCreateNestedManyWithoutMeetingSessionInput
   profileSuggestions?: Prisma.MeetingProfileSuggestionUncheckedCreateNestedManyWithoutSessionInput
   questionSuggestions?: Prisma.MeetingQuestionSuggestionUncheckedCreateNestedManyWithoutSessionInput
   recap?: Prisma.MeetingRecapUncheckedCreateNestedOneWithoutSessionInput
@@ -693,6 +718,7 @@ export type DiscoveryMeetingSessionCreateWithoutEntriesInput = {
   updatedAt?: Date | string
   advisor: Prisma.UserCreateNestedOneWithoutMeetingSessionsInput
   client: Prisma.ClientCreateNestedOneWithoutMeetingSessionsInput
+  liveCallSessions?: Prisma.LiveCallSessionCreateNestedManyWithoutMeetingSessionInput
   profileSuggestions?: Prisma.MeetingProfileSuggestionCreateNestedManyWithoutSessionInput
   questionSuggestions?: Prisma.MeetingQuestionSuggestionCreateNestedManyWithoutSessionInput
   recap?: Prisma.MeetingRecapCreateNestedOneWithoutSessionInput
@@ -707,6 +733,7 @@ export type DiscoveryMeetingSessionUncheckedCreateWithoutEntriesInput = {
   summary?: string | null
   createdAt?: Date | string
   updatedAt?: Date | string
+  liveCallSessions?: Prisma.LiveCallSessionUncheckedCreateNestedManyWithoutMeetingSessionInput
   profileSuggestions?: Prisma.MeetingProfileSuggestionUncheckedCreateNestedManyWithoutSessionInput
   questionSuggestions?: Prisma.MeetingQuestionSuggestionUncheckedCreateNestedManyWithoutSessionInput
   recap?: Prisma.MeetingRecapUncheckedCreateNestedOneWithoutSessionInput
@@ -737,6 +764,7 @@ export type DiscoveryMeetingSessionUpdateWithoutEntriesInput = {
   updatedAt?: Prisma.DateTimeFieldUpdateOperationsInput | Date | string
   advisor?: Prisma.UserUpdateOneRequiredWithoutMeetingSessionsNestedInput
   client?: Prisma.ClientUpdateOneRequiredWithoutMeetingSessionsNestedInput
+  liveCallSessions?: Prisma.LiveCallSessionUpdateManyWithoutMeetingSessionNestedInput
   profileSuggestions?: Prisma.MeetingProfileSuggestionUpdateManyWithoutSessionNestedInput
   questionSuggestions?: Prisma.MeetingQuestionSuggestionUpdateManyWithoutSessionNestedInput
   recap?: Prisma.MeetingRecapUpdateOneWithoutSessionNestedInput
@@ -751,6 +779,7 @@ export type DiscoveryMeetingSessionUncheckedUpdateWithoutEntriesInput = {
   summary?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
   createdAt?: Prisma.DateTimeFieldUpdateOperationsInput | Date | string
   updatedAt?: Prisma.DateTimeFieldUpdateOperationsInput | Date | string
+  liveCallSessions?: Prisma.LiveCallSessionUncheckedUpdateManyWithoutMeetingSessionNestedInput
   profileSuggestions?: Prisma.MeetingProfileSuggestionUncheckedUpdateManyWithoutSessionNestedInput
   questionSuggestions?: Prisma.MeetingQuestionSuggestionUncheckedUpdateManyWithoutSessionNestedInput
   recap?: Prisma.MeetingRecapUncheckedUpdateOneWithoutSessionNestedInput
@@ -766,6 +795,7 @@ export type DiscoveryMeetingSessionCreateWithoutQuestionSuggestionsInput = {
   advisor: Prisma.UserCreateNestedOneWithoutMeetingSessionsInput
   client: Prisma.ClientCreateNestedOneWithoutMeetingSessionsInput
   entries?: Prisma.MeetingEntryCreateNestedManyWithoutSessionInput
+  liveCallSessions?: Prisma.LiveCallSessionCreateNestedManyWithoutMeetingSessionInput
   profileSuggestions?: Prisma.MeetingProfileSuggestionCreateNestedManyWithoutSessionInput
   recap?: Prisma.MeetingRecapCreateNestedOneWithoutSessionInput
 }
@@ -780,6 +810,7 @@ export type DiscoveryMeetingSessionUncheckedCreateWithoutQuestionSuggestionsInpu
   createdAt?: Date | string
   updatedAt?: Date | string
   entries?: Prisma.MeetingEntryUncheckedCreateNestedManyWithoutSessionInput
+  liveCallSessions?: Prisma.LiveCallSessionUncheckedCreateNestedManyWithoutMeetingSessionInput
   profileSuggestions?: Prisma.MeetingProfileSuggestionUncheckedCreateNestedManyWithoutSessionInput
   recap?: Prisma.MeetingRecapUncheckedCreateNestedOneWithoutSessionInput
 }
@@ -810,6 +841,7 @@ export type DiscoveryMeetingSessionUpdateWithoutQuestionSuggestionsInput = {
   advisor?: Prisma.UserUpdateOneRequiredWithoutMeetingSessionsNestedInput
   client?: Prisma.ClientUpdateOneRequiredWithoutMeetingSessionsNestedInput
   entries?: Prisma.MeetingEntryUpdateManyWithoutSessionNestedInput
+  liveCallSessions?: Prisma.LiveCallSessionUpdateManyWithoutMeetingSessionNestedInput
   profileSuggestions?: Prisma.MeetingProfileSuggestionUpdateManyWithoutSessionNestedInput
   recap?: Prisma.MeetingRecapUpdateOneWithoutSessionNestedInput
 }
@@ -824,6 +856,7 @@ export type DiscoveryMeetingSessionUncheckedUpdateWithoutQuestionSuggestionsInpu
   createdAt?: Prisma.DateTimeFieldUpdateOperationsInput | Date | string
   updatedAt?: Prisma.DateTimeFieldUpdateOperationsInput | Date | string
   entries?: Prisma.MeetingEntryUncheckedUpdateManyWithoutSessionNestedInput
+  liveCallSessions?: Prisma.LiveCallSessionUncheckedUpdateManyWithoutMeetingSessionNestedInput
   profileSuggestions?: Prisma.MeetingProfileSuggestionUncheckedUpdateManyWithoutSessionNestedInput
   recap?: Prisma.MeetingRecapUncheckedUpdateOneWithoutSessionNestedInput
 }
@@ -838,6 +871,7 @@ export type DiscoveryMeetingSessionCreateWithoutProfileSuggestionsInput = {
   advisor: Prisma.UserCreateNestedOneWithoutMeetingSessionsInput
   client: Prisma.ClientCreateNestedOneWithoutMeetingSessionsInput
   entries?: Prisma.MeetingEntryCreateNestedManyWithoutSessionInput
+  liveCallSessions?: Prisma.LiveCallSessionCreateNestedManyWithoutMeetingSessionInput
   questionSuggestions?: Prisma.MeetingQuestionSuggestionCreateNestedManyWithoutSessionInput
   recap?: Prisma.MeetingRecapCreateNestedOneWithoutSessionInput
 }
@@ -852,6 +886,7 @@ export type DiscoveryMeetingSessionUncheckedCreateWithoutProfileSuggestionsInput
   createdAt?: Date | string
   updatedAt?: Date | string
   entries?: Prisma.MeetingEntryUncheckedCreateNestedManyWithoutSessionInput
+  liveCallSessions?: Prisma.LiveCallSessionUncheckedCreateNestedManyWithoutMeetingSessionInput
   questionSuggestions?: Prisma.MeetingQuestionSuggestionUncheckedCreateNestedManyWithoutSessionInput
   recap?: Prisma.MeetingRecapUncheckedCreateNestedOneWithoutSessionInput
 }
@@ -882,6 +917,7 @@ export type DiscoveryMeetingSessionUpdateWithoutProfileSuggestionsInput = {
   advisor?: Prisma.UserUpdateOneRequiredWithoutMeetingSessionsNestedInput
   client?: Prisma.ClientUpdateOneRequiredWithoutMeetingSessionsNestedInput
   entries?: Prisma.MeetingEntryUpdateManyWithoutSessionNestedInput
+  liveCallSessions?: Prisma.LiveCallSessionUpdateManyWithoutMeetingSessionNestedInput
   questionSuggestions?: Prisma.MeetingQuestionSuggestionUpdateManyWithoutSessionNestedInput
   recap?: Prisma.MeetingRecapUpdateOneWithoutSessionNestedInput
 }
@@ -896,6 +932,7 @@ export type DiscoveryMeetingSessionUncheckedUpdateWithoutProfileSuggestionsInput
   createdAt?: Prisma.DateTimeFieldUpdateOperationsInput | Date | string
   updatedAt?: Prisma.DateTimeFieldUpdateOperationsInput | Date | string
   entries?: Prisma.MeetingEntryUncheckedUpdateManyWithoutSessionNestedInput
+  liveCallSessions?: Prisma.LiveCallSessionUncheckedUpdateManyWithoutMeetingSessionNestedInput
   questionSuggestions?: Prisma.MeetingQuestionSuggestionUncheckedUpdateManyWithoutSessionNestedInput
   recap?: Prisma.MeetingRecapUncheckedUpdateOneWithoutSessionNestedInput
 }
@@ -910,6 +947,7 @@ export type DiscoveryMeetingSessionCreateWithoutRecapInput = {
   advisor: Prisma.UserCreateNestedOneWithoutMeetingSessionsInput
   client: Prisma.ClientCreateNestedOneWithoutMeetingSessionsInput
   entries?: Prisma.MeetingEntryCreateNestedManyWithoutSessionInput
+  liveCallSessions?: Prisma.LiveCallSessionCreateNestedManyWithoutMeetingSessionInput
   profileSuggestions?: Prisma.MeetingProfileSuggestionCreateNestedManyWithoutSessionInput
   questionSuggestions?: Prisma.MeetingQuestionSuggestionCreateNestedManyWithoutSessionInput
 }
@@ -924,6 +962,7 @@ export type DiscoveryMeetingSessionUncheckedCreateWithoutRecapInput = {
   createdAt?: Date | string
   updatedAt?: Date | string
   entries?: Prisma.MeetingEntryUncheckedCreateNestedManyWithoutSessionInput
+  liveCallSessions?: Prisma.LiveCallSessionUncheckedCreateNestedManyWithoutMeetingSessionInput
   profileSuggestions?: Prisma.MeetingProfileSuggestionUncheckedCreateNestedManyWithoutSessionInput
   questionSuggestions?: Prisma.MeetingQuestionSuggestionUncheckedCreateNestedManyWithoutSessionInput
 }
@@ -954,6 +993,7 @@ export type DiscoveryMeetingSessionUpdateWithoutRecapInput = {
   advisor?: Prisma.UserUpdateOneRequiredWithoutMeetingSessionsNestedInput
   client?: Prisma.ClientUpdateOneRequiredWithoutMeetingSessionsNestedInput
   entries?: Prisma.MeetingEntryUpdateManyWithoutSessionNestedInput
+  liveCallSessions?: Prisma.LiveCallSessionUpdateManyWithoutMeetingSessionNestedInput
   profileSuggestions?: Prisma.MeetingProfileSuggestionUpdateManyWithoutSessionNestedInput
   questionSuggestions?: Prisma.MeetingQuestionSuggestionUpdateManyWithoutSessionNestedInput
 }
@@ -968,8 +1008,85 @@ export type DiscoveryMeetingSessionUncheckedUpdateWithoutRecapInput = {
   createdAt?: Prisma.DateTimeFieldUpdateOperationsInput | Date | string
   updatedAt?: Prisma.DateTimeFieldUpdateOperationsInput | Date | string
   entries?: Prisma.MeetingEntryUncheckedUpdateManyWithoutSessionNestedInput
+  liveCallSessions?: Prisma.LiveCallSessionUncheckedUpdateManyWithoutMeetingSessionNestedInput
   profileSuggestions?: Prisma.MeetingProfileSuggestionUncheckedUpdateManyWithoutSessionNestedInput
   questionSuggestions?: Prisma.MeetingQuestionSuggestionUncheckedUpdateManyWithoutSessionNestedInput
+}
+
+export type DiscoveryMeetingSessionCreateWithoutLiveCallSessionsInput = {
+  id?: string
+  title: string
+  status?: $Enums.MeetingSessionStatus
+  summary?: string | null
+  createdAt?: Date | string
+  updatedAt?: Date | string
+  advisor: Prisma.UserCreateNestedOneWithoutMeetingSessionsInput
+  client: Prisma.ClientCreateNestedOneWithoutMeetingSessionsInput
+  entries?: Prisma.MeetingEntryCreateNestedManyWithoutSessionInput
+  profileSuggestions?: Prisma.MeetingProfileSuggestionCreateNestedManyWithoutSessionInput
+  questionSuggestions?: Prisma.MeetingQuestionSuggestionCreateNestedManyWithoutSessionInput
+  recap?: Prisma.MeetingRecapCreateNestedOneWithoutSessionInput
+}
+
+export type DiscoveryMeetingSessionUncheckedCreateWithoutLiveCallSessionsInput = {
+  id?: string
+  clientId: string
+  advisorUserId: string
+  title: string
+  status?: $Enums.MeetingSessionStatus
+  summary?: string | null
+  createdAt?: Date | string
+  updatedAt?: Date | string
+  entries?: Prisma.MeetingEntryUncheckedCreateNestedManyWithoutSessionInput
+  profileSuggestions?: Prisma.MeetingProfileSuggestionUncheckedCreateNestedManyWithoutSessionInput
+  questionSuggestions?: Prisma.MeetingQuestionSuggestionUncheckedCreateNestedManyWithoutSessionInput
+  recap?: Prisma.MeetingRecapUncheckedCreateNestedOneWithoutSessionInput
+}
+
+export type DiscoveryMeetingSessionCreateOrConnectWithoutLiveCallSessionsInput = {
+  where: Prisma.DiscoveryMeetingSessionWhereUniqueInput
+  create: Prisma.XOR<Prisma.DiscoveryMeetingSessionCreateWithoutLiveCallSessionsInput, Prisma.DiscoveryMeetingSessionUncheckedCreateWithoutLiveCallSessionsInput>
+}
+
+export type DiscoveryMeetingSessionUpsertWithoutLiveCallSessionsInput = {
+  update: Prisma.XOR<Prisma.DiscoveryMeetingSessionUpdateWithoutLiveCallSessionsInput, Prisma.DiscoveryMeetingSessionUncheckedUpdateWithoutLiveCallSessionsInput>
+  create: Prisma.XOR<Prisma.DiscoveryMeetingSessionCreateWithoutLiveCallSessionsInput, Prisma.DiscoveryMeetingSessionUncheckedCreateWithoutLiveCallSessionsInput>
+  where?: Prisma.DiscoveryMeetingSessionWhereInput
+}
+
+export type DiscoveryMeetingSessionUpdateToOneWithWhereWithoutLiveCallSessionsInput = {
+  where?: Prisma.DiscoveryMeetingSessionWhereInput
+  data: Prisma.XOR<Prisma.DiscoveryMeetingSessionUpdateWithoutLiveCallSessionsInput, Prisma.DiscoveryMeetingSessionUncheckedUpdateWithoutLiveCallSessionsInput>
+}
+
+export type DiscoveryMeetingSessionUpdateWithoutLiveCallSessionsInput = {
+  id?: Prisma.StringFieldUpdateOperationsInput | string
+  title?: Prisma.StringFieldUpdateOperationsInput | string
+  status?: Prisma.EnumMeetingSessionStatusFieldUpdateOperationsInput | $Enums.MeetingSessionStatus
+  summary?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
+  createdAt?: Prisma.DateTimeFieldUpdateOperationsInput | Date | string
+  updatedAt?: Prisma.DateTimeFieldUpdateOperationsInput | Date | string
+  advisor?: Prisma.UserUpdateOneRequiredWithoutMeetingSessionsNestedInput
+  client?: Prisma.ClientUpdateOneRequiredWithoutMeetingSessionsNestedInput
+  entries?: Prisma.MeetingEntryUpdateManyWithoutSessionNestedInput
+  profileSuggestions?: Prisma.MeetingProfileSuggestionUpdateManyWithoutSessionNestedInput
+  questionSuggestions?: Prisma.MeetingQuestionSuggestionUpdateManyWithoutSessionNestedInput
+  recap?: Prisma.MeetingRecapUpdateOneWithoutSessionNestedInput
+}
+
+export type DiscoveryMeetingSessionUncheckedUpdateWithoutLiveCallSessionsInput = {
+  id?: Prisma.StringFieldUpdateOperationsInput | string
+  clientId?: Prisma.StringFieldUpdateOperationsInput | string
+  advisorUserId?: Prisma.StringFieldUpdateOperationsInput | string
+  title?: Prisma.StringFieldUpdateOperationsInput | string
+  status?: Prisma.EnumMeetingSessionStatusFieldUpdateOperationsInput | $Enums.MeetingSessionStatus
+  summary?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
+  createdAt?: Prisma.DateTimeFieldUpdateOperationsInput | Date | string
+  updatedAt?: Prisma.DateTimeFieldUpdateOperationsInput | Date | string
+  entries?: Prisma.MeetingEntryUncheckedUpdateManyWithoutSessionNestedInput
+  profileSuggestions?: Prisma.MeetingProfileSuggestionUncheckedUpdateManyWithoutSessionNestedInput
+  questionSuggestions?: Prisma.MeetingQuestionSuggestionUncheckedUpdateManyWithoutSessionNestedInput
+  recap?: Prisma.MeetingRecapUncheckedUpdateOneWithoutSessionNestedInput
 }
 
 export type DiscoveryMeetingSessionCreateManyAdvisorInput = {
@@ -991,6 +1108,7 @@ export type DiscoveryMeetingSessionUpdateWithoutAdvisorInput = {
   updatedAt?: Prisma.DateTimeFieldUpdateOperationsInput | Date | string
   client?: Prisma.ClientUpdateOneRequiredWithoutMeetingSessionsNestedInput
   entries?: Prisma.MeetingEntryUpdateManyWithoutSessionNestedInput
+  liveCallSessions?: Prisma.LiveCallSessionUpdateManyWithoutMeetingSessionNestedInput
   profileSuggestions?: Prisma.MeetingProfileSuggestionUpdateManyWithoutSessionNestedInput
   questionSuggestions?: Prisma.MeetingQuestionSuggestionUpdateManyWithoutSessionNestedInput
   recap?: Prisma.MeetingRecapUpdateOneWithoutSessionNestedInput
@@ -1005,6 +1123,7 @@ export type DiscoveryMeetingSessionUncheckedUpdateWithoutAdvisorInput = {
   createdAt?: Prisma.DateTimeFieldUpdateOperationsInput | Date | string
   updatedAt?: Prisma.DateTimeFieldUpdateOperationsInput | Date | string
   entries?: Prisma.MeetingEntryUncheckedUpdateManyWithoutSessionNestedInput
+  liveCallSessions?: Prisma.LiveCallSessionUncheckedUpdateManyWithoutMeetingSessionNestedInput
   profileSuggestions?: Prisma.MeetingProfileSuggestionUncheckedUpdateManyWithoutSessionNestedInput
   questionSuggestions?: Prisma.MeetingQuestionSuggestionUncheckedUpdateManyWithoutSessionNestedInput
   recap?: Prisma.MeetingRecapUncheckedUpdateOneWithoutSessionNestedInput
@@ -1039,6 +1158,7 @@ export type DiscoveryMeetingSessionUpdateWithoutClientInput = {
   updatedAt?: Prisma.DateTimeFieldUpdateOperationsInput | Date | string
   advisor?: Prisma.UserUpdateOneRequiredWithoutMeetingSessionsNestedInput
   entries?: Prisma.MeetingEntryUpdateManyWithoutSessionNestedInput
+  liveCallSessions?: Prisma.LiveCallSessionUpdateManyWithoutMeetingSessionNestedInput
   profileSuggestions?: Prisma.MeetingProfileSuggestionUpdateManyWithoutSessionNestedInput
   questionSuggestions?: Prisma.MeetingQuestionSuggestionUpdateManyWithoutSessionNestedInput
   recap?: Prisma.MeetingRecapUpdateOneWithoutSessionNestedInput
@@ -1053,6 +1173,7 @@ export type DiscoveryMeetingSessionUncheckedUpdateWithoutClientInput = {
   createdAt?: Prisma.DateTimeFieldUpdateOperationsInput | Date | string
   updatedAt?: Prisma.DateTimeFieldUpdateOperationsInput | Date | string
   entries?: Prisma.MeetingEntryUncheckedUpdateManyWithoutSessionNestedInput
+  liveCallSessions?: Prisma.LiveCallSessionUncheckedUpdateManyWithoutMeetingSessionNestedInput
   profileSuggestions?: Prisma.MeetingProfileSuggestionUncheckedUpdateManyWithoutSessionNestedInput
   questionSuggestions?: Prisma.MeetingQuestionSuggestionUncheckedUpdateManyWithoutSessionNestedInput
   recap?: Prisma.MeetingRecapUncheckedUpdateOneWithoutSessionNestedInput
@@ -1075,12 +1196,14 @@ export type DiscoveryMeetingSessionUncheckedUpdateManyWithoutClientInput = {
 
 export type DiscoveryMeetingSessionCountOutputType = {
   entries: number
+  liveCallSessions: number
   profileSuggestions: number
   questionSuggestions: number
 }
 
 export type DiscoveryMeetingSessionCountOutputTypeSelect<ExtArgs extends runtime.Types.Extensions.InternalArgs = runtime.Types.Extensions.DefaultArgs> = {
   entries?: boolean | DiscoveryMeetingSessionCountOutputTypeCountEntriesArgs
+  liveCallSessions?: boolean | DiscoveryMeetingSessionCountOutputTypeCountLiveCallSessionsArgs
   profileSuggestions?: boolean | DiscoveryMeetingSessionCountOutputTypeCountProfileSuggestionsArgs
   questionSuggestions?: boolean | DiscoveryMeetingSessionCountOutputTypeCountQuestionSuggestionsArgs
 }
@@ -1100,6 +1223,13 @@ export type DiscoveryMeetingSessionCountOutputTypeDefaultArgs<ExtArgs extends ru
  */
 export type DiscoveryMeetingSessionCountOutputTypeCountEntriesArgs<ExtArgs extends runtime.Types.Extensions.InternalArgs = runtime.Types.Extensions.DefaultArgs> = {
   where?: Prisma.MeetingEntryWhereInput
+}
+
+/**
+ * DiscoveryMeetingSessionCountOutputType without action
+ */
+export type DiscoveryMeetingSessionCountOutputTypeCountLiveCallSessionsArgs<ExtArgs extends runtime.Types.Extensions.InternalArgs = runtime.Types.Extensions.DefaultArgs> = {
+  where?: Prisma.LiveCallSessionWhereInput
 }
 
 /**
@@ -1129,6 +1259,7 @@ export type DiscoveryMeetingSessionSelect<ExtArgs extends runtime.Types.Extensio
   advisor?: boolean | Prisma.UserDefaultArgs<ExtArgs>
   client?: boolean | Prisma.ClientDefaultArgs<ExtArgs>
   entries?: boolean | Prisma.DiscoveryMeetingSession$entriesArgs<ExtArgs>
+  liveCallSessions?: boolean | Prisma.DiscoveryMeetingSession$liveCallSessionsArgs<ExtArgs>
   profileSuggestions?: boolean | Prisma.DiscoveryMeetingSession$profileSuggestionsArgs<ExtArgs>
   questionSuggestions?: boolean | Prisma.DiscoveryMeetingSession$questionSuggestionsArgs<ExtArgs>
   recap?: boolean | Prisma.DiscoveryMeetingSession$recapArgs<ExtArgs>
@@ -1177,6 +1308,7 @@ export type DiscoveryMeetingSessionInclude<ExtArgs extends runtime.Types.Extensi
   advisor?: boolean | Prisma.UserDefaultArgs<ExtArgs>
   client?: boolean | Prisma.ClientDefaultArgs<ExtArgs>
   entries?: boolean | Prisma.DiscoveryMeetingSession$entriesArgs<ExtArgs>
+  liveCallSessions?: boolean | Prisma.DiscoveryMeetingSession$liveCallSessionsArgs<ExtArgs>
   profileSuggestions?: boolean | Prisma.DiscoveryMeetingSession$profileSuggestionsArgs<ExtArgs>
   questionSuggestions?: boolean | Prisma.DiscoveryMeetingSession$questionSuggestionsArgs<ExtArgs>
   recap?: boolean | Prisma.DiscoveryMeetingSession$recapArgs<ExtArgs>
@@ -1197,6 +1329,7 @@ export type $DiscoveryMeetingSessionPayload<ExtArgs extends runtime.Types.Extens
     advisor: Prisma.$UserPayload<ExtArgs>
     client: Prisma.$ClientPayload<ExtArgs>
     entries: Prisma.$MeetingEntryPayload<ExtArgs>[]
+    liveCallSessions: Prisma.$LiveCallSessionPayload<ExtArgs>[]
     profileSuggestions: Prisma.$MeetingProfileSuggestionPayload<ExtArgs>[]
     questionSuggestions: Prisma.$MeetingQuestionSuggestionPayload<ExtArgs>[]
     recap: Prisma.$MeetingRecapPayload<ExtArgs> | null
@@ -1607,6 +1740,7 @@ export interface Prisma__DiscoveryMeetingSessionClient<T, Null = never, ExtArgs 
   advisor<T extends Prisma.UserDefaultArgs<ExtArgs> = {}>(args?: Prisma.Subset<T, Prisma.UserDefaultArgs<ExtArgs>>): Prisma.Prisma__UserClient<runtime.Types.Result.GetResult<Prisma.$UserPayload<ExtArgs>, T, "findUniqueOrThrow", GlobalOmitOptions> | Null, Null, ExtArgs, GlobalOmitOptions>
   client<T extends Prisma.ClientDefaultArgs<ExtArgs> = {}>(args?: Prisma.Subset<T, Prisma.ClientDefaultArgs<ExtArgs>>): Prisma.Prisma__ClientClient<runtime.Types.Result.GetResult<Prisma.$ClientPayload<ExtArgs>, T, "findUniqueOrThrow", GlobalOmitOptions> | Null, Null, ExtArgs, GlobalOmitOptions>
   entries<T extends Prisma.DiscoveryMeetingSession$entriesArgs<ExtArgs> = {}>(args?: Prisma.Subset<T, Prisma.DiscoveryMeetingSession$entriesArgs<ExtArgs>>): Prisma.PrismaPromise<runtime.Types.Result.GetResult<Prisma.$MeetingEntryPayload<ExtArgs>, T, "findMany", GlobalOmitOptions> | Null>
+  liveCallSessions<T extends Prisma.DiscoveryMeetingSession$liveCallSessionsArgs<ExtArgs> = {}>(args?: Prisma.Subset<T, Prisma.DiscoveryMeetingSession$liveCallSessionsArgs<ExtArgs>>): Prisma.PrismaPromise<runtime.Types.Result.GetResult<Prisma.$LiveCallSessionPayload<ExtArgs>, T, "findMany", GlobalOmitOptions> | Null>
   profileSuggestions<T extends Prisma.DiscoveryMeetingSession$profileSuggestionsArgs<ExtArgs> = {}>(args?: Prisma.Subset<T, Prisma.DiscoveryMeetingSession$profileSuggestionsArgs<ExtArgs>>): Prisma.PrismaPromise<runtime.Types.Result.GetResult<Prisma.$MeetingProfileSuggestionPayload<ExtArgs>, T, "findMany", GlobalOmitOptions> | Null>
   questionSuggestions<T extends Prisma.DiscoveryMeetingSession$questionSuggestionsArgs<ExtArgs> = {}>(args?: Prisma.Subset<T, Prisma.DiscoveryMeetingSession$questionSuggestionsArgs<ExtArgs>>): Prisma.PrismaPromise<runtime.Types.Result.GetResult<Prisma.$MeetingQuestionSuggestionPayload<ExtArgs>, T, "findMany", GlobalOmitOptions> | Null>
   recap<T extends Prisma.DiscoveryMeetingSession$recapArgs<ExtArgs> = {}>(args?: Prisma.Subset<T, Prisma.DiscoveryMeetingSession$recapArgs<ExtArgs>>): Prisma.Prisma__MeetingRecapClient<runtime.Types.Result.GetResult<Prisma.$MeetingRecapPayload<ExtArgs>, T, "findUniqueOrThrow", GlobalOmitOptions> | null, null, ExtArgs, GlobalOmitOptions>
@@ -2069,6 +2203,30 @@ export type DiscoveryMeetingSession$entriesArgs<ExtArgs extends runtime.Types.Ex
   take?: number
   skip?: number
   distinct?: Prisma.MeetingEntryScalarFieldEnum | Prisma.MeetingEntryScalarFieldEnum[]
+}
+
+/**
+ * DiscoveryMeetingSession.liveCallSessions
+ */
+export type DiscoveryMeetingSession$liveCallSessionsArgs<ExtArgs extends runtime.Types.Extensions.InternalArgs = runtime.Types.Extensions.DefaultArgs> = {
+  /**
+   * Select specific fields to fetch from the LiveCallSession
+   */
+  select?: Prisma.LiveCallSessionSelect<ExtArgs> | null
+  /**
+   * Omit specific fields from the LiveCallSession
+   */
+  omit?: Prisma.LiveCallSessionOmit<ExtArgs> | null
+  /**
+   * Choose, which related nodes to fetch as well
+   */
+  include?: Prisma.LiveCallSessionInclude<ExtArgs> | null
+  where?: Prisma.LiveCallSessionWhereInput
+  orderBy?: Prisma.LiveCallSessionOrderByWithRelationInput | Prisma.LiveCallSessionOrderByWithRelationInput[]
+  cursor?: Prisma.LiveCallSessionWhereUniqueInput
+  take?: number
+  skip?: number
+  distinct?: Prisma.LiveCallSessionScalarFieldEnum | Prisma.LiveCallSessionScalarFieldEnum[]
 }
 
 /**

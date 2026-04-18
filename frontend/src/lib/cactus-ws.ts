@@ -67,12 +67,19 @@ export interface StatusEvent {
   status: string;
 }
 
+export interface VisualInsightEvent {
+  type: 'visualInsight';
+  insight: string;
+  timestamp: number;
+}
+
 export type CactusEvent =
   | TranscriptChunk
   | ExtractionEvent
   | QuestionEvent
   | FinalEvent
-  | StatusEvent;
+  | StatusEvent
+  | VisualInsightEvent;
 
 export interface CactusWSConfig {
   url: string;
@@ -91,12 +98,20 @@ export interface CactusWSConfig {
   onStatus: (status: string) => void;
   onError: (error: string) => void;
   onClose: () => void;
+  onVisualInsight?: (insight: string) => void;
 }
+
+const MAX_RECONNECT_ATTEMPTS = 5;
+const BASE_BACKOFF_MS = 500;
+const MAX_BACKOFF_MS = 8000;
 
 export class CactusWSClient {
   private ws: WebSocket | null = null;
   private config: CactusWSConfig;
   private _connected = false;
+  private _intentionallyClosed = false;
+  private _reconnectAttempts = 0;
+  private _reconnectTimer: ReturnType<typeof setTimeout> | null = null;
 
   constructor(config: CactusWSConfig) {
     this.config = config;
@@ -111,9 +126,15 @@ export class CactusWSClient {
   }
 
   connect(): void {
+    this._intentionallyClosed = false;
+    this.openSocket();
+  }
+
+  private openSocket(): void {
     this.ws = new WebSocket(this.config.url);
 
     this.ws.onopen = () => {
+      this._reconnectAttempts = 0;
       // Send config as first message
       this.ws!.send(
         JSON.stringify({
@@ -146,6 +167,11 @@ export class CactusWSClient {
             }
             this.config.onStatus((msg as StatusEvent).status);
             break;
+          case 'visualInsight':
+            this.config.onVisualInsight?.(
+              (msg as VisualInsightEvent).insight,
+            );
+            break;
         }
       } catch {
         console.error('Failed to parse Cactus WS message');
@@ -158,7 +184,25 @@ export class CactusWSClient {
 
     this.ws.onclose = () => {
       this._connected = false;
-      this.config.onClose();
+      if (this._intentionallyClosed) {
+        this.config.onClose();
+        return;
+      }
+      if (this._reconnectAttempts >= MAX_RECONNECT_ATTEMPTS) {
+        this.config.onStatus('disconnected');
+        this.config.onClose();
+        return;
+      }
+      const delay = Math.min(
+        MAX_BACKOFF_MS,
+        BASE_BACKOFF_MS * 2 ** this._reconnectAttempts,
+      );
+      this._reconnectAttempts += 1;
+      this.config.onStatus('reconnecting');
+      this._reconnectTimer = setTimeout(() => {
+        this._reconnectTimer = null;
+        this.openSocket();
+      }, delay);
     };
   }
 
@@ -168,8 +212,19 @@ export class CactusWSClient {
     }
   }
 
+  sendVideoFrame(frameDataUrl: string): void {
+    if (this.ws && this.ws.readyState === WebSocket.OPEN) {
+      this.ws.send(JSON.stringify({ type: 'video_frame', frame: frameDataUrl }));
+    }
+  }
+
   disconnect(): void {
+    this._intentionallyClosed = true;
     this._connected = false;
+    if (this._reconnectTimer) {
+      clearTimeout(this._reconnectTimer);
+      this._reconnectTimer = null;
+    }
     if (this.ws) {
       this.ws.close();
       this.ws = null;

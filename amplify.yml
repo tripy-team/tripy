@@ -70,6 +70,22 @@ applications:
                 echo "NEXT_PUBLIC_APP_VERSION=$NEXT_PUBLIC_APP_VERSION" >> .env.production.local
               fi
 
+              # LiveKit (client-advisor video calls + shareable join links)
+              if [ -n "${NEXT_PUBLIC_LIVEKIT_URL:-}" ]; then
+                echo "NEXT_PUBLIC_LIVEKIT_URL=$NEXT_PUBLIC_LIVEKIT_URL" >> .env.production.local
+              fi
+              if [ -n "${LIVEKIT_API_KEY:-}" ]; then
+                echo "LIVEKIT_API_KEY=$LIVEKIT_API_KEY" >> .env.production.local
+              fi
+              if [ -n "${LIVEKIT_API_SECRET:-}" ]; then
+                echo "LIVEKIT_API_SECRET=$LIVEKIT_API_SECRET" >> .env.production.local
+              fi
+
+              # Cactus / Gemma 4 inference server WebSocket (wss://… in prod)
+              if [ -n "${NEXT_PUBLIC_CACTUS_WS_URL:-}" ]; then
+                echo "NEXT_PUBLIC_CACTUS_WS_URL=$NEXT_PUBLIC_CACTUS_WS_URL" >> .env.production.local
+              fi
+
               echo "--- .env.production.local (keys only) ---"
               sed 's/=.*//' .env.production.local || true
               echo "============================="

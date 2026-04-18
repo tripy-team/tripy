@@ -19,10 +19,12 @@ from fastapi.middleware.cors import CORSMiddleware
 from pydantic import BaseModel
 
 from .extraction_engine import ExtractionEngine
+from .gemma_client import DEFAULT_GEMMA_MODEL
 from .learning_state import SessionLearningState
 from .question_engine import QuestionEngine
 from .speaker_detection import detect_speaker_from_channel_tag
 from .transcription import CactusTranscriber
+from .vision_engine import VisionEngine
 
 logger = logging.getLogger(__name__)
 logging.basicConfig(level=logging.INFO)
@@ -42,20 +44,24 @@ transcriber = CactusTranscriber(
     model_name=os.environ.get("CACTUS_STT_MODEL", "openai/whisper-small")
 )
 extraction_engine = ExtractionEngine(
-    model_name=os.environ.get("CACTUS_LLM_MODEL", "LiquidAI/LFM2-1.2B")
+    model_name=os.environ.get("CACTUS_LLM_MODEL", DEFAULT_GEMMA_MODEL)
 )
 question_engine = QuestionEngine(
-    model_name=os.environ.get("CACTUS_LLM_MODEL", "LiquidAI/LFM2-1.2B")
+    model_name=os.environ.get("CACTUS_LLM_MODEL", DEFAULT_GEMMA_MODEL)
+)
+vision_engine = VisionEngine(
+    model_name=os.environ.get("CACTUS_VISION_MODEL", DEFAULT_GEMMA_MODEL)
 )
 
 
 @app.on_event("startup")
 async def startup() -> None:
-    logger.info("Loading Cactus models...")
+    logger.info("Loading Gemma 4 stack (Cactus + Gemini fallback)...")
     transcriber.load()
     extraction_engine.load()
     question_engine.load()
-    logger.info("Cactus models loaded")
+    vision_engine.load()
+    logger.info("Models ready")
 
 
 class LiveSession:
@@ -77,6 +83,9 @@ class LiveSession:
         self.unprocessed_speaker = "unknown"
         self._analysis_lock = asyncio.Lock()
         self._sentence_count = 0
+        self._latest_visual_insight: str = ""
+        self._vision_lock = asyncio.Lock()
+        self._last_vision_at: float = 0.0
 
     async def process_audio(
         self, pcm_bytes: bytes, speaker: str = "unknown"
@@ -151,15 +160,18 @@ class LiveSession:
                     extraction_summary = json.dumps(extractions[:5]) if extractions else "None"
                     asked = ", ".join(self.learning_state.asked_questions[-20:])
 
-                    questions = await asyncio.get_event_loop().run_in_executor(
+                    loop = asyncio.get_event_loop()
+                    questions = await loop.run_in_executor(
                         None,
-                        question_engine.generate,
-                        text,
-                        profile_summary,
-                        extraction_summary,
-                        missing,
-                        asked,
-                        self.trip_context,
+                        lambda: question_engine.generate(
+                            text,
+                            profile_summary,
+                            extraction_summary,
+                            missing,
+                            asked,
+                            self.trip_context,
+                            self._latest_visual_insight or None,
+                        ),
                     )
 
                     if questions:
@@ -173,6 +185,43 @@ class LiveSession:
                         })
                 except Exception:
                     logger.exception("Question generation error")
+
+    async def process_video_frame(self, frame_data_url: str) -> None:
+        """Analyse a single frame with Gemma 4 vision and stream back insight."""
+        # Throttle: at most one vision call in flight, and no more than one
+        # every ~4s (frames are expensive; insight rarely changes faster).
+        now = time.time()
+        if self._vision_lock.locked() or now - self._last_vision_at < 4.0:
+            return
+        self._last_vision_at = now
+
+        async with self._vision_lock:
+            try:
+                result = await asyncio.get_event_loop().run_in_executor(
+                    None, vision_engine.analyse_frame, frame_data_url
+                )
+            except Exception:
+                logger.exception("Vision analysis error")
+                return
+
+            insight = (result.get("insight") or "").strip()
+            signals = result.get("signals") or []
+
+            if insight:
+                self._latest_visual_insight = insight
+                await self.ws.send_json({
+                    "type": "visualInsight",
+                    "insight": insight,
+                    "timestamp": time.time(),
+                })
+
+            if signals:
+                self.learning_state.ingest(signals)
+                await self.ws.send_json({
+                    "type": "extraction",
+                    "data": signals,
+                    "source": "vision",
+                })
 
     async def flush_and_finalize(self) -> dict[str, Any]:
         """Flush remaining audio and return final session state."""
@@ -253,6 +302,11 @@ async def live_transcribe(ws: WebSocket) -> None:
                         msg.get("channel", "unknown")
                     )
                     await session.process_audio(audio_bytes, speaker)
+
+                elif msg_type == "video_frame":
+                    frame = msg.get("frame", "")
+                    if frame:
+                        asyncio.create_task(session.process_video_frame(frame))
 
                 elif msg_type == "stop":
                     final = await session.flush_and_finalize()

@@ -1153,6 +1153,23 @@ export type EnumIntakeFormVariantWithAggregatesFilter<$PrismaModel = never> = {
   _max?: Prisma.NestedEnumIntakeFormVariantFilter<$PrismaModel>
 }
 
+export type EnumLiveCallStatusFilter<$PrismaModel = never> = {
+  equals?: $Enums.LiveCallStatus | Prisma.EnumLiveCallStatusFieldRefInput<$PrismaModel>
+  in?: $Enums.LiveCallStatus[] | Prisma.ListEnumLiveCallStatusFieldRefInput<$PrismaModel>
+  notIn?: $Enums.LiveCallStatus[] | Prisma.ListEnumLiveCallStatusFieldRefInput<$PrismaModel>
+  not?: Prisma.NestedEnumLiveCallStatusFilter<$PrismaModel> | $Enums.LiveCallStatus
+}
+
+export type EnumLiveCallStatusWithAggregatesFilter<$PrismaModel = never> = {
+  equals?: $Enums.LiveCallStatus | Prisma.EnumLiveCallStatusFieldRefInput<$PrismaModel>
+  in?: $Enums.LiveCallStatus[] | Prisma.ListEnumLiveCallStatusFieldRefInput<$PrismaModel>
+  notIn?: $Enums.LiveCallStatus[] | Prisma.ListEnumLiveCallStatusFieldRefInput<$PrismaModel>
+  not?: Prisma.NestedEnumLiveCallStatusWithAggregatesFilter<$PrismaModel> | $Enums.LiveCallStatus
+  _count?: Prisma.NestedIntFilter<$PrismaModel>
+  _min?: Prisma.NestedEnumLiveCallStatusFilter<$PrismaModel>
+  _max?: Prisma.NestedEnumLiveCallStatusFilter<$PrismaModel>
+}
+
 export type NestedStringFilter<$PrismaModel = never> = {
   equals?: string | Prisma.StringFieldRefInput<$PrismaModel>
   in?: string[] | Prisma.ListStringFieldRefInput<$PrismaModel>
@@ -2227,6 +2244,23 @@ export type NestedEnumIntakeFormVariantWithAggregatesFilter<$PrismaModel = never
   _count?: Prisma.NestedIntFilter<$PrismaModel>
   _min?: Prisma.NestedEnumIntakeFormVariantFilter<$PrismaModel>
   _max?: Prisma.NestedEnumIntakeFormVariantFilter<$PrismaModel>
+}
+
+export type NestedEnumLiveCallStatusFilter<$PrismaModel = never> = {
+  equals?: $Enums.LiveCallStatus | Prisma.EnumLiveCallStatusFieldRefInput<$PrismaModel>
+  in?: $Enums.LiveCallStatus[] | Prisma.ListEnumLiveCallStatusFieldRefInput<$PrismaModel>
+  notIn?: $Enums.LiveCallStatus[] | Prisma.ListEnumLiveCallStatusFieldRefInput<$PrismaModel>
+  not?: Prisma.NestedEnumLiveCallStatusFilter<$PrismaModel> | $Enums.LiveCallStatus
+}
+
+export type NestedEnumLiveCallStatusWithAggregatesFilter<$PrismaModel = never> = {
+  equals?: $Enums.LiveCallStatus | Prisma.EnumLiveCallStatusFieldRefInput<$PrismaModel>
+  in?: $Enums.LiveCallStatus[] | Prisma.ListEnumLiveCallStatusFieldRefInput<$PrismaModel>
+  notIn?: $Enums.LiveCallStatus[] | Prisma.ListEnumLiveCallStatusFieldRefInput<$PrismaModel>
+  not?: Prisma.NestedEnumLiveCallStatusWithAggregatesFilter<$PrismaModel> | $Enums.LiveCallStatus
+  _count?: Prisma.NestedIntFilter<$PrismaModel>
+  _min?: Prisma.NestedEnumLiveCallStatusFilter<$PrismaModel>
+  _max?: Prisma.NestedEnumLiveCallStatusFilter<$PrismaModel>
 }
 
 

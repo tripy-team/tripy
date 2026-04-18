@@ -276,3 +276,13 @@ export type BusinessTraveler = Prisma.BusinessTravelerModel
  * 
  */
 export type IntakeFormToken = Prisma.IntakeFormTokenModel
+/**
+ * Model LiveCallSession
+ * 
+ */
+export type LiveCallSession = Prisma.LiveCallSessionModel
+/**
+ * Model TranscriptChunk
+ * 
+ */
+export type TranscriptChunk = Prisma.TranscriptChunkModel

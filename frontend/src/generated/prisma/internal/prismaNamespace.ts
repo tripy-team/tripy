@@ -430,7 +430,9 @@ export const ModelName = {
   GroupMember: 'GroupMember',
   BusinessProfile: 'BusinessProfile',
   BusinessTraveler: 'BusinessTraveler',
-  IntakeFormToken: 'IntakeFormToken'
+  IntakeFormToken: 'IntakeFormToken',
+  LiveCallSession: 'LiveCallSession',
+  TranscriptChunk: 'TranscriptChunk'
 } as const
 
 export type ModelName = (typeof ModelName)[keyof typeof ModelName]
@@ -446,7 +448,7 @@ export type TypeMap<ExtArgs extends runtime.Types.Extensions.InternalArgs = runt
     omit: GlobalOmitOptions
   }
   meta: {
-    modelProps: "organization" | "user" | "client" | "household" | "householdMember" | "familyMember" | "loyaltyProgram" | "clientLoyaltyBalance" | "balanceLedgerEntry" | "programTransferRule" | "programPoolingRule" | "transferBonus" | "clientPreference" | "preferenceChangeLog" | "tripRequest" | "tripTradeoffRanking" | "tripTraveler" | "recommendationRun" | "recommendationOption" | "recommendationTravelerAllocation" | "recommendationInsight" | "recommendationMemo" | "groupSettlement" | "clientIntake" | "tripBrief" | "alertSubscription" | "alertEvent" | "inferredPreference" | "followUpSuggestion" | "vendorRequest" | "vendorRequestReminder" | "vendorRequestDraft" | "vendorRequestApproval" | "vendorRequestTemplate" | "vendorScoreSummary" | "vendorRequestTimeline" | "itineraryJob" | "discoveryMeetingSession" | "meetingEntry" | "meetingQuestionSuggestion" | "meetingProfileSuggestion" | "meetingRecap" | "groupProfile" | "groupMember" | "businessProfile" | "businessTraveler" | "intakeFormToken"
+    modelProps: "organization" | "user" | "client" | "household" | "householdMember" | "familyMember" | "loyaltyProgram" | "clientLoyaltyBalance" | "balanceLedgerEntry" | "programTransferRule" | "programPoolingRule" | "transferBonus" | "clientPreference" | "preferenceChangeLog" | "tripRequest" | "tripTradeoffRanking" | "tripTraveler" | "recommendationRun" | "recommendationOption" | "recommendationTravelerAllocation" | "recommendationInsight" | "recommendationMemo" | "groupSettlement" | "clientIntake" | "tripBrief" | "alertSubscription" | "alertEvent" | "inferredPreference" | "followUpSuggestion" | "vendorRequest" | "vendorRequestReminder" | "vendorRequestDraft" | "vendorRequestApproval" | "vendorRequestTemplate" | "vendorScoreSummary" | "vendorRequestTimeline" | "itineraryJob" | "discoveryMeetingSession" | "meetingEntry" | "meetingQuestionSuggestion" | "meetingProfileSuggestion" | "meetingRecap" | "groupProfile" | "groupMember" | "businessProfile" | "businessTraveler" | "intakeFormToken" | "liveCallSession" | "transcriptChunk"
     txIsolationLevel: TransactionIsolationLevel
   }
   model: {
@@ -3928,6 +3930,154 @@ export type TypeMap<ExtArgs extends runtime.Types.Extensions.InternalArgs = runt
         }
       }
     }
+    LiveCallSession: {
+      payload: Prisma.$LiveCallSessionPayload<ExtArgs>
+      fields: Prisma.LiveCallSessionFieldRefs
+      operations: {
+        findUnique: {
+          args: Prisma.LiveCallSessionFindUniqueArgs<ExtArgs>
+          result: runtime.Types.Utils.PayloadToResult<Prisma.$LiveCallSessionPayload> | null
+        }
+        findUniqueOrThrow: {
+          args: Prisma.LiveCallSessionFindUniqueOrThrowArgs<ExtArgs>
+          result: runtime.Types.Utils.PayloadToResult<Prisma.$LiveCallSessionPayload>
+        }
+        findFirst: {
+          args: Prisma.LiveCallSessionFindFirstArgs<ExtArgs>
+          result: runtime.Types.Utils.PayloadToResult<Prisma.$LiveCallSessionPayload> | null
+        }
+        findFirstOrThrow: {
+          args: Prisma.LiveCallSessionFindFirstOrThrowArgs<ExtArgs>
+          result: runtime.Types.Utils.PayloadToResult<Prisma.$LiveCallSessionPayload>
+        }
+        findMany: {
+          args: Prisma.LiveCallSessionFindManyArgs<ExtArgs>
+          result: runtime.Types.Utils.PayloadToResult<Prisma.$LiveCallSessionPayload>[]
+        }
+        create: {
+          args: Prisma.LiveCallSessionCreateArgs<ExtArgs>
+          result: runtime.Types.Utils.PayloadToResult<Prisma.$LiveCallSessionPayload>
+        }
+        createMany: {
+          args: Prisma.LiveCallSessionCreateManyArgs<ExtArgs>
+          result: BatchPayload
+        }
+        createManyAndReturn: {
+          args: Prisma.LiveCallSessionCreateManyAndReturnArgs<ExtArgs>
+          result: runtime.Types.Utils.PayloadToResult<Prisma.$LiveCallSessionPayload>[]
+        }
+        delete: {
+          args: Prisma.LiveCallSessionDeleteArgs<ExtArgs>
+          result: runtime.Types.Utils.PayloadToResult<Prisma.$LiveCallSessionPayload>
+        }
+        update: {
+          args: Prisma.LiveCallSessionUpdateArgs<ExtArgs>
+          result: runtime.Types.Utils.PayloadToResult<Prisma.$LiveCallSessionPayload>
+        }
+        deleteMany: {
+          args: Prisma.LiveCallSessionDeleteManyArgs<ExtArgs>
+          result: BatchPayload
+        }
+        updateMany: {
+          args: Prisma.LiveCallSessionUpdateManyArgs<ExtArgs>
+          result: BatchPayload
+        }
+        updateManyAndReturn: {
+          args: Prisma.LiveCallSessionUpdateManyAndReturnArgs<ExtArgs>
+          result: runtime.Types.Utils.PayloadToResult<Prisma.$LiveCallSessionPayload>[]
+        }
+        upsert: {
+          args: Prisma.LiveCallSessionUpsertArgs<ExtArgs>
+          result: runtime.Types.Utils.PayloadToResult<Prisma.$LiveCallSessionPayload>
+        }
+        aggregate: {
+          args: Prisma.LiveCallSessionAggregateArgs<ExtArgs>
+          result: runtime.Types.Utils.Optional<Prisma.AggregateLiveCallSession>
+        }
+        groupBy: {
+          args: Prisma.LiveCallSessionGroupByArgs<ExtArgs>
+          result: runtime.Types.Utils.Optional<Prisma.LiveCallSessionGroupByOutputType>[]
+        }
+        count: {
+          args: Prisma.LiveCallSessionCountArgs<ExtArgs>
+          result: runtime.Types.Utils.Optional<Prisma.LiveCallSessionCountAggregateOutputType> | number
+        }
+      }
+    }
+    TranscriptChunk: {
+      payload: Prisma.$TranscriptChunkPayload<ExtArgs>
+      fields: Prisma.TranscriptChunkFieldRefs
+      operations: {
+        findUnique: {
+          args: Prisma.TranscriptChunkFindUniqueArgs<ExtArgs>
+          result: runtime.Types.Utils.PayloadToResult<Prisma.$TranscriptChunkPayload> | null
+        }
+        findUniqueOrThrow: {
+          args: Prisma.TranscriptChunkFindUniqueOrThrowArgs<ExtArgs>
+          result: runtime.Types.Utils.PayloadToResult<Prisma.$TranscriptChunkPayload>
+        }
+        findFirst: {
+          args: Prisma.TranscriptChunkFindFirstArgs<ExtArgs>
+          result: runtime.Types.Utils.PayloadToResult<Prisma.$TranscriptChunkPayload> | null
+        }
+        findFirstOrThrow: {
+          args: Prisma.TranscriptChunkFindFirstOrThrowArgs<ExtArgs>
+          result: runtime.Types.Utils.PayloadToResult<Prisma.$TranscriptChunkPayload>
+        }
+        findMany: {
+          args: Prisma.TranscriptChunkFindManyArgs<ExtArgs>
+          result: runtime.Types.Utils.PayloadToResult<Prisma.$TranscriptChunkPayload>[]
+        }
+        create: {
+          args: Prisma.TranscriptChunkCreateArgs<ExtArgs>
+          result: runtime.Types.Utils.PayloadToResult<Prisma.$TranscriptChunkPayload>
+        }
+        createMany: {
+          args: Prisma.TranscriptChunkCreateManyArgs<ExtArgs>
+          result: BatchPayload
+        }
+        createManyAndReturn: {
+          args: Prisma.TranscriptChunkCreateManyAndReturnArgs<ExtArgs>
+          result: runtime.Types.Utils.PayloadToResult<Prisma.$TranscriptChunkPayload>[]
+        }
+        delete: {
+          args: Prisma.TranscriptChunkDeleteArgs<ExtArgs>
+          result: runtime.Types.Utils.PayloadToResult<Prisma.$TranscriptChunkPayload>
+        }
+        update: {
+          args: Prisma.TranscriptChunkUpdateArgs<ExtArgs>
+          result: runtime.Types.Utils.PayloadToResult<Prisma.$TranscriptChunkPayload>
+        }
+        deleteMany: {
+          args: Prisma.TranscriptChunkDeleteManyArgs<ExtArgs>
+          result: BatchPayload
+        }
+        updateMany: {
+          args: Prisma.TranscriptChunkUpdateManyArgs<ExtArgs>
+          result: BatchPayload
+        }
+        updateManyAndReturn: {
+          args: Prisma.TranscriptChunkUpdateManyAndReturnArgs<ExtArgs>
+          result: runtime.Types.Utils.PayloadToResult<Prisma.$TranscriptChunkPayload>[]
+        }
+        upsert: {
+          args: Prisma.TranscriptChunkUpsertArgs<ExtArgs>
+          result: runtime.Types.Utils.PayloadToResult<Prisma.$TranscriptChunkPayload>
+        }
+        aggregate: {
+          args: Prisma.TranscriptChunkAggregateArgs<ExtArgs>
+          result: runtime.Types.Utils.Optional<Prisma.AggregateTranscriptChunk>
+        }
+        groupBy: {
+          args: Prisma.TranscriptChunkGroupByArgs<ExtArgs>
+          result: runtime.Types.Utils.Optional<Prisma.TranscriptChunkGroupByOutputType>[]
+        }
+        count: {
+          args: Prisma.TranscriptChunkCountArgs<ExtArgs>
+          result: runtime.Types.Utils.Optional<Prisma.TranscriptChunkCountAggregateOutputType> | number
+        }
+      }
+    }
   }
 } & {
   other: {
@@ -4789,6 +4939,36 @@ export const IntakeFormTokenScalarFieldEnum = {
 export type IntakeFormTokenScalarFieldEnum = (typeof IntakeFormTokenScalarFieldEnum)[keyof typeof IntakeFormTokenScalarFieldEnum]
 
 
+export const LiveCallSessionScalarFieldEnum = {
+  id: 'id',
+  meetingSessionId: 'meetingSessionId',
+  status: 'status',
+  videoProvider: 'videoProvider',
+  startedAt: 'startedAt',
+  endedAt: 'endedAt',
+  duration: 'duration',
+  createdAt: 'createdAt',
+  updatedAt: 'updatedAt'
+} as const
+
+export type LiveCallSessionScalarFieldEnum = (typeof LiveCallSessionScalarFieldEnum)[keyof typeof LiveCallSessionScalarFieldEnum]
+
+
+export const TranscriptChunkScalarFieldEnum = {
+  id: 'id',
+  liveCallId: 'liveCallId',
+  speaker: 'speaker',
+  text: 'text',
+  startMs: 'startMs',
+  endMs: 'endMs',
+  confidence: 'confidence',
+  processed: 'processed',
+  createdAt: 'createdAt'
+} as const
+
+export type TranscriptChunkScalarFieldEnum = (typeof TranscriptChunkScalarFieldEnum)[keyof typeof TranscriptChunkScalarFieldEnum]
+
+
 export const SortOrder = {
   asc: 'asc',
   desc: 'desc'
@@ -5549,6 +5729,20 @@ export type EnumIntakeFormVariantFieldRefInput<$PrismaModel> = FieldRefInputType
 export type ListEnumIntakeFormVariantFieldRefInput<$PrismaModel> = FieldRefInputType<$PrismaModel, 'IntakeFormVariant[]'>
     
 
+
+/**
+ * Reference to a field of type 'LiveCallStatus'
+ */
+export type EnumLiveCallStatusFieldRefInput<$PrismaModel> = FieldRefInputType<$PrismaModel, 'LiveCallStatus'>
+    
+
+
+/**
+ * Reference to a field of type 'LiveCallStatus[]'
+ */
+export type ListEnumLiveCallStatusFieldRefInput<$PrismaModel> = FieldRefInputType<$PrismaModel, 'LiveCallStatus[]'>
+    
+
 /**
  * Batch Payload for updateMany & deleteMany & createMany
  */
@@ -5691,6 +5885,8 @@ export type GlobalOmitConfig = {
   businessProfile?: Prisma.BusinessProfileOmit
   businessTraveler?: Prisma.BusinessTravelerOmit
   intakeFormToken?: Prisma.IntakeFormTokenOmit
+  liveCallSession?: Prisma.LiveCallSessionOmit
+  transcriptChunk?: Prisma.TranscriptChunkOmit
 }
 
 /* Types for Logging */

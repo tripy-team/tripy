@@ -97,7 +97,9 @@ export const ModelName = {
   GroupMember: 'GroupMember',
   BusinessProfile: 'BusinessProfile',
   BusinessTraveler: 'BusinessTraveler',
-  IntakeFormToken: 'IntakeFormToken'
+  IntakeFormToken: 'IntakeFormToken',
+  LiveCallSession: 'LiveCallSession',
+  TranscriptChunk: 'TranscriptChunk'
 } as const
 
 export type ModelName = (typeof ModelName)[keyof typeof ModelName]
@@ -936,6 +938,36 @@ export const IntakeFormTokenScalarFieldEnum = {
 } as const
 
 export type IntakeFormTokenScalarFieldEnum = (typeof IntakeFormTokenScalarFieldEnum)[keyof typeof IntakeFormTokenScalarFieldEnum]
+
+
+export const LiveCallSessionScalarFieldEnum = {
+  id: 'id',
+  meetingSessionId: 'meetingSessionId',
+  status: 'status',
+  videoProvider: 'videoProvider',
+  startedAt: 'startedAt',
+  endedAt: 'endedAt',
+  duration: 'duration',
+  createdAt: 'createdAt',
+  updatedAt: 'updatedAt'
+} as const
+
+export type LiveCallSessionScalarFieldEnum = (typeof LiveCallSessionScalarFieldEnum)[keyof typeof LiveCallSessionScalarFieldEnum]
+
+
+export const TranscriptChunkScalarFieldEnum = {
+  id: 'id',
+  liveCallId: 'liveCallId',
+  speaker: 'speaker',
+  text: 'text',
+  startMs: 'startMs',
+  endMs: 'endMs',
+  confidence: 'confidence',
+  processed: 'processed',
+  createdAt: 'createdAt'
+} as const
+
+export type TranscriptChunkScalarFieldEnum = (typeof TranscriptChunkScalarFieldEnum)[keyof typeof TranscriptChunkScalarFieldEnum]
 
 
 export const SortOrder = {

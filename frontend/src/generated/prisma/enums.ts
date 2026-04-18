@@ -473,10 +473,22 @@ export type MeetingSessionStatus = (typeof MeetingSessionStatus)[keyof typeof Me
 export const MeetingEntryRole = {
   advisor_note: 'advisor_note',
   question_answer: 'question_answer',
-  system: 'system'
+  system: 'system',
+  live_transcript: 'live_transcript'
 } as const
 
 export type MeetingEntryRole = (typeof MeetingEntryRole)[keyof typeof MeetingEntryRole]
+
+
+export const LiveCallStatus = {
+  waiting: 'waiting',
+  connecting: 'connecting',
+  active: 'active',
+  paused: 'paused',
+  ended: 'ended'
+} as const
+
+export type LiveCallStatus = (typeof LiveCallStatus)[keyof typeof LiveCallStatus]
 
 
 export const ProfileSuggestionStatus = {
