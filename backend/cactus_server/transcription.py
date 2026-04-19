@@ -54,8 +54,11 @@ class CactusTranscriber:
         self._cactus_init: Callable | None = None
         self._buffer: bytes = b""
         self._offset_ms: int = 0
-        # Accumulate ~2 seconds of audio before transcribing (16kHz * 2 bytes * 2s)
-        self._chunk_threshold: int = 16000 * 2 * 2
+        # Accumulate ~5 seconds of audio before transcribing. 2s was too short:
+        # Whisper was trained on 30s clips and often returns empty/<|notimestamps|>
+        # for sub-3s slices. 5s gives it enough context to decode real speech.
+        self._chunk_threshold: int = 16000 * 2 * 5
+        self._debug_dump_count: int = 0
 
     @property
     def loaded(self) -> bool:
@@ -136,14 +139,42 @@ class CactusTranscriber:
         self._offset_ms = 0
 
     def _transcribe_chunk(self, pcm_chunk: bytes) -> TranscriptionResult | None:
-        if self._is_silence(pcm_chunk):
+        silence = self._is_silence(pcm_chunk)
+        num_samples = len(pcm_chunk) // 2
+        if num_samples > 0:
+            import struct as _struct
+            _samples = _struct.unpack(f"<{num_samples}h", pcm_chunk)
+            _rms = (sum(s * s for s in _samples) / num_samples) ** 0.5
+        else:
+            _rms = 0.0
+        logger.info(
+            "_transcribe_chunk: bytes=%d rms=%.1f silence=%s model=%s",
+            len(pcm_chunk),
+            _rms,
+            silence,
+            "loaded" if self._model is not None else "None",
+        )
+        if silence:
             return None
 
         if self._model is None or self._cactus_transcribe is None:
+            logger.warning(
+                "_transcribe_chunk: model or callable is None (model=%s, callable=%s)",
+                self._model is not None,
+                self._cactus_transcribe is not None,
+            )
             return None
 
         # Cactus transcribe expects a WAV file path
         wav_path = self._pcm_to_wav_file(pcm_chunk)
+
+        # Diagnostic: keep the first 3 WAV files around so we can inspect them.
+        if self._debug_dump_count < 3:
+            import shutil
+            dump_path = f"/tmp/cactus_debug_{self._debug_dump_count}.wav"
+            shutil.copy(wav_path, dump_path)
+            logger.info("dumped WAV for inspection: %s", dump_path)
+            self._debug_dump_count += 1
         try:
             raw = self._cactus_transcribe(
                 self._model,
@@ -156,6 +187,11 @@ class CactusTranscriber:
             result = json.loads(raw) if isinstance(raw, str) else raw
 
             text = result.get("response", "").strip()
+            logger.info(
+                "_transcribe_chunk: cactus returned text=%r (keys=%s)",
+                text[:80],
+                list(result.keys()) if isinstance(result, dict) else type(result).__name__,
+            )
             if not text:
                 return None
 

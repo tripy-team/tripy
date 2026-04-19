@@ -110,7 +110,18 @@ class LiveSession:
     ) -> None:
         """Transcribe an audio chunk and stream results back."""
         session_transcriber = self._get_transcriber(speaker)
+        buf_before = len(session_transcriber._buffer)
         results = session_transcriber.feed_audio(pcm_bytes)
+        buf_after = len(session_transcriber._buffer)
+        logger.info(
+            "audio chunk: speaker=%s in=%d buf=%d->%d (thresh=%d) results=%d",
+            speaker,
+            len(pcm_bytes),
+            buf_before,
+            buf_after,
+            session_transcriber._chunk_threshold,
+            len(results),
+        )
 
         for result in results:
             chunk = {
