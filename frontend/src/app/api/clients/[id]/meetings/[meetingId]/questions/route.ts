@@ -44,14 +44,21 @@ export async function POST(
     });
     if (!session) return errorResponse("Meeting session not found", 404);
 
-    const preferences = await prisma.clientPreference.findUnique({
-      where: { clientId },
-    });
+    const [preferences, loyaltyCount, familyCount] = await Promise.all([
+      prisma.clientPreference.findUnique({ where: { clientId } }),
+      prisma.clientLoyaltyBalance.count({ where: { clientId } }),
+      prisma.familyMember.count({ where: { clientId } }),
+    ]);
 
     // Build profile snapshot for profile-aware question generation
     const prefsRecord = preferences
       ? (JSON.parse(JSON.stringify(preferences)) as Record<string, unknown>)
       : null;
+    // Virtual fields whose source of truth lives outside ClientPreference —
+    // mirror the client profile page so the returned % matches the UI.
+    const extraFilled = new Set<string>();
+    if (loyaltyCount > 0) extraFilled.add('loyaltyPrograms');
+    if (familyCount > 0) extraFilled.add('familyConsiderations');
     const profileSnapshot = buildProfileSnapshot(
       prefsRecord,
       session.profileSuggestions.map((s) => ({
@@ -60,6 +67,7 @@ export async function POST(
         confidence: s.confidence,
         status: s.status,
       })),
+      extraFilled,
     );
 
     const maxRound = session.questionSuggestions.reduce(

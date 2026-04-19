@@ -1,120 +1,31 @@
 'use client';
 
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useMemo } from 'react';
 import { CheckCircle2, ChevronRight } from 'lucide-react';
 import { getClientPreferences } from '@/lib/api-client';
 import type { ClientPreference, LoyaltyBalance, FamilyMember } from '@/lib/api-client';
+import { computeProfileCompleteness } from '@/lib/profile-completeness';
+import { getProfileField } from '@/lib/profile-fields';
 
-interface CompletenessCheck {
+type MissingTab = 'preferences' | 'balances' | 'group';
+
+interface MissingItem {
   key: string;
   label: string;
-  filled: boolean;
-  tab: 'preferences' | 'balances' | 'group';
-  points: number;
+  tab: MissingTab;
 }
 
-function computeCompleteness(
-  preferences: ClientPreference | null,
-  balances: LoyaltyBalance[],
-  familyMembers: FamilyMember[],
-): { pct: number; missing: CompletenessCheck[]; total: number; filled: number } {
-  const checks: CompletenessCheck[] = [
-    // Flight (33 pts)
-    {
-      key: 'cabin',
-      label: 'Cabin preference',
-      filled: !!preferences?.preferredCabin,
-      tab: 'preferences',
-      points: 10,
-    },
-    {
-      key: 'nonstop',
-      label: 'Nonstop preference',
-      filled: preferences?.prefersNonstop !== undefined && preferences?.prefersNonstop !== null,
-      tab: 'preferences',
-      points: 8,
-    },
-    {
-      key: 'airlines',
-      label: 'Preferred airlines',
-      filled: (preferences?.preferredAirlines?.length ?? 0) > 0,
-      tab: 'preferences',
-      points: 8,
-    },
-    {
-      key: 'avoidBasic',
-      label: 'Basic economy stance',
-      filled: preferences?.avoidBasicEconomy !== undefined && preferences?.avoidBasicEconomy !== null,
-      tab: 'preferences',
-      points: 7,
-    },
-    // Budget & Points (25 pts)
-    {
-      key: 'redemption',
-      label: 'Redemption style',
-      filled: !!preferences?.redemptionStyle,
-      tab: 'preferences',
-      points: 9,
-    },
-    {
-      key: 'budget',
-      label: 'Budget sensitivity',
-      filled: !!preferences?.budgetSensitivity,
-      tab: 'preferences',
-      points: 8,
-    },
-    {
-      key: 'pointsVsCash',
-      label: 'Points vs. cash preference',
-      filled: !!preferences?.pointsVsCash,
-      tab: 'preferences',
-      points: 8,
-    },
-    // Loyalty (17 pts)
-    {
-      key: 'loyalty',
-      label: 'Loyalty programs on file',
-      filled: balances.length > 0,
-      tab: 'balances',
-      points: 17,
-    },
-    // Personalization (25 pts)
-    {
-      key: 'food',
-      label: 'Food preferences',
-      filled: (preferences?.foodPreferences?.length ?? 0) > 0,
-      tab: 'preferences',
-      points: 8,
-    },
-    {
-      key: 'activities',
-      label: 'Activity preferences',
-      filled: (preferences?.activityPreferences?.length ?? 0) > 0,
-      tab: 'preferences',
-      points: 8,
-    },
-    {
-      key: 'family',
-      label: 'Family or group info',
-      filled: !!preferences?.familyConsiderations || familyMembers.length > 0,
-      tab: 'group',
-      points: 9,
-    },
-  ];
-
-  const total = checks.reduce((sum, c) => sum + c.points, 0);
-  const filledPts = checks.reduce((sum, c) => (c.filled ? sum + c.points : sum), 0);
-  const pct = Math.round((filledPts / total) * 100);
-  const missing = checks.filter((c) => !c.filled);
-
-  return { pct, missing, total, filled: filledPts };
+function tabForField(key: string): MissingTab {
+  if (key === 'loyaltyPrograms') return 'balances';
+  if (key === 'familyConsiderations') return 'group';
+  return 'preferences';
 }
 
 interface ProfileCompletenessScoreProps {
   clientId: string;
   balances: LoyaltyBalance[];
   familyMembers: FamilyMember[];
-  onTabChange: (tab: 'preferences' | 'balances' | 'group') => void;
+  onTabChange: (tab: MissingTab) => void;
 }
 
 export default function ProfileCompletenessScore({
@@ -133,6 +44,23 @@ export default function ProfileCompletenessScore({
       .finally(() => setLoading(false));
   }, [clientId]);
 
+  const { pct, missing } = useMemo(() => {
+    const prefsRecord = preferences
+      ? (JSON.parse(JSON.stringify(preferences)) as Record<string, unknown>)
+      : null;
+    const extraFilled = new Set<string>();
+    if (balances.length > 0) extraFilled.add('loyaltyPrograms');
+    if (familyMembers.length > 0) extraFilled.add('familyConsiderations');
+
+    const result = computeProfileCompleteness(prefsRecord, [], extraFilled);
+    const missingItems: MissingItem[] = result.emptyFields.map((key) => ({
+      key,
+      label: getProfileField(key)?.label ?? key,
+      tab: tabForField(key),
+    }));
+    return { pct: result.overallPercent, missing: missingItems };
+  }, [preferences, balances, familyMembers]);
+
   if (loading) {
     return (
       <div className="rounded-xl border border-slate-200 bg-white p-5 shadow-sm">
@@ -144,8 +72,6 @@ export default function ProfileCompletenessScore({
       </div>
     );
   }
-
-  const { pct, missing } = computeCompleteness(preferences, balances, familyMembers);
 
   type ColorKey = 'emerald' | 'amber' | 'red';
   const colorKey: ColorKey = pct >= 80 ? 'emerald' : pct >= 45 ? 'amber' : 'red';

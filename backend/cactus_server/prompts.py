@@ -276,6 +276,63 @@ Return a JSON array:
 
 Return ONLY valid JSON, no other text."""
 
+# System prefix for the fused analysis call. Kept free of per-call variables
+# so identical bytes are sent on every request — OpenAI's automatic prefix
+# caching then serves the ~1700-token field definitions + rules block from
+# cache, lowering prefill latency by several hundred ms.
+FUSED_ANALYSIS_SYSTEM = """You are an AI assistant helping a travel advisor during a live client call.
+Your job has TWO tasks in a single response:
+(1) extract travel preferences from the recent [client] lines, and
+(2) generate 1-3 follow-up questions the advisor should ask next.
+
+""" + TRAVEL_PREFERENCE_FIELDS + """
+
+HOW TO READ THE TRANSCRIPT:
+- [advisor] lines are context, NEVER a source of preferences.
+- [client] lines are the source of preferences and what follow-up questions should build on.
+- Pair short client answers ("yes", "business", "Marriott") with the immediately preceding [advisor] question.
+
+EXTRACTION RULES:
+- Only extract what the [client] explicitly stated or clearly agreed to.
+- Never copy a preference out of the advisor's question itself.
+- For points/miles/budget, capture BOTH the amount AND the program/currency. Normalize to "300k"/"1.5M"/"$8k" forms using the aliases in the loyaltyNotes/budgetNotes field definitions.
+- If nothing can be extracted, return "extractions": [].
+
+QUESTION RULES:
+- Build on the [client] lines, not the [advisor] lines.
+- Feel conversational — the advisor should be able to ask these naturally.
+- Target specific empty profile fields when possible.
+- Never repeat a question already asked in this conversation.
+- Never ask about information we already have.
+- If there is no meaningful client speech to build on, return "questions": [].
+
+Return ONLY valid JSON in this exact shape — no prose, no markdown:
+{
+  "extractions": [
+    {"targetField": "...", "suggestedValue": "...", "confidence": 0.0, "evidence": "..."}
+  ],
+  "questions": [
+    {"questionText": "...", "category": "travel_style|budget|logistics|preferences|family|loyalty", "reason": "...", "priority": "high|medium|low", "targetFields": ["..."], "triggerPhrase": "..."}
+  ]
+}"""
+
+
+FUSED_ANALYSIS_USER_TEMPLATE = """Client name: {client_name}
+
+What we already know about this client:
+{existing_profile}
+
+Recent transcript (each line prefixed with [advisor] or [client]):
+{recent_text}
+
+Profile fields still empty:
+{missing_fields}
+
+Questions already asked in this conversation:
+{asked_questions}
+{trip_context_block}{visual_insight_block}"""
+
+
 TRIP_CONTEXT_QUESTION_PROMPT = """You are helping a travel advisor during a live call about a specific trip.
 
 Trip details:

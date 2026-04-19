@@ -35,10 +35,13 @@ function isFieldFilled(value: unknown): boolean {
 /**
  * Compute profile completeness from committed preferences and session suggestions.
  * Session suggestions with status "pending" or "approved" count as provisional fills.
+ * `extraFilledKeys` forces specific field keys to be treated as filled — used for
+ * virtual fields (e.g. loyaltyPrograms) whose source of truth lives outside ClientPreference.
  */
 export function computeProfileCompleteness(
   committedPreferences: Record<string, unknown> | null | undefined,
   sessionSuggestions: Array<{ targetField: string; suggestedValue: unknown; status: string }> = [],
+  extraFilledKeys: ReadonlySet<string> = new Set(),
 ): ProfileCompletenessResult {
   const allFields = getAllProfileFields();
   const criticalFields = getCriticalFields();
@@ -61,7 +64,10 @@ export function computeProfileCompleteness(
   for (const field of allFields) {
     const committedValue = prefs[field.key];
     const sessionValue = provisionalValues.get(field.key);
-    const filled = isFieldFilled(committedValue) || isFieldFilled(sessionValue);
+    const filled =
+      isFieldFilled(committedValue) ||
+      isFieldFilled(sessionValue) ||
+      extraFilledKeys.has(field.key);
     if (filled) {
       filledFields.push(field.key);
     } else {
@@ -116,8 +122,9 @@ export function computeProfileCompleteness(
 export function buildProfileSnapshot(
   committedPreferences: Record<string, unknown> | null | undefined,
   sessionSuggestions: Array<{ targetField: string; suggestedValue: unknown; confidence: number; status: string }> = [],
+  extraFilledKeys: ReadonlySet<string> = new Set(),
 ): ProfileSnapshot {
-  const completeness = computeProfileCompleteness(committedPreferences, sessionSuggestions);
+  const completeness = computeProfileCompleteness(committedPreferences, sessionSuggestions, extraFilledKeys);
 
   const knownPreferences: Record<string, unknown> = {};
   if (committedPreferences) {

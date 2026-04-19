@@ -21,7 +21,6 @@ from pydantic import BaseModel
 from .extraction_engine import ExtractionEngine
 from .gemma_client import DEFAULT_GEMMA_MODEL
 from .learning_state import SessionLearningState
-from .question_engine import QuestionEngine
 from .speaker_detection import detect_speaker_from_channel_tag
 from .transcription import CactusTranscriber
 from .vision_engine import VisionEngine
@@ -46,9 +45,6 @@ transcriber = CactusTranscriber(
 extraction_engine = ExtractionEngine(
     model_name=os.environ.get("CACTUS_LLM_MODEL", DEFAULT_GEMMA_MODEL)
 )
-question_engine = QuestionEngine(
-    model_name=os.environ.get("CACTUS_LLM_MODEL", DEFAULT_GEMMA_MODEL)
-)
 vision_engine = VisionEngine(
     model_name=os.environ.get("CACTUS_VISION_MODEL", DEFAULT_GEMMA_MODEL)
 )
@@ -59,7 +55,6 @@ async def startup() -> None:
     logger.info("Loading Gemma 4 stack (Cactus + Gemini fallback)...")
     transcriber.load()
     extraction_engine.load()
-    question_engine.load()
     vision_engine.load()
     logger.info("Models ready")
 
@@ -94,6 +89,10 @@ class LiveSession:
         # so chunk extractions don't fight the analysis pass for the model.
         self._llm_lock = asyncio.Lock()
         self._sentence_count = 0
+        # Char count contributed by the client in the current batch; used
+        # to fire analysis early on short complete client sentences without
+        # being fooled by long advisor monologues.
+        self._batch_client_chars = 0
         self._latest_visual_insight: str = ""
         self._vision_lock = asyncio.Lock()
         self._last_vision_at: float = 0.0
@@ -137,6 +136,7 @@ class LiveSession:
             self.unprocessed_lines.append(f"[{speaker}]: {result.text}")
             if speaker == "client":
                 self.batch_has_client_text = True
+                self._batch_client_chars += len(result.text)
 
             await self.ws.send_json(chunk)
 
@@ -173,9 +173,25 @@ class LiveSession:
             )
 
     def _should_analyze(self) -> bool:
-        """Trigger analysis after ~3 sentences or 400+ chars of unprocessed text."""
+        """Trigger analysis when there's enough new material to react to.
+
+        Three triggers, whichever hits first:
+        - One complete client sentence with ≥80 chars: catches short but
+          substantive answers ("I prefer business class and want somewhere
+          walkable.") immediately instead of waiting for a second sentence.
+        - 2+ sentences total: for Q/A exchanges where the advisor asked and
+          the client replied, fire as soon as both turns are in.
+        - 200+ chars of unprocessed text: catches long monologues without
+          punctuation.
+        """
         total_chars = sum(len(line) for line in self.unprocessed_lines)
-        return self._sentence_count >= 3 or total_chars > 400
+        if (
+            self.batch_has_client_text
+            and self._sentence_count >= 1
+            and self._batch_client_chars >= 80
+        ):
+            return True
+        return self._sentence_count >= 2 or total_chars > 200
 
     async def _run_keyword_extraction(
         self, client_text: str, prior_question: str
@@ -221,7 +237,11 @@ class LiveSession:
             })
 
     async def _run_analysis(self) -> None:
-        """Extract preferences and generate questions from recent transcript."""
+        """Extract preferences and generate questions from recent transcript.
+
+        Uses a single fused LLM call so extraction + question generation share
+        one round trip instead of running serially under the shared lock.
+        """
         async with self._llm_lock:
             text = "\n".join(self.unprocessed_lines).strip()
             if not text:
@@ -231,63 +251,53 @@ class LiveSession:
             self.unprocessed_lines = []
             self.batch_has_client_text = False
             self._sentence_count = 0
+            self._batch_client_chars = 0
 
             profile_summary = self.learning_state.to_profile_summary()
+            missing = ", ".join(self.learning_state.get_missing_fields()[:15])
+            # Last 6 questions is enough to block near-duplicates; 20 was
+            # ~500 tokens over a 10-min call and slowed prefill on cloud.
+            asked = ", ".join(self.learning_state.asked_questions[-6:])
 
-            # Run extraction
             try:
-                extractions = await asyncio.get_event_loop().run_in_executor(
+                loop = asyncio.get_event_loop()
+                result = await loop.run_in_executor(
                     None,
-                    extraction_engine.extract,
-                    text,
-                    self.client_name,
-                    profile_summary,
+                    lambda: extraction_engine.analyze_fused(
+                        text,
+                        self.client_name,
+                        profile_summary,
+                        missing,
+                        asked,
+                        self.trip_context,
+                        self._latest_visual_insight or None,
+                    ),
                 )
-
-                if extractions:
-                    self.learning_state.ingest(extractions)
-                    await self.ws.send_json({
-                        "type": "extraction",
-                        "data": extractions,
-                    })
             except Exception:
-                logger.exception("Extraction error")
-                extractions = []
+                logger.exception("Fused analysis error")
+                return
 
-            # Run question generation (only when client has contributed text;
-            # otherwise we're building on the advisor's own prior turns and
-            # there's nothing new to react to).
-            if had_client_text:
-                try:
-                    missing = ", ".join(self.learning_state.get_missing_fields()[:15])
-                    extraction_summary = json.dumps(extractions[:5]) if extractions else "None"
-                    asked = ", ".join(self.learning_state.asked_questions[-20:])
+            extractions = result.get("extractions", [])
+            questions = result.get("questions", [])
 
-                    loop = asyncio.get_event_loop()
-                    questions = await loop.run_in_executor(
-                        None,
-                        lambda: question_engine.generate(
-                            text,
-                            profile_summary,
-                            extraction_summary,
-                            missing,
-                            asked,
-                            self.trip_context,
-                            self._latest_visual_insight or None,
-                        ),
+            if extractions:
+                self.learning_state.ingest(extractions)
+                await self.ws.send_json({
+                    "type": "extraction",
+                    "data": extractions,
+                })
+
+            # Questions are only meaningful when the client contributed text
+            # in this batch; otherwise they'd build on the advisor's monologue.
+            if had_client_text and questions:
+                for q in questions:
+                    self.learning_state.asked_questions.append(
+                        q.get("questionText", "")
                     )
-
-                    if questions:
-                        for q in questions:
-                            self.learning_state.asked_questions.append(
-                                q.get("questionText", "")
-                            )
-                        await self.ws.send_json({
-                            "type": "questions",
-                            "data": questions,
-                        })
-                except Exception:
-                    logger.exception("Question generation error")
+                await self.ws.send_json({
+                    "type": "questions",
+                    "data": questions,
+                })
 
     async def process_video_frame(self, frame_data_url: str) -> None:
         """Analyse a single frame with Gemma 4 vision and stream back insight."""

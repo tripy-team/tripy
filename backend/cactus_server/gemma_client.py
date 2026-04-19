@@ -179,6 +179,47 @@ class GemmaClient:
             logger.exception("OpenAI cloud completion failed")
             return ""
 
+    def complete_structured(
+        self,
+        system: str,
+        user: str,
+        *,
+        max_tokens: int = 500,
+        temperature: float = 0.7,
+    ) -> str:
+        """Two-message completion: stable `system` prefix + per-call `user` body.
+
+        Structured this way so OpenAI's automatic prefix caching kicks in —
+        identical system prompts across calls are served from cache at ~50%
+        cost and noticeably lower prefill latency (see
+        https://platform.openai.com/docs/guides/prompt-caching). On local
+        Cactus we concatenate the two into a single prompt as a fallback.
+        """
+        cloud = self._complete_cloud_structured(system, user, max_tokens, temperature)
+        if cloud:
+            return cloud
+        return self._complete_local(f"{system}\n\n{user}", max_tokens, temperature)
+
+    def _complete_cloud_structured(
+        self, system: str, user: str, max_tokens: int, temperature: float
+    ) -> str:
+        if self._openai_client is None:
+            return ""
+        try:
+            response = self._openai_client.chat.completions.create(
+                model=self.cloud_model,
+                messages=[
+                    {"role": "system", "content": system},
+                    {"role": "user", "content": user},
+                ],
+                max_tokens=max_tokens,
+                temperature=temperature,
+            )
+            return response.choices[0].message.content or ""
+        except Exception:
+            logger.exception("OpenAI structured completion failed")
+            return ""
+
     def _complete_cloud_multimodal(
         self,
         prompt: str,

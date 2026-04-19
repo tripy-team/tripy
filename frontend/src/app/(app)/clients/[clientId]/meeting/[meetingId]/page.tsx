@@ -45,6 +45,8 @@ import {
   startLiveCall,
   stopLiveCall,
   getClient,
+  getClientBalances,
+  getFamilyMembers,
   getMeetingInvitations,
   createMeetingInvitation,
   resendMeetingInvitation,
@@ -60,6 +62,8 @@ import type {
   AnsweredQuestionPayload,
   ClientPreference,
   Client,
+  LoyaltyBalance,
+  FamilyMember,
   MeetingInvitation,
 } from '@/lib/api-client';
 import { computeProfileCompleteness, type ProfileCompletenessResult } from '@/lib/profile-completeness';
@@ -89,6 +93,8 @@ export default function MeetingCopilotPage() {
   const [suggestions, setSuggestions] = useState<MeetingProfileSuggestion[]>([]);
   const [recap, setRecap] = useState<MeetingRecap | null>(null);
   const [clientPreferences, setClientPreferences] = useState<ClientPreference | null>(null);
+  const [loyaltyBalances, setLoyaltyBalances] = useState<LoyaltyBalance[]>([]);
+  const [familyMembers, setFamilyMembers] = useState<FamilyMember[]>([]);
 
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
@@ -189,12 +195,20 @@ export default function MeetingCopilotPage() {
   const entriesEndRef = useRef<HTMLDivElement>(null);
   const textareaRef = useRef<HTMLTextAreaElement>(null);
   const aiPanelScrollRef = useRef<HTMLDivElement>(null);
+  // Debounce auto-question-generation after note submissions so bursts of short notes
+  // coalesce into a single backend call (mirrors the live-call reactive behavior).
+  const autoQuestionTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
 
-  // Compute profile completeness from committed prefs + session suggestions
+  // Compute profile completeness from committed prefs + session suggestions.
+  // extraFilledKeys covers virtual fields whose source of truth lives outside ClientPreference
+  // (loyalty programs on file, family members on file) so the % matches the client profile page.
   const profileCompleteness = useMemo<ProfileCompletenessResult>(() => {
     const prefsRecord = clientPreferences
       ? (JSON.parse(JSON.stringify(clientPreferences)) as Record<string, unknown>)
       : null;
+    const extraFilled = new Set<string>();
+    if (loyaltyBalances.length > 0) extraFilled.add('loyaltyPrograms');
+    if (familyMembers.length > 0) extraFilled.add('familyConsiderations');
     return computeProfileCompleteness(
       prefsRecord,
       suggestions.map((s) => ({
@@ -202,15 +216,18 @@ export default function MeetingCopilotPage() {
         suggestedValue: s.suggestedValue,
         status: s.status,
       })),
+      extraFilled,
     );
-  }, [clientPreferences, suggestions]);
+  }, [clientPreferences, suggestions, loyaltyBalances, familyMembers]);
 
   const loadSession = useCallback(async () => {
     try {
-      const [data, prefs, clientData] = await Promise.all([
+      const [data, prefs, clientData, balances, family] = await Promise.all([
         getMeetingSession(clientId, meetingId),
         getClientPreferences(clientId).catch(() => null),
         getClient(clientId).catch(() => null),
+        getClientBalances(clientId).catch(() => [] as LoyaltyBalance[]),
+        getFamilyMembers(clientId).catch(() => [] as FamilyMember[]),
       ]);
       setSession(data);
       setEntries(data.entries || []);
@@ -219,6 +236,8 @@ export default function MeetingCopilotPage() {
       setRecap(data.recap || null);
       setClientPreferences(prefs);
       setClient(clientData);
+      setLoyaltyBalances(balances);
+      setFamilyMembers(family);
     } catch (err) {
       setError(err instanceof Error ? err.message : 'Failed to load meeting session');
     } finally {
@@ -302,17 +321,42 @@ export default function MeetingCopilotPage() {
     return () => clearTimeout(timer);
   }, [profileAutoSavedToast]);
 
+  useEffect(() => {
+    return () => {
+      if (autoQuestionTimerRef.current) clearTimeout(autoQuestionTimerRef.current);
+    };
+  }, []);
+
   const handleSendNote = async () => {
     if (!noteInput.trim() || sendingNote) return;
+    const submitted = noteInput.trim();
     setSendingNote(true);
     try {
       const entry = await appendMeetingEntry(clientId, meetingId, {
         role: 'advisor_note',
-        content: noteInput.trim(),
+        content: submitted,
       });
       setEntries((prev) => [...prev, entry]);
       setNoteInput('');
       textareaRef.current?.focus();
+
+      // Auto-generate questions reactively once the advisor pauses submitting notes.
+      // Skip trivially short notes (usually ack/stopwords) and live-call mode, which
+      // has its own WebSocket-driven generator.
+      if (meetingMode === 'notes' && submitted.length >= 20) {
+        if (autoQuestionTimerRef.current) clearTimeout(autoQuestionTimerRef.current);
+        autoQuestionTimerRef.current = setTimeout(async () => {
+          try {
+            const result = await generateMeetingQuestions(clientId, meetingId, {});
+            if (result.questions.length > 0) {
+              setQuestions((prev) => [...result.questions, ...prev]);
+              setNewQuestionsToast(result.questions.length);
+            }
+          } catch (autoErr) {
+            console.error('Auto-generate after note failed (non-blocking):', autoErr);
+          }
+        }, 2500);
+      }
     } catch (err) {
       console.error('Failed to send note:', err);
     } finally {
