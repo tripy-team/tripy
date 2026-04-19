@@ -158,13 +158,12 @@ export default function MeetingCopilotPage() {
           commitReady: finalData.commitReady,
           contradictions: finalData.contradictions,
         });
-        // Reload the session to get new entries and suggestions
-        loadSession();
       } catch (err) {
         console.error('Failed to save live call data:', err);
       }
+      router.push(`/clients/${clientId}`);
     },
-    [clientId, meetingId],
+    [clientId, meetingId, router],
   );
 
   const handleCommitLiveSuggestions = useCallback(

@@ -16,6 +16,7 @@ import json
 import logging
 import os
 import struct
+from collections import deque
 from dataclasses import dataclass
 from typing import Any, Callable
 
@@ -155,6 +156,13 @@ class CactusTranscriber:
         # arrives and we decide this is real speech, we can feed both and
         # not lose the leading audio.
         self._prefix_pcm: bytes = b""
+        # Rolling window of recent chunk RMS values, used as evidence of
+        # whether audio in the last ~1.5s actually contained speech-level
+        # energy. When a confirmed chunk is just a filler word and recent
+        # audio never peaked above _speech_rms_threshold, treat the filler
+        # as hallucination and drop it.
+        self._recent_rms: deque[float] = deque(maxlen=6)
+        self._speech_rms_threshold: float = 2500.0
         # Config passed to the streaming decoder. min_chunk_size is the
         # amount of audio Parakeet buffers internally before emitting
         # updates — lower = lower latency, higher = more context per decode.
@@ -227,7 +235,9 @@ class CactusTranscriber:
         # VAD: if this chunk is silence, extend the silent-run counter. If
         # we've been silent long enough AND we have an active stream, flush
         # it so any pending text becomes confirmed at the utterance boundary.
-        chunk_is_silent = self._chunk_rms(pcm_bytes) < self._silence_rms_threshold
+        chunk_rms = self._chunk_rms(pcm_bytes)
+        self._recent_rms.append(chunk_rms)
+        chunk_is_silent = chunk_rms < self._silence_rms_threshold
         if chunk_is_silent:
             self._silent_ms += duration_ms
             self._nonsilent_run = 0
@@ -237,19 +247,7 @@ class CactusTranscriber:
                 and self._silent_ms >= self._silence_flush_ms
             ):
                 flush_update = self.flush()
-                # Drop flush-promoted filler words: a silence flush stops the
-                # Cactus stream, which turns Parakeet's unstable pending buffer
-                # into "confirmed" text. If that leftover is just "yeah"/"uh"/
-                # etc. it's a hallucination, not a real utterance the decoder
-                # stabilized mid-stream.
-                flush_update = StreamUpdate(
-                    confirmed_new=[
-                        r for r in flush_update.confirmed_new
-                        if not _is_filler_only(r.text)
-                    ],
-                    pending=flush_update.pending,
-                    pending_changed=flush_update.pending_changed,
-                )
+                flush_update = self._filter_hallucinations(flush_update, "flush")
                 # reset silent counter so we don't keep flushing while quiet
                 self._silent_ms = 0
                 self._offset_ms += duration_ms
@@ -285,6 +283,7 @@ class CactusTranscriber:
             return StreamUpdate([], "", False)
 
         update = self._extract_update(raw, duration_ms)
+        update = self._filter_hallucinations(update, "stream")
         self._offset_ms += duration_ms
         return update
 
@@ -310,6 +309,38 @@ class CactusTranscriber:
 
         return self._extract_update(raw, 0)
 
+    def _filter_hallucinations(
+        self, update: StreamUpdate, source: str
+    ) -> StreamUpdate:
+        """Drop filler-only confirmed chunks when recent audio lacked speech energy.
+
+        A real client "yeah" comes with speech-level RMS in the recent window;
+        a hallucinated "yeah" comes during quiet/noisy audio where the recent
+        peak stayed below the speech threshold. We log both kept and dropped
+        emissions so the thresholds can be tuned from real call data.
+        """
+        if not update.confirmed_new:
+            return update
+        recent_peak = max(self._recent_rms) if self._recent_rms else 0.0
+        kept: list[TranscriptionResult] = []
+        for r in update.confirmed_new:
+            if _is_filler_only(r.text) and recent_peak < self._speech_rms_threshold:
+                logger.info(
+                    "[transcribe] DROP filler=%r src=%s recent_peak_rms=%.0f threshold=%.0f",
+                    r.text, source, recent_peak, self._speech_rms_threshold,
+                )
+                continue
+            logger.info(
+                "[transcribe] KEEP text=%r src=%s recent_peak_rms=%.0f",
+                r.text, source, recent_peak,
+            )
+            kept.append(r)
+        return StreamUpdate(
+            confirmed_new=kept,
+            pending=update.pending,
+            pending_changed=update.pending_changed,
+        )
+
     def reset(self) -> None:
         """Close any open stream and clear incremental state."""
         if self._stream is not None and self._cactus_stream_stop is not None:
@@ -324,6 +355,7 @@ class CactusTranscriber:
         self._silent_ms = 0
         self._nonsilent_run = 0
         self._prefix_pcm = b""
+        self._recent_rms.clear()
 
     def _extract_update(self, raw: Any, duration_ms: int) -> StreamUpdate:
         """Diff the streaming output against what we've already emitted."""
