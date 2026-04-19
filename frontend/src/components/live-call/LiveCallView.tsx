@@ -72,6 +72,7 @@ export default function LiveCallView({
 
   // Cactus data
   const [transcript, setTranscript] = useState<TranscriptChunk[]>([]);
+  const [partial, setPartial] = useState<{ speaker: TranscriptChunk['speaker']; text: string } | null>(null);
   const [extractions, setExtractions] = useState<ProfileExtraction[]>([]);
   const [questions, setQuestions] = useState<ReactiveQuestionWithMeta[]>([]);
   const [contradictions, setContradictions] = useState<FinalEvent['contradictions']>([]);
@@ -209,6 +210,12 @@ export default function LiveCallView({
         tripContext: config.tripContext,
         onTranscript: (chunk) => {
           setTranscript((prev) => [...prev, chunk]);
+          // Clear any stale partial for this speaker — the decoder just
+          // confirmed text, so what was pending has been absorbed.
+          setPartial((cur) => (cur && cur.speaker === chunk.speaker ? null : cur));
+        },
+        onPartial: (p) => {
+          setPartial(p.text ? { speaker: p.speaker, text: p.text } : null);
         },
         onExtraction: (exts) => {
           setExtractions((prev) => [...prev, ...exts]);
@@ -612,6 +619,7 @@ export default function LiveCallView({
           <div className="flex-1 overflow-y-auto bg-white">
             <LiveTranscript
               chunks={transcript}
+              partial={partial}
               clientName={config.clientName}
             />
           </div>

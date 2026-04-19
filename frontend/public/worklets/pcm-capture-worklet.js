@@ -5,10 +5,12 @@
 // PCM, and posts each chunk to the main thread.
 
 const CHUNK_SIZE = 4096;
-// 3x gain: most laptop mics output speech around -30 dBFS, well below what
-// Parakeet/Whisper expect. Samples are clamped to [-1,1] before int16
-// conversion, so clipping on loud peaks is bounded and harmless to ASR.
-const GAIN = 3.0;
+// No gain here — the browser's autoGainControl is enabled on the track
+// (see livekit-room.ts createLocalTracks audio constraints). Stacking a
+// fixed 3x multiplier on top of AGC caused clipping on natural peaks and
+// degraded transcription. Server-side auto-gain (transcription.py) still
+// handles the quiet tail if needed.
+const GAIN = 1.0;
 
 class PCMCaptureProcessor extends AudioWorkletProcessor {
   constructor() {

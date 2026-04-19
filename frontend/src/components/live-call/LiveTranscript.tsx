@@ -7,17 +7,18 @@ import type { TranscriptChunk } from '@/lib/cactus-ws';
 
 interface LiveTranscriptProps {
   chunks: TranscriptChunk[];
+  partial?: { speaker: TranscriptChunk['speaker']; text: string } | null;
   clientName: string;
 }
 
-export default function LiveTranscript({ chunks, clientName }: LiveTranscriptProps) {
+export default function LiveTranscript({ chunks, partial, clientName }: LiveTranscriptProps) {
   const bottomRef = useRef<HTMLDivElement>(null);
 
   useEffect(() => {
     bottomRef.current?.scrollIntoView({ behavior: 'smooth' });
-  }, [chunks]);
+  }, [chunks, partial?.text]);
 
-  if (chunks.length === 0) {
+  if (chunks.length === 0 && !partial?.text) {
     return (
       <div className="flex h-full items-center justify-center">
         <div className="text-center">
@@ -64,6 +65,33 @@ export default function LiveTranscript({ chunks, clientName }: LiveTranscriptPro
           </div>
         );
       })}
+      {partial?.text && (
+        <div
+          className={`rounded-lg px-3 py-1.5 opacity-60 italic ${
+            partial.speaker === 'advisor'
+              ? 'bg-blue-50 border border-dashed border-blue-200'
+              : partial.speaker === 'client'
+                ? 'bg-emerald-50 border border-dashed border-emerald-200'
+                : 'bg-slate-50 border border-dashed border-slate-200'
+          }`}
+        >
+          {(() => {
+            const lastSpeaker = chunks.length > 0 ? chunks[chunks.length - 1].speaker : null;
+            if (partial.speaker !== lastSpeaker) {
+              return (
+                <div className="mb-0.5">
+                  <SpeakerIndicator
+                    speaker={partial.speaker}
+                    clientName={clientName}
+                  />
+                </div>
+              );
+            }
+            return null;
+          })()}
+          <p className="text-sm text-slate-600">{partial.text}</p>
+        </div>
+      )}
       <div ref={bottomRef} />
     </div>
   );

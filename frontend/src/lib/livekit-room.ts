@@ -133,7 +133,16 @@ export class LiveKitSession {
     // the local preview stream immediately in that callback.
     try {
       this.localTracks = await createLocalTracks({
-        audio: true,
+        // Browser-level audio processing feeds Parakeet a much cleaner
+        // signal than raw mic input. These eliminate typing/fan noise,
+        // prevent the advisor's speakers from echoing the client's voice
+        // back into the transcript, and level volume so the decoder isn't
+        // fighting amplitude swings.
+        audio: {
+          echoCancellation: true,
+          noiseSuppression: true,
+          autoGainControl: true,
+        },
         video: { resolution: { width: 640, height: 480 } },
       });
       for (const track of this.localTracks) {

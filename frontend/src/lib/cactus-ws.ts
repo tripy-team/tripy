@@ -73,13 +73,21 @@ export interface VisualInsightEvent {
   timestamp: number;
 }
 
+export interface PartialTranscriptEvent {
+  type: 'partial';
+  speaker: TranscriptChunk['speaker'];
+  text: string;
+  timestamp: number;
+}
+
 export type CactusEvent =
   | TranscriptChunk
   | ExtractionEvent
   | QuestionEvent
   | FinalEvent
   | StatusEvent
-  | VisualInsightEvent;
+  | VisualInsightEvent
+  | PartialTranscriptEvent;
 
 export interface CactusWSConfig {
   url: string;
@@ -92,6 +100,7 @@ export interface CactusWSConfig {
     status: string;
   } | null;
   onTranscript: (chunk: TranscriptChunk) => void;
+  onPartial?: (partial: PartialTranscriptEvent) => void;
   onExtraction: (extractions: ProfileExtraction[]) => void;
   onQuestions: (questions: ReactiveQuestion[]) => void;
   onFinal: (data: FinalEvent) => void;
@@ -151,6 +160,9 @@ export class CactusWSClient {
         switch (msg.type) {
           case 'transcript':
             this.config.onTranscript(msg as TranscriptChunk);
+            break;
+          case 'partial':
+            this.config.onPartial?.(msg as PartialTranscriptEvent);
             break;
           case 'extraction':
             this.config.onExtraction((msg as ExtractionEvent).data);

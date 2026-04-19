@@ -95,35 +95,24 @@ class LiveSession:
         t = self._transcribers.get(speaker)
         if t is None:
             t = CactusTranscriber(transcriber.model_name)
-            # Share loaded weights + inference callable across sessions so we
-            # don't reload the model per speaker. Copy both — only copying
-            # _model would leave _cactus_transcribe as None and every call
-            # would no-op silently.
+            # Share the loaded model + streaming callables across sessions so
+            # we don't reload Parakeet per speaker.
             t._model = transcriber._model
             t._cactus_init = transcriber._cactus_init
-            t._cactus_transcribe = transcriber._cactus_transcribe
+            t._cactus_stream_start = transcriber._cactus_stream_start
+            t._cactus_stream_process = transcriber._cactus_stream_process
+            t._cactus_stream_stop = transcriber._cactus_stream_stop
             self._transcribers[speaker] = t
         return t
 
     async def process_audio(
         self, pcm_bytes: bytes, speaker: str = "unknown"
     ) -> None:
-        """Transcribe an audio chunk and stream results back."""
+        """Feed a chunk to the streaming transcriber and forward any new text."""
         session_transcriber = self._get_transcriber(speaker)
-        buf_before = len(session_transcriber._buffer)
-        results = session_transcriber.feed_audio(pcm_bytes)
-        buf_after = len(session_transcriber._buffer)
-        logger.info(
-            "audio chunk: speaker=%s in=%d buf=%d->%d (thresh=%d) results=%d",
-            speaker,
-            len(pcm_bytes),
-            buf_before,
-            buf_after,
-            session_transcriber._chunk_threshold,
-            len(results),
-        )
+        update = session_transcriber.feed_audio(pcm_bytes)
 
-        for result in results:
+        for result in update.confirmed_new:
             chunk = {
                 "type": "transcript",
                 "speaker": speaker,
@@ -144,6 +133,19 @@ class LiveSession:
 
             if self._should_analyze():
                 asyncio.create_task(self._run_analysis())
+
+        # Stream the decoder's in-progress best guess. UI replaces any
+        # previous partial with this; when it stabilizes, we emit it as a
+        # confirmed transcript above and clear the partial by sending "".
+        if update.pending_changed:
+            await self.ws.send_json(
+                {
+                    "type": "partial",
+                    "speaker": speaker,
+                    "text": update.pending,
+                    "timestamp": time.time(),
+                }
+            )
 
     def _should_analyze(self) -> bool:
         """Trigger analysis after ~3 sentences or 400+ chars of unprocessed text."""
@@ -253,6 +255,27 @@ class LiveSession:
 
     async def flush_and_finalize(self) -> dict[str, Any]:
         """Flush remaining audio and return final session state."""
+        # Drain any final confirmed text out of each per-speaker stream.
+        for speaker, t in list(self._transcribers.items()):
+            final = t.flush()
+            for result in final.confirmed_new:
+                chunk = {
+                    "type": "transcript",
+                    "speaker": speaker,
+                    "text": result.text,
+                    "startMs": result.start_ms,
+                    "endMs": result.end_ms,
+                    "confidence": result.confidence,
+                    "timestamp": time.time(),
+                }
+                self.full_transcript.append(chunk)
+                self.unprocessed_text += f" {result.text}"
+                try:
+                    await self.ws.send_json(chunk)
+                except Exception:
+                    pass
+            t.reset()
+
         if self.unprocessed_text.strip():
             await self._run_analysis()
 
