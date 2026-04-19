@@ -133,10 +133,14 @@ class GemmaClient:
             return self._complete_cloud_multimodal(
                 prompt, image_bytes, image_mime, max_tokens, temperature
             )
-        local = self._complete_local(prompt, max_tokens, temperature)
-        if local:
-            return local
-        return self._complete_cloud_text(prompt, max_tokens, temperature)
+        # Prefer OpenAI cloud for live-call latency — Gemma 4 CPU decode on
+        # Graviton is ~15 tok/s, which makes per-analysis latency ~20s. Cloud
+        # is ~1-2s and matches conversation pace. Fall back to on-device
+        # Gemma if OpenAI is unreachable so the demo degrades gracefully.
+        cloud = self._complete_cloud_text(prompt, max_tokens, temperature)
+        if cloud:
+            return cloud
+        return self._complete_local(prompt, max_tokens, temperature)
 
     def _complete_local(
         self, prompt: str, max_tokens: int, temperature: float
