@@ -46,6 +46,33 @@ class ExtractionEngine:
         raw = self._client.complete(prompt, max_tokens=800, temperature=0.3)
         return self._parse_json_array(raw)
 
+    def keyword_extract(
+        self,
+        recent_text: str,
+        client_name: str,
+        existing_profile: str,
+        speaker: str = "client",
+    ) -> list[dict[str, Any]]:
+        """Spot preference keywords in a single fragmented transcript chunk.
+
+        Designed for the live-call path where transcription often arrives as
+        a few stray words ("business class", "Marriott") rather than full
+        sentences. Uses a tighter prompt and shorter generation budget than
+        ``extract`` so it stays under the per-chunk inference deadline.
+        """
+        from .prompts import KEYWORD_EXTRACTION_PROMPT, TRAVEL_PREFERENCE_FIELDS
+
+        prompt = KEYWORD_EXTRACTION_PROMPT.format(
+            client_name=client_name,
+            existing_profile=existing_profile,
+            recent_text=recent_text,
+            speaker=speaker,
+            field_definitions=TRAVEL_PREFERENCE_FIELDS,
+        )
+
+        raw = self._client.complete(prompt, max_tokens=200, temperature=0.2)
+        return self._parse_json_array(raw)
+
     def _parse_json_array(self, raw: str) -> list[dict[str, Any]]:
         raw = raw.strip()
         start = raw.find("[")

@@ -81,7 +81,11 @@ class LiveSession:
         self.full_transcript: list[dict[str, Any]] = []
         self.unprocessed_text = ""
         self.unprocessed_speaker = "unknown"
-        self._analysis_lock = asyncio.Lock()
+        # Single lock guarding ALL local Gemma calls for this session: the
+        # heavyweight analysis pass (extract + question gen) and the
+        # per-chunk keyword pass. Sharing a lock keeps inference serialized
+        # so chunk extractions don't fight the analysis pass for the model.
+        self._llm_lock = asyncio.Lock()
         self._sentence_count = 0
         self._latest_visual_insight: str = ""
         self._vision_lock = asyncio.Lock()
@@ -131,6 +135,15 @@ class LiveSession:
             # Count sentences for analysis trigger
             self._sentence_count += result.text.count(".") + result.text.count("?") + result.text.count("!")
 
+            # Per-chunk keyword spotting: transcription is sketchy, so don't
+            # wait for a full sentence. Fire Gemma 4 against each confirmed
+            # fragment and let it pull out concrete preference keywords like
+            # "business class" or "Marriott". Drops if the LLM is busy —
+            # we don't want a queue of stale fragments piling up.
+            asyncio.create_task(
+                self._run_keyword_extraction(result.text, speaker)
+            )
+
             if self._should_analyze():
                 asyncio.create_task(self._run_analysis())
 
@@ -151,9 +164,46 @@ class LiveSession:
         """Trigger analysis after ~3 sentences or 400+ chars of unprocessed text."""
         return self._sentence_count >= 3 or len(self.unprocessed_text) > 400
 
+    async def _run_keyword_extraction(self, text: str, speaker: str) -> None:
+        """Spot preference keywords in a single transcript chunk.
+
+        Skips when Gemma is already busy (heavier analysis pass or another
+        keyword call). Stale fragments are worthless once the conversation
+        has moved on, so dropping is preferable to queuing.
+        """
+        text = text.strip()
+        if len(text.split()) < 2:
+            return  # too short to contain a useful keyword
+        if self._llm_lock.locked():
+            return
+
+        async with self._llm_lock:
+            try:
+                extractions = await asyncio.get_event_loop().run_in_executor(
+                    None,
+                    extraction_engine.keyword_extract,
+                    text,
+                    self.client_name,
+                    self.learning_state.to_profile_summary(),
+                    speaker,
+                )
+            except Exception:
+                logger.exception("Keyword extraction error")
+                return
+
+            if not extractions:
+                return
+
+            self.learning_state.ingest(extractions)
+            await self.ws.send_json({
+                "type": "extraction",
+                "data": extractions,
+                "source": "keyword",
+            })
+
     async def _run_analysis(self) -> None:
         """Extract preferences and generate questions from recent transcript."""
-        async with self._analysis_lock:
+        async with self._llm_lock:
             text = self.unprocessed_text.strip()
             if not text:
                 return

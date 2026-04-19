@@ -75,11 +75,26 @@ fi
 CACTUS_STT_MODEL="$CACTUS_MODEL" python -m cactus_server.server &
 CACTUS_PID=$!
 
+echo -e "    waiting for Cactus /health (loads Parakeet + Gemma, can take ~60s)..."
+for i in {1..90}; do
+    if curl -s http://localhost:$CACTUS_PORT/health >/dev/null 2>&1; then
+        echo -e "    ${GREEN}cactus ready${NC}"
+        break
+    fi
+    if [ $i -eq 90 ]; then
+        echo -e "    ${RED}cactus failed to start within 90s${NC}" >&2
+        cleanup
+    fi
+    sleep 1
+done
+
 # ========================================
 # Main backend (port 8000)
 # ========================================
 echo -e "${BLUE}==> Starting main backend (port $BACKEND_PORT)${NC}"
-python -m uvicorn src.app:app --reload --port $BACKEND_PORT &
+# --reload-exclude keeps edits to cactus_server from bouncing the main backend
+# every time we tweak transcription code while debugging.
+python -m uvicorn src.app:app --reload --reload-exclude 'cactus_server/*' --port $BACKEND_PORT &
 BACKEND_PID=$!
 
 echo -e "    waiting for backend health check..."

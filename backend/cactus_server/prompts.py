@@ -37,6 +37,48 @@ Extended soft fields:
 - whatMakesTripWorthwhile: string (the emotional/experiential goal)
 """
 
+KEYWORD_EXTRACTION_PROMPT = """You are a fast keyword spotter for a luxury travel advisor's live call. The audio transcription is sketchy and often arrives as a few stray words rather than full sentences. Your job is to spot any concrete travel-preference keyword in the fragment and map it directly to a profile field.
+
+Client name: {client_name}
+
+What we already know about this client:
+{existing_profile}
+
+Transcript fragment ({speaker}): "{recent_text}"
+
+{field_definitions}
+
+RULES:
+- Treat the fragment as keyword soup, not a sentence. A single keyword is enough.
+- Map ONLY when a concrete keyword in the fragment clearly belongs to a field. Examples:
+    "business class" → preferredCabin: "business"
+    "first" (in flight context) → preferredCabin: "first"
+    "nonstop" / "direct flight" → prefersNonstop: true
+    "United" / "Delta" / airline name → preferredAirlines: ["United"]
+    "Marriott" / "Four Seasons" / hotel brand → preferredHotelTypes or notes
+    "vegetarian" / "no shellfish" → foodPreferences
+    "wheelchair" / "stroller" / "service animal" → accessibilityNeeds
+    "honeymoon" / "anniversary" / "birthday" → specialOccasions
+    "boutique" / "resort" / "all-inclusive" → preferredHotelTypes
+    "red-eye" (negative tone) → redEyeTolerance: "prefer not"
+    "points" / "miles" → pointsVsCash: "prefer points"
+    "luxury" / "splurge" → budgetSensitivity: "luxury"
+- Confidence guide:
+    0.85 — explicit keyword present in the fragment
+    0.65 — keyword present but ambiguous on its own
+    skip if you would emit below 0.6
+- Do NOT invent preferences not anchored to a literal keyword in the fragment.
+- If the fragment is filler ("um", "yeah", "I think so") or off-topic, return [].
+
+Return a JSON array. Each item:
+- "targetField": one of the fields above
+- "suggestedValue": the value (correct type)
+- "confidence": 0.6 to 0.95
+- "evidence": the exact keyword(s) spotted
+
+Return ONLY the JSON array, no prose. Empty array if nothing matches: []"""
+
+
 EXTRACTION_PROMPT = """You are an AI assistant helping a travel advisor during a live client call.
 Analyze what was just said and extract any travel preferences or profile information.
 

@@ -1,0 +1,25 @@
+[Unit]
+Description=Tripy Cactus Live Call Server (Gemma 4 + Parakeet)
+After=network-online.target
+Wants=network-online.target
+
+[Service]
+Type=simple
+User=ubuntu
+Group=ubuntu
+WorkingDirectory=/home/ubuntu/tripy/backend
+Environment=PYTHONUNBUFFERED=1
+Environment=CACTUS_REPO=/home/ubuntu/cactus
+Environment=CACTUS_PORT=8765
+Environment=CACTUS_STT_MODEL=nvidia/parakeet-tdt-0.6b-v3
+Environment=CACTUS_LLM_MODEL=google/gemma-4-E2B-it
+Environment=CACTUS_VISION_MODEL=google/gemma-4-E2B-it
+EnvironmentFile=-/home/ubuntu/tripy/backend/cactus_server/.env
+ExecStart=/home/ubuntu/cactus/venv/bin/python -m uvicorn cactus_server.server:app --host 0.0.0.0 --port 8765
+Restart=on-failure
+RestartSec=5
+StandardOutput=journal
+StandardError=journal
+
+[Install]
+WantedBy=multi-user.target

@@ -1,12 +1,16 @@
 """Gemma 4 client with hybrid routing: local Cactus first, OpenAI cloud fallback.
 
-Setup (from https://github.com/cactus-compute/voice-agents-hack):
+Setup:
     git clone https://github.com/cactus-compute/cactus && cd cactus
     source ./setup && cactus build --python
-    cactus download google/functiongemma-270m-it --reconvert
+    cactus download google/gemma-4-E2B-it --reconvert
     cactus auth   # paste token from https://dashboard.cactus.dev
     pip install openai
     export OPENAI_API_KEY="..."    # or OPENAI_ADMIN_KEY — either works
+
+E2B (2.3B effective params) is the right size for live keyword spotting:
+~660 tok/s prefill, ~40 tok/s decode on M-series silicon. See
+https://docs.cactuscompute.com/latest/blog/gemma4/ for full numbers.
 """
 
 from __future__ import annotations
@@ -15,12 +19,13 @@ import base64
 import json
 import logging
 import os
+import threading
 from typing import Any, Callable
 
 logger = logging.getLogger(__name__)
 
 CACTUS_REPO = os.environ.get("CACTUS_REPO", os.path.expanduser("~/cactus"))
-DEFAULT_GEMMA_MODEL = os.environ.get("CACTUS_LLM_MODEL", "google/functiongemma-270m-it")
+DEFAULT_GEMMA_MODEL = os.environ.get("CACTUS_LLM_MODEL", "google/gemma-4-E2B-it")
 DEFAULT_OPENAI_CLOUD_MODEL = os.environ.get("OPENAI_CLOUD_MODEL", "gpt-4o-mini")
 
 
@@ -61,6 +66,10 @@ class GemmaClient:
         self._local_model: Any = None
         self._cactus_complete: Callable | None = None
         self._openai_client: Any = None
+        # cactus_complete mutates KV cache on the model handle; concurrent
+        # invocations from the FastAPI executor pool corrupt mid-generation
+        # state. Serialize all local calls per-client.
+        self._local_lock = threading.Lock()
 
     @property
     def loaded(self) -> bool:
@@ -139,9 +148,10 @@ class GemmaClient:
             options = json.dumps(
                 {"max_tokens": max_tokens, "temperature": temperature}
             )
-            raw = self._cactus_complete(
-                self._local_model, messages, options, None, None
-            )
+            with self._local_lock:
+                raw = self._cactus_complete(
+                    self._local_model, messages, options, None, None
+                )
             result = json.loads(raw) if isinstance(raw, str) else raw
             return result.get("response", "") or ""
         except Exception:
