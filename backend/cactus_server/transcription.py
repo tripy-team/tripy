@@ -142,7 +142,19 @@ class CactusTranscriber:
         # natural utterance boundaries instead of one endless transcript.
         self._silent_ms: int = 0
         self._silence_flush_ms: int = 800
-        self._silence_rms_threshold: float = 600.0
+        self._silence_rms_threshold: float = 900.0
+        # Require this many consecutive non-silent chunks before opening a
+        # new Parakeet stream. Isolated noise bursts (keyboard click, HVAC
+        # puff) can briefly clear the RMS gate; if we spin up a stream on
+        # one of those, Parakeet hallucinates a filler word mid-stream
+        # before any silence flush has a chance to run. Requiring sustained
+        # energy means a genuine utterance has to begin before we commit.
+        self._nonsilent_run: int = 0
+        self._stream_open_min_chunks: int = 2
+        # Prefix buffer: hold the first non-silent chunk so when the second
+        # arrives and we decide this is real speech, we can feed both and
+        # not lose the leading audio.
+        self._prefix_pcm: bytes = b""
         # Config passed to the streaming decoder. min_chunk_size is the
         # amount of audio Parakeet buffers internally before emitting
         # updates — lower = lower latency, higher = more context per decode.
@@ -218,6 +230,8 @@ class CactusTranscriber:
         chunk_is_silent = self._chunk_rms(pcm_bytes) < self._silence_rms_threshold
         if chunk_is_silent:
             self._silent_ms += duration_ms
+            self._nonsilent_run = 0
+            self._prefix_pcm = b""
             if (
                 self._stream is not None
                 and self._silent_ms >= self._silence_flush_ms
@@ -240,8 +254,22 @@ class CactusTranscriber:
                 self._silent_ms = 0
                 self._offset_ms += duration_ms
                 return flush_update
-        else:
-            self._silent_ms = 0
+            self._offset_ms += duration_ms
+            return StreamUpdate([], "", False)
+
+        self._silent_ms = 0
+
+        # Sustained-audio gate: if no stream is open yet, wait until we've
+        # seen enough non-silent chunks in a row before committing to open
+        # one. Buffer the prefix so we don't lose the leading audio.
+        if self._stream is None:
+            self._nonsilent_run += 1
+            if self._nonsilent_run < self._stream_open_min_chunks:
+                self._prefix_pcm = pcm_bytes
+                self._offset_ms += duration_ms
+                return StreamUpdate([], "", False)
+            pcm_bytes = self._prefix_pcm + pcm_bytes
+            self._prefix_pcm = b""
 
         if not self._ensure_stream() or self._cactus_stream_process is None:
             self._offset_ms += duration_ms
@@ -294,6 +322,8 @@ class CactusTranscriber:
         self._last_pending = ""
         self._offset_ms = 0
         self._silent_ms = 0
+        self._nonsilent_run = 0
+        self._prefix_pcm = b""
 
     def _extract_update(self, raw: Any, duration_ms: int) -> StreamUpdate:
         """Diff the streaming output against what we've already emitted."""
