@@ -62,8 +62,11 @@ class StreamUpdate:
 
 # Auto-gain: target RMS is ~20% of int16 full-scale (normal speaking volume).
 # Cap at 12x so we don't amplify pure room noise into fake "speech".
+# Skip gain entirely below the floor — quiet noise amplified to speech levels
+# makes Parakeet hallucinate filler words ("yeah", "uh", "mm").
 _AUTO_GAIN_TARGET_RMS = 6500.0
 _AUTO_GAIN_MAX = 12.0
+_AUTO_GAIN_MIN_RMS = 1000.0
 
 
 def _apply_auto_gain(pcm_bytes: bytes) -> bytes:
@@ -73,7 +76,7 @@ def _apply_auto_gain(pcm_bytes: bytes) -> bytes:
         return pcm_bytes
     samples = struct.unpack(f"<{num_samples}h", pcm_bytes)
     rms = (sum(s * s for s in samples) / num_samples) ** 0.5
-    if rms <= 0 or rms >= _AUTO_GAIN_TARGET_RMS:
+    if rms < _AUTO_GAIN_MIN_RMS or rms >= _AUTO_GAIN_TARGET_RMS:
         return pcm_bytes
     gain = min(_AUTO_GAIN_TARGET_RMS / rms, _AUTO_GAIN_MAX)
     boosted = bytearray(num_samples * 2)
@@ -116,7 +119,7 @@ class CactusTranscriber:
         # natural utterance boundaries instead of one endless transcript.
         self._silent_ms: int = 0
         self._silence_flush_ms: int = 800
-        self._silence_rms_threshold: float = 250.0
+        self._silence_rms_threshold: float = 600.0
         # Config passed to the streaming decoder. min_chunk_size is the
         # amount of audio Parakeet buffers internally before emitting
         # updates — lower = lower latency, higher = more context per decode.
