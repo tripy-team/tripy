@@ -27,11 +27,11 @@ import {
 import { startLiveCall } from '@/lib/live-call-api';
 import { createMeetingInvitation } from '@/lib/api-client';
 
-// Parakeet hallucinates filler words during silence and quiet audio. Display
-// layer de-dupes consecutive identical filler chunks within this window so
-// the transcript doesn't stack up with phantom "Yeah."/"Okay." while still
-// letting the first one through — preserves real short client answers.
-const FILLER_DEDUPE_WINDOW_SEC = 5;
+// Parakeet hallucinates filler words during silence and quiet audio. The
+// backend attaches the recent peak audio RMS to each chunk; we hide filler-
+// only chunks decoded from sub-speech-level audio. Real client answers
+// ("yeah") come with speech-level RMS and still pass through.
+const FILLER_SPEECH_RMS_THRESHOLD = 2500;
 const FILLER_WORDS: ReadonlySet<string> = new Set([
   'yeah', 'yep', 'yup', 'ya',
   'uh', 'uhh', 'um', 'umm', 'er', 'erm',
@@ -43,6 +43,12 @@ const FILLER_WORDS: ReadonlySet<string> = new Set([
 function normalizeFiller(text: string): string | null {
   const cleaned = text.trim().replace(/[.,!?;:\-]/g, '').toLowerCase();
   return FILLER_WORDS.has(cleaned) ? cleaned : null;
+}
+
+function isPhantomFiller(chunk: TranscriptChunk): boolean {
+  if (!normalizeFiller(chunk.text)) return false;
+  if (chunk.recentPeakRms === undefined) return false;
+  return chunk.recentPeakRms < FILLER_SPEECH_RMS_THRESHOLD;
 }
 
 export interface LiveCallConfig {
@@ -243,19 +249,11 @@ export default function LiveCallView({
         existingPreferences: config.existingPreferences,
         tripContext: config.tripContext,
         onTranscript: (chunk) => {
-          setTranscript((prev) => {
-            const filler = normalizeFiller(chunk.text);
-            if (filler) {
-              for (let i = prev.length - 1; i >= 0; i--) {
-                const p = prev[i];
-                if (chunk.timestamp - p.timestamp > FILLER_DEDUPE_WINDOW_SEC) break;
-                if (p.speaker === chunk.speaker && normalizeFiller(p.text) === filler) {
-                  return prev;
-                }
-              }
-            }
-            return [...prev, chunk];
-          });
+          if (isPhantomFiller(chunk)) {
+            console.log('[transcript] hide phantom filler', chunk.text, 'rms=', chunk.recentPeakRms);
+            return;
+          }
+          setTranscript((prev) => [...prev, chunk]);
           // Clear any stale partial for this speaker — the decoder just
           // confirmed text, so what was pending has been absorbed.
           setPartial((cur) => (cur && cur.speaker === chunk.speaker ? null : cur));

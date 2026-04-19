@@ -130,6 +130,7 @@ class LiveSession:
                 "startMs": result.start_ms,
                 "endMs": result.end_ms,
                 "confidence": result.confidence,
+                "recentPeakRms": result.recent_peak_rms,
                 "timestamp": time.time(),
             }
             self.full_transcript.append(chunk)

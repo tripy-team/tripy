@@ -41,6 +41,10 @@ class TranscriptionResult:
     start_ms: int
     end_ms: int
     confidence: float
+    # Peak RMS of the recent audio window when this chunk was decoded.
+    # Lets the frontend distinguish phantom fillers (decoded from quiet
+    # audio) from real short answers (decoded from speech-level audio).
+    recent_peak_rms: float = 0.0
 
 
 @dataclass
@@ -382,12 +386,14 @@ class CactusTranscriber:
                 new_text = confirmed
             self._confirmed_total = confirmed
             if new_text:
+                recent_peak = max(self._recent_rms) if self._recent_rms else 0.0
                 confirmed_new.append(
                     TranscriptionResult(
                         text=new_text,
                         start_ms=max(self._offset_ms - duration_ms, 0),
                         end_ms=self._offset_ms,
                         confidence=0.9,
+                        recent_peak_rms=recent_peak,
                     )
                 )
 

@@ -12,6 +12,9 @@ export interface TranscriptChunk {
   startMs: number;
   endMs: number;
   confidence: number;
+  // Peak RMS of the recent audio window when this chunk was decoded.
+  // Used by the UI to filter phantom filler words decoded from quiet audio.
+  recentPeakRms?: number;
   timestamp: number;
 }
 
