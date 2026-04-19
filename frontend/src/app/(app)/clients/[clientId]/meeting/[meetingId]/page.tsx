@@ -105,6 +105,7 @@ export default function MeetingCopilotPage() {
   const [generatingQuestions, setGeneratingQuestions] = useState(false);
   const [extracting, setExtracting] = useState(false);
   const [generatingRecap, setGeneratingRecap] = useState(false);
+  const [recapError, setRecapError] = useState<string | null>(null);
   const [committingProfile, setCommittingProfile] = useState(false);
   const [updatingSuggestionId, setUpdatingSuggestionId] = useState<string | null>(null);
 
@@ -565,12 +566,17 @@ export default function MeetingCopilotPage() {
 
   const handleGenerateRecap = async () => {
     setGeneratingRecap(true);
+    setRecapError(null);
     try {
       const result = await generateMeetingRecap(clientId, meetingId);
       setRecap(result);
       setActivePanel('recap');
     } catch (err) {
       console.error('Failed to generate recap:', err);
+      setRecapError(
+        err instanceof Error ? err.message : 'Failed to generate recap',
+      );
+      setActivePanel('recap');
     } finally {
       setGeneratingRecap(false);
     }
@@ -711,7 +717,7 @@ export default function MeetingCopilotPage() {
           )}
           <button
             onClick={handleGenerateRecap}
-            disabled={generatingRecap || entries.length === 0}
+            disabled={generatingRecap}
             className="inline-flex items-center gap-1.5 rounded-lg bg-purple-600 px-3 py-1.5 text-xs font-medium text-white hover:bg-purple-700 disabled:opacity-60"
           >
             {generatingRecap ? (
@@ -915,7 +921,7 @@ export default function MeetingCopilotPage() {
             )}
 
             {activePanel === 'recap' && (
-              <RecapPanel recap={recap} />
+              <RecapPanel recap={recap} error={recapError} />
             )}
 
             {newExtractionsToast !== null && (
@@ -2000,7 +2006,13 @@ function formatProfileValue(value: unknown): string {
   return String(value);
 }
 
-function RecapPanel({ recap }: { recap: MeetingRecap | null }) {
+function RecapPanel({
+  recap,
+  error,
+}: {
+  recap: MeetingRecap | null;
+  error?: string | null;
+}) {
   if (!recap) {
     return (
       <div className="flex h-full items-center justify-center">
@@ -2012,6 +2024,11 @@ function RecapPanel({ recap }: { recap: MeetingRecap | null }) {
           <p className="mt-1 text-xs text-slate-400">
             Click &ldquo;Generate Recap&rdquo; to create a meeting summary
           </p>
+          {error && (
+            <p className="mt-3 text-xs text-red-600">
+              Last attempt failed: {error}
+            </p>
+          )}
         </div>
       </div>
     );
@@ -2019,6 +2036,12 @@ function RecapPanel({ recap }: { recap: MeetingRecap | null }) {
 
   return (
     <div className="space-y-5">
+      {recap.conversationSummary && (
+        <RecapSection
+          title="Conversation Summary"
+          content={recap.conversationSummary}
+        />
+      )}
       <RecapSection title="Traveler Summary" content={recap.travelerSummary} />
       <RecapSection
         title="New Preferences Learned"

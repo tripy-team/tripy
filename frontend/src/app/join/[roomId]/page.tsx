@@ -110,6 +110,11 @@ export default function ClientJoinPage() {
           setRemoteVideoEl(videoEl);
         },
         onRemoteDisconnect: () => {
+          // Advisor left (or server tore down the room). Fully disconnect so
+          // the client's mic/camera stop and the LiveKit room connection
+          // closes — otherwise the browser keeps publishing tracks into a
+          // now-empty room.
+          void sessionRef.current?.disconnect();
           setPhase('ended');
         },
         onError: (e) => {

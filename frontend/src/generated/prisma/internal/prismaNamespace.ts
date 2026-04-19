@@ -5012,6 +5012,7 @@ export type ProfileContradictionScalarFieldEnum = (typeof ProfileContradictionSc
 export const MeetingRecapScalarFieldEnum = {
   id: 'id',
   sessionId: 'sessionId',
+  conversationSummary: 'conversationSummary',
   travelerSummary: 'travelerSummary',
   newPreferencesLearned: 'newPreferencesLearned',
   unresolvedQuestions: 'unresolvedQuestions',

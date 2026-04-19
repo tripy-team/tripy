@@ -73,6 +73,7 @@ export interface ExtractedProfileSuggestion {
 }
 
 export interface MeetingRecapResult {
+  conversationSummary: string;
   travelerSummary: string;
   newPreferencesLearned: string;
   unresolvedQuestions: string;
@@ -780,6 +781,7 @@ Profile updates rejected by advisor:
 ${rejectedStr}
 
 Generate a JSON object with these keys:
+- conversation_summary: a chronological 4-6 sentence narrative summary of the conversation itself — what the advisor asked, what the client said, how the discussion flowed, and any notable moments or topic shifts. Write it in plain prose, not bullets.
 - traveler_summary: 2-3 sentences summarizing who this traveler is, their travel style, and key priorities
 - new_preferences_learned: bullet list of new preferences learned in this meeting (use "• " prefix)
 - unresolved_questions: bullet list of topics that still need clarification or weren't covered (use "• " prefix)
@@ -801,6 +803,7 @@ Generate a JSON object with these keys:
 
   const parsed = JSON.parse(content);
   return {
+    conversationSummary: parsed.conversation_summary || "",
     travelerSummary: parsed.traveler_summary || "",
     newPreferencesLearned: parsed.new_preferences_learned || "",
     unresolvedQuestions: parsed.unresolved_questions || "",
@@ -1215,7 +1218,14 @@ function generateFallbackRecap(
   context: MeetingContext,
 ): MeetingRecapResult {
   const entryCount = context.conversationSoFar.length;
+  const preview = context.conversationSoFar
+    .slice(0, 4)
+    .map((e) => `${e.role}: ${e.content.slice(0, 140)}`)
+    .join(" → ");
   return {
+    conversationSummary: preview
+      ? `Conversation covered ${entryCount} exchanges. Excerpts: ${preview}`
+      : `Discovery meeting with ${context.clientName} — no transcript captured.`,
     travelerSummary: `Discovery meeting with ${context.clientName}. ${entryCount} conversation entries recorded. Review the full conversation for detailed traveler preferences and priorities.`,
     newPreferencesLearned:
       "• Review meeting notes for specific preferences discussed\n• Check extracted suggestions for structured updates",

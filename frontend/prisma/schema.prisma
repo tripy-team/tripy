@@ -915,6 +915,7 @@ model ProfileContradiction {
 model MeetingRecap {
   id                    String                  @id @default(cuid())
   sessionId             String                  @unique @map("session_id")
+  conversationSummary   String                  @default("") @map("conversation_summary")
   travelerSummary       String                  @map("traveler_summary")
   newPreferencesLearned String                  @map("new_preferences_learned")
   unresolvedQuestions   String                  @map("unresolved_questions")

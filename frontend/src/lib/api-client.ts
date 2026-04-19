@@ -903,6 +903,7 @@ export interface MeetingProfileSuggestion {
 export interface MeetingRecap {
   id: string;
   sessionId: string;
+  conversationSummary: string;
   travelerSummary: string;
   newPreferencesLearned: string;
   unresolvedQuestions: string;

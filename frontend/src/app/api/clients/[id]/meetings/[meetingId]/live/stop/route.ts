@@ -1,6 +1,32 @@
+import { RoomServiceClient } from "livekit-server-sdk";
 import { prisma } from "@/lib/prisma";
 import { requireAuth, json, errorResponse } from "@/lib/auth";
 import { commitSuggestionsForClient } from "@/lib/profile-commit";
+import { syncLoyaltyBalancesFromNotes } from "@/lib/loyalty-balance-sync";
+
+// Mirrors buildRoomName() in lib/livekit-room.ts — inlined here because that
+// module pulls in livekit-client, which must not end up in server bundles.
+function buildRoomName(clientId: string, meetingId: string): string {
+  return `tripy-${clientId}-${meetingId}`.replace(/[^a-zA-Z0-9-]/g, "-");
+}
+
+async function deleteLiveKitRoom(roomName: string): Promise<void> {
+  const apiKey = process.env.LIVEKIT_API_KEY;
+  const apiSecret = process.env.LIVEKIT_API_SECRET;
+  const host = process.env.LIVEKIT_API_URL || process.env.NEXT_PUBLIC_LIVEKIT_URL;
+  if (!apiKey || !apiSecret || !host) return;
+  // livekit-server-sdk wants https:// for the room service; swap the ws(s)://
+  // scheme that the NEXT_PUBLIC_LIVEKIT_URL env typically uses.
+  const httpHost = host.replace(/^ws(s?):\/\//, "http$1://");
+  const svc = new RoomServiceClient(httpHost, apiKey, apiSecret);
+  try {
+    await svc.deleteRoom(roomName);
+  } catch (err) {
+    // deleteRoom fails with "room not found" if every participant has
+    // already disconnected. That's the desired end state, so swallow it.
+    console.warn("[LiveCall] deleteRoom failed:", err);
+  }
+}
 
 // Confidence at/above which we skip the advisor-review step and sync
 // straight into ClientPreference so display + downstream flight AI can use
@@ -166,6 +192,28 @@ export async function POST(
       }
     }
 
+    // Cactus emits credit-card / airline / hotel point balances as
+    // `loyaltyNotes: "Amex MR: 100k; Chase UR: 300k"`. commitSuggestionsForClient
+    // stores that raw text on ClientPreference, but the Balances tab reads
+    // from ClientLoyaltyBalance rows. Parse out any program:amount pairs we
+    // recognise and upsert them so the numbers show up where advisors expect.
+    let balancesSynced = 0;
+    const loyaltyNotesFromCall = commitReady.find(
+      (i) => i.targetField === "loyaltyNotes",
+    );
+    if (loyaltyNotesFromCall) {
+      try {
+        balancesSynced = await syncLoyaltyBalancesFromNotes(
+          clientId,
+          loyaltyNotesFromCall.suggestedValue,
+          user.id,
+          `Live call extraction (${duration}s)`,
+        );
+      } catch (balanceErr) {
+        console.error("[LiveCall] loyalty balance sync failed:", balanceErr);
+      }
+    }
+
     // Persist contradictions so the advisor can revisit unresolved conflicts
     // after the call (the Cactus session state is thrown away at call end).
     const contradictions: Array<{
@@ -188,12 +236,19 @@ export async function POST(
       });
     }
 
+    // Tear down the LiveKit room so the client's browser gets a real
+    // Disconnected event (not just ParticipantDisconnected after the
+    // advisor leaves). Without this the client stays connected to an
+    // empty room, publishing mic/camera into the void.
+    await deleteLiveKitRoom(buildRoomName(clientId, meetingId));
+
     return json({
       ...updated,
       transcriptSaved: transcriptChunks.length,
       suggestionsSaved: commitReady.length,
       autoCommitted,
       contradictionsSaved: contradictions.length,
+      balancesSynced,
     });
   } catch (error) {
     if (error instanceof Response) return error;

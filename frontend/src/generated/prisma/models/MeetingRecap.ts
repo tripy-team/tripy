@@ -27,6 +27,7 @@ export type AggregateMeetingRecap = {
 export type MeetingRecapMinAggregateOutputType = {
   id: string | null
   sessionId: string | null
+  conversationSummary: string | null
   travelerSummary: string | null
   newPreferencesLearned: string | null
   unresolvedQuestions: string | null
@@ -38,6 +39,7 @@ export type MeetingRecapMinAggregateOutputType = {
 export type MeetingRecapMaxAggregateOutputType = {
   id: string | null
   sessionId: string | null
+  conversationSummary: string | null
   travelerSummary: string | null
   newPreferencesLearned: string | null
   unresolvedQuestions: string | null
@@ -49,6 +51,7 @@ export type MeetingRecapMaxAggregateOutputType = {
 export type MeetingRecapCountAggregateOutputType = {
   id: number
   sessionId: number
+  conversationSummary: number
   travelerSummary: number
   newPreferencesLearned: number
   unresolvedQuestions: number
@@ -62,6 +65,7 @@ export type MeetingRecapCountAggregateOutputType = {
 export type MeetingRecapMinAggregateInputType = {
   id?: true
   sessionId?: true
+  conversationSummary?: true
   travelerSummary?: true
   newPreferencesLearned?: true
   unresolvedQuestions?: true
@@ -73,6 +77,7 @@ export type MeetingRecapMinAggregateInputType = {
 export type MeetingRecapMaxAggregateInputType = {
   id?: true
   sessionId?: true
+  conversationSummary?: true
   travelerSummary?: true
   newPreferencesLearned?: true
   unresolvedQuestions?: true
@@ -84,6 +89,7 @@ export type MeetingRecapMaxAggregateInputType = {
 export type MeetingRecapCountAggregateInputType = {
   id?: true
   sessionId?: true
+  conversationSummary?: true
   travelerSummary?: true
   newPreferencesLearned?: true
   unresolvedQuestions?: true
@@ -168,6 +174,7 @@ export type MeetingRecapGroupByArgs<ExtArgs extends runtime.Types.Extensions.Int
 export type MeetingRecapGroupByOutputType = {
   id: string
   sessionId: string
+  conversationSummary: string
   travelerSummary: string
   newPreferencesLearned: string
   unresolvedQuestions: string
@@ -200,6 +207,7 @@ export type MeetingRecapWhereInput = {
   NOT?: Prisma.MeetingRecapWhereInput | Prisma.MeetingRecapWhereInput[]
   id?: Prisma.StringFilter<"MeetingRecap"> | string
   sessionId?: Prisma.StringFilter<"MeetingRecap"> | string
+  conversationSummary?: Prisma.StringFilter<"MeetingRecap"> | string
   travelerSummary?: Prisma.StringFilter<"MeetingRecap"> | string
   newPreferencesLearned?: Prisma.StringFilter<"MeetingRecap"> | string
   unresolvedQuestions?: Prisma.StringFilter<"MeetingRecap"> | string
@@ -212,6 +220,7 @@ export type MeetingRecapWhereInput = {
 export type MeetingRecapOrderByWithRelationInput = {
   id?: Prisma.SortOrder
   sessionId?: Prisma.SortOrder
+  conversationSummary?: Prisma.SortOrder
   travelerSummary?: Prisma.SortOrder
   newPreferencesLearned?: Prisma.SortOrder
   unresolvedQuestions?: Prisma.SortOrder
@@ -227,6 +236,7 @@ export type MeetingRecapWhereUniqueInput = Prisma.AtLeast<{
   AND?: Prisma.MeetingRecapWhereInput | Prisma.MeetingRecapWhereInput[]
   OR?: Prisma.MeetingRecapWhereInput[]
   NOT?: Prisma.MeetingRecapWhereInput | Prisma.MeetingRecapWhereInput[]
+  conversationSummary?: Prisma.StringFilter<"MeetingRecap"> | string
   travelerSummary?: Prisma.StringFilter<"MeetingRecap"> | string
   newPreferencesLearned?: Prisma.StringFilter<"MeetingRecap"> | string
   unresolvedQuestions?: Prisma.StringFilter<"MeetingRecap"> | string
@@ -239,6 +249,7 @@ export type MeetingRecapWhereUniqueInput = Prisma.AtLeast<{
 export type MeetingRecapOrderByWithAggregationInput = {
   id?: Prisma.SortOrder
   sessionId?: Prisma.SortOrder
+  conversationSummary?: Prisma.SortOrder
   travelerSummary?: Prisma.SortOrder
   newPreferencesLearned?: Prisma.SortOrder
   unresolvedQuestions?: Prisma.SortOrder
@@ -256,6 +267,7 @@ export type MeetingRecapScalarWhereWithAggregatesInput = {
   NOT?: Prisma.MeetingRecapScalarWhereWithAggregatesInput | Prisma.MeetingRecapScalarWhereWithAggregatesInput[]
   id?: Prisma.StringWithAggregatesFilter<"MeetingRecap"> | string
   sessionId?: Prisma.StringWithAggregatesFilter<"MeetingRecap"> | string
+  conversationSummary?: Prisma.StringWithAggregatesFilter<"MeetingRecap"> | string
   travelerSummary?: Prisma.StringWithAggregatesFilter<"MeetingRecap"> | string
   newPreferencesLearned?: Prisma.StringWithAggregatesFilter<"MeetingRecap"> | string
   unresolvedQuestions?: Prisma.StringWithAggregatesFilter<"MeetingRecap"> | string
@@ -266,6 +278,7 @@ export type MeetingRecapScalarWhereWithAggregatesInput = {
 
 export type MeetingRecapCreateInput = {
   id?: string
+  conversationSummary?: string
   travelerSummary: string
   newPreferencesLearned: string
   unresolvedQuestions: string
@@ -278,6 +291,7 @@ export type MeetingRecapCreateInput = {
 export type MeetingRecapUncheckedCreateInput = {
   id?: string
   sessionId: string
+  conversationSummary?: string
   travelerSummary: string
   newPreferencesLearned: string
   unresolvedQuestions: string
@@ -288,6 +302,7 @@ export type MeetingRecapUncheckedCreateInput = {
 
 export type MeetingRecapUpdateInput = {
   id?: Prisma.StringFieldUpdateOperationsInput | string
+  conversationSummary?: Prisma.StringFieldUpdateOperationsInput | string
   travelerSummary?: Prisma.StringFieldUpdateOperationsInput | string
   newPreferencesLearned?: Prisma.StringFieldUpdateOperationsInput | string
   unresolvedQuestions?: Prisma.StringFieldUpdateOperationsInput | string
@@ -300,6 +315,7 @@ export type MeetingRecapUpdateInput = {
 export type MeetingRecapUncheckedUpdateInput = {
   id?: Prisma.StringFieldUpdateOperationsInput | string
   sessionId?: Prisma.StringFieldUpdateOperationsInput | string
+  conversationSummary?: Prisma.StringFieldUpdateOperationsInput | string
   travelerSummary?: Prisma.StringFieldUpdateOperationsInput | string
   newPreferencesLearned?: Prisma.StringFieldUpdateOperationsInput | string
   unresolvedQuestions?: Prisma.StringFieldUpdateOperationsInput | string
@@ -311,6 +327,7 @@ export type MeetingRecapUncheckedUpdateInput = {
 export type MeetingRecapCreateManyInput = {
   id?: string
   sessionId: string
+  conversationSummary?: string
   travelerSummary: string
   newPreferencesLearned: string
   unresolvedQuestions: string
@@ -321,6 +338,7 @@ export type MeetingRecapCreateManyInput = {
 
 export type MeetingRecapUpdateManyMutationInput = {
   id?: Prisma.StringFieldUpdateOperationsInput | string
+  conversationSummary?: Prisma.StringFieldUpdateOperationsInput | string
   travelerSummary?: Prisma.StringFieldUpdateOperationsInput | string
   newPreferencesLearned?: Prisma.StringFieldUpdateOperationsInput | string
   unresolvedQuestions?: Prisma.StringFieldUpdateOperationsInput | string
@@ -332,6 +350,7 @@ export type MeetingRecapUpdateManyMutationInput = {
 export type MeetingRecapUncheckedUpdateManyInput = {
   id?: Prisma.StringFieldUpdateOperationsInput | string
   sessionId?: Prisma.StringFieldUpdateOperationsInput | string
+  conversationSummary?: Prisma.StringFieldUpdateOperationsInput | string
   travelerSummary?: Prisma.StringFieldUpdateOperationsInput | string
   newPreferencesLearned?: Prisma.StringFieldUpdateOperationsInput | string
   unresolvedQuestions?: Prisma.StringFieldUpdateOperationsInput | string
@@ -348,6 +367,7 @@ export type MeetingRecapNullableScalarRelationFilter = {
 export type MeetingRecapCountOrderByAggregateInput = {
   id?: Prisma.SortOrder
   sessionId?: Prisma.SortOrder
+  conversationSummary?: Prisma.SortOrder
   travelerSummary?: Prisma.SortOrder
   newPreferencesLearned?: Prisma.SortOrder
   unresolvedQuestions?: Prisma.SortOrder
@@ -359,6 +379,7 @@ export type MeetingRecapCountOrderByAggregateInput = {
 export type MeetingRecapMaxOrderByAggregateInput = {
   id?: Prisma.SortOrder
   sessionId?: Prisma.SortOrder
+  conversationSummary?: Prisma.SortOrder
   travelerSummary?: Prisma.SortOrder
   newPreferencesLearned?: Prisma.SortOrder
   unresolvedQuestions?: Prisma.SortOrder
@@ -370,6 +391,7 @@ export type MeetingRecapMaxOrderByAggregateInput = {
 export type MeetingRecapMinOrderByAggregateInput = {
   id?: Prisma.SortOrder
   sessionId?: Prisma.SortOrder
+  conversationSummary?: Prisma.SortOrder
   travelerSummary?: Prisma.SortOrder
   newPreferencesLearned?: Prisma.SortOrder
   unresolvedQuestions?: Prisma.SortOrder
@@ -412,6 +434,7 @@ export type MeetingRecapUncheckedUpdateOneWithoutSessionNestedInput = {
 
 export type MeetingRecapCreateWithoutSessionInput = {
   id?: string
+  conversationSummary?: string
   travelerSummary: string
   newPreferencesLearned: string
   unresolvedQuestions: string
@@ -422,6 +445,7 @@ export type MeetingRecapCreateWithoutSessionInput = {
 
 export type MeetingRecapUncheckedCreateWithoutSessionInput = {
   id?: string
+  conversationSummary?: string
   travelerSummary: string
   newPreferencesLearned: string
   unresolvedQuestions: string
@@ -448,6 +472,7 @@ export type MeetingRecapUpdateToOneWithWhereWithoutSessionInput = {
 
 export type MeetingRecapUpdateWithoutSessionInput = {
   id?: Prisma.StringFieldUpdateOperationsInput | string
+  conversationSummary?: Prisma.StringFieldUpdateOperationsInput | string
   travelerSummary?: Prisma.StringFieldUpdateOperationsInput | string
   newPreferencesLearned?: Prisma.StringFieldUpdateOperationsInput | string
   unresolvedQuestions?: Prisma.StringFieldUpdateOperationsInput | string
@@ -458,6 +483,7 @@ export type MeetingRecapUpdateWithoutSessionInput = {
 
 export type MeetingRecapUncheckedUpdateWithoutSessionInput = {
   id?: Prisma.StringFieldUpdateOperationsInput | string
+  conversationSummary?: Prisma.StringFieldUpdateOperationsInput | string
   travelerSummary?: Prisma.StringFieldUpdateOperationsInput | string
   newPreferencesLearned?: Prisma.StringFieldUpdateOperationsInput | string
   unresolvedQuestions?: Prisma.StringFieldUpdateOperationsInput | string
@@ -471,6 +497,7 @@ export type MeetingRecapUncheckedUpdateWithoutSessionInput = {
 export type MeetingRecapSelect<ExtArgs extends runtime.Types.Extensions.InternalArgs = runtime.Types.Extensions.DefaultArgs> = runtime.Types.Extensions.GetSelect<{
   id?: boolean
   sessionId?: boolean
+  conversationSummary?: boolean
   travelerSummary?: boolean
   newPreferencesLearned?: boolean
   unresolvedQuestions?: boolean
@@ -483,6 +510,7 @@ export type MeetingRecapSelect<ExtArgs extends runtime.Types.Extensions.Internal
 export type MeetingRecapSelectCreateManyAndReturn<ExtArgs extends runtime.Types.Extensions.InternalArgs = runtime.Types.Extensions.DefaultArgs> = runtime.Types.Extensions.GetSelect<{
   id?: boolean
   sessionId?: boolean
+  conversationSummary?: boolean
   travelerSummary?: boolean
   newPreferencesLearned?: boolean
   unresolvedQuestions?: boolean
@@ -495,6 +523,7 @@ export type MeetingRecapSelectCreateManyAndReturn<ExtArgs extends runtime.Types.
 export type MeetingRecapSelectUpdateManyAndReturn<ExtArgs extends runtime.Types.Extensions.InternalArgs = runtime.Types.Extensions.DefaultArgs> = runtime.Types.Extensions.GetSelect<{
   id?: boolean
   sessionId?: boolean
+  conversationSummary?: boolean
   travelerSummary?: boolean
   newPreferencesLearned?: boolean
   unresolvedQuestions?: boolean
@@ -507,6 +536,7 @@ export type MeetingRecapSelectUpdateManyAndReturn<ExtArgs extends runtime.Types.
 export type MeetingRecapSelectScalar = {
   id?: boolean
   sessionId?: boolean
+  conversationSummary?: boolean
   travelerSummary?: boolean
   newPreferencesLearned?: boolean
   unresolvedQuestions?: boolean
@@ -515,7 +545,7 @@ export type MeetingRecapSelectScalar = {
   updatedAt?: boolean
 }
 
-export type MeetingRecapOmit<ExtArgs extends runtime.Types.Extensions.InternalArgs = runtime.Types.Extensions.DefaultArgs> = runtime.Types.Extensions.GetOmit<"id" | "sessionId" | "travelerSummary" | "newPreferencesLearned" | "unresolvedQuestions" | "nextSteps" | "createdAt" | "updatedAt", ExtArgs["result"]["meetingRecap"]>
+export type MeetingRecapOmit<ExtArgs extends runtime.Types.Extensions.InternalArgs = runtime.Types.Extensions.DefaultArgs> = runtime.Types.Extensions.GetOmit<"id" | "sessionId" | "conversationSummary" | "travelerSummary" | "newPreferencesLearned" | "unresolvedQuestions" | "nextSteps" | "createdAt" | "updatedAt", ExtArgs["result"]["meetingRecap"]>
 export type MeetingRecapInclude<ExtArgs extends runtime.Types.Extensions.InternalArgs = runtime.Types.Extensions.DefaultArgs> = {
   session?: boolean | Prisma.DiscoveryMeetingSessionDefaultArgs<ExtArgs>
 }
@@ -534,6 +564,7 @@ export type $MeetingRecapPayload<ExtArgs extends runtime.Types.Extensions.Intern
   scalars: runtime.Types.Extensions.GetPayloadResult<{
     id: string
     sessionId: string
+    conversationSummary: string
     travelerSummary: string
     newPreferencesLearned: string
     unresolvedQuestions: string
@@ -966,6 +997,7 @@ export interface Prisma__MeetingRecapClient<T, Null = never, ExtArgs extends run
 export interface MeetingRecapFieldRefs {
   readonly id: Prisma.FieldRef<"MeetingRecap", 'String'>
   readonly sessionId: Prisma.FieldRef<"MeetingRecap", 'String'>
+  readonly conversationSummary: Prisma.FieldRef<"MeetingRecap", 'String'>
   readonly travelerSummary: Prisma.FieldRef<"MeetingRecap", 'String'>
   readonly newPreferencesLearned: Prisma.FieldRef<"MeetingRecap", 'String'>
   readonly unresolvedQuestions: Prisma.FieldRef<"MeetingRecap", 'String'>
