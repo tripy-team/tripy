@@ -154,11 +154,36 @@ Return JSON with: {"programs": ["UA", "AA", ...], "reasoning": "..."}"""
                     option.cpp = (cash_saved / option.award_points) * 100
                     option.oop_if_award = option.award_surcharge or 0
         
-        # Sort by OOP (lowest first), handling None values
-        all_options.sort(key=lambda x: (
-            x.oop_if_award if x.oop_if_award is not None and x.award_available 
-            else (x.cash_price if x.cash_price is not None else float('inf'))
-        ))
+        # Apply client-preference soft ranking. We keep price as the dominant
+        # signal but nudge preferred airlines up and avoided airlines down so
+        # that on near-ties the client's stated preference wins. Hard filters
+        # are intentionally avoided — on routes where the preferred airline
+        # doesn't fly, we still want to return something rather than nothing.
+        pref_airlines_upper = {a.upper() for a in (request.preferred_airlines or [])}
+        avoid_airlines_upper = {a.upper() for a in (request.avoid_airlines or [])}
+        preferred_cabin_lower = (request.preferred_cabin or "").strip().lower()
+
+        def _effective_price(o: FlightOption) -> float:
+            base = (
+                o.oop_if_award if o.oop_if_award is not None and o.award_available
+                else (o.cash_price if o.cash_price is not None else float('inf'))
+            )
+            if base == float('inf'):
+                return base
+            airline_code = (o.airline or "").upper()
+            # 10% bonus if airline is preferred, 15% penalty if it's avoided.
+            if airline_code in pref_airlines_upper:
+                base *= 0.90
+            elif airline_code in avoid_airlines_upper:
+                base *= 1.15
+            # 8% bonus if cabin matches client's default (so a business-class
+            # option sorts ahead of an economy one at similar price when the
+            # client prefers business).
+            if preferred_cabin_lower and (o.cabin_class or "").strip().lower() == preferred_cabin_lower:
+                base *= 0.92
+            return base
+
+        all_options.sort(key=_effective_price)
         
         duration_ms = int((time.time() - start_time) * 1000)
         

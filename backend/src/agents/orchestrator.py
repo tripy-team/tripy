@@ -348,6 +348,7 @@ class OrchestratorAgent(BaseAgent):
             max_stops=request.max_stops,
             departure_hour_range=request.departure_hour_range,
             arrival_hour_range=request.arrival_hour_range,
+            client_preferences=trip_data.get("client_preferences"),
         )
         print(f"[Orchestrator] Search completed, got {len(search_results) if search_results else 0} results")
         
@@ -455,7 +456,13 @@ class OrchestratorAgent(BaseAgent):
         # Assign ranks
         for i, itinerary in enumerate(optimized):
             itinerary.rank = i + 1
-        
+
+        # Annotate each flight segment with any deviations from the client's
+        # stated preferences so the UI can surface justifications inline.
+        self._attach_flight_preference_deviations(
+            optimized, trip_data.get("client_preferences")
+        )
+
         # Get top 5
         top_results = optimized[:5]
         
@@ -651,6 +658,7 @@ class OrchestratorAgent(BaseAgent):
                 max_stops=request.max_stops,
                 departure_hour_range=request.departure_hour_range,
                 arrival_hour_range=request.arrival_hour_range,
+                client_preferences=trip_data.get("client_preferences"),
             )
             logger.info(f"[Orchestrator] [PARALLEL] Completed search for member {member_id}")
             return (member_id, search_results)
@@ -755,9 +763,15 @@ class OrchestratorAgent(BaseAgent):
         total_elapsed = search_elapsed + opt_elapsed
         logger.info(f"[Orchestrator] Total parallel optimization time: {total_elapsed:.1f}s (searches: {search_elapsed:.1f}s, optimization: {opt_elapsed:.1f}s)")
         
+        # Attach per-client preference deviations so each member's itinerary
+        # surfaces justifications for choices that differ from stated prefs.
+        self._attach_flight_preference_deviations(
+            all_member_itineraries, trip_data.get("client_preferences")
+        )
+
         # 7. Build group response
         num_members = len(member_segments)
-        
+
         group_best_option = {
             "totalOutOfPocket": total_oop,
             "perPersonAverage": total_oop / num_members if num_members > 0 else 0,
@@ -1225,6 +1239,9 @@ class OrchestratorAgent(BaseAgent):
                     
                     one_way = (trip.get("tripType") or "").strip().lower() == "one_way"
                     leg_dates = trip.get("legDates") or []  # Multi-city per-leg departure dates
+                    client_preferences = await loop.run_in_executor(
+                        None, self._load_client_preferences, trip.get("orgId"), trip.get("clientId")
+                    )
                     return {
                         "trip_id": trip_id,
                         "start_date": trip.get("startDate"),
@@ -1234,6 +1251,7 @@ class OrchestratorAgent(BaseAgent):
                         "one_way": one_way,
                         "include_hotels": trip.get("includeHotels", True),
                         "max_budget": trip.get("maxBudget"),
+                        "client_preferences": client_preferences,
                     }
             except ImportError:
                 pass  # Solo trip service not available
@@ -1249,6 +1267,9 @@ class OrchestratorAgent(BaseAgent):
             
             destinations = await loop.run_in_executor(None, list_destinations, trip_id)
             
+            client_preferences = await loop.run_in_executor(
+                None, self._load_client_preferences, trip.get("orgId"), trip.get("clientId")
+            )
             return {
                 "trip_id": trip_id,
                 "start_date": trip.get("startDate"),
@@ -1257,11 +1278,108 @@ class OrchestratorAgent(BaseAgent):
                 "destinations": destinations or [],
                 "include_hotels": trip.get("includeHotels", True),
                 "max_budget": trip.get("maxBudget"),
+                "client_preferences": client_preferences,
             }
         except Exception as e:
             logger.error(f"Failed to get trip data: {e}")
             return self._get_test_trip_data(trip_id)
     
+    def _attach_flight_preference_deviations(
+        self,
+        itineraries: list[RankedItinerary],
+        client_preferences: Optional[dict],
+    ) -> None:
+        """Populate preference_deviations on each flight segment in each itinerary.
+
+        For every flight segment in every itinerary, compare the selected
+        airline / cabin class against the client's stated preferences and
+        record a PreferenceDeviation whenever the two disagree. This is
+        what the frontend shows as the "why was this chosen despite X?"
+        justification.
+
+        Idempotent and safe to call multiple times — it rebuilds the list
+        from scratch on each call.
+        """
+        if not client_preferences or not itineraries:
+            return
+
+        from .models import PreferenceDeviation
+
+        preferred_cabin = (
+            client_preferences.get("cabin_default")
+            or client_preferences.get("flight_class")
+            or ""
+        )
+        preferred_cabin_norm = preferred_cabin.strip().lower() if preferred_cabin else ""
+        preferred_airlines = [
+            a.upper() for a in (client_preferences.get("preferred_airlines") or [])
+        ]
+        avoid_airlines = [
+            a.upper() for a in (client_preferences.get("avoid_airlines") or [])
+        ]
+
+        for itin in itineraries:
+            for seg in itin.segments:
+                if getattr(seg, "type", None) != "flight":
+                    continue
+                deviations: list[PreferenceDeviation] = []
+
+                chosen_cabin = (seg.cabin_class or "").strip().lower()
+                if preferred_cabin_norm and chosen_cabin and chosen_cabin != preferred_cabin_norm:
+                    deviations.append(PreferenceDeviation(
+                        field="cabin_class",
+                        preferred=preferred_cabin,
+                        chosen=seg.cabin_class,
+                        reason=(
+                            f"{preferred_cabin.title()} class not available at a reasonable "
+                            f"price on this route; selected {seg.cabin_class} to keep "
+                            f"the trip within budget."
+                        ),
+                    ))
+
+                chosen_airline = (seg.airline or "").upper()
+                if preferred_airlines and chosen_airline and chosen_airline not in preferred_airlines:
+                    deviations.append(PreferenceDeviation(
+                        field="preferred_airlines",
+                        preferred=client_preferences.get("preferred_airlines"),
+                        chosen=seg.airline,
+                        reason=(
+                            f"Preferred airline doesn't fly this route (or priced well above "
+                            f"alternatives); {seg.airline} offered the best schedule and value."
+                        ),
+                    ))
+                if avoid_airlines and chosen_airline and chosen_airline in avoid_airlines:
+                    deviations.append(PreferenceDeviation(
+                        field="avoid_airlines",
+                        preferred=f"avoid {client_preferences.get('avoid_airlines')}",
+                        chosen=seg.airline,
+                        reason=(
+                            f"Only viable option on this route was {seg.airline}, which the "
+                            f"client asked to avoid; surfaced for advisor review."
+                        ),
+                    ))
+
+                seg.preference_deviations = deviations
+
+    def _load_client_preferences(self, org_id: Optional[str], client_id: Optional[str]):
+        """Load ClientPreferences for a given org/client, or None if unavailable.
+
+        Called synchronously inside an executor — must not await. Returns a
+        dict (raw DynamoDB shape) so downstream code can normalize it as
+        needed; None if the client record or preferences are missing.
+        """
+        if not org_id or not client_id:
+            return None
+        try:
+            from ..repos.client_repo import get_client
+            client = get_client(org_id, client_id)
+            if not client:
+                return None
+            return client.get("preferences") or None
+        except Exception as e:
+            logger.warning(f"[Orchestrator] Failed to load client preferences: {e}")
+            return None
+
     def _get_test_trip_data(self, trip_id: str) -> dict:
         """Return test trip data for development/testing."""
         return {
@@ -1862,6 +1980,7 @@ class OrchestratorAgent(BaseAgent):
         max_stops: int = 0,
         departure_hour_range: list[int] | None = None,
         arrival_hour_range: list[int] | None = None,
+        client_preferences: Optional[dict] = None,
     ) -> dict:
         """
         Search flights for all segments in parallel (flights only).
@@ -1883,6 +2002,14 @@ class OrchestratorAgent(BaseAgent):
                 # Fallback: single airport pair from origin/destination
                 airport_pairs = [(segment["origin"], segment["destination"])]
             
+            # Extract client preference fields once per segment loop iteration
+            prefs = client_preferences or {}
+            preferred_cabin = prefs.get("cabin_default") or prefs.get("flight_class")
+            pref_airlines = prefs.get("preferred_airlines") or []
+            avoid_airlines = prefs.get("avoid_airlines") or []
+            avoid_constraints = prefs.get("avoid_constraints") or []
+            positive_constraints = prefs.get("positive_constraints") or []
+
             # Search each airport pair
             for origin_apt, dest_apt in airport_pairs:
                 tasks.append(self.flight_agent.execute(FlightSearchRequest(
@@ -1895,6 +2022,11 @@ class OrchestratorAgent(BaseAgent):
                     max_stops=max_stops,
                     departure_hour_range=departure_hour_range,
                     arrival_hour_range=arrival_hour_range,
+                    preferred_cabin=preferred_cabin,
+                    preferred_airlines=pref_airlines,
+                    avoid_airlines=avoid_airlines,
+                    avoid_constraints=avoid_constraints,
+                    positive_constraints=positive_constraints,
                 )))
                 task_metadata.append({
                     "segment_idx": i,

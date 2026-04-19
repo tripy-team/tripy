@@ -154,11 +154,57 @@ async def optimize_group_trip(group_trip_id: str, user_id: str) -> Dict[str, Any
         if trip.get("includeHotels", False):
             try:
                 from src.services.hotel_recommendation_service import recommend_hotels_for_group_trip
+
+                # Total group cash budget: sum of each traveler's cash envelope.
+                # Treat missing/None as uncapped for that traveler.
+                total_cash_budget = 0.0
+                any_capped = False
+                for t in travelers:
+                    cb = t.get("cashBudget")
+                    if cb is not None:
+                        total_cash_budget += float(cb)
+                        any_capped = True
+                group_cash_budget = total_cash_budget if any_capped else None
+
+                # Flight OOP already spent: sum cash on flight allocations.
+                flight_oop = 0.0
+                for alloc in (result.get("allocations") or []):
+                    if "hotel" not in (alloc.get("item_id") or ""):
+                        flight_oop += float(alloc.get("cash_paid") or 0)
+
+                cash_budget_remaining = (
+                    max(0.0, group_cash_budget - flight_oop)
+                    if group_cash_budget is not None else None
+                )
+
+                # Aggregate hotel-program points across all travelers.
+                # (Airline miles are irrelevant for hotel booking.)
+                pooled_hotel_points: Dict[str, int] = {}
+                hotel_codes = {"MAR", "HH", "HYATT", "IHG"}
+                for tr in (inputs.get("travelers") or []):
+                    for program, balance in (tr.get("points") or {}).items():
+                        if not balance:
+                            continue
+                        code = program.upper() if program else ""
+                        if code in hotel_codes or program in hotel_codes:
+                            pooled_hotel_points[code or program] = (
+                                pooled_hotel_points.get(code or program, 0) + int(balance)
+                            )
+
+                logger.info(
+                    f"Group hotel budget envelope: "
+                    f"${cash_budget_remaining if cash_budget_remaining is not None else 'unlimited'} "
+                    f"(total ${group_cash_budget or 'unset'} - flights ${flight_oop:.2f}); "
+                    f"pooled hotel points: {pooled_hotel_points or 'none'}"
+                )
+
                 hotel_recs = recommend_hotels_for_group_trip(
                     destination=trip.get("destination", ""),
                     start_date=trip.get("startDate", ""),
                     end_date=trip.get("endDate", ""),
                     traveler_count=len(travelers),
+                    cash_budget_remaining=cash_budget_remaining,
+                    user_points=pooled_hotel_points or None,
                 )
                 hotel_recs_payload = [r.model_dump() for r in hotel_recs]
                 logger.info(f"Generated {len(hotel_recs)} hotel recommendations for group trip {group_trip_id}")

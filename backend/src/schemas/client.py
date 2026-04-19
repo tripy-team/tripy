@@ -9,11 +9,18 @@ from typing import Optional, List, Dict, Any
 class ClientPreferences(BaseModel):
     flight_class: Optional[str] = None
     preferred_airlines: List[str] = []
+    avoid_airlines: List[str] = []
     preferred_airports: List[str] = []
     cabin_default: Optional[str] = None  # economy | business | first | flexible
     budget_style: Optional[str] = None  # budget | moderate | premium | ultra-premium
     avoid_constraints: List[str] = []  # "tight layovers", "red-eyes", "self-transfers"
     positive_constraints: List[str] = []  # "direct flights preferred", "lounge access"
+
+    # Hotel preferences
+    hotel_star_min: Optional[int] = None  # minimum acceptable star rating
+    preferred_hotel_chains: List[str] = []  # e.g. ["Marriott", "Hyatt"]
+    avoid_hotel_chains: List[str] = []
+    preferred_hotel_amenities: List[str] = []  # e.g. ["pool", "lounge access", "gym"]
 
 
 class FamilyMember(BaseModel):

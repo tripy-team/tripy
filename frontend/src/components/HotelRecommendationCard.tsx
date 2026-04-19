@@ -1,6 +1,6 @@
 'use client';
 
-import { Building2, Star, MapPin, ExternalLink, Award } from 'lucide-react';
+import { Building2, Star, MapPin, ExternalLink, Award, AlertTriangle, CheckCircle2 } from 'lucide-react';
 import type { HotelRecommendation } from '@/lib/api';
 
 interface Props {
@@ -28,9 +28,24 @@ function nights(checkIn: string, checkOut: string): number {
   }
 }
 
+function formatUsd(n: number): string {
+  return `$${n.toLocaleString(undefined, { maximumFractionDigits: 0 })}`;
+}
+
 export default function HotelRecommendationCard({ recommendation: r }: Props) {
   const n = nights(r.checkIn, r.checkOut);
   const hasPoints = r.pointsTotal != null && r.pointsTotal > 0;
+
+  // Prefer the backend's explicit payment recommendation when present;
+  // fall back to the "has points → show points" heuristic for legacy data.
+  const showPointsPrimary =
+    r.recommendedPayment === 'points' ||
+    (r.recommendedPayment == null && hasPoints);
+
+  const overBudgetBy =
+    r.fitsBudget === false && r.cashBudgetAllocated != null
+      ? Math.max(0, r.priceTotal - r.cashBudgetAllocated)
+      : 0;
 
   return (
     <div className="bg-white border border-slate-200 rounded-xl p-5 shadow-sm hover:shadow-md transition-shadow">
@@ -59,7 +74,7 @@ export default function HotelRecommendationCard({ recommendation: r }: Props) {
         </div>
 
         <div className="text-right flex-shrink-0">
-          {hasPoints ? (
+          {showPointsPrimary && hasPoints ? (
             <>
               <div className="flex items-center justify-end gap-1">
                 <Award className="w-3.5 h-3.5 text-indigo-500" />
@@ -71,17 +86,23 @@ export default function HotelRecommendationCard({ recommendation: r }: Props) {
                 {r.pointsPerNight!.toLocaleString()} pts/night · {n} night{n !== 1 ? 's' : ''}
               </p>
               <p className="text-[10px] text-slate-400 mt-0.5">
-                or ${r.priceTotal.toLocaleString(undefined, { maximumFractionDigits: 0 })} cash
+                or {formatUsd(r.priceTotal)} cash
+                {r.redemptionValueCpp != null && (
+                  <> · {r.redemptionValueCpp.toFixed(1)}¢/pt</>
+                )}
               </p>
             </>
           ) : (
             <>
-              <p className="text-lg font-bold text-slate-900">
-                ${r.priceTotal.toLocaleString(undefined, { maximumFractionDigits: 0 })}
-              </p>
+              <p className="text-lg font-bold text-slate-900">{formatUsd(r.priceTotal)}</p>
               <p className="text-xs text-slate-500">
-                ${r.nightlyRate.toLocaleString(undefined, { maximumFractionDigits: 0 })}/night · {n} night{n !== 1 ? 's' : ''}
+                {formatUsd(r.nightlyRate)}/night · {n} night{n !== 1 ? 's' : ''}
               </p>
+              {hasPoints && (
+                <p className="text-[10px] text-slate-400 mt-0.5">
+                  or {r.pointsTotal!.toLocaleString()} pts
+                </p>
+              )}
             </>
           )}
           {r.roomCount > 1 && (
@@ -90,12 +111,43 @@ export default function HotelRecommendationCard({ recommendation: r }: Props) {
         </div>
       </div>
 
-      {r.loyaltyProgram && (
-        <div className="mt-2 inline-flex items-center gap-1 px-2 py-0.5 rounded-full bg-indigo-50 text-[10px] font-medium text-indigo-700">
-          <Award className="w-3 h-3" />
-          {r.loyaltyProgram}
-        </div>
-      )}
+      <div className="mt-2 flex flex-wrap items-center gap-1.5">
+        {/* Payment recommendation badge */}
+        {r.recommendedPayment === 'points' && (
+          <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded-full bg-indigo-50 text-[10px] font-semibold text-indigo-700 border border-indigo-100">
+            <Award className="w-3 h-3" />
+            Book with points
+          </span>
+        )}
+        {r.recommendedPayment === 'cash' && (
+          <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded-full bg-emerald-50 text-[10px] font-semibold text-emerald-700 border border-emerald-100">
+            Pay cash
+          </span>
+        )}
+
+        {/* Budget-fit badge */}
+        {r.fitsBudget === true && r.cashBudgetAllocated != null && (
+          <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded-full bg-emerald-50 text-[10px] font-medium text-emerald-700">
+            <CheckCircle2 className="w-3 h-3" />
+            Within budget
+          </span>
+        )}
+        {r.fitsBudget === false && (
+          <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded-full bg-amber-50 text-[10px] font-medium text-amber-800 border border-amber-100">
+            <AlertTriangle className="w-3 h-3" />
+            {overBudgetBy > 0
+              ? `Over budget by ${formatUsd(overBudgetBy)}`
+              : 'Over budget'}
+          </span>
+        )}
+
+        {/* Loyalty program badge */}
+        {r.loyaltyProgram && (
+          <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded-full bg-slate-50 text-[10px] font-medium text-slate-600 border border-slate-200">
+            {r.loyaltyProgram}
+          </span>
+        )}
+      </div>
 
       <div className="mt-2 flex items-center gap-1.5 text-xs text-slate-600">
         <span>{formatDate(r.checkIn)}</span>

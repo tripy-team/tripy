@@ -47,6 +47,23 @@ RiskMode = Literal["safe", "balanced", "aggressive"]
 
 
 # =============================================================================
+# PREFERENCE DEVIATION
+# =============================================================================
+
+class PreferenceDeviation(BaseModel):
+    """Explains why a selected flight/hotel option differs from a client preference.
+
+    Emitted only when the chosen option does NOT match the client's stated preference
+    for a given field. The UI surfaces these inline on each segment so the advisor
+    can justify the choice to the client.
+    """
+    field: str  # e.g. "cabin_class", "preferred_airlines", "hotel_star_min"
+    preferred: Any  # what the client asked for (e.g. "first", ["DL", "AS"], 5)
+    chosen: Any    # what was actually selected (e.g. "business", "UA", 4)
+    reason: str    # human-readable justification
+
+
+# =============================================================================
 # FLIGHT MODELS
 # =============================================================================
 
@@ -58,12 +75,19 @@ class FlightSearchRequest(BaseModel):
     cabin_classes: list[str] = ["Economy", "Business"]
     travelers: int = 1
     user_points: dict[str, int] = {}  # program -> balance
-    
+
     # Advanced filters (Google Flights parity)
     include_budget_airlines: bool = True  # If True, sort_by=2 (price, includes all); if False, sort_by=1 (best quality)
     max_stops: int = 0  # 0=Any, 1=Nonstop, 2=1 stop or fewer, 3=2 stops or fewer
     departure_hour_range: Optional[list[int]] = None  # [startHour, endHour]
     arrival_hour_range: Optional[list[int]] = None  # [startHour, endHour]
+
+    # Client preferences (soft; used for ranking + deviation reporting)
+    preferred_cabin: Optional[str] = None          # "economy" | "business" | "first"
+    preferred_airlines: list[str] = []             # IATA codes, e.g. ["DL", "AS"]
+    avoid_airlines: list[str] = []                 # IATA codes to deprioritize
+    avoid_constraints: list[str] = []              # e.g. "red-eyes", "tight layovers", "self-transfers"
+    positive_constraints: list[str] = []           # e.g. "direct flights preferred", "lounge access"
 
 
 class Layover(BaseModel):
@@ -244,6 +268,12 @@ class HotelSearchRequest(BaseModel):
     star_ratings: list[int] = [4, 5]
     user_points: dict[str, int] = {}
 
+    # Client preferences (soft)
+    hotel_star_min: Optional[int] = None
+    preferred_hotel_chains: list[str] = []
+    avoid_hotel_chains: list[str] = []
+    preferred_hotel_amenities: list[str] = []
+
 
 class HotelOption(BaseModel):
     """Unified hotel option from any source."""
@@ -323,6 +353,13 @@ class HotelRecommendation(BaseModel):
     loyalty_program: Optional[str] = None
     points_per_night: Optional[int] = None
     points_total: Optional[int] = None
+    # Budget-aware recommendation
+    recommended_payment: Optional[Literal["cash", "points"]] = None
+    fits_budget: Optional[bool] = None
+    cash_budget_allocated: Optional[float] = None  # per-window cash share used for fit check
+    redemption_value_cpp: Optional[float] = None   # cents per point when paying with points
+    # Populated when the hotel differs from the client's stated preferences
+    preference_deviations: list[PreferenceDeviation] = []
 
 
 # =============================================================================
@@ -519,6 +556,10 @@ class FlightSegment(BaseModel):
     disabled: bool = False
     disable_reason: Optional[str] = None
 
+    # Client-preference deviations: populated when the selected flight
+    # differs from a stated client preference (cabin, airline, etc.).
+    preference_deviations: list[PreferenceDeviation] = []
+
 
 class HotelSegment(BaseModel):
     """A hotel segment in the itinerary."""
@@ -539,11 +580,15 @@ class HotelSegment(BaseModel):
     payment: CashPayment | PointsPayment
     
     booking_url: Optional[str] = None
-    
+
     # Policy evaluation
     policy_evaluation: Optional[PolicyEvaluationModel] = None
     disabled: bool = False
     disable_reason: Optional[str] = None
+
+    # Client-preference deviations: populated when the selected hotel
+    # differs from a stated client preference (star rating, chain, etc.).
+    preference_deviations: list[PreferenceDeviation] = []
 
 
 # =============================================================================

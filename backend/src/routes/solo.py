@@ -1039,7 +1039,31 @@ async def _run_orchestration_and_cache(
         if trip.get("includeHotels", False):
             try:
                 from ..services.hotel_recommendation_service import recommend_hotels_for_solo_trip
+                from ..repos.client_repo import get_client
+                client_preferences = None
+                if trip.get("clientId") and trip.get("orgId"):
+                    try:
+                        client = get_client(trip["orgId"], trip["clientId"])
+                        client_preferences = (client or {}).get("preferences") or None
+                    except Exception as pref_err:
+                        logger.warning(f"[solo/optimize] Failed to load client preferences for hotels: {pref_err}")
                 trip_type = trip.get("tripType", "round_trip")
+
+                # Flights already consumed part of the cash budget; hotels
+                # should optimize against what's left. If no budget was set,
+                # pass None so the service stays unconstrained.
+                flight_oop = 0.0
+                if itineraries and itineraries[0].oop_metrics:
+                    flight_oop = itineraries[0].oop_metrics.total_out_of_pocket or 0.0
+                cash_budget_remaining = (
+                    max(0.0, float(budget) - flight_oop) if budget else None
+                )
+                logger.info(
+                    f"[solo/optimize] Hotel budget envelope: "
+                    f"${cash_budget_remaining if cash_budget_remaining is not None else 'unlimited'} "
+                    f"(total ${budget or 'unset'} - flights ${flight_oop:.2f})"
+                )
+
                 hotel_recs = recommend_hotels_for_solo_trip(
                     destinations=trip.get("destinations", []),
                     start_date=trip.get("startDate"),
@@ -1047,6 +1071,9 @@ async def _run_orchestration_and_cache(
                     leg_dates=trip.get("legDates") or None,
                     traveler_count=party_size,
                     is_round_trip=(trip_type == "round_trip"),
+                    client_preferences=client_preferences,
+                    cash_budget_remaining=cash_budget_remaining,
+                    user_points=effective_points or None,
                 )
                 logger.info(f"[solo/optimize] Generated {len(hotel_recs)} hotel recommendations")
             except Exception as hotel_err:

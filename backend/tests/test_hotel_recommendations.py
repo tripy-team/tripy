@@ -358,3 +358,91 @@ class TestHotelRecommendationModel:
 
         restored = HotelRecommendation(**data)
         assert restored.hotel_name == "Test Hotel Paris"
+
+
+# =============================================================================
+# BUDGET + POINTS-AWARE RECOMMENDATIONS
+# =============================================================================
+
+class TestBudgetAwareRecommendations:
+    """When a cash budget and/or loyalty balances are supplied, the provider
+    should pick a single best hotel per stay window and annotate it with the
+    recommended payment method and budget-fit flag."""
+
+    def test_prefers_points_when_balance_covers_stay(self):
+        # Marriott points cover the stay comfortably; cash budget is tight.
+        recs = recommend_hotels_for_solo_trip(
+            destinations=["CDG"],
+            start_date="2025-06-10",
+            end_date="2025-06-12",
+            traveler_count=1,
+            cash_budget_remaining=50.0,  # very tight — should push to points
+            user_points={"MAR": 500_000},  # plenty of Marriott Bonvoy
+        )
+        assert len(recs) == 1
+        rec = recs[0]
+        # With that much balance, Marriott points should be recommended.
+        assert rec.loyalty_program == "Marriott Bonvoy"
+        assert rec.recommended_payment == "points"
+        assert rec.fits_budget is True
+        assert rec.points_total is not None
+        assert rec.redemption_value_cpp is not None and rec.redemption_value_cpp > 0
+
+    def test_picks_cash_when_budget_is_generous_and_no_points(self):
+        recs = recommend_hotels_for_solo_trip(
+            destinations=["CDG"],
+            start_date="2025-06-10",
+            end_date="2025-06-12",
+            traveler_count=1,
+            cash_budget_remaining=5000.0,
+            user_points={},  # no loyalty balances
+        )
+        assert len(recs) == 1
+        rec = recs[0]
+        assert rec.recommended_payment == "cash"
+        assert rec.fits_budget is True
+        assert rec.cash_budget_allocated == 5000.0
+
+    def test_flags_when_nothing_fits(self):
+        recs = recommend_hotels_for_solo_trip(
+            destinations=["CDG"],  # tier-1 city → expensive
+            start_date="2025-06-10",
+            end_date="2025-06-17",
+            traveler_count=1,
+            cash_budget_remaining=10.0,  # impossibly tight
+            user_points={},  # no points either
+        )
+        assert len(recs) == 1
+        rec = recs[0]
+        assert rec.fits_budget is False
+        assert "over budget" in (rec.recommendation_reason or "").lower()
+
+    def test_legacy_call_without_budget_unchanged(self):
+        # Smoke test: the pre-budget call shape still returns 1 rec per window
+        # with no payment annotation applied.
+        recs = recommend_hotels_for_solo_trip(
+            destinations=["CDG"],
+            start_date="2025-06-10",
+            end_date="2025-06-12",
+            traveler_count=1,
+        )
+        assert len(recs) == 1
+        assert recs[0].recommended_payment is None
+        assert recs[0].fits_budget is None
+
+    def test_budget_split_across_multi_city_stays(self):
+        # Two destinations, same nights each. Cash envelopes should roughly
+        # halve. We assert the annotation carries the split, not the total.
+        recs = recommend_hotels_for_solo_trip(
+            destinations=["CDG", "FCO"],
+            start_date="2025-06-10",
+            end_date="2025-06-20",
+            leg_dates=["2025-06-10", "2025-06-15", "2025-06-20"],
+            traveler_count=1,
+            cash_budget_remaining=2000.0,
+            user_points={},
+        )
+        assert len(recs) == 2
+        for rec in recs:
+            assert rec.cash_budget_allocated is not None
+            assert rec.cash_budget_allocated < 2000.0

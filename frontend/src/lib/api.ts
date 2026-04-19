@@ -2930,6 +2930,16 @@ export interface HotelRecommendation {
   loyaltyProgram?: string;
   pointsPerNight?: number;
   pointsTotal?: number;
+  /** Budget-aware payment recommendation. Populated when the caller supplied
+   * a cash budget or loyalty balances. */
+  recommendedPayment?: 'cash' | 'points';
+  /** Whether this hotel fits the per-window cash envelope OR is fully
+   * covered by the traveler's loyalty points. */
+  fitsBudget?: boolean;
+  /** Portion of the trip's remaining cash budget allocated to this stay. */
+  cashBudgetAllocated?: number;
+  /** Points redemption value in cents per point for this stay. */
+  redemptionValueCpp?: number;
 }
 
 export interface SoloOptimizeResponse {
