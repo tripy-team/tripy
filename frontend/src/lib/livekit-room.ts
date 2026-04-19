@@ -98,6 +98,7 @@ export class LiveKitSession {
   private room: Room | null = null;
   private localTracks: LocalTrack[] = [];
   private remoteVideoEl: HTMLVideoElement | null = null;
+  private remoteAudioEl: HTMLAudioElement | null = null;
 
   async connect(
     url: string,
@@ -172,6 +173,19 @@ export class LiveKitSession {
     callbacks: LiveKitCallbacks,
   ): void {
     if (track.kind === Track.Kind.Audio) {
+      // Chrome silently drops samples from a remote WebRTC audio track into
+      // MediaStreamAudioSourceNode unless that track is also being consumed
+      // by an HTMLMediaElement. Without this, the Cactus worklet sends
+      // zero-filled PCM and the client's speech never gets transcribed. The
+      // element also plays the client's voice so the advisor can hear them.
+      if (!this.remoteAudioEl) {
+        this.remoteAudioEl = document.createElement('audio');
+        this.remoteAudioEl.autoplay = true;
+        this.remoteAudioEl.style.display = 'none';
+        document.body.appendChild(this.remoteAudioEl);
+      }
+      track.attach(this.remoteAudioEl);
+
       const mediaStream = new MediaStream([track.mediaStreamTrack]);
       callbacks.onRemoteAudio?.(mediaStream);
     } else if (track.kind === Track.Kind.Video) {
@@ -207,6 +221,11 @@ export class LiveKitSession {
       t.stop();
     }
     this.localTracks = [];
+    if (this.remoteAudioEl) {
+      this.remoteAudioEl.srcObject = null;
+      this.remoteAudioEl.remove();
+      this.remoteAudioEl = null;
+    }
     if (this.room) {
       await this.room.disconnect();
       this.room = null;

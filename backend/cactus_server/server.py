@@ -79,8 +79,15 @@ class LiveSession:
         self.trip_context = trip_context
         self.learning_state = SessionLearningState(existing=existing_preferences)
         self.full_transcript: list[dict[str, Any]] = []
-        self.unprocessed_text = ""
-        self.unprocessed_speaker = "unknown"
+        # Accumulated transcript lines labeled with speaker, e.g.
+        #   "[advisor]: what cabin do you prefer\n[client]: business"
+        # Gemma needs this structure to tell questions from answers.
+        self.unprocessed_lines: list[str] = []
+        self.batch_has_client_text = False
+        # Most recent advisor utterance — used as context when extracting
+        # preferences from the next client chunk. Short client answers like
+        # "yeah" or "business" only make sense paired with the question.
+        self._last_advisor_text: str = ""
         # Single lock guarding ALL local Gemma calls for this session: the
         # heavyweight analysis pass (extract + question gen) and the
         # per-chunk keyword pass. Sharing a lock keeps inference serialized
@@ -127,8 +134,9 @@ class LiveSession:
                 "timestamp": time.time(),
             }
             self.full_transcript.append(chunk)
-            self.unprocessed_text += f" {result.text}"
-            self.unprocessed_speaker = speaker
+            self.unprocessed_lines.append(f"[{speaker}]: {result.text}")
+            if speaker == "client":
+                self.batch_has_client_text = True
 
             await self.ws.send_json(chunk)
 
@@ -136,13 +144,17 @@ class LiveSession:
             self._sentence_count += result.text.count(".") + result.text.count("?") + result.text.count("!")
 
             # Per-chunk keyword spotting: transcription is sketchy, so don't
-            # wait for a full sentence. Fire Gemma 4 against each confirmed
-            # fragment and let it pull out concrete preference keywords like
-            # "business class" or "Marriott". Drops if the LLM is busy —
-            # we don't want a queue of stale fragments piling up.
-            asyncio.create_task(
-                self._run_keyword_extraction(result.text, speaker)
-            )
+            # wait for a full sentence. The advisor's speech is the question,
+            # not the preference — we only run extraction on client chunks,
+            # passing the last advisor utterance as context so short answers
+            # ("yeah", "business", "Marriott") resolve correctly.
+            if speaker == "client":
+                prior_question = self._last_advisor_text
+                asyncio.create_task(
+                    self._run_keyword_extraction(result.text, prior_question)
+                )
+            elif speaker == "advisor":
+                self._last_advisor_text = result.text
 
             if self._should_analyze():
                 asyncio.create_task(self._run_analysis())
@@ -162,18 +174,25 @@ class LiveSession:
 
     def _should_analyze(self) -> bool:
         """Trigger analysis after ~3 sentences or 400+ chars of unprocessed text."""
-        return self._sentence_count >= 3 or len(self.unprocessed_text) > 400
+        total_chars = sum(len(line) for line in self.unprocessed_lines)
+        return self._sentence_count >= 3 or total_chars > 400
 
-    async def _run_keyword_extraction(self, text: str, speaker: str) -> None:
-        """Spot preference keywords in a single transcript chunk.
+    async def _run_keyword_extraction(
+        self, client_text: str, prior_question: str
+    ) -> None:
+        """Spot preference keywords in a single client transcript chunk.
+
+        Only runs on client speech. The advisor's most recent utterance is
+        passed as context so a short answer like "business" maps correctly
+        when the advisor asked "what cabin do you prefer?".
 
         Skips when Gemma is already busy (heavier analysis pass or another
         keyword call). Stale fragments are worthless once the conversation
         has moved on, so dropping is preferable to queuing.
         """
-        text = text.strip()
-        if len(text.split()) < 2:
-            return  # too short to contain a useful keyword
+        client_text = client_text.strip()
+        if len(client_text.split()) < 1:
+            return
         if self._llm_lock.locked():
             return
 
@@ -182,10 +201,10 @@ class LiveSession:
                 extractions = await asyncio.get_event_loop().run_in_executor(
                     None,
                     extraction_engine.keyword_extract,
-                    text,
+                    client_text,
                     self.client_name,
                     self.learning_state.to_profile_summary(),
-                    speaker,
+                    prior_question,
                 )
             except Exception:
                 logger.exception("Keyword extraction error")
@@ -204,11 +223,13 @@ class LiveSession:
     async def _run_analysis(self) -> None:
         """Extract preferences and generate questions from recent transcript."""
         async with self._llm_lock:
-            text = self.unprocessed_text.strip()
+            text = "\n".join(self.unprocessed_lines).strip()
             if not text:
                 return
 
-            self.unprocessed_text = ""
+            had_client_text = self.batch_has_client_text
+            self.unprocessed_lines = []
+            self.batch_has_client_text = False
             self._sentence_count = 0
 
             profile_summary = self.learning_state.to_profile_summary()
@@ -233,8 +254,10 @@ class LiveSession:
                 logger.exception("Extraction error")
                 extractions = []
 
-            # Run question generation (only when client is speaking)
-            if self.unprocessed_speaker in ("client", "both", "unknown"):
+            # Run question generation (only when client has contributed text;
+            # otherwise we're building on the advisor's own prior turns and
+            # there's nothing new to react to).
+            if had_client_text:
                 try:
                     missing = ", ".join(self.learning_state.get_missing_fields()[:15])
                     extraction_summary = json.dumps(extractions[:5]) if extractions else "None"
@@ -319,14 +342,16 @@ class LiveSession:
                     "timestamp": time.time(),
                 }
                 self.full_transcript.append(chunk)
-                self.unprocessed_text += f" {result.text}"
+                self.unprocessed_lines.append(f"[{speaker}]: {result.text}")
+                if speaker == "client":
+                    self.batch_has_client_text = True
                 try:
                     await self.ws.send_json(chunk)
                 except Exception:
                     pass
             t.reset()
 
-        if self.unprocessed_text.strip():
+        if self.unprocessed_lines:
             await self._run_analysis()
 
         return {

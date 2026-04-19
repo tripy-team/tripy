@@ -22,6 +22,7 @@ import {
   AlertTriangle,
   Check,
   ArrowRightLeft,
+  Compass,
 } from 'lucide-react';
 import {
   getClientPreferences,
@@ -43,6 +44,7 @@ type SectionKey =
   | 'flight'
   | 'hotel'
   | 'budget'
+  | 'trip_style'
   | 'accessibility'
   | 'food'
   | 'family'
@@ -60,6 +62,7 @@ const SECTIONS: SectionConfig[] = [
   { key: 'flight', label: 'Flight Preferences', icon: <Plane className="h-4 w-4" />, color: 'blue' },
   { key: 'hotel', label: 'Hotel & Accommodation', icon: <Hotel className="h-4 w-4" />, color: 'emerald' },
   { key: 'budget', label: 'Budget & Points', icon: <DollarSign className="h-4 w-4" />, color: 'amber' },
+  { key: 'trip_style', label: 'Destinations & Travel Style', icon: <Compass className="h-4 w-4" />, color: 'teal' },
   { key: 'accessibility', label: 'Accessibility Needs', icon: <Accessibility className="h-4 w-4" />, color: 'purple' },
   { key: 'food', label: 'Food & Activities', icon: <UtensilsCrossed className="h-4 w-4" />, color: 'orange' },
   { key: 'family', label: 'Family & Children', icon: <Users className="h-4 w-4" />, color: 'pink' },
@@ -76,6 +79,7 @@ const colorClasses: Record<string, { bg: string; text: string; border: string; b
   pink: { bg: 'bg-pink-50', text: 'text-pink-600', border: 'border-pink-200', badge: 'bg-pink-100 text-pink-700' },
   violet: { bg: 'bg-violet-50', text: 'text-violet-600', border: 'border-violet-200', badge: 'bg-violet-100 text-violet-700' },
   red: { bg: 'bg-red-50', text: 'text-red-600', border: 'border-red-200', badge: 'bg-red-100 text-red-700' },
+  teal: { bg: 'bg-teal-50', text: 'text-teal-600', border: 'border-teal-200', badge: 'bg-teal-100 text-teal-700' },
 };
 
 const FIELD_LABELS: Record<string, string> = {
@@ -100,6 +104,13 @@ const FIELD_LABELS: Record<string, string> = {
   dislikes: 'Dislikes',
   dealbreakers: 'Dealbreakers',
   notes: 'Notes',
+  loyaltyNotes: 'Loyalty & Points',
+  budgetNotes: 'Budget Notes',
+  preferredDestinations: 'Preferred Destinations',
+  preferredDepartureAirports: 'Preferred Departure Airports',
+  dateFlexibility: 'Date Flexibility',
+  travelPace: 'Travel Pace',
+  pastTripFeedback: 'Past Trip Feedback',
   mergeStrategy: 'Merge Strategy',
 };
 
@@ -184,12 +195,19 @@ type FormState = {
   avoidBasicEconomy: boolean;
   preferredAirlines: string;
   avoidedAirlines: string;
+  preferredDepartureAirports: string;
   preferredHotelTypes: string;
   roomPreferences: string;
   locationPreferences: string;
   redemptionStyle: string;
   budgetSensitivity: string;
   pointsVsCash: string;
+  loyaltyNotes: string;
+  budgetNotes: string;
+  preferredDestinations: string;
+  dateFlexibility: string;
+  travelPace: string;
+  pastTripFeedback: string;
   accessibilityNeeds: string;
   foodPreferences: string;
   activityPreferences: string;
@@ -210,12 +228,19 @@ function prefsToForm(p: ClientPreference | null): FormState {
     avoidBasicEconomy: p?.avoidBasicEconomy ?? false,
     preferredAirlines: toCommaSeparated(p?.preferredAirlines),
     avoidedAirlines: toCommaSeparated(p?.avoidedAirlines),
+    preferredDepartureAirports: toCommaSeparated(p?.preferredDepartureAirports),
     preferredHotelTypes: toCommaSeparated(p?.preferredHotelTypes),
     roomPreferences: toCommaSeparated(p?.roomPreferences),
     locationPreferences: p?.locationPreferences ?? '',
     redemptionStyle: p?.redemptionStyle ?? '',
     budgetSensitivity: p?.budgetSensitivity ?? '',
     pointsVsCash: p?.pointsVsCash ?? '',
+    loyaltyNotes: p?.loyaltyNotes ?? '',
+    budgetNotes: p?.budgetNotes ?? '',
+    preferredDestinations: toCommaSeparated(p?.preferredDestinations),
+    dateFlexibility: p?.dateFlexibility ?? '',
+    travelPace: p?.travelPace ?? '',
+    pastTripFeedback: p?.pastTripFeedback ?? '',
     accessibilityNeeds: toCommaSeparated(p?.accessibilityNeeds),
     foodPreferences: toCommaSeparated(p?.foodPreferences),
     activityPreferences: toCommaSeparated(p?.activityPreferences),
@@ -237,12 +262,23 @@ function formToPayload(f: FormState): Record<string, unknown> {
     avoidBasicEconomy: f.avoidBasicEconomy,
     preferredAirlines: f.preferredAirlines ? fromCommaSeparated(f.preferredAirlines) : null,
     avoidedAirlines: f.avoidedAirlines ? fromCommaSeparated(f.avoidedAirlines) : null,
+    preferredDepartureAirports: f.preferredDepartureAirports
+      ? fromCommaSeparated(f.preferredDepartureAirports)
+      : null,
     preferredHotelTypes: f.preferredHotelTypes ? fromCommaSeparated(f.preferredHotelTypes) : null,
     roomPreferences: f.roomPreferences ? fromCommaSeparated(f.roomPreferences) : null,
     locationPreferences: f.locationPreferences || null,
     redemptionStyle: f.redemptionStyle || undefined,
     budgetSensitivity: f.budgetSensitivity || null,
     pointsVsCash: f.pointsVsCash || null,
+    loyaltyNotes: f.loyaltyNotes || null,
+    budgetNotes: f.budgetNotes || null,
+    preferredDestinations: f.preferredDestinations
+      ? fromCommaSeparated(f.preferredDestinations)
+      : null,
+    dateFlexibility: f.dateFlexibility || null,
+    travelPace: f.travelPace || null,
+    pastTripFeedback: f.pastTripFeedback || null,
     accessibilityNeeds: f.accessibilityNeeds ? fromCommaSeparated(f.accessibilityNeeds) : null,
     foodPreferences: f.foodPreferences ? fromCommaSeparated(f.foodPreferences) : null,
     activityPreferences: f.activityPreferences ? fromCommaSeparated(f.activityPreferences) : null,
@@ -715,6 +751,7 @@ function renderViewSection(
           <Row label="Avoid Basic Economy">{prefs?.avoidBasicEconomy ? 'Yes' : 'No'}</Row>
           <Row label="Preferred Airlines"><TagList items={prefs?.preferredAirlines} /></Row>
           <Row label="Avoided Airlines"><TagList items={prefs?.avoidedAirlines} /></Row>
+          <Row label="Departure Airports"><TagList items={prefs?.preferredDepartureAirports} /></Row>
         </div>
       );
     case 'hotel':
@@ -731,6 +768,17 @@ function renderViewSection(
           <Row label="Redemption Style">{formatValue(prefs?.redemptionStyle)}</Row>
           <Row label="Budget Sensitivity">{formatValue(prefs?.budgetSensitivity)}</Row>
           <Row label="Points vs Cash">{formatValue(prefs?.pointsVsCash)}</Row>
+          <Row label="Loyalty & Points">{formatValue(prefs?.loyaltyNotes)}</Row>
+          <Row label="Budget Notes">{formatValue(prefs?.budgetNotes)}</Row>
+        </div>
+      );
+    case 'trip_style':
+      return (
+        <div className="space-y-1">
+          <Row label="Preferred Destinations"><TagList items={prefs?.preferredDestinations} /></Row>
+          <Row label="Date Flexibility">{formatValue(prefs?.dateFlexibility)}</Row>
+          <Row label="Travel Pace">{formatValue(prefs?.travelPace)}</Row>
+          <Row label="Past Trip Feedback">{formatValue(prefs?.pastTripFeedback)}</Row>
         </div>
       );
     case 'accessibility':
@@ -826,6 +874,14 @@ function renderEditSection(
             <label className="mb-1.5 block text-xs font-medium text-slate-700">Avoided Airlines</label>
             <TagInput value={form.avoidedAirlines} onChange={(v) => update('avoidedAirlines', v)} placeholder="e.g., Spirit, Frontier" />
           </div>
+          <div>
+            <label className="mb-1.5 block text-xs font-medium text-slate-700">Preferred Departure Airports</label>
+            <TagInput
+              value={form.preferredDepartureAirports}
+              onChange={(v) => update('preferredDepartureAirports', v)}
+              placeholder="e.g., JFK, EWR, LGA"
+            />
+          </div>
         </div>
       );
     case 'hotel':
@@ -883,6 +939,75 @@ function renderEditSection(
               onChange={(e) => update('pointsVsCash', e.target.value)}
               placeholder="e.g., Prefers using points for flights, cash for hotels"
               className="block w-full rounded-lg border border-slate-200 px-3 py-2 text-sm placeholder:text-slate-400 focus:border-transparent focus:outline-none focus:ring-2 focus:ring-blue-600"
+            />
+          </div>
+          <div>
+            <label className="mb-1.5 block text-xs font-medium text-slate-700">Loyalty Programs & Points Balances</label>
+            <textarea
+              value={form.loyaltyNotes}
+              onChange={(e) => update('loyaltyNotes', e.target.value)}
+              rows={2}
+              placeholder="e.g., Chase Sapphire Reserve ~300k UR, Amex Platinum ~500k MR, Hyatt Globalist, United 1K"
+              className="block w-full resize-none rounded-lg border border-slate-200 px-3 py-2 text-sm placeholder:text-slate-400 focus:border-transparent focus:outline-none focus:ring-2 focus:ring-blue-600"
+            />
+          </div>
+          <div>
+            <label className="mb-1.5 block text-xs font-medium text-slate-700">Concrete Budget Anchors</label>
+            <textarea
+              value={form.budgetNotes}
+              onChange={(e) => update('budgetNotes', e.target.value)}
+              rows={2}
+              placeholder="e.g., ~$8k/person for the honeymoon, hotels under $500/night, flights under $1500 each"
+              className="block w-full resize-none rounded-lg border border-slate-200 px-3 py-2 text-sm placeholder:text-slate-400 focus:border-transparent focus:outline-none focus:ring-2 focus:ring-blue-600"
+            />
+          </div>
+        </div>
+      );
+    case 'trip_style':
+      return (
+        <div className="space-y-3">
+          <div>
+            <label className="mb-1.5 block text-xs font-medium text-slate-700">Preferred Destinations</label>
+            <TagInput
+              value={form.preferredDestinations}
+              onChange={(v) => update('preferredDestinations', v)}
+              placeholder="e.g., Italy, Japan, Maldives, Patagonia"
+            />
+          </div>
+          <div className="grid grid-cols-2 gap-4">
+            <div>
+              <label className="mb-1.5 block text-xs font-medium text-slate-700">Date Flexibility</label>
+              <input
+                type="text"
+                value={form.dateFlexibility}
+                onChange={(e) => update('dateFlexibility', e.target.value)}
+                placeholder="e.g., Flexible within June, or fixed dates"
+                className="block w-full rounded-lg border border-slate-200 px-3 py-2 text-sm placeholder:text-slate-400 focus:border-transparent focus:outline-none focus:ring-2 focus:ring-blue-600"
+              />
+            </div>
+            <div>
+              <label className="mb-1.5 block text-xs font-medium text-slate-700">Travel Pace</label>
+              <select
+                value={form.travelPace}
+                onChange={(e) => update('travelPace', e.target.value)}
+                className={selectClass}
+              >
+                <option value="">No preference</option>
+                <option value="relaxed">Relaxed</option>
+                <option value="moderate">Moderate</option>
+                <option value="active">Active</option>
+                <option value="packed">Packed</option>
+              </select>
+            </div>
+          </div>
+          <div>
+            <label className="mb-1.5 block text-xs font-medium text-slate-700">Past Trip Feedback</label>
+            <textarea
+              value={form.pastTripFeedback}
+              onChange={(e) => update('pastTripFeedback', e.target.value)}
+              rows={3}
+              placeholder="e.g., Loved the Amalfi Coast villa, hated the crowds at Positano. Santorini sunset cruise was the highlight."
+              className="block w-full resize-none rounded-lg border border-slate-200 px-3 py-2 text-sm placeholder:text-slate-400 focus:border-transparent focus:outline-none focus:ring-2 focus:ring-blue-600"
             />
           </div>
         </div>

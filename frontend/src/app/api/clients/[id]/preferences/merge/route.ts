@@ -25,6 +25,13 @@ const MERGEABLE_FIELDS = [
   "dislikes",
   "dealbreakers",
   "notes",
+  "loyaltyNotes",
+  "budgetNotes",
+  "preferredDestinations",
+  "preferredDepartureAirports",
+  "dateFlexibility",
+  "travelPace",
+  "pastTripFeedback",
 ] as const;
 
 type MergeStrategy = "overwrite" | "merge" | "suggest";
@@ -69,6 +76,8 @@ function isArrayField(field: string): boolean {
     "specialOccasions",
     "dislikes",
     "dealbreakers",
+    "preferredDestinations",
+    "preferredDepartureAirports",
   ].includes(field);
 }
 

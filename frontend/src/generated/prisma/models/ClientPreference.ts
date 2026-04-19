@@ -52,6 +52,11 @@ export type ClientPreferenceMinAggregateOutputType = {
   locationPreferences: string | null
   mergeStrategy: $Enums.MergeStrategy | null
   pointsVsCash: string | null
+  loyaltyNotes: string | null
+  budgetNotes: string | null
+  dateFlexibility: string | null
+  travelPace: string | null
+  pastTripFeedback: string | null
 }
 
 export type ClientPreferenceMaxAggregateOutputType = {
@@ -72,6 +77,11 @@ export type ClientPreferenceMaxAggregateOutputType = {
   locationPreferences: string | null
   mergeStrategy: $Enums.MergeStrategy | null
   pointsVsCash: string | null
+  loyaltyNotes: string | null
+  budgetNotes: string | null
+  dateFlexibility: string | null
+  travelPace: string | null
+  pastTripFeedback: string | null
 }
 
 export type ClientPreferenceCountAggregateOutputType = {
@@ -102,6 +112,13 @@ export type ClientPreferenceCountAggregateOutputType = {
   preferredHotelTypes: number
   roomPreferences: number
   specialOccasions: number
+  loyaltyNotes: number
+  budgetNotes: number
+  preferredDestinations: number
+  preferredDepartureAirports: number
+  dateFlexibility: number
+  travelPace: number
+  pastTripFeedback: number
   _all: number
 }
 
@@ -132,6 +149,11 @@ export type ClientPreferenceMinAggregateInputType = {
   locationPreferences?: true
   mergeStrategy?: true
   pointsVsCash?: true
+  loyaltyNotes?: true
+  budgetNotes?: true
+  dateFlexibility?: true
+  travelPace?: true
+  pastTripFeedback?: true
 }
 
 export type ClientPreferenceMaxAggregateInputType = {
@@ -152,6 +174,11 @@ export type ClientPreferenceMaxAggregateInputType = {
   locationPreferences?: true
   mergeStrategy?: true
   pointsVsCash?: true
+  loyaltyNotes?: true
+  budgetNotes?: true
+  dateFlexibility?: true
+  travelPace?: true
+  pastTripFeedback?: true
 }
 
 export type ClientPreferenceCountAggregateInputType = {
@@ -182,6 +209,13 @@ export type ClientPreferenceCountAggregateInputType = {
   preferredHotelTypes?: true
   roomPreferences?: true
   specialOccasions?: true
+  loyaltyNotes?: true
+  budgetNotes?: true
+  preferredDestinations?: true
+  preferredDepartureAirports?: true
+  dateFlexibility?: true
+  travelPace?: true
+  pastTripFeedback?: true
   _all?: true
 }
 
@@ -299,6 +333,13 @@ export type ClientPreferenceGroupByOutputType = {
   preferredHotelTypes: runtime.JsonValue | null
   roomPreferences: runtime.JsonValue | null
   specialOccasions: runtime.JsonValue | null
+  loyaltyNotes: string | null
+  budgetNotes: string | null
+  preferredDestinations: runtime.JsonValue | null
+  preferredDepartureAirports: runtime.JsonValue | null
+  dateFlexibility: string | null
+  travelPace: string | null
+  pastTripFeedback: string | null
   _count: ClientPreferenceCountAggregateOutputType | null
   _avg: ClientPreferenceAvgAggregateOutputType | null
   _sum: ClientPreferenceSumAggregateOutputType | null
@@ -352,6 +393,13 @@ export type ClientPreferenceWhereInput = {
   preferredHotelTypes?: Prisma.JsonNullableFilter<"ClientPreference">
   roomPreferences?: Prisma.JsonNullableFilter<"ClientPreference">
   specialOccasions?: Prisma.JsonNullableFilter<"ClientPreference">
+  loyaltyNotes?: Prisma.StringNullableFilter<"ClientPreference"> | string | null
+  budgetNotes?: Prisma.StringNullableFilter<"ClientPreference"> | string | null
+  preferredDestinations?: Prisma.JsonNullableFilter<"ClientPreference">
+  preferredDepartureAirports?: Prisma.JsonNullableFilter<"ClientPreference">
+  dateFlexibility?: Prisma.StringNullableFilter<"ClientPreference"> | string | null
+  travelPace?: Prisma.StringNullableFilter<"ClientPreference"> | string | null
+  pastTripFeedback?: Prisma.StringNullableFilter<"ClientPreference"> | string | null
   client?: Prisma.XOR<Prisma.ClientScalarRelationFilter, Prisma.ClientWhereInput>
   changelog?: Prisma.PreferenceChangeLogListRelationFilter
 }
@@ -384,6 +432,13 @@ export type ClientPreferenceOrderByWithRelationInput = {
   preferredHotelTypes?: Prisma.SortOrderInput | Prisma.SortOrder
   roomPreferences?: Prisma.SortOrderInput | Prisma.SortOrder
   specialOccasions?: Prisma.SortOrderInput | Prisma.SortOrder
+  loyaltyNotes?: Prisma.SortOrderInput | Prisma.SortOrder
+  budgetNotes?: Prisma.SortOrderInput | Prisma.SortOrder
+  preferredDestinations?: Prisma.SortOrderInput | Prisma.SortOrder
+  preferredDepartureAirports?: Prisma.SortOrderInput | Prisma.SortOrder
+  dateFlexibility?: Prisma.SortOrderInput | Prisma.SortOrder
+  travelPace?: Prisma.SortOrderInput | Prisma.SortOrder
+  pastTripFeedback?: Prisma.SortOrderInput | Prisma.SortOrder
   client?: Prisma.ClientOrderByWithRelationInput
   changelog?: Prisma.PreferenceChangeLogOrderByRelationAggregateInput
 }
@@ -419,6 +474,13 @@ export type ClientPreferenceWhereUniqueInput = Prisma.AtLeast<{
   preferredHotelTypes?: Prisma.JsonNullableFilter<"ClientPreference">
   roomPreferences?: Prisma.JsonNullableFilter<"ClientPreference">
   specialOccasions?: Prisma.JsonNullableFilter<"ClientPreference">
+  loyaltyNotes?: Prisma.StringNullableFilter<"ClientPreference"> | string | null
+  budgetNotes?: Prisma.StringNullableFilter<"ClientPreference"> | string | null
+  preferredDestinations?: Prisma.JsonNullableFilter<"ClientPreference">
+  preferredDepartureAirports?: Prisma.JsonNullableFilter<"ClientPreference">
+  dateFlexibility?: Prisma.StringNullableFilter<"ClientPreference"> | string | null
+  travelPace?: Prisma.StringNullableFilter<"ClientPreference"> | string | null
+  pastTripFeedback?: Prisma.StringNullableFilter<"ClientPreference"> | string | null
   client?: Prisma.XOR<Prisma.ClientScalarRelationFilter, Prisma.ClientWhereInput>
   changelog?: Prisma.PreferenceChangeLogListRelationFilter
 }, "id" | "clientId">
@@ -451,6 +513,13 @@ export type ClientPreferenceOrderByWithAggregationInput = {
   preferredHotelTypes?: Prisma.SortOrderInput | Prisma.SortOrder
   roomPreferences?: Prisma.SortOrderInput | Prisma.SortOrder
   specialOccasions?: Prisma.SortOrderInput | Prisma.SortOrder
+  loyaltyNotes?: Prisma.SortOrderInput | Prisma.SortOrder
+  budgetNotes?: Prisma.SortOrderInput | Prisma.SortOrder
+  preferredDestinations?: Prisma.SortOrderInput | Prisma.SortOrder
+  preferredDepartureAirports?: Prisma.SortOrderInput | Prisma.SortOrder
+  dateFlexibility?: Prisma.SortOrderInput | Prisma.SortOrder
+  travelPace?: Prisma.SortOrderInput | Prisma.SortOrder
+  pastTripFeedback?: Prisma.SortOrderInput | Prisma.SortOrder
   _count?: Prisma.ClientPreferenceCountOrderByAggregateInput
   _avg?: Prisma.ClientPreferenceAvgOrderByAggregateInput
   _max?: Prisma.ClientPreferenceMaxOrderByAggregateInput
@@ -489,6 +558,13 @@ export type ClientPreferenceScalarWhereWithAggregatesInput = {
   preferredHotelTypes?: Prisma.JsonNullableWithAggregatesFilter<"ClientPreference">
   roomPreferences?: Prisma.JsonNullableWithAggregatesFilter<"ClientPreference">
   specialOccasions?: Prisma.JsonNullableWithAggregatesFilter<"ClientPreference">
+  loyaltyNotes?: Prisma.StringNullableWithAggregatesFilter<"ClientPreference"> | string | null
+  budgetNotes?: Prisma.StringNullableWithAggregatesFilter<"ClientPreference"> | string | null
+  preferredDestinations?: Prisma.JsonNullableWithAggregatesFilter<"ClientPreference">
+  preferredDepartureAirports?: Prisma.JsonNullableWithAggregatesFilter<"ClientPreference">
+  dateFlexibility?: Prisma.StringNullableWithAggregatesFilter<"ClientPreference"> | string | null
+  travelPace?: Prisma.StringNullableWithAggregatesFilter<"ClientPreference"> | string | null
+  pastTripFeedback?: Prisma.StringNullableWithAggregatesFilter<"ClientPreference"> | string | null
 }
 
 export type ClientPreferenceCreateInput = {
@@ -518,6 +594,13 @@ export type ClientPreferenceCreateInput = {
   preferredHotelTypes?: Prisma.NullableJsonNullValueInput | runtime.InputJsonValue
   roomPreferences?: Prisma.NullableJsonNullValueInput | runtime.InputJsonValue
   specialOccasions?: Prisma.NullableJsonNullValueInput | runtime.InputJsonValue
+  loyaltyNotes?: string | null
+  budgetNotes?: string | null
+  preferredDestinations?: Prisma.NullableJsonNullValueInput | runtime.InputJsonValue
+  preferredDepartureAirports?: Prisma.NullableJsonNullValueInput | runtime.InputJsonValue
+  dateFlexibility?: string | null
+  travelPace?: string | null
+  pastTripFeedback?: string | null
   client: Prisma.ClientCreateNestedOneWithoutPreferencesInput
   changelog?: Prisma.PreferenceChangeLogCreateNestedManyWithoutPreferenceInput
 }
@@ -550,6 +633,13 @@ export type ClientPreferenceUncheckedCreateInput = {
   preferredHotelTypes?: Prisma.NullableJsonNullValueInput | runtime.InputJsonValue
   roomPreferences?: Prisma.NullableJsonNullValueInput | runtime.InputJsonValue
   specialOccasions?: Prisma.NullableJsonNullValueInput | runtime.InputJsonValue
+  loyaltyNotes?: string | null
+  budgetNotes?: string | null
+  preferredDestinations?: Prisma.NullableJsonNullValueInput | runtime.InputJsonValue
+  preferredDepartureAirports?: Prisma.NullableJsonNullValueInput | runtime.InputJsonValue
+  dateFlexibility?: string | null
+  travelPace?: string | null
+  pastTripFeedback?: string | null
   changelog?: Prisma.PreferenceChangeLogUncheckedCreateNestedManyWithoutPreferenceInput
 }
 
@@ -580,6 +670,13 @@ export type ClientPreferenceUpdateInput = {
   preferredHotelTypes?: Prisma.NullableJsonNullValueInput | runtime.InputJsonValue
   roomPreferences?: Prisma.NullableJsonNullValueInput | runtime.InputJsonValue
   specialOccasions?: Prisma.NullableJsonNullValueInput | runtime.InputJsonValue
+  loyaltyNotes?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
+  budgetNotes?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
+  preferredDestinations?: Prisma.NullableJsonNullValueInput | runtime.InputJsonValue
+  preferredDepartureAirports?: Prisma.NullableJsonNullValueInput | runtime.InputJsonValue
+  dateFlexibility?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
+  travelPace?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
+  pastTripFeedback?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
   client?: Prisma.ClientUpdateOneRequiredWithoutPreferencesNestedInput
   changelog?: Prisma.PreferenceChangeLogUpdateManyWithoutPreferenceNestedInput
 }
@@ -612,6 +709,13 @@ export type ClientPreferenceUncheckedUpdateInput = {
   preferredHotelTypes?: Prisma.NullableJsonNullValueInput | runtime.InputJsonValue
   roomPreferences?: Prisma.NullableJsonNullValueInput | runtime.InputJsonValue
   specialOccasions?: Prisma.NullableJsonNullValueInput | runtime.InputJsonValue
+  loyaltyNotes?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
+  budgetNotes?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
+  preferredDestinations?: Prisma.NullableJsonNullValueInput | runtime.InputJsonValue
+  preferredDepartureAirports?: Prisma.NullableJsonNullValueInput | runtime.InputJsonValue
+  dateFlexibility?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
+  travelPace?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
+  pastTripFeedback?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
   changelog?: Prisma.PreferenceChangeLogUncheckedUpdateManyWithoutPreferenceNestedInput
 }
 
@@ -643,6 +747,13 @@ export type ClientPreferenceCreateManyInput = {
   preferredHotelTypes?: Prisma.NullableJsonNullValueInput | runtime.InputJsonValue
   roomPreferences?: Prisma.NullableJsonNullValueInput | runtime.InputJsonValue
   specialOccasions?: Prisma.NullableJsonNullValueInput | runtime.InputJsonValue
+  loyaltyNotes?: string | null
+  budgetNotes?: string | null
+  preferredDestinations?: Prisma.NullableJsonNullValueInput | runtime.InputJsonValue
+  preferredDepartureAirports?: Prisma.NullableJsonNullValueInput | runtime.InputJsonValue
+  dateFlexibility?: string | null
+  travelPace?: string | null
+  pastTripFeedback?: string | null
 }
 
 export type ClientPreferenceUpdateManyMutationInput = {
@@ -672,6 +783,13 @@ export type ClientPreferenceUpdateManyMutationInput = {
   preferredHotelTypes?: Prisma.NullableJsonNullValueInput | runtime.InputJsonValue
   roomPreferences?: Prisma.NullableJsonNullValueInput | runtime.InputJsonValue
   specialOccasions?: Prisma.NullableJsonNullValueInput | runtime.InputJsonValue
+  loyaltyNotes?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
+  budgetNotes?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
+  preferredDestinations?: Prisma.NullableJsonNullValueInput | runtime.InputJsonValue
+  preferredDepartureAirports?: Prisma.NullableJsonNullValueInput | runtime.InputJsonValue
+  dateFlexibility?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
+  travelPace?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
+  pastTripFeedback?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
 }
 
 export type ClientPreferenceUncheckedUpdateManyInput = {
@@ -702,6 +820,13 @@ export type ClientPreferenceUncheckedUpdateManyInput = {
   preferredHotelTypes?: Prisma.NullableJsonNullValueInput | runtime.InputJsonValue
   roomPreferences?: Prisma.NullableJsonNullValueInput | runtime.InputJsonValue
   specialOccasions?: Prisma.NullableJsonNullValueInput | runtime.InputJsonValue
+  loyaltyNotes?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
+  budgetNotes?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
+  preferredDestinations?: Prisma.NullableJsonNullValueInput | runtime.InputJsonValue
+  preferredDepartureAirports?: Prisma.NullableJsonNullValueInput | runtime.InputJsonValue
+  dateFlexibility?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
+  travelPace?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
+  pastTripFeedback?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
 }
 
 export type ClientPreferenceNullableScalarRelationFilter = {
@@ -737,6 +862,13 @@ export type ClientPreferenceCountOrderByAggregateInput = {
   preferredHotelTypes?: Prisma.SortOrder
   roomPreferences?: Prisma.SortOrder
   specialOccasions?: Prisma.SortOrder
+  loyaltyNotes?: Prisma.SortOrder
+  budgetNotes?: Prisma.SortOrder
+  preferredDestinations?: Prisma.SortOrder
+  preferredDepartureAirports?: Prisma.SortOrder
+  dateFlexibility?: Prisma.SortOrder
+  travelPace?: Prisma.SortOrder
+  pastTripFeedback?: Prisma.SortOrder
 }
 
 export type ClientPreferenceAvgOrderByAggregateInput = {
@@ -761,6 +893,11 @@ export type ClientPreferenceMaxOrderByAggregateInput = {
   locationPreferences?: Prisma.SortOrder
   mergeStrategy?: Prisma.SortOrder
   pointsVsCash?: Prisma.SortOrder
+  loyaltyNotes?: Prisma.SortOrder
+  budgetNotes?: Prisma.SortOrder
+  dateFlexibility?: Prisma.SortOrder
+  travelPace?: Prisma.SortOrder
+  pastTripFeedback?: Prisma.SortOrder
 }
 
 export type ClientPreferenceMinOrderByAggregateInput = {
@@ -781,6 +918,11 @@ export type ClientPreferenceMinOrderByAggregateInput = {
   locationPreferences?: Prisma.SortOrder
   mergeStrategy?: Prisma.SortOrder
   pointsVsCash?: Prisma.SortOrder
+  loyaltyNotes?: Prisma.SortOrder
+  budgetNotes?: Prisma.SortOrder
+  dateFlexibility?: Prisma.SortOrder
+  travelPace?: Prisma.SortOrder
+  pastTripFeedback?: Prisma.SortOrder
 }
 
 export type ClientPreferenceSumOrderByAggregateInput = {
@@ -885,6 +1027,13 @@ export type ClientPreferenceCreateWithoutClientInput = {
   preferredHotelTypes?: Prisma.NullableJsonNullValueInput | runtime.InputJsonValue
   roomPreferences?: Prisma.NullableJsonNullValueInput | runtime.InputJsonValue
   specialOccasions?: Prisma.NullableJsonNullValueInput | runtime.InputJsonValue
+  loyaltyNotes?: string | null
+  budgetNotes?: string | null
+  preferredDestinations?: Prisma.NullableJsonNullValueInput | runtime.InputJsonValue
+  preferredDepartureAirports?: Prisma.NullableJsonNullValueInput | runtime.InputJsonValue
+  dateFlexibility?: string | null
+  travelPace?: string | null
+  pastTripFeedback?: string | null
   changelog?: Prisma.PreferenceChangeLogCreateNestedManyWithoutPreferenceInput
 }
 
@@ -915,6 +1064,13 @@ export type ClientPreferenceUncheckedCreateWithoutClientInput = {
   preferredHotelTypes?: Prisma.NullableJsonNullValueInput | runtime.InputJsonValue
   roomPreferences?: Prisma.NullableJsonNullValueInput | runtime.InputJsonValue
   specialOccasions?: Prisma.NullableJsonNullValueInput | runtime.InputJsonValue
+  loyaltyNotes?: string | null
+  budgetNotes?: string | null
+  preferredDestinations?: Prisma.NullableJsonNullValueInput | runtime.InputJsonValue
+  preferredDepartureAirports?: Prisma.NullableJsonNullValueInput | runtime.InputJsonValue
+  dateFlexibility?: string | null
+  travelPace?: string | null
+  pastTripFeedback?: string | null
   changelog?: Prisma.PreferenceChangeLogUncheckedCreateNestedManyWithoutPreferenceInput
 }
 
@@ -961,6 +1117,13 @@ export type ClientPreferenceUpdateWithoutClientInput = {
   preferredHotelTypes?: Prisma.NullableJsonNullValueInput | runtime.InputJsonValue
   roomPreferences?: Prisma.NullableJsonNullValueInput | runtime.InputJsonValue
   specialOccasions?: Prisma.NullableJsonNullValueInput | runtime.InputJsonValue
+  loyaltyNotes?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
+  budgetNotes?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
+  preferredDestinations?: Prisma.NullableJsonNullValueInput | runtime.InputJsonValue
+  preferredDepartureAirports?: Prisma.NullableJsonNullValueInput | runtime.InputJsonValue
+  dateFlexibility?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
+  travelPace?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
+  pastTripFeedback?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
   changelog?: Prisma.PreferenceChangeLogUpdateManyWithoutPreferenceNestedInput
 }
 
@@ -991,6 +1154,13 @@ export type ClientPreferenceUncheckedUpdateWithoutClientInput = {
   preferredHotelTypes?: Prisma.NullableJsonNullValueInput | runtime.InputJsonValue
   roomPreferences?: Prisma.NullableJsonNullValueInput | runtime.InputJsonValue
   specialOccasions?: Prisma.NullableJsonNullValueInput | runtime.InputJsonValue
+  loyaltyNotes?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
+  budgetNotes?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
+  preferredDestinations?: Prisma.NullableJsonNullValueInput | runtime.InputJsonValue
+  preferredDepartureAirports?: Prisma.NullableJsonNullValueInput | runtime.InputJsonValue
+  dateFlexibility?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
+  travelPace?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
+  pastTripFeedback?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
   changelog?: Prisma.PreferenceChangeLogUncheckedUpdateManyWithoutPreferenceNestedInput
 }
 
@@ -1021,6 +1191,13 @@ export type ClientPreferenceCreateWithoutChangelogInput = {
   preferredHotelTypes?: Prisma.NullableJsonNullValueInput | runtime.InputJsonValue
   roomPreferences?: Prisma.NullableJsonNullValueInput | runtime.InputJsonValue
   specialOccasions?: Prisma.NullableJsonNullValueInput | runtime.InputJsonValue
+  loyaltyNotes?: string | null
+  budgetNotes?: string | null
+  preferredDestinations?: Prisma.NullableJsonNullValueInput | runtime.InputJsonValue
+  preferredDepartureAirports?: Prisma.NullableJsonNullValueInput | runtime.InputJsonValue
+  dateFlexibility?: string | null
+  travelPace?: string | null
+  pastTripFeedback?: string | null
   client: Prisma.ClientCreateNestedOneWithoutPreferencesInput
 }
 
@@ -1052,6 +1229,13 @@ export type ClientPreferenceUncheckedCreateWithoutChangelogInput = {
   preferredHotelTypes?: Prisma.NullableJsonNullValueInput | runtime.InputJsonValue
   roomPreferences?: Prisma.NullableJsonNullValueInput | runtime.InputJsonValue
   specialOccasions?: Prisma.NullableJsonNullValueInput | runtime.InputJsonValue
+  loyaltyNotes?: string | null
+  budgetNotes?: string | null
+  preferredDestinations?: Prisma.NullableJsonNullValueInput | runtime.InputJsonValue
+  preferredDepartureAirports?: Prisma.NullableJsonNullValueInput | runtime.InputJsonValue
+  dateFlexibility?: string | null
+  travelPace?: string | null
+  pastTripFeedback?: string | null
 }
 
 export type ClientPreferenceCreateOrConnectWithoutChangelogInput = {
@@ -1097,6 +1281,13 @@ export type ClientPreferenceUpdateWithoutChangelogInput = {
   preferredHotelTypes?: Prisma.NullableJsonNullValueInput | runtime.InputJsonValue
   roomPreferences?: Prisma.NullableJsonNullValueInput | runtime.InputJsonValue
   specialOccasions?: Prisma.NullableJsonNullValueInput | runtime.InputJsonValue
+  loyaltyNotes?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
+  budgetNotes?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
+  preferredDestinations?: Prisma.NullableJsonNullValueInput | runtime.InputJsonValue
+  preferredDepartureAirports?: Prisma.NullableJsonNullValueInput | runtime.InputJsonValue
+  dateFlexibility?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
+  travelPace?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
+  pastTripFeedback?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
   client?: Prisma.ClientUpdateOneRequiredWithoutPreferencesNestedInput
 }
 
@@ -1128,6 +1319,13 @@ export type ClientPreferenceUncheckedUpdateWithoutChangelogInput = {
   preferredHotelTypes?: Prisma.NullableJsonNullValueInput | runtime.InputJsonValue
   roomPreferences?: Prisma.NullableJsonNullValueInput | runtime.InputJsonValue
   specialOccasions?: Prisma.NullableJsonNullValueInput | runtime.InputJsonValue
+  loyaltyNotes?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
+  budgetNotes?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
+  preferredDestinations?: Prisma.NullableJsonNullValueInput | runtime.InputJsonValue
+  preferredDepartureAirports?: Prisma.NullableJsonNullValueInput | runtime.InputJsonValue
+  dateFlexibility?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
+  travelPace?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
+  pastTripFeedback?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
 }
 
 
@@ -1189,6 +1387,13 @@ export type ClientPreferenceSelect<ExtArgs extends runtime.Types.Extensions.Inte
   preferredHotelTypes?: boolean
   roomPreferences?: boolean
   specialOccasions?: boolean
+  loyaltyNotes?: boolean
+  budgetNotes?: boolean
+  preferredDestinations?: boolean
+  preferredDepartureAirports?: boolean
+  dateFlexibility?: boolean
+  travelPace?: boolean
+  pastTripFeedback?: boolean
   client?: boolean | Prisma.ClientDefaultArgs<ExtArgs>
   changelog?: boolean | Prisma.ClientPreference$changelogArgs<ExtArgs>
   _count?: boolean | Prisma.ClientPreferenceCountOutputTypeDefaultArgs<ExtArgs>
@@ -1222,6 +1427,13 @@ export type ClientPreferenceSelectCreateManyAndReturn<ExtArgs extends runtime.Ty
   preferredHotelTypes?: boolean
   roomPreferences?: boolean
   specialOccasions?: boolean
+  loyaltyNotes?: boolean
+  budgetNotes?: boolean
+  preferredDestinations?: boolean
+  preferredDepartureAirports?: boolean
+  dateFlexibility?: boolean
+  travelPace?: boolean
+  pastTripFeedback?: boolean
   client?: boolean | Prisma.ClientDefaultArgs<ExtArgs>
 }, ExtArgs["result"]["clientPreference"]>
 
@@ -1253,6 +1465,13 @@ export type ClientPreferenceSelectUpdateManyAndReturn<ExtArgs extends runtime.Ty
   preferredHotelTypes?: boolean
   roomPreferences?: boolean
   specialOccasions?: boolean
+  loyaltyNotes?: boolean
+  budgetNotes?: boolean
+  preferredDestinations?: boolean
+  preferredDepartureAirports?: boolean
+  dateFlexibility?: boolean
+  travelPace?: boolean
+  pastTripFeedback?: boolean
   client?: boolean | Prisma.ClientDefaultArgs<ExtArgs>
 }, ExtArgs["result"]["clientPreference"]>
 
@@ -1284,9 +1503,16 @@ export type ClientPreferenceSelectScalar = {
   preferredHotelTypes?: boolean
   roomPreferences?: boolean
   specialOccasions?: boolean
+  loyaltyNotes?: boolean
+  budgetNotes?: boolean
+  preferredDestinations?: boolean
+  preferredDepartureAirports?: boolean
+  dateFlexibility?: boolean
+  travelPace?: boolean
+  pastTripFeedback?: boolean
 }
 
-export type ClientPreferenceOmit<ExtArgs extends runtime.Types.Extensions.InternalArgs = runtime.Types.Extensions.DefaultArgs> = runtime.Types.Extensions.GetOmit<"id" | "clientId" | "preferredCabin" | "prefersNonstop" | "maxLayoverMinutes" | "willingToReposition" | "redemptionStyle" | "avoidBasicEconomy" | "preferredAirlines" | "avoidedAirlines" | "notes" | "createdAt" | "updatedAt" | "accessibilityNeeds" | "activityPreferences" | "budgetSensitivity" | "dealbreakers" | "dislikes" | "familyConsiderations" | "foodPreferences" | "lastUpdatedSource" | "locationPreferences" | "mergeStrategy" | "pointsVsCash" | "preferredHotelTypes" | "roomPreferences" | "specialOccasions", ExtArgs["result"]["clientPreference"]>
+export type ClientPreferenceOmit<ExtArgs extends runtime.Types.Extensions.InternalArgs = runtime.Types.Extensions.DefaultArgs> = runtime.Types.Extensions.GetOmit<"id" | "clientId" | "preferredCabin" | "prefersNonstop" | "maxLayoverMinutes" | "willingToReposition" | "redemptionStyle" | "avoidBasicEconomy" | "preferredAirlines" | "avoidedAirlines" | "notes" | "createdAt" | "updatedAt" | "accessibilityNeeds" | "activityPreferences" | "budgetSensitivity" | "dealbreakers" | "dislikes" | "familyConsiderations" | "foodPreferences" | "lastUpdatedSource" | "locationPreferences" | "mergeStrategy" | "pointsVsCash" | "preferredHotelTypes" | "roomPreferences" | "specialOccasions" | "loyaltyNotes" | "budgetNotes" | "preferredDestinations" | "preferredDepartureAirports" | "dateFlexibility" | "travelPace" | "pastTripFeedback", ExtArgs["result"]["clientPreference"]>
 export type ClientPreferenceInclude<ExtArgs extends runtime.Types.Extensions.InternalArgs = runtime.Types.Extensions.DefaultArgs> = {
   client?: boolean | Prisma.ClientDefaultArgs<ExtArgs>
   changelog?: boolean | Prisma.ClientPreference$changelogArgs<ExtArgs>
@@ -1333,6 +1559,13 @@ export type $ClientPreferencePayload<ExtArgs extends runtime.Types.Extensions.In
     preferredHotelTypes: runtime.JsonValue | null
     roomPreferences: runtime.JsonValue | null
     specialOccasions: runtime.JsonValue | null
+    loyaltyNotes: string | null
+    budgetNotes: string | null
+    preferredDestinations: runtime.JsonValue | null
+    preferredDepartureAirports: runtime.JsonValue | null
+    dateFlexibility: string | null
+    travelPace: string | null
+    pastTripFeedback: string | null
   }, ExtArgs["result"]["clientPreference"]>
   composites: {}
 }
@@ -1785,6 +2018,13 @@ export interface ClientPreferenceFieldRefs {
   readonly preferredHotelTypes: Prisma.FieldRef<"ClientPreference", 'Json'>
   readonly roomPreferences: Prisma.FieldRef<"ClientPreference", 'Json'>
   readonly specialOccasions: Prisma.FieldRef<"ClientPreference", 'Json'>
+  readonly loyaltyNotes: Prisma.FieldRef<"ClientPreference", 'String'>
+  readonly budgetNotes: Prisma.FieldRef<"ClientPreference", 'String'>
+  readonly preferredDestinations: Prisma.FieldRef<"ClientPreference", 'Json'>
+  readonly preferredDepartureAirports: Prisma.FieldRef<"ClientPreference", 'Json'>
+  readonly dateFlexibility: Prisma.FieldRef<"ClientPreference", 'String'>
+  readonly travelPace: Prisma.FieldRef<"ClientPreference", 'String'>
+  readonly pastTripFeedback: Prisma.FieldRef<"ClientPreference", 'String'>
 }
     
 

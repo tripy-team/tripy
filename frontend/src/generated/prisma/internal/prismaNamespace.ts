@@ -4401,7 +4401,14 @@ export const ClientPreferenceScalarFieldEnum = {
   pointsVsCash: 'pointsVsCash',
   preferredHotelTypes: 'preferredHotelTypes',
   roomPreferences: 'roomPreferences',
-  specialOccasions: 'specialOccasions'
+  specialOccasions: 'specialOccasions',
+  loyaltyNotes: 'loyaltyNotes',
+  budgetNotes: 'budgetNotes',
+  preferredDestinations: 'preferredDestinations',
+  preferredDepartureAirports: 'preferredDepartureAirports',
+  dateFlexibility: 'dateFlexibility',
+  travelPace: 'travelPace',
+  pastTripFeedback: 'pastTripFeedback'
 } as const
 
 export type ClientPreferenceScalarFieldEnum = (typeof ClientPreferenceScalarFieldEnum)[keyof typeof ClientPreferenceScalarFieldEnum]

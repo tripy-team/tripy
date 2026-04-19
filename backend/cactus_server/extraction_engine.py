@@ -48,25 +48,29 @@ class ExtractionEngine:
 
     def keyword_extract(
         self,
-        recent_text: str,
+        client_text: str,
         client_name: str,
         existing_profile: str,
-        speaker: str = "client",
+        prior_question: str = "",
     ) -> list[dict[str, Any]]:
-        """Spot preference keywords in a single fragmented transcript chunk.
+        """Spot preference keywords in a single client transcript chunk.
 
         Designed for the live-call path where transcription often arrives as
         a few stray words ("business class", "Marriott") rather than full
         sentences. Uses a tighter prompt and shorter generation budget than
         ``extract`` so it stays under the per-chunk inference deadline.
+
+        ``prior_question`` is the advisor's most recent utterance. Short
+        client answers ("yeah", "business") only map to a field when paired
+        with the question that prompted them.
         """
         from .prompts import KEYWORD_EXTRACTION_PROMPT, TRAVEL_PREFERENCE_FIELDS
 
         prompt = KEYWORD_EXTRACTION_PROMPT.format(
             client_name=client_name,
             existing_profile=existing_profile,
-            recent_text=recent_text,
-            speaker=speaker,
+            prior_question=prior_question.strip() or "(none)",
+            client_text=client_text,
             field_definitions=TRAVEL_PREFERENCE_FIELDS,
         )
 

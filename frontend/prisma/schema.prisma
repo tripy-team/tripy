@@ -285,6 +285,13 @@ model ClientPreference {
   preferredHotelTypes  Json?                 @map("preferred_hotel_types")
   roomPreferences      Json?                 @map("room_preferences")
   specialOccasions     Json?                 @map("special_occasions")
+  loyaltyNotes         String?               @map("loyalty_notes")
+  budgetNotes          String?               @map("budget_notes")
+  preferredDestinations        Json?         @map("preferred_destinations")
+  preferredDepartureAirports   Json?         @map("preferred_departure_airports")
+  dateFlexibility      String?               @map("date_flexibility")
+  travelPace           String?               @map("travel_pace")
+  pastTripFeedback     String?               @map("past_trip_feedback")
   client               Client                @relation(fields: [clientId], references: [id])
   changelog            PreferenceChangeLog[]
 

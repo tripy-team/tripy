@@ -185,6 +185,13 @@ export interface ClientPreference {
   specialOccasions?: string[];
   dislikes?: string[];
   dealbreakers?: string[];
+  loyaltyNotes?: string;
+  budgetNotes?: string;
+  preferredDestinations?: string[];
+  preferredDepartureAirports?: string[];
+  dateFlexibility?: string;
+  travelPace?: string;
+  pastTripFeedback?: string;
   defaultTradeoffWeights?: TradeoffWeights | null;
   notes?: string;
   lastUpdatedSource?: 'manual' | 'intake' | 'inferred';

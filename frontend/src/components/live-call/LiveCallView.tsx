@@ -25,6 +25,7 @@ import {
   fetchAdvisorToken,
 } from '@/lib/livekit-room';
 import { startLiveCall } from '@/lib/live-call-api';
+import { createMeetingInvitation } from '@/lib/api-client';
 
 export interface LiveCallConfig {
   clientId: string;
@@ -97,6 +98,10 @@ export default function LiveCallView({
   // LiveKit
   const [joinLink, setJoinLink] = useState<string | null>(null);
   const [linkCopied, setLinkCopied] = useState(false);
+  const [emailStatus, setEmailStatus] = useState<'idle' | 'sending' | 'sent' | 'error'>(
+    'idle',
+  );
+  const [emailError, setEmailError] = useState<string | null>(null);
   const roomNameRef = useRef<string>(
     buildRoomName(config.clientId, config.meetingId),
   );
@@ -148,6 +153,17 @@ export default function LiveCallView({
     remoteVideoRef.current.srcObject = remoteStream;
     void remoteVideoRef.current.play().catch(() => {});
   }, [hasRemoteVideo, remoteStream]);
+
+  // If the user clicks End Call before Cactus emits its final event, endCall's
+  // closure captured finalData=null and the parent was never notified. Once
+  // finalData lands, call onCallEnd so the transcript/suggestions get persisted.
+  const notifiedEndRef = useRef(false);
+  useEffect(() => {
+    if (phase === 'ended' && finalData && !notifiedEndRef.current) {
+      notifiedEndRef.current = true;
+      onCallEnd(finalData);
+    }
+  }, [phase, finalData, onCallEnd]);
 
   const startCall = useCallback(async () => {
     console.log('[LiveCallView] Start Call clicked');
@@ -372,14 +388,28 @@ export default function LiveCallView({
       setLocalStream(null);
     }
 
+    // Detach streams from the <video> elements so the browser stops rendering
+    // the (now-dead) frames. LiveKit's disconnect() stops the tracks but the
+    // srcObject reference can keep the last frame pinned on screen.
+    if (localVideoRef.current) {
+      localVideoRef.current.srcObject = null;
+    }
+    if (remoteVideoRef.current) {
+      remoteVideoRef.current.srcObject = null;
+    }
+    setRemoteStream(null);
+    setHasRemoteVideo(false);
+
     if (durationIntervalRef.current) {
       clearInterval(durationIntervalRef.current);
+      durationIntervalRef.current = null;
     }
 
     // Persistence (POST /live/stop) is owned by the parent's onCallEnd
     // handler so it can await the request and then refresh the meeting view.
     setPhase('ended');
     if (finalData) {
+      notifiedEndRef.current = true;
       onCallEnd(finalData);
     }
   }, [localStream, finalData, onCallEnd]);
@@ -423,6 +453,42 @@ export default function LiveCallView({
       await onCommitSuggestions(finalData.commitReady);
     }
   }, [finalData, onCommitSuggestions]);
+
+  const handleEmailLink = useCallback(
+    async (overrideEmail?: string) => {
+      setEmailStatus('sending');
+      setEmailError(null);
+      try {
+        await createMeetingInvitation(
+          config.clientId,
+          config.meetingId,
+          overrideEmail ? { recipientEmail: overrideEmail } : {},
+        );
+        setEmailStatus('sent');
+        setTimeout(() => setEmailStatus('idle'), 3000);
+      } catch (err) {
+        const message = err instanceof Error ? err.message : String(err);
+        // The /invitations route returns 400 when neither the client record
+        // nor the request body carries an email. Prompt for one and retry.
+        if (/email is required/i.test(message)) {
+          const entered = window.prompt(
+            `No email on file for ${config.clientName}. Enter an email to send the join link to:`,
+          );
+          if (entered && entered.trim()) {
+            await handleEmailLink(entered.trim());
+            return;
+          }
+          setEmailStatus('idle');
+          return;
+        }
+        console.error('[LiveCallView] email invitation failed', err);
+        setEmailError(message || 'Failed to send email');
+        setEmailStatus('error');
+        setTimeout(() => setEmailStatus('idle'), 4000);
+      }
+    },
+    [config.clientId, config.meetingId, config.clientName],
+  );
 
   // Cleanup on unmount
   useEffect(() => {
@@ -489,16 +555,33 @@ export default function LiveCallView({
   }
 
   // ── Ended phase ──
-  if (phase === 'ended' && finalData) {
+  // Render unconditionally once phase flips to 'ended' — otherwise, if the
+  // user ends the call before Cactus emits its final event, we'd fall through
+  // to the active-call render below and the video/timer would appear to keep
+  // running even though everything's been torn down.
+  if (phase === 'ended') {
+    if (finalData) {
+      return (
+        <PostCallReview
+          duration={duration}
+          clientName={config.clientName}
+          transcript={transcript}
+          finalData={finalData}
+          onCommit={handleCommit}
+          onDismiss={() => {}}
+        />
+      );
+    }
     return (
-      <PostCallReview
-        duration={duration}
-        clientName={config.clientName}
-        transcript={transcript}
-        finalData={finalData}
-        onCommit={handleCommit}
-        onDismiss={() => {}}
-      />
+      <div className="flex h-full items-center justify-center">
+        <div className="text-center">
+          <h2 className="text-lg font-bold text-slate-900">Call Ended</h2>
+          <p className="mt-2 text-sm text-slate-500">
+            Finalizing transcript and suggestions…
+          </p>
+          <Loader2 className="mx-auto mt-3 h-5 w-5 animate-spin text-blue-600" />
+        </div>
+      </div>
     );
   }
 
@@ -596,7 +679,25 @@ export default function LiveCallView({
                   >
                     {linkCopied ? 'Copied!' : 'Copy'}
                   </button>
+                  <button
+                    onClick={() => handleEmailLink()}
+                    disabled={emailStatus === 'sending'}
+                    className="rounded bg-emerald-600 px-2 py-0.5 text-[10px] font-medium text-white hover:bg-emerald-700 disabled:opacity-60"
+                  >
+                    {emailStatus === 'sending'
+                      ? 'Sending…'
+                      : emailStatus === 'sent'
+                      ? 'Sent!'
+                      : emailStatus === 'error'
+                      ? 'Retry'
+                      : 'Email'}
+                  </button>
                 </div>
+                {emailStatus === 'error' && emailError && (
+                  <div className="mt-1 text-[10px] text-red-300">
+                    {emailError}
+                  </div>
+                )}
               </div>
             )}
           </div>
@@ -612,15 +713,6 @@ export default function LiveCallView({
               onToggleCamera={toggleCamera}
               onTogglePause={togglePause}
               onEndCall={endCall}
-            />
-          </div>
-
-          {/* Live transcript */}
-          <div className="flex-1 overflow-y-auto bg-white">
-            <LiveTranscript
-              chunks={transcript}
-              partial={partial}
-              clientName={config.clientName}
             />
           </div>
         </div>
