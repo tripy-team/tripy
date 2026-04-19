@@ -3,7 +3,6 @@
 import { useState, useEffect, useRef, useCallback } from 'react';
 import { Loader2, Video, Wifi, WifiOff } from 'lucide-react';
 import CallControls from './CallControls';
-import LiveTranscript from './LiveTranscript';
 import LiveExtractions from './LiveExtractions';
 import ReactiveQuestions from './ReactiveQuestions';
 import PostCallReview from './PostCallReview';
@@ -66,7 +65,7 @@ export interface LiveCallConfig {
 }
 
 type CallPhase = 'setup' | 'connecting' | 'active' | 'ended';
-type LivePanel = 'transcript' | 'extractions' | 'questions';
+type LivePanel = 'extractions' | 'questions';
 
 interface LiveCallViewProps {
   config: LiveCallConfig;
@@ -774,7 +773,6 @@ export default function LiveCallView({
               [
                 { key: 'questions' as LivePanel, label: 'Questions', count: questions.filter((q) => !q.isUsed).length },
                 { key: 'extractions' as LivePanel, label: 'Extractions', count: extractions.length },
-                { key: 'transcript' as LivePanel, label: 'Transcript', count: transcript.length },
               ] as const
             ).map((tab) => (
               <button
@@ -809,13 +807,6 @@ export default function LiveCallView({
               <LiveExtractions
                 extractions={extractions}
                 contradictions={contradictions}
-              />
-            )}
-
-            {activePanel === 'transcript' && (
-              <LiveTranscript
-                chunks={transcript}
-                clientName={config.clientName}
               />
             )}
 
