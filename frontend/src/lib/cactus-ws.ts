@@ -41,7 +41,6 @@ export interface ReactiveQuestion {
   reason: string;
   priority: 'high' | 'medium' | 'low';
   targetFields: string[];
-  triggerPhrase: string;
 }
 
 export interface FinalEvent {

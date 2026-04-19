@@ -450,6 +450,25 @@ export default function LiveCallView({
     setTimeout(() => {
       if (notifiedEndRef.current) return;
       notifiedEndRef.current = true;
+      // Deduplicate live extractions by targetField, keeping the highest-
+      // confidence value. Without this fallback, a call that ends before the
+      // server's flush completes would drop every extraction into the void.
+      const byField = new Map<string, ProfileExtraction>();
+      for (const ex of extractions) {
+        const prior = byField.get(ex.targetField);
+        if (!prior || ex.confidence > prior.confidence) {
+          byField.set(ex.targetField, ex);
+        }
+      }
+      const fallbackCommitReady = Array.from(byField.values())
+        .filter((ex) => ex.confidence >= 0.7)
+        .map((ex) => ({
+          targetField: ex.targetField,
+          suggestedValue: ex.suggestedValue,
+          confidence: ex.confidence,
+          evidence: ex.evidence,
+          status: 'pending',
+        }));
       onCallEnd({
         type: 'final',
         transcript,
@@ -457,10 +476,10 @@ export default function LiveCallView({
         confidenceMap: {},
         evidenceMap: {},
         contradictions: contradictions ?? [],
-        commitReady: [],
+        commitReady: fallbackCommitReady,
       });
     }, 3000);
-  }, [localStream, finalData, onCallEnd, transcript, contradictions]);
+  }, [localStream, finalData, onCallEnd, transcript, contradictions, extractions]);
 
   const toggleMute = useCallback(() => {
     const next = !isMuted;

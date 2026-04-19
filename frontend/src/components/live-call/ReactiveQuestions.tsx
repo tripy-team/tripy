@@ -72,11 +72,6 @@ export default function ReactiveQuestions({
                 <p className="text-sm font-medium text-slate-800">
                   {q.questionText}
                 </p>
-                {q.triggerPhrase && (
-                  <p className="mt-0.5 text-[10px] text-slate-500">
-                    Triggered by: &ldquo;{q.triggerPhrase}&rdquo;
-                  </p>
-                )}
               </div>
               <ChevronRight
                 className={`mt-0.5 h-4 w-4 shrink-0 text-slate-400 transition-transform ${

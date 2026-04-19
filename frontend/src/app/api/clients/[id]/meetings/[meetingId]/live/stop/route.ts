@@ -28,10 +28,11 @@ async function deleteLiveKitRoom(roomName: string): Promise<void> {
 }
 
 // Confidence at/above which we skip the advisor-review step and sync
-// straight into ClientPreference so display + downstream flight AI can use
-// the new fact immediately. Lower-confidence extractions still land as
-// pending MeetingProfileSuggestion rows for manual review.
-const AUTO_COMMIT_CONFIDENCE = 0.85;
+// straight into ClientPreference. Must match the Cactus server's
+// get_commit_ready() threshold in learning_state.py — anything the backend
+// flags as "commit ready" should actually commit, otherwise mid-confidence
+// transcription extractions sit as pending suggestions forever.
+const AUTO_COMMIT_CONFIDENCE = 0.7;
 
 export async function POST(
   request: Request,

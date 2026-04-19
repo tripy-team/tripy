@@ -270,8 +270,7 @@ Return a JSON array:
   "category": "travel_style|budget|logistics|preferences|family|loyalty",
   "reason": "why this question matters right now",
   "priority": "high|medium|low",
-  "targetFields": ["field1", "field2"],
-  "triggerPhrase": "what the client said that prompted this"
+  "targetFields": ["field1", "field2"]
 }}]
 
 Return ONLY valid JSON, no other text."""
@@ -312,7 +311,7 @@ Return ONLY valid JSON in this exact shape — no prose, no markdown:
     {"targetField": "...", "suggestedValue": "...", "confidence": 0.0, "evidence": "..."}
   ],
   "questions": [
-    {"questionText": "...", "category": "travel_style|budget|logistics|preferences|family|loyalty", "reason": "...", "priority": "high|medium|low", "targetFields": ["..."], "triggerPhrase": "..."}
+    {"questionText": "...", "category": "travel_style|budget|logistics|preferences|family|loyalty", "reason": "...", "priority": "high|medium|low", "targetFields": ["..."]}
   ]
 }"""
 
@@ -365,8 +364,7 @@ Return a JSON array:
   "category": "trip_specific|travel_style|budget|logistics|preferences|family|loyalty",
   "reason": "why this question matters for THIS trip",
   "priority": "high|medium|low",
-  "targetFields": ["field1", "field2"],
-  "triggerPhrase": "what the client said that prompted this"
+  "targetFields": ["field1", "field2"]
 }}]
 
 Return ONLY valid JSON, no other text."""
