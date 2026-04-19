@@ -319,6 +319,10 @@ class CactusTranscriber:
         peak stayed below the speech threshold. We log both kept and dropped
         emissions so the thresholds can be tuned from real call data.
         """
+        logger.info(
+            "[transcribe] filter_called src=%s n_confirmed=%d pending=%r",
+            source, len(update.confirmed_new), update.pending[:60] if update.pending else "",
+        )
         if not update.confirmed_new:
             return update
         recent_peak = max(self._recent_rms) if self._recent_rms else 0.0

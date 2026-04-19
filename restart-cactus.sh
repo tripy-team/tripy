@@ -72,7 +72,11 @@ if ! python -c "import websockets" 2>/dev/null; then
     pip install -q websockets
 fi
 
-CACTUS_STT_MODEL="$CACTUS_MODEL" python -m cactus_server.server &
+CACTUS_LOG=/tmp/cactus.log
+: > "$CACTUS_LOG"
+echo -e "    writing cactus logs to $CACTUS_LOG (tail -F to watch)"
+PYTHONUNBUFFERED=1 CACTUS_STT_MODEL="$CACTUS_MODEL" python -u -m cactus_server.server \
+    >> "$CACTUS_LOG" 2>&1 &
 CACTUS_PID=$!
 
 echo -e "    waiting for Cactus /health (loads Parakeet + Gemma, can take ~60s)..."

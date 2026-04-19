@@ -411,8 +411,29 @@ export default function LiveCallView({
     if (finalData) {
       notifiedEndRef.current = true;
       onCallEnd(finalData);
+      return;
     }
-  }, [localStream, finalData, onCallEnd]);
+
+    // If Cactus hasn't emitted its 'final' event yet, wait briefly for it —
+    // that event carries the commitReady suggestions and contradictions the
+    // stop endpoint needs. If it never arrives (socket dead, server
+    // unreachable), synthesize a best-effort FinalEvent from local state so
+    // the parent's onCallEnd still fires and the user lands back on the
+    // client page. Otherwise they get stuck on the "Finalizing…" screen.
+    setTimeout(() => {
+      if (notifiedEndRef.current) return;
+      notifiedEndRef.current = true;
+      onCallEnd({
+        type: 'final',
+        transcript,
+        learned: {},
+        confidenceMap: {},
+        evidenceMap: {},
+        contradictions: contradictions ?? [],
+        commitReady: [],
+      });
+    }, 3000);
+  }, [localStream, finalData, onCallEnd, transcript, contradictions]);
 
   const toggleMute = useCallback(() => {
     const next = !isMuted;
