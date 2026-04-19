@@ -1,5 +1,6 @@
 import { prisma } from "@/lib/prisma";
 import { Prisma } from "@/generated/prisma/client";
+import { syncLoyaltyBalancesFromNotes } from "@/lib/loyalty-balance-sync";
 
 export const VALID_PREFERENCE_FIELDS = new Set([
   "preferredCabin",
@@ -62,6 +63,7 @@ export async function commitSuggestionsForClient(
   targetClientId: string,
   suggestions: Array<{ id: string; targetField: string; suggestedValue: unknown }>,
   userId: string,
+  changeReason: string = "Extracted from client conversation",
 ) {
   const valid = suggestions.filter((s) => VALID_PREFERENCE_FIELDS.has(s.targetField));
   if (valid.length === 0) return 0;
@@ -119,6 +121,25 @@ export async function commitSuggestionsForClient(
     await prisma.clientPreference.create({
       data: { clientId: targetClientId, ...updateData },
     });
+  }
+
+  // If loyaltyNotes changed, parse "Amex MR: 10k; Chase UR: 300k" segments
+  // and upsert structured ClientLoyaltyBalance rows. The Balances tab and
+  // downstream booking engine read from that table, not from loyaltyNotes —
+  // without this step the free text is written but point balances never
+  // appear for advisors. Non-fatal: a sync failure shouldn't undo the
+  // preference update.
+  if (typeof updateData.loyaltyNotes === "string" && updateData.loyaltyNotes) {
+    try {
+      await syncLoyaltyBalancesFromNotes(
+        targetClientId,
+        updateData.loyaltyNotes,
+        userId,
+        changeReason,
+      );
+    } catch (err) {
+      console.error("[profile-commit] loyalty balance sync failed:", err);
+    }
   }
 
   return valid.length;

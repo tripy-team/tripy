@@ -68,6 +68,29 @@ _AUTO_GAIN_TARGET_RMS = 6500.0
 _AUTO_GAIN_MAX = 12.0
 _AUTO_GAIN_MIN_RMS = 1000.0
 
+# Parakeet's pending buffer often contains a hallucinated filler word that
+# never stabilized into confirmed. A silence-triggered flush promotes that
+# pending text to confirmed, which is how "yeah" leaks into the transcript
+# during quiet periods. Real client "yeah" answers stabilize during active
+# audio and are emitted mid-stream, so filtering flush-only emissions that
+# match this set is safe.
+_HALLUCINATION_FILLERS = frozenset(
+    {
+        "yeah", "yep", "yup", "ya",
+        "uh", "uhh", "um", "umm", "er", "erm",
+        "hmm", "hm", "mm", "mmm", "mhm", "mm-hmm", "mmhmm", "uh-huh", "uhhuh",
+        "ok", "okay", "k",
+        "you", "the", "a", "i",
+        "bye", "hi", "hello", "thanks", "thank you",
+    }
+)
+
+
+def _is_filler_only(text: str) -> bool:
+    """True if `text` is just a known Parakeet hallucination filler."""
+    cleaned = text.strip().strip(".,!?;:-").lower()
+    return cleaned in _HALLUCINATION_FILLERS
+
 
 def _apply_auto_gain(pcm_bytes: bytes) -> bytes:
     """Boost quiet PCM audio toward a consistent target loudness."""
@@ -200,6 +223,19 @@ class CactusTranscriber:
                 and self._silent_ms >= self._silence_flush_ms
             ):
                 flush_update = self.flush()
+                # Drop flush-promoted filler words: a silence flush stops the
+                # Cactus stream, which turns Parakeet's unstable pending buffer
+                # into "confirmed" text. If that leftover is just "yeah"/"uh"/
+                # etc. it's a hallucination, not a real utterance the decoder
+                # stabilized mid-stream.
+                flush_update = StreamUpdate(
+                    confirmed_new=[
+                        r for r in flush_update.confirmed_new
+                        if not _is_filler_only(r.text)
+                    ],
+                    pending=flush_update.pending,
+                    pending_changed=flush_update.pending_changed,
+                )
                 # reset silent counter so we don't keep flushing while quiet
                 self._silent_ms = 0
                 self._offset_ms += duration_ms
