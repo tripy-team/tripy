@@ -27,6 +27,24 @@ import {
 import { startLiveCall } from '@/lib/live-call-api';
 import { createMeetingInvitation } from '@/lib/api-client';
 
+// Parakeet hallucinates filler words during silence and quiet audio. Display
+// layer de-dupes consecutive identical filler chunks within this window so
+// the transcript doesn't stack up with phantom "Yeah."/"Okay." while still
+// letting the first one through — preserves real short client answers.
+const FILLER_DEDUPE_WINDOW_SEC = 5;
+const FILLER_WORDS: ReadonlySet<string> = new Set([
+  'yeah', 'yep', 'yup', 'ya',
+  'uh', 'uhh', 'um', 'umm', 'er', 'erm',
+  'hmm', 'hm', 'mm', 'mmm', 'mhm', 'mmhmm', 'uhhuh',
+  'ok', 'okay', 'k',
+  'oh', 'ah', 'hi', 'hello', 'bye', 'thanks',
+]);
+
+function normalizeFiller(text: string): string | null {
+  const cleaned = text.trim().replace(/[.,!?;:\-]/g, '').toLowerCase();
+  return FILLER_WORDS.has(cleaned) ? cleaned : null;
+}
+
 export interface LiveCallConfig {
   clientId: string;
   meetingId: string;
@@ -225,7 +243,19 @@ export default function LiveCallView({
         existingPreferences: config.existingPreferences,
         tripContext: config.tripContext,
         onTranscript: (chunk) => {
-          setTranscript((prev) => [...prev, chunk]);
+          setTranscript((prev) => {
+            const filler = normalizeFiller(chunk.text);
+            if (filler) {
+              for (let i = prev.length - 1; i >= 0; i--) {
+                const p = prev[i];
+                if (chunk.timestamp - p.timestamp > FILLER_DEDUPE_WINDOW_SEC) break;
+                if (p.speaker === chunk.speaker && normalizeFiller(p.text) === filler) {
+                  return prev;
+                }
+              }
+            }
+            return [...prev, chunk];
+          });
           // Clear any stale partial for this speaker — the decoder just
           // confirmed text, so what was pending has been absorbed.
           setPartial((cur) => (cur && cur.speaker === chunk.speaker ? null : cur));
