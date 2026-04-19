@@ -985,6 +985,15 @@ export interface FlightPreferences {
   willingToReposition?: boolean;
   redemptionStyle?: string;
   budgetSensitivity?: string;
+  // Home airports the client regularly departs from. When the trip's origin
+  // isn't pinned, these seed the search; when it is, they're a tiebreaker.
+  preferredDepartureAirports?: string[];
+  // Freeform notes the booking AI can fold into ranking prompts. These are
+  // text fields, not structured constraints.
+  loyaltyNotes?: string;
+  budgetNotes?: string;
+  travelPace?: string;
+  dateFlexibility?: string;
 }
 
 export interface TravelerSearchInput {

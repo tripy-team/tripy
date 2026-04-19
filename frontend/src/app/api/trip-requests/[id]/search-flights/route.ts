@@ -118,6 +118,12 @@ export async function POST(
           willingToReposition: prefs.willingToReposition ?? undefined,
           redemptionStyle: prefs.redemptionStyle ?? undefined,
           budgetSensitivity: prefs.budgetSensitivity ?? undefined,
+          preferredDepartureAirports:
+            (prefs.preferredDepartureAirports as string[]) ?? undefined,
+          loyaltyNotes: prefs.loyaltyNotes ?? undefined,
+          budgetNotes: prefs.budgetNotes ?? undefined,
+          travelPace: prefs.travelPace ?? undefined,
+          dateFlexibility: prefs.dateFlexibility ?? undefined,
         }
       : undefined;
 

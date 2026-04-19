@@ -23,13 +23,40 @@ export const VALID_PREFERENCE_FIELDS = new Set([
   "dislikes",
   "dealbreakers",
   "notes",
+  "loyaltyNotes",
+  "budgetNotes",
+  "preferredDestinations",
+  "preferredDepartureAirports",
+  "dateFlexibility",
+  "travelPace",
+  "pastTripFeedback",
 ]);
 
 const ARRAY_PREFERENCE_FIELDS = new Set([
   "preferredAirlines", "avoidedAirlines", "preferredHotelTypes",
   "roomPreferences", "accessibilityNeeds", "foodPreferences",
   "activityPreferences", "specialOccasions", "dislikes", "dealbreakers",
+  "preferredDestinations", "preferredDepartureAirports",
 ]);
+
+// Text fields where successive extractions accumulate (advisor learns more
+// over multiple calls). A single overwrite would wipe prior Chase points
+// when the client next mentions Amex, so we append if the new text isn't
+// already present.
+const ACCUMULATIVE_TEXT_FIELDS = new Set([
+  "loyaltyNotes",
+  "budgetNotes",
+  "pastTripFeedback",
+]);
+
+function mergeAccumulativeText(existing: unknown, incoming: unknown): string {
+  const ex = typeof existing === "string" ? existing.trim() : "";
+  const inc = typeof incoming === "string" ? incoming.trim() : "";
+  if (!inc) return ex;
+  if (!ex) return inc;
+  if (ex.toLowerCase().includes(inc.toLowerCase())) return ex;
+  return `${ex}; ${inc}`;
+}
 
 export async function commitSuggestionsForClient(
   targetClientId: string,
@@ -47,9 +74,20 @@ export async function commitSuggestionsForClient(
   const updateData: Record<string, unknown> = {};
   for (const s of valid) {
     if (ARRAY_PREFERENCE_FIELDS.has(s.targetField)) {
-      const existingArr = Array.isArray(existingRecord?.[s.targetField]) ? (existingRecord![s.targetField] as unknown[]) : [];
+      // Carry a pending value within this batch forward, so two suggestions
+      // for the same array field from the same call union correctly instead
+      // of the second clobbering the first.
+      const existingArr = Array.isArray(updateData[s.targetField])
+        ? (updateData[s.targetField] as unknown[])
+        : Array.isArray(existingRecord?.[s.targetField])
+        ? (existingRecord![s.targetField] as unknown[])
+        : [];
       const incomingArr = Array.isArray(s.suggestedValue) ? s.suggestedValue : [];
       updateData[s.targetField] = [...new Set([...existingArr, ...incomingArr])];
+    } else if (ACCUMULATIVE_TEXT_FIELDS.has(s.targetField)) {
+      const base =
+        updateData[s.targetField] ?? existingRecord?.[s.targetField] ?? null;
+      updateData[s.targetField] = mergeAccumulativeText(base, s.suggestedValue);
     } else {
       updateData[s.targetField] = s.suggestedValue;
     }

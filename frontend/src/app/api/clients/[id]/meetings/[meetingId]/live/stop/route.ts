@@ -1,5 +1,12 @@
 import { prisma } from "@/lib/prisma";
 import { requireAuth, json, errorResponse } from "@/lib/auth";
+import { commitSuggestionsForClient } from "@/lib/profile-commit";
+
+// Confidence at/above which we skip the advisor-review step and sync
+// straight into ClientPreference so display + downstream flight AI can use
+// the new fact immediately. Lower-confidence extractions still land as
+// pending MeetingProfileSuggestion rows for manual review.
+const AUTO_COMMIT_CONFIDENCE = 0.85;
 
 export async function POST(
   request: Request,
@@ -83,31 +90,87 @@ export async function POST(
       });
     }
 
-    // Persist commit-ready suggestions
-    const commitReady = body.commitReady || [];
+    // Persist commit-ready suggestions and auto-sync the high-confidence ones
+    // into ClientPreference so they show in the preferences tab and the
+    // flight-booking AI can use them without waiting for manual review.
+    const commitReady: Array<{
+      targetField: string;
+      suggestedValue: unknown;
+      confidence: number;
+      evidence: string;
+    }> = body.commitReady || [];
+
+    let autoCommitted = 0;
     if (commitReady.length > 0) {
-      await prisma.meetingProfileSuggestion.createMany({
-        data: commitReady.map((item: {
-          targetField: string;
-          suggestedValue: unknown;
-          confidence: number;
-          evidence: string;
-        }) => ({
-          sessionId: meetingId,
-          targetField: item.targetField,
-          suggestedValue: item.suggestedValue as any,
-          confidence: item.confidence,
-          evidence: item.evidence,
-          rationale: `Extracted from live call (${duration}s)`,
-          status: "pending",
-        })),
-      });
+      const autoItems = commitReady.filter(
+        (i) => (i.confidence ?? 0) >= AUTO_COMMIT_CONFIDENCE,
+      );
+      const reviewItems = commitReady.filter(
+        (i) => (i.confidence ?? 0) < AUTO_COMMIT_CONFIDENCE,
+      );
+
+      if (reviewItems.length > 0) {
+        await prisma.meetingProfileSuggestion.createMany({
+          data: reviewItems.map((item) => ({
+            sessionId: meetingId,
+            targetField: item.targetField,
+            suggestedValue: item.suggestedValue as any,
+            confidence: item.confidence,
+            evidence: item.evidence,
+            rationale: `Extracted from live call (${duration}s)`,
+            status: "pending",
+          })),
+        });
+      }
+
+      if (autoItems.length > 0) {
+        const autoRows = await prisma.$transaction(
+          autoItems.map((item) =>
+            prisma.meetingProfileSuggestion.create({
+              data: {
+                sessionId: meetingId,
+                targetField: item.targetField,
+                suggestedValue: item.suggestedValue as any,
+                confidence: item.confidence,
+                evidence: item.evidence,
+                rationale: `Auto-committed from live call (${duration}s, confidence ≥ ${AUTO_COMMIT_CONFIDENCE})`,
+                status: "approved",
+              },
+            }),
+          ),
+        );
+
+        try {
+          autoCommitted = await commitSuggestionsForClient(
+            clientId,
+            autoRows.map((r) => ({
+              id: r.id,
+              targetField: r.targetField,
+              suggestedValue: r.suggestedValue,
+            })),
+            user.id,
+          );
+
+          if (autoRows.length > 0) {
+            await prisma.meetingProfileSuggestion.updateMany({
+              where: { id: { in: autoRows.map((r) => r.id) } },
+              data: { status: "committed", resolvedAt: new Date() },
+            });
+          }
+        } catch (commitErr) {
+          // Don't fail the whole /live/stop call if the sync write blows
+          // up — the suggestions still exist as "approved" so the advisor
+          // can retry from the review UI.
+          console.error("[LiveCall] auto-commit failed:", commitErr);
+        }
+      }
     }
 
     return json({
       ...updated,
       transcriptSaved: transcriptChunks.length,
       suggestionsSaved: commitReady.length,
+      autoCommitted,
     });
   } catch (error) {
     if (error instanceof Response) return error;

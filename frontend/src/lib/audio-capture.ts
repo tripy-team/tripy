@@ -17,12 +17,17 @@ async function ensureWorkletRegistered(context: AudioContext): Promise<void> {
   registeredContexts.add(context);
 }
 
+export type WebSocketResolver = WebSocket | (() => WebSocket | null);
+
 export class AudioCapturePipeline {
   private context: AudioContext | null = null;
   private ownsContext = false;
   private sourceNode: MediaStreamAudioSourceNode | null = null;
   private workletNode: AudioWorkletNode | null = null;
-  private ws: WebSocket | null = null;
+  // Resolver (not a snapshot) so the pipeline survives a CactusWSClient
+  // reconnect — otherwise we'd keep sending audio to the old, closed socket
+  // and transcription would silently go dark after ~60s of network idleness.
+  private wsResolver: (() => WebSocket | null) | null = null;
   private channel: 'local' | 'remote';
   private _active = false;
 
@@ -36,10 +41,10 @@ export class AudioCapturePipeline {
 
   async start(
     stream: MediaStream,
-    ws: WebSocket,
+    ws: WebSocketResolver,
     context?: AudioContext,
   ): Promise<void> {
-    this.ws = ws;
+    this.wsResolver = typeof ws === 'function' ? ws : () => ws;
     if (context) {
       this.context = context;
       this.ownsContext = false;
@@ -85,11 +90,12 @@ export class AudioCapturePipeline {
     let framesDropped = 0;
 
     this.workletNode.port.onmessage = (event: MessageEvent<ArrayBuffer>) => {
-      if (!this._active || !this.ws || this.ws.readyState !== WebSocket.OPEN) {
+      const ws = this.wsResolver?.() ?? null;
+      if (!this._active || !ws || ws.readyState !== WebSocket.OPEN) {
         framesDropped++;
         if (framesDropped === 1 || framesDropped % 25 === 0) {
           console.warn(
-            `[AudioCapture:${this.channel}] dropped frame #${framesDropped} — active=${this._active}, ws=${this.ws?.readyState}`,
+            `[AudioCapture:${this.channel}] dropped frame #${framesDropped} — active=${this._active}, ws=${ws?.readyState}`,
           );
         }
         return;
@@ -98,7 +104,7 @@ export class AudioCapturePipeline {
       const packet = new Uint8Array(1 + pcm16.byteLength);
       packet[0] = channelByte;
       packet.set(new Uint8Array(pcm16), 1);
-      this.ws.send(packet.buffer);
+      ws.send(packet.buffer);
       framesSent++;
       if (framesSent === 1 || framesSent % 25 === 0) {
         console.log(
@@ -128,6 +134,7 @@ export class AudioCapturePipeline {
     }
     this.context = null;
     this.ownsContext = false;
+    this.wsResolver = null;
   }
 
   pause(): void {

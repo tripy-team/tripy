@@ -24,16 +24,63 @@ Budget & points:
 - budgetSensitivity: price_conscious | moderate | comfort_first | luxury
 - pointsVsCash: string (e.g. "points for flights, cash for hotels")
 - loyaltyNotes: string — freeform text for credit card points, airline miles,
-  hotel status, and willingness to transfer. Examples:
-    "Chase Sapphire Reserve ~300k UR, willing to transfer to Hyatt"
-    "Amex Platinum, ~500k Membership Rewards, United 1K status"
-    "Delta Diamond, Marriott Titanium"
-  Use this field for ANY concrete loyalty/points detail the client mentions.
-- budgetNotes: string — concrete budget anchors the client stated. Examples:
-    "~$8k per person for the honeymoon"
+  hotel status, and willingness to transfer. ALWAYS capture the points
+  currency/program AND the amount when the client states a balance.
+
+  Format each balance as "Program: <amount><unit>" (e.g. "Chase UR: 300k",
+  "Amex MR: 500k", "United MileagePlus: 100k miles", "Marriott Bonvoy: 250k").
+  Join multiple balances with "; ". Preserve the client's wording for anything
+  else (status tier, card name, willingness to transfer).
+
+  Number normalization (transcription may arrive any of these ways):
+    "three hundred thousand", "300,000", "300 thousand", "300 K", "300k"
+      → write as "300k"
+    "1.2 million", "a million and a half", "1,500,000"
+      → write as "1.5M"
+    "about half a million", "roughly 500 K"
+      → write as "~500k"
+
+  Currency / program aliases to canonicalize:
+    "UR" / "Ultimate Rewards" / "Chase points" → "Chase UR"
+    "MR" / "Membership Rewards" / "Amex points" → "Amex MR"
+    "ThankYou" / "TY points" / "Citi points" → "Citi TY"
+    "Capital One miles" / "Venture miles" → "Capital One"
+    "Bilt points" → "Bilt"
+    airline miles: keep the airline name — "United miles", "Delta SkyMiles",
+    "American AAdvantage", "Alaska Mileage Plan"
+    hotel points: keep the program — "Hyatt", "Marriott Bonvoy", "Hilton Honors",
+    "IHG One Rewards", "World of Hyatt"
+
+  Full examples of what to write:
+    client says "I've got about 300k Chase points and 500 thousand Amex MR"
+      → "Chase UR: 300k; Amex MR: 500k"
+    client says "300,000 United miles, Globalist with Hyatt, Titanium with Marriott"
+      → "United MileagePlus: 300k miles; Hyatt: Globalist status; Marriott Bonvoy: Titanium status"
+    client says "I'm fine transferring points if the math is better"
+      → "willing to transfer points for better value"
+
+- budgetNotes: string — concrete budget anchors with dollar figures or other
+  currencies the client stated. ALWAYS preserve both the amount AND the
+  currency symbol/code.
+
+  Number/currency normalization:
+    "eight thousand dollars", "$8,000", "8k", "8 grand" → "$8k"
+    "ten thousand euros", "€10,000", "10k euro" → "€10k"
+    "a thousand pounds per night", "£1000/night" → "£1k/night"
+    "thirty five hundred" (in USD context) → "$3.5k"
+    currencies to watch for: $ (USD), € (EUR), £ (GBP), ¥ (JPY),
+      AU$ / A$ (AUD), C$ (CAD), CHF, zł (PLN)
+    if the currency is ambiguous, write "8k USD" / "10k EUR" rather than
+    guessing a symbol.
+
+  Per-unit anchors the client states (per person, per night, total):
+    "$8k per person for the honeymoon"
     "hotels under $500/night"
     "flights capped at $1500 each"
-  Use this for actual dollar figures. Use budgetSensitivity for the qualitative tier.
+    "total trip budget around $25k"
+
+  Use budgetNotes for dollar/currency figures. Use budgetSensitivity for the
+  qualitative tier (price_conscious, moderate, comfort_first, luxury).
 
 Destinations & timing:
 - preferredDestinations: string[] (places they've mentioned wanting or loving:
@@ -85,6 +132,22 @@ RULES:
     advisor asked "nonstop or a layover for savings?" + client said "nonstop" → prefersNonstop: true
     advisor asked "any dietary needs?" + client said "vegetarian" → foodPreferences: ["vegetarian"]
     advisor asked "favorite airlines?" + client said "United" → preferredAirlines: ["United"]
+    advisor asked "how many Chase points?" + client said "about three hundred thousand" → loyaltyNotes: "Chase UR: 300k"
+    advisor asked "what's your budget?" + client said "around eight thousand per person" → budgetNotes: "$8k per person"
+- Points / miles / currency — whenever the client states a NUMBER paired with
+  a points program, airline, hotel brand, or a dollar amount, capture BOTH
+  the amount AND the currency/program into loyaltyNotes or budgetNotes. See
+  the loyaltyNotes / budgetNotes field definitions for exact formatting and
+  the full list of program aliases. Examples:
+    "about 300k Chase points" → loyaltyNotes: "Chase UR: 300k"
+    "five hundred thousand Amex MR" → loyaltyNotes: "Amex MR: 500k"
+    "I have 100,000 United miles" → loyaltyNotes: "United MileagePlus: 100k miles"
+    "Hyatt Globalist" → loyaltyNotes: "Hyatt: Globalist status"
+    "I'll transfer points if it makes sense" → loyaltyNotes: "willing to transfer points for better value"
+    "budget is around ten grand" → budgetNotes: "$10k"
+    "maybe five thousand euros per person" → budgetNotes: "€5k per person"
+    "under a thousand dollars a night for hotels" → budgetNotes: "hotels under $1000/night"
+    A bare number with no program/currency context ("300k" alone) is too ambiguous — skip unless the advisor's question supplies the program.
 - If the client's fragment contains a concrete keyword on its own, map it directly. Examples:
     "business class" → preferredCabin: "business"
     "nonstop" / "direct flight" → prefersNonstop: true
@@ -92,8 +155,7 @@ RULES:
     "wheelchair" / "stroller" / "service animal" → accessibilityNeeds
     "honeymoon" / "anniversary" / "birthday" → specialOccasions
     "boutique" / "resort" / "all-inclusive" → preferredHotelTypes
-    "red-eye" (negative tone) → redEyeTolerance: "prefer not"
-    "points" / "miles" → pointsVsCash: "prefer points"
+    "points" / "miles" (without a number) → pointsVsCash: "prefer points"
     "luxury" / "splurge" → budgetSensitivity: "luxury"
 - Confidence guide:
     0.85 — explicit keyword present, or a short answer that resolves unambiguously against the advisor's question
@@ -137,6 +199,28 @@ RULES:
 - Only extract what the [client] explicitly stated or clearly agreed to.
 - Never copy a preference out of the advisor's question itself (e.g. if the advisor lists "business or first" and the client says nothing concrete, extract nothing).
 - Do NOT guess or infer weak signals.
+
+POINTS, MILES, AND BUDGET NUMBERS (critical — these arrive in many shapes):
+- When the [client] states a numeric balance with a points program, airline,
+  or hotel brand, extract into loyaltyNotes. Always capture BOTH the amount
+  AND the program. See the loyaltyNotes field definition above for the
+  canonical format ("Program: <amount>", joined with "; ") and the list of
+  program aliases (UR, MR, TY, MileagePlus, Bonvoy, etc.).
+- When the [client] states a dollar figure or other currency amount for
+  their budget, extract into budgetNotes. Always capture BOTH the amount
+  AND the currency. See the budgetNotes field definition for the format.
+- Transcription may render numbers as words ("three hundred thousand"),
+  abbreviated ("300k", "300 K"), or with commas ("300,000"). Normalize to
+  the shortest unambiguous form ("300k", "1.5M"). Preserve the client's
+  currency/program verbatim; don't convert currencies.
+- Collapse multiple mentions in a single exchange into one loyaltyNotes or
+  budgetNotes extraction (join with "; "), not many separate extractions.
+  Example:
+    [client]: I've got maybe 300k Chase points and about half a million Amex MR
+    → one extraction: loyaltyNotes = "Chase UR: 300k; Amex MR: ~500k"
+- If the client just says a bare number with no program or currency context
+  ("about three hundred thousand") and the advisor's prior line doesn't name
+  one either, skip — it's too ambiguous to attribute.
 
 Return a JSON array of extractions. Each extraction must have:
 - "targetField": one of the fields listed above

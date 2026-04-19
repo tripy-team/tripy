@@ -297,7 +297,7 @@ export default function LiveCallView({
               void localCapture
                 .start(
                   localPreview,
-                  cactusClient.socket,
+                  () => cactusClient.socket,
                   audioContextRef.current ?? undefined,
                 )
                 .catch((e) =>
@@ -320,7 +320,7 @@ export default function LiveCallView({
           const capture = new AudioCapturePipeline('remote');
           void capture.start(
             remoteAudioStream,
-            cactusClient.socket,
+            () => cactusClient.socket,
             audioContextRef.current ?? undefined,
           );
           remoteCaptureRef.current = capture;
