@@ -86,13 +86,30 @@ class LiveSession:
         self._latest_visual_insight: str = ""
         self._vision_lock = asyncio.Lock()
         self._last_vision_at: float = 0.0
+        # Per-speaker transcribers share the loaded model but keep independent
+        # audio buffers — otherwise advisor and client audio would interleave
+        # in one stream and the transcriber couldn't tell them apart.
+        self._transcribers: dict[str, CactusTranscriber] = {}
+
+    def _get_transcriber(self, speaker: str) -> CactusTranscriber:
+        t = self._transcribers.get(speaker)
+        if t is None:
+            t = CactusTranscriber(transcriber.model_name)
+            # Share loaded weights + inference callable across sessions so we
+            # don't reload the model per speaker. Copy both — only copying
+            # _model would leave _cactus_transcribe as None and every call
+            # would no-op silently.
+            t._model = transcriber._model
+            t._cactus_init = transcriber._cactus_init
+            t._cactus_transcribe = transcriber._cactus_transcribe
+            self._transcribers[speaker] = t
+        return t
 
     async def process_audio(
         self, pcm_bytes: bytes, speaker: str = "unknown"
     ) -> None:
         """Transcribe an audio chunk and stream results back."""
-        session_transcriber = CactusTranscriber(transcriber.model_name)
-        session_transcriber._model = transcriber._model
+        session_transcriber = self._get_transcriber(speaker)
         results = session_transcriber.feed_audio(pcm_bytes)
 
         for result in results:

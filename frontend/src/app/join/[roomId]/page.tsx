@@ -40,6 +40,10 @@ export default function ClientJoinPage() {
   const [errorMsg, setErrorMsg] = useState<string | null>(null);
   const [isMuted, setIsMuted] = useState(false);
   const [isCameraOff, setIsCameraOff] = useState(false);
+  const [localStream, setLocalStream] = useState<MediaStream | null>(null);
+  const [remoteVideoEl, setRemoteVideoEl] = useState<HTMLVideoElement | null>(
+    null,
+  );
 
   const sessionRef = useRef<LiveKitSession | null>(null);
   const localVideoRef = useRef<HTMLVideoElement | null>(null);
@@ -52,6 +56,29 @@ export default function ClientJoinPage() {
       void sessionRef.current?.disconnect();
     };
   }, []);
+
+  // Attach the local preview once the <video> has mounted (phase === 'live').
+  useEffect(() => {
+    if (phase !== 'live' || !localVideoRef.current || !localStream) return;
+    localVideoRef.current.srcObject = localStream;
+  }, [phase, localStream]);
+
+  // Attach the advisor's video once the remote container has mounted. The
+  // onRemoteVideo callback can fire before React has committed the 'live'
+  // render, so we defer the DOM work to this effect.
+  useEffect(() => {
+    if (phase !== 'live' || !remoteVideoEl || !remoteContainerRef.current) {
+      return;
+    }
+    const container = remoteContainerRef.current;
+    container.innerHTML = '';
+    remoteVideoEl.className = 'h-full w-full object-cover rounded-lg';
+    remoteVideoEl.muted = false;
+    remoteVideoEl.autoplay = true;
+    remoteVideoEl.playsInline = true;
+    container.appendChild(remoteVideoEl);
+    void remoteVideoEl.play().catch(() => {});
+  }, [phase, remoteVideoEl]);
 
   const join = async () => {
     if (!livekitUrl) {
@@ -76,19 +103,11 @@ export default function ClientJoinPage() {
 
       await session.connect(livekitUrl, token, {
         onConnected: () => {
-          const localStream = session.getLocalPreviewStream();
-          if (localVideoRef.current && localStream) {
-            localVideoRef.current.srcObject = localStream;
-          }
+          setLocalStream(session.getLocalPreviewStream());
           setPhase('live');
         },
         onRemoteVideo: (videoEl) => {
-          if (remoteContainerRef.current) {
-            remoteContainerRef.current.innerHTML = '';
-            videoEl.className = 'h-full w-full object-cover rounded-lg';
-            videoEl.muted = false;
-            remoteContainerRef.current.appendChild(videoEl);
-          }
+          setRemoteVideoEl(videoEl);
         },
         onRemoteDisconnect: () => {
           setPhase('ended');

@@ -19,6 +19,7 @@ async function ensureWorkletRegistered(context: AudioContext): Promise<void> {
 
 export class AudioCapturePipeline {
   private context: AudioContext | null = null;
+  private ownsContext = false;
   private sourceNode: MediaStreamAudioSourceNode | null = null;
   private workletNode: AudioWorkletNode | null = null;
   private ws: WebSocket | null = null;
@@ -33,10 +34,44 @@ export class AudioCapturePipeline {
     return this._active;
   }
 
-  async start(stream: MediaStream, ws: WebSocket): Promise<void> {
+  async start(
+    stream: MediaStream,
+    ws: WebSocket,
+    context?: AudioContext,
+  ): Promise<void> {
     this.ws = ws;
-    this.context = new AudioContext({ sampleRate: 16000 });
+    if (context) {
+      this.context = context;
+      this.ownsContext = false;
+    } else {
+      this.context = new AudioContext({ sampleRate: 16000 });
+      this.ownsContext = true;
+    }
     await ensureWorkletRegistered(this.context);
+
+    // AudioContext starts 'suspended' if the originating user gesture has
+    // expired (e.g. after awaited network calls in the start flow). Without
+    // resuming, the worklet's process() is never called and no PCM is ever
+    // produced. Callers should ideally hand us a pre-primed context created
+    // inside a click handler.
+    if (this.context.state === 'suspended') {
+      try {
+        await this.context.resume();
+      } catch {
+        /* if resume fails, the graph stays silent — caller will see no audio */
+      }
+    }
+
+    const audioTracks = stream.getAudioTracks();
+    console.log(
+      `[AudioCapture:${this.channel}] start — ctx.state=${this.context.state}, audioTracks=${audioTracks.length}, tracks=`,
+      audioTracks.map((t) => ({
+        label: t.label,
+        enabled: t.enabled,
+        muted: t.muted,
+        readyState: t.readyState,
+      })),
+    );
 
     this.sourceNode = this.context.createMediaStreamSource(stream);
     this.workletNode = new AudioWorkletNode(this.context, WORKLET_PROCESSOR_NAME, {
@@ -46,18 +81,35 @@ export class AudioCapturePipeline {
     });
 
     const channelByte = this.channel === 'local' ? 0 : 1;
+    let framesSent = 0;
+    let framesDropped = 0;
 
     this.workletNode.port.onmessage = (event: MessageEvent<ArrayBuffer>) => {
-      if (!this._active || !this.ws || this.ws.readyState !== WebSocket.OPEN) return;
+      if (!this._active || !this.ws || this.ws.readyState !== WebSocket.OPEN) {
+        framesDropped++;
+        if (framesDropped === 1 || framesDropped % 25 === 0) {
+          console.warn(
+            `[AudioCapture:${this.channel}] dropped frame #${framesDropped} — active=${this._active}, ws=${this.ws?.readyState}`,
+          );
+        }
+        return;
+      }
       const pcm16 = event.data;
       const packet = new Uint8Array(1 + pcm16.byteLength);
       packet[0] = channelByte;
       packet.set(new Uint8Array(pcm16), 1);
       this.ws.send(packet.buffer);
+      framesSent++;
+      if (framesSent === 1 || framesSent % 25 === 0) {
+        console.log(
+          `[AudioCapture:${this.channel}] sent frame #${framesSent} (${packet.byteLength} bytes)`,
+        );
+      }
     };
 
     this.sourceNode.connect(this.workletNode);
     this._active = true;
+    console.log(`[AudioCapture:${this.channel}] pipeline active`);
   }
 
   stop(): void {
@@ -71,10 +123,11 @@ export class AudioCapturePipeline {
       this.sourceNode.disconnect();
       this.sourceNode = null;
     }
-    if (this.context) {
+    if (this.context && this.ownsContext) {
       void this.context.close();
-      this.context = null;
     }
+    this.context = null;
+    this.ownsContext = false;
   }
 
   pause(): void {

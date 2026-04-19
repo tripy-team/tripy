@@ -62,6 +62,7 @@ export default function LiveCallView({
   const remoteVideoRef = useRef<HTMLVideoElement>(null);
   const [localStream, setLocalStream] = useState<MediaStream | null>(null);
   const [hasRemoteVideo, setHasRemoteVideo] = useState(false);
+  const [remoteStream, setRemoteStream] = useState<MediaStream | null>(null);
 
   // Controls
   const [isMuted, setIsMuted] = useState(false);
@@ -84,6 +85,10 @@ export default function LiveCallView({
   const videoFrameCaptureRef = useRef<VideoFrameCapture | null>(null);
   const livekitSessionRef = useRef<LiveKitSession | null>(null);
   const durationIntervalRef = useRef<ReturnType<typeof setInterval> | null>(null);
+  // Shared AudioContext, created synchronously in the startCall click handler
+  // so it inherits the user-gesture activation required to leave 'suspended'
+  // state. Reused across local + remote capture pipelines.
+  const audioContextRef = useRef<AudioContext | null>(null);
 
   // Gemma 4 vision
   const [visualInsight, setVisualInsight] = useState<string | null>(null);
@@ -127,7 +132,45 @@ export default function LiveCallView({
     };
   }, [phase]);
 
+  // Attach local preview once the <video> has mounted. The element is only
+  // rendered in the active phase, so we can't set srcObject from the
+  // LiveKit onConnected callback directly — the ref would still be null.
+  useEffect(() => {
+    if (phase !== 'active' || !localVideoRef.current || !localStream) return;
+    localVideoRef.current.srcObject = localStream;
+  }, [phase, localStream]);
+
+  // Attach the client's remote video once the <video> mounts (hasRemoteVideo
+  // flips the conditional render).
+  useEffect(() => {
+    if (!hasRemoteVideo || !remoteVideoRef.current || !remoteStream) return;
+    remoteVideoRef.current.srcObject = remoteStream;
+    void remoteVideoRef.current.play().catch(() => {});
+  }, [hasRemoteVideo, remoteStream]);
+
   const startCall = useCallback(async () => {
+    console.log('[LiveCallView] Start Call clicked');
+    // Create + prime the AudioContext synchronously here, while the click
+    // gesture activation is still live. Doing this later (after awaits) can
+    // leave the context in 'suspended' state with no way to resume, which
+    // silently drops all captured audio.
+    if (!audioContextRef.current) {
+      audioContextRef.current = new AudioContext({ sampleRate: 16000 });
+    }
+    console.log(
+      `[LiveCallView] AudioContext created, state=${audioContextRef.current.state}, sampleRate=${audioContextRef.current.sampleRate}`,
+    );
+    if (audioContextRef.current.state === 'suspended') {
+      void audioContextRef.current
+        .resume()
+        .then(() =>
+          console.log(
+            `[LiveCallView] AudioContext resumed, state=${audioContextRef.current?.state}`,
+          ),
+        )
+        .catch((e) => console.error('[LiveCallView] resume failed', e));
+    }
+
     setPhase('connecting');
 
     try {
@@ -219,8 +262,29 @@ export default function LiveCallView({
           const localPreview = lkSession.getLocalPreviewStream();
           if (localPreview) {
             setLocalStream(localPreview);
-            if (localVideoRef.current) {
-              localVideoRef.current.srcObject = localPreview;
+
+            // Pipe the advisor's own mic into Cactus so their side of the
+            // conversation gets transcribed too. AudioContext ignores video
+            // tracks on the stream, so reusing the preview stream is fine.
+            console.log(
+              `[LiveCallView] onConnected — cactusSocket=${!!cactusClient.socket} (readyState=${cactusClient.socket?.readyState}), existingLocalCapture=${!!localCaptureRef.current}`,
+            );
+            if (cactusClient.socket && !localCaptureRef.current) {
+              const localCapture = new AudioCapturePipeline('local');
+              void localCapture
+                .start(
+                  localPreview,
+                  cactusClient.socket,
+                  audioContextRef.current ?? undefined,
+                )
+                .catch((e) =>
+                  console.error('[LiveCallView] local capture start failed', e),
+                );
+              localCaptureRef.current = localCapture;
+            } else if (!cactusClient.socket) {
+              console.warn(
+                '[LiveCallView] Cactus socket not available — advisor audio will not be transcribed',
+              );
             }
           }
         },
@@ -231,23 +295,29 @@ export default function LiveCallView({
             remoteCaptureRef.current.stop();
           }
           const capture = new AudioCapturePipeline('remote');
-          void capture.start(remoteAudioStream, cactusClient.socket);
+          void capture.start(
+            remoteAudioStream,
+            cactusClient.socket,
+            audioContextRef.current ?? undefined,
+          );
           remoteCaptureRef.current = capture;
         },
         onRemoteVideo: (videoEl) => {
-          // Attach the client's video to the big tile
-          if (remoteVideoRef.current) {
-            remoteVideoRef.current.srcObject = videoEl.srcObject;
-            void remoteVideoRef.current.play().catch(() => {});
-          }
+          // The <video> in the tile renders conditionally on hasRemoteVideo,
+          // so remoteVideoRef.current is null at this moment. Stash the stream
+          // in state and let a useEffect attach it after the element mounts.
+          const stream = videoEl.srcObject as MediaStream | null;
+          setRemoteStream(stream);
           setHasRemoteVideo(true);
 
-          // Start Gemma 4 vision frame capture on the CLIENT's video
+          // Start Gemma 4 vision frame capture on the CLIENT's video. The
+          // detached videoEl from LiveKit already has the track attached, so
+          // it's fine to pass it directly.
           if (videoFrameCaptureRef.current) {
             videoFrameCaptureRef.current.stop();
           }
           const frameCapture = new VideoFrameCapture(
-            remoteVideoRef.current ?? videoEl,
+            videoEl,
             (dataUrl) => cactusClient.sendVideoFrame(dataUrl),
             { intervalMs: 5000, maxWidth: 512, quality: 0.7 },
           );
@@ -256,6 +326,7 @@ export default function LiveCallView({
         },
         onRemoteDisconnect: () => {
           setHasRemoteVideo(false);
+          setRemoteStream(null);
           remoteCaptureRef.current?.stop();
           remoteCaptureRef.current = null;
           videoFrameCaptureRef.current?.stop();
@@ -283,6 +354,11 @@ export default function LiveCallView({
 
     void livekitSessionRef.current?.disconnect();
     livekitSessionRef.current = null;
+
+    if (audioContextRef.current) {
+      void audioContextRef.current.close();
+      audioContextRef.current = null;
+    }
 
     if (localStream) {
       localStream.getTracks().forEach((t) => t.stop());
@@ -349,6 +425,10 @@ export default function LiveCallView({
       videoFrameCaptureRef.current?.stop();
       cactusClientRef.current?.disconnect();
       void livekitSessionRef.current?.disconnect();
+      if (audioContextRef.current) {
+        void audioContextRef.current.close();
+        audioContextRef.current = null;
+      }
       if (localStream) {
         localStream.getTracks().forEach((t) => t.stop());
       }
