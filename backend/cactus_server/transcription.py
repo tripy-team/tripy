@@ -54,10 +54,10 @@ class CactusTranscriber:
         self._cactus_init: Callable | None = None
         self._buffer: bytes = b""
         self._offset_ms: int = 0
-        # Accumulate ~5 seconds of audio before transcribing. 2s was too short:
-        # Whisper was trained on 30s clips and often returns empty/<|notimestamps|>
-        # for sub-3s slices. 5s gives it enough context to decode real speech.
-        self._chunk_threshold: int = 16000 * 2 * 5
+        # 2s chunks — Parakeet handles short clips cleanly and this is the
+        # minimum that still produces usable latency without starving the
+        # decoder of context.
+        self._chunk_threshold: int = 16000 * 2 * 2
         self._debug_dump_count: int = 0
 
     @property
@@ -188,9 +188,15 @@ class CactusTranscriber:
 
             text = result.get("response", "").strip()
             logger.info(
-                "_transcribe_chunk: cactus returned text=%r (keys=%s)",
+                "_transcribe_chunk: success=%s error=%r cloud_handoff=%s "
+                "response=%r segments=%s prefill_tokens=%s decode_tokens=%s",
+                result.get("success"),
+                result.get("error"),
+                result.get("cloud_handoff"),
                 text[:80],
-                list(result.keys()) if isinstance(result, dict) else type(result).__name__,
+                result.get("segments"),
+                result.get("prefill_tokens"),
+                result.get("decode_tokens"),
             )
             if not text:
                 return None
@@ -248,7 +254,8 @@ class CactusTranscriber:
             return True
         samples = struct.unpack(f"<{num_samples}h", pcm_chunk)
         rms = (sum(s * s for s in samples) / num_samples) ** 0.5
-        return rms < 200
+        # Lowered from 200 to 80 so quiet/normal speech isn't filtered out.
+        return rms < 80
 
     @staticmethod
     def _pcm_to_wav_file(pcm_bytes: bytes) -> str:

@@ -1,8 +1,14 @@
 // PCM capture worklet — runs on the audio rendering thread.
-// Accumulates mono Float32 samples into 4096-sample chunks, converts to
-// 16-bit little-endian PCM, and posts each chunk to the main thread.
+// Accumulates mono Float32 samples into 4096-sample chunks, applies a
+// modest gain boost so normal-volume speech reaches the ASR model without
+// the user having to raise their voice, converts to 16-bit little-endian
+// PCM, and posts each chunk to the main thread.
 
 const CHUNK_SIZE = 4096;
+// 3x gain: most laptop mics output speech around -30 dBFS, well below what
+// Parakeet/Whisper expect. Samples are clamped to [-1,1] before int16
+// conversion, so clipping on loud peaks is bounded and harmless to ASR.
+const GAIN = 3.0;
 
 class PCMCaptureProcessor extends AudioWorkletProcessor {
   constructor() {
@@ -28,7 +34,7 @@ class PCMCaptureProcessor extends AudioWorkletProcessor {
       if (this._offset === CHUNK_SIZE) {
         const pcm16 = new Int16Array(CHUNK_SIZE);
         for (let i = 0; i < CHUNK_SIZE; i++) {
-          const s = Math.max(-1, Math.min(1, this._buffer[i]));
+          const s = Math.max(-1, Math.min(1, this._buffer[i] * GAIN));
           pcm16[i] = s < 0 ? s * 0x8000 : s * 0x7fff;
         }
         this.port.postMessage(pcm16.buffer, [pcm16.buffer]);

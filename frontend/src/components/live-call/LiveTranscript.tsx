@@ -33,65 +33,40 @@ export default function LiveTranscript({ chunks, clientName }: LiveTranscriptPro
     );
   }
 
-  // Group consecutive chunks by speaker
-  const grouped = groupBySpeaker(chunks);
-
   return (
-    <div className="space-y-2 px-3 py-2">
-      {grouped.map((group, i) => (
-        <div
-          key={i}
-          className={`rounded-lg px-3 py-2 ${
-            group.speaker === 'advisor'
-              ? 'bg-blue-50 border border-blue-100'
-              : group.speaker === 'client'
-                ? 'bg-emerald-50 border border-emerald-100'
-                : 'bg-slate-50 border border-slate-100'
-          }`}
-        >
-          <div className="mb-1 flex items-center justify-between">
-            <SpeakerIndicator
-              speaker={group.speaker}
-              clientName={clientName}
-            />
-            <span className="text-[10px] text-slate-400">
-              {formatTimestamp(group.startMs)}
-            </span>
+    <div className="space-y-1.5 px-3 py-2">
+      {chunks.map((chunk, i) => {
+        const prev = i > 0 ? chunks[i - 1] : null;
+        const showSpeaker = !prev || prev.speaker !== chunk.speaker;
+        return (
+          <div
+            key={i}
+            className={`rounded-lg px-3 py-1.5 ${
+              chunk.speaker === 'advisor'
+                ? 'bg-blue-50 border border-blue-100'
+                : chunk.speaker === 'client'
+                  ? 'bg-emerald-50 border border-emerald-100'
+                  : 'bg-slate-50 border border-slate-100'
+            }`}
+          >
+            {showSpeaker && (
+              <div className="mb-0.5 flex items-center justify-between">
+                <SpeakerIndicator
+                  speaker={chunk.speaker}
+                  clientName={clientName}
+                />
+                <span className="text-[10px] text-slate-400">
+                  {formatTimestamp(chunk.startMs)}
+                </span>
+              </div>
+            )}
+            <p className="text-sm text-slate-700">{chunk.text}</p>
           </div>
-          <p className="text-sm text-slate-700">{group.text}</p>
-        </div>
-      ))}
+        );
+      })}
       <div ref={bottomRef} />
     </div>
   );
-}
-
-interface TranscriptGroup {
-  speaker: TranscriptChunk['speaker'];
-  text: string;
-  startMs: number;
-  endMs: number;
-}
-
-function groupBySpeaker(chunks: TranscriptChunk[]): TranscriptGroup[] {
-  const groups: TranscriptGroup[] = [];
-
-  for (const chunk of chunks) {
-    const last = groups[groups.length - 1];
-    if (last && last.speaker === chunk.speaker) {
-      last.text += ' ' + chunk.text;
-      last.endMs = chunk.endMs;
-    } else {
-      groups.push({
-        speaker: chunk.speaker,
-        text: chunk.text,
-        startMs: chunk.startMs,
-        endMs: chunk.endMs,
-      });
-    }
-  }
-
-  return groups;
 }
 
 function formatTimestamp(ms: number): string {
