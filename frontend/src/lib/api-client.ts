@@ -2337,6 +2337,12 @@ export function stopLiveCall(
       confidence: number;
       evidence: string;
     }>;
+    contradictions?: Array<{
+      field: string;
+      previous: unknown;
+      new: unknown;
+      evidence: string;
+    }>;
   },
 ) {
   return apiFetch<LiveCallStopResult>(
@@ -2345,6 +2351,42 @@ export function stopLiveCall(
       method: 'POST',
       body: JSON.stringify(payload),
     },
+  );
+}
+
+export type ContradictionStatus = 'unresolved' | 'resolved' | 'dismissed';
+
+export interface ProfileContradiction {
+  id: string;
+  sessionId: string;
+  clientId: string;
+  field: string;
+  previousValue: unknown;
+  newValue: unknown;
+  evidence: string;
+  status: ContradictionStatus;
+  resolutionNote: string | null;
+  resolvedAt: string | null;
+  createdAt: string;
+  session?: { id: string; title: string; createdAt: string };
+}
+
+export function getClientContradictions(
+  clientId: string,
+  status: ContradictionStatus | 'all' = 'unresolved',
+) {
+  const q = status === 'unresolved' ? '' : `?status=${status}`;
+  return apiFetch<ProfileContradiction[]>(`/clients/${clientId}/contradictions${q}`);
+}
+
+export function updateContradiction(
+  clientId: string,
+  contradictionId: string,
+  payload: { status?: ContradictionStatus; resolutionNote?: string | null },
+) {
+  return apiFetch<ProfileContradiction>(
+    `/clients/${clientId}/contradictions/${contradictionId}`,
+    { method: 'PATCH', body: JSON.stringify(payload) },
   );
 }
 

@@ -499,3 +499,12 @@ export const ProfileSuggestionStatus = {
 } as const
 
 export type ProfileSuggestionStatus = (typeof ProfileSuggestionStatus)[keyof typeof ProfileSuggestionStatus]
+
+
+export const ContradictionStatus = {
+  unresolved: 'unresolved',
+  resolved: 'resolved',
+  dismissed: 'dismissed'
+} as const
+
+export type ContradictionStatus = (typeof ContradictionStatus)[keyof typeof ContradictionStatus]

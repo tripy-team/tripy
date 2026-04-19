@@ -425,6 +425,7 @@ export const ModelName = {
   MeetingEntry: 'MeetingEntry',
   MeetingQuestionSuggestion: 'MeetingQuestionSuggestion',
   MeetingProfileSuggestion: 'MeetingProfileSuggestion',
+  ProfileContradiction: 'ProfileContradiction',
   MeetingRecap: 'MeetingRecap',
   GroupProfile: 'GroupProfile',
   GroupMember: 'GroupMember',
@@ -449,7 +450,7 @@ export type TypeMap<ExtArgs extends runtime.Types.Extensions.InternalArgs = runt
     omit: GlobalOmitOptions
   }
   meta: {
-    modelProps: "organization" | "user" | "client" | "household" | "householdMember" | "familyMember" | "loyaltyProgram" | "clientLoyaltyBalance" | "balanceLedgerEntry" | "programTransferRule" | "programPoolingRule" | "transferBonus" | "clientPreference" | "preferenceChangeLog" | "tripRequest" | "tripTradeoffRanking" | "tripTraveler" | "recommendationRun" | "recommendationOption" | "recommendationTravelerAllocation" | "recommendationInsight" | "recommendationMemo" | "groupSettlement" | "clientIntake" | "tripBrief" | "alertSubscription" | "alertEvent" | "inferredPreference" | "followUpSuggestion" | "vendorRequest" | "vendorRequestReminder" | "vendorRequestDraft" | "vendorRequestApproval" | "vendorRequestTemplate" | "vendorScoreSummary" | "vendorRequestTimeline" | "itineraryJob" | "discoveryMeetingSession" | "meetingEntry" | "meetingQuestionSuggestion" | "meetingProfileSuggestion" | "meetingRecap" | "groupProfile" | "groupMember" | "businessProfile" | "businessTraveler" | "intakeFormToken" | "meetingInvitation" | "liveCallSession" | "transcriptChunk"
+    modelProps: "organization" | "user" | "client" | "household" | "householdMember" | "familyMember" | "loyaltyProgram" | "clientLoyaltyBalance" | "balanceLedgerEntry" | "programTransferRule" | "programPoolingRule" | "transferBonus" | "clientPreference" | "preferenceChangeLog" | "tripRequest" | "tripTradeoffRanking" | "tripTraveler" | "recommendationRun" | "recommendationOption" | "recommendationTravelerAllocation" | "recommendationInsight" | "recommendationMemo" | "groupSettlement" | "clientIntake" | "tripBrief" | "alertSubscription" | "alertEvent" | "inferredPreference" | "followUpSuggestion" | "vendorRequest" | "vendorRequestReminder" | "vendorRequestDraft" | "vendorRequestApproval" | "vendorRequestTemplate" | "vendorScoreSummary" | "vendorRequestTimeline" | "itineraryJob" | "discoveryMeetingSession" | "meetingEntry" | "meetingQuestionSuggestion" | "meetingProfileSuggestion" | "profileContradiction" | "meetingRecap" | "groupProfile" | "groupMember" | "businessProfile" | "businessTraveler" | "intakeFormToken" | "meetingInvitation" | "liveCallSession" | "transcriptChunk"
     txIsolationLevel: TransactionIsolationLevel
   }
   model: {
@@ -3487,6 +3488,80 @@ export type TypeMap<ExtArgs extends runtime.Types.Extensions.InternalArgs = runt
         }
       }
     }
+    ProfileContradiction: {
+      payload: Prisma.$ProfileContradictionPayload<ExtArgs>
+      fields: Prisma.ProfileContradictionFieldRefs
+      operations: {
+        findUnique: {
+          args: Prisma.ProfileContradictionFindUniqueArgs<ExtArgs>
+          result: runtime.Types.Utils.PayloadToResult<Prisma.$ProfileContradictionPayload> | null
+        }
+        findUniqueOrThrow: {
+          args: Prisma.ProfileContradictionFindUniqueOrThrowArgs<ExtArgs>
+          result: runtime.Types.Utils.PayloadToResult<Prisma.$ProfileContradictionPayload>
+        }
+        findFirst: {
+          args: Prisma.ProfileContradictionFindFirstArgs<ExtArgs>
+          result: runtime.Types.Utils.PayloadToResult<Prisma.$ProfileContradictionPayload> | null
+        }
+        findFirstOrThrow: {
+          args: Prisma.ProfileContradictionFindFirstOrThrowArgs<ExtArgs>
+          result: runtime.Types.Utils.PayloadToResult<Prisma.$ProfileContradictionPayload>
+        }
+        findMany: {
+          args: Prisma.ProfileContradictionFindManyArgs<ExtArgs>
+          result: runtime.Types.Utils.PayloadToResult<Prisma.$ProfileContradictionPayload>[]
+        }
+        create: {
+          args: Prisma.ProfileContradictionCreateArgs<ExtArgs>
+          result: runtime.Types.Utils.PayloadToResult<Prisma.$ProfileContradictionPayload>
+        }
+        createMany: {
+          args: Prisma.ProfileContradictionCreateManyArgs<ExtArgs>
+          result: BatchPayload
+        }
+        createManyAndReturn: {
+          args: Prisma.ProfileContradictionCreateManyAndReturnArgs<ExtArgs>
+          result: runtime.Types.Utils.PayloadToResult<Prisma.$ProfileContradictionPayload>[]
+        }
+        delete: {
+          args: Prisma.ProfileContradictionDeleteArgs<ExtArgs>
+          result: runtime.Types.Utils.PayloadToResult<Prisma.$ProfileContradictionPayload>
+        }
+        update: {
+          args: Prisma.ProfileContradictionUpdateArgs<ExtArgs>
+          result: runtime.Types.Utils.PayloadToResult<Prisma.$ProfileContradictionPayload>
+        }
+        deleteMany: {
+          args: Prisma.ProfileContradictionDeleteManyArgs<ExtArgs>
+          result: BatchPayload
+        }
+        updateMany: {
+          args: Prisma.ProfileContradictionUpdateManyArgs<ExtArgs>
+          result: BatchPayload
+        }
+        updateManyAndReturn: {
+          args: Prisma.ProfileContradictionUpdateManyAndReturnArgs<ExtArgs>
+          result: runtime.Types.Utils.PayloadToResult<Prisma.$ProfileContradictionPayload>[]
+        }
+        upsert: {
+          args: Prisma.ProfileContradictionUpsertArgs<ExtArgs>
+          result: runtime.Types.Utils.PayloadToResult<Prisma.$ProfileContradictionPayload>
+        }
+        aggregate: {
+          args: Prisma.ProfileContradictionAggregateArgs<ExtArgs>
+          result: runtime.Types.Utils.Optional<Prisma.AggregateProfileContradiction>
+        }
+        groupBy: {
+          args: Prisma.ProfileContradictionGroupByArgs<ExtArgs>
+          result: runtime.Types.Utils.Optional<Prisma.ProfileContradictionGroupByOutputType>[]
+        }
+        count: {
+          args: Prisma.ProfileContradictionCountArgs<ExtArgs>
+          result: runtime.Types.Utils.Optional<Prisma.ProfileContradictionCountAggregateOutputType> | number
+        }
+      }
+    }
     MeetingRecap: {
       payload: Prisma.$MeetingRecapPayload<ExtArgs>
       fields: Prisma.MeetingRecapFieldRefs
@@ -4917,6 +4992,23 @@ export const MeetingProfileSuggestionScalarFieldEnum = {
 export type MeetingProfileSuggestionScalarFieldEnum = (typeof MeetingProfileSuggestionScalarFieldEnum)[keyof typeof MeetingProfileSuggestionScalarFieldEnum]
 
 
+export const ProfileContradictionScalarFieldEnum = {
+  id: 'id',
+  sessionId: 'sessionId',
+  clientId: 'clientId',
+  field: 'field',
+  previousValue: 'previousValue',
+  newValue: 'newValue',
+  evidence: 'evidence',
+  status: 'status',
+  resolutionNote: 'resolutionNote',
+  resolvedAt: 'resolvedAt',
+  createdAt: 'createdAt'
+} as const
+
+export type ProfileContradictionScalarFieldEnum = (typeof ProfileContradictionScalarFieldEnum)[keyof typeof ProfileContradictionScalarFieldEnum]
+
+
 export const MeetingRecapScalarFieldEnum = {
   id: 'id',
   sessionId: 'sessionId',
@@ -5790,6 +5882,20 @@ export type ListEnumProfileSuggestionStatusFieldRefInput<$PrismaModel> = FieldRe
 
 
 /**
+ * Reference to a field of type 'ContradictionStatus'
+ */
+export type EnumContradictionStatusFieldRefInput<$PrismaModel> = FieldRefInputType<$PrismaModel, 'ContradictionStatus'>
+    
+
+
+/**
+ * Reference to a field of type 'ContradictionStatus[]'
+ */
+export type ListEnumContradictionStatusFieldRefInput<$PrismaModel> = FieldRefInputType<$PrismaModel, 'ContradictionStatus[]'>
+    
+
+
+/**
  * Reference to a field of type 'GroupType'
  */
 export type EnumGroupTypeFieldRefInput<$PrismaModel> = FieldRefInputType<$PrismaModel, 'GroupType'>
@@ -5980,6 +6086,7 @@ export type GlobalOmitConfig = {
   meetingEntry?: Prisma.MeetingEntryOmit
   meetingQuestionSuggestion?: Prisma.MeetingQuestionSuggestionOmit
   meetingProfileSuggestion?: Prisma.MeetingProfileSuggestionOmit
+  profileContradiction?: Prisma.ProfileContradictionOmit
   meetingRecap?: Prisma.MeetingRecapOmit
   groupProfile?: Prisma.GroupProfileOmit
   groupMember?: Prisma.GroupMemberOmit

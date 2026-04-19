@@ -91,6 +91,7 @@ import type {
 import { ConfidenceBadge } from '@/components/ConfidenceMeter';
 import PreferenceProfile from '@/components/PreferenceProfile';
 import ProfileCompletenessScore from '@/components/ProfileCompletenessScore';
+import ClientContradictions from '@/components/ClientContradictions';
 import GroupMembersPanel from './_components/GroupMembersPanel';
 import BusinessProfilePanel from './_components/BusinessProfilePanel';
 import FormsTab from './_components/FormsTab';
@@ -1099,6 +1100,8 @@ export default function ClientDetailPage() {
             familyMembers={familyMembers}
             onTabChange={(tab) => setActiveTab(tab)}
           />
+
+          <ClientContradictions clientId={clientId} />
 
           {pendingSuggestions.length > 0 && (
             <button

@@ -92,6 +92,7 @@ export const ModelName = {
   MeetingEntry: 'MeetingEntry',
   MeetingQuestionSuggestion: 'MeetingQuestionSuggestion',
   MeetingProfileSuggestion: 'MeetingProfileSuggestion',
+  ProfileContradiction: 'ProfileContradiction',
   MeetingRecap: 'MeetingRecap',
   GroupProfile: 'GroupProfile',
   GroupMember: 'GroupMember',
@@ -842,6 +843,23 @@ export const MeetingProfileSuggestionScalarFieldEnum = {
 } as const
 
 export type MeetingProfileSuggestionScalarFieldEnum = (typeof MeetingProfileSuggestionScalarFieldEnum)[keyof typeof MeetingProfileSuggestionScalarFieldEnum]
+
+
+export const ProfileContradictionScalarFieldEnum = {
+  id: 'id',
+  sessionId: 'sessionId',
+  clientId: 'clientId',
+  field: 'field',
+  previousValue: 'previousValue',
+  newValue: 'newValue',
+  evidence: 'evidence',
+  status: 'status',
+  resolutionNote: 'resolutionNote',
+  resolvedAt: 'resolvedAt',
+  createdAt: 'createdAt'
+} as const
+
+export type ProfileContradictionScalarFieldEnum = (typeof ProfileContradictionScalarFieldEnum)[keyof typeof ProfileContradictionScalarFieldEnum]
 
 
 export const MeetingRecapScalarFieldEnum = {

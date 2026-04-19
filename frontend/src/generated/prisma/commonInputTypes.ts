@@ -1102,6 +1102,23 @@ export type EnumProfileSuggestionStatusWithAggregatesFilter<$PrismaModel = never
   _max?: Prisma.NestedEnumProfileSuggestionStatusFilter<$PrismaModel>
 }
 
+export type EnumContradictionStatusFilter<$PrismaModel = never> = {
+  equals?: $Enums.ContradictionStatus | Prisma.EnumContradictionStatusFieldRefInput<$PrismaModel>
+  in?: $Enums.ContradictionStatus[] | Prisma.ListEnumContradictionStatusFieldRefInput<$PrismaModel>
+  notIn?: $Enums.ContradictionStatus[] | Prisma.ListEnumContradictionStatusFieldRefInput<$PrismaModel>
+  not?: Prisma.NestedEnumContradictionStatusFilter<$PrismaModel> | $Enums.ContradictionStatus
+}
+
+export type EnumContradictionStatusWithAggregatesFilter<$PrismaModel = never> = {
+  equals?: $Enums.ContradictionStatus | Prisma.EnumContradictionStatusFieldRefInput<$PrismaModel>
+  in?: $Enums.ContradictionStatus[] | Prisma.ListEnumContradictionStatusFieldRefInput<$PrismaModel>
+  notIn?: $Enums.ContradictionStatus[] | Prisma.ListEnumContradictionStatusFieldRefInput<$PrismaModel>
+  not?: Prisma.NestedEnumContradictionStatusWithAggregatesFilter<$PrismaModel> | $Enums.ContradictionStatus
+  _count?: Prisma.NestedIntFilter<$PrismaModel>
+  _min?: Prisma.NestedEnumContradictionStatusFilter<$PrismaModel>
+  _max?: Prisma.NestedEnumContradictionStatusFilter<$PrismaModel>
+}
+
 export type EnumGroupTypeFilter<$PrismaModel = never> = {
   equals?: $Enums.GroupType | Prisma.EnumGroupTypeFieldRefInput<$PrismaModel>
   in?: $Enums.GroupType[] | Prisma.ListEnumGroupTypeFieldRefInput<$PrismaModel>
@@ -2193,6 +2210,23 @@ export type NestedEnumProfileSuggestionStatusWithAggregatesFilter<$PrismaModel =
   _count?: Prisma.NestedIntFilter<$PrismaModel>
   _min?: Prisma.NestedEnumProfileSuggestionStatusFilter<$PrismaModel>
   _max?: Prisma.NestedEnumProfileSuggestionStatusFilter<$PrismaModel>
+}
+
+export type NestedEnumContradictionStatusFilter<$PrismaModel = never> = {
+  equals?: $Enums.ContradictionStatus | Prisma.EnumContradictionStatusFieldRefInput<$PrismaModel>
+  in?: $Enums.ContradictionStatus[] | Prisma.ListEnumContradictionStatusFieldRefInput<$PrismaModel>
+  notIn?: $Enums.ContradictionStatus[] | Prisma.ListEnumContradictionStatusFieldRefInput<$PrismaModel>
+  not?: Prisma.NestedEnumContradictionStatusFilter<$PrismaModel> | $Enums.ContradictionStatus
+}
+
+export type NestedEnumContradictionStatusWithAggregatesFilter<$PrismaModel = never> = {
+  equals?: $Enums.ContradictionStatus | Prisma.EnumContradictionStatusFieldRefInput<$PrismaModel>
+  in?: $Enums.ContradictionStatus[] | Prisma.ListEnumContradictionStatusFieldRefInput<$PrismaModel>
+  notIn?: $Enums.ContradictionStatus[] | Prisma.ListEnumContradictionStatusFieldRefInput<$PrismaModel>
+  not?: Prisma.NestedEnumContradictionStatusWithAggregatesFilter<$PrismaModel> | $Enums.ContradictionStatus
+  _count?: Prisma.NestedIntFilter<$PrismaModel>
+  _min?: Prisma.NestedEnumContradictionStatusFilter<$PrismaModel>
+  _max?: Prisma.NestedEnumContradictionStatusFilter<$PrismaModel>
 }
 
 export type NestedEnumGroupTypeFilter<$PrismaModel = never> = {

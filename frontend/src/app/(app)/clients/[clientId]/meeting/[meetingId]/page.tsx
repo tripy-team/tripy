@@ -155,6 +155,7 @@ export default function MeetingCopilotPage() {
             confidence: c.confidence,
           })),
           commitReady: finalData.commitReady,
+          contradictions: finalData.contradictions,
         });
         // Reload the session to get new entries and suggestions
         loadSession();

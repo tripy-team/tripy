@@ -166,11 +166,34 @@ export async function POST(
       }
     }
 
+    // Persist contradictions so the advisor can revisit unresolved conflicts
+    // after the call (the Cactus session state is thrown away at call end).
+    const contradictions: Array<{
+      field: string;
+      previous: unknown;
+      new: unknown;
+      evidence: string;
+    }> = body.contradictions || [];
+
+    if (contradictions.length > 0) {
+      await prisma.profileContradiction.createMany({
+        data: contradictions.map((c) => ({
+          sessionId: meetingId,
+          clientId,
+          field: c.field,
+          previousValue: c.previous as any,
+          newValue: c.new as any,
+          evidence: c.evidence,
+        })),
+      });
+    }
+
     return json({
       ...updated,
       transcriptSaved: transcriptChunks.length,
       suggestionsSaved: commitReady.length,
       autoCommitted,
+      contradictionsSaved: contradictions.length,
     });
   } catch (error) {
     if (error instanceof Response) return error;

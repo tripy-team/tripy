@@ -223,6 +223,11 @@ export type MeetingQuestionSuggestion = Prisma.MeetingQuestionSuggestionModel
  */
 export type MeetingProfileSuggestion = Prisma.MeetingProfileSuggestionModel
 /**
+ * Model ProfileContradiction
+ * 
+ */
+export type ProfileContradiction = Prisma.ProfileContradictionModel
+/**
  * Model MeetingRecap
  * 
  */

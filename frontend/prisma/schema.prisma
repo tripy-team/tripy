@@ -83,6 +83,7 @@ model Client {
   intakeFormTokens       IntakeFormToken[]
   meetingInvitations     MeetingInvitation[]
   crossClientSuggestions MeetingProfileSuggestion[]         @relation("CrossClientSuggestions")
+  profileContradictions  ProfileContradiction[]
   pointSourceAllocations RecommendationTravelerAllocation[] @relation("PointSource")
   tripBriefs             TripBrief[]
   tripRequests           TripRequest[]
@@ -258,42 +259,42 @@ model TransferBonus {
 }
 
 model ClientPreference {
-  id                   String                @id @default(cuid())
-  clientId             String                @unique @map("client_id")
-  preferredCabin       CabinPreference       @default(economy) @map("preferred_cabin")
-  prefersNonstop       Boolean               @default(false) @map("prefers_nonstop")
-  maxLayoverMinutes    Int?                  @map("max_layover_minutes")
-  willingToReposition  Boolean               @default(false) @map("willing_to_reposition")
-  redemptionStyle      RedemptionStyle       @default(balanced) @map("redemption_style")
-  avoidBasicEconomy    Boolean               @default(false) @map("avoid_basic_economy")
-  preferredAirlines    Json?                 @map("preferred_airlines")
-  avoidedAirlines      Json?                 @map("avoided_airlines")
-  notes                String?
-  createdAt            DateTime              @default(now()) @map("created_at")
-  updatedAt            DateTime              @updatedAt @map("updated_at")
-  accessibilityNeeds   Json?                 @map("accessibility_needs")
-  activityPreferences  Json?                 @map("activity_preferences")
-  budgetSensitivity    BudgetSensitivity?    @map("budget_sensitivity")
-  dealbreakers         Json?
-  dislikes             Json?
-  familyConsiderations String?               @map("family_considerations")
-  foodPreferences      Json?                 @map("food_preferences")
-  lastUpdatedSource    PreferenceSource      @default(manual) @map("last_updated_source")
-  locationPreferences  String?               @map("location_preferences")
-  mergeStrategy        MergeStrategy         @default(merge) @map("merge_strategy")
-  pointsVsCash         String?               @map("points_vs_cash")
-  preferredHotelTypes  Json?                 @map("preferred_hotel_types")
-  roomPreferences      Json?                 @map("room_preferences")
-  specialOccasions     Json?                 @map("special_occasions")
-  loyaltyNotes         String?               @map("loyalty_notes")
-  budgetNotes          String?               @map("budget_notes")
-  preferredDestinations        Json?         @map("preferred_destinations")
-  preferredDepartureAirports   Json?         @map("preferred_departure_airports")
-  dateFlexibility      String?               @map("date_flexibility")
-  travelPace           String?               @map("travel_pace")
-  pastTripFeedback     String?               @map("past_trip_feedback")
-  client               Client                @relation(fields: [clientId], references: [id])
-  changelog            PreferenceChangeLog[]
+  id                         String                @id @default(cuid())
+  clientId                   String                @unique @map("client_id")
+  preferredCabin             CabinPreference       @default(economy) @map("preferred_cabin")
+  prefersNonstop             Boolean               @default(false) @map("prefers_nonstop")
+  maxLayoverMinutes          Int?                  @map("max_layover_minutes")
+  willingToReposition        Boolean               @default(false) @map("willing_to_reposition")
+  redemptionStyle            RedemptionStyle       @default(balanced) @map("redemption_style")
+  avoidBasicEconomy          Boolean               @default(false) @map("avoid_basic_economy")
+  preferredAirlines          Json?                 @map("preferred_airlines")
+  avoidedAirlines            Json?                 @map("avoided_airlines")
+  notes                      String?
+  createdAt                  DateTime              @default(now()) @map("created_at")
+  updatedAt                  DateTime              @updatedAt @map("updated_at")
+  accessibilityNeeds         Json?                 @map("accessibility_needs")
+  activityPreferences        Json?                 @map("activity_preferences")
+  budgetSensitivity          BudgetSensitivity?    @map("budget_sensitivity")
+  dealbreakers               Json?
+  dislikes                   Json?
+  familyConsiderations       String?               @map("family_considerations")
+  foodPreferences            Json?                 @map("food_preferences")
+  lastUpdatedSource          PreferenceSource      @default(manual) @map("last_updated_source")
+  locationPreferences        String?               @map("location_preferences")
+  mergeStrategy              MergeStrategy         @default(merge) @map("merge_strategy")
+  pointsVsCash               String?               @map("points_vs_cash")
+  preferredHotelTypes        Json?                 @map("preferred_hotel_types")
+  roomPreferences            Json?                 @map("room_preferences")
+  specialOccasions           Json?                 @map("special_occasions")
+  loyaltyNotes               String?               @map("loyalty_notes")
+  budgetNotes                String?               @map("budget_notes")
+  preferredDestinations      Json?                 @map("preferred_destinations")
+  preferredDepartureAirports Json?                 @map("preferred_departure_airports")
+  dateFlexibility            String?               @map("date_flexibility")
+  travelPace                 String?               @map("travel_pace")
+  pastTripFeedback           String?               @map("past_trip_feedback")
+  client                     Client                @relation(fields: [clientId], references: [id])
+  changelog                  PreferenceChangeLog[]
 
   @@map("client_preferences")
 }
@@ -499,54 +500,54 @@ model GroupSettlement {
 }
 
 model ClientIntake {
-  id                  String               @id @default(cuid())
-  clientId            String               @map("client_id")
-  createdByUserId     String               @map("created_by_user_id")
-  status              IntakeStatus         @default(draft)
-  isTemplate          Boolean              @default(false) @map("is_template")
-  templateName        String?              @map("template_name")
-  duplicatedFromId    String?              @map("duplicated_from_id")
-  tripType            TripType?            @map("trip_type")
-  tripTypeOther       String?              @map("trip_type_other")
-  destinations        Json?
-  departureAirports   Json?                @map("departure_airports")
-  dateFlexibility     DateFlexibility?     @map("date_flexibility")
-  earliestDeparture   DateTime?            @map("earliest_departure")
-  latestReturn        DateTime?            @map("latest_return")
-  tripDurationDays    Int?                 @map("trip_duration_days")
-  budgetMin           Int?                 @map("budget_min")
-  budgetMax           Int?                 @map("budget_max")
-  budgetCurrency      String               @default("USD") @map("budget_currency")
-  budgetNotes         String?              @map("budget_notes")
-  preferredFlightRouting String?            @map("preferred_flight_routing")
-  cabinPreference     CabinPreference?     @map("cabin_preference")
-  hotelStyles         Json?                @map("hotel_styles")
-  loyaltyNotes        String?              @map("loyalty_notes")
-  accessibilityNeeds  String?              @map("accessibility_needs")
-  dietaryNeeds        String?              @map("dietary_needs")
-  travelPace          TravelPace?          @map("travel_pace")
-  layoverTolerance    LayoverTolerance?    @map("layover_tolerance")
-  luxuryPreference    LuxuryPreference?    @map("luxury_preference")
-  familyFriendly      Boolean?             @map("family_friendly")
-  travelerCount       Int?                 @map("traveler_count")
-  childrenCount       Int?                 @map("children_count")
-  childrenAges        Json?                @map("children_ages")
-  desiredExperiences  Json?                @map("desired_experiences")
-  dealbreakers        Json?
-  preferredAirlines   Json?                @map("preferred_airlines")
-  avoidedAirlines     Json?                @map("avoided_airlines")
-  preferredAccommodationBrands Json?       @map("preferred_accommodation_brands")
-  accommodationDealbreakers    Json?       @map("accommodation_dealbreakers")
-  notes               String?
-  completedAt         DateTime?            @map("completed_at")
-  createdAt           DateTime             @default(now()) @map("created_at")
-  updatedAt           DateTime             @updatedAt @map("updated_at")
-  client              Client               @relation(fields: [clientId], references: [id], onDelete: Cascade)
-  duplicatedFrom      ClientIntake?        @relation("IntakeDuplicate", fields: [duplicatedFromId], references: [id])
-  duplicates          ClientIntake[]       @relation("IntakeDuplicate")
-  followUpSuggestions FollowUpSuggestion[]
-  formTokens          IntakeFormToken[]
-  tripBriefs          TripBrief[]
+  id                           String               @id @default(cuid())
+  clientId                     String               @map("client_id")
+  createdByUserId              String               @map("created_by_user_id")
+  status                       IntakeStatus         @default(draft)
+  isTemplate                   Boolean              @default(false) @map("is_template")
+  templateName                 String?              @map("template_name")
+  duplicatedFromId             String?              @map("duplicated_from_id")
+  tripType                     TripType?            @map("trip_type")
+  tripTypeOther                String?              @map("trip_type_other")
+  destinations                 Json?
+  departureAirports            Json?                @map("departure_airports")
+  dateFlexibility              DateFlexibility?     @map("date_flexibility")
+  earliestDeparture            DateTime?            @map("earliest_departure")
+  latestReturn                 DateTime?            @map("latest_return")
+  tripDurationDays             Int?                 @map("trip_duration_days")
+  budgetMin                    Int?                 @map("budget_min")
+  budgetMax                    Int?                 @map("budget_max")
+  budgetCurrency               String               @default("USD") @map("budget_currency")
+  budgetNotes                  String?              @map("budget_notes")
+  preferredFlightRouting       String?              @map("preferred_flight_routing")
+  cabinPreference              CabinPreference?     @map("cabin_preference")
+  hotelStyles                  Json?                @map("hotel_styles")
+  loyaltyNotes                 String?              @map("loyalty_notes")
+  accessibilityNeeds           String?              @map("accessibility_needs")
+  dietaryNeeds                 String?              @map("dietary_needs")
+  travelPace                   TravelPace?          @map("travel_pace")
+  layoverTolerance             LayoverTolerance?    @map("layover_tolerance")
+  luxuryPreference             LuxuryPreference?    @map("luxury_preference")
+  familyFriendly               Boolean?             @map("family_friendly")
+  travelerCount                Int?                 @map("traveler_count")
+  childrenCount                Int?                 @map("children_count")
+  childrenAges                 Json?                @map("children_ages")
+  desiredExperiences           Json?                @map("desired_experiences")
+  dealbreakers                 Json?
+  preferredAirlines            Json?                @map("preferred_airlines")
+  avoidedAirlines              Json?                @map("avoided_airlines")
+  preferredAccommodationBrands Json?                @map("preferred_accommodation_brands")
+  accommodationDealbreakers    Json?                @map("accommodation_dealbreakers")
+  notes                        String?
+  completedAt                  DateTime?            @map("completed_at")
+  createdAt                    DateTime             @default(now()) @map("created_at")
+  updatedAt                    DateTime             @updatedAt @map("updated_at")
+  client                       Client               @relation(fields: [clientId], references: [id], onDelete: Cascade)
+  duplicatedFrom               ClientIntake?        @relation("IntakeDuplicate", fields: [duplicatedFromId], references: [id])
+  duplicates                   ClientIntake[]       @relation("IntakeDuplicate")
+  followUpSuggestions          FollowUpSuggestion[]
+  formTokens                   IntakeFormToken[]
+  tripBriefs                   TripBrief[]
 
   @@index([clientId])
   @@index([createdByUserId])
@@ -815,23 +816,24 @@ model ItineraryJob {
 }
 
 model DiscoveryMeetingSession {
-  id                  String                      @id @default(cuid())
-  clientId            String                      @map("client_id")
-  advisorUserId       String                      @map("advisor_user_id")
-  title               String
-  contextPrompt       String?                     @map("context_prompt")
-  status              MeetingSessionStatus        @default(active)
-  summary             String?
-  createdAt           DateTime                    @default(now()) @map("created_at")
-  updatedAt           DateTime                    @updatedAt @map("updated_at")
-  advisor             User                        @relation(fields: [advisorUserId], references: [id])
-  client              Client                      @relation(fields: [clientId], references: [id], onDelete: Cascade)
-  entries             MeetingEntry[]
-  invitations         MeetingInvitation[]
-  liveCallSessions    LiveCallSession[]
-  profileSuggestions  MeetingProfileSuggestion[]
-  questionSuggestions MeetingQuestionSuggestion[]
-  recap               MeetingRecap?
+  id                    String                      @id @default(cuid())
+  clientId              String                      @map("client_id")
+  advisorUserId         String                      @map("advisor_user_id")
+  title                 String
+  contextPrompt         String?                     @map("context_prompt")
+  status                MeetingSessionStatus        @default(active)
+  summary               String?
+  createdAt             DateTime                    @default(now()) @map("created_at")
+  updatedAt             DateTime                    @updatedAt @map("updated_at")
+  advisor               User                        @relation(fields: [advisorUserId], references: [id])
+  client                Client                      @relation(fields: [clientId], references: [id], onDelete: Cascade)
+  entries               MeetingEntry[]
+  invitations           MeetingInvitation[]
+  liveCallSessions      LiveCallSession[]
+  profileContradictions ProfileContradiction[]
+  profileSuggestions    MeetingProfileSuggestion[]
+  questionSuggestions   MeetingQuestionSuggestion[]
+  recap                 MeetingRecap?
 
   @@index([clientId])
   @@index([advisorUserId])
@@ -888,6 +890,26 @@ model MeetingProfileSuggestion {
   @@index([sessionId, status])
   @@index([targetClientId])
   @@map("meeting_profile_suggestions")
+}
+
+model ProfileContradiction {
+  id             String                  @id @default(cuid())
+  sessionId      String                  @map("session_id")
+  clientId       String                  @map("client_id")
+  field          String
+  previousValue  Json                    @map("previous_value")
+  newValue       Json                    @map("new_value")
+  evidence       String
+  status         ContradictionStatus     @default(unresolved)
+  resolutionNote String?                 @map("resolution_note")
+  resolvedAt     DateTime?               @map("resolved_at")
+  createdAt      DateTime                @default(now()) @map("created_at")
+  session        DiscoveryMeetingSession @relation(fields: [sessionId], references: [id], onDelete: Cascade)
+  client         Client                  @relation(fields: [clientId], references: [id], onDelete: Cascade)
+
+  @@index([sessionId])
+  @@index([clientId, status])
+  @@map("profile_contradictions")
 }
 
 model MeetingRecap {
@@ -1380,7 +1402,7 @@ model LiveCallSession {
   duration         Int?
   createdAt        DateTime                @default(now()) @map("created_at")
   updatedAt        DateTime                @updatedAt @map("updated_at")
-  meetingSession   DiscoveryMeetingSession  @relation(fields: [meetingSessionId], references: [id], onDelete: Cascade)
+  meetingSession   DiscoveryMeetingSession @relation(fields: [meetingSessionId], references: [id], onDelete: Cascade)
   transcriptChunks TranscriptChunk[]
 
   @@index([meetingSessionId])
@@ -1409,4 +1431,10 @@ enum ProfileSuggestionStatus {
   approved
   rejected
   committed
+}
+
+enum ContradictionStatus {
+  unresolved
+  resolved
+  dismissed
 }
