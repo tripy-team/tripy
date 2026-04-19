@@ -21,7 +21,7 @@ UNIT_SRC="$REPO_ROOT/scripts/cactus-server.service"
 SSH_OPTS=(-i "$EC2_KEY" -o StrictHostKeyChecking=accept-new -o ServerAliveInterval=30)
 
 echo "→ Syncing cactus_server/ to $EC2_USER@$EC2_HOST:$REMOTE_DIR"
-rsync -avz --delete --exclude '__pycache__' --exclude '*.pyc' \
+rsync -avz --delete --exclude '__pycache__' --exclude '*.pyc' --exclude '.env' \
   -e "ssh ${SSH_OPTS[*]}" \
   "$LOCAL_SRC" "$EC2_USER@$EC2_HOST:$REMOTE_DIR/"
 
