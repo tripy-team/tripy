@@ -28,6 +28,7 @@ import AirportAutocomplete from '@/components/ui/AirportAutocomplete';
 import { DestinationAutocomplete } from '@/components/ui/DestinationAutocomplete';
 import SingleDatePicker from '@/components/ui/SingleDatePicker';
 import { ALL_LOYALTY_PROGRAMS, getProgramCategory, isValidProgram, type ProgramCategory } from '@/lib/loyalty-programs';
+import { getWalletAccounts, type WalletAccount } from '@/lib/wallet-client';
 
 // ---------------------------------------------------------------------------
 // Local draft types (not yet persisted)
@@ -203,7 +204,17 @@ export default function NewGroupTripPage() {
           return;
         }
 
-        const profile = await usersAPI.getProfile();
+        const [profile, syncedWalletAccounts] = await Promise.all([
+          usersAPI.getProfile(),
+          getWalletAccounts().catch(() => [] as WalletAccount[]),
+        ]);
+        const syncedBalances = syncedWalletAccounts
+          .filter((account) => account.enabledForOptimization && account.balance > 0)
+          .map((account) => ({
+            id: `wallet-${account.id}`,
+            program: account.programName,
+            balance: account.balance,
+          }));
 
         setTravelers((prev) => {
           const first = prev[0];
@@ -228,14 +239,18 @@ export default function NewGroupTripPage() {
           }
 
           // Import the user's loyalty balances
-          if (profile.credit_cards && profile.credit_cards.length > 0 && first.balances.length === 0) {
-            patch.balances = profile.credit_cards
-              .filter((c) => c.points > 0 && (c.owner === 'me' || !c.owner))
-              .map((c) => ({
-                id: c.id || localId(),
-                program: c.program,
-                balance: c.points,
-              }));
+          if (first.balances.length === 0) {
+            if (syncedBalances.length > 0) {
+              patch.balances = syncedBalances;
+            } else if (profile.credit_cards && profile.credit_cards.length > 0) {
+              patch.balances = profile.credit_cards
+                .filter((c) => c.points > 0 && (c.owner === 'me' || !c.owner))
+                .map((c) => ({
+                  id: c.id || localId(),
+                  program: c.program,
+                  balance: c.points,
+                }));
+            }
           }
 
           if (Object.keys(patch).length === 0) return prev;

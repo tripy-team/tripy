@@ -23,8 +23,9 @@ import type { User as UserType } from '@/lib/api-client';
 
 const NAV_ITEMS = [
   { href: '/dashboard', label: 'Dashboard' },
-  { href: '/clients', label: 'Clients' },
-  { href: '/trips', label: 'Trips' },
+  { href: '/points-setup', label: 'Points Wallet' },
+  { href: '/solo/setup', label: 'Solo Trip' },
+  { href: '/group-planning/new', label: 'Group Trip' },
 ];
 
 export default function AppLayout({ children }: { children: React.ReactNode }) {

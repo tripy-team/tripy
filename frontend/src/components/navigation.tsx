@@ -149,7 +149,7 @@ function NavigationInner() {
   const getDisplayName = (name?: string, email?: string): string => {
     if (!name || isUUID(name)) {
       if (email) return email.split('@')[0];
-      return 'Advisor';
+      return 'Traveler';
     }
     return name;
   };
@@ -192,20 +192,20 @@ function NavigationInner() {
                       </NavigationMenuItem>
 
                       <NavigationMenuItem>
-                        <NavigationMenuLink asChild className={cn(navigationMenuTriggerStyle(), pathname.startsWith('/clients') && "bg-slate-100 text-slate-900")}>
-                          <Link href="/clients">Clients</Link>
+                        <NavigationMenuLink asChild className={cn(navigationMenuTriggerStyle(), pathname.startsWith('/points-setup') && "bg-slate-100 text-slate-900")}>
+                          <Link href="/points-setup">Points Wallet</Link>
                         </NavigationMenuLink>
                       </NavigationMenuItem>
 
                       <NavigationMenuItem>
-                        <NavigationMenuLink asChild className={cn(navigationMenuTriggerStyle(), pathname.startsWith('/households') && "bg-slate-100 text-slate-900")}>
-                          <Link href="/households">Households</Link>
+                        <NavigationMenuLink asChild className={cn(navigationMenuTriggerStyle(), pathname.startsWith('/solo') && "bg-slate-100 text-slate-900")}>
+                          <Link href="/solo/setup">Solo Trip</Link>
                         </NavigationMenuLink>
                       </NavigationMenuItem>
 
                       <NavigationMenuItem>
-                        <NavigationMenuLink asChild className={cn(navigationMenuTriggerStyle(), pathname.startsWith('/trip-requests') && "bg-slate-100 text-slate-900")}>
-                          <Link href="/trip-requests">Trips</Link>
+                        <NavigationMenuLink asChild className={cn(navigationMenuTriggerStyle(), pathname.startsWith('/group-planning') && "bg-slate-100 text-slate-900")}>
+                          <Link href="/group-planning/new">Group Trip</Link>
                         </NavigationMenuLink>
                       </NavigationMenuItem>
 
@@ -318,37 +318,37 @@ function NavigationInner() {
                   Dashboard
                 </Link>
                 <Link
-                  href="/clients"
+                  href="/points-setup"
                   onClick={() => setMobileMenuOpen(false)}
                   className={`block pl-3 pr-4 py-2 border-l-4 text-base font-medium ${
-                    pathname.startsWith('/clients')
+                    pathname.startsWith('/points-setup')
                       ? 'bg-blue-50 border-blue-500 text-blue-700'
                       : 'border-transparent text-slate-500 hover:bg-slate-50 hover:border-slate-300 hover:text-slate-700'
                   }`}
                 >
-                  Clients
+                  Points Wallet
                 </Link>
                 <Link
-                  href="/households"
+                  href="/solo/setup"
                   onClick={() => setMobileMenuOpen(false)}
                   className={`block pl-3 pr-4 py-2 border-l-4 text-base font-medium ${
-                    pathname.startsWith('/households')
+                    pathname.startsWith('/solo')
                       ? 'bg-blue-50 border-blue-500 text-blue-700'
                       : 'border-transparent text-slate-500 hover:bg-slate-50 hover:border-slate-300 hover:text-slate-700'
                   }`}
                 >
-                  Households
+                  Solo Trip
                 </Link>
                 <Link
-                  href="/trip-requests"
+                  href="/group-planning/new"
                   onClick={() => setMobileMenuOpen(false)}
                   className={`block pl-3 pr-4 py-2 border-l-4 text-base font-medium ${
-                    pathname.startsWith('/trip-requests')
+                    pathname.startsWith('/group-planning')
                       ? 'bg-blue-50 border-blue-500 text-blue-700'
                       : 'border-transparent text-slate-500 hover:bg-slate-50 hover:border-slate-300 hover:text-slate-700'
                   }`}
                 >
-                  Trips
+                  Group Trip
                 </Link>
               </>
             ) : (

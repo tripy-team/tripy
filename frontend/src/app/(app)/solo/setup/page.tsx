@@ -16,6 +16,7 @@ import DateRangePicker from '@/components/date-range-picker';
 import SingleDatePicker from '@/components/ui/SingleDatePicker';
 import { ALL_LOYALTY_PROGRAMS, getProgramCategory, isValidProgram } from '@/lib/loyalty-programs';
 import { formatProgramName } from '@/lib/programLabels';
+import { getWalletAccounts, type WalletAccount } from '@/lib/wallet-client';
 
 // ============================================================================
 // SESSION STORAGE PERSISTENCE
@@ -410,7 +411,27 @@ function SoloTripSetupContent() {
           return;
         }
 
-        if (profile.credit_cards && profile.credit_cards.length > 0) {
+        const syncedWalletAccounts = await getWalletAccounts().catch(() => [] as WalletAccount[]);
+        const walletCards = syncedWalletAccounts
+          .filter(account => account.enabledForOptimization && account.balance > 0)
+          .map(account => ({
+            id: `wallet-${account.id}`,
+            program: account.programName,
+            points: account.balance,
+            owner: 'me',
+          }));
+
+        if (walletCards.length > 0) {
+          if (s && s.creditCards && s.creditCards.length > 0) {
+            const walletPrograms = new Set(walletCards.map(c => `${c.program}::${c.owner}`));
+            const sessionOnlyCards = s.creditCards.filter(
+              c => !walletPrograms.has(`${c.program}::${c.owner}`)
+            );
+            setCreditCards([...walletCards, ...sessionOnlyCards]);
+          } else {
+            setCreditCards(walletCards);
+          }
+        } else if (profile.credit_cards && profile.credit_cards.length > 0) {
           const profileCards = profile.credit_cards.map(card => ({
             id: card.id,
             program: card.program,

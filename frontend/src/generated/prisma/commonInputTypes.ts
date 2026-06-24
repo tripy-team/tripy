@@ -331,18 +331,18 @@ export type EnumPoolingScopeWithAggregatesFilter<$PrismaModel = never> = {
   _max?: Prisma.NestedEnumPoolingScopeFilter<$PrismaModel>
 }
 
-export type EnumCabinPreferenceFilter<$PrismaModel = never> = {
-  equals?: $Enums.CabinPreference | Prisma.EnumCabinPreferenceFieldRefInput<$PrismaModel>
-  in?: $Enums.CabinPreference[] | Prisma.ListEnumCabinPreferenceFieldRefInput<$PrismaModel>
-  notIn?: $Enums.CabinPreference[] | Prisma.ListEnumCabinPreferenceFieldRefInput<$PrismaModel>
-  not?: Prisma.NestedEnumCabinPreferenceFilter<$PrismaModel> | $Enums.CabinPreference
+export type EnumWalletProviderFilter<$PrismaModel = never> = {
+  equals?: $Enums.WalletProvider | Prisma.EnumWalletProviderFieldRefInput<$PrismaModel>
+  in?: $Enums.WalletProvider[] | Prisma.ListEnumWalletProviderFieldRefInput<$PrismaModel>
+  notIn?: $Enums.WalletProvider[] | Prisma.ListEnumWalletProviderFieldRefInput<$PrismaModel>
+  not?: Prisma.NestedEnumWalletProviderFilter<$PrismaModel> | $Enums.WalletProvider
 }
 
-export type EnumRedemptionStyleFilter<$PrismaModel = never> = {
-  equals?: $Enums.RedemptionStyle | Prisma.EnumRedemptionStyleFieldRefInput<$PrismaModel>
-  in?: $Enums.RedemptionStyle[] | Prisma.ListEnumRedemptionStyleFieldRefInput<$PrismaModel>
-  notIn?: $Enums.RedemptionStyle[] | Prisma.ListEnumRedemptionStyleFieldRefInput<$PrismaModel>
-  not?: Prisma.NestedEnumRedemptionStyleFilter<$PrismaModel> | $Enums.RedemptionStyle
+export type EnumWalletConnectionStatusFilter<$PrismaModel = never> = {
+  equals?: $Enums.WalletConnectionStatus | Prisma.EnumWalletConnectionStatusFieldRefInput<$PrismaModel>
+  in?: $Enums.WalletConnectionStatus[] | Prisma.ListEnumWalletConnectionStatusFieldRefInput<$PrismaModel>
+  notIn?: $Enums.WalletConnectionStatus[] | Prisma.ListEnumWalletConnectionStatusFieldRefInput<$PrismaModel>
+  not?: Prisma.NestedEnumWalletConnectionStatusFilter<$PrismaModel> | $Enums.WalletConnectionStatus
 }
 
 export type JsonNullableFilter<$PrismaModel = never> =
@@ -367,6 +367,135 @@ export type JsonNullableFilterBase<$PrismaModel = never> = {
   gt?: runtime.InputJsonValue | Prisma.JsonFieldRefInput<$PrismaModel>
   gte?: runtime.InputJsonValue | Prisma.JsonFieldRefInput<$PrismaModel>
   not?: runtime.InputJsonValue | Prisma.JsonFieldRefInput<$PrismaModel> | Prisma.JsonNullValueFilter
+}
+
+export type EnumWalletProviderWithAggregatesFilter<$PrismaModel = never> = {
+  equals?: $Enums.WalletProvider | Prisma.EnumWalletProviderFieldRefInput<$PrismaModel>
+  in?: $Enums.WalletProvider[] | Prisma.ListEnumWalletProviderFieldRefInput<$PrismaModel>
+  notIn?: $Enums.WalletProvider[] | Prisma.ListEnumWalletProviderFieldRefInput<$PrismaModel>
+  not?: Prisma.NestedEnumWalletProviderWithAggregatesFilter<$PrismaModel> | $Enums.WalletProvider
+  _count?: Prisma.NestedIntFilter<$PrismaModel>
+  _min?: Prisma.NestedEnumWalletProviderFilter<$PrismaModel>
+  _max?: Prisma.NestedEnumWalletProviderFilter<$PrismaModel>
+}
+
+export type EnumWalletConnectionStatusWithAggregatesFilter<$PrismaModel = never> = {
+  equals?: $Enums.WalletConnectionStatus | Prisma.EnumWalletConnectionStatusFieldRefInput<$PrismaModel>
+  in?: $Enums.WalletConnectionStatus[] | Prisma.ListEnumWalletConnectionStatusFieldRefInput<$PrismaModel>
+  notIn?: $Enums.WalletConnectionStatus[] | Prisma.ListEnumWalletConnectionStatusFieldRefInput<$PrismaModel>
+  not?: Prisma.NestedEnumWalletConnectionStatusWithAggregatesFilter<$PrismaModel> | $Enums.WalletConnectionStatus
+  _count?: Prisma.NestedIntFilter<$PrismaModel>
+  _min?: Prisma.NestedEnumWalletConnectionStatusFilter<$PrismaModel>
+  _max?: Prisma.NestedEnumWalletConnectionStatusFilter<$PrismaModel>
+}
+
+export type JsonNullableWithAggregatesFilter<$PrismaModel = never> =
+| Prisma.PatchUndefined<
+    Prisma.Either<Required<JsonNullableWithAggregatesFilterBase<$PrismaModel>>, Exclude<keyof Required<JsonNullableWithAggregatesFilterBase<$PrismaModel>>, 'path'>>,
+    Required<JsonNullableWithAggregatesFilterBase<$PrismaModel>>
+  >
+| Prisma.OptionalFlat<Omit<Required<JsonNullableWithAggregatesFilterBase<$PrismaModel>>, 'path'>>
+
+export type JsonNullableWithAggregatesFilterBase<$PrismaModel = never> = {
+  equals?: runtime.InputJsonValue | Prisma.JsonFieldRefInput<$PrismaModel> | Prisma.JsonNullValueFilter
+  path?: string[]
+  mode?: Prisma.QueryMode | Prisma.EnumQueryModeFieldRefInput<$PrismaModel>
+  string_contains?: string | Prisma.StringFieldRefInput<$PrismaModel>
+  string_starts_with?: string | Prisma.StringFieldRefInput<$PrismaModel>
+  string_ends_with?: string | Prisma.StringFieldRefInput<$PrismaModel>
+  array_starts_with?: runtime.InputJsonValue | Prisma.JsonFieldRefInput<$PrismaModel> | null
+  array_ends_with?: runtime.InputJsonValue | Prisma.JsonFieldRefInput<$PrismaModel> | null
+  array_contains?: runtime.InputJsonValue | Prisma.JsonFieldRefInput<$PrismaModel> | null
+  lt?: runtime.InputJsonValue | Prisma.JsonFieldRefInput<$PrismaModel>
+  lte?: runtime.InputJsonValue | Prisma.JsonFieldRefInput<$PrismaModel>
+  gt?: runtime.InputJsonValue | Prisma.JsonFieldRefInput<$PrismaModel>
+  gte?: runtime.InputJsonValue | Prisma.JsonFieldRefInput<$PrismaModel>
+  not?: runtime.InputJsonValue | Prisma.JsonFieldRefInput<$PrismaModel> | Prisma.JsonNullValueFilter
+  _count?: Prisma.NestedIntNullableFilter<$PrismaModel>
+  _min?: Prisma.NestedJsonNullableFilter<$PrismaModel>
+  _max?: Prisma.NestedJsonNullableFilter<$PrismaModel>
+}
+
+export type EnumWalletCurrencyTypeFilter<$PrismaModel = never> = {
+  equals?: $Enums.WalletCurrencyType | Prisma.EnumWalletCurrencyTypeFieldRefInput<$PrismaModel>
+  in?: $Enums.WalletCurrencyType[] | Prisma.ListEnumWalletCurrencyTypeFieldRefInput<$PrismaModel>
+  notIn?: $Enums.WalletCurrencyType[] | Prisma.ListEnumWalletCurrencyTypeFieldRefInput<$PrismaModel>
+  not?: Prisma.NestedEnumWalletCurrencyTypeFilter<$PrismaModel> | $Enums.WalletCurrencyType
+}
+
+export type EnumWalletAccountSourceFilter<$PrismaModel = never> = {
+  equals?: $Enums.WalletAccountSource | Prisma.EnumWalletAccountSourceFieldRefInput<$PrismaModel>
+  in?: $Enums.WalletAccountSource[] | Prisma.ListEnumWalletAccountSourceFieldRefInput<$PrismaModel>
+  notIn?: $Enums.WalletAccountSource[] | Prisma.ListEnumWalletAccountSourceFieldRefInput<$PrismaModel>
+  not?: Prisma.NestedEnumWalletAccountSourceFilter<$PrismaModel> | $Enums.WalletAccountSource
+}
+
+export type EnumWalletVisibilityFilter<$PrismaModel = never> = {
+  equals?: $Enums.WalletVisibility | Prisma.EnumWalletVisibilityFieldRefInput<$PrismaModel>
+  in?: $Enums.WalletVisibility[] | Prisma.ListEnumWalletVisibilityFieldRefInput<$PrismaModel>
+  notIn?: $Enums.WalletVisibility[] | Prisma.ListEnumWalletVisibilityFieldRefInput<$PrismaModel>
+  not?: Prisma.NestedEnumWalletVisibilityFilter<$PrismaModel> | $Enums.WalletVisibility
+}
+
+export type EnumWalletCurrencyTypeWithAggregatesFilter<$PrismaModel = never> = {
+  equals?: $Enums.WalletCurrencyType | Prisma.EnumWalletCurrencyTypeFieldRefInput<$PrismaModel>
+  in?: $Enums.WalletCurrencyType[] | Prisma.ListEnumWalletCurrencyTypeFieldRefInput<$PrismaModel>
+  notIn?: $Enums.WalletCurrencyType[] | Prisma.ListEnumWalletCurrencyTypeFieldRefInput<$PrismaModel>
+  not?: Prisma.NestedEnumWalletCurrencyTypeWithAggregatesFilter<$PrismaModel> | $Enums.WalletCurrencyType
+  _count?: Prisma.NestedIntFilter<$PrismaModel>
+  _min?: Prisma.NestedEnumWalletCurrencyTypeFilter<$PrismaModel>
+  _max?: Prisma.NestedEnumWalletCurrencyTypeFilter<$PrismaModel>
+}
+
+export type EnumWalletAccountSourceWithAggregatesFilter<$PrismaModel = never> = {
+  equals?: $Enums.WalletAccountSource | Prisma.EnumWalletAccountSourceFieldRefInput<$PrismaModel>
+  in?: $Enums.WalletAccountSource[] | Prisma.ListEnumWalletAccountSourceFieldRefInput<$PrismaModel>
+  notIn?: $Enums.WalletAccountSource[] | Prisma.ListEnumWalletAccountSourceFieldRefInput<$PrismaModel>
+  not?: Prisma.NestedEnumWalletAccountSourceWithAggregatesFilter<$PrismaModel> | $Enums.WalletAccountSource
+  _count?: Prisma.NestedIntFilter<$PrismaModel>
+  _min?: Prisma.NestedEnumWalletAccountSourceFilter<$PrismaModel>
+  _max?: Prisma.NestedEnumWalletAccountSourceFilter<$PrismaModel>
+}
+
+export type EnumWalletVisibilityWithAggregatesFilter<$PrismaModel = never> = {
+  equals?: $Enums.WalletVisibility | Prisma.EnumWalletVisibilityFieldRefInput<$PrismaModel>
+  in?: $Enums.WalletVisibility[] | Prisma.ListEnumWalletVisibilityFieldRefInput<$PrismaModel>
+  notIn?: $Enums.WalletVisibility[] | Prisma.ListEnumWalletVisibilityFieldRefInput<$PrismaModel>
+  not?: Prisma.NestedEnumWalletVisibilityWithAggregatesFilter<$PrismaModel> | $Enums.WalletVisibility
+  _count?: Prisma.NestedIntFilter<$PrismaModel>
+  _min?: Prisma.NestedEnumWalletVisibilityFilter<$PrismaModel>
+  _max?: Prisma.NestedEnumWalletVisibilityFilter<$PrismaModel>
+}
+
+export type EnumWalletSyncStatusFilter<$PrismaModel = never> = {
+  equals?: $Enums.WalletSyncStatus | Prisma.EnumWalletSyncStatusFieldRefInput<$PrismaModel>
+  in?: $Enums.WalletSyncStatus[] | Prisma.ListEnumWalletSyncStatusFieldRefInput<$PrismaModel>
+  notIn?: $Enums.WalletSyncStatus[] | Prisma.ListEnumWalletSyncStatusFieldRefInput<$PrismaModel>
+  not?: Prisma.NestedEnumWalletSyncStatusFilter<$PrismaModel> | $Enums.WalletSyncStatus
+}
+
+export type EnumWalletSyncStatusWithAggregatesFilter<$PrismaModel = never> = {
+  equals?: $Enums.WalletSyncStatus | Prisma.EnumWalletSyncStatusFieldRefInput<$PrismaModel>
+  in?: $Enums.WalletSyncStatus[] | Prisma.ListEnumWalletSyncStatusFieldRefInput<$PrismaModel>
+  notIn?: $Enums.WalletSyncStatus[] | Prisma.ListEnumWalletSyncStatusFieldRefInput<$PrismaModel>
+  not?: Prisma.NestedEnumWalletSyncStatusWithAggregatesFilter<$PrismaModel> | $Enums.WalletSyncStatus
+  _count?: Prisma.NestedIntFilter<$PrismaModel>
+  _min?: Prisma.NestedEnumWalletSyncStatusFilter<$PrismaModel>
+  _max?: Prisma.NestedEnumWalletSyncStatusFilter<$PrismaModel>
+}
+
+export type EnumCabinPreferenceFilter<$PrismaModel = never> = {
+  equals?: $Enums.CabinPreference | Prisma.EnumCabinPreferenceFieldRefInput<$PrismaModel>
+  in?: $Enums.CabinPreference[] | Prisma.ListEnumCabinPreferenceFieldRefInput<$PrismaModel>
+  notIn?: $Enums.CabinPreference[] | Prisma.ListEnumCabinPreferenceFieldRefInput<$PrismaModel>
+  not?: Prisma.NestedEnumCabinPreferenceFilter<$PrismaModel> | $Enums.CabinPreference
+}
+
+export type EnumRedemptionStyleFilter<$PrismaModel = never> = {
+  equals?: $Enums.RedemptionStyle | Prisma.EnumRedemptionStyleFieldRefInput<$PrismaModel>
+  in?: $Enums.RedemptionStyle[] | Prisma.ListEnumRedemptionStyleFieldRefInput<$PrismaModel>
+  notIn?: $Enums.RedemptionStyle[] | Prisma.ListEnumRedemptionStyleFieldRefInput<$PrismaModel>
+  not?: Prisma.NestedEnumRedemptionStyleFilter<$PrismaModel> | $Enums.RedemptionStyle
 }
 
 export type EnumBudgetSensitivityNullableFilter<$PrismaModel = never> = {
@@ -408,33 +537,6 @@ export type EnumRedemptionStyleWithAggregatesFilter<$PrismaModel = never> = {
   _count?: Prisma.NestedIntFilter<$PrismaModel>
   _min?: Prisma.NestedEnumRedemptionStyleFilter<$PrismaModel>
   _max?: Prisma.NestedEnumRedemptionStyleFilter<$PrismaModel>
-}
-
-export type JsonNullableWithAggregatesFilter<$PrismaModel = never> =
-| Prisma.PatchUndefined<
-    Prisma.Either<Required<JsonNullableWithAggregatesFilterBase<$PrismaModel>>, Exclude<keyof Required<JsonNullableWithAggregatesFilterBase<$PrismaModel>>, 'path'>>,
-    Required<JsonNullableWithAggregatesFilterBase<$PrismaModel>>
-  >
-| Prisma.OptionalFlat<Omit<Required<JsonNullableWithAggregatesFilterBase<$PrismaModel>>, 'path'>>
-
-export type JsonNullableWithAggregatesFilterBase<$PrismaModel = never> = {
-  equals?: runtime.InputJsonValue | Prisma.JsonFieldRefInput<$PrismaModel> | Prisma.JsonNullValueFilter
-  path?: string[]
-  mode?: Prisma.QueryMode | Prisma.EnumQueryModeFieldRefInput<$PrismaModel>
-  string_contains?: string | Prisma.StringFieldRefInput<$PrismaModel>
-  string_starts_with?: string | Prisma.StringFieldRefInput<$PrismaModel>
-  string_ends_with?: string | Prisma.StringFieldRefInput<$PrismaModel>
-  array_starts_with?: runtime.InputJsonValue | Prisma.JsonFieldRefInput<$PrismaModel> | null
-  array_ends_with?: runtime.InputJsonValue | Prisma.JsonFieldRefInput<$PrismaModel> | null
-  array_contains?: runtime.InputJsonValue | Prisma.JsonFieldRefInput<$PrismaModel> | null
-  lt?: runtime.InputJsonValue | Prisma.JsonFieldRefInput<$PrismaModel>
-  lte?: runtime.InputJsonValue | Prisma.JsonFieldRefInput<$PrismaModel>
-  gt?: runtime.InputJsonValue | Prisma.JsonFieldRefInput<$PrismaModel>
-  gte?: runtime.InputJsonValue | Prisma.JsonFieldRefInput<$PrismaModel>
-  not?: runtime.InputJsonValue | Prisma.JsonFieldRefInput<$PrismaModel> | Prisma.JsonNullValueFilter
-  _count?: Prisma.NestedIntNullableFilter<$PrismaModel>
-  _min?: Prisma.NestedJsonNullableFilter<$PrismaModel>
-  _max?: Prisma.NestedJsonNullableFilter<$PrismaModel>
 }
 
 export type EnumBudgetSensitivityNullableWithAggregatesFilter<$PrismaModel = never> = {
@@ -1506,6 +1608,132 @@ export type NestedEnumPoolingScopeWithAggregatesFilter<$PrismaModel = never> = {
   _max?: Prisma.NestedEnumPoolingScopeFilter<$PrismaModel>
 }
 
+export type NestedEnumWalletProviderFilter<$PrismaModel = never> = {
+  equals?: $Enums.WalletProvider | Prisma.EnumWalletProviderFieldRefInput<$PrismaModel>
+  in?: $Enums.WalletProvider[] | Prisma.ListEnumWalletProviderFieldRefInput<$PrismaModel>
+  notIn?: $Enums.WalletProvider[] | Prisma.ListEnumWalletProviderFieldRefInput<$PrismaModel>
+  not?: Prisma.NestedEnumWalletProviderFilter<$PrismaModel> | $Enums.WalletProvider
+}
+
+export type NestedEnumWalletConnectionStatusFilter<$PrismaModel = never> = {
+  equals?: $Enums.WalletConnectionStatus | Prisma.EnumWalletConnectionStatusFieldRefInput<$PrismaModel>
+  in?: $Enums.WalletConnectionStatus[] | Prisma.ListEnumWalletConnectionStatusFieldRefInput<$PrismaModel>
+  notIn?: $Enums.WalletConnectionStatus[] | Prisma.ListEnumWalletConnectionStatusFieldRefInput<$PrismaModel>
+  not?: Prisma.NestedEnumWalletConnectionStatusFilter<$PrismaModel> | $Enums.WalletConnectionStatus
+}
+
+export type NestedEnumWalletProviderWithAggregatesFilter<$PrismaModel = never> = {
+  equals?: $Enums.WalletProvider | Prisma.EnumWalletProviderFieldRefInput<$PrismaModel>
+  in?: $Enums.WalletProvider[] | Prisma.ListEnumWalletProviderFieldRefInput<$PrismaModel>
+  notIn?: $Enums.WalletProvider[] | Prisma.ListEnumWalletProviderFieldRefInput<$PrismaModel>
+  not?: Prisma.NestedEnumWalletProviderWithAggregatesFilter<$PrismaModel> | $Enums.WalletProvider
+  _count?: Prisma.NestedIntFilter<$PrismaModel>
+  _min?: Prisma.NestedEnumWalletProviderFilter<$PrismaModel>
+  _max?: Prisma.NestedEnumWalletProviderFilter<$PrismaModel>
+}
+
+export type NestedEnumWalletConnectionStatusWithAggregatesFilter<$PrismaModel = never> = {
+  equals?: $Enums.WalletConnectionStatus | Prisma.EnumWalletConnectionStatusFieldRefInput<$PrismaModel>
+  in?: $Enums.WalletConnectionStatus[] | Prisma.ListEnumWalletConnectionStatusFieldRefInput<$PrismaModel>
+  notIn?: $Enums.WalletConnectionStatus[] | Prisma.ListEnumWalletConnectionStatusFieldRefInput<$PrismaModel>
+  not?: Prisma.NestedEnumWalletConnectionStatusWithAggregatesFilter<$PrismaModel> | $Enums.WalletConnectionStatus
+  _count?: Prisma.NestedIntFilter<$PrismaModel>
+  _min?: Prisma.NestedEnumWalletConnectionStatusFilter<$PrismaModel>
+  _max?: Prisma.NestedEnumWalletConnectionStatusFilter<$PrismaModel>
+}
+
+export type NestedJsonNullableFilter<$PrismaModel = never> =
+| Prisma.PatchUndefined<
+    Prisma.Either<Required<NestedJsonNullableFilterBase<$PrismaModel>>, Exclude<keyof Required<NestedJsonNullableFilterBase<$PrismaModel>>, 'path'>>,
+    Required<NestedJsonNullableFilterBase<$PrismaModel>>
+  >
+| Prisma.OptionalFlat<Omit<Required<NestedJsonNullableFilterBase<$PrismaModel>>, 'path'>>
+
+export type NestedJsonNullableFilterBase<$PrismaModel = never> = {
+  equals?: runtime.InputJsonValue | Prisma.JsonFieldRefInput<$PrismaModel> | Prisma.JsonNullValueFilter
+  path?: string[]
+  mode?: Prisma.QueryMode | Prisma.EnumQueryModeFieldRefInput<$PrismaModel>
+  string_contains?: string | Prisma.StringFieldRefInput<$PrismaModel>
+  string_starts_with?: string | Prisma.StringFieldRefInput<$PrismaModel>
+  string_ends_with?: string | Prisma.StringFieldRefInput<$PrismaModel>
+  array_starts_with?: runtime.InputJsonValue | Prisma.JsonFieldRefInput<$PrismaModel> | null
+  array_ends_with?: runtime.InputJsonValue | Prisma.JsonFieldRefInput<$PrismaModel> | null
+  array_contains?: runtime.InputJsonValue | Prisma.JsonFieldRefInput<$PrismaModel> | null
+  lt?: runtime.InputJsonValue | Prisma.JsonFieldRefInput<$PrismaModel>
+  lte?: runtime.InputJsonValue | Prisma.JsonFieldRefInput<$PrismaModel>
+  gt?: runtime.InputJsonValue | Prisma.JsonFieldRefInput<$PrismaModel>
+  gte?: runtime.InputJsonValue | Prisma.JsonFieldRefInput<$PrismaModel>
+  not?: runtime.InputJsonValue | Prisma.JsonFieldRefInput<$PrismaModel> | Prisma.JsonNullValueFilter
+}
+
+export type NestedEnumWalletCurrencyTypeFilter<$PrismaModel = never> = {
+  equals?: $Enums.WalletCurrencyType | Prisma.EnumWalletCurrencyTypeFieldRefInput<$PrismaModel>
+  in?: $Enums.WalletCurrencyType[] | Prisma.ListEnumWalletCurrencyTypeFieldRefInput<$PrismaModel>
+  notIn?: $Enums.WalletCurrencyType[] | Prisma.ListEnumWalletCurrencyTypeFieldRefInput<$PrismaModel>
+  not?: Prisma.NestedEnumWalletCurrencyTypeFilter<$PrismaModel> | $Enums.WalletCurrencyType
+}
+
+export type NestedEnumWalletAccountSourceFilter<$PrismaModel = never> = {
+  equals?: $Enums.WalletAccountSource | Prisma.EnumWalletAccountSourceFieldRefInput<$PrismaModel>
+  in?: $Enums.WalletAccountSource[] | Prisma.ListEnumWalletAccountSourceFieldRefInput<$PrismaModel>
+  notIn?: $Enums.WalletAccountSource[] | Prisma.ListEnumWalletAccountSourceFieldRefInput<$PrismaModel>
+  not?: Prisma.NestedEnumWalletAccountSourceFilter<$PrismaModel> | $Enums.WalletAccountSource
+}
+
+export type NestedEnumWalletVisibilityFilter<$PrismaModel = never> = {
+  equals?: $Enums.WalletVisibility | Prisma.EnumWalletVisibilityFieldRefInput<$PrismaModel>
+  in?: $Enums.WalletVisibility[] | Prisma.ListEnumWalletVisibilityFieldRefInput<$PrismaModel>
+  notIn?: $Enums.WalletVisibility[] | Prisma.ListEnumWalletVisibilityFieldRefInput<$PrismaModel>
+  not?: Prisma.NestedEnumWalletVisibilityFilter<$PrismaModel> | $Enums.WalletVisibility
+}
+
+export type NestedEnumWalletCurrencyTypeWithAggregatesFilter<$PrismaModel = never> = {
+  equals?: $Enums.WalletCurrencyType | Prisma.EnumWalletCurrencyTypeFieldRefInput<$PrismaModel>
+  in?: $Enums.WalletCurrencyType[] | Prisma.ListEnumWalletCurrencyTypeFieldRefInput<$PrismaModel>
+  notIn?: $Enums.WalletCurrencyType[] | Prisma.ListEnumWalletCurrencyTypeFieldRefInput<$PrismaModel>
+  not?: Prisma.NestedEnumWalletCurrencyTypeWithAggregatesFilter<$PrismaModel> | $Enums.WalletCurrencyType
+  _count?: Prisma.NestedIntFilter<$PrismaModel>
+  _min?: Prisma.NestedEnumWalletCurrencyTypeFilter<$PrismaModel>
+  _max?: Prisma.NestedEnumWalletCurrencyTypeFilter<$PrismaModel>
+}
+
+export type NestedEnumWalletAccountSourceWithAggregatesFilter<$PrismaModel = never> = {
+  equals?: $Enums.WalletAccountSource | Prisma.EnumWalletAccountSourceFieldRefInput<$PrismaModel>
+  in?: $Enums.WalletAccountSource[] | Prisma.ListEnumWalletAccountSourceFieldRefInput<$PrismaModel>
+  notIn?: $Enums.WalletAccountSource[] | Prisma.ListEnumWalletAccountSourceFieldRefInput<$PrismaModel>
+  not?: Prisma.NestedEnumWalletAccountSourceWithAggregatesFilter<$PrismaModel> | $Enums.WalletAccountSource
+  _count?: Prisma.NestedIntFilter<$PrismaModel>
+  _min?: Prisma.NestedEnumWalletAccountSourceFilter<$PrismaModel>
+  _max?: Prisma.NestedEnumWalletAccountSourceFilter<$PrismaModel>
+}
+
+export type NestedEnumWalletVisibilityWithAggregatesFilter<$PrismaModel = never> = {
+  equals?: $Enums.WalletVisibility | Prisma.EnumWalletVisibilityFieldRefInput<$PrismaModel>
+  in?: $Enums.WalletVisibility[] | Prisma.ListEnumWalletVisibilityFieldRefInput<$PrismaModel>
+  notIn?: $Enums.WalletVisibility[] | Prisma.ListEnumWalletVisibilityFieldRefInput<$PrismaModel>
+  not?: Prisma.NestedEnumWalletVisibilityWithAggregatesFilter<$PrismaModel> | $Enums.WalletVisibility
+  _count?: Prisma.NestedIntFilter<$PrismaModel>
+  _min?: Prisma.NestedEnumWalletVisibilityFilter<$PrismaModel>
+  _max?: Prisma.NestedEnumWalletVisibilityFilter<$PrismaModel>
+}
+
+export type NestedEnumWalletSyncStatusFilter<$PrismaModel = never> = {
+  equals?: $Enums.WalletSyncStatus | Prisma.EnumWalletSyncStatusFieldRefInput<$PrismaModel>
+  in?: $Enums.WalletSyncStatus[] | Prisma.ListEnumWalletSyncStatusFieldRefInput<$PrismaModel>
+  notIn?: $Enums.WalletSyncStatus[] | Prisma.ListEnumWalletSyncStatusFieldRefInput<$PrismaModel>
+  not?: Prisma.NestedEnumWalletSyncStatusFilter<$PrismaModel> | $Enums.WalletSyncStatus
+}
+
+export type NestedEnumWalletSyncStatusWithAggregatesFilter<$PrismaModel = never> = {
+  equals?: $Enums.WalletSyncStatus | Prisma.EnumWalletSyncStatusFieldRefInput<$PrismaModel>
+  in?: $Enums.WalletSyncStatus[] | Prisma.ListEnumWalletSyncStatusFieldRefInput<$PrismaModel>
+  notIn?: $Enums.WalletSyncStatus[] | Prisma.ListEnumWalletSyncStatusFieldRefInput<$PrismaModel>
+  not?: Prisma.NestedEnumWalletSyncStatusWithAggregatesFilter<$PrismaModel> | $Enums.WalletSyncStatus
+  _count?: Prisma.NestedIntFilter<$PrismaModel>
+  _min?: Prisma.NestedEnumWalletSyncStatusFilter<$PrismaModel>
+  _max?: Prisma.NestedEnumWalletSyncStatusFilter<$PrismaModel>
+}
+
 export type NestedEnumCabinPreferenceFilter<$PrismaModel = never> = {
   equals?: $Enums.CabinPreference | Prisma.EnumCabinPreferenceFieldRefInput<$PrismaModel>
   in?: $Enums.CabinPreference[] | Prisma.ListEnumCabinPreferenceFieldRefInput<$PrismaModel>
@@ -1559,30 +1787,6 @@ export type NestedEnumRedemptionStyleWithAggregatesFilter<$PrismaModel = never> 
   _count?: Prisma.NestedIntFilter<$PrismaModel>
   _min?: Prisma.NestedEnumRedemptionStyleFilter<$PrismaModel>
   _max?: Prisma.NestedEnumRedemptionStyleFilter<$PrismaModel>
-}
-
-export type NestedJsonNullableFilter<$PrismaModel = never> =
-| Prisma.PatchUndefined<
-    Prisma.Either<Required<NestedJsonNullableFilterBase<$PrismaModel>>, Exclude<keyof Required<NestedJsonNullableFilterBase<$PrismaModel>>, 'path'>>,
-    Required<NestedJsonNullableFilterBase<$PrismaModel>>
-  >
-| Prisma.OptionalFlat<Omit<Required<NestedJsonNullableFilterBase<$PrismaModel>>, 'path'>>
-
-export type NestedJsonNullableFilterBase<$PrismaModel = never> = {
-  equals?: runtime.InputJsonValue | Prisma.JsonFieldRefInput<$PrismaModel> | Prisma.JsonNullValueFilter
-  path?: string[]
-  mode?: Prisma.QueryMode | Prisma.EnumQueryModeFieldRefInput<$PrismaModel>
-  string_contains?: string | Prisma.StringFieldRefInput<$PrismaModel>
-  string_starts_with?: string | Prisma.StringFieldRefInput<$PrismaModel>
-  string_ends_with?: string | Prisma.StringFieldRefInput<$PrismaModel>
-  array_starts_with?: runtime.InputJsonValue | Prisma.JsonFieldRefInput<$PrismaModel> | null
-  array_ends_with?: runtime.InputJsonValue | Prisma.JsonFieldRefInput<$PrismaModel> | null
-  array_contains?: runtime.InputJsonValue | Prisma.JsonFieldRefInput<$PrismaModel> | null
-  lt?: runtime.InputJsonValue | Prisma.JsonFieldRefInput<$PrismaModel>
-  lte?: runtime.InputJsonValue | Prisma.JsonFieldRefInput<$PrismaModel>
-  gt?: runtime.InputJsonValue | Prisma.JsonFieldRefInput<$PrismaModel>
-  gte?: runtime.InputJsonValue | Prisma.JsonFieldRefInput<$PrismaModel>
-  not?: runtime.InputJsonValue | Prisma.JsonFieldRefInput<$PrismaModel> | Prisma.JsonNullValueFilter
 }
 
 export type NestedEnumBudgetSensitivityNullableWithAggregatesFilter<$PrismaModel = never> = {

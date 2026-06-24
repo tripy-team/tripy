@@ -42,6 +42,9 @@ model User {
   recommendationRuns   RecommendationRun[]
   tripBriefs           TripBrief[]
   tripRequests         TripRequest[]
+  walletAccounts       WalletAccount[]
+  walletConnections    WalletConnection[]
+  walletSyncRuns       WalletSyncRun[]
   organization         Organization              @relation(fields: [organizationId], references: [id])
   vendorRequests       VendorRequest[]
 
@@ -256,6 +259,94 @@ model TransferBonus {
 
   @@index([fromProgramId, toProgramId, endsAt])
   @@map("transfer_bonuses")
+}
+
+model WalletConnection {
+  id                   String                 @id @default(cuid())
+  userId               String                 @map("user_id")
+  provider             WalletProvider
+  providerConnectionId String?                @map("provider_connection_id")
+  displayName          String?                @map("display_name")
+  status               WalletConnectionStatus @default(active)
+  consentScope         Json?                  @map("consent_scope")
+  lastSyncedAt         DateTime?              @map("last_synced_at")
+  lastError            String?                @map("last_error")
+  createdAt            DateTime               @default(now()) @map("created_at")
+  updatedAt            DateTime               @updatedAt @map("updated_at")
+  accounts             WalletAccount[]
+  syncRuns             WalletSyncRun[]
+  user                 User                   @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@index([userId])
+  @@index([provider, providerConnectionId])
+  @@map("wallet_connections")
+}
+
+model WalletAccount {
+  id                     String              @id @default(cuid())
+  connectionId           String?             @map("connection_id")
+  userId                 String              @map("user_id")
+  providerAccountId      String?             @map("provider_account_id")
+  programCode            String              @map("program_code")
+  programName            String              @map("program_name")
+  currencyType           WalletCurrencyType  @map("currency_type")
+  accountMask            String?             @map("account_mask")
+  balance                Int                 @default(0)
+  expirationDate         DateTime?           @map("expiration_date")
+  eliteStatus            String?             @map("elite_status")
+  source                 WalletAccountSource @default(sync)
+  visibility             WalletVisibility    @default(exact)
+  enabledForOptimization Boolean             @default(true) @map("enabled_for_optimization")
+  lastSyncedAt           DateTime?           @map("last_synced_at")
+  lastManualEditAt       DateTime?           @map("last_manual_edit_at")
+  createdAt              DateTime            @default(now()) @map("created_at")
+  updatedAt              DateTime            @updatedAt @map("updated_at")
+  connection             WalletConnection?   @relation(fields: [connectionId], references: [id], onDelete: SetNull)
+  syncEvents             WalletSyncEvent[]
+  user                   User                @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@index([userId])
+  @@index([connectionId])
+  @@index([programCode])
+  @@map("wallet_accounts")
+}
+
+model WalletSyncRun {
+  id              String            @id @default(cuid())
+  connectionId    String?           @map("connection_id")
+  userId          String            @map("user_id")
+  provider        WalletProvider
+  status          WalletSyncStatus  @default(running)
+  startedAt       DateTime          @default(now()) @map("started_at")
+  completedAt     DateTime?         @map("completed_at")
+  accountsUpdated Int               @default(0) @map("accounts_updated")
+  errorCode       String?           @map("error_code")
+  errorMessage    String?           @map("error_message")
+  connection      WalletConnection? @relation(fields: [connectionId], references: [id], onDelete: SetNull)
+  events          WalletSyncEvent[]
+  user            User              @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@index([userId])
+  @@index([connectionId])
+  @@map("wallet_sync_runs")
+}
+
+model WalletSyncEvent {
+  id                     String         @id @default(cuid())
+  walletAccountId        String         @map("wallet_account_id")
+  syncRunId              String?        @map("sync_run_id")
+  previousBalance        Int?           @map("previous_balance")
+  newBalance             Int            @map("new_balance")
+  delta                  Int            @default(0)
+  reason                 String
+  rawProviderPayloadHash String?        @map("raw_provider_payload_hash")
+  createdAt              DateTime       @default(now()) @map("created_at")
+  account                WalletAccount  @relation(fields: [walletAccountId], references: [id], onDelete: Cascade)
+  syncRun                WalletSyncRun? @relation(fields: [syncRunId], references: [id], onDelete: SetNull)
+
+  @@index([walletAccountId])
+  @@index([syncRunId])
+  @@map("wallet_sync_events")
 }
 
 model ClientPreference {
@@ -1108,6 +1199,46 @@ enum BalanceSource {
   manual
   imported
   estimated
+}
+
+enum WalletProvider {
+  manual
+  awardwallet_account_access
+  awardwallet_web_parsing
+  mock
+}
+
+enum WalletConnectionStatus {
+  active
+  sync_required
+  needs_reauth
+  error
+  disconnected
+}
+
+enum WalletSyncStatus {
+  running
+  success
+  failed
+  partial
+}
+
+enum WalletCurrencyType {
+  bank_points
+  airline_miles
+  hotel_points
+}
+
+enum WalletVisibility {
+  exact
+  range_only
+  hidden_but_usable
+}
+
+enum WalletAccountSource {
+  manual
+  sync
+  imported
 }
 
 enum PoolingScope {

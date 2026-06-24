@@ -63,6 +63,10 @@ export const ModelName = {
   ProgramTransferRule: 'ProgramTransferRule',
   ProgramPoolingRule: 'ProgramPoolingRule',
   TransferBonus: 'TransferBonus',
+  WalletConnection: 'WalletConnection',
+  WalletAccount: 'WalletAccount',
+  WalletSyncRun: 'WalletSyncRun',
+  WalletSyncEvent: 'WalletSyncEvent',
   ClientPreference: 'ClientPreference',
   PreferenceChangeLog: 'PreferenceChangeLog',
   TripRequest: 'TripRequest',
@@ -300,6 +304,78 @@ export const TransferBonusScalarFieldEnum = {
 } as const
 
 export type TransferBonusScalarFieldEnum = (typeof TransferBonusScalarFieldEnum)[keyof typeof TransferBonusScalarFieldEnum]
+
+
+export const WalletConnectionScalarFieldEnum = {
+  id: 'id',
+  userId: 'userId',
+  provider: 'provider',
+  providerConnectionId: 'providerConnectionId',
+  displayName: 'displayName',
+  status: 'status',
+  consentScope: 'consentScope',
+  lastSyncedAt: 'lastSyncedAt',
+  lastError: 'lastError',
+  createdAt: 'createdAt',
+  updatedAt: 'updatedAt'
+} as const
+
+export type WalletConnectionScalarFieldEnum = (typeof WalletConnectionScalarFieldEnum)[keyof typeof WalletConnectionScalarFieldEnum]
+
+
+export const WalletAccountScalarFieldEnum = {
+  id: 'id',
+  connectionId: 'connectionId',
+  userId: 'userId',
+  providerAccountId: 'providerAccountId',
+  programCode: 'programCode',
+  programName: 'programName',
+  currencyType: 'currencyType',
+  accountMask: 'accountMask',
+  balance: 'balance',
+  expirationDate: 'expirationDate',
+  eliteStatus: 'eliteStatus',
+  source: 'source',
+  visibility: 'visibility',
+  enabledForOptimization: 'enabledForOptimization',
+  lastSyncedAt: 'lastSyncedAt',
+  lastManualEditAt: 'lastManualEditAt',
+  createdAt: 'createdAt',
+  updatedAt: 'updatedAt'
+} as const
+
+export type WalletAccountScalarFieldEnum = (typeof WalletAccountScalarFieldEnum)[keyof typeof WalletAccountScalarFieldEnum]
+
+
+export const WalletSyncRunScalarFieldEnum = {
+  id: 'id',
+  connectionId: 'connectionId',
+  userId: 'userId',
+  provider: 'provider',
+  status: 'status',
+  startedAt: 'startedAt',
+  completedAt: 'completedAt',
+  accountsUpdated: 'accountsUpdated',
+  errorCode: 'errorCode',
+  errorMessage: 'errorMessage'
+} as const
+
+export type WalletSyncRunScalarFieldEnum = (typeof WalletSyncRunScalarFieldEnum)[keyof typeof WalletSyncRunScalarFieldEnum]
+
+
+export const WalletSyncEventScalarFieldEnum = {
+  id: 'id',
+  walletAccountId: 'walletAccountId',
+  syncRunId: 'syncRunId',
+  previousBalance: 'previousBalance',
+  newBalance: 'newBalance',
+  delta: 'delta',
+  reason: 'reason',
+  rawProviderPayloadHash: 'rawProviderPayloadHash',
+  createdAt: 'createdAt'
+} as const
+
+export type WalletSyncEventScalarFieldEnum = (typeof WalletSyncEventScalarFieldEnum)[keyof typeof WalletSyncEventScalarFieldEnum]
 
 
 export const ClientPreferenceScalarFieldEnum = {

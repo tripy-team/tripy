@@ -2,9 +2,17 @@
 
 import { useState, useEffect, useMemo, useRef } from 'react';
 import { useRouter } from 'next/navigation';
-import { CreditCard, Plus, X, Zap, TrendingUp, ArrowRight, Sparkles, ChevronDown, Plane, AlertTriangle } from 'lucide-react';
+import { CreditCard, Plus, X, Zap, TrendingUp, ArrowRight, Sparkles, ChevronDown, Plane, RefreshCw, ShieldCheck, CheckCircle2 } from 'lucide-react';
 import { users as usersAPI, points as pointsAPI } from '@/lib/api';
 import { ALL_LOYALTY_PROGRAMS, getProgramCategory, isValidProgram } from '@/lib/loyalty-programs';
+import {
+  createManualWalletAccount,
+  createWalletLinkToken,
+  deleteWalletAccount,
+  getWalletAccounts,
+  syncWallet,
+  type WalletAccount,
+} from '@/lib/wallet-client';
 
 interface LoyaltyCard {
   id: string;
@@ -39,6 +47,10 @@ export default function PointsSetup() {
   const [programSearchQuery, setProgramSearchQuery] = useState('');
   const [isLoading, setIsLoading] = useState(true);
   const [valuations, setValuations] = useState<Record<string, number>>({});
+  const [walletAccounts, setWalletAccounts] = useState<WalletAccount[]>([]);
+  const [isSyncingWallet, setIsSyncingWallet] = useState(false);
+  const [walletMessage, setWalletMessage] = useState<string | null>(null);
+  const [walletError, setWalletError] = useState<string | null>(null);
   
   // Use ref for saving state to avoid infinite loop in useEffect
   const isSavingRef = useRef(false);
@@ -92,14 +104,31 @@ export default function PointsSetup() {
     ? cards.reduce((sum, card) => sum + (card.points * ((valuations[card.program] ?? 0) / 100)), 0)
     : null;
 
+  const walletAccountsToCards = (accounts: WalletAccount[]): LoyaltyCard[] =>
+    accounts
+      .filter(account => account.enabledForOptimization)
+      .map(account => ({
+        id: `wallet-${account.id}`,
+        program: account.programName,
+        points: account.balance,
+        category: account.currencyType === 'airline_miles' ? 'airline' : 'credit',
+      }));
+
   // Load user profile on mount
   useEffect(() => {
     const loadUserProfile = async () => {
       try {
         setIsLoading(true);
-        const profile = await usersAPI.getProfile();
+        const [profile, syncedAccounts] = await Promise.all([
+          usersAPI.getProfile(),
+          getWalletAccounts().catch(() => [] as WalletAccount[]),
+        ]);
+
+        setWalletAccounts(syncedAccounts);
         
-        if (profile.credit_cards && profile.credit_cards.length > 0) {
+        if (syncedAccounts.length > 0) {
+          setCards(walletAccountsToCards(syncedAccounts));
+        } else if (profile.credit_cards && profile.credit_cards.length > 0) {
           // Convert backend format to frontend format
           // Determine category from program name
           const loadedCards: LoyaltyCard[] = profile.credit_cards.map(card => {
@@ -126,6 +155,32 @@ export default function PointsSetup() {
 
     loadUserProfile();
   }, []);
+
+  const handleSyncWallet = async () => {
+    try {
+      setIsSyncingWallet(true);
+      setWalletError(null);
+      setWalletMessage(null);
+
+      const linkToken = await createWalletLinkToken('awardwallet_account_access');
+      if (linkToken.mode === 'redirect' && linkToken.linkUrl) {
+        window.location.href = linkToken.linkUrl;
+        return;
+      }
+
+      const result = await syncWallet('mock');
+      const latestAccounts = await getWalletAccounts().catch(() => result.accounts);
+      setWalletAccounts(latestAccounts);
+      setCards(walletAccountsToCards(latestAccounts));
+      setWalletMessage(
+        `Synced ${latestAccounts.length} account${latestAccounts.length === 1 ? '' : 's'} into your points wallet.`,
+      );
+    } catch (err) {
+      setWalletError(err instanceof Error ? err.message : 'Unable to sync points wallet');
+    } finally {
+      setIsSyncingWallet(false);
+    }
+  };
 
   // Save credit cards to user profile when they change
   useEffect(() => {
@@ -162,7 +217,7 @@ export default function PointsSetup() {
     return () => clearTimeout(timeoutId);
   }, [cards, isLoading]);
 
-  const addCard = () => {
+  const addCard = async () => {
     if (newProgram.trim() && newPoints.trim() && isValidProgram(newProgram)) {
       const programInfo = ALL_LOYALTY_PROGRAMS.find(p => p.value === newProgram || p.label === newProgram);
       const programKey = programInfo?.value || newProgram.trim();
@@ -170,18 +225,33 @@ export default function PointsSetup() {
       const rawCategory = programInfo?.category || newCategory;
       // Hotels not supported - treat as credit if encountered
       const category: 'credit' | 'airline' = rawCategory === 'hotel' ? 'credit' : rawCategory;
+      const existingIndex = cards.findIndex(c => c.program === programKey);
+      const nextBalance = existingIndex !== -1 ? cards[existingIndex].points + newBalance : newBalance;
+
+      let savedWalletAccount: WalletAccount | null = null;
+      try {
+        savedWalletAccount = await createManualWalletAccount({
+          programName: programKey,
+          balance: nextBalance,
+        });
+        setWalletAccounts(prev => {
+          const withoutExisting = prev.filter(account => account.id !== savedWalletAccount?.id);
+          return savedWalletAccount ? [...withoutExisting, savedWalletAccount] : prev;
+        });
+      } catch (err) {
+        console.error('Error saving manual wallet account:', err);
+      }
 
       // Same owner check: if the program already exists, merge balances
       // (all cards on this page belong to the same user, so duplicates are same-owner)
-      const existingIndex = cards.findIndex(c => c.program === programKey);
       if (existingIndex !== -1) {
         // Same owner — add balances together
         setCards(prev => prev.map((c, i) =>
-          i === existingIndex ? { ...c, points: c.points + newBalance } : c
+          i === existingIndex ? { ...c, id: savedWalletAccount ? `wallet-${savedWalletAccount.id}` : c.id, points: nextBalance } : c
         ));
       } else {
         const card: LoyaltyCard = {
-          id: `card-${Date.now()}-${Math.random().toString(36).substr(2, 9)}`,
+          id: savedWalletAccount ? `wallet-${savedWalletAccount.id}` : `card-${Date.now()}-${Math.random().toString(36).substr(2, 9)}`,
           program: programKey,
           points: newBalance,
           category,
@@ -197,7 +267,16 @@ export default function PointsSetup() {
     }
   };
 
-  const removeCard = (id: string) => {
+  const removeCard = async (id: string) => {
+    if (id.startsWith('wallet-')) {
+      const walletId = id.replace('wallet-', '');
+      try {
+        await deleteWalletAccount(walletId);
+        setWalletAccounts(prev => prev.filter(account => account.id !== walletId));
+      } catch (err) {
+        console.error('Error deleting wallet account:', err);
+      }
+    }
     setCards(cards.filter(card => card.id !== id));
   };
 
@@ -234,16 +313,49 @@ export default function PointsSetup() {
           </p>
         </div>
 
-        <div className="mb-8 p-4 bg-amber-50 border border-amber-200 rounded-xl flex items-start gap-3">
-          <AlertTriangle className="w-5 h-5 text-amber-600 flex-shrink-0 mt-0.5" />
-          <div>
-            <h3 className="text-sm font-semibold text-amber-900 mb-1">Manual Entry Required</h3>
-            <p className="text-sm text-amber-700 leading-relaxed">
-              Tripy is currently working on a fix to automatically sync loyalty points, but right now you will have to input your points manually. 
-              <br/>
-              Thanks for your patience as we improve your experience!
-            </p>
+        <div className="mb-8 bg-white border border-slate-200 rounded-2xl p-6 shadow-sm">
+          <div className="flex flex-col gap-5 lg:flex-row lg:items-center lg:justify-between">
+            <div className="flex items-start gap-4">
+              <div className="w-12 h-12 rounded-xl bg-blue-50 text-blue-600 flex items-center justify-center">
+                <ShieldCheck className="w-6 h-6" />
+              </div>
+              <div>
+                <h2 className="text-xl font-semibold text-slate-900">Auto-sync your points wallet</h2>
+                <p className="text-sm text-slate-600 mt-1">
+                  Connect rewards accounts, keep balances current, and use them in solo or group trip optimization.
+                </p>
+              </div>
+            </div>
+            <button
+              onClick={handleSyncWallet}
+              disabled={isSyncingWallet}
+              className="inline-flex items-center justify-center gap-2 px-5 py-3 bg-slate-900 text-white rounded-xl hover:bg-slate-800 disabled:opacity-60 disabled:cursor-not-allowed transition-colors"
+            >
+              <RefreshCw className={`w-5 h-5 ${isSyncingWallet ? 'animate-spin' : ''}`} />
+              <span>{isSyncingWallet ? 'Syncing' : 'Sync Points'}</span>
+            </button>
           </div>
+
+          {(walletMessage || walletError) && (
+            <div className={`mt-4 flex items-start gap-2 rounded-xl border px-4 py-3 text-sm ${
+              walletError ? 'bg-red-50 border-red-200 text-red-700' : 'bg-emerald-50 border-emerald-200 text-emerald-700'
+            }`}>
+              <CheckCircle2 className="w-4 h-4 mt-0.5 flex-shrink-0" />
+              <span>{walletError || walletMessage}</span>
+            </div>
+          )}
+
+          {walletAccounts.length > 0 && (
+            <div className="mt-5 grid sm:grid-cols-2 lg:grid-cols-4 gap-3">
+              {walletAccounts.slice(0, 4).map(account => (
+                <div key={account.id} className="rounded-xl border border-slate-200 bg-slate-50 px-4 py-3">
+                  <div className="text-sm font-medium text-slate-900 truncate">{account.programName}</div>
+                  <div className="text-lg font-semibold text-slate-900">{account.balance.toLocaleString()}</div>
+                  <div className="text-xs text-slate-500 capitalize">{account.source}</div>
+                </div>
+              ))}
+            </div>
+          )}
         </div>
 
         <div className="grid lg:grid-cols-3 gap-8">

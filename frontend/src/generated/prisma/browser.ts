@@ -78,6 +78,26 @@ export type ProgramPoolingRule = Prisma.ProgramPoolingRuleModel
  */
 export type TransferBonus = Prisma.TransferBonusModel
 /**
+ * Model WalletConnection
+ * 
+ */
+export type WalletConnection = Prisma.WalletConnectionModel
+/**
+ * Model WalletAccount
+ * 
+ */
+export type WalletAccount = Prisma.WalletAccountModel
+/**
+ * Model WalletSyncRun
+ * 
+ */
+export type WalletSyncRun = Prisma.WalletSyncRunModel
+/**
+ * Model WalletSyncEvent
+ * 
+ */
+export type WalletSyncEvent = Prisma.WalletSyncEventModel
+/**
  * Model ClientPreference
  * 
  */

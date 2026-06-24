@@ -97,6 +97,64 @@ export const BalanceSource = {
 export type BalanceSource = (typeof BalanceSource)[keyof typeof BalanceSource]
 
 
+export const WalletProvider = {
+  manual: 'manual',
+  awardwallet_account_access: 'awardwallet_account_access',
+  awardwallet_web_parsing: 'awardwallet_web_parsing',
+  mock: 'mock'
+} as const
+
+export type WalletProvider = (typeof WalletProvider)[keyof typeof WalletProvider]
+
+
+export const WalletConnectionStatus = {
+  active: 'active',
+  sync_required: 'sync_required',
+  needs_reauth: 'needs_reauth',
+  error: 'error',
+  disconnected: 'disconnected'
+} as const
+
+export type WalletConnectionStatus = (typeof WalletConnectionStatus)[keyof typeof WalletConnectionStatus]
+
+
+export const WalletSyncStatus = {
+  running: 'running',
+  success: 'success',
+  failed: 'failed',
+  partial: 'partial'
+} as const
+
+export type WalletSyncStatus = (typeof WalletSyncStatus)[keyof typeof WalletSyncStatus]
+
+
+export const WalletCurrencyType = {
+  bank_points: 'bank_points',
+  airline_miles: 'airline_miles',
+  hotel_points: 'hotel_points'
+} as const
+
+export type WalletCurrencyType = (typeof WalletCurrencyType)[keyof typeof WalletCurrencyType]
+
+
+export const WalletVisibility = {
+  exact: 'exact',
+  range_only: 'range_only',
+  hidden_but_usable: 'hidden_but_usable'
+} as const
+
+export type WalletVisibility = (typeof WalletVisibility)[keyof typeof WalletVisibility]
+
+
+export const WalletAccountSource = {
+  manual: 'manual',
+  sync: 'sync',
+  imported: 'imported'
+} as const
+
+export type WalletAccountSource = (typeof WalletAccountSource)[keyof typeof WalletAccountSource]
+
+
 export const PoolingScope = {
   none: 'none',
   household_only: 'household_only',
