@@ -3,15 +3,20 @@
 import Link from "next/link";
 import { useState, Suspense } from "react";
 import { useRouter, useSearchParams } from "next/navigation";
-import { Plane, Mail, Lock, User, ArrowRight, Eye, EyeOff, Building2, Check } from "lucide-react";
+import { Plane, Mail, Lock, User, ArrowRight, Eye, EyeOff, Check } from "lucide-react";
 import { signupApi } from "@/lib/api-client";
+
+const PASSWORD_REQUIREMENTS = [
+	{ label: "At least 8 characters", test: (p: string) => p.length >= 8 },
+	{ label: "At least one number", test: (p: string) => /[0-9]/.test(p) },
+	{ label: "At least one lowercase letter", test: (p: string) => /[a-z]/.test(p) },
+];
 
 function RegisterForm() {
 	const router = useRouter();
 	const searchParams = useSearchParams();
 	const redirectPath = searchParams.get('redirect');
 	const [form, setForm] = useState({
-		organizationName: "",
 		firstName: "",
 		lastName: "",
 		email: "",
@@ -33,8 +38,8 @@ function RegisterForm() {
 		else if (!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(form.email))
 			next.email = "Enter a valid email";
 		if (!form.password) next.password = "Password is required";
-		else if (form.password.length < 8)
-			next.password = "Use at least 8 characters";
+		else if (PASSWORD_REQUIREMENTS.some((r) => !r.test(form.password)))
+			next.password = "Password does not meet the requirements below";
 		setErrors(next);
 		return Object.keys(next).length === 0;
 	};
@@ -47,7 +52,7 @@ function RegisterForm() {
 
 		try {
 			const response = await signupApi({
-				organizationName: form.organizationName.trim() || `${form.firstName}'s Practice`,
+				organizationName: `${form.firstName.trim()}'s Practice`,
 				firstName: form.firstName.trim(),
 				lastName: form.lastName.trim(),
 				email: form.email.trim(),
@@ -72,7 +77,7 @@ function RegisterForm() {
 			if (err instanceof Error) {
 				const msg = err.message.toLowerCase();
 				if (msg.includes('already exists')) message = "An account with this email already exists.";
-				else if (msg.includes('password')) message = "Password does not meet requirements.";
+				else if (msg.includes('password')) message = "Password does not meet the requirements: at least 8 characters, one number, and one lowercase letter.";
 				else message = err.message;
 			}
 			setErrors({ general: message });
@@ -145,25 +150,6 @@ function RegisterForm() {
 						</div>
 
 						<div>
-							<label className="block text-sm font-medium text-slate-700 mb-1.5">
-								Company / Practice Name <span className="text-slate-400 font-normal">(optional)</span>
-							</label>
-							<div className="relative">
-								<div className="absolute inset-y-0 left-0 pl-3 flex items-center pointer-events-none">
-									<Building2 className="h-5 w-5 text-slate-400" />
-								</div>
-								<input
-									type="text"
-									name="organizationName"
-									value={form.organizationName}
-									onChange={onChange}
-									className="block w-full pl-10 pr-3 py-2.5 border border-slate-200 rounded-xl text-slate-900 placeholder:text-slate-400 focus:outline-none focus:ring-2 focus:ring-blue-600 focus:border-transparent"
-									placeholder="Elite Points Consulting"
-								/>
-							</div>
-						</div>
-
-						<div>
 							<label className="block text-sm font-medium text-slate-700 mb-1.5">Email Address *</label>
 							<div className="relative">
 								<div className="absolute inset-y-0 left-0 pl-3 flex items-center pointer-events-none">
@@ -210,6 +196,26 @@ function RegisterForm() {
 								</button>
 							</div>
 							{errors.password && <p className="mt-1 text-xs text-red-600">{errors.password}</p>}
+							<ul className="mt-2 space-y-1">
+								{PASSWORD_REQUIREMENTS.map((req) => {
+									const met = req.test(form.password);
+									return (
+										<li
+											key={req.label}
+											className={`flex items-center gap-1.5 text-xs ${
+												met ? "text-green-600" : "text-slate-500"
+											}`}
+										>
+											<Check
+												className={`h-3.5 w-3.5 flex-shrink-0 ${
+													met ? "text-green-600" : "text-slate-300"
+												}`}
+											/>
+											{req.label}
+										</li>
+									);
+								})}
+							</ul>
 						</div>
 
 						<button
