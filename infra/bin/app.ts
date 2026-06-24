@@ -3,6 +3,7 @@ import * as cdk from "aws-cdk-lib";
 import { AuthStack } from "../lib/authStack";
 import { DbStack } from "../lib/dbStack";
 import { RdsStack } from "../lib/rdsStack";
+import { RumStack } from "../lib/rumStack";
 
 // Check if we should use Lambda stack
 const useLambda = process.env.USE_LAMBDA === 'true' || process.argv.includes('--lambda');
@@ -26,6 +27,9 @@ const db = new DbStack(app, "TripyDbStack", { env });
 
 // Aurora Serverless v2 PostgreSQL for the B2B loyalty management system
 new RdsStack(app, "TripyRdsStack", { env });
+
+// CloudWatch RUM: identity pool (guest creds) + app monitor for the web frontend
+new RumStack(app, "TripyRumStack", { env });
 
 new ApiStack(app, "TripyApiStack", {
     env,

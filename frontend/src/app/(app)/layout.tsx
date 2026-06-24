@@ -35,8 +35,12 @@ export default function AppLayout({ children }: { children: React.ReactNode }) {
   const [isChecking, setIsChecking] = useState(true);
 
   useEffect(() => {
+    // Local-dev bypass: skip the login gate entirely so the app is browsable
+    // without signing in. Pairs with DEV_AUTH_BYPASS on the server (lib/auth.ts),
+    // which makes getMe() and all /api routes resolve as a real DB user.
+    const bypass = process.env.NEXT_PUBLIC_DEV_AUTH_BYPASS === 'true';
     const token = localStorage.getItem('tripy_token');
-    if (!token) {
+    if (!token && !bypass) {
       router.replace('/login');
       return;
     }
@@ -44,6 +48,11 @@ export default function AppLayout({ children }: { children: React.ReactNode }) {
     getMe()
       .then(setUser)
       .catch(() => {
+        if (bypass) {
+          // No login to fall back to in dev — just render without a user.
+          setIsChecking(false);
+          return;
+        }
         localStorage.removeItem('tripy_token');
         localStorage.removeItem('tripy_user');
         router.replace('/login');

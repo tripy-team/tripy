@@ -139,7 +139,37 @@ async function findOrCreatePrismaUser(data: CognitoTokenData) {
   });
 }
 
+// ---------------------------------------------------------------------------
+// Local-dev auth bypass
+// ---------------------------------------------------------------------------
+// When DEV_AUTH_BYPASS=true in a `next dev` run, API routes act as a real user
+// from the database without any Cognito token, so the whole app is browsable
+// without logging in. Double-guarded on NODE_ENV so it can NEVER activate in a
+// production build (Next sets NODE_ENV="production" there, making this dead code).
+const DEV_AUTH_BYPASS =
+  process.env.NODE_ENV === "development" && process.env.DEV_AUTH_BYPASS === "true";
+
+async function getDevBypassUser() {
+  const email = process.env.DEV_AUTH_BYPASS_EMAIL;
+  try {
+    const user = email
+      ? await prisma.user.findUnique({ where: { email }, include: { organization: true } })
+      : await prisma.user.findFirst({ include: { organization: true }, orderBy: { createdAt: "asc" } });
+    if (!user) {
+      console.warn(
+        `[auth] DEV_AUTH_BYPASS is on but no matching user was found${email ? ` for "${email}"` : " (database has no users)"}.`,
+      );
+    }
+    return user;
+  } catch (err) {
+    console.error("[auth] DEV_AUTH_BYPASS user lookup failed (is PostgreSQL running and migrated?):", err);
+    return null;
+  }
+}
+
 export async function getAuthUser(request: Request) {
+  if (DEV_AUTH_BYPASS) return getDevBypassUser();
+
   const authHeader = request.headers.get("authorization");
   if (!authHeader?.startsWith("Bearer ")) return null;
 

@@ -4,7 +4,7 @@ import Link from "next/link";
 import { useState, Suspense } from "react";
 import { useRouter, useSearchParams } from "next/navigation";
 import { Plane, Mail, Lock, User, ArrowRight, Eye, EyeOff, Check } from "lucide-react";
-import { signupApi } from "@/lib/api-client";
+import { auth } from "@/lib/api";
 
 const PASSWORD_REQUIREMENTS = [
 	{ label: "At least 8 characters", test: (p: string) => p.length >= 8 },
@@ -51,27 +51,26 @@ function RegisterForm() {
 		setErrors({});
 
 		try {
-			const response = await signupApi({
-				organizationName: `${form.firstName.trim()}'s Practice`,
+			const email = form.email.trim();
+			// Create the Cognito user via the backend. No tokens are issued yet —
+			// the user must verify their email before they can log in. (The Prisma
+			// org/user record is auto-provisioned on first authenticated request.)
+			const response = await auth.signup({
+				email,
+				password: form.password,
 				firstName: form.firstName.trim(),
 				lastName: form.lastName.trim(),
-				email: form.email.trim(),
-				password: form.password,
 			});
 
-			localStorage.setItem('tripy_token', response.token);
-			localStorage.setItem('tripy_user', JSON.stringify(response.user));
+			const redirectQs = redirectPath ? `&redirect=${encodeURIComponent(redirectPath)}` : "";
 
-			// Also store for legacy nav
-			localStorage.setItem('user', JSON.stringify({
-				name: `${response.user.firstName} ${response.user.lastName}`,
-				email: response.user.email,
-				userId: response.user.userId,
-			}));
-			localStorage.setItem('access_token', response.token);
-			window.dispatchEvent(new Event('tripy_auth_change'));
-
-			router.push(redirectPath || "/dashboard");
+			if (response.confirmation_required) {
+				// Cognito emailed a 6-digit code — finish on the confirmation page.
+				router.push(`/auth/confirm-signup?email=${encodeURIComponent(email)}${redirectQs}`);
+			} else {
+				// Auto-confirmed account — send straight to login.
+				router.push(redirectPath ? `/login?redirect=${encodeURIComponent(redirectPath)}` : "/login");
+			}
 		} catch (err) {
 			let message = "Registration failed. Please try again.";
 			if (err instanceof Error) {
