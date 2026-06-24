@@ -96,7 +96,7 @@ export default function AboutPage() {
 								<div className="p-6">
 									<div className="flex justify-between items-start mb-8">
 										<div className="w-12 h-10 bg-yellow-400 rounded-lg"></div>
-										<div className="text-white/60 text-xs">TRIPY</div>
+										<div className="text-white/60 text-xs">TRIPSHACKER</div>
 									</div>
 									<div className="flex gap-3">
 										<div className="w-12 h-8 bg-yellow-400 rounded"></div>
@@ -208,7 +208,7 @@ export default function AboutPage() {
 			{/* Key Features Detail Section */}
 			<div className="py-24 bg-white">
 				<div className="max-w-6xl mx-auto px-8">
-					<h2 className="text-5xl text-center mb-20 text-slate-900 font-bold">Why Choose Tripy?</h2>
+					<h2 className="text-5xl text-center mb-20 text-slate-900 font-bold">Why Choose TripsHacker?</h2>
 					
 					<div className="grid md:grid-cols-2 gap-12">
 						{/* Feature Detail 1 */}

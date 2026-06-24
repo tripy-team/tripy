@@ -169,7 +169,7 @@ export default function AgencySettingsPage() {
                 onChange={(e) => setBranding({ ...branding, hide_tripy: e.target.checked })}
                 className="rounded border-gray-300"
               />
-              <span className="text-gray-700">Hide "Powered by Tripy" on client-facing pages</span>
+              <span className="text-gray-700">Hide "Powered by TripsHacker" on client-facing pages</span>
             </label>
           </div>
         </div>

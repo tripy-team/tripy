@@ -562,7 +562,7 @@ function PaymentPageContent() {
                 <div className="space-y-3 pt-2">
                   <div className="flex items-center justify-between text-sm">
                     <span className="text-slate-600">
-                      Tripy Planning Fee
+                      TripsHacker Planning Fee
                       <span className="ml-1.5 px-2 py-0.5 bg-blue-50 text-blue-700 rounded-full text-xs font-medium">
                         {feeInfo.label}
                       </span>

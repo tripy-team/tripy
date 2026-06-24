@@ -1,5 +1,5 @@
 /**
- * Image Utilities for Tripy
+ * Image Utilities for TripsHacker
  * 
  * Optimized image handling with:
  * - Free stock photo APIs (Unsplash, Pexels)

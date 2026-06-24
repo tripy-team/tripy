@@ -12,10 +12,10 @@ interface FAQItem {
 
 const FAQ_ITEMS: FAQItem[] = [
     {
-        question: 'What is Tripy?',
+        question: 'What is TripsHacker?',
         answer: (
             <>
-                <p>Tripy is a flight decision engine.</p>
+                <p>TripsHacker is a flight decision engine.</p>
                 <p>
                     Instead of showing you dozens of options, we tell you <strong>what flight to book</strong>&mdash;using
                     cash, points, or both&mdash;and explain <strong>why it&apos;s the smartest choice for you</strong>.
@@ -25,10 +25,10 @@ const FAQ_ITEMS: FAQItem[] = [
         ),
     },
     {
-        question: 'How is Tripy different from Google Flights or Skyscanner?',
+        question: 'How is TripsHacker different from Google Flights or Skyscanner?',
         answer: (
             <>
-                <p>Most flight search tools show options. Tripy makes decisions.</p>
+                <p>Most flight search tools show options. TripsHacker makes decisions.</p>
                 <p>We:</p>
                 <ul>
                     <li>Evaluate cash <em>and</em> points together</li>
@@ -36,12 +36,12 @@ const FAQ_ITEMS: FAQItem[] = [
                     <li>Flag risky itineraries</li>
                     <li>Explain why we didn&apos;t pick cheaper or more obvious options</li>
                 </ul>
-                <p>Google Flights is great for discovery. Tripy is for deciding.</p>
+                <p>Google Flights is great for discovery. TripsHacker is for deciding.</p>
             </>
         ),
     },
     {
-        question: 'Do I need to create an account to use Tripy?',
+        question: 'Do I need to create an account to use TripsHacker?',
         answer: (
             <>
                 <p>No.</p>
@@ -69,7 +69,7 @@ const FAQ_ITEMS: FAQItem[] = [
                     <li>Some programs show different results when you&apos;re logged in</li>
                     <li>Transfers are often irreversible</li>
                 </ul>
-                <p>That&apos;s why Tripy:</p>
+                <p>That&apos;s why TripsHacker:</p>
                 <ul>
                     <li>Shows when results were last checked</li>
                     <li>Flags estimated balances</li>
@@ -83,7 +83,7 @@ const FAQ_ITEMS: FAQItem[] = [
         question: 'What does "estimated points" mean?',
         answer: (
             <>
-                <p>If you don&apos;t know your exact balances, Tripy can estimate conservatively.</p>
+                <p>If you don&apos;t know your exact balances, TripsHacker can estimate conservatively.</p>
                 <p>That means:</p>
                 <ul>
                     <li>We assume <em>lower</em> balances</li>
@@ -95,12 +95,12 @@ const FAQ_ITEMS: FAQItem[] = [
         ),
     },
     {
-        question: 'Can Tripy book flights for me?',
+        question: 'Can TripsHacker book flights for me?',
         answer: (
             <>
                 <p>Not yet.</p>
                 <p>
-                    Tripy tells you <strong>exactly what to book and how</strong>, but you complete the booking
+                    TripsHacker tells you <strong>exactly what to book and how</strong>, but you complete the booking
                     directly with the airline or travel provider.
                 </p>
                 <p>This keeps you in control and avoids surprises.</p>
@@ -117,15 +117,15 @@ const FAQ_ITEMS: FAQItem[] = [
                     <li>Save your plan</li>
                     <li>(Soon) get alerts if prices drop or better options appear</li>
                 </ul>
-                <p>Tripy is designed to support you <strong>before and after</strong> the decision.</p>
+                <p>TripsHacker is designed to support you <strong>before and after</strong> the decision.</p>
             </>
         ),
     },
     {
-        question: 'Is Tripy free?',
+        question: 'Is TripsHacker free?',
         answer: (
             <>
-                <p>Tripy currently offers core features for free.</p>
+                <p>TripsHacker currently offers core features for free.</p>
                 <p>
                     We may introduce paid features in the future (like advanced monitoring or premium optimization),
                     but we&apos;ll always be transparent&mdash;and you&apos;ll never be surprised by charges.
@@ -174,7 +174,7 @@ const FAQ_ITEMS: FAQItem[] = [
                 </ul>
                 <p>
                     Fragile itineraries are still bookable, but you should be aware of the added complexity.
-                    Tripy flags these so you can decide if the savings are worth the risk.
+                    TripsHacker flags these so you can decide if the savings are worth the risk.
                 </p>
             </>
         ),
@@ -192,7 +192,7 @@ const FAQ_ITEMS: FAQItem[] = [
                     <li><strong>Connection time below minimum</strong> &mdash; the layover is shorter than the airport&apos;s recommended minimum connection time</li>
                 </ul>
                 <p>
-                    Risky itineraries can still be booked, but Tripy requires you to acknowledge the risks first.
+                    Risky itineraries can still be booked, but TripsHacker requires you to acknowledge the risks first.
                     In Safe mode, these options are hidden entirely.
                 </p>
             </>
@@ -212,7 +212,7 @@ const FAQ_ITEMS: FAQItem[] = [
                     Each ticket is its own trip in the airline&apos;s system. If you miss a connection because your first flight was late,
                     the second airline has no obligation to help&mdash;you may need to buy a new ticket.
                 </p>
-                <p>Tripy always labels which type applies so you know exactly what you&apos;re booking.</p>
+                <p>TripsHacker always labels which type applies so you know exactly what you&apos;re booking.</p>
             </>
         ),
     },
@@ -232,7 +232,7 @@ const FAQ_ITEMS: FAQItem[] = [
                 </ul>
                 <p>
                     This adds significant time and risk compared to a normal connection where bags are checked through.
-                    Tripy warns you whenever self-transfer is required and recommends at least 3 hours of buffer time.
+                    TripsHacker warns you whenever self-transfer is required and recommends at least 3 hours of buffer time.
                 </p>
             </>
         ),
@@ -252,7 +252,7 @@ const FAQ_ITEMS: FAQItem[] = [
                     <li>A connection at Chicago O&apos;Hare (ORD) is notoriously tight and may need 60&ndash;120 minutes</li>
                 </ul>
                 <p>
-                    If your layover is below the MCT, Tripy flags it as risky&mdash;even on a single ticket,
+                    If your layover is below the MCT, TripsHacker flags it as risky&mdash;even on a single ticket,
                     you have a high chance of missing your connection.
                 </p>
             </>
@@ -272,7 +272,7 @@ const FAQ_ITEMS: FAQItem[] = [
                     from your points.
                 </p>
                 <p>
-                    Tripy uses CPP alongside other factors (like risk and convenience) to recommend the best way to pay&mdash;but
+                    TripsHacker uses CPP alongside other factors (like risk and convenience) to recommend the best way to pay&mdash;but
                     a high CPP alone doesn&apos;t make a booking the best choice if it comes with risky connections or complex transfers.
                 </p>
             </>
@@ -292,7 +292,7 @@ const FAQ_ITEMS: FAQItem[] = [
                     <li>Any remaining costs not offset by points</li>
                 </ul>
                 <p>
-                    Tripy&apos;s default optimization minimizes your out-of-pocket cost&mdash;the real money leaving your
+                    TripsHacker&apos;s default optimization minimizes your out-of-pocket cost&mdash;the real money leaving your
                     bank account&mdash;while still getting good value from your points.
                 </p>
             </>
@@ -313,7 +313,7 @@ const FAQ_ITEMS: FAQItem[] = [
                     <li>Some transfers are instant; others can take days</li>
                 </ul>
                 <p>
-                    Tripy maps your credit card points to available transfer partners automatically and only recommends
+                    TripsHacker maps your credit card points to available transfer partners automatically and only recommends
                     transfers when the value justifies the commitment.
                 </p>
             </>
@@ -323,7 +323,7 @@ const FAQ_ITEMS: FAQItem[] = [
         question: 'What are the confidence levels?',
         answer: (
             <>
-                <p>Tripy assigns a <strong>confidence level</strong> to every recommendation to help you understand how safe it is to book:</p>
+                <p>TripsHacker assigns a <strong>confidence level</strong> to every recommendation to help you understand how safe it is to book:</p>
                 <ul>
                     <li>
                         <strong>High confidence</strong> (green) &mdash; Clean booking, low execution risk.

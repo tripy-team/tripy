@@ -73,7 +73,7 @@ export default function IntakeParser({ clientId, orgId, onParsed, onCreateTrip }
       <div className="border-b border-gray-200 px-6 py-4">
         <h3 className="text-lg font-semibold text-gray-900">AI Trip Intake</h3>
         <p className="text-sm text-gray-500">
-          Paste a client request and Tripy will extract structured trip details
+          Paste a client request and TripsHacker will extract structured trip details
         </p>
       </div>
 

@@ -150,7 +150,7 @@ export async function createWalletLinkToken(
     mode: "inline",
     sessionId,
     message:
-      "AwardWallet Web Parsing must be run through a provider-controlled flow. Tripy does not collect or store loyalty program passwords.",
+      "AwardWallet Web Parsing must be run through a provider-controlled flow. TripsHacker does not collect or store loyalty program passwords.",
   };
 }
 

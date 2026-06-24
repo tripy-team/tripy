@@ -199,7 +199,7 @@ export default function MeetingInvitePage() {
         </div>
 
         <p className="mt-6 text-center text-xs text-slate-400">
-          © {new Date().getFullYear()} Tripy. Better travel starts here.
+          © {new Date().getFullYear()} TripsHacker. Better travel starts here.
         </p>
       </div>
     </div>

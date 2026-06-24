@@ -29,7 +29,7 @@ export function TripyLogo({
       </div>
       {showText && (
         <span className="text-xl font-bold bg-clip-text text-transparent bg-gradient-to-r from-slate-900 to-slate-700">
-          Tripy
+          TripsHacker
         </span>
       )}
     </div>

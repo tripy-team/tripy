@@ -128,7 +128,7 @@ export function ServiceFeePayment({
           </div>
           {valueMultiplier > 1 && (
             <p className="text-sm text-emerald-600">
-              Tripy found you {valueMultiplier}x more value than the service fee.
+              TripsHacker found you {valueMultiplier}x more value than the service fee.
             </p>
           )}
         </div>

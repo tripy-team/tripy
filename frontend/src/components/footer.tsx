@@ -19,7 +19,7 @@ export default function Footer() {
 							<div className="flex h-10 w-10 flex-shrink-0 items-center justify-center rounded-xl bg-blue-600 shadow-lg shadow-blue-600/20">
 								<Plane className="h-5 w-5 text-white" />
 							</div>
-							<span className="text-xl font-bold">Tripy</span>
+							<span className="text-xl font-bold">TripsHacker</span>
 						</div>
 					<p className="text-sm leading-relaxed text-slate-400">
 						The loyalty strategy copilot for travel advisors.
@@ -62,7 +62,7 @@ export default function Footer() {
 							</li>
 							<li>
 								<Link href="/about" className="transition hover:text-white">
-									About Tripy
+									About TripsHacker
 								</Link>
 							</li>
 							<li>
@@ -96,7 +96,7 @@ export default function Footer() {
 
 				{/* Bottom bar */}
 				<div className="mt-10 border-t border-slate-800 pt-8 text-center text-sm text-slate-400">
-					<p>&copy; {new Date().getFullYear()} Tripy. All rights reserved.</p>
+					<p>&copy; {new Date().getFullYear()} TripsHacker. All rights reserved.</p>
 				</div>
 			</div>
 		</footer>

@@ -156,7 +156,7 @@ function GroupSettlementContent() {
               <h3 className="font-semibold text-slate-900 mb-2">How Settlement Works</h3>
               <p className="text-sm text-slate-600">
                 Each person pays for their own travelers. Points used are valued at market rate and count as contributions.
-                Tripy calculates who owes whom and shows the exact reimbursement amounts needed to settle up.
+                TripsHacker calculates who owes whom and shows the exact reimbursement amounts needed to settle up.
               </p>
             </div>
           </div>

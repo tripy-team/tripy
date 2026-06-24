@@ -18,7 +18,7 @@ export default function PricingPage() {
                     </div>
                     <h1 className="text-5xl font-bold text-slate-900 mb-4">Free While We Build</h1>
                     <p className="text-xl text-slate-600 max-w-2xl mx-auto">
-                        Tripy is free to use during our beta. No credit card required. No hidden fees.
+                        TripsHacker is free to use during our beta. No credit card required. No hidden fees.
                     </p>
                 </div>
 

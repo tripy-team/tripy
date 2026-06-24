@@ -19,7 +19,7 @@ const FAQ_ITEMS = [
   {
     question: 'How does the discovery meeting feature work?',
     answer:
-      'From any client page, open a discovery meeting to run a structured intake session. Tripy listens as you capture preferences and automatically surfaces follow-up questions based on what\'s been covered. At the end of the meeting you can commit the suggestions to the client\'s permanent profile.',
+      'From any client page, open a discovery meeting to run a structured intake session. TripsHacker listens as you capture preferences and automatically surfaces follow-up questions based on what\'s been covered. At the end of the meeting you can commit the suggestions to the client\'s permanent profile.',
   },
   {
     question: 'What is the difference between committed preferences and meeting suggestions?',
@@ -29,12 +29,12 @@ const FAQ_ITEMS = [
   {
     question: 'How do I generate a trip recommendation for a client?',
     answer:
-      'Once a client has a complete or near-complete preference profile, open a trip request and use the recommendation engine. Tripy will factor in the client\'s loyalty programs, cabin preferences, budget sensitivity, and any hard constraints to surface the most relevant options.',
+      'Once a client has a complete or near-complete preference profile, open a trip request and use the recommendation engine. TripsHacker will factor in the client\'s loyalty programs, cabin preferences, budget sensitivity, and any hard constraints to surface the most relevant options.',
   },
   {
     question: 'What are transfer bonuses and how do I use them?',
     answer:
-      'Transfer bonuses are promotional multipliers from credit card programs to airline or hotel loyalty partners (e.g. Chase UR → United at 30% bonus). You can log active bonuses in the Workspace section of your Profile. Tripy uses them when evaluating points transfer strategies for clients.',
+      'Transfer bonuses are promotional multipliers from credit card programs to airline or hotel loyalty partners (e.g. Chase UR → United at 30% bonus). You can log active bonuses in the Workspace section of your Profile. TripsHacker uses them when evaluating points transfer strategies for clients.',
   },
   {
     question: 'How do I invite team members to my organization?',
@@ -49,7 +49,7 @@ const FAQ_ITEMS = [
   {
     question: 'How is client data stored and kept secure?',
     answer:
-      'All client data is encrypted at rest and in transit. Tripy is designed as a multi-tenant platform with strict data boundaries between organizations. No client data is shared across agencies. You can contact us at any time if you have compliance or security questions.',
+      'All client data is encrypted at rest and in transit. TripsHacker is designed as a multi-tenant platform with strict data boundaries between organizations. No client data is shared across agencies. You can contact us at any time if you have compliance or security questions.',
   },
 ];
 

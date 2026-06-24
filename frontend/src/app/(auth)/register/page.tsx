@@ -94,7 +94,7 @@ function RegisterForm() {
 						<div className="w-10 h-10 bg-blue-600 rounded-xl flex items-center justify-center shadow-lg shadow-blue-600/20">
 							<Plane className="w-5 h-5 text-white" fill="currentColor" />
 						</div>
-						<span className="text-xl font-bold text-slate-900">Tripy</span>
+						<span className="text-xl font-bold text-slate-900">TripsHacker</span>
 					</div>
 
 					<div className="mb-8">
@@ -287,7 +287,7 @@ function RegisterFormFallback() {
 						<div className="w-10 h-10 bg-blue-600 rounded-xl flex items-center justify-center shadow-lg shadow-blue-600/20">
 							<Plane className="w-5 h-5 text-white" fill="currentColor" />
 						</div>
-						<span className="text-xl font-bold text-slate-900">Tripy</span>
+						<span className="text-xl font-bold text-slate-900">TripsHacker</span>
 					</div>
 					<div className="mb-8">
 						<h1 className="text-3xl font-bold text-slate-900 mb-3">Create your workspace</h1>

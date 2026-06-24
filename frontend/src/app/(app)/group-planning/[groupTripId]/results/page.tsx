@@ -344,7 +344,7 @@ function SettlementSummarySection({ settlements }: { settlements: SettlementSumm
       </div>
       <p className="text-sm text-slate-500 mb-5">
         Total trip cost: <span className="font-semibold text-slate-900">{formatCurrency(totalTripCost)}</span>.
-        Tripy values your points based on the booking they covered.
+        TripsHacker values your points based on the booking they covered.
       </p>
 
       <div className="space-y-3">
@@ -751,7 +751,7 @@ export default function GroupPlanningResults() {
                   <p className="text-sm font-medium text-slate-800 mb-1">How does the split work?</p>
                   <p className="text-sm text-slate-600 leading-relaxed">
                     Each person&rsquo;s share is based on the actual bookings assigned to them. If you used more points,
-                    your cash share went down. Tripy values your points based on the booking they covered &mdash;
+                    your cash share went down. TripsHacker values your points based on the booking they covered &mdash;
                     so everyone pays their fair share, whether in points or cash.
                   </p>
                 </div>

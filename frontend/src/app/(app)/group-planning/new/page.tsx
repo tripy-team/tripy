@@ -535,7 +535,7 @@ export default function NewGroupTripPage() {
             Plan a Group Trip
           </h1>
           <p className="text-slate-500 mt-1">
-            Add travelers, their points, and shared destinations — Tripy optimizes for the whole group.
+            Add travelers, their points, and shared destinations — TripsHacker optimizes for the whole group.
           </p>
         </div>
 
@@ -1173,7 +1173,7 @@ export default function NewGroupTripPage() {
               )}
 
               <p className="text-xs text-slate-500 text-center">
-                Tripy finds the best flights and split for your group, using everyone&apos;s points to save cash.
+                TripsHacker finds the best flights and split for your group, using everyone&apos;s points to save cash.
               </p>
             </div>
           </div>

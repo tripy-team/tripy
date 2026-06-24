@@ -100,7 +100,7 @@ export default function AnalyticsPage() {
       <div className="mb-8 flex items-center justify-between">
         <div>
           <h1 className="text-2xl font-bold text-gray-900">ROI Dashboard</h1>
-          <p className="text-sm text-gray-500">Track the value Tripy delivers to your practice</p>
+          <p className="text-sm text-gray-500">Track the value TripsHacker delivers to your practice</p>
         </div>
         <div className="flex items-center gap-3">
           <select

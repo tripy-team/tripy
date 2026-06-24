@@ -142,7 +142,7 @@ export default function PointTransfersLearnPage() {
                                 </div>
                                 <div>
                                     <h3 className="font-bold text-slate-900">Transfer to Airline Partner</h3>
-                                    <p className="text-xs text-blue-600 uppercase tracking-wider font-semibold">Recommended by Tripy</p>
+                                    <p className="text-xs text-blue-600 uppercase tracking-wider font-semibold">Recommended by TripsHacker</p>
                                 </div>
                             </div>
                             <ul className="space-y-3 text-sm text-slate-700">
@@ -244,7 +244,7 @@ export default function PointTransfersLearnPage() {
                                 <h3 className="font-semibold text-slate-900">Wait for the transfer to complete</h3>
                                 <p className="text-sm text-slate-600 mt-1">
                                     Most transfers are instant or take a few minutes. Some can take 1&ndash;3 business days (Amex to some partners, for example).
-                                    Tripy shows estimated transfer times for each bank/airline pair.
+                                    TripsHacker shows estimated transfer times for each bank/airline pair.
                                 </p>
                             </div>
                         </div>
@@ -366,7 +366,7 @@ export default function PointTransfersLearnPage() {
                 <div className="text-center p-8 bg-gradient-to-br from-blue-50 to-indigo-50 rounded-2xl border border-blue-100">
                     <h3 className="text-lg font-bold text-slate-900 mb-2">Ready to maximize your points?</h3>
                     <p className="text-slate-600 mb-6 max-w-md mx-auto">
-                        Tripy automatically finds the best transfer routes for your cards and tells you exactly how many points to move and where.
+                        TripsHacker automatically finds the best transfer routes for your cards and tells you exactly how many points to move and where.
                     </p>
                     <button
                         onClick={() => router.push('/solo/setup')}

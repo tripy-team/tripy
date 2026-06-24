@@ -2612,7 +2612,7 @@ export default function ClientDetailPage() {
                       className="w-full resize-none rounded-lg border border-slate-200 px-3 py-2 text-sm focus:border-transparent focus:outline-none focus:ring-2 focus:ring-blue-600"
                     />
                     <p className="mt-1.5 text-[11px] text-slate-500">
-                      This context guides which questions Tripy suggests and what it extracts into the client&apos;s preference profile.
+                      This context guides which questions TripsHacker suggests and what it extracts into the client&apos;s preference profile.
                     </p>
                   </div>
                 </div>

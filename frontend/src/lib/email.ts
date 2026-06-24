@@ -1,5 +1,5 @@
 /**
- * Email utility for Tripy — sends via AWS SES.
+ * Email utility for TripsHacker — sends via AWS SES.
  * Falls back to console logging when SES is not configured.
  */
 
@@ -83,7 +83,7 @@ export async function sendFormInvitation(params: {
 <head><meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1.0"></head>
 <body style="font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',Roboto,'Helvetica Neue',Arial,sans-serif;line-height:1.6;color:#334155;max-width:600px;margin:0 auto;padding:20px;">
   <div style="background:linear-gradient(135deg,#3B82F6 0%,#1D4ED8 100%);padding:30px;border-radius:16px 16px 0 0;text-align:center;">
-    <h1 style="color:white;margin:0;font-size:24px;">Tripy</h1>
+    <h1 style="color:white;margin:0;font-size:24px;">TripsHacker</h1>
   </div>
   <div style="background:white;padding:30px;border:1px solid #E2E8F0;border-top:none;border-radius:0 0 16px 16px;">
     <p style="margin-top:0;">${greeting}</p>
@@ -95,7 +95,7 @@ export async function sendFormInvitation(params: {
     <p style="color:#64748B;font-size:13px;">This link expires on ${expiry}. If you have questions, reply to this email or contact your advisor directly.</p>
   </div>
   <div style="text-align:center;padding:20px;color:#94A3B8;font-size:12px;">
-    <p>© ${new Date().getFullYear()} Tripy. Better travel starts here.</p>
+    <p>© ${new Date().getFullYear()} TripsHacker. Better travel starts here.</p>
   </div>
 </body>
 </html>`;
@@ -108,7 +108,7 @@ Complete your form here: ${formLink}
 
 This link expires on ${expiry}.
 
-© ${new Date().getFullYear()} Tripy`;
+© ${new Date().getFullYear()} TripsHacker`;
 
   await sendRawEmail({
     to: recipientEmail,
@@ -134,7 +134,7 @@ export async function sendFormCompletionNotification(params: {
 <head><meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1.0"></head>
 <body style="font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',Roboto,'Helvetica Neue',Arial,sans-serif;line-height:1.6;color:#334155;max-width:600px;margin:0 auto;padding:20px;">
   <div style="background:linear-gradient(135deg,#10B981 0%,#059669 100%);padding:30px;border-radius:16px 16px 0 0;text-align:center;">
-    <h1 style="color:white;margin:0;font-size:24px;">Tripy</h1>
+    <h1 style="color:white;margin:0;font-size:24px;">TripsHacker</h1>
   </div>
   <div style="background:white;padding:30px;border:1px solid #E2E8F0;border-top:none;border-radius:0 0 16px 16px;">
     <p style="margin-top:0;">Hi ${advisorName},</p>
@@ -147,7 +147,7 @@ export async function sendFormCompletionNotification(params: {
     </div>
   </div>
   <div style="text-align:center;padding:20px;color:#94A3B8;font-size:12px;">
-    <p>© ${new Date().getFullYear()} Tripy. Better travel starts here.</p>
+    <p>© ${new Date().getFullYear()} TripsHacker. Better travel starts here.</p>
   </div>
 </body>
 </html>`;
@@ -160,7 +160,7 @@ Their responses have been automatically added to their preference profile.
 
 View the client profile: ${clientUrl}
 
-© ${new Date().getFullYear()} Tripy`;
+© ${new Date().getFullYear()} TripsHacker`;
 
   await sendRawEmail({
     to: advisorEmail,
@@ -200,7 +200,7 @@ export async function sendFormSubmissionConfirmation(params: {
 <head><meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1.0"></head>
 <body style="font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',Roboto,'Helvetica Neue',Arial,sans-serif;line-height:1.6;color:#334155;max-width:600px;margin:0 auto;padding:20px;">
   <div style="background:linear-gradient(135deg,#3B82F6 0%,#1D4ED8 100%);padding:30px;border-radius:16px 16px 0 0;text-align:center;">
-    <h1 style="color:white;margin:0;font-size:24px;">Tripy</h1>
+    <h1 style="color:white;margin:0;font-size:24px;">TripsHacker</h1>
   </div>
   <div style="background:white;padding:30px;border:1px solid #E2E8F0;border-top:none;border-radius:0 0 16px 16px;">
     <p style="margin-top:0;">${greeting}</p>
@@ -212,7 +212,7 @@ export async function sendFormSubmissionConfirmation(params: {
     <p style="color:#64748B;font-size:13px;margin-top:24px;">If anything looks incorrect or you'd like to update your preferences, reach out to your advisor directly.</p>
   </div>
   <div style="text-align:center;padding:20px;color:#94A3B8;font-size:12px;">
-    <p>© ${new Date().getFullYear()} Tripy. Better travel starts here.</p>
+    <p>© ${new Date().getFullYear()} TripsHacker. Better travel starts here.</p>
   </div>
 </body>
 </html>`;
@@ -226,7 +226,7 @@ ${answersText}
 
 If anything looks incorrect, reach out to your advisor directly.
 
-© ${new Date().getFullYear()} Tripy`;
+© ${new Date().getFullYear()} TripsHacker`;
 
   await sendRawEmail({
     to: recipientEmail,
@@ -270,7 +270,7 @@ export async function sendMeetingInvitation(params: {
 <head><meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1.0"></head>
 <body style="font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',Roboto,'Helvetica Neue',Arial,sans-serif;line-height:1.6;color:#334155;max-width:600px;margin:0 auto;padding:20px;">
   <div style="background:linear-gradient(135deg,#3B82F6 0%,#1D4ED8 100%);padding:30px;border-radius:16px 16px 0 0;text-align:center;">
-    <h1 style="color:white;margin:0;font-size:24px;">Tripy</h1>
+    <h1 style="color:white;margin:0;font-size:24px;">TripsHacker</h1>
   </div>
   <div style="background:white;padding:30px;border:1px solid #E2E8F0;border-top:none;border-radius:0 0 16px 16px;">
     <p style="margin-top:0;">${greeting}</p>
@@ -282,7 +282,7 @@ export async function sendMeetingInvitation(params: {
     <p style="color:#64748B;font-size:13px;">Click the link above when it's time to join. You'll be able to turn on your camera and microphone from the next screen. This link expires on ${expiry}.</p>
   </div>
   <div style="text-align:center;padding:20px;color:#94A3B8;font-size:12px;">
-    <p>© ${new Date().getFullYear()} Tripy. Better travel starts here.</p>
+    <p>© ${new Date().getFullYear()} TripsHacker. Better travel starts here.</p>
   </div>
 </body>
 </html>`;
@@ -295,7 +295,7 @@ Join the call here: ${meetingLink}
 
 This link expires on ${expiry}.
 
-© ${new Date().getFullYear()} Tripy`;
+© ${new Date().getFullYear()} TripsHacker`;
 
   await sendRawEmail({
     to: recipientEmail,

@@ -1,11 +1,11 @@
 /**
- * API Client for Tripy Backend
+ * API Client for TripsHacker Backend
  * 
  * This client handles communication with the backend FastAPI server.
  * In development, set NEXT_PUBLIC_BACKEND_URL in your .env.local file (e.g., http://localhost:8000)
  * 
  * FLIGHT-ONLY MODE:
- * Tripy is a flight-only points optimizer. Hotel/lodging features are disabled.
+ * TripsHacker is a flight-only points optimizer. Hotel/lodging features are disabled.
  * See docs/GROUP_TRIP_WORKFLOW.md for product scope.
  */
 
@@ -431,7 +431,7 @@ export type PoolingScope = 'individual_only' | 'household_only' | 'full_group' |
  * - invited: Invite sent; not yet accepted
  * - joined_no_wallet: Joined trip but has not linked wallets/balances
  * - wallet_connected: Balances provided; not yet approved for planning
- * - approved_for_planning: OK for Tripy to use in optimized plan
+ * - approved_for_planning: OK for TripsHacker to use in optimized plan
  * - approved_for_booking: Approved allocation; ready for checklist
  * - inactive: Dropped or paused; exclude from optimization
  */
@@ -1283,7 +1283,7 @@ export const settlementConfig = {
         valuation: {
           mode: 'market_implied',
           mode_name: 'Market Value',
-          mode_short: 'Use Tripy\'s market-based valuations',
+          mode_short: 'Use TripsHacker\'s market-based valuations',
           mode_description: 'Points are valued at their fair market rate.',
           fixed_rates_cpp: {},
           min_cpp: 0.5,
@@ -1300,7 +1300,7 @@ export const settlementConfig = {
           { value: 'custom', name: 'Custom Split', short: 'Manually specify each person\'s share', description: '' },
         ],
         available_valuation_modes: [
-          { value: 'market_implied', name: 'Market Value', short: 'Use Tripy\'s market-based valuations', description: '' },
+          { value: 'market_implied', name: 'Market Value', short: 'Use TripsHacker\'s market-based valuations', description: '' },
           { value: 'fixed_by_currency', name: 'Fixed Rate', short: 'Use a fixed cents-per-point rate', description: '' },
           { value: 'user_defined', name: 'Custom Rates', short: 'Set your own per-program valuations', description: '' },
         ],
@@ -2066,7 +2066,7 @@ export const itineraries = {
 };
 
 /**
- * @deprecated Hotel features are disabled. Tripy operates in flight-only mode.
+ * @deprecated Hotel features are disabled. TripsHacker operates in flight-only mode.
  */
 export interface HotelSearchResult {
   hotel_id: string;
@@ -2081,7 +2081,7 @@ export interface HotelSearchResult {
 }
 
 /**
- * @deprecated Hotel features are disabled. Tripy operates in flight-only mode.
+ * @deprecated Hotel features are disabled. TripsHacker operates in flight-only mode.
  */
 export interface HotelSearchParams {
   destination: string;
@@ -2094,19 +2094,19 @@ export interface HotelSearchParams {
 
 /**
  * FLIGHT-ONLY MODE: Hotel features are disabled.
- * Tripy is a flight-only points optimizer. Lodging is out of scope.
+ * TripsHacker is a flight-only points optimizer. Lodging is out of scope.
  * 
- * @deprecated Hotel search is disabled. Tripy operates in flight-only mode.
+ * @deprecated Hotel search is disabled. TripsHacker operates in flight-only mode.
  */
 export const hotels = {
   /**
-   * @deprecated Hotel search is disabled. Tripy operates in flight-only mode.
+   * @deprecated Hotel search is disabled. TripsHacker operates in flight-only mode.
    * This function will throw an error indicating hotel features are unavailable.
    */
   search: async (_params: HotelSearchParams): Promise<{ hotels: HotelSearchResult[] }> => {
     // Flight-only mode: hotel features are disabled
     throw new Error(
-      'Tripy is a flight-only optimizer. Hotel/lodging features are not available. ' +
+      'TripsHacker is a flight-only optimizer. Hotel/lodging features are not available. ' +
       'See docs/GROUP_TRIP_WORKFLOW.md for product scope.'
     );
   },
@@ -2352,7 +2352,7 @@ export const upsertPoints = points.upsert;
 export const getPointsSummary = points.summary;
 export const generateItinerary = itineraries.generate;
 export const getItinerary = itineraries.get;
-/** @deprecated Hotel features are disabled. Tripy operates in flight-only mode. */
+/** @deprecated Hotel features are disabled. TripsHacker operates in flight-only mode. */
 export const searchHotels = hotels.search;
 export const searchCities = cities.search;
 
@@ -3239,7 +3239,7 @@ export const solo = {
     if (process.env.NODE_ENV !== 'production') {
       const raw = response as Record<string, unknown>;
       if ('policy_evaluation' in raw && 'policyEvaluation' in raw) {
-        console.error('[Tripy] Mixed casing detected in /solo/optimize response', raw);
+        console.error('[TripsHacker] Mixed casing detected in /solo/optimize response', raw);
       }
     }
     return toCamelCase<SoloOptimizeResponse>(response);

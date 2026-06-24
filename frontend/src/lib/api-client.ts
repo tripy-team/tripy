@@ -1,4 +1,4 @@
-// Tripy B2B API Client
+// TripsHacker B2B API Client
 // Typed fetch wrapper for all backend endpoints
 
 // ---------------------------------------------------------------------------

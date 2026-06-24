@@ -180,7 +180,7 @@ function UpdatePageContent() {
             onClick={() => router.push('/')}
             className="px-6 py-3 bg-blue-600 hover:bg-blue-700 text-white font-semibold rounded-xl transition-colors"
           >
-            Go to Tripy
+            Go to TripsHacker
           </button>
         </div>
       </div>
@@ -328,7 +328,7 @@ function UpdatePageContent() {
 
         {/* Provenance footer */}
         <p className="text-center text-xs text-slate-400">
-          This alert was sent because you signed up for trip monitoring on Tripy.
+          This alert was sent because you signed up for trip monitoring on TripsHacker.
         </p>
       </div>
     </div>

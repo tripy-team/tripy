@@ -16,7 +16,7 @@ export default function AuthLayout({
 	// Desktop CTAs
 	const desktopCreate = (
 		<>
-			New to Tripy?{" "}
+			New to TripsHacker?{" "}
 			<Link
 				href="/register"
 				className="ml-1 font-semibold text-blue-600 hover:text-blue-700 hover:underline"

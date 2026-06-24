@@ -14,7 +14,7 @@ export default function PrivacyPage() {
 
                 <div className="space-y-12 text-slate-700 leading-relaxed">
                     <p className="text-lg text-slate-600">
-                        Tripy respects your privacy. This policy explains what we collect, why we collect it,
+                        TripsHacker respects your privacy. This policy explains what we collect, why we collect it,
                         and how we protect it.
                     </p>
 
@@ -67,7 +67,7 @@ export default function PrivacyPage() {
                     {/* Anonymous usage */}
                     <section>
                         <h2 className="text-2xl font-semibold text-slate-900 mb-6">Anonymous usage</h2>
-                        <p className="mb-3">You can use Tripy without an account.</p>
+                        <p className="mb-3">You can use TripsHacker without an account.</p>
                         <p className="mb-3">When you do:</p>
                         <ul className="list-disc pl-6 space-y-2 mb-4">
                             <li>We create an anonymous session ID stored in your browser</li>
@@ -86,7 +86,7 @@ export default function PrivacyPage() {
                             <li>Infrastructure providers (hosting, email delivery)</li>
                             <li>Analytics tools (to understand product usage)</li>
                         </ul>
-                        <p>All providers are required to protect your data and use it only to support Tripy.</p>
+                        <p>All providers are required to protect your data and use it only to support TripsHacker.</p>
                     </section>
 
                     {/* Cookies */}
@@ -114,7 +114,7 @@ export default function PrivacyPage() {
                         <h2 className="text-2xl font-semibold text-slate-900 mb-6">Your choices</h2>
                         <p className="mb-3">You can:</p>
                         <ul className="list-disc pl-6 space-y-2 mb-4">
-                            <li>Use Tripy without signing in</li>
+                            <li>Use TripsHacker without signing in</li>
                             <li>Update or remove saved trips</li>
                             <li>Request deletion of your account data</li>
                         </ul>

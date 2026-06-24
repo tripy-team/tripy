@@ -1,5 +1,5 @@
 // Preference Confidence Engine
-// Scores how well Tripy understands a client's needs for a trip request.
+// Scores how well TripsHacker understands a client's needs for a trip request.
 // Each dimension contributes up to 10 points for a max score of 100.
 
 export type ConfidenceLevel = 'low' | 'medium' | 'high';

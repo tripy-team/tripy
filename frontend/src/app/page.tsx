@@ -70,7 +70,7 @@ const HOW_IT_WORKS = [
         number: '01',
         title: 'Sync Your Points Wallet',
         description:
-            'Connect or manually add Chase, Amex, Capital One, Bilt, airline, and hotel balances. Tripy keeps your optimization inputs current.',
+            'Connect or manually add Chase, Amex, Capital One, Bilt, airline, and hotel balances. TripsHacker keeps your optimization inputs current.',
     },
     {
         number: '02',
@@ -213,7 +213,7 @@ export default function LandingPage() {
                     </h1>
 
                     <p className="mx-auto mb-10 max-w-2xl text-lg leading-relaxed text-slate-600 sm:text-xl">
-                        Tripy collects everyone&apos;s constraints, syncs your rewards
+                        TripsHacker collects everyone&apos;s constraints, syncs your rewards
                         balances, and ranks trip options by cash cost, points value,
                         transfers, comfort, and fairness.
                     </p>
@@ -276,7 +276,7 @@ export default function LandingPage() {
                             </h3>
                             <p className="leading-relaxed text-slate-600">
                                 Sync or manually add Chase, Amex, Citi, Bilt, airline,
-                                and hotel balances in one place. Tripy uses them
+                                and hotel balances in one place. TripsHacker uses them
                                 automatically when you plan.
                             </p>
                         </div>
@@ -312,14 +312,14 @@ export default function LandingPage() {
                 </div>
             </section>
 
-            {/* What is Tripy */}
+            {/* What is TripsHacker */}
             <section className="py-24 pt-0">
                 <div className="mx-auto max-w-4xl px-6 text-center">
                     <h2 className="mb-4 text-4xl font-bold text-slate-900">
-                        What is Tripy?
+                        What is TripsHacker?
                     </h2>
                     <p className="mx-auto max-w-3xl text-lg leading-relaxed text-slate-600">
-                        Tripy is a <strong>consumer travel planning app</strong> for
+                        TripsHacker is a <strong>consumer travel planning app</strong> for
                         people coordinating trips with friends, family, and points.
                         It analyzes group constraints, transfer routes, bonus
                         opportunities, and rewards balances to recommend the smartest
@@ -336,7 +336,7 @@ export default function LandingPage() {
                             Everything you need to turn preferences into a trip
                         </h2>
                         <p className="text-lg text-slate-600">
-                            From points syncing to tradeoff explanations, Tripy handles
+                            From points syncing to tradeoff explanations, TripsHacker handles
                             the hard parts of group planning and rewards optimization.
                         </p>
                     </div>
@@ -468,7 +468,7 @@ export default function LandingPage() {
 
                         <div className="rounded-2xl border border-slate-200 bg-slate-50 p-8">
                             <h3 className="mb-5 text-lg font-semibold text-slate-900">
-                                Example insights Tripy surfaces
+                                Example insights TripsHacker surfaces
                             </h3>
                             <div className="space-y-3">
                                 {INSIGHT_EXAMPLES.map((insight, i) => (
@@ -493,7 +493,7 @@ export default function LandingPage() {
                 <div className="mx-auto max-w-5xl px-6">
                     <div className="mx-auto mb-16 max-w-2xl text-center">
                         <h2 className="mb-4 text-4xl font-bold text-slate-900">
-                            Before &amp; after Tripy
+                            Before &amp; after TripsHacker
                         </h2>
                     </div>
                     <div className="grid gap-8 md:grid-cols-2">
@@ -501,7 +501,7 @@ export default function LandingPage() {
                             <div className="mb-6 flex items-center gap-3">
                                 <Clock className="h-6 w-6 text-slate-400" />
                                 <h3 className="text-xl font-semibold text-slate-900">
-                                    Without Tripy
+                                    Without TripsHacker
                                 </h3>
                             </div>
                             <ul className="space-y-4">
@@ -528,7 +528,7 @@ export default function LandingPage() {
                             <div className="mb-6 flex items-center gap-3">
                                 <Zap className="h-6 w-6 text-blue-600" />
                                 <h3 className="text-xl font-semibold text-slate-900">
-                                    With Tripy
+                                    With TripsHacker
                                 </h3>
                             </div>
                             <ul className="space-y-4">
@@ -561,7 +561,7 @@ export default function LandingPage() {
                         Built for the people who end up planning the trip
                     </h2>
                     <p className="mx-auto mb-12 max-w-2xl text-lg leading-relaxed text-slate-600">
-                        Tripy is designed for friend groups, couples, families, and
+                        TripsHacker is designed for friend groups, couples, families, and
                         points enthusiasts who need one place to make the trip math
                         and the people math line up.
                     </p>
@@ -614,7 +614,7 @@ export default function LandingPage() {
                     <p className="text-lg text-slate-600">
                         Rewards data is scoped to the signed-in traveler, protected in
                         transit and at rest, and only used for optimization when you
-                        enable it. Tripy stores provider tokens, not loyalty account
+                        enable it. TripsHacker stores provider tokens, not loyalty account
                         passwords.
                     </p>
                 </div>

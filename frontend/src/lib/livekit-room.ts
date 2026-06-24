@@ -1,5 +1,5 @@
 /**
- * Minimal LiveKit wrapper tailored to Tripy's live-call flow.
+ * Minimal LiveKit wrapper tailored to TripsHacker's live-call flow.
  *
  * Handles: token fetch, room connect, remote track subscribe, publish of
  * local mic + camera. Exposes the first remote participant's audio and

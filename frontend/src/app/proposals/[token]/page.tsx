@@ -214,7 +214,7 @@ export default function ProposalPage() {
             Questions? Contact {brandName}
           </p>
           {!branding.hideTripy && (
-            <p className="mt-2 text-xs text-gray-400">Powered by Tripy</p>
+            <p className="mt-2 text-xs text-gray-400">Powered by TripsHacker</p>
           )}
         </div>
       </main>

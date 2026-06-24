@@ -14,13 +14,13 @@ export default function TermsPage() {
 
                 <div className="space-y-12 text-slate-700 leading-relaxed">
                     <p className="text-lg text-slate-600">
-                        By using Tripy, you agree to these terms.
+                        By using TripsHacker, you agree to these terms.
                     </p>
 
-                    {/* What Tripy provides */}
+                    {/* What TripsHacker provides */}
                     <section>
-                        <h2 className="text-2xl font-semibold text-slate-900 mb-6">What Tripy provides</h2>
-                        <p className="mb-4">Tripy provides travel recommendations and decision guidance.</p>
+                        <h2 className="text-2xl font-semibold text-slate-900 mb-6">What TripsHacker provides</h2>
+                        <p className="mb-4">TripsHacker provides travel recommendations and decision guidance.</p>
                         <p className="mb-3">We help you:</p>
                         <ul className="list-disc pl-6 space-y-2 mb-6">
                             <li>Compare flight options</li>
@@ -28,7 +28,7 @@ export default function TermsPage() {
                             <li>Understand tradeoffs and risks</li>
                         </ul>
 
-                        <p className="mb-3">Tripy does <strong className="text-slate-900">not</strong>:</p>
+                        <p className="mb-3">TripsHacker does <strong className="text-slate-900">not</strong>:</p>
                         <ul className="list-disc pl-6 space-y-2 mb-4">
                             <li>Book flights on your behalf</li>
                             <li>Guarantee prices or availability</li>
@@ -47,7 +47,7 @@ export default function TermsPage() {
                             <li>Award space may disappear</li>
                             <li>Airlines may alter schedules or policies</li>
                         </ul>
-                        <p>Tripy is an advisory tool, not a guarantee.</p>
+                        <p>TripsHacker is an advisory tool, not a guarantee.</p>
                     </section>
 
                     {/* Your responsibility */}
@@ -69,7 +69,7 @@ export default function TermsPage() {
                         <ul className="list-disc pl-6 space-y-2 mb-4">
                             <li>Abuse or overload the service</li>
                             <li>Attempt to scrape or reverse engineer the system</li>
-                            <li>Use Tripy for unlawful purposes</li>
+                            <li>Use TripsHacker for unlawful purposes</li>
                         </ul>
                         <p>We may limit or suspend access if misuse occurs.</p>
                     </section>
@@ -77,14 +77,14 @@ export default function TermsPage() {
                     {/* IP */}
                     <section>
                         <h2 className="text-2xl font-semibold text-slate-900 mb-6">Intellectual property</h2>
-                        <p className="mb-4">Tripy&apos;s software, design, and content are owned by Tripy.</p>
+                        <p className="mb-4">TripsHacker&apos;s software, design, and content are owned by TripsHacker.</p>
                         <p>You may not copy, modify, or redistribute them without permission.</p>
                     </section>
 
                     {/* Changes */}
                     <section>
                         <h2 className="text-2xl font-semibold text-slate-900 mb-6">Changes to the service</h2>
-                        <p className="mb-4">Tripy is evolving.</p>
+                        <p className="mb-4">TripsHacker is evolving.</p>
                         <p className="mb-3">We may:</p>
                         <ul className="list-disc pl-6 space-y-2 mb-4">
                             <li>Add or remove features</li>
@@ -97,8 +97,8 @@ export default function TermsPage() {
                     {/* Liability */}
                     <section>
                         <h2 className="text-2xl font-semibold text-slate-900 mb-6">Limitation of liability</h2>
-                        <p className="mb-4">Tripy is provided &ldquo;as is.&rdquo;</p>
-                        <p className="mb-3">To the extent allowed by law, Tripy is not liable for:</p>
+                        <p className="mb-4">TripsHacker is provided &ldquo;as is.&rdquo;</p>
+                        <p className="mb-3">To the extent allowed by law, TripsHacker is not liable for:</p>
                         <ul className="list-disc pl-6 space-y-2">
                             <li>Missed flights</li>
                             <li>Lost points</li>
