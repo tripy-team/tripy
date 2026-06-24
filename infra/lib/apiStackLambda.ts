@@ -32,7 +32,7 @@ export class ApiStackLambda extends Stack {
             functionName: "tripy-api",
             runtime: lambda.Runtime.PYTHON_3_12,
             handler: "src.lambda_handler.lambda_handler",
-            code: lambda.Code.fromAsset("../backend", {
+            code: lambda.Code.fromAsset("../backend/.lambda-build", {
                 exclude: [
                     "**/__pycache__",
                     "**/*.pyc",
@@ -58,7 +58,6 @@ export class ApiStackLambda extends Stack {
                 // Cognito
                 USER_POOL_ID: props.userPool.userPoolId,
                 USER_POOL_CLIENT_ID: props.userPoolClient.userPoolClientId,
-                AWS_REGION: this.region || "us-east-1",
                 
                 // Image service (if configured)
                 CITY_IMAGES_BUCKET: process.env.CITY_IMAGES_BUCKET || "tripy-city-images",
@@ -134,7 +133,7 @@ export class ApiStackLambda extends Stack {
             functionName: "tripy-background-tasks",
             runtime: lambda.Runtime.PYTHON_3_12,
             handler: "src.lambda_background_tasks.lambda_handler",
-            code: lambda.Code.fromAsset("../backend", {
+            code: lambda.Code.fromAsset("../backend/.lambda-build", {
                 exclude: [
                     "**/__pycache__",
                     "**/*.pyc",
@@ -147,7 +146,6 @@ export class ApiStackLambda extends Stack {
             timeout: Duration.minutes(15), // Longer timeout for background tasks
             memorySize: 1024,
             environment: {
-                AWS_REGION: this.region || "us-east-1",
                 CITY_IMAGES_BUCKET: process.env.CITY_IMAGES_BUCKET || "tripy-city-images",
                 CITY_IMAGES_TABLE: process.env.CITY_IMAGES_TABLE || "tripy-city-images",
                 CITIES_JSON_PATH: "scripts/cities.json",
@@ -187,7 +185,7 @@ export class ApiStackLambda extends Stack {
             functionName: "tripy-itinerary-worker",
             runtime: lambda.Runtime.PYTHON_3_12,
             handler: "src.workers.itinerary_worker.handler",
-            code: lambda.Code.fromAsset("../backend", {
+            code: lambda.Code.fromAsset("../backend/.lambda-build", {
                 exclude: [
                     "**/__pycache__", "**/*.pyc",
                     "**/.pytest_cache", "**/test_*.py",
@@ -204,7 +202,6 @@ export class ApiStackLambda extends Stack {
                 DESTINATIONS_TABLE: props.tables.destinations.tableName,
                 DESTINATION_VOTES_TABLE: props.tables.destinationVotes.tableName,
                 ITINERARY_TABLE: props.tables.itinerary.tableName,
-                AWS_REGION: this.region || "us-east-1",
                 USE_SECRETS_MANAGER: "true",
                 SECRETS_MANAGER_SECRET_NAME: "tripy/production/api-keys",
                 PYTHONPATH: "/var/task",

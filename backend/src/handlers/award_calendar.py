@@ -35,12 +35,18 @@ async def _client():
 
 
 async def fetch_awardtool_calendar(origin, destination, api_key=None, client=None):
-    # Check if dummy mode is enabled
+    # No AwardTool key (or dummy mode) -> self-hosted engine (chart programs get
+    # exact per-cabin points; dynamic programs keep the heuristic estimate).
     if is_awardtool_dummy_mode():
-        from src.handlers.awardtool_dummy import generate_dummy_calendar_data
         import logging
-        logging.getLogger(__name__).info("[DUMMY MODE] Returning dummy calendar data for %s->%s", origin, destination)
-        return generate_dummy_calendar_data(origin, destination)
+        logging.getLogger(__name__).info("[AwardEngine] calendar for %s->%s (self-hosted)", origin, destination)
+        try:
+            from src.award_pricing import search_award_calendar
+            return search_award_calendar(origin, destination)
+        except Exception as e:
+            logging.getLogger(__name__).error("[AwardEngine] calendar failed (%s); falling back to dummy", e)
+            from src.handlers.awardtool_dummy import generate_dummy_calendar_data
+            return generate_dummy_calendar_data(origin, destination)
     
     if api_key is None:
         api_key = AWARD_TOOL_API_KEY

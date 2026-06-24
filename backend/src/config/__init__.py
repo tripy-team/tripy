@@ -137,19 +137,21 @@ def _log_api_status():
     
     if awardtool_dummy:
         if USE_AWARDTOOL_DUMMY_DATA:
-            logger.warning(
-                "[CONFIG] AwardTool DUMMY MODE ENABLED: USE_AWARDTOOL_DUMMY_DATA=true. "
-                "Flights will use simulated data!"
+            logger.info(
+                "[CONFIG] Self-hosted AwardPricingEngine ENABLED (USE_AWARDTOOL_DUMMY_DATA=true): "
+                "points priced locally via charts -> cash-derived -> floor; paid AwardTool API not called. "
+                "See docs/AWARD_POINTS_EXACT_PRICING_PLAN.md."
             )
         elif not awardtool_key_present:
-            logger.warning(
-                "[CONFIG] AwardTool DUMMY MODE AUTO-ENABLED: AWARDTOOL_API_KEY not configured. "
-                "Set AWARDTOOL_API_KEY in .env to use real flight data."
+            logger.info(
+                "[CONFIG] Self-hosted AwardPricingEngine ACTIVE (no AWARDTOOL_API_KEY configured): "
+                "points priced locally via charts -> cash-derived -> floor. "
+                "Set AWARDTOOL_API_KEY only if you intend to use the paid AwardTool API."
             )
     else:
         logger.info(
             f"[CONFIG] AwardTool API ACTIVE: key configured (length={len(AWARDTOOL_API_KEY)}). "
-            f"Real flight data will be used."
+            f"Paid AwardTool API will be used for award pricing."
         )
     
     if not serp_key_present:

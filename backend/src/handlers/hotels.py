@@ -130,14 +130,20 @@ def search_hotels(
     nights = _compute_nights(check_in, check_out)
     programs = programs or ["HH", "MAR", "HYATT", "IHG"]
 
-    # --- Dummy mode ---
+    # --- No AwardTool key (or dummy mode): self-hosted AwardPricingEngine ---
+    # Hyatt -> exact category chart; Marriott/Hilton/IHG -> cash-derived estimate.
     if is_awardtool_dummy_mode():
-        logger.info("[DUMMY MODE] Returning dummy hotel data for %s", destination)
-        from src.handlers.awardtool_dummy import generate_dummy_hotel_data
-        dummy = generate_dummy_hotel_data(
-            destination, check_in, check_out, programs, guests, hotel_class
-        )
-        rows = dummy.get("data") or []
+        logger.info("[AwardEngine] pricing hotels for %s (self-hosted)", destination)
+        try:
+            from src.award_pricing import search_award_hotels as _engine_hotels
+            body = _engine_hotels(destination, check_in, check_out, programs, guests, hotel_class)
+        except Exception as e:
+            logger.error("[AwardEngine] hotel pricing failed (%s); falling back to dummy", e)
+            from src.handlers.awardtool_dummy import generate_dummy_hotel_data
+            body = generate_dummy_hotel_data(
+                destination, check_in, check_out, programs, guests, hotel_class
+            )
+        rows = body.get("data") or []
         return [_normalize_row(h, nights) for h in rows]
 
     # --- Live API ---

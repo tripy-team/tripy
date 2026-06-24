@@ -432,12 +432,17 @@ async def _awardtool_realtime(
     print(f"[AwardTool] _awardtool_realtime called: {origin}->{destination} on {date_str}")
     logger.info("[AwardTool] _awardtool_realtime called: %s->%s on %s", origin, destination, date_str)
     
-    # Use dummy data if in dummy mode (no API key or explicitly enabled)
+    # No AwardTool key (or dummy mode) -> use the self-hosted AwardPricingEngine
+    # (charts -> cash-derived -> dummy floor). See docs/AWARD_POINTS_EXACT_PRICING_PLAN.md.
     if is_awardtool_dummy_mode():
-        from src.handlers.awardtool_dummy import generate_dummy_flight_data
-        print(f"[AwardTool] DUMMY MODE - returning dummy data for {origin}->{destination}")
-        logger.info("[DUMMY MODE] Returning dummy flight data for %s->%s on %s", origin, destination, date_str)
-        return generate_dummy_flight_data(origin, destination, date_str, cabins, programs, int(pax))
+        try:
+            from src.award_pricing import search_award_flights as _engine_flights
+            logger.info("[AwardEngine] pricing %s->%s on %s (self-hosted)", origin, destination, date_str)
+            return _engine_flights(origin, destination, date_str, cabins, programs, int(pax))
+        except Exception as e:
+            logger.error("[AwardEngine] failed (%s); falling back to dummy generator", e)
+            from src.handlers.awardtool_dummy import generate_dummy_flight_data
+            return generate_dummy_flight_data(origin, destination, date_str, cabins, programs, int(pax))
     
     from src.handlers.awardtool_v2 import search_award_flights_v2, convert_v2_result_to_v1_format
     
