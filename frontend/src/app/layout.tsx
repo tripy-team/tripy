@@ -1,6 +1,7 @@
 import "./globals.css";
 import type { Metadata } from "next";
 import { PageViewTracker } from "@/components/analytics/PageViewTracker";
+import { DevAutoLogin } from "@/components/DevAutoLogin";
 
 export const metadata: Metadata = {
 	title: "TripsHacker — Loyalty Strategy Copilot for Travel Advisors",
@@ -16,6 +17,7 @@ export default function RootLayout({
 	return (
 		<html lang="en">
 			<body>
+				<DevAutoLogin />
 				<PageViewTracker />
 				{children}
 			</body>

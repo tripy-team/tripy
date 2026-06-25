@@ -21,11 +21,12 @@ import { TripyLogo } from '@/components/tripy-logo';
 import { getMe } from '@/lib/api-client';
 import type { User as UserType } from '@/lib/api-client';
 
+// Consumer (B2C) navigation — everyday people planning their own trips.
 const NAV_ITEMS = [
-  { href: '/dashboard', label: 'Dashboard' },
-  { href: '/points-setup', label: 'Points Wallet' },
-  { href: '/solo/setup', label: 'Solo Trip' },
+  { href: '/solo/setup', label: 'Plan a Trip' },
   { href: '/group-planning/new', label: 'Group Trip' },
+  { href: '/my-trips', label: 'My Trips' },
+  { href: '/explore', label: 'Explore' },
 ];
 
 export default function AppLayout({ children }: { children: React.ReactNode }) {
@@ -77,8 +78,13 @@ export default function AppLayout({ children }: { children: React.ReactNode }) {
     );
   }
 
-  const isActive = (href: string) =>
-    href === '/dashboard' ? pathname === href : pathname.startsWith(href);
+  const isActive = (href: string) => {
+    // Highlight "Group Trip" across the whole group flow (/group-planning + /group).
+    if (href.startsWith('/group')) return pathname.startsWith('/group');
+    // Highlight "Plan a Trip" across the whole solo flow.
+    if (href.startsWith('/solo')) return pathname.startsWith('/solo');
+    return pathname.startsWith(href);
+  };
 
   const isUUID = (s?: string) =>
     !!s && /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i.test(s);
@@ -105,7 +111,7 @@ export default function AppLayout({ children }: { children: React.ReactNode }) {
       <header className="fixed top-0 left-0 right-0 z-40 h-16 border-b border-slate-200 bg-white">
         <div className="mx-auto flex h-full w-full max-w-7xl items-center gap-8 px-6">
           {/* Logo */}
-          <TripyLogo href="/dashboard" />
+          <TripyLogo href="/explore" />
 
           {/* Nav links */}
           <nav className="flex items-center gap-1">

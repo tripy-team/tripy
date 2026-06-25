@@ -1,10 +1,11 @@
 "use client";
 
 import Link from "next/link";
-import { useState, Suspense } from "react";
+import { useState, useEffect, Suspense } from "react";
 import { useRouter, useSearchParams } from "next/navigation";
 import { Plane, Mail, Lock, ArrowRight, Eye, EyeOff } from "lucide-react";
 import { auth } from "@/lib/api";
+import { DEV_AUTH_BYPASS, ensureDevSession } from "@/lib/dev-auth";
 
 function LoginForm() {
 	const router = useRouter();
@@ -14,6 +15,14 @@ function LoginForm() {
 	const [errors, setErrors] = useState<Record<string, string>>({});
 	const [submitting, setSubmitting] = useState(false);
 	const [showPassword, setShowPassword] = useState(false);
+
+	// Local dev: clicking "Sign In" (which routes here) should just log you in —
+	// seed the fake session and bounce straight to the destination.
+	useEffect(() => {
+		if (!DEV_AUTH_BYPASS) return;
+		ensureDevSession();
+		router.replace(redirectPath || "/explore");
+	}, [router, redirectPath]);
 
 	const onChange = (e: React.ChangeEvent<HTMLInputElement>) => {
 		setForm((f) => ({ ...f, [e.target.name]: e.target.value }));
