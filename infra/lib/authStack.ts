@@ -11,6 +11,12 @@ export class AuthStack extends Stack {
     constructor(scope: Construct, id: string, props?: StackProps) {
         super(scope, id, props);
 
+        // Sending domain verified in SES (see docs/SES_DNS_RECORDS.md). The
+        // "From" address can be any address on this domain once DKIM verifies.
+        const sesFromEmail = process.env.SES_SENDER_EMAIL || "no-reply@tripshacker.com";
+        const sesVerifiedDomain = sesFromEmail.split("@")[1];
+        const frontendUrl = process.env.FRONTEND_URL || "https://tripshacker.com";
+
         const customMessageFn = new lambda.Function(this, "CognitoCustomMessage", {
             runtime: lambda.Runtime.PYTHON_3_12,
             handler: "index.handler",
@@ -18,7 +24,7 @@ export class AuthStack extends Stack {
                 path.join(__dirname, "lambdas", "custom-message"),
             ),
             environment: {
-                FRONTEND_URL: process.env.FRONTEND_URL || "https://tripy.app",
+                FRONTEND_URL: frontendUrl,
             },
             timeout: Duration.seconds(5),
             memorySize: 128,
@@ -40,6 +46,22 @@ export class AuthStack extends Stack {
                 tempPasswordValidity: Duration.days(7),
             },
             accountRecovery: cognito.AccountRecovery.EMAIL_ONLY,
+            autoVerify: { email: true },
+            // Route all Cognito emails (signup code, password reset) through SES
+            // instead of the throttled, spam-prone COGNITO_DEFAULT sender.
+            email: cognito.UserPoolEmail.withSES({
+                fromEmail: sesFromEmail,
+                fromName: "TripsHacker",
+                sesRegion: this.region,
+                sesVerifiedDomain: sesVerifiedDomain,
+            }),
+            userVerification: {
+                emailSubject: "Your TripsHacker confirmation code",
+                emailBody:
+                    "Welcome to TripsHacker! Your confirmation code is {####}. " +
+                    "Enter it to verify your email and activate your account.",
+                emailStyle: cognito.VerificationEmailStyle.CODE,
+            },
             lambdaTriggers: {
                 customMessage: customMessageFn,
             },
