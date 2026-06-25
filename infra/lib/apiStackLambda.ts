@@ -250,6 +250,9 @@ export class ApiStackLambda extends Stack {
                     "X-Amz-Date",
                     "X-Api-Key",
                     "X-Amz-Security-Token",
+                    // Sent by the frontend on anonymous/non-auth requests (e.g. signup).
+                    // Without this, the CORS preflight for those requests fails.
+                    "X-Anon-Session-Id",
                 ],
                 allowMethods: [
                     apigwv2.CorsHttpMethod.GET,

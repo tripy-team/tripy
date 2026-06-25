@@ -135,9 +135,9 @@ else:
     ALLOWED_ORIGINS = [
         "http://localhost:3000",
         "http://127.0.0.1:3000",
-        "https://traveltripy.com",
-        "https://www.traveltripy.com",
-        "https://xezfenhu6t.us-east-1.awsapprunner.com",
+        "https://tripshacker.com",
+        "https://www.tripshacker.com",
+        "https://main.d10xxnyizd9jlx.amplifyapp.com",
     ]
     ALLOW_CREDENTIALS = True
 

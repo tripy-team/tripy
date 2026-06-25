@@ -26,7 +26,7 @@ export class RumStack extends Stack {
     constructor(scope: Construct, id: string, props?: RumStackProps) {
         super(scope, id, props);
 
-        const appDomain = props?.appDomain ?? "traveltripy.com";
+        const appDomain = props?.appDomain ?? "tripshacker.com";
         const appMonitorName = "tripy-web";
 
         // Identity pool that issues anonymous (guest) credentials to browsers.

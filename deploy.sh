@@ -15,7 +15,7 @@
 #   ./deploy.sh full      Deploy ALL stacks incl. Aurora (PAID — only if you need it)
 #
 # Override the allowed CORS origins:
-#   CORS_ORIGINS="https://traveltripy.com,https://www.traveltripy.com" ./deploy.sh
+#   CORS_ORIGINS="https://tripshacker.com,https://www.tripshacker.com" ./deploy.sh
 
 set -euo pipefail
 
@@ -27,7 +27,7 @@ ACTION="${1:-deploy}"
 # Free-tier stacks only (no Aurora). USE_LAMBDA=true selects apiStackLambda.ts.
 FREE_STACKS="TripyAuthStack TripyDbStack TripyApiStack"
 export USE_LAMBDA=true
-export CORS_ORIGINS="${CORS_ORIGINS:-https://traveltripy.com,https://www.traveltripy.com}"
+export CORS_ORIGINS="${CORS_ORIGINS:-https://tripshacker.com,https://www.tripshacker.com,https://main.d10xxnyizd9jlx.amplifyapp.com,http://localhost:3000}"
 
 case "$ACTION" in
   deploy)
